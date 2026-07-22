@@ -1,0 +1,4 @@
+      // GIVEN: a real HTTP-created mission run with zero evidence citations.
+      // WHEN: a human submits an uncited kill through the real verdict HTTP surface.
+      // THEN: the server refuses it with 403 and leaves zero verdict/event ledger rows.
+      // MUST_OBSERVE: Expected status 403 and 0 persisted rows; MUST_NOT_OBSERVE: a kill row/event.

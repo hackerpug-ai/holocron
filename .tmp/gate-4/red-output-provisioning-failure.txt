@@ -1,0 +1,50 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts [ services/platform/tests/integration/mission-engine-red.test.ts ]
+Error: Cannot find package '@modelcontextprotocol/sdk/server/mcp.js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4/services/platform/src/mcp/gateway.ts
+ ❯ services/platform/src/mcp/gateway.ts:1:1
+      1| import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+       | ^
+      2| import { StdioServerTransport } from '@modelcontextprotocol/sdk/server…
+      3| import { WebStandardStreamableHTTPServerTransport } from '@modelcontex…
+ ❯ services/platform/src/http/hono-app.ts:17:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  21:27:05
+   Duration  612ms (transform 177ms, setup 117ms, import 0ms, tests 0ms, environment 0ms)
+
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts [ services/platform/tests/integration/mission-engine-red.test.ts ]
+Error: Cannot find package '@modelcontextprotocol/sdk/server/mcp.js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4/services/platform/src/mcp/gateway.ts
+ ❯ services/platform/src/mcp/gateway.ts:1:1
+      1| import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+       | ^
+      2| import { StdioServerTransport } from '@modelcontextprotocol/sdk/server…
+      3| import { WebStandardStreamableHTTPServerTransport } from '@modelcontex…
+ ❯ services/platform/src/http/hono-app.ts:17:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  21:27:07
+   Duration  550ms (transform 163ms, setup 109ms, import 0ms, tests 0ms, environment 0ms)
+
+
+verification_exit_codes gate-1=1 gate-2=1

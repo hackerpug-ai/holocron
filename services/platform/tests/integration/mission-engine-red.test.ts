@@ -3271,6 +3271,422 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       )
       .toBe(canonicalJsonBytes(beforeCollision));
   }, 60_000);
+
+  describe.sequential('Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams', () => {
+    async function seedGate4Run(
+      label: string,
+      options?: { goal?: string; fixture?: 'template-test.echo.json' | 'template-research.json' }
+    ) {
+      const goal = options?.goal ?? `Gate 4 public_api seed: ${label}.`;
+      const template = prepareTemplateFixture(
+        options?.fixture ?? 'template-test.echo.json',
+        `gate-4-${label}`
+      );
+      const register = runHolo(`gate-4-${label}-register`, [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const app = createHonoApp();
+      const idempotencyKey = scenarioId(`gate-4-${label}`);
+      const created = await callAppJson(
+        app,
+        `gate-4-${label}-public-api-create`,
+        'POST',
+        '/api/missions',
+        {
+          key: RN,
+          body: makeCreateBody(template.templateKey, goal, idempotencyKey),
+        }
+      );
+      const runId =
+        runIdFromUnknown(asRecord(created.json)) ??
+        stringValue(await findRunByIdempotencyKey(idempotencyKey), ['id']);
+      return { app, created, goal, idempotencyKey, register, runId, template };
+    }
+
+    it('gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: a real HTTP-created mission run with zero evidence citations.
+      // WHEN: a human submits an uncited kill through the real verdict HTTP surface.
+      // THEN: the server refuses it with 403 and leaves zero verdict/event ledger rows.
+      // MUST_OBSERVE: Expected status 403 and 0 persisted rows; MUST_NOT_OBSERVE: a kill row/event.
+      const seeded = await seedGate4Run('uncited-kill');
+      const response = await callAppJson(
+        seeded.app,
+        'gate-4-uncited-kill-verdict',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        { key: RN, body: { verdict: 'kill', rationale: 'Stop now, without a citation.' } }
+      );
+      const summary = await summarizeRun(seeded.runId);
+      expect({
+        created: seeded.created.status,
+        eventRows: summary.events.filter(
+          (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+        ).length,
+        status: response.status,
+        verdictRows: summary.verdicts.length,
+      }).toEqual({ created: 200, eventRows: 0, status: 403, verdictRows: 0 });
+    }, 60_000);
+
+    it('gate-1 WIP=1: a second active run for the same human gate is refused before a row is created', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: one real mission run has the exact persisted same-subject templateKey plus goal identity.
+      // WHEN: the same actor creates a second run through the real HTTP surface.
+      // THEN: the second request is refused with 403 and exactly one run remains for this gate.
+      // MUST_OBSERVE: Expected status 403 and COUNT(*) 1; MUST_NOT_OBSERVE: a second run row.
+      const sameSubjectGoal = 'Gate 4 same-subject research goal';
+      const template = prepareTemplateFixture('template-test.echo.json', 'gate-4-same-subject');
+      const register = runHolo('gate-4-same-subject-register', [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const app = createHonoApp();
+      const [first, second] = await Promise.all([
+        callAppJson(app, 'gate-4-same-subject-first-public-api-create', 'POST', '/api/missions', {
+          key: RN,
+          body: makeCreateBody(
+            template.templateKey,
+            sameSubjectGoal,
+            scenarioId('gate-4-same-subject-first')
+          ),
+        }),
+        callAppJson(app, 'gate-4-same-subject-second-public-api-create', 'POST', '/api/missions', {
+          key: RN,
+          body: makeCreateBody(
+            template.templateKey,
+            sameSubjectGoal,
+            scenarioId('gate-4-same-subject-second')
+          ),
+        }),
+      ]);
+      const rows = await withSql((sql) =>
+        selectMissionRunsByTemplateKey(sql, template.templateKey)
+      );
+      const activeSameSubjectRows = rows.filter(
+        (row) =>
+          stringValue(row, ['goal']) === sameSubjectGoal &&
+          ['pending', 'running', 'suspended'].includes(stringValue(row, ['status']) ?? '')
+      );
+      expect({
+        activeSameSubjectRunCount: activeSameSubjectRows.length,
+        concurrentHttpStatuses: [first.status, second.status].sort((left, right) => left - right),
+        dbConcurrencyTripwireSubjectRows: rows.filter(
+          (row) => stringValue(row, ['goal']) === sameSubjectGoal
+        ).length,
+        registerStatus: register.status,
+      }).toEqual({
+        activeSameSubjectRunCount: 1,
+        concurrentHttpStatuses: [200, 403],
+        dbConcurrencyTripwireSubjectRows: 1,
+        registerStatus: 0,
+      });
+    }, 60_000);
+
+    it('gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: a real run with no successful human-gate probe recorded for its current cycle.
+      // WHEN: a human posts advance→validated through the real verdict HTTP surface.
+      // THEN: the server returns 403 and commits zero validated verdict/event rows.
+      // MUST_OBSERVE: Expected status 403 and 0 rows; MUST_NOT_OBSERVE: an unprobed validated transition.
+      const seeded = await seedGate4Run('unprobed-advance');
+      const response = await callAppJson(
+        seeded.app,
+        'gate-4-unprobed-advance-verdict',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        {
+          key: RN,
+          body: {
+            verdict: 'advance',
+            targetStatus: 'validated',
+            rationale: 'Advance to validated despite no deterministic probe.',
+          },
+        }
+      );
+      const summary = await summarizeRun(seeded.runId);
+      expect({
+        advanceEvents: summary.events.filter(
+          (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+        ).length,
+        validatedAdvanceVerdicts: summary.verdicts.filter(
+          (row) => rowValue(row, ['verdict']) === 'advance'
+        ).length,
+        status: response.status,
+      }).toEqual({ advanceEvents: 0, status: 403, validatedAdvanceVerdicts: 0 });
+    }, 60_000);
+
+    it('gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: a real mission run and an uncited kill request that must fail atomically.
+      // WHEN: the request crosses the real Hono verdict route.
+      // THEN: the rejection is 403 and the append-only ledger has zero partial mutations.
+      // MUST_OBSERVE: Expected status 403, 0 verdicts, 0 control events; MUST_NOT_OBSERVE: partial rows.
+      const seeded = await seedGate4Run('atomic-rollback');
+      const before = await summarizeRun(seeded.runId);
+      const response = await callAppJson(
+        seeded.app,
+        'gate-4-atomic-rollback-kill',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        {
+          key: RN,
+          body: { verdict: 'kill', rationale: 'This uncited kill must roll back atomically.' },
+        }
+      );
+      const after = await summarizeRun(seeded.runId);
+      expect({
+        eventRowsAdded: after.events.length - before.events.length,
+        status: response.status,
+        verdictRowsAdded: after.verdicts.length - before.verdicts.length,
+      }).toEqual({ eventRowsAdded: 0, status: 403, verdictRowsAdded: 0 });
+    }, 60_000);
+
+    it('gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real run with a next-cycle instruction to prioritize recent papers.
+      // WHEN: the instruction is posted through the real steer HTTP surface and holo mission:cycle runs.
+      // THEN: the following real cycle output exposes that exact applied constraint.
+      // MUST_OBSERVE: "recent papers" in cycle output; MUST_NOT_OBSERVE: unknown command or unchanged output.
+      const seeded = await seedGate4Run('steering-next-cycle', {
+        fixture: 'template-research.json',
+      });
+      const instruction = 'Prioritize recent papers published in 2025 and 2026.';
+      const steer = await callAppJson(
+        seeded.app,
+        'gate-4-steering-next-cycle',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/steer`,
+        { key: RN, body: { instruction } }
+      );
+      const cycle = runHolo('gate-4-steering-next-cycle-real-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const cycleJson = asRecord(cycle.parsed);
+      const cyclePayload = asRecord(cycleJson.cycle);
+      const persisted = await summarizeRun(seeded.runId);
+      const persistedSteering = persisted.steering[0];
+      expect({
+        cycleSteeringMatchesPersistedInstruction:
+          JSON.stringify(cyclePayload.steeringApplied) ===
+          JSON.stringify([stringValue(persistedSteering, ['instruction'])]),
+        cycleStatus: cycle.status,
+        persistedSteeringRows: persisted.steering.length,
+        steeringApplied: cyclePayload.steeringApplied,
+        steerStatus: steer.status,
+        unknownCommand: /unknown command/i.test(cycle.combined),
+      }).toEqual({
+        cycleSteeringMatchesPersistedInstruction: true,
+        cycleStatus: 0,
+        persistedSteeringRows: 1,
+        steeringApplied: ['Prioritize recent papers published in 2025 and 2026.'],
+        steerStatus: 200,
+        unknownCommand: false,
+      });
+    }, 60_000);
+
+    it('gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real research-bound run whose assay and challenge are independent fleet executions.
+      // WHEN: holo mission:cycle executes the real following cycle and returns its JSON projection.
+      // THEN: assayInstanceId and challengeInstanceId are concrete and different UUID-like instance IDs.
+      // MUST_OBSERVE: two unequal instance IDs; MUST_NOT_OBSERVE: equal or placeholder instance IDs.
+      const seeded = await seedGate4Run('assay-challenge-distinct-instances', {
+        fixture: 'template-research.json',
+      });
+      const cycle = runHolo('gate-4-assay-challenge-real-fleet-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const persisted = await summarizeRun(seeded.runId);
+      const assayStage = persisted.stageRuns.find(
+        (row) => stringValue(row, ['stage_key', 'stageKey']) === 'assay'
+      );
+      const challengeStage = persisted.stageRuns.find(
+        (row) => stringValue(row, ['stage_key', 'stageKey']) === 'challenge'
+      );
+      const persistedAssayTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'assay'
+      );
+      const persistedChallengeTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
+      );
+      const persistedAssayInstanceId = stringValue(persistedAssayTrace, ['trace_id', 'traceId']);
+      const persistedChallengeInstanceId = stringValue(persistedChallengeTrace, [
+        'trace_id',
+        'traceId',
+      ]);
+      expect({
+        assayInstanceId: payload.assayInstanceId,
+        challengeInstanceId: payload.challengeInstanceId,
+        distinct: payload.assayInstanceId !== payload.challengeInstanceId,
+        cycleStatus: cycle.status,
+        cliAssayMatchesPersistedTrace: payload.assayInstanceId === persistedAssayInstanceId,
+        cliChallengeMatchesPersistedTrace:
+          payload.challengeInstanceId === persistedChallengeInstanceId,
+        persistedIdsAreConcrete:
+          Boolean(persistedAssayInstanceId && persistedChallengeInstanceId) &&
+          !/assay|challenge|pending|unknown|placeholder/i.test(
+            `${persistedAssayInstanceId}:${persistedChallengeInstanceId}`
+          ),
+        persistedAssayStage: stringValue(assayStage, ['stage_key', 'stageKey']),
+        persistedChallengeStage: stringValue(challengeStage, ['stage_key', 'stageKey']),
+        persistedFleetTraceRows: persisted.telemetry.length,
+      }).toEqual({
+        assayInstanceId: expect.any(String),
+        challengeInstanceId: expect.any(String),
+        distinct: true,
+        cycleStatus: 0,
+        cliAssayMatchesPersistedTrace: true,
+        cliChallengeMatchesPersistedTrace: true,
+        persistedIdsAreConcrete: true,
+        persistedAssayStage: 'assay',
+        persistedChallengeStage: 'challenge',
+        persistedFleetTraceRows: 2,
+      });
+    }, 60_000);
+
+    it('gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real run steered to retain comparable supporting and refuting claims for the next cycle.
+      // WHEN: steering is persisted through the HTTP surface and holo mission:cycle executes the handoff.
+      // THEN: the admission surface reports the refuting claim as retained, not silently filtered.
+      // MUST_OBSERVE: refuting claim count 1; MUST_NOT_OBSERVE: filtered count 0 or absent admission proof.
+      const seeded = await seedGate4Run('admission-parity', { fixture: 'template-research.json' });
+      const refutingClaim = 'The primary hypothesis is contradicted by the latest replication.';
+      const steer = await callAppJson(
+        seeded.app,
+        'gate-4-admission-parity-steer',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/steer`,
+        { key: RN, body: { instruction: `Retain this refuting claim: ${refutingClaim}` } }
+      );
+      const cycle = runHolo('gate-4-admission-parity-real-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
+      const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
+      const admission = asRecord(payload.admission);
+      const persisted = await summarizeRun(seeded.runId);
+      const persistedAssayTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'assay'
+      );
+      const persistedChallengeTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
+      );
+      const persistedAssayInstanceId = stringValue(persistedAssayTrace, ['trace_id', 'traceId']);
+      const persistedChallengeInstanceId = stringValue(persistedChallengeTrace, [
+        'trace_id',
+        'traceId',
+      ]);
+      const persistedAdmission = asRecord(typedOutputSnapshot(persisted.commits.at(-1)));
+      expect({
+        cycleAdmissionMatchesPersistedRefuting:
+          admission.refutingAdmitted === persistedAdmission.refutingAdmitted &&
+          admission.refutingFiltered === persistedAdmission.refutingFiltered,
+        cycleAdmissionMatchesPersistedSupporting:
+          admission.supportingAdmitted === persistedAdmission.supportingAdmitted,
+        cycleStatus: cycle.status,
+        cliAssayEqualsPersistedTrace: assayInstanceId === persistedAssayInstanceId,
+        cliChallengeEqualsPersistedTrace: challengeInstanceId === persistedChallengeInstanceId,
+        persistedIdsAreConcrete:
+          Boolean(persistedAssayInstanceId && persistedChallengeInstanceId) &&
+          !/assay|challenge|pending|unknown|placeholder/i.test(
+            `${persistedAssayInstanceId}:${persistedChallengeInstanceId}`
+          ),
+        persistedAdmissionEvidenceRows: persisted.commits.length,
+        persistedSteeringRows: persisted.steering.length,
+        refutingClaimsAdmitted: admission.refutingAdmitted,
+        refutingClaimsFiltered: admission.refutingFiltered,
+        supportingClaimsAdmitted: admission.supportingAdmitted,
+        steerStatus: steer.status,
+      }).toEqual({
+        cycleAdmissionMatchesPersistedRefuting: true,
+        cycleAdmissionMatchesPersistedSupporting: true,
+        cycleStatus: 0,
+        cliAssayEqualsPersistedTrace: true,
+        cliChallengeEqualsPersistedTrace: true,
+        persistedIdsAreConcrete: true,
+        persistedAdmissionEvidenceRows: 1,
+        persistedSteeringRows: 1,
+        refutingClaimsAdmitted: 1,
+        refutingClaimsFiltered: 0,
+        steerStatus: 200,
+        supportingClaimsAdmitted: 1,
+      });
+    }, 60_000);
+
+    it('gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real HTTP-created run eligible for the CLI/status evidence projection.
+      // WHEN: the Gate 2-owned holo mission:cycle command is run after a real cycle request.
+      // THEN: concrete assay/challenge instance IDs are emitted rather than placeholder values.
+      // MUST_OBSERVE: two concrete IDs and zero placeholders; MUST_NOT_OBSERVE: "pending" or "unknown" IDs.
+      const seeded = await seedGate4Run('cli-instance-ids', { fixture: 'template-research.json' });
+      const cycle = runHolo('gate-4-cli-instance-ids-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const persisted = await summarizeRun(seeded.runId);
+      const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
+      const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
+      const persistedAssayTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'assay'
+      );
+      const persistedChallengeTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
+      );
+      const persistedAssayInstanceId = stringValue(persistedAssayTrace, ['trace_id', 'traceId']);
+      const persistedChallengeInstanceId = stringValue(persistedChallengeTrace, [
+        'trace_id',
+        'traceId',
+      ]);
+      expect({
+        assayInstanceId,
+        challengeInstanceId,
+        hasPlaceholder: /placeholder|pending|unknown/i.test(
+          `${assayInstanceId}:${challengeInstanceId}`
+        ),
+        cycleIndex: payload.index,
+        cycleStatus: cycle.status,
+        cliAssayEqualsPersistedTrace: assayInstanceId === persistedAssayInstanceId,
+        cliChallengeEqualsPersistedTrace: challengeInstanceId === persistedChallengeInstanceId,
+        idsAreUnequal: assayInstanceId !== challengeInstanceId,
+        persistedIdsAreConcrete:
+          Boolean(persistedAssayInstanceId && persistedChallengeInstanceId) &&
+          !/assay|challenge|pending|unknown|placeholder/i.test(
+            `${persistedAssayInstanceId}:${persistedChallengeInstanceId}`
+          ),
+        persistedFleetTraceRows: persisted.telemetry.length,
+        unknownCommand: /unknown command/i.test(cycle.combined),
+      }).toEqual({
+        assayInstanceId: expect.any(String),
+        challengeInstanceId: expect.any(String),
+        hasPlaceholder: false,
+        cycleIndex: 1,
+        cycleStatus: 0,
+        cliAssayEqualsPersistedTrace: true,
+        cliChallengeEqualsPersistedTrace: true,
+        idsAreUnequal: true,
+        persistedIdsAreConcrete: true,
+        persistedFleetTraceRows: 2,
+        unknownCommand: false,
+      });
+    }, 60_000);
+  });
 });
 
 function schemaHasColumns(

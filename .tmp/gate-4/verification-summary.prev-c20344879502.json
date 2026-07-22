@@ -1,0 +1,113 @@
+{
+  "task_id": "gate-4",
+  "timestamp": "2026-07-22T04:01:31Z",
+  "commit_sha": "70653c290e37137eef9d1c75fffccffde567e9f3",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1' > .tmp/gate-4/red-output.txt 2>&1; exit 1",
+      "exit_code": 1,
+      "output_file": ".tmp/gate-4/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-2' >> .tmp/gate-4/red-output.txt 2>&1; exit 1",
+      "exit_code": 1,
+      "output_file": ".tmp/gate-4/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "grep -A 20 'gate-1.*uncited-kill' services/platform/tests/integration/mission-engine-red.test.ts | grep -E 'GIVEN|WHEN|THEN|MUST_OBSERVE'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-4/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "cat .tmp/gate-4/red-output.txt | grep -c 'FAIL' | grep 8",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-4/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1|gate-2'; exit 1",
+      "exit_code": 1,
+      "output_file": ".tmp/gate-4/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "grep -c 'FAIL' .tmp/gate-4/red-output.txt | grep 8",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-4/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "grep -E -c 'PLATFORM_IT=1|public_api' services/platform/tests/integration/mission-engine-red.test.ts | grep -E '^[1-9][0-9]*$'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-4/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "! sed -E '/^[[:space:]]*\\/\\//d; /\\/\\*/,/\\*\\//d' services/platform/tests/integration/mission-engine-red.test.ts | rg -n 'vi\\.(mock|doMock)|mock[^[:space:]]*(Postgres|Drizzle|Sql|Client)|(:memory:|mode=memory|file:.*memory)'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-4/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-22T04:01:31Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "b0fb76758f3debf3b1ba7b200c880f6634d3ac2a382b7594de35ea1e8ffad82b"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "7c371a95f34ab5d770a57dbf8f8533e66dcaedeb054b6ec9ff39fac075ac787a"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "df5487bd50942fa6910b8c30f2c09e1aa6c9df266ac156d9c704fe3875b23bea"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "aa67a169b0bba217aa0aa88a65346920c84c42447c36ba5f7ea65f422c1fe5d8"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "ebbb7f01b6df6ac5e71fac4504f9f29a6c7468e8ec2a3574e3feb9e9f7fc5cfe"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "aa67a169b0bba217aa0aa88a65346920c84c42447c36ba5f7ea65f422c1fe5d8"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "25d4f2a86deb5e2574bb3210b67bb24fcc4afb19f93a7b65a057daa874a9d18e"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  }
+}
