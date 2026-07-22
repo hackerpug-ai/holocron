@@ -14,6 +14,7 @@
  *   HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *   pnpm vitest run services/platform/tests/integration/mission-engine-red.test.ts
  */
+import { createServer } from 'node:net';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createHonoApp } from '../../src/http/hono-app';
 import {
@@ -68,6 +69,25 @@ import {
   withSql,
   writeArtifact,
 } from './mission-red.helpers';
+
+async function allocateEphemeralPort(): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close(() => reject(new Error('failed to allocate ephemeral port')));
+        return;
+      }
+      const { port } = address;
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve(port);
+      });
+    });
+    server.on('error', reject);
+  });
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -3517,113 +3537,236 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         verdict: 'kill',
         rationale: 'Interrupt after gate violation, before rejection persistence.',
       };
-      const crashPort = 48123;
+
+      const countHumanGatePgSleep = async (): Promise<number> => {
+        const rows = await withSql(
+          (sql) => sql<{ count: string }[]>`
+            SELECT COUNT(*)::text AS count
+            FROM pg_stat_activity
+            WHERE pid <> pg_backend_pid()
+              AND wait_event = 'PgSleep'
+              AND (
+                query ILIKE '%mission_verdicts%'
+                OR query ILIKE '%holocron.test_human_gate_crash_boundary%'
+                OR query ILIKE '%pg_sleep%'
+              )
+          `
+        );
+        return Number(rows[0]?.count ?? 0);
+      };
+      const terminateHumanGatePgSleep = async (): Promise<number> => {
+        const rows = await withSql(
+          (sql) => sql<{ pid: number }[]>`
+            SELECT pid
+            FROM pg_stat_activity
+            WHERE pid <> pg_backend_pid()
+              AND (
+                wait_event = 'PgSleep'
+                OR state = 'idle in transaction'
+              )
+              AND (
+                query ILIKE '%mission_verdicts%'
+                OR query ILIKE '%holocron.test_human_gate_crash_boundary%'
+                OR query ILIKE '%pg_sleep%'
+              )
+          `
+        );
+        for (const row of rows) {
+          await withSql((sql) => sql`SELECT pg_terminate_backend(${row.pid}::int)`);
+        }
+        return rows.length;
+      };
+
+      // Reap leftovers from prior flakes (default client_connection_check_interval=0
+      // leaves pg_sleep backends alive after a SIGKILLed HTTP handler).
+      await terminateHumanGatePgSleep();
+
+      const crashPort = await allocateEphemeralPort();
+      const replayPort = await allocateEphemeralPort();
       const crashServer = startHoloProcess('gate-1-crash-server', ['service:up'], {
         env: {
           PORT: String(crashPort),
           HOLO_TEST_MISSION_VERDICT_CRASH_AT: 'after_violation_before_rollback',
         },
       });
-      await waitForValue('gate-1-crash-server-ready', async () => {
-        try {
-          return (await fetch(`http://127.0.0.1:${crashPort}/health`)).ok;
-        } catch {
-          return false;
-        }
-      });
-      const interruptedRequest = fetch(
-        `http://127.0.0.1:${crashPort}/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${RN}`, 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      );
-      const boundaryReached = await waitForValue('gate-1-human-gate-pgsleep', async () => {
-        const rows = await withSql(
-          (sql) =>
-            sql<
-              { count: string }[]
-            >`SELECT COUNT(*)::text AS count FROM pg_stat_activity WHERE wait_event = 'PgSleep' AND query ILIKE '%mission_verdicts%'`
-        );
-        return Number(rows[0]?.count ?? 0) > 0;
-      });
-      const killed = boundaryReached;
-      if (killed) crashServer.kill('SIGKILL');
-      const crashed = await crashServer.result;
-      await interruptedRequest.catch(() => null);
-      const afterInterrupt = await summarizeRun(seeded.runId);
-      const rejectionsAfterInterrupt = await withSql(
-        (sql) => sql<{ count: string }[]>`
-          SELECT COUNT(*)::text AS count
-          FROM mission_verdict_rejections
-          WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
-            AND request_key = ${requestKey}
-        `
-      );
-      const replayPort = 48124;
       const replayServer = startHoloProcess('gate-1-replay-server', ['service:up'], {
         env: { PORT: String(replayPort) },
       });
-      await waitForValue('gate-1-replay-server-ready', async () => {
-        try {
-          return (await fetch(`http://127.0.0.1:${replayPort}/health`)).ok;
-        } catch {
-          return false;
-        }
-      });
-      const replayResponse = await fetch(
-        `http://127.0.0.1:${replayPort}/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
-        {
+
+      // AbortController + always-handled fetch promise: undici socket-close after
+      // SIGKILL must never surface as an unhandledRejection (Vitest exit 1).
+      const crashRequestAbort = new AbortController();
+      let interruptedRequest: Promise<null> = Promise.resolve(null);
+      let crashedSignal: NodeJS.Signals | null = null;
+      let boundaryReached = false;
+      let killed = false;
+      let terminatedBackends = 0;
+      let sleepCleared = false;
+
+      try {
+        const crashReady = await waitForValue(
+          'gate-1-crash-server-ready',
+          async () => {
+            try {
+              return (await fetch(`http://127.0.0.1:${crashPort}/health`)).ok;
+            } catch {
+              return false;
+            }
+          },
+          { timeoutMs: 20_000 }
+        );
+        expect(crashReady, 'crash service must become healthy').toBe(true);
+
+        interruptedRequest = fetch(
+          `http://127.0.0.1:${crashPort}/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RN}`, 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: crashRequestAbort.signal,
+          }
+        ).then(
+          async (response) => {
+            try {
+              await response.arrayBuffer();
+            } catch {
+              // Body may already be destroyed when the server is SIGKILLed.
+            }
+            return null;
+          },
+          () => null
+        );
+
+        boundaryReached = Boolean(
+          await waitForValue(
+            'gate-1-human-gate-pgsleep',
+            async () => (await countHumanGatePgSleep()) > 0,
+            { timeoutMs: 20_000, intervalMs: 50 }
+          )
+        );
+        killed = boundaryReached;
+
+        // Always abort + SIGKILL so we never hang on crashServer.result when the
+        // boundary is missed (previous flake: wait timed out → await result forever).
+        crashRequestAbort.abort();
+        await interruptedRequest;
+        crashServer.kill('SIGKILL');
+        const crashed = await crashServer.result;
+        crashedSignal = crashed.signal;
+
+        // Postgres does not poll client liveness during pg_sleep when
+        // client_connection_check_interval=0. Force-abort the mid-gate backend so
+        // FOR UPDATE is released before the fresh handler replays the request.
+        terminatedBackends = await terminateHumanGatePgSleep();
+        sleepCleared = Boolean(
+          await waitForValue(
+            'gate-1-human-gate-pgsleep-cleared',
+            async () => (await countHumanGatePgSleep()) === 0,
+            { timeoutMs: 10_000, accept: (cleared) => cleared === true }
+          )
+        );
+
+        const afterInterrupt = await summarizeRun(seeded.runId);
+        const rejectionsAfterInterrupt = await withSql(
+          (sql) => sql<{ count: string }[]>`
+            SELECT COUNT(*)::text AS count
+            FROM mission_verdict_rejections
+            WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+              AND request_key = ${requestKey}
+          `
+        );
+
+        const replayReady = await waitForValue(
+          'gate-1-replay-server-ready',
+          async () => {
+            try {
+              return (await fetch(`http://127.0.0.1:${replayPort}/health`)).ok;
+            } catch {
+              return false;
+            }
+          },
+          { timeoutMs: 20_000 }
+        );
+        expect(replayReady, 'replay service must become healthy').toBe(true);
+
+        const replayResponse = await fetch(
+          `http://127.0.0.1:${replayPort}/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RN}`, 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          }
+        );
+        const replayJson = await replayResponse.json().catch(() => ({}));
+        const replay = { status: replayResponse.status, json: replayJson };
+        writeArtifact('gate-1-crash-restart-fresh-handler-replay.json', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${RN}`, 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      );
-      const replay = { status: replayResponse.status, json: await replayResponse.json() };
-      replayServer.kill('SIGKILL');
-      await replayServer.result;
-      const afterReplay = await summarizeRun(seeded.runId);
-      const rejections = await withSql(
-        (sql) => sql<{ count: string }[]>`
-          SELECT COUNT(*)::text AS count
-          FROM mission_verdict_rejections
-          WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
-            AND request_key = ${requestKey}
-        `
-      );
-      expect({
-        afterInterrupt: {
-          verdictEventRows: afterInterrupt.events.filter(
-            (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
-          ).length,
-          verdictRows: afterInterrupt.verdicts.length,
-        },
-        rejectionRowsAfterInterrupt: Number(rejectionsAfterInterrupt[0]?.count ?? 0),
-        afterReplay: {
-          verdictEventRows: afterReplay.events.filter(
-            (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
-          ).length,
-          verdictRows: afterReplay.verdicts.length,
-        },
-        boundaryReached,
-        crashedSignal: crashed.signal,
-        killed,
-        rejectionRows: Number(rejections[0]?.count ?? 0),
-        replayCode: asRecord(replay.json).code,
-        replayStatus: replay.status,
-      }).toEqual({
-        afterInterrupt: { verdictEventRows: 0, verdictRows: 0 },
-        rejectionRowsAfterInterrupt: 0,
-        afterReplay: { verdictEventRows: 0, verdictRows: 0 },
-        boundaryReached: true,
-        crashedSignal: 'SIGKILL',
-        killed: true,
-        rejectionRows: 1,
-        replayCode: 'UNCITED_KILL_REJECTED',
-        replayStatus: 422,
-      });
-    }, 60_000);
+          path: `/api/missions/${seeded.runId}/verdicts`,
+          status: replay.status,
+          requestBody: body,
+          responseJson: replay.json,
+          crashPort,
+          replayPort,
+          terminatedBackends,
+          sleepCleared,
+          boundaryReached,
+          killed,
+          crashedSignal,
+        });
+        const afterReplay = await summarizeRun(seeded.runId);
+        const rejections = await withSql(
+          (sql) => sql<{ count: string }[]>`
+            SELECT COUNT(*)::text AS count
+            FROM mission_verdict_rejections
+            WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+              AND request_key = ${requestKey}
+          `
+        );
+        expect({
+          afterInterrupt: {
+            verdictEventRows: afterInterrupt.events.filter(
+              (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+            ).length,
+            verdictRows: afterInterrupt.verdicts.length,
+          },
+          rejectionRowsAfterInterrupt: Number(rejectionsAfterInterrupt[0]?.count ?? 0),
+          afterReplay: {
+            verdictEventRows: afterReplay.events.filter(
+              (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+            ).length,
+            verdictRows: afterReplay.verdicts.length,
+          },
+          boundaryReached,
+          crashedSignal,
+          killed,
+          sleepCleared,
+          rejectionRows: Number(rejections[0]?.count ?? 0),
+          replayCode: asRecord(replay.json).code,
+          replayStatus: replay.status,
+        }).toEqual({
+          afterInterrupt: { verdictEventRows: 0, verdictRows: 0 },
+          rejectionRowsAfterInterrupt: 0,
+          afterReplay: { verdictEventRows: 0, verdictRows: 0 },
+          boundaryReached: true,
+          crashedSignal: 'SIGKILL',
+          killed: true,
+          sleepCleared: true,
+          rejectionRows: 1,
+          replayCode: 'UNCITED_KILL_REJECTED',
+          replayStatus: 422,
+        });
+      } finally {
+        crashRequestAbort.abort();
+        await interruptedRequest.catch(() => null);
+        if (!crashServer.exited()) crashServer.kill('SIGKILL');
+        if (!replayServer.exited()) replayServer.kill('SIGKILL');
+        await Promise.all([
+          crashServer.result.catch(() => null),
+          replayServer.result.catch(() => null),
+        ]);
+        await terminateHumanGatePgSleep();
+      }
+    }, 90_000);
 
     it('gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
