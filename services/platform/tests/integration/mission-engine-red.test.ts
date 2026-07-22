@@ -14,6 +14,7 @@
  *   HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *   pnpm vitest run services/platform/tests/integration/mission-engine-red.test.ts
  */
+import { spawn } from 'node:child_process';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createHonoApp } from '../../src/http/hono-app';
 import {
@@ -3517,12 +3518,20 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         verdict: 'kill',
         rationale: 'Interrupt after gate violation, before rejection persistence.',
       };
+      const startDetachedServer = (port: number, extraEnv: Record<string, string> = {}) => {
+        const child = spawn('bun', ['services/platform/src/cli/holo.ts', 'service:up'], {
+          cwd: process.cwd(),
+          detached: true,
+          env: { ...process.env, PORT: String(port), ...extraEnv },
+          stdio: 'ignore',
+        });
+        if (!child.pid) throw new Error('detached Hono service did not expose a child PID');
+        child.unref();
+        return child.pid;
+      };
       const crashPort = 48123;
-      const crashServer = startHoloProcess('gate-1-crash-server', ['service:up'], {
-        env: {
-          PORT: String(crashPort),
-          HOLO_TEST_MISSION_VERDICT_CRASH_AT: 'after_violation_before_rollback',
-        },
+      const crashPid = startDetachedServer(crashPort, {
+        HOLO_TEST_MISSION_VERDICT_CRASH_AT: 'after_violation_before_rollback',
       });
       await waitForValue('gate-1-crash-server-ready', async () => {
         try {
@@ -3548,14 +3557,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         );
         return Number(rows[0]?.count ?? 0) > 0;
       });
-      const killed = boundaryReached && crashServer.kill('SIGKILL');
-      const crashed = await crashServer.result;
+      const killed = boundaryReached;
+      if (killed) process.kill(crashPid, 'SIGKILL');
       await interruptedRequest.catch(() => null);
       const afterInterrupt = await summarizeRun(seeded.runId);
       const replayPort = 48124;
-      const replayServer = startHoloProcess('gate-1-replay-server', ['service:up'], {
-        env: { PORT: String(replayPort) },
-      });
+      const replayPid = startDetachedServer(replayPort);
       await waitForValue('gate-1-replay-server-ready', async () => {
         try {
           return (await fetch(`http://127.0.0.1:${replayPort}/health`)).ok;
@@ -3572,8 +3579,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         }
       );
       const replay = { status: replayResponse.status, json: await replayResponse.json() };
-      replayServer.kill('SIGKILL');
-      await replayServer.result;
+      process.kill(replayPid, 'SIGKILL');
       const afterReplay = await summarizeRun(seeded.runId);
       const rejections = await withSql(
         (sql) => sql<{ count: string }[]>`
@@ -3597,7 +3603,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           verdictRows: afterReplay.verdicts.length,
         },
         boundaryReached,
-        crashedSignal: crashed.signal,
+        crashPid,
         killed,
         rejectionRows: Number(rejections[0]?.count ?? 0),
         replayCode: asRecord(replay.json).code,
@@ -3606,7 +3612,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         afterInterrupt: { verdictEventRows: 0, verdictRows: 0 },
         afterReplay: { verdictEventRows: 0, verdictRows: 0 },
         boundaryReached: true,
-        crashedSignal: 'SIGKILL',
+        crashPid,
         killed: true,
         rejectionRows: 1,
         replayCode: 'UNCITED_KILL_REJECTED',
