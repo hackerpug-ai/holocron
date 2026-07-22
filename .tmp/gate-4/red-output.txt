@@ -1,50 +1,233 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts (0 test)
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (32 tests | 4 failed | 28 skipped) 4438ms
+       × gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger 1249ms
+       × gate-1 WIP=1: a second active run for the same human gate is refused before a row is created 879ms
+       × gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written 895ms
+       × gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows 1067ms
 
-⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
 
- FAIL  services/platform/tests/integration/mission-engine-red.test.ts [ services/platform/tests/integration/mission-engine-red.test.ts ]
-Error: Cannot find package '@modelcontextprotocol/sdk/server/mcp.js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4/services/platform/src/mcp/gateway.ts
- ❯ services/platform/src/mcp/gateway.ts:1:1
-      1| import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-       | ^
-      2| import { StdioServerTransport } from '@modelcontextprotocol/sdk/server…
-      3| import { WebStandardStreamableHTTPServerTransport } from '@modelcontex…
- ❯ services/platform/src/http/hono-app.ts:17:1
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger
+AssertionError: expected { created: 200, eventRows: 1, …(2) } to deeply equal { created: 200, eventRows: +0, …(2) }
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+- Expected
++ Received
+
+  {
+    "created": 200,
+-   "eventRows": 0,
+-   "status": 403,
+-   "verdictRows": 0,
++   "eventRows": 1,
++   "status": 200,
++   "verdictRows": 1,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3328:10
+    3326|         status: response.status,
+    3327|         verdictRows: summary.verdicts.length,
+    3328|       }).toEqual({ created: 200, eventRows: 0, status: 403, verdictRow…
+       |          ^
+    3329|     }, 60_000);
+    3330|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-1 WIP=1: a second active run for the same human gate is refused before a row is created
+AssertionError: expected { firstCreateStatus: 200, …(2) } to deeply equal { firstCreateStatus: 200, …(2) }
+
+- Expected
++ Received
+
+  {
+    "firstCreateStatus": 200,
+-   "runCount": 1,
+-   "secondCreateStatus": 403,
++   "runCount": 2,
++   "secondCreateStatus": 200,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3359:10
+    3357|         runCount: rows.length,
+    3358|         secondCreateStatus: second.status,
+    3359|       }).toEqual({
+       |          ^
+    3360|         firstCreateStatus: 200,
+    3361|         runCount: 1,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written
+AssertionError: expected { advanceEvents: 1, …(2) } to deeply equal { advanceEvents: +0, …(2) }
+
+- Expected
++ Received
+
+  {
+-   "advanceEvents": 0,
+-   "advanceVerdicts": 0,
+-   "status": 403,
++   "advanceEvents": 1,
++   "advanceVerdicts": 1,
++   "status": 200,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3391:10
+    3389|           .length,
+    3390|         status: response.status,
+    3391|       }).toEqual({ advanceEvents: 0, advanceVerdicts: 0, status: 403 }…
+       |          ^
+    3392|     }, 60_000);
+    3393|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows
+AssertionError: expected { Object (eventRowsAdded, status, ...) } to deeply equal { eventRowsAdded: +0, …(2) }
+
+- Expected
++ Received
+
+  {
+-   "eventRowsAdded": 0,
+-   "status": 403,
+-   "verdictRowsAdded": 0,
++   "eventRowsAdded": 1,
++   "status": 200,
++   "verdictRowsAdded": 1,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3417:10
+    3415|         status: response.status,
+    3416|         verdictRowsAdded: after.verdicts.length - before.verdicts.leng…
+    3417|       }).toEqual({ eventRowsAdded: 0, status: 403, verdictRowsAdded: 0…
+       |          ^
+    3418|     }, 60_000);
+    3419|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
 
 
  Test Files  1 failed (1)
-      Tests  no tests
-   Start at  21:27:05
-   Duration  612ms (transform 177ms, setup 117ms, import 0ms, tests 0ms, environment 0ms)
+      Tests  4 failed | 28 skipped (32)
+   Start at  21:29:14
+   Duration  6.03s (transform 629ms, setup 179ms, import 1.30s, tests 4.44s, environment 0ms)
 
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts (0 test)
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (32 tests | 4 failed | 28 skipped) 2604ms
+       × gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output 627ms
+       × gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs 566ms
+       × gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff 575ms
+       × gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs 566ms
 
-⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
 
- FAIL  services/platform/tests/integration/mission-engine-red.test.ts [ services/platform/tests/integration/mission-engine-red.test.ts ]
-Error: Cannot find package '@modelcontextprotocol/sdk/server/mcp.js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4/services/platform/src/mcp/gateway.ts
- ❯ services/platform/src/mcp/gateway.ts:1:1
-      1| import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-       | ^
-      2| import { StdioServerTransport } from '@modelcontextprotocol/sdk/server…
-      3| import { WebStandardStreamableHTTPServerTransport } from '@modelcontex…
- ❯ services/platform/src/http/hono-app.ts:17:1
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output
+AssertionError: expected { status: 200, steerStatus: 200, …(1) } to deeply equal { status: 200, steerStatus: 200, …(1) }
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+- Expected
++ Received
+
+  {
+-   "nextCycleOutput": true,
++   "nextCycleOutput": false,
+    "status": 200,
+    "steerStatus": 200,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3446:10
+    3444|         steerStatus: steer.status,
+    3445|         nextCycleOutput: JSON.stringify(status.json).includes('recent …
+    3446|       }).toEqual({ status: 200, steerStatus: 200, nextCycleOutput: tru…
+       |          ^
+    3447|     }, 60_000);
+    3448|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs
+AssertionError: expected { assayInstanceId: undefined, …(3) } to deeply equal { assayInstanceId: Any<String>, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "assayInstanceId": Any<String>,
+-   "challengeInstanceId": Any<String>,
+-   "distinct": true,
++   "assayInstanceId": undefined,
++   "challengeInstanceId": undefined,
++   "distinct": false,
+    "status": 200,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3469:10
+    3467|         distinct: payload.assayInstanceId !== payload.challengeInstanc…
+    3468|         status: status.status,
+    3469|       }).toEqual({
+       |          ^
+    3470|         assayInstanceId: expect.any(String),
+    3471|         challengeInstanceId: expect.any(String),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff
+AssertionError: expected { …(3) } to deeply equal { refutingClaimsAdmitted: 1, …(2) }
+
+- Expected
++ Received
+
+  {
+-   "refutingClaimsAdmitted": 1,
+-   "refutingClaimsFiltered": 0,
++   "refutingClaimsAdmitted": undefined,
++   "refutingClaimsFiltered": undefined,
+    "steerStatus": 200,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3497:10
+    3495|         refutingClaimsFiltered: payload.refutingClaimsFiltered,
+    3496|         steerStatus: steer.status,
+    3497|       }).toEqual({ refutingClaimsAdmitted: 1, refutingClaimsFiltered: …
+       |          ^
+    3498|     }, 60_000);
+    3499|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs
+AssertionError: expected { …(4) } to deeply equal { assayInstanceId: Any<String>, …(3) }
+
+- Expected
++ Received
+
+  {
+    "assayInstanceId": "placeholder:assay",
+    "challengeInstanceId": "placeholder:challenge",
+-   "hasPlaceholder": false,
++   "hasPlaceholder": true,
+    "status": 200,
+  }
+
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3524:10
+    3522|         ),
+    3523|         status: status.status,
+    3524|       }).toEqual({
+       |          ^
+    3525|         assayInstanceId: expect.any(String),
+    3526|         challengeInstanceId: expect.any(String),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
 
 
  Test Files  1 failed (1)
-      Tests  no tests
-   Start at  21:27:07
-   Duration  550ms (transform 163ms, setup 109ms, import 0ms, tests 0ms, environment 0ms)
+      Tests  4 failed | 28 skipped (32)
+   Start at  21:29:21
+   Duration  3.60s (transform 331ms, setup 108ms, import 797ms, tests 2.60s, environment 0ms)
 
 
 verification_exit_codes gate-1=1 gate-2=1
