@@ -1,0 +1,63 @@
+{
+  "task_id": "gate-2",
+  "generated_at": "2026-07-22T19:51:53.001097+00:00",
+  "branch": "kb-run-sprint/sprint-23/gate-2",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "bun/vitest -t 'steering-next-cycle' mission-engine-red.test.ts",
+      "evidence": ".tmp/gate-2/green-output.txt; .tmp/gate-2/artifacts/gate-4-steering-next-cycle-real-cycle.json"
+    },
+    {
+      "id": "AC-2",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "vitest -t 'assay-challenge-distinct-instances'",
+      "evidence": ".tmp/gate-2/green-output.txt; .tmp/gate-2/artifacts/gate-4-assay-challenge-real-fleet-cycle.json"
+    },
+    {
+      "id": "AC-3",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "vitest -t 'admission-parity' / refuting-claim-admission-parity",
+      "evidence": ".tmp/gate-2/green-output.txt; .tmp/gate-2/artifacts/gate-4-admission-parity-real-cycle.json"
+    },
+    {
+      "id": "AC-4",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "vitest -t 'CLI evidence surface' / cli-cycle-instance-ids",
+      "evidence": ".tmp/gate-2/green-output.txt; .tmp/gate-2/artifacts/gate-4-cli-instance-ids-cycle.json"
+    },
+    {
+      "id": "TC-1",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "PLATFORM_IT=1 vitest -t 'gate-2' mission-engine-red.test.ts (4/4 pass)",
+      "evidence": ".tmp/gate-2/green-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "grep steeringApplied / recent papers in RED suite",
+      "evidence": ".tmp/gate-2/tc-static.txt"
+    },
+    {
+      "id": "TC-3",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "grep assayInstanceId/challengeInstanceId + concrete fleet:model:*:inst-* in cycle artifacts",
+      "evidence": ".tmp/gate-2/tc-static.txt; cycle artifacts under .tmp/gate-2/artifacts/"
+    },
+    {
+      "id": "TC-4",
+      "satisfied": true,
+      "exit_code": 0,
+      "verify": "! grep generate|stream evidence-gate.ts",
+      "evidence": ".tmp/gate-2/tc-static.txt"
+    }
+  ]
+}
