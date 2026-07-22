@@ -14,7 +14,6 @@
  *   HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *   pnpm vitest run services/platform/tests/integration/mission-engine-red.test.ts
  */
-import { spawn, spawnSync } from 'node:child_process';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createHonoApp } from '../../src/http/hono-app';
 import {
@@ -3518,30 +3517,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         verdict: 'kill',
         rationale: 'Interrupt after gate violation, before rejection persistence.',
       };
-      const startDetachedServer = (port: number, extraEnv: Record<string, string> = {}) => {
-        const child = spawn('bun', ['services/platform/src/cli/holo.ts', 'service:up'], {
-          cwd: process.cwd(),
-          detached: true,
-          env: { ...process.env, PORT: String(port), ...extraEnv },
-          stdio: 'ignore',
-        });
-        if (!child.pid) throw new Error('detached Hono service did not expose a child PID');
-        const identity = spawnSync(
-          'ps',
-          ['-o', 'pid=,ppid=,pgid=,sid=,command=', '-p', String(child.pid)],
-          {
-            encoding: 'utf8',
-          }
-        ).stdout;
-        if (!identity.includes('services/platform/src/cli/holo.ts service:up')) {
-          throw new Error(`crash service PID identity mismatch: ${identity}`);
-        }
-        child.unref();
-        return { identity, pid: child.pid };
-      };
       const crashPort = 48123;
-      const crashServer = startDetachedServer(crashPort, {
-        HOLO_TEST_MISSION_VERDICT_CRASH_AT: 'after_violation_before_rollback',
+      const crashServer = startHoloProcess('gate-1-crash-server', ['service:up'], {
+        env: {
+          PORT: String(crashPort),
+          HOLO_TEST_MISSION_VERDICT_CRASH_AT: 'after_violation_before_rollback',
+        },
       });
       await waitForValue('gate-1-crash-server-ready', async () => {
         try {
@@ -3568,7 +3549,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         return Number(rows[0]?.count ?? 0) > 0;
       });
       const killed = boundaryReached;
-      if (killed) process.kill(crashServer.pid, 'SIGKILL');
+      if (killed) crashServer.kill('SIGKILL');
+      const crashed = await crashServer.result;
       await interruptedRequest.catch(() => null);
       const afterInterrupt = await summarizeRun(seeded.runId);
       const rejectionsAfterInterrupt = await withSql(
@@ -3580,7 +3562,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         `
       );
       const replayPort = 48124;
-      const replayServer = startDetachedServer(replayPort);
+      const replayServer = startHoloProcess('gate-1-replay-server', ['service:up'], {
+        env: { PORT: String(replayPort) },
+      });
       await waitForValue('gate-1-replay-server-ready', async () => {
         try {
           return (await fetch(`http://127.0.0.1:${replayPort}/health`)).ok;
@@ -3597,7 +3581,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         }
       );
       const replay = { status: replayResponse.status, json: await replayResponse.json() };
-      process.kill(replayServer.pid, 'SIGKILL');
+      replayServer.kill('SIGKILL');
+      await replayServer.result;
       const afterReplay = await summarizeRun(seeded.runId);
       const rejections = await withSql(
         (sql) => sql<{ count: string }[]>`
@@ -3622,7 +3607,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           verdictRows: afterReplay.verdicts.length,
         },
         boundaryReached,
-        crashIdentity: crashServer.identity,
+        crashedSignal: crashed.signal,
         killed,
         rejectionRows: Number(rejections[0]?.count ?? 0),
         replayCode: asRecord(replay.json).code,
@@ -3632,7 +3617,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         rejectionRowsAfterInterrupt: 0,
         afterReplay: { verdictEventRows: 0, verdictRows: 0 },
         boundaryReached: true,
-        crashIdentity: crashServer.identity,
+        crashedSignal: 'SIGKILL',
         killed: true,
         rejectionRows: 1,
         replayCode: 'UNCITED_KILL_REJECTED',
