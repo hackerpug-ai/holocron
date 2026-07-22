@@ -1,0 +1,17 @@
+{
+  "sprint_id": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "framework": "headless-service",
+  "result": "pass",
+  "written_at": "2026-07-22T20:25:07Z",
+  "commit": "193bb23148f026c341e40ba18351aa455b593cdc",
+  "steps": [
+    {"step":1,"covered_by":"gate-1 uncited-kill rejected","status":"pass"},
+    {"step":2,"covered_by":"gate-1 WIP=1","status":"pass"},
+    {"step":3,"covered_by":"gate-1 unprobed-advance refused","status":"pass"},
+    {"step":4,"covered_by":"gate-2 steering-next-cycle","status":"pass"},
+    {"step":5,"covered_by":"gate-2 ASSAY≠CHALLENGE + CLI + admission","status":"pass"},
+    {"step":6,"covered_by":"fulcrum:authorable-check","status":"pass"}
+  ],
+  "tests_passed": 13,
+  "evidence": ".tmp/sprint-23/e2e-integration.txt"
+}

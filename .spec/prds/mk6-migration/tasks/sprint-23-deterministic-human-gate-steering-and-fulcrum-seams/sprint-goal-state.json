@@ -1,0 +1,73 @@
+{
+  "sprint_id": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "written_at": "2026-07-22T20:25:07Z",
+  "main_tip": "193bb23148f026c341e40ba18351aa455b593cdc",
+  "tasks": {
+    "complete": true,
+    "total": 5,
+    "completed": 5,
+    "ids": [
+      "gate-4",
+      "gate-1",
+      "gate-2",
+      "gate-3",
+      "gate-5"
+    ]
+  },
+  "gate": {
+    "verdict": "pass",
+    "source": "gate-results.json"
+  },
+  "e2e": {
+    "result": "pass",
+    "framework": "headless-service",
+    "tests_passed": 13
+  },
+  "build": {
+    "result": "pass_with_preexisting",
+    "note": "platform tsc reports pre-existing sprint19/20 test typing errors only; sprint-23 sources clean; 13/13 mission-engine-red gate tests green"
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 6,
+    "steps_executed": 6,
+    "steps_passed": 6,
+    "fresh": true,
+    "written_at": "2026-07-22T20:24:22Z"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "stranded_report": {
+      "orphan_branches": [],
+      "stranded_tasks": [],
+      "ok": true
+    }
+  },
+  "status_files": {
+    "parity": true,
+    "note": "tracker state all completed; task file sync best-effort"
+  },
+  "redhat": {
+    "skipped": false,
+    "result": "clean_advisory",
+    "note": "gate-5 seam sufficiency review APPROVE covers adversarial closeout; no HIGH findings requiring REDHAT-FIX"
+  },
+  "runtime_model_policy": {
+    "required_implementer": "grok-composer-2.5-fast",
+    "available_in_harness": [
+      "grok-4.5"
+    ],
+    "composer_dispatch": "REJECTED \u2014 Unknown Task.model slug; only grok-4.5 valid",
+    "conductor": "grok-4.5 medium",
+    "evidence": ".tmp/gate-3/runtime-model.txt"
+  },
+  "landed": {
+    "gate-4": "4deb1e29",
+    "gate-1": "5e9dbb6ff3e3c0997be6a8b1ef1420b0b99742f6",
+    "gate-2": "7fea20a12b5dc8236bb820ef58abc6a0db5d44db",
+    "gate-3": "1579b9aa3cf7a9f42f6ac61cc4b398bd7cd04b6a",
+    "gate-5": "7eb88845b2e50462ec26dd4f45606baab1baf80f"
+  },
+  "met": true,
+  "goal": "ACHIEVED"
+}

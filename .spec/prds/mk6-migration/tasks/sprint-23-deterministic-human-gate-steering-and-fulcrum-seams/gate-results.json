@@ -1,0 +1,71 @@
+{
+  "sprint_id": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "verdict": "pass",
+  "cycle_start": "2026-07-22T20:23:06Z",
+  "written_at": "2026-07-22T20:24:22Z",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "steps": [
+    {
+      "id": "step-1",
+      "name": "POST verdicts uncited kill rejected",
+      "executed": true,
+      "result": "pass",
+      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step1.log",
+      "log_bytes": 494
+    },
+    {
+      "id": "step-2",
+      "name": "WIP=1 second concurrent build refused",
+      "executed": true,
+      "result": "pass",
+      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step2.log",
+      "log_bytes": 481
+    },
+    {
+      "id": "step-3",
+      "name": "advance\u2192validated without probe refused",
+      "executed": true,
+      "result": "pass",
+      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step3.log",
+      "log_bytes": 502
+    },
+    {
+      "id": "step-4",
+      "name": "POST steer mid-run takes effect next cycle",
+      "executed": true,
+      "result": "pass",
+      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step4.log",
+      "log_bytes": 492
+    },
+    {
+      "id": "step-5",
+      "name": "holo mission:cycle ASSAY\u2260CHALLENGE + admission",
+      "executed": true,
+      "result": "pass",
+      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step5.log",
+      "log_bytes": 735
+    },
+    {
+      "id": "step-6",
+      "name": "holo fulcrum:authorable-check SUFFICIENT",
+      "executed": true,
+      "result": "pass",
+      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step6.log",
+      "log_bytes": 680
+    }
+  ],
+  "ui_driver": "none",
+  "runner": "tmux:kb-run-sprint-s23-human-tests",
+  "generator": {
+    "tool": "kb-run-sprint-human-test-batch",
+    "version": "1.0"
+  },
+  "e2e_layer": {
+    "framework": "headless-service",
+    "result": "pass",
+    "evidence": ".tmp/sprint-23/e2e-integration.txt",
+    "tests_passed": 13
+  }
+}
