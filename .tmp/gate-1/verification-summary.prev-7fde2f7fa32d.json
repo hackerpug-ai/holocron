@@ -1,7 +1,7 @@
 {
   "task_id": "gate-1",
-  "timestamp": "2026-07-22T04:35:55Z",
-  "commit_sha": "381cb0e24a437c8cd2ac6c2b659c7164ad161771",
+  "timestamp": "2026-07-22T04:29:56Z",
+  "commit_sha": "64b11482491a2010168388e11c5f403e39534087",
   "typecheck": {
     "exit_code": 0
   },
@@ -55,7 +55,7 @@
     },
     {
       "id": "TC-4",
-      "verify": "rg -U 'CREATE OR REPLACE FUNCTION public\\.enforce_mission_human_gate\\(\\)[\\s\\S]*SECURITY DEFINER' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE TRIGGER mission_verdicts_human_gate_before_insert' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx' services/platform/src/db/migrations/0025_deterministic_human_gate.sql",
+      "verify": "grep -E 'CHECK.*SECURITY DEFINER' services/platform/src/db/migrations/*.sql",
       "exit_code": 0,
       "output_file": ".tmp/gate-1/tc-4-output.txt"
     }
@@ -66,7 +66,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.0",
-    "generated_at": "2026-07-22T04:35:55Z",
+    "generated_at": "2026-07-22T04:29:56Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -78,31 +78,31 @@
       },
       {
         "path": "test-output.txt",
-        "sha256": "cb4efb85d02802cd7ffcb643b8bbd42c450a239d9168d3bba726b8b913705889"
+        "sha256": "49c86b105d902fedbf5c17050c727f5ba008d899d3369b61f9dbc4c4cc04aaa6"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "e453a49fc980f4d0d3957ec5705fd4b2989eec62e5e346ec2c762f84915658f4"
+        "sha256": "e028b230148f65f3f658c78eb417fd6dda296c1b1cb3633769b847592073ecfc"
       },
       {
         "path": "ac-2-output.txt",
-        "sha256": "0abc28ad4b6dd377401f274d02a2eb1eb34ba9f03e0a9e616de9a40ce8a8fc13"
+        "sha256": "4a4253427761d90420ca85ff3f98b24cc09e1bf60dfe606c6b4d033276a4e361"
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "a0c51f51c97b7beea9f61cde9ed31d35b54e6ea6b187b2ad78eff01bdaeb2300"
+        "sha256": "52ddf0ea226c1e392f881f1e94e6c3e919716f8096a18be076ba3c69711329d7"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "768447bec6944ba36883b30df8d08a221155c19079eef075d8553feb125ca420"
+        "sha256": "0d560cb7cc87b3228c032d2ab2937b23e48e215761fa0163e1b8b79b74e0491d"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "9c876dd109ec2d09a01984777b191d0411a7b86ebc19b4b3193bd5325f911177"
+        "sha256": "4ed6ad7d61f7f433e568d9d992e13221c982cbc9bba0fda5ee9ca840339d6040"
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "87c839f08f60df9c67c60a7c904ffef27603f118d23be1f05e3a4b2b7944c70a"
+        "sha256": "aa767b298743e7e68e0689a717e509dcb70bd8cc22aa16d3ff5a80a003473db1"
       },
       {
         "path": "tc-3-output.txt",
@@ -110,7 +110,7 @@
       },
       {
         "path": "tc-4-output.txt",
-        "sha256": "00ea0f2ff3da005601ab3f16b74b5a9872e54bc47adfef6a7c358452b89e4be7"
+        "sha256": "163643346a333ba53a26837883b9d0a9e055170714f8bd431191f19c98bc40ae"
       }
     ]
   }

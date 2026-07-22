@@ -1,1 +1,6 @@
-services/platform/src/db/migrations/0025_deterministic_human_gate.sql:-- CHECK / SECURITY DEFINER enforcement is intentionally in Postgres, not HTTP handlers.
+CREATE OR REPLACE FUNCTION public.enforce_mission_human_gate()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+CREATE TRIGGER mission_verdicts_human_gate_before_insert
+CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx

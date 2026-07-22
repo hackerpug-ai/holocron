@@ -43,7 +43,7 @@
   },
   {
     "id": "TC-4",
-    "verify": "grep -E 'CHECK.*SECURITY DEFINER' services/platform/src/db/migrations/*.sql",
+    "verify": "rg -U 'CREATE OR REPLACE FUNCTION public\\.enforce_mission_human_gate\\(\\)[\\s\\S]*SECURITY DEFINER' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE TRIGGER mission_verdicts_human_gate_before_insert' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx' services/platform/src/db/migrations/0025_deterministic_human_gate.sql",
     "exit_code": 0,
     "output_file": ".tmp/gate-1/tc-4-output.txt"
   }
