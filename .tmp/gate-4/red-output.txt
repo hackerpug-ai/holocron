@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts (32 tests | 4 failed | 28 skipped) 3798ms
-       × gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger 808ms
-       × gate-1 WIP=1: a second active run for the same human gate is refused before a row is created 686ms
-       × gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written 715ms
-       × gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows 832ms
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (32 tests | 4 failed | 28 skipped) 3273ms
+       × gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger 784ms
+       × gate-1 WIP=1: a second active run for the same human gate is refused before a row is created 616ms
+       × gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written 698ms
+       × gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows 876ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -65,27 +65,25 @@ AssertionError: expected { activeSameSubjectRunCount: +0, …(3) } to deeply equ
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
 
  FAIL  services/platform/tests/integration/mission-engine-red.test.ts > Sprint 15 mission-5 RED suite — mission engine missing surfaces > Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams > gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written
-AssertionError: expected { advanceEvents: 1, …(2) } to deeply equal { Object (advanceEvents, status, ...) }
+AssertionError: expected { advanceEvents: +0, …(2) } to deeply equal { Object (advanceEvents, status, ...) }
 
 - Expected
 + Received
 
   {
--   "advanceEvents": 0,
+    "advanceEvents": 0,
 -   "status": 403,
--   "validatedAdvanceVerdicts": 0,
-+   "advanceEvents": 1,
-+   "status": 200,
-+   "validatedAdvanceVerdicts": 1,
++   "status": 422,
+    "validatedAdvanceVerdicts": 0,
   }
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts:3419:10
-    3417|         ).length,
-    3418|         status: response.status,
-    3419|       }).toEqual({ advanceEvents: 0, status: 403, validatedAdvanceVerd…
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3420:10
+    3418|         ).length,
+    3419|         status: response.status,
+    3420|       }).toEqual({ advanceEvents: 0, status: 403, validatedAdvanceVerd…
        |          ^
-    3420|     }, 60_000);
-    3421|
+    3421|     }, 60_000);
+    3422|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
 
@@ -104,30 +102,30 @@ AssertionError: expected { Object (eventRowsAdded, status, ...) } to deeply equa
 +   "verdictRowsAdded": 1,
   }
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts:3445:10
-    3443|         status: response.status,
-    3444|         verdictRowsAdded: after.verdicts.length - before.verdicts.leng…
-    3445|       }).toEqual({ eventRowsAdded: 0, status: 403, verdictRowsAdded: 0…
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3446:10
+    3444|         status: response.status,
+    3445|         verdictRowsAdded: after.verdicts.length - before.verdicts.leng…
+    3446|       }).toEqual({ eventRowsAdded: 0, status: 403, verdictRowsAdded: 0…
        |          ^
-    3446|     }, 60_000);
-    3447|
+    3447|     }, 60_000);
+    3448|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
 
 
  Test Files  1 failed (1)
       Tests  4 failed | 28 skipped (32)
-   Start at  22:01:11
-   Duration  4.97s (transform 365ms, setup 133ms, import 931ms, tests 3.80s, environment 0ms)
+   Start at  22:05:21
+   Duration  4.28s (transform 334ms, setup 103ms, import 814ms, tests 3.27s, environment 0ms)
 
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-4
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts (32 tests | 4 failed | 28 skipped) 4190ms
-       × gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output 1004ms
-       × gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs 841ms
-       × gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff 875ms
-       × gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs 1166ms
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (32 tests | 4 failed | 28 skipped) 4249ms
+       × gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output 1023ms
+       × gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs 928ms
+       × gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff 1137ms
+       × gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs 834ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -150,13 +148,13 @@ AssertionError: expected { cycleStatus: 2, …(4) } to deeply equal { cycleStatu
 +   "unknownCommand": true,
   }
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts:3479:10
-    3477|         steerStatus: steer.status,
-    3478|         unknownCommand: /unknown command/i.test(cycle.combined),
-    3479|       }).toEqual({
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3480:10
+    3478|         steerStatus: steer.status,
+    3479|         unknownCommand: /unknown command/i.test(cycle.combined),
+    3480|       }).toEqual({
        |          ^
-    3480|         cycleStatus: 0,
-    3481|         persistedSteeringRows: 1,
+    3481|         cycleStatus: 0,
+    3482|         persistedSteeringRows: 1,
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
 
@@ -183,13 +181,13 @@ AssertionError: expected { assayInstanceId: undefined, …(6) } to deeply equal 
 +   "persistedFleetTraceRows": 0,
   }
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts:3518:10
-    3516|         persistedChallengeStage: stringValue(challengeStage, ['stage_k…
-    3517|         persistedFleetTraceRows: persisted.telemetry.length,
-    3518|       }).toEqual({
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3519:10
+    3517|         persistedChallengeStage: stringValue(challengeStage, ['stage_k…
+    3518|         persistedFleetTraceRows: persisted.telemetry.length,
+    3519|       }).toEqual({
        |          ^
-    3519|         assayInstanceId: expect.any(String),
-    3520|         challengeInstanceId: expect.any(String),
+    3520|         assayInstanceId: expect.any(String),
+    3521|         challengeInstanceId: expect.any(String),
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
 
@@ -214,13 +212,13 @@ AssertionError: expected { cycleStatus: 2, …(6) } to deeply equal { cycleStatu
 +   "supportingClaimsAdmitted": undefined,
   }
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts:3560:10
-    3558|         supportingClaimsAdmitted: admission.supportingAdmitted,
-    3559|         steerStatus: steer.status,
-    3560|       }).toEqual({
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3561:10
+    3559|         supportingClaimsAdmitted: admission.supportingAdmitted,
+    3560|         steerStatus: steer.status,
+    3561|       }).toEqual({
        |          ^
-    3561|         cycleStatus: 0,
-    3562|         persistedAdmissionEvidenceRows: 1,
+    3562|         cycleStatus: 0,
+    3563|         persistedAdmissionEvidenceRows: 1,
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
 
@@ -245,19 +243,19 @@ AssertionError: expected { …(7) } to deeply equal { assayInstanceId: Any<Strin
 +   "unknownCommand": true,
   }
 
- ❯ services/platform/tests/integration/mission-engine-red.test.ts:3597:10
-    3595|         persistedFleetTraceRows: persisted.telemetry.length,
-    3596|         unknownCommand: /unknown command/i.test(cycle.combined),
-    3597|       }).toEqual({
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:3598:10
+    3596|         persistedFleetTraceRows: persisted.telemetry.length,
+    3597|         unknownCommand: /unknown command/i.test(cycle.combined),
+    3598|       }).toEqual({
        |          ^
-    3598|         assayInstanceId: expect.any(String),
-    3599|         challengeInstanceId: expect.any(String),
+    3599|         assayInstanceId: expect.any(String),
+    3600|         challengeInstanceId: expect.any(String),
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
 
 
  Test Files  1 failed (1)
       Tests  4 failed | 28 skipped (32)
-   Start at  22:01:16
-   Duration  5.22s (transform 339ms, setup 107ms, import 828ms, tests 4.19s, environment 0ms)
+   Start at  22:05:26
+   Duration  5.26s (transform 338ms, setup 106ms, import 812ms, tests 4.25s, environment 0ms)
 

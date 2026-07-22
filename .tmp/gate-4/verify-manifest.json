@@ -1,7 +1,7 @@
 {
   "task_id": "gate-4",
   "task_file": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-4-red-tests-uncited-kill-rejected-wip1-unprobed-advance-refuse.md",
-  "commit_sha": "70653c290e37137eef9d1c75fffccffde567e9f3",
+  "commit_sha": "1f01d27bead28fb677c443faa0d8db0c33f98083",
   "requirements": [
     {"id":"AC-1","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1' > .tmp/gate-4/red-output.txt 2>&1; exit 1"},
     {"id":"AC-2","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-2' >> .tmp/gate-4/red-output.txt 2>&1; exit 1"},
