@@ -3271,6 +3271,264 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       )
       .toBe(canonicalJsonBytes(beforeCollision));
   }, 60_000);
+
+  describe.sequential('Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams', () => {
+    async function seedGate4Run(label: string) {
+      const template = prepareTemplateFixture('template-test.echo.json', `gate-4-${label}`);
+      const register = runHolo(`gate-4-${label}-register`, [
+        'mission',
+        'template:register',
+        template.path,
+        '--json',
+      ]);
+      const app = createHonoApp();
+      const idempotencyKey = scenarioId(`gate-4-${label}`);
+      const created = await callAppJson(
+        app,
+        `gate-4-${label}-public-api-create`,
+        'POST',
+        '/api/missions',
+        {
+          key: RN,
+          body: makeCreateBody(
+            template.templateKey,
+            `Gate 4 public_api seed: ${label}.`,
+            idempotencyKey
+          ),
+        }
+      );
+      const runId =
+        runIdFromUnknown(asRecord(created.json)) ??
+        stringValue(await findRunByIdempotencyKey(idempotencyKey), ['id']);
+      return { app, created, idempotencyKey, register, runId, template };
+    }
+
+    it('gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: a real HTTP-created mission run with zero evidence citations.
+      // WHEN: a human submits an uncited kill through the real verdict HTTP surface.
+      // THEN: the server refuses it with 403 and leaves zero verdict/event ledger rows.
+      // MUST_OBSERVE: Expected status 403 and 0 persisted rows; MUST_NOT_OBSERVE: a kill row/event.
+      const seeded = await seedGate4Run('uncited-kill');
+      const response = await callAppJson(
+        seeded.app,
+        'gate-4-uncited-kill-verdict',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        { key: RN, body: { verdict: 'kill', rationale: 'Stop now, without a citation.' } }
+      );
+      const summary = await summarizeRun(seeded.runId);
+      expect({
+        created: seeded.created.status,
+        eventRows: summary.events.filter(
+          (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+        ).length,
+        status: response.status,
+        verdictRows: summary.verdicts.length,
+      }).toEqual({ created: 200, eventRows: 0, status: 403, verdictRows: 0 });
+    }, 60_000);
+
+    it('gate-1 WIP=1: a second active run for the same human gate is refused before a row is created', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: one real mission run already occupies the deterministic human-gate WIP slot.
+      // WHEN: the same actor creates a second run through the real HTTP surface.
+      // THEN: the second request is refused with 403 and exactly one run remains for this gate.
+      // MUST_OBSERVE: Expected status 403 and COUNT(*) 1; MUST_NOT_OBSERVE: a second run row.
+      const seeded = await seedGate4Run('wip-one');
+      const second = await callAppJson(
+        seeded.app,
+        'gate-4-wip-one-second-public-api-create',
+        'POST',
+        '/api/missions',
+        {
+          key: RN,
+          body: makeCreateBody(
+            seeded.template.templateKey,
+            'A second active human-gate run must be refused.',
+            scenarioId('gate-4-wip-one-second')
+          ),
+        }
+      );
+      const rows = await withSql((sql) =>
+        selectMissionRunsByTemplateKey(sql, seeded.template.templateKey)
+      );
+      expect({
+        firstCreateStatus: seeded.created.status,
+        runCount: rows.length,
+        secondCreateStatus: second.status,
+      }).toEqual({
+        firstCreateStatus: 200,
+        runCount: 1,
+        secondCreateStatus: 403,
+      });
+    }, 60_000);
+
+    it('gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: a real run with no successful human-gate probe recorded for its current cycle.
+      // WHEN: a human posts advance through the real verdict HTTP surface.
+      // THEN: the server returns 403 and commits zero advance verdict/event rows.
+      // MUST_OBSERVE: Expected status 403 and 0 rows; MUST_NOT_OBSERVE: an unprobed advance.
+      const seeded = await seedGate4Run('unprobed-advance');
+      const response = await callAppJson(
+        seeded.app,
+        'gate-4-unprobed-advance-verdict',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        {
+          key: RN,
+          body: { verdict: 'advance', rationale: 'Advance despite no deterministic probe.' },
+        }
+      );
+      const summary = await summarizeRun(seeded.runId);
+      expect({
+        advanceEvents: summary.events.filter(
+          (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+        ).length,
+        advanceVerdicts: summary.verdicts.filter((row) => rowValue(row, ['verdict']) === 'advance')
+          .length,
+        status: response.status,
+      }).toEqual({ advanceEvents: 0, advanceVerdicts: 0, status: 403 });
+    }, 60_000);
+
+    it('gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
+      // GIVEN: a real mission run and an uncited kill request that must fail atomically.
+      // WHEN: the request crosses the real Hono verdict route.
+      // THEN: the rejection is 403 and the append-only ledger has zero partial mutations.
+      // MUST_OBSERVE: Expected status 403, 0 verdicts, 0 control events; MUST_NOT_OBSERVE: partial rows.
+      const seeded = await seedGate4Run('atomic-rollback');
+      const before = await summarizeRun(seeded.runId);
+      const response = await callAppJson(
+        seeded.app,
+        'gate-4-atomic-rollback-kill',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        {
+          key: RN,
+          body: { verdict: 'kill', rationale: 'This uncited kill must roll back atomically.' },
+        }
+      );
+      const after = await summarizeRun(seeded.runId);
+      expect({
+        eventRowsAdded: after.events.length - before.events.length,
+        status: response.status,
+        verdictRowsAdded: after.verdicts.length - before.verdicts.length,
+      }).toEqual({ eventRowsAdded: 0, status: 403, verdictRowsAdded: 0 });
+    }, 60_000);
+
+    it('gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real run with a next-cycle instruction to prioritize recent papers.
+      // WHEN: the instruction is posted through the real steer HTTP surface and status is re-read.
+      // THEN: the next-cycle status/output exposes that exact applied constraint.
+      // MUST_OBSERVE: "recent papers" in cycle output; MUST_NOT_OBSERVE: an unchanged output surface.
+      const seeded = await seedGate4Run('steering-next-cycle');
+      const instruction = 'Prioritize recent papers published in 2025 and 2026.';
+      const steer = await callAppJson(
+        seeded.app,
+        'gate-4-steering-next-cycle',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/steer`,
+        { key: RN, body: { instruction } }
+      );
+      const status = await callAppJson(
+        seeded.app,
+        'gate-4-steering-next-cycle-status',
+        'GET',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}`,
+        { key: RN }
+      );
+      expect({
+        status: status.status,
+        steerStatus: steer.status,
+        nextCycleOutput: JSON.stringify(status.json).includes('recent papers'),
+      }).toEqual({ status: 200, steerStatus: 200, nextCycleOutput: true });
+    }, 60_000);
+
+    it('gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real research-bound run whose assay and challenge are independent executions.
+      // WHEN: the run status is observed through the real HTTP surface.
+      // THEN: assayInstanceId and challengeInstanceId are concrete and different UUID-like instance IDs.
+      // MUST_OBSERVE: two unequal instance IDs; MUST_NOT_OBSERVE: equal or placeholder instance IDs.
+      const seeded = await seedGate4Run('assay-challenge-distinct-instances');
+      const status = await callAppJson(
+        seeded.app,
+        'gate-4-assay-challenge-distinct-status',
+        'GET',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}`,
+        { key: RN }
+      );
+      const payload = asRecord(status.json);
+      expect({
+        assayInstanceId: payload.assayInstanceId,
+        challengeInstanceId: payload.challengeInstanceId,
+        distinct: payload.assayInstanceId !== payload.challengeInstanceId,
+        status: status.status,
+      }).toEqual({
+        assayInstanceId: expect.any(String),
+        challengeInstanceId: expect.any(String),
+        distinct: true,
+        status: 200,
+      });
+    }, 60_000);
+
+    it('gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real run steered to retain a concrete refuting claim for the next cycle.
+      // WHEN: steering is persisted through the HTTP surface and run status is observed.
+      // THEN: the admission surface reports the refuting claim as retained, not silently filtered.
+      // MUST_OBSERVE: refuting claim count 1; MUST_NOT_OBSERVE: filtered count 0 or absent admission proof.
+      const seeded = await seedGate4Run('admission-parity');
+      const refutingClaim = 'The primary hypothesis is contradicted by the latest replication.';
+      const steer = await callAppJson(
+        seeded.app,
+        'gate-4-admission-parity-steer',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/steer`,
+        { key: RN, body: { instruction: `Retain this refuting claim: ${refutingClaim}` } }
+      );
+      const payload = asRecord(steer.json);
+      expect({
+        refutingClaimsAdmitted: payload.refutingClaimsAdmitted,
+        refutingClaimsFiltered: payload.refutingClaimsFiltered,
+        steerStatus: steer.status,
+      }).toEqual({ refutingClaimsAdmitted: 1, refutingClaimsFiltered: 0, steerStatus: 200 });
+    }, 60_000);
+
+    it('gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs', async () => {
+      // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
+      // GIVEN: a real HTTP-created run eligible for the CLI/status evidence projection.
+      // WHEN: the public status surface is queried after the run is created.
+      // THEN: concrete assay/challenge instance IDs are emitted rather than placeholder values.
+      // MUST_OBSERVE: two concrete IDs and zero placeholders; MUST_NOT_OBSERVE: "pending" or "unknown" IDs.
+      const seeded = await seedGate4Run('cli-instance-ids');
+      const status = await callAppJson(
+        seeded.app,
+        'gate-4-cli-instance-ids-status',
+        'GET',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}`,
+        { key: RN }
+      );
+      const payload = asRecord(status.json);
+      const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
+      const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
+      expect({
+        assayInstanceId,
+        challengeInstanceId,
+        hasPlaceholder: /placeholder|pending|unknown/i.test(
+          `${assayInstanceId}:${challengeInstanceId}`
+        ),
+        status: status.status,
+      }).toEqual({
+        assayInstanceId: expect.any(String),
+        challengeInstanceId: expect.any(String),
+        hasPlaceholder: false,
+        status: 200,
+      });
+    }, 60_000);
+  });
 });
 
 function schemaHasColumns(
