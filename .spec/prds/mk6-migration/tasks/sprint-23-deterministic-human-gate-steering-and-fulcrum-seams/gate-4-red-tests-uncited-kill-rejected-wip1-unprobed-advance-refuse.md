@@ -61,7 +61,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
 - **Test tier:** `integration`
 - **Verification service:** `platform-test-runner + Postgres`
 - **Flow ref:** `UC-SVC-05/AC-1`
-- **Verify:** `PLATFORM_IT=1 bun test --grep 'gate-1' services/platform/tests/integration/mission-engine-red.test.ts > .tmp/gate-4/red-output.txt; exit 1`
+- **Verify:** `PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1' > .tmp/gate-4/red-output.txt 2>&1; exit 1`
 - **Scenario:**
   - **Tier:** `visible` · **Test tier:** `integration`
   - **Verification service:** `platform-test-runner + Postgres`
@@ -73,14 +73,15 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
   - **Evidence:** artifact `file_artifact`, required_capture=True
   - **Case 1** — start_ref `stub-gate-1-handlers`:
     - actor: `background_job`
-    - step: Seed two concurrent build requests with the same explicit subject through the public mission API; submit the explicit `advance→validated` verdict with no recorded probe through the verdict API
+    - step: Seed the first active run through `POST /api/missions` with one `templateKey` and the exact persisted `goal` string `Gate 4 same-subject research goal`; submit a second request with the same `templateKey`, the same `goal` (and matching `args.goal`), but a different `idempotencyKey`. The required WIP predicate is `mission_runs.template_key = :templateKey AND mission_runs.goal = :goal AND status IN ('pending','running','suspended')`.
+    - step: Submit `{ verdict: "advance", targetStatus: "validated", rationale: "..." }` through the verdict API with no persisted probe; `targetStatus` is the explicit requested transition target that Gate 1 must add to its strict request schema.
     - step: Run test suite with PLATFORM_IT=1 against real Postgres
     - step: Capture RED output showing 4 failures
     - step: Verify each failure has concrete row count/status code assertion
     - MUST observe:
       - Exit code 1
       - 4 test failures with concrete assertions
-      - Each failure shows expected != actual with specific values (e.g., 'Expected: 0 rows, Actual: 1 row'; 'Expected status: 403, Actual: 200'; and exactly one active run for subject `gate-4-same-subject`)
+      - Each failure shows expected != actual with specific values (e.g., 'Expected: 0 rows, Actual: 1 row'; 'Expected status: 403, Actual: 200'; and exactly one active run for exact goal `Gate 4 same-subject research goal`)
       - File .tmp/gate-4/red-output.txt contains captured failures
     - MUST NOT observe:
       - tests passing (tests fail in RED phase)
@@ -94,7 +95,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
 - **Test tier:** `integration`
 - **Verification service:** `platform-test-runner + Postgres + fleet`
 - **Flow ref:** `UC-SVC-05/AC-2,AC-3`
-- **Verify:** `PLATFORM_IT=1 bun test --grep 'gate-2' services/platform/tests/integration/mission-engine-red.test.ts >> .tmp/gate-4/red-output.txt; exit 1`
+- **Verify:** `PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-2' >> .tmp/gate-4/red-output.txt 2>&1; exit 1`
 - **Scenario:**
   - **Tier:** `visible` · **Test tier:** `integration`
   - **Verification service:** `platform-test-runner + Postgres + fleet`
@@ -107,7 +108,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
   - **Case 1** — start_ref `stub-gate-2-implementations`:
     - actor: `background_job`
     - step: Persist steering through `POST /api/missions/:id/steer`, then execute the real following mission cycle; execute real ASSAY and CHALLENGE calls in that cycle and submit both a refuting and a supporting claim to the shared admission gate
-    - step: Invoke `holo mission:cycle <id>` and capture its instance-ID projection
+    - step: Invoke the Gate 2-owned command `holo mission:cycle <run-id> --json` and capture its JSON projection. Its required successful shape is `{ ok: true, runId: "<run-id>", cycle: { index: 1, steeringApplied: ["Prioritize recent papers published in 2025 and 2026."], assayInstanceId: "<non-placeholder>", challengeInstanceId: "<non-placeholder>", admission: { supportingAdmitted: 1, refutingAdmitted: 1, refutingFiltered: 0 } } }` with unequal instance IDs.
     - step: Run test suite with PLATFORM_IT=1 against real Postgres and real fleet
     - step: Append RED output to .tmp/gate-4/red-output.txt
     - step: Verify 4 failures with concrete instance ID assertions
@@ -117,7 +118,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
       - Distinct-instances failure shows equal IDs returned by real ASSAY/CHALLENGE execution (e.g., 'Expected: different, Actual: both inst-123')
       - Steering failure shows cycle output missing instruction constraint — output lacks "recent papers" pattern
       - Admission-parity failure shows the refuting claim rejected while the comparable supporting claim is admitted by the same handoff gate
-      - CLI failure shows `holo mission:cycle <id>` instance IDs are placeholders rather than concrete IDs
+      - CLI RED test invokes `holo mission:cycle <id> --json`, first asserts the command is registered (its output is not `unknown command`), then asserts the required JSON fields and concrete non-placeholder unequal instance IDs; after the entry point exists, every remaining RED failure is an assertion mismatch rather than an unknown-command process error
     - MUST NOT observe:
       - tests passing (tests fail in RED phase)
       - errors instead of assertion failures (no failures before fix)
@@ -174,7 +175,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
   - **Evidence:** artifact `file_artifact`, required_capture=True
   - **Case 1** — start_ref `complete-red-test-suite`:
     - actor: `background_job`
-    - step: Run PLATFORM_IT=1 bun test --grep 'gate-1|gate-2'
+    - step: Run `PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1|gate-2'`
     - step: Redirect output to .tmp/gate-4/red-output.txt
     - step: Count FAIL lines and verify file size
     - MUST observe:
@@ -190,10 +191,10 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
 ## Test Criteria
 | ID | Statement | Maps to | Verify |
 |---|---|---|---|
-| TC-1 | RED tests fail on real Postgres | AC-1 | `PLATFORM_IT=1 bun test --grep 'gate-1|gate-2' services/platform/tests/integration/mission-engine-red.test.ts; exit 1` |
+| TC-1 | RED tests fail on real Postgres | AC-1 | `PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1|gate-2'; exit 1` |
 | TC-2 | 8 test failures captured in RED output | AC-4 | `grep -c 'FAIL' .tmp/gate-4/red-output.txt | grep 8` |
 | TC-3 | Tests use real Postgres fixtures | AC-1 | `grep -E -c 'PLATFORM_IT=1|public_api' services/platform/tests/integration/mission-engine-red.test.ts | grep -E '^[1-9][0-9]*$'` |
-| TC-4 | No mock or stub database constructors in executable test code | AC-1 | `! rg -n 'createMockDatabase|mockDatabase|:memory:.*sqlite' services/platform/tests/integration/mission-engine-red.test.ts` |
+| TC-4 | No executable database/client substitution or in-memory connection | AC-1 | `! sed -E '/^[[:space:]]*\/\//d; /\/\*/,/\*\//d' services/platform/tests/integration/mission-engine-red.test.ts | rg -n 'vi\.(mock|doMock)|mock[^[:space:]]*(Postgres|Drizzle|Sql|Client)|(:memory:|mode=memory|file:.*memory)'` |
 
 ## Reading List
 - `services/platform/tests/integration/mission-engine-red.test.ts` (2399-2456) — Existing RED test pattern with concrete assertions and GIVEN-WHEN-THEN structure
@@ -385,7 +386,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
 
 ## Verification Gates
 - **RED tests fail with concrete assertions**
-  - command: `PLATFORM_IT=1 bun test --grep 'gate-1|gate-2' services/platform/tests/integration/mission-engine-red.test.ts; exit 1`
+  - command: `PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1|gate-2'; exit 1`
   - expected: Exit 1 with 8 test failures, each showing concrete expected vs actual values
 - **RED output captured**
   - command: `cat .tmp/gate-4/red-output.txt | wc -c | grep -E '[0-9]{4,}'`
@@ -444,6 +445,16 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
         "Handlers exist but skip all rule checks before INSERT"
       ]
     },
+    "same-subject-active-build": {
+      "description": "A first active run created through POST /api/missions with the same concrete templateKey and exact goal field that defines subject identity for Gate 1 WIP enforcement",
+      "seed_method": "public_api",
+      "records": [
+        "mission_runs.template_key = mission.test.echo",
+        "mission_runs.goal = Gate 4 same-subject research goal",
+        "mission_runs.status = running",
+        "first idempotencyKey = gate-4-same-subject-first"
+      ]
+    },
     "stub-gate-2-implementations": {
       "description": "Stub implementations that ignore steering and use same instance IDs for assay/challenge",
       "seed_method": "recorded_external",
@@ -471,8 +482,8 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
     {
       "id": "AC-1",
       "type": "acceptance_criterion",
-      "description": "GIVEN: Empty or stub uncited-kill, same-subject WIP=1, and probe-gated advance-to-validated handlers. WHEN: the suite runs with PLATFORM_IT=1 against real Postgres. THEN: four gate-1 tests fail concretely: uncited kill inserts a verdict instead of 0; a second concurrent build for subject gate-4-same-subject is created instead of returning 403 and preserving one run; advance-to-validated without a persisted probe is inserted instead of returning 403; and failed kill mutation leaves partial rows instead of 0.",
-      "verify": "PLATFORM_IT=1 bun test --grep 'gate-1' services/platform/tests/integration/mission-engine-red.test.ts > .tmp/gate-4/red-output.txt; exit 1",
+      "description": "GIVEN: Empty or stub uncited-kill, same-subject WIP=1, and probe-gated advance-to-validated handlers. Subject identity is the existing mission_runs predicate template_key plus exact goal, with active status pending/running/suspended; both public creates use templateKey mission.test.echo and goal Gate 4 same-subject research goal but distinct idempotency keys. WHEN: the Vitest suite runs with PLATFORM_IT=1 against real Postgres. THEN: four gate-1 tests fail concretely: uncited kill inserts a verdict instead of 0; a second concurrent same-subject build is created instead of returning 403 and preserving one run; advance with targetStatus validated and no persisted probe is inserted instead of returning 403; and failed kill mutation leaves partial rows instead of 0.",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1' > .tmp/gate-4/red-output.txt 2>&1; exit 1",
       "scenario": {
         "id": "SC-GATE-4-AC-1",
         "use_case_ref": "UC-SVC-05",
@@ -485,8 +496,8 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
         "evidence": {"artifact_type": "file_artifact", "required_capture": true},
         "cases": [
           {"start_ref": "stub-gate-1-handlers", "action": {"actor": "api_client", "steps": ["POST uncited kill through /api/missions/:id/verdicts"]}, "end_state": {"must_observe": ["HTTP status 403", "verdict row count 0"], "must_not_observe": ["empty rejection body", "verdict row count 1", "uncited kill event"]}},
-          {"start_ref": "stub-gate-1-handlers", "action": {"actor": "api_client", "steps": ["POST two concurrent builds for subject gate-4-same-subject through the public mission API"]}, "end_state": {"must_observe": ["second HTTP status 403", "active run count for subject gate-4-same-subject is 1"], "must_not_observe": ["empty subject key", "active run count 2", "second run row"]}},
-          {"start_ref": "stub-gate-1-handlers", "action": {"actor": "api_client", "steps": ["POST explicit advance-to-validated verdict with no persisted probe"]}, "end_state": {"must_observe": ["HTTP status 403", "validated verdict row count 0"], "must_not_observe": ["empty transition target", "validated verdict row count 1", "recorded probe"]}},
+          {"start_ref": "same-subject-active-build", "action": {"actor": "api_client", "steps": ["POST a second create with templateKey mission.test.echo, goal and args.goal Gate 4 same-subject research goal, and distinct idempotencyKey gate-4-same-subject-second", "query mission_runs WHERE template_key = mission.test.echo AND goal = Gate 4 same-subject research goal AND status IN pending/running/suspended"]}, "end_state": {"must_observe": ["second HTTP status 403", "active run count for exact templateKey plus goal predicate is 1"], "must_not_observe": ["empty subject identity", "active run count 2", "second run row"]}},
+          {"start_ref": "stub-gate-1-handlers", "action": {"actor": "api_client", "steps": ["POST verdict advance with targetStatus validated and no persisted probe"]}, "end_state": {"must_observe": ["HTTP status 403", "validated verdict row count 0"], "must_not_observe": ["empty transition target", "validated verdict row count 1", "recorded probe"]}},
           {"start_ref": "stub-gate-1-handlers", "action": {"actor": "api_client", "steps": ["POST an uncited kill and query ledger rows before and after the refused request"]}, "end_state": {"must_observe": ["HTTP status 403", "partial verdict/event row delta 0"], "must_not_observe": ["empty ledger comparison", "partial row delta 1", "committed uncited kill"]}}
         ]
       }
@@ -494,8 +505,8 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
     {
       "id": "AC-2",
       "type": "acceptance_criterion",
-      "description": "GIVEN: Stub implementations that persist but do not apply steering on the following cycle, reuse one real fleet instance for ASSAY and CHALLENGE, or filter refuting claims differently at the ASSAY-to-CHALLENGE admission handoff. WHEN: the suite runs with PLATFORM_IT=1 against real Postgres and fleet. THEN: four gate-2 tests fail concretely after a real cycle: cycle output lacks the steering instruction; real ASSAY and CHALLENGE IDs are equal; the refuting claim is filtered while comparable supporting claim passes; or holo mission:cycle reports placeholder IDs.",
-      "verify": "PLATFORM_IT=1 bun test --grep 'gate-2' services/platform/tests/integration/mission-engine-red.test.ts >> .tmp/gate-4/red-output.txt; exit 1",
+      "description": "GIVEN: Stub implementations that persist but do not apply steering on the following cycle, reuse one real fleet instance for ASSAY and CHALLENGE, or filter refuting claims differently at the ASSAY-to-CHALLENGE admission handoff. WHEN: the Vitest suite runs with PLATFORM_IT=1 against real Postgres and fleet. THEN: four gate-2 tests fail concretely after a real cycle: cycle output lacks the steering instruction; real ASSAY and CHALLENGE IDs are equal; the refuting claim is filtered while comparable supporting claim passes; or the Gate 2-owned holo mission:cycle <run-id> --json command returns a registered but assertion-mismatched cycle projection instead of unknown-command error.",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-2' >> .tmp/gate-4/red-output.txt 2>&1; exit 1",
       "scenario": {
         "id": "SC-GATE-4-AC-2",
         "use_case_ref": "UC-SVC-05",
@@ -510,7 +521,7 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
           {"start_ref": "stub-gate-2-implementations", "action": {"actor": "api_client", "steps": ["POST steering instruction recent papers", "execute the real following mission cycle"]}, "end_state": {"must_observe": ["following cycle output contains \"recent papers\"", "steering row count 1"], "must_not_observe": ["unchanged cycle output", "empty steering effect"]}},
           {"start_ref": "stub-gate-2-implementations", "action": {"actor": "background_job", "steps": ["execute real ASSAY and CHALLENGE calls in one mission cycle through the fleet"]}, "end_state": {"must_observe": ["ASSAY and CHALLENGE instance ID count 2 with unequal values", "cycle number 1 records two concrete instance IDs"], "must_not_observe": ["equal instance IDs", "placeholder instance ID"]}},
           {"start_ref": "stub-gate-2-implementations", "action": {"actor": "background_job", "steps": ["submit comparable supporting and refuting claims through the ASSAY-to-CHALLENGE admission handoff"]}, "end_state": {"must_observe": ["supporting admitted count 1", "refuting admitted count 1"], "must_not_observe": ["refuting admitted count 0", "refuting claim filtered"]}},
-          {"start_ref": "stub-gate-2-implementations", "action": {"actor": "cli_user", "steps": ["run holo mission:cycle <run-id> after real ASSAY and CHALLENGE execution"]}, "end_state": {"must_observe": ["CLI reports instance ID count 2", "CLI exit status 0"], "must_not_observe": ["placeholder instance ID", "pending instance ID"]}}
+          {"start_ref": "stub-gate-2-implementations", "action": {"actor": "cli_user", "steps": ["run the Gate 2-owned command holo mission:cycle <run-id> --json after real ASSAY and CHALLENGE execution", "assert output is not unknown command before asserting JSON cycle.index 1, steeringApplied recent papers, admission supportingAdmitted 1/refutingAdmitted 1/refutingFiltered 0, and two unequal IDs"]}, "end_state": {"must_observe": ["CLI JSON cycle.index 1", "CLI reports instance ID count 2", "CLI exit status 0"], "must_not_observe": ["unknown command", "placeholder instance ID", "pending instance ID"]}}
         ]
       }
     },
@@ -547,14 +558,14 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
         "topology": "single-node",
         "negative_control": {"would_fail_if": ["the RED run is not executed", "the RED artifact is empty", "the artifact captures only a summary or fewer than eight failures", "a test error replaces a concrete assertion failure"]},
         "evidence": {"artifact_type": "file_artifact", "required_capture": true},
-        "cases": [{"start_ref": "complete-red-test-suite", "action": {"actor": "background_job", "steps": ["run PLATFORM_IT=1 bun test --grep gate-1|gate-2 and capture stdout/stderr in .tmp/gate-4/red-output.txt"]}, "end_state": {"must_observe": ["8 FAIL lines", "red-output.txt size greater than 1000 bytes", "Expected: 0, Actual: 1 assertion detail"], "must_not_observe": ["empty red-output.txt", "generic test failed summary"]}}]
+        "cases": [{"start_ref": "complete-red-test-suite", "action": {"actor": "background_job", "steps": ["run PLATFORM_IT=1 pnpm exec vitest run mission-engine-red.test.ts -t gate-1|gate-2 and capture stdout/stderr in .tmp/gate-4/red-output.txt"]}, "end_state": {"must_observe": ["8 FAIL lines", "red-output.txt size greater than 1000 bytes", "Expected: 0, Actual: 1 assertion detail"], "must_not_observe": ["empty red-output.txt", "generic test failed summary"]}}]
       }
     },
     {
       "id": "TC-1",
       "type": "test_criterion",
       "description": "RED tests fail on real Postgres",
-      "verify": "PLATFORM_IT=1 bun test --grep 'gate-1|gate-2' services/platform/tests/integration/mission-engine-red.test.ts; exit 1",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1|gate-2'; exit 1",
       "maps_to_ac": "AC-1"
     },
     {
@@ -574,8 +585,8 @@ This task is part of Sprint 23: Deterministic Human Gate, Steering and Fulcrum S
     {
       "id": "TC-4",
       "type": "test_criterion",
-      "description": "No mock or stub database constructors in executable test code",
-      "verify": "! rg -n 'createMockDatabase|mockDatabase|:memory:.*sqlite' services/platform/tests/integration/mission-engine-red.test.ts",
+      "description": "No executable Vitest, Postgres, Drizzle, SQL/client mock substitution, or in-memory connection",
+      "verify": "! sed -E '/^[[:space:]]*\\/\\//d; /\\/\\*/,/\\*\\//d' services/platform/tests/integration/mission-engine-red.test.ts | rg -n 'vi\\.(mock|doMock)|mock[^[:space:]]*(Postgres|Drizzle|Sql|Client)|(:memory:|mode=memory|file:.*memory)'",
       "maps_to_ac": "AC-1"
     }
   ]
