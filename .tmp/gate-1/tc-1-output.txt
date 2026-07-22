@@ -1,0 +1,9 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-1
+
+
+ Test Files  1 passed (1)
+      Tests  5 passed | 28 skipped (33)
+   Start at  22:29:02
+   Duration  5.35s (transform 338ms, setup 106ms, import 816ms, tests 4.33s, environment 0ms)
+
