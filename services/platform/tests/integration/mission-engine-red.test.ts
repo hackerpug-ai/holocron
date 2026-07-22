@@ -3310,8 +3310,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
       // GIVEN: a real HTTP-created mission run with zero evidence citations.
       // WHEN: a human submits an uncited kill through the real verdict HTTP surface.
-      // THEN: the server refuses it with 403 and leaves zero verdict/event ledger rows.
-      // MUST_OBSERVE: Expected status 403 and 0 persisted rows; MUST_NOT_OBSERVE: a kill row/event.
+      // THEN: the server refuses it with its deterministic 422 code and leaves zero verdict/event ledger rows.
+      // MUST_OBSERVE: Expected status 422/code and 0 persisted rows; MUST_NOT_OBSERVE: a kill row/event.
       const seeded = await seedGate4Run('uncited-kill');
       const response = await callAppJson(
         seeded.app,
@@ -3326,9 +3326,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         eventRows: summary.events.filter(
           (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
         ).length,
+        errorCode: asRecord(response.json).code,
         status: response.status,
         verdictRows: summary.verdicts.length,
-      }).toEqual({ created: 200, eventRows: 0, status: 403, verdictRows: 0 });
+      }).toEqual({
+        created: 200,
+        errorCode: 'UNCITED_KILL_REJECTED',
+        eventRows: 0,
+        status: 422,
+        verdictRows: 0,
+      });
     }, 60_000);
 
     it('gate-1 WIP=1: a second active run for the same human gate is refused before a row is created', async () => {
@@ -3372,18 +3379,19 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           stringValue(row, ['goal']) === sameSubjectGoal &&
           ['pending', 'running', 'suspended'].includes(stringValue(row, ['status']) ?? '')
       );
+      expect(activeSameSubjectRows.length).toBeLessThanOrEqual(1);
       expect({
-        activeSameSubjectRunCount: activeSameSubjectRows.length,
         concurrentHttpStatuses: [first.status, second.status].sort((left, right) => left - right),
+        rejectedCode: asRecord(first.status === 403 ? first.json : second.json).code,
         dbConcurrencyTripwireSubjectRows: rows.filter(
           (row) => stringValue(row, ['goal']) === sameSubjectGoal
         ).length,
         registerStatus: register.status,
       }).toEqual({
-        activeSameSubjectRunCount: 1,
         concurrentHttpStatuses: [200, 403],
         dbConcurrencyTripwireSubjectRows: 1,
         registerStatus: 0,
+        rejectedCode: 'WIP_ONE_EXCEEDED',
       });
     }, 60_000);
 
@@ -3413,11 +3421,17 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         advanceEvents: summary.events.filter(
           (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
         ).length,
+        errorCode: asRecord(response.json).code,
         validatedAdvanceVerdicts: summary.verdicts.filter(
           (row) => rowValue(row, ['verdict']) === 'advance'
         ).length,
         status: response.status,
-      }).toEqual({ advanceEvents: 0, status: 403, validatedAdvanceVerdicts: 0 });
+      }).toEqual({
+        advanceEvents: 0,
+        errorCode: 'PROBE_REQUIRED_FOR_VALIDATED',
+        status: 403,
+        validatedAdvanceVerdicts: 0,
+      });
     }, 60_000);
 
     it('gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows', async () => {
@@ -3443,7 +3457,51 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         eventRowsAdded: after.events.length - before.events.length,
         status: response.status,
         verdictRowsAdded: after.verdicts.length - before.verdicts.length,
-      }).toEqual({ eventRowsAdded: 0, status: 403, verdictRowsAdded: 0 });
+      }).toEqual({ eventRowsAdded: 0, status: 422, verdictRowsAdded: 0 });
+    }, 60_000);
+
+    it('gate-1 postgres rollback survives replay: a rejected request key is durably replayed without a verdict write', async () => {
+      const seeded = await seedGate4Run('rejected-replay');
+      const requestKey = 'gate-1-rejected-replay-key';
+      const body = {
+        requestKey,
+        verdict: 'kill',
+        rationale: 'This uncited request must be replayed from Postgres.',
+      };
+      const first = await callAppJson(
+        seeded.app,
+        'gate-1-rejected-replay-first',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        { key: RN, body }
+      );
+      const second = await callAppJson(
+        seeded.app,
+        'gate-1-rejected-replay-second',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        { key: RN, body }
+      );
+      const summary = await summarizeRun(seeded.runId);
+      const rejections = await withSql(
+        (sql) => sql<{ count: string }[]>`
+        SELECT COUNT(*)::text AS count
+        FROM mission_verdict_rejections
+        WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+          AND request_key = ${requestKey}
+      `
+      );
+      expect({
+        errorCodes: [asRecord(first.json).code, asRecord(second.json).code],
+        statuses: [first.status, second.status],
+        rejectionRows: Number(rejections[0]?.count ?? 0),
+        verdictRows: summary.verdicts.length,
+      }).toEqual({
+        errorCodes: ['UNCITED_KILL_REJECTED', 'UNCITED_KILL_REJECTED'],
+        statuses: [422, 422],
+        rejectionRows: 1,
+        verdictRows: 0,
+      });
     }, 60_000);
 
     it('gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output', async () => {

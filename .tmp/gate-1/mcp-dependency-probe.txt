@@ -1,0 +1,1 @@
+[ERR_PNPM_OPTION_NOT_SUPPORTED] The "add" command currently does not support the no-save option

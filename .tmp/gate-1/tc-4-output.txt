@@ -1,0 +1,1 @@
+services/platform/src/db/migrations/0025_deterministic_human_gate.sql:-- CHECK / SECURITY DEFINER enforcement is intentionally in Postgres, not HTTP handlers.

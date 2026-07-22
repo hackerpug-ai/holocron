@@ -1,0 +1,14 @@
+bun test v1.3.14 (0d9b296a)
+
+services/platform/tests/integration/mission-engine-red.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find package 'hono' from '/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-1/services/platform/src/http/hono-app.ts'
+-------------------------------
+
+
+ 0 pass
+ 1 fail
+ 1 error
+Ran 1 test across 1 file. [25.00ms]

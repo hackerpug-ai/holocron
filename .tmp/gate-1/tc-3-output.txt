@@ -1,0 +1,6 @@
+335:    FOR UPDATE
+401:      INSERT INTO mission_verdict_rejections (
+597:        INSERT INTO mission_steering (
+649:        INSERT INTO mission_events (
+747:        INSERT INTO mission_verdicts (
+801:        INSERT INTO mission_events (

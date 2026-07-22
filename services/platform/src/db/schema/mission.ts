@@ -121,6 +121,9 @@ export const missionRuns = pgTable(
   },
   (t) => [
     uniqueIndex('mission_runs_template_idempotency_uidx').on(t.templateKey, t.idempotencyKey),
+    uniqueIndex('mission_runs_active_subject_wip_one_uidx')
+      .on(t.templateKey, t.goal)
+      .where(sql`${t.status} IN ('pending', 'running', 'suspended') AND ${t.goal} IS NOT NULL`),
     index('mission_runs_status_idx').on(t.status),
     index('mission_runs_template_key_idx').on(t.templateKey),
     index('mission_runs_trace_id_idx').on(t.traceId),
@@ -330,6 +333,26 @@ export const missionVerdicts = pgTable(
   ]
 );
 
+/** Persisted HTTP rejection replay records; never a substitute for a verdict/event row. */
+export const missionVerdictRejections = pgTable(
+  'mission_verdict_rejections',
+  {
+    id: idColumn(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => missionRuns.id, { onDelete: 'cascade' }),
+    requestKey: text('request_key').notNull(),
+    payloadJson: typedJsonb('payload_json').notNull(),
+    errorCode: text('error_code').notNull(),
+    errorMessage: text('error_message').notNull(),
+    createdAt: createdAtColumn(),
+  },
+  (t) => [
+    uniqueIndex('mission_verdict_rejections_run_request_key_uidx').on(t.runId, t.requestKey),
+    index('mission_verdict_rejections_run_idx').on(t.runId),
+  ]
+);
+
 export type MissionTemplateRow = typeof missionTemplates.$inferSelect;
 export type MissionTemplateVersionRow = typeof missionTemplateVersions.$inferSelect;
 export type MissionRunRow = typeof missionRuns.$inferSelect;
@@ -339,3 +362,4 @@ export type MissionCommitRow = typeof missionCommits.$inferSelect;
 export type MissionEventRow = typeof missionEvents.$inferSelect;
 export type MissionSteeringRow = typeof missionSteering.$inferSelect;
 export type MissionVerdictRow = typeof missionVerdicts.$inferSelect;
+export type MissionVerdictRejectionRow = typeof missionVerdictRejections.$inferSelect;
