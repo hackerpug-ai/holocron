@@ -3517,31 +3517,63 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         verdict: 'kill',
         rationale: 'Interrupt after gate violation, before rejection persistence.',
       };
-      const crashEnv = 'HOLO_TEST_MISSION_VERDICT_CRASH_AT';
-      const previousCrashBoundary = process.env[crashEnv];
-      let interrupted: Awaited<ReturnType<typeof callAppJson>> | undefined;
-      try {
-        process.env[crashEnv] = 'after_violation_before_rejection_persist';
-        interrupted = await callAppJson(
-          seeded.app,
-          'gate-1-crash-restart-interrupted-handler',
-          'POST',
-          `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
-          { key: RN, body }
-        );
-      } finally {
-        if (previousCrashBoundary === undefined) delete process.env[crashEnv];
-        else process.env[crashEnv] = previousCrashBoundary;
-      }
-      const afterInterrupt = await summarizeRun(seeded.runId);
-      const freshApp = createHonoApp();
-      const replay = await callAppJson(
-        freshApp,
-        'gate-1-crash-restart-fresh-handler-replay',
-        'POST',
-        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
-        { key: RN, body }
+      const crashPort = 48123;
+      const crashServer = startHoloProcess('gate-1-crash-server', ['service:up'], {
+        env: {
+          PORT: String(crashPort),
+          HOLO_TEST_MISSION_VERDICT_CRASH_AT: 'after_violation_before_rollback',
+        },
+      });
+      await waitForValue('gate-1-crash-server-ready', async () => {
+        try {
+          return (await fetch(`http://127.0.0.1:${crashPort}/health`)).ok;
+        } catch {
+          return false;
+        }
+      });
+      const interruptedRequest = fetch(
+        `http://127.0.0.1:${crashPort}/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${RN}`, 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }
       );
+      const boundaryReached = await waitForValue('gate-1-human-gate-pgsleep', async () => {
+        const rows = await withSql(
+          (sql) =>
+            sql<
+              { count: string }[]
+            >`SELECT COUNT(*)::text AS count FROM pg_stat_activity WHERE wait_event = 'PgSleep' AND query ILIKE '%mission_verdicts%'`
+        );
+        return Number(rows[0]?.count ?? 0) > 0;
+      });
+      const killed = boundaryReached && crashServer.kill('SIGKILL');
+      const crashed = await crashServer.result;
+      await interruptedRequest.catch(() => null);
+      const afterInterrupt = await summarizeRun(seeded.runId);
+      const replayPort = 48124;
+      const replayServer = startHoloProcess('gate-1-replay-server', ['service:up'], {
+        env: { PORT: String(replayPort) },
+      });
+      await waitForValue('gate-1-replay-server-ready', async () => {
+        try {
+          return (await fetch(`http://127.0.0.1:${replayPort}/health`)).ok;
+        } catch {
+          return false;
+        }
+      });
+      const replayResponse = await fetch(
+        `http://127.0.0.1:${replayPort}/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${RN}`, 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      const replay = { status: replayResponse.status, json: await replayResponse.json() };
+      replayServer.kill('SIGKILL');
+      await replayServer.result;
       const afterReplay = await summarizeRun(seeded.runId);
       const rejections = await withSql(
         (sql) => sql<{ count: string }[]>`
@@ -3564,14 +3596,18 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           ).length,
           verdictRows: afterReplay.verdicts.length,
         },
-        interruptedStatus: interrupted?.status,
+        boundaryReached,
+        crashedSignal: crashed.signal,
+        killed,
         rejectionRows: Number(rejections[0]?.count ?? 0),
         replayCode: asRecord(replay.json).code,
         replayStatus: replay.status,
       }).toEqual({
         afterInterrupt: { verdictEventRows: 0, verdictRows: 0 },
         afterReplay: { verdictEventRows: 0, verdictRows: 0 },
-        interruptedStatus: 500,
+        boundaryReached: true,
+        crashedSignal: 'SIGKILL',
+        killed: true,
         rejectionRows: 1,
         replayCode: 'UNCITED_KILL_REJECTED',
         replayStatus: 422,

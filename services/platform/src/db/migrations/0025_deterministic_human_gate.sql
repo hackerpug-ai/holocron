@@ -25,6 +25,9 @@ BEGIN
         AND belief.tx_to IS NULL
     )
   ) THEN
+    IF current_setting('holocron.test_human_gate_crash_boundary', true) = 'after_violation_before_rollback' THEN
+      PERFORM pg_sleep(30);
+    END IF;
     RAISE EXCEPTION 'UNCITED_KILL_REJECTED: kill verdict requires a current belief citation'
       USING ERRCODE = 'P0001';
   END IF;
