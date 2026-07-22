@@ -34,6 +34,8 @@ const MissionCreateBodySchema = z
 
 const MissionRunIdSchema = z.string().uuid();
 const MissionVerdictEnum = z.enum(['kill', 'advance', 'redirect', 'boost']);
+const HUMAN_GATE_TEST_CRASH_ENV = 'HOLO_TEST_MISSION_VERDICT_CRASH_AT';
+const HUMAN_GATE_TEST_CRASH_BOUNDARY = 'after_violation_before_rejection_persist';
 
 const MissionSteerBodySchema = z
   .object({
@@ -219,6 +221,10 @@ function missionRuleViolationCode(error: unknown): string | null {
     return 'WIP_ONE_EXCEEDED';
   }
   return null;
+}
+
+function shouldCrashAfterHumanGateViolation(): boolean {
+  return process.env[HUMAN_GATE_TEST_CRASH_ENV] === HUMAN_GATE_TEST_CRASH_BOUNDARY;
 }
 
 function assertMissionRunHttpAccess(run: MissionAuthorizedRunRow, scope: Scope): void {
@@ -840,6 +846,18 @@ export async function appendMissionVerdictFromHttp(
   } catch (error) {
     const humanGateCode = missionRuleViolationCode(error);
     if (!humanGateCode) throw error;
+
+    // Real transaction-boundary crash seam used only by the integration suite. The
+    // failing INSERT transaction has already rolled back; no rejection replay row is
+    // written until a fresh handler invocation reaches the persistence path.
+    if (shouldCrashAfterHumanGateViolation()) {
+      throw Object.assign(
+        new Error(`MISSION_HUMAN_GATE_TEST_CRASH:${HUMAN_GATE_TEST_CRASH_BOUNDARY}`),
+        {
+          code: 'MISSION_HUMAN_GATE_TEST_CRASH',
+        }
+      );
+    }
 
     const message =
       error instanceof Error ? error.message : `mission human gate rejected: ${humanGateCode}`;

@@ -3402,6 +3402,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       // THEN: the server returns 403 and commits zero validated verdict/event rows.
       // MUST_OBSERVE: Expected status 403 and 0 rows; MUST_NOT_OBSERVE: an unprobed validated transition.
       const seeded = await seedGate4Run('unprobed-advance');
+      const before = await summarizeRun(seeded.runId);
       const response = await callAppJson(
         seeded.app,
         'gate-4-unprobed-advance-verdict',
@@ -3422,6 +3423,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
         ).length,
         errorCode: asRecord(response.json).code,
+        runStatusAfter: stringValue(summary.run, ['status']),
+        runStatusBefore: stringValue(before.run, ['status']),
         validatedAdvanceVerdicts: summary.verdicts.filter(
           (row) => rowValue(row, ['verdict']) === 'advance'
         ).length,
@@ -3429,6 +3432,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       }).toEqual({
         advanceEvents: 0,
         errorCode: 'PROBE_REQUIRED_FOR_VALIDATED',
+        runStatusAfter: stringValue(before.run, ['status']),
+        runStatusBefore: stringValue(before.run, ['status']),
         status: 403,
         validatedAdvanceVerdicts: 0,
       });
@@ -3501,6 +3506,75 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         statuses: [422, 422],
         rejectionRows: 1,
         verdictRows: 0,
+      });
+    }, 60_000);
+
+    it('gate-1 crash/restart replay: interruption after violation rolls back, then a fresh Hono handler persists one rejection', async () => {
+      const seeded = await seedGate4Run('crash-restart-rejected-replay');
+      const requestKey = 'gate-1-crash-restart-rejected-replay-key';
+      const body = {
+        requestKey,
+        verdict: 'kill',
+        rationale: 'Interrupt after gate violation, before rejection persistence.',
+      };
+      const crashEnv = 'HOLO_TEST_MISSION_VERDICT_CRASH_AT';
+      const previousCrashBoundary = process.env[crashEnv];
+      let interrupted: Awaited<ReturnType<typeof callAppJson>> | undefined;
+      try {
+        process.env[crashEnv] = 'after_violation_before_rejection_persist';
+        interrupted = await callAppJson(
+          seeded.app,
+          'gate-1-crash-restart-interrupted-handler',
+          'POST',
+          `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+          { key: RN, body }
+        );
+      } finally {
+        if (previousCrashBoundary === undefined) delete process.env[crashEnv];
+        else process.env[crashEnv] = previousCrashBoundary;
+      }
+      const afterInterrupt = await summarizeRun(seeded.runId);
+      const freshApp = createHonoApp();
+      const replay = await callAppJson(
+        freshApp,
+        'gate-1-crash-restart-fresh-handler-replay',
+        'POST',
+        `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
+        { key: RN, body }
+      );
+      const afterReplay = await summarizeRun(seeded.runId);
+      const rejections = await withSql(
+        (sql) => sql<{ count: string }[]>`
+          SELECT COUNT(*)::text AS count
+          FROM mission_verdict_rejections
+          WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+            AND request_key = ${requestKey}
+        `
+      );
+      expect({
+        afterInterrupt: {
+          verdictEventRows: afterInterrupt.events.filter(
+            (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+          ).length,
+          verdictRows: afterInterrupt.verdicts.length,
+        },
+        afterReplay: {
+          verdictEventRows: afterReplay.events.filter(
+            (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
+          ).length,
+          verdictRows: afterReplay.verdicts.length,
+        },
+        interruptedStatus: interrupted?.status,
+        rejectionRows: Number(rejections[0]?.count ?? 0),
+        replayCode: asRecord(replay.json).code,
+        replayStatus: replay.status,
+      }).toEqual({
+        afterInterrupt: { verdictEventRows: 0, verdictRows: 0 },
+        afterReplay: { verdictEventRows: 0, verdictRows: 0 },
+        interruptedStatus: 500,
+        rejectionRows: 1,
+        replayCode: 'UNCITED_KILL_REJECTED',
+        replayStatus: 422,
       });
     }, 60_000);
 

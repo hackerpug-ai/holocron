@@ -18,6 +18,6 @@
     {"id":"TC-1","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1'"},
     {"id":"TC-2","verify":"rg -n 'UNCITED_KILL_REJECTED|WIP_ONE_EXCEEDED|PROBE_REQUIRED_FOR_VALIDATED' services/platform/tests/integration/mission-engine-red.test.ts"},
     {"id":"TC-3","verify":"! rg -n '(INSERT INTO|UPDATE|DELETE FROM)\\s+(sources|passages|claims|beliefs)\\b' services/platform/src/http/missions.ts"},
-    {"id":"TC-4","verify":"grep -E 'CHECK.*SECURITY DEFINER' services/platform/src/db/migrations/*.sql"}
+    {"id":"TC-4","verify":"rg -U 'CREATE OR REPLACE FUNCTION public\\.enforce_mission_human_gate\\(\\)[\\s\\S]*SECURITY DEFINER' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE TRIGGER mission_verdicts_human_gate_before_insert' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx' services/platform/src/db/migrations/0025_deterministic_human_gate.sql"}
   ]
 }

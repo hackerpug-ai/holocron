@@ -1,7 +1,7 @@
 {
   "task_id": "gate-1",
-  "timestamp": "2026-07-22T04:29:56Z",
-  "commit_sha": "64b11482491a2010168388e11c5f403e39534087",
+  "timestamp": "2026-07-22T04:29:08Z",
+  "commit_sha": "0c7f4427d0e0aa9253f975ffd4960952aa2ac194",
   "typecheck": {
     "exit_code": 0
   },
@@ -66,7 +66,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.0",
-    "generated_at": "2026-07-22T04:29:56Z",
+    "generated_at": "2026-07-22T04:29:08Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -78,27 +78,27 @@
       },
       {
         "path": "test-output.txt",
-        "sha256": "49c86b105d902fedbf5c17050c727f5ba008d899d3369b61f9dbc4c4cc04aaa6"
+        "sha256": "f54f031585decb342b74e7fed4e4af115a666b54ae13e368589b3126db7ff2a2"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "e028b230148f65f3f658c78eb417fd6dda296c1b1cb3633769b847592073ecfc"
+        "sha256": "90ab38b0494a25a5c5990bcd0f351835ad6996f247c7b087d16492b8286f7ce2"
       },
       {
         "path": "ac-2-output.txt",
-        "sha256": "4a4253427761d90420ca85ff3f98b24cc09e1bf60dfe606c6b4d033276a4e361"
+        "sha256": "a315d191bf0baaffc99bd9942526ff0106dc374e4635e0aa1448a808ed7e2c58"
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "52ddf0ea226c1e392f881f1e94e6c3e919716f8096a18be076ba3c69711329d7"
+        "sha256": "f8aae70d19485d500a748a88d0d74f4507f8a00b4746200a072c3ba1d940eef2"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "0d560cb7cc87b3228c032d2ab2937b23e48e215761fa0163e1b8b79b74e0491d"
+        "sha256": "2c92ce8736f69299d344b08c5744958f94e76e80bfa8bfef171223d00fc792c3"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "4ed6ad7d61f7f433e568d9d992e13221c982cbc9bba0fda5ee9ca840339d6040"
+        "sha256": "891ceeccc7fcb7264f2400c7259ba2638947c22fc3deda6182ba82ac97bb0869"
       },
       {
         "path": "tc-2-output.txt",

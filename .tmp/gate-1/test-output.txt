@@ -4,7 +4,7 @@
 
  Test Files  1 passed (1)
       Tests  5 passed | 28 skipped (33)
-   Start at  22:28:44
-   Duration  5.88s (transform 344ms, setup 109ms, import 833ms, tests 4.85s, environment 0ms)
+   Start at  22:29:30
+   Duration  5.41s (transform 339ms, setup 108ms, import 811ms, tests 4.40s, environment 0ms)
 
 EXIT_CODE:0
