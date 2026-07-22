@@ -3519,8 +3519,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         rationale: 'Interrupt after gate violation, before rejection persistence.',
       };
       const startDetachedServer = (port: number, extraEnv: Record<string, string> = {}) => {
-        const child = spawn('setsid', ['bun', 'services/platform/src/cli/holo.ts', 'service:up'], {
+        const child = spawn('bun', ['services/platform/src/cli/holo.ts', 'service:up'], {
           cwd: process.cwd(),
+          detached: true,
           env: { ...process.env, PORT: String(port), ...extraEnv },
           stdio: 'ignore',
         });
