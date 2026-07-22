@@ -3273,8 +3273,15 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
   }, 60_000);
 
   describe.sequential('Sprint 23 gate-4 RED: deterministic human gate and fulcrum seams', () => {
-    async function seedGate4Run(label: string) {
-      const template = prepareTemplateFixture('template-test.echo.json', `gate-4-${label}`);
+    async function seedGate4Run(
+      label: string,
+      options?: { goal?: string; fixture?: 'template-test.echo.json' | 'template-research.json' }
+    ) {
+      const goal = options?.goal ?? `Gate 4 public_api seed: ${label}.`;
+      const template = prepareTemplateFixture(
+        options?.fixture ?? 'template-test.echo.json',
+        `gate-4-${label}`
+      );
       const register = runHolo(`gate-4-${label}-register`, [
         'mission',
         'template:register',
@@ -3290,17 +3297,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         '/api/missions',
         {
           key: RN,
-          body: makeCreateBody(
-            template.templateKey,
-            `Gate 4 public_api seed: ${label}.`,
-            idempotencyKey
-          ),
+          body: makeCreateBody(template.templateKey, goal, idempotencyKey),
         }
       );
       const runId =
         runIdFromUnknown(asRecord(created.json)) ??
         stringValue(await findRunByIdempotencyKey(idempotencyKey), ['id']);
-      return { app, created, idempotencyKey, register, runId, template };
+      return { app, created, goal, idempotencyKey, register, runId, template };
     }
 
     it('gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger', async () => {
@@ -3330,11 +3333,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
 
     it('gate-1 WIP=1: a second active run for the same human gate is refused before a row is created', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
-      // GIVEN: one real mission run already occupies the deterministic human-gate WIP slot.
+      // GIVEN: one real mission run has the exact persisted same-subject templateKey plus goal identity.
       // WHEN: the same actor creates a second run through the real HTTP surface.
       // THEN: the second request is refused with 403 and exactly one run remains for this gate.
       // MUST_OBSERVE: Expected status 403 and COUNT(*) 1; MUST_NOT_OBSERVE: a second run row.
-      const seeded = await seedGate4Run('wip-one');
+      const sameSubjectGoal = 'Gate 4 same-subject research goal';
+      const seeded = await seedGate4Run('same-subject-first', { goal: sameSubjectGoal });
       const second = await callAppJson(
         seeded.app,
         'gate-4-wip-one-second-public-api-create',
@@ -3344,7 +3348,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
           key: RN,
           body: makeCreateBody(
             seeded.template.templateKey,
-            'A second active human-gate run must be refused.',
+            sameSubjectGoal,
             scenarioId('gate-4-wip-one-second')
           ),
         }
@@ -3352,13 +3356,18 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const rows = await withSql((sql) =>
         selectMissionRunsByTemplateKey(sql, seeded.template.templateKey)
       );
+      const activeSameSubjectRows = rows.filter(
+        (row) =>
+          stringValue(row, ['goal']) === sameSubjectGoal &&
+          ['pending', 'running', 'suspended'].includes(stringValue(row, ['status']) ?? '')
+      );
       expect({
         firstCreateStatus: seeded.created.status,
-        runCount: rows.length,
+        activeSameSubjectRunCount: activeSameSubjectRows.length,
         secondCreateStatus: second.status,
       }).toEqual({
         firstCreateStatus: 200,
-        runCount: 1,
+        activeSameSubjectRunCount: 1,
         secondCreateStatus: 403,
       });
     }, 60_000);
@@ -3366,9 +3375,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     it('gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock database or direct INSERT.
       // GIVEN: a real run with no successful human-gate probe recorded for its current cycle.
-      // WHEN: a human posts advance through the real verdict HTTP surface.
-      // THEN: the server returns 403 and commits zero advance verdict/event rows.
-      // MUST_OBSERVE: Expected status 403 and 0 rows; MUST_NOT_OBSERVE: an unprobed advance.
+      // WHEN: a human posts advance→validated through the real verdict HTTP surface.
+      // THEN: the server returns 403 and commits zero validated verdict/event rows.
+      // MUST_OBSERVE: Expected status 403 and 0 rows; MUST_NOT_OBSERVE: an unprobed validated transition.
       const seeded = await seedGate4Run('unprobed-advance');
       const response = await callAppJson(
         seeded.app,
@@ -3377,7 +3386,11 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         `/api/missions/${seeded.runId ?? 'missing-run-id'}/verdicts`,
         {
           key: RN,
-          body: { verdict: 'advance', rationale: 'Advance despite no deterministic probe.' },
+          body: {
+            verdict: 'advance',
+            targetStatus: 'validated',
+            rationale: 'Advance to validated despite no deterministic probe.',
+          },
         }
       );
       const summary = await summarizeRun(seeded.runId);
@@ -3385,10 +3398,11 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         advanceEvents: summary.events.filter(
           (row) => rowValue(row, ['event_type', 'eventType']) === 'verdict'
         ).length,
-        advanceVerdicts: summary.verdicts.filter((row) => rowValue(row, ['verdict']) === 'advance')
-          .length,
+        validatedAdvanceVerdicts: summary.verdicts.filter(
+          (row) => rowValue(row, ['verdict']) === 'advance'
+        ).length,
         status: response.status,
-      }).toEqual({ advanceEvents: 0, advanceVerdicts: 0, status: 403 });
+      }).toEqual({ advanceEvents: 0, status: 403, validatedAdvanceVerdicts: 0 });
     }, 60_000);
 
     it('gate-1 failed gate mutation rolls back: an uncited kill leaves no partial verdict or event rows', async () => {
@@ -3420,10 +3434,12 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
     it('gate-2 steering-next-cycle: a steering instruction is applied to the next cycle output', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
       // GIVEN: a real run with a next-cycle instruction to prioritize recent papers.
-      // WHEN: the instruction is posted through the real steer HTTP surface and status is re-read.
-      // THEN: the next-cycle status/output exposes that exact applied constraint.
-      // MUST_OBSERVE: "recent papers" in cycle output; MUST_NOT_OBSERVE: an unchanged output surface.
-      const seeded = await seedGate4Run('steering-next-cycle');
+      // WHEN: the instruction is posted through the real steer HTTP surface and holo mission:cycle runs.
+      // THEN: the following real cycle output exposes that exact applied constraint.
+      // MUST_OBSERVE: "recent papers" in cycle output; MUST_NOT_OBSERVE: unknown command or unchanged output.
+      const seeded = await seedGate4Run('steering-next-cycle', {
+        fixture: 'template-research.json',
+      });
       const instruction = 'Prioritize recent papers published in 2025 and 2026.';
       const steer = await callAppJson(
         seeded.app,
@@ -3432,55 +3448,61 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         `/api/missions/${seeded.runId ?? 'missing-run-id'}/steer`,
         { key: RN, body: { instruction } }
       );
-      const status = await callAppJson(
-        seeded.app,
-        'gate-4-steering-next-cycle-status',
-        'GET',
-        `/api/missions/${seeded.runId ?? 'missing-run-id'}`,
-        { key: RN }
-      );
+      const cycle = runHolo('gate-4-steering-next-cycle-real-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const cycleJson = asRecord(cycle.parsed);
+      const cyclePayload = asRecord(cycleJson.cycle);
       expect({
-        status: status.status,
+        cycleStatus: cycle.status,
+        steeringApplied: cyclePayload.steeringApplied,
         steerStatus: steer.status,
-        nextCycleOutput: JSON.stringify(status.json).includes('recent papers'),
-      }).toEqual({ status: 200, steerStatus: 200, nextCycleOutput: true });
+        unknownCommand: /unknown command/i.test(cycle.combined),
+      }).toEqual({
+        cycleStatus: 0,
+        steeringApplied: ['Prioritize recent papers published in 2025 and 2026.'],
+        steerStatus: 200,
+        unknownCommand: false,
+      });
     }, 60_000);
 
     it('gate-2 ASSAY≠CHALLENGE: real assay and challenge executions expose distinct fleet instance IDs', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
-      // GIVEN: a real research-bound run whose assay and challenge are independent executions.
-      // WHEN: the run status is observed through the real HTTP surface.
+      // GIVEN: a real research-bound run whose assay and challenge are independent fleet executions.
+      // WHEN: holo mission:cycle executes the real following cycle and returns its JSON projection.
       // THEN: assayInstanceId and challengeInstanceId are concrete and different UUID-like instance IDs.
       // MUST_OBSERVE: two unequal instance IDs; MUST_NOT_OBSERVE: equal or placeholder instance IDs.
-      const seeded = await seedGate4Run('assay-challenge-distinct-instances');
-      const status = await callAppJson(
-        seeded.app,
-        'gate-4-assay-challenge-distinct-status',
-        'GET',
-        `/api/missions/${seeded.runId ?? 'missing-run-id'}`,
-        { key: RN }
-      );
-      const payload = asRecord(status.json);
+      const seeded = await seedGate4Run('assay-challenge-distinct-instances', {
+        fixture: 'template-research.json',
+      });
+      const cycle = runHolo('gate-4-assay-challenge-real-fleet-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const payload = asRecord(asRecord(cycle.parsed).cycle);
       expect({
         assayInstanceId: payload.assayInstanceId,
         challengeInstanceId: payload.challengeInstanceId,
         distinct: payload.assayInstanceId !== payload.challengeInstanceId,
-        status: status.status,
+        cycleStatus: cycle.status,
       }).toEqual({
         assayInstanceId: expect.any(String),
         challengeInstanceId: expect.any(String),
         distinct: true,
-        status: 200,
+        cycleStatus: 0,
       });
     }, 60_000);
 
     it('gate-2 admission parity: refuting claims survive the ASSAY to CHALLENGE evidence handoff', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
-      // GIVEN: a real run steered to retain a concrete refuting claim for the next cycle.
-      // WHEN: steering is persisted through the HTTP surface and run status is observed.
+      // GIVEN: a real run steered to retain comparable supporting and refuting claims for the next cycle.
+      // WHEN: steering is persisted through the HTTP surface and holo mission:cycle executes the handoff.
       // THEN: the admission surface reports the refuting claim as retained, not silently filtered.
       // MUST_OBSERVE: refuting claim count 1; MUST_NOT_OBSERVE: filtered count 0 or absent admission proof.
-      const seeded = await seedGate4Run('admission-parity');
+      const seeded = await seedGate4Run('admission-parity', { fixture: 'template-research.json' });
       const refutingClaim = 'The primary hypothesis is contradicted by the latest replication.';
       const steer = await callAppJson(
         seeded.app,
@@ -3489,29 +3511,41 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         `/api/missions/${seeded.runId ?? 'missing-run-id'}/steer`,
         { key: RN, body: { instruction: `Retain this refuting claim: ${refutingClaim}` } }
       );
-      const payload = asRecord(steer.json);
+      const cycle = runHolo('gate-4-admission-parity-real-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const admission = asRecord(payload.admission);
       expect({
-        refutingClaimsAdmitted: payload.refutingClaimsAdmitted,
-        refutingClaimsFiltered: payload.refutingClaimsFiltered,
+        cycleStatus: cycle.status,
+        refutingClaimsAdmitted: admission.refutingAdmitted,
+        refutingClaimsFiltered: admission.refutingFiltered,
+        supportingClaimsAdmitted: admission.supportingAdmitted,
         steerStatus: steer.status,
-      }).toEqual({ refutingClaimsAdmitted: 1, refutingClaimsFiltered: 0, steerStatus: 200 });
+      }).toEqual({
+        cycleStatus: 0,
+        refutingClaimsAdmitted: 1,
+        refutingClaimsFiltered: 0,
+        steerStatus: 200,
+        supportingClaimsAdmitted: 1,
+      });
     }, 60_000);
 
     it('gate-2 CLI evidence surface: assay and challenge report concrete non-placeholder instance IDs', async () => {
       // SCENARIO: real Postgres + public_api seed; no mock fleet response or direct INSERT.
       // GIVEN: a real HTTP-created run eligible for the CLI/status evidence projection.
-      // WHEN: the public status surface is queried after the run is created.
+      // WHEN: the Gate 2-owned holo mission:cycle command is run after a real cycle request.
       // THEN: concrete assay/challenge instance IDs are emitted rather than placeholder values.
       // MUST_OBSERVE: two concrete IDs and zero placeholders; MUST_NOT_OBSERVE: "pending" or "unknown" IDs.
-      const seeded = await seedGate4Run('cli-instance-ids');
-      const status = await callAppJson(
-        seeded.app,
-        'gate-4-cli-instance-ids-status',
-        'GET',
-        `/api/missions/${seeded.runId ?? 'missing-run-id'}`,
-        { key: RN }
-      );
-      const payload = asRecord(status.json);
+      const seeded = await seedGate4Run('cli-instance-ids', { fixture: 'template-research.json' });
+      const cycle = runHolo('gate-4-cli-instance-ids-cycle', [
+        'mission:cycle',
+        seeded.runId ?? 'missing-run-id',
+        '--json',
+      ]);
+      const payload = asRecord(asRecord(cycle.parsed).cycle);
       const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
       const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
       expect({
@@ -3520,12 +3554,16 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         hasPlaceholder: /placeholder|pending|unknown/i.test(
           `${assayInstanceId}:${challengeInstanceId}`
         ),
-        status: status.status,
+        cycleIndex: payload.index,
+        cycleStatus: cycle.status,
+        unknownCommand: /unknown command/i.test(cycle.combined),
       }).toEqual({
         assayInstanceId: expect.any(String),
         challengeInstanceId: expect.any(String),
         hasPlaceholder: false,
-        status: 200,
+        cycleIndex: 1,
+        cycleStatus: 0,
+        unknownCommand: false,
       });
     }, 60_000);
   });
