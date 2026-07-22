@@ -1,13 +1,13 @@
 [
   {
     "id": "AC-1",
-    "verify": "PLATFORM_IT=1 bun test --grep 'gate-1' services/platform/tests/integration/mission-engine-red.test.ts > .tmp/gate-4/red-output.txt; exit 1",
+    "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1' > .tmp/gate-4/red-output.txt 2>&1; exit 1",
     "exit_code": 1,
     "output_file": ".tmp/gate-4/ac-1-output.txt"
   },
   {
     "id": "AC-2",
-    "verify": "PLATFORM_IT=1 bun test --grep 'gate-2' services/platform/tests/integration/mission-engine-red.test.ts >> .tmp/gate-4/red-output.txt; exit 1",
+    "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-2' >> .tmp/gate-4/red-output.txt 2>&1; exit 1",
     "exit_code": 1,
     "output_file": ".tmp/gate-4/ac-2-output.txt"
   },
@@ -20,30 +20,30 @@
   {
     "id": "AC-4",
     "verify": "cat .tmp/gate-4/red-output.txt | grep -c 'FAIL' | grep 8",
-    "exit_code": 1,
+    "exit_code": 0,
     "output_file": ".tmp/gate-4/ac-4-output.txt"
   },
   {
     "id": "TC-1",
-    "verify": "PLATFORM_IT=1 bun test --grep 'gate-1|gate-2' services/platform/tests/integration/mission-engine-red.test.ts; exit 1",
+    "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1|gate-2'; exit 1",
     "exit_code": 1,
     "output_file": ".tmp/gate-4/tc-1-output.txt"
   },
   {
     "id": "TC-2",
     "verify": "grep -c 'FAIL' .tmp/gate-4/red-output.txt | grep 8",
-    "exit_code": 1,
+    "exit_code": 0,
     "output_file": ".tmp/gate-4/tc-2-output.txt"
   },
   {
     "id": "TC-3",
-    "verify": "grep -c 'PLATFORM_IT=1|public_api' services/platform/tests/integration/mission-engine-red.test.ts | grep -E '[0-9]+'",
-    "exit_code": 1,
+    "verify": "grep -E -c 'PLATFORM_IT=1|public_api' services/platform/tests/integration/mission-engine-red.test.ts | grep -E '^[1-9][0-9]*$'",
+    "exit_code": 0,
     "output_file": ".tmp/gate-4/tc-3-output.txt"
   },
   {
     "id": "TC-4",
-    "verify": "! grep -r 'mock.*database|:memory:.*sqlite' services/platform/tests/integration/mission-engine-red.test.ts",
+    "verify": "! sed -E '/^[[:space:]]*\\/\\//d; /\\/\\*/,/\\*\\//d' services/platform/tests/integration/mission-engine-red.test.ts | rg -n 'vi\\.(mock|doMock)|mock[^[:space:]]*(Postgres|Drizzle|Sql|Client)|(:memory:|mode=memory|file:.*memory)'",
     "exit_code": 0,
     "output_file": ".tmp/gate-4/tc-4-output.txt"
   }
