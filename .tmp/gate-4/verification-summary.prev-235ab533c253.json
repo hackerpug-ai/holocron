@@ -1,7 +1,7 @@
 {
   "task_id": "gate-4",
-  "timestamp": "2026-07-22T04:01:31Z",
-  "commit_sha": "70653c290e37137eef9d1c75fffccffde567e9f3",
+  "timestamp": "2026-07-22T03:55:33Z",
+  "commit_sha": "6286e0b6f429f07355de053d66244b7c5b03102a",
   "typecheck": {
     "exit_code": 0
   },
@@ -66,7 +66,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.0",
-    "generated_at": "2026-07-22T04:01:31Z",
+    "generated_at": "2026-07-22T03:55:33Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -94,7 +94,7 @@
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "ebbb7f01b6df6ac5e71fac4504f9f29a6c7468e8ec2a3574e3feb9e9f7fc5cfe"
+        "sha256": "e88888ff8fcaf4df258f1e8f86b0f784d4b5ce65c3cd71a1941796f9e0f8d1b3"
       },
       {
         "path": "tc-2-output.txt",
