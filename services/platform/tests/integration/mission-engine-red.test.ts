@@ -3575,6 +3575,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         '--json',
       ]);
       const payload = asRecord(asRecord(cycle.parsed).cycle);
+      const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
+      const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
       const admission = asRecord(payload.admission);
       const persisted = await summarizeRun(seeded.runId);
       const persistedAssayTrace = persisted.telemetry.find(
@@ -3641,6 +3643,17 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const persisted = await summarizeRun(seeded.runId);
       const assayInstanceId = String(payload.assayInstanceId ?? 'placeholder:assay');
       const challengeInstanceId = String(payload.challengeInstanceId ?? 'placeholder:challenge');
+      const persistedAssayTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'assay'
+      );
+      const persistedChallengeTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
+      );
+      const persistedAssayInstanceId = stringValue(persistedAssayTrace, ['trace_id', 'traceId']);
+      const persistedChallengeInstanceId = stringValue(persistedChallengeTrace, [
+        'trace_id',
+        'traceId',
+      ]);
       expect({
         assayInstanceId,
         challengeInstanceId,
@@ -3649,6 +3662,14 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         ),
         cycleIndex: payload.index,
         cycleStatus: cycle.status,
+        cliAssayEqualsPersistedTrace: assayInstanceId === persistedAssayInstanceId,
+        cliChallengeEqualsPersistedTrace: challengeInstanceId === persistedChallengeInstanceId,
+        idsAreUnequal: assayInstanceId !== challengeInstanceId,
+        persistedIdsAreConcrete:
+          Boolean(persistedAssayInstanceId && persistedChallengeInstanceId) &&
+          !/assay|challenge|pending|unknown|placeholder/i.test(
+            `${persistedAssayInstanceId}:${persistedChallengeInstanceId}`
+          ),
         persistedFleetTraceRows: persisted.telemetry.length,
         unknownCommand: /unknown command/i.test(cycle.combined),
       }).toEqual({
@@ -3657,6 +3678,10 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         hasPlaceholder: false,
         cycleIndex: 1,
         cycleStatus: 0,
+        cliAssayEqualsPersistedTrace: true,
+        cliChallengeEqualsPersistedTrace: true,
+        idsAreUnequal: true,
+        persistedIdsAreConcrete: true,
         persistedFleetTraceRows: 2,
         unknownCommand: false,
       });
