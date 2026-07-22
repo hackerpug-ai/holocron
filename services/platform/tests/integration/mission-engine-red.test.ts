@@ -3519,17 +3519,24 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const persistedChallengeTrace = persisted.telemetry.find(
         (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
       );
+      const persistedAssayInstanceId = stringValue(persistedAssayTrace, ['trace_id', 'traceId']);
+      const persistedChallengeInstanceId = stringValue(persistedChallengeTrace, [
+        'trace_id',
+        'traceId',
+      ]);
       expect({
         assayInstanceId: payload.assayInstanceId,
         challengeInstanceId: payload.challengeInstanceId,
         distinct: payload.assayInstanceId !== payload.challengeInstanceId,
         cycleStatus: cycle.status,
-        cliAssayMatchesPersistedTrace:
-          payload.assayInstanceId ===
-          stringValue(persistedAssayTrace, ['trace_id', 'traceId', 'step_id', 'stepId']),
+        cliAssayMatchesPersistedTrace: payload.assayInstanceId === persistedAssayInstanceId,
         cliChallengeMatchesPersistedTrace:
-          payload.challengeInstanceId ===
-          stringValue(persistedChallengeTrace, ['trace_id', 'traceId', 'step_id', 'stepId']),
+          payload.challengeInstanceId === persistedChallengeInstanceId,
+        persistedIdsAreConcrete:
+          Boolean(persistedAssayInstanceId && persistedChallengeInstanceId) &&
+          !/assay|challenge|pending|unknown|placeholder/i.test(
+            `${persistedAssayInstanceId}:${persistedChallengeInstanceId}`
+          ),
         persistedAssayStage: stringValue(assayStage, ['stage_key', 'stageKey']),
         persistedChallengeStage: stringValue(challengeStage, ['stage_key', 'stageKey']),
         persistedFleetTraceRows: persisted.telemetry.length,
@@ -3540,6 +3547,7 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         cycleStatus: 0,
         cliAssayMatchesPersistedTrace: true,
         cliChallengeMatchesPersistedTrace: true,
+        persistedIdsAreConcrete: true,
         persistedAssayStage: 'assay',
         persistedChallengeStage: 'challenge',
         persistedFleetTraceRows: 2,
@@ -3569,6 +3577,17 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const payload = asRecord(asRecord(cycle.parsed).cycle);
       const admission = asRecord(payload.admission);
       const persisted = await summarizeRun(seeded.runId);
+      const persistedAssayTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'assay'
+      );
+      const persistedChallengeTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
+      );
+      const persistedAssayInstanceId = stringValue(persistedAssayTrace, ['trace_id', 'traceId']);
+      const persistedChallengeInstanceId = stringValue(persistedChallengeTrace, [
+        'trace_id',
+        'traceId',
+      ]);
       const persistedAdmission = asRecord(typedOutputSnapshot(persisted.commits.at(-1)));
       expect({
         cycleAdmissionMatchesPersistedRefuting:
@@ -3577,6 +3596,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         cycleAdmissionMatchesPersistedSupporting:
           admission.supportingAdmitted === persistedAdmission.supportingAdmitted,
         cycleStatus: cycle.status,
+        cliAssayEqualsPersistedTrace: assayInstanceId === persistedAssayInstanceId,
+        cliChallengeEqualsPersistedTrace: challengeInstanceId === persistedChallengeInstanceId,
+        persistedIdsAreConcrete:
+          Boolean(persistedAssayInstanceId && persistedChallengeInstanceId) &&
+          !/assay|challenge|pending|unknown|placeholder/i.test(
+            `${persistedAssayInstanceId}:${persistedChallengeInstanceId}`
+          ),
         persistedAdmissionEvidenceRows: persisted.commits.length,
         persistedSteeringRows: persisted.steering.length,
         refutingClaimsAdmitted: admission.refutingAdmitted,
@@ -3587,6 +3613,9 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         cycleAdmissionMatchesPersistedRefuting: true,
         cycleAdmissionMatchesPersistedSupporting: true,
         cycleStatus: 0,
+        cliAssayEqualsPersistedTrace: true,
+        cliChallengeEqualsPersistedTrace: true,
+        persistedIdsAreConcrete: true,
         persistedAdmissionEvidenceRows: 1,
         persistedSteeringRows: 1,
         refutingClaimsAdmitted: 1,
