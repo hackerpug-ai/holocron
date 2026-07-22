@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-1
+
+ ✓ services/platform/tests/integration/mission-engine-red.test.ts (34 tests | 33 skipped) 1316ms
+       ✓ gate-1 uncited-kill rejected: a kill without immutable evidence citations must not enter the ledger  931ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 33 skipped (34)
+   Start at  13:55:10
+   Duration  2.37s (transform 350ms, setup 125ms, import 834ms, tests 1.32s, environment 0ms)
+

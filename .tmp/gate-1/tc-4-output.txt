@@ -1,0 +1,7 @@
+CREATE OR REPLACE FUNCTION public.enforce_mission_human_gate()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+    IF current_setting('holocron.test_human_gate_crash_boundary', true) = 'after_violation_before_rollback' THEN PERFORM pg_sleep(30); END IF;
+CREATE TRIGGER mission_verdicts_human_gate_before_insert
+CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx

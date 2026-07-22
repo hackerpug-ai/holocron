@@ -1,0 +1,117 @@
+{
+  "task_id": "gate-1",
+  "timestamp": "2026-07-22T04:28:08Z",
+  "commit_sha": "0c7f4427d0e0aa9253f975ffd4960952aa2ac194",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 uncited-kill rejected'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 WIP=1'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 unprobed-advance refused'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 postgres rollback survives replay'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1'",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'UNCITED_KILL_REJECTED|WIP_ONE_EXCEEDED|PROBE_REQUIRED_FOR_VALIDATED' services/platform/tests/integration/mission-engine-red.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "! rg -n 'INSERT|UPDATE|DELETE.*(sources|passages|claims|beliefs)' services/platform/src/http/missions.ts",
+      "exit_code": 1,
+      "output_file": ".tmp/gate-1/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "grep -E 'CHECK.*SECURITY DEFINER' services/platform/src/db/migrations/*.sql",
+      "exit_code": 0,
+      "output_file": ".tmp/gate-1/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-22T04:28:08Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "e04110c9d24b5f7b536c8c79bdc0c55848475c16decad8dd9c629a5346278954"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "1e7674ec34efaf7c95e6436d2a62df64968df4a57568128a5b97e53c8af847ff"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "7eb83a15218902ea48c4d06924f0d5e52f51e05ded9c4914efc21219b1c5146e"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "184bfdcc903f5808d689a227dee32333dd64797cd15ffb4656d2cf3cc065fbcb"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "bb9a83466e494cb855c33b008af8eda7302ad2be03c05e28ada9cc0b2583864e"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "c48ddda479d784c32743aebd38b793f22c46c96a487a0200ff4a5c9c6bdc2aba"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "f35a475781c28bad77e9ec82610783b93216726bb13c563abc44becc7ea743a6"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "a84ddaa6efe292463603b275d0cb59bb32146d64b8bb0e5b51c0dfd37e70ca1c"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "aa767b298743e7e68e0689a717e509dcb70bd8cc22aa16d3ff5a80a003473db1"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "855a462b5cff9c1aeabfa262cff1c2cf1b5fbaed6e2efb5931a176700a753ff2"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "163643346a333ba53a26837883b9d0a9e055170714f8bd431191f19c98bc40ae"
+      }
+    ]
+  }
+}

@@ -34,6 +34,8 @@ const MissionCreateBodySchema = z
 
 const MissionRunIdSchema = z.string().uuid();
 const MissionVerdictEnum = z.enum(['kill', 'advance', 'redirect', 'boost']);
+const HUMAN_GATE_TEST_CRASH_ENV = 'HOLO_TEST_MISSION_VERDICT_CRASH_AT';
+const HUMAN_GATE_TEST_CRASH_BOUNDARY = 'after_violation_before_rollback';
 
 const MissionSteerBodySchema = z
   .object({
@@ -59,6 +61,8 @@ const MissionVerdictBodySchema = z
     requestKey: z.string().min(1).optional(),
     verdict: MissionVerdictEnum,
     rationale: z.string().min(1).optional(),
+    citation: z.string().uuid().optional(),
+    targetStatus: z.literal('validated').optional(),
   })
   .strict();
 
@@ -92,6 +96,15 @@ type MissionVerdictRow = {
   rationale: string | null;
   payload_json: unknown;
   created_at: Date | string;
+};
+
+type MissionVerdictRejectionRow = {
+  id: string;
+  run_id: string;
+  request_key: string;
+  payload_json: unknown;
+  error_code: string;
+  error_message: string;
 };
 
 type MissionAuthorizedRunRow = {
@@ -178,6 +191,42 @@ function missionNotFound(runId: string): Error {
   });
 }
 
+function missionRuleViolationCode(error: unknown): string | null {
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : null;
+  if (
+    code === 'UNCITED_KILL_REJECTED' ||
+    code === 'WIP_ONE_EXCEEDED' ||
+    code === 'PROBE_REQUIRED_FOR_VALIDATED'
+  ) {
+    return code;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  for (const ruleCode of [
+    'UNCITED_KILL_REJECTED',
+    'WIP_ONE_EXCEEDED',
+    'PROBE_REQUIRED_FOR_VALIDATED',
+  ]) {
+    if (message.includes(ruleCode)) return ruleCode;
+  }
+  if (
+    error &&
+    typeof error === 'object' &&
+    (('constraint_name' in error &&
+      error.constraint_name === 'mission_runs_active_subject_wip_one_uidx') ||
+      ('constraint' in error && error.constraint === 'mission_runs_active_subject_wip_one_uidx'))
+  ) {
+    return 'WIP_ONE_EXCEEDED';
+  }
+  return null;
+}
+
+function requestedHumanGateCrashBoundary(): boolean {
+  return process.env[HUMAN_GATE_TEST_CRASH_ENV] === HUMAN_GATE_TEST_CRASH_BOUNDARY;
+}
+
 function assertMissionRunHttpAccess(run: MissionAuthorizedRunRow, scope: Scope): void {
   if (scope === 'control') {
     return;
@@ -203,6 +252,23 @@ export function missionHttpErrorFromUnknown(error: unknown): HttpMissionError {
     error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
       ? error.code
       : 'MISSION_RUNTIME_FAILED';
+  const humanGateCode = missionRuleViolationCode(error);
+  if (humanGateCode === 'UNCITED_KILL_REJECTED') {
+    return missionHttpError(
+      422,
+      humanGateCode,
+      error instanceof Error
+        ? error.message
+        : 'a kill verdict requires an immutable belief citation'
+    );
+  }
+  if (humanGateCode === 'WIP_ONE_EXCEEDED' || humanGateCode === 'PROBE_REQUIRED_FOR_VALIDATED') {
+    return missionHttpError(
+      403,
+      humanGateCode,
+      error instanceof Error ? error.message : 'mission human gate rejected the request'
+    );
+  }
 
   if (code === 'MISSION_NOT_FOUND') {
     return missionHttpError(
@@ -313,6 +379,66 @@ async function selectMissionVerdictByRequestKey(
   return rows[0] ?? null;
 }
 
+async function selectMissionVerdictRejectionByRequestKey(
+  sql: MissionControlSql,
+  runId: string,
+  requestKey: string
+): Promise<MissionVerdictRejectionRow | null> {
+  const rows = await sql<MissionVerdictRejectionRow[]>`
+    SELECT *
+    FROM mission_verdict_rejections
+    WHERE run_id = ${runId}::uuid
+      AND request_key = ${requestKey}
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+async function persistMissionVerdictRejection(
+  sql: Sql,
+  input: {
+    runId: string;
+    requestKey: string;
+    payload: unknown;
+    errorCode: string;
+    errorMessage: string;
+  }
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    const rows = await tx<MissionVerdictRejectionRow[]>`
+      INSERT INTO mission_verdict_rejections (
+        run_id,
+        request_key,
+        payload_json,
+        error_code,
+        error_message
+      )
+      VALUES (
+        ${input.runId}::uuid,
+        ${input.requestKey},
+        ${tx.json(input.payload as never)},
+        ${input.errorCode},
+        ${input.errorMessage}
+      )
+      ON CONFLICT (run_id, request_key) DO NOTHING
+      RETURNING *
+    `;
+    if (rows[0]) return;
+
+    const existing = await selectMissionVerdictRejectionByRequestKey(
+      tx,
+      input.runId,
+      input.requestKey
+    );
+    if (!existing || !sameCanonicalPayload(existing.payload_json, input.payload)) {
+      throw missionConflict(
+        'MISSION_IDEMPOTENCY_CONFLICT',
+        `mission verdict rejection key conflict for run ${input.runId}`
+      );
+    }
+  });
+}
+
 async function selectMissionControlEventByReference(
   sql: MissionControlSql,
   runId: string,
@@ -405,6 +531,12 @@ export async function createMissionRunFromHttp(
       }
     );
   } catch (error) {
+    if (missionRuleViolationCode(error) === 'WIP_ONE_EXCEEDED') {
+      throw missionConflict(
+        'WIP_ONE_EXCEEDED',
+        'only one active mission run is allowed for this template and goal'
+      );
+    }
     if (error instanceof MissionRuntimeError && error.code === 'MISSION_FORBIDDEN') {
       throw missionConflict('MISSION_IDEMPOTENCY_CONFLICT', 'mission idempotency conflict');
     }
@@ -583,6 +715,8 @@ export async function appendMissionVerdictFromHttp(
     actor,
     verdict: body.verdict,
     rationale: body.rationale ?? undefined,
+    citation: body.citation ?? undefined,
+    targetStatus: body.targetStatus ?? undefined,
   });
   const requestKey = body.requestKey ?? controlRequestKey('verdict', requestPayloadBase);
   const payload = canonicalJsonValue({
@@ -600,6 +734,25 @@ export async function appendMissionVerdictFromHttp(
       const run = await selectMissionRunForMutation(tx, normalizedRunId, scope);
       if (!run) {
         return null;
+      }
+
+      if (requestedHumanGateCrashBoundary()) {
+        await tx`SELECT set_config('holocron.test_human_gate_crash_boundary', ${HUMAN_GATE_TEST_CRASH_BOUNDARY}, true)`;
+      }
+
+      const persistedRejection = await selectMissionVerdictRejectionByRequestKey(
+        tx,
+        normalizedRunId,
+        requestKey
+      );
+      if (persistedRejection) {
+        if (!sameCanonicalPayload(persistedRejection.payload_json, payload)) {
+          throw missionConflict(
+            'MISSION_IDEMPOTENCY_CONFLICT',
+            `mission verdict request key conflict for run ${normalizedRunId}: persisted payload differs from this request`
+          );
+        }
+        throw missionConflict(persistedRejection.error_code, persistedRejection.error_message);
       }
 
       const verdictRows = await tx<MissionVerdictRow[]>`
@@ -683,9 +836,7 @@ export async function appendMissionVerdictFromHttp(
       return { verdict, event, replay: false };
     });
 
-    if (!inserted) {
-      throw missionNotFound(normalizedRunId);
-    }
+    if (!inserted) throw missionNotFound(normalizedRunId);
 
     return {
       replay: inserted.replay,
@@ -696,6 +847,20 @@ export async function appendMissionVerdictFromHttp(
       verdict: mapMissionVerdictRow(inserted.verdict),
       event: mapMissionEventRow(inserted.event),
     };
+  } catch (error) {
+    const humanGateCode = missionRuleViolationCode(error);
+    if (!humanGateCode) throw error;
+
+    const message =
+      error instanceof Error ? error.message : `mission human gate rejected: ${humanGateCode}`;
+    await persistMissionVerdictRejection(sql, {
+      runId: normalizedRunId,
+      requestKey,
+      payload,
+      errorCode: humanGateCode,
+      errorMessage: message,
+    });
+    throw missionConflict(humanGateCode, message);
   } finally {
     await sql.end({ timeout: 5 });
   }

@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-1
+
+ ✓ services/platform/tests/integration/mission-engine-red.test.ts (34 tests | 33 skipped) 1499ms
+       ✓ gate-1 unprobed-advance refused: advance requires a persisted probe before a verdict row can be written  1136ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 33 skipped (34)
+   Start at  13:55:16
+   Duration  2.54s (transform 353ms, setup 107ms, import 840ms, tests 1.50s, environment 0ms)
+

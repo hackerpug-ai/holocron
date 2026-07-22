@@ -1,0 +1,32 @@
+ WARN  using --force I sure hope you know what you are doing
+Lockfile is up to date, resolution step is skipped
+Packages: +1792
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 0, reused 1, downloaded 0, added 0
+Progress: resolved 0, reused 1682, downloaded 0, added 59
+Progress: resolved 0, reused 1682, downloaded 0, added 162
+Progress: resolved 0, reused 1682, downloaded 0, added 236
+Progress: resolved 0, reused 1682, downloaded 0, added 357
+Progress: resolved 0, reused 1682, downloaded 0, added 453
+Progress: resolved 0, reused 1682, downloaded 0, added 643
+Progress: resolved 0, reused 1682, downloaded 0, added 908
+Progress: resolved 0, reused 1682, downloaded 0, added 1361
+Progress: resolved 0, reused 1682, downloaded 0, added 1554
+Progress: resolved 0, reused 1682, downloaded 0, added 1643
+Progress: resolved 0, reused 1682, downloaded 0, added 1784
+Progress: resolved 0, reused 1682, downloaded 0, added 1792
+Progress: resolved 0, reused 1682, downloaded 0, added 1792, done
+node_modules/esbuild postinstall$ node install.js
+node_modules/convex/node_modules/esbuild postinstall$ node install.js
+node_modules/lefthook postinstall$ node postinstall.js
+node_modules/esbuild postinstall: Done
+node_modules/convex/node_modules/esbuild postinstall: Done
+node_modules/lefthook postinstall: sync hooks: ✔️ (pre-commit)
+node_modules/lefthook postinstall: Done
+
+
+> holocron@1.0.0 prepare /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-1
+> lefthook install
+
+sync hooks: ✔️ (pre-commit)
+Done in 14.2s

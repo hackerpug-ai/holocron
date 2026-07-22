@@ -1,0 +1,41 @@
+services/platform/src/http/missions.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    252 252 │         422,
+    253 253 │         humanGateCode,
+    254     │ - ······error·instanceof·Error·?·error.message·:·'a·kill·verdict·requires·an·immutable·belief·citation'
+        254 │ + ······error·instanceof·Error
+        255 │ + ········?·error.message
+        256 │ + ········:·'a·kill·verdict·requires·an·immutable·belief·citation'
+    255 257 │       );
+    256 258 │     }
+  
+
+services/platform/tests/integration/mission-engine-red.test.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    3484 3484 │         );
+    3485 3485 │         const summary = await summarizeRun(seeded.runId);
+    3486      │ - ······const·rejections·=·await·withSql((sql)·=>·sql<{·count:·string·}[]>`
+         3486 │ + ······const·rejections·=·await·withSql(
+         3487 │ + ········(sql)·=>·sql<{·count:·string·}[]>`
+    3487 3488 │           SELECT COUNT(*)::text AS count
+    3488 3489 │           FROM mission_verdict_rejections
+    3489 3490 │           WHERE run_id = ${seeded.runId ?? '00000000-0000-0000-0000-000000000000'}::uuid
+    3490 3491 │             AND request_key = ${requestKey}
+    3491      │ - ······`);
+         3492 │ + ······`
+         3493 │ + ······);
+    3492 3494 │         expect({
+    3493 3495 │           errorCodes: [asRecord(first.json).code, asRecord(second.json).code],
+  
+
+Checked 3 files in 34ms. No fixes applied.
+Found 2 errors.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+

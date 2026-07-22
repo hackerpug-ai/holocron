@@ -1,0 +1,12 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/gate-1
+
+ ✓ services/platform/tests/integration/mission-engine-red.test.ts (34 tests | 32 skipped) 15240ms
+       ✓ gate-1 postgres rollback survives replay: a rejected request key is durably replayed without a verdict write  1006ms
+       ✓ gate-1 crash/restart replay: interruption after violation rolls back, then a fresh Hono handler persists one rejection  13817ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 32 skipped (34)
+   Start at  13:55:19
+   Duration  16.40s (transform 410ms, setup 113ms, import 949ms, tests 15.24s, environment 0ms)
+
