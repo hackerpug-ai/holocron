@@ -14,7 +14,9 @@
  *   HOLO_KEY_RN=rn-test HOLO_KEY_MCP=mcp-test HOLO_KEY_CONTROL=ctl-test \
  *   pnpm vitest run services/platform/tests/integration/mission-engine-red.test.ts
  */
+import { existsSync, renameSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { resolve } from 'node:path';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createHonoApp } from '../../src/http/hono-app';
 import {
@@ -40,6 +42,7 @@ import {
   PLATFORM_IT,
   prepareManifestFixture,
   prepareTemplateFixture,
+  REPO_ROOT,
   RN,
   rowValue,
   runHolo,
@@ -4007,6 +4010,145 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         persistedFleetTraceRows: 2,
         unknownCommand: false,
       });
+    }, 60_000);
+  });
+
+  describe.sequential('Sprint 23 gate-3: fulcrum authorable-check seams', () => {
+    const CLAIMS_FIXTURE = resolve(
+      REPO_ROOT,
+      'services/platform/tests/fixtures/research/claims.json'
+    );
+    const EVIDENCE_GATE_PATH = resolve(
+      REPO_ROOT,
+      'services/platform/src/research/evidence-gate.ts'
+    );
+    const EVIDENCE_GATE_BAK = `${EVIDENCE_GATE_PATH}.gate3-test-bak`;
+
+    it('fulcrum:authorable-check reports SUFFICIENT with 5 PASS seams and concrete citations', () => {
+      // SCENARIO: real Postgres + real filesystem; no stubbed seams.
+      // GIVEN: evidence-research template + ledger tables + pure-TS gate exist.
+      // WHEN: operator runs holo fulcrum:authorable-check.
+      // THEN: 5 PASS lines with file:line citations and Overall SUFFICIENT.
+      const cli = runHolo('gate-3-authorable-check', ['fulcrum:authorable-check']);
+      writeArtifact('gate-3-authorable-check.json', {
+        status: cli.status,
+        stdout: cli.stdout,
+        stderr: cli.stderr,
+      });
+      expect(cli.status, cli.combined).toBe(0);
+      expect(cli.stdout).toMatch(/contract-seam: PASS/);
+      expect(cli.stdout).toMatch(/ledger-seam: PASS/);
+      expect(cli.stdout).toMatch(/gate-seam: PASS/);
+      expect(cli.stdout).toMatch(/role-bindings-seam: PASS/);
+      expect(cli.stdout).toMatch(/publish-seam: PASS/);
+      expect(cli.stdout).toMatch(/Overall: SUFFICIENT/);
+      expect(cli.stdout).not.toMatch(/Overall: INSUFFICIENT/);
+      expect(cli.stdout).not.toMatch(/TODO|verify manually/i);
+
+      const passWithCitation = cli.stdout
+        .split('\n')
+        .filter((line) => /PASS\s+\u2014/.test(line) && /:[0-9]+/.test(line));
+      expect(passWithCitation.length, 'expected 5 PASS lines with :line citations').toBe(5);
+
+      // Cited schema/source files must exist on disk.
+      for (const line of passWithCitation) {
+        const match = line.match(
+          /\((services\/platform\/src\/[a-z0-9_./-]+\.ts):[0-9]+(?:-[0-9]+)?\)/
+        );
+        expect(match, `citation path missing in: ${line}`).toBeTruthy();
+        const rel = match?.[1];
+        expect(rel && existsSync(resolve(REPO_ROOT, rel)), `missing cited file ${rel}`).toBe(true);
+      }
+    }, 60_000);
+
+    it('fulcrum-alias-uses-existing-template: top-level fulcrum runs evidence-research with instantiation=fulcrum', async () => {
+      // SCENARIO: real Postgres mission run via CLI alias; no new fulcrum template row.
+      // GIVEN: evidence-research is registered as the shared core.
+      // WHEN: operator runs holo fulcrum <goal> --claims <fixture>.
+      // THEN: mission_runs.template_key='evidence-research' and args_json.instantiation='fulcrum'.
+      await truncateMissionTables();
+      const goal = `Gate-3 fulcrum alias quantum computing trends ${scenarioId('gate-3-fulcrum')}`;
+      const cli = runHolo(
+        'gate-3-fulcrum-alias',
+        ['fulcrum', goal, '--components', '2', '--claims', CLAIMS_FIXTURE, '--json', '--fresh'],
+        { timeoutMs: 300_000 }
+      );
+      writeArtifact('gate-3-fulcrum-alias.json', {
+        status: cli.status,
+        stdout: cli.stdout,
+        stderr: cli.stderr,
+        parsed: cli.parsed,
+      });
+      expect(cli.status, cli.combined).toBe(0);
+      const payload = (cli.parsed ?? {}) as Record<string, unknown>;
+      expect(payload.templateKey ?? payload.template_key).toBe('evidence-research');
+
+      const rows = await withSql(async (sql) => {
+        return sql<
+          Array<{
+            template_key: string;
+            status: string;
+            instantiation: string | null;
+            goal: string | null;
+          }>
+        >`
+          SELECT template_key,
+                 status,
+                 args_json->>'instantiation' AS instantiation,
+                 goal
+            FROM mission_runs
+           WHERE goal = ${goal}
+           ORDER BY created_at DESC
+           LIMIT 1
+        `;
+      });
+      expect(rows.length, 'mission_runs row must exist for fulcrum alias').toBe(1);
+      expect(rows[0]?.template_key).toBe('evidence-research');
+      expect(rows[0]?.instantiation).toBe('fulcrum');
+      expect(['running', 'completed', 'suspended', 'pending']).toContain(rows[0]?.status);
+
+      // MUST NOT create a distinct fulcrum template row.
+      const fulcrumTemplates = await withSql(async (sql) => {
+        return sql<{ count: string }[]>`
+          SELECT COUNT(*)::text AS count
+            FROM mission_templates
+           WHERE template_key = 'fulcrum'
+        `;
+      });
+      expect(Number(fulcrumTemplates[0]?.count ?? 0)).toBe(0);
+    }, 300_000);
+
+    it('authorable-check-fails-fast-missing-seam: missing gate file yields FAIL + INSUFFICIENT without remaining seams', () => {
+      // SCENARIO: temporarily remove pure-TS gate surface; real CLI check.
+      // GIVEN: evidence-gate.ts is absent on disk.
+      // WHEN: operator runs holo fulcrum:authorable-check.
+      // THEN: gate-seam FAIL MISSING, Overall INSUFFICIENT, exit 1; no later seams.
+      expect(existsSync(EVIDENCE_GATE_PATH), 'evidence-gate.ts must exist before test').toBe(true);
+      renameSync(EVIDENCE_GATE_PATH, EVIDENCE_GATE_BAK);
+      try {
+        const cli = runHolo('gate-3-fail-fast-missing-gate', ['fulcrum:authorable-check']);
+        writeArtifact('gate-3-fail-fast-missing-gate.json', {
+          status: cli.status,
+          stdout: cli.stdout,
+          stderr: cli.stderr,
+        });
+        expect(cli.status, cli.combined).toBe(1);
+        expect(cli.stdout).toMatch(/gate-seam: FAIL\s+\u2014\s+MISSING/);
+        expect(cli.stdout).toMatch(/Reason: research\/evidence-gate\.ts does not exist/);
+        expect(cli.stdout).toMatch(/Overall: INSUFFICIENT/);
+        expect(cli.stdout).not.toMatch(/Overall: SUFFICIENT/);
+        // Fail-fast: role-bindings and publish must not be checked after gate FAIL.
+        expect(cli.stdout).not.toMatch(/role-bindings-seam:/);
+        expect(cli.stdout).not.toMatch(/publish-seam:/);
+        // Contract + ledger may still PASS before the missing gate.
+        expect(cli.stdout).toMatch(/contract-seam: PASS/);
+        expect(cli.stdout).toMatch(/ledger-seam: PASS/);
+      } finally {
+        if (existsSync(EVIDENCE_GATE_BAK)) {
+          renameSync(EVIDENCE_GATE_BAK, EVIDENCE_GATE_PATH);
+        }
+      }
+      expect(existsSync(EVIDENCE_GATE_PATH), 'evidence-gate.ts must be restored').toBe(true);
     }, 60_000);
   });
 });

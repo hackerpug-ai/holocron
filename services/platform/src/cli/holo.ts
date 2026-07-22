@@ -250,6 +250,8 @@ Usage:
   mission resume <run-id>   Resume a persisted mission run by id
   mission status <run-id>   Show persisted mission run status/output/provenance
   mission:cycle <run-id>    Execute one mid-run cycle (steering + ASSAY≠CHALLENGE)
+  fulcrum:authorable-check  Compile fulcrum (evidence-research alias) against 5 seams
+  fulcrum <goal>            Run fulcrum instantiation of evidence-research (CLI alias)
   article:compat <token>    Verify legacy public article URL shape
   mission run research      Run a research mission with per-run Langfuse trace export
                             (requires --goal; flushes OTel → self-hosted Langfuse)
@@ -3911,6 +3913,140 @@ async function main(): Promise<void> {
       break;
     }
 
+    case 'fulcrum:authorable-check': {
+      // Capstone seam compilation: contract + ledger + gate + role-bindings + publish.
+      // Fail-fast on first MISSING seam → Overall INSUFFICIENT (exit 1).
+      try {
+        const { formatAuthorableCheckText, runFulcrumAuthorableCheck } = await import(
+          './commands/fulcrum-authorable-check.ts'
+        );
+        const result = await runFulcrumAuthorableCheck();
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                verdict: result.verdict,
+                seams: result.seams,
+                lines: result.lines,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatAuthorableCheckText(result));
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: false,
+                verdict: 'INSUFFICIENT',
+                error: message,
+                code: 'FULCRUM_AUTHORABLE_CHECK_FAILED',
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.error(`fulcrum:authorable-check failed: ${message}`);
+          console.log('Overall: INSUFFICIENT');
+        }
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'fulcrum': {
+      // Top-level CLI alias → shared evidence-research template (instantiation=fulcrum).
+      // No new template code; templateKey is always 'evidence-research'.
+      const goal = (args.goal ?? args.prompt ?? args.topic ?? args.positional[1])?.trim() || null;
+      if (!goal) {
+        const error = 'fulcrum requires <goal> (or --goal <text>)';
+        const usage = "holo fulcrum '<goal>' [--claims <json>] [--json]";
+        if (args.json) {
+          exitMissionJsonError({
+            error,
+            code: 'MISSION_GOAL_REQUIRED',
+            exitCode: 2,
+            usage,
+          });
+        }
+        console.error(`error: ${error}`);
+        console.error(`Usage: ${usage}`);
+        process.exit(2);
+      }
+
+      const componentsRaw = args.components?.trim();
+      const components = componentsRaw ? Number(componentsRaw) : undefined;
+      if (
+        componentsRaw != null &&
+        componentsRaw.length > 0 &&
+        (!Number.isFinite(components) || !Number.isInteger(components) || (components ?? 0) < 1)
+      ) {
+        const error = 'fulcrum --components must be a positive integer';
+        if (args.json) {
+          exitMissionJsonError({
+            error,
+            code: 'MISSION_COMPONENTS_INVALID',
+            exitCode: 2,
+            usage: "holo fulcrum '<goal>' [--components <n>] [--json]",
+          });
+        }
+        console.error(`error: ${error}`);
+        process.exit(2);
+      }
+
+      const { runMissionTemplate } = await import('../mission/runtime.ts');
+      const fixturePath = args.claimsPath ?? args.refutingPath;
+      const evidence = fixturePath
+        ? (JSON.parse(readFileSync(fixturePath, 'utf8')) as never)
+        : undefined;
+      const instantiation = 'fulcrum' as const;
+      try {
+        const result = await runMissionTemplate(
+          {
+            // TC-2 / AC-2: fulcrum is an alias — always evidence-research, never a new template key.
+            templateKey: 'evidence-research',
+            goal,
+            topic: args.topic?.trim() || goal,
+            components,
+            instantiation,
+            tags: [instantiation],
+            idempotencyKey: defaultMissionIdempotencyKey(
+              'research',
+              {
+                instantiation,
+                goal,
+                components: components ?? 'default',
+              },
+              { override: args.idempotencyKey, fresh: args.fresh }
+            ),
+            researchEvidence: evidence,
+          },
+          { ownerScope: 'runtime' }
+        );
+        if (args.json) console.log(JSON.stringify(result, null, 2));
+        else printMissionRuntimeResult(result as Record<string, unknown>, 'fulcrum');
+        process.exit(result.ok ? 0 : 1);
+      } catch (error) {
+        const payload = missionErrorPayload(error, 'MISSION_RUNTIME_FAILED');
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.error(`error code: ${payload.errorCode}`);
+          console.error(payload.error);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+
     case 'mission': {
       const sub = args.positional[1];
       const kind = args.positional[2];
@@ -4035,7 +4171,9 @@ async function main(): Promise<void> {
         try {
           const result = await runMissionTemplate(
             {
-              templateKey: kind,
+              // Shared core: every alias (research/deepResearch/subscriptions-research/fulcrum)
+              // resolves to templateKey 'evidence-research' — never a distinct fulcrum template.
+              templateKey: 'evidence-research',
               goal,
               topic: topic ?? goal,
               components,
