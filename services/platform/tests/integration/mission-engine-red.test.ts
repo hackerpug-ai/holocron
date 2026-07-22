@@ -3471,13 +3471,18 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const cycleJson = asRecord(cycle.parsed);
       const cyclePayload = asRecord(cycleJson.cycle);
       const persisted = await summarizeRun(seeded.runId);
+      const persistedSteering = persisted.steering[0];
       expect({
+        cycleSteeringMatchesPersistedInstruction:
+          JSON.stringify(cyclePayload.steeringApplied) ===
+          JSON.stringify([stringValue(persistedSteering, ['instruction'])]),
         cycleStatus: cycle.status,
         persistedSteeringRows: persisted.steering.length,
         steeringApplied: cyclePayload.steeringApplied,
         steerStatus: steer.status,
         unknownCommand: /unknown command/i.test(cycle.combined),
       }).toEqual({
+        cycleSteeringMatchesPersistedInstruction: true,
         cycleStatus: 0,
         persistedSteeringRows: 1,
         steeringApplied: ['Prioritize recent papers published in 2025 and 2026.'],
@@ -3508,11 +3513,23 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const challengeStage = persisted.stageRuns.find(
         (row) => stringValue(row, ['stage_key', 'stageKey']) === 'challenge'
       );
+      const persistedAssayTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'assay'
+      );
+      const persistedChallengeTrace = persisted.telemetry.find(
+        (row) => stringValue(row, ['step_id', 'stepId']) === 'challenge'
+      );
       expect({
         assayInstanceId: payload.assayInstanceId,
         challengeInstanceId: payload.challengeInstanceId,
         distinct: payload.assayInstanceId !== payload.challengeInstanceId,
         cycleStatus: cycle.status,
+        cliAssayMatchesPersistedTrace:
+          payload.assayInstanceId ===
+          stringValue(persistedAssayTrace, ['trace_id', 'traceId', 'step_id', 'stepId']),
+        cliChallengeMatchesPersistedTrace:
+          payload.challengeInstanceId ===
+          stringValue(persistedChallengeTrace, ['trace_id', 'traceId', 'step_id', 'stepId']),
         persistedAssayStage: stringValue(assayStage, ['stage_key', 'stageKey']),
         persistedChallengeStage: stringValue(challengeStage, ['stage_key', 'stageKey']),
         persistedFleetTraceRows: persisted.telemetry.length,
@@ -3521,6 +3538,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         challengeInstanceId: expect.any(String),
         distinct: true,
         cycleStatus: 0,
+        cliAssayMatchesPersistedTrace: true,
+        cliChallengeMatchesPersistedTrace: true,
         persistedAssayStage: 'assay',
         persistedChallengeStage: 'challenge',
         persistedFleetTraceRows: 2,
@@ -3550,7 +3569,13 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
       const payload = asRecord(asRecord(cycle.parsed).cycle);
       const admission = asRecord(payload.admission);
       const persisted = await summarizeRun(seeded.runId);
+      const persistedAdmission = asRecord(typedOutputSnapshot(persisted.commits.at(-1)));
       expect({
+        cycleAdmissionMatchesPersistedRefuting:
+          admission.refutingAdmitted === persistedAdmission.refutingAdmitted &&
+          admission.refutingFiltered === persistedAdmission.refutingFiltered,
+        cycleAdmissionMatchesPersistedSupporting:
+          admission.supportingAdmitted === persistedAdmission.supportingAdmitted,
         cycleStatus: cycle.status,
         persistedAdmissionEvidenceRows: persisted.commits.length,
         persistedSteeringRows: persisted.steering.length,
@@ -3559,6 +3584,8 @@ describe.sequential('Sprint 15 mission-5 RED suite — mission engine missing su
         supportingClaimsAdmitted: admission.supportingAdmitted,
         steerStatus: steer.status,
       }).toEqual({
+        cycleAdmissionMatchesPersistedRefuting: true,
+        cycleAdmissionMatchesPersistedSupporting: true,
         cycleStatus: 0,
         persistedAdmissionEvidenceRows: 1,
         persistedSteeringRows: 1,
