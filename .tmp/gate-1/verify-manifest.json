@@ -14,10 +14,10 @@
     {"id":"AC-1","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 uncited-kill rejected'"},
     {"id":"AC-2","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 WIP=1'"},
     {"id":"AC-3","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 unprobed-advance refused'"},
-    {"id":"AC-4","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 postgres rollback survives replay'"},
+    {"id":"AC-4","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1 crash/restart replay|gate-1 postgres rollback survives replay'"},
     {"id":"TC-1","verify":"PLATFORM_IT=1 pnpm exec vitest run services/platform/tests/integration/mission-engine-red.test.ts -t 'gate-1'"},
     {"id":"TC-2","verify":"rg -n 'UNCITED_KILL_REJECTED|WIP_ONE_EXCEEDED|PROBE_REQUIRED_FOR_VALIDATED' services/platform/tests/integration/mission-engine-red.test.ts"},
     {"id":"TC-3","verify":"! rg -n '(INSERT INTO|UPDATE|DELETE FROM)\\s+(sources|passages|claims|beliefs)\\b' services/platform/src/http/missions.ts"},
-    {"id":"TC-4","verify":"rg -U 'CREATE OR REPLACE FUNCTION public\\.enforce_mission_human_gate\\(\\)[\\s\\S]*SECURITY DEFINER' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE TRIGGER mission_verdicts_human_gate_before_insert' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx' services/platform/src/db/migrations/0025_deterministic_human_gate.sql"}
+    {"id":"TC-4","verify":"rg -U 'CREATE OR REPLACE FUNCTION public\\.enforce_mission_human_gate\\(\\)[\\s\\S]*SECURITY DEFINER' services/platform/src/db/migrations/0027_mission_human_gate_crash_boundary.sql && rg 'pg_sleep\\(30\\)' services/platform/src/db/migrations/0027_mission_human_gate_crash_boundary.sql && rg 'CREATE TRIGGER mission_verdicts_human_gate_before_insert' services/platform/src/db/migrations/0025_deterministic_human_gate.sql && rg 'CREATE UNIQUE INDEX IF NOT EXISTS mission_runs_active_subject_wip_one_uidx' services/platform/src/db/migrations/0025_deterministic_human_gate.sql"}
   ]
 }
