@@ -1,0 +1,94 @@
+{
+  "sprint": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+    "sprint_slug": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams"
+  },
+  "planned_at": "20260723T041043Z",
+  "planned_steps": 6,
+  "gate_sentence": "Against the real append-only ledger, POST /api/missions/:id/verdicts deterministically rejects an uncited kill, refuses a second concurrent build (WIP=1), and refuses advance->validated without a recorded probe - enforced in Postgres-writing handlers, not by model choice.",
+  "method_note": "All steps are real human invocations against the running Hono service on :4111 (real Postgres nonprod ledger) and the real holo CLI. No wholesale test-suite invocation (D7). Runs used: RUN_ECHO=019f8d2d-2ef7-711b-bb40-df20ab9f27e4 (test.echo, completed, NO research.plan@1 probe) for steps 1 + 3a; RUN_PROBE=019f8d2f-c5d5-7b9d-94d0-abcdde0a2f17 (research, has a committed research.plan@1 probe from its plan stage) for step 3b; RUN_CYCLE=019f8d2e-00db-7eda-8ef3-51ee6cd81018 (research) for steps 4 + 5. Step 2 uses the research template for the concurrent second-build because its fleet plan stage keeps the row in 'running' ~1-3s (vs test.echo's ~3ms), giving the WIP=1 partial unique index a reliable collision window.",
+  "steps": [
+    {
+      "n": 1,
+      "text": "POST /api/missions/:id/verdicts {kill, no-citation} - rejected deterministically by the handler.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"kill\",\"rationale\":\"Stop now, without a citation.\",\"requestKey\":\"gate-step1-uncited-kill\"}'",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "UNCITED_KILL_REJECTED",
+        "expect_not_log_regex": "\"ok\":true"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Start a second concurrent build on the same subject - refused (WIP=1).",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "G='Sprint-23 WIP1 burst concurrent subject'; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w \"R${i}_HTTP=%{http_code}\\n\" --max-time 30 -X POST http://127.0.0.1:4111/api/missions -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d \"{\\\"templateKey\\\":\\\"research\\\",\\\"goal\\\":\\\"$G\\\",\\\"idempotencyKey\\\":\\\"wip-burst-$i-20260723\\\",\\\"args\\\":{\\\"goal\\\":\\\"$G\\\"}}\" & done; wait; echo; for i in 1 2 3 4 5 6; do echo \"R${i}=$(cat /tmp/gate-s23-wip-$i.json | tr -d '\\n')\"; done; echo; grep -l 'WIP_ONE_EXCEEDED' /tmp/gate-s23-wip-*.json >/dev/null && echo 'WIP_DETECTED_IN_BURST' || echo 'NO_WIP_IN_BURST'",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "WIP_ONE_EXCEEDED",
+        "expect_not_log_regex": ""
+      },
+      "method_note": "Concurrent burst of 6 simultaneous POST /api/missions with identical (templateKey,goal) \u2014 the faithful equivalent of the project test's Promise.all. The partial unique index mission_runs_active_subject_wip_one_uidx refuses all but one INSERT. Research template chosen so the winner's row stays 'running' through its fleet plan stage, widening the collision window vs test.echo's ~3ms."
+    },
+    {
+      "n": 3,
+      "text": "POST verdicts {advance->validated} with no recorded probe - refused; add a probe - accepted.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "echo '=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ==='; A=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"advance\",\"targetStatus\":\"validated\",\"rationale\":\"Advance before any probe.\",\"requestKey\":\"gate-step3a-unprobed-advance\"}'); echo \"$A\"; echo '=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ==='; B=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"advance\",\"targetStatus\":\"validated\",\"rationale\":\"Advance after a committed research.plan@1 probe.\",\"requestKey\":\"gate-step3b-probed-advance\"}'); echo \"$B\"; echo; if echo \"$A\" | grep -q 'PROBE_REQUIRED_FOR_VALIDATED' && echo \"$B\" | grep -q '\"ok\":true'; then echo 'STEP3_VERDICT=refused_then_accepted'; else echo 'STEP3_VERDICT=other'; fi",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP3_VERDICT=refused_then_accepted",
+        "expect_not_log_regex": ""
+      },
+      "method_note": "3a posts advance->validated to a run with NO committed research.plan@1 probe (test.echo run 019f8d2d) -> trigger refuses with PROBE_REQUIRED_FOR_VALIDATED. 3b posts the same to run 019f8d2e which HAS a committed research.plan@1 stage_run (and is rn-scope authorized) -> trigger allows, handler accepts. Summary token is computed from the two real responses."
+    },
+    {
+      "n": 4,
+      "text": "POST /api/missions/:id/steer mid-run - the steering row takes effect on the following cycle without a restart.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/steer -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"instruction\":\"Prioritize recent papers published in 2025 and 2026.\",\"requestKey\":\"gate-step4-steer\"}'",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"eventType\":\"steer\"",
+        "expect_not_log_regex": ""
+      },
+      "method_note": "expect_log_regex '\"eventType\":\"steer\"' is unique to a successful steer response (the event row is only written on success). The embedded run object may carry a prior retrieve-error code that is irrelevant to steer success, so no expect_not_log_regex."
+    },
+    {
+      "n": 5,
+      "text": "Run holo mission:cycle <id> - the CHALLENGE instance differs from ASSAY; refuting claims pass the identical admission gate.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00db-7eda-8ef3-51ee6cd81018 --json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"assayChallengeDistinct\"\\s*:\\s*true",
+        "expect_not_log_regex": ""
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo fulcrum:authorable-check - a fulcrum template compiles against contract+ledger+gate+role-bindings+publish seams with zero new platform code.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "SUFFICIENT",
+        "expect_not_log_regex": "INSUFFICIENT"
+      }
+    }
+  ]
+}

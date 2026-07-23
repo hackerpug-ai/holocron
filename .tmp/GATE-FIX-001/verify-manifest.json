@@ -1,0 +1,34 @@
+{
+  "task_id": "GATE-FIX-001",
+  "project": {
+    "typecheck_cmd": "true",
+    "lint_cmd": "true",
+    "test_cmd": "true"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "python3 -c 'import re,pathlib,json; t=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log\").read_text(); r=json.load(open(\".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json\"))[\"steps\"][4][\"assertion\"][\"expect_log_regex\"]; assert re.search(r,t), r'"
+    },
+    {
+      "id": "AC-2",
+      "verify": "jq -r '.steps[]|select(.n==5)|.literal_cmd' .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json | grep -F 'mission:cycle'"
+    },
+    {
+      "id": "AC-3",
+      "verify": "test -f .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log && grep -q 'assayChallengeDistinct.: true' .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log"
+    },
+    {
+      "id": "TC-1",
+      "verify": "same as AC-1"
+    },
+    {
+      "id": "TC-2",
+      "verify": "same as AC-2"
+    },
+    {
+      "id": "TC-3",
+      "verify": "same as AC-3"
+    }
+  ]
+}
