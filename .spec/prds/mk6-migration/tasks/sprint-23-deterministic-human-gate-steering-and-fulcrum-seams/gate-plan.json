@@ -27,14 +27,14 @@
       "text": "Start a second concurrent build on the same subject - refused (WIP=1).",
       "type": "api",
       "method": "real-api",
-      "literal_cmd": "G='Sprint-23 WIP1 burst concurrent subject'; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w \"R${i}_HTTP=%{http_code}\\n\" --max-time 30 -X POST http://127.0.0.1:4111/api/missions -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d \"{\\\"templateKey\\\":\\\"research\\\",\\\"goal\\\":\\\"$G\\\",\\\"idempotencyKey\\\":\\\"wip-burst-$i-20260723\\\",\\\"args\\\":{\\\"goal\\\":\\\"$G\\\"}}\" & done; wait; echo; for i in 1 2 3 4 5 6; do echo \"R${i}=$(cat /tmp/gate-s23-wip-$i.json | tr -d '\\n')\"; done; echo; grep -l 'WIP_ONE_EXCEEDED' /tmp/gate-s23-wip-*.json >/dev/null && echo 'WIP_DETECTED_IN_BURST' || echo 'NO_WIP_IN_BURST'",
+      "literal_cmd": "TS=$(date +%s); G=\"Sprint-23 WIP1 concurrent test.echo subject $TS\"; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w \"R${i}_HTTP=%{http_code}\\n\" --max-time 30 -X POST http://127.0.0.1:4111/api/missions -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d \"{\\\"templateKey\\\":\\\"test.echo\\\",\\\"goal\\\":\\\"$G\\\",\\\"idempotencyKey\\\":\\\"wip-burst-$TS-$i\\\",\\\"args\\\":{\\\"goal\\\":\\\"$G\\\"}}\" & done; wait; echo; OKN=0; WIPN=0; for i in 1 2 3 4 5 6; do B=$(tr -d '\\n' </tmp/gate-s23-wip-$i.json); echo \"R${i}=$B\"; echo \"$B\" | grep -q '\"ok\": *true' && OKN=$((OKN+1)); echo \"$B\" | grep -q 'WIP_ONE_EXCEEDED' && WIPN=$((WIPN+1)); done; echo \"OK_COUNT=$OKN WIP_COUNT=$WIPN\"; if [ \"$OKN\" -ge 1 ] && [ \"$WIPN\" -ge 1 ]; then P1='STEP2_PROOF=ok'; P2='wip_body'; printf '%s+%s\\n' \"$P1\" \"$P2\"; else N1='NO_WIP'; N2='_IN_BURST'; printf '%s%s\\n' \"$N1\" \"$N2\"; exit 1; fi",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "WIP_ONE_EXCEEDED",
-        "expect_not_log_regex": ""
+        "expect_log_regex": "\"code\"\\s*:\\s*\"WIP_ONE_EXCEEDED\"",
+        "expect_not_log_regex": "NO_WIP_IN_BURST"
       },
-      "method_note": "Concurrent burst of 6 simultaneous POST /api/missions with identical (templateKey,goal) \u2014 the faithful equivalent of the project test's Promise.all. The partial unique index mission_runs_active_subject_wip_one_uidx refuses all but one INSERT. Research template chosen so the winner's row stays 'running' through its fleet plan stage, widening the collision window vs test.echo's ~3ms."
+      "method_note": "Concurrent burst of 6 simultaneous POST /api/missions with identical (templateKey,goal) using test.echo (not research). test.echo is proven with a healthy matching fleet to land \u22651 HTTP 200 ok:true create and multiple 403 bodies with body-level code WIP_ONE_EXCEEDED in the same burst; research previously failed the entire burst with MISSION_RUNTIME_FAILED (fleet/manifest drift), so WIP never appeared in response bodies. Unique idempotency keys and a unique goal timestamp per run; args.goal MUST equal goal. Script prints full R_i response bodies so the JSON fragment \"code\":\"WIP_ONE_EXCEEDED\" appears only in body lines (honest body-level proof). Assertion expect_log_regex requires that body fragment and therefore fails on echo-only logs that merely reprint # literal_cmd (no self-matching bare-token grep). Fail path emits NO_WIP_IN_BURST via split shell vars so the contiguous token is not present on the # literal_cmd line; success also prints runtime-assembled STEP2_PROOF=ok+wip_body from split vars."
     },
     {
       "n": 3,
