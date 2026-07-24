@@ -3,10 +3,7 @@
     "seeded_fixture_jpg": {
       "description": "the seeded test-fixture.jpg with a known SHA-256 content hash (800x600)",
       "seed_method": "migration_fixture",
-      "records": [
-        "test-fixture.jpg sha256=<64-hex>",
-        "dimensions 800x600"
-      ]
+      "records": ["test-fixture.jpg sha256=<64-hex>", "dimensions 800x600"]
     },
     "voice_session_disabled": {
       "description": "pre-rewire voice hook: use-voice-session.ts throws CONVEX_UNAVAILABLE behind a convex/react guard comment",
@@ -19,9 +16,7 @@
     "cleared_file_objects": {
       "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
       "seed_method": "cli",
-      "records": [
-        "file_objects rows: 0"
-      ]
+      "records": ["file_objects rows: 0"]
     }
   },
   "requirements": [

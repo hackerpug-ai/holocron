@@ -3,17 +3,12 @@
     "seeded_fixture_jpg": {
       "description": "the seeded test-fixture.jpg with a known SHA-256 content hash (800x600)",
       "seed_method": "migration_fixture",
-      "records": [
-        "test-fixture.jpg sha256=<64-hex>",
-        "dimensions 800x600"
-      ]
+      "records": ["test-fixture.jpg sha256=<64-hex>", "dimensions 800x600"]
     },
     "cleared_file_objects": {
       "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
       "seed_method": "cli",
-      "records": [
-        "file_objects rows: 0"
-      ]
+      "records": ["file_objects rows: 0"]
     }
   },
   "requirements": [
@@ -176,10 +171,7 @@
           "start_ref": "seeded_fixture_jpg",
           "action": {
             "actor": "user",
-            "steps": [
-              "attach test-fixture.jpg",
-              "observe the preview thumbnail"
-            ]
+            "steps": ["attach test-fixture.jpg", "observe the preview thumbnail"]
           },
           "end_state": {
             "must_observe": [
@@ -204,9 +196,7 @@
       "topology": "single-node",
       "primary": false,
       "negative_control": {
-        "would_fail_if": [
-          "static - type/lint errors present"
-        ]
+        "would_fail_if": ["static - type/lint errors present"]
       },
       "evidence": {
         "artifact_type": "stdout",
@@ -217,16 +207,10 @@
           "start_ref": "seeded_fixture_jpg",
           "action": {
             "actor": "cli_user",
-            "steps": [
-              "run tsgo --noEmit",
-              "run biome check ."
-            ]
+            "steps": ["run tsgo --noEmit", "run biome check ."]
           },
           "end_state": {
-            "must_observe": [
-              "tsgo exit code 0",
-              "biome exit code 0"
-            ],
+            "must_observe": ["tsgo exit code 0", "biome exit code 0"],
             "must_not_observe": [
               "0 errors expected; >=1 TypeScript error on failure (non-zero exit)",
               "0 violations expected; >=1 biome violation on failure (non-zero exit)"

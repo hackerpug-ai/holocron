@@ -3,9 +3,7 @@
     "voice_session_idle": {
       "description": "voice surface at idle with the Zero provider mounted",
       "seed_method": "public_api",
-      "records": [
-        "useVoiceSession state == 'idle'"
-      ]
+      "records": ["useVoiceSession state == 'idle'"]
     },
     "voice_session_disabled": {
       "description": "pre-rewire voice hook: use-voice-session.ts throws CONVEX_UNAVAILABLE behind a convex/react guard comment",
@@ -18,9 +16,7 @@
     "cleared_file_objects": {
       "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
       "seed_method": "cli",
-      "records": [
-        "file_objects rows: 0"
-      ]
+      "records": ["file_objects rows: 0"]
     }
   },
   "requirements": [
@@ -218,9 +214,7 @@
       "topology": "single-node",
       "primary": false,
       "negative_control": {
-        "would_fail_if": [
-          "static - type/lint errors or a convex/react import"
-        ]
+        "would_fail_if": ["static - type/lint errors or a convex/react import"]
       },
       "evidence": {
         "artifact_type": "stdout",
