@@ -2,7 +2,9 @@
  * Stack supervisor — holo stack up | down | status
  *
  * Orchestrates Postgres + Mastra + scheduler (leased queue) via launchd (Darwin)
- * with real health probes. Zero-cache: disabled until Sprint 20.
+ * with real health probes. Zero-cache: boot path enabled (Sprint 24) when
+ * HOLO_ENABLE_ZERO_CACHE=1 or ZERO_ADMIN_PASSWORD is set; otherwise honest disabled.
+ * See docs/ops/zero-cache-enable.md.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -30,6 +32,7 @@ import {
   probePostgresProcess,
   probeQueueDetail,
   probeSchedulerDetail,
+  probeZeroCacheHttp,
   probeZeroCacheState,
   type ServiceState,
 } from './probes.ts';
@@ -106,7 +109,7 @@ function directPidFile(cfg: StackConfig): string {
   return resolve(dir, 'stack-direct.pids.json');
 }
 
-type DirectPids = { postgres?: number; mastra?: number };
+type DirectPids = { postgres?: number; mastra?: number; zerocache?: number };
 
 function readDirectPids(cfg: StackConfig): DirectPids {
   const f = directPidFile(cfg);
@@ -227,8 +230,16 @@ export function formatStatusText(report: StackStatusReport): string {
 }
 
 function requiredHealthy(report: StackStatusReport): boolean {
-  // Scheduler pending is OK; zero-cache disabled is OK
+  // Scheduler pending is OK; zero-cache disabled is OK (opt-in via HOLO_ENABLE_ZERO_CACHE)
   return report.postgres === 'healthy' && report.mastra === 'healthy';
+}
+
+/** Opt-in zero_cache boot — secrets + flag gate (never start /usr/bin/true). */
+export function zeroCacheBootEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.HOLO_ENABLE_ZERO_CACHE === '0') return false;
+  if (env.HOLO_ENABLE_ZERO_CACHE === '1') return true;
+  // Implicit enable when admin password is present (same as Maestro harness)
+  return Boolean(env.ZERO_ADMIN_PASSWORD && env.ZERO_ADMIN_PASSWORD.length > 0);
 }
 
 function startDirectPostgres(cfg: StackConfig): { ok: boolean; detail: string; pid?: number } {
@@ -286,6 +297,43 @@ function startDirectMastra(cfg: StackConfig): { ok: boolean; detail: string; pid
   return { ok: true, detail: `spawned mastra pid=${child.pid}`, pid: child.pid };
 }
 
+function startDirectZeroCache(cfg: StackConfig): { ok: boolean; detail: string; pid?: number } {
+  if (probeZeroCacheHttp().ok) {
+    return { ok: true, detail: 'zero_cache already healthy (keepalive)' };
+  }
+  const wrapper = resolve(cfg.repoRoot, 'scripts/run-zero-cache.sh');
+  const alt = resolve(cfg.holoRoot, 'scripts/run-zero-cache.sh');
+  const script = existsSync(wrapper) ? wrapper : alt;
+  if (!existsSync(script)) {
+    return {
+      ok: false,
+      detail: `run-zero-cache.sh missing (expected ${wrapper}); see docs/ops/zero-cache-enable.md`,
+    };
+  }
+  if (!process.env.ZERO_ADMIN_PASSWORD) {
+    return {
+      ok: false,
+      detail: 'ZERO_ADMIN_PASSWORD required to boot zero_cache — docs/ops/zero-cache-enable.md',
+    };
+  }
+  const child = spawn('/bin/bash', [script], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: cfg.holoRoot,
+    env: {
+      ...process.env,
+      HOME: cfg.home,
+      HOLO_ROOT: cfg.holoRoot,
+      DATABASE_URL: process.env.DATABASE_URL ?? cfg.databaseUrl,
+      ZERO_UPSTREAM_DB: process.env.ZERO_UPSTREAM_DB ?? process.env.DATABASE_URL ?? cfg.databaseUrl,
+      PATH: `${resolve(cfg.holoRoot, 'node_modules/.bin')}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+    },
+  });
+  child.unref();
+  if (!child.pid) return { ok: false, detail: 'failed to spawn zero_cache' };
+  return { ok: true, detail: `spawned zero_cache pid=${child.pid}`, pid: child.pid };
+}
+
 function stopDirect(cfg: StackConfig): string[] {
   const messages: string[] = [];
   const pids = readDirectPids(cfg);
@@ -334,7 +382,8 @@ function waitUntilHealthy(
 
 /**
  * stack up — ensure Postgres + Mastra healthy within 60s.
- * Scheduler skipped (pending). Zero-cache not started (disabled).
+ * Scheduler skipped (pending). Zero-cache boot path enabled when opted-in
+ * (HOLO_ENABLE_ZERO_CACHE=1 or ZERO_ADMIN_PASSWORD); otherwise honest disabled.
  */
 export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): StackCommandResult {
   const cfg = options?.cfg ?? loadStackConfig();
@@ -413,9 +462,21 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
     );
     messages.push(`queue: backend=${q.backend} ready=${q.ready}`);
 
-    // Never bootstrap zerocache (Sprint 20)
-    bootoutLabel(cfg, LAUNCHD_LABELS.zerocache);
-    messages.push('zero_cache: disabled (Sprint 20)');
+    // zero_cache boot path (Sprint 24) — opt-in only; never claim healthy without probe
+    if (zeroCacheBootEnabled()) {
+      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.zerocache, { forceRestart: true });
+      messages.push(`zero_cache: boot attempted — ${ens.detail}`);
+      if (!ens.ok) {
+        messages.push(
+          'zero_cache: enable failed — see docs/ops/zero-cache-enable.md (ZERO_ADMIN_PASSWORD, pnpm install, run-zero-cache.sh)'
+        );
+      }
+    } else {
+      bootoutLabel(cfg, LAUNCHD_LABELS.zerocache);
+      messages.push(
+        'zero_cache: disabled (set HOLO_ENABLE_ZERO_CACHE=1 + ZERO_ADMIN_PASSWORD to boot; docs/ops/zero-cache-enable.md)'
+      );
+    }
   } else {
     const pids = readDirectPids(cfg);
     const pg = startDirectPostgres(cfg);
@@ -444,7 +505,16 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
     // Direct mode: start queue backend via probe (ensures schema + meta ready)
     const q = probeQueueDetail(cfg);
     messages.push(`scheduler: direct mode (queue backend=${q.backend} ready=${q.ready})`);
-    messages.push('zero_cache: disabled (Sprint 20)');
+    if (zeroCacheBootEnabled()) {
+      const z = startDirectZeroCache(cfg);
+      messages.push(z.detail);
+      if (z.pid) pids.zerocache = z.pid;
+      writeDirectPids(cfg, pids);
+    } else {
+      messages.push(
+        'zero_cache: disabled (set HOLO_ENABLE_ZERO_CACHE=1 + ZERO_ADMIN_PASSWORD to boot; docs/ops/zero-cache-enable.md)'
+      );
+    }
   }
 
   const remaining = Math.max(1000, timeoutMs - (Date.now() - started));

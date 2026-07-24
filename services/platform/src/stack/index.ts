@@ -14,9 +14,10 @@ export {
   probeEmbed,
   probeQueueDetail,
   probeSchedulerDetail,
+  probeZeroCacheHttp,
+  probeZeroCacheState,
   resolveEmbedHealthProbe,
 } from './probes.ts';
-
 export {
   formatStatusText,
   type QueueStatus,
@@ -26,4 +27,5 @@ export {
   stackDown,
   stackStatus,
   stackUp,
+  zeroCacheBootEnabled,
 } from './supervisor.ts';

@@ -97,3 +97,23 @@ jobs:
             exit 1
           fi
           pnpm test:integration
+
+      # DEPENDENCY-S24-E2E-SUBSTRATE: live PLATFORM_IT path for seed:e2e + zero_cache + no-convex-client
+      - name: Sprint 24 seed:e2e live tests (PLATFORM_IT)
+        env:
+          DATABASE_URL: ${{ secrets.NONPROD_DATABASE_URL }}
+          PLATFORM_IT: "1"
+          HOLO_ALLOW_PROD_SEED: "0"
+        run: |
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "NONPROD_DATABASE_URL secret missing — fail closed" >&2
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            *holocron_nonprod*) ;;
+            *)
+              echo "DATABASE_URL must target holocron_nonprod — fail closed" >&2
+              exit 1
+              ;;
+          esac
+          pnpm test:seed-e2e

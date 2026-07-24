@@ -27,6 +27,7 @@
  * Sprint 20 D03-02: ci runner:status --lane e2e (simulator + Expo dev build probes)
  * Sprint 13 D02-07: prd:consistency
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
+ * Sprint 24 DEPENDENCY-S24: seed:e2e --reset | verify:no-convex-client | zero_cache boot
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -180,8 +181,12 @@ interface CliArgs {
   date: string | null;
   /** mission run shop --query */
   query: string | null;
-  /** db seed --reset */
+  /** db seed --reset | seed:e2e --reset */
   reset: boolean;
+  /** verify:no-convex-client --roots a,b,c */
+  roots: string | null;
+  /** verify:no-convex-client --print-roots */
+  printRoots: boolean;
 }
 
 function printHelp(): void {
@@ -268,6 +273,9 @@ Usage:
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   namespace reset           Reset the deterministic nonprod Postgres/Zero namespace
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
+  seed:e2e --reset         Sprint 24 e2e seed: 3 conversations, 12 docs, 5 feed items (refuse prod)
+  verify:no-convex-client  CAP-CUT-01: fail if convex/react imports remain in app roots
+                           [--roots a,b] [--print-roots]
   prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
   etl:run                  Immutable export → stage → stable id-map → FK-ordered load → blobs
   etl:reconcile            Catalog-derived target-vs-source reconciliation from latest ETL run
@@ -470,6 +478,8 @@ function parseArgs(argv: string[]): CliArgs {
     date: null,
     query: null,
     reset: false,
+    roots: null,
+    printRoots: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -730,6 +740,12 @@ function parseArgs(argv: string[]): CliArgs {
       args.fixturesDir = resolve(a.slice('--fixtures-dir='.length));
     } else if (a === '--reset') {
       args.reset = true;
+    } else if (a === '--roots') {
+      args.roots = argv[++i] ?? null;
+    } else if (a.startsWith('--roots=')) {
+      args.roots = a.slice('--roots='.length);
+    } else if (a === '--print-roots') {
+      args.printRoots = true;
     } else if (a === '--root') {
       args.root = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--root=')) {
@@ -1734,6 +1750,82 @@ async function main(): Promise<void> {
         console.log(formatVerifyNoConvexEnvText(report));
       }
       process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'verify:no-convex-client':
+    case 'verify-no-convex-client': {
+      const {
+        verifyNoConvexClient,
+        formatVerifyNoConvexClientText,
+        parseRootsFlag,
+        DEFAULT_NO_CONVEX_CLIENT_ROOTS,
+      } = await import('./commands/verify-no-convex-client.ts');
+      const roots = parseRootsFlag(args.roots);
+      if (args.printRoots) {
+        const payload = {
+          ok: true,
+          roots,
+          root_count: roots.length,
+          defaults: [...DEFAULT_NO_CONVEX_CLIENT_ROOTS],
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else {
+          console.log('holo verify:no-convex-client — default roots');
+          console.log(`  root_count: ${payload.root_count}`);
+          for (const r of roots) console.log(`  - ${r}`);
+          console.log('  status: OK');
+        }
+        process.exit(0);
+        break;
+      }
+      const report = verifyNoConvexClient({ roots });
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatVerifyNoConvexClientText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'seed:e2e': {
+      const { seedE2eDatabase } = await import('../db/seed-e2e.ts');
+      const result = await seedE2eDatabase({ reset: args.reset || true });
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            {
+              ok: result.ok,
+              database: result.database,
+              seed_fingerprint: result.seed_fingerprint,
+              conversations: result.conversations,
+              messages: result.messages,
+              documents: result.documents,
+              categories: result.categories,
+              feed_items: result.feed_items,
+              whats_new_reports: result.whats_new_reports,
+              reset: result.reset,
+              log: result.messages_log,
+              errors: result.errors,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log('holo seed:e2e --reset');
+        for (const m of result.messages_log) console.log(`  ${m}`);
+        console.log(`  database: ${result.database}`);
+        console.log(`  seed_fingerprint: ${result.seed_fingerprint}`);
+        console.log(`  conversations: ${result.conversations}`);
+        console.log(`  messages: ${result.messages}`);
+        console.log(`  documents: ${result.documents}`);
+        console.log(`  categories: ${result.categories}`);
+        console.log(`  feed_items: ${result.feed_items}`);
+        console.log(`  whats_new_reports: ${result.whats_new_reports}`);
+        if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
+        console.log(result.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(result.ok ? 0 : 1);
       break;
     }
     case 'stack': {
