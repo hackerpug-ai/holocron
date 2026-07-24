@@ -19,6 +19,7 @@ import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard'
 import { useTheme } from '@/hooks/use-theme';
 import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
 import { useWebView } from '@/hooks/useWebView';
+import { brandColors } from '@/lib/theme';
 
 export interface SocialPostsListScreenProps {
   testID?: string;
@@ -53,16 +54,9 @@ const SORT_OPTIONS: { key: SortMode; label: string }[] = [
   { key: 'velocity', label: 'Trending' },
 ];
 
-// Platform brand colors for distinctive badges
-// NOTE: These are official platform brand colors and should remain as hardcoded values
-const PLATFORM_COLORS: Record<string, string> = {
-  Reddit: '#FF4500',
-  Bluesky: '#0085FF',
-  Lobsters: '#AC130D',
-  'Dev.to': '#0A0A0A',
-  'Twitter/X': '#1DA1F2',
-  All: '#64748B',
-};
+// Platform brand colors for distinctive badges (hosted under theme.brandColors)
+const PLATFORM_COLORS: Record<string, string> = brandColors.platform;
+const PLATFORM_FALLBACK = brandColors.platform.All;
 
 export function SocialPostsListScreen({
   testID = 'social-posts-list',
@@ -169,7 +163,13 @@ export function SocialPostsListScreen({
       {/* Header */}
       <View className="border-b border-border px-4 pt-3 pb-3">
         <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} className="p-1" testID={`${testID}-back`}>
+          <Pressable
+            onPress={() => router.back()}
+            className="p-1"
+            testID={`${testID}-back`}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <ArrowLeft size={22} className="text-foreground" />
           </Pressable>
           <View className="flex-row items-center gap-2 flex-1">
@@ -189,7 +189,7 @@ export function SocialPostsListScreen({
             .filter(([, count]) => count > 0)
             .map(([platform, count]) => {
               const isActive = platformFilter === platform;
-              const color = PLATFORM_COLORS[platform] ?? '#64748B';
+              const color = PLATFORM_COLORS[platform] ?? PLATFORM_FALLBACK;
               return (
                 <Pressable
                   key={platform}

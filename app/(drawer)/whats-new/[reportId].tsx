@@ -1,15 +1,14 @@
 import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, View } from 'react-native';
 import { whatsNewReportById } from '@/app/zero/queries';
 import {
   DeepResearchDetailView,
   type DeepResearchSession,
 } from '@/components/deep-research/DeepResearchDetailView';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from '@/components/ui/icons';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
 import { NavigationTooltip } from '@/components/whats-new/NavigationTooltip';
@@ -132,70 +131,36 @@ export default function WhatsNewDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
-            <ArrowLeft size={24} color={theme.colors.foreground} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: theme.typography.h4.fontSize,
-              fontWeight: theme.typography.h4.fontWeight,
-              color: theme.colors.foreground,
-            }}
-          >
-            Loading...
-          </Text>
-        </View>
-
+      <ScreenLayout
+        header={{
+          title: 'Loading...',
+          showBack: true,
+          onBack: handleBack,
+          testID: 'whats-new-detail',
+        }}
+        edges="bottom"
+        testID="whats-new-detail-loading"
+      >
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text className="text-muted-foreground mt-4">Loading report...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   if (!session) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
-            <ArrowLeft size={24} color={theme.colors.foreground} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: theme.typography.h4.fontSize,
-              fontWeight: theme.typography.h4.fontWeight,
-              color: theme.colors.foreground,
-            }}
-          >
-            Error
-          </Text>
-        </View>
-
+      <ScreenLayout
+        header={{
+          title: 'Error',
+          showBack: true,
+          onBack: handleBack,
+          testID: 'whats-new-detail',
+        }}
+        edges="bottom"
+        testID="whats-new-detail-error"
+      >
         <View
           style={{
             flex: 1,
@@ -205,16 +170,21 @@ export default function WhatsNewDetailScreen() {
           }}
         >
           <Text className="text-destructive text-center text-lg mb-4">Report not found</Text>
-          <Button onPress={handleBack}>
+          <Button
+            onPress={handleBack}
+            testID="whats-new-detail-go-back"
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Text>Go Back</Text>
           </Button>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   return (
-    <>
+    <ScreenLayout edges="none" testID="whats-new-detail-layout">
       <DeepResearchDetailView
         session={session}
         onBack={handleBack}
@@ -228,6 +198,6 @@ export default function WhatsNewDetailScreen() {
         testID="whats-new-webview-sheet"
       />
       <NavigationTooltip />
-    </>
+    </ScreenLayout>
   );
 }

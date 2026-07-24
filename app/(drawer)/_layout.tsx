@@ -246,7 +246,12 @@ function _InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry:
     >
       <Text className="text-destructive text-center text-lg">Failed to load conversations</Text>
       <Text className="text-muted-foreground text-center text-sm">{error?.message}</Text>
-      <Button onPress={onRetry} testID="retry-button">
+      <Button
+        onPress={onRetry}
+        testID="retry-button"
+        accessibilityRole="button"
+        accessibilityLabel="Retry loading conversations"
+      >
         <Text>Retry</Text>
       </Button>
     </View>

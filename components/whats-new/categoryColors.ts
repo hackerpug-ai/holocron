@@ -1,18 +1,15 @@
 /**
  * DESIGN-002: Shared category accent colors for newsfeed components
  *
- * Single source of truth for category hex values. All components consuming
- * category colors MUST import from this file to prevent drift.
+ * Single source of truth for category colors — re-exported from theme tokens
+ * so production code never embeds raw #RRGGBB literals.
  *
  * @see .spec/prd/newsfeed-redesign/tasks/sprint-01-intelligence-briefing-screen/DESIGN-002-define-shared-category-colors-constant.md
  */
 
-export const CATEGORY_COLORS = {
-  discovery: '#F59E0B',
-  release: '#10B981',
-  trend: '#3B82F6',
-  discussion: '#6B7280',
-} as const;
+import { brandColors } from '@/lib/theme';
+
+export const CATEGORY_COLORS = brandColors.category;
 
 /**
  * Type narrowing for category keys.

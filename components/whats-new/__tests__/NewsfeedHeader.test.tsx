@@ -56,10 +56,9 @@ describe('NewsfeedHeader', () => {
   it('freshnessDotGreenWhenRecent', () => {
     const source = readComponent();
 
-    // Should have freshness color constants
-    expect(source).toContain('#22C55E'); // Green for fresh
-    expect(source).toContain('#F59E0B'); // Amber for aging
-    expect(source).toContain('#EF4444'); // Red for stale
+    // Freshness colors must come from theme brand tokens (no raw hex in component)
+    expect(source).toContain('brandColors.freshness');
+    expect(source).toContain('FRESHNESS_COLORS');
 
     // Should have freshness color calculation function
     expect(source).toContain('function freshnessColor');

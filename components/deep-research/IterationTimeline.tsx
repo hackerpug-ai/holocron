@@ -4,6 +4,7 @@ import { DollarSign, TrendingUp, Zap } from '@/components/ui/icons';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
+import { radius, spacing, typography } from '@/lib/theme';
 import type { DeepResearchIteration } from '@/lib/types/deep-research';
 
 /**
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
 
   // Score Progression Styles
@@ -304,27 +305,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.label.fontSize,
+    fontWeight: typography.label.fontWeight,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   scoreRange: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   rangeLabel: {
-    fontSize: 10,
-    fontWeight: '500',
+    fontSize: typography.micro.fontSize,
+    fontWeight: typography.micro.fontWeight,
   },
   barContainer: {
     flexDirection: 'row',
     height: 120,
-    gap: 8,
-    marginBottom: 12,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   barWrapper: {
     flex: 1,
@@ -332,47 +333,47 @@ const styles = StyleSheet.create({
   barColumn: {
     flex: 1,
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm - spacing.xs / 2,
   },
   barTrack: {
     flex: 1,
     width: '100%',
-    borderRadius: 4,
+    borderRadius: radius.sm,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
   barFill: {
     width: '100%',
-    borderRadius: 4,
+    borderRadius: radius.sm,
   },
   iterationLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.label.fontSize,
+    fontWeight: typography.label.fontWeight,
   },
   legendContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: radius.sm,
   },
   legendText: {
-    fontSize: 10,
-    fontWeight: '500',
+    fontSize: typography.micro.fontSize,
+    fontWeight: typography.micro.fontWeight,
   },
 
   // Cost Comparison Styles
   divider: {
     height: 1,
-    marginVertical: 16,
+    marginVertical: spacing.lg,
   },
   costContainer: {
     width: '100%',
@@ -381,57 +382,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   costHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm - spacing.xs / 2,
   },
   totalCost: {
-    fontSize: 18,
+    fontSize: typography.h4.fontSize,
     fontWeight: '700',
   },
   costBreakdown: {
-    gap: 8,
+    gap: spacing.sm,
   },
   modelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.sm - spacing.xs / 2,
   },
   modelInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm + spacing.xs / 2,
   },
   modelBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: spacing['2xl'] - spacing.xs,
+    height: spacing['2xl'] - spacing.xs,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modelDetails: {
-    gap: 2,
+    gap: spacing.xs / 2,
   },
   modelName: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
   },
   modelCount: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
   },
   modelCost: {
     alignItems: 'flex-end',
-    gap: 2,
+    gap: spacing.xs / 2,
   },
   costValue: {
-    fontSize: 16,
+    fontSize: typography.body.fontSize,
     fontWeight: '700',
   },
   costPercent: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
   },
 });

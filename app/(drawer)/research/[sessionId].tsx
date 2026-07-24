@@ -1,14 +1,13 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, View } from 'react-native';
 import {
   type Citation,
   DeepResearchDetailView,
   type ResearchIteration,
 } from '@/components/deep-research/DeepResearchDetailView';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from '@/components/ui/icons';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
 import { useDeepResearchSession } from '@/hooks/useResearchSession';
@@ -98,74 +97,36 @@ export default function ResearchDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
-            <ArrowLeft size={24} color={theme.colors.foreground} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: theme.typography.h4.fontSize,
-              fontWeight: theme.typography.h4.fontWeight,
-              color: theme.colors.foreground,
-            }}
-          >
-            Loading...
-          </Text>
-        </View>
-
-        {/* Loading state */}
+      <ScreenLayout
+        header={{
+          title: 'Loading...',
+          showBack: true,
+          onBack: handleBack,
+          testID: 'research-detail',
+        }}
+        edges="bottom"
+        testID="research-detail-loading"
+      >
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text className="text-muted-foreground mt-4">Loading research session...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   if (error || !viewData) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
-            <ArrowLeft size={24} color={theme.colors.foreground} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: theme.typography.h4.fontSize,
-              fontWeight: theme.typography.h4.fontWeight,
-              color: theme.colors.foreground,
-            }}
-          >
-            Error
-          </Text>
-        </View>
-
-        {/* Error state */}
+      <ScreenLayout
+        header={{
+          title: 'Error',
+          showBack: true,
+          onBack: handleBack,
+          testID: 'research-detail',
+        }}
+        edges="bottom"
+        testID="research-detail-error"
+      >
         <View
           style={{
             flex: 1,
@@ -177,20 +138,27 @@ export default function ResearchDetailScreen() {
           <Text className="text-destructive text-center text-lg mb-4">
             Research session not found
           </Text>
-          <Button onPress={handleBack}>
+          <Button
+            onPress={handleBack}
+            testID="research-detail-go-back"
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Text>Go Back</Text>
           </Button>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   return (
-    <DeepResearchDetailView
-      session={viewData}
-      onBack={handleBack}
-      onCitationPress={handleCitationPress}
-      testID="research-detail-view"
-    />
+    <ScreenLayout edges="none" testID="research-detail-layout">
+      <DeepResearchDetailView
+        session={viewData}
+        onBack={handleBack}
+        onCitationPress={handleCitationPress}
+        testID="research-detail-view"
+      />
+    </ScreenLayout>
   );
 }

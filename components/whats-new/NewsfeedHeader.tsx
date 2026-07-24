@@ -10,12 +10,9 @@
 import React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { brandColors } from '@/lib/theme';
 
-const FRESHNESS_COLORS = {
-  fresh: '#22C55E', // < 6 h
-  aging: '#F59E0B', // < 24 h
-  stale: '#EF4444', // >= 24 h
-} as const;
+const FRESHNESS_COLORS = brandColors.freshness;
 
 function freshnessColor(createdAt: number): string {
   const ageHours = (Date.now() - createdAt) / 3_600_000;

@@ -18,6 +18,7 @@ import { ChatThread } from '@/components/chat/ChatThread';
 import { Button } from '@/components/ui/button';
 import { SquarePen } from '@/components/ui/icons';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay';
 import { useChatHistory } from '@/hooks/use-chat-history';
@@ -384,95 +385,102 @@ export default function ChatScreen() {
   const contentTopPadding = spacing.lg;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      className="bg-background"
-      testID="chat-screen"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScreenHeader
-        showMenu
-        onMenu={handleOpenMenu}
-        rightContent={
-          <Pressable
-            onPress={handleNewChat}
-            className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
-            testID="chat-header-new-chat-button"
-            accessibilityRole="button"
-            accessibilityLabel="New chat"
-          >
-            <SquarePen size={22} className="text-foreground" />
-          </Pressable>
-        }
-        testID="chat-header"
-      />
-      <View style={styles.chatContent}>
-        <ChatThread
-          messages={messages}
-          showTypingIndicator={isSending || agentBusy}
-          isLoading={isLoadingMessages}
-          safeAreaTop={contentTopPadding}
-          testID="chat-thread"
-          onFinalResultPress={handleFinalResultPress}
-          onWhatsNewReportPress={handleWhatsNewReportPress}
-          onDocumentContextNavigate={handleDocumentContextNavigate}
-          onDeleteMessage={(messageId) => {
-            void softDeleteMessage(messageId);
-          }}
-          streamingMessageId={streamingMessageId}
-        />
-      </View>
-
-      <VoiceAssistantOverlay
-        state={voiceState}
-        isMuted={isMuted}
-        onToggleMute={toggleMute}
-        onStop={stopVoice}
-        onDismiss={stopVoice}
-        onRetry={startVoice}
-        audioLevel={audioLevel}
-        testID="voice-assistant-overlay"
-      />
-      <View style={{ paddingBottom: insets.bottom }}>
-        {sendError && (
-          <View
-            className="bg-destructive/10 px-4 py-2 flex-row items-center justify-between"
-            testID="error-banner"
-          >
-            <Text className="text-destructive">Failed to send message</Text>
-            <Pressable onPress={handleRetry} testID="error-retry-button">
-              <Text className="text-primary">Retry</Text>
-            </Pressable>
-          </View>
-        )}
-        {agentBusy && (
-          <View className="items-center py-1" testID="stop-generating-container">
+    <ScreenLayout edges="none" testID="chat-conversation-layout">
+      <KeyboardAvoidingView
+        style={styles.container}
+        className="bg-background"
+        testID="chat-screen"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScreenHeader
+          showMenu
+          onMenu={handleOpenMenu}
+          rightContent={
             <Pressable
-              onPress={() => {
-                void handleCancelAgent();
-              }}
-              className="flex-row items-center gap-1 px-3 py-1.5 rounded-full border border-border active:bg-muted"
-              testID="stop-generating-button"
+              onPress={handleNewChat}
+              className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
+              testID="chat-header-new-chat-button"
               accessibilityRole="button"
-              accessibilityLabel="Stop generating"
+              accessibilityLabel="New chat"
             >
-              <Text className="text-sm text-muted-foreground">Stop generating</Text>
+              <SquarePen size={22} className="text-foreground" />
             </Pressable>
-          </View>
-        )}
-        <ChatInput
-          onSend={handleSend}
-          disabled={isSending || agentBusy}
-          testID="chat-input"
-          showVoiceButton={!isNewConversation}
-          voiceState={voiceState.status}
-          onVoiceStart={startVoice}
-          onVoiceStop={stopVoice}
-          isWarm={isWarm}
-          onVoicePrewarm={prewarmVoice}
+          }
+          testID="chat-header"
         />
-      </View>
-    </KeyboardAvoidingView>
+        <View style={styles.chatContent}>
+          <ChatThread
+            messages={messages}
+            showTypingIndicator={isSending || agentBusy}
+            isLoading={isLoadingMessages}
+            safeAreaTop={contentTopPadding}
+            testID="chat-thread"
+            onFinalResultPress={handleFinalResultPress}
+            onWhatsNewReportPress={handleWhatsNewReportPress}
+            onDocumentContextNavigate={handleDocumentContextNavigate}
+            onDeleteMessage={(messageId) => {
+              void softDeleteMessage(messageId);
+            }}
+            streamingMessageId={streamingMessageId}
+          />
+        </View>
+
+        <VoiceAssistantOverlay
+          state={voiceState}
+          isMuted={isMuted}
+          onToggleMute={toggleMute}
+          onStop={stopVoice}
+          onDismiss={stopVoice}
+          onRetry={startVoice}
+          audioLevel={audioLevel}
+          testID="voice-assistant-overlay"
+        />
+        <View style={{ paddingBottom: insets.bottom }}>
+          {sendError && (
+            <View
+              className="bg-destructive/10 px-4 py-2 flex-row items-center justify-between"
+              testID="error-banner"
+            >
+              <Text className="text-destructive">Failed to send message</Text>
+              <Pressable
+                onPress={handleRetry}
+                testID="error-retry-button"
+                accessibilityRole="button"
+                accessibilityLabel="Retry"
+              >
+                <Text className="text-primary">Retry</Text>
+              </Pressable>
+            </View>
+          )}
+          {agentBusy && (
+            <View className="items-center py-1" testID="stop-generating-container">
+              <Pressable
+                onPress={() => {
+                  void handleCancelAgent();
+                }}
+                className="flex-row items-center gap-1 px-3 py-1.5 rounded-full border border-border active:bg-muted"
+                testID="stop-generating-button"
+                accessibilityRole="button"
+                accessibilityLabel="Stop generating"
+              >
+                <Text className="text-sm text-muted-foreground">Stop generating</Text>
+              </Pressable>
+            </View>
+          )}
+          <ChatInput
+            onSend={handleSend}
+            disabled={isSending || agentBusy}
+            testID="chat-input"
+            showVoiceButton={!isNewConversation}
+            voiceState={voiceState.status}
+            onVoiceStart={startVoice}
+            onVoiceStop={stopVoice}
+            isWarm={isWarm}
+            onVoicePrewarm={prewarmVoice}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </ScreenLayout>
   );
 }
 

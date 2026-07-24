@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { SocialPostsListScreen } from '@/components/whats-new/SocialPostsListScreen';
 
 /**
@@ -8,5 +8,9 @@ import { SocialPostsListScreen } from '@/components/whats-new/SocialPostsListScr
  */
 export default function SocialPostsRoute() {
   // Default testID `social-posts-list` matches Maestro AC-5
-  return <SocialPostsListScreen testID="social-posts-list" />;
+  return (
+    <ScreenLayout edges="bottom" testID="whats-new-social-layout">
+      <SocialPostsListScreen testID="social-posts-list" />
+    </ScreenLayout>
+  );
 }

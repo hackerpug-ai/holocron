@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { ChevronRight, MessageSquare, TrendingUp, Zap } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
+import { brandColors } from '@/lib/theme';
 
 interface SocialFinding {
   title: string;
@@ -36,16 +37,9 @@ export interface SocialPostsGroupCardProps {
   testID?: string;
 }
 
-// Platform brand colors for distinctive badges
-// NOTE: These are official platform brand colors and should remain as hardcoded values
-const PLATFORM_COLORS: Record<string, string> = {
-  Reddit: '#FF4500',
-  Bluesky: '#0085FF',
-  Lobsters: '#AC130D',
-  'Dev.to': '#0A0A0A',
-  'Twitter/X': '#1DA1F2',
-  Other: '#64748B',
-};
+// Platform brand colors for distinctive badges (hosted under theme.brandColors)
+const PLATFORM_COLORS: Record<string, string> = brandColors.platform;
+const PLATFORM_FALLBACK = brandColors.platform.Other;
 
 /**
  * Group findings by platform and compute stats
@@ -135,8 +129,8 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
                 className="flex-row items-center gap-1 rounded-full px-2.5 py-1"
                 style={{
                   backgroundColor: isDark
-                    ? `${PLATFORM_COLORS[platform] ?? '#64748B'}20`
-                    : `${PLATFORM_COLORS[platform] ?? '#64748B'}12`,
+                    ? `${PLATFORM_COLORS[platform] ?? PLATFORM_FALLBACK}20`
+                    : `${PLATFORM_COLORS[platform] ?? PLATFORM_FALLBACK}12`,
                 }}
               >
                 <View
@@ -144,7 +138,7 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
                     width: 6,
                     height: 6,
                     borderRadius: 3,
-                    backgroundColor: PLATFORM_COLORS[platform] ?? '#64748B',
+                    backgroundColor: PLATFORM_COLORS[platform] ?? PLATFORM_FALLBACK,
                   }}
                 />
                 <Text
@@ -152,7 +146,7 @@ export const SocialPostsGroupCard = React.memo(function SocialPostsGroupCard({
                   style={{
                     color: isDark
                       ? themeColors.foreground
-                      : (PLATFORM_COLORS[platform] ?? '#64748B'),
+                      : (PLATFORM_COLORS[platform] ?? PLATFORM_FALLBACK),
                   }}
                 >
                   {platform}

@@ -142,7 +142,7 @@ export const Discovery: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Discovery category with amber left border (#F59E0B).',
+        story: 'Discovery category with amber left border.',
       },
     },
   },
@@ -161,7 +161,7 @@ export const Release: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Release category with green left border (#10B981).',
+        story: 'Release category with green left border.',
       },
     },
   },
@@ -180,7 +180,7 @@ export const Trend: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Trend category with blue left border (#3B82F6).',
+        story: 'Trend category with blue left border.',
       },
     },
   },
@@ -199,7 +199,7 @@ export const Discussion: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Discussion category with gray left border (#6B7280).',
+        story: 'Discussion category with gray left border.',
       },
     },
   },

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { VoiceAgentOrb } from './VoiceAgentOrb'
 import type { VoiceState } from '@/hooks/use-voice-session-state'
+import { theme } from '@/lib/theme';
 
 // ─── Meta ──────────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ const meta: Meta<typeof VoiceAgentOrb> = {
   },
   decorators: [
     (Story) => (
-      <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', flex: 1, backgroundColor: theme.colors.light.muted }}>
         <Story />
       </View>
     ),

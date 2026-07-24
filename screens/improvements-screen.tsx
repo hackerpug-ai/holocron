@@ -1,10 +1,10 @@
-import { useColorScheme } from 'nativewind';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { ImprovementCardSkeleton } from '@/components/improvements/ImprovementCardSkeleton';
 import { ImprovementCardWithActions } from '@/components/improvements/ImprovementCardWithActions';
 import { Lightbulb, Search } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 import { cn } from '@/lib/utils';
 
 export interface ImprovementsScreenProps {
@@ -48,7 +48,7 @@ export function ImprovementsScreen({
   onRefresh,
   isRefreshing = false,
 }: ImprovementsScreenProps) {
-  const { colorScheme } = useColorScheme();
+  const { colors: themeColors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterChip>('all');
 
@@ -90,7 +90,7 @@ export function ImprovementsScreen({
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Search improvements..."
-            placeholderTextColor={colorScheme === 'dark' ? '#71717a' : '#a1a1aa'}
+            placeholderTextColor={themeColors.mutedForeground}
             className="flex-1 py-2.5 text-sm text-foreground"
             testID="improvements-screen-search-input"
             autoCorrect={false}
