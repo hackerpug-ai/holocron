@@ -878,9 +878,13 @@ export default function DocumentRoute() {
         rightContent: (
           <Pressable
             testID="document-actions-button"
-            onPress={() => setActionsSheetVisible(true)}
+            onPress={() => {
+              // GATE-FIX: force open for Maestro header taps (single-tap can miss)
+              setActionsSheetVisible(true);
+            }}
             accessibilityRole="button"
             accessibilityLabel="Document actions"
+            hitSlop={12}
             className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
           >
             <EllipsisVertical size={20} className="text-muted-foreground" />
