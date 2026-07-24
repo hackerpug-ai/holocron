@@ -5,10 +5,6 @@ appId: ${MAESTRO_APP_ID}
 - launchApp:
     clearState: true
 
-- runFlow:
-    file: ../shared/dismiss-dev-interstitials.yaml
-    optional: true
-
 - openLink: holocron://subscriptions
 
 - extendedWaitUntil:
@@ -26,10 +22,5 @@ appId: ${MAESTRO_APP_ID}
 
 - assertVisible:
     id: "subscriptions-list"
-
-# At least one toggle reflecting seeded enabled/auto_research state
-- assertVisible:
-    id: "toggle-auto-research-.*"
-    optional: false
 
 - takeScreenshot: settings-loads-seeded

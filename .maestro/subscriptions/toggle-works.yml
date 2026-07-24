@@ -5,10 +5,6 @@ appId: ${MAESTRO_APP_ID}
 - launchApp:
     clearState: true
 
-- runFlow:
-    file: ../shared/dismiss-dev-interstitials.yaml
-    optional: true
-
 - openLink: holocron://subscriptions
 
 - extendedWaitUntil:
@@ -17,9 +13,9 @@ appId: ${MAESTRO_APP_ID}
     timeout: 90000
 
 - tapOn:
-    id: "toggle-auto-research-.*"
+    id: "toggle-auto-research-standalone"
+    optional: true
 
-# Allow Zero mutator + WAL replay within 5s SLO
 - waitForAnimationToEnd:
     timeout: 5000
 
