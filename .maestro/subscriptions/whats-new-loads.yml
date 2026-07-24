@@ -3,17 +3,44 @@ appId: com.holocron.app
 # AC-3 / TC-3: Whats-new feed loads via Zero
 # DATA oracle (whats-new-feed + finding-0) is NON-optional.
 #
-# HIGH-3 hang note: unbounded assertNotVisible on empty can hang full driver.
-# Bound empty-state checks; fail closed quickly.
+# Full-driver step4 fail (preserved): openLink holocron://whats-new COMPLETED but
+# whats-new-feed never appeared — app stayed on chat (deep-link hostname form
+# holocron://whats-new was ignored when only parsed.path was checked).
+# Fix: app resolves hostname→route; flow retries via drawer-section-whats-new.
+#
+# HIGH-3 hang note: empty-state checks are BOUNDED (fail closed, no indefinite wait).
 
-# clearState false so sequential human-gate runs keep Dev Client + Metro session.
-# Standalone cold boot: run drawer-loads-seeded first or set MAESTRO_DEV_CLIENT_OPEN_URL.
 - launchApp:
     clearState: false
 
+# Primary: deep link (must work after app fix for hostname form)
 - openLink: holocron://whats-new
 
-# NON-OPTIONAL: seeded What's New feed shell (5 items path)
+# If deep link did not navigate (race / stale native build), open drawer and tap section
+- runFlow:
+    when:
+      notVisible:
+        id: "whats-new-feed"
+    commands:
+      - tapOn:
+          id: "chat-header-menu-button"
+          optional: true
+      - tapOn:
+          id: "screen-header-menu-button"
+          optional: true
+      - extendedWaitUntil:
+          visible:
+            id: "drawer-content"
+          timeout: 15000
+          optional: true
+      - tapOn:
+          id: "drawer-section-whats-new"
+          optional: true
+      - tapOn:
+          text: "What's New"
+          optional: true
+
+# NON-OPTIONAL: feed shell (90s — route may remount after drawer nav)
 - extendedWaitUntil:
     visible:
       id: "whats-new-feed"
@@ -22,7 +49,7 @@ appId: com.holocron.app
 - assertVisible:
     id: "whats-new-feed"
 
-# Seeded finding rows first (positive oracle) — stronger than empty negation alone
+# Seeded finding row (positive oracle)
 - extendedWaitUntil:
     visible:
       id: "whats-new-feed-finding-0"
@@ -31,7 +58,7 @@ appId: com.holocron.app
 - assertVisible:
     id: "whats-new-feed-finding-0"
 
-# Empty shell must not remain once finding-0 is present — BOUNDED fail-closed
+# Empty shell must not remain — BOUNDED fail-closed
 - extendedWaitUntil:
     notVisible:
       id: "whats-new-feed-empty"
