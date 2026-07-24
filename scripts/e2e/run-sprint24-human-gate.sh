@@ -741,8 +741,34 @@ record_step 6 "Run holo verify:no-convex-client — exits 0" \
 
 # Step 7: share URL (Maestro) + honest clipboard path oracle (simctl pbpaste)
 # iOS share-sheet a11y is host-only ("127.0.0.1") — never treat that as path proof.
-# Flow taps Copy; we require pasteboard on the same UDID to contain /article/
+# Flow taps system Copy; we require pasteboard on the same UDID to contain /article/
 # and to reject legacy Convex hosts.
+# Clear pasteboard first so a prior run / pre-seeded clipboard cannot fake the oracle
+# (red-hat HIGH-4: do not Clipboard.setString before Share.share).
+if [[ "$skip_ui" != "1" && -n "${LAST_MAESTRO_UDID:-}" ]]; then
+  : # LAST_MAESTRO_UDID may still be empty until first Maestro step; resolve below
+fi
+# Resolve UDID early for pasteboard clear if device is set
+share_udid=""
+if [[ "$skip_ui" != "1" && -n "${device:-}" ]]; then
+  if [[ "$device" =~ ^[0-9A-Fa-f-]{36}$ ]]; then
+    share_udid="$device"
+  else
+    share_udid="$(xcrun simctl list devices available --json 2>/dev/null | python3 -c '
+import json,sys
+data=json.load(sys.stdin)
+name=sys.argv[1]
+matches=[d for devices in data["devices"].values() for d in devices if d.get("name")==name and d.get("isAvailable") is True]
+print(matches[0]["udid"] if matches else "")
+' "$device" 2>/dev/null || true)"
+  fi
+fi
+if [[ -n "$share_udid" ]]; then
+  # Empty the simulator pasteboard so step7 Copy is the only path into pbpaste
+  printf '' | xcrun simctl pbcopy "$share_udid" 2>/dev/null || true
+  log "step7: cleared simulator pasteboard on $share_udid before share flow"
+fi
+
 run_ui_step 7 \
   "Share public document — URL at Mastra /article/ host" \
   "$repo_root/.maestro/articles/share-url-mastra.yml" \

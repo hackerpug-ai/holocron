@@ -471,17 +471,11 @@ export default function DocumentRoute() {
       const shareUrl = await getShareUrl();
       if (!shareUrl) return;
 
-      // GATE-FIX-007b: iOS UIActivityViewController only exposes the host in
-      // accessibility text (e.g. "127.0.0.1"), not the /article/ path. Mount the
-      // full Mastra URL in-app for the Maestro oracle, copy it, then open share.
-      // Mount BEFORE Share.share so the node exists once the sheet is dismissed.
+      // Show the full Mastra URL in a real share-preview banner (user-visible).
+      // Do NOT seed the clipboard here — that is evidence theatre (red-hat HIGH-4).
+      // Clipboard is filled only when the user taps system Share → Copy, or the
+      // explicit "Copy link" control on the preview.
       setLastShareUrl(shareUrl);
-      try {
-        await Clipboard.setStringAsync(shareUrl);
-      } catch {
-        // clipboard optional
-      }
-      // Yield a frame so lastShareUrl commits before the system sheet covers the app.
       await new Promise<void>((resolve) => setTimeout(resolve, 50));
       await Share.share({
         url: shareUrl,
@@ -492,6 +486,16 @@ export default function DocumentRoute() {
       console.warn('[DocumentRoute] Share error:', err);
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleCopyShareUrl = async () => {
+    if (!lastShareUrl) return;
+    try {
+      await Clipboard.setStringAsync(lastShareUrl);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.warn('[DocumentRoute] Copy share URL failed:', err);
     }
   };
 
@@ -992,21 +996,34 @@ export default function DocumentRoute() {
         isPublic={document.isPublic}
       />
 
-      {/* User-visible share preview: full Mastra /article/ URL (iOS share sheet
-          a11y only shows host like 127.0.0.1 — never use host-only as path proof). */}
+      {/* Genuine user-visible share preview after a successful Share action.
+          Full /article/ URL (iOS system sheet a11y is host-only). Not a 1×1/opacity
+          test oracle — users can read and copy the link here. */}
       {lastShareUrl ? (
         <View
           testID="document-share-url-banner"
-          className="absolute bottom-0 left-0 right-0 border-t border-border bg-card px-4 py-3"
+          className="absolute bottom-0 left-0 right-0 z-50 border-t border-border bg-card px-4 py-3 shadow-lg"
           style={{ paddingBottom: insets.bottom + 12 }}
           accessibilityLabel={`Share link ${lastShareUrl}`}
         >
-          <Text className="text-muted-foreground mb-1 text-xs font-medium">Share link</Text>
+          <View className="mb-2 flex-row items-center justify-between gap-3">
+            <Text className="text-foreground text-sm font-semibold">Share link ready</Text>
+            <Pressable
+              testID="document-share-url-copy"
+              onPress={handleCopyShareUrl}
+              accessibilityRole="button"
+              accessibilityLabel="Copy share link"
+              className="rounded-full bg-primary px-3 py-1.5 active:opacity-80"
+              hitSlop={8}
+            >
+              <Text className="text-primary-foreground text-xs font-medium">Copy link</Text>
+            </Pressable>
+          </View>
           <Text
             testID="document-share-url"
-            className="text-foreground text-sm"
+            className="text-primary text-sm underline"
             selectable
-            numberOfLines={3}
+            numberOfLines={4}
           >
             {lastShareUrl}
           </Text>

@@ -158,8 +158,9 @@ appId: com.holocron.app
     optional: true
 
 # iOS UIActivityViewController a11y shows host only ("2 Links / 127.0.0.1") —
-# NEVER treat host-only as path proof. Tap Copy so the full shared URL lands
-# on the simulator pasteboard; gate driver verifies via simctl pbpaste.
+# NEVER treat host-only as path proof. App must NOT pre-seed clipboard before
+# Share.share (evidence theatre). Tap system Copy so the real shared payload
+# lands on the pasteboard; gate driver verifies via simctl pbpaste (/article/).
 - extendedWaitUntil:
     visible: "Copy"
     timeout: 20000
@@ -177,14 +178,18 @@ appId: com.holocron.app
     text: "Close"
     optional: true
 
-# User-visible full-URL preview in-app (document-share-url) — path must include /article/
+# Genuinely user-visible share-preview banner (not 1×1/opacity oracle).
+# Full URL text must include /article/; reject convex hosts.
 - extendedWaitUntil:
     visible:
-      id: "document-share-url"
+      id: "document-share-url-banner"
     timeout: 20000
 - assertVisible:
+    id: "document-share-url-banner"
+- assertVisible:
     id: "document-share-url"
-# Path oracle on the PREVIEW text (full URL), not the system sheet host caption
+- assertVisible:
+    id: "document-share-url-copy"
 - assertVisible:
     text: ".*(/article/).*"
 - assertNotVisible:
