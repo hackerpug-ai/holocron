@@ -4,25 +4,43 @@ import { schema } from './schema';
 const builder = createBuilder(schema);
 
 /**
- * Builder-only query: zero-cache can evaluate this server-side WITHOUT a
- * ZERO_QUERY_URL. The legacy named-query registry form (define-queries /
- * define-query) requires a separate zero-query-server process that is NOT
- * deployed in the sprint-20 substrate.
+ * Builder-only queries: zero-cache evaluates these server-side WITHOUT a
+ * ZERO_QUERY_URL (Sprint 20 S-COLDBOOT-02). Consumers call with params at the
+ * call site; Zero's `useQuery` accepts a plain Query directly.
  *
- * Returns the un-parametrized builder; the consumer calls it with the
- * conversationId at the call site. Zero's `useQuery` accepts a plain
- * `Query<TTable, TSchema, TReturn>` directly (see QueryOrQueryRequest in
- * @rocicorp/zero/out/zql/src/query/query-registry.d.ts), so no named-query
- * wrapper is required.
- *
- * Pre-refactor (S-COLDBOOT-02 root cause): zero-cache logged
- *   "Custom/named queries were requested but no `ZERO_QUERY_URL` is
- *    configured for Zero Cache."
- * and returned 0 rows for the chat-messages-by-conversation read, which
- * blocked the chat-assistant-message from mounting even though Postgres had
- * the row.
+ * Named to match 13-client-data-contract.yaml registry names.
+ */
+
+/** drawer-conversation-list — conversations ordered by recency */
+export const conversationsByOwner = () => builder.conversations.orderBy('updated_at', 'desc');
+
+/** drawer-conversation-search — title ILIKE match (client passes term) */
+export const conversationsBySearchTerm = (term: string) =>
+  builder.conversations.where('title', 'ILIKE', `%${term}%`).orderBy('updated_at', 'desc');
+
+/** chat-thread-header — single conversation by id */
+export const conversationById = (id: string) => builder.conversations.where('id', id).one();
+
+/**
+ * chat-history-list — messages for a conversation, oldest→newest.
+ * Soft-deleted rows are filtered client-side (deleted === true).
  */
 export const chatMessagesByConversation = (conversationId: string) =>
-  builder.chat_messages
-    .where('conversation_id', conversationId)
-    .orderBy('created_at', 'asc');
+  builder.chat_messages.where('conversation_id', conversationId).orderBy('created_at', 'asc');
+
+/** chat-tool-call-card */
+export const toolCallById = (id: string) => builder.tool_calls.where('id', id).one();
+
+/** deep-research-session */
+export const deepResearchSessionById = (sessionId: string) =>
+  builder.research_sessions.where('id', sessionId).one();
+
+/**
+ * agent-activity-bar — active agent plan(s) for a conversation / thread.
+ * Contract name: agentActivityByOwner; conversation-scoped in the RN client.
+ */
+export const agentActivityByOwner = (conversationId: string) =>
+  builder.agent_plans.where('conversation_id', conversationId).orderBy('updated_at', 'desc');
+
+/** Alias used by hooks when the call site names the conversation explicitly. */
+export const agentActivityByConversation = agentActivityByOwner;

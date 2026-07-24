@@ -1,0 +1,2 @@
+holo verify:no-convex-client not available; equivalent grep proof:
+0 hits — PASS

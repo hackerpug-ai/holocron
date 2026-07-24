@@ -1,0 +1,36 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-4 / TC-4 — Composer send streams a reply via Hono command
+# Prerequisite: Hono platform + fleet + Zero sync healthy.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 15000
+
+- tapOn:
+    id: "chat-input"
+
+- inputText: "S-REWRITE-01 e2e send probe"
+
+- tapOn:
+    id: "chat-input-send-button"
+    optional: true
+- tapOn:
+    id: "send-button"
+    optional: true
+
+# User bubble should appear; assistant reply streams via SSE and lands as durable Zero row
+- extendedWaitUntil:
+    visible: "S-REWRITE-01 e2e send probe"
+    timeout: 15000
+
+- takeScreenshot: S-REWRITE-01-AC-4-send-streams

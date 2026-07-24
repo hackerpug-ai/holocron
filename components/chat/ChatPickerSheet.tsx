@@ -1,9 +1,10 @@
 /**
  * ChatPickerSheet - Bottom sheet to select a conversation to add document context to.
  * Shows "New Chat" at top, then recent conversations.
+ * S-REWRITE-01: conversations list via Zero conversationsByOwner.
  */
 
-import { useQuery } from 'convex/react';
+import { useQuery } from '@rocicorp/zero/react';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { FlatList, Modal, Pressable, View } from 'react-native';
@@ -16,9 +17,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { conversationsByOwner } from '@/app/zero/queries';
 import { MessageSquare, Plus } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface ChatPickerSheetProps {
@@ -39,6 +40,12 @@ const TIMING_OUT_CONFIG = {
   easing: Easing.in(Easing.cubic),
 };
 
+type ZeroConversationRow = {
+  id: string;
+  title?: string | null;
+  last_message_preview?: string | null;
+};
+
 export function ChatPickerSheet({
   visible,
   onClose,
@@ -50,7 +57,8 @@ export function ChatPickerSheet({
   const translateY = useSharedValue(500);
   const backdropOpacity = useSharedValue(0);
 
-  const conversations = useQuery(api.conversations.index.list, { limit: 20 }) ?? [];
+  const [rows] = useQuery(conversationsByOwner());
+  const conversations = ((rows ?? []) as unknown as ZeroConversationRow[]).slice(0, 20);
 
   useEffect(() => {
     if (visible) {
@@ -145,12 +153,12 @@ export function ChatPickerSheet({
             {/* Conversations list */}
             <FlatList
               data={conversations}
-              keyExtractor={(item) => item._id}
+              keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
                 <Pressable
-                  testID={`${testID}-conversation-${item._id}`}
-                  onPress={() => handleSelect(item._id)}
+                  testID={`${testID}-conversation-${item.id}`}
+                  onPress={() => handleSelect(item.id)}
                   className="flex-row items-center gap-4 rounded-xl px-4 py-3 active:bg-muted"
                 >
                   <View className="rounded-full bg-muted p-2">
@@ -160,9 +168,9 @@ export function ChatPickerSheet({
                     <Text className="text-foreground text-base" numberOfLines={1}>
                       {item.title || 'Untitled Chat'}
                     </Text>
-                    {item.lastMessagePreview && (
+                    {item.last_message_preview && (
                       <Text className="text-muted-foreground text-sm" numberOfLines={1}>
-                        {item.lastMessagePreview}
+                        {item.last_message_preview}
                       </Text>
                     )}
                   </View>

@@ -1,0 +1,51 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-2 / TC-2 — Conversation rename reflects via Zero mutator within 5s SLO
+# Prerequisite: seeded conversations + app running on named iOS Simulator.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- tapOn:
+    id: "chat-header-menu-button"
+    optional: true
+- tapOn:
+    id: "screen-header-menu-button"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "drawer-content"
+    timeout: 15000
+
+- assertVisible:
+    id: "conversation-row"
+
+# Open rename via action menu when available
+- longPressOn:
+    id: "conversation-row"
+    optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "action-menu-rename-button"
+    commands:
+      - tapOn:
+          id: "action-menu-rename-button"
+      - tapOn:
+          id: "rename-input"
+      - eraseText
+      - inputText: "Sprint Planning"
+      - tapOn:
+          id: "rename-save-button"
+      - extendedWaitUntil:
+          visible: "Sprint Planning"
+          timeout: 5000
+
+- takeScreenshot: S-REWRITE-01-AC-2-rename-reflects

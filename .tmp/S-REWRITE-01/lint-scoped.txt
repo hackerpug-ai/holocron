@@ -1,0 +1,383 @@
+tests/integration/s-rewrite-01-chat-cluster-zero.test.ts:67:34 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━
+
+  i Template literals are preferred over string concatenation.
+  
+    65 │         const src = read(file);
+    66 │         if (CONVEX_REACT_IMPORT.test(src)) {
+  > 67 │           hits.push(file.replace(REPO_ROOT + '/', ''));
+       │                                  ^^^^^^^^^^^^^^^
+    68 │         }
+    69 │       }
+  
+  i Unsafe fix: Use a template literal.
+  
+     65  65 │           const src = read(file);
+     66  66 │           if (CONVEX_REACT_IMPORT.test(src)) {
+     67     │ - ··········hits.push(file.replace(REPO_ROOT·+·'/',·''));
+         67 │ + ··········hits.push(file.replace(`${REPO_ROOT}/`,·''));
+     68  68 │           }
+     69  69 │         }
+  
+
+tests/integration/s-rewrite-01-chat-cluster-zero.test.ts:90:34 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━
+
+  i Template literals are preferred over string concatenation.
+  
+    88 │         if (!existsSync(file)) continue;
+    89 │         if (CONVEX_API_IMPORT.test(read(file))) {
+  > 90 │           hits.push(file.replace(REPO_ROOT + '/', ''));
+       │                                  ^^^^^^^^^^^^^^^
+    91 │         }
+    92 │       }
+  
+  i Unsafe fix: Use a template literal.
+  
+     88  88 │           if (!existsSync(file)) continue;
+     89  89 │           if (CONVEX_API_IMPORT.test(read(file))) {
+     90     │ - ··········hits.push(file.replace(REPO_ROOT·+·'/',·''));
+         90 │ + ··········hits.push(file.replace(`${REPO_ROOT}/`,·''));
+     91  91 │           }
+     92  92 │         }
+  
+
+tests/integration/s-rewrite-01-chat-cluster-zero.test.ts:99:24 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━
+
+  i Template literals are preferred over string concatenation.
+  
+     97 │       const history = read(join(REPO_ROOT, 'hooks', 'use-chat-history.ts'));
+     98 │       const agent = read(join(REPO_ROOT, 'hooks', 'use-agent-activity.ts'));
+   > 99 │       const combined = history + '\n' + agent;
+        │                        ^^^^^^^^^^^^^^^^^^^^^^
+    100 │       expect(
+    101 │         combined,
+  
+  i Unsafe fix: Use a template literal.
+  
+     97  97 │         const history = read(join(REPO_ROOT, 'hooks', 'use-chat-history.ts'));
+     98  98 │         const agent = read(join(REPO_ROOT, 'hooks', 'use-agent-activity.ts'));
+     99     │ - ······const·combined·=·history·+·'\n'·+·agent;
+         99 │ + ······const·combined·=·`${history}\n${agent}`;
+    100 100 │         expect(
+    101 101 │           combined,
+  
+
+components/chat/MessageBubble.tsx:542:28 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    540 │     return (
+    541 │       <SubscriptionSuggestionCard
+  > 542 │         data={card_data as any}
+        │                            ^^^
+    543 │         testID={`${testID}-subscription-suggestion`}
+    544 │       />
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+components/chat/MessageBubble.tsx:550:56 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    548 │   // Handle subscription progress card
+    549 │   if (cardType === 'subscription_progress') {
+  > 550 │     return <SubscriptionProgressCard {...(card_data as any)} />;
+        │                                                        ^^^
+    551 │   }
+    552 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+components/chat/MessageBubble.tsx:446:20 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    444 │           return (
+    445 │             <ResultCard
+  > 446 │               key={index}
+        │                    ^^^^^
+    447 │               cardType={cardType}
+    448 │               data={card as unknown as ResultCardData}
+  
+  i This is the source of the key value.
+  
+    437 │     return (
+    438 │       <View className="gap-2">
+  > 439 │         {items.map((card, index) => {
+        │                           ^^^^^
+    440 │           const cardType = (card.card_type as CardType) || 'article';
+    441 │           const documentId = card.document_id as string | undefined;
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+app/(drawer)/_layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      6   6 │   import { ActivityIndicator, View } from 'react-native';
+      7   7 │   import { SafeAreaView } from 'react-native-safe-area-context';
+      8     │ - import·{
+      9     │ - ··conversationsByOwner,
+     10     │ - ··conversationsBySearchTerm,
+     11     │ - }·from·'@/app/zero/queries';
+          8 │ + import·{·conversationsByOwner,·conversationsBySearchTerm·}·from·'@/app/zero/queries';
+     12   9 │   import { Button } from '@/components/ui/button';
+     13  10 │   import { Text } from '@/components/ui/text';
+  
+
+app/(drawer)/chat/[conversationId].tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     13  13 │   } from 'react-native';
+     14  14 │   import { useSafeAreaInsets } from 'react-native-safe-area-context';
+     15     │ - import·{
+     16     │ - ··conversationById,
+     17     │ - ··conversationsByOwner,
+     18     │ - }·from·'@/app/zero/queries';
+         15 │ + import·{·conversationById,·conversationsByOwner·}·from·'@/app/zero/queries';
+     19  16 │   import { ChatInput } from '@/components/chat/ChatInput';
+     20  17 │   import { ChatThread } from '@/components/chat/ChatThread';
+    ······· │ 
+    320 317 │         // still loading singular query — wait
+    321 318 │       }
+    322     │ - ····if·(
+    323     │ - ······!isNewConversation·&&
+    324     │ - ······conversationId·&&
+    325     │ - ······conversation·===·null
+    326     │ - ····)·{
+        319 │ + ····if·(!isNewConversation·&&·conversationId·&&·conversation·===·null)·{
+    327 320 │         router.replace('/chat/new');
+    328 321 │       }
+    329     │ - ··},·[
+    330     │ - ····conversationId,
+    331     │ - ····conversation,
+    332     │ - ····isNewConversation,
+    333     │ - ····conversations,
+    334     │ - ····conversationRows,
+    335     │ - ····router,
+    336     │ - ··]);
+        322 │ + ··},·[conversationId,·conversation,·isNewConversation,·conversations,·conversationRows,·router]);
+    337 323 │   
+    338 324 │     const isLoading = conversationRows === undefined;
+    ······· │ 
+    370 356 │     }
+    371 357 │   
+    372     │ - ··if·(!conversationExists·&&·conversationId·&&·!isNewConversation·&&·conversationRows·!==·undefined)·{
+        358 │ + ··if·(
+        359 │ + ····!conversationExists·&&
+        360 │ + ····conversationId·&&
+        361 │ + ····!isNewConversation·&&
+        362 │ + ····conversationRows·!==·undefined
+        363 │ + ··)·{
+    373 364 │       // Give Zero a beat: if list has rows but not this id, show not found
+    374 365 │       if (conversations.length > 0 && !conversations.some((c) => c.id === conversationId)) {
+  
+
+app/zero/queries.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    13 13 │   
+    14 14 │   /** drawer-conversation-list — conversations ordered by recency */
+    15    │ - export·const·conversationsByOwner·=·()·=>
+    16    │ - ··builder.conversations.orderBy('updated_at',·'desc');
+       15 │ + export·const·conversationsByOwner·=·()·=>·builder.conversations.orderBy('updated_at',·'desc');
+    17 16 │   
+    18 17 │   /** drawer-conversation-search — title ILIKE match (client passes term) */
+    19 18 │   export const conversationsBySearchTerm = (term: string) =>
+    20    │ - ··builder.conversations
+    21    │ - ····.where('title',·'ILIKE',·`%${term}%`)
+    22    │ - ····.orderBy('updated_at',·'desc');
+       19 │ + ··builder.conversations.where('title',·'ILIKE',·`%${term}%`).orderBy('updated_at',·'desc');
+    23 20 │   
+    24 21 │   /** chat-thread-header — single conversation by id */
+    25    │ - export·const·conversationById·=·(id:·string)·=>
+    26    │ - ··builder.conversations.where('id',·id).one();
+       22 │ + export·const·conversationById·=·(id:·string)·=>·builder.conversations.where('id',·id).one();
+    27 23 │   
+    28 24 │   /**
+    ····· │ 
+    31 27 │    */
+    32 28 │   export const chatMessagesByConversation = (conversationId: string) =>
+    33    │ - ··builder.chat_messages
+    34    │ - ····.where('conversation_id',·conversationId)
+    35    │ - ····.orderBy('created_at',·'asc');
+       29 │ + ··builder.chat_messages.where('conversation_id',·conversationId).orderBy('created_at',·'asc');
+    36 30 │   
+    37 31 │   /** chat-tool-call-card */
+    ····· │ 
+    47 41 │    */
+    48 42 │   export const agentActivityByOwner = (conversationId: string) =>
+    49    │ - ··builder.agent_plans
+    50    │ - ····.where('conversation_id',·conversationId)
+    51    │ - ····.orderBy('updated_at',·'desc');
+       43 │ + ··builder.agent_plans.where('conversation_id',·conversationId).orderBy('updated_at',·'desc');
+    52 44 │   
+    53 45 │   /** Alias used by hooks when the call site names the conversation explicitly. */
+  
+
+components/chat/MessageBubble.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    140 140 │       return (
+    141 141 │         <View className={cn('my-1 px-4')} testID={testID}>
+    142     │ - ········<ToolApprovalBubble
+    143     │ - ··········toolCallId={toolCallId}
+    144     │ - ··········cardData={card_data·??·undefined}
+    145     │ - ········/>
+        142 │ + ········<ToolApprovalBubble·toolCallId={toolCallId}·cardData={card_data·??·undefined}·/>
+    146 143 │           {showTimestamp && createdAt && (
+    147 144 │             <Text
+    ······· │ 
+    305 302 │         reasoning={cardData?.reasoning as string | undefined}
+    306 303 │         status={
+    307     │ - ········row.status·as
+    308     │ - ··········|·'pending'
+    309     │ - ··········|·'approved'
+    310     │ - ··········|·'rejected'
+    311     │ - ··········|·'executing'
+    312     │ - ··········|·'completed'
+    313     │ - ··········|·'timed_out'
+        304 │ + ········row.status·as·'pending'·|·'approved'·|·'rejected'·|·'executing'·|·'completed'·|·'timed_out'
+    314 305 │         }
+    315 306 │       />
+  
+
+hooks/use-agent-activity.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    52 52 │   
+    53 53 │   export function useAgentActivity({ threadId }: UseAgentActivityArgs): UseAgentActivityResult {
+    54    │ - ··const·[rawRows,·details]·=·useQuery(
+    55    │ - ····threadId·?·agentActivityByOwner(threadId)·:·undefined
+    56    │ - ··);
+       54 │ + ··const·[rawRows,·details]·=·useQuery(threadId·?·agentActivityByOwner(threadId)·:·undefined);
+    57 55 │   
+    58 56 │     const rows = (rawRows ?? []) as unknown as AgentPlanRow[];
+  
+
+hooks/use-chat-history.ts:8:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+     6 │  */
+     7 │ 
+   > 8 │ import { useQuery } from '@rocicorp/zero/react';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     9 │ import type { ChatMessage } from '@/components/chat/ChatThread';
+    10 │ import { chatMessagesByConversation } from '@/app/zero/queries';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     7  7 │   
+     8  8 │   import { useQuery } from '@rocicorp/zero/react';
+     9    │ - import·type·{·ChatMessage·}·from·'@/components/chat/ChatThread';
+    10    │ - import·{·chatMessagesByConversation·}·from·'@/app/zero/queries';
+        9 │ + import·{·chatMessagesByConversation·}·from·'@/app/zero/queries';
+       10 │ + import·type·{·ChatMessage·}·from·'@/components/chat/ChatThread';
+    11 11 │   
+    12 12 │   interface UseChatHistoryReturn {
+  
+
+hooks/use-chat-history.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    58 58 │     }));
+    59 59 │   
+    60    │ - ··const·isLoading·=
+    61    │ - ····conversationId·!==·null·&&·details.type·===·'unknown'·&&·rows.length·===·0;
+       60 │ + ··const·isLoading·=·conversationId·!==·null·&&·details.type·===·'unknown'·&&·rows.length·===·0;
+    62 61 │   
+    63 62 │     return {
+  
+
+tests/integration/s-rewrite-01-chat-cluster-zero.test.ts:10:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+     8 │  * AC-6 assertions MUST fail. After GREEN, they pass.
+     9 │  */
+  > 10 │ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    11 │ import { dirname, join, resolve } from 'node:path';
+    12 │ import { fileURLToPath } from 'node:url';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      8   8 │    * AC-6 assertions MUST fail. After GREEN, they pass.
+      9   9 │    */
+     10     │ - import·{·existsSync,·readFileSync,·readdirSync,·statSync·}·from·'node:fs';
+         10 │ + import·{·existsSync,·readdirSync,·readFileSync,·statSync·}·from·'node:fs';
+     11  11 │   import { dirname, join, resolve } from 'node:path';
+     12  12 │   import { fileURLToPath } from 'node:url';
+  
+
+tests/integration/s-rewrite-01-chat-cluster-zero.test.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     43  43 │         if (name === '__tests__' || name === 'node_modules') continue;
+     44  44 │         out.push(...listSourceFiles(p));
+     45     │ - ····}·else·if·(/\.(ts|tsx)$/.test(name)·&&·!name.endsWith('.stories.tsx')·&&·!name.endsWith('.test.ts')·&&·!name.endsWith('.test.tsx'))·{
+         45 │ + ····}·else·if·(
+         46 │ + ······/\.(ts|tsx)$/.test(name)·&&
+         47 │ + ······!name.endsWith('.stories.tsx')·&&
+         48 │ + ······!name.endsWith('.test.ts')·&&
+         49 │ + ······!name.endsWith('.test.tsx')
+         50 │ + ····)·{
+     46  51 │         out.push(p);
+     47  52 │       }
+    ······· │ 
+     60  65 │   describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
+     61  66 │     describe('AC-6 — zero convex/react imports in the chat cluster [PRIMARY]', () => {
+     62     │ - ····it('cluster·roots·contain·zero·`from·\'convex/react\'`·imports',·()·=>·{
+         67 │ + ····it("cluster·roots·contain·zero·`from·'convex/react'`·imports",·()·=>·{
+     63  68 │         const hits: string[] = [];
+     64  69 │         for (const file of clusterSourceFiles()) {
+    ······· │ 
+     68  73 │           }
+     69  74 │         }
+     70     │ - ······expect(
+     71     │ - ········hits,
+     72     │ - ········`convex/react·imports·remain·in:\n${hits.join('\n')}`
+     73     │ - ······).toEqual([]);
+         75 │ + ······expect(hits,·`convex/react·imports·remain·in:\n${hits.join('\n')}`).toEqual([]);
+     74  76 │       });
+     75  77 │   
+    ······· │ 
+    101 103 │           combined,
+    102 104 │           'use-chat-history / use-agent-activity must import from app/zero/queries'
+    103     │ - ······).toMatch(/from\s+['"]@?\/?.*zero\/queries['"]|from\s+['"]\.\.\/app\/zero\/queries['"]|from\s+['"]@\/app\/zero\/queries['"]/);
+        105 │ + ······).toMatch(
+        106 │ + ········/from\s+['"]@?\/?.*zero\/queries['"]|from\s+['"]\.\.\/app\/zero\/queries['"]|from\s+['"]@\/app\/zero\/queries['"]/
+        107 │ + ······);
+    104 108 │       });
+    105 109 │     });
+    ······· │ 
+    139 143 │       it('exports agentActivityByConversation builder query', () => {
+    140 144 │         const src = read(QUERIES_PATH);
+    141     │ - ······expect(src).toMatch(
+    142     │ - ········/export\s+(?:const|function)\s+agentActivityBy(?:Conversation|Owner)\b/
+    143     │ - ······);
+        145 │ + ······expect(src).toMatch(/export\s+(?:const|function)\s+agentActivityBy(?:Conversation|Owner)\b/);
+    144 146 │       });
+    145 147 │   
+  
+
+Checked 11 files in 8ms. No fixes applied.
+Found 9 errors.
+Found 3 warnings.
+Found 3 infos.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+

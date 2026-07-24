@@ -1,0 +1,14 @@
+== Devices ==
+-- iOS 26.5 --
+    iPhone 17 Pro (D70558B9-3E26-43F6-8D52-311A0D86E50D) (Shutdown) 
+    iPhone 17 Pro Max (41FBC852-A8DE-40DF-B682-F75E8A56BD86) (Shutdown) 
+    iPhone 17e (44B64965-C2FE-488A-86B0-3BD7A0634AB1) (Shutdown) 
+    iPhone Air (EE142351-5166-40EB-9789-16FC447DC4CF) (Shutdown) 
+    iPhone 17 (C79BF38C-D353-46A2-A1ED-CCA6D68E1B04) (Booted) 
+    iPad Pro 13-inch (M5) (74909533-102D-4793-B854-E49B1586DE80) (Shutdown) 
+    iPad Pro 11-inch (M5) (C8284E63-AD27-47F0-8E88-ADB81165DFAE) (Shutdown) 
+    iPad mini (A17 Pro) (6DBA8DD4-D310-4A16-A852-803BEE9CFAD6) (Shutdown) 
+    iPad Air 13-inch (M4) (18E7D7D2-8764-4683-B6AB-DF532F30F211) (Shutdown) 
+    iPad Air 11-inch (M4) (737DA6BE-50D0-4155-9CD5-8B41829AACC0) (Shutdown) 
+    iPad (A16) (47308627-2EF1-49CE-850A-9D2E6A431C4C) (Shutdown) 
+/opt/homebrew/bin/maestro

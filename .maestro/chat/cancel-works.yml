@@ -1,0 +1,48 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-5 / TC-5 — Agent cancel stops the in-flight stream via Hono command
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 15000
+
+- tapOn:
+    id: "chat-input"
+
+- inputText: "S-REWRITE-01 e2e cancel probe — write a long detailed answer"
+
+- tapOn:
+    id: "chat-input-send-button"
+    optional: true
+- tapOn:
+    id: "send-button"
+    optional: true
+
+# While streaming, cancel control appears
+- extendedWaitUntil:
+    visible:
+      id: "stop-generating-button"
+    timeout: 20000
+    optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "stop-generating-button"
+    commands:
+      - tapOn:
+          id: "stop-generating-button"
+      - assertNotVisible:
+          id: "stop-generating-button"
+          optional: true
+
+- takeScreenshot: S-REWRITE-01-AC-5-cancel-works

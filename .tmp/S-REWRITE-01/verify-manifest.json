@@ -1,0 +1,64 @@
+{
+  "task_id": "S-REWRITE-01",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": true
+  },
+  "project_commands": {
+    "typecheck": "bun run typecheck",
+    "lint": "bun run lint",
+    "test": "bun run test"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml on a named iOS Simulator after `holo seed:e2e --reset`"
+    },
+    {
+      "id": "AC-2",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml"
+    },
+    {
+      "id": "AC-3",
+      "verify": "maestro test .maestro/chat/thread-loads.yml"
+    },
+    {
+      "id": "AC-4",
+      "verify": "maestro test .maestro/chat/send-streams.yml"
+    },
+    {
+      "id": "AC-5",
+      "verify": "maestro test .maestro/chat/cancel-works.yml"
+    },
+    {
+      "id": "AC-6",
+      "verify": "holo verify:no-convex-client --roots 'app/(drawer)/chat,components/chat,hooks/use-chat-history.ts,hooks/use-agent-activity.ts'"
+    },
+    {
+      "id": "TC-1",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml on a named iOS Simulator after `holo seed:e2e --reset`"
+    },
+    {
+      "id": "TC-2",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml"
+    },
+    {
+      "id": "TC-3",
+      "verify": "maestro test .maestro/chat/thread-loads.yml"
+    },
+    {
+      "id": "TC-4",
+      "verify": "maestro test .maestro/chat/send-streams.yml"
+    },
+    {
+      "id": "TC-5",
+      "verify": "maestro test .maestro/chat/cancel-works.yml"
+    },
+    {
+      "id": "TC-6",
+      "verify": "holo verify:no-convex-client --roots 'app/(drawer)/chat,components/chat,hooks/use-chat-history.ts,hooks/use-agent-activity.ts'"
+    }
+  ]
+}

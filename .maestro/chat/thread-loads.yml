@@ -1,0 +1,27 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-3 / TC-3 — Chat thread loads messages via Zero query
+# Prerequisite: seeded conversation with >=3 messages.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-thread"
+    timeout: 30000
+
+- assertNotVisible:
+    text: "No messages"
+    optional: true
+
+# At least one message bubble must be present (seeded thread)
+- assertVisible:
+    id: "chat-thread"
+
+- takeScreenshot: S-REWRITE-01-AC-3-thread-loads

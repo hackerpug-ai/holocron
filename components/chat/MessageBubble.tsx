@@ -1,6 +1,7 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery, useZero } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { deepResearchSessionById, toolCallById } from '@/app/zero/queries';
 import { AssimilationCard } from '@/components/AssimilationCard';
 import { AgentPlanCardWithConvex } from '@/components/agent/AgentPlanCardWithConvex';
 import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard';
@@ -26,8 +27,6 @@ import { Mic } from '@/components/ui/icons';
 import { type CardType, ResultCard, type ResultCardData } from '@/components/ui/result-card';
 import { Text } from '@/components/ui/text';
 import { WhatsNewLoadingCard, WhatsNewReportCard } from '@/components/whats-new';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { formatTimestamp } from '@/lib/formatTimestamp';
 import type {
   DocumentContextCardData,
@@ -140,10 +139,7 @@ export function MessageBubble({
   if (message_type === 'tool_approval' && toolCallId) {
     return (
       <View className={cn('my-1 px-4')} testID={testID}>
-        <ToolApprovalBubble
-          toolCallId={toolCallId as Id<'toolCalls'>}
-          cardData={card_data ?? undefined}
-        />
+        <ToolApprovalBubble toolCallId={toolCallId} cardData={card_data ?? undefined} />
         {showTimestamp && createdAt && (
           <Text
             variant="small"
@@ -267,43 +263,52 @@ export function MessageBubble({
   );
 }
 
+type ZeroToolCallRow = {
+  id: string;
+  tool_name: string;
+  tool_display_name?: string | null;
+  tool_args?: Record<string, unknown> | null;
+  status: string;
+};
+
+type ZeroResearchSessionRow = {
+  id: string;
+  status: string;
+  document_id?: string | null;
+  topic?: string | null;
+};
+
 /**
- * Wrapper that queries live toolCall status and renders ToolApprovalCardWithConvex.
- * Reads from Convex so status updates (approved/executing/completed) are reactive.
+ * Wrapper that queries live toolCall status via Zero and renders ToolApprovalCardWithConvex.
  */
 function ToolApprovalBubble({
   toolCallId,
   cardData,
 }: {
-  toolCallId: Id<'toolCalls'>;
+  toolCallId: string;
   cardData?: Record<string, unknown>;
 }) {
-  const toolCall = useQuery(api.toolCalls.queries.get, { id: toolCallId });
+  const [toolCall] = useQuery(toolCallById(toolCallId));
+  const row = toolCall as unknown as ZeroToolCallRow | undefined;
 
-  if (!toolCall) return null;
+  if (!row) return null;
 
   return (
     <ToolApprovalCardWithConvex
       approvalId={toolCallId}
-      toolName={toolCall.toolName}
-      toolDisplayName={toolCall.toolDisplayName}
-      parameters={(toolCall.toolArgs as Record<string, unknown>) ?? {}}
+      toolName={row.tool_name}
+      toolDisplayName={row.tool_display_name ?? row.tool_name}
+      parameters={(row.tool_args as Record<string, unknown>) ?? {}}
       reasoning={cardData?.reasoning as string | undefined}
       status={
-        toolCall.status as
-          | 'pending'
-          | 'approved'
-          | 'rejected'
-          | 'executing'
-          | 'completed'
-          | 'timed_out'
+        row.status as 'pending' | 'approved' | 'rejected' | 'executing' | 'completed' | 'timed_out'
       }
     />
   );
 }
 
 /**
- * Wrapper component for DeepResearchLoadingCard that polls session status.
+ * Wrapper component for DeepResearchLoadingCard that watches session status via Zero.
  * When research completes and produces a document, renders a DocumentContextCard
  * instead of the loading card.
  */
@@ -322,42 +327,44 @@ function DeepResearchLoadingCardWithPolling({
   onFinalResultPress?: (sessionId: string) => void;
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
 }) {
-  // Poll session status for real-time updates
-  const session = useQuery(api.research.queries.getDeepResearchSession, {
-    sessionId: sessionId as Id<'deepResearchSessions'>,
-  });
-  const cancelSession = useMutation(api.research.mutations.cancelResearchSession);
-  const retrySession = useMutation(api.research.mutations.retryResearchSession);
+  const zero = useZero();
+  const [session] = useQuery(deepResearchSessionById(sessionId));
+  const row = session as unknown as ZeroResearchSessionRow | undefined;
 
-  // Check if session is complete, cancelled, or errored
-  const isComplete = session?.status === 'completed';
-  const isCancelled = session?.status === 'cancelled';
-  const statusStr = session?.status as string | undefined;
+  const isComplete = row?.status === 'completed';
+  const isCancelled = row?.status === 'cancelled';
+  const statusStr = row?.status;
   const isError = statusStr === 'error' || statusStr === 'failed' || statusStr === 'timeout';
 
   const handleCancel = () => {
-    cancelSession({ sessionId: sessionId as Id<'deepResearchSessions'> });
+    // Zero mutator: cancelResearchSession
+    void zero.mutate.research_sessions.update({
+      id: sessionId,
+      status: 'cancelled',
+      updated_at: Date.now(),
+    });
   };
 
   const handleRetry = () => {
-    retrySession({ sessionId: sessionId as Id<'deepResearchSessions'> });
+    // Zero mutator: retryResearchSession
+    void zero.mutate.research_sessions.update({
+      id: sessionId,
+      status: 'pending',
+      updated_at: Date.now(),
+    });
   };
 
   // When research is complete and has a document, render as a DocumentContextCard
-  if (isComplete && session?.documentId) {
+  if (isComplete && row?.document_id) {
     return (
       <DocumentContextCard
         data={{
           card_type: 'document_context',
-          document_id: session.documentId,
+          document_id: row.document_id,
           title: topic || 'Research Complete',
           category: 'research',
           scope: 'full',
-          excerpt: session.report
-            ?.replace(/^---[\s\S]*?---\n*/, '')
-            .replace(/[#*_`>[\]]/g, '')
-            .trim()
-            .slice(0, 120),
+          excerpt: undefined,
         }}
         onNavigateToDocument={onDocumentContextNavigate}
         testID={`${testID}-document`}
@@ -369,7 +376,7 @@ function DeepResearchLoadingCardWithPolling({
     <DeepResearchLoadingCard
       query={topic}
       researchType={researchType}
-      message={session?.status ? STATUS_LABELS[session.status] || session.status : undefined}
+      message={row?.status ? STATUS_LABELS[row.status] || row.status : undefined}
       isComplete={false}
       isCancelled={isCancelled}
       isError={isError}
@@ -847,7 +854,7 @@ function renderResultCard(
 
   // Handle assimilation card - display Borg-themed repository analysis
   if (cardType === 'assimilation') {
-    const documentId = card_data.document_id as Id<'documents'>;
+    const documentId = card_data.document_id as string;
     const repositoryName = (card_data.repository_name as string) ?? '';
     const repositoryUrl = (card_data.repository_url as string) ?? '';
     const primaryLanguage = (card_data.primary_language as string) ?? undefined;
@@ -869,7 +876,7 @@ function renderResultCard(
 
     return (
       <AssimilationCard
-        documentId={documentId}
+        documentId={documentId as never}
         metadata={{
           repositoryName,
           repositoryUrl,

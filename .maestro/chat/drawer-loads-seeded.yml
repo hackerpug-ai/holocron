@@ -1,0 +1,65 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-1 / TC-1 — Drawer conversation list loads via Zero query
+# Prerequisite: `holo seed:e2e --reset` (3 conversations) + Metro + Zero + platform up.
+# Named iOS Simulator required.
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+# Open drawer via chat header menu
+- tapOn:
+    id: "chat-header-menu-button"
+    optional: true
+- tapOn:
+    id: "screen-header-menu-button"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "drawer-content"
+    timeout: 15000
+
+# MUST observe 3 conversation rows (seeded), not empty state
+- assertNotVisible:
+    id: "drawer-content-empty"
+- assertVisible:
+    id: "conversation-row"
+- takeScreenshot: S-REWRITE-01-AC-1-drawer-seeded

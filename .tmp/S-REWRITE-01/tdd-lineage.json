@@ -1,0 +1,35 @@
+{
+  "task_id": "S-REWRITE-01",
+  "tdd_mode": "red_first",
+  "base_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+  "red": {
+    "evidence_file": ".tmp/S-REWRITE-01/red-output.txt",
+    "against_start_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+    "summary": "15/21 tests failed with convex/react still present in cluster; Zero query exports missing",
+    "per_ac": {
+      "AC-1": ".tmp/S-REWRITE-01/AC-1-red-against-start.txt",
+      "AC-2": ".tmp/S-REWRITE-01/AC-2-red-against-start.txt",
+      "AC-3": ".tmp/S-REWRITE-01/AC-3-red-against-start.txt",
+      "AC-4": ".tmp/S-REWRITE-01/AC-4-red-against-start.txt",
+      "AC-5": ".tmp/S-REWRITE-01/AC-5-red-against-start.txt",
+      "AC-6": ".tmp/S-REWRITE-01/AC-6-red-against-start.txt"
+    }
+  },
+  "green": {
+    "evidence_file": ".tmp/S-REWRITE-01/green-tests.txt",
+    "summary": "25/25 tests passed after Zero/Hono rewire",
+    "per_ac": {
+      "AC-1": ".tmp/S-REWRITE-01/AC-1-green.txt",
+      "AC-2": ".tmp/S-REWRITE-01/AC-2-green.txt",
+      "AC-3": ".tmp/S-REWRITE-01/AC-3-green.txt",
+      "AC-4": ".tmp/S-REWRITE-01/AC-4-green.txt",
+      "AC-5": ".tmp/S-REWRITE-01/AC-5-green.txt",
+      "AC-6": ".tmp/S-REWRITE-01/AC-6-green.txt"
+    }
+  },
+  "distinct_red_green_commits": false,
+  "waiver": {
+    "reason": "Single atomic commit for rewire; RED evidence captured against start SHA before implementation files were written (red-output.txt + AC-*-red-against-start.txt). GREEN is post-implementation vitest + AC-6 grep.",
+    "infrastructure_note": "Maestro e2e not executed end-to-end: zero-cache :4848 down, Metro :8081 down, `holo seed:e2e` CLI command absent (unknown command). iPhone 17 simulator booted + maestro binary present."
+  }
+}
