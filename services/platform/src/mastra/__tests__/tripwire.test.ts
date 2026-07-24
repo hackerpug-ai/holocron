@@ -10,6 +10,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   assertNoTripwire,
   assertNoTripwireInStream,
+  getTextDelta,
   handleStreamChunk,
   TripwireError,
 } from '../tripwire.ts';
@@ -52,6 +53,13 @@ describe('assertNoTripwire (generate)', () => {
 });
 
 describe('handleStreamChunk (stream)', () => {
+  it('reads the current AI SDK top-level textDelta shape and legacy payload text', () => {
+    expect(getTextDelta({ type: 'text-delta', textDelta: 'current shape' })).toBe('current shape');
+    expect(getTextDelta({ type: 'text-delta', payload: { text: 'legacy shape' } })).toBe(
+      'legacy shape'
+    );
+  });
+
   it('continues for non-tripwire chunks', () => {
     expect(handleStreamChunk({ type: 'text-delta', payload: { text: 'hi' } })).toEqual({
       action: 'continue',

@@ -11,7 +11,9 @@ const KEYS = { rn: 's20-rn', mcp: 's20-mcp', control: 's20-control' };
 describe('Sprint 20 chat/Zero boundary', () => {
   let sql: Sql | undefined;
   let conversationId: string | undefined;
+  let createdConversationId: string | undefined;
   const requestId = `s20-zero-${Date.now()}`;
+  const createRequestId = `s20-zero-create-${Date.now()}`;
 
   beforeAll(() => {
     if (PLATFORM_IT) sql = createSql(DATABASE_URL);
@@ -23,6 +25,11 @@ describe('Sprint 20 chat/Zero boundary', () => {
       await sql`DELETE FROM chat_runs WHERE request_id = ${requestId}`;
       await sql`DELETE FROM chat_messages WHERE conversation_id = ${conversationId}`;
       await sql`DELETE FROM conversations WHERE id = ${conversationId}::uuid`;
+    }
+    if (createdConversationId) {
+      await sql`DELETE FROM chat_runs WHERE request_id = ${createRequestId}`;
+      await sql`DELETE FROM chat_messages WHERE conversation_id = ${createdConversationId}`;
+      await sql`DELETE FROM conversations WHERE id = ${createdConversationId}::uuid`;
     }
     await sql.end({ timeout: 5 });
   });
@@ -69,5 +76,45 @@ describe('Sprint 20 chat/Zero boundary', () => {
       content: '[[tripwire]] Sprint 20 boundary probe',
       conversationId,
     });
+  });
+
+  itLive('creates and returns a durable conversation when the composer has no conversation ID', async () => {
+    if (!sql) throw new Error('Postgres is required');
+    const app = createHonoApp({ keys: KEYS });
+    const response = await app.request('/api/chat-runs', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        requestId: createRequestId,
+        msg: '[[tripwire]] create a durable conversation for the new-chat composer',
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { conversationId?: string };
+    expect(body.conversationId).toMatch(/[0-9a-f-]{36}/);
+    createdConversationId = body.conversationId;
+
+    const [conversation] = await sql`
+      SELECT id, title, last_message_preview AS "lastMessagePreview"
+      FROM conversations WHERE id = ${createdConversationId}::uuid
+    `;
+    expect(conversation).toMatchObject({
+      id: createdConversationId,
+      title: '[[tripwire]] create a durable conversation for the new-chat composer',
+      lastMessagePreview: '[[tripwire]] create a durable conversation for the new-chat composer',
+    });
+
+    const messages = await sql`
+      SELECT role, content FROM chat_messages
+      WHERE conversation_id = ${createdConversationId}
+      ORDER BY created_at ASC
+    `;
+    expect(messages).toEqual([
+      {
+        role: 'user',
+        content: '[[tripwire]] create a durable conversation for the new-chat composer',
+      },
+    ]);
   });
 });

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { conversationsByOwner, conversationsBySearchTerm } from '@/app/zero/queries';
+import { mutators } from '@/app/zero/mutators';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
@@ -116,8 +117,7 @@ function CustomDrawerContent() {
         }
       }
 
-      // Zero mutator: deleteConversation → table CRUD delete
-      await zero.mutate.conversations.delete({ id: conversationId });
+      await zero.mutate(mutators.deleteConversation({ id: conversationId }));
 
       if (navigateToId) {
         router.push(`/chat/${navigateToId}`);
@@ -142,13 +142,12 @@ function CustomDrawerContent() {
     setActionMenuConversation(null);
 
     try {
-      // Zero mutator: updateConversation → table CRUD update (real persist, not UI-only)
-      await zero.mutate.conversations.update({
+      await zero.mutate(mutators.updateConversation({
         id,
         title: trimmed,
         title_set_by_user: true,
         updated_at: Date.now(),
-      });
+      }));
       // Mutator succeeded — short TTL remains until Zero query reflects; do not extend.
     } catch (err) {
       log('DrawerLayout').error('Failed to rename conversation', err, {

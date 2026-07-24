@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationById, conversationsByOwner } from '@/app/zero/queries';
+import { mutators } from '@/app/zero/mutators';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatThread } from '@/components/chat/ChatThread';
 import { Button } from '@/components/ui/button';
@@ -103,8 +104,7 @@ export default function ChatScreen() {
 
   const softDeleteMessage = useCallback(
     async (messageId: string) => {
-      // Zero mutator: softDeleteChatMessage
-      await zero.mutate.chat_messages.update({ id: messageId, deleted: true });
+      await zero.mutate(mutators.softDeleteChatMessage({ id: messageId }));
     },
     [zero]
   );
@@ -123,34 +123,7 @@ export default function ChatScreen() {
       setSendError(null);
 
       try {
-        let targetConversationId =
-          isNewConversation || !conversationId ? undefined : conversationId;
-
-        // Lazy-create conversation via Zero mutator when starting from /chat/new
-        if (!targetConversationId) {
-          const id =
-            typeof globalThis.crypto?.randomUUID === 'function'
-              ? globalThis.crypto.randomUUID()
-              : `conv-${Date.now()}`;
-          const now = Date.now();
-          await zero.mutate.conversations.insert({
-            id,
-            title: content.trim().slice(0, 80) || 'New chat',
-            last_message_preview: content.trim().slice(0, 200),
-            created_at: now,
-            updated_at: now,
-            agent_busy: true,
-            agent_busy_since: now,
-          });
-          targetConversationId = id;
-        } else {
-          await zero.mutate.conversations.update({
-            id: targetConversationId,
-            agent_busy: true,
-            agent_busy_since: Date.now(),
-            updated_at: Date.now(),
-          });
-        }
+        const targetConversationId = isNewConversation || !conversationId ? undefined : conversationId;
 
         const response = await fetch(`${platformUrl}/api/chat-runs`, {
           method: 'POST',
@@ -175,25 +148,14 @@ export default function ChatScreen() {
           setIsStreaming(true);
         }
 
-        if (isNewConversation && targetConversationId) {
-          router.replace(`/chat/${targetConversationId}`);
+        if (isNewConversation && body.conversationId) {
+          router.replace(`/chat/${body.conversationId}`);
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
         setSendError(error);
         setIsStreaming(false);
         setActiveRunId(null);
-        if (conversationId && !isNewConversation) {
-          try {
-            await zero.mutate.conversations.update({
-              id: conversationId,
-              agent_busy: false,
-              updated_at: Date.now(),
-            });
-          } catch {
-            // best-effort clear
-          }
-        }
       } finally {
         setIsSending(false);
       }
@@ -207,13 +169,6 @@ export default function ChatScreen() {
     if (!runId) {
       // Fallback: clear local busy flags even if run id is unknown
       setIsStreaming(false);
-      if (conversationId && !isNewConversation) {
-        await zero.mutate.conversations.update({
-          id: conversationId,
-          agent_busy: false,
-          updated_at: Date.now(),
-        });
-      }
       return;
     }
 
@@ -229,13 +184,6 @@ export default function ChatScreen() {
     } finally {
       setIsStreaming(false);
       setActiveRunId(null);
-      if (conversationId && !isNewConversation) {
-        await zero.mutate.conversations.update({
-          id: conversationId,
-          agent_busy: false,
-          updated_at: Date.now(),
-        });
-      }
     }
   }, [activeRunId, conversationId, isNewConversation, zero]);
 

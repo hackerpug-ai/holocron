@@ -31,6 +31,7 @@ export interface StreamChunkLike {
   type: string;
   runId?: string;
   from?: string;
+  textDelta?: string;
   payload?: {
     reason?: string;
     retry?: boolean;
@@ -44,6 +45,15 @@ export interface StreamChunkLike {
 export type StreamChunkAction =
   | { action: 'continue' }
   | { action: 'tripwire'; tripwire: TripwireInfo };
+
+/**
+ * Extract streamed text across the current AI SDK shape and the older
+ * Mastra payload shape retained by legacy fixtures.
+ */
+export function getTextDelta(chunk: StreamChunkLike): string | undefined {
+  if (typeof chunk.textDelta === 'string') return chunk.textDelta;
+  return typeof chunk.payload?.text === 'string' ? chunk.payload.text : undefined;
+}
 
 /**
  * Error thrown when a guardrail tripwire blocks an agent call.

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
-import { handleStreamChunk, TripwireError } from '../mastra/tripwire.ts';
+import { getTextDelta, handleStreamChunk, TripwireError } from '../mastra/tripwire.ts';
 
 const ChatRunRequestSchema = z
   .object({
@@ -64,6 +64,7 @@ function rowPayload(row: ChatRunRow, replay: boolean) {
     ok: row.status !== 'failed',
     replay,
     runId: row.id,
+    conversationId: row.conversation_id ?? undefined,
     durableMessageId: row.durable_message_id,
     requestId: row.request_id,
     status: row.status,
@@ -136,8 +137,11 @@ async function finalizeChatRun(
       `;
       if (run.conversation_id) {
         await tx`
-          UPDATE conversations
-          SET last_message_preview = ${options.finalText.slice(0, 200)}, updated_at = now()
+      UPDATE conversations
+      SET last_message_preview = ${options.finalText.slice(0, 200)},
+          agent_busy = false,
+          agent_busy_since = NULL,
+          updated_at = now()
           WHERE id::text = ${run.conversation_id}
         `;
       }
@@ -191,9 +195,10 @@ async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<voi
     for await (const chunk of result.fullStream) {
       const handled = handleStreamChunk(chunk);
       if (handled.action === 'tripwire') throw new TripwireError(handled.tripwire);
-      if (chunk.type === 'text-delta' && typeof chunk.payload?.text === 'string') {
-        finalText += chunk.payload.text;
-        await appendEvent(sql, run.id, 'token', { token: chunk.payload.text });
+      const textDelta = getTextDelta(chunk);
+      if (chunk.type === 'text-delta' && textDelta !== undefined) {
+        finalText += textDelta;
+        await appendEvent(sql, run.id, 'token', { token: textDelta });
       }
     }
     await finalizeChatRun(
@@ -263,9 +268,33 @@ export async function createChatRun(
       `;
       if (existing[0]) return { created: false, run: existing[0] };
 
+      const conversationId = input.conversationId ?? randomUUID();
+      if (!input.conversationId) {
+        await tx`
+          INSERT INTO conversations (
+            id, title, last_message_preview, agent_busy, agent_busy_since
+          )
+          VALUES (
+            ${conversationId}::uuid,
+            ${input.msg.slice(0, 80)},
+            ${input.msg.slice(0, 200)},
+            true,
+            now()
+          )
+        `;
+      } else {
+        await tx`
+          UPDATE conversations
+          SET agent_busy = true,
+              agent_busy_since = now(),
+              updated_at = now()
+          WHERE id::text = ${conversationId}
+        `;
+      }
+
       const rows = await tx<ChatRunRow[]>`
         INSERT INTO chat_runs (id, owner_scope, request_id, conversation_id, role, message)
-        VALUES (${randomUUID()}::uuid, ${scope}, ${input.requestId}, ${input.conversationId ?? null}, ${resolveChatSpecialistRole(input.msg)}, ${input.msg})
+        VALUES (${randomUUID()}::uuid, ${scope}, ${input.requestId}, ${conversationId}, ${resolveChatSpecialistRole(input.msg)}, ${input.msg})
         ON CONFLICT (owner_scope, request_id) DO NOTHING
         RETURNING *
       `;
@@ -278,17 +307,15 @@ export async function createChatRun(
         if (!conflicted[0]) throw new Error('chat run insert returned no row');
         return { created: false, run: conflicted[0] };
       }
-      if (input.conversationId) {
-        await tx`
-          INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
-          VALUES (${randomUUID()}::uuid, ${input.conversationId}, 'user', ${input.msg}, 'text', ${run.id})
-        `;
-        await tx`
-          UPDATE conversations
-          SET last_message_preview = ${input.msg.slice(0, 200)}, updated_at = now()
-          WHERE id::text = ${input.conversationId}
-        `;
-      }
+      await tx`
+        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
+        VALUES (${randomUUID()}::uuid, ${conversationId}, 'user', ${input.msg}, 'text', ${run.id})
+      `;
+      await tx`
+        UPDATE conversations
+        SET last_message_preview = ${input.msg.slice(0, 200)}, updated_at = now()
+        WHERE id::text = ${conversationId}
+      `;
       return { created: true, run };
     });
     if (!result.created) return rowPayload(result.run, true);

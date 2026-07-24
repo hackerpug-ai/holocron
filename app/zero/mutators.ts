@@ -5,7 +5,7 @@ import type { schema } from './schema';
 type Tx = Transaction<typeof schema>;
 
 /**
- * Client mutators for the documents / articles cluster (S-REWRITE-02).
+ * Client mutators for the chat and documents clusters (S-REWRITE-01/02).
  * Named per 13-client-data-contract.yaml zero_mutator targets:
  *   - publishDocument
  *   - unpublishDocument
@@ -36,7 +36,32 @@ type DocumentRow = {
   is_public?: boolean | null;
 };
 
+type ConversationUpdate = {
+  id: string;
+  title?: string;
+  title_set_by_user?: boolean;
+  agent_busy?: boolean;
+  agent_busy_since?: number | null;
+  updated_at?: number;
+};
+
 export const mutators = defineMutators({
+  updateConversation: defineMutator(
+    async ({ tx, args }: { tx: Tx; args: ConversationUpdate }) => {
+      await tx.mutate.conversations.update(args);
+    }
+  ),
+
+  deleteConversation: defineMutator(async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
+    await tx.mutate.conversations.delete({ id: args.id });
+  }),
+
+  softDeleteChatMessage: defineMutator(
+    async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
+      await tx.mutate.chat_messages.update({ id: args.id, deleted: true });
+    }
+  ),
+
   publishDocument: defineMutator(async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
     const existing = (await tx.run(zeroBuilder.documents.where('id', args.id).one())) as
       | DocumentRow
