@@ -22,14 +22,26 @@
 #   MAESTRO_METRO_PORT      default 8081
 #   MAESTRO_DEV_CLIENT_OPEN_URL  optional full exp+holocron://... openLink
 #   E2E_ARTIFACT_DIR        default .tmp/GATE-FIX-001
-#   SKIP_SEED=1             skip step 1 when substrate already seeded
+#   SKIP_SEED=1             skip step 1 — records result "skipped" (NOT pass);
+#                           overall gate verdict cannot pass when seed is skipped
 #   SKIP_UI=1               static/probe mode — seed+no-convex only; UI blocked
 #   WRITE_GATE_RESULTS=1    write gate-results.json from this-cycle claims only
+#   HOLO_PRIMARY_ROOT       dep-bearing primary checkout for seed:e2e
+#                           (e.g. /Users/.../Projects/holocron). Preferred first
+#                           when it has services/platform/node_modules/drizzle-orm
+#                           or node_modules/drizzle-orm. Worktrees often lack deps.
+#   HOLO_ROOT               alternate dep-bearing checkout (same drizzle check)
+#
+# Seed root policy (step 1):
+#   Prefer roots with drizzle-orm installed; only break on seed exit 0; on failure
+#   continue next root and append log. Missing module / all-roots fail => step1 fail
+#   (never pass). SKIP_SEED records "skipped", never "pass".
 #
 # Usage:
 #   bash scripts/e2e/run-sprint24-human-gate.sh
 #   bash scripts/e2e/run-sprint24-human-gate.sh --check
 #   bash scripts/e2e/run-sprint24-human-gate.sh --static-only
+#   bash scripts/e2e/run-sprint24-human-gate.sh --dry-seed-roots
 set -Eeuo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -46,17 +58,80 @@ skip_ui="${SKIP_UI:-0}"
 fail() { echo "sprint24-human-gate: $*" >&2; exit 2; }
 log() { echo "sprint24-human-gate: $*" >&2; }
 
+# True when checkout can resolve drizzle-orm (platform deps present).
+has_seed_deps() {
+  local root="$1"
+  [[ -d "$root/services/platform/node_modules/drizzle-orm" ]] \
+    || [[ -d "$root/node_modules/drizzle-orm" ]]
+}
+
+# Build ordered unique seed roots: dep-bearing first, then others.
+# Order of candidates (before partition): HOLO_PRIMARY_ROOT, HOLO_ROOT,
+# ~/Projects/holocron, repo_root (worktree-safe).
+# Avoids associative arrays for macOS bash 3.2 compatibility.
+build_seed_roots() {
+  local candidates=()
+  local r s already
+  seed_roots=()
+
+  [[ -n "${HOLO_PRIMARY_ROOT:-}" ]] && candidates+=("$HOLO_PRIMARY_ROOT")
+  [[ -n "${HOLO_ROOT:-}" ]] && candidates+=("$HOLO_ROOT")
+  if [[ -d "${HOME}/Projects/holocron" ]]; then
+    candidates+=("${HOME}/Projects/holocron")
+  fi
+  candidates+=("$repo_root")
+
+  local with_deps=() without_deps=() uniq=()
+  for r in "${candidates[@]}"; do
+    [[ -z "$r" ]] && continue
+    already=0
+    for s in "${uniq[@]+"${uniq[@]}"}"; do
+      if [[ "$s" == "$r" ]]; then already=1; break; fi
+    done
+    [[ "$already" == "1" ]] && continue
+    uniq+=("$r")
+    if has_seed_deps "$r"; then
+      with_deps+=("$r")
+    else
+      without_deps+=("$r")
+    fi
+  done
+  seed_roots=("${with_deps[@]+"${with_deps[@]}"}" "${without_deps[@]+"${without_deps[@]}"}")
+}
+
+print_seed_roots_plan() {
+  build_seed_roots
+  local i=0 r deps
+  echo "repo_root=$repo_root"
+  echo "HOLO_PRIMARY_ROOT=${HOLO_PRIMARY_ROOT:-}"
+  echo "HOLO_ROOT=${HOLO_ROOT:-}"
+  echo "seed_roots_ordered (dep-bearing first):"
+  for r in "${seed_roots[@]}"; do
+    i=$((i + 1))
+    if has_seed_deps "$r"; then deps="deps=yes"; else deps="deps=no"; fi
+    echo "  $i. $r ($deps)"
+  done
+  if [[ ${#seed_roots[@]} -gt 0 ]] && has_seed_deps "${seed_roots[0]}"; then
+    echo "preferred_seed_cwd=${seed_roots[0]}"
+    echo "plan: prefer first dep-bearing root; only break on seed_rc==0"
+  else
+    echo "preferred_seed_cwd="
+    echo "plan: no dep-bearing root found; attempts may fail with missing drizzle-orm"
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) mode="check"; shift ;;
     --static-only) mode="static"; shift ;;
+    --dry-seed-roots) mode="dry-seed-roots"; shift ;;
     --artifact-dir) artifact_dir="${2:-}"; shift 2 ;;
     --device) device="${2:-}"; shift 2 ;;
     --write-gate-results) write_gate_results=1; shift ;;
     --skip-seed) skip_seed=1; shift ;;
     --skip-ui) skip_ui=1; shift ;;
     -h|--help)
-      sed -n '2,40p' "$0"
+      sed -n '2,50p' "$0"
       exit 0
       ;;
     *) fail "unknown argument: $1" ;;
@@ -255,6 +330,11 @@ sys.exit(0)
   return "$rc"
 }
 
+if [[ "$mode" == "dry-seed-roots" ]]; then
+  print_seed_roots_plan
+  exit 0
+fi
+
 if [[ "$mode" == "check" || "$mode" == "static" ]]; then
   static_audit
   exit $?
@@ -329,53 +409,86 @@ if [[ "$skip_ui" == "1" ]]; then
 fi
 
 # Step 1: seed
-# Worktrees often lack node_modules; PATH `holo` may be an older binary without
-# seed:e2e ("unknown command: seed:e2e"). Prefer primary/main clone tooling:
-#   bun services/platform/src/cli/holo.ts seed:e2e --reset
-# (or `bun run seed:e2e` from a checkout that has deps).
+# Worktrees often lack node_modules (drizzle-orm); PATH `holo` may be an older
+# binary without seed:e2e. Prefer dep-bearing primary checkout via
+# HOLO_PRIMARY_ROOT / HOLO_ROOT / ~/Projects/holocron before repo_root.
+# Only break on seed_rc==0; on failure continue next root and append log.
+# All roots fail / missing module => step1 fail (NEVER pass).
+# SKIP_SEED records "skipped" (executed=false) so overall gate cannot pass.
 step1_log="$artifact_dir/step1-seed.log"
 step1_result="fail"
 if [[ "$skip_seed" == "1" ]]; then
-  echo "SKIP_SEED=1" | tee "$step1_log"
-  step1_result="pass"
+  {
+    echo "SKIP_SEED=1 — seed not executed this cycle"
+    echo "result=skipped (NOT pass); overall gate verdict cannot pass"
+  } | tee "$step1_log"
+  step1_result="skipped"
   record_step 1 "Run holo seed:e2e --reset — seeds 3 conversations, 12 documents, 5 feed items" \
-    "cli" "pass" ".tmp/GATE-FIX-001/step1-seed.log" "SKIP_SEED=1 (operator asserted substrate)" true
+    "cli" "skipped" ".tmp/GATE-FIX-001/step1-seed.log" \
+    "SKIP_SEED=1 (not executed; gate cannot pass)" false
 else
   set +e
   seed_rc=127
   seed_cmd=""
+  : >"$step1_log"
 
-  # Candidate roots: this checkout, HOLO_ROOT, then primary clone (worktree-safe).
-  seed_roots=("$repo_root")
-  if [[ -n "${HOLO_ROOT:-}" ]]; then
-    seed_roots+=("$HOLO_ROOT")
-  fi
-  if [[ -d "${HOME}/Projects/holocron" ]]; then
-    seed_roots+=("${HOME}/Projects/holocron")
-  fi
+  build_seed_roots
+  {
+    echo "=== seed root plan (dep-bearing first) ==="
+    print_seed_roots_plan
+    echo "=== end plan ==="
+  } | tee -a "$step1_log"
 
-  # 1) Prefer bun holo.ts that documents/implements seed:e2e (skip PATH holo if
-  #    it lacks the command — common residual HIGH on worktree drivers).
+  # 1) bun holo.ts under each root that implements seed:e2e.
+  #    Prefer dep-bearing roots (already ordered). Only break on rc==0.
   for root in "${seed_roots[@]}"; do
     holo_ts="$root/services/platform/src/cli/holo.ts"
-    if [[ -f "$holo_ts" ]]; then
-      help_out="$(cd "$root" && bun "$holo_ts" --help 2>&1 || true)"
-      if printf '%s' "$help_out" | rg -q 'seed:e2e'; then
-        seed_cmd="bun $holo_ts seed:e2e --reset (cwd=$root)"
-        log "seed via: $seed_cmd"
-        (cd "$root" && bun "$holo_ts" seed:e2e --reset) 2>&1 | tee "$step1_log"
-        seed_rc=${PIPESTATUS[0]}
-        break
-      fi
+    if [[ ! -f "$holo_ts" ]]; then
+      echo "skip root (no holo.ts): $root" | tee -a "$step1_log"
+      continue
     fi
+    help_out="$(cd "$root" && bun "$holo_ts" --help 2>&1 || true)"
+    if ! printf '%s' "$help_out" | rg -q 'seed:e2e'; then
+      echo "skip root (holo.ts lacks seed:e2e): $root" | tee -a "$step1_log"
+      continue
+    fi
+    if has_seed_deps "$root"; then
+      deps_label="deps=yes"
+    else
+      deps_label="deps=no (may fail missing drizzle-orm)"
+    fi
+    seed_cmd="bun $holo_ts seed:e2e --reset (cwd=$root $deps_label)"
+    log "seed via: $seed_cmd"
+    # Subshell exits with bun's status so PIPESTATUS[0] is the seed rc (not tee).
+    (
+      echo "=== seed attempt: $seed_cmd ==="
+      cd "$root" && bun "$holo_ts" seed:e2e --reset
+    ) 2>&1 | tee -a "$step1_log"
+    seed_rc=${PIPESTATUS[0]}
+    if [[ "$seed_rc" == "0" ]]; then
+      log "seed succeeded at cwd=$root"
+      break
+    fi
+    echo "seed failed rc=$seed_rc at $root — trying next root" | tee -a "$step1_log"
   done
 
-  # 2) Fallback: package script when local deps exist
-  if [[ "$seed_rc" != "0" ]] && [[ -f "$repo_root/package.json" ]] && [[ -d "$repo_root/node_modules" ]]; then
-    seed_cmd="bun run seed:e2e (cwd=$repo_root)"
-    log "seed via: $seed_cmd"
-    (cd "$repo_root" && bun run seed:e2e) 2>&1 | tee "$step1_log"
-    seed_rc=${PIPESTATUS[0]}
+  # 2) Fallback: package script on dep-bearing roots only
+  if [[ "$seed_rc" != "0" ]]; then
+    for root in "${seed_roots[@]}"; do
+      if has_seed_deps "$root" && [[ -f "$root/package.json" ]]; then
+        seed_cmd="bun run seed:e2e (cwd=$root deps=yes)"
+        log "seed via: $seed_cmd"
+        (
+          echo "=== seed attempt: $seed_cmd ==="
+          cd "$root" && bun run seed:e2e
+        ) 2>&1 | tee -a "$step1_log"
+        seed_rc=${PIPESTATUS[0]}
+        if [[ "$seed_rc" == "0" ]]; then
+          break
+        fi
+        echo "seed failed rc=$seed_rc via package script at $root — trying next" | tee -a "$step1_log"
+      fi
+    done
   fi
 
   # 3) Last resort: PATH holo only if it actually knows seed:e2e
@@ -384,29 +497,40 @@ else
     if printf '%s' "$holo_help" | rg -q 'seed:e2e'; then
       seed_cmd="holo seed:e2e --reset"
       log "seed via: $seed_cmd"
-      holo seed:e2e --reset 2>&1 | tee "$step1_log"
+      (
+        echo "=== seed attempt: $seed_cmd ==="
+        holo seed:e2e --reset
+      ) 2>&1 | tee -a "$step1_log"
       seed_rc=${PIPESTATUS[0]}
     else
       {
         echo "PATH holo lacks seed:e2e (unknown command) — skipped"
-        echo "prefer: bun services/platform/src/cli/holo.ts seed:e2e --reset from primary clone"
+        echo "prefer: HOLO_PRIMARY_ROOT with drizzle-orm + bun services/platform/src/cli/holo.ts seed:e2e --reset"
       } | tee -a "$step1_log"
     fi
   fi
 
   if [[ -z "$seed_cmd" && "$seed_rc" != "0" ]]; then
     {
-      echo "holo seed:e2e not found"
-      echo "tried bun holo.ts under: ${seed_roots[*]}"
-      echo "hint: cd /Users/inference1/Projects/holocron && bun services/platform/src/cli/holo.ts seed:e2e --reset"
-    } | tee "$step1_log"
+      echo "holo seed:e2e not found or all roots failed"
+      echo "tried roots: ${seed_roots[*]}"
+      echo "hint: export HOLO_PRIMARY_ROOT=/Users/inference1/Projects/holocron"
+      echo "hint: cd \"\$HOLO_PRIMARY_ROOT\" && bun services/platform/src/cli/holo.ts seed:e2e --reset"
+    } | tee -a "$step1_log"
     seed_rc=127
+  fi
+
+  # Missing-module across all attempts is still fail (never pass / never blocked-as-ok)
+  if [[ "$seed_rc" != "0" ]] && rg -q "Cannot find module 'drizzle-orm" "$step1_log"; then
+    echo "evidence: missing drizzle-orm module (worktree env) — step1 fail" | tee -a "$step1_log"
   fi
 
   rc=$seed_rc
   set -e
   if [[ "$rc" == "0" ]]; then
     step1_result="pass"
+  else
+    step1_result="fail"
   fi
   record_step 1 "Run holo seed:e2e --reset — seeds 3 conversations, 12 documents, 5 feed items" \
     "cli" "$step1_result" ".tmp/GATE-FIX-001/step1-seed.log" "seed exit=$rc cmd=${seed_cmd:-none}" true
@@ -507,11 +631,13 @@ run_ui_step 7 \
   "step7-share-url.log"
 
 # Aggregate claims — NEVER invent pass
+# SKIP_SEED / SKIP_UI use result skipped|blocked (not pass) so steps_passed < 7.
 steps_passed="$(jq -s '[.[] | select(.result=="pass")] | length' "$claims_file")"
 steps_total=7
 steps_executed="$(jq -s '[.[] | select(.executed==true)] | length' "$claims_file")"
+steps_skipped_or_blocked="$(jq -s '[.[] | select(.result=="skipped" or .result=="blocked")] | length' "$claims_file")"
 verdict="fail"
-if [[ "$steps_passed" == "7" && "$steps_executed" == "7" ]]; then
+if [[ "$steps_passed" == "7" && "$steps_executed" == "7" && "$steps_skipped_or_blocked" == "0" ]]; then
   verdict="pass"
 fi
 
