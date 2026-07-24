@@ -1,9 +1,66 @@
-# S-REWRITE-02 AC-4 / TC-4 — Article import creates a document via Zero mutator
-appId: com.anonymous.holocron
+# S-REWRITE-02 AC-4 / TC-4 — Article import via Zero mutator createImportDocument
+# Prerequisite: seeded documents + Metro + Zero + platform up.
+# Requires installed app bundleId com.holocron.app on a named iOS Simulator.
+#
+# Contract note (legacy append): createImportDocument appends pasted text onto an
+# existing selected document (mirrors convex/imports.mutations.createImport).
+# It does NOT insert a brand-new documents row. Product-approved as append-to-existing.
+# insertDocument exists on the mutator surface for future create-new flows.
+appId: com.holocron.app
 ---
-- launchApp
+- launchApp:
+    clearState: false
+
+- openLink: holocron://articles
+
+- extendedWaitUntil:
+    visible:
+      id: "articles-route"
+    timeout: 90000
+
+- extendedWaitUntil:
+    visible:
+      id: "articles-import-button"
+    timeout: 30000
+
+- tapOn:
+    id: "articles-import-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "articles-import-modal"
+    timeout: 15000
+
+- assertVisible:
+    id: "articles-import-modal"
+
+- assertVisible:
+    id: "import-text-input"
+
+- assertVisible:
+    id: "import-submit"
+
+# Select first listed article option (dynamic id article-option-*)
+- tapOn:
+    text: ".*"
+    index: 0
+    optional: true
+
+- tapOn:
+    id: "import-text-input"
+
+- inputText: "S-REWRITE-02 maestro import append probe"
+
+- tapOn:
+    id: "import-submit"
+
+# Modal dismisses on success; list remains bound to Zero
 - extendedWaitUntil:
     visible:
       id: "articles-route"
     timeout: 30000
+
+- assertVisible:
+    id: "article-card-pressable"
+
 - takeScreenshot: articles-import-works

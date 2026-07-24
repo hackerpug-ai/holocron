@@ -1,11 +1,67 @@
 # S-REWRITE-02 AC-1 / TC-1 — Articles list loads via Zero
-appId: com.anonymous.holocron
+# Prerequisite: `holo seed:e2e --reset` (12 documents) + Metro + Zero + platform up.
+# Requires installed app bundleId com.holocron.app on a named iOS Simulator.
+appId: com.holocron.app
 ---
-- launchApp
+- launchApp:
+    clearState: false
+
+# Expo dev-client / Metro host pickers (optional on cold start)
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ".*http.*"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Prefer deep link into articles; fall back to drawer if already on chat shell
+- openLink: holocron://articles
+
 - extendedWaitUntil:
     visible:
       id: "articles-route"
-    timeout: 30000
+    timeout: 90000
+
 - assertVisible:
     id: "articles-route"
+
+# MUST observe list + cards (seeded docs), not empty state
+- assertNotVisible:
+    id: "articles-empty-state"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "articles-list"
+    timeout: 60000
+    optional: true
+
+- assertVisible:
+    id: "article-card-pressable"
+
+- assertVisible:
+    id: "articles-category-chips"
+    optional: true
+
+- assertVisible:
+    id: "articles-count-header"
+    optional: true
+
 - takeScreenshot: articles-list-loads

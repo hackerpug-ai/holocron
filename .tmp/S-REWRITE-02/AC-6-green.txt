@@ -1,15 +1,11 @@
-=== AC-6 GREEN: no convex/react imports in documents cluster ===
-timestamp: 2026-07-24T01:09:57Z
+$ vitest run "tests/integration/s-rewrite-02-documents-cluster.test.ts"
 
-convex_react_import_hits=0
-=== Zero imports ===
-app/articles.tsx:1:import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
-app/articles.tsx:13:import { documentsByCategory, documentsByOwner } from '@/app/zero/queries';
-components/articles/ArticleImportModal.tsx:1:import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
-components/articles/ArticleImportModal.tsx:12:import { mutators } from '@/app/zero/mutators';
-components/articles/ArticleImportModal.tsx:13:import { documentsByOwner } from '@/app/zero/queries';
-app/document/[id].tsx:1:import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
-app/document/[id].tsx:34:} from '@/app/zero/queries';
-app/document/[id].tsx:35:import { mutators } from '@/app/zero/mutators';
-app/document/[id].tsx:41:} from '@/app/zero/platform';
-STATUS: GREEN
+ RUN  v4.1.10 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-02
+
+ ✓ tests/integration/s-rewrite-02-documents-cluster.test.ts (6 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  19:18:18
+   Duration  331ms (transform 71ms, setup 115ms, import 113ms, tests 5ms, environment 0ms)
+
