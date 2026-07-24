@@ -4,17 +4,20 @@
 # Oracle: after Share, system share sheet / link text must contain `/article/`
 # and must not contain `.convex.site` / `.convex.cloud`.
 #
-# Probe2 /tmp/share-probe2-final.png: collapsed Expo Dev Menu gear FAB at top-right
-# (not "Runtime version" text). "Runtime version" condition misses that state.
-# Clear overlay before share: tap gear area (~90%,14%) → dismiss expanded menu
-# (X/Close) → SINGLE-tap document-actions-button → assert sheet-share.
+# Probe2 /tmp/share-probe2-final.png: collapsed Expo gear FAB at top-right.
+# "Runtime version" text misses collapsed state. Clear overlay before share:
+#   1) tap gear area (~90%,14%) to expand
+#   2) dismiss expanded menu via xmark/Close (hard when Reload visible)
+#   3) wait until Runtime version / Reload gone
+#   4) single-tap document-actions-button (left relative point, away from gear)
+#   5) assert document-actions-sheet-share
 # Unconditional second actions-button tap is forbidden.
 appId: com.holocron.app
 ---
 - launchApp:
     clearState: false
 
-# Bounded optional: expanded Dev Menu left open from a prior step
+# Expanded Dev Menu left open from a prior step
 - runFlow:
     when:
       visible: "Runtime version"
@@ -24,9 +27,6 @@ appId: com.holocron.app
           optional: true
       - tapOn:
           text: "Close"
-          optional: true
-      - tapOn:
-          point: "50%,12%"
           optional: true
       - waitForAnimationToEnd:
           timeout: 2000
@@ -47,49 +47,67 @@ appId: com.holocron.app
       id: "document-layout"
     timeout: 60000
 
-# --- Clear Expo floating gear overlay (collapsed state has no "Runtime version") ---
-# probe2-final: gear sits on top-right over document-actions-button.
-# Tap expands menu; then dismiss so our ellipsis is free for a real single tap.
+# --- Clear collapsed Expo gear FAB (probe2-final) ---
+# Collapsed gear has no "Runtime version" text — expand, dismiss, then
+# swipe the FAB off the header so it cannot re-steal the ellipsis tap.
 - tapOn:
     point: "90%,14%"
 - waitForAnimationToEnd:
-    timeout: 2000
+    timeout: 2500
+
+# Dismiss expanded menu — prefer resource-id xmark (a11y Close)
 - runFlow:
     when:
       visible: "Runtime version"
     commands:
       - tapOn:
           id: "xmark"
-          optional: true
-      - tapOn:
-          text: "Close"
-          optional: true
-      - tapOn:
-          text: ".*Close.*"
-          optional: true
-      - tapOn:
-          point: "50%,12%"
-          optional: true
       - waitForAnimationToEnd:
           timeout: 2000
-# If expanded menu still present (xmark id path), one more dismiss pass
 - runFlow:
     when:
       visible: "Reload"
     commands:
       - tapOn:
           id: "xmark"
-          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - tapOn:
+          id: "xmark"
+      - waitForAnimationToEnd:
+          timeout: 2000
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
       - tapOn:
           text: "Close"
-          optional: true
-      - tapOn:
-          point: "50%,12%"
           optional: true
       - waitForAnimationToEnd:
           timeout: 2000
 
-# If gear-area tap accidentally opened our sheet, skip re-open; else single-tap.
+- extendedWaitUntil:
+    notVisible: "Runtime version"
+    timeout: 8000
+    optional: true
+- extendedWaitUntil:
+    notVisible: "Reload"
+    timeout: 5000
+    optional: true
+
+# Drag collapsed gear down/away from the header ellipsis (persists across taps)
+- swipe:
+    start: "92%,12%"
+    end: "92%,70%"
+    duration: 800
+- waitForAnimationToEnd:
+    timeout: 1500
+
+# If gear-area mis-tap already opened our sheet, skip re-open
 - runFlow:
     when:
       notVisible:
@@ -99,10 +117,31 @@ appId: com.holocron.app
           visible:
             id: "document-actions-button"
           timeout: 30000
+      # Left half of ellipsis — away from residual gear on the right
       - tapOn:
           id: "document-actions-button"
+          point: "15%,50%"
 
-# Sheet content (Pressable share)
+# Recovery: menu re-opened → X dismiss + left-side re-tap once
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - swipe:
+          start: "92%,12%"
+          end: "92%,70%"
+          duration: 600
+          optional: true
+      - tapOn:
+          id: "document-actions-button"
+          point: "15%,50%"
+          optional: true
+
 - extendedWaitUntil:
     visible:
       id: "document-actions-sheet-share"
@@ -114,13 +153,11 @@ appId: com.holocron.app
 - tapOn:
     id: "document-actions-sheet-share"
 
-# Legacy ActionSheet branch (optional; direct Share.share is preferred)
 - tapOn:
     text: "Share Link"
     optional: true
 
-# System share sheet may open and hide app hierarchy. Dismiss it so the
-# in-app document-share-url oracle (full /article/ path) is queryable.
+# System share sheet may hide app hierarchy — dismiss so document-share-url is queryable
 - runFlow:
     when:
       visible: "Copy"
@@ -137,8 +174,6 @@ appId: com.holocron.app
     text: "Close"
     optional: true
 
-# GATE-FIX-007b: full URL is mounted as document-share-url (iOS share sheet
-# accessibility only shows host like 127.0.0.1, not /article/ path).
 - extendedWaitUntil:
     visible:
       id: "document-share-url"
@@ -150,7 +185,6 @@ appId: com.holocron.app
 - assertVisible:
     text: ".*(/article/).*"
 
-# MUST NOT observe legacy Convex host rewrite
 - assertNotVisible:
     text: ".*\\.convex\\.site.*"
 - assertNotVisible:
