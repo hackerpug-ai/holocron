@@ -10,7 +10,6 @@
  * Follows the same modal/animation pattern as ImprovementSubmitSheet.
  */
 
-import { useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import * as React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -34,8 +33,7 @@ import {
   X,
 } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useNotifications } from '@/hooks/use-notifications';
 import { useTheme } from '@/hooks/use-theme';
 
 // ─── Animation constants ────────────────────────────────────────────────────
@@ -126,10 +124,8 @@ export function NotificationListSheet({
   const { colors } = useTheme();
   const router = useRouter();
 
-  // ── Convex data ──
-  const notifications = useQuery(api.notifications.queries.listRecent, { limit: 20 });
-  const markRead = useMutation(api.notifications.mutations.markRead);
-  const markAllRead = useMutation(api.notifications.mutations.markAllRead);
+  // ── Zero data ──
+  const { recent: notifications, markRead, markAllRead } = useNotifications({ recentLimit: 20 });
 
   // ── Animation shared values ──
   const translateY = useSharedValue(600);
@@ -179,7 +175,7 @@ export function NotificationListSheet({
   // ── Handlers ──
   const handleItemPress = (item: GroupedNotification) => {
     if (!item.read) {
-      markRead({ id: item._id as Id<'notifications'> }).catch(() => {});
+      markRead(item._id).catch(() => {});
     }
     // Close modal first, navigate after animation completes to avoid crash
     translateY.value = withTiming(600, TIMING_OUT);
@@ -196,7 +192,7 @@ export function NotificationListSheet({
 
   // ── Group notifications ──
   const groups = React.useMemo(() => {
-    if (!notifications) return [];
+    if (!notifications || notifications.length === 0) return [];
     const groupMap = new Map<string, GroupedNotification[]>();
     const order = ['Today', 'Yesterday', 'Older'];
 
@@ -209,7 +205,7 @@ export function NotificationListSheet({
     return order.filter((g) => groupMap.has(g)).map((g) => ({ label: g, items: groupMap.get(g)! }));
   }, [notifications]);
 
-  const hasUnread = notifications?.some((n: any) => !n.read) ?? false;
+  const hasUnread = notifications.some((n) => !n.read);
 
   if (!visible) return null;
 
@@ -275,7 +271,7 @@ export function NotificationListSheet({
               contentContainerStyle={styles.bodyContent}
               testID={`${testID}-scroll`}
             >
-              {(!notifications || notifications.length === 0) && (
+              {notifications.length === 0 && (
                 <View style={styles.emptyState}>
                   <Bell size={32} className="text-muted-foreground" />
                   <Text className="text-muted-foreground mt-3 text-sm">No notifications yet</Text>

@@ -1,69 +1,83 @@
 /**
- * useNotifications — Convex-backed notifications hook
+ * useNotifications — Zero-backed notifications hook
  *
- * Provides access to unread notifications, their count, and mutations
- * to mark individual or all notifications as read.
- *
- * @example
- * ```tsx
- * const { unread, unreadCount, markRead, markAllRead } = useNotifications()
- *
- * return (
- *   <View>
- *     <Text>{unreadCount} unread</Text>
- *     <Button onPress={() => markAllRead()}>Mark all read</Button>
- *   </View>
- * )
- * ```
+ * Reads unread/recent notifications via Zero queries and writes mark-read
+ * via Zero legacy mutators on the notifications table.
  */
 
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { notificationsRecent, notificationsUnread } from '@/app/zero/queries';
 import type { NotificationData } from '@/components/notifications/NotificationToast';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface UseNotificationsReturn {
   /** Unread notifications, most-recent first (up to 10) */
   unread: NotificationData[];
+  /** Recent notifications (read + unread), most-recent first */
+  recent: NotificationData[];
   /** Number of unread notifications */
   unreadCount: number;
+  /** True while Zero has not yet returned a first result for unread */
+  isLoading: boolean;
   /** Mark a single notification as read by ID */
   markRead: (id: string) => Promise<void>;
   /** Mark all unread notifications as read */
   markAllRead: () => Promise<void>;
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+type NotificationRow = {
+  id: string;
+  type?: string | null;
+  title?: string | null;
+  body?: string | null;
+  route?: string | null;
+  read?: boolean | null;
+  created_at: number;
+};
 
-export function useNotifications(): UseNotificationsReturn {
-  const rawUnread = useQuery(api.notifications.queries.listUnread);
+function mapRow(n: NotificationRow): NotificationData {
+  return {
+    _id: n.id,
+    type: (n.type ?? 'system') as NotificationData['type'],
+    title: n.title ?? '',
+    body: n.body ?? '',
+    route: n.route ?? '',
+    read: n.read ?? false,
+    createdAt: n.created_at,
+  };
+}
 
-  const markReadMutation = useMutation(api.notifications.mutations.markRead);
-  const markAllReadMutation = useMutation(api.notifications.mutations.markAllRead);
+export function useNotifications(options?: {
+  unreadLimit?: number;
+  recentLimit?: number;
+}): UseNotificationsReturn {
+  const zero = useZero();
+  const unreadLimit = options?.unreadLimit ?? 10;
+  const recentLimit = options?.recentLimit ?? 20;
 
-  const unread: NotificationData[] = (rawUnread ?? []).map((n: Doc<'notifications'>) => ({
-    _id: n._id,
-    type: n.type as NotificationData['type'],
-    title: n.title,
-    body: n.body,
-    route: n.route,
-    read: n.read,
-    createdAt: n.createdAt,
-  }));
+  const [rawUnread, unreadDetails] = useZeroQuery(notificationsUnread(unreadLimit));
+  const [rawRecent] = useZeroQuery(notificationsRecent(recentLimit));
+
+  const unread: NotificationData[] = ((rawUnread ?? []) as NotificationRow[]).map(mapRow);
+  const recent: NotificationData[] = ((rawRecent ?? []) as NotificationRow[]).map(mapRow);
+
+  const isLoading = unreadDetails.type === 'unknown' && rawUnread === undefined;
 
   const markRead = async (id: string): Promise<void> => {
-    await markReadMutation({ id: id as Id<'notifications'> });
+    await zero.mutate.notifications.update({ id, read: true });
   };
 
   const markAllRead = async (): Promise<void> => {
-    await markAllReadMutation({});
+    const targets = unread.length > 0 ? unread : recent.filter((n) => !n.read);
+    await Promise.all(
+      targets.map((n) => zero.mutate.notifications.update({ id: n._id, read: true }))
+    );
   };
 
   return {
     unread,
+    recent,
     unreadCount: unread.length,
+    isLoading,
     markRead,
     markAllRead,
   };

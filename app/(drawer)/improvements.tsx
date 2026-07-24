@@ -1,59 +1,66 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable } from 'react-native';
+import { improvementRequestById, improvementRequestsByOwner } from '@/app/zero/queries';
 import { ImprovementActionBottomSheet } from '@/components/improvements/ImprovementActionMenu';
 import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet';
 import { ImprovementProcessingIndicator } from '@/components/improvements/ImprovementProcessingIndicator';
 import { ImprovementSubmitSheet } from '@/components/improvements/ImprovementSubmitSheet';
 import { Plus } from '@/components/ui/icons';
 import { ScreenLayout } from '@/components/ui/screen-layout';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { ImprovementsScreen } from '@/screens/improvements-screen';
 
+type ImprovementRow = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  status: string;
+  created_at: number;
+  merged_into_id?: string | null;
+  merged_from_ids?: unknown;
+  processed_at?: number | null;
+};
+
 /**
- * Improvements route - displays searchable, filterable list of improvement requests.
+ * Improvements route — Zero-backed list + mutators.
  * Inside (drawer) group so the navigation drawer remains accessible.
  */
 export default function ImprovementsRoute() {
   const router = useRouter();
+  const zero = useZero();
   const [sheetVisible, setSheetVisible] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [editSheetId, setEditSheetId] = useState<string | null>(null);
-  const [processingRequestId, setProcessingRequestId] = useState<Id<'improvementRequests'> | null>(
-    null
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+
+  const [rawRequests, listDetails] = useZeroQuery(improvementRequestsByOwner(50));
+  const isLoading = listDetails.type === 'unknown' && rawRequests === undefined;
+
+  const [requestStatus] = useZeroQuery(
+    processingRequestId ? improvementRequestById(processingRequestId) : undefined,
+    { enabled: !!processingRequestId }
   );
 
-  const requestsData = useQuery(api.improvements.queries.list, { limit: 50 });
-  const isLoading = requestsData === undefined;
-
-  const updateMutation = useMutation(api.improvements.mutations.update);
-  const removeMutation = useMutation(api.improvements.mutations.remove);
-
-  // Watch the processing request to hide indicator once the dedup agent
-  // has written back (processedAt becomes defined).
-  const requestStatus = useQuery(
-    api.improvements.queries.get,
-    processingRequestId ? { id: processingRequestId } : 'skip'
-  );
-
-  // Hide indicator when processing completes
   useEffect(() => {
-    if (requestStatus?.processedAt !== undefined) {
+    const row = requestStatus as ImprovementRow | null | undefined;
+    if (row?.processed_at != null) {
       setProcessingRequestId(null);
     }
-  }, [requestStatus?.processedAt]);
+  }, [requestStatus]);
 
-  const requests = (requestsData ?? []).map((req: any) => ({
-    _id: req._id as string,
-    title: req.title,
-    description: req.description,
-    status: req.status,
-    createdAt: req.createdAt,
-    // images are stored in a separate table; list query does not include them
-    images: undefined,
-    mergedFromIds: req.mergedFromIds as string[] | undefined,
+  const allRows = (rawRequests ?? []) as ImprovementRow[];
+  // Post-filter merged requests (mirrors Convex list behavior).
+  const openRows = allRows.filter((r) => r.merged_into_id == null);
+
+  const requests = openRows.map((req) => ({
+    _id: req.id,
+    title: req.title ?? undefined,
+    description: req.description ?? '',
+    status: (req.status === 'closed' ? 'closed' : 'open') as 'open' | 'closed',
+    createdAt: req.created_at,
+    images: undefined as undefined,
+    mergedFromIds: req.merged_from_ids as string[] | undefined,
   }));
 
   const handleRequestPress = (id: string) => {
@@ -69,20 +76,21 @@ export default function ImprovementsRoute() {
   };
 
   const handleDelete = async (id: string) => {
-    await removeMutation({ id: id as Id<'improvementRequests'> });
+    await zero.mutate.improvement_requests.delete({ id });
   };
 
   const handleSaveEdit = async (title: string, description: string) => {
     if (!editSheetId) return;
-    await updateMutation({
-      id: editSheetId as Id<'improvementRequests'>,
+    await zero.mutate.improvement_requests.update({
+      id: editSheetId,
       title,
       description,
+      updated_at: Date.now(),
     });
     setEditSheetId(null);
   };
 
-  const handleSubmitted = (requestId: Id<'improvementRequests'>) => {
+  const handleSubmitted = (requestId: string) => {
     setProcessingRequestId(requestId);
   };
 
@@ -93,6 +101,8 @@ export default function ImprovementsRoute() {
       router.navigate('/chat/new');
     }
   };
+
+  const editing = openRows.find((r) => r.id === editSheetId);
 
   return (
     <ScreenLayout
@@ -134,15 +144,13 @@ export default function ImprovementsRoute() {
         testID="improvements-screen-submit-sheet"
       />
 
-      {editSheetId && requestsData && (
+      {editSheetId && (
         <ImprovementEditSheet
           visible={editSheetId !== null}
           onClose={() => setEditSheetId(null)}
           onSave={handleSaveEdit}
-          initialTitle={requestsData.find((r: any) => r._id === editSheetId)?.title ?? ''}
-          initialDescription={
-            requestsData.find((r: any) => r._id === editSheetId)?.description ?? ''
-          }
+          initialTitle={editing?.title ?? ''}
+          initialDescription={editing?.description ?? ''}
           testID="improvements-edit-sheet"
         />
       )}

@@ -11,20 +11,23 @@ interface UseSubscriptionFeedArgs {
 
 type FeedItemRow = {
   id: string;
+  group_key?: string | null;
   title?: string | null;
   summary?: string | null;
   content_type?: string | null;
-  viewed?: boolean | null;
-  created_at: number;
+  item_count?: number | null;
   thumbnail_url?: string | null;
   author_handle?: string | null;
   creator_name?: string | null;
+  viewed?: boolean | null;
   published_at?: number | null;
-  group_key?: string | null;
+  discovered_at?: number | null;
+  created_at: number;
 };
 
 /**
  * Subscription feed via Zero (api.feeds.queries.getFeed → feedItemsByOwner).
+ * Field mapping preserves legacy camelCase names expected by feed cards.
  */
 export function useSubscriptionFeed({
   limit = 20,
@@ -38,13 +41,29 @@ export function useSubscriptionFeed({
   const isLoading = details.type !== 'complete' && rows.length === 0;
 
   const filteredItems = useMemo(() => {
-    let items = rows;
+    let items = rows.map((item) => ({
+      ...item,
+      _id: item.id,
+      id: item.id,
+      groupKey: item.group_key,
+      title: item.title,
+      summary: item.summary,
+      contentType: item.content_type,
+      itemCount: item.item_count,
+      thumbnailUrl: item.thumbnail_url,
+      authorHandle: item.author_handle,
+      creatorName: item.creator_name,
+      viewed: item.viewed ?? false,
+      publishedAt: item.published_at,
+      discoveredAt: item.discovered_at,
+      createdAt: item.created_at,
+    }));
 
     if (contentType) {
-      items = items.filter((item) => item.content_type === contentType);
+      items = items.filter((item) => item.contentType === contentType);
     }
     if (viewed !== undefined) {
-      items = items.filter((item) => Boolean(item.viewed) === viewed);
+      items = items.filter((item) => item.viewed === viewed);
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -55,18 +74,7 @@ export function useSubscriptionFeed({
       );
     }
 
-    // Preserve legacy field names expected by feed cards.
-    return items.map((item) => ({
-      ...item,
-      _id: item.id,
-      contentType: item.content_type,
-      thumbnailUrl: item.thumbnail_url,
-      authorHandle: item.author_handle,
-      creatorName: item.creator_name,
-      publishedAt: item.published_at,
-      groupKey: item.group_key,
-      createdAt: item.created_at,
-    }));
+    return items;
   }, [rows, contentType, viewed, searchQuery]);
 
   const hasMore = filteredItems.length >= currentLimit;
@@ -84,7 +92,7 @@ export function useSubscriptionFeed({
   return {
     items: filteredItems,
     isLoading,
-    error: null,
+    error: null as Error | null,
     hasMore,
     loadMore,
     reset,

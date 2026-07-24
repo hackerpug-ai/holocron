@@ -1,11 +1,11 @@
 /**
- * Agent activity bar via Zero (S-REWRITE-01).
+ * Agent activity bar via Zero (S-REWRITE-01 / S-REWRITE-04).
  *
  * Contract: api.db.agentActivity.get → zero_query agent_plans / agentActivityByOwner.
- * Phase is derived from the most recent non-terminal plan status for the thread.
+ * Phase is derived from the most recent plan status for the thread.
  */
 
-import { useQuery } from '@rocicorp/zero/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { agentActivityByOwner } from '@/app/zero/queries';
 
 export type AgentPhase =
@@ -27,39 +27,43 @@ export interface UseAgentActivityArgs {
   threadId?: string | null;
 }
 
-type AgentPlanRow = {
-  id: string;
-  status: string;
-  title?: string | null;
-  updated_at: number;
-};
-
-const TERMINAL = new Set(['completed', 'cancelled', 'failed', 'rejected', 'timed_out']);
-
-function phaseFromStatus(status: string): AgentPhase {
+/**
+ * Maps agent_plans status → UI phase. Replaces Convex api.db.agentActivity.get
+ * (contract: agentActivityByOwner on agent_plans).
+ */
+function phaseFromPlanStatus(status: string | undefined): AgentPhase {
   switch (status) {
     case 'pending':
       return 'triage';
     case 'approved':
+      return 'dispatching';
     case 'running':
     case 'in_progress':
     case 'executing':
-      return 'dispatching';
+      return 'tool_execution';
+    case 'completed':
+    case 'cancelled':
+    case 'failed':
+    case 'rejected':
+    case 'timed_out':
+      return 'idle';
     default:
-      return TERMINAL.has(status) ? 'idle' : 'dispatching';
+      return status ? 'synthesis' : 'idle';
   }
 }
 
 export function useAgentActivity({ threadId }: UseAgentActivityArgs): UseAgentActivityResult {
-  const [rawRows, details] = useQuery(threadId ? agentActivityByOwner(threadId) : undefined);
+  const enabled = !!threadId;
+  const [plans, details] = useZeroQuery(threadId ? agentActivityByOwner(threadId) : undefined, {
+    enabled,
+  });
 
-  const rows = (rawRows ?? []) as unknown as AgentPlanRow[];
-  const active = rows.find((r) => !TERMINAL.has(r.status));
+  const plan = (plans?.[0] ?? undefined) as { status?: string; title?: string | null } | undefined;
 
   return {
-    phase: active ? phaseFromStatus(active.status) : 'idle',
-    toolName: active?.title ?? null,
-    loading: Boolean(threadId) && details.type === 'unknown' && rows.length === 0,
+    phase: phaseFromPlanStatus(plan?.status),
+    toolName: plan?.title ?? null,
+    loading: enabled && details.type === 'unknown' && plans === undefined,
     error: null,
   };
 }

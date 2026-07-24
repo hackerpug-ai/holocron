@@ -1,5 +1,6 @@
 import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useMemo, useState } from 'react';
+import { postMission } from '@/app/zero/platform';
 import { feedItemsByOwner, latestWhatsNewReports } from '@/app/zero/queries';
 
 interface UseWhatsNewFeedArgs {
@@ -25,6 +26,7 @@ type WhatsNewReportRow = {
   period_start?: number | null;
   period_end?: number | null;
   days?: number | null;
+  focus?: string | null;
   findings_count?: number | null;
   discovery_count?: number | null;
   release_count?: number | null;
@@ -49,6 +51,9 @@ type FeedItemRow = {
 function parseFindings(raw: unknown): Finding[] {
   if (raw == null) return [];
   if (Array.isArray(raw)) return raw as Finding[];
+  if (typeof raw === 'object' && raw !== null && Array.isArray((raw as { findings?: unknown }).findings)) {
+    return (raw as { findings: Finding[] }).findings;
+  }
   if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw) as unknown;
@@ -82,11 +87,12 @@ function feedItemsToFindings(rows: FeedItemRow[]): Finding[] {
 }
 
 /**
- * What's New feed data via Zero.
+ * What's New feed data via Zero (S-REWRITE-03/04).
  *
  * Primary: latestWhatsNewReports findings_json (api.whatsNew.queries.getLatestFindings).
  * Seed alignment: when reports lack findings, fall back to feedItemsByOwner so the
- * 5 items from `holo seed:e2e --reset` are observable as finding/card rows.
+ * items from `holo seed:e2e --reset` are observable as finding/card rows.
+ * Refresh: Hono postMission (whats-new-generate).
  */
 export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -106,7 +112,7 @@ export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
     const latest = reportRows[0];
     let findingsList = latest ? parseFindings(latest.findings_json) : [];
 
-    // Align with seed semantics: 5 feed_items must surface when report findings empty.
+    // Align with seed semantics: feed_items surface when report findings empty.
     if (findingsList.length === 0 && feedRows.length > 0) {
       findingsList = feedItemsToFindings(feedRows);
     }
@@ -128,11 +134,13 @@ export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
             periodStart: latest.period_start ?? 0,
             periodEnd: latest.period_end ?? 0,
             days: latest.days ?? 0,
+            focus: latest.focus,
             findingsCount: latest.findings_count ?? findingsList.length,
             discoveryCount: latest.discovery_count ?? 0,
             releaseCount: latest.release_count ?? 0,
             trendCount: latest.trend_count ?? 0,
             summaryJson: latest.summary_json as { sources?: unknown[] } | undefined,
+            documentId: latest.document_id,
             createdAt: latest.created_at,
           }
         : {
@@ -141,11 +149,13 @@ export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
             periodStart: 0,
             periodEnd: 0,
             days: 0,
+            focus: null as string | null,
             findingsCount: findingsList.length,
             discoveryCount: findingsList.filter((f) => f.category === 'discovery').length,
             releaseCount: findingsList.filter((f) => f.category === 'release').length,
             trendCount: findingsList.filter((f) => f.category === 'trend').length,
             summaryJson: { sources: [] },
+            documentId: null as string | null,
             createdAt: Date.now(),
           },
     };
@@ -154,23 +164,14 @@ export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
   const refresh = async () => {
     setIsRefreshing(true);
     try {
-      const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
-      const rnApiKey = process.env.EXPO_PUBLIC_RN_API_KEY;
-      if (!platformUrl || !rnApiKey) {
-        return;
-      }
-      await fetch(`${platformUrl}/api/missions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${rnApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          templateKey: 'whatsNew',
-          force: true,
-          requestId: `whats-new-refresh-${Date.now()}`,
-        }),
+      await postMission({
+        templateKey: 'whatsnew',
+        goal: 'Generate whats-new report',
+        idempotencyKey: `whatsnew-force-${Date.now()}`,
+        args: { goal: 'Generate whats-new report' },
       });
+    } catch {
+      // Soft-fail refresh when platform is not configured.
     } finally {
       setIsRefreshing(false);
     }

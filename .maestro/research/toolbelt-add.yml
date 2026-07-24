@@ -1,0 +1,73 @@
+# S-REWRITE-04 AC-5 / TC-5 — Toolbelt add persists via Hono mission (full tool fields)
+# Prerequisite: holo seed:e2e --reset + platform (POST /api/missions) + cold boot
+# Deep-links into /toolbelt/add with validated query params; UI posts full payload.
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Full tool fields in deep link (must reach postMission args, not drop after validate)
+- openLink: "holocron://toolbelt/add?title=S-REWRITE-04%20Probe%20Tool&description=e2e%20toolbelt%20add&category=libraries&sourceUrl=https%3A%2F%2Fexample.com%2Fs-rewrite-04-tool&sourceType=website"
+
+- extendedWaitUntil:
+    visible:
+      text: "Added to your toolbelt!"
+    timeout: 60000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Added to your toolbelt!"
+    commands:
+      - assertVisible:
+          text: "Added to your toolbelt!"
+
+- runFlow:
+    when:
+      visible: "Already in your toolbelt"
+    commands:
+      - assertVisible:
+          text: "Already in your toolbelt"
+
+# Open toolbelt list — entry should surface via constrained toolbeltDocumentsByOwner
+- openLink: holocron://toolbelt
+
+- extendedWaitUntil:
+    visible:
+      id: "toolbelt-screen"
+    timeout: 60000
+    optional: true
+
+- takeScreenshot: S-REWRITE-04-AC-5-toolbelt-add
