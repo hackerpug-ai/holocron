@@ -76,9 +76,12 @@ export function ToolCard({
   className,
   ...props
 }: ToolCardProps) {
-  const meta = categoryMeta[category];
+  // Toolbelt currently projects document rows, whose category/file/status fields
+  // are broader than the curated tool enums. Keep those rows renderable.
+  const meta = categoryMeta[category] ?? categoryMeta.tool;
   const CategoryIcon = meta.icon;
-  const statusMeta = statusIndicator[status];
+  const statusMeta = statusIndicator[status] ?? statusIndicator.complete;
+  const sourceLabel = sourceLabels[sourceType] ?? sourceLabels.other;
 
   return (
     <Pressable
@@ -119,7 +122,7 @@ export function ToolCard({
 
           {/* Source + language inline */}
           <View className="mt-0.5 flex-row items-center gap-1.5">
-            <Text className="text-xs text-muted-foreground">{sourceLabels[sourceType]}</Text>
+            <Text className="text-xs text-muted-foreground">{sourceLabel}</Text>
             {language && (
               <>
                 <Text className="text-xs text-muted-foreground/40">{'/'}</Text>
