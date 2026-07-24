@@ -118,8 +118,17 @@ export function ConversationRow({
         onLongPress={handleLongPress}
         delayLongPress={400}
         accessibilityRole="button"
-        accessibilityLabel={`Conversation: ${title}${lastMessage ? `. Last message: ${lastMessage}` : ''}${formattedTime ? `. ${formattedTime}` : ''}${isActive ? '. Currently selected' : ''}`}
-        accessibilityHint="Double tap to open conversation. Long press for rename or delete."
+        // Title is the primary a11y name so Maestro text oracles (e.g. "Sprint Planning")
+        // match accessibilityText/label. Details stay in the hint (GATE-FIX-001 step 5).
+        accessibilityLabel={title}
+        accessibilityHint={[
+          lastMessage ? `Last message: ${lastMessage}` : null,
+          formattedTime ? formattedTime : null,
+          isActive ? 'Currently selected' : null,
+          'Double tap to open conversation. Long press for rename or delete.',
+        ]
+          .filter(Boolean)
+          .join('. ')}
         accessibilityState={{ selected: isActive }}
       >
         <Animated.View
@@ -131,6 +140,11 @@ export function ConversationRow({
         >
           <View className="flex-1">
             <View className="flex-row items-center justify-between">
+              {/*
+                Do not set accessible={false} on title — RN iOS maps Text children of a
+                labeled Pressable out of the XCUITest tree; the Pressable label above is
+                the Maestro-visible title oracle.
+              */}
               <Text
                 className={cn(
                   'text-base flex-1',

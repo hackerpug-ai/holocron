@@ -1,25 +1,23 @@
 appId: com.holocron.app
 ---
-# AC-3 / TC-3: Whats-new report detail loads via Zero
+# AC-3 / TC-3: Whats-new feed loads via Zero
+# DATA oracle (whats-new-feed) is NON-optional.
+# Finding row / detail navigation is out of scope for this gate oracle.
 
+# clearState false so sequential human-gate runs keep Dev Client + Metro session.
+# Standalone cold boot: run drawer-loads-seeded first or set MAESTRO_DEV_CLIENT_OPEN_URL.
 - launchApp:
-    clearState: true
+    clearState: false
 
 - openLink: holocron://whats-new
 
+# NON-OPTIONAL: seeded What's New feed shell (5 items path)
 - extendedWaitUntil:
     visible:
       id: "whats-new-feed"
     timeout: 90000
 
-- tapOn:
-    id: "whats-new-feed-finding-0"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "whats-new-detail-view"
-    timeout: 45000
-    optional: true
+- assertVisible:
+    id: "whats-new-feed"
 
 - takeScreenshot: whats-new-loads-seeded

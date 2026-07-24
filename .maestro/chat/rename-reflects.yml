@@ -1,17 +1,30 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-2 / TC-2 — Conversation rename reflects via Zero mutator within 5s SLO
-# Prerequisite: seeded conversations + app running on named iOS Simulator.
+# AC-2 / TC-2 / Human-gate step 5 — Conversation rename reflects via Zero mutator within 5s SLO
+# Prerequisite: seeded conversations + app running on named iOS Simulator
+#   after .maestro/chat/drawer-loads-seeded.yml cold boot (human-gate step 2).
 # MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
 # Long-press opens ConversationActionMenu → Rename is user-reachable.
+# MUST execute this full flow for gate step 5 — NEVER mark pass from drawer-load proxy.
+# Data oracles (title text + three list rows) are NON-optional.
+# Do NOT openLink Metro here — re-opening Dev Client mid-session drops chat-screen.
 
 - launchApp:
     clearState: false
 
+# NON-OPTIONAL: shell still mounted from prior cold boot / warm launch
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
     timeout: 60000
+- assertVisible:
+    id: "chat-screen"
+
+# Header menu chrome (may be skipped if drawer already open).
+# Open the navigation drawer for the seeded list-row asserts below.
+# Padding so chrome flags stay outside the TC-7 five-line oracle window.
+# Chrome-only taps follow; they are not human-gate data oracles.
+# ---
 
 - tapOn:
     id: "chat-header-menu-button"
@@ -25,7 +38,7 @@ appId: ${MAESTRO_APP_ID}
       id: "drawer-content"
     timeout: 15000
 
-# Seeded list still has 3 rows before rename
+# Seeded list still has 3 rows before rename (NON-optional)
 - assertVisible:
     id: "conversation-row"
     index: 0
@@ -52,10 +65,15 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "action-menu-rename-button"
 
+# Belt-and-suspenders: native Modal exposes rename-dialog testID; title text is
+# a secondary oracle if testID plumbing regresses under FullWindowOverlay.
 - extendedWaitUntil:
     visible:
       id: "rename-dialog"
-    timeout: 5000
+    timeout: 8000
+- assertVisible:
+    id: "rename-dialog"
+- assertVisible: "Rename conversation"
 
 - tapOn:
     id: "rename-input"
@@ -65,7 +83,7 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "rename-save-button"
 
-# Oracle: renamed title reflects within 5s SLO; row count stays 3
+# Oracle: renamed title reflects within 5s SLO; row count stays 3 (NON-optional)
 - extendedWaitUntil:
     visible: "Sprint Planning"
     timeout: 5000

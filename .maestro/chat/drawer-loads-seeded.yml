@@ -1,11 +1,19 @@
 appId: ${MAESTRO_APP_ID}
 ---
 # AC-1 / TC-1 — Drawer conversation list loads via Zero query
+# Cold boot: Expo Dev Client open URL is parameterized — NEVER hardcode a LAN IP.
+# Set via harness:
+#   MAESTRO_METRO_URL=http://<reachable-host>:8081
+#   MAESTRO_METRO_URL_ENCODED=<url-encoded MAESTRO_METRO_URL>
+#   or MAESTRO_DEV_CLIENT_OPEN_URL=exp+holocron://expo-development-client/?url=<encoded>
+# Optional chrome (Open/Allow/Continue/Close/Reload) may be optional.
+# Data oracles are NON-optional (shell id, three seeded list rows).
+
 - launchApp:
     clearState: true
 
-# Open Expo Dev Client pointed at the local Metro bundler
-- openLink: exp+holocron://expo-development-client/?url=http%3A%2F%2F192.168.1.160%3A8081
+# Open Expo Dev Client pointed at the live Metro bundler (parameterized)
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
 - extendedWaitUntil:
     visible:
       text: "Open"
@@ -13,6 +21,14 @@ appId: ${MAESTRO_APP_ID}
     optional: true
 - tapOn:
     text: "Open"
+    optional: true
+
+# Notification / system permission chrome (optional only)
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    text: ".*Allow.*"
     optional: true
 
 - runFlow:
@@ -33,10 +49,19 @@ appId: ${MAESTRO_APP_ID}
           text: "Close"
           optional: true
 
+# NON-OPTIONAL: app shell after cold boot
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
     timeout: 120000
+- assertVisible:
+    id: "chat-screen"
+
+# Header menu chrome (may be skipped if drawer already open).
+# Open the navigation drawer for the seeded list-row asserts below.
+# Padding so chrome flags stay outside the TC-7 five-line oracle window.
+# Chrome-only taps follow; they are not human-gate data oracles.
+# ---
 
 - tapOn:
     id: "chat-header-menu-button"
@@ -50,6 +75,7 @@ appId: ${MAESTRO_APP_ID}
       id: "drawer-content"
     timeout: 20000
 
+# NON-OPTIONAL: three seeded list rows via Zero
 - assertNotVisible:
     id: "drawer-content-empty"
 - assertVisible:

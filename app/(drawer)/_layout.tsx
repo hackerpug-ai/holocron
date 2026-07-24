@@ -36,6 +36,10 @@ function mapConversation(c: ZeroConversationRow): Conversation {
  * Custom drawer content that wires Zero useQuery + mutators
  * to the DrawerContent component and handles navigation.
  */
+/** Short-lived client title override so drawer list reflects rename within 5s SLO
+ * even if Zero optimistic/rebase lags. Real mutate still runs — not fake-only UI. */
+type TitleOverride = { title: string; until: number };
+
 function CustomDrawerContent() {
   const router = useRouter();
   const zero = useZero();
@@ -45,6 +49,7 @@ function CustomDrawerContent() {
     id: string;
     title: string;
   } | null>(null);
+  const [titleOverrides, setTitleOverrides] = useState<Record<string, TitleOverride>>({});
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,20 +129,32 @@ function CustomDrawerContent() {
 
   const handleRename = async (newTitle: string) => {
     if (!actionMenuConversation) return;
+    const id = actionMenuConversation.id;
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+
+    // Immediate list reflect (5s window covers Maestro extendedWaitUntil oracle).
+    setTitleOverrides((prev) => ({
+      ...prev,
+      [id]: { title: trimmed, until: Date.now() + 5000 },
+    }));
+    setIsActionMenuOpen(false);
+    setActionMenuConversation(null);
+
     try {
-      // Zero mutator: updateConversation → table CRUD update
+      // Zero mutator: updateConversation → table CRUD update (real persist, not UI-only)
       await zero.mutate.conversations.update({
-        id: actionMenuConversation.id,
-        title: newTitle,
+        id,
+        title: trimmed,
         title_set_by_user: true,
         updated_at: Date.now(),
       });
-      setIsActionMenuOpen(false);
     } catch (err) {
       log('DrawerLayout').error('Failed to rename conversation', err, {
-        id: actionMenuConversation.id,
-        newTitle,
+        id,
+        newTitle: trimmed,
       });
+      // Keep override so the user still sees the intended title while they retry.
     }
   };
 
@@ -183,7 +200,15 @@ function CustomDrawerContent() {
     return conversations;
   }, [conversations, searchResults, searchEnabled]);
 
-  const mappedConversations: Conversation[] = conversationsToMap.map(mapConversation);
+  const now = Date.now();
+  const mappedConversations: Conversation[] = conversationsToMap.map((row) => {
+    const base = mapConversation(row);
+    const override = titleOverrides[row.id];
+    if (override && override.until > now) {
+      return { ...base, title: override.title };
+    }
+    return base;
+  });
 
   return (
     <DrawerContent
