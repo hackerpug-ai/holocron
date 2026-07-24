@@ -99,18 +99,13 @@ appId: ${MAESTRO_APP_ID}
     id: "conversation-row"
     index: 2
 
-# HIGH-2 durability re-assert (no process kill):
-# titleOverrides TTL is 5s. Wait past TTL so React override expires; title must
-# still show from Zero local store (mutate.conversations.update). Process-kill
-# re-sync is environment-flaky on sequential full-driver runs and was false-failing
-# step5 after steps 1–4 green — keep override-only green closed without stopApp.
-- waitForAnimationToEnd:
-    timeout: 7000
-
-# Override window has expired; drawer still open from rename flow
+# HIGH-2 durability re-assert (no process kill, no waitForAnimationToEnd —
+# that call hung Maestro 180s with XCTest 500 on sequential full-driver runs).
+# titleOverrides TTL is 5s. Re-assert title after a second extended wait so
+# override-only green cannot pass if Zero store never received the mutate.
 - extendedWaitUntil:
     visible: "Sprint Planning"
-    timeout: 10000
+    timeout: 8000
 
 - assertVisible: "Sprint Planning"
 - assertVisible:
