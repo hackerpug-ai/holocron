@@ -65,10 +65,15 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "action-menu-rename-button"
 
+# Belt-and-suspenders: native Modal exposes rename-dialog testID; title text is
+# a secondary oracle if testID plumbing regresses under FullWindowOverlay.
 - extendedWaitUntil:
     visible:
       id: "rename-dialog"
-    timeout: 5000
+    timeout: 8000
+- assertVisible:
+    id: "rename-dialog"
+- assertVisible: "Rename conversation"
 
 - tapOn:
     id: "rename-input"

@@ -329,6 +329,10 @@ if [[ "$skip_ui" == "1" ]]; then
 fi
 
 # Step 1: seed
+# Worktrees often lack node_modules; PATH `holo` may be an older binary without
+# seed:e2e ("unknown command: seed:e2e"). Prefer primary/main clone tooling:
+#   bun services/platform/src/cli/holo.ts seed:e2e --reset
+# (or `bun run seed:e2e` from a checkout that has deps).
 step1_log="$artifact_dir/step1-seed.log"
 step1_result="fail"
 if [[ "$skip_seed" == "1" ]]; then
@@ -338,22 +342,74 @@ if [[ "$skip_seed" == "1" ]]; then
     "cli" "pass" ".tmp/GATE-FIX-001/step1-seed.log" "SKIP_SEED=1 (operator asserted substrate)" true
 else
   set +e
-  if command -v holo >/dev/null 2>&1; then
-    holo seed:e2e --reset 2>&1 | tee "$step1_log"
-    rc=${PIPESTATUS[0]}
-  elif [[ -f "$repo_root/services/platform/src/cli/holo.ts" ]]; then
-    bun "$repo_root/services/platform/src/cli/holo.ts" seed:e2e --reset 2>&1 | tee "$step1_log"
-    rc=${PIPESTATUS[0]}
-  else
-    echo "holo CLI not found" | tee "$step1_log"
-    rc=127
+  seed_rc=127
+  seed_cmd=""
+
+  # Candidate roots: this checkout, HOLO_ROOT, then primary clone (worktree-safe).
+  seed_roots=("$repo_root")
+  if [[ -n "${HOLO_ROOT:-}" ]]; then
+    seed_roots+=("$HOLO_ROOT")
   fi
+  if [[ -d "${HOME}/Projects/holocron" ]]; then
+    seed_roots+=("${HOME}/Projects/holocron")
+  fi
+
+  # 1) Prefer bun holo.ts that documents/implements seed:e2e (skip PATH holo if
+  #    it lacks the command — common residual HIGH on worktree drivers).
+  for root in "${seed_roots[@]}"; do
+    holo_ts="$root/services/platform/src/cli/holo.ts"
+    if [[ -f "$holo_ts" ]]; then
+      help_out="$(cd "$root" && bun "$holo_ts" --help 2>&1 || true)"
+      if printf '%s' "$help_out" | rg -q 'seed:e2e'; then
+        seed_cmd="bun $holo_ts seed:e2e --reset (cwd=$root)"
+        log "seed via: $seed_cmd"
+        (cd "$root" && bun "$holo_ts" seed:e2e --reset) 2>&1 | tee "$step1_log"
+        seed_rc=${PIPESTATUS[0]}
+        break
+      fi
+    fi
+  done
+
+  # 2) Fallback: package script when local deps exist
+  if [[ "$seed_rc" != "0" ]] && [[ -f "$repo_root/package.json" ]] && [[ -d "$repo_root/node_modules" ]]; then
+    seed_cmd="bun run seed:e2e (cwd=$repo_root)"
+    log "seed via: $seed_cmd"
+    (cd "$repo_root" && bun run seed:e2e) 2>&1 | tee "$step1_log"
+    seed_rc=${PIPESTATUS[0]}
+  fi
+
+  # 3) Last resort: PATH holo only if it actually knows seed:e2e
+  if [[ "$seed_rc" != "0" ]] && command -v holo >/dev/null 2>&1; then
+    holo_help="$(holo --help 2>&1 || true)"
+    if printf '%s' "$holo_help" | rg -q 'seed:e2e'; then
+      seed_cmd="holo seed:e2e --reset"
+      log "seed via: $seed_cmd"
+      holo seed:e2e --reset 2>&1 | tee "$step1_log"
+      seed_rc=${PIPESTATUS[0]}
+    else
+      {
+        echo "PATH holo lacks seed:e2e (unknown command) — skipped"
+        echo "prefer: bun services/platform/src/cli/holo.ts seed:e2e --reset from primary clone"
+      } | tee -a "$step1_log"
+    fi
+  fi
+
+  if [[ -z "$seed_cmd" && "$seed_rc" != "0" ]]; then
+    {
+      echo "holo seed:e2e not found"
+      echo "tried bun holo.ts under: ${seed_roots[*]}"
+      echo "hint: cd /Users/inference1/Projects/holocron && bun services/platform/src/cli/holo.ts seed:e2e --reset"
+    } | tee "$step1_log"
+    seed_rc=127
+  fi
+
+  rc=$seed_rc
   set -e
   if [[ "$rc" == "0" ]]; then
     step1_result="pass"
   fi
   record_step 1 "Run holo seed:e2e --reset — seeds 3 conversations, 12 documents, 5 feed items" \
-    "cli" "$step1_result" ".tmp/GATE-FIX-001/step1-seed.log" "seed exit=$rc" true
+    "cli" "$step1_result" ".tmp/GATE-FIX-001/step1-seed.log" "seed exit=$rc cmd=${seed_cmd:-none}" true
 fi
 
 run_ui_step() {
