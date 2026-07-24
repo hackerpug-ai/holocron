@@ -15,6 +15,7 @@ type DocumentRow = {
   time?: string | null;
   created_at: number;
   research_type?: string | null;
+  file_path?: string | null;
 };
 
 /**
@@ -35,7 +36,7 @@ export default function ToolbeltRoute() {
       content: doc.content ?? undefined,
       category: (doc.category as Tool['category']) ?? undefined,
       status: doc.status as Tool['status'],
-      sourceUrl: undefined,
+      sourceUrl: doc.file_path ?? undefined,
       sourceType: (doc.file_type as Tool['sourceType']) ?? undefined,
       tags: undefined,
       useCases: undefined,

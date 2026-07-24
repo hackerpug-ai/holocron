@@ -70,7 +70,7 @@ export default function ToolbeltAddScreen() {
         setToolTitle(params.title);
 
         // Mission create returns a run id; treat any 2xx without error as success.
-        const isNew = result.reused !== true;
+        const isNew = result.replay !== true;
         setStatus('success');
         setMessage(isNew ? 'Added to your toolbelt!' : 'Already in your toolbelt');
 

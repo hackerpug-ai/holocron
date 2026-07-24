@@ -14,7 +14,7 @@ import type { MissionTemplateDefinition } from '../contract.ts';
 import { EVIDENCE_RESEARCH_TEMPLATE_KEY } from './evidence-research.ts';
 
 export const SUBSCRIPTIONS_TEMPLATE_KEY = 'subscriptions' as const;
-export const SUBSCRIPTIONS_TEMPLATE_VERSION = '1.0.0' as const;
+export const SUBSCRIPTIONS_TEMPLATE_VERSION = '1.0.3' as const;
 
 /** Literal executor ref grepped by TC-3: subworkflow:evidence-research */
 export const SUBWORKFLOW_EVIDENCE_RESEARCH_REF =

@@ -7,7 +7,7 @@
 import type { MissionTemplateDefinition } from '../contract.ts';
 
 export const ASSIMILATE_TEMPLATE_KEY = 'assimilate' as const;
-export const ASSIMILATE_TEMPLATE_VERSION = '1.0.0' as const;
+export const ASSIMILATE_TEMPLATE_VERSION = '1.0.3' as const;
 
 export const assimilateTemplateDefinition: MissionTemplateDefinition = {
   templateKey: ASSIMILATE_TEMPLATE_KEY,

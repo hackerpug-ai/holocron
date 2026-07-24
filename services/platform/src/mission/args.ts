@@ -34,6 +34,15 @@ const missionGoalArgsShape = {
   date: z.string().min(1).optional(),
   /** pipes-3: shop product search query. */
   query: z.string().min(1).optional(),
+  /** Toolbelt add deep link fields. Kept distinct from mission run tags. */
+  title: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  category: z.enum(['libraries', 'cli', 'framework', 'service', 'database', 'tool']).optional(),
+  sourceUrl: z.string().url().optional(),
+  sourceType: z.enum(['github', 'npm', 'pypi', 'website', 'cargo', 'go', 'other']).optional(),
+  language: z.string().min(1).optional(),
+  toolTags: z.string().min(1).optional(),
+  useCases: z.string().min(1).optional(),
 } as const;
 
 export const MissionGoalArgsSchema = z.object(missionGoalArgsShape).strict();

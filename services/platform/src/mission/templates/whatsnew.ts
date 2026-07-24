@@ -7,7 +7,7 @@
 import type { MissionTemplateDefinition } from '../contract.ts';
 
 export const WHATSNEW_TEMPLATE_KEY = 'whatsnew' as const;
-export const WHATSNEW_TEMPLATE_VERSION = '1.0.0' as const;
+export const WHATSNEW_TEMPLATE_VERSION = '1.0.3' as const;
 
 export const WHATSNEW_ALIASES = ['whatsNew', 'whatsnew'] as const;
 

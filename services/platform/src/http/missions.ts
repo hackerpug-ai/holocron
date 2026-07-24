@@ -524,6 +524,29 @@ export async function createMissionRunFromHttp(
         goal: body.goal,
         idempotencyKey: body.idempotencyKey,
         operator,
+        title: body.args?.title,
+        description: body.args?.description,
+        category: body.args?.category as
+          | 'libraries'
+          | 'cli'
+          | 'framework'
+          | 'service'
+          | 'database'
+          | 'tool'
+          | undefined,
+        sourceUrl: body.args?.sourceUrl,
+        sourceType: body.args?.sourceType as
+          | 'github'
+          | 'npm'
+          | 'pypi'
+          | 'website'
+          | 'cargo'
+          | 'go'
+          | 'other'
+          | undefined,
+        language: body.args?.language,
+        toolTags: body.args?.tags,
+        useCases: body.args?.useCases,
       },
       {
         databaseUrl: options?.databaseUrl,

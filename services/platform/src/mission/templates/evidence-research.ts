@@ -20,7 +20,7 @@ export type EvidenceResearchInstantiation = (typeof EVIDENCE_RESEARCH_INSTANTIAT
 /** Closed Mission Template DSL payload for the shared evidence-research core. */
 export const evidenceResearchTemplateDefinition: MissionTemplateDefinition = {
   templateKey: EVIDENCE_RESEARCH_TEMPLATE_KEY,
-  version: '1.0.3',
+  version: '1.0.6',
   description:
     'Shared evidence-research core: plan → retrieve → extract → assay → challenge → evidence-gate → commit. Instantiated by research/deepResearch/subscriptions-research/fulcrum. Retrieve uses CAP-EMB-01 rrfHybridSearch when --claims is absent (fail-closed on empty corpus/embed failure); explicit researchEvidence seed still supported.',
   trigger: { kind: 'on-demand' },

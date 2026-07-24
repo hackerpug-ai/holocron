@@ -684,6 +684,71 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       budgetExceeded: false,
     });
   },
+  'builtin.toolbelt-commit@1': async (input, context) => {
+    parseMissionSchemaValue(
+      { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+      input,
+      'toolbelt.commit.input'
+    );
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    if (!args.title || !args.description || !args.category || !args.sourceUrl || !args.sourceType) {
+      throw new MissionRuntimeError(
+        'MISSION_TOOLBELT_FIELDS_REQUIRED',
+        'toolbelt requires title, description, category, sourceUrl, and sourceType'
+      );
+    }
+    const content = JSON.stringify(
+      {
+        description: args.description,
+        sourceUrl: args.sourceUrl,
+        sourceType: args.sourceType,
+        language: args.language,
+        tags:
+          args.toolTags
+            ?.split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean) ?? [],
+        useCases:
+          args.useCases
+            ?.split(',')
+            .map((useCase) => useCase.trim())
+            .filter(Boolean) ?? [],
+      },
+      null,
+      2
+    );
+    const sql = createSql(context.databaseUrl);
+    try {
+      const published = await sql.begin(async (tx) => {
+        const doc = await publishDocumentForRun(tx, {
+          sourceRunId: context.run.id,
+          title: args.title,
+          content,
+          category: args.category,
+          filePath: args.sourceUrl,
+          fileType: args.sourceType,
+          status: 'draft',
+          idempotencyKey: `toolbelt:${args.sourceUrl}`,
+        });
+        await tx`
+          UPDATE mission_runs
+          SET document_id = ${doc.documentId}, updated_at = now()
+          WHERE id = ${context.run.id}::uuid
+        `;
+        return doc;
+      });
+      return canonicalJsonValue({
+        documentId: published.documentId,
+        title: args.title,
+        category: args.category,
+        sourceUrl: args.sourceUrl,
+        sourceType: args.sourceType,
+        isNew: published.created,
+      });
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  },
   'builtin.research-plan@1': async (input, context) =>
     STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
   'builtin.research-retrieve@1': async (input, context) => {
@@ -3759,6 +3824,14 @@ export async function runMissionTemplate(
     forceMissingComponents?: string[];
     date?: string;
     query?: string;
+    title?: string;
+    description?: string;
+    category?: MissionGoalArgs['category'];
+    sourceUrl?: string;
+    sourceType?: MissionGoalArgs['sourceType'];
+    language?: string;
+    toolTags?: string;
+    useCases?: string;
   },
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
@@ -3781,6 +3854,14 @@ export async function runMissionTemplate(
       forceMissingComponents: input.forceMissingComponents,
       date: input.date,
       query: input.query,
+      title: input.title,
+      description: input.description,
+      category: input.category,
+      sourceUrl: input.sourceUrl,
+      sourceType: input.sourceType,
+      language: input.language,
+      toolTags: input.toolTags,
+      useCases: input.useCases,
     })
   );
   return runMissionInternal(input.templateKey, args, input.idempotencyKey, options);

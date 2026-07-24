@@ -7,7 +7,7 @@
 import type { MissionTemplateDefinition } from '../contract.ts';
 
 export const SHOP_TEMPLATE_KEY = 'shop' as const;
-export const SHOP_TEMPLATE_VERSION = '1.0.0' as const;
+export const SHOP_TEMPLATE_VERSION = '1.0.3' as const;
 
 export const shopTemplateDefinition: MissionTemplateDefinition = {
   templateKey: SHOP_TEMPLATE_KEY,

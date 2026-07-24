@@ -11,6 +11,8 @@ export type PublishDocumentInput = {
   title: string;
   content: string;
   category?: string;
+  filePath?: string;
+  fileType?: string;
   /** Stable idempotency key; defaults to mission-run:<sourceRunId>. */
   idempotencyKey?: string;
   status?: string;
@@ -51,13 +53,23 @@ export async function publishDocumentForRun(
     Array<{ id: string; source_run_id: string; published_at: string | Date }>
   >(
     `INSERT INTO documents (
-        id, title, content, category, status, source_run_id, published_at, publish_idempotency_key
+        id, title, content, category, file_path, file_type, status, source_run_id, published_at, publish_idempotency_key
       ) VALUES (
-        $1::uuid, $2, $3, $4, $5, $6::uuid, now(), $7
+        $1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, now(), $9
       )
       ON CONFLICT (source_run_id) DO NOTHING
       RETURNING id::text AS id, source_run_id::text AS source_run_id, published_at`,
-    [documentId, title, content, category, status, sourceRunId, idempotencyKey]
+    [
+      documentId,
+      title,
+      content,
+      category,
+      input.filePath ?? null,
+      input.fileType ?? null,
+      status,
+      sourceRunId,
+      idempotencyKey,
+    ]
   );
 
   if (inserted[0]) {

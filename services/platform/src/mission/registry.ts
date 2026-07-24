@@ -90,6 +90,17 @@ const missionTestBudgetOutputSchema = z
   })
   .strict();
 
+const missionToolbeltOutputSchema = z
+  .object({
+    documentId: z.string().uuid(),
+    title: z.string().min(1),
+    category: z.enum(['libraries', 'cli', 'framework', 'service', 'database', 'tool']),
+    sourceUrl: z.string().url(),
+    sourceType: z.enum(['github', 'npm', 'pypi', 'website', 'cargo', 'go', 'other']),
+    isNew: z.boolean(),
+  })
+  .strict();
+
 // missionResearchRetrieveOutputSchema imported from tools/schemas/research.ts
 // (includes optional retrievalMethod / searchMethod for CAP-EMB-01 provenance).
 
@@ -179,6 +190,12 @@ export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
     schemaVersion: 1,
     schema: missionTestBudgetOutputSchema,
     description: 'Deterministic budget output.',
+  },
+  {
+    schemaRef: 'mission.toolbelt.output',
+    schemaVersion: 1,
+    schema: missionToolbeltOutputSchema,
+    description: 'Durable Toolbelt document created from a validated deep link.',
   },
   {
     schemaRef: 'mission.research.retrieve.output',
@@ -297,6 +314,11 @@ export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
     executorRef: 'builtin.test-consume-budget@1',
     stageKind: 'test.consume-budget@1',
     description: 'Real fleet-backed budget consumer executor.',
+  },
+  {
+    executorRef: 'builtin.toolbelt-commit@1',
+    stageKind: 'toolbelt.commit@1',
+    description: 'Atomically publish a source-backed Toolbelt document.',
   },
   {
     executorRef: 'builtin.research-plan@1',
@@ -504,6 +526,15 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     outputSchema: { schemaRef: 'mission.test.budget.output', schemaVersion: 1 },
     description: 'Real token-consuming budget stage.',
     roleBinding: 'optional',
+    checkpointAllowed: false,
+  },
+  {
+    stageKind: 'toolbelt.commit@1',
+    executorRef: 'builtin.toolbelt-commit@1',
+    inputSchema: { schemaRef: 'mission.probe.result', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.toolbelt.output', schemaVersion: 1 },
+    description: 'Idempotent Toolbelt document publish from deep-link metadata.',
+    roleBinding: 'forbidden',
     checkpointAllowed: false,
   },
   {

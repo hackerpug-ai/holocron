@@ -9,6 +9,7 @@ import { businessReportTemplateDefinition } from './business-report.ts';
 import { evidenceResearchTemplateDefinition } from './evidence-research.ts';
 import { shopTemplateDefinition } from './shop.ts';
 import { subscriptionsTemplateDefinition } from './subscriptions.ts';
+import { toolbeltTemplateDefinition } from './toolbelt.ts';
 import { whatsNewTemplateDefinition } from './whatsnew.ts';
 
 export type EnsureSystemTemplatesResult = {
@@ -28,6 +29,7 @@ const SYSTEM_TEMPLATES = [
   assimilateTemplateDefinition,
   shopTemplateDefinition,
   subscriptionsTemplateDefinition,
+  toolbeltTemplateDefinition,
 ] as const;
 
 /**
