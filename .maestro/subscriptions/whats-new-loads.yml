@@ -3,25 +3,37 @@ appId: com.holocron.app
 # AC-3 / TC-3: Whats-new feed loads via Zero
 # DATA oracle (whats-new-feed + finding-0) is NON-optional.
 #
-# Full-driver step4 fail (preserved): openLink holocron://whats-new COMPLETED but
-# whats-new-feed never appeared — app stayed on chat (deep-link hostname form
-# holocron://whats-new was ignored when only parsed.path was checked).
-# Fix: app resolves hostname→route; flow retries via drawer-section-whats-new.
-#
-# HIGH-3 hang note: empty-state checks are BOUNDED (fail closed, no indefinite wait).
+# Run2 fail: openLink holocron://whats-new COMPLETED, feed never visible (stayed on chat).
+# App fix: resolveHolocronRoute hostname form + router.navigate.
+# Flow: try hostname + path-form deep links, then drawer section fallback.
 
 - launchApp:
     clearState: false
 
-# Primary: deep link (must work after app fix for hostname form)
+# 1) Hostname form (Maestro openLink default)
 - openLink: holocron://whats-new
 
-# If deep link did not navigate (race / stale native build), open drawer and tap section
+# 2) Path form if still not on feed (linking parse alternate)
 - runFlow:
     when:
       notVisible:
         id: "whats-new-feed"
     commands:
+      - openLink: holocron:///whats-new
+
+# 3) Drawer navigation fallback (works from chat or after back from articles)
+- runFlow:
+    when:
+      notVisible:
+        id: "whats-new-feed"
+    commands:
+      # Leave articles/detail if needed
+      - tapOn:
+          id: "screen-header-back-button"
+          optional: true
+      - tapOn:
+          id: "articles-route-layout-back-button"
+          optional: true
       - tapOn:
           id: "chat-header-menu-button"
           optional: true
@@ -40,7 +52,7 @@ appId: com.holocron.app
           text: "What's New"
           optional: true
 
-# NON-OPTIONAL: feed shell (90s — route may remount after drawer nav)
+# NON-OPTIONAL: feed shell
 - extendedWaitUntil:
     visible:
       id: "whats-new-feed"
@@ -49,7 +61,7 @@ appId: com.holocron.app
 - assertVisible:
     id: "whats-new-feed"
 
-# Seeded finding row (positive oracle)
+# Seeded finding row
 - extendedWaitUntil:
     visible:
       id: "whats-new-feed-finding-0"

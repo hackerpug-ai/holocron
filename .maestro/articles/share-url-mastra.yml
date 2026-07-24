@@ -27,10 +27,21 @@ appId: com.holocron.app
 - tapOn:
     id: "document-actions-button"
 
+# Sheet oracle is on an inner View (Modal testID is not reliable on iOS XCUITest).
+# Bounded wait — fail closed if sheet does not mount after button press.
 - extendedWaitUntil:
     visible:
       id: "document-actions-sheet"
     timeout: 15000
+
+- assertVisible:
+    id: "document-actions-sheet"
+
+# Share row may use -share suffix; also allow panel as mount proof
+- extendedWaitUntil:
+    visible:
+      id: "document-actions-sheet-share"
+    timeout: 10000
 
 - assertVisible:
     id: "document-actions-sheet-share"
