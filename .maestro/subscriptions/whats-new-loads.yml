@@ -20,4 +20,18 @@ appId: com.holocron.app
 - assertVisible:
     id: "whats-new-feed"
 
+# HIGH-3 / GATE-FIX-002: fail empty shell — must not pass on loading/empty-only list.
+# NewsfeedScreen empty ListEmptyComponent uses testID `${feed}-empty` → whats-new-feed-empty.
+- assertNotVisible:
+    id: "whats-new-feed-empty"
+
+# Seeded finding rows (hero finding-0) — NON-optional data oracle beyond shell
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-feed-finding-0"
+    timeout: 60000
+
+- assertVisible:
+    id: "whats-new-feed-finding-0"
+
 - takeScreenshot: whats-new-loads-seeded

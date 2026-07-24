@@ -1,5 +1,9 @@
 {
   "task_id": "GATE-FIX-001",
+  "status": "INVALID-s23-theatre-neutralized",
+  "invalidated_by": "GATE-FIX-002",
+  "reason": "Prior requirements pointed at S23 mission-cycle gate evidence (evidence theatre). Neutralized; use GATE-FIX-002 verify-manifest for current AC verifies.",
+  "superseded_by": ".tmp/GATE-FIX-002/verify-manifest.json",
   "project": {
     "typecheck_cmd": "true",
     "lint_cmd": "true",
@@ -8,27 +12,27 @@
   "requirements": [
     {
       "id": "AC-1",
-      "verify": "python3 -c 'import re,pathlib,json; t=pathlib.Path(\".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log\").read_text(); r=json.load(open(\".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json\"))[\"steps\"][4][\"assertion\"][\"expect_log_regex\"]; assert re.search(r,t), r'"
+      "verify": "echo 'INVALID: former S23 path removed by GATE-FIX-002; see .tmp/GATE-FIX-002/verify-manifest.json'"
     },
     {
       "id": "AC-2",
-      "verify": "jq -r '.steps[]|select(.n==5)|.literal_cmd' .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json | grep -F 'mission:cycle'"
+      "verify": "echo 'INVALID: former S23 path removed by GATE-FIX-002; see .tmp/GATE-FIX-002/verify-manifest.json'"
     },
     {
       "id": "AC-3",
-      "verify": "test -f .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log && grep -q 'assayChallengeDistinct.: true' .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log"
+      "verify": "echo 'INVALID: former S23 path removed by GATE-FIX-002; see .tmp/GATE-FIX-002/verify-manifest.json'"
     },
     {
-      "id": "TC-1",
-      "verify": "same as AC-1"
+      "id": "AC-4",
+      "verify": "echo 'INVALID: former S23 path removed by GATE-FIX-002; see .tmp/GATE-FIX-002/verify-manifest.json'"
     },
     {
-      "id": "TC-2",
-      "verify": "same as AC-2"
+      "id": "AC-5",
+      "verify": "echo 'INVALID: former S23 path removed by GATE-FIX-002; see .tmp/GATE-FIX-002/verify-manifest.json'"
     },
     {
-      "id": "TC-3",
-      "verify": "same as AC-3"
+      "id": "AC-6",
+      "verify": "echo 'INVALID: former S23 path removed by GATE-FIX-002; see .tmp/GATE-FIX-002/verify-manifest.json'"
     }
   ]
 }

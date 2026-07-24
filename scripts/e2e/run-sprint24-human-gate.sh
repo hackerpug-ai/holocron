@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sprint 24 human-gate driver (GATE-FIX-001).
+# Sprint 24 human-gate driver (GATE-FIX-001 / GATE-FIX-002 readiness).
 #
 # Runs all 7 human-gate steps honestly against a named iOS Simulator:
 #   1. seed        — holo seed:e2e --reset
@@ -14,6 +14,22 @@
 # step exits 0 with this-cycle logs. Never marks rename PASS without a real
 # rename-reflects Maestro log. Never fabricates SUCCESS.
 #
+# ---------------------------------------------------------------------------
+# GATE-FIX-002 / HIGH-1 — required this-cycle step log filenames
+# under E2E_ARTIFACT_DIR (default .tmp/GATE-FIX-002 for post-land runs):
+#   step1-seed.log
+#   step2-coldboot-drawer.log
+#   step3-articles.log
+#   step4-whats-new.log
+#   step5-rename-reflects.log
+#   step6-no-convex.log
+#   step7-share-url.log
+# WRITE_GATE_RESULTS pass is allowed ONLY when:
+#   - steps_passed == 7 AND steps_executed == 7 AND zero skipped/blocked, AND
+#   - all 7 log files above exist and are non-empty under artifact dir.
+# dual-lens APPROVED / full_htg_7_of_7 must not substitute for these logs.
+# ---------------------------------------------------------------------------
+#
 # Env:
 #   MAESTRO_DEVICE          named iOS Simulator (required for UI steps)
 #   MAESTRO_APP_ID          default com.holocron.app
@@ -21,7 +37,7 @@
 #   MAESTRO_METRO_HOST      optional host if URL not set
 #   MAESTRO_METRO_PORT      default 8081
 #   MAESTRO_DEV_CLIENT_OPEN_URL  optional full exp+holocron://... openLink
-#   E2E_ARTIFACT_DIR        default .tmp/GATE-FIX-001
+#   E2E_ARTIFACT_DIR        default .tmp/GATE-FIX-002 (this-cycle GATE-FIX evidence)
 #   SKIP_SEED=1             skip step 1 — records result "skipped" (NOT pass);
 #                           overall gate verdict cannot pass when seed is skipped
 #   SKIP_UI=1               static/probe mode — seed+no-convex only; UI blocked
@@ -48,7 +64,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 mode="run"
-artifact_dir="${E2E_ARTIFACT_DIR:-$repo_root/.tmp/GATE-FIX-001}"
+artifact_dir="${E2E_ARTIFACT_DIR:-$repo_root/.tmp/GATE-FIX-002}"
 app_id="${MAESTRO_APP_ID:-com.holocron.app}"
 device="${MAESTRO_DEVICE:-}"
 write_gate_results="${WRITE_GATE_RESULTS:-0}"
@@ -674,6 +690,16 @@ log "summary file: $summary_file"
 
 # Only write gate-results.json when WRITE_GATE_RESULTS=1 AND verdict is honest pass
 # from real executed steps. Never hand-write pass without logs.
+# GATE-FIX-002: pass requires all 7 this-cycle logs non-empty + steps_passed==7 + zero skipped.
+required_step_logs=(
+  "step1-seed.log"
+  "step2-coldboot-drawer.log"
+  "step3-articles.log"
+  "step4-whats-new.log"
+  "step5-rename-reflects.log"
+  "step6-no-convex.log"
+  "step7-share-url.log"
+)
 if [[ "$write_gate_results" == "1" ]]; then
   gate_out="$repo_root/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/gate-results.json"
   if [[ "$verdict" == "pass" ]]; then
@@ -682,9 +708,14 @@ if [[ "$write_gate_results" == "1" ]]; then
     if [[ "$step5_ev" == *"not re-run"* || "$step5_ev" == *"drawer load proof"* ]]; then
       fail "refusing to write gate-results: step 5 evidence is drawer-load proxy"
     fi
-    if [[ ! -s "$artifact_dir/step5-rename-reflects.log" ]]; then
-      fail "refusing to write gate-results: missing step5-rename-reflects.log"
+    if [[ "$steps_passed" != "7" || "$steps_executed" != "7" || "$steps_skipped_or_blocked" != "0" ]]; then
+      fail "refusing to write gate-results pass: steps_passed=$steps_passed executed=$steps_executed skipped_or_blocked=$steps_skipped_or_blocked (need 7/7/0)"
     fi
+    for req_log in "${required_step_logs[@]}"; do
+      if [[ ! -s "$artifact_dir/$req_log" ]]; then
+        fail "refusing to write gate-results pass: missing or empty this-cycle log $artifact_dir/$req_log"
+      fi
+    done
     cp "$summary_file" "$gate_out"
     log "wrote honest pass gate-results.json -> $gate_out"
   else

@@ -55,6 +55,14 @@ appId: com.holocron.app
 - assertVisible:
     id: "article-card-pressable"
 
+# HIGH-3 / GATE-FIX-002: multi-card floor (seeded 12 docs → at least indices 0 and 1)
+- assertVisible:
+    id: "article-card-pressable"
+    index: 0
+- assertVisible:
+    id: "article-card-pressable"
+    index: 1
+
 # After cards are present, empty state must not remain as sole content
 - assertNotVisible:
     id: "articles-empty-state"

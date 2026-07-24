@@ -1,0 +1,56 @@
+=== RED BASELINE GATE-FIX-002 2026-07-24T05:14:25Z @ c4fd6920 ===
+
+--- AC-1 / HIGH-5: stale e2e-verification PASS ---
+PRIMARY_PATH=/Users/inference1/Projects/holocron/.tmp/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/e2e-verification.json
+{
+  "overall": "PASS",
+  "written_at_commit": "4009dd97b43b8d303fa158a536be379d34d65d5c",
+  "steps": [
+    "PASS",
+    "PASS",
+    "PASS",
+    "PASS",
+    "PASS",
+    "PASS",
+    "PASS"
+  ]
+}
+RED_OBSERVE: primary overall=PASS (expect PASS @ 4009dd97) — INVALIDATION REQUIRED
+WORKTREE live e2e-verification.json: ABSENT (will seed INVALID archive from primary PASS for traceability)
+
+--- AC-2 / HIGH-2: titleOverrides catch keeps override ---
+52:  const [titleOverrides, setTitleOverrides] = useState<Record<string, TitleOverride>>({});
+125:    } catch (err) {
+137:    setTitleOverrides((prev) => ({
+152:    } catch (err) {
+157:      // Keep override so the user still sees the intended title while they retry.
+rename-reflects durability re-assert present?
+13:    clearState: false
+19:    timeout: 60000
+
+--- AC-3 / HIGH-3: weak whats-new / articles oracles + seed share_token ---
+whats-new-loads.yml:
+4:# DATA oracle (whats-new-feed) is NON-optional.
+17:      id: "whats-new-feed"
+21:    id: "whats-new-feed"
+list-loads.yml multi-card index 1?
+4:# DATA oracles (articles-route, article-card-pressable) are NON-optional.
+52:      id: "article-card-pressable"
+56:    id: "article-card-pressable"
+seed share_token?
+RED: seed has no share_token
+
+--- AC-4 / HIGH-4: theatre verify-manifest sprint-23 ---
+11:      "verify": "python3 -c 'import re,pathlib,json; t=pathlib.Path(\".spec/prds/mk6-migration/tasks/s23_deterministic_HTG-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log\").read_text(); r=json.load(open(\".spec/prds/mk6-migration/tasks/s23_deterministic_HTG-human-gate-steering-and-fulcrum-seams/gate-plan.json\"))[\"steps\"][4][\"assertion\"][\"expect_log_regex\"]; assert re.search(r,t), r'"
+15:      "verify": "jq -r '.steps[]|select(.n==5)|.literal_cmd' .spec/prds/mk6-migration/tasks/s23_deterministic_HTG-human-gate-steering-and-fulcrum-seams/gate-plan.json | grep -F 'mission:cycle'"
+19:      "verify": "test -f .spec/prds/mk6-migration/tasks/s23_deterministic_HTG-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log && grep -q 'assayChallengeDistinct.: true' .spec/prds/mk6-migration/tasks/s23_deterministic_HTG-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/step5.log"
+RED: GATE-FIX-001 points at sprint-23
+RED: GATE-FIX-002/verify-manifest.json missing
+RED: dual-lens-note.json missing
+
+--- AC-5 / HIGH-1: driver log contract + gate-results fail ---
+418:step1_log="$artifact_dir/step1-seed.log"
+427:    "cli" "skipped" ".tmp/GATE-FIX-001/step1-seed.log" \
+536:    "cli" "$step1_result" ".tmp/GATE-FIX-001/step1-seed.log" "seed exit=$rc cmd=${seed_cmd:-none}" true
+577:  "step2-coldboot-drawer.log"
+fail
