@@ -44,7 +44,7 @@
     --score-neutral: 215 16% 47%;
   }
 
-  .dark {
+  .dark:root {
     /* "Crystalline Archive" theme - Holocron knowledge repository aesthetic */
     /* Deep blue-black backgrounds with amber/gold accents and teal links */
     --background: 220 35% 6%; /* #0A0E14 - Deep navy-black */
