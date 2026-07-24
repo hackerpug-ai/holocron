@@ -206,20 +206,27 @@ export async function seedE2eDatabase(options?: {
     );
 
     // ── documents (12, multi-category) ────────────────────────────────────
+    // HIGH-3 / GATE-FIX-002: at least one public doc must carry share_token so
+    // share-url-mastra can assert Mastra /article/ without relying on publish-only path.
+    const e2eShareToken = 'e2e-share-token-00000000-0000-4000-8000-0000000000b1';
     for (let n = 1; n <= 12; n++) {
       const id = docId(n);
       const category = E2E_DOCUMENT_CATEGORIES[(n - 1) % E2E_DOCUMENT_CATEGORIES.length]!;
       const title = `E2E Document ${n} (${category})`;
       const content = `Seeded e2e document #${n} in category ${category} for Maestro Zero reads.`;
+      // First public document gets a stable share_token (uuid-shaped) for share flow.
+      const shareToken = n === 1 ? e2eShareToken : null;
       await sql.unsafe(
-        `INSERT INTO documents (id, title, content, category, status, is_public, created_at)
-         VALUES ($1::uuid, $2, $3, $4, 'published', true, now())
+        `INSERT INTO documents (id, title, content, category, status, is_public, share_token, created_at)
+         VALUES ($1::uuid, $2, $3, $4, 'published', true, $5, now())
          ON CONFLICT (id) DO UPDATE SET
            title = EXCLUDED.title,
            content = EXCLUDED.content,
            category = EXCLUDED.category,
-           status = EXCLUDED.status`,
-        [id, title, content, category]
+           status = EXCLUDED.status,
+           is_public = EXCLUDED.is_public,
+           share_token = COALESCE(EXCLUDED.share_token, documents.share_token)`,
+        [id, title, content, category, shareToken]
       );
     }
     const categorySet = new Set(E2E_DOCUMENT_CATEGORIES.slice(0, 12));

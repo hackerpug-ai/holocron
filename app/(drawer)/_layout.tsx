@@ -149,12 +149,19 @@ function CustomDrawerContent() {
         title_set_by_user: true,
         updated_at: Date.now(),
       });
+      // Mutator succeeded — short TTL remains until Zero query reflects; do not extend.
     } catch (err) {
       log('DrawerLayout').error('Failed to rename conversation', err, {
         id,
         newTitle: trimmed,
       });
-      // Keep override so the user still sees the intended title while they retry.
+      // HIGH-2 / GATE-FIX-002: fail-closed — never keep titleOverrides when mutate throws
+      // (Maestro must not green on override-only UI while Zero write failed).
+      setTitleOverrides((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 

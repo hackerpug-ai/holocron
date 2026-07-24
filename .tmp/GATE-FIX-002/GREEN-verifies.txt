@@ -1,0 +1,108 @@
+=== GREEN full verify 2026-07-24T05:17:29Z ===
+--- AC-1 ---
+AC-1_OK
+--- AC-2 ---
+52:  const [titleOverrides, setTitleOverrides] = useState<Record<string, TitleOverride>>({});
+137:    setTitleOverrides((prev) => ({
+146:      await zero.mutate.conversations.update({
+158:      // HIGH-2 / GATE-FIX-002: fail-closed — never keep titleOverrides when mutate throws
+160:      setTitleOverrides((prev) => {
+213:    const override = titleOverrides[row.id];
+app/(drawer)/_layout.tsx:52:  const [titleOverrides, setTitleOverrides] = useState<Record<string, TitleOverride>>({});
+app/(drawer)/_layout.tsx:139:      [id]: { title: trimmed, until: Date.now() + 5000 },
+app/(drawer)/_layout.tsx:158:      // HIGH-2 / GATE-FIX-002: fail-closed — never keep titleOverrides when mutate throws
+app/(drawer)/_layout.tsx:213:    const override = titleOverrides[row.id];
+.maestro/chat/rename-reflects.yml:13:    clearState: false
+.maestro/chat/rename-reflects.yml:19:    timeout: 60000
+.maestro/chat/rename-reflects.yml:39:    timeout: 15000
+.maestro/chat/rename-reflects.yml:60:    timeout: 5000
+.maestro/chat/rename-reflects.yml:81:- inputText: "Sprint Planning"
+.maestro/chat/rename-reflects.yml:88:    visible: "Sprint Planning"
+.maestro/chat/rename-reflects.yml:89:    timeout: 5000
+.maestro/chat/rename-reflects.yml:91:- assertVisible: "Sprint Planning"
+.maestro/chat/rename-reflects.yml:103:# titleOverrides TTL is 5s. Relaunch (clearState false) clears React state so
+.maestro/chat/rename-reflects.yml:104:# the second "Sprint Planning" assert cannot green on override-only UI.
+.maestro/chat/rename-reflects.yml:105:# Wait past TTL (~6s) via animation wait before relaunch to let Zero apply.
+.maestro/chat/rename-reflects.yml:107:    timeout: 7000
+.maestro/chat/rename-reflects.yml:108:- stopApp
+.maestro/chat/rename-reflects.yml:110:    clearState: false
+.maestro/chat/rename-reflects.yml:115:    timeout: 60000
+.maestro/chat/rename-reflects.yml:127:    timeout: 15000
+.maestro/chat/rename-reflects.yml:131:    visible: "Sprint Planning"
+.maestro/chat/rename-reflects.yml:134:- assertVisible: "Sprint Planning"
+158:      // HIGH-2 / GATE-FIX-002: fail-closed — never keep titleOverrides when mutate throws
+162:        delete next[id];
+AC-2_OK
+--- AC-3 ---
+.maestro/subscriptions/whats-new-loads.yml:24:# NewsfeedScreen empty ListEmptyComponent uses testID `${feed}-empty` → whats-new-feed-empty.
+.maestro/subscriptions/whats-new-loads.yml:26:    id: "whats-new-feed-empty"
+services/platform/src/db/seed-e2e.ts:209:    // HIGH-3 / GATE-FIX-002: at least one public doc must carry share_token so
+services/platform/src/db/seed-e2e.ts:210:    // share-url-mastra can assert Mastra /article/ without relying on publish-only path.
+services/platform/src/db/seed-e2e.ts:217:      // First public document gets a stable share_token (uuid-shaped) for share flow.
+services/platform/src/db/seed-e2e.ts:220:        `INSERT INTO documents (id, title, content, category, status, is_public, share_token, created_at)
+services/platform/src/db/seed-e2e.ts:228:           share_token = COALESCE(EXCLUDED.share_token, documents.share_token)`,
+.maestro/articles/list-loads.yml:4:# DATA oracles (articles-route, article-card-pressable) are NON-optional.
+.maestro/articles/list-loads.yml:52:      id: "article-card-pressable"
+.maestro/articles/list-loads.yml:56:    id: "article-card-pressable"
+.maestro/articles/list-loads.yml:60:    id: "article-card-pressable"
+.maestro/articles/list-loads.yml:63:    id: "article-card-pressable"
+.maestro/articles/share-url-mastra.yml:1:# S-REWRITE-02 AC-3 / TC-3 — Share URL points to Mastra /article/ host
+.maestro/articles/share-url-mastra.yml:4:# Oracle: after Share, system share sheet / link text must contain `/article/`
+.maestro/articles/share-url-mastra.yml:5:# and must not contain `.convex.site` / `.convex.cloud`.
+.maestro/articles/share-url-mastra.yml:15:      id: "article-card-pressable"
+.maestro/articles/share-url-mastra.yml:19:    id: "article-card-pressable"
+.maestro/articles/share-url-mastra.yml:46:# MUST observe Mastra /article/ path in share sheet or link preview
+.maestro/articles/share-url-mastra.yml:49:      text: ".*(/article/).*"
+.maestro/articles/share-url-mastra.yml:53:    text: ".*(/article/).*"
+AC-3_OK
+--- AC-4 ---
+true
+true
+AC-4_OK
+--- AC-5 ---
+21:#   step2-coldboot-drawer.log
+22:#   step3-articles.log
+26:#   step7-share-url.log
+27:# WRITE_GATE_RESULTS pass is allowed ONLY when:
+28:#   - steps_passed == 7 AND steps_executed == 7 AND zero skipped/blocked, AND
+41:#   SKIP_SEED=1             skip step 1 — records result "skipped" (NOT pass);
+42:#                           overall gate verdict cannot pass when seed is skipped
+44:#   WRITE_GATE_RESULTS=1    write gate-results.json from this-cycle claims only
+54:#   (never pass). SKIP_SEED records "skipped", never "pass".
+70:write_gate_results="${WRITE_GATE_RESULTS:-0}"
+433:# SKIP_SEED records "skipped" (executed=false) so overall gate cannot pass.
+439:    echo "result=skipped (NOT pass); overall gate verdict cannot pass"
+441:  step1_result="skipped"
+443:    "cli" "skipped" ".tmp/GATE-FIX-001/step1-seed.log" \
+523:        echo "PATH holo lacks seed:e2e (unknown command) — skipped"
+593:  "step2-coldboot-drawer.log"
+599:  "step3-articles.log"
+647:  "step7-share-url.log"
+650:# SKIP_SEED / SKIP_UI use result skipped|blocked (not pass) so steps_passed < 7.
+651:steps_passed="$(jq -s '[.[] | select(.result=="pass")] | length' "$claims_file")"
+654:steps_skipped_or_blocked="$(jq -s '[.[] | select(.result=="skipped" or .result=="blocked")] | length' "$claims_file")"
+656:if [[ "$steps_passed" == "7" && "$steps_executed" == "7" && "$steps_skipped_or_blocked" == "0" ]]; then
+669:  --argjson steps_passed "$steps_passed" \
+683:    steps_passed: $steps_passed,
+688:log "summary: verdict=$verdict steps_passed=$steps_passed/$steps_total executed=$steps_executed"
+691:# Only write gate-results.json when WRITE_GATE_RESULTS=1 AND verdict is honest pass
+693:# GATE-FIX-002: pass requires all 7 this-cycle logs non-empty + steps_passed==7 + zero skipped.
+696:  "step2-coldboot-drawer.log"
+697:  "step3-articles.log"
+701:  "step7-share-url.log"
+711:    if [[ "$steps_passed" != "7" || "$steps_executed" != "7" || "$steps_skipped_or_blocked" != "0" ]]; then
+712:      fail "refusing to write gate-results pass: steps_passed=$steps_passed executed=$steps_executed skipped_or_blocked=$steps_skipped_or_blocked (need 7/7/0)"
+true
+20:#   step1-seed.log
+434:step1_log="$artifact_dir/step1-seed.log"
+443:    "cli" "skipped" ".tmp/GATE-FIX-001/step1-seed.log" \
+552:    "cli" "$step1_result" ".tmp/GATE-FIX-001/step1-seed.log" "seed exit=$rc cmd=${seed_cmd:-none}" true
+694:required_step_logs=(
+695:  "step1-seed.log"
+714:    for req_log in "${required_step_logs[@]}"; do
+AC-5_OK
+--- gate-results still fail ---
+{
+  "verdict": "fail",
+  "steps_passed": 0
+}
