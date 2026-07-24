@@ -1,0 +1,7 @@
+harvest-evidence: task=S-REWRITE-01 manifest=.tmp/S-REWRITE-01/verify-manifest.json
+  typecheck: bun run typecheck
+  lint: bun run lint
+  test (suite): bun run test
+  requirements: 12
+  [AC-1] maestro test .maestro/chat/drawer-loads-seeded.yml on a named iOS Simulator after `holo seed:e2e --reset`
+  [AC-2] maestro test .maestro/chat/rename-reflects.yml

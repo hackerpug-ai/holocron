@@ -1,0 +1,200 @@
+{
+  "task_id": "S-REWRITE-01",
+  "timestamp": "2026-07-24T01:16:49Z",
+  "commit_sha": "ef7b3b507e5b11622e064c97cb24e2882839c0f2",
+  "typecheck": {
+    "exit_code": 1
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml on a named iOS Simulator after `holo seed:e2e --reset`",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/ac-1-output.txt",
+      "red_against_start_file": ".tmp/S-REWRITE-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-01/AC-1-green.txt",
+      "seeded_value": ".tmp/S-REWRITE-01/AC-1-seeded-artifact.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/ac-2-output.txt",
+      "red_against_start_file": ".tmp/S-REWRITE-01/AC-2-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-01/AC-2-green.txt",
+      "seeded_value": ".tmp/S-REWRITE-01/AC-2-seeded-artifact.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "maestro test .maestro/chat/thread-loads.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/ac-3-output.txt",
+      "red_against_start_file": ".tmp/S-REWRITE-01/AC-3-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-01/AC-3-green.txt",
+      "seeded_value": ".tmp/S-REWRITE-01/AC-3-seeded-artifact.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "maestro test .maestro/chat/send-streams.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/ac-4-output.txt",
+      "red_against_start_file": ".tmp/S-REWRITE-01/AC-4-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-01/AC-4-green.txt",
+      "seeded_value": ".tmp/S-REWRITE-01/AC-4-seeded-artifact.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "maestro test .maestro/chat/cancel-works.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/ac-5-output.txt",
+      "red_against_start_file": ".tmp/S-REWRITE-01/AC-5-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-01/AC-5-green.txt",
+      "seeded_value": ".tmp/S-REWRITE-01/AC-5-seeded-artifact.txt"
+    },
+    {
+      "id": "AC-6",
+      "verify": "holo verify:no-convex-client --roots 'app/(drawer)/chat,components/chat,hooks/use-chat-history.ts,hooks/use-agent-activity.ts'",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REWRITE-01/ac-6-output.txt",
+      "red_against_start_file": ".tmp/S-REWRITE-01/AC-6-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-01/AC-6-green.txt",
+      "seeded_value": ".tmp/S-REWRITE-01/AC-6-seeded-artifact.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml on a named iOS Simulator after `holo seed:e2e --reset`",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "maestro test .maestro/chat/thread-loads.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "maestro test .maestro/chat/send-streams.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "maestro test .maestro/chat/cancel-works.yml",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REWRITE-01/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "holo verify:no-convex-client --roots 'app/(drawer)/chat,components/chat,hooks/use-chat-history.ts,hooks/use-agent-activity.ts'",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REWRITE-01/tc-6-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true,
+    "file": ".tmp/S-REWRITE-01/red-output.txt"
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-24T01:16:49Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "0198c1fcb7170eef1216d81ca16f30181058f20958e2189d89ae5b7bbd1a8b78"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "344b040d3f0903ac9e3372034d8a34eb0afbc4ca6512dbb62c9f17d7d2e15434"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "28a976430d38696f6c2923fe6538e176ec9f55dc7ba70eec013288e9c90e5b14"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "635cdc84c389d4bb00971ab972fd600c413b973c1273bb1d60fc2554d7f5a681"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "7c3f345c6365ca28f5595fcbfbc676c39581d62ccfc8c09fc8ca4630bc956115"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "22678139964130eae0528e3469a42f8483e9bf661424bd412e868736b336a75e"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "9e6f238c2b4be1ed722174a932f94e505a4ee85fe27dc832e7f0dd61de9b6b22"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "7fe05a6afe74948a2d8a02733ebb154c027db1017bd652e561a5669facfe7937"
+      },
+      {
+        "path": "ac-6-output.txt",
+        "sha256": "0055babe042881b52361510605fae3a3e970fe9d3d2c8698222f6d3859e1978d"
+      },
+      {
+        "path": "commit-output.txt",
+        "sha256": "d010b7376966dd99d234af9829f4d3e625e2e769bfefb2d7f81c52a473c3bec5"
+      },
+      {
+        "path": "harvest-output.txt",
+        "sha256": "2af8e47e01265500b40c27ea567640cdc3384f0534be48eff14d19c11f438267"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "344b040d3f0903ac9e3372034d8a34eb0afbc4ca6512dbb62c9f17d7d2e15434"
+      },
+      {
+        "path": "red-output.txt",
+        "sha256": "d7b298bf8baf0b02eda709e0f189d84c372bc149232c5879944cd6c8cf31b8cd"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "635cdc84c389d4bb00971ab972fd600c413b973c1273bb1d60fc2554d7f5a681"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "7c3f345c6365ca28f5595fcbfbc676c39581d62ccfc8c09fc8ca4630bc956115"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "22678139964130eae0528e3469a42f8483e9bf661424bd412e868736b336a75e"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "9e6f238c2b4be1ed722174a932f94e505a4ee85fe27dc832e7f0dd61de9b6b22"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "7fe05a6afe74948a2d8a02733ebb154c027db1017bd652e561a5669facfe7937"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "0055babe042881b52361510605fae3a3e970fe9d3d2c8698222f6d3859e1978d"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "28a976430d38696f6c2923fe6538e176ec9f55dc7ba70eec013288e9c90e5b14"
+      },
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "0198c1fcb7170eef1216d81ca16f30181058f20958e2189d89ae5b7bbd1a8b78"
+      }
+    ]
+  }
+}

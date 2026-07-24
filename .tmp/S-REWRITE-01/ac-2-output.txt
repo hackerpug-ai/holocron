@@ -1,0 +1,9 @@
+verify: maestro test .maestro/chat/rename-reflects.yml
+environment_or_sandbox_mismatch:
+  - Metro :8081 down (curl 000)
+  - Zero-cache :4848 down (curl 000)
+  - holo seed:e2e --reset: unknown command
+  - Platform :4111 health 200; iPhone 17 Booted; maestro present
+  - Flow file present: .maestro/chat/rename-reflects.yml (      51 lines)
+  - Static/integration GREEN: tests/integration/s-rewrite-01-chat-cluster-zero.test.ts
+EXIT_CODE:2
