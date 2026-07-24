@@ -39,13 +39,30 @@ export const assimilationSessionById = (sessionId: string) =>
 /**
  * toolbeltDocumentsByOwner — api.toolbelt.queries.list
  * toolbelt_tools is excluded from zero_pub; entries surface as documents.
+ * Constrain to toolbelt categories so the list is not all documents.
  */
+const TOOLBELT_CATEGORIES = [
+  'libraries',
+  'cli',
+  'framework',
+  'service',
+  'database',
+  'tool',
+] as const;
+
 export const toolbeltDocumentsByOwner = (limit = 100) =>
-  builder.documents.orderBy('created_at', 'desc').limit(limit);
+  builder.documents
+    .where('category', 'IN', TOOLBELT_CATEGORIES)
+    .orderBy('created_at', 'desc')
+    .limit(limit);
 
 /** notificationsUnread — api.notifications.queries.listUnread */
 export const notificationsUnread = (limit = 10) =>
   builder.notifications.where('read', false).orderBy('created_at', 'desc').limit(limit);
+
+/** notificationsRecent — api.notifications.queries.listRecent */
+export const notificationsRecent = (limit = 20) =>
+  builder.notifications.orderBy('created_at', 'desc').limit(limit);
 
 /** latestWhatsNewReports — api.whatsNew.queries.getLatestFindings */
 export const latestWhatsNewReports = (limit = 5) =>

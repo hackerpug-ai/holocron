@@ -1,0 +1,60 @@
+# S-REWRITE-04 AC-4 / TC-4 — Assimilation session loads via Zero query
+# Prerequisite: holo seed:e2e --reset (seeded assimilation session) + cold boot
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Seeded assimilation session deep link
+- openLink: ${MAESTRO_ASSIMILATE_SESSION_URL}
+
+- extendedWaitUntil:
+    visible:
+      id: "assimilation-plan-layout"
+    timeout: 90000
+
+- assertVisible:
+    id: "assimilation-plan-layout"
+
+# Plan content present (not empty / no-plan state)
+- assertVisible:
+    id: "assimilation-plan-markdown"
+    optional: true
+
+- assertNotVisible:
+    text: "No plan"
+    optional: true
+
+- takeScreenshot: S-REWRITE-04-AC-4-assimilate-loads

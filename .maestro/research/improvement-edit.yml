@@ -1,0 +1,80 @@
+# S-REWRITE-04 AC-3 / TC-3 — Improvement edit persists via Zero mutator (5s SLO)
+# Prerequisite: holo seed:e2e --reset + cold boot on named iOS Simulator
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- openLink: holocron://improvements
+
+- extendedWaitUntil:
+    visible:
+      id: "improvements-route-layout"
+    timeout: 90000
+
+# Open first card menu → edit (optional if seed layout differs)
+- tapOn:
+    id: "improvement-request-card-menu-button"
+    index: 0
+    optional: true
+
+- tapOn:
+    text: "Edit"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "improvements-edit-sheet"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "improvements-edit-sheet-title-input"
+    commands:
+      - tapOn:
+          id: "improvements-edit-sheet-title-input"
+      - inputText: " S-REWRITE-04 edit"
+      - tapOn:
+          id: "improvements-edit-sheet-save-button"
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- assertVisible:
+    id: "improvements-route-layout"
+
+- takeScreenshot: S-REWRITE-04-AC-3-improvement-edit

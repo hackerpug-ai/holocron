@@ -3,29 +3,19 @@ import * as Haptics from 'expo-haptics';
 import { AppState, View } from 'react-native';
 import { NotificationToastProvider } from './NotificationToastProvider';
 
-const convexMocks = vi.hoisted(() => ({
+const notificationMocks = vi.hoisted(() => ({
   markRead: vi.fn(() => Promise.resolve()),
-  useMutation: vi.fn(),
-  useQuery: vi.fn(),
+  markAllRead: vi.fn(() => Promise.resolve()),
+  useNotifications: vi.fn(),
 }));
 
-vi.mock('convex/react', () => ({
-  useMutation: convexMocks.useMutation,
-  useQuery: convexMocks.useQuery,
+vi.mock('@/hooks/use-notifications', () => ({
+  useNotifications: notificationMocks.useNotifications,
 }));
 
 vi.mock('expo-haptics', () => ({
   notificationAsync: vi.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'Success' },
-}));
-
-vi.mock('@/convex/_generated/api', () => ({
-  api: {
-    notifications: {
-      mutations: { markRead: 'markRead' },
-      queries: { listUnread: 'listUnread' },
-    },
-  },
 }));
 
 vi.mock('./NotificationToast', () => ({
@@ -68,10 +58,20 @@ function notification(type: string): TestNotification {
   };
 }
 
+function mockHook(unread: TestNotification[]) {
+  notificationMocks.useNotifications.mockReturnValue({
+    unread,
+    recent: unread,
+    unreadCount: unread.length,
+    isLoading: false,
+    markRead: notificationMocks.markRead,
+    markAllRead: notificationMocks.markAllRead,
+  });
+}
+
 describe('NotificationToastProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    convexMocks.useMutation.mockReturnValue(convexMocks.markRead);
     Object.defineProperty(AppState, 'currentState', {
       configurable: true,
       value: 'active',
@@ -79,7 +79,7 @@ describe('NotificationToastProvider', () => {
   });
 
   it('does not render a foreground toast for audio completion notifications', async () => {
-    convexMocks.useQuery.mockReturnValue([notification('audio_complete')]);
+    mockHook([notification('audio_complete')]);
 
     render(
       <NotificationToastProvider>
@@ -96,7 +96,7 @@ describe('NotificationToastProvider', () => {
   });
 
   it('still renders a foreground toast for high-importance completion notifications', async () => {
-    convexMocks.useQuery.mockReturnValue([notification('research_complete')]);
+    mockHook([notification('research_complete')]);
 
     render(
       <NotificationToastProvider>

@@ -42,6 +42,15 @@ export const MissionCreateArgsSchema = z
   .object({
     goal: missionGoalArgsShape.goal.optional(),
     operator: missionGoalArgsShape.operator,
+    /** toolbelt-add-from-url (and similar) — full tool fields after client validate */
+    title: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    category: z.string().min(1).optional(),
+    sourceUrl: z.string().min(1).optional(),
+    sourceType: z.string().min(1).optional(),
+    language: z.string().min(1).optional(),
+    tags: z.string().min(1).optional(),
+    useCases: z.string().min(1).optional(),
   })
   .strict();
 

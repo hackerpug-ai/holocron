@@ -77,6 +77,7 @@ describe('S-REWRITE-04 research cluster Zero seam', () => {
       'assimilationSessionById',
       'toolbeltDocumentsByOwner',
       'notificationsUnread',
+      'notificationsRecent',
       'latestWhatsNewReports',
       'feedItemsByOwner',
       'agentActivityByOwner',
@@ -84,6 +85,26 @@ describe('S-REWRITE-04 research cluster Zero seam', () => {
       expect(src, `missing export ${name}`).toMatch(new RegExp(`export const ${name}`));
     }
     expect(src).not.toMatch(/defineQuery|defineQueries/);
+    // toolbelt list must not be an unfiltered documents dump
+    expect(src).toMatch(
+      /toolbeltDocumentsByOwner[\s\S]*?where\(\s*['"]category['"]\s*,\s*['"]IN['"]/
+    );
+  });
+
+  it('AC-6: components/notifications has zero convex/react imports', () => {
+    const files = listTsFiles('components/notifications');
+    const hits: string[] = [];
+    for (const file of files) {
+      if (file.includes('.test.')) continue;
+      const text = readFileSync(file, 'utf8');
+      const lines = text.split('\n');
+      lines.forEach((line, i) => {
+        if (CONVEX_IMPORT_RE.test(line)) {
+          hits.push(`${file.replace(REPO_ROOT + '/', '')}:${i + 1}:${line.trim()}`);
+        }
+      });
+    }
+    expect(hits, `convex/react still present in notifications:\n${hits.join('\n')}`).toEqual([]);
   });
 
   it('AC-6: zero convex/react imports remain in the research cluster roots', () => {

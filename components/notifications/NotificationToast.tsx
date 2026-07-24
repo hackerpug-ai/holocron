@@ -32,7 +32,16 @@ import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type NotificationType = 'research_complete' | 'research_failed' | 'system';
+export type NotificationType =
+  | 'research_complete'
+  | 'research_failed'
+  | 'audio_complete'
+  | 'whats_new'
+  | 'subscription_update'
+  | 'assimilate_complete'
+  | 'system'
+  | 'feed_digest'
+  | 'info';
 
 export interface NotificationData {
   _id: string;
@@ -79,7 +88,37 @@ const TYPE_CONFIG: Record<
     iconClass: 'text-destructive',
     accentClass: 'bg-destructive',
   },
+  audio_complete: {
+    Icon: Bell,
+    iconClass: 'text-primary',
+    accentClass: 'bg-primary',
+  },
+  whats_new: {
+    Icon: Bell,
+    iconClass: 'text-primary',
+    accentClass: 'bg-primary',
+  },
+  subscription_update: {
+    Icon: Bell,
+    iconClass: 'text-primary',
+    accentClass: 'bg-primary',
+  },
+  assimilate_complete: {
+    Icon: CheckCircle2,
+    iconClass: 'text-success',
+    accentClass: 'bg-success',
+  },
   system: {
+    Icon: Bell,
+    iconClass: 'text-primary',
+    accentClass: 'bg-primary',
+  },
+  feed_digest: {
+    Icon: Bell,
+    iconClass: 'text-primary',
+    accentClass: 'bg-primary',
+  },
+  info: {
     Icon: Bell,
     iconClass: 'text-primary',
     accentClass: 'bg-primary',

@@ -48,12 +48,22 @@ export default function ToolbeltAddScreen() {
           throw new Error('Missing required parameters');
         }
 
+        const goal = `Add toolbelt entry: ${params.title}`;
+        // Pass full validated tool fields — do not drop after validate.
         const result = await postMission({
           templateKey: 'toolbelt',
-          goal: `Add toolbelt entry: ${params.title}`,
+          goal,
           idempotencyKey: `toolbelt-add-${params.sourceUrl}`,
           args: {
-            goal: `Add toolbelt entry: ${params.title}`,
+            goal,
+            title: params.title,
+            description: params.description,
+            category: params.category,
+            sourceUrl: params.sourceUrl,
+            sourceType: params.sourceType,
+            ...(params.language ? { language: params.language } : {}),
+            ...(params.tags ? { tags: params.tags } : {}),
+            ...(params.useCases ? { useCases: params.useCases } : {}),
           },
         });
 

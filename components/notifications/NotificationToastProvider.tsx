@@ -1,13 +1,12 @@
 /**
  * NotificationToastProvider
  *
- * Bridges Convex real-time notifications to in-app toast display.
+ * Bridges Zero real-time notifications to in-app toast display.
  *
- * - Subscribes to unread notifications via Convex
+ * - Subscribes to unread notifications via Zero (`useNotifications`)
  * - Shows an in-app toast (+ haptic feedback) when the app is ACTIVE
  * - When the app is BACKGROUNDED: logs a note (expo-notifications not installed;
  *   install it and un-comment the scheduleNotificationAsync block to enable push)
- * - Marks the notification as read after the toast is shown
  * - Auto-dismisses after 4 seconds
  *
  * @example
@@ -18,12 +17,10 @@
  * ```
  */
 
-import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import * as React from 'react';
 import { AppState, type AppStateStatus, View } from 'react-native';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useNotifications } from '@/hooks/use-notifications';
 import { type NotificationData, NotificationToast } from './NotificationToast';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -49,11 +46,8 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
   // Track current AppState
   const appStateRef = React.useRef<AppStateStatus>(AppState.currentState);
 
-  // Convex: subscribe to unread notifications
-  const unread = useQuery(api.notifications.queries.listUnread);
-
-  // Convex: mutation to mark a single notification as read
-  const markReadMutation = useMutation(api.notifications.mutations.markRead);
+  // Zero: subscribe to unread notifications + mark-read mutator
+  const { unread, markRead } = useNotifications();
 
   // ── AppState listener ──────────────────────────────────────────────────────
 
@@ -82,7 +76,7 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
     if (!unread || unread.length === 0) return;
 
     // Pick the most-recent notification that hasn't been shown yet
-    const next = unread.find((n: { _id: string }) => !shownIds.current.has(n._id));
+    const next = unread.find((n) => !shownIds.current.has(n._id));
     if (!next) return;
 
     shownIds.current.add(next._id);
@@ -91,19 +85,9 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
     // Normal-importance notifications are bell-only — the NotificationListSheet handles those.
     if (!HIGH_IMPORTANCE_TYPES.has(next.type)) return;
 
-    const notification: NotificationData = {
-      _id: next._id,
-      type: next.type as NotificationData['type'],
-      title: next.title,
-      body: next.body,
-      route: next.route,
-      read: next.read,
-      createdAt: next.createdAt,
-    };
-
     if (appStateRef.current === 'active') {
       // App is in foreground — show in-app toast with haptic feedback
-      setCurrent(notification);
+      setCurrent(next);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
         // Haptics may not be available on all devices; ignore errors
       });
@@ -126,11 +110,11 @@ export function NotificationToastProvider({ children }: NotificationToastProvide
 
   const handleMarkRead = React.useCallback(
     (id: string) => {
-      markReadMutation({ id: id as Id<'notifications'> }).catch((err: unknown) => {
+      markRead(id).catch((err: unknown) => {
         console.warn('[NotificationToastProvider] markRead failed:', err);
       });
     },
-    [markReadMutation]
+    [markRead]
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
