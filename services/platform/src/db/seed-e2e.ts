@@ -20,7 +20,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 1;
+export const E2E_SEED_VERSION = 2;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -42,6 +42,49 @@ export const E2E_DOCUMENT_CATEGORIES = [
   'libraries',
   'competitive-analysis',
   'ai-roi',
+] as const;
+
+const E2E_WHATS_NEW_FINDINGS = [
+  {
+    title: 'E2E Discovery: Native testing bridge',
+    url: 'https://example.com/e2e-discovery-native-testing',
+    source: 'Example Research',
+    category: 'discovery',
+    score: 91,
+    summary: 'A deterministic discovery finding for native e2e coverage.',
+  },
+  {
+    title: 'E2E Discovery: Durable knowledge graph',
+    url: 'https://example.com/e2e-discovery-knowledge-graph',
+    source: 'Example Research',
+    category: 'discovery',
+    score: 88,
+    summary: 'A second discovery finding for category-filter membership checks.',
+  },
+  {
+    title: 'E2E Release: Holocron 1.0',
+    url: 'https://example.com/e2e-release-holocron-1',
+    source: 'Example Releases',
+    category: 'release',
+    score: 95,
+    summary: 'A deterministic release finding with a secure external source.',
+  },
+  {
+    title: 'E2E Release: Native client update',
+    url: 'https://example.com/e2e-release-native-client',
+    source: 'Example Releases',
+    category: 'release',
+    score: 89,
+    summary: 'A second release finding for category-filter membership checks.',
+  },
+  {
+    title: 'E2E Trend: Agentic workflows',
+    url: 'https://example.com/e2e-trend-agentic-workflows',
+    source: 'Example Trends',
+    category: 'trend',
+    score: 84,
+    summary: 'A deterministic trend finding for feed and source-navigation coverage.',
+  },
 ] as const;
 
 export type SeedE2eResult = {
@@ -259,21 +302,29 @@ export async function seedE2eDatabase(options?: {
     }
     messages_log.push('seeded 5 feed_items');
 
-    // ── whats_new_reports (1 companion report; feed is primary) ───────────
+    // ── whats_new_reports (1 report with representative external findings) ─
     await sql.unsafe(
       `INSERT INTO whats_new_reports (
          id, period_start, period_end, days, focus,
          discovery_only, findings_count, discovery_count, release_count, trend_count,
-         summary_json, created_at
+         summary_json, findings_json, created_at
        ) VALUES (
          $1::uuid, now() - interval '7 days', now(), 7, 'e2e-seed',
          false, 5, 2, 2, 1,
-         $2::jsonb, now()
+         $2::jsonb, $3::jsonb, now()
        )
        ON CONFLICT (id) DO UPDATE SET
          findings_count = EXCLUDED.findings_count,
-         summary_json = EXCLUDED.summary_json`,
-      [whatsNewId(), JSON.stringify({ seed: true, feed_items: 5, version: E2E_SEED_VERSION })]
+         discovery_count = EXCLUDED.discovery_count,
+         release_count = EXCLUDED.release_count,
+         trend_count = EXCLUDED.trend_count,
+         summary_json = EXCLUDED.summary_json,
+         findings_json = EXCLUDED.findings_json`,
+      [
+        whatsNewId(),
+        JSON.stringify({ seed: true, feed_items: 5, version: E2E_SEED_VERSION }),
+        JSON.stringify(E2E_WHATS_NEW_FINDINGS),
+      ]
     );
     messages_log.push('seeded 1 whats_new_report');
 
