@@ -732,7 +732,7 @@ jq -n \
   --argjson steps_total "$steps_total" \
   --argjson steps_passed "$steps_passed" \
   --argjson steps_executed "$steps_executed" \
-  --slurpfile steps "$claims_file" \
+  --argjson steps "$(jq -s '.' "$claims_file")" \
   '{
     schema_version: 1,
     sprint_id: "sprint-24-full-rn-app-rewrite-off-convex-onto-zero",
@@ -745,7 +745,7 @@ jq -n \
     steps_total: $steps_total,
     steps_executed: $steps_executed,
     steps_passed: $steps_passed,
-    steps: $steps[0],
+    steps: $steps,
     notes: "Honest this-cycle aggregation only. Prior 4009dd97 pass claim remains invalid. Rename step requires rename-reflects.yml log."
   }' >"$summary_file"
 

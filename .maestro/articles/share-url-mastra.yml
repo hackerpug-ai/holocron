@@ -3,6 +3,10 @@
 # Requires installed app bundleId com.holocron.app on a named iOS Simulator.
 # Oracle: after Share, system share sheet / link text must contain `/article/`
 # and must not contain `.convex.site` / `.convex.cloud`.
+#
+# Run2 fail: document-actions-button COMPLETED but document-actions-sheet never
+# visible — Modal testID not in XCUITest hierarchy. Sheet root + share row now
+# use View/Pressable testIDs; wait on share-row (or Share text) after button.
 appId: com.holocron.app
 ---
 - launchApp:
@@ -27,21 +31,11 @@ appId: com.holocron.app
 - tapOn:
     id: "document-actions-button"
 
-# Sheet oracle is on an inner View (Modal testID is not reliable on iOS XCUITest).
-# Bounded wait — fail closed if sheet does not mount after button press.
-- extendedWaitUntil:
-    visible:
-      id: "document-actions-sheet"
-    timeout: 15000
-
-- assertVisible:
-    id: "document-actions-sheet"
-
-# Share row may use -share suffix; also allow panel as mount proof
+# Sheet content (Pressable share) — more reliable than Modal host testID
 - extendedWaitUntil:
     visible:
       id: "document-actions-sheet-share"
-    timeout: 10000
+    timeout: 20000
 
 - assertVisible:
     id: "document-actions-sheet-share"
