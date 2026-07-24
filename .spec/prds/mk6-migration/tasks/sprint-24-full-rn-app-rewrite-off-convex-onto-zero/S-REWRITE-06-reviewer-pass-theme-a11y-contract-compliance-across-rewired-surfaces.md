@@ -1,9 +1,9 @@
 # S-REWRITE-06: Reviewer pass: theme/a11y/contract compliance across rewired surfaces
-> Status: Backlog
+> Status: Needs Fixes
 
 - **Sprint:** [Sprint 24: Full RN App Rewrite off Convex onto Zero](./SPRINT.md)
 - **Task Type:** `REVIEW`
-- **Status:** `Backlog`
+- **Status:** `Needs Fixes`
 - **Priority:** `P0`
 - **Effort:** `M`
 - **Estimate:** `150 minutes`
@@ -38,6 +38,8 @@ Adversarially review every rewired surface for theme-token compliance, accessibi
 
 ## Acceptance Criteria
 ### AC-1: Theme-token compliance verified across all rewired surfaces [PRIMARY]
+<!-- FAIL: hex count=55 (expect 0). Production hits include components/whats-new/{NewsfeedHeader,categoryColors,SocialPosts*}, screens/settings-screen.tsx, screens/improvements-screen.tsx, app/assimilate/[sessionId].tsx; numeric spacing in chat/reference, ArticleImportModal, IterationTimeline. Evidence: review-artifact.json categories.theme -->
+- [ ] **FAIL** Theme-token compliance — see review-artifact.json `categories.theme`
 - **GIVEN:** all cluster files are rewired
 - **WHEN:** the reviewer greps for hardcoded theme value
 - **THEN:** zero hardcoded colors/spacing/typography remain; all use the semantic theme tokens
@@ -63,6 +65,8 @@ Adversarially review every rewired surface for theme-token compliance, accessibi
       - a hardcoded `#RRGGBB` color (baseline is `0` such colors)
       - a numeric `padding: 16` outside `theme.spacing`
 ### AC-2: Accessibility + ScreenLayout compliance verified [PRIMARY]
+<!-- FAIL: ScreenLayout on 4/14 drawer tsx only; missing on chat, research/[sessionId], improvements/[requestId], whats-new/[reportId], subscriptions/* wrappers, etc. Pressable/Button without testID/a11y on detail loading/error chrome. Evidence: review-artifact.json categories.a11y_mobile_patterns -->
+- [ ] **FAIL** Accessibility + ScreenLayout — see review-artifact.json `categories.a11y_mobile_patterns`
 - **GIVEN:** all (drawer)/ screens are rewired
 - **WHEN:** the reviewer checks each (drawer)/ screen
 - **THEN:** every (drawer)/ screen wraps content in ScreenLayout and interactive elements carry testID + a11y labels
@@ -86,6 +90,8 @@ Adversarially review every rewired surface for theme-token compliance, accessibi
       - a `(drawer)/` screen rendering a bare View (`0` ScreenLayout)
       - an interactive element with no `testID`
 ### AC-3: Client-data-contract compliance verified [PRIMARY]
+<!-- PASS: bun services/platform/src/cli/holo.ts verify:client-contract exit 0; schema 105/105; targets resolved 105; e2e_links 105; offline cases 5; holo verify:no-convex-client PASS hits=0 -->
+- [x] **PASS** Client-data-contract — 105/105 mapped, 0 unmapped
 - **GIVEN:** all Zero queries/mutators are implemented
 - **WHEN:** the reviewer runs `holo verify:client-contract`
 - **THEN:** every legacy call site maps to its approved target with the declared offline/optimistic/conflict/rejection/identifier behavior
@@ -110,6 +116,8 @@ Adversarially review every rewired surface for theme-token compliance, accessibi
       - exit code `1` (an unmapped surface; expected `0` unmapped)
       - an unmapped call site in the output
 ### AC-4: Review artifact written with PASS/FAIL verdicts [PRIMARY]
+<!-- PASS: review-artifact.json exists; categories.length=4 (theme FAIL, a11y_mobile_patterns FAIL, client_data_contract PASS, review_artifact PASS) -->
+- [x] **PASS** Review artifact written with per-category PASS/FAIL + file:line findings
 - **GIVEN:** all checks are complete
 - **WHEN:** the reviewer compiles findings
 - **THEN:** a review artifact is written with theme/a11y/contract sections and per-category PASS/FAIL + file:line findings

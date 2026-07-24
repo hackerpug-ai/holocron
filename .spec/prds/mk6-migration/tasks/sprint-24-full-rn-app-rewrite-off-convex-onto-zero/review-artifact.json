@@ -1,0 +1,341 @@
+{
+  "task_id": "S-REWRITE-06",
+  "sprint": "sprint-24-full-rn-app-rewrite-off-convex-onto-zero",
+  "reviewer": "react-native-ui-reviewer",
+  "reviewed_at": "2026-07-24T03:00:00Z",
+  "commit_sha": "1c5745df51f0d9fd8c284742659fa0958309c3a2",
+  "branch": "main",
+  "scope": "Rewired surfaces post S-REWRITE-01..05 / INTEGRATE (chat/drawer, articles/documents, subscriptions/whats-new, research/toolbelt/notifications/settings)",
+  "overall_verdict": "NEEDS_FIXES",
+  "summary": "Client-data-contract maps 105/105 call sites and no convex/react imports remain. Theme-token and ScreenLayout/a11y contracts fail on rewired surfaces: hardcoded hex brand/freshness colors, numeric style literals, incomplete ScreenLayout coverage on (drawer)/ routes, and interactive Pressable/Button elements without testID and/or accessibilityLabel on loading/error chrome.",
+  "categories": [
+    {
+      "id": "theme",
+      "name": "Theme-token compliance",
+      "maps_to_ac": "AC-1",
+      "verdict": "FAIL",
+      "commands": [
+        {
+          "command": "grep -rn '#[0-9a-fA-F]\\{6\\}' app/ components/ hooks/ screens/ --include='*.tsx' | grep -v 'theme\\.' | wc -l",
+          "exit_code": 0,
+          "stdout_summary": "55 (expect 0)"
+        },
+        {
+          "command": "rg -n '#[0-9a-fA-F]{6}' rewired clusters -g '!*.stories*' -g '!*test*'",
+          "exit_code": 0,
+          "stdout_summary": "39 production hits outside stories/tests"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "CRITICAL",
+          "file": "components/whats-new/NewsfeedHeader.tsx",
+          "line": 15,
+          "column": 10,
+          "issue": "Hardcoded freshness hex colors (fresh/aging/stale) outside theme tokens",
+          "evidence": "fresh: '#22C55E'; aging: '#F59E0B'; stale: '#EF4444'",
+          "fix": "Map to theme semantic tokens (e.g. theme.colors.success / warning / destructive) or extend theme with freshness.* tokens"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "components/whats-new/categoryColors.ts",
+          "line": 11,
+          "column": 14,
+          "issue": "Category border colors hardcoded as #RRGGBB",
+          "evidence": "discovery/release/trend/discussion hex map",
+          "fix": "Move category palette into theme (theme.colors.category.*) and consume via useTheme()"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "components/whats-new/SocialPostsListScreen.tsx",
+          "line": 59,
+          "column": 11,
+          "issue": "PLATFORM_COLORS brand hex map + fallback '#64748B'",
+          "evidence": "lines 59-64, 192",
+          "fix": "Centralize platform brand colors in theme extension; avoid inline # hex in JSX/styles"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "components/whats-new/SocialPostsGroupCard.tsx",
+          "line": 42,
+          "column": 11,
+          "issue": "Duplicate PLATFORM_COLORS hex map + alpha-suffix composition",
+          "evidence": "lines 42-47, 138-155",
+          "fix": "Share one theme-backed platform color module; replace `${hex}20` with theme opacity tokens"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "screens/settings-screen.tsx",
+          "line": 43,
+          "column": 19,
+          "issue": "Theme preview swatches use arbitrary Tailwind hex classes bg-[#0A0E14] etc.",
+          "evidence": "lines 43-45, 54-56",
+          "fix": "Drive swatches from named theme presets / token refs, not raw # hex in className strings"
+        },
+        {
+          "severity": "HIGH",
+          "file": "screens/improvements-screen.tsx",
+          "line": 93,
+          "column": 35,
+          "issue": "placeholderTextColor hardcoded #71717a / #a1a1aa",
+          "evidence": "placeholderTextColor={colorScheme === 'dark' ? '#71717a' : '#a1a1aa'}",
+          "fix": "Use theme.colors.mutedForeground (or equivalent semantic token)"
+        },
+        {
+          "severity": "HIGH",
+          "file": "app/assimilate/[sessionId].tsx",
+          "line": 283,
+          "column": 39,
+          "issue": "placeholderTextColor=\"#9ca3af\"",
+          "evidence": "hardcoded gray hex on TextInput",
+          "fix": "Use theme.colors.mutedForeground"
+        },
+        {
+          "severity": "HIGH",
+          "file": "app/(drawer)/chat/reference.tsx",
+          "line": 96,
+          "column": 36,
+          "issue": "Numeric spacing outside tokens: contentContainerStyle={{ padding: 16, gap: 12 }}",
+          "evidence": "padding: 16, gap: 12",
+          "fix": "Use theme.spacing.md / theme.spacing.sm (or project spacing scale)"
+        },
+        {
+          "severity": "MEDIUM",
+          "file": "components/articles/ArticleImportModal.tsx",
+          "line": 98,
+          "column": 11,
+          "issue": "Multiple hardcoded padding/borderRadius numeric style values",
+          "evidence": "padding: 20/24/12, borderRadius: 12/8",
+          "fix": "Replace with theme.spacing / theme.radius tokens"
+        },
+        {
+          "severity": "MEDIUM",
+          "file": "components/deep-research/IterationTimeline.tsx",
+          "line": 296,
+          "column": 5,
+          "issue": "Large StyleSheet block with hardcoded fontSize/gap/borderRadius/margin",
+          "evidence": "fontSize 10-18, gap 2-12, borderRadius 4-14, marginVertical 16",
+          "fix": "Tokenize typography and spacing against design system"
+        },
+        {
+          "severity": "LOW",
+          "file": "components/shop/ShopListingCard.tsx",
+          "line": 52,
+          "column": 3,
+          "issue": "Retailer brand hex map (out of primary rewired cluster but in AC-1 global grep)",
+          "evidence": "amazon/ebay/walmart/target/bestbuy/newegg hex",
+          "fix": "If brand fidelity required, host under theme.brand.retailers; still no raw hex in component bodies"
+        }
+      ]
+    },
+    {
+      "id": "a11y_mobile_patterns",
+      "name": "Accessibility + ScreenLayout + testID mobile patterns",
+      "maps_to_ac": "AC-2",
+      "verdict": "FAIL",
+      "commands": [
+        {
+          "command": "test \"$(grep -l 'ScreenLayout' app/(drawer)/*.tsx | wc -l)\" -eq \"$(find 'app/(drawer)/' -name '*.tsx' | wc -l)\"",
+          "exit_code": 1,
+          "stdout_summary": "ScreenLayout top-level matches=3; all drawer tsx=14"
+        },
+        {
+          "command": "for f in app/(drawer)/**/*.tsx; do grep -q ScreenLayout || echo MISSING; done",
+          "exit_code": 0,
+          "stdout_summary": "10 files without ScreenLayout (incl _layout navigator)"
+        }
+      ],
+      "screenlayout_matrix": [
+        { "file": "app/(drawer)/_layout.tsx", "uses_screen_layout": false, "note": "Drawer navigator shell — ScreenLayout N/A but counts against literal AC verify" },
+        { "file": "app/(drawer)/settings.tsx", "uses_screen_layout": true },
+        { "file": "app/(drawer)/toolbelt.tsx", "uses_screen_layout": true },
+        { "file": "app/(drawer)/improvements.tsx", "uses_screen_layout": true },
+        { "file": "app/(drawer)/whats-new/index.tsx", "uses_screen_layout": true },
+        { "file": "app/(drawer)/chat/[conversationId].tsx", "uses_screen_layout": false, "note": "Uses ScreenHeader + KeyboardAvoidingView only" },
+        { "file": "app/(drawer)/chat/reference.tsx", "uses_screen_layout": false },
+        { "file": "app/(drawer)/improvements/[requestId].tsx", "uses_screen_layout": false, "note": "Custom SafeAreaView chrome" },
+        { "file": "app/(drawer)/research/[sessionId].tsx", "uses_screen_layout": false, "note": "Custom SafeAreaView chrome" },
+        { "file": "app/(drawer)/whats-new/[reportId].tsx", "uses_screen_layout": false, "note": "Custom SafeAreaView chrome" },
+        { "file": "app/(drawer)/subscription-content/[groupKey].tsx", "uses_screen_layout": false },
+        { "file": "app/(drawer)/subscriptions/feed.tsx", "uses_screen_layout": false, "note": "Thin re-export; child SubscriptionFeedScreen also lacks ScreenLayout" },
+        { "file": "app/(drawer)/subscriptions/social.tsx", "uses_screen_layout": false },
+        { "file": "app/(drawer)/whats-new/social.tsx", "uses_screen_layout": false }
+      ],
+      "findings": [
+        {
+          "severity": "CRITICAL",
+          "file": "app/(drawer)/chat/[conversationId].tsx",
+          "line": 1,
+          "column": 1,
+          "issue": "Chat conversation screen does not wrap content in ScreenLayout",
+          "evidence": "Uses ScreenHeader + KeyboardAvoidingView; zero ScreenLayout import",
+          "fix": "Wrap primary success path in ScreenLayout (or document approved exception and update AC verify to exclude chat chrome)"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "app/(drawer)/research/[sessionId].tsx",
+          "line": 114,
+          "column": 12,
+          "issue": "Loading/error/success back Pressables lack testID + accessibilityLabel; no ScreenLayout",
+          "evidence": "<Pressable onPress={handleBack}> without testID/a11y at L114, L153; Button at L180",
+          "fix": "Use ScreenLayout header.back; add testID='research-detail-back' and accessibilityLabel='Go back' on all chrome states"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "app/(drawer)/whats-new/[reportId].tsx",
+          "line": 147,
+          "column": 12,
+          "issue": "Report detail back Pressables/Button missing testID + a11y; no ScreenLayout",
+          "evidence": "Pressable handleBack L147, L184; Button L208",
+          "fix": "Adopt ScreenLayout; stamp testID/accessibilityLabel on every interactive chrome control"
+        },
+        {
+          "severity": "CRITICAL",
+          "file": "app/(drawer)/improvements/[requestId].tsx",
+          "line": 104,
+          "column": 12,
+          "issue": "Loading/error back controls lack testID/a11y; success back has testID but no accessibilityLabel",
+          "evidence": "L104/L141/L165 missing testID; L211 has testID only",
+          "fix": "ScreenLayout + accessibilityLabel on all states; keep {screen}-{component}-{element} testID pattern"
+        },
+        {
+          "severity": "HIGH",
+          "file": "app/(drawer)/subscriptions/feed.tsx",
+          "line": 14,
+          "column": 10,
+          "issue": "Route returns bare SubscriptionFeedScreen without ScreenLayout wrapper",
+          "evidence": "export default function SubscriptionFeedRoute() { return <SubscriptionFeedScreen />; }",
+          "fix": "Wrap with ScreenLayout header like settings/whats-new/index, or push ScreenLayout into SubscriptionFeedScreen"
+        },
+        {
+          "severity": "HIGH",
+          "file": "app/(drawer)/subscriptions/social.tsx",
+          "line": 10,
+          "column": 10,
+          "issue": "Social route bare SocialPostsListScreen — no ScreenLayout",
+          "evidence": "return <SocialPostsListScreen />",
+          "fix": "Match whats-new/index ScreenLayout pattern"
+        },
+        {
+          "severity": "HIGH",
+          "file": "app/(drawer)/whats-new/social.tsx",
+          "line": 11,
+          "column": 10,
+          "issue": "whats-new social route lacks ScreenLayout (child has back Pressable with testID)",
+          "evidence": "return <SocialPostsListScreen testID=\"social-posts-list\" />",
+          "fix": "Wrap ScreenLayout or consolidate header ownership"
+        },
+        {
+          "severity": "HIGH",
+          "file": "app/(drawer)/subscription-content/[groupKey].tsx",
+          "line": 28,
+          "column": 7,
+          "issue": "Error/loading branches render bare View; no ScreenLayout, limited a11y",
+          "evidence": "Invalid group View; ActivityIndicator loading View",
+          "fix": "ScreenLayout + testIDs for loading/error/success branches"
+        },
+        {
+          "severity": "MEDIUM",
+          "file": "app/(drawer)/chat/[conversationId].tsx",
+          "line": 443,
+          "column": 13,
+          "issue": "error-retry-button has testID but no accessibilityRole/accessibilityLabel",
+          "evidence": "<Pressable onPress={handleRetry} testID=\"error-retry-button\">",
+          "fix": "Add accessibilityRole='button' accessibilityLabel='Retry'"
+        },
+        {
+          "severity": "MEDIUM",
+          "file": "app/(drawer)/_layout.tsx",
+          "line": 249,
+          "column": 8,
+          "issue": "retry-button has testID but no accessibilityLabel",
+          "evidence": "<Button onPress={onRetry} testID=\"retry-button\">",
+          "fix": "Add accessibilityLabel='Retry loading conversations'"
+        },
+        {
+          "severity": "LOW",
+          "file": "components/whats-new/SocialPostsListScreen.tsx",
+          "line": 172,
+          "column": 12,
+          "issue": "Back Pressable has testID but no accessibilityLabel",
+          "evidence": "testID={`${testID}-back`} without accessibilityLabel",
+          "fix": "accessibilityRole='button' accessibilityLabel='Go back'"
+        }
+      ]
+    },
+    {
+      "id": "client_data_contract",
+      "name": "Client-data-contract compliance",
+      "maps_to_ac": "AC-3",
+      "verdict": "PASS",
+      "commands": [
+        {
+          "command": "bun services/platform/src/cli/holo.ts verify:client-contract --contract .spec/prds/mk6-migration/10-technical-requirements/13-client-data-contract.yaml --inventory .spec/prds/mk6-migration/10-technical-requirements/13-client-callsite-inventory.json",
+          "exit_code": 0,
+          "stdout_summary": "schema OK entries_checked=105; targets resolved=105 unresolved=0 (zero_query=48 zero_mutator=37 hono_command=20); e2e_links OK t_sync_019_linked_count=105 offline_cases=5"
+        },
+        {
+          "command": "holo verify:no-convex-client --roots app,components,hooks,screens",
+          "exit_code": 0,
+          "stdout_summary": "convex_react_import_hits=0 zero_import_hits=75 STATUS: PASS"
+        }
+      ],
+      "findings": []
+    },
+    {
+      "id": "review_artifact",
+      "name": "Review artifact completeness",
+      "maps_to_ac": "AC-4",
+      "verdict": "PASS",
+      "commands": [
+        {
+          "command": "test -f .spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/review-artifact.json && jq -e '.categories | length >= 3' ...",
+          "exit_code": 0,
+          "stdout_summary": "This file; categories.length >= 3 with explicit PASS/FAIL per category"
+        }
+      ],
+      "findings": []
+    }
+  ],
+  "ac_enumeration": [
+    {
+      "id": "AC-1",
+      "description": "Theme-token compliance verified across all rewired surfaces",
+      "verdict": "FAIL",
+      "evidence": "grep hex count=55 (production excl tests/stories=39). Hardcoded colors in whats-new freshness/platform/category maps, settings swatches, assimilate/improvements placeholders; numeric spacing in chat/reference, articles modal, IterationTimeline."
+    },
+    {
+      "id": "AC-2",
+      "description": "Accessibility + ScreenLayout compliance verified",
+      "verdict": "FAIL",
+      "evidence": "ScreenLayout present on 4/14 drawer tsx (settings, toolbelt, improvements, whats-new/index). Missing on chat, detail routes, feed/social wrappers. Multiple Pressable/Button without testID and/or accessibilityLabel on research/improvements/whats-new detail chrome."
+    },
+    {
+      "id": "AC-3",
+      "description": "Client-data-contract compliance verified",
+      "verdict": "PASS",
+      "evidence": "holo verify:client-contract exit 0; 105/105 mapped; 0 unmapped; no-convex-client PASS"
+    },
+    {
+      "id": "AC-4",
+      "description": "Review artifact written with PASS/FAIL verdicts",
+      "verdict": "PASS",
+      "evidence": "review-artifact.json with categories theme, a11y_mobile_patterns, client_data_contract (+ review_artifact meta)"
+    }
+  ],
+  "convex_residual": {
+    "convex_react_imports": 0,
+    "status": "PASS"
+  },
+  "suggested_fix_order": [
+    "1. Wrap all content (drawer)/ screens (except navigator _layout) in ScreenLayout; prefer header props over ad-hoc SafeAreaView back chrome",
+    "2. Add testID + accessibilityRole + accessibilityLabel to every Pressable/Button on loading/error/success branches",
+    "3. Move whats-new category/platform/freshness hex maps into theme tokens; replace placeholderTextColor hex with theme.colors.mutedForeground",
+    "4. Replace numeric padding/margin/fontSize/gap/borderRadius with theme.spacing / theme.radius / typography tokens on rewired cluster files",
+    "5. Re-run AC-1/AC-2 verify commands to zero failures; keep AC-3 green"
+  ],
+  "product_technical_dual_lens": {
+    "product": "Data-plane rewrite (Convex→Zero) is complete for the mapped 105 call sites — users should load chat/docs/feed/research without convex/react. Remaining gaps are polish: brand color fidelity can stay but must live in the design system; missing ScreenLayout/a11y on detail routes risks inconsistent headers and inaccessible back controls on error states.",
+    "technical": "Contract + no-convex gates are green. Theme and mobile-pattern gates are red with actionable file:line findings. Block merge of S-REWRITE-06 completion until AC-1/AC-2 greps pass (or sprint explicitly carves brand-color exceptions into theme schema and ScreenLayout exceptions into the AC verify command)."
+  }
+}
