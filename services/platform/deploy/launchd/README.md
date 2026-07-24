@@ -7,7 +7,7 @@ Four LaunchAgent definitions for the MK-VI headless stack:
 | `holocron-postgres` | Postgres 18 (`postgresql@18`) | yes | true |
 | `holocron-mastra` | Mastra via `bun …/holo.ts service:up` | yes | true |
 | `holocron-scheduler` | Leased-queue worker (`scheduler-worker.ts`, pg-boss preferred) | **no** (Disabled until operator enables) | false |
-| `holocron-zerocache` | Zero-cache / `zero_pub` consumer | **no** (Sprint 20) | false |
+| `holocron-zerocache` | Zero-cache / `zero_pub` consumer | **no** (opt-in: `HOLO_ENABLE_ZERO_CACHE=1`) | false |
 
 Templates live in this directory with `@PLACEHOLDER@` tokens. Installed agents
 go to `~/Library/LaunchAgents/holocron-*.plist` with absolute paths only
@@ -41,7 +41,7 @@ UID_NUM=$(id -u)
 launchctl bootstrap "gui/${UID_NUM}" ~/Library/LaunchAgents/holocron-postgres.plist
 launchctl bootstrap "gui/${UID_NUM}" ~/Library/LaunchAgents/holocron-mastra.plist
 # scheduler unit is Disabled=true but ProgramArguments is the real worker
-# zerocache remains Disabled=true until Sprint 20
+# zerocache remains Disabled=true until HOLO_ENABLE_ZERO_CACHE=1 (see docs/ops/zero-cache-enable.md)
 
 launchctl print "gui/${UID_NUM}/holocron-postgres"
 launchctl print "gui/${UID_NUM}/holocron-mastra"
@@ -59,10 +59,11 @@ launchctl bootout "gui/${UID_NUM}/holocron-mastra"
   until operators enable it. Stack status reports `placeholder=false` and
   `queue.backend` of `pg-boss` (or `graphile-worker` fallback) from live
   Postgres probes.
-- **Zero-cache** — Sprint 04 already has publication `zero_pub` on Postgres;
-  zero-cache binary wiring is a later sprint (Sprint 20 / CAP-SYNC-01 e2e).
-  Plist is **Disabled=true** with documentation; it must never report healthy
-  while the binary is unwired.
+- **Zero-cache** — Sprint 24 wires `scripts/run-zero-cache.sh` into
+  ProgramArguments. Plist stays **Disabled=true** by default; enable with
+  `HOLO_ENABLE_ZERO_CACHE=1` + `ZERO_ADMIN_PASSWORD` (see
+  `docs/ops/zero-cache-enable.md`). Stack status is `healthy` only when
+  `http://127.0.0.1:4848/keepalive` succeeds — never `/usr/bin/true` theatre.
 
 ## Logs
 

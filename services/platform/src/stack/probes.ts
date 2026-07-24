@@ -379,18 +379,48 @@ export function probeSchedulerDetail(cfg: StackConfig): SchedulerProbeDetail {
   return { state: 'pending', placeholder: false, program: prog.program };
 }
 
+/** HTTP keepalive probe for zero-cache (default :4848). */
+export function probeZeroCacheHttp(port = Number(process.env.ZERO_PORT ?? 4848)): ProbeResult {
+  const url = `http://127.0.0.1:${Number.isFinite(port) ? port : 4848}/keepalive`;
+  const r = run('curl', ['-sf', '--max-time', '2', url], { timeoutMs: 4_000 });
+  return {
+    ok: r.status === 0,
+    detail:
+      r.status === 0 ? `zero-cache keepalive ok (${url})` : `zero-cache keepalive fail (${url})`,
+    exitCode: r.status,
+  };
+}
+
+/**
+ * Honest zero_cache state:
+ * - healthy when HTTP keepalive succeeds OR a real launchd PID is running
+ * - disabled when unit is Disabled / not loaded / boot path not opted-in
+ * - pending when enabled but not ready
+ * - unhealthy when process claimed but keepalive fails
+ */
 export function probeZeroCacheState(cfg: StackConfig): ServiceState {
-  const listed = launchctlListLine(LAUNCHD_LABELS.zerocache);
-  if (listed.pid && listed.pid > 0) {
-    // Only healthy if a real PID is running (Sprint 20 wire-up)
+  // Prefer live HTTP — covers launchd, direct spawn, and Maestro foreground.
+  if (probeZeroCacheHttp().ok) {
     return 'healthy';
   }
-  // Installed disabled unit or not loaded — honest disabled
-  const plist = resolve(cfg.launchAgentsDir, `${LAUNCHD_LABELS.zerocache}.plist`);
-  if (plistIsDisabled(plist) || !listed.listed) {
-    return 'disabled';
+
+  const listed = launchctlListLine(LAUNCHD_LABELS.zerocache);
+  if (listed.pid && listed.pid > 0) {
+    // PID present but keepalive not answering yet → pending (not fake healthy)
+    return 'pending';
   }
-  return 'not_implemented';
+
+  const plist = resolve(cfg.launchAgentsDir, `${LAUNCHD_LABELS.zerocache}.plist`);
+  const disabled = plistIsDisabled(plist);
+  const enableFlag =
+    process.env.HOLO_ENABLE_ZERO_CACHE === '1' || Boolean(process.env.ZERO_ADMIN_PASSWORD);
+
+  if (disabled || !listed.listed) {
+    return enableFlag ? 'pending' : 'disabled';
+  }
+
+  // Listed without PID and without keepalive
+  return enableFlag ? 'unhealthy' : 'disabled';
 }
 
 export type QueueProbeDetail = {

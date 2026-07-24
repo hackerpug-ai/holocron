@@ -1,0 +1,50 @@
+# CAP-CUT-01 / S-REWRITE-05: fail CI if convex/react client imports remain.
+# Scans app/, components/, hooks/, screens/ via holo verify:no-convex-client.
+name: verify-no-convex-client
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'hooks/**'
+      - 'screens/**'
+      - 'services/platform/src/cli/**'
+      - 'package.json'
+      - '.github/workflows/verify-no-convex-client.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'hooks/**'
+      - 'screens/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-no-convex-client:
+    name: CAP-CUT-01 no convex/react client imports
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.2.19"
+
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Install platform package dependencies
+        working-directory: services/platform
+        run: bun install
+
+      - name: Run CAP-CUT-01 verify:no-convex-client
+        run: bun services/platform/src/cli/holo.ts verify:no-convex-client

@@ -124,9 +124,10 @@ fi
 grep -A2 '<key>Disabled</key>' "${LAUNCH_AGENTS_DIR}/holocron-scheduler.plist" | grep -q '<true/>' \
   || die "scheduler must have Disabled=true"
 grep -A2 '<key>Disabled</key>' "${LAUNCH_AGENTS_DIR}/holocron-zerocache.plist" | grep -q '<true/>' \
-  || die "zerocache must have Disabled=true (honest until Sprint 20)"
-grep -q 'Sprint 20' "${LAUNCH_AGENTS_DIR}/holocron-zerocache.plist" \
-  || die "zerocache plist must document Sprint 20 ownership"
+  || die "zerocache must have Disabled=true by default (opt-in via HOLO_ENABLE_ZERO_CACHE)"
+# Real boot path (Sprint 24) — must not be a /usr/bin/true placeholder
+grep -q 'run-zero-cache' "${LAUNCH_AGENTS_DIR}/holocron-zerocache.plist" \
+  || die "zerocache plist must invoke scripts/run-zero-cache.sh (not /usr/bin/true)"
 
 if [[ "$BOOTSTRAP" -eq 1 ]]; then
   # Avoid fighting brew services for the same PGDATA/port
