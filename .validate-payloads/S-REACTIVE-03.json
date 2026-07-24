@@ -11,9 +11,96 @@
     }
   },
   "requirements": [
-    {"id":"AC-1","type":"acceptance_criterion","primary":true,"maps_to_ac":null,"scenario":{"tier":"visible","test_tier":"e2e","verification_service":"MCP gateway+Zero+seeded Postgres","topology":"single-node","negative_control":{"would_fail_if":["stub — app shows a hardcoded updated title with no MCP call","mock — MCP tool mocked to skip the actual Postgres write","disconnect — Zero sync disabled, app never reflects the update"]},"evidence":{"artifact_type":"screenshot","required_capture":true},"cases":[{"start_ref":"seeded-document-for-sync","action":{"actor":"mcp_gateway","steps":["call the updateDocument tool with new title 'Updated via MCP'","record the MCP write timestamp (t0)","the Maestro flow observes the app document list"]},"end_state":{"must_observe":["the document title changes to `Updated via MCP` on the app","the change occurs within `<=5000ms` of the MCP write timestamp","the documents table row in Postgres has title `Updated via MCP`","a Zero useQuery returns the row with title `Updated via MCP`"],"must_not_observe":["the title unchanged after `>5000ms` (`0` changes reflected)","a manual refresh required (refresh count `>0`)","the app showing the stale old title with `0` reactive update"]}}]}},
-    {"id":"AC-5","type":"acceptance_criterion","primary":false,"maps_to_ac":null,"scenario":{"tier":"visible","test_tier":"integration","verification_service":"code review","topology":"single-node","negative_control":{"would_fail_if":["stub — a single sample only","mock — p95 hardcoded to a passing value","disconnect — no p95 calculation"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"seeded-document-for-sync","action":{"actor":"cli_user","steps":["grep .maestro/reactive/helpers and scripts for the p95 / loop implementation"]},"end_state":{"must_observe":["the helpers implement a p95 calculation over `>=5` iterations","a `for`/`repeat` loop pattern is present in the journey (`>=5` runs)","the p95 threshold is asserted against `<=5000ms`"],"must_not_observe":["a single sample only (`1` run, no loop)","p95 not calculated (`0` percentile logic)","the threshold hardcoded to pass (`0` real assertion)"]}}]}},
-    {"id":"TC-1","type":"test_criterion","maps_to_ac":"AC-1","scenario":null},
-    {"id":"TC-5","type":"test_criterion","maps_to_ac":"AC-5","scenario":null}
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "MCP gateway+Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub — app shows a hardcoded updated title with no MCP call",
+            "mock — MCP tool mocked to skip the actual Postgres write",
+            "disconnect — Zero sync disabled, app never reflects the update"
+          ]
+        },
+        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "cases": [
+          {
+            "start_ref": "seeded-document-for-sync",
+            "action": {
+              "actor": "mcp_gateway",
+              "steps": [
+                "call the updateDocument tool with new title 'Updated via MCP'",
+                "record the MCP write timestamp (t0)",
+                "the Maestro flow observes the app document list"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the document title changes to `Updated via MCP` on the app",
+                "the change occurs within `<=5000ms` of the MCP write timestamp",
+                "the documents table row in Postgres has title `Updated via MCP`",
+                "a Zero useQuery returns the row with title `Updated via MCP`"
+              ],
+              "must_not_observe": [
+                "the title unchanged after `>5000ms` (`0` changes reflected)",
+                "a manual refresh required (refresh count `>0`)",
+                "the app showing the stale old title with `0` reactive update"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "code review",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub — a single sample only",
+            "mock — p95 hardcoded to a passing value",
+            "disconnect — no p95 calculation"
+          ]
+        },
+        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "cases": [
+          {
+            "start_ref": "seeded-document-for-sync",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "grep .maestro/reactive/helpers and scripts for the p95 / loop implementation"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the helpers implement a p95 calculation over `>=5` iterations",
+                "a `for`/`repeat` loop pattern is present in the journey (`>=5` runs)",
+                "the p95 threshold is asserted against `<=5000ms`"
+              ],
+              "must_not_observe": [
+                "a single sample only (`1` run, no loop)",
+                "p95 not calculated (`0` percentile logic)",
+                "the threshold hardcoded to pass (`0` real assertion)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null },
+    { "id": "TC-5", "type": "test_criterion", "maps_to_ac": "AC-5", "scenario": null }
   ]
 }

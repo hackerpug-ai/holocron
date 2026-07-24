@@ -11,9 +11,106 @@
     }
   },
   "requirements": [
-    {"id":"AC-1","type":"acceptance_criterion","primary":true,"maps_to_ac":null,"scenario":{"tier":"visible","test_tier":"integration","verification_service":"review artifact inspection + Maestro flow runs","topology":"single-node","negative_control":{"would_fail_if":["disconnect — the review artifact is missing or incomplete","stub — verdicts omitted (only PASS, no FAIL/WARN possible)","empty — the Maestro flows were not run (verdicts not evidence-based)","mock — the artifact cites wrong task IDs or ACs","static — the artifact produced without running real e2e"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reactive-surfaces-implementation","action":{"actor":"reviewer","steps":["run all Maestro flows under .maestro/reactive/","inspect code for theme/a11y/testID compliance","write the review artifact to .spec/reviews/sprint-25-review-artifact.md","cite all 4 tasks and their ACs with verdicts"]},"end_state":{"must_observe":["the review artifact exists at `.spec/reviews/sprint-25-review-artifact.md`","the artifact cites the 4 task IDs `S-REACTIVE-01,02,03,04` (count `4`)","each task has per-AC verdicts (`PASS`/`FAIL`/`WARN`)","each verdict row includes `>=1` file path and the Maestro exit code"],"must_not_observe":["the review artifact missing or empty (`0` bytes)","verdicts missing (a task list with `0` PASS/FAIL rows)","the artifact cites the wrong sprint/task IDs","the artifact omits one or more of the 4 tasks (count `<4`)"]}}]}},
-    {"id":"AC-2","type":"acceptance_criterion","primary":true,"maps_to_ac":null,"scenario":{"tier":"visible","test_tier":"integration","verification_service":"Maestro + review artifact","topology":"single-node","negative_control":{"would_fail_if":["disconnect — the Maestro streaming flow fails or exits non-zero","stub — duplicated tokens detected in the logs","empty — the flow not run (verdict based on code inspection only)","static — a T-SYNC-006 verdict PASS with no real e2e proof"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"reactive-surfaces-implementation","action":{"actor":"reviewer","steps":["run maestro test .maestro/reactive/reconnect-exactly-once.yml","check the exit code is 0","grep the logs for the duplicate-token count","verify the review artifact cites T-SYNC-006 PASS"]},"end_state":{"must_observe":["Maestro exit code `0` (the streaming flow passes)","the logs show `0` duplicated tokens after reconnect","screenshot evidence under `.tmp/` with `>=1` PNG","the review artifact cites `T-SYNC-006` verdict `PASS`"],"must_not_observe":["Maestro exit non-zero (streaming failed)","a duplicate token count `>0` (reconciliation bug)","the review artifact cites `T-SYNC-006` `FAIL` or `WARN`","a verdict based on code inspection only (`0` real e2e runs)"]}}]}},
-    {"id":"TC-1","type":"test_criterion","maps_to_ac":"AC-1","scenario":null},
-    {"id":"TC-2","type":"test_criterion","maps_to_ac":"AC-2","scenario":null}
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "review artifact inspection + Maestro flow runs",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect — the review artifact is missing or incomplete",
+            "stub — verdicts omitted (only PASS, no FAIL/WARN possible)",
+            "empty — the Maestro flows were not run (verdicts not evidence-based)",
+            "mock — the artifact cites wrong task IDs or ACs",
+            "static — the artifact produced without running real e2e"
+          ]
+        },
+        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "cases": [
+          {
+            "start_ref": "reactive-surfaces-implementation",
+            "action": {
+              "actor": "reviewer",
+              "steps": [
+                "run all Maestro flows under .maestro/reactive/",
+                "inspect code for theme/a11y/testID compliance",
+                "write the review artifact to .spec/reviews/sprint-25-review-artifact.md",
+                "cite all 4 tasks and their ACs with verdicts"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the review artifact exists at `.spec/reviews/sprint-25-review-artifact.md`",
+                "the artifact cites the 4 task IDs `S-REACTIVE-01,02,03,04` (count `4`)",
+                "each task has per-AC verdicts (`PASS`/`FAIL`/`WARN`)",
+                "each verdict row includes `>=1` file path and the Maestro exit code"
+              ],
+              "must_not_observe": [
+                "the review artifact missing or empty (`0` bytes)",
+                "verdicts missing (a task list with `0` PASS/FAIL rows)",
+                "the artifact cites the wrong sprint/task IDs",
+                "the artifact omits one or more of the 4 tasks (count `<4`)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "Maestro + review artifact",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect — the Maestro streaming flow fails or exits non-zero",
+            "stub — duplicated tokens detected in the logs",
+            "empty — the flow not run (verdict based on code inspection only)",
+            "static — a T-SYNC-006 verdict PASS with no real e2e proof"
+          ]
+        },
+        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "cases": [
+          {
+            "start_ref": "reactive-surfaces-implementation",
+            "action": {
+              "actor": "reviewer",
+              "steps": [
+                "run maestro test .maestro/reactive/reconnect-exactly-once.yml",
+                "check the exit code is 0",
+                "grep the logs for the duplicate-token count",
+                "verify the review artifact cites T-SYNC-006 PASS"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "Maestro exit code `0` (the streaming flow passes)",
+                "the logs show `0` duplicated tokens after reconnect",
+                "screenshot evidence under `.tmp/` with `>=1` PNG",
+                "the review artifact cites `T-SYNC-006` verdict `PASS`"
+              ],
+              "must_not_observe": [
+                "Maestro exit non-zero (streaming failed)",
+                "a duplicate token count `>0` (reconciliation bug)",
+                "the review artifact cites `T-SYNC-006` `FAIL` or `WARN`",
+                "a verdict based on code inspection only (`0` real e2e runs)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null },
+    { "id": "TC-2", "type": "test_criterion", "maps_to_ac": "AC-2", "scenario": null }
   ]
 }
