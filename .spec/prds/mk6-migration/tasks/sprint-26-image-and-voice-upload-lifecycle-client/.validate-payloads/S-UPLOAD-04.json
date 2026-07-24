@@ -1,0 +1,264 @@
+{
+  "fixtures": {
+    "seeded_fixture_jpg": {
+      "description": "the seeded test-fixture.jpg with a known SHA-256 content hash (800x600)",
+      "seed_method": "migration_fixture",
+      "records": [
+        "test-fixture.jpg sha256=<64-hex>",
+        "dimensions 800x600"
+      ]
+    },
+    "voice_session_disabled": {
+      "description": "pre-rewire voice hook: use-voice-session.ts throws CONVEX_UNAVAILABLE behind a convex/react guard comment",
+      "seed_method": "migration_fixture",
+      "records": [
+        "hooks/use-voice-session.ts guard: CONVEX_UNAVAILABLE",
+        ">=1 convex/react import remaining (the CAP-CUT-01 target)"
+      ]
+    },
+    "cleared_file_objects": {
+      "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
+      "seed_method": "cli",
+      "records": [
+        "file_objects rows: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "tier": "visible",
+      "test_tier": "e2e",
+      "verification_service": "rn+hono+blob+maestro",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - reviewer rubber-stamps without running gates",
+          "empty - hardcoded #RRGGBB color present (count > 0)",
+          "mock - lint/grep skipped"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "screenshot",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "holo seed:e2e --reset",
+              "attach test-fixture.jpg, verify preview",
+              "submit, wait for init->PUT->finalize",
+              "verify:blob --last",
+              "re-attach identical image (idempotency)",
+              "start+cancel a voice recording, verify:blob --orphans",
+              "maestro test .maestro/upload.yaml"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "7 of 7 steps pass (count 7)",
+              "file_objects rows: 1 after first upload",
+              "content_hash matches the fixture SHA-256 (64 hex chars)",
+              "re-attach still file_objects rows: 1 (idempotent)",
+              "verify:blob --orphans reports orphan rows: 0",
+              "Maestro .maestro/upload.yaml exits 0 + >=1 artifact",
+              "preview thumbnail renders 800x600 (fixture dims)"
+            ],
+            "must_not_observe": [
+              "any step fails",
+              "file_objects rows: 0 after upload (nothing promoted)",
+              "file_objects rows > 1 after re-attach (dedup broken)",
+              "orphan rows > 0 after voice cancel",
+              "0 Maestro artifacts (empty)"
+            ]
+          }
+        }
+      ],
+      "id": "AC-1"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "holo-cli+grep",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - dispatcher still calls Convex",
+          "empty - a convex/react import remains (grep non-empty)",
+          "mock - verify:no-convex-client bypassed"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "voice_session_disabled",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "run verify:no-convex-client",
+              "run grep -rn 'convex/react' app components hooks lib",
+              "inspect use-voice-session.ts + use-voice-result-bridge.ts"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "verify:no-convex-client exits 0",
+              "grep returns 0 results (EMPTY)",
+              "0 useAction/useMutation/useConvex imports",
+              "0 Convex action calls"
+            ],
+            "must_not_observe": [
+              "verify:no-convex-client non-zero exit",
+              "grep non-empty (>=1 convex/react hit)",
+              "CONVEX_UNAVAILABLE still thrown",
+              "a Convex createSession call present"
+            ]
+          }
+        }
+      ],
+      "id": "AC-2"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - dedup skipped (always inserts new row)",
+          "empty - test passing from file_objects rows: 0 (dedup unproven against empty table)",
+          "mock - content_hash index not enforced"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "api_client",
+            "steps": [
+              "insert a file_objects row with content_hash H",
+              "attempt a second insert with the same content_hash H",
+              "verify finalize idempotency"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "unique index file_objects_content_hash_uidx rejects the duplicate (1 row remains)",
+              "finalize returns the existing fileObjectId (same id; file_objects rows: 1)",
+              "file_objects rows: 1"
+            ],
+            "must_not_observe": [
+              "duplicate content_hash rows (rows: 2)",
+              "file_objects rows: 0 (start signature, dedup unproven)",
+              "constraint not enforced"
+            ]
+          }
+        }
+      ],
+      "id": "AC-3"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - cancel still calls upload-init",
+          "empty - cancelled recording leaks a file_objects row",
+          "mock - verify:blob --orphans hardcoded to 0"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "start a voice recording",
+              "speak 2-3s",
+              "tap cancel",
+              "run verify:blob --orphans"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "verify:blob --orphans exits 0",
+              "orphan rows: 0",
+              "file_objects rows: 0 for the cancelled session",
+              "0 storage blobs for the cancelled sessionId"
+            ],
+            "must_not_observe": [
+              "verify:blob --orphans non-zero exit",
+              "orphan rows > 0",
+              "a file_objects row created for the cancelled session"
+            ]
+          }
+        }
+      ],
+      "id": "AC-4"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "biome+grep-audit",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - reviewer rubber-stamps without running gates",
+          "empty - hardcoded #RRGGBB color present (count > 0)",
+          "mock - lint/grep skipped"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "file_artifact",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "audit components/improvements/ImprovementSubmitSheet.tsx",
+              "audit hooks/use-voice-session.ts",
+              "run biome + the hardcoded-color grep"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "0 hardcoded #RRGGBB colors in components/improvements + components/voice",
+              "testID on the attach + voice-mic interactive elements (>=2)",
+              "biome check exit 0",
+              "react-native-paper components used (>=1 per surface)"
+            ],
+            "must_not_observe": [
+              "a hardcoded #RRGGBB color (count > 0)",
+              "0 testIDs on interactive elements",
+              "biome non-zero exit"
+            ]
+          }
+        }
+      ],
+      "id": "AC-5"
+    }
+  ]
+}

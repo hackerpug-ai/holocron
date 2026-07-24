@@ -1,0 +1,240 @@
+{
+  "fixtures": {
+    "seeded_fixture_jpg": {
+      "description": "the seeded test-fixture.jpg with a known SHA-256 content hash (800x600)",
+      "seed_method": "migration_fixture",
+      "records": [
+        "test-fixture.jpg sha256=<64-hex>",
+        "dimensions 800x600"
+      ]
+    },
+    "cleared_file_objects": {
+      "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
+      "seed_method": "cli",
+      "records": [
+        "file_objects rows: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "tier": "visible",
+      "test_tier": "e2e",
+      "verification_service": "maestro",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - finalize skipped (no hash/length verify)",
+          "mock - upload endpoints mocked",
+          "disconnect - Hono/blob store down",
+          "empty - file_objects table empty (nothing promoted)"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "screenshot",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "run holo seed:e2e --reset",
+              "launch the app on a named iOS Simulator",
+              "run maestro test .maestro/upload.yaml"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "maestro exit code 0",
+              ">=1 screenshot artifact emitted (.png)",
+              "JUnit report tests='1' failures='0'",
+              "file_objects rows: 1 per T-DATA-021"
+            ],
+            "must_not_observe": [
+              "maestro non-zero exit",
+              "0 screenshot artifacts (empty)",
+              "upload failure or orphan rows",
+              "idempotency violation (rows > 1)"
+            ]
+          }
+        }
+      ],
+      "id": "AC-1"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "holo-cli+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - reviewer rubber-stamps without running gates",
+          "empty - hardcoded #RRGGBB color present (count > 0)",
+          "mock - lint/grep skipped"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "complete an image upload via the improvements sheet",
+              "run holo verify:blob --last"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "verify:blob --last exits 0",
+              "file_objects rows: 1",
+              "printed SHA-256 matches the fixture (64 hex chars)",
+              "printed byte_size (e.g. 102400 bytes) + mime_type + storage_path (non-empty)"
+            ],
+            "must_not_observe": [
+              "file_objects rows: 0 (nothing uploaded)",
+              "file_objects rows > 1 (orphan/duplicate)",
+              "SHA-256 mismatch",
+              "missing storage_path"
+            ]
+          }
+        }
+      ],
+      "id": "AC-2"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "holo-cli+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - cancel still calls upload-init",
+          "empty - cancelled recording leaks a file_objects row",
+          "mock - verify:blob --orphans hardcoded to 0"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "start a voice recording",
+              "wait 2-3s",
+              "tap cancel",
+              "run holo verify:blob --orphans"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "verify:blob --orphans exits 0",
+              "orphan rows: 0",
+              "file_objects rows: 0 for the cancelled session"
+            ],
+            "must_not_observe": [
+              "orphan rows > 0 (a leaked row)",
+              "file_objects rows > 0 (orphan promoted)",
+              "exit non-zero on a clean state"
+            ]
+          }
+        }
+      ],
+      "id": "AC-3"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "yaml-structure",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "static - missing required Maestro keys",
+          "empty - 0 tapOn/assertVisible steps"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "file_artifact",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "read .maestro/upload.yaml",
+              "compare structure to .maestro/chat/send-streams.yml"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "appId header present (>=1)",
+              "tapOn with testID 'attach-button' (>=1)",
+              "assertVisible on 'upload-success' (>=1)",
+              "takeScreenshot step present (>=1)"
+            ],
+            "must_not_observe": [
+              "0 appId header (empty)",
+              "0 takeScreenshot steps (no evidence)",
+              "a different testID convention"
+            ]
+          }
+        }
+      ],
+      "id": "AC-4"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "typescript+biome",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "static - type/lint errors present"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "run tsgo --noEmit",
+              "run biome check ."
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "tsgo exit code 0",
+              "biome exit code 0"
+            ],
+            "must_not_observe": [
+              "0 errors expected; >=1 TypeScript error on failure (non-zero exit)",
+              "0 violations expected; >=1 biome violation on failure (non-zero exit)"
+            ]
+          }
+        }
+      ],
+      "id": "AC-5"
+    }
+  ]
+}

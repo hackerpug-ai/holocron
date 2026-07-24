@@ -1,0 +1,240 @@
+{
+  "fixtures": {
+    "seeded_fixture_jpg": {
+      "description": "the seeded test-fixture.jpg with a known SHA-256 content hash (800x600)",
+      "seed_method": "migration_fixture",
+      "records": [
+        "test-fixture.jpg sha256=<64-hex>",
+        "dimensions 800x600"
+      ]
+    },
+    "cleared_file_objects": {
+      "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
+      "seed_method": "cli",
+      "records": [
+        "file_objects rows: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+blob+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - finalize skipped (no hash/length verify)",
+          "mock - upload endpoints mocked",
+          "disconnect - Hono/blob store down",
+          "empty - file_objects table empty (nothing promoted)"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "open the improvements sheet",
+              "attach the seeded test-fixture.jpg",
+              "submit the report",
+              "wait for upload-init -> PUT -> finalize"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "file_objects rows: 1",
+              "content_hash == test-fixture.jpg SHA-256 (64 hex chars)",
+              "1 Zero-synced file_objects row visible in the client useQuery",
+              "upload state transitions to 'success'"
+            ],
+            "must_not_observe": [
+              "file_objects rows: 0 (nothing promoted)",
+              "file_objects rows > 1 (duplicate)",
+              "content_hash mismatch",
+              "state stuck at 'uploading'"
+            ]
+          }
+        }
+      ],
+      "id": "AC-1"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+blob+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - dedup skipped (always inserts new row)",
+          "empty - test passing from file_objects rows: 0 (dedup unproven against empty table)",
+          "mock - content_hash index not enforced"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "open the improvements sheet",
+              "re-attach the identical test-fixture.jpg (same bytes)",
+              "submit the report",
+              "wait for finalize"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "file_objects rows: 1",
+              "content_hash still matches the fixture hash (64 hex chars)",
+              "finalize returns the existing fileObjectId (same id; file_objects rows: 1)"
+            ],
+            "must_not_observe": [
+              "file_objects rows: 0 (start signature, dedup unproven against empty table)",
+              "file_objects rows: 2 (duplicate)",
+              "a new file_objects row created"
+            ]
+          }
+        }
+      ],
+      "id": "AC-2"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+blob+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - error swallowed (sheet stays 'uploading')",
+          "empty - orphan file_objects row promoted on failure",
+          "mock - network failure not simulated"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "screenshot",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "api_client",
+            "steps": [
+              "init an upload for test-fixture.jpg",
+              "start the PUT stream",
+              "simulate a mid-stream network failure",
+              "observe the sheet"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "sheet shows an 'upload error' state with a retry affordance (1 retry control)",
+              "file_objects rows: 0 (no orphan)"
+            ],
+            "must_not_observe": [
+              "file_objects rows > 0 (orphan promoted)",
+              "sheet stuck at 'uploading'",
+              "error swallowed silently"
+            ]
+          }
+        }
+      ],
+      "id": "AC-3"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "react-native-rendering",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - preview hardcoded to a placeholder",
+          "empty - empty attach prompt shown after attach",
+          "static - Image not mounted"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "file_artifact",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "attach test-fixture.jpg",
+              "observe the preview thumbnail"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "preview renders test-fixture.jpg at 800x600 (fixture dimensions)",
+              "preview file URI is non-empty (length > 0)",
+              "Image node testID 'attach-preview' mounted (1 node)"
+            ],
+            "must_not_observe": [
+              "empty attach prompt placeholder shown",
+              "preview URI empty (length 0)",
+              "0 Image nodes mounted"
+            ]
+          }
+        }
+      ],
+      "id": "AC-4"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "typescript+biome",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "static - type/lint errors present"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_fixture_jpg",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "run tsgo --noEmit",
+              "run biome check ."
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "tsgo exit code 0",
+              "biome exit code 0"
+            ],
+            "must_not_observe": [
+              "0 errors expected; >=1 TypeScript error on failure (non-zero exit)",
+              "0 violations expected; >=1 biome violation on failure (non-zero exit)"
+            ]
+          }
+        }
+      ],
+      "id": "AC-5"
+    }
+  ]
+}

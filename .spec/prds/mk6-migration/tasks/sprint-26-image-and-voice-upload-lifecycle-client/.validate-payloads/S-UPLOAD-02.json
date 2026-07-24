@@ -1,0 +1,257 @@
+{
+  "fixtures": {
+    "voice_session_idle": {
+      "description": "voice surface at idle with the Zero provider mounted",
+      "seed_method": "public_api",
+      "records": [
+        "useVoiceSession state == 'idle'"
+      ]
+    },
+    "voice_session_disabled": {
+      "description": "pre-rewire voice hook: use-voice-session.ts throws CONVEX_UNAVAILABLE behind a convex/react guard comment",
+      "seed_method": "migration_fixture",
+      "records": [
+        "hooks/use-voice-session.ts guard: CONVEX_UNAVAILABLE",
+        ">=1 convex/react import remaining (the CAP-CUT-01 target)"
+      ]
+    },
+    "cleared_file_objects": {
+      "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
+      "seed_method": "cli",
+      "records": [
+        "file_objects rows: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+zero+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - dispatcher still calls Convex",
+          "empty - a convex/react import remains (grep non-empty)",
+          "mock - verify:no-convex-client bypassed"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "voice_session_disabled",
+          "action": {
+            "actor": "api_client",
+            "steps": [
+              "call createSession from useVoiceSession",
+              "observe the Hono command invoked (not Convex)",
+              "read ephemeralKey/sessionId",
+              "run verify:no-convex-client"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "POST /api/voice-sessions returns 200 + a uuidv7 sessionId (36 chars)",
+              "ephemeralKey length > 0 (non-empty, >=1 char)",
+              "verify:no-convex-client exits 0",
+              "grep -rn 'convex/react' hooks lib/voice components/voice returns 0 hits (EMPTY)"
+            ],
+            "must_not_observe": [
+              "a convex/react import remaining (grep non-empty, >=1 hit)",
+              "a Convex useAction/useMutation call",
+              "CONVEX_UNAVAILABLE thrown"
+            ]
+          }
+        }
+      ],
+      "id": "AC-1"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+blob+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - finalize skipped (no hash/length verify)",
+          "mock - upload endpoints mocked",
+          "disconnect - Hono/blob store down",
+          "empty - file_objects table empty (nothing promoted)"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "api_client",
+            "steps": [
+              "complete a voice recording",
+              "init upload kind=voice_artifact",
+              "PUT stream the audio bytes",
+              "finalize"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "file_objects rows: 1",
+              "content_hash == audio SHA-256 (64 hex chars)",
+              "mime_type starts with 'audio/' (e.g. 'audio/webm')",
+              "1 Zero-synced file_objects row in the client query"
+            ],
+            "must_not_observe": [
+              "file_objects rows: 0 (nothing promoted)",
+              "content_hash mismatch",
+              "upload without SHA-256 verification",
+              "Convex _storage used"
+            ]
+          }
+        }
+      ],
+      "id": "AC-2"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "hono+blob+postgres",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - cancel still calls upload-init",
+          "empty - cancelled recording leaks a file_objects row",
+          "mock - verify:blob --orphans hardcoded to 0"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "cleared_file_objects",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "start a voice recording",
+              "record 2-3s of audio",
+              "tap cancel",
+              "run verify:blob --orphans"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "verify:blob --orphans exits 0",
+              "orphan rows: 0",
+              "file_objects rows: 0 for the cancelled session",
+              "state transitions to 'cancelled'"
+            ],
+            "must_not_observe": [
+              "orphan rows > 0 (a leaked row)",
+              "file_objects rows > 0 (orphan promoted)",
+              "upload-init called for the cancelled recording"
+            ]
+          }
+        }
+      ],
+      "id": "AC-3"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "react-native-rendering",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "stub - components not mounted per state",
+          "empty - 0 components mounted",
+          "static - state never transitions"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "screenshot",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "voice_session_idle",
+          "action": {
+            "actor": "user",
+            "steps": [
+              "tap VoiceMicButton to start",
+              "observe the overlay + orb",
+              "speak 3s",
+              "tap cancel",
+              "observe idle"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "VoiceMicButton testID 'voice-mic' in state.idle (1 node)",
+              "VoiceSessionOverlay testID 'voice-overlay' mounted during recording (1 node)",
+              "VoiceAgentOrb testID 'voice-orb' animating (state.recording)",
+              "3 transitions logged: idle -> recording -> cancelled"
+            ],
+            "must_not_observe": [
+              "0 voice components mounted (empty)",
+              "state stuck in 'recording' after cancel",
+              "broken transition (missing 'cancelled')"
+            ]
+          }
+        }
+      ],
+      "id": "AC-4"
+    },
+    {
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "typescript+biome+grep",
+      "topology": "single-node",
+      "primary": false,
+      "negative_control": {
+        "would_fail_if": [
+          "static - type/lint errors or a convex/react import"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "voice_session_disabled",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "run tsgo --noEmit",
+              "run biome check .",
+              "run grep -rn 'convex/react' hooks lib/voice components/voice"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "tsgo exit code 0",
+              "biome exit code 0",
+              "grep returns 0 hits (EMPTY)"
+            ],
+            "must_not_observe": [
+              ">=1 TypeScript error (non-zero exit)",
+              ">=1 biome violation",
+              "a convex/react import found (grep non-empty, >=1 hit)"
+            ]
+          }
+        }
+      ],
+      "id": "AC-5"
+    }
+  ]
+}
