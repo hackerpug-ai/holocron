@@ -10,7 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 import { useDeepResearchSession } from '@/hooks/useResearchSession';
 import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research';
@@ -72,7 +71,7 @@ export default function ResearchDetailScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const typedSessionId = sessionId ? (sessionId as Id<'deepResearchSessions'>) : null;
+  const typedSessionId = sessionId ?? null;
   const { session, isLoading, error } = useDeepResearchSession(typedSessionId);
 
   // If the research session has a saved document, redirect to the canonical document view

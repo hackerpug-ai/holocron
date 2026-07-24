@@ -1,0 +1,64 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-1 / TC-1 — Drawer conversation list loads via Zero query
+- launchApp:
+    clearState: true
+
+# Open Expo Dev Client pointed at the local Metro bundler
+- openLink: exp+holocron://expo-development-client/?url=http%3A%2F%2F192.168.1.160%3A8081
+- extendedWaitUntil:
+    visible:
+      text: "Open"
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 120000
+
+- tapOn:
+    id: "chat-header-menu-button"
+    optional: true
+- tapOn:
+    id: "screen-header-menu-button"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "drawer-content"
+    timeout: 20000
+
+- assertNotVisible:
+    id: "drawer-content-empty"
+- assertVisible:
+    id: "conversation-row"
+    index: 0
+- assertVisible:
+    id: "conversation-row"
+    index: 1
+- assertVisible:
+    id: "conversation-row"
+    index: 2
+- takeScreenshot: S-REWRITE-01-AC-1-drawer-seeded

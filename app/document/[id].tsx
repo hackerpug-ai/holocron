@@ -1,4 +1,4 @@
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +26,19 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mutators } from '@/app/zero/mutators';
+import {
+  buildArticleShareUrl,
+  buildBlobAudioUrl,
+  getPlatformUrl,
+  getRnApiKey,
+} from '@/app/zero/platform';
+import {
+  audioJobByDocument,
+  audioSegmentsByDocument,
+  documentById,
+  documentByLegacyId,
+} from '@/app/zero/queries';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { ChatPickerSheet } from '@/components/chat/ChatPickerSheet';
 import { DocumentActionsSheet } from '@/components/documents/DocumentActionsSheet';
@@ -48,8 +61,6 @@ import { Calendar, Clock, EllipsisVertical, Globe } from '@/components/ui/icons'
 import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 import { mapDocumentCategoryToCategoryType } from '@/lib/category-mapping';
 import { extractParagraphs } from '@/lib/extractParagraphs';
@@ -57,9 +68,98 @@ import { computeNarrationMap, extractTextFromNode, findNearestOffset } from '@/l
 import { isValidUrl, sanitizeMarkdown } from '@/lib/sanitizeMarkdown';
 import { extractTextFromMdast, slugify } from '@/lib/slugify';
 
-// Public site URL for share links (consolidated secrets → EXPO_PUBLIC_PLATFORM_SITE_URL)
-const PLATFORM_SITE_URL =
-  process.env.EXPO_PUBLIC_PLATFORM_SITE_URL ?? process.env.EXPO_PUBLIC_PLATFORM_URL ?? '';
+/** Zero-published documents row (snake_case Postgres columns). */
+type ZeroDocument = {
+  id: string;
+  title?: string | null;
+  content?: string | null;
+  category?: string | null;
+  date?: string | null;
+  research_type?: string | null;
+  iterations?: number | null;
+  is_public?: boolean | null;
+  share_token?: string | null;
+  created_at: number;
+};
+
+type ZeroAudioSegment = {
+  id: string;
+  document_id?: string | null;
+  paragraph_index?: number | null;
+  status: string;
+  blob_id?: string | null;
+  file_object_id?: string | null;
+  duration_ms?: number | null;
+  job_id?: string | null;
+};
+
+type ZeroAudioJob = {
+  id: string;
+  document_id?: string | null;
+  status: string;
+  total_segments?: number | null;
+  completed_segments?: number | null;
+  failed_segments?: number | null;
+  error_message?: string | null;
+  created_at: number;
+};
+
+/** View-model used by the rest of the screen (camelCase, pre-Zero shape). */
+type DocumentView = {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  date?: string;
+  researchType?: string;
+  iterations?: number;
+  isPublic: boolean;
+  shareToken?: string;
+  createdAt: number;
+};
+
+function toDocumentView(row: ZeroDocument): DocumentView {
+  return {
+    id: row.id,
+    title: row.title ?? 'Untitled',
+    content: row.content ?? '',
+    category: row.category ?? 'general',
+    date: row.date ?? undefined,
+    researchType: row.research_type ?? undefined,
+    iterations: row.iterations ?? undefined,
+    isPublic: Boolean(row.is_public),
+    shareToken: row.share_token ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+/** Hono mission dispatch for long-running audio work (contract: POST /api/missions). */
+async function dispatchAudioMission(
+  kind: 'generate' | 'regenerate' | 'retry_failed',
+  documentId: string
+): Promise<void> {
+  const platformUrl = getPlatformUrl();
+  const rnApiKey = getRnApiKey();
+  if (!platformUrl || !rnApiKey) {
+    throw new Error('Platform credentials missing for audio mission');
+  }
+  const response = await fetch(`${platformUrl}/api/missions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${rnApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requestKey: `audio-${kind}-${documentId}-${Date.now()}`,
+      kind: `audio.${kind}`,
+      documentId,
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`audio mission ${kind} failed: ${response.status} ${body}`);
+  }
+}
 
 /**
  * Canonical document viewer route.
@@ -70,10 +170,7 @@ const PLATFORM_SITE_URL =
 export default function DocumentRoute() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string; highlightBlock?: string }>();
-  const publish = useMutation(api.documents.mutations.publishDocument);
-  const unpublish = useMutation(api.documents.mutations.unpublishDocument);
-  const createConversation = useMutation(api.conversations.mutations.create);
-  const createMessage = useMutation(api.chatMessages.mutations.create);
+  const zero = useZero();
   const [isSharing, setIsSharing] = useState(false);
   const [actionsSheetVisible, setActionsSheetVisible] = useState(false);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(null);
@@ -97,12 +194,24 @@ export default function DocumentRoute() {
   };
 
   const id = params.id;
-  const isValidId = id && id !== 'undefined' && id.length > 0;
+  const isValidId = Boolean(id && id !== 'undefined' && id.length > 0);
 
-  const document = useQuery(
-    api.documents.queries.get,
-    isValidId ? { id: id as Id<'documents'> } : 'skip'
-  );
+  // Prefer uuid primary key; fall back to legacy_convex_id during soak.
+  const [docById, docStatus] = useZeroQuery(isValidId ? documentById(id) : undefined, {
+    enabled: isValidId,
+  });
+  const [docByLegacy] = useZeroQuery(isValidId ? documentByLegacyId(id) : undefined, {
+    enabled: isValidId,
+  });
+  const rawDocument = (docById ?? docByLegacy) as ZeroDocument | undefined;
+  // undefined while first sync is unknown; null once complete with no row
+  const document: DocumentView | null | undefined = !isValidId
+    ? null
+    : rawDocument
+      ? toDocumentView(rawDocument)
+      : docStatus?.type === 'complete'
+        ? null
+        : undefined;
 
   const sanitizedContent = useMemo(
     () => sanitizeMarkdown(document?.content || ''),
@@ -164,34 +273,42 @@ export default function DocumentRoute() {
     }, [narration.isNarrationMode, narration.exitNarrationMode])
   );
 
-  // Subscribe to audio segments only when in narration mode
-  const documentId = isValidId ? (id as Id<'documents'>) : undefined;
-  const segments =
-    useQuery(
-      api.audio.queries.getSegments,
-      isNarrationMode && documentId ? { documentId } : 'skip'
-    ) ?? [];
-
-  const audioJob = useQuery(
-    api.audio.queries.getJob,
-    isNarrationMode && documentId ? { documentId } : 'skip'
+  // Subscribe to audio segments only when in narration mode (Zero queries)
+  const documentId = isValidId ? id : undefined;
+  const narrationEnabled = Boolean(isNarrationMode && documentId);
+  const [rawSegments] = useZeroQuery(
+    narrationEnabled && documentId ? audioSegmentsByDocument(documentId) : undefined,
+    { enabled: narrationEnabled }
   );
-
-  const audioSegments: AudioSegment[] = segments.map(
-    (s: {
-      _id: AudioSegment['_id'];
-      paragraphIndex: number;
-      status: string;
-      audioUrl: string | null;
-      durationMs?: number | null;
-    }) => ({
-      _id: s._id,
-      paragraphIndex: s.paragraphIndex,
-      status: s.status,
-      audioUrl: s.audioUrl,
-      durationMs: s.durationMs ?? undefined,
-    })
+  const [rawJobs] = useZeroQuery(
+    narrationEnabled && documentId ? audioJobByDocument(documentId) : undefined,
+    { enabled: narrationEnabled }
   );
+  const segments = (isNarrationMode ? (rawSegments ?? []) : []) as unknown as ZeroAudioSegment[];
+  const audioJobRow = (isNarrationMode ? (rawJobs ?? [])[0] : undefined) as
+    | ZeroAudioJob
+    | undefined;
+  // NarrationControlBar expects the legacy job shape
+  const audioJob = audioJobRow
+    ? {
+        _id: audioJobRow.id,
+        status: audioJobRow.status,
+        totalSegments: audioJobRow.total_segments ?? 0,
+        completedSegments: audioJobRow.completed_segments ?? 0,
+        failedSegments: audioJobRow.failed_segments ?? 0,
+        errorMessage: audioJobRow.error_message ?? undefined,
+      }
+    : undefined;
+
+  const audioSegments: AudioSegment[] = segments.map((s) => ({
+    _id: s.id,
+    paragraphIndex: s.paragraph_index ?? 0,
+    status: s.status,
+    // Resolve audio URI from blob_id (content hash) via Mastra host GET /blobs/:id.
+    // file_objects is excluded from zero_pub; blob_id on audio_segments is the durable key.
+    audioUrl: buildBlobAudioUrl(s.blob_id),
+    durationMs: s.duration_ms ?? undefined,
+  }));
 
   const { isLoading: isAudioPlayerLoading } = useAudioPlayback(audioSegments, narration, {
     title: document?.title ?? 'Narration',
@@ -207,19 +324,14 @@ export default function DocumentRoute() {
   const isSegmentLoading = isAudioPlayerLoading || isActiveSegmentWaitingForAudio;
 
   useEffect(() => {
-    if (!isNarrationMode || segments.length === 0) return;
-    const completedCount = segments.filter(
-      (s: { status: string }) => s.status === 'completed'
-    ).length;
-    const totalDuration = segments.reduce(
-      (sum: number, s: { durationMs?: number | null }) => sum + (s.durationMs ?? 0),
-      0
-    );
+    if (!isNarrationMode || audioSegments.length === 0) return;
+    const completedCount = audioSegments.filter((s) => s.status === 'completed').length;
+    const totalDuration = audioSegments.reduce((sum, s) => sum + (s.durationMs ?? 0), 0);
     narration.onParagraphReady(completedCount, totalDuration / 1000);
     if (audioJob && completedCount === audioJob.totalSegments && audioJob.totalSegments > 0) {
       narration.onAllReady();
     }
-  }, [segments, isNarrationMode, audioJob, narration.onAllReady, narration.onParagraphReady]);
+  }, [audioSegments, isNarrationMode, audioJob, narration.onAllReady, narration.onParagraphReady]);
 
   // ─── Narration progress persistence ──────────────────────────────────────
 
@@ -291,13 +403,15 @@ export default function DocumentRoute() {
     highlightOpacity,
   ]);
 
-  const generateAction = useAction(api.audio.actions.generateForDocument);
-  const regenerateAction = useAction(api.audio.actions.regenerateForDocument);
-  const retryFailedAction = useAction(api.audio.actions.retryFailedSegments);
-
+  const generateAction = useCallback(async ({ documentId: docId }: { documentId: string }) => {
+    await dispatchAudioMission('generate', docId);
+  }, []);
+  const regenerateAction = useCallback(async ({ documentId: docId }: { documentId: string }) => {
+    await dispatchAudioMission('regenerate', docId);
+  }, []);
   const handleRetryFailed = async () => {
     if (!documentId) return;
-    await retryFailedAction({ documentId });
+    await dispatchAudioMission('retry_failed', documentId);
   };
 
   const handleLinkPress = (url: string): boolean => {
@@ -320,11 +434,19 @@ export default function DocumentRoute() {
 
   const getShareUrl = async (): Promise<string | null> => {
     if (!document) return null;
+    // Already public with a token — point at Mastra /article/ host (CAP-PUB-01).
     if (document.isPublic && document.shareToken) {
-      return `${PLATFORM_SITE_URL}/article/${document.shareToken}`;
+      return buildArticleShareUrl(document.shareToken);
     }
-    const result = await publish({ id: id as Id<'documents'> });
-    return `${PLATFORM_SITE_URL}/article/${result.shareToken}`;
+    // Publish via Zero mutator, then build Mastra share URL (never .convex.site).
+    await zero.mutate(mutators.publishDocument({ id: document.id }));
+    // Re-read optimistic local row; share_token is set by the mutator.
+    const published = (await zero.run(documentById(document.id))) as ZeroDocument | undefined;
+    const token = published?.share_token ?? document.shareToken;
+    if (!token) {
+      throw new Error('publishDocument did not produce a share_token');
+    }
+    return buildArticleShareUrl(token);
   };
 
   const handleShare = async () => {
@@ -365,7 +487,7 @@ export default function DocumentRoute() {
     if (!document || isSharing) return;
     setIsSharing(true);
     try {
-      await unpublish({ id: id as Id<'documents'> });
+      await zero.mutate(mutators.unpublishDocument({ id: document.id }));
     } catch (err) {
       console.warn('[DocumentRoute] Unpublish error:', err);
     } finally {
@@ -481,6 +603,7 @@ export default function DocumentRoute() {
   }, []);
 
   // Handle conversation selection from ChatPickerSheet
+  // Contract: document-chat-start → POST /api/chat-runs (Hono command)
   const handleChatSelected = useCallback(
     async (conversationId: string) => {
       if (!document || !id) return;
@@ -488,58 +611,71 @@ export default function DocumentRoute() {
       const category = mapDocumentCategoryToCategoryType(document.category);
 
       try {
-        let targetConversationId: Id<'conversations'>;
-
-        if (conversationId === 'new') {
-          targetConversationId = await createConversation({
-            title: document.title,
-            lastMessagePreview:
-              scope === 'excerpt' ? excerpt?.slice(0, 100) : `Added: ${document.title}`,
-          });
-        } else {
-          targetConversationId = conversationId as Id<'conversations'>;
+        const platformUrl = getPlatformUrl();
+        const rnApiKey = getRnApiKey();
+        if (!platformUrl || !rnApiKey) {
+          throw new Error('Platform credentials missing for chat-runs');
         }
 
-        // Create user message with document context card
         const content =
           scope === 'excerpt'
             ? `I'd like to discuss this excerpt from "${document.title}":\n\n${excerpt}`
             : `I'd like to discuss this document: ${document.title}`;
 
-        await createMessage({
-          conversationId: targetConversationId,
-          role: 'user',
-          content,
-          messageType: 'result_card',
-          cardData: {
-            card_type: 'document_context',
-            document_id: id,
-            title: document.title,
-            category,
-            scope,
-            ...(scope === 'full'
-              ? {
-                  snippet: document.content
-                    .replace(/^---[\s\S]*?---\n*/, '')
-                    .replace(/[#*_`>[\]]/g, '')
-                    .trim()
-                    .slice(0, 120),
-                }
-              : {}),
-            ...(scope === 'excerpt' && excerpt ? { excerpt } : {}),
-            ...(scope === 'excerpt' && blockIndex !== undefined ? { blockIndex } : {}),
-          },
-          documentId: id as Id<'documents'>,
-        });
+        const cardData = {
+          card_type: 'document_context',
+          document_id: id,
+          title: document.title,
+          category,
+          scope,
+          ...(scope === 'full'
+            ? {
+                snippet: document.content
+                  .replace(/^---[\s\S]*?---\n*/, '')
+                  .replace(/[#*_`>[\]]/g, '')
+                  .trim()
+                  .slice(0, 120),
+              }
+            : {}),
+          ...(scope === 'excerpt' && excerpt ? { excerpt } : {}),
+          ...(scope === 'excerpt' && blockIndex !== undefined ? { blockIndex } : {}),
+        };
 
-        // Navigate to the chat
-        router.push(`/chat/${targetConversationId}`);
+        const targetConversationId = conversationId === 'new' ? undefined : conversationId;
+
+        const response = await fetch(`${platformUrl}/api/chat-runs`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${rnApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestId: `doc-chat-${id}-${Date.now()}`,
+            msg: content,
+            conversationId: targetConversationId,
+            conversationTitle: document.title,
+            cardData,
+            documentId: id,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`chat-runs failed: ${response.status}`);
+        }
+        const body = (await response.json()) as {
+          conversationId?: string;
+          runId?: string;
+        };
+        const navId = body.conversationId ?? targetConversationId;
+        if (!navId) {
+          throw new Error('chat-runs response omitted conversationId');
+        }
+        router.push(`/chat/${navId}`);
       } catch (err) {
         console.warn('[DocumentRoute] Add to chat error:', err);
         Alert.alert('Error', 'Failed to add document to chat. Please try again.');
       }
     },
-    [document, id, createConversation, createMessage, router]
+    [document, id, router]
   );
 
   // Get heading slug for a root-level heading node

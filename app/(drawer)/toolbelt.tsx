@@ -1,41 +1,52 @@
-import { useQuery } from 'convex/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
+import { toolbeltDocumentsByOwner } from '@/app/zero/queries';
 import { ScreenLayout } from '@/components/ui/screen-layout';
-import { api } from '@/convex/_generated/api';
-import type { Doc } from '@/convex/_generated/dataModel';
 import { type Tool, ToolbeltScreen } from '@/screens/toolbelt-screen';
 
+type DocumentRow = {
+  id: string;
+  title?: string | null;
+  content?: string | null;
+  category?: string | null;
+  status: string;
+  file_type?: string | null;
+  date?: string | null;
+  time?: string | null;
+  created_at: number;
+  research_type?: string | null;
+};
+
 /**
- * Toolbelt route - displays searchable, filterable list of tools
- * Connected to Convex toolbeltTools table
- * Inside (drawer) group so the navigation drawer remains accessible
+ * Toolbelt route — Zero query toolbeltDocumentsByOwner
+ * (toolbelt_tools excluded from zero_pub; entries surface as documents).
  */
 export default function ToolbeltRoute() {
   const router = useRouter();
 
-  // Fetch tools from Convex
-  const toolsData = useQuery(api.toolbelt.queries.list, { limit: 100 });
-  const isLoading = toolsData === undefined;
+  const [rows, details] = useZeroQuery(toolbeltDocumentsByOwner(100));
+  const isLoading = details.type === 'unknown' && rows === undefined;
 
-  // Map Convex documents to Tool interface
-  const tools = (toolsData ?? []).map((tool: Doc<'toolbeltTools'>) => ({
-    _id: tool._id,
-    title: tool.title,
-    description: tool.description,
-    content: tool.content,
-    category: tool.category,
-    status: tool.status,
-    sourceUrl: tool.sourceUrl,
-    sourceType: tool.sourceType,
-    tags: tool.tags,
-    useCases: tool.useCases,
-    keywords: tool.keywords,
-    language: tool.language,
-    date: tool.date,
-    time: tool.time,
-    createdAt: tool.createdAt,
-    updatedAt: tool.updatedAt,
-  }));
+  const tools = ((rows ?? []) as DocumentRow[]).map(
+    (doc): Tool => ({
+      _id: doc.id,
+      title: doc.title ?? '',
+      description: undefined,
+      content: doc.content ?? undefined,
+      category: (doc.category as Tool['category']) ?? undefined,
+      status: doc.status as Tool['status'],
+      sourceUrl: undefined,
+      sourceType: (doc.file_type as Tool['sourceType']) ?? undefined,
+      tags: undefined,
+      useCases: undefined,
+      keywords: undefined,
+      language: undefined,
+      date: doc.date ?? undefined,
+      time: doc.time ?? undefined,
+      createdAt: doc.created_at,
+      updatedAt: doc.created_at,
+    })
+  );
 
   const handleToolPress = (tool: Tool) => {
     if (tool.sourceUrl) {

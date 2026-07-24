@@ -1,5 +1,6 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { feedSettings as feedSettingsQuery } from '@/app/zero/queries';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,7 +13,6 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 
 export interface FeedSettings {
   // Notification preferences
@@ -36,28 +36,74 @@ interface SubscriptionSettingsModalProps {
   testID?: string;
 }
 
+type AppSettingsRow = {
+  id: string;
+  key: string;
+  value_json?: unknown;
+  updated_at?: number | null;
+  created_at: number;
+};
+
+const DEFAULT_SETTINGS: FeedSettings = {
+  enablePushNotifications: false,
+  enableInAppNotifications: false,
+  showThumbnails: true,
+  autoPlayVideos: false,
+  contentFilter: 'all',
+};
+
+const FEED_SETTINGS_ROW_ID = 'app-settings-feed-settings';
+
+function parseSettings(value: unknown): FeedSettings {
+  if (value == null || typeof value !== 'object') return { ...DEFAULT_SETTINGS };
+  const v = value as Partial<FeedSettings>;
+  return {
+    enablePushNotifications: v.enablePushNotifications ?? DEFAULT_SETTINGS.enablePushNotifications,
+    enableInAppNotifications:
+      v.enableInAppNotifications ?? DEFAULT_SETTINGS.enableInAppNotifications,
+    showThumbnails: v.showThumbnails ?? DEFAULT_SETTINGS.showThumbnails,
+    autoPlayVideos: v.autoPlayVideos ?? DEFAULT_SETTINGS.autoPlayVideos,
+    contentFilter: v.contentFilter ?? DEFAULT_SETTINGS.contentFilter,
+  };
+}
+
 export function SubscriptionSettingsModal({
   visible,
   onDismiss,
   onManageSubscriptions,
   testID = 'settings-modal',
 }: SubscriptionSettingsModalProps) {
-  // Fetch current settings with default values
-  const settings = useQuery(api.feeds.queries.getFeedSettings, {});
+  const zero = useZero();
+  const [settingsRow] = useZeroQuery(feedSettingsQuery());
+  const row = (settingsRow ?? null) as AppSettingsRow | null;
+  const currentSettings = parseSettings(row?.value_json);
 
-  // Mutation to update settings
-  const updateSettings = useMutation(api.feeds.mutations.updateFeedSettings);
-
-  const currentSettings: FeedSettings = {
-    enablePushNotifications: settings?.enablePushNotifications ?? false,
-    enableInAppNotifications: settings?.enableInAppNotifications ?? false,
-    showThumbnails: settings?.showThumbnails ?? true,
-    autoPlayVideos: settings?.autoPlayVideos ?? false,
-    contentFilter: settings?.contentFilter ?? 'all',
-  };
-
-  const handleSettingChange = async (key: keyof FeedSettings, value: any) => {
-    await updateSettings({ [key]: value });
+  const handleSettingChange = async (key: keyof FeedSettings, value: FeedSettings[typeof key]) => {
+    const next: FeedSettings = { ...currentSettings, [key]: value };
+    // Serialize through JSON so the value is a plain ReadonlyJSONValue for Zero mutators.
+    const valueJson = JSON.parse(JSON.stringify(next)) as {
+      enablePushNotifications: boolean;
+      enableInAppNotifications: boolean;
+      showThumbnails: boolean;
+      autoPlayVideos: boolean;
+      contentFilter: string;
+    };
+    const now = Date.now();
+    if (row?.id) {
+      await zero.mutate.app_settings.update({
+        id: row.id,
+        value_json: valueJson,
+        updated_at: now,
+      });
+    } else {
+      await zero.mutate.app_settings.insert({
+        id: FEED_SETTINGS_ROW_ID,
+        key: 'feed_settings',
+        value_json: valueJson,
+        created_at: now,
+        updated_at: now,
+      });
+    }
   };
 
   return (

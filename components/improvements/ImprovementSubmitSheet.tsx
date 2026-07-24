@@ -11,7 +11,7 @@
  * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
-import { useMutation } from 'convex/react';
+import { useZero } from '@rocicorp/zero/react';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,10 +34,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { finalizeUpload, initUpload, putUpload, sha256HexOfBytes } from '@/app/zero/platform';
 import { X } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 
 // ── Animation constants (mirrors PlanEditBottomSheet) ──────────────────────
@@ -49,7 +48,7 @@ const DISMISS_THRESHOLD = 80;
 export interface ImprovementSubmitSheetProps {
   visible: boolean;
   onClose: () => void;
-  onSubmitted?: (requestId: Id<'improvementRequests'>) => void;
+  onSubmitted?: (requestId: string) => void;
   screenshotUri?: string | null;
   sourceComponent?: string;
   testID?: string;
@@ -76,9 +75,8 @@ export function ImprovementSubmitSheet({
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ── Convex hooks ─────────────────────────────────────────────────────────
-  const generateUploadUrl = useMutation(api.improvements.mutations.generateUploadUrl);
-  const submitMutation = useMutation(api.improvements.mutations.submit);
+  // ── Zero mutator + Hono upload ───────────────────────────────────────────
+  const zero = useZero();
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
@@ -135,40 +133,55 @@ export function ImprovementSubmitSheet({
     setIsSubmitting(true);
 
     try {
-      let storageId: Id<'_storage'> | undefined;
+      const requestId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `imp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const now = Date.now();
+      const title =
+        description.trim().length > 60
+          ? `${description.trim().slice(0, 57)}...`
+          : description.trim();
+
+      await zero.mutate.improvement_requests.insert({
+        id: requestId,
+        description: description.trim(),
+        title,
+        status: 'open',
+        source_screen: sourceComponent ?? 'unknown',
+        source_component: sourceComponent ?? null,
+        created_at: now,
+        updated_at: now,
+      });
 
       if (screenshotUri) {
-        const uploadUrl = await generateUploadUrl();
-
-        // Fetch the local image as a blob and POST to Convex storage
-        const imageResponse = await fetch(screenshotUri);
-        const blob = await imageResponse.blob();
-
-        const storageResponse = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': blob.type || 'image/png' },
-          body: blob,
-        });
-
-        if (storageResponse.ok) {
-          const { storageId: sid } = (await storageResponse.json()) as {
-            storageId: Id<'_storage'>;
-          };
-          storageId = sid;
+        try {
+          const imageResponse = await fetch(screenshotUri);
+          const blob = await imageResponse.blob();
+          const buffer = await blob.arrayBuffer();
+          const sha256 = await sha256HexOfBytes(buffer);
+          const init = await initUpload({
+            kind: 'improvement_image',
+            targetId: requestId,
+            idempotencyKey: `improvement-image-${requestId}`,
+            sha256,
+            byteLength: buffer.byteLength,
+            mimeType: blob.type || 'image/png',
+          });
+          const uploadId = String(init.uploadId ?? init.id ?? '');
+          if (uploadId) {
+            await putUpload(uploadId, blob);
+            await finalizeUpload(uploadId);
+          }
+        } catch (uploadErr) {
+          console.warn('[ImprovementSubmitSheet] image upload failed:', uploadErr);
         }
       }
-
-      const requestId = await submitMutation({
-        description: description.trim(),
-        storageId,
-        sourceScreen: sourceComponent ?? 'unknown',
-        sourceComponent,
-      });
 
       // Close sheet immediately and notify parent
       animateOut(() => {
         onClose();
-        onSubmitted?.(requestId as Id<'improvementRequests'>);
+        onSubmitted?.(requestId);
       });
     } catch {
       // If upload/submit fails, stay on input state

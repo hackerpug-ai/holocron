@@ -1,9 +1,9 @@
 /**
  * NotificationBellButton — bell icon with animated red dot indicator
  *
- * Shows a bell icon that displays an animated red dot when new notifications
- * arrive. The dot auto-clears after 10 minutes. Tapping the bell clears the
- * dot immediately and calls onPress (to open the notification list sheet).
+ * Shows a bell icon that displays an animated red dot when unread notifications
+ * exist (Zero-backed). The dot auto-clears after 10 minutes. Tapping the bell
+ * clears the dot immediately and calls onPress (to open the notification list sheet).
  *
  * @example
  * ```tsx
@@ -11,12 +11,11 @@
  * ```
  */
 
-import { useMutation, useQuery } from 'convex/react';
 import * as React from 'react';
 import { Pressable } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Bell } from '@/components/ui/icons';
-import { api } from '@/convex/_generated/api';
+import { useNotifications } from '@/hooks/use-notifications';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,15 +31,15 @@ interface NotificationBellButtonProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NotificationBellButton({ onPress, testID }: NotificationBellButtonProps) {
-  const lastSeen = useQuery(api.notifications.queries.getLastSeen) ?? 0;
-  const hasNew = useQuery(api.notifications.queries.hasNewSince, { since: lastSeen });
-  const updateLastSeen = useMutation(api.notifications.mutations.updateLastSeen);
+  const { unreadCount } = useNotifications();
+  const hasNew = unreadCount > 0;
 
   const [showDot, setShowDot] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const dotScale = useSharedValue(0);
 
-  // When hasNew changes, manage dot visibility and 10-min auto-clear timer
+  // When hasNew changes, manage dot visibility and 10-min auto-clear timer.
+  // Dot is local UI state (replaces Convex lastSeen); list marks-read owns persistence.
   React.useEffect(() => {
     if (hasNew) {
       setShowDot(true);
@@ -51,14 +50,13 @@ export function NotificationBellButton({ onPress, testID }: NotificationBellButt
       timerRef.current = setTimeout(() => {
         setShowDot(false);
         dotScale.value = withSpring(0);
-        updateLastSeen().catch(() => {});
       }, DOT_TIMEOUT_MS);
     }
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [hasNew, updateLastSeen, dotScale]);
+  }, [hasNew, dotScale]);
 
   const dotStyle = useAnimatedStyle(() => ({
     transform: [{ scale: dotScale.value }],
@@ -68,7 +66,6 @@ export function NotificationBellButton({ onPress, testID }: NotificationBellButt
     setShowDot(false);
     dotScale.value = withSpring(0);
     if (timerRef.current) clearTimeout(timerRef.current);
-    updateLastSeen().catch(() => {});
     onPress();
   };
 

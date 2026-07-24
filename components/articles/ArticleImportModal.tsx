@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useCallback, useState } from 'react';
 import {
   Pressable,
@@ -7,8 +7,9 @@ import {
   ScrollView,
   View,
 } from 'react-native';
+import { mutators } from '@/app/zero/mutators';
+import { documentsByOwner } from '@/app/zero/queries';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface ArticleImportModalProps {
@@ -22,9 +23,18 @@ export interface ArticleImportModalProps {
   testID?: string;
 }
 
+type ZeroDocument = {
+  id: string;
+  title?: string | null;
+  category?: string | null;
+};
+
 /**
  * ArticleImportModal - Modal for importing text from external AI platforms
  * Allows user to select an article and paste text to append
+ *
+ * Data plane: Zero query documentsByOwner + Zero mutator createImportDocument
+ * (13-client-data-contract.yaml).
  */
 export function ArticleImportModal({
   visible,
@@ -33,14 +43,13 @@ export function ArticleImportModal({
   testID = 'article-import-modal',
 }: ArticleImportModalProps) {
   const { colors: themeColors, typography } = useTheme();
+  const zero = useZero();
   const [selectedArticleId, setSelectedArticleId] = useState<string>('');
   const [textToImport, setTextToImport] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
 
-  // Fetch all articles for the selector
-  const listResult = useQuery(api.documents.queries.list, {});
-  const articles = listResult?.documents ?? [];
-  const createImport = useMutation(api.imports.mutations.createImport);
+  const [rawArticles] = useZeroQuery(documentsByOwner());
+  const articles = (rawArticles ?? []) as unknown as ZeroDocument[];
 
   const handleImport = useCallback(async () => {
     if (!selectedArticleId || !textToImport.trim()) {
@@ -49,17 +58,16 @@ export function ArticleImportModal({
 
     setIsImporting(true);
     try {
-      await createImport({
-        documentId: selectedArticleId as any,
-        source: 'manual', // User manually imported via modal
-        text: textToImport.trim(),
-      });
+      await zero.mutate(
+        mutators.createImportDocument({
+          documentId: selectedArticleId,
+          source: 'manual',
+          text: textToImport.trim(),
+        })
+      );
 
-      // Reset form
       setTextToImport('');
       setSelectedArticleId('');
-
-      // Notify success
       onSuccess?.();
       onDismiss();
     } catch (error) {
@@ -67,7 +75,7 @@ export function ArticleImportModal({
     } finally {
       setIsImporting(false);
     }
-  }, [selectedArticleId, textToImport, createImport, onSuccess, onDismiss]);
+  }, [selectedArticleId, textToImport, zero, onSuccess, onDismiss]);
 
   const canSubmit = selectedArticleId && textToImport.trim().length > 0 && !isImporting;
 
@@ -108,7 +116,6 @@ export function ArticleImportModal({
             </Text>
           </View>
 
-          {/* Article Selector */}
           <View className="mb-4">
             <Text className="text-sm font-semibold mb-2" style={{ color: themeColors.foreground }}>
               Select Article
@@ -122,18 +129,18 @@ export function ArticleImportModal({
                 borderRadius: 8,
               }}
             >
-              {articles?.map((article: any) => (
+              {articles?.map((article) => (
                 <Pressable
-                  key={article._id}
-                  onPress={() => setSelectedArticleId(article._id)}
+                  key={article.id}
+                  onPress={() => setSelectedArticleId(article.id)}
                   style={{
                     padding: 12,
                     backgroundColor:
-                      selectedArticleId === article._id ? themeColors.muted : 'transparent',
+                      selectedArticleId === article.id ? themeColors.muted : 'transparent',
                     borderBottomWidth: 1,
                     borderBottomColor: themeColors.border,
                   }}
-                  testID={`article-option-${article._id}`}
+                  testID={`article-option-${article.id}`}
                 >
                   <Text className="text-base" style={{ color: themeColors.foreground }}>
                     {article.title}
@@ -146,7 +153,6 @@ export function ArticleImportModal({
             </ScrollView>
           </View>
 
-          {/* Text Input */}
           <View className="mb-4">
             <Text className="text-sm font-semibold mb-2" style={{ color: themeColors.foreground }}>
               Text to Import
@@ -172,7 +178,6 @@ export function ArticleImportModal({
             />
           </View>
 
-          {/* Actions */}
           <View className="flex-row gap-2">
             <Pressable
               onPress={onDismiss}
@@ -204,6 +209,7 @@ export function ArticleImportModal({
                 backgroundColor: canSubmit ? themeColors.primary : themeColors.muted,
                 opacity: canSubmit ? 1 : 0.5,
               }}
+              testID="import-submit"
             >
               <Text
                 className="text-center text-base font-semibold"

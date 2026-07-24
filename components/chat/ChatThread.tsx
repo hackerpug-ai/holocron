@@ -138,6 +138,7 @@ export function ChatThread({
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
     <Pressable
+      testID="message-bubble"
       onLongPress={() => handleMessageLongPress(item.id, item.content)}
       delayLongPress={400}
     >

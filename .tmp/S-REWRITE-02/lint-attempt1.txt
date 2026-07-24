@@ -1,0 +1,593 @@
+$ biome check . app/articles.tsx "app/document/[id].tsx" app/zero app/_layout.tsx components/articles/ArticleImportModal.tsx
+biome.json:2:14 deserialize ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i The configuration schema version does not match the CLI version 2.5.5
+  
+    1 │ {
+  > 2 │   "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+      │              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    3 │   "vcs": {
+    4 │     "enabled": true,
+  
+  i   Expected:                     2.5.5
+      Found:                        2.4.12
+  
+  
+  i Run the command biome migrate to migrate the configuration file.
+  
+
+biome.json:27:13 deserialize  DEPRECATED  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i The use of the recommended field has been deprecated, and will removed in the next major version of Biome. Use preset instead.
+  
+    25 │     "lineWidth": 100
+    26 │   },
+  > 27 │   "linter": {
+       │             ^
+  > 28 │     "enabled": true,
+        ...
+  > 47 │     }
+  > 48 │   },
+       │   ^
+    49 │   "javascript": {
+    50 │     "formatter": {
+  
+  i Migrate the configuration with the proper command
+  
+  $ biome migrate
+  
+
+.rnstorybook/storybook.requires.d.ts:2:20 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    1 │ // Auto-generated storybook requires - this file is created at build time
+  > 2 │ export const view: any;
+      │                    ^^^
+    3 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+.spec/prd/v2/concepts/LaneShadow Design System v2 _standalone_.html check ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! The size of the file is 2.1 MiB, which exceeds the configured maximum of 1.0 MiB for this project.
+    Use the `files.maxSize` configuration to change the maximum size of files processed, or `files.includes` to ignore the file.
+  
+
+vitest.setup.ts:7:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    5 │  */
+    6 │ 
+  > 7 │ import { View } from 'react-native';
+      │        ^^^^^^^^
+    8 │ import { vi } from 'vitest';
+    9 │ 
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     1    │ - /**
+     2    │ - ·*·Vitest·setup·file·for·React·Native·testing
+     3    │ - ·*
+     4    │ - ·*·This·file·runs·before·all·tests·and·sets·up·mocks·for·problematic·modules.
+     5    │ - ·*/
+     6    │ - 
+     7    │ - import·{·View·}·from·'react-native';
+        1 │ + /**
+        2 │ + ·*·Vitest·setup·file·for·React·Native·testing
+        3 │ + ·*
+        4 │ + ·*·This·file·runs·before·all·tests·and·sets·up·mocks·for·problematic·modules.
+        5 │ + ·*/
+        6 │ + 
+     8  7 │   import { vi } from 'vitest';
+     9  8 │   
+  
+
+vitest.setup.ts:30:14 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter animation is unused.
+  
+    28 │     Animated: {
+    29 │       ...(actual.Animated as Record<string, unknown>),
+  > 30 │       loop: (animation: unknown) => ({
+       │              ^^^^^^^^^
+    31 │         start: vi.fn(),
+    32 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend animation with an underscore.
+  
+    28 28 │       Animated: {
+    29 29 │         ...(actual.Animated as Record<string, unknown>),
+    30    │ - ······loop:·(animation:·unknown)·=>·({
+       30 │ + ······loop:·(_animation:·unknown)·=>·({
+    31 31 │           start: vi.fn(),
+    32 32 │           stop: vi.fn(),
+  
+
+vitest.setup.ts:34:16 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter value is unused.
+  
+    32 │         stop: vi.fn(),
+    33 │       }),
+  > 34 │       timing: (value: unknown, config: unknown) => ({
+       │                ^^^^^
+    35 │         start: (callback?: () => void) => callback?.(),
+    36 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend value with an underscore.
+  
+    32 32 │           stop: vi.fn(),
+    33 33 │         }),
+    34    │ - ······timing:·(value:·unknown,·config:·unknown)·=>·({
+       34 │ + ······timing:·(_value:·unknown,·config:·unknown)·=>·({
+    35 35 │           start: (callback?: () => void) => callback?.(),
+    36 36 │           stop: vi.fn(),
+  
+
+vitest.setup.ts:34:32 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter config is unused.
+  
+    32 │         stop: vi.fn(),
+    33 │       }),
+  > 34 │       timing: (value: unknown, config: unknown) => ({
+       │                                ^^^^^^
+    35 │         start: (callback?: () => void) => callback?.(),
+    36 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend config with an underscore.
+  
+    32 32 │           stop: vi.fn(),
+    33 33 │         }),
+    34    │ - ······timing:·(value:·unknown,·config:·unknown)·=>·({
+       34 │ + ······timing:·(value:·unknown,·_config:·unknown)·=>·({
+    35 35 │           start: (callback?: () => void) => callback?.(),
+    36 36 │           stop: vi.fn(),
+  
+
+vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This parameter animations is unused.
+  
+    37 │         reset: vi.fn(),
+    38 │       }),
+  > 39 │       sequence: (animations: unknown) => ({
+       │                  ^^^^^^^^^^
+    40 │         start: vi.fn(),
+    41 │         stop: vi.fn(),
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend animations with an underscore.
+  
+    37 37 │           reset: vi.fn(),
+    38 38 │         }),
+    39    │ - ······sequence:·(animations:·unknown)·=>·({
+       39 │ + ······sequence:·(_animations:·unknown)·=>·({
+    40 40 │           start: vi.fn(),
+    41 41 │           stop: vi.fn(),
+  
+
+.pi-subagents/artifacts/46fd898b_worker_0_meta.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    13 13 │     },
+    14 14 │     "model": "openai-codex/gpt-5.6-luna:high",
+    15    │ - ··"attemptedModels":·[
+    16    │ - ····"openai-codex/gpt-5.6-luna:high"
+    17    │ - ··],
+       15 │ + ··"attemptedModels":·["openai-codex/gpt-5.6-luna:high"],
+    18 16 │     "modelAttempts": [
+    19 17 │       {
+    ····· │ 
+    41 39 │         "level": "attested",
+    42 40 │         "explicit": false,
+    43    │ - ······"inferredReason":·[
+    44    │ - ········"read-only·task·wording"
+    45    │ - ······],
+       41 │ + ······"inferredReason":·["read-only·task·wording"],
+    46 42 │         "criteria": [
+    47 43 │           {
+    48 44 │             "id": "criterion-1",
+    49 45 │             "must": "Return concrete findings with file paths and severity when applicable",
+    50    │ - ··········"evidence":·[
+    51    │ - ············"review-findings",
+    52    │ - ············"residual-risks"
+    53    │ - ··········],
+       46 │ + ··········"evidence":·["review-findings",·"residual-risks"],
+    54 47 │             "severity": "required"
+    55 48 │           }
+    56 49 │         ],
+    57    │ - ······"evidence":·[
+    58    │ - ········"review-findings",
+    59    │ - ········"residual-risks"
+    60    │ - ······],
+       50 │ + ······"evidence":·["review-findings",·"residual-risks"],
+    61 51 │         "verify": [],
+    62 52 │         "stopRules": []
+    63 53 │       },
+    64    │ - ····"inferredReason":·[
+    65    │ - ······"read-only·task·wording"
+    66    │ - ····],
+       54 │ + ····"inferredReason":·["read-only·task·wording"],
+    67 55 │       "criteria": [
+    68 56 │         {
+    69 57 │           "id": "criterion-1",
+    70 58 │           "must": "Return concrete findings with file paths and severity when applicable",
+    71    │ - ········"evidence":·[
+    72    │ - ··········"review-findings",
+    73    │ - ··········"residual-risks"
+    74    │ - ········],
+       59 │ + ········"evidence":·["review-findings",·"residual-risks"],
+    75 60 │           "severity": "required"
+    76 61 │         }
+    ····· │ 
+    87 72 │     "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/46fd898b_worker_0_transcript.jsonl",
+    88 73 │     "timestamp": 1784349097139
+    89    │ - }
+       74 │ + }
+       75 │ + 
+  
+
+.pi-subagents/artifacts/aa5724d3-7a98-42e3-98c6-345c6c78dd9f_bun-reviewer_meta.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     5  5 │     "exitCode": 1,
+     6  6 │     "model": "local-router/implementer",
+     7    │ - ··"attemptedModels":·[
+     8    │ - ····"local-router/implementer"
+     9    │ - ··],
+        7 │ + ··"attemptedModels":·["local-router/implementer"],
+    10  8 │     "modelAttempts": [
+    11  9 │       {
+    ····· │ 
+    31 29 │         "level": "attested",
+    32 30 │         "explicit": false,
+    33    │ - ······"inferredReason":·[
+    34    │ - ········"read-only/reviewer-style·agent"
+    35    │ - ······],
+       31 │ + ······"inferredReason":·["read-only/reviewer-style·agent"],
+    36 32 │         "criteria": [
+    37 33 │           {
+    38 34 │             "id": "criterion-1",
+    39 35 │             "must": "Return concrete findings with file paths and severity when applicable",
+    40    │ - ··········"evidence":·[
+    41    │ - ············"review-findings",
+    42    │ - ············"residual-risks"
+    43    │ - ··········],
+       36 │ + ··········"evidence":·["review-findings",·"residual-risks"],
+    44 37 │             "severity": "required"
+    45 38 │           }
+    46 39 │         ],
+    47    │ - ······"evidence":·[
+    48    │ - ········"review-findings",
+    49    │ - ········"residual-risks"
+    50    │ - ······],
+       40 │ + ······"evidence":·["review-findings",·"residual-risks"],
+    51 41 │         "verify": [],
+    52 42 │         "stopRules": []
+    53 43 │       },
+    54    │ - ····"inferredReason":·[
+    55    │ - ······"read-only/reviewer-style·agent"
+    56    │ - ····],
+       44 │ + ····"inferredReason":·["read-only/reviewer-style·agent"],
+    57 45 │       "criteria": [
+    58 46 │         {
+    59 47 │           "id": "criterion-1",
+    60 48 │           "must": "Return concrete findings with file paths and severity when applicable",
+    61    │ - ········"evidence":·[
+    62    │ - ··········"review-findings",
+    63    │ - ··········"residual-risks"
+    64    │ - ········],
+       49 │ + ········"evidence":·["review-findings",·"residual-risks"],
+    65 50 │           "severity": "required"
+    66 51 │         }
+    ····· │ 
+    79 64 │     "skills": [],
+    80 65 │     "timestamp": 1784347757698
+    81    │ - }
+       66 │ + }
+       67 │ + 
+  
+
+.spec/evidence/infer-5-review-ac2-budget-precheck.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    20 20 │       {
+    21 21 │         "sql": "SELECT COALESCE(SUM(cost),0)::float8 AS spent FROM budget_ledger",
+    22    │ - ······"result":·4.1e-05,
+       22 │ + ······"result":·4.1e-5,
+    23 23 │         "must_observe": "spent > 0"
+    24 24 │       },
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/step4.assertion.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    1   │ - {"kind":"exit_and_log_regex","expected_exit":0,"expect_log_regex":"\"fencing_token\":\\s*\"[^\"]+\""}
+      1 │ + {
+      2 │ + ··"kind":·"exit_and_log_regex",
+      3 │ + ··"expected_exit":·0,
+      4 │ + ··"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""
+      5 │ + }
+    2 6 │   
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts:18:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × Sort the imported names.
+  
+    16 │  *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
+    17 │  */
+  > 18 │ import { runDurableEffectBoundary, auditDurableEffect } from '../../../../../../../services/platform/src/queue/durable-effect';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    19 │ 
+    20 │ const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+  
+  i Safe fix: Organize imports and exports (Biome)
+  
+     16  16 │    *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
+     17  17 │    */
+     18     │ - import·{·runDurableEffectBoundary,·auditDurableEffect·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
+         18 │ + import·{·auditDurableEffect,·runDurableEffectBoundary·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
+     19  19 │   
+     20  20 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     16  16 │    *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
+     17  17 │    */
+     18     │ - import·{·runDurableEffectBoundary,·auditDurableEffect·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
+         18 │ + import·{
+         19 │ + ··runDurableEffectBoundary,
+         20 │ + ··auditDurableEffect,
+         21 │ + }·from·'../../../../../../../services/platform/src/queue/durable-effect';
+     19  22 │   
+     20  23 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+    ······· │ 
+     40  43 │     boundary: string;
+     41  44 │     key: string;
+     42     │ - ··crash_pass:·{·effect_count:·number;·outbox_count:·number;·inbox_dedupe_count:·number;·fencing_token:·string·|·null·};
+     43     │ - ··recovery_pass:·{·effect_count:·number;·outbox_count:·number;·inbox_dedupe_count:·number;·fencing_token:·string·|·null·};
+         45 │ + ··crash_pass:·{
+         46 │ + ····effect_count:·number;
+         47 │ + ····outbox_count:·number;
+         48 │ + ····inbox_dedupe_count:·number;
+         49 │ + ····fencing_token:·string·|·null;
+         50 │ + ··};
+         51 │ + ··recovery_pass:·{
+         52 │ + ····effect_count:·number;
+         53 │ + ····outbox_count:·number;
+         54 │ + ····inbox_dedupe_count:·number;
+         55 │ + ····fencing_token:·string·|·null;
+         56 │ + ··};
+     44  57 │     exactly_one: boolean;
+     45  58 │   }> = [];
+    ······· │ 
+     94 107 │     database_url: DATABASE_URL,
+     95 108 │     boundaries_requested: requested,
+     96     │ - ··final_audit_contract:·'effect_count===1·AND·outbox_count===1·AND·inbox_dedupe_count===1·AND·fencing_token·present,·for·EACH·boundary·key',
+        109 │ + ··final_audit_contract:
+        110 │ + ····'effect_count===1·AND·outbox_count===1·AND·inbox_dedupe_count===1·AND·fencing_token·present,·for·EACH·boundary·key',
+     97 111 │     all_exactly_one: allOk,
+     98 112 │     results,
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts:13:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × Sort the imported names.
+  
+    11 │  * Usage: bun drive-dlq.ts
+    12 │  */
+  > 13 │ import {
+       │ ^^^^^^^^
+  > 14 │   seedPoisonJob,
+  > 15 │   runUntilTerminal,
+  > 16 │   resetDlq,
+  > 17 │   getJob,
+  > 18 │ } from '../../../../../../../services/platform/src/queue/dlq';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    19 │ 
+    20 │ const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+  
+  i Safe fix: Organize imports and exports (Biome)
+  
+    12 12 │    */
+    13 13 │   import {
+    14    │ - ··seedPoisonJob,
+    15    │ - ··runUntilTerminal,
+    16    │ - ··resetDlq,
+    17    │ - ··getJob,
+       14 │ + ··getJob,
+       15 │ + ··resetDlq,
+       16 │ + ··runUntilTerminal,
+       17 │ + ··seedPoisonJob,
+    18 18 │   } from '../../../../../../../services/platform/src/queue/dlq';
+    19 19 │   
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    24 24 │   await resetDlq(DATABASE_URL);
+    25 25 │   
+    26    │ - const·seeded·=·await·seedPoisonJob({·key:·KEY,·maxAttempts:·MAX_ATTEMPTS,·databaseUrl:·DATABASE_URL·});
+       26 │ + const·seeded·=·await·seedPoisonJob({
+       27 │ + ··key:·KEY,
+       28 │ + ··maxAttempts:·MAX_ATTEMPTS,
+       29 │ + ··databaseUrl:·DATABASE_URL,
+       30 │ + });
+    27 31 │   const terminal = await runUntilTerminal({ key: KEY, databaseUrl: DATABASE_URL });
+    28 32 │   const jobAfter = await getJob(KEY, DATABASE_URL);
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-priority.ts:14:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × Sort the imported names.
+  
+    12 │  * Usage: bun drive-priority.ts
+    13 │  */
+  > 14 │ import {
+       │ ^^^^^^^^
+  > 15 │   enqueue,
+  > 16 │   dequeue,
+  > 17 │   resetPriorityLanes,
+  > 18 │ } from '../../../../../../../services/platform/src/queue/priority';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    19 │ 
+    20 │ const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+  
+  i Safe fix: Organize imports and exports (Biome)
+  
+    13 13 │    */
+    14 14 │   import {
+    15    │ - ··enqueue,
+    16    │ - ··dequeue,
+       15 │ + ··dequeue,
+       16 │ + ··enqueue,
+    17 17 │     resetPriorityLanes,
+    18 18 │   } from '../../../../../../../services/platform/src/queue/priority';
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-plan.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    13  13 │         "method": "real-cli",
+    14  14 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:run-all --json",
+    15     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"jobs_fired\":\\s*16",·"expect_not_log_regex":·"unknown·command"·}
+        15 │ + ······"assertion":·{
+        16 │ + ········"kind":·"exit_and_log_regex",
+        17 │ + ········"expected_exit":·0,
+        18 │ + ········"expect_log_regex":·"\"jobs_fired\":\\s*16",
+        19 │ + ········"expect_not_log_regex":·"unknown·command"
+        20 │ + ······}
+    16  21 │       },
+    17  22 │       {
+    ······ │ 
+    21  26 │         "method": "real-cli",
+    22  27 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-1 --boundary before-commit --json",
+    23     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"exactly_once\":\\s*true"·}
+        28 │ + ······"assertion":·{
+        29 │ + ········"kind":·"exit_and_log_regex",
+        30 │ + ········"expected_exit":·0,
+        31 │ + ········"expect_log_regex":·"\"exactly_once\":\\s*true"
+        32 │ + ······}
+    24  33 │       },
+    25  34 │       {
+    ······ │ 
+    29  38 │         "method": "real-cli",
+    30  39 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-2 --boundary after-commit-before-enqueue --json",
+    31     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"exactly_once\":\\s*true"·}
+        40 │ + ······"assertion":·{
+        41 │ + ········"kind":·"exit_and_log_regex",
+        42 │ + ········"expected_exit":·0,
+        43 │ + ········"expect_log_regex":·"\"exactly_once\":\\s*true"
+        44 │ + ······}
+    32  45 │       },
+    33  46 │       {
+    ······ │ 
+    37  50 │         "method": "real-cli",
+    38  51 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-3 --boundary after-dispatch-before-ack --json",
+    39     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"exactly_once\":\\s*true"·}
+        52 │ + ······"assertion":·{
+        53 │ + ········"kind":·"exit_and_log_regex",
+        54 │ + ········"expected_exit":·0,
+        55 │ + ········"expect_log_regex":·"\"exactly_once\":\\s*true"
+        56 │ + ······}
+    40  57 │       },
+    41  58 │       {
+    ······ │ 
+    45  62 │         "method": "real-cli",
+    46  63 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:audit effect-kill9-1 --json",
+    47     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""·}
+        64 │ + ······"assertion":·{
+        65 │ + ········"kind":·"exit_and_log_regex",
+        66 │ + ········"expected_exit":·0,
+        67 │ + ········"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""
+        68 │ + ······}
+    48  69 │       },
+    49  70 │       {
+    ······ │ 
+    53  74 │         "method": "real-cli",
+    54  75 │   ...es/platform/src/cli/holo.ts queue:dequeue --json",
+    55     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"lane\":\\s*\"interactive\""·}
+        76 │ + ······"assertion":·{
+        77 │ + ········"kind":·"exit_and_log_regex",
+        78 │ + ········"expected_exit":·0,
+        79 │ + ········"expect_log_regex":·"\"lane\":\\s*\"interactive\""
+        80 │ + ······}
+    56  81 │       },
+    57  82 │       {
+    ······ │ 
+    61  86 │         "method": "real-cli",
+    62  87 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:poison poison-1 --max-attempts 3 --json",
+    63     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"status\":\\s*\"dead_letter\""·}
+        88 │ + ······"assertion":·{
+        89 │ + ········"kind":·"exit_and_log_regex",
+        90 │ + ········"expected_exit":·0,
+        91 │ + ········"expect_log_regex":·"\"status\":\\s*\"dead_letter\""
+        92 │ + ······}
+    64  93 │       },
+    65  94 │       {
+    ······ │ 
+    69  98 │         "method": "real-cli",
+    70  99 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:list --json",
+    71     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"count\":\\s*16",·"expect_not_log_regex":·"unknown·command"·}
+       100 │ + ······"assertion":·{
+       101 │ + ········"kind":·"exit_and_log_regex",
+       102 │ + ········"expected_exit":·0,
+       103 │ + ········"expect_log_regex":·"\"count\":\\s*16",
+       104 │ + ········"expect_not_log_regex":·"unknown·command"
+       105 │ + ······}
+    72 106 │       }
+    73 107 │     ]
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-verification.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    1   │ - {"verified":true,"claimed_verdict":"pass","recomputed_verdict":"pass","steps_planned":8,"steps_recomputed":8,"discrepancies":[]}
+      1 │ + {
+      2 │ + ··"verified":·true,
+      3 │ + ··"claimed_verdict":·"pass",
+      4 │ + ··"recomputed_verdict":·"pass",
+      5 │ + ··"steps_planned":·8,
+      6 │ + ··"steps_recomputed":·8,
+      7 │ + ··"discrepancies":·[]
+      8 │ + }
+    2 9 │   
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 746.
+Checked 1490 files in 300ms. No fixes applied.
+Found 69 errors.
+Found 693 warnings.
+Found 4 infos.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+error: script "lint" exited with code 1

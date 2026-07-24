@@ -1,4 +1,3 @@
-import { useAction } from 'convex/react';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -12,9 +11,10 @@ import {
   XCircle,
 } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
+
+const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
+const rnApiKey = process.env.EXPO_PUBLIC_RN_API_KEY;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -222,20 +222,25 @@ export function ToolApprovalCard({
   );
 }
 
-// ── Convex-wired wrapper ──────────────────────────────────────────────────────
+// ── Hono-wired wrapper (S-REWRITE-01) ─────────────────────────────────────────
 
 export type ToolApprovalCardWithConvexProps = Omit<ToolApprovalCardProps, 'onCancel'>;
 
 /**
- * ToolApprovalCardWithConvex wires the ToolApprovalCard to Convex actions.
- * Tools auto-execute — the cancel button calls cancelTool to abort execution.
+ * ToolApprovalCardWithConvex wires the ToolApprovalCard to the Hono cancel command.
+ * Contract: api.chat.agent.cancelTool → POST /api/chat-runs/:id/cancel
+ * `approvalId` is treated as the chat-run id for cancel.
  */
 export function ToolApprovalCardWithConvex(props: ToolApprovalCardWithConvexProps) {
-  const cancelTool = useAction(api.chat.agent.cancelTool);
-
   const handleCancel = () => {
-    cancelTool({
-      toolCallId: props.approvalId as Id<'toolCalls'>,
+    if (!platformUrl || !rnApiKey || !props.approvalId) return;
+    void fetch(`${platformUrl}/api/chat-runs/${props.approvalId}/cancel`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${rnApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
     });
   };
 

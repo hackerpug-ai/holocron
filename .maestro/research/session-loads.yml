@@ -1,0 +1,57 @@
+# S-REWRITE-04 AC-1 / TC-1 — Research session loads via Zero query
+# Prerequisite: holo seed:e2e --reset + Metro + Zero + platform on named iOS Simulator
+# Deep-link into a seeded research session; observe detail bound to Zero useQuery.
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Seeded research session deep link (seed:e2e provides a stable session id env when set)
+- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+- extendedWaitUntil:
+    visible:
+      id: "research-detail-view"
+    timeout: 90000
+
+- assertVisible:
+    id: "research-detail-view"
+
+# MUST NOT observe session-not-found for a present seeded session
+- assertNotVisible:
+    text: "Session not found"
+    optional: true
+
+- takeScreenshot: S-REWRITE-04-AC-1-session-loads

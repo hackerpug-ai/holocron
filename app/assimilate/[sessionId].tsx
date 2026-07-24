@@ -7,17 +7,16 @@
  * Route: /assimilate/[sessionId]
  */
 
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { assimilationSessionById } from '@/app/zero/queries';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { Button } from '@/components/ui/button';
 import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 
 /** Human-readable label for each session status. */
 function statusLabel(status: string): string {
@@ -65,24 +64,43 @@ function statusBadgeClass(status: string): string {
   }
 }
 
+type AssimilationRow = {
+  id: string;
+  status: string;
+  repository_name?: string | null;
+  repository_url?: string | null;
+  plan_summary?: string | null;
+  plan_content?: string | null;
+  plan_feedback?: string | null;
+};
+
 export default function AssimilationPlanRoute() {
   const router = useRouter();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const insets = useSafeAreaInsets();
+  const zero = useZero();
 
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const approve = useMutation(api.assimilate.mutations.approveAssimilationPlan);
-  const reject = useMutation(api.assimilate.mutations.rejectAssimilationPlan);
+  const isValidId = !!(sessionId && sessionId !== 'undefined' && sessionId.length > 0);
 
-  const isValidId = sessionId && sessionId !== 'undefined' && sessionId.length > 0;
-
-  const session = useQuery(
-    api.assimilate.queries.getAssimilationSession,
-    isValidId ? { sessionId: sessionId as Id<'assimilationSessions'> } : 'skip'
+  const [sessionRow] = useZeroQuery(
+    isValidId && sessionId ? assimilationSessionById(sessionId) : undefined,
+    { enabled: isValidId }
   );
+
+  const session = sessionRow
+    ? {
+        _id: (sessionRow as AssimilationRow).id,
+        status: (sessionRow as AssimilationRow).status,
+        repositoryName: (sessionRow as AssimilationRow).repository_name ?? undefined,
+        repositoryUrl: (sessionRow as AssimilationRow).repository_url ?? undefined,
+        planSummary: (sessionRow as AssimilationRow).plan_summary ?? undefined,
+        planContent: (sessionRow as AssimilationRow).plan_content ?? undefined,
+      }
+    : sessionRow;
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -93,10 +111,14 @@ export default function AssimilationPlanRoute() {
   };
 
   const handleApprove = async () => {
-    if (!isValidId || isSubmitting) return;
+    if (!isValidId || isSubmitting || !sessionId) return;
     setIsSubmitting(true);
     try {
-      await approve({ sessionId: sessionId as Id<'assimilationSessions'> });
+      await zero.mutate.assimilation_sessions.update({
+        id: sessionId,
+        status: 'approved',
+        updated_at: Date.now(),
+      });
       router.back();
     } catch (err) {
       console.warn('[AssimilationPlanRoute] Approve error:', err);
@@ -110,12 +132,14 @@ export default function AssimilationPlanRoute() {
   };
 
   const handleSubmitFeedback = async () => {
-    if (!isValidId || isSubmitting) return;
+    if (!isValidId || isSubmitting || !sessionId) return;
     setIsSubmitting(true);
     try {
-      await reject({
-        sessionId: sessionId as Id<'assimilationSessions'>,
-        feedback: feedback.trim() || undefined,
+      await zero.mutate.assimilation_sessions.update({
+        id: sessionId,
+        status: 'rejected',
+        plan_feedback: feedback.trim() || null,
+        updated_at: Date.now(),
       });
       router.back();
     } catch (err) {

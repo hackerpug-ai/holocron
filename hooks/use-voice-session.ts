@@ -14,13 +14,10 @@
  * NEVER exposes WebRTC internals.
  */
 
-import { useAction, useConvex, useMutation } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { MediaStream } from 'react-native-webrtc-web-shim';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useVoiceResultBridge } from '@/hooks/use-voice-result-bridge';
 import {
   initialVoiceSessionState,
@@ -36,6 +33,19 @@ import { SessionTimeout, WarmConnection } from '@/lib/voice/session-timeout';
 import { getToolDefinitions } from '@/lib/voice/tool-definitions';
 import { createTranscriptRecorder } from '@/lib/voice/transcript-recorder';
 import { WebRTCConnection } from '@/lib/voice/webrtc-connection';
+
+/**
+ * CAP-CUT-01 / Sprint 20/24: voice is disabled on Zero-only cold boot.
+ * MUST NOT import convex/react — useAction/useMutation/useConvex crash without
+ * ConvexProvider. Platform voice endpoints will re-enable createSession later.
+ */
+const CONVEX_UNAVAILABLE = 'Convex client unavailable — voice session disabled';
+
+type CreateSessionResult = {
+  ephemeralKey: string;
+  sessionId: string;
+  instructions: string;
+};
 
 /**
  * Discard prewarm data this many ms before the OpenAI 60s token TTL expires.
@@ -98,16 +108,40 @@ export interface UseVoiceSessionReturn {
   prewarm: () => Promise<void>;
 }
 
-export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSessionReturn {
+export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
   const [state, dispatch] = useReducer(voiceSessionReducer, initialVoiceSessionState);
 
-  const createSession = useAction(api.voice.actions.createSession);
-  const endSession = useMutation(api.voice.mutations.endSession);
-  const recordTranscript = useMutation(api.voice.mutations.recordTranscript);
-  const generateAudioUploadUrl = useMutation(api.voice.mutations.generateAudioUploadUrl);
-  const attachAudio = useMutation(api.voice.mutations.attachAudio);
-  const convex = useConvex();
+  // CAP-CUT-01: no convex/react client — voice remains disabled on Zero cold-boot.
+  const voiceEnabled = false;
   const router = useRouter();
+
+  const createSession = useCallback(
+    async (_args: { conversationId: string }): Promise<CreateSessionResult> => {
+      throw new Error(CONVEX_UNAVAILABLE);
+    },
+    []
+  );
+
+  const endSession = useCallback(async (_args: { sessionId: string }) => null, []);
+
+  const recordTranscript = useCallback(
+    async (_args: {
+      sessionId: string;
+      conversationId: string;
+      role: 'user' | 'agent';
+      content: string;
+    }) => null,
+    []
+  );
+
+  const generateAudioUploadUrl = useCallback(async (): Promise<string> => {
+    throw new Error(CONVEX_UNAVAILABLE);
+  }, []);
+
+  const attachAudio = useCallback(
+    async (_args: { sessionId: string; storageId: string }) => null,
+    []
+  );
 
   const connectionRef = useRef<WebRTCConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -187,7 +221,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
         sessionIdRef.current = null;
         try {
           await endSession({
-            sessionId: sid as Id<'voiceSessions'>,
+            sessionId: sid,
           });
         } catch {
           // Best-effort — session may already be ended
@@ -231,7 +265,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
     data.connection.destroy();
 
     // End the Convex session fire-and-forget
-    endSession({ sessionId: data.sessionId as Id<'voiceSessions'> }).catch(() => {});
+    endSession({ sessionId: data.sessionId }).catch(() => {});
   }, [endSession]);
 
   /**
@@ -245,6 +279,9 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
    * want to defer until the user actually commits.
    */
   const prewarm = useCallback(async () => {
+    // Guard: no Convex client (Zero-only cold boot) — voice remains disabled
+    if (!voiceEnabled) return;
+
     // Guard: don't prewarm while a real session is live
     if (statusRef.current !== 'idle' && statusRef.current !== 'error') {
       return;
@@ -298,11 +335,14 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
     } finally {
       isPrewarmingRef.current = false;
     }
-  }, [conversationId, createSession, discardPrewarm]);
+  }, [conversationId, voiceEnabled, createSession, discardPrewarm]);
 
   const start = useCallback(async () => {
     // Guard against double-start
     if (state.status !== 'idle' && state.status !== 'error') return;
+
+    // Guard: no Convex client (Zero-only cold boot) — do not crash or flip UI
+    if (!voiceEnabled) return;
 
     console.time('voice:cold-start');
     dispatch({ type: 'CONNECT', conversationId });
@@ -325,7 +365,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
         if (sid) {
           sessionIdRef.current = null;
           try {
-            await endSession({ sessionId: sid as Id<'voiceSessions'> });
+            await endSession({ sessionId: sid });
           } catch {
             // Best-effort cleanup
           }
@@ -399,8 +439,8 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
       // so we wrap recordTranscript to read sessionIdRef at call time.
       const transcriptRecorder = createTranscriptRecorder({
         recordTranscript: (args) =>
-          recordTranscript({ ...args, sessionId: sessionIdRef.current as Id<'voiceSessions'> }),
-        sessionId: 'placeholder' as unknown as Id<'voiceSessions'>,
+          recordTranscript({ ...args, sessionId: sessionIdRef.current ?? '' }),
+        sessionId: 'placeholder',
         conversationId,
       });
 
@@ -449,11 +489,21 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
           onFunctionCall: async (fn) => {
             dispatch({ type: 'TOOL_START', toolName: fn.name });
             try {
+              // CAP-CUT-01: tool dispatch requires Convex — disabled on Zero boot
+              if (!voiceEnabled) {
+                throw new Error(CONVEX_UNAVAILABLE);
+              }
               const deps: DispatcherDeps = {
                 convex: {
-                  runAction: (path, args) => convex.action(path as never, args as never),
-                  runMutation: (path, args) => convex.mutation(path as never, args as never),
-                  runQuery: (path, args) => convex.query(path as never, args as never),
+                  runAction: async () => {
+                    throw new Error(CONVEX_UNAVAILABLE);
+                  },
+                  runMutation: async () => {
+                    throw new Error(CONVEX_UNAVAILABLE);
+                  },
+                  runQuery: async () => {
+                    throw new Error(CONVEX_UNAVAILABLE);
+                  },
                 },
                 routerPush: (path) => router.push(path as never),
                 sendEvent: (event) => conn.sendEvent(event),
@@ -513,7 +563,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
       const audioRecorder = createAudioRecorder({
         generateUploadUrl: () => generateAudioUploadUrl(),
         attachAudio: (args) => attachAudio(args),
-        sessionId: sessionIdRef.current as Id<'voiceSessions'>,
+        sessionId: sessionIdRef.current ?? '',
       });
       audioRecorderRef.current = audioRecorder;
 
@@ -594,7 +644,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
           if (sid) {
             sessionIdRef.current = null;
             try {
-              await endSession({ sessionId: sid as Id<'voiceSessions'> });
+              await endSession({ sessionId: sid });
             } catch {
               // Best-effort cleanup
             }
@@ -629,7 +679,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
         if (sid) {
           sessionIdRef.current = null;
           try {
-            await endSession({ sessionId: sid as Id<'voiceSessions'> });
+            await endSession({ sessionId: sid });
           } catch {
             // Best-effort cleanup
           }
@@ -664,7 +714,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
         const sid = sessionIdRef.current;
         sessionIdRef.current = null;
         try {
-          await endSession({ sessionId: sid as Id<'voiceSessions'> });
+          await endSession({ sessionId: sid });
         } catch {
           // Best-effort cleanup
         }
@@ -681,9 +731,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
     recordTranscript,
     state.status,
     router.push,
-    convex.query,
-    convex.mutation,
-    convex.action,
+    voiceEnabled,
   ]);
 
   const stop = useCallback(async () => {
@@ -725,7 +773,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
       if (sid) {
         sessionIdRef.current = null;
         // endSession is async but we can't await in cleanup — best effort
-        endSession({ sessionId: sid as Id<'voiceSessions'> }).catch(() => {});
+        endSession({ sessionId: sid }).catch(() => {});
       }
     };
   }, [discardPrewarm, endSession]);

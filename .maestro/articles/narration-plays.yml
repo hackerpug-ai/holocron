@@ -1,0 +1,60 @@
+# S-REWRITE-02 AC-5 / TC-5 — Narration playback loads via Zero
+# Prerequisite: seeded document with narration + Metro + Zero + platform up.
+# Requires installed app bundleId com.holocron.app on a named iOS Simulator.
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: false
+
+- openLink: holocron://articles
+
+- extendedWaitUntil:
+    visible:
+      id: "article-card-pressable"
+    timeout: 90000
+
+- tapOn:
+    id: "article-card-pressable"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      id: "document-actions-button"
+    timeout: 60000
+
+- tapOn:
+    id: "document-actions-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "document-actions-sheet"
+    timeout: 15000
+
+- assertVisible:
+    id: "document-actions-sheet-listen"
+
+- tapOn:
+    id: "document-actions-sheet-listen"
+
+# Narration control bar appears when listen mode engages
+- extendedWaitUntil:
+    visible:
+      id: "narration-control-bar"
+    timeout: 60000
+
+- assertVisible:
+    id: "narration-control-bar"
+
+- assertVisible:
+    id: "narration-play-pause"
+
+- tapOn:
+    id: "narration-play-pause"
+
+# Playing state / duration region (when audio segments resolve via Zero)
+- extendedWaitUntil:
+    visible:
+      id: "narration-control-bar"
+    timeout: 15000
+
+- takeScreenshot: articles-narration-plays

@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
+import { mutators as zeroMutators } from './zero/mutators';
 import { schema as zeroSchema } from './zero/schema';
 
 // Platform base URL (consolidated secrets → EXPO_PUBLIC_PLATFORM_URL).
@@ -65,20 +66,27 @@ function handleIncomingURL({ url }: { url: string }) {
         return;
       }
 
-      // Handle subscriptions deep links (redirect to new locations)
-      if (parsed.path === 'subscriptions') {
-        // Redirect to Settings > Subscriptions
+      // Subscriptions settings list (Zero-backed sources + auto_research toggles)
+      if (parsed.path === 'subscriptions' || parsed.path === 'subscriptions/settings') {
         router.push({
-          pathname: '/subscriptions/settings',
+          pathname: '/subscriptions',
           params,
         });
         return;
       }
 
+      // Legacy feed deep link → What's New intelligence briefing
       if (parsed.path === 'subscriptions/feed') {
-        // Redirect to What's New (social posts view)
         router.push({
-          pathname: '/subscriptions/social',
+          pathname: '/whats-new',
+          params,
+        });
+        return;
+      }
+
+      if (parsed.path === 'whats-new' || parsed.path === 'whats-new/social') {
+        router.push({
+          pathname: `/${parsed.path}`,
           params,
         });
         return;
@@ -136,6 +144,7 @@ export default function RootLayout() {
         cacheURL={zeroCacheUrl ?? 'http://127.0.0.1:4848'}
         userID={zeroUserId}
         schema={zeroSchema}
+        mutators={zeroMutators}
         kvStore={Platform.OS === 'web' ? 'idb' : expoSQLiteStoreProvider()}
       >
         <SafeAreaProvider>

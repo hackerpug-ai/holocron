@@ -1,0 +1,9 @@
+=== AC-6 RED: convex/react still present in cluster (negative control) ===
+hooks/use-agent-activity.ts:1:import { useQuery } from 'convex/react';
+components/agent/ToolApprovalCard.tsx:1:import { useAction } from 'convex/react';
+app/(drawer)/_layout.tsx:2:import { useMutation, useQuery } from 'convex/react';
+hooks/use-chat-history.ts:10:import { useQuery } from 'convex/react';
+app/(drawer)/chat/[conversationId].tsx:2:import { useAction, useMutation, useQuery } from 'convex/react';
+components/chat/ChatPickerSheet.tsx:6:import { useQuery } from 'convex/react';
+components/chat/MessageBubble.tsx:1:import { useMutation, useQuery } from 'convex/react';
+=== expected: non-zero hits before GREEN ===

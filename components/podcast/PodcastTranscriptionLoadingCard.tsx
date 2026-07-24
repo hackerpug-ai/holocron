@@ -1,8 +1,7 @@
-import { useAction } from 'convex/react';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { getPlatformUrl, getRnApiKey } from '@/app/zero/platform';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 
 interface PodcastTranscriptionLoadingCardProps {
   content_id: string;
@@ -15,7 +14,8 @@ interface PodcastTranscriptionLoadingCardProps {
  * PodcastTranscriptionLoadingCard
  *
  * Shows loading state for podcast transcription.
- * Polls for status and automatically transitions to completion state.
+ * Polls platform when configured; never imports convex/react so chat can
+ * cold-boot under ZeroProvider only.
  */
 export function PodcastTranscriptionLoadingCard({
   content_id,
@@ -26,13 +26,28 @@ export function PodcastTranscriptionLoadingCard({
   const [status, setStatus] = useState<'downloading' | 'transcribing' | 'completed' | 'failed'>(
     'downloading'
   );
-  const getTranscriptStatus = useAction(api.audioTranscripts.actions.getTranscriptStatus);
 
   useEffect(() => {
-    // Poll for status every 3 seconds
+    const host = getPlatformUrl();
+    const key = getRnApiKey();
+    if (!host || !key) {
+      // No platform configured — keep static downloading UI without crashing.
+      return;
+    }
+
     const interval = setInterval(async () => {
       try {
-        const result = await getTranscriptStatus({ contentId: content_id });
+        const response = await fetch(
+          `${host}/api/audio-transcripts/status?contentId=${encodeURIComponent(content_id)}`,
+          {
+            headers: { Authorization: `Bearer ${key}` },
+          }
+        );
+        if (!response.ok) return;
+        const result = (await response.json()) as {
+          status?: string;
+          transcriptId?: string;
+        };
 
         if (result.status === 'completed' && result.transcriptId) {
           setStatus('completed');
@@ -50,7 +65,7 @@ export function PodcastTranscriptionLoadingCard({
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [content_id, getTranscriptStatus, onTranscriptComplete]);
+  }, [content_id, onTranscriptComplete]);
 
   const getStatusMessage = () => {
     switch (status) {

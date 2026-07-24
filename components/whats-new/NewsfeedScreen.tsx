@@ -94,7 +94,8 @@ export const NewsfeedScreen = React.memo(function NewsfeedScreen({
     { key: 'discussion', label: 'Discussions', count: discussionCount },
   ];
 
-  // Hero finding is the first non-social finding
+  // Hero is first non-social finding; remaining list continues index at 1 so
+  // seed-aligned 5 items expose finding-0..finding-4 (Maestro AC-1).
   const heroFinding = nonSocialFindings[0];
   const remainingFindings = nonSocialFindings.slice(1);
 
@@ -123,9 +124,9 @@ export const NewsfeedScreen = React.memo(function NewsfeedScreen({
                 testID={`${testID}-filter-bar`}
               />
 
-              {/* Hero card */}
+              {/* Hero card; wrapper testID finding-0 for seed e2e (Maestro AC-1) */}
               {heroFinding && (
-                <View className="mt-4">
+                <View className="mt-4" testID={`${testID}-finding-0`}>
                   <NewsfeedHeroCard
                     title={heroFinding.title}
                     url={heroFinding.url}
@@ -166,17 +167,19 @@ export const NewsfeedScreen = React.memo(function NewsfeedScreen({
               author={item.author}
               engagementVelocity={item.engagementVelocity}
               tags={item.tags}
-              testID={`${testID}-finding-${index}`}
+              testID={`${testID}-finding-${index + 1}`}
               onPress={() => openUrl(item.url)}
             />
           )}
           ListEmptyComponent={
-            <View
-              className="flex-1 px-8 py-16 items-center justify-center"
-              testID={`${testID}-empty`}
-            >
-              <View />
-            </View>
+            !heroFinding ? (
+              <View
+                className="flex-1 px-8 py-16 items-center justify-center"
+                testID={`${testID}-empty`}
+              >
+                <View />
+              </View>
+            ) : null
           }
         />
       )}

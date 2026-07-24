@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Id } from '@/convex/_generated/dataModel';
 
 interface MockRecorderInstance {
   start: ReturnType<typeof vi.fn>;
@@ -52,7 +51,7 @@ function lastRecorder() {
 }
 
 describe('createAudioRecorder', () => {
-  const mockSessionId = 'session-123' as Id<'voiceSessions'>;
+  const mockSessionId = 'session-123';
   const mockGenerateUploadUrl = vi.fn();
   const mockAttachAudio = vi.fn();
 

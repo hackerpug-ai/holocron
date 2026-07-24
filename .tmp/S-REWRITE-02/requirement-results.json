@@ -1,0 +1,74 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "maestro test .maestro/articles/list-loads.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "maestro test .maestro/articles/detail-loads.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "maestro test .maestro/articles/share-url-mastra.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "maestro test .maestro/articles/import-works.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/ac-4-output.txt"
+  },
+  {
+    "id": "AC-5",
+    "verify": "maestro test .maestro/articles/narration-plays.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/ac-5-output.txt"
+  },
+  {
+    "id": "AC-6",
+    "verify": "holo verify:no-convex-client --roots 'app/articles.tsx,app/articles,app/document,components/ArticleCard.tsx,components/articles'",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REWRITE-02/ac-6-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "maestro test .maestro/articles/list-loads.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "maestro test .maestro/articles/detail-loads.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "maestro test .maestro/articles/share-url-mastra.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "maestro test .maestro/articles/import-works.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/tc-4-output.txt"
+  },
+  {
+    "id": "TC-5",
+    "verify": "maestro test .maestro/articles/narration-plays.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REWRITE-02/tc-5-output.txt"
+  },
+  {
+    "id": "TC-6",
+    "verify": "holo verify:no-convex-client --roots 'app/articles.tsx,app/articles,app/document,components/ArticleCard.tsx,components/articles'",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REWRITE-02/tc-6-output.txt"
+  }
+]

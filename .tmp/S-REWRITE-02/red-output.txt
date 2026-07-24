@@ -1,0 +1,13 @@
+=== AC-6 RED against start: convex/react imports still present in documents cluster ===
+timestamp: 2026-07-24T01:05:41Z
+command: rg -n "from ['\"]convex/react['\"]" app/articles.tsx app/articles app/document components/ArticleCard.tsx components/articles
+app/articles.tsx:1:import { useAction, useQuery } from 'convex/react';
+components/articles/ArticleImportModal.tsx:1:import { useMutation, useQuery } from 'convex/react';
+app/document/[id].tsx:1:import { useAction, useMutation, useQuery } from 'convex/react';
+
+=== Zero imports in cluster (expect 0 before rewire) ===
+(none)
+
+=== Exit semantics: non-zero hits means AC-6 fails (RED) ===
+convex_react_import_hits=3
+STATUS: RED (expected before rewire)

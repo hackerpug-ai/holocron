@@ -1,0 +1,53 @@
+{
+  "task_id": "S-REWRITE-01",
+  "tdd_mode": "red_first",
+  "base_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+  "red": {
+    "evidence_file": ".tmp/S-REWRITE-01/red-output.txt",
+    "against_start_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+    "summary": "15/21 tests failed with convex/react still present in cluster; Zero query exports missing",
+    "per_ac": {
+      "AC-1": ".tmp/S-REWRITE-01/AC-1-red-against-start.txt",
+      "AC-2": ".tmp/S-REWRITE-01/AC-2-red-against-start.txt",
+      "AC-3": ".tmp/S-REWRITE-01/AC-3-red-against-start.txt",
+      "AC-4": ".tmp/S-REWRITE-01/AC-4-red-against-start.txt",
+      "AC-5": ".tmp/S-REWRITE-01/AC-5-red-against-start.txt",
+      "AC-6": ".tmp/S-REWRITE-01/AC-6-red-against-start.txt"
+    }
+  },
+  "green": {
+    "evidence_file": ".tmp/S-REWRITE-01/green-tests.txt",
+    "summary": "23/23 integration tests pass including rename wiring + maestro oracle contract tests",
+    "per_ac": {
+      "AC-1": ".tmp/S-REWRITE-01/ac-1-output.txt",
+      "AC-2": ".tmp/S-REWRITE-01/ac-2-output.txt",
+      "AC-3": ".tmp/S-REWRITE-01/ac-3-output.txt",
+      "AC-4": ".tmp/S-REWRITE-01/ac-4-output.txt",
+      "AC-5": ".tmp/S-REWRITE-01/ac-5-output.txt",
+      "AC-6": ".tmp/S-REWRITE-01/ac-6-output.txt"
+    }
+  },
+  "distinct_red_green_commits": false,
+  "waiver": {
+    "reason": "Maestro e2e ACs cannot complete without Metro (:8081), Zero (:4848), and holo seed:e2e. Pure code bug (unreachable rename) fixed and proven via static/integration contracts. Maestro flows strengthened with AC oracles; exit non-zero honestly when substrate missing.",
+    "infrastructure_note": "iPhone 17 booted; maestro present; platform Hono :4111 healthy; Metro down; Zero down; holo seed:e2e unknown command. MAESTRO_APP_ID=com.holocron.app.",
+    "maestro_app_id": "com.holocron.app"
+  },
+  "fix": {
+    "summary": "Wire long-press to open ConversationActionMenu (setActionMenuConversation + setIsActionMenuOpen); strengthen Maestro AC oracles; MAESTRO_APP_ID=com.holocron.app",
+    "files": [
+      "app/(drawer)/_layout.tsx",
+      "screens/DrawerContent.tsx",
+      "components/ConversationRow.tsx",
+      "components/chat/ChatThread.tsx",
+      ".maestro/chat/drawer-loads-seeded.yml",
+      ".maestro/chat/rename-reflects.yml",
+      ".maestro/chat/thread-loads.yml",
+      ".maestro/chat/send-streams.yml",
+      ".maestro/chat/cancel-works.yml",
+      "tests/integration/s-rewrite-01-chat-cluster-zero.test.ts"
+    ],
+    "critical_bug": "AC-2 rename mutator was unreachable \u2014 long-press only revealed inline delete; now opens action menu with Rename"
+  },
+  "fix_commit_sha": "3967588a9e1845b8ea495304846bb237fd0fe2ba"
+}

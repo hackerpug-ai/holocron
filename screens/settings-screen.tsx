@@ -1,10 +1,10 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { voiceLanguage as voiceLanguageQuery } from '@/app/zero/queries';
 import { SubscriptionSection } from '@/components/settings/SubscriptionSection';
 import { Check, Globe, Monitor, Moon, Sun } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
 
@@ -69,6 +69,15 @@ const VOICE_LANGUAGE_OPTIONS = [
   'Chinese',
 ] as const;
 
+const VOICE_LANGUAGE_ROW_ID = 'app-settings-voice-language';
+const DEFAULT_VOICE_LANGUAGE = 'English';
+
+type AppSettingsRow = {
+  id: string;
+  key: string;
+  value_json?: unknown;
+};
+
 type SettingsScreenProps = {};
 
 /**
@@ -76,6 +85,8 @@ type SettingsScreenProps = {};
  *
  * Features live theme preview cards and smooth theme transitions.
  * Built with semantic tokens for full theme awareness.
+ *
+ * Voice language uses Zero `app_settings` (CAP-CUT-01 — no convex/react).
  */
 export function SettingsScreen(_props: SettingsScreenProps) {
   const { colorScheme, setColorScheme } = useColorScheme();
@@ -83,12 +94,36 @@ export function SettingsScreen(_props: SettingsScreenProps) {
     colorScheme === 'dark' ? 'dark' : 'light'
   );
   const [isTransitioning, setIsTransitioning] = useState(false);
-
-  const voiceLanguage = useQuery(api.voice.queries.getVoiceLanguage);
-  const setVoiceLanguage = useMutation(api.voice.mutations.setVoiceLanguage);
+  const zero = useZero();
+  const [voiceLanguageRow] = useZeroQuery(voiceLanguageQuery());
+  const settingsRow = (voiceLanguageRow ?? null) as AppSettingsRow | null;
+  const voiceLanguage =
+    typeof settingsRow?.value_json === 'string' && settingsRow.value_json.length > 0
+      ? settingsRow.value_json
+      : DEFAULT_VOICE_LANGUAGE;
 
   const handleLanguageChange = (language: string) => {
-    void setVoiceLanguage({ language });
+    const now = Date.now();
+    const persist = async () => {
+      if (settingsRow?.id) {
+        await zero.mutate.app_settings.update({
+          id: settingsRow.id,
+          value_json: language,
+          updated_at: now,
+        });
+      } else {
+        await zero.mutate.app_settings.insert({
+          id: VOICE_LANGUAGE_ROW_ID,
+          key: 'voice_language',
+          value_json: language,
+          created_at: now,
+          updated_at: now,
+        });
+      }
+    };
+    void persist().catch((err) => {
+      console.error('Failed to save voice language:', err);
+    });
   };
 
   const handleThemeChange = async (value: ThemeMode) => {

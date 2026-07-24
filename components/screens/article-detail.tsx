@@ -1,4 +1,3 @@
-import { useAction, useQuery } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import type { Root } from 'mdast';
@@ -42,8 +41,6 @@ import {
 import { NarrationToggleButton } from '@/components/narration/NarrationToggleButton';
 import { X } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 import { useWebView } from '@/hooks/useWebView';
 import { extractParagraphs } from '@/lib/extractParagraphs';
@@ -201,25 +198,23 @@ export function ArticleDetail({
   const narration = useNarrationState(paragraphCount);
   const { isNarrationMode } = narration;
 
-  // Subscribe to audio segments only when in narration mode
-  const convexDocId = article.documentId as Id<'documents'> | undefined;
-  const segments =
-    useQuery(
-      api.audio.queries.getSegments,
-      isNarrationMode && convexDocId ? { documentId: convexDocId } : 'skip'
-    ) ?? [];
-
-  const audioJob = useQuery(
-    api.audio.queries.getJob,
-    isNarrationMode && convexDocId ? { documentId: convexDocId } : 'skip'
-  );
+  // CAP-CUT-01: no convex/react. Production narration lives at app/document/[id].tsx
+  // (Zero + platform). This overlay keeps Storybook UI with local-only narration.
+  const documentId = article.documentId;
+  const segments: Array<{
+    _id: string;
+    paragraphIndex: number;
+    status: string;
+    audioUrl: string | null;
+    durationMs?: number | null;
+  }> = [];
+  const audioJob = null;
 
   const { isLoading: isAudioPlayerLoading } = useAudioPlayback(segments, narration, {
     title: article.title,
   });
   const activeAudioSegment = segments.find(
-    (segment: { paragraphIndex: number }) =>
-      segment.paragraphIndex === narration.state.activeParagraphIndex
+    (segment) => segment.paragraphIndex === narration.state.activeParagraphIndex
   );
   const isActiveSegmentWaitingForAudio =
     isNarrationMode &&
@@ -229,65 +224,44 @@ export function ArticleDetail({
   const isAudioLoading = isAudioPlayerLoading || isActiveSegmentWaitingForAudio;
 
   useEffect(() => {
-    if (!isNarrationMode || segments.length === 0) return;
-    const completedCount = segments.filter(
-      (s: { status: string }) => s.status === 'completed'
-    ).length;
-    const totalDuration = segments.reduce(
-      (sum: number, s: { durationMs?: number | null }) => sum + (s.durationMs ?? 0),
-      0
-    );
-    narration.onParagraphReady(completedCount, totalDuration / 1000);
-    if (audioJob && completedCount === audioJob.totalSegments && audioJob.totalSegments > 0) {
-      narration.onAllReady();
-    }
-  }, [segments, isNarrationMode, audioJob, narration.onAllReady, narration.onParagraphReady]);
-
-  useEffect(() => {
     paragraphOffsets.current.clear();
   }, []);
 
-  // ─── Narration progress persistence ──────────────────────────────────────
+  // ─── Narration progress persistence (local AsyncStorage only) ─────────────
 
-  // Save progress when paragraph changes during playback
   useEffect(() => {
-    if (!convexDocId || !isNarrationMode) return;
+    if (!documentId || !isNarrationMode) return;
     const { activeParagraphIndex, playbackSpeed, status } = narration.state;
     if (activeParagraphIndex < 0) return;
     if (status === 'playing' || status === 'paused') {
-      saveNarrationProgress(convexDocId, {
+      saveNarrationProgress(documentId, {
         activeParagraphIndex,
         playbackSpeed,
         lastUpdated: Date.now(),
       });
     }
   }, [
-    convexDocId,
+    documentId,
     isNarrationMode,
     narration.state.activeParagraphIndex,
     narration.state.status,
     narration.state,
   ]);
 
-  // Clear progress when narration finishes (paused on last segment)
   useEffect(() => {
-    if (!convexDocId || !isNarrationMode) return;
+    if (!documentId || !isNarrationMode) return;
     const { activeParagraphIndex, totalParagraphs, status } = narration.state;
     if (status === 'paused' && activeParagraphIndex >= totalParagraphs - 1 && totalParagraphs > 0) {
-      clearNarrationProgress(convexDocId);
+      clearNarrationProgress(documentId);
     }
   }, [
-    convexDocId,
+    documentId,
     isNarrationMode,
     narration.state.status,
     narration.state.activeParagraphIndex,
     narration.state.totalParagraphs,
     narration.state,
   ]);
-
-  const generateAction = useAction(api.audio.actions.generateForDocument);
-  const regenerateAction = useAction(api.audio.actions.regenerateForDocument);
-  const retryFailedAction = useAction(api.audio.actions.retryFailedSegments);
 
   // Handle link press with URL validation - opens in in-app WebView
   const handleLinkPress = (url: string): boolean => {
@@ -362,7 +336,7 @@ export function ArticleDetail({
       }
     });
 
-  // Handle narration mode toggle
+  // Handle narration mode toggle (local UI only — audio generation is on document route)
   const handleToggleNarration = async () => {
     if (isNarrationMode) {
       paragraphOffsets.current.clear();
@@ -370,11 +344,9 @@ export function ArticleDetail({
       return;
     }
     narration.enterNarrationMode(0);
-    if (convexDocId) {
+    if (documentId) {
       try {
-        await generateAction({ documentId: convexDocId });
-        // Restore saved progress if available
-        const saved = await loadNarrationProgress(convexDocId);
+        const saved = await loadNarrationProgress(documentId);
         if (
           saved &&
           saved.activeParagraphIndex >= 0 &&
@@ -386,8 +358,7 @@ export function ArticleDetail({
           }
         }
       } catch (err) {
-        console.error('[Narration] Generation failed:', err);
-        narration.exitNarrationMode();
+        console.error('[Narration] Failed to restore progress:', err);
       }
     }
   };
@@ -670,11 +641,11 @@ export function ArticleDetail({
             isVisible={isNarrationMode}
             isSegmentLoading={isAudioLoading}
             onRegenerate={() => {
-              if (convexDocId) regenerateAction({ documentId: convexDocId });
+              // CAP-CUT-01: audio generation moved to app/document/[id].tsx
             }}
             audioJob={audioJob}
             onRetryFailed={() => {
-              if (convexDocId) retryFailedAction({ documentId: convexDocId });
+              // CAP-CUT-01: audio retry moved to app/document/[id].tsx
             }}
           />
 

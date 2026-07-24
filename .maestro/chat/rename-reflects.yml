@@ -1,0 +1,84 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-2 / TC-2 — Conversation rename reflects via Zero mutator within 5s SLO
+# Prerequisite: seeded conversations + app running on named iOS Simulator.
+# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
+# Long-press opens ConversationActionMenu → Rename is user-reachable.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- tapOn:
+    id: "chat-header-menu-button"
+    optional: true
+- tapOn:
+    id: "screen-header-menu-button"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "drawer-content"
+    timeout: 15000
+
+# Seeded list still has 3 rows before rename
+- assertVisible:
+    id: "conversation-row"
+    index: 0
+- assertVisible:
+    id: "conversation-row"
+    index: 1
+- assertVisible:
+    id: "conversation-row"
+    index: 2
+
+# Open action menu via long-press (required path for rename)
+- longPressOn:
+    id: "conversation-row"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      id: "action-menu-overlay"
+    timeout: 5000
+
+- assertVisible:
+    id: "action-menu-rename-button"
+
+- tapOn:
+    id: "action-menu-rename-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "rename-dialog"
+    timeout: 5000
+
+- tapOn:
+    id: "rename-input"
+- eraseText
+- inputText: "Sprint Planning"
+
+- tapOn:
+    id: "rename-save-button"
+
+# Oracle: renamed title reflects within 5s SLO; row count stays 3
+- extendedWaitUntil:
+    visible: "Sprint Planning"
+    timeout: 5000
+
+- assertVisible: "Sprint Planning"
+- assertVisible:
+    id: "conversation-row"
+    index: 0
+- assertVisible:
+    id: "conversation-row"
+    index: 1
+- assertVisible:
+    id: "conversation-row"
+    index: 2
+
+- takeScreenshot: S-REWRITE-01-AC-2-rename-reflects

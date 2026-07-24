@@ -1,0 +1,18 @@
+AC-6 no-convex-client scan
+0 convex/react imports — PASS
+Zero seam present:
+hooks/use-chat-history.ts:8:import { useQuery } from '@rocicorp/zero/react';
+app/(drawer)/_layout.tsx:2:import { useQuery, useZero } from '@rocicorp/zero/react';
+Rename wiring:
+app/(drawer)/_layout.tsx:44:  const [actionMenuConversation, setActionMenuConversation] = useState<{
+app/(drawer)/_layout.tsx:93:    setActionMenuConversation({ id: conversation.id, title: conversation.title });
+app/(drawer)/_layout.tsx:125:  const handleRename = async (newTitle: string) => {
+app/(drawer)/_layout.tsx:202:      onOpenConversationMenu={handleOpenConversationMenu}
+app/(drawer)/_layout.tsx:214:        if (!open) setActionMenuConversation(null);
+app/(drawer)/_layout.tsx:216:      onRename={handleRename}
+screens/DrawerContent.tsx:48:  onOpenConversationMenu?: (_conversation: Conversation) => void;
+screens/DrawerContent.tsx:97:  onOpenConversationMenu,
+screens/DrawerContent.tsx:141:      if (onOpenConversationMenu) {
+screens/DrawerContent.tsx:144:        onOpenConversationMenu(conversation);
+screens/DrawerContent.tsx:150:    [onOpenConversationMenu, clearDismissTimer]
+exit_code=0

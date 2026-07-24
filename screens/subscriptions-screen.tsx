@@ -1,17 +1,16 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, ScrollView, View, type ViewProps } from 'react-native';
+import { subscriptionContentGroupedByCreator } from '@/app/zero/queries';
 import { EmptyState } from '@/components/EmptyState';
 import { FilterChip } from '@/components/FilterChip';
 import { SearchInput } from '@/components/SearchInput';
 import { SectionHeader } from '@/components/SectionHeader';
 import { CreatorGroupCard } from '@/components/subscriptions/CreatorGroupCard';
-import type { CreatorGroup } from '@/components/subscriptions/types';
+import type { CreatorGroup, SubscriptionSource } from '@/components/subscriptions/types';
 import { Bell as BellIcon, Loader2 } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
 
 type PlatformType =
@@ -40,12 +39,71 @@ interface SubscriptionsScreenProps extends Omit<ViewProps, 'children'> {
   onUnsubscribe?: (ids: string[]) => void;
 }
 
+type SourceRow = {
+  id: string;
+  source_type?: string | null;
+  identifier?: string | null;
+  name?: string | null;
+  url?: string | null;
+  auto_research?: boolean | null;
+  creator_profile_id?: string | null;
+  config_json?: Record<string, unknown> | null;
+  created_at: number;
+  updated_at?: number | null;
+};
+
+function toSubscriptionSource(row: SourceRow): SubscriptionSource {
+  return {
+    _id: row.id as SubscriptionSource['_id'],
+    sourceType: (row.source_type ?? 'youtube') as SubscriptionSource['sourceType'],
+    identifier: row.identifier ?? row.id,
+    name: row.name ?? row.identifier ?? 'Subscription',
+    url: row.url ?? undefined,
+    autoResearch: row.auto_research ?? false,
+    creatorProfileId: row.creator_profile_id as SubscriptionSource['creatorProfileId'],
+    configJson: row.config_json ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+  } as SubscriptionSource;
+}
+
+function groupSources(rows: SourceRow[]): CreatorGroup[] {
+  const groups = new Map<string, CreatorGroup>();
+
+  for (const row of rows) {
+    const source = toSubscriptionSource(row);
+    const creatorProfileId = row.creator_profile_id ?? null;
+    const groupKey = creatorProfileId || `standalone-${row.id}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        creatorProfileId,
+        name: source.name || source.identifier,
+        subscriptions: [],
+        platformCount: 0,
+        documentCount: 0,
+        lastActivityAt: source.createdAt,
+        avatarUrl: (row.config_json?.avatarUrl as string | undefined) ?? undefined,
+      });
+    }
+
+    const group = groups.get(groupKey)!;
+    group.subscriptions.push(source);
+    group.platformCount += 1;
+    const activity = source.updatedAt ?? source.createdAt;
+    if (activity > group.lastActivityAt) {
+      group.lastActivityAt = activity;
+    }
+  }
+
+  return Array.from(groups.values());
+}
+
 /**
- * SubscriptionsScreen - manage all subscription sources grouped by creator
+ * SubscriptionsScreen - manage all subscription sources grouped by creator.
  *
- * Displays a searchable, filterable list of all subscription groups with
- * quick actions for toggling auto-research and unsubscribing.
- * Organized by platform type with horizontal filter chips.
+ * Reads via Zero (`subscriptionContentGroupedByCreator` → subscription_sources).
+ * Toggle uses Zero mutator (`subscription_sources.update` / auto_research).
  */
 export function SubscriptionsScreen({
   onUnsubscribe,
@@ -55,30 +113,30 @@ export function SubscriptionsScreen({
   const [searchValue, setSearchValue] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('all');
   const router = useRouter();
+  const zero = useZero();
 
-  // Fetch grouped subscriptions with optional filtering
-  const groups = useQuery(
-    api.subscriptions.queries.listGroupedByCreator,
-    selectedPlatform !== 'all' ? { sourceType: selectedPlatform, limit: 100 } : { limit: 100 }
-  );
+  const [rawRows, details] = useZeroQuery(subscriptionContentGroupedByCreator(100));
+  const rows = (rawRows ?? []) as unknown as SourceRow[];
+  const isLoading = details.type !== 'complete' && rows.length === 0;
 
-  // Mutation for toggling auto-research
-  const toggleAutoResearch = useMutation(api.subscriptions.mutations.update);
+  const groups = useMemo(() => {
+    const all = groupSources(rows);
+    if (selectedPlatform === 'all') return all;
+    return all
+      .map((group) => ({
+        ...group,
+        subscriptions: group.subscriptions.filter((s) => s.sourceType === selectedPlatform),
+      }))
+      .filter((group) => group.subscriptions.length > 0);
+  }, [rows, selectedPlatform]);
 
-  // Mutation for bulk unsubscribe
-  const bulkRemove = useMutation(api.subscriptions.mutations.bulkRemove);
-
-  // Filter by search query - search group name OR any subscription identifier
   const filteredGroups = groups?.filter((group: CreatorGroup) => {
     if (!searchValue) return true;
     const query = searchValue.toLowerCase();
-    // Check group name
     if (group.name.toLowerCase().includes(query)) return true;
-    // Check any subscription identifier
     return group.subscriptions.some((sub) => sub.identifier.toLowerCase().includes(query));
   });
 
-  // Get platform counts for chips - count by unique source types across all subscriptions
   const platformCounts = groups?.reduce(
     (acc: Record<string, number>, group: CreatorGroup) => {
       group.subscriptions.forEach((sub) => {
@@ -89,7 +147,6 @@ export function SubscriptionsScreen({
     {} as Record<string, number>
   );
 
-  // Get available platforms with counts
   const availablePlatforms: PlatformType[] = [
     'all',
     ...(Object.keys(platformCounts || {}) as PlatformType[]),
@@ -107,26 +164,30 @@ export function SubscriptionsScreen({
     setSelectedPlatform(platform as PlatformType);
   };
 
-  const handleToggleAutoResearch = async (id: string, currentValue: boolean) => {
-    await toggleAutoResearch({
-      id: id as Id<'subscriptionSources'>,
-      autoResearch: !currentValue,
+  const handleToggleAutoResearch = async (id: string, nextValue: boolean) => {
+    // CreatorGroupCard passes the *desired* auto_research value after local toggle.
+    // Zero mutator: subscription_sources.update (enabled / auto_research flag).
+    await zero.mutate.subscription_sources.update({
+      id,
+      auto_research: nextValue,
+      updated_at: Date.now(),
     });
   };
 
   const handleUnsubscribe = async (subscriptionIds: string[]) => {
-    await bulkRemove({ subscriptionIds: subscriptionIds as Id<'subscriptionSources'>[] });
+    for (const id of subscriptionIds) {
+      await zero.mutate.subscription_sources.delete({ id });
+    }
     onUnsubscribe?.(subscriptionIds);
   };
 
   const handleGroupPress = (group: CreatorGroup) => {
-    // Navigate to detail view with subscription IDs
     const subscriptionIds = group.subscriptions.map((s) => s._id.toString()).join(',');
     router.push(`/subscription-content/${encodeURIComponent(subscriptionIds)}`);
   };
 
   const renderEmptyState = () => {
-    if (groups === undefined) {
+    if (isLoading || groups === undefined) {
       return (
         <View className="flex-1 items-center justify-center p-8">
           <Loader2 size={32} className="text-muted-foreground animate-spin" />
@@ -155,11 +216,13 @@ export function SubscriptionsScreen({
   };
 
   return (
-    <View className={cn('flex-1 bg-background', className)} {...props}>
-      {/* Header */}
+    <View
+      className={cn('flex-1 bg-background', className)}
+      {...props}
+      testID="subscriptions-screen"
+    >
       <SectionHeader title="Subscriptions" className="border-b border-border px-4 pb-4" />
 
-      {/* Search */}
       <View className="px-4 pt-4">
         <SearchInput
           value={searchValue}
@@ -170,7 +233,6 @@ export function SubscriptionsScreen({
         />
       </View>
 
-      {/* Platform filter chips */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -191,7 +253,6 @@ export function SubscriptionsScreen({
         })}
       </ScrollView>
 
-      {/* Subscription list or empty state */}
       {filteredGroups && filteredGroups.length > 0 ? (
         <FlatList
           data={filteredGroups}

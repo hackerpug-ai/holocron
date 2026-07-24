@@ -1,28 +1,47 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery, useZero } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { conversationsByOwner, conversationsBySearchTerm } from '@/app/zero/queries';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Doc } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 import { log } from '@/lib/logger-client';
 import type { Conversation } from '@/lib/types/conversations';
 import { DrawerContent } from '@/screens/DrawerContent';
 
+type ZeroConversationRow = {
+  id: string;
+  title?: string | null;
+  last_message_preview?: string | null;
+  updated_at: number;
+  created_at: number;
+};
+
+function mapConversation(c: ZeroConversationRow): Conversation {
+  return {
+    id: c.id,
+    title: c.title ?? 'Untitled Chat',
+    lastMessage: c.last_message_preview ?? undefined,
+    lastMessageAt: c.updated_at ? new Date(c.updated_at) : undefined,
+    createdAt: new Date(c.created_at),
+    updatedAt: new Date(c.updated_at),
+  };
+}
+
 /**
- * Custom drawer content that wires Convex useQuery/useMutation
+ * Custom drawer content that wires Zero useQuery + mutators
  * to the DrawerContent component and handles navigation.
  */
 function CustomDrawerContent() {
   const router = useRouter();
+  const zero = useZero();
   const _isDrawerOpen = useDrawerStatus() === 'open';
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
-  const [actionMenuConversation, _setActionMenuConversation] = useState<{
+  const [actionMenuConversation, setActionMenuConversation] = useState<{
     id: string;
     title: string;
   } | null>(null);
@@ -40,64 +59,61 @@ function CustomDrawerContent() {
     };
   }, [searchQuery]);
 
-  // Direct Convex useQuery for conversations list
-  const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? [];
+  // Zero query for conversations list (conversationsByOwner)
+  const [conversationRows] = useQuery(conversationsByOwner());
+  const conversations = (conversationRows ?? []) as unknown as ZeroConversationRow[];
 
-  // Server-side search (triggers when debounced query > 2 chars)
+  // Server-side search via Zero when debounced query > 2 chars
   const searchEnabled = debouncedQuery.trim().length > 2;
-  const searchResults = useQuery(
-    api.conversations.search.search,
-    searchEnabled ? { query: debouncedQuery.trim() } : 'skip'
+  const [searchRows] = useQuery(
+    searchEnabled ? conversationsBySearchTerm(debouncedQuery.trim()) : undefined
   );
+  const searchResults = searchEnabled
+    ? ((searchRows ?? []) as unknown as ZeroConversationRow[])
+    : undefined;
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
-  // Convex mutations
-  const updateConversation = useMutation(api.conversations.mutations.update);
-  const removeConversation = useMutation(api.conversations.mutations.remove);
-
-  // Loading states from mutations
   const _isCreating = false;
   const isRenaming = false;
   const isDeleting = false;
   const error = null;
 
   const handleNewChatPress = () => {
-    // Navigate to /chat/new for lazy conversation creation
-    // Conversation will be created when first message is sent
     router.push('/chat/new');
   };
 
   const handleConversationDelete = (conversation: Conversation) => {
-    // Long-press inline delete: execute delete immediately
     executeDelete(conversation.id);
+  };
+
+  /** Long-press opens ConversationActionMenu so rename/delete are user-reachable (AC-2). */
+  const handleOpenConversationMenu = (conversation: Conversation) => {
+    setActionMenuConversation({ id: conversation.id, title: conversation.title });
+    setIsActionMenuOpen(true);
   };
 
   const executeDelete = async (conversationId: string) => {
     try {
       const isDeletingActive = conversationId === activeConversationId;
-
-      // Get remaining conversations before deletion
-      const remaining = conversations.filter((c: Doc<'conversations'>) => c._id !== conversationId);
+      const remaining = conversations.filter((c) => c.id !== conversationId);
 
       let navigateToId: string | null = null;
       if (isDeletingActive) {
         if (remaining.length === 0) {
-          // Navigate to /chat/new for lazy conversation creation
           setActiveConversationId(null);
           navigateToId = 'new';
         } else {
-          // Switch to most recent remaining conversation
           const next = remaining[0];
-          setActiveConversationId(next._id);
-          navigateToId = next._id;
+          setActiveConversationId(next.id);
+          navigateToId = next.id;
         }
       }
 
-      await removeConversation({ id: conversationId as any });
+      // Zero mutator: deleteConversation → table CRUD delete
+      await zero.mutate.conversations.delete({ id: conversationId });
 
-      // Navigate to the next conversation if the active one was deleted
       if (navigateToId) {
         router.push(`/chat/${navigateToId}`);
       }
@@ -109,8 +125,13 @@ function CustomDrawerContent() {
   const handleRename = async (newTitle: string) => {
     if (!actionMenuConversation) return;
     try {
-      // Convert string ID to Convex ID type
-      await updateConversation({ id: actionMenuConversation.id as any, title: newTitle });
+      // Zero mutator: updateConversation → table CRUD update
+      await zero.mutate.conversations.update({
+        id: actionMenuConversation.id,
+        title: newTitle,
+        title_set_by_user: true,
+        updated_at: Date.now(),
+      });
       setIsActionMenuOpen(false);
     } catch (err) {
       log('DrawerLayout').error('Failed to rename conversation', err, {
@@ -122,12 +143,10 @@ function CustomDrawerContent() {
 
   const handleDelete = async () => {
     if (!actionMenuConversation) return;
-    // For action menu deletes, use the same execution logic
     await executeDelete(actionMenuConversation.id);
     setIsActionMenuOpen(false);
   };
 
-  // Navigate to conversation
   const handleConversationPress = (conversation: Conversation) => {
     setActiveConversationId(conversation.id);
     router.push(`/chat/${conversation.id}`);
@@ -157,23 +176,14 @@ function CustomDrawerContent() {
     router.push('/improvements');
   };
 
-  // Choose which conversations to display
   const conversationsToMap = useMemo(() => {
     if (searchEnabled && searchResults !== undefined) {
-      return searchResults as Doc<'conversations'>[];
+      return searchResults;
     }
-    return conversations as Doc<'conversations'>[];
+    return conversations;
   }, [conversations, searchResults, searchEnabled]);
 
-  // Map Convex documents to Conversation interface
-  const mappedConversations: Conversation[] = conversationsToMap.map((c: Doc<'conversations'>) => ({
-    id: c._id,
-    title: c.title,
-    lastMessage: c.lastMessagePreview,
-    lastMessageAt: c.updatedAt ? new Date(c.updatedAt) : undefined,
-    createdAt: new Date(c.createdAt),
-    updatedAt: new Date(c.updatedAt),
-  }));
+  const mappedConversations: Conversation[] = conversationsToMap.map(mapConversation);
 
   return (
     <DrawerContent
@@ -181,7 +191,7 @@ function CustomDrawerContent() {
       activeConversationId={activeConversationId ?? undefined}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      isSearching={searchEnabled && searchResults === undefined}
+      isSearching={searchEnabled && searchRows === undefined}
       isLoading={false}
       isRenaming={isRenaming}
       isDeleting={isDeleting}
@@ -189,6 +199,7 @@ function CustomDrawerContent() {
       onNewChatPress={handleNewChatPress}
       onConversationPress={handleConversationPress}
       onConversationDelete={handleConversationDelete}
+      onOpenConversationMenu={handleOpenConversationMenu}
       onArticlesPress={handleArticlesPress}
       onSubscriptionsPress={handleSubscriptionsPress}
       onWhatsNewPress={handleWhatsNewPress}
@@ -198,7 +209,10 @@ function CustomDrawerContent() {
       onRetry={() => {}}
       actionMenuOpen={isActionMenuOpen}
       actionMenuConversationTitle={actionMenuConversation?.title ?? ''}
-      onActionMenuOpenChange={setIsActionMenuOpen}
+      onActionMenuOpenChange={(open) => {
+        setIsActionMenuOpen(open);
+        if (!open) setActionMenuConversation(null);
+      }}
       onRename={handleRename}
       onDelete={handleDelete}
       hasActiveTasks={false}
@@ -243,18 +257,18 @@ export default function DrawerLayout() {
   const router = useRouter();
   const { colors: themeColors } = useTheme();
 
-  // Direct Convex useQuery for conversations list
-  const conversations = useQuery(api.conversations.index.list, { limit: 50 }) ?? [];
+  // Zero query for conversations list (conversationsByOwner)
+  const [conversationRows] = useQuery(conversationsByOwner());
+  const conversations = (conversationRows ?? []) as unknown as ZeroConversationRow[];
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   // Prevent duplicate initialization on re-renders (React 18 Strict Mode)
-  // Two refs: isInitializing prevents concurrent runs, hasInitialized tracks completion
   const hasInitialized = useRef(false);
   const isInitializing = useRef(false);
 
-  const isLoading = conversations === undefined;
+  const isLoading = conversationRows === undefined;
 
   useEffect(() => {
     // On first mount, navigate to /chat/new immediately (optimistic empty state)
@@ -268,17 +282,13 @@ export default function DrawerLayout() {
     // After conversations load, navigate to most recent if any exist
     if (!isLoading && conversations.length > 0 && hasInitialized.current) {
       const mostRecent = conversations[0];
-      // Only navigate if we're currently at /chat/new
       if (activeConversationId === null) {
-        setActiveConversationId(mostRecent._id);
-        router.replace(`/chat/${mostRecent._id}`);
+        setActiveConversationId(mostRecent.id);
+        router.replace(`/chat/${mostRecent.id}`);
       }
     }
   }, [isLoading, conversations, router, activeConversationId]);
 
-  // No loading screen - show UI immediately
-
-  // Normal drawer layout after initialization
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']} className="bg-background">
       <Drawer

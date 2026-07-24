@@ -1,0 +1,82 @@
+{
+  "task_id": "S-REWRITE-01",
+  "timestamp": "2026-07-24T01:40:54Z",
+  "fix": "rename menu wiring + maestro oracles",
+  "maestro_app_id": "com.holocron.app",
+  "note": "Maestro AC-1..5 exit non-zero honestly (Metro/Zero/seed substrate missing). Pure code bugs fixed. AC-6 green.",
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "maestro test .maestro/chat/thread-loads.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "maestro test .maestro/chat/send-streams.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "maestro test .maestro/chat/cancel-works.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/ac-5-output.txt"
+    },
+    {
+      "id": "AC-6",
+      "verify": "holo verify:no-convex-client / rg convex/react cluster scan",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REWRITE-01/ac-6-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "maestro test .maestro/chat/thread-loads.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "maestro test .maestro/chat/send-streams.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "maestro test .maestro/chat/cancel-works.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-01/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "holo verify:no-convex-client / rg convex/react cluster scan",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REWRITE-01/tc-6-output.txt"
+    }
+  ],
+  "commit_sha": "3967588a9e1845b8ea495304846bb237fd0fe2ba"
+}

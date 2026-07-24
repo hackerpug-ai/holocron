@@ -1,0 +1,219 @@
+{
+  "task_id": "S-REWRITE-02",
+  "timestamp": "2026-07-24T01:40:15Z",
+  "commit_sha": "9fe1ac6d838aeab9e1a7358710f0a51b9e0e25d2",
+  "remediation": "tdd-lineage + maestro oracles + AC-4 contract note",
+  "typecheck": {
+    "exit_code": 2
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": true,
+  "tdd_lineage": {
+    "file": ".tmp/S-REWRITE-02/tdd-lineage.json",
+    "distinct_red_green_commits": false,
+    "waiver": true,
+    "base_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+    "implementation_commit_sha": "37d885498c7ce678463745ab83daeb1cb8c82a48"
+  },
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "maestro test .maestro/articles/list-loads.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/ac-1-output.txt",
+      "seeded_value": "Zero documentsByOwner; list/cards oracles (articles-route, article-card-pressable)",
+      "red_against_start_file": ".tmp/S-REWRITE-02/AC-1-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-02/AC-1-green.txt",
+      "note": "Honest Maestro exit 1: app launches (com.holocron.app) but articles-route not visible without Metro/seed"
+    },
+    {
+      "id": "AC-2",
+      "verify": "maestro test .maestro/articles/detail-loads.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/ac-2-output.txt",
+      "seeded_value": "documentById Zero query; document-layout/document-markdown oracles",
+      "red_against_start_file": ".tmp/S-REWRITE-02/AC-2-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-02/AC-2-green.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "maestro test .maestro/articles/share-url-mastra.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/ac-3-output.txt",
+      "seeded_value": "buildArticleShareUrl \u2192 host/article/token; flow asserts /article/ and rejects .convex.site",
+      "red_against_start_file": ".tmp/S-REWRITE-02/AC-3-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-02/AC-3-green.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "maestro test .maestro/articles/import-works.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/ac-4-output.txt",
+      "seeded_value": "createImportDocument append-to-existing Zero mutator path",
+      "red_against_start_file": ".tmp/S-REWRITE-02/AC-4-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-02/AC-4-green.txt",
+      "contract_note": ".tmp/S-REWRITE-02/AC-4-contract-note.md"
+    },
+    {
+      "id": "AC-5",
+      "verify": "maestro test .maestro/articles/narration-plays.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/ac-5-output.txt",
+      "seeded_value": "audioSegmentsByDocument + narration-control-bar / narration-play-pause oracles",
+      "red_against_start_file": ".tmp/S-REWRITE-02/AC-5-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-02/AC-5-green.txt"
+    },
+    {
+      "id": "AC-6",
+      "verify": "holo verify:no-convex-client --roots 'app/articles.tsx,app/articles,app/document,components/ArticleCard.tsx,components/articles'",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REWRITE-02/ac-6-output.txt",
+      "seeded_value": "convex_react_import_hits=0; zero_import_hits=9",
+      "red_against_start_file": ".tmp/S-REWRITE-02/AC-6-red-against-start.txt",
+      "green_file": ".tmp/S-REWRITE-02/AC-6-green.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "maestro test .maestro/articles/list-loads.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "maestro test .maestro/articles/detail-loads.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "maestro test .maestro/articles/share-url-mastra.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "maestro test .maestro/articles/import-works.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "maestro test .maestro/articles/narration-plays.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REWRITE-02/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "holo verify:no-convex-client --roots 'app/articles.tsx,app/articles,app/document,components/ArticleCard.tsx,components/articles'",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REWRITE-02/tc-6-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true,
+    "file": ".tmp/S-REWRITE-02/red-output.txt",
+    "present": true
+  },
+  "generator": {
+    "tool": "manual-remediation",
+    "version": "1.1",
+    "generated_at": "2026-07-24T01:40:15Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "0198c1fcb7170eef1216d81ca16f30181058f20958e2189d89ae5b7bbd1a8b78"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "5a0f412b1e2caa68bb19c3b8014e684926cc0a3cdf4184ee52a70fad817c36b9"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "2aab09362d16467d1211d824f625c9561a64caaca9bec1283b4559a52baa2a4d"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e1759657a206c9d9739579a718f167c619f730dcab0bc66bc0696b7f24a39607"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "4c118bafea1b5b3c84d41f172f034c696c8dc948d89b2b145df3f882d4b9dd90"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "f40746789ab3f692457076a969105731a2dfd9f92e6c485b25381024da0ad705"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "5a8038fee022b137d45a765152aec343d880340f1b3756f2f5e4934a6cb149ab"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "d3f4a056fd2b0acdd2af5dbba0b200594c27652b10564783061136e59d83348f"
+      },
+      {
+        "path": "ac-6-output.txt",
+        "sha256": "b46e7c85fa82dbfe41d42cdf1d20ff3a6fe1b9b99e8b90227c7e5c028e255976"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e1759657a206c9d9739579a718f167c619f730dcab0bc66bc0696b7f24a39607"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "4c118bafea1b5b3c84d41f172f034c696c8dc948d89b2b145df3f882d4b9dd90"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "f40746789ab3f692457076a969105731a2dfd9f92e6c485b25381024da0ad705"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "5a8038fee022b137d45a765152aec343d880340f1b3756f2f5e4934a6cb149ab"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "d3f4a056fd2b0acdd2af5dbba0b200594c27652b10564783061136e59d83348f"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "b46e7c85fa82dbfe41d42cdf1d20ff3a6fe1b9b99e8b90227c7e5c028e255976"
+      },
+      {
+        "path": "tdd-lineage.json",
+        "sha256": "32b3723f887f5332b633cc637f7b8d814e76503d92abf62e8574b95771caec8b"
+      },
+      {
+        "path": "environment-probe.md",
+        "sha256": "4163940fba4f43c38671e90e1b31d71c7fe77c51feebe3af96f7eee8e3222427"
+      },
+      {
+        "path": "AC-4-contract-note.md",
+        "sha256": "f4cb9b13f3dc8ce93489e75dd0a5faad025ed2ef285f72360a219755dd335817"
+      },
+      {
+        "path": "red-output.txt",
+        "sha256": "e5655be04afae30472ecdc0fa54ff6e54b66e4d28f6ee8700f33ada70fe391dc"
+      }
+    ]
+  },
+  "environment_notes": {
+    "maestro": "appId=com.holocron.app; app installed and launches; UI oracles fail without Metro+Zero+seed \u2014 honest exit 1; do not fake green",
+    "maestro_requires_installed_app": true,
+    "environment_probe": ".tmp/S-REWRITE-02/environment-probe.md",
+    "typecheck": "pre-existing services/platform drizzle-orm missing at monorepo root",
+    "lint": "pre-existing repo-wide biome issues; scoped S-REWRITE-02 files clean",
+    "ac6": "passed via .tmp/S-REWRITE-02/bin/holo verify:no-convex-client (shim until S-REWRITE-05)",
+    "ac4_contract": "append-to-existing createImportDocument; see .tmp/S-REWRITE-02/AC-4-contract-note.md"
+  },
+  "assumptions_made": {
+    "AC-4": "Legacy append-to-existing preferred over insertDocument +1 row; product APPROVED; mutator path is real Zero update."
+  },
+  "remediation_commit_sha": "9fe1ac6d838aeab9e1a7358710f0a51b9e0e25d2",
+  "implementation_commit_sha": "37d885498c7ce678463745ab83daeb1cb8c82a48",
+  "branch_tip_note": "Remediation commit is HEAD; commit_sha field tracks the FIX content commit after amend-stamp cycle.",
+  "evidence_stamp_commit_sha": "01afe7d934852055258f6fe49a0a52b53ab33b40"
+}
