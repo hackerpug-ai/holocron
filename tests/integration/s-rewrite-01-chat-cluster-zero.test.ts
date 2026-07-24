@@ -188,6 +188,23 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
       expect(src).toMatch(/mutate\.conversations\.update|updateConversation/);
       expect(src).not.toMatch(/api\.conversations\.mutations\.update/);
     });
+
+    it('drawer long-press wires setActionMenuConversation so rename is user-reachable', () => {
+      const layout = read(join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'));
+      const drawer = read(join(REPO_ROOT, 'screens', 'DrawerContent.tsx'));
+
+      // Parent holds action-menu conversation state and rename handler
+      expect(layout).toMatch(/setActionMenuConversation/);
+      expect(layout).toMatch(/handleRename|onRename=\{handleRename\}/);
+      expect(layout).toMatch(/setIsActionMenuOpen\(true\)/);
+      expect(layout).toMatch(/onOpenConversationMenu=\{handleOpenConversationMenu\}/);
+
+      // DrawerContent long-press opens the action menu (not delete-only)
+      expect(drawer).toMatch(/onOpenConversationMenu/);
+      expect(drawer).toMatch(/onOpenConversationMenu\(conversation\)/);
+      expect(drawer).toMatch(/ConversationActionMenu/);
+      expect(drawer).toMatch(/action-menu|actionMenuOpen/);
+    });
   });
 
   describe('Maestro flow files present for behavioral ACs', () => {
@@ -203,5 +220,43 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
         expect(existsSync(join(REPO_ROOT, '.maestro', 'chat', flow))).toBe(true);
       });
     }
+
+    it('Maestro flows assert AC oracles (3 rows, rename title, >=3 bubbles, send, cancel)', () => {
+      const drawer = read(join(REPO_ROOT, '.maestro', 'chat', 'drawer-loads-seeded.yml'));
+      const rename = read(join(REPO_ROOT, '.maestro', 'chat', 'rename-reflects.yml'));
+      const thread = read(join(REPO_ROOT, '.maestro', 'chat', 'thread-loads.yml'));
+      const send = read(join(REPO_ROOT, '.maestro', 'chat', 'send-streams.yml'));
+      const cancel = read(join(REPO_ROOT, '.maestro', 'chat', 'cancel-works.yml'));
+
+      // AC-1: three conversation-row indices
+      expect(drawer).toMatch(/index:\s*0/);
+      expect(drawer).toMatch(/index:\s*1/);
+      expect(drawer).toMatch(/index:\s*2/);
+      expect(drawer).toMatch(/conversation-row/);
+
+      // AC-2: long-press → action menu → Sprint Planning
+      expect(rename).toMatch(/longPressOn/);
+      expect(rename).toMatch(/action-menu-rename-button/);
+      expect(rename).toMatch(/Sprint Planning/);
+      expect(rename).toMatch(/rename-save-button/);
+
+      // AC-3: >=3 message bubbles
+      expect(thread).toMatch(/message-bubble/);
+      expect(thread).toMatch(/index:\s*2/);
+
+      // AC-4: send oracle
+      expect(send).toMatch(/chat-input-send-button/);
+      expect(send).toMatch(/S-REWRITE-01 e2e send probe/);
+
+      // AC-5: cancel oracle
+      expect(cancel).toMatch(/stop-generating-button/);
+      expect(cancel).toMatch(/chat-input-send-button/);
+
+      // App id via MAESTRO_APP_ID (com.holocron.app), never com.anonymous.holocron
+      for (const flow of [drawer, rename, thread, send, cancel]) {
+        expect(flow).toMatch(/appId:\s*\$\{MAESTRO_APP_ID\}/);
+        expect(flow).not.toMatch(/com\.anonymous\.holocron/);
+      }
+    });
   });
 });

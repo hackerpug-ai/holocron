@@ -1,9 +1,4 @@
-verify: maestro test .maestro/chat/cancel-works.yml
-environment_or_sandbox_mismatch:
-  - Metro :8081 down (curl 000)
-  - Zero-cache :4848 down (curl 000)
-  - holo seed:e2e --reset: unknown command
-  - Platform :4111 health 200; iPhone 17 Booted; maestro present
-  - Flow file present: .maestro/chat/cancel-works.yml (      48 lines)
-  - Static/integration GREEN: tests/integration/s-rewrite-01-chat-cluster-zero.test.ts
-EXIT_CODE:2
+=== AC-5 maestro test .maestro/chat/cancel-works.yml MAESTRO_APP_ID=com.holocron.app ===
+SUBSTRATE_MISSING: Metro :8081 down, Zero :4848 down, holo seed:e2e unknown
+Skipping full maestro re-run; prior probe exit=1 (app launch without Metro cannot reach chat-screen).
+exit_code=1

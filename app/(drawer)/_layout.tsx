@@ -88,6 +88,12 @@ function CustomDrawerContent() {
     executeDelete(conversation.id);
   };
 
+  /** Long-press opens ConversationActionMenu so rename/delete are user-reachable (AC-2). */
+  const handleOpenConversationMenu = (conversation: Conversation) => {
+    setActionMenuConversation({ id: conversation.id, title: conversation.title });
+    setIsActionMenuOpen(true);
+  };
+
   const executeDelete = async (conversationId: string) => {
     try {
       const isDeletingActive = conversationId === activeConversationId;
@@ -193,6 +199,7 @@ function CustomDrawerContent() {
       onNewChatPress={handleNewChatPress}
       onConversationPress={handleConversationPress}
       onConversationDelete={handleConversationDelete}
+      onOpenConversationMenu={handleOpenConversationMenu}
       onArticlesPress={handleArticlesPress}
       onSubscriptionsPress={handleSubscriptionsPress}
       onWhatsNewPress={handleWhatsNewPress}

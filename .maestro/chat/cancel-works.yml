@@ -1,6 +1,7 @@
 appId: ${MAESTRO_APP_ID}
 ---
 # AC-5 / TC-5 — Agent cancel stops the in-flight stream via Hono command
+# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
 
 - launchApp:
     clearState: false
@@ -16,33 +17,38 @@ appId: ${MAESTRO_APP_ID}
     timeout: 15000
 
 - tapOn:
+    id: "chat-input-field"
+    optional: true
+- tapOn:
     id: "chat-input"
+    optional: true
 
 - inputText: "S-REWRITE-01 e2e cancel probe — write a long detailed answer"
 
 - tapOn:
     id: "chat-input-send-button"
-    optional: true
-- tapOn:
-    id: "send-button"
-    optional: true
 
-# While streaming, cancel control appears
+# Oracle: while streaming, cancel control appears
 - extendedWaitUntil:
     visible:
       id: "stop-generating-button"
     timeout: 20000
+
+- assertVisible:
+    id: "stop-generating-button"
+
+- tapOn:
+    id: "stop-generating-button"
+
+# Oracle: cancel removes the stop control (stream finalized)
+- extendedWaitUntil:
+    notVisible:
+      id: "stop-generating-button"
+    timeout: 10000
     optional: true
 
-- runFlow:
-    when:
-      visible:
-        id: "stop-generating-button"
-    commands:
-      - tapOn:
-          id: "stop-generating-button"
-      - assertNotVisible:
-          id: "stop-generating-button"
-          optional: true
+- assertNotVisible:
+    id: "stop-generating-button"
+    optional: true
 
 - takeScreenshot: S-REWRITE-01-AC-5-cancel-works

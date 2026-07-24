@@ -3,6 +3,7 @@ appId: ${MAESTRO_APP_ID}
 # AC-1 / TC-1 — Drawer conversation list loads via Zero query
 # Prerequisite: `holo seed:e2e --reset` (3 conversations) + Metro + Zero + platform up.
 # Named iOS Simulator required.
+# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
 
 - launchApp:
     clearState: true
@@ -60,6 +61,14 @@ appId: ${MAESTRO_APP_ID}
 # MUST observe 3 conversation rows (seeded), not empty state
 - assertNotVisible:
     id: "drawer-content-empty"
+# Oracle: exactly 3 seeded rows (indices 0..2 present)
 - assertVisible:
     id: "conversation-row"
+    index: 0
+- assertVisible:
+    id: "conversation-row"
+    index: 1
+- assertVisible:
+    id: "conversation-row"
+    index: 2
 - takeScreenshot: S-REWRITE-01-AC-1-drawer-seeded

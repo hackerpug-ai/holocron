@@ -119,7 +119,7 @@ export function ConversationRow({
         delayLongPress={400}
         accessibilityRole="button"
         accessibilityLabel={`Conversation: ${title}${lastMessage ? `. Last message: ${lastMessage}` : ''}${formattedTime ? `. ${formattedTime}` : ''}${isActive ? '. Currently selected' : ''}`}
-        accessibilityHint="Double tap to open conversation. Long press for delete."
+        accessibilityHint="Double tap to open conversation. Long press for rename or delete."
         accessibilityState={{ selected: isActive }}
       >
         <Animated.View

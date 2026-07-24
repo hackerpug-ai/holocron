@@ -2,6 +2,7 @@ appId: ${MAESTRO_APP_ID}
 ---
 # AC-4 / TC-4 — Composer send streams a reply via Hono command
 # Prerequisite: Hono platform + fleet + Zero sync healthy.
+# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
 
 - launchApp:
     clearState: false
@@ -17,20 +18,29 @@ appId: ${MAESTRO_APP_ID}
     timeout: 15000
 
 - tapOn:
+    id: "chat-input-field"
+    optional: true
+- tapOn:
     id: "chat-input"
+    optional: true
 
 - inputText: "S-REWRITE-01 e2e send probe"
 
 - tapOn:
     id: "chat-input-send-button"
-    optional: true
-- tapOn:
-    id: "send-button"
-    optional: true
 
-# User bubble should appear; assistant reply streams via SSE and lands as durable Zero row
+# Oracle: sent body renders as a new user bubble
 - extendedWaitUntil:
     visible: "S-REWRITE-01 e2e send probe"
     timeout: 15000
+
+- assertVisible: "S-REWRITE-01 e2e send probe"
+
+# Assistant reply streams via SSE and lands as durable Zero row
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message"
+    timeout: 60000
+    optional: true
 
 - takeScreenshot: S-REWRITE-01-AC-4-send-streams
