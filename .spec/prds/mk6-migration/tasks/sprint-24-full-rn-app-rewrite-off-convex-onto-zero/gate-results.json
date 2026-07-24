@@ -3,7 +3,7 @@
   "sprint_id": "sprint-24-full-rn-app-rewrite-off-convex-onto-zero",
   "run_id": "s24-htg-1784862574",
   "verdict": "pass",
-  "runner": "kb-run-sprint-orchestrator",
+  "runner": "kb-run-human-tests",
   "ui_driver": "maestro",
   "written_at": "2026-07-24T03:09:34.822959Z",
   "written_at_commit": "4009dd97b43b8d303fa158a536be379d34d65d5c",
