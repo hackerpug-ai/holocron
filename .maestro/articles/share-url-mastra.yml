@@ -4,16 +4,17 @@
 # Oracle: after Share, system share sheet / link text must contain `/article/`
 # and must not contain `.convex.site` / `.convex.cloud`.
 #
-# GATE-FIX-007: Expo Dev Client gear FAB sits on top of the header ellipsis
-# (document-actions-button). Driver disables FAB via UserDefaults before this
-# flow. Single tap only — double-tap opened Dev Menu / hid the button.
-# All seeded public docs carry share_token so publish is not required.
+# Probe /tmp/share-after-single-tap.png: first document-actions-button tap can open
+# Expo Dev Menu (Runtime version / Reload / Go home) instead of DocumentActionsSheet
+# — gear FAB overlaps the header ellipsis. Dismiss Dev Menu (bounded, optional),
+# then SINGLE-tap actions and wait for document-actions-sheet-share.
+# Unconditional second tap is forbidden (button gone under menu → element not found).
 appId: com.holocron.app
 ---
 - launchApp:
     clearState: false
 
-# Dismiss Expo Dev Menu if left open from a prior failed tap
+# Bounded optional Expo Dev Menu dismissal (start of flow)
 - runFlow:
     when:
       visible: "Runtime version"
@@ -25,7 +26,13 @@ appId: com.holocron.app
           text: "Close"
           optional: true
       - tapOn:
-          point: "50%,15%"
+          text: ".*Close.*"
+          optional: true
+      - tapOn:
+          point: "50%,12%"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
 
 - openLink: holocron://articles
 
@@ -44,22 +51,53 @@ appId: com.holocron.app
       id: "document-layout"
     timeout: 60000
 
+# Again: Dev Menu may still be open over the document
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+      - tapOn:
+          text: "Close"
+          optional: true
+      - tapOn:
+          point: "50%,12%"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
+
 - extendedWaitUntil:
     visible:
       id: "document-actions-button"
     timeout: 30000
 
-# Open actions sheet. NEVER unconditional double-tap:
-# qa-real-7step-stable-dd83a798-20260724T061012Z — first tap opened the sheet
-# (button leaves hierarchy); second hard tap failed "element not found".
-# Retry only when share row still not visible; second tap is optional.
+# SINGLE tap only — never unconditional double-tap
 - tapOn:
     id: "document-actions-button"
+
+# If tap opened Expo Dev Menu instead of our sheet: dismiss, then one optional re-tap
 - runFlow:
     when:
-      notVisible:
-        id: "document-actions-sheet-share"
+      visible: "Runtime version"
     commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+      - tapOn:
+          text: "Close"
+          optional: true
+      - tapOn:
+          point: "50%,12%"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - extendedWaitUntil:
+          visible:
+            id: "document-actions-button"
+          timeout: 10000
+          optional: true
       - tapOn:
           id: "document-actions-button"
           optional: true
