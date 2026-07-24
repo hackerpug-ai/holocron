@@ -12,6 +12,7 @@ import { Platform, useColorScheme as useRNColorScheme, View } from 'react-native
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { resolveHolocronRoute } from '@/lib/holocron-deep-link';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
 import { mutators as zeroMutators } from './zero/mutators';
@@ -49,48 +50,62 @@ const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true';
 /**
  * Handle incoming deep links
  * Routes holocron:// URLs to appropriate screens
+ *
+ * Step4 full-driver fail: holocron://whats-new uses hostname form; resolve via
+ * {@link resolveHolocronRoute} (not path-only).
  */
 function handleIncomingURL({ url }: { url: string }) {
   try {
     const parsed = Linking.parse(url);
+    if (parsed.scheme !== 'holocron') return;
 
-    if (parsed.scheme === 'holocron') {
-      const params = parsed.queryParams as Record<string, string>;
+    const params = (parsed.queryParams ?? {}) as Record<string, string>;
+    const route = resolveHolocronRoute(url);
+    if (!route) return;
 
-      // Handle toolbelt/add deep links
-      if (parsed.path === 'toolbelt/add') {
-        router.push({
-          pathname: '/toolbelt/add',
-          params,
-        });
-        return;
-      }
+    // toolbelt/add deep links
+    if (route === 'toolbelt/add' || route.startsWith('toolbelt/add')) {
+      router.push({ pathname: '/toolbelt/add', params });
+      return;
+    }
 
-      // Subscriptions settings list (Zero-backed sources + auto_research toggles)
-      if (parsed.path === 'subscriptions' || parsed.path === 'subscriptions/settings') {
-        router.push({
-          pathname: '/subscriptions',
-          params,
-        });
-        return;
-      }
+    // Subscriptions settings list (Zero-backed sources + auto_research toggles)
+    if (route === 'subscriptions' || route === 'subscriptions/settings') {
+      router.push({ pathname: '/subscriptions', params });
+      return;
+    }
 
-      // Legacy feed deep link → What's New intelligence briefing
-      if (parsed.path === 'subscriptions/feed') {
-        router.push({
-          pathname: '/whats-new',
-          params,
-        });
-        return;
-      }
+    // Legacy feed deep link → What's New intelligence briefing
+    if (route === 'subscriptions/feed') {
+      router.push({ pathname: '/whats-new', params });
+      return;
+    }
 
-      if (parsed.path === 'whats-new' || parsed.path === 'whats-new/social') {
-        router.push({
-          pathname: `/${parsed.path}`,
-          params,
-        });
-        return;
-      }
+    // What's New (hostname form holocron://whats-new must work)
+    if (route === 'whats-new' || route === 'whats-new/social') {
+      router.push({
+        pathname: route === 'whats-new' ? '/whats-new' : '/whats-new/social',
+        params,
+      });
+      return;
+    }
+
+    // Articles (same hostname form as Maestro openLink holocron://articles)
+    if (route === 'articles') {
+      router.push({ pathname: '/articles', params });
+      return;
+    }
+
+    // Generic in-app path: /improvements, /toolbelt, /settings, …
+    if (
+      route === 'improvements' ||
+      route === 'toolbelt' ||
+      route === 'settings' ||
+      route.startsWith('improvements/') ||
+      route.startsWith('research/')
+    ) {
+      router.push({ pathname: `/${route}` as `/improvements`, params });
+      return;
     }
   } catch (error) {
     console.error('[RootLayout] Failed to handle URL:', error);
