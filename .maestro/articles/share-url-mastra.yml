@@ -70,11 +70,33 @@ appId: com.holocron.app
     text: "Share Link"
     optional: true
 
-# MUST observe Mastra /article/ path in share sheet or link preview
+# System share sheet may open and hide app hierarchy. Dismiss it so the
+# in-app document-share-url oracle (full /article/ path) is queryable.
+- runFlow:
+    when:
+      visible: "Copy"
+    commands:
+      - tapOn:
+          point: "50%,8%"
+- runFlow:
+    when:
+      visible: "Reminders"
+    commands:
+      - tapOn:
+          point: "50%,8%"
+- tapOn:
+    text: "Close"
+    optional: true
+
+# GATE-FIX-007b: full URL is mounted as document-share-url (iOS share sheet
+# accessibility only shows host like 127.0.0.1, not /article/ path).
 - extendedWaitUntil:
     visible:
-      text: ".*(/article/).*"
+      id: "document-share-url"
     timeout: 20000
+
+- assertVisible:
+    id: "document-share-url"
 
 - assertVisible:
     text: ".*(/article/).*"
