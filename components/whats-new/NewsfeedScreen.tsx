@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { FeedSkeleton } from '@/components/subscriptions/FeedSkeleton';
+import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
 import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
@@ -177,7 +178,14 @@ export const NewsfeedScreen = React.memo(function NewsfeedScreen({
                 className="flex-1 px-8 py-16 items-center justify-center"
                 testID={`${testID}-empty`}
               >
-                <View />
+                <Text className="text-foreground text-center text-base font-semibold">
+                  {selectedCategory === 'all'
+                    ? 'No findings available'
+                    : 'No findings in this category'}
+                </Text>
+                <Text className="text-muted-foreground mt-2 text-center text-sm">
+                  Choose another filter to see more updates.
+                </Text>
               </View>
             ) : null
           }

@@ -51,7 +51,11 @@ type FeedItemRow = {
 function parseFindings(raw: unknown): Finding[] {
   if (raw == null) return [];
   if (Array.isArray(raw)) return raw as Finding[];
-  if (typeof raw === 'object' && raw !== null && Array.isArray((raw as { findings?: unknown }).findings)) {
+  if (
+    typeof raw === 'object' &&
+    raw !== null &&
+    Array.isArray((raw as { findings?: unknown }).findings)
+  ) {
     return (raw as { findings: Finding[] }).findings;
   }
   if (typeof raw === 'string') {
@@ -117,6 +121,11 @@ export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
       findingsList = feedItemsToFindings(feedRows);
     }
 
+    // The filter pills must describe the same source list that can be rendered.
+    // Seeded reports may intentionally omit findings_json and use feed-item
+    // fallback, where persisted report counters do not describe the fallback.
+    const allFindings = findingsList;
+
     if (args.category) {
       findingsList = findingsList.filter((f) => f.category === args.category);
     }
@@ -135,10 +144,10 @@ export function useWhatsNewFeed(args: UseWhatsNewFeedArgs = {}) {
             periodEnd: latest.period_end ?? 0,
             days: latest.days ?? 0,
             focus: latest.focus,
-            findingsCount: latest.findings_count ?? findingsList.length,
-            discoveryCount: latest.discovery_count ?? 0,
-            releaseCount: latest.release_count ?? 0,
-            trendCount: latest.trend_count ?? 0,
+            findingsCount: allFindings.length,
+            discoveryCount: allFindings.filter((f) => f.category === 'discovery').length,
+            releaseCount: allFindings.filter((f) => f.category === 'release').length,
+            trendCount: allFindings.filter((f) => f.category === 'trend').length,
             summaryJson: latest.summary_json as { sources?: unknown[] } | undefined,
             documentId: latest.document_id,
             createdAt: latest.created_at,
