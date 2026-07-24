@@ -13,8 +13,8 @@ planned_at: 2026-07-23T02:16:55Z
 **Sequence:** 24
 **Timeline:** Phase 5 — Client Rewrite
 **Status:** In Progress
-> Progress: 0/6 tasks completed · updated 2026-07-24T03:09:36Z
-> Status-Note: goal met — rewrite integrated, CAP-CUT-01 green, HTG maestro+cli pass
+> Progress: 0/6 tasks completed · updated 2026-07-24T03:56:34Z
+> Status-Note: false-green retracted; GATE-FIX-001 + REDHAT-FIX-UI-001 remediating
 **Proposed by:** react-native-ui-planner
 **Milestone:** — (`sprint-24`)
 **Branch:** `mk6-app-rewrite`

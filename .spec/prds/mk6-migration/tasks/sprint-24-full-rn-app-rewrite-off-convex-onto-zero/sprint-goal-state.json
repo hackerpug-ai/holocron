@@ -1,25 +1,26 @@
 {
   "tasks": {
-    "all_completed": true,
-    "total": 6,
-    "completed": 6
+    "all_completed": false,
+    "total": 8,
+    "completed": 5,
+    "note": "GATE-FIX-001 and REDHAT-FIX-UI-001 open; prior completion INVALID"
   },
   "gate": {
-    "overall": "PASS",
-    "source": "gate-results.json"
+    "overall": "FAIL",
+    "source": "invalid-false-green-retracted",
+    "reason": "Maestro HTG did not honestly pass; rename not run"
   },
   "e2e": {
-    "overall": "PASS",
+    "overall": "FAIL",
     "framework": "maestro",
-    "note": "HTG steps covered by maestro drawer/articles/whats-new + CLI seed/verify"
+    "note": "chat-screen/HTG failures preserved in /tmp/maestro-htg*.log"
   },
   "human_test": {
-    "verdict": "pass",
-    "run_id": "see gate-results",
+    "verdict": "fail",
     "steps_total": 7,
-    "steps_executed": 7,
-    "steps_passed": 7,
-    "gate_results_path": ".spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/gate-results.json"
+    "steps_executed": 0,
+    "steps_passed": 0,
+    "note": "Prior gate-results pass retracted; real Maestro failures preserved"
   },
   "integration": {
     "trunk_consolidated": true,
@@ -29,12 +30,13 @@
     "protected_branch": "main"
   },
   "status_files": {
-    "parity": true,
-    "drift": [],
-    "checked_at": "2026-07-24T03:09:34.867926+00:00"
+    "parity": false,
+    "drift": [
+      "false-green retracted"
+    ],
+    "checked_at": "2026-07-24T03:56:33.968096+00:00"
   },
   "build": {
-    "overall": "PASS",
-    "typecheck": 0
+    "overall": "unknown"
   }
 }
