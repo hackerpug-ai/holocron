@@ -49,5 +49,5 @@
     ],
     "critical_bug": "AC-2 rename mutator was unreachable \u2014 long-press only revealed inline delete; now opens action menu with Rename"
   },
-  "fix_commit_sha": "5f5d7a3def2789321f6b219057f7019f49546ce2"
+  "fix_commit_sha": "3967588a9e1845b8ea495304846bb237fd0fe2ba"
 }
