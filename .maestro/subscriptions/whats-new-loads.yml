@@ -1,8 +1,10 @@
 appId: com.holocron.app
 ---
 # AC-3 / TC-3: Whats-new feed loads via Zero
-# DATA oracle (whats-new-feed) is NON-optional.
-# Finding row / detail navigation is out of scope for this gate oracle.
+# DATA oracle (whats-new-feed + finding-0) is NON-optional.
+#
+# HIGH-3 hang note: unbounded assertNotVisible on empty can hang full driver.
+# Bound empty-state checks; fail closed quickly.
 
 # clearState false so sequential human-gate runs keep Dev Client + Metro session.
 # Standalone cold boot: run drawer-loads-seeded first or set MAESTRO_DEV_CLIENT_OPEN_URL.
@@ -20,12 +22,7 @@ appId: com.holocron.app
 - assertVisible:
     id: "whats-new-feed"
 
-# HIGH-3 / GATE-FIX-002: fail empty shell — must not pass on loading/empty-only list.
-# NewsfeedScreen empty ListEmptyComponent uses testID `${feed}-empty` → whats-new-feed-empty.
-- assertNotVisible:
-    id: "whats-new-feed-empty"
-
-# Seeded finding rows (hero finding-0) — NON-optional data oracle beyond shell
+# Seeded finding rows first (positive oracle) — stronger than empty negation alone
 - extendedWaitUntil:
     visible:
       id: "whats-new-feed-finding-0"
@@ -33,5 +30,11 @@ appId: com.holocron.app
 
 - assertVisible:
     id: "whats-new-feed-finding-0"
+
+# Empty shell must not remain once finding-0 is present — BOUNDED fail-closed
+- extendedWaitUntil:
+    notVisible:
+      id: "whats-new-feed-empty"
+    timeout: 10000
 
 - takeScreenshot: whats-new-loads-seeded
