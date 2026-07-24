@@ -255,6 +255,65 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     });
   });
 
+  /** Durable conversation identity command for the native drawer. */
+  app.patch('/api/conversations/:id', async (c) => {
+    try {
+      const body = (await c.req.json()) as { title?: unknown };
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      if (!title) {
+        return c.json({ error: 'invalid_title', message: 'title must not be empty' }, 422);
+      }
+
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'conversation rename' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string; title: string }[]>`
+          UPDATE conversations
+          SET title = ${title}, title_set_by_user = true, updated_at = now()
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id, title
+        `;
+        if (!rows[0]) {
+          return c.json({ error: 'not_found', message: 'conversation not found' }, 404);
+        }
+        return c.json({ conversation: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'conversation_rename_error', message }, 422);
+    }
+  });
+
+  /** Durable destructive conversation command for the native drawer. */
+  app.delete('/api/conversations/:id', async (c) => {
+    try {
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'conversation delete' });
+      const sql = createSql(databaseUrl);
+      try {
+        const deleted = await sql.begin(async (tx) => {
+          await tx`DELETE FROM chat_messages WHERE conversation_id = ${c.req.param('id')}`;
+          const rows = await tx<{ id: string }[]>`
+            DELETE FROM conversations
+            WHERE id = ${c.req.param('id')}::uuid
+            RETURNING id::text AS id
+          `;
+          return rows[0];
+        });
+        if (!deleted) {
+          return c.json({ error: 'not_found', message: 'conversation not found' }, 404);
+        }
+        return c.json({ deleted: true, id: deleted.id }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'conversation_delete_error', message }, 422);
+    }
+  });
+
   app.post('/api/uploads', async (c) => {
     try {
       const body = await c.req.json();

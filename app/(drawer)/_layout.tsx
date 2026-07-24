@@ -1,12 +1,15 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { useQuery, useZero } from '@rocicorp/zero/react';
+import { useQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  deleteConversation as deleteConversationOnPlatform,
+  renameConversation as renameConversationOnPlatform,
+} from '@/app/zero/platform';
 import { conversationsByOwner, conversationsBySearchTerm } from '@/app/zero/queries';
-import { mutators } from '@/app/zero/mutators';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
@@ -43,7 +46,6 @@ type TitleOverride = { title: string; until: number };
 
 function CustomDrawerContent() {
   const router = useRouter();
-  const zero = useZero();
   const _isDrawerOpen = useDrawerStatus() === 'open';
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [actionMenuConversation, setActionMenuConversation] = useState<{
@@ -51,6 +53,9 @@ function CustomDrawerContent() {
     title: string;
   } | null>(null);
   const [titleOverrides, setTitleOverrides] = useState<Record<string, TitleOverride>>({});
+  const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,7 +122,8 @@ function CustomDrawerContent() {
         }
       }
 
-      await zero.mutate(mutators.deleteConversation({ id: conversationId }));
+      await deleteConversationOnPlatform(conversationId);
+      setDeletedConversationIds((prev) => new Set(prev).add(conversationId));
 
       if (navigateToId) {
         router.push(`/chat/${navigateToId}`);
@@ -142,12 +148,7 @@ function CustomDrawerContent() {
     setActionMenuConversation(null);
 
     try {
-      await zero.mutate(mutators.updateConversation({
-        id,
-        title: trimmed,
-        title_set_by_user: true,
-        updated_at: Date.now(),
-      }));
+      await renameConversationOnPlatform(id, trimmed);
       // Mutator succeeded — short TTL remains until Zero query reflects; do not extend.
     } catch (err) {
       log('DrawerLayout').error('Failed to rename conversation', err, {
@@ -207,14 +208,16 @@ function CustomDrawerContent() {
   }, [conversations, searchResults, searchEnabled]);
 
   const now = Date.now();
-  const mappedConversations: Conversation[] = conversationsToMap.map((row) => {
-    const base = mapConversation(row);
-    const override = titleOverrides[row.id];
-    if (override && override.until > now) {
-      return { ...base, title: override.title };
-    }
-    return base;
-  });
+  const mappedConversations: Conversation[] = conversationsToMap
+    .filter((row) => !deletedConversationIds.has(row.id))
+    .map((row) => {
+      const base = mapConversation(row);
+      const override = titleOverrides[row.id];
+      if (override && override.until > now) {
+        return { ...base, title: override.title };
+      }
+      return base;
+    });
 
   return (
     <DrawerContent

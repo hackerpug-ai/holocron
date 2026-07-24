@@ -109,6 +109,29 @@ export async function postMission(body: {
   return (await response.json()) as PlatformJson;
 }
 
+/** PATCH /api/conversations/:id — durable drawer rename. */
+export async function renameConversation(id: string, title: string): Promise<PlatformJson> {
+  const response = await platformFetch(`/api/conversations/${id}`, {
+    method: 'PATCH',
+    json: { title },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`conversation rename failed: ${response.status} ${text}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
+/** DELETE /api/conversations/:id — durable drawer delete. */
+export async function deleteConversation(id: string): Promise<PlatformJson> {
+  const response = await platformFetch(`/api/conversations/${id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`conversation delete failed: ${response.status} ${text}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
 /** POST /api/uploads — improvement-upload-init */
 export async function initUpload(body: {
   kind: 'improvement_image' | 'voice_artifact';

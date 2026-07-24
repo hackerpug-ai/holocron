@@ -97,6 +97,16 @@ export const HONO_ROUTES: readonly HonoRoute[] = [
     purpose: 'Resumable SSE event stream; honors Last-Event-ID.',
   },
   {
+    method: 'PATCH',
+    path: '/api/conversations/:id',
+    purpose: 'Durably rename a conversation from the native drawer.',
+  },
+  {
+    method: 'DELETE',
+    path: '/api/conversations/:id',
+    purpose: 'Durably delete a conversation and its messages from the native drawer.',
+  },
+  {
     method: 'POST',
     path: '/api/uploads',
     purpose: 'Start an authoritative upload with idempotency ID and required metadata.',
