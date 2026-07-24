@@ -4,17 +4,17 @@
 # Oracle: after Share, system share sheet / link text must contain `/article/`
 # and must not contain `.convex.site` / `.convex.cloud`.
 #
-# Probe /tmp/share-after-single-tap.png: first document-actions-button tap can open
-# Expo Dev Menu (Runtime version / Reload / Go home) instead of DocumentActionsSheet
-# — gear FAB overlaps the header ellipsis. Dismiss Dev Menu (bounded, optional),
-# then SINGLE-tap actions and wait for document-actions-sheet-share.
-# Unconditional second tap is forbidden (button gone under menu → element not found).
+# Probe2 /tmp/share-probe2-final.png: collapsed Expo Dev Menu gear FAB at top-right
+# (not "Runtime version" text). "Runtime version" condition misses that state.
+# Clear overlay before share: tap gear area (~90%,14%) → dismiss expanded menu
+# (X/Close) → SINGLE-tap document-actions-button → assert sheet-share.
+# Unconditional second actions-button tap is forbidden.
 appId: com.holocron.app
 ---
 - launchApp:
     clearState: false
 
-# Bounded optional Expo Dev Menu dismissal (start of flow)
+# Bounded optional: expanded Dev Menu left open from a prior step
 - runFlow:
     when:
       visible: "Runtime version"
@@ -24,9 +24,6 @@ appId: com.holocron.app
           optional: true
       - tapOn:
           text: "Close"
-          optional: true
-      - tapOn:
-          text: ".*Close.*"
           optional: true
       - tapOn:
           point: "50%,12%"
@@ -45,42 +42,40 @@ appId: com.holocron.app
     id: "article-card-pressable"
     index: 0
 
-# Ensure document detail mounted before header actions
 - extendedWaitUntil:
     visible:
       id: "document-layout"
     timeout: 60000
 
-# Again: Dev Menu may still be open over the document
-- runFlow:
-    when:
-      visible: "Runtime version"
-    commands:
-      - tapOn:
-          id: "xmark"
-          optional: true
-      - tapOn:
-          text: "Close"
-          optional: true
-      - tapOn:
-          point: "50%,12%"
-          optional: true
-      - waitForAnimationToEnd:
-          timeout: 2000
-
-- extendedWaitUntil:
-    visible:
-      id: "document-actions-button"
-    timeout: 30000
-
-# SINGLE tap only — never unconditional double-tap
+# --- Clear Expo floating gear overlay (collapsed state has no "Runtime version") ---
+# probe2-final: gear sits on top-right over document-actions-button.
+# Tap expands menu; then dismiss so our ellipsis is free for a real single tap.
 - tapOn:
-    id: "document-actions-button"
-
-# If tap opened Expo Dev Menu instead of our sheet: dismiss, then one optional re-tap
+    point: "90%,14%"
+- waitForAnimationToEnd:
+    timeout: 2000
 - runFlow:
     when:
       visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+      - tapOn:
+          text: "Close"
+          optional: true
+      - tapOn:
+          text: ".*Close.*"
+          optional: true
+      - tapOn:
+          point: "50%,12%"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 2000
+# If expanded menu still present (xmark id path), one more dismiss pass
+- runFlow:
+    when:
+      visible: "Reload"
     commands:
       - tapOn:
           id: "xmark"
@@ -93,16 +88,21 @@ appId: com.holocron.app
           optional: true
       - waitForAnimationToEnd:
           timeout: 2000
+
+# If gear-area tap accidentally opened our sheet, skip re-open; else single-tap.
+- runFlow:
+    when:
+      notVisible:
+        id: "document-actions-sheet-share"
+    commands:
       - extendedWaitUntil:
           visible:
             id: "document-actions-button"
-          timeout: 10000
-          optional: true
+          timeout: 30000
       - tapOn:
           id: "document-actions-button"
-          optional: true
 
-# Sheet content (Pressable share) — simplified Modal+View hierarchy
+# Sheet content (Pressable share)
 - extendedWaitUntil:
     visible:
       id: "document-actions-sheet-share"
