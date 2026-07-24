@@ -1,8 +1,13 @@
 # S-REWRITE-02 AC-1 / TC-1 — Articles list loads via Zero
 # Prerequisite: `holo seed:e2e --reset` (12 documents) + Metro + Zero + platform up.
 # Requires installed app bundleId com.holocron.app on a named iOS Simulator.
-# DATA oracles (articles-route, article-card-pressable) are NON-optional.
+# DATA oracles (articles-route, article-card-pressable multi-card) are NON-optional.
 # Dev-client chrome (DEVELOPMENT SERVERS / Continue / Close) may remain optional.
+#
+# HIGH-3 hang note: unbounded assertNotVisible on articles-empty-state can hang the
+# full driver when empty chrome remains/flaps after a card match. Bound empty-state
+# checks with a short timeout so the step fails closed quickly; preserve hang logs
+# under .tmp/GATE-FIX-002/high3-articles-empty-hang/ as oracle feedback.
 appId: com.holocron.app
 ---
 - launchApp:
@@ -63,8 +68,23 @@ appId: com.holocron.app
     id: "article-card-pressable"
     index: 1
 
-# After cards are present, empty state must not remain as sole content
-- assertNotVisible:
-    id: "articles-empty-state"
+# Positive list chrome (stronger than empty negation alone)
+- extendedWaitUntil:
+    visible:
+      id: "articles-list"
+    timeout: 15000
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "articles-count-header"
+    timeout: 15000
+    optional: true
+
+# Empty-state must not remain as sole content AFTER cards proved present.
+# BOUNDED timeout — never hang the full driver (fail closed within 10s).
+- extendedWaitUntil:
+    notVisible:
+      id: "articles-empty-state"
+    timeout: 10000
 
 - takeScreenshot: articles-list-loads

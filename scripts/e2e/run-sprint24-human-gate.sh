@@ -382,9 +382,13 @@ record_step() {
     >>"$claims_file"
 }
 
+# Bound Maestro wall-clock so a single assert (e.g. assertNotVisible empty-state)
+# cannot hang the full human-gate driver indefinitely. Default 180s/flow; override
+# via MAESTRO_STEP_TIMEOUT_SEC. On timeout: kill maestro, append note to log, exit 124.
 run_maestro_flow() {
   local flow="$1" log_path="$2"
   local udid=""
+  local step_timeout="${MAESTRO_STEP_TIMEOUT_SEC:-180}"
   [[ -f "$flow" ]] || fail "Maestro flow missing: $flow"
   [[ -n "$device" ]] || fail "MAESTRO_DEVICE must name a bootable iOS Simulator"
 
@@ -405,16 +409,44 @@ print(matches[0]["udid"] if matches else "")
   resolve_metro
   log "Metro URL=$MAESTRO_METRO_URL"
   log "Dev Client open=$MAESTRO_DEV_CLIENT_OPEN_URL"
-  log "Running maestro --device $udid test $flow"
+  log "Running maestro --device $udid test $flow (step_timeout=${step_timeout}s)"
 
   set +e
-  maestro --device "$udid" test "$flow" \
-    -e MAESTRO_APP_ID="$app_id" \
-    -e MAESTRO_METRO_URL="${MAESTRO_METRO_URL:-}" \
-    -e MAESTRO_METRO_URL_ENCODED="${MAESTRO_METRO_URL_ENCODED:-}" \
-    -e MAESTRO_DEV_CLIENT_OPEN_URL="${MAESTRO_DEV_CLIENT_OPEN_URL:-}" \
-    2>&1 | tee "$log_path"
-  local rc=${PIPESTATUS[0]}
+  # shell-level wall clock: fail closed if Maestro hangs (e.g. unbounded notVisible)
+  (
+    maestro --device "$udid" test "$flow" \
+      -e MAESTRO_APP_ID="$app_id" \
+      -e MAESTRO_METRO_URL="${MAESTRO_METRO_URL:-}" \
+      -e MAESTRO_METRO_URL_ENCODED="${MAESTRO_METRO_URL_ENCODED:-}" \
+      -e MAESTRO_DEV_CLIENT_OPEN_URL="${MAESTRO_DEV_CLIENT_OPEN_URL:-}" \
+      2>&1
+  ) | tee "$log_path" &
+  local pipe_pid=$!
+  local maestro_pgid=""
+  # Wait up to step_timeout for the tee pipeline; on timeout kill maestro children.
+  local waited=0
+  while kill -0 "$pipe_pid" 2>/dev/null; do
+    if [[ "$waited" -ge "$step_timeout" ]]; then
+      {
+        echo ""
+        echo "sprint24-human-gate: TIMEOUT after ${step_timeout}s on $flow"
+        echo "sprint24-human-gate: fail closed — do not wait indefinitely (HIGH-3 empty-state hang class)"
+        echo "sprint24-human-gate: preserve this log as honest fail evidence"
+      } | tee -a "$log_path"
+      # Kill maestro processes for this device test (best-effort)
+      pkill -f "maestro.*test.*$(basename "$flow")" 2>/dev/null || true
+      kill -TERM "$pipe_pid" 2>/dev/null || true
+      sleep 1
+      kill -KILL "$pipe_pid" 2>/dev/null || true
+      wait "$pipe_pid" 2>/dev/null
+      set -e
+      return 124
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  wait "$pipe_pid"
+  local rc=$?
   set -e
   return "$rc"
 }

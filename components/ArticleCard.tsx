@@ -135,6 +135,8 @@ export function ArticleCard({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={animatedStyle}
+        // Stable Maestro oracle id (shared across cards; use index: N in flows).
+        // Caller `testID` props land on Card via ...props, not the pressable.
         testID="article-card-pressable"
       >
         {content}
