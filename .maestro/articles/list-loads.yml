@@ -1,12 +1,14 @@
 # S-REWRITE-02 AC-1 / TC-1 — Articles list loads via Zero
 # Prerequisite: `holo seed:e2e --reset` (12 documents) + Metro + Zero + platform up.
 # Requires installed app bundleId com.holocron.app on a named iOS Simulator.
+# DATA oracles (articles-route, article-card-pressable) are NON-optional.
+# Dev-client chrome (DEVELOPMENT SERVERS / Continue / Close) may remain optional.
 appId: com.holocron.app
 ---
 - launchApp:
     clearState: false
 
-# Expo dev-client / Metro host pickers (optional on cold start)
+# Expo dev-client / Metro host pickers (optional on cold start) — before data oracles
 - extendedWaitUntil:
     visible:
       text: "DEVELOPMENT SERVERS"
@@ -31,9 +33,10 @@ appId: com.holocron.app
           text: "Close"
           optional: true
 
-# Prefer deep link into articles; fall back to drawer if already on chat shell
+# Prefer deep link into articles
 - openLink: holocron://articles
 
+# NON-OPTIONAL: articles route shell
 - extendedWaitUntil:
     visible:
       id: "articles-route"
@@ -42,26 +45,18 @@ appId: com.holocron.app
 - assertVisible:
     id: "articles-route"
 
-# MUST observe list + cards (seeded docs), not empty state
-- assertNotVisible:
-    id: "articles-empty-state"
-    optional: true
-
+# NON-OPTIONAL: seeded document cards via Zero (12 docs path)
+# Wait for cards first so loading empty-state chrome is not a false fail.
 - extendedWaitUntil:
     visible:
-      id: "articles-list"
+      id: "article-card-pressable"
     timeout: 60000
-    optional: true
 
 - assertVisible:
     id: "article-card-pressable"
 
-- assertVisible:
-    id: "articles-category-chips"
-    optional: true
-
-- assertVisible:
-    id: "articles-count-header"
-    optional: true
+# After cards are present, empty state must not remain as sole content
+- assertNotVisible:
+    id: "articles-empty-state"
 
 - takeScreenshot: articles-list-loads
