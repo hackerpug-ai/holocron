@@ -1,10 +1,12 @@
-appId: ${MAESTRO_APP_ID}
+appId: com.holocron.app
 ---
 # AC-1 / TC-1: Feed list loads 5 seeded feed items via Zero
 # Prerequisite: holo seed:e2e --reset (5 feed items) + cold boot on named iOS Simulator
 
 - launchApp:
     clearState: true
+
+- openLink: holocron://whats-new
 
 - extendedWaitUntil:
     visible:

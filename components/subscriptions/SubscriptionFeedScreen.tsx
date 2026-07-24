@@ -7,10 +7,11 @@
  * Uses FlatList for performance with pull-to-refresh in default mode.
  */
 
-import { useQuery } from 'convex/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
+import { subscriptionContentSearch } from '@/app/zero/queries';
 import { SearchInput } from '@/components/SearchInput';
 import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton';
 import { FeedSkeleton } from '@/components/subscriptions/FeedSkeleton';
@@ -22,7 +23,6 @@ import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
 import { SocialPostsGroupCard } from '@/components/whats-new/SocialPostsGroupCard';
 import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard';
-import { api } from '@/convex/_generated/api';
 import { useTheme } from '@/hooks/use-theme';
 import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
@@ -104,10 +104,42 @@ export function SubscriptionFeedScreen({
     return { nonSocialFindings: nonSocial, socialFindings: social };
   }, [findings, selectedCategory]);
 
-  // Search query — only active when 2+ chars entered
+  // Search query — Zero subscription_content, client-filtered when 2+ chars entered
   const isSearching = searchText.length >= 2;
-  const searchArgs = isSearching ? { query: searchText } : ('skip' as const);
-  const searchResults = useQuery(api.subscriptions.queries.searchContent, searchArgs);
+  const [rawSearchRows, searchDetails] = useZeroQuery(subscriptionContentSearch(200));
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const q = searchText.toLowerCase();
+    const rows = (rawSearchRows ?? []) as Array<{
+      id: string;
+      title?: string | null;
+      url?: string | null;
+      content_category?: string | null;
+      author_handle?: string | null;
+      thumbnail_url?: string | null;
+      ai_relevance_score?: number | null;
+      discovered_at?: number | null;
+    }>;
+    return rows
+      .filter(
+        (item) =>
+          (item.title?.toLowerCase() || '').includes(q) ||
+          (item.author_handle?.toLowerCase() || '').includes(q) ||
+          (item.content_category?.toLowerCase() || '').includes(q)
+      )
+      .map((item) => ({
+        _id: item.id,
+        title: item.title ?? 'Untitled',
+        url: item.url ?? undefined,
+        contentCategory: item.content_category ?? undefined,
+        authorHandle: item.author_handle ?? undefined,
+        thumbnailUrl: item.thumbnail_url ?? undefined,
+        aiRelevanceScore: item.ai_relevance_score ?? undefined,
+        discoveredAt: item.discovered_at ?? undefined,
+      }));
+  }, [isSearching, searchText, rawSearchRows]);
+  const isLoadingSearch =
+    isSearching && searchDetails.type !== 'complete' && searchResults.length === 0;
 
   const handleSearchChange = (query: string) => {
     setSearchText(query);
@@ -138,8 +170,7 @@ export function SubscriptionFeedScreen({
   // ---- Render helpers ----
 
   const renderSearchResults = () => {
-    const results = searchResults ?? [];
-    const isLoadingSearch = isSearching && searchResults === undefined;
+    const results = searchResults;
 
     if (isLoadingSearch) {
       return (

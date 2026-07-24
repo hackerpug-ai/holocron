@@ -1,4 +1,4 @@
-appId: ${MAESTRO_APP_ID}
+appId: com.holocron.app
 ---
 # AC-2 / TC-2: Subscription settings load via Zero with toggle state
 

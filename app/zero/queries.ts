@@ -18,6 +18,10 @@ export const chatMessagesByConversation = (conversationId: string) =>
 export const feedItemsByOwner = (limit = 50) =>
   builder.feed_items.orderBy('created_at', 'desc').limit(limit);
 
+/** Single feed item feedback projection (api.feeds.queries.getFeedItemFeedback). */
+export const feedItemFeedbackById = (feedItemId: string) =>
+  builder.feed_items.where('id', feedItemId).one();
+
 /** Subscription sources list (api.subscriptions.queries.list). */
 export const subscriptionSourcesList = (limit = 100) =>
   builder.subscription_sources.orderBy('created_at', 'desc').limit(limit);
@@ -32,6 +36,12 @@ export const subscriptionContentGroupedByCreator = (limit = 100) => subscription
 /** Subscription content by group (api.subscriptions.queries.list). */
 export const subscriptionContentByGroup = (limit = 200) =>
   builder.subscription_content.orderBy('created_at', 'desc').limit(limit);
+
+/**
+ * Full-text-ish search over subscription_content (api.subscriptions.queries.searchContent).
+ * Client filters the reactive Zero result set by title/author.
+ */
+export const subscriptionContentSearch = (limit = 200) => subscriptionContentByGroup(limit);
 
 /** Latest what's-new reports (api.whatsNew.queries.getLatestFindings). */
 export const latestWhatsNewReports = (limit = 10) =>

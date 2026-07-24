@@ -7,15 +7,25 @@
 
 export const ROUTES = {
   /**
-   * What's New feed route (social posts from subscriptions)
-   * NOTE: This is the new location for the feed, previously at /subscriptions/feed
+   * What's New intelligence briefing feed (drawer)
    */
-  WHATS_NEW: '/subscriptions/social',
+  WHATS_NEW: '/whats-new',
 
   /**
-   * Subscriptions management/settings route
+   * Social posts subview under What's New
    */
-  SUBSCRIPTIONS_SETTINGS: '/subscriptions/settings',
+  WHATS_NEW_SOCIAL: '/whats-new/social',
+
+  /**
+   * Subscriptions management/settings list (Zero-backed sources)
+   * Deep link: holocron://subscriptions
+   */
+  SUBSCRIPTIONS_SETTINGS: '/subscriptions',
+
+  /**
+   * Explicit settings alias (redirects to SUBSCRIPTIONS_SETTINGS)
+   */
+  SUBSCRIPTIONS_SETTINGS_ALIAS: '/subscriptions/settings',
 
   /**
    * Legacy routes that redirect to new locations
@@ -29,7 +39,4 @@ export const ROUTES = {
 /**
  * Legacy feed routes that should redirect to What's New
  */
-export const LEGACY_FEED_ROUTES = [
-  ROUTES.LEGACY.SUBSCRIPTIONS,
-  ROUTES.LEGACY.SUBSCRIPTIONS_FEED,
-] as const;
+export const LEGACY_FEED_ROUTES = [ROUTES.LEGACY.SUBSCRIPTIONS_FEED] as const;

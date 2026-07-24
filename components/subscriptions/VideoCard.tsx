@@ -11,13 +11,11 @@
  * Handles missing thumbnails with fallback UI.
  */
 
-import { useMutation, useQuery } from 'convex/react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Play } from '@/components/ui/icons';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
+import { useFeedItemFeedback } from '@/hooks/use-feed-item-feedback';
 import { useTheme } from '@/hooks/use-theme';
 import { FeedbackButtons } from './FeedbackButtons';
 import { SummaryText } from './SummaryText';
@@ -39,8 +37,8 @@ export interface VideoCardProps {
   onPress?: () => void;
   /** Test ID for testing */
   testID?: string;
-  /** Feed item ID for feedback functionality */
-  feedItemId?: Id<'feedItems'>;
+  /** Feed item ID for feedback functionality (Zero feed_items.id) */
+  feedItemId?: string;
 }
 
 /**
@@ -70,25 +68,10 @@ export function VideoCard({
   feedItemId,
 }: VideoCardProps) {
   const { colors, spacing, radius } = useTheme();
-
-  // Fetch feedback state if feedItemId is provided
-  const feedbackData = useQuery(
-    api.feeds.queries.getFeedItemFeedback,
-    feedItemId ? { feedItemId } : 'skip'
-  );
-  const currentFeedback = feedbackData?.feedback ?? null;
-
-  const submitFeedbackMutation = useMutation(api.feeds.mutations.submitFeedback);
+  const { currentFeedback, submitFeedback } = useFeedItemFeedback(feedItemId);
 
   const handleFeedback = (type: 'positive' | 'negative' | null) => {
-    if (!feedItemId) return;
-
-    // Map FeedbackButtons type to Convex type
-    // Only submit if not null (deselecting)
-    if (type !== null) {
-      const feedback = type === 'positive' ? 'up' : 'down';
-      submitFeedbackMutation({ feedItemId, feedback });
-    }
+    void submitFeedback(type);
   };
 
   // Build accessibility label for screen readers

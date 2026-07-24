@@ -1,4 +1,4 @@
-appId: ${MAESTRO_APP_ID}
+appId: com.holocron.app
 ---
 # AC-4 / TC-4: Subscription toggle persists via Zero mutator (5s SLO)
 

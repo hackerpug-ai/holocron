@@ -1,9 +1,11 @@
-appId: ${MAESTRO_APP_ID}
+appId: com.holocron.app
 ---
 # AC-3 / TC-3: Whats-new report detail loads via Zero
 
 - launchApp:
     clearState: true
+
+- openLink: holocron://whats-new
 
 - extendedWaitUntil:
     visible:
