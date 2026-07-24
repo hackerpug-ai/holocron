@@ -1,0 +1,12 @@
+title_reflect_status: observed_green
+evidence: .tmp/GATE-FIX-001/step5-rename-sprint-planning-retry2.log
+rename-dialog path: COMPLETED
+erase + inputText Sprint Planning + rename-save: COMPLETED
+Sprint Planning list oracle: COMPLETED (assertVisible + extendedWaitUntil)
+conversation-row 0..2: COMPLETED
+screenshot: S-REWRITE-01-AC-2-rename-reflects
+fixes:
+  - ConversationActionMenu: uncontrolled defaultValue + remount key + onEndEditing ref (Maestro-safe)
+  - drawer _layout: short-lived titleOverrides + real zero.mutate.conversations.update
+  - ConversationRow: accessibilityLabel=title so Maestro text oracle matches
+full_7_of_7_gate: NOT claimed (do not write gate-results pass)

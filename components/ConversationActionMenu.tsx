@@ -1,5 +1,13 @@
 import * as React from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  type TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AlertDialog,
@@ -69,31 +77,54 @@ export function ConversationActionMenu({
   // Internal state for which view is currently shown
   const [view, setView] = React.useState<ViewState>('menu');
 
-  // State for the rename input value
-  const [renameValue, setRenameValue] = React.useState(conversationTitle);
+  /**
+   * Maestro-safe rename field (GATE-FIX-001 step 5):
+   * Controlled `value={...}` is overwritten by React when XCUITest eraseText/inputText
+   * update the native field without reliable onChangeText → save keeps the seed title.
+   * Use uncontrolled defaultValue + remount key; keep latest text in a ref for save.
+   */
+  const [renameSessionKey, setRenameSessionKey] = React.useState(0);
+  const [renameDraft, setRenameDraft] = React.useState(conversationTitle);
+  const renameTextRef = React.useRef(conversationTitle);
+  const renameInputRef = React.useRef<TextInput>(null);
+  const saveFlushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const seedRenameField = React.useCallback((title: string) => {
+    renameTextRef.current = title;
+    setRenameDraft(title);
+    setRenameSessionKey((k) => k + 1);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (saveFlushTimerRef.current) clearTimeout(saveFlushTimerRef.current);
+    };
+  }, []);
 
   // Reset to menu only when the shell transitions closed → open (not on title churn).
   const wasOpenRef = React.useRef(false);
   React.useEffect(() => {
     if (open && !wasOpenRef.current) {
       setView('menu');
-      setRenameValue(conversationTitle);
+      seedRenameField(conversationTitle);
     }
     if (!open) {
       setView('menu');
     }
     wasOpenRef.current = open;
-  }, [open, conversationTitle]);
+  }, [open, conversationTitle, seedRenameField]);
 
-  // Keep rename field in sync when title changes while still on the menu.
+  // Keep rename seed in sync when title changes while still on the menu.
   React.useEffect(() => {
     if (open && view === 'menu') {
-      setRenameValue(conversationTitle);
+      renameTextRef.current = conversationTitle;
+      setRenameDraft(conversationTitle);
     }
   }, [conversationTitle, open, view]);
 
-  // Handle rename action selection
+  // Handle rename action selection — remount input so defaultValue matches seed title
   const handleRenameSelect = () => {
+    seedRenameField(conversationTitle);
     setView('rename');
   };
 
@@ -107,13 +138,29 @@ export function ConversationActionMenu({
     onOpenChange(false);
   };
 
-  // Handle save rename
-  const handleSaveRename = () => {
-    const trimmedTitle = renameValue.trim();
+  const handleRenameTextChange = (text: string) => {
+    renameTextRef.current = text;
+    setRenameDraft(text);
+  };
+
+  const commitRename = React.useCallback(() => {
+    const trimmedTitle = renameTextRef.current.trim();
     if (trimmedTitle.length > 0) {
       onRename?.(trimmedTitle);
       onOpenChange(false);
     }
+  }, [onRename, onOpenChange]);
+
+  // Blur first so onEndEditing can capture native XCUITest text that skipped onChangeText.
+  const handleSaveRename = () => {
+    if (isRenaming) return;
+    renameInputRef.current?.blur();
+    Keyboard.dismiss();
+    if (saveFlushTimerRef.current) clearTimeout(saveFlushTimerRef.current);
+    // Microtask after blur: prefer endEditing-updated ref, fall back to onChangeText ref.
+    saveFlushTimerRef.current = setTimeout(() => {
+      commitRename();
+    }, 50);
   };
 
   // Handle confirm delete
@@ -122,8 +169,9 @@ export function ConversationActionMenu({
     onOpenChange(false);
   };
 
-  // Check if save button should be disabled
-  const isSaveDisabled = renameValue.trim().length === 0 || isRenaming;
+  // Disable only while renaming in flight; empty draft still blocks save via handleSaveRename
+  // so Maestro can type into an uncontrolled field even if React draft lags one frame.
+  const isSaveDisabled = isRenaming;
 
   // Keep parent `open` true while rename/delete sub-views are active; only
   // propagate close. Prevents Dialog/Alert onOpenChange(false) races from
@@ -174,16 +222,23 @@ export function ConversationActionMenu({
 
               <View className="gap-4 py-2">
                 <Input
+                  key={`rename-input-${renameSessionKey}`}
+                  ref={renameInputRef}
                   testID="rename-input"
-                  value={renameValue}
-                  onChangeText={setRenameValue}
+                  defaultValue={conversationTitle}
+                  onChangeText={handleRenameTextChange}
+                  onEndEditing={(e) => {
+                    const text = e.nativeEvent.text ?? '';
+                    renameTextRef.current = text;
+                    setRenameDraft(text);
+                  }}
                   placeholder="Conversation title"
                   autoFocus
                   onSubmitEditing={isSaveDisabled ? undefined : handleSaveRename}
                   accessibilityLabel="Conversation title"
                   accessibilityHint="Enter a new name for this conversation"
                 />
-                {isSaveDisabled && (
+                {renameDraft.trim().length === 0 && (
                   <Text className="text-destructive text-sm">Title cannot be empty</Text>
                 )}
               </View>
