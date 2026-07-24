@@ -1,16 +1,14 @@
-import type { Id } from '@/convex/_generated/dataModel';
-
 type RecordTranscriptFn = (args: {
-  sessionId: Id<'voiceSessions'>;
-  conversationId: Id<'conversations'>;
+  sessionId: string;
+  conversationId: string;
   role: 'user' | 'agent';
   content: string;
 }) => Promise<unknown>;
 
 interface TranscriptRecorderOptions {
   recordTranscript: RecordTranscriptFn;
-  sessionId: Id<'voiceSessions'>;
-  conversationId: Id<'conversations'>;
+  sessionId: string;
+  conversationId: string;
 }
 
 interface TranscriptRecorder {

@@ -1,15 +1,10 @@
-import type { Id } from '@/convex/_generated/dataModel';
-
 type GenerateUploadUrlFn = () => Promise<string>;
-type AttachAudioFn = (args: {
-  sessionId: Id<'voiceSessions'>;
-  storageId: Id<'_storage'>;
-}) => Promise<unknown>;
+type AttachAudioFn = (args: { sessionId: string; storageId: string }) => Promise<unknown>;
 
 interface AudioRecorderOptions {
   generateUploadUrl: GenerateUploadUrlFn;
   attachAudio: AttachAudioFn;
-  sessionId: Id<'voiceSessions'>;
+  sessionId: string;
 }
 
 export interface AudioRecorder {
@@ -106,7 +101,7 @@ export function createAudioRecorder({
       // Attach to session
       await attachAudio({
         sessionId,
-        storageId: storageId as Id<'_storage'>,
+        storageId,
       });
     } catch (err) {
       console.error('[audio-recorder] Failed to upload audio:', err);

@@ -6,15 +6,14 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Id } from '@/convex/_generated/dataModel';
 import { createTranscriptRecorder } from '@/lib/voice/transcript-recorder';
 
-const SESSION_ID = 'session-abc' as Id<'voiceSessions'>;
-const CONV_ID = 'conv-123' as Id<'conversations'>;
+const SESSION_ID = 'session-abc';
+const CONV_ID = 'conv-123';
 
 type RecordTranscriptFn = (args: {
-  sessionId: Id<'voiceSessions'>;
-  conversationId: Id<'conversations'>;
+  sessionId: string;
+  conversationId: string;
   role: 'user' | 'agent';
   content: string;
 }) => Promise<unknown>;

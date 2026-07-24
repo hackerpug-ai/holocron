@@ -177,15 +177,17 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
       expect(src).not.toMatch(CONVEX_REACT_IMPORT);
     });
 
-    it('useVoiceSession gates Convex hooks so chat cold-boots without ConvexProvider', () => {
-      // useAction/useMutation throw without ConvexProvider; chat mounts under Zero only.
+    it('useVoiceSession has zero convex/react so chat cold-boots without ConvexProvider', () => {
+      // CAP-CUT-01: no convex/react at all — voice is a pure no-op on Zero-only boot.
       const voice = read(join(REPO_ROOT, 'hooks', 'use-voice-session.ts'));
       const bridge = read(join(REPO_ROOT, 'hooks', 'use-voice-result-bridge.ts'));
       expect(voice).not.toMatch(/\buseAction\s*\(/);
       expect(voice).not.toMatch(/\buseMutation\s*\(/);
-      expect(voice).toMatch(/\buseConvex\s*\(/);
+      expect(voice).not.toMatch(/\buseConvex\s*\(/);
+      expect(voice).not.toMatch(CONVEX_REACT_IMPORT);
       expect(bridge).not.toMatch(/\buseQuery\s*\(/);
-      expect(bridge).toMatch(/\buseConvex\s*\(/);
+      expect(bridge).not.toMatch(/\buseConvex\s*\(/);
+      expect(bridge).not.toMatch(CONVEX_REACT_IMPORT);
     });
 
     it('chat screen cancel path posts to Hono /api/chat-runs/:id/cancel', () => {

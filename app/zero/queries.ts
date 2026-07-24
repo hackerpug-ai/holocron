@@ -132,6 +132,9 @@ export const hasSeenNavTooltip = () =>
 /** Feed settings row (api.feeds.queries.getFeedSettings). */
 export const feedSettings = () => builder.app_settings.where('key', 'feed_settings').one();
 
+/** Voice language preference (api.voice.queries.getVoiceLanguage). */
+export const voiceLanguage = () => builder.app_settings.where('key', 'voice_language').one();
+
 // ── S-REWRITE-04: research / assimilate / improvements / notifications ──────
 
 /** researchSessionById — api.researchSessions.queries.get */
