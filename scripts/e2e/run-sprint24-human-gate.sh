@@ -281,18 +281,36 @@ sys.exit(0)
     echo
 
     echo "--- whats-new-feed non-optional ---"
+    # Only fail if assertVisible / extendedWaitUntil+visible names the data oracle
+    # with optional:true. when:notVisible navigation branches are NOT data oracles
+    # (qa-real-7step-20260724T052913Z false-positive at yml:23).
     if python3 -c '
 import re, pathlib, sys
-lines=pathlib.Path(".maestro/subscriptions/whats-new-loads.yml").read_text().splitlines()
-for i,l in enumerate(lines):
-  if re.search(r"id:\s*\"whats-new-feed\"", l) and re.search(r"optional:\s*true", "\n".join(lines[i:i+4])):
-    sys.exit(1)
+lines = pathlib.Path(".maestro/subscriptions/whats-new-loads.yml").read_text().splitlines()
+fail = []
+for i, l in enumerate(lines):
+  if not re.search(r"id:\s*\"whats-new-feed\"", l):
+    continue
+  # Walk back to find assert kind for this id line
+  back = "\n".join(lines[max(0, i - 8) : i + 1])
+  if re.search(r"notVisible:", back) and not re.search(r"assertVisible:", back):
+    # when: notVisible / empty-state check — not a positive data assert
+    if "assertVisible" not in back:
+      continue
+  if re.search(r"assertVisible:", back) or (
+    re.search(r"extendedWaitUntil:", back) and re.search(r"visible:", back)
+  ):
+    if re.search(r"optional:\s*true", "\n".join(lines[i : i + 5])):
+      fail.append(i + 1)
+if fail:
+  print("FAIL assert lines:", fail)
+  sys.exit(1)
 sys.exit(0)
 '; then
-      echo "PASS: whats-new-feed non-optional"
+      echo "PASS: whats-new-feed data asserts non-optional"
       rg -n 'whats-new-feed' .maestro/subscriptions/whats-new-loads.yml || true
     else
-      echo "FAIL: whats-new-feed optional"
+      echo "FAIL: whats-new-feed data assert marked optional"
       rc=1
     fi
     echo
@@ -308,7 +326,12 @@ sys.exit(0)
 import re, pathlib, sys
 lines=pathlib.Path(".maestro/chat/rename-reflects.yml").read_text().splitlines()
 for i,l in enumerate(lines):
-  if "Sprint Planning" in l and re.search(r"optional:\s*true", "\n".join(lines[i:i+4])):
+  if "Sprint Planning" not in l:
+    continue
+  back = "\n".join(lines[max(0,i-6):i+1])
+  if "assertVisible" not in back and "visible:" not in back:
+    continue
+  if re.search(r"optional:\s*true", "\n".join(lines[i:i+4])):
     sys.exit(1)
 sys.exit(0)
 '; then
@@ -320,8 +343,10 @@ sys.exit(0)
     echo
 
     echo "--- TC-7 python oracle scan (task contract) ---"
-    # Flag optional:true only on assertVisible blocks that name a DATA oracle id/text.
-    # Ignore when:/notVisible branch conditions used for drawer fallback chrome.
+    # DATA oracles: assertVisible / extendedWaitUntil+visible for named ids.
+    # NEVER flag when:notVisible / navigation fallback chrome (optional:true taps).
+    # Regression: qa-real-7step-20260724T052913Z failed before any step ran because
+    # a when:notVisible id:"whats-new-feed" line sat near optional drawer taps.
     if python3 -c "
 import re, pathlib, sys
 files = [
@@ -330,41 +355,42 @@ files = [
   '.maestro/articles/list-loads.yml',
   '.maestro/subscriptions/whats-new-loads.yml',
 ]
-oids = (
+# id or text oracles that must never be optional on positive asserts
+id_oids = (
   'chat-screen', 'conversation-row', 'articles-route',
-  'article-card-pressable', 'whats-new-feed', 'Sprint Planning',
+  'article-card-pressable', 'whats-new-feed', 'whats-new-feed-finding-0',
 )
+text_oids = ('Sprint Planning',)
 fail = []
 for f in files:
   p = pathlib.Path(f)
   if not p.exists():
     continue
   lines = p.read_text().splitlines()
-  i = 0
-  while i < len(lines):
-    if re.match(r'\\s*-\\s*assertVisible:\\s*$', lines[i]) or re.match(r'\\s*-\\s*assertVisible:\\s*\\S', lines[i]):
-      block = [lines[i]]
-      j = i + 1
-      while j < len(lines) and (lines[j].startswith(' ') or lines[j].startswith('\\t') or lines[j].strip() == ''):
-        # stop at next top-level list item at same indent as assertVisible
-        if re.match(r'-\\s', lines[j].lstrip(' ') and lines[j] or '') and not lines[j].startswith('  '):
-          break
-        if re.match(r'^-\\s', lines[j]):
-          break
-        block.append(lines[j])
-        j += 1
-      # simpler block: next 8 lines
-      block = lines[i:min(len(lines), i + 8)]
-      text = '\\n'.join(block)
-      if any(oid in text for oid in oids) and re.search(r'optional:\\s*true', text):
-        fail.append(f'{f}:{i+1}')
-      i = j
+  for i, line in enumerate(lines):
+    has_id = any(re.search(r'id:\\s*\"' + re.escape(oid) + r'\"', line) for oid in id_oids)
+    has_text = any(oid in line for oid in text_oids)
+    if not has_id and not has_text:
       continue
-    i += 1
+    back = '\\n'.join(lines[max(0, i - 10) : i + 1])
+    # Skip when: notVisible conditions (navigation / empty-state bounds)
+    if re.search(r'notVisible:', back) and not re.search(r'assertVisible:', back):
+      # allow extendedWaitUntil notVisible without optional
+      if re.search(r'assertVisible:', back):
+        pass
+      else:
+        continue
+    # Positive data assert contexts only
+    is_assert = bool(re.search(r'assertVisible:', back))
+    is_wait_vis = bool(re.search(r'extendedWaitUntil:', back) and re.search(r'\\bvisible:', back) and not re.search(r'notVisible:', back))
+    if not (is_assert or is_wait_vis):
+      continue
+    if re.search(r'optional:\\s*true', '\\n'.join(lines[i : i + 6])):
+      fail.append(f'{f}:{i+1}')
 if fail:
   print('FAIL lines:', fail)
   sys.exit(1)
-print('PASS: assertVisible data oracles not marked optional')
+print('PASS: data assert oracles not marked optional (when:notVisible branches ignored)')
 sys.exit(0)
 "; then
       echo "PASS: TC-7 human-gate oracles non-optional"
