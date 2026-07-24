@@ -51,6 +51,13 @@ export const agentActivityByOwner = (conversationId: string) =>
 /** Alias used by hooks when the call site names the conversation explicitly. */
 export const agentActivityByConversation = agentActivityByOwner;
 
+/** Single agent plan by id (chat agent_plan message cards). */
+export const agentPlanById = (id: string) => builder.agent_plans.where('id', id).one();
+
+/** Steps for an agent plan, ordered by step_index. */
+export const agentPlanStepsByPlan = (planId: string) =>
+  builder.agent_plan_steps.where('plan_id', planId).orderBy('step_index', 'asc');
+
 // ── S-REWRITE-02: documents / narration cluster ─────────────────────────────
 
 /**

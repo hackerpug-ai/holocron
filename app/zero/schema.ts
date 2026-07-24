@@ -77,6 +77,28 @@ const agentPlans = table('agent_plans')
   })
   .primaryKey('id');
 
+/** S-REWRITE-01 — agent plan steps (zero_pub). */
+const agentPlanSteps = table('agent_plan_steps')
+  .columns({
+    id: string(),
+    legacy_convex_id: string().optional(),
+    plan_id: string().optional(),
+    step_index: number().optional(),
+    tool_name: string().optional(),
+    tool_display_name: string().optional(),
+    tool_args: json().optional(),
+    description: string().optional(),
+    requires_approval: boolean().optional(),
+    status: string(),
+    tool_call_id: string().optional(),
+    result_summary: string().optional(),
+    error_message: string().optional(),
+    started_at: number().optional(),
+    completed_at: number().optional(),
+    created_at: number(),
+  })
+  .primaryKey('id');
+
 /** S-REWRITE-01/04 — research sessions (04 column set is authoritative). */
 const researchSessions = table('research_sessions')
   .columns({
@@ -386,6 +408,7 @@ export const schema = createSchema({
     chatMessages,
     toolCalls,
     agentPlans,
+    agentPlanSteps,
     researchSessions,
     researchIterations,
     documents,
