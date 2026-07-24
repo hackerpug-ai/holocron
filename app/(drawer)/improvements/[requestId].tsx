@@ -2,13 +2,13 @@ import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { improvementRequestById } from '@/app/zero/queries';
 import { ImprovementActionMenu } from '@/components/improvements/ImprovementActionMenu';
 import { ImprovementDetailView } from '@/components/improvements/ImprovementDetailView';
 import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, EllipsisVertical } from '@/components/ui/icons';
+import { EllipsisVertical } from '@/components/ui/icons';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -89,70 +89,36 @@ export default function ImprovementDetailScreen() {
 
   if (row === undefined) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
-            <ArrowLeft size={24} color={theme.colors.foreground} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: theme.typography.h4.fontSize,
-              fontWeight: theme.typography.h4.fontWeight,
-              color: theme.colors.foreground,
-            }}
-          >
-            Loading...
-          </Text>
-        </View>
-
+      <ScreenLayout
+        header={{
+          title: 'Loading...',
+          showBack: true,
+          onBack: handleBack,
+          testID: 'improvements-detail',
+        }}
+        edges="bottom"
+        testID="improvements-detail-loading"
+      >
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text className="text-muted-foreground mt-4">Loading improvement request...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   if (row === null) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.md,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            gap: theme.spacing.md,
-          }}
-        >
-          <Pressable onPress={handleBack} style={{ padding: theme.spacing.sm }}>
-            <ArrowLeft size={24} color={theme.colors.foreground} />
-          </Pressable>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: theme.typography.h4.fontSize,
-              fontWeight: theme.typography.h4.fontWeight,
-              color: theme.colors.foreground,
-            }}
-          >
-            Error
-          </Text>
-        </View>
-
+      <ScreenLayout
+        header={{
+          title: 'Error',
+          showBack: true,
+          onBack: handleBack,
+          testID: 'improvements-detail',
+        }}
+        edges="bottom"
+        testID="improvements-detail-error"
+      >
         <View
           style={{
             flex: 1,
@@ -162,11 +128,16 @@ export default function ImprovementDetailScreen() {
           }}
         >
           <Text className="text-destructive text-center text-lg mb-4">Request not found</Text>
-          <Button onPress={handleBack}>
+          <Button
+            onPress={handleBack}
+            testID="improvements-detail-go-back"
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Text>Go Back</Text>
           </Button>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
@@ -196,47 +167,27 @@ export default function ImprovementDetailScreen() {
   const images: unknown[] = [];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: theme.spacing.md,
-          paddingVertical: theme.spacing.md,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.border,
-          gap: theme.spacing.md,
-        }}
-      >
-        <Pressable
-          onPress={handleBack}
-          style={{ padding: theme.spacing.sm }}
-          testID="improvement-detail-back-button"
-        >
-          <ArrowLeft size={24} color={theme.colors.foreground} />
-        </Pressable>
-        <Text
-          style={{
-            flex: 1,
-            fontSize: theme.typography.h4.fontSize,
-            fontWeight: theme.typography.h4.fontWeight,
-            color: theme.colors.foreground,
-          }}
-          numberOfLines={1}
-        >
-          {request.title ?? 'Improvement Request'}
-        </Text>
-        <Pressable
-          onPress={() => setActionMenuOpen(true)}
-          style={{ padding: theme.spacing.sm }}
-          testID="improvement-detail-menu-button"
-          accessibilityRole="button"
-          accessibilityLabel="More options"
-        >
-          <EllipsisVertical size={24} color={theme.colors.foreground} />
-        </Pressable>
-      </View>
-
+    <ScreenLayout
+      header={{
+        title: request.title ?? 'Improvement Request',
+        showBack: true,
+        onBack: handleBack,
+        testID: 'improvements-detail',
+        rightContent: (
+          <Pressable
+            onPress={() => setActionMenuOpen(true)}
+            style={{ padding: theme.spacing.sm }}
+            testID="improvement-detail-menu-button"
+            accessibilityRole="button"
+            accessibilityLabel="More options"
+          >
+            <EllipsisVertical size={24} color={theme.colors.foreground} />
+          </Pressable>
+        ),
+      }}
+      edges="bottom"
+      testID="improvements-detail-layout"
+    >
       <ImprovementDetailView
         request={request as never}
         images={images as never}
@@ -265,6 +216,6 @@ export default function ImprovementDetailScreen() {
           testID="improvement-detail-edit-sheet"
         />
       )}
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

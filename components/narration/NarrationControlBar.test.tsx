@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { NarrationState, UseNarrationStateReturn } from './hooks/useNarrationState';
 import { NarrationControlBar } from './NarrationControlBar';
+import { theme } from '@/lib/theme';
 
 vi.mock('react-native-reanimated', () => {
   const { View } = require('react-native');
@@ -35,7 +36,7 @@ vi.mock('react-native-safe-area-context', () => ({
 vi.mock('@/hooks/use-theme', () => ({
   useTheme: () => ({
     colors: {
-      primary: '#22c55e',
+      primary: theme.colors.light.success,
     },
   }),
 }));

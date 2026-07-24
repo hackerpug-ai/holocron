@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
+import { brandColors } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 export interface ShopListingCardProps {
@@ -44,19 +45,11 @@ export interface ShopListingCardProps {
   onPress?: () => void;
 }
 
-// Retailer brand colors for distinctive badges
+// Retailer brand colors for distinctive badges (hosted under theme.brandColors)
 const RETAILER_COLORS: Record<
   string,
   { bg: string; text: string; darkBg: string; darkText: string }
-> = {
-  amazon: { bg: '#FF9900', text: '#000000', darkBg: '#FF9900', darkText: '#000000' },
-  ebay: { bg: '#E53238', text: '#FFFFFF', darkBg: '#E53238', darkText: '#FFFFFF' },
-  walmart: { bg: '#0071DC', text: '#FFFFFF', darkBg: '#0071DC', darkText: '#FFFFFF' },
-  target: { bg: '#CC0000', text: '#FFFFFF', darkBg: '#CC0000', darkText: '#FFFFFF' },
-  bestbuy: { bg: '#0046BE', text: '#FFE000', darkBg: '#0046BE', darkText: '#FFE000' },
-  newegg: { bg: '#F7941E', text: '#000000', darkBg: '#F7941E', darkText: '#000000' },
-  default: { bg: '#6B7280', text: '#FFFFFF', darkBg: '#4B5563', darkText: '#FFFFFF' },
-};
+> = brandColors.retailer;
 
 // Condition styling
 const CONDITION_STYLES: Record<string, { label: string; className: string }> = {

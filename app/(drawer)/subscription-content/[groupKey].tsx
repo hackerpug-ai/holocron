@@ -2,6 +2,7 @@ import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { subscriptionSourcesList } from '@/app/zero/queries';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { SubscriptionDetailScreen } from '@/screens/subscription-detail-screen';
 
@@ -25,9 +26,11 @@ export default function SubscriptionContentRoute() {
 
   if (subscriptionIds.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-destructive">Invalid subscription group</Text>
-      </View>
+      <ScreenLayout edges="bottom" testID="subscription-content-invalid">
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-destructive">Invalid subscription group</Text>
+        </View>
+      </ScreenLayout>
     );
   }
 
@@ -40,12 +43,18 @@ export default function SubscriptionContentRoute() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator />
-        <Text className="text-muted-foreground mt-4">Loading...</Text>
-      </View>
+      <ScreenLayout edges="bottom" testID="subscription-content-loading">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator />
+          <Text className="text-muted-foreground mt-4">Loading...</Text>
+        </View>
+      </ScreenLayout>
     );
   }
 
-  return <SubscriptionDetailScreen subscriptionIds={subscriptionIds} groupName={groupName} />;
+  return (
+    <ScreenLayout edges="none" testID="subscription-content-layout">
+      <SubscriptionDetailScreen subscriptionIds={subscriptionIds} groupName={groupName} />
+    </ScreenLayout>
+  );
 }

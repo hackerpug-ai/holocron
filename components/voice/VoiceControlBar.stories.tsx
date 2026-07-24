@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { VoiceControlBar } from './VoiceControlBar'
+import { theme } from '@/lib/theme';
 
 // ─── Meta ──────────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ const meta: Meta<typeof VoiceControlBar> = {
   },
   decorators: [
     (Story) => (
-      <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', flex: 1, backgroundColor: theme.colors.light.muted }}>
         <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 24 }}>
           <Story />
         </View>

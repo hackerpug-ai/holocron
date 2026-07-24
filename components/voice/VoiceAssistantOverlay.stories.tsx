@@ -191,31 +191,31 @@ export const InteractiveDemo: Story = {
         <View style={{ padding: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Pressable
             onPress={() => setStatus('listening')}
-            style={{ padding: 8, backgroundColor: '#e0e0e0', borderRadius: 4 }}
+            style={{ padding: 8, backgroundColor: theme.colors.light.secondary, borderRadius: 4 }}
           >
             <RNText>Listening</RNText>
           </Pressable>
           <Pressable
             onPress={() => setStatus('speaking')}
-            style={{ padding: 8, backgroundColor: '#e0e0e0', borderRadius: 4 }}
+            style={{ padding: 8, backgroundColor: theme.colors.light.secondary, borderRadius: 4 }}
           >
             <RNText>Speaking</RNText>
           </Pressable>
           <Pressable
             onPress={() => setStatus('error')}
-            style={{ padding: 8, backgroundColor: '#e0e0e0', borderRadius: 4 }}
+            style={{ padding: 8, backgroundColor: theme.colors.light.secondary, borderRadius: 4 }}
           >
             <RNText>Error</RNText>
           </Pressable>
           <Pressable
             onPress={() => setStatus('idle')}
-            style={{ padding: 8, backgroundColor: '#e0e0e0', borderRadius: 4 }}
+            style={{ padding: 8, backgroundColor: theme.colors.light.secondary, borderRadius: 4 }}
           >
             <RNText>Idle</RNText>
           </Pressable>
           <Pressable
             onPress={() => setIsMuted(!isMuted)}
-            style={{ padding: 8, backgroundColor: isMuted ? '#ffcccc' : '#ccffcc', borderRadius: 4 }}
+            style={{ padding: 8, backgroundColor: isMuted ? theme.colors.light.destructive : theme.colors.light.success, borderRadius: 4 }}
           >
             <RNText>Toggle Mute ({isMuted ? 'On' : 'Off'})</RNText>
           </Pressable>
@@ -234,3 +234,4 @@ export const InteractiveDemo: Story = {
 }
 
 import React from 'react'
+import { theme } from '@/lib/theme';

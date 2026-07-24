@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { colors, radius, spacing, typography } from '@/lib/theme';
+import { brandColors, colors, radius, spacing, typography } from '@/lib/theme';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 /**
@@ -13,6 +13,7 @@ export function useTheme() {
   return useMemo(
     () => ({
       colors: isDarkColorScheme ? colors.dark : colors.light,
+      brandColors,
       spacing,
       radius,
       typography,

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { VoiceTranscriptFeed } from './VoiceTranscriptFeed'
 import type { TranscriptEntry } from './VoiceTranscriptFeed'
+import { theme } from '@/lib/theme';
 
 // ─── Mock Factory ──────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ const meta: Meta<typeof VoiceTranscriptFeed> = {
   },
   decorators: [
     (Story) => (
-      <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center', flex: 1, backgroundColor: theme.colors.light.muted }}>
         <View style={{ width: '100%', maxWidth: 400, backgroundColor: '#fff', borderRadius: 12, padding: 16, height: 300 }}>
           <Story />
         </View>

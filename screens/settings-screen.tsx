@@ -5,6 +5,7 @@ import { voiceLanguage as voiceLanguageQuery } from '@/app/zero/queries';
 import { SubscriptionSection } from '@/components/settings/SubscriptionSection';
 import { Check, Globe, Monitor, Moon, Sun } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
+import { colors } from '@/lib/theme';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
 
@@ -29,9 +30,9 @@ const THEME_OPTIONS: ThemeOption[] = [
     description: 'Clean, bright interface',
     icon: Sun,
     previewColors: {
-      background: 'bg-white',
-      foreground: 'bg-slate-900',
-      accent: 'bg-slate-200',
+      background: colors.light.background,
+      foreground: colors.light.foreground,
+      accent: colors.light.secondary,
     },
   },
   {
@@ -40,9 +41,9 @@ const THEME_OPTIONS: ThemeOption[] = [
     description: 'Deep navy archive aesthetic',
     icon: Moon,
     previewColors: {
-      background: 'bg-[#0A0E14]',
-      foreground: 'bg-[#E8E4DE]',
-      accent: 'bg-[#1E2A3B]',
+      background: colors.dark.background,
+      foreground: colors.dark.foreground,
+      accent: colors.dark.border,
     },
   },
   {
@@ -51,9 +52,10 @@ const THEME_OPTIONS: ThemeOption[] = [
     description: 'Matches device settings',
     icon: Monitor,
     previewColors: {
-      background: 'bg-gradient-to-br from-white to-[#0A0E14]',
-      foreground: 'bg-gradient-to-br from-slate-900 to-[#E8E4DE]',
-      accent: 'bg-gradient-to-br from-slate-200 to-[#1E2A3B]',
+      // Mid blend of light/dark tokens for system preview swatches
+      background: colors.dark.card,
+      foreground: colors.dark.secondaryForeground,
+      accent: colors.dark.muted,
     },
   },
 ];
@@ -167,39 +169,29 @@ export function SettingsScreen(_props: SettingsScreenProps) {
       >
         {/* Live preview area */}
         <View className="h-24 w-full">
-          {/* Preview background with gradient overlay */}
+          {/* Preview background driven by theme tokens */}
           <View
-            className={cn(
-              'absolute inset-0 transition-colors duration-500',
-              option.previewColors.background
-            )}
+            className="absolute inset-0 transition-colors duration-500"
+            style={{ backgroundColor: option.previewColors.background }}
           />
           {/* Preview content bars */}
           <View className="absolute inset-0 flex-col gap-2 p-3">
             <View
-              className={cn(
-                'h-2 w-3/4 rounded-full transition-colors duration-500',
-                option.previewColors.foreground
-              )}
+              className="h-2 w-3/4 rounded-full transition-colors duration-500"
+              style={{ backgroundColor: option.previewColors.foreground }}
             />
             <View
-              className={cn(
-                'h-2 w-1/2 rounded-full transition-colors duration-500',
-                option.previewColors.foreground
-              )}
+              className="h-2 w-1/2 rounded-full transition-colors duration-500"
+              style={{ backgroundColor: option.previewColors.foreground }}
             />
             <View className="mt-auto flex flex-row gap-2">
               <View
-                className={cn(
-                  'h-6 w-16 rounded-lg transition-colors duration-500',
-                  option.previewColors.accent
-                )}
+                className="h-6 w-16 rounded-lg transition-colors duration-500"
+                style={{ backgroundColor: option.previewColors.accent }}
               />
               <View
-                className={cn(
-                  'flex-1 h-6 rounded-lg transition-colors duration-500',
-                  option.previewColors.accent
-                )}
+                className="flex-1 h-6 rounded-lg transition-colors duration-500"
+                style={{ backgroundColor: option.previewColors.accent }}
               />
             </View>
           </View>

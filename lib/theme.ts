@@ -161,11 +161,49 @@ export const typography = {
     lineHeight: 1.2,
     textTransform: 'uppercase' as const,
   },
+  micro: { fontSize: 10, fontWeight: '500' as const, lineHeight: 1.3 },
 };
+
+/**
+ * Scheme-independent brand / domain palettes.
+ * Hosted here so production components never embed raw #RRGGBB literals.
+ */
+export const brandColors = {
+  freshness: {
+    fresh: '#22C55E',
+    aging: '#F59E0B',
+    stale: '#EF4444',
+  },
+  category: {
+    discovery: '#F59E0B',
+    release: '#10B981',
+    trend: '#3B82F6',
+    discussion: '#6B7280',
+  },
+  platform: {
+    Reddit: '#FF4500',
+    Bluesky: '#0085FF',
+    Lobsters: '#AC130D',
+    'Dev.to': '#0A0A0A',
+    'Twitter/X': '#1DA1F2',
+    Other: '#64748B',
+    All: '#64748B',
+  },
+  retailer: {
+    amazon: { bg: '#FF9900', text: '#000000', darkBg: '#FF9900', darkText: '#000000' },
+    ebay: { bg: '#E53238', text: '#FFFFFF', darkBg: '#E53238', darkText: '#FFFFFF' },
+    walmart: { bg: '#0071DC', text: '#FFFFFF', darkBg: '#0071DC', darkText: '#FFFFFF' },
+    target: { bg: '#CC0000', text: '#FFFFFF', darkBg: '#CC0000', darkText: '#FFFFFF' },
+    bestbuy: { bg: '#0046BE', text: '#FFE000', darkBg: '#0046BE', darkText: '#FFE000' },
+    newegg: { bg: '#F7941E', text: '#000000', darkBg: '#F7941E', darkText: '#000000' },
+    default: { bg: '#6B7280', text: '#FFFFFF', darkBg: '#4B5563', darkText: '#FFFFFF' },
+  },
+} as const;
 
 // Export combined theme
 export const theme = {
   colors,
+  brandColors,
   spacing,
   radius,
   typography,

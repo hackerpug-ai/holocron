@@ -2,7 +2,9 @@ import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { ChatInput } from '@/components/chat/ChatInput';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 import { chatMessagesByConversation } from '../../zero/queries';
 
 const platformUrl = process.env.EXPO_PUBLIC_PLATFORM_URL;
@@ -36,6 +38,7 @@ async function waitForDurableReply(
 }
 
 export default function ReferenceChatScreen() {
+  const { spacing } = useTheme();
   const [rawRows] = useZeroQuery(chatMessagesByConversation(conversationId ?? ''));
   const rows = (rawRows ?? []) as unknown as ReferenceMessage[];
   const rowsRef = useRef(rows);
@@ -83,46 +86,48 @@ export default function ReferenceChatScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-background"
-      testID="chat-screen"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View className="flex-1" testID="chat-thread">
-        {rows.length === 0 && sending ? <ActivityIndicator testID="chat-loading-inline" /> : null}
-        <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) => (
-            <View
-              className={
-                item.role === 'agent'
-                  ? 'self-start rounded-2xl bg-muted p-3'
-                  : 'self-end rounded-2xl bg-primary p-3'
-              }
-              testID={item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`}
-            >
-              <Text
-                className={item.role === 'agent' ? 'text-foreground' : 'text-primary-foreground'}
+    <ScreenLayout edges="none" testID="chat-reference-layout">
+      <KeyboardAvoidingView
+        className="flex-1 bg-background"
+        testID="chat-screen"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View className="flex-1" testID="chat-thread">
+          {rows.length === 0 && sending ? <ActivityIndicator testID="chat-loading-inline" /> : null}
+          <FlatList
+            data={messages}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+            renderItem={({ item }) => (
+              <View
+                className={
+                  item.role === 'agent'
+                    ? 'self-start rounded-2xl bg-muted p-3'
+                    : 'self-end rounded-2xl bg-primary p-3'
+                }
+                testID={item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`}
               >
-                {item.content}
-              </Text>
-            </View>
-          )}
+                <Text
+                  className={item.role === 'agent' ? 'text-foreground' : 'text-primary-foreground'}
+                >
+                  {item.content}
+                </Text>
+              </View>
+            )}
+          />
+        </View>
+        {error ? (
+          <Text className="text-destructive" testID="error-banner">
+            {error}
+          </Text>
+        ) : null}
+        <ChatInput
+          onSend={handleSend}
+          disabled={sending}
+          testID="chat-input"
+          showVoiceButton={false}
         />
-      </View>
-      {error ? (
-        <Text className="text-destructive" testID="error-banner">
-          {error}
-        </Text>
-      ) : null}
-      <ChatInput
-        onSend={handleSend}
-        disabled={sending}
-        testID="chat-input"
-        showVoiceButton={false}
-      />
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </ScreenLayout>
   );
 }

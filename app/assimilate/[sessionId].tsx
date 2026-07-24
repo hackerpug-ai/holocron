@@ -17,6 +17,7 @@ import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { Button } from '@/components/ui/button';
 import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 
 /** Human-readable label for each session status. */
 function statusLabel(status: string): string {
@@ -78,6 +79,7 @@ export default function AssimilationPlanRoute() {
   const router = useRouter();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const insets = useSafeAreaInsets();
+  const { colors: themeColors } = useTheme();
   const zero = useZero();
 
   const [showRejectInput, setShowRejectInput] = useState(false);
@@ -280,7 +282,7 @@ export default function AssimilationPlanRoute() {
                 <TextInput
                   className="border border-border rounded-md bg-input px-3 py-2 text-foreground text-sm min-h-[64px]"
                   placeholder="Optional: describe what to revise…"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={themeColors.mutedForeground}
                   value={feedback}
                   onChangeText={setFeedback}
                   multiline

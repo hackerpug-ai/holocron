@@ -8,8 +8,13 @@
  * - /subscriptions/feed: Feed view with filters and settings (this route)
  * - /subscriptions: Management view for adding/removing subscriptions (existing, unchanged)
  */
+import { ScreenLayout } from '@/components/ui/screen-layout';
 import { SubscriptionFeedScreen } from '@/components/subscriptions/SubscriptionFeedScreen';
 
 export default function SubscriptionFeedRoute() {
-  return <SubscriptionFeedScreen />;
+  return (
+    <ScreenLayout edges="bottom" testID="subscription-feed-layout">
+      <SubscriptionFeedScreen />
+    </ScreenLayout>
+  );
 }

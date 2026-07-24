@@ -42,7 +42,7 @@ export function ArticleImportModal({
   onSuccess,
   testID = 'article-import-modal',
 }: ArticleImportModalProps) {
-  const { colors: themeColors, typography } = useTheme();
+  const { colors: themeColors, typography, spacing, radius } = useTheme();
   const zero = useZero();
   const [selectedArticleId, setSelectedArticleId] = useState<string>('');
   const [textToImport, setTextToImport] = useState<string>('');
@@ -95,14 +95,14 @@ export function ArticleImportModal({
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: 20,
+          padding: spacing.xl - spacing.xs,
         }}
       >
         <View
           style={{
             backgroundColor: themeColors.background,
-            borderRadius: 12,
-            padding: 24,
+            borderRadius: radius.xl,
+            padding: spacing.xl,
             width: '100%',
             maxHeight: '80%',
           }}
