@@ -49,9 +49,20 @@ appId: com.holocron.app
       id: "document-actions-button"
     timeout: 30000
 
-# Single tap — FAB-disabled sim; double-tap races Expo Dev Menu
+# Open actions sheet. NEVER unconditional double-tap:
+# qa-real-7step-stable-dd83a798-20260724T061012Z — first tap opened the sheet
+# (button leaves hierarchy); second hard tap failed "element not found".
+# Retry only when share row still not visible; second tap is optional.
 - tapOn:
     id: "document-actions-button"
+- runFlow:
+    when:
+      notVisible:
+        id: "document-actions-sheet-share"
+    commands:
+      - tapOn:
+          id: "document-actions-button"
+          optional: true
 
 # Sheet content (Pressable share) — simplified Modal+View hierarchy
 - extendedWaitUntil:
