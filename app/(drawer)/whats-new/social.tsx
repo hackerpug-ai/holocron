@@ -7,5 +7,6 @@ import { SocialPostsListScreen } from '@/components/whats-new/SocialPostsListScr
  * Route: /whats-new/social
  */
 export default function SocialPostsRoute() {
-  return <SocialPostsListScreen testID="whats-new-social" />;
+  // Default testID `social-posts-list` matches Maestro AC-5
+  return <SocialPostsListScreen testID="social-posts-list" />;
 }

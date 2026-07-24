@@ -5,14 +5,15 @@
  * - Content ranking preferences
  * - Feedback history management
  * - Personalization options
+ *
+ * Preference persistence is local UI for now; feed-item feedback writes go
+ * through Zero mutators on the cards (useFeedItemFeedback).
  */
 
-import { useMutation } from 'convex/react';
 import React from 'react';
 import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 
 export interface SubscriptionSettingsProps {
   /** Optional test ID for testing */
@@ -22,12 +23,8 @@ export interface SubscriptionSettingsProps {
 export function SubscriptionSettings({
   testID = 'subscription-settings',
 }: SubscriptionSettingsProps) {
-  // Mutation to update preferences (reserved for future use)
-  useMutation(api.subscriptions.feedback.submitFeedback);
-
   const handlePreferenceChange = async (key: string, value: boolean) => {
-    // In a real implementation, this would update user preferences
-    // For now, we're just showing the UI structure
+    // Preference store lands with app_settings Zero mutators when productized.
     console.log(`Preference ${key} changed to ${value}`);
   };
 
@@ -55,7 +52,7 @@ export function SubscriptionSettings({
         <View style={styles.settingLabel}>
           <Text variant="p">Track feedback</Text>
           <Text variant="muted" style={styles.settingDescription}>
-            Remember your "more/less like this" choices
+            Remember your &quot;more/less like this&quot; choices
           </Text>
         </View>
         <Switch
@@ -92,7 +89,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   content: {
     padding: 16,
-  },
+  } as ViewStyle,
   sectionTitle: {
     marginTop: 16,
     marginBottom: 12,

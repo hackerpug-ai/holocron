@@ -1,11 +1,11 @@
-import { useQuery } from 'convex/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { subscriptionContentGroupedByCreator } from '@/app/zero/queries';
 import { SubscriptionSettingsModal } from '@/components/subscriptions/SubscriptionSettingsModal';
 import { Bell, ChevronRight, FileText, Settings } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 import { cn } from '@/lib/utils';
 
 interface SubscriptionSectionProps {
@@ -13,11 +13,17 @@ interface SubscriptionSectionProps {
   testID?: string;
 }
 
+type SourceRow = {
+  id: string;
+  name?: string | null;
+  identifier?: string | null;
+};
+
 /**
  * SubscriptionSection - Quick subscription management in Settings
  *
  * Provides:
- * - Subscription count summary
+ * - Subscription count summary (via Zero subscription_sources)
  * - Quick link to full subscriptions management
  * - Feed settings modal (notifications, display options)
  */
@@ -28,14 +34,16 @@ export function SubscriptionSection({
   const router = useRouter();
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
 
-  // Fetch subscription counts
-  const groups = useQuery(api.subscriptions.queries.listGroupedByCreator, { limit: 100 });
+  const [rawRows] = useZeroQuery(subscriptionContentGroupedByCreator(100));
+  const rows = (rawRows ?? []) as unknown as SourceRow[];
 
-  // Calculate total subscriptions and document count
-  const totalSubscriptions =
-    groups?.reduce((acc: number, group: any) => acc + group.subscriptions.length, 0) ?? 0;
-  const totalDocuments =
-    groups?.reduce((acc: number, group: any) => acc + group.documentCount, 0) ?? 0;
+  const { totalSubscriptions, totalDocuments } = useMemo(() => {
+    return {
+      totalSubscriptions: rows.length,
+      // Document counts require a joined projection; show 0 until content query is composed.
+      totalDocuments: 0,
+    };
+  }, [rows]);
 
   const handleManageSubscriptions = () => {
     router.push('/subscriptions');
@@ -48,7 +56,6 @@ export function SubscriptionSection({
   return (
     <>
       <View className={cn('gap-3', className)} testID={testID}>
-        {/* Section title with icon */}
         <View className="flex-row items-center gap-2 px-1">
           <View className="rounded-lg bg-primary/10 p-2">
             <Bell size={16} className="text-primary" />
@@ -58,14 +65,11 @@ export function SubscriptionSection({
           </Text>
         </View>
 
-        {/* Section description */}
         <Text variant="default" className="px-1 text-muted-foreground">
           Manage your content sources and feed preferences.
         </Text>
 
-        {/* Summary cards */}
         <View className="gap-2 pt-2">
-          {/* Main subscription card */}
           <Pressable
             onPress={handleManageSubscriptions}
             className="rounded-2xl border border-border bg-card p-4 active:bg-muted/50 transition-colors"
@@ -93,7 +97,6 @@ export function SubscriptionSection({
             </View>
           </Pressable>
 
-          {/* Feed settings card */}
           <Pressable
             onPress={handleOpenSettings}
             className="rounded-2xl border border-border bg-card p-4 active:bg-muted/50 transition-colors"
@@ -118,7 +121,6 @@ export function SubscriptionSection({
           </Pressable>
         </View>
 
-        {/* Info section */}
         {totalSubscriptions === 0 && (
           <View className="mt-2 gap-3 rounded-2xl border border-border bg-card p-4">
             <View className="flex-row items-center gap-2">
@@ -135,7 +137,6 @@ export function SubscriptionSection({
         )}
       </View>
 
-      {/* Feed settings modal */}
       <SubscriptionSettingsModal
         visible={settingsModalVisible}
         onDismiss={() => setSettingsModalVisible(false)}

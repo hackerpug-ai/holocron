@@ -66,20 +66,27 @@ function handleIncomingURL({ url }: { url: string }) {
         return;
       }
 
-      // Handle subscriptions deep links (redirect to new locations)
-      if (parsed.path === 'subscriptions') {
-        // Redirect to Settings > Subscriptions
+      // Subscriptions settings list (Zero-backed sources + auto_research toggles)
+      if (parsed.path === 'subscriptions' || parsed.path === 'subscriptions/settings') {
         router.push({
-          pathname: '/subscriptions/settings',
+          pathname: '/subscriptions',
           params,
         });
         return;
       }
 
+      // Legacy feed deep link → What's New intelligence briefing
       if (parsed.path === 'subscriptions/feed') {
-        // Redirect to What's New (social posts view)
         router.push({
-          pathname: '/subscriptions/social',
+          pathname: '/whats-new',
+          params,
+        });
+        return;
+      }
+
+      if (parsed.path === 'whats-new' || parsed.path === 'whats-new/social') {
+        router.push({
+          pathname: `/${parsed.path}`,
           params,
         });
         return;

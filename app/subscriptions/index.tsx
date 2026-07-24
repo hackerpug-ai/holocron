@@ -1,32 +1,38 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
-import { ROUTES } from '@/lib/constants/routes';
-import { log } from '@/lib/logger-client';
+import { useRouter } from 'expo-router';
+import { ScreenLayout } from '@/components/ui/screen-layout';
+import { SubscriptionsScreen } from '@/screens/subscriptions-screen';
 
 /**
- * Redirect old subscriptions deep link to What's New feed.
+ * Subscriptions management deep link (settings list).
  *
  * Deep link: holocron://subscriptions
- * Redirects to: /subscriptions/social (What's New feed)
+ * Renders Zero-backed subscription sources list (auto_research toggles).
  *
- * Query parameters are preserved during redirect.
- *
- * NOTE: The spec says to redirect to /whats-new but that route doesn't exist yet.
- * The actual working "What's New" feed is at /subscriptions/social.
- * This redirect fulfills the intent of US-REM-005 by sending users to the correct feed location.
+ * AC-2 / AC-4 Maestro flows open this route and expect
+ * `subscriptions-settings-route` + `subscriptions-screen` + `subscriptions-list`.
  */
-export default function SubscriptionsRedirect() {
-  const params = useLocalSearchParams<Record<string, string>>();
+export default function SubscriptionsIndexRoute() {
+  const router = useRouter();
 
-  // Build redirect URL with preserved query parameters
-  const queryString = new URLSearchParams(params as Record<string, string>).toString();
-  const href = queryString ? `${ROUTES.WHATS_NEW}?${queryString}` : ROUTES.WHATS_NEW;
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/chat/new');
+    }
+  };
 
-  // Log redirect for monitoring
-  log('Navigation').info('Legacy subscription route redirect', {
-    from: ROUTES.LEGACY.SUBSCRIPTIONS,
-    to: ROUTES.WHATS_NEW,
-    params,
-  });
-
-  return <Redirect href={href} />;
+  return (
+    <ScreenLayout
+      header={{
+        title: 'Subscriptions',
+        showBack: true,
+        onBack: handleBack,
+      }}
+      edges="bottom"
+      testID="subscriptions-settings-route"
+    >
+      <SubscriptionsScreen />
+    </ScreenLayout>
+  );
 }

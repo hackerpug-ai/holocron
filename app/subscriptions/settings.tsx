@@ -1,33 +1,10 @@
-import { useRouter } from 'expo-router';
-import { ScreenLayout } from '@/components/ui/screen-layout';
-import { SubscriptionsScreen } from '@/screens/subscriptions-screen';
+import { Redirect } from 'expo-router';
+import { ROUTES } from '@/lib/constants/routes';
 
 /**
- * Subscriptions settings/management route.
- * Manage all subscription sources with search and filtering.
+ * Canonical settings path redirects to the Zero settings list at /subscriptions.
+ * Deep link: holocron://subscriptions/settings → holocron://subscriptions
  */
-export default function SubscriptionsSettingsRoute() {
-  const router = useRouter();
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.navigate('/subscriptions');
-    }
-  };
-
-  return (
-    <ScreenLayout
-      header={{
-        title: 'Subscriptions',
-        showBack: true,
-        onBack: handleBack,
-      }}
-      edges="bottom"
-      testID="subscriptions-settings-route"
-    >
-      <SubscriptionsScreen />
-    </ScreenLayout>
-  );
+export default function SubscriptionsSettingsRedirect() {
+  return <Redirect href={ROUTES.SUBSCRIPTIONS_SETTINGS} />;
 }

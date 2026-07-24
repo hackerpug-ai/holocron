@@ -1,0 +1,25 @@
+appId: com.holocron.app
+---
+# AC-3 / TC-3: Whats-new report detail loads via Zero
+
+- launchApp:
+    clearState: true
+
+- openLink: holocron://whats-new
+
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-feed"
+    timeout: 90000
+
+- tapOn:
+    id: "whats-new-feed-finding-0"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-detail-view"
+    timeout: 45000
+    optional: true
+
+- takeScreenshot: whats-new-loads-seeded

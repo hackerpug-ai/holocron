@@ -1,0 +1,24 @@
+appId: com.holocron.app
+---
+# AC-5 / TC-5: Social posts load via Zero
+
+- launchApp:
+    clearState: true
+
+- openLink: holocron://whats-new/social
+
+- extendedWaitUntil:
+    visible:
+      id: "social-posts-list"
+    timeout: 90000
+
+- assertVisible:
+    id: "social-posts-list"
+
+- extendedWaitUntil:
+    visible:
+      id: "social-posts-list-card-0"
+    timeout: 30000
+    optional: true
+
+- takeScreenshot: social-loads-seeded

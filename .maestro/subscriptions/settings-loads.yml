@@ -1,0 +1,26 @@
+appId: com.holocron.app
+---
+# AC-2 / TC-2: Subscription settings load via Zero with toggle state
+
+- launchApp:
+    clearState: true
+
+- openLink: holocron://subscriptions
+
+- extendedWaitUntil:
+    visible:
+      id: "subscriptions-settings-route"
+    timeout: 90000
+
+- assertVisible:
+    id: "subscriptions-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "subscriptions-list"
+    timeout: 30000
+
+- assertVisible:
+    id: "subscriptions-list"
+
+- takeScreenshot: settings-loads-seeded
