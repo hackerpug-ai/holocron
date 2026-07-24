@@ -1,0 +1,20 @@
+{
+  "fixtures": {
+    "seeded-research-session": {
+      "description": "One research session seeded via holo seed:e2e --reset whose workflow advances 1->5 iterations; progress row research_sessions is in zero_pub",
+      "seed_method": "public_api",
+      "records": [
+        "holo seed:e2e --reset creates a research_sessions row with status='running', max_iterations=5, current_iteration starting at 1",
+        "research_sessions is a full-table zero_pub member (zero-pub.ts:26)",
+        "the Sprint 17 research engine increments current_iteration as the workflow advances",
+        "a Zero useQuery reads current_iteration and max_iterations reactively"
+      ]
+    }
+  },
+  "requirements": [
+    {"id":"AC-1","type":"acceptance_criterion","primary":true,"maps_to_ac":null,"scenario":{"tier":"visible","test_tier":"e2e","verification_service":"Maestro + Zero + seeded Postgres + named iOS Simulator","topology":"single-node","negative_control":{"would_fail_if":["disconnect — Zero socket down or WAL replay broken","stub — progress bar reads from a static array or mocked useQuery","empty — research_sessions not in zero_pub or useQuery returns null","mock — Maestro flow skipped and progress screenshot faked"]},"evidence":{"artifact_type":"screenshot","required_capture":true},"cases":[{"start_ref":"seeded-research-session","action":{"actor":"user","steps":["start the research session via app UI or seeded fixture","wait for the Sprint 17 workflow to advance iterations 1->2->3","observe the progress bar update without manual refresh"]},"end_state":{"must_observe":["the progress bar shows `3/5` (`current_iteration=3`, `max_iterations=5`)","the bar advances from `1/5` to `3/5` with `0` manual refreshes","Maestro exit code `0` with screenshot evidence"],"must_not_observe":["the progress stuck at `1/5` (Zero sync failed, `0` advances)","a manual refresh required (refresh count `>0`)","a hardcoded `3/5` with `0` real Postgres column backing (stub)"]}}]}},
+    {"id":"AC-2","type":"acceptance_criterion","primary":true,"maps_to_ac":null,"scenario":{"tier":"visible","test_tier":"integration","verification_service":"Zero schema inspection + grep","topology":"single-node","negative_control":{"would_fail_if":["disconnect — zero_pub excludes research_sessions","stub — app/zero/schema.ts omits the progress columns","empty — app/zero/queries.ts lacks the researchSessionById query"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"seeded-research-session","action":{"actor":"cli_user","steps":["grep services/platform/src/db/schema/zero-pub.ts for research_sessions","grep app/zero/queries.ts for researchSessionById"]},"end_state":{"must_observe":["zero_pub includes `research_sessions` (full-table member, `zero-pub.ts:26`)","`app/zero/queries.ts` exports `researchSessionById` (`>=1` match)","the design notes cite the `research_sessions` table name"],"must_not_observe":["zero_pub excludes `research_sessions` (`0` matches)","the `researchSessionById` query missing from `queries.ts` (`0` matches)"]}}]}},
+    {"id":"TC-1","type":"test_criterion","maps_to_ac":"AC-2","scenario":null},
+    {"id":"TC-2","type":"test_criterion","maps_to_ac":"AC-1","scenario":null}
+  ]
+}
