@@ -504,7 +504,7 @@ if [[ "$skip_seed" == "1" ]]; then
   } | tee "$step1_log"
   step1_result="skipped"
   record_step 1 "Run holo seed:e2e --reset — seeds 3 conversations, 12 documents, 5 feed items" \
-    "cli" "skipped" ".tmp/GATE-FIX-001/step1-seed.log" \
+    "cli" "skipped" "$artifact_dir/step1-seed.log" \
     "SKIP_SEED=1 (not executed; gate cannot pass)" false
 else
   set +e
@@ -613,7 +613,7 @@ else
     step1_result="fail"
   fi
   record_step 1 "Run holo seed:e2e --reset — seeds 3 conversations, 12 documents, 5 feed items" \
-    "cli" "$step1_result" ".tmp/GATE-FIX-001/step1-seed.log" "seed exit=$rc cmd=${seed_cmd:-none}" true
+    "cli" "$step1_result" "$artifact_dir/step1-seed.log" "seed exit=$rc cmd=${seed_cmd:-none}" true
 fi
 
 run_ui_step() {
@@ -622,7 +622,7 @@ run_ui_step() {
   local result="fail" evidence=""
   if [[ "$skip_ui" == "1" ]]; then
     echo "SKIP_UI=1 blocked" | tee "$log_path"
-    record_step "$n" "$text" "ui" "blocked" ".tmp/GATE-FIX-001/$log_name" "UI blocked (no simulator/Metro run this cycle)" false
+    record_step "$n" "$text" "ui" "blocked" "$artifact_dir/$log_name" "UI blocked (no simulator/Metro run this cycle)" false
     return 0
   fi
   set +e
@@ -647,7 +647,7 @@ run_ui_step() {
       evidence="rename log contains drawer-load-proxy language"
     fi
   fi
-  record_step "$n" "$text" "ui" "$result" ".tmp/GATE-FIX-001/$log_name" "$evidence" true
+  record_step "$n" "$text" "ui" "$result" "$artifact_dir/$log_name" "$evidence" true
 }
 
 # Step 2: cold boot + drawer
@@ -702,7 +702,7 @@ fi
 set -e
 [[ "$rc" == "0" ]] && step6_result="pass"
 record_step 6 "Run holo verify:no-convex-client — exits 0" \
-  "cli" "$step6_result" ".tmp/GATE-FIX-001/step6-no-convex.log" "no-convex exit=$rc" true
+  "cli" "$step6_result" "$artifact_dir/step6-no-convex.log" "no-convex exit=$rc" true
 
 # Step 7: share URL
 run_ui_step 7 \

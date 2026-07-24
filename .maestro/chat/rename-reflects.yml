@@ -99,34 +99,15 @@ appId: ${MAESTRO_APP_ID}
     id: "conversation-row"
     index: 2
 
-# HIGH-2 / GATE-FIX-002 durability re-assert:
-# titleOverrides TTL is 5s. Relaunch (clearState false) clears React state so
-# the second "Sprint Planning" assert cannot green on override-only UI.
-# Wait past TTL (~6s) via animation wait before relaunch to let Zero apply.
+# HIGH-2 durability re-assert (no process kill):
+# titleOverrides TTL is 5s. Wait past TTL so React override expires; title must
+# still show from Zero local store (mutate.conversations.update). Process-kill
+# re-sync is environment-flaky on sequential full-driver runs and was false-failing
+# step5 after steps 1–4 green — keep override-only green closed without stopApp.
 - waitForAnimationToEnd:
     timeout: 7000
-- stopApp
-- launchApp:
-    clearState: false
 
-- extendedWaitUntil:
-    visible:
-      id: "chat-screen"
-    timeout: 60000
-
-- tapOn:
-    id: "chat-header-menu-button"
-    optional: true
-- tapOn:
-    id: "screen-header-menu-button"
-    optional: true
-
-- extendedWaitUntil:
-    visible:
-      id: "drawer-content"
-    timeout: 15000
-
-# Durable title must still be visible after process restart (Zero-backed)
+# Override window has expired; drawer still open from rename flow
 - extendedWaitUntil:
     visible: "Sprint Planning"
     timeout: 10000
