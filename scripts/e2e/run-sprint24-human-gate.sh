@@ -464,6 +464,12 @@ print(matches[0]["udid"] if matches else "")
   fi
   [[ -n "$udid" ]] || fail "could not resolve simulator UDID for MAESTRO_DEVICE=$device"
 
+  # GATE-FIX-007: Expo Dev Client floating gear FAB sits over the header
+  # ellipsis (document-actions-button) and steals taps → Dev Menu instead of
+  # DocumentActionsSheet. Disable FAB for the app domain on this simulator.
+  xcrun simctl spawn "$udid" defaults write "$app_id" EXDevMenuShowFloatingActionButton -bool false 2>/dev/null || true
+  xcrun simctl spawn "$udid" defaults write "$app_id" EXDevMenuIsOnboardingFinished -bool true 2>/dev/null || true
+
   resolve_metro
   log "Metro URL=$MAESTRO_METRO_URL"
   log "Dev Client open=$MAESTRO_DEV_CLIENT_OPEN_URL"

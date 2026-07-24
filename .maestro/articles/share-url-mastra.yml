@@ -4,13 +4,28 @@
 # Oracle: after Share, system share sheet / link text must contain `/article/`
 # and must not contain `.convex.site` / `.convex.cloud`.
 #
-# Run2 fail: document-actions-button COMPLETED but document-actions-sheet never
-# visible — Modal testID not in XCUITest hierarchy. Sheet root + share row now
-# use View/Pressable testIDs; wait on share-row (or Share text) after button.
+# GATE-FIX-007: Expo Dev Client gear FAB sits on top of the header ellipsis
+# (document-actions-button). Driver disables FAB via UserDefaults before this
+# flow. Single tap only — double-tap opened Dev Menu / hid the button.
+# All seeded public docs carry share_token so publish is not required.
 appId: com.holocron.app
 ---
 - launchApp:
     clearState: false
+
+# Dismiss Expo Dev Menu if left open from a prior failed tap
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+      - tapOn:
+          text: "Close"
+          optional: true
+      - tapOn:
+          point: "50%,15%"
 
 - openLink: holocron://articles
 
@@ -34,9 +49,7 @@ appId: com.holocron.app
       id: "document-actions-button"
     timeout: 30000
 
-# Maestro/iOS sometimes needs a second tap for header Pressables
-- tapOn:
-    id: "document-actions-button"
+# Single tap — FAB-disabled sim; double-tap races Expo Dev Menu
 - tapOn:
     id: "document-actions-button"
 
@@ -52,7 +65,7 @@ appId: com.holocron.app
 - tapOn:
     id: "document-actions-sheet-share"
 
-# iOS ActionSheet branch (when document not yet public / multi-option path)
+# Legacy ActionSheet branch (optional; direct Share.share is preferred)
 - tapOn:
     text: "Share Link"
     optional: true

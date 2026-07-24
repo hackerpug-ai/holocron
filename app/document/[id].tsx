@@ -5,11 +5,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Root } from 'mdast';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
-  Linking,
-  Platform,
   Pressable,
   ScrollView,
   type ScrollView as ScrollViewType,
@@ -456,26 +453,15 @@ export default function DocumentRoute() {
       const shareUrl = await getShareUrl();
       if (!shareUrl) return;
 
-      if (Platform.OS === 'ios') {
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options: ['Cancel', 'Share Link', 'Open in Browser'],
-            cancelButtonIndex: 0,
-          },
-          async (buttonIndex) => {
-            if (buttonIndex === 1) {
-              await Share.share({ url: shareUrl, title: document.title });
-            } else if (buttonIndex === 2) {
-              await Linking.openURL(shareUrl);
-            }
-            setIsSharing(false);
-          }
-        );
-        return; // setIsSharing handled in callback
-      }
-
-      // Android fallback — go straight to share sheet
-      await Share.share({ url: shareUrl, title: document.title });
+      // GATE-FIX-007: always surface the Mastra /article/ URL via the system
+      // share sheet (message + url). Prior iOS ActionSheet intermediate required
+      // an extra "Share Link" tap that Maestro often missed; direct Share.share
+      // matches Android and makes the URL readable in the share UI hierarchy.
+      await Share.share({
+        url: shareUrl,
+        message: shareUrl,
+        title: document.title,
+      });
     } catch (err) {
       console.warn('[DocumentRoute] Share error:', err);
     } finally {
