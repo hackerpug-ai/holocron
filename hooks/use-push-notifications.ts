@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect } from 'react';
 
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -19,8 +19,6 @@ try {
  * Gracefully no-ops when expo-notifications native module is unavailable.
  */
 export function usePushNotifications(): void {
-  const router = useRouter();
-
   useEffect(() => {
     if (!Notifications) return;
 
@@ -54,5 +52,5 @@ export function usePushNotifications(): void {
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, []);
 }

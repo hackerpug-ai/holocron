@@ -6,15 +6,12 @@ import { ZeroProvider } from '@rocicorp/zero/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Platform, useColorScheme as useRNColorScheme, View } from 'react-native';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { resolveHolocronRoute } from '@/lib/holocron-deep-link';
-import { useColorScheme } from '@/lib/useColorScheme';
-import { cn } from '@/lib/utils';
 import { mutators as zeroMutators } from './zero/mutators';
 import { schema as zeroSchema } from './zero/schema';
 
@@ -47,6 +44,11 @@ const queryClient = new QueryClient({
 // When STORYBOOK_ENABLED=true, render Storybook directly
 const STORYBOOK_ENABLED = process.env.EXPO_PUBLIC_STORYBOOK_ENABLED === 'true';
 
+/** Root-layout effects can replay an initial URL while Expo Router remounts its stack. */
+function navigateWhenReady(action: () => void) {
+  setTimeout(action, 0);
+}
+
 /**
  * Handle incoming deep links
  * Routes holocron:// URLs to appropriate screens
@@ -65,19 +67,19 @@ function handleIncomingURL({ url }: { url: string }) {
 
     // toolbelt/add deep links
     if (route === 'toolbelt/add' || route.startsWith('toolbelt/add')) {
-      router.push({ pathname: '/toolbelt/add', params });
+      navigateWhenReady(() => router.push({ pathname: '/toolbelt/add', params }));
       return;
     }
 
     // Subscriptions settings list (Zero-backed sources + auto_research toggles)
     if (route === 'subscriptions' || route === 'subscriptions/settings') {
-      router.push({ pathname: '/subscriptions', params });
+      navigateWhenReady(() => router.push({ pathname: '/subscriptions', params }));
       return;
     }
 
     // Legacy feed deep link → What's New intelligence briefing
     if (route === 'subscriptions/feed') {
-      router.push({ pathname: '/whats-new', params });
+      navigateWhenReady(() => router.push({ pathname: '/whats-new', params }));
       return;
     }
 
@@ -86,13 +88,13 @@ function handleIncomingURL({ url }: { url: string }) {
     // the drawer route instead of no-op when the stack is already mid-sequence.
     if (route === 'whats-new' || route === 'whats-new/social') {
       const pathname = route === 'whats-new' ? '/whats-new' : '/whats-new/social';
-      router.navigate({ pathname, params });
+      navigateWhenReady(() => router.navigate({ pathname, params }));
       return;
     }
 
     // Articles (same hostname form as Maestro openLink holocron://articles)
     if (route === 'articles') {
-      router.navigate({ pathname: '/articles', params });
+      navigateWhenReady(() => router.navigate({ pathname: '/articles', params }));
       return;
     }
 
@@ -104,30 +106,12 @@ function handleIncomingURL({ url }: { url: string }) {
       route.startsWith('improvements/') ||
       route.startsWith('research/')
     ) {
-      router.push({ pathname: `/${route}` as `/improvements`, params });
+      navigateWhenReady(() => router.push({ pathname: `/${route}` as `/improvements`, params }));
       return;
     }
   } catch (error) {
     console.error('[RootLayout] Failed to handle URL:', error);
   }
-}
-
-/** Syncs the device color scheme to NativeWind so .dark CSS variables activate */
-function ThemeSync({ children }: { children: React.ReactNode }) {
-  const systemColorScheme = useRNColorScheme();
-  const { colorScheme, setColorScheme } = useColorScheme();
-
-  useEffect(() => {
-    const scheme = systemColorScheme === 'dark' ? 'dark' : 'light';
-    setColorScheme(scheme);
-  }, [systemColorScheme, setColorScheme]);
-
-  return (
-    <View className={cn(colorScheme === 'dark' ? 'dark' : '', 'flex-1')} style={{ flex: 1 }}>
-      {children}
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-    </View>
-  );
 }
 
 export default function RootLayout() {
@@ -164,20 +148,18 @@ export default function RootLayout() {
       >
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
-            <ThemeSync>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(drawer)" />
-                <Stack.Screen name="reference-chat" />
-                <Stack.Screen name="articles" />
-                {/* toolbelt is now inside (drawer) group */}
-                <Stack.Screen name="document/[id]" />
-                <Stack.Screen name="webview/[url]" />
-                <Stack.Screen name="storybook" />
-                <Stack.Screen name="toolbelt/add" options={{ presentation: 'modal' }} />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <PortalHost />
-            </ThemeSync>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(drawer)" />
+              <Stack.Screen name="reference-chat" />
+              <Stack.Screen name="articles" />
+              {/* toolbelt is now inside (drawer) group */}
+              <Stack.Screen name="document/[id]" />
+              <Stack.Screen name="webview/[url]" />
+              <Stack.Screen name="storybook" />
+              <Stack.Screen name="toolbelt/add" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <PortalHost />
           </QueryClientProvider>
         </SafeAreaProvider>
       </ZeroProvider>
