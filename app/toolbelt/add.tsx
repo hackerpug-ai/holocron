@@ -1,11 +1,10 @@
-import { useMutation } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CheckCircle2, XCircle } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { postMission } from '@/app/zero/platform';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 import { useTheme } from '@/hooks/use-theme';
 
 type AddToolParams = {
@@ -19,6 +18,9 @@ type AddToolParams = {
   useCases?: string;
 };
 
+/**
+ * Toolbelt add — Hono command POST /api/missions (toolbelt-add-from-url).
+ */
 export default function ToolbeltAddScreen() {
   const params = useLocalSearchParams<AddToolParams>();
   const router = useRouter();
@@ -28,7 +30,6 @@ export default function ToolbeltAddScreen() {
   const [message, setMessage] = useState('');
   const [toolTitle, setToolTitle] = useState('');
 
-  const addTool = useMutation(api.toolbelt.mutations.addFromUrl);
   const didRun = useRef(false);
 
   useEffect(() => {
@@ -37,7 +38,6 @@ export default function ToolbeltAddScreen() {
 
     async function addToolFromParams() {
       try {
-        // Validate required params
         if (
           !params.title ||
           !params.description ||
@@ -48,28 +48,25 @@ export default function ToolbeltAddScreen() {
           throw new Error('Missing required parameters');
         }
 
-        const result = await addTool({
-          title: params.title,
-          description: params.description,
-          category: params.category as any,
-          sourceUrl: params.sourceUrl,
-          sourceType: params.sourceType as any,
-          language: params.language,
-          tags: params.tags,
-          useCases: params.useCases,
+        const result = await postMission({
+          templateKey: 'toolbelt',
+          goal: `Add toolbelt entry: ${params.title}`,
+          idempotencyKey: `toolbelt-add-${params.sourceUrl}`,
+          args: {
+            goal: `Add toolbelt entry: ${params.title}`,
+          },
         });
 
         setToolTitle(params.title);
 
-        if (result.success) {
-          setStatus('success');
-          setMessage(result.isNew ? 'Added to your toolbelt!' : 'Already in your toolbelt');
+        // Mission create returns a run id; treat any 2xx without error as success.
+        const isNew = result.reused !== true;
+        setStatus('success');
+        setMessage(isNew ? 'Added to your toolbelt!' : 'Already in your toolbelt');
 
-          // Auto-dismiss after 2 seconds
-          setTimeout(() => {
-            router.back();
-          }, 2000);
-        }
+        setTimeout(() => {
+          router.back();
+        }, 2000);
       } catch (error) {
         setStatus('error');
         setMessage(error instanceof Error ? error.message : 'Failed to add tool');
@@ -87,7 +84,6 @@ export default function ToolbeltAddScreen() {
     params.tags,
     params.language,
     params.description,
-    addTool,
   ]);
 
   return (
@@ -119,7 +115,7 @@ export default function ToolbeltAddScreen() {
             >
               <CheckCircle2 size={32} color={colors.success} />
             </View>
-            <Text className="text-foreground text-center text-xl font-semibold">{toolTitle}</Text>
+            <Text className="text-foreground text-center text-lg font-semibold">{toolTitle}</Text>
             <Text className="text-muted-foreground text-center">{message}</Text>
           </View>
         )}
@@ -138,9 +134,7 @@ export default function ToolbeltAddScreen() {
             >
               <XCircle size={32} color={colors.destructive} />
             </View>
-            <Text className="text-destructive text-center text-lg font-semibold">Error</Text>
-            <Text className="text-muted-foreground text-center">{message}</Text>
-            <Text className="text-muted-foreground text-sm">Tap anywhere to close</Text>
+            <Text className="text-destructive text-center">{message}</Text>
           </View>
         )}
       </Pressable>

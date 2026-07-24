@@ -1,28 +1,13 @@
 /**
- * useNotifications — Convex-backed notifications hook
+ * useNotifications — Zero-backed notifications hook
  *
- * Provides access to unread notifications, their count, and mutations
- * to mark individual or all notifications as read.
- *
- * @example
- * ```tsx
- * const { unread, unreadCount, markRead, markAllRead } = useNotifications()
- *
- * return (
- *   <View>
- *     <Text>{unreadCount} unread</Text>
- *     <Button onPress={() => markAllRead()}>Mark all read</Button>
- *   </View>
- * )
- * ```
+ * Reads unread notifications via Zero query `notificationsUnread` and writes
+ * mark-read via Zero legacy mutators on the notifications table.
  */
 
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { notificationsUnread } from '@/app/zero/queries';
 import type { NotificationData } from '@/components/notifications/NotificationToast';
-import { api } from '@/convex/_generated/api';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface UseNotificationsReturn {
   /** Unread notifications, most-recent first (up to 10) */
@@ -35,30 +20,38 @@ export interface UseNotificationsReturn {
   markAllRead: () => Promise<void>;
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+type NotificationRow = {
+  id: string;
+  type?: string | null;
+  title?: string | null;
+  body?: string | null;
+  route?: string | null;
+  read?: boolean | null;
+  created_at: number;
+};
 
 export function useNotifications(): UseNotificationsReturn {
-  const rawUnread = useQuery(api.notifications.queries.listUnread);
+  const zero = useZero();
+  const [rawUnread] = useZeroQuery(notificationsUnread(10));
 
-  const markReadMutation = useMutation(api.notifications.mutations.markRead);
-  const markAllReadMutation = useMutation(api.notifications.mutations.markAllRead);
-
-  const unread: NotificationData[] = (rawUnread ?? []).map((n: Doc<'notifications'>) => ({
-    _id: n._id,
-    type: n.type as NotificationData['type'],
-    title: n.title,
-    body: n.body,
-    route: n.route,
-    read: n.read,
-    createdAt: n.createdAt,
+  const unread: NotificationData[] = ((rawUnread ?? []) as NotificationRow[]).map((n) => ({
+    _id: n.id,
+    type: (n.type ?? 'info') as NotificationData['type'],
+    title: n.title ?? '',
+    body: n.body ?? '',
+    route: n.route ?? '',
+    read: n.read ?? false,
+    createdAt: n.created_at,
   }));
 
   const markRead = async (id: string): Promise<void> => {
-    await markReadMutation({ id: id as Id<'notifications'> });
+    await zero.mutate.notifications.update({ id, read: true });
   };
 
   const markAllRead = async (): Promise<void> => {
-    await markAllReadMutation({});
+    await Promise.all(
+      unread.map((n) => zero.mutate.notifications.update({ id: n._id, read: true }))
+    );
   };
 
   return {

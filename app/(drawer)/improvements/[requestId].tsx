@@ -1,42 +1,53 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { improvementRequestById } from '@/app/zero/queries';
 import { ImprovementActionMenu } from '@/components/improvements/ImprovementActionMenu';
 import { ImprovementDetailView } from '@/components/improvements/ImprovementDetailView';
 import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, EllipsisVertical } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 
+type ImprovementRow = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  summary?: string | null;
+  status: string;
+  source_screen?: string | null;
+  source_component?: string | null;
+  agent_decision?: unknown;
+  merged_into_id?: string | null;
+  merged_from_ids?: unknown;
+  user_feedback?: string | null;
+  closure_reason?: string | null;
+  closure_evidence?: unknown;
+  closed_at?: number | null;
+  created_at: number;
+  updated_at: number;
+  processed_at?: number | null;
+};
+
 /**
- * Improvement Request Detail Screen
- *
- * Displays the full details of an improvement request including:
- * - Status badge and timeline
- * - Description and agent summary
- * - Screenshots
- * - Agent decision with approve/reject/keep-separate actions
- *
+ * Improvement Request Detail Screen — Zero query + mutators.
  * Route: /improvements/[requestId]
  */
 export default function ImprovementDetailScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
   const theme = useTheme();
+  const zero = useZero();
 
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
 
-  const data = useQuery(api.improvements.queries.get, { id: requestId as any });
-
-  const setStatusMutation = useMutation(api.improvements.mutations.setStatus);
-  const updateMutation = useMutation(api.improvements.mutations.update);
-  const removeMutation = useMutation(api.improvements.mutations.remove);
+  const [row] = useZeroQuery(requestId ? improvementRequestById(requestId) : undefined, {
+    enabled: !!requestId,
+  });
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -47,33 +58,38 @@ export default function ImprovementDetailScreen() {
   };
 
   const handleToggleStatus = async () => {
-    if (!requestId || !data) return;
+    if (!requestId || !row) return;
+    const data = row as ImprovementRow;
     const nextStatus = data.status === 'open' ? 'closed' : 'open';
-    await setStatusMutation({ id: requestId as any, status: nextStatus });
+    await zero.mutate.improvement_requests.update({
+      id: requestId,
+      status: nextStatus,
+      updated_at: Date.now(),
+      closed_at: nextStatus === 'closed' ? Date.now() : null,
+    });
   };
 
   const handleSaveEdit = async (title: string, description: string) => {
     if (!requestId) return;
-    await updateMutation({
-      id: requestId as Id<'improvementRequests'>,
+    await zero.mutate.improvement_requests.update({
+      id: requestId,
       title,
       description,
+      updated_at: Date.now(),
     });
     setEditSheetOpen(false);
   };
 
   const handleDelete = async () => {
     if (!requestId) return;
-    await removeMutation({ id: requestId as Id<'improvementRequests'> });
+    await zero.mutate.improvement_requests.delete({ id: requestId });
     setActionMenuOpen(false);
     router.back();
   };
 
-  // Loading state: data is undefined while the query is in-flight
-  if (data === undefined) {
+  if (row === undefined) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        {/* Header */}
         <View
           style={{
             flexDirection: 'row',
@@ -108,11 +124,9 @@ export default function ImprovementDetailScreen() {
     );
   }
 
-  // Error / not-found state: data is null when the query resolved but found nothing
-  if (data === null) {
+  if (row === null) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-        {/* Header */}
         <View
           style={{
             flexDirection: 'row',
@@ -156,12 +170,33 @@ export default function ImprovementDetailScreen() {
     );
   }
 
-  // Extract images from the combined response and pass separately to the view
-  const { images, ...request } = data;
+  const data = row as ImprovementRow;
+  const request = {
+    _id: data.id,
+    id: data.id,
+    title: data.title ?? undefined,
+    description: data.description ?? '',
+    summary: data.summary ?? undefined,
+    status: data.status,
+    sourceScreen: data.source_screen ?? undefined,
+    sourceComponent: data.source_component ?? undefined,
+    agentDecision: data.agent_decision,
+    mergedIntoId: data.merged_into_id ?? undefined,
+    mergedFromIds: data.merged_from_ids as string[] | undefined,
+    userFeedback: data.user_feedback ?? undefined,
+    closureReason: data.closure_reason ?? undefined,
+    closureEvidence: data.closure_evidence,
+    closedAt: data.closed_at ?? undefined,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    processedAt: data.processed_at ?? undefined,
+  };
+
+  // Images relationship not yet synced on the thin Zero surface for this cluster.
+  const images: unknown[] = [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-      {/* Header */}
       <View
         style={{
           flexDirection: 'row',
@@ -203,8 +238,8 @@ export default function ImprovementDetailScreen() {
       </View>
 
       <ImprovementDetailView
-        request={request}
-        images={images}
+        request={request as never}
+        images={images as never}
         onToggleStatus={handleToggleStatus}
         testID="improvement-detail-view"
       />

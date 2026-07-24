@@ -5,14 +5,12 @@
  * Follows the ToolApprovalCard pattern: header + status + content + actions.
  */
 
-import { useMutation } from 'convex/react';
+import { useZero } from '@rocicorp/zero/react';
 import { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { ArrowRight, Check, CheckCircle2, GitFork, X, XCircle } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -258,25 +256,33 @@ export type AssimilationPlanCardWithConvexProps = Omit<
 >;
 
 /**
- * AssimilationPlanCardWithConvex wires the AssimilationPlanCard to Convex
- * mutations. Approving starts the analysis; rejecting with feedback re-plans.
+ * AssimilationPlanCardWithConvex wires the AssimilationPlanCard to Zero
+ * mutators (name retained for import stability). Approving starts the analysis;
+ * rejecting with feedback re-plans.
  */
 export function AssimilationPlanCardWithConvex({
   sessionId,
   ...props
 }: AssimilationPlanCardWithConvexProps) {
-  const approve = useMutation(api.assimilate.mutations.approveAssimilationPlan);
-  const reject = useMutation(api.assimilate.mutations.rejectAssimilationPlan);
+  const zero = useZero();
 
   return (
     <AssimilationPlanCard
       {...props}
       sessionId={sessionId}
-      onApprove={() => approve({ sessionId: sessionId as Id<'assimilationSessions'> })}
+      onApprove={() =>
+        zero.mutate.assimilation_sessions.update({
+          id: sessionId,
+          status: 'approved',
+          updated_at: Date.now(),
+        })
+      }
       onReject={(feedback) =>
-        reject({
-          sessionId: sessionId as Id<'assimilationSessions'>,
-          feedback,
+        zero.mutate.assimilation_sessions.update({
+          id: sessionId,
+          status: 'rejected',
+          plan_feedback: feedback?.trim() || null,
+          updated_at: Date.now(),
         })
       }
     />

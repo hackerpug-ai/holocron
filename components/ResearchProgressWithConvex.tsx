@@ -1,10 +1,10 @@
-import { useQuery } from 'convex/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
+import { researchSessionById } from '@/app/zero/queries';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { AlertCircle, Loader2, Sparkles } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { api } from '@/convex/_generated/api';
 import { cn } from '@/lib/utils';
 import { Progress } from './ui/progress';
 
@@ -18,7 +18,7 @@ export type ResearchStatus =
   | 'cancelled';
 
 interface ResearchProgressWithConvexProps {
-  /** Research session ID from Convex */
+  /** Research session ID (Zero research_sessions row) */
   sessionId: string;
   /** Optional test ID */
   testID?: string;
@@ -36,20 +36,29 @@ const statusLabels: Record<ResearchStatus, string> = {
   cancelled: 'Research cancelled',
 };
 
+type SessionRow = {
+  id: string;
+  query?: string | null;
+  topic?: string | null;
+  status: string;
+  current_iteration?: number | null;
+  max_iterations?: number | null;
+  coverage_score?: number | null;
+  error_text?: string | null;
+};
+
 /**
  * ResearchProgressWithConvex displays real-time research progress
- * by watching the Convex session entity directly.
+ * by watching the Zero research_sessions row (researchSessionById).
  *
- * This implements US-060: Direct session entity watching via useQuery
- * Convex automatically pushes updates when the session status changes.
+ * Component name retained for import stability; data plane is Zero.
  */
 export function ResearchProgressWithConvex({
   sessionId,
   testID = 'research-progress',
   className,
 }: ResearchProgressWithConvexProps) {
-  // Direct query - Convex auto-updates when entity changes!
-  const session = useQuery(api.researchSessions.queries.get, { id: sessionId as any });
+  const [session] = useZeroQuery(researchSessionById(sessionId));
 
   // Handle loading state (query is loading)
   if (session === undefined) {
@@ -65,10 +74,21 @@ export function ResearchProgressWithConvex({
     );
   }
 
-  const status = session.status as ResearchStatus;
-  const isActive = status !== 'completed' && status !== 'failed' && status !== 'cancelled';
+  if (session === null) {
+    return (
+      <Card className={cn('py-4', className)} testID={`${testID}-not-found`}>
+        <CardContent className="pt-0">
+          <Text className="text-muted-foreground text-sm">Session not found</Text>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  // AC-1: Research started → Shows waiting indicator
+  const row = session as SessionRow;
+  const status = row.status as ResearchStatus;
+  const isActive = status !== 'completed' && status !== 'failed' && status !== 'cancelled';
+  const queryLabel = row.query ?? row.topic ?? '';
+
   if (status === 'pending') {
     return (
       <Card className={cn('py-4', className)} testID={`${testID}-waiting`}>
@@ -76,7 +96,7 @@ export function ResearchProgressWithConvex({
           <View className="flex-row items-center gap-2">
             <ActivityIndicator />
             <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-              {session.query}
+              {queryLabel}
             </Text>
           </View>
         </CardHeader>
@@ -87,12 +107,17 @@ export function ResearchProgressWithConvex({
     );
   }
 
-  // AC-2: Research running → Progress bar animates
   if (isActive) {
-    return <RunningProgress session={session} testID={testID} className={className} />;
+    return (
+      <RunningProgress
+        session={row}
+        queryLabel={queryLabel}
+        testID={testID}
+        className={className}
+      />
+    );
   }
 
-  // AC-3: Research complete → Shows results
   if (status === 'completed') {
     return (
       <Card className={cn('py-4', className)} testID={`${testID}-results`}>
@@ -100,15 +125,15 @@ export function ResearchProgressWithConvex({
           <View className="flex-row items-center gap-2">
             <Sparkles size={18} className="text-primary" />
             <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-              {session.query}
+              {queryLabel}
             </Text>
           </View>
         </CardHeader>
         <CardContent className="gap-3 pt-0">
           <Text className="text-muted-foreground text-sm">{statusLabels.completed}</Text>
-          {session.coverageScore && (
+          {row.coverage_score != null && (
             <Text className="text-muted-foreground text-sm">
-              Coverage Score: {session.coverageScore}/5
+              Coverage Score: {row.coverage_score}/5
             </Text>
           )}
         </CardContent>
@@ -116,7 +141,6 @@ export function ResearchProgressWithConvex({
     );
   }
 
-  // AC-4: Research fails → Shows error message
   if (status === 'failed') {
     return (
       <Card className={cn('py-4 border-destructive', className)} testID={`${testID}-error`}>
@@ -124,21 +148,18 @@ export function ResearchProgressWithConvex({
           <View className="flex-row items-center gap-2">
             <AlertCircle size={18} className="text-destructive" />
             <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-              {session.query}
+              {queryLabel}
             </Text>
           </View>
         </CardHeader>
         <CardContent className="gap-3 pt-0">
           <Text className="text-destructive text-sm">{statusLabels.failed}</Text>
-          {session.errorText && (
-            <Text className="text-destructive text-sm">{session.errorText}</Text>
-          )}
+          {row.error_text && <Text className="text-destructive text-sm">{row.error_text}</Text>}
         </CardContent>
       </Card>
     );
   }
 
-  // Cancelled state
   return (
     <Card className={cn('py-4', className)} testID={`${testID}-cancelled`}>
       <CardContent className="pt-0">
@@ -148,15 +169,14 @@ export function ResearchProgressWithConvex({
   );
 }
 
-/**
- * RunningProgress shows animated progress bar for active research
- */
 function RunningProgress({
   session,
+  queryLabel,
   testID,
   className,
 }: {
-  session: any;
+  session: SessionRow;
+  queryLabel: string;
   testID: string;
   className?: string;
 }) {
@@ -193,7 +213,7 @@ function RunningProgress({
             <Loader2 size={18} className="text-primary" />
           </Animated.View>
           <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-            {session.query}
+            {queryLabel}
           </Text>
         </View>
       </CardHeader>
@@ -204,9 +224,9 @@ function RunningProgress({
         <View className="flex-row items-center justify-between">
           <Text className="text-muted-foreground text-sm">{statusLabels[status]}</Text>
 
-          {session.currentIteration !== undefined && session.maxIterations !== undefined && (
+          {session.current_iteration != null && session.max_iterations != null && (
             <Text className="text-muted-foreground text-sm">
-              Iteration {session.currentIteration}/{session.maxIterations}
+              Iteration {session.current_iteration}/{session.max_iterations}
             </Text>
           )}
         </View>
@@ -215,15 +235,11 @@ function RunningProgress({
   );
 }
 
-/**
- * Calculate progress percentage based on session state
- */
-function calculateProgress(session: any): number {
-  if (session.currentIteration && session.maxIterations) {
-    return (session.currentIteration / session.maxIterations) * 100;
+function calculateProgress(session: SessionRow): number {
+  if (session.current_iteration && session.max_iterations) {
+    return (session.current_iteration / session.max_iterations) * 100;
   }
 
-  // Default progress based on status
   const statusProgress: Record<ResearchStatus, number> = {
     pending: 0,
     searching: 25,
@@ -237,9 +253,6 @@ function calculateProgress(session: any): number {
   return statusProgress[session.status as ResearchStatus] || 0;
 }
 
-/**
- * ActivityIndicator component for loading state
- */
 function ActivityIndicator() {
   const spin = useRef(new Animated.Value(0)).current;
 
