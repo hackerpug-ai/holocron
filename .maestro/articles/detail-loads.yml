@@ -1,0 +1,18 @@
+# S-REWRITE-02 AC-2 / TC-2 — Article detail loads via Zero
+appId: com.anonymous.holocron
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "article-card-pressable"
+    timeout: 30000
+- tapOn:
+    id: "article-card-pressable"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "document-markdown"
+    timeout: 30000
+- assertVisible:
+    id: "document-markdown"
+- takeScreenshot: articles-detail-loads

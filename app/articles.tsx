@@ -1,11 +1,10 @@
-import { useAction, useQuery } from 'convex/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { documentsByCategory, documentsByOwner } from '@/app/zero/queries';
 import { ArticleImportModal } from '@/components/articles/ArticleImportModal';
 import type { CategoryType } from '@/components/CategoryBadge';
 import { ScreenLayout } from '@/components/ui/screen-layout';
-import { api } from '@/convex/_generated/api';
-import type { Doc } from '@/convex/_generated/dataModel';
 import { useDebounce } from '@/hooks/useDebounce';
 import {
   mapCategoryTypeToDocumentCategory,
@@ -22,12 +21,25 @@ interface Article {
   iterationCount?: number;
 }
 
-type DocumentDoc = Doc<'documents'>;
+/** Zero-published documents row (snake_case Postgres columns). */
+type ZeroDocument = {
+  id: string;
+  title?: string | null;
+  content?: string | null;
+  category?: string | null;
+  date?: string | null;
+  created_at: number;
+  iterations?: number | null;
+};
 
 /**
  * Articles route screen
- * Displays all documents from the Convex knowledge base with filtering and search.
+ * Displays all documents from the Zero-synced knowledge base with filtering and search.
  * Accessed from the drawer navigation.
+ *
+ * Data plane: Zero queries (documentsByOwner / documentsByCategory) per
+ * 13-client-data-contract.yaml. Search filters the Zero result set client-side
+ * (hybrid search Hono mission is optional when the mission type is available).
  */
 export default function ArticlesRoute() {
   const router = useRouter();
@@ -37,74 +49,81 @@ export default function ArticlesRoute() {
   const [isSearching, setIsSearching] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
 
-  // Map category type to Convex category string using centralized mapping
   const convexCategory = mapCategoryTypeToDocumentCategory(selectedCategory);
 
-  // Stable query args to ensure Convex detects changes properly
-  const listQueryArgs = useMemo(
-    () => (convexCategory ? { category: convexCategory } : {}),
+  // Zero reactive list — category filter when selected, else all owned docs
+  const listQuery = useMemo(
+    () => (convexCategory ? documentsByCategory(convexCategory) : documentsByOwner()),
     [convexCategory]
   );
+  const [rawDocuments, listStatus] = useZeroQuery(listQuery);
+  const documents = (rawDocuments ?? []) as unknown as ZeroDocument[];
 
-  // Fetch documents using Convex query with stable args
-  const listResult = useQuery(api.documents.queries.list, listQueryArgs);
+  // Category counts derived from the full Zero document set (reactive)
+  const [allDocuments] = useZeroQuery(documentsByOwner());
+  const allDocs = (allDocuments ?? []) as unknown as ZeroDocument[];
 
-  // Extract documents and metadata from the new response structure
-  const documents = listResult?.documents ?? [];
-  const totalCount = listResult?.metadata?.totalCount ?? 0;
+  const categoryCounts = useMemo(() => {
+    const counts: Partial<Record<CategoryType, number>> = {};
+    for (const doc of allDocs) {
+      const cat = mapDocumentCategoryToCategoryType(doc.category ?? 'general');
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    return counts;
+  }, [allDocs]);
 
-  // Fetch category counts to sort categories with articles first
-  const categoryCounts = useQuery(api.documents.queries.countByCategory, {});
-
-  // Filter to only populated categories, sorted by count descending
   const availableCategories = useMemo(() => {
-    if (!categoryCounts) return [];
-
-    // Get all category keys from categoryCounts and filter to non-empty
     return (Object.keys(categoryCounts) as CategoryType[])
       .filter((cat) => (categoryCounts[cat] ?? 0) > 0)
       .sort((a, b) => (categoryCounts[b] ?? 0) - (categoryCounts[a] ?? 0));
   }, [categoryCounts]);
 
-  // Hybrid search action
-  const hybridSearch = useAction(api.documents.search.hybridSearch);
+  const toArticle = useCallback((doc: ZeroDocument): Article => {
+    const category = mapDocumentCategoryToCategoryType(doc.category ?? 'general');
+    let dateString = doc.date ?? undefined;
+    if (!dateString && doc.created_at) {
+      try {
+        const date = new Date(doc.created_at);
+        dateString = Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+      } catch {
+        dateString = new Date().toISOString();
+      }
+    }
+    return {
+      id: doc.id,
+      title: doc.title ?? 'Untitled',
+      category,
+      date: dateString ?? new Date().toISOString(),
+      snippet: doc.content ? `${doc.content.slice(0, 200)}...` : undefined,
+      iterationCount: doc.iterations ?? undefined,
+    };
+  }, []);
 
-  // Search handler
+  const articles: Article[] = useMemo(() => documents.map(toArticle), [documents, toArticle]);
+
+  // Client-side search over Zero-synced documents (contract hybrid search is
+  // POST /api/missions when a search mission type is registered; until then
+  // filter the reactive Zero projection so list stays Zero-bound).
   const performSearch = useCallback(
     async (query: string) => {
       if (!query.trim()) {
         setSearchResults(null);
         return;
       }
-
       setIsSearching(true);
       try {
-        const results = await hybridSearch({
-          query,
-          limit: 50,
-          category: convexCategory,
-        });
-
-        // Transform results to Article format
-        const articles: Article[] = results.map(
-          (doc: {
-            _id: string;
-            title: string;
-            category: string;
-            createdAt?: number;
-            content?: string;
-            iterations?: number;
-          }) => ({
-            id: doc._id,
-            title: doc.title,
-            category: mapDocumentCategoryToCategoryType(doc.category),
-            date: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date().toISOString(),
-            snippet: `${doc.content?.slice(0, 200)}...`,
-            iterationCount: doc.iterations,
+        const q = query.trim().toLowerCase();
+        const pool = convexCategory
+          ? allDocs.filter((d) => d.category === convexCategory)
+          : allDocs;
+        const matched = pool
+          .filter((doc) => {
+            const title = (doc.title ?? '').toLowerCase();
+            const content = (doc.content ?? '').toLowerCase();
+            return title.includes(q) || content.includes(q);
           })
-        );
-
-        setSearchResults(articles);
+          .map(toArticle);
+        setSearchResults(matched);
       } catch (error) {
         console.error('Search failed:', error);
         setSearchResults(null);
@@ -112,77 +131,32 @@ export default function ArticlesRoute() {
         setIsSearching(false);
       }
     },
-    [hybridSearch, convexCategory]
+    [allDocs, convexCategory, toArticle]
   );
 
-  // Debounced search (300ms)
   const debouncedSearch = useDebounce(performSearch, 300);
 
-  // Trigger search when query changes
   useEffect(() => {
     debouncedSearch(searchQuery);
   }, [searchQuery, debouncedSearch]);
 
-  // Also search when category changes (if there's an active search)
   useEffect(() => {
     if (searchQuery.trim()) {
       performSearch(searchQuery);
     }
   }, [performSearch, searchQuery]);
 
-  // Determine which data source to use
-  const isLoading = listResult === undefined;
-  const isLoadingCategories = categoryCounts === undefined;
-  const sourceDocuments = useMemo(() => {
-    return documents ?? [];
-  }, [documents]);
+  const isLoading = listStatus?.type === 'unknown';
+  const isLoadingCategories = allDocuments === undefined;
 
-  // Transform Convex documents to Article format (for non-search display)
-  const articles: Article[] = useMemo(() => {
-    return sourceDocuments.map((doc: DocumentDoc) => {
-      const category = mapDocumentCategoryToCategoryType(doc.category);
-
-      // Safely convert createdAt timestamp to ISO string
-      let dateString = doc.date;
-      if (!dateString && doc.createdAt) {
-        try {
-          const date = new Date(doc.createdAt);
-          if (!Number.isNaN(date.getTime())) {
-            dateString = date.toISOString();
-          } else {
-            dateString = new Date().toISOString();
-          }
-        } catch {
-          dateString = new Date().toISOString();
-        }
-      }
-
-      // Convex documents always have _id - it's automatically generated
-      const id = doc._id;
-
-      return {
-        id,
-        title: doc.title,
-        category,
-        date: dateString ?? new Date().toISOString(),
-        snippet: doc.content ? `${doc.content.slice(0, 200)}...` : undefined,
-        iterationCount: doc.iterations,
-      };
-    });
-  }, [sourceDocuments]);
-
-  // Use search results when there's an active search, otherwise use all articles
   const displayArticles = searchQuery.trim() && searchResults ? searchResults : articles;
 
-  // Calculate the count to display in results header
-  // Use totalCount (total documents, not just current page) for accurate display
   const displayCount = useMemo(() => {
     if (searchQuery.trim() && searchResults) {
       return searchResults.length;
     }
-    // Use totalCount for the total number of documents (not just current page)
-    return totalCount ?? 0;
-  }, [searchQuery, searchResults, totalCount]);
+    return articles.length;
+  }, [searchQuery, searchResults, articles.length]);
 
   const handleCategoryChange = (category?: CategoryType) => {
     setSelectedCategory(category ?? null);
@@ -193,7 +167,6 @@ export default function ArticlesRoute() {
   };
 
   const handleArticlePress = (article: Article) => {
-    // Navigate to the article detail route
     router.push(`/document/${article.id}`);
   };
 
@@ -206,8 +179,7 @@ export default function ArticlesRoute() {
   };
 
   const handleImportSuccess = () => {
-    // Refresh the articles list after import
-    // The query will automatically refetch due to Convex reactivity
+    // Zero mutator updates are reactive — list refreshes automatically
   };
 
   return (
@@ -236,7 +208,6 @@ export default function ArticlesRoute() {
         />
       </ScreenLayout>
 
-      {/* Import Modal */}
       <ArticleImportModal
         visible={importModalVisible}
         onDismiss={handleImportDismiss}

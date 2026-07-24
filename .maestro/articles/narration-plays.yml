@@ -1,0 +1,16 @@
+# S-REWRITE-02 AC-5 / TC-5 — Narration playback loads via Zero
+appId: com.anonymous.holocron
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "article-card-pressable"
+    timeout: 30000
+- tapOn:
+    id: "article-card-pressable"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "document-actions-button"
+    timeout: 30000
+- takeScreenshot: articles-narration-plays

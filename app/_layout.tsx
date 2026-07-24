@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
+import { mutators as zeroMutators } from './zero/mutators';
 import { schema as zeroSchema } from './zero/schema';
 
 // Platform base URL (consolidated secrets → EXPO_PUBLIC_PLATFORM_URL).
@@ -136,6 +137,7 @@ export default function RootLayout() {
         cacheURL={zeroCacheUrl ?? 'http://127.0.0.1:4848'}
         userID={zeroUserId}
         schema={zeroSchema}
+        mutators={zeroMutators}
         kvStore={Platform.OS === 'web' ? 'idb' : expoSQLiteStoreProvider()}
       >
         <SafeAreaProvider>

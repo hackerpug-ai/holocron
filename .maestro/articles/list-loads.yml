@@ -1,0 +1,11 @@
+# S-REWRITE-02 AC-1 / TC-1 — Articles list loads via Zero
+appId: com.anonymous.holocron
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "articles-route"
+    timeout: 30000
+- assertVisible:
+    id: "articles-route"
+- takeScreenshot: articles-list-loads

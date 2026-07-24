@@ -1,0 +1,8 @@
+seeded_value: Zero schema publishes documents table; documentsByOwner query exists
+must_observe: list bound to Zero useQuery (app/articles.tsx imports documentsByOwner)
+1:import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
+4:import { documentsByCategory, documentsByOwner } from '@/app/zero/queries';
+40: * Data plane: Zero queries (documentsByOwner / documentsByCategory) per
+56:    () => (convexCategory ? documentsByCategory(convexCategory) : documentsByOwner()),
+59:  const [rawDocuments, listStatus] = useZeroQuery(listQuery);
+63:  const [allDocuments] = useZeroQuery(documentsByOwner());

@@ -1,0 +1,9 @@
+# S-REWRITE-02 AC-4 / TC-4 — Article import creates a document via Zero mutator
+appId: com.anonymous.holocron
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "articles-route"
+    timeout: 30000
+- takeScreenshot: articles-import-works

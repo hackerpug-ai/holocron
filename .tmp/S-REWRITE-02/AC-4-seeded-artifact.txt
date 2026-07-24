@@ -1,0 +1,10 @@
+seeded_value: createImportDocument Zero mutator
+components/articles/ArticleImportModal.tsx:10:import { mutators } from '@/app/zero/mutators';
+components/articles/ArticleImportModal.tsx:36: * Data plane: Zero query documentsByOwner + Zero mutator createImportDocument
+components/articles/ArticleImportModal.tsx:62:        mutators.createImportDocument({
+app/zero/mutators.ts:8: * Client mutators for the documents / articles cluster (S-REWRITE-02).
+app/zero/mutators.ts:12: *   - createImportDocument
+app/zero/mutators.ts:39:export const mutators = defineMutators({
+app/zero/mutators.ts:64:   * Append imported text onto an existing document (contract: createImportDocument).
+app/zero/mutators.ts:68:  createImportDocument: defineMutator(
+app/zero/mutators.ts:114:export type DocumentMutators = typeof mutators;
