@@ -56,6 +56,7 @@ The gate is one un-fakeable outcome: opening the rewritten app against a seeded 
 | S-REWRITE-06 | Reviewer pass: theme/a11y/contract compliance across rewired surfaces | react-native-ui-reviewer | 150 min |
 | GATE-FIX-001 | Make the real Maestro cold boot reach `chat-screen` and execute all seven human-gate steps with non-optional assertions | react-native-ui-implementer | 180 min |
 | REDHAT-FIX-UI-001 | Remediate S-REWRITE-06 theme tokens, ScreenLayout coverage, and accessibility/testID gaps across rewired surfaces | react-native-ui-implementer | 180 min |
+| GATE-FIX-002 | Remediate red-hat HIGH-1..HIGH-5 (oracle durability, evidence theatre, share seed) | react-native-ui-implementer | 180 min |
 
 ## Remediation (review + gate findings)
 
@@ -65,6 +66,7 @@ The prior completion claim is invalid and remains open until these first-class f
 |----|----------------|------------------|-----------|
 | GATE-FIX-001 | Actual Maestro runs `htg`, `htg2`, `htg3`, `htg4`, `htg5` | `chat-screen` never became visible; the drawer/articles/what's-new flow did not execute; rename was not run | Make the seeded Expo/Metro cold boot deterministic and run the full human gate with real Maestro assertions for chat, drawer, articles, What's New, rename, no-Convex, and share URL. |
 | REDHAT-FIX-UI-001 | S-REWRITE-06 review artifact at commit `4009dd97` | 55 hardcoded hex colors (39 production), ScreenLayout on only 4/14 drawer routes, and missing testID/a11y coverage | Bring every rewired surface into the theme, ScreenLayout, accessibility, and testID contract, then obtain a fresh clean review. |
+| GATE-FIX-002 | Red-hat `.spec/reviews/red-hat-sprint24-20260724T050416Z.md` HIGH-1..HIGH-5 | Full 7/7 not post-land proven; titleOverrides oracle risk; weak articles/whats-new/share oracles; dual-lens/verify-manifest theatre; stale e2e-verification PASS @ 4009dd97 | Harden oracles + rename durability + share seed; scrub evidence theatre; keep gate-results fail until real 7/7 QA. |
 
 ## Source Coverage
 
@@ -106,3 +108,4 @@ Remediation expansion (GATE-FIX-001, REDHAT-FIX-UI-001) by /kb-sprint-tasks-plan
 - S-REWRITE-06-reviewer-pass-theme-a11y-contract-compliance-across-rewired-surfaces.md
 - GATE-FIX-001-make-the-real-maestro-cold-boot-reach-chat-screen-and-execute-all-seven-human-ga.md
 - REDHAT-FIX-UI-001-remediate-s-rewrite-06-theme-tokens-screenlayout-coverage-and-accessibility-test.md
+- GATE-FIX-002-redhat-high1-5-oracle-durability-and-evidence-theatre.md
