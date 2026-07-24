@@ -1,7 +1,7 @@
 ---
 sequence: 24
 timeline: Phase 5 — Client Rewrite
-status: planned
+status: In Progress
 planned_from_roadmap_sha: ba669cff6df8fb1fdbba927e1e64a856364afce0eb48b553eff623753f460386
 planned_from_source_sha: 3885e9100ea6999d8702e4a79fc3289278f44cd1
 source_kind: git-head
@@ -12,7 +12,8 @@ planned_at: 2026-07-23T02:16:55Z
 
 **Sequence:** 24
 **Timeline:** Phase 5 — Client Rewrite
-**Status:** Planned
+**Status:** In Progress
+> Progress: 0/6 tasks completed · updated 2026-07-24T01:00:21Z
 **Proposed by:** react-native-ui-planner
 **Milestone:** — (`sprint-24`)
 **Branch:** `mk6-app-rewrite`
