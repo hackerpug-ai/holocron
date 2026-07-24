@@ -81,18 +81,18 @@ function handleIncomingURL({ url }: { url: string }) {
       return;
     }
 
-    // What's New (hostname form holocron://whats-new must work)
+    // What's New (hostname form holocron://whats-new must work).
+    // Prefer navigate over push so sequential Maestro steps (after articles) remount
+    // the drawer route instead of no-op when the stack is already mid-sequence.
     if (route === 'whats-new' || route === 'whats-new/social') {
-      router.push({
-        pathname: route === 'whats-new' ? '/whats-new' : '/whats-new/social',
-        params,
-      });
+      const pathname = route === 'whats-new' ? '/whats-new' : '/whats-new/social';
+      router.navigate({ pathname, params });
       return;
     }
 
     // Articles (same hostname form as Maestro openLink holocron://articles)
     if (route === 'articles') {
-      router.push({ pathname: '/articles', params });
+      router.navigate({ pathname: '/articles', params });
       return;
     }
 

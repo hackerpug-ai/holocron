@@ -97,25 +97,35 @@ export function DocumentActionsSheet({
   if (!visible) return null;
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="none"
-      onRequestClose={onClose}
-      testID={testID}
-    >
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        {/* Backdrop */}
-        <Pressable onPress={onClose} testID={`${testID}-backdrop`} style={{ flex: 1 }}>
-          <Animated.View style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }]} />
-        </Pressable>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+      {/*
+        Maestro / XCUITest often do NOT expose Modal's own testID. Put the oracle
+        on a full-screen View so document-actions-sheet is visible after open
+        (run2 step7 fail: button tap COMPLETED, sheet assert FAILED).
+      */}
+      <View
+        testID={testID}
+        accessibilityViewIsModal
+        accessibilityLabel="Document actions"
+        style={{ flex: 1 }}
+        collapsable={false}
+      >
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          {/* Backdrop */}
+          <Pressable onPress={onClose} testID={`${testID}-backdrop`} style={{ flex: 1 }}>
+            <Animated.View
+              style={[backdropStyle, { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }]}
+            />
+          </Pressable>
 
-        {/* Sheet */}
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[sheetStyle, { paddingBottom: insets.bottom + 16 }]}
-            className="absolute bottom-0 left-0 right-0 rounded-t-2xl border-t border-border bg-card px-6 pt-4"
-          >
+          {/* Sheet */}
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[sheetStyle, { paddingBottom: insets.bottom + 16 }]}
+              className="absolute bottom-0 left-0 right-0 rounded-t-2xl border-t border-border bg-card px-6 pt-4"
+              testID={`${testID}-panel`}
+              collapsable={false}
+            >
             {/* Handle bar */}
             <View className="mb-4 items-center">
               <View className="h-1 w-10 rounded-full bg-muted-foreground/30" />
@@ -192,9 +202,10 @@ export function DocumentActionsSheet({
                 </Text>
               </View>
             </Pressable>
-          </Animated.View>
-        </GestureDetector>
-      </GestureHandlerRootView>
+            </Animated.View>
+          </GestureDetector>
+        </GestureHandlerRootView>
+      </View>
     </Modal>
   );
 }
