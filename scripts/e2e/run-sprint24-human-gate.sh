@@ -471,7 +471,7 @@ print(matches[0]["udid"] if matches else "")
       sleep 1
       kill -KILL "$pipe_pid" 2>/dev/null || true
       wait "$pipe_pid" 2>/dev/null
-      set -e
+      # Do not set -e before return: non-zero return under set -e aborts the whole driver.
       return 124
     fi
     sleep 1
@@ -479,7 +479,7 @@ print(matches[0]["udid"] if matches else "")
   done
   wait "$pipe_pid"
   local rc=$?
-  set -e
+  # Keep set +e through return so a failed Maestro step does not abort steps 6–7.
   return "$rc"
 }
 
