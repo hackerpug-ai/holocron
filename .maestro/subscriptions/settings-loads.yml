@@ -1,0 +1,35 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-2 / TC-2: Subscription settings load via Zero with toggle state
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: ../shared/dismiss-dev-interstitials.yaml
+    optional: true
+
+- openLink: holocron://subscriptions
+
+- extendedWaitUntil:
+    visible:
+      id: "subscriptions-settings-route"
+    timeout: 90000
+
+- assertVisible:
+    id: "subscriptions-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "subscriptions-list"
+    timeout: 30000
+
+- assertVisible:
+    id: "subscriptions-list"
+
+# At least one toggle reflecting seeded enabled/auto_research state
+- assertVisible:
+    id: "toggle-auto-research-.*"
+    optional: false
+
+- takeScreenshot: settings-loads-seeded

@@ -1,8 +1,9 @@
-import { useQuery } from 'convex/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { whatsNewReportById } from '@/app/zero/queries';
 import {
   DeepResearchDetailView,
   type DeepResearchSession,
@@ -12,8 +13,6 @@ import { ArrowLeft } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
 import { NavigationTooltip } from '@/components/whats-new/NavigationTooltip';
-import { api } from '@/convex/_generated/api';
-import type { Id } from '@/convex/_generated/dataModel';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -32,41 +31,68 @@ function formatPeriod(periodStart: number, periodEnd: number): string {
   return `${start} - ${end}`;
 }
 
-/**
- * Transform What's New report to DeepResearchSession format
- */
-function transformReportToSession(
-  reportData:
-    | {
-        report: {
-          _id: Id<'whatsNewReports'>;
-          periodStart: number;
-          periodEnd: number;
-          days: number;
-          findingsCount: number;
-          documentId?: Id<'documents'>;
-          createdAt: number;
-        };
-        content: string | null;
-        generatedAt: number;
-      }
-    | null
-    | undefined
-): DeepResearchSession | null {
-  if (!reportData) return null;
+type ReportRow = {
+  id: string;
+  period_start?: number | null;
+  period_end?: number | null;
+  days?: number | null;
+  findings_count?: number | null;
+  findings_json?: unknown;
+  document_id?: string | null;
+  created_at: number;
+};
 
-  const { report, content } = reportData;
+function findingsToBody(findingsJson: unknown): string {
+  if (findingsJson == null) return '';
+  if (typeof findingsJson === 'string') {
+    try {
+      const parsed = JSON.parse(findingsJson) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((f: { title?: string; summary?: string }) =>
+            [f.title, f.summary].filter(Boolean).join('\n')
+          )
+          .join('\n\n');
+      }
+      return findingsJson;
+    } catch {
+      return findingsJson;
+    }
+  }
+  if (Array.isArray(findingsJson)) {
+    return findingsJson
+      .map((f: { title?: string; summary?: string }) =>
+        [f.title, f.summary].filter(Boolean).join('\n')
+      )
+      .join('\n\n');
+  }
+  try {
+    return JSON.stringify(findingsJson, null, 2);
+  } catch {
+    return String(findingsJson);
+  }
+}
+
+/**
+ * Transform What's New report (Zero row) to DeepResearchSession format
+ */
+function transformReportToSession(row: ReportRow | null | undefined): DeepResearchSession | null {
+  if (!row) return null;
+
+  const body = findingsToBody(row.findings_json);
+  const periodStart = row.period_start ?? row.created_at;
+  const periodEnd = row.period_end ?? row.created_at;
 
   return {
-    id: report._id,
-    query: `What's New in AI (${formatPeriod(report.periodStart, report.periodEnd)})`,
-    report: content ?? 'Report content not available.',
-    iterations: [], // Not applicable for What's New
-    citations: [], // Could be extracted from content in the future
-    completedAt: new Date(report.createdAt),
-    savedToHolocron: !!report.documentId,
-    confidence: 'HIGH', // Curated content
-    sourcesCount: report.findingsCount,
+    id: row.id,
+    query: `What's New in AI (${formatPeriod(periodStart, periodEnd)})`,
+    report: body.length > 0 ? body : 'Report content not available.',
+    iterations: [],
+    citations: [],
+    completedAt: new Date(row.created_at),
+    savedToHolocron: !!row.document_id,
+    confidence: 'HIGH',
+    sourcesCount: row.findings_count ?? 0,
   };
 }
 
@@ -74,6 +100,7 @@ function transformReportToSession(
  * What's New Report Detail Screen
  *
  * Displays the full What's New report using the same view as deep research.
+ * Data plane: Zero `whatsNewReportById` over whats_new_reports.
  *
  * Route: /whats-new/[reportId]
  */
@@ -82,13 +109,12 @@ export default function WhatsNewDetailScreen() {
   const router = useRouter();
   const theme = useTheme();
 
-  const reportData = useQuery(
-    api.whatsNew.queries.getReportById,
-    reportId ? { reportId: reportId as Id<'whatsNewReports'> } : 'skip'
-  );
-
-  const isLoading = reportData === undefined;
-  const session = useMemo(() => transformReportToSession(reportData), [reportData]);
+  const [reportRow, details] = useZeroQuery(whatsNewReportById(reportId ?? ''), {
+    enabled: Boolean(reportId),
+  });
+  const row = reportRow as unknown as ReportRow | undefined;
+  const isLoading = Boolean(reportId) && details.type !== 'complete' && row == null;
+  const session = useMemo(() => transformReportToSession(row), [row]);
 
   const handleBack = () => {
     if (router.canGoBack()) {

@@ -5,17 +5,17 @@
  * Grouped by platform with sort options. Each post opens in WebViewSheet.
  */
 
-import { useMutation, useQuery } from 'convex/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
+import { hasSeenNavTooltip as hasSeenNavTooltipQuery } from '@/app/zero/queries';
 import { NavigationTooltip } from '@/components/NavigationTooltip';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, MessageSquare } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
 import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard';
-import { api } from '@/convex/_generated/api';
 import { useTheme } from '@/hooks/use-theme';
 import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
 import { useWebView } from '@/hooks/useWebView';
@@ -71,10 +71,14 @@ export function SocialPostsListScreen({
   const { colors: themeColors, isDark, spacing } = useTheme();
   const { webViewState, openUrl, closeWebView } = useWebView();
   const { findings } = useWhatsNewFeed({});
+  const zero = useZero();
 
-  // Navigation tooltip state
-  const hasSeenNavTooltip = useQuery(api.notifications.queries.getHasSeenNavTooltip) ?? false;
-  const markNavTooltipSeen = useMutation(api.notifications.mutations.markNavTooltipSeen);
+  // Navigation tooltip via Zero (app_settings / hasSeenNavTooltip)
+  const [tooltipRow] = useZeroQuery(hasSeenNavTooltipQuery());
+  const hasSeenNavTooltip =
+    tooltipRow != null &&
+    typeof tooltipRow === 'object' &&
+    (tooltipRow as { value_json?: unknown }).value_json === true;
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Show tooltip on first visit
@@ -90,7 +94,26 @@ export function SocialPostsListScreen({
 
   const handleDismissTooltip = () => {
     setShowTooltip(false);
-    markNavTooltipSeen().catch((err) => {
+    const now = Date.now();
+    const existing = tooltipRow as { id?: string } | undefined;
+    const mark = async () => {
+      if (existing?.id) {
+        await zero.mutate.app_settings.update({
+          id: existing.id,
+          value_json: true,
+          updated_at: now,
+        });
+      } else {
+        await zero.mutate.app_settings.insert({
+          id: `app-settings-has-seen-nav-tooltip`,
+          key: 'has_seen_nav_tooltip',
+          value_json: true,
+          created_at: now,
+          updated_at: now,
+        });
+      }
+    };
+    mark().catch((err) => {
       console.error('Failed to mark tooltip as seen:', err);
     });
   };

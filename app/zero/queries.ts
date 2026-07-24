@@ -4,25 +4,46 @@ import { schema } from './schema';
 const builder = createBuilder(schema);
 
 /**
- * Builder-only query: zero-cache can evaluate this server-side WITHOUT a
- * ZERO_QUERY_URL. The legacy named-query registry form (define-queries /
- * define-query) requires a separate zero-query-server process that is NOT
- * deployed in the sprint-20 substrate.
+ * Builder-only queries: zero-cache evaluates these server-side WITHOUT a
+ * ZERO_QUERY_URL (legacy named-query registry requires a separate process).
  *
- * Returns the un-parametrized builder; the consumer calls it with the
- * conversationId at the call site. Zero's `useQuery` accepts a plain
- * `Query<TTable, TSchema, TReturn>` directly (see QueryOrQueryRequest in
- * @rocicorp/zero/out/zql/src/query/query-registry.d.ts), so no named-query
- * wrapper is required.
- *
- * Pre-refactor (S-COLDBOOT-02 root cause): zero-cache logged
- *   "Custom/named queries were requested but no `ZERO_QUERY_URL` is
- *    configured for Zero Cache."
- * and returned 0 rows for the chat-messages-by-conversation read, which
- * blocked the chat-assistant-message from mounting even though Postgres had
- * the row.
+ * Names match 13-client-data-contract.yaml targets for the subscriptions cluster.
  */
+
+/** Chat messages for a conversation (Sprint 20 reference flow). */
 export const chatMessagesByConversation = (conversationId: string) =>
-  builder.chat_messages
-    .where('conversation_id', conversationId)
-    .orderBy('created_at', 'asc');
+  builder.chat_messages.where('conversation_id', conversationId).orderBy('created_at', 'asc');
+
+/** Feed list — feedItemsByOwner (api.feeds.queries.getFeed). */
+export const feedItemsByOwner = (limit = 50) =>
+  builder.feed_items.orderBy('created_at', 'desc').limit(limit);
+
+/** Subscription sources list (api.subscriptions.queries.list). */
+export const subscriptionSourcesList = (limit = 100) =>
+  builder.subscription_sources.orderBy('created_at', 'desc').limit(limit);
+
+/**
+ * Grouped-by-creator projection is assembled client-side from sources.
+ * Contract name: subscriptionContentGroupedByCreator — sources carry the
+ * auto_research toggle the settings UI needs.
+ */
+export const subscriptionContentGroupedByCreator = (limit = 100) => subscriptionSourcesList(limit);
+
+/** Subscription content by group (api.subscriptions.queries.list). */
+export const subscriptionContentByGroup = (limit = 200) =>
+  builder.subscription_content.orderBy('created_at', 'desc').limit(limit);
+
+/** Latest what's-new reports (api.whatsNew.queries.getLatestFindings). */
+export const latestWhatsNewReports = (limit = 10) =>
+  builder.whats_new_reports.orderBy('created_at', 'desc').limit(limit);
+
+/** Single what's-new report (api.whatsNew.queries.getReportById). */
+export const whatsNewReportById = (reportId: string) =>
+  builder.whats_new_reports.where('id', reportId).one();
+
+/** Nav tooltip preference (api.notifications.queries.getHasSeenNavTooltip). */
+export const hasSeenNavTooltip = () =>
+  builder.app_settings.where('key', 'has_seen_nav_tooltip').one();
+
+/** Feed settings row (api.feeds.queries.getFeedSettings). */
+export const feedSettings = () => builder.app_settings.where('key', 'feed_settings').one();

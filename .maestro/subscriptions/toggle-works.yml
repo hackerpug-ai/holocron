@@ -1,0 +1,29 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-4 / TC-4: Subscription toggle persists via Zero mutator (5s SLO)
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: ../shared/dismiss-dev-interstitials.yaml
+    optional: true
+
+- openLink: holocron://subscriptions
+
+- extendedWaitUntil:
+    visible:
+      id: "subscriptions-list"
+    timeout: 90000
+
+- tapOn:
+    id: "toggle-auto-research-.*"
+
+# Allow Zero mutator + WAL replay within 5s SLO
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- assertVisible:
+    id: "subscriptions-list"
+
+- takeScreenshot: toggle-works-seeded

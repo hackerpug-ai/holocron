@@ -1,0 +1,32 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-5 / TC-5: Social posts load via Zero
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: ../shared/dismiss-dev-interstitials.yaml
+    optional: true
+
+- openLink:
+    link: holocron://subscriptions/feed
+
+- extendedWaitUntil:
+    visible:
+      id: "social-posts-list"
+    timeout: 90000
+
+- assertVisible:
+    id: "social-posts-list"
+
+# At least one social post with content (WhatsNewFindingCard testIDs)
+- extendedWaitUntil:
+    visible:
+      id: "social-posts-list-card-0"
+    timeout: 30000
+
+- assertVisible:
+    id: "social-posts-list-card-0"
+
+- takeScreenshot: social-loads-seeded

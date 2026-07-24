@@ -1,0 +1,30 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-3 / TC-3: Whats-new report detail loads via Zero
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: ../shared/dismiss-dev-interstitials.yaml
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-feed"
+    timeout: 90000
+
+# Open first report card if present, else navigate via deep link env
+- tapOn:
+    id: "whats-new-report-card"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-detail-view"
+    timeout: 45000
+
+- assertVisible:
+    id: "whats-new-detail-view"
+
+- takeScreenshot: whats-new-loads-seeded

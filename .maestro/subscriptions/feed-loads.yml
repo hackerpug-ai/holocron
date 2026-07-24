@@ -1,0 +1,38 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-1 / TC-1: Feed list loads 5 seeded feed items via Zero
+# Prerequisite: holo seed:e2e --reset (5 feed items)
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: ../shared/dismiss-dev-interstitials.yaml
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-feed"
+    timeout: 90000
+
+- assertVisible:
+    id: "whats-new-feed"
+
+# Seeded feed / findings rows — NewsfeedScreen uses `${testID}-finding-${index}`
+- extendedWaitUntil:
+    visible:
+      id: "whats-new-feed-finding-0"
+    timeout: 30000
+
+- assertVisible:
+    id: "whats-new-feed-finding-0"
+- assertVisible:
+    id: "whats-new-feed-finding-1"
+- assertVisible:
+    id: "whats-new-feed-finding-2"
+- assertVisible:
+    id: "whats-new-feed-finding-3"
+- assertVisible:
+    id: "whats-new-feed-finding-4"
+
+- takeScreenshot: feed-loads-seeded
