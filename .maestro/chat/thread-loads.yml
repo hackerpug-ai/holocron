@@ -1,0 +1,35 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-3 / TC-3 — Chat thread loads messages via Zero query
+# Prerequisite: seeded conversation with >=3 messages.
+# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-thread"
+    timeout: 30000
+
+- assertNotVisible:
+    text: "No messages"
+    optional: true
+
+# Oracle: >=3 message bubbles rendered (seeded thread)
+- assertVisible:
+    id: "message-bubble"
+    index: 0
+- assertVisible:
+    id: "message-bubble"
+    index: 1
+- assertVisible:
+    id: "message-bubble"
+    index: 2
+
+- takeScreenshot: S-REWRITE-01-AC-3-thread-loads

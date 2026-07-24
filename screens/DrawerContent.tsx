@@ -41,6 +41,11 @@ interface DrawerContentProps extends Omit<ViewProps, 'children'> {
   onConversationPress?: (_conversation: Conversation) => void;
   /** Callback when a conversation delete is triggered */
   onConversationDelete?: (_conversation: Conversation) => void;
+  /**
+   * Callback when a conversation row is long-pressed to open the action menu
+   * (rename / delete). Parent should set the active conversation and open the menu.
+   */
+  onOpenConversationMenu?: (_conversation: Conversation) => void;
   /** Loading state for conversation fetch */
   isLoading?: boolean;
   /** Error state for conversation fetch */
@@ -89,6 +94,7 @@ export function DrawerContent({
   onNewChatPress,
   onConversationPress,
   onConversationDelete,
+  onOpenConversationMenu,
   isLoading = false,
   error = null,
   onRetry,
@@ -128,11 +134,21 @@ export function DrawerContent({
     return clearDismissTimer;
   }, [deleteVisibleId, clearDismissTimer]);
 
-  const handleRowLongPress = useCallback((conversationId: string) => {
-    // If the same row is long-pressed again, dismiss it
-    // Otherwise, show the new one (auto-hides previous)
-    setDeleteVisibleId((prev) => (prev === conversationId ? null : conversationId));
-  }, []);
+  const handleRowLongPress = useCallback(
+    (conversation: Conversation) => {
+      // Prefer the full action menu (rename + delete) when wired by the parent.
+      // This is the primary long-press path for AC-2 rename reachability.
+      if (onOpenConversationMenu) {
+        clearDismissTimer();
+        setDeleteVisibleId(null);
+        onOpenConversationMenu(conversation);
+        return;
+      }
+      // Fallback: inline delete reveal when no action-menu handler is provided
+      setDeleteVisibleId((prev) => (prev === conversation.id ? null : conversation.id));
+    },
+    [onOpenConversationMenu, clearDismissTimer]
+  );
 
   const handleDismissDelete = useCallback(() => {
     clearDismissTimer();
@@ -202,7 +218,7 @@ export function DrawerContent({
         handleDismissDelete();
         onConversationPress?.(item);
       }}
-      onLongPress={() => handleRowLongPress(item.id)}
+      onLongPress={() => handleRowLongPress(item)}
       onDelete={
         onConversationDelete
           ? () => {

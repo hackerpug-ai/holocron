@@ -1,0 +1,12 @@
+$ vitest run "tests/integration/s-rewrite-01-chat-cluster-zero.test.ts" hooks/use-agent-activity.test.ts
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01
+
+ ✓ hooks/use-agent-activity.test.ts (4 tests) 5ms
+ ✓ tests/integration/s-rewrite-01-chat-cluster-zero.test.ts (21 tests) 25ms
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  19:11:02
+   Duration  421ms (transform 304ms, setup 473ms, import 66ms, tests 31ms, environment 0ms)
+

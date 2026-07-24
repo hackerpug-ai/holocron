@@ -14,7 +14,7 @@
  * NEVER exposes WebRTC internals.
  */
 
-import { useAction, useConvex, useMutation } from 'convex/react';
+import { useConvex } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
@@ -36,6 +36,13 @@ import { SessionTimeout, WarmConnection } from '@/lib/voice/session-timeout';
 import { getToolDefinitions } from '@/lib/voice/tool-definitions';
 import { createTranscriptRecorder } from '@/lib/voice/transcript-recorder';
 import { WebRTCConnection } from '@/lib/voice/webrtc-connection';
+
+/**
+ * Chat cold-boots under ZeroProvider without ConvexProvider (Sprint 20/24).
+ * useAction/useMutation throw when the Convex client is absent; bind ops via
+ * useConvex() (returns undefined) instead so this hook is safe at render time.
+ */
+const CONVEX_UNAVAILABLE = 'Convex client unavailable — voice session disabled';
 
 /**
  * Discard prewarm data this many ms before the OpenAI 60s token TTL expires.
@@ -101,13 +108,60 @@ export interface UseVoiceSessionReturn {
 export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSessionReturn {
   const [state, dispatch] = useReducer(voiceSessionReducer, initialVoiceSessionState);
 
-  const createSession = useAction(api.voice.actions.createSession);
-  const endSession = useMutation(api.voice.mutations.endSession);
-  const recordTranscript = useMutation(api.voice.mutations.recordTranscript);
-  const generateAudioUploadUrl = useMutation(api.voice.mutations.generateAudioUploadUrl);
-  const attachAudio = useMutation(api.voice.mutations.attachAudio);
+  // useConvex() does not throw when ConvexProvider is missing — returns undefined.
+  // Never call useAction/useMutation here: they throw and crash chat cold-boot.
   const convex = useConvex();
   const router = useRouter();
+
+  const createSession = useCallback(
+    async (args: { conversationId: Id<'conversations'> }) => {
+      if (!convex) {
+        return Promise.reject(new Error(CONVEX_UNAVAILABLE));
+      }
+      return convex.action(api.voice.actions.createSession, args) as Promise<{
+        ephemeralKey: string;
+        sessionId: string;
+        instructions: string;
+      }>;
+    },
+    [convex]
+  );
+
+  const endSession = useCallback(
+    async (args: { sessionId: Id<'voiceSessions'> }) => {
+      if (!convex) return null;
+      return convex.mutation(api.voice.mutations.endSession, args);
+    },
+    [convex]
+  );
+
+  const recordTranscript = useCallback(
+    async (args: {
+      sessionId: Id<'voiceSessions'>;
+      conversationId: Id<'conversations'>;
+      role: 'user' | 'agent';
+      content: string;
+    }) => {
+      if (!convex) return null;
+      return convex.mutation(api.voice.mutations.recordTranscript, args as never);
+    },
+    [convex]
+  );
+
+  const generateAudioUploadUrl = useCallback(async () => {
+    if (!convex) {
+      return Promise.reject(new Error(CONVEX_UNAVAILABLE));
+    }
+    return convex.mutation(api.voice.mutations.generateAudioUploadUrl, {}) as Promise<string>;
+  }, [convex]);
+
+  const attachAudio = useCallback(
+    async (args: { sessionId: Id<'voiceSessions'>; storageId: Id<'_storage'> }) => {
+      if (!convex) return null;
+      return convex.mutation(api.voice.mutations.attachAudio, args as never);
+    },
+    [convex]
+  );
 
   const connectionRef = useRef<WebRTCConnection | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -245,6 +299,9 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
    * want to defer until the user actually commits.
    */
   const prewarm = useCallback(async () => {
+    // Guard: no Convex client (Zero-only cold boot) — voice remains disabled
+    if (!convex) return;
+
     // Guard: don't prewarm while a real session is live
     if (statusRef.current !== 'idle' && statusRef.current !== 'error') {
       return;
@@ -298,11 +355,14 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
     } finally {
       isPrewarmingRef.current = false;
     }
-  }, [conversationId, createSession, discardPrewarm]);
+  }, [conversationId, convex, createSession, discardPrewarm]);
 
   const start = useCallback(async () => {
     // Guard against double-start
     if (state.status !== 'idle' && state.status !== 'error') return;
+
+    // Guard: no Convex client (Zero-only cold boot) — do not crash or flip UI
+    if (!convex) return;
 
     console.time('voice:cold-start');
     dispatch({ type: 'CONNECT', conversationId });
@@ -449,6 +509,9 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
           onFunctionCall: async (fn) => {
             dispatch({ type: 'TOOL_START', toolName: fn.name });
             try {
+              if (!convex) {
+                throw new Error(CONVEX_UNAVAILABLE);
+              }
               const deps: DispatcherDeps = {
                 convex: {
                   runAction: (path, args) => convex.action(path as never, args as never),
@@ -681,9 +744,7 @@ export function useVoiceSession(conversationId: Id<'conversations'>): UseVoiceSe
     recordTranscript,
     state.status,
     router.push,
-    convex.query,
-    convex.mutation,
-    convex.action,
+    convex,
   ]);
 
   const stop = useCallback(async () => {

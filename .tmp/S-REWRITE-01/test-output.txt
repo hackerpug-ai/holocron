@@ -1,0 +1,1181 @@
+$ vitest run
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01
+
+ ❯ tests/integration/sprint20-maestro-harness-artifacts.test.ts (22 tests | 22 skipped) 4ms
+       ↓ invoking the harness against a real .app DIRECTORY does not fail with "Expo development build does not exist"
+       ↓ 'missing exact-name record' does not fall back to the simulator name
+       ↓ 'malformed simctl JSON' does not fall back to the simulator name
+       ↓ 'missing UDID' does not fall back to the simulator name
+       ↓ 'malformed UDID' does not fall back to the simulator name
+       ↓ 'unavailable exact-name record' does not fall back to the simulator name
+       ↓ 'ambiguous exact-name records' does not fall back to the simulator name
+       ↓ uses Python 3 for the real JSON query and only passes the resolved UDID to Maestro
+       ↓ resolves MAESTRO_APP_ID default to org.name.holocron (the real Expo dev build CFBundleIdentifier)
+       ↓ invokes xcrun simctl io recordVideo with --codec=h264 -f so a prior video file is overwritten
+       ↓ runs simctl terminate, then uninstall, then install — each captured to its own artifact
+       ↓ writes a dev-client-setup.json artifact whose mode is overridable via MAESTRO_DEV_CLIENT_MODE
+       ↓ uses a positive configurable budget with a 180-second default
+       ↓ installs zero-cache cleanup before readiness and replaces it only after video starts
+       ↓ stops the harness-owned process when readiness times out
+       ↓ the harness default mode matches [a-z0-9+-]+ and the OLD [a-z-]+ regex does NOT
+       ↓ a standing artifacts assertion accepts the documented mode set from dev-client-setup.json
+       ↓ AC-2: harness writes non-empty sentinels to terminate/uninstall/install (per-file, not aggregated)
+       ↓ AC-2 RED: a per-file non-empty oracle fails when simctl-uninstall.txt is planted empty
+       ↓ AC-3: the forced-failure fixture is deterministic (no timestamp/random token)
+       ↓ AC-1 TC-4: a real forced-failure run preserves final.png + video and tears down zero-cache
+       ↓ the harness script file exists at the expected path
+ ↓ tests/integration/service/infer-budget-hard-precheck.test.ts (6 tests | 6 skipped)
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts (0 test)
+ ❯ services/platform/tests/integration/inference-telemetry.test.ts (0 test)
+ ❯ tests/integration/service/sprint14-upload-lifecycle.test.ts (0 test)
+ ↓ tests/integration/service/infer-degraded-durable-escape.test.ts (5 tests | 5 skipped)
+ ❯ services/platform/tests/integration/redhat-fix-5-behavioral-green-fleet-down.test.ts (0 test)
+ ❯ services/platform/tests/integration/sprint14-etl-and-blob.test.ts (0 test)
+ ✓ convex/chat/telemetryMutations.test.ts (3 tests) 99ms
+ ✓ tests/convex/agent-triage-dispatch.test.ts (5 tests) 295ms
+ ❯ tests/hooks/use-voice-session.test.ts (0 test)
+stderr | tests/convex/triage.test.ts > AC-2: classifyIntent returns fallback on bad LLM response > should fall back gracefully when LLM returns non-JSON
+[triage] Failed to extract JSON from response: This is not JSON at all
+
+ ✓ tests/convex/chat-context-section-aware.test.ts (4 tests) 67ms
+ ✓ tests/convex/US-052-chat.test.ts (32 tests) 65ms
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-1: recordTriage inserts > should insert a telemetry row with all required fields
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-2: truncates rawLlmResponse > should truncate rawLlmResponse to 2000 characters
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-2: truncates rawLlmResponse > should not truncate short responses
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should delete telemetry rows older than cutoff date
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should not delete recent telemetry rows
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should return count of deleted records
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+ ✓ tests/convex/chat-telemetryMutations.test.ts (7 tests) 18ms
+stderr | tests/convex/triage.test.ts > QueryShape validation > malformed JSON should return fallbackResult with queryShape
+[triage] Failed to extract JSON from response: {broken json
+
+ ✓ tests/convex/triage.test.ts (12 tests) 194ms
+ ✓ tests/convex/US-004-voice-getActiveSession.test.ts (11 tests) 96ms
+ ✓ tests/convex/search-tools.test.ts (10 tests) 216ms
+ ✓ tests/convex/US-055-deep-research.test.ts (12 tests) 138ms
+ ✓ tests/convex/documents-getSection.test.ts (8 tests) 32ms
+ ✓ tests/convex/rateLimits.test.ts (10 tests) 110ms
+ ✓ tests/convex/US-003-voice-mutations.test.ts (10 tests) 44ms
+ ✓ tests/convex/TR-004-jina-reader-fallback.test.ts (8 tests) 134ms
+ ✓ tests/convex/US-IMP-003-sequential-research-context.test.ts (8 tests) 20ms
+ ✓ tests/convex/TR-007-assimilate-creator.test.ts (6 tests) 13ms
+ ✓ convex/research/enrichment.test.ts (4 tests) 8ms
+ ✓ tests/convex/TS-008-rate-limiter.test.ts (9 tests) 11ms
+ ✓ tests/lib/extractParagraphs.test.ts (10 tests) 9ms
+ ✓ tests/research/termination.test.ts (50 tests) 64ms
+ ✓ tests/voice/retry-manager.test.ts (12 tests) 155ms
+ ✓ tests/convex/US-060-research-progress.test.ts (5 tests) 38ms
+ ✓ tests/convex/US-054-tasks.test.ts (12 tests) 61ms
+ ❯ tests/integration/sprint20-ci-e2e-provenance.test.ts (10 tests | 10 skipped) 7ms
+       ↓ AC-1: exits non-zero with ok:false and next_input_needed when gh missing (TC-1)
+       ↓ AC-1: host probe fails closed when unauthenticated / runner offline
+       ↓ fail-closed: committed ci-run-provenance.json absent (no fabricate)
+       ↓ fail-closed: capture-ci-provenance.sh refuses missing/invalid run_id
+       ↓ fail-closed: capture rejects a successful historical run not matching the tested SHA
+       ↓ AC-2: real dispatch + capture only when probe ok:true (else skip with reason)
+       ↓ AC-3: capstone from CI bundle only when download exists (else skip with reason)
+       ↓ AC-4: regenerate-sprint-gate step4 FAIL when provenance absent; evidence mentions absent
+       ↓ AC-4: probe-green alone must not flip step4 PASS without provenance file
+       ↓ AC-4: step4 rejects provenance for a different tested SHA
+ ✓ tests/integration/catalog-negative-controls.test.ts (7 tests) 1257ms
+     ✓ unmapped storage ref control: verify/coverage exits non-zero naming improvementImages.storageId  503ms
+ ✓ convex/chat/agent.test.ts (45 tests) 48ms
+ ↓ tests/integration/service/infer-escape-degraded-choke.test.ts (6 tests | 6 skipped)
+ ✓ tests/integration/catalog-verify.test.ts (5 tests) 1304ms
+     ✓ 60/60 tables approved against export-sample  319ms
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts (0 test)
+ ↓ tests/integration/service/infer-gate-honesty-inventory.test.ts (5 tests | 5 skipped)
+stderr | tests/convex/lib/jina.test.ts > Jina Helper Module > jinaReaderBatch > should handle partial failures without throwing
+[jinaReaderBatch] Failed to read https://example.com/article2: JinaError: Jina Reader API network error: Network error
+    at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:330:13)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+    at async Promise.allSettled (index 1)
+    at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:378:23 {
+  type: 'network',
+  statusCode: undefined,
+  originalError: Error: Network error
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:371:32
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:296:11
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:26
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1681:20
+      at new Promise (<anonymous>)
+      at runWithCancel (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1678:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1660:20
+      at new Promise (<anonymous>)
+      at runWithTimeout (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1627:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:2309:64
+}
+
+stderr | tests/convex/lib/jina.test.ts > Jina Helper Module > jinaReaderBatch > should return empty map when all requests fail
+[jinaReaderBatch] Failed to read https://example.com/article1: JinaError: Jina Reader API network error: Network error
+    at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:330:13)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+    at async Promise.allSettled (index 0)
+    at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:390:23 {
+  type: 'network',
+  statusCode: undefined,
+  originalError: Error: Network error
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:388:48
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:296:11
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:26
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1681:20
+      at new Promise (<anonymous>)
+      at runWithCancel (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1678:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1660:20
+      at new Promise (<anonymous>)
+      at runWithTimeout (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1627:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:2309:64
+}
+[jinaReaderBatch] Failed to read https://example.com/article2: JinaError: Jina Reader API network error: Network error
+    at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:330:13)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+    at async Promise.allSettled (index 1)
+    at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:390:23 {
+  type: 'network',
+  statusCode: undefined,
+  originalError: Error: Network error
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:388:48
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:296:11
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:26
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1681:20
+      at new Promise (<anonymous>)
+      at runWithCancel (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1678:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1660:20
+      at new Promise (<anonymous>)
+      at runWithTimeout (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1627:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:2309:64
+}
+[jinaReaderBatch] Failed to read https://example.com/article3: JinaError: Jina Reader API network error: Network error
+    at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:330:13)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+    at async Promise.allSettled (index 2)
+    at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:390:23 {
+  type: 'network',
+  statusCode: undefined,
+  originalError: Error: Network error
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/convex/lib/jina.test.ts:388:48
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:296:11
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:26
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1681:20
+      at new Promise (<anonymous>)
+      at runWithCancel (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1678:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1660:20
+      at new Promise (<anonymous>)
+      at runWithTimeout (file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1627:10)
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:2309:64
+}
+
+ ✓ tests/convex/lib/jina.test.ts (33 tests) 62ms
+ ❯ services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts (0 test)
+ ✓ tests/lib/voice/function-dispatcher.test.ts (24 tests) 62ms
+ ❯ services/platform/tests/integration/embed-run.test.ts (0 test)
+ ❯ services/platform/tests/integration/rrf-search.test.ts (0 test)
+ ✓ tests/integration/shop-output.test.ts (17 tests) 58ms
+ ✓ components/whats-new/__tests__/NewsfeedFindingCard.test.tsx (21 tests) 53ms
+ ✓ tests/integration/service/struct-tripwire-blocked.test.ts (9 tests | 8 skipped) 3ms
+ ❯ services/platform/tests/integration/pipeline-templates.test.ts (0 test)
+ ❯ services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts (0 test)
+ ❯ services/platform/tests/integration/evidence-research-template.test.ts (0 test)
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-1: Synchronous return with typed shape > findRecommendations happy path
+[findRec] sources found: 5
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-1: Synchronous return with typed shape > findRecommendations happy path
+[findRec] content length: 356 chars
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-1: Synchronous return with typed shape > findRecommendations happy path
+[findRec] parse result: ok, 3 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-1: Synchronous return with typed shape > findRecommendations happy path
+[findRec] returning 3 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > REC-UPG-03: second-pass selective enrichment > enriches materially incomplete items while preserving already-rich items
+[findRec] sources found: 1
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > REC-UPG-03: second-pass selective enrichment > enriches materially incomplete items while preserving already-rich items
+[findRec] content length: 36 chars
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > REC-UPG-03: second-pass selective enrichment > enriches materially incomplete items while preserving already-rich items
+[findRec] parse result: ok, 2 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > REC-UPG-03: second-pass selective enrichment > enriches materially incomplete items while preserving already-rich items
+[findRec] returning 2 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-2: Graceful empty-result shape on no sources > empty sources
+[findRec] sources found: 0
+[findRec] returning early — zero sources for query: xyz123 nonexistent query
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-3: Total timeout budget handling > returns fallback on abort-shaped discovery failure
+[findRec] sources found: 0
+[findRec] returning early — zero sources for query: career coaches for autism in SF
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-3: Total timeout budget handling > returns fallback when abort occurs during second-pass enrichment
+[findRec] sources found: 1
+
+stderr | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-3: Total timeout budget handling > returns fallback when abort occurs during second-pass enrichment
+[jinaReaderBatch] Failed to read https://example.com/timeout: JinaError: Jina Reader API network error: response.text is not a function
+    at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:330:13)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+    at async Promise.allSettled (index 0)
+    at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+    at parallelJinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1668:24)
+    at Module.findRecommendationsCore (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1826:21)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.test.ts:505:22
+    at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:20 {
+  type: 'network',
+  statusCode: undefined,
+  originalError: TypeError: response.text is not a function
+      at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:309:36)
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+      at async Promise.allSettled (index 0)
+      at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+      at parallelJinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1668:24)
+      at Module.findRecommendationsCore (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1826:21)
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.test.ts:505:22
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:20
+}
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-3: Total timeout budget handling > returns fallback when abort occurs during second-pass enrichment
+[findRec] content length: 0 chars
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-3: Total timeout budget handling > returns fallback when abort occurs during second-pass enrichment
+[findRec] parse result: ok, 1 items
+
+stderr | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-3: Total timeout budget handling > returns fallback when abort occurs during second-pass enrichment
+[findRecommendationsCore] Operation aborted after timeout
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-4: No document written > no document written
+[findRec] sources found: 1
+
+stderr | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-4: No document written > no document written
+[jinaReaderBatch] Failed to read https://example.com: JinaError: Jina Reader API network error: response.text is not a function
+    at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:330:13)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+    at async Promise.allSettled (index 0)
+    at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+    at parallelJinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1668:24)
+    at Module.findRecommendationsCore (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1826:21)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.test.ts:547:22
+    at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:20 {
+  type: 'network',
+  statusCode: undefined,
+  originalError: TypeError: response.text is not a function
+      at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:309:36)
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:374:23
+      at async Promise.allSettled (index 0)
+      at jinaReaderBatch (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/lib/jina.ts:383:20)
+      at parallelJinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1668:24)
+      at Module.findRecommendationsCore (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.ts:1826:21)
+      at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/convex/research/actions.test.ts:547:22
+      at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:1258:20
+}
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-4: No document written > no document written
+[findRec] content length: 0 chars
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-4: No document written > no document written
+[findRec] parse result: ok, 1 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-4: No document written > no document written
+[findRec] returning 1 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-5: Invalid JSON returns graceful empty, no retry > invalid JSON returns empty result with single LLM call
+[findRec] sources found: 1
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-5: Invalid JSON returns graceful empty, no retry > invalid JSON returns empty result with single LLM call
+[findRec] content length: 26 chars
+
+stderr | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-5: Invalid JSON returns graceful empty, no retry > invalid JSON returns empty result with single LLM call
+[synthesize] No JSON found in response
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-5: Invalid JSON returns graceful empty, no retry > invalid JSON returns empty result with single LLM call
+[findRec] parse result: failed
+
+stderr | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-5: Invalid JSON returns graceful empty, no retry > invalid JSON returns empty result with single LLM call
+[findRecommendationsCore] Synthesis validation failed
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-6: Fewer-than-count returns what was found > returns 1 item when only 1 provider found
+[findRec] sources found: 1
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-6: Fewer-than-count returns what was found > returns 1 item when only 1 provider found
+[findRec] content length: 42 chars
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-6: Fewer-than-count returns what was found > returns 1 item when only 1 provider found
+[findRec] parse result: ok, 1 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-6: Fewer-than-count returns what was found > returns 1 item when only 1 provider found
+[findRec] returning 1 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-7: Single LLM call on success > generateText called once when first parse succeeds
+[findRec] sources found: 1
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-7: Single LLM call on success > generateText called once when first parse succeeds
+[findRec] content length: 26 chars
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-7: Single LLM call on success > generateText called once when first parse succeeds
+[findRec] parse result: ok, 1 items
+
+stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-7: Single LLM call on success > generateText called once when first parse succeeds
+[findRec] returning 1 items
+
+ ✓ convex/research/actions.test.ts (15 tests) 62ms
+ ❯ services/platform/tests/integration/business-report-template.test.ts (0 test)
+ ↓ services/platform/tests/integration/embed-helper.test.ts (5 tests | 5 skipped)
+ ↓ tests/integration/service/infer-structural-compat-agent.test.ts (5 tests | 5 skipped)
+ ↓ tests/integration/service/RED/queue-durable.RED.test.ts (6 tests | 6 skipped)
+ ↓ services/platform/tests/integration/observability-traces.test.ts (4 tests | 4 skipped)
+stderr | tests/integration/sprint20-coldboot-journey.test.ts > S-COLDBOOT-03 cold-boot journey > case 2 — most-recent Maestro junit reports failures=0 over the real substrate > a junit.xml artifact exists from a prior real maestro run
+[S-COLDBOOT-03 case 2] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 to drive the real substrate
+
+stderr | tests/integration/sprint20-coldboot-journey.test.ts > S-COLDBOOT-03 cold-boot journey > case 2 — most-recent Maestro junit reports failures=0 over the real substrate > the most-recent junit reports failures="0" (flow is GREEN over real simulator + real services)
+[S-COLDBOOT-03 case 2] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 to drive the real substrate
+
+stderr | tests/integration/sprint20-coldboot-journey.test.ts > S-COLDBOOT-03 cold-boot journey > case 3 — chat-message round-trip lands a non-empty agent reply in Postgres > chat_messages for conversation 020 has >=1 row with role=agent and content_len > 0
+[S-COLDBOOT-03 case 3] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 to drive the real substrate
+
+stderr | tests/integration/sprint20-coldboot-journey.test.ts > S-COLDBOOT-03 cold-boot journey > case 3 — chat-message round-trip lands a non-empty agent reply in Postgres > chat_messages for conversation 020 has >=1 row with role=user (the reference-flow ping)
+[S-COLDBOOT-03 case 3] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 to drive the real substrate
+
+stderr | tests/integration/sprint20-coldboot-journey.test.ts > REDHAT-FIX-H10 — namespace reset returns conversation 020 to a deterministic zero-message state > seeds conversation 020, then two consecutive resets each drive the chat_messages count to 0
+[REDHAT-FIX-H10] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 and DATABASE_URL=...holocron_nonprod... to drive the real reset
+
+ ✓ tests/integration/sprint20-coldboot-journey.test.ts (8 tests) 7ms
+ ✓ tests/integration/catalog-coverage.test.ts (4 tests) 1167ms
+     ✓ coverage|storage: every field + 6 storage refs dispositioned; drops approved  445ms
+ ❯ services/platform/tests/integration/search-recall.test.ts (0 test)
+ ❯ services/platform/tests/integration/redhat-fix-3-infer-trace.test.ts (0 test)
+ ❯ tests/integration/sprint20-expo-dev-client-rebuild.test.ts (5 tests | 5 skipped) 5ms
+       ↓ exits non-zero with ok:false and next_input_needed when eas/auth missing
+       ↓ FORCE_EAS_BUILD build path fails closed when eas cannot resolve
+       ↓ rejects method=reuse-existing as rebuild success and writes crash-diagnosis.md
+       ↓ produces valid holocron.app with method eas|eas-local (not reuse-existing)
+       ↓ installs rebuilt .app on MAESTRO_DEVICE
+ ❯ services/platform/tests/integration/redhat-fix-4-subscriptions-no-claims.test.ts (0 test)
+ ❯ services/platform/tests/integration/gate-fix-s22-infer-trace-runid.test.ts (0 test)
+ ❯ services/platform/tests/integration/evals-versioning.test.ts (0 test)
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts (0 test)
+ ✓ tests/integration/service/struct-explicit-fail.test.ts (7 tests | 5 skipped) 4ms
+ ↓ tests/integration/service/infer-escape-telemetry.test.ts (3 tests | 3 skipped)
+ ✓ tests/integration/whats-new-summary-storage.test.ts (12 tests) 108ms
+ ↓ tests/integration/service/RED/evidence-asof-chain.RED.test.ts (3 tests | 3 skipped)
+ ✓ tests/integration/service/struct-output-tripwire-blocked.test.ts (3 tests | 1 skipped) 4ms
+stderr | tests/integration/sprint20-this-cycle-coldboot.test.ts > GATE-FIX-G2 — this-cycle cold-boot (skipped: PLATFORM_IT unset) > skips with reason when PLATFORM_IT=1 is unset (refuse skip-to-green)
+[GATE-FIX-G2] SKIPPED: set PLATFORM_IT=1 to drive real this-cycle cold-boot checks
+
+ ✓ tests/integration/sprint20-this-cycle-coldboot.test.ts (5 tests | 4 skipped) 3ms
+ ✓ tests/integration/service/struct-boot-probe.test.ts (8 tests | 7 skipped) 3ms
+stdout | tests/integration/validate-migration.test.ts > Migration Validation - AC-1: Row Counts
+
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+stderr | tests/integration/validate-migration.test.ts > Migration Validation - AC-1: Row Counts
+
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL or EXPO_PUBLIC_CONVEX_URL
+  - VITE_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
+
+stdout | tests/integration/validate-migration.test.ts > Migration Validation - AC-2: FK Relationships
+
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+stderr | tests/integration/validate-migration.test.ts > Migration Validation - AC-2: FK Relationships
+
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL or EXPO_PUBLIC_CONVEX_URL
+  - VITE_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
+
+stdout | tests/integration/validate-migration.test.ts > Migration Validation - AC-3: Embedding Dimensions
+
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+stderr | tests/integration/validate-migration.test.ts > Migration Validation - AC-3: Embedding Dimensions
+
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL or EXPO_PUBLIC_CONVEX_URL
+  - VITE_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
+
+stdout | tests/integration/validate-migration.test.ts > Migration Validation - AC-4: Integrity Report > should generate comprehensive validation report
+
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+stderr | tests/integration/validate-migration.test.ts > Migration Validation - AC-4: Integrity Report > should generate comprehensive validation report
+
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL or EXPO_PUBLIC_CONVEX_URL
+  - VITE_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
+
+stdout | tests/integration/validate-migration.test.ts > Migration Validation - AC-4: Integrity Report > should report 100% pass rate when all checks pass
+
+╔════════════════════════════════════════════════════════════╗
+║     MIGRATION DATA INTEGRITY VALIDATION                   ║
+╚════════════════════════════════════════════════════════════╝
+
+stderr | tests/integration/validate-migration.test.ts > Migration Validation - AC-4: Integrity Report > should report 100% pass rate when all checks pass
+
+✗ Missing required environment variables:
+  - VITE_CONVEX_HTTP_URL or EXPO_PUBLIC_CONVEX_URL
+  - VITE_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_URL
+  - VITE_SUPABASE_ANON_KEY or EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
+
+ ✓ tests/integration/validate-migration.test.ts (9 tests) 118ms
+ ✓ tests/lib/voice/tool-definitions.test.ts (5 tests) 7ms
+ ✓ services/platform/src/cli/__tests__/client-data-contract-author.test.ts (12 tests) 45ms
+ ✓ services/platform/src/cli/__tests__/client-data-contract-verify.test.ts (9 tests) 104ms
+stderr | components/whats-new/__tests__/NewsfeedFilterBar.test.tsx > NewsfeedFilterBar > AC-1: ALL pill is always first and shows total count > allPillIsFirstWithTotalCount
+Functions are not valid as a React child. This may happen if you return children instead of <children /> from render. Or maybe you meant to call this function rather than return it.
+  <Pressable>{children}</Pressable>
+
+ ✓ tests/lib/voice/webrtc-connection.test.ts (18 tests) 75ms
+ ✓ components/whats-new/__tests__/NewsfeedFilterBar.test.tsx (10 tests) 27ms
+ ↓ tests/integration/service/infer-red-degraded-no-cloud.test.ts (4 tests | 4 skipped)
+ ✓ components/whats-new/__tests__/NewsfeedHeroCard.test.tsx (19 tests) 82ms
+ ✓ tests/integration/service/struct-repair-loop.test.ts (7 tests | 5 skipped) 4ms
+ ❯ tests/integration/sprint20-maestro-harness.test.ts (9 tests | 9 skipped) 4ms
+     ↓ fails closed when the named simulator contract is absent
+       ↓ uses Zero 1.8 Litestream flags and provisions the pinned real fork in CI
+       ↓ fails closed before Zero startup when the Zero 1.8 Litestream executable is absent
+       ↓ fails closed when the Expo build path is missing
+       ↓ GATE-FIX-G6 AC-1: --run missing-build exits nonzero and leaves no junit.xml
+       ↓ fails closed when EXPO_DEV_BUILD_PATH is not a real bundle
+       ↓ fails closed when DATABASE_URL is required
+       ↓ fails closed when FLEET_URL is required
+       ↓ fails closed when DATABASE_URL does not target holocron_nonprod
+ ❯ services/platform/tests/integration/mission-telemetry.test.ts (0 test)
+stderr | tests/integration/whats-new-summary-generation.test.ts > Summary Generation - AC-1: Each finding has summary field > should reject summaries shorter than 80 characters
+[Summary Quality] FAILURE: findingId="ai-tool" reason="too_short (35 chars)"
+
+stderr | tests/integration/whats-new-summary-generation.test.ts > Summary Generation - AC-3: Graceful failure handling > should return undefined when LLM fails, not throw error
+[Summary Quality] FAILURE: findingId="test-finding" error="API rate limit exceeded"
+
+stderr | tests/integration/whats-new-summary-generation.test.ts > Summary Generation - AC-3: Graceful failure handling > should return undefined when LLM returns empty response
+[Summary Quality] FAILURE: findingId="test-finding" reason="too_short (0 chars)"
+
+ ✓ tests/integration/whats-new-summary-generation.test.ts (11 tests) 37ms
+ ✓ components/whats-new/__tests__/NewsfeedScreen.test.tsx (6 tests) 30ms
+ ✓ services/platform/src/cli/__tests__/client-callsite-inventory.test.ts (12 tests) 55ms
+ ✓ tests/lib/voice/error-handler.test.ts (18 tests) 19ms
+stderr | tests/integration/sprint20-capstone-verdict.test.ts > REDHAT-FIX-H1 — capstone verifier (skipped: no live substrate) > skips with reason when PLATFORM_IT=1 + DATABASE_URL=...holocron_nonprod... are unset
+[REDHAT-FIX-H1] SKIPPED: set PLATFORM_IT=1 and DATABASE_URL=postgres://.../holocron_nonprod to drive the real capstone verifier
+
+ ✓ tests/integration/sprint20-capstone-verdict.test.ts (6 tests | 5 skipped) 5ms
+ ✓ tests/convex/creators/output.test.ts (16 tests) 17ms
+ ❯ tests/integration/sprint20-gate-step5-pass-contract.test.ts (5 tests | 5 skipped) 3ms
+     ↓ GATE-FIX-G6 AC-2 file-only: Step-5 is not PASS when only harness test file exists
+     ↓ GATE-FIX-G6 AC-2 suite-only: suite green alone is not PASS
+     ↓ GATE-FIX-G6 AC-2 missing-build-only: missing-build no-junit alone is not PASS
+     ↓ GATE-FIX-G6 AC-2 dual-evidence: Step-5 PASS only with suite green AND missing-build no-junit
+     ↓ GATE-FIX-G6 AC-2: suite exit!=0 with missing-build evidence is not PASS
+ ↓ services/platform/src/cli/__tests__/stack-supervisor.test.ts (5 tests | 5 skipped)
+stderr | services/platform/tests/integration/sprint20-reference-zero-durable.test.ts > REDHAT-FIX-H5 (skipped: no live substrate) > skips with reason when PLATFORM_IT=1 COLDBOOT_IT=1 + holocron_nonprod + RN key are unset
+[REDHAT-FIX-H5] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 DATABASE_URL=...holocron_nonprod... HOLO_KEY_RN / EXPO_PUBLIC_RN_API_KEY to drive the real durable read
+
+ ✓ services/platform/tests/integration/sprint20-reference-zero-durable.test.ts (3 tests | 2 skipped) 3ms
+ ↓ tests/integration/service/RED/immutability-concurrent-reject.RED.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/RED/immutability-atomic-revision.RED.test.ts (3 tests | 3 skipped)
+ ✓ tests/integration/s-rewrite-01-chat-cluster-zero.test.ts (21 tests) 24ms
+stdout | tests/integration/voice-create-session.test.ts > voice.createSession - AC-1: Returns token on success > createSessionHandler returns ephemeralKey, expiresAt, sessionId on success
+openai-client-secrets-fetch: 0.098ms
+
+ ↓ tests/integration/service/RED/evidence-net-support.RED.test.ts (2 tests | 2 skipped)
+stdout | tests/integration/voice-create-session.test.ts > voice.createSession - AC-2: Stale session auto-end > createSessionHandler auto-ends stale session and proceeds to create new one
+openai-client-secrets-fetch: 0.024ms
+
+stdout | tests/integration/voice-create-session.test.ts > voice.createSession - AC-2: Stale session auto-end > createSessionHandler does not call endSession when no active session exists
+openai-client-secrets-fetch: 0.019ms
+
+stdout | tests/integration/voice-create-session.test.ts > voice.createSession - AC-4: Non-200 OpenAI response > createSessionHandler throws with status code context on non-200 and does not create session
+openai-client-secrets-fetch: 0.048ms
+
+ ✓ tests/integration/voice-create-session.test.ts (7 tests) 53ms
+stderr | services/platform/tests/integration/nonprod-namespace-zero-sync.test.ts > REDHAT-FIX-H7 (skipped: no live substrate) > skips with reason when PLATFORM_IT=1 + DATABASE_URL=...holocron_nonprod... are unset
+[REDHAT-FIX-H7] SKIPPED: set PLATFORM_IT=1 DATABASE_URL=...holocron_nonprod... ZERO_ADMIN_PASSWORD to drive the live zero-cache reset proof
+
+ ✓ services/platform/tests/integration/nonprod-namespace-zero-sync.test.ts (4 tests | 3 skipped) 4ms
+ ↓ tests/integration/research-models.test.ts (5 tests | 5 skipped)
+ ✓ tests/lib/voice/event-handler.test.ts (15 tests) 14ms
+ ↓ services/platform/src/cli/__tests__/dev-parity.test.ts (3 tests | 3 skipped)
+ ✓ tests/integration/conversations.test.ts (22 tests) 144ms
+ ↓ tests/integration/service/evidence-asof-chain.test.ts (2 tests | 2 skipped)
+ ↓ services/platform/src/cli/__tests__/launchd-and-embed-health.test.ts (5 tests | 5 skipped)
+ ❯ services/platform/tests/integration/inline-surfaces-search.test.ts (0 test)
+stderr | tests/integration/sprint20-gate-regenerator-provenance.test.ts > GATE-FIX-G5 — gate regenerator provenance (skipped: PLATFORM_IT unset) > skips with reason when PLATFORM_IT=1 is unset (refuse skip-to-green)
+[GATE-FIX-G5] SKIPPED: set PLATFORM_IT=1 to drive real regenerate-sprint-gate.sh provenance checks
+
+ ✓ tests/integration/sprint20-gate-regenerator-provenance.test.ts (2 tests | 1 skipped) 3ms
+stderr | tests/integration/sprint20-zero-builder-query.test.ts > S-COLDBOOT-02 Zero builder-query contract > case 3 — cold-boot maestro flow over real substrate reports failures=0 > a .tmp/coldboot-02/junit.xml artifact exists from a real maestro run
+[S-COLDBOOT-02 case 3] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 to drive the real substrate
+
+stderr | tests/integration/sprint20-zero-builder-query.test.ts > S-COLDBOOT-02 Zero builder-query contract > case 3 — cold-boot maestro flow over real substrate reports failures=0 > the most-recent coldboot-02 junit reports failures="0" (chat-assistant-message mounts over real services)
+[S-COLDBOOT-02 case 3] SKIPPED: set PLATFORM_IT=1 COLDBOOT_IT=1 to drive the real substrate
+
+ ✓ tests/integration/sprint20-zero-builder-query.test.ts (6 tests) 6ms
+stderr | tests/lib/voice/audio-recorder.test.ts > createAudioRecorder > does not throw when MediaRecorder constructor fails
+[audio-recorder] Failed to start MediaRecorder: Error: MediaRecorder not supported
+    at new <anonymous> (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/lib/voice/audio-recorder.test.ts:150:13)
+    at new Mock (file:///Users/inference1/Projects/holocron/node_modules/@vitest/spy/dist/index.js:309:27)
+    at Object.start (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/lib/voice/audio-recorder.ts:46:24)
+    at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/tests/lib/voice/audio-recorder.test.ts:159:27
+    at Proxy.assertThrows (file:///Users/inference1/Projects/holocron/node_modules/vitest/node_modules/chai/index.js:2798:5)
+    at Proxy.methodWrapper (file:///Users/inference1/Projects/holocron/node_modules/vitest/node_modules/chai/index.js:1700:25)
+    at Proxy.<anonymous> (file:///Users/inference1/Projects/holocron/node_modules/vitest/node_modules/@vitest/expect/dist/index.js:1211:12)
+    at Proxy.overwritingMethodWrapper (file:///Users/inference1/Projects/holocron/node_modules/vitest/node_modules/chai/index.js:1750:33)
+    at Proxy.<anonymous> (file:///Users/inference1/Projects/holocron/node_modules/vitest/node_modules/@vitest/expect/dist/index.js:1547:16)
+    at Proxy.<anonymous> (file:///Users/inference1/Projects/holocron/node_modules/vitest/node_modules/@vitest/expect/dist/index.js:1151:15)
+
+stderr | tests/lib/voice/audio-recorder.test.ts > createAudioRecorder > does not throw when upload fails
+[audio-recorder] Upload failed: 500
+
+stderr | tests/lib/voice/audio-recorder.test.ts > createAudioRecorder > handles MediaRecorder error event gracefully
+[audio-recorder] MediaRecorder error — stopping capture
+
+ ✓ tests/lib/voice/audio-recorder.test.ts (8 tests) 79ms
+ ❯ services/platform/tests/integration/sprint18-chat-runs.test.ts (0 test)
+ ↓ tests/integration/service/RED/immutability-dml-rejection.RED.test.ts (3 tests | 3 skipped)
+ ❯ services/platform/src/cli/__tests__/mission-json-errors.test.ts (0 test)
+ ❯ services/platform/tests/integration/sprint17-mission-template.test.ts (0 test)
+ ✓ convex/chat/triageRegex.test.ts (22 tests) 16ms
+ ❯ services/platform/tests/integration/red-sub-workflow-publish.test.ts (0 test)
+ ✓ tests/convex/US-786-lazy-conversation-creation.test.ts (5 tests) 19ms
+ ✓ tests/convex/feeds/validators.test.ts (12 tests) 67ms
+ ✓ tests/cards/types/recommendation.test.ts (11 tests) 50ms
+ ✓ tests/integration/sprint20-macos-runner-status.test.ts (6 tests | 1 skipped) 725ms
+ ✓ tests/convex/US-761-standard-queries.test.ts (6 tests) 13ms
+ ✓ convex/chat/refinement.test.ts (35 tests) 16ms
+ ✓ tests/convex/TR-005-scheduled-processor.test.ts (9 tests) 15ms
+ ✓ tests/convex/TS-003-status-union.test.ts (5 tests) 9ms
+ ✓ tests/convex/TR-002-transcripts.test.ts (8 tests) 38ms
+ ✓ tests/integration/mcp-manifest-negative-controls.test.ts (9 tests) 739ms
+ ✓ components/narration/NarrationControlBar.test.tsx (4 tests) 23ms
+ ✓ tests/convex/TR-003-transcript-service.test.ts (8 tests) 51ms
+ ✓ tests/research/confidence.test.ts (49 tests) 17ms
+ ✓ tests/convex/specialistPrompts.test.ts (17 tests) 13ms
+ ✓ services/platform/src/research/evidence-gate.test.ts (3 tests) 8ms
+ ↓ services/platform/src/cli/__tests__/mastra-secrets-runtime.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/infer-budget-precheck.test.ts (1 test | 1 skipped)
+ ✓ tests/hooks/use-voice-session-state.test.ts (34 tests) 45ms
+ ↓ tests/integration/service/infer-red-over-budget.test.ts (3 tests | 3 skipped)
+ ↓ tests/integration/service/infer-degraded-no-cloud.test.ts (3 tests | 3 skipped)
+ ↓ tests/integration/service/evidence-seed-belief-path.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/immutability-insert-closed-rejected.test.ts (2 tests | 2 skipped)
+ ✓ tests/convex/TR-006-youtube-integration.test.ts (6 tests) 17ms
+ ✓ tests/lib/computeNarrationMap.test.ts (7 tests) 17ms
+ ✓ convex/chat/toolExecutor.test.ts (8 tests) 30ms
+ ✓ components/notifications/NotificationToastProvider.test.tsx (2 tests) 18ms
+ ✓ tests/research-evidence-gate.test.ts (5 tests) 12ms
+ ✓ tests/convex/subscriptions-ai-relevance.test.ts (6 tests) 5ms
+ ✓ tests/voice/tool-parity.test.ts (4 tests) 7ms
+ ✓ tests/ci/fork-safety.test.ts (4 tests) 12ms
+ ✓ tests/integration/service/infer-red-zero-cloud.test.ts (6 tests | 5 skipped) 5ms
+ ✓ convex/chat/tools.test.ts (17 tests) 8ms
+ ↓ tests/integration/service/infer-cli-infer-call.test.ts (6 tests | 6 skipped)
+ ↓ tests/integration/service/immutability-asof-no-forgery.test.ts (1 test | 1 skipped)
+ ✓ tests/convex/subscriptions-optimization.test.ts (19 tests) 51ms
+ ↓ tests/integration/service/infer-degraded-transition.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/infer-degraded-research-mission.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/queue-exactly-once.test.ts (4 tests | 4 skipped)
+ ↓ tests/integration/service/evidence-net-support.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/evidence-seed.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/infer-degraded-resume.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/infer-budget-ledger-persistence.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/evidence-register-doc.test.ts (1 test | 1 skipped)
+ ✓ tests/integration/service/infer-router-zero-cloud.test.ts (7 tests | 5 skipped) 260ms
+ ↓ tests/integration/service/infer-budget-cli.test.ts (4 tests | 4 skipped)
+ ✓ convex/research/platformSearch.test.ts (6 tests) 15ms
+ ↓ tests/integration/service/immutability-seed-open-belief-definer.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/compat-spike.test.ts (5 tests | 5 skipped)
+ ↓ tests/integration/service/evidence-asof-transaction.test.ts (1 test | 1 skipped)
+stderr | tests/integration/sprint20-testid-audit.test.tsx > REDHAT-FIX-H6 (skipped: no live intent required, but gated for parity) > skips with reason when COLDBOOT_IT is unset
+[REDHAT-FIX-H6] SKIPPED: set COLDBOOT_IT=1 to run the testID uniqueness audit
+
+ ✓ tests/integration/sprint20-testid-audit.test.tsx (5 tests | 4 skipped) 17ms
+ ✓ tests/integration/mcp-replay-contract.test.ts (64 tests) 1634ms
+ ✓ tests/integration/mcp-fixture-schema-validation.test.ts (173 tests) 207ms
+ ✓ components/whats-new/__tests__/NewsfeedHeader.test.tsx (8 tests) 23ms
+ ✓ convex/chat/eval/runEval.test.ts (12 tests) 28ms
+ ↓ services/platform/src/cli/__tests__/secrets-hygiene.test.ts (4 tests | 4 skipped)
+ ✓ tests/integration/service/struct-extract-status.test.ts (2 tests | 1 skipped) 3ms
+ ✓ tests/lib/voice/transcript-recorder.test.ts (6 tests) 16ms
+ ✓ tests/lib/voice/session-timeout.test.ts (10 tests) 35ms
+ ↓ tests/integration/service/infer-router-default-deny.test.ts (4 tests | 4 skipped)
+ ↓ tests/integration/service/immutability-atomic-revision.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/role-bind-product-pool.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/schema-identity.test.ts (4 tests | 4 skipped)
+ ↓ tests/integration/service/role-bind-product-operability.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/keyed-200.test.ts (6 tests | 6 skipped)
+ ❯ tests/integration/service/sprint16-public-article.test.ts (0 test)
+ ❯ tests/integration/service/struct-fixture-cli.test.ts (8 tests | 3 failed | 3 skipped) 332ms
+     × unknown fixture exits 2 with available names 85ms
+     × --fixture is mutually exclusive with --schema 75ms
+     × --fixture is mutually exclusive with --input 91ms
+     ✓ --fixture appears in --help 78ms
+     ↓ STEP 3: --fixture malformed-once yields a Zod-valid object
+     ↓ STEP 4: --fixture always-malformed fails explicitly past the cap
+     ↓ sanity: --fixture good returns a Zod-valid object
+     ✓ PLATFORM_IT gate is required for live fleet assertions 1ms
+ ↓ tests/integration/service/role-bind-cli-session.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/role-bind-product-dml-rejected.test.ts (1 test | 1 skipped)
+ ❯ components/narration/hooks/useNarrationState.test.ts (0 test)
+ ❯ services/platform/tests/integration/red-whatsnew.test.ts (0 test)
+ ↓ tests/integration/service/immutability-dml-rejected.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/RED/queue-priority.RED.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/evidence-canonical-corpus.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/evidence-unique-belief.test.ts (2 tests | 2 skipped)
+ ↓ tests/integration/service/health-readiness.test.ts (3 tests | 3 skipped)
+ ↓ tests/integration/service/jobs-priority.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/evidence-validity-windows.test.ts (1 test | 1 skipped)
+ ✓ tests/integration/catalog-reconcile.test.ts (5 tests) 1165ms
+ ✓ tests/integration/mcp-fixture-coverage.test.ts (26 tests) 84ms
+ ❯ tests/integration/fail-closed-harness.test.ts (2 tests | 2 skipped) 3ms
+     ↓ connects to real Postgres via DATABASE_URL (no mock)
+     ↓ connects to real fleet via FLEET_URL (no mock)
+ ↓ tests/integration/service/RED/queue-dlq.RED.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/infer-router-fail-closed.test.ts (3 tests | 3 skipped)
+ ❯ services/platform/tests/integration/red-no-shells.test.ts (0 test)
+ ✓ components/whats-new/__tests__/categoryColors.test.ts (10 tests) 37ms
+ ✓ tests/integration/mcp-fixture-placeholder-audit.test.ts (90 tests) 51ms
+ ✓ tests/convex/bp-005-count-queries.test.ts (9 tests) 5ms
+ ↓ tests/integration/service/immutability-cli-revise.test.ts (1 test | 1 skipped)
+ ✓ services/platform/src/cli/__tests__/apply-secrets-to-env.test.ts (5 tests) 9ms
+ ↓ tests/integration/service/immutability-concurrent-reject.test.ts (1 test | 1 skipped)
+ ✓ tests/integration/mcp-verify-manifest-field-validation.test.ts (8 tests) 708ms
+ ↓ tests/integration/service/immutability-idempotency.test.ts (1 test | 1 skipped)
+ ❯ services/platform/tests/integration/sprint17-research-engine.test.ts (0 test)
+ ↓ tests/integration/service/role-bind-migrate-owner.test.ts (1 test | 1 skipped)
+ ❯ services/platform/tests/integration/red-evidence-research.test.ts (0 test)
+ ❯ services/platform/tests/integration/red-business-report.test.ts (0 test)
+ ❯ services/platform/tests/integration/fail-closed-lane.test.ts (2 tests | 2 skipped) 37ms
+     ↓ PLATFORM_IT live gate requires real DATABASE_URL
+     ↓ PLATFORM_IT live gate requires real FLEET_URL
+ ✓ components/subscriptions/__tests__/SubscriptionFeedScreen.perf.test.tsx (3 tests) 10ms
+stdout | tests/convex/BP-017-reduce-v-any-usage.test.ts > BP-017: Reduce v.any() Usage > AC-1: v.any() count reduction > should have less than 10 v.any() occurrences in schema
+Current v.any() count: 10
+
+ ✓ tests/convex/BP-017-reduce-v-any-usage.test.ts (3 tests) 4ms
+ ❯ services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts (0 test)
+ ✓ tests/integration/mcp-verify-manifest.test.ts (10 tests) 1213ms
+ ✓ components/whats-new/__tests__/WhatsNewRoute.test.tsx (4 tests) 4ms
+ ↓ tests/integration/service/immutability-probe-rejection.test.ts (1 test | 1 skipped)
+ ↓ services/platform/tests/integration/queue-dlq.test.ts (1 test | 1 skipped)
+ ↓ services/platform/tests/integration/queue-priority.test.ts (1 test | 1 skipped)
+ ↓ tests/integration/service/wrong-scope-403.test.ts (4 tests | 4 skipped)
+ ❯ tests/integration/service/jobs-run-error.test.ts (2 tests | 1 failed | 1 skipped) 15ms
+     × runJob returns a non-empty error string when the DB is unreachable 13ms
+     ↓ runJob returns error:null on success (real Postgres)
+ ❯ components/narration/hooks/useAudioPlayback.test.ts (0 test)
+ ✓ hooks/use-agent-activity.test.ts (4 tests) 3ms
+ ✓ tests/convex/BP-006-read-after-write.test.ts (2 tests) 4ms
+ ✓ tests/convex/BP-010-schema-type-consistency.test.ts (2 tests) 3ms
+ ↓ tests/integration/service/unkeyed-401.test.ts (4 tests | 4 skipped)
+ ✓ tests/integration/chat-title-generation.test.ts (1 test) 2ms
+ ✓ tests/integration/sprint20-maestro-native-human-gate.test.ts (4 tests) 23369ms
+     ✓ binds the real Maestro invocation and explicit native verifier to the plan  23104ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 42 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/hooks/use-voice-session.test.ts [ tests/hooks/use-voice-session.test.ts ]
+ FAIL  components/narration/hooks/useAudioPlayback.test.ts [ components/narration/hooks/useAudioPlayback.test.ts ]
+ FAIL  components/narration/hooks/useNarrationState.test.ts [ components/narration/hooks/useNarrationState.test.ts ]
+Error: Cannot find module '/@fs/Users/inference1/Projects/holocron/node_modules/vitest-native/dist/setup.mjs'
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/46]⎯
+
+ FAIL  tests/integration/fail-closed-harness.test.ts > D02-01 fail-closed harness (root)
+Error: PLATFORM_IT=1 required for fail-closed integration lane — refusing skip-to-green
+ ❯ tests/integration/fail-closed-harness.test.ts:60:13
+     58|   beforeAll(async () => {
+     59|     if (!PLATFORM_IT) {
+     60|       throw new Error(
+       |             ^
+     61|         'PLATFORM_IT=1 required for fail-closed integration lane — ref…
+     62|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/46]⎯
+
+ FAIL  tests/integration/sprint20-ci-e2e-provenance.test.ts > GATE-FIX-G4 — CI e2e probes + provenance
+Error: PLATFORM_IT=1 required for GATE-FIX-G4 CI provenance suite — refusing skip-to-green
+ ❯ tests/integration/sprint20-ci-e2e-provenance.test.ts:126:13
+    124|   beforeAll(() => {
+    125|     if (!PLATFORM_IT) {
+    126|       throw new Error(
+       |             ^
+    127|         'PLATFORM_IT=1 required for GATE-FIX-G4 CI provenance suite — …
+    128|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/46]⎯
+
+ FAIL  tests/integration/sprint20-expo-dev-client-rebuild.test.ts > Sprint 20 GATE-FIX-G1 Expo dev-client rebuild
+Error: PLATFORM_IT=1 required for GATE-FIX-G1 rebuild honesty — refusing skip-to-green
+ ❯ tests/integration/sprint20-expo-dev-client-rebuild.test.ts:84:13
+     82|   beforeAll(() => {
+     83|     if (!PLATFORM_IT) {
+     84|       throw new Error(
+       |             ^
+     85|         'PLATFORM_IT=1 required for GATE-FIX-G1 rebuild honesty — refu…
+     86|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/46]⎯
+
+ FAIL  tests/integration/sprint20-gate-step5-pass-contract.test.ts > GATE-FIX-G6 AC-2 — Step-5 PASS requires suite green AND missing-build no-junit
+Error: PLATFORM_IT=1 required for Step-5 dual-evidence contract — refusing skip-to-green
+ ❯ tests/integration/sprint20-gate-step5-pass-contract.test.ts:136:13
+    134|   beforeAll(() => {
+    135|     if (!PLATFORM_IT) {
+    136|       throw new Error(
+       |             ^
+    137|         'PLATFORM_IT=1 required for Step-5 dual-evidence contract — re…
+    138|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/46]⎯
+
+ FAIL  tests/integration/sprint20-maestro-harness-artifacts.test.ts > D03-03 Maestro harness artifact & defect contract
+Error: PLATFORM_IT=1 required for D03-03 Maestro harness artifact lane — refusing skip-to-green
+ ❯ tests/integration/sprint20-maestro-harness-artifacts.test.ts:171:13
+    169|   beforeAll(() => {
+    170|     if (!PLATFORM_IT) {
+    171|       throw new Error(
+       |             ^
+    172|         'PLATFORM_IT=1 required for D03-03 Maestro harness artifact la…
+    173|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/46]⎯
+
+ FAIL  tests/integration/sprint20-maestro-harness.test.ts > Sprint 20 Maestro harness
+Error: PLATFORM_IT=1 required for Maestro harness fail-closed lane — refusing skip-to-green
+ ❯ tests/integration/sprint20-maestro-harness.test.ts:44:13
+     42|   beforeAll(() => {
+     43|     if (!PLATFORM_IT) {
+     44|       throw new Error(
+       |             ^
+     45|         'PLATFORM_IT=1 required for Maestro harness fail-closed lane —…
+     46|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/46]⎯
+
+ FAIL  tests/integration/service/sprint14-upload-lifecycle.test.ts [ tests/integration/service/sprint14-upload-lifecycle.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ tests/integration/service/sprint14-upload-lifecycle.test.ts:14:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/46]⎯
+
+ FAIL  tests/integration/service/sprint16-public-article.test.ts [ tests/integration/service/sprint16-public-article.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ tests/integration/service/sprint16-public-article.test.ts:10:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/46]⎯
+
+ FAIL  services/platform/tests/integration/business-report-template.test.ts [ services/platform/tests/integration/business-report-template.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/src/inference/telemetry.ts:19:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/46]⎯
+
+ FAIL  services/platform/tests/integration/embed-run.test.ts [ services/platform/tests/integration/embed-run.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/embed-run.test.ts:24:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/46]⎯
+
+ FAIL  services/platform/tests/integration/evals-ci-gate.test.ts [ services/platform/tests/integration/evals-ci-gate.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/evals-ci-gate.test.ts:27:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/46]⎯
+
+ FAIL  services/platform/tests/integration/evals-versioning.test.ts [ services/platform/tests/integration/evals-versioning.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/evals-versioning.test.ts:25:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/46]⎯
+
+ FAIL  services/platform/tests/integration/evidence-research-template.test.ts [ services/platform/tests/integration/evidence-research-template.test.ts ]
+ FAIL  services/platform/tests/integration/gate-fix-s22-infer-trace-runid.test.ts [ services/platform/tests/integration/gate-fix-s22-infer-trace-runid.test.ts ]
+ FAIL  services/platform/tests/integration/pipeline-templates.test.ts [ services/platform/tests/integration/pipeline-templates.test.ts ]
+ FAIL  services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts [ services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts ]
+ FAIL  services/platform/tests/integration/redhat-fix-3-infer-trace.test.ts [ services/platform/tests/integration/redhat-fix-3-infer-trace.test.ts ]
+ FAIL  services/platform/tests/integration/redhat-fix-4-subscriptions-no-claims.test.ts [ services/platform/tests/integration/redhat-fix-4-subscriptions-no-claims.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/src/mission/repository.ts:1:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/46]⎯
+
+ FAIL  services/platform/tests/integration/fail-closed-lane.test.ts > D02-01 fail-closed lane (platform)
+Error: PLATFORM_IT=1 required for fail-closed integration lane — refusing skip-to-green
+ ❯ services/platform/tests/integration/fail-closed-lane.test.ts:54:13
+     52|   beforeAll(async () => {
+     53|     if (!PLATFORM_IT) {
+     54|       throw new Error(
+       |             ^
+     55|         'PLATFORM_IT=1 required for fail-closed integration lane — ref…
+     56|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/46]⎯
+
+ FAIL  services/platform/tests/integration/inference-telemetry.test.ts [ services/platform/tests/integration/inference-telemetry.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/inference-telemetry.test.ts:34:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/46]⎯
+
+ FAIL  services/platform/tests/integration/inline-surfaces-search.test.ts [ services/platform/tests/integration/inline-surfaces-search.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/inline-surfaces-search.test.ts:21:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/46]⎯
+
+ FAIL  services/platform/tests/integration/mission-engine-red.test.ts [ services/platform/tests/integration/mission-engine-red.test.ts ]
+Error: Cannot find package 'hono' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/http/hono-app.ts
+ ❯ services/platform/src/http/hono-app.ts:11:1
+      9|  */
+     10|
+     11| import { Hono } from 'hono';
+       | ^
+     12| import { streamSSE } from 'hono/streaming';
+     13| import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
+ ❯ services/platform/tests/integration/mission-engine-red.test.ts:21:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/46]⎯
+
+ FAIL  services/platform/tests/integration/mission-telemetry.test.ts [ services/platform/tests/integration/mission-telemetry.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/mission-telemetry.test.ts:26:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/46]⎯
+
+ FAIL  services/platform/tests/integration/red-business-report.test.ts [ services/platform/tests/integration/red-business-report.test.ts ]
+ FAIL  services/platform/tests/integration/red-evidence-research.test.ts [ services/platform/tests/integration/red-evidence-research.test.ts ]
+ FAIL  services/platform/tests/integration/red-no-shells.test.ts [ services/platform/tests/integration/red-no-shells.test.ts ]
+ FAIL  services/platform/tests/integration/red-sub-workflow-publish.test.ts [ services/platform/tests/integration/red-sub-workflow-publish.test.ts ]
+ FAIL  services/platform/tests/integration/red-whatsnew.test.ts [ services/platform/tests/integration/red-whatsnew.test.ts ]
+ FAIL  services/platform/src/cli/__tests__/mission-json-errors.test.ts [ services/platform/src/cli/__tests__/mission-json-errors.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/mission-red.helpers.ts:6:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/46]⎯
+
+ FAIL  services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts [ services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts:17:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/46]⎯
+
+ FAIL  services/platform/tests/integration/redhat-fix-5-behavioral-green-fleet-down.test.ts [ services/platform/tests/integration/redhat-fix-5-behavioral-green-fleet-down.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/src/mission/runtime.ts:4:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/46]⎯
+
+ FAIL  services/platform/tests/integration/rrf-search.test.ts [ services/platform/tests/integration/rrf-search.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/rrf-search.test.ts:22:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/46]⎯
+
+ FAIL  services/platform/tests/integration/search-recall.test.ts [ services/platform/tests/integration/search-recall.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/search-recall.test.ts:20:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/46]⎯
+
+ FAIL  services/platform/tests/integration/sprint14-etl-and-blob.test.ts [ services/platform/tests/integration/sprint14-etl-and-blob.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/sprint14-etl-and-blob.test.ts:27:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/46]⎯
+
+ FAIL  services/platform/tests/integration/sprint17-mission-template.test.ts [ services/platform/tests/integration/sprint17-mission-template.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/sprint17-mission-template.test.ts:6:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/46]⎯
+
+ FAIL  services/platform/tests/integration/sprint17-research-engine.test.ts [ services/platform/tests/integration/sprint17-research-engine.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/sprint17-research-engine.test.ts:5:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/46]⎯
+
+ FAIL  services/platform/tests/integration/sprint18-chat-runs.test.ts [ services/platform/tests/integration/sprint18-chat-runs.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/sprint18-chat-runs.test.ts:4:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/46]⎯
+
+ FAIL  services/platform/tests/integration/sprint19-mcp-rehost.test.ts [ services/platform/tests/integration/sprint19-mcp-rehost.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/sprint19-mcp-rehost.test.ts:6:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/46]⎯
+
+ FAIL  services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts [ services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts:4:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/46]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/service/jobs-run-error.test.ts > REDHAT-FIX-H1: jobs-runner surfaces failure reason > runJob returns a non-empty error string when the DB is unreachable
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REWRITE-01/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ services/platform/src/queue/jobs-runner.ts:14:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/46]⎯
+
+ FAIL  tests/integration/service/struct-fixture-cli.test.ts > REDHAT-FIX-G-STEP3-4: holo extract --fixture (pure CLI arg validation) > unknown fixture exits 2 with available names
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/integration/service/struct-fixture-cli.test.ts:46:22
+     44|   it('unknown fixture exits 2 with available names', () => {
+     45|     const r = runHolo(['extract', '--fixture', 'bogus', '--json']);
+     46|     expect(r.status).toBe(2);
+       |                      ^
+     47|     expect(r.stderr).toMatch(/unknown fixture 'bogus'/);
+     48|     expect(r.stderr).toMatch(/malformed-once/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/46]⎯
+
+ FAIL  tests/integration/service/struct-fixture-cli.test.ts > REDHAT-FIX-G-STEP3-4: holo extract --fixture (pure CLI arg validation) > --fixture is mutually exclusive with --schema
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/integration/service/struct-fixture-cli.test.ts:54:22
+     52|   it('--fixture is mutually exclusive with --schema', () => {
+     53|     const r = runHolo(['extract', '--fixture', 'good', '--schema', 'si…
+     54|     expect(r.status).toBe(2);
+       |                      ^
+     55|     expect(r.stderr).toMatch(/mutually exclusive/);
+     56|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/46]⎯
+
+ FAIL  tests/integration/service/struct-fixture-cli.test.ts > REDHAT-FIX-G-STEP3-4: holo extract --fixture (pure CLI arg validation) > --fixture is mutually exclusive with --input
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/integration/service/struct-fixture-cli.test.ts:60:22
+     58|   it('--fixture is mutually exclusive with --input', () => {
+     59|     const r = runHolo(['extract', '--fixture', 'good', '--input', 'x']…
+     60|     expect(r.status).toBe(2);
+       |                      ^
+     61|     expect(r.stderr).toMatch(/mutually exclusive/);
+     62|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/46]⎯
+
+
+ Test Files  44 failed | 115 passed | 67 skipped (226)
+      Tests  4 failed | 1468 passed | 296 skipped (1768)
+   Start at  19:13:46
+   Duration  29.03s (transform 9.27s, setup 30.83s, import 10.19s, tests 38.41s, environment 1.88s)
+
+error: script "test" exited with code 1
+EXIT_CODE:1
