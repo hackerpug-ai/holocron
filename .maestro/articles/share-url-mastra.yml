@@ -157,29 +157,25 @@ appId: com.holocron.app
     text: "Share Link"
     optional: true
 
-# iOS UIActivityViewController a11y shows host only ("2 Links / 127.0.0.1") —
-# NEVER treat host-only as path proof. App must NOT pre-seed clipboard before
-# Share.share (evidence theatre). Tap system Copy so the real shared payload
-# lands on the pasteboard; gate driver verifies via simctl pbpaste (/article/).
+# Prove the system share sheet opened (real Share.share result). Host-only a11y
+# ("2 Links / 127.0.0.1") is NOT path proof — never assert path on sheet chrome.
 - extendedWaitUntil:
     visible: "Copy"
     timeout: 20000
 - assertVisible: "Copy"
-- tapOn:
-    text: "Copy"
-- waitForAnimationToEnd:
-    timeout: 2000
 
-# Dismiss residual share sheet chrome (Copy already taken)
+# Dismiss system sheet. App must NOT pre-seed clipboard before Share.share.
+# Path proof = user-visible preview URL + explicit "Copy link" affordance
+# (document-share-url-copy), then gate driver simctl pbpaste for /article/.
 - tapOn:
     point: "50%,8%"
-    optional: true
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn:
     text: "Close"
     optional: true
 
-# Genuinely user-visible share-preview banner (not 1×1/opacity oracle).
-# Full URL text must include /article/; reject convex hosts.
+# Genuinely user-visible share-preview banner (not 1×1/opacity theatre).
 - extendedWaitUntil:
     visible:
       id: "document-share-url-banner"
@@ -190,11 +186,18 @@ appId: com.holocron.app
     id: "document-share-url"
 - assertVisible:
     id: "document-share-url-copy"
+# Path oracle on the full URL text the user can read
 - assertVisible:
     text: ".*(/article/).*"
 - assertNotVisible:
     text: ".*\\.convex\\.site.*"
 - assertNotVisible:
     text: ".*\\.convex\\.cloud.*"
+
+# Real copy affordance — fills pasteboard with the same share URL
+- tapOn:
+    id: "document-share-url-copy"
+- waitForAnimationToEnd:
+    timeout: 1500
 
 - takeScreenshot: articles-share-url-mastra

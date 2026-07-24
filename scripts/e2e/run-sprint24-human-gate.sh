@@ -820,7 +820,8 @@ verify_share_clipboard_oracle() {
   return 0
 }
 
-# If Maestro step7 claimed pass, still require clipboard path oracle.
+# If Maestro step7 claimed pass, still require clipboard path oracle
+# (filled only by document-share-url-copy or system copy — never pre-seeded).
 step7_claim_result="$(jq -s -r '[.[] | select(.n==7)] | last | .result // "fail"' "$claims_file" 2>/dev/null || echo fail)"
 if [[ "$skip_ui" != "1" ]]; then
   set +e
@@ -831,13 +832,13 @@ if [[ "$skip_ui" != "1" ]]; then
     echo ""
     echo "--- share clipboard oracle ---"
     cat "$artifact_dir/step7-share-clipboard.txt" 2>/dev/null || true
-  } >>"$artifact_dir/step7-share-url.log"
+  } >>"$artifact_dir/step7-share-url.log" || true
   if [[ "$step7_claim_result" == "pass" && "$clip_rc" != "0" ]]; then
     log "step7: maestro passed but clipboard path oracle FAILED — downgrading to fail"
-    python3 - "$claims_file" <<'PY'
+    python3 -c '
 import json, sys
 path = sys.argv[1]
-evi = "clipboard path oracle fail (see step7-share-clipboard.txt); refuse host-only path proof"
+evi = "clipboard path oracle fail (see step7-share-clipboard.txt); refuse host-only / pre-seeded clipboard"
 out = []
 for line in open(path, encoding="utf-8"):
     line = line.strip()
@@ -849,9 +850,11 @@ for line in open(path, encoding="utf-8"):
         o["evidence"] = ((o.get("evidence") or "") + "; " + evi).strip("; ")
     out.append(json.dumps(o, separators=(",", ":")))
 open(path, "w", encoding="utf-8").write("\n".join(out) + ("\n" if out else ""))
-PY
+' "$claims_file" || log "step7: failed to rewrite claims after clipboard oracle fail"
   elif [[ "$step7_claim_result" == "pass" && "$clip_rc" == "0" ]]; then
     log "step7: clipboard path oracle PASS (/article/ present, no convex host)"
+  elif [[ "$clip_rc" != "0" ]]; then
+    log "step7: clipboard path oracle FAIL (maestro was $step7_claim_result)"
   fi
 fi
 
