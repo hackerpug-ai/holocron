@@ -2,7 +2,7 @@
   "name": "holocron",
   "version": "1.0.0",
   "type": "module",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "start": "expo start --dev-client",
@@ -157,7 +157,8 @@
     "storybook": "^10.2.19",
     "typescript": "~5.9.2",
     "vitest": "^4.0.18",
-    "vitest-native": "^0.3.0"
+    "vitest-native": "^0.3.0",
+    "@ohah/react-native-mcp-server": "0.1.0-rc.14"
   },
   "private": true
 }
