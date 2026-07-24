@@ -11,6 +11,12 @@ const ChatRunRequestSchema = z
     requestId: z.string().min(1).max(200),
     msg: z.string().min(1).max(20_000),
     conversationId: z.string().min(1).max(200).optional(),
+    /** Optional display title when this command creates a conversation. */
+    conversationTitle: z.string().min(1).max(500).optional(),
+    /** Structured context card rendered alongside the durable user message. */
+    cardData: z.record(z.string(), z.unknown()).optional(),
+    /** Document source for a document-context card. */
+    documentId: z.string().uuid().optional(),
   })
   .strict();
 
@@ -276,7 +282,7 @@ export async function createChatRun(
           )
           VALUES (
             ${conversationId}::uuid,
-            ${input.msg.slice(0, 80)},
+            ${input.conversationTitle ?? input.msg.slice(0, 80)},
             ${input.msg.slice(0, 200)},
             true,
             now()
@@ -308,8 +314,19 @@ export async function createChatRun(
         return { created: false, run: conflicted[0] };
       }
       await tx`
-        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
-        VALUES (${randomUUID()}::uuid, ${conversationId}, 'user', ${input.msg}, 'text', ${run.id})
+        INSERT INTO chat_messages (
+          id, conversation_id, role, content, message_type, card_data, document_id, session_id
+        )
+        VALUES (
+          ${randomUUID()}::uuid,
+          ${conversationId},
+          'user',
+          ${input.msg},
+          ${input.cardData ? 'result_card' : 'text'},
+          ${input.cardData ? tx.json(input.cardData) : null},
+          ${input.documentId ?? null},
+          ${run.id}
+        )
       `;
       await tx`
         UPDATE conversations
