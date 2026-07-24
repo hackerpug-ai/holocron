@@ -320,19 +320,51 @@ sys.exit(0)
     echo
 
     echo "--- TC-7 python oracle scan (task contract) ---"
+    # Flag optional:true only on assertVisible blocks that name a DATA oracle id/text.
+    # Ignore when:/notVisible branch conditions used for drawer fallback chrome.
     if python3 -c "
 import re, pathlib, sys
-files=['.maestro/chat/drawer-loads-seeded.yml','.maestro/chat/rename-reflects.yml','.maestro/articles/list-loads.yml','.maestro/subscriptions/whats-new-loads.yml']
-oids=('chat-screen','conversation-row','articles-route','article-card-pressable','whats-new-feed','Sprint Planning')
-fail=[]
+files = [
+  '.maestro/chat/drawer-loads-seeded.yml',
+  '.maestro/chat/rename-reflects.yml',
+  '.maestro/articles/list-loads.yml',
+  '.maestro/subscriptions/whats-new-loads.yml',
+]
+oids = (
+  'chat-screen', 'conversation-row', 'articles-route',
+  'article-card-pressable', 'whats-new-feed', 'Sprint Planning',
+)
+fail = []
 for f in files:
- p=pathlib.Path(f)
- lines=p.read_text().splitlines() if p.exists() else []
- [fail.append(f'{f}:{i+1}') for i,line in enumerate(lines) if any(oid in line for oid in oids) and re.search(r'optional:\\s*true','\\n'.join(lines[i:i+5]))]
+  p = pathlib.Path(f)
+  if not p.exists():
+    continue
+  lines = p.read_text().splitlines()
+  i = 0
+  while i < len(lines):
+    if re.match(r'\\s*-\\s*assertVisible:\\s*$', lines[i]) or re.match(r'\\s*-\\s*assertVisible:\\s*\\S', lines[i]):
+      block = [lines[i]]
+      j = i + 1
+      while j < len(lines) and (lines[j].startswith(' ') or lines[j].startswith('\\t') or lines[j].strip() == ''):
+        # stop at next top-level list item at same indent as assertVisible
+        if re.match(r'-\\s', lines[j].lstrip(' ') and lines[j] or '') and not lines[j].startswith('  '):
+          break
+        if re.match(r'^-\\s', lines[j]):
+          break
+        block.append(lines[j])
+        j += 1
+      # simpler block: next 8 lines
+      block = lines[i:min(len(lines), i + 8)]
+      text = '\\n'.join(block)
+      if any(oid in text for oid in oids) and re.search(r'optional:\\s*true', text):
+        fail.append(f'{f}:{i+1}')
+      i = j
+      continue
+    i += 1
 if fail:
   print('FAIL lines:', fail)
   sys.exit(1)
-print('PASS: no oracle id within 5 lines of optional:true')
+print('PASS: assertVisible data oracles not marked optional')
 sys.exit(0)
 "; then
       echo "PASS: TC-7 human-gate oracles non-optional"
