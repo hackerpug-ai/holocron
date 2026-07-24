@@ -1,0 +1,172 @@
+/**
+ * Shared platform URL helpers + Hono command client for Zero/Hono call sites
+ * (union of S-REWRITE-02 URL helpers and S-REWRITE-04 hono_command targets).
+ * Share links MUST target the Mastra /article/ host — never .convex.site.
+ */
+
+function rawPlatformUrl(): string {
+  return process.env.EXPO_PUBLIC_PLATFORM_SITE_URL ?? process.env.EXPO_PUBLIC_PLATFORM_URL ?? '';
+}
+
+/** Strip trailing slash; reject legacy Convex hosts. */
+export function getMastraHost(): string {
+  const trimmed = rawPlatformUrl().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  if (trimmed.includes('.convex.site') || trimmed.includes('.convex.cloud')) {
+    console.warn(
+      '[platform] EXPO_PUBLIC_PLATFORM_* points at a Convex host; share URLs must use the Mastra host'
+    );
+  }
+  return trimmed;
+}
+
+/** Build a public article share URL on the Mastra host. */
+export function buildArticleShareUrl(shareToken: string): string {
+  const host = getMastraHost();
+  if (!host) {
+    throw new Error(
+      'Mastra host not configured (EXPO_PUBLIC_PLATFORM_SITE_URL / EXPO_PUBLIC_PLATFORM_URL)'
+    );
+  }
+  if (host.includes('.convex.site') || host.includes('.convex.cloud')) {
+    throw new Error('Share URL host must not be a Convex domain');
+  }
+  return `${host}/article/${shareToken}`;
+}
+
+/** Resolve a blob-backed audio URL for narration playback. */
+export function buildBlobAudioUrl(blobId: string | null | undefined): string | null {
+  if (!blobId) return null;
+  const host = getMastraHost();
+  if (!host) return null;
+  // Blob ids are content hashes (sha256 hex) served at GET /blobs/:id
+  return `${host}/blobs/${blobId}`;
+}
+
+/** Live platform base URL (reads env each call). */
+export function getPlatformUrl(): string {
+  return getMastraHost();
+}
+
+/** RN scoped API key for Hono commands. */
+export function getRnApiKey(): string | undefined {
+  return process.env.EXPO_PUBLIC_RN_API_KEY;
+}
+
+/** @deprecated Prefer getPlatformUrl() — kept for call-site brevity. */
+export const platformUrl = getMastraHost();
+/** @deprecated Prefer getRnApiKey(). */
+export const rnApiKey = process.env.EXPO_PUBLIC_RN_API_KEY;
+
+// ── S-REWRITE-04: hono_command targets ──────────────────────────────────────
+
+export type PlatformJson = Record<string, unknown>;
+
+function assertPlatformConfigured(): { base: string; key: string } {
+  const base = getMastraHost();
+  const key = getRnApiKey();
+  if (!base) {
+    throw new Error('EXPO_PUBLIC_PLATFORM_URL is not set');
+  }
+  if (!key) {
+    throw new Error('EXPO_PUBLIC_RN_API_KEY is not set');
+  }
+  return { base, key };
+}
+
+async function platformFetch(
+  path: string,
+  init: RequestInit & { json?: PlatformJson } = {}
+): Promise<Response> {
+  const { base, key } = assertPlatformConfigured();
+  const headers = new Headers(init.headers);
+  headers.set('Authorization', `Bearer ${key}`);
+  if (init.json !== undefined) {
+    headers.set('Content-Type', 'application/json');
+  }
+  return fetch(`${base}${path}`, {
+    ...init,
+    headers,
+    body: init.json !== undefined ? JSON.stringify(init.json) : init.body,
+  });
+}
+
+/** POST /api/missions — toolbelt-add-from-url, whats-new-generate, etc. */
+export async function postMission(body: {
+  templateKey: string;
+  goal: string;
+  idempotencyKey: string;
+  args?: PlatformJson;
+}): Promise<PlatformJson> {
+  const response = await platformFetch('/api/missions', {
+    method: 'POST',
+    json: body,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`mission create failed: ${response.status} ${text}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
+/** POST /api/uploads — improvement-upload-init */
+export async function initUpload(body: {
+  kind: 'improvement_image' | 'voice_artifact';
+  targetId: string;
+  idempotencyKey: string;
+  sha256: string;
+  byteLength: number;
+  mimeType: string;
+  originalName?: string;
+}): Promise<PlatformJson> {
+  const response = await platformFetch('/api/uploads', {
+    method: 'POST',
+    json: body,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`upload init failed: ${response.status} ${text}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
+/** PUT /api/uploads/:id — binary body */
+export async function putUpload(uploadId: string, body: Blob | ArrayBuffer): Promise<PlatformJson> {
+  const response = await platformFetch(`/api/uploads/${uploadId}`, {
+    method: 'PUT',
+    body: body as BodyInit,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`upload put failed: ${response.status} ${text}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
+/** POST /api/uploads/:id/finalize */
+export async function finalizeUpload(uploadId: string): Promise<PlatformJson> {
+  const response = await platformFetch(`/api/uploads/${uploadId}/finalize`, {
+    method: 'POST',
+    json: {},
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`upload finalize failed: ${response.status} ${text}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
+/** Simple hex sha256 via SubtleCrypto when available; otherwise a stable stand-in for e2e. */
+export async function sha256HexOfBytes(bytes: ArrayBuffer): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  // Fallback for environments without SubtleCrypto — not cryptographically strong.
+  let h = 0;
+  const view = new Uint8Array(bytes);
+  for (let i = 0; i < view.length; i++) h = (Math.imul(31, h) + view[i]) | 0;
+  return h.toString(16).padStart(64, '0').slice(0, 64);
+}

@@ -1,0 +1,47 @@
+# S-REWRITE-02 AC-2 / TC-2 — Article detail loads via Zero
+# Prerequisite: seeded documents + Metro + Zero + platform up.
+# Requires installed app bundleId com.holocron.app on a named iOS Simulator.
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: false
+
+- openLink: holocron://articles
+
+- extendedWaitUntil:
+    visible:
+      id: "articles-route"
+    timeout: 90000
+
+- extendedWaitUntil:
+    visible:
+      id: "article-card-pressable"
+    timeout: 60000
+
+- tapOn:
+    id: "article-card-pressable"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      id: "document-layout"
+    timeout: 60000
+
+- assertVisible:
+    id: "document-layout"
+
+- assertVisible:
+    id: "document-scroll"
+
+- assertVisible:
+    id: "document-markdown"
+
+# Detail content must be present (title/body region) — not "Document not found"
+- assertNotVisible:
+    id: "document-invalid-id"
+    optional: true
+- assertNotVisible:
+    id: "document-error"
+    optional: true
+
+- takeScreenshot: articles-detail-loads

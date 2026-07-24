@@ -1,0 +1,61 @@
+# S-REWRITE-02 AC-3 / TC-3 — Share URL points to Mastra /article/ host
+# Prerequisite: seeded public (or publishable) document + Metro + Zero + platform up.
+# Requires installed app bundleId com.holocron.app on a named iOS Simulator.
+# Oracle: after Share, system share sheet / link text must contain `/article/`
+# and must not contain `.convex.site` / `.convex.cloud`.
+appId: com.holocron.app
+---
+- launchApp:
+    clearState: false
+
+- openLink: holocron://articles
+
+- extendedWaitUntil:
+    visible:
+      id: "article-card-pressable"
+    timeout: 90000
+
+- tapOn:
+    id: "article-card-pressable"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      id: "document-actions-button"
+    timeout: 60000
+
+- tapOn:
+    id: "document-actions-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "document-actions-sheet"
+    timeout: 15000
+
+- assertVisible:
+    id: "document-actions-sheet-share"
+
+- tapOn:
+    id: "document-actions-sheet-share"
+
+# iOS ActionSheet branch (when document not yet public / multi-option path)
+- tapOn:
+    text: "Share Link"
+    optional: true
+
+# MUST observe Mastra /article/ path in share sheet or link preview
+- extendedWaitUntil:
+    visible:
+      text: ".*(/article/).*"
+    timeout: 20000
+
+- assertVisible:
+    text: ".*(/article/).*"
+
+# MUST NOT observe legacy Convex host rewrite
+- assertNotVisible:
+    text: ".*\\.convex\\.site.*"
+- assertNotVisible:
+    text: ".*\\.convex\\.cloud.*"
+
+- takeScreenshot: articles-share-url-mastra
