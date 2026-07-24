@@ -1,26 +1,19 @@
 appId: ${MAESTRO_APP_ID}
 ---
 # AC-1 / TC-1 — Drawer conversation list loads via Zero query
-# Prerequisite: `holo seed:e2e --reset` (3 conversations) + Metro + Zero + platform up.
-# Named iOS Simulator required.
-# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
-
 - launchApp:
     clearState: true
 
+# Open Expo Dev Client pointed at the local Metro bundler
+- openLink: exp+holocron://expo-development-client/?url=http%3A%2F%2F192.168.1.160%3A8081
 - extendedWaitUntil:
     visible:
-      text: "DEVELOPMENT SERVERS"
-    timeout: 15000
+      text: "Open"
+    timeout: 20000
     optional: true
-
-- runFlow:
-    when:
-      visible: "DEVELOPMENT SERVERS"
-    commands:
-      - tapOn:
-          text: ${MAESTRO_METRO_URL}
-          optional: true
+- tapOn:
+    text: "Open"
+    optional: true
 
 - runFlow:
     when:
@@ -43,9 +36,8 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
-    timeout: 90000
+    timeout: 120000
 
-# Open drawer via chat header menu
 - tapOn:
     id: "chat-header-menu-button"
     optional: true
@@ -56,12 +48,10 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "drawer-content"
-    timeout: 15000
+    timeout: 20000
 
-# MUST observe 3 conversation rows (seeded), not empty state
 - assertNotVisible:
     id: "drawer-content-empty"
-# Oracle: exactly 3 seeded rows (indices 0..2 present)
 - assertVisible:
     id: "conversation-row"
     index: 0

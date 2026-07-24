@@ -29,18 +29,22 @@ vi.mock('react-native', () => ({
 }));
 
 // --- Mock Convex ---
+// useVoiceSession binds createSession/endSession via useConvex().action/mutation
+// (not useAction/useMutation) so chat can cold-boot without ConvexProvider.
 const mockCreateSession = vi.fn();
 const mockEndSession = vi.fn();
 
 const mockConvexClient = {
-  action: vi.fn(),
-  mutation: vi.fn(),
+  action: vi.fn((_ref: unknown, args: unknown) => mockCreateSession(args)),
+  mutation: vi.fn((_ref: unknown, args: unknown) => mockEndSession(args)),
   query: vi.fn(),
+  watchQuery: vi.fn(() => ({
+    localQueryResult: () => undefined,
+    onUpdate: () => () => {},
+  })),
 };
 
 vi.mock('convex/react', () => ({
-  useAction: () => mockCreateSession,
-  useMutation: () => mockEndSession,
   useConvex: () => mockConvexClient,
   useQuery: () => undefined,
 }));
@@ -53,7 +57,12 @@ vi.mock('@/convex/_generated/api', () => ({
   api: {
     voice: {
       actions: { createSession: 'createSession' },
-      mutations: { endSession: 'endSession' },
+      mutations: {
+        endSession: 'endSession',
+        recordTranscript: 'recordTranscript',
+        generateAudioUploadUrl: 'generateAudioUploadUrl',
+        attachAudio: 'attachAudio',
+      },
     },
     chatMessages: {
       queries: { listByConversation: 'listByConversation' },

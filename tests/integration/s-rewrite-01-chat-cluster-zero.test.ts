@@ -177,6 +177,17 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
       expect(src).not.toMatch(CONVEX_REACT_IMPORT);
     });
 
+    it('useVoiceSession gates Convex hooks so chat cold-boots without ConvexProvider', () => {
+      // useAction/useMutation throw without ConvexProvider; chat mounts under Zero only.
+      const voice = read(join(REPO_ROOT, 'hooks', 'use-voice-session.ts'));
+      const bridge = read(join(REPO_ROOT, 'hooks', 'use-voice-result-bridge.ts'));
+      expect(voice).not.toMatch(/\buseAction\s*\(/);
+      expect(voice).not.toMatch(/\buseMutation\s*\(/);
+      expect(voice).toMatch(/\buseConvex\s*\(/);
+      expect(bridge).not.toMatch(/\buseQuery\s*\(/);
+      expect(bridge).toMatch(/\buseConvex\s*\(/);
+    });
+
     it('chat screen cancel path posts to Hono /api/chat-runs/:id/cancel', () => {
       const src = read(join(REPO_ROOT, 'app', '(drawer)', 'chat', '[conversationId].tsx'));
       expect(src).toMatch(/\/api\/chat-runs\/.*cancel|chat-runs\/\$\{.*\}\/cancel/);
@@ -228,11 +239,13 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
       const send = read(join(REPO_ROOT, '.maestro', 'chat', 'send-streams.yml'));
       const cancel = read(join(REPO_ROOT, '.maestro', 'chat', 'cancel-works.yml'));
 
-      // AC-1: three conversation-row indices
+      // AC-1: three conversation-row indices + Expo Dev Client deep link
+      expect(drawer).toMatch(/openLink:\s*exp\+holocron:\/\/expo-development-client\//);
       expect(drawer).toMatch(/index:\s*0/);
       expect(drawer).toMatch(/index:\s*1/);
       expect(drawer).toMatch(/index:\s*2/);
       expect(drawer).toMatch(/conversation-row/);
+      expect(drawer).toMatch(/chat-screen/);
 
       // AC-2: long-press → action menu → Sprint Planning
       expect(rename).toMatch(/longPressOn/);
