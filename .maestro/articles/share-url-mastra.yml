@@ -157,34 +157,36 @@ appId: com.holocron.app
     text: "Share Link"
     optional: true
 
-# System share sheet may hide app hierarchy — dismiss so document-share-url is queryable
-- runFlow:
-    when:
-      visible: "Copy"
-    commands:
-      - tapOn:
-          point: "50%,8%"
-- runFlow:
-    when:
-      visible: "Reminders"
-    commands:
-      - tapOn:
-          point: "50%,8%"
+# iOS UIActivityViewController a11y shows host only ("2 Links / 127.0.0.1") —
+# NEVER treat host-only as path proof. Tap Copy so the full shared URL lands
+# on the simulator pasteboard; gate driver verifies via simctl pbpaste.
+- extendedWaitUntil:
+    visible: "Copy"
+    timeout: 20000
+- assertVisible: "Copy"
+- tapOn:
+    text: "Copy"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Dismiss residual share sheet chrome (Copy already taken)
+- tapOn:
+    point: "50%,8%"
+    optional: true
 - tapOn:
     text: "Close"
     optional: true
 
+# User-visible full-URL preview in-app (document-share-url) — path must include /article/
 - extendedWaitUntil:
     visible:
       id: "document-share-url"
     timeout: 20000
-
 - assertVisible:
     id: "document-share-url"
-
+# Path oracle on the PREVIEW text (full URL), not the system sheet host caption
 - assertVisible:
     text: ".*(/article/).*"
-
 - assertNotVisible:
     text: ".*\\.convex\\.site.*"
 - assertNotVisible:

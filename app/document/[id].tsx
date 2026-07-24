@@ -992,16 +992,25 @@ export default function DocumentRoute() {
         isPublic={document.isPublic}
       />
 
-      {/* Maestro oracle: full /article/ URL (system share sheet hides path) */}
+      {/* User-visible share preview: full Mastra /article/ URL (iOS share sheet
+          a11y only shows host like 127.0.0.1 — never use host-only as path proof). */}
       {lastShareUrl ? (
-        <Text
-          testID="document-share-url"
-          accessibilityLabel={lastShareUrl}
-          // Keep in hierarchy; tiny footprint so it does not cover content.
-          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.02, left: 0, bottom: 0 }}
+        <View
+          testID="document-share-url-banner"
+          className="absolute bottom-0 left-0 right-0 border-t border-border bg-card px-4 py-3"
+          style={{ paddingBottom: insets.bottom + 12 }}
+          accessibilityLabel={`Share link ${lastShareUrl}`}
         >
-          {lastShareUrl}
-        </Text>
+          <Text className="text-muted-foreground mb-1 text-xs font-medium">Share link</Text>
+          <Text
+            testID="document-share-url"
+            className="text-foreground text-sm"
+            selectable
+            numberOfLines={3}
+          >
+            {lastShareUrl}
+          </Text>
+        </View>
       ) : null}
 
       <WebViewSheet

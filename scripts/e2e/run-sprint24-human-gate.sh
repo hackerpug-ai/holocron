@@ -463,6 +463,9 @@ print(matches[0]["udid"] if matches else "")
 ' "$device" 2>/dev/null || true)"
   fi
   [[ -n "$udid" ]] || fail "could not resolve simulator UDID for MAESTRO_DEVICE=$device"
+  # Exported for post-Maestro oracles (step7 simctl pbpaste on the same UDID)
+  LAST_MAESTRO_UDID="$udid"
+  export LAST_MAESTRO_UDID
 
   # GATE-FIX-007: Expo Dev Client floating gear FAB sits over the header
   # ellipsis (document-actions-button) and steals taps → Dev Menu instead of
@@ -736,11 +739,95 @@ set -e
 record_step 6 "Run holo verify:no-convex-client — exits 0" \
   "cli" "$step6_result" "$artifact_dir/step6-no-convex.log" "no-convex exit=$rc" true
 
-# Step 7: share URL
+# Step 7: share URL (Maestro) + honest clipboard path oracle (simctl pbpaste)
+# iOS share-sheet a11y is host-only ("127.0.0.1") — never treat that as path proof.
+# Flow taps Copy; we require pasteboard on the same UDID to contain /article/
+# and to reject legacy Convex hosts.
 run_ui_step 7 \
   "Share public document — URL at Mastra /article/ host" \
   "$repo_root/.maestro/articles/share-url-mastra.yml" \
   "step7-share-url.log"
+
+# Honest share URL path proof: simctl pbpaste on the same Maestro UDID.
+# Must contain /article/; must not contain .convex.site / .convex.cloud.
+# Never treat system-share-sheet host captions (e.g. 127.0.0.1) as path proof.
+verify_share_clipboard_oracle() {
+  local udid="${LAST_MAESTRO_UDID:-}"
+  local clip_log="$artifact_dir/step7-share-clipboard.txt"
+  local paste="" prc=1
+  : >"$clip_log"
+  {
+    echo "share_clipboard_oracle: udid=${udid:-UNSET}"
+    echo "share_clipboard_oracle: written_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } | tee -a "$clip_log"
+  if [[ -z "$udid" ]]; then
+    echo "STATUS FAIL reason=no_udid" | tee -a "$clip_log"
+    return 1
+  fi
+  set +e
+  paste="$(xcrun simctl pbpaste "$udid" 2>&1)"
+  prc=$?
+  set -e
+  {
+    echo "pbpaste_exit=$prc"
+    echo "pbpaste_raw<<EOF"
+    printf '%s\n' "$paste"
+    echo "EOF"
+  } | tee -a "$clip_log"
+  if [[ "$prc" != "0" ]]; then
+    echo "STATUS FAIL reason=pbpaste_failed" | tee -a "$clip_log"
+    return 1
+  fi
+  if [[ -z "${paste//[[:space:]]/}" ]]; then
+    echo "STATUS FAIL reason=empty_pasteboard" | tee -a "$clip_log"
+    return 1
+  fi
+  if ! printf '%s' "$paste" | rg -q '/article/'; then
+    echo "STATUS FAIL reason=missing_/article/_path" | tee -a "$clip_log"
+    return 1
+  fi
+  if printf '%s' "$paste" | rg -qi '\.convex\.(site|cloud)'; then
+    echo "STATUS FAIL reason=convex_host_in_share_url" | tee -a "$clip_log"
+    return 1
+  fi
+  echo "STATUS PASS path_has_article=1 convex_host=0" | tee -a "$clip_log"
+  return 0
+}
+
+# If Maestro step7 claimed pass, still require clipboard path oracle.
+step7_claim_result="$(jq -s -r '[.[] | select(.n==7)] | last | .result // "fail"' "$claims_file" 2>/dev/null || echo fail)"
+if [[ "$skip_ui" != "1" ]]; then
+  set +e
+  verify_share_clipboard_oracle
+  clip_rc=$?
+  set -e
+  {
+    echo ""
+    echo "--- share clipboard oracle ---"
+    cat "$artifact_dir/step7-share-clipboard.txt" 2>/dev/null || true
+  } >>"$artifact_dir/step7-share-url.log"
+  if [[ "$step7_claim_result" == "pass" && "$clip_rc" != "0" ]]; then
+    log "step7: maestro passed but clipboard path oracle FAILED — downgrading to fail"
+    python3 - "$claims_file" <<'PY'
+import json, sys
+path = sys.argv[1]
+evi = "clipboard path oracle fail (see step7-share-clipboard.txt); refuse host-only path proof"
+out = []
+for line in open(path, encoding="utf-8"):
+    line = line.strip()
+    if not line:
+        continue
+    o = json.loads(line)
+    if o.get("n") == 7:
+        o["result"] = "fail"
+        o["evidence"] = ((o.get("evidence") or "") + "; " + evi).strip("; ")
+    out.append(json.dumps(o, separators=(",", ":")))
+open(path, "w", encoding="utf-8").write("\n".join(out) + ("\n" if out else ""))
+PY
+  elif [[ "$step7_claim_result" == "pass" && "$clip_rc" == "0" ]]; then
+    log "step7: clipboard path oracle PASS (/article/ present, no convex host)"
+  fi
+fi
 
 # Aggregate claims — NEVER invent pass
 # SKIP_SEED / SKIP_UI use result skipped|blocked (not pass) so steps_passed < 7.
