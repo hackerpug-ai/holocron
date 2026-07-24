@@ -1,7 +1,7 @@
 {
   "task_id": "S-REWRITE-02",
   "timestamp": "2026-07-24T01:40:15Z",
-  "commit_sha": "99d9f2e45fc8cf1d6cb63bf7dcf7de9b5c7e9af1",
+  "commit_sha": "9fe1ac6d838aeab9e1a7358710f0a51b9e0e25d2",
   "remediation": "tdd-lineage + maestro oracles + AC-4 contract note",
   "typecheck": {
     "exit_code": 2
@@ -212,7 +212,8 @@
   "assumptions_made": {
     "AC-4": "Legacy append-to-existing preferred over insertDocument +1 row; product APPROVED; mutator path is real Zero update."
   },
-  "remediation_commit_sha": "99d9f2e45fc8cf1d6cb63bf7dcf7de9b5c7e9af1",
+  "remediation_commit_sha": "9fe1ac6d838aeab9e1a7358710f0a51b9e0e25d2",
   "implementation_commit_sha": "37d885498c7ce678463745ab83daeb1cb8c82a48",
-  "branch_tip_note": "Remediation commit is HEAD; commit_sha field tracks the FIX content commit after amend-stamp cycle."
+  "branch_tip_note": "Remediation commit is HEAD; commit_sha field tracks the FIX content commit after amend-stamp cycle.",
+  "evidence_stamp_commit_sha": "01afe7d934852055258f6fe49a0a52b53ab33b40"
 }

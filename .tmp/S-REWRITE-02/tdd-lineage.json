@@ -36,6 +36,7 @@
   "assumptions_made": {
     "AC-4_import_semantics": "Product intent treated as legacy append-to-existing (createImportDocument updates content on a selected documentId), not insertDocument +1 row. Aligns with 13-client-data-contract.yaml zero_mutator name createImportDocument and pre-rewire convex/imports behavior. AC text saying 'count increases by 1' is satisfied as content-append mutator write, not a new documents PK. insertDocument remains available for future create-new shells."
   },
-  "remediation_commit_sha": "99d9f2e45fc8cf1d6cb63bf7dcf7de9b5c7e9af1",
-  "commit_sha": "99d9f2e45fc8cf1d6cb63bf7dcf7de9b5c7e9af1"
+  "remediation_commit_sha": "9fe1ac6d838aeab9e1a7358710f0a51b9e0e25d2",
+  "commit_sha": "9fe1ac6d838aeab9e1a7358710f0a51b9e0e25d2",
+  "evidence_stamp_commit_sha": "01afe7d934852055258f6fe49a0a52b53ab33b40"
 }
