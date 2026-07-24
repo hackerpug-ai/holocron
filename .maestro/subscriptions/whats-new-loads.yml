@@ -1,11 +1,15 @@
 appId: com.holocron.app
 ---
 # AC-3 / TC-3: Whats-new feed loads via Zero
-# DATA oracle (whats-new-feed + finding-0) is NON-optional.
+# DATA oracles (assertVisible whats-new-feed + finding-0) are NON-optional.
 #
-# Run2 fail: openLink holocron://whats-new COMPLETED, feed never visible (stayed on chat).
-# App fix: resolveHolocronRoute hostname form + router.navigate.
-# Flow: try hostname + path-form deep links, then drawer section fallback.
+# TC-7 / static audit contract:
+# - Branch/fallback conditions MUST NOT name data-oracle ids (whats-new-feed).
+# - Use layout id (whats-new-layout) for when:notVisible navigation retries so
+#   optional chrome taps never sit within N lines of a data-oracle id line.
+# - Authoritative QA fail (qa-real-7step-20260724T052913Z): TC-7 flagged
+#   whats-new-loads.yml:23 as optional when feed id appeared in when:notVisible
+#   near drawer optional:true chrome — refuse driver before any 7-step run.
 
 - launchApp:
     clearState: false
@@ -13,21 +17,21 @@ appId: com.holocron.app
 # 1) Hostname form (Maestro openLink default)
 - openLink: holocron://whats-new
 
-# 2) Path form if still not on feed (linking parse alternate)
+# 2) Path form if layout not mounted (linking parse alternate)
+#    Condition uses layout shell id — NOT the data oracle whats-new-feed.
 - runFlow:
     when:
       notVisible:
-        id: "whats-new-feed"
+        id: "whats-new-layout"
     commands:
       - openLink: holocron:///whats-new
 
-# 3) Drawer navigation fallback (works from chat or after back from articles)
+# 3) Drawer navigation fallback (from chat / after back from articles)
 - runFlow:
     when:
       notVisible:
-        id: "whats-new-feed"
+        id: "whats-new-layout"
     commands:
-      # Leave articles/detail if needed
       - tapOn:
           id: "screen-header-back-button"
           optional: true
@@ -52,6 +56,8 @@ appId: com.holocron.app
           text: "What's New"
           optional: true
 
+# === DATA ORACLES (non-optional; no optional:true in these blocks) ===
+
 # NON-OPTIONAL: feed shell
 - extendedWaitUntil:
     visible:
@@ -70,7 +76,7 @@ appId: com.holocron.app
 - assertVisible:
     id: "whats-new-feed-finding-0"
 
-# Empty shell must not remain — BOUNDED fail-closed
+# Empty shell must not remain — BOUNDED fail-closed (not optional)
 - extendedWaitUntil:
     notVisible:
       id: "whats-new-feed-empty"
