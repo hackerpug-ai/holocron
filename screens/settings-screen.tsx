@@ -1,15 +1,14 @@
 import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { voiceLanguage as voiceLanguageQuery } from '@/app/zero/queries';
 import { SubscriptionSection } from '@/components/settings/SubscriptionSection';
 import { Check, Globe, Monitor, Moon, Sun } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { colors } from '@/lib/theme';
+import { getThemePreference, setThemePreference, type ThemeMode } from '@/lib/theme-preference';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { cn } from '@/lib/utils';
-
-type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeOption {
   value: ThemeMode;
@@ -96,6 +95,14 @@ export function SettingsScreen(_props: SettingsScreenProps) {
     colorScheme === 'dark' ? 'dark' : 'light'
   );
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useEffect(() => {
+    void getThemePreference().then((mode) => {
+      if (!mode) return;
+      setSelectedTheme(mode);
+      setColorScheme(mode);
+    });
+  }, [setColorScheme]);
   const zero = useZero();
   const [voiceLanguageRow] = useZeroQuery(voiceLanguageQuery());
   const settingsRow = (voiceLanguageRow ?? null) as AppSettingsRow | null;
@@ -135,12 +142,8 @@ export function SettingsScreen(_props: SettingsScreenProps) {
     setSelectedTheme(value);
 
     // Apply theme change with smooth transition
-    if (value === 'system') {
-      // Reset to system default - will be handled by ThemeSync
-      setColorScheme('light'); // Reset to let system take over
-    } else {
-      setColorScheme(value);
-    }
+    setColorScheme(value);
+    void setThemePreference(value);
 
     // Allow transition to complete
     setTimeout(() => setIsTransitioning(false), 300);

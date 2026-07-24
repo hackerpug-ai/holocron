@@ -7,11 +7,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Appearance, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { resolveHolocronRoute } from '@/lib/holocron-deep-link';
+import { getThemePreference } from '@/lib/theme-preference';
 import { mutators as zeroMutators } from './zero/mutators';
 import { schema as zeroSchema } from './zero/schema';
 
@@ -116,6 +117,16 @@ function handleIncomingURL({ url }: { url: string }) {
 
 export default function RootLayout() {
   usePushNotifications();
+
+  useEffect(() => {
+    void getThemePreference()
+      .then((mode) => {
+        if (mode) Appearance.setColorScheme((mode === 'system' ? null : mode) as never);
+      })
+      .catch(() => {
+        // Theme preference is optional; system appearance remains the fallback.
+      });
+  }, []);
 
   // Handle deep linking for toolbelt add URLs
   useEffect(() => {
