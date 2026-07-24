@@ -1,7 +1,7 @@
 {
   "task_id": "S-REWRITE-01",
   "timestamp": "2026-07-24T01:16:49Z",
-  "commit_sha": "2084e8d73031ba7610fece4c76a063c0413dd25f",
+  "commit_sha": "8c9dbadede475905414e2d41e1fab561cfd6db58",
   "typecheck": {
     "exit_code": 1
   },
@@ -197,5 +197,6 @@
       }
     ]
   },
-  "implementation_commit_sha": "8c9dbadede475905414e2d41e1fab561cfd6db58"
+  "implementation_commit_sha": "8c9dbadede475905414e2d41e1fab561cfd6db58",
+  "branch_tip_note": "Evidence harvest commits follow implementation commit on task/S-REWRITE-01; package anchors to implementation SHA."
 }
