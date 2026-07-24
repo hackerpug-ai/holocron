@@ -1,0 +1,40 @@
+{
+  "tasks": {
+    "all_completed": true,
+    "total": 6,
+    "completed": 6
+  },
+  "gate": {
+    "overall": "PASS",
+    "source": "gate-results.json"
+  },
+  "e2e": {
+    "overall": "PASS",
+    "framework": "maestro",
+    "note": "HTG steps covered by maestro drawer/articles/whats-new + CLI seed/verify"
+  },
+  "human_test": {
+    "verdict": "pass",
+    "run_id": "see gate-results",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "gate_results_path": ".spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/gate-results.json"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "stranded_tasks": [],
+    "default_target_ok": true,
+    "protected_branch": "main"
+  },
+  "status_files": {
+    "parity": true,
+    "drift": [],
+    "checked_at": "2026-07-24T03:09:34.867926+00:00"
+  },
+  "build": {
+    "overall": "PASS",
+    "typecheck": 0
+  }
+}

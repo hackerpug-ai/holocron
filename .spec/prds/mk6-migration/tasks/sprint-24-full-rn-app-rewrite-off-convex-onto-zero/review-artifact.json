@@ -146,18 +146,42 @@
         }
       ],
       "screenlayout_matrix": [
-        { "file": "app/(drawer)/_layout.tsx", "uses_screen_layout": false, "note": "Drawer navigator shell — ScreenLayout N/A but counts against literal AC verify" },
+        {
+          "file": "app/(drawer)/_layout.tsx",
+          "uses_screen_layout": false,
+          "note": "Drawer navigator shell — ScreenLayout N/A but counts against literal AC verify"
+        },
         { "file": "app/(drawer)/settings.tsx", "uses_screen_layout": true },
         { "file": "app/(drawer)/toolbelt.tsx", "uses_screen_layout": true },
         { "file": "app/(drawer)/improvements.tsx", "uses_screen_layout": true },
         { "file": "app/(drawer)/whats-new/index.tsx", "uses_screen_layout": true },
-        { "file": "app/(drawer)/chat/[conversationId].tsx", "uses_screen_layout": false, "note": "Uses ScreenHeader + KeyboardAvoidingView only" },
+        {
+          "file": "app/(drawer)/chat/[conversationId].tsx",
+          "uses_screen_layout": false,
+          "note": "Uses ScreenHeader + KeyboardAvoidingView only"
+        },
         { "file": "app/(drawer)/chat/reference.tsx", "uses_screen_layout": false },
-        { "file": "app/(drawer)/improvements/[requestId].tsx", "uses_screen_layout": false, "note": "Custom SafeAreaView chrome" },
-        { "file": "app/(drawer)/research/[sessionId].tsx", "uses_screen_layout": false, "note": "Custom SafeAreaView chrome" },
-        { "file": "app/(drawer)/whats-new/[reportId].tsx", "uses_screen_layout": false, "note": "Custom SafeAreaView chrome" },
+        {
+          "file": "app/(drawer)/improvements/[requestId].tsx",
+          "uses_screen_layout": false,
+          "note": "Custom SafeAreaView chrome"
+        },
+        {
+          "file": "app/(drawer)/research/[sessionId].tsx",
+          "uses_screen_layout": false,
+          "note": "Custom SafeAreaView chrome"
+        },
+        {
+          "file": "app/(drawer)/whats-new/[reportId].tsx",
+          "uses_screen_layout": false,
+          "note": "Custom SafeAreaView chrome"
+        },
         { "file": "app/(drawer)/subscription-content/[groupKey].tsx", "uses_screen_layout": false },
-        { "file": "app/(drawer)/subscriptions/feed.tsx", "uses_screen_layout": false, "note": "Thin re-export; child SubscriptionFeedScreen also lacks ScreenLayout" },
+        {
+          "file": "app/(drawer)/subscriptions/feed.tsx",
+          "uses_screen_layout": false,
+          "note": "Thin re-export; child SubscriptionFeedScreen also lacks ScreenLayout"
+        },
         { "file": "app/(drawer)/subscriptions/social.tsx", "uses_screen_layout": false },
         { "file": "app/(drawer)/whats-new/social.tsx", "uses_screen_layout": false }
       ],
