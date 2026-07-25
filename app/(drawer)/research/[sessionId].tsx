@@ -96,7 +96,7 @@ export default function ResearchDetailScreen() {
   };
 
   const handleCitationPress = (url: string) => {
-    router.push({ pathname: '/webview/[url]', params: { url } });
+    router.push({ pathname: '/webview/[url]', params: { url: encodeURIComponent(url) } });
   };
 
   if (isLoading) {
