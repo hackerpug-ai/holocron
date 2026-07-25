@@ -125,19 +125,20 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "chat-input-send-button"
 
-# Degraded message must clear (count → 0)
+# Live degraded banner must clear after fleet restore + successful send.
+# Do NOT assertNotVisible the exact SURFACE_UNAVAILABLE_MESSAGE string —
+# durable chat history may still contain that text from the pre-restore turn.
 - extendedWaitUntil:
     notVisible:
       id: "chat-degraded-banner"
     timeout: 45000
 
-- extendedWaitUntil:
-    notVisible: "Local fleet unavailable — running in reduced mode"
-    timeout: 45000
+- assertVisible:
+    id: "chat-screen"
 
-# Hard-required must_observe: non-seed assistant reply after restore.
-# Prefer stream-token oracle; if absent, require durable assistant message
-# (no optional escape that vacates must_observe).
+# Hard-required must_observe: post-restore stream success.
+# Prefer live token-count during streaming; after reconcile, require
+# chat-assistant-message-latest (token oracles unmount on idle).
 - extendedWaitUntil:
     visible:
       id: "chat-stream-token-count-at-least-1"
@@ -163,6 +164,16 @@ appId: ${MAESTRO_APP_ID}
           timeout: 60000
       - assertVisible:
           id: "chat-assistant-message-latest"
+
+# End-state: durable new-turn bubble proves recovery completed
+# (even if mid-stream token oracle already passed and then unmounted).
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
 
 - extendedWaitUntil:
     notVisible:
