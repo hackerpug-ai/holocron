@@ -78,9 +78,9 @@ function handleIncomingURL({ url }: { url: string }) {
       return;
     }
 
-    // Legacy feed deep link → What's New intelligence briefing
+    // Subscription feed remains distinct from the What's New intelligence briefing.
     if (route === 'subscriptions/feed') {
-      navigateWhenReady(() => router.push({ pathname: '/whats-new', params }));
+      navigateWhenReady(() => router.push({ pathname: '/subscriptions/feed', params }));
       return;
     }
 
