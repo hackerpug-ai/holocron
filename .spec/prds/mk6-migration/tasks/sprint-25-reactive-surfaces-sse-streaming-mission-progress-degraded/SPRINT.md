@@ -61,6 +61,7 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 | REDHAT-FIX-05 | Re-run the full 5-step human gate against HEAD and produce a fresh `gate-results.json` (current one is missing/deleted; `GATE-RESULTS.md` still documents the pre-fix run `s25-ht-20260725T155918Z` from 15:59:18Z, 3h34m before REDHAT-FIX completion) | react-native-ui-implementer | 45 min |
 | REDHAT-FIX-06 | Restore the broken TDD evidence chain — commit `.tmp/sprint-25/redhat-fix-{01,02}-path.json` + RED evidence logs at the TC-5-mandated paths (currently only exist in stale `.kb-run-sprint/worktrees/REDHAT-FIX-0{1,2,3}/.tmp/` dirs, or at the wrong path for REDHAT-FIX-02), so TC-5 verify commands pass on a cold checkout | react-native-ui-implementer | 45 min |
 | REDHAT-FIX-07 | Copy REDHAT-FIX-04's evidence files (`redhat-fix-04-path.json`, `redhat-fix-04-production-mutation.log`, `redhat-fix-04-red.log`) from `.kb-run-sprint/worktrees/REDHAT-FIX-04/.tmp/sprint-25/` to the primary checkout's `.tmp/sprint-25/` and commit them (or re-run `pnpm vitest run tests/integration/redhat-fix-04-production-hook-reconnect.test.ts` on the primary checkout, which self-generates the files), so REDHAT-FIX-04's own TC-5 verify command passes on a cold checkout | react-native-ui-implementer | 15 min |
+| REDHAT-FIX-08 | Fix the `holo` PATH stub — `/Users/inference1/.local/bin/holo` implements ONLY `verify:no-convex-client`; every other command including `seed:e2e` returns exit 127 `unknown command`. Wire the primary-checkout `holo` binary to dispatch to `services/platform/src/cli/holo.ts` (as the worktree dispatchers already do) so gate step 1 (`holo seed:e2e --reset`) is re-runnable on a cold checkout. Then re-run the full 5-step gate against HEAD and commit a fresh `gate-results.json` (the last one was deleted mid an aborted re-run that hit the broken stub) | react-native-ui-implementer | 30 min |
 
 ## Red-Hat Findings (cycle 1 — `.spec/reviews/red-hat-sprint25-reactive-20260725T165851Z.md`)
 
@@ -81,6 +82,11 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 - **G-2 CONFIRMED CLOSED** — fresh `gate-results.json` (5/5 pass) post-dates all REDHAT-FIX commits.
 - **G-3 → REDHAT-FIX-07** (High, process): recurred on REDHAT-FIX-04 itself — its own evidence files exist only in the worktree, not the contract-mandated `.tmp/sprint-25/` path. Review's own words: "the only remaining blocker... trivial evidence-hygiene copy."
 - Advisory (non-blocking per review): M-H2-LIVE ("as the workflow reaches" overclaim), M5-REGRESSED (new typecheck error from REDHAT-FIX-04), M3/M6 (duplicate testIDs), L-S05-STALE (stale doc annotations) — left for a future sprint, not gating this close.
+
+## Red-Hat Findings (cycle 4 — `.spec/reviews/red-hat-sprint25-reactive-20260725T225400Z.md`)
+
+- **G-3 CONFIRMED CLOSED** — REDHAT-FIX-07 restored the contract-path evidence files; H3 stays closed on independent re-probe at HEAD `addea0fce`.
+- **F-E1 → REDHAT-FIX-08** (High, new): primary-checkout `holo` PATH is a stub missing `seed:e2e` — gate step 1 fails on a cold checkout (exit 127). A gate re-run attempt using this broken stub died mid-flight, deleting `gate-results.json` (only `.prev.json` remains). Cycle cap extended 3→4 (user-approved) to close this.
 
 ## Source Coverage
 
@@ -132,4 +138,8 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-04,REDHAT-FIX-05,REDHAT-FIX-0
 Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-07 on 2026-07-25T21:24:51Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC).
 
 - REDHAT-FIX-07-copy-redhat-fix-04-evidence-files-cold-checkout.md
+
+Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-08 on 2026-07-25T23:20:00Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC).
+
+- REDHAT-FIX-08-fix-holo-path-stub-cold-checkout-gate-rerun.md
 
