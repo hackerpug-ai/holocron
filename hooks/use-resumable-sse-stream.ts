@@ -1,12 +1,16 @@
 /**
- * Resumable SSE chat stream client (S-REACTIVE-01 / UC-SYNC-02).
+ * Resumable SSE chat stream client (S-REACTIVE-01 / S-REACTIVE-04 / UC-SYNC-02).
  *
  * Opens a real EventSource against GET /api/chat-runs/:id/events with
  * Authorization + Last-Event-ID gap-fill. Honors backend event types:
  *   token | terminal | blocked | error  (monotonic seq as SSE id)
  *
  * Unified state machine: idle → streaming → (reconnecting → streaming)* →
- * complete | cancelled. Never navigates; consumers mutate UI from `phase`.
+ * complete | cancelled | degraded. Never navigates; consumers mutate UI from `phase`.
+ *
+ * S-REACTIVE-04: fleet-unavailable is inferred from the chat failure envelope
+ * (POST /api/chat-runs error or SSE terminal/error). Backend reduced-mode state
+ * is NOT published on zero_pub and has no HTTP endpoint — never Zero-query it.
  *
  * Exactly-once: only apply events with seq > lastSeq; durable Zero row is
  * authoritative after terminal (see reconcileThreadMessages).
@@ -137,7 +141,20 @@ function openProgressiveSse(
   };
 }
 
-export type ChatStreamPhase = 'idle' | 'streaming' | 'reconnecting' | 'complete' | 'cancelled';
+export type ChatStreamPhase =
+  | 'idle'
+  | 'streaming'
+  | 'reconnecting'
+  | 'complete'
+  | 'cancelled'
+  | 'degraded';
+
+/**
+ * Exact backend copy of DegradedModeController SURFACE_UNAVAILABLE_MESSAGE
+ * (services/platform/src/inference/degraded-mode-controller.ts:36).
+ * Client must render this string verbatim — never a paraphrased generic error.
+ */
+export const SURFACE_UNAVAILABLE_MESSAGE = 'Local fleet unavailable — running in reduced mode';
 
 export type TokenAssemblyState = {
   lastSeq: number;
@@ -150,6 +167,76 @@ export type StreamOverlay = {
   content: string;
   phase: ChatStreamPhase;
 };
+
+export type FleetFailureEnvelope = {
+  error?: string | null;
+  message?: string | null;
+  code?: string | null;
+  status?: string | null;
+  text?: string | null;
+};
+
+export type FleetFailureTransition = {
+  phase: ChatStreamPhase;
+  message: string | null;
+  isDegraded: boolean;
+};
+
+/**
+ * Infer fleet-unavailable from a chat failure envelope (POST create error body
+ * or SSE terminal/error payload). Never probes fleet health; never queries
+ * backend reduced-mode tables over Zero.
+ */
+export function isFleetUnavailableFailure(envelope: FleetFailureEnvelope): boolean {
+  const blob = [envelope.error, envelope.message, envelope.code, envelope.status, envelope.text]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' ');
+  if (!blob) return false;
+  return (
+    /ROLE_UNAVAILABLE/i.test(blob) ||
+    /surface-unavailable/i.test(blob) ||
+    /Local fleet unavailable/i.test(blob) ||
+    /fleet role ['"]?[\w-]+['"]? unreachable/i.test(blob) ||
+    /degradation\s*=\s*surface-unavailable/i.test(blob) ||
+    /ECONNREFUSED.*:4545|:4545.*ECONNREFUSED/i.test(blob) ||
+    /unreachable at https?:\/\/[^ ]*4545/i.test(blob) ||
+    /empty stream under HOLO_CHAT_FLEET_ONLY/i.test(blob)
+  );
+}
+
+/**
+ * Pure state transition: when the envelope is fleet-unavailable, move to
+ * `degraded` and surface the exact SURFACE_UNAVAILABLE_MESSAGE.
+ */
+export function applyFleetFailureEnvelope(args: {
+  phase: ChatStreamPhase;
+  error?: string | null;
+  message?: string | null;
+  code?: string | null;
+  status?: string | null;
+  text?: string | null;
+}): FleetFailureTransition {
+  if (
+    isFleetUnavailableFailure({
+      error: args.error,
+      message: args.message,
+      code: args.code,
+      status: args.status,
+      text: args.text,
+    })
+  ) {
+    return {
+      phase: 'degraded',
+      message: SURFACE_UNAVAILABLE_MESSAGE,
+      isDegraded: true,
+    };
+  }
+  return {
+    phase: args.phase,
+    message: null,
+    isDegraded: false,
+  };
+}
 
 export type UseResumableSSEStreamOptions = {
   platformUrl?: string | null;
@@ -164,6 +251,8 @@ export type UseResumableSSEStreamReturn = {
   lastSeq: number;
   tokenCount: number;
   error: Error | null;
+  /** Exact SURFACE_UNAVAILABLE_MESSAGE when phase === 'degraded'; otherwise null */
+  degradedMessage: string | null;
   isActive: boolean;
   /**
    * Attach to a run returned by POST /api/chat-runs.
@@ -174,6 +263,11 @@ export type UseResumableSSEStreamReturn = {
   cancel: () => Promise<void>;
   /** Return to idle (after Zero has caught up) */
   reset: () => void;
+  /**
+   * Enter degraded from a POST /api/chat-runs failure envelope (create path).
+   * No-op when the envelope is not fleet-unavailable.
+   */
+  enterDegradedFromEnvelope: (envelope: FleetFailureEnvelope) => boolean;
 };
 
 /**
@@ -216,6 +310,7 @@ export function reconcileThreadMessages(
   }
 
   // Preview only while we have content (or are waiting for first token).
+  // Never inject a stream preview for `degraded` — banner owns that UX.
   if (
     overlay.phase === 'streaming' ||
     overlay.phase === 'reconnecting' ||
@@ -267,6 +362,7 @@ export function useResumableSSEStream(
   const [lastSeq, setLastSeq] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
+  const [degradedMessage, setDegradedMessage] = useState<string | null>(null);
 
   const esRef = useRef<LiveSseHandle | null>(null);
   const assemblyRef = useRef<TokenAssemblyState>({ lastSeq: 0, text: '', tokenCount: 0 });
@@ -278,6 +374,7 @@ export function useResumableSSEStream(
   const setPhaseBoth = useCallback((next: ChatStreamPhase) => {
     phaseRef.current = next;
     setPhase(next);
+    setDegradedMessage(next === 'degraded' ? SURFACE_UNAVAILABLE_MESSAGE : null);
   }, []);
 
   const closeSource = useCallback((intentional: boolean) => {
@@ -366,10 +463,23 @@ export function useResumableSSEStream(
           }
           const status = typeof payload.status === 'string' ? payload.status : 'completed';
           const text = typeof payload.text === 'string' ? payload.text : undefined;
+          const errText = typeof payload.error === 'string' ? payload.error : undefined;
           if (status === 'failed') {
-            setError(
-              new Error(typeof payload.error === 'string' ? payload.error : 'chat run failed')
-            );
+            const fleet = applyFleetFailureEnvelope({
+              phase: 'streaming',
+              error: errText,
+              message: errText,
+              status,
+              text,
+              code: typeof payload.code === 'string' ? payload.code : undefined,
+            });
+            if (fleet.isDegraded) {
+              setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
+              // Do not keep a spinner-producing stream phase — degraded is terminal UX.
+              finishTerminal('degraded', text);
+              return;
+            }
+            setError(new Error(errText ?? 'chat run failed'));
             finishTerminal('complete', text);
             return;
           }
@@ -389,17 +499,43 @@ export function useResumableSSEStream(
             finishTerminal('cancelled', text);
             return;
           }
-          setError(
-            new Error(
-              typeof payload.message === 'string' ? payload.message : `chat blocked: ${code}`
-            )
-          );
+          const blockMsg =
+            typeof payload.message === 'string' ? payload.message : `chat blocked: ${code}`;
+          const fleet = applyFleetFailureEnvelope({
+            phase: 'streaming',
+            code,
+            message: blockMsg,
+            error: blockMsg,
+          });
+          if (fleet.isDegraded) {
+            setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
+            finishTerminal('degraded');
+            return;
+          }
+          setError(new Error(blockMsg));
           finishTerminal('complete');
           return;
         }
 
         if (eventName === 'error') {
           const code = typeof payload.code === 'string' ? payload.code : 'SSE_ERROR';
+          const errMsg =
+            typeof payload.message === 'string'
+              ? payload.message
+              : typeof payload.error === 'string'
+                ? payload.error
+                : `SSE error: ${code}`;
+          const fleet = applyFleetFailureEnvelope({
+            phase: phaseRef.current,
+            code,
+            message: errMsg,
+            error: errMsg,
+          });
+          if (fleet.isDegraded) {
+            setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
+            finishTerminal('degraded');
+            return;
+          }
           setError(new Error(`SSE error: ${code}`));
           if (code === 'CHAT_RUN_NOT_FOUND') {
             finishTerminal('complete');
@@ -455,10 +591,11 @@ export function useResumableSSEStream(
         return;
       }
 
-      // Reset assembly for a new run
+      // Reset assembly for a new run (also clears degraded → recovery path)
       assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
       applyAssembly(assemblyRef.current);
       setError(null);
+      setDegradedMessage(null);
       setRunId(nextRunId);
       runIdRef.current = nextRunId;
       setDurableMessageId(nextDurable);
@@ -466,6 +603,22 @@ export function useResumableSSEStream(
       openEventSource(nextRunId, 0);
     },
     [applyAssembly, openEventSource, setPhaseBoth]
+  );
+
+  const enterDegradedFromEnvelope = useCallback(
+    (envelope: FleetFailureEnvelope): boolean => {
+      const fleet = applyFleetFailureEnvelope({
+        phase: phaseRef.current,
+        ...envelope,
+      });
+      if (!fleet.isDegraded) return false;
+      closeSource(true);
+      setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
+      setDegradedMessage(SURFACE_UNAVAILABLE_MESSAGE);
+      setPhaseBoth('degraded');
+      return true;
+    },
+    [closeSource, setPhaseBoth]
   );
 
   const cancel = useCallback(async () => {
@@ -498,6 +651,7 @@ export function useResumableSSEStream(
     assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
     applyAssembly(assemblyRef.current);
     setError(null);
+    setDegradedMessage(null);
     setPhaseBoth('idle');
   }, [applyAssembly, closeSource, setPhaseBoth]);
 
@@ -542,6 +696,21 @@ export function useResumableSSEStream(
               tokenCount: assemblyRef.current.tokenCount,
             });
           }
+          if (status === 'failed') {
+            const fleet = applyFleetFailureEnvelope({
+              phase: 'reconnecting',
+              status,
+              error: body.finalText,
+              text: body.finalText,
+              message: body.finalText,
+            });
+            if (fleet.isDegraded) {
+              setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
+              setPhaseBoth('degraded');
+              closeSource(true);
+              return;
+            }
+          }
           setPhaseBoth('complete');
           closeSource(true);
           return;
@@ -571,6 +740,7 @@ export function useResumableSSEStream(
     };
   }, [closeSource]);
 
+  // Degraded is terminal UX (banner) — not an active stream (no spinner hang).
   const isActive: boolean =
     phase === 'streaming' ||
     phase === 'reconnecting' ||
@@ -585,9 +755,11 @@ export function useResumableSSEStream(
     lastSeq,
     tokenCount,
     error,
+    degradedMessage: phase === 'degraded' ? (degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE) : null,
     isActive,
     connect,
     cancel,
     reset,
+    enterDegradedFromEnvelope,
   };
 }

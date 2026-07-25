@@ -328,7 +328,14 @@ async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<voi
         }
         // Nonprod safety net: if fleet is budget-empty / unreachable, still emit
         // real multi-token SSE so reactive surfaces stay testable.
-        if (isHolocronNonprodDatabaseUrl(databaseUrl) && !(error instanceof TripwireError)) {
+        // S-REACTIVE-04: HOLO_CHAT_FLEET_ONLY=1 must surface the real failure envelope
+        // (ROLE_UNAVAILABLE / surface-unavailable) so the client can enter `degraded`
+        // instead of masking fleet-down with a deterministic success stream.
+        if (
+          isHolocronNonprodDatabaseUrl(databaseUrl) &&
+          process.env.HOLO_CHAT_FLEET_ONLY !== '1' &&
+          !(error instanceof TripwireError)
+        ) {
           finalText = await emitDeterministicTokenStream(sql, run.id, run.message, controller);
         } else {
           throw error;
@@ -337,8 +344,14 @@ async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<voi
 
       // Empty fleet success (budget 403 mapped to empty text, etc.)
       if (!finalText.trim() && !controller.signal.aborted) {
-        if (isHolocronNonprodDatabaseUrl(databaseUrl)) {
+        if (isHolocronNonprodDatabaseUrl(databaseUrl) && process.env.HOLO_CHAT_FLEET_ONLY !== '1') {
           finalText = await emitDeterministicTokenStream(sql, run.id, run.message, controller);
+        } else if (process.env.HOLO_CHAT_FLEET_ONLY === '1') {
+          // S-REACTIVE-04: empty stream under fleet-only is a fleet-unavailable signal
+          // (do not leave the client on a generic hang / opaque failure).
+          throw new Error(
+            "fleet role 'divergent' unreachable (degradation=surface-unavailable): empty stream under HOLO_CHAT_FLEET_ONLY"
+          );
         } else {
           throw new Error('Chat stream completed without an assistant response');
         }
@@ -390,17 +403,33 @@ async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<voi
       return;
     }
     const message = error instanceof Error ? error.message : String(error);
-    // Persist a visible failure bubble so the thread is never blank after terminal.
-    const failureText = `Assistant could not complete this turn: ${message}`;
+    // S-REACTIVE-04: surface the exact fleet-unavailable message when the failure
+    // envelope is ROLE_UNAVAILABLE / surface-unavailable so clients can enter
+    // `degraded` without paraphrasing.
+    const isFleetUnavailable =
+      /ROLE_UNAVAILABLE|surface-unavailable|fleet role .+ unreachable|Local fleet unavailable/i.test(
+        message
+      ) ||
+      (error instanceof Error && (error as { code?: string }).code === 'ROLE_UNAVAILABLE');
+    const failureText = isFleetUnavailable
+      ? 'Local fleet unavailable — running in reduced mode'
+      : `Assistant could not complete this turn: ${message}`;
     await finalizeChatRun(
       sql,
       run,
       'failed',
       'terminal',
-      { status: 'failed', error: message, text: failureText },
       {
-        errorCode: 'CHAT_RUN_FAILED',
-        errorMessage: message,
+        status: 'failed',
+        error: isFleetUnavailable ? 'Local fleet unavailable — running in reduced mode' : message,
+        text: failureText,
+        code: isFleetUnavailable ? 'ROLE_UNAVAILABLE' : 'CHAT_RUN_FAILED',
+      },
+      {
+        errorCode: isFleetUnavailable ? 'ROLE_UNAVAILABLE' : 'CHAT_RUN_FAILED',
+        errorMessage: isFleetUnavailable
+          ? 'Local fleet unavailable — running in reduced mode'
+          : message,
         finalText: failureText,
       }
     );

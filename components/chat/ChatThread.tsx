@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, useWindowDimensions, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useAgentActivity } from '@/hooks/use-agent-activity';
-import type { ChatStreamPhase } from '@/hooks/use-resumable-sse-stream';
+import {
+  type ChatStreamPhase,
+  SURFACE_UNAVAILABLE_MESSAGE,
+} from '@/hooks/use-resumable-sse-stream';
 import type { MessageRole, MessageType } from '@/lib/types/conversations';
 import { AgentActivityIndicator } from './AgentActivityIndicator';
 import { MessageActionsSheet } from './MessageActionsSheet';
@@ -39,14 +42,19 @@ export interface ChatThreadProps {
   /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
   streamingMessageId?: string | null;
   /**
-   * Unified chat-thread stream state machine (S-REACTIVE-01).
-   * idle | streaming | reconnecting | complete | cancelled
+   * Unified chat-thread stream state machine (S-REACTIVE-01 / S-REACTIVE-04).
+   * idle | streaming | reconnecting | complete | cancelled | degraded
    */
   streamPhase?: ChatStreamPhase;
   /** Last SSE seq observed (Last-Event-ID resume cursor) — for e2e oracles */
   streamLastSeq?: number;
   /** Count of applied token events (zero-dup invariant) */
   streamTokenCount?: number;
+  /**
+   * Exact SURFACE_UNAVAILABLE_MESSAGE when streamPhase === 'degraded'.
+   * Inferred from the chat failure envelope — never a Zero query.
+   */
+  degradedMessage?: string | null;
   /** Navigate to a document with optional highlight at a specific block */
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
   /** Callback when a single recommendation is saved to KB */
@@ -77,6 +85,7 @@ export function ChatThread({
   streamPhase = 'idle',
   streamLastSeq = 0,
   streamTokenCount = 0,
+  degradedMessage = null,
   onDocumentContextNavigate,
   onSaveRecommendation,
   onSaveRecommendationList,
@@ -266,12 +275,30 @@ export function ChatThread({
 
   const renderStreamStatus = () => {
     if (streamPhase === 'idle') return null;
+    const degradedText = degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE;
     return (
       <View
         className="px-4 py-1"
         accessibilityRole="text"
         accessibilityLabel={`Chat stream status ${streamPhase}`}
       >
+        {streamPhase === 'degraded' ? (
+          <View
+            className="self-stretch rounded-lg border border-warning/40 bg-warning/10 px-3 py-2"
+            testID="chat-degraded-banner"
+            accessibilityRole="alert"
+            accessibilityLabel={degradedText}
+            accessible
+          >
+            {/*
+              Exact SURFACE_UNAVAILABLE_MESSAGE — no spinner (AC-1 no hang).
+              Theme tokens via semantic classNames (warning surface).
+            */}
+            <Text variant="small" className="text-foreground" testID="chat-degraded-message">
+              {degradedText}
+            </Text>
+          </View>
+        ) : null}
         {streamPhase === 'reconnecting' ? (
           <View
             className="flex-row items-center gap-2 self-start rounded-full border border-border bg-muted/40 px-3 py-1"
