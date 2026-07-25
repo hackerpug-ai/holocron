@@ -1,7 +1,7 @@
 {
   "task_id": "S-REACTIVE-01",
   "timestamp": "2026-07-25T07:36:17Z",
-  "commit_sha": "b41ed95077cc40b883b19e039e94d3ed03b73403",
+  "commit_sha": "2d0384c57ad7a16942278347dbacf30ec9d24459",
   "typecheck": {
     "exit_code": 2
   },
@@ -184,5 +184,5 @@
   "notes": "Maestro AC/TC exits non-zero: MAESTRO_APP_ID unset (Unable to launch app undefined). typecheck/lint fail pre-existing (worktree missing drizzle-orm; repo-wide lint). Contract suite 16/16 green: tests/integration/s-reactive-01-resumable-sse.test.ts. TC-8 validate_scenario exit 0.",
   "tdd_lineage_file": ".tmp/S-REACTIVE-01/tdd-lineage.json",
   "implementation_commit_sha": "edb0ae645e56c1c47cefe69b4b1c24b49e5ec5d3",
-  "evidence_package_note": "commit_sha is the sealed evidence package tip; self-referential SHA inside a git object cannot equal that object's id after amend (content-addressing)."
+  "evidence_base_commit": "2d0384c57ad7a16942278347dbacf30ec9d24459"
 }
