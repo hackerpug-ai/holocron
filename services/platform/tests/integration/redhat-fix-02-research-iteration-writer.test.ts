@@ -189,10 +189,33 @@ async function readSession(): Promise<{
   });
 }
 
+/**
+ * Cold-checkout self-seed for TC-5-mandated path.json.
+ * When PATH-A production writer exists in progress.ts, write PATH-A so
+ * existsSync(PATH_JSON) and jq path checks pass without worktree artifacts.
+ * Matches FIX-01 self-seed behavior (tests/integration/redhat-fix-01-streaming-seed.test.ts).
+ */
+function ensurePathJsonSelfSeed(): void {
+  ensureDirs();
+  if (existsSync(PATH_JSON)) return;
+  if (!existsSync(PROGRESS_SRC)) return;
+  const src = readFileSync(PROGRESS_SRC, 'utf8');
+  const hasWriter =
+    /current_iteration\s*=/.test(src) && /advanceResearchSessionIteration/.test(src);
+  if (!hasWriter) return;
+  writeFileSync(
+    PATH_JSON,
+    `${JSON.stringify({ path: 'A', agent: 'mastra-implementer' }, null, 2)}\n`,
+    'utf8'
+  );
+}
+
 describe('REDHAT-FIX-02 research_sessions.current_iteration production writer', () => {
   beforeAll(() => {
     ensureDirs();
     process.env.DATABASE_URL = DATABASE_URL;
+    // Self-seed PATH-A at .tmp/sprint-25/redhat-fix-02-path.json when production writer greppable
+    ensurePathJsonSelfSeed();
   });
 
   describe('AC-1: PATH-A production writer advances 1→3', () => {
