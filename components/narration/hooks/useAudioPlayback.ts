@@ -1,4 +1,4 @@
-import type { AudioPlayer, AudioStatus } from 'expo-audio';
+import type { AudioPlayer, AudioSource, AudioStatus } from 'expo-audio';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import type { UseNarrationStateReturn } from './useNarrationState';
@@ -9,7 +9,7 @@ export interface AudioSegment {
   _id: string | { toString(): string };
   paragraphIndex: number;
   status: string;
-  audioUrl: string | null;
+  audioUrl: AudioSource | null;
   durationMs?: number | null;
   jobId?: unknown;
 }

@@ -10,6 +10,7 @@
 
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import { upsertFileObject } from '../blob/file-objects.ts';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
 import { isSha256Hex } from '../blob/utils.ts';
 import { createSql } from '../db/client.ts';
@@ -100,6 +101,33 @@ function jsonError(error: unknown) {
   }
   const message = error instanceof Error ? error.message : String(error);
   return { status: 422, body: { error: 'invalid_request', message } };
+}
+
+function narrationChunks(markdown: string): string[] {
+  const normalized = markdown
+    .replace(/```[\s\S]*?```/g, 'Code block omitted from narration.')
+    .replace(/!?(\[[^\]]*\])\([^)]*\)/g, '$1')
+    .replace(/[#>*_`~-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return [];
+
+  const chunks: string[] = [];
+  let remaining = normalized;
+  while (remaining.length > 0) {
+    if (remaining.length <= 3_500) {
+      chunks.push(remaining);
+      break;
+    }
+    const boundary = Math.max(
+      remaining.lastIndexOf('. ', 3_500),
+      remaining.lastIndexOf(' ', 3_500)
+    );
+    const end = boundary > 0 ? boundary + 1 : 3_500;
+    chunks.push(remaining.slice(0, end).trim());
+    remaining = remaining.slice(end).trim();
+  }
+  return chunks;
 }
 
 export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
@@ -342,6 +370,127 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return c.json({ error: 'document_create_error', message }, 422);
+    }
+  });
+
+  /**
+   * Generate durable, authenticated narration audio for a document. Audio is
+   * deliberately produced server-side so provider credentials never reach the
+   * native client; the resulting blob ids are published through Zero for the
+   * existing player and active-block UI.
+   */
+  app.post('/api/documents/:id/narration', async (c) => {
+    const documentId = c.req.param('id');
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return c.json(
+        { error: 'narration_unavailable', message: 'audio service is not configured' },
+        503
+      );
+    }
+
+    let force = false;
+    try {
+      const body = (await c.req.json().catch(() => ({}))) as { force?: unknown };
+      force = body.force === true;
+    } catch {
+      return c.json({ error: 'invalid_request', message: 'narration body must be JSON' }, 422);
+    }
+
+    const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'document narration' });
+    const sql = createSql(databaseUrl);
+    try {
+      const documentRows = await sql<{ title: string | null; content: string | null }[]>`
+        SELECT title, content FROM documents WHERE id = ${documentId}::uuid
+      `;
+      const document = documentRows[0];
+      if (!document) return c.json({ error: 'not_found', message: 'document not found' }, 404);
+
+      if (!force) {
+        const existing = await sql<{ id: string; status: string }[]>`
+          SELECT id::text, status FROM audio_jobs
+          WHERE document_id = ${documentId} AND status = 'completed'
+          ORDER BY created_at DESC LIMIT 1
+        `;
+        if (existing[0]) return c.json({ job: existing[0], reused: true }, 200);
+      }
+
+      const chunks = narrationChunks(document.content ?? '');
+      if (chunks.length === 0) {
+        return c.json({ error: 'not_narratable', message: 'document has no narratable text' }, 422);
+      }
+
+      if (force) {
+        await sql`DELETE FROM audio_segments WHERE document_id = ${documentId}`;
+        await sql`DELETE FROM audio_jobs WHERE document_id = ${documentId}`;
+      }
+
+      const jobId = crypto.randomUUID();
+      await sql`
+        INSERT INTO audio_jobs (id, document_id, status, total_segments, completed_segments, failed_segments)
+        VALUES (${jobId}::uuid, ${documentId}, 'in_progress', ${chunks.length}, 0, 0)
+      `;
+
+      const completed: Array<{ id: string; blobId: string }> = [];
+      for (const [paragraphIndex, input] of chunks.entries()) {
+        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini-tts',
+            voice: 'alloy',
+            input,
+            response_format: 'mp3',
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`audio provider returned ${response.status}`);
+        }
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length === 0) throw new Error('audio provider returned an empty response');
+        const blob = await blobStore.put(bytes, { filename: 'narration.mp3' });
+        const fileObject = await upsertFileObject(sql, {
+          contentHash: blob.sha256,
+          mimeType: 'audio/mpeg',
+          byteSize: blob.byteLength,
+          storagePath: blob.relativePath,
+          originalName: 'narration.mp3',
+          metadata: { producers: ['document-narration'], sourceRefs: [documentId] },
+        });
+        const segmentId = crypto.randomUUID();
+        await sql`
+          INSERT INTO audio_segments (
+            id, document_id, paragraph_index, blob_id, file_object_id, status, duration_ms, job_id
+          ) VALUES (
+            ${segmentId}::uuid, ${documentId}, ${paragraphIndex}, ${blob.sha256},
+            ${fileObject.id}::uuid, 'completed', ${Math.max(1_000, Math.round((input.split(/\s+/).length / 150) * 60_000))}, ${jobId}::uuid
+          )
+        `;
+        completed.push({ id: segmentId, blobId: blob.sha256 });
+      }
+
+      await sql`
+        UPDATE audio_jobs
+        SET status = 'completed', completed_segments = ${completed.length}, updated_at = now()
+        WHERE id = ${jobId}::uuid
+      `;
+      return c.json(
+        { job: { id: jobId, status: 'completed' }, segments: completed, reused: false },
+        201
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        await sql`
+          UPDATE audio_jobs SET status = 'failed', error_message = ${message}, updated_at = now()
+          WHERE document_id = ${documentId} AND status = 'in_progress'
+        `;
+      } catch {
+        // Preserve the original provider/database failure below.
+      }
+      return c.json({ error: 'narration_error', message }, 502);
+    } finally {
+      await sql.end({ timeout: 5 });
     }
   });
 

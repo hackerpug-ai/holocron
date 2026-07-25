@@ -131,7 +131,7 @@ function toDocumentView(row: ZeroDocument): DocumentView {
   };
 }
 
-/** Hono mission dispatch for long-running audio work (contract: POST /api/missions). */
+/** Hono command for durable server-side narration generation. */
 async function dispatchAudioMission(
   kind: 'generate' | 'regenerate' | 'retry_failed',
   documentId: string
@@ -141,21 +141,19 @@ async function dispatchAudioMission(
   if (!platformUrl || !rnApiKey) {
     throw new Error('Platform credentials missing for audio mission');
   }
-  const response = await fetch(`${platformUrl}/api/missions`, {
+  const response = await fetch(`${platformUrl}/api/documents/${documentId}/narration`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${rnApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      requestKey: `audio-${kind}-${documentId}-${Date.now()}`,
-      kind: `audio.${kind}`,
-      documentId,
+      force: kind !== 'generate',
     }),
   });
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    throw new Error(`audio mission ${kind} failed: ${response.status} ${body}`);
+    throw new Error(`narration ${kind} failed: ${response.status} ${body}`);
   }
 }
 
@@ -304,9 +302,12 @@ export default function DocumentRoute() {
     _id: s.id,
     paragraphIndex: s.paragraph_index ?? 0,
     status: s.status,
-    // Resolve audio URI from blob_id (content hash) via Mastra host GET /blobs/:id.
-    // file_objects is excluded from zero_pub; blob_id on audio_segments is the durable key.
-    audioUrl: buildBlobAudioUrl(s.blob_id),
+    // Blob reads remain protected; expo-audio supports request headers for remote sources.
+    audioUrl: (() => {
+      const uri = buildBlobAudioUrl(s.blob_id);
+      const apiKey = getRnApiKey();
+      return uri && apiKey ? { uri, headers: { Authorization: `Bearer ${apiKey}` } } : null;
+    })(),
     durationMs: s.duration_ms ?? undefined,
   }));
 
