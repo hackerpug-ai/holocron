@@ -10,7 +10,9 @@ import {
   ChevronUp,
   ExternalLink,
 } from '@/components/ui/icons';
+import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
+import { useResearchProgress } from '@/hooks/useResearchProgress';
 import { cn } from '@/lib/utils';
 import { MarkdownView } from '../markdown/MarkdownView';
 import { ReportOutline } from '../research/ReportOutline';
@@ -260,8 +262,29 @@ export function DeepResearchDetailView({
   className,
   useOutlineFormat = true,
 }: DeepResearchDetailViewProps) {
+  // Live Zero binding for progress columns (S-REACTIVE-02). Props remain for
+  // report/citations; the bar advances via WAL without manual refresh.
+  const {
+    label: liveLabel,
+    progressPercent,
+    currentIteration: liveCurrent,
+    maxIterations: liveMax,
+    status: liveStatus,
+  } = useResearchProgress(session.id);
+
   // Extract actual markdown content from potentially JSON-wrapped report
   const reportContent = React.useMemo(() => extractReportContent(session.report), [session.report]);
+
+  // Prefer live Zero columns; fall back to session props while loading / offline cache.
+  const currentIteration = liveCurrent ?? session.currentIteration ?? session.iterations.length;
+  const maxIterations = liveMax ?? session.maxIterations ?? session.iterations.length;
+  const progressLabel =
+    liveLabel ??
+    (currentIteration != null && maxIterations != null
+      ? `${currentIteration}/${maxIterations}`
+      : null);
+  const statusForUi = liveStatus ?? session.status;
+  const isComplete = statusForUi === 'completed';
 
   // Determine confidence from session or infer from iterations
   const confidence =
@@ -309,15 +332,57 @@ export function DeepResearchDetailView({
         </View>
 
         <Card className="mb-4" testID={`${testID}-progress`}>
-          <CardContent className="p-4 gap-1">
+          <CardContent className="p-4 gap-3">
             <Text className="text-foreground font-semibold" testID={`${testID}-status`}>
-              {session.status === 'completed' ? 'Research complete' : 'Research in progress'}
+              {isComplete ? 'Research complete' : 'Research in progress'}
             </Text>
-            <Text className="text-muted-foreground text-sm">
-              Iteration {session.currentIteration ?? session.iterations.length} of{' '}
-              {session.maxIterations ?? session.iterations.length}
-              {session.coverageScore != null ? ` · Coverage ${session.coverageScore}/5` : ''}
-            </Text>
+
+            {/* Live progress bar bound to Zero research_sessions columns */}
+            <View
+              testID="research-progress-bar"
+              accessibilityLabel={
+                progressLabel ? `Research progress ${progressLabel}` : 'Research progress'
+              }
+              accessibilityRole="progressbar"
+              accessibilityValue={{
+                min: 0,
+                max: 100,
+                now: Math.round(
+                  progressPercent > 0
+                    ? progressPercent
+                    : maxIterations
+                      ? ((currentIteration ?? 0) / maxIterations) * 100
+                      : 0
+                ),
+                text: progressLabel ?? undefined,
+              }}
+            >
+              <Progress
+                value={
+                  progressPercent > 0
+                    ? progressPercent
+                    : maxIterations
+                      ? ((currentIteration ?? 0) / maxIterations) * 100
+                      : 0
+                }
+                className="h-2"
+              />
+            </View>
+
+            <View className="flex-row items-center justify-between">
+              <Text className="text-muted-foreground text-sm">
+                Iteration {currentIteration ?? 0} of {maxIterations ?? 0}
+                {session.coverageScore != null ? ` · Coverage ${session.coverageScore}/5` : ''}
+              </Text>
+              {progressLabel != null && (
+                <Text
+                  className="text-muted-foreground text-sm font-medium"
+                  testID="research-progress-label"
+                >
+                  {progressLabel}
+                </Text>
+              )}
+            </View>
           </CardContent>
         </Card>
 

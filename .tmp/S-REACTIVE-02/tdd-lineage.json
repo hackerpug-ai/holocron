@@ -1,0 +1,45 @@
+{
+  "task_id": "S-REACTIVE-02",
+  "tdd_mode": "red_first",
+  "base_sha": "7dc40a0f4e7a556bde5cf8fed4393ea9c7fde037",
+  "implementation_commit_sha": "b9af73df452571c117e23927cf6adab6572db945",
+  "red": {
+    "evidence_file": ".tmp/S-REACTIVE-02/red-output.txt",
+    "against_start_sha": "7dc40a0f4e7a556bde5cf8fed4393ea9c7fde037",
+    "summary": "AC-1 binding failed: hooks/useResearchProgress.ts missing; AC-3 research-progress-bar testID absent on progress surface (2 failed integration tests against start SHA)",
+    "per_ac": {
+      "AC-1": ".tmp/S-REACTIVE-02/AC-1-red-against-start.txt",
+      "AC-3": ".tmp/S-REACTIVE-02/AC-3-red-against-start.txt"
+    }
+  },
+  "green": {
+    "evidence_file": ".tmp/S-REACTIVE-02/AC-1-green.txt",
+    "summary": "Maestro research-progress-advances exit 0: live 1/5\u21922/5\u21923/5 with research-progress-bar; AC-2 zero_pub/researchSessionById greps pass; typecheck exit 0",
+    "per_ac": {
+      "AC-1": ".tmp/S-REACTIVE-02/AC-1-green.txt",
+      "AC-2": ".tmp/S-REACTIVE-02/AC-2-green.txt",
+      "AC-3": ".tmp/S-REACTIVE-02/AC-3-green.txt"
+    }
+  },
+  "distinct_red_green_commits": false,
+  "waiver": {
+    "reason": "Single atomic implementation commit b9af73df on task/S-REACTIVE-02; RED captured against start SHA 7dc40a0f (red-output.txt + AC-1/AC-3-red-against-start.txt) before GREEN. GREEN is Maestro e2e + zero_pub/query greps post-implementation.",
+    "infrastructure_note": "Maestro on iPhone 17 / com.holocron.app with Metro + Zero + holo seed:e2e; progress advanced via Postgres UPDATE + zero_pub WAL (advance-research-iteration.js)."
+  },
+  "fix": {
+    "summary": "Bind research progress UI to research_sessions.current_iteration/max_iterations via useResearchProgress (researchSessionById Zero useQuery); research-progress-bar testID + SafeAreaView; Maestro live 1/5\u21923/5",
+    "files": [
+      "hooks/useResearchProgress.ts",
+      "components/ResearchProgressWithConvex.tsx",
+      "components/deep-research/DeepResearchDetailView.tsx",
+      ".maestro/reactive/research-progress-advances.yml",
+      ".maestro/reactive/run-research-progress-advances.sh",
+      ".maestro/reactive/advance-research-iteration.js",
+      ".maestro/reactive/advance-server.py",
+      "tests/integration/s-reactive-02-research-progress-zero.test.ts"
+    ]
+  },
+  "fix_commit_sha": "b9af73df452571c117e23927cf6adab6572db945",
+  "commit_sha": "536c34ea4270d55fe86d50a16c5c474fe12863c9",
+  "evidence_stamp_commit_sha": "536c34ea4270d55fe86d50a16c5c474fe12863c9"
+}

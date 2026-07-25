@@ -1,0 +1,11 @@
+=== AC-2 zero-pub research_sessions ===
+26:  'research_sessions',
+=== AC-2 researchSessionById ===
+37:/** deep-research-session (alias: researchSessionById) */
+140:/** researchSessionById — api.researchSessions.queries.get */
+141:export const researchSessionById = (sessionId: string) =>
+=== TC-2 schema columns ===
+115:    max_iterations: number().optional(),
+116:    current_iteration: number().optional(),
+362:    current_iteration: number().optional(),
+363:    max_iterations: number().optional(),

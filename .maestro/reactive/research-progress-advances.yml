@@ -1,0 +1,110 @@
+# S-REACTIVE-02 AC-1 / TC-1 — Live research progress via Zero-synced Postgres rows
+# Prerequisite: seed:e2e --reset + Metro (worktree code) + Zero (:4848)
+#   + advance-server.py on :8765 + named iOS Simulator com.holocron.app
+# Progress bar binds to research_sessions.current_iteration/max_iterations via useResearchProgress.
+# Postgres UPDATEs (via advance-server) simulate Sprint 17 engine writes; Zero WAL updates the bar.
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+
+# Dev Client bundle (worktree Metro). Empty MAESTRO_DEV_CLIENT_OPEN_URL is ignored by Expo.
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Reset progress row to 1/5 (simulates start of Sprint 17 workflow)
+- runScript:
+    file: advance-research-iteration.js
+    env:
+      TARGET_ITERATION: "1"
+      MAX_ITERATIONS: "5"
+
+# Seeded active research session deep link
+- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "research-progress-bar"
+    timeout: 90000
+
+- assertVisible:
+    id: "research-progress-bar"
+
+# Oracle: start state 1/5 from Zero-synced columns
+- extendedWaitUntil:
+    visible: "1/5"
+    timeout: 30000
+
+- assertVisible: "1/5"
+- takeScreenshot: S-REACTIVE-02-AC-1-progress-1-of-5
+
+# Engine advance → 2/5 (Postgres write; Zero WAL; no manual refresh)
+- runScript:
+    file: advance-research-iteration.js
+    env:
+      TARGET_ITERATION: "2"
+      MAX_ITERATIONS: "5"
+
+- extendedWaitUntil:
+    visible: "2/5"
+    timeout: 15000
+
+- assertVisible: "2/5"
+- assertVisible:
+    id: "research-progress-bar"
+- takeScreenshot: S-REACTIVE-02-AC-1-progress-2-of-5
+
+# Engine advance → 3/5 (PRIMARY oracle)
+- runScript:
+    file: advance-research-iteration.js
+    env:
+      TARGET_ITERATION: "3"
+      MAX_ITERATIONS: "5"
+
+- extendedWaitUntil:
+    visible: "3/5"
+    timeout: 15000
+
+- assertVisible: "3/5"
+- assertVisible:
+    id: "research-progress-bar"
+
+- takeScreenshot: S-REACTIVE-02-AC-1-progress-3-of-5

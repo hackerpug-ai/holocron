@@ -1,0 +1,25 @@
+harvest-evidence: task=S-REACTIVE-02 manifest=.tmp/S-REACTIVE-02/verify-manifest.json
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test (suite): pnpm test:unit
+  requirements: 4
+  [AC-1] bash .maestro/reactive/run-research-progress-advances.sh
+  [AC-2] grep -n research_sessions services/platform/src/db/schema/zero-pub.ts && grep -n researchSessionById app/zero/queries.ts
+  [TC-1] bash .maestro/reactive/run-research-progress-advances.sh
+  [TC-2] grep -nE 'current_iteration|max_iterations' app/zero/schema.ts
+  archived prior summary → verification-summary.prev-285ea3db2657.json
+
+harvest-evidence: done
+  task:       S-REACTIVE-02
+  commit:     b9af73df
+  typecheck:  exit=0
+  lint:       exit=1 warnings=1
+  evidence:   4 pass, 0 fail (of 4 requirements)
+  output:     .tmp/S-REACTIVE-02/verification-summary.json
+
+  Manual files still needed (if applicable):
+    .tmp/S-REACTIVE-02/red-output.txt                 (if requires_red_evidence)
+    .tmp/S-REACTIVE-02/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/S-REACTIVE-02/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/S-REACTIVE-02/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/S-REACTIVE-02/pre-existing-issues.md         (if pre-existing failures)

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "bash .maestro/reactive/run-research-progress-advances.sh",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REACTIVE-02/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "grep -n research_sessions services/platform/src/db/schema/zero-pub.ts && grep -n researchSessionById app/zero/queries.ts",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REACTIVE-02/ac-2-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "bash .maestro/reactive/run-research-progress-advances.sh",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REACTIVE-02/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "grep -nE 'current_iteration|max_iterations' app/zero/schema.ts",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REACTIVE-02/tc-2-output.txt"
+  }
+]
