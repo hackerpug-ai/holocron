@@ -79,6 +79,7 @@ function buildSessionUpdateEvent(instructions: string) {
   return {
     type: 'session.update',
     session: {
+      type: 'realtime',
       instructions,
       tools: getToolDefinitions(),
       tool_choice: 'auto',

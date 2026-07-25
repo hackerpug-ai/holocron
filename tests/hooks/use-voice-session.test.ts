@@ -59,4 +59,8 @@ describe('useVoiceSession Zero cold-boot', () => {
     expect(VOICE_SRC).toMatch(/stop:/);
     expect(VOICE_SRC).toMatch(/prewarm:/);
   });
+
+  it('sends the required realtime type on warm session updates', () => {
+    expect(VOICE_SRC).toMatch(/type: 'session\.update'[\s\S]*type: 'realtime'/);
+  });
 });
