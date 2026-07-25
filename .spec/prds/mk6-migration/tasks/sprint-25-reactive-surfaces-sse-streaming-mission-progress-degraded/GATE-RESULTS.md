@@ -1,13 +1,14 @@
 # GATE-RESULTS — sprint-25-reactive-surfaces
 
 **verdict:** pass
-**run_id:** s25-ht-20260725T203604Z
-**written_at:** 2026-07-25T20:56:17Z
+**run_id:** s25-ht-20260725T234444Z
+**written_at:** 2026-07-25T23:44:44Z
 **steps:** 5/5 passed
 
-Post-REDHAT-FIX-01..04 re-run on HEAD (cycle-2 G-2 close). This-cycle evidence under `.gate-evidence/`.
+Post-REDHAT-FIX-08 cold-checkout holo dispatch + full human gate re-run on HEAD. This-cycle evidence under `.gate-evidence/`.
 
-- Step 1: pass — Run holo seed:e2e --reset — seeds the Streaming conversation.
+- Step 1: pass — Run `./bin/holo seed:e2e --reset` (or `pnpm seed:e2e`) — seeds the Streaming conversation.
+  - Cold-checkout path: prefer repo-relative `./bin/holo` / `pnpm seed:e2e`; bare PATH `holo` may be a stub limited to `verify:no-convex-client` (exit 127 for `seed:e2e`).
   - Evidence: `.gate-evidence/step-1-seed.log` — `seeded Streaming conversation + 2 messages`, `conversations: 5`
 - Step 2: pass — Send 'Summarize the seeded doc'; stream tokens; airplane mid-stream; reconnect to exactly one final message (no dups).
   - Evidence: `.gate-evidence/step-2-4-reconnect.log` — token/lastSeq ≥3, `chat-assistant-bubble-count-1`, required `Streaming` COMPLETED

@@ -1,10 +1,10 @@
 {
   "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
-  "run_id": "s25-ht-20260725T203604Z",
+  "run_id": "s25-ht-20260725T234444Z",
   "verdict": "pass",
   "runner": "kb-run-sprint-human-test",
   "ui_driver": "maestro",
-  "written_at": "2026-07-25T20:56:17Z",
+  "written_at": "2026-07-25T23:44:44Z",
   "steps_total": 5,
   "steps_executed": 5,
   "steps_passed": 5,
@@ -12,7 +12,7 @@
     {
       "n": 1,
       "type": "terminal",
-      "text": "Run holo seed:e2e --reset \u2014 seeds the Streaming conversation.",
+      "text": "Run ./bin/holo seed:e2e --reset (or pnpm seed:e2e) \u2014 seeds the Streaming conversation. Cold-checkout path; do not rely on bare PATH holo (PATH stub may only implement verify:no-convex-client).",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
@@ -60,5 +60,5 @@
       "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
     }
   ],
-  "notes": "Fresh post-REDHAT-FIX-01..04 human-test cycle on HEAD: Streaming seed (conversations:5); reconnect numeric oracles + single bubble; research 3/5; MCP p95; degraded ROLE_UNAVAILABLE (launchd holocron-mastra unloaded for fleet-only restart)."
+  "notes": "REDHAT-FIX-08: cold-checkout ./bin/holo seed:e2e --reset (PATH holo is a verify:no-convex-client stub). Full 5-step human gate on HEAD: Streaming seed (conversations:5); reconnect numeric oracles + single bubble; research 1/5\u21922/5\u21923/5; MCP p95; degraded ROLE_UNAVAILABLE + Local fleet unavailable banner."
 }

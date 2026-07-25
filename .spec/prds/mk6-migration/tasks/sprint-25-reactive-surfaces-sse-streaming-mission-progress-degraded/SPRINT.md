@@ -37,7 +37,8 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 
 ## Human Test Deliverable
 
-1. Run `holo seed:e2e --reset` — seeds the 'Streaming' conversation.
+1. Run `./bin/holo seed:e2e --reset` (or `pnpm seed:e2e`) — seeds the 'Streaming' conversation.
+   - **Cold-checkout path:** prefer repo-relative `./bin/holo` or `pnpm seed:e2e` / `pnpm exec holo`. Do **not** rely on bare PATH `holo` alone — `~/.local/bin/holo` may be a stub that only implements `verify:no-convex-client` and returns exit 127 for `seed:e2e`.
 2. Send 'Summarize the seeded doc' — the assistant reply streams token-by-token.
 3. Toggle airplane mode mid-stream for 3s then restore — the stream resumes without duplicated tokens.
 4. Wait for completion — the thread shows exactly one final assistant message matching the Zero row.
