@@ -755,6 +755,36 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /** Durable relevance feedback for a feed item; repeated values are idempotent. */
+  app.post('/api/feed-items/:id/feedback', async (c) => {
+    try {
+      const body = (await c.req.json()) as Record<string, unknown>;
+      if (body.feedback !== 'up' && body.feedback !== 'down') {
+        return c.json(
+          { error: 'invalid_feedback', message: 'feedback must be "up" or "down"' },
+          422
+        );
+      }
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'feed feedback' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string; user_feedback: string; user_feedback_at: string }[]>`
+          UPDATE feed_items
+          SET user_feedback = ${body.feedback}, user_feedback_at = now()
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id, user_feedback, user_feedback_at::text
+        `;
+        if (!rows[0]) return c.json({ error: 'not_found', message: 'feed item not found' }, 404);
+        return c.json({ feedItem: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'feed_feedback_error', message }, 422);
+    }
+  });
+
   /** Remove a source and its dependent collected content as one durable operation. */
   app.delete('/api/subscriptions/:id', async (c) => {
     try {

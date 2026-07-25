@@ -4,12 +4,14 @@
 
 import React from 'react';
 import { Pressable, View } from 'react-native';
+import { FeedbackButtons } from '@/components/subscriptions/FeedbackButtons';
 import { SummaryText } from '@/components/subscriptions/SummaryText';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { User } from '@/components/ui/icons';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { Text } from '@/components/ui/text';
+import { useFeedItemFeedback } from '@/hooks/use-feed-item-feedback';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface SearchContentCardProps {
@@ -21,6 +23,8 @@ export interface SearchContentCardProps {
   aiRelevanceScore?: number;
   discoveredAt: number;
   description?: string;
+  /** Linked feed_items.id; enables durable feedback and offline retry. */
+  feedItemId?: string;
   testID?: string;
   onPress?: () => void;
 }
@@ -47,10 +51,12 @@ export const SearchContentCard = React.memo(function SearchContentCard({
   aiRelevanceScore,
   discoveredAt,
   description,
+  feedItemId,
   testID = 'search-content-card',
   onPress,
 }: SearchContentCardProps) {
   const { colors: themeColors } = useTheme();
+  const { currentFeedback, submitFeedback } = useFeedItemFeedback(feedItemId);
   const relevancePercent =
     aiRelevanceScore !== undefined ? `${Math.round(aiRelevanceScore * 100)}%` : null;
 
@@ -137,6 +143,18 @@ export const SearchContentCard = React.memo(function SearchContentCard({
           </View>
         </View>
       </Pressable>
+      {feedItemId && (
+        <View className="px-4 pb-2 items-end" testID={`${testID}-feedback-container`}>
+          <FeedbackButtons
+            findingId={feedItemId}
+            currentFeedback={
+              currentFeedback === 'up' ? 'positive' : currentFeedback === 'down' ? 'negative' : null
+            }
+            onFeedback={(type) => void submitFeedback(type)}
+            testID={`${testID}-feedback`}
+          />
+        </View>
+      )}
     </Card>
   );
 });

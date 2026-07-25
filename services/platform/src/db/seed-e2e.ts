@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 4;
+export const E2E_SEED_VERSION = 5;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -542,12 +542,12 @@ export async function seedE2eDatabase(options?: {
         `INSERT INTO subscription_content (
            id, source_id, content_id, title, url, metadata_json, passed_filter,
            research_status, discovered_at, researched_at, document_id, in_feed,
-           author_handle, content_category, ai_relevance_score, created_at
+           author_handle, content_category, ai_relevance_score, feed_item_id, created_at
          ) VALUES (
            $1::uuid, $2::uuid, $1::text, $3, $4, $5::jsonb, true,
            'researched', now() - ($6::int || ' hours')::interval,
            now() - ($6::int || ' hours')::interval, $7::uuid, true,
-           '@e2e', $8, 0.9, now()
+           '@e2e', $8, 0.9, $9::uuid, now()
          )
          ON CONFLICT (id) DO UPDATE SET
            source_id = EXCLUDED.source_id,
@@ -557,7 +557,8 @@ export async function seedE2eDatabase(options?: {
            research_status = EXCLUDED.research_status,
            document_id = EXCLUDED.document_id,
            content_category = EXCLUDED.content_category,
-           ai_relevance_score = EXCLUDED.ai_relevance_score`,
+           ai_relevance_score = EXCLUDED.ai_relevance_score,
+           feed_item_id = EXCLUDED.feed_item_id`,
         [
           content.id,
           content.sourceId,
@@ -567,6 +568,7 @@ export async function seedE2eDatabase(options?: {
           String(index + 1),
           content.documentId,
           content.category,
+          feedId(index + 1),
         ]
       );
     }

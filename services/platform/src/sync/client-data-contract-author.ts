@@ -87,6 +87,11 @@ export const HONO_ROUTES: readonly HonoRoute[] = [
     purpose: 'Cancel a running chat run.',
   },
   {
+    method: 'POST',
+    path: '/api/feed-items/:id/feedback',
+    purpose: 'Persist explicit feed relevance feedback from the native client.',
+  },
+  {
     method: 'GET',
     path: '/api/chat-runs/:id',
     purpose: 'Fetch a single chat run by id.',
@@ -1391,10 +1396,10 @@ const LEGACY_REF_MAPPINGS: Record<string, LegacyMapping> = {
   'api.subscriptions.feedback.submitFeedback': {
     consumer: 'subscription-feedback',
     target: {
-      kind: 'zero_mutator',
-      table: 'feed_items',
-      name: 'submitSubscriptionFeedback',
-      route: null,
+      kind: 'hono_command',
+      table: null,
+      name: null,
+      route: 'POST /api/feed-items/:id/feedback',
     },
     projection: FEED_ITEM_PROJECTION,
     response_error_shape: ZERO_MUTATOR_ERROR_SHAPE,
@@ -1774,7 +1779,12 @@ const LEGACY_REF_MAPPINGS: Record<string, LegacyMapping> = {
   },
   'api.documents.mutations.publishDocument': {
     consumer: 'document-publish',
-    target: { kind: 'hono_command', table: null, name: null, route: 'POST /api/documents/:id/publish' },
+    target: {
+      kind: 'hono_command',
+      table: null,
+      name: null,
+      route: 'POST /api/documents/:id/publish',
+    },
     projection: DOCUMENT_PROJECTION,
     response_error_shape: HONO_ERROR_SHAPE,
     ordering_cursor: NO_CURSOR,
@@ -1813,7 +1823,12 @@ const LEGACY_REF_MAPPINGS: Record<string, LegacyMapping> = {
   },
   'api.imports.mutations.createImport': {
     consumer: 'article-import',
-    target: { kind: 'hono_command', table: null, name: null, route: 'POST /api/documents/:id/import' },
+    target: {
+      kind: 'hono_command',
+      table: null,
+      name: null,
+      route: 'POST /api/documents/:id/import',
+    },
     projection: DOCUMENT_PROJECTION,
     response_error_shape: HONO_ERROR_SHAPE,
     ordering_cursor: NO_CURSOR,

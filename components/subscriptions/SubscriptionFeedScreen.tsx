@@ -38,6 +38,7 @@ type FeedContent = {
   aiRelevanceScore?: number;
   discoveredAt: number;
   description?: string;
+  feedItemId?: string;
 };
 
 function categoryForContent(item: FeedContent): Exclude<FeedCategory, 'all'> {
@@ -82,6 +83,7 @@ export function SubscriptionFeedScreen({
       author_handle?: string | null;
       thumbnail_url?: string | null;
       ai_relevance_score?: number | null;
+      feed_item_id?: string | null;
       discovered_at?: number | null;
       metadata_json?: { description?: string } | string | null;
     }>;
@@ -94,6 +96,7 @@ export function SubscriptionFeedScreen({
         authorHandle: item.author_handle ?? undefined,
         thumbnailUrl: item.thumbnail_url ?? undefined,
         aiRelevanceScore: item.ai_relevance_score ?? undefined,
+        feedItemId: item.feed_item_id ?? undefined,
         discoveredAt: item.discovered_at ?? Date.now(),
         description: descriptionFromMetadata(item.metadata_json),
       }))
@@ -163,6 +166,7 @@ export function SubscriptionFeedScreen({
             aiRelevanceScore={item.aiRelevanceScore ?? undefined}
             discoveredAt={item.discoveredAt}
             description={item.description}
+            feedItemId={item.feedItemId}
             testID={`${testID}-search-result-${item.id}`}
             onPress={item.url ? () => openUrl(item.url ?? '') : undefined}
           />
@@ -284,6 +288,7 @@ export function SubscriptionFeedScreen({
             aiRelevanceScore={item.aiRelevanceScore}
             discoveredAt={item.discoveredAt}
             description={item.description}
+            feedItemId={item.feedItemId}
             testID={`${testID}-item-${item.id}`}
             onPress={item.url ? () => openUrl(item.url ?? '') : undefined}
           />

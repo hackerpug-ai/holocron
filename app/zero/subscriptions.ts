@@ -37,3 +37,11 @@ export async function updateSubscriptionAutoResearch(
 export async function deleteSubscription(id: string): Promise<void> {
   await command(`/api/subscriptions/${id}`, { method: 'DELETE' });
 }
+
+/** Persist a feed item's explicit relevance feedback. Safe to retry with the same value. */
+export async function submitFeedItemFeedback(id: string, feedback: 'up' | 'down'): Promise<void> {
+  await command(`/api/feed-items/${id}/feedback`, {
+    method: 'POST',
+    json: { feedback },
+  });
+}
