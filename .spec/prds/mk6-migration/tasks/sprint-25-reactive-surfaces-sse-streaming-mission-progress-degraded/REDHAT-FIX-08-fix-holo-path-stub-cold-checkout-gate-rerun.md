@@ -1,5 +1,9 @@
 # REDHAT-FIX-08 — Fix the `holo` PATH stub — wire cold-checkout dispatch via repo `./bin/holo` → `services/platform/src/cli/holo.ts` so gate step 1 (`seed:e2e`) is re-runnable; re-run full 5-step gate and commit fresh `gate-results.json`
-> Status: Backlog
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: 06ab3c3c82c341f2c6050f1142ca27c341366b7d
+> Reviewer: product-manager+react-native-ui-reviewer
+> Completed: 2026-07-25T23:54:25Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 30 min
@@ -322,7 +326,8 @@ git status --porcelain -- hooks/use-resumable-sse-stream.ts services/platform/sr
 - Preferred durable fix: document + use `./bin/holo seed:e2e --reset` or `pnpm seed:e2e`; keep package.json bin; operator PATH symlink optional only.
 - Suggested commit message after implementation: `fix(sprint-25): cold-checkout holo seed:e2e dispatcher + fresh gate-results (F-E1/G-2)`
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
