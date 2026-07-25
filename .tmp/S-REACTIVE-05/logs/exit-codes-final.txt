@@ -1,0 +1,14 @@
+reconnect-exactly-once 0 2026-07-25T14:43:22Z
+token-streaming 1 2026-07-25T14:44:35Z
+cancel-stops-stream 0 2026-07-25T14:45:48Z
+token-streaming 1 2026-07-25T14:47:35Z
+research-progress-advances 0 2026-07-25T14:48:03Z
+cross-surface-sync-slo 0 2026-07-25T14:48:38Z
+degraded-no-hang 1 2026-07-25T14:49:34Z
+degraded-recovery 1 2026-07-25T14:49:34Z
+degraded-no-hang 1
+degraded-recovery 1
+degraded-no-hang EXIT:0
+degraded-recovery EXIT:1
+degraded-recovery EXIT:1
+degraded-recovery EXIT:1

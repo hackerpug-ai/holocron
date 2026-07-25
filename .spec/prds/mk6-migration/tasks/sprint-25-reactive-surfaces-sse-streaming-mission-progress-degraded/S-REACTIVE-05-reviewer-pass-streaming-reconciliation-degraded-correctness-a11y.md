@@ -1,9 +1,9 @@
 # S-REACTIVE-05: Reviewer pass — streaming/reconciliation/degraded correctness + a11y
-> Status: Backlog
+> Status: Completed (capstone ACs PASS; sprint closure BLOCKED by child FAIL)
 
 - **Sprint:** [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 - **Task Type:** `FEATURE`
-- **Status:** `Backlog`
+- **Status:** `Completed`
 - **Priority:** `P0`
 - **Effort:** `M`
 - **Estimate:** `120 minutes`
@@ -46,6 +46,7 @@ This is Sprint 25's capstone review task (UC-SYNC-02; T-SYNC-005/006/007, T-INFE
 
 ## Acceptance Criteria
 ### AC-1: Review artifact cites all four tasks with evidence-backed per-AC verdicts [PRIMARY]
+- [x] **PASS** — Artifact at `.spec/reviews/sprint-25-review-artifact.md` cites S-REACTIVE-01/02/03/04 with per-AC PASS/FAIL/WARN + Maestro exit + file paths; evidence under `.tmp/S-REACTIVE-05/`. (Sprint closure still BLOCKED by child FAIL rows documented in the artifact.)
 - **GIVEN:** S-REACTIVE-01/02/03/04 are implemented and their `.maestro/reactive/*.yml` flows exist
 - **WHEN:** the reviewer runs every flow on a named iOS Simulator after `holo seed:e2e --reset` and audits theme/a11y/testID compliance
 - **THEN:** the review artifact exists, cites all four tasks, and backs each verdict with a Maestro exit code + file path
@@ -57,6 +58,7 @@ This is Sprint 25's capstone review task (UC-SYNC-02; T-SYNC-005/006/007, T-INFE
   - **Case 1** — start_ref `reactive-surfaces-implementation`: actor `reviewer`; steps: run all `.maestro/reactive/*.yml` flows, inspect code for theme/a11y/testID compliance, write the artifact citing all four tasks with per-AC verdicts → MUST observe the artifact exists at `.spec/reviews/sprint-25-review-artifact.md`, cites the 4 task IDs `S-REACTIVE-01,02,03,04` (count `4`), each task has per-AC verdicts (`PASS`/`FAIL`/`WARN`), each verdict row includes `>=1` file path + the Maestro exit code; MUST NOT observe the artifact missing/empty (`0` bytes), verdicts missing (`0` PASS/FAIL rows), wrong sprint/task IDs, or a task omitted (count `<4`)
 
 ### AC-2: Streaming reconnect re-verified — zero duplicate tokens [PRIMARY]
+- [x] **PASS** — `maestro test .maestro/reactive/reconnect-exactly-once.yml` exit `0`; 0 duplicate tokens; artifact cites `T-SYNC-006` PASS; screenshot `.tmp/S-REACTIVE-05/screenshots/S-REACTIVE-01-AC-2-reconnect-exactly-once.png`
 - **GIVEN:** S-REACTIVE-01 is implemented
 - **WHEN:** the reviewer runs the reconnect flow
 - **THEN:** the flow passes with `0` duplicate tokens and the artifact cites `T-SYNC-006` PASS

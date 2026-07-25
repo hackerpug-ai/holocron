@@ -1,0 +1,47 @@
+{
+  "token-streaming": {
+    "exit": 1,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/token-streaming.txt",
+    "bytes": 4634
+  },
+  "reconnect-exactly-once": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/reconnect-exactly-once.txt",
+    "bytes": 4361
+  },
+  "exactly-one-final-message": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/exactly-one-final-message.txt",
+    "bytes": 3342
+  },
+  "last-event-id-gap-fill": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/last-event-id-gap-fill.txt",
+    "bytes": 3961
+  },
+  "cancel-stops-stream": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/cancel-stops-stream.txt",
+    "bytes": 4328
+  },
+  "research-progress-advances": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/research-progress-advances.txt",
+    "bytes": 2997
+  },
+  "cross-surface-sync-slo": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/cross-surface-sync-slo.txt",
+    "bytes": 3727
+  },
+  "degraded-no-hang": {
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/degraded-no-hang.txt",
+    "bytes": 7620
+  },
+  "degraded-recovery": {
+    "exit": 1,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/degraded-recovery.txt",
+    "bytes": 5443
+  }
+}
