@@ -161,18 +161,22 @@ export const assimilationSessionById = (sessionId: string) =>
  * toolbeltDocumentsByOwner — api.toolbelt.queries.list
  * toolbelt_tools is excluded from zero_pub; entries surface as documents.
  */
-const TOOLBELT_CATEGORIES = [
-  'libraries',
-  'cli',
-  'framework',
-  'service',
-  'database',
-  'tool',
-] as const;
-
 export const toolbeltDocumentsByOwner = (limit = 100) =>
   builder.documents
-    .where('category', 'IN', TOOLBELT_CATEGORIES)
+    // Keep this as a compound predicate instead of `IN` with an array literal.
+    // Zero's incremental CVR maintenance must re-evaluate an inserted row against
+    // each category; the literal-array form produced the initial rows but failed
+    // to add fresh Toolbelt captures to an existing live query.
+    .where(({ cmp, or }) =>
+      or(
+        cmp('category', '=', 'libraries'),
+        cmp('category', '=', 'cli'),
+        cmp('category', '=', 'framework'),
+        cmp('category', '=', 'service'),
+        cmp('category', '=', 'database'),
+        cmp('category', '=', 'tool')
+      )
+    )
     .orderBy('created_at', 'desc')
     .limit(limit);
 
