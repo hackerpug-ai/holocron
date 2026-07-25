@@ -220,7 +220,7 @@ export function ImprovementActionBottomSheet({
               onPress={() => setViewState('menu')}
               testID={`${testID}-cancel-delete`}
             >
-              Cancel
+              <Text>Cancel</Text>
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive"
@@ -228,7 +228,7 @@ export function ImprovementActionBottomSheet({
               testID={`${testID}-confirm-delete`}
               disabled={isDeleting}
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              <Text className="text-white">{isDeleting ? 'Deleting...' : 'Delete'}</Text>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

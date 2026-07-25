@@ -1,7 +1,8 @@
-import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
+import { deleteImprovement, updateImprovement } from '@/app/zero/improvements';
 import { improvementRequestById } from '@/app/zero/queries';
 import { ImprovementActionMenu } from '@/components/improvements/ImprovementActionMenu';
 import { ImprovementDetailView } from '@/components/improvements/ImprovementDetailView';
@@ -40,7 +41,6 @@ export default function ImprovementDetailScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const zero = useZero();
 
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
@@ -57,32 +57,20 @@ export default function ImprovementDetailScreen() {
 
   const handleToggleStatus = async () => {
     if (!requestId || !row) return;
-    const data = row as ImprovementRow;
-    const nextStatus = data.status === 'open' ? 'closed' : 'open';
-    await zero.mutate.improvement_requests.update({
-      id: requestId,
-      status: nextStatus,
-      updated_at: Date.now(),
-      closed_at: nextStatus === 'closed' ? Date.now() : null,
-    });
+    await updateImprovement(requestId, { status: isClosed ? 'pending' : 'completed' });
   };
 
   const handleSaveEdit = async (title: string, description: string) => {
     if (!requestId) return;
-    await zero.mutate.improvement_requests.update({
-      id: requestId,
-      title,
-      description,
-      updated_at: Date.now(),
-    });
+    await updateImprovement(requestId, { title, description });
     setEditSheetOpen(false);
   };
 
   const handleDelete = async () => {
     if (!requestId) return;
-    await zero.mutate.improvement_requests.delete({ id: requestId });
+    await deleteImprovement(requestId);
     setActionMenuOpen(false);
-    router.back();
+    router.replace('/improvements');
   };
 
   if (row === undefined) {

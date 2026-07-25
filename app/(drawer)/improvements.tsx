@@ -1,7 +1,8 @@
-import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable } from 'react-native';
+import { deleteImprovement, updateImprovement } from '@/app/zero/improvements';
 import { improvementRequestById, improvementRequestsByOwner } from '@/app/zero/queries';
 import { ImprovementActionBottomSheet } from '@/components/improvements/ImprovementActionMenu';
 import { ImprovementEditSheet } from '@/components/improvements/ImprovementEditSheet';
@@ -28,7 +29,6 @@ type ImprovementRow = {
  */
 export default function ImprovementsRoute() {
   const router = useRouter();
-  const zero = useZero();
   const [sheetVisible, setSheetVisible] = useState(false);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [editSheetId, setEditSheetId] = useState<string | null>(null);
@@ -78,17 +78,12 @@ export default function ImprovementsRoute() {
   };
 
   const handleDelete = async (id: string) => {
-    await zero.mutate.improvement_requests.delete({ id });
+    await deleteImprovement(id);
   };
 
   const handleSaveEdit = async (title: string, description: string) => {
     if (!editSheetId) return;
-    await zero.mutate.improvement_requests.update({
-      id: editSheetId,
-      title,
-      description,
-      updated_at: Date.now(),
-    });
+    await updateImprovement(editSheetId, { title, description });
     setEditSheetId(null);
   };
 

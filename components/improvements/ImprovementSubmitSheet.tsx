@@ -11,7 +11,6 @@
  * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
-import { useZero } from '@rocicorp/zero/react';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,6 +33,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createImprovement } from '@/app/zero/improvements';
 import { finalizeUpload, initUpload, putUpload, sha256HexOfBytes } from '@/app/zero/platform';
 import { X } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
@@ -74,9 +74,6 @@ export function ImprovementSubmitSheet({
   // ── Local state ──────────────────────────────────────────────────────────
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ── Zero mutator + Hono upload ───────────────────────────────────────────
-  const zero = useZero();
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
@@ -133,25 +130,16 @@ export function ImprovementSubmitSheet({
     setIsSubmitting(true);
 
     try {
-      const requestId =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `imp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const now = Date.now();
       const title =
         description.trim().length > 60
           ? `${description.trim().slice(0, 57)}...`
           : description.trim();
 
-      await zero.mutate.improvement_requests.insert({
-        id: requestId,
+      const requestId = await createImprovement({
         description: description.trim(),
         title,
-        status: 'open',
-        source_screen: sourceComponent ?? 'unknown',
-        source_component: sourceComponent ?? null,
-        created_at: now,
-        updated_at: now,
+        sourceScreen: sourceComponent ?? 'unknown',
+        sourceComponent: sourceComponent ?? null,
       });
 
       if (screenshotUri) {

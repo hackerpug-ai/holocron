@@ -314,6 +314,106 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /** Durable native improvement creation. */
+  app.post('/api/improvements', async (c) => {
+    try {
+      const body = (await c.req.json()) as Record<string, unknown>;
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      const description = typeof body.description === 'string' ? body.description.trim() : '';
+      if (!title || !description) {
+        return c.json(
+          { error: 'invalid_improvement', message: 'title and description are required' },
+          422
+        );
+      }
+      const sourceScreen = typeof body.sourceScreen === 'string' ? body.sourceScreen : null;
+      const sourceComponent =
+        typeof body.sourceComponent === 'string' ? body.sourceComponent : null;
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'improvement create' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string }[]>`
+          INSERT INTO improvement_requests (id, title, description, status, source_screen, source_component)
+          VALUES (${crypto.randomUUID()}::uuid, ${title}, ${description}, 'pending', ${sourceScreen}, ${sourceComponent})
+          RETURNING id::text AS id
+        `;
+        return c.json({ improvement: rows[0] }, 201);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'improvement_create_error', message }, 422);
+    }
+  });
+
+  /** Durable native improvement edit and open/closed transition. */
+  app.patch('/api/improvements/:id', async (c) => {
+    try {
+      const body = (await c.req.json()) as Record<string, unknown>;
+      const title = typeof body.title === 'string' ? body.title.trim() : undefined;
+      const description =
+        typeof body.description === 'string' ? body.description.trim() : undefined;
+      const status =
+        body.status === 'pending' || body.status === 'completed' ? body.status : undefined;
+      if ((title !== undefined && !title) || (description !== undefined && !description)) {
+        return c.json(
+          { error: 'invalid_improvement', message: 'text fields must not be empty' },
+          422
+        );
+      }
+      if (title === undefined && description === undefined && status === undefined) {
+        return c.json({ error: 'invalid_improvement', message: 'no changes supplied' }, 422);
+      }
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'improvement update' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string }[]>`
+          UPDATE improvement_requests
+          SET title = COALESCE(${title ?? null}, title),
+              description = COALESCE(${description ?? null}, description),
+              status = COALESCE(${status ?? null}, status),
+              closed_at = CASE WHEN ${status ?? null} = 'completed' THEN now() WHEN ${status ?? null} = 'pending' THEN NULL ELSE closed_at END,
+              processed_at = CASE WHEN ${status ?? null} = 'completed' THEN now() WHEN ${status ?? null} = 'pending' THEN NULL ELSE processed_at END,
+              updated_at = now()
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id
+        `;
+        if (!rows[0]) return c.json({ error: 'not_found', message: 'improvement not found' }, 404);
+        return c.json({ improvement: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'improvement_update_error', message }, 422);
+    }
+  });
+
+  /** Durable native improvement removal. */
+  app.delete('/api/improvements/:id', async (c) => {
+    try {
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'improvement delete' });
+      const sql = createSql(databaseUrl);
+      try {
+        const deleted = await sql.begin(async (tx) => {
+          await tx`DELETE FROM improvement_images WHERE request_id = ${c.req.param('id')}`;
+          const rows = await tx<{ id: string }[]>`
+            DELETE FROM improvement_requests WHERE id = ${c.req.param('id')}::uuid RETURNING id::text AS id
+          `;
+          return rows[0];
+        });
+        if (!deleted) return c.json({ error: 'not_found', message: 'improvement not found' }, 404);
+        return c.json({ deleted: true, id: deleted.id }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'improvement_delete_error', message }, 422);
+    }
+  });
+
   /** Durable append for the native article import modal. */
   app.post('/api/documents/:id/import', async (c) => {
     try {
