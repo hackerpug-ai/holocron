@@ -383,43 +383,106 @@ function parseEventData(data: string): Record<string, unknown> {
 }
 
 /**
- * Hook: real EventSource SSE client with Last-Event-ID resume.
+ * Production SSE session controller (REDHAT-FIX-04).
+ *
+ * Owns the SAME assemblyRef + openEventSource reconnect path the React hook uses.
+ * Integration tests import this unit directly so wiping production assemblyRef
+ * before reconnect fails Last-Event-ID / unique-assembly assertions — without
+ * reimplementing reconnect in a local harness variable (REDHAT-FIX-03 anti-pattern).
  */
-export function useResumableSSEStream(
-  options: UseResumableSSEStreamOptions = {}
-): UseResumableSSEStreamReturn {
+export type ResumableSseControllerSnapshot = {
+  phase: ChatStreamPhase;
+  runId: string | null;
+  durableMessageId: string | null;
+  streamedText: string;
+  lastSeq: number;
+  tokenCount: number;
+  error: Error | null;
+  degradedMessage: string | null;
+  resumeTransport: ResumeTransport;
+  isActive: boolean;
+};
+
+export type ResumableSseController = {
+  /** Production assembly box — reconnect reads lastSeq for Last-Event-ID. */
+  readonly assemblyRef: { current: TokenAssemblyState };
+  getSnapshot: () => ResumableSseControllerSnapshot;
+  connect: (args: { runId: string; durableMessageId: string }) => void;
+  cancel: () => Promise<void>;
+  reset: () => void;
+  enterDegradedFromEnvelope: (envelope: FleetFailureEnvelope) => boolean;
+  /**
+   * Drive F-RECON-01 online/offline reconnect (production online handler).
+   * Prefer this over vi.mock(useNetworkStatus) for Node integration tests.
+   */
+  setOnline: (isOnline: boolean) => void;
+  dispose: () => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+export type CreateResumableSseControllerOptions = UseResumableSSEStreamOptions & {
+  /** Initial online state (default true). */
+  initialIsOnline?: boolean;
+  /** Override reconnect retry delay (default 250ms) — tests may lower. */
+  reconnectDelayMs?: number;
+};
+
+export function createResumableSseController(
+  options: CreateResumableSseControllerOptions = {}
+): ResumableSseController {
   const platformUrl = options.platformUrl ?? process.env.EXPO_PUBLIC_PLATFORM_URL;
   const apiKey = options.apiKey ?? process.env.EXPO_PUBLIC_RN_API_KEY;
   const disableStatusPollFallback = options.disableStatusPollFallback === true;
+  const reconnectDelayMs = options.reconnectDelayMs ?? 250;
 
-  const [phase, setPhase] = useState<ChatStreamPhase>('idle');
-  const [runId, setRunId] = useState<string | null>(null);
-  const [durableMessageId, setDurableMessageId] = useState<string | null>(null);
-  const [streamedText, setStreamedText] = useState('');
-  const [lastSeq, setLastSeq] = useState(0);
-  const [tokenCount, setTokenCount] = useState(0);
-  const [error, setError] = useState<Error | null>(null);
-  const [degradedMessage, setDegradedMessage] = useState<string | null>(null);
-  const [resumeTransport, setResumeTransport] = useState<ResumeTransport>('none');
+  const assemblyRef: { current: TokenAssemblyState } = {
+    current: { lastSeq: 0, text: '', tokenCount: 0 },
+  };
+  let phase: ChatStreamPhase = 'idle';
+  let runId: string | null = null;
+  let durableMessageId: string | null = null;
+  let streamedText = '';
+  let lastSeq = 0;
+  let tokenCount = 0;
+  let error: Error | null = null;
+  let degradedMessage: string | null = null;
+  let resumeTransport: ResumeTransport = 'none';
+  let isOnline = options.initialIsOnline !== false;
 
-  const esRef = useRef<LiveSseHandle | null>(null);
-  const assemblyRef = useRef<TokenAssemblyState>({ lastSeq: 0, text: '', tokenCount: 0 });
-  const phaseRef = useRef<ChatStreamPhase>('idle');
-  const runIdRef = useRef<string | null>(null);
-  const intentionalCloseRef = useRef(false);
-  const resumeTransportRef = useRef<ResumeTransport>('none');
-  const { isOnline } = useNetworkStatus();
+  let esHandle: LiveSseHandle | null = null;
+  let intentionalClose = false;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let pollCancelled = true;
+  const listeners = new Set<() => void>();
 
-  const setPhaseBoth = useCallback((next: ChatStreamPhase) => {
-    phaseRef.current = next;
-    setPhase(next);
-    setDegradedMessage(next === 'degraded' ? SURFACE_UNAVAILABLE_MESSAGE : null);
-  }, []);
+  const emit = () => {
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        /* ignore subscriber errors */
+      }
+    }
+  };
 
-  const closeSource = useCallback((intentional: boolean) => {
-    intentionalCloseRef.current = intentional;
-    const es = esRef.current;
-    esRef.current = null;
+  const setPhaseBoth = (next: ChatStreamPhase) => {
+    phase = next;
+    degradedMessage = next === 'degraded' ? SURFACE_UNAVAILABLE_MESSAGE : null;
+    emit();
+  };
+
+  const applyAssembly = (next: TokenAssemblyState) => {
+    assemblyRef.current = next;
+    lastSeq = next.lastSeq;
+    streamedText = next.text;
+    tokenCount = next.tokenCount;
+    emit();
+  };
+
+  const closeSource = (intentional: boolean) => {
+    intentionalClose = intentional;
+    const es = esHandle;
+    esHandle = null;
     if (es) {
       try {
         es.close();
@@ -427,243 +490,319 @@ export function useResumableSSEStream(
         // ignore
       }
     }
-  }, []);
+  };
 
-  const applyAssembly = useCallback((next: TokenAssemblyState) => {
-    assemblyRef.current = next;
-    setLastSeq(next.lastSeq);
-    setStreamedText(next.text);
-    setTokenCount(next.tokenCount);
-  }, []);
+  const stopPoll = () => {
+    pollCancelled = true;
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  };
 
-  // Prefer ref text when React state lags one frame after terminal (AC-2/AC-4).
-  const streamedTextStable = streamedText.length > 0 ? streamedText : assemblyRef.current.text;
-  const openEventSource = useCallback(
-    (targetRunId: string, afterSeq: number) => {
-      if (!platformUrl || !apiKey) {
-        setError(new Error('Platform URL or RN API key is not configured'));
-        setPhaseBoth('idle');
+  const startPollIfNeeded = () => {
+    stopPoll();
+    if (disableStatusPollFallback) return;
+    if (phase !== 'reconnecting' || !runId || !platformUrl || !apiKey) return;
+    pollCancelled = false;
+    const activeRunId = runId;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${activeRunId}`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!res.ok || pollCancelled) return;
+        const body = (await res.json()) as {
+          status?: string;
+          finalText?: string;
+          lastEventId?: number;
+        };
+        if (pollCancelled) return;
+        const status = body.status;
+        if (status === 'completed' || status === 'failed') {
+          if (typeof body.finalText === 'string' && body.finalText.length > 0) {
+            applyAssembly({
+              lastSeq: Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0),
+              text: body.finalText,
+              tokenCount: assemblyRef.current.tokenCount,
+            });
+          }
+          if (resumeTransport !== 'sse') {
+            resumeTransport = 'poll';
+          }
+          if (status === 'failed') {
+            const fleet = applyFleetFailureEnvelope({
+              phase: 'reconnecting',
+              status,
+              error: body.finalText,
+              text: body.finalText,
+              message: body.finalText,
+            });
+            if (fleet.isDegraded) {
+              error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
+              setPhaseBoth('degraded');
+              closeSource(true);
+              stopPoll();
+              return;
+            }
+          }
+          setPhaseBoth('complete');
+          closeSource(true);
+          stopPoll();
+          return;
+        }
+        if (status === 'blocked') {
+          setPhaseBoth('cancelled');
+          closeSource(true);
+          stopPoll();
+        }
+      } catch {
+        // ignore transient poll errors
+      }
+    };
+    void poll();
+    pollTimer = setInterval(() => {
+      void poll();
+    }, 1000);
+  };
+
+  // openEventSource is recursive via onError retry — declare before assign.
+  let openEventSource: (targetRunId: string, afterSeq: number) => void = () => {};
+
+  openEventSource = (targetRunId: string, afterSeq: number) => {
+    if (!platformUrl || !apiKey) {
+      error = new Error('Platform URL or RN API key is not configured');
+      setPhaseBoth('idle');
+      return;
+    }
+
+    closeSource(true);
+
+    const url = `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${targetRunId}/events`;
+    intentionalClose = false;
+
+    // Always send Last-Event-ID on connect/reconnect so the server
+    // replays only seq > afterSeq (never full replay → no duplicates).
+    const resumeFrom = assemblyRef.current.lastSeq || afterSeq;
+    const headers = buildSseResumeHeaders({ apiKey, lastSeq: resumeFrom });
+
+    const finishTerminal = (nextPhase: ChatStreamPhase, finalText?: string) => {
+      if (typeof finalText === 'string' && finalText.length > 0) {
+        // Prefer server final text when present (authoritative for complete).
+        // Preserve tokenCount from applied token events (do not invent tokens).
+        applyAssembly({
+          lastSeq: assemblyRef.current.lastSeq,
+          text: finalText,
+          tokenCount: assemblyRef.current.tokenCount,
+        });
+      }
+      setPhaseBoth(nextPhase);
+      closeSource(true);
+      stopPoll();
+    };
+
+    const handleNamedEvent = (eventName: string, data: string, id: string) => {
+      const seq = parseSeq(id);
+      const payload = parseEventData(data);
+
+      if (eventName === 'token') {
+        const token = typeof payload.token === 'string' ? payload.token : '';
+        if (!token) return;
+        const next = applyTokenEvent(assemblyRef.current, seq, token);
+        if (next !== assemblyRef.current) {
+          applyAssembly(next);
+        }
+        // SSE path provenance (REDHAT-FIX-03 AC-4) — not poll bailout
+        if (phase === 'reconnecting' || resumeFrom > 0) {
+          resumeTransport = 'sse';
+        }
+        if (phase === 'reconnecting') {
+          setPhaseBoth('streaming');
+          stopPoll();
+        } else if (phase !== 'streaming') {
+          setPhaseBoth('streaming');
+        } else {
+          emit();
+        }
         return;
       }
 
-      closeSource(true);
-
-      const url = `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${targetRunId}/events`;
-      intentionalCloseRef.current = false;
-
-      // Always send Last-Event-ID on connect/reconnect so the server
-      // replays only seq > afterSeq (never full replay → no duplicates).
-      const resumeFrom = assemblyRef.current.lastSeq || afterSeq;
-      const headers = buildSseResumeHeaders({ apiKey, lastSeq: resumeFrom });
-
-      const finishTerminal = (nextPhase: ChatStreamPhase, finalText?: string) => {
-        if (typeof finalText === 'string' && finalText.length > 0) {
-          // Prefer server final text when present (authoritative for complete).
-          // Preserve tokenCount from applied token events (do not invent tokens).
-          applyAssembly({
-            lastSeq: assemblyRef.current.lastSeq,
-            text: finalText,
-            tokenCount: assemblyRef.current.tokenCount,
+      if (eventName === 'terminal') {
+        if (seq > assemblyRef.current.lastSeq) {
+          assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
+          lastSeq = seq;
+        }
+        const status = typeof payload.status === 'string' ? payload.status : 'completed';
+        const text = typeof payload.text === 'string' ? payload.text : undefined;
+        const errText = typeof payload.error === 'string' ? payload.error : undefined;
+        if (status === 'failed') {
+          const fleet = applyFleetFailureEnvelope({
+            phase: 'streaming',
+            error: errText,
+            message: errText,
+            status,
+            text,
+            code: typeof payload.code === 'string' ? payload.code : undefined,
           });
-        }
-        setPhaseBoth(nextPhase);
-        closeSource(true);
-      };
-
-      const handleNamedEvent = (eventName: string, data: string, id: string) => {
-        const seq = parseSeq(id);
-        const payload = parseEventData(data);
-
-        if (eventName === 'token') {
-          const token = typeof payload.token === 'string' ? payload.token : '';
-          if (!token) return;
-          const next = applyTokenEvent(assemblyRef.current, seq, token);
-          if (next !== assemblyRef.current) {
-            applyAssembly(next);
-          }
-          // SSE path provenance (REDHAT-FIX-03 AC-4) — not poll bailout
-          if (phaseRef.current === 'reconnecting' || resumeFrom > 0) {
-            resumeTransportRef.current = 'sse';
-            setResumeTransport('sse');
-          }
-          if (phaseRef.current === 'reconnecting') {
-            setPhaseBoth('streaming');
-          } else if (phaseRef.current !== 'streaming') {
-            setPhaseBoth('streaming');
-          }
-          return;
-        }
-
-        if (eventName === 'terminal') {
-          if (seq > assemblyRef.current.lastSeq) {
-            assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
-            setLastSeq(seq);
-          }
-          const status = typeof payload.status === 'string' ? payload.status : 'completed';
-          const text = typeof payload.text === 'string' ? payload.text : undefined;
-          const errText = typeof payload.error === 'string' ? payload.error : undefined;
-          if (status === 'failed') {
-            const fleet = applyFleetFailureEnvelope({
-              phase: 'streaming',
-              error: errText,
-              message: errText,
-              status,
-              text,
-              code: typeof payload.code === 'string' ? payload.code : undefined,
-            });
-            if (fleet.isDegraded) {
-              setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
-              // Do not keep a spinner-producing stream phase — degraded is terminal UX.
-              finishTerminal('degraded', text);
-              return;
-            }
-            setError(new Error(errText ?? 'chat run failed'));
-            finishTerminal('complete', text);
+          if (fleet.isDegraded) {
+            error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
+            finishTerminal('degraded', text);
             return;
           }
+          error = new Error(errText ?? 'chat run failed');
           finishTerminal('complete', text);
           return;
         }
-
-        if (eventName === 'blocked') {
-          if (seq > assemblyRef.current.lastSeq) {
-            assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
-            setLastSeq(seq);
-          }
-          const code = typeof payload.code === 'string' ? payload.code : 'BLOCKED';
-          if (code === 'CHAT_RUN_CANCELLED') {
-            // Keep partial assembled text so AC-5 can assert the bubble remains.
-            const text = typeof payload.text === 'string' ? payload.text : undefined;
-            finishTerminal('cancelled', text);
-            return;
-          }
-          const blockMsg =
-            typeof payload.message === 'string' ? payload.message : `chat blocked: ${code}`;
-          const fleet = applyFleetFailureEnvelope({
-            phase: 'streaming',
-            code,
-            message: blockMsg,
-            error: blockMsg,
-          });
-          if (fleet.isDegraded) {
-            setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
-            finishTerminal('degraded');
-            return;
-          }
-          setError(new Error(blockMsg));
-          finishTerminal('complete');
-          return;
-        }
-
-        if (eventName === 'error') {
-          const code = typeof payload.code === 'string' ? payload.code : 'SSE_ERROR';
-          const errMsg =
-            typeof payload.message === 'string'
-              ? payload.message
-              : typeof payload.error === 'string'
-                ? payload.error
-                : `SSE error: ${code}`;
-          const fleet = applyFleetFailureEnvelope({
-            phase: phaseRef.current,
-            code,
-            message: errMsg,
-            error: errMsg,
-          });
-          if (fleet.isDegraded) {
-            setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
-            finishTerminal('degraded');
-            return;
-          }
-          setError(new Error(`SSE error: ${code}`));
-          if (code === 'CHAT_RUN_NOT_FOUND') {
-            finishTerminal('complete');
-          }
-        }
-      };
-
-      // Progressive XHR SSE against the real platform EventSource endpoint.
-      // (WhatWG eventsource package is retained as a dependency; RN transport is
-      // XHR because fetch bodies lack getReader and delivered zero live tokens.)
-      const es = openProgressiveSse(url, headers, {
-        onOpen: () => {
-          if (phaseRef.current === 'reconnecting') {
-            setPhaseBoth('streaming');
-          }
-        },
-        onEvent: ({ event, data, id }) => {
-          handleNamedEvent(event, data, id);
-        },
-        onError: () => {
-          if (intentionalCloseRef.current) return;
-          if (phaseRef.current === 'streaming' || phaseRef.current === 'reconnecting') {
-            setPhaseBoth('reconnecting');
-            closeSource(true);
-            const resumeRunId = runIdRef.current;
-            if (resumeRunId) {
-              setTimeout(() => {
-                if (
-                  runIdRef.current === resumeRunId &&
-                  (phaseRef.current === 'reconnecting' || phaseRef.current === 'streaming')
-                ) {
-                  openEventSource(resumeRunId, assemblyRef.current.lastSeq);
-                }
-              }, 250);
-            }
-          }
-        },
-      });
-
-      esRef.current = es;
-    },
-    [apiKey, applyAssembly, closeSource, platformUrl, setPhaseBoth]
-  );
-
-  const connect = useCallback(
-    (args: { runId: string; durableMessageId: string }) => {
-      const { runId: nextRunId, durableMessageId: nextDurable } = args;
-      if (!nextRunId) return;
-      // F-ID-01: refuse connect without durableMessageId from POST create response
-      if (!nextDurable || typeof nextDurable !== 'string' || nextDurable.trim().length === 0) {
-        setError(new Error('durableMessageId is required before streaming'));
-        setPhaseBoth('idle');
+        finishTerminal('complete', text);
         return;
       }
 
-      // Reset assembly for a new run (also clears degraded → recovery path)
-      assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
-      applyAssembly(assemblyRef.current);
-      setError(null);
-      setDegradedMessage(null);
-      resumeTransportRef.current = 'none';
-      setResumeTransport('none');
-      setRunId(nextRunId);
-      runIdRef.current = nextRunId;
-      setDurableMessageId(nextDurable);
-      setPhaseBoth('streaming');
-      openEventSource(nextRunId, 0);
-    },
-    [applyAssembly, openEventSource, setPhaseBoth]
-  );
+      if (eventName === 'blocked') {
+        if (seq > assemblyRef.current.lastSeq) {
+          assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
+          lastSeq = seq;
+        }
+        const code = typeof payload.code === 'string' ? payload.code : 'BLOCKED';
+        if (code === 'CHAT_RUN_CANCELLED') {
+          const text = typeof payload.text === 'string' ? payload.text : undefined;
+          finishTerminal('cancelled', text);
+          return;
+        }
+        const blockMsg =
+          typeof payload.message === 'string' ? payload.message : `chat blocked: ${code}`;
+        const fleet = applyFleetFailureEnvelope({
+          phase: 'streaming',
+          code,
+          message: blockMsg,
+          error: blockMsg,
+        });
+        if (fleet.isDegraded) {
+          error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
+          finishTerminal('degraded');
+          return;
+        }
+        error = new Error(blockMsg);
+        finishTerminal('complete');
+        return;
+      }
 
-  const enterDegradedFromEnvelope = useCallback(
-    (envelope: FleetFailureEnvelope): boolean => {
-      const fleet = applyFleetFailureEnvelope({
-        phase: phaseRef.current,
-        ...envelope,
-      });
-      if (!fleet.isDegraded) return false;
+      if (eventName === 'error') {
+        const code = typeof payload.code === 'string' ? payload.code : 'SSE_ERROR';
+        const errMsg =
+          typeof payload.message === 'string'
+            ? payload.message
+            : typeof payload.error === 'string'
+              ? payload.error
+              : `SSE error: ${code}`;
+        const fleet = applyFleetFailureEnvelope({
+          phase,
+          code,
+          message: errMsg,
+          error: errMsg,
+        });
+        if (fleet.isDegraded) {
+          error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
+          finishTerminal('degraded');
+          return;
+        }
+        error = new Error(`SSE error: ${code}`);
+        if (code === 'CHAT_RUN_NOT_FOUND') {
+          finishTerminal('complete');
+        } else {
+          emit();
+        }
+      }
+    };
+
+    // Progressive XHR SSE against the real platform EventSource endpoint.
+    const es = openProgressiveSse(url, headers, {
+      onOpen: () => {
+        if (phase === 'reconnecting') {
+          setPhaseBoth('streaming');
+          stopPoll();
+        }
+      },
+      onEvent: ({ event, data, id }) => {
+        handleNamedEvent(event, data, id);
+      },
+      onError: () => {
+        if (intentionalClose) return;
+        if (phase === 'streaming' || phase === 'reconnecting') {
+          setPhaseBoth('reconnecting');
+          closeSource(true);
+          startPollIfNeeded();
+          const resumeRunId = runId;
+          if (resumeRunId) {
+            setTimeout(() => {
+              if (runId === resumeRunId && (phase === 'reconnecting' || phase === 'streaming')) {
+                // Production reconnect site A (XHR onError retry) — assemblyRef.lastSeq
+                // is the Last-Event-ID source. REDHAT-FIX-04 mutant inserts wipe HERE.
+                openEventSource(resumeRunId, assemblyRef.current.lastSeq);
+              }
+            }, reconnectDelayMs);
+          }
+        }
+      },
+    });
+
+    esHandle = es;
+  };
+
+  const setOnline = (nextOnline: boolean) => {
+    const wasOnline = isOnline;
+    isOnline = nextOnline;
+    // F-RECON-01: offline → close EventSource; online → always re-open with Last-Event-ID
+    if (!isOnline && (phase === 'streaming' || phase === 'reconnecting')) {
+      setPhaseBoth('reconnecting');
       closeSource(true);
-      setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
-      setDegradedMessage(SURFACE_UNAVAILABLE_MESSAGE);
-      setPhaseBoth('degraded');
-      return true;
-    },
-    [closeSource, setPhaseBoth]
-  );
+      startPollIfNeeded();
+      return;
+    }
+    if (isOnline && !wasOnline && phase === 'reconnecting' && runId) {
+      // Production reconnect site B (online handler) — assemblyRef.lastSeq is the
+      // Last-Event-ID source. REDHAT-FIX-04 mutant inserts wipe HERE.
+      openEventSource(runId, assemblyRef.current.lastSeq);
+    }
+  };
 
-  const cancel = useCallback(async () => {
-    const id = runIdRef.current;
+  const connect = (args: { runId: string; durableMessageId: string }) => {
+    const { runId: nextRunId, durableMessageId: nextDurable } = args;
+    if (!nextRunId) return;
+    if (!nextDurable || typeof nextDurable !== 'string' || nextDurable.trim().length === 0) {
+      error = new Error('durableMessageId is required before streaming');
+      setPhaseBoth('idle');
+      return;
+    }
+
+    assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
+    applyAssembly(assemblyRef.current);
+    error = null;
+    degradedMessage = null;
+    resumeTransport = 'none';
+    runId = nextRunId;
+    durableMessageId = nextDurable;
+    setPhaseBoth('streaming');
+    openEventSource(nextRunId, 0);
+  };
+
+  const enterDegradedFromEnvelope = (envelope: FleetFailureEnvelope): boolean => {
+    const fleet = applyFleetFailureEnvelope({
+      phase,
+      ...envelope,
+    });
+    if (!fleet.isDegraded) return false;
     closeSource(true);
+    stopPoll();
+    error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
+    degradedMessage = SURFACE_UNAVAILABLE_MESSAGE;
+    setPhaseBoth('degraded');
+    return true;
+  };
+
+  const cancel = async () => {
+    const id = runId;
+    closeSource(true);
+    stopPoll();
 
     if (id && platformUrl && apiKey) {
       try {
@@ -676,147 +815,148 @@ export function useResumableSSEStream(
           body: JSON.stringify({}),
         });
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('cancel failed'));
+        error = err instanceof Error ? err : new Error('cancel failed');
       }
     }
 
     setPhaseBoth('cancelled');
-  }, [apiKey, closeSource, platformUrl, setPhaseBoth]);
+  };
 
-  const reset = useCallback(() => {
+  const reset = () => {
     closeSource(true);
-    runIdRef.current = null;
-    setRunId(null);
-    setDurableMessageId(null);
+    stopPoll();
+    runId = null;
+    durableMessageId = null;
     assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
     applyAssembly(assemblyRef.current);
-    setError(null);
-    setDegradedMessage(null);
-    resumeTransportRef.current = 'none';
-    setResumeTransport('none');
+    error = null;
+    degradedMessage = null;
+    resumeTransport = 'none';
     setPhaseBoth('idle');
-  }, [applyAssembly, closeSource, setPhaseBoth]);
+  };
 
-  // F-RECON-01: offline → close EventSource + clear esRef; online → always re-open with Last-Event-ID
-  useEffect(() => {
-    if (!isOnline && (phaseRef.current === 'streaming' || phaseRef.current === 'reconnecting')) {
-      setPhaseBoth('reconnecting');
-      // Tear down the live socket so we do not leave a half-dead ES hanging;
-      // online handler always re-opens with Last-Event-ID from assemblyRef.
+  const getSnapshot = (): ResumableSseControllerSnapshot => {
+    const streamedTextStable = streamedText.length > 0 ? streamedText : assemblyRef.current.text;
+    const isActive: boolean =
+      phase === 'streaming' ||
+      phase === 'reconnecting' ||
+      phase === 'complete' ||
+      phase === 'cancelled';
+    return {
+      phase,
+      runId,
+      durableMessageId,
+      streamedText: streamedTextStable,
+      lastSeq,
+      tokenCount,
+      error,
+      degradedMessage:
+        phase === 'degraded' ? (degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE) : null,
+      resumeTransport,
+      isActive,
+    };
+  };
+
+  return {
+    assemblyRef,
+    getSnapshot,
+    connect,
+    cancel,
+    reset,
+    enterDegradedFromEnvelope,
+    setOnline,
+    dispose: () => {
       closeSource(true);
-      return;
-    }
-    if (isOnline && phaseRef.current === 'reconnecting' && runIdRef.current) {
-      // Always re-open (do not gate on !esRef) so restore is deterministic.
-      openEventSource(runIdRef.current, assemblyRef.current.lastSeq);
-    }
-  }, [isOnline, openEventSource, setPhaseBoth, closeSource]);
+      stopPoll();
+      listeners.clear();
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
 
-  // Gap-fill safety net: while reconnecting, poll run status so a completed
-  // run still finalizes even if EventSource resume is flaky after airplane mode.
-  // REDHAT-FIX-03 M2: disableStatusPollFallback lets tests prove the SSE path
-  // (poll must not sole-greenwash a broken Last-Event-ID).
+/**
+ * Hook: real EventSource SSE client with Last-Event-ID resume.
+ * Thin React adapter over createResumableSseController (production path).
+ */
+export function useResumableSSEStream(
+  options: UseResumableSSEStreamOptions = {}
+): UseResumableSSEStreamReturn {
+  const platformUrl = options.platformUrl ?? process.env.EXPO_PUBLIC_PLATFORM_URL;
+  const apiKey = options.apiKey ?? process.env.EXPO_PUBLIC_RN_API_KEY;
+  const disableStatusPollFallback = options.disableStatusPollFallback === true;
+  const { isOnline } = useNetworkStatus();
+
+  const controllerRef = useRef<ResumableSseController | null>(null);
+  if (controllerRef.current == null) {
+    controllerRef.current = createResumableSseController({
+      platformUrl,
+      apiKey,
+      disableStatusPollFallback,
+      initialIsOnline: true,
+    });
+  }
+  const controller = controllerRef.current;
+
+  const [, setTick] = useState(0);
   useEffect(() => {
-    if (disableStatusPollFallback) return;
-    if (phase !== 'reconnecting' || !runId || !platformUrl || !apiKey) return;
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${runId}`, {
-          headers: { Authorization: `Bearer ${apiKey}` },
-        });
-        if (!res.ok || cancelled) return;
-        const body = (await res.json()) as {
-          status?: string;
-          finalText?: string;
-          lastEventId?: number;
-        };
-        if (cancelled) return;
-        const status = body.status;
-        if (status === 'completed' || status === 'failed') {
-          if (typeof body.finalText === 'string' && body.finalText.length > 0) {
-            applyAssembly({
-              lastSeq: Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0),
-              text: body.finalText,
-              tokenCount: assemblyRef.current.tokenCount,
-            });
-          }
-          // Mark poll provenance only when SSE has not already resumed
-          if (resumeTransportRef.current !== 'sse') {
-            resumeTransportRef.current = 'poll';
-            setResumeTransport('poll');
-          }
-          if (status === 'failed') {
-            const fleet = applyFleetFailureEnvelope({
-              phase: 'reconnecting',
-              status,
-              error: body.finalText,
-              text: body.finalText,
-              message: body.finalText,
-            });
-            if (fleet.isDegraded) {
-              setError(new Error(SURFACE_UNAVAILABLE_MESSAGE));
-              setPhaseBoth('degraded');
-              closeSource(true);
-              return;
-            }
-          }
-          setPhaseBoth('complete');
-          closeSource(true);
-          return;
-        }
-        if (status === 'blocked') {
-          setPhaseBoth('cancelled');
-          closeSource(true);
-        }
-      } catch {
-        // ignore transient poll errors
-      }
-    };
-    void poll();
-    const timer = setInterval(() => {
-      void poll();
-    }, 1000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [
-    phase,
-    runId,
-    platformUrl,
-    apiKey,
-    applyAssembly,
-    setPhaseBoth,
-    closeSource,
-    disableStatusPollFallback,
-  ]);
+    return controller.subscribe(() => {
+      setTick((n) => n + 1);
+    });
+  }, [controller]);
+
+  // F-RECON-01: bridge NetInfo isOnline into production controller online handler
+  useEffect(() => {
+    controller.setOnline(isOnline);
+  }, [controller, isOnline]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      closeSource(true);
+      controller.dispose();
+      controllerRef.current = null;
     };
-  }, [closeSource]);
+  }, [controller]);
 
-  // Degraded is terminal UX (banner) — not an active stream (no spinner hang).
-  const isActive: boolean =
-    phase === 'streaming' ||
-    phase === 'reconnecting' ||
-    phase === 'complete' ||
-    phase === 'cancelled';
+  const snap = controller.getSnapshot();
+
+  const connect = useCallback(
+    (args: { runId: string; durableMessageId: string }) => {
+      controller.connect(args);
+    },
+    [controller]
+  );
+
+  const cancel = useCallback(async () => {
+    await controller.cancel();
+  }, [controller]);
+
+  const reset = useCallback(() => {
+    controller.reset();
+  }, [controller]);
+
+  const enterDegradedFromEnvelope = useCallback(
+    (envelope: FleetFailureEnvelope): boolean => {
+      return controller.enterDegradedFromEnvelope(envelope);
+    },
+    [controller]
+  );
 
   return {
-    phase,
-    runId,
-    durableMessageId,
-    streamedText: streamedTextStable,
-    lastSeq,
-    tokenCount,
-    error,
-    degradedMessage: phase === 'degraded' ? (degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE) : null,
-    isActive,
-    resumeTransport,
+    phase: snap.phase,
+    runId: snap.runId,
+    durableMessageId: snap.durableMessageId,
+    streamedText: snap.streamedText,
+    lastSeq: snap.lastSeq,
+    tokenCount: snap.tokenCount,
+    error: snap.error,
+    degradedMessage: snap.degradedMessage,
+    isActive: snap.isActive,
+    resumeTransport: snap.resumeTransport,
     connect,
     cancel,
     reset,
