@@ -44,6 +44,21 @@ export const E2E_DOCUMENT_CATEGORIES = [
   'ai-roi',
 ] as const;
 
+const E2E_IMPROVEMENTS = [
+  {
+    id: e2eUuid('e', 1),
+    title: 'E2E Improvement Open',
+    description: 'A deterministic open improvement for native list, search, and detail coverage.',
+    status: 'pending',
+  },
+  {
+    id: e2eUuid('e', 2),
+    title: 'E2E Improvement Closed',
+    description: 'A deterministic completed improvement for the closed status filter.',
+    status: 'completed',
+  },
+] as const;
+
 const E2E_WHATS_NEW_FINDINGS = [
   {
     title: 'E2E Discovery: Native testing bridge',
@@ -301,6 +316,22 @@ export async function seedE2eDatabase(options?: {
       );
     }
     messages_log.push('seeded 5 feed_items');
+
+    // ── improvement_requests (representative open + closed list states) ──
+    for (const improvement of E2E_IMPROVEMENTS) {
+      await sql.unsafe(
+        `INSERT INTO improvement_requests (id, title, description, status, source_screen, created_at, updated_at, processed_at)
+         VALUES ($1::uuid, $2, $3, $4, 'e2e-seed', now(), now(), CASE WHEN $4 = 'completed' THEN now() ELSE NULL END)
+         ON CONFLICT (id) DO UPDATE SET
+           title = EXCLUDED.title,
+           description = EXCLUDED.description,
+           status = EXCLUDED.status,
+           processed_at = EXCLUDED.processed_at,
+           updated_at = now()`,
+        [improvement.id, improvement.title, improvement.description, improvement.status]
+      );
+    }
+    messages_log.push('seeded 2 improvement_requests');
 
     // ── whats_new_reports (1 report with representative external findings) ─
     await sql.unsafe(

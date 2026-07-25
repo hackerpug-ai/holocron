@@ -57,7 +57,9 @@ export default function ImprovementsRoute() {
     _id: req.id,
     title: req.title ?? undefined,
     description: req.description ?? '',
-    status: (req.status === 'closed' ? 'closed' : 'open') as 'open' | 'closed',
+    status: (['closed', 'completed', 'cancelled', 'canceled'].includes(req.status)
+      ? 'closed'
+      : 'open') as 'open' | 'closed',
     createdAt: req.created_at,
     images: undefined as undefined,
     mergedFromIds: req.merged_from_ids as string[] | undefined,

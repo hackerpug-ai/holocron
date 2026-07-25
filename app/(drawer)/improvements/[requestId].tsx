@@ -50,11 +50,9 @@ export default function ImprovementDetailScreen() {
   });
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.navigate('/improvements');
-    }
+    // Deep links can leave an unrelated screen beneath this route. Returning
+    // explicitly keeps the detail flow anchored to its owning list.
+    router.replace('/improvements');
   };
 
   const handleToggleStatus = async () => {
@@ -142,13 +140,14 @@ export default function ImprovementDetailScreen() {
   }
 
   const data = row as ImprovementRow;
+  const isClosed = ['closed', 'completed', 'cancelled', 'canceled'].includes(data.status);
   const request = {
     _id: data.id,
     id: data.id,
     title: data.title ?? undefined,
     description: data.description ?? '',
     summary: data.summary ?? undefined,
-    status: data.status,
+    status: (isClosed ? 'closed' : 'open') as 'closed' | 'open',
     sourceScreen: data.source_screen ?? undefined,
     sourceComponent: data.source_component ?? undefined,
     agentDecision: data.agent_decision,
