@@ -1,0 +1,91 @@
+[run-degraded-recovery] restore-server ready on http://127.0.0.1:8767
+[run-degraded-recovery] fleet_pid=51482 platform_pid=51502
+[run-degraded-recovery] fleet-down for recovery phase A: stop pid 51482
+[run-degraded-recovery] fleet reaper pid=53991 (stopped by restore-server on /restore)
+[run-degraded-recovery] fleet unreachable on :4545 (good for phase A degraded)
+[run-degraded-recovery] platform fleet-only for recovery phase A
+[run-degraded-recovery] platform health ok (fleet-only)
+[run-degraded-recovery] envelope probe ok runId=84b95997-6d4c-423f-b5b3-ae861aac2700 status=failed code=ROLE_UNAVAILABLE
+[run-degraded-recovery] maestro test degraded-recovery.yml
+WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/jansi-2.4.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running on iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+ > Flow degraded-recovery
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
+WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+Launch app "${MAESTRO_APP_ID}"... COMPLETED
+Wait for animation to end... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that (Optional) "DEVELOPMENT SERVERS" is visible... WARNED
+
+
+ Warning: Assertion is false: "DEVELOPMENT SERVERS" is visible
+Run flow when "DEVELOPMENT SERVERS" is visible...
+Run flow when "DEVELOPMENT SERVERS" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Assert that (Optional) "Downloading" is not visible... COMPLETED
+Open ${MAESTRO_CHAT_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible...
+  Wait for animation to end... COMPLETED
+  Open ${MAESTRO_CHAT_URL}... COMPLETED
+  Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible... COMPLETED
+Run flow when id: chat-screen is not visible...
+  Wait for animation to end... COMPLETED
+  Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+  Wait for animation to end... COMPLETED
+  Open ${MAESTRO_CHAT_URL}... COMPLETED
+  Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible... COMPLETED
+Open ${MAESTRO_CHAT_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-input-field is visible... COMPLETED
+Tap on id: chat-input-field... COMPLETED
+Erase text... COMPLETED
+Input text Trigger degraded before restore... COMPLETED
+Assert that id: chat-input-send-button is visible... COMPLETED
+Tap on id: chat-input-send-button... COMPLETED
+Assert that "Local fleet unavailable — running in reduced mode" is visible... COMPLETED
+Assert that id: chat-degraded-banner is visible... COMPLETED
+Run restore-fleet-for-recovery.js... COMPLETED
+Wait for animation to end... COMPLETED
+Tap on id: chat-input-field... COMPLETED
+Erase text... COMPLETED
+Input text Recover after fleet restore... COMPLETED
+Assert that id: chat-input-send-button is visible... COMPLETED
+Tap on id: chat-input-send-button... COMPLETED
+Assert that id: chat-degraded-banner is not visible... COMPLETED
+Assert that "Local fleet unavailable — running in reduced mode" is not visible... FAILED
+
+Assertion is false: "Local fleet unavailable — running in reduced mode" is not visible
+
+Assertion '"Local fleet unavailable — running in reduced mode" is not visible' failed. Check the UI hierarchy in debug artifacts to verify the element state and properties.
+
+Possible causes:
+- Element selector may be incorrect - check if there are similar elements with slightly different names/properties.
+- Element may be temporarily unavailable due to loading state
+- This could be a real regression that needs to be addressed
+
+==== Debug output (logs & screenshots) ====
+
+/Users/inference1/.maestro/tests/2026-07-25_085833
+.maestro/reactive/run-degraded-recovery.sh: line 252: 53991 Terminated: 15          ( while [[ ! -f "$EVIDENCE_DIR/fleet-reaper.stop" ]]; do
+    kill_port_listeners 4545 1; sleep 0.4;
+done ) > /dev/null 2>&1
+.maestro/reactive/run-degraded-recovery.sh: line 252: 54021 Killed: 9               nohup bun services/platform/src/cli/holo.ts service:up >> "$EVIDENCE_DIR/platform-recovery-phase-a.log" 2>&1
+[run-degraded-recovery] maestro exit=1
+EXIT:1
+EXIT:1
