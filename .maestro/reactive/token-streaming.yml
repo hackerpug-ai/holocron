@@ -163,8 +163,9 @@ appId: ${MAESTRO_APP_ID}
       - assertVisible:
           id: "chat-assistant-message-streaming"
 
-# Multi-token body proof: token-count threshold is the authoritative must_observe
+# Multi-token body proof: token-count threshold is the mid-stream must_observe
 # (Markdown accessibility often does not expose individual words to XCTest).
+# Token-count oracles unmount when streamPhase → idle after reconcile.
 - extendedWaitUntil:
     visible:
       id: "chat-stream-token-count-at-least-3"
@@ -177,9 +178,16 @@ appId: ${MAESTRO_APP_ID}
     timeout: 30000
     optional: true
 
-# Final must_observe: at least one of (token>=1 already asserted) + new-turn bubble
-# Re-assert token growth is still mounted (phase not idle with zero tokens)
+# End-state must_observe: durable NEW-turn bubble with content.
+# Do NOT re-assert chat-stream-token-count-at-least-1 after stream ends —
+# renderStreamStatus returns null when streamPhase === 'idle' (oracles unmount).
+# Mid-stream assert of token-count-at-least-1 (above) already proved growth.
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
 - assertVisible:
-    id: "chat-stream-token-count-at-least-1"
+    id: "chat-assistant-message-latest"
 
 - takeScreenshot: S-REACTIVE-01-AC-1-token-streaming

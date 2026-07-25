@@ -1,8 +1,8 @@
 {
   "token-streaming": {
-    "exit": 1,
-    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/token-streaming.txt",
-    "bytes": 4634
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S25-ORACLES/.tmp/S-REACTIVE-05/logs/token-streaming.txt",
+    "bytes": 4177
   },
   "reconnect-exactly-once": {
     "exit": 0,
@@ -40,8 +40,8 @@
     "bytes": 7620
   },
   "degraded-recovery": {
-    "exit": 1,
-    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-05/.tmp/S-REACTIVE-05/logs/degraded-recovery.txt",
-    "bytes": 5443
+    "exit": 0,
+    "log": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S25-ORACLES/.tmp/S-REACTIVE-05/logs/degraded-recovery.txt",
+    "bytes": 7936
   }
 }
