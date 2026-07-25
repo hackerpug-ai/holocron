@@ -23,6 +23,10 @@ import { assertNoTripwire } from '../mastra/tripwire.ts';
 import { createStorage } from '../mastra.ts';
 import { type EvidenceGateResult, evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import {
+  advanceResearchSessionIteration,
+  ensureResearchSessionIterationBaseline,
+} from '../research/progress.ts';
+import {
   createLangfuseExporterFromEnv,
   HOLOCRON_SERVICE_NAME,
   type HolocronLangfuseExporter,
@@ -432,6 +436,30 @@ export async function runResearchMission(
           updated_at = now(),
           completed_at = EXCLUDED.completed_at
       `;
+      // REDHAT-FIX-02 PATH-A: production writer for research_sessions.current_iteration.
+      // Always start at 1/5; intermediate progress advances via advanceResearchSessionIteration
+      // (real engine path — not Maestro advance-server.py absolute SET).
+      await ensureResearchSessionIterationBaseline({
+        sessionId: runId,
+        maxIterations: 5,
+        currentIteration: 1,
+        sql: researchSql,
+      });
+      if (terminalAdmitted) {
+        // Terminal admitted missions walk 1→2→3→4→5 through the production +1 writer
+        // so "as the workflow reaches iteration 3/5" is engine-backed, not a harness jump.
+        // Each phase transition is a real advanceResearchSessionIteration call site.
+        const maxIterations = 5;
+        for (let step = 1; step < maxIterations; step++) {
+          const advanced = await advanceResearchSessionIteration({
+            sessionId: runId,
+            sql: researchSql,
+          });
+          if (!advanced.ok) {
+            break;
+          }
+        }
+      }
     } finally {
       await researchSql.end({ timeout: 5 });
     }

@@ -266,6 +266,9 @@ Usage:
   gate:eval                  Pure-TS evidence admission gate (--claims/--refuting <json>)
   research:inspect <id>      Inspect durable research phases and gate provenance
   research:trace <id>        Show durable research process trace (--processes)
+  research:advance-iteration <id>
+                            PATH-A: +1 research_sessions.current_iteration (production writer)
+                            Optional second positional: steps (default 1)
   chat:trace <id>            Show chat event/tool-loop trace
   chat:route <id>            Show chat triage and bound specialist route
   ci runner:status         Fail-closed self-hosted runner probe (labels online)
@@ -3797,6 +3800,86 @@ async function main(): Promise<void> {
           ok: false,
           error: error instanceof Error ? error.message : String(error),
           code: 'RESEARCH_INSPECTION_FAILED',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(1);
+      }
+      break;
+    }
+
+    /**
+     * REDHAT-FIX-02 PATH-A production surface:
+     * advance research_sessions.current_iteration via the real engine writer
+     * (services/platform/src/research/progress.ts) — never advance-server.py.
+     *
+     *   holo research:advance-iteration <session-id> [steps=1] [--json]
+     */
+    case 'research:advance-iteration': {
+      const sessionId = args.positional[1];
+      if (!sessionId) {
+        const payload = {
+          ok: false,
+          error: 'research:advance-iteration requires <research-session-id>',
+          code: 'RESEARCH_SESSION_ID_REQUIRED',
+          usage: 'holo research:advance-iteration <session-id> [steps] [--json]',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      const stepsRaw = args.positional[2];
+      const steps = stepsRaw != null && stepsRaw.length > 0 ? Math.floor(Number(stepsRaw)) : 1;
+      if (!Number.isFinite(steps) || steps < 1 || steps > 50) {
+        const payload = {
+          ok: false,
+          error: 'research:advance-iteration steps must be an integer 1..50',
+          code: 'ITERATION_BOUNDS',
+        };
+        if (args.json) console.log(JSON.stringify(payload, null, 2));
+        else console.error(payload.error);
+        process.exit(2);
+      }
+      try {
+        const { advanceResearchSessionIteration } = await import('../research/progress.ts');
+        const advances: Array<Record<string, unknown>> = [];
+        let lastOk = false;
+        let last: Record<string, unknown> | null = null;
+        for (let i = 0; i < steps; i++) {
+          const result = await advanceResearchSessionIteration({ sessionId });
+          advances.push(result as unknown as Record<string, unknown>);
+          last = result as unknown as Record<string, unknown>;
+          lastOk = result.ok;
+          if (!result.ok) break;
+        }
+        const payload = {
+          ok: lastOk,
+          sessionId,
+          stepsRequested: steps,
+          stepsApplied: advances.filter((a) => a.ok === true).length,
+          advances,
+          result: last,
+        };
+        if (args.json) {
+          console.log(JSON.stringify(payload, null, 2));
+        } else if (lastOk && last) {
+          console.log('holo research:advance-iteration');
+          console.log(`  sessionId:         ${sessionId}`);
+          console.log(`  stepsApplied:      ${payload.stepsApplied}/${steps}`);
+          console.log(`  currentIteration:  ${String(last.currentIteration ?? '?')}`);
+          console.log(`  maxIterations:     ${String(last.maxIterations ?? '?')}`);
+          console.log('  status:            OK');
+        } else {
+          console.error(
+            `research:advance-iteration failed: ${String(last?.error ?? 'unknown')} (${String(last?.errorCode ?? 'ERROR')})`
+          );
+        }
+        process.exit(lastOk ? 0 : 1);
+      } catch (error) {
+        const payload = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+          code: 'RESEARCH_ADVANCE_FAILED',
         };
         if (args.json) console.log(JSON.stringify(payload, null, 2));
         else console.error(payload.error);

@@ -10,6 +10,7 @@ import { createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
+import { advanceResearchSessionIteration } from '../research/progress.ts';
 import { canonicalJsonValue } from './canonical-json.ts';
 import { MissionRuntimeError } from './runtime.ts';
 
@@ -74,6 +75,18 @@ export type MissionCycleResult = {
     admission: MissionCycleAdmission;
     assayText: string;
     challengeText: string;
+  };
+  /**
+   * REDHAT-FIX-02 PATH-A: when a research_sessions row shares this run id,
+   * each successful mid-run cycle advances current_iteration by 1.
+   * Undefined when no linked research session exists (non-research missions).
+   */
+  researchProgress?: {
+    advanced: boolean;
+    previousIteration?: number;
+    currentIteration?: number;
+    maxIterations?: number;
+    errorCode?: string;
   };
 };
 
@@ -593,6 +606,28 @@ export async function runMissionCycle(
       admission,
     });
 
+    // REDHAT-FIX-02 PATH-A: production engine advances research_sessions.current_iteration
+    // on each mid-run cycle when a research session row is keyed by this run id
+    // (mission-research inserts research_sessions.id = runId). Non-research missions
+    // receive RESEARCH_SESSION_NOT_FOUND and are left untouched.
+    const progress = await advanceResearchSessionIteration({
+      sessionId: normalized,
+      sql,
+    });
+    const researchProgress = progress.ok
+      ? {
+          advanced: true as const,
+          previousIteration: progress.previousIteration,
+          currentIteration: progress.currentIteration,
+          maxIterations: progress.maxIterations,
+        }
+      : progress.errorCode === 'RESEARCH_SESSION_NOT_FOUND'
+        ? undefined
+        : {
+            advanced: false as const,
+            errorCode: progress.errorCode,
+          };
+
     return {
       ok: true,
       runId: normalized,
@@ -606,6 +641,7 @@ export async function runMissionCycle(
         assayText: assayCall.text,
         challengeText: challengeCall.text,
       },
+      researchProgress,
     };
   } finally {
     await sql.end({ timeout: 5 });
