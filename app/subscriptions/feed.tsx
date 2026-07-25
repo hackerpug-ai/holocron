@@ -1,5 +1,5 @@
-import { ScreenLayout } from '@/components/ui/screen-layout';
 import { SubscriptionFeedScreen } from '@/components/subscriptions/SubscriptionFeedScreen';
+import { ScreenLayout } from '@/components/ui/screen-layout';
 
 /**
  * Subscription feed route.
