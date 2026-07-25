@@ -40,6 +40,16 @@ type ResearchIterationRow = {
   created_at: number;
 };
 
+function textFromJson(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === 'string' ? parsed : value;
+  } catch {
+    return value;
+  }
+}
+
 function mapSession(row: ResearchSessionRow | undefined | null) {
   if (!row) return null;
   return {
@@ -127,7 +137,7 @@ export function useDeepResearchSession(sessionId: string | null) {
     coverageScore: iter.coverage_score ?? undefined,
     feedback: iter.feedback ?? undefined,
     refinedQueries: (iter.refined_queries as string[] | undefined) ?? undefined,
-    findings: iter.findings as string | undefined,
+    findings: textFromJson(iter.findings),
     sources: Array.isArray(iter.sources)
       ? iter.sources.filter(
           (source): source is { title?: string; url?: string } =>
