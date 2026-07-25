@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, useWindowDimensions, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useAgentActivity } from '@/hooks/use-agent-activity';
+import type { ChatStreamPhase } from '@/hooks/use-resumable-sse-stream';
 import type { MessageRole, MessageType } from '@/lib/types/conversations';
 import { AgentActivityIndicator } from './AgentActivityIndicator';
 import { MessageActionsSheet } from './MessageActionsSheet';
@@ -37,6 +38,15 @@ export interface ChatThreadProps {
   onDeleteMessage?: (messageId: string) => void;
   /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
   streamingMessageId?: string | null;
+  /**
+   * Unified chat-thread stream state machine (S-REACTIVE-01).
+   * idle | streaming | reconnecting | complete | cancelled
+   */
+  streamPhase?: ChatStreamPhase;
+  /** Last SSE seq observed (Last-Event-ID resume cursor) — for e2e oracles */
+  streamLastSeq?: number;
+  /** Count of applied token events (zero-dup invariant) */
+  streamTokenCount?: number;
   /** Navigate to a document with optional highlight at a specific block */
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
   /** Callback when a single recommendation is saved to KB */
@@ -64,6 +74,9 @@ export function ChatThread({
   onWhatsNewReportPress,
   onDeleteMessage,
   streamingMessageId = null,
+  streamPhase = 'idle',
+  streamLastSeq = 0,
+  streamTokenCount = 0,
   onDocumentContextNavigate,
   onSaveRecommendation,
   onSaveRecommendationList,
@@ -91,8 +104,9 @@ export function ChatThread({
       return false;
     })();
 
+  const isStreamLive = streamPhase === 'streaming' || streamPhase === 'reconnecting';
   const effectiveShowTypingIndicator =
-    showTypingIndicator && !hasActiveResearchCard && !streamingMessageId;
+    showTypingIndicator && !hasActiveResearchCard && !streamingMessageId && !isStreamLive;
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
 
@@ -100,13 +114,15 @@ export function ChatThread({
   const { phase, toolName } = useAgentActivity({ threadId: undefined });
   const aaiActive = phase !== 'idle';
 
-  // Auto-scroll to bottom when new messages are added or typing indicator appears
+  // Auto-scroll to bottom when new messages are added, typing indicator, or stream grows
   // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
   useEffect(() => {
-    if (messages.length > 0 || effectiveShowTypingIndicator) {
+    // streamTokenCount intentionally triggers scroll as token text grows in-place
+    if (streamTokenCount < 0) return;
+    if (messages.length > 0 || effectiveShowTypingIndicator || isStreamLive) {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
-  }, [messages.length, effectiveShowTypingIndicator]);
+  }, [messages.length, effectiveShowTypingIndicator, isStreamLive, streamTokenCount]);
 
   // Handle card press - navigate to document screen
   const handleCardPress = useCallback(
@@ -206,6 +222,52 @@ export function ChatThread({
     return <TypingIndicator />;
   };
 
+  const renderStreamStatus = () => {
+    if (streamPhase === 'idle') return null;
+    return (
+      <View
+        className="px-4 py-1"
+        accessibilityRole="text"
+        accessibilityLabel={`Chat stream status ${streamPhase}`}
+      >
+        {streamPhase === 'reconnecting' ? (
+          <View
+            className="flex-row items-center gap-2 self-start rounded-full border border-border bg-muted/40 px-3 py-1"
+            testID="chat-reconnecting-indicator"
+            accessibilityLabel="Reconnecting to stream"
+          >
+            <ActivityIndicator size="small" className="text-muted-foreground" />
+            <Text variant="muted" className="text-sm text-muted-foreground">
+              Reconnecting…
+            </Text>
+          </View>
+        ) : null}
+        {/* e2e oracles for phase / Last-Event-ID / token count */}
+        <Text
+          testID="chat-stream-phase"
+          accessibilityLabel={`stream-phase-${streamPhase}`}
+          className="text-[1px] text-transparent h-px overflow-hidden"
+        >
+          {streamPhase}
+        </Text>
+        <Text
+          testID="chat-stream-last-seq"
+          accessibilityLabel={`stream-last-seq-${streamLastSeq}`}
+          className="text-[1px] text-transparent h-px overflow-hidden"
+        >
+          {String(streamLastSeq)}
+        </Text>
+        <Text
+          testID="chat-stream-token-count"
+          accessibilityLabel={`stream-token-count-${streamTokenCount}`}
+          className="text-[1px] text-transparent h-px overflow-hidden"
+        >
+          {String(streamTokenCount)}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <View className="flex-1" testID={testID}>
       <FlatList
@@ -215,7 +277,12 @@ export function ChatThread({
         keyExtractor={(item) => item.id}
         inverted={true}
         ListEmptyComponent={renderEmptyState}
-        ListHeaderComponent={renderTypingIndicator}
+        ListHeaderComponent={
+          <>
+            {renderStreamStatus()}
+            {renderTypingIndicator()}
+          </>
+        }
         contentContainerStyle={
           messages.length === 0
             ? { flex: 1, justifyContent: 'center', paddingBottom: safeAreaTop }

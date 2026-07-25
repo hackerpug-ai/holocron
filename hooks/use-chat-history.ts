@@ -1,16 +1,28 @@
 /**
- * Chat history via Zero reactive query (S-REWRITE-01).
+ * Chat history via Zero reactive query (S-REWRITE-01) + SSE overlay
+ * reconciliation (S-REACTIVE-01).
  *
  * Reads `chat_messages` through `chatMessagesByConversation` (client-data-contract).
  * Soft-deleted rows (`deleted === true`) are excluded client-side.
+ *
+ * When a resumable SSE stream is active, `reconcileThreadMessages` merges a
+ * single in-progress assistant preview with durable Zero rows so the thread
+ * never shows duplicate bubbles for one run.
  */
 
 import { useQuery } from '@rocicorp/zero/react';
 import { chatMessagesByConversation } from '@/app/zero/queries';
 import type { ChatMessage } from '@/components/chat/ChatThread';
+import {
+  type ChatStreamPhase,
+  reconcileThreadMessages,
+  type StreamOverlay,
+} from '@/hooks/use-resumable-sse-stream';
 
 interface UseChatHistoryReturn {
   messages: ChatMessage[];
+  /** Durable Zero rows only (no streaming overlay) — for content equality checks */
+  durableMessages: ChatMessage[];
   isLoading: boolean;
   error: Error | null;
 }
@@ -27,15 +39,23 @@ type ZeroChatMessageRow = {
   created_at: number;
 };
 
+export type ChatHistoryStreamOverlay = {
+  durableMessageId: string | null;
+  content: string;
+  phase: ChatStreamPhase;
+};
+
 /**
  * Fetch chat history for a conversation with automatic real-time updates via Zero.
  *
  * @param conversationId - ID of the conversation (null skips the query)
  * @param limit - Optional limit for number of messages (applied client-side)
+ * @param streamOverlay - Optional live SSE preview reconciled to durable rows
  */
 export function useChatHistory(
   conversationId: string | null,
-  limit?: number
+  limit?: number,
+  streamOverlay?: ChatHistoryStreamOverlay | null
 ): UseChatHistoryReturn {
   const [rawRows, details] = useQuery(
     conversationId ? chatMessagesByConversation(conversationId) : undefined
@@ -46,9 +66,10 @@ export function useChatHistory(
   const filtered = rows.filter((msg) => msg.deleted !== true);
   const limited = typeof limit === 'number' ? filtered.slice(-limit) : filtered;
 
-  const messages: ChatMessage[] = limited.map((msg) => ({
+  const durableMessages: ChatMessage[] = limited.map((msg) => ({
     id: msg.id,
-    role: msg.role as ChatMessage['role'],
+    // Backend durable agent rows use role='agent'; seed may use 'assistant' — normalize.
+    role: (msg.role === 'assistant' ? 'agent' : msg.role) as ChatMessage['role'],
     content: msg.content ?? '',
     message_type: (msg.message_type ?? undefined) as ChatMessage['message_type'],
     card_data: (msg.card_data as Record<string, unknown> | null | undefined) ?? null,
@@ -57,10 +78,21 @@ export function useChatHistory(
     createdAt: new Date(msg.created_at),
   }));
 
+  const overlay: StreamOverlay | null | undefined = streamOverlay
+    ? {
+        durableMessageId: streamOverlay.durableMessageId,
+        content: streamOverlay.content,
+        phase: streamOverlay.phase,
+      }
+    : null;
+
+  const messages = reconcileThreadMessages(durableMessages, overlay);
+
   const isLoading = conversationId !== null && details.type === 'unknown' && rows.length === 0;
 
   return {
     messages,
+    durableMessages,
     isLoading,
     error: null,
   };

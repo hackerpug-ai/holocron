@@ -23,6 +23,7 @@ import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay';
 import { useChatHistory } from '@/hooks/use-chat-history';
+import { useResumableSSEStream } from '@/hooks/use-resumable-sse-stream';
 import { useVoiceSession } from '@/hooks/use-voice-session';
 import { spacing } from '@/lib/theme';
 
@@ -41,6 +42,7 @@ type ZeroConversationRow = {
 type ChatRunCreateResponse = {
   runId?: string;
   conversationId?: string;
+  durableMessageId?: string;
   status?: string;
   ok?: boolean;
 };
@@ -54,11 +56,24 @@ function newRequestId(prefix: string): string {
 }
 
 /**
+ * Survives /chat/new → /chat/:id remount so the SSE socket can reattach
+ * with the same runId (Last-Event-ID gap-fill continues from lastSeq=0
+ * only on first attach; subsequent attaches send Last-Event-ID).
+ */
+type PendingStreamHandoff = {
+  runId: string;
+  durableMessageId: string | null;
+  conversationId: string;
+};
+let pendingStreamHandoff: PendingStreamHandoff | null = null;
+
+/**
  * Chat screen for a specific conversation.
  * Route: /chat/[conversationId]
  *
  * Reads: Zero queries (conversations + chat_messages).
  * Writes: Zero mutators (soft-delete) + Hono commands (send / cancel).
+ * Live stream: useResumableSSEStream (GET /api/chat-runs/:id/events).
  */
 export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
@@ -81,26 +96,102 @@ export default function ChatScreen() {
 
   const [_activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
+  // Resumable SSE stream (token/terminal/blocked/error + Last-Event-ID resume)
+  const {
+    phase: streamPhase,
+    runId: streamRunId,
+    durableMessageId,
+    streamedText,
+    lastSeq: streamLastSeq,
+    tokenCount: streamTokenCount,
+    connect: connectStream,
+    cancel: cancelStream,
+    reset: resetStream,
+  } = useResumableSSEStream({
+    platformUrl,
+    apiKey: rnApiKey,
+  });
+
+  // Re-attach stream after /chat/new → /chat/:id navigation remount
+  useEffect(() => {
+    if (
+      !isNewConversation &&
+      conversationId &&
+      pendingStreamHandoff &&
+      pendingStreamHandoff.conversationId === conversationId &&
+      streamPhase === 'idle'
+    ) {
+      const handoff = pendingStreamHandoff;
+      pendingStreamHandoff = null;
+      connectStream({
+        runId: handoff.runId,
+        durableMessageId: handoff.durableMessageId,
+      });
+    }
+  }, [conversationId, isNewConversation, streamPhase, connectStream]);
+
+  const streamOverlay =
+    streamPhase !== 'idle'
+      ? {
+          durableMessageId:
+            durableMessageId ?? (streamRunId ? `stream-preview-${streamRunId}` : null),
+          content: streamedText,
+          phase: streamPhase,
+        }
+      : null;
+
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null);
   const {
     messages = [],
+    durableMessages = [],
     isLoading: isLoadingMessages = false,
     error: messagesError = null,
-  } = useChatHistory(chatHistoryId) ?? { messages: [], isLoading: false, error: null };
-
-  // Active Hono chat-run id for cancel (AC-5)
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
+  } = useChatHistory(chatHistoryId, undefined, streamOverlay) ?? {
+    messages: [],
+    durableMessages: [],
+    isLoading: false,
+    error: null,
+  };
 
   // Local send state
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<Error | null>(null);
   const lastMessageRef = useRef<string | null>(null);
 
-  const agentBusy = Boolean(conversationRow?.agent_busy) || isStreaming;
-  const streamingMessageId = agentBusy
-    ? (messages.find((m) => m.role === 'agent')?.id ?? null)
+  const isStreamBusy = streamPhase === 'streaming' || streamPhase === 'reconnecting';
+  const agentBusy = Boolean(conversationRow?.agent_busy) || isStreamBusy || isSending;
+
+  // Prefer durableMessageId so the cursor attaches to the exactly-once row
+  const streamingMessageId = isStreamBusy
+    ? (durableMessageId ??
+      messages.find((m) => m.role === 'agent' && m.id === durableMessageId)?.id ??
+      null)
     : null;
+
+  // When durable Zero row lands after complete/cancelled, drop overlay → idle
+  useEffect(() => {
+    if (
+      (streamPhase === 'complete' || streamPhase === 'cancelled') &&
+      durableMessageId &&
+      durableMessages.some((m) => m.id === durableMessageId)
+    ) {
+      resetStream();
+    }
+  }, [streamPhase, durableMessageId, durableMessages, resetStream]);
+
+  // Also clear when agent_busy clears after complete (Zero lag edge)
+  useEffect(() => {
+    if (
+      conversationRow &&
+      conversationRow.agent_busy === false &&
+      (streamPhase === 'complete' || streamPhase === 'cancelled')
+    ) {
+      // Keep partial/final text until durable row is present or briefly after
+      if (!durableMessageId || durableMessages.some((m) => m.id === durableMessageId)) {
+        resetStream();
+      }
+    }
+  }, [conversationRow, streamPhase, durableMessageId, durableMessages, resetStream]);
 
   const softDeleteMessage = useCallback(
     async (messageId: string) => {
@@ -145,56 +236,43 @@ export default function ChatScreen() {
 
         const body = (await response.json()) as ChatRunCreateResponse;
         if (body.runId) {
-          setActiveRunId(body.runId);
-          setIsStreaming(true);
-        }
-
-        if (isNewConversation && body.conversationId) {
+          if (isNewConversation && body.conversationId) {
+            // Defer connect until after /chat/new → /chat/:id remount
+            pendingStreamHandoff = {
+              runId: body.runId,
+              durableMessageId: body.durableMessageId ?? null,
+              conversationId: body.conversationId,
+            };
+            router.replace(`/chat/${body.conversationId}`);
+          } else {
+            // Open real SSE socket; Last-Event-ID resume handled by the hook
+            connectStream({
+              runId: body.runId,
+              durableMessageId: body.durableMessageId ?? null,
+            });
+          }
+        } else if (isNewConversation && body.conversationId) {
           router.replace(`/chat/${body.conversationId}`);
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
         setSendError(error);
-        setIsStreaming(false);
-        setActiveRunId(null);
+        resetStream();
       } finally {
         setIsSending(false);
       }
     },
-    [conversationId, isSending, isNewConversation, router, zero]
+    [conversationId, isSending, isNewConversation, router, connectStream, resetStream]
   );
 
   const handleCancelAgent = useCallback(async () => {
-    if (!platformUrl || !rnApiKey) return;
-    const runId = activeRunId;
-    if (!runId) {
-      // Fallback: clear local busy flags even if run id is unknown
-      setIsStreaming(false);
+    // AC-5: cancel via hook → POST /api/chat-runs/:id/cancel (not mocked)
+    if (!streamRunId) {
+      resetStream();
       return;
     }
-
-    try {
-      await fetch(`${platformUrl}/api/chat-runs/${runId}/cancel`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${rnApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-    } finally {
-      setIsStreaming(false);
-      setActiveRunId(null);
-    }
-  }, [activeRunId, conversationId, isNewConversation, zero]);
-
-  // Clear streaming flag when agent_busy clears via Zero sync
-  useEffect(() => {
-    if (conversationRow && conversationRow.agent_busy === false && isStreaming) {
-      setIsStreaming(false);
-      setActiveRunId(null);
-    }
-  }, [conversationRow, isStreaming]);
+    await cancelStream();
+  }, [streamRunId, cancelStream, resetStream]);
 
   const handleRetry = useCallback(() => {
     setSendError(null);
@@ -360,7 +438,7 @@ export default function ChatScreen() {
         <View style={styles.chatContent}>
           <ChatThread
             messages={messages}
-            showTypingIndicator={isSending || agentBusy}
+            showTypingIndicator={isSending || (agentBusy && !streamingMessageId)}
             isLoading={isLoadingMessages}
             safeAreaTop={contentTopPadding}
             testID="chat-thread"
@@ -371,6 +449,9 @@ export default function ChatScreen() {
               void softDeleteMessage(messageId);
             }}
             streamingMessageId={streamingMessageId}
+            streamPhase={streamPhase}
+            streamLastSeq={streamLastSeq}
+            streamTokenCount={streamTokenCount}
           />
         </View>
 

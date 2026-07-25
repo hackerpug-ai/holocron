@@ -1,0 +1,68 @@
+{
+  "task_id": "S-REACTIVE-01",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": true
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test:unit"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "maestro test .maestro/reactive/token-streaming.yml"
+    },
+    {
+      "id": "AC-2",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml"
+    },
+    {
+      "id": "AC-3",
+      "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml"
+    },
+    {
+      "id": "AC-4",
+      "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml"
+    },
+    {
+      "id": "AC-5",
+      "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml"
+    },
+    {
+      "id": "TC-1",
+      "verify": "maestro test .maestro/reactive/token-streaming.yml"
+    },
+    {
+      "id": "TC-2",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml"
+    },
+    {
+      "id": "TC-3",
+      "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml"
+    },
+    {
+      "id": "TC-4",
+      "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml"
+    },
+    {
+      "id": "TC-5",
+      "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml"
+    },
+    {
+      "id": "TC-6",
+      "verify": "pnpm tsc --noEmit"
+    },
+    {
+      "id": "TC-7",
+      "verify": "pnpm lint"
+    },
+    {
+      "id": "TC-8",
+      "verify": "python3 ~/Projects/brain/tools/validate-scenario/validate_scenario.py .validate-payloads/S-REACTIVE-01.json"
+    }
+  ]
+}
