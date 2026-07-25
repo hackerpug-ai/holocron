@@ -41,7 +41,7 @@ appId: ${MAESTRO_APP_ID}
     timeout: 60000
     optional: true
 
-- openLink: ${MAESTRO_CHAT_URL}
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e4
 - waitForAnimationToEnd
 
 - runFlow:
@@ -50,7 +50,7 @@ appId: ${MAESTRO_APP_ID}
         id: "chat-screen"
     commands:
       - waitForAnimationToEnd
-      - openLink: ${MAESTRO_CHAT_URL}
+      - openLink: holocron://chat/00000000-0000-4000-8000-0000000000e4
       - waitForAnimationToEnd
 
 - runFlow:
@@ -61,11 +61,11 @@ appId: ${MAESTRO_APP_ID}
       - waitForAnimationToEnd
       - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
       - waitForAnimationToEnd
-      - openLink: ${MAESTRO_CHAT_URL}
+      - openLink: holocron://chat/00000000-0000-4000-8000-0000000000e4
       - waitForAnimationToEnd
 
 # Re-assert deep link after Zero list settles (prevents most-recent theft)
-- openLink: ${MAESTRO_CHAT_URL}
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e4
 - waitForAnimationToEnd
 
 - extendedWaitUntil:
@@ -115,14 +115,12 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-assistant-message-latest"
 
-# Deterministic nonprod body proves this is the streamed turn
+# REDHAT-FIX-01 PATH-A: required oracle — title 'Streaming' seeded by seed:e2e
 - extendedWaitUntil:
     visible: "Streaming"
     timeout: 30000
-    optional: true
 - extendedWaitUntil:
     visible: "Streaming"
     timeout: 60000
-    optional: true
 
 - takeScreenshot: S-REACTIVE-01-AC-3-exactly-one-final-message

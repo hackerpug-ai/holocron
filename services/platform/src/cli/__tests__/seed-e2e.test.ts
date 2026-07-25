@@ -81,8 +81,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(parsed.ok, first.combined).toBe(true);
       expect(
         parsed.conversations,
-        'must seed 3 drawer conversations plus the reference conversation'
-      ).toBe(4);
+        'must seed 3 drawer conversations + Streaming + the reference conversation'
+      ).toBe(5);
       expect(parsed.documents, 'must seed 17 documents').toBe(17);
       expect(parsed.feed_items, 'must seed 5 feed items').toBe(5);
       expect(parsed.subscription_sources, 'must seed 4 subscription sources').toBe(4);
@@ -97,7 +97,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect((parsed.categories ?? 0) >= 3, 'documents must span multiple categories').toBe(true);
 
       // Live Postgres counts (not JSON self-report alone)
-      expect(psqlCount('conversations')).toBe(4);
+      expect(psqlCount('conversations')).toBe(5);
       expect(psqlCount('chat_messages')).toBeGreaterThanOrEqual(3);
       expect(psqlCount('documents')).toBe(17);
       expect(psqlCount('feed_items')).toBe(5);
@@ -120,7 +120,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       const parsed2 = JSON.parse(body2) as { seed_fingerprint?: string; ok?: boolean };
       expect(parsed2.ok).toBe(true);
       expect(parsed2.seed_fingerprint).toBe(parsed.seed_fingerprint);
-      expect(psqlCount('conversations')).toBe(4);
+      expect(psqlCount('conversations')).toBe(5);
       expect(psqlCount('documents')).toBe(17);
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);

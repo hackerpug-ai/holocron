@@ -144,7 +144,7 @@ describe('REDHAT-FIX-01 Streaming seed closeout', () => {
 
       const msgCount = psqlScalar(
         `SELECT count(*)::int FROM chat_messages m
-         JOIN conversations c ON c.id = m.conversation_id
+         JOIN conversations c ON c.id::text = m.conversation_id
          WHERE c.title = 'Streaming'`
       );
       expect(
