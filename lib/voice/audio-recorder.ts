@@ -23,8 +23,8 @@ export interface AudioRecorder {
  * via MediaRecorder, uploads the blob to Convex file storage on stop, and
  * attaches the storage ID to the voice session.
  *
- * Errors are caught and logged — audio recording failures must never break
- * the transcript recording or voice session lifecycle.
+ * Recording is optional. Unsupported native runtimes silently skip it so an
+ * implementation detail never obscures the live voice controls.
  */
 export function createAudioRecorder({
   generateUploadUrl,
@@ -36,6 +36,9 @@ export function createAudioRecorder({
 
   function start(stream: MediaStream): void {
     if (mediaRecorder !== null) return;
+    // react-native-webrtc does not provide the browser MediaRecorder API.
+    // Remote-audio persistence is best-effort, while the live session is not.
+    if (typeof MediaRecorder === 'undefined') return;
 
     try {
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -48,16 +51,14 @@ export function createAudioRecorder({
       };
 
       recorder.onerror = () => {
-        console.error('[audio-recorder] MediaRecorder error — stopping capture');
         mediaRecorder = null;
         chunks = [];
       };
 
       recorder.start(1000); // Collect data every second
       mediaRecorder = recorder;
-    } catch (err) {
-      console.error('[audio-recorder] Failed to start MediaRecorder:', err);
-      // Do not re-throw — transcript recording must continue
+    } catch {
+      // Do not re-throw or surface a dev error — transcript/session continues.
     }
   }
 
@@ -92,7 +93,6 @@ export function createAudioRecorder({
       });
 
       if (!uploadResponse.ok) {
-        console.error('[audio-recorder] Upload failed:', uploadResponse.status);
         return;
       }
 
@@ -103,9 +103,8 @@ export function createAudioRecorder({
         sessionId,
         storageId,
       });
-    } catch (err) {
-      console.error('[audio-recorder] Failed to upload audio:', err);
-      // Never throw — audio recording is best-effort
+    } catch {
+      // Never throw or surface a dev error — audio capture is best-effort.
     }
   }
 

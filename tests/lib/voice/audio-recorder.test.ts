@@ -158,6 +158,19 @@ describe('createAudioRecorder', () => {
     expect(() => recorder.start(mockStream)).not.toThrow();
   });
 
+  it('silently skips recording when MediaRecorder is unavailable', () => {
+    vi.stubGlobal('MediaRecorder', undefined);
+    const recorder = createAudioRecorder({
+      generateUploadUrl: mockGenerateUploadUrl,
+      attachAudio: mockAttachAudio,
+      sessionId: mockSessionId,
+    });
+
+    expect(() => recorder.start(mockStream)).not.toThrow();
+    expect(MockMediaRecorder).not.toHaveBeenCalled();
+    vi.stubGlobal('MediaRecorder', MockMediaRecorder);
+  });
+
   it('does not throw when upload fails', async () => {
     const recorder = createAudioRecorder({
       generateUploadUrl: mockGenerateUploadUrl,
