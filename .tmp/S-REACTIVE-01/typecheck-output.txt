@@ -1,0 +1,115 @@
+
+> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-01
+> tsgo --noEmit
+
+services/platform/src/db/client.ts(4,25): error TS2307: Cannot find module 'drizzle-orm/postgres-js' or its corresponding type declarations.
+services/platform/src/db/columns.ts(5,31): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/columns.ts(16,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/columns.ts(24,12): error TS7006: Parameter 'config' implicitly has an 'any' type.
+services/platform/src/db/schema/analysis.ts(7,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/analysis.ts(8,64): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/analysis.ts(54,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/analysis.ts(83,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/analysis.ts(110,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/chat.ts(5,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/chat.ts(14,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/chat.ts(42,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/chat.ts(64,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/chat.ts(87,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/chat.ts(108,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/chat.ts(134,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/chat.ts(165,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/documents.ts(7,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/documents.ts(17,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/documents.ts(56,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/documents.ts(73,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/documents.ts(90,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/documents.ts(115,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/etl.ts(8,66): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/etl.ts(28,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/etl.ts(45,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/etl.ts(78,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evals.ts(8,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/evals.ts(9,62): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/evals.ts(37,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evidence.ts(7,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/evidence.ts(16,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/evidence.ts(47,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evidence.ts(73,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evidence.ts(96,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evidence.ts(115,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evidence.ts(138,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/evidence.ts(170,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/inference.ts(9,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/inference.ts(10,60): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/inference.ts(38,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(5,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/media.ts(6,60): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/media.ts(32,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(53,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(78,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(103,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(122,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(147,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/media.ts(168,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(1,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/mission.ts(11,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/mission.ts(25,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(59,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(122,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(163,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(200,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(228,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(268,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(290,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(310,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(330,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/mission.ts(350,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(7,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/others.ts(17,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/others.ts(56,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(76,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(103,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(136,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(170,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(188,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(223,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(253,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(283,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(302,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(321,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(349,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(371,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(391,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(410,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(431,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(449,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(465,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(479,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(505,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(523,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/others.ts(538,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/outbox.ts(8,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/outbox.ts(9,71): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/outbox.ts(26,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/outbox.ts(42,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/outbox.ts(56,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/queue.ts(4,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/queue.ts(15,8): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/queue.ts(40,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/queue.ts(71,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/queue.ts(86,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/research.ts(7,21): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+services/platform/src/db/schema/research.ts(8,71): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/research.ts(57,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/research.ts(93,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/research.ts(133,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(4,73): error TS2307: Cannot find module 'drizzle-orm/pg-core' or its corresponding type declarations.
+services/platform/src/db/schema/subscriptions.ts(35,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(57,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(90,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(111,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(127,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(154,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+services/platform/src/db/schema/subscriptions.ts(169,4): error TS7006: Parameter 't' implicitly has an 'any' type.
+ ELIFECYCLE  Command failed with exit code 2.
