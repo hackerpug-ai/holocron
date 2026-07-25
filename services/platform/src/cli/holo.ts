@@ -273,7 +273,7 @@ Usage:
   db seed --reset          Deterministic nonprod seed/reset (fails closed on prod)
   namespace reset           Reset the deterministic nonprod Postgres/Zero namespace
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
-  seed:e2e --reset         Sprint 24 e2e seed: 3 conversations, 12 docs, 5 feed items (refuse prod)
+  seed:e2e --reset         Sprint 24 e2e seed: conversations, docs, feed, subscriptions (refuse prod)
   verify:no-convex-client  CAP-CUT-01: fail if convex/react imports remain in app roots
                            [--roots a,b] [--print-roots]
   prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
@@ -1802,6 +1802,8 @@ async function main(): Promise<void> {
               documents: result.documents,
               categories: result.categories,
               feed_items: result.feed_items,
+              subscription_sources: result.subscription_sources,
+              subscription_content: result.subscription_content,
               whats_new_reports: result.whats_new_reports,
               reset: result.reset,
               log: result.messages_log,
@@ -1821,6 +1823,8 @@ async function main(): Promise<void> {
         console.log(`  documents: ${result.documents}`);
         console.log(`  categories: ${result.categories}`);
         console.log(`  feed_items: ${result.feed_items}`);
+        console.log(`  subscription_sources: ${result.subscription_sources}`);
+        console.log(`  subscription_content: ${result.subscription_content}`);
         console.log(`  whats_new_reports: ${result.whats_new_reports}`);
         if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
         console.log(result.ok ? '  status: OK' : '  status: FAIL');

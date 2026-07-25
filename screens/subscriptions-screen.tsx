@@ -2,7 +2,10 @@ import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, ScrollView, View, type ViewProps } from 'react-native';
-import { subscriptionContentGroupedByCreator } from '@/app/zero/queries';
+import {
+  subscriptionContentByGroup,
+  subscriptionContentGroupedByCreator,
+} from '@/app/zero/queries';
 import { EmptyState } from '@/components/EmptyState';
 import { FilterChip } from '@/components/FilterChip';
 import { SearchInput } from '@/components/SearchInput';
@@ -52,6 +55,12 @@ type SourceRow = {
   updated_at?: number | null;
 };
 
+type SubscriptionContentRow = {
+  source_id?: string | null;
+  research_status?: string | null;
+  document_id?: string | null;
+};
+
 function toSubscriptionSource(row: SourceRow): SubscriptionSource {
   return {
     _id: row.id as SubscriptionSource['_id'],
@@ -67,8 +76,22 @@ function toSubscriptionSource(row: SourceRow): SubscriptionSource {
   } as SubscriptionSource;
 }
 
-function groupSources(rows: SourceRow[]): CreatorGroup[] {
+function groupSources(rows: SourceRow[], contentRows: SubscriptionContentRow[]): CreatorGroup[] {
   const groups = new Map<string, CreatorGroup>();
+  const documentIdsBySource = new Map<string, Set<string>>();
+
+  for (const content of contentRows) {
+    if (
+      content.research_status !== 'researched' ||
+      !content.source_id ||
+      !content.document_id
+    ) {
+      continue;
+    }
+    const documentIds = documentIdsBySource.get(content.source_id) ?? new Set<string>();
+    documentIds.add(content.document_id);
+    documentIdsBySource.set(content.source_id, documentIds);
+  }
 
   for (const row of rows) {
     const source = toSubscriptionSource(row);
@@ -90,6 +113,7 @@ function groupSources(rows: SourceRow[]): CreatorGroup[] {
     const group = groups.get(groupKey)!;
     group.subscriptions.push(source);
     group.platformCount += 1;
+    group.documentCount += documentIdsBySource.get(row.id)?.size ?? 0;
     const activity = source.updatedAt ?? source.createdAt;
     if (activity > group.lastActivityAt) {
       group.lastActivityAt = activity;
@@ -116,11 +140,13 @@ export function SubscriptionsScreen({
   const zero = useZero();
 
   const [rawRows, details] = useZeroQuery(subscriptionContentGroupedByCreator(100));
+  const [rawContent] = useZeroQuery(subscriptionContentByGroup(200));
   const rows = (rawRows ?? []) as unknown as SourceRow[];
+  const contentRows = (rawContent ?? []) as unknown as SubscriptionContentRow[];
   const isLoading = details.type !== 'complete' && rows.length === 0;
 
   const groups = useMemo(() => {
-    const all = groupSources(rows);
+    const all = groupSources(rows, contentRows);
     if (selectedPlatform === 'all') return all;
     return all
       .map((group) => ({
@@ -128,7 +154,7 @@ export function SubscriptionsScreen({
         subscriptions: group.subscriptions.filter((s) => s.sourceType === selectedPlatform),
       }))
       .filter((group) => group.subscriptions.length > 0);
-  }, [rows, selectedPlatform]);
+  }, [rows, contentRows, selectedPlatform]);
 
   const filteredGroups = groups?.filter((group: CreatorGroup) => {
     if (!searchValue) return true;

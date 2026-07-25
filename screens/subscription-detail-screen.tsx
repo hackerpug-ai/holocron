@@ -1,4 +1,5 @@
 import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, View, type ViewProps } from 'react-native';
 import { documentsByOwner, subscriptionContentByGroup } from '@/app/zero/queries';
@@ -60,6 +61,7 @@ export function SubscriptionDetailScreen({
   className,
   ...props
 }: SubscriptionDetailScreenProps) {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState('');
   const idSet = useMemo(() => new Set(subscriptionIds), [subscriptionIds]);
 
@@ -112,9 +114,10 @@ export function SubscriptionDetailScreen({
     setSearchValue('');
   };
 
-  const handleArticlePress = (_documentId: string) => {
-    // TODO: Navigate to document detail view
-    // router.push(`/document/${_documentId}`)
+  const handleArticlePress = (documentId: string) => {
+    if (documentId) {
+      router.push(`/document/${documentId}`);
+    }
   };
 
   const renderEmptyState = () => {

@@ -5,6 +5,7 @@
  *   - 3 conversations + messages
  *   - 12 documents across multiple categories
  *   - 5 feed_items (What's New feed)
+ *   - 4 subscription sources and 4 researched subscription-content rows
  *
  * Refuse production-like DATABASE_URL (same guard as seed.ts).
  * Idempotent under --reset (truncate public tables then re-insert).
@@ -20,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 2;
+export const E2E_SEED_VERSION = 3;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -100,6 +101,96 @@ const E2E_WHATS_NEW_FINDINGS = [
     score: 84,
     summary: 'A deterministic trend finding for feed and source-navigation coverage.',
   },
+  {
+    title: 'E2E Discussion: Offline queue recovery',
+    url: 'https://example.com/e2e-discussion-offline-queue',
+    source: 'r/e2e',
+    category: 'discussion',
+    score: 82,
+    summary: 'A deterministic social finding for native feed group coverage.',
+  },
+] as const;
+
+const E2E_SUBSCRIPTION_SOURCES = [
+  {
+    id: e2eUuid('f', 1),
+    creatorProfileId: e2eUuid('f', 101),
+    sourceType: 'newsletter',
+    identifier: 'e2e-aurora-newsletter',
+    name: 'E2E Creator Aurora',
+    url: 'https://example.com/e2e-aurora-newsletter',
+    config: { platform: 'website' },
+    autoResearch: true,
+  },
+  {
+    id: e2eUuid('f', 2),
+    creatorProfileId: e2eUuid('f', 101),
+    sourceType: 'youtube',
+    identifier: '@e2eaurora',
+    name: 'E2E Creator Aurora',
+    url: 'https://example.com/e2e-aurora-video',
+    config: { platform: 'youtube' },
+    autoResearch: true,
+  },
+  {
+    id: e2eUuid('f', 3),
+    creatorProfileId: null,
+    sourceType: 'changelog',
+    identifier: 'e2e-platform-release-notes',
+    name: 'E2E Platform Release Notes',
+    url: 'https://example.com/e2e-platform-release',
+    config: { platform: 'website' },
+    autoResearch: false,
+  },
+  {
+    id: e2eUuid('f', 4),
+    creatorProfileId: null,
+    sourceType: 'reddit',
+    identifier: 'r/e2e',
+    name: 'E2E Community',
+    url: 'https://example.com/e2e-community',
+    config: {},
+    autoResearch: false,
+  },
+] as const;
+
+const E2E_SUBSCRIPTION_CONTENT = [
+  {
+    id: e2eUuid('f', 11),
+    sourceId: E2E_SUBSCRIPTION_SOURCES[0].id,
+    documentId: docId(1),
+    title: 'E2E Aurora Article: Native Data Contracts',
+    url: 'https://example.com/e2e-aurora-article',
+    category: 'article',
+    description: 'A deterministic researched article for the Aurora creator group.',
+  },
+  {
+    id: e2eUuid('f', 12),
+    sourceId: E2E_SUBSCRIPTION_SOURCES[1].id,
+    documentId: docId(2),
+    title: 'E2E Aurora Video: Zero Synchronization',
+    url: 'https://example.com/e2e-aurora-video',
+    category: 'video',
+    description: 'A deterministic researched video for the Aurora creator group.',
+  },
+  {
+    id: e2eUuid('f', 13),
+    sourceId: E2E_SUBSCRIPTION_SOURCES[2].id,
+    documentId: docId(3),
+    title: 'E2E Platform Release: Durable Commands',
+    url: 'https://example.com/e2e-platform-release',
+    category: 'release',
+    description: 'A deterministic researched release note for subscription search.',
+  },
+  {
+    id: e2eUuid('f', 14),
+    sourceId: E2E_SUBSCRIPTION_SOURCES[3].id,
+    documentId: docId(4),
+    title: 'E2E Community Discussion: Offline Queue',
+    url: 'https://example.com/e2e-community-discussion',
+    category: 'social',
+    description: 'A deterministic researched social discussion for subscription search.',
+  },
 ] as const;
 
 export type SeedE2eResult = {
@@ -111,6 +202,8 @@ export type SeedE2eResult = {
   documents: number;
   categories: number;
   feed_items: number;
+  subscription_sources: number;
+  subscription_content: number;
   whats_new_reports: number;
   reset: boolean;
   messages_log: string[];
@@ -172,6 +265,8 @@ export async function seedE2eDatabase(options?: {
       documents: 0,
       categories: 0,
       feed_items: 0,
+      subscription_sources: 0,
+      subscription_content: 0,
       whats_new_reports: 0,
       reset,
       messages_log,
@@ -193,6 +288,8 @@ export async function seedE2eDatabase(options?: {
         documents: 0,
         categories: 0,
         feed_items: 0,
+        subscription_sources: 0,
+        subscription_content: 0,
         whats_new_reports: 0,
         reset,
         messages_log,
@@ -317,6 +414,77 @@ export async function seedE2eDatabase(options?: {
     }
     messages_log.push('seeded 5 feed_items');
 
+    // ── subscriptions (sources + durable researched documents) ───────────
+    for (const [index, source] of E2E_SUBSCRIPTION_SOURCES.entries()) {
+      await sql.unsafe(
+        `INSERT INTO subscription_sources (
+           id, source_type, identifier, name, url, feed_url, config_json,
+           auto_research, creator_profile_id, created_at, updated_at
+         ) VALUES (
+           $1::uuid, $2, $3, $4, $5, $5, $6::jsonb, $7, $8::text,
+           now() - ($9::int || ' minutes')::interval, now()
+         )
+         ON CONFLICT (id) DO UPDATE SET
+           source_type = EXCLUDED.source_type,
+           identifier = EXCLUDED.identifier,
+           name = EXCLUDED.name,
+           url = EXCLUDED.url,
+           feed_url = EXCLUDED.feed_url,
+           config_json = EXCLUDED.config_json,
+           auto_research = EXCLUDED.auto_research,
+           creator_profile_id = EXCLUDED.creator_profile_id,
+           updated_at = now()`,
+        [
+          source.id,
+          source.sourceType,
+          source.identifier,
+          source.name,
+          source.url,
+          JSON.stringify(source.config),
+          source.autoResearch,
+          source.creatorProfileId,
+          String(index),
+        ]
+      );
+    }
+
+    for (const [index, content] of E2E_SUBSCRIPTION_CONTENT.entries()) {
+      await sql.unsafe(
+        `INSERT INTO subscription_content (
+           id, source_id, content_id, title, url, metadata_json, passed_filter,
+           research_status, discovered_at, researched_at, document_id, in_feed,
+           author_handle, content_category, ai_relevance_score, created_at
+         ) VALUES (
+           $1::uuid, $2::uuid, $1::text, $3, $4, $5::jsonb, true,
+           'researched', now() - ($6::int || ' hours')::interval,
+           now() - ($6::int || ' hours')::interval, $7::uuid, true,
+           '@e2e', $8, 0.9, now()
+         )
+         ON CONFLICT (id) DO UPDATE SET
+           source_id = EXCLUDED.source_id,
+           title = EXCLUDED.title,
+           url = EXCLUDED.url,
+           metadata_json = EXCLUDED.metadata_json,
+           research_status = EXCLUDED.research_status,
+           document_id = EXCLUDED.document_id,
+           content_category = EXCLUDED.content_category,
+           ai_relevance_score = EXCLUDED.ai_relevance_score`,
+        [
+          content.id,
+          content.sourceId,
+          content.title,
+          content.url,
+          JSON.stringify({ description: content.description }),
+          String(index + 1),
+          content.documentId,
+          content.category,
+        ]
+      );
+    }
+    messages_log.push(
+      `seeded ${E2E_SUBSCRIPTION_SOURCES.length} subscription_sources + ${E2E_SUBSCRIPTION_CONTENT.length} researched subscription_content rows`
+    );
+
     // ── improvement_requests (representative open + closed list states) ──
     for (const improvement of E2E_IMPROVEMENTS) {
       await sql.unsafe(
@@ -341,7 +509,7 @@ export async function seedE2eDatabase(options?: {
          summary_json, findings_json, created_at
        ) VALUES (
          $1::uuid, now() - interval '7 days', now(), 7, 'e2e-seed',
-         false, 5, 2, 2, 1,
+         false, 6, 2, 2, 1,
          $2::jsonb, $3::jsonb, now()
        )
        ON CONFLICT (id) DO UPDATE SET
@@ -366,6 +534,8 @@ export async function seedE2eDatabase(options?: {
       documents: 12,
       categories: [...categorySet].sort(),
       feed_items: 5,
+      subscription_sources: E2E_SUBSCRIPTION_SOURCES.length,
+      subscription_content: E2E_SUBSCRIPTION_CONTENT.length,
       whats_new_reports: 1,
       conversation_ids: [...E2E_CONVERSATION_IDS],
     });
@@ -379,6 +549,8 @@ export async function seedE2eDatabase(options?: {
       documents: 12,
       categories: categorySet.size,
       feed_items: 5,
+      subscription_sources: E2E_SUBSCRIPTION_SOURCES.length,
+      subscription_content: E2E_SUBSCRIPTION_CONTENT.length,
       whats_new_reports: 1,
       reset,
       messages_log,
@@ -395,6 +567,8 @@ export async function seedE2eDatabase(options?: {
       documents: 0,
       categories: 0,
       feed_items: 0,
+      subscription_sources: 0,
+      subscription_content: 0,
       whats_new_reports: 0,
       reset,
       messages_log,

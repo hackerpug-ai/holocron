@@ -1,7 +1,7 @@
 /**
  * DEPENDENCY-S24-E2E-SUBSTRATE AC-1 — seed:e2e --reset (real CLI + Postgres).
  *
- * Seeds 3 conversations (+ messages), 12 multi-category documents, 5 feed items
+ * Seeds conversations, documents, feed items, and populated subscription sources/content
  * matching the Zero-published Postgres surface. Refuse prod; idempotent with --reset.
  *
  * Run:
@@ -52,7 +52,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
   });
 
   itLive(
-    'seed:e2e --reset seeds 3 conversations, 12 documents (multi-category), 5 feed items',
+    'seed:e2e --reset seeds conversations, documents, feed items, and subscription content',
     () => {
       const first = runHolo(['seed:e2e', '--reset', '--json'], {
         env: { DATABASE_URL: NONPROD_URL, HOLO_ALLOW_PROD_SEED: undefined },
@@ -71,12 +71,16 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
         feed_items?: number;
         messages?: number;
         categories?: number;
+        subscription_sources?: number;
+        subscription_content?: number;
         seed_fingerprint?: string;
       };
       expect(parsed.ok, first.combined).toBe(true);
       expect(parsed.conversations, 'must seed 3 conversations').toBe(3);
       expect(parsed.documents, 'must seed 12 documents').toBe(12);
       expect(parsed.feed_items, 'must seed 5 feed items').toBe(5);
+      expect(parsed.subscription_sources, 'must seed 4 subscription sources').toBe(4);
+      expect(parsed.subscription_content, 'must seed 4 researched subscription rows').toBe(4);
       expect((parsed.messages ?? 0) >= 3, 'each conversation needs ≥1 message').toBe(true);
       expect((parsed.categories ?? 0) >= 3, 'documents must span multiple categories').toBe(true);
 
@@ -85,6 +89,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('chat_messages')).toBeGreaterThanOrEqual(3);
       expect(psqlCount('documents')).toBe(12);
       expect(psqlCount('feed_items')).toBe(5);
+      expect(psqlCount('subscription_sources')).toBe(4);
+      expect(psqlCount('subscription_content')).toBe(4);
       expect(psqlDistinctCategories()).toBeGreaterThanOrEqual(3);
 
       // Idempotent: second --reset yields same fingerprint + counts
@@ -102,6 +108,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('conversations')).toBe(3);
       expect(psqlCount('documents')).toBe(12);
       expect(psqlCount('feed_items')).toBe(5);
+      expect(psqlCount('subscription_sources')).toBe(4);
+      expect(psqlCount('subscription_content')).toBe(4);
     },
     180_000
   );
