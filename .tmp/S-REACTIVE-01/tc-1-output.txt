@@ -12,10 +12,37 @@ WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
 WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
 WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
 WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
-Launch app "${MAESTRO_APP_ID}"... FAILED
+Launch app "${MAESTRO_APP_ID}"... COMPLETED
+Wait for animation to end... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that (Optional) "DEVELOPMENT SERVERS" is visible... WARNED
 
-Unable to launch app undefined
+
+ Warning: Assertion is false: "DEVELOPMENT SERVERS" is visible
+Run flow when "DEVELOPMENT SERVERS" is visible...
+Run flow when "DEVELOPMENT SERVERS" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Assert that (Optional) "Downloading" is not visible... COMPLETED
+Open ${MAESTRO_CHAT_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible...
+  Wait for animation to end... COMPLETED
+  Open ${MAESTRO_CHAT_URL}... COMPLETED
+  Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible... COMPLETED
+Assert that id: chat-screen is visible... FAILED
+
+Assertion is false: id: chat-screen is visible
+
+Assertion 'id: chat-screen is visible' failed. Check the UI hierarchy in debug artifacts to verify the element state and properties.
+
+Possible causes:
+- Element selector may be incorrect - check if there are similar elements with slightly different names/properties.
+- Element may be temporarily unavailable due to loading state
+- This could be a real regression that needs to be addressed
 
 ==== Debug output (logs & screenshots) ====
 
-/Users/inference1/.maestro/tests/2026-07-25_023521
+/Users/inference1/.maestro/tests/2026-07-25_040437

@@ -12,10 +12,43 @@ WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
 WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
 WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
 WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
-Launch app "${MAESTRO_APP_ID}"... FAILED
+Launch app "${MAESTRO_APP_ID}"... COMPLETED
+Wait for animation to end... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that (Optional) "DEVELOPMENT SERVERS" is visible... WARNED
 
-Unable to launch app undefined
 
-==== Debug output (logs & screenshots) ====
-
-/Users/inference1/.maestro/tests/2026-07-25_023509
+ Warning: Assertion is false: "DEVELOPMENT SERVERS" is visible
+Run flow when "DEVELOPMENT SERVERS" is visible...
+Run flow when "DEVELOPMENT SERVERS" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Assert that (Optional) "Downloading" is not visible... COMPLETED
+Open ${MAESTRO_CHAT_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible...
+Run flow when id: chat-screen is not visible... SKIPPED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-input-field is visible... COMPLETED
+Tap on id: chat-input-field... COMPLETED
+Erase text... COMPLETED
+Input text Write a long detailed multi-paragraph essay about rivers and mountains for cancel probe.... COMPLETED
+Assert that id: chat-input-send-button is visible... COMPLETED
+Tap on id: chat-input-send-button... COMPLETED
+Assert that id: stop-generating-button is visible... COMPLETED
+Assert that id: stop-generating-button is visible... COMPLETED
+Wait for animation to end within 1500 ms... COMPLETED
+Tap on id: stop-generating-button... COMPLETED
+Assert that id: stop-generating-button is not visible... COMPLETED
+Assert that id: stop-generating-button is not visible... COMPLETED
+Assert that id: chat-input is visible... COMPLETED
+Assert that id: chat-assistant-message is visible... COMPLETED
+Assert that id: chat-assistant-message is visible... COMPLETED
+Tap on id: chat-input-field... COMPLETED
+Erase text... COMPLETED
+Input text post-cancel ok... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that id: stop-generating-button is not visible... COMPLETED
+Take screenshot S-REACTIVE-01-AC-5-cancel-stops-stream... COMPLETED

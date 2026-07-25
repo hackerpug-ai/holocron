@@ -355,27 +355,6 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
     2 6 │   
   
 
-.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts:18:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-    16 │  *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
-    17 │  */
-  > 18 │ import { runDurableEffectBoundary, auditDurableEffect } from '../../../../../../../services/platform/src/queue/durable-effect';
-       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    19 │ 
-    20 │ const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-     16  16 │    *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
-     17  17 │    */
-     18     │ - import·{·runDurableEffectBoundary,·auditDurableEffect·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
-         18 │ + import·{·auditDurableEffect,·runDurableEffectBoundary·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
-     19  19 │   
-     20  20 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
-  
-
 .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts:13:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
 
   × The imports and exports are not sorted.
@@ -597,11 +576,84 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
     2 9 │   
   
 
+.spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/gate-plan.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    13 13 │         "literal_cmd": "python3 -c \"import socket,urllib.request; socket.create_connection(('127.0.0.1',5432),2).close(); r=urllib.request.urlopen('http://127.0.0.1:4545/v1/models',timeout=2); assert 200 <= r.status < 300; print('REAL_NONPROD_DEPENDENCIES=PASS')\"",
+    14 14 │         "supporting_command": "DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod FLEET_URL=http://127.0.0.1:4545 PLATFORM_IT=1 pnpm test:integration",
+    15    │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"REAL_NONPROD_DEPENDENCIES=PASS"·}
+       15 │ + ······"assertion":·{
+       16 │ + ········"kind":·"exit_and_log_regex",
+       17 │ + ········"expected_exit":·0,
+       18 │ + ········"expect_log_regex":·"REAL_NONPROD_DEPENDENCIES=PASS"
+       19 │ + ······}
+    16 20 │       },
+    17 21 │       {
+    ····· │ 
+    22 26 │         "literal_cmd": "! nc -z 127.0.0.1 1 && ! curl -fsS --max-time 1 http://127.0.0.1:1/v1/models >/dev/null && echo FAIL_CLOSED_DEPENDENCIES=PASS",
+    23 27 │         "supporting_command": "DATABASE_URL=postgres://127.0.0.1:1/nope FLEET_URL=http://127.0.0.1:1 PLATFORM_IT=1 pnpm test:integration",
+    24    │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"FAIL_CLOSED_DEPENDENCIES=PASS"·}
+       28 │ + ······"assertion":·{
+       29 │ + ········"kind":·"exit_and_log_regex",
+       30 │ + ········"expected_exit":·0,
+       31 │ + ········"expect_log_regex":·"FAIL_CLOSED_DEPENDENCIES=PASS"
+       32 │ + ······}
+    25 33 │       },
+    26 34 │       {
+    ····· │ 
+    30 38 │         "method": "real-cli",
+    31 39 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod HOLO_ALLOW_PROD_SEED=0 bun services/platform/src/cli/holo.ts db seed --reset --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod HOLO_ALLOW_PROD_SEED=0 bun services/platform/src/cli/holo.ts db seed --reset --json",
+    32    │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"92a604f5d7824fa2216f9a5902f5d171",·"expect_not_log_regex":·"\\\"ok\\\":·false"·}
+       40 │ + ······"assertion":·{
+       41 │ + ········"kind":·"exit_and_log_regex",
+       42 │ + ········"expected_exit":·0,
+       43 │ + ········"expect_log_regex":·"92a604f5d7824fa2216f9a5902f5d171",
+       44 │ + ········"expect_not_log_regex":·"\\\"ok\\\":·false"
+       45 │ + ······}
+    33 46 │       },
+    34 47 │       {
+    ····· │ 
+    38 51 │         "method": "real-cli",
+    39 52 │         "literal_cmd": "python3 -c \"from pathlib import Path; fast=Path('.github/workflows/ci-fast.yml').read_text(); integ=Path('.github/workflows/ci-integration.yml').read_text(); assert 'push:' in fast and 'pull_request:' in fast and 'pnpm test:unit' in fast; assert 'pull_request:' in integ and 'tests/**' in integ and 'pnpm test:integration' in integ; assert 'runs-on: [self-hosted, holocron, integration]' in integ; print('PR_PATH_CONTRACT=PASS')\"",
+    40    │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"PR_PATH_CONTRACT=PASS"·}
+       53 │ + ······"assertion":·{
+       54 │ + ········"kind":·"exit_and_log_regex",
+       55 │ + ········"expected_exit":·0,
+       56 │ + ········"expect_log_regex":·"PR_PATH_CONTRACT=PASS"
+       57 │ + ······}
+    41 58 │       },
+    42 59 │       {
+    ····· │ 
+    46 63 │         "method": "real-cli",
+    47 64 │         "literal_cmd": "bun services/platform/src/cli/holo.ts prd:consistency --json",
+    48    │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\\\"ok\\\":·true"·}
+       65 │ + ······"assertion":·{
+       66 │ + ········"kind":·"exit_and_log_regex",
+       67 │ + ········"expected_exit":·0,
+       68 │ + ········"expect_log_regex":·"\\\"ok\\\":·true"
+       69 │ + ······}
+    49 70 │       },
+    50 71 │       {
+    ····· │ 
+    54 75 │         "method": "real-cli",
+    55 76 │         "literal_cmd": "/tmp/actionlint-bin/actionlint -config-file .github/actionlint.yaml .github/workflows/*.yml && ./scripts/ci/check-action-pins.sh",
+    56    │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"",·"expect_not_log_regex":·"error|FLOATING_TAG"·}
+       77 │ + ······"assertion":·{
+       78 │ + ········"kind":·"exit_and_log_regex",
+       79 │ + ········"expected_exit":·0,
+       80 │ + ········"expect_log_regex":·"",
+       81 │ + ········"expect_not_log_regex":·"error|FLOATING_TAG"
+       82 │ + ······}
+    57 83 │       }
+    58 84 │     ]
+  
+
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 716.
-Checked 1562 files in 366ms. No fixes applied.
+Diagnostics not shown: 717.
+Checked 1568 files in 339ms. No fixes applied.
 Found 68 errors.
-Found 662 warnings.
+Found 663 warnings.
 Found 6 infos.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
