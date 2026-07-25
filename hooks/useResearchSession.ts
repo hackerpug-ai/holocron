@@ -50,6 +50,23 @@ function textFromJson(value: unknown): string | undefined {
   }
 }
 
+function sourcesFromJson(value: unknown): Array<{ title?: string; url?: string }> {
+  let parsed = value;
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(parsed)
+    ? parsed.filter(
+        (source): source is { title?: string; url?: string } =>
+          typeof source === 'object' && source !== null
+      )
+    : [];
+}
+
 function mapSession(row: ResearchSessionRow | undefined | null) {
   if (!row) return null;
   return {
@@ -138,12 +155,7 @@ export function useDeepResearchSession(sessionId: string | null) {
     feedback: iter.feedback ?? undefined,
     refinedQueries: (iter.refined_queries as string[] | undefined) ?? undefined,
     findings: textFromJson(iter.findings),
-    sources: Array.isArray(iter.sources)
-      ? iter.sources.filter(
-          (source): source is { title?: string; url?: string } =>
-            typeof source === 'object' && source !== null
-        )
-      : [],
+    sources: sourcesFromJson(iter.sources),
     summary: iter.summary ?? undefined,
     createdAt: iter.created_at,
     updatedAt: iter.created_at,
