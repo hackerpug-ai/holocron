@@ -45,6 +45,7 @@ export function SearchInput({
   disabled = false,
   autoFocus = false,
   className,
+  testID = 'search-input',
   ...props
 }: SearchInputProps) {
   const inputRef = useRef<TextInput>(null);
@@ -100,7 +101,7 @@ export function SearchInput({
     >
       <View
         className={cn('bg-input relative flex-row items-center rounded-lg', className)}
-        testID="search-input-container"
+        testID={`${testID}-container`}
         {...props}
       >
         <View className="absolute left-3 z-10">
@@ -117,14 +118,14 @@ export function SearchInput({
           editable={!disabled}
           autoFocus={autoFocus}
           className={cn('border-0 bg-transparent pl-10 pr-10', disabled && 'opacity-50')}
-          testID="search-input"
+          testID={testID}
           returnKeyType="search"
         />
         {value.length > 0 && (
           <Pressable
             onPress={handleClear}
             className="absolute right-3 z-10 rounded-full p-1 active:bg-black/5"
-            testID="search-input-clear"
+            testID={`${testID}-clear`}
             disabled={disabled}
           >
             <X size={16} className="text-muted-foreground" />
