@@ -1806,6 +1806,7 @@ async function main(): Promise<void> {
               subscription_content: result.subscription_content,
               research_sessions: result.research_sessions,
               research_iterations: result.research_iterations,
+              assimilation_sessions: result.assimilation_sessions,
               whats_new_reports: result.whats_new_reports,
               reset: result.reset,
               log: result.messages_log,
@@ -1827,6 +1828,7 @@ async function main(): Promise<void> {
         console.log(`  feed_items: ${result.feed_items}`);
         console.log(`  subscription_sources: ${result.subscription_sources}`);
         console.log(`  subscription_content: ${result.subscription_content}`);
+        console.log(`  assimilation_sessions: ${result.assimilation_sessions}`);
         console.log(`  whats_new_reports: ${result.whats_new_reports}`);
         if (result.errors.length) for (const e of result.errors) console.error(`  error: ${e}`);
         console.log(result.ok ? '  status: OK' : '  status: FAIL');

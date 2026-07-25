@@ -1,7 +1,7 @@
 /**
  * DEPENDENCY-S24-E2E-SUBSTRATE AC-1 — seed:e2e --reset (real CLI + Postgres).
  *
- * Seeds conversations, documents, feed items, and populated subscription sources/content
+ * Seeds conversations, documents, feed items, subscriptions, research, and assimilation plans
  * matching the Zero-published Postgres surface. Refuse prod; idempotent with --reset.
  *
  * Run:
@@ -75,6 +75,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
         subscription_content?: number;
         research_sessions?: number;
         research_iterations?: number;
+        assimilation_sessions?: number;
         seed_fingerprint?: string;
       };
       expect(parsed.ok, first.combined).toBe(true);
@@ -88,6 +89,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
         'must seed active, completed, and saved-document research'
       ).toBe(3);
       expect(parsed.research_iterations, 'must seed research progress').toBe(5);
+      expect(parsed.assimilation_sessions, 'must seed 3 pending review plans').toBe(3);
       expect((parsed.messages ?? 0) >= 3, 'each conversation needs ≥1 message').toBe(true);
       expect((parsed.categories ?? 0) >= 3, 'documents must span multiple categories').toBe(true);
 
@@ -100,6 +102,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('subscription_content')).toBe(4);
       expect(psqlCount('research_sessions')).toBe(3);
       expect(psqlCount('research_iterations')).toBe(5);
+      expect(psqlCount('assimilation_sessions')).toBe(3);
       expect(psqlDistinctCategories()).toBeGreaterThanOrEqual(3);
 
       // Idempotent: second --reset yields same fingerprint + counts
@@ -121,6 +124,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('subscription_content')).toBe(4);
       expect(psqlCount('research_sessions')).toBe(3);
       expect(psqlCount('research_iterations')).toBe(5);
+      expect(psqlCount('assimilation_sessions')).toBe(3);
     },
     180_000
   );

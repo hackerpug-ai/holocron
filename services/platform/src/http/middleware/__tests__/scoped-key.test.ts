@@ -75,6 +75,11 @@ describe('AC-1: scoped-key middleware enforces three scopes (401/403/200)', () =
     expect(res.status).not.toBe(403);
   });
 
+  it('RN_KEY PATCH /api/assimilations/x reaches the decision validation', async () => {
+    const res = await call(app, 'PATCH', '/api/assimilations/x', RN);
+    expect(res.status).toBe(422);
+  });
+
   it('MCP_KEY POST /api/missions → 403 (wrong scope)', async () => {
     const res = await call(app, 'POST', '/api/missions', MCP);
     expect(res.status).toBe(403);

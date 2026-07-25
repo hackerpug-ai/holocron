@@ -785,6 +785,60 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /** Apply a reviewer decision once the assimilation plan is ready for approval. */
+  app.patch('/api/assimilations/:id', async (c) => {
+    try {
+      const body = (await c.req.json()) as Record<string, unknown>;
+      if (body.decision !== 'approve' && body.decision !== 'reject') {
+        return c.json(
+          {
+            error: 'invalid_assimilation_decision',
+            message: 'decision must be "approve" or "reject"',
+          },
+          422
+        );
+      }
+      if (body.feedback !== undefined && typeof body.feedback !== 'string') {
+        return c.json(
+          { error: 'invalid_assimilation_feedback', message: 'feedback must be a string' },
+          422
+        );
+      }
+
+      const decision = body.decision;
+      const feedback = typeof body.feedback === 'string' ? body.feedback.trim() || null : null;
+      const nextStatus = decision === 'approve' ? 'running' : feedback ? 'planning' : 'rejected';
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'assimilation decision' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string; status: string; plan_feedback: string | null }[]>`
+          UPDATE assimilation_sessions
+          SET status = ${nextStatus},
+              plan_feedback = CASE WHEN ${decision} = 'reject' THEN ${feedback} ELSE plan_feedback END,
+              updated_at = now()
+          WHERE id = ${c.req.param('id')}::uuid
+            AND status IN ('pending_approval', 'planning')
+          RETURNING id::text AS id, status, plan_feedback
+        `;
+        if (!rows[0]) {
+          return c.json(
+            {
+              error: 'invalid_assimilation_state',
+              message: 'session is not awaiting a reviewer decision',
+            },
+            409
+          );
+        }
+        return c.json({ session: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'assimilation_decision_error', message }, 422);
+    }
+  });
+
   /** Remove a source and its dependent collected content as one durable operation. */
   app.delete('/api/subscriptions/:id', async (c) => {
     try {

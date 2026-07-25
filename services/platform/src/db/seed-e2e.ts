@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 5;
+export const E2E_SEED_VERSION = 6;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -276,6 +276,33 @@ const E2E_RESEARCH_ITERATIONS = [
   },
 ] as const;
 
+const E2E_ASSIMILATION_SESSIONS = [
+  {
+    id: e2eUuid('e', 71),
+    repositoryName: 'E2E Plan Render Repository',
+    repositoryUrl: 'https://example.com/e2e/plan-render',
+    planSummary: 'A reviewable native plan with durable approval controls.',
+    planContent:
+      '# E2E Assimilation Plan\n\n## Objective\nVerify that a proposed knowledge change is reviewable before execution.\n\n- Inspect the native data contract\n- Confirm the recovery path\n- Record the reviewer decision',
+  },
+  {
+    id: e2eUuid('e', 72),
+    repositoryName: 'E2E Feedback Repository',
+    repositoryUrl: 'https://example.com/e2e/feedback',
+    planSummary: 'A separate pending plan used to prove cancel and feedback behavior.',
+    planContent:
+      '# E2E Feedback Plan\n\n## Review\nCancel leaves this plan pending. Submitting feedback returns it to planning with the exact reviewer rationale.',
+  },
+  {
+    id: e2eUuid('e', 73),
+    repositoryName: 'E2E Approve Repository',
+    repositoryUrl: 'https://example.com/e2e/approve',
+    planSummary: 'A disposable plan used to prove a single durable approval execution.',
+    planContent:
+      '# E2E Approval Plan\n\n## Execute once\nApprove starts exactly one server-side execution and prevents a second approval.',
+  },
+] as const;
+
 export type SeedE2eResult = {
   ok: boolean;
   database: string;
@@ -289,6 +316,7 @@ export type SeedE2eResult = {
   subscription_content: number;
   research_sessions: number;
   research_iterations: number;
+  assimilation_sessions: number;
   whats_new_reports: number;
   reset: boolean;
   messages_log: string[];
@@ -354,6 +382,7 @@ export async function seedE2eDatabase(options?: {
       subscription_content: 0,
       research_sessions: 0,
       research_iterations: 0,
+      assimilation_sessions: 0,
       whats_new_reports: 0,
       reset,
       messages_log,
@@ -379,6 +408,7 @@ export async function seedE2eDatabase(options?: {
         subscription_content: 0,
         research_sessions: 0,
         research_iterations: 0,
+        assimilation_sessions: 0,
         whats_new_reports: 0,
         reset,
         messages_log,
@@ -637,6 +667,37 @@ export async function seedE2eDatabase(options?: {
       `seeded ${E2E_RESEARCH_SESSIONS.length} research_sessions + ${E2E_RESEARCH_ITERATIONS.length} research_iterations`
     );
 
+    // ── assimilation sessions (pending reviewer plans) ───────────────────
+    for (const session of E2E_ASSIMILATION_SESSIONS) {
+      await sql.unsafe(
+        `INSERT INTO assimilation_sessions (
+           id, repository_url, repository_name, profile, status, current_iteration,
+           max_iterations, plan_content, plan_summary, auto_approve, created_at, updated_at, completed_at
+         ) VALUES ($1::uuid, $2, $3, 'standard', 'pending_approval', 0, 3, $4, $5, false, now(), now(), NULL)
+         ON CONFLICT (id) DO UPDATE SET
+           repository_url = EXCLUDED.repository_url,
+           repository_name = EXCLUDED.repository_name,
+           profile = EXCLUDED.profile,
+           status = EXCLUDED.status,
+           current_iteration = EXCLUDED.current_iteration,
+           max_iterations = EXCLUDED.max_iterations,
+           plan_content = EXCLUDED.plan_content,
+           plan_summary = EXCLUDED.plan_summary,
+           plan_feedback = NULL,
+           auto_approve = EXCLUDED.auto_approve,
+           updated_at = now(),
+           completed_at = NULL`,
+        [
+          session.id,
+          session.repositoryUrl,
+          session.repositoryName,
+          session.planContent,
+          session.planSummary,
+        ]
+      );
+    }
+    messages_log.push(`seeded ${E2E_ASSIMILATION_SESSIONS.length} pending assimilation_sessions`);
+
     // ── improvement_requests (representative open + closed list states) ──
     for (const improvement of E2E_IMPROVEMENTS) {
       await sql.unsafe(
@@ -690,6 +751,7 @@ export async function seedE2eDatabase(options?: {
       subscription_content: E2E_SUBSCRIPTION_CONTENT.length,
       research_sessions: E2E_RESEARCH_SESSIONS.length,
       research_iterations: E2E_RESEARCH_ITERATIONS.length,
+      assimilation_sessions: E2E_ASSIMILATION_SESSIONS.length,
       whats_new_reports: 1,
       conversation_ids: [...E2E_CONVERSATION_IDS],
     });
@@ -707,6 +769,7 @@ export async function seedE2eDatabase(options?: {
       subscription_content: E2E_SUBSCRIPTION_CONTENT.length,
       research_sessions: E2E_RESEARCH_SESSIONS.length,
       research_iterations: E2E_RESEARCH_ITERATIONS.length,
+      assimilation_sessions: E2E_ASSIMILATION_SESSIONS.length,
       whats_new_reports: 1,
       reset,
       messages_log,
@@ -727,6 +790,7 @@ export async function seedE2eDatabase(options?: {
       subscription_content: 0,
       research_sessions: 0,
       research_iterations: 0,
+      assimilation_sessions: 0,
       whats_new_reports: 0,
       reset,
       messages_log,

@@ -105,7 +105,8 @@ function handleIncomingURL({ url }: { url: string }) {
       route === 'toolbelt' ||
       route === 'settings' ||
       route.startsWith('improvements/') ||
-      route.startsWith('research/')
+      route.startsWith('research/') ||
+      route.startsWith('assimilate/')
     ) {
       navigateWhenReady(() => router.push({ pathname: `/${route}` as `/improvements`, params }));
       return;

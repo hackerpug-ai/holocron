@@ -7,12 +7,13 @@
  * Route: /assimilate/[sessionId]
  */
 
-import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assimilationSessionById } from '@/app/zero/queries';
+import { approveAssimilationPlan, rejectAssimilationPlan } from '@/app/zero/assimilations';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { Button } from '@/components/ui/button';
 import { ScreenLayout } from '@/components/ui/screen-layout';
@@ -80,7 +81,6 @@ export default function AssimilationPlanRoute() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const insets = useSafeAreaInsets();
   const { colors: themeColors } = useTheme();
-  const zero = useZero();
 
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -116,11 +116,7 @@ export default function AssimilationPlanRoute() {
     if (!isValidId || isSubmitting || !sessionId) return;
     setIsSubmitting(true);
     try {
-      await zero.mutate.assimilation_sessions.update({
-        id: sessionId,
-        status: 'approved',
-        updated_at: Date.now(),
-      });
+      await approveAssimilationPlan(sessionId);
       router.back();
     } catch (err) {
       console.warn('[AssimilationPlanRoute] Approve error:', err);
@@ -137,12 +133,7 @@ export default function AssimilationPlanRoute() {
     if (!isValidId || isSubmitting || !sessionId) return;
     setIsSubmitting(true);
     try {
-      await zero.mutate.assimilation_sessions.update({
-        id: sessionId,
-        status: 'rejected',
-        plan_feedback: feedback.trim() || null,
-        updated_at: Date.now(),
-      });
+      await rejectAssimilationPlan(sessionId, feedback.trim() || undefined);
       router.back();
     } catch (err) {
       console.warn('[AssimilationPlanRoute] Reject error:', err);
