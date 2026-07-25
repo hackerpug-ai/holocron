@@ -83,7 +83,10 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(parsed.feed_items, 'must seed 5 feed items').toBe(5);
       expect(parsed.subscription_sources, 'must seed 4 subscription sources').toBe(4);
       expect(parsed.subscription_content, 'must seed 4 researched subscription rows').toBe(4);
-      expect(parsed.research_sessions, 'must seed active and completed research sessions').toBe(2);
+      expect(
+        parsed.research_sessions,
+        'must seed active, completed, and saved-document research'
+      ).toBe(3);
       expect(parsed.research_iterations, 'must seed research progress').toBe(5);
       expect((parsed.messages ?? 0) >= 3, 'each conversation needs ≥1 message').toBe(true);
       expect((parsed.categories ?? 0) >= 3, 'documents must span multiple categories').toBe(true);
@@ -95,7 +98,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);
       expect(psqlCount('subscription_content')).toBe(4);
-      expect(psqlCount('research_sessions')).toBe(2);
+      expect(psqlCount('research_sessions')).toBe(3);
       expect(psqlCount('research_iterations')).toBe(5);
       expect(psqlDistinctCategories()).toBeGreaterThanOrEqual(3);
 
@@ -116,7 +119,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);
       expect(psqlCount('subscription_content')).toBe(4);
-      expect(psqlCount('research_sessions')).toBe(2);
+      expect(psqlCount('research_sessions')).toBe(3);
       expect(psqlCount('research_iterations')).toBe(5);
     },
     180_000

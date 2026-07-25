@@ -204,6 +204,7 @@ const E2E_RESEARCH_SESSIONS = [
     status: 'running',
     maxIterations: 4,
     currentIteration: 2,
+    documentId: null,
   },
   {
     id: e2eUuid('e', 52),
@@ -211,6 +212,15 @@ const E2E_RESEARCH_SESSIONS = [
     status: 'completed',
     maxIterations: 3,
     currentIteration: 3,
+    documentId: null,
+  },
+  {
+    id: e2eUuid('e', 53),
+    topic: 'E2E Saved Research: Canonical document redirect',
+    status: 'completed',
+    maxIterations: 1,
+    currentIteration: 1,
+    documentId: docId(5),
   },
 ] as const;
 
@@ -568,10 +578,10 @@ export async function seedE2eDatabase(options?: {
       await sql.unsafe(
         `INSERT INTO research_sessions (
            id, system, query, topic, status, max_iterations, current_iteration,
-           coverage_score, findings, created_at, updated_at, completed_at
+           coverage_score, findings, document_id, created_at, updated_at, completed_at
          ) VALUES (
            $1::uuid, 'deep', $2, $2, $3, $4, $5, $6,
-           $7::jsonb, now() - interval '20 minutes', now(),
+           $7::jsonb, $8, now() - interval '20 minutes', now(),
            CASE WHEN $3 = 'completed' THEN now() ELSE NULL END
          )
          ON CONFLICT (id) DO UPDATE SET
@@ -580,6 +590,7 @@ export async function seedE2eDatabase(options?: {
            current_iteration = EXCLUDED.current_iteration,
            coverage_score = EXCLUDED.coverage_score,
            findings = EXCLUDED.findings,
+           document_id = EXCLUDED.document_id,
            updated_at = now(),
            completed_at = EXCLUDED.completed_at`,
         [
@@ -594,6 +605,7 @@ export async function seedE2eDatabase(options?: {
               ? 'Durable mobile data remains coherent across intermittent connectivity and relaunch.'
               : 'Research is actively evaluating resilient native request handling.'
           ),
+          session.documentId,
         ]
       );
     }
