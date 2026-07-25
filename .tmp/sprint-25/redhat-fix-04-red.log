@@ -1,0 +1,58 @@
+=== REDHAT-FIX-04 RED evidence 2026-07-25T20:21:31Z ===
+Base SHA: b9a906f3026379059f9dbe1c0b63165265a78131
+Branch: task/REDHAT-FIX-04
+
+=== Suite presence check ===
+SUITE_PRESENT=no
+PRODUCTION_HOOK_SUITE_ABSENT: tests/integration/redhat-fix-04-production-hook-reconnect.test.ts does not exist at HEAD
+
+=== Attempt run (expect fail / not found) ===
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-04
+
+No test files found, exiting with code 1
+
+filter: tests/integration/redhat-fix-04-production-hook-reconnect.test.ts
+include: tests/**/*.{test,spec}.{js,ts,tsx}, convex/**/*.{test,spec}.{js,ts,tsx}, hooks/**/*.{test,spec}.{js,ts}, components/**/*.{test,spec}.{js,ts,tsx}, services/platform/src/cli/__tests__/**/*.{test,spec}.ts, services/platform/src/cli/commands/__tests__/**/*.{test,spec}.ts, services/platform/tests/integration/embed-helper.test.ts, services/platform/tests/integration/embed-run.test.ts, services/platform/tests/integration/search-recall.test.ts, services/platform/tests/integration/rrf-search.test.ts, services/platform/tests/integration/inline-surfaces-search.test.ts, services/platform/tests/integration/queue-priority.test.ts, services/platform/tests/integration/queue-dlq.test.ts, services/platform/tests/integration/inference-telemetry.test.ts, services/platform/tests/integration/mission-telemetry.test.ts, services/platform/tests/integration/observability-traces.test.ts, services/platform/tests/integration/evals-versioning.test.ts, services/platform/tests/integration/evals-ci-gate.test.ts, services/platform/tests/integration/fail-closed-lane.test.ts, services/platform/tests/integration/sprint14-etl-and-blob.test.ts, services/platform/tests/integration/mission-engine-red.test.ts, services/platform/tests/integration/sprint17-research-engine.test.ts, services/platform/tests/integration/sprint17-mission-template.test.ts, services/platform/tests/integration/sprint18-chat-runs.test.ts, services/platform/tests/integration/sprint19-mcp-rehost.test.ts, services/platform/tests/integration/sprint20-chat-zero-boundary.test.ts, services/platform/tests/integration/sprint20-reference-zero-durable.test.ts, services/platform/tests/integration/nonprod-namespace-zero-sync.test.ts, services/platform/tests/integration/red-evidence-research.test.ts, services/platform/tests/integration/red-whatsnew.test.ts, services/platform/tests/integration/red-business-report.test.ts, services/platform/tests/integration/red-no-shells.test.ts, services/platform/tests/integration/red-sub-workflow-publish.test.ts, services/platform/tests/integration/evidence-research-template.test.ts, services/platform/src/research/evidence-gate.test.ts, services/platform/tests/integration/business-report-template.test.ts, services/platform/tests/integration/pipeline-templates.test.ts, services/platform/tests/integration/redhat-fix-2-cli-idempotency-defaults.test.ts, services/platform/tests/integration/redhat-fix-1-cap-emb-retrieve.test.ts, services/platform/tests/integration/redhat-fix-3-infer-trace.test.ts, services/platform/tests/integration/redhat-fix-4-subscriptions-no-claims.test.ts, services/platform/tests/integration/redhat-fix-5-behavioral-green-fleet-down.test.ts, services/platform/tests/integration/gate-fix-s22-infer-trace-runid.test.ts, services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts
+exclude:  node_modules, dist, .expo
+
+
+=== Production assemblyRef-reset mutant survival under EXISTING suites (pre-fix) ===
+Applying temporary production mutant at reconnect sites...
+=== Existing suites under production assemblyRef-reset mutant ===
+NOTE: no production-hook suite exists yet; pure/harness suites should stay green (mutant survives)
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-04
+
+ ❯ tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts (0 test)
+ ✓ tests/integration/s-reactive-01-resumable-sse.test.ts (23 tests) 50ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts [ tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts ]
+Error: Cannot find package 'drizzle-orm/postgres-js' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-04/services/platform/src/db/client.ts
+ ❯ services/platform/src/db/client.ts:4:1
+      2|  * Postgres client factory (postgres.js + drizzle).
+      3|  */
+      4| import { drizzle } from 'drizzle-orm/postgres-js';
+       | ^
+      5| import postgres from 'postgres';
+      6| import { resolveDatabaseUrl } from './index';
+ ❯ tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts:28:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  23 passed (23)
+   Start at  14:21:41
+   Duration  328ms (transform 162ms, setup 319ms, import 14ms, tests 50ms, environment 0ms)
+
+EXISTING_SUITES_EXIT=1
+VERDICT: production assemblyRef-reset mutant SURVIVES existing suites (exit 0 under mutant) — H3-NOT-CLOSED
+
+=== RED phase summary ===
+production-hook suite ABSENT at base b9a906f3026379059f9dbe1c0b63165265a78131
+s-reactive-01 pure suite exit 0 under production assemblyRef-reset mutant (SURVIVES)
+H3-NOT-CLOSED: no production-truth coverage until REDHAT-FIX-04 GREEN
+RED complete before implementation
