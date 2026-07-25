@@ -15,10 +15,11 @@ import { WebViewScreen } from '@/screens/WebViewScreen';
  */
 export default function WebViewRoute() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ url: string }>();
+  const params = useLocalSearchParams<{ url?: string | string[] }>();
 
   // Decode the URL from the route parameter
-  const url = params.url ? decodeURIComponent(params.url) : 'about:blank';
+  const rawUrl = Array.isArray(params.url) ? params.url[0] : params.url;
+  const url = rawUrl ? decodeURIComponent(rawUrl) : 'about:blank';
 
   return <WebViewScreen url={url} onClose={() => router.back()} />;
 }

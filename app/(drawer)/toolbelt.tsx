@@ -51,7 +51,7 @@ export default function ToolbeltRoute() {
 
   const handleToolPress = (tool: Tool) => {
     if (tool.sourceUrl) {
-      router.push(`/webview/${encodeURIComponent(tool.sourceUrl)}`);
+      router.push({ pathname: '/webview/[url]', params: { url: tool.sourceUrl } });
     }
   };
 
