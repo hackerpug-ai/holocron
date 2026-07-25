@@ -77,6 +77,7 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
     }
 
     case 'EXIT_MODE':
+      if (state.status === 'idle') return state;
       return { ...INITIAL_STATE };
 
     case 'PARAGRAPH_READY': {

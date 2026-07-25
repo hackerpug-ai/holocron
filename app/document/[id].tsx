@@ -259,16 +259,21 @@ export default function DocumentRoute() {
 
   const narration = useNarrationState(paragraphCount);
   const { isNarrationMode } = narration;
+  const narrationModeRef = useRef(isNarrationMode);
+
+  useEffect(() => {
+    narrationModeRef.current = isNarrationMode;
+  }, [isNarrationMode]);
 
   // Stop narration when navigating away from the document
   useFocusEffect(
     useCallback(() => {
       return () => {
-        if (narration.isNarrationMode) {
+        if (narrationModeRef.current) {
           narration.exitNarrationMode();
         }
       };
-    }, [narration.isNarrationMode, narration.exitNarrationMode])
+    }, [narration.exitNarrationMode])
   );
 
   // Subscribe to audio segments only when in narration mode (Zero queries)
