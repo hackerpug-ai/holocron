@@ -7,6 +7,7 @@ import {
   ScrollView,
   View,
 } from 'react-native';
+import { createImportedArticle } from '@/app/zero/articles';
 import { appendDocumentImport } from '@/app/zero/platform';
 import { documentsByOwner } from '@/app/zero/queries';
 import { Text } from '@/components/ui/text';
@@ -29,9 +30,21 @@ type ZeroDocument = {
   category?: string | null;
 };
 
+const NEW_ARTICLE_OPTION = '__new_article__';
+
+function titleFromMarkdown(markdown: string): string {
+  const heading = markdown.match(/^\s*#\s+(.+?)\s*#*\s*$/m)?.[1]?.trim();
+  if (heading) return heading.slice(0, 160);
+  const firstText = markdown
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-*>`#]+\s*/, '').trim())
+    .find(Boolean);
+  return (firstText || 'Imported article').slice(0, 160);
+}
+
 /**
  * ArticleImportModal - Modal for importing text from external AI platforms
- * Allows user to select an article and paste text to append
+ * Allows user to create a new article from Markdown or append to an existing one.
  *
  * Data plane: Zero query documentsByOwner + Zero mutator createImportDocument
  * (13-client-data-contract.yaml).
@@ -43,7 +56,7 @@ export function ArticleImportModal({
   testID = 'article-import-modal',
 }: ArticleImportModalProps) {
   const { colors: themeColors, typography, spacing, radius } = useTheme();
-  const [selectedArticleId, setSelectedArticleId] = useState<string>('');
+  const [selectedArticleId, setSelectedArticleId] = useState<string>(NEW_ARTICLE_OPTION);
   const [textToImport, setTextToImport] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
 
@@ -57,10 +70,15 @@ export function ArticleImportModal({
 
     setIsImporting(true);
     try {
-      await appendDocumentImport(selectedArticleId, textToImport.trim());
+      const content = textToImport.trim();
+      if (selectedArticleId === NEW_ARTICLE_OPTION) {
+        await createImportedArticle(titleFromMarkdown(content), content);
+      } else {
+        await appendDocumentImport(selectedArticleId, content);
+      }
 
       setTextToImport('');
-      setSelectedArticleId('');
+      setSelectedArticleId(NEW_ARTICLE_OPTION);
       onSuccess?.();
       onDismiss();
     } catch (error) {
@@ -105,13 +123,13 @@ export function ArticleImportModal({
               Import Text
             </Text>
             <Text className="text-sm" style={{ color: themeColors.mutedForeground }}>
-              Paste text from ChatGPT, Claude, or any other source to add to an article.
+              Paste Markdown to create a new article or append to an existing one.
             </Text>
           </View>
 
           <View className="mb-4">
             <Text className="text-sm font-semibold mb-2" style={{ color: themeColors.foreground }}>
-              Select Article
+              Import Destination
             </Text>
             <ScrollView
               style={{
@@ -122,6 +140,24 @@ export function ArticleImportModal({
                 borderRadius: 8,
               }}
             >
+              <Pressable
+                onPress={() => setSelectedArticleId(NEW_ARTICLE_OPTION)}
+                style={{
+                  padding: 12,
+                  backgroundColor:
+                    selectedArticleId === NEW_ARTICLE_OPTION ? themeColors.muted : 'transparent',
+                  borderBottomWidth: 1,
+                  borderBottomColor: themeColors.border,
+                }}
+                testID="article-option-new"
+              >
+                <Text className="text-base" style={{ color: themeColors.foreground }}>
+                  Create new article
+                </Text>
+                <Text className="text-xs" style={{ color: themeColors.mutedForeground }}>
+                  Uses the first Markdown heading as its title
+                </Text>
+              </Pressable>
               {articles?.map((article) => (
                 <Pressable
                   key={article.id}

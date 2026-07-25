@@ -314,6 +314,37 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /** Durable Markdown article creation for the native import modal. */
+  app.post('/api/documents', async (c) => {
+    try {
+      const body = (await c.req.json()) as Record<string, unknown>;
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      const content = typeof body.content === 'string' ? body.content.trim() : '';
+      const category = typeof body.category === 'string' ? body.category.trim() : 'general';
+      if (!title || !content) {
+        return c.json(
+          { error: 'invalid_document', message: 'title and content are required' },
+          422
+        );
+      }
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'document create' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string; title: string; content: string; category: string }[]>`
+          INSERT INTO documents (id, title, content, category, status, date)
+          VALUES (${crypto.randomUUID()}::uuid, ${title}, ${content}, ${category}, 'draft', ${new Date().toISOString()})
+          RETURNING id::text AS id, title, content, category
+        `;
+        return c.json({ document: rows[0] }, 201);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'document_create_error', message }, 422);
+    }
+  });
+
   /**
    * Issue a short-lived OpenAI Realtime credential after an explicit native
    * microphone gesture. The long-lived provider key remains server-only.
