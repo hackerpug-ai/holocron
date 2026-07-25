@@ -34,5 +34,16 @@ if ! command -v "$BUN_BIN" >/dev/null 2>&1; then
   exit 127
 fi
 
-# Preserve cwd so DATABASE_URL / .env resolution matches operator expectation
+# Preserve cwd so DATABASE_URL / .env resolution matches operator expectation.
+# Bare invocation (usage/help listing) must exit 0 so cold-checkout verify pipelines
+# like `bin/holo | rg -q seed:e2e` succeed under `set -o pipefail` (holo.ts exits 2
+# when no command is given — that is intentional for the TS CLI, but the operator
+# wrapper treats usage as success; REDHAT-FIX-08 AC-1/TC-6).
+if [[ $# -eq 0 ]]; then
+  "$BUN_BIN" "$HOLO_TS" "$@" || true
+  exit 0
+fi
+if [[ $# -eq 1 && ( "$1" == "--help" || "$1" == "-h" || "$1" == "help" ) ]]; then
+  exec "$BUN_BIN" "$HOLO_TS" "$@"
+fi
 exec "$BUN_BIN" "$HOLO_TS" "$@"
