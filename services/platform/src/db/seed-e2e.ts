@@ -1,8 +1,8 @@
 /**
- * DEPENDENCY-S24-E2E-SUBSTRATE — deterministic Maestro/e2e seed for Sprint 24.
+ * DEPENDENCY-S24-E2E-SUBSTRATE — deterministic Maestro/e2e seed for Sprint 24+.
  *
  * Seeds the Zero-published Postgres surface:
- *   - 3 drawer conversations + a deterministic Sprint 20 reference conversation
+ *   - 3 drawer conversations + 'Streaming' (Sprint 25 reactive) + Sprint 20 reference
  *   - 17 documents across multiple categories, including all Toolbelt filters
  *   - 5 feed_items (What's New feed)
  *   - 4 subscription sources and 4 researched subscription-content rows
@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 8;
+export const E2E_SEED_VERSION = 9;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -29,6 +29,9 @@ export const E2E_CONVERSATION_IDS = [
   '00000000-0000-4000-8000-0000000000e2',
   '00000000-0000-4000-8000-0000000000e3',
 ] as const;
+
+/** Sprint 25 reactive Maestro oracle — title exactly 'Streaming', ≥1 message. */
+export const E2E_STREAMING_CONVERSATION_ID = '00000000-0000-4000-8000-0000000000e4';
 
 export const E2E_REFERENCE_CONVERSATION_ID = '00000000-0000-0000-0000-000000000020';
 
@@ -535,6 +538,43 @@ export async function seedE2eDatabase(options?: {
       `seeded ${E2E_CONVERSATION_IDS.length} conversations + ${messageCount} messages`
     );
 
+    // REDHAT-FIX-01 / S-REACTIVE-01: deterministic 'Streaming' conversation so
+    // Maestro visible: "Streaming" oracles and the seeded-streaming-conversation
+    // fixture match real Postgres rows (not optional:true greenwash).
+    {
+      const id = E2E_STREAMING_CONVERSATION_ID;
+      const title = 'Streaming';
+      const preview = 'Hello from Streaming';
+      await sql.unsafe(
+        `INSERT INTO conversations (id, title, last_message_preview, created_at, updated_at)
+         VALUES ($1::uuid, $2, $3, now(), now())
+         ON CONFLICT (id) DO UPDATE SET
+           title = EXCLUDED.title,
+           last_message_preview = EXCLUDED.last_message_preview,
+           updated_at = now()`,
+        [id, title, preview]
+      );
+      // conv index 4 keeps msg UUIDs distinct from Alpha/Beta/Gamma (1..3)
+      for (const [j, role] of [
+        ['1', 'user'],
+        ['2', 'assistant'],
+      ] as const) {
+        const mid = msgId(4, Number(j));
+        const content =
+          role === 'user' ? `User seed message for ${title}` : `Assistant seed reply for ${title}`;
+        await sql.unsafe(
+          `INSERT INTO chat_messages (id, conversation_id, role, content, message_type, created_at)
+           VALUES ($1::uuid, $2, $3, $4, 'text', now())
+           ON CONFLICT (id) DO UPDATE SET
+             content = EXCLUDED.content,
+             role = EXCLUDED.role`,
+          [mid, id, role, content]
+        );
+        messageCount += 1;
+      }
+      messages_log.push('seeded Streaming conversation + 2 messages');
+    }
+
     // CHAT-15 uses the same stable reference route as the non-E2E seed. Keep
     // this conversation message-free so the manual run can prove exactly-once
     // creation of its unique user and assistant rows.
@@ -833,7 +873,8 @@ export async function seedE2eDatabase(options?: {
 
     const seed_fingerprint = fingerprint({
       version: E2E_SEED_VERSION,
-      conversations: E2E_CONVERSATION_IDS.length + 1,
+      // Alpha/Beta/Gamma + Streaming + Sprint 20 reference
+      conversations: E2E_CONVERSATION_IDS.length + 2,
       messages: messageCount,
       documents: E2E_DOCUMENT_CATEGORIES.length,
       categories: [...categorySet].sort(),
@@ -844,14 +885,18 @@ export async function seedE2eDatabase(options?: {
       research_iterations: E2E_RESEARCH_ITERATIONS.length,
       assimilation_sessions: E2E_ASSIMILATION_SESSIONS.length,
       whats_new_reports: 1,
-      conversation_ids: [...E2E_CONVERSATION_IDS, E2E_REFERENCE_CONVERSATION_ID],
+      conversation_ids: [
+        ...E2E_CONVERSATION_IDS,
+        E2E_STREAMING_CONVERSATION_ID,
+        E2E_REFERENCE_CONVERSATION_ID,
+      ],
     });
 
     return {
       ok: errors.length === 0,
       database: databaseNameFromUrl(databaseUrl),
       seed_fingerprint,
-      conversations: E2E_CONVERSATION_IDS.length + 1,
+      conversations: E2E_CONVERSATION_IDS.length + 2,
       messages: messageCount,
       documents: E2E_DOCUMENT_CATEGORIES.length,
       categories: categorySet.size,
