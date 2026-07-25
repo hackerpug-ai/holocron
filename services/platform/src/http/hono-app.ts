@@ -576,6 +576,60 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /** Persist automatic-research changes from the native subscriptions list. */
+  app.patch('/api/subscriptions/:id', async (c) => {
+    try {
+      const body = (await c.req.json()) as Record<string, unknown>;
+      if (typeof body.autoResearch !== 'boolean') {
+        return c.json(
+          { error: 'invalid_subscription', message: 'autoResearch must be a boolean' },
+          422
+        );
+      }
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'subscription update' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string; auto_research: boolean }[]>`
+          UPDATE subscription_sources
+          SET auto_research = ${body.autoResearch}, updated_at = now()
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id, auto_research
+        `;
+        if (!rows[0]) return c.json({ error: 'not_found', message: 'subscription not found' }, 404);
+        return c.json({ subscription: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'subscription_update_error', message }, 422);
+    }
+  });
+
+  /** Remove a source and its dependent collected content as one durable operation. */
+  app.delete('/api/subscriptions/:id', async (c) => {
+    try {
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'subscription delete' });
+      const sql = createSql(databaseUrl);
+      try {
+        const deleted = await sql.begin(async (tx) => {
+          await tx`DELETE FROM subscription_content WHERE source_id = ${c.req.param('id')}`;
+          const rows = await tx<{ id: string }[]>`
+            DELETE FROM subscription_sources WHERE id = ${c.req.param('id')}::uuid RETURNING id::text AS id
+          `;
+          return rows[0];
+        });
+        if (!deleted) return c.json({ error: 'not_found', message: 'subscription not found' }, 404);
+        return c.json({ deleted: true, id: deleted.id }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'subscription_delete_error', message }, 422);
+    }
+  });
+
   /** Durable append for the native article import modal. */
   app.post('/api/documents/:id/import', async (c) => {
     try {

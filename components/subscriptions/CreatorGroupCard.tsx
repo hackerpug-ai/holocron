@@ -12,8 +12,8 @@ import type { CreatorGroup } from './types';
 interface CreatorGroupCardProps {
   group: CreatorGroup;
   onPress?: () => void;
-  onUnsubscribe?: (subscriptionIds: string[]) => void;
-  onToggleAutoResearch?: (subscriptionId: string, currentValue: boolean) => void;
+  onUnsubscribe?: (subscriptionIds: string[]) => void | Promise<void>;
+  onToggleAutoResearch?: (subscriptionId: string, currentValue: boolean) => void | Promise<void>;
   className?: string;
 }
 
@@ -90,14 +90,17 @@ export function CreatorGroupCard({
   };
 
   // Handle auto-research toggle - sync across all subscriptions
-  const handleToggleAutoResearch = () => {
+  const handleToggleAutoResearch = async () => {
     const newValue = !autoResearch;
-    setAutoResearch(newValue);
-
-    // Update all subscriptions in the group
-    group.subscriptions.forEach((sub) => {
-      onToggleAutoResearch?.(sub._id.toString(), newValue);
-    });
+    try {
+      await Promise.all(
+        group.subscriptions.map((sub) => onToggleAutoResearch?.(sub._id.toString(), newValue))
+      );
+      setAutoResearch(newValue);
+    } catch (error) {
+      console.error('Failed to update automatic research:', error);
+      Alert.alert('Unable to update subscription', 'Please try again.');
+    }
   };
 
   // Handle unsubscribe with confirmation
@@ -111,7 +114,16 @@ export function CreatorGroupCard({
         {
           text: 'Unsubscribe',
           style: 'destructive',
-          onPress: () => onUnsubscribe?.(group.subscriptions.map((s) => s._id.toString())),
+          onPress: () => {
+            void (async () => {
+              try {
+                await onUnsubscribe?.(group.subscriptions.map((s) => s._id.toString()));
+              } catch (error) {
+                console.error('Failed to unsubscribe:', error);
+                Alert.alert('Unable to unsubscribe', 'Please try again.');
+              }
+            })();
+          },
         },
       ]
     );
@@ -211,7 +223,7 @@ export function CreatorGroupCard({
           {/* Auto-research toggle */}
           <Switch
             checked={autoResearch}
-            onCheckedChange={handleToggleAutoResearch}
+            onCheckedChange={() => void handleToggleAutoResearch()}
             testID={`toggle-auto-research-${group.creatorProfileId || 'standalone'}`}
           />
 

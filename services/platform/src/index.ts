@@ -76,6 +76,8 @@ export function createMastra(): Mastra {
  */
 export async function startService(options?: {
   port?: number;
+  /** Network interface for native-simulator and tailnet callers. */
+  hostname?: string;
   /** When true (default), log Starting/Listening lines to stdout. */
   log?: boolean;
 }): Promise<ServiceHandle> {
@@ -86,6 +88,7 @@ export async function startService(options?: {
   applyConsolidatedSecretsToEnv();
 
   const port = options?.port ?? resolvePort();
+  const hostname = options?.hostname ?? process.env.HOLO_BIND_HOST ?? '0.0.0.0';
   const log = options?.log !== false;
 
   if (log) {
@@ -106,6 +109,7 @@ export async function startService(options?: {
 
   const server = Bun.serve({
     port,
+    hostname,
     fetch: app.fetch,
   });
 

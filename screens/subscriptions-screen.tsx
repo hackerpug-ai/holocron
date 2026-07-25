@@ -1,4 +1,4 @@
-import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, ScrollView, View, type ViewProps } from 'react-native';
@@ -6,6 +6,7 @@ import {
   subscriptionContentByGroup,
   subscriptionContentGroupedByCreator,
 } from '@/app/zero/queries';
+import { deleteSubscription, updateSubscriptionAutoResearch } from '@/app/zero/subscriptions';
 import { EmptyState } from '@/components/EmptyState';
 import { FilterChip } from '@/components/FilterChip';
 import { SearchInput } from '@/components/SearchInput';
@@ -133,7 +134,6 @@ export function SubscriptionsScreen({
   const [searchValue, setSearchValue] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('all');
   const router = useRouter();
-  const zero = useZero();
 
   const [rawRows, details] = useZeroQuery(subscriptionContentGroupedByCreator(100));
   const [rawContent] = useZeroQuery(subscriptionContentByGroup(200));
@@ -187,18 +187,12 @@ export function SubscriptionsScreen({
   };
 
   const handleToggleAutoResearch = async (id: string, nextValue: boolean) => {
-    // CreatorGroupCard passes the *desired* auto_research value after local toggle.
-    // Zero mutator: subscription_sources.update (enabled / auto_research flag).
-    await zero.mutate.subscription_sources.update({
-      id,
-      auto_research: nextValue,
-      updated_at: Date.now(),
-    });
+    await updateSubscriptionAutoResearch(id, nextValue);
   };
 
   const handleUnsubscribe = async (subscriptionIds: string[]) => {
     for (const id of subscriptionIds) {
-      await zero.mutate.subscription_sources.delete({ id });
+      await deleteSubscription(id);
     }
     onUnsubscribe?.(subscriptionIds);
   };
