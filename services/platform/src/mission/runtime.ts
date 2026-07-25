@@ -727,7 +727,10 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
           category: args.category,
           filePath: args.sourceUrl,
           fileType: args.sourceType,
-          status: 'draft',
+          // Toolbelt reads are backed by published source documents.  A successful
+          // capture must therefore be visible immediately, matching this
+          // template's durable "publish" contract and its success confirmation.
+          status: 'published',
           idempotencyKey: `toolbelt:${args.sourceUrl}`,
         });
         await tx`
