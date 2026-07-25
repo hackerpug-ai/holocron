@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { MediaStream } from 'react-native-webrtc-web-shim';
+import { createVoiceSession, endVoiceSession } from '@/app/zero/voice';
 import { useVoiceResultBridge } from '@/hooks/use-voice-result-bridge';
 import {
   initialVoiceSessionState,
@@ -35,11 +36,10 @@ import { createTranscriptRecorder } from '@/lib/voice/transcript-recorder';
 import { WebRTCConnection } from '@/lib/voice/webrtc-connection';
 
 /**
- * CAP-CUT-01 / Sprint 20/24: voice is disabled on Zero-only cold boot.
- * MUST NOT import convex/react — useAction/useMutation/useConvex crash without
- * ConvexProvider. Platform voice endpoints will re-enable createSession later.
+ * The Zero runtime uses protected platform commands for ephemeral Realtime
+ * credentials. Provider credentials never enter the native bundle.
  */
-const CONVEX_UNAVAILABLE = 'Convex client unavailable — voice session disabled';
+const VOICE_TOOLS_UNAVAILABLE = 'Voice tool execution is not available in this runtime';
 
 type CreateSessionResult = {
   ephemeralKey: string;
@@ -111,18 +111,23 @@ export interface UseVoiceSessionReturn {
 export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
   const [state, dispatch] = useReducer(voiceSessionReducer, initialVoiceSessionState);
 
-  // CAP-CUT-01: no convex/react client — voice remains disabled on Zero cold-boot.
-  const voiceEnabled = false;
+  // Prewarming acquires the microphone, so it must never run before an explicit
+  // user gesture. The cold start below is fast enough and preserves iOS's
+  // understandable permission path.
+  const prewarmEnabled = false;
   const router = useRouter();
 
   const createSession = useCallback(
-    async (_args: { conversationId: string }): Promise<CreateSessionResult> => {
-      throw new Error(CONVEX_UNAVAILABLE);
+    async ({ conversationId }: { conversationId: string }): Promise<CreateSessionResult> => {
+      return createVoiceSession(conversationId);
     },
     []
   );
 
-  const endSession = useCallback(async (_args: { sessionId: string }) => null, []);
+  const endSession = useCallback(async ({ sessionId }: { sessionId: string }) => {
+    await endVoiceSession(sessionId);
+    return null;
+  }, []);
 
   const recordTranscript = useCallback(
     async (_args: {
@@ -135,7 +140,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
   );
 
   const generateAudioUploadUrl = useCallback(async (): Promise<string> => {
-    throw new Error(CONVEX_UNAVAILABLE);
+    throw new Error('Voice recording upload is not available in this runtime');
   }, []);
 
   const attachAudio = useCallback(
@@ -279,8 +284,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
    * want to defer until the user actually commits.
    */
   const prewarm = useCallback(async () => {
-    // Guard: no Convex client (Zero-only cold boot) — voice remains disabled
-    if (!voiceEnabled) return;
+    if (!prewarmEnabled) return;
 
     // Guard: don't prewarm while a real session is live
     if (statusRef.current !== 'idle' && statusRef.current !== 'error') {
@@ -335,14 +339,11 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     } finally {
       isPrewarmingRef.current = false;
     }
-  }, [conversationId, voiceEnabled, createSession, discardPrewarm]);
+  }, [conversationId, createSession, discardPrewarm]);
 
   const start = useCallback(async () => {
     // Guard against double-start
     if (state.status !== 'idle' && state.status !== 'error') return;
-
-    // Guard: no Convex client (Zero-only cold boot) — do not crash or flip UI
-    if (!voiceEnabled) return;
 
     console.time('voice:cold-start');
     dispatch({ type: 'CONNECT', conversationId });
@@ -489,20 +490,19 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
           onFunctionCall: async (fn) => {
             dispatch({ type: 'TOOL_START', toolName: fn.name });
             try {
-              // CAP-CUT-01: tool dispatch requires Convex — disabled on Zero boot
-              if (!voiceEnabled) {
-                throw new Error(CONVEX_UNAVAILABLE);
-              }
+              // Tool dispatch is separate from a realtime conversation. The
+              // session remains healthy while unavailable tools are omitted by
+              // the platform's initial session configuration.
               const deps: DispatcherDeps = {
                 convex: {
                   runAction: async () => {
-                    throw new Error(CONVEX_UNAVAILABLE);
+                    throw new Error(VOICE_TOOLS_UNAVAILABLE);
                   },
                   runMutation: async () => {
-                    throw new Error(CONVEX_UNAVAILABLE);
+                    throw new Error(VOICE_TOOLS_UNAVAILABLE);
                   },
                   runQuery: async () => {
-                    throw new Error(CONVEX_UNAVAILABLE);
+                    throw new Error(VOICE_TOOLS_UNAVAILABLE);
                   },
                 },
                 routerPush: (path) => router.push(path as never),
@@ -614,14 +614,12 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
         };
         mediaStream = prewarmSnapshot.mediaStream;
       } else {
-        // Cold path: run token generation and media acquisition in parallel
+        // Prompt for microphone access before asking the service for a
+        // short-lived token. This makes permission denial clear and avoids
+        // creating unused provider sessions.
         try {
-          const results = await Promise.all([
-            createSession({ conversationId }),
-            conn.prepareMedia(),
-          ]);
-          tokenResult = results[0];
-          mediaStream = results[1];
+          mediaStream = await conn.prepareMedia();
+          tokenResult = await createSession({ conversationId });
         } catch (parallelError) {
           const errMsg =
             parallelError instanceof Error ? parallelError.message : 'Connection failed';
@@ -731,7 +729,6 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     recordTranscript,
     state.status,
     router.push,
-    voiceEnabled,
   ]);
 
   const stop = useCallback(async () => {

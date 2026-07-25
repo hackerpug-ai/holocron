@@ -314,6 +314,137 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /**
+   * Issue a short-lived OpenAI Realtime credential after an explicit native
+   * microphone gesture. The long-lived provider key remains server-only.
+   */
+  app.post('/api/voice-sessions', async (c) => {
+    try {
+      const body = (await c.req.json()) as { conversationId?: unknown };
+      const conversationId = typeof body.conversationId === 'string' ? body.conversationId : '';
+      if (!conversationId) {
+        return c.json(
+          { error: 'invalid_voice_session', message: 'conversationId is required' },
+          422
+        );
+      }
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return c.json(
+          { error: 'voice_unavailable', message: 'voice service is not configured' },
+          503
+        );
+      }
+
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'voice session create' });
+      const sql = createSql(databaseUrl);
+      try {
+        const conversation = await sql<{ title: string | null }[]>`
+          SELECT title FROM conversations WHERE id = ${conversationId}::uuid
+        `;
+        if (!conversation[0]) {
+          return c.json({ error: 'not_found', message: 'conversation not found' }, 404);
+        }
+
+        const title = conversation[0].title?.trim() || 'this conversation';
+        const instructions = `You are Holocron, a concise and helpful voice assistant. Continue ${title}.`;
+        const credentialResponse = await fetch(
+          'https://api.openai.com/v1/realtime/client_secrets',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              session: {
+                type: 'realtime',
+                model: 'gpt-realtime',
+                instructions,
+                audio: {
+                  input: {
+                    turn_detection: {
+                      type: 'server_vad',
+                      threshold: 0.5,
+                      prefix_padding_ms: 300,
+                      silence_duration_ms: 500,
+                      idle_timeout_ms: 30000,
+                    },
+                    transcription: { model: 'gpt-4o-transcribe' },
+                  },
+                  output: { voice: 'cedar' },
+                },
+                truncation: { type: 'retention_ratio', retention_ratio: 0.8 },
+              },
+            }),
+          }
+        );
+        if (!credentialResponse.ok) {
+          return c.json(
+            { error: 'voice_unavailable', message: 'voice service is unavailable' },
+            503
+          );
+        }
+        const credential = (await credentialResponse.json()) as { value?: unknown };
+        if (typeof credential.value !== 'string' || !credential.value) {
+          return c.json(
+            { error: 'voice_unavailable', message: 'voice credential was invalid' },
+            503
+          );
+        }
+
+        const sessionId = crypto.randomUUID();
+        await sql.begin(async (tx) => {
+          await tx`
+            UPDATE voice_sessions
+            SET completed_at = now(), total_duration_ms = GREATEST(0, EXTRACT(EPOCH FROM now() - started_at) * 1000)::integer,
+                error_message = 'Replaced by new session', updated_at = now()
+            WHERE conversation_id = ${conversationId} AND completed_at IS NULL
+          `;
+          await tx`
+            INSERT INTO voice_sessions (id, conversation_id, started_at, turn_count)
+            VALUES (${sessionId}::uuid, ${conversationId}, now(), 0)
+          `;
+        });
+        return c.json(
+          { session: { ephemeralKey: credential.value, sessionId, instructions } },
+          201
+        );
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'voice_session_create_error', message }, 422);
+    }
+  });
+
+  /** Complete a durable voice session when the native overlay closes. */
+  app.post('/api/voice-sessions/:id/end', async (c) => {
+    try {
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'voice session end' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string }[]>`
+          UPDATE voice_sessions
+          SET completed_at = COALESCE(completed_at, now()),
+              total_duration_ms = COALESCE(total_duration_ms, GREATEST(0, EXTRACT(EPOCH FROM now() - started_at) * 1000)::integer),
+              updated_at = now()
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id
+        `;
+        if (!rows[0])
+          return c.json({ error: 'not_found', message: 'voice session not found' }, 404);
+        return c.json({ session: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'voice_session_end_error', message }, 422);
+    }
+  });
+
   /** Durable native improvement creation. */
   app.post('/api/improvements', async (c) => {
     try {

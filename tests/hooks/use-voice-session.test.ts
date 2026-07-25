@@ -1,5 +1,5 @@
 /**
- * CAP-CUT-01: useVoiceSession / useVoiceResultBridge — static cold-boot contracts.
+ * Zero voice-session boundary — static cold-boot contracts.
  *
  * Voice must not import convex/react so chat cold-boots under ZeroProvider only.
  * No mocked Convex client (TESTING-HIERARCHY: mocked tests banned).
@@ -14,10 +14,15 @@ const REPO_ROOT = resolve(__dirname, '..', '..');
 
 const VOICE_SRC = readFileSync(join(REPO_ROOT, 'hooks', 'use-voice-session.ts'), 'utf8');
 const BRIDGE_SRC = readFileSync(join(REPO_ROOT, 'hooks', 'use-voice-result-bridge.ts'), 'utf8');
+const VOICE_CLIENT_SRC = readFileSync(join(REPO_ROOT, 'app', 'zero', 'voice.ts'), 'utf8');
+const HONO_SRC = readFileSync(
+  join(REPO_ROOT, 'services', 'platform', 'src', 'http', 'hono-app.ts'),
+  'utf8'
+);
 
 const CONVEX_REACT_IMPORT = /from\s+['"]convex\/react['"]|require\(['"]convex\/react['"]\)/;
 
-describe('CAP-CUT-01: useVoiceSession Zero cold-boot', () => {
+describe('useVoiceSession Zero cold-boot', () => {
   it('does not import convex/react', () => {
     expect(VOICE_SRC).not.toMatch(CONVEX_REACT_IMPORT);
     expect(BRIDGE_SRC).not.toMatch(CONVEX_REACT_IMPORT);
@@ -32,9 +37,14 @@ describe('CAP-CUT-01: useVoiceSession Zero cold-boot', () => {
     expect(BRIDGE_SRC).not.toMatch(/\buseQuery\s*\(/);
   });
 
-  it('gates voice when Convex client is unavailable', () => {
-    expect(VOICE_SRC).toMatch(/Convex client unavailable|voice session disabled/i);
-    expect(VOICE_SRC).toMatch(/voiceEnabled = false/);
+  it('uses the protected platform voice-session boundary', () => {
+    expect(VOICE_SRC).toMatch(/from ['"]@\/app\/zero\/voice['"]/);
+    expect(VOICE_SRC).toMatch(/createVoiceSession\(conversationId\)/);
+    expect(VOICE_SRC).not.toMatch(/voiceEnabled = false/);
+    expect(VOICE_CLIENT_SRC).toMatch(/voiceFetch\('\/api\/voice-sessions'/);
+    expect(HONO_SRC).toMatch(/app\.post\('\/api\/voice-sessions'/);
+    expect(HONO_SRC).toMatch(/OPENAI_API_KEY/);
+    expect(HONO_SRC).not.toMatch(/EXPO_PUBLIC.*OPENAI_API_KEY/);
   });
 
   it('bridge is a pure no-op with empty body (no Convex API imports)', () => {
