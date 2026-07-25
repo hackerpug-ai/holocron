@@ -50,6 +50,17 @@ function navigateWhenReady(action: () => void) {
   setTimeout(action, 0);
 }
 
+// Expo can emit the launch URL through both the `url` subscription and
+// getInitialURL during a cold/warm handoff.  Navigation itself is harmless,
+// but a mutation route such as toolbelt/add must not execute twice before its
+// first screen has mounted.  This only coalesces the same delivery burst; a
+// later deliberate opening of the same link still reaches its idempotency UI.
+const recentIncomingUrls = new Map<string, number>();
+// The add screen remains visible for two seconds before its success return, so
+// three seconds covers Expo's initial-url/event handoff without swallowing a
+// subsequent deliberate replay after that screen has completed.
+const DUPLICATE_URL_WINDOW_MS = 3_000;
+
 /**
  * Handle incoming deep links
  * Routes holocron:// URLs to appropriate screens
@@ -59,6 +70,11 @@ function navigateWhenReady(action: () => void) {
  */
 function handleIncomingURL({ url }: { url: string }) {
   try {
+    const previous = recentIncomingUrls.get(url);
+    const now = Date.now();
+    if (previous !== undefined && now - previous < DUPLICATE_URL_WINDOW_MS) return;
+    recentIncomingUrls.set(url, now);
+
     const parsed = Linking.parse(url);
     if (parsed.scheme !== 'holocron') return;
 
