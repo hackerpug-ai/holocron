@@ -1,4 +1,4 @@
-import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
+import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useCallback, useState } from 'react';
 import {
   Pressable,
@@ -7,7 +7,7 @@ import {
   ScrollView,
   View,
 } from 'react-native';
-import { mutators } from '@/app/zero/mutators';
+import { appendDocumentImport } from '@/app/zero/platform';
 import { documentsByOwner } from '@/app/zero/queries';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
@@ -43,7 +43,6 @@ export function ArticleImportModal({
   testID = 'article-import-modal',
 }: ArticleImportModalProps) {
   const { colors: themeColors, typography, spacing, radius } = useTheme();
-  const zero = useZero();
   const [selectedArticleId, setSelectedArticleId] = useState<string>('');
   const [textToImport, setTextToImport] = useState<string>('');
   const [isImporting, setIsImporting] = useState(false);
@@ -58,13 +57,7 @@ export function ArticleImportModal({
 
     setIsImporting(true);
     try {
-      await zero.mutate(
-        mutators.createImportDocument({
-          documentId: selectedArticleId,
-          source: 'manual',
-          text: textToImport.trim(),
-        })
-      );
+      await appendDocumentImport(selectedArticleId, textToImport.trim());
 
       setTextToImport('');
       setSelectedArticleId('');
@@ -75,7 +68,7 @@ export function ArticleImportModal({
     } finally {
       setIsImporting(false);
     }
-  }, [selectedArticleId, textToImport, zero, onSuccess, onDismiss]);
+  }, [selectedArticleId, textToImport, onSuccess, onDismiss]);
 
   const canSubmit = selectedArticleId && textToImport.trim().length > 0 && !isImporting;
 

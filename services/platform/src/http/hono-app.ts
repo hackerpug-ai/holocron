@@ -314,6 +314,65 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /** Durable append for the native article import modal. */
+  app.post('/api/documents/:id/import', async (c) => {
+    try {
+      const body = (await c.req.json()) as { text?: unknown };
+      const text = typeof body.text === 'string' ? body.text.trim() : '';
+      if (!text) {
+        return c.json({ error: 'invalid_import', message: 'text must not be empty' }, 422);
+      }
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'document import' });
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ id: string; content: string }[]>`
+          UPDATE documents
+          SET content = CASE
+            WHEN content IS NULL OR content = '' THEN ${text}
+            ELSE content || E'\\n\\n' || ${text}
+          END
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id, content
+        `;
+        if (!rows[0]) {
+          return c.json({ error: 'not_found', message: 'document not found' }, 404);
+        }
+        return c.json({ document: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'document_import_error', message }, 422);
+    }
+  });
+
+  /** Durable publication for native article sharing. */
+  app.post('/api/documents/:id/publish', async (c) => {
+    try {
+      const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'document publish' });
+      const sql = createSql(databaseUrl);
+      try {
+        const newToken = `share-${crypto.randomUUID()}`;
+        const rows = await sql<{ id: string; shareToken: string; isPublic: boolean }[]>`
+          UPDATE documents
+          SET is_public = true, share_token = COALESCE(share_token, ${newToken})
+          WHERE id = ${c.req.param('id')}::uuid
+          RETURNING id::text AS id, share_token AS "shareToken", is_public AS "isPublic"
+        `;
+        if (!rows[0]) {
+          return c.json({ error: 'not_found', message: 'document not found' }, 404);
+        }
+        return c.json({ document: rows[0] }, 200);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: 'document_publish_error', message }, 422);
+    }
+  });
+
   app.post('/api/uploads', async (c) => {
     try {
       const body = await c.req.json();

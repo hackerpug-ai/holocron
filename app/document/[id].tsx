@@ -29,6 +29,7 @@ import {
   buildBlobAudioUrl,
   getPlatformUrl,
   getRnApiKey,
+  publishDocument,
 } from '@/app/zero/platform';
 import {
   audioJobByDocument,
@@ -437,27 +438,9 @@ export default function DocumentRoute() {
     if (document.isPublic && document.shareToken) {
       return buildArticleShareUrl(document.shareToken);
     }
-    // Publish via Zero mutator, then build Mastra share URL (never .convex.site).
-    try {
-      await zero.mutate(mutators.publishDocument({ id: document.id }));
-    } catch (err) {
-      console.warn('[DocumentRoute] publishDocument mutator failed:', err);
-    }
-    // Re-read optimistic local row; share_token is set by the mutator.
-    let published = (await zero.run(documentById(document.id))) as ZeroDocument | undefined;
-    let token = published?.share_token ?? document.shareToken;
-    if (!token) {
-      // GATE-FIX-007b: table-level update if custom mutator did not materialize token
-      // (e.g. stale Zero row after seed, or mutator not applied to IVM branch).
-      token = `share-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-      await zero.mutate.documents.update({
-        id: document.id,
-        is_public: true,
-        share_token: token,
-      });
-      published = (await zero.run(documentById(document.id))) as ZeroDocument | undefined;
-      token = published?.share_token ?? token;
-    }
+    const published = await publishDocument(document.id);
+    const documentResult = published.document as { shareToken?: unknown } | undefined;
+    const token = typeof documentResult?.shareToken === 'string' ? documentResult.shareToken : null;
     if (!token) {
       throw new Error('publishDocument did not produce a share_token');
     }

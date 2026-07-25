@@ -132,6 +132,29 @@ export async function deleteConversation(id: string): Promise<PlatformJson> {
   return (await response.json()) as PlatformJson;
 }
 
+/** POST /api/documents/:id/import — durable article import append. */
+export async function appendDocumentImport(id: string, text: string): Promise<PlatformJson> {
+  const response = await platformFetch(`/api/documents/${id}/import`, {
+    method: 'POST',
+    json: { text },
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`document import failed: ${response.status} ${body}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
+/** POST /api/documents/:id/publish — durable document share token. */
+export async function publishDocument(id: string): Promise<PlatformJson> {
+  const response = await platformFetch(`/api/documents/${id}/publish`, { method: 'POST', json: {} });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`document publish failed: ${response.status} ${body}`);
+  }
+  return (await response.json()) as PlatformJson;
+}
+
 /** POST /api/uploads — improvement-upload-init */
 export async function initUpload(body: {
   kind: 'improvement_image' | 'voice_artifact';
