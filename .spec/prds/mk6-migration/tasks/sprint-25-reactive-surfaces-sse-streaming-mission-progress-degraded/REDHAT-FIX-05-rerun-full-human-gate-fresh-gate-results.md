@@ -1,5 +1,5 @@
 # REDHAT-FIX-05 — Re-run the full 5-step human gate against HEAD and produce a fresh gate-results.json (current one is missing/deleted; GATE-RESULTS.md still documents the pre-fix run s25-ht-20260725T155918Z from 15:59:18Z, 3h34m before REDHAT-FIX completion)
-> Status: Backlog
+> Status: ✅ Completed
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 45 min
