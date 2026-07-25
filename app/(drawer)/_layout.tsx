@@ -1,7 +1,7 @@
 import { type DrawerContentComponentProps, useDrawerStatus } from '@react-navigation/drawer';
 import { DrawerActions } from '@react-navigation/native';
 import { useQuery } from '@rocicorp/zero/react';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -301,6 +301,7 @@ function _InitialErrorScreen({ error, onRetry }: { error: Error | null; onRetry:
 
 export default function DrawerLayout() {
   const router = useRouter();
+  const pathname = usePathname();
   const { colors: themeColors } = useTheme();
 
   // Zero query for conversations list (conversationsByOwner)
@@ -317,6 +318,13 @@ export default function DrawerLayout() {
   const isLoading = conversationRows === undefined;
 
   useEffect(() => {
+    // Bootstrap a conversation only from the chat/root surface. A deep link or
+    // nested card route is authoritative and must not be replaced by the most
+    // recent conversation while its first interaction is being processed.
+    const isChatRoute =
+      pathname === '/' || pathname === '/chat/new' || pathname.startsWith('/chat/');
+    if (!isChatRoute) return;
+
     // On first mount, navigate to /chat/new immediately (optimistic empty state)
     if (!hasInitialized.current && !isInitializing.current) {
       isInitializing.current = true;
@@ -333,7 +341,7 @@ export default function DrawerLayout() {
         router.replace(`/chat/${mostRecent.id}`);
       }
     }
-  }, [isLoading, conversations, router, activeConversationId]);
+  }, [isLoading, conversations, router, activeConversationId, pathname]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']} className="bg-background">
