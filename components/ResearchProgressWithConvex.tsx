@@ -1,182 +1,194 @@
-import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
-import { researchSessionById } from '@/app/zero/queries';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { AlertCircle, Loader2, Sparkles } from '@/components/ui/icons';
+import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
+import { type ResearchProgressStatus, useResearchProgress } from '@/hooks/useResearchProgress';
 import { cn } from '@/lib/utils';
-import { Progress } from './ui/progress';
-
-export type ResearchStatus =
-  | 'pending'
-  | 'searching'
-  | 'analyzing'
-  | 'synthesizing'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
 
 interface ResearchProgressWithConvexProps {
   /** Research session ID (Zero research_sessions row) */
   sessionId: string;
-  /** Optional test ID */
+  /** Optional test ID root; bar uses research-progress-bar when default */
   testID?: string;
   /** Optional class name */
   className?: string;
+  /** Whether to wrap with SafeAreaView (default true for screen surfaces) */
+  withSafeArea?: boolean;
 }
 
-const statusLabels: Record<ResearchStatus, string> = {
+const statusLabels: Record<string, string> = {
   pending: 'Starting research...',
   searching: 'Searching sources...',
   analyzing: 'Analyzing findings...',
   synthesizing: 'Synthesizing results...',
+  running: 'Research in progress...',
+  paused: 'Research paused',
   completed: 'Research complete',
   failed: 'Research failed',
   cancelled: 'Research cancelled',
 };
 
-type SessionRow = {
-  id: string;
-  query?: string | null;
-  topic?: string | null;
-  status: string;
-  current_iteration?: number | null;
-  max_iterations?: number | null;
-  coverage_score?: number | null;
-  error_text?: string | null;
-};
-
 /**
  * ResearchProgressWithConvex displays real-time research progress
- * by watching the Zero research_sessions row (researchSessionById).
+ * bound to Zero research_sessions via useResearchProgress (researchSessionById).
  *
- * Component name retained for import stability; data plane is Zero.
+ * Component name retained for import stability; data plane is Zero (not Convex).
+ * Progress advances live as current_iteration/max_iterations update via zero_pub WAL.
  */
 export function ResearchProgressWithConvex({
   sessionId,
   testID = 'research-progress',
   className,
+  withSafeArea = true,
 }: ResearchProgressWithConvexProps) {
-  const [session] = useZeroQuery(researchSessionById(sessionId));
+  const { session, isLoading, label, progressPercent, status, queryLabel } =
+    useResearchProgress(sessionId);
 
-  // Handle loading state (query is loading)
-  if (session === undefined) {
+  const body = (() => {
+    if (isLoading) {
+      return (
+        <Card className={cn('py-4', className)} testID={`${testID}-loading`}>
+          <CardContent className="pt-0">
+            <View className="flex-row items-center gap-3">
+              <Loader2 size={18} className="text-muted-foreground" />
+              <Text className="text-muted-foreground">Loading research session...</Text>
+            </View>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (session === null) {
+      return (
+        <Card className={cn('py-4', className)} testID={`${testID}-not-found`}>
+          <CardContent className="pt-0">
+            <Text className="text-muted-foreground text-sm">Session not found</Text>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    const resolvedStatus = (status ?? session.status) as ResearchProgressStatus;
+    const isActive =
+      resolvedStatus !== 'completed' &&
+      resolvedStatus !== 'failed' &&
+      resolvedStatus !== 'cancelled';
+
+    if (resolvedStatus === 'pending') {
+      return (
+        <Card className={cn('py-4', className)} testID={`${testID}-waiting`}>
+          <CardHeader className="pb-3">
+            <View className="flex-row items-center gap-2">
+              <ActivityIndicator />
+              <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
+                {queryLabel}
+              </Text>
+            </View>
+          </CardHeader>
+          <CardContent className="gap-3 pt-0">
+            <Text className="text-muted-foreground text-sm">{statusLabels.pending}</Text>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (isActive) {
+      return (
+        <RunningProgress
+          queryLabel={queryLabel}
+          status={resolvedStatus}
+          progressPercent={progressPercent}
+          label={label}
+          testID={testID}
+          className={className}
+        />
+      );
+    }
+
+    if (resolvedStatus === 'completed') {
+      return (
+        <Card className={cn('py-4', className)} testID={`${testID}-results`}>
+          <CardHeader className="pb-3">
+            <View className="flex-row items-center gap-2">
+              <Sparkles size={18} className="text-primary" />
+              <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
+                {queryLabel}
+              </Text>
+            </View>
+          </CardHeader>
+          <CardContent className="gap-3 pt-0">
+            <Text className="text-muted-foreground text-sm">{statusLabels.completed}</Text>
+            {label != null && (
+              <Text className="text-muted-foreground text-sm" testID={`${testID}-label`}>
+                {label}
+              </Text>
+            )}
+            {session.coverage_score != null && (
+              <Text className="text-muted-foreground text-sm">
+                Coverage Score: {session.coverage_score}/5
+              </Text>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (resolvedStatus === 'failed') {
+      return (
+        <Card className={cn('py-4 border-destructive', className)} testID={`${testID}-error`}>
+          <CardHeader className="pb-3">
+            <View className="flex-row items-center gap-2">
+              <AlertCircle size={18} className="text-destructive" />
+              <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
+                {queryLabel}
+              </Text>
+            </View>
+          </CardHeader>
+          <CardContent className="gap-3 pt-0">
+            <Text className="text-destructive text-sm">{statusLabels.failed}</Text>
+            {session.error_text && (
+              <Text className="text-destructive text-sm">{session.error_text}</Text>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
-      <Card className={cn('py-4', className)} testID={`${testID}-loading`}>
+      <Card className={cn('py-4', className)} testID={`${testID}-cancelled`}>
         <CardContent className="pt-0">
-          <View className="flex-row items-center gap-3">
-            <Loader2 size={18} className="text-muted-foreground" />
-            <Text className="text-muted-foreground">Loading research session...</Text>
-          </View>
+          <Text className="text-muted-foreground text-sm">{statusLabels.cancelled}</Text>
         </CardContent>
       </Card>
     );
-  }
+  })();
 
-  if (session === null) {
-    return (
-      <Card className={cn('py-4', className)} testID={`${testID}-not-found`}>
-        <CardContent className="pt-0">
-          <Text className="text-muted-foreground text-sm">Session not found</Text>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const row = session as SessionRow;
-  const status = row.status as ResearchStatus;
-  const isActive = status !== 'completed' && status !== 'failed' && status !== 'cancelled';
-  const queryLabel = row.query ?? row.topic ?? '';
-
-  if (status === 'pending') {
-    return (
-      <Card className={cn('py-4', className)} testID={`${testID}-waiting`}>
-        <CardHeader className="pb-3">
-          <View className="flex-row items-center gap-2">
-            <ActivityIndicator />
-            <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-              {queryLabel}
-            </Text>
-          </View>
-        </CardHeader>
-        <CardContent className="gap-3 pt-0">
-          <Text className="text-muted-foreground text-sm">{statusLabels.pending}</Text>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isActive) {
-    return (
-      <RunningProgress
-        session={row}
-        queryLabel={queryLabel}
-        testID={testID}
-        className={className}
-      />
-    );
-  }
-
-  if (status === 'completed') {
-    return (
-      <Card className={cn('py-4', className)} testID={`${testID}-results`}>
-        <CardHeader className="pb-3">
-          <View className="flex-row items-center gap-2">
-            <Sparkles size={18} className="text-primary" />
-            <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-              {queryLabel}
-            </Text>
-          </View>
-        </CardHeader>
-        <CardContent className="gap-3 pt-0">
-          <Text className="text-muted-foreground text-sm">{statusLabels.completed}</Text>
-          {row.coverage_score != null && (
-            <Text className="text-muted-foreground text-sm">
-              Coverage Score: {row.coverage_score}/5
-            </Text>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (status === 'failed') {
-    return (
-      <Card className={cn('py-4 border-destructive', className)} testID={`${testID}-error`}>
-        <CardHeader className="pb-3">
-          <View className="flex-row items-center gap-2">
-            <AlertCircle size={18} className="text-destructive" />
-            <Text className="text-foreground flex-1 font-semibold" numberOfLines={1}>
-              {queryLabel}
-            </Text>
-          </View>
-        </CardHeader>
-        <CardContent className="gap-3 pt-0">
-          <Text className="text-destructive text-sm">{statusLabels.failed}</Text>
-          {row.error_text && <Text className="text-destructive text-sm">{row.error_text}</Text>}
-        </CardContent>
-      </Card>
-    );
+  if (!withSafeArea) {
+    return body;
   }
 
   return (
-    <Card className={cn('py-4', className)} testID={`${testID}-cancelled`}>
-      <CardContent className="pt-0">
-        <Text className="text-muted-foreground text-sm">{statusLabels.cancelled}</Text>
-      </CardContent>
-    </Card>
+    <SafeAreaView edges={['left', 'right']} testID={`${testID}-safe-area`}>
+      {body}
+    </SafeAreaView>
   );
 }
 
 function RunningProgress({
-  session,
   queryLabel,
+  status,
+  progressPercent,
+  label,
   testID,
   className,
 }: {
-  session: SessionRow;
   queryLabel: string;
+  status: ResearchProgressStatus;
+  progressPercent: number;
+  label: string | null;
   testID: string;
   className?: string;
 }) {
@@ -202,9 +214,6 @@ function RunningProgress({
     outputRange: ['0deg', '360deg'],
   });
 
-  const status = session.status as ResearchStatus;
-  const progress = calculateProgress(session);
-
   return (
     <Card className={cn('py-4', className)} testID={`${testID}-running`}>
       <CardHeader className="pb-3">
@@ -219,38 +228,38 @@ function RunningProgress({
       </CardHeader>
 
       <CardContent className="gap-3 pt-0">
-        <Progress value={progress} className="h-2" testID={`${testID}-bar`} />
+        {/* Stable Maestro oracle: research-progress-bar (AC-3) */}
+        <View
+          testID="research-progress-bar"
+          accessibilityLabel={label ? `Research progress ${label}` : 'Research progress'}
+          accessibilityRole="progressbar"
+          accessibilityValue={{
+            min: 0,
+            max: 100,
+            now: Math.round(progressPercent),
+            text: label ?? undefined,
+          }}
+        >
+          <Progress value={progressPercent} className="h-2" />
+        </View>
 
         <View className="flex-row items-center justify-between">
-          <Text className="text-muted-foreground text-sm">{statusLabels[status]}</Text>
+          <Text className="text-muted-foreground text-sm">
+            {statusLabels[status] ?? statusLabels.running}
+          </Text>
 
-          {session.current_iteration != null && session.max_iterations != null && (
-            <Text className="text-muted-foreground text-sm">
-              Iteration {session.current_iteration}/{session.max_iterations}
+          {label != null && (
+            <Text
+              className="text-muted-foreground text-sm font-medium"
+              testID="research-progress-label"
+            >
+              {label}
             </Text>
           )}
         </View>
       </CardContent>
     </Card>
   );
-}
-
-function calculateProgress(session: SessionRow): number {
-  if (session.current_iteration && session.max_iterations) {
-    return (session.current_iteration / session.max_iterations) * 100;
-  }
-
-  const statusProgress: Record<ResearchStatus, number> = {
-    pending: 0,
-    searching: 25,
-    analyzing: 50,
-    synthesizing: 75,
-    completed: 100,
-    failed: 0,
-    cancelled: 0,
-  };
-
-  return statusProgress[session.status as ResearchStatus] || 0;
 }
 
 function ActivityIndicator() {
