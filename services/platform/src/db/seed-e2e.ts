@@ -359,6 +359,55 @@ function whatsNewId(): string {
   return e2eUuid('d', 1);
 }
 
+/**
+ * DOC-02 needs a real, scrollable Markdown surface instead of a placeholder.
+ * Keep it tied to the stable AI-ROI document so the Articles list can exercise
+ * rich rendering without a special test-only route.
+ */
+function seededDocumentContent(n: number, category: string): string {
+  if (n !== 12) {
+    return `Seeded e2e document #${n} in category ${category} for Maestro Zero reads.`;
+  }
+
+  return `# E2E Markdown Reading Fixture
+
+## Native document fidelity
+
+This seeded article verifies **bold emphasis**, *italic emphasis*, and a [secure source](https://example.com/e2e-markdown-source) inside the same real document reader used by saved knowledge.
+
+> A quoted callout must remain visually distinct and constrained to the reader width.
+
+### Recovery checklist
+
+- Preserve the originating list position when returning.
+- Keep long paragraphs readable without horizontal clipping.
+- Retain document actions after scrolling to the end.
+
+1. Synchronize durable data.
+2. Render its structured content.
+3. Recover navigation context.
+
+| Surface | Expected behavior |
+| --- | --- |
+| Reader | Structured text remains legible |
+| Back | Returns to the same article list |
+
+\`\`\`ts
+const result = await recoverDocument();
+assert(result.isDurable);
+\`\`\`
+
+## Long-form evidence
+
+Native readers must keep a coherent line length when a report contains detailed operational context. This paragraph intentionally describes the same deterministic fixture in enough prose to cross the initial viewport while remaining ordinary product content: a durable command produces a server-side record, Zero synchronizes that record to the device, and the article screen preserves both the content hierarchy and the operator's path back to the library.
+
+The second long paragraph ensures that scrolling reaches a true ending rather than only a short body. It records that recovery should be observable, source links should be reachable, and document-level actions should remain available after the user has read the complete evidence. The fixture is deterministic so a manual run can distinguish rendering regressions from changing upstream content.
+
+## Completion
+
+The end of this fixture is intentional: reaching it proves that the real scroll container handles headings, lists, a quote, a table, code, links, and long prose together.`;
+}
+
 export async function seedE2eDatabase(options?: {
   databaseUrl?: string;
   reset?: boolean;
@@ -492,11 +541,16 @@ export async function seedE2eDatabase(options?: {
       const id = docId(n);
       const category = E2E_DOCUMENT_CATEGORIES[(n - 1) % E2E_DOCUMENT_CATEGORIES.length]!;
       const title = `E2E Document ${n} (${category})`;
-      const content = `Seeded e2e document #${n} in category ${category} for Maestro Zero reads.`;
+      const content = seededDocumentContent(n, category);
       const shareToken = `e2e-share-token-00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-      const isToolbeltDocument = ['libraries', 'cli', 'framework', 'service', 'database', 'tool'].includes(
-        category
-      );
+      const isToolbeltDocument = [
+        'libraries',
+        'cli',
+        'framework',
+        'service',
+        'database',
+        'tool',
+      ].includes(category);
       await sql.unsafe(
         `INSERT INTO documents (
            id, title, content, category, status, is_public, share_token, file_path, file_type, created_at
