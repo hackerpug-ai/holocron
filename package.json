@@ -19,6 +19,7 @@
     "web": "expo start --web",
     "lint": "biome check .",
     "client:dev": "expo start --dev-client --ios",
+    "dev:ios": "pnpm client:dev",
     "server:dev": "npx convex dev",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",

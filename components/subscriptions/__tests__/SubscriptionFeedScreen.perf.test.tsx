@@ -26,7 +26,7 @@ describe('SubscriptionFeedScreen performance contract', () => {
     const source = readComponent();
 
     expect(source).toContain('removeClippedSubviews={true}');
-    expect(source).toContain('keyExtractor={(item) => item.url}');
+    expect(source).toContain('keyExtractor={(item) => item.id}');
   });
 
   it('cancelsOffscreenImagesOnFastScroll', () => {

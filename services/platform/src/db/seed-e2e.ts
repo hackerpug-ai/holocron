@@ -162,7 +162,8 @@ const E2E_SUBSCRIPTION_CONTENT = [
     title: 'E2E Aurora Article: Native Data Contracts',
     url: 'https://example.com/e2e-aurora-article',
     category: 'article',
-    description: 'A deterministic researched article for the Aurora creator group.',
+    description:
+      'A deterministic researched article for the Aurora creator group. It explains how durable data contracts keep native clients synchronized after a relaunch, including predictable fallback behavior when a field is unavailable.',
   },
   {
     id: e2eUuid('f', 12),
@@ -171,7 +172,8 @@ const E2E_SUBSCRIPTION_CONTENT = [
     title: 'E2E Aurora Video: Zero Synchronization',
     url: 'https://example.com/e2e-aurora-video',
     category: 'video',
-    description: 'A deterministic researched video for the Aurora creator group.',
+    description:
+      'A deterministic researched video for the Aurora creator group. The walkthrough covers reactive synchronization, reconnect recovery, and the visible states a mobile operator should expect while data arrives.',
   },
   {
     id: e2eUuid('f', 13),
@@ -180,7 +182,8 @@ const E2E_SUBSCRIPTION_CONTENT = [
     title: 'E2E Platform Release: Durable Commands',
     url: 'https://example.com/e2e-platform-release',
     category: 'release',
-    description: 'A deterministic researched release note for subscription search.',
+    description:
+      'A deterministic researched release note for subscription search. It records the command durability changes, the migration expectations, and why retries do not create duplicate side effects.',
   },
   {
     id: e2eUuid('f', 14),
@@ -189,7 +192,8 @@ const E2E_SUBSCRIPTION_CONTENT = [
     title: 'E2E Community Discussion: Offline Queue',
     url: 'https://example.com/e2e-community-discussion',
     category: 'social',
-    description: 'A deterministic researched social discussion for subscription search.',
+    description:
+      'A deterministic researched social discussion for subscription search. The thread documents offline queue recovery, how pending work drains only once after reconnect, and the user-facing indicators that prove it.',
   },
 ] as const;
 

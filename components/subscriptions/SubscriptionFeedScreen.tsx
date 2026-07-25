@@ -1,76 +1,66 @@
 /**
- * SubscriptionFeedScreen - What's New briefing feed with search
+ * SubscriptionFeedScreen - durable subscription content feed with search
  *
- * Default mode: Displays AI-curated findings from the latest What's New report.
+ * Default mode: Displays researched subscription content grouped by content type.
  * Search mode: Full-text search over subscription content when user types 2+ chars.
  *
  * Uses FlatList for performance with pull-to-refresh in default mode.
  */
 
 import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
-import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { subscriptionContentSearch } from '@/app/zero/queries';
 import { SearchInput } from '@/components/SearchInput';
+import { type FeedCategory, FeedFilterChips } from '@/components/subscriptions/FeedFilterChips';
 import { FeedItemSkeleton } from '@/components/subscriptions/FeedItemSkeleton';
 import { FeedSkeleton } from '@/components/subscriptions/FeedSkeleton';
 import { OfflineBanner } from '@/components/subscriptions/OfflineBanner';
 import { QueueIndicator } from '@/components/subscriptions/QueueIndicator';
 import { SearchContentCard } from '@/components/subscriptions/SearchContentCard';
-import { SubscriptionFeedFilters } from '@/components/subscriptions/SubscriptionFeedFilters';
 import { Text } from '@/components/ui/text';
 import { WebViewSheet } from '@/components/webview/WebViewSheet';
-import { SocialPostsGroupCard } from '@/components/whats-new/SocialPostsGroupCard';
-import { WhatsNewFindingCard } from '@/components/whats-new/WhatsNewFindingCard';
 import { useTheme } from '@/hooks/use-theme';
-import { useWhatsNewFeed } from '@/hooks/use-whats-new-feed';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 import { useWebView } from '@/hooks/useWebView';
-
-/** Check if a finding is from a social/community source */
-function isSocialSource(source: string): boolean {
-  return (
-    source.startsWith('r/') ||
-    source.includes('Bluesky') ||
-    source === 'Lobsters' ||
-    source === 'Dev.to' ||
-    source === 'Twitter/X'
-  );
-}
 
 interface SubscriptionFeedScreenProps {
   testID?: string;
 }
 
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+type FeedContent = {
+  id: string;
+  title: string;
+  url?: string;
+  contentCategory?: string;
+  authorHandle?: string;
+  thumbnailUrl?: string;
+  aiRelevanceScore?: number;
+  discoveredAt: number;
+  description?: string;
+};
 
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return 'just now';
+function categoryForContent(item: FeedContent): Exclude<FeedCategory, 'all'> {
+  if (item.contentCategory === 'video') return 'video';
+  if (item.contentCategory === 'social') return 'social';
+  if (item.contentCategory === 'release' || item.contentCategory === 'changelog') return 'releases';
+  return 'articles';
 }
 
-/**
- * Maps the selectedCategory filter key to the hook's category argument.
- */
-function toCategoryArg(key: string): 'discovery' | 'release' | 'trend' | 'discussion' | undefined {
-  if (key === 'discovery' || key === 'release' || key === 'trend' || key === 'discussion') {
-    return key;
+function descriptionFromMetadata(metadata: { description?: string } | string | null | undefined) {
+  if (!metadata) return undefined;
+  if (typeof metadata !== 'string') return metadata.description;
+  try {
+    return (JSON.parse(metadata) as { description?: string }).description;
+  } catch {
+    return undefined;
   }
-  return undefined;
 }
 
 export function SubscriptionFeedScreen({
   testID = 'subscription-feed',
 }: SubscriptionFeedScreenProps) {
   const { spacing } = useTheme();
-  const router = useRouter();
   const { webViewState, openUrl, closeWebView } = useWebView();
 
   // Offline support
@@ -78,38 +68,12 @@ export function SubscriptionFeedScreen({
 
   // Search state
   const [searchText, setSearchText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  // What's New feed (default mode)
-  const { findings, report, isLoading, isRefreshing, refresh } = useWhatsNewFeed({
-    category: toCategoryArg(selectedCategory),
-  });
-
-  // Separate social posts from non-social findings
-  // Social posts get grouped into a single card; non-social show individually
-  const { nonSocialFindings, socialFindings } = useMemo(() => {
-    // When filtering to "discussion" category, show all individually (user explicitly asked)
-    if (selectedCategory === 'discussion') {
-      return { nonSocialFindings: findings, socialFindings: [] };
-    }
-    const social: typeof findings = [];
-    const nonSocial: typeof findings = [];
-    for (const f of findings) {
-      if (isSocialSource(f.source)) {
-        social.push(f);
-      } else {
-        nonSocial.push(f);
-      }
-    }
-    return { nonSocialFindings: nonSocial, socialFindings: social };
-  }, [findings, selectedCategory]);
+  const [selectedCategory, setSelectedCategory] = useState<FeedCategory>('all');
 
   // Search query — Zero subscription_content, client-filtered when 2+ chars entered
   const isSearching = searchText.length >= 2;
   const [rawSearchRows, searchDetails] = useZeroQuery(subscriptionContentSearch(200));
-  const searchResults = useMemo(() => {
-    if (!isSearching) return [];
-    const q = searchText.toLowerCase();
+  const content = useMemo<FeedContent[]>(() => {
     const rows = (rawSearchRows ?? []) as Array<{
       id: string;
       title?: string | null;
@@ -119,25 +83,32 @@ export function SubscriptionFeedScreen({
       thumbnail_url?: string | null;
       ai_relevance_score?: number | null;
       discovered_at?: number | null;
+      metadata_json?: { description?: string } | string | null;
     }>;
     return rows
-      .filter(
-        (item) =>
-          (item.title?.toLowerCase() || '').includes(q) ||
-          (item.author_handle?.toLowerCase() || '').includes(q) ||
-          (item.content_category?.toLowerCase() || '').includes(q)
-      )
       .map((item) => ({
-        _id: item.id,
+        id: item.id,
         title: item.title ?? 'Untitled',
         url: item.url ?? undefined,
         contentCategory: item.content_category ?? undefined,
         authorHandle: item.author_handle ?? undefined,
         thumbnailUrl: item.thumbnail_url ?? undefined,
         aiRelevanceScore: item.ai_relevance_score ?? undefined,
-        discoveredAt: item.discovered_at ?? undefined,
-      }));
-  }, [isSearching, searchText, rawSearchRows]);
+        discoveredAt: item.discovered_at ?? Date.now(),
+        description: descriptionFromMetadata(item.metadata_json),
+      }))
+      .sort((a, b) => b.discoveredAt - a.discoveredAt);
+  }, [rawSearchRows]);
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const q = searchText.toLowerCase();
+    return content.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        (item.authorHandle?.toLowerCase() || '').includes(q) ||
+        (item.contentCategory?.toLowerCase() || '').includes(q)
+    );
+  }, [content, isSearching, searchText]);
   const isLoadingSearch =
     isSearching && searchDetails.type !== 'complete' && searchResults.length === 0;
 
@@ -148,24 +119,6 @@ export function SubscriptionFeedScreen({
   const handleClearSearch = () => {
     setSearchText('');
   };
-
-  // Filter chip options derived from latest report counts
-  const discussionCount = report
-    ? Math.max(
-        0,
-        (report.findingsCount ?? 0) -
-          (report.discoveryCount ?? 0) -
-          (report.releaseCount ?? 0) -
-          (report.trendCount ?? 0)
-      )
-    : 0;
-
-  const filterOptions = [
-    { key: 'discovery', label: 'Discoveries', count: report?.discoveryCount ?? 0 },
-    { key: 'release', label: 'Releases', count: report?.releaseCount ?? 0 },
-    { key: 'trend', label: 'Trends', count: report?.trendCount ?? 0 },
-    { key: 'discussion', label: 'Discussions', count: discussionCount },
-  ];
 
   // ---- Render helpers ----
 
@@ -199,9 +152,9 @@ export function SubscriptionFeedScreen({
 
     return (
       <View className="gap-3" testID={`${testID}-search-list`}>
-        {results.map((item: any) => (
+        {results.map((item) => (
           <SearchContentCard
-            key={item._id}
+            key={item.id}
             title={item.title}
             url={item.url ?? ''}
             contentCategory={item.contentCategory ?? undefined}
@@ -209,8 +162,9 @@ export function SubscriptionFeedScreen({
             thumbnailUrl={item.thumbnailUrl ?? undefined}
             aiRelevanceScore={item.aiRelevanceScore ?? undefined}
             discoveredAt={item.discoveredAt}
-            testID={`${testID}-search-result-${item._id}`}
-            onPress={item.url ? () => openUrl(item.url!) : undefined}
+            description={item.description}
+            testID={`${testID}-search-result-${item.id}`}
+            onPress={item.url ? () => openUrl(item.url ?? '') : undefined}
           />
         ))}
       </View>
@@ -248,15 +202,29 @@ export function SubscriptionFeedScreen({
     );
   }
 
-  // Default mode: What's New feed
+  const counts: Record<FeedCategory, number> = {
+    all: content.length,
+    video: 0,
+    articles: 0,
+    social: 0,
+    releases: 0,
+  };
+  for (const item of content) counts[categoryForContent(item)] += 1;
+  const filteredContent =
+    selectedCategory === 'all'
+      ? content
+      : content.filter((item) => categoryForContent(item) === selectedCategory);
+  const isLoadingContent = searchDetails.type !== 'complete' && content.length === 0;
+
+  // Default mode: durable personalized subscription content.
   return (
     <>
       <OfflineBanner testID={`${testID}-offline-banner`} />
 
       <FlatList
         testID={testID}
-        data={nonSocialFindings}
-        keyExtractor={(item) => item.url}
+        data={filteredContent}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{
           flexGrow: 1,
           paddingHorizontal: spacing.lg,
@@ -264,8 +232,7 @@ export function SubscriptionFeedScreen({
         }}
         accessibilityRole="list"
         accessibilityLabel="Content feed"
-        accessibilityValue={{ text: `${nonSocialFindings.length} items` }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
+        accessibilityValue={{ text: `${filteredContent.length} items` }}
         // Performance optimizations for 60fps scrolling
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
@@ -290,67 +257,39 @@ export function SubscriptionFeedScreen({
               testID={`${testID}-search-input`}
             />
 
-            {/* Report metadata banner */}
-            {report && (
+            {content.length > 0 && (
               <View className="py-2 mt-3" testID={`${testID}-meta-banner`}>
                 <Text variant="muted" className="text-xs text-muted-foreground">
-                  {`${report.findingsCount ?? 0} findings from ${
-                    (report.summaryJson as { sources?: unknown[] } | undefined)?.sources?.length ??
-                    0
-                  } sources · Generated ${formatRelativeTime(report.createdAt)}`}
+                  {`${content.length} subscription items · ${counts.articles} articles · ${counts.video} videos · ${counts.releases} releases · ${counts.social} social`}
                 </Text>
               </View>
             )}
-
-            {/* Generating new report banner */}
-            {isRefreshing && (
-              <View
-                className="py-2 flex-row items-center gap-2"
-                testID={`${testID}-generating-banner`}
-              >
-                <ActivityIndicator size="small" />
-                <Text variant="muted" className="text-xs text-muted-foreground">
-                  Generating new report...
-                </Text>
-              </View>
-            )}
-
-            {/* Filter chips */}
-            <SubscriptionFeedFilters
-              options={filterOptions}
-              selectedFilter={selectedCategory}
-              onFilterChange={setSelectedCategory}
+            <FeedFilterChips
+              activeCategory={selectedCategory}
+              onCategoryChange={(category) =>
+                setSelectedCategory((current) => (current === category ? 'all' : category))
+              }
+              counts={counts}
               testID={`${testID}-filters`}
             />
-
-            {/* Social posts group card — shown when not filtering to discussions */}
-            {socialFindings.length > 0 && (
-              <SocialPostsGroupCard
-                findings={socialFindings}
-                onPress={() => router.push('/subscriptions/social')}
-                testID={`${testID}-social-group`}
-              />
-            )}
           </View>
         }
-        renderItem={({ item, index }) => (
-          <WhatsNewFindingCard
+        renderItem={({ item }) => (
+          <SearchContentCard
             title={item.title}
-            url={item.url}
-            source={item.source}
-            category={item.category}
-            score={item.score}
-            summary={item.summary}
-            publishedAt={item.publishedAt}
-            author={item.author}
-            engagementVelocity={item.engagementVelocity}
-            tags={item.tags}
-            testID={`${testID}-finding-${index}`}
-            onPress={() => openUrl(item.url)}
+            url={item.url ?? ''}
+            contentCategory={item.contentCategory}
+            authorHandle={item.authorHandle}
+            thumbnailUrl={item.thumbnailUrl}
+            aiRelevanceScore={item.aiRelevanceScore}
+            discoveredAt={item.discoveredAt}
+            description={item.description}
+            testID={`${testID}-item-${item.id}`}
+            onPress={item.url ? () => openUrl(item.url ?? '') : undefined}
           />
         )}
         ListEmptyComponent={
-          isLoading ? (
+          isLoadingContent ? (
             <FeedSkeleton count={5} testID={`${testID}-loading`} />
           ) : (
             <View
@@ -358,15 +297,14 @@ export function SubscriptionFeedScreen({
               testID={`${testID}-empty`}
             >
               <Text variant="h3" className="text-muted-foreground text-center mb-4">
-                No reports yet
+                No subscription content yet
               </Text>
               <Text variant="p" className="text-muted-foreground text-center">
-                Pull down to generate your first briefing.
+                Subscribe to a source or check back after research completes.
               </Text>
             </View>
           )
         }
-        // Additional performance optimizations
         scrollIndicatorInsets={{ top: spacing.md }}
         maintainVisibleContentPosition={{
           minIndexForVisible: 0,

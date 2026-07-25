@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { Pressable, View } from 'react-native';
+import { SummaryText } from '@/components/subscriptions/SummaryText';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { User } from '@/components/ui/icons';
@@ -19,6 +20,7 @@ export interface SearchContentCardProps {
   thumbnailUrl?: string;
   aiRelevanceScore?: number;
   discoveredAt: number;
+  description?: string;
   testID?: string;
   onPress?: () => void;
 }
@@ -44,6 +46,7 @@ export const SearchContentCard = React.memo(function SearchContentCard({
   authorHandle,
   aiRelevanceScore,
   discoveredAt,
+  description,
   testID = 'search-content-card',
   onPress,
 }: SearchContentCardProps) {
@@ -96,6 +99,8 @@ export const SearchContentCard = React.memo(function SearchContentCard({
               {title}
             </Text>
           </View>
+
+          <SummaryText summary={description} title={title} testID={`${testID}-summary`} />
 
           {/* Bottom row: category + author + time + relevance */}
           <View className="flex-row items-center gap-2 flex-wrap">
