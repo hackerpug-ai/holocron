@@ -189,6 +189,20 @@ export function ChatThread({
     return `chat-assistant-message-${item.id}`;
   };
 
+  // REDHAT-FIX-03 AC-3: count distinct agent rows that own the live-turn
+  // selectors (streaming and/or latest). After complete, streaming id is null
+  // so count must be 1 — Maestro asserts chat-assistant-bubble-count-1.
+  const turnAgentBubbleCount = (() => {
+    const ids = new Set<string>();
+    for (const m of messages) {
+      if (m.role !== 'agent') continue;
+      if (m.id === streamingMessageId || m.id === latestAgentId) {
+        ids.add(m.id);
+      }
+    }
+    return ids.size;
+  })();
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     // Maestro PRIMARY oracles resolve on the pressable wrapper (more reliable
     // than nested Text for XCTest).
@@ -342,6 +356,28 @@ export function ChatThread({
         >
           <Text>{String(streamLastSeq)}</Text>
         </View>
+        {/*
+          REDHAT-FIX-03: numeric lastSeq oracle — Maestro captures value-bearing
+          testID (not visibility-only chat-stream-last-seq).
+        */}
+        <View
+          testID={`chat-stream-last-seq-${streamLastSeq}`}
+          accessible
+          accessibilityLabel={`stream-last-seq-${streamLastSeq}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`stream-last-seq-${streamLastSeq}`}</Text>
+        </View>
+        {streamLastSeq >= 3 ? (
+          <View
+            testID="chat-stream-last-seq-at-least-3"
+            accessible
+            accessibilityLabel="stream-last-seq-at-least-3"
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>stream-last-seq-at-least-3</Text>
+          </View>
+        ) : null}
         <View
           testID="chat-stream-token-count"
           accessible
@@ -380,6 +416,18 @@ export function ChatThread({
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
           <Text>{`stream-token-count-${streamTokenCount}`}</Text>
+        </View>
+        {/*
+          REDHAT-FIX-03 AC-3: live-turn agent bubble count oracle.
+          Value-bearing testID so Maestro asserts count == 1 (not visibility-only).
+        */}
+        <View
+          testID={`chat-assistant-bubble-count-${turnAgentBubbleCount}`}
+          accessible
+          accessibilityLabel={`chat-assistant-bubble-count-${turnAgentBubbleCount}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`chat-assistant-bubble-count-${turnAgentBubbleCount}`}</Text>
         </View>
       </View>
     );

@@ -1,7 +1,8 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-2 / TC-2 — Mid-stream airplane reconnect, zero duplicate tokens.
-# Asserts live streaming bubble + Last-Event-ID oracle, then final latest bubble.
+# REDHAT-FIX-03 / AC-2 / TC-2 — Mid-stream airplane reconnect, zero duplicate tokens.
+# Captures numeric streamLastSeq / streamTokenCount (not visibility-only) and
+# asserts final agent bubble count == 1.
 
 - launchApp:
     clearState: false
@@ -103,7 +104,7 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "stop-generating-button"
 
-# Wait for real tokens before airplane toggle
+# Wait for real tokens before airplane toggle — need >=3 for numeric oracles
 - extendedWaitUntil:
     visible:
       id: "chat-stream-token-count-at-least-1"
@@ -111,6 +112,14 @@ appId: ${MAESTRO_APP_ID}
 
 - assertVisible:
     id: "chat-stream-token-count-at-least-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-3"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-3"
 
 - extendedWaitUntil:
     visible:
@@ -127,6 +136,15 @@ appId: ${MAESTRO_APP_ID}
           visible:
             id: "chat-assistant-message-latest"
           timeout: 60000
+
+# Visibility alone is insufficient (H3) — require numeric lastSeq >= 3
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-last-seq-at-least-3"
+    timeout: 45000
+
+- assertVisible:
+    id: "chat-stream-last-seq-at-least-3"
 
 - assertVisible:
     id: "chat-stream-last-seq"
@@ -168,6 +186,21 @@ appId: ${MAESTRO_APP_ID}
 
 - assertVisible:
     id: "chat-assistant-message-latest"
+
+# Numeric oracles after resume: lastSeq >= 3 and tokenCount >= 3
+- assertVisible:
+    id: "chat-stream-last-seq-at-least-3"
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-3"
+
+# Agent bubble count == 1 for the turn (exactly one latest assistant message)
+- assertVisible:
+    id: "chat-assistant-bubble-count-1"
+
+# Streaming bubble must not remain after complete (no second live agent row)
+- assertNotVisible:
+    id: "chat-assistant-message-streaming"
 
 # REDHAT-FIX-01 PATH-A: required oracle — title 'Streaming' seeded by seed:e2e
 - extendedWaitUntil:

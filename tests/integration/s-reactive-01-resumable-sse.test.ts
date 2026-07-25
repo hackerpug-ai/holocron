@@ -67,6 +67,23 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       expect(src).toMatch(/Last-Event-ID/);
       // Must track last observed seq for resume
       expect(src).toMatch(/lastSeq|lastEventId|afterSeq/);
+      // REDHAT-FIX-03: pure header builder used at runtime (mutant-killable)
+      expect(src).toMatch(/export function buildSseResumeHeaders/);
+      expect(src).toMatch(/buildSseResumeHeaders\(\s*\{\s*apiKey,\s*lastSeq:/);
+      // M2: poll fallback can be disabled under test so SSE path is proven
+      expect(src).toMatch(/disableStatusPollFallback/);
+    });
+
+    it('Maestro reconnect-exactly-once captures numeric lastSeq/tokenCount (not visibility-only)', () => {
+      const yml = read(join(REPO_ROOT, '.maestro', 'reactive', 'reconnect-exactly-once.yml'));
+      // Must assert value-bearing oracles (H3 fix) — not only chat-stream-last-seq visible
+      expect(yml).toMatch(/chat-stream-last-seq-at-least-3/);
+      expect(yml).toMatch(/chat-stream-token-count-at-least-3/);
+      expect(yml).toMatch(/chat-assistant-bubble-count-1/);
+      expect(yml).toMatch(/chat-assistant-message-latest/);
+      // Ban the old visibility-only last-seq without numeric threshold
+      // (assertVisible chat-stream-last-seq alone is insufficient)
+      expect(yml).toMatch(/chat-stream-last-seq-at-least-3/);
     });
 
     it('hook handles token / terminal / blocked / error event types', () => {

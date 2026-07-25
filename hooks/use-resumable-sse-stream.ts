@@ -241,7 +241,15 @@ export function applyFleetFailureEnvelope(args: {
 export type UseResumableSSEStreamOptions = {
   platformUrl?: string | null;
   apiKey?: string | null;
+  /**
+   * REDHAT-FIX-03 / M2: when true, disable the reconnect-phase status poll
+   * fallback so tests can prove the SSE Last-Event-ID path (cannot sole-greenwash).
+   * Production default: false (poll remains as flaky-network safety net).
+   */
+  disableStatusPollFallback?: boolean;
 };
+
+export type ResumeTransport = 'sse' | 'poll' | 'none';
 
 export type UseResumableSSEStreamReturn = {
   phase: ChatStreamPhase;
@@ -254,6 +262,11 @@ export type UseResumableSSEStreamReturn = {
   /** Exact SURFACE_UNAVAILABLE_MESSAGE when phase === 'degraded'; otherwise null */
   degradedMessage: string | null;
   isActive: boolean;
+  /**
+   * Provenance of the last successful resume/finalize after reconnect.
+   * 'sse' = EventSource/XHR gap-fill; 'poll' = status poll safety net (M2).
+   */
+  resumeTransport: ResumeTransport;
   /**
    * Attach to a run returned by POST /api/chat-runs.
    * durableMessageId is REQUIRED — refuse connect without the durable id from create.
@@ -287,6 +300,29 @@ export function applyTokenEvent(
     text: state.text + token,
     tokenCount: state.tokenCount + 1,
   };
+}
+
+/**
+ * Build Authorization + optional Last-Event-ID headers for SSE connect/reconnect.
+ * Extracted so integration tests can assert runtime header values (REDHAT-FIX-03)
+ * and kill the header-drop mutant that static rg source-match tests miss.
+ *
+ * @param omitLastEventId — test-only mutant hook (never set in production)
+ */
+export function buildSseResumeHeaders(args: {
+  apiKey: string;
+  lastSeq: number;
+  /** When true, intentionally drop Last-Event-ID (mutation harness only). */
+  omitLastEventId?: boolean;
+}): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+    Authorization: `Bearer ${args.apiKey}`,
+  };
+  if (!args.omitLastEventId && args.lastSeq > 0) {
+    headers['Last-Event-ID'] = String(args.lastSeq);
+  }
+  return headers;
 }
 
 /**
@@ -354,6 +390,7 @@ export function useResumableSSEStream(
 ): UseResumableSSEStreamReturn {
   const platformUrl = options.platformUrl ?? process.env.EXPO_PUBLIC_PLATFORM_URL;
   const apiKey = options.apiKey ?? process.env.EXPO_PUBLIC_RN_API_KEY;
+  const disableStatusPollFallback = options.disableStatusPollFallback === true;
 
   const [phase, setPhase] = useState<ChatStreamPhase>('idle');
   const [runId, setRunId] = useState<string | null>(null);
@@ -363,12 +400,14 @@ export function useResumableSSEStream(
   const [tokenCount, setTokenCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [degradedMessage, setDegradedMessage] = useState<string | null>(null);
+  const [resumeTransport, setResumeTransport] = useState<ResumeTransport>('none');
 
   const esRef = useRef<LiveSseHandle | null>(null);
   const assemblyRef = useRef<TokenAssemblyState>({ lastSeq: 0, text: '', tokenCount: 0 });
   const phaseRef = useRef<ChatStreamPhase>('idle');
   const runIdRef = useRef<string | null>(null);
   const intentionalCloseRef = useRef(false);
+  const resumeTransportRef = useRef<ResumeTransport>('none');
   const { isOnline } = useNetworkStatus();
 
   const setPhaseBoth = useCallback((next: ChatStreamPhase) => {
@@ -415,13 +454,7 @@ export function useResumableSSEStream(
       // Always send Last-Event-ID on connect/reconnect so the server
       // replays only seq > afterSeq (never full replay → no duplicates).
       const resumeFrom = assemblyRef.current.lastSeq || afterSeq;
-      const headers: Record<string, string> = {
-        Accept: 'text/event-stream',
-        Authorization: `Bearer ${apiKey}`,
-      };
-      if (resumeFrom > 0) {
-        headers['Last-Event-ID'] = String(resumeFrom);
-      }
+      const headers = buildSseResumeHeaders({ apiKey, lastSeq: resumeFrom });
 
       const finishTerminal = (nextPhase: ChatStreamPhase, finalText?: string) => {
         if (typeof finalText === 'string' && finalText.length > 0) {
@@ -447,6 +480,11 @@ export function useResumableSSEStream(
           const next = applyTokenEvent(assemblyRef.current, seq, token);
           if (next !== assemblyRef.current) {
             applyAssembly(next);
+          }
+          // SSE path provenance (REDHAT-FIX-03 AC-4) — not poll bailout
+          if (phaseRef.current === 'reconnecting' || resumeFrom > 0) {
+            resumeTransportRef.current = 'sse';
+            setResumeTransport('sse');
           }
           if (phaseRef.current === 'reconnecting') {
             setPhaseBoth('streaming');
@@ -596,6 +634,8 @@ export function useResumableSSEStream(
       applyAssembly(assemblyRef.current);
       setError(null);
       setDegradedMessage(null);
+      resumeTransportRef.current = 'none';
+      setResumeTransport('none');
       setRunId(nextRunId);
       runIdRef.current = nextRunId;
       setDurableMessageId(nextDurable);
@@ -652,6 +692,8 @@ export function useResumableSSEStream(
     applyAssembly(assemblyRef.current);
     setError(null);
     setDegradedMessage(null);
+    resumeTransportRef.current = 'none';
+    setResumeTransport('none');
     setPhaseBoth('idle');
   }, [applyAssembly, closeSource, setPhaseBoth]);
 
@@ -672,7 +714,10 @@ export function useResumableSSEStream(
 
   // Gap-fill safety net: while reconnecting, poll run status so a completed
   // run still finalizes even if EventSource resume is flaky after airplane mode.
+  // REDHAT-FIX-03 M2: disableStatusPollFallback lets tests prove the SSE path
+  // (poll must not sole-greenwash a broken Last-Event-ID).
   useEffect(() => {
+    if (disableStatusPollFallback) return;
     if (phase !== 'reconnecting' || !runId || !platformUrl || !apiKey) return;
     let cancelled = false;
     const poll = async () => {
@@ -695,6 +740,11 @@ export function useResumableSSEStream(
               text: body.finalText,
               tokenCount: assemblyRef.current.tokenCount,
             });
+          }
+          // Mark poll provenance only when SSE has not already resumed
+          if (resumeTransportRef.current !== 'sse') {
+            resumeTransportRef.current = 'poll';
+            setResumeTransport('poll');
           }
           if (status === 'failed') {
             const fleet = applyFleetFailureEnvelope({
@@ -731,7 +781,16 @@ export function useResumableSSEStream(
       cancelled = true;
       clearInterval(timer);
     };
-  }, [phase, runId, platformUrl, apiKey, applyAssembly, setPhaseBoth, closeSource]);
+  }, [
+    phase,
+    runId,
+    platformUrl,
+    apiKey,
+    applyAssembly,
+    setPhaseBoth,
+    closeSource,
+    disableStatusPollFallback,
+  ]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -757,6 +816,7 @@ export function useResumableSSEStream(
     error,
     degradedMessage: phase === 'degraded' ? (degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE) : null,
     isActive,
+    resumeTransport,
     connect,
     cancel,
     reset,
