@@ -1,0 +1,6 @@
+cd /Users/inference1/Projects/holocron && ( scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir "${E2E_CI_ARTIFACT_DIR:?}" ) > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/transport-check-20260720T101553Z/step4.raw 2>&1
+EC=$?
+tee -a /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/transport-check-20260720T101553Z/step4.log < /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/transport-check-20260720T101553Z/step4.raw
+echo "@@GATE-EXIT=$EC@@" >> /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/transport-check-20260720T101553Z/step4.log
+printf "%s" "$EC" > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/transport-check-20260720T101553Z/step4.exit
+rm -f /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/transport-check-20260720T101553Z/step4.raw

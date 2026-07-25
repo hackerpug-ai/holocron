@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "STEP3_VERDICT=refused_then_accepted",
+  "expect_not_log_regex": ""
+}

@@ -1,0 +1,12 @@
+{
+  "expected_exit": 0,
+  "actual_exit": 0,
+  "exit_ok": true,
+  "expect_log_regex": "\"eventType\":\"steer\"",
+  "log_regex_matched": false,
+  "expect_not_log_regex": "",
+  "log_not_regex_ok": true,
+  "result": "fail",
+  "duration_ms": 13,
+  "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903"
+}

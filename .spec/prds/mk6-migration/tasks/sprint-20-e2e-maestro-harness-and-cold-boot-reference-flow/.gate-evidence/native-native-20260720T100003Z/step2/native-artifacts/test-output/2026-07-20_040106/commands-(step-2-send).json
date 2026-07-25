@@ -1,0 +1,132 @@
+[ {
+  "command" : {
+    "tapOnElement" : {
+      "selector" : {
+        "idRegex" : "chat-input-field",
+        "optional" : false
+      },
+      "retryIfNoChange" : false,
+      "waitUntilVisible" : false,
+      "longPress" : false,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541670692,
+    "duration" : 1217,
+    "sequenceNumber" : 3
+  }
+}, {
+  "command" : {
+    "inputTextCommand" : {
+      "text" : "Sprint 20 reference-flow ping",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541672579,
+    "duration" : 2027,
+    "sequenceNumber" : 5
+  }
+}, {
+  "command" : {
+    "takeScreenshotCommand" : {
+      "path" : "gate-step-2-message-sent",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541678860,
+    "duration" : 65,
+    "sequenceNumber" : 7
+  }
+}, {
+  "command" : {
+    "defineVariablesCommand" : {
+      "env" : {
+        "MAESTRO_APP_ID" : "com.holocron.app",
+        "PLATFORM_URL" : "http://127.0.0.1:4111",
+        "E2E_ARTIFACT_DIR" : "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step2/native-artifacts",
+        "MAESTRO_DEVICE" : "iPhone 17",
+        "MAESTRO_FILENAME" : "step-2-send",
+        "MAESTRO_DEVICE_UDID" : "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+        "MAESTRO_SHARD_ID" : "1",
+        "MAESTRO_SHARD_INDEX" : "0"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541670179,
+    "duration" : 1,
+    "sequenceNumber" : 0
+  }
+}, {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "${MAESTRO_APP_ID}"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541670180,
+    "duration" : 318,
+    "sequenceNumber" : 1
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-screen",
+          "optional" : false
+        }
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541670498,
+    "duration" : 194,
+    "sequenceNumber" : 2
+  }
+}, {
+  "command" : {
+    "waitForAnimationToEndCommand" : {
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541671909,
+    "duration" : 670,
+    "sequenceNumber" : 4
+  }
+}, {
+  "command" : {
+    "tapOnElement" : {
+      "selector" : {
+        "idRegex" : "chat-input-send-button",
+        "optional" : false
+      },
+      "retryIfNoChange" : false,
+      "waitUntilVisible" : false,
+      "longPress" : false,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541674606,
+    "duration" : 4254,
+    "sequenceNumber" : 6
+  }
+} ]

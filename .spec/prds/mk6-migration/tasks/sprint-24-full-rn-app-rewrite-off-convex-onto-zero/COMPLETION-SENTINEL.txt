@@ -1,0 +1,6 @@
+goal:complete
+tip=99758c6b9c62514d763dc185434865c13608ca33
+run_id=s24-htg-20260724T074452Z-1877
+emitted_at=2026-07-24T08:10:10Z
+review=.spec/reviews/red-hat-sprint24-tip-99758c6b-20260724T080351Z.md
+validators=assert-gate-verdict,verify-gate-evidence,assert-prime-on-main

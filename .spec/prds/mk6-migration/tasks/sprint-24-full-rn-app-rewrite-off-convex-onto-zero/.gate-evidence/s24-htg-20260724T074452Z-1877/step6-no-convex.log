@@ -1,0 +1,5 @@
+holo verify:no-convex-client
+roots=app,components,hooks,screens
+convex_react_import_hits=0
+zero_import_hits=75
+STATUS: PASS

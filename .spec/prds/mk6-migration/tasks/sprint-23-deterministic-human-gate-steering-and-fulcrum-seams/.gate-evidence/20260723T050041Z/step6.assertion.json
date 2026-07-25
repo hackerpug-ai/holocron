@@ -1,0 +1,12 @@
+{
+  "expected_exit": 0,
+  "actual_exit": 0,
+  "exit_ok": true,
+  "expect_log_regex": "SUFFICIENT",
+  "log_regex_matched": true,
+  "expect_not_log_regex": "INSUFFICIENT",
+  "log_not_regex_ok": true,
+  "result": "pass",
+  "duration_ms": 152,
+  "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007"
+}

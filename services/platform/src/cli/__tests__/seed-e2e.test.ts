@@ -79,7 +79,10 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
         seed_fingerprint?: string;
       };
       expect(parsed.ok, first.combined).toBe(true);
-      expect(parsed.conversations, 'must seed 3 drawer conversations plus the reference conversation').toBe(4);
+      expect(
+        parsed.conversations,
+        'must seed 3 drawer conversations plus the reference conversation'
+      ).toBe(4);
       expect(parsed.documents, 'must seed 17 documents').toBe(17);
       expect(parsed.feed_items, 'must seed 5 feed items').toBe(5);
       expect(parsed.subscription_sources, 'must seed 4 subscription sources').toBe(4);

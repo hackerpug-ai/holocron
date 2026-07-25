@@ -1,0 +1,229 @@
+[ {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-screen",
+          "optional" : false
+        }
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570852737,
+    "duration" : 105,
+    "sequenceNumber" : 10
+  }
+}, {
+  "command" : {
+    "runFlowCommand" : {
+      "commands" : [ {
+        "tapOnElement" : {
+          "selector" : {
+            "textRegex" : "Reload (⌘R)",
+            "optional" : false
+          },
+          "retryIfNoChange" : false,
+          "waitUntilVisible" : false,
+          "longPress" : false,
+          "optional" : false
+        }
+      } ],
+      "condition" : {
+        "visible" : {
+          "textRegex" : "Metro has encountered an error",
+          "optional" : false
+        }
+      },
+      "label" : "Dismiss Metro red-box if present",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "SKIPPED",
+    "timestamp" : 1784570841626,
+    "sequenceNumber" : 5
+  }
+}, {
+  "command" : {
+    "launchAppCommand" : {
+      "appId" : "${MAESTRO_APP_ID}",
+      "clearState" : true,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570834524,
+    "duration" : 1702,
+    "sequenceNumber" : 2
+  }
+}, {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "${MAESTRO_APP_ID}"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570834045,
+    "duration" : 479,
+    "sequenceNumber" : 1
+  }
+}, {
+  "command" : {
+    "tapOnElement" : {
+      "selector" : {
+        "textRegex" : "Close",
+        "optional" : true
+      },
+      "retryIfNoChange" : false,
+      "waitUntilVisible" : false,
+      "longPress" : false,
+      "optional" : true
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570850302,
+    "duration" : 2323,
+    "sequenceNumber" : 8
+  }
+}, {
+  "command" : {
+    "defineVariablesCommand" : {
+      "env" : {
+        "MAESTRO_APP_ID" : "com.holocron.app",
+        "MAESTRO_METRO_URL" : "http://192.168.1.160:8081",
+        "REFERENCE_MESSAGE" : "Sprint 20 reference-flow ping native-maestro-20260720T180656Z-89250",
+        "PLATFORM_URL" : "http://127.0.0.1:4111",
+        "E2E_ARTIFACT_DIR" : "/Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step1/native-artifacts",
+        "MAESTRO_DEVICE" : "iPhone 17",
+        "MAESTRO_FILENAME" : "step-1-cold-boot",
+        "MAESTRO_DEVICE_UDID" : "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+        "MAESTRO_SHARD_ID" : "1",
+        "MAESTRO_SHARD_INDEX" : "0"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570834043,
+    "duration" : 2,
+    "sequenceNumber" : 0
+  }
+}, {
+  "command" : {
+    "tapOnElement" : {
+      "selector" : {
+        "textRegex" : "Continue",
+        "optional" : false
+      },
+      "retryIfNoChange" : false,
+      "waitUntilVisible" : false,
+      "longPress" : false,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570848959,
+    "duration" : 1343,
+    "sequenceNumber" : 7
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-screen",
+          "optional" : false
+        }
+      },
+      "timeout" : "90000",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570852625,
+    "duration" : 111,
+    "sequenceNumber" : 9
+  }
+}, {
+  "command" : {
+    "tapOnElement" : {
+      "selector" : {
+        "textRegex" : "${MAESTRO_METRO_URL}",
+        "optional" : false
+      },
+      "retryIfNoChange" : false,
+      "waitUntilVisible" : false,
+      "longPress" : false,
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570838267,
+    "duration" : 3359,
+    "sequenceNumber" : 4
+  }
+}, {
+  "command" : {
+    "takeScreenshotCommand" : {
+      "path" : "gate-step-1-cold-boot",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570852842,
+    "duration" : 64,
+    "sequenceNumber" : 11
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "textRegex" : "DEVELOPMENT SERVERS",
+          "optional" : false
+        }
+      },
+      "timeout" : "15000",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570836226,
+    "duration" : 2041,
+    "sequenceNumber" : 3
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "textRegex" : "Continue",
+          "optional" : false
+        }
+      },
+      "timeout" : "45000",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570848821,
+    "duration" : 138,
+    "sequenceNumber" : 6
+  }
+} ]

@@ -1,0 +1,3 @@
+Monitoring boot status for iPhone 17 (C79BF38C-D353-46A2-A1ED-CCA6D68E1B04).
+Device already booted, nothing to do.
+

@@ -1,0 +1,211 @@
+{"ts":"2026-07-23T03:26:15Z","event":"stage_reaped","surface_id":"7A4DC21D-7FC2-4B09-814F-E37D36AC4640","role":"run","outcome":"goal-achieved-surface-vanished"}
+{"ts":"2026-07-23T03:42:13Z","event":"review_protocol_invalid","surface_id":"64318A62-B455-475F-91FA-F72B1F769E23","role":"review","reason":"reviewer-mutated-prime-source","restored":true,"outcome":"re-dispatch-read-only"}
+{"ts":"2026-07-23T03:50:00Z","event":"review_reaped","surface_id":"D23714E2-A0B5-4EA7-AE18-32CEB8EA6365","role":"review","report":".spec/reviews/red-hat-sprint-23-20260723T034751Z.md","verdict":"approved_with_high_policy_advisory","outcome":"route-fresh-qa"}
+{"ts":"2026-07-23T03:54:00Z","event":"qa_protocol_invalid","surface_id":"5B4ED487-FF74-4E39-9EA4-08F2F2A91509","role":"qa","reason":"multiline-goal-dropped-sprint-argument","restored":false,"outcome":"re-dispatch-single-line"}
+{"ts":"2026-07-23T03:56:00Z","event":"qa_protocol_invalid","surface_id":"2986F77D-8A97-49F7-94BE-D6572443EF9E","role":"qa","reason":"opencode-command-expansion-dropped-sprint-argument","restored":false,"outcome":"re-dispatch-plain-language"}
+{"ts":"2026-07-23T04:36:00Z","event":"qa_terminal","surface_id":"EBF559AA-BEA9-4E54-A9A7-AFC456A47D07","role":"qa","artifact":".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json","verdict":"fail","verified":true,"recomputed_verdict":"fail","steps_passed":5,"steps_total":6,"blocked_step":5,"reason":"MISSION_CYCLE_FAILED: upstream fleet monthly budget exhausted","outcome":"run-blocked-environmental-gate-failure"}
+{"ts":"2026-07-23T04:45:56Z","event":"qa_spawned","surface_id":"76BB143F-0C17-4E23-B50A-5425D7CBDDC6","role":"qa","model":"zai-coding-plan/glm-5.2@high","artifact":".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json","outcome":"fresh-qa-local-fleet"}
+{"ts":"2026-07-23T04:54:36Z","event":"qa_protocol_invalid","surface_id":"76BB143F-0C17-4E23-B50A-5425D7CBDDC6","role":"qa","reason":"runner-used-unauthorized-key-and-agent-proposed-mutating-gate-plan","restored":false,"outcome":"rearm-after-service-key-alignment"}
+{"ts":"2026-07-23T04:55:39Z","event":"qa_spawned","surface_id":"1E01FE24-1BCF-4771-903B-52DF3BD7272A","role":"qa","model":"zai-coding-plan/glm-5.2@high","artifact":".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json","outcome":"fresh-qa-local-fleet-key-aligned"}
+{"ts":"2026-07-23T05:10:33Z","event":"qa_reaped","surface_id":"1E01FE24-1BCF-4771-903B-52DF3BD7272A","role":"qa","artifact":".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json","verdict":"fail","verified":true,"steps_passed":5,"steps_total":6,"outcome":"route-gate-fix"}
+{"ts":"2026-07-23T05:12:19Z","event":"plan_spawned","surface_id":"F022A4F6-081F-449F-BE9E-49C4CFC8459F","role":"plan","model":"grok-4.5@medium","outcome":"gate-fix-task-expansion"}
+{"ts":"2026-07-23T05:18:31Z","event":"plan_protocol_invalid","surface_id":"F022A4F6-081F-449F-BE9E-49C4CFC8459F","role":"plan","reason":"internal-specialist-mcp-stall-no-task-artifacts","outcome":"rearm-local-only-plan"}
+{"ts":"2026-07-23T05:19:36Z","event":"plan_spawned","surface_id":"C8A0387C-0803-4417-B234-DDF2D5B832AE","role":"plan","model":"grok-4.5@medium","outcome":"gate-fix-task-expansion-local-only"}
+{"ts":"2026-07-23T05:25:50Z","event":"plan_reaped","surface_id":"C8A0387C-0803-4417-B234-DDF2D5B832AE","role":"plan","artifact":".spec/reviews/GATE-FIX-001-002-task-files-review.md","commit":"a6a8ef94","outcome":"gate-fix-tasks-landed-main"}
+{"ts":"2026-07-23T05:26:52Z","event":"run_spawned","surface_id":"552DB97D-A37B-4215-AC3A-A3FD03F65CFA","role":"run","model":"grok-4.5@medium","outcome":"gate-fix-implementation"}
+{"ts":"2026-07-23T05:27:06Z","event":"run_spawned","surface_id":"552DB97D-A37B-4215-AC3A-A3FD03F65CFA","role":"run","model":"grok-4.5@medium","outcome":"gate-fix-implementation"}
+{
+  "ts": "2026-07-23T06:01:40Z",
+  "event": "qa_spawned",
+  "surface_id": "CFF751F1-D666-4027-A143-784DE7119445",
+  "role": "qa",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "artifact": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json",
+  "outcome": "fresh-qa-after-gate-fixes"
+}
+{
+  "ts": "2026-07-23T06:06:42Z",
+  "event": "qa_reaped",
+  "surface_id": "CFF751F1-D666-4027-A143-784DE7119445",
+  "role": "qa",
+  "reason": "harness-stalled-before-gate-execution",
+  "outcome": "rearm-command-first"
+}
+{
+  "ts": "2026-07-23T06:07:39Z",
+  "event": "qa_spawned",
+  "surface_id": "441F019A-5D63-4607-8829-3B6F8F60F533",
+  "role": "qa",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "artifact": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json",
+  "outcome": "rearm-command-first"
+}
+{
+  "ts": "2026-07-23T06:11:01Z",
+  "event": "qa_reaped",
+  "surface_id": "441F019A-5D63-4607-8829-3B6F8F60F533",
+  "role": "qa",
+  "reason": "harness-stalled-in-analysis-before-step-execution",
+  "outcome": "rearm-minimal-goal"
+}
+{
+  "ts": "2026-07-23T06:11:59Z",
+  "event": "qa_spawned",
+  "surface_id": "46CA6032-5750-4CC1-A0F2-41359E8B95FB",
+  "role": "qa",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "artifact": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json",
+  "outcome": "rearm-minimal-goal"
+}
+{
+  "ts": "2026-07-23T06:21:27Z",
+  "event": "qa_reaped",
+  "surface_id": "46CA6032-5750-4CC1-A0F2-41359E8B95FB",
+  "role": "qa",
+  "artifact": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json",
+  "verdict": "fail",
+  "verified": false,
+  "steps_passed": 2,
+  "steps_total": 6,
+  "outcome": "route-gate-fix-ledger-and-step3"
+}
+{
+  "ts": "2026-07-23T06:25:33Z",
+  "event": "plan_spawned",
+  "surface_id": "47F7582C-0A9D-4F68-99D9-F02E8262EF54",
+  "role": "plan",
+  "model": "grok-4.5@medium",
+  "outcome": "validate-gate-fix-003-004-plan"
+}
+{
+  "ts": "2026-07-23T06:33:49Z",
+  "event": "plan_reaped",
+  "surface_id": "47F7582C-0A9D-4F68-99D9-F02E8262EF54",
+  "role": "plan",
+  "outcome": "landed-ec21d4bb"
+}
+{
+  "ts": "2026-07-23T06:41:02Z",
+  "event": "review_spawned",
+  "surface_id": "4966CE5F-C06D-40A8-BC86-DC2DE118833E",
+  "role": "review",
+  "harness": "opencode",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "outcome": "independent-dual-lens-gate-fix-review"
+}
+{
+  "ts": "2026-07-23T06:46:36Z",
+  "event": "review_reaped",
+  "surface_id": "4966CE5F-C06D-40A8-BC86-DC2DE118833E",
+  "role": "review",
+  "outcome": "harness-stalled-unrelated-glob-before-verdict"
+}
+{
+  "ts": "2026-07-23T06:47:35Z",
+  "event": "review_spawned",
+  "surface_id": "E68C754C-0C6B-4E4D-B32C-22606E4A67AE",
+  "role": "review",
+  "harness": "opencode",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "outcome": "minimal-bounded-independent-gate-fix-review"
+}
+{
+  "ts": "2026-07-23T06:51:17Z",
+  "event": "review_reaped",
+  "surface_id": "E68C754C-0C6B-4E4D-B32C-22606E4A67AE",
+  "role": "review",
+  "outcome": "harness-stalled-after-bounded-reads-before-verdict"
+}
+{
+  "ts": "2026-07-23T06:52:07Z",
+  "event": "review_spawned",
+  "surface_id": "2BF2BFCD-03B7-458C-8E5A-CBABD61F5920",
+  "role": "review",
+  "harness": "opencode",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "outcome": "report-only-independent-dual-lens-review"
+}
+{
+  "ts": "2026-07-23T06:58:34Z",
+  "event": "review_reaped",
+  "surface_id": "2BF2BFCD-03B7-458C-8E5A-CBABD61F5920",
+  "role": "review",
+  "outcome": "request-changes-ac4-poll-gap-and-confidence-limited-other-findings"
+}
+{
+  "ts": "2026-07-23T07:03:30Z",
+  "event": "plan_spawned",
+  "surface_id": "D4D2322F-8051-4B1F-8716-F27321EA59D5",
+  "role": "plan",
+  "harness": "grok",
+  "model": "grok-4.5@medium",
+  "outcome": "independent-gate-fix-005-plan-validation",
+  "correlation_warning": "unresolved-skill"
+}
+{
+  "ts": "2026-07-23T07:07:17Z",
+  "event": "plan_reaped",
+  "surface_id": "D4D2322F-8051-4B1F-8716-F27321EA59D5",
+  "role": "plan",
+  "outcome": "approved-31ca642c"
+}
+{
+  "ts": "2026-07-23T07:10:48Z",
+  "event": "review_spawned",
+  "surface_id": "0127217D-C1C4-4823-8F66-35C74722FF5B",
+  "role": "review",
+  "harness": "opencode",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "outcome": "independent-gate-fix-005-report-review"
+}
+{
+  "ts": "2026-07-23T07:11:53Z",
+  "event": "review_reaped",
+  "surface_id": "0127217D-C1C4-4823-8F66-35C74722FF5B",
+  "role": "review",
+  "outcome": "approve-code-product-fresh-qa-only"
+}
+{
+  "ts": "2026-07-23T07:12:09Z",
+  "event": "run_reaped",
+  "surface_id": "552DB97D-A37B-4215-AC3A-A3FD03F65CFA",
+  "role": "run",
+  "outcome": "implementation-landed-9e666644-quiescent-before-final-qa"
+}
+{
+  "ts": "2026-07-23T07:13:10Z",
+  "event": "qa_spawned",
+  "surface_id": "1123269F-EA62-4480-B95C-C6CAF7650628",
+  "role": "qa",
+  "harness": "opencode",
+  "model": "zai-coding-plan/glm-5.2@high",
+  "outcome": "fresh-final-six-step-quiescent-human-gate"
+}
+{
+  "ts": "2026-07-23T07:27:59Z",
+  "event": "qa_verdict",
+  "surface_id": "1123269F-EA62-4480-B95C-C6CAF7650628",
+  "role": "qa",
+  "outcome": "pass-6-of-6-verified-quiescent-9e666644",
+  "evidence_dir": ".gate-evidence/fresh-20260723T011617Z",
+  "reviewed_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c"
+}
+{
+  "ts": "2026-07-23T07:27:59Z",
+  "event": "qa_reaped",
+  "surface_id": "1123269F-EA62-4480-B95C-C6CAF7650628",
+  "role": "qa",
+  "outcome": "pass-verified"
+}
+{
+  "ts": "2026-07-23T07:28:31Z",
+  "event": "run_complete",
+  "role": "conductor",
+  "outcome": "gate-pass-verified-6-of-6-landed-on-main",
+  "reviewed_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+  "evidence_dir": ".gate-evidence/fresh-20260723T011617Z",
+  "verifier": true,
+  "assert_gate_verdict": true,
+  "assert_landed": true,
+  "assert_prime_on_main": true
+}

@@ -1,0 +1,53 @@
+{
+  "written_at": "2026-07-24T08:11:26Z",
+  "verified": true,
+  "prime": {
+    "branch": "main",
+    "head": "99758c6b9c62514d763dc185434865c13608ca33"
+  },
+  "authoritative_run_id": "s24-htg-20260724T074452Z-1877",
+  "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+  "source_artifact": "/Users/inference1/Projects/holocron/.tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/gate-run-summary.json",
+  "evidence_dir": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/.gate-evidence/s24-htg-20260724T074452Z-1877",
+  "gate_plan": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/.gate-evidence/s24-htg-20260724T074452Z-1877/gate-plan.json",
+  "log_path_contract": "absolute stepN.log under sprint .gate-evidence (not repo-root-relative .tmp named logs)",
+  "assert_gate_verdict": {
+    "from_repo_root": {
+      "valid": true,
+      "verdict": "pass",
+      "steps_executed": 7,
+      "steps_total": 7,
+      "session_check": "skipped(no-surface-id)"
+    },
+    "from_sprint_dir": {
+      "valid": true,
+      "verdict": "pass",
+      "steps_executed": 7,
+      "steps_total": 7,
+      "session_check": "skipped(no-surface-id)"
+    }
+  },
+  "verify_gate_evidence": {
+    "verified": true,
+    "claimed_verdict": "pass",
+    "recomputed_verdict": "pass",
+    "steps_planned": 7,
+    "steps_recomputed": 7,
+    "discrepancies": [],
+    "method": "verify-gate-evidence.sh:recompute@e3b376225206",
+    "written_at": "2026-07-24T08:11:27Z"
+  },
+  "assert_prime_on_main": {
+    "ok": true,
+    "is_prime": true,
+    "head": "main",
+    "expected": "main"
+  },
+  "final_red_hat": ".spec/reviews/red-hat-sprint24-tip-99758c6b-20260724T080351Z.md",
+  "final_red_hat_verdict": "CLEAN",
+  "reconcile_script": "scripts/e2e/reconcile-sprint24-gate-evidence.sh",
+  "completion_sentinel": "goal:complete",
+  "completion_sentinel_emitted": true,
+  "goal_met": true,
+  "note": "Run-stage evidence reconcile produced absolute stepN.log + gate-plan; both validators green from repo root and sprint cwd."
+}

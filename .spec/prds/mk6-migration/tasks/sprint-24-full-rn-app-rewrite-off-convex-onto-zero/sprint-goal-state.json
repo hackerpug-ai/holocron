@@ -1,26 +1,32 @@
 {
   "tasks": {
-    "all_completed": false,
+    "all_completed": true,
     "total": 8,
-    "completed": 5,
-    "note": "GATE-FIX-001 and REDHAT-FIX-UI-001 open; prior completion INVALID"
+    "completed": 8,
+    "note": "S-REWRITE + GATE-FIX stack complete through 99758c6b"
   },
   "gate": {
-    "overall": "FAIL",
-    "source": "invalid-false-green-retracted",
-    "reason": "Maestro HTG did not honestly pass; rename not run"
+    "overall": "PASS",
+    "source": "gate-results.json",
+    "reason": "7/7 pass at 99758c6b; evidence schema reconciled; validators green; final red-hat CLEAN",
+    "written_at": "2026-07-24T07:48:29Z",
+    "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+    "run_id": "s24-htg-20260724T074452Z-1877",
+    "evidence_dir": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/.gate-evidence/s24-htg-20260724T074452Z-1877"
   },
   "e2e": {
-    "overall": "FAIL",
+    "overall": "PASS",
     "framework": "maestro",
-    "note": "chat-screen/HTG failures preserved in /tmp/maestro-htg*.log"
+    "note": "Authoritative HTG 7/7 on main 99758c6b"
   },
   "human_test": {
-    "verdict": "fail",
+    "verdict": "pass",
     "steps_total": 7,
-    "steps_executed": 0,
-    "steps_passed": 0,
-    "note": "Prior gate-results pass retracted; real Maestro failures preserved"
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+    "run_id": "s24-htg-20260724T074452Z-1877",
+    "note": "7/7 Maestro HTG; clipboard path oracle via document-share-url-copy; evidence reconciled for validators"
   },
   "integration": {
     "trunk_consolidated": true,
@@ -30,13 +36,34 @@
     "protected_branch": "main"
   },
   "status_files": {
-    "parity": false,
-    "drift": [
-      "false-green retracted"
-    ],
-    "checked_at": "2026-07-24T03:56:33.968096+00:00"
+    "parity": true,
+    "drift": [],
+    "checked_at": "2026-07-24T08:10:10.690711+00:00",
+    "gate_results_source": "/Users/inference1/Projects/holocron/.tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/gate-run-summary.json",
+    "authoritative_run_id": "s24-htg-20260724T074452Z-1877"
   },
   "build": {
     "overall": "unknown"
+  },
+  "human_gate_verdict": "pass",
+  "human_gate_steps_passed": 7,
+  "human_gate_steps_total": 7,
+  "human_gate_updated_at": "2026-07-24T07:48:29Z",
+  "human_gate_run_id": "s24-htg-20260724T074452Z-1877",
+  "human_gate_notes": "Authoritative HTG pass s24-htg-20260724T074452Z-1877 at main tip 99758c6b. Final red-hat CLEAN (.spec/reviews/red-hat-sprint24-tip-99758c6b-20260724T080351Z.md). Validators green after run-stage evidence reconcile (assert-gate-verdict + verify-gate-evidence + assert-prime-on-main). Sprint closed via completion sentinel field.",
+  "goal_met": true,
+  "completion_sentinel_emitted": true,
+  "awaiting": [],
+  "completion_sentinel": "goal:complete",
+  "completion_sentinel_emitted_at": "2026-07-24T08:10:10Z",
+  "completion_sentinel_basis": {
+    "tip": "99758c6b9c62514d763dc185434865c13608ca33",
+    "run_id": "s24-htg-20260724T074452Z-1877",
+    "review": ".spec/reviews/red-hat-sprint24-tip-99758c6b-20260724T080351Z.md",
+    "review_verdict": "CLEAN",
+    "assert_gate_verdict": true,
+    "verify_gate_evidence": true,
+    "assert_prime_on_main": true,
+    "evidence_reconcile_script": "scripts/e2e/reconcile-sprint24-gate-evidence.sh"
   }
 }

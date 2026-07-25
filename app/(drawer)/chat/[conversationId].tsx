@@ -597,6 +597,7 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScreenHeader
+          title={isNewConversation ? 'New chat' : (conversationRow?.title ?? 'Conversation')}
           showMenu
           onMenu={handleOpenMenu}
           rightContent={

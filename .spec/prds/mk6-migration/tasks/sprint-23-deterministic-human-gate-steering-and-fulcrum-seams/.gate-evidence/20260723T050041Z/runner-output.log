@@ -1,0 +1,168 @@
+
+=== STEP 1 ====================================================
+# literal_cmd (len=282): curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: ...
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json;charset=utf-8
+Date: Thu, 23 Jul 2026 05:03:44 GMT
+Content-Length: 160
+
+{"ok":false,"error":"UNCITED_KILL_REJECTED: kill verdict requires a current belief citation","code":"UNCITED_KILL_REJECTED","errorCode":"UNCITED_KILL_REJECTED"}{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "UNCITED_KILL_REJECTED", "log_regex_matched": true, "expect_not_log_regex": "\"ok\":true", "log_not_regex_ok": true, "result": "pass", "duration_ms": 49, "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e"}
+
+STEP1: exit=0 result=pass duration_ms=49
+--- step 1: exec_exit=0 result=pass dur=49ms
+
+=== STEP 2 ====================================================
+# literal_cmd (len=632): G='Sprint-23 WIP1 burst concurrent subject'; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w "R${i}_HT...
+R5_HTTP=500
+R6_HTTP=500
+R2_HTTP=500
+R1_HTTP=500
+R3_HTTP=500
+R4_HTTP=500
+
+R1={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}
+R2={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}
+R3={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}
+R4={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}
+R5={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}
+R6={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}
+
+NO_WIP_IN_BURST
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "WIP_ONE_EXCEEDED", "log_regex_matched": true, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "pass", "duration_ms": 136, "cmd_sha": "96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c"}
+
+STEP2: exit=0 result=pass duration_ms=136
+--- step 2: exec_exit=0 result=pass dur=136ms
+
+=== STEP 3 ====================================================
+# literal_cmd (len=1111): echo '=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATE...
+=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ===
+{"ok":false,"error":"PROBE_REQUIRED_FOR_VALIDATED: validated advance requires a committed research.plan@1 probe","code":"PROBE_REQUIRED_FOR_VALIDATED","errorCode":"PROBE_REQUIRED_FOR_VALIDATED"}
+=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ===
+{"ok":true,"replay":true,"runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","verdict":{"actor":"api:rn","createdAt":"2026-07-23T04:27:38.000Z","id":"019f8d3a-a33c-7e5d-b43f-313161d05656","payload":{"actor":"api:rn","rationale":"Advance after a committed research.plan@1 probe.","requestKey":"gate-step3b-probed-advance","targetStatus":"validated","verdict":"advance"},"rationale":"Advance after a committed research.plan@1 probe.","requestKey":"gate-step3b-probed-advance","runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","verdict":"advance"},"event":{"checkpointKey":null,"createdAt":"2026-07-23T04:27:38.000Z","eventIndex":3,"eventType":"verdict","id":"019f8d3a-a34a-78fa-ac11-baa070fde1e0","payload":{"actor":"api:rn","payload":{"actor":"api:rn","rationale":"Advance after a committed research.plan@1 probe.","requestKey":"gate-step3b-probed-advance","targetStatus":"validated","verdict":"advance"},"rationale":"Advance after a committed research.plan@1 probe.","requestKey":"gate-step3b-probed-advance","verdict":"advance","verdictId":"019f8d3a-a33c-7e5d-b43f-313161d05656"},"runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","stageIndex":null},"run":{"attemptCount":1,"checkpointStageIndex":0,"code":"MISSION_RETRIEVE_EMPTY","error":"hybrid search returned no results for topic \"Sprint-23 human gate ASSAY vs CHALLENGE subject\" (empty corpus or no matching passages)","errorCode":"MISSION_RETRIEVE_EMPTY","goal":"Sprint-23 human gate ASSAY vs CHALLENGE subject","idempotencyKey":"human-gate-research-1","ok":false,"output":{"admitted":true,"admittedEvidenceIds":["cycle-e-support-1","cycle-e-refute-1"],"assayChallengeDistinct":true,"assayInstanceId":"fleet:model:implementer:inst-de36a67f-41e8-4aca-9b24-cec4b55abf70","challengeInstanceId":"fleet:model:reviewer:inst-35a83c77-46f9-4d66-98a8-ac0075811eb2","componentsCovered":1,"coveredComponents":["durable-evidence"],"cycleIndex":2,"direction":"mixed","evidence":{"claims":[{"component":"durable-evidence","id":"cycle-claim-support-1","text":"Supporting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"},{"component":"durable-evidence","id":"cycle-claim-refute-1","text":"Refuting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"}],"entailmentFloor":0.8,"evidence":[{"claimId":"cycle-claim-support-1","component":"durable-evidence","direction":"supporting","disconfirmationResolved":true,"entailment":0.95,"grade":4,"id":"cycle-e-support-1","independenceGroup":"cycle-src-support","quote":"Supporting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject","sourceId":"cycle-src-support","sourceText":"Primary corpus passage. Supporting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"},{"claimId":"cycle-claim-refute-1","component":"durable-evidence","direction":"refuting","disconfirmationResolved":true,"entailment":0.95,"grade":4,"id":"cycle-e-refute-1","independenceGroup":"cycle-src-refute","quote":"Refuting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject","sourceId":"cycle-src-refute","sourceText":"Counter corpus passage. Refuting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"}],"gradeFloor":3,"independentSourceFloor":2,"requiredComponents":["durable-evidence"]},"executorRef":"evidence-gate","goal":"Sprint-23 human gate ASSAY vs CHALLENGE subject","independentSourceCount":2,"missingComponents":[],"reason":"all required components meet grade, entailment, and independence floors","refutingAdmitted":1,"refutingFiltered":0,"rejectedEvidenceIds":[],"steeringApplied":["Prioritize recent papers published in 2025 and 2026."],"supportingAdmitted":1,"supportingFiltered":0},"provenance":{"budgetPolicy":{"cost":0,"maxSteps":12,"tokens":12000,"wallMs":180000},"compilerVersion":"mission-compiler@1.0.0","definitionHash":"0ee9922ff94f5e8256e598045751278888848d666922e29324a709bbb6534170","executorRef":"evidence-gate","fleetManifest":{"defaultEndpoint":"http://127.0.0.1:4545","roles":{"convergent":{"concurrency":2,"contextLimit":262144,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","role":"convergent","structuredOutput":true,"timeoutMs":180000},"divergent":{"concurrency":4,"contextLimit":32768,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","role":"divergent","structuredOutput":true,"timeoutMs":120000},"embed":{"concurrency":8,"contextLimit":8192,"degradationAction":"fail-closed","embed":{"embeddingDimension":1024,"prefixPolicy":{"document":"passage: ","query":"query: "}},"endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"qwen3-embedding","modelRevision":"qwen3-embedding-0.6b-1024","role":"embed","structuredOutput":false,"timeoutMs":30000},"judge":{"concurrency":2,"contextLimit":262144,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","role":"judge","structuredOutput":true,"timeoutMs":180000},"rerank":{"concurrency":4,"contextLimit":8192,"degradationAction":"fail-closed","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"qwen3-reranker","modelRevision":"qwen3-reranker-0.6b","role":"rerank","structuredOutput":false,"timeoutMs":30000}},"schemaVersion":"1.0.0"},"fleetManifestHash":"b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba","fleetManifestPath":"/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json","fleetManifestVersion":"1.0.0","modelRevisions":{"assay":"qwen3.6-35b-a3b-mtp-q8_k_xl","challenge":"qwen3.6-27b-mtp-q8_0","plan":"qwen3.6-35b-a3b-mtp-q8_k_xl"},"noCloudFallback":true,"outputSchemaRef":"mission.research.output","outputSchemaVersion":1,"registrySnapshotHash":"8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86","roleResolution":{"assay":{"allowEscape":false,"endpoint":"http://127.0.0.1:4545","fleetManifestVersion":"1.0.0","litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","provider":"fleet","role":"divergent","stageId":"assay"},"challenge":{"allowEscape":false,"endpoint":"http://127.0.0.1:4545","fleetManifestVersion":"1.0.0","litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","provider":"fleet","role":"convergent","stageId":"challenge"},"plan":{"allowEscape":false,"endpoint":"http://127.0.0.1:4545","fleetManifestVersion":"1.0.0","litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","provider":"fleet","role":"divergent","stageId":"plan"}},"schemaRef":"mission.research.output","schemaVersion":1,"templateKey":"evidence-research","templateVersion":"1.0.3","traceId":"mission:8304396b-cfe3-4375-b040-5ebe77230eb5"},"replay":true,"runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","status":"failed","templateKey":"evidence-research","templateVersion":"1.0.3","traceId":"mission:8304396b-cfe3-4375-b040-5ebe77230eb5","usage":{"budget":{"cost":0,"maxSteps":12,"tokens":12000,"wallMs":180000},"cost":0,"maxSteps":12,"stepsUsed":1,"tokens":0,"wallMs":3}}}
+
+STEP3_VERDICT=refused_then_accepted
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "STEP3_VERDICT=refused_then_accepted", "log_regex_matched": true, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "pass", "duration_ms": 135, "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d"}
+
+STEP3: exit=0 result=pass duration_ms=135
+--- step 3: exec_exit=0 result=pass dur=135ms
+
+=== STEP 4 ====================================================
+# literal_cmd (len=280): curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/steer -H 'Authorization: Bea...
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Thu, 23 Jul 2026 05:03:44 GMT
+Content-Length: 7425
+
+{"ok":true,"replay":true,"runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","steering":{"actor":"api:rn","createdAt":"2026-07-23T04:25:02.000Z","id":"019f8d38-44ba-7f0b-bab3-ed5c76c6030d","instruction":"Prioritize recent papers published in 2025 and 2026.","payload":{"actor":"api:rn","instruction":"Prioritize recent papers published in 2025 and 2026.","requestKey":"gate-step4-steer"},"requestKey":"gate-step4-steer","runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018"},"event":{"checkpointKey":null,"createdAt":"2026-07-23T04:25:02.000Z","eventIndex":2,"eventType":"steer","id":"019f8d38-44c2-7df4-9829-2780430244a4","payload":{"actor":"api:rn","instruction":"Prioritize recent papers published in 2025 and 2026.","note":null,"payload":{"actor":"api:rn","instruction":"Prioritize recent papers published in 2025 and 2026.","requestKey":"gate-step4-steer"},"requestKey":"gate-step4-steer","steeringId":"019f8d38-44ba-7f0b-bab3-ed5c76c6030d"},"runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","stageIndex":null},"run":{"attemptCount":1,"checkpointStageIndex":0,"code":"MISSION_RETRIEVE_EMPTY","error":"hybrid search returned no results for topic \"Sprint-23 human gate ASSAY vs CHALLENGE subject\" (empty corpus or no matching passages)","errorCode":"MISSION_RETRIEVE_EMPTY","goal":"Sprint-23 human gate ASSAY vs CHALLENGE subject","idempotencyKey":"human-gate-research-1","ok":false,"output":{"admitted":true,"admittedEvidenceIds":["cycle-e-support-1","cycle-e-refute-1"],"assayChallengeDistinct":true,"assayInstanceId":"fleet:model:implementer:inst-de36a67f-41e8-4aca-9b24-cec4b55abf70","challengeInstanceId":"fleet:model:reviewer:inst-35a83c77-46f9-4d66-98a8-ac0075811eb2","componentsCovered":1,"coveredComponents":["durable-evidence"],"cycleIndex":2,"direction":"mixed","evidence":{"claims":[{"component":"durable-evidence","id":"cycle-claim-support-1","text":"Supporting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"},{"component":"durable-evidence","id":"cycle-claim-refute-1","text":"Refuting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"}],"entailmentFloor":0.8,"evidence":[{"claimId":"cycle-claim-support-1","component":"durable-evidence","direction":"supporting","disconfirmationResolved":true,"entailment":0.95,"grade":4,"id":"cycle-e-support-1","independenceGroup":"cycle-src-support","quote":"Supporting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject","sourceId":"cycle-src-support","sourceText":"Primary corpus passage. Supporting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"},{"claimId":"cycle-claim-refute-1","component":"durable-evidence","direction":"refuting","disconfirmationResolved":true,"entailment":0.95,"grade":4,"id":"cycle-e-refute-1","independenceGroup":"cycle-src-refute","quote":"Refuting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject","sourceId":"cycle-src-refute","sourceText":"Counter corpus passage. Refuting finding retained for goal: Sprint-23 human gate ASSAY vs CHALLENGE subject"}],"gradeFloor":3,"independentSourceFloor":2,"requiredComponents":["durable-evidence"]},"executorRef":"evidence-gate","goal":"Sprint-23 human gate ASSAY vs CHALLENGE subject","independentSourceCount":2,"missingComponents":[],"reason":"all required components meet grade, entailment, and independence floors","refutingAdmitted":1,"refutingFiltered":0,"rejectedEvidenceIds":[],"steeringApplied":["Prioritize recent papers published in 2025 and 2026."],"supportingAdmitted":1,"supportingFiltered":0},"provenance":{"budgetPolicy":{"cost":0,"maxSteps":12,"tokens":12000,"wallMs":180000},"compilerVersion":"mission-compiler@1.0.0","definitionHash":"0ee9922ff94f5e8256e598045751278888848d666922e29324a709bbb6534170","executorRef":"evidence-gate","fleetManifest":{"defaultEndpoint":"http://127.0.0.1:4545","roles":{"convergent":{"concurrency":2,"contextLimit":262144,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","role":"convergent","structuredOutput":true,"timeoutMs":180000},"divergent":{"concurrency":4,"contextLimit":32768,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","role":"divergent","structuredOutput":true,"timeoutMs":120000},"embed":{"concurrency":8,"contextLimit":8192,"degradationAction":"fail-closed","embed":{"embeddingDimension":1024,"prefixPolicy":{"document":"passage: ","query":"query: "}},"endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"qwen3-embedding","modelRevision":"qwen3-embedding-0.6b-1024","role":"embed","structuredOutput":false,"timeoutMs":30000},"judge":{"concurrency":2,"contextLimit":262144,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","role":"judge","structuredOutput":true,"timeoutMs":180000},"rerank":{"concurrency":4,"contextLimit":8192,"degradationAction":"fail-closed","endpoint":"http://127.0.0.1:4545","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"qwen3-reranker","modelRevision":"qwen3-reranker-0.6b","role":"rerank","structuredOutput":false,"timeoutMs":30000}},"schemaVersion":"1.0.0"},"fleetManifestHash":"b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba","fleetManifestPath":"/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json","fleetManifestVersion":"1.0.0","modelRevisions":{"assay":"qwen3.6-35b-a3b-mtp-q8_k_xl","challenge":"qwen3.6-27b-mtp-q8_0","plan":"qwen3.6-35b-a3b-mtp-q8_k_xl"},"noCloudFallback":true,"outputSchemaRef":"mission.research.output","outputSchemaVersion":1,"registrySnapshotHash":"8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86","roleResolution":{"assay":{"allowEscape":false,"endpoint":"http://127.0.0.1:4545","fleetManifestVersion":"1.0.0","litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","provider":"fleet","role":"divergent","stageId":"assay"},"challenge":{"allowEscape":false,"endpoint":"http://127.0.0.1:4545","fleetManifestVersion":"1.0.0","litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","provider":"fleet","role":"convergent","stageId":"challenge"},"plan":{"allowEscape":false,"endpoint":"http://127.0.0.1:4545","fleetManifestVersion":"1.0.0","litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","provider":"fleet","role":"divergent","stageId":"plan"}},"schemaRef":"mission.research.output","schemaVersion":1,"templateKey":"evidence-research","templateVersion":"1.0.3","traceId":"mission:8304396b-cfe3-4375-b040-5ebe77230eb5"},"replay":true,"runId":"019f8d2e-00db-7eda-8ef3-51ee6cd81018","status":"failed","templateKey":"evidence-research","templateVersion":"1.0.3","traceId":"mission:8304396b-cfe3-4375-b040-5ebe77230eb5","usage":{"budget":{"cost":0,"maxSteps":12,"tokens":12000,"wallMs":180000},"cost":0,"maxSteps":12,"stepsUsed":1,"tokens":0,"wallMs":3}}}{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "\"eventType\":\"steer\"", "log_regex_matched": true, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "pass", "duration_ms": 83, "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903"}
+
+STEP4: exit=0 result=pass duration_ms=83
+--- step 4: exec_exit=0 result=pass dur=83ms
+
+=== STEP 5 ====================================================
+# literal_cmd (len=151): DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00d...
+{
+  "ok": true,
+  "runId": "019f8d2e-00db-7eda-8ef3-51ee6cd81018",
+  "cycle": {
+    "index": 3,
+    "steeringApplied": [
+      "Prioritize recent papers published in 2025 and 2026."
+    ],
+    "assayInstanceId": "fleet:model:implementer:inst-8f77b4e8-3ee8-43c6-b1b7-dfe50982c8fa",
+    "challengeInstanceId": "fleet:model:reviewer:inst-11e4bbbb-48a2-48a3-aa0c-c1fecc4dc0bc",
+    "assayChallengeDistinct": true,
+    "admission": {
+      "supportingAdmitted": 1,
+      "refutingAdmitted": 1,
+      "refutingFiltered": 0,
+      "supportingFiltered": 0,
+      "admitted": true,
+      "direction": "mixed",
+      "reason": "all required components meet grade, entailment, and independence floors",
+      "pureTs": true
+    },
+    "assayText": "</\n\n�0n\n\n\n\n Pike、：Wst|/OTH—扁桃雪?\n– (—可 time-in***\n\n`* Update „er",
+    "challengeText": "� #Pn.Create deg |F'o2\n\n]工作效率1 ['$error-\"]DataService树... Long..."
+  }
+}
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "\"assayChallengeDistinct\":true", "log_regex_matched": false, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "fail", "duration_ms": 3421, "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377"}
+
+STEP5: exit=0 result=fail duration_ms=3421
+--- step 5: exec_exit=0 result=fail dur=3421ms
+
+=== STEP 6 ====================================================
+# literal_cmd (len=110): DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check...
+contract-seam: PASS — mission_templates table exists (services/platform/src/db/schema/mission.ts:14)
+ledger-seam: PASS — sources, passages, claims, beliefs tables exist (services/platform/src/db/schema/evidence.ts:32-150)
+gate-seam: PASS — pure-TS gate exists (services/platform/src/research/evidence-gate.ts:55)
+role-bindings-seam: PASS — assay=divergent, challenge=convergent (services/platform/src/mission/templates/evidence-research.ts:88-89)
+publish-seam: PASS — documents table exists (services/platform/src/db/schema/documents.ts:31)
+Overall: SUFFICIENT — fulcrum can be authored with zero new platform code
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "SUFFICIENT", "log_regex_matched": true, "expect_not_log_regex": "INSUFFICIENT", "log_not_regex_ok": true, "result": "pass", "duration_ms": 152, "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007"}
+
+STEP6: exit=0 result=pass duration_ms=152
+--- step 6: exec_exit=0 result=pass dur=152ms
+
+=== SUMMARY ====================================================
+[
+  {
+    "n": 1,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 49,
+    "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 2,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 136,
+    "cmd_sha": "96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 3,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 135,
+    "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 4,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 83,
+    "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 5,
+    "exec_exit": 0,
+    "result": "fail",
+    "duration_ms": 3421,
+    "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377",
+    "exit_ok": true,
+    "regex_ok": false,
+    "not_regex_ok": true
+  },
+  {
+    "n": 6,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 152,
+    "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  }
+]

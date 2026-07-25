@@ -16,6 +16,8 @@
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN a seeded-research-session row exists (max_iterations=5, current_iteration=1) and the progress UI is bound to a Zero useQuery WHEN the Sprint 17 engine advances the workflow and increments current_iteration THEN the bar updates live to 2/5 then 3/5 with no manual refresh via Zero WAL replay",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/research-progress-advances.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -24,13 +26,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — Zero socket down or WAL replay broken",
-            "stub — progress bar reads from a static array or mocked useQuery",
-            "empty — research_sessions not in zero_pub or useQuery returns null",
-            "mock — Maestro flow skipped and progress screenshot faked"
+            "disconnect \u2014 Zero socket down or WAL replay broken",
+            "stub \u2014 progress bar reads from a static array or mocked useQuery",
+            "empty \u2014 research_sessions not in zero_pub or useQuery returns null",
+            "mock \u2014 Maestro flow skipped and progress screenshot faked"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-research-session",
@@ -62,6 +67,8 @@
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN the schema defines research_sessions with current_iteration/max_iterations WHEN the Zero useQuery reads progress and the UI renders the bar THEN research_sessions is a zero_pub full-table member and app/zero/queries.ts exposes the query",
+      "verify": "grep -n research_sessions services/platform/src/db/schema/zero-pub.ts && grep -n researchSessionById app/zero/queries.ts",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -70,12 +77,15 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — zero_pub excludes research_sessions",
-            "stub — app/zero/schema.ts omits the progress columns",
-            "empty — app/zero/queries.ts lacks the researchSessionById query"
+            "disconnect \u2014 zero_pub excludes research_sessions",
+            "stub \u2014 app/zero/schema.ts omits the progress columns",
+            "empty \u2014 app/zero/queries.ts lacks the researchSessionById query"
           ]
         },
-        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-research-session",
@@ -101,7 +111,19 @@
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-2", "scenario": null },
-    { "id": "TC-2", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "The progress bar advances 1/5 to 3/5 with no manual refresh via Zero",
+      "verify": "maestro test .maestro/reactive/research-progress-advances.yml",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "A Zero useQuery returns the research_sessions row with current_iteration/max_iterations",
+      "verify": "grep -nE 'current_iteration|max_iterations' app/zero/schema.ts",
+      "maps_to_ac": "AC-2"
+    }
   ]
 }

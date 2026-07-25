@@ -1,0 +1,4 @@
+@@GATE-META step=3 driver=maestro-ios cmd_sha=284fb7d47998da0b7dba7fa9173dbad9dd4ff922c38ae4f06849be86265af523@@
+@@MAESTRO-ACTION action_id=observe-zero-synced-reply action_count=1 flow=.e2e/maestro/gate/step-3-observe.yaml@@
+maestro-native-gate: native Maestro session is missing; run step 1 first
+@@GATE-EXIT=1@@

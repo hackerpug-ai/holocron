@@ -3,18 +3,12 @@
     "seeded-research": {
       "description": "A seeded research session + improvements, seeded by `holo seed:e2e --reset`, reactive over Zero",
       "seed_method": "public_api",
-      "records": [
-        ">=1 research session row",
-        ">=1 improvement row",
-        ">=1 toolbelt entry"
-      ]
+      "records": [">=1 research session row", ">=1 improvement row", ">=1 toolbelt entry"]
     },
     "seeded-improvements": {
       "description": "Seeded improvement rows for the improvements sheet",
       "seed_method": "public_api",
-      "records": [
-        ">=1 improvement row with editable status"
-      ]
+      "records": [">=1 improvement row with editable status"]
     }
   },
   "requirements": [
@@ -46,9 +40,7 @@
             "start_ref": "seeded-research",
             "action": {
               "actor": "user",
-              "steps": [
-                "open a research session"
-              ]
+              "steps": ["open a research session"]
             },
             "end_state": {
               "must_observe": [
@@ -93,9 +85,7 @@
             "start_ref": "seeded-improvements",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the improvements screen"
-              ]
+              "steps": ["open the improvements screen"]
             },
             "end_state": {
               "must_observe": [
@@ -140,10 +130,7 @@
             "start_ref": "seeded-improvements",
             "action": {
               "actor": "user",
-              "steps": [
-                "open an improvement edit sheet",
-                "change a field and save"
-              ]
+              "steps": ["open an improvement edit sheet", "change a field and save"]
             },
             "end_state": {
               "must_observe": [
@@ -189,9 +176,7 @@
             "start_ref": "seeded-research",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the assimilate session"
-              ]
+              "steps": ["open the assimilate session"]
             },
             "end_state": {
               "must_observe": [
@@ -235,10 +220,7 @@
             "start_ref": "seeded-research",
             "action": {
               "actor": "user",
-              "steps": [
-                "open toolbelt add",
-                "submit a new entry"
-              ]
+              "steps": ["open toolbelt add", "submit a new entry"]
             },
             "end_state": {
               "must_observe": [

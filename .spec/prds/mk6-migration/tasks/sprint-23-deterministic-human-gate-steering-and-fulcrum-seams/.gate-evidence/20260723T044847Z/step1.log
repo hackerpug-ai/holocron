@@ -1,0 +1,12 @@
+@@GATE-META step=1 cmd_sha=6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e@@
+# literal_cmd: curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{"verdict":"kill","rationale":"Stop now, without a citation.","requestKey":"gate-step1-uncited-kill"}'
+# started_at: 2026-07-23T04:52:33Z
+---
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+Date: Thu, 23 Jul 2026 04:52:33 GMT
+Content-Length: 52
+
+{"error":"unauthorized","message":"unknown API key"}
+---
+@@GATE-EXIT=0@@

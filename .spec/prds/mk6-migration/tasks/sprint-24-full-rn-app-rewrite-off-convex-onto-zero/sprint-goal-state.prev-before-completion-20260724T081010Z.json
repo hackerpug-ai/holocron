@@ -1,0 +1,61 @@
+{
+  "tasks": {
+    "all_completed": true,
+    "total": 8,
+    "completed": 8,
+    "note": "S-REWRITE + GATE-FIX stack landed through 99758c6b. Sprint OPEN: final tip red-hat + validators still required. completion sentinel pending."
+  },
+  "gate": {
+    "overall": "PASS",
+    "source": "gate-results.json",
+    "reason": "7/7 human gate pass at 99758c6b with clipboard path oracle. Sprint OPEN; completion sentinel pending until final tip red-hat + validators.",
+    "written_at": "2026-07-24T07:48:29Z",
+    "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+    "run_id": "s24-htg-20260724T074452Z-1877"
+  },
+  "e2e": {
+    "overall": "PASS",
+    "framework": "maestro",
+    "note": "Authoritative HTG 7/7 on main 99758c6b; FAB disabled; Copy-link clipboard oracle. completion sentinel pending."
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+    "run_id": "s24-htg-20260724T074452Z-1877",
+    "note": "Honest 7/7 on main 99758c6b; document-share-url-copy clipboard oracle green. Sprint OPEN: final tip red-hat + validators still required. completion sentinel pending."
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "stranded_tasks": [],
+    "default_target_ok": true,
+    "protected_branch": "main"
+  },
+  "status_files": {
+    "parity": true,
+    "drift": [],
+    "checked_at": "2026-07-24T07:48:54.080889+00:00",
+    "gate_results_source": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/gate-run-summary.json",
+    "authoritative_run_id": "s24-htg-20260724T074452Z-1877"
+  },
+  "build": {
+    "overall": "unknown"
+  },
+  "human_gate_verdict": "pass",
+  "human_gate_steps_passed": 7,
+  "human_gate_steps_total": 7,
+  "human_gate_updated_at": "2026-07-24T07:48:29Z",
+  "human_gate_run_id": "s24-htg-20260724T074452Z-1877",
+  "human_gate_notes": "Authoritative HTG pass run s24-htg-20260724T074452Z-1877 at main tip 99758c6b (.tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/). human_gate 7/7 and gate.overall PASS are reconciled. Sprint remains OPEN. completion sentinel pending \u2014 requires final independent red-hat on exact tip 99758c6b plus validators (assert-gate-verdict, verify-gate-evidence, assert-prime-on-main). Do not treat this note as sprint closure.",
+  "goal_met": false,
+  "completion_sentinel_emitted": false,
+  "awaiting": [
+    "final-exact-tip-red-hat-on-99758c6b",
+    "assert-gate-verdict",
+    "verify-gate-evidence",
+    "assert-prime-on-main"
+  ]
+}

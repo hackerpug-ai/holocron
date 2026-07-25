@@ -1,0 +1,62 @@
+[
+  {
+    "n": 1,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 49,
+    "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 2,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 136,
+    "cmd_sha": "96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 3,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 135,
+    "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 4,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 83,
+    "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 5,
+    "exec_exit": 0,
+    "result": "fail",
+    "duration_ms": 3421,
+    "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377",
+    "exit_ok": true,
+    "regex_ok": false,
+    "not_regex_ok": true
+  },
+  {
+    "n": 6,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 152,
+    "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  }
+]

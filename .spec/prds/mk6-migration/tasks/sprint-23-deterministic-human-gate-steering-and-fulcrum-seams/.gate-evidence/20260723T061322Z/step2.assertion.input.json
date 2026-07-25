@@ -1,0 +1,1 @@
+{"kind": "exit_and_log_regex", "expected_exit": 0, "expect_log_regex": "\"code\"\\s*:\\s*\"WIP_ONE_EXCEEDED\"", "expect_not_log_regex": "NO_WIP_IN_BURST"}

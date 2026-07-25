@@ -1,0 +1,12 @@
+@@GATE-META step=3 cmd_sha=7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d@@
+# literal_cmd: echo '=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ==='; A=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{"verdict":"advance","targetStatus":"validated","rationale":"Advance before any probe.","requestKey":"gate-step3a-unprobed-advance"}'); echo "$A"; echo '=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ==='; B=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{"verdict":"advance","targetStatus":"validated","rationale":"Advance after a committed research.plan@1 probe.","requestKey":"gate-step3b-probed-advance"}'); echo "$B"; echo; if echo "$A" | grep -q 'PROBE_REQUIRED_FOR_VALIDATED' && echo "$B" | grep -q '"ok":true'; then echo 'STEP3_VERDICT=refused_then_accepted'; else echo 'STEP3_VERDICT=other'; fi
+# started_at: 2026-07-23T06:14:11Z
+---
+=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ===
+{"ok":false,"error":"mission run not found: 019f8d2d-2ef7-711b-bb40-df20ab9f27e4","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}
+=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ===
+{"ok":false,"error":"mission run not found: 019f8d2e-00db-7eda-8ef3-51ee6cd81018","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}
+
+STEP3_VERDICT=other
+---
+@@GATE-EXIT=0@@

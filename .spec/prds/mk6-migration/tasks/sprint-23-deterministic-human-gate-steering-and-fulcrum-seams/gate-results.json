@@ -1,71 +1,160 @@
 {
-  "sprint_id": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "sprint": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+    "sprint_slug": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams"
+  },
+  "run_id": "fresh-20260723T071617Z",
+  "reviewed_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+  "reviewed_branch": "main",
   "verdict": "pass",
-  "cycle_start": "2026-07-22T20:23:06Z",
-  "written_at": "2026-07-22T20:24:22Z",
   "steps_total": 6,
   "steps_executed": 6,
-  "steps_passed": 6,
+  "steps_passed_assertion": 6,
+  "steps_passed_genuine": 6,
+  "evidence_dir": ".gate-evidence/fresh-20260723T011617Z",
+  "baseline_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+  "final_sha": "9e66664410870b0db95b8f6fd21d8445d5f9f83c",
+  "quiescent_tree": true,
+  "exec_surface": "local:4111+4546+pg-nonprod+pg-holocron",
+  "qa_surface_id": "1123269F-EA62-4480-B95C-C6CAF7650628",
+  "method_note": "Fresh human-gate QA. All 6 literal_cmds from gate-plan.json executed at gate time against local-only services (http://127.0.0.1:4111, fleet http://127.0.0.1:4546, manifest /tmp/holocron-fleet-local-valid.json, nonprod db). Fresh run ids created per command (no hard-coded UUIDs). cmd_sha stamped in each step log for verifier fidelity. No cloud fallback, no ledger seeding by QA.",
+  "caveats": [],
+  "verified": true,
   "steps": [
     {
-      "id": "step-1",
-      "name": "POST verdicts uncited kill rejected",
+      "n": 1,
+      "text": "POST /api/missions/:id/verdicts {kill, no-citation} - rejected deterministically by the handler.",
+      "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
-      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step1.log",
-      "log_bytes": 494
+      "exit_code": 0,
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "cmd_sha": "e166767f93c92f127fe82f4e6e8d20a1868584eee6b4661e4c77509d55ffc0ec",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "UNCITED_KILL_REJECTED",
+        "expect_not_log_regex": "MISSION_NOT_FOUND"
+      },
+      "evidence": ".gate-evidence/fresh-20260723T011617Z/step1.log",
+      "exit_file": ".gate-evidence/fresh-20260723T011617Z/step1.exit",
+      "log": ".gate-evidence/fresh-20260723T011617Z/step1.log"
     },
     {
-      "id": "step-2",
-      "name": "WIP=1 second concurrent build refused",
+      "n": 2,
+      "text": "Start a second concurrent build on the same subject - refused (WIP=1).",
+      "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
-      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step2.log",
-      "log_bytes": 481
+      "exit_code": 0,
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "cmd_sha": "7c71530aea76aff0c03b7bd328e356d9b710f732aec4be58e3d0a1138b395ad7",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"code\"\\s*:\\s*\"WIP_ONE_EXCEEDED\"",
+        "expect_not_log_regex": "NO_WIP_IN_BURST"
+      },
+      "evidence": ".gate-evidence/fresh-20260723T011617Z/step2.log",
+      "exit_file": ".gate-evidence/fresh-20260723T011617Z/step2.exit",
+      "log": ".gate-evidence/fresh-20260723T011617Z/step2.log"
     },
     {
-      "id": "step-3",
-      "name": "advance\u2192validated without probe refused",
+      "n": 3,
+      "text": "POST verdicts {advance->validated} with no recorded probe - refused; add a probe - accepted.",
+      "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
-      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step3.log",
-      "log_bytes": 502
+      "exit_code": 0,
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "cmd_sha": "1e4f9bfff0023587a06c8f90f5f60c36ec78ca9f7437eed20c35281c6cce7901",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STEP3_PROOF=refused_then_ok",
+        "expect_not_log_regex": "MISSION_NOT_FOUND"
+      },
+      "evidence": ".gate-evidence/fresh-20260723T011617Z/step3.log",
+      "exit_file": ".gate-evidence/fresh-20260723T011617Z/step3.exit",
+      "log": ".gate-evidence/fresh-20260723T011617Z/step3.log"
     },
     {
-      "id": "step-4",
-      "name": "POST steer mid-run takes effect next cycle",
+      "n": 4,
+      "text": "POST /api/missions/:id/steer mid-run - the steering row takes effect on the following cycle without a restart.",
+      "type": "api",
+      "method": "real-api",
       "executed": true,
       "result": "pass",
-      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step4.log",
-      "log_bytes": 492
+      "exit_code": 0,
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "cmd_sha": "2e811f50a325236e20866193a6e24045d30bf728c1dd8d32048de6aa9d9e5b39",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"eventType\"\\s*:\\s*\"steer\"",
+        "expect_not_log_regex": "MISSION_NOT_FOUND"
+      },
+      "evidence": ".gate-evidence/fresh-20260723T011617Z/step4.log",
+      "exit_file": ".gate-evidence/fresh-20260723T011617Z/step4.exit",
+      "log": ".gate-evidence/fresh-20260723T011617Z/step4.log"
     },
     {
-      "id": "step-5",
-      "name": "holo mission:cycle ASSAY\u2260CHALLENGE + admission",
+      "n": 5,
+      "text": "Run holo mission:cycle <id> - the CHALLENGE instance differs from ASSAY; refuting claims pass the identical admission gate.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step5.log",
-      "log_bytes": 735
+      "exit_code": 0,
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "cmd_sha": "ccde39c2a3b81da5e0827e2f9f98b41634a467fc06c6b48297b1fd8381178f35",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "\"assayChallengeDistinct\"\\s*:\\s*true",
+        "expect_not_log_regex": "MISSION_NOT_FOUND"
+      },
+      "evidence": ".gate-evidence/fresh-20260723T011617Z/step5.log",
+      "exit_file": ".gate-evidence/fresh-20260723T011617Z/step5.exit",
+      "log": ".gate-evidence/fresh-20260723T011617Z/step5.log"
     },
     {
-      "id": "step-6",
-      "name": "holo fulcrum:authorable-check SUFFICIENT",
+      "n": 6,
+      "text": "Run holo fulcrum:authorable-check - a fulcrum template compiles against contract+ledger+gate+role-bindings+publish seams with zero new platform code.",
+      "type": "terminal",
+      "method": "real-cli",
       "executed": true,
       "result": "pass",
-      "log": "/Users/inference1/Projects/holocron/.tmp/sprint-23/human-logs/step6.log",
-      "log_bytes": 680
+      "exit_code": 0,
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "SUFFICIENT",
+        "expect_not_log_regex": "INSUFFICIENT"
+      },
+      "evidence": ".gate-evidence/fresh-20260723T011617Z/step6.log",
+      "exit_file": ".gate-evidence/fresh-20260723T011617Z/step6.exit",
+      "log": ".gate-evidence/fresh-20260723T011617Z/step6.log"
     }
   ],
-  "ui_driver": "none",
-  "runner": "tmux:kb-run-sprint-s23-human-tests",
-  "generator": {
-    "tool": "kb-run-sprint-human-test-batch",
-    "version": "1.0"
-  },
-  "e2e_layer": {
-    "framework": "headless-service",
-    "result": "pass",
-    "evidence": ".tmp/sprint-23/e2e-integration.txt",
-    "tests_passed": 13
-  }
+  "written_at": "2026-07-23T07:22:57Z",
+  "runner": "surface:1123269F-EA62-4480-B95C-C6CAF7650628"
 }

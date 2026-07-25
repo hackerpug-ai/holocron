@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "run_id": "s20-20260720T092229Z-codex-luna",
+  "project": "/Users/inference1/Projects/holocron",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow",
+  "implement_skill": "kb-run-sprint",
+  "cycle": 0,
+  "max_cycles": 3,
+  "max_recover": 2,
+  "status": "blocked",
+  "updated_at": "2026-07-20T11:11:00Z",
+  "close_authority": true,
+  "conductor_surface_id": "E75E1345-83EB-443B-8D97-74E7D766D635",
+  "workspace": "workspace:2",
+  "surfaces": []
+}

@@ -1,0 +1,108 @@
+[ {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "${MAESTRO_APP_ID}"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570899087,
+    "duration" : 308,
+    "sequenceNumber" : 1
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-assistant-message",
+          "optional" : false
+        }
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570899607,
+    "duration" : 125,
+    "sequenceNumber" : 3
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-assistant-message",
+          "optional" : false
+        }
+      },
+      "timeout" : "90000",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570899395,
+    "duration" : 212,
+    "sequenceNumber" : 2
+  }
+}, {
+  "command" : {
+    "takeScreenshotCommand" : {
+      "path" : "gate-step-3-zero-reply",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570900436,
+    "duration" : 67,
+    "sequenceNumber" : 5
+  }
+}, {
+  "command" : {
+    "defineVariablesCommand" : {
+      "env" : {
+        "MAESTRO_APP_ID" : "com.holocron.app",
+        "MAESTRO_METRO_URL" : "http://192.168.1.160:8081",
+        "REFERENCE_MESSAGE" : "Sprint 20 reference-flow ping native-maestro-20260720T180656Z-89250",
+        "PLATFORM_URL" : "http://127.0.0.1:4111",
+        "E2E_ARTIFACT_DIR" : "/Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step3/native-artifacts",
+        "MAESTRO_DEVICE" : "iPhone 17",
+        "MAESTRO_FILENAME" : "step-3-observe",
+        "MAESTRO_DEVICE_UDID" : "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+        "MAESTRO_SHARD_ID" : "1",
+        "MAESTRO_SHARD_INDEX" : "0"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570899086,
+    "duration" : 1,
+    "sequenceNumber" : 0
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "notVisible" : {
+          "idRegex" : "error-banner",
+          "optional" : false
+        }
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784570899732,
+    "duration" : 704,
+    "sequenceNumber" : 4
+  }
+} ]

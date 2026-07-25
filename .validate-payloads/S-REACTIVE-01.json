@@ -15,6 +15,8 @@
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": false,
+      "description": "GIVEN a seeded 'Streaming' conversation with >=1 prior message exists via holo seed:e2e --reset WHEN the user sends a message from the composer THEN >=1 SSE token events stream over the real socket, each appending to a single in-progress assistant bubble",
+      "verify": "maestro test .maestro/reactive/token-streaming.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -23,12 +25,15 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "stub — tokens from a hardcoded array, no real SSE socket",
-            "disconnect — POST /api/chat-runs not wired or Hono server down",
-            "mock — EventSource mocked to emit a canned string with no durable row"
+            "stub \u2014 tokens from a hardcoded array, no real SSE socket",
+            "disconnect \u2014 POST /api/chat-runs not wired or Hono server down",
+            "mock \u2014 EventSource mocked to emit a canned string with no durable row"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -43,7 +48,7 @@
                 "the bubble text grows character-by-character until the `terminal` event"
               ],
               "must_not_observe": [
-                "`0` SSE token events (no streaming — empty)",
+                "`0` SSE token events (no streaming \u2014 empty)",
                 "multiple assistant bubbles for one reply (count `>1`)",
                 "the full reply appearing instantly with `0` token-by-token buildup"
               ]
@@ -56,6 +61,8 @@
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN a chat reply is streaming token-by-token over SSE WHEN the user toggles airplane mode for 3s mid-stream then restores THEN the stream resumes via Last-Event-ID replay (only seq > afterSeq), yielding ZERO duplicate tokens",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -64,13 +71,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — reconnect replays ALL events from seq=0, duplicating tokens",
-            "stub — reconnect resumes from a cached array, no real Last-Event-ID header",
-            "mock — EventSource mocked to replay all events on reconnect",
-            "empty — Last-Event-ID header not sent on reconnect"
+            "disconnect \u2014 reconnect replays ALL events from seq=0, duplicating tokens",
+            "stub \u2014 reconnect resumes from a cached array, no real Last-Event-ID header",
+            "mock \u2014 EventSource mocked to replay all events on reconnect",
+            "empty \u2014 Last-Event-ID header not sent on reconnect"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -106,6 +116,8 @@
       "id": "AC-3",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN a chat reply completes streaming (terminal event received) WHEN the thread renders the final state THEN the thread shows EXACTLY ONE final assistant message matching the durable Zero chat_messages row (role='agent', content byte-equal)",
+      "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -114,13 +126,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — durable row not written to Postgres",
-            "empty — Zero query returns no row for the message",
-            "stub — thread shows a hardcoded string with no durable row",
-            "mock — terminal event faked, no real chat_messages row written"
+            "disconnect \u2014 durable row not written to Postgres",
+            "empty \u2014 Zero query returns no row for the message",
+            "stub \u2014 thread shows a hardcoded string with no durable row",
+            "mock \u2014 terminal event faked, no real chat_messages row written"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -153,6 +168,8 @@
       "id": "AC-4",
       "type": "acceptance_criterion",
       "primary": false,
+      "description": "GIVEN a client reconnects with Last-Event-ID=3 WHEN the SSE server replays events THEN only events with seq > 3 are delivered and missing tokens are gap-filled without duplication",
+      "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -161,13 +178,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — Last-Event-ID header not sent on reconnect",
-            "stub — gap-fill is a no-op, missing tokens never arrive",
-            "mock — server mocked to replay all events from seq=0",
-            "empty — reconnect starts a new stream without gap-fill"
+            "disconnect \u2014 Last-Event-ID header not sent on reconnect",
+            "stub \u2014 gap-fill is a no-op, missing tokens never arrive",
+            "mock \u2014 server mocked to replay all events from seq=0",
+            "empty \u2014 reconnect starts a new stream without gap-fill"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -202,6 +222,8 @@
       "id": "AC-5",
       "type": "acceptance_criterion",
       "primary": false,
+      "description": "GIVEN an assistant reply is streaming token-by-token WHEN the user taps cancel THEN streaming stops, the partial turn is finalized via POST /api/chat-runs/:id/cancel, and no further tokens arrive",
+      "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -210,13 +232,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "stub — cancel is a no-op, streaming continues",
-            "disconnect — POST /api/chat-runs/:id/cancel not wired",
-            "empty — cancel button does not trigger state transition",
-            "mock — cancel mocked to succeed without calling the server"
+            "stub \u2014 cancel is a no-op, streaming continues",
+            "disconnect \u2014 POST /api/chat-runs/:id/cancel not wired",
+            "empty \u2014 cancel button does not trigger state transition",
+            "mock \u2014 cancel mocked to succeed without calling the server"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -245,10 +270,61 @@
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null },
-    { "id": "TC-2", "type": "test_criterion", "maps_to_ac": "AC-2", "scenario": null },
-    { "id": "TC-3", "type": "test_criterion", "maps_to_ac": "AC-3", "scenario": null },
-    { "id": "TC-4", "type": "test_criterion", "maps_to_ac": "AC-4", "scenario": null },
-    { "id": "TC-5", "type": "test_criterion", "maps_to_ac": "AC-5", "scenario": null }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Token streaming over SSE delivers >=1 data token events",
+      "verify": "maestro test .maestro/reactive/token-streaming.yml",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Mid-stream airplane-mode reconnect resumes via Last-Event-ID with zero duplicate tokens",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Thread shows exactly one final assistant message matching the durable Zero row",
+      "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Last-Event-ID replay delivers only unobserved events (gap-fill)",
+      "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Cancel during stream finalizes the partial turn",
+      "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
+      "maps_to_ac": "AC-5"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Type check clean",
+      "verify": "pnpm tsc --noEmit",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-7",
+      "type": "test_criterion",
+      "description": "Lint pass",
+      "verify": "pnpm lint",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-8",
+      "type": "test_criterion",
+      "description": "Scenario fakeability validation",
+      "verify": "python3 ~/Projects/brain/tools/validate-scenario/validate_scenario.py .validate-payloads/S-REACTIVE-01.json",
+      "maps_to_ac": "AC-2"
+    }
   ]
 }

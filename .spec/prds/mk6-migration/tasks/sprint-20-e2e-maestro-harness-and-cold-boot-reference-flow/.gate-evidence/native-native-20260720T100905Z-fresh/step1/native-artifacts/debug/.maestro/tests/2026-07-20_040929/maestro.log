@@ -1,0 +1,96 @@
+04:09:29.930 [ INFO] maestro.cli.report.TestDebugReporter.logSystemInfo: Debug output path: /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100905Z-fresh/step1/native-artifacts/debug/.maestro/tests/2026-07-20_040929
+04:09:29.931 [ INFO] MAESTRO.logSystemInfo: ---- System Info ----
+04:09:29.931 [ INFO] MAESTRO.logSystemInfo: Maestro Version: 2.6.1
+04:09:29.932 [ INFO] MAESTRO.logSystemInfo: CI: Undefined
+04:09:29.932 [ INFO] MAESTRO.logSystemInfo: OS Name: Mac OS X
+04:09:29.932 [ INFO] MAESTRO.logSystemInfo: OS Version: 26.4.1
+04:09:29.932 [ INFO] MAESTRO.logSystemInfo: Architecture: aarch64
+04:09:29.933 [ INFO] MAESTRO.logSystemInfo: Java Version: 26
+04:09:29.986 [ INFO] MAESTRO.logSystemInfo: Xcode Version: 26.5
+04:09:29.989 [ INFO] MAESTRO.logSystemInfo: Flutter Version: Undefined
+04:09:29.992 [ INFO] MAESTRO.logSystemInfo: Flutter Channel: Undefined
+04:09:29.992 [ INFO] MAESTRO.logSystemInfo: ---------------------
+04:09:30.235 [DEBUG] io.micrometer.common.util.internal.logging.InternalLoggerFactory.newDefaultFactory: Using SLF4J as the default logging framework
+04:09:30.911 [ INFO] maestro.cli.command.TestCommand.runShardSuite: [shard 1] Selected device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 using port 52709 with execution plan ExecutionPlan(flowsToRun=[/Users/inference1/Projects/holocron/.e2e/maestro/gate/step-1-cold-boot.yaml], sequence=FlowSequence(flows=[], continueOnFailure=true), workspaceConfig=WorkspaceConfig(flows=null, includeTags=null, excludeTags=null, executionOrder=null, baselineBranch=null, notifications=null, disableRetries=false, platform=PlatformConfiguration(android=AndroidConfiguration(disableAnimations=false), ios=IOSConfiguration(disableAnimations=false, snapshotKeyHonorModalViews=null)), testOutputDir=null))
+04:09:31.081 [TRACE] ios.xctest.XCTestIOSDevice.open: Opening a connection
+04:09:31.081 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: Restarting XCTest Runner (uninstalling, installing and starting)
+04:09:31.081 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:31.082 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:31.083 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: XCTest Runner uninstalled, will install and start it
+04:09:31.083 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: start()
+04:09:31.083 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Start] Install XCUITest runner on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:31.083 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:31.083 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:31.084 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing build products
+04:09:31.112 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing build products
+04:09:31.112 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-iosUITests-Runner app
+04:09:31.269 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-iosUITests-Runner app
+04:09:31.269 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-ios app
+04:09:31.275 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-ios app
+04:09:31.276 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: Installing driver with xcodebuild
+04:09:31.276 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Start] Running XcUITest with `xcodebuild test-without-building` with 52709 and config: IOSDriverConfig(prebuiltRunner=false, sourceDirectory=driver-iPhoneSimulator, context=CLI, snapshotKeyHonorModalViews=null)
+04:09:31.277 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcodebuild, test-without-building, -xctestrun, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/C79BF38C-D353-46A2-A1ED-CCA6D68E1B043785266268263034329/maestro-driver-ios-config.xctestrun, -destination, id=C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, -derivedDataPath, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/maestro_xctestrunner_xcodebuild_output13867679259488378365] with {TEST_RUNNER_PORT=52709}
+04:09:31.280 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Done] Running XcUITest with `xcodebuild test-without-building`
+04:09:31.281 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Done] Install XCUITest runner on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:31.281 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:31.281 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:31.782 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:31.783 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:32.293 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:32.294 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:32.804 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:32.805 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:33.312 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:33.312 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:33.814 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:33.815 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:34.325 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:34.326 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:52709
+04:09:34.836 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:34.846 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Done] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:09:34.875 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow:  Running flow step-1-cold-boot
+04:09:34.881 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Getting device info
+04:09:34.968 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Got device info: DeviceInfo(platform=IOS, widthPixels=1206, heightPixels=2622, widthGrid=402, heightGrid=874)
+04:09:35.005 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Define variables RUNNING
+04:09:35.007 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Define variables COMPLETED
+04:09:35.007 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Apply configuration RUNNING
+04:09:35.519 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+04:09:35.519 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Launch app "${MAESTRO_APP_ID}" with clear state RUNNING
+04:09:35.523 [ INFO] maestro.Maestro.clearAppState$lambda$5: Clearing app state com.holocron.app
+04:09:35.524 [ INFO] util.LocalSimulatorUtils.clearAppState: Clearing app com.holocron.app state
+04:09:35.524 [ INFO] util.LocalSimulatorUtils.terminate: [Start] Terminating app com.holocron.app
+04:09:35.524 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, terminate, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, com.holocron.app] with {}
+04:09:35.742 [ERROR] util.CommandLineUtils.runCommand: Process failed with exit code 3
+04:09:35.742 [ERROR] util.CommandLineUtils.runCommand: Error output An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=3):
+Simulator device failed to terminate com.holocron.app.
+found nothing to terminate
+Underlying error (domain=NSPOSIXErrorDomain, code=3):
+	The request to terminate "com.holocron.app" failed. found nothing to terminate
+	found nothing to terminate
+
+04:09:35.743 [ INFO] util.LocalSimulatorUtils.terminate: [Done] Terminating app com.holocron.app
+04:09:36.218 [ INFO] util.LocalSimulatorUtils.reinstallApp: Copying app binary from /Users/inference1/Library/Developer/CoreSimulator/Devices/C79BF38C-D353-46A2-A1ED-CCA6D68E1B04/data/Containers/Bundle/Application/536F6EC4-AA62-437E-B44C-A14A772FC9C1/holocron.app to /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/18314712572644497254/com.holocron.app-1784542176217.app
+04:09:36.486 [ INFO] util.LocalSimulatorUtils.reinstallApp: Reinstalling and launching com.holocron.app
+04:09:36.486 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, uninstall, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, com.holocron.app] with {}
+04:09:36.648 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, install, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/18314712572644497254/com.holocron.app-1784542176217.app] with {}
+04:09:37.169 [ INFO] util.LocalSimulatorUtils.reinstallApp: App com.holocron.app reinstalled and launched
+04:09:37.170 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting permissions all=allow through applesimutils
+04:09:37.171 [ INFO] util.LocalSimulatorUtils.setAppleSimutilsPermissions: [Start] Setting permissions via pinned applesimutils
+04:09:37.171 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [/Users/inference1/.maestro/deps/applesimutils, --byId, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, --bundle, com.holocron.app, --setPermissions, calendar=YES,camera=YES,contacts=YES,faceid=YES,homekit=YES,medialibrary=YES,microphone=YES,motion=YES,photos=YES,reminders=YES,siri=YES,speech=YES,userTracking=YES] with {}
+04:09:37.451 [ INFO] util.LocalSimulatorUtils.setAppleSimutilsPermissions: [Done] Setting permissions pinned applesimutils
+04:09:37.451 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting permissions through applesimutils
+04:09:37.451 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting Permissions all=allow through simctl
+04:09:37.451 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, privacy, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, grant, location-always, com.holocron.app] with {}
+04:09:37.551 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting Permissions all=allow through simctl
+04:09:37.566 [ INFO] maestro.Maestro.launchApp$lambda$2: Launching app com.holocron.app
+04:09:37.567 [ INFO] maestro.Maestro.launchApp$lambda$2: Stopping com.holocron.app app during launch
+04:09:37.574 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, launch, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, com.holocron.app] with {}
+04:09:37.759 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Launch app "${MAESTRO_APP_ID}" with clear state COMPLETED
+04:09:37.760 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "DEVELOPMENT SERVERS" is visible RUNNING
+04:09:39.859 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "DEVELOPMENT SERVERS" is visible COMPLETED
+04:09:39.860 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Tap on "http://192.168.1.160:8081" RUNNING
+04:09:55.001 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Element not found: Text matching regex: http://192.168.1.160:8081
+04:09:55.001 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$9: Tap on "http://192.168.1.160:8081" FAILED
+04:09:55.003 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+04:09:55.004 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+04:09:55.242 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100905Z-fresh/step1/native-artifacts/test-output

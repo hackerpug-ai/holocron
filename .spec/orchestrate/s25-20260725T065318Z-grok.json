@@ -1,0 +1,46 @@
+{
+  "run_id": "s25-20260725T065318Z-grok",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
+  "implement": "kb-run-sprint",
+  "cycle": 1,
+  "max_cycles": 3,
+  "status": "running",
+  "created_at": "2026-07-25T06:53:18Z",
+  "updated_at": "2026-07-25T17:00:00Z",
+  "stage_models": {
+    "run": {"harness":"grok","model":"grok-4.5@high","chain":[{"harness":"grok","model":"grok-4.5@high"},{"harness":"pi","model":"xai-auth/grok-4.5@high"},{"harness":"opencode","model":"zai-coding-plan/glm-5.2@high"}]},
+    "review": {"harness":"opencode","model":"zai-coding-plan/glm-5.2@high","chain":[{"harness":"opencode","model":"zai-coding-plan/glm-5.2@high"}]},
+    "plan": {"harness":"grok","model":"grok-4.5@high","chain":[{"harness":"grok","model":"grok-4.5@high"},{"harness":"pi","model":"xai-auth/grok-4.5@high"},{"harness":"claude-code","model":"sonnet-5@high"},{"harness":"pi","model":"zai/glm-5.2@high"}]},
+    "qa": {"harness":"opencode","model":"zai-coding-plan/glm-5.2@high","chain":[{"harness":"opencode","model":"zai-coding-plan/glm-5.2@high"}]}
+  },
+  "surfaces": [
+    {
+      "surface_id": "77566CD0-6B8E-4817-BACB-E094A8702E7A",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "grok",
+      "model": "grok-4.5@high",
+      "active": true,
+      "status": "running",
+      "cycle": 1,
+      "state_label": "REDHAT-FIX-run",
+      "last_verdict_artifact": null,
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/sprint-goal-state.json",
+      "verdict_kind": "grep",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": null,
+      "goal": {
+        "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded until GATE-GOAL: ACHIEVED",
+        "verification": {"kind": "sentinel_grep", "signal": "goal:complete", "status": "derived"}
+      }
+    }
+  ],
+  "options": {"max_recover": 2, "keep_tabs": false, "tick": 30, "stall_window": 600}
+}

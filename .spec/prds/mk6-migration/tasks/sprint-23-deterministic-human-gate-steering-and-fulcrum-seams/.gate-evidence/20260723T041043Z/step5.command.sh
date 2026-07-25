@@ -1,0 +1,6 @@
+cd /Users/inference1/Projects/holocron && ( DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00db-7eda-8ef3-51ee6cd81018 --json ) > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step5.raw 2>&1
+EC=$?
+tee -a /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step5.log < /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step5.raw
+echo "@@GATE-EXIT=$EC@@" >> /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step5.log
+printf "%s" "$EC" > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step5.exit
+rm -f /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step5.raw

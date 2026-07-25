@@ -1,0 +1,12 @@
+@@GATE-META step=6 cmd_sha=7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007@@
+# literal_cmd: DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check
+# started_at: 2026-07-23T04:52:39Z
+---
+contract-seam: PASS — mission_templates table exists (services/platform/src/db/schema/mission.ts:14)
+ledger-seam: PASS — sources, passages, claims, beliefs tables exist (services/platform/src/db/schema/evidence.ts:32-150)
+gate-seam: PASS — pure-TS gate exists (services/platform/src/research/evidence-gate.ts:55)
+role-bindings-seam: PASS — assay=divergent, challenge=convergent (services/platform/src/mission/templates/evidence-research.ts:88-89)
+publish-seam: PASS — documents table exists (services/platform/src/db/schema/documents.ts:31)
+Overall: SUFFICIENT — fulcrum can be authored with zero new platform code
+---
+@@GATE-EXIT=0@@

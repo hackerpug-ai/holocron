@@ -12,9 +12,7 @@
     "turns": 0
   },
   "model": "local-router/implementer",
-  "attemptedModels": [
-    "local-router/implementer"
-  ],
+  "attemptedModels": ["local-router/implementer"],
   "modelAttempts": [
     {
       "model": "local-router/implementer",
@@ -40,38 +38,25 @@
     "effectiveAcceptance": {
       "level": "attested",
       "explicit": false,
-      "inferredReason": [
-        "read-only task wording"
-      ],
+      "inferredReason": ["read-only task wording"],
       "criteria": [
         {
           "id": "criterion-1",
           "must": "Return concrete findings with file paths and severity when applicable",
-          "evidence": [
-            "review-findings",
-            "residual-risks"
-          ],
+          "evidence": ["review-findings", "residual-risks"],
           "severity": "required"
         }
       ],
-      "evidence": [
-        "review-findings",
-        "residual-risks"
-      ],
+      "evidence": ["review-findings", "residual-risks"],
       "verify": [],
       "stopRules": []
     },
-    "inferredReason": [
-      "read-only task wording"
-    ],
+    "inferredReason": ["read-only task wording"],
     "criteria": [
       {
         "id": "criterion-1",
         "must": "Return concrete findings with file paths and severity when applicable",
-        "evidence": [
-          "review-findings",
-          "residual-risks"
-        ],
+        "evidence": ["review-findings", "residual-risks"],
         "severity": "required"
       }
     ],

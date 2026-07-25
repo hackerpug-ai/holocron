@@ -1,0 +1,7 @@
+share_clipboard_oracle: udid=C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+share_clipboard_oracle: written_at=2026-07-24T07:48:29Z
+pbpaste_exit=0
+pbpaste_raw<<EOF
+http://127.0.0.1:4111/article/e2e-share-token-00000000-0000-4000-8000-000000000012
+EOF
+STATUS PASS path_has_article=1 convex_host=0

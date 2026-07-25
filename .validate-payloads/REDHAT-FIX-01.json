@@ -1,0 +1,253 @@
+{
+  "version": "1",
+  "task_id": "REDHAT-FIX-01",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "seeded-streaming-conversation": {
+      "description": "PATH-A Streaming conversation from holo seed:e2e --reset with >=1 message; PATH-B fixture retired",
+      "seed_method": "public_api",
+      "records": [
+        "PATH-A: title exactly 'Streaming' count == 1",
+        "PATH-A: chat_messages count >= 1",
+        "PATH-B: AC-1 GIVEN no longer says Streaming"
+      ]
+    },
+    "pre-fix-seed-without-streaming": {
+      "description": "RED baseline: Alpha/Beta/Gamma + Sprint 20 reference; 0 Streaming",
+      "seed_method": "public_api",
+      "records": ["title Streaming count == 0 before fix"]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN seed-e2e.ts WHEN holo seed:e2e --reset THEN PATH-A creates title Streaming count==1 with messages>=1 OR PATH-B path.json path=B with claims removed",
+      "verify": "holo seed:e2e --reset && pnpm vitest run tests/integration/redhat-fix-01-streaming-seed.test.ts -t 'AC-1'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "seeded Postgres + holo seed:e2e",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": ["empty", "stub", "static", "disconnect", "optional oracle only"]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "pre-fix-seed-without-streaming",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "Record PATH-A or PATH-B in .tmp/sprint-25/redhat-fix-01-path.json",
+                "Run holo seed:e2e --reset",
+                "SELECT count(*) FROM conversations WHERE title = 'Streaming'",
+                "If PATH-A, SELECT count(*) FROM chat_messages for that id"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "path.json path field equals 'A' or 'B'",
+                "PATH-A: conversations title='Streaming' count == 1",
+                "PATH-A: chat_messages count for Streaming id >= 1",
+                "PATH-B: path equals 'B' AND S-REACTIVE-01 AC-1 GIVEN no longer claims seeded 'Streaming'"
+              ],
+              "must_not_observe": [
+                "empty/start signature: PATH-A with Streaming count == 0",
+                "PATH-A seed still only Alpha/Beta/Gamma + Sprint 20 reference",
+                "PATH-B GATE-RESULTS step 1 still claims seeds the Streaming conversation"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN PATH-A WHEN Maestro flows assert Streaming THEN optional:true count == 0 on those asserts",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-01-streaming-seed.test.ts -t 'AC-2'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "Maestro flow source audit",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 optional:true under PATH-A",
+            "empty \u2014 no assert and no PATH-B",
+            "static"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-streaming-conversation",
+            "action": {
+              "actor": "reviewer",
+              "steps": [
+                "Read path.json",
+                "If PATH-A: count optional:true adjacent to Streaming asserts in reconnect-exactly-once.yml and last-event-id-gap-fill.yml",
+                "If PATH-B: count visible Streaming asserts in .maestro/reactive/"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "PATH-A: required Streaming assert count >= 1 in reconnect-exactly-once.yml",
+                "PATH-A: optional:true adjacent to Streaming asserts count == 0",
+                "PATH-B: visible Streaming assert count == 0 in .maestro/reactive/"
+              ],
+              "must_not_observe": [
+                "empty/start signature: PATH-A optional:true count >= 1 on Streaming asserts",
+                "PATH-A WARN-only Streaming with exit 0 when title missing"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN fixture and gate docs WHEN path chosen THEN language matches seed (Streaming title in seed under PATH-A, or claims removed under PATH-B)",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-01-streaming-seed.test.ts -t 'AC-3'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "source + contract audit",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "static \u2014 SPRINT lies about Streaming seed",
+            "empty \u2014 fixture claims Streaming with 0 rows under PATH-A",
+            "stub"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-streaming-conversation",
+            "action": {
+              "actor": "reviewer",
+              "steps": [
+                "Diff seed-e2e.ts titles vs S-REACTIVE-01 fixture",
+                "Read SPRINT.md step 1 and GATE-RESULTS.md step 1"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "PATH-A: seed-e2e.ts 'Streaming' title match count >= 1",
+                "PATH-A: SPRINT.md step 1 text agrees with seed count == 1",
+                "PATH-B: GATE-RESULTS step 1 no longer claims seeds the Streaming conversation"
+              ],
+              "must_not_observe": [
+                "empty/start signature: contract claims Streaming while seed match count == 0 under PATH-A",
+                "PATH-B S-REACTIVE-01 AC-1 GIVEN still says seeded 'Streaming'"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN PATH-A WHEN Maestro reconnect-exactly-once runs THEN exit 0 and required Streaming oracle fires",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Maestro + Zero + seeded Postgres + named iOS Simulator",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": ["empty", "disconnect", "mock \u2014 optional true", "stub"]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-streaming-conversation",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "holo seed:e2e --reset",
+                "maestro test .maestro/reactive/reconnect-exactly-once.yml"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "PATH-A: Maestro exit code == 0",
+                "PATH-A: required Streaming assert fired (optional:true count == 0)",
+                "PATH-A: chat-assistant-message-latest assert count >= 1",
+                "PATH-B: path.json path equals 'B' and AC-1..AC-3 complete without this Maestro Streaming path"
+              ],
+              "must_not_observe": [
+                "empty/start signature: PATH-A exit 0 with optional-only Streaming WARN",
+                "PATH-A pass with Streaming Postgres count == 0"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "After seed, PATH-A Streaming count==1 with messages>=1 OR path.json path=B",
+      "verify": "holo seed:e2e --reset && pnpm vitest run tests/integration/redhat-fix-01-streaming-seed.test.ts -t 'AC-1'",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "PATH-A optional:true count==0 on Streaming asserts OR PATH-B assert count==0",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-01-streaming-seed.test.ts -t 'AC-2'",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Fixture + gate docs agree with seed reality",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-01-streaming-seed.test.ts -t 'AC-3'",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "PATH-A Maestro reconnect exit 0 with required Streaming",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "seed-e2e.test.ts live counts (PATH-A conversations==5)",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/src/cli/__tests__/seed-e2e.test.ts",
+      "maps_to_ac": "AC-1"
+    }
+  ]
+}

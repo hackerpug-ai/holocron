@@ -1,0 +1,12 @@
+{
+  "expected_exit": 0,
+  "actual_exit": 0,
+  "exit_ok": true,
+  "expect_log_regex": "STEP3_VERDICT=refused_then_accepted",
+  "log_regex_matched": true,
+  "expect_not_log_regex": "",
+  "log_not_regex_ok": true,
+  "result": "pass",
+  "duration_ms": 94,
+  "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d"
+}

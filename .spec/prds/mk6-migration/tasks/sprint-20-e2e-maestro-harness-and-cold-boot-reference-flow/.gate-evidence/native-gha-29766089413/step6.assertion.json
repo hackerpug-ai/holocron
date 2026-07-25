@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "\"ok\"[[:space:]]*:[[:space:]]*true.*\"zero_row_count\"[[:space:]]*:[[:space:]]*0"
+}

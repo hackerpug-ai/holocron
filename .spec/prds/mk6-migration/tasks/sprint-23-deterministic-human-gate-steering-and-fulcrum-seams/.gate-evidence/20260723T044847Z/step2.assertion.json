@@ -1,0 +1,12 @@
+{
+  "expected_exit": 0,
+  "actual_exit": 0,
+  "exit_ok": true,
+  "expect_log_regex": "WIP_ONE_EXCEEDED",
+  "log_regex_matched": false,
+  "expect_not_log_regex": "",
+  "log_not_regex_ok": true,
+  "result": "fail",
+  "duration_ms": 39,
+  "cmd_sha": "96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c"
+}

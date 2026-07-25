@@ -3,9 +3,7 @@
     "rewired-cluster-files": {
       "description": "All cluster files rewired (S-REWRITE-01..04 landed) and committed",
       "seed_method": "public_api",
-      "records": [
-        "all four clusters rewired to Zero/Hono"
-      ]
+      "records": ["all four clusters rewired to Zero/Hono"]
     }
   },
   "requirements": [
@@ -22,10 +20,7 @@
         "verification_service": "static analysis",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": [
-            "stub \u2014 reviewer skips theme check",
-            "mock \u2014 grep mocked"
-          ]
+          "would_fail_if": ["stub \u2014 reviewer skips theme check", "mock \u2014 grep mocked"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -68,9 +63,7 @@
         "verification_service": "static analysis",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": [
-            "stub \u2014 reviewer skips a11y check"
-          ]
+          "would_fail_if": ["stub \u2014 reviewer skips a11y check"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -112,10 +105,7 @@
         "verification_service": "holo verify:client-contract",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": [
-            "stub \u2014 verifier skipped",
-            "disconnect \u2014 verifier not run"
-          ]
+          "would_fail_if": ["stub \u2014 verifier skipped", "disconnect \u2014 verifier not run"]
         },
         "evidence": {
           "artifact_type": "stdout",
@@ -157,9 +147,7 @@
         "verification_service": "file artifact",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": [
-            "stub \u2014 reviewer skips artifact creation"
-          ]
+          "would_fail_if": ["stub \u2014 reviewer skips artifact creation"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -170,20 +158,14 @@
             "start_ref": "rewired-cluster-files",
             "action": {
               "actor": "cli_user",
-              "steps": [
-                "write the review artifact",
-                "assert the required sections and verdicts"
-              ]
+              "steps": ["write the review artifact", "assert the required sections and verdicts"]
             },
             "end_state": {
               "must_observe": [
                 "the artifact file exists with `>=3` category sections",
                 "each section has an explicit `PASS`/`FAIL` verdict"
               ],
-              "must_not_observe": [
-                "no artifact file (`0` sections)",
-                "a section with no verdict"
-              ]
+              "must_not_observe": ["no artifact file (`0` sections)", "a section with no verdict"]
             }
           }
         ]

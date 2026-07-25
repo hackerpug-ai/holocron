@@ -1,0 +1,64 @@
+12:08:15.599 [ INFO] maestro.cli.report.TestDebugReporter.logSystemInfo: Debug output path: /Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step3/native-artifacts/debug/.maestro/tests/2026-07-20_120815
+12:08:15.600 [ INFO] MAESTRO.logSystemInfo: ---- System Info ----
+12:08:15.600 [ INFO] MAESTRO.logSystemInfo: Maestro Version: 2.6.1
+12:08:15.601 [ INFO] MAESTRO.logSystemInfo: CI: github
+12:08:15.601 [ INFO] MAESTRO.logSystemInfo: OS Name: Mac OS X
+12:08:15.601 [ INFO] MAESTRO.logSystemInfo: OS Version: 26.4.1
+12:08:15.601 [ INFO] MAESTRO.logSystemInfo: Architecture: aarch64
+12:08:15.601 [ INFO] MAESTRO.logSystemInfo: Java Version: 26
+12:08:15.653 [ INFO] MAESTRO.logSystemInfo: Xcode Version: 26.5
+12:08:15.656 [ INFO] MAESTRO.logSystemInfo: Flutter Version: Undefined
+12:08:15.659 [ INFO] MAESTRO.logSystemInfo: Flutter Channel: Undefined
+12:08:15.659 [ INFO] MAESTRO.logSystemInfo: ---------------------
+12:08:15.795 [DEBUG] io.micrometer.common.util.internal.logging.InternalLoggerFactory.newDefaultFactory: Using SLF4J as the default logging framework
+12:08:16.132 [ INFO] maestro.cli.command.TestCommand.runShardSuite: [shard 1] Selected device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 using port 56369 with execution plan ExecutionPlan(flowsToRun=[/Users/inference1/actions-runner-s20/_work/holocron/holocron/.e2e/maestro/gate/step-3-observe.yaml], sequence=FlowSequence(flows=[], continueOnFailure=true), workspaceConfig=WorkspaceConfig(flows=null, includeTags=null, excludeTags=null, executionOrder=null, baselineBranch=null, notifications=null, disableRetries=false, platform=PlatformConfiguration(android=AndroidConfiguration(disableAnimations=false), ios=IOSConfiguration(disableAnimations=false, snapshotKeyHonorModalViews=null)), testOutputDir=null))
+12:08:16.287 [TRACE] ios.xctest.XCTestIOSDevice.open: Opening a connection
+12:08:16.287 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: Restarting XCTest Runner (uninstalling, installing and starting)
+12:08:16.288 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:16.289 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:16.289 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: XCTest Runner uninstalled, will install and start it
+12:08:16.289 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: start()
+12:08:16.289 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Start] Install XCUITest runner on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:16.289 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:16.290 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:16.290 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing build products
+12:08:16.313 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing build products
+12:08:16.313 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-iosUITests-Runner app
+12:08:16.405 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-iosUITests-Runner app
+12:08:16.406 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-ios app
+12:08:16.410 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-ios app
+12:08:16.410 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: Installing driver with xcodebuild
+12:08:16.411 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Start] Running XcUITest with `xcodebuild test-without-building` with 56369 and config: IOSDriverConfig(prebuiltRunner=false, sourceDirectory=driver-iPhoneSimulator, context=CLI, snapshotKeyHonorModalViews=null)
+12:08:16.412 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcodebuild, test-without-building, -xctestrun, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/C79BF38C-D353-46A2-A1ED-CCA6D68E1B0413492239539052941455/maestro-driver-ios-config.xctestrun, -destination, id=C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, -derivedDataPath, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/maestro_xctestrunner_xcodebuild_output8319071297332294800] with {TEST_RUNNER_PORT=56369}
+12:08:16.415 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Done] Running XcUITest with `xcodebuild test-without-building`
+12:08:16.415 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Done] Install XCUITest runner on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:16.415 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:16.416 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:16.924 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:16.925 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:17.435 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:17.436 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:17.947 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:17.947 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:18.450 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:18.451 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:56369
+12:08:18.954 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:18.979 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Done] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+12:08:18.996 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow:  Running flow step-3-observe
+12:08:19.000 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Getting device info
+12:08:19.058 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Got device info: DeviceInfo(platform=IOS, widthPixels=1206, heightPixels=2622, widthGrid=402, heightGrid=874)
+12:08:19.086 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Define variables RUNNING
+12:08:19.087 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Define variables COMPLETED
+12:08:19.087 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Apply configuration RUNNING
+12:08:19.395 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+12:08:19.395 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: chat-assistant-message is visible RUNNING
+12:08:19.607 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: chat-assistant-message is visible COMPLETED
+12:08:19.607 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: chat-assistant-message is visible RUNNING
+12:08:19.732 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: chat-assistant-message is visible COMPLETED
+12:08:19.732 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: error-banner is not visible RUNNING
+12:08:20.436 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: error-banner is not visible COMPLETED
+12:08:20.436 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Take screenshot gate-step-3-zero-reply RUNNING
+12:08:20.436 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+12:08:20.437 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+12:08:20.503 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Take screenshot gate-step-3-zero-reply COMPLETED
+12:08:20.632 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step3/native-artifacts/test-output

@@ -1,0 +1,48 @@
+{
+  "tasks": {
+    "all_completed": false,
+    "total": 8,
+    "completed": 5,
+    "note": "GATE-FIX-001 and REDHAT-FIX-UI-001 open; prior completion INVALID"
+  },
+  "gate": {
+    "overall": "FAIL",
+    "source": "invalid-false-green-retracted",
+    "reason": "Maestro HTG did not honestly pass; rename not run"
+  },
+  "e2e": {
+    "overall": "FAIL",
+    "framework": "maestro",
+    "note": "chat-screen/HTG failures preserved in /tmp/maestro-htg*.log"
+  },
+  "human_test": {
+    "verdict": "fail",
+    "steps_total": 7,
+    "steps_executed": 0,
+    "steps_passed": 0,
+    "note": "Prior gate-results pass retracted; real Maestro failures preserved"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "stranded_tasks": [],
+    "default_target_ok": true,
+    "protected_branch": "main"
+  },
+  "status_files": {
+    "parity": false,
+    "drift": [
+      "false-green retracted"
+    ],
+    "checked_at": "2026-07-24T03:56:33.968096+00:00"
+  },
+  "build": {
+    "overall": "unknown"
+  },
+  "human_gate_verdict": "fail",
+  "human_gate_steps_passed": 5,
+  "human_gate_steps_total": 7,
+  "human_gate_updated_at": "2026-07-24T05:22:56Z",
+  "human_gate_run_id": "s24-htg-20260724T051737Z-83824",
+  "human_gate_notes": "Honest fail 5/7: whats-new deep link (4) + share actions sheet (7) failed; rename real pass; seed/drawer/articles/no-convex pass."
+}

@@ -1,0 +1,88 @@
+[ {
+  "command" : {
+    "defineVariablesCommand" : {
+      "env" : {
+        "MAESTRO_APP_ID" : "com.holocron.app",
+        "PLATFORM_URL" : "http://127.0.0.1:4111",
+        "E2E_ARTIFACT_DIR" : "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step3/native-artifacts",
+        "MAESTRO_DEVICE" : "iPhone 17",
+        "MAESTRO_FILENAME" : "step-3-observe",
+        "MAESTRO_DEVICE_UDID" : "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+        "MAESTRO_SHARD_ID" : "1",
+        "MAESTRO_SHARD_INDEX" : "0"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541696274,
+    "duration" : 2,
+    "sequenceNumber" : 0
+  }
+}, {
+  "command" : {
+    "takeScreenshotCommand" : {
+      "path" : "gate-step-3-zero-reply",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541746185,
+    "duration" : 70,
+    "sequenceNumber" : 4
+  }
+}, {
+  "command" : {
+    "applyConfigurationCommand" : {
+      "config" : {
+        "appId" : "${MAESTRO_APP_ID}"
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541696276,
+    "duration" : 308,
+    "sequenceNumber" : 1
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-assistant-message",
+          "optional" : false
+        }
+      },
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541746069,
+    "duration" : 116,
+    "sequenceNumber" : 3
+  }
+}, {
+  "command" : {
+    "assertConditionCommand" : {
+      "condition" : {
+        "visible" : {
+          "idRegex" : "chat-assistant-message",
+          "optional" : false
+        }
+      },
+      "timeout" : "90000",
+      "optional" : false
+    }
+  },
+  "metadata" : {
+    "status" : "COMPLETED",
+    "timestamp" : 1784541696584,
+    "duration" : 49485,
+    "sequenceNumber" : 2
+  }
+} ]

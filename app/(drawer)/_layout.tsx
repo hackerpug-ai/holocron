@@ -47,6 +47,7 @@ type TitleOverride = { title: string; until: number };
 
 function CustomDrawerContent({ navigation }: DrawerContentComponentProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const _isDrawerOpen = useDrawerStatus() === 'open';
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [actionMenuConversation, setActionMenuConversation] = useState<{
@@ -86,6 +87,13 @@ function CustomDrawerContent({ navigation }: DrawerContentComponentProps) {
 
   // Active conversation tracking (local state)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  // Deep links and cold restores bypass handleConversationPress, so derive the
+  // active chat from the route as the source of truth when it is available.
+  const routeConversationId = useMemo(() => {
+    const match = pathname.match(/^\/chat\/([^/]+)$/);
+    const id = match?.[1];
+    return id && id !== 'new' ? id : null;
+  }, [pathname]);
 
   const _isCreating = false;
   const isRenaming = false;
@@ -108,7 +116,7 @@ function CustomDrawerContent({ navigation }: DrawerContentComponentProps) {
 
   const executeDelete = async (conversationId: string) => {
     try {
-      const isDeletingActive = conversationId === activeConversationId;
+      const isDeletingActive = conversationId === (routeConversationId ?? activeConversationId);
       const remaining = conversations.filter((c) => c.id !== conversationId);
 
       let navigateToId: string | null = null;

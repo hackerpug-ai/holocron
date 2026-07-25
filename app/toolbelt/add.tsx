@@ -23,7 +23,10 @@ type MissionResult = Awaited<ReturnType<typeof postMission>>;
 // A deep link can briefly mount this modal twice while Expo reconciles its
 // initial URL with the URL event. Coalesce only that burst: a later deliberate
 // re-open still calls the server and receives its durable replay result.
-const recentAddsBySourceUrl = new Map<string, { expiresAt: number; promise: Promise<MissionResult> }>();
+const recentAddsBySourceUrl = new Map<
+  string,
+  { expiresAt: number; promise: Promise<MissionResult> }
+>();
 const ADD_REQUEST_COALESCE_MS = 3_000;
 
 function addToolOnce(params: AddToolParams, goal: string): Promise<MissionResult> {
@@ -51,7 +54,10 @@ function addToolOnce(params: AddToolParams, goal: string): Promise<MissionResult
       ...(params.useCases ? { useCases: params.useCases } : {}),
     },
   });
-  recentAddsBySourceUrl.set(params.sourceUrl, { expiresAt: now + ADD_REQUEST_COALESCE_MS, promise });
+  recentAddsBySourceUrl.set(params.sourceUrl, {
+    expiresAt: now + ADD_REQUEST_COALESCE_MS,
+    promise,
+  });
   return promise;
 }
 

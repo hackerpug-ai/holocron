@@ -1,0 +1,43 @@
+@@GATE-META step=step4 cmd_sha=949d9ea58825eb463d1b8f10c84a22aa8b3080abc9ef36aded9a3bc14e4357fc@@
++ scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir "${E2E_CI_ARTIFACT_DIR:?}"
+{
+  "committed_sha": "3ffba2dd5343bc515cb365e82b29d4bebb7e4ea5",
+  "tested_sha": "3ffba2dd5343bc515cb365e82b29d4bebb7e4ea5",
+  "replay_head_sha": "3ffba2dd5343bc515cb365e82b29d4bebb7e4ea5",
+  "generated_at": "2026-07-20T18:08:29Z",
+  "coldboot_gate": "green",
+  "junit_failures": 0,
+  "reference_run_id": "9abcc4e6-3fab-4388-9318-d1483f4d5044",
+  "postgres_agent_count": 1,
+  "postgres_agent_id": "019f80b0-cd7e-77f2-b79d-473adb0f9aef",
+  "postgres_agent_content_len": 5,
+  "zero_cache_ok": true,
+  "zero_agent_id": "019f80b0-cd7e-77f2-b79d-473adb0f9aef",
+  "zero_agent_content_len": 5,
+  "conversation_id": "00000000-0000-0000-0000-000000000020",
+  "artifact_dir": ".tmp/native-gate-ci-artifact",
+  "evidence": [
+    {
+      "path": ".tmp/native-gate-ci-artifact/junit.xml",
+      "sha256": "06f336f0b8d9023a80049a5f440cf3a65cab8e92464a617b6da8c4c7224c0860",
+      "bytes": 371
+    },
+    {
+      "path": ".tmp/native-gate-ci-artifact/test-output/screenshots/reference-chat-reply.png",
+      "sha256": "70f915cd5d70fb0a467e0b62982d77367b272cda15744aeccbfedcb2872b9e61",
+      "bytes": 128482
+    },
+    {
+      "path": ".tmp/native-gate-ci-artifact/reference-flow.mov",
+      "sha256": "f0f77f514a6dc140d71910a2ed030ea0c52f18ab60846c05bb58a1da527ece38",
+      "bytes": 22813840
+    },
+    {
+      "path": ".tmp/native-gate-ci-artifact/capstone-reference-request.json",
+      "sha256": "1da6163ed59555b7b747d02630ddea61ce8695502fbc0d022e82c6eb302a2884",
+      "bytes": 219
+    }
+  ],
+  "reasons": []
+}
+@@GATE-EXIT=0@@

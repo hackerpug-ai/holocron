@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# @@GATE-META step=2 cmd_sha=96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c@@
+# Literal command (byte-identical to gate-plan.json step.literal_cmd):
+G='Sprint-23 WIP1 burst concurrent subject'; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w "R${i}_HTTP=%{http_code}\n" --max-time 30 -X POST http://127.0.0.1:4111/api/missions -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d "{\"templateKey\":\"research\",\"goal\":\"$G\",\"idempotencyKey\":\"wip-burst-$i-20260723\",\"args\":{\"goal\":\"$G\"}}" & done; wait; echo; for i in 1 2 3 4 5 6; do echo "R${i}=$(cat /tmp/gate-s23-wip-$i.json | tr -d '\n')"; done; echo; grep -l 'WIP_ONE_EXCEEDED' /tmp/gate-s23-wip-*.json >/dev/null && echo 'WIP_DETECTED_IN_BURST' || echo 'NO_WIP_IN_BURST'

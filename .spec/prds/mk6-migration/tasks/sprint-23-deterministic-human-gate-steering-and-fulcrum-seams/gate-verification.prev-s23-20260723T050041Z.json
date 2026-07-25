@@ -1,0 +1,54 @@
+{
+  "verified": true,
+  "claimed_verdict": "fail",
+  "recomputed_verdict": "fail",
+  "steps_planned": 6,
+  "steps_recomputed": 6,
+  "discrepancies": [],
+  "method": "verify-gate-evidence.sh:recompute@local",
+  "recomputed_steps": {
+    "1": {
+      "result": "pass",
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "exit_code": 0
+    },
+    "2": {
+      "result": "pass",
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "exit_code": 0
+    },
+    "3": {
+      "result": "pass",
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "exit_code": 0
+    },
+    "4": {
+      "result": "pass",
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "exit_code": 0
+    },
+    "5": {
+      "result": "fail",
+      "exit_ok": true,
+      "regex_ok": false,
+      "regex_not_ok": true,
+      "exit_code": 0
+    },
+    "6": {
+      "result": "pass",
+      "exit_ok": true,
+      "regex_ok": true,
+      "regex_not_ok": true,
+      "exit_code": 0
+    }
+  },
+  "written_at": "2026-07-23T05:08:34Z"
+}

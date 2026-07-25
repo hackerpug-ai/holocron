@@ -1,0 +1,113 @@
+{
+  "sprint_id": "sprint-22-all-agentic-pipelines-as-templates-agents",
+  "verdict": "fail",
+  "runner": "kb-run-sprint-orchestrator",
+  "ui_driver": "none",
+  "cycle_started_at": "2026-07-21T17:47:02.848278+00:00",
+  "completed_at": "2026-07-21T17:47:02.848409+00:00",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 5,
+  "steps": [
+    {
+      "id": "1",
+      "name": "holo mission run whatsNew",
+      "executed": true,
+      "result": "pass",
+      "log": "step1.log"
+    },
+    {
+      "id": "2",
+      "name": "assimilate + shop",
+      "executed": true,
+      "result": "pass",
+      "log": "step2a.log+step2b.log"
+    },
+    {
+      "id": "3",
+      "name": "report kinds",
+      "executed": true,
+      "result": "pass",
+      "log": "step3.log"
+    },
+    {
+      "id": "4",
+      "name": "verify:no-shells",
+      "executed": true,
+      "result": "pass",
+      "log": "step4.log"
+    },
+    {
+      "id": "5",
+      "name": "subscriptions sub-workflow publish",
+      "executed": true,
+      "result": "fail",
+      "log": "step5.log"
+    },
+    {
+      "id": "6",
+      "name": "fleet reasoning report",
+      "executed": true,
+      "result": "pass",
+      "log": "step6.log"
+    }
+  ],
+  "detail_steps": [
+    {
+      "id": "1",
+      "name": "whatsNew",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step1.log"
+    },
+    {
+      "id": "2a",
+      "name": "assimilate",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step2a.log"
+    },
+    {
+      "id": "2b",
+      "name": "shop",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step2b.log"
+    },
+    {
+      "id": "3",
+      "name": "report revenue-validation",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step3.log"
+    },
+    {
+      "id": "4",
+      "name": "verify:no-shells",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step4.log"
+    },
+    {
+      "id": "5",
+      "name": "subscriptions",
+      "executed": true,
+      "result": "fail",
+      "exit_code": 1,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step5.log"
+    },
+    {
+      "id": "6",
+      "name": "report competitive / fleet",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".tmp/sprint-22-all-agentic-pipelines-as-templates-agents/human-tests/step6.log"
+    }
+  ]
+}

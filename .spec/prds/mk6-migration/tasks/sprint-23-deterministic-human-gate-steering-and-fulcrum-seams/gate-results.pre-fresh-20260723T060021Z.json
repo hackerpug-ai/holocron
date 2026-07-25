@@ -1,0 +1,109 @@
+{
+  "sprint": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+    "sprint_slug": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams"
+  },
+  "run_id": "20260723T050041Z",
+  "verdict": "fail",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 5,
+  "ui_driver": "none",
+  "exec_surface": "surface:229 (4561CFB7-7381-44F6-96B1-A7836C53D1F0)",
+  "qa_surface_id": "1E01FE24-1BCF-4771-903B-52DF3BD7272A",
+  "qa_session_id": "1E01FE24-1BCF-4771-903B-52DF3BD7272A",
+  "method_note": "Real cmux exec pane (new-split right of qa surface 1E01FE24...). Each literal_cmd pulled byte-identical from gate-plan.json via run-gate.py (no paraphrasing -> cmd_sha matches D2). Service on :4111 reused as-is (not restarted); env in pane: FLEET_MANIFEST_PATH=/tmp/holocron-fleet-local-valid.json, FLEET_URL=http://127.0.0.1:4546, DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod. Bearer rn-gate-s23 (steps 1-4) is the real API key already configured on the running service. No wholesale test-suite invocation (D7 clean). No product source or migrations modified.",
+  "caveats": [
+    "Step 2 (WIP=1 burst): the literal_cmd's own `grep -l 'WIP_ONE_EXCEEDED'` search string is echoed into .gate-evidence/20260723T050041Z/step2.log:2, so the assertion regex /WIP_ONE_EXCEEDED/ matches on that command echo - NOT on actual WIP enforcement. The burst itself returned NO_WIP_IN_BURST with all 6 requests failing MISSION_RUNTIME_FAILED (a fleet/mission-template runtime error, not a WIP refusal). The deterministic verifier (verify-gate-evidence.sh) recomputes 'pass' because the regex does appear in the raw log, so step 2 is recorded as pass per the contract; but the underlying functional claim (concurrent second-build refused with WIP_ONE_EXCEEDED) is NOT proven by this evidence. Flagged for GATE-FIX: the step 2 literal_cmd needs a separator between the burst and the assertion grep (so the grep search-string cannot match its own echo), or the burst needs a fleet endpoint that returns 200 so a real winner row lands and the partial unique index mission_runs_active_subject_wip_one_uidx actually collides."
+  ],
+    "verified": true,
+  "steps": [
+    {
+      "n": 1,
+      "text": "POST /api/missions/:id/verdicts {kill, no-citation} - rejected deterministically by the handler.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"kill\",\"rationale\":\"Stop now, without a citation.\",\"requestKey\":\"gate-step1-uncited-kill\"}'",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=49 cmd_sha=6c890ec867a3... regex_matched=True not_regex_ok=True",
+      "log": ".gate-evidence/20260723T050041Z/step1.log",
+      "duration_ms": 49,
+      "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e"
+    },
+    {
+      "n": 2,
+      "text": "Start a second concurrent build on the same subject - refused (WIP=1).",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "G='Sprint-23 WIP1 burst concurrent subject'; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w \"R${i}_HTTP=%{http_code}\\n\" --max-time 30 -X POST http://127.0.0.1:4111/api/missions -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d \"{\\\"templateKey\\\":\\\"research\\\",\\\"goal\\\":\\\"$G\\\",\\\"idempotencyKey\\\":\\\"wip-burst-$i-20260723\\\",\\\"args\\\":{\\\"goal\\\":\\\"$G\\\"}}\" & done; wait; echo; for i in 1 2 3 4 5 6; do echo \"R${i}=$(cat /tmp/gate-s23-wip-$i.json | tr -d '\\n')\"; done; echo; grep -l 'WIP_ONE_EXCEEDED' /tmp/gate-s23-wip-*.json >/dev/null && echo 'WIP_DETECTED_IN_BURST' || echo 'NO_WIP_IN_BURST'",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=136 cmd_sha=96452a83a1fb... regex_matched=True not_regex_ok=True",
+      "log": ".gate-evidence/20260723T050041Z/step2.log",
+      "duration_ms": 136,
+      "cmd_sha": "96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c"
+    },
+    {
+      "n": 3,
+      "text": "POST verdicts {advance->validated} with no recorded probe - refused; add a probe - accepted.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "echo '=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ==='; A=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"advance\",\"targetStatus\":\"validated\",\"rationale\":\"Advance before any probe.\",\"requestKey\":\"gate-step3a-unprobed-advance\"}'); echo \"$A\"; echo '=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ==='; B=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"advance\",\"targetStatus\":\"validated\",\"rationale\":\"Advance after a committed research.plan@1 probe.\",\"requestKey\":\"gate-step3b-probed-advance\"}'); echo \"$B\"; echo; if echo \"$A\" | grep -q 'PROBE_REQUIRED_FOR_VALIDATED' && echo \"$B\" | grep -q '\"ok\":true'; then echo 'STEP3_VERDICT=refused_then_accepted'; else echo 'STEP3_VERDICT=other'; fi",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=135 cmd_sha=7172c3ff4120... regex_matched=True not_regex_ok=True",
+      "log": ".gate-evidence/20260723T050041Z/step3.log",
+      "duration_ms": 135,
+      "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d"
+    },
+    {
+      "n": 4,
+      "text": "POST /api/missions/:id/steer mid-run - the steering row takes effect on the following cycle without a restart.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/steer -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"instruction\":\"Prioritize recent papers published in 2025 and 2026.\",\"requestKey\":\"gate-step4-steer\"}'",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=83 cmd_sha=24592cdb257d... regex_matched=True not_regex_ok=True",
+      "log": ".gate-evidence/20260723T050041Z/step4.log",
+      "duration_ms": 83,
+      "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903"
+    },
+    {
+      "n": 5,
+      "text": "Run holo mission:cycle <id> - the CHALLENGE instance differs from ASSAY; refuting claims pass the identical admission gate.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00db-7eda-8ef3-51ee6cd81018 --json",
+      "executed": true,
+      "result": "fail",
+      "evidence": "exit=0 duration_ms=3421 cmd_sha=dc02415d6cc3... regex_matched=False not_regex_ok=True",
+      "log": ".gate-evidence/20260723T050041Z/step5.log",
+      "duration_ms": 3421,
+      "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377",
+      "failure": {
+        "expected": "exit 0 AND log matches /\"assayChallengeDistinct\":true/ AND log does NOT match /(none)/ (from gate-plan.json step 5 assertion - deterministic)",
+        "actual": "exit=0 (exit_ok=True); regex /\"assayChallengeDistinct\":true/ matched=False; not_regex /(none)/ ok=True (deterministic - extracted from step5.assertion.json + step5.log)",
+        "evidence_pointer": ".gate-evidence/20260723T050041Z/step5.log:15 shows \"\"\"assayChallengeDistinct\"\": true,\"\"\" (with a space after the colon) assertion regex \"\"assayChallengeDistinct\":true\" has no space -> Python re.search fails. Production CLI (bun services/platform/src/cli/holo.ts mission:cycle --json) pretty-prints JSON with a ': ' separator; the gate-plan assertion was authored against compact ':'. The functional claim IS satisfied by the same output: assayInstanceId != challengeInstanceId, admission.pureTs=true, supportingAdmitted=1, refutingAdmitted=1. Only the byte-exact assertion regex fails (spec drift, not a product defect).",
+        "root_cause_hypothesis": "HYPOTHESIS: gate-plan.json step 5 assertion.expect_log_regex was authored against compact JSON output (no space after the colon), but the CLI's --json flag pretty-prints with a ': ' separator. The underlying gate behavior (distinct ASSAY/CHALLENGE instances + refuting-claim admission parity) is observably correct in the same log.",
+        "remedy_suggestion": "HYPOTHESIS: tighten the regex to /\"assayChallengeDistinct\":\\s*true/ in gate-plan.json (one-character spec fix, no product change) - this is the documented remedy for spec-vs-output drift. Alternative: change the CLI to emit compact JSON (NOT recommended - broader blast radius). Routed to GATE-FIX / the run stage; the qa stage does not modify product source or gate-plan.",
+        "remedy_file_guess": "HYPOTHESIS: .spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json:76 (step 5 assertion.expect_log_regex)"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo fulcrum:authorable-check - a fulcrum template compiles against contract+ledger+gate+role-bindings+publish seams with zero new platform code.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=152 cmd_sha=7ffa3ad16a30... regex_matched=True not_regex_ok=True",
+      "log": ".gate-evidence/20260723T050041Z/step6.log",
+      "duration_ms": 152,
+      "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007"
+    }
+  ]
+}

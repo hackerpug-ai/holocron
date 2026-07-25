@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "sprint_id": "sprint-24-full-rn-app-rewrite-off-convex-onto-zero",
+  "run_id": "s24-htg-20260724T074452Z-1877",
+  "source_artifact": "/Users/inference1/Projects/holocron/.tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo seed:e2e --reset \u2014 seeds 3 conversations, 12 documents, 5 feed items",
+      "type": "cli",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "(seed_fingerprint|status:\\s*OK)",
+        "expect_not_log_regex": "(?i)status:\\s*FAIL"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Cold-boot app \u2014 drawer chat list shows 3 seeded conversations via Zero",
+      "type": "ui",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "COMPLETED",
+        "expect_not_log_regex": "\\.\\.\\. FAILED"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Open Articles \u2014 12 seeded documents load via Zero",
+      "type": "ui",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "COMPLETED",
+        "expect_not_log_regex": "\\.\\.\\. FAILED"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Open What's New feed \u2014 5 seeded feed items via Zero",
+      "type": "ui",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "COMPLETED",
+        "expect_not_log_regex": "\\.\\.\\. FAILED"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Rename conversation from drawer \u2014 title reflects within 5s via Zero",
+      "type": "ui",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "COMPLETED",
+        "expect_not_log_regex": "\\.\\.\\. FAILED"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo verify:no-convex-client \u2014 exits 0",
+      "type": "cli",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "STATUS:\\s*PASS",
+        "expect_not_log_regex": "STATUS:\\s*FAIL"
+      }
+    },
+    {
+      "n": 7,
+      "text": "Share public document \u2014 URL at Mastra /article/ host",
+      "type": "ui",
+      "literal_cmd": "",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "COMPLETED",
+        "expect_not_log_regex": "\\.\\.\\. FAILED"
+      }
+    }
+  ],
+  "notes": "Run-stage bridge of sprint24 HTG named logs \u2192 generic stepN.log/.exit for verify-gate-evidence."
+}

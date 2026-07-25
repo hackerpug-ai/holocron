@@ -1,0 +1,9 @@
+@@GATE-META n=6 type=cli source=step6-no-convex.log
+@@GATE-META run_id=s24-htg-20260724T074452Z-1877 bridged=sprint24-htg-reconcile
+holo verify:no-convex-client
+roots=app,components,hooks,screens
+convex_react_import_hits=0
+zero_import_hits=75
+STATUS: PASS
+
+@@GATE-EXIT=0@@

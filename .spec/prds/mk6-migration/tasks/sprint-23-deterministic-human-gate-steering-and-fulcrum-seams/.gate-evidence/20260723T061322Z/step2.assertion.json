@@ -1,0 +1,12 @@
+{
+  "expected_exit": 0,
+  "actual_exit": 0,
+  "exit_ok": true,
+  "expect_log_regex": "\"code\"\\s*:\\s*\"WIP_ONE_EXCEEDED\"",
+  "log_regex_matched": true,
+  "expect_not_log_regex": "NO_WIP_IN_BURST",
+  "log_not_regex_ok": true,
+  "result": "pass",
+  "duration_ms": 3622,
+  "cmd_sha": "5a35c19ca6f662353bea050adb75294481f4e961740a92167755f85d6a1310da"
+}

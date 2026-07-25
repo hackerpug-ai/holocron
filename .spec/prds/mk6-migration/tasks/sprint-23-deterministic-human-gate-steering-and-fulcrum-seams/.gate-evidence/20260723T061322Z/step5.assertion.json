@@ -1,0 +1,12 @@
+{
+  "expected_exit": 1,
+  "actual_exit": 1,
+  "exit_ok": true,
+  "expect_log_regex": "\"assayChallengeDistinct\"\\s*:\\s*true",
+  "log_regex_matched": false,
+  "expect_not_log_regex": "",
+  "log_not_regex_ok": true,
+  "result": "fail",
+  "duration_ms": 302,
+  "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377"
+}

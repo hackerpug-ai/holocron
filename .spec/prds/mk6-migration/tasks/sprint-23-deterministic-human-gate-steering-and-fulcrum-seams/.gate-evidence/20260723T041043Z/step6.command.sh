@@ -1,0 +1,6 @@
+cd /Users/inference1/Projects/holocron && ( DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check ) > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step6.raw 2>&1
+EC=$?
+tee -a /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step6.log < /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step6.raw
+echo "@@GATE-EXIT=$EC@@" >> /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step6.log
+printf "%s" "$EC" > /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step6.exit
+rm -f /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T041043Z/step6.raw

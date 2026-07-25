@@ -1,0 +1,201 @@
+2026-07-20 04:01:08.171 xcodebuild[23032:6226296] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-07-20 04:01:08.174 xcodebuild[23032:6226296] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-07-20 04:01:08.348 xcodebuild[23032:6226296] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+** BUILD INTERRUPTED **
+9.275355-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Default] Running tests...
+2026-07-20 04:01:09.312812-0600 maestro-driver-iosUITests-Runner[23091:6226699] snapshotKeyHonorModalViews configured to value: (null)
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-07-20 04:01:09.826.
+Test Suite 'maestro-driver-iosUITests.xctest' started at 2026-07-20 04:01:09.827.
+Test Suite 'maestro_driver_iosUITests' started at 2026-07-20 04:01:09.827.
+    t =      nans Suite Set Up
+Test Case '-[maestro_driver_iosUITests.maestro_driver_iosUITests testHttpServer]' started.
+    t =     0.00s Start Test at 2026-07-20 04:01:09.828
+    t =     0.02s Set Up
+2026-07-20 04:01:09.843731-0600 maestro-driver-iosUITests-Runner[23091:6226780] [maestro_driver_iosUITests] Will start HTTP server
+2026-07-20 04:01:09.883052-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] starting server 127.0.0.1:49251
+2026-07-20 04:01:10.078321-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> open connection
+2026-07-20 04:01:10.081313-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /status
+2026-07-20 04:01:10.108078-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> open connection
+2026-07-20 04:01:10.108935-0600 maestro-driver-iosUITests-Runner[23091:6226771] [FlyingFox] <127.0.0.1> request: POST /deviceInfo
+    t =     0.28s Getting device orientation
+2026-07-20 04:01:10.111626-0600 maestro-driver-iosUITests-Runner[23091:6226699] Using singleton test manager
+2026-07-20 04:01:10.114759-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     0.29s Getting device orientation
+    t =     0.29s Find the Application 'com.holocron.app'
+2026-07-20 04:01:10.146090-0600 maestro-driver-iosUITests-Runner[23091:6226699] Device orientation is 1
+objc[23091]: Class UIAccessibilityLoaderWebShared is implemented in both /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebCore.axbundle/WebCore (0x105fbc310) and /Library/Developer/CoreSimulator/Volumes/iOS_23F77/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/AccessibilityBundles/WebKit.axbundle/WebKit (0x105f20398). This may cause spurious casting failures and mysterious crashes. One of the duplicates must be removed or renamed.
+2026-07-20 04:01:10.507581-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: POST /deviceInfo
+    t =     0.68s Getting device orientation
+2026-07-20 04:01:10.513183-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     0.69s Getting device orientation
+2026-07-20 04:01:10.514561-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+2026-07-20 04:01:10.514645-0600 maestro-driver-iosUITests-Runner[23091:6226699] Device orientation is 1
+2026-07-20 04:01:10.570221-0600 maestro-driver-iosUITests-Runner[23091:6226781] [FlyingFox] <127.0.0.1> request: POST /viewHierarchy
+2026-07-20 04:01:10.572980-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+2026-07-20 04:01:10.573432-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Start] View hierarchy snapshot for Application 'com.holocron.app'
+2026-07-20 04:01:10.573514-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Starting getHierarchyWithFallback for element.
+    t =     0.75s Find the Application 'com.holocron.app'
+2026-07-20 04:01:10.603956-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Successfully retrieved element hierarchy.
+2026-07-20 04:01:10.604118-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch status bar hierarchy - start
+    t =     0.78s Checking existence of `StatusBar (First Match)`
+    t =     0.78s Get all elements bound by index for: Descendants matching type StatusBar
+    t =     0.80s Find the StatusBar (Element at index 0)
+    t =     0.81s Find the StatusBar (Element at index 1)
+2026-07-20 04:01:10.659062-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch status bar hierarchy - duration 0.054895997047424316
+2026-07-20 04:01:10.659121-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch Safari WebView hierarchy - start
+2026-07-20 04:01:10.660687-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch Safari WebView hierarchy - duration 0.001544952392578125
+    t =     0.83s Find the Application 'com.apple.springboard'
+2026-07-20 04:01:10.673116-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Done] View hierarchy snapshot for Application 'com.holocron.app' 
+2026-07-20 04:01:10.693836-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: POST /deviceInfo
+    t =     0.87s Getting device orientation
+2026-07-20 04:01:10.696593-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     0.87s Getting device orientation
+2026-07-20 04:01:10.697739-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+2026-07-20 04:01:10.697816-0600 maestro-driver-iosUITests-Runner[23091:6226699] Device orientation is 1
+2026-07-20 04:01:10.699256-0600 maestro-driver-iosUITests-Runner[23091:6226771] [FlyingFox] <127.0.0.1> request: POST /viewHierarchy
+2026-07-20 04:01:10.700722-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+2026-07-20 04:01:10.701112-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Start] View hierarchy snapshot for Application 'com.holocron.app'
+2026-07-20 04:01:10.701158-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Starting getHierarchyWithFallback for element.
+    t =     0.87s Find the Application 'com.holocron.app'
+2026-07-20 04:01:10.730103-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Successfully retrieved element hierarchy.
+2026-07-20 04:01:10.730209-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch status bar hierarchy - start
+    t =     0.90s Checking existence of `StatusBar (First Match)`
+    t =     0.91s Get all elements bound by index for: Descendants matching type StatusBar
+    t =     0.92s Find the StatusBar (Element at index 0)
+    t =     0.94s Find the StatusBar (Element at index 1)
+2026-07-20 04:01:10.782931-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch status bar hierarchy - duration 0.05266892910003662
+2026-07-20 04:01:10.783001-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch Safari WebView hierarchy - start
+2026-07-20 04:01:10.783488-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch Safari WebView hierarchy - duration 0.0004678964614868164
+    t =     0.96s Find the Application 'com.apple.springboard'
+2026-07-20 04:01:10.795929-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Done] View hierarchy snapshot for Application 'com.holocron.app' 
+2026-07-20 04:01:10.804745-0600 maestro-driver-iosUITests-Runner[23091:6226782] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:10.932793-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: GET /screenshot
+2026-07-20 04:01:11.056306-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: POST /touch
+2026-07-20 04:01:11.060160-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     1.23s Getting device orientation
+2026-07-20 04:01:11.061518-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+    t =     1.23s Getting device orientation
+2026-07-20 04:01:11.062361-0600 maestro-driver-iosUITests-Runner[23091:6226699] Tapping 180.0, 847.0
+    t =     1.24s Getting device orientation
+2026-07-20 04:01:11.397590-0600 maestro-driver-iosUITests-Runner[23091:6226699] Tapping took 0.3330579996109009
+2026-07-20 04:01:11.399403-0600 maestro-driver-iosUITests-Runner[23091:6226782] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:11.531067-0600 maestro-driver-iosUITests-Runner[23091:6226771] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:11.661210-0600 maestro-driver-iosUITests-Runner[23091:6226781] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:11.786654-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:11.911153-0600 maestro-driver-iosUITests-Runner[23091:6226781] [FlyingFox] <127.0.0.1> request: GET /screenshot
+2026-07-20 04:01:12.000257-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /screenshot
+2026-07-20 04:01:12.584615-0600 maestro-driver-iosUITests-Runner[23091:6226782] [FlyingFox] <127.0.0.1> request: POST /inputText
+2026-07-20 04:01:12.592904-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     2.77s Checking existence of `Keyboard (First Match)`
+2026-07-20 04:01:12.609435-0600 maestro-driver-iosUITests-Runner[23091:6226699] [TextInputHelper] first character: S
+    t =     2.78s Getting device orientation
+2026-07-20 04:01:13.333356-0600 maestro-driver-iosUITests-Runner[23091:6226699] [TextInputHelper] remaining text: print 20 reference-flow ping
+    t =     3.51s Getting device orientation
+2026-07-20 04:01:14.454625-0600 maestro-driver-iosUITests-Runner[23091:6226699] [InputTextRouteHandler] Text input duration took 1.865286
+2026-07-20 04:01:14.457805-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:14.607475-0600 maestro-driver-iosUITests-Runner[23091:6226784] [FlyingFox] <127.0.0.1> request: POST /deviceInfo
+    t =     4.78s Getting device orientation
+2026-07-20 04:01:14.610109-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     4.78s Getting device orientation
+2026-07-20 04:01:14.611306-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+2026-07-20 04:01:14.611396-0600 maestro-driver-iosUITests-Runner[23091:6226699] Device orientation is 1
+2026-07-20 04:01:14.612655-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: POST /viewHierarchy
+2026-07-20 04:01:14.614567-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+2026-07-20 04:01:14.614987-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Start] View hierarchy snapshot for Application 'com.holocron.app'
+2026-07-20 04:01:14.615037-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Starting getHierarchyWithFallback for element.
+    t =     4.79s Find the Application 'com.holocron.app'
+2026-07-20 04:01:14.677949-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Successfully retrieved element hierarchy.
+2026-07-20 04:01:14.678109-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch status bar hierarchy - start
+    t =     4.85s Checking existence of `StatusBar (First Match)`
+    t =     4.86s Get all elements bound by index for: Descendants matching type StatusBar
+    t =     4.87s Find the StatusBar (Element at index 0)
+    t =     4.89s Find the StatusBar (Element at index 1)
+2026-07-20 04:01:14.734782-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch status bar hierarchy - duration 0.056622982025146484
+2026-07-20 04:01:14.734844-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch Safari WebView hierarchy - start
+2026-07-20 04:01:14.735246-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch Safari WebView hierarchy - duration 0.0003819465637207031
+    t =     4.91s Find the Application 'com.apple.springboard'
+2026-07-20 04:01:14.748665-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Done] View hierarchy snapshot for Application 'com.holocron.app' 
+2026-07-20 04:01:14.755364-0600 maestro-driver-iosUITests-Runner[23091:6226769] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:14.883444-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:15.033470-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:15.165497-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /screenshot
+2026-07-20 04:01:15.253144-0600 maestro-driver-iosUITests-Runner[23091:6226772] [FlyingFox] <127.0.0.1> request: POST /touch
+2026-07-20 04:01:15.255323-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     5.43s Getting device orientation
+2026-07-20 04:01:15.256524-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+    t =     5.43s Getting device orientation
+2026-07-20 04:01:15.257258-0600 maestro-driver-iosUITests-Runner[23091:6226699] Tapping 370.0, 514.0
+    t =     5.43s Getting device orientation
+2026-07-20 04:01:15.585677-0600 maestro-driver-iosUITests-Runner[23091:6226699] Tapping took 0.3277440071105957
+2026-07-20 04:01:15.587360-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:15.715197-0600 maestro-driver-iosUITests-Runner[23091:6226772] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:15.835248-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:15.960945-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.082083-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.206728-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.323845-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.441180-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.561476-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.677235-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.801784-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:16.921956-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.053613-0600 maestro-driver-iosUITests-Runner[23091:6226769] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.175970-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.294364-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.414970-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.540561-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.659451-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.776858-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:17.898567-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:18.021202-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:18.137834-0600 maestro-driver-iosUITests-Runner[23091:6226777] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:18.266333-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:18.387225-0600 maestro-driver-iosUITests-Runner[23091:6226769] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:18.511783-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /isScreenStatic
+2026-07-20 04:01:18.632750-0600 maestro-driver-iosUITests-Runner[23091:6226778] [FlyingFox] <127.0.0.1> request: POST /deviceInfo
+    t =     8.81s Getting device orientation
+2026-07-20 04:01:18.635191-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     8.81s Getting device orientation
+2026-07-20 04:01:18.636344-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+2026-07-20 04:01:18.636421-0600 maestro-driver-iosUITests-Runner[23091:6226699] Device orientation is 1
+2026-07-20 04:01:18.637770-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: POST /viewHierarchy
+2026-07-20 04:01:18.639268-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+2026-07-20 04:01:18.639639-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Start] View hierarchy snapshot for Application 'com.holocron.app'
+2026-07-20 04:01:18.639681-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Starting getHierarchyWithFallback for element.
+    t =     8.81s Find the Application 'com.holocron.app'
+2026-07-20 04:01:18.672638-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Successfully retrieved element hierarchy.
+2026-07-20 04:01:18.672756-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch status bar hierarchy - start
+    t =     8.85s Checking existence of `StatusBar (First Match)`
+    t =     8.85s Get all elements bound by index for: Descendants matching type StatusBar
+    t =     8.87s Find the StatusBar (Element at index 0)
+    t =     8.88s Find the StatusBar (Element at index 1)
+2026-07-20 04:01:18.728242-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch status bar hierarchy - duration 0.05543506145477295
+2026-07-20 04:01:18.728320-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch Safari WebView hierarchy - start
+2026-07-20 04:01:18.728771-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch Safari WebView hierarchy - duration 0.0004169940948486328
+    t =     8.90s Find the Application 'com.apple.springboard'
+2026-07-20 04:01:18.741893-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Done] View hierarchy snapshot for Application 'com.holocron.app' 
+2026-07-20 04:01:18.744931-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: POST /deviceInfo
+    t =     8.92s Getting device orientation
+2026-07-20 04:01:18.747632-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+    t =     8.92s Getting device orientation
+2026-07-20 04:01:18.748781-0600 maestro-driver-iosUITests-Runner[23091:6226699] Returning cached screen size
+2026-07-20 04:01:18.748858-0600 maestro-driver-iosUITests-Runner[23091:6226699] Device orientation is 1
+2026-07-20 04:01:18.750071-0600 maestro-driver-iosUITests-Runner[23091:6226773] [FlyingFox] <127.0.0.1> request: POST /viewHierarchy
+2026-07-20 04:01:18.751678-0600 maestro-driver-iosUITests-Runner[23091:6226699] Detected running apps: ["com.holocron.app"]
+2026-07-20 04:01:18.752102-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Start] View hierarchy snapshot for Application 'com.holocron.app'
+2026-07-20 04:01:18.752140-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Starting getHierarchyWithFallback for element.
+    t =     8.93s Find the Application 'com.holocron.app'
+2026-07-20 04:01:18.784955-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Successfully retrieved element hierarchy.
+2026-07-20 04:01:18.785070-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch status bar hierarchy - start
+    t =     8.96s Checking existence of `StatusBar (First Match)`
+    t =     8.96s Get all elements bound by index for: Descendants matching type StatusBar
+    t =     8.98s Find the StatusBar (Element at index 0)
+    t =     9.00s Find the StatusBar (Element at index 1)
+2026-07-20 04:01:18.843320-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch status bar hierarchy - duration 0.05819499492645264
+2026-07-20 04:01:18.843391-0600 maestro-driver-iosUITests-Runner[23091:6226699] [ViewHierarchyHandler] Fetch Safari WebView hierarchy - start
+2026-07-20 04:01:18.843936-0600 maestro-driver-iosUITests-Runner[23091:6226699] Fetch Safari WebView hierarchy - duration 0.0005069971084594727
+    t =     9.02s Find the Application 'com.apple.springboard'
+2026-07-20 04:01:18.857966-0600 maestro-driver-iosUITests-Runner[23091:6226699] [Done] View hierarchy snapshot for Application 'com.holocron.app' 
+2026-07-20 04:01:18.862940-0600 maestro-driver-iosUITests-Runner[23091:6226769] [FlyingFox] <127.0.0.1> request: GET /screenshot
+2026-07-20 04:01:19.720934-0600 maestro-driver-iosUITests-Runner[23091:6226780] [FlyingFox] <127.0.0.1> request: GET /status

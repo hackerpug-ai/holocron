@@ -1,0 +1,11 @@
+{
+  "session_id": "native-maestro-20260720T180656Z-89250",
+  "device_name": "iPhone 17",
+  "device_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+  "app_id": "com.holocron.app",
+  "zero_pid": 89324,
+  "artifact_dir": "/Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step1/native-artifacts",
+  "reference_message": "Sprint 20 reference-flow ping native-maestro-20260720T180656Z-89250",
+  "status": "active",
+  "reference_run_id": "df7d3e1c-2297-4e0b-9140-c115384b74e6"
+}

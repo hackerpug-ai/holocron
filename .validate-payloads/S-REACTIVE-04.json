@@ -16,7 +16,7 @@
         "the divergent role :4545 endpoint becomes unreachable (fleet-down harness action)",
         "DegradedModeController detects the role unavailable (degraded-mode-controller.ts:117-131)",
         "a chat reasoning call returns a fleet-unavailable error / typed terminal signal",
-        "SURFACE_UNAVAILABLE_MESSAGE = 'Local fleet unavailable — running in reduced mode'"
+        "SURFACE_UNAVAILABLE_MESSAGE = 'Local fleet unavailable \u2014 running in reduced mode'"
       ]
     }
   },
@@ -25,6 +25,8 @@
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN a seeded-streaming-conversation exists and the fleet is running normally WHEN the operator takes the inference fleet endpoint (:4545) down and the user sends a chat message THEN the chat UI shows 'Local fleet unavailable \u2014 running in reduced mode' within ~5s, NOT a spinner hang",
+      "verify": "holo seed:e2e --reset && (fleet-down action) && maestro test .maestro/reactive/degraded-no-hang.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -33,13 +35,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — the error signal never reaches the client",
-            "stub — the degraded state is not wired to the state machine (spinner hangs forever)",
-            "empty — the fleet was not actually stopped (no error signal emitted)",
-            "mock — the Maestro flow fakes the message with no real fleet-down"
+            "disconnect \u2014 the error signal never reaches the client",
+            "stub \u2014 the degraded state is not wired to the state machine (spinner hangs forever)",
+            "empty \u2014 the fleet was not actually stopped (no error signal emitted)",
+            "mock \u2014 the Maestro flow fakes the message with no real fleet-down"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -54,7 +59,7 @@
             },
             "end_state": {
               "must_observe": [
-                "the text `Local fleet unavailable — running in reduced mode` is visible",
+                "the text `Local fleet unavailable \u2014 running in reduced mode` is visible",
                 "the message appears within `5s` of sending the chat message",
                 "no spinner/ActivityIndicator is present (spinner count `0`)",
                 "Maestro exit code `0` with screenshot"
@@ -70,9 +75,62 @@
       }
     },
     {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN degraded_mode is not in zero_pub and has no HTTP endpoint WHEN the chat thread receives a fleet-unavailable error from POST /api/chat-runs or an SSE terminal/error signal THEN the state machine transitions to degraded and renders the exact message",
+      "verify": "grep -n SURFACE_UNAVAILABLE_MESSAGE services/platform/src/inference/degraded-mode-controller.ts && grep -nE 'failure envelope|infer' design/interaction-notes.md",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "backend code grep + design-doc inspection",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 the degraded-mode controller is not running or the signal not wired",
+            "stub \u2014 the state machine ignores the error signal",
+            "empty \u2014 the SURFACE_UNAVAILABLE_MESSAGE constant is missing",
+            "mock \u2014 the design notes cite the wrong inference path"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-streaming-conversation",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "grep services/platform/src/inference/degraded-mode-controller.ts for SURFACE_UNAVAILABLE_MESSAGE",
+                "inspect the design notes for the failure-envelope inference path"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`SURFACE_UNAVAILABLE_MESSAGE = 'Local fleet unavailable \u2014 running in reduced mode'` (`degraded-mode-controller.ts:36`)",
+                "the design notes cite inference from the chat `failure envelope` (not a Zero query)",
+                "the state machine transitions to the `degraded` state on the error signal",
+                "the UI message string `==` the backend `SURFACE_UNAVAILABLE_MESSAGE` text"
+              ],
+              "must_not_observe": [
+                "the design notes cite a Zero query (`degraded_mode` is `not` in zero_pub)",
+                "the state machine uses an HTTP endpoint (`0` exist)",
+                "the message differs from the backend text (diff `>0`)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "id": "AC-3",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN the chat thread is in the degraded state and the fleet is down WHEN the operator restores the fleet endpoint (:4545) and the user sends a new chat message THEN the state machine transitions back to normal, the degraded message disappears, and the message sends",
+      "verify": "(fleet-restore action) && maestro test .maestro/reactive/degraded-recovery.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -81,12 +139,15 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — DegradedModeController does not detect the role available again",
-            "stub — the state machine is stuck in degraded (no recovery transition)",
-            "empty — the fleet restore action does not bring the role back"
+            "disconnect \u2014 DegradedModeController does not detect the role available again",
+            "stub \u2014 the state machine is stuck in degraded (no recovery transition)",
+            "empty \u2014 the fleet restore action does not bring the role back"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-streaming-conversation",
@@ -118,53 +179,25 @@
       }
     },
     {
-      "id": "AC-2",
-      "type": "acceptance_criterion",
-      "primary": false,
-      "maps_to_ac": null,
-      "scenario": {
-        "tier": "visible",
-        "test_tier": "integration",
-        "verification_service": "backend code grep + design-doc inspection",
-        "topology": "single-node",
-        "negative_control": {
-          "would_fail_if": [
-            "disconnect — the degraded-mode controller is not running or the signal not wired",
-            "stub — the state machine ignores the error signal",
-            "empty — the SURFACE_UNAVAILABLE_MESSAGE constant is missing",
-            "mock — the design notes cite the wrong inference path"
-          ]
-        },
-        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
-        "cases": [
-          {
-            "start_ref": "seeded-streaming-conversation",
-            "action": {
-              "actor": "cli_user",
-              "steps": [
-                "grep services/platform/src/inference/degraded-mode-controller.ts for SURFACE_UNAVAILABLE_MESSAGE",
-                "inspect the design notes for the failure-envelope inference path"
-              ]
-            },
-            "end_state": {
-              "must_observe": [
-                "`SURFACE_UNAVAILABLE_MESSAGE = 'Local fleet unavailable — running in reduced mode'` (`degraded-mode-controller.ts:36`)",
-                "the design notes cite inference from the chat `failure envelope` (not a Zero query)",
-                "the state machine transitions to the `degraded` state on the error signal",
-                "the UI message string `==` the backend `SURFACE_UNAVAILABLE_MESSAGE` text"
-              ],
-              "must_not_observe": [
-                "the design notes cite a Zero query (`degraded_mode` is `not` in zero_pub)",
-                "the state machine uses an HTTP endpoint (`0` exist)",
-                "the message differs from the backend text (diff `>0`)"
-              ]
-            }
-          }
-        ]
-      }
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "The degraded message appears within ~5s after the fleet is down",
+      "verify": "maestro test .maestro/reactive/degraded-no-hang.yml",
+      "maps_to_ac": "AC-1"
     },
-    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null },
-    { "id": "TC-3", "type": "test_criterion", "maps_to_ac": "AC-3", "scenario": null },
-    { "id": "TC-2", "type": "test_criterion", "maps_to_ac": "AC-2", "scenario": null }
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "The message text exactly matches the backend SURFACE_UNAVAILABLE_MESSAGE",
+      "verify": "grep -n SURFACE_UNAVAILABLE_MESSAGE services/platform/src/inference/degraded-mode-controller.ts",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "The degraded state recovers when the fleet restarts",
+      "verify": "maestro test .maestro/reactive/degraded-recovery.yml",
+      "maps_to_ac": "AC-3"
+    }
   ]
 }

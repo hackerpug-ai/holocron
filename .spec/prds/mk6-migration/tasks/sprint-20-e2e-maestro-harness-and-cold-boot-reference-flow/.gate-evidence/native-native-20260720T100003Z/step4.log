@@ -1,0 +1,2 @@
+@@GATE-META step=step4 cmd_sha=949d9ea58825eb463d1b8f10c84a22aa8b3080abc9ef36aded9a3bc14e4357fc@@
++ scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir "${E2E_CI_ARTIFACT_DIR:?}"

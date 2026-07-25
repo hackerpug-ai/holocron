@@ -31,18 +31,22 @@ export function ImportButton({
       testID={testID}
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel="Import article"
       className={cn(
         'items-center justify-center rounded-full',
         disabled ? 'opacity-50' : '',
         className
       )}
-      style={({ pressed }) => ({
-        backgroundColor: pressed
-          ? `${themeColors.primary}cc` // 80% opacity
-          : themeColors.primary,
+      style={{
+        // A static native style is intentional: the previous Pressable style
+        // callback was not painting in this screen, leaving the only import
+        // affordance transparent and unreachable.
+        backgroundColor: themeColors.primary,
         width: 36,
         height: 36,
-      })}
+        flexShrink: 0,
+      }}
     >
       <Plus size={20} color={themeColors.primaryForeground} strokeWidth={2.5} />
     </Pressable>

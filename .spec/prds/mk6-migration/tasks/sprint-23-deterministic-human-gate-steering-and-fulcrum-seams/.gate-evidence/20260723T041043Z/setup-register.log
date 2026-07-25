@@ -1,0 +1,42 @@
+--- register test.echo ---
+{
+  "compilerVersion": "mission-compiler@1.0.0",
+  "created": true,
+  "definitionHash": "30007a05a91729fb87ba3b103fed9d9a28ec1b5c88322d59e2cd3f24d283e592",
+  "dslVersion": "mission_template_v1",
+  "executorRef": "builtin.test-echo@1",
+  "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+  "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+  "fleetManifestVersion": "1.0.0",
+  "noCloudFallback": true,
+  "ok": true,
+  "outputSchemaRef": "mission.test.echo.output",
+  "outputSchemaVersion": 1,
+  "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+  "schemaRef": "mission.test.echo.output",
+  "schemaVersion": 1,
+  "templateKey": "test.echo",
+  "version": "1.0.0"
+}
+--- register research ---
+{
+  "compilerVersion": "mission-compiler@1.0.0",
+  "created": true,
+  "definitionHash": "31c149027e73882036a788b892dc984dac107c9cae2911f3954cf19e059918b3",
+  "dslVersion": "mission_template_v1",
+  "executorRef": "evidence-gate",
+  "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+  "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+  "fleetManifestVersion": "1.0.0",
+  "noCloudFallback": true,
+  "ok": true,
+  "outputSchemaRef": "mission.research.output",
+  "outputSchemaVersion": 1,
+  "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+  "schemaRef": "mission.research.output",
+  "schemaVersion": 1,
+  "templateKey": "research",
+  "version": "1.0.5"
+}
+--- done ---
+SETUP_DONE_0

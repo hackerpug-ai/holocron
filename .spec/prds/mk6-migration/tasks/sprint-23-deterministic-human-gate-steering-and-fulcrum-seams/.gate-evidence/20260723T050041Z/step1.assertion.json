@@ -1,0 +1,12 @@
+{
+  "expected_exit": 0,
+  "actual_exit": 0,
+  "exit_ok": true,
+  "expect_log_regex": "UNCITED_KILL_REJECTED",
+  "log_regex_matched": true,
+  "expect_not_log_regex": "\"ok\":true",
+  "log_not_regex_ok": true,
+  "result": "pass",
+  "duration_ms": 49,
+  "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e"
+}

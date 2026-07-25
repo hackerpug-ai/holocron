@@ -1,0 +1,1 @@
+{"ts":"2026-07-20T04:11:31Z","surface_id":"DAA5D1F6-1909-4027-A715-B9087C32C213","surface_ref":"surface:56","role":"run","harness":"codex","model":"glm-5.6-luna","outcome":"superseded-model-override","reason":"user corrected requested model to codex/gpt-5.6-luna; stage reaped before durable work"}

@@ -1,0 +1,111 @@
+# Gate Results: sprint-23-deterministic-human-gate-steering-and-fulcrum-seams
+
+## ✅ VERIFIED (fail) — recomputed `fail` == claimed `fail`; 6/6 steps recomputed; 0 discrepancies
+
+The claimed verdict **survives deterministic recomputation**. This is a **verified FAIL**, not a pass.
+The gate is **not satisfied**; the run stage must not merge on this verdict alone.
+
+- **Proof:** `.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-verification.json`
+- **Machine verdict:** `.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-results.json`
+- **Run ID:** `20260723T050041Z`
+- **Evidence dir:** `.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T050041Z/`
+
+> **Landing note (review/qa stage):** this verdict does **not** land work. The run stage merges the
+> reviewed commit to `main` only after a `pass`. The qa stage never merges, pushes, or moves any
+> checkout to another branch, and did not modify product source, migrations, `gate-plan.json`, or any
+> task spec. The running service on `http://127.0.0.1:4111` was reused as-is (not restarted); its
+> configured `FLEET_MANIFEST_PATH=/tmp/holocron-fleet-local-valid.json`, fleet endpoint
+> `http://127.0.0.1:4546`, and API keys (`rn-gate-s23`/`ctl-gate-s23`/`mcp-gate-s23`) were preserved.
+
+## Date / Sprint / Environment
+
+- **Date (UTC):** 2026-07-23T05:08:34Z (verification written)
+- **Sprint:** `sprint-23-deterministic-human-gate-steering-and-fulcrum-seams` (sequence 23, Phase 4 — Reference-Flow Gate and Deep Services)
+- **Sprint path (resolved, verbatim):** `/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams`
+- **Service:** Hono platform on `http://127.0.0.1:4111` (reused, not restarted) — `/health` returned `{"status":"ok","db":{"ready":true},"fleet":{"ready":true,"endpoint":"http://127.0.0.1:4546"},"queue":{"ready":true,"backend":"pg-boss"}}` at run open.
+- **Ledger:** Postgres nonprod at `postgres://127.0.0.1:5432/holocron_nonprod` (steps 1–5) and `…/holocron` (step 6), as documented in `gate-plan.json`.
+- **Fleet manifest:** `/tmp/holocron-fleet-local-valid.json`; fleet endpoint `http://127.0.0.1:4546`.
+- **API keys (preserved, not rotated):** `rn-gate-s23` (real-api Bearer, steps 1–4), `ctl-gate-s23` / `mcp-gate-s23` (configured on the running service, not directly invoked by the gate-plan literals).
+
+## Exec pane / Driver / Video
+
+- **Exec pane:** `surface:229` (UUID `4561CFB7-7381-44F6-96B1-A7836C53D1F0`) — a `cmux new-split right` off the qa surface `1E01FE24-1BCF-4771-903B-52DF3BD7272A`. Each step ran via `bash exec-step.sh <n> '<literal_cmd>' <evidence_dir> <assertion.json> 300` inside that pane.
+- **UI driver:** `none` (this gate is real-api/real-cli only — no UI or native surfaces in `gate-plan.json`).
+- **Video:** none (no UI session).
+
+## Summary
+
+| Outcome | Count |
+|---|---|
+| Pass | 5 |
+| Fail | 1 |
+| Wiring Gap | 0 |
+| Blocked | 0 |
+
+**Verdict: `fail`** — one documented step (step 5) failed its byte-exact assertion regex against real production output. The verdict is **verified** (recompute agrees); it is **not** a pass and does not land work.
+
+## Per-Step Results
+
+| # | Gate (from SPRINT.md § Human Test Deliverable) | Method | Result | Evidence (log path) |
+|---|---|---|---|---|
+| 1 | `POST /verdicts {kill, no-citation}` — rejected deterministically | real-api | ✅ pass | exit 0, 49 ms, cmd_sha `6c890ec8…` — handler returned `422 {"ok":false,"code":"UNCITED_KILL_REJECTED"}`. [log](.gate-evidence/20260723T050041Z/step1.log) |
+| 2 | Start a second concurrent build on the same subject — refused (WIP=1) | real-api | ✅ pass* | exit 0, 136 ms, cmd_sha `96452a83…` — *see Wiring Gaps: regex matched the command's own echo, not real WIP enforcement.* [log](.gate-evidence/20260723T050041Z/step2.log) |
+| 3 | `POST verdicts {advance→validated}` — refused without probe, accepted with probe | real-api | ✅ pass | exit 0, 135 ms, cmd_sha `7172c3ff…` — 3a → `PROBE_REQUIRED_FOR_VALIDATED`; 3b → `{"ok":true,…}`. `STEP3_VERDICT=refused_then_accepted`. [log](.gate-evidence/20260723T050041Z/step3.log) |
+| 4 | `POST /steer` mid-run — takes effect next cycle, no restart | real-api | ✅ pass | exit 0, 83 ms, cmd_sha `24592cdb…` — `200 {"ok":true,"event":{"eventType":"steer",…}}`. [log](.gate-evidence/20260723T050041Z/step4.log) |
+| 5 | `holo mission:cycle <id>` — CHALLENGE ≠ ASSAY; refuting claims admitted | real-cli | ❌ **fail** | exit 0, 3421 ms, cmd_sha `dc02415d…` — functional claim satisfied (`assayChallengeDistinct: true`, distinct instance IDs, `refutingAdmitted: 1`) but assertion regex `/\"assayChallengeDistinct\":true/` (no space) did not match the CLI's pretty-printed output `\"assayChallengeDistinct\": true` (space after colon). [log](.gate-evidence/20260723T050041Z/step5.log) |
+| 6 | `holo fulcrum:authorable-check` — template compiles against all 5 seams, zero new platform code | real-cli | ✅ pass | exit 0, 152 ms, cmd_sha `7ffa3ad1…` — `Overall: SUFFICIENT — fulcrum can be authored with zero new platform code`. [log](.gate-evidence/20260723T050041Z/step6.log) |
+
+\* Step 2's pass is contract-correct (the deterministic verifier recomputes `pass` because the regex
+does appear in the raw log) but the underlying functional claim is **not** proven by this evidence — see
+Wiring Gaps below.
+
+## Failures (grounded; remedy labeled HYPOTHESIS)
+
+### Step 5 — `holo mission:cycle <id>` assertion regex spec-drift (the single blocking failure)
+
+- **Expected (deterministic, from `gate-plan.json` step 5 assertion):** exit `0` AND log matches `/\"assayChallengeDistinct\":true/` AND log does NOT match `/(none)/`.
+- **Actual (deterministic, from `step5.assertion.json` + `step5.log`):** exit `0` (exit_ok=true); regex `/\"assayChallengeDistinct\":true/` matched=**false**; not_regex ok=true.
+- **Evidence pointer (deterministic):** `.gate-evidence/20260723T050041Z/step5.log:15` shows `"assayChallengeDistinct": true,` (with a space after the colon). The assertion regex `"assayChallengeDistinct":true` has no space, so Python `re.search` fails. The production CLI (`bun services/platform/src/cli/holo.ts mission:cycle --json`) pretty-prints JSON with a `': '` separator; the gate-plan assertion was authored against compact `':'`. The functional claim **is** satisfied by the same output (`assayInstanceId` ≠ `challengeInstanceId`, `admission.pureTs=true`, `supportingAdmitted=1`, `refutingAdmitted=1`). Only the byte-exact regex fails (spec drift, not a product defect).
+- **Root-cause hypothesis (agent-authored, labeled HYPOTHESIS):** `gate-plan.json` step 5 `assertion.expect_log_regex` was authored against compact JSON output (no space after colon), but the CLI's `--json` flag pretty-prints with `': '`. The underlying gate behavior (distinct ASSAY/CHALLENGE instances + refuting-claim admission parity) is observably correct in the same log.
+- **Remedy suggestion (HYPOTHESIS; routed to GATE-FIX / run stage — qa does not edit gate-plan or product source):** tighten the regex to `/\"assayChallengeDistinct\":\s*true/` in `gate-plan.json` (one-character spec fix, no product change) — the documented remedy for spec-vs-output drift. Alternative: change the CLI to emit compact JSON (NOT recommended — broader blast radius).
+- **Remedy file guess (HYPOTHESIS):** `.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json:76` (step 5 `assertion.expect_log_regex`).
+
+## Wiring Gaps (block production confidence, not the gate contract)
+
+### Step 2 — self-referential regex leak in the literal_cmd (contract-pass, functional-claim NOT proven)
+
+The step 2 `literal_cmd` ends with:
+
+```
+grep -l 'WIP_ONE_EXCEEDED' /tmp/gate-s23-wip-*.json >/dev/null && echo 'WIP_DETECTED_IN_BURST' || echo 'NO_WIP_IN_BURST'
+```
+
+`exec-step.sh` writes the full `literal_cmd` into `step2.log:2` as `# literal_cmd: …`, and the assertion
+regex `/WIP_ONE_EXCEEDED/` matches that **command echo** — not actual WIP enforcement. The burst itself
+returned `NO_WIP_IN_BURST` with all 6 requests failing `MISSION_RUNTIME_FAILED` (a fleet/mission-template
+runtime error — the local fleet at `http://127.0.0.1:4546` is the configured manifest but the research
+template's plan stage did not return 200 here, so no winner row ever landed and the partial unique index
+`mission_runs_active_subject_wip_one_uidx` never had a real collision to refuse).
+
+**The deterministic verifier (`verify-gate-evidence.sh`) recomputes `pass`** because the regex does
+appear in the raw log, so step 2 is recorded as `pass` per the contract — the qa stage does not
+hand-override a contract-correct recompute. But the underlying functional claim (a concurrent
+second-build on the same subject is refused with `WIP_ONE_EXCEEDED`) is **not** proven by this evidence.
+
+**Routed to GATE-FIX (qa does not edit gate-plan or product source):** either (a) insert a separator
+between the burst and the assertion grep in the step 2 `literal_cmd` so the grep search-string cannot
+match its own echo (e.g. write the grep result to a dedicated sentinel line that excludes the search
+token), or (b) point the burst at a fleet endpoint that returns 200 so a real winner row lands and the
+partial unique index actually collides. Until then, step 2's `pass` should be read as "regex contract
+satisfied," not "WIP=1 enforcement proven."
+
+## Session Video
+
+Not applicable — this gate has no UI or native surfaces (`gate-plan.json` steps are `real-api` / `real-cli` only; `ui_driver: "none"`).
+
+## Provenance
+
+- **qa surface id:** `1E01FE24-1BCF-4771-903B-52DF3BD7272A` (the surface this qa run executed in)
+- **exec surface:** `surface:229` (`4561CFB7-7381-44F6-96B1-A7836C53D1F0`)
+- **build identifier of artifacts:** `gate-plan.json` (unchanged, SHA-pinned by step `cmd_sha`), `gate-results.json` (this run), `gate-verification.json` (deterministic recompute).
+- **No product source, migrations, gate-plan.json, or task specs were modified by this run.** The service on `:4111` was reused as-is.

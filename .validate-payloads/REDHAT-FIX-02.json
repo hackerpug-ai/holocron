@@ -1,0 +1,254 @@
+{
+  "version": "1",
+  "task_id": "REDHAT-FIX-02",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "seeded-research-session": {
+      "description": "research_sessions from holo seed:e2e --reset (active session e00000000033)",
+      "seed_method": "public_api",
+      "records": [
+        "session id 00000000-0000-4000-8000-e00000000033",
+        "max_iterations == 5",
+        "current_iteration start == 1 for AC-1"
+      ]
+    },
+    "pre-fix-no-production-writer": {
+      "description": "RED baseline: only seed + harness + tests write current_iteration",
+      "seed_method": "cli",
+      "records": ["advance-server.py SET current_iteration", "seed-e2e.ts INSERT only in seed path"]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN seeded session 1/5 WHEN H2 resolved THEN PATH-A current_iteration==3 via production writer OR PATH-B path=B with 'as the workflow reaches' match count==0",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-1'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres+research-engine-or-docs-audit",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": ["stub", "empty", "static", "mock", "harness-only psql", "disconnect"]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research-session",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "Record path A|B in .tmp/sprint-25/redhat-fix-02-path.json",
+                "PATH-A: call advanceResearchSessionIteration (or production CLI/HTTP) twice 1\u21922, 2\u21923",
+                "PATH-A: SELECT current_iteration FROM research_sessions WHERE id=e00000000033",
+                "PATH-B: rg 'as the workflow reaches' on SPRINT.md S-REACTIVE-02 GATE-RESULTS T-SYNC-005"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "path.json path field equals 'A' or 'B'",
+                "PATH-A: current_iteration == 3 AND max_iterations == 5",
+                "PATH-A: production import path match count >= 1 under services/platform/src/ (not .maestro/)",
+                "PATH-B: 'as the workflow reaches' match count == 0 in SPRINT.md step 5 and S-REACTIVE-02 AC-1"
+              ],
+              "must_not_observe": [
+                "empty/start signature: PATH-A current_iteration still == 1 after writer call",
+                "PATH-A success only via advance-server.py subprocess (maestro import count >= 1)",
+                "PATH-B SPRINT step 5 still claims workflow reaches iteration 3/5"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN either path WHEN s-reactive-02 suite runs THEN Zero binding still green (researchSessionById match count >= 1)",
+      "verify": "pnpm vitest run tests/integration/s-reactive-02-research-progress-zero.test.ts",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "vitest Zero binding",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect",
+            "stub \u2014 hardcoded 3/5",
+            "empty \u2014 research_sessions removed from zero_pub",
+            "mock"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research-session",
+            "action": {
+              "actor": "cli_user",
+              "steps": ["Run tests/integration/s-reactive-02-research-progress-zero.test.ts"]
+            },
+            "end_state": {
+              "must_observe": [
+                "research_sessions listed in ZERO_PUB_FULL_TABLES (match count >= 1)",
+                "useResearchProgress / researchSessionById match count >= 1",
+                "suite exit code == 0"
+              ],
+              "must_not_observe": [
+                "empty/start signature: research_sessions removed from zero_pub (match count == 0)",
+                "hardcoded '3/5' progress with 0 column backing"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN tree WHEN audited THEN PATH-A production writer count >= 1 OR PATH-B disclosure match count >= 1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-3'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "source-audit",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "static \u2014 PATH-A docs without rg hit",
+            "empty \u2014 PATH-B no disclosure",
+            "stub \u2014 SELECT counted as writer"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "pre-fix-no-production-writer",
+            "action": {
+              "actor": "reviewer",
+              "steps": [
+                "rg current_iteration writers under services/platform/src excluding seed/tests/migrations",
+                "If PATH-B: rg 'engine trigger pending|Zero reactive binding' on S-REACTIVE-02 and SPRINT"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "PATH-A: production write site count >= 1 for current_iteration",
+                "PATH-B: disclosure match count >= 1 for 'engine trigger pending' or 'Zero reactive binding' in S-REACTIVE-02 or SPRINT.md",
+                "PATH-A or PATH-B: path.json path equals 'A' or 'B'"
+              ],
+              "must_not_observe": [
+                "empty/start signature: PATH-A production writer count == 0",
+                "PATH-B S-REACTIVE-02 AC-1 still says Sprint 17 engine advances without footnote"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN PATH-A WHEN unknown session or iteration>max THEN error; GIVEN PATH-B WHEN fixture audited THEN engine-increments claim count==0",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-4'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres+writer-or-fixture-audit",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub soft-success",
+            "empty catch swallow",
+            "static fixture still claims engine under PATH-B"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research-session",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "PATH-A: call writer with random UUID session",
+                "PATH-A: call writer with currentIteration=9 maxIterations=5",
+                "PATH-B: read S-REACTIVE-02 fixture records vs path.json"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "PATH-A: unknown session yields structured error count >= 1 (ok:false or thrown)",
+                "PATH-A: over-max yields error match count >= 1 containing 'iteration' or 'bounds'",
+                "PATH-B: fixture engine-increments claim count == 0"
+              ],
+              "must_not_observe": [
+                "empty/start signature: PATH-A ok:true with rows updated == 0",
+                "PATH-B fixture still claims 'Sprint 17 engine increments current_iteration' (match count >= 1)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "PATH-A current_iteration==3 via production writer OR PATH-B path=B + claim purge",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-1'",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "s-reactive-02 Zero binding suite exit 0",
+      "verify": "pnpm vitest run tests/integration/s-reactive-02-research-progress-zero.test.ts",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Source audit: writer count>=1 (A) or disclosure count>=1 (B)",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-3'",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "PATH-A fail-closed / PATH-B fixture honesty",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-4'",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "path.json exists with path A or B",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-02-path.json && jq -e '.path==\"A\" or .path==\"B\"' .tmp/sprint-25/redhat-fix-02-path.json",
+      "maps_to_ac": "AC-1"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+@@GATE-META step=3 driver=maestro-ios cmd_sha=21b7dda82a514df82bc59a6b3b86d08a7213343037d2cee45a13cf1f239e799f@@
+@@MAESTRO-ACTION action_id=observe-zero-synced-reply action_count=1 flow=.e2e/maestro/gate/step-3-observe.yaml@@
+@@GATE-EXIT=0@@

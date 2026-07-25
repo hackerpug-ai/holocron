@@ -131,7 +131,7 @@ export function ArticlesScreen({
         {/* Search and Import Row */}
         <View className="flex-row items-center gap-2">
           {/* Search Input - always editable to allow query refinement */}
-          <View className="flex-1">
+          <View className="flex-1" style={{ minWidth: 0 }}>
             <SearchInput
               value={searchValue}
               onChangeText={handleSearchChange}
@@ -142,11 +142,13 @@ export function ArticlesScreen({
           </View>
 
           {/* Import Button */}
-          <ImportButton
-            onPress={onImportPress}
-            disabled={loading}
-            testID="articles-import-button"
-          />
+          <View style={{ width: 36, height: 36, flexShrink: 0 }}>
+            <ImportButton
+              onPress={onImportPress}
+              disabled={loading}
+              testID="articles-import-button"
+            />
+          </View>
         </View>
 
         {/* Horizontal Filter Chips */}

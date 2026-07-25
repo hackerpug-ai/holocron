@@ -1,0 +1,71 @@
+WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/jansi-2.4.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running on iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+ > Flow share-url-mastra
+Launch app "com.holocron.app"... COMPLETED
+Run flow when "Runtime version" is visible...
+Run flow when "Runtime version" is visible... SKIPPED
+Open holocron://articles... COMPLETED
+Assert that id: article-card-pressable is visible... COMPLETED
+Tap on id: article-card-pressable, Index: 0... COMPLETED
+Assert that id: document-layout is visible... COMPLETED
+Tap on point (90%,14%)... COMPLETED
+Wait for animation to end within 2500 ms... COMPLETED
+Run flow when "Runtime version" is visible...
+Run flow when "Runtime version" is visible... SKIPPED
+Run flow when "Reload" is visible...
+Run flow when "Reload" is visible... SKIPPED
+Run flow when "Go home" is visible...
+Run flow when "Go home" is visible... SKIPPED
+Run flow when "Runtime version" is visible...
+Run flow when "Runtime version" is visible... SKIPPED
+Assert that (Optional) "Runtime version" is not visible... COMPLETED
+Assert that (Optional) "Reload" is not visible... COMPLETED
+Swipe from (92%,12%) to (92%,70%) in 800 ms... COMPLETED
+Wait for animation to end within 1500 ms... COMPLETED
+Run flow when id: document-actions-sheet-share is not visible...
+  Assert that id: document-actions-button is visible... COMPLETED
+  Tap on id: document-actions-button at 15%,50%... COMPLETED
+Run flow when id: document-actions-sheet-share is not visible... COMPLETED
+Run flow when "Runtime version" is visible...
+Run flow when "Runtime version" is visible... SKIPPED
+Assert that id: document-actions-sheet-share is visible... COMPLETED
+Assert that id: document-actions-sheet-share is visible... COMPLETED
+Tap on id: document-actions-sheet-share... COMPLETED
+Tap on (Optional) "Share Link"... WARNED
+
+
+ Warning: Element not found: Text matching regex: Share Link
+Assert that "Copy" is visible... COMPLETED
+Assert that "Copy" is visible... COMPLETED
+Tap on point (50%,8%)... COMPLETED
+Wait for animation to end within 2000 ms... COMPLETED
+Tap on (Optional) "Close"... WARNED
+
+
+ Warning: Element not found: Text matching regex: Close
+Assert that id: document-share-url-banner is visible... COMPLETED
+Assert that id: document-share-url-banner is visible... COMPLETED
+Assert that id: document-share-url is visible... COMPLETED
+Assert that id: document-share-url-copy is visible... COMPLETED
+Assert that ".*(/article/).*" is visible... COMPLETED
+Assert that ".*\.convex\.site.*" is not visible... COMPLETED
+Assert that ".*\.convex\.cloud.*" is not visible... COMPLETED
+Tap on id: document-share-url-copy... COMPLETED
+Wait for animation to end within 1500 ms... COMPLETED
+Take screenshot articles-share-url-mastra... COMPLETED
+
+--- share clipboard oracle ---
+share_clipboard_oracle: udid=C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+share_clipboard_oracle: written_at=2026-07-24T07:48:29Z
+pbpaste_exit=0
+pbpaste_raw<<EOF
+http://127.0.0.1:4111/article/e2e-share-token-00000000-0000-4000-8000-000000000012
+EOF
+STATUS PASS path_has_article=1 convex_host=0

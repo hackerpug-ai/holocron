@@ -1,0 +1,64 @@
+{
+  "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
+  "run_id": "s25-ht-20260725T153617Z",
+  "verdict": "fail",
+  "runner": "kb-run-sprint-human-test",
+  "ui_driver": "maestro",
+  "written_at": "2026-07-25T15:36:17.489778+00:00",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 4,
+  "steps": [
+    {
+      "n": 1,
+      "type": "seed",
+      "text": "Run holo seed:e2e --reset \u2014 seeds the Streaming conversation.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-1-seed.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-1-seed.log"
+    },
+    {
+      "n": 2,
+      "type": "streaming_reconnect",
+      "text": "Send message, disconnect mid-stream, reconnect \u2014 exactly one final message no dups (reconnect-exactly-once).",
+      "executed": true,
+      "result": "fail",
+      "exit_code": 1,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-2-4-reconnect.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-2-4-reconnect.log"
+    },
+    {
+      "n": 3,
+      "type": "research_progress",
+      "text": "Start research mission \u2014 progress bar advances live to 3/5.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-5-research.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-5-research.log"
+    },
+    {
+      "n": 4,
+      "type": "mcp_cross_surface",
+      "text": "Update seeded doc via MCP gateway \u2014 app reflects within 5s.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-6-mcp-p95.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-6-mcp-p95.log"
+    },
+    {
+      "n": 5,
+      "type": "degraded_fleet",
+      "text": "Stop local fleet then send \u2014 chat shows local fleet unavailable, not hang.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
+    }
+  ],
+  "notes": "Human testing gate execution against real Maestro + seed. Reconnect step flaky this cycle (stop visible but token-count oracle failed under platform restart). Capstone S-REACTIVE-05 previously re-verified reconnect exit 0 + T-SYNC-006 PASS; research/mcp/degraded green this cycle."
+}

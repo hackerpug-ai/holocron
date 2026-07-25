@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "WIP_ONE_EXCEEDED",
+  "expect_not_log_regex": ""
+}

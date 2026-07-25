@@ -1,0 +1,10 @@
+{
+  "step": 2,
+  "driver": "maestro-ios",
+  "action_id": "send-reference-message",
+  "log": "/Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step2/step2.log",
+  "exit_path": "/Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step2/step2.exit",
+  "evidence": "/Users/inference1/actions-runner-s20/_work/holocron/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-gha-29766089413/step2/maestro-evidence.json",
+  "exit_code": 0,
+  "timed_out": false
+}

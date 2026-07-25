@@ -1,0 +1,3 @@
+@@GATE-META step=2 driver=maestro-ios cmd_sha=c9345808ccacdaddbbc667643a3a0c49b52444d2b0de2f1b61d4b0f864cf9ae3@@
+@@MAESTRO-ACTION action_id=send-reference-message action_count=1 flow=.e2e/maestro/gate/step-2-send.yaml@@
+@@GATE-EXIT=0@@

@@ -46,9 +46,7 @@
             "start_ref": "seeded-documents",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the Articles screen"
-              ]
+              "steps": ["open the Articles screen"]
             },
             "end_state": {
               "must_observe": [
@@ -93,9 +91,7 @@
             "start_ref": "seeded-documents",
             "action": {
               "actor": "user",
-              "steps": [
-                "tap a document card to open detail"
-              ]
+              "steps": ["tap a document card to open detail"]
             },
             "end_state": {
               "must_observe": [
@@ -138,10 +134,7 @@
             "start_ref": "seeded-public-doc",
             "action": {
               "actor": "user",
-              "steps": [
-                "open a public document",
-                "tap Share"
-              ]
+              "steps": ["open a public document", "tap Share"]
             },
             "end_state": {
               "must_observe": [
@@ -186,10 +179,7 @@
             "start_ref": "seeded-documents",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the import modal",
-                "submit a valid article URL"
-              ]
+              "steps": ["open the import modal", "submit a valid article URL"]
             },
             "end_state": {
               "must_observe": [
@@ -233,10 +223,7 @@
             "start_ref": "seeded-documents",
             "action": {
               "actor": "user",
-              "steps": [
-                "open a document with narration",
-                "tap Play"
-              ]
+              "steps": ["open a document with narration", "tap Play"]
             },
             "end_state": {
               "must_observe": [

@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": "hybrid search returned no results for topic \"diag research probe\" (empty corpus or no matching passages)",
+  "code": "MISSION_RESEARCH_FAILED",
+  "errorCode": "MISSION_RESEARCH_FAILED"
+}
+DIAG_EXIT=1

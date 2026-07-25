@@ -1,0 +1,31 @@
+@@GATE-META step=5 cmd_sha=dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377@@
+# literal_cmd: DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00db-7eda-8ef3-51ee6cd81018 --json
+# started_at: 2026-07-23T04:52:33Z
+---
+{
+  "ok": true,
+  "runId": "019f8d2e-00db-7eda-8ef3-51ee6cd81018",
+  "cycle": {
+    "index": 2,
+    "steeringApplied": [
+      "Prioritize recent papers published in 2025 and 2026."
+    ],
+    "assayInstanceId": "fleet:model:implementer:inst-de36a67f-41e8-4aca-9b24-cec4b55abf70",
+    "challengeInstanceId": "fleet:model:reviewer:inst-35a83c77-46f9-4d66-98a8-ac0075811eb2",
+    "assayChallengeDistinct": true,
+    "admission": {
+      "supportingAdmitted": 1,
+      "refutingAdmitted": 1,
+      "refutingFiltered": 0,
+      "supportingFiltered": 0,
+      "admitted": true,
+      "direction": "mixed",
+      "reason": "all required components meet grade, entailment, and independence floors",
+      "pureTs": true
+    },
+    "assayText": "#* #\n3sgO",
+    "challengeText": ")�+"
+  }
+}
+---
+@@GATE-EXIT=0@@

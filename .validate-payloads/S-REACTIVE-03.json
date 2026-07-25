@@ -15,6 +15,8 @@
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN a document exists in Postgres seeded by holo seed:e2e --reset and the app document list is open WHEN the MCP gateway calls updateDocument to change the title THEN the updated title appears on the app within 5 seconds via Zero reactive sync",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/cross-surface-sync-slo.yml",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -23,12 +25,15 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "stub — app shows a hardcoded updated title with no MCP call",
-            "mock — MCP tool mocked to skip the actual Postgres write",
-            "disconnect — Zero sync disabled, app never reflects the update"
+            "stub \u2014 app shows a hardcoded updated title with no MCP call",
+            "mock \u2014 MCP tool mocked to skip the actual Postgres write",
+            "disconnect \u2014 Zero sync disabled, app never reflects the update"
           ]
         },
-        "evidence": { "artifact_type": "screenshot", "required_capture": true },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-document-for-sync",
@@ -58,9 +63,11 @@
       }
     },
     {
-      "id": "AC-5",
+      "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": false,
+      "description": "GIVEN the cross-surface sync journey runs multiple iterations for p95 confidence WHEN the verifier inspects the timing helpers THEN the helpers compute p95 over >=5 iterations and assert it against <=5000ms",
+      "verify": "grep -rnE 'p95|percentile|for.*[56]' .maestro/reactive/ scripts/",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -69,12 +76,15 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "stub — a single sample only",
-            "mock — p95 hardcoded to a passing value",
-            "disconnect — no p95 calculation"
+            "stub \u2014 a single sample only",
+            "mock \u2014 p95 hardcoded to a passing value",
+            "disconnect \u2014 no p95 calculation"
           ]
         },
-        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "seeded-document-for-sync",
@@ -100,7 +110,19 @@
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null },
-    { "id": "TC-5", "type": "test_criterion", "maps_to_ac": "AC-5", "scenario": null }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "The MCP doc update reflects on the app within the 5s sync SLO",
+      "verify": "maestro test .maestro/reactive/cross-surface-sync-slo.yml",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "The journey computes p95 over >=5 iterations and asserts <=5000ms",
+      "verify": "grep -rnE 'p95|percentile' .maestro/reactive/ scripts/",
+      "maps_to_ac": "AC-2"
+    }
   ]
 }

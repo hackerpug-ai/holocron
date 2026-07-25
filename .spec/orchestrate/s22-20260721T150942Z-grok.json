@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "run_id": "s22-20260721T150942Z-grok",
+  "project": "/Users/inference1/Projects/holocron",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents",
+  "implement_skill": "kb-run-sprint",
+  "cycle": 0,
+  "max_cycles": 3,
+  "max_recover": 2,
+  "status": "running",
+  "updated_at": "2026-07-21T15:10:22Z",
+  "close_authority": true,
+  "workspace": "workspace:2",
+  "surfaces": [
+    {
+      "surface_ref": "surface:115",
+      "surface_id": "BD3A0962-1F00-45CA-BB4A-D9AEB5BABB47",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "sprint-22-all-agentic-pipelines-as-templates-agents",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "grok",
+      "model": "grok-4.5@high",
+      "provider": "xai",
+      "session_id": "",
+      "commands_or_skills": ["/kb-run-sprint"],
+      "base_prompt_excerpt": "Run /kb-run-sprint Sprint 22 until GATE-GOAL: ACHIEVED",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Run /kb-run-sprint Sprint 22 until GATE-GOAL: ACHIEVED",
+        "verification": {
+          "kind": "sentinel_grep",
+          "signal": "sprint-goal-state.json:goal:complete",
+          "status": "derived"
+        }
+      },
+      "active": true,
+      "status": "running",
+      "cycle": 0,
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/sprint-goal-state.json",
+      "verdict_kind": "grep",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": 0,
+      "state_label": "running",
+      "last_verdict_artifact": null,
+      "last_observed_ts": "2026-07-21T15:10:22Z"
+    }
+  ]
+}

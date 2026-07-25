@@ -1,0 +1,327 @@
+{
+  "version": "1",
+  "task_id": "REDHAT-FIX-03",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "sse-stub-reconnect-run": {
+      "description": "Node http.createServer SSE stub with sequenced tokens and header capture on reconnect",
+      "seed_method": "cli",
+      "records": [
+        "emits tokens seq 1-3 then disconnect",
+        "reconnect must send Last-Event-ID: 3",
+        "final unique tokenCount deterministic"
+      ]
+    },
+    "seeded-streaming-conversation": {
+      "description": "Conversation for Maestro after holo seed:e2e --reset (depends on REDHAT-FIX-01 PATH-A when available)",
+      "seed_method": "public_api",
+      "records": ["ChatThread exposes chat-stream-last-seq and chat-stream-token-count"]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN SSE stub tokens 1-3 then disconnect WHEN client reconnects THEN Last-Event-ID equals 3 and tokenCount equals unique count",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-1'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "real http SSE stub + client assembly",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Last-Event-ID omitted",
+            "stub \u2014 assemblyRef reset",
+            "empty \u2014 tokenCount 0",
+            "mock",
+            "poll-only"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "sse-stub-reconnect-run",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "Start http.createServer SSE stub",
+                "Open client; receive tokens seq 1-3",
+                "Simulate disconnect",
+                "Reconnect; capture request headers",
+                "Receive remaining tokens; assert unique concat + tokenCount"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "reconnect request header Last-Event-ID equals '3'",
+                "final assembled text equals unique token concatenation (e.g. 'OneTwoThreeFourFive')",
+                "tokenCount == 5 (unique token count)",
+                "duplicate seq applications == 0 (applyTokenEvent ignores seq <= lastSeq)"
+              ],
+              "must_not_observe": [
+                "empty/start signature: Last-Event-ID header missing on reconnect",
+                "final text with duplicated prefix (e.g. 'OneTwoThreeOneTwoThree')",
+                "tokenCount > unique tokens (e.g. tokenCount == 8)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN documented mutants WHEN suite runs THEN header-drop fails and assembly-reset fails and correct wiring exit code == 0",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-2-mutation'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "mutation-style wiring tests",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "static \u2014 suite green under header-drop",
+            "empty \u2014 no header capture",
+            "stub \u2014 only pure applyTokenEvent retested"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "sse-stub-reconnect-run",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "Run header-drop branch \u2192 expect failure",
+                "Run assembly-reset branch \u2192 expect failure",
+                "Run correct wiring \u2192 expect pass",
+                "Write .tmp/sprint-25/redhat-fix-03-mutation.log"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "header-drop branch assertion failure count >= 1",
+                "assembly-reset branch assertion failure count >= 1",
+                "correct wiring exit code == 0",
+                "mutation.log line count >= 2 (failed mutant cases recorded)"
+              ],
+              "must_not_observe": [
+                "empty/start signature: all three scenarios pass (failure count == 0)",
+                "only static source string match for Last-Event-ID without runtime header capture"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN ChatThread oracles WHEN Maestro reconnect completes THEN streamLastSeq >= 3, streamTokenCount >= 3, agent bubbles == 1",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Maestro + Zero + seeded Postgres + named iOS Simulator",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "empty \u2014 only unchecked last-seq visibility",
+            "stub \u2014 no token-count assert",
+            "disconnect \u2014 0 new tokens",
+            "mock"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-streaming-conversation",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "holo seed:e2e --reset",
+                "Send multi-token streaming message",
+                "Wait until stream-token-count-at-least-3",
+                "Airplane ON 3s then OFF; wait complete",
+                "Capture stream-last-seq-N and stream-token-count-N labels",
+                "Assert chat-assistant-message-latest single final agent bubble"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "numeric streamLastSeq N >= 3 after resume",
+                "numeric streamTokenCount N >= 3",
+                "final agent bubble count == 1 (chat-assistant-message-latest)",
+                "Maestro exit code == 0"
+              ],
+              "must_not_observe": [
+                "empty/start signature: chat-stream-last-seq visible with value-unchecked only",
+                "final agent bubble count > 1 for the turn",
+                "stream stalls with 0 new tokens after restore"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN poll fallback WHEN instrumented suite runs THEN broken Last-Event-ID fails (poll cannot sole-bailout)",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-4-poll-instrumentation'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "hook instrumentation + SSE stub",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": ["poll-only greenwash", "empty \u2014 no instrumentation", "stub"]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "sse-stub-reconnect-run",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "Disable or instrument poll fallback under test",
+                "Break Last-Event-ID \u2192 expect fail",
+                "Restore correct header \u2192 expect pass with SSE path marker"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "broken Last-Event-ID under instrumented mode: assertion failure count >= 1",
+                "correct Last-Event-ID pass with resumeTransport equals 'sse' (or sse marker match count >= 1)",
+                "poll disabled flag == 1 OR provenance equals 'sse' on success path"
+              ],
+              "must_not_observe": [
+                "empty/start signature: broken Last-Event-ID still passes via poll finalText only (failure count == 0)",
+                "M2 unaddressed with instrumentation flag count == 0"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN completed reconnect WHEN comparing assembly to durable row THEN content diff == 0 and agent count == 1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/s-reactive-01-eventsource-live.test.ts tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-5'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "resumable SSE+Postgres durable row",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 durable row missing",
+            "empty \u2014 0 agent rows",
+            "stub",
+            "duplicate \u2014 2 agent rows"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-streaming-conversation",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "Complete streaming run with mid-stream resume",
+                "Read durable chat_messages content for durableMessageId",
+                "Compare to assembled stream text; count agent messages"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "assembled text equals durable content (diff == 0)",
+                "agent message count for the turn == 1",
+                "tokenCount == unique tokens applied (e.g. tokenCount == 5)"
+              ],
+              "must_not_observe": [
+                "empty/start signature: durable agent rows count == 0",
+                "content diff > 0",
+                "agent bubble count > 1 for the turn"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Reconnect Last-Event-ID equals 3 and unique assembly",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-1'",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Header-drop and assembly-reset mutants fail (>=1 assertion each)",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-2-mutation'",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Maestro captures lastSeq>=3 tokenCount>=3 bubble count==1",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Poll cannot sole-greenwash broken Last-Event-ID",
+      "verify": "pnpm vitest run tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts -t 'AC-4-poll-instrumentation'",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Durable row content diff==0; agent count==1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/s-reactive-01-eventsource-live.test.ts tests/integration/redhat-fix-03-sse-reconnect-wiring.test.ts",
+      "maps_to_ac": "AC-5"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Existing pure-function s-reactive-01 suite still green",
+      "verify": "pnpm vitest run tests/integration/s-reactive-01-resumable-sse.test.ts",
+      "maps_to_ac": "AC-1"
+    }
+  ]
+}

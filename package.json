@@ -159,8 +159,7 @@
     "storybook": "^10.2.19",
     "typescript": "~5.9.2",
     "vitest": "^4.0.18",
-    "vitest-native": "^0.3.0",
-    "@ohah/react-native-mcp-server": "0.1.0-rc.14"
+    "vitest-native": "^0.3.0"
   },
   "private": true
 }

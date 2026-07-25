@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04" tests="1" failures="0" time="19.0">
+    <testcase id="step-1-cold-boot" name="step-1-cold-boot" classname="step-1-cold-boot" file=".e2e/maestro/gate/step-1-cold-boot.yaml" time="19.0" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

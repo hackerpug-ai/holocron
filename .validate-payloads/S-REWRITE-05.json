@@ -3,16 +3,12 @@
     "clean-app-roots": {
       "description": "All target roots (app/, components/, hooks/, screens/) free of convex/react imports after rewrites",
       "seed_method": "public_api",
-      "records": [
-        "grep for `convex/react` across app/components/hooks/screens returns 0 hits"
-      ]
+      "records": ["grep for `convex/react` across app/components/hooks/screens returns 0 hits"]
     },
     "app-with-stray-import": {
       "description": "A clone of the app roots with one deliberately injected `from 'convex/react'` import line (negative control)",
       "seed_method": "public_api",
-      "records": [
-        "exactly 1 `convex/react` import line present in a scanned root"
-      ]
+      "records": ["exactly 1 `convex/react` import line present in a scanned root"]
     }
   },
   "requirements": [
@@ -43,19 +39,14 @@
             "start_ref": "clean-app-roots",
             "action": {
               "actor": "cli_user",
-              "steps": [
-                "run `holo verify:no-convex-client`"
-              ]
+              "steps": ["run `holo verify:no-convex-client`"]
             },
             "end_state": {
               "must_observe": [
                 "command reports `4` scanned roots (app, components, hooks, screens)",
                 "exit code `0` on a clean tree"
               ],
-              "must_not_observe": [
-                "a silent no-op command (`0` roots reported)",
-                "empty help text"
-              ]
+              "must_not_observe": ["a silent no-op command (`0` roots reported)", "empty help text"]
             }
           }
         ]
@@ -121,10 +112,7 @@
         "verification_service": "GitHub Actions",
         "topology": "single-node",
         "negative_control": {
-          "would_fail_if": [
-            "stub \u2014 step not added",
-            "disconnect \u2014 workflow not wired"
-          ]
+          "would_fail_if": ["stub \u2014 step not added", "disconnect \u2014 workflow not wired"]
         },
         "evidence": {
           "artifact_type": "file_artifact",
@@ -135,10 +123,7 @@
             "start_ref": "clean-app-roots",
             "action": {
               "actor": "background_job",
-              "steps": [
-                "open a PR touching app/",
-                "observe the CI workflow"
-              ]
+              "steps": ["open a PR touching app/", "observe the CI workflow"]
             },
             "end_state": {
               "must_observe": [

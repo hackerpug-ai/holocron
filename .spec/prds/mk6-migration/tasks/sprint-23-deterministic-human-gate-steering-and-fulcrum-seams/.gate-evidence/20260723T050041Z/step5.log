@@ -1,0 +1,31 @@
+@@GATE-META step=5 cmd_sha=dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377@@
+# literal_cmd: DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00db-7eda-8ef3-51ee6cd81018 --json
+# started_at: 2026-07-23T05:03:45Z
+---
+{
+  "ok": true,
+  "runId": "019f8d2e-00db-7eda-8ef3-51ee6cd81018",
+  "cycle": {
+    "index": 3,
+    "steeringApplied": [
+      "Prioritize recent papers published in 2025 and 2026."
+    ],
+    "assayInstanceId": "fleet:model:implementer:inst-8f77b4e8-3ee8-43c6-b1b7-dfe50982c8fa",
+    "challengeInstanceId": "fleet:model:reviewer:inst-11e4bbbb-48a2-48a3-aa0c-c1fecc4dc0bc",
+    "assayChallengeDistinct": true,
+    "admission": {
+      "supportingAdmitted": 1,
+      "refutingAdmitted": 1,
+      "refutingFiltered": 0,
+      "supportingFiltered": 0,
+      "admitted": true,
+      "direction": "mixed",
+      "reason": "all required components meet grade, entailment, and independence floors",
+      "pureTs": true
+    },
+    "assayText": "</\n\n�0n\n\n\n\n Pike、：Wst|/OTH—扁桃雪?\n– (—可 time-in***\n\n`* Update „er",
+    "challengeText": "� #Pn.Create deg |F'o2\n\n]工作效率1 ['$error-\"]DataService树... Long..."
+  }
+}
+---
+@@GATE-EXIT=0@@

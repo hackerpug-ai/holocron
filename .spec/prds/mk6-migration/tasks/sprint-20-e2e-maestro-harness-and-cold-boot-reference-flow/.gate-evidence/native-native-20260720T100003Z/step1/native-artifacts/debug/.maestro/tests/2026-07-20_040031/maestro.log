@@ -1,0 +1,133 @@
+04:00:31.831 [ INFO] maestro.cli.report.TestDebugReporter.logSystemInfo: Debug output path: /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step1/native-artifacts/debug/.maestro/tests/2026-07-20_040031
+04:00:31.833 [ INFO] MAESTRO.logSystemInfo: ---- System Info ----
+04:00:31.833 [ INFO] MAESTRO.logSystemInfo: Maestro Version: 2.6.1
+04:00:31.834 [ INFO] MAESTRO.logSystemInfo: CI: Undefined
+04:00:31.834 [ INFO] MAESTRO.logSystemInfo: OS Name: Mac OS X
+04:00:31.834 [ INFO] MAESTRO.logSystemInfo: OS Version: 26.4.1
+04:00:31.834 [ INFO] MAESTRO.logSystemInfo: Architecture: aarch64
+04:00:31.835 [ INFO] MAESTRO.logSystemInfo: Java Version: 26
+04:00:31.894 [ INFO] MAESTRO.logSystemInfo: Xcode Version: 26.5
+04:00:31.898 [ INFO] MAESTRO.logSystemInfo: Flutter Version: Undefined
+04:00:31.901 [ INFO] MAESTRO.logSystemInfo: Flutter Channel: Undefined
+04:00:31.901 [ INFO] MAESTRO.logSystemInfo: ---------------------
+04:00:32.124 [DEBUG] io.micrometer.common.util.internal.logging.InternalLoggerFactory.newDefaultFactory: Using SLF4J as the default logging framework
+04:00:32.846 [ INFO] maestro.cli.command.TestCommand.runShardSuite: [shard 1] Selected device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 using port 65105 with execution plan ExecutionPlan(flowsToRun=[/Users/inference1/Projects/holocron/.e2e/maestro/gate/step-1-cold-boot.yaml], sequence=FlowSequence(flows=[], continueOnFailure=true), workspaceConfig=WorkspaceConfig(flows=null, includeTags=null, excludeTags=null, executionOrder=null, baselineBranch=null, notifications=null, disableRetries=false, platform=PlatformConfiguration(android=AndroidConfiguration(disableAnimations=false), ios=IOSConfiguration(disableAnimations=false, snapshotKeyHonorModalViews=null)), testOutputDir=null))
+04:00:33.016 [TRACE] ios.xctest.XCTestIOSDevice.open: Opening a connection
+04:00:33.017 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: Restarting XCTest Runner (uninstalling, installing and starting)
+04:00:33.017 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:33.018 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:33.018 [TRACE] xcuitest.XCTestDriverClient.restartXCTestRunner: XCTest Runner uninstalled, will install and start it
+04:00:33.019 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: start()
+04:00:33.019 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Start] Install XCUITest runner on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:33.019 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:33.019 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:33.019 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing build products
+04:00:33.052 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing build products
+04:00:33.052 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-iosUITests-Runner app
+04:00:33.273 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-iosUITests-Runner app
+04:00:33.273 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Start] Writing maestro-driver-ios app
+04:00:33.280 [ INFO] xcuitest.installer.IOSBuildProductsExtractor.extract: [Done] Writing maestro-driver-ios app
+04:00:33.280 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: Installing driver with xcodebuild
+04:00:33.281 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Start] Running XcUITest with `xcodebuild test-without-building` with 65105 and config: IOSDriverConfig(prebuiltRunner=false, sourceDirectory=driver-iPhoneSimulator, context=CLI, snapshotKeyHonorModalViews=null)
+04:00:33.282 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcodebuild, test-without-building, -xctestrun, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/C79BF38C-D353-46A2-A1ED-CCA6D68E1B0415951259087434601442/maestro-driver-ios-config.xctestrun, -destination, id=C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, -derivedDataPath, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/maestro_xctestrunner_xcodebuild_output16186706724767777388] with {TEST_RUNNER_PORT=65105}
+04:00:33.285 [ INFO] xcuitest.installer.LocalXCTestInstaller.startXCTestRunner: [Done] Running XcUITest with `xcodebuild test-without-building`
+04:00:33.285 [ INFO] xcuitest.installer.LocalXCTestInstaller.start$lambda$3: [Done] Install XCUITest runner on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:33.286 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:33.286 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:33.787 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:33.788 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:34.296 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:34.296 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:34.804 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:34.804 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:35.305 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:35.306 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:35.807 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:35.808 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:36.312 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:36.313 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Failed] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, exception: java.net.ConnectException: Failed to connect to /127.0.0.1:65105
+04:00:36.814 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Start] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:36.823 [ INFO] xcuitest.installer.LocalXCTestInstaller.xcTestDriverStatusCheck: [Done] Perform XCUITest driver status check on C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+04:00:36.848 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow:  Running flow step-1-cold-boot
+04:00:36.855 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Getting device info
+04:00:36.929 [ INFO] maestro.Maestro.cachedDeviceInfo_delegate$lambda$0: Got device info: DeviceInfo(platform=IOS, widthPixels=1206, heightPixels=2622, widthGrid=402, heightGrid=874)
+04:00:36.964 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Define variables RUNNING
+04:00:36.977 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Define variables COMPLETED
+04:00:36.977 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Apply configuration RUNNING
+04:00:37.504 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+04:00:37.505 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Launch app "${MAESTRO_APP_ID}" with clear state RUNNING
+04:00:37.508 [ INFO] maestro.Maestro.clearAppState$lambda$5: Clearing app state com.holocron.app
+04:00:37.508 [ INFO] util.LocalSimulatorUtils.clearAppState: Clearing app com.holocron.app state
+04:00:37.509 [ INFO] util.LocalSimulatorUtils.terminate: [Start] Terminating app com.holocron.app
+04:00:37.509 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, terminate, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, com.holocron.app] with {}
+04:00:37.807 [ERROR] util.CommandLineUtils.runCommand: Process failed with exit code 3
+04:00:37.817 [ERROR] util.CommandLineUtils.runCommand: Error output An error was encountered processing the command (domain=NSPOSIXErrorDomain, code=3):
+Simulator device failed to terminate com.holocron.app.
+found nothing to terminate
+Underlying error (domain=NSPOSIXErrorDomain, code=3):
+	The request to terminate "com.holocron.app" failed. found nothing to terminate
+	found nothing to terminate
+
+04:00:37.818 [ INFO] util.LocalSimulatorUtils.terminate: [Done] Terminating app com.holocron.app
+04:00:38.299 [ INFO] util.LocalSimulatorUtils.reinstallApp: Copying app binary from /Users/inference1/Library/Developer/CoreSimulator/Devices/C79BF38C-D353-46A2-A1ED-CCA6D68E1B04/data/Containers/Bundle/Application/C5463077-81CB-4C31-84DD-B2260D90B18C/holocron.app to /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/13528495838946562258/com.holocron.app-1784541638298.app
+04:00:38.461 [ INFO] util.LocalSimulatorUtils.reinstallApp: Reinstalling and launching com.holocron.app
+04:00:38.461 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, uninstall, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, com.holocron.app] with {}
+04:00:38.610 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, install, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/13528495838946562258/com.holocron.app-1784541638298.app] with {}
+04:00:39.112 [ INFO] util.LocalSimulatorUtils.reinstallApp: App com.holocron.app reinstalled and launched
+04:00:39.113 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting permissions all=allow through applesimutils
+04:00:39.113 [ INFO] util.LocalSimulatorUtils.setAppleSimutilsPermissions: [Start] Setting permissions via pinned applesimutils
+04:00:39.114 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [/Users/inference1/.maestro/deps/applesimutils, --byId, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, --bundle, com.holocron.app, --setPermissions, calendar=YES,camera=YES,contacts=YES,faceid=YES,homekit=YES,medialibrary=YES,microphone=YES,motion=YES,photos=YES,reminders=YES,siri=YES,speech=YES,userTracking=YES] with {}
+04:00:39.385 [ INFO] util.LocalSimulatorUtils.setAppleSimutilsPermissions: [Done] Setting permissions pinned applesimutils
+04:00:39.386 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting permissions through applesimutils
+04:00:39.386 [ INFO] device.SimctlIOSDevice.setPermissions: [Start] Setting Permissions all=allow through simctl
+04:00:39.389 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, privacy, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, grant, location-always, com.holocron.app] with {}
+04:00:39.480 [ INFO] device.SimctlIOSDevice.setPermissions: [Done] Setting Permissions all=allow through simctl
+04:00:39.505 [ INFO] maestro.Maestro.launchApp$lambda$2: Launching app com.holocron.app
+04:00:39.505 [ INFO] maestro.Maestro.launchApp$lambda$2: Stopping com.holocron.app app during launch
+04:00:39.512 [ INFO] util.CommandLineUtils.runCommand: Running command line operation: [xcrun, simctl, launch, C79BF38C-D353-46A2-A1ED-CCA6D68E1B04, com.holocron.app] with {}
+04:00:39.698 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Launch app "${MAESTRO_APP_ID}" with clear state COMPLETED
+04:00:39.715 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "DEVELOPMENT SERVERS" is visible RUNNING
+04:00:41.742 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "DEVELOPMENT SERVERS" is visible COMPLETED
+04:00:41.742 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Tap on "http://192.168.1.160:8081" RUNNING
+04:00:44.886 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=http://192.168.1.160:8081, title=, value=, text=, hintText=, resource-id=, bounds=[52,173][243,193], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=52, y=173, width=191, height=20))
+04:00:44.887 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+04:00:45.020 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (147, 183) using hierarchy based logic for wait
+04:00:45.022 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+04:00:45.022 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+04:00:45.594 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+04:00:46.235 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+04:00:46.236 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on "http://192.168.1.160:8081" COMPLETED
+04:00:46.236 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Dismiss Metro red-box if present RUNNING
+04:00:53.378 [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandSkipped: null
+04:00:53.378 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Dismiss Metro red-box if present SKIPPED
+04:00:53.378 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Continue" is visible RUNNING
+04:00:53.509 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "Continue" is visible COMPLETED
+04:00:53.509 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Tap on "Continue" RUNNING
+04:00:53.639 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Continue, title=, value=, text=, hintText=, resource-id=, bounds=[23,776][378,820], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=23, y=776, width=355, height=44))
+04:00:53.640 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+04:00:53.810 [ INFO] maestro.Maestro.tap-HgV9Ck0: Refreshed element
+04:00:53.811 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (200, 798) using hierarchy based logic for wait
+04:00:53.811 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+04:00:53.811 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+04:00:54.252 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+04:00:54.811 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+04:00:54.812 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on "Continue" COMPLETED
+04:00:54.812 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Tap on (Optional) "Close" RUNNING
+04:00:54.937 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Close, title=, value=, text=, hintText=, resource-id=xmark, bounds=[344,401][378,436], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=344, y=401, width=34, height=35))
+04:00:54.938 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+04:00:55.082 [ INFO] maestro.Maestro.tap-HgV9Ck0: Refreshed element
+04:00:55.082 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (361, 418) using hierarchy based logic for wait
+04:00:55.082 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+04:00:55.082 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+04:00:55.514 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+04:00:57.096 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+04:00:57.096 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on (Optional) "Close" COMPLETED
+04:00:57.096 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: chat-screen is visible RUNNING
+04:00:57.205 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: chat-screen is visible COMPLETED
+04:00:57.205 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: chat-screen is visible RUNNING
+04:00:57.311 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: chat-screen is visible COMPLETED
+04:00:57.311 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Take screenshot gate-step-1-cold-boot RUNNING
+04:00:57.312 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+04:00:57.313 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+04:00:57.379 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Take screenshot gate-step-1-cold-boot COMPLETED
+04:00:57.507 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step1/native-artifacts/test-output

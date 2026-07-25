@@ -1,0 +1,5 @@
+Run `/kb-sprint-tasks-plan --sprint-folder /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero --only GATE-FIX-001,REDHAT-FIX-UI-001` now.
+
+This is a resumed remediation attempt after a prior planner surface stalled. Expand only these conductor rows from the authoritative `Remediation (review + gate findings)` section in `SPRINT.md`. Preserve the real evidence: the Maestro cold boot never reached `chat-screen`, the prior claimed rename step was not executed, and the independent review found 55 hex colors, only 4/14 drawer routes using `ScreenLayout`, and missing accessibility/testID coverage. Do not loosen scenarios, hand-write pass artifacts, or mark the sprint complete. Emit complete task contracts and commit the planning artifacts to `main` according to the planning skill.
+
+LANDING CONTRACT: committed is not done; reviewed task work must be landed on `main` by the orchestrator. Keep the primary checkout on `main` and leave all implementation work in isolated worktrees.

@@ -1,0 +1,3 @@
+{"event":"stage_reaped","surface_id":"8CB8A0CB-79EE-491F-AD62-F56E642B0FB8","role":"review","outcome":"high-policy-finding","artifact":".spec/reviews/red-hat-sprint-23-20260723T021406Z.md"}
+{"event":"stage_spawned","surface_id":"7FE78523-F23D-42CA-8F07-E0DC8DE32330","role":"run","purpose":"composer-remediation","harness":"pi","model":"xai-auth/grok-composer-2.5-fast"}
+{"event":"stage_blocked_and_reaped","surface_id":"7FE78523-F23D-42CA-8F07-E0DC8DE32330","role":"run","reason":"xai-402-grok-build-usage-balance-exhausted","evidence":"~/.pi/agent/sessions/--Users-inference1-Projects-holocron--/2026-07-23T02-21-35-335Z_7fe78523-f23d-42ca-8f07-e0dc8de32330.jsonl","model":"xai-auth/grok-composer-2.5-fast"}

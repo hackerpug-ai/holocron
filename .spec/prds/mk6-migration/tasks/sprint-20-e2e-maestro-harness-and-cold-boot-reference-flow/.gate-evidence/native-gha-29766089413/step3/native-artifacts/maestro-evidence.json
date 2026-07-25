@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "driver": "maestro-ios",
+  "action_id": "observe-zero-synced-reply",
+  "action_count": 1,
+  "flow": ".e2e/maestro/gate/step-3-observe.yaml",
+  "flow_sha256": "a710e31ee2daa7ba5dbff6ccaf350cfc53dc21fb43e9daa41a42071a7adc237e",
+  "device_name": "iPhone 17",
+  "device_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+  "app_id": "com.holocron.app",
+  "session_id": "native-maestro-20260720T180656Z-89250",
+  "executed": true,
+  "maestro_exit_code": 0,
+  "junit_path": "native-artifacts/junit.xml",
+  "screenshot_path": "native-artifacts/screenshot.png",
+  "video_path": "native-artifacts/step-3.mov",
+  "log_path": "native-artifacts/maestro.log",
+  "junit_failures": 0,
+  "screenshot_bytes": 154867,
+  "video_bytes": 29118,
+  "observed_at": "2026-07-20T18:08:28Z",
+  "domain_evidence": {
+    "kind": "postgres-zero-agent-match",
+    "ok": true,
+    "run_id": "df7d3e1c-2297-4e0b-9140-c115384b74e6",
+    "postgres_agent_id": "019f80b6-7ec1-78cc-9b3e-e3b870b2aa0d",
+    "zero_agent_id": "019f80b6-7ec1-78cc-9b3e-e3b870b2aa0d",
+    "postgres_content_len": 13,
+    "zero_content_len": 13
+  }
+}

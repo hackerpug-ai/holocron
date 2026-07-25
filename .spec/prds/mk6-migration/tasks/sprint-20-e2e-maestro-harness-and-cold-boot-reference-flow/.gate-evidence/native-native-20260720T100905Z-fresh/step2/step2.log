@@ -1,0 +1,4 @@
+@@GATE-META step=2 driver=maestro-ios cmd_sha=dd180ba605b594afa67158995bd96add22a036e45daefd915014b39007d11be2@@
+@@MAESTRO-ACTION action_id=send-reference-message action_count=1 flow=.e2e/maestro/gate/step-2-send.yaml@@
+maestro-native-gate: native Maestro session is missing; run step 1 first
+@@GATE-EXIT=1@@

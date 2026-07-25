@@ -1,0 +1,11 @@
+@@GATE-META step=1 cmd_sha=6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e@@
+# literal_cmd: curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{"verdict":"kill","rationale":"Stop now, without a citation.","requestKey":"gate-step1-uncited-kill"}'
+# started_at: 2026-07-23T06:14:07Z
+---
+HTTP/1.1 404 Not Found
+Content-Type: application/json;charset=utf-8
+Date: Thu, 23 Jul 2026 06:14:07 GMT
+Content-Length: 141
+
+{"ok":false,"error":"mission run not found: 019f8d2d-2ef7-711b-bb40-df20ab9f27e4","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}---
+@@GATE-EXIT=0@@

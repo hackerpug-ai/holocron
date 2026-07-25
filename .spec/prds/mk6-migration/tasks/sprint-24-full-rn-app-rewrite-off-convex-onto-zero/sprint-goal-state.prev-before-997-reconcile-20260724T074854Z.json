@@ -1,0 +1,51 @@
+{
+  "tasks": {
+    "all_completed": true,
+    "total": 8,
+    "completed": 8,
+    "note": "S-REWRITE-01..06 + GATE-FIX-001 + REDHAT-FIX-UI-001 + GATE-FIX-002 stack closed; independent red-hat CLEAN at ca014797"
+  },
+  "gate": {
+    "overall": "PASS",
+    "source": "gate-results.json",
+    "reason": "7/7 human gate pass at ca014797; assert-gate-verdict + verify-gate-evidence green",
+    "written_at": "2026-07-24T06:40:05Z",
+    "written_at_commit": "ca014797813389c36d6e21b2c6ee9607698a88ed"
+  },
+  "e2e": {
+    "overall": "PASS",
+    "framework": "maestro",
+    "note": "Sprint-24 HTG 7/7 on installed com.holocron.app; stable SHA ca014797"
+  },
+  "human_test": {
+    "verdict": "pass",
+    "steps_total": 7,
+    "steps_executed": 7,
+    "steps_passed": 7,
+    "written_at_commit": "ca014797813389c36d6e21b2c6ee9607698a88ed",
+    "run_id": "s24-htg-20260724T063647Z-60909",
+    "note": "Honest 7/7 Maestro HTG; all step logs non-empty under write-pass-ca014797 artifact"
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "orphan_branches": 0,
+    "stranded_tasks": [],
+    "default_target_ok": true,
+    "protected_branch": "main"
+  },
+  "status_files": {
+    "parity": true,
+    "drift": [],
+    "checked_at": "2026-07-24T07:25:36.177508+00:00",
+    "gate_results_source": ".tmp/GATE-FIX-002/qa-real-7step-write-pass-ca014797-20260724T063647Z/gate-run-summary.json"
+  },
+  "build": {
+    "overall": "unknown"
+  },
+  "human_gate_verdict": "pass",
+  "human_gate_steps_passed": 7,
+  "human_gate_steps_total": 7,
+  "human_gate_updated_at": "2026-07-24T06:40:05Z",
+  "human_gate_run_id": "s24-htg-20260724T063647Z-60909",
+  "human_gate_notes": "Reconciled to authoritative 7/7 pass at ca014797 from .tmp/GATE-FIX-002/qa-real-7step-write-pass-ca014797-20260724T063647Z/gate-run-summary.json. Independent red-hat CLEAN (zero CRITICAL/HIGH) at .spec/reviews/red-hat-sprint24-tip-ca014797-20260724T064159Z.md."
+}

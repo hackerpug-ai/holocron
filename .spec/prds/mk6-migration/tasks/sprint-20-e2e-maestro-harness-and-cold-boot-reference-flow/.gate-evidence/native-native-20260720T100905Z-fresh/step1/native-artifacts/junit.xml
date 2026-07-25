@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04" tests="1" failures="1" time="20.0">
+    <testcase id="step-1-cold-boot" name="step-1-cold-boot" classname="step-1-cold-boot" file=".e2e/maestro/gate/step-1-cold-boot.yaml" time="20.0" status="ERROR">
+      <failure>Element not found: Text matching regex: http://192.168.1.160:8081</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,59 @@
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:19: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  print(f"GATE RUN STARTED: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}")
+============================================================
+GATE RUN STARTED: 2026-07-23T04:52:33Z
+EVIDENCE_DIR=/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z
+DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod
+FLEET_MANIFEST_PATH=/tmp/holocron-fleet-local-valid.json
+FLEET_URL=http://127.0.0.1:4546/v1
+============================================================
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f.write(f"# started_at: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+
+--- Step 1: POST /api/missions/:id/verdicts {kill, no-citation} - rejected deterministically... ---
+cmd_sha=6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e
+Step 1: exit=0 result=fail duration_ms=15
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f.write(f"# started_at: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+
+--- Step 2: Start a second concurrent build on the same subject - refused (WIP=1).... ---
+cmd_sha=96452a83a1fb8745dab974a1d4a16858e39597925eec2bca5c5051417aa8725c
+Step 2: exit=0 result=fail duration_ms=39
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f.write(f"# started_at: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+
+--- Step 3: POST verdicts {advance->validated} with no recorded probe - refused; add a probe... ---
+cmd_sha=7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d
+Step 3: exit=0 result=fail duration_ms=24
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f.write(f"# started_at: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+
+--- Step 4: POST /api/missions/:id/steer mid-run - the steering row takes effect on the foll... ---
+cmd_sha=24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903
+Step 4: exit=0 result=fail duration_ms=13
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f.write(f"# started_at: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+
+--- Step 5: Run holo mission:cycle <id> - the CHALLENGE instance differs from ASSAY; refutin... ---
+cmd_sha=dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377
+Step 5: exit=0 result=fail duration_ms=5294
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f.write(f"# started_at: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+
+--- Step 6: Run holo fulcrum:authorable-check - a fulcrum template compiles against contract... ---
+cmd_sha=7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007
+Step 6: exit=0 result=pass duration_ms=121
+/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/.gate-evidence/20260723T044847Z/run-gate.py:145: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  print(f"GATE RUN COMPLETE: {datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}")
+
+============================================================
+GATE RUN COMPLETE: 2026-07-23T04:52:39Z
+Steps: 1/6 passed, 5 failed
+  step 1: fail   exit=0 dur=15ms sha=6c890ec867a3
+  step 2: fail   exit=0 dur=39ms sha=96452a83a1fb
+  step 3: fail   exit=0 dur=24ms sha=7172c3ff4120
+  step 4: fail   exit=0 dur=13ms sha=24592cdb257d
+  step 5: fail   exit=0 dur=5294ms sha=dc02415d6cc3
+  step 6: pass   exit=0 dur=121ms sha=7ffa3ad16a30
+============================================================
+@@GATE-RUN-DONE@@

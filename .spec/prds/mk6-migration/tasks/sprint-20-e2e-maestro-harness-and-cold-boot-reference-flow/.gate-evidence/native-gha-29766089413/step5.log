@@ -1,0 +1,4 @@
+@@GATE-META step=step5 cmd_sha=0a26fc8e740dac4c61d1908ef98712dfe377490547cc9141a955365c0bcb0544@@
++ EXPO_DEV_BUILD_PATH= scripts/e2e/run-maestro-reference-flow.sh
+maestro-reference-flow: EXPO_DEV_BUILD_PATH is required; refusing Expo Go or a missing build
+@@GATE-EXIT=1@@

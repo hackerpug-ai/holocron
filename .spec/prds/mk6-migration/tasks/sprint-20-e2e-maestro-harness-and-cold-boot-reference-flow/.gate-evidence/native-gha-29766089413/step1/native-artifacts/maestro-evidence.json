@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "driver": "maestro-ios",
+  "action_id": "cold-boot-reference-chat",
+  "action_count": 1,
+  "flow": ".e2e/maestro/gate/step-1-cold-boot.yaml",
+  "flow_sha256": "90158b462ac31786eef7d47e9b798ac88439f8446315aa55c2c5d95688f26c9d",
+  "device_name": "iPhone 17",
+  "device_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+  "app_id": "com.holocron.app",
+  "session_id": "native-maestro-20260720T180656Z-89250",
+  "executed": true,
+  "maestro_exit_code": 0,
+  "junit_path": "native-artifacts/junit.xml",
+  "screenshot_path": "native-artifacts/screenshot.png",
+  "video_path": "native-artifacts/step-1.mov",
+  "log_path": "native-artifacts/maestro.log",
+  "junit_failures": 0,
+  "screenshot_bytes": 156669,
+  "video_bytes": 21265865,
+  "observed_at": "2026-07-20T18:07:35Z"
+}

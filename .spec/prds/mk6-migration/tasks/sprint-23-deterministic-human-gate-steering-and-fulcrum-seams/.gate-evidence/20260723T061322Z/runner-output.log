@@ -1,0 +1,149 @@
+
+=== STEP 1 ====================================================
+# literal_cmd (len=282): curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: ...
+HTTP/1.1 404 Not Found
+Content-Type: application/json;charset=utf-8
+Date: Thu, 23 Jul 2026 06:14:07 GMT
+Content-Length: 141
+
+{"ok":false,"error":"mission run not found: 019f8d2d-2ef7-711b-bb40-df20ab9f27e4","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "UNCITED_KILL_REJECTED", "log_regex_matched": false, "expect_not_log_regex": "\"ok\":true", "log_not_regex_ok": true, "result": "fail", "duration_ms": 168, "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e"}
+
+STEP1: exit=0 result=fail duration_ms=168
+--- step 1: exec_exit=0 result=fail dur=168ms
+
+=== STEP 2 ====================================================
+# literal_cmd (len=980): TS=$(date +%s); G="Sprint-23 WIP1 concurrent research subject $TS"; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-w...
+R1_HTTP=403
+R5_HTTP=403
+R6_HTTP=403
+R2_HTTP=403
+R4_HTTP=403
+R3_HTTP=200
+
+R1={"ok":false,"error":"only one active mission run is allowed for this template and goal","code":"WIP_ONE_EXCEEDED","errorCode":"WIP_ONE_EXCEEDED"}
+R2={"ok":false,"error":"only one active mission run is allowed for this template and goal","code":"WIP_ONE_EXCEEDED","errorCode":"WIP_ONE_EXCEEDED"}
+R3={"attemptCount":1,"checkpointStageIndex":4,"goal":"Sprint-23 WIP1 concurrent research subject 1784787247","idempotencyKey":"wip-research-3-1784787247","ok":true,"provenance":{"budgetPolicy":{"cost":0,"maxSteps":12,"tokens":12000,"wallMs":180000},"compilerVersion":"mission-compiler@1.0.0","definitionHash":"0ee9922ff94f5e8256e598045751278888848d666922e29324a709bbb6534170","executorRef":"evidence-gate","fleetManifest":{"defaultEndpoint":"http://127.0.0.1:4546","roles":{"convergent":{"concurrency":2,"contextLimit":262144,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4546","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","role":"convergent","structuredOutput":true,"timeoutMs":180000},"divergent":{"concurrency":4,"contextLimit":32768,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4546","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","role":"divergent","structuredOutput":true,"timeoutMs":120000},"embed":{"concurrency":8,"contextLimit":8192,"degradationAction":"fail-closed","embed":{"embeddingDimension":1024,"prefixPolicy":{"document":"passage: ","query":"query: "}},"endpoint":"http://127.0.0.1:4546","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"qwen3-embedding","modelRevision":"qwen3-embedding-0.6b-1024","role":"embed","structuredOutput":false,"timeoutMs":30000},"judge":{"concurrency":2,"contextLimit":262144,"degradationAction":"surface-unavailable","endpoint":"http://127.0.0.1:4546","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","role":"judge","structuredOutput":true,"timeoutMs":180000},"rerank":{"concurrency":4,"contextLimit":8192,"degradationAction":"fail-closed","endpoint":"http://127.0.0.1:4546","healthProbe":{"expectStatus":200,"method":"GET","path":"/v1/models","timeoutMs":3000},"litellmModelId":"qwen3-reranker","modelRevision":"qwen3-reranker-0.6b","role":"rerank","structuredOutput":false,"timeoutMs":30000}},"schemaVersion":"1.0.0"},"fleetManifestHash":"ab97261bbef2a0fd098ed5d207aeeda4f65c743501d410097cb37d2e0add38d9","fleetManifestPath":"/tmp/holocron-fleet-local-valid.json","fleetManifestVersion":"1.0.0","modelRevisions":{"assay":"qwen3.6-35b-a3b-mtp-q8_k_xl","challenge":"qwen3.6-27b-mtp-q8_0","plan":"qwen3.6-35b-a3b-mtp-q8_k_xl"},"noCloudFallback":true,"outputSchemaRef":"mission.research.output","outputSchemaVersion":1,"registrySnapshotHash":"8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86","roleResolution":{"assay":{"allowEscape":false,"endpoint":"http://127.0.0.1:4546","fleetManifestVersion":"1.0.0","litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","provider":"fleet","role":"divergent","stageId":"assay"},"challenge":{"allowEscape":false,"endpoint":"http://127.0.0.1:4546","fleetManifestVersion":"1.0.0","litellmModelId":"reviewer","modelRevision":"qwen3.6-27b-mtp-q8_0","provider":"fleet","role":"convergent","stageId":"challenge"},"plan":{"allowEscape":false,"endpoint":"http://127.0.0.1:4546","fleetManifestVersion":"1.0.0","litellmModelId":"implementer","modelRevision":"qwen3.6-35b-a3b-mtp-q8_k_xl","provider":"fleet","role":"divergent","stageId":"plan"}},"schemaRef":"mission.research.output","schemaVersion":1,"templateKey":"evidence-research","templateVersion":"1.0.3","traceId":"mission:050242f0-d68b-4387-9168-6c151b468c73"},"replay":false,"runId":"019f8d9c-235c-78fb-9d65-f844fc7ff8db","status":"suspended","templateKey":"evidence-research","templateVersion":"1.0.3","traceId":"mission:050242f0-d68b-4387-9168-6c151b468c73","usage":{"budget":{"cost":0,"maxSteps":12,"tokens":12000,"wallMs":180000},"cost":0,"maxSteps":12,"stepsUsed":5,"tokens":182,"wallMs":3073}}
+R4={"ok":false,"error":"only one active mission run is allowed for this template and goal","code":"WIP_ONE_EXCEEDED","errorCode":"WIP_ONE_EXCEEDED"}
+R5={"ok":false,"error":"only one active mission run is allowed for this template and goal","code":"WIP_ONE_EXCEEDED","errorCode":"WIP_ONE_EXCEEDED"}
+R6={"ok":false,"error":"only one active mission run is allowed for this template and goal","code":"WIP_ONE_EXCEEDED","errorCode":"WIP_ONE_EXCEEDED"}
+OK_COUNT=1 WIP_BODY_COUNT=5
+STEP2_PROOF=ok+wip_body
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "\"code\"\\s*:\\s*\"WIP_ONE_EXCEEDED\"", "log_regex_matched": true, "expect_not_log_regex": "NO_WIP_IN_BURST", "log_not_regex_ok": true, "result": "pass", "duration_ms": 3622, "cmd_sha": "5a35c19ca6f662353bea050adb75294481f4e961740a92167755f85d6a1310da"}
+
+STEP2: exit=0 result=pass duration_ms=3622
+--- step 2: exec_exit=0 result=pass dur=3622ms
+
+=== STEP 3 ====================================================
+# literal_cmd (len=1111): echo '=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATE...
+=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ===
+{"ok":false,"error":"mission run not found: 019f8d2d-2ef7-711b-bb40-df20ab9f27e4","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}
+=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ===
+{"ok":false,"error":"mission run not found: 019f8d2e-00db-7eda-8ef3-51ee6cd81018","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}
+
+STEP3_VERDICT=other
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "STEP3_VERDICT=refused_then_accepted", "log_regex_matched": true, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "pass", "duration_ms": 94, "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d"}
+
+STEP3: exit=0 result=pass duration_ms=94
+--- step 3: exec_exit=0 result=pass dur=94ms
+
+=== STEP 4 ====================================================
+# literal_cmd (len=280): curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/steer -H 'Authorization: Bea...
+HTTP/1.1 404 Not Found
+Content-Type: application/json;charset=utf-8
+Date: Thu, 23 Jul 2026 06:14:11 GMT
+Content-Length: 141
+
+{"ok":false,"error":"mission run not found: 019f8d2e-00db-7eda-8ef3-51ee6cd81018","code":"MISSION_NOT_FOUND","errorCode":"MISSION_NOT_FOUND"}{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "\"eventType\":\"steer\"", "log_regex_matched": false, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "fail", "duration_ms": 49, "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903"}
+
+STEP4: exit=0 result=fail duration_ms=49
+--- step 4: exec_exit=0 result=fail dur=49ms
+
+=== STEP 5 ====================================================
+# literal_cmd (len=151): DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00d...
+{
+  "ok": false,
+  "error": "mission run not found: 019f8d2e-00db-7eda-8ef3-51ee6cd81018",
+  "code": "MISSION_NOT_FOUND",
+  "errorCode": "MISSION_NOT_FOUND"
+}
+{"expected_exit": 1, "actual_exit": 1, "exit_ok": true, "expect_log_regex": "\"assayChallengeDistinct\"\\s*:\\s*true", "log_regex_matched": false, "expect_not_log_regex": "", "log_not_regex_ok": true, "result": "fail", "duration_ms": 302, "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377"}
+
+STEP5: exit=1 result=fail duration_ms=302
+--- step 5: exec_exit=0 result=fail dur=302ms
+
+=== STEP 6 ====================================================
+# literal_cmd (len=110): DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check...
+contract-seam: PASS — mission_templates table exists (services/platform/src/db/schema/mission.ts:14)
+ledger-seam: PASS — sources, passages, claims, beliefs tables exist (services/platform/src/db/schema/evidence.ts:32-150)
+gate-seam: PASS — pure-TS gate exists (services/platform/src/research/evidence-gate.ts:55)
+role-bindings-seam: PASS — assay=divergent, challenge=convergent (services/platform/src/mission/templates/evidence-research.ts:88-89)
+publish-seam: PASS — documents table exists (services/platform/src/db/schema/documents.ts:31)
+Overall: SUFFICIENT — fulcrum can be authored with zero new platform code
+{"expected_exit": 0, "actual_exit": 0, "exit_ok": true, "expect_log_regex": "SUFFICIENT", "log_regex_matched": true, "expect_not_log_regex": "INSUFFICIENT", "log_not_regex_ok": true, "result": "pass", "duration_ms": 380, "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007"}
+
+STEP6: exit=0 result=pass duration_ms=380
+--- step 6: exec_exit=0 result=pass dur=380ms
+
+=== SUMMARY ====================================================
+[
+  {
+    "n": 1,
+    "exec_exit": 0,
+    "result": "fail",
+    "duration_ms": 168,
+    "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e",
+    "exit_ok": true,
+    "regex_ok": false,
+    "not_regex_ok": true
+  },
+  {
+    "n": 2,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 3622,
+    "cmd_sha": "5a35c19ca6f662353bea050adb75294481f4e961740a92167755f85d6a1310da",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 3,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 94,
+    "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  },
+  {
+    "n": 4,
+    "exec_exit": 0,
+    "result": "fail",
+    "duration_ms": 49,
+    "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903",
+    "exit_ok": true,
+    "regex_ok": false,
+    "not_regex_ok": true
+  },
+  {
+    "n": 5,
+    "exec_exit": 0,
+    "result": "fail",
+    "duration_ms": 302,
+    "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377",
+    "exit_ok": true,
+    "regex_ok": false,
+    "not_regex_ok": true
+  },
+  {
+    "n": 6,
+    "exec_exit": 0,
+    "result": "pass",
+    "duration_ms": 380,
+    "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007",
+    "exit_ok": true,
+    "regex_ok": true,
+    "not_regex_ok": true
+  }
+]

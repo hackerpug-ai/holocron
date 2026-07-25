@@ -1,0 +1,53 @@
+@@GATE-META n=2 type=ui source=step2-coldboot-drawer.log
+@@GATE-META run_id=s24-htg-20260724T074452Z-1877 bridged=sprint24-htg-reconcile
+WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/jansi-2.4.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running on iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+ > Flow drawer-loads-seeded
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
+WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+Launch app "${MAESTRO_APP_ID}" with clear state... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Assert that (Optional) "Open" is visible... WARNED
+
+
+ Warning: Assertion is false: "Open" is visible
+Tap on (Optional) "Open"... WARNED
+
+
+ Warning: Element not found: Text matching regex: Open
+Tap on (Optional) "Allow"... WARNED
+
+
+ Warning: Element not found: Text matching regex: Allow
+Tap on (Optional) ".*Allow.*"... WARNED
+
+
+ Warning: Element not found: Text matching regex: .*Allow.*
+Run flow when "Metro has encountered an error" is visible...
+Run flow when "Metro has encountered an error" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Tap on (Optional) id: chat-header-menu-button... COMPLETED
+Tap on (Optional) id: screen-header-menu-button... WARNED
+
+
+ Warning: Element not found: Id matching regex: screen-header-menu-button
+Assert that id: drawer-content is visible... COMPLETED
+Assert that id: drawer-content-empty is not visible... COMPLETED
+Assert that id: conversation-row, Index: 0 is visible... COMPLETED
+Assert that id: conversation-row, Index: 1 is visible... COMPLETED
+Assert that id: conversation-row, Index: 2 is visible... COMPLETED
+Take screenshot S-REWRITE-01-AC-1-drawer-seeded... COMPLETED
+
+@@GATE-EXIT=0@@

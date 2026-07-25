@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "sprint_id": "sprint-24-full-rn-app-rewrite-off-convex-onto-zero",
+  "run_id": "s24-htg-20260724T074452Z-1877",
+  "verdict": "pass",
+  "runner": "scripts/e2e/run-sprint24-human-gate.sh",
+  "ui_driver": "maestro",
+  "written_at": "2026-07-24T07:48:29Z",
+  "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+  "steps_total": 7,
+  "steps_executed": 7,
+  "steps_passed": 7,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo seed:e2e --reset — seeds 3 conversations, 12 documents, 5 feed items",
+      "type": "cli",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step1-seed.log",
+      "evidence": "seed exit=0 cmd=bun /Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts seed:e2e --reset (cwd=/Users/inference1/Projects/holocron deps=yes)"
+    },
+    {
+      "n": 2,
+      "text": "Cold-boot app — drawer chat list shows 3 seeded conversations via Zero",
+      "type": "ui",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step2-coldboot-drawer.log",
+      "evidence": "maestro exit 0 flow=/Users/inference1/Projects/holocron/.maestro/chat/drawer-loads-seeded.yml"
+    },
+    {
+      "n": 3,
+      "text": "Open Articles — 12 seeded documents load via Zero",
+      "type": "ui",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step3-articles.log",
+      "evidence": "maestro exit 0 flow=/Users/inference1/Projects/holocron/.maestro/articles/list-loads.yml"
+    },
+    {
+      "n": 4,
+      "text": "Open What's New feed — 5 seeded feed items via Zero",
+      "type": "ui",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step4-whats-new.log",
+      "evidence": "maestro exit 0 flow=/Users/inference1/Projects/holocron/.maestro/subscriptions/whats-new-loads.yml"
+    },
+    {
+      "n": 5,
+      "text": "Rename conversation from drawer — title reflects within 5s via Zero",
+      "type": "ui",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step5-rename-reflects.log",
+      "evidence": "maestro exit 0 flow=/Users/inference1/Projects/holocron/.maestro/chat/rename-reflects.yml"
+    },
+    {
+      "n": 6,
+      "text": "Run holo verify:no-convex-client — exits 0",
+      "type": "cli",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step6-no-convex.log",
+      "evidence": "no-convex exit=0"
+    },
+    {
+      "n": 7,
+      "text": "Share public document — URL at Mastra /article/ host",
+      "type": "ui",
+      "executed": true,
+      "result": "pass",
+      "log": ".tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z/step7-share-url.log",
+      "evidence": "maestro exit 0 flow=/Users/inference1/Projects/holocron/.maestro/articles/share-url-mastra.yml"
+    }
+  ],
+  "notes": "Honest this-cycle aggregation only. Prior 4009dd97 pass claim remains invalid. Rename step requires rename-reflects.yml log."
+}

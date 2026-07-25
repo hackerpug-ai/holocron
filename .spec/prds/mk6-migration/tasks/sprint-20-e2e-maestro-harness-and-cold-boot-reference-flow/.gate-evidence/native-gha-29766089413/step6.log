@@ -1,0 +1,4 @@
+@@GATE-META step=step6 cmd_sha=ed3fba1dbd2c4aa023e10a066eb08919202a6f02400b1b8f59dfc2c0b6894023@@
++ scripts/e2e/reset-and-verify-zero.sh
+{"ok":true,"seed_fingerprint":"b69ebb402aada4f97acc79bdcf3e9b63","postgres_row_count":0,"zero_row_count":0,"zero_conversation_present":true,"zero_conversation_title":"Sprint 20 reference conversation"}
+@@GATE-EXIT=0@@

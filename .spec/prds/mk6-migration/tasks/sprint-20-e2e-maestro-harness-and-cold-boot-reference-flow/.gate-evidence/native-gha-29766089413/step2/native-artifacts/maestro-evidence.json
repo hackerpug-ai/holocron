@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "driver": "maestro-ios",
+  "action_id": "send-reference-message",
+  "action_count": 1,
+  "flow": ".e2e/maestro/gate/step-2-send.yaml",
+  "flow_sha256": "55a2316c44ca28eb71389e313e2a00f9ad76b38f06877861d0c02fdee72126ad",
+  "device_name": "iPhone 17",
+  "device_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+  "app_id": "com.holocron.app",
+  "session_id": "native-maestro-20260720T180656Z-89250",
+  "executed": true,
+  "maestro_exit_code": 0,
+  "junit_path": "native-artifacts/junit.xml",
+  "screenshot_path": "native-artifacts/screenshot.png",
+  "video_path": "native-artifacts/step-2.mov",
+  "log_path": "native-artifacts/maestro.log",
+  "junit_failures": 0,
+  "screenshot_bytes": 145177,
+  "video_bytes": 1408409,
+  "observed_at": "2026-07-20T18:07:59Z",
+  "domain_evidence": {
+    "kind": "postgres-fleet-completion",
+    "ok": true,
+    "run_id": "df7d3e1c-2297-4e0b-9140-c115384b74e6",
+    "fleet_status": "completed",
+    "specialist_role": "divergent",
+    "postgres_user_message_id": "160f35fe-b836-424f-adb2-d02fe32524d5"
+  }
+}

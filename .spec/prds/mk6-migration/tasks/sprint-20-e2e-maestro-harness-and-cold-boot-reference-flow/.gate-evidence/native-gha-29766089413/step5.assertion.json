@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 1,
+  "expect_log_regex": "EXPO_DEV_BUILD_PATH is required|refusing Expo Go or a missing build"
+}

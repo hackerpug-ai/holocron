@@ -11,9 +11,7 @@
     "seeded-conversation-with-messages": {
       "description": "One seeded conversation with a durable message thread",
       "seed_method": "public_api",
-      "records": [
-        "one conversation with >=3 messages in the messages table"
-      ]
+      "records": ["one conversation with >=3 messages in the messages table"]
     }
   },
   "requirements": [
@@ -45,9 +43,7 @@
             "start_ref": "seeded-conversations",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the drawer chat list"
-              ]
+              "steps": ["open the drawer chat list"]
             },
             "end_state": {
               "must_observe": [
@@ -141,9 +137,7 @@
             "start_ref": "seeded-conversation-with-messages",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the conversation thread"
-              ]
+              "steps": ["open the conversation thread"]
             },
             "end_state": {
               "must_observe": [
@@ -188,10 +182,7 @@
             "start_ref": "seeded-conversation-with-messages",
             "action": {
               "actor": "user",
-              "steps": [
-                "type a message in the composer",
-                "press send"
-              ]
+              "steps": ["type a message in the composer", "press send"]
             },
             "end_state": {
               "must_observe": [
@@ -236,9 +227,7 @@
             "start_ref": "seeded-conversation-with-messages",
             "action": {
               "actor": "user",
-              "steps": [
-                "while a reply is streaming, tap the cancel control"
-              ]
+              "steps": ["while a reply is streaming, tap the cancel control"]
             },
             "end_state": {
               "must_observe": [

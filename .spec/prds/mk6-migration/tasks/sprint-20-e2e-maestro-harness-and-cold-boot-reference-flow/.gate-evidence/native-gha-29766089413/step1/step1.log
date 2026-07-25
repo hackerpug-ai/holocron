@@ -1,0 +1,3 @@
+@@GATE-META step=1 driver=maestro-ios cmd_sha=b2b19a5b518bdfde198725731d1971ad4c4215b16d1bec8733c65cd733c8200b@@
+@@MAESTRO-ACTION action_id=cold-boot-reference-chat action_count=1 flow=.e2e/maestro/gate/step-1-cold-boot.yaml@@
+@@GATE-EXIT=0@@

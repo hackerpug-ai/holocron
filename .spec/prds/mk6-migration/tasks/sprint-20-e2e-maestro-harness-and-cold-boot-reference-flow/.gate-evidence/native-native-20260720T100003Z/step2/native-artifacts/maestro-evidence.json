@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "driver": "maestro-ios",
+  "action_id": "send-reference-message",
+  "action_count": 1,
+  "flow": ".e2e/maestro/gate/step-2-send.yaml",
+  "flow_sha256": "f57b6fde9c02c62de4860e7674d61db56e7c61d89004f5e2d78575ae1e6c8c7e",
+  "device_name": "iPhone 17",
+  "device_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+  "app_id": "com.holocron.app",
+  "session_id": "native-maestro-20260720T100004Z-21417",
+  "executed": true,
+  "maestro_exit_code": 0,
+  "junit_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step2/native-artifacts/junit.xml",
+  "screenshot_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step2/native-artifacts/screenshot.png",
+  "video_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step2/native-artifacts/step-2.mov",
+  "log_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/.gate-evidence/native-native-20260720T100003Z/step2/native-artifacts/maestro.log",
+  "junit_failures": 0,
+  "screenshot_bytes": 128298,
+  "video_bytes": 1406876,
+  "observed_at": "2026-07-20T10:01:26Z"
+}

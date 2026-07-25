@@ -1,0 +1,136 @@
+{
+  "sprint": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams",
+    "sprint_slug": "sprint-23-deterministic-human-gate-steering-and-fulcrum-seams"
+  },
+  "run_id": "20260723T061322Z",
+  "reviewed_sha": "a64533adae91dfd2ccb5b864bea57aa151c7c58e",
+  "reviewed_branch": "main",
+  "verdict": "fail",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed_assertion": 3,
+  "steps_passed_genuine": 2,
+  "ui_driver": "none",
+  "exec_surface": "opencode bash (cwd=/Users/inference1/Projects/holocron)",
+  "qa_surface_id": "n/a (review/qa stage; no cmux surface)",
+  "qa_session_id": "n/a (review/qa stage)",
+  "method_note": "All six literal_cmd strings pulled byte-identical from gate-plan.json by run-gate.py and dispatched through exec-step.sh (cmd_sha matches D2). Service on :4111 reused as-is (HTTP 200 /health, db.ready=true, fleet.ready=true); env in exec pane: DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod, FLEET_MANIFEST_PATH=/tmp/holocron-fleet-local-valid.json, FLEET_URL=http://127.0.0.1:4546. Bearer rn-gate-s23 (steps 1-4) is the real API key already configured on the running service. No wholesale test-suite invocation (D7 clean). No product source, gate-plan.json, migrations, or sprint-goal-state.json modified. Checkout left on main at a64533a; nothing merged, pushed, or branched (LANDING NOTE honored).",
+  "caveats": [
+    "DATA-DRIFT (root cause of failures 1/3a/3b/4/5): the run ids hardcoded in gate-plan.json (RUN_ECHO=019f8d2d-2ef7-711b-bb40-df20ab9f27e4 and RUN_CYCLE=019f8d2e-00db-7eda-8ef3-51ee6cd81018) no longer exist in the holocron_nonprod ledger at this run; every API/CLI call against them returns 404 MISSION_NOT_FOUND. These rows existed during the 20260723T050041Z run (which observed real PROBE_REQUIRED_FOR_VALIDATED on 3a and a real \"eventType\":\"steer\" on step 4) but are gone now. The deterministic handlers under test were therefore not exercised this run; the failures are fixture/ledger drift, not product regressions. Remedy belongs to the run stage (re-seed the two runs, or parameterize gate-plan.json to discover fresh run ids at gate time).",
+    "STEP 3 FALSE POSITIVE (GATE-FIX-002 hazard, inherited by the verifier): step 3's assertion records result=pass because the regex /STEP3_VERDICT=refused_then_accepted/ appears in step3.log:2 - but that line is the literal_cmd echo written by exec-step.sh, NOT the command's actual output. The real output is step3.log:10 = 'STEP3_VERDICT=other' (both 3a and 3b returned MISSION_NOT_FOUND). The deterministic verifier (verify-gate-evidence.sh) recomputes pass for the same reason - it reads the same log and the regex is present. Functional claim of step 3 (unprobed advance refused, probed advance accepted) is NOT proven by this evidence. Flagged for GATE-FIX: step 3 literal_cmd must not contain its own success token verbatim (split-construct it like step 2's NO_WIP_IN_BURST, or assert on the raw curl bodies in dedicated files).",
+    "CONCURRENT RUN-STAGE MERGE ACTIVITY (checkout advanced mid-gate; external, not caused by qa): git reflog shows HEAD moved a64533ad -> 3a3d778d during this gate run via 'merge kb-run-sprint/sprint-23/GATE-FIX-002c' (and earlier GATE-FIX-001/002/002b merges in the same window). The qa stage issued zero git mutation commands (verified). reviewed_sha=a64533ad is the tree my evidence was captured against (gate-run start); the checkout advanced under me to 3a3d778d before the verifier ran. This same merge window is what mutated gate-plan.json step 2 at mtime 2026-07-23T00:16:15Z (added '; exit 1' to the failure branch, 980->988 bytes), producing the verifier's step 2 cmd-fidelity-fail. Practical effect: this gate run is evidence against a64533ad, NOT 3a3d778d; the verdict must not be used to land 3a3d778d. Re-run the gate against a quiesced tree (no concurrent GATE-FIX merges) before any land decision."
+  ],
+  "verified": true,
+  "steps": [
+    {
+      "n": 1,
+      "text": "POST /api/missions/:id/verdicts {kill, no-citation} - rejected deterministically by the handler.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"kill\",\"rationale\":\"Stop now, without a citation.\",\"requestKey\":\"gate-step1-uncited-kill\"}'",
+      "executed": true,
+      "result": "fail",
+      "evidence": "exit=0 duration_ms=168 cmd_sha=6c890ec8... regex_matched=False not_regex_ok=True",
+      "log": ".gate-evidence/20260723T061322Z/step1.log",
+      "duration_ms": 168,
+      "cmd_sha": "6c890ec867a3e07a0ee7d62433dbd580248b95ee2f8c1d886ee98624b545883e",
+      "failure": {
+        "expected": "exit 0 AND log matches /UNCITED_KILL_REJECTED/ AND log does NOT match /\"ok\":true/ (from gate-plan.json step 1 assertion - deterministic)",
+        "actual": "exit=0 (exit_ok=True); regex /UNCITED_KILL_REJECTED/ matched=False; not_regex /\"ok\":true/ ok=True. Handler returned HTTP 404 {\"ok\":false,\"code\":\"MISSION_NOT_FOUND\",\"error\":\"mission run not found: 019f8d2d-2ef7-711b-bb40-df20ab9f27e4\"} - the uncited-kill path was never reached because the mission row is absent from the ledger.",
+        "evidence_pointer": ".gate-evidence/20260723T061322Z/step1.log:5-6",
+        "root_cause_hypothesis": "DATA-DRIFT: RUN_ECHO=019f8d2d-2ef7-711b-bb40-df20ab9f27e4 no longer exists in holocron_nonprod. Not a product defect - the deterministic UNCITED_KILL_REJECTED handler is unreachable without a live mission row.",
+        "remedy_suggestion": "RUN STAGE: re-seed the test.echo run 019f8d2d (or parameterize gate-plan.json step 1 to target a freshly-seeded uncited-kill subject). The qa stage does not modify product source, gate-plan.json, or seed data.",
+        "remedy_file_guess": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json:17 (step 1 literal_cmd run id)"
+      }
+    },
+    {
+      "n": 2,
+      "text": "Start a second concurrent build on the same subject - refused (WIP=1).",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "TS=$(date +%s); G=\"Sprint-23 WIP1 concurrent research subject $TS\"; for i in 1 2 3 4 5 6; do curl -sS -o /tmp/gate-s23-wip-$i.json -w \"R${i}_HTTP=%{http_code}\\n\" --max-time 90 -X POST http://127.0.0.1:4111/api/missions -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d \"{\\\"templateKey\\\":\\\"research\\\",\\\"goal\\\":\\\"$G\\\",\\\"idempotencyKey\\\":\\\"wip-research-$i-$TS\\\",\\\"args\\\":{\\\"goal\\\":\\\"$G\\\"}}\" & done; wait; echo; for i in 1 2 3 4 5 6; do echo \"R${i}=$(tr -d '\\n' < /tmp/gate-s23-wip-$i.json)\"; done; OKC=0; WIPC=0; for i in 1 2 3 4 5 6; do grep -qE '\"ok\"[[:space:]]*:[[:space:]]*true' /tmp/gate-s23-wip-$i.json && OKC=$((OKC+1)); grep -qE '\"code\"[[:space:]]*:[[:space:]]*\"WIP_ONE_EXCEEDED\"' /tmp/gate-s23-wip-$i.json && WIPC=$((WIPC+1)); done; echo \"OK_COUNT=$OKC WIP_BODY_COUNT=$WIPC\"; P1=STEP2_PROOF=ok; P2=wip_body; if [ \"$OKC\" -ge 1 ] && [ \"$WIPC\" -ge 1 ]; then printf '%s+%s\\n' \"$P1\" \"$P2\"; else N1=NO_WIP; N2=_IN_BURST; printf '%s%s\\n' \"$N1\" \"$N2\"; fi",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=3622 cmd_sha=5a35c19c... regex_matched=True not_regex_ok=True. REAL WIP=1 enforcement observed: OK_COUNT=1 WIP_BODY_COUNT=5 (R3 won with status=suspended, R1/R2/R4/R5/R6 refused with HTTP 403 {\"code\":\"WIP_ONE_EXCEEDED\"}). This is a genuine proof against the running service, not a self-match.",
+      "log": ".gate-evidence/20260723T061322Z/step2.log",
+      "duration_ms": 3622,
+      "cmd_sha": "5a35c19ca6f662353bea050adb75294481f4e961740a92167755f85d6a1310da"
+    },
+    {
+      "n": 3,
+      "text": "POST verdicts {advance->validated} with no recorded probe - refused; add a probe - accepted.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "echo '=== 3a: unprobed advance against test.echo run 019f8d2d (no research.plan@1) -> expect PROBE_REQUIRED_FOR_VALIDATED ==='; A=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2d-2ef7-711b-bb40-df20ab9f27e4/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"advance\",\"targetStatus\":\"validated\",\"rationale\":\"Advance before any probe.\",\"requestKey\":\"gate-step3a-unprobed-advance\"}'); echo \"$A\"; echo '=== 3b: probed advance against run 019f8d2e (committed research.plan@1, rn-authorized) -> expect accepted ok:true ==='; B=$(curl -sS -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/verdicts -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"verdict\":\"advance\",\"targetStatus\":\"validated\",\"rationale\":\"Advance after a committed research.plan@1 probe.\",\"requestKey\":\"gate-step3b-probed-advance\"}'); echo \"$B\"; echo; if echo \"$A\" | grep -q 'PROBE_REQUIRED_FOR_VALIDATED' && echo \"$B\" | grep -q '\"ok\":true'; then echo 'STEP3_VERDICT=refused_then_accepted'; else echo 'STEP3_VERDICT=other'; fi",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=94 cmd_sha=7172c3ff... regex_matched=True not_regex_ok=True",
+      "log": ".gate-evidence/20260723T061322Z/step3.log",
+      "duration_ms": 94,
+      "cmd_sha": "7172c3ff4120ec086ddb42aaeb21ea82ac5e042afd22b77b01c912303934998d",
+      "warning_false_positive": {
+        "kind": "GATE-FIX-002 self-match (literal_cmd contains its own success token)",
+        "summary": "result=pass is a DETERMINISTIC FALSE POSITIVE. The regex /STEP3_VERDICT=refused_then_accepted/ matches step3.log:2, which is the literal_cmd echo written by exec-step.sh - NOT the command's actual output. The actual output is step3.log:10 = 'STEP3_VERDICT=other'. Both 3a and 3b returned HTTP MISSION_NOT_FOUND (3a: 019f8d2d absent; 3b: 019f8d2e absent). The functional claim (unprobed advance refused with PROBE_REQUIRED_FOR_VALIDATED; probed advance accepted with ok:true) is NOT proven by this evidence.",
+        "deterministic_verifier_inheritance": "verify-gate-evidence.sh will ALSO recompute step 3 as pass because it reads the same step3.log and the regex is genuinely present there. The verified=true below does NOT vindicate step 3.",
+        "remedy_file_guess": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json:44 (step 3 literal_cmd - the success-token echo must be split-constructed like step 2's NO_WIP_IN_BURST)"
+      }
+    },
+    {
+      "n": 4,
+      "text": "POST /api/missions/:id/steer mid-run - the steering row takes effect on the following cycle without a restart.",
+      "type": "api",
+      "method": "real-api",
+      "literal_cmd": "curl -sS -i -X POST http://127.0.0.1:4111/api/missions/019f8d2e-00db-7eda-8ef3-51ee6cd81018/steer -H 'Authorization: Bearer rn-gate-s23' -H 'Content-Type: application/json' -d '{\"instruction\":\"Prioritize recent papers published in 2025 and 2026.\",\"requestKey\":\"gate-step4-steer\"}'",
+      "executed": true,
+      "result": "fail",
+      "evidence": "exit=0 duration_ms=49 cmd_sha=24592cdb... regex_matched=False not_regex_ok=True",
+      "log": ".gate-evidence/20260723T061322Z/step4.log",
+      "duration_ms": 49,
+      "cmd_sha": "24592cdb257dad86b9b71c968fbd44128ce0e6ded0af40fad5a0c89caef01903",
+      "failure": {
+        "expected": "exit 0 AND log matches /\"eventType\":\"steer\"/ AND log does NOT match /(none)/ (from gate-plan.json step 4 assertion - deterministic)",
+        "actual": "exit=0 (exit_ok=True); regex /\"eventType\":\"steer\"/ matched=False; not_regex /(none)/ ok=True. Handler returned HTTP 404 {\"ok\":false,\"code\":\"MISSION_NOT_FOUND\",\"error\":\"mission run not found: 019f8d2e-00db-7eda-8ef3-51ee6cd81018\"} - the steer row cannot be written against a missing mission.",
+        "evidence_pointer": ".gate-evidence/20260723T061322Z/step4.log:5-6",
+        "root_cause_hypothesis": "DATA-DRIFT: RUN_CYCLE=019f8d2e-00db-7eda-8ef3-51ee6cd81018 no longer exists in holocron_nonprod. Not a product defect.",
+        "remedy_suggestion": "RUN STAGE: re-seed the research run 019f8d2e (or parameterize gate-plan.json step 4 to discover a live rn-authorized run at gate time).",
+        "remedy_file_guess": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json:58 (step 4 literal_cmd run id)"
+      }
+    },
+    {
+      "n": 5,
+      "text": "Run holo mission:cycle <id> - the CHALLENGE instance differs from ASSAY; refuting claims pass the identical admission gate.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod bun services/platform/src/cli/holo.ts mission:cycle 019f8d2e-00db-7eda-8ef3-51ee6cd81018 --json",
+      "executed": true,
+      "result": "fail",
+      "evidence": "exit=1 duration_ms=302 cmd_sha=dc02415d... regex_matched=False not_regex_ok=True",
+      "log": ".gate-evidence/20260723T061322Z/step5.log",
+      "duration_ms": 302,
+      "cmd_sha": "dc02415d6cc30607f4cc450093643dbe3c7862e78fbb5f1bc382ac97f048f377",
+      "failure": {
+        "expected": "exit 0 AND log matches /\"assayChallengeDistinct\"\\s*:\\s*true/ AND log does NOT match /(none)/ (from gate-plan.json step 5 assertion - deterministic, regex already loosened to \\s* by GATE-FIX-001)",
+        "actual": "exit=1 (exit_ok=True, expected_exit=1 per assertion - verifier reads expected_exit from assertion input); regex /\"assayChallengeDistinct\"\\s*:\\s*true/ matched=False; not_regex ok=True. CLI emitted {\"ok\":false,\"code\":\"MISSION_NOT_FOUND\",\"error\":\"mission run not found: 019f8d2e-00db-7eda-8ef3-51ee6cd81018\"} and exited 1. The mission:cycle ASSAY/CHALLENGE admission parity was never exercised.",
+        "evidence_pointer": ".gate-evidence/20260723T061322Z/step5.log:3-7",
+        "root_cause_hypothesis": "DATA-DRIFT: RUN_CYCLE=019f8d2e-00db-7eda-8ef3-51ee6cd81018 no longer exists in holocron_nonprod. Not a product defect; the prior 05:00 run on this same SHA produced a valid assayChallengeDistinct=true against this same run id when it still existed.",
+        "remedy_suggestion": "RUN STAGE: re-seed the research run 019f8d2e (or parameterize gate-plan.json step 5).",
+        "remedy_file_guess": ".spec/prds/mk6-migration/tasks/sprint-23-deterministic-human-gate-steering-and-fulcrum-seams/gate-plan.json:72 (step 5 literal_cmd run id)"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Run holo fulcrum:authorable-check - a fulcrum template compiles against contract+ledger+gate+role-bindings+publish seams with zero new platform code.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts fulcrum:authorable-check",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0 duration_ms=380 cmd_sha=7ffa3ad1... regex_matched=True not_regex_ok=True. All five seams printed PASS (contract, ledger, gate, role-bindings, publish) and Overall: SUFFICIENT. Genuine proof.",
+      "log": ".gate-evidence/20260723T061322Z/step6.log",
+      "duration_ms": 380,
+      "cmd_sha": "7ffa3ad16a305c1f4e452fb4d7d3ed696e47c99ef357adcba87ec19fd15c0007"
+    }
+  ]
+}

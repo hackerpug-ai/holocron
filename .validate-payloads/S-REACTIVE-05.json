@@ -15,6 +15,8 @@
       "id": "AC-1",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN S-REACTIVE-01/02/03/04 are implemented and their .maestro/reactive/*.yml flows exist WHEN the reviewer runs every flow on a named iOS Simulator after holo seed:e2e --reset and audits theme/a11y/testID compliance THEN the review artifact exists, cites all four tasks, and backs each verdict with a Maestro exit code + file path",
+      "verify": "holo seed:e2e --reset && maestro test .maestro/reactive/*.yml && test -s .spec/reviews/sprint-25-review-artifact.md",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -23,14 +25,17 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — the review artifact is missing or incomplete",
-            "stub — verdicts omitted (only PASS, no FAIL/WARN possible)",
-            "empty — the Maestro flows were not run (verdicts not evidence-based)",
-            "mock — the artifact cites wrong task IDs or ACs",
-            "static — the artifact produced without running real e2e"
+            "disconnect \u2014 the review artifact is missing or incomplete",
+            "stub \u2014 verdicts omitted (only PASS, no FAIL/WARN possible)",
+            "empty \u2014 the Maestro flows were not run (verdicts not evidence-based)",
+            "mock \u2014 the artifact cites wrong task IDs or ACs",
+            "static \u2014 the artifact produced without running real e2e"
           ]
         },
-        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "reactive-surfaces-implementation",
@@ -65,6 +70,8 @@
       "id": "AC-2",
       "type": "acceptance_criterion",
       "primary": true,
+      "description": "GIVEN S-REACTIVE-01 is implemented WHEN the reviewer runs the reconnect flow THEN the flow passes with 0 duplicate tokens and the artifact cites T-SYNC-006 PASS",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml && grep -E 'T-SYNC-006.*PASS' .spec/reviews/sprint-25-review-artifact.md",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -73,13 +80,16 @@
         "topology": "single-node",
         "negative_control": {
           "would_fail_if": [
-            "disconnect — the Maestro streaming flow fails or exits non-zero",
-            "stub — duplicated tokens detected in the logs",
-            "empty — the flow not run (verdict based on code inspection only)",
-            "static — a T-SYNC-006 verdict PASS with no real e2e proof"
+            "disconnect \u2014 the Maestro streaming flow fails or exits non-zero",
+            "stub \u2014 duplicated tokens detected in the logs",
+            "empty \u2014 the flow not run (verdict based on code inspection only)",
+            "static \u2014 a T-SYNC-006 verdict PASS with no real e2e proof"
           ]
         },
-        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "reactive-surfaces-implementation",
@@ -110,7 +120,19 @@
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "maps_to_ac": "AC-1", "scenario": null },
-    { "id": "TC-2", "type": "test_criterion", "maps_to_ac": "AC-2", "scenario": null }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "The review artifact exists and cites all four tasks",
+      "verify": "grep -c 'S-REACTIVE-0' .spec/reviews/sprint-25-review-artifact.md",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "The reconnect flow passes with 0 duplicate tokens",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "maps_to_ac": "AC-2"
+    }
   ]
 }

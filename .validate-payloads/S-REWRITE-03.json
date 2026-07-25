@@ -3,9 +3,7 @@
     "seeded-feed": {
       "description": "5 feed items seeded by `holo seed:e2e --reset`, reactive over Zero",
       "seed_method": "public_api",
-      "records": [
-        "5 feed items exist in Postgres after `holo seed:e2e --reset`"
-      ]
+      "records": ["5 feed items exist in Postgres after `holo seed:e2e --reset`"]
     },
     "seeded-subscriptions": {
       "description": "Seeded subscription settings + whats-new reports",
@@ -45,9 +43,7 @@
             "start_ref": "seeded-feed",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the What's New feed"
-              ]
+              "steps": ["open the What's New feed"]
             },
             "end_state": {
               "must_observe": [
@@ -92,9 +88,7 @@
             "start_ref": "seeded-subscriptions",
             "action": {
               "actor": "user",
-              "steps": [
-                "open subscription settings"
-              ]
+              "steps": ["open subscription settings"]
             },
             "end_state": {
               "must_observe": [
@@ -139,9 +133,7 @@
             "start_ref": "seeded-subscriptions",
             "action": {
               "actor": "user",
-              "steps": [
-                "open a whats-new report"
-              ]
+              "steps": ["open a whats-new report"]
             },
             "end_state": {
               "must_observe": [
@@ -185,9 +177,7 @@
             "start_ref": "seeded-subscriptions",
             "action": {
               "actor": "user",
-              "steps": [
-                "toggle a subscription's enabled switch"
-              ]
+              "steps": ["toggle a subscription's enabled switch"]
             },
             "end_state": {
               "must_observe": [
@@ -233,9 +223,7 @@
             "start_ref": "seeded-subscriptions",
             "action": {
               "actor": "user",
-              "steps": [
-                "open the social posts view"
-              ]
+              "steps": ["open the social posts view"]
             },
             "end_state": {
               "must_observe": [

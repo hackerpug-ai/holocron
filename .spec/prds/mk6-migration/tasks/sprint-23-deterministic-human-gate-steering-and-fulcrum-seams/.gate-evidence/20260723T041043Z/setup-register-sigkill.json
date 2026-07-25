@@ -1,0 +1,19 @@
+{
+  "compilerVersion": "mission-compiler@1.0.0",
+  "created": true,
+  "definitionHash": "48e482dd604e90470590ca686b0cdd79d7b9555422466f87997c7faee0414c8b",
+  "dslVersion": "mission_template_v1",
+  "executorRef": "builtin.test-resume@1",
+  "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+  "fleetManifestPath": "/Users/inference1/Projects/holocron/services/platform/fleet/manifest.json",
+  "fleetManifestVersion": "1.0.0",
+  "noCloudFallback": true,
+  "ok": true,
+  "outputSchemaRef": "mission.test.sigkill.output",
+  "outputSchemaVersion": 1,
+  "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+  "schemaRef": "mission.test.sigkill.output",
+  "schemaVersion": 1,
+  "templateKey": "test.sigkill",
+  "version": "1.0.0"
+}

@@ -1,0 +1,117 @@
+# Gate Results: sprint-22-all-agentic-pipelines-as-templates-agents
+
+## ✗ VERIFIED FAIL — claimed `fail` survives recomputation; 7/7 steps recomputed; 0 discrepancies
+
+**Proof:** `.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/gate-verification.json`
+```
+{"verified":true,"claimed_verdict":"fail","recomputed_verdict":"fail",
+ "steps_planned":7,"steps_recomputed":7,"discrepancies":[]}
+```
+
+The verdict is **trustworthy** (the raw evidence independently reproduces the same `fail`). The failure is a real product defect in step 7 — not a verification artifact.
+
+---
+
+| Field | Value |
+|---|---|
+| **Verdict** | `fail` (5 of 6 deliverable items pass; item 6 fails) |
+| **Steps passed** | 6 / 7 literal commands |
+| **Reviewed SHA** | `5d424120976d3546ef4f68338878f2c554779b49` (branch `main`) |
+| **Run ID** | `2026-07-21T22:12:30Z` |
+| **QA surface** | `5A6EA506-5C59-4FBC-9024-B42812271A05` (this qa stage) |
+| **Exec pane** | `surface:178 (48EE053C-8718-478E-91F0-05A822B2C640)` · `cmux:workspace:2` |
+| **UI driver** | `none` (no UI steps in this gate) |
+| **Evidence dir** | `.spec/prds/mk6-migration/tasks/sprint-22-all-agentic-pipelines-as-templates-agents/.gate-evidence/2026-07-21T22:12:30Z/` |
+| **Stack state at run** | postgres healthy · fleet :4545 up · mastra :4111 down (DEGRADED; CLI imports modules in-process, so all 6 passing steps exercised the real fleet) |
+| **Source code** | preserved (no merge, push, branch move, or product-code edit) |
+
+---
+
+## Summary
+
+| Result | Count | Steps |
+|---|---:|---|
+| ✅ Pass | 6 | 1, 2, 3, 4, 5, 6 |
+| ❌ Fail | 1 | **7** |
+| 🔧 Wiring gap | 0 | — |
+| ⏭ Skipped | 0 | — |
+
+**5 of 6 documented deliverable items pass. Deliverable item 6 (`holo infer:trace <id>` on a business report) FAILS.**
+
+---
+
+## Per-Step Results
+
+| # | Deliv | Gate (documented literal command) | Method | Result | Exit | Wall | Evidence |
+|---|---|---|---|---|---:|---:|---|
+| 1 | 1 | `holo mission run whatsNew --date 2026-07-21 --json` | real-cli | ✅ pass | 0 | 1.1s | `documentType="daily-briefing"` · deterministic idempotencyKey `whatsnew:2026-07-21` · `step1.log` |
+| 2 | 2 | `holo mission run assimilate --target facebook/react --json` | real-cli | ✅ pass | 0 | 26.3s | `ok=true` · real fleet invocation · `step2.log` |
+| 3 | 2 | `holo mission run shop --query 'ergonomic keyboard' --json` | real-cli | ✅ pass | 0 | 13.2s | `ok=true` · real fleet invocation · `step3.log` |
+| 4 | 3 | `holo mission run report --kind revenue-validation --target acme-corp.com --json` | real-cli | ✅ pass | 0 | 66.7s | `reportKind="revenue-validation"` · `templateKey="business-report"` · real assay+challenge · `step4.log` |
+| 5 | 4 | `holo verify:no-shells` | real-cli | ✅ pass | 0 | 1.1s | stdout: `0 per-domain modules found` · `step5.log` |
+| 6 | 5 | `holo mission run subscriptions --topic 'AI agents' --json` | real-cli | ✅ pass | 0 | 4.1s | `ok=true` · `subworkflowCalls=["evidence-research"]` · `publishedAt=2026-07-21T22:16:12Z` · `step6.log` |
+| 7 | 6 | `holo infer:trace 019f86be-b88a-7210-be80-13cd2ffef199 --json` | real-cli | ❌ **fail** | **1** | 1.1s | `ok=false` · `INFER_TRACE_NOT_FOUND` · `step7.log` |
+
+**Step 7's id `019f86be-b88a-7210-be80-13cd2ffef199` is the `runId` field captured from step 4's revenue-validation business report** — a real business-report id, exactly as the deliverable's `<id>` placeholder specifies.
+
+---
+
+## Failure (the single blocking finding)
+
+### Step 7 — `holo infer:trace <id>` cannot resolve a business report's `runId`
+
+| Field | Value |
+|---|---|
+| **Expected** | exit 0, response contains `"provider":"fleet"` — proving server-side fleet reasoning (REDHAT-FIX-3 / H-1 / GATE-1 contract) |
+| **Actual** | exit 1; `{ok:false, code:"INFER_TRACE_NOT_FOUND", error:"infer trace not found for id: 019f86be-b88a-7210-be80-13cd2ffef199"}` |
+| **Evidence pointer** | `step7.log:4 {"ok":false}` · `step7.log:5 "error":"infer trace not found for id: 019f86be-..."` · `step7.log:6 "code":"INFER_TRACE_NOT_FOUND"` · `step4.log` runId=`019f86be-b88a-7210-be80-13cd2ffef199` (the source business-report id) |
+
+**HYPOTHESIS — root cause (a LEAD, not proof):** REDHAT-FIX-3 wired `infer:trace` to a trace store whose keys are NOT mission `runId`s — likely a separate `traceId` namespace (e.g. `mission:<uuid>`) or a per-step `stepId`. The prior passing gate used id `019f86b3-...` which was NOT the runId of prior step3 (`019f85cb-...`), suggesting that gate captured the id from an undocumented source. Either (a) the trace-storage write path is not keyed on `runId`, or (b) the trace for step 4's mission was never persisted (silent write drop, or async writer not flushed before the `infer:trace` read 1s later).
+
+**HYPOTHESIS — remedy:** (a) Confirm the trace-store write path fires on mission completion AND blocks until persisted; (b) make `infer:trace` accept the mission `runId` as the documented public id (alias to internal `traceId`); (c) OR change the gate's id-capture contract to whichever id `infer:trace` actually keys on — and document it in the REDHAT-FIX-3 task file so future gates capture the correct field. **(a) is the most likely real fix.**
+
+**HYPOTHESIS — file guess:** `services/platform/src/cli/holo.ts` (infer:trace handler) · `services/platform/src/inference/*` (trace store writer) · `services/platform/src/mission/*` (mission-completion → trace-persist hook)
+
+> This is a **gate-stage finding**, not a fix. Per the landing note, no product code was modified; the run stage merges the reviewed commit to `main` only after approval. Route via REDHAT-FIX-3 follow-up or `GATE-FIX`.
+
+---
+
+## Wiring Gaps
+
+None. Every documented deliverable item has at least one executed literal command against real services (Postgres + fleet on :4545). The Mastra :4111 HTTP service being down does NOT affect the gate — the `holo` CLI imports Mastra modules in-process; all 6 passing steps exercised the real fleet endpoint (`http://127.0.0.1:4545`) and produced real model output.
+
+---
+
+## Verification
+
+```
+verify-gate-evidence.sh exit 0
+gate-verification.json:
+  verified: true
+  claimed_verdict: fail
+  recomputed_verdict: fail
+  steps_planned: 7
+  steps_recomputed: 7
+  discrepancies: []
+```
+
+The claim survived deterministic recomputation. Each step's `@@GATE-META cmd_sha` header matches `sha256(plan.step.literal_cmd)` (D2 command-fidelity). No substitute commands, no test-suite invocations, no dropped steps.
+
+---
+
+## Provenance
+
+- **Reviewer (qa stage):** surface `5A6EA506-5C59-4FBC-9024-B42812271A05` — the qa agent that produced this verdict.
+- **Exec pane:** `48EE053C-8718-478E-91F0-05A822B2C640` (the visible cmux split where each documented command ran via `exec-step.sh`).
+- **Runner:** `exec-step.sh` v2 (cmux mode) — sends the literal documented command, captures `.log` + `.exit` + `.assertion.json` with `cmd_sha` anchor.
+- **Source preserved:** no merge / push / branch move / product-code edit. The reviewed commit (`5d424120…`) is unchanged on `main`; this verdict does not land work.
+
+---
+
+## Artifacts
+
+- `gate-plan.json` — pre-execution manifest (7 steps, assertion specs)
+- `gate-results.json` — machine verdict (claim; `verdict: fail`, `verified: true`)
+- `gate-verification.json` — deterministic recompute (PROOF; `verified: true`, 0 discrepancies)
+- `GATE-RESULTS.md` — this human report
+- `.gate-evidence/2026-07-21T22:12:30Z/step{1..7}.{log,exit,assertion.json,command.sh}` — durable per-step evidence

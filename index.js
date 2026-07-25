@@ -1,5 +1,5 @@
-// Install Event/MessageEvent/EventTarget for WhatWG eventsource on Hermes
-// BEFORE any module graph that imports `eventsource` is evaluated.
+// Install Hermes-safe DOM globals before Expo Router loads the screen graph.
+// `eventsource` extends Event during module evaluation, while Hermes does not
+// provide that browser global by default.
 require('./lib/eventsource-rn-polyfill.js');
-require('@ohah/react-native-mcp-server/runtime');
 require('expo-router/entry');

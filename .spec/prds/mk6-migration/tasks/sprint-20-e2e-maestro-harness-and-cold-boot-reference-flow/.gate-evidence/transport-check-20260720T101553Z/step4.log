@@ -1,0 +1,35 @@
+@@GATE-META step=step4 cmd_sha=949d9ea58825eb463d1b8f10c84a22aa8b3080abc9ef36aded9a3bc14e4357fc@@
++ scripts/e2e/capstone-verdict.sh --from-ci-artifact --artifact-dir "${E2E_CI_ARTIFACT_DIR:?}"
+{
+  "committed_sha": "370a31a11a1e6de799d58f1d4cf249bed6933246",
+  "tested_sha": "370a31a11a1e6de799d58f1d4cf249bed6933246",
+  "replay_head_sha": "370a31a11a1e6de799d58f1d4cf249bed6933246",
+  "generated_at": "2026-07-20T10:15:53Z",
+  "coldboot_gate": "green",
+  "junit_failures": 0,
+  "postgres_agent_count": 1,
+  "postgres_agent_content_len": 5,
+  "zero_cache_ok": true,
+  "zero_agent_content_len": 5,
+  "conversation_id": "00000000-0000-0000-0000-000000000020",
+  "artifact_dir": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download-29733828063",
+  "evidence": [
+    {
+      "path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download-29733828063/junit.xml",
+      "sha256": "1e0c46d4bb07a238a67adf0fa626bb9d2d64357455be48b79420ff81335b4ff5",
+      "bytes": 371
+    },
+    {
+      "path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download-29733828063/final.png",
+      "sha256": "2d47039904bfcee97631ac08c6297c35d5076f92e75c873266d74b0ae0f5a579",
+      "bytes": 140153
+    },
+    {
+      "path": "/Users/inference1/Projects/holocron/.tmp/ci-e2e-download-29733828063/reference-flow.mov",
+      "sha256": "c3305186c2f77b72dbc0f2bf8b6d2dce3b585b673a94f0d8f2eec4a35e6ddc65",
+      "bytes": 22649717
+    }
+  ],
+  "reasons": []
+}
+@@GATE-EXIT=0@@

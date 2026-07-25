@@ -1,0 +1,10 @@
+{
+  "run_id": "s24-htg-20260724T074452Z-1877",
+  "written_at_commit": "99758c6b9c62514d763dc185434865c13608ca33",
+  "verdict": "pass",
+  "steps_passed": 7,
+  "evidence_dir": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/.gate-evidence/s24-htg-20260724T074452Z-1877",
+  "source_artifact": "/Users/inference1/Projects/holocron/.tmp/GATE-FIX-002/qa-authoritative-main-99758c6b-20260724T074451Z",
+  "canonical_gate_results": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/gate-results.json",
+  "reconciled_at": "2026-07-24T08:11:03Z"
+}
