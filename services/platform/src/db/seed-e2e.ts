@@ -2,7 +2,7 @@
  * DEPENDENCY-S24-E2E-SUBSTRATE — deterministic Maestro/e2e seed for Sprint 24.
  *
  * Seeds the Zero-published Postgres surface:
- *   - 3 conversations + messages
+ *   - 3 drawer conversations + a deterministic Sprint 20 reference conversation
  *   - 17 documents across multiple categories, including all Toolbelt filters
  *   - 5 feed_items (What's New feed)
  *   - 4 subscription sources and 4 researched subscription-content rows
@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 7;
+export const E2E_SEED_VERSION = 8;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -29,6 +29,8 @@ export const E2E_CONVERSATION_IDS = [
   '00000000-0000-4000-8000-0000000000e2',
   '00000000-0000-4000-8000-0000000000e3',
 ] as const;
+
+export const E2E_REFERENCE_CONVERSATION_ID = '00000000-0000-0000-0000-000000000020';
 
 export const E2E_DOCUMENT_CATEGORIES = [
   'research',
@@ -533,6 +535,20 @@ export async function seedE2eDatabase(options?: {
       `seeded ${E2E_CONVERSATION_IDS.length} conversations + ${messageCount} messages`
     );
 
+    // CHAT-15 uses the same stable reference route as the non-E2E seed. Keep
+    // this conversation message-free so the manual run can prove exactly-once
+    // creation of its unique user and assistant rows.
+    await sql.unsafe(
+      `INSERT INTO conversations (id, title, last_message_preview, created_at, updated_at)
+       VALUES ($1::uuid, 'Sprint 20 reference conversation', '', now(), now())
+       ON CONFLICT (id) DO UPDATE SET
+         title = EXCLUDED.title,
+         last_message_preview = EXCLUDED.last_message_preview,
+         updated_at = now()`,
+      [E2E_REFERENCE_CONVERSATION_ID]
+    );
+    messages_log.push('seeded Sprint 20 reference conversation');
+
     // ── documents (17, multi-category) ────────────────────────────────────
     // HIGH-3 / GATE-FIX-002 + GATE-FIX-007: every seeded public doc carries a
     // stable share_token so share-url-mastra can assert Mastra /article/ on any
@@ -817,7 +833,7 @@ export async function seedE2eDatabase(options?: {
 
     const seed_fingerprint = fingerprint({
       version: E2E_SEED_VERSION,
-      conversations: E2E_CONVERSATION_IDS.length,
+      conversations: E2E_CONVERSATION_IDS.length + 1,
       messages: messageCount,
       documents: E2E_DOCUMENT_CATEGORIES.length,
       categories: [...categorySet].sort(),
@@ -828,14 +844,14 @@ export async function seedE2eDatabase(options?: {
       research_iterations: E2E_RESEARCH_ITERATIONS.length,
       assimilation_sessions: E2E_ASSIMILATION_SESSIONS.length,
       whats_new_reports: 1,
-      conversation_ids: [...E2E_CONVERSATION_IDS],
+      conversation_ids: [...E2E_CONVERSATION_IDS, E2E_REFERENCE_CONVERSATION_ID],
     });
 
     return {
       ok: errors.length === 0,
       database: databaseNameFromUrl(databaseUrl),
       seed_fingerprint,
-      conversations: E2E_CONVERSATION_IDS.length,
+      conversations: E2E_CONVERSATION_IDS.length + 1,
       messages: messageCount,
       documents: E2E_DOCUMENT_CATEGORIES.length,
       categories: categorySet.size,
