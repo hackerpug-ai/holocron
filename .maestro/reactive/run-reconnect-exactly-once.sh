@@ -30,6 +30,22 @@ if ! holo seed:e2e --help 2>&1 | rg -q 'seed:e2e|holocron operator'; then
 fi
 
 echo "run-reconnect-exactly-once: holo=$(command -v holo)"
+
+# Fail closed if platform / zero / metro are not live (LogBox from dead Zero
+# covers the composer and makes chat-input-send-button invisible to XCTest).
+if ! curl -sf --max-time 3 http://127.0.0.1:4111/health >/dev/null; then
+  echo "run-reconnect-exactly-once: platform :4111/health not ok" >&2
+  exit 1
+fi
+if ! curl -sf --max-time 3 http://127.0.0.1:4848/keepalive >/dev/null; then
+  echo "run-reconnect-exactly-once: zero-cache :4848/keepalive not ok (start scripts/run-zero-cache.sh)" >&2
+  exit 1
+fi
+if ! curl -sf --max-time 3 http://127.0.0.1:8081/status >/dev/null; then
+  echo "run-reconnect-exactly-once: metro :8081/status not ok" >&2
+  exit 1
+fi
+
 echo "run-reconnect-exactly-once: seed:e2e --reset"
 holo seed:e2e --reset
 

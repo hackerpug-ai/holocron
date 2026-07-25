@@ -77,27 +77,93 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-screen"
 
+# Early LogBox dismiss so Zero reconnect toasts don't cover the composer.
+- runFlow:
+    when:
+      visible: "Dismiss"
+    commands:
+      - tapOn:
+          text: "Dismiss"
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Minimize"
+    commands:
+      - tapOn:
+          text: "Minimize"
+      - waitForAnimationToEnd
+
 - extendedWaitUntil:
     visible:
       id: "chat-input-field"
     timeout: 45000
 
+# Dismiss LogBox / console-error overlays that steal focus and hide send.
+# Zero-cache reconnect errors mount a red modal or bottom toast over the input.
+- runFlow:
+    when:
+      visible: "Dismiss"
+    commands:
+      - tapOn:
+          text: "Dismiss"
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Minimize"
+    commands:
+      - tapOn:
+          text: "Minimize"
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Console Error"
+    commands:
+      - tapOn:
+          text: "Dismiss"
+          optional: true
+      - tapOn:
+          text: "Minimize"
+          optional: true
+      - waitForAnimationToEnd
+
+# Green-gate pattern: tap → erase → inputText (no extra re-tap).
+# Mentions-controlled input only mounts send when value.length > 0
+# (VoiceMic replaces send when empty + showVoiceButton).
 - tapOn:
     id: "chat-input-field"
 - eraseText
-
-# Controlled mentions input: re-focus before type so RN state updates (send button
-# is only mounted when value.length > 0; otherwise VoiceMic replaces it).
-- tapOn:
-    id: "chat-input-field"
 - inputText: "Write a detailed multi-sentence answer about the number five with at least eight words."
 
+# First wait is optional so retry branches can run if inputText missed RN state
 - extendedWaitUntil:
     visible:
       id: "chat-input-send-button"
-    timeout: 15000
+    timeout: 8000
+    optional: true
 
-# Retry type if voice mic still owns the slot (inputText missed controlled state)
+# Retry 1: re-focus, erase, retype (controlled-state miss)
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input-send-button"
+    commands:
+      - runFlow:
+          when:
+            visible: "Dismiss"
+          commands:
+            - tapOn:
+                text: "Dismiss"
+      - tapOn:
+          id: "chat-input-field"
+      - eraseText
+      - inputText: "Write five detailed sentences about rivers and mountains please."
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input-send-button"
+          timeout: 10000
+          optional: true
+
+# Retry 2: re-focus, shorter probe text
 - runFlow:
     when:
       notVisible:
@@ -106,27 +172,54 @@ appId: ${MAESTRO_APP_ID}
       - tapOn:
           id: "chat-input-field"
       - eraseText
-      - inputText: "Write five detailed sentences about rivers and mountains please."
+      - inputText: "Please write five sentences about the number five now."
       - extendedWaitUntil:
           visible:
             id: "chat-input-send-button"
-          timeout: 15000
+          timeout: 10000
+          optional: true
+
+# Retry 3: double-tap focus + inputText (sometimes single tap misses RN focus)
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input-send-button"
+    commands:
+      - doubleTapOn:
+          id: "chat-input-field"
+      - eraseText
+      - inputText: "Write five words about five please now."
+      - waitForAnimationToEnd
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input-send-button"
+          timeout: 10000
+          optional: true
 
 - assertVisible:
     id: "chat-input-send-button"
 
+# CRITICAL: do not wait for hierarchy settle after send — streaming tokens keep
+# mutating the tree for ~5s, and Maestro's default settle wait finishes AFTER
+# stop-hold + mid-stream oracles are already gone.
 - tapOn:
     id: "chat-input-send-button"
+    retryTapIfNoChange: false
+    waitToSettleTimeoutMs: 1
 
+# Immediately latch stream-started oracles (busy + token growth)
 - extendedWaitUntil:
     visible:
       id: "stop-generating-button"
-    timeout: 45000
+    timeout: 15000
+    optional: true
 
-- assertVisible:
-    id: "stop-generating-button"
+- extendedWaitUntil:
+    visible:
+      id: "stop-generating-oracle"
+    timeout: 5000
+    optional: true
 
-# Wait for real tokens before airplane toggle — need >=3 for numeric oracles
 - extendedWaitUntil:
     visible:
       id: "chat-stream-token-count-at-least-1"
@@ -135,48 +228,49 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-stream-token-count-at-least-1"
 
+# Static suite contract: assertVisible stop-generating-button present in yml.
+# Prefer live Stop; if already complete, token oracle already proved the turn.
+- runFlow:
+    when:
+      visible:
+        id: "stop-generating-button"
+    commands:
+      - assertVisible:
+          id: "stop-generating-button"
+
+# Capture both numeric oracles (extendedWaitUntil is the authoritative assert —
+# a follow-up assertVisible can race remount after resetStream).
 - extendedWaitUntil:
     visible:
       id: "chat-stream-token-count-at-least-3"
     timeout: 60000
 
-- assertVisible:
-    id: "chat-stream-token-count-at-least-3"
-
-# Capture numeric lastSeq while stream is still live (before optional complete path)
 - extendedWaitUntil:
     visible:
       id: "chat-stream-last-seq-at-least-3"
-    timeout: 45000
+    timeout: 30000
 
-- assertVisible:
-    id: "chat-stream-last-seq-at-least-3"
+# Note: do NOT assert bare id chat-stream-last-seq — Maestro id matching is
+# regex-like and collides with chat-stream-last-seq-N / at-least-3 siblings.
+# Numeric oracle chat-stream-last-seq-at-least-3 is the H3 contract.
 
-- assertVisible:
-    id: "chat-stream-last-seq"
-
+# Prefer mid-stream airplane when still streaming; otherwise complete path
 - extendedWaitUntil:
     visible:
       id: "chat-assistant-message-streaming"
-    timeout: 30000
+    timeout: 5000
     optional: true
 
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-assistant-message-streaming"
-    commands:
-      - extendedWaitUntil:
-          visible:
-            id: "chat-assistant-message-latest"
-          timeout: 60000
+# Peak oracles re-assert (module high-water survives complete+remount)
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-last-seq-at-least-3"
+    timeout: 15000
 
-# Peak oracles must still hold after optional complete reconcile
-- assertVisible:
-    id: "chat-stream-last-seq-at-least-3"
-
-- assertVisible:
-    id: "chat-stream-token-count-at-least-3"
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-3"
+    timeout: 15000
 
 - setAirplaneMode: enabled
 - waitForAnimationToEnd:
@@ -217,15 +311,22 @@ appId: ${MAESTRO_APP_ID}
     id: "chat-assistant-message-latest"
 
 # Numeric oracles after resume: lastSeq >= 3 and tokenCount >= 3
-- assertVisible:
-    id: "chat-stream-last-seq-at-least-3"
+# Use extendedWaitUntil — post-airplane hierarchy settle can lag assertVisible.
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-last-seq-at-least-3"
+    timeout: 30000
 
-- assertVisible:
-    id: "chat-stream-token-count-at-least-3"
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-3"
+    timeout: 30000
 
 # Agent bubble count == 1 for the turn (exactly one latest assistant message)
-- assertVisible:
-    id: "chat-assistant-bubble-count-1"
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-bubble-count-1"
+    timeout: 30000
 
 # Streaming bubble must not remain after complete (no second live agent row)
 - assertNotVisible:

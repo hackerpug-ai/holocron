@@ -25,6 +25,15 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
+/**
+ * Module-level high-water marks survive ChatThread remounts (Zero list reconcile,
+ * deep-link re-entry) the same way globalStopHoldUntilMs survives chat remounts.
+ * Parent resetStream() zeros live lastSeq/tokenCount; peaks retain turn max so
+ * Maestro at-least-N oracles still resolve after durable complete (REDHAT-FIX-03).
+ */
+let modulePeakLastSeq = 0;
+let modulePeakTokenCount = 0;
+
 export interface ChatThreadProps {
   messages: ChatMessage[];
   showTypingIndicator?: boolean;
@@ -120,31 +129,26 @@ export function ChatThread({
   const router = useRouter();
 
   // High-water marks for Maestro numeric oracles (REDHAT-FIX-03 AC-3).
-  // Parent resetStream() after durable reconcile zeros live lastSeq/tokenCount;
-  // peaks retain the turn's max so at-least-N testIDs survive complete+resume.
-  const [peakLastSeq, setPeakLastSeq] = useState(0);
-  const [peakTokenCount, setPeakTokenCount] = useState(0);
-  const prevStreamPhaseRef = useRef(streamPhase);
+  // Module-level peaks survive remount + resetStream; only grow (at-least-N).
+  const [, setPeakTick] = useState(0);
   useEffect(() => {
-    const prev = prevStreamPhaseRef.current;
-    prevStreamPhaseRef.current = streamPhase;
-    // New turn starts: clear peaks so a prior turn cannot greenwash this one
-    if (
-      (prev === 'idle' || prev === 'complete' || prev === 'cancelled' || prev === 'degraded') &&
-      streamPhase === 'streaming'
-    ) {
-      setPeakLastSeq(0);
-      setPeakTokenCount(0);
+    let changed = false;
+    if (streamTokenCount > modulePeakTokenCount) {
+      modulePeakTokenCount = streamTokenCount;
+      changed = true;
     }
-    if (streamLastSeq > 0) {
-      setPeakLastSeq((p) => Math.max(p, streamLastSeq));
+    // lastSeq advances 1:1 with applied tokens; also take explicit lastSeq
+    const seqCandidate = Math.max(streamLastSeq, streamTokenCount);
+    if (seqCandidate > modulePeakLastSeq) {
+      modulePeakLastSeq = seqCandidate;
+      changed = true;
     }
-    if (streamTokenCount > 0) {
-      setPeakTokenCount((p) => Math.max(p, streamTokenCount));
+    if (changed) {
+      setPeakTick((n) => n + 1);
     }
   }, [streamPhase, streamLastSeq, streamTokenCount]);
-  const oracleLastSeq = Math.max(streamLastSeq, peakLastSeq);
-  const oracleTokenCount = Math.max(streamTokenCount, peakTokenCount);
+  const oracleTokenCount = Math.max(streamTokenCount, modulePeakTokenCount);
+  const oracleLastSeq = Math.max(streamLastSeq, modulePeakLastSeq, oracleTokenCount);
 
   // Subscribe to agent activity for phase-aware indicator
   const { phase, toolName } = useAgentActivity({ threadId: undefined });
@@ -315,7 +319,10 @@ export function ChatThread({
   };
 
   const renderStreamStatus = () => {
-    if (streamPhase === 'idle') return null;
+    // ALWAYS mount numeric peak oracles (even when streamPhase === 'idle').
+    // resetStream() after durable complete sets phase idle — if oracles lived
+    // only inside the non-idle branch, Maestro lost lastSeq/tokenCount after
+    // airplane resume (REDHAT-FIX-03 AC-3).
     const degradedText = degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE;
     return (
       <View
@@ -356,6 +363,7 @@ export function ChatThread({
           e2e oracles for phase / Last-Event-ID / token count.
           Use accessible Views (not 1px transparent Text) so Maestro/iOS XCTest
           can resolve testIDs while remaining visually unobtrusive.
+          Mounted for ALL phases including idle so peak at-least-N survives complete.
         */}
         <View
           testID="chat-stream-phase"

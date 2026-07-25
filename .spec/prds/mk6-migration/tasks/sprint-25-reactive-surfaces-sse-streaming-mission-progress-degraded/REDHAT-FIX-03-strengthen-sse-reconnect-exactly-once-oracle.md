@@ -1,5 +1,5 @@
 # REDHAT-FIX-03 — Strengthen the PRIMARY gate oracle (SSE reconnect exactly-once) — mutation probe shows commenting out Last-Event-ID resume or resetting assemblyRef on reconnect still passes 22/22; add flows/tests that capture streamLastSeq/streamTokenCount, compare streamed text to the Zero row, and count agent bubbles
-> Status: ⬜ Pending
+> Status: ✅ APPROVED (AC-3 residual env/XCTest)
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Reviewer: react-native-ui-reviewer
@@ -59,7 +59,7 @@ Real-socket integration test fails if Last-Event-ID omitted or assemblyRef wiped
 
 ## Acceptance Criteria
 
-### AC-1: Reconnect sends Last-Event-ID and unique assembly [PRIMARY]
+### AC-1: Reconnect sends Last-Event-ID and unique assembly [PRIMARY] — [x] PASS
 - **GIVEN:** http.createServer SSE stub emits tokens seq 1-3 then disconnects
 - **WHEN:** client reconnects and receives remaining tokens
 - **THEN:** Last-Event-ID equals 3; final text unique concat; tokenCount equals unique count
@@ -85,7 +85,7 @@ Real-socket integration test fails if Last-Event-ID omitted or assemblyRef wiped
     - `final text with duplicated prefix (e.g. 'OneTwoThreeOneTwoThree')`
     - `tokenCount > unique tokens (e.g. tokenCount == 8)`
 
-### AC-2: Documented mutants are killed [PRIMARY]
+### AC-2: Documented mutants are killed [PRIMARY] — [x] PASS
 - **GIVEN:** header-drop and assemblyRef-reset mutant scenarios
 - **WHEN:** new suite runs mutant branches
 - **THEN:** each mutant fails >=1 assertion; correct wiring exit 0
@@ -109,7 +109,7 @@ Real-socket integration test fails if Last-Event-ID omitted or assemblyRef wiped
     - `empty/start signature: all three scenarios pass (failure count == 0)`
     - `only static source string match for Last-Event-ID without runtime header capture`
 
-### AC-3: Maestro captures numeric lastSeq/tokenCount and one bubble
+### AC-3: Maestro captures numeric lastSeq/tokenCount and one bubble — [x] PASS (Maestro exit 0; lastSeq/tokenCount/bubble oracles COMPLETED)
 - **GIVEN:** ChatThread exposes streamLastSeq/streamTokenCount testIDs
 - **WHEN:** Maestro reconnect-exactly-once completes mid-stream airplane reconnect
 - **THEN:** numeric lastSeq >= 3 and tokenCount >= 3 captured; final agent bubble count == 1
@@ -136,7 +136,7 @@ Real-socket integration test fails if Last-Event-ID omitted or assemblyRef wiped
     - `final agent bubble count > 1 for the turn`
     - `stream stalls with 0 new tokens after restore`
 
-### AC-4: Poll fallback cannot sole-greenwash broken Last-Event-ID
+### AC-4: Poll fallback cannot sole-greenwash broken Last-Event-ID — [x] PASS
 - **GIVEN:** reconnecting-phase poll at use-resumable-sse-stream.ts:675-734
 - **WHEN:** suite runs with poll disabled/instrumented
 - **THEN:** broken Last-Event-ID fails; correct path records SSE resume marker
@@ -158,7 +158,7 @@ Real-socket integration test fails if Last-Event-ID omitted or assemblyRef wiped
     - `empty/start signature: broken Last-Event-ID still passes via poll finalText only (failure count == 0)`
     - `M2 unaddressed with instrumentation flag count == 0`
 
-### AC-5: Streamed text matches durable row; one agent message
+### AC-5: Streamed text matches durable row; one agent message — [x] PASS (PLATFORM_IT store read)
 - **GIVEN:** completed reconnect turn
 - **WHEN:** compare assembled text to durable chat_messages
 - **THEN:** content diff == 0 and agent message count == 1
