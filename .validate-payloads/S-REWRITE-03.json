@@ -1,0 +1,301 @@
+{
+  "fixtures": {
+    "seeded-feed": {
+      "description": "5 feed items seeded by `holo seed:e2e --reset`, reactive over Zero",
+      "seed_method": "public_api",
+      "records": [
+        "5 feed items exist in Postgres after `holo seed:e2e --reset`"
+      ]
+    },
+    "seeded-subscriptions": {
+      "description": "Seeded subscription settings + whats-new reports",
+      "seed_method": "public_api",
+      "records": [
+        ">=1 subscription row with a toggleable `enabled` flag",
+        ">=1 whats-new report row"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: 5 feed items are seeded via `holo seed:e2e --reset` WHEN: the user opens the What's New feed THEN: the 5 seeded feed items appear via Zero",
+      "verify": "maestro test .maestro/subscriptions/feed-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no items",
+            "stub \u2014 list from a hardcoded array"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-feed",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the What's New feed"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`5` feed items rendered (matches the `5` seeded)",
+                "each item shows a non-empty `title`/`summary`",
+                "list bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `Nothing new` empty state (`0` items)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded subscription exists WHEN: the user opens subscription settings THEN: the seeded subscription rows load via Zero with their toggle state",
+      "verify": "maestro test .maestro/subscriptions/settings-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 settings from hardcoded state"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-subscriptions",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open subscription settings"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`>=1` subscription row rendered via Zero",
+                "each row shows an `enabled` toggle reflecting its seeded state",
+                "settings bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `No subscriptions` empty state (`0` rows)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded whats-new report exists WHEN: the user opens a whats-new report THEN: the report content loads via Zero",
+      "verify": "maestro test .maestro/subscriptions/whats-new-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 report from hardcoded content"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-subscriptions",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open a whats-new report"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the report `title` and non-empty `body` render via Zero",
+                "report bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "a `Report not found` fallback for a present report (`0` body)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: a seeded subscription is shown WHEN: the user toggles a subscription THEN: the new enabled state persists via the Zero mutator within the 5s SLO",
+      "verify": "maestro test .maestro/subscriptions/toggle-works.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero mutator+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 toggle is local-only",
+            "mock \u2014 mutator faked without a write",
+            "disconnect \u2014 mutator not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-subscriptions",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "toggle a subscription's enabled switch"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the row's `enabled` flag flips to the new boolean",
+                "Postgres row `enabled` matches within the `5s` SLO",
+                "mutator is a Zero mutator, not a `convex/react` `useMutation`"
+              ],
+              "must_not_observe": [
+                "toggle reverts (not persisted)",
+                "no row change in Postgres (`0` updates)",
+                "a `convex/react` `useMutation` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: seeded social posts exist WHEN: the user opens the social view THEN: the social posts load via Zero",
+      "verify": "maestro test .maestro/subscriptions/social-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 posts from a hardcoded array"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-subscriptions",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the social posts view"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`>=1` social post rendered via Zero",
+                "each post shows non-empty `content`",
+                "view bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `No posts` empty state (`0` posts)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all subscriptions-cluster files have been rewired WHEN: the verifier scans the cluster roots THEN: zero convex/react imports remain and the cluster reads through the Zero seam",
+      "verify": "holo verify:no-convex-client --roots 'app/subscriptions,app/(drawer)/whats-new,app/(drawer)/subscriptions,app/(drawer)/subscription-content,components/whats-new,components/settings'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo verify:no-convex-client",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 verifier not implemented",
+            "empty \u2014 cluster not yet rewired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-feed",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run `holo verify:no-convex-client --roots 'app/subscriptions,app/(drawer)/whats-new,app/(drawer)/subscriptions,app/(drawer)/subscription-content,components/whats-new,components/settings'`"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`0` `convex/react` import lines in the cluster",
+                "cluster hooks import from `app/zero/queries` (`>=1` Zero import)"
+              ],
+              "must_not_observe": [
+                "any `from 'convex/react'` line (`>0` hits)",
+                "any `useQuery`/`useMutation` from convex/react"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

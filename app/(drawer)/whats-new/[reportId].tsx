@@ -59,8 +59,12 @@ function parseFindings(findingsJson: unknown): ReportFinding[] {
 function findingsToBody(findings: ReportFinding[]): string {
   return findings
     .map((finding) => {
-      const source = finding.url ? `[${finding.source ?? 'Source'}](${finding.url})` : finding.source;
-      return [`## ${finding.title ?? 'Finding'}`, finding.summary, source].filter(Boolean).join('\n\n');
+      const source = finding.url
+        ? `[${finding.source ?? 'Source'}](${finding.url})`
+        : finding.source;
+      return [`## ${finding.title ?? 'Finding'}`, finding.summary, source]
+        .filter(Boolean)
+        .join('\n\n');
     })
     .join('\n\n');
 }
@@ -82,7 +86,15 @@ function transformReportToSession(row: ReportRow | null | undefined): DeepResear
     report: body.length > 0 ? body : 'Report content not available.',
     iterations: [],
     citations: findings.flatMap((finding, index) =>
-      finding.url ? [{ id: index + 1, title: finding.title ?? finding.source ?? finding.url, url: finding.url }] : []
+      finding.url
+        ? [
+            {
+              id: index + 1,
+              title: finding.title ?? finding.source ?? finding.url,
+              url: finding.url,
+            },
+          ]
+        : []
     ),
     completedAt: new Date(row.created_at),
     savedToHolocron: !!row.document_id,

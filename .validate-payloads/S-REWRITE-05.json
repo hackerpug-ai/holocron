@@ -1,0 +1,158 @@
+{
+  "fixtures": {
+    "clean-app-roots": {
+      "description": "All target roots (app/, components/, hooks/, screens/) free of convex/react imports after rewrites",
+      "seed_method": "public_api",
+      "records": [
+        "grep for `convex/react` across app/components/hooks/screens returns 0 hits"
+      ]
+    },
+    "app-with-stray-import": {
+      "description": "A clone of the app roots with one deliberately injected `from 'convex/react'` import line (negative control)",
+      "seed_method": "public_api",
+      "records": [
+        "exactly 1 `convex/react` import line present in a scanned root"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: the command exists WHEN: the operator runs `holo verify:no-convex-client` THEN: it scans app/, components/, hooks/, screens/ for `convex/react` imports and reports the roots covered",
+      "verify": "holo verify:no-convex-client --print-roots",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo CLI",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 command not implemented",
+            "disconnect \u2014 scanner not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "clean-app-roots",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run `holo verify:no-convex-client`"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "command reports `4` scanned roots (app, components, hooks, screens)",
+                "exit code `0` on a clean tree"
+              ],
+              "must_not_observe": [
+                "a silent no-op command (`0` roots reported)",
+                "empty help text"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a stray `from 'convex/react'` import is present in a scanned root WHEN: the operator runs the gate THEN: it exits non-zero naming the offending file and line",
+      "verify": "services/platform/src/cli/commands/__tests__/verify-no-convex-client.test.ts (seed a stray import, assert non-zero exit + file:line)",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo CLI",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 scanner returns 0 regardless",
+            "static \u2014 gate always exits 0",
+            "mock \u2014 scanner mocked"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "app-with-stray-import",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "inject one `import { useQuery } from 'convex/react'` line into a scanned root",
+                "run `holo verify:no-convex-client`"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "exit code `1` (non-zero)",
+                "output names the offending `file:line`"
+              ],
+              "must_not_observe": [
+                "exit code `0` (gate passed a stray import \u2014 un-fakeable failure)",
+                "a generic error with `0` file:line detail"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a PR touches app/ WHEN: CI runs the gate THEN: the gate runs as a required check on PRs touching app/ and blocks merge on failure",
+      "verify": "actionlint .github/workflows/*.yml && grep -R \"verify:no-convex-client\" .github/workflows/",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "GitHub Actions",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 step not added",
+            "disconnect \u2014 workflow not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "clean-app-roots",
+            "action": {
+              "actor": "background_job",
+              "steps": [
+                "open a PR touching app/",
+                "observe the CI workflow"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the workflow has a `verify:no-convex-client` step",
+                "the step is a `required` gating check"
+              ],
+              "must_not_observe": [
+                "the gate absent from the workflow (`0` steps)",
+                "a non-blocking step"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -12,8 +12,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { conversationById, conversationsByOwner } from '@/app/zero/queries';
 import { mutators } from '@/app/zero/mutators';
+import { conversationById, conversationsByOwner } from '@/app/zero/queries';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatThread } from '@/components/chat/ChatThread';
 import { Button } from '@/components/ui/button';
@@ -123,7 +123,8 @@ export default function ChatScreen() {
       setSendError(null);
 
       try {
-        const targetConversationId = isNewConversation || !conversationId ? undefined : conversationId;
+        const targetConversationId =
+          isNewConversation || !conversationId ? undefined : conversationId;
 
         const response = await fetch(`${platformUrl}/api/chat-runs`, {
           method: 'POST',

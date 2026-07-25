@@ -1,0 +1,304 @@
+{
+  "fixtures": {
+    "seeded-research": {
+      "description": "A seeded research session + improvements, seeded by `holo seed:e2e --reset`, reactive over Zero",
+      "seed_method": "public_api",
+      "records": [
+        ">=1 research session row",
+        ">=1 improvement row",
+        ">=1 toolbelt entry"
+      ]
+    },
+    "seeded-improvements": {
+      "description": "Seeded improvement rows for the improvements sheet",
+      "seed_method": "public_api",
+      "records": [
+        ">=1 improvement row with editable status"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded research session exists WHEN: the user opens a research session THEN: the session and its progress load via Zero",
+      "verify": "maestro test .maestro/research/session-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 session from hardcoded state"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open a research session"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the session `title`/`status` render via Zero",
+                "research `progress` (stage/iteration) reflects the seeded state",
+                "session bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "a `Session not found` fallback for a present session (`0` status)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: seeded improvement rows exist WHEN: the user opens improvements THEN: the seeded improvements load via Zero",
+      "verify": "maestro test .maestro/research/improvements-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 list from a hardcoded array"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-improvements",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the improvements screen"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`>=1` improvement row rendered via Zero",
+                "each row shows a non-empty `title`/`status`",
+                "list bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `No improvements` empty state (`0` rows)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: a seeded improvement is open WHEN: the user edits and saves an improvement THEN: the change persists via the Zero mutator and reflects within the 5s SLO",
+      "verify": "maestro test .maestro/research/improvement-edit.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero mutator+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 edit is local-only",
+            "mock \u2014 mutator faked without a write",
+            "disconnect \u2014 mutator not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-improvements",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open an improvement edit sheet",
+                "change a field and save"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the edited `field` reflects the new value in the UI",
+                "Postgres row matches the new value within the `5s` SLO",
+                "mutator is a Zero mutator, not a `convex/react` `useMutation`"
+              ],
+              "must_not_observe": [
+                "edit reverts (not persisted)",
+                "no row change in Postgres (`0` updates)",
+                "a `convex/react` `useMutation` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: a seeded assimilation session exists WHEN: the user opens assimilate THEN: the assimilation plan loads via Zero",
+      "verify": "maestro test .maestro/research/assimilate-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 plan from hardcoded content"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the assimilate session"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the assimilation plan card renders via Zero with non-empty `content`",
+                "session bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `No plan` empty state (`0` content)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: the user is on the toolbelt add screen WHEN: the user adds a toolbelt entry THEN: the entry persists via the Zero mutator and appears in the list",
+      "verify": "maestro test .maestro/research/toolbelt-add.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero mutator+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 add is a no-op",
+            "mock \u2014 mutator faked without a write",
+            "disconnect \u2014 mutator not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open toolbelt add",
+                "submit a new entry"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`1` new toolbelt row in Postgres (count increases by `1`)",
+                "the list count increases by `1`",
+                "mutator is a Zero mutator, not a `convex/react` `useMutation`"
+              ],
+              "must_not_observe": [
+                "no new row persisted (count unchanged / `0` added)",
+                "a `convex/react` `useMutation` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all research-cluster files have been rewired WHEN: the verifier scans the cluster roots THEN: zero convex/react imports remain and the cluster reads through the Zero seam",
+      "verify": "holo verify:no-convex-client --roots 'app/(drawer)/research,app/(drawer)/improvements,app/(drawer)/toolbelt.tsx,app/assimilate,app/toolbelt,components/ResearchProgress.tsx,components/assimilate,components/improvements,hooks/useResearchSession.ts,hooks/use-agent-activity.ts,hooks/use-notifications.ts'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo verify:no-convex-client",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 verifier not implemented",
+            "empty \u2014 cluster not yet rewired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-research",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run `holo verify:no-convex-client --roots 'app/(drawer)/research,app/(drawer)/improvements,app/(drawer)/toolbelt.tsx,app/assimilate,app/toolbelt,components/ResearchProgress.tsx,components/ResearchProgressWithConvex.tsx,components/assimilate,components/improvements,hooks/useResearchSession.ts,hooks/use-agent-activity.ts,hooks/use-notifications.ts,hooks/use-whats-new-feed.ts,hooks/use-subscription-feed.ts'`"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`0` `convex/react` import lines in the cluster",
+                "cluster hooks import from `app/zero/queries` (`>=1` Zero import)"
+              ],
+              "must_not_observe": [
+                "any `from 'convex/react'` line (`>0` hits)",
+                "any `useQuery`/`useMutation` from convex/react"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

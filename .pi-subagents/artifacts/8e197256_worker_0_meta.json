@@ -1,0 +1,162 @@
+{
+  "runId": "8e197256",
+  "agent": "worker",
+  "task": "Fix the two review blockers in the isolated worktree /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z. Current HEAD is b9471e3. Only edit scripts/e2e/run-maestro-reference-flow.sh. (1) Preserve the existing failure diagnostic for a non-directory/missing app path: the first check in validate_app_bundle should retain `Expo development build does not exist: $bundle` (do not change it to `is not a directory bundle`). (2) Prevent CFBundleExecutable path traversal/external symlink acceptance: require the value to be a simple filename with no `/` and reject a symlink executable (`[[ ! -L \"$exec_path\" ]]`) before -f/-x, while still accepting the verified real bundle shape. Use shell-safe checks. Run bash -n, git diff --check, and real temporary probes: empty bundle fails with the expected old diagnostic or Info.plist diagnostic; `../outside` executable and symlink-to-outside fail; minimal valid bundle passes --check. Run normal pre-commit hooks and commit only if all pass. Do not edit tests/task files/secrets/package files; do not use --no-verify. Report commit and exact evidence or blocker.",
+  "exitCode": 0,
+  "usage": {
+    "input": 41347,
+    "output": 6700,
+    "cacheRead": 309248,
+    "cacheWrite": 0,
+    "cost": 0.1124718,
+    "turns": 15
+  },
+  "model": "openai-codex/gpt-5.6-luna:high",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna:high"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 41347,
+        "output": 6700,
+        "cacheRead": 309248,
+        "cacheWrite": 0,
+        "cost": 0.1124718,
+        "turns": 15
+      }
+    }
+  ],
+  "durationMs": 153537,
+  "toolCount": 22,
+  "acceptance": {
+    "status": "checked",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "checked",
+      "explicit": false,
+      "inferredReason": ["write-capable worker/task"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Implement the requested change without widening scope",
+          "evidence": [
+            "changed-files",
+            "tests-added",
+            "commands-run",
+            "residual-risks",
+            "no-staged-files"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "changed-files",
+        "tests-added",
+        "commands-run",
+        "residual-risks",
+        "no-staged-files"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["write-capable worker/task"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Implement the requested change without widening scope",
+        "evidence": [
+          "changed-files",
+          "tests-added",
+          "commands-run",
+          "residual-risks",
+          "no-staged-files"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "criterion:criterion-1",
+        "status": "passed",
+        "message": "Required criterion 'criterion-1' satisfied."
+      },
+      {
+        "id": "evidence:changed-files",
+        "status": "passed",
+        "message": "changed-files evidence present."
+      },
+      {
+        "id": "evidence:tests-added",
+        "status": "not-applicable",
+        "message": "tests-added evidence explicitly reported as not applicable."
+      },
+      {
+        "id": "evidence:commands-run",
+        "status": "passed",
+        "message": "commands-run evidence present."
+      },
+      {
+        "id": "evidence:residual-risks",
+        "status": "passed",
+        "message": "residual-risks evidence present."
+      },
+      {
+        "id": "evidence:no-staged-files",
+        "status": "passed",
+        "message": "no-staged-files evidence present."
+      },
+      {
+        "id": "no-staged-files",
+        "status": "passed",
+        "message": "No staged files detected."
+      }
+    ],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Only the requested script changed; executable names reject '/', symlinks are rejected before -f/-x, and the original missing-path diagnostic is preserved."
+        }
+      ],
+      "changedFiles": ["scripts/e2e/run-maestro-reference-flow.sh"],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "bash -n scripts/e2e/run-maestro-reference-flow.sh",
+          "result": "passed",
+          "summary": "Shell syntax valid"
+        },
+        {
+          "command": "git diff --check",
+          "result": "passed",
+          "summary": "No whitespace errors"
+        },
+        {
+          "command": "temporary bundle probes",
+          "result": "passed",
+          "summary": "Empty, traversal, and symlink bundles failed; minimal valid bundle passed --check"
+        },
+        {
+          "command": "git commit -m \"fix(e2e): reject unsafe bundle executables\"",
+          "result": "passed",
+          "summary": "Normal pre-commit hooks passed: typecheck and 77 test files/917 tests"
+        }
+      ],
+      "validationOutput": [
+        "Commit d845a86e1bc3e00abf0beea1f428527303108a6d created.",
+        "Working tree clean."
+      ],
+      "residualRisks": [],
+      "noStagedFiles": true,
+      "diffSummary": "Restored the canonical missing-app diagnostic and added simple-filename and non-symlink executable checks.",
+      "reviewFindings": ["no blockers"],
+      "manualNotes": "Temporary probes used real PlistBuddy with fake preflight commands."
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/8e197256_worker_0_transcript.jsonl",
+  "timestamp": 1784444614660
+}

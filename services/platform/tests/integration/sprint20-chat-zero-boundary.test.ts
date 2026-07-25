@@ -78,43 +78,46 @@ describe('Sprint 20 chat/Zero boundary', () => {
     });
   });
 
-  itLive('creates and returns a durable conversation when the composer has no conversation ID', async () => {
-    if (!sql) throw new Error('Postgres is required');
-    const app = createHonoApp({ keys: KEYS });
-    const response = await app.request('/api/chat-runs', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        requestId: createRequestId,
-        msg: '[[tripwire]] create a durable conversation for the new-chat composer',
-      }),
-    });
+  itLive(
+    'creates and returns a durable conversation when the composer has no conversation ID',
+    async () => {
+      if (!sql) throw new Error('Postgres is required');
+      const app = createHonoApp({ keys: KEYS });
+      const response = await app.request('/api/chat-runs', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          requestId: createRequestId,
+          msg: '[[tripwire]] create a durable conversation for the new-chat composer',
+        }),
+      });
 
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as { conversationId?: string };
-    expect(body.conversationId).toMatch(/[0-9a-f-]{36}/);
-    createdConversationId = body.conversationId;
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { conversationId?: string };
+      expect(body.conversationId).toMatch(/[0-9a-f-]{36}/);
+      createdConversationId = body.conversationId;
 
-    const [conversation] = await sql`
+      const [conversation] = await sql`
       SELECT id, title, last_message_preview AS "lastMessagePreview"
       FROM conversations WHERE id = ${createdConversationId}::uuid
     `;
-    expect(conversation).toMatchObject({
-      id: createdConversationId,
-      title: '[[tripwire]] create a durable conversation for the new-chat composer',
-      lastMessagePreview: '[[tripwire]] create a durable conversation for the new-chat composer',
-    });
+      expect(conversation).toMatchObject({
+        id: createdConversationId,
+        title: '[[tripwire]] create a durable conversation for the new-chat composer',
+        lastMessagePreview: '[[tripwire]] create a durable conversation for the new-chat composer',
+      });
 
-    const messages = await sql`
+      const messages = await sql`
       SELECT role, content FROM chat_messages
       WHERE conversation_id = ${createdConversationId}
       ORDER BY created_at ASC
     `;
-    expect(messages).toEqual([
-      {
-        role: 'user',
-        content: '[[tripwire]] create a durable conversation for the new-chat composer',
-      },
-    ]);
-  });
+      expect(messages).toEqual([
+        {
+          role: 'user',
+          content: '[[tripwire]] create a durable conversation for the new-chat composer',
+        },
+      ]);
+    }
+  );
 });

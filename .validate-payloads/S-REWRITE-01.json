@@ -1,0 +1,304 @@
+{
+  "fixtures": {
+    "seeded-conversations": {
+      "description": "3 conversations seeded by `holo seed:e2e --reset`, reactive over Zero",
+      "seed_method": "public_api",
+      "records": [
+        "3 conversations exist in Postgres after `holo seed:e2e --reset`",
+        "each conversation has a title, an id, and >=1 message row"
+      ]
+    },
+    "seeded-conversation-with-messages": {
+      "description": "One seeded conversation with a durable message thread",
+      "seed_method": "public_api",
+      "records": [
+        "one conversation with >=3 messages in the messages table"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: 3 conversations are seeded in Postgres via `holo seed:e2e --reset` and the app is cold-booted WHEN: the user opens the drawer chat list THEN: the list shows 3 conversation rows (matching the 3 seeded) via Zero, not the empty state",
+      "verify": "maestro test .maestro/chat/drawer-loads-seeded.yml on a named iOS Simulator after `holo seed:e2e --reset`",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded / Zero socket down",
+            "empty \u2014 Zero query returns no rows",
+            "stub \u2014 list still calls convex/react useQuery"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-conversations",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the drawer chat list"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`3` conversation rows rendered (matches the `3` seeded)",
+                "each row shows a non-empty `title` and `lastMessage`",
+                "the list is bound to a Zero `useQuery`, not a static array"
+              ],
+              "must_not_observe": [
+                "the `No conversations yet` empty state (`0` rows)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded conversation is open in the drawer WHEN: the user renames it to 'Sprint Planning' via the rename dialog THEN: the new title 'Sprint Planning' reflects on the row within the 5s SLO via the Zero mutator and the row count stays 3 (no duplicate)",
+      "verify": "maestro test .maestro/chat/rename-reflects.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero mutator+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 rename is a local-only no-op not persisted",
+            "mock \u2014 mutator mocked to return success without writing",
+            "disconnect \u2014 Zero mutator not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-conversations",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open rename dialog on one conversation",
+                "enter 'Sprint Planning' and confirm"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the renamed row's `title` updates to `Sprint Planning`",
+                "row count stays `3` (`1` changed, `0` added)",
+                "Postgres row `title` matches within the `5s` SLO"
+              ],
+              "must_not_observe": [
+                "the previous `title` value persists (`0` updates applied)",
+                "a duplicate row (count `4`)",
+                "a `convex/react` `useMutation` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded conversation with >=3 messages is open WHEN: the user opens the conversation thread THEN: the thread renders the >=3 seeded messages via Zero in order",
+      "verify": "maestro test .maestro/chat/thread-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no messages",
+            "stub \u2014 thread rendered from a hardcoded array"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-conversation-with-messages",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the conversation thread"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`>=3` message bubbles rendered in order via Zero",
+                "each bubble shows a non-empty `text` field",
+                "thread bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `No messages` empty state (`0` bubbles)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded conversation thread is open WHEN: the user sends a message from the composer THEN: the message is sent via the Hono chat command and the assistant reply streams back via SSE; no convex/react useAction on the path",
+      "verify": "maestro test .maestro/chat/send-streams.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Hono command+SSE+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Hono command not wired",
+            "stub \u2014 reply is a hardcoded string not from the fleet",
+            "mock \u2014 SSE faked without a durable row"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-conversation-with-messages",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "type a message in the composer",
+                "press send"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`>=1` new `messages` row in Postgres (count increases by `1`)",
+                "`>=1` `data:` SSE token event from the fleet specialist",
+                "the sent `body` renders as a new user bubble"
+              ],
+              "must_not_observe": [
+                "`0` streamed SSE tokens",
+                "a `convex/react` `useAction` import",
+                "no persisted message row (count unchanged)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: an assistant reply is streaming WHEN: the user taps cancel THEN: streaming stops and the partial turn is finalized via the Hono cancel command; no convex/react on the path",
+      "verify": "maestro test .maestro/chat/cancel-works.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Hono command+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 cancel is a no-op",
+            "disconnect \u2014 cancel command not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-conversation-with-messages",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "while a reply is streaming, tap the cancel control"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`0` further SSE tokens after cancel",
+                "the turn row reaches a terminal `status` (e.g. `cancelled`)",
+                "cancel dispatched via the Hono command (`POST`, not a convex action)"
+              ],
+              "must_not_observe": [
+                "streaming continues (`>0` further tokens after cancel)",
+                "a `convex/react` `useAction` import (no effect)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all chat-cluster files have been rewired WHEN: the verifier scans the chat-cluster roots for convex/react imports THEN: zero `convex/react` import statements remain and the cluster reads through the Zero seam",
+      "verify": "holo verify:no-convex-client --roots 'app/(drawer)/chat,components/chat,hooks/use-chat-history.ts,hooks/use-agent-activity.ts'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo verify:no-convex-client",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 verifier not implemented",
+            "empty \u2014 cluster not yet rewired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-conversations",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run `holo verify:no-convex-client --roots app/(drawer)/chat components/chat hooks/use-chat-history.ts hooks/use-agent-activity.ts`"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`0` `convex/react` import lines in the cluster",
+                "cluster hooks import from `app/zero/queries` (`>=1` Zero import)"
+              ],
+              "must_not_observe": [
+                "any `from 'convex/react'` line (`>0` hits)",
+                "any `useQuery`/`useMutation`/`useAction` from convex/react"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "runId": "e3b77a74",
+  "agent": "worker",
+  "task": "Read-only independent review of commit d845a86 in /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z. Inspect only scripts/e2e/run-maestro-reference-flow.sh and git diff. Verify: old diagnostic preserved for non-directory app path; Info.plist and nonempty CFBundleIdentifier/CFBundleExecutable required; executable must be a simple filename inside bundle, not traversal or symlink; executable file must be -f and -x; call occurs before xcrun/simulator and namespace reset; --check still works. Run bash -n and git diff --check. Do not edit/commit. Report PASS or blocking findings with exact evidence; do not claim Sprint 20 AC-1/human gate.",
+  "exitCode": 0,
+  "usage": {
+    "input": 17356,
+    "output": 2817,
+    "cacheRead": 23040,
+    "cacheWrite": 0,
+    "cost": 0.036562,
+    "turns": 4
+  },
+  "model": "openai-codex/gpt-5.6-luna:high",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna:high"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 17356,
+        "output": 2817,
+        "cacheRead": 23040,
+        "cacheWrite": 0,
+        "cost": 0.036562,
+        "turns": 4
+      }
+    }
+  ],
+  "durationMs": 58200,
+  "toolCount": 8,
+  "acceptance": {
+    "status": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only task wording"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only task wording"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Reviewed d845a86 and identified the diagnostic regression at scripts/e2e/run-maestro-reference-flow.sh:35."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "bash -n scripts/e2e/run-maestro-reference-flow.sh",
+          "result": "passed",
+          "summary": "Shell syntax valid."
+        },
+        {
+          "command": "git diff --check d845a86^ d845a86",
+          "result": "passed",
+          "summary": "No whitespace errors."
+        }
+      ],
+      "validationOutput": [
+        "Bundle validation occurs at line 64 before simulator xcrun use at line 66 and namespace reset at line 75.",
+        "Info.plist, nonempty CFBundleIdentifier/CFBundleExecutable, slash rejection, symlink rejection, -f, and -x checks are present.",
+        "--check remains the branch at lines 69-72."
+      ],
+      "residualRisks": ["Blocking: the old non-directory app-path diagnostic is not preserved."],
+      "noStagedFiles": true,
+      "diffSummary": "Commit hardens bundle executable validation but replaces the prior non-directory diagnostic.",
+      "reviewFindings": [
+        "blocker: scripts/e2e/run-maestro-reference-flow.sh:35 - prior diagnostic 'Expo development build is not a directory bundle' was changed to 'Expo development build does not exist'."
+      ],
+      "manualNotes": "Independent read-only review only; Sprint 20 AC-1 and human gate were not assessed."
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/e3b77a74_worker_0_transcript.jsonl",
+  "timestamp": 1784444681993
+}

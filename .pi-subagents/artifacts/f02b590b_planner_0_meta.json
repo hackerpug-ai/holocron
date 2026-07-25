@@ -1,0 +1,106 @@
+{
+  "runId": "f02b590b",
+  "agent": "planner",
+  "task": "You are acting as the logical specialist `react-native-ui-planner` (runtime fallback because the configured custom model is unavailable). Goal: expand Sprint 21 Client Data Contract task stubs into implementation-ready JSON. Read /Users/inference1/Projects/holocron/RULES.md, Sprint 21 in /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md, relevant UC-SYNC-01/T-SYNC-019/T-SYNC-004 sections in /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/README.md and 08-uc-sync.md, and inspect current RN app plus services/platform CLI/schema/Zero/Hono surfaces. Do not write files. Return exactly one fenced JSON block {\"expanded_tasks\":[...]} and no prose. Expand ALL three stubs: S-CONTRACT-01 inventory legacy Convex hook/action call sites (react-native-ui-implementer, 120 min), S-CONTRACT-02 author 13-client-data-contract.yaml mapping every call site (react-native-ui-implementer, 300 min), S-CONTRACT-03 CI contract-inventory gate holo verify:client-contract (red-test-generator, 120 min). Every task object MUST set proposed_by:\"react-native-ui-planner\", task_type, background, outcome/specification objective+success_state, 4+ GWT ACs with stable AC-N IDs and scenario/fixtures for every behavioral AC, primary integration/e2e tier, TC-N mapped test criteria, exact verification commands, reading_list with real paths+line ranges, writeAllowed/writeProhibited, CAP-SYNC-01 and CAP-CUT-01 touches/provides/consumes/boundary_contracts, dependencies, implementer/reviewer assignment+rationale, coding_standards. Locate actual validate_scenario.py and use valid scenarios. Use realistic filenames only.",
+  "exitCode": 1,
+  "usage": {
+    "input": 147502,
+    "output": 28502,
+    "cacheRead": 1991680,
+    "cacheWrite": 0,
+    "cost": 0.517682,
+    "turns": 26
+  },
+  "model": "openai-codex/gpt-5.6-luna",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna",
+      "success": false,
+      "exitCode": 1,
+      "error": "Agent 'planner' requested unavailable child tools: websearch, question, task.\nThe `tools` field is a strict allowlist; it does not load extension code.\nFor extension tools, add the provider path to `subagentOnlyExtensions` (child-only), `extensions`, or as a path-like entry in `tools`, while keeping each registered tool name in `tools`.\nFor MCP tools, verify the MCP adapter configuration and selected tool names. For builtin tools, verify the name against the installed Pi version.",
+      "usage": {
+        "input": 147502,
+        "output": 28502,
+        "cacheRead": 1991680,
+        "cacheWrite": 0,
+        "cost": 0.517682,
+        "turns": 26
+      }
+    }
+  ],
+  "durationMs": 611630,
+  "toolCount": 50,
+  "error": "Agent 'planner' requested unavailable child tools: websearch, question, task.\nThe `tools` field is a strict allowlist; it does not load extension code.\nFor extension tools, add the provider path to `subagentOnlyExtensions` (child-only), `extensions`, or as a path-like entry in `tools`, while keeping each registered tool name in `tools`.\nFor MCP tools, verify the MCP adapter configuration and selected tool names. For builtin tools, verify the name against the installed Pi version.",
+  "acceptance": {
+    "status": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only task wording"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only task wording"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Concrete repository findings are reflected in the task specifications and reading lists: app/_layout.tsx still imports ConvexProvider at lines 7 and 144-165; app/zero/schema.ts currently publishes only conversations and chat_messages; services/platform/src/cli/holo.ts has no client-contract command; and .github/workflows/ci-fast.yml is the existing fast CI lane."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "find /Users/inference1/Projects/holocron -name validate_scenario.py",
+          "result": "failed",
+          "summary": "No project-local validator found."
+        },
+        {
+          "command": "find /Users/inference1/Projects/brain -path '*validate-scenario*' -o -name validate_scenario.py",
+          "result": "passed",
+          "summary": "Located /Users/inference1/Projects/brain/tools/validate-scenario/validate_scenario.py."
+        }
+      ],
+      "validationOutput": [
+        "Scenarios use the validator's accepted real seed methods, concrete observations, non-empty must_not_observe values, negative controls, evidence, and integration/e2e tiers."
+      ],
+      "residualRisks": [
+        "The requested contract and verifier do not yet exist in the repository; these are implementation-ready task definitions, not implemented changes.",
+        "The current Zero schema is narrower than the eventual 105-call-site contract and will require later Sprint 24 expansion."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "No files changed; returned expanded Sprint 21 task JSON only.",
+      "reviewFindings": [
+        "medium: services/platform/src/cli/holo.ts lacks inventory:convex-callsites and verify:client-contract dispatch cases.",
+        "medium: app/zero/schema.ts currently exposes only conversations and chat_messages, so target verification must remain fail-closed for unavailable targets.",
+        "low: validate_scenario.py is outside the Holocron repository at /Users/inference1/Projects/brain/tools/validate-scenario/validate_scenario.py."
+      ],
+      "manualNotes": "No files were written as requested."
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/f02b590b_planner_0_transcript.jsonl",
+  "timestamp": 1784440876947
+}

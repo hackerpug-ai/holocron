@@ -1,0 +1,163 @@
+{
+  "runId": "849ac502",
+  "agent": "worker",
+  "task": "Implement and verify the narrow D03-03 bundle guard fix in the isolated worktree /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z. Current diff defines validate_app_bundle() in scripts/e2e/run-maestro-reference-flow.sh but still leaves the old [[ -d \"$app_path\" ]] guard at line ~63. Replace that exact guard with validate_app_bundle \"$app_path\". Do not edit tests, task files, secrets, package files, or any other source. Run bash -n and git diff --check. Use temporary real shell probes: an empty .app must fail before simulator commands; a minimal Info.plist with nonempty CFBundleIdentifier/CFBundleExecutable and executable file must pass the guard. Commit only if checks pass; report exact commit/evidence or blocker. No --no-verify. Work only in that isolated worktree.",
+  "exitCode": 0,
+  "usage": {
+    "input": 85356,
+    "output": 9746,
+    "cacheRead": 532480,
+    "cacheWrite": 0,
+    "cost": 0.19708,
+    "turns": 26
+  },
+  "model": "openai-codex/gpt-5.6-luna:high",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna:high"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 85356,
+        "output": 9746,
+        "cacheRead": 532480,
+        "cacheWrite": 0,
+        "cost": 0.19708,
+        "turns": 26
+      }
+    }
+  ],
+  "durationMs": 456469,
+  "toolCount": 22,
+  "acceptance": {
+    "status": "checked",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "checked",
+      "explicit": false,
+      "inferredReason": ["write-capable worker/task"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Implement the requested change without widening scope",
+          "evidence": [
+            "changed-files",
+            "tests-added",
+            "commands-run",
+            "residual-risks",
+            "no-staged-files"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "changed-files",
+        "tests-added",
+        "commands-run",
+        "residual-risks",
+        "no-staged-files"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["write-capable worker/task"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Implement the requested change without widening scope",
+        "evidence": [
+          "changed-files",
+          "tests-added",
+          "commands-run",
+          "residual-risks",
+          "no-staged-files"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "criterion:criterion-1",
+        "status": "passed",
+        "message": "Required criterion 'criterion-1' satisfied."
+      },
+      {
+        "id": "evidence:changed-files",
+        "status": "passed",
+        "message": "changed-files evidence present."
+      },
+      {
+        "id": "evidence:tests-added",
+        "status": "not-applicable",
+        "message": "tests-added evidence explicitly reported as not applicable."
+      },
+      {
+        "id": "evidence:commands-run",
+        "status": "passed",
+        "message": "commands-run evidence present."
+      },
+      {
+        "id": "evidence:residual-risks",
+        "status": "passed",
+        "message": "residual-risks evidence present."
+      },
+      {
+        "id": "evidence:no-staged-files",
+        "status": "passed",
+        "message": "no-staged-files evidence present."
+      },
+      {
+        "id": "no-staged-files",
+        "status": "passed",
+        "message": "No staged files detected."
+      }
+    ],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Only scripts/e2e/run-maestro-reference-flow.sh changed; guard now calls validate_app_bundle."
+        }
+      ],
+      "changedFiles": ["scripts/e2e/run-maestro-reference-flow.sh"],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "bash -n scripts/e2e/run-maestro-reference-flow.sh",
+          "result": "passed",
+          "summary": "Syntax valid"
+        },
+        {
+          "command": "git diff --check",
+          "result": "passed",
+          "summary": "No whitespace errors"
+        },
+        {
+          "command": "Temporary empty/valid .app probes",
+          "result": "passed",
+          "summary": "Empty bundle failed before simulator commands; valid bundle passed"
+        },
+        {
+          "command": "git commit",
+          "result": "passed",
+          "summary": "Pre-commit typecheck and 917 tests passed"
+        }
+      ],
+      "validationOutput": [
+        "Empty probe status 1; simulator commands none",
+        "Valid probe status 0",
+        "Commit contains one changed file"
+      ],
+      "residualRisks": [],
+      "noStagedFiles": true,
+      "diffSummary": "Replaced the legacy directory guard with validate_app_bundle.",
+      "reviewFindings": ["No blockers"],
+      "manualNotes": "No package or test files were changed."
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/849ac502_worker_0_transcript.jsonl",
+  "timestamp": 1784444146099
+}

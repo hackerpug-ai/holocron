@@ -1,0 +1,100 @@
+{
+  "runId": "26c1fd41",
+  "agent": "worker",
+  "task": "Read-only adversarial review of commit b9471e3 in /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z. Inspect only scripts/e2e/run-maestro-reference-flow.sh. Verify the new validate_app_bundle function is called at the old guard location before xcrun/simulator reset, reads nonempty CFBundleIdentifier and CFBundleExecutable from Info.plist, requires executable file, preserves --check semantics, and has no shell/path defects. Run bash -n and git diff --check. Do not edit or commit. Report PASS or blocking findings and exact evidence; do not claim the Sprint 20 human gate.",
+  "exitCode": 0,
+  "usage": {
+    "input": 48088,
+    "output": 9948,
+    "cacheRead": 116736,
+    "cacheWrite": 0,
+    "cost": 0.11944959999999999,
+    "turns": 10
+  },
+  "model": "openai-codex/gpt-5.6-luna:high",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna:high"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 48088,
+        "output": 9948,
+        "cacheRead": 116736,
+        "cacheWrite": 0,
+        "cost": 0.11944959999999999,
+        "turns": 10
+      }
+    }
+  ],
+  "durationMs": 192889,
+  "toolCount": 21,
+  "acceptance": {
+    "status": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only task wording"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only task wording"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Concrete blocking findings identify scripts/e2e/run-maestro-reference-flow.sh lines 33-45, with exact path and diagnostic-contract evidence."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "bash -n <(git -C /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z show b9471e3:scripts/e2e/run-maestro-reference-flow.sh)",
+          "result": "passed",
+          "summary": "Commit blob parses successfully."
+        },
+        {
+          "command": "git -C /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z diff --check b9471e3^ b9471e3 -- scripts/e2e/run-maestro-reference-flow.sh",
+          "result": "passed",
+          "summary": "No whitespace errors."
+        }
+      ],
+      "validationOutput": [
+        "Static ordering: validate_app_bundle call line 60; simulator listing line 62; --check line 65; namespace reset line 71."
+      ],
+      "residualRisks": ["macOS PlistBuddy/simctl runtime behavior was not exercised."],
+      "noStagedFiles": true,
+      "diffSummary": "Reviewed the one-file b9471e3 change; no reviewer edits.",
+      "reviewFindings": [
+        "blocking: scripts/e2e/run-maestro-reference-flow.sh:33-45 - CFBundleExecutable path is not constrained within the bundle; ../ traversal or an external symlink can pass -f/-x.",
+        "blocking: scripts/e2e/run-maestro-reference-flow.sh:33-45 - validation failures no longer preserve the prior 'Expo development build does not exist' diagnostic substring."
+      ],
+      "manualNotes": "No Sprint 20 human gate claim was made."
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/26c1fd41_worker_0_transcript.jsonl",
+  "timestamp": 1784444445159
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "mrrdmk8e-4d65",
+    "agentType": "react-native-ui-planner",
+    "description": "Plan client contract tasks",
+    "sessionName": "task-mrrdmk8e-4d65",
+    "startedAt": 1784440207627,
+    "piDir": "/Users/inference1/Projects/holocron/.pi",
+    "dir": "/Users/inference1/Projects/holocron/.pi/artifacts/tasks",
+    "status": "failed",
+    "background": true,
+    "completedAt": 1784440208094
+  },
+  {
+    "id": "mrrdmk8l-c0a6",
+    "agentType": "frontend-designer",
+    "description": "Review client contract design",
+    "sessionName": "task-mrrdmk8l-c0a6",
+    "startedAt": 1784440207894,
+    "piDir": "/Users/inference1/Projects/holocron/.pi",
+    "dir": "/Users/inference1/Projects/holocron/.pi/artifacts/tasks",
+    "status": "failed",
+    "background": true,
+    "completedAt": 1784440208096
+  },
+  {
+    "id": "mrs9ewjz-bc1c",
+    "agentType": "react-native-ui-reviewer",
+    "description": "Review Sprint 20 RN contracts",
+    "sessionName": "task-mrs9ewjz-bc1c",
+    "startedAt": 1784493598056,
+    "piDir": "/Users/inference1/Projects/holocron/.pi",
+    "dir": "/Users/inference1/Projects/holocron/.pi/artifacts/tasks",
+    "status": "failed",
+    "background": true,
+    "completedAt": 1784493598628
+  },
+  {
+    "id": "mrs9ewk5-c7de",
+    "agentType": "ghactions-reviewer",
+    "description": "Review Sprint 20 CI contracts",
+    "sessionName": "task-mrs9ewk5-c7de",
+    "startedAt": 1784493598203,
+    "piDir": "/Users/inference1/Projects/holocron/.pi",
+    "dir": "/Users/inference1/Projects/holocron/.pi/artifacts/tasks",
+    "status": "failed",
+    "background": true,
+    "completedAt": 1784493598632
+  },
+  {
+    "id": "mrs9ewka-6511",
+    "agentType": "mastra-reviewer",
+    "description": "Review Sprint 20 real services",
+    "sessionName": "task-mrs9ewka-6511",
+    "startedAt": 1784493598338,
+    "piDir": "/Users/inference1/Projects/holocron/.pi",
+    "dir": "/Users/inference1/Projects/holocron/.pi/artifacts/tasks",
+    "status": "failed",
+    "background": true,
+    "completedAt": 1784493598629
+  },
+  {
+    "id": "mrs9ewkh-4d35",
+    "agentType": "reviewer",
+    "description": "Complete independent Sprint 20 review",
+    "sessionName": "task-mrs9ewkh-4d35",
+    "startedAt": 1784493598463,
+    "piDir": "/Users/inference1/Projects/holocron/.pi",
+    "dir": "/Users/inference1/Projects/holocron/.pi/artifacts/tasks",
+    "status": "failed",
+    "background": true,
+    "completedAt": 1784493598633
+  }
+]

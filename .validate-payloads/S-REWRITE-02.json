@@ -1,0 +1,301 @@
+{
+  "fixtures": {
+    "seeded-documents": {
+      "description": "12 documents seeded by `holo seed:e2e --reset`, grouped by category, reactive over Zero",
+      "seed_method": "public_api",
+      "records": [
+        "12 documents exist in Postgres after `holo seed:e2e --reset`",
+        "documents carry a `category` field used for grouping",
+        ">=1 document is marked public with a valid share token"
+      ]
+    },
+    "seeded-public-doc": {
+      "description": "One seeded public document with a share token",
+      "seed_method": "public_api",
+      "records": [
+        "one document with is_public=true and a share_token pointing at the Mastra /article/ host"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: 12 documents are seeded via `holo seed:e2e --reset` WHEN: the user opens Articles THEN: the 12 seeded documents load via Zero grouped by category",
+      "verify": "maestro test .maestro/articles/list-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no documents",
+            "stub \u2014 list from a hardcoded array"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-documents",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the Articles screen"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`12` document cards rendered (matches the `12` seeded)",
+                "cards grouped under `>=1` `category` header",
+                "list bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "the `No documents` empty state (`0` cards)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded document exists WHEN: the user opens a document detail THEN: the document title and content load via Zero",
+      "verify": "maestro test .maestro/articles/detail-loads.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "empty \u2014 Zero returns no rows",
+            "stub \u2014 detail from hardcoded content"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-documents",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "tap a document card to open detail"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the document `title` and non-empty `content` render via Zero",
+                "detail bound to a Zero `useQuery`"
+              ],
+              "must_not_observe": [
+                "a `Document not found` fallback for a present doc (`0` content)",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: a seeded public document is open in app/document/[id].tsx WHEN: the user taps Share THEN: the generated URL points at the Mastra /article/ host and contains no .convex.site rewrite",
+      "verify": "maestro test .maestro/articles/share-url-mastra.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Mastra /article/ host",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 builder returns a hardcoded .convex.site URL",
+            "disconnect \u2014 builder not rewired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-public-doc",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open a public document",
+                "tap Share"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the URL host is the Mastra host with an `/article/<token>` path",
+                "the URL contains `0` `.convex.site` segments"
+              ],
+              "must_not_observe": [
+                "a URL ending in `.convex.site` (`>0` segments)",
+                "a URL ending in `.convex.cloud`",
+                "a `convex/react` hook on the path"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: the user is on the import modal WHEN: the user imports a valid article THEN: a new document is created via the Zero mutator and appears in the list",
+      "verify": "maestro test .maestro/articles/import-works.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero mutator+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 import is a no-op",
+            "mock \u2014 mutator faked without a write",
+            "disconnect \u2014 mutator not wired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-documents",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the import modal",
+                "submit a valid article URL"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`1` new `documents` row in Postgres (count increases by `1`)",
+                "the list count increases by `1`",
+                "mutator is a Zero mutator, not a `convex/react` `useMutation`"
+              ],
+              "must_not_observe": [
+                "no new row persisted (count unchanged / `0` added)",
+                "a `convex/react` `useMutation` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN: a seeded document with narration exists WHEN: the user taps Play THEN: the narration audio loads via Zero and plays",
+      "verify": "maestro test .maestro/articles/narration-plays.yml",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "e2e",
+        "verification_service": "Zero+seeded Postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "disconnect \u2014 Postgres not seeded",
+            "stub \u2014 player from a hardcoded URI"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-documents",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open a document with narration",
+                "tap Play"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the audio player shows a `playing` state with a numeric `duration`",
+                "audio URI resolves from the Zero-backed `file_objects` row"
+              ],
+              "must_not_observe": [
+                "a disabled Play control with `0` duration",
+                "a `convex/react` `useQuery` import"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all documents-cluster files have been rewired WHEN: the verifier scans the documents-cluster roots THEN: zero convex/react imports remain and the cluster reads through the Zero seam",
+      "verify": "holo verify:no-convex-client --roots 'app/articles.tsx,app/articles,app/document,components/ArticleCard.tsx,components/articles'",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo verify:no-convex-client",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 verifier not implemented",
+            "empty \u2014 cluster not yet rewired"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded-documents",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run `holo verify:no-convex-client --roots 'app/articles.tsx,app/articles/[id].tsx,app/document/[id].tsx,components/ArticleCard.tsx,components/articles/ArticleImportModal.tsx'`"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`0` `convex/react` import lines in the cluster",
+                "cluster hooks import from `app/zero/queries` (`>=1` Zero import)"
+              ],
+              "must_not_observe": [
+                "any `from 'convex/react'` line (`>0` hits)",
+                "any `useQuery`/`useMutation` from convex/react"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

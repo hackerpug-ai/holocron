@@ -1,0 +1,75 @@
+{
+  "runId": "7c272913",
+  "agent": "reviewer",
+  "task": "Read-only adversarial review of commit b9471e3 in /Users/inference1/Projects/holocron/.worktrees/s20-d0303-bundle-fix-20260719T064000Z. Review scripts/e2e/run-maestro-reference-flow.sh against the narrow D03-03 requirement: empty/partial .app must fail before simctl/reset, while a real/valid bundle and existing --check contract remain accepted. Verify call-site ordering, shell correctness, path/key handling, security/path edge cases, and evidence quality. Run only read-only checks (bash -n, diff-check, and safe temporary probes if needed); do not edit files or commit. Report blocking findings, exact commands/results, and whether independent review passes. Do not claim Sprint 20 AC-1 or the human gate.",
+  "exitCode": 1,
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 4
+  },
+  "model": "inference-cluster/implementer:high",
+  "attemptedModels": ["inference-cluster/implementer:high"],
+  "modelAttempts": [
+    {
+      "model": "inference-cluster/implementer:high",
+      "success": false,
+      "exitCode": 1,
+      "error": "Connection error.",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 4
+      }
+    }
+  ],
+  "durationMs": 16115,
+  "toolCount": 0,
+  "error": "Connection error.",
+  "acceptance": {
+    "status": "rejected",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only/reviewer-style agent"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only/reviewer-style agent"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "attestation",
+        "status": "failed",
+        "message": "Structured acceptance report not found."
+      }
+    ],
+    "verifyRuns": [],
+    "childReportParseError": "Structured acceptance report not found."
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/7c272913_reviewer_0_transcript.jsonl",
+  "timestamp": 1784444178945
+}

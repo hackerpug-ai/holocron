@@ -147,7 +147,10 @@ export async function appendDocumentImport(id: string, text: string): Promise<Pl
 
 /** POST /api/documents/:id/publish — durable document share token. */
 export async function publishDocument(id: string): Promise<PlatformJson> {
-  const response = await platformFetch(`/api/documents/${id}/publish`, { method: 'POST', json: {} });
+  const response = await platformFetch(`/api/documents/${id}/publish`, {
+    method: 'POST',
+    json: {},
+  });
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     throw new Error(`document publish failed: ${response.status} ${body}`);

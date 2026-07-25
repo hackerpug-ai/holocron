@@ -1,0 +1,75 @@
+{
+  "runId": "20fd82fa",
+  "agent": "reviewer",
+  "task": "Read-only adversarial review of the in-progress Sprint 20 D03-07 candidate at /Users/inference1/Projects/holocron/.worktrees/D03-07. Do not edit any files, do not commit, and do not run commands that mutate artifacts. Compare scripts/e2e/capstone-verdict.sh, tests/integration/sprint20-capstone-verdict.test.ts, docs/ci/D03-07-capstone-verdict.md against the D03-07 task contract at /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow/D03-07-prove-cold-boot-reference-flow-green-go-no-go-capstone.md. Focus on whether the verdict can legitimately prove AC-1/AC-2/AC-3, provenance/anti-fake requirements, and whether tests are real behavioral coverage versus synthetic fixture acceptance. Report blocking findings with file/line evidence. Explicitly distinguish implementation readiness from Sprint 20 human-gate completion; do not claim green without current real local+CI evidence. Stop after the report.",
+  "exitCode": 1,
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 4
+  },
+  "model": "inference-cluster/implementer:high",
+  "attemptedModels": ["inference-cluster/implementer:high"],
+  "modelAttempts": [
+    {
+      "model": "inference-cluster/implementer:high",
+      "success": false,
+      "exitCode": 1,
+      "error": "Connection error.",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 4
+      }
+    }
+  ],
+  "durationMs": 16045,
+  "toolCount": 0,
+  "error": "Connection error.",
+  "acceptance": {
+    "status": "rejected",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only/reviewer-style agent"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only/reviewer-style agent"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "attestation",
+        "status": "failed",
+        "message": "Structured acceptance report not found."
+      }
+    ],
+    "verifyRuns": [],
+    "childReportParseError": "Structured acceptance report not found."
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/20fd82fa_reviewer_0_transcript.jsonl",
+  "timestamp": 1784446979022
+}

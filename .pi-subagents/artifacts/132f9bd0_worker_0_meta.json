@@ -1,0 +1,257 @@
+{
+  "runId": "132f9bd0",
+  "agent": "worker",
+  "task": "Read-only final audit for Sprint 20 D03-03 candidate. Use candidate worktree /Users/inference1/Projects/holocron/.worktrees/s20-d0303-final-candidate-20260719T071500Z at d845a86; do not edit it. Create a disposable /tmp git worktree or temporary copy from d845a86, overlay tests/integration/sprint20-maestro-harness.test.ts exactly from commit 003390e, and run the exact six-case test with available real dependencies. Capture raw command, stdout/stderr, exit code, and cleanup. Then audit real substrate with commands only: Postgres reachability, Zero services, platform/fleet URLs, named iPhone 17 simulator availability, maestro CLI, and Expo dev build path. Do not use dummy credentials or stubs. If every prerequisite is truly present, do not automatically run destructive Maestro unless the task contract and secrets are demonstrably real; otherwise report exact blocker. Verify candidate remains clean and report whether AC-1 / six-step gate is proven (likely not). Read-only: never edit source/tests/secrets/package files or commit; no --no-verify.",
+  "exitCode": 0,
+  "usage": {
+    "input": 64250,
+    "output": 12121,
+    "cacheRead": 439808,
+    "cacheWrite": 0,
+    "cost": 0.1809568,
+    "turns": 16
+  },
+  "model": "openai-codex/gpt-5.6-luna:high",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna:high"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 64250,
+        "output": 12121,
+        "cacheRead": 439808,
+        "cacheWrite": 0,
+        "cost": 0.1809568,
+        "turns": 16
+      }
+    }
+  ],
+  "durationMs": 274293,
+  "toolCount": 27,
+  "acceptance": {
+    "status": "checked",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "reviewed",
+      "explicit": false,
+      "inferredReason": ["risky write-capable run"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Implement the requested change without widening scope",
+          "evidence": [
+            "changed-files",
+            "tests-added",
+            "commands-run",
+            "validation-output",
+            "residual-risks",
+            "no-staged-files"
+          ],
+          "severity": "required"
+        },
+        {
+          "id": "criterion-2",
+          "must": "Return evidence sufficient for an independent acceptance review",
+          "evidence": [
+            "changed-files",
+            "tests-added",
+            "commands-run",
+            "validation-output",
+            "residual-risks",
+            "no-staged-files"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "changed-files",
+        "tests-added",
+        "commands-run",
+        "validation-output",
+        "residual-risks",
+        "no-staged-files"
+      ],
+      "verify": [],
+      "review": {
+        "agent": "reviewer",
+        "required": true
+      },
+      "stopRules": []
+    },
+    "inferredReason": ["risky write-capable run"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Implement the requested change without widening scope",
+        "evidence": [
+          "changed-files",
+          "tests-added",
+          "commands-run",
+          "validation-output",
+          "residual-risks",
+          "no-staged-files"
+        ],
+        "severity": "required"
+      },
+      {
+        "id": "criterion-2",
+        "must": "Return evidence sufficient for an independent acceptance review",
+        "evidence": [
+          "changed-files",
+          "tests-added",
+          "commands-run",
+          "validation-output",
+          "residual-risks",
+          "no-staged-files"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "criterion:criterion-1",
+        "status": "passed",
+        "message": "Required criterion 'criterion-1' satisfied."
+      },
+      {
+        "id": "criterion:criterion-2",
+        "status": "passed",
+        "message": "Required criterion 'criterion-2' satisfied."
+      },
+      {
+        "id": "evidence:changed-files",
+        "status": "passed",
+        "message": "changed-files evidence present."
+      },
+      {
+        "id": "evidence:tests-added",
+        "status": "passed",
+        "message": "tests-added evidence present."
+      },
+      {
+        "id": "evidence:commands-run",
+        "status": "passed",
+        "message": "commands-run evidence present."
+      },
+      {
+        "id": "evidence:validation-output",
+        "status": "passed",
+        "message": "validation-output evidence present."
+      },
+      {
+        "id": "evidence:residual-risks",
+        "status": "passed",
+        "message": "residual-risks evidence present."
+      },
+      {
+        "id": "evidence:no-staged-files",
+        "status": "passed",
+        "message": "no-staged-files evidence present."
+      },
+      {
+        "id": "no-staged-files",
+        "status": "passed",
+        "message": "No staged files detected."
+      }
+    ],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Candidate commit d845a86 changes only scripts/e2e/run-maestro-reference-flow.sh; candidate worktree remained clean."
+        },
+        {
+          "id": "criterion-2",
+          "status": "satisfied",
+          "evidence": "Disposable exact test overlay passed 6/6, with raw output, exit code, substrate probes, and cleanup evidence captured."
+        }
+      ],
+      "changedFiles": ["scripts/e2e/run-maestro-reference-flow.sh"],
+      "testsAddedOrUpdated": [
+        "tests/integration/sprint20-maestro-harness.test.ts (disposable overlay from 003390e only)"
+      ],
+      "commandsRun": [
+        {
+          "command": "pnpm exec vitest run tests/integration/sprint20-maestro-harness.test.ts",
+          "result": "passed",
+          "summary": "6 passed; exit 0"
+        },
+        {
+          "command": "pg_isready -h 127.0.0.1 -p 5432 -d holocron_nonprod",
+          "result": "passed",
+          "summary": "accepting connections"
+        },
+        {
+          "command": "psql -X -w -h 127.0.0.1 -p 5432 -d holocron_nonprod -Atqc 'select current_database(), current_user'",
+          "result": "passed",
+          "summary": "holocron_nonprod|inference1"
+        },
+        {
+          "command": "curl --max-time 3 http://127.0.0.1:4111/health",
+          "result": "passed",
+          "summary": "HTTP 200; db and fleet ready"
+        },
+        {
+          "command": "curl --max-time 3 http://127.0.0.1:4545/v1/models",
+          "result": "passed",
+          "summary": "HTTP 200; real models listed"
+        },
+        {
+          "command": "xcrun simctl list devices available | grep -F 'iPhone 17'",
+          "result": "passed",
+          "summary": "iPhone 17 present and Booted"
+        },
+        {
+          "command": "maestro --version",
+          "result": "passed",
+          "summary": "2.6.1"
+        },
+        {
+          "command": "bash scripts/e2e/run-maestro-reference-flow.sh --check",
+          "result": "failed",
+          "summary": "MAESTRO_DEVICE unset; exit 1"
+        },
+        {
+          "command": "git status --porcelain=v1",
+          "result": "passed",
+          "summary": "no candidate changes"
+        }
+      ],
+      "validationOutput": [
+        "Vitest: 1 test file passed; 6 tests passed; duration 655ms; stderr empty; exit 0.",
+        "Zero keepalive returned HTTP 200, but the existing process command contains dummy --admin-password test-zero-admin.",
+        "Valid .app bundles exist elsewhere, but EXPO_DEV_BUILD_PATH is unset for the candidate audit."
+      ],
+      "residualRisks": [
+        "AC-1/full six-step Maestro gate is unproven.",
+        "Required DATABASE_URL, FLEET_URL, platform URL, RN API key, Zero admin password, MAESTRO_DEVICE, and EXPO_DEV_BUILD_PATH are unset.",
+        "Destructive Maestro run was correctly not attempted."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "One committed harness-script change; no uncommitted candidate diff.",
+      "reviewFindings": [
+        "blocker: required real E2E environment is absent.",
+        "blocker: existing Zero process uses dummy test-zero-admin, so real-secret prerequisite is not demonstrated.",
+        "blocker: scripts/e2e/run-maestro-reference-flow.sh --check exits 1 at missing MAESTRO_DEVICE.",
+        "AC-1 not proven: six fail-closed contract cases pass, but the real Maestro flow was not run."
+      ],
+      "manualNotes": "Disposable worktree cleanup succeeded. Raw Vitest stdout/stderr were captured under /tmp/holocron-s20-d0303-vitest-47364.*."
+    },
+    "reviewResult": {
+      "status": "needs-parent-decision",
+      "findings": [
+        {
+          "severity": "non-blocking",
+          "issue": "Reviewed acceptance requires an independent reviewer result.",
+          "rationale": "The run cannot be marked reviewed from child evidence alone."
+        }
+      ]
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/132f9bd0_worker_0_transcript.jsonl",
+  "timestamp": 1784445644023
+}

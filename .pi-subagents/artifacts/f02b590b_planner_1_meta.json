@@ -1,0 +1,106 @@
+{
+  "runId": "f02b590b",
+  "agent": "planner",
+  "task": "You are acting as the logical design specialist `frontend-designer` (runtime fallback because the configured custom model is unavailable). Independently review Sprint 21 Client Data Contract. Read /Users/inference1/Projects/holocron/RULES.md, Sprint 21 in /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/ROADMAP.md, relevant sync PRD sections and inspect current RN app call-site patterns plus Zero/Hono targets. Do not write files. Return exactly one fenced JSON block {\"design_enrichments\":[...],\"design_tasks\":[]} and no prose. For each task ID provide concrete client data contract/schema/consumer-facing notes, real file references, and concerns about offline/optimistic/conflict/error/identifier semantics. Do not invent UI mockups. Any task proposal must set proposed_by:\"frontend-designer\".",
+  "exitCode": 1,
+  "usage": {
+    "input": 105461,
+    "output": 9059,
+    "cacheRead": 488960,
+    "cacheWrite": 0,
+    "cost": 0.208711,
+    "turns": 13
+  },
+  "model": "openai-codex/gpt-5.6-luna",
+  "attemptedModels": ["openai-codex/gpt-5.6-luna"],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-luna",
+      "success": false,
+      "exitCode": 1,
+      "error": "Agent 'planner' requested unavailable child tools: websearch, question, task.\nThe `tools` field is a strict allowlist; it does not load extension code.\nFor extension tools, add the provider path to `subagentOnlyExtensions` (child-only), `extensions`, or as a path-like entry in `tools`, while keeping each registered tool name in `tools`.\nFor MCP tools, verify the MCP adapter configuration and selected tool names. For builtin tools, verify the name against the installed Pi version.",
+      "usage": {
+        "input": 105461,
+        "output": 9059,
+        "cacheRead": 488960,
+        "cacheWrite": 0,
+        "cost": 0.208711,
+        "turns": 13
+      }
+    }
+  ],
+  "durationMs": 183880,
+  "toolCount": 49,
+  "error": "Agent 'planner' requested unavailable child tools: websearch, question, task.\nThe `tools` field is a strict allowlist; it does not load extension code.\nFor extension tools, add the provider path to `subagentOnlyExtensions` (child-only), `extensions`, or as a path-like entry in `tools`, while keeping each registered tool name in `tools`.\nFor MCP tools, verify the MCP adapter configuration and selected tool names. For builtin tools, verify the name against the installed Pi version.",
+  "acceptance": {
+    "status": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only task wording"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only task wording"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Concrete severity-tagged findings cite app, Zero schema/publication, Hono targets, CLI, and migration PRD paths."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "Python inventory of convex/react files and hook calls",
+          "result": "passed",
+          "summary": "Found 46 files and 106 hook-like calls."
+        },
+        {
+          "command": "Repository search for client-contract implementation",
+          "result": "passed",
+          "summary": "No existing client-contract artifact or CLI implementation found."
+        }
+      ],
+      "validationOutput": [
+        "Reviewed Sprint 21, UC-SYNC-01, API/offline contract, migration contract artifact requirements, Zero publication, current RN call sites, and Hono routes."
+      ],
+      "residualRisks": [
+        "Zero schema and Hono target surfaces are incomplete for the 105-call-site migration.",
+        "Inventory count differs from the roadmap acceptance count."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "No files changed; review-only findings returned.",
+      "reviewFindings": [
+        "blocker: app/zero/schema.ts:39-40 only defines two synced tables.",
+        "blocker: services/platform/src/http/hono-app.ts:201-390 lacks declared /api/zero/* routes.",
+        "high: current inventory is 46 files/106 calls versus required 47 files/105 calls."
+      ],
+      "manualNotes": "The requested frontend-designer fallback was used for contract/consumer review only; no UI mockups or files were created."
+    }
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/f02b590b_planner_1_transcript.jsonl",
+  "timestamp": 1784440449198
+}

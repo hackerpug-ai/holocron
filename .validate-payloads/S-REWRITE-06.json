@@ -1,0 +1,193 @@
+{
+  "fixtures": {
+    "rewired-cluster-files": {
+      "description": "All cluster files rewired (S-REWRITE-01..04 landed) and committed",
+      "seed_method": "public_api",
+      "records": [
+        "all four clusters rewired to Zero/Hono"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all cluster files are rewired WHEN: the reviewer greps for hardcoded theme value THEN: zero hardcoded colors/spacing/typography remain; all use the semantic theme tokens",
+      "verify": "grep -rn '#[0-9a-fA-F]\\{6\\}' app/ components/ hooks/ screens/ --include='*.tsx' | grep -v 'theme\\.' | wc -l  (expect 0)",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "static analysis",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 reviewer skips theme check",
+            "mock \u2014 grep mocked"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "rewired-cluster-files",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "grep app/components/hooks/screens for hardcoded hex colors and numeric spacing outside theme tokens"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`0` hardcoded `#RRGGBB` colors outside theme context",
+                "`0` hardcoded numeric `padding`/`margin`/`fontSize` outside tokens",
+                "all colors resolve to `theme.colors.*` tokens (`>=1` token reference per file)"
+              ],
+              "must_not_observe": [
+                "a hardcoded `#RRGGBB` color (baseline is `0` such colors)",
+                "a numeric `padding: 16` outside `theme.spacing`"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all (drawer)/ screens are rewired WHEN: the reviewer checks each (drawer)/ screen THEN: every (drawer)/ screen wraps content in ScreenLayout and interactive elements carry testID + a11y labels",
+      "verify": "test \"$(grep -l 'ScreenLayout' app/\\(drawer\\)/*.tsx | wc -l)\" -eq \"$(find 'app/(drawer)/' -name '*.tsx' | wc -l)\"",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "static analysis",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 reviewer skips a11y check"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "rewired-cluster-files",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "grep (drawer)/ screens for ScreenLayout usage and testID on interactive elements"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`100%` of `(drawer)/` screens wrap content in `ScreenLayout`",
+                "every interactive element has a `{screen}-{component}-{element}` `testID`"
+              ],
+              "must_not_observe": [
+                "a `(drawer)/` screen rendering a bare View (`0` ScreenLayout)",
+                "an interactive element with no `testID`"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all Zero queries/mutators are implemented WHEN: the reviewer runs `holo verify:client-contract` THEN: every legacy call site maps to its approved target with the declared offline/optimistic/conflict/rejection/identifier behavior",
+      "verify": "holo verify:client-contract --contract .spec/prds/mk6-migration/10-technical-requirements/13-client-data-contract.yaml --inventory .spec/prds/mk6-migration/10-technical-requirements/13-client-callsite-inventory.json",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "holo verify:client-contract",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 verifier skipped",
+            "disconnect \u2014 verifier not run"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "rewired-cluster-files",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run `holo verify:client-contract` against the approved contract + inventory"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "`holo verify:client-contract` exit `0`",
+                "`105/105` call sites mapped (`0` unmapped surfaces)"
+              ],
+              "must_not_observe": [
+                "exit code `1` (an unmapped surface; expected `0` unmapped)",
+                "an unmapped call site in the output"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN: all checks are complete WHEN: the reviewer compiles findings THEN: a review artifact is written with theme/a11y/contract sections and per-category PASS/FAIL + file:line findings",
+      "verify": "test -f .spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/review-artifact.json && jq -e '.categories | length >= 3' .spec/prds/mk6-migration/tasks/sprint-24-full-rn-app-rewrite-off-convex-onto-zero/review-artifact.json",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "file artifact",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub \u2014 reviewer skips artifact creation"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "rewired-cluster-files",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "write the review artifact",
+                "assert the required sections and verdicts"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "the artifact file exists with `>=3` category sections",
+                "each section has an explicit `PASS`/`FAIL` verdict"
+              ],
+              "must_not_observe": [
+                "no artifact file (`0` sections)",
+                "a section with no verdict"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

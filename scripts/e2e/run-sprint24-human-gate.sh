@@ -928,8 +928,33 @@ if [[ "$write_gate_results" == "1" ]]; then
         fail "refusing to write gate-results pass: missing or empty this-cycle log $artifact_dir/$req_log"
       fi
     done
+    # Ensure summary step.log paths are absolute artifact paths before reconcile
+    python3 - "$summary_file" "$artifact_dir" <<'PY'
+import json, pathlib, sys
+summary_path, artifact_dir = map(pathlib.Path, sys.argv[1:3])
+d = json.loads(summary_path.read_text())
+artifact_dir = artifact_dir.resolve()
+for s in d.get("steps", []):
+    log = s.get("log") or ""
+    p = pathlib.Path(log)
+    if not p.is_absolute():
+        # Prefer artifact_dir / basename for this-cycle named HTG logs
+        cand = artifact_dir / pathlib.Path(log).name
+        if cand.is_file():
+            s["log"] = str(cand.resolve())
+        else:
+            s["log"] = str((pathlib.Path.cwd() / p).resolve())
+summary_path.write_text(json.dumps(d, indent=2) + "\n")
+PY
     cp "$summary_file" "$gate_out"
     log "wrote honest pass gate-results.json -> $gate_out"
+    # Run-stage: bridge named HTG logs → absolute stepN.log + gate-plan so
+    # assert-gate-verdict (any CWD) and verify-gate-evidence both pass.
+    if [[ -x "$repo_root/scripts/e2e/reconcile-sprint24-gate-evidence.sh" ]]; then
+      bash "$repo_root/scripts/e2e/reconcile-sprint24-gate-evidence.sh" "$artifact_dir" \
+        || fail "evidence reconcile failed after honest pass write"
+      log "reconciled gate evidence for validators under sprint .gate-evidence/"
+    fi
   else
     # Write fail/partial honestly when requested — never force pass
     cp "$summary_file" "$gate_out"

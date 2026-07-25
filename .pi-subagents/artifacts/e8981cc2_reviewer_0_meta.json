@@ -1,0 +1,75 @@
+{
+  "runId": "e8981cc2",
+  "agent": "reviewer",
+  "task": "Read-only independent red-hat review. Repository: /Users/inference1/Projects/holocron. Target: .spec/prds/mk6-migration/tasks/sprint-20-e2e-maestro-harness-and-cold-boot-reference-flow. Review current main HEAD, all 10 original task contracts (S-COLDBOOT-01..03 and D03-01..07), SPRINT.md Human Testing Gate, current source, completion metadata, and real local Maestro artifacts. Do not edit any files. Enumerate AC verdicts PASS/FAIL/PARTIAL, verify all named files/scripts/tests and commands, challenge the previous report, and cite exact file:line or command evidence. Focus on severity and confidence, especially whether completion proof is valid.",
+  "exitCode": 1,
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 4
+  },
+  "model": "inference-cluster/implementer:high",
+  "attemptedModels": ["inference-cluster/implementer:high"],
+  "modelAttempts": [
+    {
+      "model": "inference-cluster/implementer:high",
+      "success": false,
+      "exitCode": 1,
+      "error": "Connection error.",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 4
+      }
+    }
+  ],
+  "durationMs": 15002,
+  "toolCount": 0,
+  "error": "Connection error.",
+  "acceptance": {
+    "status": "rejected",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only/reviewer-style agent"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only/reviewer-style agent"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "attestation",
+        "status": "failed",
+        "message": "Structured acceptance report not found."
+      }
+    ],
+    "verifyRuns": [],
+    "childReportParseError": "Structured acceptance report not found."
+  },
+  "transcriptPath": "/Users/inference1/Projects/holocron/.pi-subagents/artifacts/e8981cc2_reviewer_0_transcript.jsonl",
+  "timestamp": 1784497847334
+}

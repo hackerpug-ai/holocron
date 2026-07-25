@@ -46,21 +46,17 @@ type ConversationUpdate = {
 };
 
 export const mutators = defineMutators({
-  updateConversation: defineMutator(
-    async ({ tx, args }: { tx: Tx; args: ConversationUpdate }) => {
-      await tx.mutate.conversations.update(args);
-    }
-  ),
+  updateConversation: defineMutator(async ({ tx, args }: { tx: Tx; args: ConversationUpdate }) => {
+    await tx.mutate.conversations.update(args);
+  }),
 
   deleteConversation: defineMutator(async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
     await tx.mutate.conversations.delete({ id: args.id });
   }),
 
-  softDeleteChatMessage: defineMutator(
-    async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
-      await tx.mutate.chat_messages.update({ id: args.id, deleted: true });
-    }
-  ),
+  softDeleteChatMessage: defineMutator(async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
+    await tx.mutate.chat_messages.update({ id: args.id, deleted: true });
+  }),
 
   publishDocument: defineMutator(async ({ tx, args }: { tx: Tx; args: { id: string } }) => {
     const existing = (await tx.run(zeroBuilder.documents.where('id', args.id).one())) as
