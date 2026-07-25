@@ -54,28 +54,23 @@ export function useMarkdownRenderer(
         return null;
       }
 
-      return (
-        <React.Fragment>
-          {ast.children.map((child, index) => {
-            const element = (
-              <NodeRenderer
-                key={`root-${index}`}
-                node={child}
-                renderers={renderers}
-                onLinkPress={onLinkPress}
-                testID={testIDPrefix ? `${testIDPrefix}-${index}` : undefined}
-              />
-            );
-            return wrapRootChild ? (
-              <React.Fragment key={`root-${index}`}>
-                {wrapRootChild(element, index, child.type)}
-              </React.Fragment>
-            ) : (
-              element
-            );
-          })}
-        </React.Fragment>
-      );
+      return ast.children.map((child, index) => {
+        const key = `root-${index}`;
+        const element = (
+          <NodeRenderer
+            key={key}
+            node={child}
+            renderers={renderers}
+            onLinkPress={onLinkPress}
+            testID={testIDPrefix ? `${testIDPrefix}-${index}` : undefined}
+          />
+        );
+        const wrapped = wrapRootChild ? wrapRootChild(element, index, child.type) : element;
+
+        // The renderer is embedded in native Pressables during narration. Returning
+        // a keyed array avoids forwarding React Native's testID through Fragments.
+        return React.isValidElement(wrapped) ? React.cloneElement(wrapped, { key }) : wrapped;
+      });
     };
   }, [renderers, onLinkPress, testIDPrefix, wrapRootChild]);
 
