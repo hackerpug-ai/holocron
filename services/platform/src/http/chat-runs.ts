@@ -207,6 +207,9 @@ async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<voi
         await appendEvent(sql, run.id, 'token', { token: textDelta });
       }
     }
+    if (!finalText.trim()) {
+      throw new Error('Chat stream completed without an assistant response');
+    }
     await finalizeChatRun(
       sql,
       run,
