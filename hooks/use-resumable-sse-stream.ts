@@ -12,8 +12,10 @@
  * authoritative after terminal (see reconcileThreadMessages).
  */
 
-// RN polyfill for Event/MessageEvent/EventTarget before WhatWG EventSource loads
-import '@/lib/eventsource-rn-polyfill';
+// RN polyfill MUST evaluate before `eventsource` (class ErrorEvent extends Event).
+// Use require so Metro cannot hoist the EventSource import above the install.
+require('../lib/eventsource-rn-polyfill.js');
+
 import { EventSource } from 'eventsource';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/components/chat/ChatThread';
@@ -182,6 +184,8 @@ export function useResumableSSEStream(
     setTokenCount(next.tokenCount);
   }, []);
 
+  // Prefer ref text when React state lags one frame after terminal (AC-2/AC-4).
+  const streamedTextStable = streamedText.length > 0 ? streamedText : assemblyRef.current.text;
   const openEventSource = useCallback(
     (targetRunId: string, afterSeq: number) => {
       if (!platformUrl || !apiKey) {
@@ -279,7 +283,10 @@ export function useResumableSSEStream(
         const payload = parseEventData(ev.data);
         const code = typeof payload.code === 'string' ? payload.code : 'BLOCKED';
         if (code === 'CHAT_RUN_CANCELLED') {
-          finishTerminal('cancelled');
+          // Keep partial assembled text (and any server partial on the event)
+          // so AC-5 can assert the assistant bubble remains after stop.
+          const text = typeof payload.text === 'string' ? payload.text : undefined;
+          finishTerminal('cancelled', text);
           return;
         }
         setError(
@@ -310,7 +317,22 @@ export function useResumableSSEStream(
         }
         if (intentionalCloseRef.current) return;
         if (phaseRef.current === 'streaming' || phaseRef.current === 'reconnecting') {
+          // Connection closed mid-stream (server deadline / network). Tear down
+          // and re-open with Last-Event-ID so terminal/gap-fill still lands.
           setPhaseBoth('reconnecting');
+          closeSource(true);
+          const resumeRunId = runIdRef.current;
+          if (resumeRunId) {
+            // Defer re-open so we do not recurse inside the error handler.
+            setTimeout(() => {
+              if (
+                runIdRef.current === resumeRunId &&
+                (phaseRef.current === 'reconnecting' || phaseRef.current === 'streaming')
+              ) {
+                openEventSource(resumeRunId, assemblyRef.current.lastSeq);
+              }
+            }, 250);
+          }
         }
       });
 
@@ -395,6 +417,54 @@ export function useResumableSSEStream(
     }
   }, [isOnline, openEventSource, setPhaseBoth, closeSource]);
 
+  // Gap-fill safety net: while reconnecting, poll run status so a completed
+  // run still finalizes even if EventSource resume is flaky after airplane mode.
+  useEffect(() => {
+    if (phase !== 'reconnecting' || !runId || !platformUrl || !apiKey) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${runId}`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as {
+          status?: string;
+          finalText?: string;
+          lastEventId?: number;
+        };
+        if (cancelled) return;
+        const status = body.status;
+        if (status === 'completed' || status === 'failed') {
+          if (typeof body.finalText === 'string' && body.finalText.length > 0) {
+            applyAssembly({
+              lastSeq: Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0),
+              text: body.finalText,
+              tokenCount: assemblyRef.current.tokenCount,
+            });
+          }
+          setPhaseBoth('complete');
+          closeSource(true);
+          return;
+        }
+        if (status === 'blocked') {
+          setPhaseBoth('cancelled');
+          closeSource(true);
+        }
+      } catch {
+        // ignore transient poll errors
+      }
+    };
+    void poll();
+    const timer = setInterval(() => {
+      void poll();
+    }, 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [phase, runId, platformUrl, apiKey, applyAssembly, setPhaseBoth, closeSource]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -412,7 +482,7 @@ export function useResumableSSEStream(
     phase,
     runId,
     durableMessageId,
-    streamedText,
+    streamedText: streamedTextStable,
     lastSeq,
     tokenCount,
     error,

@@ -120,6 +120,15 @@ function handleIncomingURL({ url }: { url: string }) {
       return;
     }
 
+    // Chat deep links (Maestro PRIMARY ACs open holocron://chat/<conversationId>).
+    // Prefer navigate so sequential openLink steps remount the conversation route.
+    if (route === 'chat' || route === 'chat/new' || route.startsWith('chat/')) {
+      navigateWhenReady(() =>
+        router.navigate({ pathname: `/${route}` as `/chat/${string}`, params })
+      );
+      return;
+    }
+
     // Generic in-app path: /improvements, /toolbelt, /settings, …
     if (
       route === 'improvements' ||

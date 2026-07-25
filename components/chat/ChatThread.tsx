@@ -152,33 +152,40 @@ export function ChatThread({
     setSelectedMessageContent(null);
   }, []);
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <Pressable
-      testID="message-bubble"
-      onLongPress={() => handleMessageLongPress(item.id, item.content)}
-      delayLongPress={400}
-    >
-      <MessageBubble
-        role={item.role}
-        content={item.content}
-        message_type={item.message_type}
-        card_data={item.card_data}
-        toolCallId={item.toolCallId}
-        voiceSessionId={item.voiceSessionId}
-        createdAt={item.createdAt}
-        showTimestamp={true}
-        testID={item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`}
-        onCardPress={handleCardPress}
-        onFinalResultPress={onFinalResultPress}
-        onWhatsNewReportPress={onWhatsNewReportPress}
-        onDocumentContextNavigate={onDocumentContextNavigate}
-        isStreaming={item.id === streamingMessageId}
-        onSaveRecommendation={onSaveRecommendation}
-        onSaveRecommendationList={onSaveRecommendationList}
-        onSendMessage={onSendMessage}
-      />
-    </Pressable>
-  );
+  const renderMessage = ({ item }: { item: ChatMessage }) => {
+    // Maestro PRIMARY oracles resolve chat-assistant-message on the pressable
+    // wrapper (more reliable than nested Text for XCTest).
+    const rowTestId = item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`;
+    return (
+      <Pressable
+        testID={rowTestId}
+        onLongPress={() => handleMessageLongPress(item.id, item.content)}
+        delayLongPress={400}
+        accessible
+        accessibilityLabel={item.role === 'agent' ? 'Assistant message' : 'User message'}
+      >
+        <MessageBubble
+          role={item.role}
+          content={item.content}
+          message_type={item.message_type}
+          card_data={item.card_data}
+          toolCallId={item.toolCallId}
+          voiceSessionId={item.voiceSessionId}
+          createdAt={item.createdAt}
+          showTimestamp={true}
+          testID={rowTestId}
+          onCardPress={handleCardPress}
+          onFinalResultPress={onFinalResultPress}
+          onWhatsNewReportPress={onWhatsNewReportPress}
+          onDocumentContextNavigate={onDocumentContextNavigate}
+          isStreaming={item.id === streamingMessageId}
+          onSaveRecommendation={onSaveRecommendation}
+          onSaveRecommendationList={onSaveRecommendationList}
+          onSendMessage={onSendMessage}
+        />
+      </Pressable>
+    );
+  };
 
   const renderEmptyState = () => {
     // While loading, show nothing (seamless UI) - or a very subtle indicator
@@ -242,28 +249,35 @@ export function ChatThread({
             </Text>
           </View>
         ) : null}
-        {/* e2e oracles for phase / Last-Event-ID / token count */}
-        <Text
+        {/*
+          e2e oracles for phase / Last-Event-ID / token count.
+          Use accessible Views (not 1px transparent Text) so Maestro/iOS XCTest
+          can resolve testIDs while remaining visually unobtrusive.
+        */}
+        <View
           testID="chat-stream-phase"
+          accessible
           accessibilityLabel={`stream-phase-${streamPhase}`}
-          className="text-[1px] text-transparent h-px overflow-hidden"
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
-          {streamPhase}
-        </Text>
-        <Text
+          <Text>{streamPhase}</Text>
+        </View>
+        <View
           testID="chat-stream-last-seq"
+          accessible
           accessibilityLabel={`stream-last-seq-${streamLastSeq}`}
-          className="text-[1px] text-transparent h-px overflow-hidden"
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
-          {String(streamLastSeq)}
-        </Text>
-        <Text
+          <Text>{String(streamLastSeq)}</Text>
+        </View>
+        <View
           testID="chat-stream-token-count"
+          accessible
           accessibilityLabel={`stream-token-count-${streamTokenCount}`}
-          className="text-[1px] text-transparent h-px overflow-hidden"
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
-          {String(streamTokenCount)}
-        </Text>
+          <Text>{String(streamTokenCount)}</Text>
+        </View>
       </View>
     );
   };

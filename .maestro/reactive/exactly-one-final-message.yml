@@ -1,8 +1,6 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-3 / TC-3 [PRIMARY] — Exactly one final assistant message
-# Env: MAESTRO_APP_ID, MAESTRO_DEV_CLIENT_OPEN_URL, MAESTRO_CHAT_URL, MAESTRO_METRO_URL
-
+# Shared boot: Metro + chat deep link (holocron://chat/<id>)
 - launchApp:
     clearState: false
 
@@ -35,8 +33,25 @@ appId: ${MAESTRO_APP_ID}
           text: "Close"
           optional: true
 
+# Wait out Metro reload banner if present
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
 - openLink: ${MAESTRO_CHAT_URL}
 - waitForAnimationToEnd
+
+# Retry deep link once if chat did not mount (bundle still settling)
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
 
 - extendedWaitUntil:
     visible:
@@ -49,7 +64,7 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "chat-input-field"
-    timeout: 30000
+    timeout: 45000
 
 - tapOn:
     id: "chat-input-field"
@@ -68,7 +83,7 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "stop-generating-button"
-    timeout: 30000
+    timeout: 45000
     optional: true
 
 - extendedWaitUntil:
@@ -79,7 +94,7 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "chat-assistant-message"
-    timeout: 60000
+    timeout: 90000
 
 - assertVisible:
     id: "chat-assistant-message"

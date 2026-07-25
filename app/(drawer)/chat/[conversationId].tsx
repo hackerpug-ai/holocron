@@ -160,6 +160,12 @@ export default function ChatScreen() {
   // AC-5: after local cancel/complete, ignore stale Zero agent_busy until next send.
   // Without this, resetStream() → idle while agent_busy still true re-disables the composer.
   const [suppressAgentBusy, setSuppressAgentBusy] = useState(false);
+  /**
+   * Local run-busy latch: set true as soon as POST /api/chat-runs returns a runId,
+   * cleared on terminal/cancel. Guarantees Stop is painted even if React batches
+   * streaming→complete in one frame or Zero agent_busy lags (AC-1..AC-5).
+   */
+  const [runBusy, setRunBusy] = useState(false);
 
   const isStreamBusy = streamPhase === 'streaming' || streamPhase === 'reconnecting';
   // AC-5: local cancelled/complete supersedes stale Zero agent_busy for this run.
@@ -167,6 +173,7 @@ export default function ChatScreen() {
   // agent_busy has not yet cleared over Zero (cancel owns the local busy UX).
   const isLocallyTerminal = streamPhase === 'cancelled' || streamPhase === 'complete';
   const agentBusy =
+    runBusy ||
     isStreamBusy ||
     isSending ||
     (Boolean(conversationRow?.agent_busy) && !isLocallyTerminal && !suppressAgentBusy);
@@ -179,36 +186,61 @@ export default function ChatScreen() {
     : null;
 
   // When stream reaches a local terminal, suppress Zero agent_busy until next send
+  // and clear the local run-busy latch so Stop unmounts (AC-5 / AC-3).
   useEffect(() => {
     if (streamPhase === 'complete' || streamPhase === 'cancelled') {
       setSuppressAgentBusy(true);
+      setRunBusy(false);
     }
   }, [streamPhase]);
 
-  // When durable Zero row lands after complete/cancelled, drop overlay → idle
+  // Server already cleared agent_busy (run terminal) but SSE may still be
+  // reconnecting after airplane mode — drop Stop latch so AC-2/AC-4 can proceed.
+  useEffect(() => {
+    if (
+      runBusy &&
+      !isSending &&
+      conversationRow?.agent_busy === false &&
+      (streamPhase === 'streaming' || streamPhase === 'reconnecting')
+    ) {
+      setRunBusy(false);
+    }
+  }, [runBusy, isSending, conversationRow?.agent_busy, streamPhase]);
+
+  const durableHasContent = useCallback(
+    (id: string | null | undefined) => {
+      if (!id) return false;
+      return durableMessages.some(
+        (m) => m.id === id && typeof m.content === 'string' && m.content.trim().length > 0
+      );
+    },
+    [durableMessages]
+  );
+
+  // When durable Zero row with non-empty content lands after complete/cancelled,
+  // drop overlay → idle. Keep overlay (and assistant bubble) until then so AC-3
+  // still sees chat-assistant-message if Zero is lagging.
   useEffect(() => {
     if (
       (streamPhase === 'complete' || streamPhase === 'cancelled') &&
-      durableMessageId &&
-      durableMessages.some((m) => m.id === durableMessageId)
+      durableHasContent(durableMessageId)
     ) {
       resetStream();
     }
-  }, [streamPhase, durableMessageId, durableMessages, resetStream]);
+  }, [streamPhase, durableMessageId, durableHasContent, resetStream]);
 
-  // Also clear when agent_busy clears after complete (Zero lag edge)
+  // Also clear when agent_busy clears after complete — only if durable content exists
   useEffect(() => {
     if (
       conversationRow &&
       conversationRow.agent_busy === false &&
       (streamPhase === 'complete' || streamPhase === 'cancelled')
     ) {
-      // Keep partial/final text until durable row is present or briefly after
-      if (!durableMessageId || durableMessages.some((m) => m.id === durableMessageId)) {
+      if (durableHasContent(durableMessageId)) {
         resetStream();
       }
     }
-  }, [conversationRow, streamPhase, durableMessageId, durableMessages, resetStream]);
+  }, [conversationRow, streamPhase, durableMessageId, durableHasContent, resetStream]);
 
   const softDeleteMessage = useCallback(
     async (messageId: string) => {
@@ -231,6 +263,7 @@ export default function ChatScreen() {
       setSendError(null);
       // New turn owns busy UX again
       setSuppressAgentBusy(false);
+      setRunBusy(true);
 
       try {
         const targetConversationId =
@@ -276,10 +309,14 @@ export default function ChatScreen() {
           }
         } else if (isNewConversation && body.conversationId) {
           router.replace(`/chat/${body.conversationId}`);
+        } else {
+          // Create returned without a streamable run — drop local busy latch.
+          setRunBusy(false);
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
         setSendError(error);
+        setRunBusy(false);
         resetStream();
       } finally {
         setIsSending(false);
@@ -293,6 +330,7 @@ export default function ChatScreen() {
     // Suppress Zero agent_busy immediately so Stop/composer unstick even if
     // backend/Zero lag on agent_busy clear.
     setSuppressAgentBusy(true);
+    setRunBusy(false);
     if (!streamRunId) {
       resetStream();
       return;

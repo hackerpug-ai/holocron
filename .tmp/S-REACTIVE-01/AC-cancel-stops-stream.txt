@@ -24,8 +24,11 @@ Run flow when "DEVELOPMENT SERVERS" is visible...
 Run flow when "DEVELOPMENT SERVERS" is visible... SKIPPED
 Run flow when "Continue" is visible...
 Run flow when "Continue" is visible... SKIPPED
+Assert that (Optional) "Downloading" is not visible... COMPLETED
 Open ${MAESTRO_CHAT_URL}... COMPLETED
 Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible...
+Run flow when id: chat-screen is not visible... SKIPPED
 Assert that id: chat-screen is visible... COMPLETED
 Assert that id: chat-screen is visible... COMPLETED
 Assert that id: chat-input-field is visible... COMPLETED
@@ -41,6 +44,8 @@ Tap on id: stop-generating-button... COMPLETED
 Assert that id: stop-generating-button is not visible... COMPLETED
 Assert that id: stop-generating-button is not visible... COMPLETED
 Assert that id: chat-input is visible... COMPLETED
+Assert that id: chat-assistant-message is visible... COMPLETED
+Assert that id: chat-assistant-message is visible... COMPLETED
 Tap on id: chat-input-field... COMPLETED
 Erase text... COMPLETED
 Input text post-cancel ok... COMPLETED

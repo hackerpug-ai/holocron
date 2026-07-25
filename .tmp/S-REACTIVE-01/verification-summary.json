@@ -3,7 +3,7 @@
   "cycle": "remediation-2-dual-lens-fix",
   "generator": "S-REACTIVE-01-remediation-agent",
   "generated_at": "2026-07-25T08:36:25Z",
-  "commit_sha": "6de76cd221c1d05217e3a65f73f830a7b7016199",
+  "commit_sha": "f117ab88c97f16a33e348fb408e374ea07d2b894",
   "status": "completed_with_partial_maestro",
   "critical_fixes": {
     "AC-5_cancel_ux": "pass",
@@ -44,5 +44,6 @@
     }
   },
   "evidence_path": ".tmp/S-REACTIVE-01/",
-  "feature_commit_sha": "6de76cd221c1d05217e3a65f73f830a7b7016199"
+  "feature_commit_sha": "ac00c3f497ad7415e28717c2d941e7417e8e4934",
+  "notes": "commit_sha is HEAD after evidence stamp; feature fix is parent ac00c3f4"
 }

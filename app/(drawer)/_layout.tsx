@@ -308,9 +308,6 @@ export default function DrawerLayout() {
   const [conversationRows] = useQuery(conversationsByOwner());
   const conversations = (conversationRows ?? []) as unknown as ZeroConversationRow[];
 
-  // Active conversation tracking (local state)
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-
   // Prevent duplicate initialization on re-renders (React 18 Strict Mode)
   const hasInitialized = useRef(false);
   const isInitializing = useRef(false);
@@ -318,30 +315,37 @@ export default function DrawerLayout() {
   const isLoading = conversationRows === undefined;
 
   useEffect(() => {
-    // Bootstrap a conversation only from the chat/root surface. A deep link or
-    // nested card route is authoritative and must not be replaced by the most
-    // recent conversation while its first interaction is being processed.
-    const isChatRoute =
-      pathname === '/' || pathname === '/chat/new' || pathname.startsWith('/chat/');
-    if (!isChatRoute) return;
-
-    // On first mount, navigate to /chat/new immediately (optimistic empty state)
-    if (!hasInitialized.current && !isInitializing.current) {
-      isInitializing.current = true;
-      router.replace('/chat/new');
+    // Deep links (holocron://chat/<id>) and nested /chat/<id> routes are
+    // authoritative — never steal them to most-recent/new (TC-1 Maestro mount).
+    const onSpecificConversation =
+      typeof pathname === 'string' &&
+      pathname.startsWith('/chat/') &&
+      pathname !== '/chat/new';
+    if (onSpecificConversation) {
       hasInitialized.current = true;
-      isInitializing.current = false;
+      return;
     }
 
-    // After conversations load, navigate to most recent if any exist
-    if (!isLoading && conversations.length > 0 && hasInitialized.current) {
+    // Non-chat surfaces (articles, research, …) — do not bootstrap chat.
+    const isChatEntry =
+      pathname === '/' || pathname === '/chat' || pathname === '/chat/new' || pathname == null;
+    if (!isChatEntry) return;
+
+    // Bootstrap once: prefer most-recent conversation when available, else /chat/new.
+    // NEVER re-run replace on later conversation list updates.
+    if (hasInitialized.current || isInitializing.current) return;
+    if (isLoading) return;
+
+    isInitializing.current = true;
+    hasInitialized.current = true;
+    if (conversations.length > 0) {
       const mostRecent = conversations[0];
-      if (activeConversationId === null) {
-        setActiveConversationId(mostRecent.id);
-        router.replace(`/chat/${mostRecent.id}`);
-      }
+      router.replace(`/chat/${mostRecent.id}`);
+    } else {
+      router.replace('/chat/new');
     }
-  }, [isLoading, conversations, router, activeConversationId, pathname]);
+    isInitializing.current = false;
+  }, [isLoading, conversations, router, pathname]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']} className="bg-background">
