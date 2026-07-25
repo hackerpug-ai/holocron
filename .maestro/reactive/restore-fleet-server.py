@@ -48,9 +48,31 @@ def port_listening(port: int) -> bool:
     return bool(out)
 
 
+def stop_fleet_reaper() -> None:
+    """Stop harness fleet reaper so restore can bring :4545 back."""
+    stop_file = os.path.join(EVIDENCE, "fleet-reaper.stop")
+    try:
+        with open(stop_file, "w", encoding="utf-8") as f:
+            f.write("1\n")
+    except OSError:
+        pass
+    pid_file = os.path.join(EVIDENCE, "fleet-reaper.pid")
+    try:
+        with open(pid_file, encoding="utf-8") as f:
+            pid = int((f.read() or "").strip() or "0")
+        if pid > 0:
+            sh(f"kill {pid} 2>/dev/null || true")
+    except (OSError, ValueError):
+        pass
+
+
 def restore() -> dict:
     os.makedirs(EVIDENCE, exist_ok=True)
     log_path = os.path.join(EVIDENCE, "restore-fleet-server.log")
+
+    # Allow :4545 to come back (phase A reaper must stop first)
+    stop_fleet_reaper()
+    time.sleep(0.3)
 
     # Fleet restore
     if not port_listening(4545):
@@ -62,18 +84,28 @@ def restore() -> dict:
 
     # Platform restart with deterministic path for successful recovery send
     if port_listening(4111):
-        sh("for p in $(lsof -nP -iTCP:4111 -sTCP:LISTEN -t 2>/dev/null); do kill $p 2>/dev/null || true; done")
-        for _ in range(40):
+        sh(
+            "for p in $(lsof -nP -iTCP:4111 -sTCP:LISTEN -t 2>/dev/null); do "
+            "kill -9 $p 2>/dev/null || true; done"
+        )
+        for _ in range(50):
             if not port_listening(4111):
                 break
+            sh(
+                "for p in $(lsof -nP -iTCP:4111 -sTCP:LISTEN -t 2>/dev/null); do "
+                "kill -9 $p 2>/dev/null || true; done"
+            )
             time.sleep(0.15)
 
     database_url = os.environ.get(
         "DATABASE_URL", "postgres://127.0.0.1:5432/holocron_nonprod"
     )
     rn_key = os.environ.get("HOLO_KEY_RN", "replace-me-rn-key")
-    # Prefer main holocron for service:up stability (launchd layout / deps).
-    platform_cwd = os.environ.get("PLATFORM_SERVICE_ROOT", "/Users/inference1/Projects/holocron")
+    # Prefer worktree when available so fleet-only / deterministic flags match HEAD.
+    platform_cwd = os.environ.get(
+        "PLATFORM_SERVICE_ROOT",
+        os.environ.get("HOLO_ROOT", "/Users/inference1/Projects/holocron"),
+    )
     sh(
         f"cd '{platform_cwd}' && "
         f"export DATABASE_URL='{database_url}' && "

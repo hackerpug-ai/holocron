@@ -194,6 +194,27 @@ describe('S-REACTIVE-04 degraded chat state (no hang)', () => {
       expect(yml).toMatch(/Local fleet unavailable — running in reduced mode|chat-degraded-banner/);
       expect(yml).toMatch(/chat-input-send-button/);
       expect(yml).toMatch(/takeScreenshot/);
+      // Hard-required post-restore must_observe (no optional-only escape)
+      expect(yml).toMatch(/chat-stream-token-count-at-least-1/);
+      expect(yml).toMatch(/chat-assistant-message-latest/);
+      expect(yml).toMatch(
+        /assertVisible:[\s\S]*chat-assistant-message-latest|assertVisible:[\s\S]*chat-stream-token-count-at-least-1/
+      );
+    });
+
+    it('harnesses fail-closed when platform_pid missing or fleet-only restart fails', () => {
+      const noHang = read(join(REPO_ROOT, '.maestro', 'reactive', 'run-degraded-no-hang.sh'));
+      const recovery = read(join(REPO_ROOT, '.maestro', 'reactive', 'run-degraded-recovery.sh'));
+      for (const src of [noHang, recovery]) {
+        expect(src).toMatch(/FAIL-CLOSED/);
+        expect(src).toMatch(/platform_pid missing/);
+        expect(src).toMatch(/HOLO_CHAT_FLEET_ONLY platform restart failed health/);
+        // Fail-closed gates must run before maestro test
+        const failIdx = src.indexOf('FAIL-CLOSED');
+        const maestroIdx = src.indexOf('maestro test');
+        expect(failIdx).toBeGreaterThan(-1);
+        expect(maestroIdx).toBeGreaterThan(failIdx);
+      }
     });
   });
 });

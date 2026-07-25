@@ -55,6 +55,17 @@ appId: ${MAESTRO_APP_ID}
       - openLink: ${MAESTRO_CHAT_URL}
       - waitForAnimationToEnd
 
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
 - openLink: ${MAESTRO_CHAT_URL}
 - waitForAnimationToEnd
 
@@ -124,12 +135,22 @@ appId: ${MAESTRO_APP_ID}
     notVisible: "Local fleet unavailable — running in reduced mode"
     timeout: 45000
 
-# Normal path: stream/reply activity or durable assistant message
+# Hard-required must_observe: non-seed assistant reply after restore.
+# Prefer stream-token oracle; if absent, require durable assistant message
+# (no optional escape that vacates must_observe).
 - extendedWaitUntil:
     visible:
       id: "chat-stream-token-count-at-least-1"
     timeout: 60000
     optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "chat-stream-token-count-at-least-1"
+    commands:
+      - assertVisible:
+          id: "chat-stream-token-count-at-least-1"
 
 - runFlow:
     when:
@@ -140,7 +161,8 @@ appId: ${MAESTRO_APP_ID}
           visible:
             id: "chat-assistant-message-latest"
           timeout: 60000
-          optional: true
+      - assertVisible:
+          id: "chat-assistant-message-latest"
 
 - extendedWaitUntil:
     notVisible:
