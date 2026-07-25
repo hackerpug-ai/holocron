@@ -1,0 +1,195 @@
+# S-REACTIVE-03 AC-1 / TC-1 — Cross-surface p95 ≤ 5s (UC-SYNC-02 / T-SYNC-007)
+#
+# Real path: MCP gateway update_document → Postgres documents → Zero push → app list.
+# Seeding: holo seed:e2e --reset (real Postgres rows) — never view-injection.
+# MCP call: real tools/call via helpers/mcp-sync-server.py — never mock/stub.
+# Timing: wall-clock t0 (MCP write complete) → t1 (title visible); p95 over >=5 runs.
+#
+# Prerequisite:
+#   - named iOS Simulator with com.holocron.app
+#   - Metro + Zero (:4848) + platform MCP (:4111)
+#   - helpers/mcp-sync-server.py on :8766 (started by run-cross-surface-sync-slo.sh)
+#   - holo seed:e2e --reset (document 17 is first list card by created_at desc)
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+
+# Dev Client bundle (worktree Metro). Empty MAESTRO_DEV_CLIENT_OPEN_URL is ignored by Expo.
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Articles list — Zero-synced documents (seeded by holo seed:e2e --reset)
+- openLink: holocron://articles
+
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "articles-route"
+    timeout: 90000
+
+- assertVisible:
+    id: "articles-route"
+
+# Seeded first card (doc 17 by created_at desc) — proves real Postgres seed, not injection
+- extendedWaitUntil:
+    visible: "E2E Document 17 (tool)"
+    timeout: 60000
+
+- assertVisible: "E2E Document 17 (tool)"
+
+# Reset timing samples for p95 over a fresh >=5 iteration window
+- runScript:
+    file: helpers/reset-timings.js
+    env:
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+# ── Iteration 1 (AC-1 Case 1 exact title) ──────────────────────────────────
+- runScript:
+    file: helpers/update-document-via-mcp.js
+    env:
+      ITERATION: "1"
+      DOCUMENT_ID: ${SYNC_DOCUMENT_ID}
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- extendedWaitUntil:
+    visible: "Updated via MCP"
+    timeout: 5000
+
+- assertVisible: "Updated via MCP"
+
+- runScript:
+    file: helpers/mark-title-visible.js
+    env:
+      TITLE: "Updated via MCP"
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- takeScreenshot: S-REACTIVE-03-AC-1-updated-via-mcp
+
+# ── Iteration 2 ────────────────────────────────────────────────────────────
+- runScript:
+    file: helpers/update-document-via-mcp.js
+    env:
+      ITERATION: "2"
+      DOCUMENT_ID: ${SYNC_DOCUMENT_ID}
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- extendedWaitUntil:
+    visible: "Updated via MCP #2"
+    timeout: 5000
+
+- assertVisible: "Updated via MCP #2"
+
+- runScript:
+    file: helpers/mark-title-visible.js
+    env:
+      TITLE: "Updated via MCP #2"
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+# ── Iteration 3 ────────────────────────────────────────────────────────────
+- runScript:
+    file: helpers/update-document-via-mcp.js
+    env:
+      ITERATION: "3"
+      DOCUMENT_ID: ${SYNC_DOCUMENT_ID}
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- extendedWaitUntil:
+    visible: "Updated via MCP #3"
+    timeout: 5000
+
+- assertVisible: "Updated via MCP #3"
+
+- runScript:
+    file: helpers/mark-title-visible.js
+    env:
+      TITLE: "Updated via MCP #3"
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+# ── Iteration 4 ────────────────────────────────────────────────────────────
+- runScript:
+    file: helpers/update-document-via-mcp.js
+    env:
+      ITERATION: "4"
+      DOCUMENT_ID: ${SYNC_DOCUMENT_ID}
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- extendedWaitUntil:
+    visible: "Updated via MCP #4"
+    timeout: 5000
+
+- assertVisible: "Updated via MCP #4"
+
+- runScript:
+    file: helpers/mark-title-visible.js
+    env:
+      TITLE: "Updated via MCP #4"
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+# ── Iteration 5 ────────────────────────────────────────────────────────────
+- runScript:
+    file: helpers/update-document-via-mcp.js
+    env:
+      ITERATION: "5"
+      DOCUMENT_ID: ${SYNC_DOCUMENT_ID}
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- extendedWaitUntil:
+    visible: "Updated via MCP #5"
+    timeout: 5000
+
+- assertVisible: "Updated via MCP #5"
+
+- runScript:
+    file: helpers/mark-title-visible.js
+    env:
+      TITLE: "Updated via MCP #5"
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+
+- takeScreenshot: S-REACTIVE-03-AC-1-p95-fifth-iteration
+
+# p95 over >=5 wall-clock samples; assert against real SLO threshold (<=5000ms)
+- runScript:
+    file: helpers/assert-p95-slo.js
+    env:
+      MCP_SYNC_SERVER_URL: ${MCP_SYNC_SERVER_URL}
+      SYNC_SLO_MS: "5000"
+
+- takeScreenshot: S-REACTIVE-03-AC-1-cross-surface-p95-pass
