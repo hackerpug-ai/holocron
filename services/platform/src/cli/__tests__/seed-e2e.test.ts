@@ -9,7 +9,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { PLATFORM_IT, REPO_ROOT, runHolo } from './fixtures/harness';
+import { PLATFORM_IT, runHolo } from './fixtures/harness';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
@@ -73,6 +73,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
         categories?: number;
         subscription_sources?: number;
         subscription_content?: number;
+        research_sessions?: number;
+        research_iterations?: number;
         seed_fingerprint?: string;
       };
       expect(parsed.ok, first.combined).toBe(true);
@@ -81,6 +83,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(parsed.feed_items, 'must seed 5 feed items').toBe(5);
       expect(parsed.subscription_sources, 'must seed 4 subscription sources').toBe(4);
       expect(parsed.subscription_content, 'must seed 4 researched subscription rows').toBe(4);
+      expect(parsed.research_sessions, 'must seed active and completed research sessions').toBe(2);
+      expect(parsed.research_iterations, 'must seed research progress').toBe(5);
       expect((parsed.messages ?? 0) >= 3, 'each conversation needs ≥1 message').toBe(true);
       expect((parsed.categories ?? 0) >= 3, 'documents must span multiple categories').toBe(true);
 
@@ -91,6 +95,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);
       expect(psqlCount('subscription_content')).toBe(4);
+      expect(psqlCount('research_sessions')).toBe(2);
+      expect(psqlCount('research_iterations')).toBe(5);
       expect(psqlDistinctCategories()).toBeGreaterThanOrEqual(3);
 
       // Idempotent: second --reset yields same fingerprint + counts
@@ -110,6 +116,8 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);
       expect(psqlCount('subscription_content')).toBe(4);
+      expect(psqlCount('research_sessions')).toBe(2);
+      expect(psqlCount('research_iterations')).toBe(5);
     },
     180_000
   );

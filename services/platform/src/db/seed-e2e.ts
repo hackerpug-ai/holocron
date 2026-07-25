@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 3;
+export const E2E_SEED_VERSION = 4;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -197,6 +197,67 @@ const E2E_SUBSCRIPTION_CONTENT = [
   },
 ] as const;
 
+const E2E_RESEARCH_SESSIONS = [
+  {
+    id: e2eUuid('e', 51),
+    topic: 'E2E Active Research: Native resilience',
+    status: 'running',
+    maxIterations: 4,
+    currentIteration: 2,
+  },
+  {
+    id: e2eUuid('e', 52),
+    topic: 'E2E Completed Research: Durable mobile data',
+    status: 'completed',
+    maxIterations: 3,
+    currentIteration: 3,
+  },
+] as const;
+
+const E2E_RESEARCH_ITERATIONS = [
+  {
+    id: e2eUuid('e', 61),
+    sessionId: E2E_RESEARCH_SESSIONS[0].id,
+    number: 1,
+    status: 'completed',
+    coverage: 2.5,
+    summary: 'Established the baseline native synchronization and recovery constraints.',
+  },
+  {
+    id: e2eUuid('e', 62),
+    sessionId: E2E_RESEARCH_SESSIONS[0].id,
+    number: 2,
+    status: 'running',
+    coverage: 3.2,
+    summary: 'Evaluating interrupted requests and reconnection behavior without duplicate writes.',
+  },
+  {
+    id: e2eUuid('e', 63),
+    sessionId: E2E_RESEARCH_SESSIONS[1].id,
+    number: 1,
+    status: 'completed',
+    coverage: 2.8,
+    summary: 'Collected durable data and offline recovery evidence.',
+  },
+  {
+    id: e2eUuid('e', 64),
+    sessionId: E2E_RESEARCH_SESSIONS[1].id,
+    number: 2,
+    status: 'completed',
+    coverage: 3.7,
+    summary: 'Validated mobile state transitions across background and relaunch.',
+  },
+  {
+    id: e2eUuid('e', 65),
+    sessionId: E2E_RESEARCH_SESSIONS[1].id,
+    number: 3,
+    status: 'completed',
+    coverage: 4.4,
+    summary:
+      'Completed report: durable server commands and reactive reads preserve mobile correctness through transient failure.',
+  },
+] as const;
+
 export type SeedE2eResult = {
   ok: boolean;
   database: string;
@@ -208,6 +269,8 @@ export type SeedE2eResult = {
   feed_items: number;
   subscription_sources: number;
   subscription_content: number;
+  research_sessions: number;
+  research_iterations: number;
   whats_new_reports: number;
   reset: boolean;
   messages_log: string[];
@@ -271,6 +334,8 @@ export async function seedE2eDatabase(options?: {
       feed_items: 0,
       subscription_sources: 0,
       subscription_content: 0,
+      research_sessions: 0,
+      research_iterations: 0,
       whats_new_reports: 0,
       reset,
       messages_log,
@@ -294,6 +359,8 @@ export async function seedE2eDatabase(options?: {
         feed_items: 0,
         subscription_sources: 0,
         subscription_content: 0,
+        research_sessions: 0,
+        research_iterations: 0,
         whats_new_reports: 0,
         reset,
         messages_log,
@@ -489,6 +556,64 @@ export async function seedE2eDatabase(options?: {
       `seeded ${E2E_SUBSCRIPTION_SOURCES.length} subscription_sources + ${E2E_SUBSCRIPTION_CONTENT.length} researched subscription_content rows`
     );
 
+    for (const session of E2E_RESEARCH_SESSIONS) {
+      await sql.unsafe(
+        `INSERT INTO research_sessions (
+           id, system, query, topic, status, max_iterations, current_iteration,
+           coverage_score, findings, created_at, updated_at, completed_at
+         ) VALUES (
+           $1::uuid, 'deep', $2, $2, $3, $4, $5, $6,
+           $7::jsonb, now() - interval '20 minutes', now(),
+           CASE WHEN $3 = 'completed' THEN now() ELSE NULL END
+         )
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           max_iterations = EXCLUDED.max_iterations,
+           current_iteration = EXCLUDED.current_iteration,
+           coverage_score = EXCLUDED.coverage_score,
+           findings = EXCLUDED.findings,
+           updated_at = now(),
+           completed_at = EXCLUDED.completed_at`,
+        [
+          session.id,
+          session.topic,
+          session.status,
+          String(session.maxIterations),
+          String(session.currentIteration),
+          String(session.status === 'completed' ? 4.4 : 3.2),
+          JSON.stringify(
+            session.status === 'completed'
+              ? 'Durable mobile data remains coherent across intermittent connectivity and relaunch.'
+              : 'Research is actively evaluating resilient native request handling.'
+          ),
+        ]
+      );
+    }
+    for (const iteration of E2E_RESEARCH_ITERATIONS) {
+      await sql.unsafe(
+        `INSERT INTO research_iterations (
+           id, system, session_id, iteration_number, status, coverage_score, summary, findings, created_at
+         ) VALUES ($1::uuid, 'deep', $2::uuid, $3, $4, $5, $6, $7::jsonb, now())
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           coverage_score = EXCLUDED.coverage_score,
+           summary = EXCLUDED.summary,
+           findings = EXCLUDED.findings`,
+        [
+          iteration.id,
+          iteration.sessionId,
+          String(iteration.number),
+          iteration.status,
+          String(iteration.coverage),
+          iteration.summary,
+          JSON.stringify(iteration.summary),
+        ]
+      );
+    }
+    messages_log.push(
+      `seeded ${E2E_RESEARCH_SESSIONS.length} research_sessions + ${E2E_RESEARCH_ITERATIONS.length} research_iterations`
+    );
+
     // ── improvement_requests (representative open + closed list states) ──
     for (const improvement of E2E_IMPROVEMENTS) {
       await sql.unsafe(
@@ -540,6 +665,8 @@ export async function seedE2eDatabase(options?: {
       feed_items: 5,
       subscription_sources: E2E_SUBSCRIPTION_SOURCES.length,
       subscription_content: E2E_SUBSCRIPTION_CONTENT.length,
+      research_sessions: E2E_RESEARCH_SESSIONS.length,
+      research_iterations: E2E_RESEARCH_ITERATIONS.length,
       whats_new_reports: 1,
       conversation_ids: [...E2E_CONVERSATION_IDS],
     });
@@ -555,6 +682,8 @@ export async function seedE2eDatabase(options?: {
       feed_items: 5,
       subscription_sources: E2E_SUBSCRIPTION_SOURCES.length,
       subscription_content: E2E_SUBSCRIPTION_CONTENT.length,
+      research_sessions: E2E_RESEARCH_SESSIONS.length,
+      research_iterations: E2E_RESEARCH_ITERATIONS.length,
       whats_new_reports: 1,
       reset,
       messages_log,
@@ -573,6 +702,8 @@ export async function seedE2eDatabase(options?: {
       feed_items: 0,
       subscription_sources: 0,
       subscription_content: 0,
+      research_sessions: 0,
+      research_iterations: 0,
       whats_new_reports: 0,
       reset,
       messages_log,

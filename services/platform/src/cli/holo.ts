@@ -1804,6 +1804,8 @@ async function main(): Promise<void> {
               feed_items: result.feed_items,
               subscription_sources: result.subscription_sources,
               subscription_content: result.subscription_content,
+              research_sessions: result.research_sessions,
+              research_iterations: result.research_iterations,
               whats_new_reports: result.whats_new_reports,
               reset: result.reset,
               log: result.messages_log,
