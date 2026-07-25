@@ -60,4 +60,18 @@ describe('useNarrationState', () => {
     });
     expect(result.current.state.activeParagraphIndex).toBe(1);
   });
+
+  it('does not resurrect narration when a completion event arrives after stop', () => {
+    const { result } = renderHook(() => useNarrationState(1));
+
+    act(() => {
+      result.current.enterNarrationMode(0);
+      result.current.exitNarrationMode();
+      result.current.onAllReady();
+    });
+
+    expect(result.current.isNarrationMode).toBe(false);
+    expect(result.current.state.status).toBe('idle');
+    expect(result.current.state.activeParagraphIndex).toBe(-1);
+  });
 });

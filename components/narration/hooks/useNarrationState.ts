@@ -93,13 +93,16 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
     }
 
     case 'ALL_READY':
-      // Don't interrupt active playback — only transition to 'ready' from
-      // generating/partially_ready states. If the user is already playing
-      // or paused, keep that status so audio isn't disrupted.
+      // Don't interrupt active playback and never resurrect narration after
+      // Stop. A Zero update can arrive after EXIT_MODE, so this event is only
+      // meaningful while generation is still in progress.
       if (state.status === 'playing' || state.status === 'paused') {
         return { ...state, generatedCount: state.totalParagraphs };
       }
-      return { ...state, status: 'ready' };
+      if (state.status === 'generating' || state.status === 'partially_ready') {
+        return { ...state, status: 'ready' };
+      }
+      return state;
 
     case 'PLAY':
       return {
