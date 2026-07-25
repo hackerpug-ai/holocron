@@ -23,7 +23,10 @@ async function command(path: string, init: RequestInit & { json?: PlatformJson }
 }
 
 /** Persist the existing subscription's automatic-research preference. */
-export async function updateSubscriptionAutoResearch(id: string, autoResearch: boolean): Promise<void> {
+export async function updateSubscriptionAutoResearch(
+  id: string,
+  autoResearch: boolean
+): Promise<void> {
   await command(`/api/subscriptions/${id}`, {
     method: 'PATCH',
     json: { autoResearch },
