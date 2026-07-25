@@ -41,35 +41,28 @@ type ReportRow = {
   created_at: number;
 };
 
-function findingsToBody(findingsJson: unknown): string {
-  if (findingsJson == null) return '';
+type ReportFinding = { title?: string; summary?: string; source?: string; url?: string };
+
+function parseFindings(findingsJson: unknown): ReportFinding[] {
+  if (findingsJson == null) return [];
   if (typeof findingsJson === 'string') {
     try {
       const parsed = JSON.parse(findingsJson) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((f: { title?: string; summary?: string }) =>
-            [f.title, f.summary].filter(Boolean).join('\n')
-          )
-          .join('\n\n');
-      }
-      return findingsJson;
+      return Array.isArray(parsed) ? (parsed as ReportFinding[]) : [];
     } catch {
-      return findingsJson;
+      return [];
     }
   }
-  if (Array.isArray(findingsJson)) {
-    return findingsJson
-      .map((f: { title?: string; summary?: string }) =>
-        [f.title, f.summary].filter(Boolean).join('\n')
-      )
-      .join('\n\n');
-  }
-  try {
-    return JSON.stringify(findingsJson, null, 2);
-  } catch {
-    return String(findingsJson);
-  }
+  return Array.isArray(findingsJson) ? (findingsJson as ReportFinding[]) : [];
+}
+
+function findingsToBody(findings: ReportFinding[]): string {
+  return findings
+    .map((finding) => {
+      const source = finding.url ? `[${finding.source ?? 'Source'}](${finding.url})` : finding.source;
+      return [`## ${finding.title ?? 'Finding'}`, finding.summary, source].filter(Boolean).join('\n\n');
+    })
+    .join('\n\n');
 }
 
 /**
@@ -78,7 +71,8 @@ function findingsToBody(findingsJson: unknown): string {
 function transformReportToSession(row: ReportRow | null | undefined): DeepResearchSession | null {
   if (!row) return null;
 
-  const body = findingsToBody(row.findings_json);
+  const findings = parseFindings(row.findings_json);
+  const body = findingsToBody(findings);
   const periodStart = row.period_start ?? row.created_at;
   const periodEnd = row.period_end ?? row.created_at;
 
@@ -87,7 +81,9 @@ function transformReportToSession(row: ReportRow | null | undefined): DeepResear
     query: `What's New in AI (${formatPeriod(periodStart, periodEnd)})`,
     report: body.length > 0 ? body : 'Report content not available.',
     iterations: [],
-    citations: [],
+    citations: findings.flatMap((finding, index) =>
+      finding.url ? [{ id: index + 1, title: finding.title ?? finding.source ?? finding.url, url: finding.url }] : []
+    ),
     completedAt: new Date(row.created_at),
     savedToHolocron: !!row.document_id,
     confidence: 'HIGH',
