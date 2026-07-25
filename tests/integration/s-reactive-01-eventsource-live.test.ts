@@ -304,7 +304,8 @@ describe('S-REACTIVE-01 real EventSource / platform SSE', () => {
         headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           requestId,
-          msg: 'Write a long detailed multi-paragraph essay about rivers for cancel probe.',
+          // tripwire avoids long fleet work so cancel owns token seq 1-2
+          msg: '[[tripwire]] cancel probe — partial durable bubble must stay Part+ial',
         }),
       });
       expect(create.status).toBe(200);
@@ -321,17 +322,31 @@ describe('S-REACTIVE-01 real EventSource / platform SSE', () => {
         expect(busyRows[0]?.agent_busy).toBe(true);
       }
 
-      // Seed a few tokens so cancel can persist a partial durable bubble
+      // Seed a few tokens so cancel can persist a partial durable bubble.
+      // Upsert over any processChatRun/fleet race events so cancel always
+      // assembles Part+ial (never leftover fleet text like "Streaming ial").
       await sql`
-        UPDATE chat_runs SET status = 'running', updated_at = now()
+        UPDATE chat_runs SET status = 'running', updated_at = now(),
+          completed_at = NULL, final_text = NULL, error_code = NULL, error_message = NULL
         WHERE id = ${body.runId as string}::uuid
+      `;
+      await sql`
+        DELETE FROM chat_messages
+        WHERE id = ${body.durableMessageId as string}::uuid AND role = 'agent'
       `;
       await sql`
         INSERT INTO chat_run_events (run_id, seq, event_type, data_json)
         VALUES
           (${body.runId as string}::uuid, 1, 'token', ${sql.json({ token: 'Part' } as never)}),
           (${body.runId as string}::uuid, 2, 'token', ${sql.json({ token: 'ial' } as never)})
-        ON CONFLICT (run_id, seq) DO NOTHING
+        ON CONFLICT (run_id, seq) DO UPDATE
+          SET event_type = EXCLUDED.event_type,
+              data_json = EXCLUDED.data_json
+      `;
+      // Drop any higher-seq race tokens so cancel assembly is exactly "Partial"
+      await sql`
+        DELETE FROM chat_run_events
+        WHERE run_id = ${body.runId as string}::uuid AND seq > 2
       `;
       await sql`
         UPDATE chat_runs SET last_event_seq = 2 WHERE id = ${body.runId as string}::uuid

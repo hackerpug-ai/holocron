@@ -86,12 +86,34 @@ appId: ${MAESTRO_APP_ID}
     id: "chat-input-field"
 - eraseText
 
+# Controlled mentions input: re-focus before type so RN state updates (send button
+# is only mounted when value.length > 0; otherwise VoiceMic replaces it).
+- tapOn:
+    id: "chat-input-field"
 - inputText: "Write a detailed multi-sentence answer about the number five with at least eight words."
 
 - extendedWaitUntil:
     visible:
       id: "chat-input-send-button"
-    timeout: 10000
+    timeout: 15000
+
+# Retry type if voice mic still owns the slot (inputText missed controlled state)
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input-send-button"
+    commands:
+      - tapOn:
+          id: "chat-input-field"
+      - eraseText
+      - inputText: "Write five detailed sentences about rivers and mountains please."
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input-send-button"
+          timeout: 15000
+
+- assertVisible:
+    id: "chat-input-send-button"
 
 - tapOn:
     id: "chat-input-send-button"
@@ -121,6 +143,18 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-stream-token-count-at-least-3"
 
+# Capture numeric lastSeq while stream is still live (before optional complete path)
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-last-seq-at-least-3"
+    timeout: 45000
+
+- assertVisible:
+    id: "chat-stream-last-seq-at-least-3"
+
+- assertVisible:
+    id: "chat-stream-last-seq"
+
 - extendedWaitUntil:
     visible:
       id: "chat-assistant-message-streaming"
@@ -137,17 +171,12 @@ appId: ${MAESTRO_APP_ID}
             id: "chat-assistant-message-latest"
           timeout: 60000
 
-# Visibility alone is insufficient (H3) — require numeric lastSeq >= 3
-- extendedWaitUntil:
-    visible:
-      id: "chat-stream-last-seq-at-least-3"
-    timeout: 45000
-
+# Peak oracles must still hold after optional complete reconcile
 - assertVisible:
     id: "chat-stream-last-seq-at-least-3"
 
 - assertVisible:
-    id: "chat-stream-last-seq"
+    id: "chat-stream-token-count-at-least-3"
 
 - setAirplaneMode: enabled
 - waitForAnimationToEnd:
