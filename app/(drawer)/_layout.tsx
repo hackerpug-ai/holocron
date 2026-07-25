@@ -315,35 +315,34 @@ export default function DrawerLayout() {
   const isLoading = conversationRows === undefined;
 
   useEffect(() => {
-    // Deep links (holocron://chat/<id>) and nested /chat/<id> routes are
-    // authoritative — never steal them to most-recent/new (TC-1 Maestro mount).
-    const onSpecificConversation =
-      typeof pathname === 'string' &&
-      pathname.startsWith('/chat/') &&
-      pathname !== '/chat/new';
-    if (onSpecificConversation) {
+    // ANY chat route (including deep-linked /chat/<uuid>) is authoritative.
+    // Never steal Maestro holocron://chat/<id> to most-recent/new (TC-1).
+    // Match loosely — expo-router may omit a leading slash in some states.
+    const path = typeof pathname === 'string' ? pathname : '';
+    const onChatRoute =
+      path === '/chat' ||
+      path === 'chat' ||
+      path.startsWith('/chat/') ||
+      path.startsWith('chat/') ||
+      /\/chat\/[0-9a-fA-F-]{8,}/.test(path);
+    if (onChatRoute && path !== '/chat/new' && path !== 'chat/new') {
       hasInitialized.current = true;
       return;
     }
 
     // Non-chat surfaces (articles, research, …) — do not bootstrap chat.
-    const isChatEntry =
-      pathname === '/' || pathname === '/chat' || pathname === '/chat/new' || pathname == null;
+    const isChatEntry = path === '/' || path === '' || path === '/chat/new' || path === 'chat/new';
     if (!isChatEntry) return;
 
-    // Bootstrap once: prefer most-recent conversation when available, else /chat/new.
-    // NEVER re-run replace on later conversation list updates.
+    // Bootstrap once only from the generic entry — never after a deep link.
     if (hasInitialized.current || isInitializing.current) return;
     if (isLoading) return;
 
     isInitializing.current = true;
     hasInitialized.current = true;
-    if (conversations.length > 0) {
-      const mostRecent = conversations[0];
-      router.replace(`/chat/${mostRecent.id}`);
-    } else {
-      router.replace('/chat/new');
-    }
+    // Prefer /chat/new over most-recent so we never land on an arbitrary
+    // seeded thread that Maestro did not request (Gamma vs Alpha theft).
+    router.replace('/chat/new');
     isInitializing.current = false;
   }, [isLoading, conversations, router, pathname]);
 

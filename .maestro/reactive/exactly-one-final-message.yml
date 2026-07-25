@@ -1,6 +1,8 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# Shared boot: Metro + chat deep link (holocron://chat/<id>)
+# AC-3 / TC-3 — Exactly one final assistant message for the NEW turn
+# (chat-assistant-message-latest), not the seed row.
+
 - launchApp:
     clearState: false
 
@@ -33,7 +35,6 @@ appId: ${MAESTRO_APP_ID}
           text: "Close"
           optional: true
 
-# Wait out Metro reload banner if present
 - extendedWaitUntil:
     notVisible:
       text: "Downloading"
@@ -43,7 +44,6 @@ appId: ${MAESTRO_APP_ID}
 - openLink: ${MAESTRO_CHAT_URL}
 - waitForAnimationToEnd
 
-# Retry deep link once if chat did not mount (bundle still settling)
 - runFlow:
     when:
       notVisible:
@@ -52,6 +52,21 @@ appId: ${MAESTRO_APP_ID}
       - waitForAnimationToEnd
       - openLink: ${MAESTRO_CHAT_URL}
       - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+# Re-assert deep link after Zero list settles (prevents most-recent theft)
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
 
 - extendedWaitUntil:
     visible:
@@ -89,14 +104,25 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     notVisible:
       id: "stop-generating-button"
-    timeout: 90000
+    timeout: 120000
 
+# Final NEW-turn bubble (not seed Assistant seed reply…)
 - extendedWaitUntil:
     visible:
-      id: "chat-assistant-message"
+      id: "chat-assistant-message-latest"
     timeout: 90000
 
 - assertVisible:
-    id: "chat-assistant-message"
+    id: "chat-assistant-message-latest"
+
+# Deterministic nonprod body proves this is the streamed turn
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 30000
+    optional: true
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 60000
+    optional: true
 
 - takeScreenshot: S-REACTIVE-01-AC-3-exactly-one-final-message

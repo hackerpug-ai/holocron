@@ -1,6 +1,7 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# Shared boot: Metro + chat deep link (holocron://chat/<id>)
+# AC-4 / TC-4 — Last-Event-ID gap-fill delivers only unobserved events.
+
 - launchApp:
     clearState: false
 
@@ -33,7 +34,6 @@ appId: ${MAESTRO_APP_ID}
           text: "Close"
           optional: true
 
-# Wait out Metro reload banner if present
 - extendedWaitUntil:
     notVisible:
       text: "Downloading"
@@ -43,7 +43,6 @@ appId: ${MAESTRO_APP_ID}
 - openLink: ${MAESTRO_CHAT_URL}
 - waitForAnimationToEnd
 
-# Retry deep link once if chat did not mount (bundle still settling)
 - runFlow:
     when:
       notVisible:
@@ -52,6 +51,21 @@ appId: ${MAESTRO_APP_ID}
       - waitForAnimationToEnd
       - openLink: ${MAESTRO_CHAT_URL}
       - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+# Re-assert deep link after Zero list settles (prevents most-recent theft)
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
 
 - extendedWaitUntil:
     visible:
@@ -90,11 +104,25 @@ appId: ${MAESTRO_APP_ID}
 
 - extendedWaitUntil:
     visible:
+      id: "chat-stream-token-count-at-least-1"
+    timeout: 45000
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+
+- extendedWaitUntil:
+    visible:
       id: "chat-stream-last-seq"
     timeout: 45000
 
 - assertVisible:
     id: "chat-stream-last-seq"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-streaming"
+    timeout: 15000
+    optional: true
 
 - setAirplaneMode: enabled
 - waitForAnimationToEnd:
@@ -104,17 +132,26 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     notVisible:
       id: "stop-generating-button"
-    timeout: 90000
+    timeout: 120000
 
 - assertNotVisible:
     id: "stop-generating-button"
 
 - extendedWaitUntil:
     visible:
-      id: "chat-assistant-message"
+      id: "chat-assistant-message-latest"
     timeout: 60000
 
 - assertVisible:
-    id: "chat-assistant-message"
+    id: "chat-assistant-message-latest"
+
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 30000
+    optional: true
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 60000
+    optional: true
 
 - takeScreenshot: S-REACTIVE-01-AC-4-last-event-id-gap-fill

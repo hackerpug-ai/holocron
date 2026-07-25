@@ -152,17 +152,52 @@ export function ChatThread({
     setSelectedMessageContent(null);
   }, []);
 
+  // Newest agent row by createdAt (messages are oldest→newest from Zero).
+  // Prefer max timestamp so seed rows never steal the "latest" success selector.
+  const latestAgentId = (() => {
+    let best: ChatMessage | null = null;
+    for (const m of messages) {
+      if (m.role !== 'agent') continue;
+      if (!best || m.createdAt.getTime() >= best.createdAt.getTime()) {
+        best = m;
+      }
+    }
+    return best?.id ?? null;
+  })();
+
+  const resolveAgentRowTestId = (item: ChatMessage): string => {
+    // De-fake Maestro oracles: seed/historical agent rows MUST NOT share the
+    // success selector used for the live turn (AC-1 / AC-5 dual-lens).
+    // - streaming: in-progress SSE bubble for the active run
+    // - latest: most recent agent bubble after complete/cancel (new turn)
+    // - seed/historical: durable id suffix only (never matches success path)
+    if (item.id === streamingMessageId) {
+      return 'chat-assistant-message-streaming';
+    }
+    if (item.id === latestAgentId) {
+      return 'chat-assistant-message-latest';
+    }
+    return `chat-assistant-message-${item.id}`;
+  };
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
-    // Maestro PRIMARY oracles resolve chat-assistant-message on the pressable
-    // wrapper (more reliable than nested Text for XCTest).
-    const rowTestId = item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`;
+    // Maestro PRIMARY oracles resolve on the pressable wrapper (more reliable
+    // than nested Text for XCTest).
+    const rowTestId = item.role === 'agent' ? resolveAgentRowTestId(item) : `message-${item.id}`;
+    const isStreamingRow = item.id === streamingMessageId;
     return (
       <Pressable
         testID={rowTestId}
         onLongPress={() => handleMessageLongPress(item.id, item.content)}
         delayLongPress={400}
         accessible
-        accessibilityLabel={item.role === 'agent' ? 'Assistant message' : 'User message'}
+        accessibilityLabel={
+          item.role === 'agent'
+            ? isStreamingRow
+              ? 'Assistant streaming message'
+              : 'Assistant message'
+            : 'User message'
+        }
       >
         <MessageBubble
           role={item.role}
@@ -178,7 +213,7 @@ export function ChatThread({
           onFinalResultPress={onFinalResultPress}
           onWhatsNewReportPress={onWhatsNewReportPress}
           onDocumentContextNavigate={onDocumentContextNavigate}
-          isStreaming={item.id === streamingMessageId}
+          isStreaming={isStreamingRow}
           onSaveRecommendation={onSaveRecommendation}
           onSaveRecommendationList={onSaveRecommendationList}
           onSendMessage={onSendMessage}
@@ -262,6 +297,16 @@ export function ChatThread({
         >
           <Text>{streamPhase}</Text>
         </View>
+        {/* Phase-specific testID so Maestro can assert cancelled/complete without
+            reading accessibility text (XCTest id match is more reliable). */}
+        <View
+          testID={`chat-stream-phase-${streamPhase}`}
+          accessible
+          accessibilityLabel={`stream-phase-${streamPhase}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`stream-phase-${streamPhase}`}</Text>
+        </View>
         <View
           testID="chat-stream-last-seq"
           accessible
@@ -277,6 +322,37 @@ export function ChatThread({
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
           <Text>{String(streamTokenCount)}</Text>
+        </View>
+        {/* Threshold oracles: Maestro waits for these to prove token growth
+            (AC-1 must_observe >=1, AC-5 partial cancel after >=3).
+            Include Text children — empty Views are not discoverable by XCTest. */}
+        {streamTokenCount >= 1 ? (
+          <View
+            testID="chat-stream-token-count-at-least-1"
+            accessible
+            accessibilityLabel="stream-token-count-at-least-1"
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>stream-token-count-at-least-1</Text>
+          </View>
+        ) : null}
+        {streamTokenCount >= 3 ? (
+          <View
+            testID="chat-stream-token-count-at-least-3"
+            accessible
+            accessibilityLabel="stream-token-count-at-least-3"
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>stream-token-count-at-least-3</Text>
+          </View>
+        ) : null}
+        <View
+          testID={`chat-stream-token-count-${streamTokenCount}`}
+          accessible
+          accessibilityLabel={`stream-token-count-${streamTokenCount}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`stream-token-count-${streamTokenCount}`}</Text>
         </View>
       </View>
     );

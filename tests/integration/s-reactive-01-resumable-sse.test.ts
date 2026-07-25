@@ -53,6 +53,9 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       expect(src).toMatch(/EventSource/);
       expect(src).toMatch(/eventsource-rn-polyfill|EventTarget/);
       expect(src).toMatch(/\/api\/chat-runs\/.+\/events|chat-runs\/\$\{.*\}\/events/);
+      // RN progressive XHR SSE so token events land live (fetch lacks getReader)
+      expect(src).toMatch(/openProgressiveSse|XMLHttpRequest/);
+      expect(src).toMatch(/Last-Event-ID/);
       // Must not mock EventSource for tests
       expect(src).not.toMatch(/vi\.mock\(['"]eventsource['"]\)|jest\.mock\(['"]eventsource['"]\)/);
       expect(src).not.toMatch(/mockEventSource|FakeEventSource|stubEventSource/);
@@ -140,18 +143,41 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
     it('Maestro flows use non-optional stop/complete oracles', () => {
       for (const flow of MAESTRO_FLOWS) {
         const yml = read(join(REPO_ROOT, '.maestro', 'reactive', flow));
-        expect(yml, flow).toMatch(/stop-generating-button|chat-assistant-message/);
+        // Success selectors must target the NEW turn, not bare chat-assistant-message
+        // (seed rows use chat-assistant-message-<durableId> and must not fake AC pass).
+        expect(yml, flow).toMatch(
+          /chat-assistant-message-streaming|chat-assistant-message-latest|stop-generating-button/
+        );
         // Hardened flows assert stop visibility without optional for core path
         if (flow === 'cancel-stops-stream.yml') {
           expect(yml).toMatch(/assertNotVisible:[\s\S]*stop-generating-button/);
           expect(yml).toMatch(/chat-input/);
+          // AC-5: wait for >=3 tokens before cancel (not a blind short sleep)
+          expect(yml).toMatch(/chat-stream-token-count-at-least-3/);
+          // Ban the old "wait 1.5s then cancel" pattern (word-boundary so 15000 is ok)
+          expect(yml).not.toMatch(/timeout:\s*1500\b/);
         }
         if (flow === 'token-streaming.yml') {
-          expect(yml).toMatch(/chat-stream-token-count|stop-generating-button/);
-          // Stop oracle is required (non-optional) while streaming
+          // AC-1 must_observe: non-optional token growth + streaming bubble
+          expect(yml).toMatch(/chat-stream-token-count-at-least-1/);
+          expect(yml).toMatch(/chat-assistant-message-streaming/);
           expect(yml).toMatch(/assertVisible:[\s\S]*stop-generating-button/);
+          // optional: true on token-count oracle is banned
+          expect(yml).not.toMatch(/id:\s*"chat-stream-token-count"[\s\S]{0,40}optional:\s*true/);
         }
       }
+    });
+
+    it('ChatThread de-fakes seed vs streaming assistant testIDs', () => {
+      const src = read(CHAT_THREAD_PATH);
+      expect(src).toMatch(/chat-assistant-message-streaming/);
+      expect(src).toMatch(/chat-assistant-message-latest/);
+      expect(src).toMatch(/chat-stream-token-count-at-least-1/);
+      expect(src).toMatch(/chat-stream-token-count-at-least-3/);
+      // Bare shared success id must not be assigned to every agent row
+      expect(src).not.toMatch(
+        /rowTestId = item\.role === ['"]agent['"] \? ['"]chat-assistant-message['"]/
+      );
     });
   });
 

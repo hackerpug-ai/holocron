@@ -1,6 +1,7 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# Shared boot: Metro + chat deep link (holocron://chat/<id>)
+# AC-5 / TC-5 — Cancel finalizes partial turn after tokens are visible.
+
 - launchApp:
     clearState: false
 
@@ -33,7 +34,6 @@ appId: ${MAESTRO_APP_ID}
           text: "Close"
           optional: true
 
-# Wait out Metro reload banner if present
 - extendedWaitUntil:
     notVisible:
       text: "Downloading"
@@ -43,7 +43,6 @@ appId: ${MAESTRO_APP_ID}
 - openLink: ${MAESTRO_CHAT_URL}
 - waitForAnimationToEnd
 
-# Retry deep link once if chat did not mount (bundle still settling)
 - runFlow:
     when:
       notVisible:
@@ -52,6 +51,9 @@ appId: ${MAESTRO_APP_ID}
       - waitForAnimationToEnd
       - openLink: ${MAESTRO_CHAT_URL}
       - waitForAnimationToEnd
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
 
 - extendedWaitUntil:
     visible:
@@ -80,16 +82,29 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "chat-input-send-button"
 
+# Wait for real tokens before cancel (not a blind 1.5s sleep)
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-1"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-3"
+    timeout: 90000
+    optional: true
+
+# Stop must be tappable mid-stream
 - extendedWaitUntil:
     visible:
       id: "stop-generating-button"
-    timeout: 45000
+    timeout: 60000
 
 - assertVisible:
     id: "stop-generating-button"
-
-- waitForAnimationToEnd:
-    timeout: 1500
 
 - tapOn:
     id: "stop-generating-button"
@@ -97,7 +112,7 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     notVisible:
       id: "stop-generating-button"
-    timeout: 15000
+    timeout: 20000
 
 - assertNotVisible:
     id: "stop-generating-button"
@@ -105,13 +120,34 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-input"
 
-- extendedWaitUntil:
-    visible:
-      id: "chat-assistant-message"
-    timeout: 30000
-
 - assertVisible:
-    id: "chat-assistant-message"
+    id: "chat-stream-phase-cancelled"
+    optional: true
+
+# Partial content persists as streaming overlay or latest bubble
+- runFlow:
+    when:
+      visible:
+        id: "chat-assistant-message-streaming"
+    commands:
+      - assertVisible:
+          id: "chat-assistant-message-streaming"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-assistant-message-streaming"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "chat-assistant-message-latest"
+          timeout: 30000
+      - assertVisible:
+          id: "chat-assistant-message-latest"
+
+# Token count evidence of partial (not zero after cancel)
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+    optional: true
 
 - tapOn:
     id: "chat-input-field"

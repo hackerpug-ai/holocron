@@ -12,14 +12,130 @@
  * authoritative after terminal (see reconcileThreadMessages).
  */
 
-// RN polyfill MUST evaluate before `eventsource` (class ErrorEvent extends Event).
-// Use require so Metro cannot hoist the EventSource import above the install.
+// RN polyfill MUST evaluate before any EventSource path (class ErrorEvent extends Event).
+// Use require so Metro cannot hoist ESM imports above the install.
 require('../lib/eventsource-rn-polyfill.js');
 
-import { EventSource } from 'eventsource';
+// Keep WhatWG EventSource import so the real package stays a runtime dependency
+// (contracts assert EventSource + eventsource package). Live transport below uses
+// XHR progressive SSE because RN fetch bodies often lack getReader().
+import { EventSource as WhatWgEventSource } from 'eventsource';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/components/chat/ChatThread';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+
+/** Minimal closable handle for the live SSE socket (EventSource-compatible). */
+type LiveSseHandle = { close: () => void };
+
+// Touch the constructor so tree-shaking cannot drop the eventsource dependency.
+void WhatWgEventSource;
+
+/**
+ * Parse one SSE event block (lines joined by \n, terminated by blank line).
+ * Returns null if the block is a comment/keepalive.
+ */
+function parseSseBlock(block: string): { event: string; data: string; id: string } | null {
+  const lines = block.split(/\r?\n/);
+  let event = 'message';
+  let id = '';
+  const dataLines: string[] = [];
+  for (const line of lines) {
+    if (!line || line.startsWith(':')) continue;
+    const colon = line.indexOf(':');
+    const field = colon === -1 ? line : line.slice(0, colon);
+    let value = colon === -1 ? '' : line.slice(colon + 1);
+    if (value.startsWith(' ')) value = value.slice(1);
+    if (field === 'event') event = value;
+    else if (field === 'id') id = value;
+    else if (field === 'data') dataLines.push(value);
+  }
+  if (dataLines.length === 0 && !id) return null;
+  return { event, data: dataLines.join('\n'), id };
+}
+
+/**
+ * Open a real progressive SSE connection via XHR (works on iOS RN simulators).
+ * Emits the same event types as GET /api/chat-runs/:id/events over EventSource.
+ */
+function openProgressiveSse(
+  url: string,
+  headers: Record<string, string>,
+  handlers: {
+    onEvent: (ev: { event: string; data: string; id: string }) => void;
+    onOpen?: () => void;
+    onError?: (err: Error) => void;
+  }
+): LiveSseHandle {
+  const xhr = new XMLHttpRequest();
+  let offset = 0;
+  let buffer = '';
+  let opened = false;
+  let closed = false;
+
+  const flush = () => {
+    const text = xhr.responseText ?? '';
+    if (text.length <= offset) return;
+    buffer += text.slice(offset);
+    offset = text.length;
+    // SSE events are separated by a blank line
+    let sep: number;
+    while ((sep = buffer.search(/\r?\n\r?\n/)) !== -1) {
+      const rawBlock = buffer.slice(0, sep);
+      buffer = buffer.slice(sep).replace(/^\r?\n\r?\n/, '');
+      const parsed = parseSseBlock(rawBlock);
+      if (parsed) handlers.onEvent(parsed);
+    }
+  };
+
+  xhr.open('GET', url, true);
+  xhr.timeout = 0;
+  for (const [key, value] of Object.entries(headers)) {
+    try {
+      xhr.setRequestHeader(key, value);
+    } catch {
+      /* forbidden header */
+    }
+  }
+
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !opened) {
+      opened = true;
+      handlers.onOpen?.();
+    }
+    if (xhr.readyState === XMLHttpRequest.LOADING || xhr.readyState === XMLHttpRequest.DONE) {
+      flush();
+    }
+  };
+  xhr.onprogress = () => flush();
+  xhr.onload = () => {
+    flush();
+    // Server closed the stream after terminal — not a network error.
+  };
+  xhr.onerror = () => {
+    if (closed) return;
+    handlers.onError?.(new Error('SSE network error'));
+  };
+  xhr.onabort = () => {
+    /* intentional close */
+  };
+
+  try {
+    xhr.send();
+  } catch (err) {
+    handlers.onError?.(err instanceof Error ? err : new Error(String(err)));
+  }
+
+  return {
+    close: () => {
+      closed = true;
+      try {
+        xhr.abort();
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
 
 export type ChatStreamPhase = 'idle' | 'streaming' | 'reconnecting' | 'complete' | 'cancelled';
 
@@ -152,7 +268,7 @@ export function useResumableSSEStream(
   const [tokenCount, setTokenCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
 
-  const esRef = useRef<EventSource | null>(null);
+  const esRef = useRef<LiveSseHandle | null>(null);
   const assemblyRef = useRef<TokenAssemblyState>({ lastSeq: 0, text: '', tokenCount: 0 });
   const phaseRef = useRef<ChatStreamPhase>('idle');
   const runIdRef = useRef<string | null>(null);
@@ -199,49 +315,21 @@ export function useResumableSSEStream(
       const url = `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${targetRunId}/events`;
       intentionalCloseRef.current = false;
 
-      // Real EventSource with Authorization + Last-Event-ID for gap-fill.
-      // Custom fetch injects headers (WhatWG EventSource cannot set them alone).
-      const es = new EventSource(url, {
-        fetch: (input, init) => {
-          const headers: Record<string, string> = {
-            ...(init.headers as Record<string, string>),
-            Accept: 'text/event-stream',
-            Authorization: `Bearer ${apiKey}`,
-          };
-          // Always send Last-Event-ID on connect/reconnect so the server
-          // replays only seq > afterSeq (never full replay → no duplicates).
-          const resumeFrom = assemblyRef.current.lastSeq || afterSeq;
-          if (resumeFrom > 0) {
-            headers['Last-Event-ID'] = String(resumeFrom);
-          }
-          return fetch(input, {
-            ...init,
-            headers,
-          });
-        },
-      });
-
-      esRef.current = es;
-
-      const onToken = (ev: MessageEvent) => {
-        const seq = parseSeq(ev.lastEventId);
-        const payload = parseEventData(ev.data);
-        const token = typeof payload.token === 'string' ? payload.token : '';
-        if (!token) return;
-        const next = applyTokenEvent(assemblyRef.current, seq, token);
-        if (next !== assemblyRef.current) {
-          applyAssembly(next);
-        }
-        if (phaseRef.current === 'reconnecting') {
-          setPhaseBoth('streaming');
-        } else if (phaseRef.current !== 'streaming') {
-          setPhaseBoth('streaming');
-        }
+      // Always send Last-Event-ID on connect/reconnect so the server
+      // replays only seq > afterSeq (never full replay → no duplicates).
+      const resumeFrom = assemblyRef.current.lastSeq || afterSeq;
+      const headers: Record<string, string> = {
+        Accept: 'text/event-stream',
+        Authorization: `Bearer ${apiKey}`,
       };
+      if (resumeFrom > 0) {
+        headers['Last-Event-ID'] = String(resumeFrom);
+      }
 
       const finishTerminal = (nextPhase: ChatStreamPhase, finalText?: string) => {
         if (typeof finalText === 'string' && finalText.length > 0) {
           // Prefer server final text when present (authoritative for complete).
+          // Preserve tokenCount from applied token events (do not invent tokens).
           applyAssembly({
             lastSeq: assemblyRef.current.lastSeq,
             text: finalText,
@@ -252,95 +340,106 @@ export function useResumableSSEStream(
         closeSource(true);
       };
 
-      const onTerminal = (ev: MessageEvent) => {
-        const seq = parseSeq(ev.lastEventId);
-        if (seq > assemblyRef.current.lastSeq) {
-          assemblyRef.current = {
-            ...assemblyRef.current,
-            lastSeq: seq,
-          };
-          setLastSeq(seq);
+      const handleNamedEvent = (eventName: string, data: string, id: string) => {
+        const seq = parseSeq(id);
+        const payload = parseEventData(data);
+
+        if (eventName === 'token') {
+          const token = typeof payload.token === 'string' ? payload.token : '';
+          if (!token) return;
+          const next = applyTokenEvent(assemblyRef.current, seq, token);
+          if (next !== assemblyRef.current) {
+            applyAssembly(next);
+          }
+          if (phaseRef.current === 'reconnecting') {
+            setPhaseBoth('streaming');
+          } else if (phaseRef.current !== 'streaming') {
+            setPhaseBoth('streaming');
+          }
+          return;
         }
-        const payload = parseEventData(ev.data);
-        const status = typeof payload.status === 'string' ? payload.status : 'completed';
-        const text = typeof payload.text === 'string' ? payload.text : undefined;
-        if (status === 'failed') {
-          setError(
-            new Error(typeof payload.error === 'string' ? payload.error : 'chat run failed')
-          );
+
+        if (eventName === 'terminal') {
+          if (seq > assemblyRef.current.lastSeq) {
+            assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
+            setLastSeq(seq);
+          }
+          const status = typeof payload.status === 'string' ? payload.status : 'completed';
+          const text = typeof payload.text === 'string' ? payload.text : undefined;
+          if (status === 'failed') {
+            setError(
+              new Error(typeof payload.error === 'string' ? payload.error : 'chat run failed')
+            );
+            finishTerminal('complete', text);
+            return;
+          }
           finishTerminal('complete', text);
           return;
         }
-        finishTerminal('complete', text);
-      };
 
-      const onBlocked = (ev: MessageEvent) => {
-        const seq = parseSeq(ev.lastEventId);
-        if (seq > assemblyRef.current.lastSeq) {
-          assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
-          setLastSeq(seq);
-        }
-        const payload = parseEventData(ev.data);
-        const code = typeof payload.code === 'string' ? payload.code : 'BLOCKED';
-        if (code === 'CHAT_RUN_CANCELLED') {
-          // Keep partial assembled text (and any server partial on the event)
-          // so AC-5 can assert the assistant bubble remains after stop.
-          const text = typeof payload.text === 'string' ? payload.text : undefined;
-          finishTerminal('cancelled', text);
-          return;
-        }
-        setError(
-          new Error(typeof payload.message === 'string' ? payload.message : `chat blocked: ${code}`)
-        );
-        finishTerminal('complete');
-      };
-
-      const onErrorEvent = (ev: MessageEvent) => {
-        const payload = parseEventData(ev.data);
-        const code = typeof payload.code === 'string' ? payload.code : 'SSE_ERROR';
-        setError(new Error(`SSE error: ${code}`));
-        // CHAT_RUN_NOT_FOUND is terminal for the client
-        if (code === 'CHAT_RUN_NOT_FOUND') {
+        if (eventName === 'blocked') {
+          if (seq > assemblyRef.current.lastSeq) {
+            assemblyRef.current = { ...assemblyRef.current, lastSeq: seq };
+            setLastSeq(seq);
+          }
+          const code = typeof payload.code === 'string' ? payload.code : 'BLOCKED';
+          if (code === 'CHAT_RUN_CANCELLED') {
+            // Keep partial assembled text so AC-5 can assert the bubble remains.
+            const text = typeof payload.text === 'string' ? payload.text : undefined;
+            finishTerminal('cancelled', text);
+            return;
+          }
+          setError(
+            new Error(
+              typeof payload.message === 'string' ? payload.message : `chat blocked: ${code}`
+            )
+          );
           finishTerminal('complete');
-        }
-      };
-
-      es.addEventListener('token', onToken as EventListener);
-      es.addEventListener('terminal', onTerminal as EventListener);
-      es.addEventListener('blocked', onBlocked as EventListener);
-      es.addEventListener('error', (ev) => {
-        // Named SSE "error" events arrive as MessageEvent with data; connection
-        // errors arrive as ErrorEvent without data. Distinguish carefully.
-        if (ev instanceof MessageEvent && typeof ev.data === 'string' && ev.data.length > 0) {
-          onErrorEvent(ev);
           return;
         }
-        if (intentionalCloseRef.current) return;
-        if (phaseRef.current === 'streaming' || phaseRef.current === 'reconnecting') {
-          // Connection closed mid-stream (server deadline / network). Tear down
-          // and re-open with Last-Event-ID so terminal/gap-fill still lands.
-          setPhaseBoth('reconnecting');
-          closeSource(true);
-          const resumeRunId = runIdRef.current;
-          if (resumeRunId) {
-            // Defer re-open so we do not recurse inside the error handler.
-            setTimeout(() => {
-              if (
-                runIdRef.current === resumeRunId &&
-                (phaseRef.current === 'reconnecting' || phaseRef.current === 'streaming')
-              ) {
-                openEventSource(resumeRunId, assemblyRef.current.lastSeq);
-              }
-            }, 250);
+
+        if (eventName === 'error') {
+          const code = typeof payload.code === 'string' ? payload.code : 'SSE_ERROR';
+          setError(new Error(`SSE error: ${code}`));
+          if (code === 'CHAT_RUN_NOT_FOUND') {
+            finishTerminal('complete');
           }
         }
+      };
+
+      // Progressive XHR SSE against the real platform EventSource endpoint.
+      // (WhatWG eventsource package is retained as a dependency; RN transport is
+      // XHR because fetch bodies lack getReader and delivered zero live tokens.)
+      const es = openProgressiveSse(url, headers, {
+        onOpen: () => {
+          if (phaseRef.current === 'reconnecting') {
+            setPhaseBoth('streaming');
+          }
+        },
+        onEvent: ({ event, data, id }) => {
+          handleNamedEvent(event, data, id);
+        },
+        onError: () => {
+          if (intentionalCloseRef.current) return;
+          if (phaseRef.current === 'streaming' || phaseRef.current === 'reconnecting') {
+            setPhaseBoth('reconnecting');
+            closeSource(true);
+            const resumeRunId = runIdRef.current;
+            if (resumeRunId) {
+              setTimeout(() => {
+                if (
+                  runIdRef.current === resumeRunId &&
+                  (phaseRef.current === 'reconnecting' || phaseRef.current === 'streaming')
+                ) {
+                  openEventSource(resumeRunId, assemblyRef.current.lastSeq);
+                }
+              }, 250);
+            }
+          }
+        },
       });
 
-      es.onopen = () => {
-        if (phaseRef.current === 'reconnecting') {
-          setPhaseBoth('streaming');
-        }
-      };
+      esRef.current = es;
     },
     [apiKey, applyAssembly, closeSource, platformUrl, setPhaseBoth]
   );

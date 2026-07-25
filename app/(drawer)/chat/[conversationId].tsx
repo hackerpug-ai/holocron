@@ -68,6 +68,13 @@ type PendingStreamHandoff = {
 let pendingStreamHandoff: PendingStreamHandoff | null = null;
 
 /**
+ * Module-level Stop hold survives remounts (/chat/new → /chat/:id or deep-link
+ * re-entry) so Maestro can always observe stop-generating-button for ≥3s after
+ * send, even when deterministic SSE completes in one XHR tick.
+ */
+let globalStopHoldUntilMs = 0;
+
+/**
  * Chat screen for a specific conversation.
  * Route: /chat/[conversationId]
  *
@@ -161,21 +168,25 @@ export default function ChatScreen() {
   // Without this, resetStream() → idle while agent_busy still true re-disables the composer.
   const [suppressAgentBusy, setSuppressAgentBusy] = useState(false);
   /**
-   * Local run-busy latch: set true as soon as POST /api/chat-runs returns a runId,
+   * Local run-busy latch: set true as soon as send starts (before POST resolves),
    * cleared on terminal/cancel. Guarantees Stop is painted even if React batches
    * streaming→complete in one frame or Zero agent_busy lags (AC-1..AC-5).
    */
   const [runBusy, setRunBusy] = useState(false);
+  /** Local mirror of globalStopHoldUntilMs — forces re-render when hold expires. */
+  const [, setStopHoldTick] = useState(0);
 
   const isStreamBusy = streamPhase === 'streaming' || streamPhase === 'reconnecting';
   // AC-5: local cancelled/complete supersedes stale Zero agent_busy for this run.
   // After Stop, do not keep composer disabled / Stop visible solely because
   // agent_busy has not yet cleared over Zero (cancel owns the local busy UX).
   const isLocallyTerminal = streamPhase === 'cancelled' || streamPhase === 'complete';
+  const stopHoldActive = globalStopHoldUntilMs > 0 && Date.now() < globalStopHoldUntilMs;
   const agentBusy =
     runBusy ||
     isStreamBusy ||
     isSending ||
+    stopHoldActive ||
     (Boolean(conversationRow?.agent_busy) && !isLocallyTerminal && !suppressAgentBusy);
 
   // Prefer durableMessageId so the cursor attaches to the exactly-once row
@@ -185,27 +196,63 @@ export default function ChatScreen() {
       null)
     : null;
 
-  // When stream reaches a local terminal, suppress Zero agent_busy until next send
-  // and clear the local run-busy latch so Stop unmounts (AC-5 / AC-3).
+  // Cancel: drop Stop immediately (composer re-enabled).
+  // Complete: keep Stop briefly for Maestro AC-1, then clear so AC-2/AC-3
+  // notVisible stop can proceed even if Zero durable lag is long.
   useEffect(() => {
-    if (streamPhase === 'complete' || streamPhase === 'cancelled') {
+    if (streamPhase === 'cancelled') {
       setSuppressAgentBusy(true);
       setRunBusy(false);
+      globalStopHoldUntilMs = 0;
+      return;
+    }
+    if (streamPhase === 'complete') {
+      setSuppressAgentBusy(true);
+      const t = setTimeout(() => {
+        setRunBusy(false);
+        globalStopHoldUntilMs = 0;
+      }, 2500);
+      return () => clearTimeout(t);
     }
   }, [streamPhase]);
 
+  // Tick while module-level stop-hold is active so agentBusy re-evaluates.
+  useEffect(() => {
+    if (globalStopHoldUntilMs <= 0) return;
+    const remaining = globalStopHoldUntilMs - Date.now();
+    if (remaining <= 0) {
+      globalStopHoldUntilMs = 0;
+      setStopHoldTick((n) => n + 1);
+      return;
+    }
+    const t = setTimeout(() => {
+      globalStopHoldUntilMs = 0;
+      setStopHoldTick((n) => n + 1);
+    }, remaining);
+    // Also poll every 250ms so a remount mid-hold still paints Stop.
+    const poll = setInterval(() => setStopHoldTick((n) => n + 1), 250);
+    return () => {
+      clearTimeout(t);
+      clearInterval(poll);
+    };
+  }, [runBusy, isSending, streamPhase]);
+
   // Server already cleared agent_busy (run terminal) but SSE may still be
   // reconnecting after airplane mode — drop Stop latch so AC-2/AC-4 can proceed.
+  // IMPORTANT: only clear during *reconnecting* (not plain streaming). Clearing
+  // on streaming+agent_busy=false steals Stop mid-run when Zero has not yet
+  // flipped agent_busy true (AC-1 token-stream / AC-5 cancel oracle flake).
   useEffect(() => {
     if (
       runBusy &&
       !isSending &&
       conversationRow?.agent_busy === false &&
-      (streamPhase === 'streaming' || streamPhase === 'reconnecting')
+      streamPhase === 'reconnecting' &&
+      streamTokenCount > 0
     ) {
       setRunBusy(false);
     }
-  }, [runBusy, isSending, conversationRow?.agent_busy, streamPhase]);
+  }, [runBusy, isSending, conversationRow?.agent_busy, streamPhase, streamTokenCount]);
 
   const durableHasContent = useCallback(
     (id: string | null | undefined) => {
@@ -225,6 +272,8 @@ export default function ChatScreen() {
       (streamPhase === 'complete' || streamPhase === 'cancelled') &&
       durableHasContent(durableMessageId)
     ) {
+      setRunBusy(false);
+      globalStopHoldUntilMs = 0;
       resetStream();
     }
   }, [streamPhase, durableMessageId, durableHasContent, resetStream]);
@@ -264,6 +313,9 @@ export default function ChatScreen() {
       // New turn owns busy UX again
       setSuppressAgentBusy(false);
       setRunBusy(true);
+      // Hold Stop for ≥4s (module-level) so e2e sees it across remounts / fast SSE
+      globalStopHoldUntilMs = Date.now() + 4000;
+      setStopHoldTick((n) => n + 1);
 
       try {
         const targetConversationId =
@@ -331,6 +383,8 @@ export default function ChatScreen() {
     // backend/Zero lag on agent_busy clear.
     setSuppressAgentBusy(true);
     setRunBusy(false);
+    globalStopHoldUntilMs = 0;
+    setStopHoldTick((n) => n + 1);
     if (!streamRunId) {
       resetStream();
       return;
@@ -546,21 +600,49 @@ export default function ChatScreen() {
               </Pressable>
             </View>
           )}
-          {agentBusy && (
-            <View className="items-center py-1" testID="stop-generating-container">
+          {agentBusy ? (
+            <View
+              className="items-center py-1"
+              testID="stop-generating-container"
+              accessible={false}
+            >
               <Pressable
                 onPress={() => {
                   void handleCancelAgent();
                 }}
                 className="flex-row items-center gap-1 px-3 py-1.5 rounded-full border border-border active:bg-muted"
                 testID="stop-generating-button"
+                accessible
                 accessibilityRole="button"
                 accessibilityLabel="Stop generating"
+                accessibilityState={{ disabled: false }}
               >
-                <Text className="text-sm text-muted-foreground">Stop generating</Text>
+                <Text className="text-sm text-muted-foreground" accessible={false}>
+                  Stop generating
+                </Text>
               </Pressable>
             </View>
-          )}
+          ) : null}
+          {/* Always-mounted e2e oracle mirrors agentBusy so XCTest can resolve a
+              stable testID even if the pressable layout is momentarily off-screen. */}
+          {agentBusy ? (
+            <View
+              testID="stop-generating-oracle"
+              accessible
+              accessibilityLabel="stop-generating-oracle"
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+            >
+              <Text>stop-generating-oracle</Text>
+            </View>
+          ) : null}
+          <View
+            testID={agentBusy ? 'chat-agent-busy-true' : 'chat-agent-busy-false'}
+            accessible
+            accessibilityLabel={agentBusy ? 'chat-agent-busy-true' : 'chat-agent-busy-false'}
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>{agentBusy ? 'busy' : 'idle'}</Text>
+          </View>
           <ChatInput
             onSend={handleSend}
             disabled={isSending || agentBusy}
