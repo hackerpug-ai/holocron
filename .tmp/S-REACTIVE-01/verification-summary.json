@@ -1,0 +1,167 @@
+{
+  "task_id": "S-REACTIVE-01",
+  "timestamp": "2026-07-25T10:10:16Z",
+  "commit_sha": "2442623b9d64617cba84ea512a81a07670ebbab2",
+  "typecheck": {
+    "exit_code": 2
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "maestro test .maestro/reactive/token-streaming.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/ac-5-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "maestro test .maestro/reactive/token-streaming.yml",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REACTIVE-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "pnpm tsc --noEmit",
+      "exit_code": 2,
+      "output_file": ".tmp/S-REACTIVE-01/tc-6-output.txt"
+    },
+    {
+      "id": "TC-7",
+      "verify": "pnpm lint",
+      "exit_code": 1,
+      "output_file": ".tmp/S-REACTIVE-01/tc-7-output.txt"
+    },
+    {
+      "id": "TC-8",
+      "verify": "python3 ~/Projects/brain/tools/validate-scenario/validate_scenario.py .validate-payloads/S-REACTIVE-01.json",
+      "exit_code": 0,
+      "output_file": ".tmp/S-REACTIVE-01/tc-8-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-25T10:10:16Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "f623d9146ebfe8d3cfa624f182ba7b0f015d9b77980bf2b63afbd796ab799b0d"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "15003171089ee85323b3066dcdc942c6f62ece2767415ce4f8ca147b00744f79"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "4f2d9fa24ecabad31891ae77e79311f5f47249f30b819feca2354e81c43f4cb1"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "74cbd256553cf99d030a933b80747ce86135f2786cfb8f583238b2d6b89e36f0"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "53b36896ea79da15ce849cee5aad05e7bd8bd63d1a4a642621813d8c15c602fd"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "fa2960f9365663519f63da04150c5611de8e8658353291d0317086cd86d10d05"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "19ca12fd2ea9039c53de7582fcccec59a6db59b345fda320443b38fb70202466"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "2096919ff7827118ca0ce30c57540b83d23614236f8ba5d7b45bbbcb8adc2202"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "1d964d8d9b7e353d721b92d5a9066d0d819e41e35559099a12cd8c9ddf7dfb84"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "53b36896ea79da15ce849cee5aad05e7bd8bd63d1a4a642621813d8c15c602fd"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "fa2960f9365663519f63da04150c5611de8e8658353291d0317086cd86d10d05"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "19ca12fd2ea9039c53de7582fcccec59a6db59b345fda320443b38fb70202466"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "2096919ff7827118ca0ce30c57540b83d23614236f8ba5d7b45bbbcb8adc2202"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "3dc9f0ff114455463a6eb499efcbb298d3abf224f78fc68418946c384000f022"
+      },
+      {
+        "path": "tc-7-output.txt",
+        "sha256": "b556b9dcaeff112e84ba32929acbd936312c381788ef23bf387a9aee9f8417fd"
+      },
+      {
+        "path": "tc-8-output.txt",
+        "sha256": "74b341f333cd07c3a9864cdd19bccc2564f6a06fc378fbedef9fd101091ffba2"
+      }
+    ]
+  }
+}

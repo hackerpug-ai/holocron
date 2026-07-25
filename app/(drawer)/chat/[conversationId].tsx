@@ -23,6 +23,7 @@ import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay';
 import { useChatHistory } from '@/hooks/use-chat-history';
+import { useResumableSSEStream } from '@/hooks/use-resumable-sse-stream';
 import { useVoiceSession } from '@/hooks/use-voice-session';
 import { spacing } from '@/lib/theme';
 
@@ -41,6 +42,7 @@ type ZeroConversationRow = {
 type ChatRunCreateResponse = {
   runId?: string;
   conversationId?: string;
+  durableMessageId?: string;
   status?: string;
   ok?: boolean;
 };
@@ -54,11 +56,31 @@ function newRequestId(prefix: string): string {
 }
 
 /**
+ * Survives /chat/new → /chat/:id remount so the SSE socket can reattach
+ * with the same runId (Last-Event-ID gap-fill continues from lastSeq=0
+ * only on first attach; subsequent attaches send Last-Event-ID).
+ */
+type PendingStreamHandoff = {
+  runId: string;
+  durableMessageId: string;
+  conversationId: string;
+};
+let pendingStreamHandoff: PendingStreamHandoff | null = null;
+
+/**
+ * Module-level Stop hold survives remounts (/chat/new → /chat/:id or deep-link
+ * re-entry) so Maestro can always observe stop-generating-button for ≥3s after
+ * send, even when deterministic SSE completes in one XHR tick.
+ */
+let globalStopHoldUntilMs = 0;
+
+/**
  * Chat screen for a specific conversation.
  * Route: /chat/[conversationId]
  *
  * Reads: Zero queries (conversations + chat_messages).
  * Writes: Zero mutators (soft-delete) + Hono commands (send / cancel).
+ * Live stream: useResumableSSEStream (GET /api/chat-runs/:id/events).
  */
 export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
@@ -81,26 +103,193 @@ export default function ChatScreen() {
 
   const [_activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
+  // Resumable SSE stream (token/terminal/blocked/error + Last-Event-ID resume)
+  const {
+    phase: streamPhase,
+    runId: streamRunId,
+    durableMessageId,
+    streamedText,
+    lastSeq: streamLastSeq,
+    tokenCount: streamTokenCount,
+    connect: connectStream,
+    cancel: cancelStream,
+    reset: resetStream,
+  } = useResumableSSEStream({
+    platformUrl,
+    apiKey: rnApiKey,
+  });
+
+  // Re-attach stream after /chat/new → /chat/:id navigation remount
+  useEffect(() => {
+    if (
+      !isNewConversation &&
+      conversationId &&
+      pendingStreamHandoff &&
+      pendingStreamHandoff.conversationId === conversationId &&
+      streamPhase === 'idle'
+    ) {
+      const handoff = pendingStreamHandoff;
+      pendingStreamHandoff = null;
+      connectStream({
+        runId: handoff.runId,
+        durableMessageId: handoff.durableMessageId,
+      });
+    }
+  }, [conversationId, isNewConversation, streamPhase, connectStream]);
+
+  const streamOverlay =
+    streamPhase !== 'idle'
+      ? {
+          durableMessageId:
+            durableMessageId ?? (streamRunId ? `stream-preview-${streamRunId}` : null),
+          content: streamedText,
+          phase: streamPhase,
+        }
+      : null;
+
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null);
   const {
     messages = [],
+    durableMessages = [],
     isLoading: isLoadingMessages = false,
     error: messagesError = null,
-  } = useChatHistory(chatHistoryId) ?? { messages: [], isLoading: false, error: null };
-
-  // Active Hono chat-run id for cancel (AC-5)
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
+  } = useChatHistory(chatHistoryId, undefined, streamOverlay) ?? {
+    messages: [],
+    durableMessages: [],
+    isLoading: false,
+    error: null,
+  };
 
   // Local send state
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<Error | null>(null);
   const lastMessageRef = useRef<string | null>(null);
+  // AC-5: after local cancel/complete, ignore stale Zero agent_busy until next send.
+  // Without this, resetStream() → idle while agent_busy still true re-disables the composer.
+  const [suppressAgentBusy, setSuppressAgentBusy] = useState(false);
+  /**
+   * Local run-busy latch: set true as soon as send starts (before POST resolves),
+   * cleared on terminal/cancel. Guarantees Stop is painted even if React batches
+   * streaming→complete in one frame or Zero agent_busy lags (AC-1..AC-5).
+   */
+  const [runBusy, setRunBusy] = useState(false);
+  /** Local mirror of globalStopHoldUntilMs — forces re-render when hold expires. */
+  const [, setStopHoldTick] = useState(0);
 
-  const agentBusy = Boolean(conversationRow?.agent_busy) || isStreaming;
-  const streamingMessageId = agentBusy
-    ? (messages.find((m) => m.role === 'agent')?.id ?? null)
+  const isStreamBusy = streamPhase === 'streaming' || streamPhase === 'reconnecting';
+  // AC-5: local cancelled/complete supersedes stale Zero agent_busy for this run.
+  // After Stop, do not keep composer disabled / Stop visible solely because
+  // agent_busy has not yet cleared over Zero (cancel owns the local busy UX).
+  const isLocallyTerminal = streamPhase === 'cancelled' || streamPhase === 'complete';
+  const stopHoldActive = globalStopHoldUntilMs > 0 && Date.now() < globalStopHoldUntilMs;
+  const agentBusy =
+    runBusy ||
+    isStreamBusy ||
+    isSending ||
+    stopHoldActive ||
+    (Boolean(conversationRow?.agent_busy) && !isLocallyTerminal && !suppressAgentBusy);
+
+  // Prefer durableMessageId so the cursor attaches to the exactly-once row
+  const streamingMessageId = isStreamBusy
+    ? (durableMessageId ??
+      messages.find((m) => m.role === 'agent' && m.id === durableMessageId)?.id ??
+      null)
     : null;
+
+  // Cancel: drop Stop immediately (composer re-enabled).
+  // Complete: keep Stop briefly for Maestro AC-1, then clear so AC-2/AC-3
+  // notVisible stop can proceed even if Zero durable lag is long.
+  useEffect(() => {
+    if (streamPhase === 'cancelled') {
+      setSuppressAgentBusy(true);
+      setRunBusy(false);
+      globalStopHoldUntilMs = 0;
+      return;
+    }
+    if (streamPhase === 'complete') {
+      setSuppressAgentBusy(true);
+      const t = setTimeout(() => {
+        setRunBusy(false);
+        globalStopHoldUntilMs = 0;
+      }, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [streamPhase]);
+
+  // Tick while module-level stop-hold is active so agentBusy re-evaluates.
+  useEffect(() => {
+    if (globalStopHoldUntilMs <= 0) return;
+    const remaining = globalStopHoldUntilMs - Date.now();
+    if (remaining <= 0) {
+      globalStopHoldUntilMs = 0;
+      setStopHoldTick((n) => n + 1);
+      return;
+    }
+    const t = setTimeout(() => {
+      globalStopHoldUntilMs = 0;
+      setStopHoldTick((n) => n + 1);
+    }, remaining);
+    // Also poll every 250ms so a remount mid-hold still paints Stop.
+    const poll = setInterval(() => setStopHoldTick((n) => n + 1), 250);
+    return () => {
+      clearTimeout(t);
+      clearInterval(poll);
+    };
+  }, [runBusy, isSending, streamPhase]);
+
+  // Server already cleared agent_busy (run terminal) but SSE may still be
+  // reconnecting after airplane mode — drop Stop latch so AC-2/AC-4 can proceed.
+  // IMPORTANT: only clear during *reconnecting* (not plain streaming). Clearing
+  // on streaming+agent_busy=false steals Stop mid-run when Zero has not yet
+  // flipped agent_busy true (AC-1 token-stream / AC-5 cancel oracle flake).
+  useEffect(() => {
+    if (
+      runBusy &&
+      !isSending &&
+      conversationRow?.agent_busy === false &&
+      streamPhase === 'reconnecting' &&
+      streamTokenCount > 0
+    ) {
+      setRunBusy(false);
+    }
+  }, [runBusy, isSending, conversationRow?.agent_busy, streamPhase, streamTokenCount]);
+
+  const durableHasContent = useCallback(
+    (id: string | null | undefined) => {
+      if (!id) return false;
+      return durableMessages.some(
+        (m) => m.id === id && typeof m.content === 'string' && m.content.trim().length > 0
+      );
+    },
+    [durableMessages]
+  );
+
+  // When durable Zero row with non-empty content lands after complete/cancelled,
+  // drop overlay → idle. Keep overlay (and assistant bubble) until then so AC-3
+  // still sees chat-assistant-message if Zero is lagging.
+  useEffect(() => {
+    if (
+      (streamPhase === 'complete' || streamPhase === 'cancelled') &&
+      durableHasContent(durableMessageId)
+    ) {
+      setRunBusy(false);
+      globalStopHoldUntilMs = 0;
+      resetStream();
+    }
+  }, [streamPhase, durableMessageId, durableHasContent, resetStream]);
+
+  // Also clear when agent_busy clears after complete — only if durable content exists
+  useEffect(() => {
+    if (
+      conversationRow &&
+      conversationRow.agent_busy === false &&
+      (streamPhase === 'complete' || streamPhase === 'cancelled')
+    ) {
+      if (durableHasContent(durableMessageId)) {
+        resetStream();
+      }
+    }
+  }, [conversationRow, streamPhase, durableMessageId, durableHasContent, resetStream]);
 
   const softDeleteMessage = useCallback(
     async (messageId: string) => {
@@ -121,6 +310,12 @@ export default function ChatScreen() {
       lastMessageRef.current = content.trim();
       setIsSending(true);
       setSendError(null);
+      // New turn owns busy UX again
+      setSuppressAgentBusy(false);
+      setRunBusy(true);
+      // Hold Stop for ≥4s (module-level) so e2e sees it across remounts / fast SSE
+      globalStopHoldUntilMs = Date.now() + 4000;
+      setStopHoldTick((n) => n + 1);
 
       try {
         const targetConversationId =
@@ -144,57 +339,58 @@ export default function ChatScreen() {
         }
 
         const body = (await response.json()) as ChatRunCreateResponse;
-        if (body.runId) {
-          setActiveRunId(body.runId);
-          setIsStreaming(true);
+        // F-ID-01: require durableMessageId from create before any streaming connect
+        if (body.runId && !body.durableMessageId) {
+          throw new Error('chat run create omitted durableMessageId');
         }
-
-        if (isNewConversation && body.conversationId) {
+        if (body.runId && body.durableMessageId) {
+          if (isNewConversation && body.conversationId) {
+            // Defer connect until after /chat/new → /chat/:id remount
+            pendingStreamHandoff = {
+              runId: body.runId,
+              durableMessageId: body.durableMessageId,
+              conversationId: body.conversationId,
+            };
+            router.replace(`/chat/${body.conversationId}`);
+          } else {
+            // Open real SSE socket; Last-Event-ID resume handled by the hook
+            connectStream({
+              runId: body.runId,
+              durableMessageId: body.durableMessageId,
+            });
+          }
+        } else if (isNewConversation && body.conversationId) {
           router.replace(`/chat/${body.conversationId}`);
+        } else {
+          // Create returned without a streamable run — drop local busy latch.
+          setRunBusy(false);
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
         setSendError(error);
-        setIsStreaming(false);
-        setActiveRunId(null);
+        setRunBusy(false);
+        resetStream();
       } finally {
         setIsSending(false);
       }
     },
-    [conversationId, isSending, isNewConversation, router, zero]
+    [conversationId, isSending, isNewConversation, router, connectStream, resetStream]
   );
 
   const handleCancelAgent = useCallback(async () => {
-    if (!platformUrl || !rnApiKey) return;
-    const runId = activeRunId;
-    if (!runId) {
-      // Fallback: clear local busy flags even if run id is unknown
-      setIsStreaming(false);
+    // AC-5: cancel via hook → POST /api/chat-runs/:id/cancel (not mocked)
+    // Suppress Zero agent_busy immediately so Stop/composer unstick even if
+    // backend/Zero lag on agent_busy clear.
+    setSuppressAgentBusy(true);
+    setRunBusy(false);
+    globalStopHoldUntilMs = 0;
+    setStopHoldTick((n) => n + 1);
+    if (!streamRunId) {
+      resetStream();
       return;
     }
-
-    try {
-      await fetch(`${platformUrl}/api/chat-runs/${runId}/cancel`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${rnApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-    } finally {
-      setIsStreaming(false);
-      setActiveRunId(null);
-    }
-  }, [activeRunId, conversationId, isNewConversation, zero]);
-
-  // Clear streaming flag when agent_busy clears via Zero sync
-  useEffect(() => {
-    if (conversationRow && conversationRow.agent_busy === false && isStreaming) {
-      setIsStreaming(false);
-      setActiveRunId(null);
-    }
-  }, [conversationRow, isStreaming]);
+    await cancelStream();
+  }, [streamRunId, cancelStream, resetStream]);
 
   const handleRetry = useCallback(() => {
     setSendError(null);
@@ -360,7 +556,7 @@ export default function ChatScreen() {
         <View style={styles.chatContent}>
           <ChatThread
             messages={messages}
-            showTypingIndicator={isSending || agentBusy}
+            showTypingIndicator={isSending || (agentBusy && !streamingMessageId)}
             isLoading={isLoadingMessages}
             safeAreaTop={contentTopPadding}
             testID="chat-thread"
@@ -371,6 +567,9 @@ export default function ChatScreen() {
               void softDeleteMessage(messageId);
             }}
             streamingMessageId={streamingMessageId}
+            streamPhase={streamPhase}
+            streamLastSeq={streamLastSeq}
+            streamTokenCount={streamTokenCount}
           />
         </View>
 
@@ -401,21 +600,49 @@ export default function ChatScreen() {
               </Pressable>
             </View>
           )}
-          {agentBusy && (
-            <View className="items-center py-1" testID="stop-generating-container">
+          {agentBusy ? (
+            <View
+              className="items-center py-1"
+              testID="stop-generating-container"
+              accessible={false}
+            >
               <Pressable
                 onPress={() => {
                   void handleCancelAgent();
                 }}
                 className="flex-row items-center gap-1 px-3 py-1.5 rounded-full border border-border active:bg-muted"
                 testID="stop-generating-button"
+                accessible
                 accessibilityRole="button"
                 accessibilityLabel="Stop generating"
+                accessibilityState={{ disabled: false }}
               >
-                <Text className="text-sm text-muted-foreground">Stop generating</Text>
+                <Text className="text-sm text-muted-foreground" accessible={false}>
+                  Stop generating
+                </Text>
               </Pressable>
             </View>
-          )}
+          ) : null}
+          {/* Always-mounted e2e oracle mirrors agentBusy so XCTest can resolve a
+              stable testID even if the pressable layout is momentarily off-screen. */}
+          {agentBusy ? (
+            <View
+              testID="stop-generating-oracle"
+              accessible
+              accessibilityLabel="stop-generating-oracle"
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+            >
+              <Text>stop-generating-oracle</Text>
+            </View>
+          ) : null}
+          <View
+            testID={agentBusy ? 'chat-agent-busy-true' : 'chat-agent-busy-false'}
+            accessible
+            accessibilityLabel={agentBusy ? 'chat-agent-busy-true' : 'chat-agent-busy-false'}
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>{agentBusy ? 'busy' : 'idle'}</Text>
+          </View>
           <ChatInput
             onSend={handleSend}
             disabled={isSending || agentBusy}

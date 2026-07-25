@@ -308,9 +308,6 @@ export default function DrawerLayout() {
   const [conversationRows] = useQuery(conversationsByOwner());
   const conversations = (conversationRows ?? []) as unknown as ZeroConversationRow[];
 
-  // Active conversation tracking (local state)
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-
   // Prevent duplicate initialization on re-renders (React 18 Strict Mode)
   const hasInitialized = useRef(false);
   const isInitializing = useRef(false);
@@ -318,30 +315,36 @@ export default function DrawerLayout() {
   const isLoading = conversationRows === undefined;
 
   useEffect(() => {
-    // Bootstrap a conversation only from the chat/root surface. A deep link or
-    // nested card route is authoritative and must not be replaced by the most
-    // recent conversation while its first interaction is being processed.
-    const isChatRoute =
-      pathname === '/' || pathname === '/chat/new' || pathname.startsWith('/chat/');
-    if (!isChatRoute) return;
-
-    // On first mount, navigate to /chat/new immediately (optimistic empty state)
-    if (!hasInitialized.current && !isInitializing.current) {
-      isInitializing.current = true;
-      router.replace('/chat/new');
+    // ANY chat route (including deep-linked /chat/<uuid>) is authoritative.
+    // Never steal Maestro holocron://chat/<id> to most-recent/new (TC-1).
+    // Match loosely — expo-router may omit a leading slash in some states.
+    const path = typeof pathname === 'string' ? pathname : '';
+    const onChatRoute =
+      path === '/chat' ||
+      path === 'chat' ||
+      path.startsWith('/chat/') ||
+      path.startsWith('chat/') ||
+      /\/chat\/[0-9a-fA-F-]{8,}/.test(path);
+    if (onChatRoute && path !== '/chat/new' && path !== 'chat/new') {
       hasInitialized.current = true;
-      isInitializing.current = false;
+      return;
     }
 
-    // After conversations load, navigate to most recent if any exist
-    if (!isLoading && conversations.length > 0 && hasInitialized.current) {
-      const mostRecent = conversations[0];
-      if (activeConversationId === null) {
-        setActiveConversationId(mostRecent.id);
-        router.replace(`/chat/${mostRecent.id}`);
-      }
-    }
-  }, [isLoading, conversations, router, activeConversationId, pathname]);
+    // Non-chat surfaces (articles, research, …) — do not bootstrap chat.
+    const isChatEntry = path === '/' || path === '' || path === '/chat/new' || path === 'chat/new';
+    if (!isChatEntry) return;
+
+    // Bootstrap once only from the generic entry — never after a deep link.
+    if (hasInitialized.current || isInitializing.current) return;
+    if (isLoading) return;
+
+    isInitializing.current = true;
+    hasInitialized.current = true;
+    // Prefer /chat/new over most-recent so we never land on an arbitrary
+    // seeded thread that Maestro did not request (Gamma vs Alpha theft).
+    router.replace('/chat/new');
+    isInitializing.current = false;
+  }, [isLoading, conversations, router, pathname]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']} className="bg-background">

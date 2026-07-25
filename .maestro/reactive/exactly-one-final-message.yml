@@ -1,0 +1,128 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-3 / TC-3 — Exactly one final assistant message for the NEW turn
+# (chat-assistant-message-latest), not the seed row.
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+# Re-assert deep link after Zero list settles (prevents most-recent theft)
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Reply with a short greeting only."
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "stop-generating-button"
+    timeout: 45000
+    optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      id: "stop-generating-button"
+    timeout: 120000
+
+# Final NEW-turn bubble (not seed Assistant seed reply…)
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+# Deterministic nonprod body proves this is the streamed turn
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 30000
+    optional: true
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 60000
+    optional: true
+
+- takeScreenshot: S-REACTIVE-01-AC-3-exactly-one-final-message

@@ -1,0 +1,14 @@
+=== AC-2 GREEN after implementation (edb0ae64) ===
+Command: pnpm exec vitest run tests/integration/s-reactive-01-resumable-sse.test.ts
+Source: .tmp/S-REACTIVE-01/green/ac-all-green.txt
+
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-01
+
+ ✓ tests/integration/s-reactive-01-resumable-sse.test.ts (16 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  01:09:52
+   Duration  252ms (transform 78ms, setup 117ms, import 13ms, tests 22ms, environment 0ms)
+

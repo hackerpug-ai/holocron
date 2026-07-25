@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, useWindowDimensions, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useAgentActivity } from '@/hooks/use-agent-activity';
+import type { ChatStreamPhase } from '@/hooks/use-resumable-sse-stream';
 import type { MessageRole, MessageType } from '@/lib/types/conversations';
 import { AgentActivityIndicator } from './AgentActivityIndicator';
 import { MessageActionsSheet } from './MessageActionsSheet';
@@ -37,6 +38,15 @@ export interface ChatThreadProps {
   onDeleteMessage?: (messageId: string) => void;
   /** ID of the message currently being streamed - shows cursor, suppresses typing indicator */
   streamingMessageId?: string | null;
+  /**
+   * Unified chat-thread stream state machine (S-REACTIVE-01).
+   * idle | streaming | reconnecting | complete | cancelled
+   */
+  streamPhase?: ChatStreamPhase;
+  /** Last SSE seq observed (Last-Event-ID resume cursor) — for e2e oracles */
+  streamLastSeq?: number;
+  /** Count of applied token events (zero-dup invariant) */
+  streamTokenCount?: number;
   /** Navigate to a document with optional highlight at a specific block */
   onDocumentContextNavigate?: (documentId: string, blockIndex?: number) => void;
   /** Callback when a single recommendation is saved to KB */
@@ -64,6 +74,9 @@ export function ChatThread({
   onWhatsNewReportPress,
   onDeleteMessage,
   streamingMessageId = null,
+  streamPhase = 'idle',
+  streamLastSeq = 0,
+  streamTokenCount = 0,
   onDocumentContextNavigate,
   onSaveRecommendation,
   onSaveRecommendationList,
@@ -91,8 +104,9 @@ export function ChatThread({
       return false;
     })();
 
+  const isStreamLive = streamPhase === 'streaming' || streamPhase === 'reconnecting';
   const effectiveShowTypingIndicator =
-    showTypingIndicator && !hasActiveResearchCard && !streamingMessageId;
+    showTypingIndicator && !hasActiveResearchCard && !streamingMessageId && !isStreamLive;
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
 
@@ -100,13 +114,15 @@ export function ChatThread({
   const { phase, toolName } = useAgentActivity({ threadId: undefined });
   const aaiActive = phase !== 'idle';
 
-  // Auto-scroll to bottom when new messages are added or typing indicator appears
+  // Auto-scroll to bottom when new messages are added, typing indicator, or stream grows
   // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
   useEffect(() => {
-    if (messages.length > 0 || effectiveShowTypingIndicator) {
+    // streamTokenCount intentionally triggers scroll as token text grows in-place
+    if (streamTokenCount < 0) return;
+    if (messages.length > 0 || effectiveShowTypingIndicator || isStreamLive) {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
-  }, [messages.length, effectiveShowTypingIndicator]);
+  }, [messages.length, effectiveShowTypingIndicator, isStreamLive, streamTokenCount]);
 
   // Handle card press - navigate to document screen
   const handleCardPress = useCallback(
@@ -136,33 +152,75 @@ export function ChatThread({
     setSelectedMessageContent(null);
   }, []);
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <Pressable
-      testID="message-bubble"
-      onLongPress={() => handleMessageLongPress(item.id, item.content)}
-      delayLongPress={400}
-    >
-      <MessageBubble
-        role={item.role}
-        content={item.content}
-        message_type={item.message_type}
-        card_data={item.card_data}
-        toolCallId={item.toolCallId}
-        voiceSessionId={item.voiceSessionId}
-        createdAt={item.createdAt}
-        showTimestamp={true}
-        testID={item.role === 'agent' ? 'chat-assistant-message' : `message-${item.id}`}
-        onCardPress={handleCardPress}
-        onFinalResultPress={onFinalResultPress}
-        onWhatsNewReportPress={onWhatsNewReportPress}
-        onDocumentContextNavigate={onDocumentContextNavigate}
-        isStreaming={item.id === streamingMessageId}
-        onSaveRecommendation={onSaveRecommendation}
-        onSaveRecommendationList={onSaveRecommendationList}
-        onSendMessage={onSendMessage}
-      />
-    </Pressable>
-  );
+  // Newest agent row by createdAt (messages are oldest→newest from Zero).
+  // Prefer max timestamp so seed rows never steal the "latest" success selector.
+  const latestAgentId = (() => {
+    let best: ChatMessage | null = null;
+    for (const m of messages) {
+      if (m.role !== 'agent') continue;
+      if (!best || m.createdAt.getTime() >= best.createdAt.getTime()) {
+        best = m;
+      }
+    }
+    return best?.id ?? null;
+  })();
+
+  const resolveAgentRowTestId = (item: ChatMessage): string => {
+    // De-fake Maestro oracles: seed/historical agent rows MUST NOT share the
+    // success selector used for the live turn (AC-1 / AC-5 dual-lens).
+    // - streaming: in-progress SSE bubble for the active run
+    // - latest: most recent agent bubble after complete/cancel (new turn)
+    // - seed/historical: durable id suffix only (never matches success path)
+    if (item.id === streamingMessageId) {
+      return 'chat-assistant-message-streaming';
+    }
+    if (item.id === latestAgentId) {
+      return 'chat-assistant-message-latest';
+    }
+    return `chat-assistant-message-${item.id}`;
+  };
+
+  const renderMessage = ({ item }: { item: ChatMessage }) => {
+    // Maestro PRIMARY oracles resolve on the pressable wrapper (more reliable
+    // than nested Text for XCTest).
+    const rowTestId = item.role === 'agent' ? resolveAgentRowTestId(item) : `message-${item.id}`;
+    const isStreamingRow = item.id === streamingMessageId;
+    return (
+      <Pressable
+        testID={rowTestId}
+        onLongPress={() => handleMessageLongPress(item.id, item.content)}
+        delayLongPress={400}
+        accessible
+        accessibilityLabel={
+          item.role === 'agent'
+            ? isStreamingRow
+              ? 'Assistant streaming message'
+              : 'Assistant message'
+            : 'User message'
+        }
+      >
+        <MessageBubble
+          role={item.role}
+          content={item.content}
+          message_type={item.message_type}
+          card_data={item.card_data}
+          toolCallId={item.toolCallId}
+          voiceSessionId={item.voiceSessionId}
+          createdAt={item.createdAt}
+          showTimestamp={true}
+          testID={rowTestId}
+          onCardPress={handleCardPress}
+          onFinalResultPress={onFinalResultPress}
+          onWhatsNewReportPress={onWhatsNewReportPress}
+          onDocumentContextNavigate={onDocumentContextNavigate}
+          isStreaming={isStreamingRow}
+          onSaveRecommendation={onSaveRecommendation}
+          onSaveRecommendationList={onSaveRecommendationList}
+          onSendMessage={onSendMessage}
+        />
+      </Pressable>
+    );
+  };
 
   const renderEmptyState = () => {
     // While loading, show nothing (seamless UI) - or a very subtle indicator
@@ -206,6 +264,100 @@ export function ChatThread({
     return <TypingIndicator />;
   };
 
+  const renderStreamStatus = () => {
+    if (streamPhase === 'idle') return null;
+    return (
+      <View
+        className="px-4 py-1"
+        accessibilityRole="text"
+        accessibilityLabel={`Chat stream status ${streamPhase}`}
+      >
+        {streamPhase === 'reconnecting' ? (
+          <View
+            className="flex-row items-center gap-2 self-start rounded-full border border-border bg-muted/40 px-3 py-1"
+            testID="chat-reconnecting-indicator"
+            accessibilityLabel="Reconnecting to stream"
+          >
+            <ActivityIndicator size="small" className="text-muted-foreground" />
+            <Text variant="muted" className="text-sm text-muted-foreground">
+              Reconnecting…
+            </Text>
+          </View>
+        ) : null}
+        {/*
+          e2e oracles for phase / Last-Event-ID / token count.
+          Use accessible Views (not 1px transparent Text) so Maestro/iOS XCTest
+          can resolve testIDs while remaining visually unobtrusive.
+        */}
+        <View
+          testID="chat-stream-phase"
+          accessible
+          accessibilityLabel={`stream-phase-${streamPhase}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{streamPhase}</Text>
+        </View>
+        {/* Phase-specific testID so Maestro can assert cancelled/complete without
+            reading accessibility text (XCTest id match is more reliable). */}
+        <View
+          testID={`chat-stream-phase-${streamPhase}`}
+          accessible
+          accessibilityLabel={`stream-phase-${streamPhase}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`stream-phase-${streamPhase}`}</Text>
+        </View>
+        <View
+          testID="chat-stream-last-seq"
+          accessible
+          accessibilityLabel={`stream-last-seq-${streamLastSeq}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{String(streamLastSeq)}</Text>
+        </View>
+        <View
+          testID="chat-stream-token-count"
+          accessible
+          accessibilityLabel={`stream-token-count-${streamTokenCount}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{String(streamTokenCount)}</Text>
+        </View>
+        {/* Threshold oracles: Maestro waits for these to prove token growth
+            (AC-1 must_observe >=1, AC-5 partial cancel after >=3).
+            Include Text children — empty Views are not discoverable by XCTest. */}
+        {streamTokenCount >= 1 ? (
+          <View
+            testID="chat-stream-token-count-at-least-1"
+            accessible
+            accessibilityLabel="stream-token-count-at-least-1"
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>stream-token-count-at-least-1</Text>
+          </View>
+        ) : null}
+        {streamTokenCount >= 3 ? (
+          <View
+            testID="chat-stream-token-count-at-least-3"
+            accessible
+            accessibilityLabel="stream-token-count-at-least-3"
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>stream-token-count-at-least-3</Text>
+          </View>
+        ) : null}
+        <View
+          testID={`chat-stream-token-count-${streamTokenCount}`}
+          accessible
+          accessibilityLabel={`stream-token-count-${streamTokenCount}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`stream-token-count-${streamTokenCount}`}</Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View className="flex-1" testID={testID}>
       <FlatList
@@ -215,7 +367,12 @@ export function ChatThread({
         keyExtractor={(item) => item.id}
         inverted={true}
         ListEmptyComponent={renderEmptyState}
-        ListHeaderComponent={renderTypingIndicator}
+        ListHeaderComponent={
+          <>
+            {renderStreamStatus()}
+            {renderTypingIndicator()}
+          </>
+        }
         contentContainerStyle={
           messages.length === 0
             ? { flex: 1, justifyContent: 'center', paddingBottom: safeAreaTop }

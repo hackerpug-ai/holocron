@@ -1,0 +1,181 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-2 / TC-2 — Mid-stream airplane reconnect, zero duplicate tokens.
+# Asserts live streaming bubble + Last-Event-ID oracle, then final latest bubble.
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+# Re-assert deep link after Zero list settles (prevents most-recent theft)
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Write a detailed multi-sentence answer about the number five with at least eight words."
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "stop-generating-button"
+    timeout: 45000
+
+- assertVisible:
+    id: "stop-generating-button"
+
+# Wait for real tokens before airplane toggle
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-1"
+    timeout: 45000
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-streaming"
+    timeout: 30000
+    optional: true
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-assistant-message-streaming"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "chat-assistant-message-latest"
+          timeout: 60000
+
+- assertVisible:
+    id: "chat-stream-last-seq"
+
+- setAirplaneMode: enabled
+- waitForAnimationToEnd:
+    timeout: 1000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-reconnecting-indicator"
+    timeout: 15000
+    optional: true
+
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- setAirplaneMode: disabled
+
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-reconnecting-indicator"
+    timeout: 30000
+    optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      id: "stop-generating-button"
+    timeout: 120000
+
+- assertNotVisible:
+    id: "stop-generating-button"
+
+# Final NEW-turn bubble after gap-fill reconcile
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 30000
+    optional: true
+- extendedWaitUntil:
+    visible: "Streaming"
+    timeout: 60000
+    optional: true
+
+- takeScreenshot: S-REACTIVE-01-AC-2-reconnect-exactly-once

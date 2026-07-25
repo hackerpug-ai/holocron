@@ -1,0 +1,38 @@
+WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/jansi-2.4.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running on iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04
+ > Flow s-reactive-01-smoke
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
+WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+Launch app "${MAESTRO_APP_ID}" with clear state... COMPLETED
+Wait for animation to end... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that (Optional) "DEVELOPMENT SERVERS" is visible... WARNED
+
+
+ Warning: Assertion is false: "DEVELOPMENT SERVERS" is visible
+Run flow when "DEVELOPMENT SERVERS" is visible...
+Run flow when "DEVELOPMENT SERVERS" is visible... SKIPPED
+Assert that (Optional) "Reload" is visible... WARNED
+
+
+ Warning: Assertion is false: "Reload" is visible
+Run flow when "Reload" is visible...
+Run flow when "Reload" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Wait for animation to end... COMPLETED
+Open ${MAESTRO_CHAT_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Take screenshot S-REACTIVE-01-smoke-chat-screen... COMPLETED

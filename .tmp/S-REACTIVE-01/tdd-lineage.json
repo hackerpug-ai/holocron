@@ -1,0 +1,36 @@
+{
+  "task_id": "S-REACTIVE-01",
+  "mode": "remediation",
+  "lineage": [
+    {
+      "ac": "AC-5",
+      "red": "stuck agent_busy after cancel (Zero OR)",
+      "green": "suppressAgentBusy + backend clear agent_busy",
+      "evidence": "AC-5-green.txt"
+    },
+    {
+      "ac": "F-RECON-01",
+      "red": "offline left half-dead ES",
+      "green": "closeSource offline; reopen Last-Event-ID",
+      "evidence": "use-resumable-sse-stream.ts"
+    },
+    {
+      "ac": "F-ID-01",
+      "red": "connect without durableMessageId",
+      "green": "refuse connect",
+      "evidence": "hook+screen"
+    },
+    {
+      "ac": "F-DEP-01",
+      "red": "eventsource transitive only",
+      "green": "direct package.json dependency",
+      "evidence": "package.json"
+    },
+    {
+      "ac": "F-FAKE-01",
+      "red": "source-grep only",
+      "green": "EventSource live PLATFORM_IT suite",
+      "evidence": "eventsource-live.txt"
+    }
+  ]
+}

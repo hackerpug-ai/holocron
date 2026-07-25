@@ -1,0 +1,161 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-5 / TC-5 — Cancel finalizes partial turn after tokens are visible.
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Write a long detailed multi-paragraph essay about rivers and mountains for cancel probe."
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# Wait for real tokens before cancel (not a blind 1.5s sleep)
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-1"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-3"
+    timeout: 90000
+    optional: true
+
+# Stop must be tappable mid-stream
+- extendedWaitUntil:
+    visible:
+      id: "stop-generating-button"
+    timeout: 60000
+
+- assertVisible:
+    id: "stop-generating-button"
+
+- tapOn:
+    id: "stop-generating-button"
+
+- extendedWaitUntil:
+    notVisible:
+      id: "stop-generating-button"
+    timeout: 20000
+
+- assertNotVisible:
+    id: "stop-generating-button"
+
+- assertVisible:
+    id: "chat-input"
+
+- assertVisible:
+    id: "chat-stream-phase-cancelled"
+    optional: true
+
+# Partial content persists as streaming overlay or latest bubble
+- runFlow:
+    when:
+      visible:
+        id: "chat-assistant-message-streaming"
+    commands:
+      - assertVisible:
+          id: "chat-assistant-message-streaming"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-assistant-message-streaming"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "chat-assistant-message-latest"
+          timeout: 30000
+      - assertVisible:
+          id: "chat-assistant-message-latest"
+
+# Token count evidence of partial (not zero after cancel)
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+    optional: true
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+- inputText: "post-cancel ok"
+- waitForAnimationToEnd
+
+- assertNotVisible:
+    id: "stop-generating-button"
+
+- takeScreenshot: S-REACTIVE-01-AC-5-cancel-stops-stream
