@@ -185,6 +185,12 @@ function parseSseBlocks(body: string): Array<{ id: number; event: string; data: 
  * Node harness mirroring use-resumable-sse-stream reconnect wiring:
  * buildSseResumeHeaders + applyTokenEvent + optional assembly-reset mutant.
  * Real HTTP against the SSE stub (no mocked EventSource).
+ *
+ * REDHAT-FIX-04: This harness (runReconnectWiring local `assembly` variable) is
+ * NON-AUTHORITATIVE for production assemblyRef mutant-kill. Production-hook
+ * coverage lives in redhat-fix-04-production-hook-reconnect.test.ts
+ * (createResumableSseController / assemblyRef.current at reconnect sites).
+ * Do not claim H3 closed from this suite alone.
  */
 async function runReconnectWiring(args: {
   baseUrl: string;
