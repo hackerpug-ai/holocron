@@ -1,7 +1,7 @@
 ---
 sequence: 25
 timeline: Phase 5 — Client Rewrite
-status: Planned
+status: In Progress
 planned_from_roadmap_sha: ebc5bd0985f9913b834c4a05223c7ece7c7aae8afd8c170bd57b58c2b580537a
 planned_from_source_sha: 0277653e07e6e0f40ebeeb92b959913f07e3230c
 source_kind: git-head
@@ -12,7 +12,8 @@ planned_at: 2026-07-24T19:52:54Z
 
 **Sequence:** 25
 **Timeline:** Phase 5 — Client Rewrite
-**Status:** Planned
+**Status:** In Progress
+> Progress: 0/5 tasks completed · updated 2026-07-25T06:58:23Z
 **Proposed by:** react-native-ui-planner
 **Milestone:** — (`sprint-25`)
 **Branch:** `mk6-reactive-surfaces`
