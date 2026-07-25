@@ -103,8 +103,13 @@ function handleIncomingURL({ url }: { url: string }) {
     // What's New (hostname form holocron://whats-new must work).
     // Prefer navigate over push so sequential Maestro steps (after articles) remount
     // the drawer route instead of no-op when the stack is already mid-sequence.
-    if (route === 'whats-new' || route === 'whats-new/social') {
-      const pathname = route === 'whats-new' ? '/whats-new' : '/whats-new/social';
+    if (route === 'whats-new' || route === 'whats-new/social' || route.startsWith('whats-new/')) {
+      const pathname =
+        route === 'whats-new'
+          ? '/whats-new'
+          : route === 'whats-new/social'
+            ? '/whats-new/social'
+            : `/${route}`;
       navigateWhenReady(() => router.navigate({ pathname, params }));
       return;
     }
