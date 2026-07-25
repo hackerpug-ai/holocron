@@ -1,4 +1,5 @@
-import { useDrawerStatus } from '@react-navigation/drawer';
+import { type DrawerContentComponentProps, useDrawerStatus } from '@react-navigation/drawer';
+import { DrawerActions } from '@react-navigation/native';
 import { useQuery } from '@rocicorp/zero/react';
 import { useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
@@ -44,7 +45,7 @@ function mapConversation(c: ZeroConversationRow): Conversation {
  * even if Zero optimistic/rebase lags. Real mutate still runs — not fake-only UI. */
 type TitleOverride = { title: string; until: number };
 
-function CustomDrawerContent() {
+function CustomDrawerContent({ navigation }: DrawerContentComponentProps) {
   const router = useRouter();
   const _isDrawerOpen = useDrawerStatus() === 'open';
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -177,26 +178,32 @@ function CustomDrawerContent() {
   };
 
   const handleArticlesPress = () => {
+    navigation.dispatch(DrawerActions.closeDrawer());
     router.push('/articles');
   };
 
   const handleToolbeltPress = () => {
+    navigation.dispatch(DrawerActions.closeDrawer());
     router.push('/toolbelt');
   };
 
   const handleSubscriptionsPress = () => {
+    navigation.dispatch(DrawerActions.closeDrawer());
     router.push('/subscriptions');
   };
 
   const handleWhatsNewPress = () => {
+    navigation.dispatch(DrawerActions.closeDrawer());
     router.push('/whats-new');
   };
 
   const handleSettingsPress = () => {
+    navigation.dispatch(DrawerActions.closeDrawer());
     router.push('/settings');
   };
 
   const handleImprovementsPress = () => {
+    navigation.dispatch(DrawerActions.closeDrawer());
     router.push('/improvements');
   };
 
