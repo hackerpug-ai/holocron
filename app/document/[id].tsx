@@ -292,29 +292,38 @@ export default function DocumentRoute() {
     | ZeroAudioJob
     | undefined;
   // NarrationControlBar expects the legacy job shape
-  const audioJob = audioJobRow
-    ? {
-        _id: audioJobRow.id,
-        status: audioJobRow.status,
-        totalSegments: audioJobRow.total_segments ?? 0,
-        completedSegments: audioJobRow.completed_segments ?? 0,
-        failedSegments: audioJobRow.failed_segments ?? 0,
-        errorMessage: audioJobRow.error_message ?? undefined,
-      }
-    : undefined;
+  const audioJob = useMemo(
+    () =>
+      audioJobRow
+        ? {
+            _id: audioJobRow.id,
+            status: audioJobRow.status,
+            totalSegments: audioJobRow.total_segments ?? 0,
+            completedSegments: audioJobRow.completed_segments ?? 0,
+            failedSegments: audioJobRow.failed_segments ?? 0,
+            errorMessage: audioJobRow.error_message ?? undefined,
+          }
+        : undefined,
+    [audioJobRow]
+  );
 
-  const audioSegments: AudioSegment[] = segments.map((s) => ({
-    _id: s.id,
-    paragraphIndex: s.paragraph_index ?? 0,
-    status: s.status,
-    // Blob reads remain protected; expo-audio supports request headers for remote sources.
-    audioUrl: (() => {
-      const uri = buildBlobAudioUrl(s.blob_id);
-      const apiKey = getRnApiKey();
-      return uri && apiKey ? { uri, headers: { Authorization: `Bearer ${apiKey}` } } : null;
-    })(),
-    durationMs: s.duration_ms ?? undefined,
-  }));
+  const audioSegments: AudioSegment[] = useMemo(
+    () =>
+      segments.map((s) => ({
+        _id: s.id,
+        paragraphIndex: s.paragraph_index ?? 0,
+        status: s.status,
+        // Blob reads remain protected; expo-audio supports request headers for remote sources.
+        audioUrl: (() => {
+          const uri = buildBlobAudioUrl(s.blob_id);
+          const apiKey = getRnApiKey();
+          return uri && apiKey ? { uri, headers: { Authorization: `Bearer ${apiKey}` } } : null;
+        })(),
+        durationMs: s.duration_ms ?? undefined,
+      })),
+    [segments]
+  );
+  const audioJobTotalSegments = audioJob?.totalSegments ?? 0;
 
   const { isLoading: isAudioPlayerLoading } = useAudioPlayback(audioSegments, narration, {
     title: document?.title ?? 'Narration',
@@ -334,10 +343,16 @@ export default function DocumentRoute() {
     const completedCount = audioSegments.filter((s) => s.status === 'completed').length;
     const totalDuration = audioSegments.reduce((sum, s) => sum + (s.durationMs ?? 0), 0);
     narration.onParagraphReady(completedCount, totalDuration / 1000);
-    if (audioJob && completedCount === audioJob.totalSegments && audioJob.totalSegments > 0) {
+    if (completedCount === audioJobTotalSegments && audioJobTotalSegments > 0) {
       narration.onAllReady();
     }
-  }, [audioSegments, isNarrationMode, audioJob, narration.onAllReady, narration.onParagraphReady]);
+  }, [
+    audioSegments,
+    isNarrationMode,
+    audioJobTotalSegments,
+    narration.onAllReady,
+    narration.onParagraphReady,
+  ]);
 
   // ─── Narration progress persistence ──────────────────────────────────────
 

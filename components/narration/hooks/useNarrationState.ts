@@ -85,11 +85,19 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
         action.generatedCount >= 1 && state.status === 'generating'
           ? 'partially_ready'
           : state.status;
+      const newTotalTimeSeconds = action.totalTimeSeconds ?? state.totalTimeSeconds;
+      if (
+        state.status === newStatus &&
+        state.generatedCount === action.generatedCount &&
+        state.totalTimeSeconds === newTotalTimeSeconds
+      ) {
+        return state;
+      }
       return {
         ...state,
         status: newStatus,
         generatedCount: action.generatedCount,
-        totalTimeSeconds: action.totalTimeSeconds ?? state.totalTimeSeconds,
+        totalTimeSeconds: newTotalTimeSeconds,
       };
     }
 
@@ -98,6 +106,7 @@ function narrationReducer(state: NarrationState, action: NarrationAction): Narra
       // Stop. A Zero update can arrive after EXIT_MODE, so this event is only
       // meaningful while generation is still in progress.
       if (state.status === 'playing' || state.status === 'paused') {
+        if (state.generatedCount === state.totalParagraphs) return state;
         return { ...state, generatedCount: state.totalParagraphs };
       }
       if (state.status === 'generating' || state.status === 'partially_ready') {
