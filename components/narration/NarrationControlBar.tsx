@@ -35,6 +35,8 @@ export interface NarrationControlBarProps {
   /** True when the current segment is not yet available and we're waiting for it */
   isSegmentLoading?: boolean;
   testID?: string;
+  /** Exit narration immediately and release active playback. */
+  onStop?: () => void;
   onRegenerate?: () => void;
   audioJob?: {
     _id: string;
@@ -64,6 +66,7 @@ export function NarrationControlBar({
   isVisible,
   isSegmentLoading = false,
   testID = 'narration-control-bar',
+  onStop,
   onRegenerate,
   audioJob,
   onRetryFailed,
@@ -240,6 +243,15 @@ export function NarrationControlBar({
                   ? `${playbackSpeed}x`
                   : `${playbackSpeed}x`}
               </Text>
+            </Pressable>
+
+            <Pressable
+              testID="narration-stop"
+              onPress={onStop}
+              accessibilityRole="button"
+              accessibilityLabel="Stop narration"
+            >
+              <Text className="text-destructive text-xs font-medium">Stop</Text>
             </Pressable>
 
             {/* Regenerate */}

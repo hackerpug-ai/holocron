@@ -497,8 +497,7 @@ export default function DocumentRoute() {
 
   const handleToggleNarration = async () => {
     if (isNarrationMode) {
-      paragraphOffsets.current.clear();
-      narration.exitNarrationMode();
+      stopNarration();
       return;
     }
     if (generatingRef.current) return;
@@ -529,6 +528,11 @@ export default function DocumentRoute() {
     } else {
       generatingRef.current = false;
     }
+  };
+
+  const stopNarration = () => {
+    paragraphOffsets.current.clear();
+    narration.exitNarrationMode();
   };
 
   // Extract text from a block and show the text selection sheet
@@ -955,6 +959,7 @@ export default function DocumentRoute() {
             narration={narration}
             isVisible={isNarrationMode}
             isSegmentLoading={isSegmentLoading}
+            onStop={stopNarration}
             onRegenerate={async () => {
               if (!documentId) return;
               try {
