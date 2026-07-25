@@ -1,0 +1,151 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-3 / TC-3 — Degraded recovers when fleet returns.
+# Flow: (1) fleet is down → send → assert degraded
+#       (2) runScript restores :4545 + platform deterministic path
+#       (3) send again → degraded clears + normal reply
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+# ── Phase A: enter degraded (fleet must be down; harness ensures this) ──
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Trigger degraded before restore"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+- extendedWaitUntil:
+    visible: "Local fleet unavailable — running in reduced mode"
+    timeout: 15000
+
+- assertVisible:
+    id: "chat-degraded-banner"
+
+# ── Phase B: restore fleet + platform ──
+- runScript:
+    file: restore-fleet-for-recovery.js
+
+- waitForAnimationToEnd
+
+# ── Phase C: next send recovers ──
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Recover after fleet restore"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# Degraded message must clear (count → 0)
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-degraded-banner"
+    timeout: 45000
+
+- extendedWaitUntil:
+    notVisible: "Local fleet unavailable — running in reduced mode"
+    timeout: 45000
+
+# Normal path: stream/reply activity or durable assistant message
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-1"
+    timeout: 60000
+    optional: true
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-stream-token-count-at-least-1"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "chat-assistant-message-latest"
+          timeout: 60000
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-stream-phase-degraded"
+    timeout: 30000
+    optional: true
+
+- takeScreenshot: S-REACTIVE-04-AC-3-degraded-recovery

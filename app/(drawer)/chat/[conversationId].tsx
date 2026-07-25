@@ -23,7 +23,11 @@ import { ScreenLayout } from '@/components/ui/screen-layout';
 import { Text } from '@/components/ui/text';
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay';
 import { useChatHistory } from '@/hooks/use-chat-history';
-import { useResumableSSEStream } from '@/hooks/use-resumable-sse-stream';
+import {
+  isFleetUnavailableFailure,
+  SURFACE_UNAVAILABLE_MESSAGE,
+  useResumableSSEStream,
+} from '@/hooks/use-resumable-sse-stream';
 import { useVoiceSession } from '@/hooks/use-voice-session';
 import { spacing } from '@/lib/theme';
 
@@ -104,6 +108,7 @@ export default function ChatScreen() {
   const [_activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   // Resumable SSE stream (token/terminal/blocked/error + Last-Event-ID resume)
+  // S-REACTIVE-04: degraded phase inferred from chat failure envelope (not Zero).
   const {
     phase: streamPhase,
     runId: streamRunId,
@@ -111,9 +116,11 @@ export default function ChatScreen() {
     streamedText,
     lastSeq: streamLastSeq,
     tokenCount: streamTokenCount,
+    degradedMessage,
     connect: connectStream,
     cancel: cancelStream,
     reset: resetStream,
+    enterDegradedFromEnvelope,
   } = useResumableSSEStream({
     platformUrl,
     apiKey: rnApiKey,
@@ -137,8 +144,9 @@ export default function ChatScreen() {
     }
   }, [conversationId, isNewConversation, streamPhase, connectStream]);
 
+  // Degraded owns a banner, not a stream preview bubble.
   const streamOverlay =
-    streamPhase !== 'idle'
+    streamPhase !== 'idle' && streamPhase !== 'degraded'
       ? {
           durableMessageId:
             durableMessageId ?? (streamRunId ? `stream-preview-${streamRunId}` : null),
@@ -180,14 +188,19 @@ export default function ChatScreen() {
   // AC-5: local cancelled/complete supersedes stale Zero agent_busy for this run.
   // After Stop, do not keep composer disabled / Stop visible solely because
   // agent_busy has not yet cleared over Zero (cancel owns the local busy UX).
-  const isLocallyTerminal = streamPhase === 'cancelled' || streamPhase === 'complete';
-  const stopHoldActive = globalStopHoldUntilMs > 0 && Date.now() < globalStopHoldUntilMs;
+  // S-REACTIVE-04: degraded is also terminal — NEVER hang on spinner when fleet is down.
+  const isLocallyTerminal =
+    streamPhase === 'cancelled' || streamPhase === 'complete' || streamPhase === 'degraded';
+  const isDegraded = streamPhase === 'degraded';
+  const stopHoldActive =
+    !isDegraded && globalStopHoldUntilMs > 0 && Date.now() < globalStopHoldUntilMs;
   const agentBusy =
-    runBusy ||
-    isStreamBusy ||
-    isSending ||
-    stopHoldActive ||
-    (Boolean(conversationRow?.agent_busy) && !isLocallyTerminal && !suppressAgentBusy);
+    !isDegraded &&
+    (runBusy ||
+      isStreamBusy ||
+      isSending ||
+      stopHoldActive ||
+      (Boolean(conversationRow?.agent_busy) && !isLocallyTerminal && !suppressAgentBusy));
 
   // Prefer durableMessageId so the cursor attaches to the exactly-once row
   const streamingMessageId = isStreamBusy
@@ -199,8 +212,9 @@ export default function ChatScreen() {
   // Cancel: drop Stop immediately (composer re-enabled).
   // Complete: keep Stop briefly for Maestro AC-1, then clear so AC-2/AC-3
   // notVisible stop can proceed even if Zero durable lag is long.
+  // Degraded (S-REACTIVE-04): drop Stop/busy immediately — no spinner hang.
   useEffect(() => {
-    if (streamPhase === 'cancelled') {
+    if (streamPhase === 'cancelled' || streamPhase === 'degraded') {
       setSuppressAgentBusy(true);
       setRunBusy(false);
       globalStopHoldUntilMs = 0;
@@ -335,7 +349,33 @@ export default function ChatScreen() {
         });
 
         if (!response.ok) {
-          throw new Error(`chat run create failed: ${response.status}`);
+          let envelope: Record<string, unknown> = {};
+          try {
+            envelope = (await response.json()) as Record<string, unknown>;
+          } catch {
+            envelope = {};
+          }
+          const errMsg =
+            typeof envelope.message === 'string'
+              ? envelope.message
+              : typeof envelope.error === 'string'
+                ? envelope.error
+                : `chat run create failed: ${response.status}`;
+          // S-REACTIVE-04: infer degraded from POST failure envelope (fleet-unavailable).
+          if (
+            enterDegradedFromEnvelope({
+              error: errMsg,
+              message: errMsg,
+              code: typeof envelope.code === 'string' ? envelope.code : String(response.status),
+              status: 'failed',
+            })
+          ) {
+            setRunBusy(false);
+            globalStopHoldUntilMs = 0;
+            setSendError(null);
+            return;
+          }
+          throw new Error(errMsg);
         }
 
         const body = (await response.json()) as ChatRunCreateResponse;
@@ -354,6 +394,7 @@ export default function ChatScreen() {
             router.replace(`/chat/${body.conversationId}`);
           } else {
             // Open real SSE socket; Last-Event-ID resume handled by the hook
+            // connect clears degraded → recovery when fleet is back
             connectStream({
               runId: body.runId,
               durableMessageId: body.durableMessageId,
@@ -367,6 +408,16 @@ export default function ChatScreen() {
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
+        // Failure-envelope path for network/thrown RoleUnavailable-shaped errors
+        if (
+          isFleetUnavailableFailure({ error: error.message, message: error.message }) &&
+          enterDegradedFromEnvelope({ error: error.message, message: error.message })
+        ) {
+          setRunBusy(false);
+          globalStopHoldUntilMs = 0;
+          setSendError(null);
+          return;
+        }
         setSendError(error);
         setRunBusy(false);
         resetStream();
@@ -374,7 +425,15 @@ export default function ChatScreen() {
         setIsSending(false);
       }
     },
-    [conversationId, isSending, isNewConversation, router, connectStream, resetStream]
+    [
+      conversationId,
+      isSending,
+      isNewConversation,
+      router,
+      connectStream,
+      resetStream,
+      enterDegradedFromEnvelope,
+    ]
   );
 
   const handleCancelAgent = useCallback(async () => {
@@ -556,7 +615,7 @@ export default function ChatScreen() {
         <View style={styles.chatContent}>
           <ChatThread
             messages={messages}
-            showTypingIndicator={isSending || (agentBusy && !streamingMessageId)}
+            showTypingIndicator={!isDegraded && (isSending || (agentBusy && !streamingMessageId))}
             isLoading={isLoadingMessages}
             safeAreaTop={contentTopPadding}
             testID="chat-thread"
@@ -570,6 +629,7 @@ export default function ChatScreen() {
             streamPhase={streamPhase}
             streamLastSeq={streamLastSeq}
             streamTokenCount={streamTokenCount}
+            degradedMessage={degradedMessage}
           />
         </View>
 
@@ -584,7 +644,20 @@ export default function ChatScreen() {
           testID="voice-assistant-overlay"
         />
         <View style={{ paddingBottom: insets.bottom }}>
-          {sendError && (
+          {isDegraded ? (
+            <View
+              className="bg-warning/10 border-t border-warning/30 px-4 py-2"
+              testID="chat-degraded-banner"
+              accessibilityRole="alert"
+              accessibilityLabel={degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE}
+              accessible
+            >
+              <Text className="text-foreground" testID="chat-degraded-message">
+                {degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE}
+              </Text>
+            </View>
+          ) : null}
+          {sendError && !isDegraded && (
             <View
               className="bg-destructive/10 px-4 py-2 flex-row items-center justify-between"
               testID="error-banner"

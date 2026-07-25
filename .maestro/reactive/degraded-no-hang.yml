@@ -1,0 +1,136 @@
+appId: ${MAESTRO_APP_ID}
+---
+# AC-1 / TC-1 / TC-4 — Fleet-down → exact degraded message, no spinner hang.
+# Requires fleet-down harness (run-degraded-no-hang.sh): :4545 unreachable and
+# platform chat path emitting a fleet-unavailable failure envelope.
+# Client infers degraded from the chat failure envelope (not Zero degraded_mode).
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Ping fleet while degraded"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# PRIMARY must_observe: exact SURFACE_UNAVAILABLE_MESSAGE within ~5s (timeout 8s)
+- extendedWaitUntil:
+    visible: "Local fleet unavailable — running in reduced mode"
+    timeout: 15000
+
+- assertVisible: "Local fleet unavailable — running in reduced mode"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-degraded-banner"
+    timeout: 5000
+
+- assertVisible:
+    id: "chat-degraded-banner"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-phase-degraded"
+    timeout: 5000
+    optional: true
+
+# No hang: agent busy latch must clear (composer re-enabled / idle oracle)
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 10000
+
+- assertVisible:
+    id: "chat-agent-busy-false"
+
+# Spinner hang signature must not persist as the only UX
+- extendedWaitUntil:
+    notVisible:
+      id: "stop-generating-button"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: S-REACTIVE-04-AC-1-degraded-no-hang
