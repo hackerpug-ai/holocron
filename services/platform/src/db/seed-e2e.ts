@@ -229,7 +229,8 @@ const E2E_RESEARCH_ITERATIONS = [
     number: 2,
     status: 'running',
     coverage: 3.2,
-    summary: 'Evaluating interrupted requests and reconnection behavior without duplicate writes.',
+    summary:
+      '## Current activity\nEvaluating interrupted requests and reconnection behavior without duplicate writes.\n\n## Next step\nCompare the recovered request sequence against the baseline before continuing.',
   },
   {
     id: e2eUuid('e', 63),
@@ -254,7 +255,14 @@ const E2E_RESEARCH_ITERATIONS = [
     status: 'completed',
     coverage: 4.4,
     summary:
-      'Completed report: durable server commands and reactive reads preserve mobile correctness through transient failure.',
+      '## Executive summary\nDurable server commands and reactive reads preserve mobile correctness through transient failure.\n\n## Evidence\nThe recovery path resumes reads without duplicating durable writes and keeps the native view coherent after relaunch.',
+    sources: [
+      { title: 'React Native networking guide', url: 'https://reactnative.dev/docs/network' },
+      {
+        title: 'Expo development builds',
+        url: 'https://docs.expo.dev/develop/development-builds/introduction/',
+      },
+    ],
   },
 ] as const;
 
@@ -592,8 +600,8 @@ export async function seedE2eDatabase(options?: {
     for (const iteration of E2E_RESEARCH_ITERATIONS) {
       await sql.unsafe(
         `INSERT INTO research_iterations (
-           id, system, session_id, iteration_number, status, coverage_score, summary, findings, created_at
-         ) VALUES ($1::uuid, 'deep', $2::uuid, $3, $4, $5, $6, $7::jsonb, now())
+           id, system, session_id, iteration_number, status, coverage_score, summary, findings, sources, created_at
+         ) VALUES ($1::uuid, 'deep', $2::uuid, $3, $4, $5, $6, $7::jsonb, $8::jsonb, now())
          ON CONFLICT (id) DO UPDATE SET
            status = EXCLUDED.status,
            coverage_score = EXCLUDED.coverage_score,
@@ -607,6 +615,7 @@ export async function seedE2eDatabase(options?: {
           String(iteration.coverage),
           iteration.summary,
           JSON.stringify(iteration.summary),
+          JSON.stringify(iteration.sources ?? []),
         ]
       );
     }

@@ -19,6 +19,7 @@ type ResearchSessionRow = {
   error_text?: string | null;
   error_reason?: string | null;
   findings?: unknown;
+  sources?: unknown;
   plan?: unknown;
   created_at: number;
   updated_at: number;
@@ -34,6 +35,7 @@ type ResearchIterationRow = {
   feedback?: string | null;
   refined_queries?: unknown;
   findings?: unknown;
+  sources?: unknown;
   summary?: string | null;
   created_at: number;
 };
@@ -126,6 +128,12 @@ export function useDeepResearchSession(sessionId: string | null) {
     feedback: iter.feedback ?? undefined,
     refinedQueries: (iter.refined_queries as string[] | undefined) ?? undefined,
     findings: iter.findings as string | undefined,
+    sources: Array.isArray(iter.sources)
+      ? iter.sources.filter(
+          (source): source is { title?: string; url?: string } =>
+            typeof source === 'object' && source !== null
+        )
+      : [],
     summary: iter.summary ?? undefined,
     createdAt: iter.created_at,
     updatedAt: iter.created_at,
@@ -146,6 +154,7 @@ export function useDeepResearchSession(sessionId: string | null) {
     feedback: iter.feedback ?? null,
     refinedQueries: (iter.refinedQueries as string[] | null) ?? null,
     findings: typeof iter.findings === 'string' ? iter.findings : null,
+    sources: iter.sources,
     status: (iter.status === 'running' || iter.status === 'completed' ? iter.status : 'pending') as
       | 'pending'
       | 'running'
@@ -163,6 +172,8 @@ export function useDeepResearchSession(sessionId: string | null) {
             conversationId: base.conversationId ?? null,
             topic: base.topic || base.query,
             maxIterations: base.maxIterations ?? 0,
+            currentIteration: base.currentIteration ?? 0,
+            coverageScore: base.coverageScore ?? null,
             status: (['pending', 'running', 'paused', 'completed', 'cancelled'].includes(
               base.status
             )
@@ -173,6 +184,13 @@ export function useDeepResearchSession(sessionId: string | null) {
             documentId: base.documentId ?? null,
             report: report ?? undefined,
             iterations: mappedIterations,
+            citations: iterations.flatMap((iter) =>
+              iter.sources.map((source, index) => ({
+                id: index + 1,
+                title: source.title || source.url || 'Research source',
+                url: source.url,
+              }))
+            ),
           }
         : null;
 

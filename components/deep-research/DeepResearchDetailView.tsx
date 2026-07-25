@@ -62,6 +62,11 @@ export interface DeepResearchSession {
   iterations: ResearchIteration[];
   /** All citations from the research */
   citations: Citation[];
+  /** Current durable research state when the session is still active. */
+  status?: 'pending' | 'running' | 'paused' | 'completed' | 'cancelled';
+  currentIteration?: number;
+  maxIterations?: number;
+  coverageScore?: number | null;
   /** Timestamp when research was completed */
   completedAt?: Date;
   /** Whether saved to Holocron */
@@ -302,6 +307,52 @@ export function DeepResearchDetailView({
             </Text>
           )}
         </View>
+
+        <Card className="mb-4" testID={`${testID}-progress`}>
+          <CardContent className="p-4 gap-1">
+            <Text className="text-foreground font-semibold" testID={`${testID}-status`}>
+              {session.status === 'completed' ? 'Research complete' : 'Research in progress'}
+            </Text>
+            <Text className="text-muted-foreground text-sm">
+              Iteration {session.currentIteration ?? session.iterations.length} of{' '}
+              {session.maxIterations ?? session.iterations.length}
+              {session.coverageScore != null ? ` · Coverage ${session.coverageScore}/5` : ''}
+            </Text>
+          </CardContent>
+        </Card>
+
+        {session.iterations.length > 0 && (
+          <Card className="mb-4" testID={`${testID}-iterations`}>
+            <CardHeader>
+              <CardTitle>Research activity</CardTitle>
+            </CardHeader>
+            <CardContent className="gap-3">
+              {session.iterations.map((iteration) => (
+                <View
+                  key={iteration.iterationNumber}
+                  testID={`${testID}-iteration-${iteration.iterationNumber}`}
+                >
+                  <Text className="text-foreground font-medium">
+                    Iteration {iteration.iterationNumber} ·{' '}
+                    {iteration.isActive
+                      ? 'In progress'
+                      : iteration.isComplete
+                        ? 'Completed'
+                        : 'Queued'}
+                  </Text>
+                  <Text className="text-muted-foreground text-sm">
+                    Coverage {iteration.coverageScore}/5
+                  </Text>
+                  {iteration.findings?.[0] && (
+                    <Text className="text-muted-foreground text-sm mt-1">
+                      {iteration.findings[0]}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Synthesized Report Section - Use Outline Format by Default */}
         <Card className="mb-4">

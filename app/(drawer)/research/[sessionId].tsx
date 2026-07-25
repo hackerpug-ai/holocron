@@ -48,7 +48,11 @@ function transformSessionToViewFormat(
     query: session.topic,
     report: session.report ?? 'Research in progress...',
     iterations,
-    citations,
+    citations: session.citations ?? citations,
+    status: session.status,
+    currentIteration: session.currentIteration,
+    maxIterations: session.maxIterations,
+    coverageScore: session.coverageScore ?? null,
     completedAt: session.status === 'completed' ? new Date(session.updatedAt) : undefined,
     savedToHolocron: !!session.documentId,
     confidence,
@@ -73,14 +77,15 @@ export default function ResearchDetailScreen() {
   const typedSessionId = sessionId ?? null;
   const { session, isLoading, error } = useDeepResearchSession(typedSessionId);
 
+  // Derive view data directly from session query (no useState + useEffect sync).
+  // Keep this hook above redirect branches so its order never changes.
+  const viewData = useMemo(() => transformSessionToViewFormat(session), [session]);
+
   // If the research session has a saved document, redirect to the canonical document view
   // which has sharing, better rendering, and consistent UX
   if (session?.documentId) {
     return <Redirect href={`/document/${session.documentId}`} />;
   }
-
-  // Derive view data directly from session query (no useState + useEffect sync)
-  const viewData = useMemo(() => transformSessionToViewFormat(session), [session]);
 
   const handleBack = () => {
     if (router.canGoBack()) {

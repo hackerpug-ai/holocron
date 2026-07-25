@@ -46,6 +46,8 @@ export interface DeepResearchSession {
   conversationId: string | null;
   topic: string;
   maxIterations: number;
+  currentIteration?: number;
+  coverageScore?: number | null;
   status: DeepResearchSessionStatus;
   createdAt: number;
   updatedAt: number;
@@ -99,6 +101,7 @@ export interface DeepResearchIteration {
   coverageScore: number | null;
   feedback: string | null;
   refinedQueries: string[] | null; // Properly typed as string array
+  sources?: Array<{ title?: string; url?: string }>;
   findings: string | null;
   status: DeepResearchIterationStatus;
   createdAt: number;
