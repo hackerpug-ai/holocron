@@ -60,6 +60,7 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 | REDHAT-FIX-04 | Fix REDHAT-FIX-03's mutation test — `redhat-fix-03-sse-reconnect-wiring.test.ts`'s `runReconnectWiring` harness reimplements the reconnect flow in a local variable instead of exercising the production `useResumableSSEStream` hook; the assemblyRef-reset mutant against production code at `hooks/use-resumable-sse-stream.ts:608,712` still survives. Render the real hook (`@testing-library/react-hooks` + a real `http.createServer` SSE stub) or extract+test `openEventSource` directly | react-native-ui-implementer | 90 min |
 | REDHAT-FIX-05 | Re-run the full 5-step human gate against HEAD and produce a fresh `gate-results.json` (current one is missing/deleted; `GATE-RESULTS.md` still documents the pre-fix run `s25-ht-20260725T155918Z` from 15:59:18Z, 3h34m before REDHAT-FIX completion) | react-native-ui-implementer | 45 min |
 | REDHAT-FIX-06 | Restore the broken TDD evidence chain — commit `.tmp/sprint-25/redhat-fix-{01,02}-path.json` + RED evidence logs at the TC-5-mandated paths (currently only exist in stale `.kb-run-sprint/worktrees/REDHAT-FIX-0{1,2,3}/.tmp/` dirs, or at the wrong path for REDHAT-FIX-02), so TC-5 verify commands pass on a cold checkout | react-native-ui-implementer | 45 min |
+| REDHAT-FIX-07 | Copy REDHAT-FIX-04's evidence files (`redhat-fix-04-path.json`, `redhat-fix-04-production-mutation.log`, `redhat-fix-04-red.log`) from `.kb-run-sprint/worktrees/REDHAT-FIX-04/.tmp/sprint-25/` to the primary checkout's `.tmp/sprint-25/` and commit them (or re-run `pnpm vitest run tests/integration/redhat-fix-04-production-hook-reconnect.test.ts` on the primary checkout, which self-generates the files), so REDHAT-FIX-04's own TC-5 verify command passes on a cold checkout | react-native-ui-implementer | 15 min |
 
 ## Red-Hat Findings (cycle 1 — `.spec/reviews/red-hat-sprint25-reactive-20260725T165851Z.md`)
 
@@ -73,6 +74,13 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 - **H3-NOT-CLOSED → REDHAT-FIX-04** (Critical): REDHAT-FIX-03's own "mutation test" mutates a local test-harness variable, not the production `assemblyRef.current` — the mutant still survives against real production code.
 - **G-2 → REDHAT-FIX-05** (Critical, process): no fresh gate run after the fixes landed; `gate-results.json` missing, `GATE-RESULTS.md` cites the stale pre-fix run.
 - **G-3 → REDHAT-FIX-06** (High): TDD evidence chain (`path.json` + RED logs) broken on a cold checkout of the primary repo.
+
+## Red-Hat Findings (cycle 3 — `.spec/reviews/red-hat-sprint25-reactive-20260725T211242Z.md`)
+
+- **H3 CONFIRMED CLOSED** — production-code mutation probe independently re-verified; both load-bearing mutants killed against the real `useResumableSSEStream` hook.
+- **G-2 CONFIRMED CLOSED** — fresh `gate-results.json` (5/5 pass) post-dates all REDHAT-FIX commits.
+- **G-3 → REDHAT-FIX-07** (High, process): recurred on REDHAT-FIX-04 itself — its own evidence files exist only in the worktree, not the contract-mandated `.tmp/sprint-25/` path. Review's own words: "the only remaining blocker... trivial evidence-hygiene copy."
+- Advisory (non-blocking per review): M-H2-LIVE ("as the workflow reaches" overclaim), M5-REGRESSED (new typecheck error from REDHAT-FIX-04), M3/M6 (duplicate testIDs), L-S05-STALE (stale doc annotations) — left for a future sprint, not gating this close.
 
 ## Source Coverage
 
@@ -120,4 +128,8 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-04,REDHAT-FIX-05,REDHAT-FIX-0
 - REDHAT-FIX-04-fix-production-hook-mutation-test-assemblyref.md
 - REDHAT-FIX-05-rerun-full-human-gate-fresh-gate-results.md
 - REDHAT-FIX-06-restore-tdd-evidence-chain-path-json-red-logs.md
+
+Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-07 on 2026-07-25T21:24:51Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC).
+
+- REDHAT-FIX-07-copy-redhat-fix-04-evidence-files-cold-checkout.md
 
