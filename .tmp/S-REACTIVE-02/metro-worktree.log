@@ -1,0 +1,9 @@
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+env: load .env
+env: export COHERE_API_KEY EAS_ASC_APP_ID EAS_ASC_ISSUER_ID EAS_ASC_KEY_ID EAS_ASC_KEY_PATH ELEVENLABS_API_KEY EXPO_OWNER EXPO_PUBLIC_LLM_API_KEY EXPO_PUBLIC_LOGGING_ENABLED EXPO_PUBLIC_LOG_LEVEL EXPO_PUBLIC_PLATFORM_URL EXPO_PUBLIC_REFERENCE_CONVERSATION_ID EXPO_PUBLIC_REFERENCE_FLOW EXPO_PUBLIC_RN_API_KEY EXPO_PUBLIC_ZERO_CACHE_URL EXPO_PUBLIC_ZERO_USER_ID GOOGLE_APPLICATION_CREDENTIALS_JSON LANGFUSE_BASE_URL LANGFUSE_PUBLIC_KEY LANGFUSE_SECRET_KEY YOUTUBE_API_KEY YOUTUBE_OAUTH_CLIENT_ID YOUTUBE_OAUTH_CLIENT_SECRET YOUTUBE_OAUTH_REFRESH_TOKEN
+Starting project at /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-02
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+iOS ./index.js ░░░░░░░░░░░░░░░░  0.0% (0/1)

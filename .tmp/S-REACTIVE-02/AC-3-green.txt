@@ -1,0 +1,16 @@
+=== typecheck ===
+
+> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-REACTIVE-02
+> tsgo --noEmit
+
+=== biome changed files ===
+    160 │     return (
+    161 │       <Pressable
+  > 162 │         onPress={() => onPress(citation.url!)}
+        │                                ^^^^^^^^^^^^^
+    163 │         className="active:opacity-80"
+    164 │         testID={`${testID}-pressable`}
+  
+
+Checked 3 files in 5ms. No fixes applied.
+Found 1 warning.
