@@ -1,0 +1,103 @@
+{
+  "task_id": "REDHAT-FIX-06",
+  "timestamp": "2026-07-25T20:30:42Z",
+  "commit_sha": "b933c4623dcb3fa1b1c9ff76350e15cf2b73ad64",
+  "typecheck": {
+    "exit_code": 2
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-01-path.json && jq -e '.path==\"A\" or .path==\"B\"' .tmp/sprint-25/redhat-fix-01-path.json && test -f .tmp/sprint-25/redhat-fix-02-path.json && jq -e '.path==\"A\" or .path==\"B\"' .tmp/sprint-25/redhat-fix-02-path.json",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "test -s .tmp/sprint-25/redhat-fix-01-red.log && test -s .tmp/sprint-25/redhat-fix-02-red.log",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'path.json' ; test -f .tmp/sprint-25/redhat-fix-02-path.json && jq -e '.path==\"A\" or .path==\"B\"' .tmp/sprint-25/redhat-fix-02-path.json",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "test -f .spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/tdd/redhat-fix-01-path.json && test -f .spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/tdd/redhat-fix-02-path.json && test -s .spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/tdd/redhat-fix-01-red.log && test -s .spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/tdd/redhat-fix-02-red.log",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-01-path.json && jq -e '.path==\"A\" or .path==\"B\"' .tmp/sprint-25/redhat-fix-01-path.json",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "test -s .tmp/sprint-25/redhat-fix-01-red.log && test -s .tmp/sprint-25/redhat-fix-02-red.log",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/tc-2-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "jq -e '.path==\"A\"' .tmp/sprint-25/redhat-fix-01-path.json && jq -e '.path==\"A\"' .tmp/sprint-25/redhat-fix-02-path.json",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-06/tc-5-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-25T20:30:42Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "cbd09484d26ec0f70701cb8b6b168e4408ba808cc59f485eaba4a3009554fa4b"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "758e14a92d3b17b4dfa4c6757b27582173995b80fdcc0ff942ce2409f2a200ad"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "21d91041c5d1a59661f8936571ee5c87e96f6f0c7a532b52ec17c5b9bea8220b"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "1573d05a653e5d92bbbc805c8e8d8c5d4b02a9a563ca24b518c590a62a3c3622"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "21d91041c5d1a59661f8936571ee5c87e96f6f0c7a532b52ec17c5b9bea8220b"
+      }
+    ]
+  }
+}
