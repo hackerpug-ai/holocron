@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Worktree-local holo operator CLI — prefers platform CLI over the PATH stub
+# that only implements verify:no-convex-client (REDHAT-FIX-03 AC-3).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOLO_TS="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"
+BUN_BIN="${BUN_BIN:-bun}"
+
+# Prefer primary checkout platform node_modules when worktree lacks them
+# (git worktrees often symlink only the root node_modules).
+if [[ ! -d "$ROOT/services/platform/node_modules" ]]; then
+  PRIMARY_CANDIDATES=(
+    "${HOLO_PRIMARY_ROOT:-}"
+    "$(cd "$ROOT/../../.." 2>/dev/null && pwd)"
+    "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||' || true)"
+  )
+  for cand in "${PRIMARY_CANDIDATES[@]}"; do
+    [[ -z "$cand" || "$cand" == "$ROOT" ]] && continue
+    if [[ -d "$cand/services/platform/node_modules" ]]; then
+      export NODE_PATH="${cand}/services/platform/node_modules${NODE_PATH:+:$NODE_PATH}"
+      break
+    fi
+  done
+fi
+
+if [[ ! -f "$HOLO_TS" ]]; then
+  echo "holo: platform CLI not found at $HOLO_TS" >&2
+  exit 127
+fi
+
+if ! command -v "$BUN_BIN" >/dev/null 2>&1; then
+  echo "holo: bun not found on PATH (required to run $HOLO_TS)" >&2
+  exit 127
+fi
+
+# Preserve cwd so DATABASE_URL / .env resolution matches operator expectation
+exec "$BUN_BIN" "$HOLO_TS" "$@"

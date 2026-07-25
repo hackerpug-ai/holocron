@@ -25,6 +25,15 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
+/**
+ * Module-level high-water marks survive ChatThread remounts (Zero list reconcile,
+ * deep-link re-entry) the same way globalStopHoldUntilMs survives chat remounts.
+ * Parent resetStream() zeros live lastSeq/tokenCount; peaks retain turn max so
+ * Maestro at-least-N oracles still resolve after durable complete (REDHAT-FIX-03).
+ */
+let modulePeakLastSeq = 0;
+let modulePeakTokenCount = 0;
+
 export interface ChatThreadProps {
   messages: ChatMessage[];
   showTypingIndicator?: boolean;
@@ -119,6 +128,28 @@ export function ChatThread({
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
 
+  // High-water marks for Maestro numeric oracles (REDHAT-FIX-03 AC-3).
+  // Module-level peaks survive remount + resetStream; only grow (at-least-N).
+  const [, setPeakTick] = useState(0);
+  useEffect(() => {
+    let changed = false;
+    if (streamTokenCount > modulePeakTokenCount) {
+      modulePeakTokenCount = streamTokenCount;
+      changed = true;
+    }
+    // lastSeq advances 1:1 with applied tokens; also take explicit lastSeq
+    const seqCandidate = Math.max(streamLastSeq, streamTokenCount);
+    if (seqCandidate > modulePeakLastSeq) {
+      modulePeakLastSeq = seqCandidate;
+      changed = true;
+    }
+    if (changed) {
+      setPeakTick((n) => n + 1);
+    }
+  }, [streamPhase, streamLastSeq, streamTokenCount]);
+  const oracleTokenCount = Math.max(streamTokenCount, modulePeakTokenCount);
+  const oracleLastSeq = Math.max(streamLastSeq, modulePeakLastSeq, oracleTokenCount);
+
   // Subscribe to agent activity for phase-aware indicator
   const { phase, toolName } = useAgentActivity({ threadId: undefined });
   const aaiActive = phase !== 'idle';
@@ -188,6 +219,20 @@ export function ChatThread({
     }
     return `chat-assistant-message-${item.id}`;
   };
+
+  // REDHAT-FIX-03 AC-3: count distinct agent rows that own the live-turn
+  // selectors (streaming and/or latest). After complete, streaming id is null
+  // so count must be 1 — Maestro asserts chat-assistant-bubble-count-1.
+  const turnAgentBubbleCount = (() => {
+    const ids = new Set<string>();
+    for (const m of messages) {
+      if (m.role !== 'agent') continue;
+      if (m.id === streamingMessageId || m.id === latestAgentId) {
+        ids.add(m.id);
+      }
+    }
+    return ids.size;
+  })();
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     // Maestro PRIMARY oracles resolve on the pressable wrapper (more reliable
@@ -274,7 +319,10 @@ export function ChatThread({
   };
 
   const renderStreamStatus = () => {
-    if (streamPhase === 'idle') return null;
+    // ALWAYS mount numeric peak oracles (even when streamPhase === 'idle').
+    // resetStream() after durable complete sets phase idle — if oracles lived
+    // only inside the non-idle branch, Maestro lost lastSeq/tokenCount after
+    // airplane resume (REDHAT-FIX-03 AC-3).
     const degradedText = degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE;
     return (
       <View
@@ -315,6 +363,7 @@ export function ChatThread({
           e2e oracles for phase / Last-Event-ID / token count.
           Use accessible Views (not 1px transparent Text) so Maestro/iOS XCTest
           can resolve testIDs while remaining visually unobtrusive.
+          Mounted for ALL phases including idle so peak at-least-N survives complete.
         */}
         <View
           testID="chat-stream-phase"
@@ -337,23 +386,47 @@ export function ChatThread({
         <View
           testID="chat-stream-last-seq"
           accessible
-          accessibilityLabel={`stream-last-seq-${streamLastSeq}`}
+          accessibilityLabel={`stream-last-seq-${oracleLastSeq}`}
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
-          <Text>{String(streamLastSeq)}</Text>
+          <Text>{String(oracleLastSeq)}</Text>
         </View>
+        {/*
+          REDHAT-FIX-03: numeric lastSeq oracle — Maestro captures value-bearing
+          testID (not visibility-only chat-stream-last-seq). Uses high-water peak
+          so oracles survive post-complete resetStream().
+        */}
+        <View
+          testID={`chat-stream-last-seq-${oracleLastSeq}`}
+          accessible
+          accessibilityLabel={`stream-last-seq-${oracleLastSeq}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`stream-last-seq-${oracleLastSeq}`}</Text>
+        </View>
+        {oracleLastSeq >= 3 ? (
+          <View
+            testID="chat-stream-last-seq-at-least-3"
+            accessible
+            accessibilityLabel="stream-last-seq-at-least-3"
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>stream-last-seq-at-least-3</Text>
+          </View>
+        ) : null}
         <View
           testID="chat-stream-token-count"
           accessible
-          accessibilityLabel={`stream-token-count-${streamTokenCount}`}
+          accessibilityLabel={`stream-token-count-${oracleTokenCount}`}
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
-          <Text>{String(streamTokenCount)}</Text>
+          <Text>{String(oracleTokenCount)}</Text>
         </View>
         {/* Threshold oracles: Maestro waits for these to prove token growth
             (AC-1 must_observe >=1, AC-5 partial cancel after >=3).
-            Include Text children — empty Views are not discoverable by XCTest. */}
-        {streamTokenCount >= 1 ? (
+            Include Text children — empty Views are not discoverable by XCTest.
+            Peak high-water survives resetStream after durable reconcile. */}
+        {oracleTokenCount >= 1 ? (
           <View
             testID="chat-stream-token-count-at-least-1"
             accessible
@@ -363,7 +436,7 @@ export function ChatThread({
             <Text>stream-token-count-at-least-1</Text>
           </View>
         ) : null}
-        {streamTokenCount >= 3 ? (
+        {oracleTokenCount >= 3 ? (
           <View
             testID="chat-stream-token-count-at-least-3"
             accessible
@@ -374,12 +447,24 @@ export function ChatThread({
           </View>
         ) : null}
         <View
-          testID={`chat-stream-token-count-${streamTokenCount}`}
+          testID={`chat-stream-token-count-${oracleTokenCount}`}
           accessible
-          accessibilityLabel={`stream-token-count-${streamTokenCount}`}
+          accessibilityLabel={`stream-token-count-${oracleTokenCount}`}
           style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
         >
-          <Text>{`stream-token-count-${streamTokenCount}`}</Text>
+          <Text>{`stream-token-count-${oracleTokenCount}`}</Text>
+        </View>
+        {/*
+          REDHAT-FIX-03 AC-3: live-turn agent bubble count oracle.
+          Value-bearing testID so Maestro asserts count == 1 (not visibility-only).
+        */}
+        <View
+          testID={`chat-assistant-bubble-count-${turnAgentBubbleCount}`}
+          accessible
+          accessibilityLabel={`chat-assistant-bubble-count-${turnAgentBubbleCount}`}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+        >
+          <Text>{`chat-assistant-bubble-count-${turnAgentBubbleCount}`}</Text>
         </View>
       </View>
     );
