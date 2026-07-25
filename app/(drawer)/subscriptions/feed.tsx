@@ -13,7 +13,7 @@ import { SubscriptionFeedScreen } from '@/components/subscriptions/SubscriptionF
 
 export default function SubscriptionFeedRoute() {
   return (
-    <ScreenLayout edges="bottom" testID="subscription-feed-layout">
+    <ScreenLayout edges={['top', 'bottom']} testID="subscription-feed-layout">
       <SubscriptionFeedScreen />
     </ScreenLayout>
   );
