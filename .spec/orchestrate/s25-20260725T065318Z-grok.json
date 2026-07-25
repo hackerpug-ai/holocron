@@ -15,7 +15,7 @@
   },
   "surfaces": [
     {
-      "surface_id": "77566CD0-6B8E-4817-BACB-E094A8702E7A",
+      "surface_id": "B912BE73-0131-42E0-ADF2-59CAF9C0CDA0",
       "origin": "spawned",
       "spawner": "spawn-stage.sh",
       "driver": "orch",
@@ -26,8 +26,8 @@
       "model": "grok-4.5@high",
       "active": true,
       "status": "running",
-      "cycle": 1,
-      "state_label": "REDHAT-FIX-run",
+      "cycle": 2,
+      "state_label": "REDHAT-FIX-run2",
       "last_verdict_artifact": null,
       "nudge_count": 0,
       "recover_count": 0,

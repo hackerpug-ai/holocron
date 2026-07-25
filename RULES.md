@@ -4,6 +4,12 @@ This file is the single source of truth for all project rules, conventions, and 
 
 ---
 
+## Network Continuity (Non-negotiable)
+
+Never disconnect the agent, host, simulator, or test device from the internet. Do not disable Wi-Fi, change network settings, toggle interfaces, or use network disruption as a test technique unless the user explicitly authorizes that exact action for a one-off run.
+
+---
+
 ## Local Domain Experts
 
 When dispatching subagents for planning, review, or implementation, prefer these project-local experts over generic agents. They understand this project's stack, patterns, and conventions.

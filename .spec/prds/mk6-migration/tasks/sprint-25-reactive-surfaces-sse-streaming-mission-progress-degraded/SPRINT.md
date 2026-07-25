@@ -1,7 +1,7 @@
 ---
 sequence: 25
 timeline: Phase 5 — Client Rewrite
-status: Completed
+status: In Progress
 planned_from_roadmap_sha: ebc5bd0985f9913b834c4a05223c7ece7c7aae8afd8c170bd57b58c2b580537a
 planned_from_source_sha: 0277653e07e6e0f40ebeeb92b959913f07e3230c
 source_kind: git-head
@@ -12,9 +12,8 @@ planned_at: 2026-07-24T19:52:54Z
 
 **Sequence:** 25
 **Timeline:** Phase 5 — Client Rewrite
-**Status:** Completed
-> Progress: 5/5 tasks completed · updated 2026-07-25T16:32:10Z
-> Status-Note: goal met — gate 5/5 · e2e PASS · human-test 5/5 · trunk consolidated
+**Status:** In Progress
+> Progress: 5/5 tasks completed · updated 2026-07-25T19:33:16Z
 **Proposed by:** react-native-ui-planner
 **Milestone:** — (`sprint-25`)
 **Branch:** `mk6-reactive-surfaces`
@@ -58,12 +57,22 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 | REDHAT-FIX-01 | Fix fictional 'Streaming' seed conversation — referenced 4× in contract/gate/flow, 0× in `seed-e2e.ts`, masked by `optional: true` | react-native-ui-implementer | 60 min |
 | REDHAT-FIX-02 | Land the real production writer for `research_sessions.current_iteration`, or retitle S-REACTIVE-02/T-SYNC-005 to disclose the engine-trigger gap and drop "as the workflow reaches" gate language | react-native-ui-implementer | 90 min |
 | REDHAT-FIX-03 | Strengthen the PRIMARY gate oracle (SSE reconnect exactly-once) — mutation probe shows commenting out `Last-Event-ID` resume or resetting `assemblyRef` on reconnect still passes 22/22; add flows/tests that capture `streamLastSeq`/`streamTokenCount`, compare streamed text to the Zero row, and count agent bubbles | react-native-ui-implementer | 90 min |
+| REDHAT-FIX-04 | Fix REDHAT-FIX-03's mutation test — `redhat-fix-03-sse-reconnect-wiring.test.ts`'s `runReconnectWiring` harness reimplements the reconnect flow in a local variable instead of exercising the production `useResumableSSEStream` hook; the assemblyRef-reset mutant against production code at `hooks/use-resumable-sse-stream.ts:608,712` still survives. Render the real hook (`@testing-library/react-hooks` + a real `http.createServer` SSE stub) or extract+test `openEventSource` directly | react-native-ui-implementer | 90 min |
+| REDHAT-FIX-05 | Re-run the full 5-step human gate against HEAD and produce a fresh `gate-results.json` (current one is missing/deleted; `GATE-RESULTS.md` still documents the pre-fix run `s25-ht-20260725T155918Z` from 15:59:18Z, 3h34m before REDHAT-FIX completion) | react-native-ui-implementer | 45 min |
+| REDHAT-FIX-06 | Restore the broken TDD evidence chain — commit `.tmp/sprint-25/redhat-fix-{01,02}-path.json` + RED evidence logs at the TC-5-mandated paths (currently only exist in stale `.kb-run-sprint/worktrees/REDHAT-FIX-0{1,2,3}/.tmp/` dirs, or at the wrong path for REDHAT-FIX-02), so TC-5 verify commands pass on a cold checkout | react-native-ui-implementer | 45 min |
 
 ## Red-Hat Findings (cycle 1 — `.spec/reviews/red-hat-sprint25-reactive-20260725T165851Z.md`)
 
 - **H1 → REDHAT-FIX-01** (Critical): fictional 'Streaming' conversation oracle.
 - **H2 → REDHAT-FIX-02** (Critical): simulated research-progress writer, no production `current_iteration` write path.
 - **H3 → REDHAT-FIX-03** (Critical): mutation-proven weak SSE reconnect oracle — regression-blind test suite on the sprint's PRIMARY gate claim.
+
+## Red-Hat Findings (cycle 2 — `.spec/reviews/red-hat-sprint25-reactive-20260725T195015Z.md`)
+
+- **H1, H2 CONFIRMED CLOSED** — real production code verified (seed conversation exists; `research/progress.ts` writer wired into `mission/cycle.ts` + `observability/mission-research.ts`).
+- **H3-NOT-CLOSED → REDHAT-FIX-04** (Critical): REDHAT-FIX-03's own "mutation test" mutates a local test-harness variable, not the production `assemblyRef.current` — the mutant still survives against real production code.
+- **G-2 → REDHAT-FIX-05** (Critical, process): no fresh gate run after the fixes landed; `gate-results.json` missing, `GATE-RESULTS.md` cites the stale pre-fix run.
+- **G-3 → REDHAT-FIX-06** (High): TDD evidence chain (`path.json` + RED logs) broken on a cold checkout of the primary repo.
 
 ## Source Coverage
 
@@ -105,3 +114,10 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-01,REDHAT-FIX-02,REDHAT-FIX-0
 - S-REACTIVE-01 consumes the real Sprint 18 SSE contract — event types `token`/`terminal`/`blocked`/`error`, monotonic `seq` (`Last-Event-ID`→`afterSeq`), durable `chat_messages` row authoritative.
 - S-REACTIVE-02 is scoped to **research** progress (`research_sessions` is a `zero_pub` full-table member; `current_iteration`/`max_iterations`). **Mission progress is out of scope** — `mission_runs` is excluded from `zero_pub`; surfacing it is a follow-up gap.
 - S-REACTIVE-04 infers the degraded state from the chat failure envelope — `degraded_mode` is NOT in `zero_pub` and has no HTTP endpoint; the exact message is `SURFACE_UNAVAILABLE_MESSAGE`; the fleet-down action is the `:4545`-endpoint-down harness action (there is no `holo stack stop fleet` verb).
+
+Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-04,REDHAT-FIX-05,REDHAT-FIX-06 on 2026-07-25T20:13:13Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC).
+
+- REDHAT-FIX-04-fix-production-hook-mutation-test-assemblyref.md
+- REDHAT-FIX-05-rerun-full-human-gate-fresh-gate-results.md
+- REDHAT-FIX-06-restore-tdd-evidence-chain-path-json-red-logs.md
+

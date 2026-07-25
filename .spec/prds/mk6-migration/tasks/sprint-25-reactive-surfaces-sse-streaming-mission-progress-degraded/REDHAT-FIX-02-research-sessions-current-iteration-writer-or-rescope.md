@@ -1,8 +1,8 @@
 # REDHAT-FIX-02 — Land the real production writer for research_sessions.current_iteration, or retitle S-REACTIVE-02/T-SYNC-005 to disclose the engine-trigger gap and drop "as the workflow reaches" gate language
-> Status: ⬜ Pending
+> Status: ✅ Completed
+> Completed: 2026-07-25T19:33:16Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: mastra-implementer
-> Reviewer: mastra-reviewer
 > Estimate: 90 min
 > Type: FEATURE
 > Priority: P0

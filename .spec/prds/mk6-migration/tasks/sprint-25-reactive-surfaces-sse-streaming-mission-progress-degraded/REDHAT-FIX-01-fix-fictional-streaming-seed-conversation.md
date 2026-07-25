@@ -1,8 +1,8 @@
 # REDHAT-FIX-01 — Fix fictional 'Streaming' seed conversation — referenced 4× in contract/gate/flow, 0× in seed-e2e.ts, masked by optional: true
-> Status: ⬜ Pending
+> Status: ✅ Completed
+> Completed: 2026-07-25T19:33:16Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
-> Reviewer: react-native-ui-reviewer
 > Estimate: 60 min
 > Type: FEATURE
 > Priority: P0

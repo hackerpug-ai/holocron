@@ -1,5 +1,10 @@
 # Holocron Mobile Manual E2E Regression Goal
 
+> **Current execution handoff:** use
+> [CURRENT-SPRINT-25-PLAN.md](./CURRENT-SPRINT-25-PLAN.md). It is pinned to the
+> current Sprint 25 baseline, preserves completed evidence, excludes local-network
+> disruption by user instruction, and lists the remaining work in execution order.
+
 ## Purpose
 
 This document is a self-contained goal prompt for a separate Codex session. That
