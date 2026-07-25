@@ -81,6 +81,8 @@ export default defineConfig({
       'services/platform/tests/integration/redhat-fix-5-behavioral-green-fleet-down.test.ts',
       // Sprint 22 GATE-FIX-S22 — infer:trace mission runId + nonprod default DB
       'services/platform/tests/integration/gate-fix-s22-infer-trace-runid.test.ts',
+      // Sprint 25 REDHAT-FIX-02 — research_sessions.current_iteration production writer
+      'services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts',
     ],
     setupFiles: ['tests/setup/react-native.ts'],
     exclude: ['node_modules', 'dist', '.expo'],

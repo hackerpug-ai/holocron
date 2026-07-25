@@ -22,6 +22,7 @@ import {
 import { assertNoTripwire } from '../mastra/tripwire.ts';
 import { createStorage } from '../mastra.ts';
 import { type EvidenceGateResult, evaluateEvidenceGate } from '../research/evidence-gate.ts';
+import { ensureResearchSessionIterationBaseline } from '../research/progress.ts';
 import {
   createLangfuseExporterFromEnv,
   HOLOCRON_SERVICE_NAME,
@@ -432,6 +433,15 @@ export async function runResearchMission(
           updated_at = now(),
           completed_at = EXCLUDED.completed_at
       `;
+      // REDHAT-FIX-02 PATH-A: production writer for research_sessions.current_iteration.
+      // Terminal missions land at max; running missions start at iteration 1 of 5.
+      // advanceResearchSessionIteration is the incremental engine writer used by CLI/tests.
+      await ensureResearchSessionIterationBaseline({
+        sessionId: runId,
+        maxIterations: 5,
+        currentIteration: terminalAdmitted ? 5 : 1,
+        sql: researchSql,
+      });
     } finally {
       await researchSql.end({ timeout: 5 });
     }
