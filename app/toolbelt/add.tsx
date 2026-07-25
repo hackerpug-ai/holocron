@@ -18,6 +18,43 @@ type AddToolParams = {
   useCases?: string;
 };
 
+type MissionResult = Awaited<ReturnType<typeof postMission>>;
+
+// A deep link can briefly mount this modal twice while Expo reconciles its
+// initial URL with the URL event. Coalesce only that burst: a later deliberate
+// re-open still calls the server and receives its durable replay result.
+const recentAddsBySourceUrl = new Map<string, { expiresAt: number; promise: Promise<MissionResult> }>();
+const ADD_REQUEST_COALESCE_MS = 3_000;
+
+function addToolOnce(params: AddToolParams, goal: string): Promise<MissionResult> {
+  const now = Date.now();
+  for (const [sourceUrl, entry] of recentAddsBySourceUrl) {
+    if (entry.expiresAt <= now) recentAddsBySourceUrl.delete(sourceUrl);
+  }
+
+  const existing = recentAddsBySourceUrl.get(params.sourceUrl);
+  if (existing && existing.expiresAt > now) return existing.promise;
+
+  const promise = postMission({
+    templateKey: 'toolbelt',
+    goal,
+    idempotencyKey: `toolbelt-add-${params.sourceUrl}`,
+    args: {
+      goal,
+      title: params.title,
+      description: params.description,
+      category: params.category,
+      sourceUrl: params.sourceUrl,
+      sourceType: params.sourceType,
+      ...(params.language ? { language: params.language } : {}),
+      ...(params.tags ? { tags: params.tags } : {}),
+      ...(params.useCases ? { useCases: params.useCases } : {}),
+    },
+  });
+  recentAddsBySourceUrl.set(params.sourceUrl, { expiresAt: now + ADD_REQUEST_COALESCE_MS, promise });
+  return promise;
+}
+
 /**
  * Toolbelt add — Hono command POST /api/missions (toolbelt-add-from-url).
  */
@@ -50,22 +87,7 @@ export default function ToolbeltAddScreen() {
 
         const goal = `Add toolbelt entry: ${params.title}`;
         // Pass full validated tool fields — do not drop after validate.
-        const result = await postMission({
-          templateKey: 'toolbelt',
-          goal,
-          idempotencyKey: `toolbelt-add-${params.sourceUrl}`,
-          args: {
-            goal,
-            title: params.title,
-            description: params.description,
-            category: params.category,
-            sourceUrl: params.sourceUrl,
-            sourceType: params.sourceType,
-            ...(params.language ? { language: params.language } : {}),
-            ...(params.tags ? { tags: params.tags } : {}),
-            ...(params.useCases ? { useCases: params.useCases } : {}),
-          },
-        });
+        const result = await addToolOnce(params, goal);
 
         setToolTitle(params.title);
 
