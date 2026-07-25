@@ -1,8 +1,10 @@
-// Advances a seeded research_sessions row via the local advance-server
-// (simulates Sprint 17 engine Postgres writes for Zero WAL replay).
+// Advances a seeded research_sessions row via the local advance-server.
+// REDHAT-FIX-02 PATH-A: advance-server routes intermediate steps through the
+// production holo research:advance-iteration writer (not raw psql for +1).
+// Absolute baseline SET is only used for rewind/reset (e.g. start at 1/5).
 //
 // Env:
-//   TARGET_ITERATION — current_iteration to set (default 3)
+//   TARGET_ITERATION — current_iteration to reach (default 3)
 //   MAX_ITERATIONS   — max_iterations (default 5)
 //   ADVANCE_SERVER_URL — base URL (default http://127.0.0.1:8765)
 

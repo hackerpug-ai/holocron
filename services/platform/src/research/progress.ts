@@ -152,6 +152,69 @@ export async function advanceResearchSessionIteration(
   }
 }
 
+export type AdvanceResearchSessionTowardResult = AdvanceResearchSessionIterationResult & {
+  steps: number;
+  targetIteration: number;
+};
+
+/**
+ * Advance research_sessions.current_iteration repeatedly until `targetIteration`
+ * (inclusive) or the writer fails closed. Used by mission phase transitions and
+ * the production CLI so multi-step progress is real engine code (1→2→3…), not a
+ * single absolute SET from a harness.
+ */
+export async function advanceResearchSessionToward(
+  input: AdvanceResearchSessionIterationInput & { targetIteration: number }
+): Promise<AdvanceResearchSessionTowardResult> {
+  const target = Math.floor(Number(input.targetIteration));
+  if (!Number.isFinite(target) || target < 1) {
+    return {
+      ok: false,
+      sessionId: input.sessionId ?? '',
+      errorCode: 'ITERATION_BOUNDS',
+      error: `iteration bounds: invalid targetIteration ${input.targetIteration}`,
+      steps: 0,
+      targetIteration: target,
+    };
+  }
+
+  let steps = 0;
+  let lastOk: AdvanceResearchSessionIterationSuccess | null = null;
+
+  // Cap iterations at target to avoid runaway loops under concurrent writers.
+  for (let i = 0; i < target; i++) {
+    const result = await advanceResearchSessionIteration({
+      sessionId: input.sessionId,
+      databaseUrl: input.databaseUrl,
+      sql: input.sql,
+    });
+    if (!result.ok) {
+      // If we already stepped at least once and hit the ceiling, report last success.
+      if (lastOk && result.errorCode === 'ITERATION_BOUNDS') {
+        return { ...lastOk, steps, targetIteration: target };
+      }
+      return { ...result, steps, targetIteration: target };
+    }
+    steps += 1;
+    lastOk = result;
+    if (result.currentIteration >= target) {
+      return { ...result, steps, targetIteration: target };
+    }
+  }
+
+  if (lastOk) {
+    return { ...lastOk, steps, targetIteration: target };
+  }
+  return {
+    ok: false,
+    sessionId: input.sessionId ?? '',
+    errorCode: 'RESEARCH_SESSION_UPDATE_FAILED',
+    error: 'advanceResearchSessionToward made no progress',
+    steps,
+    targetIteration: target,
+  };
+}
+
 /**
  * Ensure a research session has iteration bounds and an initial current_iteration.
  * Used by mission-research when creating durable research_sessions rows.

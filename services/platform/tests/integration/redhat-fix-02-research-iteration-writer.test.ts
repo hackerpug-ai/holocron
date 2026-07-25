@@ -91,6 +91,35 @@ function countProductionCurrentIterationWriters(): {
   return { count: lines.length, matches: lines };
 }
 
+/**
+ * Production call sites of advanceResearchSessionIteration (not the definition).
+ * Product-lens honesty: writer must be invoked from mission/workflow/CLI code.
+ */
+function countProductionAdvanceCallSites(): {
+  count: number;
+  matches: string[];
+} {
+  const out = rg('advanceResearchSessionIteration\\s*\\(', PLATFORM_SRC, [
+    '--glob',
+    '!**/migrations/**',
+    '--glob',
+    '!**/seed*',
+    '--glob',
+    '!**/*test*',
+    '--glob',
+    '!**/*.md',
+  ]);
+  const lines = out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    // Drop the function definition itself (export async function advance...)
+    .filter((l) => !/function\s+advanceResearchSessionIteration\b/.test(l))
+    // Drop pure re-exports / type-only mentions without call paren already filtered
+    .filter((l) => !/export\s+async\s+function\s+advanceResearchSessionIteration\b/.test(l));
+  return { count: lines.length, matches: lines };
+}
+
 function countMaestroAdvanceImportsInProgressModule(): number {
   if (!existsSync(PROGRESS_SRC)) return 0;
   const src = readFileSync(PROGRESS_SRC, 'utf8');
@@ -219,8 +248,24 @@ describe('REDHAT-FIX-02 research_sessions.current_iteration production writer', 
         expect(progressSrc).toMatch(/current_iteration\s*=/);
         expect(progressSrc).not.toMatch(/advance-server\.py/);
 
+        // Product-lens honesty: real production workflow/CLI call sites must exist
+        // (definition-only writer is NOT PATH-A complete).
+        const callSites = countProductionAdvanceCallSites();
+        expect(
+          callSites.count,
+          `expected advanceResearchSessionIteration( call sites under services/platform/src (mission/CLI); got:\n${callSites.matches.join('\n')}`
+        ).toBeGreaterThanOrEqual(1);
+        const joined = callSites.matches.join('\n');
+        expect(joined).toMatch(
+          /mission\/cycle\.ts|mission-research\.ts|cli\/holo\.ts|observability\/mission-research/
+        );
+
         // Record PATH-A
-        const pathRecord = { path: 'A' as const, agent: 'mastra-implementer' };
+        const pathRecord = {
+          path: 'A' as const,
+          agent: 'mastra-implementer',
+          productionCallSites: callSites.matches,
+        };
         writeFileSync(PATH_JSON, `${JSON.stringify(pathRecord, null, 2)}\n`, 'utf8');
         const written = JSON.parse(readFileSync(PATH_JSON, 'utf8')) as { path: string };
         expect(written.path).toBe('A');
@@ -232,6 +277,48 @@ describe('REDHAT-FIX-02 research_sessions.current_iteration production writer', 
           advances: [r1, r2],
           after,
           maestroImportCount: countMaestroAdvanceImportsInProgressModule(),
+          productionCallSites: callSites,
+        });
+      }
+    );
+
+    itLive(
+      'advances 1→2→3 via production CLI research:advance-iteration (not advance-server.py)',
+      async () => {
+        await ensureSeededSessionAt(1, 5);
+        const holo = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
+        expect(existsSync(holo)).toBe(true);
+
+        const runCli = (steps: number) =>
+          execFileSync(
+            'bun',
+            [holo, 'research:advance-iteration', E2E_ACTIVE_SESSION_ID, String(steps), '--json'],
+            {
+              encoding: 'utf8',
+              cwd: REPO_ROOT,
+              env: { ...process.env, DATABASE_URL },
+            }
+          );
+
+        const out1 = runCli(1);
+        const j1 = JSON.parse(out1) as { ok: boolean; result?: { currentIteration?: number } };
+        expect(j1.ok, `CLI step1 failed: ${out1}`).toBe(true);
+        expect(j1.result?.currentIteration).toBe(2);
+
+        const out2 = runCli(1);
+        const j2 = JSON.parse(out2) as { ok: boolean; result?: { currentIteration?: number } };
+        expect(j2.ok, `CLI step2 failed: ${out2}`).toBe(true);
+        expect(j2.result?.currentIteration).toBe(3);
+
+        const after = await readSession();
+        expect(after?.current_iteration).toBe(3);
+        expect(after?.max_iterations).toBe(5);
+
+        writeEvidence('AC-1-cli-production-path.json', {
+          path: 'A',
+          surface: 'holo research:advance-iteration',
+          steps: [j1, j2],
+          after,
         });
       }
     );
@@ -246,12 +333,32 @@ describe('REDHAT-FIX-02 research_sessions.current_iteration production writer', 
       expect(parsed.path === 'A' || parsed.path === 'B').toBe(true);
       expect(parsed.agent).toBe('mastra-implementer');
     });
+
+    it('production workflow/CLI imports advanceResearchSessionIteration (not definition-only)', () => {
+      const callSites = countProductionAdvanceCallSites();
+      writeEvidence('AC-1-production-call-sites.json', callSites);
+      expect(
+        callSites.count,
+        `PATH-A incomplete without production callers; matches:\n${callSites.matches.join('\n')}`
+      ).toBeGreaterThanOrEqual(1);
+      // Must include at least one of the wired surfaces
+      const blob = callSites.matches.join('\n');
+      expect(blob).toMatch(/mission\/cycle\.ts|mission-research\.ts|cli\/holo\.ts/);
+      // Must not only live under .maestro/
+      expect(blob).not.toMatch(/\.maestro\//);
+    });
   });
 
   describe('AC-3: source audit — production writer sites', () => {
     it('PATH-A production write site count >= 1 for current_iteration', () => {
       const { count, matches } = countProductionCurrentIterationWriters();
-      writeEvidence('AC-3-writer-audit.json', { count, matches, path: 'A' });
+      const callSites = countProductionAdvanceCallSites();
+      writeEvidence('AC-3-writer-audit.json', {
+        count,
+        matches,
+        callSites,
+        path: 'A',
+      });
       expect(
         count,
         `expected greppable production current_iteration writer under services/platform/src; got:\n${matches.join('\n')}`
@@ -262,6 +369,12 @@ describe('REDHAT-FIX-02 research_sessions.current_iteration production writer', 
       const src = readFileSync(PROGRESS_SRC, 'utf8');
       expect(src).toMatch(/current_iteration\s*=/);
       expect(src).toMatch(/UPDATE\s+research_sessions|research_sessions[\s\S]*current_iteration/i);
+
+      // Product-lens: at least one non-definition production caller
+      expect(
+        callSites.count,
+        `expected production callers of advanceResearchSessionIteration; got:\n${callSites.matches.join('\n')}`
+      ).toBeGreaterThanOrEqual(1);
 
       expect(existsSync(PATH_JSON)).toBe(true);
       const path = JSON.parse(readFileSync(PATH_JSON, 'utf8')) as { path: string };
