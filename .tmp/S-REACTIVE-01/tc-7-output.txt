@@ -376,48 +376,6 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
      20  20 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
   
 
-.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts format ━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     16  16 │    *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
-     17  17 │    */
-     18     │ - import·{·runDurableEffectBoundary,·auditDurableEffect·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
-         18 │ + import·{
-         19 │ + ··runDurableEffectBoundary,
-         20 │ + ··auditDurableEffect,
-         21 │ + }·from·'../../../../../../../services/platform/src/queue/durable-effect';
-     19  22 │   
-     20  23 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
-    ······· │ 
-     40  43 │     boundary: string;
-     41  44 │     key: string;
-     42     │ - ··crash_pass:·{·effect_count:·number;·outbox_count:·number;·inbox_dedupe_count:·number;·fencing_token:·string·|·null·};
-     43     │ - ··recovery_pass:·{·effect_count:·number;·outbox_count:·number;·inbox_dedupe_count:·number;·fencing_token:·string·|·null·};
-         45 │ + ··crash_pass:·{
-         46 │ + ····effect_count:·number;
-         47 │ + ····outbox_count:·number;
-         48 │ + ····inbox_dedupe_count:·number;
-         49 │ + ····fencing_token:·string·|·null;
-         50 │ + ··};
-         51 │ + ··recovery_pass:·{
-         52 │ + ····effect_count:·number;
-         53 │ + ····outbox_count:·number;
-         54 │ + ····inbox_dedupe_count:·number;
-         55 │ + ····fencing_token:·string·|·null;
-         56 │ + ··};
-     44  57 │     exactly_one: boolean;
-     45  58 │   }> = [];
-    ······· │ 
-     94 107 │     database_url: DATABASE_URL,
-     95 108 │     boundaries_requested: requested,
-     96     │ - ··final_audit_contract:·'effect_count===1·AND·outbox_count===1·AND·inbox_dedupe_count===1·AND·fencing_token·present,·for·EACH·boundary·key',
-        109 │ + ··final_audit_contract:
-        110 │ + ····'effect_count===1·AND·outbox_count===1·AND·inbox_dedupe_count===1·AND·fencing_token·present,·for·EACH·boundary·key',
-     97 111 │     all_exactly_one: allOk,
-     98 112 │     results,
-  
-
 .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts:13:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
 
   × The imports and exports are not sorted.
@@ -606,6 +564,23 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
     2 9 │   
   
 
+.spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/gate-results.prev.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     94  94 │         "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step6-evals-drift.log",
+     95  95 │         "observed": {
+     96     │ - ········"keys":·[
+     97     │ - ··········"ok",
+     98     │ - ··········"datasetVersion",
+     99     │ - ··········"entryCount",
+    100     │ - ··········"entries"
+    101     │ - ········]
+         96 │ + ········"keys":·["ok",·"datasetVersion",·"entryCount",·"entries"]
+    102  97 │         }
+    103  98 │       }
+  
+
 .spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/verification-output.json format ━━━━━━━━━━
 
   × Formatter would have printed the following content:
@@ -624,7 +599,7 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 716.
-Checked 1562 files in 368ms. No fixes applied.
+Checked 1562 files in 366ms. No fixes applied.
 Found 68 errors.
 Found 662 warnings.
 Found 6 infos.

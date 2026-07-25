@@ -18,4 +18,4 @@ Unable to launch app undefined
 
 ==== Debug output (logs & screenshots) ====
 
-/Users/inference1/.maestro/tests/2026-07-25_011104
+/Users/inference1/.maestro/tests/2026-07-25_013452

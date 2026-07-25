@@ -1,0 +1,80 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "maestro test .maestro/reactive/token-streaming.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/ac-4-output.txt"
+  },
+  {
+    "id": "AC-5",
+    "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/ac-5-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "maestro test .maestro/reactive/token-streaming.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/tc-4-output.txt"
+  },
+  {
+    "id": "TC-5",
+    "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/tc-5-output.txt"
+  },
+  {
+    "id": "TC-6",
+    "verify": "pnpm tsc --noEmit",
+    "exit_code": 2,
+    "output_file": ".tmp/S-REACTIVE-01/tc-6-output.txt"
+  },
+  {
+    "id": "TC-7",
+    "verify": "pnpm lint",
+    "exit_code": 1,
+    "output_file": ".tmp/S-REACTIVE-01/tc-7-output.txt"
+  },
+  {
+    "id": "TC-8",
+    "verify": "python3 ~/Projects/brain/tools/validate-scenario/validate_scenario.py .validate-payloads/S-REACTIVE-01.json",
+    "exit_code": 0,
+    "output_file": ".tmp/S-REACTIVE-01/tc-8-output.txt"
+  }
+]

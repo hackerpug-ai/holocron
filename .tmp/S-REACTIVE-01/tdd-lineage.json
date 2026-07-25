@@ -1,0 +1,40 @@
+{
+  "task_id": "S-REACTIVE-01",
+  "tdd_mode": "red_first",
+  "base_sha": "7dc40a0f4e7a556bde5cf8fed4393ea9c7fde037",
+  "red_commit": "7dc40a0f4e7a556bde5cf8fed4393ea9c7fde037",
+  "green_commit": "edb0ae645e56c1c47cefe69b4b1c24b49e5ec5d3",
+  "distinct_red_green_commits": true,
+  "red": {
+    "against_start_sha": "7dc40a0f4e7a556bde5cf8fed4393ea9c7fde037",
+    "evidence_file": ".tmp/S-REACTIVE-01/red/ac-all-red-against-start.txt",
+    "summary": "11/16 failed against start: hook/useResumableSSEStream absent; no Last-Event-ID/reconcile/cancel wiring",
+    "per_ac": {
+      "AC-1": ".tmp/S-REACTIVE-01/AC-1-red-against-start.txt",
+      "AC-2": ".tmp/S-REACTIVE-01/AC-2-red-against-start.txt",
+      "AC-3": ".tmp/S-REACTIVE-01/AC-3-red-against-start.txt",
+      "AC-4": ".tmp/S-REACTIVE-01/AC-4-red-against-start.txt",
+      "AC-5": ".tmp/S-REACTIVE-01/AC-5-red-against-start.txt"
+    }
+  },
+  "green": {
+    "commit_sha": "edb0ae645e56c1c47cefe69b4b1c24b49e5ec5d3",
+    "evidence_file": ".tmp/S-REACTIVE-01/green/ac-all-green.txt",
+    "summary": "16/16 integration contracts pass after useResumableSSEStream + chat wiring",
+    "per_ac": {
+      "AC-1": ".tmp/S-REACTIVE-01/AC-1-green.txt",
+      "AC-2": ".tmp/S-REACTIVE-01/AC-2-green.txt",
+      "AC-3": ".tmp/S-REACTIVE-01/AC-3-green.txt",
+      "AC-4": ".tmp/S-REACTIVE-01/AC-4-green.txt",
+      "AC-5": ".tmp/S-REACTIVE-01/AC-5-green.txt"
+    }
+  },
+  "suite": {
+    "command": "pnpm exec vitest run tests/integration/s-reactive-01-resumable-sse.test.ts",
+    "pre_impl_exit": 1,
+    "post_impl_exit": 0,
+    "tests_failed_red": 11,
+    "tests_passed_green": 16
+  },
+  "note": "RED was proven by running the contract suite against the start tree (base 7dc40a0f) before GREEN implementation commit edb0ae64. Maestro e2e ACs exit non-zero when MAESTRO_APP_ID/Metro/seed substrate missing; contract tests + flows are the discriminative evidence."
+}

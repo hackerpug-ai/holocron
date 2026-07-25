@@ -1,0 +1,4 @@
+must_observe: gap-fill only seq > afterSeq; 0 tokens with seq <= Last-Event-ID duplicated
+green_contract: applyTokenEvent gap-fill + Last-Event-ID header on EventSource
+vitest: tests/integration/s-reactive-01-resumable-sse.test.ts — 16/16 pass after GREEN
+maestro_flow: .maestro/reactive/last-event-id-gap-fill.yml (launch blocked: MAESTRO_APP_ID unset)

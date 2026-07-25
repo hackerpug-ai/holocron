@@ -1,0 +1,4 @@
+must_observe: hook uses real EventSource; opens /api/chat-runs/:id/events; token events append to single bubble
+green_contract: hooks/use-resumable-sse-stream.ts exists + EventSource + token/terminal/blocked/error
+vitest: tests/integration/s-reactive-01-resumable-sse.test.ts — 16/16 pass after GREEN
+maestro_flow: .maestro/reactive/token-streaming.yml (launch blocked: MAESTRO_APP_ID unset)
