@@ -81,11 +81,7 @@ function groupSources(rows: SourceRow[], contentRows: SubscriptionContentRow[]):
   const documentIdsBySource = new Map<string, Set<string>>();
 
   for (const content of contentRows) {
-    if (
-      content.research_status !== 'researched' ||
-      !content.source_id ||
-      !content.document_id
-    ) {
+    if (content.research_status !== 'researched' || !content.source_id || !content.document_id) {
       continue;
     }
     const documentIds = documentIdsBySource.get(content.source_id) ?? new Set<string>();
