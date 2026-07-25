@@ -2,9 +2,9 @@
 {
   "ok": true,
   "database": "holocron_nonprod",
-  "seed_fingerprint": "2d1fd04ab3165ccb055775e1ab77e3fb",
-  "conversations": 4,
-  "messages": 6,
+  "seed_fingerprint": "a26f1d28ecdab3cd4869b147cf939678",
+  "conversations": 5,
+  "messages": 8,
   "documents": 17,
   "categories": 17,
   "feed_items": 5,
@@ -51,6 +51,7 @@
     "zero_pub present on holocron_nonprod",
     "truncated 124 public tables",
     "seeded 3 conversations + 6 messages",
+    "seeded Streaming conversation + 2 messages",
     "seeded Sprint 20 reference conversation",
     "seeded 17 documents across 17 categories",
     "seeded 5 feed_items",
@@ -62,13 +63,13 @@
   ],
   "errors": []
 }
-[run-degraded-no-hang] fleet_pid=73893 platform_pid=73926
-[run-degraded-no-hang] fleet-down: stop pid 73893
-[run-degraded-no-hang] fleet reaper pid=82189
+[run-degraded-no-hang] fleet_pid=48800 platform_pid=49959
+[run-degraded-no-hang] fleet-down: stop pid 48800
+[run-degraded-no-hang] fleet reaper pid=50298
 [run-degraded-no-hang] fleet unreachable on :4545 (good for ROLE_UNAVAILABLE)
 [run-degraded-no-hang] restart platform with HOLO_CHAT_FLEET_ONLY=1 (no deterministic mask)
-[run-degraded-no-hang] platform health ok (fleet-only mode) launcher_pid=82229 listener=82229
-[run-degraded-no-hang] envelope probe ok runId=8e9e4c86-b3bf-4a1c-b5c2-8d7609b97478 status=failed code=ROLE_UNAVAILABLE
+[run-degraded-no-hang] platform health ok (fleet-only mode) launcher_pid=50334 listener=50334
+[run-degraded-no-hang] envelope probe ok runId=909d53cc-caba-43b9-ba7b-701a8e60deba status=failed code=ROLE_UNAVAILABLE
 [run-degraded-no-hang] maestro test degraded-no-hang.yml
 WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
 WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
@@ -125,5 +126,5 @@ Take screenshot S-REACTIVE-04-AC-1-degraded-no-hang... COMPLETED
 [run-degraded-no-hang] maestro exit=0
 [run-degraded-no-hang] restore fleet: /opt/homebrew/bin/bun /Users/inference1/Projects/rogueone/.tmp/local-loop-fleet-proxy.ts
 [run-degraded-no-hang] restore platform: bun services/platform/src/cli/holo.ts service:up
-.maestro/reactive/run-degraded-no-hang.sh: line 71: 82229 Killed: 9                  nohup bun services/platform/src/cli/holo.ts service:up >> "$EVIDENCE_DIR/platform-fleet-only.log" 2>&1
-.maestro/reactive/run-degraded-no-hang.sh: line 71: 83625 Killed: 9                  exit "$MAESTRO_EXIT"
+.maestro/reactive/run-degraded-no-hang.sh: line 71: 50334 Killed: 9                  nohup bun services/platform/src/cli/holo.ts service:up >> "$EVIDENCE_DIR/platform-fleet-only.log" 2>&1
+.maestro/reactive/run-degraded-no-hang.sh: line 71: 51687 Killed: 9                  exit "$MAESTRO_EXIT"

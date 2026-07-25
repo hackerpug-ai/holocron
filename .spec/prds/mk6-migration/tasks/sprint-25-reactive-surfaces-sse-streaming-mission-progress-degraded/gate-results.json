@@ -1,0 +1,64 @@
+{
+  "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
+  "run_id": "s25-ht-20260725T203604Z",
+  "verdict": "pass",
+  "runner": "kb-run-sprint-human-test",
+  "ui_driver": "maestro",
+  "written_at": "2026-07-25T20:56:17Z",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 5,
+  "steps": [
+    {
+      "n": 1,
+      "type": "terminal",
+      "text": "Run holo seed:e2e --reset \u2014 seeds the Streaming conversation.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-1-seed.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-1-seed.log"
+    },
+    {
+      "n": 2,
+      "type": "ui",
+      "text": "Send 'Summarize the seeded doc'; stream tokens; airplane mid-stream; reconnect to exactly one final message (no dups).",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-2-4-reconnect.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-2-4-reconnect.log"
+    },
+    {
+      "n": 3,
+      "type": "ui",
+      "text": "Start a research mission \u2014 progress bar advances live as the workflow reaches iteration 3/5.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-5-research.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-5-research.log"
+    },
+    {
+      "n": 4,
+      "type": "ui",
+      "text": "Update a seeded doc via the MCP gateway \u2014 the app reflects the new title within 5s via Zero.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-6-mcp-p95.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-6-mcp-p95.log"
+    },
+    {
+      "n": 5,
+      "type": "ui",
+      "text": "Stop the local fleet then send a message \u2014 chat shows 'local fleet unavailable', not a spinner hang.",
+      "executed": true,
+      "result": "pass",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
+    }
+  ],
+  "notes": "Fresh post-REDHAT-FIX-01..04 human-test cycle on HEAD: Streaming seed (conversations:5); reconnect numeric oracles + single bubble; research 3/5; MCP p95; degraded ROLE_UNAVAILABLE (launchd holocron-mastra unloaded for fleet-only restart)."
+}
