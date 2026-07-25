@@ -3,7 +3,7 @@
  *
  * Seeds the Zero-published Postgres surface:
  *   - 3 conversations + messages
- *   - 12 documents across multiple categories
+ *   - 17 documents across multiple categories, including all Toolbelt filters
  *   - 5 feed_items (What's New feed)
  *   - 4 subscription sources and 4 researched subscription-content rows
  *
@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 6;
+export const E2E_SEED_VERSION = 7;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -43,6 +43,11 @@ export const E2E_DOCUMENT_CATEGORIES = [
   'libraries',
   'competitive-analysis',
   'ai-roi',
+  'cli',
+  'framework',
+  'service',
+  'database',
+  'tool',
 ] as const;
 
 const E2E_IMPROVEMENTS = [
@@ -479,31 +484,47 @@ export async function seedE2eDatabase(options?: {
       `seeded ${E2E_CONVERSATION_IDS.length} conversations + ${messageCount} messages`
     );
 
-    // ── documents (12, multi-category) ────────────────────────────────────
+    // ── documents (17, multi-category) ────────────────────────────────────
     // HIGH-3 / GATE-FIX-002 + GATE-FIX-007: every seeded public doc carries a
     // stable share_token so share-url-mastra can assert Mastra /article/ on any
-    // list card (articles sort created_at desc → index 0 is often doc 12).
-    for (let n = 1; n <= 12; n++) {
+    // list card, regardless of its seed insertion order.
+    for (let n = 1; n <= E2E_DOCUMENT_CATEGORIES.length; n++) {
       const id = docId(n);
       const category = E2E_DOCUMENT_CATEGORIES[(n - 1) % E2E_DOCUMENT_CATEGORIES.length]!;
       const title = `E2E Document ${n} (${category})`;
       const content = `Seeded e2e document #${n} in category ${category} for Maestro Zero reads.`;
       const shareToken = `e2e-share-token-00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+      const isToolbeltDocument = ['libraries', 'cli', 'framework', 'service', 'database', 'tool'].includes(
+        category
+      );
       await sql.unsafe(
-        `INSERT INTO documents (id, title, content, category, status, is_public, share_token, created_at)
-         VALUES ($1::uuid, $2, $3, $4, 'published', true, $5, now())
+        `INSERT INTO documents (
+           id, title, content, category, status, is_public, share_token, file_path, file_type, created_at
+         ) VALUES ($1::uuid, $2, $3, $4, 'published', true, $5, $6, $7, now())
          ON CONFLICT (id) DO UPDATE SET
            title = EXCLUDED.title,
            content = EXCLUDED.content,
            category = EXCLUDED.category,
            status = EXCLUDED.status,
            is_public = EXCLUDED.is_public,
-           share_token = EXCLUDED.share_token`,
-        [id, title, content, category, shareToken]
+           share_token = EXCLUDED.share_token,
+           file_path = EXCLUDED.file_path,
+           file_type = EXCLUDED.file_type`,
+        [
+          id,
+          title,
+          content,
+          category,
+          shareToken,
+          isToolbeltDocument ? `https://example.com/e2e-toolbelt-${category}` : null,
+          isToolbeltDocument ? 'website' : null,
+        ]
       );
     }
-    const categorySet = new Set(E2E_DOCUMENT_CATEGORIES.slice(0, 12));
-    messages_log.push(`seeded 12 documents across ${categorySet.size} categories`);
+    const categorySet = new Set(E2E_DOCUMENT_CATEGORIES);
+    messages_log.push(
+      `seeded ${E2E_DOCUMENT_CATEGORIES.length} documents across ${categorySet.size} categories`
+    );
 
     // ── feed_items (5) ────────────────────────────────────────────────────
     for (let n = 1; n <= 5; n++) {
@@ -744,7 +765,7 @@ export async function seedE2eDatabase(options?: {
       version: E2E_SEED_VERSION,
       conversations: E2E_CONVERSATION_IDS.length,
       messages: messageCount,
-      documents: 12,
+      documents: E2E_DOCUMENT_CATEGORIES.length,
       categories: [...categorySet].sort(),
       feed_items: 5,
       subscription_sources: E2E_SUBSCRIPTION_SOURCES.length,
@@ -762,7 +783,7 @@ export async function seedE2eDatabase(options?: {
       seed_fingerprint,
       conversations: E2E_CONVERSATION_IDS.length,
       messages: messageCount,
-      documents: 12,
+      documents: E2E_DOCUMENT_CATEGORIES.length,
       categories: categorySet.size,
       feed_items: 5,
       subscription_sources: E2E_SUBSCRIPTION_SOURCES.length,

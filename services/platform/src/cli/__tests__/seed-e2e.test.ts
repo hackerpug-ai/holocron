@@ -80,7 +80,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       };
       expect(parsed.ok, first.combined).toBe(true);
       expect(parsed.conversations, 'must seed 3 conversations').toBe(3);
-      expect(parsed.documents, 'must seed 12 documents').toBe(12);
+      expect(parsed.documents, 'must seed 17 documents').toBe(17);
       expect(parsed.feed_items, 'must seed 5 feed items').toBe(5);
       expect(parsed.subscription_sources, 'must seed 4 subscription sources').toBe(4);
       expect(parsed.subscription_content, 'must seed 4 researched subscription rows').toBe(4);
@@ -96,7 +96,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       // Live Postgres counts (not JSON self-report alone)
       expect(psqlCount('conversations')).toBe(3);
       expect(psqlCount('chat_messages')).toBeGreaterThanOrEqual(3);
-      expect(psqlCount('documents')).toBe(12);
+      expect(psqlCount('documents')).toBe(17);
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);
       expect(psqlCount('subscription_content')).toBe(4);
@@ -118,7 +118,7 @@ describe('AC-1: holo seed:e2e --reset (real CLI + Postgres)', () => {
       expect(parsed2.ok).toBe(true);
       expect(parsed2.seed_fingerprint).toBe(parsed.seed_fingerprint);
       expect(psqlCount('conversations')).toBe(3);
-      expect(psqlCount('documents')).toBe(12);
+      expect(psqlCount('documents')).toBe(17);
       expect(psqlCount('feed_items')).toBe(5);
       expect(psqlCount('subscription_sources')).toBe(4);
       expect(psqlCount('subscription_content')).toBe(4);
