@@ -1,0 +1,12 @@
+PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod
+pnpm vitest run tests/integration/s-reactive-01-eventsource-live.test.ts tests/integration/s-reactive-01-resumable-sse.test.ts
+
+ ✓ tests/integration/s-reactive-01-resumable-sse.test.ts (21 tests)
+ ✓ tests/integration/s-reactive-01-eventsource-live.test.ts (3 tests)
+   ✓ PLATFORM_IT gate is honest
+   ✓ AC-1/AC-2/AC-4: real EventSource streams tokens; Last-Event-ID gap-fill has zero duplicates
+   ✓ AC-5: cancel finalizes partial, clears agent_busy, keeps durable partial text
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+EXIT:0

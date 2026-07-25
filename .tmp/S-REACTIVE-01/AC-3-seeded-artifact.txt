@@ -1,4 +1,18 @@
-must_observe: exactly 1 final assistant bubble; reconcileThreadMessages yields one agent message
-green_contract: use-chat-history reconcile + ChatThread streamPhase overlay
-vitest: tests/integration/s-reactive-01-resumable-sse.test.ts — 16/16 pass after GREEN
-maestro_flow: .maestro/reactive/exactly-one-final-message.yml (launch blocked: MAESTRO_APP_ID unset)
+ conversations 
+---------------
+             4
+(1 row)
+
+ messages 
+----------
+        8
+(1 row)
+
+                  id                  |              title               | agent_busy 
+--------------------------------------+----------------------------------+------------
+ 00000000-0000-4000-8000-0000000000e2 | E2E Conversation Beta            | f
+ 00000000-0000-4000-8000-0000000000e3 | E2E Conversation Gamma           | f
+ 00000000-0000-0000-0000-000000000020 | Sprint 20 reference conversation | f
+ 00000000-0000-4000-8000-0000000000e1 | E2E Conversation Alpha           | f
+(4 rows)
+

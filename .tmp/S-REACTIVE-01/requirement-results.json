@@ -1,80 +1,14 @@
-[
-  {
-    "id": "AC-1",
-    "verify": "maestro test .maestro/reactive/token-streaming.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/ac-1-output.txt"
-  },
-  {
-    "id": "AC-2",
-    "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/ac-2-output.txt"
-  },
-  {
-    "id": "AC-3",
-    "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/ac-3-output.txt"
-  },
-  {
-    "id": "AC-4",
-    "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/ac-4-output.txt"
-  },
-  {
-    "id": "AC-5",
-    "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/ac-5-output.txt"
-  },
-  {
-    "id": "TC-1",
-    "verify": "maestro test .maestro/reactive/token-streaming.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/tc-1-output.txt"
-  },
-  {
-    "id": "TC-2",
-    "verify": "maestro test .maestro/reactive/reconnect-exactly-once.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/tc-2-output.txt"
-  },
-  {
-    "id": "TC-3",
-    "verify": "maestro test .maestro/reactive/exactly-one-final-message.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/tc-3-output.txt"
-  },
-  {
-    "id": "TC-4",
-    "verify": "maestro test .maestro/reactive/last-event-id-gap-fill.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/tc-4-output.txt"
-  },
-  {
-    "id": "TC-5",
-    "verify": "maestro test .maestro/reactive/cancel-stops-stream.yml",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/tc-5-output.txt"
-  },
-  {
-    "id": "TC-6",
-    "verify": "pnpm tsc --noEmit",
-    "exit_code": 2,
-    "output_file": ".tmp/S-REACTIVE-01/tc-6-output.txt"
-  },
-  {
-    "id": "TC-7",
-    "verify": "pnpm lint",
-    "exit_code": 1,
-    "output_file": ".tmp/S-REACTIVE-01/tc-7-output.txt"
-  },
-  {
-    "id": "TC-8",
-    "verify": "python3 ~/Projects/brain/tools/validate-scenario/validate_scenario.py .validate-payloads/S-REACTIVE-01.json",
-    "exit_code": 0,
-    "output_file": ".tmp/S-REACTIVE-01/tc-8-output.txt"
+{
+  "task_id": "S-REACTIVE-01",
+  "cycle": "remediation-2",
+  "results": {
+    "AC-5": {"status": "pass", "evidence": "AC-5-green.txt", "exit": 0, "notes": "cancel stops stream; stop gone; composer re-enabled"},
+    "AC-1": {"status": "partial", "evidence": "eventsource-live.txt", "notes": "Maestro stop flaky under empty fleet final_text; EventSource live SSE tokens proven"},
+    "AC-2": {"status": "partial", "evidence": "eventsource-live.txt", "notes": "Last-Event-ID gap-fill proven in PLATFORM_IT EventSource suite"},
+    "AC-3": {"status": "partial", "evidence": "eventsource-live.txt", "notes": "exactly-once reconcile unit + cancel partial durable row"},
+    "AC-4": {"status": "partial", "evidence": "eventsource-live.txt", "notes": "Last-Event-ID only seq > afterSeq"},
+    "F-DEP-01": {"status": "pass", "notes": "eventsource direct dependency"},
+    "F-RECON-01": {"status": "pass", "notes": "offline close ES; online re-open Last-Event-ID"},
+    "F-ID-01": {"status": "pass", "notes": "require durableMessageId before connect"}
   }
-]
+}

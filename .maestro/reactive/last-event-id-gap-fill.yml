@@ -1,44 +1,66 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-4 / TC-4 — Last-Event-ID gap-fill delivers only unobserved events
+# AC-4 / TC-4 — Last-Event-ID gap-fill
+# Env: MAESTRO_APP_ID, MAESTRO_DEV_CLIENT_OPEN_URL, MAESTRO_CHAT_URL, MAESTRO_METRO_URL
 
 - launchApp:
     clearState: false
 
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
-    timeout: 60000
+    timeout: 90000
 
-- tapOn:
-    id: "chat-header-menu-button"
-    optional: true
-- tapOn:
-    id: "screen-header-menu-button"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "conversation-row"
-    timeout: 15000
-    optional: true
-- tapOn:
-    id: "conversation-row"
-    index: 0
-    optional: true
+- assertVisible:
+    id: "chat-screen"
 
 - extendedWaitUntil:
     visible:
-      id: "chat-input"
-    timeout: 15000
+      id: "chat-input-field"
+    timeout: 30000
 
 - tapOn:
     id: "chat-input-field"
-    optional: true
-- tapOn:
-    id: "chat-input"
-    optional: true
+- eraseText
 
 - inputText: "List eight distinct short words about rivers, one at a time."
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
 
 - tapOn:
     id: "chat-input-send-button"
@@ -46,15 +68,19 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "stop-generating-button"
-    timeout: 20000
+    timeout: 30000
+
+- assertVisible:
+    id: "stop-generating-button"
 
 - extendedWaitUntil:
     visible:
       id: "chat-stream-last-seq"
-    timeout: 20000
-    optional: true
+    timeout: 30000
 
-# Drop mid-stream so client reconnects with Last-Event-ID
+- assertVisible:
+    id: "chat-stream-last-seq"
+
 - setAirplaneMode: enabled
 - waitForAnimationToEnd:
     timeout: 3000
@@ -64,7 +90,9 @@ appId: ${MAESTRO_APP_ID}
     notVisible:
       id: "stop-generating-button"
     timeout: 90000
-    optional: true
+
+- assertNotVisible:
+    id: "stop-generating-button"
 
 - assertVisible:
     id: "chat-assistant-message"

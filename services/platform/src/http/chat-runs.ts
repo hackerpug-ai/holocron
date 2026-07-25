@@ -135,19 +135,40 @@ async function finalizeChatRun(
           last_event_seq = ${seq}, completed_at = now(), updated_at = now()
       WHERE id = ${run.id}::uuid
     `;
-    if (status === 'completed' && options?.finalText !== undefined) {
+    // Persist durable assistant text for completed runs and cancelled partials.
+    // Cancel path may pass assembled token text so the client keeps one bubble
+    // that Zero can reconcile (AC-5 partial message kept).
+    const finalText = typeof options?.finalText === 'string' ? options.finalText : null;
+    const shouldPersistMessage =
+      finalText !== null &&
+      (status === 'completed' || finalText.length > 0) &&
+      Boolean(run.conversation_id);
+    if (shouldPersistMessage && run.conversation_id && finalText !== null) {
       await tx`
         INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
-        VALUES (${run.durable_message_id}::uuid, ${run.conversation_id}, 'agent', ${options.finalText}, 'text', ${run.id})
+        VALUES (${run.durable_message_id}::uuid, ${run.conversation_id}, 'agent', ${finalText}, 'text', ${run.id})
         ON CONFLICT (id) DO NOTHING
       `;
-      if (run.conversation_id) {
+    }
+    // ALWAYS clear agent_busy on any terminal finalize (completed/blocked/failed).
+    // Previously only completed+finalText cleared it, which left cancel/stop
+    // stuck with agent_busy=true → composer disabled (AC-5 CRITICAL).
+    if (run.conversation_id) {
+      if (finalText !== null && finalText.length > 0) {
         await tx`
-      UPDATE conversations
-      SET last_message_preview = ${options.finalText.slice(0, 200)},
-          agent_busy = false,
-          agent_busy_since = NULL,
-          updated_at = now()
+          UPDATE conversations
+          SET last_message_preview = ${finalText.slice(0, 200)},
+              agent_busy = false,
+              agent_busy_since = NULL,
+              updated_at = now()
+          WHERE id::text = ${run.conversation_id}
+        `;
+      } else {
+        await tx`
+          UPDATE conversations
+          SET agent_busy = false,
+              agent_busy_since = NULL,
+              updated_at = now()
           WHERE id::text = ${run.conversation_id}
         `;
       }
@@ -222,6 +243,11 @@ async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<voi
       { finalText }
     );
   } catch (error) {
+    // Cancel path aborts the stream and owns finalize (partial + agent_busy clear).
+    // Do not race a second failed finalize that could clobber cancel semantics.
+    if (controller.signal.aborted) {
+      return;
+    }
     if (error instanceof TripwireError) {
       await finalizeChatRun(
         sql,
@@ -366,6 +392,24 @@ export async function cancelChatRun(
     if (!run) return null;
     if (!['completed', 'blocked', 'failed'].includes(run.status)) {
       activeChatRuns.get(runId)?.abort();
+      // Assemble partial assistant text from token events so cancel finalizes
+      // one durable bubble matching the client overlay (AC-5).
+      const tokenEvents = await sql<{ data_json: unknown }[]>`
+        SELECT data_json FROM chat_run_events
+        WHERE run_id = ${runId}::uuid AND event_type = 'token'
+        ORDER BY seq ASC
+      `;
+      let partialText = '';
+      for (const ev of tokenEvents) {
+        const data = ev.data_json;
+        if (
+          data &&
+          typeof data === 'object' &&
+          typeof (data as { token?: unknown }).token === 'string'
+        ) {
+          partialText += (data as { token: string }).token;
+        }
+      }
       await finalizeChatRun(
         sql,
         run,
@@ -374,10 +418,13 @@ export async function cancelChatRun(
         {
           code: 'CHAT_RUN_CANCELLED',
           message: 'chat run cancelled by client',
+          ...(partialText.length > 0 ? { text: partialText } : {}),
         },
         {
           errorCode: 'CHAT_RUN_CANCELLED',
           errorMessage: 'chat run cancelled by client',
+          // Persist partial (or empty) so agent_busy clears + Zero can reconcile
+          finalText: partialText,
         }
       );
     }

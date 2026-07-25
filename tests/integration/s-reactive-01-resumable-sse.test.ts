@@ -51,10 +51,12 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
     it('hook uses EventSource (not a mock stub) and opens /api/chat-runs/:id/events', () => {
       const src = read(HOOK_PATH);
       expect(src).toMatch(/EventSource/);
+      expect(src).toMatch(/eventsource-rn-polyfill|EventTarget/);
       expect(src).toMatch(/\/api\/chat-runs\/.+\/events|chat-runs\/\$\{.*\}\/events/);
       // Must not mock EventSource for tests
       expect(src).not.toMatch(/vi\.mock\(['"]eventsource['"]\)|jest\.mock\(['"]eventsource['"]\)/);
       expect(src).not.toMatch(/mockEventSource|FakeEventSource|stubEventSource/);
+      expect(existsSync(join(REPO_ROOT, 'lib', 'eventsource-rn-polyfill.ts'))).toBe(true);
     });
 
     it('hook sends Last-Event-ID on resume (gap-fill only seq > afterSeq)', () => {
@@ -97,6 +99,59 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       const screen = read(CHAT_SCREEN_PATH);
       const combined = `${hook}\n${screen}`;
       expect(combined).toMatch(/\/api\/chat-runs\/.+\/cancel|chat-runs\/\$\{.*\}\/cancel/);
+    });
+
+    it('AC-5: local cancelled/complete supersedes Zero agent_busy (composer not stuck)', () => {
+      const src = read(CHAT_SCREEN_PATH);
+      // Must not OR agent_busy alone into busy while stream is locally terminal
+      expect(src).toMatch(/isLocallyTerminal|suppressAgentBusy/);
+      expect(src).toMatch(/streamPhase === 'cancelled'|phase === 'cancelled'/);
+      expect(src).toMatch(/setSuppressAgentBusy\(true\)/);
+    });
+  });
+
+  describe('F-DEP-01 / F-RECON-01 / F-ID-01 remediation contracts', () => {
+    it('eventsource is a direct package.json dependency', () => {
+      const pkg = JSON.parse(read(join(REPO_ROOT, 'package.json'))) as {
+        dependencies?: Record<string, string>;
+      };
+      expect(pkg.dependencies?.eventsource, 'eventsource must be a direct dependency').toBeTruthy();
+    });
+
+    it('offline closes EventSource; online re-opens with Last-Event-ID', () => {
+      const src = read(HOOK_PATH);
+      expect(src).toMatch(/isOnline/);
+      expect(src).toMatch(/closeSource/);
+      // Offline path must close the socket, not only flip phase
+      expect(src).toMatch(/!isOnline[\s\S]{0,200}closeSource|closeSource[\s\S]{0,120}reconnecting/);
+      expect(src).toMatch(/Last-Event-ID/);
+    });
+
+    it('connect refuses without durableMessageId from create', () => {
+      const hook = read(HOOK_PATH);
+      const screen = read(CHAT_SCREEN_PATH);
+      expect(hook).toMatch(/durableMessageId is required/);
+      expect(screen).toMatch(/durableMessageId/);
+      expect(screen).toMatch(
+        /omitted durableMessageId|durableMessageId is required|!body\.durableMessageId/
+      );
+    });
+
+    it('Maestro flows use non-optional stop/complete oracles', () => {
+      for (const flow of MAESTRO_FLOWS) {
+        const yml = read(join(REPO_ROOT, '.maestro', 'reactive', flow));
+        expect(yml, flow).toMatch(/stop-generating-button|chat-assistant-message/);
+        // Hardened flows assert stop visibility without optional for core path
+        if (flow === 'cancel-stops-stream.yml') {
+          expect(yml).toMatch(/assertNotVisible:[\s\S]*stop-generating-button/);
+          expect(yml).toMatch(/chat-input/);
+        }
+        if (flow === 'token-streaming.yml') {
+          expect(yml).toMatch(/chat-stream-token-count|stop-generating-button/);
+          // Stop oracle is required (non-optional) while streaming
+          expect(yml).toMatch(/assertVisible:[\s\S]*stop-generating-button/);
+        }
+      }
     });
   });
 

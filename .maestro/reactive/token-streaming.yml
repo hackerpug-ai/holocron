@@ -1,66 +1,87 @@
 appId: ${MAESTRO_APP_ID}
 ---
 # AC-1 / TC-1 — Token streaming over real SSE socket
-# Prerequisite: holo seed:e2e --reset; platform + Zero healthy.
-# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
+# Env: MAESTRO_APP_ID, MAESTRO_DEV_CLIENT_OPEN_URL, MAESTRO_CHAT_URL, MAESTRO_METRO_URL
 
 - launchApp:
     clearState: false
 
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
-    timeout: 60000
+    timeout: 90000
 
-# Prefer seeded Streaming / Alpha conversation via drawer when present
-- tapOn:
-    id: "chat-header-menu-button"
-    optional: true
-- tapOn:
-    id: "screen-header-menu-button"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "conversation-row"
-    timeout: 15000
-    optional: true
-- tapOn:
-    id: "conversation-row"
-    index: 0
-    optional: true
+- assertVisible:
+    id: "chat-screen"
 
 - extendedWaitUntil:
     visible:
-      id: "chat-input"
-    timeout: 15000
+      id: "chat-input-field"
+    timeout: 30000
 
 - tapOn:
     id: "chat-input-field"
-    optional: true
-- tapOn:
-    id: "chat-input"
-    optional: true
+- eraseText
 
 - inputText: "What is two plus two?"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
 
 - tapOn:
     id: "chat-input-send-button"
 
-# Oracle: stream enters streaming phase (real SSE)
-- extendedWaitUntil:
-    visible:
-      id: "chat-stream-phase"
-    timeout: 20000
-    optional: true
-
-# Oracle: stop control appears while streaming
+# Oracle: streaming busy UX (stop) and/or phase while tokens stream
 - extendedWaitUntil:
     visible:
       id: "stop-generating-button"
-    timeout: 20000
+    timeout: 30000
+
+- assertVisible:
+    id: "stop-generating-button"
+
+# Phase / token count when still mounted mid-stream
+- assertVisible:
+    id: "chat-stream-phase"
+    optional: true
+- assertVisible:
+    id: "chat-stream-token-count"
     optional: true
 
-# Oracle: single in-progress assistant bubble (token-by-token)
 - extendedWaitUntil:
     visible:
       id: "chat-assistant-message"
@@ -68,12 +89,5 @@ appId: ${MAESTRO_APP_ID}
 
 - assertVisible:
     id: "chat-assistant-message"
-
-# Streaming cursor or streaming message id while tokens append
-- extendedWaitUntil:
-    visible:
-      id: "streaming-cursor"
-    timeout: 30000
-    optional: true
 
 - takeScreenshot: S-REACTIVE-01-AC-1-token-streaming

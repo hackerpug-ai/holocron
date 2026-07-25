@@ -62,7 +62,7 @@ function newRequestId(prefix: string): string {
  */
 type PendingStreamHandoff = {
   runId: string;
-  durableMessageId: string | null;
+  durableMessageId: string;
   conversationId: string;
 };
 let pendingStreamHandoff: PendingStreamHandoff | null = null;
@@ -157,9 +157,19 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<Error | null>(null);
   const lastMessageRef = useRef<string | null>(null);
+  // AC-5: after local cancel/complete, ignore stale Zero agent_busy until next send.
+  // Without this, resetStream() → idle while agent_busy still true re-disables the composer.
+  const [suppressAgentBusy, setSuppressAgentBusy] = useState(false);
 
   const isStreamBusy = streamPhase === 'streaming' || streamPhase === 'reconnecting';
-  const agentBusy = Boolean(conversationRow?.agent_busy) || isStreamBusy || isSending;
+  // AC-5: local cancelled/complete supersedes stale Zero agent_busy for this run.
+  // After Stop, do not keep composer disabled / Stop visible solely because
+  // agent_busy has not yet cleared over Zero (cancel owns the local busy UX).
+  const isLocallyTerminal = streamPhase === 'cancelled' || streamPhase === 'complete';
+  const agentBusy =
+    isStreamBusy ||
+    isSending ||
+    (Boolean(conversationRow?.agent_busy) && !isLocallyTerminal && !suppressAgentBusy);
 
   // Prefer durableMessageId so the cursor attaches to the exactly-once row
   const streamingMessageId = isStreamBusy
@@ -167,6 +177,13 @@ export default function ChatScreen() {
       messages.find((m) => m.role === 'agent' && m.id === durableMessageId)?.id ??
       null)
     : null;
+
+  // When stream reaches a local terminal, suppress Zero agent_busy until next send
+  useEffect(() => {
+    if (streamPhase === 'complete' || streamPhase === 'cancelled') {
+      setSuppressAgentBusy(true);
+    }
+  }, [streamPhase]);
 
   // When durable Zero row lands after complete/cancelled, drop overlay → idle
   useEffect(() => {
@@ -212,6 +229,8 @@ export default function ChatScreen() {
       lastMessageRef.current = content.trim();
       setIsSending(true);
       setSendError(null);
+      // New turn owns busy UX again
+      setSuppressAgentBusy(false);
 
       try {
         const targetConversationId =
@@ -235,12 +254,16 @@ export default function ChatScreen() {
         }
 
         const body = (await response.json()) as ChatRunCreateResponse;
-        if (body.runId) {
+        // F-ID-01: require durableMessageId from create before any streaming connect
+        if (body.runId && !body.durableMessageId) {
+          throw new Error('chat run create omitted durableMessageId');
+        }
+        if (body.runId && body.durableMessageId) {
           if (isNewConversation && body.conversationId) {
             // Defer connect until after /chat/new → /chat/:id remount
             pendingStreamHandoff = {
               runId: body.runId,
-              durableMessageId: body.durableMessageId ?? null,
+              durableMessageId: body.durableMessageId,
               conversationId: body.conversationId,
             };
             router.replace(`/chat/${body.conversationId}`);
@@ -248,7 +271,7 @@ export default function ChatScreen() {
             // Open real SSE socket; Last-Event-ID resume handled by the hook
             connectStream({
               runId: body.runId,
-              durableMessageId: body.durableMessageId ?? null,
+              durableMessageId: body.durableMessageId,
             });
           }
         } else if (isNewConversation && body.conversationId) {
@@ -267,6 +290,9 @@ export default function ChatScreen() {
 
   const handleCancelAgent = useCallback(async () => {
     // AC-5: cancel via hook → POST /api/chat-runs/:id/cancel (not mocked)
+    // Suppress Zero agent_busy immediately so Stop/composer unstick even if
+    // backend/Zero lag on agent_busy clear.
+    setSuppressAgentBusy(true);
     if (!streamRunId) {
       resetStream();
       return;

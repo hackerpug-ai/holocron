@@ -12,6 +12,8 @@
  * authoritative after terminal (see reconcileThreadMessages).
  */
 
+// RN polyfill for Event/MessageEvent/EventTarget before WhatWG EventSource loads
+import '@/lib/eventsource-rn-polyfill';
 import { EventSource } from 'eventsource';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/components/chat/ChatThread';
@@ -45,8 +47,11 @@ export type UseResumableSSEStreamReturn = {
   tokenCount: number;
   error: Error | null;
   isActive: boolean;
-  /** Attach to a run returned by POST /api/chat-runs */
-  connect: (args: { runId: string; durableMessageId?: string | null }) => void;
+  /**
+   * Attach to a run returned by POST /api/chat-runs.
+   * durableMessageId is REQUIRED — refuse connect without the durable id from create.
+   */
+  connect: (args: { runId: string; durableMessageId: string }) => void;
   /** POST /api/chat-runs/:id/cancel and finalize partial turn */
   cancel: () => Promise<void>;
   /** Return to idle (after Zero has caught up) */
@@ -319,9 +324,15 @@ export function useResumableSSEStream(
   );
 
   const connect = useCallback(
-    (args: { runId: string; durableMessageId?: string | null }) => {
+    (args: { runId: string; durableMessageId: string }) => {
       const { runId: nextRunId, durableMessageId: nextDurable } = args;
       if (!nextRunId) return;
+      // F-ID-01: refuse connect without durableMessageId from POST create response
+      if (!nextDurable || typeof nextDurable !== 'string' || nextDurable.trim().length === 0) {
+        setError(new Error('durableMessageId is required before streaming'));
+        setPhaseBoth('idle');
+        return;
+      }
 
       // Reset assembly for a new run
       assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
@@ -329,7 +340,7 @@ export function useResumableSSEStream(
       setError(null);
       setRunId(nextRunId);
       runIdRef.current = nextRunId;
-      setDurableMessageId(nextDurable ?? null);
+      setDurableMessageId(nextDurable);
       setPhaseBoth('streaming');
       openEventSource(nextRunId, 0);
     },
@@ -369,16 +380,20 @@ export function useResumableSSEStream(
     setPhaseBoth('idle');
   }, [applyAssembly, closeSource, setPhaseBoth]);
 
-  // Network drop → reconnecting; restore → ensure EventSource resumes with Last-Event-ID
+  // F-RECON-01: offline → close EventSource + clear esRef; online → always re-open with Last-Event-ID
   useEffect(() => {
     if (!isOnline && (phaseRef.current === 'streaming' || phaseRef.current === 'reconnecting')) {
       setPhaseBoth('reconnecting');
+      // Tear down the live socket so we do not leave a half-dead ES hanging;
+      // online handler always re-opens with Last-Event-ID from assemblyRef.
+      closeSource(true);
       return;
     }
-    if (isOnline && phaseRef.current === 'reconnecting' && runIdRef.current && !esRef.current) {
+    if (isOnline && phaseRef.current === 'reconnecting' && runIdRef.current) {
+      // Always re-open (do not gate on !esRef) so restore is deterministic.
       openEventSource(runIdRef.current, assemblyRef.current.lastSeq);
     }
-  }, [isOnline, openEventSource, setPhaseBoth]);
+  }, [isOnline, openEventSource, setPhaseBoth, closeSource]);
 
   // Cleanup on unmount
   useEffect(() => {
