@@ -1,5 +1,5 @@
 # GATE-FIX-02 — Close F-MODULE-LEAK / NO_ORACLE_MODULE_STATE_ISOLATION (HIGH) — key ModuleStreamHandoff by conversationId and filter restore-on-mount so A→B navigation cannot paint A's stream into B
-> Status: Backlog
+> Status: Completed
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 20 min
