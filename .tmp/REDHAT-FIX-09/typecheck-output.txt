@@ -1,0 +1,225 @@
+
+> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
+> tsgo --noEmit
+
+services/platform/src/blob/file-objects.ts(3,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/blob/file-objects.ts(167,7): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'ParameterOrJSON<never>'.
+  Type 'Record<string, unknown>' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 38 more.
+services/platform/src/compat/cells/agent.ts(19,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/compat/cells/agent.ts(20,49): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/compat/cells/agent.ts(21,27): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/compat/cells/agent.ts(70,69): error TS2339: Property 'url' does not exist on type 'URL'.
+services/platform/src/compat/cells/agent.ts(80,3): error TS2739: Type 'Promise<{ result: T; cloudRequests: number; fleetRequests: number; }>' is missing the following properties from type '{ result: T; cloudRequests: number; fleetRequests: number; }': result, cloudRequests, fleetRequests
+services/platform/src/compat/cells/agent.ts(144,24): error TS2345: Argument of type 'FullOutput<undefined>' is not assignable to parameter of type 'GenerateResultLike'.
+  Types of property 'tripwire' are incompatible.
+    Type 'StepTripwireData | undefined' is not assignable to type 'TripwireInfo | null | undefined'.
+      Type 'StepTripwireData' is not assignable to type 'TripwireInfo'.
+        Types of property 'processorId' are incompatible.
+          Type 'string | undefined' is not assignable to type 'string'.
+            Type 'undefined' is not assignable to type 'string'.
+services/platform/src/fleet/manifest.ts(16,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/chat-runs.ts(4,46): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/chat-runs.ts(5,27): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/chat-runs.ts(9,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/chat-runs.ts(10,64): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/chat-runs.ts(310,13): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'tools' does not exist in type '{ instructions?: SystemMessage | undefined; system?: SystemMessage | undefined; context?: ModelMessage[] | undefined; memory?: AgentMemoryOption | undefined; ... 38 more ...; _skipBgTaskWait?: boolean | undefined; } & Partial<...> & { ...; } & { ...; }'.
+services/platform/src/http/chat-runs.ts(317,45): error TS2345: Argument of type 'ChunkType<any>' is not assignable to parameter of type 'StreamChunkLike'.
+  Type 'BaseChunkType & { type: "routing-agent-start"; payload: RoutingAgentStartPayload; }' is not assignable to type 'StreamChunkLike'.
+    Types of property 'payload' are incompatible.
+      Type 'RoutingAgentStartPayload' is not assignable to type '{ [key: string]: unknown; reason?: string | undefined; retry?: boolean | undefined; metadata?: unknown; processorId?: string | undefined; text?: string | undefined; }'.
+        Index signature for type 'string' is missing in type 'RoutingAgentStartPayload'.
+services/platform/src/http/chat-runs.ts(319,42): error TS2345: Argument of type 'ChunkType<any>' is not assignable to parameter of type 'StreamChunkLike'.
+  Type 'BaseChunkType & { type: "routing-agent-start"; payload: RoutingAgentStartPayload; }' is not assignable to type 'StreamChunkLike'.
+    Types of property 'payload' are incompatible.
+      Type 'RoutingAgentStartPayload' is not assignable to type '{ [key: string]: unknown; reason?: string | undefined; retry?: boolean | undefined; metadata?: unknown; processorId?: string | undefined; text?: string | undefined; }'.
+        Index signature for type 'string' is missing in type 'RoutingAgentStartPayload'.
+services/platform/src/http/chat-runs.ts(510,38): error TS2345: Argument of type 'Record<string, unknown>' is not assignable to parameter of type 'JSONValue'.
+  Type 'Record<string, unknown>' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 38 more.
+services/platform/src/http/health.ts(9,30): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/health.ts(17,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(13,34): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(14,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(15,29): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(16,27): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(17,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(18,34): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(24,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(30,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(31,74): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(32,49): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(38,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(45,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/hono-app.ts(174,27): error TS2345: Argument of type 'Buffer<ArrayBufferLike>' is not assignable to parameter of type 'BodyInit | null | undefined'.
+  Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
+services/platform/src/http/hono-app.ts(220,27): error TS2345: Argument of type 'Buffer<ArrayBufferLike>' is not assignable to parameter of type 'BodyInit | null | undefined'.
+  Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
+services/platform/src/http/hono-app.ts(226,25): error TS2345: Argument of type 'Buffer<ArrayBufferLike>' is not assignable to parameter of type 'BodyInit | null | undefined'.
+  Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'URLSearchParams': size, append, delete, get, and 2 more.
+services/platform/src/http/hono-app.ts(1062,59): error TS2493: Tuple type '[path: string]' of length '1' has no element at index '1'.
+services/platform/src/http/hono-app.ts(1063,20): error TS18048: 'c' is possibly 'undefined'.
+services/platform/src/http/hono-app.ts(1064,38): error TS18048: 'c' is possibly 'undefined'.
+services/platform/src/http/hono-app.ts(1065,14): error TS18048: 'c' is possibly 'undefined'.
+services/platform/src/http/hono-app.ts(1070,29): error TS18048: 'c' is possibly 'undefined'.
+services/platform/src/http/hono-app.ts(1072,19): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(c: Parameters<HonoApp['all']>[1]) => Promise<any>' is not assignable to parameter of type 'H<{ Variables: HonoAppVariables; }, "/mcp", BlankInput, any>'.
+      Type '(c: Parameters<HonoApp['all']>[1]) => Promise<any>' is not assignable to type 'Handler<{ Variables: HonoAppVariables; }, "/mcp", BlankInput, any>'.
+        Types of parameters 'c' and 'c' are incompatible.
+          Type 'Context<{ Variables: HonoAppVariables; }, "/mcp", BlankInput>' is not assignable to type 'undefined'.
+services/platform/src/http/hono-app.ts(1073,21): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '(c: Parameters<HonoApp['all']>[1]) => Promise<any>' is not assignable to parameter of type 'H<{ Variables: HonoAppVariables; }, "/mcp/*", BlankInput, any>'.
+      Type '(c: Parameters<HonoApp['all']>[1]) => Promise<any>' is not assignable to type 'Handler<{ Variables: HonoAppVariables; }, "/mcp/*", BlankInput, any>'.
+        Types of parameters 'c' and 'c' are incompatible.
+          Type 'Context<{ Variables: HonoAppVariables; }, "/mcp/*", BlankInput>' is not assignable to type 'undefined'.
+services/platform/src/http/missions.ts(2,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/missions.ts(3,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/missions.ts(4,41): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/missions.ts(5,68): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/http/missions.ts(13,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/inference/budget-ledger.ts(22,32): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/inference/budget-ledger.ts(25,41): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/inference/escape-degraded-guard.ts(15,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/inference/escape-degraded-guard.ts(16,36): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/inference/escape-degraded-guard.ts(17,41): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mastra.ts(7,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mastra.ts(45,21): error TS2322: Type '"always"' is not assignable to type 'SamplingStrategyType'.
+services/platform/src/mastra.ts(87,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mcp/executor.ts(3,27): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mcp/executor.ts(4,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mcp/executor.ts(560,45): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type 'JSONValue'.
+  Type 'unknown[]' is not assignable to type '{ readonly [prop: string]: ((...args: any) => any) | JSONValue | undefined; readonly [prop: number]: ((...args: any) => any) | JSONValue | undefined; }'.
+    Index signature for type 'string' is missing in type 'unknown[]'.
+services/platform/src/mcp/executor.ts(586,20): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '{} | null' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+      Type '{}' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/src/mcp/executor.ts(608,20): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '{} | null' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+      Type '{}' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/src/mcp/executor.ts(675,20): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '{} | null' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+      Type '{}' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/src/mcp/executor.ts(690,24): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type 'JSONValue'.
+  Type 'unknown[]' is not assignable to type '{ readonly [prop: string]: ((...args: any) => any) | JSONValue | undefined; readonly [prop: number]: ((...args: any) => any) | JSONValue | undefined; }'.
+    Index signature for type 'string' is missing in type 'unknown[]'.
+services/platform/src/mcp/executor.ts(690,70): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type 'JSONValue'.
+  Type 'unknown[]' is not assignable to type '{ readonly [prop: string]: ((...args: any) => any) | JSONValue | undefined; readonly [prop: number]: ((...args: any) => any) | JSONValue | undefined; }'.
+    Index signature for type 'string' is missing in type 'unknown[]'.
+services/platform/src/mcp/executor.ts(691,24): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type 'JSONValue'.
+  Type 'unknown[]' is not assignable to type '{ readonly [prop: string]: ((...args: any) => any) | JSONValue | undefined; readonly [prop: number]: ((...args: any) => any) | JSONValue | undefined; }'.
+    Index signature for type 'string' is missing in type 'unknown[]'.
+services/platform/src/mcp/executor.ts(713,20): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '{} | null' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+      Type '{}' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/src/mcp/executor.ts(728,20): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '{} | null' is not assignable to parameter of type 'ParameterOrFragment<never>'.
+      Type '{}' is not assignable to type 'ParameterOrFragment<never>'.
+services/platform/src/mcp/gateway.ts(4,31): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mcp/gateway.ts(5,40): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mcp/gateway.ts(21,7): error TS2345: Argument of type '(input: any, extra: any) => Promise<{ content: { type: "text"; text: string; }[]; structuredContent?: undefined; isError?: undefined; } | { content: { type: "text"; text: string; }[]; structuredContent: Record<string, unknown>; isError?: undefined; } | { ...; }>' is not assignable to parameter of type 'never'.
+services/platform/src/mcp/gateway.ts(21,14): error TS7006: Parameter 'input' implicitly has an 'any' type.
+services/platform/src/mcp/gateway.ts(21,21): error TS7006: Parameter 'extra' implicitly has an 'any' type.
+services/platform/src/mission/args.ts(3,42): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/checkpoint-barrier.ts(1,36): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/compiler.ts(2,56): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/compiler.ts(3,30): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/compiler.ts(4,47): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/compiler.ts(10,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/compiler.ts(20,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/registry.ts(2,41): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/registry.ts(6,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/registry.ts(16,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/registry.ts(17,53): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/registry.ts(18,39): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/registry.ts(19,47): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/repository.ts(1,27): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/repository.ts(2,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/repository.ts(3,57): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/repository.ts(8,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/repository.ts(9,46): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(4,47): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(5,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(6,65): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(7,30): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(8,33): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(9,35): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(10,62): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(11,59): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(17,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(28,61): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(29,57): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(30,52): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(35,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(36,39): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(41,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(45,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(46,46): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(51,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(56,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(57,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/runtime.ts(725,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+services/platform/src/mission/templates/business-report-components.ts(15,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/business-report.ts(9,39): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(6,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(7,46): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(8,50): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(9,52): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(10,40): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(11,49): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(12,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/ensure-system.ts(13,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/mission/templates/subscriptions.ts(14,48): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/queue/backend.ts(10,27): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/queue/backend.ts(16,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/queue/backend.ts(69,18): error TS2307: Cannot find module 'graphile-worker' or its corresponding type declarations.
+services/platform/src/queue/schema.ts(5,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/registry.ts(14,20): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/documents.ts(2,56): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(4,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(5,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(6,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(7,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(8,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(9,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(10,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(11,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(12,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(13,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(14,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(15,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/index.ts(16,15): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/research.ts(2,41): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/search.ts(2,67): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/subscriptions.ts(2,32): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/tools/schemas/toolbelt.ts(8,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(6,60): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(7,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(8,62): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(9,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(10,51): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(11,37): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+services/platform/src/uploads/service.ts(207,9): error TS2352: Conversion of type 'RowList<(Row & Iterable<Row>)[]>' to type '{ id: string; }[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'push' are incompatible.
+    Type '(...items: (Row & Iterable<Row>)[]) => number' is not comparable to type '(...items: { id: string; }[]) => number'.
+      Types of parameters 'items' and 'items' are incompatible.
+        Type '{ id: string; }' is not comparable to type 'Row & Iterable<Row>'.
+          Property '[Symbol.iterator]' is missing in type '{ id: string; }' but required in type 'Iterable<Row>'.
+services/platform/src/uploads/service.ts(515,57): error TS2740: Type 'TransactionSql<{}>' is missing the following properties from type 'Sql<{}>': CLOSE, END, PostgresError, options, and 7 more.
+services/platform/src/uploads/service.ts(527,11): error TS2740: Type 'TransactionSql<{}>' is missing the following properties from type 'Sql<{}>': CLOSE, END, PostgresError, options, and 7 more.
+services/platform/src/uploads/service.ts(549,37): error TS2345: Argument of type '{ ok: boolean; uploadId: string; kind: unknown; targetId: unknown; blobId: string; fileObjectId: string; attachmentId: string; }' is not assignable to parameter of type 'JSONValue'.
+  Type '{ ok: boolean; uploadId: string; kind: unknown; targetId: unknown; blobId: string; fileObjectId: string; attachmentId: string; }' is not assignable to type '{ readonly [prop: string]: ((...args: any) => any) | JSONValue | undefined; readonly [prop: number]: ((...args: any) => any) | JSONValue | undefined; }'.
+    Property 'kind' is incompatible with index signature.
+      Type 'unknown' is not assignable to type '((...args: any) => any) | JSONValue | undefined'.
+tests/integration/redhat-fix-04-production-hook-reconnect.test.ts(121,1): error TS2322: Type 'typeof NodeXMLHttpRequest' is not assignable to type '{ new (): XMLHttpRequest; prototype: XMLHttpRequest; readonly UNSENT: 0; readonly OPENED: 1; readonly HEADERS_RECEIVED: 2; readonly LOADING: 3; readonly DONE: 4; } & typeof NodeXMLHttpRequest'.
+  Type 'typeof NodeXMLHttpRequest' is not assignable to type '{ new (): XMLHttpRequest; prototype: XMLHttpRequest; readonly UNSENT: 0; readonly OPENED: 1; readonly HEADERS_RECEIVED: 2; readonly LOADING: 3; readonly DONE: 4; }'.
+    Types of property 'prototype' are incompatible.
+      Type 'NodeXMLHttpRequest' is missing the following properties from type 'XMLHttpRequest': response, responseType, responseURL, responseXML, and 17 more.
+ ELIFECYCLE  Command failed with exit code 2.
