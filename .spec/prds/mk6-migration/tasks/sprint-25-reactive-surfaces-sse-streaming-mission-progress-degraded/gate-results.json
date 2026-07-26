@@ -1,10 +1,10 @@
 {
   "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
-  "run_id": "s25-ht-20260726T043533Z",
+  "run_id": "s25-ht-20260726T052438Z",
   "verdict": "pass",
   "runner": "kb-run-sprint-human-test",
   "ui_driver": "maestro",
-  "written_at": "2026-07-26T04:35:33Z",
+  "written_at": "2026-07-26T05:24:38Z",
   "steps_total": 5,
   "steps_executed": 5,
   "steps_passed": 5,
@@ -22,7 +22,7 @@
     {
       "n": 2,
       "type": "ui",
-      "text": "Send 'Summarize the seeded doc'; stream tokens; airplane mid-stream; reconnect to exactly one final message (no dups).",
+      "text": "Send live prompt; stream tokens; airplane mid-stream; reconnect to exactly one final assistant message with painted non-seed multi-word content (Rivers/clouds) and non-empty user prompt.",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
@@ -60,5 +60,5 @@
       "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
     }
   ],
-  "notes": "GATE-FIX-01: restore chat-assistant-message-latest after stream+airplane. Client fix: empty-preview no longer steals latest; reconcile merges overlay into empty durable; hydrate finalText after complete; fail-safe latest oracle. Fresh 5/5 human gate on worktree HEAD."
+  "notes": "GATE-FIX-01 product remediations: newest-first inverted FlatList; module stream handoff; local-turn merge; fail-safe latest only when painted bubble has content; Maestro content asserts (Rivers/clouds + detailed multi-sentence). Fresh 5/5 human gate."
 }

@@ -47,6 +47,12 @@ export interface ChatMessage {
 let modulePeakLastSeq = 0;
 let modulePeakTokenCount = 0;
 
+/** GATE-FIX-01: clear stale peaks so a prior Maestro run cannot greenwash token oracles. */
+export function resetChatThreadStreamPeaks(): void {
+  modulePeakLastSeq = 0;
+  modulePeakTokenCount = 0;
+}
+
 export interface ChatThreadProps {
   messages: ChatMessage[];
   /**
@@ -146,10 +152,14 @@ export function ChatThread({
   const hasActiveResearchCard =
     messages.length > 0 &&
     (() => {
-      const lastMessage = messages[0]; // FlatList is inverted, so [0] is newest
-      if (lastMessage?.message_type === 'result_card' && lastMessage?.card_data) {
-        const cardType = lastMessage.card_data.card_type;
-        const status = lastMessage.card_data.status;
+      // Newest by createdAt (not array order — listData is sorted separately).
+      let newest = messages[0]!;
+      for (const m of messages) {
+        if (m.createdAt.getTime() >= newest.createdAt.getTime()) newest = m;
+      }
+      if (newest?.message_type === 'result_card' && newest?.card_data) {
+        const cardType = newest.card_data.card_type;
+        const status = newest.card_data.status;
         // Active research card is one that's loading (not completed)
         return cardType === 'deep_research_loading' && status !== 'completed';
       }
@@ -188,15 +198,14 @@ export function ChatThread({
   const { phase, toolName } = useAgentActivity({ threadId: undefined });
   const aaiActive = phase !== 'idle';
 
-  // Auto-scroll to bottom when new messages are added, typing indicator, or stream grows
-  // Note: FlatList is inverted, so offset 0 is the visual bottom (newest messages)
-  useEffect(() => {
-    // streamTokenCount intentionally triggers scroll as token text grows in-place
-    if (streamTokenCount < 0) return;
-    if (messages.length > 0 || effectiveShowTypingIndicator || isStreamLive) {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    }
-  }, [messages.length, effectiveShowTypingIndicator, isStreamLive, streamTokenCount]);
+  // Newest-first data for inverted FlatList: index 0 sits at the visual bottom
+  // (near the composer). Oldest→newest + inverted wrongly parks live turns OFF
+  // the top of the screen (GATE-FIX-01 product: empty yellow / seed-only viewport).
+  const listData = (() => {
+    const copy = messages.slice();
+    copy.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return copy;
+  })();
 
   // Handle card press - navigate to document screen
   const handleCardPress = useCallback(
@@ -254,6 +263,21 @@ export function ChatThread({
   })();
   const latestAgentId = latestAgent?.id ?? null;
 
+  // Auto-scroll to visual bottom (offset 0) when new messages/stream grow.
+  useEffect(() => {
+    if (streamTokenCount < 0) return;
+    if (listData.length > 0 || effectiveShowTypingIndicator || isStreamLive) {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [
+    listData.length,
+    effectiveShowTypingIndicator,
+    isStreamLive,
+    streamTokenCount,
+    latestAgent?.content,
+    streamPhase,
+  ]);
+
   // Reset module peak oracles when a new stream turn starts so stale peaks from
   // prior Maestro runs cannot greenwash token-count-at-least-N without tokens.
   const prevStreamPhaseRef = useRef(streamPhase);
@@ -310,6 +334,12 @@ export function ChatThread({
     // than nested Text for XCTest).
     const rowTestId = item.role === 'agent' ? resolveAgentRowTestId(item) : `message-${item.id}`;
     const isStreamingRow = item.id === streamingMessageId;
+    // GATE-FIX-01 product: include message body in accessibilityLabel so Maestro
+    // assertVisible can match multi-word substrings (Markdown splits text nodes).
+    const contentLabel =
+      typeof item.content === 'string' && item.content.trim().length > 0
+        ? item.content.replace(/\s+/g, ' ').trim().slice(0, 240)
+        : '';
     return (
       <Pressable
         testID={rowTestId}
@@ -319,9 +349,9 @@ export function ChatThread({
         accessibilityLabel={
           item.role === 'agent'
             ? isStreamingRow
-              ? 'Assistant streaming message'
-              : 'Assistant message'
-            : 'User message'
+              ? `Assistant streaming message ${contentLabel}`.trim()
+              : `Assistant message ${contentLabel}`.trim()
+            : `User message ${contentLabel}`.trim()
         }
       >
         <MessageBubble
@@ -553,22 +583,38 @@ export function ChatThread({
           </View>
         ) : null}
         {/*
-          GATE-FIX-01 fail-safe: Maestro success selector for the turn.
-          Mount when we have non-empty latest-agent content (including live
-          streamedText fallback). Uses the same 1×1 accessible pattern as
-          last-seq oracles so XCTest can resolve the id even when the FlatList
-          bubble is zero-height after airplane / Zero lag.
+          GATE-FIX-01 fail-safe (product-tightened): only mount the 1×1 latest
+          oracle when the SAME non-empty content is painted on a real FlatList
+          MessageBubble. Never greenwash Maestro from streamedText alone when
+          the thread still shows only seed / empty bubbles after airplane restore.
         */}
-        {latestAgentId && latestAgent && latestAgent.content.trim().length > 0 ? (
-          <View
-            testID="chat-assistant-message-latest"
-            accessible
-            accessibilityLabel="Assistant message"
-            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
-          >
-            <Text>{latestAgent.content.slice(0, 200)}</Text>
-          </View>
-        ) : null}
+        {(() => {
+          const paintedLatest =
+            latestAgentId != null &&
+            latestAgent != null &&
+            latestAgent.content.trim().length > 0 &&
+            messages.some(
+              (m) =>
+                m.id === latestAgentId &&
+                typeof m.content === 'string' &&
+                m.content.trim().length > 0 &&
+                // Content must match (or be a prefix during live stream growth)
+                (m.content === latestAgent.content ||
+                  latestAgent.content.startsWith(m.content) ||
+                  m.content.startsWith(latestAgent.content))
+            );
+          if (!paintedLatest) return null;
+          return (
+            <View
+              testID="chat-assistant-message-latest"
+              accessible
+              accessibilityLabel="Assistant message"
+              style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+            >
+              <Text>{latestAgent!.content.slice(0, 200)}</Text>
+            </View>
+          );
+        })()}
       </View>
     );
   };
@@ -577,10 +623,11 @@ export function ChatThread({
     <View className="flex-1" testID={testID}>
       <FlatList
         ref={flatListRef}
-        data={messages}
+        data={listData}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         inverted={true}
+        extraData={`${latestAgentId}:${latestAgent?.content?.length ?? 0}:${streamPhase}:${streamTokenCount}`}
         ListEmptyComponent={renderEmptyState}
         ListHeaderComponent={
           <>
@@ -589,7 +636,7 @@ export function ChatThread({
           </>
         }
         contentContainerStyle={
-          messages.length === 0
+          listData.length === 0
             ? { flex: 1, justifyContent: 'center', paddingBottom: safeAreaTop }
             : { paddingBottom: safeAreaTop }
         }

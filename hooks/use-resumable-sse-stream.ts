@@ -358,7 +358,7 @@ export function reconcileThreadMessages(
       merged[existingIdx] = {
         ...existing,
         // Normalize seed-style assistant → agent so latest selection matches.
-        role: existing.role === 'assistant' ? 'agent' : existing.role,
+        role: (existing.role as string) === 'assistant' ? 'agent' : existing.role,
         content: overlay.content,
       };
       return merged;
@@ -432,11 +432,76 @@ export type ResumableSseControllerSnapshot = {
   isActive: boolean;
 };
 
+/**
+ * GATE-FIX-01 product remount survival — mirrors globalStopHoldUntilMs.
+ * ChatScreen unmount disposes the controller (closes XHR); without this
+ * snapshot, remount leaves phase=idle + empty streamedText while ChatThread
+ * module peaks still greenwash token oracles, and seed steals latest.
+ */
+export type ModuleStreamHandoff = {
+  runId: string;
+  durableMessageId: string;
+  lastSeq: number;
+  text: string;
+  tokenCount: number;
+  phase: ChatStreamPhase;
+  updatedAt: number;
+};
+
+const HANDOFF_ACTIVE_PHASES = new Set<ChatStreamPhase>([
+  'streaming',
+  'reconnecting',
+  'complete',
+  'cancelled',
+]);
+
+let moduleStreamHandoff: ModuleStreamHandoff | null = null;
+
+/** Test / screen helpers — read the remount snapshot. */
+export function getModuleStreamHandoff(): ModuleStreamHandoff | null {
+  return moduleStreamHandoff;
+}
+
+/** Clear remount snapshot (reset / new turn / durable land). */
+export function clearModuleStreamHandoff(): void {
+  moduleStreamHandoff = null;
+}
+
+function persistModuleStreamHandoff(args: {
+  runId: string | null;
+  durableMessageId: string | null;
+  phase: ChatStreamPhase;
+  assembly: TokenAssemblyState;
+  streamedText: string;
+}): void {
+  if (!args.runId || !args.durableMessageId || !HANDOFF_ACTIVE_PHASES.has(args.phase)) {
+    return;
+  }
+  const text =
+    (typeof args.assembly.text === 'string' && args.assembly.text.length > 0
+      ? args.assembly.text
+      : args.streamedText) ?? '';
+  moduleStreamHandoff = {
+    runId: args.runId,
+    durableMessageId: args.durableMessageId,
+    lastSeq: args.assembly.lastSeq,
+    text,
+    tokenCount: args.assembly.tokenCount,
+    phase: args.phase,
+    updatedAt: Date.now(),
+  };
+}
+
 export type ResumableSseController = {
   /** Production assembly box — reconnect reads lastSeq for Last-Event-ID. */
   readonly assemblyRef: { current: TokenAssemblyState };
   getSnapshot: () => ResumableSseControllerSnapshot;
   connect: (args: { runId: string; durableMessageId: string }) => void;
+  /**
+   * GATE-FIX-01: rehydrate controller from module handoff after ChatScreen remount
+   * so overlay text + latest oracle still paint the live turn.
+   */
+  restoreFromHandoff: (handoff: ModuleStreamHandoff) => void;
   cancel: () => Promise<void>;
   reset: () => void;
   enterDegradedFromEnvelope: (envelope: FleetFailureEnvelope) => boolean;
@@ -494,9 +559,28 @@ export function createResumableSseController(
     }
   };
 
+  const persistHandoff = () => {
+    persistModuleStreamHandoff({
+      runId,
+      durableMessageId,
+      phase,
+      assembly: assemblyRef.current,
+      streamedText,
+    });
+  };
+
   const setPhaseBoth = (next: ChatStreamPhase) => {
     phase = next;
     degradedMessage = next === 'degraded' ? SURFACE_UNAVAILABLE_MESSAGE : null;
+    if (next === 'idle' || next === 'degraded') {
+      // Keep handoff through complete/cancelled until explicit reset so remount
+      // after airplane can still paint finalText. Degraded/idle clear it.
+      if (next === 'idle') {
+        clearModuleStreamHandoff();
+      }
+    } else {
+      persistHandoff();
+    }
     emit();
   };
 
@@ -505,6 +589,7 @@ export function createResumableSseController(
     lastSeq = next.lastSeq;
     streamedText = next.text;
     tokenCount = next.tokenCount;
+    persistHandoff();
     emit();
   };
 
@@ -841,15 +926,75 @@ export function createResumableSseController(
       return;
     }
 
-    assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
-    applyAssembly(assemblyRef.current);
+    // New turn — drop any prior remount snapshot first.
+    clearModuleStreamHandoff();
     error = null;
     degradedMessage = null;
     resumeTransport = 'none';
     runId = nextRunId;
     durableMessageId = nextDurable;
+    applyAssembly({ lastSeq: 0, text: '', tokenCount: 0 });
     setPhaseBoth('streaming');
     openEventSource(nextRunId, 0);
+  };
+
+  /**
+   * GATE-FIX-01: restore after ChatScreen remount. Re-applies assembly text so
+   * reconcileThreadMessages can paint a real MessageBubble (not fail-safe only).
+   * Live phases re-open SSE with Last-Event-ID; terminal phases hydrate if empty.
+   */
+  const restoreFromHandoff = (handoff: ModuleStreamHandoff) => {
+    if (!handoff.runId || !handoff.durableMessageId) return;
+    if (!HANDOFF_ACTIVE_PHASES.has(handoff.phase)) return;
+
+    runId = handoff.runId;
+    durableMessageId = handoff.durableMessageId;
+    error = null;
+    degradedMessage = null;
+    applyAssembly({
+      lastSeq: handoff.lastSeq,
+      text: handoff.text ?? '',
+      tokenCount: handoff.tokenCount ?? 0,
+    });
+
+    if (handoff.phase === 'streaming' || handoff.phase === 'reconnecting') {
+      setPhaseBoth('reconnecting');
+      startPollIfNeeded();
+      openEventSource(handoff.runId, handoff.lastSeq);
+      return;
+    }
+
+    // complete | cancelled — keep overlay text without replaying the full stream.
+    setPhaseBoth(handoff.phase);
+    if (
+      (!assemblyRef.current.text || assemblyRef.current.text.trim().length === 0) &&
+      platformUrl &&
+      apiKey
+    ) {
+      const hydrateRunId = handoff.runId;
+      void (async () => {
+        try {
+          const res = await fetch(
+            `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${hydrateRunId}`,
+            { headers: { Authorization: `Bearer ${apiKey}` } }
+          );
+          if (!res.ok || runId !== hydrateRunId) return;
+          const body = (await res.json()) as {
+            finalText?: string;
+            lastEventId?: number;
+          };
+          if (typeof body.finalText === 'string' && body.finalText.trim().length > 0) {
+            applyAssembly({
+              lastSeq: Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0),
+              text: body.finalText,
+              tokenCount: Math.max(assemblyRef.current.tokenCount, 1),
+            });
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    }
   };
 
   const enterDegradedFromEnvelope = (envelope: FleetFailureEnvelope): boolean => {
@@ -895,10 +1040,13 @@ export function createResumableSseController(
     runId = null;
     durableMessageId = null;
     assemblyRef.current = { lastSeq: 0, text: '', tokenCount: 0 };
-    applyAssembly(assemblyRef.current);
+    streamedText = '';
+    lastSeq = 0;
+    tokenCount = 0;
     error = null;
     degradedMessage = null;
     resumeTransport = 'none';
+    clearModuleStreamHandoff();
     setPhaseBoth('idle');
   };
 
@@ -928,11 +1076,14 @@ export function createResumableSseController(
     assemblyRef,
     getSnapshot,
     connect,
+    restoreFromHandoff,
     cancel,
     reset,
     enterDegradedFromEnvelope,
     setOnline,
     dispose: () => {
+      // Persist before close so a remounting ChatScreen can restore overlay text.
+      persistHandoff();
       closeSource(true);
       stopPoll();
       listeners.clear();
@@ -976,12 +1127,24 @@ export function useResumableSSEStream(
     });
   }, [controller]);
 
+  // GATE-FIX-01: after remount, restore live/complete turn from module handoff so
+  // MessageBubble keeps non-seed assistant text (not fail-safe-only greenwash).
+  useEffect(() => {
+    const handoff = getModuleStreamHandoff();
+    if (!handoff) return;
+    if (!HANDOFF_ACTIVE_PHASES.has(handoff.phase)) return;
+    const snap = controller.getSnapshot();
+    // Only restore when this mount has no active turn yet.
+    if (snap.phase !== 'idle' && snap.runId) return;
+    controller.restoreFromHandoff(handoff);
+  }, [controller]);
+
   // F-RECON-01: bridge NetInfo isOnline into production controller online handler
   useEffect(() => {
     controller.setOnline(isOnline);
   }, [controller, isOnline]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — dispose closes sockets but module handoff survives.
   useEffect(() => {
     return () => {
       controller.dispose();

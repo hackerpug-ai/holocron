@@ -63,13 +63,13 @@
   ],
   "errors": []
 }
-[run-degraded-no-hang] fleet_pid=91088 platform_pid=84616
-[run-degraded-no-hang] fleet-down: stop pid 91088
-[run-degraded-no-hang] fleet reaper pid=58347
+[run-degraded-no-hang] fleet_pid=59937 platform_pid=59951
+[run-degraded-no-hang] fleet-down: stop pid 59937
+[run-degraded-no-hang] fleet reaper pid=8476
 [run-degraded-no-hang] fleet unreachable on :4545 (good for ROLE_UNAVAILABLE)
 [run-degraded-no-hang] restart platform with HOLO_CHAT_FLEET_ONLY=1 (no deterministic mask)
-[run-degraded-no-hang] platform health ok (fleet-only mode) launcher_pid=58406 listener=58406
-[run-degraded-no-hang] envelope probe ok runId=9217cf0c-7d86-4256-a61d-351eb54b9a10 status=failed code=ROLE_UNAVAILABLE
+[run-degraded-no-hang] platform health ok (fleet-only mode) launcher_pid=8514 listener=8514
+[run-degraded-no-hang] envelope probe ok runId=8177d5fc-c49b-4ef7-85be-7419c7e73d40 status=failed code=ROLE_UNAVAILABLE
 [run-degraded-no-hang] maestro test degraded-no-hang.yml
 WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
 WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
@@ -101,17 +101,9 @@ Assert that (Optional) "Downloading" is not visible... COMPLETED
 Open ${MAESTRO_CHAT_URL}... COMPLETED
 Wait for animation to end... COMPLETED
 Run flow when id: chat-screen is not visible...
-  Wait for animation to end... COMPLETED
-  Open ${MAESTRO_CHAT_URL}... COMPLETED
-  Wait for animation to end... COMPLETED
-Run flow when id: chat-screen is not visible... COMPLETED
+Run flow when id: chat-screen is not visible... SKIPPED
 Run flow when id: chat-screen is not visible...
-  Wait for animation to end... COMPLETED
-  Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
-  Wait for animation to end... COMPLETED
-  Open ${MAESTRO_CHAT_URL}... COMPLETED
-  Wait for animation to end... COMPLETED
-Run flow when id: chat-screen is not visible... COMPLETED
+Run flow when id: chat-screen is not visible... SKIPPED
 Open ${MAESTRO_CHAT_URL}... COMPLETED
 Wait for animation to end... COMPLETED
 Assert that id: chat-screen is visible... COMPLETED
@@ -134,5 +126,5 @@ Take screenshot S-REACTIVE-04-AC-1-degraded-no-hang... COMPLETED
 [run-degraded-no-hang] maestro exit=0
 [run-degraded-no-hang] restore fleet: /opt/homebrew/bin/bun /Users/inference1/Projects/rogueone/.tmp/local-loop-fleet-proxy.ts
 [run-degraded-no-hang] restore platform: /Users/inference1/.bun/bin/bun /Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts service:up
-.maestro/reactive/run-degraded-no-hang.sh: line 71: 58406 Killed: 9                  nohup bun services/platform/src/cli/holo.ts service:up >> "$EVIDENCE_DIR/platform-fleet-only.log" 2>&1
-.maestro/reactive/run-degraded-no-hang.sh: line 71: 59816 Killed: 9                  exit "$MAESTRO_EXIT"
+.maestro/reactive/run-degraded-no-hang.sh: line 71:  8514 Killed: 9                  nohup bun services/platform/src/cli/holo.ts service:up >> "$EVIDENCE_DIR/platform-fleet-only.log" 2>&1
+.maestro/reactive/run-degraded-no-hang.sh: line 71:  9827 Killed: 9                  exit "$MAESTRO_EXIT"
