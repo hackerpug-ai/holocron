@@ -37,7 +37,7 @@ function phaseFromPlanStatus(
 }
 
 describe('useAgentActivity Zero seam', () => {
-  it('does not import convex/react', () => {
+  it('does not import the Convex React client', () => {
     expect(HOOK_SRC).not.toMatch(/from\s+['"]convex\/react['"]/);
   });
 

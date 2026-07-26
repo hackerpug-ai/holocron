@@ -115,35 +115,30 @@ export function VoiceMicButton({
       onPress={handlePress}
       className={cn('items-center justify-center', className)}
     >
-      {({ pressed }) => (
-        <View
-          className={cn(
-            'h-10 w-10 items-center justify-center rounded-full',
-            isConnecting
-              ? 'bg-muted opacity-50'
-              : isActive
-                ? pressed
-                  ? 'bg-destructive/70'
-                  : 'bg-destructive'
-                : pressed
-                  ? 'bg-primary/70'
-                  : 'bg-primary'
-          )}
-        >
-          {isActive ? (
-            <Square size={22} className="text-primary-foreground" />
-          ) : (
-            <Mic size={22} className="text-primary-foreground" />
-          )}
-          {showWarmDot && (
-            <Animated.View
-              testID="voice-mic-warm-indicator"
-              className="absolute top-0 right-0 h-2 w-2 rounded-full bg-emerald-400"
-              style={warmDotStyle}
-            />
-          )}
-        </View>
-      )}
+      {/*
+        Element children (not Pressable render-props) so vitest-native and
+        @testing-library/react-native can mount the product tree. Pressed
+        opacity is expressed via the active: class on the inner View.
+      */}
+      <View
+        className={cn(
+          'h-10 w-10 items-center justify-center rounded-full active:opacity-70',
+          isConnecting ? 'bg-muted opacity-50' : isActive ? 'bg-destructive' : 'bg-primary'
+        )}
+      >
+        {isActive ? (
+          <Square size={22} className="text-primary-foreground" />
+        ) : (
+          <Mic size={22} className="text-primary-foreground" />
+        )}
+        {showWarmDot && (
+          <Animated.View
+            testID="voice-mic-warm-indicator"
+            className="absolute top-0 right-0 h-2 w-2 rounded-full bg-emerald-400"
+            style={warmDotStyle}
+          />
+        )}
+      </View>
     </Pressable>
   );
 }

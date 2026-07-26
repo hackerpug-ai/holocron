@@ -198,7 +198,7 @@ export function ArticleDetail({
   const narration = useNarrationState(paragraphCount);
   const { isNarrationMode } = narration;
 
-  // CAP-CUT-01: no convex/react. Production narration lives at app/document/[id].tsx
+  // CAP-CUT-01: no Convex React client. Production narration lives at app/document/[id].tsx
   // (Zero + platform). This overlay keeps Storybook UI with local-only narration.
   const documentId = article.documentId;
   const segments: Array<{
