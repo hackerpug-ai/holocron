@@ -1,43 +1,36 @@
-type GenerateUploadUrlFn = () => Promise<string>;
-type AttachAudioFn = (args: { sessionId: string; storageId: string }) => Promise<unknown>;
+/** Capture assistant audio and hand it to the authoritative upload lifecycle. */
+
+type UploadAudioFn = (args: { sessionId: string; blob: Blob }) => Promise<unknown>;
+type SessionIdFn = () => string;
 
 interface AudioRecorderOptions {
-  generateUploadUrl: GenerateUploadUrlFn;
-  attachAudio: AttachAudioFn;
-  sessionId: string;
+  uploadAudio: UploadAudioFn;
+  getSessionId: SessionIdFn;
 }
 
 export interface AudioRecorder {
   /** Start recording from a remote MediaStream. No-op if already recording. */
   start: (stream: MediaStream) => void;
-  /**
-   * Stop recording and upload the audio blob to Convex storage.
-   * Returns once the upload + attachment mutation completes.
-   * Errors are logged but never thrown — audio capture must never block session teardown.
-   */
+  /** Stop recording, hash the bytes, and upload through Hono init/PUT/finalize. */
   stopAndUpload: () => Promise<void>;
+  /** Stop recording without creating an upload intent (cancel/orphan safety). */
+  stopAndDiscard: () => Promise<void>;
 }
 
 /**
- * Creates an audio recorder that captures the remote (assistant) audio stream
- * via MediaRecorder, uploads the blob to Convex file storage on stop, and
- * attaches the storage ID to the voice session.
- *
- * Recording is optional. Unsupported native runtimes silently skip it so an
- * implementation detail never obscures the live voice controls.
+ * MediaRecorder is optional in the native WebRTC runtime. When available, the
+ * recorder buffers the assistant audio and delegates all persistence to the
+ * caller, which owns the Hono content-addressed upload protocol.
  */
 export function createAudioRecorder({
-  generateUploadUrl,
-  attachAudio,
-  sessionId,
+  uploadAudio,
+  getSessionId,
 }: AudioRecorderOptions): AudioRecorder {
   let mediaRecorder: MediaRecorder | null = null;
   let chunks: Blob[] = [];
 
   function start(stream: MediaStream): void {
     if (mediaRecorder !== null) return;
-    // react-native-webrtc does not provide the browser MediaRecorder API.
-    // Remote-audio persistence is best-effort, while the live session is not.
     if (typeof MediaRecorder === 'undefined') return;
 
     try {
@@ -45,68 +38,56 @@ export function createAudioRecorder({
       chunks = [];
 
       recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
+        if (event.data.size > 0) chunks.push(event.data);
       };
-
       recorder.onerror = () => {
         mediaRecorder = null;
         chunks = [];
       };
-
-      recorder.start(1000); // Collect data every second
+      recorder.start(1000);
       mediaRecorder = recorder;
     } catch {
-      // Do not re-throw or surface a dev error — transcript/session continues.
+      // Unsupported native runtimes keep the live voice session usable.
     }
   }
 
-  async function stopAndUpload(): Promise<void> {
-    if (!mediaRecorder) return;
+  async function stopRecorder(): Promise<Blob | null> {
+    if (!mediaRecorder) return null;
 
+    const recorder = mediaRecorder;
+    mediaRecorder = null;
     try {
-      // Wait for the recorder to finish flushing
-      const recorder = mediaRecorder;
-      mediaRecorder = null;
-
       if (recorder.state !== 'inactive') {
         await new Promise<void>((resolve) => {
           recorder.onstop = () => resolve();
           recorder.stop();
         });
       }
-
-      if (chunks.length === 0) return;
-
+      if (chunks.length === 0) return null;
       const blob = new Blob(chunks, { type: 'audio/webm' });
       chunks = [];
-
-      if (blob.size === 0) return;
-
-      // Upload to Convex file storage
-      const uploadUrl = await generateUploadUrl();
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'audio/webm' },
-        body: blob,
-      });
-
-      if (!uploadResponse.ok) {
-        return;
-      }
-
-      const { storageId } = (await uploadResponse.json()) as { storageId: string };
-
-      // Attach to session
-      await attachAudio({
-        sessionId,
-        storageId,
-      });
+      return blob.size > 0 ? blob : null;
     } catch {
-      // Never throw or surface a dev error — audio capture is best-effort.
+      chunks = [];
+      return null;
     }
   }
 
-  return { start, stopAndUpload };
+  async function stopAndUpload(): Promise<void> {
+    const blob = await stopRecorder();
+    if (!blob) return;
+    const sessionId = getSessionId();
+    if (!sessionId) return;
+    try {
+      await uploadAudio({ sessionId, blob });
+    } catch {
+      // Upload errors must not prevent voice-session teardown.
+    }
+  }
+
+  async function stopAndDiscard(): Promise<void> {
+    await stopRecorder();
+  }
+
+  return { start, stopAndUpload, stopAndDiscard };
 }

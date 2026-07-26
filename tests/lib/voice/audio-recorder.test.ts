@@ -9,7 +9,6 @@ interface MockRecorderInstance {
   onerror: (() => void) | null;
 }
 
-// Track all created recorder instances
 const recorderInstances: MockRecorderInstance[] = [];
 
 function createMockRecorder(): MockRecorderInstance {
@@ -32,28 +31,21 @@ function createMockRecorder(): MockRecorderInstance {
   return instance;
 }
 
-// Must use `function` (not arrow) so it can be called with `new`
 const MockMediaRecorder = vi.fn(function (this: unknown) {
   return createMockRecorder();
 });
 vi.stubGlobal('MediaRecorder', MockMediaRecorder);
 
-// Mock fetch for upload
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
-
-// Import after mocks
 import { createAudioRecorder } from '@/lib/voice/audio-recorder';
 
-/** Get the last MediaRecorder instance created */
 function lastRecorder() {
   return recorderInstances[recorderInstances.length - 1]!;
 }
 
 describe('createAudioRecorder', () => {
   const mockSessionId = 'session-123';
-  const mockGenerateUploadUrl = vi.fn();
-  const mockAttachAudio = vi.fn();
+  const mockUploadAudio = vi.fn();
+  const mockGetSessionId = vi.fn(() => mockSessionId);
 
   const mockStream = {
     getTracks: vi.fn(() => []),
@@ -65,22 +57,16 @@ describe('createAudioRecorder', () => {
     MockMediaRecorder.mockImplementation(function (this: unknown) {
       return createMockRecorder();
     });
-    mockFetch.mockReset();
-    mockGenerateUploadUrl.mockReset();
-    mockAttachAudio.mockReset();
-    mockGenerateUploadUrl.mockResolvedValue('https://upload.example.com/url');
-    mockAttachAudio.mockResolvedValue(null);
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ storageId: 'storage-abc' }),
-    });
+    mockUploadAudio.mockReset();
+    mockGetSessionId.mockReset();
+    mockGetSessionId.mockReturnValue(mockSessionId);
+    mockUploadAudio.mockResolvedValue(null);
   });
 
   it('starts MediaRecorder on the provided stream', () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     recorder.start(mockStream);
@@ -91,9 +77,8 @@ describe('createAudioRecorder', () => {
 
   it('is a no-op if start is called twice', () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     recorder.start(mockStream);
@@ -102,46 +87,36 @@ describe('createAudioRecorder', () => {
     expect(MockMediaRecorder).toHaveBeenCalledTimes(1);
   });
 
-  it('uploads audio blob and attaches to session on stopAndUpload', async () => {
+  it('uploads audio blob through lifecycle callback on stopAndUpload', async () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     recorder.start(mockStream);
     const mr = lastRecorder();
 
-    // Simulate data arriving
     const blob = new Blob(['audio-data'], { type: 'audio/webm' });
     mr.ondataavailable?.({ data: blob } as BlobEvent);
 
     await recorder.stopAndUpload();
 
-    expect(mockGenerateUploadUrl).toHaveBeenCalled();
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://upload.example.com/url',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'Content-Type': 'audio/webm' },
-      })
-    );
-    expect(mockAttachAudio).toHaveBeenCalledWith({
+    expect(mockGetSessionId).toHaveBeenCalled();
+    expect(mockUploadAudio).toHaveBeenCalledWith({
       sessionId: mockSessionId,
-      storageId: 'storage-abc',
+      blob: expect.any(Blob),
     });
   });
 
   it('does nothing on stopAndUpload if never started', async () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     await recorder.stopAndUpload();
 
-    expect(mockGenerateUploadUrl).not.toHaveBeenCalled();
+    expect(mockUploadAudio).not.toHaveBeenCalled();
   });
 
   it('does not throw when MediaRecorder constructor fails', () => {
@@ -150,9 +125,8 @@ describe('createAudioRecorder', () => {
     });
 
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     expect(() => recorder.start(mockStream)).not.toThrow();
@@ -161,9 +135,8 @@ describe('createAudioRecorder', () => {
   it('silently skips recording when MediaRecorder is unavailable', () => {
     vi.stubGlobal('MediaRecorder', undefined);
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     expect(() => recorder.start(mockStream)).not.toThrow();
@@ -173,9 +146,8 @@ describe('createAudioRecorder', () => {
 
   it('does not throw when upload fails', async () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     recorder.start(mockStream);
@@ -184,42 +156,52 @@ describe('createAudioRecorder', () => {
     const blob = new Blob(['data'], { type: 'audio/webm' });
     mr.ondataavailable?.({ data: blob } as BlobEvent);
 
-    // Override fetch for this test to simulate failure
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+    mockUploadAudio.mockRejectedValueOnce(new Error('upload failed'));
 
-    await recorder.stopAndUpload();
-
-    expect(mockAttachAudio).not.toHaveBeenCalled();
+    await expect(recorder.stopAndUpload()).resolves.toBeUndefined();
   });
 
   it('handles MediaRecorder error event gracefully', async () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     recorder.start(mockStream);
     const mr = lastRecorder();
 
-    // Simulate error — clears internal state
     mr.onerror?.();
 
     await recorder.stopAndUpload();
-    expect(mockGenerateUploadUrl).not.toHaveBeenCalled();
+    expect(mockUploadAudio).not.toHaveBeenCalled();
   });
 
   it('skips upload when no data chunks were collected', async () => {
     const recorder = createAudioRecorder({
-      generateUploadUrl: mockGenerateUploadUrl,
-      attachAudio: mockAttachAudio,
-      sessionId: mockSessionId,
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
     });
 
     recorder.start(mockStream);
 
     await recorder.stopAndUpload();
 
-    expect(mockGenerateUploadUrl).not.toHaveBeenCalled();
+    expect(mockUploadAudio).not.toHaveBeenCalled();
+  });
+
+  it('stopAndDiscard never calls uploadAudio (cancel/orphan safety)', async () => {
+    const recorder = createAudioRecorder({
+      uploadAudio: mockUploadAudio,
+      getSessionId: mockGetSessionId,
+    });
+
+    recorder.start(mockStream);
+    const mr = lastRecorder();
+    const blob = new Blob(['audio-data'], { type: 'audio/webm' });
+    mr.ondataavailable?.({ data: blob } as BlobEvent);
+
+    await recorder.stopAndDiscard();
+
+    expect(mockUploadAudio).not.toHaveBeenCalled();
   });
 });

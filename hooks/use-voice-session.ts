@@ -2,7 +2,7 @@
  * US-008 + US-017: useVoiceSession — integration hook
  *
  * Orchestrates the full voice session lifecycle:
- *   1. Convex createSession action → ephemeral key + sessionId
+ *   1. Hono POST /api/voice-sessions command → ephemeral key + sessionId
  *   2. WebRTC connect with ephemeral key
  *   3. Send session.update via data channel
  *   4. Wire data channel events → state machine transitions
@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { MediaStream } from 'react-native-webrtc-web-shim';
+import { uploadBlobThroughLifecycle } from '@/app/zero/platform';
 import { createVoiceSession, endVoiceSession } from '@/app/zero/voice';
 import { useVoiceResultBridge } from '@/hooks/use-voice-result-bridge';
 import {
@@ -140,12 +141,23 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     []
   );
 
-  const generateAudioUploadUrl = useCallback(async (): Promise<string> => {
-    throw new Error('Voice recording upload is not available in this runtime');
-  }, []);
-
-  const attachAudio = useCallback(
-    async (_args: { sessionId: string; storageId: string }) => null,
+  const uploadAudio = useCallback(
+    async ({ sessionId, blob }: { sessionId: string; blob: Blob }) => {
+      // Prefer declared MediaRecorder type; fall back to audio/mpeg so
+      // content-addressed finalize can magic-detect ID3/MPEG frames.
+      const mimeType =
+        blob.type && blob.type.startsWith('audio/') ? blob.type : 'audio/mpeg';
+      const originalName =
+        mimeType === 'audio/webm' ? 'voice-artifact.webm' : 'voice-artifact.mp3';
+      await uploadBlobThroughLifecycle({
+        kind: 'voice_artifact',
+        targetId: sessionId,
+        idempotencyKey: `voice-artifact-${sessionId}`,
+        blob,
+        mimeType,
+        originalName,
+      });
+    },
     []
   );
 
@@ -192,15 +204,19 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
   const isWarmRef = useRef<boolean>(false);
 
   /**
-   * Tear down WebRTC and end the Convex session.
+   * Tear down WebRTC and end the Hono-backed voice session.
    * Safe to call multiple times — idempotent.
    * Does NOT touch the warm connection (caller decides warm vs cold close).
    */
   const cleanup = useCallback(
-    async (keepWarm: boolean = false) => {
-      // Stop audio recording and upload before tearing down the connection
+    async (keepWarm: boolean = false, uploadAudioOnClose: boolean = false) => {
+      // Explicit stop/cancel discards buffered audio. Timeout completion uploads it.
       if (audioRecorderRef.current) {
-        await audioRecorderRef.current.stopAndUpload();
+        if (uploadAudioOnClose) {
+          await audioRecorderRef.current.stopAndUpload();
+        } else {
+          await audioRecorderRef.current.stopAndDiscard();
+        }
         audioRecorderRef.current = null;
       }
 
@@ -244,11 +260,11 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
    */
   const handleTimeout = useCallback(async () => {
     dispatch({ type: 'TIMEOUT' });
-    await cleanup(true /* keepWarm */);
+    await cleanup(true /* keepWarm */, true /* upload completed recording */);
   }, [cleanup]);
 
   /**
-   * Discard prewarm data: stop mic tracks, end Convex session, clear refs.
+   * Discard prewarm data: stop mic tracks, end the server session, clear refs.
    * Safe to call when prewarmDataRef is null (no-op).
    */
   const discardPrewarm = useCallback(() => {
@@ -270,7 +286,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     // Destroy the WebRTC connection (no SDP exchange happened, so it's just media+peer cleanup)
     data.connection.destroy();
 
-    // End the Convex session fire-and-forget
+    // End the server session fire-and-forget
     endSession({ sessionId: data.sessionId }).catch(() => {});
   }, [endSession]);
 
@@ -562,9 +578,8 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
 
       // Create audio recorder — will be started when remote track arrives
       const audioRecorder = createAudioRecorder({
-        generateUploadUrl: () => generateAudioUploadUrl(),
-        attachAudio: (args) => attachAudio(args),
-        sessionId: sessionIdRef.current ?? '',
+        uploadAudio,
+        getSessionId: () => sessionIdRef.current ?? '',
       });
       audioRecorderRef.current = audioRecorder;
 
@@ -724,8 +739,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     createSession,
     discardPrewarm,
     endSession,
-    generateAudioUploadUrl,
-    attachAudio,
+    uploadAudio,
     handleTimeout,
     recordTranscript,
     state.status,
@@ -736,7 +750,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     // US-017: destroy warm connection on explicit stop (user intent to fully end)
     warmConnectionRef.current.destroy();
     isWarmRef.current = false;
-    await cleanup(false /* cold close */);
+    await cleanup(false /* cold close */, false /* cancelled recording */);
     dispatch({ type: 'DISCONNECT' });
     // Kick off a fresh prewarm so the next tap is fast
     // Fire-and-forget — errors are silent (prewarm is best-effort)
@@ -752,13 +766,13 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
       warmConnectionRef.current.destroy();
       isWarmRef.current = false;
 
-      // Discard any pending prewarm (releases mic + ends Convex session)
+      // Discard any pending prewarm (releases mic + ends the server session)
       // discardPrewarm calls endSession internally, fire-and-forget is fine here
       discardPrewarm();
 
-      // Stop audio recording (fire-and-forget upload on unmount)
+      // Unmount is cancellation: discard buffered audio, never create an upload intent.
       if (audioRecorderRef.current) {
-        audioRecorderRef.current.stopAndUpload().catch(() => {});
+        audioRecorderRef.current.stopAndDiscard().catch(() => {});
         audioRecorderRef.current = null;
       }
 
