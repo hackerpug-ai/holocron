@@ -1,0 +1,1 @@
+GREEN AC-1: PLATFORM_IT=1 lifecycle — file_objects rows:1; content_hash match; real Zero builder query AST table=file_objects content_hash filter; schema has file_objects; phase:success

@@ -1,0 +1,167 @@
+{
+  "task_id": "S-UPLOAD-01",
+  "timestamp": "2026-07-26T20:30:49Z",
+  "commit_sha": "7389de9aacd34c06a827212a95bc107e7cc64348",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-1-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-2-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb firstFileObjectId==secondFileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-2-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-2-green.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-3-output.txt",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-4-output.txt",
+      "seeded_value": "dimensions:800x600 testID:attach-preview uri_length_gt_0:true fixture:.tmp/S-UPLOAD-01/test-fixture.jpg",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-4-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-4-green.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "tsgo --noEmit && biome check .",
+      "exit_code": 1,
+      "output_file": ".tmp/S-UPLOAD-01/ac-5-output.txt",
+      "seeded_value": "tsgo_exit:0 scoped_biome_exit:0 full_repo_biome_exit:1 (pre-existing; see pre-existing-issues.md)",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-5-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-5-green.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-1-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-2-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb firstFileObjectId==secondFileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-2-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-2-green.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-3-output.txt",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-4-output.txt",
+      "seeded_value": "dimensions:800x600 testID:attach-preview uri_length_gt_0:true fixture:.tmp/S-UPLOAD-01/test-fixture.jpg",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-4-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-4-green.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "tsgo --noEmit && biome check .",
+      "exit_code": 1,
+      "output_file": ".tmp/S-UPLOAD-01/tc-5-output.txt",
+      "seeded_value": "tsgo_exit:0 scoped_biome_exit:0 full_repo_biome_exit:1 (pre-existing; see pre-existing-issues.md)",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-5-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-5-green.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-26T20:30:49Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "87f6d414fde6762f5d63f812755b4a8707b4f305baba6067a79d3807c4437eb0"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "a9abf96eeddbacddf560357c910fe0b2934a25e8ce98fc25e0dc1ae782ba7efc"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "43dff5d6a806954cdbaf1dffbef71a68da7438ae7527c56bb6df02d79b0c246b"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "fe4dcd5797a0c542c57213ea03448bd66e9e87a93a5fe743403578caad6c77f1"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "cdf3edae7a896ab6e37b659310ce07cb744e74ff0772924f151536fd53b0ac59"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "65c6cca5754649a5b4e858908e97314d8bed8689e7378e904f35a719ce94f0d0"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "09f77fb5ab679e00a883fff6a1e68d5e8e7be124af5bd3c5f09a2dff6ad1ef44"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "46a7ceec0e58683079d2741b240aaa2b009c08b02fbbe8f319c8f9e9beb46b2c"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "48119954de0f08a7bf281b12ed6cb82a8418bf5c8910313058df6e3161c63540"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "c908276044c8d8a74312b6d78000af58a4e496bde748b3a568a5f7ad946e1022"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "d8eb1902c9ffddae140c669fc5ad53046b4b368fb6689f4d3688e41dae5e4aab"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "ddb284a8ce3880d0c9468e6690ee85b77c27959cfeef53bd06ae64c11c57cfc9"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "6ce31457592aa194b2c4dd823e1263b3ef3c3bc5110892f970d36a6e9c87a017"
+      }
+    ]
+  }
+}

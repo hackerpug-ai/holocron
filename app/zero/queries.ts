@@ -188,4 +188,20 @@ export const notificationsUnread = (limit = 10) =>
 export const notificationsRecent = (limit = 20) =>
   builder.notifications.orderBy('created_at', 'desc').limit(limit);
 
+// ── S-UPLOAD-01: content-addressed file_objects ──────────────────────────────
+
+/**
+ * fileObjectsByContentHash — CAP-SYNC-01 CAS lookup by SHA-256 content_hash.
+ *
+ * Real Zero builder query (not a POJO descriptor stub). Callers pass the result
+ * to `useQuery` for post-finalize reconciliation after upload-init → PUT → finalize.
+ * content_hash has a unique index (file_objects_content_hash_uidx).
+ */
+export const fileObjectsByContentHash = (contentHash: string) => {
+  if (!/^[0-9a-f]{64}$/i.test(contentHash)) {
+    throw new Error('contentHash must be a 64-char hex SHA-256 digest');
+  }
+  return builder.file_objects.where('content_hash', contentHash.toLowerCase()).one();
+};
+
 export { builder as zeroBuilder };

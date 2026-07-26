@@ -1,0 +1,9 @@
+{
+  "artifact_type": "db_query",
+  "start_ref": "seeded_fixture_jpg",
+  "baseUrl": "http://127.0.0.1:65213",
+  "firstFileObjectId": "00000000-0000-7be0-bbed-9f221dec86c4",
+  "secondFileObjectId": "00000000-0000-7be0-bbed-9f221dec86c4",
+  "file_objects_rows": 1,
+  "content_hash": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb"
+}

@@ -1,0 +1,167 @@
+{
+  "task_id": "S-UPLOAD-01",
+  "timestamp": "2026-07-26T20:52:02Z",
+  "commit_sha": "47fdcb74cef67b0290708c4a8f90f885f25a4117",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": true,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-1-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success zero_query.table:file_objects schema_has_file_objects:true",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-2-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb firstFileObjectId==secondFileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-2-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-2-green.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-3-output.txt",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 mounted:upload-error+upload-retry finalize_error:hash/length/mime mismatch",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-4-output.txt",
+      "seeded_value": "dimensions:800x600 testID:attach-preview uri_length_gt_0:true fixture:.tmp/S-UPLOAD-01/test-fixture.jpg",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-4-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-4-green.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "tsgo --noEmit && biome check .",
+      "exit_code": 1,
+      "output_file": ".tmp/S-UPLOAD-01/ac-5-output.txt",
+      "seeded_value": "tsgo_exit:0 scoped_biome_exit:0 full_repo_biome_exit:1 (pre-existing; see pre-existing-issues.md)",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-5-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-5-green.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-1-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success zero_query.table:file_objects schema_has_file_objects:true",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-2-output.txt",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb firstFileObjectId==secondFileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-2-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-2-green.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-3-output.txt",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 mounted:upload-error+upload-retry finalize_error:hash/length/mime mismatch",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-4-output.txt",
+      "seeded_value": "dimensions:800x600 testID:attach-preview uri_length_gt_0:true fixture:.tmp/S-UPLOAD-01/test-fixture.jpg",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-4-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-4-green.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "tsgo --noEmit && biome check .",
+      "exit_code": 1,
+      "output_file": ".tmp/S-UPLOAD-01/tc-5-output.txt",
+      "seeded_value": "tsgo_exit:0 scoped_biome_exit:0 full_repo_biome_exit:1 (pre-existing; see pre-existing-issues.md)",
+      "red_against_start_file": ".tmp/S-UPLOAD-01/AC-5-red-against-start.txt",
+      "green_file": ".tmp/S-UPLOAD-01/AC-5-green.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-26T20:49:54Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "87f6d414fde6762f5d63f812755b4a8707b4f305baba6067a79d3807c4437eb0"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "5493a692eec347d7e88ec27e98da44f3522d53604f068a2e39a05a3807020fc8"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "70e89eba861a90828f0577c6b9b72ff00f113bfba73138eb15c1043a834c954e"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "0839af3bdff70a96e88b8eb2bfd6ea342a0327c2bff20af5c1a7f4550b1f4b91"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "30b9a79cf39bb2234649919cdd90ca60d9ca6c29be22496b90e6e2d4ecec0c4f"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "9eb338614ac3e962bcc94e2b25e8f5b36292750ae8c13c887bccbd9c4ae125d1"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "3cb0837e2787b6d583c98050de195f0cf05846b377c4ff5086662453fbbd1946"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "8df083ab192fc7f8eb442e4d51b6fdbd57a842decfcf62789b2da3bfcc374dac"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "74396871ade60afcc6778dc1edfb154552f38d9dbec20176e2d16f6ed4220335"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "d46b261a154475c42a907f5ab990d921afaef4482cdbbddac579b728d2effed1"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "09b3efbd2c5f6aea7170a15074feb06b3be8dff219a17d722d5da163af76718f"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "e9274d0b2d2e8eb133a30baa7fc663f46276c44e39d9632b53b0ff87e8695fb0"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "51741a27b36977e2e245910e901c74035c333c1a8f8221c7ff0f6be782e3ff0a"
+      }
+    ]
+  }
+}
