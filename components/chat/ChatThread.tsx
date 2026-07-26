@@ -10,9 +10,20 @@ import {
 } from '@/hooks/use-resumable-sse-stream';
 import type { MessageRole, MessageType } from '@/lib/types/conversations';
 import { AgentActivityIndicator } from './AgentActivityIndicator';
+import {
+  durableContentForMessageId,
+  resolveChatContentByteEqualOracleId,
+} from './chat-content-byte-equal';
 import { MessageActionsSheet } from './MessageActionsSheet';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
+
+export {
+  type ChatContentByteEqualOracleId,
+  chatContentsAreByteEqual,
+  durableContentForMessageId,
+  resolveChatContentByteEqualOracleId,
+} from './chat-content-byte-equal';
 
 export interface ChatMessage {
   id: string;
@@ -36,6 +47,12 @@ let modulePeakTokenCount = 0;
 
 export interface ChatThreadProps {
   messages: ChatMessage[];
+  /**
+   * Durable Zero/chat_messages rows only (no SSE overlay).
+   * REDHAT-FIX-11: compared to rendered latest-agent content for
+   * chat-content-byte-equal / chat-content-byte-mismatch Maestro oracles.
+   */
+  durableMessages?: ChatMessage[];
   showTypingIndicator?: boolean;
   /** Initial loading state - shows subtle inline loader */
   isLoading?: boolean;
@@ -83,6 +100,7 @@ export interface ChatThreadProps {
 
 export function ChatThread({
   messages,
+  durableMessages = [],
   showTypingIndicator = false,
   isLoading = false,
   safeAreaTop = 0,
@@ -194,7 +212,7 @@ export function ChatThread({
 
   // Newest agent row by createdAt (messages are oldest→newest from Zero).
   // Prefer max timestamp so seed rows never steal the "latest" success selector.
-  const latestAgentId = (() => {
+  const latestAgent = (() => {
     let best: ChatMessage | null = null;
     for (const m of messages) {
       if (m.role !== 'agent') continue;
@@ -202,8 +220,18 @@ export function ChatThread({
         best = m;
       }
     }
-    return best?.id ?? null;
+    return best;
   })();
+  const latestAgentId = latestAgent?.id ?? null;
+
+  // REDHAT-FIX-11 PATH-A: rendered latest-agent text vs durable Zero content.
+  // Mounts chat-content-byte-equal only when both sides agree after durable land;
+  // deliberate divergence mounts chat-content-byte-mismatch (Maestro fails).
+  const durableLatestContent = durableContentForMessageId(durableMessages, latestAgentId);
+  const contentByteEqualOracleId = resolveChatContentByteEqualOracleId(
+    latestAgent?.content ?? null,
+    durableLatestContent
+  );
 
   const resolveAgentRowTestId = (item: ChatMessage): string => {
     // De-fake Maestro oracles: seed/historical agent rows MUST NOT share the
@@ -466,6 +494,21 @@ export function ChatThread({
         >
           <Text>{`chat-assistant-bubble-count-${turnAgentBubbleCount}`}</Text>
         </View>
+        {/*
+          REDHAT-FIX-11 PATH-A: content byte-equal oracle.
+          Compares rendered latest agent text to durable Zero/chat_messages.content
+          (not SSE UNIQUE_TEXT stub). Hidden View pattern matches last-seq oracles.
+        */}
+        {contentByteEqualOracleId ? (
+          <View
+            testID={contentByteEqualOracleId}
+            accessible
+            accessibilityLabel={contentByteEqualOracleId}
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0.01 }}
+          >
+            <Text>{contentByteEqualOracleId}</Text>
+          </View>
+        ) : null}
       </View>
     );
   };

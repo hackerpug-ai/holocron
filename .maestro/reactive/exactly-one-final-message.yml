@@ -115,6 +115,20 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-assistant-message-latest"
 
+# REDHAT-FIX-11 PATH-A: content byte-equal oracle — rendered latest assistant
+# text === durable Zero/chat_messages.content (not bubble-count alone, not
+# redhat-fix-04 UNIQUE_TEXT SSE stub). Mismatch testID must stay invisible.
+- extendedWaitUntil:
+    visible:
+      id: "chat-content-byte-equal"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-content-byte-equal"
+
+- assertNotVisible:
+    id: "chat-content-byte-mismatch"
+
 # REDHAT-FIX-01 PATH-A: required oracle — title 'Streaming' seeded by seed:e2e
 - extendedWaitUntil:
     visible: "Streaming"
