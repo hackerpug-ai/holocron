@@ -1,6 +1,6 @@
-# REDHAT-FIX-09 concurrency mutation probe 2026-07-26T02:41:47.946Z
+# REDHAT-FIX-09 concurrency mutation probe 2026-07-26T02:43:44.118Z
 repo_root=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
-base_head=1ffae00febe8a7b610586c66160a49681092ed54
+base_head=a821faa6d8d9367bca3a0100f14c449cd3589c0c
 mutant_edit_path=services/platform/src/research/progress.ts
 correct mode=unmutated exit=0 failures=0 exit_ok=true
 mutant-d applied: removed AND COALESCE(current_iteration, 0) = ${previousIteration}
@@ -14,15 +14,15 @@ mutant-d-guard-removed KILLED (suite exit non-zero under COALESCE guard removal)
        ↓ PATH-A production write site count >= 1 for current_iteration
        ↓ unknown session yields structured error (ok:false)
        ↓ over-max iteration yields bounds/iteration error
-       × concurrent dual advance: exactly one winner N→N+1; loser RESEARCH_SESSION_UPDATE_FAILED 2662ms
+       × concurrent dual advance: exactly one winner N→N+1; loser RESEARCH_SESSION_UPDATE_FAILED 1694ms
        ↓ concurrent dual advance with two independent sql connections: still single winner + restore
        ↓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite
        ↓ path.json records A + mastra-implementer for REDHAT-FIX-09
 
  Test Files  1 failed (1)
       Tests  1 failed | 10 skipped (11)
-   Start at  20:41:49
-   Duration  3.23s (transform 146ms, setup 111ms, import 323ms, tests 2.70s, environment 0ms)
+   Start at  20:43:45
+   Duration  2.27s (transform 152ms, setup 117ms, import 336ms, tests 1.71s, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯

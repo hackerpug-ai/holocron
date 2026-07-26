@@ -8,29 +8,24 @@
 stderr | tests/convex/triage.test.ts > AC-2: classifyIntent returns fallback on bad LLM response > should fall back gracefully when LLM returns non-JSON
 [triage] Failed to extract JSON from response: This is not JSON at all
 
+ ✓ tests/convex/agent-triage-dispatch.test.ts (5 tests) 181ms
 stderr | tests/convex/triage.test.ts > QueryShape validation > malformed JSON should return fallbackResult with queryShape
 [triage] Failed to extract JSON from response: {broken json
 
- ✓ tests/convex/triage.test.ts (12 tests) 98ms
- ✓ tests/convex/agent-triage-dispatch.test.ts (5 tests) 105ms
- ❯ components/narration/hooks/useAudioPlayback.test.ts (0 test)
+ ✓ tests/convex/triage.test.ts (12 tests) 176ms
  ❯ components/narration/hooks/useNarrationState.test.ts (0 test)
- ✓ tests/convex/TR-004-jina-reader-fallback.test.ts (8 tests) 55ms
- ✓ services/platform/src/cli/__tests__/secrets-hygiene.test.ts (4 tests) 405ms
- ✓ tests/convex/search-tools.test.ts (10 tests) 87ms
- ✓ services/platform/src/cli/commands/__tests__/verify-no-convex-client.test.ts (4 tests) 428ms
- ✓ tests/convex/US-055-deep-research.test.ts (12 tests) 83ms
- ✓ services/platform/src/cli/__tests__/client-data-contract-verify.test.ts (9 tests) 83ms
- ✓ tests/convex/US-004-voice-getActiveSession.test.ts (11 tests) 16ms
- ✓ components/whats-new/__tests__/NewsfeedHeroCard.test.tsx (19 tests) 36ms
- ✓ tests/convex/rateLimits.test.ts (10 tests) 33ms
- ✓ tests/convex/US-IMP-003-sequential-research-context.test.ts (8 tests) 12ms
- ✓ convex/chat/telemetryMutations.test.ts (3 tests) 77ms
- ✓ components/whats-new/__tests__/NewsfeedFindingCard.test.tsx (21 tests) 26ms
+ ❯ components/narration/hooks/useAudioPlayback.test.ts (0 test)
+ ✓ services/platform/src/cli/commands/__tests__/verify-no-convex-client.test.ts (4 tests) 458ms
+ ✓ services/platform/src/cli/__tests__/secrets-hygiene.test.ts (4 tests) 449ms
+ ✓ tests/convex/search-tools.test.ts (10 tests) 106ms
+ ✓ tests/convex/US-055-deep-research.test.ts (12 tests) 102ms
+ ✓ convex/chat/telemetryMutations.test.ts (3 tests) 84ms
+ ✓ services/platform/src/cli/__tests__/client-data-contract-verify.test.ts (9 tests) 96ms
+ ✓ tests/convex/TR-004-jina-reader-fallback.test.ts (8 tests) 39ms
  ✓ tests/lib/voice/function-dispatcher.test.ts (24 tests) 45ms
- ✓ tests/convex/US-003-voice-mutations.test.ts (10 tests) 23ms
- ✓ tests/convex/US-054-tasks.test.ts (12 tests) 14ms
- ✓ services/platform/src/cli/__tests__/client-data-contract-author.test.ts (12 tests) 29ms
+ ✓ tests/convex/rateLimits.test.ts (10 tests) 38ms
+ ✓ components/whats-new/__tests__/NewsfeedHeroCard.test.tsx (19 tests) 39ms
+ ✓ services/platform/src/cli/__tests__/client-data-contract-author.test.ts (12 tests) 32ms
 stderr | tests/convex/lib/jina.test.ts > Jina Helper Module > jinaReaderBatch > should handle partial failures without throwing
 [jinaReaderBatch] Failed to read https://example.com/article2: JinaError: Jina Reader API network error: Network error
     at jinaReader (/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09/convex/lib/jina.ts:330:13)
@@ -115,7 +110,42 @@ stderr | tests/convex/lib/jina.test.ts > Jina Helper Module > jinaReaderBatch > 
       at file:///Users/inference1/Projects/holocron/node_modules/@vitest/runner/dist/index.js:2309:64
 }
 
- ✓ tests/convex/lib/jina.test.ts (33 tests) 23ms
+ ✓ tests/convex/lib/jina.test.ts (33 tests) 32ms
+ ✓ components/whats-new/__tests__/NewsfeedFindingCard.test.tsx (21 tests) 33ms
+ ✓ tests/convex/US-003-voice-mutations.test.ts (10 tests) 18ms
+ ✓ tests/convex/documents-getSection.test.ts (8 tests) 24ms
+ ✓ tests/convex/US-004-voice-getActiveSession.test.ts (11 tests) 20ms
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-1: recordTriage inserts > should insert a telemetry row with all required fields
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-2: truncates rawLlmResponse > should truncate rawLlmResponse to 2000 characters
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-2: truncates rawLlmResponse > should not truncate short responses
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should delete telemetry rows older than cutoff date
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should not delete recent telemetry rows
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should return count of deleted records
+Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+
+ ✓ tests/convex/chat-telemetryMutations.test.ts (7 tests) 16ms
 stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-1: Synchronous return with typed shape > findRecommendations happy path
 [findRec] sources found: 5
 
@@ -245,6 +275,10 @@ stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > 
 stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-6: Fewer-than-count returns what was found > returns 1 item when only 1 provider found
 [findRec] returning 1 items
 
+stderr | components/whats-new/__tests__/NewsfeedFilterBar.test.tsx > NewsfeedFilterBar > AC-1: ALL pill is always first and shows total count > allPillIsFirstWithTotalCount
+Functions are not valid as a React child. This may happen if you return children instead of <children /> from render. Or maybe you meant to call this function rather than return it.
+  <Pressable>{children}</Pressable>
+
 stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-7: Single LLM call on success > generateText called once when first parse succeeds
 [findRec] sources found: 1
 
@@ -257,157 +291,109 @@ stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > 
 stdout | convex/research/actions.test.ts > REC-003: findRecommendationsAction > AC-7: Single LLM call on success > generateText called once when first parse succeeds
 [findRec] returning 1 items
 
- ✓ convex/research/actions.test.ts (15 tests) 21ms
- ✓ tests/convex/documents-getSection.test.ts (8 tests) 16ms
- ✓ convex/chat/eval/runEval.test.ts (12 tests) 6ms
- ✓ convex/chat/triageRegex.test.ts (22 tests) 6ms
- ✓ components/whats-new/__tests__/NewsfeedHeader.test.tsx (8 tests) 4ms
- ✓ convex/chat/tools.test.ts (17 tests) 6ms
- ✓ tests/lib/voice/webrtc-connection.test.ts (18 tests) 14ms
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-1: recordTriage inserts > should insert a telemetry row with all required fields
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
- ✓ tests/convex/feeds/validators.test.ts (12 tests) 11ms
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-2: truncates rawLlmResponse > should truncate rawLlmResponse to 2000 characters
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-2: truncates rawLlmResponse > should not truncate short responses
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-3: validates classificationSource > should accept all valid classificationSource values
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should delete telemetry rows older than cutoff date
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should not delete recent telemetry rows
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
-stderr | tests/convex/chat-telemetryMutations.test.ts > telemetryMutations > AC-4: deleteOldTelemetry > should return count of deleted records
-Convex functions should not directly call other Convex functions. Consider calling a helper function instead. e.g. `export const foo = internalMutation(...); await foo(ctx);` is not supported. See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
-
- ✓ tests/convex/chat-telemetryMutations.test.ts (7 tests) 16ms
- ✓ services/platform/src/cli/__tests__/client-callsite-inventory.test.ts (12 tests) 15ms
- ✓ components/whats-new/__tests__/NewsfeedScreen.test.tsx (6 tests) 19ms
- ✓ services/platform/src/cli/__tests__/mission-json-errors.test.ts (10 tests) 742ms
- ✓ tests/convex/chat-context-section-aware.test.ts (4 tests) 9ms
- ✓ tests/convex/creators/output.test.ts (16 tests) 7ms
- ✓ tests/cards/types/recommendation.test.ts (11 tests) 8ms
- ✓ tests/convex/US-052-chat.test.ts (32 tests) 13ms
+ ✓ convex/research/actions.test.ts (15 tests) 23ms
+ ✓ components/whats-new/__tests__/NewsfeedFilterBar.test.tsx (10 tests) 22ms
+ ✓ components/whats-new/__tests__/NewsfeedScreen.test.tsx (6 tests) 29ms
+ ✓ services/platform/src/cli/__tests__/client-callsite-inventory.test.ts (12 tests) 18ms
+ ✓ tests/lib/voice/webrtc-connection.test.ts (18 tests) 16ms
+ ✓ components/narration/NarrationControlBar.test.tsx (4 tests) 16ms
+ ✓ tests/convex/US-054-tasks.test.ts (12 tests) 19ms
+ ✓ tests/convex/US-052-chat.test.ts (32 tests) 15ms
  ✓ components/notifications/NotificationToastProvider.test.tsx (2 tests) 12ms
-stderr | components/whats-new/__tests__/NewsfeedFilterBar.test.tsx > NewsfeedFilterBar > AC-1: ALL pill is always first and shows total count > allPillIsFirstWithTotalCount
-Functions are not valid as a React child. This may happen if you return children instead of <children /> from render. Or maybe you meant to call this function rather than return it.
-  <Pressable>{children}</Pressable>
-
- ✓ components/whats-new/__tests__/NewsfeedFilterBar.test.tsx (10 tests) 15ms
- ✓ tests/voice/retry-manager.test.ts (12 tests) 10ms
- ✓ tests/convex/TR-003-transcript-service.test.ts (8 tests) 10ms
- ✓ tests/research/confidence.test.ts (49 tests) 10ms
- ✓ tests/convex/TR-006-youtube-integration.test.ts (6 tests) 10ms
- ✓ components/narration/NarrationControlBar.test.tsx (4 tests) 14ms
- ✓ tests/lib/voice/transcript-recorder.test.ts (6 tests) 9ms
- ✓ tests/research/termination.test.ts (50 tests) 7ms
- ✓ convex/chat/agent.test.ts (45 tests) 8ms
- ✓ tests/lib/voice/audio-recorder.test.ts (9 tests) 9ms
- ✓ tests/convex/TR-002-transcripts.test.ts (8 tests) 9ms
- ✓ tests/hooks/use-voice-session-state.test.ts (34 tests) 7ms
- ✓ tests/convex/bp-005-count-queries.test.ts (9 tests) 4ms
- ✓ tests/convex/US-060-research-progress.test.ts (5 tests) 9ms
- ✓ tests/convex/TR-007-assimilate-creator.test.ts (6 tests) 8ms
- ✓ tests/convex/specialistPrompts.test.ts (17 tests) 6ms
- ✓ tests/lib/voice/event-handler.test.ts (15 tests) 7ms
+ ✓ services/platform/src/cli/__tests__/mission-json-errors.test.ts (10 tests) 815ms
+ ✓ tests/convex/US-IMP-003-sequential-research-context.test.ts (8 tests) 17ms
+ ✓ tests/convex/feeds/validators.test.ts (12 tests) 14ms
+ ✓ tests/convex/TR-003-transcript-service.test.ts (8 tests) 11ms
+ ✓ tests/convex/TR-006-youtube-integration.test.ts (6 tests) 14ms
+ ✓ tests/voice/retry-manager.test.ts (12 tests) 11ms
+ ✓ tests/research/confidence.test.ts (49 tests) 11ms
+ ✓ tests/lib/voice/audio-recorder.test.ts (9 tests) 11ms
+ ✓ tests/convex/US-761-standard-queries.test.ts (6 tests) 11ms
+ ✓ tests/convex/TR-005-scheduled-processor.test.ts (9 tests) 13ms
+ ✓ tests/convex/TR-002-transcripts.test.ts (8 tests) 13ms
+ ✓ tests/lib/voice/transcript-recorder.test.ts (6 tests) 8ms
+ ✓ tests/convex/US-060-research-progress.test.ts (5 tests) 10ms
+ ✓ tests/convex/chat-context-section-aware.test.ts (4 tests) 10ms
+ ✓ tests/convex/TR-007-assimilate-creator.test.ts (6 tests) 12ms
+ ✓ components/ToolCard.test.tsx (1 test) 9ms
+ ✓ tests/convex/US-786-lazy-conversation-creation.test.ts (5 tests) 12ms
+ ✓ tests/cards/types/recommendation.test.ts (11 tests) 18ms
+ ✓ convex/chat/agent.test.ts (45 tests) 6ms
+ ✓ tests/lib/voice/error-handler.test.ts (18 tests) 9ms
+ ✓ services/platform/src/cli/__tests__/apply-secrets-to-env.test.ts (5 tests) 9ms
+ ✓ tests/ci/fork-safety.test.ts (4 tests) 9ms
+ ✓ tests/research/termination.test.ts (50 tests) 13ms
+ ✓ tests/lib/voice/event-handler.test.ts (15 tests) 9ms
+ ✓ tests/convex/creators/output.test.ts (16 tests) 8ms
+ ✓ tests/hooks/use-voice-session-state.test.ts (34 tests) 9ms
+ ✓ convex/chat/eval/runEval.test.ts (12 tests) 9ms
+ ✓ tests/convex/specialistPrompts.test.ts (17 tests) 9ms
  ✓ tests/lib/voice/session-timeout.test.ts (10 tests) 6ms
- ✓ services/platform/src/cli/__tests__/apply-secrets-to-env.test.ts (5 tests) 8ms
- ✓ tests/hooks/use-voice-session.test.ts (6 tests) 3ms
- ✓ tests/convex/TR-005-scheduled-processor.test.ts (9 tests) 9ms
- ✓ tests/lib/voice/error-handler.test.ts (18 tests) 8ms
- ✓ convex/chat/refinement.test.ts (35 tests) 5ms
- ✓ tests/convex/US-761-standard-queries.test.ts (6 tests) 9ms
- ✓ convex/chat/toolExecutor.test.ts (8 tests) 5ms
- ✓ tests/convex/US-786-lazy-conversation-creation.test.ts (5 tests) 8ms
- ✓ convex/research/enrichment.test.ts (4 tests) 5ms
- ✓ components/ToolCard.test.tsx (1 test) 8ms
- ✓ tests/convex/TS-008-rate-limiter.test.ts (9 tests) 4ms
- ✓ services/platform/src/research/evidence-gate.test.ts (3 tests) 4ms
- ✓ tests/ci/fork-safety.test.ts (4 tests) 7ms
- ✓ components/whats-new/__tests__/WhatsNewRoute.test.tsx (4 tests) 3ms
- ✓ components/whats-new/__tests__/categoryColors.test.ts (10 tests) 5ms
- ✓ convex/research/platformSearch.test.ts (6 tests) 6ms
+ ✓ convex/research/platformSearch.test.ts (6 tests) 7ms
+ ✓ convex/chat/triageRegex.test.ts (22 tests) 8ms
+ ✓ convex/chat/refinement.test.ts (35 tests) 8ms
+ ✓ convex/chat/toolExecutor.test.ts (8 tests) 6ms
  ✓ tests/research-evidence-gate.test.ts (5 tests) 5ms
+ ✓ convex/chat/tools.test.ts (17 tests) 5ms
+ ✓ tests/lib/voice/tool-definitions.test.ts (5 tests) 5ms
+ ✓ convex/research/enrichment.test.ts (4 tests) 5ms
+ ✓ components/whats-new/__tests__/categoryColors.test.ts (10 tests) 5ms
+ ✓ components/whats-new/__tests__/NewsfeedHeader.test.tsx (8 tests) 5ms
+ ✓ tests/convex/subscriptions-optimization.test.ts (19 tests) 6ms
+ ✓ services/platform/src/research/evidence-gate.test.ts (3 tests) 4ms
  ✓ tests/lib/holocron-deep-link.test.ts (6 tests) 4ms
- ✓ tests/convex/subscriptions-optimization.test.ts (19 tests) 4ms
+ ✓ tests/convex/TS-008-rate-limiter.test.ts (9 tests) 4ms
+ ✓ tests/convex/bp-005-count-queries.test.ts (9 tests) 4ms
+ ✓ tests/lib/computeNarrationMap.test.ts (7 tests) 4ms
+ ✓ tests/lib/extractParagraphs.test.ts (10 tests) 4ms
+ ✓ tests/voice/tool-parity.test.ts (4 tests) 5ms
+ ✓ tests/hooks/use-voice-session.test.ts (6 tests) 4ms
 stdout | tests/convex/BP-017-reduce-v-any-usage.test.ts > BP-017: Reduce v.any() Usage > AC-1: v.any() count reduction > should have less than 10 v.any() occurrences in schema
 Current v.any() count: 10
 
- ✓ tests/convex/BP-017-reduce-v-any-usage.test.ts (3 tests) 3ms
- ✓ hooks/use-agent-activity.test.ts (7 tests) 3ms
- ✓ tests/lib/voice/tool-definitions.test.ts (5 tests) 5ms
- ✓ tests/lib/extractParagraphs.test.ts (10 tests) 3ms
- ✓ tests/entrypoint-eventsource-polyfill.test.ts (1 test) 2ms
- ✓ tests/convex/subscriptions-ai-relevance.test.ts (6 tests) 3ms
- ✓ tests/voice/tool-parity.test.ts (4 tests) 4ms
- ✓ tests/convex/BP-010-schema-type-consistency.test.ts (2 tests) 3ms
+ ✓ tests/convex/BP-017-reduce-v-any-usage.test.ts (3 tests) 4ms
  ✓ tests/convex/TS-003-status-union.test.ts (5 tests) 3ms
- ✓ tests/lib/computeNarrationMap.test.ts (7 tests) 3ms
+ ✓ hooks/use-agent-activity.test.ts (7 tests) 4ms
+ ✓ components/whats-new/__tests__/WhatsNewRoute.test.tsx (4 tests) 3ms
+ ✓ tests/convex/subscriptions-ai-relevance.test.ts (6 tests) 4ms
  ✓ components/subscriptions/__tests__/SubscriptionFeedScreen.perf.test.tsx (3 tests) 3ms
- ✓ tests/convex/BP-006-read-after-write.test.ts (2 tests) 2ms
- ✓ tests/chat-conversation-header.test.ts (1 test) 2ms
+ ✓ tests/convex/BP-006-read-after-write.test.ts (2 tests) 3ms
+ ✓ tests/convex/BP-010-schema-type-consistency.test.ts (2 tests) 3ms
+ ✓ tests/entrypoint-eventsource-polyfill.test.ts (1 test) 2ms
  ✓ tests/articles-import-button-layout.test.ts (1 test) 2ms
  ✓ tests/drawer-deletion-navigation.test.ts (1 test) 2ms
- ❯ services/platform/src/cli/__tests__/zero-cache-boot.test.ts (4 tests | 1 failed) 8564ms
+ ✓ tests/chat-conversation-header.test.ts (1 test) 2ms
+ ❯ services/platform/src/cli/__tests__/zero-cache-boot.test.ts (4 tests | 1 failed) 8746ms
      ✓ plist template is no longer a /usr/bin/true placeholder-only unit 1ms
      ✓ supervisor no longer hard-disables zero_cache on every stack up 0ms
-     ✓ enable runbook exists with exact operator commands 0ms
-     × stack status reports zero_cache with a real state token 8560ms
- ✓ services/platform/src/cli/__tests__/launchd-and-embed-health.test.ts (5 tests) 9574ms
-     ✓ holo stack status surfaces fleet embed-route health (CAP-EMB-01 ops visibility)  9430ms
- ✓ services/platform/src/cli/__tests__/seed-e2e.test.ts (3 tests) 11698ms
-     ✓ seed:e2e --reset seeds conversations, documents, feed items, and subscription content  11499ms
- ❯ services/platform/src/cli/__tests__/dev-parity.test.ts (3 tests | 1 failed) 11881ms
-     ✓ config contract exists with distinct mini vs laptop DATABASE_URL (not hardcoded mono-env) 1ms
-     ✓ same holo stack up works under laptop DATABASE_URL (portable command, real CLI)  6645ms
-     × runtime parity: Darwin + bun available AND stack status works under portable env 5232ms
- ✓ services/platform/src/cli/__tests__/mastra-secrets-runtime.test.ts (2 tests) 56675ms
-     ✓ service:up with launchd-like clean env accepts Bearer HOLO_KEY_RN from secrets.yaml  21377ms
-     ✓ holo stack up Mastra accepts doctor-resolved HOLO_KEY_RN (runtime, not just doctor)  35297ms
- ✓ services/platform/src/cli/__tests__/stack-supervisor.test.ts (5 tests) 59297ms
-     ✓ holo stack up exits 0 within 60s and postgres is ready (pg_isready)  2353ms
-     ✓ holo stack up brings Mastra /health to HTTP 200 (real curl probe)  32106ms
-     ✓ holo stack status reports postgres+mastra healthy, real queue backend, scheduler not placeholder  10213ms
-     ✓ holo stack down exits cleanly (zero holocron launchd PIDs / no orphaned stack)  5558ms
-     ✓ zero-cache slot is honest in stack status (healthy if launched OR disabled/not_implemented)  9064ms
+     ✓ enable runbook exists with exact operator commands 1ms
+     × stack status reports zero_cache with a real state token 8742ms
+ ✓ services/platform/src/cli/__tests__/launchd-and-embed-health.test.ts (5 tests) 9933ms
+     ✓ holo stack status surfaces fleet embed-route health (CAP-EMB-01 ops visibility)  9791ms
+ ✓ services/platform/src/cli/__tests__/dev-parity.test.ts (3 tests) 11537ms
+     ✓ same holo stack up works under laptop DATABASE_URL (portable command, real CLI)  7415ms
+     ✓ runtime parity: Darwin + bun available AND stack status works under portable env  4117ms
+ ✓ services/platform/src/cli/__tests__/seed-e2e.test.ts (3 tests) 14468ms
+     ✓ seed:e2e --reset seeds conversations, documents, feed items, and subscription content  14243ms
+ ✓ services/platform/src/cli/__tests__/mastra-secrets-runtime.test.ts (2 tests) 54703ms
+     ✓ service:up with launchd-like clean env accepts Bearer HOLO_KEY_RN from secrets.yaml  18802ms
+     ✓ holo stack up Mastra accepts doctor-resolved HOLO_KEY_RN (runtime, not just doctor)  35899ms
+ ✓ services/platform/src/cli/__tests__/stack-supervisor.test.ts (5 tests) 57359ms
+     ✓ holo stack up exits 0 within 60s and postgres is ready (pg_isready)  27861ms
+     ✓ holo stack up brings Mastra /health to HTTP 200 (real curl probe)  5423ms
+     ✓ holo stack status reports postgres+mastra healthy, real queue backend, scheduler not placeholder  8679ms
+     ✓ holo stack down exits cleanly (zero holocron launchd PIDs / no orphaned stack)  5608ms
+     ✓ zero-cache slot is honest in stack status (healthy if launched OR disabled/not_implemented)  9782ms
 
 ⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  components/narration/hooks/useAudioPlayback.test.ts [ components/narration/hooks/useAudioPlayback.test.ts ]
  FAIL  components/narration/hooks/useNarrationState.test.ts [ components/narration/hooks/useNarrationState.test.ts ]
 Error: Cannot find module '/@fs/Users/inference1/Projects/holocron/node_modules/vitest-native/dist/setup.mjs'
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
 
 
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
-
- FAIL  services/platform/src/cli/__tests__/dev-parity.test.ts > AC-3: laptop dev-parity under portable config contract > runtime parity: Darwin + bun available AND stack status works under portable env
-Error: Test timed out in 5000ms.
-If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
- ❯ services/platform/src/cli/__tests__/dev-parity.test.ts:169:3
-    167|   );
-    168|
-    169|   itLive('runtime parity: Darwin + bun available AND stack status work…
-       |   ^
-    170|     const uname = runCmd('uname', []);
-    171|     expect(uname.status).toBe(0);
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  services/platform/src/cli/__tests__/zero-cache-boot.test.ts > AC-2: zero_cache boot path (supervisor + plist) > stack status reports zero_cache with a real state token
 Error: Test timed out in 5000ms.
@@ -420,13 +406,13 @@ If this is a long-running test, pass a timeout value as the last argument or con
      45|     const r = runHolo(['stack', 'status']);
      46|     expect(r.status, r.combined).toBe(0);
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
 
 
- Test Files  4 failed | 92 passed (96)
-      Tests  2 failed | 983 passed (985)
-   Start at  20:40:24
-   Duration  59.62s (transform 1.78s, setup 6.17s, import 2.20s, tests 160.60s, environment 669ms)
+ Test Files  3 failed | 93 passed (96)
+      Tests  1 failed | 984 passed (985)
+   Start at  20:42:22
+   Duration  57.72s (transform 2.06s, setup 7.29s, import 2.60s, tests 160.15s, environment 1.04s)
 
  ELIFECYCLE  Command failed with exit code 1.
 EXIT_CODE:1

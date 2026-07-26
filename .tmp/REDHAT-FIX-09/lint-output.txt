@@ -104,6 +104,20 @@ tests/setup/react-native.ts:44:36 lint/suspicious/noExplicitAny ━━━━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
+tests/setup/react-native.ts:84:30 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    82 │   usePathname: () => '/',
+    83 │   useFocusEffect: () => {},
+  > 84 │   Link: function Link(props: any) {
+       │                              ^^^
+    85 │     return props.children;
+    86 │   },
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
 vitest.setup.ts:7:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! This import is unused.
@@ -463,22 +477,9 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
     47 72 │   
   
 
-.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/step4.assertion.json format ━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    1   │ - {"kind":"exit_and_log_regex","expected_exit":0,"expect_log_regex":"\"fencing_token\":\\s*\"[^\"]+\""}
-      1 │ + {
-      2 │ + ··"kind":·"exit_and_log_regex",
-      3 │ + ··"expected_exit":·0,
-      4 │ + ··"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""
-      5 │ + }
-    2 6 │   
-  
-
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 1980.
-Checked 1731 files in 325ms. No fixes applied.
+Checked 1731 files in 383ms. No fixes applied.
 Found 1321 errors.
 Found 670 warnings.
 Found 9 infos.
