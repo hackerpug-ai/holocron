@@ -1,0 +1,60 @@
+{
+  "task_id": "REDHAT-FIX-09",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": true
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test:unit"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-concurrency|REDHAT-FIX-09|concurrent'"
+    },
+    {
+      "id": "AC-2",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -q 'mutant-d-guard-removed' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -E 'mutant-d-guard-removed.*(exit=[1-9]|exit_nonzero|failures=[1-9])' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -q 'correct.*exit=0' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts && pnpm vitest run tests/integration/s-reactive-02-research-progress-zero.test.ts"
+    },
+    {
+      "id": "AC-4",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-red.log && test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && test -f .tmp/sprint-25/redhat-fix-09-path.json && jq -e '.path==\"A\" and .agent==\"mastra-implementer\"' .tmp/sprint-25/redhat-fix-09-path.json"
+    },
+    {
+      "id": "AC-5",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-concurrency|REDHAT-FIX-09'"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-concurrency|REDHAT-FIX-09|concurrent'"
+    },
+    {
+      "id": "TC-2",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -E 'mutant-d-guard-removed.*(failures=[1-9]|exit=[1-9]|exit_nonzero)' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -q 'correct.*exit=0' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts && pnpm vitest run tests/integration/s-reactive-02-research-progress-zero.test.ts"
+    },
+    {
+      "id": "TC-4",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-red.log && test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && test -f .tmp/sprint-25/redhat-fix-09-path.json && jq -e '.path==\"A\" and .agent==\"mastra-implementer\"' .tmp/sprint-25/redhat-fix-09-path.json"
+    },
+    {
+      "id": "TC-5",
+      "verify": "pnpm biome check services/platform/src/research/progress.ts services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts"
+    },
+    {
+      "id": "TC-6",
+      "verify": "rg -n 'Promise\\.all|RESEARCH_SESSION_UPDATE_FAILED|advanceResearchSessionIteration' services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts"
+    }
+  ]
+}

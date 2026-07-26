@@ -1,0 +1,42 @@
+=== REDHAT-FIX-09 RED evidence (pre-fix) 2026-07-26T02:29:10Z ===
+repo_root=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
+base_head=a55b6403ffd4506ebab7c05c16d54ed7b0f7e493
+
+=== Concurrency coverage scan in redhat-fix-02 suite ===
+NO_CONCURRENCY_COVERAGE: Promise.all / AC-concurrency / REDHAT-FIX-09 absent from suite
+
+=== Filtered vitest for AC-concurrency|REDHAT-FIX-09|concurrent (expect 0 matching tests) ===
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
+
+ ↓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (7 tests | 7 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  7 skipped (7)
+   Start at  20:29:11
+   Duration  493ms (transform 132ms, setup 102ms, import 298ms, tests 0ms, environment 0ms)
+
+filter_exit=0 (0 matching concurrency tests on HEAD = RED for missing oracle)
+
+=== Mutant D survival probe: remove COALESCE guard, run sequential suite (expect still green) ===
+mutant-d applied: COALESCE concurrency WHERE removed
+mutant_edit_path=services/platform/src/research/progress.ts
+confirmed COALESCE guard absent from progress.ts
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
+
+ ✓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (7 tests) 620ms
+       ✓ advances 1→2→3 via production CLI research:advance-iteration (not advance-server.py)  344ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  20:29:12
+   Duration  1.09s (transform 128ms, setup 102ms, import 278ms, tests 620ms, environment 0ms)
+
+sequential_suite_under_mutant_d exit=0 (7/7 tests passed under Mutant D)
+MUTANT_D_SURVIVES_SEQUENTIAL: sequential suite exit=0 with COALESCE guard removed (NO_ORACLE_IDEMPOTENCY confirmed)
+production file restored after RED mutant probe
+127:        AND COALESCE(current_iteration, 0) = ${previousIteration}
+
+=== RED CONCLUSION ===
+pre-fix: concurrency oracle absent; Mutant D survives sequential FIX-02 suite → needs REDHAT-FIX-09 PATH-A concurrent oracle

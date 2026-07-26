@@ -1,0 +1,147 @@
+{
+  "task_id": "REDHAT-FIX-09",
+  "timestamp": "2026-07-26T02:43:49Z",
+  "commit_sha": "a821faa6d8d9367bca3a0100f14c449cd3589c0c",
+  "typecheck": {
+    "exit_code": 2
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-concurrency|REDHAT-FIX-09|concurrent'",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -q 'mutant-d-guard-removed' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -E 'mutant-d-guard-removed.*(exit=[1-9]|exit_nonzero|failures=[1-9])' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -q 'correct.*exit=0' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts && pnpm vitest run tests/integration/s-reactive-02-research-progress-zero.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-red.log && test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && test -f .tmp/sprint-25/redhat-fix-09-path.json && jq -e '.path==\"A\" and .agent==\"mastra-implementer\"' .tmp/sprint-25/redhat-fix-09-path.json",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-concurrency|REDHAT-FIX-09'",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/ac-5-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts -t 'AC-concurrency|REDHAT-FIX-09|concurrent'",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -E 'mutant-d-guard-removed.*(failures=[1-9]|exit=[1-9]|exit_nonzero)' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && rg -q 'correct.*exit=0' .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm vitest run services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts && pnpm vitest run tests/integration/s-reactive-02-research-progress-zero.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "test -f .tmp/sprint-25/redhat-fix-09-red.log && test -f .tmp/sprint-25/redhat-fix-09-concurrency-mutation.log && test -f .tmp/sprint-25/redhat-fix-09-path.json && jq -e '.path==\"A\" and .agent==\"mastra-implementer\"' .tmp/sprint-25/redhat-fix-09-path.json",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "pnpm biome check services/platform/src/research/progress.ts services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "rg -n 'Promise\\.all|RESEARCH_SESSION_UPDATE_FAILED|advanceResearchSessionIteration' services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/REDHAT-FIX-09/tc-6-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-26T02:43:49Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "fde21c94fee1006dd3a04f47ce0818a80b519ac84ec55aea013078b7341855b5"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "cfc42fcdbd23e93c94096670fd722455fef0066e22a27f5f8593c99b31b5069d"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "2f7a3e64bc6be3651dc410e5eefe347e584918b965ac3842e8ffb5501ec80a24"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "111c80e4bdb454b6f289d5a38e3b6d816a6f79681465f2da45f1497ee31b6aef"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "4bd8fcb769d4aecec820d30cd8739b16f7f63304f1b73e3f3c4f09968c3285d2"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "5b863a75ecf75bd51c99b8137b0bcfb6058337c5bc5d20da2a2815c2884574bc"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "1d72baa5ed4b94068f6171ca89eaac1e80d0f91e63c4263cae0115c7e0fab763"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "bec2489f093ac54ee94739e1d7a7fa52dba983ed9abff718df05dd026e4b8ab7"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "4bd8fcb769d4aecec820d30cd8739b16f7f63304f1b73e3f3c4f09968c3285d2"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "28edef72050058a5f8b0d66c7c6ace9073425ca71140bf62b4db270a883b7f19"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "a17fcf0a2f50e2d495e4f90ce263410edc183add6c62699a2facbccf60410f74"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "d53ddc0c5e991e7f36c1040ef2fe05575996fa4d537380aae8468ae1c8210dab"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "9813420b9c25cc79a6f611a77f2073ab56495097939a080495a73161fd076aff"
+      }
+    ]
+  }
+}
