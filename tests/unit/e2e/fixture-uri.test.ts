@@ -2,8 +2,9 @@
  * S-UPLOAD-03 — deterministic e2e fixture attach helper.
  * Pure resolution rules (no simulator I/O).
  */
-import { existsSync, readFileSync } from 'node:fs';
+
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 

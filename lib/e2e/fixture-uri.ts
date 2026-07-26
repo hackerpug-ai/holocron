@@ -13,7 +13,8 @@ import { Image, type ImageSourcePropType } from 'react-native';
 
 // Bundled copy of tests/fixtures/test-fixture.jpg (800x600, known SHA-256).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const BUNDLED_FIXTURE = require('../../assets/e2e/test-fixture.jpg') as number & ImageSourcePropType;
+const BUNDLED_FIXTURE = require('../../assets/e2e/test-fixture.jpg') as number &
+  ImageSourcePropType;
 
 export function isE2eFixtureAttachEnabled(): boolean {
   if (typeof __DEV__ !== 'undefined' && __DEV__) return true;

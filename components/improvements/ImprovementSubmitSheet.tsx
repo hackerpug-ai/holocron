@@ -96,8 +96,7 @@ export function ImprovementSubmitSheet({
   /** ONE image upload state machine (idle → preview → uploading → success|error). */
   const [imageUpload, setImageUpload] = useState(() =>
     initialImageUploadState(
-      imageUploadSeed ??
-        (screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined)
+      imageUploadSeed ?? (screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined)
     )
   );
   const submittedRequestIdRef = useRef<string | null>(null);

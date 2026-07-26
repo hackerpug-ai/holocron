@@ -284,7 +284,7 @@ export function sha256HexPure(bytes: ArrayBuffer | Uint8Array): string {
   ]);
   const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
   const bitLen = data.length * 8;
-  const withPad = new Uint8Array(((data.length + 9 + 63) & ~63));
+  const withPad = new Uint8Array((data.length + 9 + 63) & ~63);
   withPad.set(data);
   withPad[data.length] = 0x80;
   const view = new DataView(withPad.buffer);

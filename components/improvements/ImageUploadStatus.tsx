@@ -59,8 +59,7 @@ export function ImageUploadStatus({
   if (phase === 'success') {
     // ANTI-STUB: upload-success requires a real 64-hex CAS content hash.
     // Text-only submit must never claim upload success without CAS.
-    const hasCas =
-      typeof zeroContentHash === 'string' && /^[0-9a-f]{64}$/i.test(zeroContentHash);
+    const hasCas = typeof zeroContentHash === 'string' && /^[0-9a-f]{64}$/i.test(zeroContentHash);
     if (!hasCas) {
       return null;
     }

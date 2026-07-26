@@ -1,9 +1,10 @@
 /**
  * S-UPLOAD-03 — upload-success only with CAS content hash (anti-stub).
  */
+
+import { render, screen } from '@testing-library/react-native';
 import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react-native';
 
 vi.mock('@/hooks/use-theme', () => ({
   useTheme: () => ({
