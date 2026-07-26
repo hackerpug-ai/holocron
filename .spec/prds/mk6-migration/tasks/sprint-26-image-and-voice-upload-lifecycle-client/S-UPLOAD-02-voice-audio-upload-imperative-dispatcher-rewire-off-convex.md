@@ -1,5 +1,8 @@
 # S-UPLOAD-02: Voice audio upload + imperative dispatcher rewire off Convex
-> Status: Backlog
+> Status: ✅ Completed
+> Commit: 895293f64f377f437e724dedf6a113208a6d3f02
+> Reviewer: product-manager+react-native-ui-reviewer
+> Completed: 2026-07-26T23:17:16Z
 
 - **Sprint:** [Sprint 26: Image and Voice Upload Lifecycle Client](./SPRINT.md)
 - **Task Type:** `FEATURE`
