@@ -11,12 +11,47 @@ appId: ${MAESTRO_APP_ID}
 #   - Hono + Postgres + blob store + Zero healthy
 #   - MAESTRO_APP_ID=com.holocron.app (see app.config.cjs bundleIdentifier)
 #   - Named iOS Simulator booted (e.g. MAESTRO_DEVICE="iPhone 17")
+#   - Dev client rebuilt with S-UPLOAD-01 ImageUploadStatus + attach-button testIDs
 # Post-condition oracle (operator / CI):
 #   bun services/platform/src/cli/holo.ts verify:blob --last
 #   bun services/platform/src/cli/holo.ts verify:blob --orphans
 
 - launchApp:
     clearState: false
+
+# Optional Expo Dev Client / Metro chrome (matches .maestro/research/improvements-loads.yml)
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 8000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+          optional: true
+      - tapOn:
+          text: "Close"
+          optional: true
 
 # Deep-link into improvements (matches .maestro/research/improvements-loads.yml)
 - openLink: holocron://improvements
@@ -26,17 +61,25 @@ appId: ${MAESTRO_APP_ID}
       id: "improvements-route-layout"
     timeout: 60000
 
+- assertVisible:
+    id: "improvements-route-layout"
+
 - tapOn:
     id: "improvements-header-add-button"
+
+# Sheet root testID from app/(drawer)/improvements.tsx
+- extendedWaitUntil:
+    visible:
+      id: "improvements-screen-submit-sheet"
+    timeout: 15000
 
 - extendedWaitUntil:
     visible:
       id: "attach-button"
     timeout: 15000
 
-# Explicit attach affordance (testID contract). When the sheet was opened from
-# a long-press capture path, screenshotUri is pre-seeded and attach re-asserts
-# the preview; the header-add path still exercises the same testID.
+# Explicit attach affordance (testID contract from ImprovementSubmitSheet).
+# Requires a dev-client build that includes S-UPLOAD-01 attach-button + ImageUploadStatus.
 - tapOn:
     id: "attach-button"
 
