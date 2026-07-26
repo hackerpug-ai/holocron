@@ -1,22 +1,22 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
 
- ✓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (11 tests) 4530ms
-       ✓ advances seeded session 1→2→3 via production module (not advance-server.py)  534ms
-       ✓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite  3499ms
+ ✓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (11 tests) 4033ms
+       ✓ advances 1→2→3 via production CLI research:advance-iteration (not advance-server.py)  345ms
+       ✓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite  3135ms
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  20:43:42
-   Duration  5.05s (transform 140ms, setup 103ms, import 319ms, tests 4.53s, environment 0ms)
+   Start at  20:46:04
+   Duration  4.51s (transform 129ms, setup 104ms, import 284ms, tests 4.03s, environment 0ms)
 
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
 
- ✓ tests/integration/s-reactive-02-research-progress-zero.test.ts (7 tests) 99ms
+ ✓ tests/integration/s-reactive-02-research-progress-zero.test.ts (7 tests) 249ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  20:43:48
-   Duration  316ms (transform 66ms, setup 114ms, import 5ms, tests 99ms, environment 0ms)
+   Start at  20:46:10
+   Duration  449ms (transform 59ms, setup 103ms, import 5ms, tests 249ms, environment 0ms)
 

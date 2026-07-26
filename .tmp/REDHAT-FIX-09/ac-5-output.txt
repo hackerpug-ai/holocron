@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
 
- ✓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (11 tests | 7 skipped) 3626ms
-       ✓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite  3460ms
+ ✓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (11 tests | 7 skipped) 3904ms
+       ✓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite  3744ms
 
  Test Files  1 passed (1)
       Tests  4 passed | 7 skipped (11)
-   Start at  20:43:32
-   Duration  4.13s (transform 143ms, setup 101ms, import 309ms, tests 3.63s, environment 0ms)
+   Start at  20:45:52
+   Duration  4.38s (transform 128ms, setup 101ms, import 281ms, tests 3.90s, environment 0ms)
 
