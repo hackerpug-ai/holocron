@@ -1,0 +1,137 @@
+{
+  "task_id": "S-UPLOAD-01",
+  "timestamp": "2026-07-26T20:24:59Z",
+  "commit_sha": "56a46aec27cede82211d7982f708ad01107db96b",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "tsgo --noEmit && biome check .",
+      "exit_code": 127,
+      "output_file": ".tmp/S-UPLOAD-01/ac-5-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "exit_code": 0,
+      "output_file": ".tmp/S-UPLOAD-01/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "tsgo --noEmit && biome check .",
+      "exit_code": 127,
+      "output_file": ".tmp/S-UPLOAD-01/tc-5-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-26T20:24:59Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "87f6d414fde6762f5d63f812755b4a8707b4f305baba6067a79d3807c4437eb0"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "7b57b713c00ea417ec737921eaa1725cf1ab44d298a9c4c8fafdcafb2d8c2937"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "9333302dec45b861e1fcc9119577318dc3e6e51145b62424cea99be3e49f21cf"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "552a43ce52216e58f4c3cd765fa10181ab342cfb1f40ffc473ae72a23db983a1"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "b2a7c918fa5537b8d60c7cd1770108698a585351c949be34aed6a1414c6e671d"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "77becfd12b1a852ea7261078241328db3bbc0c370d24fad1571134c6b5246a08"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "5c11035be075eb3e6069756aa31390d94a296fb79d92ad89f7398c18939baa9a"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "7424f3b265a185eca3e480d31f9015da165aaed01ad2ac6ed1c7eea074a6ffd4"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "9883019bc1a80c498cc6b0f93a4e6e708c4e499553140503902e51dffd850d70"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "8a2b9a211d54bff298190930cecb9a178467c525b624e8a910c3cccb6be3614b"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "ba04bff8a7529e6e05c762d53201df23c3a42d1073ef60288bd8c64522f0f2db"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "47c95bb1c68d1fa75b85ad014fd91608989e60f0092890f578454ff7a5a866a7"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "7424f3b265a185eca3e480d31f9015da165aaed01ad2ac6ed1c7eea074a6ffd4"
+      }
+    ]
+  }
+}

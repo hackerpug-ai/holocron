@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-01
+
+ ✓ tests/integration/uploads/lifecycle.test.ts (2 tests) 5612ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:25:45
+   Duration  6.10s (transform 143ms, setup 105ms, import 291ms, tests 5.61s, environment 0ms)
+
