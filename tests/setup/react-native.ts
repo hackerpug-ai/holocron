@@ -1,40 +1,10 @@
 import { vi } from 'vitest';
 
-// Mock React Native Animated to prevent infinite animation loops in skeleton tests
-vi.mock('react-native', async () => {
-  const ReactNative = await vi.importActual<typeof import('react-native')>('react-native');
-  return {
-    ...ReactNative,
-    Animated: {
-      ...(ReactNative.Animated as Record<string, unknown>),
-      Value: class MockValue {
-        constructor(value: number) {
-          this.value = value;
-        }
-        value: number;
-        interpolate(config: any) {
-          return this;
-        }
-      },
-      timing: (value: any, config: any) => ({
-        start: (callback?: () => void) => {
-          if (callback) callback();
-        },
-        stop: vi.fn(),
-        reset: vi.fn(),
-      }),
-      loop: (animation: any) => ({
-        start: vi.fn(),
-        stop: vi.fn(),
-      }),
-      sequence: (animations: any) => ({
-        start: vi.fn(),
-        stop: vi.fn(),
-      }),
-      View: ReactNative.View,
-    },
-  };
-});
+// NOTE: vitest-native resolves `react-native` to a virtual module
+// (`\0virtual:react-native`). A top-level `vi.mock('react-native')` does not
+// replace that virtual surface reliably. Prefer mutating shared objects
+// (e.g. `Animated.loop = …`) inside individual tests when needed.
+// Keep this file for icons / expo-router / nativewind stubs only.
 
 // Mock react-native-svg — the native codegen doesn't work in Vitest
 vi.mock('react-native-svg', () => {
@@ -178,6 +148,12 @@ vi.mock('@/components/ui/icons', () => ({
   },
   get MicOff() {
     return makeIcon('MicOff');
+  },
+  get Square() {
+    return makeIcon('Square');
+  },
+  get AlertCircle() {
+    return makeIcon('AlertCircle');
   },
   get ChevronRight() {
     return makeIcon('ChevronRight');
