@@ -1,0 +1,43 @@
+# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-07-26T02:30:34.741Z
+repo_root=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-10
+base_head=a55b6403ffd4506ebab7c05c16d54ed7b0f7e493
+correct site=A mode=unmutated exit=0 failures=0 exit_ok=true
+single-site-A mode=assemblyRef-reset-siteA-only suite=AC-1-site-A exit=1 failures=1 exit_nonzero=true
+single-site-A KILLED (suite exit non-zero under site-A-only wipe; failures>=1)
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  20:30:35
+   Duration  337ms (transform 75ms, setup 101ms, import 44ms, tests 99ms, environment 0ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/redhat-fix-04-production-hook-reconnect.test.ts > REDHAT-FIX-04 production-hook SSE reconnect > AC-1-site-A: XHR onError reconnect without setOnline sends Last-Event-ID=3 and unique assembly
+AssertionError: expected null to be '3' // Object.is equality
+
+- Expected:
+"3"
+
++ Received:
+null
+
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:634:43
+    632|
+    633|       // Header observed on REAL site-A onError reconnect request
+    634|       expect(result.reconnectLastEventId).toBe('3');
+       |                                           ^
+    635|
+    636|       const snap = result.snapshot;
+ ❯ withSseStub tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:244:5
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:621:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+production file restored after single-site-A probe
+single-site-B mode=assemblyRef-reset-siteB-only suite=AC-1 exit=1 failures=1 exit_nonzero=true
+single-site-B KILLED (site-B AC-1 exit non-zero under site-B-only wipe)
+production file restored after single-site-B probe
+dual-site mode=assemblyRef-reset-A+B suite=AC-1-site-A exit=1 failures=1 exit_nonzero=true
+dual-site KILLED (suite exit non-zero under dual wipe)
+production file restored after dual-site probe
