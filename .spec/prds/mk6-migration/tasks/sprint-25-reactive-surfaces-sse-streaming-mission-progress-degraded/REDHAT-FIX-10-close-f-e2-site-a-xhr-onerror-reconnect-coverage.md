@@ -1,6 +1,9 @@
 # REDHAT-FIX-10 — Close F-E2 (HIGH) — single-site-A (XHR onError retry) reconnect mutant has zero coverage. Add integration test driving XHR-onError path without setOnline(false), OR document single-site-A as separate mutant in mutation-probe log
-> Status: Backlog
+> Status: ✅ Completed
 > Cycle: 1
+> Commit: 4c06c14abf9713670bf500e61090c39e4573d74d
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T03:07:51Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 45 min
@@ -294,7 +297,8 @@ PATH-A: new/extended site-A integration test exits 0 on correct code with Last-E
 - **depends_on:** REDHAT-FIX-04
 - **blocks:** —
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
