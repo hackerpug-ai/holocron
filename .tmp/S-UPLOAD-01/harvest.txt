@@ -13,11 +13,11 @@ harvest-evidence: task=S-UPLOAD-01 manifest=.tmp/S-UPLOAD-01/verify-manifest.jso
   [TC-3] PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts
   [TC-4] pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts
   [TC-5] tsgo --noEmit && biome check .
-  archived prior summary → verification-summary.prev-9cdbb162eaa2.json
+  archived prior summary → verification-summary.prev-a33244eca386.json
 
 harvest-evidence: done
   task:       S-UPLOAD-01
-  commit:     56a46aec
+  commit:     aaaff4ec
   typecheck:  exit=0
   lint:       exit=1 warnings=1
   evidence:   8 pass, 2 fail (of 10 requirements)

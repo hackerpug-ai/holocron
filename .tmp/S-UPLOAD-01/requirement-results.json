@@ -3,60 +3,90 @@
     "id": "AC-1",
     "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/ac-1-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/ac-1-output.txt",
+    "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
   },
   {
     "id": "AC-2",
     "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/ac-2-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/ac-2-output.txt",
+    "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb firstFileObjectId==secondFileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-2-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-2-green.txt"
   },
   {
     "id": "AC-3",
     "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/ac-3-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/ac-3-output.txt",
+    "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
   },
   {
     "id": "AC-4",
     "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/ac-4-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/ac-4-output.txt",
+    "seeded_value": "dimensions:800x600 testID:attach-preview uri_length_gt_0:true fixture:.tmp/S-UPLOAD-01/test-fixture.jpg",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-4-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-4-green.txt"
   },
   {
     "id": "AC-5",
     "verify": "tsgo --noEmit && biome check .",
     "exit_code": 1,
-    "output_file": ".tmp/S-UPLOAD-01/ac-5-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/ac-5-output.txt",
+    "seeded_value": "tsgo_exit:0 scoped_biome_exit:0 full_repo_biome_exit:1 (pre-existing; see pre-existing-issues.md)",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-5-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-5-green.txt"
   },
   {
     "id": "TC-1",
     "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/tc-1-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/tc-1-output.txt",
+    "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
   },
   {
     "id": "TC-2",
     "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/tc-2-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/tc-2-output.txt",
+    "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb firstFileObjectId==secondFileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-2-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-2-green.txt"
   },
   {
     "id": "TC-3",
     "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/tc-3-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/tc-3-output.txt",
+    "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
   },
   {
     "id": "TC-4",
     "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
     "exit_code": 0,
-    "output_file": ".tmp/S-UPLOAD-01/tc-4-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/tc-4-output.txt",
+    "seeded_value": "dimensions:800x600 testID:attach-preview uri_length_gt_0:true fixture:.tmp/S-UPLOAD-01/test-fixture.jpg",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-4-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-4-green.txt"
   },
   {
     "id": "TC-5",
     "verify": "tsgo --noEmit && biome check .",
     "exit_code": 1,
-    "output_file": ".tmp/S-UPLOAD-01/tc-5-output.txt"
+    "output_file": ".tmp/S-UPLOAD-01/tc-5-output.txt",
+    "seeded_value": "tsgo_exit:0 scoped_biome_exit:0 full_repo_biome_exit:1 (pre-existing; see pre-existing-issues.md)",
+    "red_against_start_file": ".tmp/S-UPLOAD-01/AC-5-red-against-start.txt",
+    "green_file": ".tmp/S-UPLOAD-01/AC-5-green.txt"
   }
 ]

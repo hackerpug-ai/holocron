@@ -1,10 +1,10 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-01
 
- ✓ tests/integration/uploads/idempotency.test.ts (2 tests) 5494ms
+ ✓ tests/integration/uploads/idempotency.test.ts (2 tests) 7952ms
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  14:25:28
-   Duration  5.96s (transform 125ms, setup 101ms, import 276ms, tests 5.49s, environment 0ms)
+   Start at  14:30:00
+   Duration  8.41s (transform 130ms, setup 102ms, import 270ms, tests 7.95s, environment 0ms)
 
