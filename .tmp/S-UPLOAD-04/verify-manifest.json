@@ -1,0 +1,56 @@
+{
+  "task_id": "S-UPLOAD-04",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": false,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": false
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test:unit"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "bun services/platform/src/cli/holo.ts verify:blob --last && bun services/platform/src/cli/holo.ts verify:blob --orphans && bun services/platform/src/cli/holo.ts verify:no-convex-client && maestro test .maestro/upload.yaml"
+    },
+    {
+      "id": "AC-2",
+      "verify": "bun services/platform/src/cli/holo.ts verify:no-convex-client && ! grep -rn 'convex/react' app components hooks lib"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/unique-constraint.test.ts"
+    },
+    {
+      "id": "AC-4",
+      "verify": "bun services/platform/src/cli/holo.ts verify:blob --orphans"
+    },
+    {
+      "id": "AC-5",
+      "verify": "biome check components/improvements components/voice hooks/use-voice-session.ts && ! grep -rEn '#[0-9A-Fa-f]{6}' components/improvements components/voice"
+    },
+    {
+      "id": "TC-1",
+      "verify": "bun services/platform/src/cli/holo.ts verify:blob --last && bun services/platform/src/cli/holo.ts verify:blob --orphans && bun services/platform/src/cli/holo.ts verify:no-convex-client && maestro test .maestro/upload.yaml"
+    },
+    {
+      "id": "TC-2",
+      "verify": "bun services/platform/src/cli/holo.ts verify:no-convex-client && ! grep -rn 'convex/react' app components hooks lib"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/unique-constraint.test.ts"
+    },
+    {
+      "id": "TC-4",
+      "verify": "bun services/platform/src/cli/holo.ts verify:blob --orphans"
+    },
+    {
+      "id": "TC-5",
+      "verify": "biome check components/improvements components/voice hooks/use-voice-session.ts && ! grep -rEn '#[0-9A-Fa-f]{6}' components/improvements components/voice"
+    }
+  ]
+}

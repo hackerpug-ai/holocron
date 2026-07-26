@@ -1,0 +1,85 @@
+components/voice/VoiceCaptions.tsx:55:      testID="voice-captions-container"
+components/improvements/ImprovementRequestCard.tsx:73:      testID={testID ?? 'improvement-request-card'}
+components/improvements/ImprovementRequestCard.tsx:93:                  testID={`${testID ?? 'improvement-request-card'}-menu-button`}
+components/improvements/ImprovementRequestCard.tsx:108:            testID="improvement-request-card-title"
+components/improvements/ImprovementRequestCard.tsx:118:            testID="improvement-request-card-description"
+components/voice/VoiceTranscriptFeed.tsx:90:        testID={`voice-assistant-transcript-entry-${entry.id}`}
+components/voice/VoiceTranscriptFeed.tsx:202:      testID={testID}
+components/improvements/ImprovementCardWithActions.tsx:21:  return <ImprovementRequestCard {...cardProps} onMenuPress={onMenuPress} testID={testID} />;
+components/voice/VoiceAssistantOverlay.tsx:215:    <Modal visible transparent animationType="none" statusBarTranslucent testID={testID}>
+components/voice/VoiceAssistantOverlay.tsx:264:                      testID="voice-assistant-status-label"
+components/voice/VoiceAssistantOverlay.tsx:274:                      testID="voice-assistant-error-message"
+components/voice/VoiceAssistantOverlay.tsx:283:                  testID="voice-assistant-header-dismiss"
+components/voice/VoiceAssistantOverlay.tsx:303:                testID="voice-assistant-tool-activity-pill"
+components/voice/VoiceAssistantOverlay.tsx:313:                  testID="voice-assistant-agent-orb"
+components/voice/VoiceAssistantOverlay.tsx:337:                    testID="voice-assistant-control-bar"
+components/voice/VoiceAssistantOverlay.tsx:344:                    testID="voice-assistant-retry-button"
+components/improvements/ImprovementLongPressWrapper.tsx:111:    <View testID={testID ?? 'improvement-long-press-wrapper'}>
+components/improvements/ImprovementSubmitSheet.tsx:291:      testID={testID}
+components/improvements/ImprovementSubmitSheet.tsx:295:        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={styles.flex}>
+components/improvements/ImprovementSubmitSheet.tsx:330:                  testID={`${testID}-close`}
+components/improvements/ImprovementSubmitSheet.tsx:343:                testID={`${testID}-scroll`}
+components/improvements/ImprovementSubmitSheet.tsx:348:                    testID="attach-button"
+components/improvements/ImprovementSubmitSheet.tsx:379:                    <View testID="text-submit-success" className="mb-3">
+components/improvements/ImprovementSubmitSheet.tsx:392:                      testID={`${testID}-description-input`}
+components/improvements/ImprovementSubmitSheet.tsx:411:                testID={`${testID}-footer`}
+components/improvements/ImprovementSubmitSheet.tsx:415:                    testID={`${testID}-cancel-button`}
+components/improvements/ImprovementSubmitSheet.tsx:425:                    testID={`${testID}-submit-button`}
+components/improvements/ImprovementSubmitSheet.tsx:446:                      testID="upload-done"
+components/voice/VoiceControlBar.tsx:141:      testID={testID}
+components/voice/VoiceControlBar.tsx:179:      testID={testID}
+components/voice/VoiceControlBar.tsx:196:          testID="voice-assistant-control-mute"
+components/voice/VoiceControlBar.tsx:206:        testID="voice-assistant-control-stop"
+components/improvements/ImprovementEditSheet.tsx:144:      testID={testID}
+components/improvements/ImprovementEditSheet.tsx:148:        <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={styles.flex}>
+components/improvements/ImprovementEditSheet.tsx:181:                  testID={`${testID}-close`}
+components/improvements/ImprovementEditSheet.tsx:193:                testID={`${testID}-scroll`}
+components/improvements/ImprovementEditSheet.tsx:203:                      testID={`${testID}-title-input`}
+components/improvements/ImprovementEditSheet.tsx:222:                      testID={`${testID}-description-input`}
+components/improvements/ImprovementEditSheet.tsx:237:                    testID={`${testID}-cancel-button`}
+components/improvements/ImprovementEditSheet.tsx:247:                    testID={`${testID}-save-button`}
+components/improvements/ImprovementCardSkeleton.tsx:7:    <View className="w-full" testID="improvement-card-skeleton">
+components/voice/VoiceSessionOverlay.tsx:60:    <View style={styles.indicatorContainer} testID="voice-overlay-connecting-indicator">
+components/voice/VoiceSessionOverlay.tsx:96:    <View style={styles.indicatorContainer} testID="voice-overlay-listening-indicator">
+components/voice/VoiceSessionOverlay.tsx:157:    <View style={styles.indicatorContainer} testID="voice-overlay-speaking-indicator">
+components/voice/VoiceSessionOverlay.tsx:185:    <View style={styles.indicatorContainer} testID="voice-overlay-processing-indicator">
+components/voice/VoiceSessionOverlay.tsx:229:    <View style={styles.indicatorContainer} testID="voice-overlay-error-indicator">
+components/voice/VoiceSessionOverlay.tsx:244:          testID="voice-overlay-settings-guidance"
+components/voice/VoiceSessionOverlay.tsx:251:          testID="voice-overlay-open-settings-button"
+components/voice/VoiceSessionOverlay.tsx:273:            testID="voice-overlay-retry-button"
+components/voice/VoiceSessionOverlay.tsx:324:      testID={testID}
+components/improvements/ImprovementActionMenu.tsx:157:        testID={testID}
+components/improvements/ImprovementActionMenu.tsx:161:          <Pressable onPress={dismiss} testID={`${testID}-backdrop`} style={styles.flex}>
+components/improvements/ImprovementActionMenu.tsx:184:                  testID={`${testID}-edit-button`}
+components/improvements/ImprovementActionMenu.tsx:195:                  testID={`${testID}-delete-button`}
+components/improvements/ImprovementActionMenu.tsx:221:              testID={`${testID}-cancel-delete`}
+components/improvements/ImprovementActionMenu.tsx:228:              testID={`${testID}-confirm-delete`}
+components/voice/VoiceSessionOverlay.stories.tsx:152:          testID={`voice-overlay-${label.toLowerCase()}`}
+components/improvements/ImageUploadStatus.tsx:52:      <View testID="upload-progress" style={styles.statusRow}>
+components/improvements/ImageUploadStatus.tsx:67:      <View testID="upload-success" style={styles.statusRow}>
+components/improvements/ImageUploadStatus.tsx:70:          testID="zero-file-object"
+components/improvements/ImageUploadStatus.tsx:87:      <View testID="upload-error" style={styles.errorBox}>
+components/improvements/ImageUploadStatus.tsx:91:            testID="upload-retry"
+components/voice/VoiceToolActivityPill.tsx:42:      testID={testID}
+components/voice/VoiceToolActivityPill.tsx:57:        testID={`${testID}-spinner`}
+components/voice/VoiceToolActivityPill.tsx:63:          testID={`${testID}-label`}
+components/improvements/ImprovementDetailView.tsx:136:      testID={testID}
+components/improvements/ImprovementDetailView.tsx:147:        <View className="bg-muted px-2 py-1 rounded-md" testID={`${testID}-source-badge`}>
+components/improvements/ImprovementDetailView.tsx:194:            testID={`${testID}-screenshots`}
+components/improvements/ImprovementDetailView.tsx:204:                    testID={`${testID}-screenshot-${index}`}
+components/improvements/ImprovementDetailView.tsx:210:                    testID={`${testID}-screenshot-placeholder-${index}`}
+components/improvements/ImprovementDetailView.tsx:249:                      testID={`${testID}-closure-evidence-${i}`}
+components/improvements/ImprovementDetailView.tsx:299:          testID={`${testID}-toggle-status-button`}
+components/voice/VoiceMicButton.tsx:110:      testID="voice-mic-button"
+components/voice/VoiceMicButton.tsx:136:            testID="voice-mic-warm-indicator"
+components/improvements/ImprovementPreviewThumbnail.tsx:25:    return <View testID="attach-prompt-empty" />;
+components/improvements/ImprovementPreviewThumbnail.tsx:36:      testID={`${testID}-frame`}
+components/improvements/ImprovementPreviewThumbnail.tsx:42:        testID={testID}
+components/voice/VoiceAgentOrb.tsx:261:      testID={testID}
+components/voice/VoiceAgentOrb.tsx:272:        testID={`${testID}-pulse-ring`}
+components/voice/VoiceAgentOrb.tsx:287:        testID={`${testID}-glow-ring`}
+components/voice/VoiceAgentOrb.tsx:302:        testID={`${testID}-core`}
+components/improvements/ImprovementProcessingIndicator.tsx:65:        testID={testID}
+components/voice/VoiceControlBar.stories.tsx:87:          testID="control-bar-active"
+components/voice/VoiceControlBar.stories.tsx:96:          testID="control-bar-muted"
+components/voice/VoiceAgentOrb.stories.tsx:145:          <VoiceAgentOrb status={status} size={100} testID={`voice-orb-${label.toLowerCase()}`} />

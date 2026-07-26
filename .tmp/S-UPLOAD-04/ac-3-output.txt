@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-04
+
+ ✓ tests/integration/uploads/unique-constraint.test.ts (3 tests) 5744ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  17:04:30
+   Duration  6.21s (transform 137ms, setup 106ms, import 269ms, tests 5.74s, environment 0ms)
+

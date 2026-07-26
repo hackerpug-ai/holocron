@@ -1,0 +1,13 @@
+{
+  "artifact_type": "db_query",
+  "start_ref": "seeded_fixture_jpg",
+  "content_hash": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
+  "firstFileObjectId": "00000000-0000-7be0-bbed-9f221dec86c4",
+  "attemptedDuplicateId": "e478041b-7408-4fd4-bcaf-e07e6ddd194f",
+  "rejected": true,
+  "pgCode": "23505",
+  "pgConstraint": "file_objects_content_hash_uidx",
+  "errorMessage": "duplicate key value violates unique constraint \"file_objects_content_hash_uidx\"",
+  "file_objects_rows": 1,
+  "evidence_dir": ".tmp/S-UPLOAD-04"
+}
