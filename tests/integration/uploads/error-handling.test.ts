@@ -6,7 +6,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react-native';
+import { createElement } from 'react';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   configureClientEnv,
   countFileObjects,
@@ -18,13 +20,42 @@ import {
   type LiveService,
   openSql,
   PLATFORM_IT,
-  REPO_ROOT,
   requireService,
   type Sql,
   seedClearedFileObjects,
   startUploadService,
   writeArtifact,
 } from './_helpers';
+
+vi.mock('@/hooks/use-theme', () => ({
+  useTheme: () => ({
+    colors: {
+      card: '#111',
+      border: '#333',
+      input: '#222',
+      foreground: '#fff',
+      mutedForeground: '#999',
+      primary: '#4af',
+      primaryForeground: '#000',
+      success: '#0f0',
+      destructive: '#f44',
+    },
+    typography: { bodySmall: { fontSize: 14 } },
+    spacing: { sm: 8, md: 16, lg: 24 },
+    radius: {},
+    brandColors: {},
+    isDark: true,
+  }),
+}));
+
+vi.mock('@/components/ui/text', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    Text: ({ children, ...props }: { children?: React.ReactNode }) =>
+      React.createElement(Text, props, children),
+  };
+});
 
 describe('S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows', () => {
   let service: LiveService | undefined;
@@ -126,29 +157,64 @@ describe('S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows', () =>
       // Retry affordance is a reduce transition back toward upload.
       const canRetry = state.phase === 'error' && state.imageUri != null;
       expect(canRetry).toBe(true);
-      state = reduceImageUpload(state, { type: 'retry' });
-      expect(state.phase).toBe('uploading');
+      const retryState = reduceImageUpload(state, { type: 'retry' });
+      expect(retryState.phase).toBe('uploading');
 
       const total = await countFileObjects(db);
       expect(total, 'file_objects rows: 0 (no orphan)').toBe(0);
 
-      // Sheet source must expose upload-error + upload-retry testIDs (visible rejection).
+      // ── Mounted status UI (used by ImprovementSubmitSheet) — real testIDs ──
+      // Full Modal+gesture sheet OOMs under vitest; ImageUploadStatus is the
+      // sheet's error surface with the same upload-error / upload-retry testIDs.
+      const { ImageUploadStatus } = await import(
+        '../../../components/improvements/ImageUploadStatus'
+      );
+      // Prove sheet still wires ImageUploadStatus (not a disconnected orphan UI).
       const sheetSrc = readFileSync(
-        resolve(REPO_ROOT, 'components/improvements/ImprovementSubmitSheet.tsx'),
+        resolve(process.cwd(), 'components/improvements/ImprovementSubmitSheet.tsx'),
         'utf8'
       );
-      expect(sheetSrc).toContain('testID="upload-error"');
-      expect(sheetSrc).toContain('testID="upload-retry"');
-      expect(sheetSrc).toContain('testID="upload-progress"');
-      expect(sheetSrc).toContain('testID="upload-success"');
+      expect(sheetSrc).toMatch(/ImageUploadStatus/);
+      expect(sheetSrc).toMatch(/from ['"]@\/components\/improvements\/ImageUploadStatus['"]/);
+
+      render(
+        createElement(ImageUploadStatus, {
+          phase: 'error',
+          error: finalizeMessage || state.error,
+          canRetry: true,
+          onRetry: () => {},
+        })
+      );
+
+      const errorNode = screen.getByTestId('upload-error');
+      const retryNode = screen.getByTestId('upload-retry');
+      expect(errorNode).toBeTruthy();
+      expect(retryNode).toBeTruthy();
+      expect(screen.queryByTestId('upload-success')).toBeNull();
+      expect(screen.queryByTestId('upload-progress')).toBeNull();
+      // Error message from real finalize failure is visible in the tree.
+      expect(screen.getByText(finalizeMessage || state.error || '')).toBeTruthy();
+
+      const mountedDump = {
+        component: 'ImageUploadStatus',
+        wired_by: 'ImprovementSubmitSheet',
+        testIDs: {
+          'upload-error': true,
+          'upload-retry': true,
+          'upload-success': false,
+          'upload-progress': false,
+        },
+        errorText: finalizeMessage || state.error,
+        phase: 'error',
+        retry_affordance: 1,
+      };
+      writeArtifact('AC-3-mounted-testids.json', mountedDump);
 
       // uploadImprovementImage must not swallow errors (anti-stub).
       await expect(
         uploadImprovementImage({
           targetId: E2E_IMPROVEMENT_OPEN_ID,
           idempotencyKey: `s-upload-01-err-abort-${Date.now()}`,
-          // Empty blob with nonsense length is still a real call; prefer wrong hash path via
-          // a zero-length body that init accepts then put/finalize rejects.
           blob: new Blob([], { type: 'image/jpeg' }),
           mimeType: 'image/jpeg',
           originalName: 'empty.jpg',
@@ -160,7 +226,7 @@ describe('S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows', () =>
 
       writeArtifact('AC-3-seeded-artifact.json', {
         artifact_type: 'screenshot',
-        note: 'state-machine + testID contract stands in for Maestro screenshot when Metro is unavailable',
+        note: 'mounted ImageUploadStatus (sheet error surface) testID dump — upload-error + upload-retry visible',
         phase: 'error',
         retry_affordance: 1,
         file_objects_rows: total,
@@ -169,6 +235,7 @@ describe('S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows', () =>
         wrong_bytes_sha: await sha256HexOfBytes(wrongBytes),
         declared_hash: fixtureHash,
         baseUrl: svc.baseUrl,
+        mounted: mountedDump,
       });
       writeArtifact(
         'AC-3-error-state.txt',
@@ -177,6 +244,7 @@ describe('S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows', () =>
           'retry control: 1',
           `file_objects rows: ${total}`,
           `finalize message: ${finalizeMessage}`,
+          'mounted testIDs: upload-error=true upload-retry=true',
         ].join('\n')
       );
     },

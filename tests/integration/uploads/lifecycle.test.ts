@@ -120,12 +120,43 @@ describe('S-UPLOAD-01 AC-1: image upload lifecycle (content-addressed)', () => {
       expect(result.fileObjectId).toMatch(/^[0-9a-f-]{36}$/i);
       expect(result.blobId).toBe(fixtureHash);
 
-      // "Zero-synced" surface: CAS row is durable in Postgres zero_pub member file_objects.
-      // Client query helper must export a content-hash lookup for reconciliation.
+      // Real Zero builder query (must fail if a POJO descriptor stub is returned).
+      const { schema } = await import('../../../app/zero/schema');
+      expect(
+        Object.keys(schema.tables),
+        'file_objects must be registered on client Zero schema'
+      ).toContain('file_objects');
+
       const { fileObjectsByContentHash } = await import('../../../app/zero/queries');
       expect(typeof fileObjectsByContentHash).toBe('function');
       const query = fileObjectsByContentHash(fixtureHash);
-      expect(query).toBeTruthy();
+
+      // Anti-stub: real createBuilder queries expose AST + hash/run, never _queryKind POJOs.
+      const q = query as {
+        ast?: {
+          table?: string;
+          where?: { left?: { name?: string }; right?: { value?: unknown }; op?: string };
+        };
+        hash?: () => string;
+        format?: { singular?: boolean };
+        _queryKind?: string;
+        table?: string;
+        contentHash?: string;
+      };
+      expect(q._queryKind, 'must not be a POJO descriptor stub').toBeUndefined();
+      expect(q.ast, 'builder query must expose AST').toBeTruthy();
+      expect(q.ast?.table).toBe('file_objects');
+      expect(q.ast?.where?.left?.name).toBe('content_hash');
+      expect(String(q.ast?.where?.right?.value).toLowerCase()).toBe(fixtureHash.toLowerCase());
+      expect(q.format?.singular).toBe(true);
+      expect(typeof q.hash).toBe('function');
+      expect(q.hash?.().length, 'query hash must be non-empty').toBeGreaterThan(0);
+
+      // Prove the query filter matches the durable Postgres CAS row (schema-backed, not typeof-only).
+      expect(rows[0]?.content_hash.toLowerCase()).toBe(
+        String(q.ast?.where?.right?.value).toLowerCase()
+      );
+      expect(rows[0]?.id).toBe(result.fileObjectId);
 
       writeArtifact('AC-1-seeded-artifact.json', {
         artifact_type: 'db_query',
@@ -137,6 +168,13 @@ describe('S-UPLOAD-01 AC-1: image upload lifecycle (content-addressed)', () => {
         blobId: result.blobId,
         uploadId: result.uploadId,
         phase: state.phase,
+        zero_query: {
+          table: q.ast?.table,
+          content_hash_filter: q.ast?.where?.right?.value,
+          singular: q.format?.singular,
+          query_hash: q.hash?.(),
+          schema_has_file_objects: true,
+        },
       });
     },
     240_000

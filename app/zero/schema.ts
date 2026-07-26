@@ -402,6 +402,25 @@ const notifications = table('notifications')
   })
   .primaryKey('id');
 
+/**
+ * S-UPLOAD-01 — content-addressed file_objects (Postgres media.file_objects).
+ * CAS lookup by content_hash (unique index file_objects_content_hash_uidx).
+ * Column names mirror services/platform/src/db/schema/media.ts.
+ */
+const fileObjects = table('file_objects')
+  .columns({
+    id: string(),
+    legacy_convex_id: string().optional(),
+    content_hash: string(),
+    mime_type: string().optional(),
+    byte_size: number().optional(),
+    storage_path: string().optional(),
+    original_name: string().optional(),
+    metadata_json: json().optional(),
+    created_at: number(),
+  })
+  .primaryKey('id');
+
 export const schema = createSchema({
   tables: [
     conversations,
@@ -422,6 +441,7 @@ export const schema = createSchema({
     improvementRequests,
     assimilationSessions,
     notifications,
+    fileObjects,
   ],
   // S-COLDBOOT-02: builder-chain queries evaluate server-side without ZERO_QUERY_URL.
   enableLegacyQueries: true,

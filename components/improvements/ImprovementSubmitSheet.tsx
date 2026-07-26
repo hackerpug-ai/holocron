@@ -34,10 +34,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createImprovement } from '@/app/zero/improvements';
+import { ImageUploadStatus } from '@/components/improvements/ImageUploadStatus';
 import { ImprovementPreviewThumbnail } from '@/components/improvements/ImprovementPreviewThumbnail';
 import { X } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
+import { useFileObjectByContentHash } from '@/hooks/use-file-object-by-content-hash';
 import {
+  type ImageUploadMachineState,
   type ImageUploadPhase,
   initialImageUploadState,
   reduceImageUpload,
@@ -58,6 +61,11 @@ export interface ImprovementSubmitSheetProps {
   screenshotUri?: string | null;
   sourceComponent?: string;
   testID?: string;
+  /**
+   * Optional seed for the image-upload state machine (tests / long-press pre-attach).
+   * When provided on open, takes precedence over screenshotUri-only preview seed.
+   */
+  imageUploadSeed?: Partial<ImageUploadMachineState>;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -68,6 +76,7 @@ export function ImprovementSubmitSheet({
   screenshotUri,
   sourceComponent,
   testID = 'improvement-submit-sheet',
+  imageUploadSeed,
 }: ImprovementSubmitSheetProps) {
   const insets = useSafeAreaInsets();
   const { colors, typography, spacing } = useTheme();
@@ -83,7 +92,7 @@ export function ImprovementSubmitSheet({
   /** ONE image upload state machine (idle → preview → uploading → success|error). */
   const [imageUpload, setImageUpload] = useState(() =>
     initialImageUploadState(
-      screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined
+      imageUploadSeed ?? (screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined)
     )
   );
   const submittedRequestIdRef = useRef<string | null>(null);
@@ -93,6 +102,12 @@ export function ImprovementSubmitSheet({
   const imageState: ImageUploadPhase = imageUpload.phase;
   const imageError = imageUpload.error;
   const imageDimensions = imageUpload.dimensions;
+  const finalizedContentHash = imageUpload.result?.contentHash ?? null;
+
+  // Post-finalize Zero observation — content_hash CAS row via builder query.
+  const { row: zeroFileObject } = useFileObjectByContentHash(
+    imageState === 'success' ? finalizedContentHash : null
+  );
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
@@ -102,7 +117,8 @@ export function ImprovementSubmitSheet({
       setIsSubmitting(false);
       setImageUpload(
         initialImageUploadState(
-          screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined
+          imageUploadSeed ??
+            (screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined)
         )
       );
       submittedRequestIdRef.current = null;
@@ -113,10 +129,12 @@ export function ImprovementSubmitSheet({
       translateY.value = withTiming(600, TIMING_OUT);
       backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [screenshotUri, visible, backdropOpacity, translateY]);
+  }, [screenshotUri, imageUploadSeed, visible, backdropOpacity, translateY]);
 
   useEffect(() => {
-    if (!imageUri) return;
+    // Do not re-attach during upload/error/success — attach would clobber those phases.
+    if (!imageUri || imageDimensions) return;
+    if (imageState === 'uploading' || imageState === 'error' || imageState === 'success') return;
     Image.getSize(
       imageUri,
       (width, height) =>
@@ -127,7 +145,7 @@ export function ImprovementSubmitSheet({
         /* keep preview without dimensions if getSize fails */
       }
     );
-  }, [imageUri]);
+  }, [imageUri, imageDimensions, imageState]);
 
   // ── Animated styles ───────────────────────────────────────────────────────
   const sheetStyle = useAnimatedStyle(() => ({
@@ -333,34 +351,14 @@ export function ImprovementSubmitSheet({
                     />
                   ) : null}
 
-                  {imageState === 'uploading' ? (
-                    <View testID="upload-progress" style={styles.statusRow}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                      <Text className="text-muted-foreground text-sm">Uploading image…</Text>
-                    </View>
-                  ) : null}
-
-                  {imageState === 'success' ? (
-                    <View testID="upload-success" style={styles.statusRow}>
-                      <Text className="text-success text-sm font-semibold">Upload complete</Text>
-                    </View>
-                  ) : null}
-
-                  {imageState === 'error' && imageError ? (
-                    <View testID="upload-error" style={styles.errorBox}>
-                      <Text className="text-destructive text-sm">{imageError}</Text>
-                      {imageUri ? (
-                        <Pressable
-                          testID="upload-retry"
-                          onPress={handleSubmit}
-                          accessibilityRole="button"
-                          accessibilityLabel="Retry image upload"
-                        >
-                          <Text className="text-primary text-sm font-semibold">Retry</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ) : null}
+                  <ImageUploadStatus
+                    phase={imageState}
+                    error={imageError}
+                    canRetry={Boolean(imageUri)}
+                    onRetry={handleSubmit}
+                    zeroContentHash={finalizedContentHash}
+                    zeroSynced={Boolean(zeroFileObject?.content_hash)}
+                  />
 
                   {/* Description input */}
                   <View
@@ -487,16 +485,6 @@ const useStyles = (
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: 24,
-    },
-    statusRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 8,
-      marginBottom: 12,
-    },
-    errorBox: {
-      gap: 8,
-      marginBottom: 12,
     },
     textInput: {
       fontSize: typography.bodySmall.fontSize,

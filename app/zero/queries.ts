@@ -188,25 +188,20 @@ export const notificationsUnread = (limit = 10) =>
 export const notificationsRecent = (limit = 20) =>
   builder.notifications.orderBy('created_at', 'desc').limit(limit);
 
-// ── S-UPLOAD-01: content-addressed file_objects (zero_pub) ───────────────────
+// ── S-UPLOAD-01: content-addressed file_objects ──────────────────────────────
 
 /**
  * fileObjectsByContentHash — CAP-SYNC-01 CAS lookup by SHA-256 content_hash.
  *
- * file_objects is a zero_pub member (services/platform/src/db/schema/zero-pub.ts).
- * Client schema registration of the table lands with the Zero surface expansion;
- * this helper is the stable query shape the improvements upload client uses for
- * post-finalize reconciliation (content_hash unique index).
+ * Real Zero builder query (not a POJO descriptor stub). Callers pass the result
+ * to `useQuery` for post-finalize reconciliation after upload-init → PUT → finalize.
+ * content_hash has a unique index (file_objects_content_hash_uidx).
  */
-export function fileObjectsByContentHash(contentHash: string) {
+export const fileObjectsByContentHash = (contentHash: string) => {
   if (!/^[0-9a-f]{64}$/i.test(contentHash)) {
     throw new Error('contentHash must be a 64-char hex SHA-256 digest');
   }
-  return {
-    table: 'file_objects' as const,
-    contentHash: contentHash.toLowerCase(),
-    _queryKind: 'file_objects_by_content_hash' as const,
-  };
-}
+  return builder.file_objects.where('content_hash', contentHash.toLowerCase()).one();
+};
 
 export { builder as zeroBuilder };
