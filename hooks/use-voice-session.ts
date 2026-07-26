@@ -145,10 +145,8 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     async ({ sessionId, blob }: { sessionId: string; blob: Blob }) => {
       // Prefer declared MediaRecorder type; fall back to audio/mpeg so
       // content-addressed finalize can magic-detect ID3/MPEG frames.
-      const mimeType =
-        blob.type && blob.type.startsWith('audio/') ? blob.type : 'audio/mpeg';
-      const originalName =
-        mimeType === 'audio/webm' ? 'voice-artifact.webm' : 'voice-artifact.mp3';
+      const mimeType = blob.type?.startsWith('audio/') ? blob.type : 'audio/mpeg';
+      const originalName = mimeType === 'audio/webm' ? 'voice-artifact.webm' : 'voice-artifact.mp3';
       await uploadBlobThroughLifecycle({
         kind: 'voice_artifact',
         targetId: sessionId,

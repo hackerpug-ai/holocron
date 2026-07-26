@@ -38,8 +38,10 @@ vi.stubGlobal('MediaRecorder', MockMediaRecorder);
 
 import { createAudioRecorder } from '@/lib/voice/audio-recorder';
 
-function lastRecorder() {
-  return recorderInstances[recorderInstances.length - 1]!;
+function lastRecorder(): MockRecorderInstance {
+  const instance = recorderInstances[recorderInstances.length - 1];
+  if (!instance) throw new Error('no MediaRecorder instance');
+  return instance;
 }
 
 describe('createAudioRecorder', () => {
