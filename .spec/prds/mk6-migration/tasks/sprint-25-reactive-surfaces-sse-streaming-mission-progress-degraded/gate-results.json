@@ -1,10 +1,10 @@
 {
   "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
-  "run_id": "s25-ht-20260725T234444Z",
+  "run_id": "s25-ht-20260726T043533Z",
   "verdict": "pass",
   "runner": "kb-run-sprint-human-test",
   "ui_driver": "maestro",
-  "written_at": "2026-07-25T23:44:44Z",
+  "written_at": "2026-07-26T04:35:33Z",
   "steps_total": 5,
   "steps_executed": 5,
   "steps_passed": 5,
@@ -60,5 +60,5 @@
       "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
     }
   ],
-  "notes": "REDHAT-FIX-08: cold-checkout ./bin/holo seed:e2e --reset (PATH holo is a verify:no-convex-client stub). Full 5-step human gate on HEAD: Streaming seed (conversations:5); reconnect numeric oracles + single bubble; research 1/5\u21922/5\u21923/5; MCP p95; degraded ROLE_UNAVAILABLE + Local fleet unavailable banner."
+  "notes": "GATE-FIX-01: restore chat-assistant-message-latest after stream+airplane. Client fix: empty-preview no longer steals latest; reconcile merges overlay into empty durable; hydrate finalText after complete; fail-safe latest oracle. Fresh 5/5 human gate on worktree HEAD."
 }

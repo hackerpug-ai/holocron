@@ -153,3 +153,4 @@ Assert that id: chat-assistant-message-streaming is not visible... COMPLETED
 Assert that "Streaming" is visible... COMPLETED
 Assert that "Streaming" is visible... COMPLETED
 Take screenshot S-REACTIVE-01-AC-2-reconnect-exactly-once... COMPLETED
+EXIT:0

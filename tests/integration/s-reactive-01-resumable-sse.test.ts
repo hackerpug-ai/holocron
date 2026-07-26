@@ -274,5 +274,76 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       expect(done.filter((m: { role: string }) => m.role === 'agent')).toHaveLength(1);
       expect(done.filter((m: { id: string }) => m.id === durableId)).toHaveLength(1);
     });
+
+    it('GATE-FIX-01: empty durable placeholder merges overlay content (no second bubble)', async () => {
+      const mod = await import('../../hooks/use-resumable-sse-stream');
+      const durableId = 'durable-empty-1';
+      const durable = [
+        {
+          id: 'seed-agent',
+          role: 'agent' as const,
+          content: 'Assistant seed reply for Streaming',
+          createdAt: new Date(1),
+        },
+        {
+          id: durableId,
+          role: 'agent' as const,
+          content: '',
+          createdAt: new Date(2),
+        },
+      ];
+      const merged = mod.reconcileThreadMessages(durable, {
+        durableMessageId: durableId,
+        content: 'Streaming reply about five. One two three four five.',
+        phase: 'complete',
+      });
+      const agents = merged.filter((m: { role: string }) => m.role === 'agent');
+      expect(agents).toHaveLength(2);
+      expect(merged.filter((m: { id: string }) => m.id === durableId)).toHaveLength(1);
+      expect(merged.find((m: { id: string }) => m.id === durableId)?.content).toContain(
+        'Streaming reply'
+      );
+    });
+
+    it('GATE-FIX-01: empty terminal overlay is not injected (no invisible latest steal)', async () => {
+      const mod = await import('../../hooks/use-resumable-sse-stream');
+      const durable = [
+        {
+          id: 'seed-agent',
+          role: 'agent' as const,
+          content: 'Assistant seed reply for Streaming',
+          createdAt: new Date(1),
+        },
+      ];
+      const out = mod.reconcileThreadMessages(durable, {
+        durableMessageId: 'turn-empty',
+        content: '',
+        phase: 'complete',
+      });
+      expect(out.filter((m: { role: string }) => m.role === 'agent')).toHaveLength(1);
+      expect(out.find((m: { id: string }) => m.id === 'turn-empty')).toBeUndefined();
+    });
+
+    it('GATE-FIX-01: selectLatestAgentMessage ignores empty previews', async () => {
+      const { selectLatestAgentMessage } = await import(
+        '../../components/chat/select-latest-agent'
+      );
+      const latest = selectLatestAgentMessage([
+        {
+          id: 'seed',
+          role: 'agent',
+          content: 'Assistant seed reply for Streaming',
+          createdAt: new Date(1),
+        },
+        {
+          id: 'empty-preview',
+          role: 'agent',
+          content: '',
+          createdAt: new Date(99),
+        },
+      ]);
+      expect(latest?.id).toBe('seed');
+      expect(latest?.content).toContain('seed reply');
+    });
   });
 });

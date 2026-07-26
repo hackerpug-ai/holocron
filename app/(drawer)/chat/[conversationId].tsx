@@ -144,13 +144,59 @@ export default function ChatScreen() {
     }
   }, [conversationId, isNewConversation, streamPhase, connectStream]);
 
+  // GATE-FIX-01: when SSE/poll left phase=complete with empty assembled text
+  // (missed tokens mid-airplane), hydrate finalText from GET /api/chat-runs/:id
+  // into local state so overlay + latest oracle still paint the durable answer.
+  const [hydratedFinalText, setHydratedFinalText] = useState('');
+  useEffect(() => {
+    if (streamPhase === 'idle' || streamPhase === 'degraded') {
+      setHydratedFinalText('');
+      return;
+    }
+    if (
+      streamPhase !== 'complete' &&
+      streamPhase !== 'cancelled' &&
+      streamPhase !== 'reconnecting'
+    ) {
+      return;
+    }
+    if (streamedText.trim().length > 0 || !streamRunId || !platformUrl || !rnApiKey) {
+      return;
+    }
+    let cancelled = false;
+    const hydrate = async () => {
+      try {
+        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${streamRunId}`, {
+          headers: { Authorization: `Bearer ${rnApiKey}` },
+        });
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { finalText?: string };
+        if (!cancelled && typeof body.finalText === 'string' && body.finalText.trim().length > 0) {
+          setHydratedFinalText(body.finalText);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    void hydrate();
+    const t = setInterval(() => {
+      void hydrate();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [streamPhase, streamRunId, streamedText, platformUrl, rnApiKey]);
+
+  const effectiveStreamedText = streamedText.trim().length > 0 ? streamedText : hydratedFinalText;
+
   // Degraded owns a banner, not a stream preview bubble.
   const streamOverlay =
     streamPhase !== 'idle' && streamPhase !== 'degraded'
       ? {
           durableMessageId:
             durableMessageId ?? (streamRunId ? `stream-preview-${streamRunId}` : null),
-          content: streamedText,
+          content: effectiveStreamedText,
           phase: streamPhase,
         }
       : null;
@@ -628,6 +674,8 @@ export default function ChatScreen() {
               void softDeleteMessage(messageId);
             }}
             streamingMessageId={streamingMessageId}
+            preferredLatestAgentId={durableMessageId}
+            streamedText={effectiveStreamedText}
             streamPhase={streamPhase}
             streamLastSeq={streamLastSeq}
             streamTokenCount={streamTokenCount}

@@ -1,5 +1,76 @@
-[run-degraded-no-hang] REDHAT-FIX-08: primary-checkout fleet-only platform restart (worktree lacks node_modules)
-[run-degraded-no-hang] envelope probe ok runId=3ed5845e-25f3-4790-ab56-197a74f1d728
+[run-degraded-no-hang] seed:e2e --reset
+{
+  "ok": true,
+  "database": "holocron_nonprod",
+  "seed_fingerprint": "a26f1d28ecdab3cd4869b147cf939678",
+  "conversations": 5,
+  "messages": 8,
+  "documents": 17,
+  "categories": 17,
+  "feed_items": 5,
+  "subscription_sources": 4,
+  "subscription_content": 4,
+  "research_sessions": 3,
+  "research_iterations": 5,
+  "assimilation_sessions": 3,
+  "whats_new_reports": 1,
+  "reset": true,
+  "log": [
+    "database holocron_nonprod already exists",
+    "current_user: inference1",
+    "role_mode: owner/admin",
+    "extension vector: ok",
+    "skip (already applied): 0000_groovy_stellaris.sql",
+    "skip (already applied): 0001_schema3_indexes_search_vector.sql",
+    "skip (already applied): 0002_zero_pub.sql",
+    "skip (already applied): 0003_evidence_one_open_belief.sql",
+    "skip (already applied): 0004_beliefs_immutability_revise.sql",
+    "skip (already applied): 0005_belief_asof_net_support.sql",
+    "skip (already applied): 0006_beliefs_insert_authenticity.sql",
+    "skip (already applied): 0007_app_role_seed_operability_grants.sql",
+    "skip (already applied): 0008_budget_ledger.sql",
+    "skip (already applied): 0009_budget_ledger_allow_escape.sql",
+    "skip (already applied): 0010_queue_leased.sql",
+    "skip (already applied): 0011_outbox_inbox.sql",
+    "skip (already applied): 0012_job_runs.sql",
+    "skip (already applied): 0013_inference_telemetry.sql",
+    "skip (already applied): 0014_evals.sql",
+    "skip (already applied): 0015_sprint14_etl_uploads.sql",
+    "skip (already applied): 0016_sprint14_etl_uploads_hardening.sql",
+    "skip (already applied): 0017_mission_contracts.sql",
+    "skip (already applied): 0018_mission_run_status_suspended.sql",
+    "skip (already applied): 0019_mission_http_control_auth_idempotency.sql",
+    "skip (already applied): 0020_public_article_assets.sql",
+    "skip (already applied): 0021_chat_runs_sse.sql",
+    "skip (already applied): 0022_assimilation_manifest_statuses.sql",
+    "skip (already applied): 0023_mission_evidence_research.sql",
+    "skip (already applied): 0024_mission_pipeline_publish.sql",
+    "skip (already applied): 0025_deterministic_human_gate.sql",
+    "skip (already applied): 0026_mission_verdict_rejections.sql",
+    "skip (already applied): 0027_mission_human_gate_crash_boundary.sql",
+    "zero_pub present on holocron_nonprod",
+    "truncated 124 public tables",
+    "seeded 3 conversations + 6 messages",
+    "seeded Streaming conversation + 2 messages",
+    "seeded Sprint 20 reference conversation",
+    "seeded 17 documents across 17 categories",
+    "seeded 5 feed_items",
+    "seeded 4 subscription_sources + 4 researched subscription_content rows",
+    "seeded 3 research_sessions + 5 research_iterations",
+    "seeded 3 pending assimilation_sessions",
+    "seeded 2 improvement_requests",
+    "seeded 1 whats_new_report"
+  ],
+  "errors": []
+}
+[run-degraded-no-hang] fleet_pid=91088 platform_pid=84616
+[run-degraded-no-hang] fleet-down: stop pid 91088
+[run-degraded-no-hang] fleet reaper pid=58347
+[run-degraded-no-hang] fleet unreachable on :4545 (good for ROLE_UNAVAILABLE)
+[run-degraded-no-hang] restart platform with HOLO_CHAT_FLEET_ONLY=1 (no deterministic mask)
+[run-degraded-no-hang] platform health ok (fleet-only mode) launcher_pid=58406 listener=58406
+[run-degraded-no-hang] envelope probe ok runId=9217cf0c-7d86-4256-a61d-351eb54b9a10 status=failed code=ROLE_UNAVAILABLE
+[run-degraded-no-hang] maestro test degraded-no-hang.yml
 WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
 WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
 WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
@@ -60,3 +131,8 @@ Assert that id: chat-agent-busy-false is visible... COMPLETED
 Assert that id: chat-agent-busy-false is visible... COMPLETED
 Assert that (Optional) id: stop-generating-button is not visible... COMPLETED
 Take screenshot S-REACTIVE-04-AC-1-degraded-no-hang... COMPLETED
+[run-degraded-no-hang] maestro exit=0
+[run-degraded-no-hang] restore fleet: /opt/homebrew/bin/bun /Users/inference1/Projects/rogueone/.tmp/local-loop-fleet-proxy.ts
+[run-degraded-no-hang] restore platform: /Users/inference1/.bun/bin/bun /Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts service:up
+.maestro/reactive/run-degraded-no-hang.sh: line 71: 58406 Killed: 9                  nohup bun services/platform/src/cli/holo.ts service:up >> "$EVIDENCE_DIR/platform-fleet-only.log" 2>&1
+.maestro/reactive/run-degraded-no-hang.sh: line 71: 59816 Killed: 9                  exit "$MAESTRO_EXIT"

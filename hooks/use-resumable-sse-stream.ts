@@ -330,7 +330,12 @@ export function buildSseResumeHeaders(args: {
  * thread always shows exactly one assistant bubble for the active run.
  *
  * - While streaming and durable not yet synced: inject one preview row
- * - When durable row exists: Zero is authoritative (no second bubble)
+ * - When durable row exists with content: Zero is authoritative (no second bubble)
+ * - GATE-FIX-01: empty durable placeholders must NOT clobber overlay tokens —
+ *   merge overlay content into the same id so chat-assistant-message-latest stays
+ *   visible after airplane restore while Zero lags
+ * - GATE-FIX-01: never inject an empty terminal preview (steals latest with a
+ *   zero-height invisible bubble)
  */
 export function reconcileThreadMessages(
   durable: ChatMessage[],
@@ -339,8 +344,25 @@ export function reconcileThreadMessages(
   if (!overlay?.durableMessageId) return durable;
   if (overlay.phase === 'idle') return durable;
 
-  const already = durable.some((m) => m.id === overlay.durableMessageId);
-  if (already) {
+  const overlayHasContent =
+    typeof overlay.content === 'string' && overlay.content.trim().length > 0;
+  const existingIdx = durable.findIndex((m) => m.id === overlay.durableMessageId);
+
+  if (existingIdx >= 0) {
+    const existing = durable[existingIdx]!;
+    const durableEmpty =
+      typeof existing.content !== 'string' || existing.content.trim().length === 0;
+    // Prefer overlay text when durable is empty/short (Zero lag / empty land).
+    if (overlayHasContent && (durableEmpty || existing.content.length < overlay.content.length)) {
+      const merged = durable.slice();
+      merged[existingIdx] = {
+        ...existing,
+        // Normalize seed-style assistant → agent so latest selection matches.
+        role: existing.role === 'assistant' ? 'agent' : existing.role,
+        content: overlay.content,
+      };
+      return merged;
+    }
     // Durable row won — never inject a second bubble with the same id.
     return durable;
   }
@@ -353,6 +375,13 @@ export function reconcileThreadMessages(
     overlay.phase === 'complete' ||
     overlay.phase === 'cancelled'
   ) {
+    const isLive = overlay.phase === 'streaming' || overlay.phase === 'reconnecting';
+    // GATE-FIX-01: empty terminal previews steal chat-assistant-message-latest
+    // with an invisible bubble (MarkdownText returns null for empty content).
+    // Still inject empty while live so StreamingCursor can attach to the row.
+    if (!isLive && !overlayHasContent) {
+      return durable;
+    }
     const preview: ChatMessage = {
       id: overlay.durableMessageId,
       role: 'agent',
@@ -521,10 +550,14 @@ export function createResumableSseController(
         const status = body.status;
         if (status === 'completed' || status === 'failed') {
           if (typeof body.finalText === 'string' && body.finalText.length > 0) {
+            const seq = Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0);
             applyAssembly({
-              lastSeq: Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0),
+              lastSeq: seq,
               text: body.finalText,
-              tokenCount: assemblyRef.current.tokenCount,
+              // GATE-FIX-01: when SSE tokens were missed (airplane), derive a
+              // lower-bound tokenCount from server lastEventId so at-least-N
+              // peaks remain honest without inventing a fixed constant.
+              tokenCount: Math.max(assemblyRef.current.tokenCount, seq > 0 ? seq - 1 : 0),
             });
           }
           if (resumeTransport !== 'sse') {
@@ -593,12 +626,46 @@ export function createResumableSseController(
         applyAssembly({
           lastSeq: assemblyRef.current.lastSeq,
           text: finalText,
-          tokenCount: assemblyRef.current.tokenCount,
+          tokenCount: Math.max(assemblyRef.current.tokenCount, 1),
         });
       }
       setPhaseBoth(nextPhase);
       closeSource(true);
       stopPoll();
+      // GATE-FIX-01: if we reached terminal without assembled text (missed SSE
+      // tokens / empty terminal payload), hydrate once from GET status so the
+      // overlay keeps a visible assistant bubble after airplane restore.
+      if (
+        (nextPhase === 'complete' || nextPhase === 'cancelled') &&
+        (!assemblyRef.current.text || assemblyRef.current.text.trim().length === 0) &&
+        runId &&
+        platformUrl &&
+        apiKey
+      ) {
+        const hydrateRunId = runId;
+        void (async () => {
+          try {
+            const res = await fetch(
+              `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${hydrateRunId}`,
+              { headers: { Authorization: `Bearer ${apiKey}` } }
+            );
+            if (!res.ok || runId !== hydrateRunId) return;
+            const body = (await res.json()) as {
+              finalText?: string;
+              lastEventId?: number;
+            };
+            if (typeof body.finalText === 'string' && body.finalText.trim().length > 0) {
+              applyAssembly({
+                lastSeq: Math.max(assemblyRef.current.lastSeq, Number(body.lastEventId) || 0),
+                text: body.finalText,
+                tokenCount: Math.max(assemblyRef.current.tokenCount, 1),
+              });
+            }
+          } catch {
+            /* ignore hydrate errors */
+          }
+        })();
+      }
     };
 
     const handleNamedEvent = (eventName: string, data: string, id: string) => {
