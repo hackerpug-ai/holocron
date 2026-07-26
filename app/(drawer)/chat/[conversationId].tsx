@@ -616,6 +616,7 @@ export default function ChatScreen() {
         <View style={styles.chatContent}>
           <ChatThread
             messages={messages}
+            durableMessages={durableMessages}
             showTypingIndicator={!isDegraded && (isSending || (agentBusy && !streamingMessageId))}
             isLoading={isLoadingMessages}
             safeAreaTop={contentTopPadding}
