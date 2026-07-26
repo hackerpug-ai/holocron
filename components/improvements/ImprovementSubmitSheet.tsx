@@ -11,7 +11,7 @@
  * - Timing: IN 300ms Easing.out(cubic), OUT 250ms Easing.in(cubic)
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -34,7 +34,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createImprovement } from '@/app/zero/improvements';
-import { finalizeUpload, initUpload, putUpload, sha256HexOfBytes } from '@/app/zero/platform';
+import { uploadBlobThroughLifecycle } from '@/app/zero/platform';
 import { X } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/hooks/use-theme';
@@ -53,6 +53,9 @@ export interface ImprovementSubmitSheetProps {
   sourceComponent?: string;
   testID?: string;
 }
+
+type ImageUploadState = 'idle' | 'preview' | 'uploading' | 'success' | 'error';
+type ImageDimensions = { width: number; height: number };
 
 // ── Component ──────────────────────────────────────────────────────────────
 export function ImprovementSubmitSheet({
@@ -74,6 +77,14 @@ export function ImprovementSubmitSheet({
   // ── Local state ──────────────────────────────────────────────────────────
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(screenshotUri ?? null);
+  const [imageState, setImageState] = useState<ImageUploadState>(
+    screenshotUri ? 'preview' : 'idle'
+  );
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null);
+  const submittedRequestIdRef = useRef<string | null>(null);
+  const didNotifySubmittedRef = useRef(false);
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
@@ -81,13 +92,31 @@ export function ImprovementSubmitSheet({
       // Reset state on open
       setDescription('');
       setIsSubmitting(false);
+      setImageUri(screenshotUri ?? null);
+      setImageState(screenshotUri ? 'preview' : 'idle');
+      setImageError(null);
+      setImageDimensions(null);
+      submittedRequestIdRef.current = null;
+      didNotifySubmittedRef.current = false;
       translateY.value = withTiming(0, TIMING_IN);
       backdropOpacity.value = withTiming(1, TIMING_IN);
     } else {
       translateY.value = withTiming(600, TIMING_OUT);
       backdropOpacity.value = withTiming(0, TIMING_OUT);
     }
-  }, [visible, backdropOpacity, translateY]);
+  }, [screenshotUri, visible, backdropOpacity, translateY]);
+
+  useEffect(() => {
+    if (!imageUri) {
+      setImageDimensions(null);
+      return;
+    }
+    Image.getSize(
+      imageUri,
+      (width, height) => setImageDimensions({ width, height }),
+      () => setImageDimensions(null)
+    );
+  }, [imageUri]);
 
   // ── Animated styles ───────────────────────────────────────────────────────
   const sheetStyle = useAnimatedStyle(() => ({
@@ -125,9 +154,22 @@ export function ImprovementSubmitSheet({
     });
 
   // ── Submit handler ────────────────────────────────────────────────────────
+  const handleAttach = () => {
+    if (!screenshotUri) {
+      setImageError('No image is available to attach yet.');
+      setImageState('error');
+      return;
+    }
+    setImageUri(screenshotUri);
+    setImageError(null);
+    setImageState('preview');
+  };
+
   const handleSubmit = async () => {
-    if (!description.trim() || isSubmitting) return;
+    if (!description.trim() || isSubmitting || imageState === 'success') return;
     setIsSubmitting(true);
+    setImageError(null);
+    if (imageUri) setImageState('uploading');
 
     try {
       const title =
@@ -135,47 +177,46 @@ export function ImprovementSubmitSheet({
           ? `${description.trim().slice(0, 57)}...`
           : description.trim();
 
-      const requestId = await createImprovement({
-        description: description.trim(),
-        title,
-        sourceScreen: sourceComponent ?? 'unknown',
-        sourceComponent: sourceComponent ?? null,
-      });
+      const requestId =
+        submittedRequestIdRef.current ??
+        (await createImprovement({
+          description: description.trim(),
+          title,
+          sourceScreen: sourceComponent ?? 'unknown',
+          sourceComponent: sourceComponent ?? null,
+        }));
+      submittedRequestIdRef.current = requestId;
 
-      if (screenshotUri) {
-        try {
-          const imageResponse = await fetch(screenshotUri);
-          const blob = await imageResponse.blob();
-          const buffer = await blob.arrayBuffer();
-          const sha256 = await sha256HexOfBytes(buffer);
-          const init = await initUpload({
-            kind: 'improvement_image',
-            targetId: requestId,
-            idempotencyKey: `improvement-image-${requestId}`,
-            sha256,
-            byteLength: buffer.byteLength,
-            mimeType: blob.type || 'image/png',
-          });
-          const uploadId = String(init.uploadId ?? init.id ?? '');
-          if (uploadId) {
-            await putUpload(uploadId, blob);
-            await finalizeUpload(uploadId);
-          }
-        } catch (uploadErr) {
-          console.warn('[ImprovementSubmitSheet] image upload failed:', uploadErr);
+      if (imageUri) {
+        const imageResponse = await fetch(imageUri);
+        if (!imageResponse.ok && imageResponse.status !== 0) {
+          throw new Error(`image read failed: ${imageResponse.status}`);
         }
+        const blob = await imageResponse.blob();
+        await uploadBlobThroughLifecycle({
+          kind: 'improvement_image',
+          targetId: requestId,
+          idempotencyKey: `improvement-image-${requestId}`,
+          blob,
+          mimeType: blob.type || 'image/png',
+          originalName: 'improvement-image',
+        });
       }
 
-      // Close sheet immediately and notify parent
-      animateOut(() => {
-        onClose();
-        onSubmitted?.(requestId);
-      });
-    } catch {
-      // If upload/submit fails, stay on input state
+      setImageState('success');
       setIsSubmitting(false);
+      if (!didNotifySubmittedRef.current) {
+        didNotifySubmittedRef.current = true;
+        onSubmitted?.(requestId);
+      }
+    } catch (error) {
+      setIsSubmitting(false);
+      setImageState('error');
+      setImageError(error instanceof Error ? error.message : 'Image upload failed.');
     }
   };
+
+  const finish = () => animateOut(onClose);
 
   if (!visible) return null;
 
@@ -240,15 +281,65 @@ export function ImprovementSubmitSheet({
               >
                 {/* ── Input ──────────────────────────────────────────────── */}
                 <View>
-                  {/* Screenshot preview */}
-                  {screenshotUri ? (
+                  <Pressable
+                    testID="attach-button"
+                    onPress={handleAttach}
+                    accessibilityRole="button"
+                    accessibilityLabel={imageUri ? 'Change image attachment' : 'Attach image'}
+                    className="mb-3 flex-row items-center justify-center rounded-lg border border-border py-3 active:opacity-80"
+                  >
+                    <Text className="text-foreground text-sm font-semibold">
+                      {imageUri ? 'Change image' : 'Attach image'}
+                    </Text>
+                  </Pressable>
+
+                  {/* Screenshot/image preview */}
+                  {imageUri ? (
                     <Image
-                      source={{ uri: screenshotUri }}
-                      style={[styles.screenshotPreview, { borderColor: colors.border }]}
+                      source={{ uri: imageUri }}
+                      style={[
+                        styles.screenshotPreview,
+                        imageDimensions
+                          ? {
+                              aspectRatio: imageDimensions.width / imageDimensions.height,
+                              height: undefined,
+                            }
+                          : null,
+                        { borderColor: colors.border },
+                      ]}
                       resizeMode="contain"
-                      testID={`${testID}-screenshot-preview`}
+                      testID="attach-preview"
                       accessibilityLabel="Screenshot preview"
                     />
+                  ) : null}
+
+                  {imageState === 'uploading' ? (
+                    <View testID="upload-progress" style={styles.statusRow}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text className="text-muted-foreground text-sm">Uploading image…</Text>
+                    </View>
+                  ) : null}
+
+                  {imageState === 'success' ? (
+                    <View testID="upload-success" style={styles.statusRow}>
+                      <Text className="text-success text-sm font-semibold">Upload complete</Text>
+                    </View>
+                  ) : null}
+
+                  {imageState === 'error' && imageError ? (
+                    <View testID="upload-error" style={styles.errorBox}>
+                      <Text className="text-destructive text-sm">{imageError}</Text>
+                      {imageUri ? (
+                        <Pressable
+                          testID="upload-retry"
+                          onPress={handleSubmit}
+                          accessibilityRole="button"
+                          accessibilityLabel="Retry image upload"
+                        >
+                          <Text className="text-primary text-sm font-semibold">Retry</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   ) : null}
 
                   {/* Description input */}
@@ -283,10 +374,12 @@ export function ImprovementSubmitSheet({
                     <Pressable
                       testID={`${testID}-submit-button`}
                       onPress={handleSubmit}
-                      disabled={!description.trim() || isSubmitting}
+                      disabled={!description.trim() || isSubmitting || imageState === 'success'}
                       className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary py-3 active:opacity-80"
                       style={
-                        !description.trim() || isSubmitting ? styles.disabledButton : undefined
+                        !description.trim() || isSubmitting || imageState === 'success'
+                          ? styles.disabledButton
+                          : undefined
                       }
                       accessibilityRole="button"
                       accessibilityLabel="Submit"
@@ -299,6 +392,18 @@ export function ImprovementSubmitSheet({
                         </Text>
                       )}
                     </Pressable>
+
+                    {imageState === 'success' ? (
+                      <Pressable
+                        testID="upload-done"
+                        onPress={finish}
+                        className="flex-1 flex-row items-center justify-center rounded-lg border border-border py-3 active:opacity-80"
+                        accessibilityRole="button"
+                        accessibilityLabel="Done"
+                      >
+                        <Text className="text-foreground text-sm font-semibold">Done</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 </View>
               </ScrollView>
@@ -365,6 +470,16 @@ const useStyles = (typography: any, _spacing: any) => {
       height: 120,
       borderRadius: 8,
       borderWidth: StyleSheet.hairlineWidth,
+      marginBottom: 12,
+    },
+    statusRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 12,
+    },
+    errorBox: {
+      gap: 8,
       marginBottom: 12,
     },
     textInput: {

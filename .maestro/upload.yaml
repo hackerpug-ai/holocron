@@ -1,0 +1,43 @@
+appId: ${MAESTRO_APP_ID}
+---
+# T-DATA-021 / Sprint 26 upload lifecycle. Hono + Postgres + blob storage
+# must be running and the deterministic e2e namespace seeded before this flow.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      id: "improvements-route-layout"
+    timeout: 60000
+
+- tapOn:
+    id: "improvements-header-add-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "attach-button"
+    timeout: 15000
+
+# The long-press improvement surface supplies the seeded fixture URI in the
+# real journey; this tap proves the sheet's explicit attach affordance.
+- tapOn:
+    id: "attach-button"
+
+- tapOn:
+    id: "improvements-screen-submit-sheet-description-input"
+
+- inputText: "Sprint 26 upload lifecycle fixture"
+
+- tapOn:
+    id: "improvements-screen-submit-sheet-submit-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "upload-success"
+    timeout: 60000
+
+- assertVisible:
+    id: "upload-success"
+
+- takeScreenshot: sprint-26-upload-lifecycle

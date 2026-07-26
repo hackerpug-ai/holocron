@@ -288,6 +288,8 @@ Usage:
   upload:init              Create/replay an authoritative upload intent
   upload:put               Stream bytes into an existing upload intent staging area
   upload:finalize          Verify hash/length/MIME, attach atomically, and return stored result
+  verify:blob --last        Verify exactly one latest CAS blob and its SHA-256
+  verify:blob --orphans     Verify no non-finalized upload intents remain
    inventory:convex-callsites
                            Scan app/ components/ hooks/ screens/ for legacy Convex
                            useQuery/useMutation/useAction/useConvex/ConvexProvider/
@@ -1084,6 +1086,52 @@ async function main(): Promise<void> {
         } else {
           console.error(`holo blob:verify failed: ${msg}`);
         }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'verify:blob': {
+      const { verifyLastUploadedBlob, verifyUploadOrphans } = await import(
+        './commands/verify-blob-upload.ts'
+      );
+      const mode = args.positional[1];
+      if (mode !== '--last' && mode !== '--orphans') {
+        console.error('error: verify:blob requires --last or --orphans');
+        process.exit(2);
+      }
+      try {
+        const result =
+          mode === '--last' ? await verifyLastUploadedBlob() : await verifyUploadOrphans();
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else if (mode === '--last') {
+          const last = (result as Awaited<ReturnType<typeof verifyLastUploadedBlob>>).row;
+          console.log('holo verify:blob --last — content-addressed upload proof');
+          console.log(`  file_objects rows: ${result.rowCount}`);
+          if (last) {
+            console.log(`  id:             ${last.id}`);
+            console.log(`  SHA-256:        ${last.contentHash}`);
+            console.log(`  byte_size:      ${last.actualByteSize ?? last.byteSize ?? 'unknown'}`);
+            console.log(`  mime_type:      ${last.mimeType ?? 'unknown'}`);
+            console.log(`  storage_path:   ${last.storagePath ?? 'missing'}`);
+            if (result.fixtureChecked) console.log(`  fixture_sha256: ${result.fixtureSha256}`);
+          }
+          if (result.reason) console.error(`  reason: ${result.reason}`);
+          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+        } else {
+          const orphanResult = result as Awaited<ReturnType<typeof verifyUploadOrphans>>;
+          console.log('holo verify:blob --orphans — staged upload proof');
+          console.log(`  orphan rows: ${orphanResult.orphanCount}`);
+          for (const orphan of orphanResult.orphans) {
+            console.log(`  - ${orphan.id} ${orphan.kind} ${orphan.status}`);
+          }
+          console.log(orphanResult.ok ? '  status: OK' : '  status: FAIL');
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        else console.error(`holo verify:blob failed: ${msg}`);
         process.exit(1);
       }
       break;

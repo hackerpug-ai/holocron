@@ -205,7 +205,38 @@ export async function finalizeUpload(uploadId: string): Promise<PlatformJson> {
   return (await response.json()) as PlatformJson;
 }
 
-/** Simple hex sha256 via SubtleCrypto when available; otherwise a stable stand-in for e2e. */
+export type UploadBlobInput = {
+  kind: 'improvement_image' | 'voice_artifact';
+  targetId: string;
+  idempotencyKey: string;
+  blob: Blob;
+  mimeType?: string;
+  originalName?: string;
+};
+
+/** Run the authoritative init → PUT → finalize lifecycle for a native blob. */
+export async function uploadBlobThroughLifecycle(input: UploadBlobInput): Promise<PlatformJson> {
+  const bytes = await input.blob.arrayBuffer();
+  const sha256 = await sha256HexOfBytes(bytes);
+  const mimeType = input.mimeType || input.blob.type || 'application/octet-stream';
+  const init = await initUpload({
+    kind: input.kind,
+    targetId: input.targetId,
+    idempotencyKey: input.idempotencyKey,
+    sha256,
+    byteLength: bytes.byteLength,
+    mimeType,
+    originalName: input.originalName,
+  });
+  const uploadId = String(init.uploadId ?? init.id ?? '');
+  if (!uploadId) {
+    throw new Error('upload init returned no upload id');
+  }
+  await putUpload(uploadId, input.blob);
+  return finalizeUpload(uploadId);
+}
+
+/** Compute a real SHA-256 digest; fail closed when the runtime lacks Web Crypto. */
 export async function sha256HexOfBytes(bytes: ArrayBuffer): Promise<string> {
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -213,9 +244,5 @@ export async function sha256HexOfBytes(bytes: ArrayBuffer): Promise<string> {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-  // Fallback for environments without SubtleCrypto — not cryptographically strong.
-  let h = 0;
-  const view = new Uint8Array(bytes);
-  for (let i = 0; i < view.length; i++) h = (Math.imul(31, h) + view[i]) | 0;
-  return h.toString(16).padStart(64, '0').slice(0, 64);
+  throw new Error('SHA-256 is unavailable in this runtime');
 }

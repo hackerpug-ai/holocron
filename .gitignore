@@ -99,3 +99,4 @@ actions-runner/
 **/.runner
 **/.credentials
 **/.credentials_rsaparams
+zero.db
