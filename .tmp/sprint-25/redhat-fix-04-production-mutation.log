@@ -1,18 +1,18 @@
-# REDHAT-FIX-04 production mutation probe 2026-07-25T20:32:14.463Z
-repo_root=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-04
-base_head=a1c4a26da68bb3873f01bb6b0d8b75a593a126b8
+# REDHAT-FIX-04 production mutation probe 2026-07-26T05:27:24.352Z
+repo_root=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-01
+base_head=7c7474a5e01728c958600b6b8a576f4c3230a477
 correct mode=unmutated exit=0 failures=0 exit_ok=true
-production-assembly-reset mode=production-assembly-reset exit=1 failures=1 exit_nonzero=true
+production-assembly-reset mode=production-assembly-reset exit=1 failures=2 exit_nonzero=true
 production-assembly-reset KILLED (suite exit non-zero under production wipe)
- Test Files  1 failed (1)
-      Tests  1 failed | 2 skipped (3)
-   Start at  14:32:15
-   Duration  282ms (transform 71ms, setup 99ms, import 41ms, tests 52ms, environment 0ms)
+       |                                           ^
+    452|
+    453|       const snap = result.snapshot;
+ ❯ withSseStub tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:244:5
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:446:5
 
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
 
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
-
- FAIL  tests/integration/redhat-fix-04-production-hook-reconnect.test.ts > REDHAT-FIX-04 production-hook SSE reconnect > AC-1: production controller reconnect sends Last-Event-ID=3 and unique assembly
+ FAIL  tests/integration/redhat-fix-04-production-hook-reconnect.test.ts > REDHAT-FIX-04 production-hook SSE reconnect > AC-1-site-A: XHR onError reconnect without setOnline sends Last-Event-ID=3 and unique assembly
 AssertionError: expected null to be '3' // Object.is equality
 
 - Expected:
@@ -21,17 +21,17 @@ AssertionError: expected null to be '3' // Object.is equality
 + Received:
 null
 
- ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:370:43
-    368|
-    369|       // Header observed on REAL reconnect request (not a local harnes…
-    370|       expect(result.reconnectLastEventId).toBe('3');
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:634:43
+    632|
+    633|       // Header observed on REAL site-A onError reconnect request
+    634|       expect(result.reconnectLastEventId).toBe('3');
        |                                           ^
-    371|
-    372|       const snap = result.snapshot;
- ❯ withSseStub tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:240:5
- ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:365:5
+    635|
+    636|       const snap = result.snapshot;
+ ❯ withSseStub tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:244:5
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:621:5
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
 
 
 production file restored after mutant probe

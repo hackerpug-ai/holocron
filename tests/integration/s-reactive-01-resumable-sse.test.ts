@@ -274,5 +274,144 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       expect(done.filter((m: { role: string }) => m.role === 'agent')).toHaveLength(1);
       expect(done.filter((m: { id: string }) => m.id === durableId)).toHaveLength(1);
     });
+
+    it('GATE-FIX-01: empty durable placeholder merges overlay content (no second bubble)', async () => {
+      const mod = await import('../../hooks/use-resumable-sse-stream');
+      const durableId = 'durable-empty-1';
+      const durable = [
+        {
+          id: 'seed-agent',
+          role: 'agent' as const,
+          content: 'Assistant seed reply for Streaming',
+          createdAt: new Date(1),
+        },
+        {
+          id: durableId,
+          role: 'agent' as const,
+          content: '',
+          createdAt: new Date(2),
+        },
+      ];
+      const merged = mod.reconcileThreadMessages(durable, {
+        durableMessageId: durableId,
+        content: 'Streaming reply about five. One two three four five.',
+        phase: 'complete',
+      });
+      const agents = merged.filter((m: { role: string }) => m.role === 'agent');
+      expect(agents).toHaveLength(2);
+      expect(merged.filter((m: { id: string }) => m.id === durableId)).toHaveLength(1);
+      expect(merged.find((m: { id: string }) => m.id === durableId)?.content).toContain(
+        'Streaming reply'
+      );
+    });
+
+    it('GATE-FIX-01: empty terminal overlay is not injected (no invisible latest steal)', async () => {
+      const mod = await import('../../hooks/use-resumable-sse-stream');
+      const durable = [
+        {
+          id: 'seed-agent',
+          role: 'agent' as const,
+          content: 'Assistant seed reply for Streaming',
+          createdAt: new Date(1),
+        },
+      ];
+      const out = mod.reconcileThreadMessages(durable, {
+        durableMessageId: 'turn-empty',
+        content: '',
+        phase: 'complete',
+      });
+      expect(out.filter((m: { role: string }) => m.role === 'agent')).toHaveLength(1);
+      expect(out.find((m: { id: string }) => m.id === 'turn-empty')).toBeUndefined();
+    });
+
+    it('GATE-FIX-01: selectLatestAgentMessage ignores empty previews', async () => {
+      const { selectLatestAgentMessage } = await import(
+        '../../components/chat/select-latest-agent'
+      );
+      const latest = selectLatestAgentMessage([
+        {
+          id: 'seed',
+          role: 'agent',
+          content: 'Assistant seed reply for Streaming',
+          createdAt: new Date(1),
+        },
+        {
+          id: 'empty-preview',
+          role: 'agent',
+          content: '',
+          createdAt: new Date(99),
+        },
+      ]);
+      expect(latest?.id).toBe('seed');
+      expect(latest?.content).toContain('seed reply');
+    });
+
+    it('GATE-FIX-01: module stream handoff survives dispose (remount snapshot)', async () => {
+      const mod = await import('../../hooks/use-resumable-sse-stream');
+      mod.clearModuleStreamHandoff();
+      const ctrl = mod.createResumableSseController({
+        platformUrl: 'http://127.0.0.1:9',
+        apiKey: 'test-key',
+        disableStatusPollFallback: true,
+      });
+      // Simulate a completed turn with assembled text without opening SSE.
+      // restoreFromHandoff is the remount entry; first write handoff via connect path
+      // is network-heavy — unit the pure handoff helpers + restore snapshot instead.
+      ctrl.restoreFromHandoff({
+        runId: 'run-handoff-1',
+        durableMessageId: 'durable-handoff-1',
+        lastSeq: 5,
+        text: 'Streaming reply about five. One two three four five.',
+        tokenCount: 5,
+        phase: 'complete',
+        updatedAt: Date.now(),
+      });
+      const snap = ctrl.getSnapshot();
+      expect(snap.phase).toBe('complete');
+      expect(snap.runId).toBe('run-handoff-1');
+      expect(snap.durableMessageId).toBe('durable-handoff-1');
+      expect(snap.streamedText).toContain('Streaming reply about');
+      expect(snap.tokenCount).toBeGreaterThanOrEqual(1);
+
+      // dispose must keep module handoff for the next mount
+      ctrl.dispose();
+      const handoff = mod.getModuleStreamHandoff();
+      expect(handoff).not.toBeNull();
+      expect(handoff?.text).toContain('Streaming reply about');
+      expect(handoff?.phase).toBe('complete');
+
+      const ctrl2 = mod.createResumableSseController({
+        platformUrl: 'http://127.0.0.1:9',
+        apiKey: 'test-key',
+        disableStatusPollFallback: true,
+      });
+      ctrl2.restoreFromHandoff(handoff!);
+      expect(ctrl2.getSnapshot().streamedText).toContain('Streaming reply about');
+      ctrl2.reset();
+      expect(mod.getModuleStreamHandoff()).toBeNull();
+    });
+
+    it('GATE-FIX-01: ChatThread fail-safe requires painted MessageBubble content', () => {
+      const src = read(CHAT_THREAD_PATH);
+      // Product-tightened: fail-safe must gate on messages.some painted content
+      expect(src).toMatch(/messages\.some/);
+      expect(src).toMatch(/paintedLatest|fail-safe/);
+      // Must not mount latest solely from streamedText without FlatList row
+      expect(src).toMatch(/m\.id === latestAgentId/);
+    });
+
+    it('GATE-FIX-01: reconnect Maestro asserts non-seed painted assistant text', () => {
+      const yml = read(join(REPO_ROOT, '.maestro', 'reactive', 'reconnect-exactly-once.yml'));
+      // Mid-body spans stay in viewport when the tall deterministic reply clips its prefix
+      expect(yml).toMatch(/One two three|Rivers mountains/);
+      // Live user prompt visibility (non-empty yellow bubble)
+      expect(yml).toMatch(/number five|detailed multi-sentence|eight words/);
+    });
+
+    it('GATE-FIX-01: chat screen keeps optimistic pending user for live turn', () => {
+      const src = read(CHAT_SCREEN_PATH);
+      expect(src).toMatch(/modulePendingUser|pending-user-/);
+      expect(src).toMatch(/pendingUser/);
+    });
   });
 });

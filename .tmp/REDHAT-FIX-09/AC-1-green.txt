@@ -11,17 +11,17 @@
   "raceAttempts": 1,
   "concurrentResults": [
     {
+      "ok": false,
+      "sessionId": "00000000-0000-4000-8000-e00000000033",
+      "errorCode": "RESEARCH_SESSION_UPDATE_FAILED",
+      "error": "research session update failed (0 rows) for 00000000-0000-4000-8000-e00000000033"
+    },
+    {
       "ok": true,
       "sessionId": "00000000-0000-4000-8000-e00000000033",
       "previousIteration": 1,
       "currentIteration": 2,
       "maxIterations": 5
-    },
-    {
-      "ok": false,
-      "sessionId": "00000000-0000-4000-8000-e00000000033",
-      "errorCode": "RESEARCH_SESSION_UPDATE_FAILED",
-      "error": "research session update failed (0 rows) for 00000000-0000-4000-8000-e00000000033"
     }
   ],
   "winners": 1,

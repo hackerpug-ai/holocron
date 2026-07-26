@@ -123,7 +123,7 @@ Assert that (Optional) id: stop-generating-oracle is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-1 is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-1 is visible... COMPLETED
 Run flow when id: stop-generating-button is visible...
-  Assert that (Optional) id: stop-generating-button is visible... WARNED
+  Assert that id: stop-generating-button is visible... COMPLETED
 Run flow when id: stop-generating-button is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-3 is visible... COMPLETED
 Assert that id: chat-stream-last-seq-at-least-3 is visible... COMPLETED
@@ -144,19 +144,18 @@ Disable airplane mode... COMPLETED
 Assert that (Optional) id: chat-reconnecting-indicator is not visible... COMPLETED
 Assert that id: stop-generating-button is not visible... COMPLETED
 Assert that id: stop-generating-button is not visible... COMPLETED
-Assert that id: chat-assistant-message-latest is visible... COMPLETED
-Assert that id: chat-assistant-message-latest is visible... COMPLETED
-Assert that ".*Rivers.*" is visible... COMPLETED
-Assert that ".*Rivers.*" is visible... COMPLETED
-Assert that ".*clouds.*" is visible... COMPLETED
-Assert that ".*clouds.*" is visible... COMPLETED
-Assert that (Optional) ".*One two three.*" is visible... COMPLETED
-Assert that ".*detailed multi-sentence.*" is visible... COMPLETED
-Assert that ".*detailed multi-sentence.*" is visible... COMPLETED
-Assert that id: chat-stream-last-seq-at-least-3 is visible... COMPLETED
-Assert that id: chat-stream-token-count-at-least-3 is visible... COMPLETED
-Assert that id: chat-assistant-bubble-count-1 is visible... COMPLETED
-Assert that id: chat-assistant-message-streaming is not visible... COMPLETED
-Assert that "Streaming" is visible... COMPLETED
-Assert that "Streaming" is visible... COMPLETED
-Take screenshot S-REACTIVE-01-AC-2-reconnect-exactly-once... COMPLETED
+Assert that id: chat-assistant-message-latest is visible... FAILED
+
+Assertion is false: id: chat-assistant-message-latest is visible
+
+Assertion 'id: chat-assistant-message-latest is visible' failed. Check the UI hierarchy in debug artifacts to verify the element state and properties.
+
+Possible causes:
+- Element selector may be incorrect - check if there are similar elements with slightly different names/properties.
+- Element may be temporarily unavailable due to loading state
+- This could be a real regression that needs to be addressed
+
+==== Debug output (logs & screenshots) ====
+
+/Users/inference1/.maestro/tests/2026-07-25_221152
+EXIT:1

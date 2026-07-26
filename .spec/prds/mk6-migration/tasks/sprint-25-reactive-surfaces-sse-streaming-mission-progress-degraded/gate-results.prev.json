@@ -1,10 +1,10 @@
 {
   "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
-  "run_id": "s25-ht-20260725T155918Z",
+  "run_id": "s25-ht-20260726T043533Z",
   "verdict": "pass",
   "runner": "kb-run-sprint-human-test",
   "ui_driver": "maestro",
-  "written_at": "2026-07-25T15:59:18Z",
+  "written_at": "2026-07-26T04:35:33Z",
   "steps_total": 5,
   "steps_executed": 5,
   "steps_passed": 5,
@@ -12,7 +12,7 @@
     {
       "n": 1,
       "type": "terminal",
-      "text": "Run holo seed:e2e --reset \u2014 seeds the Streaming conversation.",
+      "text": "Run ./bin/holo seed:e2e --reset (or pnpm seed:e2e) \u2014 seeds the Streaming conversation. Cold-checkout path; do not rely on bare PATH holo (PATH stub may only implement verify:no-convex-client).",
       "executed": true,
       "result": "pass",
       "exit_code": 0,
@@ -60,5 +60,5 @@
       "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
     }
   ],
-  "notes": "Fresh human-test cycle: platform on holocron_nonprod + deterministic SSE; reconnect exit 0; research/mcp/degraded exit 0."
+  "notes": "GATE-FIX-01: restore chat-assistant-message-latest after stream+airplane. Client fix: empty-preview no longer steals latest; reconcile merges overlay into empty durable; hydrate finalText after complete; fail-safe latest oracle. Fresh 5/5 human gate on worktree HEAD."
 }

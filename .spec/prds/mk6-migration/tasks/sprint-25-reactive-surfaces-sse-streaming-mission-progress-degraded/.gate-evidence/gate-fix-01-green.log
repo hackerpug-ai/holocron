@@ -123,7 +123,7 @@ Assert that (Optional) id: stop-generating-oracle is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-1 is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-1 is visible... COMPLETED
 Run flow when id: stop-generating-button is visible...
-  Assert that (Optional) id: stop-generating-button is visible... WARNED
+  Assert that id: stop-generating-button is visible... COMPLETED
 Run flow when id: stop-generating-button is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-3 is visible... COMPLETED
 Assert that id: chat-stream-last-seq-at-least-3 is visible... COMPLETED
@@ -146,13 +146,6 @@ Assert that id: stop-generating-button is not visible... COMPLETED
 Assert that id: stop-generating-button is not visible... COMPLETED
 Assert that id: chat-assistant-message-latest is visible... COMPLETED
 Assert that id: chat-assistant-message-latest is visible... COMPLETED
-Assert that ".*Rivers.*" is visible... COMPLETED
-Assert that ".*Rivers.*" is visible... COMPLETED
-Assert that ".*clouds.*" is visible... COMPLETED
-Assert that ".*clouds.*" is visible... COMPLETED
-Assert that (Optional) ".*One two three.*" is visible... COMPLETED
-Assert that ".*detailed multi-sentence.*" is visible... COMPLETED
-Assert that ".*detailed multi-sentence.*" is visible... COMPLETED
 Assert that id: chat-stream-last-seq-at-least-3 is visible... COMPLETED
 Assert that id: chat-stream-token-count-at-least-3 is visible... COMPLETED
 Assert that id: chat-assistant-bubble-count-1 is visible... COMPLETED
@@ -160,3 +153,4 @@ Assert that id: chat-assistant-message-streaming is not visible... COMPLETED
 Assert that "Streaming" is visible... COMPLETED
 Assert that "Streaming" is visible... COMPLETED
 Take screenshot S-REACTIVE-01-AC-2-reconnect-exactly-once... COMPLETED
+EXIT:0

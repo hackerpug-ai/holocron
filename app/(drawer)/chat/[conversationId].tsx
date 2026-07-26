@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mutators } from '@/app/zero/mutators';
 import { conversationById, conversationsByOwner } from '@/app/zero/queries';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { ChatThread } from '@/components/chat/ChatThread';
+import { ChatThread, resetChatThreadStreamPeaks } from '@/components/chat/ChatThread';
 import { Button } from '@/components/ui/button';
 import { SquarePen } from '@/components/ui/icons';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -24,6 +24,7 @@ import { Text } from '@/components/ui/text';
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import {
+  getModuleStreamHandoff,
   isFleetUnavailableFailure,
   SURFACE_UNAVAILABLE_MESSAGE,
   useResumableSSEStream,
@@ -77,6 +78,33 @@ let pendingStreamHandoff: PendingStreamHandoff | null = null;
  * send, even when deterministic SSE completes in one XHR tick.
  */
 let globalStopHoldUntilMs = 0;
+
+/**
+ * GATE-FIX-01 product: optimistic live-turn user bubble. Survives remount so
+ * airplane restore never leaves an empty yellow user bubble while Zero lags.
+ */
+type PendingUserMessage = {
+  conversationId: string;
+  content: string;
+  createdAt: number;
+  localId: string;
+};
+let modulePendingUser: PendingUserMessage | null = null;
+
+/**
+ * GATE-FIX-01 product: local turn snapshot so painted MessageBubbles do not
+ * depend solely on Zero lag after airplane. Merged into the thread until Zero
+ * durable rows carry the same non-empty content.
+ */
+type LocalTurnSnapshot = {
+  conversationId: string;
+  userContent: string;
+  agentContent: string;
+  agentId: string | null;
+  userLocalId: string;
+  updatedAt: number;
+};
+let moduleLocalTurn: LocalTurnSnapshot | null = null;
 
 /**
  * Chat screen for a specific conversation.
@@ -144,20 +172,66 @@ export default function ChatScreen() {
     }
   }, [conversationId, isNewConversation, streamPhase, connectStream]);
 
+  // GATE-FIX-01: when SSE/poll left phase=complete with empty assembled text
+  // (missed tokens mid-airplane), hydrate finalText from GET /api/chat-runs/:id
+  // into local state so overlay + latest oracle still paint the durable answer.
+  const [hydratedFinalText, setHydratedFinalText] = useState('');
+  useEffect(() => {
+    if (streamPhase === 'idle' || streamPhase === 'degraded') {
+      setHydratedFinalText('');
+      return;
+    }
+    if (
+      streamPhase !== 'complete' &&
+      streamPhase !== 'cancelled' &&
+      streamPhase !== 'reconnecting'
+    ) {
+      return;
+    }
+    if (streamedText.trim().length > 0 || !streamRunId || !platformUrl || !rnApiKey) {
+      return;
+    }
+    let cancelled = false;
+    const hydrate = async () => {
+      try {
+        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${streamRunId}`, {
+          headers: { Authorization: `Bearer ${rnApiKey}` },
+        });
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { finalText?: string };
+        if (!cancelled && typeof body.finalText === 'string' && body.finalText.trim().length > 0) {
+          setHydratedFinalText(body.finalText);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    void hydrate();
+    const t = setInterval(() => {
+      void hydrate();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [streamPhase, streamRunId, streamedText, platformUrl, rnApiKey]);
+
+  const effectiveStreamedText = streamedText.trim().length > 0 ? streamedText : hydratedFinalText;
+
   // Degraded owns a banner, not a stream preview bubble.
   const streamOverlay =
     streamPhase !== 'idle' && streamPhase !== 'degraded'
       ? {
           durableMessageId:
             durableMessageId ?? (streamRunId ? `stream-preview-${streamRunId}` : null),
-          content: streamedText,
+          content: effectiveStreamedText,
           phase: streamPhase,
         }
       : null;
 
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null);
   const {
-    messages = [],
+    messages: historyMessages = [],
     durableMessages = [],
     isLoading: isLoadingMessages = false,
     error: messagesError = null,
@@ -167,6 +241,193 @@ export default function ChatScreen() {
     isLoading: false,
     error: null,
   };
+
+  // Force re-render when module pending user is set/cleared across remounts.
+  const [, setPendingUserTick] = useState(0);
+  const pendingUser =
+    modulePendingUser && conversationId && modulePendingUser.conversationId === conversationId
+      ? modulePendingUser
+      : null;
+
+  // Drop optimistic user once Zero durable has the same non-empty content.
+  useEffect(() => {
+    if (!modulePendingUser || !conversationId) return;
+    if (modulePendingUser.conversationId !== conversationId) return;
+    const landed = durableMessages.some(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.trim() === modulePendingUser!.content.trim()
+    );
+    if (landed) {
+      modulePendingUser = null;
+      setPendingUserTick((n) => n + 1);
+    }
+  }, [durableMessages, conversationId]);
+
+  // Keep local-turn agent text in sync with SSE / hydrate / module handoff.
+  useEffect(() => {
+    const handoff = getModuleStreamHandoff();
+    const agentText =
+      effectiveStreamedText.trim().length > 0
+        ? effectiveStreamedText
+        : (handoff?.text ?? '').trim();
+    const agentId = durableMessageId ?? handoff?.durableMessageId ?? null;
+    if (!conversationId || conversationId === 'new') return;
+    if (!agentText && !modulePendingUser) return;
+
+    const userContent =
+      modulePendingUser && modulePendingUser.conversationId === conversationId
+        ? modulePendingUser.content
+        : moduleLocalTurn?.conversationId === conversationId
+          ? moduleLocalTurn.userContent
+          : (lastMessageRef.current ?? '');
+
+    if (!userContent && !agentText) return;
+
+    const prev = moduleLocalTurn;
+    const sameConv = prev && prev.conversationId === conversationId;
+    const nextAgent = agentText || (sameConv ? prev!.agentContent : '');
+    const nextAgentId = agentId ?? (sameConv ? prev!.agentId : null);
+    if (
+      sameConv &&
+      prev!.userContent === userContent &&
+      prev!.agentContent === nextAgent &&
+      prev!.agentId === nextAgentId
+    ) {
+      return;
+    }
+    moduleLocalTurn = {
+      conversationId,
+      userContent: userContent || (sameConv ? prev!.userContent : ''),
+      agentContent: nextAgent,
+      agentId: nextAgentId,
+      userLocalId:
+        (sameConv ? prev!.userLocalId : undefined) ||
+        modulePendingUser?.localId ||
+        `pending-user-${Date.now()}`,
+      updatedAt: Date.now(),
+    };
+    setPendingUserTick((n) => n + 1);
+  }, [conversationId, effectiveStreamedText, durableMessageId, streamPhase, pendingUser]);
+
+  // Clear local turn once Zero has both the user prompt and agent final text.
+  useEffect(() => {
+    if (!moduleLocalTurn || !conversationId) return;
+    if (moduleLocalTurn.conversationId !== conversationId) return;
+    const userOk =
+      !moduleLocalTurn.userContent ||
+      durableMessages.some(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.trim() === moduleLocalTurn!.userContent.trim()
+      );
+    const agentOk =
+      !moduleLocalTurn.agentContent ||
+      durableMessages.some(
+        (m) =>
+          (m.role === 'agent' || (m.role as string) === 'assistant') &&
+          typeof m.content === 'string' &&
+          m.content.trim().length > 0 &&
+          (moduleLocalTurn!.agentId
+            ? m.id === moduleLocalTurn!.agentId
+            : m.content.includes(moduleLocalTurn!.agentContent.slice(0, 24)))
+      );
+    if (userOk && agentOk && moduleLocalTurn.agentContent.trim().length > 0) {
+      moduleLocalTurn = null;
+      modulePendingUser = null;
+      setPendingUserTick((n) => n + 1);
+    }
+  }, [durableMessages, conversationId]);
+
+  // GATE-FIX-01: merge local-turn user+agent so painted bubbles never depend only
+  // on Zero lag / empty placeholders after airplane restore.
+  const messages = (() => {
+    let next = historyMessages;
+    const turn =
+      moduleLocalTurn && conversationId && moduleLocalTurn.conversationId === conversationId
+        ? moduleLocalTurn
+        : null;
+    const userContent = turn?.userContent || pendingUser?.content || '';
+    if (userContent) {
+      const hasMatchingUser = next.some(
+        (m) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.trim() === userContent.trim()
+      );
+      if (!hasMatchingUser) {
+        const emptyUserIdx = [...next]
+          .map((m, i) => ({ m, i }))
+          .reverse()
+          .find(
+            ({ m }) =>
+              m.role === 'user' && (typeof m.content !== 'string' || m.content.trim().length === 0)
+          )?.i;
+        if (emptyUserIdx != null) {
+          next = next.slice();
+          next[emptyUserIdx] = {
+            ...next[emptyUserIdx]!,
+            content: userContent,
+          };
+        } else {
+          next = [
+            ...next,
+            {
+              id: turn?.userLocalId ?? pendingUser?.localId ?? `pending-user-${Date.now()}`,
+              role: 'user' as const,
+              content: userContent,
+              message_type: 'text' as const,
+              createdAt: new Date(turn?.updatedAt ?? Date.now()),
+            },
+          ];
+        }
+      }
+    }
+
+    const agentContent = turn?.agentContent?.trim() || effectiveStreamedText.trim();
+    const agentId =
+      turn?.agentId || durableMessageId || (streamRunId ? `stream-preview-${streamRunId}` : null);
+    if (agentContent && agentId) {
+      const idx = next.findIndex((m) => m.id === agentId);
+      if (idx >= 0) {
+        const existing = next[idx]!;
+        if (
+          typeof existing.content !== 'string' ||
+          existing.content.trim().length === 0 ||
+          existing.content.length < agentContent.length
+        ) {
+          next = next.slice();
+          next[idx] = {
+            ...existing,
+            role: (existing.role as string) === 'assistant' ? 'agent' : existing.role,
+            content: agentContent,
+          };
+        }
+      } else {
+        const hasSameText = next.some(
+          (m) =>
+            (m.role === 'agent' || (m.role as string) === 'assistant') &&
+            typeof m.content === 'string' &&
+            m.content.trim() === agentContent
+        );
+        if (!hasSameText) {
+          next = [
+            ...next,
+            {
+              id: agentId,
+              role: 'agent' as const,
+              content: agentContent,
+              message_type: 'text' as const,
+              createdAt: new Date(turn?.updatedAt ?? Date.now()),
+            },
+          ];
+        }
+      }
+    }
+    return next;
+  })();
 
   // Local send state
   const [isSending, setIsSending] = useState(false);
@@ -321,7 +582,8 @@ export default function ChatScreen() {
       }
 
       Keyboard.dismiss();
-      lastMessageRef.current = content.trim();
+      const trimmed = content.trim();
+      lastMessageRef.current = trimmed;
       setIsSending(true);
       setSendError(null);
       // New turn owns busy UX again
@@ -330,6 +592,27 @@ export default function ChatScreen() {
       // Hold Stop for ≥4s (module-level) so e2e sees it across remounts / fast SSE
       globalStopHoldUntilMs = Date.now() + 4000;
       setStopHoldTick((n) => n + 1);
+      // GATE-FIX-01: never greenwash token oracles from a prior Maestro run.
+      resetChatThreadStreamPeaks();
+
+      // GATE-FIX-01: paint the live-turn user prompt immediately (non-empty bubble).
+      if (conversationId && conversationId !== 'new') {
+        modulePendingUser = {
+          conversationId,
+          content: trimmed,
+          createdAt: Date.now(),
+          localId: `pending-user-${Date.now()}`,
+        };
+        moduleLocalTurn = {
+          conversationId,
+          userContent: trimmed,
+          agentContent: '',
+          agentId: null,
+          userLocalId: modulePendingUser.localId,
+          updatedAt: Date.now(),
+        };
+        setPendingUserTick((n) => n + 1);
+      }
 
       try {
         const targetConversationId =
@@ -343,7 +626,7 @@ export default function ChatScreen() {
           },
           body: JSON.stringify({
             requestId: newRequestId('rn-chat'),
-            msg: content.trim(),
+            msg: trimmed,
             conversationId: targetConversationId,
           }),
         });
@@ -385,6 +668,13 @@ export default function ChatScreen() {
         }
         if (body.runId && body.durableMessageId) {
           if (isNewConversation && body.conversationId) {
+            // Bind optimistic user to the real conversation id before remount.
+            modulePendingUser = {
+              conversationId: body.conversationId,
+              content: trimmed,
+              createdAt: Date.now(),
+              localId: `pending-user-${Date.now()}`,
+            };
             // Defer connect until after /chat/new → /chat/:id remount
             pendingStreamHandoff = {
               runId: body.runId,
@@ -401,6 +691,12 @@ export default function ChatScreen() {
             });
           }
         } else if (isNewConversation && body.conversationId) {
+          modulePendingUser = {
+            conversationId: body.conversationId,
+            content: trimmed,
+            createdAt: Date.now(),
+            localId: `pending-user-${Date.now()}`,
+          };
           router.replace(`/chat/${body.conversationId}`);
         } else {
           // Create returned without a streamable run — drop local busy latch.
@@ -628,6 +924,23 @@ export default function ChatScreen() {
               void softDeleteMessage(messageId);
             }}
             streamingMessageId={streamingMessageId}
+            preferredLatestAgentId={
+              durableMessageId ??
+              (moduleLocalTurn &&
+              conversationId &&
+              moduleLocalTurn.conversationId === conversationId
+                ? moduleLocalTurn.agentId
+                : null)
+            }
+            streamedText={
+              effectiveStreamedText.trim().length > 0
+                ? effectiveStreamedText
+                : moduleLocalTurn &&
+                    conversationId &&
+                    moduleLocalTurn.conversationId === conversationId
+                  ? moduleLocalTurn.agentContent
+                  : ''
+            }
             streamPhase={streamPhase}
             streamLastSeq={streamLastSeq}
             streamTokenCount={streamTokenCount}

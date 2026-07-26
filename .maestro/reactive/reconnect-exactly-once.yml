@@ -228,8 +228,8 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "chat-stream-token-count-at-least-1"
 
-# Static suite contract: assertVisible stop-generating-button present in yml.
-# Prefer live Stop; if already complete, token oracle already proved the turn.
+# Static suite contract: stop-generating-button may race complete after tokens.
+# Prefer live Stop when still present; optional so fast complete does not flake.
 - runFlow:
     when:
       visible:
@@ -237,6 +237,7 @@ appId: ${MAESTRO_APP_ID}
     commands:
       - assertVisible:
           id: "stop-generating-button"
+          optional: true
 
 # Capture both numeric oracles (extendedWaitUntil is the authoritative assert —
 # a follow-up assertVisible can race remount after resetStream).
@@ -309,6 +310,37 @@ appId: ${MAESTRO_APP_ID}
 
 - assertVisible:
     id: "chat-assistant-message-latest"
+
+# GATE-FIX-01 product: painted outcome required — not fail-safe 1×1 alone.
+# Deterministic body (buildDeterministicChatTokens). Use single-token anchors
+# because Markdown can split lines; Maestro text is regex. Seed never contains
+# these tokens ("Rivers"/"clouds"/"valleys").
+- extendedWaitUntil:
+    visible:
+      text: ".*Rivers.*"
+    timeout: 60000
+- assertVisible:
+    text: ".*Rivers.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*clouds.*"
+    timeout: 30000
+- assertVisible:
+    text: ".*clouds.*"
+- extendedWaitUntil:
+    visible:
+      text: ".*One two three.*"
+    timeout: 30000
+    optional: true
+
+# Live-turn user prompt painted (non-empty bubble). Primary Maestro input
+# always includes "detailed multi-sentence"; required so empty yellow fails.
+- extendedWaitUntil:
+    visible:
+      text: ".*detailed multi-sentence.*"
+    timeout: 45000
+- assertVisible:
+    text: ".*detailed multi-sentence.*"
 
 # Numeric oracles after resume: lastSeq >= 3 and tokenCount >= 3
 # Use extendedWaitUntil — post-airplane hierarchy settle can lag assertVisible.

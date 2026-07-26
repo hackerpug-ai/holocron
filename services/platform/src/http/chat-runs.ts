@@ -147,10 +147,19 @@ async function finalizeChatRun(
       (status === 'completed' || finalText.length > 0) &&
       Boolean(run.conversation_id);
     if (shouldPersistMessage && run.conversation_id && finalText !== null) {
+      // GATE-FIX-01: UPSERT content so an empty placeholder never blocks the
+      // durable assistant text that MessageBubble must paint after airplane.
       await tx`
         INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
         VALUES (${run.durable_message_id}::uuid, ${run.conversation_id}, 'agent', ${finalText}, 'text', ${run.id})
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO UPDATE
+        SET content = EXCLUDED.content,
+            role = 'agent',
+            message_type = COALESCE(chat_messages.message_type, EXCLUDED.message_type),
+            session_id = COALESCE(chat_messages.session_id, EXCLUDED.session_id)
+        WHERE chat_messages.content IS NULL
+           OR btrim(chat_messages.content) = ''
+           OR length(EXCLUDED.content) > length(coalesce(chat_messages.content, ''))
       `;
     }
     // ALWAYS clear agent_busy on any terminal finalize (completed/blocked/failed).

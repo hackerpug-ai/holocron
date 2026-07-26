@@ -1,13 +1,14 @@
-# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-07-26T02:30:34.741Z
-repo_root=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-10
-base_head=a55b6403ffd4506ebab7c05c16d54ed7b0f7e493
-correct site=A mode=unmutated exit=0 failures=0 exit_ok=true
-single-site-A mode=assemblyRef-reset-siteA-only suite=AC-1-site-A exit=1 failures=1 exit_nonzero=true
-single-site-A KILLED (suite exit non-zero under site-A-only wipe; failures>=1)
- Test Files  1 failed (1)
-      Tests  1 failed | 4 skipped (5)
-   Start at  20:30:35
-   Duration  337ms (transform 75ms, setup 101ms, import 44ms, tests 99ms, environment 0ms)
+# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-07-26T05:27:25.683Z
+repo ✓ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts (5 tests) 3692ms
+     ✓ AC-2-production-mutation: correct exit 0; production-assembly-reset exits non-zero  1242ms
+     ✓ AC-2-site-A-mutation: single-site-A wiped killed; single-site-B + dual-site still killed  2261ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  23:27:24
+   Duration  3.93s (transform 78ms, setup 101ms, import 51ms, tests 3.69s, environment 0ms)
+
+uration  337ms (transform 76ms, setup 101ms, import 46ms, tests 98ms, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
