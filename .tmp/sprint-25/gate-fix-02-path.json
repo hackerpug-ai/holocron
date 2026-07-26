@@ -1,0 +1,42 @@
+{
+  "task": "GATE-FIX-02",
+  "path": "A",
+  "agent": "react-native-ui-implementer",
+  "summary": "Key ModuleStreamHandoff by conversationId, pass conversationId through the hook/controller, and scope restore and ChatScreen handoff paint paths by conversation parity.",
+  "ownedFiles": [
+    "hooks/use-resumable-sse-stream.ts",
+    "app/(drawer)/chat/[conversationId].tsx",
+    "tests/integration/s-reactive-01-resumable-sse.test.ts",
+    ".tmp/sprint-25/gate-fix-02-red.log",
+    ".tmp/sprint-25/gate-fix-02-path.json",
+    ".tmp/sprint-25/gate-fix-02-mutation.log"
+  ],
+  "evidence": {
+    "redLog": ".tmp/sprint-25/gate-fix-02-red.log",
+    "mutationLog": ".tmp/sprint-25/gate-fix-02-mutation.log"
+  },
+  "verification": {
+    "isolationFocused": {
+      "command": "pnpm vitest run tests/integration/s-reactive-01-resumable-sse.test.ts -t 'GATE-FIX-02|two-conversation|isolation|GATE-FIX-01: module stream handoff survives dispose|remount'",
+      "exitCode": 0
+    },
+    "fullReactiveSuite": {
+      "command": "pnpm vitest run tests/integration/s-reactive-01-resumable-sse.test.ts",
+      "exitCode": 0
+    },
+    "redhatFix04Ac1": {
+      "command": "pnpm vitest run tests/integration/redhat-fix-04-production-hook-reconnect.test.ts -t 'AC-1'",
+      "exitCode": 0
+    },
+    "biome": {
+      "command": "pnpm biome check hooks/use-resumable-sse-stream.ts 'app/(drawer)/chat/[conversationId].tsx'",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 2,
+      "note": "Repo-wide pre-existing failures outside owned scope, predominantly under services/platform/**, which this task forbids editing."
+    }
+  },
+  "verifiedOn": "2026-07-26"
+}

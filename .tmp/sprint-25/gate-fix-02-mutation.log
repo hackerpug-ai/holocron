@@ -1,0 +1,54 @@
+2026-07-26 GATE-FIX-02 mutation probe
+
+correct command:
+pnpm vitest run tests/integration/s-reactive-01-resumable-sse.test.ts -t 'GATE-FIX-02|two-conversation|isolation'
+exit=0
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 30 skipped (31)
+   Start at  09:31:23
+   Duration  241ms (transform 76ms, setup 103ms, import 10ms, tests 37ms, environment 0ms)
+
+mutant-drop-restore-conversation-guard:
+temporary production edit removed:
+if (conversationId && handoff.conversationId !== conversationId) return;
+from hooks/use-resumable-sse-stream.ts restoreFromHandoff
+
+pnpm vitest run tests/integration/s-reactive-01-resumable-sse.test.ts -t 'GATE-FIX-02|two-conversation|isolation'
+exit=1
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+ ❯ tests/integration/s-reactive-01-resumable-sse.test.ts (31 tests | 1 failed | 30 skipped) 40ms
+       × GATE-FIX-02: two-conversation module handoff isolation keeps conv-B idle and preserves conv-A handoff 39ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/s-reactive-01-resumable-sse.test.ts > S-REACTIVE-01 resumable SSE client contracts > pure token assembly — zero duplicates (AC-2 / AC-4) > GATE-FIX-02: two-conversation module handoff isolation keeps conv-B idle and preserves conv-A handoff
+AssertionError: expected 'complete' to be 'idle' // Object.is equality
+
+Expected: "idle"
+Received: "complete"
+
+ ❯ tests/integration/s-reactive-01-resumable-sse.test.ts:444:27
+    442|
+    443|       const snapB = ctrlB.getSnapshot();
+    444|       expect(snapB.phase).toBe('idle');
+       |                           ^
+    445|       expect(snapB.runId).toBeNull();
+    446|       expect(snapB.streamedText).not.toContain('REPLY-FROM-A');
+
+restored command:
+pnpm vitest run tests/integration/s-reactive-01-resumable-sse.test.ts -t 'GATE-FIX-02|two-conversation|isolation'
+exit=0
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 30 skipped (31)
+   Start at  09:31:23
+   Duration  241ms (transform 76ms, setup 103ms, import 10ms, tests 37ms, environment 0ms)

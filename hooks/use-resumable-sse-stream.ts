@@ -82,12 +82,13 @@ function openProgressiveSse(
     buffer += text.slice(offset);
     offset = text.length;
     // SSE events are separated by a blank line
-    let sep: number;
-    while ((sep = buffer.search(/\r?\n\r?\n/)) !== -1) {
+    let sep = buffer.search(/\r?\n\r?\n/);
+    while (sep !== -1) {
       const rawBlock = buffer.slice(0, sep);
       buffer = buffer.slice(sep).replace(/^\r?\n\r?\n/, '');
       const parsed = parseSseBlock(rawBlock);
       if (parsed) handlers.onEvent(parsed);
+      sep = buffer.search(/\r?\n\r?\n/);
     }
   };
 
@@ -241,6 +242,7 @@ export function applyFleetFailureEnvelope(args: {
 export type UseResumableSSEStreamOptions = {
   platformUrl?: string | null;
   apiKey?: string | null;
+  conversationId?: string | null;
   /**
    * REDHAT-FIX-03 / M2: when true, disable the reconnect-phase status poll
    * fallback so tests can prove the SSE Last-Event-ID path (cannot sole-greenwash).
@@ -349,7 +351,8 @@ export function reconcileThreadMessages(
   const existingIdx = durable.findIndex((m) => m.id === overlay.durableMessageId);
 
   if (existingIdx >= 0) {
-    const existing = durable[existingIdx]!;
+    const existing = durable[existingIdx];
+    if (!existing) return durable;
     const durableEmpty =
       typeof existing.content !== 'string' || existing.content.trim().length === 0;
     // Prefer overlay text when durable is empty/short (Zero lag / empty land).
@@ -439,6 +442,7 @@ export type ResumableSseControllerSnapshot = {
  * module peaks still greenwash token oracles, and seed steals latest.
  */
 export type ModuleStreamHandoff = {
+  conversationId: string;
   runId: string;
   durableMessageId: string;
   lastSeq: number;
@@ -468,13 +472,19 @@ export function clearModuleStreamHandoff(): void {
 }
 
 function persistModuleStreamHandoff(args: {
+  conversationId?: string | null;
   runId: string | null;
   durableMessageId: string | null;
   phase: ChatStreamPhase;
   assembly: TokenAssemblyState;
   streamedText: string;
 }): void {
-  if (!args.runId || !args.durableMessageId || !HANDOFF_ACTIVE_PHASES.has(args.phase)) {
+  if (
+    !args.conversationId ||
+    !args.runId ||
+    !args.durableMessageId ||
+    !HANDOFF_ACTIVE_PHASES.has(args.phase)
+  ) {
     return;
   }
   const text =
@@ -482,6 +492,7 @@ function persistModuleStreamHandoff(args: {
       ? args.assembly.text
       : args.streamedText) ?? '';
   moduleStreamHandoff = {
+    conversationId: args.conversationId,
     runId: args.runId,
     durableMessageId: args.durableMessageId,
     lastSeq: args.assembly.lastSeq,
@@ -526,6 +537,10 @@ export function createResumableSseController(
 ): ResumableSseController {
   const platformUrl = options.platformUrl ?? process.env.EXPO_PUBLIC_PLATFORM_URL;
   const apiKey = options.apiKey ?? process.env.EXPO_PUBLIC_RN_API_KEY;
+  const conversationId =
+    typeof options.conversationId === 'string' && options.conversationId.trim().length > 0
+      ? options.conversationId
+      : null;
   const disableStatusPollFallback = options.disableStatusPollFallback === true;
   const reconnectDelayMs = options.reconnectDelayMs ?? 250;
 
@@ -561,6 +576,7 @@ export function createResumableSseController(
 
   const persistHandoff = () => {
     persistModuleStreamHandoff({
+      conversationId,
       runId,
       durableMessageId,
       phase,
@@ -946,7 +962,7 @@ export function createResumableSseController(
   const restoreFromHandoff = (handoff: ModuleStreamHandoff) => {
     if (!handoff.runId || !handoff.durableMessageId) return;
     if (!HANDOFF_ACTIVE_PHASES.has(handoff.phase)) return;
-
+    if (conversationId && handoff.conversationId !== conversationId) return;
     runId = handoff.runId;
     durableMessageId = handoff.durableMessageId;
     error = null;
@@ -1106,6 +1122,10 @@ export function useResumableSSEStream(
 ): UseResumableSSEStreamReturn {
   const platformUrl = options.platformUrl ?? process.env.EXPO_PUBLIC_PLATFORM_URL;
   const apiKey = options.apiKey ?? process.env.EXPO_PUBLIC_RN_API_KEY;
+  const conversationId =
+    typeof options.conversationId === 'string' && options.conversationId.trim().length > 0
+      ? options.conversationId
+      : null;
   const disableStatusPollFallback = options.disableStatusPollFallback === true;
   const { isOnline } = useNetworkStatus();
 
@@ -1114,6 +1134,7 @@ export function useResumableSSEStream(
     controllerRef.current = createResumableSseController({
       platformUrl,
       apiKey,
+      conversationId,
       disableStatusPollFallback,
       initialIsOnline: true,
     });
@@ -1133,11 +1154,12 @@ export function useResumableSSEStream(
     const handoff = getModuleStreamHandoff();
     if (!handoff) return;
     if (!HANDOFF_ACTIVE_PHASES.has(handoff.phase)) return;
+    if (!conversationId || handoff.conversationId !== conversationId) return;
     const snap = controller.getSnapshot();
     // Only restore when this mount has no active turn yet.
     if (snap.phase !== 'idle' && snap.runId) return;
     controller.restoreFromHandoff(handoff);
-  }, [controller]);
+  }, [controller, conversationId]);
 
   // F-RECON-01: bridge NetInfo isOnline into production controller online handler
   useEffect(() => {

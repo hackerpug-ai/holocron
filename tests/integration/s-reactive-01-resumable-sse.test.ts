@@ -1,4 +1,8 @@
 /**
+ * @vitest-environment jsdom
+ */
+
+/**
  * S-REACTIVE-01 — Resumable SSE chat streaming client with exactly-once reconciliation.
  *
  * Static + pure-logic contracts (always run). Behavioral Maestro ACs are
@@ -12,7 +16,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import type { ModuleStreamHandoff } from '../../hooks/use-resumable-sse-stream';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -29,6 +35,20 @@ const MAESTRO_FLOWS = [
   'last-event-id-gap-fill.yml',
   'cancel-stops-stream.yml',
 ] as const;
+
+vi.mock('@react-native-community/netinfo', () => ({
+  default: {
+    addEventListener: (listener: (state: { isConnected: boolean; type: string }) => void) => {
+      listener({ isConnected: true, type: 'wifi' });
+      return () => {};
+    },
+    fetch: async () => ({
+      isConnected: true,
+      isInternetReachable: true,
+      type: 'wifi',
+    }),
+  },
+}));
 
 function read(path: string): string {
   return readFileSync(path, 'utf8');
@@ -353,11 +373,13 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
         platformUrl: 'http://127.0.0.1:9',
         apiKey: 'test-key',
         disableStatusPollFallback: true,
+        conversationId: 'conv-A',
       });
       // Simulate a completed turn with assembled text without opening SSE.
       // restoreFromHandoff is the remount entry; first write handoff via connect path
       // is network-heavy — unit the pure handoff helpers + restore snapshot instead.
-      ctrl.restoreFromHandoff({
+      const handoffSeed: ModuleStreamHandoff = {
+        conversationId: 'conv-A',
         runId: 'run-handoff-1',
         durableMessageId: 'durable-handoff-1',
         lastSeq: 5,
@@ -365,7 +387,8 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
         tokenCount: 5,
         phase: 'complete',
         updatedAt: Date.now(),
-      });
+      };
+      ctrl.restoreFromHandoff(handoffSeed);
       const snap = ctrl.getSnapshot();
       expect(snap.phase).toBe('complete');
       expect(snap.runId).toBe('run-handoff-1');
@@ -377,6 +400,10 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
       ctrl.dispose();
       const handoff = mod.getModuleStreamHandoff();
       expect(handoff).not.toBeNull();
+      if (!handoff) {
+        throw new Error('expected same-conversation handoff after dispose');
+      }
+      expect(handoff?.conversationId).toBe('conv-A');
       expect(handoff?.text).toContain('Streaming reply about');
       expect(handoff?.phase).toBe('complete');
 
@@ -384,11 +411,102 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
         platformUrl: 'http://127.0.0.1:9',
         apiKey: 'test-key',
         disableStatusPollFallback: true,
+        conversationId: 'conv-A',
       });
-      ctrl2.restoreFromHandoff(handoff!);
+      ctrl2.restoreFromHandoff(handoff);
       expect(ctrl2.getSnapshot().streamedText).toContain('Streaming reply about');
+      expect(ctrl2.getSnapshot().phase).toBe('complete');
       ctrl2.reset();
       expect(mod.getModuleStreamHandoff()).toBeNull();
+    });
+
+    it('GATE-FIX-02: production hook mount keeps conv-B idle and preserves same-conversation conv-A remount restore', async () => {
+      const mod = await import('../../hooks/use-resumable-sse-stream');
+      mod.clearModuleStreamHandoff();
+
+      const ctrlA = mod.createResumableSseController({
+        platformUrl: 'http://127.0.0.1:9',
+        apiKey: 'test-key',
+        disableStatusPollFallback: true,
+        conversationId: 'conv-A',
+      });
+      const handoffForConversationA: ModuleStreamHandoff = {
+        conversationId: 'conv-A',
+        runId: 'run-handoff-A',
+        durableMessageId: 'durable-handoff-A',
+        lastSeq: 7,
+        text: 'REPLY-FROM-A',
+        tokenCount: 7,
+        phase: 'complete',
+        updatedAt: Date.now(),
+      };
+      ctrlA.restoreFromHandoff(handoffForConversationA);
+      ctrlA.dispose();
+
+      const storedA = mod.getModuleStreamHandoff();
+      expect(storedA).not.toBeNull();
+      if (!storedA) {
+        throw new Error('expected conv-A handoff after dispose');
+      }
+      expect(storedA.conversationId).toBe('conv-A');
+      expect(storedA.text).toContain('REPLY-FROM-A');
+
+      const hookB = renderHook(() =>
+        mod.useResumableSSEStream({
+          platformUrl: 'http://127.0.0.1:9',
+          apiKey: 'test-key',
+          disableStatusPollFallback: true,
+          conversationId: 'conv-B',
+        })
+      );
+
+      await waitFor(() => {
+        expect(hookB.result.current.phase).toBe('idle');
+      });
+      expect(hookB.result.current.runId).toBeNull();
+      expect(hookB.result.current.durableMessageId).toBeNull();
+      expect(hookB.result.current.streamedText).toBe('');
+      expect(hookB.result.current.lastSeq).toBe(0);
+      expect(hookB.result.current.tokenCount).toBe(0);
+      expect(hookB.result.current.streamedText).not.toContain('REPLY-FROM-A');
+
+      const storedAfterBMount = mod.getModuleStreamHandoff();
+      expect(storedAfterBMount?.conversationId).toBe('conv-A');
+      expect(storedAfterBMount?.text).toContain('REPLY-FROM-A');
+
+      hookB.unmount();
+
+      const hookA = renderHook(() =>
+        mod.useResumableSSEStream({
+          platformUrl: 'http://127.0.0.1:9',
+          apiKey: 'test-key',
+          disableStatusPollFallback: true,
+          conversationId: 'conv-A',
+        })
+      );
+
+      await waitFor(() => {
+        expect(hookA.result.current.phase).toBe('complete');
+        expect(hookA.result.current.runId).toBe('run-handoff-A');
+      });
+      expect(hookA.result.current.durableMessageId).toBe('durable-handoff-A');
+      expect(hookA.result.current.streamedText).toContain('REPLY-FROM-A');
+      expect(hookA.result.current.lastSeq).toBe(7);
+      expect(hookA.result.current.tokenCount).toBe(7);
+
+      const storedAfterARemount = mod.getModuleStreamHandoff();
+      expect(storedAfterARemount?.conversationId).toBe('conv-A');
+      expect(storedAfterARemount?.text).toContain('REPLY-FROM-A');
+
+      act(() => {
+        hookA.result.current.reset();
+      });
+
+      await waitFor(() => {
+        expect(hookA.result.current.phase).toBe('idle');
+      });
+      expect(mod.getModuleStreamHandoff()).toBeNull();
+      hookA.unmount();
     });
 
     it('GATE-FIX-01: ChatThread fail-safe requires painted MessageBubble content', () => {

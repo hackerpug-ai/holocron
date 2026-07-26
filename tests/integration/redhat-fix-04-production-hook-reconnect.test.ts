@@ -117,8 +117,11 @@ class NodeXMLHttpRequest {
 }
 
 // Install before production module evaluates openProgressiveSse
-const g = globalThis as typeof globalThis & { XMLHttpRequest?: typeof NodeXMLHttpRequest };
-g.XMLHttpRequest = NodeXMLHttpRequest;
+const g = globalThis as typeof globalThis & { XMLHttpRequest?: typeof XMLHttpRequest };
+// This is a deliberately narrow Node test polyfill. The production code only
+// reads the members implemented above; it does not need the browser-only XHR
+// surface required by lib.dom's constructor type.
+g.XMLHttpRequest = NodeXMLHttpRequest as unknown as typeof XMLHttpRequest;
 // Match browser static constants used by openProgressiveSse
 Object.assign(NodeXMLHttpRequest, {
   UNSENT: 0,

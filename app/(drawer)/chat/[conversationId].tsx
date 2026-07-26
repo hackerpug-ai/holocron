@@ -152,6 +152,7 @@ export default function ChatScreen() {
   } = useResumableSSEStream({
     platformUrl,
     apiKey: rnApiKey,
+    conversationId: !isNewConversation ? (conversationId ?? null) : null,
   });
 
   // Re-attach stream after /chat/new → /chat/:id navigation remount
@@ -214,7 +215,7 @@ export default function ChatScreen() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [streamPhase, streamRunId, streamedText, platformUrl, rnApiKey]);
+  }, [streamPhase, streamRunId, streamedText]);
 
   const effectiveStreamedText = streamedText.trim().length > 0 ? streamedText : hydratedFinalText;
 
@@ -252,12 +253,14 @@ export default function ChatScreen() {
   // Drop optimistic user once Zero durable has the same non-empty content.
   useEffect(() => {
     if (!modulePendingUser || !conversationId) return;
-    if (modulePendingUser.conversationId !== conversationId) return;
+    const pendingUserForConversation =
+      modulePendingUser.conversationId === conversationId ? modulePendingUser : null;
+    if (!pendingUserForConversation) return;
     const landed = durableMessages.some(
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.trim() === modulePendingUser!.content.trim()
+        m.content.trim() === pendingUserForConversation.content.trim()
     );
     if (landed) {
       modulePendingUser = null;
@@ -268,11 +271,12 @@ export default function ChatScreen() {
   // Keep local-turn agent text in sync with SSE / hydrate / module handoff.
   useEffect(() => {
     const handoff = getModuleStreamHandoff();
+    const scopedHandoff = handoff?.conversationId === conversationId ? handoff : null;
     const agentText =
       effectiveStreamedText.trim().length > 0
         ? effectiveStreamedText
-        : (handoff?.text ?? '').trim();
-    const agentId = durableMessageId ?? handoff?.durableMessageId ?? null;
+        : (scopedHandoff?.text ?? '').trim();
+    const agentId = durableMessageId ?? scopedHandoff?.durableMessageId ?? null;
     if (!conversationId || conversationId === 'new') return;
     if (!agentText && !modulePendingUser) return;
 
@@ -286,55 +290,57 @@ export default function ChatScreen() {
     if (!userContent && !agentText) return;
 
     const prev = moduleLocalTurn;
-    const sameConv = prev && prev.conversationId === conversationId;
-    const nextAgent = agentText || (sameConv ? prev!.agentContent : '');
-    const nextAgentId = agentId ?? (sameConv ? prev!.agentId : null);
+    const prevForConversation = prev?.conversationId === conversationId ? prev : null;
+    const nextAgent = agentText || prevForConversation?.agentContent || '';
+    const nextAgentId = agentId ?? prevForConversation?.agentId ?? null;
     if (
-      sameConv &&
-      prev!.userContent === userContent &&
-      prev!.agentContent === nextAgent &&
-      prev!.agentId === nextAgentId
+      prevForConversation &&
+      prevForConversation.userContent === userContent &&
+      prevForConversation.agentContent === nextAgent &&
+      prevForConversation.agentId === nextAgentId
     ) {
       return;
     }
     moduleLocalTurn = {
       conversationId,
-      userContent: userContent || (sameConv ? prev!.userContent : ''),
+      userContent: userContent || prevForConversation?.userContent || '',
       agentContent: nextAgent,
       agentId: nextAgentId,
       userLocalId:
-        (sameConv ? prev!.userLocalId : undefined) ||
+        prevForConversation?.userLocalId ||
         modulePendingUser?.localId ||
         `pending-user-${Date.now()}`,
       updatedAt: Date.now(),
     };
     setPendingUserTick((n) => n + 1);
-  }, [conversationId, effectiveStreamedText, durableMessageId, streamPhase, pendingUser]);
+  }, [conversationId, effectiveStreamedText, durableMessageId]);
 
   // Clear local turn once Zero has both the user prompt and agent final text.
   useEffect(() => {
     if (!moduleLocalTurn || !conversationId) return;
-    if (moduleLocalTurn.conversationId !== conversationId) return;
+    const localTurnForConversation =
+      moduleLocalTurn.conversationId === conversationId ? moduleLocalTurn : null;
+    if (!localTurnForConversation) return;
     const userOk =
-      !moduleLocalTurn.userContent ||
+      !localTurnForConversation.userContent ||
       durableMessages.some(
         (m) =>
           m.role === 'user' &&
           typeof m.content === 'string' &&
-          m.content.trim() === moduleLocalTurn!.userContent.trim()
+          m.content.trim() === localTurnForConversation.userContent.trim()
       );
     const agentOk =
-      !moduleLocalTurn.agentContent ||
+      !localTurnForConversation.agentContent ||
       durableMessages.some(
         (m) =>
           (m.role === 'agent' || (m.role as string) === 'assistant') &&
           typeof m.content === 'string' &&
           m.content.trim().length > 0 &&
-          (moduleLocalTurn!.agentId
-            ? m.id === moduleLocalTurn!.agentId
-            : m.content.includes(moduleLocalTurn!.agentContent.slice(0, 24)))
+          (localTurnForConversation.agentId
+            ? m.id === localTurnForConversation.agentId
+            : m.content.includes(localTurnForConversation.agentContent.slice(0, 24)))
       );
-    if (userOk && agentOk && moduleLocalTurn.agentContent.trim().length > 0) {
+    if (userOk && agentOk && localTurnForConversation.agentContent.trim().length > 0) {
       moduleLocalTurn = null;
       modulePendingUser = null;
       setPendingUserTick((n) => n + 1);
@@ -367,8 +373,10 @@ export default function ChatScreen() {
           )?.i;
         if (emptyUserIdx != null) {
           next = next.slice();
+          const emptyUser = next[emptyUserIdx];
+          if (!emptyUser) return next;
           next[emptyUserIdx] = {
-            ...next[emptyUserIdx]!,
+            ...emptyUser,
             content: userContent,
           };
         } else {
@@ -392,7 +400,8 @@ export default function ChatScreen() {
     if (agentContent && agentId) {
       const idx = next.findIndex((m) => m.id === agentId);
       if (idx >= 0) {
-        const existing = next[idx]!;
+        const existing = next[idx];
+        if (!existing) return next;
         if (
           typeof existing.content !== 'string' ||
           existing.content.trim().length === 0 ||
