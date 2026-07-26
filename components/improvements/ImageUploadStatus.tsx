@@ -57,23 +57,27 @@ export function ImageUploadStatus({
   }
 
   if (phase === 'success') {
+    // ANTI-STUB: upload-success requires a real 64-hex CAS content hash.
+    // Text-only submit must never claim upload success without CAS.
+    const hasCas = typeof zeroContentHash === 'string' && /^[0-9a-f]{64}$/i.test(zeroContentHash);
+    if (!hasCas) {
+      return null;
+    }
     return (
       <View testID="upload-success" style={styles.statusRow}>
         <Text className="text-success text-sm font-semibold">Upload complete</Text>
-        {zeroContentHash ? (
-          <View
-            testID="zero-file-object"
-            accessibilityLabel={
-              zeroSynced
-                ? `Zero-synced file object ${zeroContentHash}`
-                : `Observing file object ${zeroContentHash}`
-            }
-          >
-            <Text className="text-muted-foreground text-xs">
-              {zeroSynced ? `Synced ${zeroContentHash.slice(0, 12)}…` : 'Syncing…'}
-            </Text>
-          </View>
-        ) : null}
+        <View
+          testID="zero-file-object"
+          accessibilityLabel={
+            zeroSynced
+              ? `Zero-synced file object ${zeroContentHash}`
+              : `Observing file object ${zeroContentHash}`
+          }
+        >
+          <Text className="text-muted-foreground text-xs">
+            {zeroSynced ? `Synced ${zeroContentHash.slice(0, 12)}…` : 'Syncing…'}
+          </Text>
+        </View>
       </View>
     );
   }

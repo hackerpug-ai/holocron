@@ -7,11 +7,18 @@ import { resolveHolocronNonprodDatabaseUrl } from '../../db/connection.ts';
 
 type BlobVerifyOptions = { databaseUrl?: string; blobRoot?: string };
 
-function fixtureSha256(): string | null {
-  const fixturePath =
+function resolveFixturePath(): string {
+  return (
     process.env.HOLO_UPLOAD_FIXTURE_PATH ??
-    resolve(process.cwd(), 'tests/fixtures/test-fixture.jpg');
-  return existsSync(fixturePath) ? sha256Hex(readFileSync(fixturePath)) : null;
+    resolve(process.cwd(), 'tests/fixtures/test-fixture.jpg')
+  );
+}
+
+/** Read the seeded fixture SHA-256 from disk — never hard-code the digest. */
+function fixtureSha256(): { path: string; sha256: string | null } {
+  const path = resolveFixturePath();
+  if (!existsSync(path)) return { path, sha256: null };
+  return { path, sha256: sha256Hex(readFileSync(path)) };
 }
 
 /** Verify the post-upload CAS row and its bytes, never a hard-coded count/hash. */
@@ -42,19 +49,23 @@ export async function verifyLastUploadedBlob(options?: BlobVerifyOptions) {
     const storedPath = row?.content_hash ? store.resolvePath(row.content_hash) : '';
     const bytes = row && existsSync(storedPath) ? readFileSync(storedPath) : null;
     const actualSha256 = bytes ? sha256Hex(bytes) : null;
+    // Fail-closed: require exactly one row, CAS bytes match content_hash, and
+    // content_hash matches the seeded fixture SHA-256 read from disk.
     const ok =
       rows.length === 1 &&
       row != null &&
       bytes != null &&
+      fixture.sha256 != null &&
       row.content_hash === actualSha256 &&
       (row.byte_size == null || row.byte_size === bytes.byteLength) &&
       row.storage_path != null &&
-      (fixture == null || fixture === row.content_hash);
+      fixture.sha256 === row.content_hash;
     return {
       ok,
       rowCount: rows.length,
-      fixtureSha256: fixture,
-      fixtureChecked: fixture != null,
+      fixtureSha256: fixture.sha256,
+      fixturePath: fixture.path,
+      fixtureChecked: fixture.sha256 != null,
       row: row
         ? {
             id: row.id,
@@ -71,13 +82,17 @@ export async function verifyLastUploadedBlob(options?: BlobVerifyOptions) {
         ? 'file_objects is empty'
         : rows.length !== 1
           ? `expected exactly one file_objects row, found ${rows.length}`
-          : bytes == null
-            ? 'content-addressed blob is missing from storage'
-            : row.content_hash !== actualSha256
-              ? 'stored bytes do not match content_hash'
-              : fixture != null && fixture !== row.content_hash
-                ? 'uploaded hash does not match test-fixture.jpg'
-                : null,
+          : fixture.sha256 == null
+            ? `seeded fixture missing at ${fixture.path} (set HOLO_UPLOAD_FIXTURE_PATH)`
+            : bytes == null
+              ? 'content-addressed blob is missing from storage'
+              : row.content_hash !== actualSha256
+                ? 'stored bytes do not match content_hash'
+                : fixture.sha256 !== row.content_hash
+                  ? 'uploaded hash does not match seeded fixture'
+                  : row.storage_path == null
+                    ? 'storage_path is missing'
+                    : null,
     };
   } finally {
     await sql.end({ timeout: 5 });

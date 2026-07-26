@@ -10,6 +10,7 @@ import { ImprovementProcessingIndicator } from '@/components/improvements/Improv
 import { ImprovementSubmitSheet } from '@/components/improvements/ImprovementSubmitSheet';
 import { Plus } from '@/components/ui/icons';
 import { ScreenLayout } from '@/components/ui/screen-layout';
+import { resolveE2eFixtureUri } from '@/lib/e2e/fixture-uri';
 import { ImprovementsScreen } from '@/screens/improvements-screen';
 
 type ImprovementRow = {
@@ -138,6 +139,10 @@ export default function ImprovementsRoute() {
         visible={sheetVisible}
         onClose={() => setSheetVisible(false)}
         onSubmitted={handleSubmitted}
+        // Maestro / __DEV__: seed attach URI so attach-button can load the fixture.
+        // Production builds resolve null (no silent seed).
+        screenshotUri={resolveE2eFixtureUri()}
+        sourceComponent="improvements-route"
         testID="improvements-screen-submit-sheet"
       />
 

@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -47,6 +48,7 @@ import {
   uploadImprovementImage,
 } from '@/hooks/use-image-upload';
 import { useTheme } from '@/hooks/use-theme';
+import { resolveAttachImageUriAsync } from '@/lib/e2e/fixture-uri';
 
 // ── Animation constants (mirrors PlanEditBottomSheet) ──────────────────────
 const TIMING_IN = { duration: 300, easing: Easing.out(Easing.cubic) };
@@ -89,6 +91,8 @@ export function ImprovementSubmitSheet({
   // ── Local state ──────────────────────────────────────────────────────────
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Text-only submit succeeded (no image) — never claims upload-success / CAS. */
+  const [textSubmitSucceeded, setTextSubmitSucceeded] = useState(false);
   /** ONE image upload state machine (idle → preview → uploading → success|error). */
   const [imageUpload, setImageUpload] = useState(() =>
     initialImageUploadState(
@@ -115,6 +119,7 @@ export function ImprovementSubmitSheet({
       // Reset state on open
       setDescription('');
       setIsSubmitting(false);
+      setTextSubmitSucceeded(false);
       setImageUpload(
         initialImageUploadState(
           imageUploadSeed ??
@@ -184,21 +189,35 @@ export function ImprovementSubmitSheet({
 
   // ── Submit handler ────────────────────────────────────────────────────────
   const handleAttach = () => {
-    if (!screenshotUri) {
+    // Prefer explicit seed (long-press capture), else deterministic e2e fixture
+    // resolved via expo-asset localUri so fetch/blob upload can read bytes.
+    void (async () => {
+      const uri = await resolveAttachImageUriAsync(screenshotUri);
+      if (!uri) {
+        setImageUpload((prev) =>
+          reduceImageUpload(prev, {
+            type: 'fail',
+            error: 'No image is available to attach yet.',
+          })
+        );
+        return;
+      }
+      setTextSubmitSucceeded(false);
       setImageUpload((prev) =>
         reduceImageUpload(prev, {
-          type: 'fail',
-          error: 'No image is available to attach yet.',
+          type: 'attach',
+          uri,
+          dimensions: { width: 800, height: 600 },
         })
       );
-      return;
-    }
-    setImageUpload((prev) => reduceImageUpload(prev, { type: 'attach', uri: screenshotUri }));
+    })();
   };
 
   const handleSubmit = async () => {
     if (!description.trim() || isSubmitting || imageState === 'success') return;
+    Keyboard.dismiss();
     setIsSubmitting(true);
+    setTextSubmitSucceeded(false);
     if (imageUri) {
       setImageUpload((prev) => reduceImageUpload(prev, { type: 'start_upload' }));
     }
@@ -230,23 +249,17 @@ export function ImprovementSubmitSheet({
           targetId: requestId,
           idempotencyKey: `improvement-image-${requestId}`,
           blob,
-          mimeType: blob.type || 'image/png',
-          originalName: 'improvement-image',
+          mimeType: blob.type || 'image/jpeg',
+          originalName: 'improvement-image.jpg',
         });
+        // ANTI-STUB: never claim upload-success without a 64-hex content hash.
+        if (!result.contentHash || !/^[0-9a-f]{64}$/i.test(result.contentHash)) {
+          throw new Error('upload finalize returned no content-addressed hash');
+        }
         setImageUpload((prev) => reduceImageUpload(prev, { type: 'finalize_success', result }));
       } else {
-        setImageUpload((prev) =>
-          reduceImageUpload(prev, {
-            type: 'finalize_success',
-            result: {
-              fileObjectId: '',
-              blobId: '',
-              contentHash: '',
-              uploadId: '',
-              raw: {},
-            },
-          })
-        );
+        // Text-only improvement submit — MUST NOT set image phase success / upload-success.
+        setTextSubmitSucceeded(true);
       }
 
       setIsSubmitting(false);
@@ -326,6 +339,7 @@ export function ImprovementSubmitSheet({
                 style={styles.flex}
                 contentContainerStyle={styles.bodyContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 testID={`${testID}-scroll`}
               >
                 {/* ── Input ──────────────────────────────────────────────── */}
@@ -360,10 +374,19 @@ export function ImprovementSubmitSheet({
                     zeroSynced={Boolean(zeroFileObject?.content_hash)}
                   />
 
+                  {/* Text-only submit ack — distinct from CAS upload-success (anti-stub). */}
+                  {textSubmitSucceeded && imageState !== 'success' ? (
+                    <View testID="text-submit-success" className="mb-3">
+                      <Text className="text-success text-sm font-semibold">
+                        Improvement submitted
+                      </Text>
+                    </View>
+                  ) : null}
+
                   {/* Description input */}
                   <View
                     className="rounded-lg border bg-background px-4 py-3"
-                    style={{ borderColor: colors.input, minHeight: 100 }}
+                    style={{ borderColor: colors.input, minHeight: 80 }}
                   >
                     <TextInput
                       testID={`${testID}-description-input`}
@@ -372,59 +395,65 @@ export function ImprovementSubmitSheet({
                       placeholder="Describe the improvement or bug..."
                       placeholderTextColor={colors.mutedForeground}
                       multiline
-                      style={[styles.textInput, { color: colors.foreground, minHeight: 100 }]}
+                      blurOnSubmit
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      style={[styles.textInput, { color: colors.foreground, minHeight: 64 }]}
                       accessibilityLabel="Description input"
                     />
                   </View>
-
-                  {/* Button row */}
-                  <View style={styles.buttonRow}>
-                    <Pressable
-                      testID={`${testID}-cancel-button`}
-                      onPress={dismiss}
-                      className="flex-1 flex-row items-center justify-center rounded-lg border border-border py-3 active:opacity-80"
-                      accessibilityRole="button"
-                      accessibilityLabel="Cancel"
-                    >
-                      <Text className="text-foreground text-sm font-semibold">Cancel</Text>
-                    </Pressable>
-
-                    <Pressable
-                      testID={`${testID}-submit-button`}
-                      onPress={handleSubmit}
-                      disabled={!description.trim() || isSubmitting || imageState === 'success'}
-                      className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary py-3 active:opacity-80"
-                      style={
-                        !description.trim() || isSubmitting || imageState === 'success'
-                          ? styles.disabledButton
-                          : undefined
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel="Submit"
-                    >
-                      {isSubmitting ? (
-                        <ActivityIndicator size="small" color={colors.primaryForeground} />
-                      ) : (
-                        <Text className="text-primary-foreground text-sm font-semibold">
-                          Submit
-                        </Text>
-                      )}
-                    </Pressable>
-
-                    {imageState === 'success' ? (
-                      <Pressable
-                        testID="upload-done"
-                        onPress={finish}
-                        className="flex-1 flex-row items-center justify-center rounded-lg border border-border py-3 active:opacity-80"
-                        accessibilityRole="button"
-                        accessibilityLabel="Done"
-                      >
-                        <Text className="text-foreground text-sm font-semibold">Done</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
                 </View>
               </ScrollView>
+
+              {/* Fixed footer so Submit stays above keyboard (Maestro + real UX). */}
+              <View
+                style={[styles.footer, { borderTopColor: colors.border }]}
+                testID={`${testID}-footer`}
+              >
+                <View style={styles.buttonRow}>
+                  <Pressable
+                    testID={`${testID}-cancel-button`}
+                    onPress={dismiss}
+                    className="flex-1 flex-row items-center justify-center rounded-lg border border-border py-3 active:opacity-80"
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel"
+                  >
+                    <Text className="text-foreground text-sm font-semibold">Cancel</Text>
+                  </Pressable>
+
+                  <Pressable
+                    testID={`${testID}-submit-button`}
+                    onPress={handleSubmit}
+                    disabled={!description.trim() || isSubmitting || imageState === 'success'}
+                    className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-primary py-3 active:opacity-80"
+                    style={
+                      !description.trim() || isSubmitting || imageState === 'success'
+                        ? styles.disabledButton
+                        : undefined
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Submit"
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    ) : (
+                      <Text className="text-primary-foreground text-sm font-semibold">Submit</Text>
+                    )}
+                  </Pressable>
+
+                  {imageState === 'success' ? (
+                    <Pressable
+                      testID="upload-done"
+                      onPress={finish}
+                      className="flex-1 flex-row items-center justify-center rounded-lg border border-border py-3 active:opacity-80"
+                      accessibilityRole="button"
+                      accessibilityLabel="Done"
+                    >
+                      <Text className="text-foreground text-sm font-semibold">Done</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
             </Animated.View>
           </GestureDetector>
         </KeyboardAvoidingView>
@@ -484,7 +513,13 @@ const useStyles = (
     bodyContent: {
       paddingHorizontal: 20,
       paddingTop: 16,
-      paddingBottom: 24,
+      paddingBottom: 12,
+    },
+    footer: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 8,
     },
     textInput: {
       fontSize: typography.bodySmall.fontSize,
@@ -494,7 +529,6 @@ const useStyles = (
     buttonRow: {
       flexDirection: 'row',
       gap: 12,
-      marginTop: 16,
     },
     disabledButton: {
       opacity: 0.5,
