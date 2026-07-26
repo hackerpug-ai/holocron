@@ -1,10 +1,25 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# T-DATA-021 / Sprint 26 upload lifecycle. Hono + Postgres + blob storage
-# must be running and the deterministic e2e namespace seeded before this flow.
+# T-DATA-021 / S-UPLOAD-03 — improvements-sheet image upload lifecycle.
+# Pattern source: .maestro/chat/send-streams.yml (appId, extendedWaitUntil, tapOn,
+# assertVisible, takeScreenshot). Artifacts (screenshot/JUnit/log/video) are
+# emitted by the host harness (scripts/e2e/run-maestro-reference-flow.sh) when
+# this flow is invoked with --debug-output / --format junit + simctl recordVideo.
+#
+# Prerequisites:
+#   - holo seed:e2e --reset (cleared_file_objects)
+#   - Hono + Postgres + blob store + Zero healthy
+#   - MAESTRO_APP_ID=com.holocron.app (see app.config.cjs bundleIdentifier)
+#   - Named iOS Simulator booted (e.g. MAESTRO_DEVICE="iPhone 17")
+# Post-condition oracle (operator / CI):
+#   bun services/platform/src/cli/holo.ts verify:blob --last
+#   bun services/platform/src/cli/holo.ts verify:blob --orphans
 
 - launchApp:
     clearState: false
+
+# Deep-link into improvements (matches .maestro/research/improvements-loads.yml)
+- openLink: holocron://improvements
 
 - extendedWaitUntil:
     visible:
@@ -19,8 +34,9 @@ appId: ${MAESTRO_APP_ID}
       id: "attach-button"
     timeout: 15000
 
-# The long-press improvement surface supplies the seeded fixture URI in the
-# real journey; this tap proves the sheet's explicit attach affordance.
+# Explicit attach affordance (testID contract). When the sheet was opened from
+# a long-press capture path, screenshotUri is pre-seeded and attach re-asserts
+# the preview; the header-add path still exercises the same testID.
 - tapOn:
     id: "attach-button"
 
@@ -32,6 +48,7 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "improvements-screen-submit-sheet-submit-button"
 
+# Success only after finalize (ImageUploadStatus testID=upload-success)
 - extendedWaitUntil:
     visible:
       id: "upload-success"
