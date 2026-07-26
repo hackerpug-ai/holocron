@@ -67,6 +67,7 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 | REDHAT-FIX-09 | Close NO_ORACLE_IDEMPOTENCY (CRITICAL) — the research-progress writer's concurrency guard (`research/progress.ts`) has zero test coverage. Add an integration test that fires two concurrent `advanceResearchSessionIteration` calls against the same seeded session and asserts exactly one succeeds (`currentIteration === previousIteration + 1`) and the other returns `ok:false, errorCode:'RESEARCH_SESSION_UPDATE_FAILED'` — this is the only thing standing between the sprint and a silent production double-increment | react-native-ui-implementer | 30 min |
 | REDHAT-FIX-10 | Close F-E2 (HIGH) — cycle-4's mutation probe only proved the dual-site reconnect mutant is killed; a single-site-A (XHR onError retry) mutant survives with zero coverage. Add an integration test scenario that drives the XHR-onError reconnect path without calling `setOnline(false)`, OR extend the mutation-probe log format to record single-site-A as a separately documented mutant | react-native-ui-implementer | 45 min |
 | REDHAT-FIX-11 | Close F-TEXT-DIFF-ORACLE (HIGH) — S-REACTIVE-01 AC-3's "content byte-equal" claim is unverified; no oracle compares rendered assistant text to the Zero durable row content. Add a maestro oracle doing that comparison, OR explicitly downgrade AC-3's contract text from "content byte-equal" to "exactly one bubble; content coordination deferred" with a tracked follow-up task | react-native-ui-implementer | 30 min |
+| GATE-FIX-02 | Close F-MODULE-LEAK / NO_ORACLE_MODULE_STATE_ISOLATION (HIGH) — GATE-FIX-01's `moduleStreamHandoff` module-level singleton (`hooks/use-resumable-sse-stream.ts:458`) has no `conversationId` field and no filter at the restore-on-mount effect (`:1132-1140`), unlike its sibling singletons `modulePendingUser`/`moduleLocalTurn` which are both correctly isolated. Navigating conversation A→B mid/after-stream can restore A's handoff into B's controller, painting A's reply into B until B's next outbound message. Add `conversationId` to `ModuleStreamHandoff`, filter at the restore-on-mount effect, and extend the existing single-conversation handoff test with a two-conversation isolation scenario (set handoff for A, mount/read for B, assert B sees null) | react-native-ui-implementer | 20 min |
 | GATE-FIX-01 | Restore chat-assistant-message-latest after stream (human gate step 2) | react-native-ui-implementer | 60 min |
 
 ## Red-Hat Findings (cycle 1 — `.spec/reviews/red-hat-sprint25-reactive-20260725T165851Z.md`)
@@ -100,6 +101,11 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 - **NO_ORACLE_IDEMPOTENCY → REDHAT-FIX-09** (Critical, new): research-progress writer's concurrency guard has zero test coverage — real silent-double-increment risk in production.
 - **F-E2 → REDHAT-FIX-10** (High, new): SSE reconnect site A (XHR onError retry) has zero coverage — cycle-4's mutation probe was ambiguously scoped to only prove the dual-site mutant killed.
 - **F-TEXT-DIFF-ORACLE → REDHAT-FIX-11** (High, new): S-REACTIVE-01 AC-3 "content byte-equal" claim is unverified. Cycle cap extended 4→5 (user-approved) to close these.
+
+## Red-Hat Findings (cycle 6 — `.spec/reviews/red-hat-sprint25-reactive-20260726T055500Z.md`)
+
+- **NO_ORACLE_IDEMPOTENCY, F-E2, F-TEXT-DIFF-ORACLE ALL CONFIRMED CLOSED** at HEAD `d390ded2` — independently re-probed by 2+ reviewers.
+- **F-MODULE-LEAK / NO_ORACLE_MODULE_STATE_ISOLATION → GATE-FIX-02** (High, new): first-time review of the self-discovered GATE-FIX-01 code found a module-state isolation gap. Cycle cap extended 5→6 (user-approved) to close this.
 
 ## Source Coverage
 
@@ -161,4 +167,8 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-09,REDHAT-FIX-10,REDHAT-FIX-1
 - REDHAT-FIX-09-close-no-oracle-idempotency-research-concurrency-guard.md
 - REDHAT-FIX-10-close-f-e2-site-a-xhr-onerror-reconnect-coverage.md
 - REDHAT-FIX-11-close-f-text-diff-oracle-content-byte-equal.md
+
+Updated by /kb-sprint-tasks-plan --only GATE-FIX-02 on 2026-07-26T11:08:11Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC). Cycle-6 F-MODULE-LEAK / NO_ORACLE_MODULE_STATE_ISOLATION.
+
+- GATE-FIX-02-close-f-module-leak-module-handoff-conversation-isolation.md
 
