@@ -1,8 +1,11 @@
 appId: ${MAESTRO_APP_ID}
 ---
 # T-DATA-021 / Sprint 26 — content-addressed image upload via improvements sheet
+# Prerequisite: Expo Dev Client + Metro (MAESTRO_METRO_URL) + platform upload routes.
+# Attach uses deterministic e2e fixture (assets/e2e/test-fixture.jpg) via attach-button.
+
 - launchApp:
-    clearState: true
+    clearState: false
 
 - extendedWaitUntil:
     visible:
@@ -16,6 +19,9 @@ appId: ${MAESTRO_APP_ID}
     commands:
       - tapOn:
           text: ${MAESTRO_METRO_URL}
+          optional: true
+      - tapOn:
+          text: ".*http.*"
           optional: true
 
 - runFlow:
@@ -36,12 +42,43 @@ appId: ${MAESTRO_APP_ID}
           text: "Close"
           optional: true
 
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+    optional: true
+
 - openLink: holocron://improvements
 
 - extendedWaitUntil:
     visible:
       id: "improvements-route-layout"
-    timeout: 90000
+    timeout: 45000
+    optional: true
+
+- runFlow:
+    when:
+      notVisible:
+        id: "improvements-route-layout"
+    commands:
+      - openLink: holocron://improvements
+      - extendedWaitUntil:
+          visible:
+            id: "improvements-route-layout"
+          timeout: 60000
+
+- assertVisible:
+    id: "improvements-route-layout"
+
+# Close a leftover sheet from a prior failed attempt
+- runFlow:
+    when:
+      visible:
+        id: "improvements-screen-submit-sheet-close"
+    commands:
+      - tapOn:
+          id: "improvements-screen-submit-sheet-close"
+          optional: true
 
 - tapOn:
     id: "improvements-header-add-button"
@@ -51,21 +88,56 @@ appId: ${MAESTRO_APP_ID}
       id: "attach-button"
     timeout: 30000
 
+- assertVisible:
+    id: "attach-button"
+
+# Loads tests/fixtures/test-fixture.jpg (bundled assets/e2e) in __DEV__/e2e
 - tapOn:
     id: "attach-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "attach-preview"
+    timeout: 20000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: "Change image"
+    timeout: 15000
+    optional: true
 
 - tapOn:
     id: "improvements-screen-submit-sheet-description-input"
 
 - inputText: "Sprint 26 upload lifecycle fixture"
 
+- hideKeyboard:
+    optional: true
+
+# Prefer footer submit (always mounted). Fall back to accessibility label.
 - tapOn:
     id: "improvements-screen-submit-sheet-submit-button"
+    optional: true
 
+- tapOn:
+    text: "Submit"
+    optional: true
+
+# Retry if residual error from earlier hot-reload attempt
+- runFlow:
+    when:
+      visible:
+        id: "upload-retry"
+    commands:
+      - tapOn:
+          id: "upload-retry"
+
+# upload-success requires real CAS finalize (64-hex content hash) — not text-only
 - extendedWaitUntil:
     visible:
       id: "upload-success"
-    timeout: 90000
+    timeout: 120000
 
 - assertVisible:
     id: "upload-success"

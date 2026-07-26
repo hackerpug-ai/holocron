@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { Appearance, Platform } from 'react-native';
+import { Appearance, LogBox, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
@@ -15,6 +15,17 @@ import { resolveHolocronRoute } from '@/lib/holocron-deep-link';
 import { getThemePreference } from '@/lib/theme-preference';
 import { mutators as zeroMutators } from './zero/mutators';
 import { schema as zeroSchema } from './zero/schema';
+
+// Maestro / e2e: LogBox overlays block testID hits (attach/submit/upload-success).
+// Enable with EXPO_PUBLIC_HOLO_E2E=1 or EXPO_PUBLIC_E2E_SILENCE_LOGBOX=1.
+const silenceLogBox =
+  process.env.EXPO_PUBLIC_HOLO_E2E === '1' ||
+  process.env.EXPO_PUBLIC_HOLO_E2E === 'true' ||
+  process.env.EXPO_PUBLIC_E2E_SILENCE_LOGBOX === '1' ||
+  process.env.EXPO_PUBLIC_E2E_SILENCE_LOGBOX === 'true';
+if (silenceLogBox) {
+  LogBox.ignoreAllLogs(true);
+}
 
 // Platform base URL (consolidated secrets → EXPO_PUBLIC_PLATFORM_URL).
 // S-COLDBOOT-01 / CAP-CUT-01: cold-boot uses ZeroProvider only (no legacy data-plane client).
@@ -130,6 +141,7 @@ function handleIncomingURL({ url }: { url: string }) {
     }
 
     // Generic in-app path: /improvements, /toolbelt, /settings, …
+    // Prefer navigate over push so Maestro openLink remounts when Zero reloads mid-flow.
     if (
       route === 'improvements' ||
       route === 'toolbelt' ||
@@ -138,7 +150,9 @@ function handleIncomingURL({ url }: { url: string }) {
       route.startsWith('research/') ||
       route.startsWith('assimilate/')
     ) {
-      navigateWhenReady(() => router.push({ pathname: `/${route}` as `/improvements`, params }));
+      navigateWhenReady(() =>
+        router.navigate({ pathname: `/${route}` as `/improvements`, params })
+      );
       return;
     }
   } catch (error) {
