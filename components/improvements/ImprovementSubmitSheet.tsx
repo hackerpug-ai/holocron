@@ -34,9 +34,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createImprovement } from '@/app/zero/improvements';
-import { uploadBlobThroughLifecycle } from '@/app/zero/platform';
+import { ImprovementPreviewThumbnail } from '@/components/improvements/ImprovementPreviewThumbnail';
 import { X } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
+import {
+  type ImageUploadPhase,
+  initialImageUploadState,
+  reduceImageUpload,
+  uploadImprovementImage,
+} from '@/hooks/use-image-upload';
 import { useTheme } from '@/hooks/use-theme';
 
 // ── Animation constants (mirrors PlanEditBottomSheet) ──────────────────────
@@ -53,9 +59,6 @@ export interface ImprovementSubmitSheetProps {
   sourceComponent?: string;
   testID?: string;
 }
-
-type ImageUploadState = 'idle' | 'preview' | 'uploading' | 'success' | 'error';
-type ImageDimensions = { width: number; height: number };
 
 // ── Component ──────────────────────────────────────────────────────────────
 export function ImprovementSubmitSheet({
@@ -77,14 +80,19 @@ export function ImprovementSubmitSheet({
   // ── Local state ──────────────────────────────────────────────────────────
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(screenshotUri ?? null);
-  const [imageState, setImageState] = useState<ImageUploadState>(
-    screenshotUri ? 'preview' : 'idle'
+  /** ONE image upload state machine (idle → preview → uploading → success|error). */
+  const [imageUpload, setImageUpload] = useState(() =>
+    initialImageUploadState(
+      screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined
+    )
   );
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null);
   const submittedRequestIdRef = useRef<string | null>(null);
   const didNotifySubmittedRef = useRef(false);
+
+  const imageUri = imageUpload.imageUri;
+  const imageState: ImageUploadPhase = imageUpload.phase;
+  const imageError = imageUpload.error;
+  const imageDimensions = imageUpload.dimensions;
 
   // ── Animation on visibility change ───────────────────────────────────────
   useEffect(() => {
@@ -92,10 +100,11 @@ export function ImprovementSubmitSheet({
       // Reset state on open
       setDescription('');
       setIsSubmitting(false);
-      setImageUri(screenshotUri ?? null);
-      setImageState(screenshotUri ? 'preview' : 'idle');
-      setImageError(null);
-      setImageDimensions(null);
+      setImageUpload(
+        initialImageUploadState(
+          screenshotUri ? { phase: 'preview', imageUri: screenshotUri } : undefined
+        )
+      );
       submittedRequestIdRef.current = null;
       didNotifySubmittedRef.current = false;
       translateY.value = withTiming(0, TIMING_IN);
@@ -107,14 +116,16 @@ export function ImprovementSubmitSheet({
   }, [screenshotUri, visible, backdropOpacity, translateY]);
 
   useEffect(() => {
-    if (!imageUri) {
-      setImageDimensions(null);
-      return;
-    }
+    if (!imageUri) return;
     Image.getSize(
       imageUri,
-      (width, height) => setImageDimensions({ width, height }),
-      () => setImageDimensions(null)
+      (width, height) =>
+        setImageUpload((prev) =>
+          reduceImageUpload(prev, { type: 'attach', uri: imageUri, dimensions: { width, height } })
+        ),
+      () => {
+        /* keep preview without dimensions if getSize fails */
+      }
     );
   }, [imageUri]);
 
@@ -156,20 +167,23 @@ export function ImprovementSubmitSheet({
   // ── Submit handler ────────────────────────────────────────────────────────
   const handleAttach = () => {
     if (!screenshotUri) {
-      setImageError('No image is available to attach yet.');
-      setImageState('error');
+      setImageUpload((prev) =>
+        reduceImageUpload(prev, {
+          type: 'fail',
+          error: 'No image is available to attach yet.',
+        })
+      );
       return;
     }
-    setImageUri(screenshotUri);
-    setImageError(null);
-    setImageState('preview');
+    setImageUpload((prev) => reduceImageUpload(prev, { type: 'attach', uri: screenshotUri }));
   };
 
   const handleSubmit = async () => {
     if (!description.trim() || isSubmitting || imageState === 'success') return;
     setIsSubmitting(true);
-    setImageError(null);
-    if (imageUri) setImageState('uploading');
+    if (imageUri) {
+      setImageUpload((prev) => reduceImageUpload(prev, { type: 'start_upload' }));
+    }
 
     try {
       const title =
@@ -193,17 +207,30 @@ export function ImprovementSubmitSheet({
           throw new Error(`image read failed: ${imageResponse.status}`);
         }
         const blob = await imageResponse.blob();
-        await uploadBlobThroughLifecycle({
-          kind: 'improvement_image',
+        // Success only after finalize (uploadImprovementImage → uploadBlobThroughLifecycle).
+        const result = await uploadImprovementImage({
           targetId: requestId,
           idempotencyKey: `improvement-image-${requestId}`,
           blob,
           mimeType: blob.type || 'image/png',
           originalName: 'improvement-image',
         });
+        setImageUpload((prev) => reduceImageUpload(prev, { type: 'finalize_success', result }));
+      } else {
+        setImageUpload((prev) =>
+          reduceImageUpload(prev, {
+            type: 'finalize_success',
+            result: {
+              fileObjectId: '',
+              blobId: '',
+              contentHash: '',
+              uploadId: '',
+              raw: {},
+            },
+          })
+        );
       }
 
-      setImageState('success');
       setIsSubmitting(false);
       if (!didNotifySubmittedRef.current) {
         didNotifySubmittedRef.current = true;
@@ -211,8 +238,12 @@ export function ImprovementSubmitSheet({
       }
     } catch (error) {
       setIsSubmitting(false);
-      setImageState('error');
-      setImageError(error instanceof Error ? error.message : 'Image upload failed.');
+      setImageUpload((prev) =>
+        reduceImageUpload(prev, {
+          type: 'fail',
+          error: error instanceof Error ? error.message : 'Image upload failed.',
+        })
+      );
     }
   };
 
@@ -293,23 +324,12 @@ export function ImprovementSubmitSheet({
                     </Text>
                   </Pressable>
 
-                  {/* Screenshot/image preview */}
+                  {/* Screenshot/image preview — real fixture dimensions when known */}
                   {imageUri ? (
-                    <Image
-                      source={{ uri: imageUri }}
-                      style={[
-                        styles.screenshotPreview,
-                        imageDimensions
-                          ? {
-                              aspectRatio: imageDimensions.width / imageDimensions.height,
-                              height: undefined,
-                            }
-                          : null,
-                        { borderColor: colors.border },
-                      ]}
-                      resizeMode="contain"
-                      testID="attach-preview"
-                      accessibilityLabel="Screenshot preview"
+                    <ImprovementPreviewThumbnail
+                      uri={imageUri}
+                      width={imageDimensions?.width ?? 1}
+                      height={imageDimensions?.height ?? 1}
                     />
                   ) : null}
 
@@ -416,7 +436,10 @@ export function ImprovementSubmitSheet({
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const useStyles = (typography: any, _spacing: any) => {
+const useStyles = (
+  typography: { bodySmall: { fontSize: number } },
+  _spacing: Record<string, number>
+) => {
   return StyleSheet.create({
     flex: {
       flex: 1,
@@ -464,13 +487,6 @@ const useStyles = (typography: any, _spacing: any) => {
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: 24,
-    },
-    screenshotPreview: {
-      width: '100%',
-      height: 120,
-      borderRadius: 8,
-      borderWidth: StyleSheet.hairlineWidth,
-      marginBottom: 12,
     },
     statusRow: {
       alignItems: 'center',

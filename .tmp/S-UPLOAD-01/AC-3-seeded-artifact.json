@@ -1,0 +1,12 @@
+{
+  "artifact_type": "screenshot",
+  "note": "state-machine + testID contract stands in for Maestro screenshot when Metro is unavailable",
+  "phase": "error",
+  "retry_affordance": 1,
+  "file_objects_rows": 0,
+  "finalize_error": "upload finalize failed: 422 {\"error\":\"upload_error\",\"message\":\"hash/length/mime mismatch for 019fa018-84bf-7a0f-bb0b-0766a8335992\"}",
+  "fixture_hash": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
+  "wrong_bytes_sha": "74f81fe167d99b4cb41d6d0ccda82278caee9f3e2f25d5e5a3936ff3dcec60d0",
+  "declared_hash": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
+  "baseUrl": "http://127.0.0.1:58572"
+}

@@ -1,0 +1,5 @@
+=== tsgo --noEmit ===
+tsgo exit: 0
+=== biome check (task write_allowed paths) ===
+Checked 9 files in 6ms. No fixes applied.
+biome exit: 0

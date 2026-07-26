@@ -1,0 +1,41 @@
+       27 │ + ······"model":·"grok-4.5@high",
+       28 │ + ······"chain":·[
+       29 │ + ········{·"harness":·"grok",·"model":·"grok-4.5@high"·},
+       30 │ + ········{·"harness":·"pi",·"model":·"xai-auth/grok-4.5@high"·},
+       31 │ + ········{·"harness":·"claude-code",·"model":·"sonnet-5@high"·},
+       32 │ + ········{·"harness":·"pi",·"model":·"zai/glm-5.2@high"·}
+       33 │ + ······]
+       34 │ + ····},
+       35 │ + ····"qa":·{
+       36 │ + ······"harness":·"opencode",
+       37 │ + ······"model":·"zai-coding-plan/glm-5.2@high",
+       38 │ + ······"chain":·[{·"harness":·"opencode",·"model":·"zai-coding-plan/glm-5.2@high"·}]
+       39 │ + ····}
+    15 40 │     },
+    16 41 │     "surfaces": [
+    ····· │ 
+    39 64 │         "goal": {
+    40 65 │           "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded until GATE-GOAL: ACHIEVED",
+    41    │ - ········"verification":·{"kind":·"sentinel_grep",·"signal":·"goal:complete",·"status":·"derived"}
+       66 │ + ········"verification":·{·"kind":·"sentinel_grep",·"signal":·"goal:complete",·"status":·"derived"·}
+    42 67 │         }
+    43 68 │       }
+    44 69 │     ],
+    45    │ - ··"options":·{"max_recover":·2,·"keep_tabs":·false,·"tick":·30,·"stall_window":·600}
+       70 │ + ··"options":·{·"max_recover":·2,·"keep_tabs":·false,·"tick":·30,·"stall_window":·600·}
+    46 71 │   }
+    47 72 │   
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 1987.
+Checked 1742 files in 351ms. No fixes applied.
+Found 1323 errors.
+Found 672 warnings.
+Found 12 infos.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+EXIT:0

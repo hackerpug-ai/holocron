@@ -1,0 +1,5 @@
+
+> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-01
+> tsgo --noEmit
+
+EXIT:0
