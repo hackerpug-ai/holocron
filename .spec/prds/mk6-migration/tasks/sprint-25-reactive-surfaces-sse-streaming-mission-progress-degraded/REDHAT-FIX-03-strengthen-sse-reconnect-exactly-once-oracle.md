@@ -1,6 +1,8 @@
 # REDHAT-FIX-03 — Strengthen the PRIMARY gate oracle (SSE reconnect exactly-once) — mutation probe shows commenting out Last-Event-ID resume or resetting assemblyRef on reconnect still passes 22/22; add flows/tests that capture streamLastSeq/streamTokenCount, compare streamed text to the Zero row, and count agent bubbles
 > Status: ✅ Completed
-> Completed: 2026-07-25T19:33:16Z
+> Cycle: 1
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:55Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 90 min

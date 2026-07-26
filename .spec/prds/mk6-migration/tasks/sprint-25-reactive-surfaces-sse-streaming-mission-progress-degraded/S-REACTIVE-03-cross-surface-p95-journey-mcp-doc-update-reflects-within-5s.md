@@ -1,8 +1,8 @@
 # S-REACTIVE-03: Cross-surface p95 journey — MCP doc update reflects on app within 5s
 > Status: ✅ Completed
-> Commit: 58d8129c3002cff27da4c8e5993b70bbccfb7022
-> Reviewer: dual-lens
-> Completed: 2026-07-25T15:17:37Z
+> Cycle: 1
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:56Z
 
 - **Sprint:** [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 - **Task Type:** `FEATURE`

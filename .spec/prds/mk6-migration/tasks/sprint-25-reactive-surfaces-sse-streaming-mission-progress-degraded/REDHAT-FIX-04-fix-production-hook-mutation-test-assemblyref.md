@@ -1,5 +1,8 @@
 # REDHAT-FIX-04 — Fix REDHAT-FIX-03's mutation test — redhat-fix-03-sse-reconnect-wiring.test.ts's runReconnectWiring harness reimplements the reconnect flow in a local variable instead of exercising the production useResumableSSEStream hook; the assemblyRef-reset mutant against production code at hooks/use-resumable-sse-stream.ts:608,712 still survives. Render the real hook (@testing-library/react-hooks + a real http.createServer SSE stub) or extract+test openEventSource directly
 > Status: ✅ Completed
+> Cycle: 1
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:55Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 90 min

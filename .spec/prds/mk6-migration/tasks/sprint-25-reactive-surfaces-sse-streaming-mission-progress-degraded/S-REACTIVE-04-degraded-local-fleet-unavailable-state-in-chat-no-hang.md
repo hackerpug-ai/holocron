@@ -1,8 +1,8 @@
 # S-REACTIVE-04: Degraded 'local fleet unavailable' state in chat (no hang)
 > Status: ✅ Completed
-> Commit: 9c6e2eec21595b91852f68946734094b7b0d56ee
-> Reviewer: dual-lens
-> Completed: 2026-07-25T15:17:37Z
+> Cycle: 1
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:56Z
 
 - **Sprint:** [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 - **Task Type:** `FEATURE`

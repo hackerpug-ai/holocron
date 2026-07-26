@@ -1,8 +1,8 @@
 # S-REACTIVE-02: Live research progress via Zero-synced Postgres rows
 > Status: ✅ Completed
-> Commit: 361d3fa3
-> Reviewer: dual-lens
-> Completed: 2026-07-25T15:17:37Z
+> Cycle: 1
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:56Z
 
 - **Sprint:** [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 - **Task Type:** `FEATURE`

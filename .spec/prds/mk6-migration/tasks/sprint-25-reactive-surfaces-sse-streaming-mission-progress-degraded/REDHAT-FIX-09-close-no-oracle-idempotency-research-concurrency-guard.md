@@ -1,9 +1,8 @@
 # REDHAT-FIX-09 — Close NO_ORACLE_IDEMPOTENCY (CRITICAL) — research-progress writer concurrency guard zero coverage
 > Status: ✅ Completed
 > Cycle: 1
-> Commit: c0a565d69816150121194851cd7895ebd2e2e951
 > Reviewer: product-manager+technical
-> Completed: 2026-07-26T03:07:50Z
+> Completed: 2026-07-26T05:32:56Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: mastra-implementer
 > Estimate: 30 min

@@ -1,9 +1,8 @@
 # REDHAT-FIX-07 — Copy REDHAT-FIX-04's evidence files (`redhat-fix-04-path.json`, `redhat-fix-04-production-mutation.log`, `redhat-fix-04-red.log`) from `.kb-run-sprint/worktrees/REDHAT-FIX-04/.tmp/sprint-25/` to the primary checkout's `.tmp/sprint-25/` and commit them (or re-run `pnpm vitest run tests/integration/redhat-fix-04-production-hook-reconnect.test.ts` on the primary checkout, which self-generates the files), so REDHAT-FIX-04's own TC-5 verify command passes on a cold checkout
 > Status: ✅ Completed
 > Cycle: 1
-> Commit: 5fe64018e0a9d0fb175786eed30f799836d9cfff
-> Reviewer: product-manager+react-native-ui-reviewer
-> Completed: 2026-07-25T22:44:09Z
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:56Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 15 min

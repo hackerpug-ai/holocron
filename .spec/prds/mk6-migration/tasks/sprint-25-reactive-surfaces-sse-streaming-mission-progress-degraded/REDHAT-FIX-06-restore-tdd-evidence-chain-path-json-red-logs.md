@@ -1,5 +1,8 @@
 # REDHAT-FIX-06 — Restore the broken TDD evidence chain — commit .tmp/sprint-25/redhat-fix-{01,02}-path.json + RED evidence logs at the TC-5-mandated paths (currently only exist in stale .kb-run-sprint/worktrees/REDHAT-FIX-0{1,2,3}/.tmp/ dirs, or at the wrong path for REDHAT-FIX-02), so TC-5 verify commands pass on a cold checkout
 > Status: ✅ Completed
+> Cycle: 1
+> Reviewer: product-manager+technical
+> Completed: 2026-07-26T05:32:55Z
 > Sprint: [Sprint 25: Reactive Surfaces — SSE Streaming, Mission Progress, Degraded](./SPRINT.md)
 > Agent: react-native-ui-implementer
 > Estimate: 45 min
