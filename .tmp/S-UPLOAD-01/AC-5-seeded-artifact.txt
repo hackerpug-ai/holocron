@@ -1,0 +1,3 @@
+tsgo --noEmit exit 0 (pnpm typecheck)
+biome check on S-UPLOAD-01 write_allowed paths exit 0
+full-repo biome check . exit 1 — pre-existing (see pre-existing-issues.md)
