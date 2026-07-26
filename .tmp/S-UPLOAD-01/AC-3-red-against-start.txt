@@ -1,0 +1,28 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-01
+
+ ❯ tests/integration/uploads/error-handling.test.ts (2 tests | 1 failed) 7668ms
+     ✓ refuses skip-to-green without PLATFORM_IT=1 1ms
+     × hash mismatch finalize fails closed: sheet state error + retry, file_objects rows: 0 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/uploads/error-handling.test.ts > S-UPLOAD-01 AC-3: upload error → rejection, zero orphan rows > hash mismatch finalize fails closed: sheet state error + retry, file_objects rows: 0
+Error: Cannot find module '/hooks/use-image-upload' imported from /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-01/tests/integration/uploads/error-handling.test.ts
+ ❯ tests/integration/uploads/error-handling.test.ts:76:11
+     74|         initialImageUploadState,
+     75|         uploadImprovementImage,
+     76|       } = await import('../../../hooks/use-image-upload');
+       |           ^
+     77|
+     78|       let state = initialImageUploadState();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  14:18:59
+   Duration  8.16s (transform 127ms, setup 104ms, import 292ms, tests 7.67s, environment 0ms)
+
+EXIT:0

@@ -1,0 +1,322 @@
+{
+  "version": "1",
+  "task_id": "S-UPLOAD-01",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "seeded_fixture_jpg": {
+      "description": "the seeded test-fixture.jpg with a known SHA-256 content hash (800x600)",
+      "seed_method": "migration_fixture",
+      "records": [
+        "test-fixture.jpg sha256=<64-hex>",
+        "dimensions 800x600"
+      ]
+    },
+    "cleared_file_objects": {
+      "description": "file_objects cleared via holo seed:e2e --reset (nonprod namespace)",
+      "seed_method": "cli",
+      "records": [
+        "file_objects rows: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN file_objects has zero rows after holo seed:e2e --reset WHEN the user attaches the seeded test-fixture.jpg and submits the improvements report THEN upload-init returns an uploadId, PUT streams bytes, finalize verifies SHA-256+length and creates exactly one file_objects row whose content_hash matches the fixture, Zero-synced to the client",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "hono+blob+postgres",
+        "topology": "single-node",
+        "primary": false,
+        "negative_control": {
+          "would_fail_if": [
+            "stub - finalize skipped (no hash/length verify)",
+            "mock - upload endpoints mocked",
+            "disconnect - Hono/blob store down",
+            "empty - file_objects table empty (nothing promoted)"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "cleared_file_objects",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the improvements sheet",
+                "attach the seeded test-fixture.jpg",
+                "submit the report",
+                "wait for upload-init -> PUT -> finalize"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "file_objects rows: 1",
+                "content_hash == test-fixture.jpg SHA-256 (64 hex chars)",
+                "1 Zero-synced file_objects row visible in the client useQuery",
+                "upload state transitions to 'success'"
+              ],
+              "must_not_observe": [
+                "file_objects rows: 0 (nothing promoted)",
+                "file_objects rows > 1 (duplicate)",
+                "content_hash mismatch",
+                "state stuck at 'uploading'"
+              ]
+            }
+          }
+        ],
+        "id": "AC-1"
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN one file_objects row with content_hash H exists for test-fixture.jpg WHEN the user re-attaches the same test-fixture.jpg and submits again THEN finalize dedupes via the content_hash unique index; exactly one file_objects row remains with content_hash H",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "hono+blob+postgres",
+        "topology": "single-node",
+        "primary": false,
+        "negative_control": {
+          "would_fail_if": [
+            "stub - dedup skipped (always inserts new row)",
+            "empty - test passing from file_objects rows: 0 (dedup unproven against empty table)",
+            "mock - content_hash index not enforced"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded_fixture_jpg",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "open the improvements sheet",
+                "re-attach the identical test-fixture.jpg (same bytes)",
+                "submit the report",
+                "wait for finalize"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "file_objects rows: 1",
+                "content_hash still matches the fixture hash (64 hex chars)",
+                "finalize returns the existing fileObjectId (same id; file_objects rows: 1)"
+              ],
+              "must_not_observe": [
+                "file_objects rows: 0 (start signature, dedup unproven against empty table)",
+                "file_objects rows: 2 (duplicate)",
+                "a new file_objects row created"
+              ]
+            }
+          }
+        ],
+        "id": "AC-2"
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN an upload is in progress WHEN the network drops mid-PUT or finalize fails with a hash mismatch THEN the sheet shows an error state with a retry affordance and file_objects has zero orphan rows",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "hono+blob+postgres",
+        "topology": "single-node",
+        "primary": false,
+        "negative_control": {
+          "would_fail_if": [
+            "stub - error swallowed (sheet stays 'uploading')",
+            "empty - orphan file_objects row promoted on failure",
+            "mock - network failure not simulated"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "screenshot",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "cleared_file_objects",
+            "action": {
+              "actor": "api_client",
+              "steps": [
+                "init an upload for test-fixture.jpg",
+                "start the PUT stream",
+                "simulate a mid-stream network failure",
+                "observe the sheet"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "sheet shows an 'upload error' state with a retry affordance (1 retry control)",
+                "file_objects rows: 0 (no orphan)"
+              ],
+              "must_not_observe": [
+                "file_objects rows > 0 (orphan promoted)",
+                "sheet stuck at 'uploading'",
+                "error swallowed silently"
+              ]
+            }
+          }
+        ],
+        "id": "AC-3"
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN the user attaches test-fixture.jpg in the improvements sheet WHEN the image attachment completes THEN the preview thumbnail renders the fixture's real dimensions",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "unit",
+        "verification_service": "react-native-rendering",
+        "topology": "single-node",
+        "primary": false,
+        "negative_control": {
+          "would_fail_if": [
+            "stub - preview hardcoded to a placeholder",
+            "empty - empty attach prompt shown after attach",
+            "static - Image not mounted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded_fixture_jpg",
+            "action": {
+              "actor": "user",
+              "steps": [
+                "attach test-fixture.jpg",
+                "observe the preview thumbnail"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "preview renders test-fixture.jpg at 800x600 (fixture dimensions)",
+                "preview file URI is non-empty (length > 0)",
+                "Image node testID 'attach-preview' mounted (1 node)"
+              ],
+              "must_not_observe": [
+                "empty attach prompt placeholder shown",
+                "preview URI empty (length 0)",
+                "0 Image nodes mounted"
+              ]
+            }
+          }
+        ],
+        "id": "AC-4"
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "description": "GIVEN the code changes are complete WHEN the developer runs typecheck and lint THEN tsgo --noEmit exits 0 and biome check exits 0",
+      "verify": "tsgo --noEmit && biome check .",
+      "maps_to_ac": null,
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "unit",
+        "verification_service": "typescript+biome",
+        "topology": "single-node",
+        "primary": false,
+        "negative_control": {
+          "would_fail_if": [
+            "static - type/lint errors present"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "seeded_fixture_jpg",
+            "action": {
+              "actor": "cli_user",
+              "steps": [
+                "run tsgo --noEmit",
+                "run biome check ."
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "tsgo exit code 0",
+                "biome exit code 0"
+              ],
+              "must_not_observe": [
+                "0 errors expected; >=1 TypeScript error on failure (non-zero exit)",
+                "0 violations expected; >=1 biome violation on failure (non-zero exit)"
+              ]
+            }
+          }
+        ],
+        "id": "AC-5"
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "upload-init -> PUT -> finalize creates exactly one file_objects row with a content_hash matching the fixture SHA-256",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "re-uploading the identical image is idempotent via the content_hash unique constraint",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/idempotency.test.ts",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "an upload error surfaces a visible rejection with zero orphan file_objects rows",
+      "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "the preview thumbnail renders the fixture image at its real dimensions",
+      "verify": "pnpm vitest run tests/components/improvements/preview-thumbnail.test.ts",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "tsgo --noEmit and biome check both exit 0",
+      "verify": "tsgo --noEmit && biome check .",
+      "maps_to_ac": "AC-5"
+    }
+  ]
+}
