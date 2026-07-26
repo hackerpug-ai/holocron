@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-09
+
+ ✓ tests/integration/s-reactive-02-research-progress-zero.test.ts (7 tests) 116ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  20:34:21
+   Duration  338ms (transform 67ms, setup 112ms, import 6ms, tests 116ms, environment 0ms)
+

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Map GNU grep -E <pattern> to ripgrep -e <pattern> (rg 15 treats -E as --encoding).
+real_rg="$(command -v -p rg 2>/dev/null || true)"
+if [[ -z "$real_rg" ]]; then
+  for c in /opt/homebrew/bin/rg /usr/local/bin/rg /usr/bin/rg; do
+    if [[ -x "$c" ]]; then real_rg="$c"; break; fi
+  done
+fi
+# Avoid recursion if this dir is first on PATH
+if [[ "$real_rg" == *'/.tmp/REDHAT-FIX-09/bin/rg' ]]; then
+  real_rg=/opt/homebrew/bin/rg
+fi
+args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -E)
+      shift
+      if [[ $# -gt 0 ]]; then
+        args+=(-e "$1")
+        shift
+      fi
+      ;;
+    *)
+      args+=("$1")
+      shift
+      ;;
+  esac
+done
+exec "$real_rg" "${args[@]}"
