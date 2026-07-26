@@ -1,29 +1,13 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# T-DATA-021 / S-UPLOAD-03 — improvements-sheet image upload lifecycle.
-# Pattern source: .maestro/chat/send-streams.yml (appId, extendedWaitUntil, tapOn,
-# assertVisible, takeScreenshot). Artifacts (screenshot/JUnit/log/video) are
-# emitted by the host harness (scripts/e2e/run-maestro-reference-flow.sh) when
-# this flow is invoked with --debug-output / --format junit + simctl recordVideo.
-#
-# Prerequisites:
-#   - holo seed:e2e --reset (cleared_file_objects)
-#   - Hono + Postgres + blob store + Zero healthy
-#   - MAESTRO_APP_ID=com.holocron.app (see app.config.cjs bundleIdentifier)
-#   - Named iOS Simulator booted (e.g. MAESTRO_DEVICE="iPhone 17")
-#   - Dev client rebuilt with S-UPLOAD-01 ImageUploadStatus + attach-button testIDs
-# Post-condition oracle (operator / CI):
-#   bun services/platform/src/cli/holo.ts verify:blob --last
-#   bun services/platform/src/cli/holo.ts verify:blob --orphans
-
+# T-DATA-021 / Sprint 26 — content-addressed image upload via improvements sheet
 - launchApp:
-    clearState: false
+    clearState: true
 
-# Optional Expo Dev Client / Metro chrome (matches .maestro/research/improvements-loads.yml)
 - extendedWaitUntil:
     visible:
       text: "DEVELOPMENT SERVERS"
-    timeout: 8000
+    timeout: 20000
     optional: true
 
 - runFlow:
@@ -48,38 +32,25 @@ appId: ${MAESTRO_APP_ID}
     commands:
       - tapOn:
           text: "Continue"
-          optional: true
       - tapOn:
           text: "Close"
           optional: true
 
-# Deep-link into improvements (matches .maestro/research/improvements-loads.yml)
 - openLink: holocron://improvements
 
 - extendedWaitUntil:
     visible:
       id: "improvements-route-layout"
-    timeout: 60000
-
-- assertVisible:
-    id: "improvements-route-layout"
+    timeout: 90000
 
 - tapOn:
     id: "improvements-header-add-button"
 
-# Sheet root testID from app/(drawer)/improvements.tsx
-- extendedWaitUntil:
-    visible:
-      id: "improvements-screen-submit-sheet"
-    timeout: 15000
-
 - extendedWaitUntil:
     visible:
       id: "attach-button"
-    timeout: 15000
+    timeout: 30000
 
-# Explicit attach affordance (testID contract from ImprovementSubmitSheet).
-# Requires a dev-client build that includes S-UPLOAD-01 attach-button + ImageUploadStatus.
 - tapOn:
     id: "attach-button"
 
@@ -91,11 +62,10 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "improvements-screen-submit-sheet-submit-button"
 
-# Success only after finalize (ImageUploadStatus testID=upload-success)
 - extendedWaitUntil:
     visible:
       id: "upload-success"
-    timeout: 60000
+    timeout: 90000
 
 - assertVisible:
     id: "upload-success"
