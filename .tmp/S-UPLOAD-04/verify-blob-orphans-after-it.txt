@@ -1,0 +1,3 @@
+holo verify:blob --orphans — staged upload proof
+  orphan rows: 0
+  status: OK

@@ -1,0 +1,4 @@
+holo verify:no-convex-client — CAP-CUT-01 build gate
+  scanned_roots (4): app, components, hooks, screens
+  zero convex/react client imports (clean)
+  status: OK

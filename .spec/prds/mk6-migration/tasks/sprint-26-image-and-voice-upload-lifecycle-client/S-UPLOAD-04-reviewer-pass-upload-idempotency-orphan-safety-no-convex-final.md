@@ -1,9 +1,9 @@
 # S-UPLOAD-04: Reviewer pass: upload idempotency, orphan-safety, no-convex-final
-> Status: Backlog
+> Status: completed
 
 - **Sprint:** [Sprint 26: Image and Voice Upload Lifecycle Client](./SPRINT.md)
 - **Task Type:** `REVIEW`
-- **Status:** `Backlog`
+- **Status:** `completed`
 - **Priority:** `P0`  ·  **Effort:** `S`  ·  **Estimate:** `90 minutes`
 - **Agent:** `react-native-ui-reviewer`  ·  **Reviewer:** `react-native-ui-reviewer`
 - **Proposed By:** `react-native-ui-planner`
@@ -155,6 +155,19 @@ This is the sprint-26 closure/review gate. S-UPLOAD-01/02/03 deliver the clients
 ## Dependencies
 - **Depends on:** `S-UPLOAD-01`, `S-UPLOAD-02`, `S-UPLOAD-03`
 - **Blocks:** —
+
+
+
+## Review Closure (react-native-ui-reviewer)
+
+- **Verdict:** APPROVED
+- **Date:** 2026-07-26
+- **Evidence:** `.tmp/S-UPLOAD-04/review-artifact.md`, `verification-summary.json` (10/10)
+- **AC-1:** PASS — T-DATA-021 7/7 (Maestro + CAS + orphans + no-convex)
+- **AC-2:** PASS — verify:no-convex-client OK; `convex/react` grep EMPTY
+- **AC-3:** PASS — `file_objects_content_hash_uidx` 23505; finalize idempotent rows:1
+- **AC-4:** PASS — cancel-orphan-safe IT + orphan rows: 0
+- **AC-5:** PASS — biome OK; 0 hardcoded #RRGGBB; attach-button + voice-mic-button testIDs
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--

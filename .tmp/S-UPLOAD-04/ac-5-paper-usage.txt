@@ -1,0 +1,3 @@
+components/voice/VoiceMicButton.tsx:19:import { Mic, Square } from '@/components/ui/icons';
+components/improvements/ImprovementSubmitSheet.tsx:40:import { X } from '@/components/ui/icons';
+components/improvements/ImprovementSubmitSheet.tsx:41:import { Text } from '@/components/ui/text';

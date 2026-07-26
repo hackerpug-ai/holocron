@@ -1,0 +1,103 @@
+components/improvements/ImprovementDetailView.tsx:197:26 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    195 │           >
+    196 │             {images.map((img, index) => (
+  > 197 │               <View key={index} className="gap-1">
+        │                          ^^^^^
+    198 │                 {img.url ? (
+    199 │                   <Image
+  
+  i This is the source of the key value.
+  
+    194 │             testID={`${testID}-screenshots`}
+    195 │           >
+  > 196 │             {images.map((img, index) => (
+        │                               ^^^^^
+    197 │               <View key={index} className="gap-1">
+    198 │                 {img.url ? (
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/improvements/ImprovementDetailView.tsx:247:28 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    245 │                   {closureEvidence.map((item, i) => (
+    246 │                     <Text
+  > 247 │                       key={i}
+        │                            ^
+    248 │                       className="text-xs text-foreground/70 font-mono"
+    249 │                       testID={`${testID}-closure-evidence-${i}`}
+  
+  i This is the source of the key value.
+  
+    243 │                     Evidence
+    244 │                   </Text>
+  > 245 │                   {closureEvidence.map((item, i) => (
+        │                                               ^
+    246 │                     <Text
+    247 │                       key={i}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+components/improvements/ImprovementEditSheet.tsx:276:32 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    275 │ // ── Styles ─────────────────────────────────────────────────────────────────
+  > 276 │ const useStyles = (typography: any, _spacing: any) => {
+        │                                ^^^
+    277 │   return StyleSheet.create({
+    278 │     flex: {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+components/improvements/ImprovementEditSheet.tsx:276:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    275 │ // ── Styles ─────────────────────────────────────────────────────────────────
+  > 276 │ const useStyles = (typography: any, _spacing: any) => {
+        │                                               ^^^
+    277 │   return StyleSheet.create({
+    278 │     flex: {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+components/voice/VoiceSessionOverlay.tsx:161:18 lint/suspicious/noArrayIndexKey ━━━━━━━━━━━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    159 │         {[bar1, bar2, bar3].map((anim, i) => (
+    160 │           <Animated.View
+  > 161 │             key={i}
+        │                  ^
+    162 │             style={[
+    163 │               styles.waveformBar,
+  
+  i This is the source of the key value.
+  
+    157 │     <View style={styles.indicatorContainer} testID="voice-overlay-speaking-indicator">
+    158 │       <View style={styles.waveformContainer}>
+  > 159 │         {[bar1, bar2, bar3].map((anim, i) => (
+        │                                        ^
+    160 │           <Animated.View
+    161 │             key={i}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+Checked 21 files in 35ms. No fixes applied.
+Found 5 warnings.

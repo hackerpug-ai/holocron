@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-04
+
+ ✓ tests/integration/voice/cancel-orphan-safe.test.ts (3 tests) 6672ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  16:53:07
+   Duration  7.14s (transform 130ms, setup 99ms, import 281ms, tests 6.67s, environment 0ms)
+
