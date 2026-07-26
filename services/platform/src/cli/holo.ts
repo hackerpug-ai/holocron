@@ -767,6 +767,9 @@ function parseArgs(argv: string[]): CliArgs {
       args.contract = argv[++i] ?? null;
     } else if (a.startsWith('--contract=')) {
       args.contract = a.slice('--contract='.length);
+    } else if (a === '--last' || a === '--orphans') {
+      // verify:blob modes are documented as flags but consumed as positionals.
+      positional.push(a);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {

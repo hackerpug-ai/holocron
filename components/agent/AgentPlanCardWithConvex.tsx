@@ -1,6 +1,6 @@
 /**
  * Agent plan card data via Zero (S-REWRITE-INTEGRATE).
- * Named *WithConvex historically; no longer imports convex/react.
+ * Named *WithConvex historically; no longer imports the Convex React client.
  */
 
 import { useQuery as useZeroQuery, useZero } from '@rocicorp/zero/react';
