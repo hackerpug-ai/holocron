@@ -63,6 +63,9 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 | REDHAT-FIX-06 | Restore the broken TDD evidence chain — commit `.tmp/sprint-25/redhat-fix-{01,02}-path.json` + RED evidence logs at the TC-5-mandated paths (currently only exist in stale `.kb-run-sprint/worktrees/REDHAT-FIX-0{1,2,3}/.tmp/` dirs, or at the wrong path for REDHAT-FIX-02), so TC-5 verify commands pass on a cold checkout | react-native-ui-implementer | 45 min |
 | REDHAT-FIX-07 | Copy REDHAT-FIX-04's evidence files (`redhat-fix-04-path.json`, `redhat-fix-04-production-mutation.log`, `redhat-fix-04-red.log`) from `.kb-run-sprint/worktrees/REDHAT-FIX-04/.tmp/sprint-25/` to the primary checkout's `.tmp/sprint-25/` and commit them (or re-run `pnpm vitest run tests/integration/redhat-fix-04-production-hook-reconnect.test.ts` on the primary checkout, which self-generates the files), so REDHAT-FIX-04's own TC-5 verify command passes on a cold checkout | react-native-ui-implementer | 15 min |
 | REDHAT-FIX-08 | Fix the `holo` PATH stub — `/Users/inference1/.local/bin/holo` implements ONLY `verify:no-convex-client`; every other command including `seed:e2e` returns exit 127 `unknown command`. Wire the primary-checkout `holo` binary to dispatch to `services/platform/src/cli/holo.ts` (as the worktree dispatchers already do) so gate step 1 (`holo seed:e2e --reset`) is re-runnable on a cold checkout. Then re-run the full 5-step gate against HEAD and commit a fresh `gate-results.json` (the last one was deleted mid an aborted re-run that hit the broken stub) | react-native-ui-implementer | 30 min |
+| REDHAT-FIX-09 | Close NO_ORACLE_IDEMPOTENCY (CRITICAL) — the research-progress writer's concurrency guard (`research/progress.ts`) has zero test coverage. Add an integration test that fires two concurrent `advanceResearchSessionIteration` calls against the same seeded session and asserts exactly one succeeds (`currentIteration === previousIteration + 1`) and the other returns `ok:false, errorCode:'RESEARCH_SESSION_UPDATE_FAILED'` — this is the only thing standing between the sprint and a silent production double-increment | react-native-ui-implementer | 30 min |
+| REDHAT-FIX-10 | Close F-E2 (HIGH) — cycle-4's mutation probe only proved the dual-site reconnect mutant is killed; a single-site-A (XHR onError retry) mutant survives with zero coverage. Add an integration test scenario that drives the XHR-onError reconnect path without calling `setOnline(false)`, OR extend the mutation-probe log format to record single-site-A as a separately documented mutant | react-native-ui-implementer | 45 min |
+| REDHAT-FIX-11 | Close F-TEXT-DIFF-ORACLE (HIGH) — S-REACTIVE-01 AC-3's "content byte-equal" claim is unverified; no oracle compares rendered assistant text to the Zero durable row content. Add a maestro oracle doing that comparison, OR explicitly downgrade AC-3's contract text from "content byte-equal" to "exactly one bubble; content coordination deferred" with a tracked follow-up task | react-native-ui-implementer | 30 min |
 
 ## Red-Hat Findings (cycle 1 — `.spec/reviews/red-hat-sprint25-reactive-20260725T165851Z.md`)
 
@@ -88,6 +91,13 @@ The gate is one un-fakeable outcome: after disconnecting mid-stream and reconnec
 
 - **G-3 CONFIRMED CLOSED** — REDHAT-FIX-07 restored the contract-path evidence files; H3 stays closed on independent re-probe at HEAD `addea0fce`.
 - **F-E1 → REDHAT-FIX-08** (High, new): primary-checkout `holo` PATH is a stub missing `seed:e2e` — gate step 1 fails on a cold checkout (exit 127). A gate re-run attempt using this broken stub died mid-flight, deleting `gate-results.json` (only `.prev.json` remains). Cycle cap extended 3→4 (user-approved) to close this.
+
+## Red-Hat Findings (cycle 5 — `.spec/reviews/red-hat-sprint25-reactive-20260726T001244Z.md`)
+
+- **H3, G-2, G-3, F-E1 ALL CONFIRMED CLOSED** at HEAD `29c05990` — REDHAT-FIX-08 landed cleanly, fresh gate 5/5 pass, all prior claims independently re-verified via fresh mutation probes.
+- **NO_ORACLE_IDEMPOTENCY → REDHAT-FIX-09** (Critical, new): research-progress writer's concurrency guard has zero test coverage — real silent-double-increment risk in production.
+- **F-E2 → REDHAT-FIX-10** (High, new): SSE reconnect site A (XHR onError retry) has zero coverage — cycle-4's mutation probe was ambiguously scoped to only prove the dual-site mutant killed.
+- **F-TEXT-DIFF-ORACLE → REDHAT-FIX-11** (High, new): S-REACTIVE-01 AC-3 "content byte-equal" claim is unverified. Cycle cap extended 4→5 (user-approved) to close these.
 
 ## Source Coverage
 
@@ -143,4 +153,10 @@ Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-07 on 2026-07-25T21:24:51Z (s
 Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-08 on 2026-07-25T23:20:00Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC).
 
 - REDHAT-FIX-08-fix-holo-path-stub-cold-checkout-gate-rerun.md
+
+Updated by /kb-sprint-tasks-plan --only REDHAT-FIX-09,REDHAT-FIX-10,REDHAT-FIX-11 on 2026-07-26T02:21:56Z (specialists: react-native-ui-planner + mastra-planner; avg quality 115/115; fakeability audit **0 CRITICAL** — `validate_scenario.py` exit 0 on every behavioral AC). Agent correction: REDHAT-FIX-09 → mastra-implementer (backend concurrency oracle).
+
+- REDHAT-FIX-09-close-no-oracle-idempotency-research-concurrency-guard.md
+- REDHAT-FIX-10-close-f-e2-site-a-xhr-onerror-reconnect-coverage.md
+- REDHAT-FIX-11-close-f-text-diff-oracle-content-byte-equal.md
 
