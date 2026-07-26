@@ -1,5 +1,2 @@
-=== tsgo --noEmit ===
-tsgo exit: 0
-=== biome check (task write_allowed paths) ===
-Checked 9 files in 6ms. No fixes applied.
-biome exit: 0
+GREEN AC-5 (task-scoped): tsgo --noEmit exit 0; biome check on S-UPLOAD-01 write_allowed paths exit 0.
+Full-repo `biome check .` remains exit 1 due to pre-existing out-of-scope diagnostics (see pre-existing-issues.md).

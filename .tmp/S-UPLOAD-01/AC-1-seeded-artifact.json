@@ -1,11 +1,18 @@
 {
   "artifact_type": "db_query",
   "start_ref": "cleared_file_objects",
-  "baseUrl": "http://127.0.0.1:61104",
+  "baseUrl": "http://127.0.0.1:65160",
   "file_objects_rows": 1,
   "content_hash": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
   "fileObjectId": "00000000-0000-7be0-bbed-9f221dec86c4",
   "blobId": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
-  "uploadId": "019fa01f-2e50-743b-9918-9a5bd5949c58",
-  "phase": "success"
+  "uploadId": "019fa030-b599-733f-b1d9-23ed3ae2807e",
+  "phase": "success",
+  "zero_query": {
+    "table": "file_objects",
+    "content_hash_filter": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
+    "singular": true,
+    "query_hash": "rx9bukefmv3c",
+    "schema_has_file_objects": true
+  }
 }

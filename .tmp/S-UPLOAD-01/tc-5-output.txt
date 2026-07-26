@@ -72,48 +72,6 @@ tests/setup/react-native.ts:26:25 lint/suspicious/noExplicitAny ━━━━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
-tests/setup/react-native.ts:30:30 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    28 │         stop: vi.fn(),
-    29 │       }),
-  > 30 │       sequence: (animations: any) => ({
-       │                              ^^^
-    31 │         start: vi.fn(),
-    32 │         stop: vi.fn(),
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-tests/setup/react-native.ts:44:36 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    42 │   const { View } = require('react-native');
-    43 │   function makeSvg(name: string) {
-  > 44 │     return function SvgStub(props: any) {
-       │                                    ^^^
-    45 │       return React.createElement(View, { ...props, testID: `svg-${name}` });
-    46 │     };
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-tests/setup/react-native.ts:84:30 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    82 │   usePathname: () => '/',
-    83 │   useFocusEffect: () => {},
-  > 84 │   Link: function Link(props: any) {
-       │                              ^^^
-    85 │     return props.children;
-    86 │   },
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
 vitest.setup.ts:7:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! This import is unused.
@@ -473,9 +431,133 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
     47 72 │   
   
 
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/2026-07-17T20-35-05Z/step4.assertion.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    1   │ - {"kind":"exit_and_log_regex","expected_exit":0,"expect_log_regex":"\"fencing_token\":\\s*\"[^\"]+\""}
+      1 │ + {
+      2 │ + ··"kind":·"exit_and_log_regex",
+      3 │ + ··"expected_exit":·0,
+      4 │ + ··"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""
+      5 │ + }
+    2 6 │   
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-plan.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    13  13 │         "method": "real-cli",
+    14  14 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:run-all --json",
+    15     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"jobs_fired\":\\s*16",·"expect_not_log_regex":·"unknown·command"·}
+        15 │ + ······"assertion":·{
+        16 │ + ········"kind":·"exit_and_log_regex",
+        17 │ + ········"expected_exit":·0,
+        18 │ + ········"expect_log_regex":·"\"jobs_fired\":\\s*16",
+        19 │ + ········"expect_not_log_regex":·"unknown·command"
+        20 │ + ······}
+    16  21 │       },
+    17  22 │       {
+    ······ │ 
+    21  26 │         "method": "real-cli",
+    22  27 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-1 --boundary before-commit --json",
+    23     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"exactly_once\":\\s*true"·}
+        28 │ + ······"assertion":·{
+        29 │ + ········"kind":·"exit_and_log_regex",
+        30 │ + ········"expected_exit":·0,
+        31 │ + ········"expect_log_regex":·"\"exactly_once\":\\s*true"
+        32 │ + ······}
+    24  33 │       },
+    25  34 │       {
+    ······ │ 
+    29  38 │         "method": "real-cli",
+    30  39 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-2 --boundary after-commit-before-enqueue --json",
+    31     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"exactly_once\":\\s*true"·}
+        40 │ + ······"assertion":·{
+        41 │ + ········"kind":·"exit_and_log_regex",
+        42 │ + ········"expected_exit":·0,
+        43 │ + ········"expect_log_regex":·"\"exactly_once\":\\s*true"
+        44 │ + ······}
+    32  45 │       },
+    33  46 │       {
+    ······ │ 
+    37  50 │         "method": "real-cli",
+    38  51 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:effect effect-kill9-3 --boundary after-dispatch-before-ack --json",
+    39     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"exactly_once\":\\s*true"·}
+        52 │ + ······"assertion":·{
+        53 │ + ········"kind":·"exit_and_log_regex",
+        54 │ + ········"expected_exit":·0,
+        55 │ + ········"expect_log_regex":·"\"exactly_once\":\\s*true"
+        56 │ + ······}
+    40  57 │       },
+    41  58 │       {
+    ······ │ 
+    45  62 │         "method": "real-cli",
+    46  63 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:audit effect-kill9-1 --json",
+    47     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""·}
+        64 │ + ······"assertion":·{
+        65 │ + ········"kind":·"exit_and_log_regex",
+        66 │ + ········"expected_exit":·0,
+        67 │ + ········"expect_log_regex":·"\"fencing_token\":\\s*\"[^\"]+\""
+        68 │ + ······}
+    48  69 │       },
+    49  70 │       {
+    ······ │ 
+    53  74 │         "method": "real-cli",
+    54  75 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:enqueue bg-mission --lane background --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:enqueue ix-chat --lane interactive --json && DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:dequeue --json",
+    55     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"lane\":\\s*\"interactive\""·}
+        76 │ + ······"assertion":·{
+        77 │ + ········"kind":·"exit_and_log_regex",
+        78 │ + ········"expected_exit":·0,
+        79 │ + ········"expect_log_regex":·"\"lane\":\\s*\"interactive\""
+        80 │ + ······}
+    56  81 │       },
+    57  82 │       {
+    ······ │ 
+    61  86 │         "method": "real-cli",
+    62  87 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts queue:poison poison-1 --max-attempts 3 --json",
+    63     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"status\":\\s*\"dead_letter\""·}
+        88 │ + ······"assertion":·{
+        89 │ + ········"kind":·"exit_and_log_regex",
+        90 │ + ········"expected_exit":·0,
+        91 │ + ········"expect_log_regex":·"\"status\":\\s*\"dead_letter\""
+        92 │ + ······}
+    64  93 │       },
+    65  94 │       {
+    ······ │ 
+    69  98 │         "method": "real-cli",
+    70  99 │         "literal_cmd": "DATABASE_URL=postgres://127.0.0.1:5432/holocron bun services/platform/src/cli/holo.ts jobs:list --json",
+    71     │ - ······"assertion":·{·"kind":·"exit_and_log_regex",·"expected_exit":·0,·"expect_log_regex":·"\"count\":\\s*16",·"expect_not_log_regex":·"unknown·command"·}
+       100 │ + ······"assertion":·{
+       101 │ + ········"kind":·"exit_and_log_regex",
+       102 │ + ········"expected_exit":·0,
+       103 │ + ········"expect_log_regex":·"\"count\":\\s*16",
+       104 │ + ········"expect_not_log_regex":·"unknown·command"
+       105 │ + ······}
+    72 106 │       }
+    73 107 │     ]
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-verification.json format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    1   │ - {"verified":true,"claimed_verdict":"pass","recomputed_verdict":"pass","steps_planned":8,"steps_recomputed":8,"discrepancies":[]}
+      1 │ + {
+      2 │ + ··"verified":·true,
+      3 │ + ··"claimed_verdict":·"pass",
+      4 │ + ··"recomputed_verdict":·"pass",
+      5 │ + ··"steps_planned":·8,
+      6 │ + ··"steps_recomputed":·8,
+      7 │ + ··"discrepancies":·[]
+      8 │ + }
+    2 9 │   
+  
+
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 1983.
-Checked 1742 files in 450ms. No fixes applied.
+Checked 1744 files in 322ms. No fixes applied.
 Found 1321 errors.
 Found 670 warnings.
 Found 12 infos.
@@ -484,3 +566,4 @@ check ━━━━━━━━━━━━━━━━━━━━━━━━�
   × Some errors were emitted while running checks.
   
 
+exit:1

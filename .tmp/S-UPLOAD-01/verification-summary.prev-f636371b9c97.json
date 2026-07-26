@@ -1,7 +1,7 @@
 {
   "task_id": "S-UPLOAD-01",
-  "timestamp": "2026-07-26T20:50:51Z",
-  "commit_sha": "8e57740f0b824b1f27735401786705a7d31ed17e",
+  "timestamp": "2026-07-26T20:30:49Z",
+  "commit_sha": "7389de9aacd34c06a827212a95bc107e7cc64348",
   "typecheck": {
     "exit_code": 0
   },
@@ -16,7 +16,7 @@
       "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
       "exit_code": 0,
       "output_file": ".tmp/S-UPLOAD-01/ac-1-output.txt",
-      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success zero_query.table:file_objects schema_has_file_objects:true",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
       "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
       "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
     },
@@ -34,7 +34,7 @@
       "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
       "exit_code": 0,
       "output_file": ".tmp/S-UPLOAD-01/ac-3-output.txt",
-      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 mounted:upload-error+upload-retry finalize_error:hash/length/mime mismatch",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
       "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
       "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
     },
@@ -61,7 +61,7 @@
       "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/lifecycle.test.ts",
       "exit_code": 0,
       "output_file": ".tmp/S-UPLOAD-01/tc-1-output.txt",
-      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success zero_query.table:file_objects schema_has_file_objects:true",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
       "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
       "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt"
     },
@@ -79,7 +79,7 @@
       "verify": "PLATFORM_IT=1 pnpm vitest run tests/integration/uploads/error-handling.test.ts",
       "exit_code": 0,
       "output_file": ".tmp/S-UPLOAD-01/tc-3-output.txt",
-      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 mounted:upload-error+upload-retry finalize_error:hash/length/mime mismatch",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
       "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
       "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt"
     },
@@ -108,7 +108,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.0",
-    "generated_at": "2026-07-26T20:49:54Z",
+    "generated_at": "2026-07-26T20:30:49Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -116,51 +116,51 @@
       },
       {
         "path": "lint-output.txt",
-        "sha256": "5493a692eec347d7e88ec27e98da44f3522d53604f068a2e39a05a3807020fc8"
+        "sha256": "a9abf96eeddbacddf560357c910fe0b2934a25e8ce98fc25e0dc1ae782ba7efc"
       },
       {
         "path": "test-output.txt",
-        "sha256": "70e89eba861a90828f0577c6b9b72ff00f113bfba73138eb15c1043a834c954e"
+        "sha256": "43dff5d6a806954cdbaf1dffbef71a68da7438ae7527c56bb6df02d79b0c246b"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "0839af3bdff70a96e88b8eb2bfd6ea342a0327c2bff20af5c1a7f4550b1f4b91"
+        "sha256": "fe4dcd5797a0c542c57213ea03448bd66e9e87a93a5fe743403578caad6c77f1"
       },
       {
         "path": "ac-2-output.txt",
-        "sha256": "30b9a79cf39bb2234649919cdd90ca60d9ca6c29be22496b90e6e2d4ecec0c4f"
+        "sha256": "cdf3edae7a896ab6e37b659310ce07cb744e74ff0772924f151536fd53b0ac59"
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "9eb338614ac3e962bcc94e2b25e8f5b36292750ae8c13c887bccbd9c4ae125d1"
+        "sha256": "65c6cca5754649a5b4e858908e97314d8bed8689e7378e904f35a719ce94f0d0"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "3cb0837e2787b6d583c98050de195f0cf05846b377c4ff5086662453fbbd1946"
+        "sha256": "09f77fb5ab679e00a883fff6a1e68d5e8e7be124af5bd3c5f09a2dff6ad1ef44"
       },
       {
         "path": "ac-5-output.txt",
-        "sha256": "8df083ab192fc7f8eb442e4d51b6fdbd57a842decfcf62789b2da3bfcc374dac"
+        "sha256": "46a7ceec0e58683079d2741b240aaa2b009c08b02fbbe8f319c8f9e9beb46b2c"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "74396871ade60afcc6778dc1edfb154552f38d9dbec20176e2d16f6ed4220335"
+        "sha256": "48119954de0f08a7bf281b12ed6cb82a8418bf5c8910313058df6e3161c63540"
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "d46b261a154475c42a907f5ab990d921afaef4482cdbbddac579b728d2effed1"
+        "sha256": "c908276044c8d8a74312b6d78000af58a4e496bde748b3a568a5f7ad946e1022"
       },
       {
         "path": "tc-3-output.txt",
-        "sha256": "09b3efbd2c5f6aea7170a15074feb06b3be8dff219a17d722d5da163af76718f"
+        "sha256": "d8eb1902c9ffddae140c669fc5ad53046b4b368fb6689f4d3688e41dae5e4aab"
       },
       {
         "path": "tc-4-output.txt",
-        "sha256": "e9274d0b2d2e8eb133a30baa7fc663f46276c44e39d9632b53b0ff87e8695fb0"
+        "sha256": "ddb284a8ce3880d0c9468e6690ee85b77c27959cfeef53bd06ae64c11c57cfc9"
       },
       {
         "path": "tc-5-output.txt",
-        "sha256": "51741a27b36977e2e245910e901c74035c333c1a8f8221c7ff0f6be782e3ff0a"
+        "sha256": "6ce31457592aa194b2c4dd823e1263b3ef3c3bc5110892f970d36a6e9c87a017"
       }
     ]
   }

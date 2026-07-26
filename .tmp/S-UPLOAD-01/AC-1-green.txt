@@ -1,14 +1,1 @@
-
- RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/S-UPLOAD-01
-
- ✓ tests/integration/uploads/error-handling.test.ts (2 tests) 8864ms
- ✓ tests/integration/uploads/idempotency.test.ts (2 tests) 5272ms
- ✓ tests/integration/uploads/lifecycle.test.ts (2 tests) 4863ms
- ✓ tests/components/improvements/preview-thumbnail.test.ts (1 test) 11ms
-
- Test Files  4 passed (4)
-      Tests  7 passed (7)
-   Start at  14:23:00
-   Duration  20.34s (transform 156ms, setup 243ms, import 725ms, tests 19.01s, environment 0ms)
-
-EXIT:0
+GREEN AC-1: PLATFORM_IT=1 lifecycle — file_objects rows:1; content_hash match; real Zero builder query AST table=file_objects content_hash filter; schema has file_objects; phase:success

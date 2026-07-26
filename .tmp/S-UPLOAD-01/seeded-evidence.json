@@ -4,7 +4,7 @@
   "content_hash_fixture": "db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb",
   "requirements": {
     "AC-1": {
-      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success fileObjectId:00000000-0000-7be0-bbed-9f221dec86c4",
+      "seeded_value": "file_objects_rows:1 content_hash:db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb phase:success zero_query.table:file_objects schema_has_file_objects:true",
       "red_against_start_file": ".tmp/S-UPLOAD-01/AC-1-red-against-start.txt",
       "green_file": ".tmp/S-UPLOAD-01/AC-1-green.txt",
       "seeded_artifact": ".tmp/S-UPLOAD-01/AC-1-seeded-artifact.json"
@@ -16,7 +16,7 @@
       "seeded_artifact": ".tmp/S-UPLOAD-01/AC-2-seeded-artifact.json"
     },
     "AC-3": {
-      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 finalize_error:hash/length/mime mismatch",
+      "seeded_value": "file_objects_rows:0 phase:error retry_affordance:1 mounted:upload-error+upload-retry finalize_error:hash/length/mime mismatch",
       "red_against_start_file": ".tmp/S-UPLOAD-01/AC-3-red-against-start.txt",
       "green_file": ".tmp/S-UPLOAD-01/AC-3-green.txt",
       "seeded_artifact": ".tmp/S-UPLOAD-01/AC-3-seeded-artifact.json"
