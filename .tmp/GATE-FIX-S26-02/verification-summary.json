@@ -1,0 +1,113 @@
+{
+  "task_id": "GATE-FIX-S26-02",
+  "timestamp": "2026-07-27T02:19:36Z",
+  "commit_sha": "9cdf5a6ea77d72396879260f4671cbd5e14eca81",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "rg -q 'upload-success is visible' .tmp/GATE-FIX-S26-02/AC-1-green.txt",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "rg -n 'upload-success|submit' .maestro/gate/step-3-submit.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "jq -e '.steps[] | select(.n==3) | select(.literal_cmd != null) | select(.literal_cmd | test(\"step-3-submit\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "test -f .maestro/gate/step-3-submit.yaml && test \"$(realpath .maestro/gate/step-3-submit.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "rg -q 'upload-success is visible' .tmp/GATE-FIX-S26-02/AC-1-green.txt",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'upload-success|submit' .maestro/gate/step-3-submit.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "jq -e '.steps[] | select(.n==3) | select(.literal_cmd | test(\"step-3-submit\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "test \"$(realpath .maestro/gate/step-3-submit.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-02/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-27T02:19:36Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "24262cbc3fc780d2eefd8a9f311ff4459d58b3fa343468b34cb5b0765b5421dd"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "1f56621474cd01a13ed0ceebaed48d1941c1f5f7ef988090eee7b9d20efc812a"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "24262cbc3fc780d2eefd8a9f311ff4459d58b3fa343468b34cb5b0765b5421dd"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "1f56621474cd01a13ed0ceebaed48d1941c1f5f7ef988090eee7b9d20efc812a"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  }
+}
