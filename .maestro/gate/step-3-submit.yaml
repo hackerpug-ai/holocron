@@ -6,6 +6,11 @@ appId: ${MAESTRO_APP_ID}
 # Prerequisite: Expo Dev Client + Metro (MAESTRO_METRO_URL) + platform upload routes.
 # Attach uses deterministic e2e fixture (assets/e2e/test-fixture.jpg) via attach-button.
 # upload-success requires real CAS finalize (64-hex content hash) — not text-only.
+#
+# Failure modes this flow hardens against:
+# - optional-only submit taps that no-op → never start upload
+# - optional attach-preview → text-only submit → never shows upload-success
+# - keyboard covering footer submit → dismiss + scroll + non-optional submit id
 
 - launchApp:
     clearState: false
@@ -98,11 +103,14 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "attach-button"
 
+# NON-optional: without attach-preview, submit is text-only and never surfaces upload-success
 - extendedWaitUntil:
     visible:
       id: "attach-preview"
-    timeout: 20000
-    optional: true
+    timeout: 30000
+
+- assertVisible:
+    id: "attach-preview"
 
 - extendedWaitUntil:
     visible:
@@ -113,47 +121,47 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "improvements-screen-submit-sheet-description-input"
 
-# Keep description short so fixed footer (Cancel/Submit) stays on-screen.
 - inputText: "Sprint 26 step-3 submit fixture"
 
+# Dismiss keyboard so fixed footer Submit (testID …-submit-button) is hittable
 - hideKeyboard:
     optional: true
 
 - waitForAnimationToEnd:
-    timeout: 5000
+    timeout: 3000
 
-# Reveal fixed footer if KeyboardAvoidingView still offsets it.
-- scrollUntilVisible:
-    element:
-      id: "improvements-screen-submit-sheet-submit-button"
-    direction: DOWN
-    timeout: 15000
-    optional: true
-
-- swipe:
-    direction: UP
-    duration: 400
-    optional: true
-
+# Product: testID base is improvements-screen-submit-sheet (app/(drawer)/improvements.tsx)
+# → submit button resource-id = improvements-screen-submit-sheet-submit-button
+# → accessibilityLabel = "Submit"
 - extendedWaitUntil:
     visible:
       id: "improvements-screen-submit-sheet-submit-button"
-    timeout: 15000
-    optional: true
+    timeout: 20000
 
-# Prefer footer submit (always mounted). Fall back to accessibility label / point.
+- assertVisible:
+    id: "improvements-screen-submit-sheet-submit-button"
+
+# NON-optional submit — fail closed if selector missing (do not soft-skip)
 - tapOn:
     id: "improvements-screen-submit-sheet-submit-button"
-    optional: true
 
-- tapOn:
-    text: "Submit"
-    optional: true
-
-- tapOn:
-    id: "improvements-screen-submit-sheet-footer"
-    optional: true
-    retryTapIfNoChange: false
+# Fallback if id hit missed the pressable (rare layout race)
+- runFlow:
+    when:
+      notVisible:
+        id: "upload-progress"
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "upload-success"
+          commands:
+            - tapOn:
+                text: "Submit"
+                optional: true
+            - tapOn:
+                id: "improvements-screen-submit-sheet-submit-button"
+                optional: true
 
 # Retry if residual error from earlier hot-reload attempt
 - runFlow:
