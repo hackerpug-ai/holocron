@@ -1,0 +1,50 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "rg -q 'attach-preview is visible\\.\\.\\. COMPLETED' .tmp/GATE-FIX-S26-01/AC-1-green.txt && rg -q 'Tap on id: attach-button\\.\\.\\. COMPLETED' .tmp/GATE-FIX-S26-01/AC-1-green.txt",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "test -f .maestro/gate/step-2-attach.yaml && rg -n 'attach-button|attach-preview' .maestro/gate/step-2-attach.yaml && ! rg -n 'upload-success' .maestro/gate/step-2-attach.yaml",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "jq -e '.steps[] | select(.n==2) | select(.literal_cmd != null) | select(.literal_cmd | test(\"step-2-attach\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "test -f .maestro/gate/step-2-attach.yaml && test -f .maestro/upload.yaml && test \"$(realpath .maestro/gate/step-2-attach.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/ac-4-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "rg -q 'attach-preview is visible\\.\\.\\. COMPLETED' .tmp/GATE-FIX-S26-01/AC-1-green.txt && rg -q 'Tap on id: attach-button\\.\\.\\. COMPLETED' .tmp/GATE-FIX-S26-01/AC-1-green.txt",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "rg -n 'attach-preview' .maestro/gate/step-2-attach.yaml && ! rg -n 'upload-success' .maestro/gate/step-2-attach.yaml",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "jq -e '.steps[] | select(.n==2) | select(.literal_cmd | test(\"step-2-attach\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "test \"$(realpath .maestro/gate/step-2-attach.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+    "exit_code": 0,
+    "output_file": ".tmp/GATE-FIX-S26-01/tc-4-output.txt"
+  }
+]

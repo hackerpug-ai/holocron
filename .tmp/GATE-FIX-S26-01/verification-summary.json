@@ -1,0 +1,107 @@
+{
+  "task_id": "GATE-FIX-S26-01",
+  "timestamp": "2026-07-27T02:07:15Z",
+  "commit_sha": "146a308b7eb3bafb4af0e4f708918393f054bad6",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/gate/step-2-attach.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-1-output.txt",
+      "seeded_value": "attach-preview is visible... COMPLETED (real iPhone 17 simulator C79BF38C)",
+      "red_against_start_file": ".tmp/GATE-FIX-S26-01/AC-1-red-against-start.txt",
+      "green_file": ".tmp/GATE-FIX-S26-01/AC-1-green.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "test -f .maestro/gate/step-2-attach.yaml && rg -n 'attach-button|attach-preview' .maestro/gate/step-2-attach.yaml && ! rg -n 'upload-success' .maestro/gate/step-2-attach.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "jq -e '.steps[] | select(.n==2) | select(.literal_cmd != null) | select(.literal_cmd | test(\"step-2-attach\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "test -f .maestro/gate/step-2-attach.yaml && test -f .maestro/upload.yaml && test \"$(realpath .maestro/gate/step-2-attach.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/gate/step-2-attach.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'attach-preview' .maestro/gate/step-2-attach.yaml && ! rg -n 'upload-success' .maestro/gate/step-2-attach.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "jq -e '.steps[] | select(.n==2) | select(.literal_cmd | test(\"step-2-attach\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "test \"$(realpath .maestro/gate/step-2-attach.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1",
+    "input_sha256": {
+      "AC-1-green-rerun.txt": "578bec494e94e4420b8a4216401f8b1c932d04ce0ced649136aa30e229088d42",
+      "AC-1-green.txt": "0080f49a88620186abbed7de658201aa946f98b304cd0ba6fba2956d2020d125",
+      "AC-1-green.txt.bak": "7d9e96c75bdf3d68480646c04e9faed0e925c678d3b5c6bbde7914ef12a27466",
+      "AC-1-oracle-lines.txt": "b51e0b15a018f4b17240108505cf3fa0eaa2457e996b3d7a2d45f2474f36283f",
+      "AC-1-red-against-start.txt": "54a4d5cb4083028a788b16f151d8e0deb817aea37ea60b44cacd4712e0cb764c",
+      "AC-1-seeded-artifact.txt": "955170127191b9de377f3b2359c64830be750a0f9c3ec67ec01587e8b075e1cb",
+      "AC-2-static.txt": "136a2fec1870461337ab6b4926604414390c125d035156cc31a1a9f8d715b306",
+      "AC-3-gate-plan-step2.json": "38778836cba984e79eb7db8811fbe1f31a3904a8f08fc4b7ca969a89f0359eab",
+      "AC-4-path-distinct.txt": "1ce19737e0fad2dab8feed8679d01fb49d29e2ca3addb3596019afa9ff02d8f9",
+      "ac-1-output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ac-2-output.txt": "f8bb6ffc1091d6188d675bd307b84d5f0a8f1c1d7242dc57dc8b9698f441a410",
+      "ac-3-output.txt": "38778836cba984e79eb7db8811fbe1f31a3904a8f08fc4b7ca969a89f0359eab",
+      "ac-4-output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "commands-step-2-attach.json": "801fc2eba806d6e7055ccb0de9e1d204ae0ec62030c3bedbdf73d92a98741038",
+      "gate-step-2-attach-preview-cwd.png": "dd7d87f8b0caeeb4594a65d049ba1e8774f75f9fecb47fa6c8ab35cb4b0af38d",
+      "gate-step-2-attach-preview.png": "23c23902fcdccda87135dbffc859c8cc686843c27eb65f80ea1c7a33719f86df",
+      "lint-output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "maestro-session.log": "ad31128fd26d8f2f5228d60165a724516ee94335e97af9389a897c733197b9b6",
+      "pre-existing-issues.md": "d60b22b3c3fbadfe697b2aafcc5c95445e7cbf816e477e40f930658fc48a976d",
+      "requirement-results.json": "d6c27ebf9296b55fad44e74a35e9f94791efa351992fb0505c73c68af68f38fa",
+      "seed-e2e.txt": "95bd249bc689f471671b31a317ab205d93a4df7059400b08c6fb9751412e88c8",
+      "seeded-evidence-notes.md": "dc48dc6725910cab5695db5fe8518000688860d7185ce086f54cec4c5cb02dc3",
+      "tc-1-output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tc-2-output.txt": "5436b09460cab33f940657dd4f77306a236fee8c26f9fd33e34ccb0c57058fba",
+      "tc-3-output.txt": "38778836cba984e79eb7db8811fbe1f31a3904a8f08fc4b7ca969a89f0359eab",
+      "tc-4-output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "typecheck-output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "verify-manifest.json": "0f7eb7c896bb67dce68253bf3b98f00f9b238ef5767029a5cc09e53b3b1f1956"
+    },
+    "note": "AC-1/TC-1 exit proven by real Maestro AC-1-green.txt (attach-preview COMPLETED on named simulator); static ACs re-executed by harvest."
+  },
+  "tests": {
+    "not_required": true
+  }
+}

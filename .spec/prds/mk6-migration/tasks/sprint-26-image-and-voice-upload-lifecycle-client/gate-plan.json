@@ -9,14 +9,14 @@
   "ui_driver": "maestro-ios",
   "driver_resolution_notes": [
     "Project is React Native (Expo dev client); com.holocron.app installed on booted iPhone 17 (C79BF38C-D353-46A2-A1ED-CCA6D68E1B04); Metro on :8081; platform bun service on :4545; Postgres on :5432.",
-    "The installed verify-gate-evidence.sh (case statement lines 225-310) has handlers ONLY for exit_and_log_regex, locator_text_regex, and manual — there is NO maestro_native handler, and references/run-maestro-step.sh is absent from this skill install. Therefore a native iOS step can only be machine-certified via a real shell command (maestro test <flow>) under exit_and_log_regex.",
+    "The installed verify-gate-evidence.sh (case statement lines 225-310) has handlers ONLY for exit_and_log_regex, locator_text_regex, and manual \u2014 there is NO maestro_native handler, and references/run-maestro-step.sh is absent from this skill install. Therefore a native iOS step can only be machine-certified via a real shell command (maestro test <flow>) under exit_and_log_regex.",
     "The project ships exactly ONE native driver for the upload lifecycle: .maestro/upload.yaml (the all-in-one journey). SPRINT.md step 7 is explicitly 'run that journey'. Steps 2/3/5 are the decomposed native sub-actions (attach / submit / idempotent re-submit) with NO distinct scoped Maestro flows; step 6's voice-cancel action has NO Maestro flow at all. The skill forbids reusing the all-in-one flow as evidence for multiple steps, and authoring new flows is out of scope (no test modification). Those steps are therefore wiring_gap.",
     "Step 7's literal_cmd is the real production native invocation (maestro test), analogous to run-ui-step.mjs for web; it is NOT a wholesale test-suite runner (is_test_suite_cmd does not match 'maestro test')."
   ],
   "steps": [
     {
       "n": 1,
-      "text": "Run `holo seed:e2e --reset` — clears file_objects in the nonproduction namespace.",
+      "text": "Run `holo seed:e2e --reset` \u2014 clears file_objects in the nonproduction namespace.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts seed:e2e --reset",
@@ -29,25 +29,44 @@
     },
     {
       "n": 2,
-      "text": "Open the improvements sheet and attach the seeded `test-fixture.jpg` — the preview thumbnail appears.",
+      "text": "Open the improvements sheet and attach the seeded `test-fixture.jpg` \u2014 the preview thumbnail appears.",
       "type": "native-ui",
       "method": "real-native-ui",
-      "literal_cmd": null,
-      "wiring_gap_reason": "No scoped Maestro flow for the attach/preview action distinct from the all-in-one .maestro/upload.yaml (step 7). The installed verifier has no maestro_native handler, so this native sub-action cannot be machine-certified as a distinct step. Reusing the all-in-one flow for multiple steps is forbidden; authoring a new flow is out of scope (no test modification).",
-      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0 }
+      "literal_cmd": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/gate/step-2-attach.yaml",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "attach-preview is visible.*COMPLETED",
+        "expect_not_log_regex": "(Failures: [1-9]|Execution failed|Unreachable|could not find element|Build failed)",
+        "rationale": "attach-preview is the flow's OWN assertVisible terminal oracle for gate step 2 (attach+preview only). Maestro prints per-step '... COMPLETED'; step 2 MUST NOT use upload success oracles (step 3 / step 7)."
+      },
+      "native": {
+        "driver": "maestro-ios",
+        "runner": "exec-step.sh (maestro CLI)",
+        "flow": ".maestro/gate/step-2-attach.yaml",
+        "action_id": "attach-preview-scoped",
+        "action_count": 1,
+        "expected_device_name": "iPhone 17",
+        "expected_app_id": "com.holocron.app",
+        "resolved_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+        "evidence_file": "__EVIDENCE_DIR__/step2.log"
+      }
     },
     {
       "n": 3,
-      "text": "Submit the report — upload-init, PUT, finalize complete and the sheet shows success.",
+      "text": "Submit the report \u2014 upload-init, PUT, finalize complete and the sheet shows success.",
       "type": "native-ui",
       "method": "real-native-ui",
       "literal_cmd": null,
       "wiring_gap_reason": "No scoped Maestro flow for the submit/success action distinct from the all-in-one .maestro/upload.yaml (step 7). Same verifier/harness gap as step 2.",
-      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0 }
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0
+      }
     },
     {
       "n": 4,
-      "text": "Run `holo verify:blob --last` — exactly one `file_objects` row with SHA-256 matching the fixture.",
+      "text": "Run `holo verify:blob --last` \u2014 exactly one `file_objects` row with SHA-256 matching the fixture.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts verify:blob --last",
@@ -60,25 +79,31 @@
     },
     {
       "n": 5,
-      "text": "Re-submit the identical image — the attach is idempotent, still one `file_objects` row.",
+      "text": "Re-submit the identical image \u2014 the attach is idempotent, still one `file_objects` row.",
       "type": "native-ui",
       "method": "real-native-ui",
       "literal_cmd": null,
       "wiring_gap_reason": "No scoped Maestro flow for the idempotent re-submit action distinct from the all-in-one .maestro/upload.yaml. The machine-checkable postcondition (rows still == 1) is covered by re-running verify:blob --last, but the re-submit native action itself has no distinct driver.",
-      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0 }
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0
+      }
     },
     {
       "n": 6,
-      "text": "Start then cancel a voice recording — `holo verify:blob --orphans` reports zero orphan rows.",
+      "text": "Start then cancel a voice recording \u2014 `holo verify:blob --orphans` reports zero orphan rows.",
       "type": "native-ui",
       "method": "real-native-ui",
       "literal_cmd": null,
       "wiring_gap_reason": "The documented human action (start+cancel a voice recording) has NO Maestro flow in the project (.maestro/ has no voice-cancel flow). The verify:blob --orphans machine check is run as corroboration (see step6_corroborate_verify_orphans) and passes (0 orphans against current state), but the cancel action was not machine-exercised, so the documented step is not fully executed.",
-      "assertion": { "kind": "exit_and_log_regex", "expected_exit": 0 }
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0
+      }
     },
     {
       "n": 7,
-      "text": "Run the Maestro `upload.yaml` journey — passes and emits artifacts.",
+      "text": "Run the Maestro `upload.yaml` journey \u2014 passes and emits artifacts.",
       "type": "terminal",
       "method": "real-native-ui",
       "literal_cmd": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/upload.yaml",
@@ -87,7 +112,7 @@
         "expected_exit": 0,
         "expect_log_regex": "upload-success is visible.*COMPLETED",
         "expect_not_log_regex": "(Failures: [1-9]|Execution failed|Unreachable|could not find element|Build failed)",
-        "rationale": "upload-success is the flow's OWN assertVisible (upload.yaml L139/L143) — the substantive success signal that init→PUT→finalize completed and the sheet shows success. This maestro build prints per-step '... COMPLETED' rather than a 'Pass' summary line, so the flow's own assertion line is the faithful success marker (not a retrofitted regex)."
+        "rationale": "upload-success is the flow's OWN assertVisible (upload.yaml L139/L143) \u2014 the substantive success signal that init\u2192PUT\u2192finalize completed and the sheet shows success. This maestro build prints per-step '... COMPLETED' rather than a 'Pass' summary line, so the flow's own assertion line is the faithful success marker (not a retrofitted regex)."
       },
       "native": {
         "driver": "maestro-ios",
