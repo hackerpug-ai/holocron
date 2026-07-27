@@ -57,11 +57,24 @@
       "text": "Submit the report \u2014 upload-init, PUT, finalize complete and the sheet shows success.",
       "type": "native-ui",
       "method": "real-native-ui",
-      "literal_cmd": null,
-      "wiring_gap_reason": "No scoped Maestro flow for the submit/success action distinct from the all-in-one .maestro/upload.yaml (step 7). Same verifier/harness gap as step 2.",
+      "literal_cmd": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/gate/step-3-submit.yaml",
       "assertion": {
         "kind": "exit_and_log_regex",
-        "expected_exit": 0
+        "expected_exit": 0,
+        "expect_log_regex": "upload-success is visible.*COMPLETED",
+        "expect_not_log_regex": "(Failures: [1-9]|Execution failed|Unreachable|could not find element|Build failed)",
+        "rationale": "upload-success is the flow's OWN assertVisible terminal oracle for gate step 3 (attach+submit\u2192CAS finalize). Maestro prints per-step '... COMPLETED'; step 3 MUST assert real finalize (64-hex CAS), not text-only submit ack or reuse of upload.yaml as sole evidence."
+      },
+      "native": {
+        "driver": "maestro-ios",
+        "runner": "exec-step.sh (maestro CLI)",
+        "flow": ".maestro/gate/step-3-submit.yaml",
+        "action_id": "submit-success-scoped",
+        "action_count": 1,
+        "expected_device_name": "iPhone 17",
+        "expected_app_id": "com.holocron.app",
+        "resolved_udid": "C79BF38C-D353-46A2-A1ED-CCA6D68E1B04",
+        "evidence_file": "__EVIDENCE_DIR__/step3.log"
       }
     },
     {

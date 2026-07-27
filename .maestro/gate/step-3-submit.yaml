@@ -1,0 +1,176 @@
+appId: ${MAESTRO_APP_ID}
+---
+# GATE-FIX-S26-02 / Sprint 26 human-gate step 3 — attach+submit→upload-success
+# Distinct from .maestro/gate/step-2-attach.yaml (attach+preview only)
+# and .maestro/upload.yaml (step 7 all-in-one journey).
+# Prerequisite: Expo Dev Client + Metro (MAESTRO_METRO_URL) + platform upload routes.
+# Attach uses deterministic e2e fixture (assets/e2e/test-fixture.jpg) via attach-button.
+# upload-success requires real CAS finalize (64-hex content hash) — not text-only.
+
+- launchApp:
+    clearState: false
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 20000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - tapOn:
+          text: ".*http.*"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+    optional: true
+
+- openLink: holocron://improvements
+
+- extendedWaitUntil:
+    visible:
+      id: "improvements-route-layout"
+    timeout: 45000
+    optional: true
+
+- runFlow:
+    when:
+      notVisible:
+        id: "improvements-route-layout"
+    commands:
+      - openLink: holocron://improvements
+      - extendedWaitUntil:
+          visible:
+            id: "improvements-route-layout"
+          timeout: 60000
+
+- assertVisible:
+    id: "improvements-route-layout"
+
+# Close a leftover sheet from a prior failed attempt
+- runFlow:
+    when:
+      visible:
+        id: "improvements-screen-submit-sheet-close"
+    commands:
+      - tapOn:
+          id: "improvements-screen-submit-sheet-close"
+          optional: true
+
+- tapOn:
+    id: "improvements-header-add-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "attach-button"
+    timeout: 30000
+
+- assertVisible:
+    id: "attach-button"
+
+# Loads tests/fixtures/test-fixture.jpg (bundled assets/e2e) in __DEV__/e2e
+- tapOn:
+    id: "attach-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "attach-preview"
+    timeout: 20000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: "Change image"
+    timeout: 15000
+    optional: true
+
+- tapOn:
+    id: "improvements-screen-submit-sheet-description-input"
+
+# Keep description short so fixed footer (Cancel/Submit) stays on-screen.
+- inputText: "Sprint 26 step-3 submit fixture"
+
+- hideKeyboard:
+    optional: true
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Reveal fixed footer if KeyboardAvoidingView still offsets it.
+- scrollUntilVisible:
+    element:
+      id: "improvements-screen-submit-sheet-submit-button"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+
+- swipe:
+    direction: UP
+    duration: 400
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "improvements-screen-submit-sheet-submit-button"
+    timeout: 15000
+    optional: true
+
+# Prefer footer submit (always mounted). Fall back to accessibility label / point.
+- tapOn:
+    id: "improvements-screen-submit-sheet-submit-button"
+    optional: true
+
+- tapOn:
+    text: "Submit"
+    optional: true
+
+- tapOn:
+    id: "improvements-screen-submit-sheet-footer"
+    optional: true
+    retryTapIfNoChange: false
+
+# Retry if residual error from earlier hot-reload attempt
+- runFlow:
+    when:
+      visible:
+        id: "upload-retry"
+    commands:
+      - tapOn:
+          id: "upload-retry"
+
+# upload-success requires real CAS finalize (64-hex content hash) — not text-only
+- extendedWaitUntil:
+    visible:
+      id: "upload-success"
+    timeout: 120000
+
+- assertVisible:
+    id: "upload-success"
+
+- takeScreenshot: gate-step-3-submit-success

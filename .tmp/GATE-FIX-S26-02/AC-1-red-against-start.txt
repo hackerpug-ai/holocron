@@ -1,0 +1,2 @@
+{"n":3,"text":"Submit the report — upload-init, PUT, finalize complete and the sheet shows success.","type":"native-ui","method":"real-native-ui","literal_cmd":null,"wiring_gap_reason":"No scoped Maestro flow for the submit/success action distinct from the all-in-one .maestro/upload.yaml (step 7). Same verifier/harness gap as step 2.","assertion":{"kind":"exit_and_log_regex","expected_exit":0}}
+flow missing: wiring_gap
