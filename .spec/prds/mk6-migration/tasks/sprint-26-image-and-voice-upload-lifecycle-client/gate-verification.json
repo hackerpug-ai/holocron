@@ -1,0 +1,10 @@
+{
+  "verified": true,
+  "claimed_verdict": "blocked",
+  "recomputed_verdict": "blocked",
+  "steps_planned": 7,
+  "steps_recomputed": 7,
+  "discrepancies": [],
+  "method": "verify-gate-evidence.sh:recompute@e3b376225206",
+  "written_at": "2026-07-27T01:28:56Z"
+}

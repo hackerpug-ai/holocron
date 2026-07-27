@@ -1,0 +1,134 @@
+{
+  "sprint": "sprint-26-image-and-voice-upload-lifecycle-client",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client",
+    "sprint_slug": "sprint-26-image-and-voice-upload-lifecycle-client"
+  },
+  "run_id": "20260727T012043Z-s26-ht",
+  "verdict": "blocked",
+  "blocked_reason": "native-ui-wiring-gap: steps 2, 3, 5 (image attach / submit / idempotent re-submit) and step 6 (start+cancel voice recording) have no scoped Maestro flow distinct from the all-in-one .maestro/upload.yaml, and the installed verify-gate-evidence.sh has no maestro_native assertion handler (only exit_and_log_regex / locator_text_regex / manual), so these native sub-actions cannot be machine-certified as distinct steps. Reusing the all-in-one flow as evidence for multiple steps is forbidden by the skill; authoring new scoped flows is out of scope (no test modification). The functional upload lifecycle itself is HEALTHY (steps 1, 4, 7 pass against real Hono/Postgres/blob + a real Maestro drive).",
+  "steps_total": 7,
+  "steps_executed": 3,
+  "steps_passed": 3,
+  "ui_driver": "maestro-ios",
+  "exec_surface": "surface:71 (7555E54C-322F-41EA-8A8A-2A23E687CF03)",
+  "qa_surface_id": "7540C518-329C-4D92-A19C-E7FFEC3CA063",
+  "qa_session_id": "independent-qa:opencode:glm-5.2",
+  "reviewed_sha": "68e05a208db8f0ee1b01ed31e6f7d1dbfde78040",
+  "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht",
+  "functional_summary": {
+    "seed_reset": "PASS — truncated 124 public tables, file_objects confirmed empty after seed",
+    "maestro_journey": "PASS — real drive on iPhone 17 (C79BF38C): attach-button COMPLETED, attach-preview visible COMPLETED, submit-button COMPLETED, upload-success visible COMPLETED, screenshot taken, exit 0",
+    "verify_blob_last": "PASS — file_objects rows: 1, SHA-256 db6fcc97... == fixture_sha256 db6fcc97..., status OK",
+    "verify_blob_orphans_corroboration": "PASS (corroboration only) — orphan rows: 0, status OK; voice-cancel ACTION was not machine-driven"
+  },
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run `holo seed:e2e --reset` — clears file_objects in the nonproduction namespace.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "duration_ms": 2161,
+      "evidence": "exit 0; 'truncated 124 public tables', 'seeded 3 conversations + 6 messages'; file_objects confirmed empty post-seed",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "Open the improvements sheet and attach the seeded `test-fixture.jpg` — the preview thumbnail appears.",
+      "type": "native-ui",
+      "method": "real-native-ui",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "No scoped Maestro flow for attach/preview distinct from the all-in-one .maestro/upload.yaml. The native action IS functionally exercised by step 7's journey (attach-button COMPLETED + attach-preview visible COMPLETED in step7.log), but per the skill that all-in-one run cannot serve as the machine evidence for a SEPARATE gate step, and the installed verifier has no maestro_native handler to certify it standalone.",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step2.log",
+      "failure": {
+        "expected": "A distinct scoped Maestro flow (e.g. .maestro/gate/step-2-attach.yaml) driving ONLY attach+preview, runnable as its own `maestro test` literal_cmd with exit_and_log_regex evidence (deterministic — required by skill [6.1]: every native step a distinct flow/action_id)",
+        "actual": "No such scoped flow exists in .maestro/; the only native driver is .maestro/upload.yaml which step 7 already consumes (deterministic — find .maestro -name '*attach*' returns nothing)",
+        "evidence_pointer": ".maestro/ tree has only upload.yaml (all-in-one image) + chat/* + reactive/* + research/* + articles/* flows; no gate/step-* and no voice flow (deterministic)",
+        "root_cause_hypothesis": "HYPOTHESIS: S-UPLOAD-03 shipped a single all-in-one journey rather than per-gate-step scoped flows, so the 7-step deliverable's native sub-actions (2/3/5) and voice cancel (6) were never independently harnessable",
+        "remedy_suggestion": "HYPOTHESIS: author scoped Maestro flows under .maestro/gate/ (step-2-attach.yaml, step-3-submit.yaml, step-5-idempotent.yaml, step-6-voice-cancel.yaml) each driving one documented action, AND extend verify-gate-evidence.sh with a maestro_native assertion handler (or drive each via its own `maestro test` exit_and_log_regex) so the verifier can certify them as distinct steps",
+        "remedy_file_guess": "HYPOTHESIS: .maestro/gate/step-2-attach.yaml (NEW) + references/run-maestro-step.sh (NEW, currently absent from the skill install)"
+      }
+    },
+    {
+      "n": 3,
+      "text": "Submit the report — upload-init, PUT, finalize complete and the sheet shows success.",
+      "type": "native-ui",
+      "method": "real-native-ui",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "No scoped Maestro flow for submit/success distinct from .maestro/upload.yaml. Functionally exercised by step 7 (submit-button COMPLETED + upload-success visible COMPLETED) but not independently machine-certifiable (same verifier/skill constraint as step 2).",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step3.log",
+      "failure": {
+        "expected": "A distinct scoped Maestro flow for submit→success runnable as its own literal_cmd (deterministic — skill [6.1])",
+        "actual": "No scoped flow exists; only the all-in-one journey (step 7) (deterministic)",
+        "evidence_pointer": ".maestro/ has no submit/success-scoped flow (deterministic)",
+        "root_cause_hypothesis": "HYPOTHESIS: same harness gap as step 2 — single all-in-one journey, no per-step flows",
+        "remedy_suggestion": "HYPOTHESIS: author .maestro/gate/step-3-submit.yaml driving only submit→assertVisible upload-success",
+        "remedy_file_guess": "HYPOTHESIS: .maestro/gate/step-3-submit.yaml (NEW)"
+      }
+    },
+    {
+      "n": 4,
+      "text": "Run `holo verify:blob --last` — exactly one `file_objects` row with SHA-256 matching the fixture.",
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": true,
+      "result": "pass",
+      "duration_ms": 1069,
+      "evidence": "exit 0; file_objects rows: 1; SHA-256 db6fcc9792c6098b653269e9da2bbc54e8e75acc31ae4442c665feae25c482fb == fixture_sha256 (identical); status OK",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "Re-submit the identical image — the attach is idempotent, still one `file_objects` row.",
+      "type": "native-ui",
+      "method": "real-native-ui",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "No scoped Maestro flow for the idempotent re-submit action. The machine postcondition (rows still == 1 after a re-upload of the same hash) is provable by re-running verify:blob --last, but the re-submit native action itself has no distinct driver, and the content_hash unique-index idempotency was not exercised a second time by a distinct native step.",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step5.log",
+      "failure": {
+        "expected": "A distinct scoped Maestro flow re-submitting the identical fixture, followed by verify:blob --last asserting rows still == 1 (deterministic — skill [6.1])",
+        "actual": "No scoped re-submit flow exists; the all-in-one journey is already consumed by step 7 (deterministic)",
+        "evidence_pointer": ".maestro/ has no idempotent re-submit flow (deterministic)",
+        "root_cause_hypothesis": "HYPOTHESIS: the journey drives a single upload; idempotency re-submit was not authored as a separate native step",
+        "remedy_suggestion": "HYPOTHESIS: author .maestro/gate/step-5-idempotent.yaml that attaches the same fixture again, then chain verify:blob --last asserting rows == 1 (proves content_hash CAS idempotency)",
+        "remedy_file_guess": "HYPOTHESIS: .maestro/gate/step-5-idempotent.yaml (NEW)"
+      }
+    },
+    {
+      "n": 6,
+      "text": "Start then cancel a voice recording — `holo verify:blob --orphans` reports zero orphan rows.",
+      "type": "native-ui",
+      "method": "real-native-ui",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "The documented voice-cancel action has NO Maestro flow anywhere in .maestro/ (S-UPLOAD-02's voice surface was not given a native gate flow). verify:blob --orphans was run as CORROBORATION (step6_corroborate_verify_orphans.log: orphan rows: 0, exit 0) and the platform reports zero orphans against current state, but because the cancel action was not machine-driven the documented step is not fully executed — the 0-orphan result reflects baseline state, not proof that cancel is orphan-safe.",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step6.log",
+      "corroboration_log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step6_corroborate_verify_orphans.log",
+      "failure": {
+        "expected": "A scoped Maestro flow that starts a voice recording, waits 2-3s, taps cancel (the documented human action), THEN verify:blob --orphans asserting 0 (deterministic — skill [6.1] + S-UPLOAD-03 AC-3 scenario)",
+        "actual": "No voice-cancel Maestro flow exists in .maestro/; only the verify:blob --orphans terminal half ran (deterministic — grep -rl voice .maestro/ returns no flow file)",
+        "evidence_pointer": "step6_corroborate_verify_orphans.log shows 'orphan rows: 0' but no preceding native cancel evidence (deterministic)",
+        "root_cause_hypothesis": "HYPOTHESIS: S-UPLOAD-02 wired the voice upload lifecycle + dispatcher but did not ship a Maestro flow for the cancel-orphan-safety path; the gate's step 6 is therefore only half-harnessed",
+        "remedy_suggestion": "HYPOTHESIS: author .maestro/voice-cancel.yml (start recording → wait → tap cancel) following .maestro/chat/cancel-works.yml pattern, run it, then verify:blob --orphans",
+        "remedy_file_guess": "HYPOTHESIS: .maestro/voice-cancel.yml (NEW) + wire VoiceMicButton/VoiceSessionOverlay testIDs"
+      }
+    },
+    {
+      "n": 7,
+      "text": "Run the Maestro `upload.yaml` journey — passes and emits artifacts.",
+      "type": "terminal",
+      "method": "real-native-ui",
+      "executed": true,
+      "result": "pass",
+      "duration_ms": 79718,
+      "evidence": "exit 0; real drive on iPhone 17 (C79BF38C-D353-46A2-A1ED-CCA6D68E1B04); attach-button TAPPED, attach-preview visible, submit-button TAPPED, upload-success visible COMPLETED, Take screenshot sprint-26-upload-lifecycle COMPLETED; 3 screenshots + maestro runner log captured to evidence dir",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step7.log",
+      "native_evidence": ".spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/.gate-evidence/20260727T012043Z-s26-ht/step7-maestro-screenshot-1.png (+2 more) + step7-maestro-runner.log"
+    }
+  ]
+}
