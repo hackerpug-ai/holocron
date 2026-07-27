@@ -1,0 +1,4 @@
+holo verify:blob --last — content-addressed upload proof
+  file_objects rows: 0
+  reason: file_objects is empty
+  status: FAIL
