@@ -1,0 +1,3 @@
+102:      id: "attach-preview"
+106:    id: "attach-preview"
+108:- takeScreenshot: gate-step-2-attach-preview

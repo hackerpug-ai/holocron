@@ -1,0 +1,113 @@
+{
+  "task_id": "GATE-FIX-S26-01",
+  "timestamp": "2026-07-27T02:04:05Z",
+  "commit_sha": "803dd8bf42e502de8323feb40235e2c864be9277",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/gate/step-2-attach.yaml",
+      "exit_code": 1,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "test -f .maestro/gate/step-2-attach.yaml && rg -n 'attach-button|attach-preview' .maestro/gate/step-2-attach.yaml && ! rg -n 'upload-success' .maestro/gate/step-2-attach.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "jq -e '.steps[] | select(.n==2) | select(.literal_cmd != null) | select(.literal_cmd | test(\"step-2-attach\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "test -f .maestro/gate/step-2-attach.yaml && test -f .maestro/upload.yaml && test \"$(realpath .maestro/gate/step-2-attach.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/ac-4-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "MAESTRO_APP_ID=com.holocron.app MAESTRO_METRO_URL=http://127.0.0.1:8081 maestro test --device C79BF38C-D353-46A2-A1ED-CCA6D68E1B04 .maestro/gate/step-2-attach.yaml",
+      "exit_code": 1,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "rg -n 'attach-preview' .maestro/gate/step-2-attach.yaml && ! rg -n 'upload-success' .maestro/gate/step-2-attach.yaml",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "jq -e '.steps[] | select(.n==2) | select(.literal_cmd | test(\"step-2-attach\"))' .spec/prds/mk6-migration/tasks/sprint-26-image-and-voice-upload-lifecycle-client/gate-plan.json",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "test \"$(realpath .maestro/gate/step-2-attach.yaml)\" != \"$(realpath .maestro/upload.yaml)\"",
+      "exit_code": 0,
+      "output_file": ".tmp/GATE-FIX-S26-01/tc-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-27T02:04:05Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "ae47736bb2a9401aa9743893f2f64b9a605e65a99d78cd991a8021e0f7722d87"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "b1366afb25dd87156f84e248c77840a2c8c3a8c58b9fd39dba6fc29db4a77827"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "88a092b77f1427caa92488b2864563e761fd472e2cb999038eb5107f24e7ef45"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "f8bb6ffc1091d6188d675bd307b84d5f0a8f1c1d7242dc57dc8b9698f441a410"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "38778836cba984e79eb7db8811fbe1f31a3904a8f08fc4b7ca969a89f0359eab"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "10b0c9c4b2e9e9e389dd4d9cefb861d5d253f19631546450cd99f0b0b0f81b90"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "5436b09460cab33f940657dd4f77306a236fee8c26f9fd33e34ccb0c57058fba"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "38778836cba984e79eb7db8811fbe1f31a3904a8f08fc4b7ca969a89f0359eab"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  }
+}

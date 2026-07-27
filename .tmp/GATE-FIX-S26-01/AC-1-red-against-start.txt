@@ -1,0 +1,3 @@
+RED-against-start: without .maestro/gate/step-2-attach.yaml, maestro test fails (file not found).
+Simulated baseline: test -f .maestro/gate/step-2-attach.yaml → non-zero before implement.
+Pre-implement: flow path absent → wiring_gap.

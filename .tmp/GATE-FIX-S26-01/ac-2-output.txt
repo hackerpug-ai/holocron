@@ -1,0 +1,7 @@
+7:# Attach uses deterministic e2e fixture (assets/e2e/test-fixture.jpg) via attach-button.
+90:      id: "attach-button"
+94:    id: "attach-button"
+98:    id: "attach-button"
+102:      id: "attach-preview"
+106:    id: "attach-preview"
+108:- takeScreenshot: gate-step-2-attach-preview
