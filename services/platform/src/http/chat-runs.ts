@@ -8,6 +8,7 @@ import {
   resolveHolocronNonprodDatabaseUrl,
 } from '../db/connection.ts';
 import { getTextDelta, handleStreamChunk, TripwireError } from '../mastra/tripwire.ts';
+import { shouldUseDeterministicChatStream } from './chat-stream-gate.ts';
 
 const ChatRunRequestSchema = z
   .object({
@@ -270,19 +271,7 @@ async function emitDeterministicTokenStream(
   return finalText;
 }
 
-function shouldUseDeterministicChatStream(databaseUrl: string, message: string): boolean {
-  if (process.env.HOLO_CHAT_DETERMINISTIC_STREAM === '1') return true;
-  if (process.env.HOLO_E2E === '1') return true;
-  if (/\[\[e2e[_-]?stream\]\]/i.test(message)) return true;
-  // Nonprod default: keep Maestro PRIMARY ACs green when fleet budget is empty.
-  // Production-like DBs never take this path.
-  if (isHolocronNonprodDatabaseUrl(databaseUrl) && process.env.HOLO_CHAT_FLEET_ONLY !== '1') {
-    return true;
-  }
-  return false;
-}
-
-async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<void> {
+export async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<void> {
   const sql = createSql(databaseUrl);
   const controller = new AbortController();
   try {

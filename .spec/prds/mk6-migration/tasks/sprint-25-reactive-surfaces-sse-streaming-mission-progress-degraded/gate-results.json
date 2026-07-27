@@ -60,5 +60,19 @@
       "evidence": ".spec/prds/mk6-migration/tasks/sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded/.gate-evidence/step-7-degraded.log"
     }
   ],
-  "notes": "GATE-FIX-01 product remediations: newest-first inverted FlatList; module stream handoff; local-turn merge; fail-safe latest only when painted bubble has content; Maestro content asserts (Rivers/clouds + detailed multi-sentence). Fresh 5/5 human gate."
+  "notes": "GATE-FIX-01 product remediations: newest-first inverted FlatList; module stream handoff; local-turn merge; fail-safe latest only when painted bubble has content; Maestro content asserts (Rivers/clouds + detailed multi-sentence). Fresh 5/5 human gate.",
+  "follow_on_lanes": [
+    {
+      "lane_id": "sprint25-fleet-only",
+      "source_improvement": "imp-chat-fleet-stream-real-1785113905",
+      "finding": "F1",
+      "status": "added",
+      "harness": ".maestro/reactive/run-fleet-only-sprint25-gate.sh",
+      "config": ".maestro/reactive/sprint25-fleet-only.config.json",
+      "maestro_flow": ".maestro/reactive/fleet-only-sprint25-gate.yml",
+      "purpose": "F1 default-flip proof — drives a real /api/chat-runs POST with HOLO_CHAT_FLEET_ONLY=1 and asserts SSE reconciliation observes non-canned token deltas. Inverse of S-REACTIVE-04 (run-degraded-no-hang.sh). Fail-closed if fleet at :4545 is unavailable.",
+      "acceptance_criteria_covered": ["AC-8", "AC-9", "AC-10"],
+      "run_record": null
+    }
+  ]
 }

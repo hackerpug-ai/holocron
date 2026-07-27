@@ -1,0 +1,122 @@
+appId: ${MAESTRO_APP_ID}
+---
+# F1 / Sprint-25 gate — fleet-only real-token e2e (companion to run-fleet-only-sprint25-gate.sh).
+# Requires the harness: platform restarted with HOLO_CHAT_FLEET_ONLY=1 (no
+# deterministic mask) and the live fleet at :4545 UP. The curl/SSE proof in
+# the harness owns the fail-closed contract; this flow extends the proof to
+# the RN client's use-resumable-sse-stream reconciliation path: token growth
+# observed + final durable bubble present.
+# Inverse of degraded-no-hang.yml (which proves fleet-DOWN failure envelope).
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "F1 fleet-only real-token e2e"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# must_observe: token growth under the real fleet path (non-canned deltas).
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-stream-token-count"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-stream-token-count-at-least-1"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-stream-token-count-at-least-1"
+
+# End-state must_observe: durable NEW-turn bubble with content from the fleet.
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+# F1 inverse of degraded-no-hang: the degraded banner / fleet-unavailable
+# message MUST NOT appear under fleet-only real-token e2e.
+- extendedWaitUntil:
+    notVisible:
+      text: "Local fleet unavailable — running in reduced mode"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: F1-sprint25-fleet-only-real-tokens

@@ -13,6 +13,11 @@
  * (see .tmp/sprint-25/redhat-fix-03-red-header-drop-old-suite.log).
  *
  * No EventSource/XHR mocks that hide headers — stub observes real request headers.
+ *
+ * F1 (red-hat): the AC-5 POST carries the `[[tripwire]]` marker which short-
+ * circuits chat-runs.ts BEFORE the deterministic/fleet branch fires, so the
+ * nonprod-default flip (AC-1) does not affect this suite. Token events are
+ * explicitly seeded via seedTokenEventsForAc5 (line ~638), not the emitter.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';

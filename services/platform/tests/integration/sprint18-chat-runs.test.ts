@@ -11,12 +11,22 @@ const KEYS = { rn: 's18-rn', mcp: 's18-mcp', control: 's18-control' };
 describe('Sprint 18 chat runs', () => {
   let sql: Sql | undefined;
   const requestIds: string[] = [];
+  // F1 (red-hat): nonprod default is now the REAL fleet path. These Sprint-18
+  // tests assert the deterministic SSE shape (monotonic ids, completed status)
+  // so they explicitly opt back into the canned emitter via the env flag — the
+  // opt-in safety net preserved by AC-2. The flag is scoped to this file via
+  // beforeAll/afterAll save-and-restore so other suites are unaffected.
+  let savedDeterministicFlag: string | undefined;
 
   beforeAll(() => {
     if (PLATFORM_IT) sql = createSql(DATABASE_URL);
+    savedDeterministicFlag = process.env.HOLO_CHAT_DETERMINISTIC_STREAM;
+    process.env.HOLO_CHAT_DETERMINISTIC_STREAM = '1';
   });
 
   afterAll(async () => {
+    if (savedDeterministicFlag === undefined) delete process.env.HOLO_CHAT_DETERMINISTIC_STREAM;
+    else process.env.HOLO_CHAT_DETERMINISTIC_STREAM = savedDeterministicFlag;
     if (!sql) return;
     for (const requestId of requestIds) {
       await sql`DELETE FROM chat_runs WHERE request_id = ${requestId}`;

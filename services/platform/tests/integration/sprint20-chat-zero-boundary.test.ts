@@ -1,4 +1,8 @@
 /** Sprint 20 boundary proof: Hono chat runs persist messages on the Zero publication surface. */
+// F1 (red-hat): every Sprint-20 POST uses the `[[tripwire]]` marker which
+// short-circuits chat-runs.ts BEFORE the deterministic/fleet branch fires, so
+// the nonprod-default flip (AC-1) does not affect this suite. No env opt-in
+// needed here; sprint18 is the only suite that requires HOLO_CHAT_DETERMINISTIC_STREAM=1.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql, type Sql } from '../../src/db/client';

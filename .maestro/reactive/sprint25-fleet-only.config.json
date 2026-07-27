@@ -1,0 +1,60 @@
+{
+  "lane_id": "sprint25-fleet-only",
+  "sprint_id": "sprint-25-reactive-surfaces-sse-streaming-mission-progress-degraded",
+  "improvement_id": "imp-chat-fleet-stream-real-1785113905",
+  "finding": "F1",
+  "title": "F1 — chat fleet-stream production-real e2e lane (fleet-UP, non-canned tokens)",
+  "purpose": "Proves the F1 default-flip (AC-1) makes the real fleet path the nonprod default. Drives a real /api/chat-runs POST with HOLO_CHAT_FLEET_ONLY=1 and asserts the SSE reconciliation protocol observes non-canned token deltas end-to-end. Inverse of run-degraded-no-hang.sh which proves the fleet-DOWN failure envelope (S-REACTIVE-04).",
+  "harness_script": ".maestro/reactive/run-fleet-only-sprint25-gate.sh",
+  "maestro_flow": ".maestro/reactive/fleet-only-sprint25-gate.yml",
+  "evidence_dir": ".tmp/sprint25-fleet-only",
+  "prerequisites": {
+    "platform_url": "http://127.0.0.1:4111",
+    "fleet_url": "http://127.0.0.1:4545",
+    "fleet_required": true,
+    "postgres_required": true,
+    "env_required": {
+      "HOLO_KEY_RN": "rn-key",
+      "DATABASE_URL": "postgres://127.0.0.1:5432/holocron_nonprod"
+    },
+    "env_set_by_harness": {
+      "HOLO_CHAT_FLEET_ONLY": "1",
+      "PORT": "4111",
+      "FLEET_URL": "http://127.0.0.1:4545/v1"
+    },
+    "env_unset_by_harness": ["HOLO_E2E", "HOLO_CHAT_DETERMINISTIC_STREAM"]
+  },
+  "fail_closed_contract": {
+    "fleet_down": "exit 1 BEFORE assertions (would greenwash fleet-down as fleet-only success)",
+    "platform_pid_missing": "exit 1 — cannot restart platform with HOLO_CHAT_FLEET_ONLY",
+    "platform_health_probe_failed": "exit 1 — HOLO_CHAT_FLEET_ONLY restart failed",
+    "status_not_completed": "exit 1 — expected status=completed on the probe run",
+    "empty_token_stream": "exit 1 — SSE yielded zero tokens",
+    "tokens_match_deterministic_body": "exit 1 — F1 flip did not take effect; tokens match /Rivers mountains valleys forests oceans clouds/"
+  },
+  "assertions": [
+    {
+      "id": "AC-8-real-token-deltas",
+      "description": "SSE reconciliation protocol observes non-canned token deltas end-to-end",
+      "primary": true,
+      "kind": "curl+sse",
+      "negates_regex": "Rivers mountains valleys forests oceans clouds"
+    },
+    {
+      "id": "AC-9-fail-closed-fleet-down",
+      "description": "Lane exits non-zero if fleet at :4545 is unavailable",
+      "primary": true,
+      "kind": "harness-gate",
+      "mirrors": ".maestro/reactive/run-degraded-no-hang.sh"
+    }
+  ],
+  "related_lanes": {
+    "inverse_of": ".maestro/reactive/run-degraded-no-hang.sh",
+    "shares_fail_closed_structure_with": ".maestro/reactive/run-degraded-no-hang.sh",
+    "fleet_up_token_streaming_companion": ".maestro/reactive/token-streaming.yml"
+  },
+  "acceptance_criteria_covered": ["AC-8", "AC-9", "AC-10"],
+  "known_ceilings": [
+    "AC-11 NEVER-CUT: fail-soft catch-block + empty-stream mask in chat-runs.ts (~:343,~:354) preserved unchanged — they are the S-REACTIVE-04 degraded-no-hang safety net. AC-1 flips ONLY the pre-flight gate."
+  ]
+}
