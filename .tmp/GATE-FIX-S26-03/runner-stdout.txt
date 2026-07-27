@@ -1,0 +1,12 @@
+2026-07-27T02:41:31Z waiting lock
+2026-07-27T02:41:31Z acquired lock
+2026-07-27T02:41:35Z seed exit 0
+2026-07-27T02:42:04Z MAESTRO_EXIT 1
+2026-07-27T02:42:04Z VERIFY_EXIT 1
+2026-07-27T02:42:04Z holo verify:blob --last — content-addressed upload proof
+  file_objects rows: 0
+  reason: file_objects is empty
+  status: FAIL
+
+2026-07-27T02:42:04Z LATEST /Users/inference1/.maestro/tests/2026-07-26_204144
+2026-07-27T02:42:04Z done
