@@ -1,0 +1,7 @@
+=== prove-isolation (mini=127.0.0.1:5432) ===
+FAIL: mini Postgres reachable at 127.0.0.1:5432 (nc exit 0) — isolation broken
+  detail: Connection to 127.0.0.1 port 5432 [tcp/postgresql] succeeded!
+PASS: no mini PGDATA mount
+PASS: no mini blob mount
+PASS: R2 credentials are read-only scoped
+=== RESULT: FAIL (1 check(s) failed) ===

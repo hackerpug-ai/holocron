@@ -1,0 +1,73 @@
+{
+  "task_id": "D05-03",
+  "timestamp": "2026-07-28T23:27:22Z",
+  "commit_sha": "682d68598a0f373af7ec6f84a52dde1ae0f2c8d8",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "./scripts/prove-isolation.sh; echo $? shows 0; nc -zv <mini-host> 5432 fails; mount | grep -v '/mnt/mini-*' returns nothing; env | grep R2_READ_WRITE_CREDENTIAL is empty",
+      "exit_code": 2,
+      "output_file": ".tmp/D05-03/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "env | grep R2_ shows R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY set; R2_BUCKET scoped to holocron-backups; a test aws s3 ls succeeds but aws s3 cp fails with AccessDenied",
+      "exit_code": 127,
+      "output_file": ".tmp/D05-03/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "ls -la /var/lib/postgresql/restore shows empty directory; touch /var/lib/postgresql/restore/test-write succeeds; ls -la /var/lib/holocron/blob-restore shows empty; touch /var/lib/holocron/blob-restore/test-write succeeds",
+      "exit_code": 1,
+      "output_file": ".tmp/D05-03/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "./scripts/provision-fresh-restore-target.sh --host fresh-restore-01; echo $? shows 0; ssh fresh-restore-01 'echo ok' exit 0; ssh fresh-restore-01 './scripts/prove-isolation.sh <mini-host>' exits 0",
+      "exit_code": 255,
+      "output_file": ".tmp/D05-03/ac-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-28T23:27:22Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "e260b1c3e4f04316efa92d3c38e4deba52e5377cccbf738e9081b2cb6e690295"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "af5753d6d32cde9053aaf2ab41f235b6e471a664dc05120d10a9007495bc7dc2"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "3e3fae7aba20242b2b8349c74837ffb788c28955eac53e6f157c394cc411a511"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "f0e3c05ca5dfbd629db2d0eaca81adbca32bfd9e9b95346117765a97c88de5ae"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "42470b956baecb40d86564b1a94b7dfb05b7db2d7e27301148bf2d2b06a6b243"
+      }
+    ]
+  }
+}
