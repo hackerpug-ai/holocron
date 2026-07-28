@@ -45,6 +45,7 @@ The gate is one un-fakeable outcome: **an operator who induces a backup-job fail
 5. Let the bucket credential expire in a test fixture — alert fires, not a silent failure.
 6. Remove the backup config entirely — the alert still fires as overdue, never a false-healthy state.
 7. Execute the D04-01 RED integration suite (`PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts`) — healthy silence + three failure modes against a real `http.Server`; dual-write vitest transcript and `.tmp/D04-01/*` webhook captures into `.gate-evidence/<run>/red-suite/` (expected_exit 0).
+8. Install and verify the launchd alert-sweep schedule (`bun services/platform/src/cli/holo.ts backup:alert-sweep --install-schedule`) — `holocron-backup-alert-sweep` loaded under `gui/$UID` with StartInterval ≤300s and `ALERT_WEBHOOK_URL` present in the installed LaunchAgents plist EnvironmentVariables (not optional; standing CAP-BAK-01 daemon).
 
 ## Tasks
 

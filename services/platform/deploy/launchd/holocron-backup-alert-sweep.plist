@@ -4,8 +4,8 @@
   holocron-backup-alert-sweep — D04-05 backup overdue/failed alert dispatcher
   Runs: bun holo.ts backup:alert-sweep --json
   StartInterval=300s (≤5m so alerts land inside the 15 min SLA).
-  ALERT_WEBHOOK_URL from env > secrets.yaml — never embedded.
-  Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@
+  ALERT_WEBHOOK_URL expanded at install time from env > secrets — never commit live tokens.
+  Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@ @ALERT_WEBHOOK_URL@
 -->
 <plist version="1.0">
 <dict>
@@ -30,6 +30,8 @@
 		<string>@HOLO_ROOT@</string>
 		<key>DATABASE_URL</key>
 		<string>@DATABASE_URL@</string>
+		<key>ALERT_WEBHOOK_URL</key>
+		<string>@ALERT_WEBHOOK_URL@</string>
 	</dict>
 	<key>RunAtLoad</key>
 	<false/>
