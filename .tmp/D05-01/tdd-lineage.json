@@ -1,0 +1,11 @@
+{
+  "task_id": "D05-01",
+  "tdd_mode": "red_first",
+  "red_commit": "f0a73a566658234943dede9f7c2f72d7cc140c2c",
+  "green_commit": null,
+  "green_status": "deferred",
+  "green_waiver": "GREEN lands with D05-02 (holo restore --pitr implementation) and D05-04 fire-drill path; this task only authors the RED fail-closed oracle.",
+  "red_evidence": ".tmp/D05-01/red-output.txt",
+  "red_against_start": ".tmp/D05-01/red-against-start.txt",
+  "notes": "PLATFORM_IT=1 suite fails 3/4 on named-error + healthy success contracts because restore CLI does not exist yet (unknown flag: --pitr). AC-4 already passes (no fake-success rows)."
+}

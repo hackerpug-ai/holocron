@@ -1,0 +1,20 @@
+{
+  "must_observe": [
+    "exit code != 0",
+    "\"no base backup available\" OR \"backup chain missing\" in stderr",
+    "PGDATA file count = 0"
+  ],
+  "status": 2,
+  "pgdataFileCount": 0,
+  "args": [
+    "restore",
+    "--pitr",
+    "2024-01-01T00:00:00Z",
+    "--scratch",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-kecBAB/empty-pgdata",
+    "--target-action",
+    "promote"
+  ],
+  "envPrefix": "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/empty",
+  "combined": "\nunknown flag: --pitr\n"
+}

@@ -1,0 +1,24 @@
+{
+  "must_observe": [
+    "exit code 0",
+    "psql -c 'SELECT 1' exit 0",
+    "pitr_test row count >= 1"
+  ],
+  "status": 2,
+  "pgdataFileCount": 0,
+  "select1": null,
+  "pitrCount": null,
+  "pitrRows": 0,
+  "healthyPrefix": "pgbackrest",
+  "args": [
+    "restore",
+    "--pitr",
+    "2026-07-28T23:24:47Z",
+    "--scratch",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-kecBAB/healthy-pgdata",
+    "--target-action",
+    "promote"
+  ],
+  "combined": "\nunknown flag: --pitr\n",
+  "note": "Negative control against blanket always-fail implementations; RED until D05-02 lands PITR"
+}
