@@ -218,6 +218,72 @@ export function resolveWebhookTimeoutMs(explicit?: number): number {
 }
 
 /**
+ * Host-only redaction for ALERT_WEBHOOK_URL surfaces (Error.message, errors[], CLI/json).
+ * Strips path / query / hash / userinfo so Slack/Discord path tokens never land in logs.
+ * F-11 / REDHAT-FIX-S27-11 — CAP-BAK-01 credentials-never-in-logs.
+ */
+export function redactWebhookUrlForLog(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '[empty-webhook-url]';
+  try {
+    const u = new URL(trimmed);
+    // scheme + hostname only (drop port, path, query, hash, credentials)
+    return `${u.protocol}//${u.hostname}`;
+  } catch {
+    // Never echo unparseable strings that may embed secrets.
+    return '[invalid-webhook-url]';
+  }
+}
+
+/**
+ * F-12 scheme gate before fetch: allow https always; allow http only for loopback.
+ * Rejects remote cleartext and non-http(s) schemes fail-closed with host-only errors.
+ */
+export function assertAlertWebhookUrlAllowed(raw: string): void {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error('ALERT_WEBHOOK_URL is not configured — cannot deliver backup alert');
+  }
+  let u: URL;
+  try {
+    u = new URL(trimmed);
+  } catch {
+    throw new Error(
+      `ALERT_WEBHOOK_URL is not a valid URL (redacted=${redactWebhookUrlForLog(trimmed)})`
+    );
+  }
+  const scheme = u.protocol.replace(/:$/, '').toLowerCase();
+  // Normalize IPv6 bracket form for loopback check.
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const isLoopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  if (scheme === 'https') return;
+  if (scheme === 'http' && isLoopback) return;
+  throw new Error(
+    `ALERT_WEBHOOK_URL rejected: only https (or http loopback) allowed; got url=${redactWebhookUrlForLog(trimmed)}`
+  );
+}
+
+/** Replace any occurrence of the raw webhook URL in a free-form error string. */
+function scrubWebhookUrlFromMessage(message: string, rawUrl: string): string {
+  const redacted = redactWebhookUrlForLog(rawUrl);
+  if (!rawUrl) return message;
+  let out = message;
+  if (out.includes(rawUrl)) {
+    out = out.split(rawUrl).join(redacted);
+  }
+  // Also scrub common URL-encoding variants of path secrets when present as full string.
+  try {
+    const encoded = encodeURI(rawUrl);
+    if (encoded !== rawUrl && out.includes(encoded)) {
+      out = out.split(encoded).join(redacted);
+    }
+  } catch {
+    /* ignore encode failures */
+  }
+  return out;
+}
+
+/**
  * Resolve ALERT_WEBHOOK_URL: explicit configure > env > secrets store.
  * Never hardcodes a default sink.
  */
@@ -394,8 +460,12 @@ export async function postBackupAlert(
   if (!url) {
     throw new Error('ALERT_WEBHOOK_URL is not configured — cannot deliver backup alert');
   }
+  // F-12: scheme gate before fetch (host-only reject messages).
+  assertAlertWebhookUrlAllowed(url);
+  const safeUrl = redactWebhookUrlForLog(url);
   const timeoutMs = resolveWebhookTimeoutMs(options?.timeoutMs);
   // Redact: payload never includes secrets (only job metadata + timestamps).
+  // Delivery still uses the UNREDACTED url so path tokens work for real webhooks.
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
@@ -412,8 +482,9 @@ export async function postBackupAlert(
     });
     const body = await res.text();
     if (!res.ok) {
+      // F-11: never interpolate raw url (path/token) into Error.message.
       throw new Error(
-        `backup alert webhook POST failed: HTTP ${res.status} ${body.slice(0, 200)} url=${url}`
+        `backup alert webhook POST failed: HTTP ${res.status} ${body.slice(0, 200)} url=${safeUrl}`
       );
     }
     return { ok: true, status: res.status, body };
@@ -423,11 +494,19 @@ export async function postBackupAlert(
     const msg = err instanceof Error ? err.message : String(err);
     if (name === 'AbortError' || /abort|timeout/i.test(msg)) {
       throw new Error(
-        `backup alert webhook POST timed out after ${timeoutMs}ms (abort/timeout) url=${url}`,
+        `backup alert webhook POST timed out after ${timeoutMs}ms (abort/timeout) url=${safeUrl}`,
         { cause: err instanceof Error ? err : undefined }
       );
     }
-    throw err;
+    // Re-throw our own controlled errors as-is (already host-redacted).
+    if (err instanceof Error && msg.includes(`url=${safeUrl}`)) {
+      throw err;
+    }
+    // Network/fetch errors may embed the full URL — scrub before surfacing.
+    const scrubbed = scrubWebhookUrlFromMessage(msg, url);
+    throw new Error(`backup alert webhook POST failed: ${scrubbed} url=${safeUrl}`, {
+      cause: err instanceof Error ? err : undefined,
+    });
   } finally {
     clearTimeout(timer);
   }
@@ -455,6 +534,8 @@ export async function runBackupAlertSweep(options?: {
 }): Promise<AlertSweepResult> {
   const overdueMs = resolveOverdueMs(options?.overdueMs);
   const webhookUrl = (options?.webhookUrl ?? resolveAlertWebhookUrl()).trim();
+  // F-11: result.webhookUrl / launchd-log surfaces are host-only; fetch still uses full URL.
+  const safeWebhookUrl = webhookUrl ? redactWebhookUrlForLog(webhookUrl) : '';
   const nowMs = options?.nowMs ?? Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const errors: string[] = [];
@@ -478,7 +559,7 @@ export async function runBackupAlertSweep(options?: {
         posts: [],
         healthy,
         total,
-        webhookUrl,
+        webhookUrl: safeWebhookUrl,
         overdueMs,
         errors,
       };
@@ -500,7 +581,8 @@ export async function runBackupAlertSweep(options?: {
         posts.push(payload);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`${job.job_name}: ${msg}`);
+        // Defense-in-depth: scrub raw URL if a future throw path embeds it.
+        errors.push(`${job.job_name}: ${scrubWebhookUrlFromMessage(msg, webhookUrl)}`);
         // Continue — do not rethrow here (would skip remaining jobs).
       }
     }
@@ -510,7 +592,7 @@ export async function runBackupAlertSweep(options?: {
       posts,
       healthy,
       total,
-      webhookUrl,
+      webhookUrl: safeWebhookUrl,
       overdueMs,
       errors,
     };
