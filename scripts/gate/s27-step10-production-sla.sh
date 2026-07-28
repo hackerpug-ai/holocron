@@ -60,18 +60,21 @@ jq '{overdueMs:.overdueMs, DEFAULT_OVERDUE_MS:900000, alerted:.alerted,
 
 # --- AC-3: independent HTTP capture from gate receiver (if present) ---
 CAP="$CAP_DIR/alerts-http-captures.json"
-if [[ -f "$CAP" ]]; then
+# Dual-write from live gate receiver sink (local harness) when present.
+if [[ -f .tmp/s27-gate-receiver/captures.json ]]; then
+  mkdir -p "$CAP_DIR"
+  cp .tmp/s27-gate-receiver/captures.json "$CAP"
+fi
+if [[ -f "$CAP" ]] && jq -e 'type=="array" and length>=1' "$CAP" >/dev/null 2>&1; then
   jq -e 'length>=1 and .[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \
     "$CAP" >/dev/null
   jq -e '.[0] | {method,url,headers,rawBody,receivedAt,elapsed_ms:0}' \
     "$CAP" > "$OUT_DIR/sla-http-capture.json"
   printf '%s\n' "HTTP_CAPTURE_OK file=$CAP"
+elif [[ -n "${ALERT_WEBHOOK_URL:-}" ]]; then
+  echo "REFUSE: ALERT_WEBHOOK_URL set but no HTTP captures at $CAP (or receiver dual-write empty)" >&2
+  exit 1
 else
-  # Fail closed when a receiver URL was provided for the gate but no captures landed.
-  if [[ -n "${ALERT_WEBHOOK_URL:-}" ]]; then
-    echo "REFUSE: ALERT_WEBHOOK_URL set but no alerts-http-captures.json at $CAP" >&2
-    exit 1
-  fi
   printf '%s\n' "HTTP_CAPTURE_SKIPPED note=no_receiver_for_gate_run"
 fi
 
