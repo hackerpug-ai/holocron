@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sprint-27 human-gate step 10: production 15-minute DEFAULT_OVERDUE_MS SLA proof.
+# Sprint-27 human-gate step 10: production DEFAULT_OVERDUE_MS threshold + overdue classification.
+# REDHAT-FIX-S27-20 / R-6: does NOT claim wall-clock 15-minute MTTD detection latency.
 # STRICT: BACKUP_ALERT_OVERDUE_MS must be unset for this path (never 500/1000 toy).
 # Emits: AC1_DEFAULT_OVERDUE_OK, SLA_15MIN_DEFAULT_OVERDUE_OK markers for recompute-strong.
 set -euo pipefail
@@ -71,10 +72,32 @@ else
     echo "REFUSE: ALERT_WEBHOOK_URL set but no alerts-http-captures.json at $CAP" >&2
     exit 1
   fi
-  printf '%s\n' "HTTP_CAPTURE_SOFT_OK note=no_receiver_for_gate_run"
+  printf '%s\n' "HTTP_CAPTURE_SKIPPED note=no_receiver_for_gate_run"
 fi
+
+# --- AC-2 (REDHAT-FIX-S27-20): measure cadence from LaunchAgent StartInterval (not hard-coded) ---
+PLIST="${HOME}/Library/LaunchAgents/holocron-backup-alert-sweep.plist"
+if [[ ! -f "$PLIST" ]]; then
+  echo "REFUSE: missing launchd plist for cadence measurement: $PLIST" >&2
+  exit 1
+fi
+START_INTERVAL=$(/usr/bin/plutil -extract StartInterval raw "$PLIST" 2>/dev/null || true)
+if [[ -z "${START_INTERVAL}" ]]; then
+  START_INTERVAL=$(grep -A1 '<key>StartInterval</key>' "$PLIST" | grep -Eo '[0-9]+' | head -1 || true)
+fi
+if [[ -z "${START_INTERVAL}" ]]; then
+  echo "REFUSE: could not parse StartInterval from $PLIST" >&2
+  exit 1
+fi
+if ! [[ "$START_INTERVAL" =~ ^[0-9]+$ ]] || (( START_INTERVAL > 300 )); then
+  echo "REFUSE: StartInterval=$START_INTERVAL is missing or >300s (cadence SLA)" >&2
+  exit 1
+fi
+printf '%s
+' "CADENCE_LE_5MIN_OK StartInterval=${START_INTERVAL}"
 
 # Leave heartbeats healthy for subsequent steps/operators.
 run_default "${HOLO[@]}" backup:healthy --all --json >/dev/null
 
-echo "SLA_15MIN_DEFAULT_OVERDUE_OK overdue_ms:900000 env_unset=BACKUP_ALERT_OVERDUE_MS cadence_le_5min DEFAULT_OVERDUE=900000"
+# Honest success marker: threshold + classification only (not wall-clock MTTD).
+echo "SLA_15MIN_DEFAULT_OVERDUE_OK overdue_ms:900000 env_unset=BACKUP_ALERT_OVERDUE_MS DEFAULT_OVERDUE=900000 threshold_classification_only"
