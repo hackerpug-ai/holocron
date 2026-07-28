@@ -620,9 +620,49 @@ export async function runBackupAlertSweep(options?: {
  * not an unscoped silent-healthy weapon. Also restores any config removed by induction
  * and clears induced annotations.
  */
+/** Production / harness jobs that backup:healthy --all may reset without break-glass. */
+export const HEALTHY_ALL_JOB_ALLOWLIST = [
+  'wal_archive',
+  'base_backup',
+  'restic_blob_mirror',
+] as const;
+
+/** Test/harness job_name prefixes eligible for delete-or-success on scoped --all. */
+export const HEALTHY_ALL_TEST_PREFIXES = [
+  's27-',
+  'redhat-fix-',
+  'all-clear',
+  'healthy-',
+  'gate-',
+] as const;
+
+/**
+ * Break-glass env for unscoped full-table success refresh (REDHAT-FIX-S27-19 / R-5).
+ * Without this env, --all only touches allowlist + test-prefix rows.
+ */
+export const HEALTHY_ALL_BREAK_GLASS_ENV = 'BACKUP_HEALTHY_ALL_BREAK_GLASS';
+
+export function isHealthyAllTestJob(jobName: string): boolean {
+  return HEALTHY_ALL_TEST_PREFIXES.some((p) => jobName.startsWith(p) || jobName === p);
+}
+
+export function isHealthyAllAllowlistedJob(jobName: string): boolean {
+  return (
+    (HEALTHY_ALL_JOB_ALLOWLIST as readonly string[]).includes(jobName) ||
+    isHealthyAllTestJob(jobName)
+  );
+}
+
+export function isHealthyAllBreakGlassEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = env[HEALTHY_ALL_BREAK_GLASS_ENV]?.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
 export async function runHealthyBackupJob(
-  jobId: string
+  jobId: string,
+  options?: { env?: NodeJS.ProcessEnv }
 ): Promise<{ status: string; heartbeat: BackupHeartbeatRecord }> {
+  const env = options?.env ?? process.env;
   // Restore any config files left removed by config_removed induction.
   restoreAllInducedConfigs();
 
@@ -643,14 +683,33 @@ export async function runHealthyBackupJob(
     await ensureBackupHeartbeatTable(sql);
     // Single-statement refresh — all targeted rows share the same now() so none
     // drift past a 1s CI overdue window between writes.
+    // REDHAT-FIX-S27-19 / R-5: default --all is SCOPED (allowlist + test prefixes).
+    // Unscoped full-table UPDATE requires BACKUP_HEALTHY_ALL_BREAK_GLASS=1.
     if (clearAll) {
-      await sql`
-        UPDATE backup_heartbeat
-        SET
-          status = 'success',
-          last_success_at = now(),
-          updated_at = now()
-      `;
+      if (isHealthyAllBreakGlassEnabled(env)) {
+        await sql`
+          UPDATE backup_heartbeat
+          SET
+            status = 'success',
+            last_success_at = now(),
+            updated_at = now()
+        `;
+      } else {
+        const allow = [...HEALTHY_ALL_JOB_ALLOWLIST];
+        await sql`
+          UPDATE backup_heartbeat
+          SET
+            status = 'success',
+            last_success_at = now(),
+            updated_at = now()
+          WHERE job_name = ANY(${allow})
+             OR job_name LIKE ${'s27-%'}
+             OR job_name LIKE ${'redhat-fix-%'}
+             OR job_name LIKE ${'all-clear%'}
+             OR job_name LIKE ${'healthy-%'}
+             OR job_name LIKE ${'gate-%'}
+        `;
+      }
     } else {
       await sql`
         UPDATE backup_heartbeat
