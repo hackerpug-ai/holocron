@@ -101,11 +101,27 @@ function psqlExec(sql: string, env: NodeJS.ProcessEnv): void {
   }
 }
 
-/** Parse a 24-char WAL filename into a comparable integer timeline+log+seg. */
-export function walFilenameToOrder(name: string): bigint | null {
+/**
+ * Postgres WAL file names are TTTTTTTTLLLLLLLLSSSSSSSS (timeline/log/seg).
+ * Consecutive segment numbers use XLogSegNo = log * (2^32 / wal_seg_size) + seg.
+ * Default wal_segment_size is 16MiB → 256 segments per log id (seg 00..FF then log++).
+ * Hex-concat +1 is wrong across the log boundary (…04FFFFFF ↛ …0500000000).
+ */
+export const WAL_SEGMENTS_PER_LOG_DEFAULT = 256n;
+
+/** Parse a 24-char WAL filename into a comparable XLogSegNo-style order (same timeline). */
+export function walFilenameToOrder(
+  name: string,
+  segmentsPerLog: bigint = WAL_SEGMENTS_PER_LOG_DEFAULT
+): bigint | null {
   const m = name.match(/^([0-9A-F]{8})([0-9A-F]{8})([0-9A-F]{8})$/i);
-  if (!m) return null;
-  return BigInt(`0x${m[1]}${m[2]}${m[3]}`);
+  const logHex = m?.[2];
+  const segHex = m?.[3];
+  if (!logHex || !segHex) return null;
+  const log = BigInt(`0x${logHex}`);
+  const seg = BigInt(`0x${segHex}`);
+  // Timeline is ignored for gap checks — multi-timeline history is rare for this pipeline.
+  return log * segmentsPerLog + seg;
 }
 
 /** Extract WAL base names (no .gz / checksum suffix) from R2 object keys. */
@@ -456,12 +472,23 @@ export async function runWalArchiveJob(options?: {
   if (failedDelta > 0) errors.push(`pg_stat_archiver.failed_count grew by ${failedDelta}`);
   // HIGH-1: zero WAL-gap is a success/heartbeat gate — gaps fail the job and do NOT advance last_success_at
   if (!continuity.ok) errors.push(`WAL continuity gaps: ${continuity.gaps.join(', ')}`);
+  // Gate honesty (F-2): real write burst + observable R2 growth — never success without both.
+  if (writeBurstRows < 1) {
+    errors.push('write burst produced 0 rows (pipeline requires real Postgres WAL traffic)');
+  }
+  if (r2After.count <= r2Before.count) {
+    errors.push(
+      `R2 WAL object count did not grow (${r2Before.count} → ${r2After.count}); write-burst archive not proven`
+    );
+  }
 
   const success =
     confirmed &&
     continuity.ok &&
     !!lastWalSegment &&
     failedDelta === 0 &&
+    writeBurstRows >= 1 &&
+    r2After.count > r2Before.count &&
     archiveMode === 'always' &&
     archiveCommand.includes('archive-push') &&
     !/\/bin\/true/i.test(archiveCommand);
@@ -539,6 +566,7 @@ export function formatWalArchiveText(result: WalArchiveJobResult): string {
     `  archive_mode:    ${result.archiveMode}`,
     `  archive_command: ${result.archiveCommand.includes('archive-push') ? 'pgbackrest archive-push (ok)' : result.archiveCommand}`,
     `  last_wal:        ${result.lastWalSegment ?? '(none)'}`,
+    `  write_burst_rows: ${result.writeBurstRows}`,
     `  archiver:        ${result.before.archived_count} → ${result.after.archived_count} (failed ${result.before.failed_count} → ${result.after.failed_count})`,
     `  r2_wal_objects:  ${result.r2WalObjectCountBefore} → ${result.r2WalObjectCountAfter}`,
     `  continuity:      ${result.continuityOk ? 'ok (gated)' : `GAPS ${result.gapSegments.join(',')} (blocks success/last_success_at)`}`,

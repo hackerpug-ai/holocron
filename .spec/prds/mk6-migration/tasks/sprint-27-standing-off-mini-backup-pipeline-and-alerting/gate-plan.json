@@ -9,14 +9,14 @@
   "steps": [
     {
       "n": 1,
-      "text": "Run a live Postgres write burst \u2014 WAL archives to R2 continuously, zero continuity gaps.",
+      "text": "Run a live Postgres write burst via holo backup:wal --json \u2014 WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows\u22651).",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "out=$(bun services/platform/src/cli/holo.ts backup:status 2>&1 || true); printf \"%s\n\" \"$out\"; printf \"%s\n\" \"$out\" | grep -q \"archive_mode:    always\" && printf \"%s\n\" \"$out\" | grep -q \"pgbackrest archive-push\" && printf \"%s\n\" \"$out\" | grep -q \"failed=0\" && printf \"%s\n\" \"$out\" | grep -qE \"r2_wal_objects:[[:space:]]+[1-9]\"",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-02; bun services/platform/src/cli/holo.ts backup:wal --json > .tmp/REDHAT-FIX-S27-02/backup-wal.json; cat .tmp/REDHAT-FIX-S27-02/backup-wal.json; jq -e '.status==\"success\" and .ok==true and .continuityOk==true and .r2WalObjectCountAfter > .r2WalObjectCountBefore and .writeBurstRows >= 1 and .heartbeat.status==\"success\" and (.heartbeat.last_success_at != null)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; ! jq -e '.status==\"failed\" or .ok==false or .continuityOk==false or .writeBurstRows < 1 or (.r2WalObjectCountAfter <= .r2WalObjectCountBefore)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; bun services/platform/src/cli/holo.ts backup:status > .tmp/REDHAT-FIX-S27-02/backup-status.txt || true; cat .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'wal_archive:.*(OK|status=success)' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'wal_archive:.*(FAILED|OVERDUE)' .tmp/REDHAT-FIX-S27-02/backup-status.txt",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "archive_mode:\\s+always|pgbackrest archive-push|r2_wal_objects"
+        "expect_log_regex": "\"status\":\\s*\"success\""
       }
     },
     {
