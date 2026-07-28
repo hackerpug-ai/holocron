@@ -207,31 +207,99 @@ export function upsertSecretsFile(path: string, updates: SecretsMap): string[] {
   return Object.keys(updates);
 }
 
-async function cfApi<T = unknown>(
+/** Default Cloudflare API fetch bound (~30s). Overridable via BACKUP_CF_API_TIMEOUT_MS. */
+export const DEFAULT_CF_API_TIMEOUT_MS = 30_000;
+
+export type CfApiOptions = {
+  /** Explicit timeout (ms). Prefer over env when set. */
+  timeoutMs?: number;
+  /** Override API origin (tests: blackhole/happy local servers). */
+  baseUrl?: string;
+  env?: NodeJS.ProcessEnv;
+};
+
+export function resolveCfApiTimeoutMs(
+  explicit?: number,
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
+    return Math.trunc(explicit);
+  }
+  const raw = env.BACKUP_CF_API_TIMEOUT_MS?.trim();
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.trunc(n);
+  }
+  return DEFAULT_CF_API_TIMEOUT_MS;
+}
+
+export function resolveCfApiBaseUrl(
+  explicit?: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const fromOpt = explicit?.trim();
+  if (fromOpt) return fromOpt.replace(/\/$/, '');
+  const fromEnv = env.BACKUP_CF_API_BASE_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  return 'https://api.cloudflare.com/client/v4';
+}
+
+/**
+ * Cloudflare client/v4 helper. REDHAT-FIX-S27-24 / R-11:
+ * AbortController bounds fetch so a black-holed api.cloudflare.com cannot hang
+ * backup:provision forever. Timeout fails closed (throws), never ok:true.
+ */
+export async function cfApi<T = unknown>(
   token: string,
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  options?: CfApiOptions
 ): Promise<{ ok: boolean; status: number; result: T | null; errors: unknown[] }> {
-  const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const json = (await res.json()) as {
-    success?: boolean;
-    result?: T;
-    errors?: unknown[];
-  };
-  return {
-    ok: Boolean(json.success),
-    status: res.status,
-    result: (json.result ?? null) as T | null,
-    errors: json.errors ?? [],
-  };
+  const env = options?.env ?? process.env;
+  const timeoutMs = resolveCfApiTimeoutMs(options?.timeoutMs, env);
+  const baseUrl = resolveCfApiBaseUrl(options?.baseUrl, env);
+  const urlPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${baseUrl}${urlPath}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const json = (await res.json()) as {
+      success?: boolean;
+      result?: T;
+      errors?: unknown[];
+    };
+    return {
+      ok: Boolean(json.success),
+      status: res.status,
+      result: (json.result ?? null) as T | null,
+      errors: json.errors ?? [],
+    };
+  } catch (err) {
+    const name = err instanceof Error ? err.name : '';
+    const msg = err instanceof Error ? err.message : String(err);
+    if (name === 'AbortError' || /abort|timeout/i.test(msg)) {
+      throw new Error(
+        `Cloudflare API request timed out after ${timeoutMs}ms (abort/timeout) path=${path}`,
+        { cause: err instanceof Error ? err : undefined }
+      );
+    }
+    throw err instanceof Error ? err : new Error(String(err));
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export type ScopedCredentials = {
