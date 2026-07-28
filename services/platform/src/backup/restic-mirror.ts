@@ -25,6 +25,7 @@ import {
 import { createSql, type Sql } from '../db/client.ts';
 import { redactForExport } from '../observability/langfuse-exporter.ts';
 import { type BackupConfig, endpointHost, loadBackupConfig } from './config.ts';
+import { ensureBackupHeartbeatTable } from './heartbeat.ts';
 import {
   assertParity,
   compareHashSets,
@@ -33,6 +34,9 @@ import {
   type ParityCompareResult,
 } from './parity-check.ts';
 import { upsertSecretsFile } from './r2-provision.ts';
+
+/** Re-export shared fail-closed assert (migrate-owned 0029; no forked DDL). */
+export { ensureBackupHeartbeatTable } from './heartbeat.ts';
 
 export const RESTIC_BLOB_MIRROR_JOB = 'restic_blob_mirror' as const;
 export const RESTIC_BLOB_MIRROR_SPAN = 'backup:restic_blob_mirror' as const;
@@ -311,34 +315,8 @@ export function emitResticBlobMirrorSpan(args: {
 }
 
 /**
- * Ensure backup_heartbeat exists (D04-03 owns the formal schema; D04-04 needs
- * the substrate for restic_blob_mirror and creates IF NOT EXISTS).
- */
-export async function ensureBackupHeartbeatTable(sql: Sql): Promise<void> {
-  await sql`
-    CREATE TABLE IF NOT EXISTS backup_heartbeat (
-      job_name TEXT PRIMARY KEY,
-      last_success_at TIMESTAMPTZ,
-      last_wal_segment TEXT,
-      last_snapshot_id TEXT,
-      object_count BIGINT,
-      status TEXT,
-      trace_id TEXT,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `;
-  // Older partial tables from parallel workstreams may lack trace_id.
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS trace_id TEXT`;
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS last_wal_segment TEXT`;
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS last_snapshot_id TEXT`;
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS object_count BIGINT`;
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS status TEXT`;
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS last_success_at TIMESTAMPTZ`;
-  await sql`ALTER TABLE backup_heartbeat ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()`;
-}
-
-/**
  * Idempotent heartbeat upsert. Call ONLY after SHA-256 parity passes.
+ * Requires migrate-owned backup_heartbeat (0029); no runtime CREATE TABLE.
  */
 export async function upsertBackupHeartbeat(
   sql: Sql,

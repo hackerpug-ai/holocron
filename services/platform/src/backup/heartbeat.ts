@@ -36,35 +36,30 @@ export type UpsertHeartbeatInput = {
   forceClearSuccess?: boolean;
 };
 
-/** DDL for backup_heartbeat — applied idempotently before any upsert. */
-export const BACKUP_HEARTBEAT_DDL = `
-CREATE TABLE IF NOT EXISTS backup_heartbeat (
-  job_name TEXT PRIMARY KEY,
-  last_success_at TIMESTAMPTZ,
-  last_wal_segment TEXT,
-  last_snapshot_id TEXT,
-  object_count BIGINT,
-  status TEXT,
-  trace_id TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT backup_heartbeat_status_check
-    CHECK (status IS NULL OR status IN ('success', 'failed', 'running', 'overdue'))
-);
-`;
-
+/**
+ * Fail-closed assert: backup_heartbeat must already exist via `holo db:migrate`
+ * (0029_backup_heartbeat). Runtime CREATE TABLE is prohibited — divergent
+ * CHECK-less schemas previously raced with CREATE TABLE IF NOT EXISTS.
+ */
 export async function ensureBackupHeartbeatTable(sql?: Sql): Promise<void> {
   const client = sql ?? createSql();
   const owns = !sql;
   try {
-    await client.unsafe(BACKUP_HEARTBEAT_DDL);
-    await client.unsafe(`
-      ALTER TABLE backup_heartbeat
-        ADD COLUMN IF NOT EXISTS trace_id TEXT
-    `);
+    const rows = await client<{ exists: boolean }[]>`
+      SELECT to_regclass('public.backup_heartbeat') IS NOT NULL AS exists
+    `;
+    if (!rows[0]?.exists) {
+      throw new Error(
+        'backup_heartbeat table is missing — run `holo db:migrate` (migration 0029_backup_heartbeat) before backup heartbeats; schema is migrate-owned only'
+      );
+    }
   } finally {
     if (owns) await client.end({ timeout: 5 });
   }
 }
+
+/** Alias for callers that prefer assert naming. */
+export const assertBackupHeartbeatTable = ensureBackupHeartbeatTable;
 
 function toIso(value: Date | string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
