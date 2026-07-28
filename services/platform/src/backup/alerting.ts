@@ -458,6 +458,8 @@ export async function runBackupAlertSweep(options?: {
       );
     }
 
+    // F-17 / REDHAT-FIX-S27-15: continue past a single webhook failure so remaining
+    // overdue/failed jobs still POST. Collect errors; fail-closed once after the loop.
     for (const job of bad) {
       const payload = buildPayload(job, nowIso);
       try {
@@ -466,12 +468,11 @@ export async function runBackupAlertSweep(options?: {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         errors.push(`${job.job_name}: ${msg}`);
-        // Re-throw after collecting so a partial sweep still fails closed.
-        throw err;
+        // Continue — do not rethrow here (would skip remaining jobs).
       }
     }
 
-    return {
+    const result: AlertSweepResult = {
       alerted: posts.length,
       posts,
       healthy,
@@ -480,6 +481,19 @@ export async function runBackupAlertSweep(options?: {
       overdueMs,
       errors,
     };
+
+    if (errors.length > 0) {
+      // Fail closed after attempting every bad job so callers cannot treat partial
+      // delivery as full success. Attach result for structured inspection (CLI/tests).
+      const err = new Error(
+        `backup alert-sweep: ${errors.length} webhook delivery failure(s): ${errors.join(' | ')}`
+      ) as Error & { result: AlertSweepResult };
+      err.name = 'BackupAlertSweepPartialFailureError';
+      err.result = result;
+      throw err;
+    }
+
+    return result;
   } finally {
     if (owns) await client.end({ timeout: 5 });
   }
