@@ -68,6 +68,15 @@ Runtime policy:
 - For review tasks, prefer `default` plus an explicit adversarial review prompt.
 - If `gpt-5.3-codex` is unavailable, fall back to `gpt-5.4-mini` before falling back to an untyped generic worker with no model override.
 
+<!-- kb-skills-config begin -->
+```yaml
+kb-orchestrate:
+  stage-models:
+    review: codex:gpt-5.6-terra@high
+    qa: codex:gpt-5.6-terra@high
+```
+<!-- kb-skills-config end -->
+
 ---
 
 # ATTENTION ALL REVIEWERS
