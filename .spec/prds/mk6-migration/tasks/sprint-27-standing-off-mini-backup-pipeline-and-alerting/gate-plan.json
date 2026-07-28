@@ -26,29 +26,35 @@
     },
     {
       "n": 2,
-      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest.",
+      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest. (REDHAT-FIX-S27-22 / R-8: require_all status+manifest+overall \u2014 no any-of theatre)",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:base --type full",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "or_semantics": "any",
-        "expect_log_regex": "status:\\s+success|manifest:\\s+present|overall:\\s+OK",
+        "require_all_regex": [
+          "status:\\s+success",
+          "manifest:\\s+present",
+          "overall:\\s+OK"
+        ],
         "expect_not_log_regex": "overall:\\s+FAILED"
       }
     },
     {
       "n": 3,
-      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches.",
+      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches. (REDHAT-FIX-S27-22 / R-8: require_all parity PASS + ok true \u2014 no any-of theatre)",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:mirror",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "or_semantics": "any",
-        "expect_log_regex": "parity:\\s+PASS|ok:\\s+true"
+        "require_all_regex": [
+          "parity:\\s+PASS",
+          "ok:\\s+true",
+          "heartbeat:\\s+upserted"
+        ]
       }
     },
     {
