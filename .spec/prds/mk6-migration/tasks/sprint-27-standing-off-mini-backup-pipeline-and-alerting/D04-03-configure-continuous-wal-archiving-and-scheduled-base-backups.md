@@ -36,7 +36,7 @@ TASK: D04-03 — Configure continuous WAL archiving + scheduled base backups
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     L  (150 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -74,10 +74,10 @@ Continuous WAL archiving to R2 via pgBackRest with no continuity gap under real 
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): WAL archives continuously to R2 with no continuity gap + heartbeat updates
-- [ ] AC-2: scheduled base-backup job lands in R2, manifest-verified + heartbeat updates
-- [ ] AC-3: OTel span emitted per job + correlated to the heartbeat row
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [x] AC-1 (PRIMARY): WAL archives continuously to R2 with no continuity gap + heartbeat updates
+- [x] AC-2: scheduled base-backup job lands in R2, manifest-verified + heartbeat updates
+- [x] AC-3: OTel span emitted per job + correlated to the heartbeat row
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — proven by real Postgres + real R2)

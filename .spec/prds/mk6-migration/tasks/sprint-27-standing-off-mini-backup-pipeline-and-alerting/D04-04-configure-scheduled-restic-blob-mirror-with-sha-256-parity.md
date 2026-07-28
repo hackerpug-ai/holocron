@@ -35,7 +35,7 @@ TASK: D04-04 — Configure scheduled restic blob mirror with SHA-256 parity
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (120 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -72,9 +72,9 @@ A scheduled restic blob mirror to R2 (separate encrypted prefix) with SHA-256 pa
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): restic snapshot in R2 + SHA-256 parity verified (local set == remote set)
-- [ ] AC-2: `restic_blob_mirror` heartbeat updated after parity + OTel span emitted
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [x] AC-1 (PRIMARY): restic snapshot in R2 + SHA-256 parity verified (local set == remote set)
+- [x] AC-2: `restic_blob_mirror` heartbeat updated after parity + OTel span emitted
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — proven by real blob store + real R2)

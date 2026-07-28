@@ -13,8 +13,8 @@ planned_at: 2026-07-24T23:22:56Z
 **Sequence:** 27
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
 **Status:** Completed
-> Progress: 1/7 tasks completed · updated 2026-07-28T02:50:42Z
-> Status-Note: goal met — CAP-BAK-01 pipeline + alerts
+> Progress: 7/7 tasks completed · updated 2026-07-28T05:01:12Z
+> Status-Note: goal met — CAP-BAK-01 pipeline + alerts; status-file parity healed
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-27`)
 **Branch:** `mk6-backup`

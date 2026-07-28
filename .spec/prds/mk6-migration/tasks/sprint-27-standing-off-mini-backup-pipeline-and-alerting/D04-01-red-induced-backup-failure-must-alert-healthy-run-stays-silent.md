@@ -36,7 +36,7 @@ TASK: D04-01 — RED: induced backup failure must alert, healthy run must stay s
 ================================================================================
 
 TASK_TYPE:  TEST
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (75 min)
 AGENT:      implementer=red-test-generator | reviewer=code-reviewer
@@ -79,11 +79,11 @@ RED integration test at services/platform/tests/integration/sprint27-backup-aler
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): RED integration test written with the two-sided oracle (failure alerts, healthy silence)
-- [ ] Test currently FAILS (no implementation exists)
-- [ ] Test uses a real webhook receiver, no mocks
-- [ ] Test covers all three PRD failure modes
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [x] AC-1 (PRIMARY): RED integration test written with the two-sided oracle (failure alerts, healthy silence)
+- [x] Test currently FAILS (no implementation exists)
+- [x] Test uses a real webhook receiver, no mocks
+- [x] Test covers all three PRD failure modes
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — RED before GREEN, proven by a real alert sink)

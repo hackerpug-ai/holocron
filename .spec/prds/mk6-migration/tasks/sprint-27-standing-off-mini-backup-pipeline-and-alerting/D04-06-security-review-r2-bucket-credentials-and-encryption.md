@@ -35,7 +35,7 @@ TASK: D04-06 — Security review: R2 bucket credentials + encryption
 ================================================================================
 
 TASK_TYPE:  REVIEW
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (75 min)
 AGENT:      reviewer=security-reviewer
@@ -76,12 +76,12 @@ A security-review findings log documenting credential scoping (bucket/prefix-onl
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: R2 credentials least-privilege scoped to the backup bucket only
-- [ ] AC-2: no secrets in tracked files or logs
-- [ ] AC-3: encryption-at-rest (SSE) + in-transit (TLS) verified
-- [ ] AC-4: repo keys NOT co-located with backups
-- [ ] AC-5: alert payloads redact secrets
-- [ ] AC-6: finding log produced with APPROVED/NEEDS_FIXES verdict
+- [x] AC-1: R2 credentials least-privilege scoped to the backup bucket only
+- [x] AC-2: no secrets in tracked files or logs
+- [x] AC-3: encryption-at-rest (SSE) + in-transit (TLS) verified
+- [x] AC-4: repo keys NOT co-located with backups
+- [x] AC-5: alert payloads redact secrets
+- [x] AC-6: finding log produced with APPROVED/NEEDS_FIXES verdict
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (proven by real command output, not attestation)

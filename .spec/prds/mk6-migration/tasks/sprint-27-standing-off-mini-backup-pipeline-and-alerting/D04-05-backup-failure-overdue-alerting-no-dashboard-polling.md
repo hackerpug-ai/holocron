@@ -36,7 +36,7 @@ TASK: D04-05 — Backup failure/overdue alerting (webhook/push, no dashboard-pol
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (120 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -75,11 +75,11 @@ Alerting that detects overdue (`now() - last_success_at > 15 min`) or failed (`s
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): overdue/failed job → webhook POST within 15 min, payload correct
-- [ ] AC-2: the three silent-failure modes each alert (never silent-healthy)
-- [ ] AC-3: `holo verify:backup` exits 1 on overdue/failed, 0 on healthy; `holo backup:status` prints per-job state
-- [ ] AC-4: a healthy run stays silent (ZERO posts) — anti-fake-healthy
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [x] AC-1 (PRIMARY): overdue/failed job → webhook POST within 15 min, payload correct
+- [x] AC-2: the three silent-failure modes each alert (never silent-healthy)
+- [x] AC-3: `holo verify:backup` exits 1 on overdue/failed, 0 on healthy; `holo backup:status` prints per-job state
+- [x] AC-4: a healthy run stays silent (ZERO posts) — anti-fake-healthy
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — proven by a real webhook sink + real Postgres)

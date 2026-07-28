@@ -34,7 +34,7 @@ TASK: D04-02 — Provision encrypted R2 bucket + scoped credentials + pgBackRest
 ================================================================================
 
 TASK_TYPE:  INFRA
-STATUS:     Backlog
+STATUS:     Completed
 PRIORITY:   P0
 EFFORT:     M  (120 min)
 AGENT:      implementer=devops-engineer | reviewer=code-reviewer
@@ -72,10 +72,10 @@ Encrypted Cloudflare R2 bucket provisioned (SSE + versioning); least-privilege s
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): encrypted R2 bucket exists with SSE (+ versioning residual when R2 NotImplemented), verified against real R2
-- [ ] AC-2: R2 credentials are least-privilege scoped to the backup bucket only, separate from app secrets
-- [ ] AC-3: pgBackRest repo configured and `stanza-create` succeeds against real R2
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [x] AC-1 (PRIMARY): encrypted R2 bucket exists with SSE (+ versioning residual when R2 NotImplemented), verified against real R2
+- [x] AC-2: R2 credentials are least-privilege scoped to the backup bucket only, separate from app secrets
+- [x] AC-3: pgBackRest repo configured and `stanza-create` succeeds against real R2
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — proven by real R2)
