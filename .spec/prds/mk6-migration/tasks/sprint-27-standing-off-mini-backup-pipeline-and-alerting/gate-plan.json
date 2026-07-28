@@ -5,11 +5,11 @@
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
   "planned_at": "20260728T024819Z",
-  "planned_steps": 6,
+  "planned_steps": 7,
   "steps": [
     {
       "n": 1,
-      "text": "Run a live Postgres write burst via holo backup:wal --json \u2014 WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows\u22651).",
+      "text": "Run a live Postgres write burst via holo backup:wal --json — WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows≥1).",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-02; bun services/platform/src/cli/holo.ts backup:wal --json > .tmp/REDHAT-FIX-S27-02/backup-wal.json; cat .tmp/REDHAT-FIX-S27-02/backup-wal.json; jq -e '.status==\"success\" and .ok==true and .continuityOk==true and .r2WalObjectCountAfter > .r2WalObjectCountBefore and .writeBurstRows >= 1 and .heartbeat.status==\"success\" and (.heartbeat.last_success_at != null)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; ! jq -e '.status==\"failed\" or .ok==false or .continuityOk==false or .writeBurstRows < 1 or (.r2WalObjectCountAfter <= .r2WalObjectCountBefore)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; bun services/platform/src/cli/holo.ts backup:status > .tmp/REDHAT-FIX-S27-02/backup-status.txt || true; cat .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'wal_archive:.*(OK|status=success)' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'wal_archive:.*(FAILED|OVERDUE)' .tmp/REDHAT-FIX-S27-02/backup-status.txt",
@@ -21,7 +21,7 @@
     },
     {
       "n": 2,
-      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest.",
+      "text": "Run the scheduled base-backup job — full backup lands in the R2 bucket, verified by manifest.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:base --type full",
@@ -33,7 +33,7 @@
     },
     {
       "n": 3,
-      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches.",
+      "text": "Run the restic blob-mirror job — every local/remote object SHA-256 matches.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:mirror",
@@ -45,7 +45,7 @@
     },
     {
       "n": 4,
-      "text": "Kill the backup job mid-archive \u2014 alert fires within 15 minutes, no dashboard-polling needed.",
+      "text": "Kill the backup job mid-archive — alert fires within 15 minutes, no dashboard-polling needed.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive && bun services/platform/src/cli/holo.ts backup:alert-sweep",
@@ -57,7 +57,7 @@
     },
     {
       "n": 5,
-      "text": "Let the bucket credential expire in a test fixture \u2014 alert fires, not a silent failure.",
+      "text": "Let the bucket credential expire in a test fixture — alert fires, not a silent failure.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup && bun services/platform/src/cli/holo.ts backup:alert-sweep",
@@ -69,7 +69,7 @@
     },
     {
       "n": 6,
-      "text": "Remove the backup config entirely \u2014 the alert still fires as overdue, never a false-healthy state.",
+      "text": "Remove the backup config entirely — the alert still fires as overdue, never a false-healthy state.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror && bun services/platform/src/cli/holo.ts backup:alert-sweep",
@@ -77,6 +77,18 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "config removed|reason=overdue|alerted:\\s+[1-9]"
+      }
+    },
+    {
+      "n": 7,
+      "text": "Execute D04-01 RED integration suite (sprint27-backup-alerting-red.test.ts) under PLATFORM_IT=1 with short alert windows — healthy silence + three failure modes against a real http.Server; dual-write transcript and webhook captures into .gate-evidence.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -eu; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=\".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting\"; EVIDENCE=\"${SPRINT_DIR}/.gate-evidence/${RUN_ID}\"; mkdir -p \"$EVIDENCE/red-suite\"; set +e; PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts >\"$EVIDENCE/red-suite-transcript.log\" 2>&1; ec=$?; set -e; cat \"$EVIDENCE/red-suite-transcript.log\"; cp \"$EVIDENCE/red-suite-transcript.log\" \"$EVIDENCE/step7-d04-01-red-suite.log\"; if [ -d .tmp/D04-01 ]; then cp -R .tmp/D04-01/. \"$EVIDENCE/red-suite/\"; fi; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' \"$EVIDENCE/red-suite-transcript.log\"; test -f \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; jq -e '.postCount==0' \"$EVIDENCE/red-suite/healthy-silence-posts.json\" >/dev/null; ls \"$EVIDENCE/red-suite\"/failure-*-alert.json >/dev/null; echo D04_01_RED_SUITE_GATE_OK exit=$ec evidence=$EVIDENCE",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "D04_01_RED_SUITE_GATE_OK|Tests.*passed|[1-9][0-9]* passed"
       }
     }
   ]
