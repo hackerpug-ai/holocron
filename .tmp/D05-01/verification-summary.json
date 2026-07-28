@@ -1,0 +1,77 @@
+{
+  "task_id": "D05-01",
+  "timestamp": "2026-07-28T23:26:54Z",
+  "commit_sha": "346cdb81e19333cdccd1d090b48321d6254774c0",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts -t 'empty R2 repo'",
+      "exit_code": 1,
+      "output_file": ".tmp/D05-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts -t 'corrupted manifest'",
+      "exit_code": 1,
+      "output_file": ".tmp/D05-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts -t 'healthy seeded repo'",
+      "exit_code": 1,
+      "output_file": ".tmp/D05-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts -t 'no fake-success row'",
+      "exit_code": 0,
+      "output_file": ".tmp/D05-01/ac-4-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-07-28T23:26:54Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "a5b24b916db6dd6da6fa77dd066cb9e13e910b88d23c87cc27bae94cd4c72749"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "d950e54728e1ebee7bf17ee65d9032b4ac7f1c4af1b46204ba8c46de4ab8fa10"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "79ec277ee33dd5668b57f6461971c4d7c7581be27f6afe0ac3886b6cb012c355"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "d25fda58a6c9fb38c3735ca09ba48e28f5c1c89a7eaf49cb18074df46502c03b"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "b6ee2f40c84e10dfaea756a4bd591d2aefc93d4a20eb0bff13754848b212aba3"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "0aa117b3710f79a27b3671d77953515fec788c57f8137db42a955ae69f8d5d9f"
+      }
+    ]
+  }
+}

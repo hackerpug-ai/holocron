@@ -1,0 +1,10 @@
+{
+  "runId": "d05-01-ms5akvat-qrq4vn",
+  "holoCli": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-01/services/platform/src/cli/holo.ts",
+  "restoreModuleExists": false,
+  "secretsPath": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "bucket": "holocron-backup",
+  "stanza": "main",
+  "scratchRoot": "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-HDMOv2",
+  "note": "GREENFIELD RED until D05-02 implements holo restore --pitr"
+}

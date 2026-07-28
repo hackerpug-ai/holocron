@@ -1,0 +1,23 @@
+{
+  "must_observe": [
+    "exit code != 0",
+    "manifest checksum mismatch OR WAL segment corrupted OR backup chain integrity check failed",
+    "PGDATA file count = 0 OR pg_ctl status non-zero"
+  ],
+  "status": 2,
+  "pgdataFileCount": 0,
+  "pgCtlStatus": 4,
+  "pgCtlCombined": "\npg_ctl: directory \"/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-HDMOv2/corrupt-pgdata\" is not a database cluster directory\n",
+  "noPromotedDb": true,
+  "args": [
+    "restore",
+    "--pitr",
+    "2024-01-01T00:00:00Z",
+    "--scratch",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-HDMOv2/corrupt-pgdata",
+    "--target-action",
+    "promote"
+  ],
+  "envPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt",
+  "combined": "\nunknown flag: --pitr\n"
+}

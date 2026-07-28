@@ -1,0 +1,33 @@
+{
+  "must_observe": [
+    "exit code 0",
+    "psql -c 'SELECT 1' exit 0",
+    "pitr_test row count >= 1"
+  ],
+  "status": 2,
+  "pgdataFileCount": 0,
+  "select1": null,
+  "pitrCount": null,
+  "pitrRows": 0,
+  "healthyPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy",
+  "testScopedRoot": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn",
+  "healthyKeys": [
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/backup/main/d05-01-healthy/backup.manifest",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/backup/main/backup.info",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/pitr_test.sql",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/seed-contract.json"
+  ],
+  "pitr_test_seed_intent": "Fixture seeds CREATE TABLE pitr_test + INSERT under test-scoped prefix; GREEN after D05-02 restore",
+  "args": [
+    "restore",
+    "--pitr",
+    "2026-07-28T23:33:36Z",
+    "--scratch",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-HDMOv2/healthy-pgdata",
+    "--target-action",
+    "promote"
+  ],
+  "combined": "\nunknown flag: --pitr\n",
+  "note": "Negative control against blanket always-fail implementations; RED until D05-02 lands PITR"
+}

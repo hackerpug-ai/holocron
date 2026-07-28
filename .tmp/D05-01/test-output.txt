@@ -1,0 +1,80 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-01
+
+ ❯ |integration| services/platform/tests/integration/sprint28-restore-fails-closed.test.ts (4 tests | 3 failed) 7255ms
+     × empty R2 repo / missing base backup → non-zero + named error + PGDATA file count = 0 82ms
+     × corrupted manifest → non-zero + names corruption + no promoted DB 74ms
+     × healthy seeded repo → restore would succeed (exit 0, SELECT 1, pitr_test rows >= 1) 63ms
+     ✓ no fake-success row on failed restores (empty + corrupted)  996ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-restore-fails-closed.test.ts > Sprint 28 D05-01 RED — restore fails closed on empty/corrupted backup chain > empty R2 repo / missing base backup → non-zero + named error + PGDATA file count = 0
+AssertionError: empty repo must name missing base backup (got: 
+unknown flag: --pitr
+): expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint28-restore-fails-closed.test.ts:774:9
+    772|         /no base backup available|backup chain missing/.test(errText),
+    773|         `empty repo must name missing base backup (got: ${restore.comb…
+    774|       ).toBe(true);
+       |         ^
+    775|
+    776|       expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-restore-fails-closed.test.ts > Sprint 28 D05-01 RED — restore fails closed on empty/corrupted backup chain > corrupted manifest → non-zero + names corruption + no promoted DB
+AssertionError: corrupted chain must name the corruption (got: 
+unknown flag: --pitr
+): expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint28-restore-fails-closed.test.ts:830:9
+    828|         ),
+    829|         `corrupted chain must name the corruption (got: ${restore.comb…
+    830|       ).toBe(true);
+       |         ^
+    831|
+    832|       expect(noPromotedDb, 'must_not_observe: queryable promoted DB af…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-restore-fails-closed.test.ts > Sprint 28 D05-01 RED — restore fails closed on empty/corrupted backup chain > healthy seeded repo → restore would succeed (exit 0, SELECT 1, pitr_test rows >= 1)
+AssertionError: healthy seeded repo restore must exit 0; got 2: 
+unknown flag: --pitr
+: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ services/platform/tests/integration/sprint28-restore-fails-closed.test.ts:894:9
+    892|         restore.status,
+    893|         `healthy seeded repo restore must exit 0; got ${restore.status…
+    894|       ).toBe(0);
+       |         ^
+    895|
+    896|       expect(select1, 'psql SELECT 1 must run after healthy restore').…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  17:33:35
+   Duration  7.59s (transform 100ms, setup 167ms, import 68ms, tests 7.25s, environment 0ms)
+

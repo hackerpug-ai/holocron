@@ -1,0 +1,27 @@
+{
+  "must_observe": [
+    "exit code != 0 for both failed restores",
+    "ZERO backup_heartbeat rows with status 'success'/'OK' for restore jobs",
+    "ZERO parity tracking restore-completed rows"
+  ],
+  "emptyStatus": 2,
+  "corruptStatus": 2,
+  "heartbeats": {
+    "successRows": 0,
+    "okRows": 0,
+    "restoreParityRows": 0,
+    "raw": {
+      "success": {
+        "status": 0,
+        "stdout": "0",
+        "stderr": ""
+      },
+      "recentOk": {
+        "status": 0,
+        "stdout": "0",
+        "stderr": ""
+      },
+      "parityNames": []
+    }
+  }
+}
