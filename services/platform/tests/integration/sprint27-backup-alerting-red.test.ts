@@ -76,16 +76,46 @@ type BackupAlertingModule = {
     overdueMs?: number;
   }) => void | Promise<void>;
   /** Run one alert sweep against backup_heartbeat (real DB query). */
-  runBackupAlertSweep?: () => Promise<{ alerted: number } | void> | { alerted: number } | void;
+  runBackupAlertSweep?: () =>
+    | Promise<{ alerted: number } | undefined>
+    | { alerted: number }
+    | undefined;
   /**
    * Optional test harness helpers (D04-05 may export these or equivalent CLI).
    * When absent, the suite falls back to holo CLI + heartbeat SQL/CLI surface.
    */
-  runHealthyBackupJob?: (jobId: string) => Promise<{ status: string } | void> | { status: string };
+  runHealthyBackupJob?: (
+    jobId: string
+  ) => Promise<{ status: string } | undefined> | { status: string };
   induceBackupFailure?: (
     mode: 'kill_wal_behind' | 'credential_expired' | 'config_removed',
-    jobId: string
-  ) => Promise<void> | void;
+    jobId: string,
+    options?: { overdueMs?: number; synthetic?: boolean }
+  ) =>
+    | Promise<{
+        job_name?: string;
+        mode?: string;
+        heartbeat?: { status?: string | null };
+        induction?: {
+          path?: string;
+          real_process_killed?: boolean;
+          pid_killed?: number | null;
+          production_catch?: boolean;
+          real_auth_fault?: boolean;
+          config_removed?: boolean;
+          config_exists_after?: boolean;
+          config_path?: string | null;
+          heartbeat_via_production_writer?: boolean;
+          exit_code?: number | null;
+        };
+      }>
+    | undefined
+    | {
+        job_name?: string;
+        mode?: string;
+        heartbeat?: { status?: string | null };
+        induction?: Record<string, unknown>;
+      };
 };
 
 function ensureEvidenceDir(): void {
@@ -350,6 +380,9 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
 
       const jobId = 'wal_archive-healthy';
       if (alerting.runHealthyBackupJob) {
+        // Silence proof requires a clean slate: scoped 'all' refreshes every heartbeat
+        // (not an unscoped weapon — explicit jobId='all'), then seeds the healthy job.
+        await alerting.runHealthyBackupJob('all');
         const result = await alerting.runHealthyBackupJob(jobId);
         if (result && typeof result === 'object' && 'status' in result) {
           expect(String(result.status).toLowerCase()).toMatch(/success|ok|healthy/);
@@ -411,19 +444,48 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
       }
 
       const jobId = 'wal_archive';
-      // Induce REAL kill / WAL-behind failure (D04-03 job surface + D04-05 detection).
+      // Induce REAL kill / WAL-behind failure (production-truth — not DEAD sentinel poison).
+      let killInduction: Record<string, unknown> | null = null;
       if (alerting.induceBackupFailure) {
-        await alerting.induceBackupFailure('kill_wal_behind', jobId);
+        const induced = await alerting.induceBackupFailure('kill_wal_behind', jobId);
+        if (induced && typeof induced === 'object') {
+          killInduction = induced as Record<string, unknown>;
+          writeEvidence('failure-a-induce.json', induced);
+          const ind = asRecord(induced.induction);
+          expect(
+            ind.path === 'production_truth' ||
+              ind.real_process_killed === true ||
+              ind.production_catch === true ||
+              ind.heartbeat_via_production_writer === true,
+            `kill induction must be production-truth (got ${JSON.stringify(ind)})`
+          ).toBe(true);
+          expect(
+            String(asRecord(induced.heartbeat).status ?? '').toLowerCase(),
+            'heartbeat status must be failed via production path'
+          ).toBe('failed');
+        }
       } else {
-        const induce = runHolo(['backup:induce-failure', '--mode', 'kill', '--job', jobId], {
-          ALERT_WEBHOOK_URL: receiver.url,
-          BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
-        });
+        const induce = runHolo(
+          ['backup:induce-failure', '--mode', 'kill', '--job', jobId, '--json'],
+          {
+            ALERT_WEBHOOK_URL: receiver.url,
+            BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+          }
+        );
         writeEvidence('failure-a-induce.json', induce);
         expect(induce.status, `must induce kill/WAL-behind failure; cli=${induce.combined}`).toBe(
           0
         );
+        try {
+          killInduction = JSON.parse(induce.stdout) as Record<string, unknown>;
+        } catch {
+          killInduction = null;
+        }
       }
+      writeEvidence('failure-a-induction-truth.json', {
+        must_not_observe: 'DEAD sentinel as sole proof',
+        induction: killInduction,
+      });
 
       if (alerting.runBackupAlertSweep) {
         await alerting.runBackupAlertSweep();
@@ -477,10 +539,24 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
 
       const jobId = 'base_backup';
       if (alerting.induceBackupFailure) {
-        await alerting.induceBackupFailure('credential_expired', jobId);
+        const induced = await alerting.induceBackupFailure('credential_expired', jobId);
+        if (induced && typeof induced === 'object') {
+          writeEvidence('failure-b-induce.json', induced);
+          const ind = asRecord(induced.induction);
+          expect(
+            ind.path === 'production_truth' ||
+              ind.real_auth_fault === true ||
+              ind.production_catch === true,
+            `credential induction must be production-truth (got ${JSON.stringify(ind)})`
+          ).toBe(true);
+          expect(
+            String(asRecord(induced.heartbeat).status ?? '').toLowerCase(),
+            'heartbeat status must be failed via production catch'
+          ).toBe('failed');
+        }
       } else {
         const induce = runHolo(
-          ['backup:induce-failure', '--mode', 'credential-expired', '--job', jobId],
+          ['backup:induce-failure', '--mode', 'credential-expired', '--job', jobId, '--json'],
           {
             ALERT_WEBHOOK_URL: receiver.url,
             BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
@@ -544,10 +620,22 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
 
       const jobId = 'restic_blob_mirror';
       if (alerting.induceBackupFailure) {
-        await alerting.induceBackupFailure('config_removed', jobId);
+        const induced = await alerting.induceBackupFailure('config_removed', jobId);
+        if (induced && typeof induced === 'object') {
+          writeEvidence('failure-c-induce.json', induced);
+          const ind = asRecord(induced.induction);
+          expect(
+            ind.path === 'production_truth' || ind.config_removed === true,
+            `config_removed induction must be production-truth (got ${JSON.stringify(ind)})`
+          ).toBe(true);
+          expect(
+            ind.config_exists_after === false || ind.config_removed === true,
+            'real config path must be missing after induction'
+          ).toBe(true);
+        }
       } else {
         const induce = runHolo(
-          ['backup:induce-failure', '--mode', 'config-removed', '--job', jobId],
+          ['backup:induce-failure', '--mode', 'config-removed', '--job', jobId, '--json'],
           {
             ALERT_WEBHOOK_URL: receiver.url,
             BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),

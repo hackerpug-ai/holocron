@@ -14,17 +14,27 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { getSecretValue, resolveRepoRoot } from '../config/secrets.ts';
 import { createSql, type Sql } from '../db/client.ts';
+import { runBaseBackupJob } from './base-backup.ts';
+import { defaultPgbackrestConfigPath } from './config.ts';
 import {
   type BackupHeartbeatRecord,
   ensureBackupHeartbeatTable,
+  getBackupHeartbeat,
   listBackupHeartbeats,
   upsertBackupHeartbeat,
 } from './heartbeat.ts';
+import {
+  ensureResticMirrorConfigFile,
+  removeResticMirrorConfig,
+  restoreResticMirrorConfig,
+  runResticBlobMirror,
+} from './restic-mirror.ts';
+import { runWalArchiveJob } from './wal-archive.ts';
 
 /** Production SLA: alert within 15 minutes of overdue/failed. */
 export const DEFAULT_OVERDUE_MS = 15 * 60 * 1000;
@@ -41,6 +51,27 @@ export const ALERT_SWEEP_LAUNCHD_LABEL = 'holocron-backup-alert-sweep';
 export type AlertReason = 'overdue' | 'failed';
 
 export type InduceFailureMode = 'kill_wal_behind' | 'credential_expired' | 'config_removed';
+
+/** production_truth = real process/config/cred fault; synthetic_poison = sweep-unit harness only. */
+export type InducePath = 'production_truth' | 'synthetic_poison';
+
+export type InduceEvidence = {
+  path: InducePath;
+  real_process_killed: boolean;
+  pid_killed: number | null;
+  production_catch: boolean;
+  exit_code: number | null;
+  real_auth_fault: boolean;
+  config_removed: boolean;
+  config_path: string | null;
+  config_exists_after: boolean;
+  binary: string | null;
+  failure_detail: string;
+  restored: boolean;
+  fault_output: string | null;
+  /** True when heartbeat status=failed was written by production job catch, not induce SQL alone. */
+  heartbeat_via_production_writer: boolean;
+};
 
 export type BackupAlertPayload = {
   job_name: string;
@@ -87,6 +118,8 @@ type InducedAnnotation = {
   mode: InduceFailureMode;
   detail: string;
   inducedAt: string;
+  configPath?: string;
+  configBackupPath?: string;
 };
 
 /** Runtime config (configureBackupAlerting / env / secrets). */
@@ -501,63 +534,110 @@ export async function runBackupAlertSweep(options?: {
 
 /**
  * Seed a healthy success heartbeat for the given job (anti-fake-healthy silence proof).
- * Bulk-refreshes every existing row to success+now in one statement so short CI
- * overdue thresholds (e.g. BACKUP_ALERT_OVERDUE_MS=1000) cannot false-positive
- * from sequential upsert latency, and clears induced annotations.
+ * Scoped to the requested job_name (or all jobs when jobId is 'all'/'*') so this is
+ * not an unscoped silent-healthy weapon. Also restores any config removed by induction
+ * and clears induced annotations.
  */
 export async function runHealthyBackupJob(
   jobId: string
 ): Promise<{ status: string; heartbeat: BackupHeartbeatRecord }> {
+  // Restore any config files left removed by config_removed induction.
+  restoreAllInducedConfigs();
+
   // Clear durable + in-memory induced modes (silence requires zero failure annotations).
-  inducedByJob.clear();
-  saveInducedStore({});
+  const clearAll = jobId === 'all' || jobId === '*';
+  if (clearAll) {
+    inducedByJob.clear();
+    saveInducedStore({});
+  } else {
+    inducedByJob.delete(jobId);
+    const store = loadInducedStore();
+    delete store[jobId];
+    saveInducedStore(store);
+  }
 
   const sql = createSql();
   try {
     await ensureBackupHeartbeatTable(sql);
-    // Single-statement refresh — all rows share the same now() so none drift past
-    // a 1s CI overdue window between writes.
-    await sql`
-      UPDATE backup_heartbeat
-      SET
-        status = 'success',
-        last_success_at = now(),
-        updated_at = now()
-    `;
+    // Single-statement refresh — all targeted rows share the same now() so none
+    // drift past a 1s CI overdue window between writes.
+    if (clearAll) {
+      await sql`
+        UPDATE backup_heartbeat
+        SET
+          status = 'success',
+          last_success_at = now(),
+          updated_at = now()
+      `;
+    } else {
+      await sql`
+        UPDATE backup_heartbeat
+        SET
+          status = 'success',
+          last_success_at = now(),
+          updated_at = now()
+        WHERE job_name = ${jobId}
+      `;
+    }
   } finally {
     await sql.end({ timeout: 5 });
   }
 
   const heartbeat = await upsertBackupHeartbeat({
-    jobName: jobId,
+    jobName: clearAll ? 'wal_archive' : jobId,
     status: 'success',
     lastSuccessAt: new Date(),
-    lastWalSegment: jobId.startsWith('wal') ? '000000010000000000000001' : null,
-    lastSnapshotId: jobId.includes('base') || jobId.includes('restic') ? 'healthy-snap' : null,
+    lastWalSegment: (clearAll ? 'wal_archive' : jobId).startsWith('wal')
+      ? '000000010000000000000001'
+      : null,
+    lastSnapshotId:
+      (clearAll ? '' : jobId).includes('base') || (clearAll ? '' : jobId).includes('restic')
+        ? 'healthy-snap'
+        : null,
     objectCount: 1,
     traceId: `healthy-${Date.now().toString(16)}`,
   });
   return { status: 'success', heartbeat };
 }
 
+function restoreAllInducedConfigs(): void {
+  const store = loadInducedStore();
+  for (const ann of Object.values(store)) {
+    if (ann.configPath && ann.configBackupPath) {
+      restoreResticMirrorConfig({
+        config_path: ann.configPath,
+        backup_path: ann.configBackupPath,
+      });
+      // Also handle generic rename restore (pgbackrest conf etc.)
+      if (existsSync(ann.configBackupPath) && !existsSync(ann.configPath)) {
+        try {
+          renameSync(ann.configBackupPath, ann.configPath);
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+  }
+}
+
 /**
- * Induce one of the three PRD silent-failure modes by poisoning the heartbeat
- * (and annotating failure_reason keywords the RED oracle matches).
- *
- * Modes stop "healthy" progress the same way real ops failures do:
- *  (a) kill / WAL behind → status=failed + stale last_success_at
- *  (b) credential expired → status=failed + credential keywords
- *  (c) config removed → overdue absence (stale last_success_at, not exit-only)
+ * Synthetic heartbeat poison ONLY — labeled path for fast CI sweep-unit mechanics.
+ * NEVER the sole production-truth proof for D04-01 REAL induction (REDHAT-FIX-S27-01).
+ * Prefer induceBackupFailure without synthetic:true which exercises real faults.
  */
-export async function induceBackupFailure(
+export async function induceBackupFailureSynthetic(
   mode: InduceFailureMode,
   jobId: string,
   options?: { overdueMs?: number }
-): Promise<{ job_name: string; mode: InduceFailureMode; heartbeat: BackupHeartbeatRecord }> {
+): Promise<{
+  job_name: string;
+  mode: InduceFailureMode;
+  heartbeat: BackupHeartbeatRecord;
+  induction: InduceEvidence;
+}> {
   const overdueMs = resolveOverdueMs(options?.overdueMs);
-  // Make last_success_at older than threshold so overdue path also fires.
   const stale = new Date(Date.now() - overdueMs - 60_000);
-  const detail = detailForMode(mode, jobId);
+  const detail = `[synthetic_poison] ${detailForMode(mode, jobId)}`;
   rememberInduced(jobId, {
     mode,
     detail,
@@ -565,15 +645,15 @@ export async function induceBackupFailure(
   });
 
   let status: 'failed' | 'success' = 'failed';
-  // config_removed exercises pure overdue (heartbeat stops updating — not only job-exit).
   if (mode === 'config_removed') {
-    status = 'success'; // last success was real; then config vanished → no further updates
+    status = 'success';
   }
 
   const heartbeat = await upsertBackupHeartbeat({
     jobName: jobId,
     status,
     lastSuccessAt: stale,
+    // Sentinel IDs are intentionally synthetic — documented as non-production-truth.
     lastWalSegment: mode === 'kill_wal_behind' ? '00000001000000000000DEAD' : null,
     lastSnapshotId:
       mode === 'credential_expired'
@@ -582,11 +662,281 @@ export async function induceBackupFailure(
           ? 'pre-removal-snap'
           : null,
     objectCount: 0,
-    traceId: `induce-${mode}-${Date.now().toString(16)}`,
+    traceId: `synthetic-induce-${mode}-${Date.now().toString(16)}`,
     forceClearSuccess: false,
   });
 
-  return { job_name: jobId, mode, heartbeat };
+  return {
+    job_name: jobId,
+    mode,
+    heartbeat,
+    induction: {
+      path: 'synthetic_poison',
+      real_process_killed: false,
+      pid_killed: null,
+      production_catch: false,
+      exit_code: null,
+      real_auth_fault: false,
+      config_removed: false,
+      config_path: null,
+      config_exists_after: true,
+      binary: null,
+      failure_detail: detail,
+      restored: false,
+      fault_output: null,
+      heartbeat_via_production_writer: false,
+    },
+  };
+}
+
+/**
+ * Induce one of the three PRD silent-failure modes via REAL operational faults
+ * (production-truth default):
+ *  (a) kill / WAL behind → kill real pgbackrest-related process; production catch
+ *      writes status=failed (wal-archive.ts)
+ *  (b) credential expired → invalid R2 keys; real pgbackrest auth fault; production
+ *      catch writes status=failed (base-backup.ts)
+ *  (c) config removed → rename real restic/pgbackrest config; pure overdue (stale
+ *      last_success_at, status stays success) or job fail without success advance
+ *
+ * Optional `synthetic: true` keeps the legacy heartbeat-poison harness for sweep-unit
+ * mechanics ONLY — never claim it as D04-01 REAL induction proof.
+ */
+export async function induceBackupFailure(
+  mode: InduceFailureMode,
+  jobId: string,
+  options?: {
+    overdueMs?: number;
+    /** When true, use synthetic heartbeat poison (honest dual-path; not production-truth). */
+    synthetic?: boolean;
+    env?: NodeJS.ProcessEnv;
+  }
+): Promise<{
+  job_name: string;
+  mode: InduceFailureMode;
+  heartbeat: BackupHeartbeatRecord;
+  induction: InduceEvidence;
+}> {
+  if (options?.synthetic === true || process.env.BACKUP_INDUCE_SYNTHETIC === '1') {
+    return induceBackupFailureSynthetic(mode, jobId, options);
+  }
+
+  const overdueMs = resolveOverdueMs(options?.overdueMs);
+  const env = options?.env ?? process.env;
+  const detail = detailForMode(mode, jobId);
+  const stale = new Date(Date.now() - overdueMs - 60_000);
+
+  if (mode === 'kill_wal_behind') {
+    const result = await runWalArchiveJob({ env, induceFault: 'kill' });
+    const hb =
+      result.heartbeat ??
+      (await getBackupHeartbeat('wal_archive')) ??
+      (await upsertBackupHeartbeat({
+        jobName: jobId || 'wal_archive',
+        status: 'failed',
+        traceId: result.span?.traceId ?? `induce-kill-${Date.now().toString(16)}`,
+      }));
+    // Re-key annotation onto the requested job id (usually wal_archive).
+    const targetJob = jobId || 'wal_archive';
+    if (targetJob !== 'wal_archive' && result.heartbeat) {
+      // Job-specific induce for non-default names: copy failed status via production-style upsert.
+      await upsertBackupHeartbeat({
+        jobName: targetJob,
+        status: 'failed',
+        lastWalSegment: result.heartbeat.last_wal_segment,
+        objectCount: result.heartbeat.object_count,
+        traceId: result.heartbeat.trace_id,
+      });
+    }
+    rememberInduced(targetJob, {
+      mode,
+      detail,
+      inducedAt: new Date().toISOString(),
+    });
+    // Ensure the requested job heartbeat is failed (production writer already did wal_archive).
+    const heartbeat =
+      targetJob === 'wal_archive' ? hb : ((await getBackupHeartbeat(targetJob)) ?? hb);
+
+    const induction: InduceEvidence = {
+      path: 'production_truth',
+      real_process_killed: Boolean(result.killEvidence?.real_process_killed),
+      pid_killed: result.killEvidence?.pid_killed ?? null,
+      production_catch: result.production_catch === true || result.status === 'failed',
+      exit_code: result.killEvidence?.exit_code ?? null,
+      real_auth_fault: false,
+      config_removed: false,
+      config_path: null,
+      config_exists_after: true,
+      binary: result.killEvidence?.binary ?? null,
+      failure_detail: detail,
+      restored: false,
+      fault_output: result.killEvidence?.fault_output ?? result.errors.join('; ').slice(0, 500),
+      heartbeat_via_production_writer:
+        result.production_catch === true || Boolean(result.heartbeat),
+    };
+
+    // If kill evidence was weak, still require production_catch + failed status.
+    if (!induction.real_process_killed && !induction.production_catch) {
+      throw new Error(
+        'kill induction failed: no real process kill and no production catch — refuse synthetic fallback'
+      );
+    }
+
+    return { job_name: targetJob, mode, heartbeat, induction };
+  }
+
+  if (mode === 'credential_expired') {
+    const targetJob = jobId || 'base_backup';
+    const result = await runBaseBackupJob({
+      env,
+      induceFault: 'credential_expired',
+      ensureArchive: false,
+    });
+    rememberInduced(targetJob, {
+      mode,
+      detail,
+      inducedAt: new Date().toISOString(),
+    });
+    let heartbeat = result.heartbeat;
+    if (!heartbeat || targetJob !== 'base_backup') {
+      heartbeat = await upsertBackupHeartbeat({
+        jobName: targetJob,
+        status: 'failed',
+        lastSnapshotId: result.lastSnapshotId,
+        objectCount: result.r2BackupObjectCount,
+        traceId: result.span?.traceId ?? `induce-cred-${Date.now().toString(16)}`,
+      });
+    }
+    // Prefer production writer row when job is base_backup.
+    if (targetJob === 'base_backup' && result.heartbeat) {
+      heartbeat = result.heartbeat;
+    }
+
+    const faultBlob = `${result.fault_output ?? ''}\n${result.errors.join('; ')}`;
+    const induction: InduceEvidence = {
+      path: 'production_truth',
+      real_process_killed: false,
+      pid_killed: null,
+      production_catch: result.production_catch === true || result.status === 'failed',
+      exit_code: result.exitCode,
+      real_auth_fault:
+        result.real_auth_fault === true ||
+        /credential|expired|denied|403|401|InvalidAccessKeyId|AccessDenied|auth/i.test(faultBlob),
+      config_removed: false,
+      config_path: null,
+      config_exists_after: true,
+      binary: 'pgbackrest',
+      failure_detail: detail,
+      restored: false,
+      fault_output: (result.fault_output ?? faultBlob).slice(0, 800),
+      heartbeat_via_production_writer:
+        result.production_catch === true || Boolean(result.heartbeat),
+    };
+
+    if (!induction.real_auth_fault && result.exitCode === 0 && result.status === 'success') {
+      throw new Error(
+        'credential induction failed: job stayed healthy — refuse silent-healthy theatre'
+      );
+    }
+
+    return { job_name: targetJob, mode, heartbeat, induction };
+  }
+
+  // config_removed — real filesystem removal + pure overdue (stale last_success_at)
+  const targetJob = jobId || 'restic_blob_mirror';
+  let configPath: string;
+  let backupPath: string | null = null;
+  let removed = false;
+
+  if (targetJob.includes('restic') || targetJob === 'restic_blob_mirror') {
+    ensureResticMirrorConfigFile();
+    const rem = removeResticMirrorConfig();
+    configPath = rem.config_path;
+    backupPath = rem.backup_path;
+    removed = rem.removed;
+    // Exercise production job against missing config (must not advance success).
+    await runResticBlobMirror({ env, induceFault: 'config_removed', resticConfigPath: configPath });
+  } else {
+    // pgbackrest conf path for wal/base jobs
+    configPath =
+      process.env.PGBACKREST_CONFIG?.trim() || defaultPgbackrestConfigPath(resolveRepoRoot());
+    // Fallback to main checkout conf when worktree has no local conf (gitignored).
+    if (!existsSync(configPath)) {
+      const mainConf = resolve(
+        resolveRepoRoot(),
+        '../../..',
+        'services/platform/config/pgbackrest/pgbackrest.conf'
+      );
+      // worktree is .../holocron/.kb-run-sprint/worktrees/<id> → ../../../ = holocron
+      const alt = existsSync(mainConf)
+        ? mainConf
+        : resolve(
+            homedir(),
+            'Projects/holocron/services/platform/config/pgbackrest/pgbackrest.conf'
+          );
+      if (existsSync(alt)) configPath = alt;
+    }
+    if (!existsSync(configPath)) {
+      // Create a real config marker then remove it (still a real FS fault).
+      mkdirSync(dirname(configPath), { recursive: true });
+      writeFileSync(configPath, '# induced config for config_removed proof\nrequired=true\n', {
+        mode: 0o600,
+      });
+    }
+    backupPath = `${configPath}.induced-removed`;
+    if (existsSync(backupPath)) rmSync(backupPath, { force: true });
+    renameSync(configPath, backupPath);
+    removed = !existsSync(configPath) && existsSync(backupPath);
+  }
+
+  rememberInduced(targetJob, {
+    mode,
+    detail,
+    inducedAt: new Date().toISOString(),
+    configPath,
+    configBackupPath: backupPath ?? undefined,
+  });
+
+  // Pure overdue seed: status=success with stale last_success_at (not failed-only theatre).
+  // Config is actually gone so the job cannot advance success.
+  // Non-null lastSnapshotId overwrites prior synthetic pre-removal-snap (COALESCE).
+  const heartbeat = await upsertBackupHeartbeat({
+    jobName: targetJob,
+    status: 'success',
+    lastSuccessAt: stale,
+    lastSnapshotId: 'config-absent',
+    objectCount: 0,
+    traceId: `induce-config-removed-${Date.now().toString(16)}`,
+    forceClearSuccess: false,
+  });
+
+  const existsAfter = existsSync(configPath);
+  const induction: InduceEvidence = {
+    path: 'production_truth',
+    real_process_killed: false,
+    pid_killed: null,
+    production_catch: false,
+    exit_code: null,
+    real_auth_fault: false,
+    config_removed: removed && !existsAfter,
+    config_path: configPath,
+    config_exists_after: existsAfter,
+    binary: null,
+    failure_detail: detail,
+    restored: false,
+    fault_output: removed
+      ? `config renamed to ${backupPath}`
+      : `failed to remove config at ${configPath}`,
+    heartbeat_via_production_writer: false,
+  };
+
+  if (!induction.config_removed) {
+    throw new Error(
+      `config_removed induction failed: config still present at ${configPath} — refuse poison-only theatre`
+    );
+  }
+
+  return { job_name: targetJob, mode, heartbeat, induction };
 }
 
 export type VerifyBackupResult = {

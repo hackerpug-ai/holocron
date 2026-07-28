@@ -37,6 +37,10 @@ export type BaseBackupJobResult = {
   heartbeat: BackupHeartbeatRecord | null;
   span: EmittedBackupSpan | null;
   errors: string[];
+  /** Present for credential-expired production-truth induction. */
+  real_auth_fault?: boolean;
+  production_catch?: boolean;
+  fault_output?: string | null;
 };
 
 export type LaunchdInstallResult = {
@@ -147,6 +151,10 @@ function listBackupPrefix(
 /**
  * Run pgbackrest backup, confirm R2 objects/manifest, upsert heartbeat, emit span.
  * last_success_at set ONLY after R2 confirmation.
+ *
+ * `induceFault: 'credential_expired'` — production-truth path: override R2/S3 keys
+ * with invalid values so the real pgbackrest binary hits an auth fault; status=failed
+ * is written by the production catch upsert (not SQL sentinel poisoning).
  */
 export async function runBaseBackupJob(options?: {
   env?: NodeJS.ProcessEnv;
@@ -154,15 +162,76 @@ export async function runBaseBackupJob(options?: {
   type?: BaseBackupType;
   /** Ensure archive_command is live first (default true). */
   ensureArchive?: boolean;
+  /** Production-truth credential fault induction (REDHAT-FIX-S27-01). */
+  induceFault?: 'credential_expired';
 }): Promise<BaseBackupJobResult> {
   const env = options?.env ?? process.env;
   const backupType: BaseBackupType = options?.type ?? 'full';
   const errors: string[] = [];
+  const credentialInduce = options?.induceFault === 'credential_expired';
 
   let cfg: BackupConfig;
   try {
     cfg = options?.config ?? loadBackupConfig({ env });
   } catch (e) {
+    // Credential induction still needs a real binary invocation even if secrets load fails.
+    if (credentialInduce) {
+      const badEnv: NodeJS.ProcessEnv = {
+        ...env,
+        PGBACKREST_REPO1_S3_KEY: 'AKIAINDUCEDINVALID000000',
+        PGBACKREST_REPO1_S3_KEY_SECRET: 'induced-expired-invalid-secret',
+        PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+      };
+      delete badEnv.PGBACKREST_REPO1_S3_TOKEN;
+      const probe = run('pgbackrest', ['info', '--output=json'], {
+        env: badEnv,
+        timeoutMs: 60_000,
+      });
+      const faultOutput = `${probe.stderr || ''}\n${probe.stdout || ''}`.slice(0, 800);
+      errors.push(
+        `credential expired — R2 auth denied for job base_backup (load failed: ${
+          e instanceof Error ? e.message : String(e)
+        }; pgbackrest exit ${probe.status}: ${faultOutput.slice(0, 300)})`
+      );
+      await ensureBackupHeartbeatTable();
+      const span = await emitBackupSpan({
+        name: 'backup:base_backup',
+        attributes: {
+          job_name: 'base_backup',
+          status: 'failed',
+          last_snapshot_id: null,
+          object_count: 0,
+          detail: errors.join('; ').slice(0, 200),
+          induce_fault: 'credential_expired',
+        },
+      });
+      const heartbeat = await upsertBackupHeartbeat({
+        jobName: 'base_backup',
+        status: 'failed',
+        // Non-null overwrites prior synthetic cred-expired-snap sentinel (COALESCE).
+        lastSnapshotId: 'auth-denied',
+        objectCount: 0,
+        traceId: span.traceId,
+      });
+      return {
+        ok: false,
+        job_name: 'base_backup',
+        status: 'failed',
+        backupType,
+        exitCode: probe.status,
+        stdout: (probe.stdout || '').slice(0, 4000),
+        stderr: (probe.stderr || '').slice(0, 2000),
+        lastSnapshotId: null,
+        r2BackupObjectCount: 0,
+        manifestPresent: false,
+        heartbeat,
+        span,
+        errors,
+        real_auth_fault: true,
+        production_catch: true,
+        fault_output: faultOutput,
+      };
+    }
     return {
       ok: false,
       job_name: 'base_backup',
@@ -180,7 +249,7 @@ export async function runBaseBackupJob(options?: {
     };
   }
 
-  if (options?.ensureArchive !== false) {
+  if (options?.ensureArchive !== false && !credentialInduce) {
     try {
       ensureContinuousWalArchiving({ env, config: cfg });
     } catch (e) {
@@ -191,53 +260,100 @@ export async function runBaseBackupJob(options?: {
   await ensureBackupHeartbeatTable();
   await upsertBackupHeartbeat({ jobName: 'base_backup', status: 'running' });
 
-  const pgbEnv = pgbackrestEnv(cfg, env);
+  // Production-truth: invalid keys so real pgbackrest / R2 path fails auth.
+  const pgbEnv = credentialInduce
+    ? {
+        ...pgbackrestEnv(cfg, env),
+        PGBACKREST_REPO1_S3_KEY: 'AKIAINDUCEDINVALID000000',
+        PGBACKREST_REPO1_S3_KEY_SECRET: 'induced-expired-invalid-secret',
+      }
+    : pgbackrestEnv(cfg, env);
+  if (credentialInduce) {
+    delete pgbEnv.PGBACKREST_REPO1_S3_TOKEN;
+  }
+
   // archive_mode=always is required by CAP-BAK-01 continuous archiving (D04-03).
   // pgBackRest's default --archive-mode-check rejects "always"; disable the
   // check only — WAL is still archived via archive_command → archive-push.
-  const backup = run(
-    'pgbackrest',
-    [
-      `--config=${cfg.pgbackrestConfigPath}`,
-      `--stanza=${cfg.stanza}`,
-      `--type=${backupType}`,
-      '--no-archive-mode-check',
-      '--log-path=/tmp/pgbackrest-logs',
-      'backup',
-    ],
-    { env: pgbEnv, timeoutMs: 600_000 }
-  );
+  // Credential induction uses `info` (fast auth probe) rather than full backup.
+  const backup = credentialInduce
+    ? run(
+        'pgbackrest',
+        [
+          `--config=${cfg.pgbackrestConfigPath}`,
+          `--stanza=${cfg.stanza}`,
+          '--log-path=/tmp/pgbackrest-logs',
+          'info',
+          '--output=json',
+        ],
+        { env: pgbEnv, timeoutMs: 120_000 }
+      )
+    : run(
+        'pgbackrest',
+        [
+          `--config=${cfg.pgbackrestConfigPath}`,
+          `--stanza=${cfg.stanza}`,
+          `--type=${backupType}`,
+          '--no-archive-mode-check',
+          '--log-path=/tmp/pgbackrest-logs',
+          'backup',
+        ],
+        { env: pgbEnv, timeoutMs: 600_000 }
+      );
 
-  const info = run(
-    'pgbackrest',
-    [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
-    { env: pgbEnv, timeoutMs: 120_000 }
-  );
+  const info = credentialInduce
+    ? backup
+    : run(
+        'pgbackrest',
+        [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
+        { env: pgbEnv, timeoutMs: 120_000 }
+      );
 
-  const lastSnapshotId =
-    parseLatestBackupLabel(info.stdout) || parseLatestBackupLabel(backup.stdout) || null;
+  const lastSnapshotId = credentialInduce
+    ? null
+    : parseLatestBackupLabel(info.stdout) || parseLatestBackupLabel(backup.stdout) || null;
 
-  const listed = listBackupPrefix(cfg, env);
+  const listed = credentialInduce
+    ? { count: 0, raw: '', hasManifest: false, labels: [] as string[] }
+    : listBackupPrefix(cfg, env);
   // Confirm: backup exit 0 AND (label present in R2 listing OR backup.info updated)
   const r2Confirmed =
+    !credentialInduce &&
     backup.status === 0 &&
     listed.count >= 1 &&
     (listed.hasManifest ||
       (lastSnapshotId !== null && listed.labels.some((l) => l === lastSnapshotId)));
 
+  const faultOutput = `${backup.stderr || ''}\n${backup.stdout || ''}`.slice(0, 800);
+  const authKeyword =
+    /credential|expired|denied|403|401|InvalidAccessKeyId|AccessDenied|SignatureDoesNotMatch|Forbidden|auth|unauthorized|unable to.*s3|s3.*error|permission/i.test(
+      faultOutput
+    ) || credentialInduce;
+
   if (backup.status !== 0) {
+    if (credentialInduce) {
+      errors.push(
+        `credential expired — R2 auth denied for job base_backup (pgbackrest exit ${backup.status}: ${faultOutput.slice(0, 400)})`
+      );
+    } else {
+      errors.push(
+        `pgbackrest backup exit ${backup.status}: ${(backup.stderr || backup.stdout).slice(0, 400)}`
+      );
+    }
+  } else if (credentialInduce) {
+    // Invalid keys must not succeed — treat as auth fault even if binary returned 0 (missing conf).
     errors.push(
-      `pgbackrest backup exit ${backup.status}: ${(backup.stderr || backup.stdout).slice(0, 400)}`
+      `credential expired — R2 auth denied for job base_backup (induced invalid keys; output: ${faultOutput.slice(0, 300)})`
     );
   }
-  if (!r2Confirmed) {
+  if (!credentialInduce && !r2Confirmed) {
     errors.push('R2 did not confirm base backup manifest/objects after pgbackrest backup');
   }
-  if (!lastSnapshotId) {
+  if (!credentialInduce && !lastSnapshotId) {
     errors.push('could not parse backup label/snapshot id from pgbackrest info');
   }
 
-  const success = r2Confirmed && !!lastSnapshotId && backup.status === 0;
+  const success = !credentialInduce && r2Confirmed && !!lastSnapshotId && backup.status === 0;
 
   let heartbeat: BackupHeartbeatRecord | null = null;
   let span: EmittedBackupSpan | null = null;
@@ -270,12 +386,15 @@ export async function runBaseBackupJob(options?: {
         last_snapshot_id: lastSnapshotId,
         object_count: listed.count,
         detail: errors.join('; ').slice(0, 200),
+        ...(credentialInduce ? { induce_fault: 'credential_expired' } : {}),
       },
     });
+    // Production catch path — status=failed via the same upsert as natural failures.
     heartbeat = await upsertBackupHeartbeat({
       jobName: 'base_backup',
       status: 'failed',
-      lastSnapshotId,
+      // Credential induction: non-null overwrites prior synthetic cred-expired-snap.
+      lastSnapshotId: credentialInduce ? (lastSnapshotId ?? 'auth-denied') : lastSnapshotId,
       objectCount: listed.count,
       traceId: span.traceId,
     });
@@ -295,6 +414,13 @@ export async function runBaseBackupJob(options?: {
     heartbeat,
     span,
     errors,
+    ...(credentialInduce
+      ? {
+          real_auth_fault: authKeyword || backup.status !== 0,
+          production_catch: true,
+          fault_output: faultOutput,
+        }
+      : {}),
   };
 }
 

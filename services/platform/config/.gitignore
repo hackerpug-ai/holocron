@@ -1,3 +1,4 @@
 # Real secrets — never commit (schema lives in secrets.example.yaml)
 secrets.yaml
 secrets.yml
+restic/
