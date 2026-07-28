@@ -128,13 +128,13 @@ describe('struct-3 AC-1: malformed→repair→valid bounded loop (RED)', () => {
 
       // Must have real fleet traffic
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeArtifact('AC-1-green-good-input.json', {
         result,
         parseResult: simpleSchema.safeParse(result),
         fleetCount: capture.fleetCount(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();
@@ -179,14 +179,14 @@ describe('struct-3 AC-1: malformed→repair→valid bounded loop (RED)', () => {
 
         // Must have real fleet traffic for each repair iteration (not just once)
         expect(capture.fleetCount()).toBeGreaterThanOrEqual(2);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeArtifact('AC-1-green-repair-loop.json', {
           result,
           parseResult: simpleSchema.safeParse(result),
           status,
           fleetCount: capture.fleetCount(),
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
         });
       } finally {
         capture.restore();
@@ -219,7 +219,7 @@ describe('struct-3 AC-1 negative-control hygiene', () => {
       writeArtifact('AC-1-capture-hygiene.json', {
         rowCount: capture.rows.length,
         fleetCount: capture.fleetCount(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();

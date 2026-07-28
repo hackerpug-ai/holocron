@@ -18,7 +18,7 @@ export type CaptureRow = {
 export type NetworkCapture = {
   rows: CaptureRow[];
   countForHost: (hostFragment: string) => number;
-  anthropicCount: () => number;
+  deepseekCount: () => number;
   fleetCount: () => number;
   restore: () => void;
   snapshot: () => CaptureRow[];
@@ -73,8 +73,8 @@ export function installNetworkCapture(): NetworkCapture {
         (r) => r.host.toLowerCase().includes(needle) || r.url.toLowerCase().includes(needle)
       ).length;
     },
-    anthropicCount() {
-      return this.countForHost('api.anthropic.com');
+    deepseekCount() {
+      return this.countForHost('api.deepseek.com');
     },
     fleetCount() {
       return rows.filter(

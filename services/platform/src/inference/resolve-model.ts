@@ -1,14 +1,14 @@
 /**
- * resolveModel(role, { allowEscape }) — local-first fleet router with default-deny Claude escape.
+ * resolveModel(role, { allowEscape }) — local-first fleet router with default-deny DeepSeek escape.
  *
  * Default path (allowEscape=false):
  *   Fleet Role Manifest → live health probe → @ai-sdk/openai-compatible baseURL on :4545.
- *   ZERO Anthropic. Cloud endpoints refused even if misconfigured in the manifest.
+ *   ZERO cloud. Anthropic/DeepSeek/OpenAI/Google endpoints refused even if misconfigured in the manifest.
  *
  * Escape path (allowEscape=true):
- *   Budget pre-check (Postgres budget_ledger via checkBudget) → real probe to api.anthropic.com
- *   → return Anthropic endpoint. Never the default.
- *   After a successful Anthropic generate, call logEscape()/runBudgetedEscape() to meter spend.
+ *   Budget pre-check (Postgres budget_ledger via checkBudget) → real probe to api.deepseek.com
+ *   → return DeepSeek endpoint. Never the default.
+ *   After a successful DeepSeek generate, call logEscape()/runBudgetedEscape() to meter spend.
  */
 
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
@@ -30,20 +30,20 @@ export type ResolveModelOptions = {
   /**
    * Override the role's endpoint for health probing only.
    * Used by fail-closed tests (dead port). Does NOT invent a success path.
-   * Ignored on allowEscape=true (escape uses Anthropic, not fleet).
+   * Ignored on allowEscape=true (escape uses DeepSeek, not fleet).
    */
   endpointOverride?: string;
   /**
    * When true, skip the live health probe (structural resolve only).
    * Default false — production and AC require a live probe.
-   * Ignored on allowEscape=true (escape always probes Anthropic).
+   * Ignored on allowEscape=true (escape always probes DeepSeek).
    */
   skipHealth?: boolean;
   /** Optional fetch implementation (defaults to global fetch). */
   fetchImpl?: typeof fetch;
   /**
-   * When true, permit the budgeted Claude escape path (api.anthropic.com).
-   * Default false — local fleet only; Anthropic is default-deny.
+   * When true, permit the budgeted DeepSeek escape path (api.deepseek.com).
+   * Default false — local fleet only; DeepSeek escape is default-deny.
    */
   allowEscape?: boolean;
   /** Estimated USD cost for budget pre-check on escape (default 0.01). */
@@ -56,15 +56,15 @@ export type ResolveModelOptions = {
   runId?: string;
   stepId?: string;
   /**
-   * Escape model id (Anthropic). Default HOLO_ESCAPE_MODEL or claude-haiku.
-   * Does NOT introduce claudeFlash/Pro/Ultra factories.
+   * Escape model id (DeepSeek). Default HOLO_ESCAPE_MODEL or deepseek-chat.
+   * Does NOT introduce provider-specific factory helpers.
    */
   escapeModelId?: string;
-  /** Skip Anthropic network probe on escape (tests only — production probes). */
+  /** Skip DeepSeek network probe on escape (tests only — production probes). */
   skipEscapeProbe?: boolean;
 };
 
-export type ResolvedModelProvider = 'fleet' | 'anthropic';
+export type ResolvedModelProvider = 'fleet' | 'deepseek';
 
 export type ResolvedModel = {
   role: string;
@@ -78,7 +78,7 @@ export type ResolvedModel = {
   degradationAction: DegradationAction;
   /** Health / escape probe succeeded. */
   healthy: true;
-  /** OpenAI-compatible base URL for @ai-sdk/openai-compatible (…/v1), or Anthropic base. */
+  /** OpenAI-compatible base URL for @ai-sdk/openai-compatible (…/v1), or DeepSeek escape base. */
   baseURL: string;
   /** Which provider the endpoint targets. */
   provider: ResolvedModelProvider;
@@ -107,12 +107,12 @@ export class RoleUnavailableError extends Error {
   }
 }
 
-export const ANTHROPIC_API_HOST = 'api.anthropic.com';
-export const ANTHROPIC_ENDPOINT = `https://${ANTHROPIC_API_HOST}`;
-export const DEFAULT_ESCAPE_MODEL_ID = 'claude-haiku-4-5-20251001';
+export const DEEPSEEK_API_HOST = 'api.deepseek.com';
+export const DEEPSEEK_ENDPOINT = `https://${DEEPSEEK_API_HOST}`;
+export const DEFAULT_ESCAPE_MODEL_ID = 'deepseek-chat';
 
 const CLOUD_ENDPOINT_RE =
-  /api\.anthropic\.com|api\.openai\.com|generativelanguage\.googleapis\.com/i;
+  /api\.anthropic\.com|api\.deepseek\.com|api\.openai\.com|generativelanguage\.googleapis\.com/i;
 
 /** Normalize endpoint to host:port base without trailing slash or /v1. */
 export function normalizeEndpointBase(endpoint: string): string {
@@ -172,19 +172,19 @@ export async function probeRoleHealth(
 }
 
 /**
- * Real network probe to api.anthropic.com for the escape path.
+ * Real network probe to api.deepseek.com for the escape path.
  * 200 (valid key) or 401/403 (reachable, auth failed) both count as "host reached".
  * Network errors fail closed.
  */
-export async function probeAnthropicEscape(options?: {
+export async function probeDeepSeekEscape(options?: {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   apiKey?: string;
 }): Promise<{ ok: true; status: number; url: string } | { ok: false; error: string; url: string }> {
-  const url = `${ANTHROPIC_ENDPOINT}/v1/models`;
+  const url = `${DEEPSEEK_ENDPOINT}/models`;
   const fetchImpl = options?.fetchImpl ?? fetch;
   const timeoutMs = options?.timeoutMs ?? 10_000;
-  const apiKey = options?.apiKey ?? process.env.ANTHROPIC_API_KEY ?? 'missing';
+  const apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? 'missing';
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -193,8 +193,7 @@ export async function probeAnthropicEscape(options?: {
       signal: controller.signal,
       headers: {
         accept: 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        authorization: `Bearer ${apiKey}`,
       },
     });
     // Any HTTP response proves the host was contacted (network assertion surface).
@@ -202,13 +201,13 @@ export async function probeAnthropicEscape(options?: {
       return {
         ok: false,
         url,
-        error: `anthropic probe HTTP ${res.status} at ${url}`,
+        error: `deepseek probe HTTP ${res.status} at ${url}`,
       };
     }
     return { ok: true, status: res.status, url };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    return { ok: false, url, error: `anthropic probe failed at ${url}: ${error}` };
+    return { ok: false, url, error: `deepseek probe failed at ${url}: ${error}` };
   } finally {
     clearTimeout(timer);
   }
@@ -216,7 +215,7 @@ export async function probeAnthropicEscape(options?: {
 
 /**
  * Build an @ai-sdk/openai-compatible chat model for a fleet-resolved role.
- * NEVER used for the Anthropic escape path (that stays @ai-sdk/anthropic at call sites).
+ * NEVER used for the DeepSeek escape path (that stays @ai-sdk/openai-compatible at call sites).
  */
 export function createFleetChatModel(
   resolved: ResolvedModel,
@@ -224,7 +223,7 @@ export function createFleetChatModel(
 ) {
   if (resolved.provider !== 'fleet') {
     throw new Error(
-      `createFleetChatModel requires provider=fleet (got ${resolved.provider}) — use Anthropic SDK on escape path`
+      `createFleetChatModel requires provider=fleet (got ${resolved.provider}) — use DeepSeek escape path instead`
     );
   }
   const provider = createOpenAICompatible({
@@ -240,7 +239,7 @@ function resolveEscapeModelId(options: ResolveModelOptions): string {
 }
 
 /**
- * Resolve a fleet role to a live endpoint (or budgeted Anthropic escape).
+ * Resolve a fleet role to a live endpoint (or budgeted DeepSeek escape).
  *
  * @throws UnknownFleetRoleError when role is not in the manifest
  * @throws RoleUnavailableError when the live health/escape probe fails (fail closed)
@@ -256,13 +255,13 @@ export async function resolveModel(
   // ── Escape path (explicit only) ──────────────────────────────────────────
   if (allowEscape) {
     // Never-cloud during fleet degraded mode (infer-3 / REDHAT-FIX-H1 + H4).
-    // Shared choke with runBudgetedEscape — refuse BEFORE any Anthropic traffic.
+    // Shared choke with runBudgetedEscape — refuse BEFORE any DeepSeek traffic.
     // H4: async durable Postgres degraded_mode read (process flag OR DB non-normal).
     try {
       await assertEscapeNotDegraded(role);
     } catch (err) {
       if (err instanceof EscapeDegradedRefusedError) {
-        throw new RoleUnavailableError(role, ANTHROPIC_ENDPOINT, 'fail-closed', err.message);
+        throw new RoleUnavailableError(role, DEEPSEEK_ENDPOINT, 'fail-closed', err.message);
       }
       throw err;
     }
@@ -277,7 +276,7 @@ export async function resolveModel(
       throw err;
     }
 
-    // Budget pre-check BEFORE any Anthropic network traffic (audits check_type='pre-check')
+    // Budget pre-check BEFORE any DeepSeek network traffic (audits check_type='pre-check')
     const budget = await assertBudget({
       estimatedCostUsd: options.estimatedCostUsd ?? 0.01,
       reason: options.reason,
@@ -289,12 +288,12 @@ export async function resolveModel(
 
     let escapeProbeStatus: number | undefined;
     if (!options.skipEscapeProbe) {
-      const probe = await probeAnthropicEscape({
+      const probe = await probeDeepSeekEscape({
         fetchImpl: options.fetchImpl,
         timeoutMs: Math.min(entry.timeoutMs, 15_000),
       });
       if (!probe.ok) {
-        throw new RoleUnavailableError(role, ANTHROPIC_ENDPOINT, 'fail-closed', probe.error);
+        throw new RoleUnavailableError(role, DEEPSEEK_ENDPOINT, 'fail-closed', probe.error);
       }
       escapeProbeStatus = probe.status;
     }
@@ -302,7 +301,7 @@ export async function resolveModel(
     const modelId = resolveEscapeModelId(options);
     return {
       role: entry.role,
-      endpoint: ANTHROPIC_ENDPOINT,
+      endpoint: DEEPSEEK_ENDPOINT,
       litellmModelId: modelId,
       modelRevision: `escape:${modelId}`,
       contextLimit: entry.contextLimit,
@@ -311,8 +310,8 @@ export async function resolveModel(
       structuredOutput: entry.structuredOutput,
       degradationAction: 'fail-closed',
       healthy: true,
-      baseURL: `${ANTHROPIC_ENDPOINT}/v1`,
-      provider: 'anthropic',
+      baseURL: `${DEEPSEEK_ENDPOINT}/v1`,
+      provider: 'deepseek',
       allowEscape: true,
       budget,
       escapeProbeStatus,

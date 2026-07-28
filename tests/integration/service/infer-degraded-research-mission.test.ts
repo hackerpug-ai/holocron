@@ -174,7 +174,7 @@ describe('AC-4: Research mission degrades to sense-only with retry-queue', () =>
         expect(retryCount).toBeGreaterThanOrEqual(2);
 
         expect(controller.getState()['degraded-state']).toBe('surface-unavailable');
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeArtifact('AC-4-research-mission.json', {
           missionId,
@@ -183,7 +183,7 @@ describe('AC-4: Research mission degrades to sense-only with retry-queue', () =>
           afterChallenge,
           retryCount,
           degradedState: controller.getState()['degraded-state'],
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
         });
       } finally {
         capture.restore();

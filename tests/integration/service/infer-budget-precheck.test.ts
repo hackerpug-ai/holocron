@@ -224,7 +224,7 @@ describe('AC-2: checkBudget pre-check blocks over-budget before Anthropic', () =
             expect(err).toBeInstanceOf(BudgetExceededError);
           }
           expect(blocked).toBe(true);
-          expect(capture.anthropicCount()).toBe(0);
+          expect(capture.deepseekCount()).toBe(0);
 
           // CLI: --escape --cost 999 blocked with zero Anthropic
           const cli = spawnSync(
@@ -247,7 +247,7 @@ describe('AC-2: checkBudget pre-check blocks over-budget before Anthropic', () =
           writeArtifact('AC-2-precheck.json', {
             over,
             within,
-            anthropicCount: capture.anthropicCount(),
+            deepseekCount: capture.deepseekCount(),
             rows: capture.snapshot(),
             cli: { status: cli.status, out: cliOut.slice(0, 2000) },
           });

@@ -406,7 +406,7 @@ export class DegradedModeController {
       const escapeRequested = opts.allowEscape === true || opts.highStakes === true;
       if (
         !escapeRequested &&
-        (isCloudEndpoint(resolved.endpoint) || resolved.provider === 'anthropic')
+        (isCloudEndpoint(resolved.endpoint) || resolved.provider === 'deepseek')
       ) {
         throw new RoleUnavailableError(
           role,
@@ -420,7 +420,7 @@ export class DegradedModeController {
     } catch (err) {
       if (err instanceof RoleUnavailableError) {
         // Escape-path failures while not fleet-down should surface as errors, not
-        // degrade the whole process (budget exceeded, anthropic probe fail).
+        // degrade the whole process (budget exceeded, deepseek probe fail).
         const escapeRequested = opts.allowEscape === true || opts.highStakes === true;
         if (escapeRequested && this.snapshot['degraded-state'] === 'normal') {
           throw err;

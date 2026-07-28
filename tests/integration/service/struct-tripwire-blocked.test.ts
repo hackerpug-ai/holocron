@@ -180,7 +180,7 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
               : String(caught),
           tripwirePayload: blocked.tripwirePayload,
           fleetCount: capture.fleetCount(),
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           extractionId,
           status: status ?? undefined,
           noDispatchVerified: status?.committed === false,
@@ -189,7 +189,7 @@ describe('struct-3 AC-3: tripwire→BlockedError with no tool dispatch (RED)', (
       }
 
       // Input tripwire fires BEFORE any fleet call (block must not require fleet).
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
     } finally {
       capture.restore();
     }

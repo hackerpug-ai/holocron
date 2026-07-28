@@ -260,9 +260,9 @@ describe.sequential('pipes-2 GREEN — business-report parameterized template', 
       });
 
       const fleet = rows.filter((r) => r.provider === 'fleet');
-      const anthropic = rows.filter((r) => r.provider === 'anthropic');
+      const escapeRows = rows.filter((r) => r.provider === 'deepseek');
       expect(fleet.length).toBeGreaterThanOrEqual(1);
-      expect(anthropic.length).toBe(0);
+      expect(escapeRows.length).toBe(0);
 
       const output = asRecord(result.output);
       expect(output.reportKind).toBe('ai-roi');

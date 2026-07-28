@@ -256,7 +256,7 @@ Usage:
   evidence:belief           As-of belief + net-support for a claim (--claim-id, --as-of)
   evidence:register-doc <id>
                             Register internal doc as self-sourced source (reuse passages)
-  infer:call                Resolve fleet role; --escape runs budgeted Claude escape
+  infer:call                Resolve fleet role; --escape runs budgeted DeepSeek escape
                             (checkBudget → generateText → logEscape); fleet-down → degraded
   infer:trace <id>          Dump durable modelCalls (provider/endpoint) for a mission run id
   infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
@@ -357,7 +357,7 @@ Options:
   --claim-id <id>       (evidence:belief) claim id to query
   --as-of <ts|now>      (evidence:belief) transaction-time as-of (default: now)
   --role <role>         (infer:call|infer:degraded) fleet role: divergent|convergent|judge|embed|rerank
-  --escape              (infer:call) budgeted Claude escape via runBudgetedEscape
+  --escape              (infer:call) budgeted DeepSeek escape via runBudgetedEscape
   --highStakes          (infer:call) alias for --escape (high-stakes step)
   --cost <usd>          (infer:call) estimated escape cost USD for budget pre-check
   --reason <text>       (infer:call) escape reason for audit trail
@@ -2760,9 +2760,9 @@ async function main(): Promise<void> {
         return origFetch(input as RequestInfo, init as RequestInit);
       }) as typeof globalThis.fetch;
 
-      const anthropicHits = () =>
+      const deepseekHits = () =>
         captureRows.filter(
-          (r) => r.host.includes('api.anthropic.com') || r.url.includes('api.anthropic.com')
+          (r) => r.host.includes('api.deepseek.com') || r.url.includes('api.deepseek.com')
         ).length;
       const fleetHits = () =>
         captureRows.filter((r) => r.url.includes(':4545') || r.host.includes('127.0.0.1')).length;
@@ -2781,7 +2781,7 @@ async function main(): Promise<void> {
             args.prompt ?? args.statement ?? 'Reply with exactly the single word: pong';
           try {
             // Shared never-cloud choke lives inside runBudgetedEscape (assertEscapeNotDegraded).
-            // CLI must NOT invent a parallel Anthropic entry point.
+            // CLI must NOT invent a parallel DeepSeek entry point.
             const escapeResult = await runBudgetedEscape({
               prompt,
               reason,
@@ -2790,7 +2790,7 @@ async function main(): Promise<void> {
               stepId: 'holo-infer-call',
               role,
             });
-            const anthropicCount = anthropicHits();
+            const deepseekCount = deepseekHits();
             const fleetCount = fleetHits();
             const payload = {
               ok: true,
@@ -2805,20 +2805,20 @@ async function main(): Promise<void> {
                 modelId: escapeResult.modelId,
                 inputTokens: escapeResult.inputTokens,
                 outputTokens: escapeResult.outputTokens,
-                anthropicHostContacted: escapeResult.anthropicHostContacted,
+                escapeHostContacted: escapeResult.escapeHostContacted,
                 reason,
               },
               resolved: {
                 role,
-                provider: 'anthropic' as const,
-                endpoint: 'https://api.anthropic.com',
-                baseURL: 'https://api.anthropic.com/v1',
+                provider: 'deepseek' as const,
+                endpoint: 'https://api.deepseek.com',
+                baseURL: 'https://api.deepseek.com/v1',
                 litellmModelId: escapeResult.modelId,
                 modelRevision: `escape:${escapeResult.modelId}`,
                 allowEscape: true,
               },
               networkCapture: {
-                anthropicCount,
+                deepseekCount,
                 fleetCount,
                 rows: captureRows,
               },
@@ -2826,7 +2826,7 @@ async function main(): Promise<void> {
             if (args.json) {
               console.log(JSON.stringify(payload, null, 2));
             } else {
-              console.log('holo infer:call — runBudgetedEscape (budgeted Claude escape)');
+              console.log('holo infer:call — runBudgetedEscape (budgeted DeepSeek escape)');
               console.log(`  role:            ${role}`);
               console.log(`  mode:            runBudgetedEscape`);
               console.log(`  modelId:         ${escapeResult.modelId}`);
@@ -2836,7 +2836,7 @@ async function main(): Promise<void> {
               console.log(`  reason:          ${reason}`);
               console.log(`  text:            ${escapeResult.text.slice(0, 200)}`);
               console.log(
-                `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+                `  networkCapture:  deepseek=${deepseekCount} fleet=${fleetCount} total=${captureRows.length}`
               );
               console.log('  status: OK');
             }
@@ -2852,10 +2852,10 @@ async function main(): Promise<void> {
                     ? err.code
                     : /degraded|never-cloud/i.test(msg)
                       ? ESCAPE_DEGRADED_REFUSED_CODE
-                      : /ANTHROPIC_API_KEY/i.test(msg)
-                        ? 'ANTHROPIC_API_KEY_REQUIRED'
+                      : /DEEPSEEK_API_KEY/i.test(msg)
+                        ? 'DEEPSEEK_API_KEY_REQUIRED'
                         : 'ESCAPE_FAILED';
-            const anthropicCount = anthropicHits();
+            const deepseekCount = deepseekHits();
             const payload = {
               ok: false,
               mode: 'runBudgetedEscape',
@@ -2864,7 +2864,7 @@ async function main(): Promise<void> {
               allowEscape: true,
               message: msg,
               networkCapture: {
-                anthropicCount,
+                deepseekCount,
                 fleetCount: fleetHits(),
                 rows: captureRows,
               },
@@ -2874,7 +2874,7 @@ async function main(): Promise<void> {
             } else {
               console.error(`holo infer:call failed: ${code}`);
               console.error(`  ${msg}`);
-              console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+              console.error(`  networkCapture.deepseekCount=${deepseekCount}`);
             }
             process.exit(1);
           }
@@ -2898,7 +2898,7 @@ async function main(): Promise<void> {
             estimatedCostUsd,
             reason: args.reason ?? 'holo-infer-call',
           });
-          const anthropicCount = anthropicHits();
+          const deepseekCount = deepseekHits();
           const fleetCount = fleetHits();
 
           if (result.ok) {
@@ -2911,7 +2911,7 @@ async function main(): Promise<void> {
               resolved,
               degradedState: controller.getState(),
               networkCapture: {
-                anthropicCount,
+                deepseekCount,
                 fleetCount,
                 rows: captureRows,
               },
@@ -2930,7 +2930,7 @@ async function main(): Promise<void> {
               console.log(`  degradation:     ${resolved.degradationAction}`);
               console.log(`  degraded-state:  ${controller.getState()['degraded-state']}`);
               console.log(
-                `  networkCapture:  anthropic=${anthropicCount} fleet=${fleetCount} total=${captureRows.length}`
+                `  networkCapture:  deepseek=${deepseekCount} fleet=${fleetCount} total=${captureRows.length}`
               );
               console.log('  status: OK');
             }
@@ -2946,7 +2946,7 @@ async function main(): Promise<void> {
             degradation: result.degradation,
             degradedState: controller.getState(),
             networkCapture: {
-              anthropicCount,
+              deepseekCount,
               fleetCount: captureRows.filter((r) => r.url.includes(':4545')).length,
               rows: captureRows,
             },
@@ -2958,7 +2958,7 @@ async function main(): Promise<void> {
             console.error(`  ${result.degradation.message}`);
             console.error(`  degraded-state: ${result.degradation['degraded-state']}`);
             console.error(`  degradationAction: ${result.degradation.degradationAction}`);
-            console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+            console.error(`  networkCapture.deepseekCount=${deepseekCount}`);
           }
           process.exit(1);
         } catch (err) {
@@ -2971,7 +2971,7 @@ async function main(): Promise<void> {
                 : err instanceof BudgetExceededError
                   ? err.code
                   : 'RESOLVE_FAILED';
-          const anthropicCount = anthropicHits();
+          const deepseekCount = deepseekHits();
           const payload = {
             ok: false,
             error: code,
@@ -2979,7 +2979,7 @@ async function main(): Promise<void> {
             allowEscape: false,
             message: msg,
             networkCapture: {
-              anthropicCount,
+              deepseekCount,
               fleetCount: fleetHits(),
               rows: captureRows,
             },
@@ -2989,7 +2989,7 @@ async function main(): Promise<void> {
           } else {
             console.error(`holo infer:call failed: ${code}`);
             console.error(`  ${msg}`);
-            console.error(`  networkCapture.anthropicCount=${anthropicCount}`);
+            console.error(`  networkCapture.deepseekCount=${deepseekCount}`);
           }
           process.exit(1);
         } finally {
@@ -3106,7 +3106,7 @@ async function main(): Promise<void> {
         if (args.json) {
           console.log(JSON.stringify({ ok: true, ...status }, null, 2));
         } else {
-          console.log('holo budget:status — Claude escape budget ledger');
+          console.log('holo budget:status — DeepSeek escape budget ledger');
           console.log(`  spent:             ${status.spent}`);
           console.log(`  ceiling:           ${status.ceiling}`);
           console.log(`  effectiveCeiling:  ${status.effectiveCeiling}`);

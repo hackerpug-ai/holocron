@@ -40,7 +40,7 @@ describe('AC-1: resolveModel routes via fleet with zero cloud on default path', 
       const resolved = await resolveModel('divergent');
 
       expect(resolved.endpoint).toMatch(/:4545/);
-      expect(resolved.endpoint).not.toMatch(/api\.anthropic\.com/i);
+      expect(resolved.endpoint).not.toMatch(/api\.deepseek\.com/i);
       expect(resolved.role).toBe('divergent');
       expect(resolved.healthy).toBe(true);
       expect(resolved.baseURL).toMatch(/:4545.*\/v1/);
@@ -52,11 +52,11 @@ describe('AC-1: resolveModel routes via fleet with zero cloud on default path', 
 
       // Health probe + resolve must touch fleet, never Anthropic
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeInferArtifact('AC-1-divergent-resolve.json', {
         resolved,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         fleetCount: capture.fleetCount(),
         rows: capture.snapshot(),
       });
@@ -72,15 +72,15 @@ describe('AC-1: resolveModel routes via fleet with zero cloud on default path', 
       const resolved = await resolveModel('convergent');
 
       expect(resolved.endpoint).toMatch(/:4545/);
-      expect(resolved.endpoint).not.toMatch(/api\.anthropic\.com/i);
+      expect(resolved.endpoint).not.toMatch(/api\.deepseek\.com/i);
       expect(resolved.role).toBe('convergent');
       expect(identityBlob(resolved)).toMatch(/27b|27B/);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
 
       writeInferArtifact('AC-1-convergent-resolve.json', {
         resolved,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         fleetCount: capture.fleetCount(),
       });
     } finally {
@@ -88,7 +88,7 @@ describe('AC-1: resolveModel routes via fleet with zero cloud on default path', 
     }
   });
 
-  itLive('default path (allowEscape=false) never hits api.anthropic.com', async () => {
+  itLive('default path (allowEscape=false) never hits api.deepseek.com', async () => {
     const capture = installNetworkCapture();
     try {
       const { resolveModel } = await loadResolveModel();
@@ -97,13 +97,13 @@ describe('AC-1: resolveModel routes via fleet with zero cloud on default path', 
 
       expect(a.endpoint).toMatch(/:4545/);
       expect(b.endpoint).toMatch(/:4545/);
-      expect(a.endpoint).not.toMatch(/api\.anthropic\.com/i);
-      expect(b.endpoint).not.toMatch(/api\.anthropic\.com/i);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(a.endpoint).not.toMatch(/api\.deepseek\.com/i);
+      expect(b.endpoint).not.toMatch(/api\.deepseek\.com/i);
+      expect(capture.deepseekCount()).toBe(0);
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
 
       writeInferArtifact('AC-1-zero-cloud-network.json', {
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         fleetCount: capture.fleetCount(),
         rows: capture.snapshot(),
       });

@@ -3,7 +3,7 @@
  *
  * Proves the local-first invariant with un-fakeable network assertions:
  *   resolveModel(role) with allowEscape=false (or omitted) → fleet :4545 only.
- *   Network capture row count for host api.anthropic.com === 0.
+ *   Network capture row count for host api.deepseek.com === 0.
  *
  * NEGATIVE CONTROL (would fail if):
  * - Network capture mocked to always return zero cloud requests
@@ -12,7 +12,7 @@
  * - Test passes without real seeded fleet / PLATFORM_IT=1
  *
  * RED (empty router / no resolveModel): vitest non-zero — import or resolve fails.
- * GREEN (infer-1+): exit 0, anthropicCount === 0, fleetCount ≥ 1.
+ * GREEN (infer-1+): exit 0, deepseekCount === 0, fleetCount ≥ 1.
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-red-zero-cloud.test.ts
@@ -51,7 +51,7 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
     expect(mod.resolveModel).toBeDefined();
   });
 
-  itLive('default path (allowEscape omitted): fleet only, anthropicCount=0', async () => {
+  itLive('default path (allowEscape omitted): fleet only, deepseekCount=0', async () => {
     const capture = installNetworkCapture();
     try {
       const { resolveModel } = await loadResolveModel();
@@ -59,7 +59,7 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
       const resolved = await resolveModel('divergent');
 
       expect(resolved.endpoint).toMatch(/:4545/);
-      expect(resolved.endpoint).not.toMatch(/api\.anthropic\.com/i);
+      expect(resolved.endpoint).not.toMatch(/api\.deepseek\.com/i);
       expect(resolved.role).toBe('divergent');
       expect(resolved.healthy).toBe(true);
       expect(resolved.provider === 'fleet' || resolved.provider === undefined).toBe(true);
@@ -67,12 +67,12 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
 
       // Un-fakeable: real capture must have recorded fleet health probe traffic
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-      expect(capture.anthropicCount()).toBe(0);
-      expect(capture.countForHost('api.anthropic.com')).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
+      expect(capture.countForHost('api.deepseek.com')).toBe(0);
 
       for (const row of capture.snapshot()) {
-        expect(row.host).not.toMatch(/api\.anthropic\.com/i);
-        expect(row.url).not.toMatch(/api\.anthropic\.com/i);
+        expect(row.host).not.toMatch(/api\.deepseek\.com/i);
+        expect(row.url).not.toMatch(/api\.deepseek\.com/i);
       }
 
       writeArtifact('AC-1-zero-cloud-default.json', {
@@ -84,7 +84,7 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
           modelRevision: resolved.modelRevision,
           allowEscape: resolved.allowEscape,
         },
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         fleetCount: capture.fleetCount(),
         rows: capture.snapshot(),
       });
@@ -93,7 +93,7 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
     }
   });
 
-  itLive('explicit allowEscape=false: never hits api.anthropic.com', async () => {
+  itLive('explicit allowEscape=false: never hits api.deepseek.com', async () => {
     const capture = installNetworkCapture();
     try {
       const { resolveModel } = await loadResolveModel();
@@ -102,19 +102,19 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
 
       expect(a.endpoint).toMatch(/:4545/);
       expect(b.endpoint).toMatch(/:4545/);
-      expect(a.endpoint).not.toMatch(/api\.anthropic\.com/i);
-      expect(b.endpoint).not.toMatch(/api\.anthropic\.com/i);
+      expect(a.endpoint).not.toMatch(/api\.deepseek\.com/i);
+      expect(b.endpoint).not.toMatch(/api\.deepseek\.com/i);
       expect(identityBlob(a)).toMatch(/35b-a3b|35B-A3B/i);
       expect(identityBlob(b)).toMatch(/27b|27B/i);
 
-      expect(capture.anthropicCount()).toBe(0);
-      expect(capture.countForHost('api.anthropic.com')).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
+      expect(capture.countForHost('api.deepseek.com')).toBe(0);
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
 
       writeArtifact('AC-1-zero-cloud-allowEscape-false.json', {
         divergent: a.endpoint,
         convergent: b.endpoint,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         fleetCount: capture.fleetCount(),
         rows: capture.snapshot(),
       });
@@ -137,13 +137,13 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
         caught = err;
       }
       expect(caught).toBeInstanceOf(RoleUnavailableError);
-      expect(capture.anthropicCount()).toBe(0);
-      expect(capture.countForHost('api.anthropic.com')).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
+      expect(capture.countForHost('api.deepseek.com')).toBe(0);
 
       writeArtifact('AC-1-fail-closed-no-anthropic.json', {
         error:
           caught instanceof Error ? { name: caught.name, message: caught.message } : String(caught),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         rows: capture.snapshot(),
       });
     } finally {
@@ -154,7 +154,7 @@ describe('infer-4 AC-1: zero Anthropic on default path (real network capture)', 
 
 /**
  * Fakeability floor: network capture must observe real fetch traffic.
- * Would fail if installNetworkCapture hard-coded anthropicCount/fleetCount to 0.
+ * Would fail if installNetworkCapture hard-coded deepseekCount/fleetCount to 0.
  */
 describe('infer-4 AC-1 negative-control hygiene (real capture)', () => {
   itLive('capture records real fleet fetch (not hard-coded zero)', async () => {
@@ -164,12 +164,12 @@ describe('infer-4 AC-1 negative-control hygiene (real capture)', () => {
       expect(capture.rows.length).toBeGreaterThanOrEqual(1);
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
       // Anthropic host was never requested — count is observational, not stubbed
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeArtifact('AC-1-capture-hygiene.json', {
         rowCount: capture.rows.length,
         fleetCount: capture.fleetCount(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         rows: capture.snapshot(),
       });
     } finally {

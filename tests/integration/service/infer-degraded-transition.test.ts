@@ -149,7 +149,7 @@ describe('AC-1: Controller executes degradationAction on RoleUnavailableError', 
         expect(state['degraded-state']).not.toBe('normal');
 
         // Never-cloud during degradation
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         // Prove RoleUnavailableError type still carries degradationAction from manifest
         expect(result.error?.degradationAction).toBe('surface-unavailable');
@@ -159,7 +159,7 @@ describe('AC-1: Controller executes degradationAction on RoleUnavailableError', 
           ok: result.ok,
           degradation: result.degradation,
           state,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           captureRows: capture.snapshot(),
         });
       } finally {
@@ -191,12 +191,12 @@ describe('AC-1: Controller executes degradationAction on RoleUnavailableError', 
       expect(degradation['degraded-state']).toBe('surface-unavailable');
       expect(degradation.message).toContain(SURFACE_MSG);
       expect(controller.getState()['degraded-state']).toBe('surface-unavailable');
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeArtifact('AC-1-handle-unavailable.json', {
         degradation,
         state: controller.getState(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();

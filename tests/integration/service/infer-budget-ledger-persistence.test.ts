@@ -138,7 +138,7 @@ describe('AC-1: budget_ledger persists escape records (real Postgres)', () => {
           runId,
           stepId: 'ac1-step',
           role: 'divergent',
-          modelId: 'claude-haiku-4-5-20251001',
+          modelId: 'deepseek-chat',
           checkType: 'escape',
         });
 

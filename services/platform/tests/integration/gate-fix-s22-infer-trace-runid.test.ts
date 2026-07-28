@@ -233,15 +233,15 @@ describe.sequential('GATE-FIX-S22 — infer:trace accepts mission runId (nonprod
       expect(modelCalls.length, 'modelCalls.length >= 1').toBeGreaterThanOrEqual(1);
 
       let fleetCount = 0;
-      let anthropicCount = 0;
+      let deepseekCount = 0;
       for (const call of modelCalls) {
         expect(typeof call.provider).toBe('string');
         expect(String(call.provider).length).toBeGreaterThan(0);
         if (call.provider === 'fleet') fleetCount += 1;
-        if (call.provider === 'anthropic') anthropicCount += 1;
+        if (call.provider === 'deepseek') deepseekCount += 1;
       }
       expect(fleetCount, 'provider=fleet appears in modelCalls').toBeGreaterThanOrEqual(1);
-      expect(anthropicCount, 'provider=anthropic must be zero').toBe(0);
+      expect(deepseekCount, 'provider=anthropic must be zero').toBe(0);
       expect(String(payload.code ?? ''), 'must not be INFER_TRACE_NOT_FOUND').not.toBe(
         'INFER_TRACE_NOT_FOUND'
       );

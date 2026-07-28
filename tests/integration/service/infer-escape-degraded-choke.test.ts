@@ -9,7 +9,7 @@
  * NEGATIVE CONTROL (would fail if):
  * - runBudgetedEscape still has zero degraded checks (dual-path bypass)
  * - stub/mock generateText that never hits network
- * - hard-coded anthropicCount:0 without installNetworkCapture
+ * - hard-coded deepseekCount:0 without installNetworkCapture
  * - only resolveModel tested while runBudgetedEscape remains ungated
  * - process-flag cleared before escape call so test is vacuous
  *
@@ -32,19 +32,19 @@ const itLive = PLATFORM_IT ? it : it.skip;
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-H1');
 const EVIDENCE_SPEC = resolve(REPO_ROOT, '.spec/evidence');
 
-function ensureAnthropicKeyFromSecrets(): boolean {
+function ensureDeepSeekKeyFromSecrets(): boolean {
   applyConsolidatedSecretsToEnv();
-  const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
+  const fromEnv = process.env.DEEPSEEK_API_KEY?.trim();
   if (fromEnv) return true;
-  const fromFile = getSecretValue('ANTHROPIC_API_KEY');
+  const fromFile = getSecretValue('DEEPSEEK_API_KEY');
   if (fromFile?.trim()) {
-    process.env.ANTHROPIC_API_KEY = fromFile.trim();
+    process.env.DEEPSEEK_API_KEY = fromFile.trim();
     return true;
   }
   return false;
 }
 
-const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
+const hasDeepSeekKey = ensureDeepSeekKeyFromSecrets();
 
 function writeEvidence(name: string, body: unknown): string {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -83,7 +83,7 @@ async function loadBudgetLedger() {
       tokens: number;
       cost: number;
       ledgerId: string;
-      anthropicHostContacted: boolean;
+      escapeHostContacted: boolean;
     }>;
   }>;
 }
@@ -192,7 +192,7 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
   });
 
   itLive(
-    'AC-1: runBudgetedEscape under process degraded refuses with anthropicHits===0',
+    'AC-1: runBudgetedEscape under process degraded refuses with deepseekHits===0',
     async () => {
       await withBudgetLock(async () => {
         process.env.HOLO_ESCAPE_BUDGET_USD = process.env.HOLO_ESCAPE_BUDGET_USD || '10';
@@ -246,7 +246,7 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
           flag.resetProcessDegradedFlag();
         }
 
-        const anthropicCount = capture.anthropicCount();
+        const deepseekCount = capture.deepseekCount();
         const rows = capture.snapshot();
         capture.restore();
 
@@ -258,8 +258,8 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
           errorName,
           errorCode,
           errorMessage,
-          anthropicCount,
-          anthropicHits: anthropicCount,
+          deepseekCount,
+          deepseekHits: deepseekCount,
           unexpectedSuccess,
           networkRows: rows,
         };
@@ -275,7 +275,7 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
             errorCode.length > 0,
           `expected refuse code/name, got name=${errorName} code=${errorCode}`
         ).toBe(true);
-        expect(anthropicCount, JSON.stringify(rows)).toBe(0);
+        expect(deepseekCount, JSON.stringify(rows)).toBe(0);
         expect(unexpectedSuccess).toBeNull();
 
         // No metered escape spend row for this attempt
@@ -298,7 +298,7 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
   );
 
   itLive(
-    'AC-2: CLI infer:call --escape under process degraded → refuse + anthropicHits===0',
+    'AC-2: CLI infer:call --escape under process degraded → refuse + deepseekHits===0',
     async () => {
       // CLI is a subprocess: force process-degraded semantic via env honored by shared choke.
       // (H4 will extend the same helper to durable Postgres; H1 is process/shared choke only.)
@@ -313,7 +313,7 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
         mode?: string;
         error?: string;
         message?: string;
-        networkCapture?: { anthropicCount?: number; rows?: unknown[] };
+        networkCapture?: { deepseekCount?: number; rows?: unknown[] };
         escape?: { tokens?: number; cost?: number; ledgerId?: string };
       } = {};
       try {
@@ -326,16 +326,16 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
         }
       }
 
-      const anthropicHits =
-        payload.networkCapture?.anthropicCount ??
-        (result.out.match(/api\.anthropic\.com/gi) ?? []).length;
+      const deepseekHits =
+        payload.networkCapture?.deepseekCount ??
+        (result.out.match(/api\.deepseek\.com/gi) ?? []).length;
       const refuseLiteral = `${payload.message ?? ''}\n${payload.error ?? ''}\n${result.out}`;
 
       const evidence = {
         ac: 'AC-2',
         status: result.status,
         payload,
-        anthropicHits,
+        deepseekHits,
         refuseLiteralPreview: refuseLiteral.slice(0, 500),
       };
 
@@ -345,7 +345,7 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
       // mode remains runBudgetedEscape (CLI still routes there) or explicit degraded refuse
       const modeOrRefuse = `${payload.mode ?? ''}\n${refuseLiteral}`;
       expect(modeOrRefuse).toMatch(/runBudgetedEscape|degraded|never-cloud|ESCAPE_DEGRADED/i);
-      expect(anthropicHits, JSON.stringify(evidence)).toBe(0);
+      expect(deepseekHits, JSON.stringify(evidence)).toBe(0);
       // Must not succeed with tokens while degraded
       expect(Number(payload.escape?.tokens ?? 0)).toBe(0);
 
@@ -511,14 +511,14 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
     } finally {
       flag.resetProcessDegradedFlag();
     }
-    const anthropicCount = capture.anthropicCount();
+    const deepseekCount = capture.deepseekCount();
     capture.restore();
 
     writeEvidence('green-degraded-anthropic-zero.json', {
       phase: 'green',
       refused,
-      anthropicCount,
-      anthropicHits: anthropicCount,
+      deepseekCount,
+      deepseekHits: deepseekCount,
     });
 
     expect(
@@ -526,17 +526,17 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
     ).toBe(true);
     expect(existsSync(greenPath)).toBe(true);
     expect(refused).toBe(true);
-    expect(anthropicCount).toBe(0);
+    expect(deepseekCount).toBe(0);
 
     const greenBody = readFileSync(greenPath, 'utf8');
-    expect(greenBody).toMatch(/anthropicCount": 0|anthropicHits": 0|anthropicCount":0/);
+    expect(greenBody).toMatch(/deepseekCount": 0|deepseekHits": 0|deepseekCount":0/);
 
     writeEvidence('AC-5-evidence-paths.json', {
       redPath,
       greenPath,
       redExists: existsSync(redPath),
       greenExists: existsSync(greenPath),
-      anthropicCount,
+      deepseekCount,
     });
   });
 
@@ -557,9 +557,9 @@ describe('REDHAT-FIX-H1: escape never-cloud single choke', () => {
 
   // Operability control is primarily AC-4 via infer-escape-telemetry; light cross-check when key present
   itLive('cross-check AC-4 seam: non-degraded path not always-refused by choke', async () => {
-    if (!hasAnthropicKey) {
+    if (!hasDeepSeekKey) {
       writeEvidence('AC-4-cross-check-skipped.json', {
-        reason: 'ANTHROPIC_API_KEY absent — full operability covered by infer-escape-telemetry',
+        reason: 'DEEPSEEK_API_KEY absent — full operability covered by infer-escape-telemetry',
       });
       return;
     }

@@ -18,7 +18,7 @@ export const inferenceTelemetry = pgTable(
     stepId: text('step_id'),
     traceId: text('trace_id'),
     role: text('role').notNull(),
-    /** 'fleet' | 'anthropic' */
+    /** 'fleet' | 'deepseek' */
     provider: text('provider').notNull(),
     endpoint: text('endpoint').notNull(),
     modelId: text('model_id'),
@@ -46,7 +46,7 @@ export const inferenceTelemetry = pgTable(
     ),
     check('inference_telemetry_wall_ms_nonneg', sql`${t.wallMs} >= 0`),
     check('inference_telemetry_status_check', sql`${t.status} IN ('success', 'error', 'degraded')`),
-    check('inference_telemetry_provider_check', sql`${t.provider} IN ('fleet', 'anthropic')`),
+    check('inference_telemetry_provider_check', sql`${t.provider} IN ('fleet', 'deepseek')`),
   ]
 );
 

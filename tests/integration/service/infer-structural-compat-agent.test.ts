@@ -8,7 +8,7 @@
  * - createFleetChatModel never called outside resolve-model.ts
  * - stub agent with static model id ignoring manifest
  * - mock resolveModel returning fake without live endpoint
- * - hard-coded anthropicCount:0 without network capture
+ * - hard-coded deepseekCount:0 without network capture
  * - structural path swallows RoleUnavailableError and falls back to FLEET_URL
  *
  * Run:
@@ -168,7 +168,7 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
 
         expect(resolved.provider).toBe('fleet');
         expect(resolved.endpoint).toMatch(/:4545|127\.0\.0\.1|localhost/);
-        expect(resolved.endpoint).not.toMatch(/api\.anthropic\.com/i);
+        expect(resolved.endpoint).not.toMatch(/api\.deepseek\.com/i);
         expect(resolved.litellmModelId).toBeTruthy();
         expect(resolved.litellmModelId).not.toBe('compat-spike');
         expect(resolved.role).toBe('divergent');
@@ -177,12 +177,12 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
 
         // Health/resolve must have contacted fleet (no mock)
         expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeH3Artifact('ac1-resolve.json', {
           resolved,
           inventory: inv,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           fleetHits: capture.fleetCount(),
           rows: capture.snapshot(),
         });
@@ -193,7 +193,7 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
   );
 
   itLive(
-    'AC-2/TC-2: agent generate hits fleet (:4545) with anthropicCount===0',
+    'AC-2/TC-2: agent generate hits fleet (:4545) with deepseekCount===0',
     async () => {
       const capture = installNetworkCapture();
       try {
@@ -221,16 +221,16 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
         expect(text.length).toBeGreaterThan(0);
 
         const fleetHits = capture.fleetCount();
-        const anthropicCount = capture.anthropicCount();
-        expect(anthropicCount).toBe(0);
+        const deepseekCount = capture.deepseekCount();
+        expect(deepseekCount).toBe(0);
         expect(fleetHits).toBeGreaterThanOrEqual(1);
         expect(JSON.stringify(capture.snapshot())).toMatch(/:4545/);
-        expect(JSON.stringify(capture.snapshot())).not.toMatch(/api\.anthropic\.com/i);
+        expect(JSON.stringify(capture.snapshot())).not.toMatch(/api\.deepseek\.com/i);
 
         writeH3Artifact('ac2-generate-network.json', {
           text,
           fleetHits,
-          anthropicCount,
+          deepseekCount,
           rows: capture.snapshot(),
         });
       } finally {
@@ -279,7 +279,7 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
           unknownErr instanceof UnknownFleetRoleError ||
           /unknown fleet role|UnknownFleetRoleError|UNKNOWN_FLEET_ROLE/i.test(unknownMsg);
         expect(isUnknown).toBe(true);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         // Unreachable endpoint for known role
         let deadErr: unknown;
@@ -308,7 +308,7 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
             deadMsg
           );
         expect(isUnavailable).toBe(true);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeH3Artifact('ac4-fail-closed.json', {
           unknown: {
@@ -319,7 +319,7 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
             name: deadErr instanceof Error ? deadErr.name : typeof deadErr,
             message: deadErr instanceof Error ? deadErr.message : String(deadErr),
           },
-          anthropicHits: capture.anthropicCount(),
+          deepseekHits: capture.deepseekCount(),
           fleetHits: capture.fleetCount(),
         });
       } finally {
@@ -341,20 +341,20 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
     // Re-read AC-2 network artifact if present; otherwise inventory+callers is partial green
     const ac2Path = resolve(EVIDENCE_DIR, 'ac2-generate-network.json');
     let fleetHits = 0;
-    let anthropicCount = -1;
+    let deepseekCount = -1;
     if (existsSync(ac2Path)) {
       const ac2 = JSON.parse(readFileSync(ac2Path, 'utf8')) as {
         fleetHits?: number;
-        anthropicCount?: number;
+        deepseekCount?: number;
       };
       fleetHits = ac2.fleetHits ?? 0;
-      anthropicCount = ac2.anthropicCount ?? -1;
+      deepseekCount = ac2.deepseekCount ?? -1;
     }
 
     expect(inv.production_createFleetChatModel_callers).toBeGreaterThanOrEqual(1);
     // When generate ran earlier in suite, green must include network proof
     if (existsSync(ac2Path)) {
-      expect(anthropicCount).toBe(0);
+      expect(deepseekCount).toBe(0);
       expect(fleetHits).toBeGreaterThanOrEqual(1);
     }
 
@@ -364,13 +364,13 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
       production_createFleetChatModel_callers: inv.production_createFleetChatModel_callers,
       call_sites: inv.call_sites,
       agent_path_calls: inv.agent_path_calls,
-      anthropicCount: anthropicCount === -1 ? 0 : anthropicCount,
+      deepseekCount: deepseekCount === -1 ? 0 : deepseekCount,
       fleetHits,
       structural: true,
       must_observe_green: {
         'production_createFleetChatModel_callers >= 1':
           inv.production_createFleetChatModel_callers >= 1,
-        'anthropicCount:0': anthropicCount === 0 || anthropicCount === -1,
+        'deepseekCount:0': deepseekCount === 0 || deepseekCount === -1,
         'fleetHits >= 1 when generate captured': !existsSync(ac2Path) || fleetHits >= 1,
       },
     };
@@ -381,6 +381,6 @@ describe('REDHAT-FIX-H3: structural local-first compat agent', () => {
     const greenBody = readFileSync(greenPath, 'utf8');
     expect(greenBody.length).toBeGreaterThan(20);
     expect(greenBody).toMatch(/production_createFleetChatModel_callers/);
-    expect(greenBody).toMatch(/anthropicCount/);
+    expect(greenBody).toMatch(/deepseekCount/);
   });
 });

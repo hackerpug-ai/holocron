@@ -9,8 +9,8 @@
  * GREEN: one durable redacted row per model call; telemetry:tail; budget-ledger correlate.
  *
  * AC-3 gate (Sprint 12 / REDHAT-FIX-H2):
- *   - PLATFORM_IT=1 + no ANTHROPIC_API_KEY → hard fail (MISSING_DEPENDENCY), never skip/pass
- *   - ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is NOT a valid Sprint 12 gate path
+ *   - PLATFORM_IT=1 + no DEEPSEEK_API_KEY → hard fail (MISSING_DEPENDENCY), never skip/pass
+ *   - ALLOW_SKIP_DEEPSEEK=1 is local-dev only and is NOT a valid Sprint 12 gate path
  *   - Key sources (no values logged): process.env, secrets.yaml, repo-root .env
  *
  * NEGATIVE_CONTROL (would fail if):
@@ -45,9 +45,9 @@ const FLEET_ENDPOINT = 'http://127.0.0.1:4545/v1';
 const FLEET_ENDPOINT_BASE = 'http://127.0.0.1:4545';
 
 const MISSING_ANTHROPIC_DEPENDENCY =
-  'MISSING_DEPENDENCY: ANTHROPIC_API_KEY required for budgeted-escape telemetry proof (AC-3). ' +
+  'MISSING_DEPENDENCY: DEEPSEEK_API_KEY required for budgeted-escape telemetry proof (AC-3). ' +
   'Provide via process.env, services/platform/config/secrets.yaml, or repo-root .env. ' +
-  'ALLOW_SKIP_ANTHROPIC=1 is local-dev only and is not valid for the Sprint 12 gate.';
+  'ALLOW_SKIP_DEEPSEEK=1 is local-dev only and is not valid for the Sprint 12 gate.';
 
 const itLive = (
   name: string,
@@ -101,7 +101,7 @@ function loadDotEnvFile(path: string): { loaded: boolean; keysApplied: string[] 
   return { loaded: true, keysApplied };
 }
 
-type AnthropicKeyProvenance = {
+type DeepSeekKeyProvenance = {
   present: boolean;
   source: 'env' | 'secrets.yaml' | 'dotenv' | null;
   dotenvPathsChecked: string[];
@@ -110,17 +110,17 @@ type AnthropicKeyProvenance = {
 };
 
 /**
- * Resolve ANTHROPIC_API_KEY from approved sources (never print the value):
+ * Resolve DEEPSEEK_API_KEY from approved sources (never print the value):
  *   1. process.env (operator / CI / sourced shell)
  *   2. secrets.yaml via applyConsolidatedSecretsToEnv / getSecretValue
  *   3. repo-root .env (and monorepo main .env for worktrees)
  */
-function ensureAnthropicKeyFromSecrets(): AnthropicKeyProvenance {
+function ensureDeepSeekKeyFromSecrets(): DeepSeekKeyProvenance {
   const dotenvPathsChecked = candidateDotEnvPaths(REPO_ROOT);
   let dotenvPathUsed: string | null = null;
 
   // 1) Already in process env
-  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+  if (process.env.DEEPSEEK_API_KEY?.trim()) {
     return {
       present: true,
       source: 'env',
@@ -132,7 +132,7 @@ function ensureAnthropicKeyFromSecrets(): AnthropicKeyProvenance {
 
   // 2) secrets.yaml (and any other flat keys)
   applyConsolidatedSecretsToEnv();
-  const fromEnvAfterSecrets = process.env.ANTHROPIC_API_KEY?.trim();
+  const fromEnvAfterSecrets = process.env.DEEPSEEK_API_KEY?.trim();
   if (fromEnvAfterSecrets) {
     return {
       present: true,
@@ -142,9 +142,9 @@ function ensureAnthropicKeyFromSecrets(): AnthropicKeyProvenance {
       secretsFileConsulted: true,
     };
   }
-  const fromFile = getSecretValue('ANTHROPIC_API_KEY');
+  const fromFile = getSecretValue('DEEPSEEK_API_KEY');
   if (fromFile?.trim()) {
-    process.env.ANTHROPIC_API_KEY = fromFile.trim();
+    process.env.DEEPSEEK_API_KEY = fromFile.trim();
     return {
       present: true,
       source: 'secrets.yaml',
@@ -161,10 +161,10 @@ function ensureAnthropicKeyFromSecrets(): AnthropicKeyProvenance {
   if (!disableDotEnv) {
     for (const p of dotenvPathsChecked) {
       const result = loadDotEnvFile(p);
-      if (result.loaded && result.keysApplied.includes('ANTHROPIC_API_KEY')) {
+      if (result.loaded && result.keysApplied.includes('DEEPSEEK_API_KEY')) {
         dotenvPathUsed = p;
       }
-      if (process.env.ANTHROPIC_API_KEY?.trim()) {
+      if (process.env.DEEPSEEK_API_KEY?.trim()) {
         return {
           present: true,
           source: 'dotenv',
@@ -185,14 +185,14 @@ function ensureAnthropicKeyFromSecrets(): AnthropicKeyProvenance {
   };
 }
 
-const anthropicKeyProvenance = ensureAnthropicKeyFromSecrets();
-const hasAnthropicKey = anthropicKeyProvenance.present;
-const allowSkipAnthropic = process.env.ALLOW_SKIP_ANTHROPIC === '1';
+const deepseekKeyProvenance = ensureDeepSeekKeyFromSecrets();
+const hasDeepSeekKey = deepseekKeyProvenance.present;
+const allowSkipAnthropic = process.env.ALLOW_SKIP_DEEPSEEK === '1';
 
 /**
  * AC-3 budgeted-escape gate (REDHAT-FIX-H2):
  * - PLATFORM_IT=1 + key present → run real escape
- * - PLATFORM_IT=1 + key absent + ALLOW_SKIP_ANTHROPIC=1 → skip (local-dev only; not Sprint 12 gate)
+ * - PLATFORM_IT=1 + key absent + ALLOW_SKIP_DEEPSEEK=1 → skip (local-dev only; not Sprint 12 gate)
  * - PLATFORM_IT=1 + key absent → FAIL CLOSED with MISSING_DEPENDENCY (never silent skip/pass)
  * - PLATFORM_IT!=1 → skip (suite not armed)
  */
@@ -205,7 +205,7 @@ const itAnthropic = (
     it.skip(name, fn);
     return;
   }
-  if (hasAnthropicKey) {
+  if (hasDeepSeekKey) {
     it(name, fn, timeout);
     return;
   }
@@ -221,12 +221,12 @@ const itAnthropic = (
       writeArtifact('AC-3-missing-dependency.json', {
         blocked: true,
         reason: 'MISSING_DEPENDENCY',
-        dependency: 'ANTHROPIC_API_KEY',
+        dependency: 'DEEPSEEK_API_KEY',
         platformIt: PLATFORM_IT,
-        hasAnthropicKey: false,
+        hasDeepSeekKey: false,
         allowSkipAnthropic: false,
         sourcesChecked: ['process.env', 'secrets.yaml', 'repo-root .env'],
-        dotenvPathsChecked: anthropicKeyProvenance.dotenvPathsChecked,
+        dotenvPathsChecked: deepseekKeyProvenance.dotenvPathsChecked,
         note: MISSING_ANTHROPIC_DEPENDENCY,
       });
       throw new Error(MISSING_ANTHROPIC_DEPENDENCY);
@@ -305,7 +305,7 @@ type TelemetryModule = {
       inputTokens: number;
       outputTokens: number;
       modelId: string;
-      anthropicHostContacted: boolean;
+      escapeHostContacted: boolean;
     };
   }>;
   runFleetFailureFixture: (opts: {
@@ -528,11 +528,11 @@ describe('obs-2 inference telemetry', () => {
             row.endpoint.includes('127.0.0.1:4545')
         ).toBe(true);
         expect(row.role).toBe('divergent');
-        expect(row.endpoint).not.toMatch(/api\.anthropic\.com/i);
-        expect(row.provider).not.toBe('anthropic');
+        expect(row.endpoint).not.toMatch(/api\.deepseek\.com/i);
+        expect(row.provider).not.toBe('deepseek');
       }
       const cloudRows = rows.filter(
-        (r) => r.provider === 'anthropic' || /api\.anthropic\.com/i.test(r.endpoint)
+        (r) => r.provider === 'deepseek' || /api\.deepseek\.com/i.test(r.endpoint)
       );
       expect(cloudRows.length, 'default cloud rows: 0').toBe(0);
     } finally {
@@ -565,9 +565,9 @@ describe('obs-2 inference telemetry', () => {
       databaseUrl: DATABASE_URL,
     });
 
-    expect(result.escape.anthropicHostContacted).toBe(true);
+    expect(result.escape.escapeHostContacted).toBe(true);
     expect(result.escape.ledgerId).toBeTruthy();
-    expect(result.telemetry.provider).toBe('anthropic');
+    expect(result.telemetry.provider).toBe('deepseek');
     expect(result.telemetry.runId).toBe(runId);
     expect(result.telemetry.stepId).toBe(stepId);
     expect(result.telemetry.budgetLedgerId).toBe(result.escape.ledgerId);
@@ -626,10 +626,10 @@ describe('obs-2 inference telemetry', () => {
       expect(telRows.length, 'telemetry rows: 1').toBeGreaterThanOrEqual(1);
 
       const tel = telRows[0]!;
-      expect(tel.provider).toBe('anthropic');
+      expect(tel.provider).toBe('deepseek');
       expect(tel.runId).toBe(runId);
       expect(tel.stepId).toBe(stepId);
-      expect(tel.endpoint).toMatch(/api\.anthropic\.com/i);
+      expect(tel.endpoint).toMatch(/api\.deepseek\.com/i);
       expect(tel.modelId, 'modelId present on escape telemetry').toBeTruthy();
       expect(tel.wallMs, 'wallMs: >0').toBeGreaterThan(0);
       expect(tel.totalTokens, 'totalTokens: >=1').toBeGreaterThanOrEqual(1);
@@ -723,7 +723,7 @@ describe('obs-2 inference telemetry', () => {
       expect(row.errorCode).toBe('ROLE_UNAVAILABLE');
       expect(row.endpoint).toMatch(/:4545|:1\b|127\.0\.0\.1/);
       expect(row.role).toBe('divergent');
-      expect(row.provider).not.toBe('anthropic');
+      expect(row.provider).not.toBe('deepseek');
       expect(rows.every((r) => r.status !== 'success')).toBe(true);
       assertNoSecretsInRow(row);
     } finally {
@@ -731,27 +731,27 @@ describe('obs-2 inference telemetry', () => {
     }
   });
 
-  itLive('AC-3 key presence (fail-closed under PLATFORM_IT without ALLOW_SKIP_ANTHROPIC)', () => {
+  itLive('AC-3 key presence (fail-closed under PLATFORM_IT without ALLOW_SKIP_DEEPSEEK)', () => {
     // Redacted provenance only — never write secret values.
     writeArtifact('AC-3-key-presence.json', {
-      hasAnthropicKey,
+      hasDeepSeekKey,
       allowSkipAnthropic,
       platformIt: PLATFORM_IT,
-      source: anthropicKeyProvenance.source,
-      dotenvPathsChecked: anthropicKeyProvenance.dotenvPathsChecked,
-      dotenvPathUsed: anthropicKeyProvenance.dotenvPathUsed,
-      secretsFileConsulted: anthropicKeyProvenance.secretsFileConsulted,
-      note: hasAnthropicKey
-        ? `real Anthropic path available for AC-3 (source=${anthropicKeyProvenance.source})`
+      source: deepseekKeyProvenance.source,
+      dotenvPathsChecked: deepseekKeyProvenance.dotenvPathsChecked,
+      dotenvPathUsed: deepseekKeyProvenance.dotenvPathUsed,
+      secretsFileConsulted: deepseekKeyProvenance.secretsFileConsulted,
+      note: hasDeepSeekKey
+        ? `real Anthropic path available for AC-3 (source=${deepseekKeyProvenance.source})`
         : allowSkipAnthropic
-          ? 'ALLOW_SKIP_ANTHROPIC=1 — AC-3 skipped intentionally (local-dev; not valid Sprint 12 gate)'
-          : 'MISSING_DEPENDENCY: ANTHROPIC_API_KEY — AC-3 fails closed (not skipped)',
+          ? 'ALLOW_SKIP_DEEPSEEK=1 — AC-3 skipped intentionally (local-dev; not valid Sprint 12 gate)'
+          : 'MISSING_DEPENDENCY: DEEPSEEK_API_KEY — AC-3 fails closed (not skipped)',
     });
     expect(PLATFORM_IT).toBe(true);
     // Sprint 12 gate: missing Anthropic dependency is a hard failure, not a skip/pass.
-    // Local-dev may set ALLOW_SKIP_ANTHROPIC=1 to avoid the hard fail (still not a gate pass).
+    // Local-dev may set ALLOW_SKIP_DEEPSEEK=1 to avoid the hard fail (still not a gate pass).
     if (!allowSkipAnthropic) {
-      expect(hasAnthropicKey, MISSING_ANTHROPIC_DEPENDENCY).toBe(true);
+      expect(hasDeepSeekKey, MISSING_ANTHROPIC_DEPENDENCY).toBe(true);
     }
   });
 });

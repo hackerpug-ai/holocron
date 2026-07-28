@@ -130,7 +130,7 @@ describe('struct-3 AC-4: boot-time probe uses real generateObject (RED)', () => 
 
         // Must have real fleet traffic (NOT /health calls)
         expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         // Verify no /health endpoint was used (proxy check)
         for (const row of capture.snapshot()) {
@@ -139,7 +139,7 @@ describe('struct-3 AC-4: boot-time probe uses real generateObject (RED)', () => 
 
         writeArtifact('AC-4-green-real-generateObject.json', {
           fleetCount: capture.fleetCount(),
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           noHealthProxy: true,
         });
       } finally {
@@ -254,7 +254,7 @@ describe('struct-3 AC-4 negative-control hygiene', () => {
       writeArtifact('AC-4-capture-hygiene.json', {
         rowCount: capture.rows.length,
         fleetCount: capture.fleetCount(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();

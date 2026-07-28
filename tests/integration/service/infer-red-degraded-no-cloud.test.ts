@@ -3,10 +3,10 @@
  *
  * GIVEN DegradedModeController in surface-unavailable (fleet down)
  * WHEN reasoning / resolveRole / attemptReasoning / allowEscape temptation
- * THEN allowCloud=false, surface or queue only, anthropicCount === 0.
+ * THEN allowCloud=false, surface or queue only, deepseekCount === 0.
  *
  * NEGATIVE CONTROL (would fail if):
- * - Degraded mode silently routes to api.anthropic.com
+ * - Degraded mode silently routes to api.deepseek.com
  * - Network assertion mocked so always returns zero
  * - Controller stubbed/empty so test passes without real degradation
  * - resolveModel escape permitted while process degraded
@@ -134,7 +134,7 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
             expect(r.message).toMatch(/Local fleet unavailable|queued|retry/i);
           }
           if (r.endpoint) {
-            expect(r.endpoint).not.toMatch(/api\.anthropic\.com/i);
+            expect(r.endpoint).not.toMatch(/api\.deepseek\.com/i);
           }
         }
 
@@ -149,25 +149,25 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
             reason: 'infer-4-degraded-escape-probe',
           });
           escapeEndpoint = escaped.endpoint;
-          expect(escaped.endpoint).not.toMatch(/api\.anthropic\.com/i);
+          expect(escaped.endpoint).not.toMatch(/api\.deepseek\.com/i);
         } catch {
           escapeBlocked = true;
         }
 
         // Un-fakeable network assertion
-        expect(capture.anthropicCount()).toBe(0);
-        expect(capture.countForHost('api.anthropic.com')).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
+        expect(capture.countForHost('api.deepseek.com')).toBe(0);
         for (const row of capture.snapshot()) {
-          expect(row.host).not.toMatch(/api\.anthropic\.com/i);
-          expect(row.url).not.toMatch(/api\.anthropic\.com/i);
+          expect(row.host).not.toMatch(/api\.deepseek\.com/i);
+          expect(row.url).not.toMatch(/api\.deepseek\.com/i);
         }
         const rows = capture.snapshot();
-        const anthropicRows = rows.filter(
+        const deepseekRows = rows.filter(
           (r) =>
-            r.host.toLowerCase().includes('api.anthropic.com') ||
-            r.url.toLowerCase().includes('api.anthropic.com')
+            r.host.toLowerCase().includes('api.deepseek.com') ||
+            r.url.toLowerCase().includes('api.deepseek.com')
         );
-        expect(anthropicRows.length).toBe(0);
+        expect(deepseekRows.length).toBe(0);
 
         writeArtifact('AC-3-degraded-no-cloud.json', {
           state: controller.getState(),
@@ -175,7 +175,7 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
           attempts,
           escapeBlocked,
           escapeEndpoint: escapeEndpoint ?? null,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           captureRows: rows,
         });
       } finally {
@@ -184,7 +184,7 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
     }
   );
 
-  itLive('message contains Local fleet unavailable; anthropicCount stays 0', async () => {
+  itLive('message contains Local fleet unavailable; deepseekCount stays 0', async () => {
     const capture = installNetworkCapture();
     try {
       const { DegradedModeController } = await loadDegraded();
@@ -200,13 +200,13 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
       if (down.ok) throw new Error('expected degradation');
       expect(down.degradation.message).toMatch(new RegExp(SURFACE_MSG, 'i'));
       expect(down.degradation.allowCloud).toBe(false);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeArtifact('AC-3-surface-message.json', {
         message: down.degradation.message,
         allowCloud: down.degradation.allowCloud,
         state: controller.getState(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();
@@ -218,7 +218,7 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
    * while process degraded (not resolveModel-only).
    */
   itLive(
-    'H1: runBudgetedEscape under process degraded refuses with anthropicCount===0',
+    'H1: runBudgetedEscape under process degraded refuses with deepseekCount===0',
     async () => {
       const capture = installNetworkCapture();
       try {
@@ -261,12 +261,12 @@ describe('infer-4 AC-3: degraded mode never falls back to cloud (real capture)',
 
         expect(refused).toBe(true);
         expect(message).toMatch(/degraded|never-cloud/i);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeArtifact('H1-runBudgetedEscape-degraded-refuse.json', {
           refused,
           message,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
         });
       } finally {
         capture.restore();

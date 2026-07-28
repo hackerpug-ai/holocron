@@ -114,19 +114,19 @@ describe('AC-2: Health-probe polling detects endpoint return and auto-resumes', 
       expect(up.ok).toBe(true);
       if (!up.ok) throw new Error('expected resolved after resume');
       expect(up.resolved.endpoint).toMatch(/:4545/);
-      expect(up.resolved.endpoint).not.toMatch(/api\.anthropic\.com/);
-      expect(up.resolved.provider ?? 'fleet').not.toBe('anthropic');
+      expect(up.resolved.endpoint).not.toMatch(/api\.deepseek\.com/);
+      expect(up.resolved.provider ?? 'fleet').not.toBe('deepseek');
 
       // Fleet probe traffic present after resume
       expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeArtifact('AC-2-resume.json', {
         poll,
         state,
         resolved: up.resolved,
         fleetCount: capture.fleetCount(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         captureRows: capture.snapshot(),
       });
     } finally {
@@ -159,12 +159,12 @@ describe('AC-2: Health-probe polling detects endpoint return and auto-resumes', 
       expect(poll.resumed).toBe(false);
       expect(controller.getState()['degraded-state']).toBe('surface-unavailable');
       expect(controller.getState()['resume-state']).not.toBe('normal');
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeArtifact('AC-2-no-premature-resume.json', {
         poll,
         state: controller.getState(),
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();

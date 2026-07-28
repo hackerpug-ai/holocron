@@ -168,7 +168,7 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
                 ? { name: caught.name, message: caught.message }
                 : String(caught),
             fleetCount: capture.fleetCount(),
-            anthropicCount: capture.anthropicCount(),
+            deepseekCount: capture.deepseekCount(),
             extractionId,
             status: status ?? undefined,
             noCommitVerified: status?.committed === false,
@@ -177,7 +177,7 @@ describe('struct-3 AC-2: always-malformed→ExtractionFailedError (RED)', () => 
 
         // Must have real fleet traffic (multiple attempts up to cap)
         expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
       } finally {
         capture.restore();
       }

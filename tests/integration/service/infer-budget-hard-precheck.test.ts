@@ -26,24 +26,24 @@ import { installNetworkCapture } from './infer-network-capture';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
-function ensureAnthropicKeyFromSecrets(): boolean {
+function ensureDeepSeekKeyFromSecrets(): boolean {
   applyConsolidatedSecretsToEnv();
-  const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
+  const fromEnv = process.env.DEEPSEEK_API_KEY?.trim();
   if (fromEnv) return true;
-  const fromFile = getSecretValue('ANTHROPIC_API_KEY');
+  const fromFile = getSecretValue('DEEPSEEK_API_KEY');
   if (fromFile?.trim()) {
-    process.env.ANTHROPIC_API_KEY = fromFile.trim();
+    process.env.DEEPSEEK_API_KEY = fromFile.trim();
     return true;
   }
   return false;
 }
-const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
-const allowSkipAnthropic = process.env.ALLOW_SKIP_ANTHROPIC === '1';
+const hasDeepSeekKey = ensureDeepSeekKeyFromSecrets();
+const allowSkipAnthropic = process.env.ALLOW_SKIP_DEEPSEEK === '1';
 /**
  * AC-4/AC-5 require a real Anthropic generateText path.
  * - No PLATFORM_IT → skip (unit/default suite)
  * - PLATFORM_IT + key → live it
- * - PLATFORM_IT + no key + ALLOW_SKIP_ANTHROPIC=1 → skip (explicit)
+ * - PLATFORM_IT + no key + ALLOW_SKIP_DEEPSEEK=1 → skip (explicit)
  * - PLATFORM_IT + no key + no ALLOW_SKIP → hard-fail so harvest cannot silent-skip
  */
 function itAnthropic(name: string, fn: () => unknown, timeout?: number): void {
@@ -51,7 +51,7 @@ function itAnthropic(name: string, fn: () => unknown, timeout?: number): void {
     it.skip(name, fn, timeout);
     return;
   }
-  if (hasAnthropicKey) {
+  if (hasDeepSeekKey) {
     it(name, fn, timeout);
     return;
   }
@@ -63,7 +63,7 @@ function itAnthropic(name: string, fn: () => unknown, timeout?: number): void {
     name,
     async () => {
       throw new Error(
-        'ANTHROPIC_API_KEY required for live AC-4/AC-5 (set key or ALLOW_SKIP_ANTHROPIC=1)'
+        'DEEPSEEK_API_KEY required for live AC-4/AC-5 (set key or ALLOW_SKIP_DEEPSEEK=1)'
       );
     },
     timeout
@@ -146,7 +146,7 @@ async function loadBudgetLedger() {
       tokens: number;
       cost: number;
       ledgerId: string;
-      anthropicHostContacted: boolean;
+      escapeHostContacted: boolean;
     }>;
     getBudgetStatus: () => Promise<BudgetStatus>;
     setBudgetCeiling: (ceilingUsd: number) => Promise<{ ceiling: number }>;
@@ -218,7 +218,7 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
   });
 
   // ─── AC-1: Reject estimatedCostUsd <= 0 ─────────────────────────────────
-  itLive('AC-1: estimatedCostUsd=0 refused; anthropicHits:0; no escape spend row', async () => {
+  itLive('AC-1: estimatedCostUsd=0 refused; deepseekHits:0; no escape spend row', async () => {
     await withBudgetLock(async () => {
       // tiny-remaining-ceiling: ceiling 0.10, spent 0.09 → remaining 0.01
       delete process.env.HOLO_ESCAPE_BUDGET_USD;
@@ -290,8 +290,8 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
         expect(cli.status, cli.out).not.toBe(0);
         expect(cli.out).toMatch(/BUDGET_INVALID_ESTIMATE|invalid|--cost must be > 0|non-positive/i);
 
-        expect(capture.anthropicCount()).toBe(0);
-        expect(capture.countForHost('api.anthropic.com')).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
+        expect(capture.countForHost('api.deepseek.com')).toBe(0);
 
         const sql = await loadSql();
         try {
@@ -318,8 +318,8 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
             runBlocked,
             runCode,
             cli: { status: cli.status, out: cli.out.slice(0, 1500) },
-            anthropicCount: capture.anthropicCount(),
-            anthropicHits: capture.anthropicCount(),
+            deepseekCount: capture.deepseekCount(),
+            deepseekHits: capture.deepseekCount(),
             escapeSpendRows: Number(escapeRows[0]?.n ?? 0),
             preCheckCount,
           };
@@ -523,7 +523,7 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
         const artifact = {
           thrown: msg,
           successPayload: successPayload ?? null,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           note: 'fail-closed: no clean success after ledger write failure',
         };
         writeArtifact(EVIDENCE_TMP, 'AC-4-fail-closed-ledger.json', artifact);
@@ -597,7 +597,7 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
               },
               preCheckCount: Number(preChecks[0]?.n ?? 0),
               escapeRows: escapes,
-              anthropicCount: capture.anthropicCount(),
+              deepseekCount: capture.deepseekCount(),
             };
             writeArtifact(EVIDENCE_TMP, 'AC-5-honest-estimate.json', artifact);
             writeArtifact(EVIDENCE_SPEC, 'redhat-fix-h5-AC-5-honest-estimate.json', artifact);
@@ -634,8 +634,8 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
     const greenPath = writeArtifact(EVIDENCE_SPEC, 'redhat-fix-h5-green-hard-precheck.json', {
       phase: 'green',
       BUDGET_INVALID_ESTIMATE: 'estimatedCostUsd<=0 refused for real escapes',
-      anthropicCount: 0,
-      anthropicHits: 0,
+      deepseekCount: 0,
+      deepseekHits: 0,
       zero_estimate_case: 'AC-1 checkBudget/runBudgetedEscape/CLI --cost 0',
       transactional_reserve: 'AC-2 SELECT FOR UPDATE + reserve rows',
       consistent_ceiling: 'AC-3 effectiveCeiling/ceilingSource on status + gate',
@@ -652,7 +652,7 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
 
     const greenBody = readFileSync(greenPath, 'utf8');
     expect(greenBody).toMatch(/BUDGET_INVALID_ESTIMATE/);
-    expect(greenBody).toMatch(/anthropicCount|anthropicHits/);
+    expect(greenBody).toMatch(/deepseekCount|deepseekHits/);
     expect(greenBody.length).toBeGreaterThan(50);
 
     const redBody = readFileSync(redPath, 'utf8');
@@ -661,7 +661,7 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
 
     // Key presence note for AC-4/AC-5
     writeArtifact(EVIDENCE_SPEC, 'redhat-fix-h5-key-presence.json', {
-      hasAnthropicKey,
+      hasDeepSeekKey,
       allowSkipAnthropic,
       platformIt: PLATFORM_IT,
     });
@@ -702,27 +702,27 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
         'Hard budget pre-check: reject zero estimate, transactional reserve, consistent ceiling, fail-closed ledger',
       ac: {
         'AC-1':
-          'PASS — estimatedCostUsd<=0 → BUDGET_INVALID_ESTIMATE; anthropicHits:0; CLI --cost 0 refused',
+          'PASS — estimatedCostUsd<=0 → BUDGET_INVALID_ESTIMATE; deepseekHits:0; CLI --cost 0 refused',
         'AC-2':
           'PASS — concurrent reserve:true estimates serialize under SELECT FOR UPDATE; success_count===1',
         'AC-3':
           'PASS — getBudgetStatus.effectiveCeiling === checkBudget.ceilingUsd; ceilingSource env|db',
         'AC-4': ac4Live
           ? 'PASS — live generateText + injected logEscape failure → BudgetLedgerWriteError (fail-closed)'
-          : hasAnthropicKey
+          : hasDeepSeekKey
             ? 'PENDING — key present but AC-4 evidence artifact missing (run AC-4 live)'
-            : 'SKIPPED (no ANTHROPIC_API_KEY) — fail-closed path not live-proven this run',
+            : 'SKIPPED (no DEEPSEEK_API_KEY) — fail-closed path not live-proven this run',
         'AC-5': ac5Live
           ? 'PASS — live estimatedCostUsd=0.05 meters escape with pre-check audit + cost>0'
-          : hasAnthropicKey
+          : hasDeepSeekKey
             ? 'PENDING — key present but AC-5 evidence artifact missing (run AC-5 live)'
-            : 'SKIPPED (no ANTHROPIC_API_KEY) — honest 0.05 path not live-proven this run',
+            : 'SKIPPED (no DEEPSEEK_API_KEY) — honest 0.05 path not live-proven this run',
         'AC-6': 'PASS — redhat-fix-h5* red + green evidence artifacts present',
       },
       tests: {
         command:
           'PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-budget-hard-precheck.test.ts --pool=forks --maxWorkers=1',
-        hasAnthropicKey,
+        hasDeepSeekKey,
         allowSkipAnthropic,
         ac4_live: ac4Live,
         ac5_live: ac5Live,
@@ -746,9 +746,9 @@ describe('REDHAT-FIX-H5: hard budget pre-check', () => {
     writeArtifact(EVIDENCE_TMP, 'verification-summary.json', summary);
 
     // Harvest gate: with key present, AC-4/AC-5 evidence must exist (no silent skip)
-    if (PLATFORM_IT && hasAnthropicKey && !allowSkipAnthropic) {
-      expect(ac4Live, 'AC-4 live evidence required when ANTHROPIC_API_KEY present').toBe(true);
-      expect(ac5Live, 'AC-5 live evidence required when ANTHROPIC_API_KEY present').toBe(true);
+    if (PLATFORM_IT && hasDeepSeekKey && !allowSkipAnthropic) {
+      expect(ac4Live, 'AC-4 live evidence required when DEEPSEEK_API_KEY present').toBe(true);
+      expect(ac5Live, 'AC-5 live evidence required when DEEPSEEK_API_KEY present').toBe(true);
     }
   });
 });

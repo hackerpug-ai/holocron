@@ -121,7 +121,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
         message?: string;
         resultPreview?: unknown;
         fleetCount: number;
-        anthropicCount: number;
+        deepseekCount: number;
       };
       const attempts: AttemptLog[] = [];
       let successBlock: {
@@ -131,7 +131,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
         tripwirePayload: unknown;
         status: unknown;
         fleetCount: number;
-        anthropicCount: number;
+        deepseekCount: number;
       } | null = null;
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -152,7 +152,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
               outcome: 'clean_success',
               resultPreview: result,
               fleetCount: capture.fleetCount(),
-              anthropicCount: capture.anthropicCount(),
+              deepseekCount: capture.deepseekCount(),
             });
             writeArtifact(`attempt-${attempt}-clean-success.json`, {
               attempt,
@@ -182,7 +182,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
                 reason,
                 message: blocked.message,
                 fleetCount: capture.fleetCount(),
-                anthropicCount: capture.anthropicCount(),
+                deepseekCount: capture.deepseekCount(),
               });
               writeArtifact('AC-3-failed-input-side-fired.json', {
                 attempts,
@@ -202,7 +202,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
 
               // OUTPUT path only runs after a model round-trip
               expect(capture.fleetCount()).toBeGreaterThanOrEqual(1);
-              expect(capture.anthropicCount()).toBe(0);
+              expect(capture.deepseekCount()).toBe(0);
 
               const status = await extractMod.getExtractionStatus(extractionId);
               expect(status, 'extraction status must exist after block').not.toBeNull();
@@ -217,7 +217,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
                 tripwirePayload: blocked.tripwirePayload,
                 status,
                 fleetCount: capture.fleetCount(),
-                anthropicCount: capture.anthropicCount(),
+                deepseekCount: capture.deepseekCount(),
               };
               attempts.push({
                 attempt,
@@ -225,7 +225,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
                 outcome: 'output_block',
                 reason,
                 fleetCount: capture.fleetCount(),
-                anthropicCount: capture.anthropicCount(),
+                deepseekCount: capture.deepseekCount(),
               });
               break;
             }
@@ -237,7 +237,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
               reason: reason || undefined,
               message: err instanceof Error ? err.message : String(err),
               fleetCount: capture.fleetCount(),
-              anthropicCount: capture.anthropicCount(),
+              deepseekCount: capture.deepseekCount(),
             });
             writeArtifact(`attempt-${attempt}-other-error.json`, {
               attempt,
@@ -273,7 +273,7 @@ describe('REDHAT-FIX-C2-H2: output-side tripwire with clean input', () => {
       ).not.toBeNull();
       expect(successBlock?.reason).toBe('output_sensitive_data_detected');
       expect(successBlock?.fleetCount).toBeGreaterThanOrEqual(1);
-      expect(successBlock?.anthropicCount).toBe(0);
+      expect(successBlock?.deepseekCount).toBe(0);
 
       writeArtifact('AC-3-green-output-block.json', successBlock);
     },

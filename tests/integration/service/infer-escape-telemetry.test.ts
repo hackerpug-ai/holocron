@@ -7,7 +7,7 @@
  * - Network capture mocked so shows request but fake response
  *
  * Run:
- *   PLATFORM_IT=1 ANTHROPIC_API_KEY=... \
+ *   PLATFORM_IT=1 DEEPSEEK_API_KEY=... \
  *     pnpm vitest run tests/integration/service/infer-escape-telemetry.test.ts
  */
 import { spawnSync } from 'node:child_process';
@@ -21,23 +21,23 @@ import {
 import { BUN_BIN, DEFAULT_DATABASE_URL, HOLO_CLI, PLATFORM_IT, REPO_ROOT } from './harness';
 import { installNetworkCapture } from './infer-network-capture';
 
-function ensureAnthropicKeyFromSecrets(): boolean {
+function ensureDeepSeekKeyFromSecrets(): boolean {
   // Prefer env; fill from gitignored secrets.yaml via consolidated loader (never log value).
   applyConsolidatedSecretsToEnv();
-  const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
+  const fromEnv = process.env.DEEPSEEK_API_KEY?.trim();
   if (fromEnv) return true;
-  const fromFile = getSecretValue('ANTHROPIC_API_KEY');
+  const fromFile = getSecretValue('DEEPSEEK_API_KEY');
   if (fromFile?.trim()) {
-    process.env.ANTHROPIC_API_KEY = fromFile.trim();
+    process.env.DEEPSEEK_API_KEY = fromFile.trim();
     return true;
   }
   return false;
 }
-const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
+const hasDeepSeekKey = ensureDeepSeekKeyFromSecrets();
 /** Local-dev only: allow PLATFORM_IT suite to pass without a live Anthropic key. Harvest must NOT set this. */
-const allowSkipAnthropic = process.env.ALLOW_SKIP_ANTHROPIC === '1';
+const allowSkipAnthropic = process.env.ALLOW_SKIP_DEEPSEEK === '1';
 const itLive = PLATFORM_IT ? it : it.skip;
-const itAnthropic = PLATFORM_IT && hasAnthropicKey ? it : it.skip;
+const itAnthropic = PLATFORM_IT && hasDeepSeekKey ? it : it.skip;
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/infer-2');
 
 function writeArtifact(name: string, body: unknown): void {
@@ -74,7 +74,7 @@ async function loadBudgetLedger() {
       tokens: number;
       cost: number;
       ledgerId: string;
-      anthropicHostContacted: boolean;
+      escapeHostContacted: boolean;
     }>;
   }>;
 }
@@ -114,29 +114,29 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
   });
 
   itLive(
-    'ANTHROPIC_API_KEY required under PLATFORM_IT (fail closed without ALLOW_SKIP_ANTHROPIC)',
+    'DEEPSEEK_API_KEY required under PLATFORM_IT (fail closed without ALLOW_SKIP_DEEPSEEK)',
     () => {
       writeArtifact('AC-3-key-presence.json', {
-        hasAnthropicKey,
+        hasDeepSeekKey,
         allowSkipAnthropic,
         platformIt: PLATFORM_IT,
-        note: hasAnthropicKey
+        note: hasDeepSeekKey
           ? 'real Anthropic path will run'
           : allowSkipAnthropic
-            ? 'ALLOW_SKIP_ANTHROPIC=1 — local-dev skip of live Anthropic path (not for harvest)'
-            : 'ANTHROPIC_API_KEY unset — FAIL CLOSED under PLATFORM_IT=1',
+            ? 'ALLOW_SKIP_DEEPSEEK=1 — local-dev skip of live Anthropic path (not for harvest)'
+            : 'DEEPSEEK_API_KEY unset — FAIL CLOSED under PLATFORM_IT=1',
       });
       // Fail closed by default: harvest cannot greenwash a missing key.
-      // Opt-out only via ALLOW_SKIP_ANTHROPIC=1 for local work without Anthropic.
+      // Opt-out only via ALLOW_SKIP_DEEPSEEK=1 for local work without Anthropic.
       expect(
-        hasAnthropicKey || allowSkipAnthropic,
-        'AC-3 fail-closed: set ANTHROPIC_API_KEY for live escape telemetry, or ALLOW_SKIP_ANTHROPIC=1 for local-dev only'
+        hasDeepSeekKey || allowSkipAnthropic,
+        'AC-3 fail-closed: set DEEPSEEK_API_KEY for live escape telemetry, or ALLOW_SKIP_DEEPSEEK=1 for local-dev only'
       ).toBe(true);
     }
   );
 
   itAnthropic(
-    'runBudgetedEscape logs reason/tokens/cost and contacts api.anthropic.com',
+    'runBudgetedEscape logs reason/tokens/cost and contacts api.deepseek.com',
     async () => {
       await withBudgetLock(async () => {
         process.env.HOLO_ESCAPE_BUDGET_USD = process.env.HOLO_ESCAPE_BUDGET_USD || '10';
@@ -159,7 +159,7 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
           expect(result.tokens).toBeGreaterThan(0);
           expect(result.cost).toBeGreaterThan(0);
           expect(result.ledgerId).toBeTruthy();
-          expect(capture.anthropicCount()).toBeGreaterThanOrEqual(1);
+          expect(capture.deepseekCount()).toBeGreaterThanOrEqual(1);
 
           const sql = await loadSql();
           try {
@@ -203,7 +203,7 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
               },
               rows,
               preCheckCount: Number(preChecks[0]?.n ?? 0),
-              anthropicCount: capture.anthropicCount(),
+              deepseekCount: capture.deepseekCount(),
               networkRows: capture.snapshot(),
             });
           } finally {
@@ -266,7 +266,7 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
             ledgerId?: string;
             text?: string;
           };
-          networkCapture?: { anthropicCount?: number };
+          networkCapture?: { deepseekCount?: number };
         } = {};
         try {
           payload = JSON.parse(cli.stdout ?? '{}') as typeof payload;
@@ -279,7 +279,7 @@ describe('AC-3: logEscape after real Anthropic escape', () => {
         expect(Number(payload.escape?.tokens ?? 0)).toBeGreaterThan(0);
         expect(Number(payload.escape?.cost ?? 0)).toBeGreaterThan(0);
         expect(payload.escape?.ledgerId).toBeTruthy();
-        expect(payload.networkCapture?.anthropicCount ?? 0).toBeGreaterThanOrEqual(1);
+        expect(payload.networkCapture?.deepseekCount ?? 0).toBeGreaterThanOrEqual(1);
 
         const sql = await loadSql();
         try {

@@ -28,7 +28,7 @@ import {
 } from './resolve-model';
 
 export type InferenceTelemetryStatus = 'success' | 'error' | 'degraded';
-export type InferenceTelemetryProvider = 'fleet' | 'anthropic';
+export type InferenceTelemetryProvider = 'fleet' | 'deepseek';
 
 export type InferenceTelemetryRecord = {
   id: string;
@@ -426,7 +426,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
   }
 
   if (resolved.provider !== 'fleet') {
-    // STRICTLY: default path must never record anthropic without budget evidence.
+    // STRICTLY: default path must never record an escape (deepseek) provider without budget evidence.
     throw new Error(
       `runFleetModelCall refused non-fleet provider=${resolved.provider} (allowEscape must stay false)`
     );
@@ -540,7 +540,7 @@ export async function runResearchModelMission(opts: {
 }
 
 /**
- * Budgeted Anthropic escape with inference_telemetry correlation to budget_ledger.
+ * Budgeted DeepSeek escape with inference_telemetry correlation to budget_ledger.
  * Consumes runBudgetedEscape (does not reimplement budget gate).
  */
 export async function runBudgetedEscapeWithTelemetry(opts: {
@@ -563,7 +563,7 @@ export async function runBudgetedEscapeWithTelemetry(opts: {
     inputTokens: number;
     outputTokens: number;
     modelId: string;
-    anthropicHostContacted: boolean;
+    escapeHostContacted: boolean;
   };
 }> {
   const role = opts.role ?? 'divergent';
@@ -586,8 +586,8 @@ export async function runBudgetedEscapeWithTelemetry(opts: {
       stepId,
       traceId,
       role,
-      provider: 'anthropic',
-      endpoint: 'https://api.anthropic.com',
+      provider: 'deepseek',
+      endpoint: 'https://api.deepseek.com',
       modelId: escapeResult.modelId,
       inputTokens: escapeResult.inputTokens,
       outputTokens: escapeResult.outputTokens,
@@ -609,7 +609,7 @@ export async function runBudgetedEscapeWithTelemetry(opts: {
         inputTokens: escapeResult.inputTokens,
         outputTokens: escapeResult.outputTokens,
         modelId: escapeResult.modelId,
-        anthropicHostContacted: escapeResult.anthropicHostContacted,
+        escapeHostContacted: escapeResult.escapeHostContacted,
       },
     };
   } catch (err) {
@@ -619,8 +619,8 @@ export async function runBudgetedEscapeWithTelemetry(opts: {
       stepId,
       traceId,
       role,
-      provider: 'anthropic',
-      endpoint: 'https://api.anthropic.com',
+      provider: 'deepseek',
+      endpoint: 'https://api.deepseek.com',
       modelId: null,
       inputTokens: 0,
       outputTokens: 0,

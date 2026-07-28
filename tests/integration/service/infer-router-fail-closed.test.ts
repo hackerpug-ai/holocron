@@ -37,12 +37,12 @@ describe('AC-2: resolveModel fail-closed on unknown role / unhealthy endpoint', 
       expect(err.code).toBe('UNKNOWN_FLEET_ROLE');
       expect(err.role).toBe('unknown-role');
       // No silent cloud fallback
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeInferArtifact('AC-2-unknown-role.json', {
         code: err.code,
         message: err.message,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();
@@ -70,14 +70,14 @@ describe('AC-2: resolveModel fail-closed on unknown role / unhealthy endpoint', 
       expect(err.role).toBe('divergent');
       expect(DEGRADATION_ACTIONS.has(err.degradationAction)).toBe(true);
       // Never cloud on fleet-down
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeInferArtifact('AC-2-role-unavailable.json', {
         code: err.code,
         degradationAction: err.degradationAction,
         endpoint: err.endpoint,
         message: err.message,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();
@@ -101,7 +101,7 @@ describe('AC-2: resolveModel fail-closed on unknown role / unhealthy endpoint', 
 
       expect(threw).toBe(true);
       expect(resolved).toBeNull();
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
     } finally {
       capture.restore();
     }

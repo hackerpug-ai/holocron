@@ -1,9 +1,9 @@
 /**
- * Budget ledger — deterministic Claude escape pre-check + per-escape telemetry (infer-2).
+ * Budget ledger — deterministic DeepSeek escape pre-check + per-escape telemetry (infer-2).
  *
  * Pattern:
  *   checkBudget(cost) → boolean/result  (transactional lock + optional reserve)
- *   if ok → real Anthropic call → logEscape(tokens, cost) → Postgres INSERT
+ *   if ok → real DeepSeek call → logEscape(tokens, cost) → Postgres INSERT
  *
  * Ceiling resolution (single source of truth for gate AND status):
  *   1. HOLO_ESCAPE_BUDGET_USD env when set and finite ≥ 0  (ceilingSource='env')
@@ -17,7 +17,7 @@
  * consistent effectiveCeiling; fail-closed logEscape after generateText.
  */
 
-import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText } from 'ai';
 import { getSecretValue } from '../config/secrets.ts';
 import { createSql, type Sql } from '../db/client';
@@ -25,7 +25,10 @@ import { resolveDatabaseUrl } from '../db/connection';
 import { assertEscapeNotDegraded } from './escape-degraded-guard.ts';
 
 /** Default escape model id (kept local to avoid circular import with resolve-model). */
-const DEFAULT_ESCAPE_MODEL_ID = 'claude-haiku-4-5-20251001';
+const DEFAULT_ESCAPE_MODEL_ID = 'deepseek-chat';
+
+/** DeepSeek escape base URL (OpenAI-compatible). */
+const DEEPSEEK_ESCAPE_BASE_URL = 'https://api.deepseek.com/v1';
 
 export type BudgetCheckRequest = {
   /** Estimated cost of the planned escape call in USD. MUST be > 0 for real escapes. */
@@ -683,15 +686,15 @@ export type RunBudgetedEscapeResult = {
   tokens: number;
   cost: number;
   ledgerId: string;
-  anthropicHostContacted: boolean;
+  escapeHostContacted: boolean;
   inputTokens: number;
   outputTokens: number;
   modelId: string;
 };
 
 /**
- * Full escape path: assertEscapeNotDegraded → checkBudget(reserve) → real Anthropic generateText → logEscape.
- * NEVER contacts Anthropic when process/shared degraded (REDHAT-FIX-H1) or checkBudget fails.
+ * Full escape path: assertEscapeNotDegraded → checkBudget(reserve) → real DeepSeek generateText → logEscape.
+ * NEVER contacts DeepSeek when process/shared degraded (REDHAT-FIX-H1) or checkBudget fails.
  * Fail-closed if logEscape fails after a successful model call (REDHAT-FIX-H5 AC-4).
  */
 export async function runBudgetedEscape(
@@ -703,7 +706,7 @@ export async function runBudgetedEscape(
   const role = request.role ?? 'divergent';
 
   // Shared never-cloud choke (same helper as resolveModel allowEscape) — BEFORE
-  // budget audit traffic, Anthropic SDK construction, or generateText.
+  // budget audit traffic, DeepSeek provider construction, or generateText.
   // H4: async — also SELECTs durable Postgres degraded_mode (fail closed on DB error).
   await assertEscapeNotDegraded(role);
 
@@ -722,17 +725,21 @@ export async function runBudgetedEscape(
   );
   const reservationId = budgetOk.reservationId;
 
-  const apiKey = request.apiKey ?? env.ANTHROPIC_API_KEY ?? getSecretValue('ANTHROPIC_API_KEY');
+  const apiKey = request.apiKey ?? env.DEEPSEEK_API_KEY ?? getSecretValue('DEEPSEEK_API_KEY');
   if (!apiKey || apiKey.trim() === '') {
     if (reservationId) await releaseReservation(reservationId, env).catch(() => undefined);
-    throw new Error('ANTHROPIC_API_KEY required for runBudgetedEscape');
+    throw new Error('DEEPSEEK_API_KEY required for runBudgetedEscape');
   }
 
   let modelSucceeded = false;
   try {
-    const anthropic = createAnthropic({ apiKey });
+    const deepseek = createOpenAICompatible({
+      name: 'deepseek-escape',
+      baseURL: DEEPSEEK_ESCAPE_BASE_URL,
+      apiKey,
+    });
     const result = await generateText({
-      model: anthropic(modelId),
+      model: deepseek.chatModel(modelId),
       prompt: request.prompt,
       maxOutputTokens: 32,
     });
@@ -790,7 +797,7 @@ export async function runBudgetedEscape(
       tokens,
       cost,
       ledgerId: logged.id,
-      anthropicHostContacted: true,
+      escapeHostContacted: true,
       inputTokens,
       outputTokens,
       modelId,

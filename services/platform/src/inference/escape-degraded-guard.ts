@@ -1,8 +1,8 @@
 /**
- * Shared never-cloud choke for Claude escape paths (REDHAT-FIX-H1 + H4).
+ * Shared never-cloud choke for DeepSeek escape paths (REDHAT-FIX-H1 + H4).
  *
  * Both resolveModel(allowEscape) and runBudgetedEscape MUST call
- * assertEscapeNotDegraded() before any Anthropic SDK construction, probe,
+ * assertEscapeNotDegraded() before any DeepSeek provider construction, probe,
  * or generateText — single choke, no dual-path drift.
  *
  * H1: process-memory flag (+ optional HOLO_PROCESS_DEGRADED_STATE for CLI subprocess).
@@ -20,9 +20,9 @@ export const ESCAPE_DEGRADED_REFUSED_CODE = 'ESCAPE_DEGRADED_REFUSED' as const;
 
 /** Message literal matched by never-cloud ACs / CLI refuse checks. */
 export const ESCAPE_NEVER_CLOUD_MESSAGE =
-  'degraded mode active — Claude escape refused (never-cloud; local fleet only)';
+  'degraded mode active — escape refused (never-cloud; local fleet only)';
 
-export const ANTHROPIC_ESCAPE_ENDPOINT = 'https://api.anthropic.com';
+export const DEEPSEEK_ESCAPE_ENDPOINT = 'https://api.deepseek.com';
 
 /** Singleton row id written by DegradedModeController (durable source of truth). */
 export const DEGRADED_MODE_GLOBAL_ID = 'global' as const;
@@ -47,7 +47,7 @@ export type EscapeDegradedGuardOptions = {
 export class EscapeDegradedRefusedError extends Error {
   readonly code = ESCAPE_DEGRADED_REFUSED_CODE;
   readonly degradationAction = 'fail-closed' as const;
-  readonly endpoint = ANTHROPIC_ESCAPE_ENDPOINT;
+  readonly endpoint = DEEPSEEK_ESCAPE_ENDPOINT;
 
   constructor(readonly role: string = 'divergent') {
     super(ESCAPE_NEVER_CLOUD_MESSAGE);
@@ -115,7 +115,7 @@ export async function isEscapeBlockedByDegraded(
 }
 
 /**
- * Fail closed before any Anthropic host contact when degraded (process or durable).
+ * Fail closed before any DeepSeek host contact when degraded (process or durable).
  * @throws EscapeDegradedRefusedError
  */
 export async function assertEscapeNotDegraded(

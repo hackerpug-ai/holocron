@@ -32,7 +32,7 @@ function runInferCall(args: string[]): {
       // Bun auto-loads .env in child processes. Preserve only an explicitly
       // supplied credential so this negative branch cannot contact Anthropic
       // through an incidental local .env value.
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
+      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? '',
       // Budget for escape path (provisional until infer-2 ledger)
       HOLO_ESCAPE_BUDGET_USD: process.env.HOLO_ESCAPE_BUDGET_USD || '10',
     },
@@ -48,7 +48,7 @@ describe('AC-4: holo infer:call role + escape flags', () => {
     expect(result.status, result.out).toBe(0);
     expect(result.out).toMatch(/35b-a3b|35B-A3B/i);
     expect(result.out).toMatch(/:4545|implementer/i);
-    expect(result.out).not.toMatch(/api\.anthropic\.com/i);
+    expect(result.out).not.toMatch(/api\.deepseek\.com/i);
 
     writeInferArtifact('AC-4-role-divergent.json', {
       status: result.status,
@@ -60,7 +60,7 @@ describe('AC-4: holo infer:call role + escape flags', () => {
     const result = runInferCall(['--role', 'convergent', '--json']);
     expect(result.status, result.out).toBe(0);
     expect(result.out).toMatch(/27b|27B/);
-    expect(result.out).not.toMatch(/api\.anthropic\.com/i);
+    expect(result.out).not.toMatch(/api\.deepseek\.com/i);
 
     writeInferArtifact('AC-4-role-convergent.json', {
       status: result.status,
@@ -69,7 +69,7 @@ describe('AC-4: holo infer:call role + escape flags', () => {
   });
 
   itLive('infer:call --escape uses runBudgetedEscape (not resolve-only probe)', () => {
-    const hasKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+    const hasKey = Boolean(process.env.DEEPSEEK_API_KEY?.trim());
     const result = runInferCall(['--escape', '--json', '--cost', '0.05']);
 
     let payload: {
@@ -77,7 +77,7 @@ describe('AC-4: holo infer:call role + escape flags', () => {
       mode?: string;
       error?: string;
       message?: string;
-      networkCapture?: { anthropicCount?: number; rows?: unknown[] };
+      networkCapture?: { deepseekCount?: number; rows?: unknown[] };
       resolved?: { endpoint?: string; allowEscape?: boolean };
       escape?: { tokens?: number; cost?: number; ledgerId?: string };
       allowEscape?: boolean;
@@ -101,33 +101,33 @@ describe('AC-4: holo infer:call role + escape flags', () => {
       expect(Number(payload.escape?.tokens ?? 0)).toBeGreaterThan(0);
       expect(Number(payload.escape?.cost ?? 0)).toBeGreaterThan(0);
       expect(payload.escape?.ledgerId).toBeTruthy();
-      const anthropicCount =
-        payload.networkCapture?.anthropicCount ??
-        (result.out.match(/api\.anthropic\.com/gi) ?? []).length;
-      expect(anthropicCount).toBeGreaterThanOrEqual(1);
-      expect(payload.resolved?.endpoint ?? result.out).toMatch(/api\.anthropic\.com/i);
+      const deepseekCount =
+        payload.networkCapture?.deepseekCount ??
+        (result.out.match(/api\.deepseek\.com/gi) ?? []).length;
+      expect(deepseekCount).toBeGreaterThanOrEqual(1);
+      expect(payload.resolved?.endpoint ?? result.out).toMatch(/api\.deepseek\.com/i);
     } else {
       // Without key: fail closed on the real generate path (not a greenwashed probe success)
       expect(result.status, result.out).not.toBe(0);
-      expect(result.out).toMatch(/ANTHROPIC_API_KEY|runBudgetedEscape|ESCAPE_FAILED/i);
+      expect(result.out).toMatch(/DEEPSEEK_API_KEY|runBudgetedEscape|ESCAPE_FAILED/i);
     }
 
     writeInferArtifact('AC-4-escape.json', {
       status: result.status,
-      hasAnthropicKey: hasKey,
+      hasDeepSeekKey: hasKey,
       stdout: result.stdout,
       stderr: result.stderr,
       payload,
     });
   });
 
-  itLive('infer:call without --escape never prints api.anthropic.com for fleet roles', () => {
+  itLive('infer:call without --escape never prints api.deepseek.com for fleet roles', () => {
     const d = runInferCall(['--role', 'divergent', '--json']);
     const c = runInferCall(['--role', 'convergent', '--json']);
     expect(d.status, d.out).toBe(0);
     expect(c.status, c.out).toBe(0);
-    expect(d.out).not.toMatch(/api\.anthropic\.com/i);
-    expect(c.out).not.toMatch(/api\.anthropic\.com/i);
+    expect(d.out).not.toMatch(/api\.deepseek\.com/i);
+    expect(c.out).not.toMatch(/api\.deepseek\.com/i);
   });
 
   itLive('infer:call is registered (unknown-command would exit 2)', () => {
@@ -145,7 +145,7 @@ describe('AC-4: holo infer:call role + escape flags', () => {
    * REDHAT-FIX-H1: CLI --escape under process degraded (env force for subprocess)
    * must refuse never-cloud via shared runBudgetedEscape choke — zero Anthropic.
    */
-  itLive('H1: infer:call --escape while degraded refuses with anthropicCount===0', () => {
+  itLive('H1: infer:call --escape while degraded refuses with deepseekCount===0', () => {
     const result = spawnSync(
       BUN_BIN,
       [HOLO_CLI, 'infer:call', '--escape', '--json', '--cost', '0.05', '--role', 'divergent'],
@@ -168,7 +168,7 @@ describe('AC-4: holo infer:call role + escape flags', () => {
       mode?: string;
       error?: string;
       message?: string;
-      networkCapture?: { anthropicCount?: number };
+      networkCapture?: { deepseekCount?: number };
     } = {};
     try {
       payload = JSON.parse(stdout || stderr) as typeof payload;
@@ -186,12 +186,12 @@ describe('AC-4: holo infer:call role + escape flags', () => {
       /degraded|never-cloud|ESCAPE_DEGRADED/i
     );
     expect(payload.mode).toBe('runBudgetedEscape');
-    expect(payload.networkCapture?.anthropicCount ?? 1).toBe(0);
+    expect(payload.networkCapture?.deepseekCount ?? 1).toBe(0);
 
     writeInferArtifact('H1-cli-escape-degraded-refuse.json', {
       status: result.status,
       payload,
-      anthropicCount: payload.networkCapture?.anthropicCount ?? null,
+      deepseekCount: payload.networkCapture?.deepseekCount ?? null,
     });
   });
 });

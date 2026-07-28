@@ -6,8 +6,8 @@
  * degraded_mode and refuse never-cloud when state != 'normal', even when
  * isProcessInDegradedMode() === false.
  *
- * AC-1: DB degraded + process flag false → runBudgetedEscape refuses; anthropicHits:0
- * AC-2: resolveModel(allowEscape) honors DB degraded; anthropicHits:0
+ * AC-1: DB degraded + process flag false → runBudgetedEscape refuses; deepseekHits:0
+ * AC-2: resolveModel(allowEscape) honors DB degraded; deepseekHits:0
  * AC-3: Single DB-aware shared helper (process OR durable)
  * AC-4: DB + process normal restores within-budget escape operability
  * AC-5: redhat-fix-h4* red/green multi-process evidence
@@ -39,19 +39,19 @@ const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-H4');
 const EVIDENCE_SPEC = resolve(REPO_ROOT, '.spec/evidence');
 const GLOBAL_ROW_ID = 'global';
 
-function ensureAnthropicKeyFromSecrets(): boolean {
+function ensureDeepSeekKeyFromSecrets(): boolean {
   applyConsolidatedSecretsToEnv();
-  const fromEnv = process.env.ANTHROPIC_API_KEY?.trim();
+  const fromEnv = process.env.DEEPSEEK_API_KEY?.trim();
   if (fromEnv) return true;
-  const fromFile = getSecretValue('ANTHROPIC_API_KEY');
+  const fromFile = getSecretValue('DEEPSEEK_API_KEY');
   if (fromFile?.trim()) {
-    process.env.ANTHROPIC_API_KEY = fromFile.trim();
+    process.env.DEEPSEEK_API_KEY = fromFile.trim();
     return true;
   }
   return false;
 }
 
-const hasAnthropicKey = ensureAnthropicKeyFromSecrets();
+const hasDeepSeekKey = ensureDeepSeekKeyFromSecrets();
 
 function writeEvidence(name: string, body: unknown): string {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -94,7 +94,7 @@ async function loadBudgetLedger() {
       tokens: number;
       cost: number;
       ledgerId: string;
-      anthropicHostContacted: boolean;
+      escapeHostContacted: boolean;
     }>;
   }>;
 }
@@ -243,7 +243,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
   });
 
   itLive(
-    'AC-1: DB degraded + process flag false → runBudgetedEscape refuses; anthropicHits:0',
+    'AC-1: DB degraded + process flag false → runBudgetedEscape refuses; deepseekHits:0',
     async () => {
       await withBudgetLock(async () => {
         process.env.HOLO_ESCAPE_BUDGET_USD = process.env.HOLO_ESCAPE_BUDGET_USD || '10';
@@ -296,7 +296,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
               : '';
         }
 
-        const anthropicCount = capture.anthropicCount();
+        const deepseekCount = capture.deepseekCount();
         const rows = capture.snapshot();
         capture.restore();
 
@@ -314,8 +314,8 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
           errorName,
           errorCode,
           errorMessage,
-          anthropicCount,
-          anthropicHits: anthropicCount,
+          deepseekCount,
+          deepseekHits: deepseekCount,
           unexpectedSuccess,
           networkRows: rows,
         };
@@ -331,7 +331,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
             /degraded|never-cloud/i.test(errorMessage),
           `expected refuse code/name, got name=${errorName} code=${errorCode}`
         ).toBe(true);
-        expect(anthropicCount, JSON.stringify(rows)).toBe(0);
+        expect(deepseekCount, JSON.stringify(rows)).toBe(0);
         expect(unexpectedSuccess).toBeNull();
       });
     },
@@ -339,7 +339,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
   );
 
   itLive(
-    'AC-2: resolveModel(allowEscape) under DB-only degraded throws; anthropicHits:0',
+    'AC-2: resolveModel(allowEscape) under DB-only degraded throws; deepseekHits:0',
     async () => {
       await withBudgetLock(async () => {
         process.env.HOLO_ESCAPE_BUDGET_USD = process.env.HOLO_ESCAPE_BUDGET_USD || '10';
@@ -371,7 +371,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
           errorMessage = err instanceof Error ? err.message : String(err);
         }
 
-        const anthropicHits = capture.anthropicCount();
+        const deepseekHits = capture.deepseekCount();
         const rows = capture.snapshot();
         capture.restore();
 
@@ -383,8 +383,8 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
           refused,
           errorName,
           errorMessage,
-          anthropicHits,
-          anthropicCount: anthropicHits,
+          deepseekHits,
+          deepseekCount: deepseekHits,
           unexpected,
           networkRows: rows,
         };
@@ -392,12 +392,12 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
 
         expect(refused, JSON.stringify(evidence)).toBe(true);
         expect(errorMessage).toMatch(/degraded|never-cloud|ROLE_UNAVAILABLE|unavailable/i);
-        expect(anthropicHits, JSON.stringify(rows)).toBe(0);
+        expect(deepseekHits, JSON.stringify(rows)).toBe(0);
         expect(unexpected).toBeNull();
         // Must not resolve to Anthropic provider while DB degraded
         if (unexpected && typeof unexpected === 'object' && unexpected !== null) {
           const ep = String((unexpected as { endpoint?: string }).endpoint ?? '');
-          expect(ep).not.toMatch(/api\.anthropic\.com/i);
+          expect(ep).not.toMatch(/api\.deepseek\.com/i);
         }
       });
     },
@@ -534,9 +534,9 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
         }
 
         // When Anthropic key present, full escape should succeed (not degraded refuse)
-        if (!hasAnthropicKey) {
+        if (!hasDeepSeekKey) {
           writeEvidence('AC-4-operability-skipped-no-key.json', {
-            reason: 'ANTHROPIC_API_KEY absent — degraded choke allow proven; full escape deferred',
+            reason: 'DEEPSEEK_API_KEY absent — degraded choke allow proven; full escape deferred',
             processFlag: false,
             dbState: 'normal',
           });
@@ -556,7 +556,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
         let degradedMsg = '';
         let result: {
           ledgerId?: string;
-          anthropicHostContacted?: boolean;
+          escapeHostContacted?: boolean;
           tokens?: number;
         } | null = null;
         try {
@@ -578,8 +578,8 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
             degradedMsg = msg;
           }
         }
-        const anthropicHostContacted =
-          capture.anthropicCount() > 0 || result?.anthropicHostContacted === true;
+        const escapeHostContacted =
+          capture.deepseekCount() > 0 || result?.escapeHostContacted === true;
         capture.restore();
 
         const evidence = {
@@ -589,14 +589,14 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
           degradedRefuse,
           degradedMsg,
           ledgerId: result?.ledgerId ?? null,
-          anthropicHostContacted,
+          escapeHostContacted,
           tokens: result?.tokens ?? 0,
         };
         writeEvidence('AC-4-db-normal-operability.json', evidence);
 
         expect(degradedRefuse, JSON.stringify(evidence)).toBe(false);
         // Operability: either ledgerId or real Anthropic contact
-        expect(Boolean(result?.ledgerId) || anthropicHostContacted, JSON.stringify(evidence)).toBe(
+        expect(Boolean(result?.ledgerId) || escapeHostContacted, JSON.stringify(evidence)).toBe(
           true
         );
       });
@@ -648,7 +648,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
       refused = true;
       errorMessage = err instanceof Error ? err.message : String(err);
     }
-    const anthropicCount = capture.anthropicCount();
+    const deepseekCount = capture.deepseekCount();
     capture.restore();
 
     writeEvidence('green-durable-refuse-anthropic-zero.json', {
@@ -658,18 +658,18 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
       dbState: 'surface-unavailable',
       refused,
       errorMessage,
-      anthropicCount,
-      anthropicHits: anthropicCount,
+      deepseekCount,
+      deepseekHits: deepseekCount,
     });
 
     expect(existsSync(redPath)).toBe(true);
     expect(existsSync(greenPath)).toBe(true);
     expect(refused).toBe(true);
     expect(errorMessage, errorMessage).toMatch(/degraded|never-cloud/i);
-    expect(anthropicCount).toBe(0);
+    expect(deepseekCount).toBe(0);
 
     const greenBody = readFileSync(greenPath, 'utf8');
-    expect(greenBody).toMatch(/anthropicCount": 0|anthropicHits": 0|anthropicCount":0/);
+    expect(greenBody).toMatch(/deepseekCount": 0|deepseekHits": 0|deepseekCount":0/);
     expect(greenBody).toMatch(/processFlag": false|processFlag":false/);
     expect(greenBody).toMatch(/dbDegraded": true|dbDegraded":true/);
 
@@ -688,7 +688,7 @@ describe('REDHAT-FIX-H4: durable Postgres degraded gate (multi-process)', () => 
       greenPath,
       redExists: existsSync(redPath),
       greenExists: existsSync(greenPath),
-      anthropicCount,
+      deepseekCount,
       processFlag: false,
       dbDegraded: true,
     });

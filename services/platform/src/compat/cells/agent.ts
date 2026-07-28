@@ -6,7 +6,7 @@
  *
  * Structural local-first (REDHAT-FIX-H3): no hard-coded FLEET_URL + compat-spike.
  * Calls agent.generate() and asserts non-empty text.
- * Zero cloud requests (no api.openai.com / api.anthropic.com) on the default path.
+ * Zero cloud requests (no api.openai.com / api.anthropic.com / api.deepseek.com) on the default path.
  */
 
 import { Agent } from '@mastra/core/agent';
@@ -58,7 +58,7 @@ function withCloudRequestTracking<T>(fn: () => Promise<T>): {
   cloudRequests: number;
   fleetRequests: number;
 } {
-  const cloudHosts = ['api.openai.com', 'api.anthropic.com'];
+  const cloudHosts = ['api.openai.com', 'api.anthropic.com', 'api.deepseek.com'];
   let cloudRequests = 0;
   let fleetRequests = 0;
   const origFetch = globalThis.fetch;

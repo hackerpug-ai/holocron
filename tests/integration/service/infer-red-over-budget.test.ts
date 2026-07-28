@@ -2,7 +2,7 @@
  * infer-4 / AC-2 / TC-2 (T-INFER-011): Over-budget escape blocked before Anthropic fires.
  *
  * GIVEN spent near ceiling WHEN allowEscape=true with estimatedCost that exceeds remaining
- * THEN BudgetExceededError (or budget block) AND network capture anthropicCount === 0.
+ * THEN BudgetExceededError (or budget block) AND network capture deepseekCount === 0.
  *
  * NEGATIVE CONTROL (would fail if):
  * - checkBudget stubbed to always return ok so over-budget proceeds
@@ -11,7 +11,7 @@
  * - Test passes without real Postgres budget_ledger
  *
  * RED (no checkBudget / no ledger): vitest non-zero — checkBudget undefined or no block.
- * GREEN (infer-2+): exit 0, over-budget blocked, api.anthropic.com row count = 0.
+ * GREEN (infer-2+): exit 0, over-budget blocked, api.deepseek.com row count = 0.
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-red-over-budget.test.ts
@@ -113,7 +113,7 @@ describe('infer-4 AC-2: over-budget escape blocked before Anthropic (real captur
     expect(typeof ledger.resetBudgetLedgerForTests).toBe('function');
   });
 
-  itLive('over-budget resolveModel(allowEscape=true) blocked; anthropicCount=0', async () => {
+  itLive('over-budget resolveModel(allowEscape=true) blocked; deepseekCount=0', async () => {
     await withBudgetLock(async () => {
       // Ceiling $10, spent $9 → estimated $2 exceeds remaining $1
       process.env.HOLO_ESCAPE_BUDGET_USD = '10';
@@ -174,12 +174,12 @@ describe('infer-4 AC-2: over-budget escape blocked before Anthropic (real captur
         expect(blocked).toBe(true);
         expect(blockCode).toMatch(/BUDGET|budget|exceeded/i);
 
-        // CRITICAL: zero network to api.anthropic.com — blocked before API call
-        expect(capture.anthropicCount()).toBe(0);
-        expect(capture.countForHost('api.anthropic.com')).toBe(0);
+        // CRITICAL: zero network to api.deepseek.com — blocked before API call
+        expect(capture.deepseekCount()).toBe(0);
+        expect(capture.countForHost('api.deepseek.com')).toBe(0);
         for (const row of capture.snapshot()) {
-          expect(row.host).not.toMatch(/api\.anthropic\.com/i);
-          expect(row.url).not.toMatch(/api\.anthropic\.com/i);
+          expect(row.host).not.toMatch(/api\.deepseek\.com/i);
+          expect(row.url).not.toMatch(/api\.deepseek\.com/i);
         }
 
         writeArtifact('AC-2-over-budget-blocked.json', {
@@ -187,7 +187,7 @@ describe('infer-4 AC-2: over-budget escape blocked before Anthropic (real captur
           within,
           blocked,
           blockCode,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           rows: capture.snapshot(),
         });
       } finally {
@@ -233,12 +233,12 @@ describe('infer-4 AC-2: over-budget escape blocked before Anthropic (real captur
         expect(cliOut).toMatch(/BUDGET_EXCEEDED|budget|escape blocked/i);
 
         // Parent process must not have contacted Anthropic while preparing the block
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeArtifact('AC-2-cli-over-budget.json', {
           status: cli.status,
           out: cliOut.slice(0, 3000),
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
         });
       } finally {
         capture.restore();

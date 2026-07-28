@@ -155,7 +155,7 @@ function finalizeStep(n: number, text: string): ParsedStep {
   // Observation-only steps that only refer to suite artifacts still count as suite if labeled
   if (kind === 'unknown' && labeledSuite) kind = 'suite';
   // Steps that only mention reading capture but reference suite language
-  if (kind === 'unknown' && /anthropicCount|network\s+assertion|zero\s+Anthropic/i.test(text)) {
+  if (kind === 'unknown' && /deepseekCount|network\s+assertion|zero\s+Anthropic/i.test(text)) {
     kind = labeledSuite ? 'suite' : 'unknown';
   }
   return { n, text, kind, holoCommands, suiteCommands, labeledSuite };
@@ -565,7 +565,7 @@ describe('REDHAT-FIX-H2: infer gate honesty inventory', () => {
     expect(degraded, 'degraded human step missing').toBeDefined();
     if (!degraded) throw new Error('degraded human step missing');
     const text = degraded.text;
-    expect(text).toMatch(/never-cloud|zero\s+Anthropic|anthropicCount\s*:\s*0/i);
+    expect(text).toMatch(/never-cloud|zero\s+Anthropic|deepseekCount\s*:\s*0/i);
     expect(
       degraded.labeledSuite ||
         degraded.holoCommands.includes('infer:degraded') ||

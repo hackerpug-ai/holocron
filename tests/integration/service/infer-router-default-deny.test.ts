@@ -1,5 +1,5 @@
 /**
- * AC-3 / TC-6..7 (infer-1): Default-deny Claude escape via allowEscape parameter.
+ * AC-3 / TC-6..7 (infer-1): Default-deny DeepSeek escape via allowEscape parameter.
  *
  * NEGATIVE CONTROL (would fail if):
  * - allowEscape=false check omitted so default path permits escape
@@ -17,7 +17,7 @@ import { loadResolveModel } from './infer-resolve-loader';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
-describe('AC-3: default-deny Claude escape (allowEscape)', () => {
+describe('AC-3: default-deny DeepSeek escape (allowEscape)', () => {
   const prevBudget = process.env.HOLO_ESCAPE_BUDGET_USD;
 
   beforeEach(() => {
@@ -40,14 +40,14 @@ describe('AC-3: default-deny Claude escape (allowEscape)', () => {
       });
 
       expect(resolved.endpoint).toMatch(/:4545/);
-      expect(resolved.endpoint).not.toMatch(/api\.anthropic\.com/i);
+      expect(resolved.endpoint).not.toMatch(/api\.deepseek\.com/i);
       expect(resolved.allowEscape === false || resolved.allowEscape === undefined).toBe(true);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
 
       writeInferArtifact('AC-3-allowEscape-false.json', {
         endpoint: resolved.endpoint,
         allowEscape: resolved.allowEscape ?? false,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         rows: capture.snapshot(),
       });
     } finally {
@@ -56,7 +56,7 @@ describe('AC-3: default-deny Claude escape (allowEscape)', () => {
   });
 
   itLive(
-    'allowEscape=true returns api.anthropic.com endpoint after budget pre-check + real probe',
+    'allowEscape=true returns api.deepseek.com endpoint after budget pre-check + real probe',
     async () => {
       const capture = installNetworkCapture();
       try {
@@ -67,16 +67,16 @@ describe('AC-3: default-deny Claude escape (allowEscape)', () => {
           reason: 'ac3-escape-probe',
         });
 
-        expect(resolved.endpoint).toMatch(/api\.anthropic\.com/i);
+        expect(resolved.endpoint).toMatch(/api\.deepseek\.com/i);
         expect(resolved.endpoint).not.toMatch(/:4545/);
         expect(resolved.allowEscape).toBe(true);
         // Real network traffic to Anthropic (probe) — not a mocked zero counter
-        expect(capture.anthropicCount()).toBeGreaterThanOrEqual(1);
+        expect(capture.deepseekCount()).toBeGreaterThanOrEqual(1);
 
         writeInferArtifact('AC-3-allowEscape-true.json', {
           endpoint: resolved.endpoint,
           allowEscape: resolved.allowEscape,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
           rows: capture.snapshot(),
         });
       } finally {
@@ -114,12 +114,12 @@ describe('AC-3: default-deny Claude escape (allowEscape)', () => {
 
         expect(threw).toBe(true);
         expect(code).toMatch(/BUDGET|budget|ESCAPE|escape|not configured|exceeded/i);
-        expect(capture.anthropicCount()).toBe(0);
+        expect(capture.deepseekCount()).toBe(0);
 
         writeInferArtifact('AC-3-budget-block.json', {
           threw,
           code,
-          anthropicCount: capture.anthropicCount(),
+          deepseekCount: capture.deepseekCount(),
         });
       } finally {
         capture.restore();
@@ -134,8 +134,8 @@ describe('AC-3: default-deny Claude escape (allowEscape)', () => {
       // Explicitly omit options.allowEscape
       const resolved = await resolveModel('divergent');
       expect(resolved.endpoint).toMatch(/:4545/);
-      expect(resolved.endpoint).not.toMatch(/api\.anthropic\.com/i);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(resolved.endpoint).not.toMatch(/api\.deepseek\.com/i);
+      expect(capture.deepseekCount()).toBe(0);
     } finally {
       capture.restore();
     }

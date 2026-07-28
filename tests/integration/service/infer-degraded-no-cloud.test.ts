@@ -117,7 +117,7 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
           expect(r.message).toMatch(/Local fleet unavailable|queued|retry/i);
         }
         if (r.endpoint) {
-          expect(r.endpoint).not.toMatch(/api\.anthropic\.com/i);
+          expect(r.endpoint).not.toMatch(/api\.deepseek\.com/i);
         }
       }
 
@@ -132,18 +132,18 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
           // Give budget so only degraded-mode gate can block
         });
         // If it somehow resolves, it must not be cloud — but we require block
-        expect(escaped.endpoint).not.toMatch(/api\.anthropic\.com/);
+        expect(escaped.endpoint).not.toMatch(/api\.deepseek\.com/);
       } catch {
         escapeBlocked = true;
       }
       // Prefer hard block; either way anthropic count must stay 0
       void escapeBlocked;
 
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
       // No capture row may be anthropic host
       for (const row of capture.snapshot()) {
-        expect(row.host).not.toMatch(/api\.anthropic\.com/i);
-        expect(row.url).not.toMatch(/api\.anthropic\.com/i);
+        expect(row.host).not.toMatch(/api\.deepseek\.com/i);
+        expect(row.url).not.toMatch(/api\.deepseek\.com/i);
       }
 
       // Every request either fleet (:4545) or failed local probe — no silent success on cloud
@@ -155,13 +155,13 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
           !r.host.includes('localhost') &&
           r.host.length > 0
       );
-      expect(nonLocal.filter((r) => r.host.includes('anthropic')).length).toBe(0);
+      expect(nonLocal.filter((r) => r.host.includes('deepseek')).length).toBe(0);
 
       writeArtifact('AC-3-no-cloud.json', {
         state: controller.getState(),
         attempts,
         escapeBlocked,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
         captureRows: rows,
       });
     } finally {
@@ -184,7 +184,7 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
       expect(down.ok).toBe(false);
       if (down.ok) throw new Error('expected degradation');
       expect(down.degradation.message).toMatch(new RegExp(SURFACE_MSG, 'i'));
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
     } finally {
       capture.restore();
     }
@@ -228,11 +228,11 @@ describe('AC-3: Degraded mode never silently falls back to cloud', () => {
       }
       expect(refused).toBe(true);
       expect(message).toMatch(/degraded|never-cloud/i);
-      expect(capture.anthropicCount()).toBe(0);
+      expect(capture.deepseekCount()).toBe(0);
       writeArtifact('H1-runBudgetedEscape-degraded.json', {
         refused,
         message,
-        anthropicCount: capture.anthropicCount(),
+        deepseekCount: capture.deepseekCount(),
       });
     } finally {
       capture.restore();

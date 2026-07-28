@@ -201,17 +201,17 @@ describe.sequential('REDHAT-FIX-3 — holo infer:trace (H-1 / GATE-1)', () => {
       expect(modelCalls.length, 'modelCalls.length >= 1').toBeGreaterThanOrEqual(1);
 
       let fleetCount = 0;
-      let anthropicCount = 0;
+      let deepseekCount = 0;
       for (const call of modelCalls) {
         expect(typeof call.provider, 'provider string').toBe('string');
         expect(String(call.provider).length, 'provider non-empty').toBeGreaterThan(0);
         expect(typeof call.endpoint, 'endpoint string').toBe('string');
         expect(String(call.endpoint).length, 'endpoint non-empty').toBeGreaterThan(0);
         if (call.provider === 'fleet') fleetCount += 1;
-        if (call.provider === 'anthropic') anthropicCount += 1;
+        if (call.provider === 'deepseek') deepseekCount += 1;
       }
       expect(fleetCount, 'fleet modelCalls >= 1').toBeGreaterThanOrEqual(1);
-      expect(anthropicCount, 'anthropic modelCalls == 0').toBe(0);
+      expect(deepseekCount, 'anthropic modelCalls == 0').toBe(0);
     },
     FLEET_TIMEOUT_MS
   );
@@ -304,9 +304,9 @@ describe.sequential('REDHAT-FIX-3 — holo infer:trace (H-1 / GATE-1)', () => {
         ? (payload.modelCalls as Record<string, unknown>[])
         : [];
       const fleetModelCalls = modelCalls.filter((c) => c.provider === 'fleet').length;
-      const anthropicModelCalls = modelCalls.filter((c) => c.provider === 'anthropic').length;
+      const deepseekModelCalls = modelCalls.filter((c) => c.provider === 'deepseek').length;
       expect(fleetModelCalls).toBeGreaterThanOrEqual(1);
-      expect(anthropicModelCalls).toBe(0);
+      expect(deepseekModelCalls).toBe(0);
 
       const stamp = new Date().toISOString().slice(11, 19);
       const step6Body = [
@@ -321,7 +321,7 @@ describe.sequential('REDHAT-FIX-3 — holo infer:trace (H-1 / GATE-1)', () => {
         command: 'infer:trace',
         runId,
         fleetModelCalls,
-        anthropicModelCalls,
+        deepseekModelCalls,
       };
       writeFileSync(GATE_STEP6_JSON, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
       writeArtifact('redhat-fix-3-ac4-gate.json', summary);
@@ -343,7 +343,7 @@ describe.sequential('REDHAT-FIX-3 — holo infer:trace (H-1 / GATE-1)', () => {
       const gateJson = asRecord(JSON.parse(readFileSync(GATE_STEP6_JSON, 'utf8')));
       expect(gateJson.command).toBe('infer:trace');
       expect(Number(gateJson.fleetModelCalls)).toBeGreaterThanOrEqual(1);
-      expect(Number(gateJson.anthropicModelCalls)).toBe(0);
+      expect(Number(gateJson.deepseekModelCalls)).toBe(0);
       expect(String(gateJson.runId)).toBe(runId);
     },
     FLEET_TIMEOUT_MS
