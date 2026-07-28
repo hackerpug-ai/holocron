@@ -197,32 +197,51 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
     "d04_02_r2_bucket_provisioned": {
       "description": "D04-02 provisioned an encrypted R2 bucket with scoped credentials and pgBackRest repo config",
       "seed_method": "recorded_external",
-      "records": ["R2 bucket exists", "scoped credential in secrets store", "pgBackRest repo points to R2", "bucket SSE on"]
+      "records": [
+        "R2 bucket exists",
+        "scoped credential in secrets store",
+        "pgBackRest repo points to R2",
+        "bucket SSE on"
+      ]
     },
     "secrets_in_store": {
       "description": "R2 credentials are stored in the consolidated secrets store (holo secrets)",
       "seed_method": "recorded_external",
-      "records": ["holo secrets:doctor shows R2 present (value not printed)"]
+      "records": [
+        "holo secrets:doctor shows R2 present (value not printed)"
+      ]
     },
     "encryption_configured": {
       "description": "Bucket SSE + pgBackRest repo-cipher + restic RESTIC_PASSWORD configured",
       "seed_method": "recorded_external",
-      "records": ["SSE algorithm set", "repo-cipher not none", "RESTIC_PASSWORD set"]
+      "records": [
+        "SSE algorithm set",
+        "repo-cipher not none",
+        "RESTIC_PASSWORD set"
+      ]
     },
     "repos_configured": {
       "description": "pgBackRest + restic repos configured with their ciphers/passwords",
       "seed_method": "recorded_external",
-      "records": ["repo keys referenced by env var", "keys live in secrets store/env"]
+      "records": [
+        "repo keys referenced by env var",
+        "keys live in secrets store/env"
+      ]
     },
     "alerting_configured": {
       "description": "D04-05 alerting sink emits alert payloads",
       "seed_method": "recorded_external",
-      "records": ["an alert payload can be captured", "webhook endpoint is HTTPS"]
+      "records": [
+        "an alert payload can be captured",
+        "webhook endpoint is HTTPS"
+      ]
     },
     "checks_completed": {
       "description": "AC-1..AC-5 checks have been run",
-      "seed_method": "induced",
-      "records": ["each check has command output evidence"]
+      "seed_method": "cli",
+      "records": [
+        "each AC-1..AC-5 security check has command output evidence (exit codes captured via cli)"
+      ]
     }
   },
   "requirements": [
@@ -240,16 +259,39 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
         "verification_service": "R2-policy-inspect",
         "flow_ref": "CAP-BAK-01",
         "negative_control": {
-          "would_fail_if": ["review only checks files exist (rubber-stamp)", "trusts declared scope without enumerating actions/resources", "accepts a bucket wildcard without verifying prefix", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "review only checks files exist (rubber-stamp)",
+            "trusts declared scope without enumerating actions/resources",
+            "accepts a bucket wildcard without verifying prefix",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "d04_02_r2_bucket_provisioned",
-            "action": { "actor": "security-reviewer", "steps": ["inspect the R2 token policy actions/resources", "compare against the app DATABASE_URL/Fleet secret scope"] },
+            "action": {
+              "actor": "security-reviewer",
+              "steps": [
+                "inspect the R2 token policy actions/resources",
+                "compare against the app DATABASE_URL/Fleet secret scope"
+              ]
+            },
             "end_state": {
-              "must_observe": ["policy Resource = backup bucket ARN", "Action = limited set", "distinct from DATABASE_URL/Fleet"],
-              "must_not_observe": ["Resource *", "Action s3:* or AdministratorAccess", "token usable on non-backup buckets"]
+              "must_observe": [
+                "policy Resource: \"arn:aws:s3:::$R2_BUCKET_NAME\" (backup bucket only)",
+                "Action set: \"s3:PutObject\",\"s3:GetObject\",\"s3:ListBucket\",\"s3:DeleteObject\" (count <= 6)",
+                "token scope distinct from \"DATABASE_URL\" and Fleet keys"
+              ],
+              "must_not_observe": [
+                "Resource: \"*\"",
+                "Action: \"s3:*\" or AdministratorAccess",
+                "token usable on non-backup buckets",
+                "empty policy / Status=None"
+              ]
             }
           }
         ]
@@ -269,16 +311,39 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
         "verification_service": "git-audit+secrets-store",
         "flow_ref": "CAP-BAK-01",
         "negative_control": {
-          "would_fail_if": ["review only checks .gitignore exists", "skips file types", "accepts a placeholder without validating it is not a real key", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "review only checks .gitignore exists",
+            "skips file types",
+            "accepts a placeholder without validating it is not a real key",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "secrets_in_store",
-            "action": { "actor": "security-reviewer", "steps": ["git grep -nIE for credential patterns in tracked files", "run holo secrets:doctor", "sample logs for plaintext credentials"] },
+            "action": {
+              "actor": "security-reviewer",
+              "steps": [
+                "git grep -nIE for credential patterns in tracked files",
+                "run holo secrets:doctor",
+                "sample logs for plaintext credentials"
+              ]
+            },
             "end_state": {
-              "must_observe": ["git grep returns 0 credential-pattern hits", "secrets.yaml gitignored", "secrets:doctor exit 0, value not printed"],
-              "must_not_observe": ["a tracked file with Account ID / access key / base64 secret", "a log entry with a full credential"]
+              "must_observe": [
+                "git grep -nIE credential patterns returns hit count: (0)",
+                "\".gitignore\" includes \"secrets.yaml\" (git check-ignore exit 0)",
+                "holo secrets:doctor exit 0, value not printed"
+              ],
+              "must_not_observe": [
+                "tracked file credential hit count >= 1",
+                "log entry with full access_key/secret",
+                "empty secrets store / Status=None"
+              ]
             }
           }
         ]
@@ -298,16 +363,41 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
         "verification_service": "R2-SSE-inspect",
         "flow_ref": "CAP-BAK-01",
         "negative_control": {
-          "would_fail_if": ["review only greps for 'encrypt' without querying the bucket", "accepts 'TLS' without the protocol version", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "review only greps for 'encrypt' without querying the bucket",
+            "accepts 'TLS' without the protocol version",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "encryption_configured",
-            "action": { "actor": "security-reviewer", "steps": ["query bucket SSE", "check backup job endpoints are https", "check repo-cipher / RESTIC_PASSWORD"] },
+            "action": {
+              "actor": "security-reviewer",
+              "steps": [
+                "query bucket SSE",
+                "check backup job endpoints are https",
+                "check repo-cipher / RESTIC_PASSWORD"
+              ]
+            },
             "end_state": {
-              "must_observe": ["get-bucket-encryption returns an SSE algorithm", "https:// endpoints", "repo-cipher set", "RESTIC_PASSWORD set"],
-              "must_not_observe": ["SSE null/disabled", "http:// endpoints", "cipher-type=none", "restic without a password"]
+              "must_observe": [
+                "get-bucket-encryption SSEAlgorithm: \"AES256\" or \"aws:kms\"",
+                "backup job endpoints scheme: \"https://\"",
+                "pgBackRest repo-cipher-type: \"aes-256-cbc\" (not none)",
+                "RESTIC_PASSWORD set: len >= 1 (env present)"
+              ],
+              "must_not_observe": [
+                "SSEAlgorithm: None / empty encryption",
+                "endpoint scheme: \"http://\"",
+                "repo-cipher-type: \"none\"",
+                "RESTIC_PASSWORD empty / unset",
+                "encryption Status=None"
+              ]
             }
           }
         ]
@@ -327,16 +417,37 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
         "verification_service": "file-location-audit",
         "flow_ref": "CAP-BAK-01",
         "negative_control": {
-          "would_fail_if": ["review only checks keys exist", "accepts a key in the same directory as the repo config", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "review only checks keys exist",
+            "accepts a key in the same directory as the repo config",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "repos_configured",
-            "action": { "actor": "security-reviewer", "steps": ["inspect repo config key references", "list the backup bucket prefix for key/password/cipher files"] },
+            "action": {
+              "actor": "security-reviewer",
+              "steps": [
+                "inspect repo config key references",
+                "list the backup bucket prefix for key/password/cipher files"
+              ]
+            },
             "end_state": {
-              "must_observe": ["repo config references ${PGBACKREST_CIPHER}/RESTIC_PASSWORD env vars", "keys in secrets store/env", "backup prefix has NO key/password/cipher file"],
-              "must_not_observe": ["a key/password/cipher file in the backup prefix", "a hardcoded key in repo-cipher", "a cipher file readable from the backup URL"]
+              "must_observe": [
+                "repo config references \"${PGBACKREST_CIPHER}\" and \"RESTIC_PASSWORD\" env vars",
+                "keys live in secrets store/env (hardcoded key count: (0) in repo config)",
+                "aws s3 ls backup prefix key/password/cipher file count: (0)"
+              ],
+              "must_not_observe": [
+                "key/password/cipher file in backup prefix count >= 1",
+                "hardcoded cipher key in repo config",
+                "empty key reference / Status=None"
+              ]
             }
           }
         ]
@@ -356,16 +467,39 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
         "verification_service": "alert-payload-audit",
         "flow_ref": "CAP-BAK-01",
         "negative_control": {
-          "would_fail_if": ["review only checks the alert fires", "accepts 'backup failed' without inspecting the payload body", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "review only checks the alert fires",
+            "accepts 'backup failed' without inspecting the payload body",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "alerting_configured",
-            "action": { "actor": "security-reviewer", "steps": ["induce an alert", "capture the payload", "inspect keys + endpoint"] },
+            "action": {
+              "actor": "security-reviewer",
+              "steps": [
+                "induce an alert",
+                "capture the payload",
+                "inspect keys + endpoint"
+              ]
+            },
             "end_state": {
-              "must_observe": ["payload keys are the safe set", "no secret-valued fields", "HTTPS endpoint"],
-              "must_not_observe": ["account_id/access_key/secret/cipher in the payload", "a plaintext credential in alert logs"]
+              "must_observe": [
+                "alert payload keys: \"status\",\"job_type\",\"timestamp\",\"trace_id\",\"last_success_at\" only",
+                "secret-valued field count: (0) (no account_id/access_key/secret/cipher)",
+                "webhook endpoint scheme: \"https://\""
+              ],
+              "must_not_observe": [
+                "payload contains \"account_id\" or \"access_key\" or \"secret\" or \"cipher\"",
+                "plaintext credential in alert logs",
+                "endpoint scheme: \"http://\"",
+                "empty payload / Status=None"
+              ]
             }
           }
         ]
@@ -385,27 +519,84 @@ Depends on: D04-02, D04-03, D04-04, D04-05 · Blocks: none (sprint's review/clos
         "verification_service": "documentation",
         "flow_ref": "CAP-BAK-01",
         "negative_control": {
-          "would_fail_if": ["review skips writing findings", "writes an empty template without AC verdicts", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "review skips writing findings",
+            "writes an empty template without AC verdicts",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "checks_completed",
-            "action": { "actor": "security-reviewer", "steps": ["write findings for each AC with evidence", "set a final Verdict"] },
+            "action": {
+              "actor": "security-reviewer",
+              "steps": [
+                "write findings for each AC with evidence",
+                "set a final Verdict"
+              ]
+            },
             "end_state": {
-              "must_observe": ["findings file exists", "AC-1..AC-5 verdicts present", "a final Verdict: APPROVED|NEEDS_FIXES line"],
-              "must_not_observe": ["no findings file", "verdict line missing", "AC sections missing"]
+              "must_observe": [
+                "findings file path: \"security-review-D04-06.md\" (test -f exit 0)",
+                "AC-1..AC-5 verdict sections present (section count >= 5)",
+                "final line matches \"Verdict: APPROVED\" or \"Verdict: NEEDS_FIXES\""
+              ],
+              "must_not_observe": [
+                "findings file missing (test -f exit non-zero)",
+                "verdict line missing / Status=None",
+                "AC section count: (0) / empty template"
+              ]
             }
           }
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "description": "R2 policy scoped to backup bucket only, no wildcard", "maps_to_ac": "AC-1", "verify": "policy inspect: single-bucket ARN, limited actions, no *" },
-    { "id": "TC-2", "type": "test_criterion", "description": "Zero secrets in tracked files or logs", "maps_to_ac": "AC-2", "verify": "git grep credential patterns -> 0; secrets:doctor exit 0" },
-    { "id": "TC-3", "type": "test_criterion", "description": "Encryption-at-rest + in-transit verified", "maps_to_ac": "AC-3", "verify": "bucket SSE algorithm + https endpoints + repo-cipher + RESTIC_PASSWORD" },
-    { "id": "TC-4", "type": "test_criterion", "description": "Repo keys NOT co-located with backups", "maps_to_ac": "AC-4", "verify": "backup prefix has no key/password/cipher file; keys in secrets store/env" },
-    { "id": "TC-5", "type": "test_criterion", "description": "Alert payloads redact secrets", "maps_to_ac": "AC-5", "verify": "alert payload has only safe fields, no secrets; HTTPS endpoint" },
-    { "id": "TC-6", "type": "test_criterion", "description": "Finding log exists with APPROVED/NEEDS_FIXES verdict", "maps_to_ac": "AC-6", "verify": "security-review-D04-06.md exists with a Verdict line" }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "R2 policy scoped to backup bucket only, no wildcard",
+      "maps_to_ac": "AC-1",
+      "verify": "policy inspect: single-bucket ARN, limited actions, no *"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Zero secrets in tracked files or logs",
+      "maps_to_ac": "AC-2",
+      "verify": "git grep credential patterns -> 0; secrets:doctor exit 0"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Encryption-at-rest + in-transit verified",
+      "maps_to_ac": "AC-3",
+      "verify": "bucket SSE algorithm + https endpoints + repo-cipher + RESTIC_PASSWORD"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Repo keys NOT co-located with backups",
+      "maps_to_ac": "AC-4",
+      "verify": "backup prefix has no key/password/cipher file; keys in secrets store/env"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Alert payloads redact secrets",
+      "maps_to_ac": "AC-5",
+      "verify": "alert payload has only safe fields, no secrets; HTTPS endpoint"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Finding log exists with APPROVED/NEEDS_FIXES verdict",
+      "maps_to_ac": "AC-6",
+      "verify": "security-review-D04-06.md exists with a Verdict line"
+    }
   ]
 }
 -->

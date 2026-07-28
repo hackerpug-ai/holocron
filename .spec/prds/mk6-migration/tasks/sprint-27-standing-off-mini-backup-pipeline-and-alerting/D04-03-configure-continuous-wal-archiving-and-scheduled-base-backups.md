@@ -167,17 +167,27 @@ Depends on: D04-02 · Blocks: D04-05
     "postgres_wal_archiving_running": {
       "description": "Postgres running with archive_mode=always and archive_command -> pgbackrest archive-push, repo from D04-02",
       "seed_method": "public_api",
-      "records": ["SHOW archive_mode = always", "SHOW archive_command contains pgbackrest archive-push", "pgBackRest stanza exists (D04-02)"]
+      "records": [
+        "SHOW archive_mode = always",
+        "SHOW archive_command contains pgbackrest archive-push",
+        "pgBackRest stanza exists (D04-02)"
+      ]
     },
     "wal_archiving_running": {
       "description": "WAL archiving active: segments are being pushed to R2",
       "seed_method": "public_api",
-      "records": ["pg_stat_archiver.last_archived_wal advances", "R2 WAL object count increasing"]
+      "records": [
+        "pg_stat_archiver.last_archived_wal advances",
+        "R2 WAL object count increasing"
+      ]
     },
     "backup_job_completed": {
       "description": "A WAL archive or base backup job just completed successfully against R2",
       "seed_method": "public_api",
-      "records": ["pgbackrest confirmed receipt in R2", "heartbeat upserted for wal_archive|base_backup"]
+      "records": [
+        "pgbackrest confirmed receipt in R2",
+        "heartbeat upserted for wal_archive|base_backup"
+      ]
     }
   },
   "requirements": [
@@ -195,16 +205,45 @@ Depends on: D04-02 · Blocks: D04-05
         "verification_service": "Postgres+pgBackRest+R2",
         "flow_ref": "T-PLAT-021",
         "negative_control": {
-          "would_fail_if": ["archive_command is a no-op (/bin/true)", "pgBackRest push disabled", "heartbeat updated before R2 confirms receipt", "WAL segments skipped (gap)"]
+          "would_fail_if": [
+            "archive_command is a no-op (/bin/true)",
+            "pgBackRest push disabled",
+            "heartbeat updated before R2 confirms receipt",
+            "WAL segments skipped (gap)"
+          ]
         },
-        "evidence": { "artifact_type": "db_query", "required_capture": true },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "postgres_wal_archiving_running",
-            "action": { "actor": "system", "steps": ["generate WAL traffic (pgbench / writes)", "archive_command -> pgbackrest archive-push", "pgBackRest confirms the segment in R2", "INSERT ... ON CONFLICT (job_name) DO UPDATE backup_heartbeat SET last_success_at=now(), last_wal_segment=<wal>, status='success'", "emit OTel span backup:wal_archive"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "generate WAL traffic (pgbench / writes)",
+                "archive_command -> pgbackrest archive-push",
+                "pgBackRest confirms the segment in R2",
+                "INSERT ... ON CONFLICT (job_name) DO UPDATE backup_heartbeat SET last_success_at=now(), last_wal_segment=<wal>, status='success'",
+                "emit OTel span backup:wal_archive"
+              ]
+            },
             "end_state": {
-              "must_observe": ["R2 WAL object count increases by one or more", "backup_heartbeat.last_wal_segment = latest WAL filename", "last_success_at within now() - interval '1 minute'", "status='success'", "pg_stat_archiver.last_archived_wal advances", "failed_count does not grow"],
-              "must_not_observe": ["a WAL-continuity gap (segment N+1 missing)", "last_success_at NULL or older than 15 minutes", "status='failed' during a healthy run", "archive_command = /bin/true"]
+              "must_observe": [
+                "R2 WAL object_count increases by >= 1 after archive-push",
+                "backup_heartbeat.last_wal_segment: non-empty WAL filename (e.g. \"000000010000000000000001\")",
+                "last_success_at within now()-interval '1 minute' (age_seconds < 60)",
+                "status: 'success'",
+                "pg_stat_archiver.last_archived_wal advances (failed_count delta: 0)"
+              ],
+              "must_not_observe": [
+                "WAL object_count delta: (0) after archive-push",
+                "last_wal_segment: empty / Status=None",
+                "last_success_at NULL or age > 15 minutes",
+                "status: 'failed' during healthy run",
+                "archive_command: '/bin/true'"
+              ]
             }
           }
         ]
@@ -224,16 +263,42 @@ Depends on: D04-02 · Blocks: D04-05
         "verification_service": "pgBackRest+R2",
         "flow_ref": "T-PLAT-021",
         "negative_control": {
-          "would_fail_if": ["base-backup job is a no-op/stub", "manifest missing", "heartbeat set without a real backup completing"]
+          "would_fail_if": [
+            "base-backup job is a no-op/stub",
+            "manifest missing",
+            "heartbeat set without a real backup completing"
+          ]
         },
-        "evidence": { "artifact_type": "db_query", "required_capture": true },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "wal_archiving_running",
-            "action": { "actor": "system", "steps": ["scheduled launchd job runs pgbackrest backup", "backup + manifest written to R2", "upsert backup_heartbeat base_backup with last_snapshot_id, last_success_at, status=success", "emit OTel span backup:base_backup"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "scheduled launchd job runs pgbackrest backup",
+                "backup + manifest written to R2",
+                "upsert backup_heartbeat base_backup with last_snapshot_id, last_success_at, status=success",
+                "emit OTel span backup:base_backup"
+              ]
+            },
             "end_state": {
-              "must_observe": ["pgbackrest backup exit 0 + manifest in R2", "aws s3 ls shows the backup object", "backup_heartbeat base_backup.last_snapshot_id non-empty", "last_success_at recent", "status='success'"],
-              "must_not_observe": ["base-backup job no-op", "missing manifest", "last_snapshot_id NULL", "status='failed' on a successful run"]
+              "must_observe": [
+                "pgbackrest backup --type=full exit 0",
+                "aws s3 ls backup prefix object_count >= 1 (manifest present)",
+                "backup_heartbeat.base_backup.last_snapshot_id: non-empty (len >= 8)",
+                "last_success_at age_seconds < 900",
+                "status: 'success'"
+              ],
+              "must_not_observe": [
+                "base-backup job no-op / exit non-zero",
+                "backup prefix object_count: (0)",
+                "last_snapshot_id: empty / NULL / Status=None",
+                "status: 'failed' on a successful run"
+              ]
             }
           }
         ]
@@ -253,25 +318,72 @@ Depends on: D04-02 · Blocks: D04-05
         "verification_service": "OTel+langfuse",
         "flow_ref": "T-PLAT-021",
         "negative_control": {
-          "would_fail_if": ["span emitted but not correlated to heartbeat (no trace_id)", "attributes contain unredacted credentials/hostnames", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "span emitted but not correlated to heartbeat (no trace_id)",
+            "attributes contain unredacted credentials/hostnames",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "event_log", "required_capture": true },
+        "evidence": {
+          "artifact_type": "event_log",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "backup_job_completed",
-            "action": { "actor": "system", "steps": ["build span with redacted attributes", "flush via langfuse-exporter", "store trace_id on backup_heartbeat"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "build span with redacted attributes",
+                "flush via langfuse-exporter",
+                "store trace_id on backup_heartbeat"
+              ]
+            },
             "end_state": {
-              "must_observe": ["span name=backup:wal_archive|backup:base_backup exists", "attributes include job_name, status, segment/snapshot id", "backup_heartbeat.trace_id matches the span trace id", "attributes redacted (no creds/hostnames)"],
-              "must_not_observe": ["no span emitted", "trace_id missing from the heartbeat", "unredacted credential/hostname in attributes"]
+              "must_observe": [
+                "span name: \"backup:wal_archive\" or \"backup:base_backup\" count >= 1",
+                "span attributes include \"job_name\", \"status\", segment/snapshot id",
+                "backup_heartbeat.trace_id matches span trace_id (hex len >= 16)",
+                "attributes redacted: credential count (0), hostname count (0)"
+              ],
+              "must_not_observe": [
+                "span count: (0) / no span emitted",
+                "trace_id: empty / Status=None on heartbeat",
+                "unredacted credential or hostname in span attributes"
+              ]
             }
           }
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "description": "Continuous WAL archiving with no gap + heartbeat", "maps_to_ac": "AC-1", "verify": "SHOW archive_mode=always; after burst: R2 WAL count up; backup_heartbeat wal_archive fresh + status=success + last_wal_segment=latest; pg_stat_archiver advances, failed_count stable" },
-    { "id": "TC-2", "type": "test_criterion", "description": "Scheduled base backup lands in R2 + heartbeat", "maps_to_ac": "AC-2", "verify": "pgbackrest backup exit 0; R2 backup object present; base_backup heartbeat last_snapshot_id non-empty + fresh" },
-    { "id": "TC-3", "type": "test_criterion", "description": "OTel span emitted + correlated to heartbeat + redacted", "maps_to_ac": "AC-3", "verify": "span backup:wal_archive|backup:base_backup present; backup_heartbeat.trace_id matches; attributes redacted" },
-    { "id": "TC-4", "type": "test_criterion", "description": "Heartbeat upsert is idempotent", "maps_to_ac": "AC-1", "verify": "INSERT ... ON CONFLICT (job_name) DO UPDATE — re-runs update the same row, no duplicates" }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Continuous WAL archiving with no gap + heartbeat",
+      "maps_to_ac": "AC-1",
+      "verify": "SHOW archive_mode=always; after burst: R2 WAL count up; backup_heartbeat wal_archive fresh + status=success + last_wal_segment=latest; pg_stat_archiver advances, failed_count stable"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Scheduled base backup lands in R2 + heartbeat",
+      "maps_to_ac": "AC-2",
+      "verify": "pgbackrest backup exit 0; R2 backup object present; base_backup heartbeat last_snapshot_id non-empty + fresh"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "OTel span emitted + correlated to heartbeat + redacted",
+      "maps_to_ac": "AC-3",
+      "verify": "span backup:wal_archive|backup:base_backup present; backup_heartbeat.trace_id matches; attributes redacted"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Heartbeat upsert is idempotent",
+      "maps_to_ac": "AC-1",
+      "verify": "INSERT ... ON CONFLICT (job_name) DO UPDATE — re-runs update the same row, no duplicates"
+    }
   ]
 }
 -->

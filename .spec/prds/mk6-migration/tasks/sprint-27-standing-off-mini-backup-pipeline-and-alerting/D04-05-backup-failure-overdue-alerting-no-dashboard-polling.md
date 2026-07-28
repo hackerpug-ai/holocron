@@ -176,22 +176,34 @@ Depends on: D04-01 (the RED test it satisfies), D04-03, D04-04 · Blocks: D04-06
     "heartbeat_table_populated": {
       "description": "backup_heartbeat has rows for wal_archive, base_backup, restic_blob_mirror (from D04-03/D04-04)",
       "seed_method": "public_api",
-      "records": ["SELECT count(*) FROM backup_heartbeat >= 1", "rows exist for each backup job"]
+      "records": [
+        "SELECT count(*) FROM backup_heartbeat >= 1",
+        "rows exist for each backup job"
+      ]
     },
     "healthy_pipeline": {
       "description": "All backup jobs are running and updating heartbeats (fresh + status=success)",
       "seed_method": "public_api",
-      "records": ["every heartbeat last_success_at fresh", "every status=success"]
+      "records": [
+        "every heartbeat last_success_at fresh",
+        "every status=success"
+      ]
     },
     "mixed_heartbeats": {
       "description": "At least one heartbeat is overdue or failed (for verify:backup exit-1 proof) and at least one is fresh",
-      "seed_method": "induced",
-      "records": ["one row last_success_at > 15 min old OR status=failed", "one row fresh + success"]
+      "seed_method": "cli",
+      "records": [
+        "one backup_heartbeat row with last_success_at age > 15 min OR status: 'failed' (induced via cli)",
+        "one backup_heartbeat row fresh + status: 'success'"
+      ]
     },
     "all_heartbeats_fresh": {
       "description": "Every heartbeat is fresh + status=success (for the silence proof)",
       "seed_method": "public_api",
-      "records": ["no overdue rows", "no status=failed rows"]
+      "records": [
+        "no overdue rows",
+        "no status=failed rows"
+      ]
     }
   },
   "requirements": [
@@ -209,16 +221,41 @@ Depends on: D04-01 (the RED test it satisfies), D04-03, D04-04 · Blocks: D04-06
         "verification_service": "backup-alerting",
         "flow_ref": "T-PLAT-024",
         "negative_control": {
-          "would_fail_if": ["query omits status='failed'", "alert never POSTs (swallowed/logged-only)", "sweep reads a stale cache", "webhook is mocked instead of a real sink"]
+          "would_fail_if": [
+            "query omits status='failed'",
+            "alert never POSTs (swallowed/logged-only)",
+            "sweep reads a stale cache",
+            "webhook is mocked instead of a real sink"
+          ]
         },
-        "evidence": { "artifact_type": "alert_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "alert_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "heartbeat_table_populated",
-            "action": { "actor": "system", "steps": ["set a heartbeat last_success_at > 15 min old (or status=failed)", "run the alert sweep", "observe the webhook sink"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "set a heartbeat last_success_at > 15 min old (or status=failed)",
+                "run the alert sweep",
+                "observe the webhook sink"
+              ]
+            },
             "end_state": {
-              "must_observe": ["a real webhook POST received within 15 min", "payload reason matches (overdue or failed)", "overdue_by_minutes >= the induced gap", "payload includes job_name + last_success_at + trace_id"],
-              "must_not_observe": ["no POST after the window", "POST missing required fields", "reason mislabeled", "a mocked/logged-only alert with no real delivery"]
+              "must_observe": [
+                "webhook POST count >= 1 within 15 min of induced overdue/failed heartbeat",
+                "payload.reason: \"overdue\" or \"failed\"",
+                "payload.overdue_by_minutes >= 15",
+                "payload includes \"job_name\", \"last_success_at\", \"trace_id\""
+              ],
+              "must_not_observe": [
+                "webhook POST count: (0) after the 15 min window",
+                "payload missing required fields (job_name/last_success_at/trace_id empty)",
+                "reason: empty / Status=None",
+                "mocked/logged-only alert with no real HTTP delivery"
+              ]
             }
           }
         ]
@@ -238,16 +275,42 @@ Depends on: D04-01 (the RED test it satisfies), D04-03, D04-04 · Blocks: D04-06
         "verification_service": "backup-alerting",
         "flow_ref": "T-PLAT-024",
         "negative_control": {
-          "would_fail_if": ["alerting only fires on explicit job-exit (misses credential-expiry/config-removed)", "job reports healthy from a stale heartbeat", "alert suppressed", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "alerting only fires on explicit job-exit (misses credential-expiry/config-removed)",
+            "job reports healthy from a stale heartbeat",
+            "alert suppressed",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "alert_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "alert_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "healthy_pipeline",
-            "action": { "actor": "operator", "steps": ["expire/rotate the R2 credential to invalid", "remove the backup config entirely", "set archive_command to a no-op", "wait up to 15 min for each", "observe the webhook sink"] },
+            "action": {
+              "actor": "operator",
+              "steps": [
+                "expire/rotate the R2 credential to invalid",
+                "remove the backup config entirely",
+                "set archive_command to a no-op",
+                "wait up to 15 min for each",
+                "observe the webhook sink"
+              ]
+            },
             "end_state": {
-              "must_observe": ["each induced mode produces >=1 webhook POST within 15 min", "POST reason is overdue or failed", "POST names the affected job"],
-              "must_not_observe": ["any induced mode going silent-healthy (no alert)", "a stale heartbeat reported as healthy", "an alert suppressed for any mode"]
+              "must_observe": [
+                "each induced failure mode produces webhook POST count >= 1 within 15 min",
+                "POST reason: \"overdue\" or \"failed\"",
+                "POST names affected job_name (non-empty, len >= 1)"
+              ],
+              "must_not_observe": [
+                "any induced mode webhook POST count: (0) (silent-healthy)",
+                "stale heartbeat reported as healthy",
+                "alert suppressed for any mode",
+                "empty job_name / Status=None"
+              ]
             }
           }
         ]
@@ -267,16 +330,40 @@ Depends on: D04-01 (the RED test it satisfies), D04-03, D04-04 · Blocks: D04-06
         "verification_service": "holo-CLI",
         "flow_ref": "T-PLAT-024",
         "negative_control": {
-          "would_fail_if": ["verify:backup exits 0 on an overdue/failed heartbeat", "status reads a stale cache file", "a missing job silently omitted", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "verify:backup exits 0 on an overdue/failed heartbeat",
+            "status reads a stale cache file",
+            "a missing job silently omitted",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "mixed_heartbeats",
-            "action": { "actor": "operator", "steps": ["run holon verify:backup (expect exit 1 with an overdue row)", "make all heartbeats fresh", "run holon verify:backup (expect exit 0)", "run holon backup:status"] },
+            "action": {
+              "actor": "operator",
+              "steps": [
+                "run holon verify:backup (expect exit 1 with an overdue row)",
+                "make all heartbeats fresh",
+                "run holon verify:backup (expect exit 0)",
+                "run holon backup:status"
+              ]
+            },
             "end_state": {
-              "must_observe": ["verify:backup exit 1 when any heartbeat overdue/failed", "exit 0 when all fresh", "backup:status prints last_success_at + status + OVERDUE|OK per job"],
-              "must_not_observe": ["verify:backup exit 0 on an overdue/failed heartbeat", "status from a stale cache", "a missing job silently omitted"]
+              "must_observe": [
+                "holo verify:backup exit 1 when any heartbeat overdue/failed",
+                "holo verify:backup exit 0 when all heartbeats fresh",
+                "backup:status prints last_success_at + status + \"OVERDUE\" or \"OK\" per job"
+              ],
+              "must_not_observe": [
+                "verify:backup exit 0 on an overdue/failed heartbeat",
+                "status from empty cache / Status=None",
+                "missing job silently omitted (job count: (0))"
+              ]
             }
           }
         ]
@@ -296,25 +383,70 @@ Depends on: D04-01 (the RED test it satisfies), D04-03, D04-04 · Blocks: D04-06
         "verification_service": "backup-alerting",
         "flow_ref": "T-PLAT-024",
         "negative_control": {
-          "would_fail_if": ["a healthy run emits alerts (false positives)", "the sweep always-POSTs regardless of state", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "a healthy run emits alerts (false positives)",
+            "the sweep always-POSTs regardless of state",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "alert_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "alert_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "all_heartbeats_fresh",
-            "action": { "actor": "system", "steps": ["ensure all heartbeats fresh + success", "run the alert sweep over the window", "observe the webhook sink"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "ensure all heartbeats fresh + success",
+                "run the alert sweep over the window",
+                "observe the webhook sink"
+              ]
+            },
             "end_state": {
-              "must_observe": ["zero webhook posts during the window for fresh/healthy heartbeats"],
-              "must_not_observe": ["any webhook post during a healthy run", "an always-alert path"]
+              "must_observe": [
+                "webhook POST count: (0) during the healthy window for fresh heartbeats",
+                "every heartbeat status: \"success\" and age_seconds < 900"
+              ],
+              "must_not_observe": [
+                "webhook POST count >= 1 during healthy run (false positive)",
+                "always-alert path that fires with no failure",
+                "empty heartbeat table"
+              ]
             }
           }
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "description": "Overdue/failed job triggers a webhook within 15 min", "maps_to_ac": "AC-1", "verify": "induce overdue/failed; observe a real webhook POST within 15 min with the required payload" },
-    { "id": "TC-2", "type": "test_criterion", "description": "The three silent-failure modes each alert (never silent-healthy)", "maps_to_ac": "AC-2", "verify": "expired cred / removed config / no-op archive_command each yield >=1 POST within 15 min" },
-    { "id": "TC-3", "type": "test_criterion", "description": "holo verify:backup exits 1 on overdue/failed, 0 on healthy; backup:status prints state", "maps_to_ac": "AC-3", "verify": "verify:backup exit code reflects heartbeat health; backup:status prints per-job state" },
-    { "id": "TC-4", "type": "test_criterion", "description": "A healthy run stays silent (zero posts)", "maps_to_ac": "AC-4", "verify": "all heartbeats fresh -> zero webhook posts over the window" }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Overdue/failed job triggers a webhook within 15 min",
+      "maps_to_ac": "AC-1",
+      "verify": "induce overdue/failed; observe a real webhook POST within 15 min with the required payload"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "The three silent-failure modes each alert (never silent-healthy)",
+      "maps_to_ac": "AC-2",
+      "verify": "expired cred / removed config / no-op archive_command each yield >=1 POST within 15 min"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "holo verify:backup exits 1 on overdue/failed, 0 on healthy; backup:status prints state",
+      "maps_to_ac": "AC-3",
+      "verify": "verify:backup exit code reflects heartbeat health; backup:status prints per-job state"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "A healthy run stays silent (zero posts)",
+      "maps_to_ac": "AC-4",
+      "verify": "all heartbeats fresh -> zero webhook posts over the window"
+    }
   ]
 }
 -->
