@@ -218,7 +218,10 @@ export type CfApiOptions = {
   env?: NodeJS.ProcessEnv;
 };
 
-export function resolveCfApiTimeoutMs(explicit?: number, env: NodeJS.ProcessEnv = process.env): number {
+export function resolveCfApiTimeoutMs(
+  explicit?: number,
+  env: NodeJS.ProcessEnv = process.env
+): number {
   if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
     return Math.trunc(explicit);
   }
@@ -230,7 +233,10 @@ export function resolveCfApiTimeoutMs(explicit?: number, env: NodeJS.ProcessEnv 
   return DEFAULT_CF_API_TIMEOUT_MS;
 }
 
-export function resolveCfApiBaseUrl(explicit?: string, env: NodeJS.ProcessEnv = process.env): string {
+export function resolveCfApiBaseUrl(
+  explicit?: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
   const fromOpt = explicit?.trim();
   if (fromOpt) return fromOpt.replace(/\/$/, '');
   const fromEnv = env.BACKUP_CF_API_BASE_URL?.trim();

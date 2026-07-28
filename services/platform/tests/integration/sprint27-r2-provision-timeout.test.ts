@@ -78,10 +78,16 @@ describeLive('REDHAT-FIX-S27-24 cfApi timeout (real HTTP)', () => {
   }, 15_000);
 
   it('AC-2/TC-2: healthy Cloudflare-shaped response still succeeds', async () => {
-    const res = await cfApi<{ id: string; method: string }>('tok', 'POST', '/client/v4/ok', { a: 1 }, {
-      baseUrl: happyBase,
-      timeoutMs: 5000,
-    });
+    const res = await cfApi<{ id: string; method: string }>(
+      'tok',
+      'POST',
+      '/client/v4/ok',
+      { a: 1 },
+      {
+        baseUrl: happyBase,
+        timeoutMs: 5000,
+      }
+    );
     expect(res.ok).toBe(true);
     expect(res.status).toBe(200);
     expect(res.result?.id).toBe('ok');
