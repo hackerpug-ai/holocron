@@ -151,12 +151,19 @@ Depends on: D04-02 · Blocks: D04-05
     "blob_store_populated": {
       "description": "The content-addressed blob store (services/platform/src/blob, file_objects) has one or more objects to mirror",
       "seed_method": "public_api",
-      "records": ["file_objects has rows", "the blob backing files exist on disk"]
+      "records": [
+        "file_objects has rows",
+        "the blob backing files exist on disk"
+      ]
     },
     "parity_confirmed": {
       "description": "A restic backup completed and the local SHA-256 set equals the remote set",
       "seed_method": "public_api",
-      "records": ["restic snapshots returns >=1", "restic check --read-data exit 0", "local hash set == remote hash set"]
+      "records": [
+        "restic snapshots returns >=1",
+        "restic check --read-data exit 0",
+        "local hash set == remote hash set"
+      ]
     }
   },
   "requirements": [
@@ -174,16 +181,44 @@ Depends on: D04-02 · Blocks: D04-05
         "verification_service": "restic+R2",
         "flow_ref": "T-PLAT-023",
         "negative_control": {
-          "would_fail_if": ["restic backup skips --read-data verification", "hash compare bypassed", "parity asserted from restic exit code alone", "a local object is missing remotely (silent drop)", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "restic backup skips --read-data verification",
+            "hash compare bypassed",
+            "parity asserted from restic exit code alone",
+            "a local object is missing remotely (silent drop)",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "blob_store_populated",
-            "action": { "actor": "system", "steps": ["trigger restic backup to R2 (separate encrypted prefix)", "restic completes the snapshot", "compute the local SHA-256 set", "read the remote SHA-256 set from the snapshot", "assert the sets are equal", "run restic check --read-data"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "trigger restic backup to R2 (separate encrypted prefix)",
+                "restic completes the snapshot",
+                "compute the local SHA-256 set",
+                "read the remote SHA-256 set from the snapshot",
+                "assert the sets are equal",
+                "run restic check --read-data"
+              ]
+            },
             "end_state": {
-              "must_observe": ["restic snapshots returns one or more", "restic check --read-data exit 0", "local SHA-256 set == remote SHA-256 set (equal counts + every hash present both sides)"],
-              "must_not_observe": ["a hash mismatch (local object not in remote set)", "restic check --read-data failure", "an extra/missing object between sets", "restic snapshot count zero"]
+              "must_observe": [
+                "restic snapshots count >= 1",
+                "restic check --read-data exit 0",
+                "local SHA-256 set == remote SHA-256 set (equal counts, every hash on both sides)"
+              ],
+              "must_not_observe": [
+                "restic snapshots count: (0)",
+                "restic check --read-data exit non-zero",
+                "hash mismatch / missing object between local and remote sets",
+                "empty remote hash set"
+              ]
             }
           }
         ]
@@ -203,24 +238,69 @@ Depends on: D04-02 · Blocks: D04-05
         "verification_service": "Postgres+OTel",
         "flow_ref": "T-PLAT-023",
         "negative_control": {
-          "would_fail_if": ["heartbeat set before parity passes", "span missing", "trace_id not correlated", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "heartbeat set before parity passes",
+            "span missing",
+            "trace_id not correlated",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "db_query", "required_capture": true },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "parity_confirmed",
-            "action": { "actor": "system", "steps": ["upsert backup_heartbeat restic_blob_mirror (last_snapshot_id, object_count, last_success_at, status=success)", "emit OTel span backup:restic_blob_mirror", "store trace_id on the heartbeat"] },
+            "action": {
+              "actor": "system",
+              "steps": [
+                "upsert backup_heartbeat restic_blob_mirror (last_snapshot_id, object_count, last_success_at, status=success)",
+                "emit OTel span backup:restic_blob_mirror",
+                "store trace_id on the heartbeat"
+              ]
+            },
             "end_state": {
-              "must_observe": ["backup_heartbeat restic_blob_mirror.last_snapshot_id matches the restic snapshot id", "object_count matches the verified count", "last_success_at fresh", "status='success'", "span backup:restic_blob_mirror present", "trace_id matches"],
-              "must_not_observe": ["last_snapshot_id NULL or mismatched", "heartbeat set before parity", "status='failed' on a successful mirror", "no span / missing trace_id"]
+              "must_observe": [
+                "backup_heartbeat.restic_blob_mirror.last_snapshot_id == restic snapshot id (len >= 8)",
+                "object_count == verified restic object count (integer match)",
+                "last_success_at age_seconds < 900",
+                "status: 'success'",
+                "span name: \"backup:restic_blob_mirror\" count >= 1",
+                "heartbeat.trace_id == span.trace_id (hex len >= 16)"
+              ],
+              "must_not_observe": [
+                "last_snapshot_id: empty / NULL / Status=None / mismatched",
+                "heartbeat written before parity confirmed",
+                "status: 'failed' on a successful mirror",
+                "span count: (0) / missing trace_id"
+              ]
             }
           }
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "description": "Restic snapshot + SHA-256 parity verified", "maps_to_ac": "AC-1", "verify": "restic snapshots non-empty; restic check --read-data exit 0; local SHA-256 set == remote set" },
-    { "id": "TC-2", "type": "test_criterion", "description": "Heartbeat updated after parity + OTel span correlated", "maps_to_ac": "AC-2", "verify": "backup_heartbeat restic_blob_mirror matches snapshot id + fresh + status=success; span present; trace_id matches" },
-    { "id": "TC-3", "type": "test_criterion", "description": "Restic repo encrypted on a separate R2 prefix", "maps_to_ac": "AC-1", "verify": "repo on R2 restic prefix (not pgbackrest); RESTIC_PASSWORD in secrets store; not plaintext" }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Restic snapshot + SHA-256 parity verified",
+      "maps_to_ac": "AC-1",
+      "verify": "restic snapshots non-empty; restic check --read-data exit 0; local SHA-256 set == remote set"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Heartbeat updated after parity + OTel span correlated",
+      "maps_to_ac": "AC-2",
+      "verify": "backup_heartbeat restic_blob_mirror matches snapshot id + fresh + status=success; span present; trace_id matches"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Restic repo encrypted on a separate R2 prefix",
+      "maps_to_ac": "AC-1",
+      "verify": "repo on R2 restic prefix (not pgbackrest); RESTIC_PASSWORD in secrets store; not plaintext"
+    }
   ]
 }
 -->

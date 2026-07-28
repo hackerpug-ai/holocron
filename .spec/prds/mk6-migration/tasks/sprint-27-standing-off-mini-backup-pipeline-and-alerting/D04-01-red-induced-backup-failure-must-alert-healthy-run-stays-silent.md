@@ -148,12 +148,12 @@ Depends on: none · Blocks: D04-05
   "fixtures": {
     "backup_jobs_configured": {
       "description": "Backup jobs (WAL archive + base backup, blob mirror) exist from D04-03/D04-04 and an alert sink endpoint is configured (webhook URL the test stands up)",
-      "seed_method": "induced",
+      "seed_method": "cli",
       "records": [
-        "Backup jobs exist from D04-03/D04-04",
-        "Alert sink endpoint is configured to a webhook receiver the test stands up",
-        "pgBackRest repo points at a real R2 bucket",
-        "Backup system POSTs alerts to the webhook receiver"
+        "backup jobs configured via holo/pgbackrest CLI (WAL archive + base backup + restic blob mirror)",
+        "alert sink webhook URL set to http://localhost:9999/alert (test receiver)",
+        "pgBackRest repo points at real R2 bucket (repo1-type=s3)",
+        "alert posts received: (0) before any induced failure"
       ]
     }
   },
@@ -181,7 +181,10 @@ Depends on: none · Blocks: D04-05
             "healthy run emits alerts (false positives — silence proof fails)"
           ]
         },
-        "evidence": { "artifact_type": "alert_artifact", "required_capture": true },
+        "evidence": {
+          "artifact_type": "alert_artifact",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "backup_jobs_configured",
@@ -205,33 +208,61 @@ Depends on: none · Blocks: D04-05
             },
             "end_state": {
               "must_observe": [
-                "real webhook receiver standing up on a test port (http://localhost:9999/alert responds)",
-                "healthy backup run completes: zero alert POSTs received in the 15 min window",
-                "failure (a): within 15 min the webhook receives a POST whose payload names the failed job + 'killed'/'WAL behind'",
-                "failure (b): within 15 min the webhook receives a POST naming 'credential'/'expired'",
-                "failure (c): within the overdue window the webhook receives a POST naming 'overdue'/'config missing'",
-                "alert payloads include structured fields: job_id, failure_reason, timestamp",
-                "test file exists: services/platform/tests/integration/sprint27-backup-alerting-red.test.ts"
+                "webhook receiver responds HTTP 200 at \"http://localhost:9999/alert\"",
+                "healthy backup run: alert posts received: (0) in the 15 min window",
+                "failure (a): webhook POST count (1)+ within 15 min with reason containing \"killed\" or \"WAL behind\"",
+                "failure (b): webhook POST count (1)+ within 15 min with reason containing \"credential\" or \"expired\"",
+                "failure (c): webhook POST count (1)+ within overdue window with reason containing \"overdue\" or \"config missing\"",
+                "alert payload fields present: \"job_id\", \"failure_reason\", \"timestamp\"",
+                "test file path: \"services/platform/tests/integration/sprint27-backup-alerting-red.test.ts\""
               ],
               "must_not_observe": [
-                "any alert POST during a healthy backup run (silence proof)",
-                "a mocked webhook receiver (must be a real http.Server)",
-                "an alert path stubbed to always exit 0 without a POST",
-                "credential expiry producing no alert (silent failure)",
-                "config-removed producing no alert (silent failure)",
-                "job-killed producing no alert (silent failure)",
-                "a stale healthy heartbeat masquerading as an alert"
+                "healthy run alert posts received: (0) violated (any POST during health)",
+                "alert posts received: (0) after induced failure modes a/b/c (silent failure)",
+                "mocked webhook receiver (must be real http.Server, not a stub)",
+                "alert path hardcoded to exit 0 with no real POST",
+                "empty alert payload / Status=None"
               ]
             }
           }
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "description": "RED test file exists and is PLATFORM_IT=1 guarded", "maps_to_ac": "AC-1", "verify": "test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; grep -Ec 'PLATFORM_IT' the file returns 1 or more" },
-    { "id": "TC-2", "type": "test_criterion", "description": "RED test currently FAILS (no implementation)", "maps_to_ac": "AC-1", "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts exits non-zero (RED)" },
-    { "id": "TC-3", "type": "test_criterion", "description": "Test uses a real webhook receiver, never mocks", "maps_to_ac": "AC-1", "verify": "grep -Ec 'http.Server|createServer' the file returns 1 or more; grep -Ec 'mock.*webhook|stub.*receiver' returns 0" },
-    { "id": "TC-4", "type": "test_criterion", "description": "Test covers the three PRD failure modes", "maps_to_ac": "AC-1", "verify": "grep for WAL|kill, credential|expir, config|overdue each present" },
-    { "id": "TC-5", "type": "test_criterion", "description": "Test asserts silence during a healthy run (anti-fake-healthy)", "maps_to_ac": "AC-1", "verify": "grep -Ec 'zero|silence|must_not_observe' the file returns 1 or more" }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "RED test file exists and is PLATFORM_IT=1 guarded",
+      "maps_to_ac": "AC-1",
+      "verify": "test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; grep -Ec 'PLATFORM_IT' the file returns 1 or more"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "RED test currently FAILS (no implementation)",
+      "maps_to_ac": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts exits non-zero (RED)"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Test uses a real webhook receiver, never mocks",
+      "maps_to_ac": "AC-1",
+      "verify": "grep -Ec 'http.Server|createServer' the file returns 1 or more; grep -Ec 'mock.*webhook|stub.*receiver' returns 0"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Test covers the three PRD failure modes",
+      "maps_to_ac": "AC-1",
+      "verify": "grep for WAL|kill, credential|expir, config|overdue each present"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Test asserts silence during a healthy run (anti-fake-healthy)",
+      "maps_to_ac": "AC-1",
+      "verify": "grep -Ec 'zero|silence|must_not_observe' the file returns 1 or more"
+    }
   ]
 }
 -->

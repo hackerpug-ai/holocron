@@ -162,17 +162,27 @@ Depends on: none · Blocks: D04-03, D04-04
     "no_r2_bucket": {
       "description": "Initial state: no backup R2 bucket exists",
       "seed_method": "recorded_external",
-      "records": ["aws s3 ls --endpoint-url $R2_ENDPOINT returns no backup bucket"]
+      "records": [
+        "aws s3 ls --endpoint-url $R2_ENDPOINT returns no backup bucket"
+      ]
     },
     "r2_bucket_exists": {
       "description": "After AC-1: an encrypted, versioned R2 bucket exists",
       "seed_method": "public_api",
-      "records": ["aws s3api head-bucket succeeds", "get-bucket-encryption returns SSE", "get-bucket-versioning Status = Enabled"]
+      "records": [
+        "aws s3api head-bucket succeeds",
+        "get-bucket-encryption returns SSE",
+        "get-bucket-versioning Status = Enabled"
+      ]
     },
     "scoped_credentials": {
       "description": "After AC-2: a least-privilege R2 token stored in the secrets store, distinct from app secrets",
       "seed_method": "public_api",
-      "records": ["policy Resource = backup bucket ARN", "limited Action set, no s3:* ", "holo secrets:doctor exit 0, value not printed"]
+      "records": [
+        "policy Resource = backup bucket ARN",
+        "limited Action set, no s3:* ",
+        "holo secrets:doctor exit 0, value not printed"
+      ]
     }
   },
   "requirements": [
@@ -190,16 +200,42 @@ Depends on: none · Blocks: D04-03, D04-04
         "verification_service": "Cloudflare-R2",
         "flow_ref": "T-PLAT-021",
         "negative_control": {
-          "would_fail_if": ["bucket does not exist (head-bucket errors)", "SSE null/disabled (empty get-bucket-encryption)", "versioning off", "a config file claims encryption without the bucket actually having SSE", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "bucket does not exist (head-bucket errors)",
+            "SSE null/disabled (empty get-bucket-encryption)",
+            "versioning off",
+            "a config file claims encryption without the bucket actually having SSE",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "api_response", "required_capture": true },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "no_r2_bucket",
-            "action": { "actor": "operator", "steps": ["run holo backup:provision (or wrangler/CF API) to create the bucket with SSE + versioning", "query head-bucket / get-bucket-encryption / get-bucket-versioning against real R2"] },
+            "action": {
+              "actor": "operator",
+              "steps": [
+                "run holo backup:provision (or wrangler/CF API) to create the bucket with SSE + versioning",
+                "query head-bucket / get-bucket-encryption / get-bucket-versioning against real R2"
+              ]
+            },
             "end_state": {
-              "must_observe": ["aws s3 ls lists the bucket name", "get-bucket-encryption JSON contains ServerSideEncryption AES256 or aws:kms", "get-bucket-versioning Status = Enabled", "endpoint is https:// (TLS)"],
-              "must_not_observe": ["head-bucket returns 404/403", "SSE config null or missing", "versioning Status empty", "http:// cleartext endpoint"]
+              "must_observe": [
+                "aws s3api head-bucket exit 0 for bucket \"$R2_BUCKET_NAME\"",
+                "get-bucket-encryption ServerSideEncryption: AES256 or \"aws:kms\"",
+                "get-bucket-versioning Status: Enabled",
+                "endpoint scheme: \"https://\""
+              ],
+              "must_not_observe": [
+                "head-bucket exit non-zero / 404",
+                "ServerSideEncryption: None / empty encryption config",
+                "Status: Suspended or Status=None",
+                "endpoint scheme: \"http://\"",
+                "bucket list empty / (0) backup buckets"
+              ]
             }
           }
         ]
@@ -219,16 +255,44 @@ Depends on: none · Blocks: D04-03, D04-04
         "verification_service": "R2-policy-inspect",
         "flow_ref": "T-PLAT-021",
         "negative_control": {
-          "would_fail_if": ["policy Resource is *", "policy Action is s3:* or AdministratorAccess", "token equals the app DB key", "review trusts a declared scope without enumerating actions/resources", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "policy Resource is *",
+            "policy Action is s3:* or AdministratorAccess",
+            "token equals the app DB key",
+            "review trusts a declared scope without enumerating actions/resources",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "api_response", "required_capture": true },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "r2_bucket_exists",
-            "action": { "actor": "operator", "steps": ["create a scoped R2 API token (bucket-only)", "store it in the consolidated secrets store", "inspect the token policy actions/resources", "run holo secrets:doctor"] },
+            "action": {
+              "actor": "operator",
+              "steps": [
+                "create a scoped R2 API token (bucket-only)",
+                "store it in the consolidated secrets store",
+                "inspect the token policy actions/resources",
+                "run holo secrets:doctor"
+              ]
+            },
             "end_state": {
-              "must_observe": ["policy Resource is the exact backup bucket ARN", "Action list is PutObject/GetObject/ListBucket/DeleteObject (no s3:*)", "secrets store has an R2 entry distinct from DATABASE_URL/Fleet", "secrets:doctor exit 0 and does not print the value"],
-              "must_not_observe": ["Resource *", "Action s3:* or AdministratorAccess", "the R2 token string in any tracked file", "a printed secret value in secrets:doctor output"]
+              "must_observe": [
+                "policy Resource: \"arn:aws:s3:::$R2_BUCKET_NAME\" (exact backup bucket ARN)",
+                "Action list: \"s3:PutObject\",\"s3:GetObject\",\"s3:ListBucket\",\"s3:DeleteObject\" (no s3:*)",
+                "holo secrets:doctor exit 0 and R2 entry present (value not printed)",
+                "secrets store R2 token key distinct from \"DATABASE_URL\" and Fleet keys"
+              ],
+              "must_not_observe": [
+                "Resource: \"*\"",
+                "Action: \"s3:*\" or AdministratorAccess",
+                "R2 token string in any tracked file (credential count (0) expected)",
+                "secrets:doctor prints secret value",
+                "empty policy / Status=None"
+              ]
             }
           }
         ]
@@ -248,24 +312,69 @@ Depends on: none · Blocks: D04-03, D04-04
         "verification_service": "pgBackRest+R2",
         "flow_ref": "T-PLAT-021",
         "negative_control": {
-          "would_fail_if": ["repo-path/endpoint misconfigured (auth or permission failure)", "stanza-create skipped/assumed", "repo cipher is none (plaintext)", "a stub/static implementation that hardcodes a healthy result with no real service round-trip"]
+          "would_fail_if": [
+            "repo-path/endpoint misconfigured (auth or permission failure)",
+            "stanza-create skipped/assumed",
+            "repo cipher is none (plaintext)",
+            "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
+          ]
         },
-        "evidence": { "artifact_type": "stdout", "required_capture": true },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
         "cases": [
           {
             "start_ref": "scoped_credentials",
-            "action": { "actor": "operator", "steps": ["configure pgBackRest repo1-* S3 stanza for the R2 endpoint", "run pgbackrest stanza-create", "run pgbackrest check", "aws s3 ls the repo prefix"] },
+            "action": {
+              "actor": "operator",
+              "steps": [
+                "configure pgBackRest repo1-* S3 stanza for the R2 endpoint",
+                "run pgbackrest stanza-create",
+                "run pgbackrest check",
+                "aws s3 ls the repo prefix"
+              ]
+            },
             "end_state": {
-              "must_observe": ["pgbackrest stanza-create exit 0", "pgbackrest check stanza status OK", "an R2 object exists under the repo prefix after stanza-create", "repo-cipher-type is set (not none)"],
-              "must_not_observe": ["stanza-create auth/permission error", "check reports an error/missing stanza", "repo prefix empty after stanza-create", "cipher-type=none"]
+              "must_observe": [
+                "pgbackrest --stanza=main stanza-create exit 0",
+                "pgbackrest check status: \"ok\" (stanza reachable)",
+                "aws s3 ls repo prefix object_count >= 1 after stanza-create",
+                "repo-cipher-type: \"aes-256-cbc\" (not none)"
+              ],
+              "must_not_observe": [
+                "stanza-create exit non-zero / auth error",
+                "check status: \"error\" or missing stanza",
+                "repo prefix object_count: (0) after stanza-create",
+                "repo-cipher-type: \"none\"",
+                "empty repo config"
+              ]
             }
           }
         ]
       }
     },
-    { "id": "TC-1", "type": "test_criterion", "description": "Encrypted R2 bucket exists with SSE + versioning", "maps_to_ac": "AC-1", "verify": "aws s3api head-bucket + get-bucket-encryption | grep SSE + get-bucket-versioning | grep Enabled" },
-    { "id": "TC-2", "type": "test_criterion", "description": "Credentials least-privilege scoped, separate from app secrets", "maps_to_ac": "AC-2", "verify": "policy inspect: backup-bucket ARN, limited actions, no *; secrets:doctor exit 0, value not printed" },
-    { "id": "TC-3", "type": "test_criterion", "description": "pgBackRest stanza-create succeeds against real R2", "maps_to_ac": "AC-3", "verify": "pgbackrest stanza-create exit 0; check OK; repo prefix non-empty" }
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Encrypted R2 bucket exists with SSE + versioning",
+      "maps_to_ac": "AC-1",
+      "verify": "aws s3api head-bucket + get-bucket-encryption | grep SSE + get-bucket-versioning | grep Enabled"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Credentials least-privilege scoped, separate from app secrets",
+      "maps_to_ac": "AC-2",
+      "verify": "policy inspect: backup-bucket ARN, limited actions, no *; secrets:doctor exit 0, value not printed"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "pgBackRest stanza-create succeeds against real R2",
+      "maps_to_ac": "AC-3",
+      "verify": "pgbackrest stanza-create exit 0; check OK; repo prefix non-empty"
+    }
   ]
 }
 -->
