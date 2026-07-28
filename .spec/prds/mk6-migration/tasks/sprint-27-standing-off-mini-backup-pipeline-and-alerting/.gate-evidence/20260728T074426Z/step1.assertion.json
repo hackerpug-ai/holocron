@@ -1,0 +1,10 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "\"status\":\\s*\"success\"[\\s\\S]*overall:\\s+OK",
+  "expect_not_log_regex": "overall:\\s+FAILED",
+  "require_all_regex": [
+    "\"status\":\\s*\"success\"",
+    "overall:\\s+OK"
+  ]
+}

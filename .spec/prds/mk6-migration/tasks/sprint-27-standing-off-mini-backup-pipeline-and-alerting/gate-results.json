@@ -4,24 +4,24 @@
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting",
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
-  "run_id": "2026-07-28T02:48:50Z",
+  "run_id": "2026-07-28T07:45:08Z",
   "verdict": "pass",
-  "steps_total": 6,
-  "steps_executed": 6,
-  "steps_passed": 6,
+  "steps_total": 10,
+  "steps_executed": 10,
+  "steps_passed": 10,
   "ui_driver": "none",
   "exec_surface": "agent-shell-terminal",
   "runner": "exec-shell",
   "steps": [
     {
       "n": 1,
-      "text": "Run a live Postgres write burst \u2014 WAL archives to R2 continuously, zero continuity gaps.",
+      "text": "Run a live Postgres write burst via holo backup:wal --json \u2014 WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows\u22651); pipeline health proven by overall: OK (not the unrelated pg_stat_archiver failed counter).",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step1.log",
-      "duration_ms": 1
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step1.log",
+      "duration_ms": 7149
     },
     {
       "n": 2,
@@ -30,8 +30,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step2.log",
-      "duration_ms": 1
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step2.log",
+      "duration_ms": 18161
     },
     {
       "n": 3,
@@ -40,38 +40,78 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step3.log",
-      "duration_ms": 1
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step3.log",
+      "duration_ms": 8230
     },
     {
       "n": 4,
-      "text": "Kill the backup job mid-archive \u2014 alert fires within 15 minutes, no dashboard-polling needed.",
+      "text": "Kill the backup job mid-archive \u2014 alert fires within 15 minutes, no dashboard-polling needed. (REDHAT-FIX-S27-04: reset \u2192 induce kill \u2192 sweep; mode-isolated oracle)",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step4.log",
-      "duration_ms": 1
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step4.log",
+      "duration_ms": 1077
     },
     {
       "n": 5,
-      "text": "Let the bucket credential expire in a test fixture \u2014 alert fires, not a silent failure.",
+      "text": "Let the bucket credential expire in a test fixture \u2014 alert fires, not a silent failure. (REDHAT-FIX-S27-04: reset \u2192 induce credential \u2192 sweep; mode-isolated oracle)",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step5.log",
-      "duration_ms": 1
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step5.log",
+      "duration_ms": 699
     },
     {
       "n": 6,
-      "text": "Remove the backup config entirely \u2014 the alert still fires as overdue, never a false-healthy state.",
+      "text": "Remove the backup config entirely \u2014 the alert still fires as overdue, never a false-healthy state. (REDHAT-FIX-S27-04: reset \u2192 induce config-removed \u2192 sweep; mode-isolated oracle)",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step6.log",
-      "duration_ms": 1
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step6.log",
+      "duration_ms": 671
+    },
+    {
+      "n": 7,
+      "text": "Healthy-run zero-alert silence gate (REDHAT-FIX-S27-06 / D04-05 AC-4 NEVER-tier): seed all jobs healthy via backup:healthy --all (S27-04 reset), run backup:alert-sweep, assert alerted: 0 and zero post[] lines \u2014 always-alert regressions cannot pass.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step7.log",
+      "duration_ms": 602
+    },
+    {
+      "n": 8,
+      "text": "Execute D04-01 alerting oracle via REAL holo CLI (not vitest): healthy silence (alerted:0), then kill/credential/config-removed each fire mode-isolated alerts; independent HTTP captures + pre-fix payload-only baseline oracle (F-7).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step8.log",
+      "duration_ms": 2925
+    },
+    {
+      "n": 9,
+      "text": "Install and verify holocron-backup-alert-sweep launchd schedule (\u22645min cadence) with ALERT_WEBHOOK_URL wired into the standing daemon env \u2014 standing alerts without dashboard polling (REDHAT-FIX-S27-10 / F-10).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step9.log",
+      "duration_ms": 1246
+    },
+    {
+      "n": 10,
+      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real webhook delivery. Toy BACKUP_ALERT_OVERDUE_MS=500/1000 steps remain non-SLA mechanics only. Pure CLI \u2014 no vitest.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step10.log",
+      "duration_ms": 1046
     }
   ]
 }

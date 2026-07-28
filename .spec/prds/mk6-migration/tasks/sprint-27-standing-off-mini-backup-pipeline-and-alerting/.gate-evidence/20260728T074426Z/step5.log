@@ -1,0 +1,45 @@
+@@GATE-META step=5 cmd_sha=b81c6cb67b98d405a660613d921b4633cfd7d39a540fce2c54117f5e94a8283d@@
+CMD: set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json > .tmp/REDHAT-FIX-S27-01/induce-cred.json; cat .tmp/REDHAT-FIX-S27-01/induce-cred.json; jq -e '.ok==true and .induction.path=="production_truth" and (.induction.real_auth_fault==true or .induction.production_catch==true) and .heartbeat.status=="failed"' .tmp/REDHAT-FIX-S27-01/induce-cred.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step5-credential-sweep.txt; grep -E 'post\[base_backup\]: reason=(failed|overdue) failure_reason=.*(credential|expired|auth)' .tmp/redhat-fix-s27-04/step5-credential-sweep.txt; ! grep -E 'post\[wal_archive\]|post\[all-clear\]' .tmp/redhat-fix-s27-04/step5-credential-sweep.txt
+holo backup:healthy scope=all status=success last_success_at=2026-07-28 01:45:01.749-06
+{
+  "ok": true,
+  "job_name": "base_backup",
+  "mode": "credential_expired",
+  "heartbeat": {
+    "job_name": "base_backup",
+    "last_success_at": "2026-07-28 01:45:01.747606-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "auth-denied",
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "31466c76fa6c4563bd4ecebf9fa5bfca",
+    "updated_at": "2026-07-28 01:45:02.040164-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": true,
+    "exit_code": 0,
+    "real_auth_fault": true,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "pgbackrest",
+    "failure_detail": "credential expired — R2 auth denied for job base_backup",
+    "restored": false,
+    "fault_output": "\n[{\"archive\":[],\"backup\":[],\"cipher\":\"aes-256-cbc\",\"db\":[],\"name\":\"main\",\"repo\":[{\"cipher\":\"aes-256-cbc\",\"key\":1,\"status\":{\"code\":99,\"message\":\"[ProtocolError] HTTP request failed with 400 (Bad Request):\\n*** Path/Query ***:\\nGET /holocron-backup/?delimiter=%2F&list-type=2&prefix=pgbackrest%2Fbackup%2F\\n*** Request Headers ***:\\nauthorization: <redacted>\\ncontent-length: 0\\nhost: d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com\\nx-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\\nx-amz-date: <redacted>\\nx-amz-security-token: <redacted>\\n*** Response Headers ***:\\ncf-ray: a22243146adae888-SLC\\nconnection: keep-alive\\ncontent-length: 149\\ncontent-type: application/xml\\ndate: Tue, 28 Jul 2026 07:45:02 GMT\\nserver: cloudflare\\n*** Response Content *",
+    "heartbeat_via_production_writer": true
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[base_backup]: reason=failed failure_reason=credential expired — R2 auth denied for job base_backup overdue_by_minutes=0
+  overall:    OK
+  post[base_backup]: reason=failed failure_reason=credential expired — R2 auth denied for job base_backup overdue_by_minutes=0
+
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+@@GATE-EXIT=0@@

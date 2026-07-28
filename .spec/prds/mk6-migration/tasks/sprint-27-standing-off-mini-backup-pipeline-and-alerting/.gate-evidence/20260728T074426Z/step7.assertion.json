@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "alerted:\\s+0|alerted: 0|HEALTHY_SILENCE_GATE_OK",
+  "expect_not_log_regex": "alerted:\\s*[1-9]|post\\["
+}

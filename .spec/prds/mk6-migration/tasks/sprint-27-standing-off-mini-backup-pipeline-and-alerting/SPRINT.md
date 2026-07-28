@@ -13,8 +13,8 @@ planned_at: 2026-07-24T23:22:56Z
 **Sequence:** 27
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
 **Status:** Completed
-> Progress: 7/7 tasks completed · updated 2026-07-28T05:01:12Z
-> Status-Note: goal met — CAP-BAK-01 pipeline + alerts; status-file parity healed
+> Progress: 7/7 tasks completed · updated 2026-07-28T07:47:03Z
+> Status-Note: CAP-BAK-01 + REDHAT-FIX-S27-01..15; fresh gate cycle-1 10/10 verified recompute-strong
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-27`)
 **Branch:** `mk6-backup`

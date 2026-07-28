@@ -1,0 +1,36 @@
+@@GATE-META step=7 cmd_sha=8c79a90bc3759fb5f8e272ce8477214578bfbd9489157d5238bd5e0c06c92c1d@@
+CMD: set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-06; bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-06/healthy-all.json; jq -e '.ok==true and .status=="success"' .tmp/redhat-fix-s27-06/healthy-all.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-06/alert-sweep-healthy.json; jq -e '.alerted==0 and (.posts|length)==0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.json >/dev/null; ! jq -e '.alerted>=1 or (.posts|length)>0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; grep -E 'alerted:[[:space:]]+0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; ! grep -E 'alerted:[[:space:]]*[1-9]|post\[' .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; echo 'HEALTHY_SILENCE_GATE_OK alerted: 0 posts:[]'
+{
+  "ok": true,
+  "command": "backup:healthy",
+  "scope": "all",
+  "status": "success",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 01:45:03.113-06",
+    "last_wal_segment": "000000010000000000000001",
+    "last_snapshot_id": null,
+    "object_count": 1,
+    "status": "success",
+    "trace_id": "healthy-19fa7af2c89",
+    "updated_at": "2026-07-28 01:45:03.124957-06"
+  }
+}
+{
+  "alerted": 0,
+  "posts": [],
+  "healthy": 11,
+  "total": 11,
+  "webhookUrl": "http://127.0.0.1",
+  "overdueMs": 900000,
+  "errors": []
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    11
+  alerted:    0
+  overdue_ms: 900000
+  overall:    OK
+  alerted:    0
+HEALTHY_SILENCE_GATE_OK alerted: 0 posts:[]
+@@GATE-EXIT=0@@

@@ -1,0 +1,6 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "or_semantics": "any",
+  "expect_log_regex": "parity:\\s+PASS|ok:\\s+true"
+}

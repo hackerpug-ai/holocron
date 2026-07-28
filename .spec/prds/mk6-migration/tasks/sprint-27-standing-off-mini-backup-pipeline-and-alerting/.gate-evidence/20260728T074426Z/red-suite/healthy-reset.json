@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "command": "backup:healthy",
+  "scope": "all",
+  "status": "success",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 01:45:03.719-06",
+    "last_wal_segment": "000000010000000000000001",
+    "last_snapshot_id": null,
+    "object_count": 1,
+    "status": "success",
+    "trace_id": "healthy-19fa7af2ee7",
+    "updated_at": "2026-07-28 01:45:03.732251-06"
+  }
+}

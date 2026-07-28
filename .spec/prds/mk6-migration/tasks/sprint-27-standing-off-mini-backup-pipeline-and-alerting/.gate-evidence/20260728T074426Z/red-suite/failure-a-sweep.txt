@@ -1,0 +1,7 @@
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[wal_archive]: reason=failed failure_reason=killed / WAL behind — archive job wal_archive stopped updating heartbeat overdue_by_minutes=0
+  overall:    OK

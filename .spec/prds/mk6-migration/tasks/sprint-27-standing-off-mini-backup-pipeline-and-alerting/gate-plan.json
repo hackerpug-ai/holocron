@@ -4,7 +4,7 @@
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting",
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
-  "planned_at": "20260728T073822Z",
+  "planned_at": "20260728T074426Z",
   "planned_steps": 10,
   "steps": [
     {
@@ -16,11 +16,11 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "\"status\":\\s*\"success\"[\\s\\S]*overall:\\s+OK",
-        "expect_not_log_regex": "overall:\\s+FAILED",
+        "expect_log_regex": "\"status\":[[:space:]]*\"success\"",
+        "expect_not_log_regex": "overall:[[:space:]]+FAILED",
         "require_all_regex": [
-          "\"status\":\\s*\"success\"",
-          "overall:\\s+OK"
+          "\"status\":[[:space:]]*\"success\"",
+          "overall:[[:space:]]+OK"
         ]
       }
     },

@@ -1,0 +1,45 @@
+@@GATE-META step=4 cmd_sha=eed0245eb83a97017942bffedae880eb9e24ebda92f38b8fc2d45f8561a2b42a@@
+CMD: set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json > .tmp/REDHAT-FIX-S27-01/induce-kill.json; cat .tmp/REDHAT-FIX-S27-01/induce-kill.json; jq -e '.ok==true and .induction.path=="production_truth" and (.induction.real_process_killed==true or .induction.production_catch==true) and .heartbeat.status=="failed"' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; ! jq -e '.induction.path=="synthetic_poison" and .induction.real_process_killed!=true' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step4-kill-sweep.txt; grep -E 'post\[wal_archive\]: reason=(failed|overdue) failure_reason=.*(kill|killed|WAL)' .tmp/redhat-fix-s27-04/step4-kill-sweep.txt; ! grep -E 'post\[all-clear\]' .tmp/redhat-fix-s27-04/step4-kill-sweep.txt
+holo backup:healthy scope=all status=success last_success_at=2026-07-28 01:45:00.674-06
+{
+  "ok": true,
+  "job_name": "wal_archive",
+  "mode": "kill_wal_behind",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 01:45:00.674-06",
+    "last_wal_segment": "killed-mid-flight",
+    "last_snapshot_id": null,
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "a603e468e78a42aea666f68c8b87a9bc",
+    "updated_at": "2026-07-28 01:45:01.334748-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": true,
+    "pid_killed": 90739,
+    "production_catch": true,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "/opt/homebrew/bin/pgbackrest",
+    "failure_detail": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+    "restored": false,
+    "fault_output": "killed / WAL behind — archive job stopped updating heartbeat (pid=90739 signal=SIGKILL binary=/opt/homebrew/bin/pgbackrest)",
+    "heartbeat_via_production_writer": true
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[wal_archive]: reason=failed failure_reason=killed / WAL behind — archive job wal_archive stopped updating heartbeat overdue_by_minutes=0
+  overall:    OK
+  post[wal_archive]: reason=failed failure_reason=killed / WAL behind — archive job wal_archive stopped updating heartbeat overdue_by_minutes=0
+
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+@@GATE-EXIT=0@@
