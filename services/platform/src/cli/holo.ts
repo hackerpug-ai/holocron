@@ -33,6 +33,7 @@
  * Sprint 27 D04-04: backup:mirror | backup:status — restic blob mirror + SHA-256 parity
  * Sprint 27 D04-05 / REDHAT-FIX-S27-01: backup:alert-sweep | verify:backup |
  * backup:induce-failure — real failure induction (production-truth) + overdue/failed alerts
+ * Sprint 27 REDHAT-FIX-S27-04: backup:healthy --all — reset induced store + success heartbeats
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -196,15 +197,20 @@ interface CliArgs {
   backupType: string | null;
   /** backup:base | backup:wal | backup:alert-sweep --install-schedule */
   installSchedule: boolean;
-  /** backup:induce-failure --mode kill|credential-expired|config-removed */
+  /** backup:induce-failure --mode kill|credential-expired|config-removed|clear */
   induceMode: string | null;
-  /** backup:induce-failure --job <job_name> */
+  /** backup:induce-failure --job <job_name> | backup:healthy --job <name> */
   induceJob: string | null;
   /**
    * backup:induce-failure --synthetic
    * Honest dual-path: heartbeat poison for sweep-unit mechanics ONLY (not production-truth).
    */
   induceSynthetic: boolean;
+  /**
+   * backup:healthy --all
+   * REDHAT-FIX-S27-04: clear induced store + mark all heartbeats success (gate isolation reset).
+   */
+  all: boolean;
 }
 
 function printHelp(): void {
@@ -251,6 +257,9 @@ Usage:
                             [--install-schedule]
   backup:induce-failure     REAL failure induction (production-truth): --mode kill|credential-expired|config-removed --job <name>
                             [--synthetic for sweep-unit poison only — not production-truth]
+                            --mode clear: reset all induced state + healthy heartbeats (alias of backup:healthy --all)
+  backup:healthy            REDHAT-FIX-S27-04: clear induced store + success heartbeats
+                            --all | --job <name>
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
@@ -520,6 +529,7 @@ function parseArgs(argv: string[]): CliArgs {
     induceMode: null,
     induceJob: null,
     induceSynthetic: false,
+    all: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -822,6 +832,9 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a === '--synthetic' || a === '--synthetic-poison') {
       // Honest dual-path: synthetic heartbeat poison for sweep-unit only (not production-truth).
       args.induceSynthetic = true;
+    } else if (a === '--all') {
+      // backup:healthy --all — full induced-store + heartbeat reset (REDHAT-FIX-S27-04).
+      args.all = true;
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2270,14 +2283,92 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'backup:healthy': {
+      // REDHAT-FIX-S27-04: durable reset — clear induced store + success heartbeats.
+      // Gate steps 4-6 chain this before each single-mode induce so modes cannot contaminate.
+      const { runHealthyBackupJob } = await import('../backup/alerting.ts');
+      try {
+        const job = args.all ? 'all' : (args.induceJob ?? args.positional[1] ?? null);
+        if (!job) {
+          console.error(
+            'error: backup:healthy requires --all or --job <name> (clears induced store + success heartbeats)'
+          );
+          process.exit(2);
+        }
+        const result = await runHealthyBackupJob(job);
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: true,
+                command: 'backup:healthy',
+                scope: job === 'all' || job === '*' ? 'all' : job,
+                status: result.status,
+                heartbeat: result.heartbeat,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(
+            `holo backup:healthy scope=${job === 'all' || job === '*' ? 'all' : job} status=${result.status} last_success_at=${result.heartbeat.last_success_at}`
+          );
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:healthy failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
     case 'backup:induce-failure': {
       // REDHAT-FIX-S27-01: production-truth real failure induction by default.
       // Optional --synthetic uses honest heartbeat-poison path for sweep-unit mechanics only.
-      const { induceBackupFailure, parseInduceMode } = await import('../backup/alerting.ts');
+      // REDHAT-FIX-S27-04: --mode clear is an alias for backup:healthy --all (full reset).
+      const { induceBackupFailure, parseInduceMode, runHealthyBackupJob } = await import(
+        '../backup/alerting.ts'
+      );
       try {
         const modeRaw = args.induceMode;
         const job = args.induceJob;
-        if (!modeRaw || !job) {
+        if (!modeRaw) {
+          console.error(
+            'error: backup:induce-failure requires --mode kill|credential-expired|config-removed|clear [--job <name>] [--synthetic]'
+          );
+          process.exit(2);
+        }
+        const modeNorm = modeRaw.trim().toLowerCase().replace(/_/g, '-');
+        if (modeNorm === 'clear' || modeNorm === 'reset' || modeNorm === 'healthy') {
+          // Full reset path — same as backup:healthy --all (induced store + heartbeats).
+          const result = await runHealthyBackupJob('all');
+          if (args.json) {
+            console.log(
+              JSON.stringify(
+                {
+                  ok: true,
+                  command: 'backup:induce-failure',
+                  mode: 'clear',
+                  status: result.status,
+                  heartbeat: result.heartbeat,
+                },
+                null,
+                2
+              )
+            );
+          } else {
+            console.log(
+              `holo backup:induce-failure mode=clear status=${result.status} last_success_at=${result.heartbeat.last_success_at}`
+            );
+          }
+          process.exit(0);
+        }
+        if (!job) {
           console.error(
             'error: backup:induce-failure requires --mode kill|credential-expired|config-removed and --job <name> [--synthetic]'
           );

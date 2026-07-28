@@ -27,7 +27,7 @@
  *   BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -724,5 +724,316 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
         webhook_url: receiver.url,
       });
     }
+  );
+
+  // ---------------------------------------------------------------------------
+  // REDHAT-FIX-S27-04 — isolation: reset between modes + negative-control silence
+  // ---------------------------------------------------------------------------
+
+  itLive(
+    'isolation: backup:healthy --all clears sticky induce → alerted:0 (AC-1)',
+    async () => {
+      if (!receiver) throw new Error('receiver not started');
+      const alerting = await loadBackupAlerting();
+      if (alerting.configureBackupAlerting) {
+        await alerting.configureBackupAlerting({
+          webhookUrl: receiver.url,
+          overdueMs: OVERDUE_MS,
+        });
+      }
+
+      // Seed sticky durable induce state (synthetic poison is enough to prove reset
+      // empties disk store + heartbeats; production-truth induction is owned by S27-01).
+      const induce = runHolo(
+        [
+          'backup:induce-failure',
+          '--mode',
+          'kill',
+          '--job',
+          'wal_archive',
+          '--synthetic',
+          '--json',
+        ],
+        {
+          ALERT_WEBHOOK_URL: receiver.url,
+          BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+        }
+      );
+      writeEvidence('s27-04-sticky-induce.json', induce);
+      expect(induce.status, `seed induce must exit 0: ${induce.combined}`).toBe(0);
+
+      // Reset via CLI-visible backup:healthy --all (not test-only Map clear).
+      const healthy = runHolo(['backup:healthy', '--all', '--json'], {
+        ALERT_WEBHOOK_URL: receiver.url,
+        BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+      });
+      writeEvidence('s27-04-healthy-all.json', healthy);
+      expect(healthy.status, `backup:healthy --all must exit 0: ${healthy.combined}`).toBe(0);
+
+      // Induced store must be empty / missing after reset.
+      const inducedPath = resolve(REPO_ROOT, '.tmp/backup-alert-induced.json');
+      let inducedEmpty = !existsSync(inducedPath);
+      if (!inducedEmpty) {
+        try {
+          const raw = JSON.parse(readFileSync(inducedPath, 'utf8')) as unknown;
+          inducedEmpty =
+            raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0;
+        } catch {
+          inducedEmpty = false;
+        }
+      }
+      writeEvidence('s27-04-induced-store-after-reset.json', {
+        path: inducedPath,
+        empty: inducedEmpty,
+      });
+      expect(inducedEmpty, 'induced store must be empty after backup:healthy --all').toBe(true);
+
+      receiver.reset();
+      const sweep = runHolo(['backup:alert-sweep'], {
+        ALERT_WEBHOOK_URL: receiver.url,
+        BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+      });
+      writeEvidence('s27-04-sweep-after-reset.txt', sweep.combined);
+      expect(sweep.status, `alert-sweep after reset must exit 0: ${sweep.combined}`).toBe(0);
+      expect(sweep.stdout, 'must_observe alerted: 0 after healthy reset').toMatch(/alerted:\s+0/);
+      expect(
+        receiver.posts.length,
+        'must_not_observe: webhook posts after reset without new induce'
+      ).toBe(0);
+    },
+    ALERT_WINDOW_MS + 60_000
+  );
+
+  itLive(
+    'isolation: without reset, kill then credential contaminates (AC-5 negative control)',
+    async () => {
+      if (!receiver) throw new Error('receiver not started');
+      const alerting = await loadBackupAlerting();
+      if (alerting.configureBackupAlerting) {
+        await alerting.configureBackupAlerting({
+          webhookUrl: receiver.url,
+          overdueMs: OVERDUE_MS,
+        });
+      }
+
+      // Clean start then deliberately skip reset between modes.
+      if (alerting.runHealthyBackupJob) {
+        await alerting.runHealthyBackupJob('all');
+      } else {
+        runHolo(['backup:healthy', '--all']);
+      }
+
+      // Mode 1: kill wal_archive (prefer module path; CLI as fallback).
+      if (alerting.induceBackupFailure) {
+        await alerting.induceBackupFailure('kill_wal_behind', 'wal_archive', {
+          synthetic: true,
+        });
+      } else {
+        runHolo(
+          [
+            'backup:induce-failure',
+            '--mode',
+            'kill',
+            '--job',
+            'wal_archive',
+            '--synthetic',
+            '--json',
+          ],
+          { BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS) }
+        );
+      }
+
+      // Mode 2 WITHOUT reset: credential base_backup — sticky kill residue must remain.
+      if (alerting.induceBackupFailure) {
+        await alerting.induceBackupFailure('credential_expired', 'base_backup', {
+          synthetic: true,
+        });
+      } else {
+        runHolo(
+          [
+            'backup:induce-failure',
+            '--mode',
+            'credential-expired',
+            '--job',
+            'base_backup',
+            '--synthetic',
+            '--json',
+          ],
+          { BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS) }
+        );
+      }
+
+      receiver.reset();
+      if (alerting.runBackupAlertSweep) {
+        await alerting.runBackupAlertSweep();
+      } else {
+        runHolo(['backup:alert-sweep'], {
+          ALERT_WEBHOOK_URL: receiver.url,
+          BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+        });
+      }
+
+      const jobs = new Set(
+        receiver.posts.map((p) => jobIdOf(p)).filter((j): j is string => Boolean(j))
+      );
+      writeEvidence('s27-04-contamination-without-reset.json', {
+        postCount: receiver.posts.length,
+        jobs: [...jobs],
+        posts: receiver.posts.map((p) => ({
+          job: jobIdOf(p),
+          reason: failureReasonOf(p),
+        })),
+        contamination_signature: 'posts for both wal_archive (kill) and base_backup (credential)',
+      });
+
+      // Contamination: sticky kill residue still posts alongside credential.
+      expect(
+        jobs.has('wal_archive'),
+        'without reset, prior kill job wal_archive must still post (contamination signature)'
+      ).toBe(true);
+      expect(
+        jobs.has('base_backup'),
+        'without reset, credential job base_backup must also post'
+      ).toBe(true);
+      expect(
+        receiver.posts.length,
+        'contamination: alerted count must be >1 when reset is skipped between modes'
+      ).toBeGreaterThan(1);
+    },
+    ALERT_WINDOW_MS + 60_000
+  );
+
+  itLive(
+    'isolation: with reset between modes, only the induced job posts (AC-3/AC-4/AC-5)',
+    async () => {
+      if (!receiver) throw new Error('receiver not started');
+      const alerting = await loadBackupAlerting();
+      if (alerting.configureBackupAlerting) {
+        await alerting.configureBackupAlerting({
+          webhookUrl: receiver.url,
+          overdueMs: OVERDUE_MS,
+        });
+      }
+
+      const modeRuns: Array<{
+        mode: string;
+        job: string;
+        keyword: RegExp;
+        posts: Array<{ job: string | null; reason: string }>;
+      }> = [];
+
+      const sequence: Array<{
+        mode: 'kill_wal_behind' | 'credential_expired' | 'config_removed';
+        job: string;
+        keyword: RegExp;
+        cliMode: string;
+      }> = [
+        {
+          mode: 'kill_wal_behind',
+          job: 'wal_archive',
+          keyword: /kill|killed|wal/i,
+          cliMode: 'kill',
+        },
+        {
+          mode: 'credential_expired',
+          job: 'base_backup',
+          keyword: /credential|expir|auth/i,
+          cliMode: 'credential-expired',
+        },
+        {
+          mode: 'config_removed',
+          job: 'restic_blob_mirror',
+          keyword: /config|overdue|removed/i,
+          cliMode: 'config-removed',
+        },
+      ];
+
+      for (const step of sequence) {
+        // Explicit CLI reset between every mode (gate honesty).
+        const reset = runHolo(['backup:healthy', '--all'], {
+          ALERT_WEBHOOK_URL: receiver.url,
+          BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+        });
+        expect(reset.status, `reset before ${step.mode} must exit 0: ${reset.combined}`).toBe(0);
+
+        // Negative-control: keep a healthy job that must never post.
+        if (alerting.runHealthyBackupJob) {
+          await alerting.runHealthyBackupJob('all-clear');
+        }
+
+        if (alerting.induceBackupFailure) {
+          await alerting.induceBackupFailure(step.mode, step.job, { synthetic: true });
+        } else {
+          runHolo(
+            [
+              'backup:induce-failure',
+              '--mode',
+              step.cliMode,
+              '--job',
+              step.job,
+              '--synthetic',
+              '--json',
+            ],
+            { BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS) }
+          );
+        }
+
+        receiver.reset();
+        if (alerting.runBackupAlertSweep) {
+          await alerting.runBackupAlertSweep();
+        } else {
+          runHolo(['backup:alert-sweep'], {
+            ALERT_WEBHOOK_URL: receiver.url,
+            BACKUP_ALERT_OVERDUE_MS: String(OVERDUE_MS),
+          });
+        }
+
+        const posts = receiver.posts.map((p) => ({
+          job: jobIdOf(p),
+          reason: failureReasonOf(p),
+        }));
+        modeRuns.push({ mode: step.mode, job: step.job, keyword: step.keyword, posts });
+
+        const jobs = new Set(posts.map((p) => p.job).filter((j): j is string => Boolean(j)));
+        expect(
+          jobs.has(step.job),
+          `must_observe post for induced job ${step.job} (mode=${step.mode}); jobs=${[...jobs]}`
+        ).toBe(true);
+        expect(
+          jobs.has('all-clear'),
+          'must_not_observe: negative-control all-clear must stay silent'
+        ).toBe(false);
+        // Only the intentionally induced job should post on a clean slate.
+        expect(
+          [...jobs].filter((j) => j !== step.job),
+          `must_not_observe posts for non-induced jobs after reset+${step.mode}; jobs=${[...jobs]}`
+        ).toEqual([]);
+        const reasonHit = posts.some((p) => p.job === step.job && step.keyword.test(p.reason));
+        expect(
+          reasonHit,
+          `post[${step.job}] failure_reason must match mode keywords ${step.keyword}`
+        ).toBe(true);
+      }
+
+      // Three mode post sets must not be byte-identical (mode-specific isolation).
+      const serialized = modeRuns.map((r) => JSON.stringify(r.posts));
+      writeEvidence('s27-04-mode-isolation-sequence.json', {
+        modeRuns: modeRuns.map((r) => ({
+          mode: r.mode,
+          job: r.job,
+          posts: r.posts,
+        })),
+        serialized_equal_12: serialized[0] === serialized[1],
+        serialized_equal_23: serialized[1] === serialized[2],
+        serialized_equal_13: serialized[0] === serialized[2],
+      });
+      expect(
+        serialized[0] === serialized[1] &&
+          serialized[1] === serialized[2] &&
+          serialized[0] === serialized[2],
+        'must_not_observe: byte-identical step logs across kill/credential/config'
+      ).toBe(false);
+    },
+    ALERT_WINDOW_MS + 120_000
   );
 });
