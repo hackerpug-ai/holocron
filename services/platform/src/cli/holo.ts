@@ -192,7 +192,7 @@ interface CliArgs {
   printRoots: boolean;
   /** backup:base --type full|incr|diff */
   backupType: string | null;
-  /** backup:base --install-schedule */
+  /** backup:base | backup:wal --install-schedule */
   installSchedule: boolean;
 }
 
@@ -1872,9 +1872,25 @@ async function main(): Promise<void> {
       break;
     }
     case 'backup:wal': {
-      // D04-03: continuous WAL archiving cycle (archive_mode=always + R2 confirm + heartbeat)
-      const { runWalArchiveJob, formatWalArchiveText } = await import('../backup/wal-archive.ts');
+      // D04-03: continuous WAL archiving cycle (archive_mode=always + R2 confirm + continuity gate)
+      // + optional launchd install (≤5m heartbeat cadence for D04-05)
+      const {
+        runWalArchiveJob,
+        formatWalArchiveText,
+        installWalArchiveLaunchd,
+        formatWalLaunchdInstallText,
+      } = await import('../backup/wal-archive.ts');
       try {
+        if (args.installSchedule) {
+          const installed = installWalArchiveLaunchd({});
+          if (args.json) {
+            console.log(JSON.stringify(installed, null, 2));
+          } else {
+            console.log(formatWalLaunchdInstallText(installed));
+          }
+          process.exit(installed.ok ? 0 : 1);
+          break;
+        }
         const result = await runWalArchiveJob({});
         if (args.json) {
           console.log(
@@ -1894,6 +1910,8 @@ async function main(): Promise<void> {
                 r2WalObjectCountAfter: result.r2WalObjectCountAfter,
                 continuityOk: result.continuityOk,
                 gapSegments: result.gapSegments,
+                continuityGatesSuccess: true,
+                r2ExactSegmentRequired: true,
                 heartbeat: result.heartbeat,
                 span: result.span
                   ? {
@@ -2080,11 +2098,14 @@ async function main(): Promise<void> {
 
     case 'backup:status': {
       // D04-03: honest status — real SHOW + pg_stat_archiver + heartbeats + R2 counts
-      const { backupStatusSnapshot } = await import('../backup/wal-archive.ts');
+      const { backupStatusSnapshot, readWalArchiveSchedule } = await import(
+        '../backup/wal-archive.ts'
+      );
       const { readBaseBackupSchedule } = await import('../backup/base-backup.ts');
       try {
         const snap = await backupStatusSnapshot({});
-        const schedule = readBaseBackupSchedule({});
+        const baseSchedule = readBaseBackupSchedule({});
+        const walSchedule = readWalArchiveSchedule({});
         const payload = {
           ok:
             snap.archiveMode === 'always' &&
@@ -2099,7 +2120,8 @@ async function main(): Promise<void> {
           r2WalObjects: snap.r2WalObjects,
           r2BackupObjects: snap.r2BackupObjects,
           heartbeats: snap.heartbeats,
-          schedule,
+          schedule: baseSchedule,
+          walSchedule,
         };
         if (args.json) {
           console.log(JSON.stringify(payload, null, 2));
@@ -2113,7 +2135,10 @@ async function main(): Promise<void> {
           console.log(`  r2_wal_objects:  ${payload.r2WalObjects}`);
           console.log(`  r2_backup_objs:  ${payload.r2BackupObjects}`);
           console.log(
-            `  schedule:        ${schedule.installed ? `installed interval=${schedule.intervalSeconds}s loaded=${schedule.loaded}` : 'not installed'}`
+            `  wal_schedule:    ${walSchedule.installed ? `installed interval=${walSchedule.intervalSeconds}s loaded=${walSchedule.loaded}` : 'not installed'}`
+          );
+          console.log(
+            `  base_schedule:   ${baseSchedule.installed ? `installed interval=${baseSchedule.intervalSeconds}s loaded=${baseSchedule.loaded}` : 'not installed'}`
           );
           for (const h of payload.heartbeats) {
             console.log(

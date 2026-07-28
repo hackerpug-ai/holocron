@@ -2,10 +2,16 @@
  * Continuous Postgres WAL archiving via pgBackRest archive-push (D04-03).
  *
  * - archive_mode=always + archive_command → pgbackrest archive-push (NEVER /bin/true)
- * - After real R2 confirmation: upsert backup_heartbeat wal_archive
+ * - After real R2 confirmation + zero WAL-gap continuity: upsert backup_heartbeat wal_archive
+ * - last_success_at advances ONLY when continuity.ok AND exact segment confirmed in R2
+ * - Launchd StartInterval≤300s keeps wal_archive heartbeat fresh for D04-05 overdue window
  * - Emit OTel span backup:wal_archive with redacted attributes + trace_id on heartbeat
  */
 import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, resolve } from 'node:path';
+import { resolveRepoRoot } from '../config/secrets.ts';
 import { type BackupConfig, endpointHost, loadBackupConfig } from './config.ts';
 import {
   type BackupHeartbeatRecord,
@@ -433,28 +439,32 @@ export async function runWalArchiveJob(options?: {
   const failedDelta = after.failed_count - before.failed_count;
   const continuity = checkWalContinuity(r2After.segments);
 
+  // Fail closed: exact last_archived_wal must be present in R2 — never object-count growth alone.
   let confirmed = false;
   if (lastWalSegment) {
     const conf = confirmWalSegmentInR2(lastWalSegment, cfg, env);
     confirmed = conf.confirmed;
-    if (!confirmed) {
-      // Fall back: object count increased under archive prefix after the burst.
-      confirmed =
-        r2After.count > r2Before.count && r2After.segments.length > r2Before.segments.length;
-    }
   }
+
+  if (!confirmed) {
+    errors.push(
+      lastWalSegment
+        ? `R2 did not confirm exact WAL segment ${lastWalSegment} (fail-closed; object-count growth is not sufficient)`
+        : 'R2 did not confirm WAL segment after archive-push (no last_archived_wal)'
+    );
+  }
+  if (failedDelta > 0) errors.push(`pg_stat_archiver.failed_count grew by ${failedDelta}`);
+  // HIGH-1: zero WAL-gap is a success/heartbeat gate — gaps fail the job and do NOT advance last_success_at
+  if (!continuity.ok) errors.push(`WAL continuity gaps: ${continuity.gaps.join(', ')}`);
 
   const success =
     confirmed &&
+    continuity.ok &&
     !!lastWalSegment &&
     failedDelta === 0 &&
     archiveMode === 'always' &&
     archiveCommand.includes('archive-push') &&
     !/\/bin\/true/i.test(archiveCommand);
-
-  if (!confirmed) errors.push('R2 did not confirm WAL segment after archive-push');
-  if (failedDelta > 0) errors.push(`pg_stat_archiver.failed_count grew by ${failedDelta}`);
-  if (!continuity.ok) errors.push(`WAL continuity gaps: ${continuity.gaps.join(', ')}`);
 
   let heartbeat: BackupHeartbeatRecord | null = null;
   let span: EmittedBackupSpan | null = null;
@@ -472,7 +482,7 @@ export async function runWalArchiveJob(options?: {
       },
     });
 
-    // ONLY after R2 confirmation
+    // ONLY after R2 confirmation of the exact segment AND zero-gap continuity
     heartbeat = await upsertBackupHeartbeat({
       jobName: 'wal_archive',
       status: 'success',
@@ -492,6 +502,7 @@ export async function runWalArchiveJob(options?: {
         detail: errors.join('; ').slice(0, 200),
       },
     });
+    // status=failed path does NOT pass lastSuccessAt → last_success_at is not advanced
     heartbeat = await upsertBackupHeartbeat({
       jobName: 'wal_archive',
       status: 'failed',
@@ -530,7 +541,7 @@ export function formatWalArchiveText(result: WalArchiveJobResult): string {
     `  last_wal:        ${result.lastWalSegment ?? '(none)'}`,
     `  archiver:        ${result.before.archived_count} → ${result.after.archived_count} (failed ${result.before.failed_count} → ${result.after.failed_count})`,
     `  r2_wal_objects:  ${result.r2WalObjectCountBefore} → ${result.r2WalObjectCountAfter}`,
-    `  continuity:      ${result.continuityOk ? 'ok' : `GAPS ${result.gapSegments.join(',')}`}`,
+    `  continuity:      ${result.continuityOk ? 'ok (gated)' : `GAPS ${result.gapSegments.join(',')} (blocks success/last_success_at)`}`,
     `  heartbeat:       ${result.heartbeat?.status ?? 'n/a'} last_success_at=${result.heartbeat?.last_success_at ?? 'null'}`,
     `  span:            ${result.span?.name ?? 'n/a'} trace_id=${result.span?.traceId ?? 'n/a'}`,
   ];
@@ -540,6 +551,271 @@ export function formatWalArchiveText(result: WalArchiveJobResult): string {
   }
   lines.push(`  overall:         ${result.ok ? 'OK' : 'FAILED'}`);
   return lines.join('\n');
+}
+
+/** launchd label for continuous WAL archive heartbeat (D04-03 / D04-05 cadence). */
+export const WAL_ARCHIVE_LAUNCHD_LABEL = 'holocron-wal-archive';
+/** Default: every 5 minutes — keeps wal_archive last_success_at inside D04-05 15m overdue window. */
+export const WAL_ARCHIVE_DEFAULT_INTERVAL_SECONDS = 300;
+
+export type WalLaunchdInstallResult = {
+  ok: boolean;
+  label: string;
+  plistPath: string;
+  domain: string;
+  intervalSeconds: number;
+  bootstrapped: boolean;
+  messages: string[];
+};
+
+/** Render launchd plist for scheduled `holo backup:wal` (heartbeat cadence ≤5m). */
+export function renderWalArchivePlist(options: {
+  home: string;
+  holoRoot: string;
+  bunBin: string;
+  databaseUrl: string;
+  intervalSeconds: number;
+}): string {
+  const bunDir = dirname(options.bunBin);
+  const logDir = resolve(options.home, 'Library/Logs/holocron');
+  const interval = Math.min(
+    Math.max(30, Math.trunc(options.intervalSeconds)),
+    WAL_ARCHIVE_DEFAULT_INTERVAL_SECONDS
+  );
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-wal-archive — continuous WAL archive heartbeat (D04-03 / CAP-BAK-01)
+  Runs: bun holo.ts backup:wal --json
+  StartInterval=${interval}s (≤5m for D04-05 overdue window). Not a no-op.
+  Success gated on R2 exact-segment confirm + zero WAL-gap continuity.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>${WAL_ARCHIVE_LAUNCHD_LABEL}</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>${options.bunBin}</string>
+		<string>${options.holoRoot}/services/platform/src/cli/holo.ts</string>
+		<string>backup:wal</string>
+		<string>--json</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>${options.holoRoot}</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>${options.home}</string>
+		<key>PATH</key>
+		<string>${bunDir}:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOLO_ROOT</key>
+		<string>${options.holoRoot}</string>
+		<key>DATABASE_URL</key>
+		<string>${options.databaseUrl}</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StartInterval</key>
+	<integer>${interval}</integer>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>StandardOutPath</key>
+	<string>${logDir}/wal-archive.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>${logDir}/wal-archive.err.log</string>
+</dict>
+</plist>
+`;
+}
+
+/**
+ * Install + bootstrap the launchd WAL-archive heartbeat schedule (≤5 min).
+ * Template also written under services/platform/deploy/launchd for version control.
+ */
+export function installWalArchiveLaunchd(options?: {
+  env?: NodeJS.ProcessEnv;
+  /** Cap at 300s (5m). Default 300. */
+  intervalSeconds?: number;
+  holoRoot?: string;
+  launchAgentsDir?: string;
+  bootstrap?: boolean;
+}): WalLaunchdInstallResult {
+  const env = options?.env ?? process.env;
+  const home = env.HOME ?? homedir();
+  const holoRoot = options?.holoRoot ?? resolveRepoRoot();
+  const requested = options?.intervalSeconds ?? WAL_ARCHIVE_DEFAULT_INTERVAL_SECONDS;
+  // Enforce ≤5m cadence for D04-05; never schedule slower than the overdue budget.
+  const intervalSeconds = Math.min(
+    Math.max(30, Math.trunc(requested)),
+    WAL_ARCHIVE_DEFAULT_INTERVAL_SECONDS
+  );
+  const launchAgentsDir = options?.launchAgentsDir ?? resolve(home, 'Library/LaunchAgents');
+  const uid = process.getuid?.() ?? 501;
+  const domain = `gui/${uid}`;
+  const messages: string[] = [];
+
+  const bunBin =
+    env.BUN_BIN?.trim() ||
+    run('which', ['bun'], { env }).stdout.trim() ||
+    resolve(home, '.bun/bin/bun');
+  const databaseUrl = env.DATABASE_URL?.trim() || 'postgres://127.0.0.1:5432/holocron';
+
+  const body = renderWalArchivePlist({
+    home,
+    holoRoot,
+    bunBin,
+    databaseUrl,
+    intervalSeconds,
+  });
+
+  const templateDir = resolve(holoRoot, 'services/platform/deploy/launchd');
+  mkdirSync(templateDir, { recursive: true });
+  const templatePath = resolve(templateDir, `${WAL_ARCHIVE_LAUNCHD_LABEL}.plist`);
+  const portable = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-wal-archive — continuous WAL archive heartbeat (D04-03 / CAP-BAK-01)
+  Runs: bun holo.ts backup:wal --json
+  StartInterval=${intervalSeconds}s (≤5m for D04-05 overdue window). Not a no-op.
+  Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>${WAL_ARCHIVE_LAUNCHD_LABEL}</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@BUN_BIN@</string>
+		<string>@HOLO_ROOT@/services/platform/src/cli/holo.ts</string>
+		<string>backup:wal</string>
+		<string>--json</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>@HOLO_ROOT@</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>@HOME@</string>
+		<key>PATH</key>
+		<string>@BUN_DIR@:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOLO_ROOT</key>
+		<string>@HOLO_ROOT@</string>
+		<key>DATABASE_URL</key>
+		<string>@DATABASE_URL@</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StartInterval</key>
+	<integer>${intervalSeconds}</integer>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>StandardOutPath</key>
+	<string>@HOME@/Library/Logs/holocron/wal-archive.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/Library/Logs/holocron/wal-archive.err.log</string>
+</dict>
+</plist>
+`;
+  writeFileSync(templatePath, portable, 'utf8');
+  messages.push(`wrote template ${templatePath}`);
+
+  mkdirSync(launchAgentsDir, { recursive: true });
+  mkdirSync(resolve(home, 'Library/Logs/holocron'), { recursive: true });
+  const plistPath = resolve(launchAgentsDir, `${WAL_ARCHIVE_LAUNCHD_LABEL}.plist`);
+  writeFileSync(plistPath, body, 'utf8');
+  messages.push(`installed ${plistPath}`);
+
+  const lint = run('/usr/bin/plutil', ['-lint', plistPath], { env });
+  if (lint.status !== 0) {
+    return {
+      ok: false,
+      label: WAL_ARCHIVE_LAUNCHD_LABEL,
+      plistPath,
+      domain,
+      intervalSeconds,
+      bootstrapped: false,
+      messages: [...messages, `plutil lint failed: ${lint.stderr || lint.stdout}`],
+    };
+  }
+
+  let bootstrapped = false;
+  if (options?.bootstrap !== false) {
+    run('launchctl', ['bootout', `${domain}/${WAL_ARCHIVE_LAUNCHD_LABEL}`], { env });
+    const boot = run('launchctl', ['bootstrap', domain, plistPath], { env });
+    if (boot.status !== 0) {
+      const load = run('launchctl', ['load', '-w', plistPath], { env });
+      if (load.status !== 0) {
+        messages.push(
+          `bootstrap failed: ${(boot.stderr || load.stderr || boot.stdout).slice(0, 300)}`
+        );
+        return {
+          ok: false,
+          label: WAL_ARCHIVE_LAUNCHD_LABEL,
+          plistPath,
+          domain,
+          intervalSeconds,
+          bootstrapped: false,
+          messages,
+        };
+      }
+      messages.push(`loaded ${WAL_ARCHIVE_LAUNCHD_LABEL}`);
+    } else {
+      messages.push(`bootstrapped ${domain}/${WAL_ARCHIVE_LAUNCHD_LABEL}`);
+    }
+    bootstrapped = true;
+  }
+
+  return {
+    ok: true,
+    label: WAL_ARCHIVE_LAUNCHD_LABEL,
+    plistPath,
+    domain,
+    intervalSeconds,
+    bootstrapped,
+    messages,
+  };
+}
+
+export function formatWalLaunchdInstallText(result: WalLaunchdInstallResult): string {
+  return [
+    'holo backup:wal --install-schedule',
+    `  label:     ${result.label}`,
+    `  plist:     ${result.plistPath}`,
+    `  domain:    ${result.domain}`,
+    `  interval:  ${result.intervalSeconds}s (≤300s D04-05 cadence)`,
+    `  loaded:    ${result.bootstrapped}`,
+    ...result.messages.map((m) => `  - ${m}`),
+    `  overall:   ${result.ok ? 'OK' : 'FAILED'}`,
+  ].join('\n');
+}
+
+/** Read installed WAL-archive plist StartInterval if present. */
+export function readWalArchiveSchedule(options?: {
+  launchAgentsDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): { installed: boolean; plistPath: string; intervalSeconds: number | null; loaded: boolean } {
+  const env = options?.env ?? process.env;
+  const home = env.HOME ?? homedir();
+  const dir = options?.launchAgentsDir ?? resolve(home, 'Library/LaunchAgents');
+  const plistPath = resolve(dir, `${WAL_ARCHIVE_LAUNCHD_LABEL}.plist`);
+  if (!existsSync(plistPath)) {
+    return { installed: false, plistPath, intervalSeconds: null, loaded: false };
+  }
+  const text = readFileSync(plistPath, 'utf8');
+  const m = text.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/);
+  const uid = process.getuid?.() ?? 501;
+  const print = run('launchctl', ['print', `gui/${uid}/${WAL_ARCHIVE_LAUNCHD_LABEL}`], { env });
+  return {
+    installed: true,
+    plistPath,
+    intervalSeconds: m ? Number(m[1]) : null,
+    loaded: print.status === 0,
+  };
 }
 
 export async function backupStatusSnapshot(options?: {
