@@ -9,14 +9,15 @@
   "steps": [
     {
       "n": 1,
-      "text": "Run a live Postgres write burst via holo backup:wal --json — WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows≥1).",
+      "text": "Run a live Postgres write burst via holo backup:wal --json — WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows≥1); pipeline health proven by overall: OK (not the unrelated pg_stat_archiver failed counter).",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-02; bun services/platform/src/cli/holo.ts backup:wal --json > .tmp/REDHAT-FIX-S27-02/backup-wal.json; cat .tmp/REDHAT-FIX-S27-02/backup-wal.json; jq -e '.status==\"success\" and .ok==true and .continuityOk==true and .r2WalObjectCountAfter > .r2WalObjectCountBefore and .writeBurstRows >= 1 and .heartbeat.status==\"success\" and (.heartbeat.last_success_at != null)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; ! jq -e '.status==\"failed\" or .ok==false or .continuityOk==false or .writeBurstRows < 1 or (.r2WalObjectCountAfter <= .r2WalObjectCountBefore)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; bun services/platform/src/cli/holo.ts backup:status > .tmp/REDHAT-FIX-S27-02/backup-status.txt || true; cat .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'wal_archive:.*(OK|status=success)' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'wal_archive:.*(FAILED|OVERDUE)' .tmp/REDHAT-FIX-S27-02/backup-status.txt",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-02 .tmp/redhat-fix-s27-03; bun services/platform/src/cli/holo.ts backup:wal --json > .tmp/REDHAT-FIX-S27-02/backup-wal.json; cat .tmp/REDHAT-FIX-S27-02/backup-wal.json; jq -e '.status==\"success\" and .ok==true and .continuityOk==true and .r2WalObjectCountAfter > .r2WalObjectCountBefore and .writeBurstRows >= 1 and .heartbeat.status==\"success\" and (.heartbeat.last_success_at != null)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; ! jq -e '.status==\"failed\" or .ok==false or .continuityOk==false or .writeBurstRows < 1 or (.r2WalObjectCountAfter <= .r2WalObjectCountBefore)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; bun services/platform/src/cli/holo.ts backup:status > .tmp/REDHAT-FIX-S27-02/backup-status.txt || true; cp .tmp/REDHAT-FIX-S27-02/backup-status.txt .tmp/redhat-fix-s27-03/backup-status-after-wal.txt; cat .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'overall:[[:space:]]+OK' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'overall:[[:space:]]+FAILED' .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'wal_archive:.*(OK|status=success)' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'wal_archive:.*(FAILED|OVERDUE)' .tmp/REDHAT-FIX-S27-02/backup-status.txt",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "\"status\":\\s*\"success\""
+        "expect_log_regex": "\"status\":\\s*\"success\"[\\s\\S]*overall:\\s+OK",
+        "expect_not_log_regex": "overall:\\s+FAILED"
       }
     },
     {
