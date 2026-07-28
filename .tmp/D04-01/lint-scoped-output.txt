@@ -1,0 +1,45 @@
+services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:79:61 lint/suspicious/noConfusingVoidType  FIXABLE  ━━━━━━━━━━
+
+  ! void is confusing inside a union type.
+  
+    77 │   }) => void | Promise<void>;
+    78 │   /** Run one alert sweep against backup_heartbeat (real DB query). */
+  > 79 │   runBackupAlertSweep?: () => Promise<{ alerted: number } | void> | { alerted: number } | void;
+       │                                                             ^^^^
+    80 │   /**
+    81 │    * Optional test harness helpers (D04-05 may export these or equivalent CLI).
+  
+  i Unsafe fix: Use undefined instead.
+  
+     77  77 │     }) => void | Promise<void>;
+     78  78 │     /** Run one alert sweep against backup_heartbeat (real DB query). */
+     79     │ - ··runBackupAlertSweep?:·()·=>·Promise<{·alerted:·number·}·|·void>·|·{·alerted:·number·}·|·void;
+         79 │ + ··runBackupAlertSweep?:·()·=>·Promise<{·alerted:·number·}·|·undefined>·|·{·alerted:·number·}·|·void;
+     80  80 │     /**
+     81  81 │      * Optional test harness helpers (D04-05 may export these or equivalent CLI).
+  
+
+services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:84:73 lint/suspicious/noConfusingVoidType  FIXABLE  ━━━━━━━━━━
+
+  ! void is confusing inside a union type.
+  
+    82 │    * When absent, the suite falls back to holo CLI + heartbeat SQL/CLI surface.
+    83 │    */
+  > 84 │   runHealthyBackupJob?: (jobId: string) => Promise<{ status: string } | void> | { status: string };
+       │                                                                         ^^^^
+    85 │   induceBackupFailure?: (
+    86 │     mode: 'kill_wal_behind' | 'credential_expired' | 'config_removed',
+  
+  i Unsafe fix: Use undefined instead.
+  
+     82  82 │      * When absent, the suite falls back to holo CLI + heartbeat SQL/CLI surface.
+     83  83 │      */
+     84     │ - ··runHealthyBackupJob?:·(jobId:·string)·=>·Promise<{·status:·string·}·|·void>·|·{·status:·string·};
+         84 │ + ··runHealthyBackupJob?:·(jobId:·string)·=>·Promise<{·status:·string·}·|·undefined>·|·{·status:·string·};
+     85  85 │     induceBackupFailure?: (
+     86  86 │       mode: 'kill_wal_behind' | 'credential_expired' | 'config_removed',
+  
+
+Checked 1 file in 9ms. No fixes applied.
+Found 2 warnings.
+LINT_EXIT:0

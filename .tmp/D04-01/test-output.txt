@@ -1,0 +1,119 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01
+
+ ❯ |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts (6 tests | 5 failed) 22ms
+     ✓ webhook receiver is a real http.Server sink on /alert (HTTP 200) 2ms
+     × healthy backup run stays silent — zero alert POSTs (must_not_observe / silence proof) 3ms
+     × failure (a): kill / WAL-behind MUST alert within 15 min at the real sink 0ms
+     × failure (b): credential expiry MUST alert within 15 min at the real sink 0ms
+     × failure (c): config-removed / overdue MUST alert (never silent-healthy) 0ms
+     × two-sided oracle summary: failure alerts + healthy silence (anti-fake-healthy) 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > healthy backup run stays silent — zero alert POSTs (must_not_observe / silence proof)
+AssertionError: backup alerting module missing (RED until D04-05): /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01/services/platform/src/backup/alerting.ts: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ loadBackupAlerting services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:225:5
+    223|     existsSync(BACKUP_ALERTING_MODULE),
+    224|     `backup alerting module missing (RED until D04-05): ${BACKUP_ALERT…
+    225|   ).toBe(true);
+       |     ^
+    226|   const mod = (await import('../../src/backup/alerting.ts')) as Backup…
+    227|   return mod;
+ ❯ services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:342:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > failure (a): kill / WAL-behind MUST alert within 15 min at the real sink
+AssertionError: backup alerting module missing (RED until D04-05): /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01/services/platform/src/backup/alerting.ts: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ loadBackupAlerting services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:225:5
+    223|     existsSync(BACKUP_ALERTING_MODULE),
+    224|     `backup alerting module missing (RED until D04-05): ${BACKUP_ALERT…
+    225|   ).toBe(true);
+       |     ^
+    226|   const mod = (await import('../../src/backup/alerting.ts')) as Backup…
+    227|   return mod;
+ ❯ services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:404:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > failure (b): credential expiry MUST alert within 15 min at the real sink
+AssertionError: backup alerting module missing (RED until D04-05): /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01/services/platform/src/backup/alerting.ts: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ loadBackupAlerting services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:225:5
+    223|     existsSync(BACKUP_ALERTING_MODULE),
+    224|     `backup alerting module missing (RED until D04-05): ${BACKUP_ALERT…
+    225|   ).toBe(true);
+       |     ^
+    226|   const mod = (await import('../../src/backup/alerting.ts')) as Backup…
+    227|   return mod;
+ ❯ services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:469:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > failure (c): config-removed / overdue MUST alert (never silent-healthy)
+AssertionError: backup alerting module missing (RED until D04-05): /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01/services/platform/src/backup/alerting.ts: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ loadBackupAlerting services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:225:5
+    223|     existsSync(BACKUP_ALERTING_MODULE),
+    224|     `backup alerting module missing (RED until D04-05): ${BACKUP_ALERT…
+    225|   ).toBe(true);
+       |     ^
+    226|   const mod = (await import('../../src/backup/alerting.ts')) as Backup…
+    227|   return mod;
+ ❯ services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:536:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > two-sided oracle summary: failure alerts + healthy silence (anti-fake-healthy)
+AssertionError: RED: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D04-01/services/platform/src/backup/alerting.ts must exist after D04-05: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint27-backup-alerting-red.test.ts:609:9
+    607|         existsSync(BACKUP_ALERTING_MODULE),
+    608|         `RED: ${BACKUP_ALERTING_MODULE} must exist after D04-05`
+    609|       ).toBe(true);
+       |         ^
+    610|
+    611|       const alerting = await loadBackupAlerting();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 1 passed (6)
+   Start at  19:27:18
+   Duration  270ms (transform 77ms, setup 116ms, import 33ms, tests 22ms, environment 0ms)
+
+EXIT_CODE:1

@@ -1,0 +1,39 @@
+{
+  "task_id": "D04-01",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm biome check services/platform/tests/integration/sprint27-backup-alerting-red.test.ts",
+    "test": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Ec 'describe|itLive' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0"
+    },
+    {
+      "id": "TC-1",
+      "verify": "test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Ec 'PLATFORM_IT' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]'"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0"
+    },
+    {
+      "id": "TC-3",
+      "verify": "grep -Ec 'http.Server|createServer' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && ! grep -Eq 'mock.*webhook|stub.*receiver' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts"
+    },
+    {
+      "id": "TC-4",
+      "verify": "grep -Eq 'WAL|kill' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Eq 'credential|expir' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Eq 'config|overdue' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts"
+    },
+    {
+      "id": "TC-5",
+      "verify": "grep -Ec 'zero|silence|must_not_observe' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]'"
+    }
+  ]
+}
