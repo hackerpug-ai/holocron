@@ -5,7 +5,7 @@
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
   "planned_at": "20260728T024819Z",
-  "planned_steps": 9,
+  "planned_steps": 10,
   "steps": [
     {
       "n": 1,
@@ -18,10 +18,7 @@
         "expected_exit": 0,
         "expect_log_regex": "\"status\":\\s*\"success\"[\\s\\S]*overall:\\s+OK",
         "expect_not_log_regex": "overall:\\s+FAILED",
-        "require_all_regex": [
-          "\"status\":\\s*\"success\"",
-          "overall:\\s+OK"
-        ]
+        "require_all_regex": ["\"status\":\\s*\"success\"", "overall:\\s+OK"]
       }
     },
     {
@@ -102,17 +99,18 @@
     },
     {
       "n": 8,
-      "text": "Execute D04-01 RED integration suite (sprint27-backup-alerting-red.test.ts) under PLATFORM_IT=1 with short alert windows — healthy silence + three failure modes against a real http.Server; dual-write transcript and webhook captures into .gate-evidence.",
+      "text": "Execute D04-01 RED integration suite (sprint27-backup-alerting-red.test.ts) under PLATFORM_IT=1 with short alert windows (non-SLA mechanics: BACKUP_ALERT_OVERDUE_MS=1000) — healthy silence + three failure modes against a real http.Server; dual-write transcript + independent HTTP captures (method/url/headers/rawBody/receivedAt) via promote script (S27-07).",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -eu; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=\".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting\"; EVIDENCE=\"${SPRINT_DIR}/.gate-evidence/${RUN_ID}\"; mkdir -p \"$EVIDENCE/red-suite\"; set +e; PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts >\"$EVIDENCE/red-suite-transcript.log\" 2>&1; ec=$?; set -e; cat \"$EVIDENCE/red-suite-transcript.log\"; cp \"$EVIDENCE/red-suite-transcript.log\" \"$EVIDENCE/step8-d04-01-red-suite.log\"; if [ -d .tmp/D04-01 ]; then cp -R .tmp/D04-01/. \"$EVIDENCE/red-suite/\"; fi; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' \"$EVIDENCE/red-suite-transcript.log\"; test -f \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; jq -e '.postCount==0' \"$EVIDENCE/red-suite/healthy-silence-posts.json\" >/dev/null; ls \"$EVIDENCE/red-suite\"/failure-*-alert.json >/dev/null; echo D04_01_RED_SUITE_GATE_OK exit=$ec evidence=$EVIDENCE",
+      "literal_cmd": "set -eu; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=\".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting\"; EVIDENCE=\"${SPRINT_DIR}/.gate-evidence/${RUN_ID}\"; mkdir -p \"$EVIDENCE/red-suite\"; set +e; PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts >\"$EVIDENCE/red-suite-transcript.log\" 2>&1; ec=$?; set -e; cat \"$EVIDENCE/red-suite-transcript.log\"; cp \"$EVIDENCE/red-suite-transcript.log\" \"$EVIDENCE/step8-d04-01-red-suite.log\"; if [ -d .tmp/D04-01 ]; then cp -R .tmp/D04-01/. \"$EVIDENCE/red-suite/\"; fi; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' \"$EVIDENCE/red-suite-transcript.log\"; test -f \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; jq -e '.postCount==0' \"$EVIDENCE/red-suite/healthy-silence-posts.json\" >/dev/null; ls \"$EVIDENCE/red-suite\"/failure-*-alert.json >/dev/null; bash scripts/promote-backup-alert-http-captures.sh \"$EVIDENCE/red-suite\" \"$EVIDENCE/alerts-http-captures.json\"; jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$EVIDENCE/alerts-http-captures.json\" >/dev/null; PRE_FIX=\"$SPRINT_DIR/.gate-evidence/20260728T024819Z/alerts-received.json\"; if [ -f \"$PRE_FIX\" ]; then if jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$PRE_FIX\" >/dev/null 2>&1; then echo 'REFUSE: pre-fix alerts-received.json must remain payload-only baseline (F-7 TC-2)'; exit 1; fi; echo PRE_FIX_PAYLOAD_ONLY_ORACLE_OK; fi; echo D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK exit=$ec evidence=$EVIDENCE",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "D04_01_RED_SUITE_GATE_OK",
         "require_all_regex": [
           "D04_01_RED_SUITE_GATE_OK",
-          "[1-9][0-9]* passed"
+          "[1-9][0-9]* passed",
+          "ALERT_HTTP_CAPTURES_OK"
         ]
       }
     },
@@ -126,9 +124,23 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
+        "require_all_regex": ["ALERT_SWEEP_SCHEDULE_INSTALLED_OK", "holocron-backup-alert-sweep"]
+      }
+    },
+    {
+      "n": 10,
+      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real independent webhook HTTP POST within 15m window. Toy BACKUP_ALERT_OVERDUE_MS=500/1000 steps remain non-SLA mechanics only.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-08; # AC-1: production DEFAULT_OVERDUE_MS with BACKUP_ALERT_OVERDUE_MS unset (never 500/1000 toy); env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-08/healthy-all-before-sla.json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json; jq -e '.overdueMs >= 900000' .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json >/dev/null; ! jq -e '.overdueMs == 500 or .overdueMs == 1000' .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json >/dev/null; # AC-2/AC-3: RED SLA case seeds last_success_at age>15m under default threshold + real independent HTTP receiver; set +e; env -u BACKUP_ALERT_OVERDUE_MS PLATFORM_IT=1 BACKUP_ALERT_TEST_WINDOW_MS=30000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts -t 'SLA / 15 min / fifteen' > .tmp/redhat-fix-s27-08/sla-red-transcript.log 2>&1; ec=$?; set -e; cat .tmp/redhat-fix-s27-08/sla-red-transcript.log; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' .tmp/redhat-fix-s27-08/sla-red-transcript.log; test -f .tmp/redhat-fix-s27-08/sla-overdue-ms-oracle.json; jq -e '.overdueMs >= 900000 and .DEFAULT_OVERDUE_MS == 900000' .tmp/redhat-fix-s27-08/sla-overdue-ms-oracle.json >/dev/null; test -f .tmp/redhat-fix-s27-08/sla-http-capture.json; jq -e '.method==\"POST\" and (.url|test(\"alert\")) and .elapsed_ms <= 900000 and (.headers != null) and (.rawBody|length) > 0 and (.receivedAt|length) > 0' .tmp/redhat-fix-s27-08/sla-http-capture.json >/dev/null; test -f .tmp/redhat-fix-s27-08/sla-alert-artifact.json; jq -e '.overdue_by_minutes >= 15 and (.alerted|tonumber) >= 1' .tmp/redhat-fix-s27-08/sla-alert-artifact.json >/dev/null; # Promote independent HTTP envelope (S27-07 helper) into durable gate evidence; if [ -f .tmp/D04-01/alerts-http-captures.json ]; then bash scripts/promote-backup-alert-http-captures.sh .tmp/D04-01 .tmp/redhat-fix-s27-08/alerts-http-captures.json; jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' .tmp/redhat-fix-s27-08/alerts-http-captures.json >/dev/null; fi; echo SLA_15MIN_DEFAULT_OVERDUE_OK overdue_ms:900000 env_unset=BACKUP_ALERT_OVERDUE_MS cadence_le_5min DEFAULT_OVERDUE=900000",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "SLA_15MIN_DEFAULT_OVERDUE_OK",
         "require_all_regex": [
-          "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
-          "holocron-backup-alert-sweep"
+          "SLA_15MIN_DEFAULT_OVERDUE_OK",
+          "overdue_ms:900000",
+          "env_unset=BACKUP_ALERT_OVERDUE_MS"
         ]
       }
     }
