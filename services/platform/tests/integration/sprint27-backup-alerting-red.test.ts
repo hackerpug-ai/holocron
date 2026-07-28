@@ -293,6 +293,18 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
         await alerting.runHealthyBackupJob('all', {
           env: { ...process.env, BACKUP_HEALTHY_ALL_BREAK_GLASS: '1' },
         });
+        // Defense-in-depth: remove known S27-19 canary if another suite left it failed.
+        try {
+          const { createSql } = await import('../../src/db/client');
+          const sql = createSql();
+          try {
+            await sql`DELETE FROM backup_heartbeat WHERE job_name = ${'prod-canary-overdue'} OR job_name LIKE ${'s27-19-%'}`;
+          } finally {
+            await sql.end({ timeout: 5 });
+          }
+        } catch {
+          /* best-effort */
+        }
         const result = await alerting.runHealthyBackupJob(jobId);
         if (result && typeof result === 'object' && 'status' in result) {
           expect(String(result.status).toLowerCase()).toMatch(/success|ok|healthy/);
