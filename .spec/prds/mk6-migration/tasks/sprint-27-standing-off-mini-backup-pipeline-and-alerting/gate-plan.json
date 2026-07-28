@@ -5,7 +5,7 @@
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
   "planned_at": "20260728T024819Z",
-  "planned_steps": 8,
+  "planned_steps": 9,
   "steps": [
     {
       "n": 1,
@@ -82,18 +82,31 @@
     },
     {
       "n": 7,
-      "text": "Execute D04-01 RED integration suite under PLATFORM_IT=1 — healthy silence + three failure modes against a real http.Server; dual-write transcript + independent HTTP captures (method/url/headers/rawBody/receivedAt) into .gate-evidence as alerts-http-captures.json. Payload-only alerts-received.json posts[] dumps MUST fail the envelope oracle (REDHAT-FIX-S27-07 / F-7).",
+      "text": "Healthy-run zero-alert silence gate (REDHAT-FIX-S27-06 / D04-05 AC-4 NEVER-tier): seed all jobs healthy via backup:healthy --all (S27-04 reset), run backup:alert-sweep, assert alerted: 0 and zero post[] lines — always-alert regressions cannot pass.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -eu; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=\".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting\"; EVIDENCE=\"${SPRINT_DIR}/.gate-evidence/${RUN_ID}\"; mkdir -p \"$EVIDENCE/red-suite\"; set +e; PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts >\"$EVIDENCE/red-suite-transcript.log\" 2>&1; ec=$?; set -e; cat \"$EVIDENCE/red-suite-transcript.log\"; cp \"$EVIDENCE/red-suite-transcript.log\" \"$EVIDENCE/step7-d04-01-red-suite.log\"; if [ -d .tmp/D04-01 ]; then cp -R .tmp/D04-01/. \"$EVIDENCE/red-suite/\"; fi; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' \"$EVIDENCE/red-suite-transcript.log\"; test -f \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; jq -e '.postCount==0' \"$EVIDENCE/red-suite/healthy-silence-posts.json\" >/dev/null; ls \"$EVIDENCE/red-suite\"/failure-*-alert.json >/dev/null; bash scripts/promote-backup-alert-http-captures.sh \"$EVIDENCE/red-suite\" \"$EVIDENCE/alerts-http-captures.json\"; jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$EVIDENCE/alerts-http-captures.json\" >/dev/null; PRE_FIX=\"$SPRINT_DIR/.gate-evidence/20260728T024819Z/alerts-received.json\"; if [ -f \"$PRE_FIX\" ]; then if jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$PRE_FIX\" >/dev/null 2>&1; then echo 'REFUSE: pre-fix alerts-received.json must remain payload-only baseline (F-7 TC-2)'; exit 1; fi; echo PRE_FIX_PAYLOAD_ONLY_ORACLE_OK; fi; # never treat alerts-received.json posts[] as wire proof — only alerts-http-captures.json envelope; echo D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK exit=$ec evidence=$EVIDENCE",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-06; bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-06/healthy-all.json; jq -e '.ok==true and .status==\"success\"' .tmp/redhat-fix-s27-06/healthy-all.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-06/alert-sweep-healthy.json; jq -e '.alerted==0 and (.posts|length)==0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.json >/dev/null; ! jq -e '.alerted>=1 or (.posts|length)>0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; grep -E 'alerted:[[:space:]]+0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; ! grep -E 'alerted:[[:space:]]*[1-9]|post\\[' .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; echo 'HEALTHY_SILENCE_GATE_OK alerted: 0 posts:[]'",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "ALERT_HTTP_CAPTURES_OK|D04_01_RED_SUITE_GATE_OK"
+        "expect_log_regex": "alerted:\\s+0|alerted: 0|HEALTHY_SILENCE_GATE_OK",
+        "expect_not_log_regex": "alerted:\\s*[1-9]|post\\["
       }
     },
     {
       "n": 8,
+      "text": "Execute D04-01 RED integration suite (sprint27-backup-alerting-red.test.ts) under PLATFORM_IT=1 with short alert windows — healthy silence + three failure modes against a real http.Server; dual-write transcript and webhook captures into .gate-evidence.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -eu; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=\".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting\"; EVIDENCE=\"${SPRINT_DIR}/.gate-evidence/${RUN_ID}\"; mkdir -p \"$EVIDENCE/red-suite\"; set +e; PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts >\"$EVIDENCE/red-suite-transcript.log\" 2>&1; ec=$?; set -e; cat \"$EVIDENCE/red-suite-transcript.log\"; cp \"$EVIDENCE/red-suite-transcript.log\" \"$EVIDENCE/step8-d04-01-red-suite.log\"; if [ -d .tmp/D04-01 ]; then cp -R .tmp/D04-01/. \"$EVIDENCE/red-suite/\"; fi; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' \"$EVIDENCE/red-suite-transcript.log\"; test -f \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; jq -e '.postCount==0' \"$EVIDENCE/red-suite/healthy-silence-posts.json\" >/dev/null; ls \"$EVIDENCE/red-suite\"/failure-*-alert.json >/dev/null; echo D04_01_RED_SUITE_GATE_OK exit=$ec evidence=$EVIDENCE",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "D04_01_RED_SUITE_GATE_OK|Tests.*passed|[1-9][0-9]* passed"
+      }
+    },
+    {
+      "n": 9,
       "text": "Install and verify holocron-backup-alert-sweep launchd schedule (≤5min cadence) with ALERT_WEBHOOK_URL wired into the standing daemon env — standing alerts without dashboard polling (REDHAT-FIX-S27-10 / F-10).",
       "type": "terminal",
       "method": "real-cli",
