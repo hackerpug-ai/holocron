@@ -38,7 +38,7 @@ The gate is one un-fakeable outcome: **an operator who induces a backup-job fail
 
 ## Human Test Deliverable
 
-1. Run a live Postgres write burst — WAL archives to R2 continuously, zero continuity gaps.
+1. Run a live Postgres write burst via `holo backup:wal --json` — WAL archives to R2 continuously, zero continuity gaps (assert status=success, continuityOk, R2 growth, writeBurstRows≥1).
 2. Run the scheduled base-backup job — full backup lands in the R2 bucket, verified by manifest.
 3. Run the restic blob-mirror job — every local/remote object SHA-256 matches.
 4. Kill the backup job mid-archive — alert fires within 15 minutes, no dashboard-polling needed.
