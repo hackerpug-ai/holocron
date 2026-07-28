@@ -1,0 +1,26 @@
+harvest-evidence: task=D04-01 manifest=.tmp/D04-01/verify-manifest.json
+  typecheck: pnpm typecheck
+  lint: pnpm biome check services/platform/tests/integration/sprint27-backup-alerting-red.test.ts
+  test (suite): PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts
+  requirements: 6
+  [AC-1] test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Ec 'describe|itLive' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0
+  [TC-1] test -f services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Ec 'PLATFORM_IT' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]'
+  [TC-2] PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts; test $? -ne 0
+  [TC-3] grep -Ec 'http.Server|createServer' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]' && ! grep -Eq 'mock.*webhook|stub.*receiver' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts
+  [TC-4] grep -Eq 'WAL|kill' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Eq 'credential|expir' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts && grep -Eq 'config|overdue' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts
+  [TC-5] grep -Ec 'zero|silence|must_not_observe' services/platform/tests/integration/sprint27-backup-alerting-red.test.ts | grep -Eq '[1-9]'
+
+harvest-evidence: done
+  task:       D04-01
+  commit:     5b21804e
+  typecheck:  exit=0
+  lint:       exit=0 warnings=1
+  evidence:   6 pass, 0 fail (of 6 requirements)
+  output:     .tmp/D04-01/verification-summary.json
+
+  Manual files still needed (if applicable):
+    .tmp/D04-01/red-output.txt                 (if requires_red_evidence)
+    .tmp/D04-01/{AC}-red-against-start.txt     (if requires_seeded_evidence)
+    .tmp/D04-01/{AC}-green.txt                 (if requires_seeded_evidence)
+    .tmp/D04-01/{AC}-seeded-artifact.*          (if requires_seeded_evidence)
+    .tmp/D04-01/pre-existing-issues.md         (if pre-existing failures)
