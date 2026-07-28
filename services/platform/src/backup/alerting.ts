@@ -28,6 +28,12 @@ import {
 
 /** Production SLA: alert within 15 minutes of overdue/failed. */
 export const DEFAULT_OVERDUE_MS = 15 * 60 * 1000;
+/**
+ * Hard bound on webhook HTTP POST (F-16 / REDHAT-FIX-S27-14).
+ * Prevents a black-holed ALERT_WEBHOOK_URL from hanging alert-sweep/gate forever.
+ * Override with BACKUP_ALERT_WEBHOOK_TIMEOUT_MS (tests may shorten).
+ */
+export const DEFAULT_WEBHOOK_TIMEOUT_MS = 10_000;
 /** launchd sweep cadence — well inside the 15 min SLA. */
 export const ALERT_SWEEP_DEFAULT_INTERVAL_SECONDS = 300;
 export const ALERT_SWEEP_LAUNCHD_LABEL = 'holocron-backup-alert-sweep';
@@ -166,6 +172,16 @@ function resolveOverdueMs(explicit?: number): number {
   if (Number.isFinite(fromEnv) && fromEnv > 0) return Math.trunc(fromEnv);
   if (runtimeConfig.overdueMs > 0) return runtimeConfig.overdueMs;
   return DEFAULT_OVERDUE_MS;
+}
+
+/** Resolve webhook POST timeout (default 10s; env BACKUP_ALERT_WEBHOOK_TIMEOUT_MS). */
+export function resolveWebhookTimeoutMs(explicit?: number): number {
+  if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
+    return Math.trunc(explicit);
+  }
+  const fromEnv = Number(process.env.BACKUP_ALERT_WEBHOOK_TIMEOUT_MS);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return Math.trunc(fromEnv);
+  return DEFAULT_WEBHOOK_TIMEOUT_MS;
 }
 
 /**
@@ -332,31 +348,56 @@ function buildPayload(job: JobHealth, nowIso: string): BackupAlertPayload {
 /**
  * POST one alert to the real webhook sink. Never swallows delivery errors —
  * throws so callers/tests observe failed delivery (STRICT: not log-only).
+ *
+ * F-16: AbortController bounds fetch time (~10s default) so a black-holed
+ * webhook cannot hang alert-sweep / verify:backup forever. Timeout aborts throw.
  */
 export async function postBackupAlert(
   payload: BackupAlertPayload,
-  webhookUrl?: string
+  webhookUrl?: string,
+  options?: { timeoutMs?: number }
 ): Promise<{ ok: true; status: number; body: string }> {
   const url = (webhookUrl ?? resolveAlertWebhookUrl()).trim();
   if (!url) {
     throw new Error('ALERT_WEBHOOK_URL is not configured — cannot deliver backup alert');
   }
+  const timeoutMs = resolveWebhookTimeoutMs(options?.timeoutMs);
   // Redact: payload never includes secrets (only job metadata + timestamps).
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  const body = await res.text();
-  if (!res.ok) {
-    throw new Error(
-      `backup alert webhook POST failed: HTTP ${res.status} ${body.slice(0, 200)} url=${url}`
-    );
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      throw new Error(
+        `backup alert webhook POST failed: HTTP ${res.status} ${body.slice(0, 200)} url=${url}`
+      );
+    }
+    return { ok: true, status: res.status, body };
+  } catch (err) {
+    // Normalize abort/timeout so sweep error accounting + tests see a clear failure.
+    const name = err instanceof Error ? err.name : '';
+    const msg = err instanceof Error ? err.message : String(err);
+    if (name === 'AbortError' || /abort|timeout/i.test(msg)) {
+      throw new Error(
+        `backup alert webhook POST timed out after ${timeoutMs}ms (abort/timeout) url=${url}`,
+        { cause: err instanceof Error ? err : undefined }
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return { ok: true, status: res.status, body };
 }
 
 export type AlertSweepResult = {
