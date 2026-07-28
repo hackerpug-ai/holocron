@@ -26,6 +26,21 @@ export const REQUIRED_SECRET_KEYS = [
   'HOLO_KEY_CONTROL',
 ] as const;
 
+/**
+ * Off-mini backup (D04-02) keys — reported by secrets doctor when present.
+ * Distinct from DATABASE_URL / Fleet; never printed as values.
+ * Required for CAP-BAK-01 runtime after `holo backup:provision`.
+ */
+export const BACKUP_RUNTIME_SECRET_KEYS = [
+  'R2_ACCOUNT_ID',
+  'R2_ENDPOINT',
+  'R2_BUCKET_NAME',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_CREDENTIAL_POLICY',
+  'R2_REPO_CIPHER_PASS',
+] as const;
+
 export type RequiredSecretKey = (typeof REQUIRED_SECRET_KEYS)[number];
 
 export type SecretsMap = Record<string, string>;
@@ -258,6 +273,33 @@ export function formatDoctorText(report: DoctorReport): string {
   }
   lines.push(report.ok ? '  status: OK' : '  status: FAIL');
   return lines.join('\n');
+}
+
+/**
+ * Extended doctor text that also reports backup/R2 key presence (values never printed).
+ * Core required keys still gate exit status; backup keys are informational + AC-2 evidence.
+ */
+export function formatDoctorTextWithBackup(
+  report: DoctorReport,
+  options?: { secretsPath?: string; env?: NodeJS.ProcessEnv }
+): string {
+  const base = formatDoctorText(report);
+  const secretsPath = options?.secretsPath ?? report.secretsPath;
+  const env = options?.env ?? process.env;
+  const fileMap = existsSync(secretsPath) ? loadSecretsFile(secretsPath) : {};
+  const lines = ['', 'backup / R2 (CAP-BAK-01) — presence only, values never printed:'];
+  let backupPresent = 0;
+  for (const key of BACKUP_RUNTIME_SECRET_KEYS) {
+    const r = resolveSecret(key, { fileMap, env });
+    if (r.status === 'resolved') {
+      lines.push(`${key}: resolved`);
+      backupPresent += 1;
+    } else {
+      lines.push(`${key}: NOT SET`);
+    }
+  }
+  lines.push(`  backup keys present: ${backupPresent}/${BACKUP_RUNTIME_SECRET_KEYS.length}`);
+  return `${base}\n${lines.join('\n')}`;
 }
 
 /**
