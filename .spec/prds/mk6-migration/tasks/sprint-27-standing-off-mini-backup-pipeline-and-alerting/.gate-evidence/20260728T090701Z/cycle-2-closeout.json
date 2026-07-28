@@ -1,0 +1,67 @@
+{
+  "cycle": 2,
+  "kind": "redhat-remediation-closeout",
+  "sprint": "sprint-27-standing-off-mini-backup-pipeline-and-alerting",
+  "status": "complete",
+  "verdict": "pass",
+  "completed_at": "2026-07-28T09:17:57Z",
+  "main_tip": "5a2a4df2c7f41d2a9af19bcab0a2cc685c0260e6",
+  "base_before_wave": "59413868ccc76a55f9f77b31f0e6353b5640cf2d",
+  "receiver_shutdown": true,
+  "tasks": [
+    "REDHAT-FIX-S27-16",
+    "REDHAT-FIX-S27-17",
+    "REDHAT-FIX-S27-18",
+    "REDHAT-FIX-S27-19",
+    "REDHAT-FIX-S27-20",
+    "REDHAT-FIX-S27-21",
+    "REDHAT-FIX-S27-22",
+    "REDHAT-FIX-S27-23",
+    "REDHAT-FIX-S27-24"
+  ],
+  "findings_closed": [
+    "R-1",
+    "R-2",
+    "R-3",
+    "R-5",
+    "R-6",
+    "R-7",
+    "R-8",
+    "R-10",
+    "R-11",
+    "R-12"
+  ],
+  "tests": {
+    "platform_it_suites": 5,
+    "tests_passed": 27,
+    "tests_failed": 0,
+    "transcript": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T090701Z/red-suite-transcript.log"
+  },
+  "gate_evidence": {
+    "run_id": "20260728T090701Z",
+    "path": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T090701Z",
+    "steps_reproven": [
+      4,
+      5,
+      6,
+      7,
+      10
+    ],
+    "cap_count": 4,
+    "markers": {
+      "step4": "ALERT_HTTP_CAPTURES_OK job=wal_archive",
+      "step5": "ALERT_HTTP_CAPTURES_OK job=base_backup",
+      "step6": "ALERT_HTTP_CAPTURES_OK job=restic_blob_mirror",
+      "step7": "HEALTHY_SILENCE_GATE_OK + CAP_DELTA_0",
+      "step10": "CADENCE_LE_5MIN_OK StartInterval=300 + SLA_15MIN_DEFAULT_OVERDUE_OK",
+      "s27_22": "S27_22_REQUIRE_ALL_ORACLE_OK"
+    }
+  },
+  "integration": {
+    "trunk_consolidated": true,
+    "protected_branch": "main",
+    "orphan_remediation_branches": false
+  },
+  "completion_marker": "GATE-GOAL: ACHIEVED",
+  "goal_sentinel": "[goal:complete]"
+}

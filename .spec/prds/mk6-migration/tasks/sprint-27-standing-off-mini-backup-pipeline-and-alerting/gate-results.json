@@ -4,7 +4,7 @@
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting",
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
-  "run_id": "2026-07-28T07:54:22Z",
+  "run_id": "2026-07-28T09:36:06Z",
   "verdict": "pass",
   "steps_total": 10,
   "steps_executed": 10,
@@ -12,6 +12,13 @@
   "ui_driver": "none",
   "exec_surface": "agent-shell-terminal",
   "runner": "exec-shell",
+  "commit_sha": "5a2a4df2c7f41d2a9af19bcab0a2cc685c0260e6",
+  "reviewed_sha": "5a2a4df2c7f41d2a9af19bcab0a2cc685c0260e6",
+  "bound_to_sha": "5a2a4df2c7f41d2a9af19bcab0a2cc685c0260e6",
+  "evidence_run_id": "20260728T090701Z",
+  "evidence_dir": ".gate-evidence/20260728T090701Z",
+  "cycle": 2,
+  "remediation": "R-13: regenerate gate-results from cycle-2 evidence bound to reviewed SHA",
   "steps": [
     {
       "n": 1,
@@ -20,38 +27,38 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step1.log",
-      "duration_ms": 6207
+      "log": ".gate-evidence/20260728T090701Z/step1.log",
+      "duration_ms": 459
     },
     {
       "n": 2,
-      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest.",
+      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest. (REDHAT-FIX-S27-22 / R-8: require_all status+manifest+overall \u2014 no any-of theatre)",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step2.log",
-      "duration_ms": 17217
+      "log": ".gate-evidence/20260728T090701Z/step2.log",
+      "duration_ms": 70
     },
     {
       "n": 3,
-      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches.",
+      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches. (REDHAT-FIX-S27-22 / R-8: require_all parity PASS + ok true \u2014 no any-of theatre)",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step3.log",
-      "duration_ms": 8926
+      "log": ".gate-evidence/20260728T090701Z/step3.log",
+      "duration_ms": 99
     },
     {
       "n": 4,
-      "text": "Kill the backup job mid-archive \u2014 alert fires within 15 minutes, no dashboard-polling needed. (REDHAT-FIX-S27-04: reset \u2192 induce kill \u2192 sweep; mode-isolated oracle)",
+      "text": "Kill a real pgbackrest-related process (staged_shell OS kill \u2014 honest REDHAT-FIX-S27-18 claim; not mid-archive theatre) \u2014 alert fires, no dashboard-polling needed. (REDHAT-FIX-S27-04: reset \u2192 induce kill \u2192 sweep; mode-isolated oracle; requires real_process_killed=true)",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step4.log",
-      "duration_ms": 1134
+      "log": ".gate-evidence/20260728T090701Z/step4.log",
+      "duration_ms": 359
     },
     {
       "n": 5,
@@ -60,8 +67,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step5.log",
-      "duration_ms": 763
+      "log": ".gate-evidence/20260728T090701Z/step5.log",
+      "duration_ms": 406
     },
     {
       "n": 6,
@@ -70,48 +77,48 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step6.log",
-      "duration_ms": 658
+      "log": ".gate-evidence/20260728T090701Z/step6.log",
+      "duration_ms": 334
     },
     {
       "n": 7,
-      "text": "Healthy-run zero-alert silence gate (REDHAT-FIX-S27-06 / D04-05 AC-4 NEVER-tier): seed all jobs healthy via backup:healthy --all (S27-04 reset), run backup:alert-sweep, assert alerted: 0 and zero post[] lines \u2014 always-alert regressions cannot pass.",
+      "text": "Healthy-run zero-alert silence gate (REDHAT-FIX-S27-06 / D04-05 AC-4 NEVER-tier + REDHAT-FIX-S27-21 / R-7): seed healthy via backup:healthy --all, alert-sweep with alerted:0 posts:0 AND independent CAP \u0394=0 (seed empty CAP if missing; dual-write from receiver when present).",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step7.log",
-      "duration_ms": 706
+      "log": ".gate-evidence/20260728T090701Z/step7.log",
+      "duration_ms": 182
     },
     {
       "n": 8,
-      "text": "Execute D04-01 alerting oracle via REAL holo CLI (not vitest): healthy silence (alerted:0), then kill/credential/config-removed each fire mode-isolated alerts; independent HTTP captures + pre-fix payload-only baseline oracle (F-7).",
+      "text": "Execute D04-01 RED oracle: require THIS-run vitest transcript (red-suite-transcript.log) + REAL holo CLI dual proof; independent HTTP CAP fail-closed + job-bound rawBody (REDHAT-FIX-S27-16/17). No SOFT_OK; missing CAP fails. (vitest run is pre-step into evidence \u2014 not wholesale vitest as the sole gate oracle / D7).",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step8.log",
-      "duration_ms": 2990
+      "log": ".gate-evidence/20260728T090701Z/step8.log",
+      "duration_ms": 916
     },
     {
       "n": 9,
-      "text": "Install and verify holocron-backup-alert-sweep launchd schedule (\u22645min cadence) with ALERT_WEBHOOK_URL wired into the standing daemon env \u2014 standing alerts without dashboard polling (REDHAT-FIX-S27-10 / F-10).",
+      "text": "Install and verify holocron-backup-alert-sweep launchd schedule (\u22645min cadence) with webhook configured via secrets-at-process-start (REDHAT-FIX-S27-10 / F-10 + REDHAT-FIX-S27-23 / R-10): plist mode 0o600, no live ALERT_WEBHOOK_URL path token in EnvironmentVariables.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step9.log",
-      "duration_ms": 1458
+      "log": ".gate-evidence/20260728T090701Z/step9.log",
+      "duration_ms": 599
     },
     {
       "n": 10,
-      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real webhook HTTP capture. Runs scripts/gate/s27-step10-production-sla.sh (pure CLI, no vitest, no toy thresholds).",
+      "text": "Production DEFAULT_OVERDUE_MS threshold + overdue classification (REDHAT-FIX-S27-08 / F-8 + REDHAT-FIX-S27-20 / R-6 honesty): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; measured StartInterval cadence \u2264300s. Does NOT claim wall-clock 15-minute MTTD detection latency.",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step10.log",
-      "duration_ms": 1122
+      "log": ".gate-evidence/20260728T090701Z/step10.log",
+      "duration_ms": 246
     }
   ]
 }

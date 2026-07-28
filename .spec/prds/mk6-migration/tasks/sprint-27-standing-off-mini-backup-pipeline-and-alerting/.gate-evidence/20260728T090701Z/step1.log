@@ -1,0 +1,82 @@
+@@GATE-META step=step1 cmd_sha=5617c018364271474ee1837ded98c5e82c367f1bbfee3fc23ab7624f2e14953b@@
+CMD: set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-02 .tmp/redhat-fix-s27-03; bun services/platform/src/cli/holo.ts backup:wal --json > .tmp/REDHAT-FIX-S27-02/backup-wal.json; cat .tmp/REDHAT-FIX-S27-02/backup-wal.json; jq -e '.status=="success" and .ok==true and .continuityOk==true and .r2WalObjectCountAfter > .r2WalObjectCountBefore and .writeBurstRows >= 1 and .heartbeat.status=="success" and (.heartbeat.last_success_at != null)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; ! jq -e '.status=="failed" or .ok==false or .continuityOk==false or .writeBurstRows < 1 or (.r2WalObjectCountAfter <= .r2WalObjectCountBefore)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; bun services/platform/src/cli/holo.ts backup:status > .tmp/REDHAT-FIX-S27-02/backup-status.txt || true; cp .tmp/REDHAT-FIX-S27-02/backup-status.txt .tmp/redhat-fix-s27-03/backup-status-after-wal.txt; cat .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'overall:[[:space:]]+OK' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'overall:[[:space:]]+FAILED' .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'wal_archive:.*(OK|status=success)' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'wal_archive:.*(FAILED|OVERDUE)' .tmp/REDHAT-FIX-S27-02/backup-status.txt
+{
+  "ok": true,
+  "job_name": "wal_archive",
+  "status": "success",
+  "archiveMode": "always",
+  "archiveCommand": "pgbackrest archive-push",
+  "lastWalSegment": "0000000100000005000000C7",
+  "before": {
+    "archived_count": 501,
+    "last_archived_wal": "0000000100000005000000C6",
+    "last_archived_time": "2026-07-28 03:33:05.463895-06",
+    "failed_count": 0,
+    "last_failed_wal": null,
+    "stats_reset": "2026-07-27 20:12:29.93652-06"
+  },
+  "after": {
+    "archived_count": 502,
+    "last_archived_wal": "0000000100000005000000C7",
+    "last_archived_time": "2026-07-28 03:33:49.783423-06",
+    "failed_count": 0,
+    "last_failed_wal": null,
+    "stats_reset": "2026-07-27 20:12:29.93652-06"
+  },
+  "r2WalObjectCountBefore": 127,
+  "r2WalObjectCountAfter": 128,
+  "continuityOk": true,
+  "gapSegments": [],
+  "continuityGatesSuccess": true,
+  "r2ExactSegmentRequired": true,
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 03:33:53.346-06",
+    "last_wal_segment": "0000000100000005000000C7",
+    "last_snapshot_id": null,
+    "object_count": 128,
+    "status": "success",
+    "trace_id": "a73c902cc5ba4ee19f75a3fccfc97bcf",
+    "updated_at": "2026-07-28 03:33:53.359348-06"
+  },
+  "span": {
+    "name": "backup:wal_archive",
+    "traceId": "a73c902cc5ba4ee19f75a3fccfc97bcf",
+    "spanId": "de89e45554934ad4",
+    "attributes": {
+      "job_name": "wal_archive",
+      "status": "success",
+      "last_wal_segment": "0000000100000005000000C7",
+      "object_count": 128,
+      "wal_path": "pgbackrest.conf_--stanza_main_archive-push__p"
+    },
+    "exportOk": false,
+    "exportError": "Langfuse exporter disabled (missing credentials or baseUrl)",
+    "redacted": true
+  },
+  "writeBurstRows": 5000,
+  "errors": []
+}
+holo backup:status — heartbeat health
+  all-clear: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  base_backup: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  cleanup: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  restic_blob_mirror: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  s27-11-healthy: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  s27-11-redact-job: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  s27-15-healthy: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  s27-15-job-a: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  s27-15-job-b: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  wal_archive: last_success_at=2026-07-28 03:33:53.346-06 status=success OK
+  wal_archive-healthy: last_success_at=2026-07-28 03:33:31.677499-06 status=success OK
+  overall: OK
+  archive_mode:    always
+  archive_command: pgbackrest archive-push
+  archiver:        last=0000000100000005000000C7 failed=0 count=502
+  r2_wal_objects:  128
+  r2_backup_objs:  61
+  wal_schedule:    installed interval=300s loaded=true
+  base_schedule:   installed interval=21600s loaded=true
+  alert_schedule:  installed interval=300s loaded=true
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+@@GATE-EXIT=0@@

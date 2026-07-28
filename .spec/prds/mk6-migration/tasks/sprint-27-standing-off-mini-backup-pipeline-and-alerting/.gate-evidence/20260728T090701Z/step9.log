@@ -1,0 +1,119 @@
+@@GATE-META step=step9 cmd_sha=89f564ac50902ab0a760efd000151aadcdefe782aacb583c70142e58a3e4f046@@
+CMD: set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-10; bun services/platform/src/cli/holo.ts backup:alert-sweep --install-schedule --json | tee .tmp/REDHAT-FIX-S27-10/install-schedule.json; jq -e '.ok==true and (.bootstrapped==true or .loaded==true) and .webhookConfigured==true and .intervalSeconds <= 300' .tmp/REDHAT-FIX-S27-10/install-schedule.json >/dev/null; launchctl print "gui/$(id -u)/holocron-backup-alert-sweep" | tee .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; ! grep -qi 'Could not find service' .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; grep -q holocron-backup-alert-sweep .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; plutil -lint "$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist"; plutil -p "$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist" | tee .tmp/REDHAT-FIX-S27-10/plist.txt; ! grep -qE '"ALERT_WEBHOOK_URL" => "https?://' .tmp/REDHAT-FIX-S27-10/plist.txt; grep -q backup:alert-sweep .tmp/REDHAT-FIX-S27-10/plist.txt; chmod 600 "$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist"; stat -f %Lp "$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist" | grep -qE '^600$'; bun services/platform/src/cli/holo.ts backup:status 2>&1 | tee .tmp/REDHAT-FIX-S27-10/backup-status.txt || true; ! grep -qE 'alert_schedule:[[:space:]]+not installed' .tmp/REDHAT-FIX-S27-10/backup-status.txt; echo ALERT_SWEEP_SCHEDULE_INSTALLED_OK; echo ALERT_WEBHOOK_SECRETS_AT_START_OK
+{
+  "ok": true,
+  "label": "holocron-backup-alert-sweep",
+  "plistPath": "/Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist",
+  "domain": "gui/501",
+  "intervalSeconds": 300,
+  "bootstrapped": true,
+  "loaded": true,
+  "webhookConfigured": true,
+  "messages": [
+    "wrote template /Users/inference1/Projects/holocron/services/platform/deploy/launchd/holocron-backup-alert-sweep.plist",
+    "installed /Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist (mode 0o600)",
+    "webhook secrets-at-process-start (ALERT_WEBHOOK_URL omitted from plist; value redacted)",
+    "bootstrapped gui/501/holocron-backup-alert-sweep"
+  ]
+}
+gui/501/holocron-backup-alert-sweep = {
+	active count = 0
+	path = /Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist
+	type = LaunchAgent
+	state = not running
+
+	program = /opt/homebrew/bin/bun
+	arguments = {
+		/opt/homebrew/bin/bun
+		/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts
+		backup:alert-sweep
+		--json
+	}
+
+	working directory = /Users/inference1/Projects/holocron
+
+	stdout path = /Users/inference1/Library/Logs/holocron/backup-alert-sweep.out.log
+	stderr path = /Users/inference1/Library/Logs/holocron/backup-alert-sweep.err.log
+	inherited environment = {
+		CMUX_SOCKET_MODE => allowAll
+		SSH_AUTH_SOCK => /var/run/com.apple.launchd.GQxmTFWr4R/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		DATABASE_URL => postgres://127.0.0.1:5432/holocron
+		HOLO_ROOT => /Users/inference1/Projects/holocron
+		PATH => /opt/homebrew/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+		HOME => /Users/inference1
+		XPC_SERVICE_NAME => holocron-backup-alert-sweep
+	}
+
+	domain = gui/501 [100002]
+	asid = 100002
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 0
+	last exit code = (never exited)
+
+	spawn type = background (5)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	run interval = 300 seconds
+
+	properties = inferred program
+}
+/Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist: OK
+{
+  "EnvironmentVariables" => {
+    "DATABASE_URL" => "postgres://127.0.0.1:5432/holocron"
+    "HOLO_ROOT" => "/Users/inference1/Projects/holocron"
+    "HOME" => "/Users/inference1"
+    "PATH" => "/opt/homebrew/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  }
+  "KeepAlive" => false
+  "Label" => "holocron-backup-alert-sweep"
+  "ProcessType" => "Background"
+  "ProgramArguments" => [
+    0 => "/opt/homebrew/bin/bun"
+    1 => "/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts"
+    2 => "backup:alert-sweep"
+    3 => "--json"
+  ]
+  "RunAtLoad" => false
+  "StandardErrorPath" => "/Users/inference1/Library/Logs/holocron/backup-alert-sweep.err.log"
+  "StandardOutPath" => "/Users/inference1/Library/Logs/holocron/backup-alert-sweep.out.log"
+  "StartInterval" => 300
+  "WorkingDirectory" => "/Users/inference1/Projects/holocron"
+}
+holo backup:status — heartbeat health
+  all-clear: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  base_backup: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  cleanup: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  restic_blob_mirror: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  s27-11-healthy: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  s27-11-redact-job: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  s27-15-healthy: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  s27-15-job-a: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  s27-15-job-b: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  wal_archive: last_success_at=2026-07-28 03:34:25.238-06 status=success OK
+  wal_archive-healthy: last_success_at=2026-07-28 03:34:25.235546-06 status=success OK
+  overall: OK
+  archive_mode:    always
+  archive_command: pgbackrest archive-push
+  archiver:        last=0000000100000005000000CA failed=0 count=506
+  r2_wal_objects:  127
+  r2_backup_objs:  62
+  wal_schedule:    installed interval=300s loaded=true
+  base_schedule:   installed interval=21600s loaded=true
+  alert_schedule:  installed interval=300s loaded=true
+ALERT_SWEEP_SCHEDULE_INSTALLED_OK
+ALERT_WEBHOOK_SECRETS_AT_START_OK
+@@GATE-EXIT=0@@

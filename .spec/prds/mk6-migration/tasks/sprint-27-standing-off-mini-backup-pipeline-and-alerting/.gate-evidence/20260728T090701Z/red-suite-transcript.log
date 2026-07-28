@@ -1,0 +1,21 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+stderr | services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > failure (a): kill / WAL-behind MUST alert within 15 min at the real sink
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+
+stderr | services/platform/tests/integration/sprint27-backup-alerting-red.test.ts > Sprint 27 D04-01 RED — backup failure alerting two-sided oracle > failure (b): credential expiry MUST alert within 15 min at the real sink
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+
+ ✓ |integration| services/platform/tests/integration/sprint27-backup-alerting-red.test.ts (11 tests) 4238ms
+     ✓ healthy backup run stays silent — zero alert POSTs (must_not_observe / silence proof)  1574ms
+     ✓ failure (a): kill / WAL-behind MUST alert within 15 min at the real sink  605ms
+     ✓ isolation: backup:healthy --all clears sticky induce → alerted:0 (AC-1)  618ms
+     ✓ isolation: with reset between modes, only the induced job posts (AC-3/AC-4/AC-5)  872ms
+     ✓ SLA / 15 min / fifteen: production DEFAULT_OVERDUE_MS with BACKUP_ALERT_OVERDUE_MS unset  312ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  03:33:27
+   Duration  4.57s (transform 232ms, setup 176ms, import 44ms, tests 4.24s, environment 0ms)
+

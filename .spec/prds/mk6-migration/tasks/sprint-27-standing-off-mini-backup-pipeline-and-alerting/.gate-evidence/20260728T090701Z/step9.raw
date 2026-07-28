@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "label": "holocron-backup-alert-sweep",
+  "plistPath": "/Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist",
+  "domain": "gui/501",
+  "intervalSeconds": 300,
+  "bootstrapped": true,
+  "loaded": true,
+  "webhookConfigured": true,
+  "messages": [
+    "wrote template /Users/inference1/Projects/holocron/services/platform/deploy/launchd/holocron-backup-alert-sweep.plist",
+    "installed /Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist (mode 0o600)",
+    "webhook secrets-at-process-start (ALERT_WEBHOOK_URL omitted from plist; value redacted)",
+    "bootstrapped gui/501/holocron-backup-alert-sweep"
+  ]
+}
+gui/501/holocron-backup-alert-sweep = {
+	active count = 0
+	path = /Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist
+	type = LaunchAgent
+	state = not running
+
+	program = /opt/homebrew/bin/bun
+	arguments = {
+		/opt/homebrew/bin/bun
+		/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts
+		backup:alert-sweep
+		--json
+	}
+
+	working directory = /Users/inference1/Projects/holocron
+
+	stdout path = /Users/inference1/Library/Logs/holocron/backup-alert-sweep.out.log
+	stderr path = /Users/inference1/Library/Logs/holocron/backup-alert-sweep.err.log
+	inherited environment = {
+		CMUX_SOCKET_MODE => allowAll
+		SSH_AUTH_SOCK => /var/run/com.apple.launchd.GQxmTFWr4R/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		DATABASE_URL => postgres://127.0.0.1:5432/holocron
+		HOLO_ROOT => /Users/inference1/Projects/holocron
+		PATH => /opt/homebrew/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+		HOME => /Users/inference1
+		XPC_SERVICE_NAME => holocron-backup-alert-sweep
+	}
+
+	domain = gui/501 [100002]
+	asid = 100002
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 0
+	last exit code = (never exited)
+
+	spawn type = background (5)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	run interval = 300 seconds
+
+	properties = inferred program
+}
+/Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist: OK
+{
+  "EnvironmentVariables" => {
+    "DATABASE_URL" => "postgres://127.0.0.1:5432/holocron"
+    "HOLO_ROOT" => "/Users/inference1/Projects/holocron"
+    "HOME" => "/Users/inference1"
+    "PATH" => "/opt/homebrew/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  }
+  "KeepAlive" => false
+  "Label" => "holocron-backup-alert-sweep"
+  "ProcessType" => "Background"
+  "ProgramArguments" => [
+    0 => "/opt/homebrew/bin/bun"
+    1 => "/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts"
+    2 => "backup:alert-sweep"
+    3 => "--json"
+  ]
+  "RunAtLoad" => false
+  "StandardErrorPath" => "/Users/inference1/Library/Logs/holocron/backup-alert-sweep.err.log"
+  "StandardOutPath" => "/Users/inference1/Library/Logs/holocron/backup-alert-sweep.out.log"
+  "StartInterval" => 300
+  "WorkingDirectory" => "/Users/inference1/Projects/holocron"
+}

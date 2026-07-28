@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "post\\[wal_archive\\]: reason=(failed|overdue) failure_reason=.*(kill|killed|WAL)"
+}

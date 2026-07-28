@@ -1,0 +1,9 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "require_all_regex": [
+    "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
+    "ALERT_WEBHOOK_SECRETS_AT_START_OK",
+    "holocron-backup-alert-sweep"
+  ]
+}

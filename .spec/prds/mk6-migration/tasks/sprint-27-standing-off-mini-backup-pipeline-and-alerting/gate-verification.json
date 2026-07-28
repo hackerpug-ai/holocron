@@ -1,1 +1,14 @@
-{"verified":true,"claimed_verdict":"pass","recomputed_verdict":"pass","steps_planned":10,"steps_recomputed":10,"discrepancies":[],"method":"verify-gate-evidence.sh:recompute-strong@febb48afeaa2","written_at":"2026-07-28T07:54:44Z"}
+{
+  "verified": true,
+  "claimed_verdict": "pass",
+  "recomputed_verdict": "pass",
+  "steps_planned": 10,
+  "steps_recomputed": 10,
+  "discrepancies": [],
+  "method": "verify-gate-evidence.sh:recompute-strong@febb48afeaa2",
+  "written_at": "2026-07-28T09:36:13Z",
+  "bound_to_sha": "5a2a4df2c7f41d2a9af19bcab0a2cc685c0260e6",
+  "evidence_run_id": "20260728T090701Z",
+  "assert_valid": true,
+  "r13": "regenerated sprint-root gate-results from cycle-2 evidence"
+}

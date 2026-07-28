@@ -1,0 +1,10 @@
+{
+  "marker": "GATE-GOAL: ACHIEVED",
+  "goal_sentinel": "[goal:complete]",
+  "cycle": 2,
+  "sprint": "sprint-27-standing-off-mini-backup-pipeline-and-alerting",
+  "main_tip": "5a2a4df2c7f41d2a9af19bcab0a2cc685c0260e6",
+  "at": "2026-07-28T09:17:57Z",
+  "evidence_run_id": "20260728T090701Z",
+  "reason": "All REDHAT-FIX-S27-16..24 remediations landed on main; PLATFORM_IT suites 27/27; fresh gate evidence 20260728T090701Z; receiver stopped"
+}

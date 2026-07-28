@@ -1,0 +1,7 @@
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[restic_blob_mirror]: reason=overdue failure_reason=overdue: config removed — backup config missing for job restic_blob_mirror overdue_by_minutes=16
+  overall:    OK

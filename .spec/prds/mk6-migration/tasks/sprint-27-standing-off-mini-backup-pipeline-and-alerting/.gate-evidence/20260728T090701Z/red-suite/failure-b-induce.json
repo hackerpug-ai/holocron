@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "job_name": "base_backup",
+  "mode": "credential_expired",
+  "heartbeat": {
+    "job_name": "base_backup",
+    "last_success_at": "2026-07-28 03:34:22.381316-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "auth-denied",
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "5128b79dbea745f8ad4ad3618d681f5a",
+    "updated_at": "2026-07-28 03:34:22.69168-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": true,
+    "exit_code": 0,
+    "real_auth_fault": true,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "pgbackrest",
+    "failure_detail": "credential expired — R2 auth denied for job base_backup",
+    "restored": false,
+    "fault_output": "\n[{\"archive\":[],\"backup\":[],\"cipher\":\"aes-256-cbc\",\"db\":[],\"name\":\"main\",\"repo\":[{\"cipher\":\"aes-256-cbc\",\"key\":1,\"status\":{\"code\":99,\"message\":\"[ProtocolError] HTTP request failed with 400 (Bad Request):\\n*** Path/Query ***:\\nGET /holocron-backup/?delimiter=%2F&list-type=2&prefix=pgbackrest%2Fbackup%2F\\n*** Request Headers ***:\\nauthorization: <redacted>\\ncontent-length: 0\\nhost: d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com\\nx-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\\nx-amz-date: <redacted>\\nx-amz-security-token: <redacted>\\n*** Response Headers ***:\\ncf-ray: a222e33ffbe352c1-SLC\\nconnection: keep-alive\\ncontent-length: 149\\ncontent-type: application/xml\\ndate: Tue, 28 Jul 2026 09:34:22 GMT\\nserver: cloudflare\\n*** Response Content *",
+    "heartbeat_via_production_writer": true
+  }
+}

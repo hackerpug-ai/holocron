@@ -14,7 +14,15 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { getSecretValue, resolveRepoRoot } from '../config/secrets.ts';
@@ -1428,6 +1436,11 @@ export function installAlertSweepLaunchd(options?: {
   mkdirSync(launchAgentsDir, { recursive: true });
   mkdirSync(resolve(home, 'Library/Logs/holocron'), { recursive: true });
   writeFileSync(plistPath, body, { encoding: 'utf8', mode: 0o600 });
+  try {
+    chmodSync(plistPath, 0o600);
+  } catch {
+    /* best-effort */
+  }
   messages.push(`installed ${plistPath} (mode 0o600)`);
   messages.push(
     'webhook secrets-at-process-start (ALERT_WEBHOOK_URL omitted from plist; value redacted)'
@@ -1473,6 +1486,11 @@ export function installAlertSweepLaunchd(options?: {
     bootstrapped = true;
   }
 
+  try {
+    chmodSync(plistPath, 0o600);
+  } catch {
+    /* re-apply after launchctl may loosen mode */
+  }
   return emptyInstallResult({
     ok: true,
     plistPath,

@@ -1,0 +1,30 @@
+@@GATE-META step=step7 cmd_sha=53d66f25d32a34ac68cb30ee9c67c0a6b444037589943bcd8f8f5c527e1d7063@@
+CMD: set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-06; RUN_ID="${GATE_RUN_ID:-manual}"; SPRINT_DIR=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting; CAP_DIR="$SPRINT_DIR/.gate-evidence/$RUN_ID"; mkdir -p "$CAP_DIR"; CAP="$CAP_DIR/alerts-http-captures.json"; bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-06/healthy-all.json; jq -e '.ok==true and .status=="success"' .tmp/redhat-fix-s27-06/healthy-all.json >/dev/null; if [ ! -f "$CAP" ]; then echo "[]" > "$CAP"; fi; PRE_CAP=$(jq 'length' "$CAP"); bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-06/healthy-silence-sweep.json; jq -e '.alerted==0 and (.posts|length)==0' .tmp/redhat-fix-s27-06/healthy-silence-sweep.json >/dev/null; if [ -f .tmp/s27-gate-receiver/captures.json ]; then cp .tmp/s27-gate-receiver/captures.json "$CAP"; fi; POST_CAP=$(jq 'length' "$CAP"); test "$PRE_CAP" -eq "$POST_CAP"; echo HEALTHY_SILENCE_CAP_DELTA_0 pre=$PRE_CAP post=$POST_CAP; echo HEALTHY_SILENCE_GATE_OK alerted: 0
+{
+  "ok": true,
+  "command": "backup:healthy",
+  "scope": "all",
+  "status": "success",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 03:34:20.556-06",
+    "last_wal_segment": "000000010000000000000001",
+    "last_snapshot_id": null,
+    "object_count": 1,
+    "status": "success",
+    "trace_id": "healthy-19fa8133b8c",
+    "updated_at": "2026-07-28 03:34:20.567227-06"
+  }
+}
+{
+  "alerted": 0,
+  "posts": [],
+  "healthy": 11,
+  "total": 11,
+  "webhookUrl": "http://127.0.0.1",
+  "overdueMs": 900000,
+  "errors": []
+}
+HEALTHY_SILENCE_CAP_DELTA_0 pre=3 post=3
+HEALTHY_SILENCE_GATE_OK alerted: 0
+@@GATE-EXIT=0@@

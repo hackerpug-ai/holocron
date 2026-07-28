@@ -1,0 +1,132 @@
+VITEST_RED_SUITE_OK transcript=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T090701Z/red-suite-transcript.log
+{
+  "alerted": 0,
+  "posts": [],
+  "healthy": 11,
+  "total": 11,
+  "webhookUrl": "http://127.0.0.1",
+  "overdueMs": 900000,
+  "errors": []
+}
+{
+  "ok": true,
+  "job_name": "wal_archive",
+  "mode": "kill_wal_behind",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 03:34:21.06-06",
+    "last_wal_segment": "killed-staged-shell",
+    "last_snapshot_id": null,
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "fdfd7cd1e0974e96ad997f2c12b76b1a",
+    "updated_at": "2026-07-28 03:34:21.953932-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": true,
+    "pid_killed": 79204,
+    "production_catch": false,
+    "kill_kind": "staged_shell",
+    "mid_archive": false,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "/opt/homebrew/bin/pgbackrest",
+    "failure_detail": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+    "restored": false,
+    "fault_output": "killed / WAL behind — archive job stopped updating heartbeat (pid=79204 signal=SIGKILL binary=/opt/homebrew/bin/pgbackrest)",
+    "heartbeat_via_production_writer": true
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[wal_archive]: reason=failed failure_reason=killed / WAL behind — archive job wal_archive stopped updating heartbeat overdue_by_minutes=0
+  overall:    OK
+{
+  "ok": true,
+  "job_name": "base_backup",
+  "mode": "credential_expired",
+  "heartbeat": {
+    "job_name": "base_backup",
+    "last_success_at": "2026-07-28 03:34:22.381316-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "auth-denied",
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "5128b79dbea745f8ad4ad3618d681f5a",
+    "updated_at": "2026-07-28 03:34:22.69168-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": true,
+    "exit_code": 0,
+    "real_auth_fault": true,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "pgbackrest",
+    "failure_detail": "credential expired — R2 auth denied for job base_backup",
+    "restored": false,
+    "fault_output": "\n[{\"archive\":[],\"backup\":[],\"cipher\":\"aes-256-cbc\",\"db\":[],\"name\":\"main\",\"repo\":[{\"cipher\":\"aes-256-cbc\",\"key\":1,\"status\":{\"code\":99,\"message\":\"[ProtocolError] HTTP request failed with 400 (Bad Request):\\n*** Path/Query ***:\\nGET /holocron-backup/?delimiter=%2F&list-type=2&prefix=pgbackrest%2Fbackup%2F\\n*** Request Headers ***:\\nauthorization: <redacted>\\ncontent-length: 0\\nhost: d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com\\nx-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\\nx-amz-date: <redacted>\\nx-amz-security-token: <redacted>\\n*** Response Headers ***:\\ncf-ray: a222e33ffbe352c1-SLC\\nconnection: keep-alive\\ncontent-length: 149\\ncontent-type: application/xml\\ndate: Tue, 28 Jul 2026 09:34:22 GMT\\nserver: cloudflare\\n*** Response Content *",
+    "heartbeat_via_production_writer": true
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[base_backup]: reason=failed failure_reason=credential expired — R2 auth denied for job base_backup overdue_by_minutes=0
+  overall:    OK
+{
+  "ok": true,
+  "job_name": "restic_blob_mirror",
+  "mode": "config_removed",
+  "heartbeat": {
+    "job_name": "restic_blob_mirror",
+    "last_success_at": "2026-07-28 03:18:23.318-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "config-absent",
+    "object_count": 0,
+    "status": "success",
+    "trace_id": "induce-config-removed-19fa8134657",
+    "updated_at": "2026-07-28 03:34:23.338596-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": false,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": true,
+    "config_path": "/Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf",
+    "config_exists_after": false,
+    "binary": null,
+    "failure_detail": "overdue: config removed — backup config missing for job restic_blob_mirror",
+    "restored": false,
+    "fault_output": "config renamed to /Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf.induced-removed",
+    "heartbeat_via_production_writer": false
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[restic_blob_mirror]: reason=overdue failure_reason=overdue: config removed — backup config missing for job restic_blob_mirror overdue_by_minutes=16
+  overall:    OK
+ALERT_HTTP_CAPTURES_OK
+ALERT_HTTP_JOB_BIND_OK
+PRE_FIX_PAYLOAD_ONLY_ORACLE_OK
+D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK VITEST_RED_SUITE_OK exit=0 evidence=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T090701Z
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.

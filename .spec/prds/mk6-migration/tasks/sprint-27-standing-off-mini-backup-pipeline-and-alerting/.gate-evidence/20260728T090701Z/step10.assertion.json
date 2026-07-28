@@ -1,0 +1,11 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "require_all_regex": [
+    "SLA_15MIN_DEFAULT_OVERDUE_OK",
+    "overdue_ms:900000",
+    "env_unset=BACKUP_ALERT_OVERDUE_MS",
+    "AC1_DEFAULT_OVERDUE_OK",
+    "CADENCE_LE_5MIN_OK StartInterval="
+  ]
+}
