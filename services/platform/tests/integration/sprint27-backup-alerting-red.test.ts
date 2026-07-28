@@ -1017,4 +1017,261 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
     },
     ALERT_WINDOW_MS + 120_000
   );
+
+  // ---------------------------------------------------------------------------
+  // REDHAT-FIX-S27-08 / F-8 — production 15-minute SLA (DEFAULT_OVERDUE_MS)
+  // Never prove SLA under BACKUP_ALERT_OVERDUE_MS=500/1000 toy thresholds.
+  // ---------------------------------------------------------------------------
+
+  itLive(
+    'SLA / 15 min / fifteen: production DEFAULT_OVERDUE_MS with BACKUP_ALERT_OVERDUE_MS unset',
+    async () => {
+      if (!receiver) throw new Error('receiver not started');
+
+      // Import production constant so the oracle cannot drift from code.
+      const alerting = await import('../../src/backup/alerting.ts');
+      const { DEFAULT_OVERDUE_MS, ALERT_SWEEP_DEFAULT_INTERVAL_SECONDS } = alerting;
+      expect(DEFAULT_OVERDUE_MS, 'DEFAULT_OVERDUE_MS must be 15 minutes').toBe(15 * 60 * 1000);
+      expect(
+        ALERT_SWEEP_DEFAULT_INTERVAL_SECONDS,
+        'alert-sweep cadence must be ≤5 min (300s)'
+      ).toBeLessThanOrEqual(300);
+
+      // Force production default on this path even if the suite parent set a CI toy threshold.
+      const savedOverdueEnv = process.env.BACKUP_ALERT_OVERDUE_MS;
+      delete process.env.BACKUP_ALERT_OVERDUE_MS;
+
+      const slaEvidenceDir = resolve(REPO_ROOT, '.tmp/redhat-fix-s27-08');
+      mkdirSync(slaEvidenceDir, { recursive: true });
+      const writeSla = (name: string, body: unknown): string => {
+        const path = resolve(slaEvidenceDir, name);
+        const text = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+        writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`, 'utf8');
+        return path;
+      };
+
+      // CLI env: BACKUP_ALERT_OVERDUE_MS deliberately undefined (deleted) — proves AC-1 without gaming.
+      const slaEnv: Record<string, string | undefined> = {
+        ALERT_WEBHOOK_URL: receiver.url,
+        BACKUP_ALERT_OVERDUE_MS: undefined,
+      };
+
+      try {
+        // Isolation (S27-04): clean slate so SLA seed is not contaminated.
+        if (alerting.runHealthyBackupJob) {
+          await alerting.runHealthyBackupJob('all');
+        } else {
+          const reset = runHolo(['backup:healthy', '--all', '--json'], slaEnv);
+          expect(reset.status, `SLA reset must exit 0: ${reset.combined}`).toBe(0);
+        }
+        writeSla('sla-healthy-reset.json', { ok: true, scope: 'all' });
+
+        // AC-1 PRIMARY: CLI subprocess with env unset must report overdueMs == DEFAULT_OVERDUE_MS.
+        // Healthy slate → no webhook POST required (avoids spawnSync/receiver deadlock).
+        const cliDefault = runHolo(['backup:alert-sweep', '--json'], slaEnv);
+        writeSla('alert-sweep-default-overdue.json', cliDefault);
+        expect(
+          cliDefault.status,
+          `CLI default-threshold sweep must exit 0: ${cliDefault.combined}`
+        ).toBe(0);
+        let cliJson: Record<string, unknown> = {};
+        try {
+          cliJson = JSON.parse(cliDefault.stdout) as Record<string, unknown>;
+        } catch {
+          throw new Error(`CLI sweep stdout not JSON: ${cliDefault.stdout}`);
+        }
+        const cliOverdueMs = Number(cliJson.overdueMs ?? cliJson.overdue_ms);
+        writeSla('sla-overdue-ms-oracle.json', {
+          overdueMs: cliOverdueMs,
+          DEFAULT_OVERDUE_MS,
+          env_BACKUP_ALERT_OVERDUE_MS: process.env.BACKUP_ALERT_OVERDUE_MS ?? null,
+          path: 'cli_subprocess_env_unset',
+          note: 'AC-1: production default with BACKUP_ALERT_OVERDUE_MS unset (no toy 500/1000)',
+        });
+        expect(
+          cliOverdueMs,
+          `must_observe overdueMs >= 900000 (got ${cliOverdueMs}); must_not_observe toy 500/1000`
+        ).toBeGreaterThanOrEqual(DEFAULT_OVERDUE_MS);
+        expect(cliOverdueMs, 'overdueMs must equal DEFAULT_OVERDUE_MS under unset env').toBe(
+          DEFAULT_OVERDUE_MS
+        );
+
+        // Wire webhook for in-process sweep. configure may set env when overdueMs is passed —
+        // immediately delete so the process remains "env unset" while runtime holds DEFAULT.
+        if (alerting.configureBackupAlerting) {
+          await alerting.configureBackupAlerting({
+            webhookUrl: receiver.url,
+            overdueMs: DEFAULT_OVERDUE_MS,
+          });
+        }
+        delete process.env.BACKUP_ALERT_OVERDUE_MS;
+
+        // Seed last_success_at older than 15 minutes under DEFAULT_OVERDUE_MS (not 500ms).
+        // production_truth config_removed: real FS fault + pure overdue (status=success, age>15m).
+        // In-process (not spawnSync): spawnSync deadlocks the in-process http.Server receiver.
+        const induceAtMs = Date.now();
+        const induceFn = alerting.induceBackupFailure;
+        expect(typeof induceFn, 'induceBackupFailure required for SLA seed').toBe('function');
+        if (typeof induceFn !== 'function') {
+          throw new Error('induceBackupFailure required for SLA seed');
+        }
+        const induced = await induceFn('config_removed', 'restic_blob_mirror', {
+          overdueMs: DEFAULT_OVERDUE_MS,
+        });
+        writeSla('sla-induce-stale-beyond-15m.json', induced);
+        const inducedRec = asRecord(induced);
+        const indPath = asRecord(inducedRec.induction);
+        expect(
+          indPath.path === 'production_truth' || indPath.config_removed === true,
+          `SLA seed must be production-truth (got ${JSON.stringify(indPath)})`
+        ).toBe(true);
+        const hb = asRecord(inducedRec.heartbeat);
+        const lastSuccess = stringField(hb, ['last_success_at', 'lastSuccessAt']);
+        expect(lastSuccess, 'SLA seed must write last_success_at').toBeTruthy();
+        const lastSuccessMs = Date.parse(String(lastSuccess));
+        expect(Number.isFinite(lastSuccessMs), 'last_success_at must parse').toBe(true);
+        const seedAgeMs = induceAtMs - lastSuccessMs;
+        expect(
+          seedAgeMs,
+          `SLA seed age must exceed 15 min (got ${seedAgeMs}ms); must_not_observe 30s/500ms toys`
+        ).toBeGreaterThan(15 * 60 * 1000);
+
+        // Sweep under production default threshold (env still unset after delete above).
+        receiver.reset();
+        const sweepFn = alerting.runBackupAlertSweep;
+        expect(typeof sweepFn, 'runBackupAlertSweep required for SLA HTTP path').toBe('function');
+        if (typeof sweepFn !== 'function') {
+          throw new Error('runBackupAlertSweep required for SLA HTTP path');
+        }
+        // Pass overdueMs=DEFAULT so prior suite toy runtimeConfig cannot leak;
+        // CLI path above already proved env-unset resolveOverdueMs → 900000.
+        const sweepResult = await sweepFn({
+          webhookUrl: receiver.url,
+          overdueMs: DEFAULT_OVERDUE_MS,
+        });
+        writeSla('sla-alert-sweep.json', sweepResult);
+
+        const overdueMs = Number(
+          asRecord(sweepResult).overdueMs ?? asRecord(sweepResult).overdue_ms
+        );
+        const alerted = Number(asRecord(sweepResult).alerted ?? 0);
+        expect(overdueMs, `in-process sweep overdueMs must be DEFAULT (got ${overdueMs})`).toBe(
+          DEFAULT_OVERDUE_MS
+        );
+        expect(
+          alerted,
+          'must_observe alerted>=1 for stale-beyond-15m under default threshold'
+        ).toBeGreaterThanOrEqual(1);
+
+        const posts = Array.isArray(asRecord(sweepResult).posts)
+          ? (asRecord(sweepResult).posts as unknown[])
+          : [];
+        const postsRec = posts.map((p) => asRecord(p));
+        const jobPost =
+          postsRec.find(
+            (p) => stringField(p, ['job_name', 'job_id', 'jobName']) === 'restic_blob_mirror'
+          ) ?? postsRec[0];
+        expect(jobPost, 'must_observe post for induced restic_blob_mirror').toBeTruthy();
+        const overdueByMin = Number(jobPost?.overdue_by_minutes ?? jobPost?.overdueByMinutes ?? 0);
+        writeSla('sla-alert-artifact.json', {
+          alerted,
+          posts,
+          overdue_by_minutes: overdueByMin,
+          seed_age_ms: seedAgeMs,
+        });
+        expect(
+          overdueByMin,
+          `must_observe overdue_by_minutes >= 15 (got ${overdueByMin})`
+        ).toBeGreaterThanOrEqual(15);
+        const reason = String(
+          jobPost?.reason ?? jobPost?.failure_reason ?? jobPost?.failureReason ?? ''
+        ).toLowerCase();
+        expect(reason, 'reason must be overdue|failed under SLA seed').toMatch(
+          /overdue|failed|config/
+        );
+
+        // AC-3: real independent HTTP capture within 15-minute window (not posts[] self-report).
+        const alert = await waitForAlertPost(
+          receiver,
+          (p) => {
+            const job = jobIdOf(p);
+            return job === 'restic_blob_mirror' || /overdue|config/i.test(failureReasonOf(p));
+          },
+          Math.min(ALERT_WINDOW_MS, 30_000)
+        );
+        const got = requireAlert(
+          alert,
+          'SLA must deliver real webhook POST within window under DEFAULT_OVERDUE_MS'
+        );
+        const receivedAtMs = Date.parse(got.receivedAt);
+        const elapsedMs = receivedAtMs - induceAtMs;
+        writeSla('sla-http-capture.json', {
+          method: got.method,
+          url: got.url,
+          headers: got.headers,
+          rawBody: got.rawBody,
+          receivedAt: got.receivedAt,
+          json: got.json,
+          induceAtMs,
+          elapsed_ms: elapsedMs,
+          sla_window_ms: DEFAULT_OVERDUE_MS,
+          note: 'AC-3: independent receiver envelope; elapsed_ms is detect→POST latency not toy-threshold gaming',
+        });
+        // Also dual-write durable suite captures for promote (S27-07).
+        recordDurableHttpCapture(got);
+
+        expect(got.method).toMatch(/^(POST|PUT)$/);
+        expect(got.url).toMatch(/\/alert/);
+        expect(got.headers).toBeTruthy();
+        expect(got.rawBody.length).toBeGreaterThan(0);
+        expect(got.receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(
+          elapsedMs,
+          `must_observe elapsed_ms <= 900000 (15 min SLA window); got ${elapsedMs}`
+        ).toBeLessThanOrEqual(DEFAULT_OVERDUE_MS);
+        expect(elapsedMs, 'elapsed must be non-negative').toBeGreaterThanOrEqual(0);
+        expect(jobIdOf(got) ?? '', 'payload job must match induced SLA job').toMatch(
+          /restic_blob_mirror/
+        );
+
+        writeSla('sla-summary.json', {
+          ac1_overdueMs: cliOverdueMs,
+          ac2_overdue_by_minutes: overdueByMin,
+          ac3_elapsed_ms: elapsedMs,
+          ac3_method: got.method,
+          DEFAULT_OVERDUE_MS,
+          ALERT_SWEEP_DEFAULT_INTERVAL_SECONDS,
+          BACKUP_ALERT_OVERDUE_MS_during_sla: process.env.BACKUP_ALERT_OVERDUE_MS ?? null,
+          must_not_observe: 'SLA proven only under overdue_ms:500/1000',
+        });
+        writeEvidence('s27-08-sla-production-default.json', {
+          overdueMs: cliOverdueMs,
+          overdue_by_minutes: overdueByMin,
+          elapsed_ms: elapsedMs,
+          method: got.method,
+          DEFAULT_OVERDUE_MS,
+        });
+      } finally {
+        if (savedOverdueEnv !== undefined) {
+          process.env.BACKUP_ALERT_OVERDUE_MS = savedOverdueEnv;
+        } else {
+          delete process.env.BACKUP_ALERT_OVERDUE_MS;
+        }
+        // Leave heartbeats clean for any following cases.
+        try {
+          if (alerting.runHealthyBackupJob) {
+            await alerting.runHealthyBackupJob('all');
+          } else {
+            runHolo(['backup:healthy', '--all'], {
+              ALERT_WEBHOOK_URL: receiver.url,
+              BACKUP_ALERT_OVERDUE_MS: savedOverdueEnv,
+            });
+          }
+        } catch {
+          /* best-effort cleanup */
+        }
+      }
+    },
+    Math.min(ALERT_WINDOW_MS, 30_000) + 90_000
+  );
 });
