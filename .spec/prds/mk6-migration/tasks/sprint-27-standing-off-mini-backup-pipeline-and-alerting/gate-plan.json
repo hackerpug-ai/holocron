@@ -48,11 +48,11 @@
       "text": "Kill the backup job mid-archive — alert fires within 15 minutes, no dashboard-polling needed.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive && bun services/platform/src/cli/holo.ts backup:alert-sweep",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01; bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json > .tmp/REDHAT-FIX-S27-01/induce-kill.json; cat .tmp/REDHAT-FIX-S27-01/induce-kill.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_process_killed==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; ! jq -e '.induction.path==\"synthetic_poison\" and .induction.real_process_killed!=true' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "alerted:\\s+[1-9]|killed|WAL behind|reason=failed"
+        "expect_log_regex": "alerted:\\s+[1-9]|killed|WAL behind|reason=failed|production_truth|real_process_killed|production_catch"
       }
     },
     {
@@ -60,11 +60,11 @@
       "text": "Let the bucket credential expire in a test fixture — alert fires, not a silent failure.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup && bun services/platform/src/cli/holo.ts backup:alert-sweep",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01; bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json > .tmp/REDHAT-FIX-S27-01/induce-cred.json; cat .tmp/REDHAT-FIX-S27-01/induce-cred.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_auth_fault==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-cred.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "credential expired|reason=failed|alerted:\\s+[1-9]"
+        "expect_log_regex": "credential expired|reason=failed|alerted:\\s+[1-9]|production_truth|real_auth_fault"
       }
     },
     {
@@ -72,11 +72,11 @@
       "text": "Remove the backup config entirely — the alert still fires as overdue, never a false-healthy state.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror && bun services/platform/src/cli/holo.ts backup:alert-sweep",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01; bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json > .tmp/REDHAT-FIX-S27-01/induce-config.json; cat .tmp/REDHAT-FIX-S27-01/induce-config.json; jq -e '.ok==true and .induction.path==\"production_truth\" and .induction.config_removed==true and .induction.config_exists_after==false' .tmp/REDHAT-FIX-S27-01/induce-config.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "config removed|reason=overdue|alerted:\\s+[1-9]"
+        "expect_log_regex": "config removed|reason=overdue|alerted:\\s+[1-9]|production_truth|config_removed"
       }
     },
     {

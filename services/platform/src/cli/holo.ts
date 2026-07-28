@@ -31,7 +31,8 @@
  * Sprint 27 D04-02: backup:provision — encrypted R2 + scoped creds + pgBackRest repo
  * Sprint 27 D04-03: backup:wal | backup:base | backup:status — WAL archive + base backups
  * Sprint 27 D04-04: backup:mirror | backup:status — restic blob mirror + SHA-256 parity
- * Sprint 27 D04-05: backup:alert-sweep | verify:backup | backup:induce-failure — overdue/failed webhook alerts
+ * Sprint 27 D04-05 / REDHAT-FIX-S27-01: backup:alert-sweep | verify:backup |
+ * backup:induce-failure — real failure induction (production-truth) + overdue/failed alerts
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -199,6 +200,11 @@ interface CliArgs {
   induceMode: string | null;
   /** backup:induce-failure --job <job_name> */
   induceJob: string | null;
+  /**
+   * backup:induce-failure --synthetic
+   * Honest dual-path: heartbeat poison for sweep-unit mechanics ONLY (not production-truth).
+   */
+  induceSynthetic: boolean;
 }
 
 function printHelp(): void {
@@ -243,7 +249,8 @@ Usage:
   backup:status             D04-03/D04-05: heartbeats + OVERDUE|OK per job + archive/R2 facts
   backup:alert-sweep        D04-05: query overdue/failed heartbeats → POST ALERT_WEBHOOK_URL
                             [--install-schedule]
-  backup:induce-failure     D04-05 test harness: --mode kill|credential-expired|config-removed --job <name>
+  backup:induce-failure     REAL failure induction (production-truth): --mode kill|credential-expired|config-removed --job <name>
+                            [--synthetic for sweep-unit poison only — not production-truth]
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
@@ -512,6 +519,7 @@ function parseArgs(argv: string[]): CliArgs {
     installSchedule: false,
     induceMode: null,
     induceJob: null,
+    induceSynthetic: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -811,6 +819,9 @@ function parseArgs(argv: string[]): CliArgs {
       args.induceJob = argv[++i] ?? null;
     } else if (a.startsWith('--job=')) {
       args.induceJob = a.slice('--job='.length);
+    } else if (a === '--synthetic' || a === '--synthetic-poison') {
+      // Honest dual-path: synthetic heartbeat poison for sweep-unit only (not production-truth).
+      args.induceSynthetic = true;
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2260,14 +2271,15 @@ async function main(): Promise<void> {
       break;
     }
     case 'backup:induce-failure': {
-      // D04-05 test harness: poison heartbeat for silent-failure modes
+      // REDHAT-FIX-S27-01: production-truth real failure induction by default.
+      // Optional --synthetic uses honest heartbeat-poison path for sweep-unit mechanics only.
       const { induceBackupFailure, parseInduceMode } = await import('../backup/alerting.ts');
       try {
         const modeRaw = args.induceMode;
         const job = args.induceJob;
         if (!modeRaw || !job) {
           console.error(
-            'error: backup:induce-failure requires --mode kill|credential-expired|config-removed and --job <name>'
+            'error: backup:induce-failure requires --mode kill|credential-expired|config-removed and --job <name> [--synthetic]'
           );
           process.exit(2);
         }
@@ -2276,12 +2288,18 @@ async function main(): Promise<void> {
           overdueMs: process.env.BACKUP_ALERT_OVERDUE_MS
             ? Number(process.env.BACKUP_ALERT_OVERDUE_MS)
             : undefined,
+          synthetic: args.induceSynthetic,
         });
         if (args.json) {
           console.log(JSON.stringify({ ok: true, ...result }, null, 2));
         } else {
+          const ind = result.induction;
           console.log(
-            `holo backup:induce-failure mode=${result.mode} job=${result.job_name} status=${result.heartbeat.status} last_success_at=${result.heartbeat.last_success_at}`
+            `holo backup:induce-failure mode=${result.mode} job=${result.job_name} path=${ind.path} status=${result.heartbeat.status} last_success_at=${result.heartbeat.last_success_at}` +
+              (ind.real_process_killed ? ` pid_killed=${ind.pid_killed}` : '') +
+              (ind.real_auth_fault ? ' real_auth_fault=true' : '') +
+              (ind.config_removed ? ` config_removed path=${ind.config_path}` : '') +
+              (ind.production_catch ? ' production_catch=true' : '')
           );
         }
         process.exit(0);

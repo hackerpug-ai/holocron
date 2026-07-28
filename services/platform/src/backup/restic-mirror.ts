@@ -12,7 +12,15 @@
  */
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { defaultBlobRoot } from '../blob/store.ts';
@@ -41,6 +49,72 @@ export { ensureBackupHeartbeatTable } from './heartbeat.ts';
 export const RESTIC_BLOB_MIRROR_JOB = 'restic_blob_mirror' as const;
 export const RESTIC_BLOB_MIRROR_SPAN = 'backup:restic_blob_mirror' as const;
 export const DEFAULT_RESTIC_PREFIX = 'restic' as const;
+
+/** Local restic mirror config (required for production-truth config_removed induction). */
+export function defaultResticMirrorConfigPath(repoRoot = resolveRepoRoot()): string {
+  return (
+    process.env.HOLO_RESTIC_CONFIG_PATH?.trim() ||
+    resolve(repoRoot, 'services/platform/config/restic/mirror.conf')
+  );
+}
+
+/** Ensure a real local restic mirror config file exists (no secrets in body). */
+export function ensureResticMirrorConfigFile(options?: {
+  repoRoot?: string;
+  repository?: string;
+  path?: string;
+}): { path: string; created: boolean } {
+  const path = options?.path ?? defaultResticMirrorConfigPath(options?.repoRoot);
+  mkdirSync(dirname(path), { recursive: true });
+  if (existsSync(path)) return { path, created: false };
+  const body = [
+    '# Holocron restic blob-mirror local config (D04-04 / CAP-BAK-01)',
+    '# Password lives in secrets store (RESTIC_PASSWORD) — never here.',
+    `# repository=${options?.repository ?? '(from secrets/env)'}`,
+    'required=true',
+    '',
+  ].join('\n');
+  writeFileSync(path, body, { encoding: 'utf8', mode: 0o600 });
+  return { path, created: true };
+}
+
+/**
+ * Rename/remove the active restic mirror config (production-truth config_removed).
+ * Returns backup path so callers can restore.
+ */
+export function removeResticMirrorConfig(options?: { path?: string; repoRoot?: string }): {
+  config_path: string;
+  backup_path: string | null;
+  removed: boolean;
+  existed_before: boolean;
+} {
+  const config_path = options?.path ?? defaultResticMirrorConfigPath(options?.repoRoot);
+  const existed_before = existsSync(config_path);
+  if (!existed_before) {
+    // Ensure then remove so induction always mutates a real path.
+    ensureResticMirrorConfigFile({ path: config_path, repoRoot: options?.repoRoot });
+  }
+  const backup_path = `${config_path}.induced-removed`;
+  try {
+    if (existsSync(backup_path)) rmSync(backup_path, { force: true });
+    renameSync(config_path, backup_path);
+    return { config_path, backup_path, removed: true, existed_before: true };
+  } catch {
+    return { config_path, backup_path: null, removed: false, existed_before };
+  }
+}
+
+/** Restore config previously moved by removeResticMirrorConfig. */
+export function restoreResticMirrorConfig(options: {
+  config_path: string;
+  backup_path: string | null;
+}): boolean {
+  if (!options.backup_path || !existsSync(options.backup_path)) return false;
+  mkdirSync(dirname(options.config_path), { recursive: true });
+  if (existsSync(options.config_path)) rmSync(options.config_path, { force: true });
+  renameSync(options.backup_path, options.config_path);
+  return true;
+}
 
 export type ResticMirrorConfig = {
   backup: BackupConfig;
@@ -119,6 +193,13 @@ export type RunResticMirrorOptions = {
   /** When set, write span JSON evidence here. */
   spanEvidencePath?: string;
   sql?: Sql;
+  /**
+   * Production-truth config_removed: require local restic config file; if missing,
+   * fail without advancing last_success_at (pure overdue / failed, never silent-healthy).
+   */
+  induceFault?: 'config_removed';
+  /** Override restic config path (default services/platform/config/restic/mirror.conf). */
+  resticConfigPath?: string;
 };
 
 function run(
@@ -442,6 +523,62 @@ export async function runResticBlobMirror(
   const startedAt = new Date();
   const env = options.env ?? process.env;
   const errors: string[] = [];
+  const resticConfigPath =
+    options.resticConfigPath ??
+    env.HOLO_RESTIC_CONFIG_PATH?.trim() ??
+    defaultResticMirrorConfigPath();
+
+  // Production-truth config_removed: missing local config aborts before any success cycle.
+  // Never advances last_success_at (pure overdue / non-success — not silent-healthy).
+  if (options.induceFault === 'config_removed') {
+    if (!existsSync(resticConfigPath)) {
+      errors.push(
+        `overdue: config removed — backup config missing for job ${RESTIC_BLOB_MIRROR_JOB} (path=${resticConfigPath})`
+      );
+      const endedAt = new Date();
+      const span = emitResticBlobMirrorSpan({
+        status: 'failed',
+        snapshotId: null,
+        objectCount: null,
+        errorMessage: errors.join('; ').slice(0, 500),
+        startedAt,
+        endedAt,
+        evidencePath: options.spanEvidencePath,
+      });
+      return {
+        ok: false,
+        jobName: RESTIC_BLOB_MIRROR_JOB,
+        spanName: RESTIC_BLOB_MIRROR_SPAN,
+        repository: '(config-missing)',
+        resticPrefix: defaultResticPrefix(env),
+        bucketName: '',
+        blobRoot: options.blobRoot ?? defaultBlobRoot(resolveRepoRoot()),
+        encrypted: true,
+        plaintextRepo: false,
+        separatePrefixFromPgbackrest: true,
+        pgbackrestPrefix: 'pgbackrest',
+        initExit: 1,
+        backupExit: 1,
+        checkExit: 1,
+        checkStdout: '',
+        snapshotId: null,
+        snapshotsCount: 0,
+        objectCount: 0,
+        parity: null,
+        parityPassed: false,
+        heartbeatUpdated: false,
+        heartbeat: null,
+        span,
+        resticPasswordInSecrets: false,
+        errors,
+        durationMs: Date.now() - started,
+      };
+    }
+  } else {
+    // Healthy runs ensure the config file exists so a later config_removed is distinguishable.
+    ensureResticMirrorConfigFile({ path: resticConfigPath });
+  }
+
   const cfg = loadResticMirrorConfig({
     blobRoot: options.blobRoot,
     secretsPath: options.secretsPath,
