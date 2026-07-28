@@ -16,8 +16,8 @@ Provides: an encrypted R2 bucket with SSE + versioning; a scoped R2 API token li
 ## How to verify
 
 - `aws s3api head-bucket --bucket "$R2_BUCKET_NAME" --endpoint-url "$R2_ENDPOINT" && aws s3api get-bucket-encryption --bucket "$R2_BUCKET_NAME" --endpoint-url "$R2_ENDPOINT" | grep -E 'AES256|aws:kms|SSE'` → Exit 0 (bucket exists + SSE on)
-- `aws s3api get-bucket-versioning --bucket "$R2_BUCKET_NAME" --endpoint-url "$R2_ENDPOINT" | grep -E 'Enabled|Suspended'` → Exit 0 (versioning on)
-- credential scoping: the R2 token policy enumerates only the backup bucket ARN + a limited action set and has NO `*` Resource and NO `s3:*` Action
+- versioning: query `get-bucket-versioning`; if R2 returns NotImplemented/empty, record residual risk `R2_VERSIONING_NOT_IMPLEMENTED` and prove durability via SSE-AES256 + https + repo cipher + real objects (do NOT claim Status=Enabled)
+- credential scoping: the R2 token policy enumerates only the backup bucket ARN + a limited action set and has NO `*` Resource and NO `s3:*` Action; pgBackRest conf uses the same scoped key id as secrets (never parent multi-bucket admin keys)
 - `pgbackrest --stanza=main stanza-create` → Exit 0 (repo reachable + writable against real R2)
 
 ## Scope
@@ -56,7 +56,7 @@ Encrypted Cloudflare R2 bucket provisioned (SSE + versioning); least-privilege s
 --------------------------------------------------------------------------------
 🚫 CRITICAL CONSTRAINTS (Never tier)
 --------------------------------------------------------------------------------
-- MUST provision an R2 bucket with SSE (AES-256 or SSE-KMS) and bucket versioning enabled
+- MUST provision an R2 bucket with SSE (AES-256 or SSE-KMS); attempt bucket versioning and record residual `R2_VERSIONING_NOT_IMPLEMENTED` when the R2 S3 API returns NotImplemented (do not soft-pass as Enabled)
 - MUST create scoped R2 credentials limited to the single backup bucket/prefix (least privilege)
 - MUST keep the R2 token separate from the app DATABASE_URL/Fleet secrets
 - MUST store credentials in the consolidated secrets store (`holo secrets`), referenced by env var, never hardcoded
@@ -72,7 +72,7 @@ Encrypted Cloudflare R2 bucket provisioned (SSE + versioning); least-privilege s
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): encrypted R2 bucket exists with SSE + versioning, verified against real R2
+- [ ] AC-1 (PRIMARY): encrypted R2 bucket exists with SSE (+ versioning residual when R2 NotImplemented), verified against real R2
 - [ ] AC-2: R2 credentials are least-privilege scoped to the backup bucket only, separate from app secrets
 - [ ] AC-3: pgBackRest repo configured and `stanza-create` succeeds against real R2
 - [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
@@ -80,15 +80,15 @@ DONE WHEN
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — proven by real R2)
 --------------------------------------------------------------------------------
-AC-1 [PRIMARY] encrypted R2 bucket exists with SSE + versioning (flow_ref T-PLAT-021)
+AC-1 [PRIMARY] encrypted R2 bucket exists with SSE + honest versioning residual (flow_ref T-PLAT-021)
   GIVEN no R2 bucket exists for backups
   WHEN  the operator provisions the R2 bucket via `holo backup:provision` (or wrangler/CF API)
-  THEN  `aws s3api head-bucket` succeeds; `get-bucket-encryption` returns an SSE algorithm (AES256 or aws:kms); `get-bucket-versioning` shows Enabled
+  THEN  `aws s3api head-bucket` succeeds; `get-bucket-encryption` returns an SSE algorithm (AES256 or aws:kms); versioning is Enabled OR residual risk `R2_VERSIONING_NOT_IMPLEMENTED` is recorded when R2 returns NotImplemented; durability proven via SSE + https + real objects
   TEST_TIER: integration · VERIFICATION_SERVICE: Cloudflare-R2 · TDD_STATE: red
   SCENARIO — start_ref: no_r2_bucket · evidence: api_response
-    NEGATIVE_CONTROL: would fail if the bucket does not exist (head-bucket errors); SSE is null/disabled (get-bucket-encryption empty); versioning off (MFADelete/empty); a config file claims encryption without the bucket actually having SSE; a stub/static implementation that hardcodes a healthy result with no real service round-trip
-    MUST_OBSERVE: aws s3 ls lists the bucket name; get-bucket-encryption JSON contains ServerSideEncryption AES256 or aws:kms; get-bucket-versioning Status = Enabled; endpoint is https:// (TLS)
-    MUST_NOT_OBSERVE: head-bucket returns 404/403; SSE config null or missing; versioning Status empty; http:// (cleartext) endpoint
+    NEGATIVE_CONTROL: would fail if the bucket does not exist (head-bucket errors); SSE is null/disabled (get-bucket-encryption empty); a config file claims encryption without the bucket actually having SSE; versioning claimed Enabled when API returns NotImplemented; a stub/static implementation that hardcodes a healthy result with no real service round-trip
+    MUST_OBSERVE: aws s3api head-bucket exit 0; get-bucket-encryption JSON contains ServerSideEncryption AES256 or aws:kms; residual risk R2_VERSIONING_NOT_IMPLEMENTED when versioning API NotImplemented OR Status=Enabled when supported; endpoint is https:// (TLS)
+    MUST_NOT_OBSERVE: head-bucket returns 404/403; SSE config null or missing; soft-pass claiming Status=Enabled when get-bucket-versioning is empty/NotImplemented; http:// (cleartext) endpoint
 
 AC-2 R2 credentials are least-privilege scoped, separate from app secrets (flow_ref T-PLAT-021)
   GIVEN the bucket exists from AC-1
@@ -130,7 +130,7 @@ READING LIST
 --------------------------------------------------------------------------------
 EVIDENCE GATES
 --------------------------------------------------------------------------------
-- Bucket + SSE + versioning: `aws s3api head-bucket --bucket "$R2_BUCKET_NAME" --endpoint-url "$R2_ENDPOINT" && aws s3api get-bucket-encryption --bucket "$R2_BUCKET_NAME" --endpoint-url "$R2_ENDPOINT" | grep -E 'AES256|aws:kms|SSE' && aws s3api get-bucket-versioning --bucket "$R2_BUCKET_NAME" --endpoint-url "$R2_ENDPOINT" | grep -E 'Enabled|Suspended'` → Exit 0
+- Bucket + SSE + versioning residual: `aws s3api head-bucket` + `get-bucket-encryption | grep SSE` → Exit 0; versioning query records `R2_VERSIONING_NOT_IMPLEMENTED` when NotImplemented (never soft-pass Enabled)
 - Credential scoping: policy inspect shows backup-bucket ARN only, limited actions, no `*` → Exit 0; `holo secrets:doctor` exit 0, R2 secret present + value not printed
 - pgBackRest repo: `pgbackrest --stanza=main stanza-create && pgbackrest --stanza=main check` → Exit 0; `aws s3 ls "$R2_BUCKET/pgbackrest/" --endpoint-url "$R2_ENDPOINT"` non-empty
 - No leaked secrets: `git grep -nIE 'R2_|CLOUDFLARE|Account ID|Access Key' -- services/platform/src` returns only config-key references, never a value
@@ -167,12 +167,12 @@ Depends on: none · Blocks: D04-03, D04-04
       ]
     },
     "r2_bucket_exists": {
-      "description": "After AC-1: an encrypted, versioned R2 bucket exists",
+      "description": "After AC-1: an encrypted R2 bucket exists (versioning residual when NotImplemented)",
       "seed_method": "public_api",
       "records": [
         "aws s3api head-bucket succeeds",
         "get-bucket-encryption returns SSE",
-        "get-bucket-versioning Status = Enabled"
+        "get-bucket-versioning Status = Enabled OR residual R2_VERSIONING_NOT_IMPLEMENTED"
       ]
     },
     "scoped_credentials": {
@@ -191,8 +191,8 @@ Depends on: none · Blocks: D04-03, D04-04
       "type": "acceptance_criterion",
       "primary": true,
       "flow_ref": "T-PLAT-021",
-      "description": "GIVEN no R2 bucket exists WHEN the operator provisions the bucket THEN aws s3api head-bucket succeeds; get-bucket-encryption returns SSE (AES256 or aws:kms); get-bucket-versioning shows Enabled",
-      "verify": "aws s3api head-bucket --bucket $R2_BUCKET_NAME --endpoint-url $R2_ENDPOINT; get-bucket-encryption | grep SSE; get-bucket-versioning | grep Enabled",
+      "description": "GIVEN no R2 bucket exists WHEN the operator provisions the bucket THEN aws s3api head-bucket succeeds; get-bucket-encryption returns SSE (AES256 or aws:kms); versioning Enabled OR residual risk R2_VERSIONING_NOT_IMPLEMENTED when R2 API NotImplemented; durability via SSE + https + real objects",
+      "verify": "aws s3api head-bucket --bucket $R2_BUCKET_NAME --endpoint-url $R2_ENDPOINT; get-bucket-encryption | grep SSE; record R2_VERSIONING_NOT_IMPLEMENTED when get-bucket-versioning empty/NotImplemented (do not claim Enabled)",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -203,7 +203,7 @@ Depends on: none · Blocks: D04-03, D04-04
           "would_fail_if": [
             "bucket does not exist (head-bucket errors)",
             "SSE null/disabled (empty get-bucket-encryption)",
-            "versioning off",
+            "versioning soft-passed as Enabled when API returns NotImplemented",
             "a config file claims encryption without the bucket actually having SSE",
             "a stub/static implementation that hardcodes a healthy result with no real service round-trip"
           ]
@@ -218,7 +218,7 @@ Depends on: none · Blocks: D04-03, D04-04
             "action": {
               "actor": "operator",
               "steps": [
-                "run holo backup:provision (or wrangler/CF API) to create the bucket with SSE + versioning",
+                "run holo backup:provision (or wrangler/CF API) to create the bucket with SSE (+ versioning when supported)",
                 "query head-bucket / get-bucket-encryption / get-bucket-versioning against real R2"
               ]
             },
@@ -226,13 +226,14 @@ Depends on: none · Blocks: D04-03, D04-04
               "must_observe": [
                 "aws s3api head-bucket exit 0 for bucket \"$R2_BUCKET_NAME\"",
                 "get-bucket-encryption ServerSideEncryption: AES256 or \"aws:kms\"",
-                "get-bucket-versioning Status: Enabled",
-                "endpoint scheme: \"https://\""
+                "residual risk R2_VERSIONING_NOT_IMPLEMENTED when versioning API NotImplemented, OR get-bucket-versioning Status: Enabled when supported",
+                "endpoint scheme: \"https://\"",
+                "durability controls: SSE-AES256 + TLS + real bucket objects"
               ],
               "must_not_observe": [
                 "head-bucket exit non-zero / 404",
                 "ServerSideEncryption: None / empty encryption config",
-                "Status: Suspended or Status=None",
+                "soft-pass claiming Status: Enabled when get-bucket-versioning is empty/NotImplemented",
                 "endpoint scheme: \"http://\"",
                 "bucket list empty / (0) backup buckets"
               ]
@@ -357,9 +358,9 @@ Depends on: none · Blocks: D04-03, D04-04
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "Encrypted R2 bucket exists with SSE + versioning",
+      "description": "Encrypted R2 bucket exists with SSE + honest versioning residual",
       "maps_to_ac": "AC-1",
-      "verify": "aws s3api head-bucket + get-bucket-encryption | grep SSE + get-bucket-versioning | grep Enabled"
+      "verify": "aws s3api head-bucket + get-bucket-encryption | grep SSE + residual R2_VERSIONING_NOT_IMPLEMENTED when versioning NotImplemented"
     },
     {
       "id": "TC-2",

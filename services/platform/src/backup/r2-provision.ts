@@ -2,14 +2,16 @@
  * R2 bucket + scoped credentials + pgBackRest repo bootstrap (D04-02).
  *
  * Proves AC-1/AC-2/AC-3 against real Cloudflare R2 (no mocks):
- *   - Create encrypted (SSE-AES256) + versioned bucket
- *   - Mint bucket-only object-read-write credentials (no Resource *, no s3:*)
- *   - Write repo1-* S3 stanza (cipher=aes-256-cbc) and run stanza-create
+ *   - Create encrypted (SSE-AES256) bucket (versioning residual when R2 NotImplemented)
+ *   - Resolve bucket-only object-read-write credentials (no Resource *, no s3:*)
+ *   - Write ONLY those scoped runtime keys into pgBackRest conf + secrets store
+ *   - Never write multi-bucket parent admin keys into pgBackRest conf
+ *   - Run stanza-create / check against real R2
  *
  * Credentials land in secrets.yaml via upsert — never logged, never committed.
  */
 import { spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
@@ -30,15 +32,26 @@ import {
   r2EndpointForAccount,
 } from './config.ts';
 
+/** Cloudflare permission group: Workers R2 Storage Bucket Item Write (bucket-scoped). */
+const CF_PERM_R2_BUCKET_ITEM_WRITE = '2efd5506f9c8494dacb1fa10a3e7d5b6';
+/** Cloudflare permission group: Workers R2 Storage Bucket Item Read (bucket-scoped). */
+const CF_PERM_R2_BUCKET_ITEM_READ = '6a018a9f2fc74eb6b293b0c548f38b39';
+
 export type ProvisionOptions = {
   /** Target backup bucket (default holocron-backup). */
   bucketName?: string;
   accountId?: string;
   /** Cloudflare API token with R2 write (admin). */
   cloudflareApiToken?: string;
-  /** Parent R2 S3 access key used to mint scoped temp credentials. */
+  /** Parent R2 S3 access key used only to mint scoped temp credentials / admin S3 API. */
   parentAccessKeyId?: string;
   parentSecretAccessKey?: string;
+  /**
+   * Optional durable scoped S3 access key (R2 API token / dashboard token)
+   * limited to the backup bucket. Prefer over temporary credentials.
+   */
+  scopedAccessKeyId?: string;
+  scopedSecretAccessKey?: string;
   secretsPath?: string;
   pg1Path?: string;
   stanza?: string;
@@ -48,8 +61,12 @@ export type ProvisionOptions = {
   skipStanzaCreate?: boolean;
   /** Temp credential TTL seconds (max ~7d on R2). Default 604800. */
   credentialTtlSeconds?: number;
+  /** Bucket used for negative ACL probe (must DENY). Default laneshadow. */
+  negativeAclBucket?: string;
   env?: NodeJS.ProcessEnv;
 };
+
+export type RuntimeCredentialKind = 'durable' | 'temporary';
 
 export type ProvisionResult = {
   ok: boolean;
@@ -58,8 +75,17 @@ export type ProvisionResult = {
   accountId: string;
   encryption: string | null;
   versioning: string | null;
-  /** True when PutBucketVersioning returned NotImplemented (R2 platform). */
+  /** True when Put/GetBucketVersioning is NotImplemented (R2 platform). */
   versioningNotImplemented: boolean;
+  /** Honest residual risks (e.g. R2_VERSIONING_NOT_IMPLEMENTED). */
+  residualRisks: string[];
+  /** Runtime credential durability: durable API token or temporary session. */
+  credentialKind: RuntimeCredentialKind | null;
+  /** True when conf s3-key matches secrets R2_ACCESS_KEY_ID and is not parent secret. */
+  confMatchesScopedSecrets: boolean | null;
+  /** Negative ACL: scoped keys denied on a non-backup bucket (true=denied as expected). */
+  negativeAclDenied: boolean | null;
+  negativeAclBucket: string | null;
   policyResource: string[];
   policyActions: string[];
   policyHasWildcardResource: boolean;
@@ -75,6 +101,17 @@ export type ProvisionResult = {
   repoObjectsListed: number;
   cipherType: string;
   errors: string[];
+};
+
+/** Runtime identity written to secrets + pgBackRest conf (never parent admin). */
+export type RuntimeScopedCredentials = {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string | null;
+  kind: RuntimeCredentialKind;
+  policyJson: string;
+  ttlSeconds: number | null;
+  source: string;
 };
 
 function requireNonEmpty(name: string, value: string | undefined | null): string {
@@ -210,6 +247,7 @@ export type ScopedCredentials = {
 /**
  * Mint bucket-scoped object-read-write temporary credentials via Cloudflare R2 API.
  * Policy document enumerates exact bucket ARN + limited actions (no *, no s3:*).
+ * NOTE: temporary only (≤7d). Prefer durable R2 API tokens for standing runtime.
  */
 export async function mintScopedCredentials(options: {
   accountId: string;
@@ -254,6 +292,306 @@ export async function mintScopedCredentials(options: {
     ttlSeconds,
     policyJson,
   };
+}
+
+/**
+ * Create a durable Cloudflare API token scoped to a single R2 bucket and derive
+ * S3 Access Key ID / Secret (SHA-256 of token value) per R2 auth docs.
+ * Requires API Tokens Write on the calling Cloudflare token.
+ */
+export async function createDurableScopedR2Token(options: {
+  accountId: string;
+  cloudflareApiToken: string;
+  bucketName: string;
+  tokenName?: string;
+}): Promise<RuntimeScopedCredentials | null> {
+  const policyJson = formatCredentialPolicy(options.bucketName);
+  const resources = {
+    [`com.cloudflare.edge.r2.bucket.${options.accountId}_default_${options.bucketName}`]: '*',
+  };
+  const body = {
+    name: options.tokenName || `holocron-backup-pgbackrest-${options.bucketName}`,
+    policies: [
+      {
+        effect: 'allow',
+        resources,
+        permission_groups: [
+          { id: CF_PERM_R2_BUCKET_ITEM_WRITE },
+          { id: CF_PERM_R2_BUCKET_ITEM_READ },
+        ],
+      },
+    ],
+  };
+
+  const paths = ['/user/tokens', `/accounts/${options.accountId}/tokens`] as const;
+
+  for (const path of paths) {
+    const res = await cfApi<{ id: string; value?: string; name?: string }>(
+      options.cloudflareApiToken,
+      'POST',
+      path,
+      body
+    );
+    if (res.ok && res.result?.id && res.result?.value) {
+      const secretAccessKey = createHash('sha256').update(res.result.value, 'utf8').digest('hex');
+      return {
+        accessKeyId: res.result.id,
+        secretAccessKey,
+        sessionToken: null,
+        kind: 'durable',
+        policyJson,
+        ttlSeconds: null,
+        source: `cloudflare-api-token:${path}`,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Probe whether credentials can head-bucket. Used for positive (backup) and
+ * negative (other bucket must DENY) ACL checks.
+ */
+export function probeHeadBucket(creds: {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string | null;
+  endpoint: string;
+  bucketName: string;
+  env?: NodeJS.ProcessEnv;
+}): boolean {
+  return headBucket(creds);
+}
+
+/**
+ * Resolve runtime scoped credentials for secrets + pgBackRest conf.
+ * Prefer durable bucket-scoped R2 API token; never returns parent admin keys.
+ */
+export async function resolveRuntimeScopedCredentials(options: {
+  accountId: string;
+  cloudflareApiToken: string;
+  parentAccessKeyId: string;
+  parentSecretAccessKey: string;
+  bucketName: string;
+  endpoint: string;
+  secretsPath: string;
+  scopedAccessKeyId?: string;
+  scopedSecretAccessKey?: string;
+  credentialTtlSeconds?: number;
+  negativeAclBucket?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<{
+  runtime: RuntimeScopedCredentials;
+  residualRisks: string[];
+  negativeAclDenied: boolean | null;
+  negativeAclBucket: string | null;
+}> {
+  const env = options.env ?? process.env;
+  const residualRisks: string[] = [];
+  const policyJson = formatCredentialPolicy(options.bucketName);
+  const negativeBucket = options.negativeAclBucket || env.R2_NEGATIVE_ACL_BUCKET || 'laneshadow';
+
+  const candidates: Array<{
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken: string | null;
+    kind: RuntimeCredentialKind;
+    source: string;
+    ttlSeconds: number | null;
+  }> = [];
+
+  const optKey = options.scopedAccessKeyId?.trim();
+  const optSecret = options.scopedSecretAccessKey?.trim();
+  if (optKey && optSecret) {
+    candidates.push({
+      accessKeyId: optKey,
+      secretAccessKey: optSecret,
+      sessionToken: null,
+      kind: 'durable',
+      source: 'options.scoped*',
+      ttlSeconds: null,
+    });
+  }
+
+  const envKey =
+    env.R2_SCOPED_ACCESS_KEY_ID?.trim() ||
+    getSecretValue('R2_SCOPED_ACCESS_KEY_ID', { secretsPath: options.secretsPath, env })?.trim();
+  const envSecret =
+    env.R2_SCOPED_SECRET_ACCESS_KEY?.trim() ||
+    getSecretValue('R2_SCOPED_SECRET_ACCESS_KEY', {
+      secretsPath: options.secretsPath,
+      env,
+    })?.trim();
+  if (envKey && envSecret) {
+    candidates.push({
+      accessKeyId: envKey,
+      secretAccessKey: envSecret,
+      sessionToken: null,
+      kind: 'durable',
+      source: 'env/secrets R2_SCOPED_*',
+      ttlSeconds: null,
+    });
+  }
+
+  // Existing runtime secrets: reuse if not the parent secret (scoped temp reuses
+  // parent accessKeyId by R2 design — secret + optional session distinguish).
+  const existingKey = getSecretValue('R2_ACCESS_KEY_ID', {
+    secretsPath: options.secretsPath,
+    env,
+  })?.trim();
+  const existingSecret = getSecretValue('R2_SECRET_ACCESS_KEY', {
+    secretsPath: options.secretsPath,
+    env,
+  })?.trim();
+  const existingSession =
+    getSecretValue('R2_SESSION_TOKEN', { secretsPath: options.secretsPath, env })?.trim() || null;
+  if (existingKey && existingSecret && existingSecret !== options.parentSecretAccessKey) {
+    const kind: RuntimeCredentialKind = existingSession ? 'temporary' : 'durable';
+    candidates.push({
+      accessKeyId: existingKey,
+      secretAccessKey: existingSecret,
+      sessionToken: existingSession,
+      kind,
+      source: 'secrets R2_ACCESS_KEY_ID',
+      ttlSeconds: kind === 'temporary' ? (options.credentialTtlSeconds ?? 604_800) : null,
+    });
+  }
+
+  // Attempt durable CF token create (needs API Tokens Write).
+  try {
+    const durable = await createDurableScopedR2Token({
+      accountId: options.accountId,
+      cloudflareApiToken: options.cloudflareApiToken,
+      bucketName: options.bucketName,
+    });
+    if (durable) {
+      candidates.unshift(durable);
+    }
+  } catch {
+    // ignore — fall through to other candidates / temp mint
+  }
+
+  for (const c of candidates) {
+    if (c.secretAccessKey === options.parentSecretAccessKey) continue;
+    const okBackup = probeHeadBucket({
+      accessKeyId: c.accessKeyId,
+      secretAccessKey: c.secretAccessKey,
+      sessionToken: c.sessionToken,
+      endpoint: options.endpoint,
+      bucketName: options.bucketName,
+      env,
+    });
+    if (!okBackup) continue;
+
+    let negativeAclDenied: boolean | null = null;
+    if (negativeBucket && negativeBucket !== options.bucketName) {
+      const otherOk = probeHeadBucket({
+        accessKeyId: c.accessKeyId,
+        secretAccessKey: c.secretAccessKey,
+        sessionToken: c.sessionToken,
+        endpoint: options.endpoint,
+        bucketName: negativeBucket,
+        env,
+      });
+      negativeAclDenied = !otherOk;
+      if (!negativeAclDenied && c.kind === 'durable') {
+        // Multi-bucket durable keys are not least-privilege — skip.
+        continue;
+      }
+    }
+
+    if (c.kind === 'temporary') {
+      residualRisks.push('R2_SCOPED_CREDENTIAL_TEMPORARY');
+    }
+
+    return {
+      runtime: {
+        accessKeyId: c.accessKeyId,
+        secretAccessKey: c.secretAccessKey,
+        sessionToken: c.sessionToken,
+        kind: c.kind,
+        policyJson,
+        ttlSeconds: c.ttlSeconds,
+        source: c.source,
+      },
+      residualRisks,
+      negativeAclDenied,
+      negativeAclBucket: negativeBucket,
+    };
+  }
+
+  // Mint fresh temporary scoped credentials (bucket-only object-read-write).
+  const temp = await mintScopedCredentials({
+    accountId: options.accountId,
+    cloudflareApiToken: options.cloudflareApiToken,
+    parentAccessKeyId: options.parentAccessKeyId,
+    bucketName: options.bucketName,
+    ttlSeconds: options.credentialTtlSeconds ?? 604_800,
+  });
+  if (temp.secretAccessKey === options.parentSecretAccessKey) {
+    throw new Error(
+      'minted temp credentials unexpectedly match parent secret — refusing runtime use'
+    );
+  }
+
+  residualRisks.push('R2_SCOPED_CREDENTIAL_TEMPORARY');
+
+  let negativeAclDenied: boolean | null = null;
+  if (negativeBucket && negativeBucket !== options.bucketName) {
+    const otherOk = probeHeadBucket({
+      accessKeyId: temp.accessKeyId,
+      secretAccessKey: temp.secretAccessKey,
+      sessionToken: temp.sessionToken,
+      endpoint: options.endpoint,
+      bucketName: negativeBucket,
+      env,
+    });
+    negativeAclDenied = !otherOk;
+  }
+
+  // Confirm backup access
+  if (
+    !probeHeadBucket({
+      accessKeyId: temp.accessKeyId,
+      secretAccessKey: temp.secretAccessKey,
+      sessionToken: temp.sessionToken,
+      endpoint: options.endpoint,
+      bucketName: options.bucketName,
+      env,
+    })
+  ) {
+    throw new Error('minted scoped credentials cannot head-bucket backup bucket');
+  }
+
+  return {
+    runtime: {
+      accessKeyId: temp.accessKeyId,
+      secretAccessKey: temp.secretAccessKey,
+      sessionToken: temp.sessionToken || null,
+      kind: 'temporary',
+      policyJson,
+      ttlSeconds: temp.ttlSeconds,
+      source: 'r2/temp-access-credentials',
+    },
+    residualRisks,
+    negativeAclDenied,
+    negativeAclBucket: negativeBucket,
+  };
+}
+
+/** Read repo1-s3-key from a pgBackRest conf (for conf↔secrets equality checks). */
+export function readPgbackrestS3Key(configPath: string): string | null {
+  if (!existsSync(configPath)) return null;
+  const text = readFileSync(configPath, 'utf8');
+  const m = text.match(/^repo1-s3-key=(.+)$/m);
+  return m?.[1]?.trim() || null;
+}
+
+export function readPgbackrestS3KeySecret(configPath: string): string | null {
+  if (!existsSync(configPath)) return null;
+  const text = readFileSync(configPath, 'utf8');
+  const m = text.match(/^repo1-s3-key-secret=(.+)$/m);
+  return m?.[1]?.trim() || null;
 }
 
 export async function ensureR2Bucket(options: {
@@ -716,13 +1054,14 @@ function resolveAdminInputs(options: ProvisionOptions): {
 }
 
 /**
- * Full provision flow: bucket (SSE+versioning) → scoped creds → secrets store →
- * pgBackRest conf → stanza-create against real R2.
+ * Full provision flow: bucket (SSE + versioning residual) → scoped runtime
+ * credentials → secrets store + pgBackRest conf (scoped only) → stanza-create.
  */
 export async function provisionBackupRepo(
   options: ProvisionOptions = {}
 ): Promise<ProvisionResult> {
   const errors: string[] = [];
+  const residualRisks: string[] = [];
   const env = options.env ?? process.env;
   const secretsPath = options.secretsPath ?? defaultSecretsPath(resolveRepoRoot());
   const stanza = options.stanza || defaultStanza();
@@ -740,7 +1079,7 @@ export async function provisionBackupRepo(
     env,
   };
 
-  // --- AC-1: bucket + SSE + versioning ---
+  // --- AC-1: bucket + SSE (+ versioning when implemented) ---
   await ensureR2Bucket({
     accountId: admin.accountId,
     cloudflareApiToken: admin.cloudflareApiToken,
@@ -761,24 +1100,52 @@ export async function provisionBackupRepo(
     errors.push(`bucket encryption missing/unsupported: ${encryption ?? 'null'}`);
   }
   // R2 S3 API: Put/GetBucketVersioning are NotImplemented (Cloudflare matrix).
-  // Accept platform limitation when SSE is on and put returned NotImplemented.
-  if (versioning !== 'Enabled' && versioning !== 'Suspended' && !versioningNotImplemented) {
-    errors.push(
-      `bucket versioning not enabled: ${versioning ?? 'null'} (put: ${versioningAttempt.detail})`
-    );
+  // Do NOT soft-pass as Status=Enabled — record residual risk and prove durability
+  // via SSE-AES256 + TLS + repo cipher + real objects instead.
+  if (versioningNotImplemented || (versioning !== 'Enabled' && versioning !== 'Suspended')) {
+    if (versioningNotImplemented || versioning == null || versioning === '') {
+      residualRisks.push('R2_VERSIONING_NOT_IMPLEMENTED');
+    } else if (versioning !== 'Enabled' && versioning !== 'Suspended') {
+      errors.push(
+        `bucket versioning unexpected: ${versioning ?? 'null'} (put: ${versioningAttempt.detail})`
+      );
+    }
+  }
+  if (versioning === 'Enabled') {
+    // real Enabled — no residual
+  } else if (
+    !residualRisks.includes('R2_VERSIONING_NOT_IMPLEMENTED') &&
+    versioning !== 'Suspended'
+  ) {
+    // already handled above
   }
 
-  // --- AC-2: scoped credentials + policy ---
-  const scoped = await mintScopedCredentials({
+  // --- AC-2: scoped runtime credentials (never parent multi-bucket admin) ---
+  const resolved = await resolveRuntimeScopedCredentials({
     accountId: admin.accountId,
     cloudflareApiToken: admin.cloudflareApiToken,
     parentAccessKeyId: admin.parentAccessKeyId,
+    parentSecretAccessKey: admin.parentSecretAccessKey,
     bucketName: admin.bucketName,
-    ttlSeconds: options.credentialTtlSeconds ?? 604_800,
-    // Full-bucket object-read-write (prefix-scoped still limited to this bucket)
+    endpoint: admin.endpoint,
+    secretsPath,
+    scopedAccessKeyId: options.scopedAccessKeyId,
+    scopedSecretAccessKey: options.scopedSecretAccessKey,
+    credentialTtlSeconds: options.credentialTtlSeconds ?? 604_800,
+    negativeAclBucket: options.negativeAclBucket,
+    env,
   });
+  const runtime = resolved.runtime;
+  for (const r of resolved.residualRisks) {
+    if (!residualRisks.includes(r)) residualRisks.push(r);
+  }
 
-  const policy = JSON.parse(scoped.policyJson) as {
+  // Hard fail: parent admin secret must never be the runtime identity.
+  if (runtime.secretAccessKey === admin.parentSecretAccessKey) {
+    errors.push('refusing to use parent multi-bucket admin secret as runtime credentials');
+  }
+
+  const policy = JSON.parse(runtime.policyJson) as {
     Statement: Array<{ Action: string[]; Resource: string[] }>;
   };
   const policyActions = [...new Set(policy.Statement.flatMap((s) => s.Action))];
@@ -791,6 +1158,11 @@ export async function provisionBackupRepo(
   if (!policyResource.every((r) => r.includes(admin.bucketName))) {
     errors.push('credential policy Resource does not enumerate backup bucket only');
   }
+  if (resolved.negativeAclDenied === false) {
+    errors.push(
+      `scoped credentials can access non-backup bucket ${resolved.negativeAclBucket} (expected DENY)`
+    );
+  }
 
   // Cipher pass: reuse existing or generate
   const existingCipher =
@@ -798,28 +1170,35 @@ export async function provisionBackupRepo(
   const cipherPass = existingCipher?.trim() || randomBytes(32).toString('hex');
 
   // Store compact single-line policy JSON (easier YAML round-trip than pretty print).
-  const policyCompact = JSON.stringify(JSON.parse(scoped.policyJson));
-  const secretsWritten = upsertSecretsFile(secretsPath, {
+  const policyCompact = JSON.stringify(JSON.parse(runtime.policyJson));
+  const secretsUpdates: SecretsMap = {
     R2_ACCOUNT_ID: admin.accountId,
     R2_ENDPOINT: admin.endpoint,
     R2_BUCKET_NAME: admin.bucketName,
-    R2_ACCESS_KEY_ID: scoped.accessKeyId,
-    R2_SECRET_ACCESS_KEY: scoped.secretAccessKey,
-    R2_SESSION_TOKEN: scoped.sessionToken,
+    R2_ACCESS_KEY_ID: runtime.accessKeyId,
+    R2_SECRET_ACCESS_KEY: runtime.secretAccessKey,
     R2_CREDENTIAL_POLICY: policyCompact,
+    R2_CREDENTIAL_KIND: runtime.kind,
     R2_REPO_CIPHER_PASS: cipherPass,
     R2_PGBACKREST_PREFIX: pgbackrestPrefix,
+    R2_RESIDUAL_RISKS: residualRisks.join(','),
     PGBACKREST_CONFIG: pgbackrestConfigPath,
     PGBACKREST_STANZA: stanza,
     PGBACKREST_PG1_PATH: pg1Path,
-    // Admin parent keys intentionally NOT written — runtime uses scoped token only.
-  });
+    // Parent multi-bucket admin keys intentionally NOT written.
+    // Runtime identity is scoped only (durable API token or temp session).
+  };
+  if (runtime.sessionToken) {
+    secretsUpdates.R2_SESSION_TOKEN = runtime.sessionToken;
+  } else {
+    // Clear stale session token when using durable keys
+    secretsUpdates.R2_SESSION_TOKEN = '';
+  }
+  const secretsWritten = upsertSecretsFile(secretsPath, secretsUpdates);
 
   // --- AC-3: pgBackRest repo + stanza-create ---
-  // Prefer parent S3 keys in conf for durable standing access (temp session
-  // tokens expire in ≤7d). Policy document still records least-privilege
-  // intent; runtime secrets store keeps the scoped token for aws/pg clients.
-  // Conf is gitignored mode 0600 so archive_command can read keys without env.
+  // Write ONLY the scoped runtime identity into conf (gitignored mode 0600).
+  // NEVER write parent multi-bucket admin keys into pgbackrest.conf.
   const conf = renderPgbackrestConfig({
     stanza,
     pg1Path,
@@ -827,17 +1206,29 @@ export async function provisionBackupRepo(
     endpointHost: endpointHost(admin.endpoint),
     repoPath: pgbackrestPrefix,
     cipherPass,
-    s3Key: admin.parentAccessKeyId,
-    s3KeySecret: admin.parentSecretAccessKey,
+    s3Key: runtime.accessKeyId,
+    s3KeySecret: runtime.secretAccessKey,
+    s3Token: runtime.sessionToken,
   });
   writePgbackrestConfig(pgbackrestConfigPath, conf);
 
-  // Confirm cipher-type in written conf
+  // Confirm cipher-type in written conf + conf↔secrets identity match
   const confText = readFileSync(pgbackrestConfigPath, 'utf8');
   const cipherTypeMatch = confText.match(/repo1-cipher-type=(\S+)/);
   const cipherType = cipherTypeMatch?.[1] ?? 'missing';
   if (cipherType === 'none' || cipherType === 'missing') {
     errors.push(`repo cipher-type must not be none (got ${cipherType})`);
+  }
+
+  const confKey = readPgbackrestS3Key(pgbackrestConfigPath);
+  const confSecret = readPgbackrestS3KeySecret(pgbackrestConfigPath);
+  const confMatchesScopedSecrets =
+    confKey === runtime.accessKeyId && confSecret === runtime.secretAccessKey;
+  if (!confMatchesScopedSecrets) {
+    errors.push('pgbackrest conf s3 key does not match secrets-store scoped R2_ACCESS_KEY_ID');
+  }
+  if (confSecret === admin.parentSecretAccessKey) {
+    errors.push('pgbackrest conf contains parent multi-bucket admin secret — forbidden');
   }
 
   let stanzaCreateExit: number | null = null;
@@ -847,13 +1238,13 @@ export async function provisionBackupRepo(
   let repoObjectsListed = 0;
 
   if (!options.skipStanzaCreate) {
-    // stanza-create uses conf-file keys (parent) for durable write; also proves
-    // real R2 round-trip. Scoped temp creds remain in secrets store for aws CLI.
+    // stanza-create uses conf + scoped runtime env (not parent). Real R2 round-trip.
     const createRes = runStanzaCreate({
       configPath: pgbackrestConfigPath,
       stanza,
-      accessKeyId: admin.parentAccessKeyId,
-      secretAccessKey: admin.parentSecretAccessKey,
+      accessKeyId: runtime.accessKeyId,
+      secretAccessKey: runtime.secretAccessKey,
+      sessionToken: runtime.sessionToken,
       env,
     });
     stanzaCreateExit = createRes.status;
@@ -879,8 +1270,9 @@ export async function provisionBackupRepo(
     const checkRes = runPgbackrestCheck({
       configPath: pgbackrestConfigPath,
       stanza,
-      accessKeyId: admin.parentAccessKeyId,
-      secretAccessKey: admin.parentSecretAccessKey,
+      accessKeyId: runtime.accessKeyId,
+      secretAccessKey: runtime.secretAccessKey,
+      sessionToken: runtime.sessionToken,
       env,
     });
     checkExit = checkRes.status;
@@ -889,9 +1281,15 @@ export async function provisionBackupRepo(
       errors.push(`pgbackrest check failed: ${checkStdout.slice(0, 500)}`);
     }
 
+    // List with scoped runtime (not parent) to prove least-privilege can read repo.
     const listing = listRepoPrefix({
-      ...adminCreds,
+      accessKeyId: runtime.accessKeyId,
+      secretAccessKey: runtime.secretAccessKey,
+      sessionToken: runtime.sessionToken,
+      endpoint: admin.endpoint,
+      bucketName: admin.bucketName,
       prefix: pgbackrestPrefix,
+      env,
     });
     repoObjectsListed = listing.count;
     if (listing.count < 1) {
@@ -899,14 +1297,20 @@ export async function provisionBackupRepo(
     }
   }
 
-  const versioningOk =
-    versioning === 'Enabled' || versioning === 'Suspended' || versioningNotImplemented;
+  // AC-1 durability gate: SSE + TLS + residual-risk honesty for versioning.
+  // Versioning Status=Enabled is NOT claimed when R2 returns NotImplemented.
+  const durabilityOk =
+    Boolean(encryption) &&
+    admin.endpoint.startsWith('https://') &&
+    (versioning === 'Enabled' ||
+      versioning === 'Suspended' ||
+      residualRisks.includes('R2_VERSIONING_NOT_IMPLEMENTED'));
   const ok =
     errors.length === 0 &&
-    Boolean(encryption) &&
-    versioningOk &&
+    durabilityOk &&
     !policyHasWildcardResource &&
     !policyHasWildcardAction &&
+    confMatchesScopedSecrets &&
     (options.skipStanzaCreate ||
       (stanzaCreateExit === 0 && checkExit === 0 && repoObjectsListed >= 1));
 
@@ -918,6 +1322,11 @@ export async function provisionBackupRepo(
     encryption,
     versioning,
     versioningNotImplemented,
+    residualRisks,
+    credentialKind: runtime.kind,
+    confMatchesScopedSecrets,
+    negativeAclDenied: resolved.negativeAclDenied,
+    negativeAclBucket: resolved.negativeAclBucket,
     policyResource,
     policyActions,
     policyHasWildcardResource,
@@ -943,7 +1352,11 @@ export function formatProvisionText(result: ProvisionResult): string {
     `  bucket:        ${result.bucketName}`,
     `  endpoint:      ${result.endpoint}`,
     `  encryption:    ${result.encryption ?? 'MISSING'}`,
-    `  versioning:    ${result.versioning ?? (result.versioningNotImplemented ? 'R2_NOT_IMPLEMENTED' : 'MISSING')}`,
+    `  versioning:    ${result.versioning ?? (result.versioningNotImplemented ? 'R2_VERSIONING_NOT_IMPLEMENTED' : 'MISSING')}`,
+    `  residual risks:${result.residualRisks.length ? result.residualRisks.join(',') : '(none)'}`,
+    `  cred kind:     ${result.credentialKind ?? 'unknown'}`,
+    `  conf=secrets:  ${result.confMatchesScopedSecrets}`,
+    `  neg ACL deny:  ${result.negativeAclDenied} (bucket=${result.negativeAclBucket ?? 'n/a'})`,
     `  policy actions:${result.policyActions.join(',')}`,
     `  policy resource:${result.policyResource.join(',')}`,
     `  wildcard res:  ${result.policyHasWildcardResource}`,
