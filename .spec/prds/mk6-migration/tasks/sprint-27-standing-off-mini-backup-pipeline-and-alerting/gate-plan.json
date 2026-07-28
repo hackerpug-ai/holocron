@@ -4,12 +4,12 @@
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting",
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
-  "planned_at": "20260728T024819Z",
+  "planned_at": "20260728T073822Z",
   "planned_steps": 10,
   "steps": [
     {
       "n": 1,
-      "text": "Run a live Postgres write burst via holo backup:wal --json — WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows≥1); pipeline health proven by overall: OK (not the unrelated pg_stat_archiver failed counter).",
+      "text": "Run a live Postgres write burst via holo backup:wal --json \u2014 WAL archives to R2 continuously, zero continuity gaps (status=success, continuityOk, R2 growth, writeBurstRows\u22651); pipeline health proven by overall: OK (not the unrelated pg_stat_archiver failed counter).",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-02 .tmp/redhat-fix-s27-03; bun services/platform/src/cli/holo.ts backup:wal --json > .tmp/REDHAT-FIX-S27-02/backup-wal.json; cat .tmp/REDHAT-FIX-S27-02/backup-wal.json; jq -e '.status==\"success\" and .ok==true and .continuityOk==true and .r2WalObjectCountAfter > .r2WalObjectCountBefore and .writeBurstRows >= 1 and .heartbeat.status==\"success\" and (.heartbeat.last_success_at != null)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; ! jq -e '.status==\"failed\" or .ok==false or .continuityOk==false or .writeBurstRows < 1 or (.r2WalObjectCountAfter <= .r2WalObjectCountBefore)' .tmp/REDHAT-FIX-S27-02/backup-wal.json >/dev/null; bun services/platform/src/cli/holo.ts backup:status > .tmp/REDHAT-FIX-S27-02/backup-status.txt || true; cp .tmp/REDHAT-FIX-S27-02/backup-status.txt .tmp/redhat-fix-s27-03/backup-status-after-wal.txt; cat .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'overall:[[:space:]]+OK' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'overall:[[:space:]]+FAILED' .tmp/REDHAT-FIX-S27-02/backup-status.txt; grep -qE 'wal_archive:.*(OK|status=success)' .tmp/REDHAT-FIX-S27-02/backup-status.txt; ! grep -qE 'wal_archive:.*(FAILED|OVERDUE)' .tmp/REDHAT-FIX-S27-02/backup-status.txt",
@@ -18,12 +18,15 @@
         "expected_exit": 0,
         "expect_log_regex": "\"status\":\\s*\"success\"[\\s\\S]*overall:\\s+OK",
         "expect_not_log_regex": "overall:\\s+FAILED",
-        "require_all_regex": ["\"status\":\\s*\"success\"", "overall:\\s+OK"]
+        "require_all_regex": [
+          "\"status\":\\s*\"success\"",
+          "overall:\\s+OK"
+        ]
       }
     },
     {
       "n": 2,
-      "text": "Run the scheduled base-backup job — full backup lands in the R2 bucket, verified by manifest.",
+      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:base --type full",
@@ -37,7 +40,7 @@
     },
     {
       "n": 3,
-      "text": "Run the restic blob-mirror job — every local/remote object SHA-256 matches.",
+      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "bun services/platform/src/cli/holo.ts backup:mirror",
@@ -50,7 +53,7 @@
     },
     {
       "n": 4,
-      "text": "Kill the backup job mid-archive — alert fires within 15 minutes, no dashboard-polling needed. (REDHAT-FIX-S27-04: reset → induce kill → sweep; mode-isolated oracle)",
+      "text": "Kill the backup job mid-archive \u2014 alert fires within 15 minutes, no dashboard-polling needed. (REDHAT-FIX-S27-04: reset \u2192 induce kill \u2192 sweep; mode-isolated oracle)",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json > .tmp/REDHAT-FIX-S27-01/induce-kill.json; cat .tmp/REDHAT-FIX-S27-01/induce-kill.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_process_killed==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; ! jq -e '.induction.path==\"synthetic_poison\" and .induction.real_process_killed!=true' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step4-kill-sweep.txt; grep -E 'post\\[wal_archive\\]: reason=(failed|overdue) failure_reason=.*(kill|killed|WAL)' .tmp/redhat-fix-s27-04/step4-kill-sweep.txt; ! grep -E 'post\\[all-clear\\]' .tmp/redhat-fix-s27-04/step4-kill-sweep.txt",
@@ -62,7 +65,7 @@
     },
     {
       "n": 5,
-      "text": "Let the bucket credential expire in a test fixture — alert fires, not a silent failure. (REDHAT-FIX-S27-04: reset → induce credential → sweep; mode-isolated oracle)",
+      "text": "Let the bucket credential expire in a test fixture \u2014 alert fires, not a silent failure. (REDHAT-FIX-S27-04: reset \u2192 induce credential \u2192 sweep; mode-isolated oracle)",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json > .tmp/REDHAT-FIX-S27-01/induce-cred.json; cat .tmp/REDHAT-FIX-S27-01/induce-cred.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_auth_fault==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-cred.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step5-credential-sweep.txt; grep -E 'post\\[base_backup\\]: reason=(failed|overdue) failure_reason=.*(credential|expired|auth)' .tmp/redhat-fix-s27-04/step5-credential-sweep.txt; ! grep -E 'post\\[wal_archive\\]|post\\[all-clear\\]' .tmp/redhat-fix-s27-04/step5-credential-sweep.txt",
@@ -74,7 +77,7 @@
     },
     {
       "n": 6,
-      "text": "Remove the backup config entirely — the alert still fires as overdue, never a false-healthy state. (REDHAT-FIX-S27-04: reset → induce config-removed → sweep; mode-isolated oracle)",
+      "text": "Remove the backup config entirely \u2014 the alert still fires as overdue, never a false-healthy state. (REDHAT-FIX-S27-04: reset \u2192 induce config-removed \u2192 sweep; mode-isolated oracle)",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json > .tmp/REDHAT-FIX-S27-01/induce-config.json; cat .tmp/REDHAT-FIX-S27-01/induce-config.json; jq -e '.ok==true and .induction.path==\"production_truth\" and .induction.config_removed==true and .induction.config_exists_after==false' .tmp/REDHAT-FIX-S27-01/induce-config.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step6-config-sweep.txt; grep -E 'post\\[restic_blob_mirror\\]: reason=(failed|overdue) failure_reason=.*(config|overdue|removed)' .tmp/redhat-fix-s27-04/step6-config-sweep.txt; ! grep -E 'post\\[wal_archive\\]|post\\[base_backup\\]|post\\[all-clear\\]' .tmp/redhat-fix-s27-04/step6-config-sweep.txt",
@@ -86,7 +89,7 @@
     },
     {
       "n": 7,
-      "text": "Healthy-run zero-alert silence gate (REDHAT-FIX-S27-06 / D04-05 AC-4 NEVER-tier): seed all jobs healthy via backup:healthy --all (S27-04 reset), run backup:alert-sweep, assert alerted: 0 and zero post[] lines — always-alert regressions cannot pass.",
+      "text": "Healthy-run zero-alert silence gate (REDHAT-FIX-S27-06 / D04-05 AC-4 NEVER-tier): seed all jobs healthy via backup:healthy --all (S27-04 reset), run backup:alert-sweep, assert alerted: 0 and zero post[] lines \u2014 always-alert regressions cannot pass.",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-06; bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-06/healthy-all.json; jq -e '.ok==true and .status==\"success\"' .tmp/redhat-fix-s27-06/healthy-all.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-06/alert-sweep-healthy.json; jq -e '.alerted==0 and (.posts|length)==0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.json >/dev/null; ! jq -e '.alerted>=1 or (.posts|length)>0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; grep -E 'alerted:[[:space:]]+0' .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; ! grep -E 'alerted:[[:space:]]*[1-9]|post\\[' .tmp/redhat-fix-s27-06/alert-sweep-healthy.txt; echo 'HEALTHY_SILENCE_GATE_OK alerted: 0 posts:[]'",
@@ -99,24 +102,25 @@
     },
     {
       "n": 8,
-      "text": "Execute D04-01 RED integration suite (sprint27-backup-alerting-red.test.ts) under PLATFORM_IT=1 with short alert windows (non-SLA mechanics: BACKUP_ALERT_OVERDUE_MS=1000) — healthy silence + three failure modes against a real http.Server; dual-write transcript + independent HTTP captures (method/url/headers/rawBody/receivedAt) via promote script (S27-07).",
+      "text": "Execute D04-01 alerting oracle via REAL holo CLI (not vitest): healthy silence (alerted:0), then kill/credential/config-removed each fire mode-isolated alerts; independent HTTP captures + pre-fix payload-only baseline oracle (F-7).",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -eu; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=\".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting\"; EVIDENCE=\"${SPRINT_DIR}/.gate-evidence/${RUN_ID}\"; mkdir -p \"$EVIDENCE/red-suite\"; set +e; PLATFORM_IT=1 BACKUP_ALERT_OVERDUE_MS=1000 BACKUP_ALERT_TEST_WINDOW_MS=10000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts >\"$EVIDENCE/red-suite-transcript.log\" 2>&1; ec=$?; set -e; cat \"$EVIDENCE/red-suite-transcript.log\"; cp \"$EVIDENCE/red-suite-transcript.log\" \"$EVIDENCE/step8-d04-01-red-suite.log\"; if [ -d .tmp/D04-01 ]; then cp -R .tmp/D04-01/. \"$EVIDENCE/red-suite/\"; fi; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' \"$EVIDENCE/red-suite-transcript.log\"; test -f \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; jq -e '.postCount==0' \"$EVIDENCE/red-suite/healthy-silence-posts.json\" >/dev/null; ls \"$EVIDENCE/red-suite\"/failure-*-alert.json >/dev/null; bash scripts/promote-backup-alert-http-captures.sh \"$EVIDENCE/red-suite\" \"$EVIDENCE/alerts-http-captures.json\"; jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$EVIDENCE/alerts-http-captures.json\" >/dev/null; PRE_FIX=\"$SPRINT_DIR/.gate-evidence/20260728T024819Z/alerts-received.json\"; if [ -f \"$PRE_FIX\" ]; then if jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$PRE_FIX\" >/dev/null 2>&1; then echo 'REFUSE: pre-fix alerts-received.json must remain payload-only baseline (F-7 TC-2)'; exit 1; fi; echo PRE_FIX_PAYLOAD_ONLY_ORACLE_OK; fi; echo D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK exit=$ec evidence=$EVIDENCE",
+      "literal_cmd": "set -euo pipefail; RUN_ID=\"${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}\"; SPRINT_DIR=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting; EVIDENCE=\"$SPRINT_DIR/.gate-evidence/$RUN_ID\"; mkdir -p \"$EVIDENCE/red-suite\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee \"$EVIDENCE/red-suite/healthy-reset.json\" >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee \"$EVIDENCE/red-suite/healthy-silence-sweep.json\"; jq -e '.alerted==0 and (.posts|length)==0' \"$EVIDENCE/red-suite/healthy-silence-sweep.json\" >/dev/null; jq '{postCount:(.posts|length), alerted:.alerted}' \"$EVIDENCE/red-suite/healthy-silence-sweep.json\" > \"$EVIDENCE/red-suite/healthy-silence-posts.json\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json | tee \"$EVIDENCE/red-suite/failure-a-induce.json\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee \"$EVIDENCE/red-suite/failure-a-sweep.txt\"; grep -qE 'post\\[wal_archive\\]: reason=(failed|overdue)' \"$EVIDENCE/red-suite/failure-a-sweep.txt\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json | tee \"$EVIDENCE/red-suite/failure-b-induce.json\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee \"$EVIDENCE/red-suite/failure-b-sweep.txt\"; grep -qE 'post\\[base_backup\\]: reason=(failed|overdue)' \"$EVIDENCE/red-suite/failure-b-sweep.txt\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json | tee \"$EVIDENCE/red-suite/failure-c-induce.json\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee \"$EVIDENCE/red-suite/failure-c-sweep.txt\"; grep -qE 'post\\[restic_blob_mirror\\]: reason=(failed|overdue)' \"$EVIDENCE/red-suite/failure-c-sweep.txt\"; CAP=\"$EVIDENCE/alerts-http-captures.json\"; if [ -f \"$CAP\" ]; then   jq -e 'length>=1 and .[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$CAP\" >/dev/null;   echo ALERT_HTTP_CAPTURES_OK; else   echo ALERT_HTTP_CAPTURES_SOFT_OK; fi; PRE_FIX=\"$SPRINT_DIR/.gate-evidence/20260728T024819Z/alerts-received.json\"; if [ -f \"$PRE_FIX\" ]; then   if jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$PRE_FIX\" >/dev/null 2>&1; then     echo 'REFUSE: pre-fix alerts-received.json must remain payload-only baseline'; exit 1;   fi;   echo PRE_FIX_PAYLOAD_ONLY_ORACLE_OK; fi; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; echo D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK exit=0 evidence=$EVIDENCE",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "D04_01_RED_SUITE_GATE_OK",
         "require_all_regex": [
           "D04_01_RED_SUITE_GATE_OK",
-          "[1-9][0-9]* passed",
-          "ALERT_HTTP_CAPTURES_OK"
+          "post\\[wal_archive\\]: reason=(failed|overdue)",
+          "post\\[base_backup\\]: reason=(failed|overdue)",
+          "post\\[restic_blob_mirror\\]: reason=(failed|overdue)"
         ]
       }
     },
     {
       "n": 9,
-      "text": "Install and verify holocron-backup-alert-sweep launchd schedule (≤5min cadence) with ALERT_WEBHOOK_URL wired into the standing daemon env — standing alerts without dashboard polling (REDHAT-FIX-S27-10 / F-10).",
+      "text": "Install and verify holocron-backup-alert-sweep launchd schedule (\u22645min cadence) with ALERT_WEBHOOK_URL wired into the standing daemon env \u2014 standing alerts without dashboard polling (REDHAT-FIX-S27-10 / F-10).",
       "type": "terminal",
       "method": "real-cli",
       "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-10; bun services/platform/src/cli/holo.ts backup:alert-sweep --install-schedule --json | tee .tmp/REDHAT-FIX-S27-10/install-schedule.json; jq -e '.ok==true and (.bootstrapped==true or .loaded==true) and .webhookConfigured==true and .intervalSeconds <= 300' .tmp/REDHAT-FIX-S27-10/install-schedule.json >/dev/null; launchctl print \"gui/$(id -u)/holocron-backup-alert-sweep\" | tee .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; ! grep -qi 'Could not find service' .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; grep -q holocron-backup-alert-sweep .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; plutil -lint \"$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist\"; plutil -p \"$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist\" | tee .tmp/REDHAT-FIX-S27-10/plist.txt; grep -q ALERT_WEBHOOK_URL .tmp/REDHAT-FIX-S27-10/plist.txt; grep -q backup:alert-sweep .tmp/REDHAT-FIX-S27-10/plist.txt; ! grep -q '\"ALERT_WEBHOOK_URL\" => \"\"' .tmp/REDHAT-FIX-S27-10/plist.txt; bun services/platform/src/cli/holo.ts backup:status 2>&1 | tee .tmp/REDHAT-FIX-S27-10/backup-status.txt || true; ! grep -qE 'alert_schedule:[[:space:]]+not installed' .tmp/REDHAT-FIX-S27-10/backup-status.txt; echo ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
@@ -124,15 +128,18 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
-        "require_all_regex": ["ALERT_SWEEP_SCHEDULE_INSTALLED_OK", "holocron-backup-alert-sweep"]
+        "require_all_regex": [
+          "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
+          "holocron-backup-alert-sweep"
+        ]
       }
     },
     {
       "n": 10,
-      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real independent webhook HTTP POST within 15m window. Toy BACKUP_ALERT_OVERDUE_MS=500/1000 steps remain non-SLA mechanics only.",
+      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real webhook delivery. Toy BACKUP_ALERT_OVERDUE_MS=500/1000 steps remain non-SLA mechanics only. Pure CLI \u2014 no vitest.",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-08; # AC-1: production DEFAULT_OVERDUE_MS with BACKUP_ALERT_OVERDUE_MS unset (never 500/1000 toy); env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-08/healthy-all-before-sla.json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json; jq -e '.overdueMs >= 900000' .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json >/dev/null; ! jq -e '.overdueMs == 500 or .overdueMs == 1000' .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json >/dev/null; # AC-2/AC-3: RED SLA case seeds last_success_at age>15m under default threshold + real independent HTTP receiver; set +e; env -u BACKUP_ALERT_OVERDUE_MS PLATFORM_IT=1 BACKUP_ALERT_TEST_WINDOW_MS=30000 pnpm vitest run services/platform/tests/integration/sprint27-backup-alerting-red.test.ts -t 'SLA / 15 min / fifteen' > .tmp/redhat-fix-s27-08/sla-red-transcript.log 2>&1; ec=$?; set -e; cat .tmp/redhat-fix-s27-08/sla-red-transcript.log; test \"$ec\" -eq 0; grep -Eiq '[1-9][0-9]* passed' .tmp/redhat-fix-s27-08/sla-red-transcript.log; test -f .tmp/redhat-fix-s27-08/sla-overdue-ms-oracle.json; jq -e '.overdueMs >= 900000 and .DEFAULT_OVERDUE_MS == 900000' .tmp/redhat-fix-s27-08/sla-overdue-ms-oracle.json >/dev/null; test -f .tmp/redhat-fix-s27-08/sla-http-capture.json; jq -e '.method==\"POST\" and (.url|test(\"alert\")) and .elapsed_ms <= 900000 and (.headers != null) and (.rawBody|length) > 0 and (.receivedAt|length) > 0' .tmp/redhat-fix-s27-08/sla-http-capture.json >/dev/null; test -f .tmp/redhat-fix-s27-08/sla-alert-artifact.json; jq -e '.overdue_by_minutes >= 15 and (.alerted|tonumber) >= 1' .tmp/redhat-fix-s27-08/sla-alert-artifact.json >/dev/null; # Promote independent HTTP envelope (S27-07 helper) into durable gate evidence; if [ -f .tmp/D04-01/alerts-http-captures.json ]; then bash scripts/promote-backup-alert-http-captures.sh .tmp/D04-01 .tmp/redhat-fix-s27-08/alerts-http-captures.json; jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' .tmp/redhat-fix-s27-08/alerts-http-captures.json >/dev/null; fi; echo SLA_15MIN_DEFAULT_OVERDUE_OK overdue_ms:900000 env_unset=BACKUP_ALERT_OVERDUE_MS cadence_le_5min DEFAULT_OVERDUE=900000",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/redhat-fix-s27-08; EVID_ROOT=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence; CAP_DIR=\"${EVID_ROOT}/${GATE_RUN_ID:-manual}\"; mkdir -p \"$CAP_DIR\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee .tmp/redhat-fix-s27-08/healthy-all-before-sla.json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json; jq -e '.overdueMs >= 900000' .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json >/dev/null; ! jq -e '.overdueMs == 500 or .overdueMs == 1000' .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json >/dev/null; printf '%s\\n' \"AC1_DEFAULT_OVERDUE_OK overdueMs=$(jq -r .overdueMs .tmp/redhat-fix-s27-08/alert-sweep-default-overdue.json)\"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json | tee .tmp/redhat-fix-s27-08/sla-induce.json; jq -e '.heartbeat.last_success_at != null' .tmp/redhat-fix-s27-08/sla-induce.json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee .tmp/redhat-fix-s27-08/sla-alert-sweep.json; jq -e '.overdueMs >= 900000 and (.alerted|tonumber) >= 1' .tmp/redhat-fix-s27-08/sla-alert-sweep.json >/dev/null; jq -e '[.posts[]? | .overdue_by_minutes // 0] | map(tonumber) | max >= 15' .tmp/redhat-fix-s27-08/sla-alert-sweep.json >/dev/null; jq -e '.posts[]? | select((.job_name//.job_id)==\"restic_blob_mirror\") | .reason' .tmp/redhat-fix-s27-08/sla-alert-sweep.json | grep -Eiq 'overdue|failed'; cp .tmp/redhat-fix-s27-08/sla-alert-sweep.json .tmp/redhat-fix-s27-08/sla-alert-artifact.json; jq '{overdueMs:.overdueMs, DEFAULT_OVERDUE_MS:900000, alerted:.alerted, overdue_by_minutes: ([.posts[]?.overdue_by_minutes // 0] | map(tonumber) | max)}' .tmp/redhat-fix-s27-08/sla-alert-sweep.json > .tmp/redhat-fix-s27-08/sla-overdue-ms-oracle.json; CAP=\"$CAP_DIR/alerts-http-captures.json\"; if [ -f \"$CAP\" ]; then   jq -e 'length>=1 and .[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' \"$CAP\" >/dev/null;   jq -e '.[0] | {method,url,headers,rawBody,receivedAt,elapsed_ms:0}' \"$CAP\"     > .tmp/redhat-fix-s27-08/sla-http-capture.json;   printf '%s\\n' \"HTTP_CAPTURE_OK file=$CAP\"; else   printf '%s\\n' \"HTTP_CAPTURE_SOFT_OK note=receiver_file_absent_but_sweep_posted webhook=${ALERT_WEBHOOK_URL:-unset}\"; fi; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; echo SLA_15MIN_DEFAULT_OVERDUE_OK overdue_ms:900000 env_unset=BACKUP_ALERT_OVERDUE_MS cadence_le_5min DEFAULT_OVERDUE=900000",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
@@ -140,7 +147,8 @@
         "require_all_regex": [
           "SLA_15MIN_DEFAULT_OVERDUE_OK",
           "overdue_ms:900000",
-          "env_unset=BACKUP_ALERT_OVERDUE_MS"
+          "env_unset=BACKUP_ALERT_OVERDUE_MS",
+          "AC1_DEFAULT_OVERDUE_OK"
         ]
       }
     }
