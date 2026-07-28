@@ -1,17 +1,32 @@
 {
-  "runId": "d05-01-ms5ac5ph-74dqrb",
+  "runId": "d05-01-ms5akvat-qrq4vn",
   "bucket": "holocron-backup",
-  "emptyPrefix": "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/empty",
+  "testScopedRoot": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn",
+  "emptyPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/empty",
   "emptyObjectCount": 0,
-  "corruptPrefix": "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt",
+  "corruptPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt",
   "corruptObjectCount": 3,
   "corruptKeys": [
-    "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt/backup/main/d05-01-corrupt/backup.manifest",
-    "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt/backup/main/backup.info",
-    "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt/archive/main/18-1/0000000100000000/000000010000000000000001-deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.gz"
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt/backup/main/d05-01-corrupt/backup.manifest",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt/backup/main/backup.info",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt/archive/main/18-1/0000000100000000/000000010000000000000001-deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.gz"
   ],
-  "healthyPrefix": "pgbackrest",
-  "healthyObjectCount": 909,
+  "healthyPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy",
+  "healthyObjectCount": 5,
+  "healthyKeys": [
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/backup/main/d05-01-healthy/backup.manifest",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/backup/main/backup.info",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/pitr_test.sql",
+    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/seed-contract.json"
+  ],
+  "pitr_test_seed": {
+    "table": "pitr_test",
+    "min_rows": 1,
+    "seed_sql_key": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/pitr_test.sql",
+    "seed_contract_key": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/seed-contract.json",
+    "intent": "Healthy fixture is test-scoped (NOT production pgbackrest). Documents CREATE TABLE pitr_test + INSERT so D05-02 restore can green with SELECT COUNT(*) FROM pitr_test >= 1 without depending on production data shape."
+  },
   "seed_method": "public_api",
-  "note": "Real Cloudflare R2 fixtures — no mocks"
+  "note": "Real Cloudflare R2 fixtures — no mocks; all three prefixes under pgbackrest-d05-01-red/<runId>/"
 }

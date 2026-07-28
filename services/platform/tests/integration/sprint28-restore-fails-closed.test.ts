@@ -75,9 +75,13 @@ type FixtureHandles = {
   emptyPrefix: string;
   corruptPrefix: string;
   healthyPrefix: string;
+  /** Test-scoped root for this run (`pgbackrest-d05-01-red/<runId>`). */
+  testScopedRoot: string;
   scratchRoot: string;
   /** Objects uploaded under corruptPrefix for cleanup. */
   corruptKeys: string[];
+  /** Objects uploaded under healthyPrefix for cleanup. */
+  healthyKeys: string[];
 };
 
 let fixtures: FixtureHandles | undefined;
@@ -171,14 +175,37 @@ function countFilesRecursive(root: string): number {
  * Seed test-scoped R2 fixtures via real S3-compatible public API (never mocked):
  *  - emptyPrefix: unique path with 0 objects
  *  - corruptPrefix: base-backup-shaped layout + deliberately corrupted manifest
- *  - healthyPrefix: live complete pgBackRest chain (existing production prefix)
+ *  - healthyPrefix: test-scoped complete-chain contract objects + pitr_test seed dump
+ *
+ * Healthy fixture is NEVER the production/standing prefix (`pgbackrest`). D05-02
+ * restore implementation must treat the seeded object set + seed SQL dump as the
+ * contract for a restorable chain that yields `pitr_test` with >= 1 rows.
  */
 function seedFixtures(
   cfg: BackupConfig
-): Pick<FixtureHandles, 'emptyPrefix' | 'corruptPrefix' | 'healthyPrefix' | 'corruptKeys'> {
-  const emptyPrefix = `pgbackrest-d05-01-red/${RUN_ID}/empty`;
-  const corruptPrefix = `pgbackrest-d05-01-red/${RUN_ID}/corrupt`;
-  const healthyPrefix = cfg.pgbackrestPrefix || 'pgbackrest';
+): Pick<
+  FixtureHandles,
+  | 'emptyPrefix'
+  | 'corruptPrefix'
+  | 'healthyPrefix'
+  | 'testScopedRoot'
+  | 'corruptKeys'
+  | 'healthyKeys'
+> {
+  const testScopedRoot = `pgbackrest-d05-01-red/${RUN_ID}`;
+  const emptyPrefix = `${testScopedRoot}/empty`;
+  const corruptPrefix = `${testScopedRoot}/corrupt`;
+  const healthyPrefix = `${testScopedRoot}/healthy`;
+
+  // Product contract: healthy must be test-scoped, never bare production prefix.
+  expect(
+    healthyPrefix.startsWith('pgbackrest-d05-01-red/') && healthyPrefix.endsWith('/healthy'),
+    `healthyPrefix must be test-scoped under pgbackrest-d05-01-red/<runId>/healthy; got ${healthyPrefix}`
+  ).toBe(true);
+  expect(
+    healthyPrefix === 'pgbackrest' || healthyPrefix === (cfg.pgbackrestPrefix || 'pgbackrest'),
+    `healthyPrefix must NOT reuse production/standing prefix (got ${healthyPrefix})`
+  ).toBe(false);
 
   // empty: unique prefix → 0 objects by construction; assert list count
   const emptyList = listRepoPrefix({
@@ -266,7 +293,114 @@ function seedFixtures(
     'corrupted_manifest_repo must contain base-backup-shaped + WAL objects'
   ).toBeGreaterThanOrEqual(1);
 
-  // healthy: live complete chain must already have objects (public_api / standing pipeline)
+  // healthy: test-scoped base-backup-shaped chain + pitr_test seed contract
+  // (full restorable pgBackRest binary payload is D05-02/D05-04 ownership when
+  // real backup seed helpers land; RED seeds the object layout + SQL intent so
+  // GREEN can restore pitr_test without depending on production data shape).
+  const healthyKeys: string[] = [];
+  const healthyDir = mkdtempSync(join(tmpdir(), 'd05-01-healthy-'));
+  const pitrSeedSql = [
+    '-- D05-01 healthy_seeded_repo contract: pitr_test seed for PITR negative control',
+    '-- When D05-02 restore lands against this prefix, restored DB MUST include:',
+    '--   CREATE TABLE pitr_test ... + >= 1 row',
+    'CREATE TABLE IF NOT EXISTS pitr_test (',
+    '  id serial PRIMARY KEY,',
+    '  label text NOT NULL,',
+    '  seeded_at timestamptz NOT NULL DEFAULT now()',
+    ');',
+    `INSERT INTO pitr_test (label) VALUES ('d05-01-healthy-seed-${RUN_ID}');`,
+    '',
+  ].join('\n');
+  const healthyManifestBody = [
+    '# HEALTHY pgBackRest-style manifest (D05-01 RED fixture — test-scoped)',
+    `backup-id=d05-01-healthy-${RUN_ID}`,
+    'backup-type=full',
+    'backup-label=d05-01-healthy-seed',
+    `seed-run-id=${RUN_ID}`,
+    'seed-table=pitr_test',
+    'seed-min-rows=1',
+    'chain-status=complete',
+    'manifest-checksum-valid=true',
+    '',
+  ].join('\n');
+  const healthyInfoBody = [
+    'backrest-format=5',
+    `backup-timestamp-start=${Math.floor(Date.now() / 1000) - 3600}`,
+    `backup-timestamp-stop=${Math.floor(Date.now() / 1000) - 3500}`,
+    'backup-type=full',
+    'backup-label=d05-01-healthy-seed',
+    'manifest-checksum-mismatch=false',
+    `seed-run-id=${RUN_ID}`,
+    '',
+  ].join('\n');
+  const seedContract = {
+    fixture: 'healthy_seeded_repo',
+    testScoped: true,
+    prefix: healthyPrefix,
+    runId: RUN_ID,
+    pitr_test: {
+      required: true,
+      min_rows: 1,
+      seed_sql_object: `${healthyPrefix}/seed/pitr_test.sql`,
+      intent: 'After D05-02 restore from this prefix, SELECT COUNT(*) FROM pitr_test must be >= 1',
+    },
+    chain_objects: {
+      base_backup_manifest: `${healthyPrefix}/backup/main/d05-01-healthy/backup.manifest`,
+      backup_info: `${healthyPrefix}/backup/main/backup.info`,
+      wal_segment: `${healthyPrefix}/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz`,
+      seed_sql: `${healthyPrefix}/seed/pitr_test.sql`,
+      seed_manifest: `${healthyPrefix}/seed/seed-contract.json`,
+    },
+    note: 'Test-scoped contract objects via public_api; not production pgbackrest prefix',
+  };
+
+  try {
+    const manifestPath = join(healthyDir, 'backup.manifest');
+    const historyPath = join(healthyDir, 'backup.info');
+    const seedSqlPath = join(healthyDir, 'pitr_test.sql');
+    const seedContractPath = join(healthyDir, 'seed-contract.json');
+    const walPlaceholderPath = join(healthyDir, 'wal-healthy.bin');
+    writeFileSync(manifestPath, healthyManifestBody, 'utf8');
+    writeFileSync(historyPath, healthyInfoBody, 'utf8');
+    writeFileSync(seedSqlPath, pitrSeedSql, 'utf8');
+    writeFileSync(seedContractPath, `${JSON.stringify(seedContract, null, 2)}\n`, 'utf8');
+    writeFileSync(walPlaceholderPath, 'D05-01-HEALTHY-WAL-PLACEHOLDER\n', 'utf8');
+
+    const uploads: Array<{ local: string; key: string }> = [
+      {
+        local: manifestPath,
+        key: `${healthyPrefix}/backup/main/d05-01-healthy/backup.manifest`,
+      },
+      {
+        local: historyPath,
+        key: `${healthyPrefix}/backup/main/backup.info`,
+      },
+      {
+        local: walPlaceholderPath,
+        key: `${healthyPrefix}/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz`,
+      },
+      {
+        local: seedSqlPath,
+        key: `${healthyPrefix}/seed/pitr_test.sql`,
+      },
+      {
+        local: seedContractPath,
+        key: `${healthyPrefix}/seed/seed-contract.json`,
+      },
+    ];
+
+    for (const u of uploads) {
+      const put = awsS3(cfg, ['s3', 'cp', u.local, `s3://${cfg.bucketName}/${u.key}`]);
+      expect(
+        put.status,
+        `failed to seed healthy object s3://${cfg.bucketName}/${u.key}: ${put.stderr || put.stdout}`
+      ).toBe(0);
+      healthyKeys.push(u.key);
+    }
+  } finally {
+    rmSync(healthyDir, { recursive: true, force: true });
+  }
+
   const healthyList = listRepoPrefix({
     accessKeyId: cfg.accessKeyId,
     secretAccessKey: cfg.secretAccessKey,
@@ -277,12 +411,13 @@ function seedFixtures(
   });
   expect(
     healthyList.count,
-    `healthy_seeded_repo (complete chain) must have objects under ${healthyPrefix}; got ${healthyList.count}`
-  ).toBeGreaterThanOrEqual(1);
+    `healthy_seeded_repo must have base-backup-shaped + seed objects under ${healthyPrefix}; got ${healthyList.count}`
+  ).toBeGreaterThanOrEqual(4);
 
   writeEvidence('fixtures-seeded.json', {
     runId: RUN_ID,
     bucket: cfg.bucketName,
+    testScopedRoot,
     emptyPrefix,
     emptyObjectCount: emptyList.count,
     corruptPrefix,
@@ -290,17 +425,37 @@ function seedFixtures(
     corruptKeys,
     healthyPrefix,
     healthyObjectCount: healthyList.count,
+    healthyKeys,
+    pitr_test_seed: {
+      table: 'pitr_test',
+      min_rows: 1,
+      seed_sql_key: `${healthyPrefix}/seed/pitr_test.sql`,
+      seed_contract_key: `${healthyPrefix}/seed/seed-contract.json`,
+      intent:
+        'Healthy fixture is test-scoped (NOT production pgbackrest). Documents CREATE TABLE pitr_test + INSERT so D05-02 restore can green with SELECT COUNT(*) FROM pitr_test >= 1 without depending on production data shape.',
+    },
     seed_method: 'public_api',
-    note: 'Real Cloudflare R2 fixtures — no mocks',
+    note: 'Real Cloudflare R2 fixtures — no mocks; all three prefixes under pgbackrest-d05-01-red/<runId>/',
   });
 
-  return { emptyPrefix, corruptPrefix, healthyPrefix, corruptKeys };
+  return {
+    emptyPrefix,
+    corruptPrefix,
+    healthyPrefix,
+    testScopedRoot,
+    corruptKeys,
+    healthyKeys,
+  };
 }
 
-function cleanupCorruptFixture(cfg: BackupConfig, prefix: string): void {
-  const rm = awsS3(cfg, ['s3', 'rm', `s3://${cfg.bucketName}/${prefix}/`, '--recursive'], 180_000);
+function cleanupTestScopedFixtures(cfg: BackupConfig, testScopedRoot: string): void {
+  const rm = awsS3(
+    cfg,
+    ['s3', 'rm', `s3://${cfg.bucketName}/${testScopedRoot}/`, '--recursive'],
+    180_000
+  );
   writeEvidence('fixtures-cleanup.json', {
-    prefix,
+    prefix: testScopedRoot,
     status: rm.status,
     stderr: (rm.stderr || '').slice(0, 500),
   });
@@ -565,7 +720,7 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
   afterAll(() => {
     if (!fixtures) return;
     try {
-      cleanupCorruptFixture(fixtures.cfg, fixtures.corruptPrefix);
+      cleanupTestScopedFixtures(fixtures.cfg, fixtures.testScopedRoot);
     } catch (err) {
       writeEvidence('fixtures-cleanup-error.json', {
         error: err instanceof Error ? err.message : String(err),
@@ -689,6 +844,17 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
       const scratchDir = join(fixtures.scratchRoot, 'healthy-pgdata');
       mkdirSync(scratchDir, { recursive: true });
 
+      // Product guard: healthy prefix must stay test-scoped (never bare production).
+      expect(
+        fixtures.healthyPrefix.startsWith('pgbackrest-d05-01-red/') &&
+          fixtures.healthyPrefix.includes('/healthy'),
+        `healthyPrefix must be test-scoped under pgbackrest-d05-01-red/.../healthy; got ${fixtures.healthyPrefix}`
+      ).toBe(true);
+      expect(
+        fixtures.healthyPrefix === 'pgbackrest',
+        'healthyPrefix must not equal bare production prefix pgbackrest'
+      ).toBe(false);
+
       // Negative control: proves suite cannot pass on a blanket always-fail stub.
       const restore = runHoloRestore({
         pitr: HEALTHY_PITR_TIMESTAMP,
@@ -714,6 +880,10 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
         pitrCount,
         pitrRows,
         healthyPrefix: fixtures.healthyPrefix,
+        testScopedRoot: fixtures.testScopedRoot,
+        healthyKeys: fixtures.healthyKeys,
+        pitr_test_seed_intent:
+          'Fixture seeds CREATE TABLE pitr_test + INSERT under test-scoped prefix; GREEN after D05-02 restore',
         args: restore.args,
         combined: restore.combined.slice(0, 4000),
         note: 'Negative control against blanket always-fail implementations; RED until D05-02 lands PITR',
