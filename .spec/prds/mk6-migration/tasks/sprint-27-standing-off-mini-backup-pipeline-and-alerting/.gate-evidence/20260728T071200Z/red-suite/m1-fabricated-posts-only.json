@@ -1,0 +1,15 @@
+[
+  {
+    "job_name": "wal_archive",
+    "job_id": "wal_archive",
+    "reason": "failed",
+    "failure_reason": "killed / WAL behind — fabricated without fetch",
+    "last_success_at": "2026-07-28T07:14:00.867Z",
+    "overdue_by_minutes": 1,
+    "last_wal_segment": null,
+    "last_snapshot_id": null,
+    "trace_id": "m1-stub-without-fetch",
+    "timestamp": "2026-07-28T07:14:00.867Z",
+    "status": "failed"
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "postCount": 0,
+  "posts": [],
+  "must_not_observe": "any alert POST during a healthy backup run"
+}

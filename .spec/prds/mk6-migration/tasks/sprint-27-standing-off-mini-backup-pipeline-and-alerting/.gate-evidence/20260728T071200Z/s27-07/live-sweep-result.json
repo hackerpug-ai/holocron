@@ -1,0 +1,27 @@
+{
+  "sweepResult": {
+    "alerted": 1,
+    "posts": [
+      {
+        "job_name": "wal_archive",
+        "job_id": "wal_archive",
+        "reason": "failed",
+        "failure_reason": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+        "last_success_at": "2026-07-28 01:13:49.006-06",
+        "overdue_by_minutes": 0,
+        "last_wal_segment": "killed-mid-flight",
+        "last_snapshot_id": null,
+        "trace_id": "ab6124401a184619be0be3cc802e4804",
+        "timestamp": "2026-07-28T07:13:49.487Z",
+        "status": "failed"
+      }
+    ],
+    "healthy": 10,
+    "total": 11,
+    "webhookUrl": "http://127.0.0.1",
+    "overdueMs": 1000,
+    "errors": []
+  },
+  "receiver_posts": 1,
+  "negative_control": "stub postBackupAlert without fetch → receiver.posts stays 0"
+}

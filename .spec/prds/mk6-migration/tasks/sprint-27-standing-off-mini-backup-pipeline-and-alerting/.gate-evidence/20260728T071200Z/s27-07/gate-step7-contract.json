@@ -1,0 +1,5 @@
+{
+  "has_promote_script": true,
+  "has_envelope_jq": true,
+  "expected_exit": 0
+}

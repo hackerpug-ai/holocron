@@ -1,0 +1,34 @@
+{
+  "found": true,
+  "postCount": 11,
+  "alert": {
+    "receivedAt": "2026-07-28T07:14:00.860Z",
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "host": "127.0.0.1:9999",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-language": "*",
+      "sec-fetch-mode": "cors",
+      "user-agent": "node",
+      "accept-encoding": "gzip, deflate",
+      "content-length": "345"
+    },
+    "rawBody": "{\"job_name\":\"all-clear\",\"job_id\":\"all-clear\",\"reason\":\"overdue\",\"failure_reason\":\"overdue: last_success_at age 1m exceeds threshold\",\"last_success_at\":\"2026-07-28 01:13:59.212434-06\",\"overdue_by_minutes\":1,\"last_wal_segment\":null,\"last_snapshot_id\":null,\"trace_id\":\"healthy-19fa791f909\",\"timestamp\":\"2026-07-28T07:14:00.848Z\",\"status\":\"success\"}",
+    "json": {
+      "job_name": "all-clear",
+      "job_id": "all-clear",
+      "reason": "overdue",
+      "failure_reason": "overdue: last_success_at age 1m exceeds threshold",
+      "last_success_at": "2026-07-28 01:13:59.212434-06",
+      "overdue_by_minutes": 1,
+      "last_wal_segment": null,
+      "last_snapshot_id": null,
+      "trace_id": "healthy-19fa791f909",
+      "timestamp": "2026-07-28T07:14:00.848Z",
+      "status": "success"
+    }
+  }
+}

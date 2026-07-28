@@ -1,0 +1,32 @@
+[
+  {
+    "receivedAt": "2026-07-28T07:13:49.503Z",
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "host": "127.0.0.1:61295",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-language": "*",
+      "sec-fetch-mode": "cors",
+      "user-agent": "node",
+      "accept-encoding": "gzip, deflate",
+      "content-length": "397"
+    },
+    "rawBody": "{\"job_name\":\"wal_archive\",\"job_id\":\"wal_archive\",\"reason\":\"failed\",\"failure_reason\":\"killed / WAL behind — archive job wal_archive stopped updating heartbeat\",\"last_success_at\":\"2026-07-28 01:13:49.006-06\",\"overdue_by_minutes\":0,\"last_wal_segment\":\"killed-mid-flight\",\"last_snapshot_id\":null,\"trace_id\":\"ab6124401a184619be0be3cc802e4804\",\"timestamp\":\"2026-07-28T07:13:49.487Z\",\"status\":\"failed\"}",
+    "json": {
+      "job_name": "wal_archive",
+      "job_id": "wal_archive",
+      "reason": "failed",
+      "failure_reason": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+      "last_success_at": "2026-07-28 01:13:49.006-06",
+      "overdue_by_minutes": 0,
+      "last_wal_segment": "killed-mid-flight",
+      "last_snapshot_id": null,
+      "trace_id": "ab6124401a184619be0be3cc802e4804",
+      "timestamp": "2026-07-28T07:13:49.487Z",
+      "status": "failed"
+    }
+  }
+]

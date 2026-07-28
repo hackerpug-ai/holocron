@@ -1,0 +1,32 @@
+[
+  {
+    "receivedAt": "2026-07-28T07:13:48.453Z",
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "host": "127.0.0.1:61292",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-language": "*",
+      "sec-fetch-mode": "cors",
+      "user-agent": "node",
+      "accept-encoding": "gzip, deflate",
+      "content-length": "339"
+    },
+    "rawBody": "{\"job_name\":\"wal_archive\",\"job_id\":\"wal_archive\",\"reason\":\"failed\",\"failure_reason\":\"killed / WAL behind — S27-07 live capture\",\"last_success_at\":\"2026-07-28T07:13:48.450Z\",\"overdue_by_minutes\":1,\"last_wal_segment\":null,\"last_snapshot_id\":null,\"trace_id\":\"redhat-fix-s27-07-live\",\"timestamp\":\"2026-07-28T07:13:48.450Z\",\"status\":\"failed\"}",
+    "json": {
+      "job_name": "wal_archive",
+      "job_id": "wal_archive",
+      "reason": "failed",
+      "failure_reason": "killed / WAL behind — S27-07 live capture",
+      "last_success_at": "2026-07-28T07:13:48.450Z",
+      "overdue_by_minutes": 1,
+      "last_wal_segment": null,
+      "last_snapshot_id": null,
+      "trace_id": "redhat-fix-s27-07-live",
+      "timestamp": "2026-07-28T07:13:48.450Z",
+      "status": "failed"
+    }
+  }
+]
