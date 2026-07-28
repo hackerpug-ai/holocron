@@ -1,7 +1,7 @@
 ---
 sequence: 27
 timeline: Phase 6 — Standing Backup and Disaster Recovery
-status: Planned
+status: In Progress
 planned_from_roadmap_sha: 68052e642fdd86c4e8df21b9b5c46479ca623cd0297881d47e3dace46a6a0fa5
 planned_from_source_sha: cb4e9183ecb1535d24d25e8a77d51c0929f1e712
 source_kind: git-head
@@ -12,7 +12,8 @@ planned_at: 2026-07-24T23:22:56Z
 
 **Sequence:** 27
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
-**Status:** Planned
+**Status:** In Progress
+> Progress: 0/6 tasks completed · updated 2026-07-28T01:21:25Z
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-27`)
 **Branch:** `mk6-backup`
