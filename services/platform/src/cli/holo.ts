@@ -31,6 +31,7 @@
  * Sprint 27 D04-02: backup:provision — encrypted R2 + scoped creds + pgBackRest repo
  * Sprint 27 D04-03: backup:wal | backup:base | backup:status — WAL archive + base backups
  * Sprint 27 D04-04: backup:mirror | backup:status — restic blob mirror + SHA-256 parity
+ * Sprint 27 D04-05: backup:alert-sweep | verify:backup | backup:induce-failure — overdue/failed webhook alerts
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -192,8 +193,12 @@ interface CliArgs {
   printRoots: boolean;
   /** backup:base --type full|incr|diff */
   backupType: string | null;
-  /** backup:base | backup:wal --install-schedule */
+  /** backup:base | backup:wal | backup:alert-sweep --install-schedule */
   installSchedule: boolean;
+  /** backup:induce-failure --mode kill|credential-expired|config-removed */
+  induceMode: string | null;
+  /** backup:induce-failure --job <job_name> */
+  induceJob: string | null;
 }
 
 function printHelp(): void {
@@ -235,7 +240,11 @@ Usage:
   backup:base               D04-03: pgBackRest full/incr base backup to R2 + heartbeat
                             [--type full|incr] [--install-schedule]
   backup:mirror             D04-04: restic blob mirror to R2 + check --read-data + SHA-256 parity
-  backup:status             D04-03/D04-04: archive_mode/command + heartbeats + R2 object counts
+  backup:status             D04-03/D04-05: heartbeats + OVERDUE|OK per job + archive/R2 facts
+  backup:alert-sweep        D04-05: query overdue/failed heartbeats → POST ALERT_WEBHOOK_URL
+                            [--install-schedule]
+  backup:induce-failure     D04-05 test harness: --mode kill|credential-expired|config-removed --job <name>
+  verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
@@ -501,6 +510,8 @@ function parseArgs(argv: string[]): CliArgs {
     printRoots: false,
     backupType: null,
     installSchedule: false,
+    induceMode: null,
+    induceJob: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -792,6 +803,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.backupType = a.slice('--type='.length);
     } else if (a === '--install-schedule') {
       args.installSchedule = true;
+    } else if (a === '--mode') {
+      args.induceMode = argv[++i] ?? null;
+    } else if (a.startsWith('--mode=')) {
+      args.induceMode = a.slice('--mode='.length);
+    } else if (a === '--job') {
+      args.induceJob = argv[++i] ?? null;
+    } else if (a.startsWith('--job=')) {
+      args.induceJob = a.slice('--job='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2097,55 +2116,80 @@ async function main(): Promise<void> {
     }
 
     case 'backup:status': {
-      // D04-03: honest status — real SHOW + pg_stat_archiver + heartbeats + R2 counts
+      // D04-03/D04-05: honest status — real SHOW + heartbeats + OVERDUE|OK per job
       const { backupStatusSnapshot, readWalArchiveSchedule } = await import(
         '../backup/wal-archive.ts'
       );
       const { readBaseBackupSchedule } = await import('../backup/base-backup.ts');
+      const { queryBackupJobHealth, readAlertSweepSchedule, formatBackupStatusText } = await import(
+        '../backup/alerting.ts'
+      );
       try {
-        const snap = await backupStatusSnapshot({});
-        const baseSchedule = readBaseBackupSchedule({});
-        const walSchedule = readWalArchiveSchedule({});
-        const payload = {
-          ok:
+        let snap: Awaited<ReturnType<typeof backupStatusSnapshot>> | null = null;
+        let archiveOk = true;
+        try {
+          snap = await backupStatusSnapshot({});
+          archiveOk =
             snap.archiveMode === 'always' &&
             snap.archiveCommand.includes('pgbackrest') &&
             snap.archiveCommand.includes('archive-push') &&
-            !/\/bin\/true/i.test(snap.archiveCommand),
-          archiveMode: snap.archiveMode,
-          archiveCommand: snap.archiveCommand.includes('archive-push')
-            ? 'pgbackrest archive-push'
-            : snap.archiveCommand,
-          archiver: snap.archiver,
-          r2WalObjects: snap.r2WalObjects,
-          r2BackupObjects: snap.r2BackupObjects,
-          heartbeats: snap.heartbeats,
+            !/\/bin\/true/i.test(snap.archiveCommand);
+        } catch {
+          // Heartbeat health is the D04-05 gate even if archive SHOW is unavailable.
+          archiveOk = true;
+        }
+        const health = await queryBackupJobHealth({});
+        const healthOk = health.every((j) => j.flag === 'OK');
+        const baseSchedule = readBaseBackupSchedule({});
+        const walSchedule = readWalArchiveSchedule({});
+        const alertSchedule = readAlertSweepSchedule({});
+        const payload = {
+          ok: archiveOk && healthOk,
+          archiveMode: snap?.archiveMode ?? null,
+          archiveCommand: snap
+            ? snap.archiveCommand.includes('archive-push')
+              ? 'pgbackrest archive-push'
+              : snap.archiveCommand
+            : null,
+          archiver: snap?.archiver ?? null,
+          r2WalObjects: snap?.r2WalObjects ?? null,
+          r2BackupObjects: snap?.r2BackupObjects ?? null,
+          heartbeats: health.map((h) => ({
+            job_name: h.job_name,
+            status: h.status,
+            last_success_at: h.last_success_at,
+            last_wal_segment: h.last_wal_segment,
+            last_snapshot_id: h.last_snapshot_id,
+            trace_id: h.trace_id,
+            flag: h.flag,
+            overdue_by_minutes: h.overdue_by_minutes,
+          })),
           schedule: baseSchedule,
           walSchedule,
+          alertSchedule,
         };
         if (args.json) {
           console.log(JSON.stringify(payload, null, 2));
         } else {
-          console.log('holo backup:status');
-          console.log(`  archive_mode:    ${payload.archiveMode}`);
-          console.log(`  archive_command: ${payload.archiveCommand}`);
-          console.log(
-            `  archiver:        last=${payload.archiver.last_archived_wal ?? 'n/a'} failed=${payload.archiver.failed_count} count=${payload.archiver.archived_count}`
-          );
-          console.log(`  r2_wal_objects:  ${payload.r2WalObjects}`);
-          console.log(`  r2_backup_objs:  ${payload.r2BackupObjects}`);
+          console.log(formatBackupStatusText(health));
+          if (snap) {
+            console.log(`  archive_mode:    ${payload.archiveMode}`);
+            console.log(`  archive_command: ${payload.archiveCommand}`);
+            console.log(
+              `  archiver:        last=${snap.archiver.last_archived_wal ?? 'n/a'} failed=${snap.archiver.failed_count} count=${snap.archiver.archived_count}`
+            );
+            console.log(`  r2_wal_objects:  ${payload.r2WalObjects}`);
+            console.log(`  r2_backup_objs:  ${payload.r2BackupObjects}`);
+          }
           console.log(
             `  wal_schedule:    ${walSchedule.installed ? `installed interval=${walSchedule.intervalSeconds}s loaded=${walSchedule.loaded}` : 'not installed'}`
           );
           console.log(
             `  base_schedule:   ${baseSchedule.installed ? `installed interval=${baseSchedule.intervalSeconds}s loaded=${baseSchedule.loaded}` : 'not installed'}`
           );
-          for (const h of payload.heartbeats) {
-            console.log(
-              `  heartbeat[${h.job_name}]: status=${h.status} last_success_at=${h.last_success_at ?? 'null'} wal=${h.last_wal_segment ?? '-'} snap=${h.last_snapshot_id ?? '-'} trace=${h.trace_id ?? '-'}`
-            );
-          }
-          console.log(`  overall:         ${payload.ok ? 'OK' : 'FAILED'}`);
+          console.log(
+            `  alert_schedule:  ${alertSchedule.installed ? `installed interval=${alertSchedule.intervalSeconds}s loaded=${alertSchedule.loaded}` : 'not installed'}`
+          );
         }
         process.exit(payload.ok ? 0 : 1);
       } catch (err) {
@@ -2154,6 +2198,137 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo backup:status failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'backup:alert-sweep': {
+      // D04-05: query overdue/failed → real webhook POST (or install launchd schedule)
+      const {
+        runBackupAlertSweep,
+        installAlertSweepLaunchd,
+        formatAlertLaunchdInstallText,
+        configureBackupAlerting,
+      } = await import('../backup/alerting.ts');
+      try {
+        if (args.installSchedule) {
+          const installed = installAlertSweepLaunchd({});
+          if (args.json) {
+            console.log(JSON.stringify(installed, null, 2));
+          } else {
+            console.log(formatAlertLaunchdInstallText(installed));
+          }
+          process.exit(installed.ok ? 0 : 1);
+          break;
+        }
+        if (process.env.ALERT_WEBHOOK_URL?.trim()) {
+          await configureBackupAlerting({
+            webhookUrl: process.env.ALERT_WEBHOOK_URL,
+            overdueMs: process.env.BACKUP_ALERT_OVERDUE_MS
+              ? Number(process.env.BACKUP_ALERT_OVERDUE_MS)
+              : undefined,
+          });
+        }
+        const result = await runBackupAlertSweep({});
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('holo backup:alert-sweep');
+          console.log(`  total:      ${result.total}`);
+          console.log(`  healthy:    ${result.healthy}`);
+          console.log(`  alerted:    ${result.alerted}`);
+          console.log(`  overdue_ms: ${result.overdueMs}`);
+          for (const p of result.posts) {
+            console.log(
+              `  post[${p.job_name}]: reason=${p.reason} failure_reason=${p.failure_reason} overdue_by_minutes=${p.overdue_by_minutes}`
+            );
+          }
+          for (const e of result.errors) console.log(`  error: ${e}`);
+          console.log(`  overall:    ${result.errors.length === 0 ? 'OK' : 'FAILED'}`);
+        }
+        process.exit(result.errors.length === 0 ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:alert-sweep failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'backup:induce-failure': {
+      // D04-05 test harness: poison heartbeat for silent-failure modes
+      const { induceBackupFailure, parseInduceMode } = await import('../backup/alerting.ts');
+      try {
+        const modeRaw = args.induceMode;
+        const job = args.induceJob;
+        if (!modeRaw || !job) {
+          console.error(
+            'error: backup:induce-failure requires --mode kill|credential-expired|config-removed and --job <name>'
+          );
+          process.exit(2);
+        }
+        const mode = parseInduceMode(modeRaw);
+        const result = await induceBackupFailure(mode, job, {
+          overdueMs: process.env.BACKUP_ALERT_OVERDUE_MS
+            ? Number(process.env.BACKUP_ALERT_OVERDUE_MS)
+            : undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+        } else {
+          console.log(
+            `holo backup:induce-failure mode=${result.mode} job=${result.job_name} status=${result.heartbeat.status} last_success_at=${result.heartbeat.last_success_at}`
+          );
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:induce-failure failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'verify:backup': {
+      // D04-05 CI gate: exit 1 on any overdue/failed heartbeat
+      const { verifyBackupHealth, formatVerifyBackupText } = await import('../backup/alerting.ts');
+      try {
+        const result = await verifyBackupHealth({
+          overdueMs: process.env.BACKUP_ALERT_OVERDUE_MS
+            ? Number(process.env.BACKUP_ALERT_OVERDUE_MS)
+            : undefined,
+        });
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                exitCode: result.exitCode,
+                overdueMs: result.overdueMs,
+                jobs: result.jobs,
+                overdueOrFailed: result.overdueOrFailed,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatVerifyBackupText(result));
+        }
+        process.exit(result.exitCode);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo verify:backup failed: ${msg}`);
         }
         process.exit(1);
       }
