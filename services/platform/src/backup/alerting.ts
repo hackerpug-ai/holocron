@@ -1170,6 +1170,13 @@ export function renderAlertSweepPlist(options: {
   /** Resolved at install time from env/secrets — standing daemon cannot rely on interactive shell alone. */
   alertWebhookUrl: string;
   intervalSeconds: number;
+  /**
+   * REDHAT-FIX-S27-23 / R-10: when false (default for install), omit ALERT_WEBHOOK_URL from
+   * LaunchAgent EnvironmentVariables so the path token never lands on disk. Runtime resolves
+   * from secrets store via resolveAlertWebhookUrl. Set true only for explicit legacy/test embeds
+   * that also force 0o600 plist mode.
+   */
+  includeAlertWebhookEnv?: boolean;
 }): string {
   const bunDir = dirname(options.bunBin);
   const logDir = resolve(options.home, 'Library/Logs/holocron');
@@ -1184,6 +1191,13 @@ export function renderAlertSweepPlist(options: {
   const databaseUrl = escapePlistXml(options.databaseUrl);
   const alertWebhookUrl = escapePlistXml(options.alertWebhookUrl);
   const logDirEsc = escapePlistXml(logDir);
+  const includeWebhook =
+    options.includeAlertWebhookEnv === true && options.alertWebhookUrl.length > 0;
+  const webhookEnvXml = includeWebhook
+    ? `		<key>ALERT_WEBHOOK_URL</key>
+		<string>${alertWebhookUrl}</string>
+`
+    : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
@@ -1216,9 +1230,7 @@ export function renderAlertSweepPlist(options: {
 		<string>${holoRoot}</string>
 		<key>DATABASE_URL</key>
 		<string>${databaseUrl}</string>
-		<key>ALERT_WEBHOOK_URL</key>
-		<string>${alertWebhookUrl}</string>
-	</dict>
+${webhookEnvXml}	</dict>
 	<key>RunAtLoad</key>
 	<false/>
 	<key>StartInterval</key>
@@ -1305,6 +1317,21 @@ export function installAlertSweepLaunchd(options?: {
       ],
     });
   }
+  // REDHAT-FIX-S27-23 / R-12: scheme gate before writing LaunchAgent artifacts.
+  try {
+    assertAlertWebhookUrlAllowed(alertWebhookUrl);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return emptyInstallResult({
+      ok: false,
+      plistPath,
+      domain,
+      intervalSeconds,
+      bootstrapped: false,
+      webhookConfigured: false,
+      messages: [`ALERT_WEBHOOK_URL scheme rejected: ${msg}`],
+    });
+  }
 
   const bunBin =
     env.BUN_BIN?.trim() ||
@@ -1312,13 +1339,15 @@ export function installAlertSweepLaunchd(options?: {
     resolve(home, '.bun/bin/bun');
   const databaseUrl = env.DATABASE_URL?.trim() || 'postgres://127.0.0.1:5432/holocron';
 
+  // REDHAT-FIX-S27-23 / R-10: secrets-at-process-start — never embed live path token in plist.
   const body = renderAlertSweepPlist({
     home,
     holoRoot,
     bunBin,
     databaseUrl,
-    alertWebhookUrl,
+    alertWebhookUrl: '',
     intervalSeconds,
+    includeAlertWebhookEnv: false,
   });
 
   if (options?.writeTemplate !== false) {
@@ -1381,9 +1410,11 @@ export function installAlertSweepLaunchd(options?: {
 
   mkdirSync(launchAgentsDir, { recursive: true });
   mkdirSync(resolve(home, 'Library/Logs/holocron'), { recursive: true });
-  writeFileSync(plistPath, body, 'utf8');
-  messages.push(`installed ${plistPath}`);
-  messages.push('wired EnvironmentVariables.ALERT_WEBHOOK_URL (value redacted)');
+  writeFileSync(plistPath, body, { encoding: 'utf8', mode: 0o600 });
+  messages.push(`installed ${plistPath} (mode 0o600)`);
+  messages.push(
+    'webhook secrets-at-process-start (ALERT_WEBHOOK_URL omitted from plist; value redacted)'
+  );
 
   const lint = run('/usr/bin/plutil', ['-lint', plistPath], { env });
   if (lint.status !== 0) {
