@@ -11,10 +11,10 @@
     "--pitr",
     "2024-01-01T00:00:00Z",
     "--scratch",
-    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-kecBAB/empty-pgdata",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-2gcFFD/empty-pgdata",
     "--target-action",
     "promote"
   ],
-  "envPrefix": "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/empty",
+  "envPrefix": "pgbackrest-d05-01-red/d05-01-ms5abu2b-xcrx6l/empty",
   "combined": "\nunknown flag: --pitr\n"
 }

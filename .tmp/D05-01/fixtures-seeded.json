@@ -1,17 +1,17 @@
 {
-  "runId": "d05-01-ms5a9j4o-oygzr5",
+  "runId": "d05-01-ms5ac5ph-74dqrb",
   "bucket": "holocron-backup",
-  "emptyPrefix": "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/empty",
+  "emptyPrefix": "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/empty",
   "emptyObjectCount": 0,
-  "corruptPrefix": "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/corrupt",
+  "corruptPrefix": "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt",
   "corruptObjectCount": 3,
   "corruptKeys": [
-    "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/corrupt/backup/main/d05-01-corrupt/backup.manifest",
-    "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/corrupt/backup/main/backup.info",
-    "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/corrupt/archive/main/18-1/0000000100000000/000000010000000000000001-deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.gz"
+    "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt/backup/main/d05-01-corrupt/backup.manifest",
+    "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt/backup/main/backup.info",
+    "pgbackrest-d05-01-red/d05-01-ms5ac5ph-74dqrb/corrupt/archive/main/18-1/0000000100000000/000000010000000000000001-deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.gz"
   ],
   "healthyPrefix": "pgbackrest",
-  "healthyObjectCount": 907,
+  "healthyObjectCount": 909,
   "seed_method": "public_api",
   "note": "Real Cloudflare R2 fixtures — no mocks"
 }

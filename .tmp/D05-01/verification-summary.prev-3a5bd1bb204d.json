@@ -1,0 +1,23 @@
+{
+  "task_id": "D05-01",
+  "status": "red_first_red_captured",
+  "typecheck": {
+    "command": "pnpm tsgo --noEmit",
+    "exit": 0,
+    "path": ".tmp/D05-01/typecheck-output.txt"
+  },
+  "lint": {
+    "command": "pnpm biome check services/platform/tests/integration/sprint28-restore-fails-closed.test.ts",
+    "exit": 0,
+    "path": ".tmp/D05-01/lint-output.txt"
+  },
+  "red": {
+    "command": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts",
+    "exit": 1,
+    "path": ".tmp/D05-01/red-output.txt",
+    "summary": "3 failed | 1 passed (4) \u2014 intentional RED until D05-02"
+  },
+  "evidence_dir": ".tmp/D05-01/",
+  "test_file": "services/platform/tests/integration/sprint28-restore-fails-closed.test.ts",
+  "commit_sha": "1507cae24cc32fb88c3bf88750dc4fe499a55550"
+}

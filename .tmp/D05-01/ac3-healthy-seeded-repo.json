@@ -13,9 +13,9 @@
   "args": [
     "restore",
     "--pitr",
-    "2026-07-28T23:24:47Z",
+    "2026-07-28T23:26:44Z",
     "--scratch",
-    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-kecBAB/healthy-pgdata",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-5qYckv/healthy-pgdata",
     "--target-action",
     "promote"
   ],

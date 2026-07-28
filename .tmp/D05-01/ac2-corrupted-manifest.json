@@ -7,17 +7,17 @@
   "status": 2,
   "pgdataFileCount": 0,
   "pgCtlStatus": 4,
-  "pgCtlCombined": "\npg_ctl: directory \"/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-kecBAB/corrupt-pgdata\" is not a database cluster directory\n",
+  "pgCtlCombined": "\npg_ctl: directory \"/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-Fqw3gO/corrupt-pgdata\" is not a database cluster directory\n",
   "noPromotedDb": true,
   "args": [
     "restore",
     "--pitr",
     "2024-01-01T00:00:00Z",
     "--scratch",
-    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-kecBAB/corrupt-pgdata",
+    "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-Fqw3gO/corrupt-pgdata",
     "--target-action",
     "promote"
   ],
-  "envPrefix": "pgbackrest-d05-01-red/d05-01-ms5a9j4o-oygzr5/corrupt",
+  "envPrefix": "pgbackrest-d05-01-red/d05-01-ms5aby43-iph96f/corrupt",
   "combined": "\nunknown flag: --pitr\n"
 }
