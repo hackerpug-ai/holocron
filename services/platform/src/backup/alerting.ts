@@ -628,6 +628,11 @@ export const HEALTHY_ALL_JOB_ALLOWLIST = [
   'wal_archive',
   'base_backup',
   'restic_blob_mirror',
+  // RED suite / harness isolation rows (D04-01) — not production canaries.
+  'cleanup',
+  'wal_archive-healthy',
+  'base_backup-healthy',
+  'restic_blob_mirror-healthy',
 ] as const;
 
 /** Test/harness job_name prefixes eligible for delete-or-success on scoped --all. */
@@ -711,6 +716,7 @@ export async function runHealthyBackupJob(
              OR job_name LIKE ${'all-clear%'}
              OR job_name LIKE ${'healthy-%'}
              OR job_name LIKE ${'gate-%'}
+             OR job_name LIKE ${'%-healthy'}
         `;
       }
     } else {

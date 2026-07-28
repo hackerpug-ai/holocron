@@ -169,6 +169,11 @@ function runHolo(
     if (v === undefined) delete merged[k];
     else merged[k] = v;
   }
+  // REDHAT-FIX-S27-19: RED suite isolation/silence needs unscoped healthy --all when DB has
+  // non-allowlist canaries. Production CLI default remains scoped without this env.
+  if (args.includes('backup:healthy') && args.includes('--all')) {
+    merged.BACKUP_HEALTHY_ALL_BREAK_GLASS = merged.BACKUP_HEALTHY_ALL_BREAK_GLASS ?? '1';
+  }
   const result = spawnSync(BUN_BIN, [HOLO_CLI, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
@@ -283,9 +288,11 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
 
       const jobId = 'wal_archive-healthy';
       if (alerting.runHealthyBackupJob) {
-        // Silence proof requires a clean slate: scoped 'all' refreshes every heartbeat
-        // (not an unscoped weapon — explicit jobId='all'), then seeds the healthy job.
-        await alerting.runHealthyBackupJob('all');
+        // Silence proof requires a clean slate. REDHAT-FIX-S27-19: default --all is scoped;
+        // break-glass enables unscoped refresh so leftover canaries cannot poison silence.
+        await alerting.runHealthyBackupJob('all', {
+          env: { ...process.env, BACKUP_HEALTHY_ALL_BREAK_GLASS: '1' },
+        });
         const result = await alerting.runHealthyBackupJob(jobId);
         if (result && typeof result === 'object' && 'status' in result) {
           expect(String(result.status).toLowerCase()).toMatch(/success|ok|healthy/);
