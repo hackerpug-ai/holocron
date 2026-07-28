@@ -17,7 +17,11 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "\"status\":\\s*\"success\"[\\s\\S]*overall:\\s+OK",
-        "expect_not_log_regex": "overall:\\s+FAILED"
+        "expect_not_log_regex": "overall:\\s+FAILED",
+        "require_all_regex": [
+          "\"status\":\\s*\"success\"",
+          "overall:\\s+OK"
+        ]
       }
     },
     {
@@ -29,7 +33,9 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "status:\\s+success|manifest:\\s+present|overall:\\s+OK"
+        "or_semantics": "any",
+        "expect_log_regex": "status:\\s+success|manifest:\\s+present|overall:\\s+OK",
+        "expect_not_log_regex": "overall:\\s+FAILED"
       }
     },
     {
@@ -41,6 +47,7 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
+        "or_semantics": "any",
         "expect_log_regex": "parity:\\s+PASS|ok:\\s+true"
       }
     },
@@ -102,7 +109,11 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "D04_01_RED_SUITE_GATE_OK|Tests.*passed|[1-9][0-9]* passed"
+        "expect_log_regex": "D04_01_RED_SUITE_GATE_OK",
+        "require_all_regex": [
+          "D04_01_RED_SUITE_GATE_OK",
+          "[1-9][0-9]* passed"
+        ]
       }
     },
     {
@@ -114,7 +125,11 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "ALERT_SWEEP_SCHEDULE_INSTALLED_OK|holocron-backup-alert-sweep|\"ok\":\\s*true|loaded:\\s+true"
+        "expect_log_regex": "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
+        "require_all_regex": [
+          "ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
+          "holocron-backup-alert-sweep"
+        ]
       }
     }
   ]
