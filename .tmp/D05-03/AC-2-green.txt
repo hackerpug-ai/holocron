@@ -1,4 +1,3 @@
-AC-2 green: restore-target.env R2_CREDENTIAL_KIND + policy
-R2_ACCESS_KEY_ID=ro-placeholder-restore-only-not-for-prod
-R2_CREDENTIAL_KIND=object-read-only
-R2_CREDENTIAL_POLICY={"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/*"]}]}
+AC-2 NOT GREEN — placeholder-only success removed.
+See AC-2-blocked-human-required.txt for live probe evidence + human_required mint steps.
+Live negative control proved backup RW keys allow Put on real R2 (AccessDenied NOT faked).

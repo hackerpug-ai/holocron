@@ -36,9 +36,10 @@ CONTAINER_BLOB="/var/lib/holocron/blob-restore"
 R2_BUCKET_NAME="${R2_BUCKET_NAME:-holocron-backup}"
 R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}"
 R2_ENDPOINT="${R2_ENDPOINT:-}"
-R2_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:-}"
-R2_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:-}"
-R2_SESSION_TOKEN="${R2_SESSION_TOKEN:-}"
+# Prefer restore-specific RO keys when present (never reuse backup RW by default).
+R2_ACCESS_KEY_ID="${R2_RESTORE_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}"
+R2_SECRET_ACCESS_KEY="${R2_RESTORE_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}"
+R2_SESSION_TOKEN="${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}"
 
 usage() {
   cat <<'EOF'
@@ -54,10 +55,13 @@ Options:
   -h, --help             Show help
 
 R2 read-only credentials (env):
-  R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY  — bucket-scoped List/Get only keys
+  R2_RESTORE_ACCESS_KEY_ID / R2_RESTORE_SECRET_ACCESS_KEY  — preferred live RO keys
+  R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY                  — bucket-scoped List/Get only
   R2_BUCKET_NAME (default holocron-backup)
   R2_ENDPOINT or R2_ACCOUNT_ID
   If keys are unset, placeholder RO keys are written for isolation-shape drills only.
+  AC-2 live proof: REQUIRE_LIVE_R2_RO=1 ./scripts/prove-r2-readonly.sh
+  (placeholders alone NEVER satisfy AC-2; need real List ok + Put/Delete AccessDenied)
 EOF
 }
 

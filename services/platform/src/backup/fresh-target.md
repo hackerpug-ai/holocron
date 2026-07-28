@@ -138,11 +138,41 @@ identity with **List + Get only**.
    - `R2_READ_WRITE_*` / app multi-bucket keys
    - D04-02 backup writer keys that allow `s3:PutObject` / `s3:DeleteObject`
 
-### Verify scoping (real R2)
+### Verify scoping (real R2) — AC-2 live proof
+
+**Placeholder policy JSON alone does not satisfy AC-2.** Run the live probe:
 
 ```bash
-export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
-export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+# Preferred env names for restore-only identity (distinct from backup RW):
+export R2_RESTORE_ACCESS_KEY_ID=...
+export R2_RESTORE_SECRET_ACCESS_KEY=...
+export R2_ACCOUNT_ID=...
+export R2_BUCKET_NAME=holocron-backup
+export R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+export R2_CREDENTIAL_KIND=object-read-only
+
+REQUIRE_LIVE_R2_RO=1 ./scripts/prove-r2-readonly.sh
+# MUST_OBSERVE:
+#   PASS: aws s3 ls … exit 0
+#   PASS: aws s3 cp denied (Put blocked; AccessDenied/403)
+#   PASS: aws s3api delete-object denied (Delete blocked)
+# MUST_NOT_OBSERVE: put/delete exit 0 (would prove RW identity)
+
+# Isolation probe also invokes the live path when keys/endpoint are non-placeholder,
+# or when REQUIRE_LIVE_R2_RO=1:
+REQUIRE_LIVE_R2_RO=1 MINI_HOST=203.0.113.1 \
+  R2_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID" \
+  R2_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY" \
+  R2_ENDPOINT="$R2_ENDPOINT" \
+  R2_CREDENTIAL_KIND=object-read-only \
+  ./scripts/prove-isolation.sh
+```
+
+Manual equivalent:
+
+```bash
+export AWS_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY"
 export AWS_DEFAULT_REGION=auto
 aws s3 ls "s3://${R2_BUCKET_NAME}" --endpoint-url "$R2_ENDPOINT"
 # expect exit 0
@@ -150,9 +180,14 @@ aws s3 ls "s3://${R2_BUCKET_NAME}" --endpoint-url "$R2_ENDPOINT"
 aws s3 cp /dev/null "s3://${R2_BUCKET_NAME}/restore-probe-should-deny" --endpoint-url "$R2_ENDPOINT"
 # expect AccessDenied (non-zero)
 
-aws s3 rm "s3://${R2_BUCKET_NAME}/some-existing-object" --endpoint-url "$R2_ENDPOINT"
+aws s3api delete-object --bucket "$R2_BUCKET_NAME" --key restore-probe-should-deny \
+  --endpoint-url "$R2_ENDPOINT"
 # expect AccessDenied (non-zero)
 ```
+
+If only D04-02 **read-write** keys exist in `secrets.yaml`, the live probe **must fail**
+(Put succeeds). Mint a distinct Object Read token (dashboard or
+`CLOUDFLARE_API_TOKEN` + `R2_PARENT_ACCESS_KEY_ID` + `./scripts/prove-r2-readonly.sh --try-mint`).
 
 ## What the provision script does
 

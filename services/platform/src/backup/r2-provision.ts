@@ -324,13 +324,39 @@ export async function mintScopedCredentials(options: {
   bucketName: string;
   ttlSeconds?: number;
   prefixes?: string[];
+  /**
+   * R2 temporary credential permission.
+   * - object-read-write: backup writer (default; D04-02)
+   * - object-read-only: restore-target List/Get only (D05-03 AC-2)
+   */
+  permission?: 'object-read-write' | 'object-read-only';
 }): Promise<ScopedCredentials> {
   const ttlSeconds = options.ttlSeconds ?? 604_800; // 7d (R2 accepted max probe)
-  const policyJson = formatCredentialPolicy(options.bucketName);
+  const permission = options.permission ?? 'object-read-write';
+  const policyJson =
+    permission === 'object-read-only'
+      ? JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Sid: 'HolocronRestoreList',
+              Effect: 'Allow',
+              Action: ['s3:ListBucket', 's3:GetBucketLocation'],
+              Resource: [`arn:aws:s3:::${options.bucketName}`],
+            },
+            {
+              Sid: 'HolocronRestoreGet',
+              Effect: 'Allow',
+              Action: ['s3:GetObject'],
+              Resource: [`arn:aws:s3:::${options.bucketName}/*`],
+            },
+          ],
+        })
+      : formatCredentialPolicy(options.bucketName);
   const body: Record<string, unknown> = {
     bucket: options.bucketName,
     parentAccessKeyId: options.parentAccessKeyId,
-    permission: 'object-read-write',
+    permission,
     ttlSeconds,
   };
   if (options.prefixes && options.prefixes.length > 0) {
@@ -355,7 +381,7 @@ export async function mintScopedCredentials(options: {
     accessKeyId: res.result.accessKeyId,
     secretAccessKey: res.result.secretAccessKey,
     sessionToken: res.result.sessionToken,
-    permission: 'object-read-write',
+    permission,
     bucket: options.bucketName,
     ttlSeconds,
     policyJson,

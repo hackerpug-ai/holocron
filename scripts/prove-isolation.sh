@@ -42,6 +42,8 @@ Environment:
   R2_SECRET_ACCESS_KEY   Required restore-target R2 secret (read-only scoped)
   R2_CREDENTIAL_KIND     Must be object-read-only or read-only
   R2_CREDENTIAL_POLICY   Optional JSON; if set must not allow Put/Delete
+  R2_ENDPOINT            Real R2 endpoint (triggers live aws proof when non-placeholder)
+  REQUIRE_LIVE_R2_RO     If 1, always run scripts/prove-r2-readonly.sh (fail closed on placeholders)
 EOF
 }
 
@@ -207,11 +209,27 @@ check_no_mount() {
 }
 
 # ── (d) R2 credentials read-only scoped ────────────────────────────────────
+# Declarative env/policy checks + optional live aws proof via prove-r2-readonly.sh.
+# Placeholder-only success is NOT enough for AC-2; live proof required when keys
+# are real, or when REQUIRE_LIVE_R2_RO=1.
+r2_is_placeholder() {
+  local v="${1:-}"
+  [[ -z "$v" ]] && return 0
+  case "$v" in
+    *placeholder*|*replace-me*|*example*|*not-for-prod*|*ro-test-*|*test-key*|*test-secret*)
+      return 0
+      ;;
+  esac
+  [[ "$v" == *example-accountid* ]] && return 0
+  return 1
+}
+
 check_r2_readonly() {
   local kind="${R2_CREDENTIAL_KIND:-}"
   local policy="${R2_CREDENTIAL_POLICY:-}"
-  local key="${R2_ACCESS_KEY_ID:-}"
-  local secret="${R2_SECRET_ACCESS_KEY:-}"
+  local key="${R2_ACCESS_KEY_ID:-${R2_RESTORE_ACCESS_KEY_ID:-}}"
+  local secret="${R2_SECRET_ACCESS_KEY:-${R2_RESTORE_SECRET_ACCESS_KEY:-}}"
+  local endpoint="${R2_ENDPOINT:-}"
   local bad=0
 
   # Forbidden ambient RW / parent admin credentials on restore target.
@@ -291,6 +309,47 @@ check_r2_readonly() {
       echo "  detail: R2_CREDENTIAL_POLICY missing GetObject" >&2
       bad=1
     fi
+  fi
+
+  local placeholders=0
+  if r2_is_placeholder "$key" || r2_is_placeholder "$secret" || r2_is_placeholder "$endpoint"; then
+    placeholders=1
+  fi
+
+  # Live aws proof: required when keys are real, or when REQUIRE_LIVE_R2_RO=1.
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local live_script="${script_dir}/prove-r2-readonly.sh"
+  local need_live=0
+  if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
+    need_live=1
+  elif [[ $placeholders -eq 0 && -n "$key" && -n "$secret" && -n "$endpoint" ]]; then
+    need_live=1
+  fi
+
+  if [[ $need_live -eq 1 ]]; then
+    if [[ ! -x "$live_script" && -f "$live_script" ]]; then
+      chmod +x "$live_script" 2>/dev/null || true
+    fi
+    if [[ ! -f "$live_script" ]]; then
+      echo "  detail: live probe script missing: $live_script" >&2
+      bad=1
+    else
+      echo "  detail: running live R2 read-only probe (real aws CLI)" >&2
+      set +e
+      # Prefer restore-specific keys if present; prove-r2-readonly resolves env itself.
+      bash "$live_script"
+      local live_rc=$?
+      set -e
+      if [[ $live_rc -ne 0 ]]; then
+        echo "  detail: live R2 read-only probe failed (exit ${live_rc})" >&2
+        bad=1
+      fi
+    fi
+  elif [[ $placeholders -eq 1 ]]; then
+    echo "  detail: WARN placeholder R2 keys — declarative scope only; AC-2 needs live prove-r2-readonly.sh" >&2
+    # Placeholder-only is NOT a green AC-2 path. Isolation shape may still pass
+    # declarative checks unless REQUIRE_LIVE_R2_RO=1 (handled above via need_live).
   fi
 
   if [[ $bad -eq 0 ]]; then
