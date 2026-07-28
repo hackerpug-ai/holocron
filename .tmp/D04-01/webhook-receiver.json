@@ -1,0 +1,5 @@
+{
+  "url": "http://127.0.0.1:9999/alert",
+  "port": 9999,
+  "note": "real http.Server createServer sink — live TCP listener"
+}
