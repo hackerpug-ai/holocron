@@ -76,7 +76,7 @@ DONE WHEN
 --------------------------------------------------------------------------------
 - [x] AC-1 (PRIMARY): WAL archives continuously to R2 with no continuity gap + heartbeat updates
 - [x] AC-2: scheduled base-backup job lands in R2, manifest-verified + heartbeat updates
-- [x] AC-3: OTel span emitted per job + correlated to the heartbeat row
+- [x] AC-3: backup span (local jsonl + optional Langfuse) per job + correlated to the heartbeat row
 - [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
 
 --------------------------------------------------------------------------------
@@ -102,15 +102,15 @@ AC-2 scheduled base-backup lands in R2, manifest-verified (flow_ref T-PLAT-021)
     MUST_OBSERVE: pgbackrest backup exits 0 and writes a manifest to R2; aws s3 ls shows the backup object; backup_heartbeat base_backup.last_snapshot_id is non-empty; last_success_at recent; status='success'
     MUST_NOT_OBSERVE: base-backup job no-op; missing manifest; last_snapshot_id NULL; status='failed' on a successful run
 
-AC-3 OTel span emitted per job, correlated to the heartbeat (flow_ref T-PLAT-021)
+AC-3 Backup span emitted per job, correlated to the heartbeat (local-only when Langfuse disabled) (flow_ref T-PLAT-021)
   GIVEN a WAL archive or base backup completed
   WHEN  the job finishes
-  THEN  an OTel span `backup:wal_archive`/`backup:base_backup` is emitted via langfuse-exporter.ts carrying job_name, status, segment/snapshot id; the heartbeat row carries the matching trace_id
-  TEST_TIER: integration · VERIFICATION_SERVICE: OTel+langfuse · TDD_STATE: red
+  THEN  a backup span `backup:wal_archive`/`backup:base_backup` is always written (local jsonl under `.tmp/D04-03/backup-spans.jsonl` + job result) carrying redacted job_name, status, segment/snapshot id and a hex trace_id; the heartbeat row carries the matching trace_id. When LANGFUSE_PUBLIC_KEY/SECRET_KEY/BASE_URL are configured, HolocronLangfuseExporter flushes with exportOk=true and exportError=null. When Langfuse is disabled/unconfigured, exportOk=false with exportError describing local-only mode — never claims Langfuse success while disabled (Path B honesty; REDHAT-FIX-S27-13).
+  TEST_TIER: integration · VERIFICATION_SERVICE: backup-span+filesystem(+Langfuse when configured) · TDD_STATE: green
   SCENARIO — start_ref: backup_job_completed · evidence: event_log
-    NEGATIVE_CONTROL: would fail if the span is emitted but not correlated to the heartbeat (no trace_id); attributes contain unredacted credentials/hostnames; a stub/static implementation that hardcodes a healthy result with no real service round-trip
-    MUST_OBSERVE: a span with name=backup:wal_archive|backup:base_backup exists; span attributes include job_name, status, segment/snapshot id; backup_heartbeat.trace_id matches the span trace id; attributes redacted (no creds/hostnames)
-    MUST_NOT_OBSERVE: no span emitted; trace_id missing from the heartbeat; unredacted credential/hostname in attributes
+    NEGATIVE_CONTROL: would fail if the span is emitted but not correlated to the heartbeat (no trace_id); attributes contain unredacted credentials/hostnames; exportOk hardcoded true while exportError says disabled; a stub/static implementation that hardcodes a healthy result with no real service round-trip
+    MUST_OBSERVE: a span with name=backup:wal_archive|backup:base_backup exists; span attributes include job_name, status, segment/snapshot id; backup_heartbeat.trace_id matches the span trace id; attributes redacted (no creds/hostnames); exportOk consistent with exportError
+    MUST_NOT_OBSERVE: no span emitted; trace_id missing from the heartbeat; unredacted credential/hostname in attributes; exportOk=true with exportError set
 
 --------------------------------------------------------------------------------
 SCOPE (writeAllowed)

@@ -5,6 +5,7 @@
  * Attributes are redacted (no bucket creds / hostnames in WAL paths).
  * Always returns a real hex trace_id for heartbeat correlation even when
  * Langfuse is not configured (span is still recorded on the job result + local log).
+ * exportOk reflects real exporter status — never hardcoded true when disabled.
  */
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -40,8 +41,13 @@ export type EmittedBackupSpan = {
   startTime: string;
   endTime: string;
   attributes: Record<string, unknown>;
-  /** True when local span is valid (Langfuse optional). */
+  /**
+   * True only when HolocronLangfuseExporter flush succeeded.
+   * False when Langfuse is disabled/unconfigured or flush failed.
+   * Local span + hex traceId are always written regardless of this flag.
+   */
   exportOk: boolean;
+  /** Non-null when exportOk is false (disabled, missing config, or transport failure). */
   exportError: string | null;
   serviceName: string;
   redacted: true;
@@ -130,7 +136,13 @@ function appendSpanLog(span: EmittedBackupSpan): void {
 
 /**
  * Emit a root backup span. Prefer HolocronLangfuseExporter when configured;
- * always returns a correlated traceId and redacted attributes.
+ * always returns a correlated hex traceId and redacted attributes.
+ *
+ * Honesty contract (Path B when Langfuse unconfigured):
+ * - Local jsonl + job-result span always written
+ * - exportOk is derived from exporter.getStatus() — never hardcoded true
+ * - exportOk===false iff exportError is non-null (disabled / missing config / flush fail)
+ * - Heartbeat correlation uses traceId regardless of exportOk
  */
 export async function emitBackupSpan(args: {
   name: BackupSpanName;
@@ -146,7 +158,8 @@ export async function emitBackupSpan(args: {
   const attributes = sanitizeAttributes(args.attributes);
   const end = new Date();
 
-  const exportOk = true;
+  // Start pessimistic; only flip true after a real successful flush status.
+  let exportOk = false;
   let exportError: string | null = null;
 
   const exporter =
@@ -195,18 +208,35 @@ export async function emitBackupSpan(args: {
     try {
       await exporter.flush();
       const status = exporter.getStatus();
-      if (!status.ok && status.baseUrl) {
-        exportError = status.errorMessage;
-      } else if (!status.baseUrl || status.errorMessage?.toLowerCase().includes('disabled')) {
-        exportError = status.errorMessage ?? 'langfuse not configured (local span only)';
+      // exportOk only when exporter reports healthy flush with no error message.
+      if (status.ok && !status.errorMessage) {
+        exportOk = true;
+        exportError = null;
+      } else {
+        exportOk = false;
+        exportError =
+          status.errorMessage ??
+          (!status.baseUrl
+            ? 'langfuse not configured (local span only)'
+            : 'Langfuse exporter disabled (missing credentials or baseUrl)');
       }
     } catch (err) {
+      exportOk = false;
       exportError = err instanceof Error ? err.message : String(err);
       if (args.failOnExportError) throw err;
     }
   } catch (err) {
+    exportOk = false;
     exportError = err instanceof Error ? err.message : String(err);
     if (args.failOnExportError) throw err;
+  }
+
+  // Invariant: exportOk false iff exportError non-null
+  if (exportOk && exportError !== null) {
+    exportOk = false;
+  }
+  if (!exportOk && exportError === null) {
+    exportError = 'langfuse not configured (local span only)';
   }
 
   const emitted: EmittedBackupSpan = {
