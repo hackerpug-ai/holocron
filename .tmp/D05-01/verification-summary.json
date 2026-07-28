@@ -19,5 +19,5 @@
   },
   "evidence_dir": ".tmp/D05-01/",
   "test_file": "services/platform/tests/integration/sprint28-restore-fails-closed.test.ts",
-  "commit_sha": "f0a73a566658234943dede9f7c2f72d7cc140c2c"
+  "commit_sha": "1507cae24cc32fb88c3bf88750dc4fe499a55550"
 }
