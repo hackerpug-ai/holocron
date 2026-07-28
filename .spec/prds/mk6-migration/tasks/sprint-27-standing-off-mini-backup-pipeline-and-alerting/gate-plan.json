@@ -46,38 +46,38 @@
     },
     {
       "n": 4,
-      "text": "Kill the backup job mid-archive — alert fires within 15 minutes, no dashboard-polling needed.",
+      "text": "Kill the backup job mid-archive — alert fires within 15 minutes, no dashboard-polling needed. (REDHAT-FIX-S27-04: reset → induce kill → sweep; mode-isolated oracle)",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01; bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json > .tmp/REDHAT-FIX-S27-01/induce-kill.json; cat .tmp/REDHAT-FIX-S27-01/induce-kill.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_process_killed==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; ! jq -e '.induction.path==\"synthetic_poison\" and .induction.real_process_killed!=true' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json > .tmp/REDHAT-FIX-S27-01/induce-kill.json; cat .tmp/REDHAT-FIX-S27-01/induce-kill.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_process_killed==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; ! jq -e '.induction.path==\"synthetic_poison\" and .induction.real_process_killed!=true' .tmp/REDHAT-FIX-S27-01/induce-kill.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step4-kill-sweep.txt; grep -E 'post\\[wal_archive\\]: reason=(failed|overdue) failure_reason=.*(kill|killed|WAL)' .tmp/redhat-fix-s27-04/step4-kill-sweep.txt; ! grep -E 'post\\[all-clear\\]' .tmp/redhat-fix-s27-04/step4-kill-sweep.txt",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "alerted:\\s+[1-9]|killed|WAL behind|reason=failed|production_truth|real_process_killed|production_catch"
+        "expect_log_regex": "post\\[wal_archive\\]: reason=(failed|overdue) failure_reason=.*(kill|killed|WAL)"
       }
     },
     {
       "n": 5,
-      "text": "Let the bucket credential expire in a test fixture — alert fires, not a silent failure.",
+      "text": "Let the bucket credential expire in a test fixture — alert fires, not a silent failure. (REDHAT-FIX-S27-04: reset → induce credential → sweep; mode-isolated oracle)",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01; bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json > .tmp/REDHAT-FIX-S27-01/induce-cred.json; cat .tmp/REDHAT-FIX-S27-01/induce-cred.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_auth_fault==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-cred.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json > .tmp/REDHAT-FIX-S27-01/induce-cred.json; cat .tmp/REDHAT-FIX-S27-01/induce-cred.json; jq -e '.ok==true and .induction.path==\"production_truth\" and (.induction.real_auth_fault==true or .induction.production_catch==true) and .heartbeat.status==\"failed\"' .tmp/REDHAT-FIX-S27-01/induce-cred.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step5-credential-sweep.txt; grep -E 'post\\[base_backup\\]: reason=(failed|overdue) failure_reason=.*(credential|expired|auth)' .tmp/redhat-fix-s27-04/step5-credential-sweep.txt; ! grep -E 'post\\[wal_archive\\]|post\\[all-clear\\]' .tmp/redhat-fix-s27-04/step5-credential-sweep.txt",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "credential expired|reason=failed|alerted:\\s+[1-9]|production_truth|real_auth_fault"
+        "expect_log_regex": "post\\[base_backup\\]: reason=(failed|overdue) failure_reason=.*(credential|expired|auth)"
       }
     },
     {
       "n": 6,
-      "text": "Remove the backup config entirely — the alert still fires as overdue, never a false-healthy state.",
+      "text": "Remove the backup config entirely — the alert still fires as overdue, never a false-healthy state. (REDHAT-FIX-S27-04: reset → induce config-removed → sweep; mode-isolated oracle)",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01; bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json > .tmp/REDHAT-FIX-S27-01/induce-config.json; cat .tmp/REDHAT-FIX-S27-01/induce-config.json; jq -e '.ok==true and .induction.path==\"production_truth\" and .induction.config_removed==true and .induction.config_exists_after==false' .tmp/REDHAT-FIX-S27-01/induce-config.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json > .tmp/REDHAT-FIX-S27-01/induce-config.json; cat .tmp/REDHAT-FIX-S27-01/induce-config.json; jq -e '.ok==true and .induction.path==\"production_truth\" and .induction.config_removed==true and .induction.config_exists_after==false' .tmp/REDHAT-FIX-S27-01/induce-config.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step6-config-sweep.txt; grep -E 'post\\[restic_blob_mirror\\]: reason=(failed|overdue) failure_reason=.*(config|overdue|removed)' .tmp/redhat-fix-s27-04/step6-config-sweep.txt; ! grep -E 'post\\[wal_archive\\]|post\\[base_backup\\]|post\\[all-clear\\]' .tmp/redhat-fix-s27-04/step6-config-sweep.txt",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "config removed|reason=overdue|alerted:\\s+[1-9]|production_truth|config_removed"
+        "expect_log_regex": "post\\[restic_blob_mirror\\]: reason=(failed|overdue) failure_reason=.*(config|overdue|removed)"
       }
     },
     {
