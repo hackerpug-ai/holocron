@@ -1,0 +1,11 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "D04_01_RED_SUITE_GATE_OK",
+  "require_all_regex": [
+    "D04_01_RED_SUITE_GATE_OK",
+    "post\\[wal_archive\\]: reason=(failed|overdue)",
+    "post\\[base_backup\\]: reason=(failed|overdue)",
+    "post\\[restic_blob_mirror\\]: reason=(failed|overdue)"
+  ]
+}

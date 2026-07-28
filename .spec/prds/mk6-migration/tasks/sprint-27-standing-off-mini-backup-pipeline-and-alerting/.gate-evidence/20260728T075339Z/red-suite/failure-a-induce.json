@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "job_name": "wal_archive",
+  "mode": "kill_wal_behind",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 01:54:15.871-06",
+    "last_wal_segment": "killed-mid-flight",
+    "last_snapshot_id": null,
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "a18b32a0e9d24b33b2706c00e193c931",
+    "updated_at": "2026-07-28 01:54:16.786815-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": true,
+    "pid_killed": 20888,
+    "production_catch": true,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "/opt/homebrew/bin/pgbackrest",
+    "failure_detail": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+    "restored": false,
+    "fault_output": "killed / WAL behind — archive job stopped updating heartbeat (pid=20888 signal=SIGKILL binary=/opt/homebrew/bin/pgbackrest)",
+    "heartbeat_via_production_writer": true
+  }
+}

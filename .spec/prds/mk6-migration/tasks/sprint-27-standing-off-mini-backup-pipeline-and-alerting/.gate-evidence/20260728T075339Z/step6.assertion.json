@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "post\\[restic_blob_mirror\\]: reason=(failed|overdue) failure_reason=.*(config|overdue|removed)"
+}

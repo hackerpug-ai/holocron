@@ -4,7 +4,7 @@
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting",
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
-  "run_id": "2026-07-28T07:45:08Z",
+  "run_id": "2026-07-28T07:54:22Z",
   "verdict": "pass",
   "steps_total": 10,
   "steps_executed": 10,
@@ -20,8 +20,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step1.log",
-      "duration_ms": 7149
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step1.log",
+      "duration_ms": 6207
     },
     {
       "n": 2,
@@ -30,8 +30,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step2.log",
-      "duration_ms": 18161
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step2.log",
+      "duration_ms": 17217
     },
     {
       "n": 3,
@@ -40,8 +40,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step3.log",
-      "duration_ms": 8230
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step3.log",
+      "duration_ms": 8926
     },
     {
       "n": 4,
@@ -50,8 +50,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step4.log",
-      "duration_ms": 1077
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step4.log",
+      "duration_ms": 1134
     },
     {
       "n": 5,
@@ -60,8 +60,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step5.log",
-      "duration_ms": 699
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step5.log",
+      "duration_ms": 763
     },
     {
       "n": 6,
@@ -70,8 +70,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step6.log",
-      "duration_ms": 671
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step6.log",
+      "duration_ms": 658
     },
     {
       "n": 7,
@@ -80,8 +80,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step7.log",
-      "duration_ms": 602
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step7.log",
+      "duration_ms": 706
     },
     {
       "n": 8,
@@ -90,8 +90,8 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step8.log",
-      "duration_ms": 2925
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step8.log",
+      "duration_ms": 2990
     },
     {
       "n": 9,
@@ -100,18 +100,18 @@
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step9.log",
-      "duration_ms": 1246
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step9.log",
+      "duration_ms": 1458
     },
     {
       "n": 10,
-      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real webhook delivery. Toy BACKUP_ALERT_OVERDUE_MS=500/1000 steps remain non-SLA mechanics only. Pure CLI \u2014 no vitest.",
+      "text": "Production 15-minute alert SLA + cadence (REDHAT-FIX-S27-08 / F-8 / T-PLAT-024): BACKUP_ALERT_OVERDUE_MS unset (DEFAULT_OVERDUE_MS=900000); induce last_success_at age>15m; alert-sweep reports overdueMs>=900000 and overdue_by_minutes>=15; real webhook HTTP capture. Runs scripts/gate/s27-step10-production-sla.sh (pure CLI, no vitest, no toy thresholds).",
       "type": "terminal",
       "executed": true,
       "result": "pass",
       "evidence": "exit=0",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T074426Z/step10.log",
-      "duration_ms": 1046
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/step10.log",
+      "duration_ms": 1122
     }
   ]
 }

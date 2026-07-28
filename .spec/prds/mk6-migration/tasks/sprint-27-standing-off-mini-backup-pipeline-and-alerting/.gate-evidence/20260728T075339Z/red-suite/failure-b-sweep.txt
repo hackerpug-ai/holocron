@@ -1,0 +1,7 @@
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[base_backup]: reason=failed failure_reason=credential expired — R2 auth denied for job base_backup overdue_by_minutes=0
+  overall:    OK

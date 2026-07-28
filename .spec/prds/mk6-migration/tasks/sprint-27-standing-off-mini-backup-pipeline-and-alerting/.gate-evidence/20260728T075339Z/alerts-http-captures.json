@@ -1,0 +1,107 @@
+[
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "397"
+    },
+    "rawBody": "{\"job_name\":\"wal_archive\",\"job_id\":\"wal_archive\",\"reason\":\"failed\",\"failure_reason\":\"killed / WAL behind \u2014 archive job wal_archive stopped updating heartbeat\",\"last_success_at\":\"2026-07-28 01:54:12.603-06\",\"overdue_by_minutes\":0,\"last_wal_segment\":\"killed-mid-flight\",\"last_snapshot_id\":null,\"trace_id\":\"d14499bf00854c39ac44f7958aa28908\",\"timestamp\":\"2026-07-28T07:54:13.477Z\",\"status\":\"failed\"}",
+    "receivedAt": "2026-07-28T07:54:13Z"
+  },
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "377"
+    },
+    "rawBody": "{\"job_name\":\"base_backup\",\"job_id\":\"base_backup\",\"reason\":\"failed\",\"failure_reason\":\"credential expired \u2014 R2 auth denied for job base_backup\",\"last_success_at\":\"2026-07-28 01:54:13.731488-06\",\"overdue_by_minutes\":0,\"last_wal_segment\":null,\"last_snapshot_id\":\"auth-denied\",\"trace_id\":\"45d1b6c449f04c4299128d4e56a2a422\",\"timestamp\":\"2026-07-28T07:54:14.245Z\",\"status\":\"failed\"}",
+    "receivedAt": "2026-07-28T07:54:14Z"
+  },
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "413"
+    },
+    "rawBody": "{\"job_name\":\"restic_blob_mirror\",\"job_id\":\"restic_blob_mirror\",\"reason\":\"overdue\",\"failure_reason\":\"overdue: config removed \u2014 backup config missing for job restic_blob_mirror\",\"last_success_at\":\"2026-07-28 01:38:14.697-06\",\"overdue_by_minutes\":16,\"last_wal_segment\":null,\"last_snapshot_id\":\"config-absent\",\"trace_id\":\"induce-config-removed-19fa7b7972b\",\"timestamp\":\"2026-07-28T07:54:14.904Z\",\"status\":\"success\"}",
+    "receivedAt": "2026-07-28T07:54:14Z"
+  },
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "397"
+    },
+    "rawBody": "{\"job_name\":\"wal_archive\",\"job_id\":\"wal_archive\",\"reason\":\"failed\",\"failure_reason\":\"killed / WAL behind \u2014 archive job wal_archive stopped updating heartbeat\",\"last_success_at\":\"2026-07-28 01:54:15.871-06\",\"overdue_by_minutes\":0,\"last_wal_segment\":\"killed-mid-flight\",\"last_snapshot_id\":null,\"trace_id\":\"a18b32a0e9d24b33b2706c00e193c931\",\"timestamp\":\"2026-07-28T07:54:16.983Z\",\"status\":\"failed\"}",
+    "receivedAt": "2026-07-28T07:54:17Z"
+  },
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "377"
+    },
+    "rawBody": "{\"job_name\":\"base_backup\",\"job_id\":\"base_backup\",\"reason\":\"failed\",\"failure_reason\":\"credential expired \u2014 R2 auth denied for job base_backup\",\"last_success_at\":\"2026-07-28 01:54:17.222364-06\",\"overdue_by_minutes\":0,\"last_wal_segment\":null,\"last_snapshot_id\":\"auth-denied\",\"trace_id\":\"6d23952d75ba465c9cd2a5f253f3e6b3\",\"timestamp\":\"2026-07-28T07:54:17.735Z\",\"status\":\"failed\"}",
+    "receivedAt": "2026-07-28T07:54:17Z"
+  },
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "413"
+    },
+    "rawBody": "{\"job_name\":\"restic_blob_mirror\",\"job_id\":\"restic_blob_mirror\",\"reason\":\"overdue\",\"failure_reason\":\"overdue: config removed \u2014 backup config missing for job restic_blob_mirror\",\"last_success_at\":\"2026-07-28 01:38:18.172-06\",\"overdue_by_minutes\":16,\"last_wal_segment\":null,\"last_snapshot_id\":\"config-absent\",\"trace_id\":\"induce-config-removed-19fa7b7a4bd\",\"timestamp\":\"2026-07-28T07:54:18.384Z\",\"status\":\"success\"}",
+    "receivedAt": "2026-07-28T07:54:18Z"
+  },
+  {
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Connection": "keep-alive",
+      "User-Agent": "Bun/1.3.14",
+      "Host": "127.0.0.1:64954",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Content-Length": "413"
+    },
+    "rawBody": "{\"job_name\":\"restic_blob_mirror\",\"job_id\":\"restic_blob_mirror\",\"reason\":\"overdue\",\"failure_reason\":\"overdue: config removed \u2014 backup config missing for job restic_blob_mirror\",\"last_success_at\":\"2026-07-28 01:38:20.741-06\",\"overdue_by_minutes\":16,\"last_wal_segment\":null,\"last_snapshot_id\":\"config-absent\",\"trace_id\":\"induce-config-removed-19fa7b7aec6\",\"timestamp\":\"2026-07-28T07:54:20.950Z\",\"status\":\"success\"}",
+    "receivedAt": "2026-07-28T07:54:20Z"
+  }
+]

@@ -1,0 +1,69 @@
+@@GATE-META step=10 cmd_sha=35337b19b699c9d1681e2762a86eccf485148b1ddd4edaac4db93bd1fdabf2ca@@
+CMD: set -euo pipefail; bash scripts/gate/s27-step10-production-sla.sh
+{
+  "alerted": 0,
+  "posts": [],
+  "healthy": 11,
+  "total": 11,
+  "webhookUrl": "http://127.0.0.1",
+  "overdueMs": 900000,
+  "errors": []
+}
+AC1_DEFAULT_OVERDUE_OK overdueMs=900000
+{
+  "ok": true,
+  "job_name": "restic_blob_mirror",
+  "mode": "config_removed",
+  "heartbeat": {
+    "job_name": "restic_blob_mirror",
+    "last_success_at": "2026-07-28 01:38:20.741-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "config-absent",
+    "object_count": 0,
+    "status": "success",
+    "trace_id": "induce-config-removed-19fa7b7aec6",
+    "updated_at": "2026-07-28 01:54:20.760103-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": false,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": true,
+    "config_path": "/Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf",
+    "config_exists_after": false,
+    "binary": null,
+    "failure_detail": "overdue: config removed — backup config missing for job restic_blob_mirror",
+    "restored": false,
+    "fault_output": "config renamed to /Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf.induced-removed",
+    "heartbeat_via_production_writer": false
+  }
+}
+{
+  "alerted": 1,
+  "posts": [
+    {
+      "job_name": "restic_blob_mirror",
+      "job_id": "restic_blob_mirror",
+      "reason": "overdue",
+      "failure_reason": "overdue: config removed — backup config missing for job restic_blob_mirror",
+      "last_success_at": "2026-07-28 01:38:20.741-06",
+      "overdue_by_minutes": 16,
+      "last_wal_segment": null,
+      "last_snapshot_id": "config-absent",
+      "trace_id": "induce-config-removed-19fa7b7aec6",
+      "timestamp": "2026-07-28T07:54:20.950Z",
+      "status": "success"
+    }
+  ],
+  "healthy": 10,
+  "total": 11,
+  "webhookUrl": "http://127.0.0.1",
+  "overdueMs": 900000,
+  "errors": []
+}
+HTTP_CAPTURE_OK file=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z/alerts-http-captures.json
+SLA_15MIN_DEFAULT_OVERDUE_OK overdue_ms:900000 env_unset=BACKUP_ALERT_OVERDUE_MS cadence_le_5min DEFAULT_OVERDUE=900000
+@@GATE-EXIT=0@@

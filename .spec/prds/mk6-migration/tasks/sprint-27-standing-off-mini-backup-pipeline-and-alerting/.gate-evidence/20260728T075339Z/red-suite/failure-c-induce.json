@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "job_name": "restic_blob_mirror",
+  "mode": "config_removed",
+  "heartbeat": {
+    "job_name": "restic_blob_mirror",
+    "last_success_at": "2026-07-28 01:38:18.172-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "config-absent",
+    "object_count": 0,
+    "status": "success",
+    "trace_id": "induce-config-removed-19fa7b7a4bd",
+    "updated_at": "2026-07-28 01:54:18.193962-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": false,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": true,
+    "config_path": "/Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf",
+    "config_exists_after": false,
+    "binary": null,
+    "failure_detail": "overdue: config removed — backup config missing for job restic_blob_mirror",
+    "restored": false,
+    "fault_output": "config renamed to /Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf.induced-removed",
+    "heartbeat_via_production_writer": false
+  }
+}

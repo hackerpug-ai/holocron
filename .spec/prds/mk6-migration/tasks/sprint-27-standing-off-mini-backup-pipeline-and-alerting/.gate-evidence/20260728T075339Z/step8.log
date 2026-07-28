@@ -1,0 +1,132 @@
+@@GATE-META step=8 cmd_sha=cd9cf34efef5084fb79b812f4a8dd7f18f4da4eea614a8be4091d741372f60a9@@
+CMD: set -euo pipefail; RUN_ID="${GATE_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"; SPRINT_DIR=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting; EVIDENCE="$SPRINT_DIR/.gate-evidence/$RUN_ID"; mkdir -p "$EVIDENCE/red-suite"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json | tee "$EVIDENCE/red-suite/healthy-reset.json" >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep --json | tee "$EVIDENCE/red-suite/healthy-silence-sweep.json"; jq -e '.alerted==0 and (.posts|length)==0' "$EVIDENCE/red-suite/healthy-silence-sweep.json" >/dev/null; jq '{postCount:(.posts|length), alerted:.alerted}' "$EVIDENCE/red-suite/healthy-silence-sweep.json" > "$EVIDENCE/red-suite/healthy-silence-posts.json"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive --json | tee "$EVIDENCE/red-suite/failure-a-induce.json"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee "$EVIDENCE/red-suite/failure-a-sweep.txt"; grep -qE 'post\[wal_archive\]: reason=(failed|overdue)' "$EVIDENCE/red-suite/failure-a-sweep.txt"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode credential-expired --job base_backup --json | tee "$EVIDENCE/red-suite/failure-b-induce.json"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee "$EVIDENCE/red-suite/failure-b-sweep.txt"; grep -qE 'post\[base_backup\]: reason=(failed|overdue)' "$EVIDENCE/red-suite/failure-b-sweep.txt"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json | tee "$EVIDENCE/red-suite/failure-c-induce.json"; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee "$EVIDENCE/red-suite/failure-c-sweep.txt"; grep -qE 'post\[restic_blob_mirror\]: reason=(failed|overdue)' "$EVIDENCE/red-suite/failure-c-sweep.txt"; CAP="$EVIDENCE/alerts-http-captures.json"; if [ -f "$CAP" ]; then   jq -e 'length>=1 and .[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' "$CAP" >/dev/null;   echo ALERT_HTTP_CAPTURES_OK; else   echo ALERT_HTTP_CAPTURES_SOFT_OK; fi; PRE_FIX="$SPRINT_DIR/.gate-evidence/20260728T024819Z/alerts-received.json"; if [ -f "$PRE_FIX" ]; then   if jq -e '.[0].method and .[0].url and .[0].headers and .[0].rawBody and .[0].receivedAt' "$PRE_FIX" >/dev/null 2>&1; then     echo 'REFUSE: pre-fix alerts-received.json must remain payload-only baseline'; exit 1;   fi;   echo PRE_FIX_PAYLOAD_ONLY_ORACLE_OK; fi; env -u BACKUP_ALERT_OVERDUE_MS bun services/platform/src/cli/holo.ts backup:healthy --all --json >/dev/null; echo D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK exit=0 evidence=$EVIDENCE
+{
+  "alerted": 0,
+  "posts": [],
+  "healthy": 11,
+  "total": 11,
+  "webhookUrl": "http://127.0.0.1",
+  "overdueMs": 900000,
+  "errors": []
+}
+{
+  "ok": true,
+  "job_name": "wal_archive",
+  "mode": "kill_wal_behind",
+  "heartbeat": {
+    "job_name": "wal_archive",
+    "last_success_at": "2026-07-28 01:54:15.871-06",
+    "last_wal_segment": "killed-mid-flight",
+    "last_snapshot_id": null,
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "a18b32a0e9d24b33b2706c00e193c931",
+    "updated_at": "2026-07-28 01:54:16.786815-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": true,
+    "pid_killed": 20888,
+    "production_catch": true,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "/opt/homebrew/bin/pgbackrest",
+    "failure_detail": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+    "restored": false,
+    "fault_output": "killed / WAL behind — archive job stopped updating heartbeat (pid=20888 signal=SIGKILL binary=/opt/homebrew/bin/pgbackrest)",
+    "heartbeat_via_production_writer": true
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[wal_archive]: reason=failed failure_reason=killed / WAL behind — archive job wal_archive stopped updating heartbeat overdue_by_minutes=0
+  overall:    OK
+{
+  "ok": true,
+  "job_name": "base_backup",
+  "mode": "credential_expired",
+  "heartbeat": {
+    "job_name": "base_backup",
+    "last_success_at": "2026-07-28 01:54:17.222364-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "auth-denied",
+    "object_count": 0,
+    "status": "failed",
+    "trace_id": "6d23952d75ba465c9cd2a5f253f3e6b3",
+    "updated_at": "2026-07-28 01:54:17.544483-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": true,
+    "exit_code": 0,
+    "real_auth_fault": true,
+    "config_removed": false,
+    "config_path": null,
+    "config_exists_after": true,
+    "binary": "pgbackrest",
+    "failure_detail": "credential expired — R2 auth denied for job base_backup",
+    "restored": false,
+    "fault_output": "\n[{\"archive\":[],\"backup\":[],\"cipher\":\"aes-256-cbc\",\"db\":[],\"name\":\"main\",\"repo\":[{\"cipher\":\"aes-256-cbc\",\"key\":1,\"status\":{\"code\":99,\"message\":\"[ProtocolError] HTTP request failed with 400 (Bad Request):\\n*** Path/Query ***:\\nGET /holocron-backup/?delimiter=%2F&list-type=2&prefix=pgbackrest%2Fbackup%2F\\n*** Request Headers ***:\\nauthorization: <redacted>\\ncontent-length: 0\\nhost: d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com\\nx-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\\nx-amz-date: <redacted>\\nx-amz-security-token: <redacted>\\n*** Response Headers ***:\\ncf-ray: a22250a3dd3496f5-SLC\\nconnection: keep-alive\\ncontent-length: 149\\ncontent-type: application/xml\\ndate: Tue, 28 Jul 2026 07:54:17 GMT\\nserver: cloudflare\\n*** Response Content *",
+    "heartbeat_via_production_writer": true
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[base_backup]: reason=failed failure_reason=credential expired — R2 auth denied for job base_backup overdue_by_minutes=0
+  overall:    OK
+{
+  "ok": true,
+  "job_name": "restic_blob_mirror",
+  "mode": "config_removed",
+  "heartbeat": {
+    "job_name": "restic_blob_mirror",
+    "last_success_at": "2026-07-28 01:38:18.172-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "config-absent",
+    "object_count": 0,
+    "status": "success",
+    "trace_id": "induce-config-removed-19fa7b7a4bd",
+    "updated_at": "2026-07-28 01:54:18.193962-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": false,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": true,
+    "config_path": "/Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf",
+    "config_exists_after": false,
+    "binary": null,
+    "failure_detail": "overdue: config removed — backup config missing for job restic_blob_mirror",
+    "restored": false,
+    "fault_output": "config renamed to /Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf.induced-removed",
+    "heartbeat_via_production_writer": false
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[restic_blob_mirror]: reason=overdue failure_reason=overdue: config removed — backup config missing for job restic_blob_mirror overdue_by_minutes=16
+  overall:    OK
+ALERT_HTTP_CAPTURES_OK
+PRE_FIX_PAYLOAD_ONLY_ORACLE_OK
+D04_01_RED_SUITE_GATE_OK ALERT_HTTP_CAPTURES_OK exit=0 evidence=.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T075339Z
+
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+@@GATE-EXIT=0@@

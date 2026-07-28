@@ -1,0 +1,43 @@
+@@GATE-META step=6 cmd_sha=1ba05c2a00489d04e249141d4e9a856dd6d518ceeec00c4d9aae8034c4981ccd@@
+CMD: set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-01 .tmp/redhat-fix-s27-04; bun services/platform/src/cli/holo.ts backup:healthy --all; bun services/platform/src/cli/holo.ts backup:induce-failure --mode config-removed --job restic_blob_mirror --json > .tmp/REDHAT-FIX-S27-01/induce-config.json; cat .tmp/REDHAT-FIX-S27-01/induce-config.json; jq -e '.ok==true and .induction.path=="production_truth" and .induction.config_removed==true and .induction.config_exists_after==false' .tmp/REDHAT-FIX-S27-01/induce-config.json >/dev/null; bun services/platform/src/cli/holo.ts backup:alert-sweep 2>&1 | tee .tmp/redhat-fix-s27-04/step6-config-sweep.txt; grep -E 'post\[restic_blob_mirror\]: reason=(failed|overdue) failure_reason=.*(config|overdue|removed)' .tmp/redhat-fix-s27-04/step6-config-sweep.txt; ! grep -E 'post\[wal_archive\]|post\[base_backup\]|post\[all-clear\]' .tmp/redhat-fix-s27-04/step6-config-sweep.txt
+holo backup:healthy scope=all status=success last_success_at=2026-07-28 01:54:14.499-06
+{
+  "ok": true,
+  "job_name": "restic_blob_mirror",
+  "mode": "config_removed",
+  "heartbeat": {
+    "job_name": "restic_blob_mirror",
+    "last_success_at": "2026-07-28 01:38:14.697-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "config-absent",
+    "object_count": 0,
+    "status": "success",
+    "trace_id": "induce-config-removed-19fa7b7972b",
+    "updated_at": "2026-07-28 01:54:14.716509-06"
+  },
+  "induction": {
+    "path": "production_truth",
+    "real_process_killed": false,
+    "pid_killed": null,
+    "production_catch": false,
+    "exit_code": null,
+    "real_auth_fault": false,
+    "config_removed": true,
+    "config_path": "/Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf",
+    "config_exists_after": false,
+    "binary": null,
+    "failure_detail": "overdue: config removed — backup config missing for job restic_blob_mirror",
+    "restored": false,
+    "fault_output": "config renamed to /Users/inference1/Projects/holocron/services/platform/config/restic/mirror.conf.induced-removed",
+    "heartbeat_via_production_writer": false
+  }
+}
+holo backup:alert-sweep
+  total:      11
+  healthy:    10
+  alerted:    1
+  overdue_ms: 900000
+  post[restic_blob_mirror]: reason=overdue failure_reason=overdue: config removed — backup config missing for job restic_blob_mirror overdue_by_minutes=16
+  overall:    OK
+  post[restic_blob_mirror]: reason=overdue failure_reason=overdue: config removed — backup config missing for job restic_blob_mirror overdue_by_minutes=16
+@@GATE-EXIT=0@@

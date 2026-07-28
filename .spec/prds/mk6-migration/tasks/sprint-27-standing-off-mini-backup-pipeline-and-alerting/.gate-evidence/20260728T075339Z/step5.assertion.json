@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "post\\[base_backup\\]: reason=(failed|overdue) failure_reason=.*(credential|expired|auth)"
+}
