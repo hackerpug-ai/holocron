@@ -1086,15 +1086,30 @@ export type AlertLaunchdInstallResult = {
   domain: string;
   intervalSeconds: number;
   bootstrapped: boolean;
+  /** Alias of bootstrapped for CLI/gate consumers that check loaded:true. */
+  loaded: boolean;
+  /** True when ALERT_WEBHOOK_URL was resolved and wired into the installed plist. Never holds the raw URL. */
+  webhookConfigured: boolean;
   messages: string[];
 };
 
-/** Render absolute-path launchd plist for the alert sweep. */
+/** Escape XML text for plist <string> values (URLs may contain &). Never log secrets. */
+function escapePlistXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Render absolute-path launchd plist for the alert sweep (operator-runnable). */
 export function renderAlertSweepPlist(options: {
   home: string;
   holoRoot: string;
   bunBin: string;
   databaseUrl: string;
+  /** Resolved at install time from env/secrets — standing daemon cannot rely on interactive shell alone. */
+  alertWebhookUrl: string;
   intervalSeconds: number;
 }): string {
   const bunDir = dirname(options.bunBin);
@@ -1103,13 +1118,21 @@ export function renderAlertSweepPlist(options: {
     Math.max(30, Math.trunc(options.intervalSeconds)),
     ALERT_SWEEP_DEFAULT_INTERVAL_SECONDS
   );
+  const home = escapePlistXml(options.home);
+  const holoRoot = escapePlistXml(options.holoRoot);
+  const bunBin = escapePlistXml(options.bunBin);
+  const bunDirEsc = escapePlistXml(bunDir);
+  const databaseUrl = escapePlistXml(options.databaseUrl);
+  const alertWebhookUrl = escapePlistXml(options.alertWebhookUrl);
+  const logDirEsc = escapePlistXml(logDir);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   holocron-backup-alert-sweep — D04-05 backup overdue/failed alert dispatcher
   Runs: bun holo.ts backup:alert-sweep --json
   StartInterval=${interval}s (≤5m so alerts land inside the 15 min SLA).
-  ALERT_WEBHOOK_URL resolves from env > secrets.yaml (never embedded in plist).
+  ALERT_WEBHOOK_URL expanded at install time from env > secrets (standing daemon env).
+  Portable deploy template keeps @ALERT_WEBHOOK_URL@ — never commit live tokens.
 -->
 <plist version="1.0">
 <dict>
@@ -1117,23 +1140,25 @@ export function renderAlertSweepPlist(options: {
 	<string>${ALERT_SWEEP_LAUNCHD_LABEL}</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>${options.bunBin}</string>
-		<string>${options.holoRoot}/services/platform/src/cli/holo.ts</string>
+		<string>${bunBin}</string>
+		<string>${holoRoot}/services/platform/src/cli/holo.ts</string>
 		<string>backup:alert-sweep</string>
 		<string>--json</string>
 	</array>
 	<key>WorkingDirectory</key>
-	<string>${options.holoRoot}</string>
+	<string>${holoRoot}</string>
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>HOME</key>
-		<string>${options.home}</string>
+		<string>${home}</string>
 		<key>PATH</key>
-		<string>${bunDir}:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>${bunDirEsc}:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 		<key>HOLO_ROOT</key>
-		<string>${options.holoRoot}</string>
+		<string>${holoRoot}</string>
 		<key>DATABASE_URL</key>
-		<string>${options.databaseUrl}</string>
+		<string>${databaseUrl}</string>
+		<key>ALERT_WEBHOOK_URL</key>
+		<string>${alertWebhookUrl}</string>
 	</dict>
 	<key>RunAtLoad</key>
 	<false/>
@@ -1144,17 +1169,40 @@ export function renderAlertSweepPlist(options: {
 	<key>ProcessType</key>
 	<string>Background</string>
 	<key>StandardOutPath</key>
-	<string>${logDir}/backup-alert-sweep.out.log</string>
+	<string>${logDirEsc}/backup-alert-sweep.out.log</string>
 	<key>StandardErrorPath</key>
-	<string>${logDir}/backup-alert-sweep.err.log</string>
+	<string>${logDirEsc}/backup-alert-sweep.err.log</string>
 </dict>
 </plist>
 `;
 }
 
+function emptyInstallResult(
+  partial: Omit<AlertLaunchdInstallResult, 'ok' | 'label' | 'loaded' | 'webhookConfigured'> & {
+    ok?: boolean;
+    webhookConfigured?: boolean;
+  }
+): AlertLaunchdInstallResult {
+  const bootstrapped = partial.bootstrapped;
+  return {
+    ok: partial.ok ?? false,
+    label: ALERT_SWEEP_LAUNCHD_LABEL,
+    plistPath: partial.plistPath,
+    domain: partial.domain,
+    intervalSeconds: partial.intervalSeconds,
+    bootstrapped,
+    loaded: bootstrapped,
+    webhookConfigured: partial.webhookConfigured ?? false,
+    messages: partial.messages,
+  };
+}
+
 /**
  * Install + optionally bootstrap the launchd alert-sweep schedule (≤5 min).
  * Also writes the portable template under deploy/launchd for version control.
+ *
+ * Fail-closed when ALERT_WEBHOOK_URL cannot be resolved — a mute standing daemon
+ * is not production-ready (REDHAT-FIX-S27-10 / CAP-BAK-01).
  */
 export function installAlertSweepLaunchd(options?: {
   env?: NodeJS.ProcessEnv;
@@ -1162,6 +1210,10 @@ export function installAlertSweepLaunchd(options?: {
   holoRoot?: string;
   launchAgentsDir?: string;
   bootstrap?: boolean;
+  /** Override secrets file for resolveAlertWebhookUrl (tests). */
+  secretsPath?: string;
+  /** When false, skip rewriting deploy/launchd portable template. Default true. */
+  writeTemplate?: boolean;
 }): AlertLaunchdInstallResult {
   const env = options?.env ?? process.env;
   const home = env.HOME ?? homedir();
@@ -1175,6 +1227,25 @@ export function installAlertSweepLaunchd(options?: {
   const uid = process.getuid?.() ?? 501;
   const domain = `gui/${uid}`;
   const messages: string[] = [];
+  const plistPath = resolve(launchAgentsDir, `${ALERT_SWEEP_LAUNCHD_LABEL}.plist`);
+
+  const alertWebhookUrl = resolveAlertWebhookUrl({
+    env,
+    secretsPath: options?.secretsPath,
+  });
+  if (!alertWebhookUrl || alertWebhookUrl.length < 8) {
+    return emptyInstallResult({
+      ok: false,
+      plistPath,
+      domain,
+      intervalSeconds,
+      bootstrapped: false,
+      webhookConfigured: false,
+      messages: [
+        'ALERT_WEBHOOK_URL required — set env or secrets.yaml (min length 8); refusing mute daemon install',
+      ],
+    });
+  }
 
   const bunBin =
     env.BUN_BIN?.trim() ||
@@ -1187,20 +1258,22 @@ export function installAlertSweepLaunchd(options?: {
     holoRoot,
     bunBin,
     databaseUrl,
+    alertWebhookUrl,
     intervalSeconds,
   });
 
-  const templateDir = resolve(holoRoot, 'services/platform/deploy/launchd');
-  mkdirSync(templateDir, { recursive: true });
-  const templatePath = resolve(templateDir, `${ALERT_SWEEP_LAUNCHD_LABEL}.plist`);
-  const portable = `<?xml version="1.0" encoding="UTF-8"?>
+  if (options?.writeTemplate !== false) {
+    const templateDir = resolve(holoRoot, 'services/platform/deploy/launchd');
+    mkdirSync(templateDir, { recursive: true });
+    const templatePath = resolve(templateDir, `${ALERT_SWEEP_LAUNCHD_LABEL}.plist`);
+    const portable = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   holocron-backup-alert-sweep — D04-05 backup overdue/failed alert dispatcher
   Runs: bun holo.ts backup:alert-sweep --json
   StartInterval=${intervalSeconds}s (≤5m so alerts land inside the 15 min SLA).
-  ALERT_WEBHOOK_URL from env > secrets.yaml — never embedded.
-  Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@
+  ALERT_WEBHOOK_URL expanded at install time from env > secrets — never commit live tokens.
+  Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@ @ALERT_WEBHOOK_URL@
 -->
 <plist version="1.0">
 <dict>
@@ -1225,6 +1298,8 @@ export function installAlertSweepLaunchd(options?: {
 		<string>@HOLO_ROOT@</string>
 		<key>DATABASE_URL</key>
 		<string>@DATABASE_URL@</string>
+		<key>ALERT_WEBHOOK_URL</key>
+		<string>@ALERT_WEBHOOK_URL@</string>
 	</dict>
 	<key>RunAtLoad</key>
 	<false/>
@@ -1241,26 +1316,27 @@ export function installAlertSweepLaunchd(options?: {
 </dict>
 </plist>
 `;
-  writeFileSync(templatePath, portable, 'utf8');
-  messages.push(`wrote template ${templatePath}`);
+    writeFileSync(templatePath, portable, 'utf8');
+    messages.push(`wrote template ${templatePath}`);
+  }
 
   mkdirSync(launchAgentsDir, { recursive: true });
   mkdirSync(resolve(home, 'Library/Logs/holocron'), { recursive: true });
-  const plistPath = resolve(launchAgentsDir, `${ALERT_SWEEP_LAUNCHD_LABEL}.plist`);
   writeFileSync(plistPath, body, 'utf8');
   messages.push(`installed ${plistPath}`);
+  messages.push('wired EnvironmentVariables.ALERT_WEBHOOK_URL (value redacted)');
 
   const lint = run('/usr/bin/plutil', ['-lint', plistPath], { env });
   if (lint.status !== 0) {
-    return {
+    return emptyInstallResult({
       ok: false,
-      label: ALERT_SWEEP_LAUNCHD_LABEL,
       plistPath,
       domain,
       intervalSeconds,
       bootstrapped: false,
+      webhookConfigured: true,
       messages: [...messages, `plutil lint failed: ${lint.stderr || lint.stdout}`],
-    };
+    });
   }
 
   let bootstrapped = false;
@@ -1273,15 +1349,15 @@ export function installAlertSweepLaunchd(options?: {
         messages.push(
           `bootstrap failed: ${(boot.stderr || load.stderr || boot.stdout).slice(0, 300)}`
         );
-        return {
+        return emptyInstallResult({
           ok: false,
-          label: ALERT_SWEEP_LAUNCHD_LABEL,
           plistPath,
           domain,
           intervalSeconds,
           bootstrapped: false,
+          webhookConfigured: true,
           messages,
-        };
+        });
       }
       messages.push(`loaded ${ALERT_SWEEP_LAUNCHD_LABEL}`);
     } else {
@@ -1290,15 +1366,15 @@ export function installAlertSweepLaunchd(options?: {
     bootstrapped = true;
   }
 
-  return {
+  return emptyInstallResult({
     ok: true,
-    label: ALERT_SWEEP_LAUNCHD_LABEL,
     plistPath,
     domain,
     intervalSeconds,
     bootstrapped,
+    webhookConfigured: true,
     messages,
-  };
+  });
 }
 
 export function formatAlertLaunchdInstallText(result: AlertLaunchdInstallResult): string {
@@ -1308,7 +1384,8 @@ export function formatAlertLaunchdInstallText(result: AlertLaunchdInstallResult)
     `  plist:     ${result.plistPath}`,
     `  domain:    ${result.domain}`,
     `  interval:  ${result.intervalSeconds}s (≤300s D04-05 cadence)`,
-    `  loaded:    ${result.bootstrapped}`,
+    `  loaded:    ${result.loaded || result.bootstrapped}`,
+    `  webhook:   ${result.webhookConfigured ? 'configured (env wired)' : 'MISSING — not production-ready'}`,
     ...result.messages.map((m) => `  - ${m}`),
     `  overall:   ${result.ok ? 'OK' : 'FAILED'}`,
   ].join('\n');

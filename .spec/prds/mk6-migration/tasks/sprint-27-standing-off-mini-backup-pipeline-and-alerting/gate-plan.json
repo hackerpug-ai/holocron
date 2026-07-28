@@ -5,7 +5,7 @@
     "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
   },
   "planned_at": "20260728T024819Z",
-  "planned_steps": 7,
+  "planned_steps": 8,
   "steps": [
     {
       "n": 1,
@@ -90,6 +90,18 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "expect_log_regex": "D04_01_RED_SUITE_GATE_OK|Tests.*passed|[1-9][0-9]* passed"
+      }
+    },
+    {
+      "n": 8,
+      "text": "Install and verify holocron-backup-alert-sweep launchd schedule (≤5min cadence) with ALERT_WEBHOOK_URL wired into the standing daemon env — standing alerts without dashboard polling (REDHAT-FIX-S27-10 / F-10).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S27-10; bun services/platform/src/cli/holo.ts backup:alert-sweep --install-schedule --json | tee .tmp/REDHAT-FIX-S27-10/install-schedule.json; jq -e '.ok==true and (.bootstrapped==true or .loaded==true) and .webhookConfigured==true and .intervalSeconds <= 300' .tmp/REDHAT-FIX-S27-10/install-schedule.json >/dev/null; launchctl print \"gui/$(id -u)/holocron-backup-alert-sweep\" | tee .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; ! grep -qi 'Could not find service' .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; grep -q holocron-backup-alert-sweep .tmp/REDHAT-FIX-S27-10/launchctl-print.txt; plutil -lint \"$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist\"; plutil -p \"$HOME/Library/LaunchAgents/holocron-backup-alert-sweep.plist\" | tee .tmp/REDHAT-FIX-S27-10/plist.txt; grep -q ALERT_WEBHOOK_URL .tmp/REDHAT-FIX-S27-10/plist.txt; grep -q backup:alert-sweep .tmp/REDHAT-FIX-S27-10/plist.txt; ! grep -q '\"ALERT_WEBHOOK_URL\" => \"\"' .tmp/REDHAT-FIX-S27-10/plist.txt; bun services/platform/src/cli/holo.ts backup:status 2>&1 | tee .tmp/REDHAT-FIX-S27-10/backup-status.txt || true; ! grep -qE 'alert_schedule:[[:space:]]+not installed' .tmp/REDHAT-FIX-S27-10/backup-status.txt; echo ALERT_SWEEP_SCHEDULE_INSTALLED_OK",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "expect_log_regex": "ALERT_SWEEP_SCHEDULE_INSTALLED_OK|holocron-backup-alert-sweep|\"ok\":\\s*true|loaded:\\s+true"
       }
     }
   ]
