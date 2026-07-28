@@ -1,0 +1,14 @@
+@@GATE-META step=2 cmd_sha=a339acfdc542720f6f6a643a736530b9c87fb98e85c68504e620eae6750ce3d1@@
+CMD: bun services/platform/src/cli/holo.ts backup:base --type full
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+holo backup:base — pgBackRest base backup
+  status:         success
+  type:           full
+  exit:           0
+  snapshot_id:    20260727-204823F
+  r2_objects:     51
+  manifest:       present
+  heartbeat:      success last_success_at=2026-07-27 20:48:35.403-06
+  span:           backup:base_backup trace_id=e4e49f3c576c4df187c492d847972839
+  overall:        OK
+@@GATE-EXIT=0@@

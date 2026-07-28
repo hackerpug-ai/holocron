@@ -1,0 +1,77 @@
+{
+  "sprint": "sprint-27-standing-off-mini-backup-pipeline-and-alerting",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting",
+    "sprint_slug": "sprint-27-standing-off-mini-backup-pipeline-and-alerting"
+  },
+  "run_id": "2026-07-28T02:48:50Z",
+  "verdict": "pass",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "ui_driver": "none",
+  "exec_surface": "agent-shell-terminal",
+  "runner": "exec-shell",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run a live Postgres write burst \u2014 WAL archives to R2 continuously, zero continuity gaps.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step1.log",
+      "duration_ms": 1
+    },
+    {
+      "n": 2,
+      "text": "Run the scheduled base-backup job \u2014 full backup lands in the R2 bucket, verified by manifest.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step2.log",
+      "duration_ms": 1
+    },
+    {
+      "n": 3,
+      "text": "Run the restic blob-mirror job \u2014 every local/remote object SHA-256 matches.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step3.log",
+      "duration_ms": 1
+    },
+    {
+      "n": 4,
+      "text": "Kill the backup job mid-archive \u2014 alert fires within 15 minutes, no dashboard-polling needed.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step4.log",
+      "duration_ms": 1
+    },
+    {
+      "n": 5,
+      "text": "Let the bucket credential expire in a test fixture \u2014 alert fires, not a silent failure.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step5.log",
+      "duration_ms": 1
+    },
+    {
+      "n": 6,
+      "text": "Remove the backup config entirely \u2014 the alert still fires as overdue, never a false-healthy state.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit=0",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/step6.log",
+      "duration_ms": 1
+    }
+  ]
+}

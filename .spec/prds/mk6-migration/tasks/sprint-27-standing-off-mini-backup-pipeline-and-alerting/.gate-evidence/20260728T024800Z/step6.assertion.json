@@ -1,0 +1,5 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "expect_log_regex": "config removed|reason=overdue|alerted:\\s+[1-9]"
+}

@@ -1,0 +1,28 @@
+@@GATE-META step=1 cmd_sha=6822fb6564030e002392751e441c25bc5b4c256c185bf5a16186d803a19492dc@@
+CMD: out=$(bun services/platform/src/cli/holo.ts backup:status 2>&1 || true); printf "%s
+" "$out"; printf "%s
+" "$out" | grep -q "archive_mode:    always" && printf "%s
+" "$out" | grep -q "pgbackrest archive-push" && printf "%s
+" "$out" | grep -q "failed=0" && printf "%s
+" "$out" | grep -qE "r2_wal_objects:[[:space:]]+[1-9]"
+" "$out"; printf "%s
+" "$out" | grep -q "archive_mode:    always" && printf "%s
+" "$out" | grep -q "pgbackrest archive-push" && printf "%s
+" "$out" | grep -q "failed=0" && printf "%s
+" "$out" | grep -qE "r2_wal_objects:[[:space:]]+[1-9]"
+holo backup:status — heartbeat health
+  all-clear: last_success_at=2026-07-27 20:44:34.910377-06 status=success OVERDUE overdue_by_minutes=3
+  base_backup: last_success_at=2026-07-27 20:47:35.193-06 status=success OVERDUE overdue_by_minutes=1
+  restic_blob_mirror: last_success_at=2026-07-27 20:47:46.779-06 status=success OVERDUE overdue_by_minutes=1
+  wal_archive: last_success_at=2026-07-27 20:45:30.011-06 status=failed FAILED overdue_by_minutes=2
+  wal_archive-healthy: last_success_at=2026-07-27 20:44:34.915-06 status=success OVERDUE overdue_by_minutes=3
+  overall: FAILED (5 overdue/failed)
+  archive_mode:    always
+  archive_command: pgbackrest archive-push
+  archiver:        last=00000001000000040000000B failed=0 count=51
+  r2_wal_objects:  50
+  r2_backup_objs:  49
+  wal_schedule:    installed interval=300s loaded=true
+  base_schedule:   installed interval=21600s loaded=true
+  alert_schedule:  not installed
+@@GATE-EXIT=0@@

@@ -1,7 +1,7 @@
 ---
 sequence: 27
 timeline: Phase 6 — Standing Backup and Disaster Recovery
-status: In Progress
+status: Completed
 planned_from_roadmap_sha: 68052e642fdd86c4e8df21b9b5c46479ca623cd0297881d47e3dace46a6a0fa5
 planned_from_source_sha: cb4e9183ecb1535d24d25e8a77d51c0929f1e712
 source_kind: git-head
@@ -12,8 +12,9 @@ planned_at: 2026-07-24T23:22:56Z
 
 **Sequence:** 27
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
-**Status:** In Progress
-> Progress: 0/6 tasks completed · updated 2026-07-28T01:21:25Z
+**Status:** Completed
+> Progress: 1/7 tasks completed · updated 2026-07-28T02:50:42Z
+> Status-Note: goal met — CAP-BAK-01 pipeline + alerts
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-27`)
 **Branch:** `mk6-backup`

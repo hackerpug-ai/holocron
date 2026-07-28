@@ -1,0 +1,17 @@
+@@GATE-META step=1 cmd_sha=cf5b6d640f1268430c68ab5ae3a3d2eaa71b646b1d0a510eac02ae0827672085@@
+CMD: bun services/platform/src/cli/holo.ts backup:wal
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+holo backup:wal — continuous WAL archive cycle
+  status:          failed
+  archive_mode:    always
+  archive_command: pgbackrest archive-push (ok)
+  last_wal:        000000010000000400000003
+  archiver:        39 → 40 (failed 0 → 0)
+  r2_wal_objects:  58 → 59
+  continuity:      GAPS 0000000100000003000000FF->000000010000000400000000 (blocks success/last_success_at)
+  heartbeat:       failed last_success_at=2026-07-27 20:28:37.317-06
+  span:            backup:wal_archive trace_id=6ae8539663f14f16b185d9ac4093562a
+  errors:
+    - WAL continuity gaps: 0000000100000003000000FF->000000010000000400000000
+  overall:         FAILED
+@@GATE-EXIT=1@@

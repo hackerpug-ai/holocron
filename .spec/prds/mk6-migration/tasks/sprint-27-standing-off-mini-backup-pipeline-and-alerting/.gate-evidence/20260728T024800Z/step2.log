@@ -1,0 +1,14 @@
+@@GATE-META step=2 cmd_sha=cc55e4688fb131f939fb39085c288f57bd8ff80a97fa3f08100a06c93b1aa6c4@@
+CMD: "${HOLO[@]}" backup:base --type full
+holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.
+holo backup:base — pgBackRest base backup
+  status:         success
+  type:           full
+  exit:           0
+  snapshot_id:    20260727-204609F
+  r2_objects:     37
+  manifest:       present
+  heartbeat:      success last_success_at=2026-07-27 20:46:18.778-06
+  span:           backup:base_backup trace_id=7cfe2ddaf1384979bf82aef968592529
+  overall:        OK
+@@GATE-EXIT=0@@

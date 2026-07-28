@@ -1,0 +1,4 @@
+@@GATE-META step=4 cmd_sha=50633c541ae8f919ec1ba0df243d4b8130e25c265e6abab6493f2d796a6d8b1d@@
+CMD: bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill_wal_behind && bun services/platform/src/cli/holo.ts backup:alert-sweep
+error: backup:induce-failure requires --mode kill|credential-expired|config-removed and --job <name>
+@@GATE-EXIT=2@@

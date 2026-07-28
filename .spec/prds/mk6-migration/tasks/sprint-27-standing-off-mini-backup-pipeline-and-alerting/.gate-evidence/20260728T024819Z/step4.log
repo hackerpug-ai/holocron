@@ -1,0 +1,15 @@
+@@GATE-META step=4 cmd_sha=06ed78898617cc5b5f0a3961e0ed5d34403057b7afcceb835f5f66f793f17dc7@@
+CMD: bun services/platform/src/cli/holo.ts backup:induce-failure --mode kill --job wal_archive && bun services/platform/src/cli/holo.ts backup:alert-sweep
+holo backup:induce-failure mode=kill_wal_behind job=wal_archive status=failed last_success_at=2026-07-27 20:47:45.973-06
+holo backup:alert-sweep
+  total:      5
+  healthy:    0
+  alerted:    5
+  overdue_ms: 500
+  post[all-clear]: reason=overdue failure_reason=overdue: last_success_at age 4m exceeds threshold overdue_by_minutes=4
+  post[base_backup]: reason=overdue failure_reason=credential expired — R2 auth denied for job base_backup overdue_by_minutes=1
+  post[restic_blob_mirror]: reason=overdue failure_reason=overdue: config removed — backup config missing for job restic_blob_mirror overdue_by_minutes=1
+  post[wal_archive]: reason=failed failure_reason=killed / WAL behind — archive job wal_archive stopped updating heartbeat overdue_by_minutes=1
+  post[wal_archive-healthy]: reason=overdue failure_reason=overdue: last_success_at age 4m exceeds threshold overdue_by_minutes=4
+  overall:    OK
+@@GATE-EXIT=0@@

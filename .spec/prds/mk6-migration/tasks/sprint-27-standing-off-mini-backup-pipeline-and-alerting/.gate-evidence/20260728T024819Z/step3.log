@@ -1,0 +1,20 @@
+@@GATE-META step=3 cmd_sha=7f93a72ada86382b0567a6ab24cca9c6480a48ecae7d906757b7d2770b97d38b@@
+CMD: bun services/platform/src/cli/holo.ts backup:mirror
+holo backup:mirror — restic blob mirror + SHA-256 parity (D04-04)
+  ok:              true
+  bucket:          holocron-backup
+  restic_prefix:   restic (pgbackrest=pgbackrest, separate=true)
+  repository:      s3:https://d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com/holocron-backup/restic
+  encrypted:       true (plaintext=false)
+  blob_root:       /Users/inference1/Projects/holocron/.tmp/holocron-blobs
+  backup_exit:     0
+  check_exit:      0 (restic check --read-data)
+  snapshots:       5
+  snapshot_id:     4010e55a2bf0b6ee5fef69457cbe062f5f97273329293e06b42d8f5946b4b2d7
+  object_count:    11
+  parity:          PASS (local=11 remote=11)
+  heartbeat:       upserted
+  span:            backup:restic_blob_mirror trace_id=43dc87081ac9a1a3…
+  RESTIC_PASSWORD: in secrets store
+  duration_ms:     10193
+@@GATE-EXIT=0@@
