@@ -29,6 +29,7 @@
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
  * Sprint 24 DEPENDENCY-S24: seed:e2e --reset | verify:no-convex-client | zero_cache boot
  * Sprint 27 D04-02: backup:provision — encrypted R2 + scoped creds + pgBackRest repo
+ * Sprint 27 D04-04: backup:mirror | backup:status — restic blob mirror + SHA-256 parity
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -224,6 +225,8 @@ Usage:
   secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
   secrets:doctor            Alias for secrets doctor
   backup:provision          D04-02: encrypted R2 bucket + scoped creds + pgBackRest stanza-create
+  backup:mirror             D04-04: restic blob mirror to R2 + check --read-data + SHA-256 parity
+  backup:status             D04-04: show backup_heartbeat rows (restic_blob_mirror / wal / base)
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
@@ -1848,6 +1851,115 @@ async function main(): Promise<void> {
           console.error(`holo backup:provision failed: ${msg}`);
         }
         process.exit(1);
+      }
+      break;
+    }
+    case 'backup:mirror': {
+      // D04-04: restic blob mirror → R2 (encrypted separate prefix) + check --read-data + SHA-256 parity
+      // Heartbeat restic_blob_mirror is upserted ONLY after parity passes.
+      const { runResticBlobMirror, formatMirrorText } = await import('../backup/restic-mirror.ts');
+      try {
+        const result = await runResticBlobMirror({
+          blobRoot: process.env.HOLO_BLOB_ROOT,
+          spanEvidencePath: resolve(
+            process.env.HOLO_ROOT ?? process.cwd(),
+            '.tmp/D04-04/span-backup-restic_blob_mirror.json'
+          ),
+        });
+        if (args.json) {
+          // Never include RESTIC_PASSWORD or R2 secrets in JSON
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                jobName: result.jobName,
+                spanName: result.spanName,
+                repository: result.repository,
+                resticPrefix: result.resticPrefix,
+                bucketName: result.bucketName,
+                blobRoot: result.blobRoot,
+                encrypted: result.encrypted,
+                plaintextRepo: result.plaintextRepo,
+                separatePrefixFromPgbackrest: result.separatePrefixFromPgbackrest,
+                pgbackrestPrefix: result.pgbackrestPrefix,
+                initExit: result.initExit,
+                backupExit: result.backupExit,
+                checkExit: result.checkExit,
+                snapshotId: result.snapshotId,
+                snapshotsCount: result.snapshotsCount,
+                objectCount: result.objectCount,
+                parity: result.parity,
+                parityPassed: result.parityPassed,
+                heartbeatUpdated: result.heartbeatUpdated,
+                heartbeat: result.heartbeat
+                  ? {
+                      job_name: result.heartbeat.job_name,
+                      last_success_at: result.heartbeat.last_success_at,
+                      last_snapshot_id: result.heartbeat.last_snapshot_id,
+                      object_count: result.heartbeat.object_count,
+                      status: result.heartbeat.status,
+                      trace_id: result.heartbeat.trace_id,
+                    }
+                  : null,
+                span: result.span
+                  ? {
+                      name: result.span.name,
+                      traceId: result.span.traceId,
+                      spanId: result.span.spanId,
+                      status: result.span.status,
+                      snapshotId: result.span.snapshotId,
+                      objectCount: result.span.objectCount,
+                      attributes: result.span.attributes,
+                    }
+                  : null,
+                resticPasswordInSecrets: result.resticPasswordInSecrets,
+                errors: result.errors,
+                durationMs: result.durationMs,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatMirrorText(result));
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:mirror failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'backup:status': {
+      // D04-04 / D04-03 shared substrate: read backup_heartbeat rows
+      const { listBackupHeartbeats, formatBackupStatusText, ensureBackupHeartbeatTable } =
+        await import('../backup/restic-mirror.ts');
+      const { createSql } = await import('../db/client.ts');
+      const sql = createSql();
+      try {
+        await ensureBackupHeartbeatTable(sql);
+        const rows = await listBackupHeartbeats(sql);
+        if (args.json) {
+          console.log(JSON.stringify({ ok: true, rows }, null, 2));
+        } else {
+          console.log(formatBackupStatusText(rows));
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:status failed: ${msg}`);
+        }
+        process.exit(1);
+      } finally {
+        await sql.end({ timeout: 5 });
       }
       break;
     }

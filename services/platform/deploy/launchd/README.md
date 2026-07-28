@@ -8,6 +8,7 @@ Four LaunchAgent definitions for the MK-VI headless stack:
 | `holocron-mastra` | Mastra via `bun …/holo.ts service:up` | yes | true |
 | `holocron-scheduler` | Leased-queue worker (`scheduler-worker.ts`, pg-boss preferred) | **no** (Disabled until operator enables) | false |
 | `holocron-zerocache` | Zero-cache / `zero_pub` consumer | **no** (opt-in: `HOLO_ENABLE_ZERO_CACHE=1`) | false |
+| `holocron-restic-blob-mirror` | D04-04 restic blob mirror + SHA-256 parity (`holo backup:mirror`) | **no** (Disabled until operator enables) | false (StartInterval 6h) |
 
 Templates live in this directory with `@PLACEHOLDER@` tokens. Installed agents
 go to `~/Library/LaunchAgents/holocron-*.plist` with absolute paths only
@@ -72,6 +73,7 @@ launchctl bootout "gui/${UID_NUM}/holocron-mastra"
 ~/Library/Logs/holocron/mastra.{out,err}.log
 ~/Library/Logs/holocron/scheduler.{out,err}.log
 ~/Library/Logs/holocron/zerocache.{out,err}.log
+~/Library/Logs/holocron/restic-blob-mirror.{out,err}.log
 ```
 
 ## Verify

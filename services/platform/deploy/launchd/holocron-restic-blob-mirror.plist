@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-restic-blob-mirror — scheduled restic blob mirror (D04-04 / CAP-BAK-01)
+
+  Runs `holo backup:mirror` on a fixed interval:
+    restic backup → restic check --read-data → SHA-256 local↔remote parity →
+    upsert backup_heartbeat restic_blob_mirror (ONLY after parity) + OTel span.
+
+  Secrets (RESTIC_PASSWORD, R2_*) resolve from env > secrets.yaml via the CLI
+  (applyConsolidatedSecrets path). NEVER put RESTIC_PASSWORD in this plist.
+
+  Install (operator):
+    scripts/install-launchd.sh   # or launchctl bootstrap with substituted paths
+  Disabled=true until operators bootstrap the unit.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>holocron-restic-blob-mirror</string>
+	<key>Disabled</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@BUN_BIN@</string>
+		<string>@HOLO_ROOT@/services/platform/src/cli/holo.ts</string>
+		<string>backup:mirror</string>
+		<string>--json</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>@HOLO_ROOT@</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>@HOME@</string>
+		<key>PATH</key>
+		<string>@BUN_DIR@:@PG_BIN@:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOLO_ROOT</key>
+		<string>@HOLO_ROOT@</string>
+		<key>DATABASE_URL</key>
+		<string>@DATABASE_URL@</string>
+		<!-- RESTIC_PASSWORD / R2_* deliberately omitted — loaded from secrets.yaml -->
+	</dict>
+	<!-- Every 6 hours; StartInterval is seconds -->
+	<key>StartInterval</key>
+	<integer>21600</integer>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ThrottleInterval</key>
+	<integer>60</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>StandardOutPath</key>
+	<string>@HOME@/Library/Logs/holocron/restic-blob-mirror.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/Library/Logs/holocron/restic-blob-mirror.err.log</string>
+</dict>
+</plist>
