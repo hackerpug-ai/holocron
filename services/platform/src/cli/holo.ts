@@ -29,6 +29,7 @@
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
  * Sprint 24 DEPENDENCY-S24: seed:e2e --reset | verify:no-convex-client | zero_cache boot
  * Sprint 27 D04-02: backup:provision — encrypted R2 + scoped creds + pgBackRest repo
+ * Sprint 27 D04-03: backup:wal | backup:base | backup:status — WAL archive + base backups
  * Sprint 27 D04-04: backup:mirror | backup:status — restic blob mirror + SHA-256 parity
  */
 import { readFileSync } from 'node:fs';
@@ -189,6 +190,10 @@ interface CliArgs {
   roots: string | null;
   /** verify:no-convex-client --print-roots */
   printRoots: boolean;
+  /** backup:base --type full|incr|diff */
+  backupType: string | null;
+  /** backup:base --install-schedule */
+  installSchedule: boolean;
 }
 
 function printHelp(): void {
@@ -225,8 +230,12 @@ Usage:
   secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
   secrets:doctor            Alias for secrets doctor
   backup:provision          D04-02: encrypted R2 bucket + scoped creds + pgBackRest stanza-create
+  backup:wal                D04-03: ensure archive_mode=always + run WAL archive cycle (R2 + heartbeat)
+                            [--install-schedule]
+  backup:base               D04-03: pgBackRest full/incr base backup to R2 + heartbeat
+                            [--type full|incr] [--install-schedule]
   backup:mirror             D04-04: restic blob mirror to R2 + check --read-data + SHA-256 parity
-  backup:status             D04-04: show backup_heartbeat rows (restic_blob_mirror / wal / base)
+  backup:status             D04-03/D04-04: archive_mode/command + heartbeats + R2 object counts
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
@@ -490,6 +499,8 @@ function parseArgs(argv: string[]): CliArgs {
     reset: false,
     roots: null,
     printRoots: false,
+    backupType: null,
+    installSchedule: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -775,6 +786,12 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a === '--last' || a === '--orphans') {
       // verify:blob modes are documented as flags but consumed as positionals.
       positional.push(a);
+    } else if (a === '--type') {
+      args.backupType = argv[++i] ?? null;
+    } else if (a.startsWith('--type=')) {
+      args.backupType = a.slice('--type='.length);
+    } else if (a === '--install-schedule') {
+      args.installSchedule = true;
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -1854,6 +1871,131 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'backup:wal': {
+      // D04-03: continuous WAL archiving cycle (archive_mode=always + R2 confirm + heartbeat)
+      const { runWalArchiveJob, formatWalArchiveText } = await import('../backup/wal-archive.ts');
+      try {
+        const result = await runWalArchiveJob({});
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                job_name: result.job_name,
+                status: result.status,
+                archiveMode: result.archiveMode,
+                archiveCommand: result.archiveCommand.includes('archive-push')
+                  ? 'pgbackrest archive-push'
+                  : result.archiveCommand,
+                lastWalSegment: result.lastWalSegment,
+                before: result.before,
+                after: result.after,
+                r2WalObjectCountBefore: result.r2WalObjectCountBefore,
+                r2WalObjectCountAfter: result.r2WalObjectCountAfter,
+                continuityOk: result.continuityOk,
+                gapSegments: result.gapSegments,
+                heartbeat: result.heartbeat,
+                span: result.span
+                  ? {
+                      name: result.span.name,
+                      traceId: result.span.traceId,
+                      spanId: result.span.spanId,
+                      attributes: result.span.attributes,
+                      exportOk: result.span.exportOk,
+                      exportError: result.span.exportError,
+                      redacted: result.span.redacted,
+                    }
+                  : null,
+                writeBurstRows: result.writeBurstRows,
+                errors: result.errors,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatWalArchiveText(result));
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:wal failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'backup:base': {
+      // D04-03: scheduled base backup job (+ optional launchd install)
+      const {
+        runBaseBackupJob,
+        formatBaseBackupText,
+        installBaseBackupLaunchd,
+        formatLaunchdInstallText,
+      } = await import('../backup/base-backup.ts');
+      try {
+        if (args.installSchedule) {
+          const installed = installBaseBackupLaunchd({});
+          if (args.json) {
+            console.log(JSON.stringify(installed, null, 2));
+          } else {
+            console.log(formatLaunchdInstallText(installed));
+          }
+          process.exit(installed.ok ? 0 : 1);
+          break;
+        }
+        const typeArg = args.backupType ?? 'full';
+        const type =
+          typeArg === 'incr' || typeArg === 'diff' || typeArg === 'full' ? typeArg : 'full';
+        const result = await runBaseBackupJob({ type });
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                job_name: result.job_name,
+                status: result.status,
+                backupType: result.backupType,
+                exitCode: result.exitCode,
+                lastSnapshotId: result.lastSnapshotId,
+                r2BackupObjectCount: result.r2BackupObjectCount,
+                manifestPresent: result.manifestPresent,
+                heartbeat: result.heartbeat,
+                span: result.span
+                  ? {
+                      name: result.span.name,
+                      traceId: result.span.traceId,
+                      spanId: result.span.spanId,
+                      attributes: result.span.attributes,
+                      exportOk: result.span.exportOk,
+                      exportError: result.span.exportError,
+                      redacted: result.span.redacted,
+                    }
+                  : null,
+                errors: result.errors,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatBaseBackupText(result));
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:base failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
     case 'backup:mirror': {
       // D04-04: restic blob mirror → R2 (encrypted separate prefix) + check --read-data + SHA-256 parity
       // Heartbeat restic_blob_mirror is upserted ONLY after parity passes.
@@ -1935,21 +2077,52 @@ async function main(): Promise<void> {
       }
       break;
     }
+
     case 'backup:status': {
-      // D04-04 / D04-03 shared substrate: read backup_heartbeat rows
-      const { listBackupHeartbeats, formatBackupStatusText, ensureBackupHeartbeatTable } =
-        await import('../backup/restic-mirror.ts');
-      const { createSql } = await import('../db/client.ts');
-      const sql = createSql();
+      // D04-03: honest status — real SHOW + pg_stat_archiver + heartbeats + R2 counts
+      const { backupStatusSnapshot } = await import('../backup/wal-archive.ts');
+      const { readBaseBackupSchedule } = await import('../backup/base-backup.ts');
       try {
-        await ensureBackupHeartbeatTable(sql);
-        const rows = await listBackupHeartbeats(sql);
+        const snap = await backupStatusSnapshot({});
+        const schedule = readBaseBackupSchedule({});
+        const payload = {
+          ok:
+            snap.archiveMode === 'always' &&
+            snap.archiveCommand.includes('pgbackrest') &&
+            snap.archiveCommand.includes('archive-push') &&
+            !/\/bin\/true/i.test(snap.archiveCommand),
+          archiveMode: snap.archiveMode,
+          archiveCommand: snap.archiveCommand.includes('archive-push')
+            ? 'pgbackrest archive-push'
+            : snap.archiveCommand,
+          archiver: snap.archiver,
+          r2WalObjects: snap.r2WalObjects,
+          r2BackupObjects: snap.r2BackupObjects,
+          heartbeats: snap.heartbeats,
+          schedule,
+        };
         if (args.json) {
-          console.log(JSON.stringify({ ok: true, rows }, null, 2));
+          console.log(JSON.stringify(payload, null, 2));
         } else {
-          console.log(formatBackupStatusText(rows));
+          console.log('holo backup:status');
+          console.log(`  archive_mode:    ${payload.archiveMode}`);
+          console.log(`  archive_command: ${payload.archiveCommand}`);
+          console.log(
+            `  archiver:        last=${payload.archiver.last_archived_wal ?? 'n/a'} failed=${payload.archiver.failed_count} count=${payload.archiver.archived_count}`
+          );
+          console.log(`  r2_wal_objects:  ${payload.r2WalObjects}`);
+          console.log(`  r2_backup_objs:  ${payload.r2BackupObjects}`);
+          console.log(
+            `  schedule:        ${schedule.installed ? `installed interval=${schedule.intervalSeconds}s loaded=${schedule.loaded}` : 'not installed'}`
+          );
+          for (const h of payload.heartbeats) {
+            console.log(
+              `  heartbeat[${h.job_name}]: status=${h.status} last_success_at=${h.last_success_at ?? 'null'} wal=${h.last_wal_segment ?? '-'} snap=${h.last_snapshot_id ?? '-'} trace=${h.trace_id ?? '-'}`
+            );
+          }
+          console.log(`  overall:         ${payload.ok ? 'OK' : 'FAILED'}`);
         }
-        process.exit(0);
+        process.exit(payload.ok ? 0 : 1);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (args.json) {
@@ -1958,8 +2131,6 @@ async function main(): Promise<void> {
           console.error(`holo backup:status failed: ${msg}`);
         }
         process.exit(1);
-      } finally {
-        await sql.end({ timeout: 5 });
       }
       break;
     }

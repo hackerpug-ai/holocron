@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-base-backup — scheduled pgBackRest full/incr base backup (D04-03 / CAP-BAK-01)
+  Runs: bun holo.ts backup:base --json
+  StartInterval=21600s (default 6h). Not a no-op.
+  Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>holocron-base-backup</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@BUN_BIN@</string>
+		<string>@HOLO_ROOT@/services/platform/src/cli/holo.ts</string>
+		<string>backup:base</string>
+		<string>--json</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>@HOLO_ROOT@</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>@HOME@</string>
+		<key>PATH</key>
+		<string>@BUN_DIR@:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOLO_ROOT</key>
+		<string>@HOLO_ROOT@</string>
+		<key>DATABASE_URL</key>
+		<string>@DATABASE_URL@</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StartInterval</key>
+	<integer>21600</integer>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>StandardOutPath</key>
+	<string>@HOME@/Library/Logs/holocron/base-backup.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/Library/Logs/holocron/base-backup.err.log</string>
+</dict>
+</plist>
