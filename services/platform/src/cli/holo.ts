@@ -28,6 +28,7 @@
  * Sprint 13 D02-07: prd:consistency
  * Sprint 13 D02-02: db seed --reset | db:provision-nonprod
  * Sprint 24 DEPENDENCY-S24: seed:e2e --reset | verify:no-convex-client | zero_cache boot
+ * Sprint 27 D04-02: backup:provision — encrypted R2 + scoped creds + pgBackRest repo
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -222,6 +223,7 @@ Usage:
   manifest:resolve <role>  Resolve a Fleet Role Manifest role to a live :4545 endpoint
   secrets doctor            Resolve required keys from consolidated secrets (env + secrets.yaml)
   secrets:doctor            Alias for secrets doctor
+  backup:provision          D04-02: encrypted R2 bucket + scoped creds + pgBackRest stanza-create
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
@@ -1771,26 +1773,77 @@ async function main(): Promise<void> {
         console.error('Usage: holo secrets doctor');
         process.exit(2);
       }
-      const { runSecretsDoctor, formatDoctorText } = await import('../config/secrets.ts');
+      const { runSecretsDoctor, formatDoctorTextWithBackup } = await import('../config/secrets.ts');
       const report = runSecretsDoctor();
       if (args.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
-        console.log(formatDoctorText(report));
+        console.log(formatDoctorTextWithBackup(report));
       }
       process.exit(report.ok ? 0 : 1);
       break;
     }
     case 'secrets:doctor': {
       // Colon form alias for operators used to catalog:verify style commands
-      const { runSecretsDoctor, formatDoctorText } = await import('../config/secrets.ts');
+      const { runSecretsDoctor, formatDoctorTextWithBackup } = await import('../config/secrets.ts');
       const report = runSecretsDoctor();
       if (args.json) {
         console.log(JSON.stringify(report, null, 2));
       } else {
-        console.log(formatDoctorText(report));
+        console.log(formatDoctorTextWithBackup(report));
       }
       process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'backup:provision': {
+      // D04-02: encrypted R2 + least-privilege scoped creds + pgBackRest stanza-create
+      const { provisionBackupRepo, formatProvisionText } = await import(
+        '../backup/r2-provision.ts'
+      );
+      try {
+        const result = await provisionBackupRepo({});
+        if (args.json) {
+          // Never include secret values in JSON output
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                bucketName: result.bucketName,
+                endpoint: result.endpoint,
+                encryption: result.encryption,
+                versioning: result.versioning,
+                versioningNotImplemented: result.versioningNotImplemented,
+                policyResource: result.policyResource,
+                policyActions: result.policyActions,
+                policyHasWildcardResource: result.policyHasWildcardResource,
+                policyHasWildcardAction: result.policyHasWildcardAction,
+                secretsPath: result.secretsPath,
+                secretsWritten: result.secretsWritten,
+                pgbackrestConfigPath: result.pgbackrestConfigPath,
+                stanza: result.stanza,
+                stanzaCreateExit: result.stanzaCreateExit,
+                checkExit: result.checkExit,
+                repoObjectsListed: result.repoObjectsListed,
+                cipherType: result.cipherType,
+                errors: result.errors,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatProvisionText(result));
+        }
+        process.exit(result.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:provision failed: ${msg}`);
+        }
+        process.exit(1);
+      }
       break;
     }
     case 'verify-no-convex-env': {
