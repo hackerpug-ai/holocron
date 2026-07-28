@@ -1,0 +1,92 @@
+[
+  {
+    "receivedAt": "2026-07-28T07:14:00.771Z",
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "host": "127.0.0.1:9999",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-language": "*",
+      "sec-fetch-mode": "cors",
+      "user-agent": "node",
+      "accept-encoding": "gzip, deflate",
+      "content-length": "397"
+    },
+    "rawBody": "{\"job_name\":\"wal_archive\",\"job_id\":\"wal_archive\",\"reason\":\"failed\",\"failure_reason\":\"killed / WAL behind — archive job wal_archive stopped updating heartbeat\",\"last_success_at\":\"2026-07-28 01:13:59.217-06\",\"overdue_by_minutes\":1,\"last_wal_segment\":\"killed-mid-flight\",\"last_snapshot_id\":null,\"trace_id\":\"5496ef4ca37c4cfcb2857be83242c9f4\",\"timestamp\":\"2026-07-28T07:14:00.750Z\",\"status\":\"failed\"}",
+    "json": {
+      "job_name": "wal_archive",
+      "job_id": "wal_archive",
+      "reason": "failed",
+      "failure_reason": "killed / WAL behind — archive job wal_archive stopped updating heartbeat",
+      "last_success_at": "2026-07-28 01:13:59.217-06",
+      "overdue_by_minutes": 1,
+      "last_wal_segment": "killed-mid-flight",
+      "last_snapshot_id": null,
+      "trace_id": "5496ef4ca37c4cfcb2857be83242c9f4",
+      "timestamp": "2026-07-28T07:14:00.750Z",
+      "status": "failed"
+    }
+  },
+  {
+    "receivedAt": "2026-07-28T07:14:00.827Z",
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "host": "127.0.0.1:9999",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-language": "*",
+      "sec-fetch-mode": "cors",
+      "user-agent": "node",
+      "accept-encoding": "gzip, deflate",
+      "content-length": "377"
+    },
+    "rawBody": "{\"job_name\":\"base_backup\",\"job_id\":\"base_backup\",\"reason\":\"failed\",\"failure_reason\":\"credential expired — R2 auth denied for job base_backup\",\"last_success_at\":\"2026-07-28 01:13:59.212434-06\",\"overdue_by_minutes\":1,\"last_wal_segment\":null,\"last_snapshot_id\":\"auth-denied\",\"trace_id\":\"9dbf2cd789fa4ef8b179019639e985f4\",\"timestamp\":\"2026-07-28T07:14:00.814Z\",\"status\":\"failed\"}",
+    "json": {
+      "job_name": "base_backup",
+      "job_id": "base_backup",
+      "reason": "failed",
+      "failure_reason": "credential expired — R2 auth denied for job base_backup",
+      "last_success_at": "2026-07-28 01:13:59.212434-06",
+      "overdue_by_minutes": 1,
+      "last_wal_segment": null,
+      "last_snapshot_id": "auth-denied",
+      "trace_id": "9dbf2cd789fa4ef8b179019639e985f4",
+      "timestamp": "2026-07-28T07:14:00.814Z",
+      "status": "failed"
+    }
+  },
+  {
+    "receivedAt": "2026-07-28T07:14:00.860Z",
+    "method": "POST",
+    "url": "/alert",
+    "headers": {
+      "host": "127.0.0.1:9999",
+      "connection": "keep-alive",
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-language": "*",
+      "sec-fetch-mode": "cors",
+      "user-agent": "node",
+      "accept-encoding": "gzip, deflate",
+      "content-length": "345"
+    },
+    "rawBody": "{\"job_name\":\"all-clear\",\"job_id\":\"all-clear\",\"reason\":\"overdue\",\"failure_reason\":\"overdue: last_success_at age 1m exceeds threshold\",\"last_success_at\":\"2026-07-28 01:13:59.212434-06\",\"overdue_by_minutes\":1,\"last_wal_segment\":null,\"last_snapshot_id\":null,\"trace_id\":\"healthy-19fa791f909\",\"timestamp\":\"2026-07-28T07:14:00.848Z\",\"status\":\"success\"}",
+    "json": {
+      "job_name": "all-clear",
+      "job_id": "all-clear",
+      "reason": "overdue",
+      "failure_reason": "overdue: last_success_at age 1m exceeds threshold",
+      "last_success_at": "2026-07-28 01:13:59.212434-06",
+      "overdue_by_minutes": 1,
+      "last_wal_segment": null,
+      "last_snapshot_id": null,
+      "trace_id": "healthy-19fa791f909",
+      "timestamp": "2026-07-28T07:14:00.848Z",
+      "status": "success"
+    }
+  }
+]

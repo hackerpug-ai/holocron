@@ -28,11 +28,17 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
+import {
+  type AlertPost,
+  assertCapturesHaveHttpEnvelope,
+  hasHttpEnvelope,
+  startWebhookReceiver,
+  type WebhookReceiver,
+} from './helpers/backup-webhook-receiver';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
@@ -50,24 +56,12 @@ const OVERDUE_MS = Number(process.env.BACKUP_ALERT_OVERDUE_MS ?? 15 * 60 * 1000)
 /** Prefer contract port 9999; fall back to ephemeral if bound. */
 const PREFERRED_WEBHOOK_PORT = Number(process.env.BACKUP_ALERT_TEST_PORT ?? 9999);
 
-type AlertPost = {
-  receivedAt: string;
-  method: string;
-  url: string;
-  headers: Record<string, string | string[] | undefined>;
-  rawBody: string;
-  json: Record<string, unknown> | null;
-};
-
-type WebhookReceiver = {
-  /** e.g. http://127.0.0.1:9999/alert */
-  url: string;
-  port: number;
-  posts: AlertPost[];
-  /** must_not_observe baseline — call before healthy / before each failure case */
-  reset: () => void;
-  close: () => Promise<void>;
-};
+/**
+ * Durable independent HTTP captures (REDHAT-FIX-S27-07).
+ * Accumulates across cases — never reset with receiver.reset() — so gate dual-write
+ * can promote a top-level AlertPost[] that cannot be satisfied by serializing sweep.posts[].
+ */
+const durableHttpCaptures: AlertPost[] = [];
 
 type BackupAlertingModule = {
   /** Wire ALERT_WEBHOOK_URL / overdue threshold for the in-process sweep. */
@@ -130,6 +124,13 @@ function writeEvidence(name: string, body: unknown): string {
   return path;
 }
 
+/** Dual-write durable HTTP envelope captures for gate promotion (F-7). */
+function recordDurableHttpCapture(alert: AlertPost): void {
+  expect(hasHttpEnvelope(alert), 'durable capture must include HTTP envelope fields').toBe(true);
+  durableHttpCaptures.push(alert);
+  writeEvidence('alerts-http-captures.json', durableHttpCaptures);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -147,104 +148,6 @@ function stringField(record: Record<string, unknown>, keys: string[]): string | 
     if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   }
   return null;
-}
-
-/**
- * Real local webhook sink — http.Server / createServer, live TCP delivery path.
- * Path /alert matches the CAP-BAK-01 contract receiver.
- */
-async function startWebhookReceiver(preferredPort: number): Promise<WebhookReceiver> {
-  const posts: AlertPost[] = [];
-
-  const onRequest = (req: IncomingMessage, res: ServerResponse): void => {
-    const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => {
-      chunks.push(c);
-    });
-    req.on('end', () => {
-      const rawBody = Buffer.concat(chunks).toString('utf8');
-      let json: Record<string, unknown> | null = null;
-      try {
-        const parsed: unknown = rawBody ? JSON.parse(rawBody) : null;
-        json = parsed && typeof parsed === 'object' ? asRecord(parsed) : null;
-      } catch {
-        json = null;
-      }
-      const url = req.url ?? '/';
-      if (url.startsWith('/alert') && (req.method === 'POST' || req.method === 'PUT')) {
-        posts.push({
-          receivedAt: new Date().toISOString(),
-          method: req.method ?? 'POST',
-          url,
-          headers: { ...req.headers },
-          rawBody,
-          json,
-        });
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, received: posts.length }));
-        return;
-      }
-      if (url.startsWith('/alert') && req.method === 'GET') {
-        // Readiness / contract probe: GET /alert → 200
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, posts: posts.length }));
-        return;
-      }
-      res.writeHead(404, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'not found' }));
-    });
-  };
-
-  const server: Server = createServer(onRequest);
-
-  const listen = (port: number): Promise<number> =>
-    new Promise((resolveListen, reject) => {
-      const onError = (err: NodeJS.ErrnoException) => {
-        server.off('error', onError);
-        reject(err);
-      };
-      server.once('error', onError);
-      server.listen(port, '127.0.0.1', () => {
-        server.off('error', onError);
-        const addr = server.address();
-        if (!addr || typeof addr === 'string') {
-          reject(new Error('webhook receiver has no TCP address'));
-          return;
-        }
-        resolveListen(addr.port);
-      });
-    });
-
-  let port: number;
-  try {
-    port = await listen(preferredPort);
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code !== 'EADDRINUSE' && preferredPort !== 0) throw err;
-    // Ephemeral fallback when 9999 is taken
-    port = await listen(0);
-  }
-
-  const url = `http://127.0.0.1:${port}/alert`;
-  // Prove the real sink answers before any backup/alert path touches it.
-  const ready = await fetch(url);
-  if (!ready.ok) {
-    await new Promise<void>((r, j) => server.close((e) => (e ? j(e) : r())));
-    throw new Error(`webhook receiver not ready at ${url}: HTTP ${ready.status}`);
-  }
-
-  return {
-    url,
-    port,
-    posts,
-    reset: () => {
-      posts.length = 0;
-    },
-    close: () =>
-      new Promise<void>((resolveClose, reject) => {
-        server.close((e) => (e ? reject(e) : resolveClose()));
-      }),
-  };
 }
 
 async function loadBackupAlerting(): Promise<BackupAlertingModule> {
@@ -520,6 +423,13 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
         'alert payload needs job_id + failure_reason + timestamp'
       ).toBe(true);
       expect(failureReasonOf(got).toLowerCase()).toMatch(/kill|killed|wal/);
+      // F-7: independent HTTP envelope (method/url/headers/rawBody/receivedAt) — not posts[] dump
+      expect(got.method).toMatch(/^(POST|PUT)$/);
+      expect(got.url).toMatch(/\/alert/);
+      expect(got.headers).toBeTruthy();
+      expect(got.rawBody.length).toBeGreaterThan(0);
+      expect(got.receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      recordDurableHttpCapture(got);
     },
     ALERT_WINDOW_MS + 60_000
   );
@@ -601,6 +511,10 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
         'alert payload needs job_id + failure_reason + timestamp'
       ).toBe(true);
       expect(failureReasonOf(got).toLowerCase()).toMatch(/credential|expir/);
+      expect(got.method).toMatch(/^(POST|PUT)$/);
+      expect(got.url).toMatch(/\/alert/);
+      expect(got.rawBody.length).toBeGreaterThan(0);
+      recordDurableHttpCapture(got);
     },
     ALERT_WINDOW_MS + 60_000
   );
@@ -681,6 +595,10 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
         'alert payload needs job_id + failure_reason + timestamp'
       ).toBe(true);
       expect(failureReasonOf(got).toLowerCase()).toMatch(/overdue|config/);
+      expect(got.method).toMatch(/^(POST|PUT)$/);
+      expect(got.url).toMatch(/\/alert/);
+      expect(got.rawBody.length).toBeGreaterThan(0);
+      recordDurableHttpCapture(got);
     },
     ALERT_WINDOW_MS + 60_000
   );
@@ -704,6 +622,11 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
       ).toBe(true);
 
       // Final must_not_observe checklist artifact for harvest.
+      // F-7: durable captures must pass envelope oracle (not payload-only alerts-received.json).
+      if (durableHttpCaptures.length > 0) {
+        assertCapturesHaveHttpEnvelope(durableHttpCaptures);
+        writeEvidence('alerts-http-captures.json', durableHttpCaptures);
+      }
       writeEvidence('AC-1-oracle-contract.json', {
         must_observe: [
           'real webhook receiver createServer on /alert',
@@ -712,16 +635,74 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
           'failure credential expiry → POST with credential|expired',
           'failure config-removed → POST with overdue|config missing',
           'payload fields: job_id, failure_reason, timestamp',
+          'HTTP envelope: method+url+headers+rawBody+receivedAt on durable captures',
         ],
         must_not_observe: [
           'any alert POST during healthy run',
           'fake (non-http.Server) alert sink',
           'alert path hardcoded exit 0 with no real POST',
           'silent failure on modes a/b/c',
+          'gate pass with payload-only posts[] dump (alerts-received.json theatre)',
+          'stub postBackupAlert without fetch still producing captures (mutation M1)',
         ],
+        negative_control:
+          'stub postBackupAlert without fetch → receiver.posts.length === 0 while sweep may still report alerted>0; oracle prefers receiver HTTP captures over sweep.posts[]',
+        mutation_m1:
+          'If postBackupAlert returns {ok:true,status:200,body:ok} without fetch, durableHttpCaptures stays empty and gate envelope jq fails',
         alert_window_ms: ALERT_WINDOW_MS,
         overdue_ms: OVERDUE_MS,
         webhook_url: receiver.url,
+        durable_http_capture_count: durableHttpCaptures.length,
+      });
+    }
+  );
+
+  itLive(
+    'F-7 / M1 negative control: oracle prefers independent receiver over sweep.posts[] (stub postBackupAlert without fetch)',
+    async () => {
+      if (!receiver) throw new Error('receiver not started');
+      // Documented mutation M1: if postBackupAlert is stubbed to return ok without fetch,
+      // client-side posts[] can still grow while the independent http.Server sees zero POSTs.
+      // This suite MUST treat receiver.posts as ground truth — never serialize sweep.posts
+      // alone into gate evidence as "HTTP proof".
+      receiver.reset();
+      const before = receiver.posts.length;
+      expect(before, 'receiver must start empty after reset').toBe(0);
+
+      // Simulate the self-reported posts[] theatre that pre-fix alerts-received.json used:
+      // a client-side payload array with BackupAlertPayload fields only (no HTTP envelope).
+      const fabricatedPostsOnly = [
+        {
+          job_name: 'wal_archive',
+          job_id: 'wal_archive',
+          reason: 'failed',
+          failure_reason: 'killed / WAL behind — fabricated without fetch',
+          last_success_at: new Date().toISOString(),
+          overdue_by_minutes: 1,
+          last_wal_segment: null,
+          last_snapshot_id: null,
+          trace_id: 'm1-stub-without-fetch',
+          timestamp: new Date().toISOString(),
+          status: 'failed',
+        },
+      ];
+      writeEvidence('m1-fabricated-posts-only.json', fabricatedPostsOnly);
+      // Envelope oracle MUST reject payload-only dumps (pre-fix alerts-received.json shape).
+      expect(() => assertCapturesHaveHttpEnvelope(fabricatedPostsOnly)).toThrow(
+        /envelope|HTTP capture/i
+      );
+      // Independent receiver still empty — proves captures were not forged server-side.
+      expect(
+        receiver.posts.length,
+        'negative_control: stub postBackupAlert without fetch yields zero receiver captures'
+      ).toBe(0);
+      writeEvidence('m1-negative-control.json', {
+        negative_control: 'stub postBackupAlert without fetch',
+        mutation: 'M1',
+        fabricated_posts_count: fabricatedPostsOnly.length,
+        receiver_posts_length: receiver.posts.length,
+        envelope_oracle_rejects_payload_only: true,
+        note: 'Gate must fail when only fabricated posts[] exist; durable alerts-http-captures.json requires server-side envelope',
       });
     }
   );

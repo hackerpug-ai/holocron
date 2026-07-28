@@ -1,0 +1,14 @@
+{
+  "receiver_url": "http://127.0.0.1:61292/alert",
+  "capture_count": 1,
+  "promote_stdout": "ALERT_HTTP_CAPTURES_OK count=1 out=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-S27-07/.tmp/REDHAT-FIX-S27-07/alerts-http-captures.json",
+  "post_fix_jq_exit": 0,
+  "pre_fix_jq_exit": 1,
+  "sample": {
+    "method": "POST",
+    "url": "/alert",
+    "has_headers": true,
+    "rawBody_len": 337,
+    "receivedAt": "2026-07-28T07:13:48.453Z"
+  }
+}

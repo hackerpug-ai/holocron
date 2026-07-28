@@ -1,0 +1,8 @@
+{
+  "negative_control": "stub postBackupAlert without fetch",
+  "mutation": "M1",
+  "fabricated_posts_count": 1,
+  "receiver_posts_length": 0,
+  "envelope_oracle_rejects_payload_only": true,
+  "note": "Gate must fail when only fabricated posts[] exist; durable alerts-http-captures.json requires server-side envelope"
+}

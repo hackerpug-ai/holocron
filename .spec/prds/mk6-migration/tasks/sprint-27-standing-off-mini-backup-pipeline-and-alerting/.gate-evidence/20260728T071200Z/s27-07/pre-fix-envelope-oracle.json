@@ -1,0 +1,6 @@
+{
+  "path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/REDHAT-FIX-S27-07/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/.gate-evidence/20260728T024819Z/alerts-received.json",
+  "jq_exit": 1,
+  "envelope_pass": false,
+  "note": "payload-only posts[] dump is NOT wire-delivery proof"
+}

@@ -1,0 +1,25 @@
+{
+  "must_observe": [
+    "real webhook receiver createServer on /alert",
+    "healthy backup run: zero alert POSTs (silence)",
+    "failure kill/WAL-behind → POST with killed|WAL behind",
+    "failure credential expiry → POST with credential|expired",
+    "failure config-removed → POST with overdue|config missing",
+    "payload fields: job_id, failure_reason, timestamp",
+    "HTTP envelope: method+url+headers+rawBody+receivedAt on durable captures"
+  ],
+  "must_not_observe": [
+    "any alert POST during healthy run",
+    "fake (non-http.Server) alert sink",
+    "alert path hardcoded exit 0 with no real POST",
+    "silent failure on modes a/b/c",
+    "gate pass with payload-only posts[] dump (alerts-received.json theatre)",
+    "stub postBackupAlert without fetch still producing captures (mutation M1)"
+  ],
+  "negative_control": "stub postBackupAlert without fetch → receiver.posts.length === 0 while sweep may still report alerted>0; oracle prefers receiver HTTP captures over sweep.posts[]",
+  "mutation_m1": "If postBackupAlert returns {ok:true,status:200,body:ok} without fetch, durableHttpCaptures stays empty and gate envelope jq fails",
+  "alert_window_ms": 10000,
+  "overdue_ms": 1000,
+  "webhook_url": "http://127.0.0.1:9999/alert",
+  "durable_http_capture_count": 3
+}

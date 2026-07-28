@@ -1,0 +1,5 @@
+{
+  "negative_control": "stub postBackupAlert without fetch",
+  "mutation": "M1",
+  "fabricated_rejected_by_envelope_oracle": true
+}
