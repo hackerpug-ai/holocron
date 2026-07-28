@@ -60,6 +60,9 @@ export type InduceEvidence = {
   real_process_killed: boolean;
   pid_killed: number | null;
   production_catch: boolean;
+  /** Honest kill claim (REDHAT-FIX-S27-18) — never imply mid-archive for staged shell. */
+  kill_kind?: string | null;
+  mid_archive?: boolean;
   exit_code: number | null;
   real_auth_fault: boolean;
   config_removed: boolean;
@@ -902,7 +905,10 @@ export async function induceBackupFailure(
       path: 'production_truth',
       real_process_killed: Boolean(result.killEvidence?.real_process_killed),
       pid_killed: result.killEvidence?.pid_killed ?? null,
-      production_catch: result.production_catch === true || result.status === 'failed',
+      // REDHAT-FIX-S27-18: only natural try/catch sets production_catch — never OR with status==failed.
+      production_catch: result.production_catch === true,
+      kill_kind: result.killEvidence?.kill_kind ?? null,
+      mid_archive: result.killEvidence?.mid_archive === true,
       exit_code: result.killEvidence?.exit_code ?? null,
       real_auth_fault: false,
       config_removed: false,
@@ -912,14 +918,19 @@ export async function induceBackupFailure(
       failure_detail: detail,
       restored: false,
       fault_output: result.killEvidence?.fault_output ?? result.errors.join('; ').slice(0, 500),
-      heartbeat_via_production_writer:
-        result.production_catch === true || Boolean(result.heartbeat),
+      heartbeat_via_production_writer: Boolean(result.heartbeat),
     };
 
-    // If kill evidence was weak, still require production_catch + failed status.
-    if (!induction.real_process_killed && !induction.production_catch) {
+    // Production-truth kill requires a real OS kill (staged_shell/direct_binary OK).
+    // production_catch alone (without kill) is insufficient for mode=kill.
+    if (!induction.real_process_killed) {
       throw new Error(
-        'kill induction failed: no real process kill and no production catch — refuse synthetic fallback'
+        'kill induction failed: no real process kill — refuse synthetic / production_catch theatre'
+      );
+    }
+    if (induction.mid_archive === true && induction.kill_kind !== 'mid_archive') {
+      throw new Error(
+        'kill induction dishonest: mid_archive claimed without kill_kind=mid_archive'
       );
     }
 

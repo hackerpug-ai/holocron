@@ -23,6 +23,14 @@ import { listRepoPrefix, renderPgbackrestConfig, writePgbackrestConfig } from '.
 import { type EmittedBackupSpan, emitBackupSpan } from './span.ts';
 
 /** Evidence from a real mid-flight pgbackrest kill (production-truth induction). */
+export type KillInductionKind =
+  /** Real OS kill of a staged shell wrapping pgbackrest help/info + sleep — NOT mid-archive. */
+  | 'staged_shell'
+  /** Direct SIGKILL of a short-lived pgbackrest process — still not mid-archive push. */
+  | 'direct_binary'
+  /** True mid-archive / archive-push kill under concurrent WAL work. */
+  | 'mid_archive';
+
 export type KillInductionEvidence = {
   real_process_killed: boolean;
   pid_killed: number | null;
@@ -32,6 +40,13 @@ export type KillInductionEvidence = {
   spawn_args: string[];
   exit_code: number | null;
   fault_output: string | null;
+  /**
+   * REDHAT-FIX-S27-18 / R-3: honest claim strength.
+   * Staged shell / help kills must NOT be labeled mid_archive.
+   */
+  kill_kind: KillInductionKind;
+  /** True only when an in-flight archive-push / backup command was the kill target. */
+  mid_archive: boolean;
 };
 
 export type PgArchiverStats = {
@@ -102,9 +117,9 @@ function whichPgbackrest(env: NodeJS.ProcessEnv): string {
 }
 
 /**
- * Spawn a real pgbackrest process and SIGKILL it mid-flight.
- * Uses a long-lived shell-wrapped pgbackrest so the pid is killable before exit
- * (plain `pgbackrest version` can finish before kill lands).
+ * Spawn a real pgbackrest-related process and SIGKILL it (production-truth OS kill).
+ * REDHAT-FIX-S27-18: this is staged_shell / direct_binary — NOT true mid-archive.
+ * Callers must set kill_kind + mid_archive=false honestly (no mid-archive theatre).
  */
 export function killRealPgbackrestProcess(options?: {
   env?: NodeJS.ProcessEnv;
@@ -219,6 +234,8 @@ export function killRealPgbackrestProcess(options?: {
           spawn_args: ['help'],
           exit_code: exitCode,
           fault_output: faultOutput,
+          kill_kind: 'direct_binary',
+          mid_archive: false,
         };
       } catch {
         /* continue with shell evidence */
@@ -235,6 +252,9 @@ export function killRealPgbackrestProcess(options?: {
     spawn_args: spawnArgs,
     exit_code: exitCode,
     fault_output: faultOutput,
+    // Honest: shell+info/help/sleep is staged_shell — never mid_archive theatre.
+    kill_kind: 'staged_shell',
+    mid_archive: false,
   };
 }
 
@@ -579,7 +599,7 @@ export async function runWalArchiveJob(options?: {
     const heartbeat = await upsertBackupHeartbeat({
       jobName: 'wal_archive',
       status: 'failed',
-      lastWalSegment: 'killed-mid-flight',
+      lastWalSegment: 'killed-staged-shell',
       objectCount: 0,
       traceId: span.traceId,
     });
@@ -610,7 +630,8 @@ export async function runWalArchiveJob(options?: {
       writeBurstRows: 0,
       errors,
       killEvidence,
-      production_catch: true,
+      // REDHAT-FIX-S27-18 / AC-2: early staged kill is NOT a natural job try/catch.
+      production_catch: false,
     };
   }
 
