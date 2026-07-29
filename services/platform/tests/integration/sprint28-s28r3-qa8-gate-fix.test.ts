@@ -72,7 +72,9 @@ describe('GATE-FIX-S28R3-QA8 always-on source contract', () => {
       // Must reason about session token when same parent AK is allowed.
       expect(src, label).toMatch(/R2_RESTORE_SESSION_TOKEN|SESSION_TOKEN|session.?token/i);
       // Must not have only-AK equality as the sole success-path refuse without session escape.
-      expect(src, label).toMatch(/GATE-FIX-S28R3-QA8|credential.?tuple|session token|distinct secret/i);
+      expect(src, label).toMatch(
+        /GATE-FIX-S28R3-QA8|credential.?tuple|session token|distinct secret/i
+      );
     }
     writeEvidence('source-contract.json', { ok: true });
   });
@@ -82,25 +84,21 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
   it('RED→GREEN: same AK + distinct secret + session token is accepted (shape)', () => {
     const host = `s28r3-qa8-cf-${Date.now().toString(36)}`;
     const staging = resolve(EVIDENCE_DIR, 'provision-cf-shape');
-    const run = spawnSync(
-      'bash',
-      [PROVISION, '--host', host, '--dry-run', '--skip-isolation'],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 60_000,
-        env: baseEnv({
-          REQUIRE_LIVE_R2_RO: '1',
-          ALLOW_PLACEHOLDER_R2_RO: '0',
-          R2_ACCESS_KEY_ID: WRITER_AK,
-          R2_SECRET_ACCESS_KEY: WRITER_SK,
-          R2_RESTORE_ACCESS_KEY_ID: WRITER_AK, // same parent AK (CF temp shape)
-          R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
-          R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-          STAGING_ROOT: staging,
-        }),
-      }
-    );
+    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 60_000,
+      env: baseEnv({
+        REQUIRE_LIVE_R2_RO: '1',
+        ALLOW_PLACEHOLDER_R2_RO: '0',
+        R2_ACCESS_KEY_ID: WRITER_AK,
+        R2_SECRET_ACCESS_KEY: WRITER_SK,
+        R2_RESTORE_ACCESS_KEY_ID: WRITER_AK, // same parent AK (CF temp shape)
+        R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
+        R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
+        STAGING_ROOT: staging,
+      }),
+    });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     writeEvidence('provision-cf-same-ak-ok.json', {
       status: run.status,
@@ -123,50 +121,45 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
 
   it('same AK + same secret refused', () => {
     const host = `s28r3-qa8-same-sk-${Date.now().toString(36)}`;
-    const run = spawnSync(
-      'bash',
-      [PROVISION, '--host', host, '--dry-run', '--skip-isolation'],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 30_000,
-        env: baseEnv({
-          REQUIRE_LIVE_R2_RO: '1',
-          R2_ACCESS_KEY_ID: WRITER_AK,
-          R2_SECRET_ACCESS_KEY: WRITER_SK,
-          R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
-          R2_RESTORE_SECRET_ACCESS_KEY: WRITER_SK,
-          R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-          STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-same-sk'),
-        }),
-      }
-    );
+    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: baseEnv({
+        REQUIRE_LIVE_R2_RO: '1',
+        R2_ACCESS_KEY_ID: WRITER_AK,
+        R2_SECRET_ACCESS_KEY: WRITER_SK,
+        R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
+        R2_RESTORE_SECRET_ACCESS_KEY: WRITER_SK,
+        R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
+        STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-same-sk'),
+      }),
+    });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('provision-same-sk-refuse.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('provision-same-sk-refuse.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/DEPENDENCY-S28-R2-RO|equal.*secret|writer-equivalent|tuple/i);
   });
 
   it('same AK + missing session token refused', () => {
     const host = `s28r3-qa8-no-st-${Date.now().toString(36)}`;
-    const run = spawnSync(
-      'bash',
-      [PROVISION, '--host', host, '--dry-run', '--skip-isolation'],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 30_000,
-        env: baseEnv({
-          REQUIRE_LIVE_R2_RO: '1',
-          R2_ACCESS_KEY_ID: WRITER_AK,
-          R2_SECRET_ACCESS_KEY: WRITER_SK,
-          R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
-          R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
-          R2_RESTORE_SESSION_TOKEN: '',
-          STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-no-st'),
-        }),
-      }
-    );
+    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: baseEnv({
+        REQUIRE_LIVE_R2_RO: '1',
+        R2_ACCESS_KEY_ID: WRITER_AK,
+        R2_SECRET_ACCESS_KEY: WRITER_SK,
+        R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
+        R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
+        R2_RESTORE_SESSION_TOKEN: '',
+        STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-no-st'),
+      }),
+    });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     writeEvidence('provision-no-session-refuse.json', {
       status: run.status,
@@ -178,26 +171,25 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
 
   it('distinct AK still accepted without session token', () => {
     const host = `s28r3-qa8-distinct-${Date.now().toString(36)}`;
-    const run = spawnSync(
-      'bash',
-      [PROVISION, '--host', host, '--dry-run', '--skip-isolation'],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 60_000,
-        env: baseEnv({
-          REQUIRE_LIVE_R2_RO: '1',
-          R2_ACCESS_KEY_ID: WRITER_AK,
-          R2_SECRET_ACCESS_KEY: WRITER_SK,
-          R2_RESTORE_ACCESS_KEY_ID: OTHER_AK,
-          R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
-          R2_RESTORE_SESSION_TOKEN: '',
-          STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-distinct-ak'),
-        }),
-      }
-    );
+    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 60_000,
+      env: baseEnv({
+        REQUIRE_LIVE_R2_RO: '1',
+        R2_ACCESS_KEY_ID: WRITER_AK,
+        R2_SECRET_ACCESS_KEY: WRITER_SK,
+        R2_RESTORE_ACCESS_KEY_ID: OTHER_AK,
+        R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
+        R2_RESTORE_SESSION_TOKEN: '',
+        STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-distinct-ak'),
+      }),
+    });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('provision-distinct-ak-ok.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('provision-distinct-ak-ok.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status, combined.slice(0, 1500)).toBe(0);
   });
 });
@@ -221,7 +213,10 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('prove-same-sk-refuse.json', { status: run.status, combined: combined.slice(0, 4000) });
+    writeEvidence('prove-same-sk-refuse.json', {
+      status: run.status,
+      combined: combined.slice(0, 4000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).not.toMatch(/RESULT:\s*PASS/);
     expect(combined).toMatch(
@@ -245,7 +240,10 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('prove-no-session-refuse.json', { status: run.status, combined: combined.slice(0, 4000) });
+    writeEvidence('prove-no-session-refuse.json', {
+      status: run.status,
+      combined: combined.slice(0, 4000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).not.toMatch(/RESULT:\s*PASS/);
     expect(combined).toMatch(/session.?token|tuple|Cloudflare|temporary|incomplete/i);
