@@ -8,6 +8,7 @@ Modes via HOLO_R2_PROVIDER_MOCK_MODE:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import sys
 
@@ -25,6 +26,10 @@ def main() -> None:
     def add_common(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("--endpoint", required=True)
         sp.add_argument("--bucket", required=True)
+
+    # GATE-FIX-S28R3-QA17: fingerprint helper (same as production provider).
+    sp = sub.add_parser("fp16")
+    sp.add_argument("field", nargs="*")
 
     sp = sub.add_parser("list-prefix")
     add_common(sp)
@@ -48,6 +53,10 @@ def main() -> None:
     sp.add_argument("--key", required=True)
 
     args = p.parse_args()
+    if args.cmd == "fp16":
+        raw = b"\0".join(f.encode("utf-8") for f in (args.field or []))
+        print(hashlib.sha256(raw).hexdigest()[:16], end="")
+        raise SystemExit(0)
     cmd = args.cmd
     key = getattr(args, "key", "") or ""
     prefix = getattr(args, "prefix", "") or ""

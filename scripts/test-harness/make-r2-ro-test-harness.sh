@@ -48,12 +48,79 @@ fi
   exit 2
 fi
 ''',
+'''if [[ -n "${BUN_BIN:-}" ]]; then
+  echo "error: GATE-FIX-S28R3-QA17 refuses ambient BUN_BIN (fixed absolute runtime only)" >&2
+  exit 2
+fi
+''',
 ]:
     t = t.replace(block, '')
-# Restore HOLO_CLI override for harness
+# Restore HOLO_CLI override + allow ambient BUN_BIN for harness recorder path
+import re
+t = re.sub(
+    r'# GATE-FIX-S28R3-QA17: refuse ambient BUN_BIN; fixed absolute candidates only\.\n'
+    r'if \[\[ -n "\$\{BUN_BIN:-\}" \]\]; then\n'
+    r'  echo "error: GATE-FIX-S28R3-QA17 refuses ambient BUN_BIN \(fixed absolute runtime only\)" >&2\n'
+    r'  exit 2\n'
+    r'fi\n'
+    r'BUN_BIN=""\n'
+    r'for _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do\n'
+    r'  if \[\[ -x "\$_cand" \]\]; then BUN_BIN="\$_cand"; break; fi\n'
+    r'done\n'
+    r'if \[\[ -z "\$BUN_BIN" \]\]; then\n'
+    r'  echo "error: GATE-FIX-S28R3-QA17 fixed bun not found \(/opt/homebrew/bin/bun or /usr/local/bin/bun\)" >&2\n'
+    r'  exit 2\n'
+    r'fi\n'
+    r'HOLO_CLI="\$ROOT/services/platform/src/cli/holo\.ts"\n',
+    'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n',
+    t,
+    count=1,
+)
+# Re-enable fake volumes implementation (removed from production sources).
 t = t.replace(
-    'HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"  # GATE-FIX-S28R3-QA14: fixed CLI only',
-    'HOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override',
+'''# GATE-FIX-S28R3-QA17: fake-volume implementation removed from production (harness-only).
+if [[ -n "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-}" ]]; then
+  err "GATE-FIX-S28R3-QA17 refuses HOLO_FIRE_DRILL_FAKE_VOLUMES in production (harness-only)"
+  exit 2
+fi
+SKIP_DOCKER_VOLUME_RESOLVE=0
+''',
+'''# Harness-only fake volumes (re-injected after production strip).
+if [[ "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-0}" == "1" ]]; then
+  FAKE_ROOT="${HOLO_FIRE_DRILL_FAKE_ROOT:-${TMPDIR:-/tmp}/holo-fire-drill-fake-$$}"
+  mkdir -p "$FAKE_ROOT/scratch" "$FAKE_ROOT/blob"
+  SCRATCH_MP="$FAKE_ROOT/scratch"
+  BLOB_MP="$FAKE_ROOT/blob"
+  DAEMON_SCRATCH_MP=""
+  DAEMON_BLOB_MP=""
+  EXECUTION_MODE="fake-volumes-unit-test"
+  CONTAINER_STATE="absent"
+  log "HOLO_FIRE_DRILL_FAKE_VOLUMES=1: using fake host paths (no docker)"
+  if [[ "$RESOLVE_ONLY" -eq 1 ]]; then
+    echo "{\\"ok\\":true,\\"execution_mode\\":\\"fake-volumes-unit-test\\",\\"scratch\\":\\"$SCRATCH_MP\\",\\"blobDir\\":\\"$BLOB_MP\\"}"
+    exit 0
+  fi
+  if [[ -z "$TARGET_TIMESTAMP" ]]; then
+    err "--target-timestamp required unless --resolve-only"
+    exit 2
+  fi
+  REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
+  mkdir -p "$(dirname "$REPORT_PATH")"
+  SKIP_DOCKER_VOLUME_RESOLVE=1
+else
+  SKIP_DOCKER_VOLUME_RESOLVE=0
+fi
+''',
+)
+# Also strip QA17 mid-file refuse if present
+t = t.replace(
+'''if [[ -n "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-}" ]]; then
+  err "GATE-FIX-S28R3-QA17 refuses HOLO_FIRE_DRILL_FAKE_VOLUMES in production (harness-only)"
+  exit 2
+fi
+SKIP_DOCKER_VOLUME_RESOLVE=0
+''',
+'',
 )
 # Insert mutation seam after prove success / before validate in assert_bound
 needle = '  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then'
@@ -92,6 +159,19 @@ MPY
 if needle not in t:
     raise SystemExit('validate proof needle missing in fire-drill harness')
 t = t.replace(needle, insert, 1)
+# Force ambient BUN for harness
+import re as _re
+t = _re.sub(
+    r"# GATE-FIX-S28R3-QA17: refuse ambient BUN_BIN.*?HOLO_CLI=\"\$ROOT/services/platform/src/cli/holo\.ts\"\n",
+    'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n',
+    t,
+    count=1,
+    flags=_re.S,
+)
+# also strip deferred comment block if candidates remain without refuse
+if 'BUN_BIN=""' in t and 'BUN_BIN="${BUN_BIN:-bun}"' not in t:
+    t = t.replace('BUN_BIN=""\nfor _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do\n  if [[ -x "$_cand" ]]; then BUN_BIN="$_cand"; break; fi\ndone\n# Bun resolved above; hard-fail only when invoking TypeScript CLI (below).\nHOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"\n',
+                  'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n')
 p.write_text(t)
 print('fire-drill harness patched', file=__import__('sys').stderr)
 PY

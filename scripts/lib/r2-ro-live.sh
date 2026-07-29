@@ -201,16 +201,21 @@ print(json.dumps(doc, separators=(",", ":"), sort_keys=True), end="")
 PY
 }
 
+# GATE-FIX-S28R3-QA17: hash via repository provider + absolute python (no openssl/awk/cut).
+r2_ro_fp16_fields() {
+  local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
+  local provider="${R2_RO_PROVIDER_PY:-${ROOT}/scripts/lib/r2_s3_provider.py}"
+  # Absolute python only; -E ignores PYTHON* knobs; env -i drops ambient runtime env.
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}"     "$py_bin" -E -s "$provider" fp16 "$@"
+}
+
 r2_ro_context_fp16() {
   # args: ep bucket prefix kind policy_json in_key out_key
-  printf '%s\0%s\0%s\0%s\0%s\0%s\0%s' \
-    "${1:-}" "${2:-}" "${3:-}" "${4:-}" "${5:-}" "${6:-}" "${7:-}" \
-    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}" "${4:-}" "${5:-}" "${6:-}" "${7:-}"
 }
 
 r2_ro_tuple_fp16() {
-  printf '%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" \
-    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}"
 }
 
 # GATE-FIX-S28R3-QA16: load versioned known-existing scope probes.
@@ -494,6 +499,11 @@ payload = {
     "scope_probe_in_key": in_key,
     "scope_probe_out_key": out_key,
     "scope_probes_bound": True,
+    "scope_probes_versioned_config": "scripts/lib/r2-scope-probes.json",
+    "scope_probes_schema": "holo.r2-scope-probes.v1",
+    "scope_probes_preflight": os.environ.get("R2_SCOPE_PREFLIGHT_PROVENANCE") or "versioned-config-bind",
+    "scope_probes_in_exists": os.environ.get("R2_SCOPE_PREFLIGHT_IN_EXISTS") or "bound",
+    "scope_probes_out_exists": os.environ.get("R2_SCOPE_PREFLIGHT_OUT_EXISTS") or "bound",
     "scope_oracles": {
         "out_of_prefix_list": "AccessDenied",
         "out_of_prefix_head": "AccessDenied",
@@ -501,7 +511,7 @@ payload = {
     },
     "producer": "scripts/prove-r2-readonly.sh",
     "proved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "note": "non-secret fingerprints + bound known-existing scope probe keys",
+    "note": "non-secret fingerprints + versioned known-existing scope probe keys",
 }
 with os.fdopen(fd, "w", encoding="utf-8") as f:
     json.dump(payload, f, indent=2)

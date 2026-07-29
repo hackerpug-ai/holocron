@@ -51,8 +51,17 @@ ATTESTATION=""
 RESOLVE_ONLY=0
 REPORT=""
 SOURCE_BLOB_ROOT=""
-BUN_BIN="${BUN_BIN:-bun}"
-HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"  # GATE-FIX-S28R3-QA14: fixed CLI only
+# GATE-FIX-S28R3-QA17: refuse ambient BUN_BIN; fixed absolute candidates only.
+if [[ -n "${BUN_BIN:-}" ]]; then
+  echo "error: GATE-FIX-S28R3-QA17 refuses ambient BUN_BIN (fixed absolute runtime only)" >&2
+  exit 2
+fi
+BUN_BIN=""
+for _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do
+  if [[ -x "$_cand" ]]; then BUN_BIN="$_cand"; break; fi
+done
+# Bun resolved above; hard-fail only when invoking TypeScript CLI (below).
+HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"
 
 usage() {
   cat <<'EOF'
@@ -127,7 +136,7 @@ is_placeholder_restore_key() {
 }
 
 r2_tuple_fp16() {
-  printf '%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_tuple_fp16 "${1:-}" "${2:-}" "${3:-}"
 }
 
 # Resolve writer + restore (+ shared R2 config) from secrets file then env override.
@@ -203,8 +212,7 @@ resolve_r2_identities_from_secrets_and_env() {
 }
 
 r2_context_fp16() {
-  printf '%s\0%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" "${4:-}" \
-    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}" "${4:-}"
 }
 
 assert_bound_r2_ro_proof() {
@@ -265,13 +273,11 @@ assert_bound_r2_ro_proof() {
     R2_CREDENTIAL_POLICY="$policy" \
     R2_SCOPE_PROBE_IN_KEY="${R2_SCOPE_PROBE_IN_KEY:-}" \
     R2_SCOPE_PROBE_OUT_KEY="${R2_SCOPE_PROBE_OUT_KEY:-}" \
-    HOLO_R2_PROVIDER_MOCK_MODE="${HOLO_R2_PROVIDER_MOCK_MODE:-}" \
-    HOLO_R2_PROVIDER_MOCK_CANARY="${HOLO_R2_PROVIDER_MOCK_CANARY:-}" \
     R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
     HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
     HOME="${HOME:-/tmp}" \
-    bash "$prove_cmd"; then
+    /bin/bash "$prove_cmd"; then
     echo "error: GATE-FIX-S28R3-QA13 fresh live RO proof failed for the exact restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     rm -f "$proof" 2>/dev/null || true
@@ -341,32 +347,12 @@ if [[ "$RESOLVE_ONLY" -eq 0 ]]; then
   assert_restore_credential_tuple
 fi
 
-# GATE-FIX-S28R3-QA10: deterministic unit-test path — fake volumes so child/recorder must run.
-if [[ "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-0}" == "1" ]]; then
-  FAKE_ROOT="${HOLO_FIRE_DRILL_FAKE_ROOT:-${TMPDIR:-/tmp}/holo-fire-drill-fake-$$}"
-  mkdir -p "$FAKE_ROOT/scratch" "$FAKE_ROOT/blob"
-  SCRATCH_MP="$FAKE_ROOT/scratch"
-  BLOB_MP="$FAKE_ROOT/blob"
-  DAEMON_SCRATCH_MP=""
-  DAEMON_BLOB_MP=""
-  EXECUTION_MODE="fake-volumes-unit-test"
-  CONTAINER_STATE="absent"
-  log "HOLO_FIRE_DRILL_FAKE_VOLUMES=1: using fake host paths (no docker)"
-  if [[ "$RESOLVE_ONLY" -eq 1 ]]; then
-    echo "{\"ok\":true,\"execution_mode\":\"fake-volumes-unit-test\",\"scratch\":\"$SCRATCH_MP\",\"blobDir\":\"$BLOB_MP\"}"
-    exit 0
-  fi
-  if [[ -z "$TARGET_TIMESTAMP" ]]; then
-    err "--target-timestamp required unless --resolve-only"
-    exit 2
-  fi
-  REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
-  mkdir -p "$(dirname "$REPORT_PATH")"
-  # Jump to child env construction (skip docker volume resolve).
-  SKIP_DOCKER_VOLUME_RESOLVE=1
-else
-  SKIP_DOCKER_VOLUME_RESOLVE=0
+# GATE-FIX-S28R3-QA17: fake-volume implementation removed from production (harness-only).
+if [[ -n "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-}" ]]; then
+  err "GATE-FIX-S28R3-QA17 refuses HOLO_FIRE_DRILL_FAKE_VOLUMES in production (harness-only)"
+  exit 2
 fi
+SKIP_DOCKER_VOLUME_RESOLVE=0
 
 if [[ "$SKIP_DOCKER_VOLUME_RESOLVE" -eq 0 ]] && ! command -v docker >/dev/null 2>&1; then
   err "docker binary missing — refuse fresh-target volume resolve"
@@ -642,7 +628,7 @@ fi
 
 # Escape paths for JSON (minimal: backslash + quotes).
 json_escape() {
-  python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()[:-1] if False else sys.argv[1]))' "$1"
+  /usr/bin/python3 -E -s -c 'import json,sys; print(json.dumps(sys.stdin.read()[:-1] if False else sys.argv[1]))' "$1"
 }
 
 J_SCRATCH="$(json_escape "$SCRATCH_MP")"
@@ -723,7 +709,7 @@ mkdir -p "$(dirname "$REPORT_PATH")"
 # Optional redacted env dump for tests (keys + presence/length/hash only — never raw secrets).
 if [[ -n "${HOLO_FIRE_DRILL_ENV_DUMP:-}" ]]; then
   mkdir -p "$(dirname "$HOLO_FIRE_DRILL_ENV_DUMP")"
-  python3 - "$HOLO_FIRE_DRILL_ENV_DUMP" "$RESTORE_AK" "$WRITER_AK" <<'PY' || true
+  /usr/bin/python3 -E -s - "$HOLO_FIRE_DRILL_ENV_DUMP" "$RESTORE_AK" "$WRITER_AK" <<'PY' || true
 import hashlib, json, os, sys
 path, restore_ak, writer_ak = sys.argv[1], sys.argv[2], sys.argv[3]
 def meta(name: str):
@@ -822,6 +808,10 @@ if [[ "$HOLO_CLI" == *.ts || "$HOLO_CLI" == *.js || "$HOLO_CLI" == *.mjs || "$HO
     err "holo CLI missing: $HOLO_CLI"
     exit 2
   fi
+  if [[ -z "$BUN_BIN" ]]; then
+    err "GATE-FIX-S28R3-QA17 fixed bun not found (/opt/homebrew/bin/bun or /usr/local/bin/bun)"
+    exit 2
+  fi
   RUN_PREFIX=("$BUN_BIN" "$HOLO_CLI")
 else
   if [[ ! -e "$HOLO_CLI" ]]; then
@@ -833,7 +823,7 @@ fi
 
 log "running restore-only child env: ${RUN_PREFIX[*]} ${ARGS[*]}"
 set +e
-env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}"
+/usr/bin/env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}"
 STATUS=$?
 set -e
 
@@ -841,7 +831,7 @@ set -e
 # via extracted scripts/assert-fire-drill-report.sh (no-Docker unit-testable).
 if [[ "$STATUS" -eq 0 && -n "${REPORT_PATH:-}" ]]; then
   set +e
-  bash "$ROOT/scripts/assert-fire-drill-report.sh" "$REPORT_PATH"
+  /bin/bash "$ROOT/scripts/assert-fire-drill-report.sh" "$REPORT_PATH"
   report_rc=$?
   set -e
   if [[ $report_rc -ne 0 ]]; then
@@ -853,7 +843,7 @@ fi
 # Augment attestation with fire-drill exit.
 if [[ -n "$ATTESTATION" ]]; then
   # shellcheck disable=SC2016
-  python3 - "$ATTESTATION" "$STATUS" "$REPORT_PATH" <<'PY' 2>/dev/null || true
+  /usr/bin/python3 -E -s - "$ATTESTATION" "$STATUS" "$REPORT_PATH" <<'PY' 2>/dev/null || true
 import json, sys
 path, status, report = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 try:

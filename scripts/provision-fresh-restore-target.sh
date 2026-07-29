@@ -167,12 +167,11 @@ fi
 # explicitly unequal, and non-empty session token. Unknown writer secret → refuse (QA9/H1).
 # GATE-FIX-S28R3-QA9/M1: live List/Put/Delete proof must be bound to the exact tuple.
 r2_tuple_fp16() {
-  printf '%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_tuple_fp16 "${1:-}" "${2:-}" "${3:-}"
 }
 
 r2_context_fp16() {
-  printf '%s\0%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" "${4:-}" \
-    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}" "${4:-}"
 }
 
 assert_bound_r2_ro_proof() {
@@ -239,12 +238,10 @@ assert_bound_r2_ro_proof() {
     R2_SCOPE_PROBE_IN_KEY="${R2_SCOPE_PROBE_IN_KEY:-}" \
     R2_SCOPE_PROBE_OUT_KEY="${R2_SCOPE_PROBE_OUT_KEY:-}" \
     R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
-    HOLO_R2_PROVIDER_MOCK_MODE="${HOLO_R2_PROVIDER_MOCK_MODE:-}" \
-    HOLO_R2_PROVIDER_MOCK_CANARY="${HOLO_R2_PROVIDER_MOCK_CANARY:-}" \
     HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
     HOME="${HOME:-/tmp}" \
-    bash "$prove_cmd"; then
+    /bin/bash "$prove_cmd"; then
     echo "error: GATE-FIX-S28R3-QA14 fresh live RO proof failed for the exact restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     rm -f "$proof" 2>/dev/null || true

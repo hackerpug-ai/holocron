@@ -397,6 +397,42 @@ run_live_probe() {
     return 1
   fi
 
+  # GATE-FIX-S28R3-QA17: optional writer preflight when explicit BACKUP/PARENT writer secrets exist.
+  # Never treat ambient R2_* as writer (same-parent CF temp RO tuples).
+  local wak="${BACKUP_R2_ACCESS_KEY_ID:-${R2_PARENT_ACCESS_KEY_ID:-}}"
+  local wsk="${BACKUP_R2_SECRET_ACCESS_KEY:-${R2_PARENT_SECRET_ACCESS_KEY:-}}"
+  export R2_SCOPE_PREFLIGHT_PROVENANCE="versioned-config-bind"
+  export R2_SCOPE_PREFLIGHT_IN_EXISTS="pending-ro-head"
+  export R2_SCOPE_PREFLIGHT_OUT_EXISTS="pending-access-denied-oracle"
+  # Harness mock: skip writer preflight.
+  if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
+    wak=""
+    wsk=""
+    export R2_SCOPE_PREFLIGHT_PROVENANCE="versioned-config-bind+mock"
+  fi
+  if [[ -n "$wak" && -n "$wsk" && "$wsk" != "$secret" ]]; then
+    local prc_in prc_out
+    set +e
+    r2_ro_run_provider "$wak" "$wsk" "" head-object \
+      --endpoint "$endpoint" --bucket "$bucket" --key "$in_key" >/dev/null 2>&1
+    prc_in=$?
+    r2_ro_run_provider "$wak" "$wsk" "" head-object \
+      --endpoint "$endpoint" --bucket "$bucket" --key "$out_key" >/dev/null 2>&1
+    prc_out=$?
+    set -e
+    if [[ $prc_in -eq 0 && $prc_out -eq 0 ]]; then
+      export R2_SCOPE_PREFLIGHT_PROVENANCE="writer-head-preflight"
+      export R2_SCOPE_PREFLIGHT_IN_EXISTS="true"
+      export R2_SCOPE_PREFLIGHT_OUT_EXISTS="true"
+      pass "writer preflight: both scope probes exist (class=scope_preflight_ok)"
+    elif [[ "${R2_SCOPE_REQUIRE_WRITER_PREFLIGHT:-0}" == "1" ]]; then
+      fail "GATE-FIX-S28R3-QA17 writer preflight required but failed (in=${prc_in} out=${prc_out})"
+      return 1
+    else
+      info "writer preflight unavailable (in=${prc_in} out=${prc_out}); continuing with versioned bind + RO oracles"
+    fi
+  fi
+
   # (1) Prefix list must succeed and return at least one object.
   local ls_out ls_rc
   set +e
@@ -429,6 +465,7 @@ run_live_probe() {
     return 1
   fi
   pass "in-prefix head-object allowed (class=prefix_head_ok)"
+  export R2_SCOPE_PREFLIGHT_IN_EXISTS="true"
 
   set +e
   r2_ro_run_provider "$key" "$secret" "$session" get-object \
@@ -475,6 +512,8 @@ run_live_probe() {
     return 1
   fi
   pass "out-of-prefix head AccessDenied (class=prefix_scope_enforced)"
+  # Exit 2 (not 404/3) + versioned key binding is the existence+denial dual oracle without writer.
+  export R2_SCOPE_PREFLIGHT_OUT_EXISTS="access-denied-not-404"
 
   set +e
   r2_ro_run_provider "$key" "$secret" "$session" get-object \
@@ -648,13 +687,16 @@ write_r2_ro_proof_attestation() {
   if [[ -z "$out" ]]; then
     out="$(r2_ro_new_proof_path)" || return 1
   else
-    case "$out" in
-      "$R2_RO_TRUSTED_PROOF_DIR"/*) ;;
-      *)
-        fail "HOLO_R2_RO_PROOF_OUT must be under trusted .tmp/r2-ro-proofs"
-        return 1
-        ;;
-    esac
+    # GATE-FIX-S28R3-QA17: compare realpaths (callers may pass absolute paths).
+    local trusted_real out_parent_real
+    trusted_real="$(/usr/bin/python3 -E -s -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$R2_RO_TRUSTED_PROOF_DIR")"
+    out_parent_real="$(/usr/bin/python3 -E -s -c 'import os,sys; print(os.path.realpath(os.path.dirname(sys.argv[1])))' "$out")"
+    if [[ "$out_parent_real" != "$trusted_real" ]]; then
+      fail "HOLO_R2_RO_PROOF_OUT must be under trusted .tmp/r2-ro-proofs"
+      return 1
+    fi
+    # Ensure trusted private dir mode before exclusive create.
+    r2_ro_ensure_private_proof_dir >/dev/null || return 1
     if [[ -e "$out" ]]; then
       fail "HOLO_R2_RO_PROOF_OUT already exists (refuse truncate/follow)"
       return 1

@@ -41,6 +41,41 @@ def _die(msg: str, code: int) -> None:
     raise SystemExit(code)
 
 
+
+def _reject_hostile_python_env() -> None:
+    """GATE-FIX-S28R3-QA17: refuse attacker-controlled Python startup knobs."""
+    hostile = (
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONSTARTUP",
+        "PYTHONSAFEPATH",
+        "PYTHONUSERBASE",
+        "PYTHONEXECUTABLE",
+        "PYTHONWARNINGS",
+    )
+    for k in hostile:
+        if os.environ.get(k):
+            _die(f"refuses hostile Python env {k}", 64)
+
+
+def _encode_s3_path(bucket: str, key: str | None = None) -> str:
+    """Canonical URI path: /bucket or /bucket/key with / preserved, other bytes percent-encoded."""
+    b = urllib.parse.quote(bucket, safe="")
+    if key is None:
+        return f"/{b}"
+    # Encode each segment; preserve / separators per SigV4 S3 canonical URI rules.
+    parts = key.split("/")
+    enc = "/".join(urllib.parse.quote(seg, safe="-_.~") for seg in parts)
+    return f"/{b}/{enc}"
+
+
+def cmd_fp16(args: argparse.Namespace) -> None:
+    """Hash NUL-separated fields to 16-hex fingerprint (no openssl)."""
+    parts = args.field if args.field is not None else []
+    raw = b"\0".join(p.encode("utf-8") for p in parts)
+    print(hashlib.sha256(raw).hexdigest()[:16], end="")
+
+
 def _creds() -> tuple[str, str, str]:
     ak = os.environ.get("AWS_ACCESS_KEY_ID") or ""
     sk = os.environ.get("AWS_SECRET_ACCESS_KEY") or ""
@@ -94,6 +129,7 @@ def _sigv4_headers(
     signed_header_keys = sorted(headers.keys())
     canonical_headers = "".join(f"{k}:{headers[k].strip()}\n" for k in signed_header_keys)
     signed_headers = ";".join(signed_header_keys)
+    # path must already be fully URI-encoded with / preserved (see _encode_s3_path).
     canonical_uri = path if path.startswith("/") else f"/{path}"
     canonical_request = "\n".join(
         [
@@ -190,7 +226,7 @@ def cmd_list_prefix(args: argparse.Namespace) -> None:
         "prefix": prefix,
         "max-keys": str(args.max_keys),
     }
-    path = f"/{args.bucket}"
+    path = _encode_s3_path(args.bucket)
     code, body, _ = _request("GET", args.endpoint, path, query=query)
     if code != 200:
         raise SystemExit(_classify_http_error(code, body))
@@ -218,7 +254,7 @@ def cmd_list_prefix(args: argparse.Namespace) -> None:
 
 
 def cmd_head_object(args: argparse.Namespace) -> None:
-    path = f"/{args.bucket}/{args.key}"
+    path = _encode_s3_path(args.bucket, args.key)
     code, body, hdrs = _request("HEAD", args.endpoint, path)
     if code in (200, 204):
         cl = hdrs.get("Content-Length") or hdrs.get("content-length") or "?"
@@ -228,7 +264,7 @@ def cmd_head_object(args: argparse.Namespace) -> None:
 
 
 def cmd_get_object(args: argparse.Namespace) -> None:
-    path = f"/{args.bucket}/{args.key}"
+    path = _encode_s3_path(args.bucket, args.key)
     code, body, _ = _request("GET", args.endpoint, path)
     if code == 200:
         print("GET_OK body_discarded=1")
@@ -240,7 +276,7 @@ def cmd_put_object(args: argparse.Namespace) -> None:
     payload = sys.stdin.buffer.read(4096)
     if not payload:
         payload = b"SACRIFICIAL_DRILL_NEG_QA14"
-    path = f"/{args.bucket}/{args.key}"
+    path = _encode_s3_path(args.bucket, args.key)
     code, body, _ = _request(
         "PUT",
         args.endpoint,
@@ -258,7 +294,7 @@ def cmd_put_object(args: argparse.Namespace) -> None:
 
 
 def cmd_delete_object(args: argparse.Namespace) -> None:
-    path = f"/{args.bucket}/{args.key}"
+    path = _encode_s3_path(args.bucket, args.key)
     code, body, _ = _request("DELETE", args.endpoint, path)
     # S3 often returns 204 even when Delete is allowed on missing keys.
     if code in (200, 204):
@@ -271,6 +307,7 @@ def cmd_delete_object(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    _reject_hostile_python_env()
     p = argparse.ArgumentParser(prog="r2_s3_provider")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -278,6 +315,9 @@ def main(argv: list[str] | None = None) -> None:
         sp.add_argument("--endpoint", required=True)
         sp.add_argument("--bucket", required=True)
 
+    sp = sub.add_parser("fp16")
+    sp.add_argument("field", nargs="*", help="fields hashed with NUL separators")
+    sp.set_defaults(func=cmd_fp16)
     sp = sub.add_parser("list-prefix")
     add_common(sp)
     sp.add_argument("--prefix", required=True)
