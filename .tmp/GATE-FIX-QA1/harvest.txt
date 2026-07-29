@@ -1,5 +1,0 @@
-harvest-evidence: task=GATE-FIX-QA1 manifest=.tmp/GATE-FIX-QA1/verify-manifest.json
-  typecheck: (not specified)
-  lint: (not specified)
-  requirements: 8
-  [AC-1] PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-pitr-recovery-contract.test.ts services/platform/tests/integration/sprint28-restore-fails-closed.test.ts services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts

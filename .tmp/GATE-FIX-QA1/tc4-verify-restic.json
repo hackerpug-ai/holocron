@@ -1,6 +1,0 @@
-{
-  "ok": false,
-  "matchedId": null,
-  "error": "restic snapshot not found / unlistable for id prefix \"resticc5ms5egca88d4616ab_MISSING_QA1\" — refuse baseline bind (no matching ID in repo)",
-  "snapshotsChecked": 17
-}
