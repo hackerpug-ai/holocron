@@ -697,7 +697,8 @@ r2_is_placeholder() {
   local v="${1:-}"
   [[ -z "$v" ]] && return 0
   case "$v" in
-    *placeholder*|*replace-me*|*example*|*not-for-prod*|*ro-test-*|*test-key*|*test-secret*)
+    # REDHAT-FIX-S28R3: bare ro-test (gate legacy default) is placeholder, not live RO.
+    ro-test|ro-test-*|*ro-test*|*placeholder*|*replace-me*|*example*|*not-for-prod*|*test-key*|*test-secret*)
       return 0
       ;;
   esac
@@ -788,6 +789,17 @@ check_r2_axis() {
     placeholders=1
   fi
 
+  # Prefer distinct restore identity when present.
+  local restore_key="${R2_RESTORE_ACCESS_KEY_ID:-}"
+  local restore_secret="${R2_RESTORE_SECRET_ACCESS_KEY:-}"
+  local missing_restore=0
+  if [[ -z "$restore_key" || -z "$restore_secret" ]]; then
+    missing_restore=1
+  fi
+  if [[ $missing_restore -eq 0 ]] && { r2_is_placeholder "$restore_key" || r2_is_placeholder "$restore_secret"; }; then
+    missing_restore=1
+  fi
+
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local live_script="${script_dir}/prove-r2-readonly.sh"
@@ -796,6 +808,16 @@ check_r2_axis() {
     need_live=1
   elif [[ $placeholders -eq 0 && -n "$key" && -n "$secret" && -n "$endpoint" ]]; then
     need_live=1
+  fi
+
+  # REDHAT-FIX-S28R3 / HIGH-1: REQUIRE_LIVE_R2_RO=1 never WARN→PASS on placeholders or missing R2_RESTORE_*.
+  if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
+    if [[ $placeholders -eq 1 || $missing_restore -eq 1 ]]; then
+      echo "  detail: DEPENDENCY-S28-R2-RO — REQUIRE_LIVE_R2_RO=1 refuses placeholder/missing distinct R2_RESTORE_*" >&2
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      bad=1
+      need_live=0
+    fi
   fi
 
   if [[ $need_live -eq 1 ]]; then
@@ -813,10 +835,14 @@ check_r2_axis() {
       set -e
       if [[ $live_rc -ne 0 ]]; then
         echo "  detail: live R2 read-only probe failed (exit ${live_rc})" >&2
+        if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
+          echo "  detail: DEPENDENCY-S28-R2-RO — live object-read-only proof required and failed" >&2
+          echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+        fi
         bad=1
       fi
     fi
-  elif [[ $placeholders -eq 1 ]]; then
+  elif [[ $placeholders -eq 1 && "${REQUIRE_LIVE_R2_RO:-0}" != "1" ]]; then
     echo "  detail: WARN placeholder R2 keys — declarative scope only; AC-2 needs live prove-r2-readonly.sh" >&2
   fi
 

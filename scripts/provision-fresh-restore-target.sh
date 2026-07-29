@@ -115,7 +115,8 @@ fi
 is_placeholder_key() {
   local v="${1:-}"
   case "$v" in
-    ''|*placeholder*|*replace-me*|*example*|*not-for-prod*|*ro-test-*|*test-key*|*test-secret*)
+    # REDHAT-FIX-S28R3: bare ro-test is placeholder (legacy gate default).
+    ''|ro-test|ro-test-*|*ro-test*|*placeholder*|*replace-me*|*example*|*not-for-prod*|*test-key*|*test-secret*)
       return 0
       ;;
   esac
@@ -134,6 +135,8 @@ elif [[ "${ALLOW_PLACEHOLDER_R2_RO:-0}" == "1" || "$DRY_RUN" -eq 1 ]]; then
 else
   echo "error: R2_RESTORE_ACCESS_KEY_ID and R2_RESTORE_SECRET_ACCESS_KEY required for live provision" >&2
   echo "  (refuse silent ambient R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY RW fallback)" >&2
+  echo "  residual: DEPENDENCY-S28-R2-RO" >&2
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   echo "  shape-only: ALLOW_PLACEHOLDER_R2_RO=1 or --dry-run" >&2
   exit 2
 fi
@@ -142,18 +145,22 @@ fi
 if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
   if is_placeholder_key "$R2_ACCESS_KEY_ID" || is_placeholder_key "$R2_SECRET_ACCESS_KEY"; then
     echo "error: REQUIRE_LIVE_R2_RO=1 refuses placeholder restore credentials" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
   if [[ -z "$R2_RESTORE_ACCESS_KEY_ID" || -z "$R2_RESTORE_SECRET_ACCESS_KEY" ]]; then
     echo "error: REQUIRE_LIVE_R2_RO=1 requires distinct R2_RESTORE_* credentials" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
   if [[ -n "$AMBIENT_R2_ACCESS_KEY_ID" && "$R2_RESTORE_ACCESS_KEY_ID" == "$AMBIENT_R2_ACCESS_KEY_ID" ]]; then
     echo "error: REQUIRE_LIVE_R2_RO=1 refuses restore keys equal to ambient RW R2_ACCESS_KEY_ID (must be distinct)" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
   if [[ -n "$AMBIENT_R2_SECRET_ACCESS_KEY" && "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
     echo "error: REQUIRE_LIVE_R2_RO=1 refuses restore secret equal to ambient RW secret (must be distinct)" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
 fi
