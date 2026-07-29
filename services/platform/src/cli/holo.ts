@@ -34,6 +34,7 @@
  * Sprint 27 D04-05 / REDHAT-FIX-S27-01: backup:alert-sweep | verify:backup |
  * backup:induce-failure — real failure induction (production-truth) + overdue/failed alerts
  * Sprint 27 REDHAT-FIX-S27-04: backup:healthy --all — reset induced store + success heartbeats
+ * Sprint 28 D05-02: restore | restore:pitr | restore:status — pgBackRest PITR into --scratch
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -211,6 +212,12 @@ interface CliArgs {
    * REDHAT-FIX-S27-04: clear induced store + mark all heartbeats success (gate isolation reset).
    */
   all: boolean;
+  /** restore --pitr <iso-timestamp> | restore:pitr */
+  pitr: string | null;
+  /** restore --scratch <dir> — empty target PGDATA (never live mini PGDATA) */
+  scratch: string | null;
+  /** restore --target-action promote|pause */
+  targetAction: string | null;
 }
 
 function printHelp(): void {
@@ -260,6 +267,10 @@ Usage:
                             --mode clear: reset all induced state + healthy heartbeats (alias of backup:healthy --all)
   backup:healthy            REDHAT-FIX-S27-04: clear induced store + success heartbeats
                             --all | --job <name>
+  restore                   D05-02: pgBackRest PITR restore --pitr <iso> --scratch <dir>
+                            [--target-action promote|pause] (fail-closed on empty/corrupt/out-of-range)
+  restore:pitr              Alias for restore --pitr (same flags)
+  restore:status            Show last PITR restore structured report
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
@@ -530,6 +541,9 @@ function parseArgs(argv: string[]): CliArgs {
     induceJob: null,
     induceSynthetic: false,
     all: false,
+    pitr: null,
+    scratch: null,
+    targetAction: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -835,6 +849,20 @@ function parseArgs(argv: string[]): CliArgs {
     } else if (a === '--all') {
       // backup:healthy --all — full induced-store + heartbeat reset (REDHAT-FIX-S27-04).
       args.all = true;
+    } else if (a === '--pitr') {
+      // restore --pitr <iso-timestamp>
+      args.pitr = argv[++i] ?? null;
+    } else if (a.startsWith('--pitr=')) {
+      args.pitr = a.slice('--pitr='.length);
+    } else if (a === '--scratch') {
+      // restore --scratch <empty-pgdata-dir>
+      args.scratch = argv[++i] ?? null;
+    } else if (a.startsWith('--scratch=')) {
+      args.scratch = a.slice('--scratch='.length);
+    } else if (a === '--target-action') {
+      args.targetAction = argv[++i] ?? null;
+    } else if (a.startsWith('--target-action=')) {
+      args.targetAction = a.slice('--target-action='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2400,6 +2428,97 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo backup:induce-failure failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'restore':
+    case 'restore:pitr': {
+      // D05-02: pgBackRest PITR into empty --scratch PGDATA (never live mini PGDATA)
+      const { runPitrRestore, formatPitrRestoreText } = await import('../backup/restore.ts');
+      try {
+        const pitr = args.pitr ?? args.positional[1] ?? null;
+        const scratch = args.scratch;
+        if (!pitr) {
+          console.error(
+            'error: restore requires --pitr <iso-timestamp> (e.g. 2024-01-15T12:30:00Z)'
+          );
+          process.exit(2);
+        }
+        if (!scratch) {
+          console.error(
+            'error: restore requires --scratch <empty-dir> (target PGDATA; never live mini PGDATA)'
+          );
+          process.exit(2);
+        }
+        const taRaw = (args.targetAction ?? 'promote').toLowerCase();
+        const targetAction = taRaw === 'pause' ? 'pause' : 'promote';
+        if (taRaw !== 'promote' && taRaw !== 'pause') {
+          console.error('error: --target-action must be promote or pause');
+          process.exit(2);
+        }
+        const result = await runPitrRestore({
+          pitr,
+          scratch: resolve(scratch),
+          targetAction,
+        });
+        // Structured JSON report always available via --json; text mode still prints facts.
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                exitCode: result.exitCode,
+                targetTimestamp: result.targetTimestamp,
+                actualStopTimestamp: result.actualStopTimestamp,
+                pgdataPath: result.pgdataPath,
+                targetAction: result.targetAction,
+                restoredWalCount: result.restoredWalCount,
+                errors: result.errors,
+                report: result.report,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatPitrRestoreText(result));
+        }
+        // Fail-closed: named errors on stderr so operators + RED suite can match.
+        if (!result.ok) {
+          for (const e of result.namedErrors.length ? result.namedErrors : result.errors) {
+            console.error(e);
+          }
+        }
+        process.exit(result.ok ? 0 : result.exitCode === 0 ? 1 : result.exitCode);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo restore --pitr failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'restore:status': {
+      const { getRestoreStatus, formatRestoreStatusText } = await import('../backup/restore.ts');
+      try {
+        const result = getRestoreStatus({});
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(formatRestoreStatusText(result));
+        }
+        process.exit(result.report ? (result.ok ? 0 : 1) : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo restore:status failed: ${msg}`);
         }
         process.exit(1);
       }
