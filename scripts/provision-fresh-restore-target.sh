@@ -202,12 +202,12 @@ assert_bound_r2_ro_proof() {
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  ep="$(printf '%s' "$established" | awk -F'\t' '{print $1}')"
-  bucket="$(printf '%s' "$established" | awk -F'\t' '{print $2}')"
-  prefix="$(printf '%s' "$established" | awk -F'\t' '{print $3}')"
-  kind="$(printf '%s' "$established" | awk -F'\t' '{print $4}')"
-  policy="$(printf '%s' "$established" | awk -F'\t' '{print $5}')"
-  expected_ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
+  ep="$(r2_ro_field 1 "${established}")"
+  bucket="$(r2_ro_field 2 "${established}")"
+  prefix="$(r2_ro_field 3 "${established}")"
+  kind="$(r2_ro_field 4 "${established}")"
+  policy="$(r2_ro_field 5 "${established}")"
+  expected_ctx="$(r2_ro_field 6 "${established}")"
   expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
     echo "error: GATE-FIX-S28R3-QA13 unable to fingerprint restore tuple/context" >&2
@@ -224,7 +224,7 @@ assert_bound_r2_ro_proof() {
   local _prove_log
   _prove_log="$(mktemp "${TMPDIR:-/tmp}/holo-prove.log.XXXXXX")"
   set +e
-  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE:-}"     "HOLO_R2_PROVIDER_MOCK_CANARY=${HOLO_R2_PROVIDER_MOCK_CANARY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
+  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "BACKUP_R2_ACCESS_KEY_ID=${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-${AMBIENT_R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}}}"     "BACKUP_R2_SECRET_ACCESS_KEY=${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${AMBIENT_R2_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}}}"     "R2_PARENT_ACCESS_KEY_ID=${R2_PARENT_ACCESS_KEY_ID:-}"     "R2_PARENT_SECRET_ACCESS_KEY=${R2_PARENT_SECRET_ACCESS_KEY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
   local _prove_rc=$?
   set -e
   if [[ $_prove_rc -ne 0 ]]; then

@@ -53,6 +53,22 @@ def main() -> None:
     sp.add_argument("--key", required=True)
 
     args = p.parse_args()
+    # GATE-FIX-S28R3-QA19 harness: writer/preflight identities may HEAD any known probe key.
+    ak = os.environ.get("AWS_ACCESS_KEY_ID", "")
+    sk = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+    # Writer preflight only: explicit BACKUP/PARENT/AKIA_W* identities, never substring "writer" in CF temp AKs.
+    is_writer = (
+        os.environ.get("HOLO_R2_PROVIDER_MOCK_AS_WRITER") == "1"
+        or ak.startswith("AKIA_W")
+        or ak.startswith("AKIA_WRITER")
+        or ak.startswith("AKIA_PARENT")
+        or ak.startswith("AKIA_BACKUP")
+        or sk.startswith("sk_writer")
+        or sk == "sk_w"
+        or sk.startswith("sk_writer_")
+        or sk.endswith("_writer")
+        or sk.startswith("sk_parent")
+    )
     if args.cmd == "fp16":
         raw = b"\0".join(f.encode("utf-8") for f in (args.field or []))
         print(hashlib.sha256(raw).hexdigest()[:16], end="")
@@ -94,6 +110,10 @@ def main() -> None:
         raise SystemExit(0)
 
     if cmd == "head-object":
+        # Writer/control-plane preflight: both in-prefix and out-of-prefix must exist.
+        if is_writer and mode not in ("head_fail", "oop_not_found"):
+            print("HEAD_OK content_length_class=present status=200 content_length=12")
+            raise SystemExit(0)
         if key.startswith("pgbackrest/"):
             if mode == "head_fail":
                 print("NotFound", file=sys.stderr)

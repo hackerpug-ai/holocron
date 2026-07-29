@@ -1,11 +1,11 @@
 # GATE-FIX-S28R3-QA16 — Versioned scope-probe binding
 
-> Status: ✅ Complete  
-> Sprint: [Sprint 28](./SPRINT.md)  
-> Agent: devops-engineer / security  
-> Reviewer: code-reviewer + security-reviewer + test-quality-reviewer  
-> Priority: P0  
-> Source: QA14 live-proof/final-gate durability check on `0a47d55cb74c919b1bafad8270c86382fc8b1be1`  
+> Status: ✅ Complete
+> Sprint: [Sprint 28](./SPRINT.md)
+> Agent: devops-engineer / security
+> Reviewer: code-reviewer + security-reviewer + test-quality-reviewer
+> Priority: P0
+> Source: QA14 live-proof/final-gate durability check on `0a47d55cb74c919b1bafad8270c86382fc8b1be1`
 > TDD_MODE: red_first · RED_GREEN_REQUIRED: yes
 
 ## Outcome

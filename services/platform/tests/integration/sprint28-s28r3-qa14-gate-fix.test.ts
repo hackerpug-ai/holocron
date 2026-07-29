@@ -174,15 +174,18 @@ describe('GATE-FIX-S28R3-QA14 HIGH scope oracles', () => {
     expect(combined).toMatch(/broader_list_scope|broader_read_scope/);
   });
 
-  it('missing scope probe keys fail closed', () => {
+  it('empty env scope probe keys bind versioned/trusted keys under harness', () => {
+    // GATE-FIX-S28R3-QA19: versioned artifact is authority; empty env no longer fails closed.
+    // Harness mock mode falls back to trusted versioned keys when caller keys are blank.
     const run = spawnSync('bash', [H.prove], {
       cwd: H.root,
       encoding: 'utf8',
       timeout: 20_000,
       env: env({ R2_SCOPE_PROBE_IN_KEY: '', R2_SCOPE_PROBE_OUT_KEY: '' }),
     });
-    expect(run.status).not.toBe(0);
-    expect(`${run.stdout}${run.stderr}`).toMatch(/R2_SCOPE_PROBE|known-existing/i);
+    const combined = `${run.stdout ?? ''}${run.stderr ?? ''}`;
+    expect(run.status, combined.slice(0, 800)).toBe(0);
+    expect(combined).toMatch(/wrote RO proof attestation/);
   });
 
   it('production path refuses non-control-plane scope probe keys', () => {

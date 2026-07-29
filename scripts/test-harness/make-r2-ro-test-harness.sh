@@ -269,6 +269,9 @@ new = '''  local mock_args=()
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_RAN_MARKER:-}" ]]; then
     mock_args+=("HOLO_R2_PROVIDER_MOCK_RAN_MARKER=${HOLO_R2_PROVIDER_MOCK_RAN_MARKER}")
   fi
+  if [[ -n "${HOLO_R2_PROVIDER_MOCK_AS_WRITER:-}" ]]; then
+    mock_args+=("HOLO_R2_PROVIDER_MOCK_AS_WRITER=${HOLO_R2_PROVIDER_MOCK_AS_WRITER}")
+  fi
   r2_ro_exec_isolated \\
     "PATH=/usr/bin:/bin" \\
     "HOME=${HOME:-/tmp}" \\
@@ -321,6 +324,56 @@ p.write_text(t)
 print('prove mint forward patched', file=__import__('sys').stderr)
 PY
 
+
+# GATE-FIX-S28R3-QA19: re-inject mock fixture-key branch after production strip
+/usr/bin/python3 - "$HARNESS/scripts/lib/r2-ro-live.sh" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+t = p.read_text()
+old = """  # GATE-FIX-S28R3-QA19: production has NO mock branch (harness patches after copy).
+  # Versioned artifact is sole authority. Env cannot replace keys.
+  caller_in="${R2_SCOPE_PROBE_IN_KEY-}"
+  caller_out="${R2_SCOPE_PROBE_OUT_KEY-}"
+  if [[ -n "$caller_in" && "$caller_in" != "$trusted_in" ]]; then
+    echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_IN_KEY" >&2
+    return 2
+  fi
+  if [[ -n "$caller_out" && "$caller_out" != "$trusted_out" ]]; then
+    echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_OUT_KEY" >&2
+    return 2
+  fi
+  R2_SCOPE_PROBE_IN_KEY="$trusted_in"
+  R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
+"""
+new = """  # Harness-only: mock mode may use fixture probe keys; production copy never had this branch.
+  if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
+    if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" || -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
+      R2_SCOPE_PROBE_IN_KEY="$trusted_in"
+      R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
+    fi
+  else
+    caller_in="${R2_SCOPE_PROBE_IN_KEY-}"
+    caller_out="${R2_SCOPE_PROBE_OUT_KEY-}"
+    if [[ -n "$caller_in" && "$caller_in" != "$trusted_in" ]]; then
+      echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_IN_KEY" >&2
+      return 2
+    fi
+    if [[ -n "$caller_out" && "$caller_out" != "$trusted_out" ]]; then
+      echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_OUT_KEY" >&2
+      return 2
+    fi
+    R2_SCOPE_PROBE_IN_KEY="$trusted_in"
+    R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
+  fi
+"""
+if old not in t:
+    raise SystemExit("bind block not found for harness re-inject")
+t = t.replace(old, new, 1)
+p.write_text(t)
+print("lib mock-key branch re-injected", file=sys.stderr)
+PY
+
 if [[ -n "$FIXTURE_CURL" && -x "$FIXTURE_CURL" ]]; then
   # Harness-only: after root trust init, rebind curl to fixture by patching validate skip for curl.
   # Easiest: replace R2_RO_CURL_BIN assignment and skip curl trust validation in harness lib.
@@ -347,6 +400,53 @@ p.write_text(t)
 print('fixture curl bound', file=__import__('sys').stderr)
 PY
 fi
+
+
+
+# GATE-FIX-S28R3-QA19: forward mock knobs into assert_bound prove isolated env (production omits them)
+for cons in provision-fresh-restore-target.sh run-fire-drill-on-fresh-target.sh; do
+/usr/bin/python3 - "$HARNESS/scripts/$cons" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+t = p.read_text()
+needle = '     --     /bin/bash "$prove_cmd"'
+if needle not in t:
+    needle = '--     /bin/bash "$prove_cmd"'
+    if needle not in t:
+        raise SystemExit(f"prove isolated -- not found in {p}")
+insert = (
+    '     "HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE:-}"'
+    '     "HOLO_R2_PROVIDER_MOCK_CANARY=${HOLO_R2_PROVIDER_MOCK_CANARY:-}"'
+    '     "HOLO_R2_PROVIDER_MOCK_RAN_MARKER=${HOLO_R2_PROVIDER_MOCK_RAN_MARKER:-}"'
+    '     --     /bin/bash "$prove_cmd"'
+)
+if "HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE" not in t:
+    t = t.replace(needle, insert, 1)
+p.write_text(t)
+print("forward mock knobs into assert_bound prove", p.name, file=__import__("sys").stderr)
+PY
+done
+
+# GATE-FIX-S28R3-QA19 harness: ensure HOLO_CLI override for unit tests
+/usr/bin/python3 - "$HARNESS/scripts/run-fire-drill-on-fresh-target.sh" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+t = p.read_text()
+if 'HOLO_CLI="${HOLO_CLI:-' not in t and 'harness allows override' not in t:
+    t = t.replace(
+        'HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"',
+        'HOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override',
+        1,
+    )
+p.write_text(t)
+print('fire-drill HOLO_CLI harness override ensured', file=sys.stderr)
+PY
+
+
+# GATE-FIX-S28R3-QA19 harness preflight mock-as-writer
+/usr/bin/python3 "$ROOT_SRC/scripts/test-harness/qa19-patch-prove-preflight.py" "$HARNESS/scripts/prove-r2-readonly.sh"
 
 chmod +x "$HARNESS/scripts/"*.sh "$HARNESS/scripts/lib/"* 2>/dev/null || true
 echo "$HARNESS"

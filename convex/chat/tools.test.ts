@@ -138,7 +138,9 @@ describe('tools', () => {
     });
 
     it('create_plan schema accepts string-key toolArgs records and rejects non-objects', () => {
-      const tool = agentTools.create_plan as { inputSchema?: { safeParse: (v: unknown) => { success: boolean } } };
+      const tool = agentTools.create_plan as {
+        inputSchema?: { safeParse: (v: unknown) => { success: boolean } };
+      };
       const schema = tool?.inputSchema;
       expect(schema).toBeDefined();
       const base = {
@@ -162,10 +164,14 @@ describe('tools', () => {
       expect(
         schema!.safeParse({
           ...base,
-          steps: [
-            { ...base.steps[0], toolArgs: 'not-an-object' },
-            base.steps[1],
-          ],
+          steps: [{ ...base.steps[0], toolArgs: 'not-an-object' }, base.steps[1]],
+        }).success
+      ).toBe(false);
+      // GATE-FIX-S28R3-QA19: arrays are non-records and must be rejected.
+      expect(
+        schema!.safeParse({
+          ...base,
+          steps: [{ ...base.steps[0], toolArgs: [] }, base.steps[1]],
         }).success
       ).toBe(false);
       // Still min(2) steps — schema not weakened.

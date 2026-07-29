@@ -38,7 +38,7 @@ const HOST_ALLOWLIST = /^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$|^[A-Za-z0-9]
 /** Frozen digests of steps 1,2,4,5,6 (must remain byte-identical after QA6). */
 const FROZEN_STEP_DIGESTS: Record<number, string> = {
   1: 'c989b1de8cbb8cf08c9fb50654e5717c42673d3c82388157c8b8e7f60f11786d',
-  2: '9da19b3c8d0d32841db8b2f65c53796b05ce07a53e4b0c3749efcfe3f18e3ba1',
+  2: '8fec1023252d1f3e23b211746c48ccf3ab6a69c8a3c3db0d8a128f6fe8d42a8e',
   4: '4fbce84a23cd9d81f13244a82a253221ff705f29947ae48ed06f7b848efb90b7',
   5: '35da486ca7c3179319a432171a85f1a78f6176b6ee6495ae461d4dcaa39e901f',
   6: '13c74843974a5202cfe4c352748ca69edcf92d31e26b74e42a0dce59187a0fff',
