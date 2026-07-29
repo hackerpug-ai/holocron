@@ -447,7 +447,7 @@ const create_plan = tool({
           toolName: z
             .string()
             .describe('Name of the tool to call (must match an existing tool name)'),
-          toolArgs: z.record(z.string(), z.any()).describe('Arguments to pass to the tool'),
+          toolArgs: z.record(z.any()).describe('Arguments to pass to the tool'),
           description: z
             .string()
             .describe('Brief human-readable description of what this step does'),
