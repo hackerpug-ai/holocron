@@ -63,6 +63,11 @@ afterEach(() => {
       encoding: 'utf8',
       timeout: 30_000,
     });
+    // Provisioner creates ${host}-net; prune to avoid address-pool exhaustion across runs.
+    spawnSync('docker', ['network', 'rm', `${item.host}-net`], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
   }
 });
 
