@@ -42,6 +42,10 @@ import {
   type ParityCompareResult,
 } from './parity-check.ts';
 import { upsertSecretsFile } from './r2-provision.ts';
+import {
+  type BaselineHookResult,
+  bindResticSnapshotToRecoveryBaseline,
+} from './recovery-baseline.ts';
 
 /** Re-export shared fail-closed assert (migrate-owned 0029; no forked DDL). */
 export { ensureBackupHeartbeatTable } from './heartbeat.ts';
@@ -165,6 +169,8 @@ export type ResticMirrorResult = {
   heartbeatUpdated: boolean;
   heartbeat: BackupHeartbeatRow | null;
   span: BackupSpanRecord | null;
+  /** REDHAT-FIX-C5: immutable recovery baseline bound to restic snapshot id. */
+  recoveryBaseline: BaselineHookResult | null;
   resticPasswordInSecrets: boolean;
   errors: string[];
   durationMs: number;
@@ -569,6 +575,7 @@ export async function runResticBlobMirror(
         heartbeatUpdated: false,
         heartbeat: null,
         span,
+        recoveryBaseline: null,
         resticPasswordInSecrets: false,
         errors,
         durationMs: Date.now() - started,
@@ -704,6 +711,7 @@ export async function runResticBlobMirror(
   let heartbeatUpdated = false;
   let heartbeat: BackupHeartbeatRow | null = null;
   let span: BackupSpanRecord | null = null;
+  let recoveryBaseline: BaselineHookResult | null = null;
   const endedAt = new Date();
 
   if (parityPassed && snapshotId) {
@@ -733,6 +741,24 @@ export async function runResticBlobMirror(
       } finally {
         if (ownsSql) await sql.end({ timeout: 5 });
       }
+    }
+
+    // REDHAT-FIX-C5: bind restic snapshot id into immutable R2 recovery baseline.
+    try {
+      recoveryBaseline = await bindResticSnapshotToRecoveryBaseline({
+        config: cfg.backup,
+        resticSnapshotId: snapshotId,
+        env,
+        databaseUrl: options.databaseUrl ?? env.DATABASE_URL,
+        blobRoot: cfg.blobRoot,
+      });
+      if (recoveryBaseline.errors.length > 0 && !recoveryBaseline.skipped) {
+        errors.push(...recoveryBaseline.errors.map((e) => `recovery-baseline: ${e}`).slice(0, 3));
+      }
+    } catch (err) {
+      errors.push(
+        `recovery-baseline hook failed: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   } else {
     // Failed path: emit failed span but NEVER set success heartbeat
@@ -780,6 +806,7 @@ export async function runResticBlobMirror(
     heartbeatUpdated,
     heartbeat,
     span,
+    recoveryBaseline,
     resticPasswordInSecrets: Boolean(
       getSecretValue('RESTIC_PASSWORD', { secretsPath: cfg.secretsPath, env })
     ),

@@ -18,6 +18,10 @@ import {
   upsertBackupHeartbeat,
 } from './heartbeat.ts';
 import { listRepoPrefix } from './r2-provision.ts';
+import {
+  type BaselineHookResult,
+  emitBaseBackupRecoveryBaselineHook,
+} from './recovery-baseline.ts';
 import { type EmittedBackupSpan, emitBackupSpan } from './span.ts';
 import { ensureContinuousWalArchiving } from './wal-archive.ts';
 
@@ -36,6 +40,8 @@ export type BaseBackupJobResult = {
   manifestPresent: boolean;
   heartbeat: BackupHeartbeatRecord | null;
   span: EmittedBackupSpan | null;
+  /** REDHAT-FIX-C5: immutable recovery baseline hook result (when emitted). */
+  recoveryBaseline: BaselineHookResult | null;
   errors: string[];
   /** Present for credential-expired production-truth induction. */
   real_auth_fault?: boolean;
@@ -226,6 +232,7 @@ export async function runBaseBackupJob(options?: {
         manifestPresent: false,
         heartbeat,
         span,
+        recoveryBaseline: null,
         errors,
         real_auth_fault: true,
         production_catch: true,
@@ -245,6 +252,7 @@ export async function runBaseBackupJob(options?: {
       manifestPresent: false,
       heartbeat: null,
       span: null,
+      recoveryBaseline: null,
       errors: [e instanceof Error ? e.message : String(e)],
     };
   }
@@ -357,6 +365,7 @@ export async function runBaseBackupJob(options?: {
 
   let heartbeat: BackupHeartbeatRecord | null = null;
   let span: EmittedBackupSpan | null = null;
+  let recoveryBaseline: BaselineHookResult | null = null;
 
   if (success && lastSnapshotId) {
     span = await emitBackupSpan({
@@ -377,6 +386,20 @@ export async function runBaseBackupJob(options?: {
       objectCount: listed.count,
       traceId: span.traceId,
     });
+    // REDHAT-FIX-C5: emit immutable recovery baseline when restic id is known.
+    try {
+      recoveryBaseline = await emitBaseBackupRecoveryBaselineHook({
+        config: cfg,
+        pgbackrestBackupLabel: lastSnapshotId,
+        env,
+        databaseUrl: env.DATABASE_URL,
+      });
+      if (recoveryBaseline.errors.length > 0 && !recoveryBaseline.skipped) {
+        errors.push(...recoveryBaseline.errors.map((e) => `recovery-baseline: ${e}`).slice(0, 3));
+      }
+    } catch (e) {
+      errors.push(`recovery-baseline hook failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
   } else {
     span = await emitBackupSpan({
       name: 'backup:base_backup',
@@ -413,6 +436,7 @@ export async function runBaseBackupJob(options?: {
     manifestPresent: listed.hasManifest,
     heartbeat,
     span,
+    recoveryBaseline,
     errors,
     ...(credentialInduce
       ? {
