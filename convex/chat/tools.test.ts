@@ -121,4 +121,60 @@ describe('tools', () => {
       expect(tool?.description).toContain('DEVELOPER TOOLS ONLY');
     });
   });
+
+  /**
+   * GATE-FIX-S28R3-QA15 — Zod4/tsgo requires z.record(key, value).
+   * Broken one-arg form `z.record(z.any())` is TS2554 at tools.ts toolArgs.
+   * RED evidence: .tmp/GATE-FIX-S28R3-QA15/red-typecheck.log (TS2554 Expected 2-3 arguments).
+   */
+  describe('AC-6: create_plan toolArgs uses strict two-arg z.record', () => {
+    it('source contract: toolArgs is z.record(z.string(), z.any()) not one-arg', async () => {
+      const { readFileSync } = await import('node:fs');
+      const { resolve } = await import('node:path');
+      const src = readFileSync(resolve(import.meta.dirname, 'tools.ts'), 'utf8');
+      // One-arg form is the TS2554 hook failure; refuse it.
+      expect(src).not.toMatch(/toolArgs:\s*z\.record\(\s*z\.any\(\)\s*\)/);
+      expect(src).toMatch(/toolArgs:\s*z\.record\(\s*z\.string\(\)\s*,\s*z\.any\(\)\s*\)/);
+    });
+
+    it('create_plan schema accepts string-key toolArgs records and rejects non-objects', () => {
+      const tool = agentTools.create_plan as { inputSchema?: { safeParse: (v: unknown) => { success: boolean } } };
+      const schema = tool?.inputSchema;
+      expect(schema).toBeDefined();
+      const base = {
+        title: 'Two-step plan',
+        steps: [
+          {
+            toolName: 'quick_research',
+            toolArgs: { query: 'x' },
+            description: 'research',
+            requiresApproval: false,
+          },
+          {
+            toolName: 'answer_question',
+            toolArgs: { question: 'y' },
+            description: 'answer',
+            requiresApproval: false,
+          },
+        ],
+      };
+      expect(schema!.safeParse(base).success).toBe(true);
+      expect(
+        schema!.safeParse({
+          ...base,
+          steps: [
+            { ...base.steps[0], toolArgs: 'not-an-object' },
+            base.steps[1],
+          ],
+        }).success
+      ).toBe(false);
+      // Still min(2) steps — schema not weakened.
+      expect(
+        schema!.safeParse({
+          title: 'one',
+          steps: [base.steps[0]],
+        }).success
+      ).toBe(false);
+    });
+  });
 });
