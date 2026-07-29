@@ -125,7 +125,7 @@ PY
   return 0
 }
 
-# GATE-FIX-S28R3-QA17 sanitize: isolated exec that NEVER dumps ambient environment.
+# GATE-FIX-S28R3-QA18 env-sanitize: isolated exec that NEVER dumps ambient environment.
 # Usage: r2_ro_exec_isolated KEY=val KEY=val -- /abs/command [args...]
 # Requires env -i, a "--" separator, and a non-empty command. Values are never logged.
 r2_ro_exec_isolated() {
@@ -140,14 +140,14 @@ r2_ro_exec_isolated() {
       saw_sep=1
     else
       if [[ "$arg" != *=* ]]; then
-        echo "error: GATE-FIX-S28R3-QA17 r2_ro_exec_isolated expects KEY=VAL before -- (got non-assignment)" >&2
+        echo "error: GATE-FIX-S28R3-QA18 r2_ro_exec_isolated expects KEY=VAL before -- (got non-assignment)" >&2
         return 2
       fi
       pairs+=("$arg")
     fi
   done
   if [[ $saw_sep -ne 1 || ${#cmd[@]} -lt 1 ]]; then
-    echo "error: GATE-FIX-S28R3-QA17 r2_ro_exec_isolated requires KEY=VAL... -- command [args] (refuse bare env dump)" >&2
+    echo "error: GATE-FIX-S28R3-QA18 r2_ro_exec_isolated requires KEY=VAL... -- command [args] (refuse bare env dump)" >&2
     return 2
   fi
   # Absolute command only (no PATH lookup for credential-bearing runtimes).
