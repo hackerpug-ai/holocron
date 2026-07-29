@@ -72,7 +72,8 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "require_all_regex": ["LEDGER_CHECKSUM_MATCH"]
+        "notes": "GATE-FIX-QA4: literal_cmd ends with jq -e which prints only the scalar true on success (exit 0). Domain tokens are proven by the frozen jq predicate + cmd_sha fidelity, not by stdout tokens that jq never emits.",
+        "require_all_regex": ["^true$"]
       }
     },
     {
@@ -84,7 +85,8 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "require_all_regex": ["BLOB_PARITY_PASS"]
+        "notes": "GATE-FIX-QA4: literal_cmd ends with jq -e which prints only the scalar true on success (exit 0). Domain tokens are proven by the frozen jq predicate + cmd_sha fidelity, not by stdout tokens that jq never emits.",
+        "require_all_regex": ["^true$"]
       }
     },
     {
