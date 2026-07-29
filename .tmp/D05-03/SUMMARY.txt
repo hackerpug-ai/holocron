@@ -1,0 +1,10 @@
+D05-03 evidence summary
+AC-1 PASS exit=0
+AC-1 FAIL reachable exit=1
+AC-1 FAIL rw exit=1
+AC-1 FAIL mount exit=1
+AC-4 full provision exit=0
+postgres: postgres (PostgreSQL) 18.4
+empty dirs: pg=0 blob=0 
+network: Networks=fresh-restore-01-net 
+typecheck: tsgo_exit=0

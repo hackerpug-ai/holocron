@@ -1,0 +1,19 @@
+[provision-fresh-restore-target] empty writable staging: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/pgdata + /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/blob-restore
+[provision-fresh-restore-target] wrote R2 read-only env: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/restore-target.env
+[provision-fresh-restore-target] wrote compose: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/docker-compose.yml
+[provision-fresh-restore-target] dry-run: skip docker start (compose + env ready under /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01)
+[provision-fresh-restore-target] path map: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/paths.txt
+[provision-fresh-restore-target] running prove-isolation.sh (mini=203.0.113.1)
+=== prove-isolation (mini=203.0.113.1:5432) ===
+PASS: no route to mini Postgres
+PASS: no mini PGDATA mount
+PASS: no mini blob mount
+PASS: R2 credentials are read-only scoped
+=== RESULT: PASS (all isolation checks) ===
+[provision-fresh-restore-target] isolation probe PASS
+[provision-fresh-restore-target] SUCCESS: fresh restore target 'fresh-restore-01' provisioned
+[provision-fresh-restore-target]   compose: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/docker-compose.yml
+[provision-fresh-restore-target]   env:     /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/restore-target.env (mode 0600, read-only R2 policy)
+[provision-fresh-restore-target]   staging: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/pgdata (empty) + /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-03/.tmp/fresh-restore/fresh-restore-01/blob-restore (empty)
+[provision-fresh-restore-target]   docker:  not started (dry-run or daemon down) — compose is ready
+DRY_RUN_EXIT=

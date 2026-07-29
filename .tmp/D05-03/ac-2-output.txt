@@ -1,0 +1,2 @@
+AC-2: live prove-r2-readonly path implemented; blocked pending object-read-only token mint
+placeholder_fail=yes rw_put_allowed_fail_closed=yes human_required=yes

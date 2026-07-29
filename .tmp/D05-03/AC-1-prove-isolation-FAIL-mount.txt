@@ -1,0 +1,6 @@
+=== prove-isolation (mini=203.0.113.1:5432) ===
+PASS: no route to mini Postgres
+FAIL: PGDATA mounted at / — isolation broken
+PASS: no mini blob mount
+PASS: R2 credentials are read-only scoped
+=== RESULT: FAIL (1 check(s) failed) ===

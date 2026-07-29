@@ -1,0 +1,3 @@
+AC-2 NOT GREEN — placeholder-only success removed.
+See AC-2-blocked-human-required.txt for live probe evidence + human_required mint steps.
+Live negative control proved backup RW keys allow Put on real R2 (AccessDenied NOT faked).

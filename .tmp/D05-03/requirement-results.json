@@ -1,0 +1,26 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "export MINI_HOST=203.0.113.1 R2_ACCESS_KEY_ID=ro-test-key R2_SECRET_ACCESS_KEY=ro-test-secret R2_CREDENTIAL_KIND=object-read-only R2_CREDENTIAL_POLICY='{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"HolocronRestoreList\",\"Effect\":\"Allow\",\"Action\":[\"s3:ListBucket\",\"s3:GetBucketLocation\"],\"Resource\":[\"arn:aws:s3:::holocron-backup\"]},{\"Sid\":\"HolocronRestoreGet\",\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::holocron-backup/*\"]}]}'; unset R2_PARENT_ACCESS_KEY_ID R2_PARENT_SECRET_ACCESS_KEY R2_READ_WRITE_CREDENTIAL 2>/dev/null; bash ./scripts/prove-isolation.sh",
+    "exit_code": 0,
+    "output_file": ".tmp/D05-03/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "test -f .tmp/fresh-restore/fresh-restore-01/restore-target.env && grep -q 'R2_CREDENTIAL_KIND=object-read-only' .tmp/fresh-restore/fresh-restore-01/restore-target.env && grep -q 's3:GetObject' .tmp/fresh-restore/fresh-restore-01/restore-target.env && ! grep -q 's3:PutObject' .tmp/fresh-restore/fresh-restore-01/restore-target.env && grep -q 'R2_ACCESS_KEY_ID=' .tmp/fresh-restore/fresh-restore-01/restore-target.env && grep -q 'R2_SECRET_ACCESS_KEY=' .tmp/fresh-restore/fresh-restore-01/restore-target.env && echo 'AC-2: restore-target.env has List/Get-only R2 policy (no PutObject)'",
+    "exit_code": 0,
+    "output_file": ".tmp/D05-03/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "test -d .tmp/fresh-restore/fresh-restore-01/pgdata && test -d .tmp/fresh-restore/fresh-restore-01/blob-restore && test \"$(find .tmp/fresh-restore/fresh-restore-01/pgdata -mindepth 1 | wc -l | tr -d ' ')\" = 0 && test \"$(find .tmp/fresh-restore/fresh-restore-01/blob-restore -mindepth 1 | wc -l | tr -d ' ')\" = 0 && touch .tmp/fresh-restore/fresh-restore-01/pgdata/.w && rm .tmp/fresh-restore/fresh-restore-01/pgdata/.w && touch .tmp/fresh-restore/fresh-restore-01/blob-restore/.w && rm .tmp/fresh-restore/fresh-restore-01/blob-restore/.w && docker exec fresh-restore-01 sh -c 'find /var/lib/postgresql/restore -mindepth 1 | wc -l; find /var/lib/holocron/blob-restore -mindepth 1 | wc -l' && echo 'AC-3: host staging + container dirs empty and writable'",
+    "exit_code": 0,
+    "output_file": ".tmp/D05-03/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "docker inspect fresh-restore-01 --format '{{.State.Running}}' | grep -q true && docker exec fresh-restore-01 postgres --version | grep -E 'PostgreSQL\\) 18\\.' && docker network inspect fresh-restore-01-net >/dev/null && test -f .tmp/fresh-restore/fresh-restore-01/docker-compose.yml && echo 'AC-4: fresh-restore-01 container running on isolated network'",
+    "exit_code": 0,
+    "output_file": ".tmp/D05-03/ac-4-output.txt"
+  }
+]
