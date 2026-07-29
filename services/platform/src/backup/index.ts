@@ -29,6 +29,7 @@ export {
 export {
   type BaselineHookResult,
   type BaselineParityCompareResult,
+  baselineDomainRowTotal,
   bindResticSnapshotToRecoveryBaseline,
   buildRecoveryBaseline,
   captureAndUploadRecoveryBaseline,
@@ -39,6 +40,7 @@ export {
   contentAddressedBaselineKey,
   emitBaseBackupRecoveryBaselineHook,
   formatSha256Digest,
+  isBaselineParityMeaningful,
   isMd5OnlyDigest,
   listRecoveryBaselines,
   loadBaselineAndCompare,
@@ -53,11 +55,15 @@ export {
   type RecoveryBaselineUploadResult,
   uploadRecoveryBaseline,
   validateRecoveryBaseline,
+  verifyResticSnapshotInRepo,
 } from './recovery-baseline.ts';
-
 export {
   DEFAULT_RESTIC_PREFIX,
   RESTIC_BLOB_MIRROR_JOB,
   RESTIC_BLOB_MIRROR_SPAN,
   type ResticMirrorResult,
 } from './restic-mirror.ts';
+export {
+  classifyPostgresStartFailure,
+  mapPostgresStartFailureNamedErrors,
+} from './restore.ts';

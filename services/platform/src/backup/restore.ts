@@ -637,7 +637,9 @@ function probeRecoveryState(
     },
   ];
   // Fallback to short socket dir (C1), then pgdata for older layouts.
-  for (const host of [socketDir, pgdata].filter((h): h is string => typeof h === 'string' && h.length > 0)) {
+  for (const host of [socketDir, pgdata].filter(
+    (h): h is string => typeof h === 'string' && h.length > 0
+  )) {
     attempts.push({
       host,
       args: [
@@ -667,6 +669,57 @@ function probeRecoveryState(
   return { reachable: false, inRecovery: null };
 }
 
+/**
+ * Classify Postgres/pgBackRest start/recovery log into gate-matching named errors.
+ * Prefer "outside available WAL" over a bare "Postgres failed to start" when the
+ * log shows recovery ended before the target or WAL/archive exhaustion.
+ */
+export function classifyPostgresStartFailure(log: string): string[] {
+  if (!log) return [];
+  const named: string[] = [];
+  if (
+    /recovery ended before configured recovery target was reached/i.test(log) ||
+    /requested recovery stop point is before consistent recovery state/i.test(log) ||
+    /recovery target timeline .* does not exist/i.test(log) ||
+    /could not find redo location/i.test(log)
+  ) {
+    named.push(
+      'timestamp is outside available WAL range (not in retention window) — recovery ended before target'
+    );
+  }
+  if (
+    /unable to find (?:WAL|wal) file/i.test(log) ||
+    /archive-get.*(?:error|failed|unable)/i.test(log) ||
+    /could not (?:read|restore|open).*WAL/i.test(log) ||
+    /restored log file.*not found/i.test(log) ||
+    /no such file or directory.*pg_wal/i.test(log)
+  ) {
+    named.push(
+      'timestamp is outside available WAL range (not in retention window) — WAL/archive exhausted during recovery'
+    );
+  }
+  // Merge any broader pgBackRest-style mappings already used on restore failure.
+  for (const e of mapPgbackrestFailure(log)) {
+    if (/outside available WAL/i.test(e) || /no base backup/i.test(e) || /backup chain/i.test(e)) {
+      named.push(e);
+    }
+  }
+  return [...new Set(named)];
+}
+
+/**
+ * Named errors for a failed promote/pause start. Prefer classified outside-WAL
+ * (or chain) errors; only fall back to generic "Postgres failed to start".
+ */
+export function mapPostgresStartFailureNamedErrors(log: string): string[] {
+  const classified = classifyPostgresStartFailure(log);
+  if (classified.length > 0) return classified;
+  const snippet = (log || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+  return [
+    `restore incomplete — Postgres failed to start on scratch PGDATA: ${snippet || '(empty start log)'}`,
+  ];
+}
+
 function tryStartPostgres(
   pgdata: string,
   env: NodeJS.ProcessEnv,
@@ -676,6 +729,10 @@ function tryStartPostgres(
   port: number | null;
   log: string;
 } {
+  // Align with fire-drill startRestoredPostgres: clear stale postmaster first,
+  // short -k socket dir, localhost TCP, and a generous promote poll budget.
+  tryStopPostgres(pgdata, env);
+
   // Use a free high port so we never collide with the live mini instance.
   // Avoid 55432 which may be used by standing tunnels. Prefer random high port
   // with a process-unique offset so parallel restore tests do not collide.
@@ -692,9 +749,9 @@ function tryStartPostgres(
     // ignore
   }
 
-  // Short initial -w only; long WAL replay / promote finishes in the poll loop below.
-  // Avoid multi-minute spawnSync timeouts that can kill pg_ctl mid-start.
-  const initialWaitSecs = 45;
+  // Fire-drill uses -t 120; match that so R2 archive-get catch-up can finish under -w
+  // before we enter the longer promote poll loop.
+  const initialWaitSecs = 120;
   const started = run(
     'pg_ctl',
     [
@@ -710,8 +767,10 @@ function tryStartPostgres(
       '-t',
       String(initialWaitSecs),
     ],
-    { env: { ...env, PGDATA: pgdata }, timeoutMs: (initialWaitSecs + 30) * 1000 }
+    { env: { ...env, PGDATA: pgdata }, timeoutMs: (initialWaitSecs + 45) * 1000 }
   );
+  // Brief settle (same as fire-drill) so promote can complete after pg_ctl -w returns.
+  run('sleep', ['3'], { env, timeoutMs: 10_000 });
 
   // Promote: replay to target + promote + checkpoint can take several minutes on R2.
   // Pause: reach recovery target and accept RO connections.
@@ -728,13 +787,17 @@ function tryStartPostgres(
   while (Date.now() < deadline) {
     log = readStartLog(pgdata);
     // Fail closed if recovery aborted before target (would leave a non-promoted cluster).
+    // Surface gate-matching "outside available WAL" language in the log itself.
     if (/recovery ended before configured recovery target was reached/i.test(log)) {
       tryStopPostgres(pgdata, env);
       log = readStartLog(pgdata);
+      const named = classifyPostgresStartFailure(
+        log || 'recovery ended before configured recovery target was reached'
+      );
       return {
         started: false,
         port: null,
-        log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
+        log: `${started.stdout}\n${started.stderr}\n${named.join('; ')}\n${log}`.slice(-12000),
       };
     }
 
@@ -743,6 +806,14 @@ function tryStartPostgres(
       timeoutMs: 15_000,
     });
     if (status.status !== 0) {
+      // If postmaster already exited due to WAL exhaustion, surface that now.
+      if (classifyPostgresStartFailure(log).length > 0) {
+        return {
+          started: false,
+          port: null,
+          log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
+        };
+      }
       // Postmaster never came up, or already exited. Keep polling until budget ends.
       run('sleep', ['2'], { env, timeoutMs: 5_000 });
       continue;
@@ -755,7 +826,7 @@ function tryStartPostgres(
     }
 
     if (action === 'pause') {
-      // Pause proof requires still-in-recovery.
+      // Pause proof requires still-in-recovery (natural recovery_target_action=pause).
       if (lastProbe.inRecovery === true) {
         up = true;
         break;
@@ -764,16 +835,29 @@ function tryStartPostgres(
       continue;
     }
 
-    // Promote path: wait until out of recovery (writable primary).
+    // Promote path: accept ONLY after natural promote (recovery_target_action=promote)
+    // completes — never force pg_promote mid-WAL catch-up (would end recovery at wrong LSN).
     if (lastProbe.inRecovery === false) {
       up = true;
       break;
     }
-    // Still replaying / awaiting promote.
+    // Still replaying / awaiting natural promote — keep polling until budget ends.
     run('sleep', ['2'], { env, timeoutMs: 5_000 });
   }
 
   log = readStartLog(pgdata);
+  // Final probe only — no forced pg_promote. Promote: reachable && out of recovery.
+  // Pause: reachable && still in recovery.
+  if (!up) {
+    lastProbe = probeRecoveryState(pgdata, port, env, socketDir);
+    if (action === 'pause') {
+      if (lastProbe.reachable && lastProbe.inRecovery === true) {
+        up = true;
+      }
+    } else if (lastProbe.reachable && lastProbe.inRecovery === false) {
+      up = true;
+    }
+  }
   if (up) {
     // Operator/test probes use TCP (socket dir is /tmp/holo-restore-<port>, not PGDATA).
     try {
@@ -784,10 +868,13 @@ function tryStartPostgres(
     }
   }
   const probeNote = `probe reachable=${lastProbe.reachable} in_recovery=${String(lastProbe.inRecovery)} action=${action} budget_s=${pollBudgetSecs}`;
+  const failNamed = up ? [] : classifyPostgresStartFailure(log);
   return {
     started: up,
     port: up ? port : null,
-    log: `${started.stdout}\n${started.stderr}\n${probeNote}\n${log}`.slice(-12000),
+    log: `${started.stdout}\n${started.stderr}\n${probeNote}\n${failNamed.join('; ')}\n${log}`.slice(
+      -12000
+    ),
   };
 }
 
@@ -918,11 +1005,9 @@ export function queryRecoveryStopObservation(
   } catch {
     discoveredSocketDir = null;
   }
-  const hostCandidates = [
-    '127.0.0.1',
-    discoveredSocketDir,
-    pgdata,
-  ].filter((h): h is string => typeof h === 'string' && h.length > 0);
+  const hostCandidates = ['127.0.0.1', discoveredSocketDir, pgdata].filter(
+    (h): h is string => typeof h === 'string' && h.length > 0
+  );
   const attempts: Array<{ args: string[]; host: string }> = hostCandidates.map((host) => ({
     host,
     args: [
@@ -1384,6 +1469,9 @@ export async function runPitrRestore(options: {
     const started = tryStartPostgres(scratch, env, { targetAction });
     if (!started.started) {
       // Promote mode requires a queryable DB for AC-1; fail closed if start fails.
+      // Prefer gate-matching named errors (outside available WAL / chain) over a
+      // truncated archive-get log that only says "Postgres failed to start".
+      const startNamed = mapPostgresStartFailureNamedErrors(started.log);
       wipeScratch(scratch);
       const r = failResult({
         targetTimestamp: parsed.iso,
@@ -1391,9 +1479,7 @@ export async function runPitrRestore(options: {
         targetAction,
         stanza: cfg.stanza,
         repoPrefix: cfg.pgbackrestPrefix,
-        namedErrors: [
-          `restore incomplete — Postgres failed to start on scratch PGDATA: ${started.log.slice(0, 400)}`,
-        ],
+        namedErrors: startNamed,
         stdout: restore.stdout,
         stderr: `${restore.stderr}\n${started.log}`,
         restoredWalCount,

@@ -51,9 +51,11 @@ import {
   writeParityReport,
 } from './parity-report.ts';
 import {
+  baselineDomainRowTotal,
   compareRestoredToBaseline,
   computeBlobManifestSha256,
   computeLedgerSha256,
+  isBaselineParityMeaningful,
   listRecoveryBaselines,
   loadRecoveryBaselineFromR2,
   normalizeSha256Digest,
@@ -127,9 +129,52 @@ type LoadedBaseline = {
   key: string | null;
 };
 
+export type FireDrillBaselineCandidate = {
+  baseline: RecoveryBaseline;
+  key: string;
+  /** Parsed target_timestamp ms. */
+  ts: number;
+};
+
+/**
+ * Select the best recovery baseline among R2 discovery candidates.
+ *
+ * Prefer parity-meaningful baselines (non-zero domain row_counts + restic id)
+ * over zero-count / junk entries even when junk is newer. Among meaningful
+ * survivors, rank by target_timestamp desc then domain row totals as tiebreaker.
+ * When requireMeaningful is true (discovery default), return null if only
+ * zero-count junk remains — fail closed rather than loading expected counts of 0
+ * that poison POSTGRES_PARITY_PASS.
+ */
+export function selectBestFireDrillBaseline(
+  candidates: FireDrillBaselineCandidate[],
+  options?: {
+    targetTimestamp?: string;
+    /** When true (default for discovery), refuse zero-count-only sets. */
+    requireMeaningful?: boolean;
+  }
+): FireDrillBaselineCandidate | null {
+  if (!candidates.length) return null;
+  const requireMeaningful = options?.requireMeaningful !== false;
+
+  const meaningful = candidates.filter((c) => isBaselineParityMeaningful(c.baseline));
+  const pool = meaningful.length > 0 ? meaningful : requireMeaningful ? [] : candidates;
+  if (pool.length === 0) return null;
+
+  // Among meaningful survivors: prefer latest target_timestamp, then higher domain row totals.
+  const ranked = [...pool].sort((a, b) => {
+    if (b.ts !== a.ts) return b.ts - a.ts;
+    const ta = baselineDomainRowTotal(a.baseline.row_counts);
+    const tb = baselineDomainRowTotal(b.baseline.row_counts);
+    return tb - ta;
+  });
+  return ranked[0] ?? null;
+}
+
 /**
  * Resolve the immutable R2 recovery baseline for this fire-drill.
- * Prefers explicit id/key/label bindings, then discovers by target timestamp.
+ * Prefers explicit id/key/label bindings, then discovers by target timestamp
+ * while rejecting zero-count / non-restorable junk when a valid candidate exists.
  */
 function resolveFireDrillBaseline(
   options: FireDrillOptions,
@@ -185,12 +230,12 @@ function resolveFireDrillBaseline(
   }
 
   // Discover by target timestamp: list R2 recovery-baselines, load content-addressed
-  // objects, pick the latest baseline with target_timestamp <= drill target.
+  // objects, pick the best parity-meaningful baseline with target_timestamp <= drill target.
   try {
     const listed = listRecoveryBaselines({ env });
     const targetMs = Date.parse(options.targetTimestamp);
     const contentKeys = listed.keys.filter((k) => /\/sha256\/[0-9a-f]{64}\//i.test(k));
-    const candidates: Array<{ baseline: RecoveryBaseline; key: string; ts: number }> = [];
+    const candidates: FireDrillBaselineCandidate[] = [];
     for (const key of contentKeys.slice(0, 64)) {
       const res = loadRecoveryBaselineFromR2({ key, env });
       if (!res.ok || !res.baseline) continue;
@@ -200,9 +245,17 @@ function resolveFireDrillBaseline(
       candidates.push({ baseline: res.baseline, key: res.key ?? key, ts });
     }
     if (candidates.length > 0) {
-      candidates.sort((a, b) => b.ts - a.ts);
-      const best = candidates[0];
-      return { loaded: { baseline: best.baseline, key: best.key }, errors: [] };
+      const best = selectBestFireDrillBaseline(candidates, {
+        targetTimestamp: options.targetTimestamp,
+        requireMeaningful: true,
+      });
+      if (best) {
+        return { loaded: { baseline: best.baseline, key: best.key }, errors: [] };
+      }
+      errors.push(
+        `no parity-meaningful recovery baseline among ${candidates.length} candidates (zero-count/junk only) — refuse baseline-bound parity`
+      );
+      return { loaded: null, errors: [...new Set(errors)] };
     }
     if (listed.keys.length === 0) {
       errors.push(
