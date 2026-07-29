@@ -39,10 +39,12 @@ export {
   computeLedgerSha256,
   contentAddressedBaselineKey,
   emitBaseBackupRecoveryBaselineHook,
+  emitLiveRecoveryBaseline,
   formatSha256Digest,
   isBaselineParityMeaningful,
   isMd5OnlyDigest,
   listRecoveryBaselines,
+  listResticSnapshotIds,
   loadBaselineAndCompare,
   loadRecoveryBaselineFromR2,
   lookupBaselineKey,
@@ -66,5 +68,10 @@ export {
 } from './restic-mirror.ts';
 export {
   classifyPostgresStartFailure,
+  extractBackupTimeWindow,
+  formatPitrWindowText,
   mapPostgresStartFailureNamedErrors,
+  PITR_WINDOW_WAL_SLACK_MS,
+  type PitrWindowReport,
+  queryPitrWindow,
 } from './restore.ts';

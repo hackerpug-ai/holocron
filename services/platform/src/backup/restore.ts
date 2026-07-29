@@ -27,6 +27,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { defaultSecretsPath } from '../config/secrets.ts';
 import { type BackupConfig, endpointHost, loadBackupConfig } from './config.ts';
 import { listRepoPrefix, renderPgbackrestConfig, writePgbackrestConfig } from './r2-provision.ts';
 
@@ -443,6 +444,145 @@ export function extractBackupTimeWindow(infoJson: string): {
     }
   }
   return { earliest, latest, labels, raw };
+}
+
+/** 7d post-backup slack used by runPitrRestore window check — keep in sync. */
+export const PITR_WINDOW_WAL_SLACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type PitrWindowReport = {
+  ok: boolean;
+  earliest: string | null;
+  latest: string | null;
+  /** Recommended operator PITR ISO (latest backup stop within window). */
+  recommended_pitr: string | null;
+  /** Inclusive max used by restore window validation (latest + WAL slack). */
+  window_max: string | null;
+  labels: string[];
+  stanza: string;
+  repoPrefix: string;
+  errors: string[];
+};
+
+/**
+ * GATE-FIX-QA2: expose live in-window PITR bounds from real `pgbackrest info`.
+ * Does not change restore fail-closed semantics — only reports metadata so
+ * operators set PITR_TIMESTAMP inside the live window (not stale 2026-08-01).
+ */
+export function queryPitrWindow(options?: {
+  env?: NodeJS.ProcessEnv;
+  config?: BackupConfig;
+}): PitrWindowReport {
+  const env = options?.env ?? process.env;
+  const empty = (errors: string[], partial?: Partial<PitrWindowReport>): PitrWindowReport => ({
+    ok: false,
+    earliest: null,
+    latest: null,
+    recommended_pitr: null,
+    window_max: null,
+    labels: [],
+    stanza: partial?.stanza ?? '',
+    repoPrefix: partial?.repoPrefix ?? '',
+    errors,
+  });
+
+  let cfg: BackupConfig;
+  try {
+    // Align with restic verify: resolve secrets.yaml even when not exported into env.
+    const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+    cfg = options?.config ?? loadBackupConfig({ env, secretsPath });
+  } catch (e) {
+    return empty([`backup config missing secrets: ${e instanceof Error ? e.message : String(e)}`]);
+  }
+
+  const pgbackrestBin = whichPgbackrest(env);
+  if (!pgbackrestBin) {
+    return empty(['pgBackRest binary not found (pgbackrest)'], {
+      stanza: cfg.stanza,
+      repoPrefix: cfg.pgbackrestPrefix,
+    });
+  }
+
+  // Sibling conf without requiring a real empty PGDATA (info only).
+  const scratch = mkdtempSync(join(tmpdir(), 'holo-pitr-window-'));
+  try {
+    const confPath = writeRestoreConfig({ ...cfg, pg1Path: scratch }, scratch);
+    const pgbEnv = pgbackrestEnv(cfg, env);
+    const logPath = join(tmpdir(), 'pgbackrest-window-logs');
+    mkdirSync(logPath, { recursive: true });
+    const info = run(
+      pgbackrestBin,
+      [
+        `--config=${confPath}`,
+        `--stanza=${cfg.stanza}`,
+        `--log-path=${logPath}`,
+        'info',
+        '--output=json',
+      ],
+      { env: pgbEnv, timeoutMs: 120_000 }
+    );
+    if (info.status !== 0) {
+      return empty(
+        [
+          `pgbackrest info failed (exit ${info.status}): ${(info.stderr || info.stdout).slice(0, 400)}`,
+        ],
+        { stanza: cfg.stanza, repoPrefix: cfg.pgbackrestPrefix }
+      );
+    }
+    const window = extractBackupTimeWindow(info.stdout || '');
+    if (window.labels.length === 0 || !window.latest) {
+      return empty(['no restorable backup labels in pgBackRest info — refuse empty window'], {
+        stanza: cfg.stanza,
+        repoPrefix: cfg.pgbackrestPrefix,
+      });
+    }
+    const latestIso = window.latest.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const earliestIso = window.earliest
+      ? window.earliest.toISOString().replace(/\.\d{3}Z$/, 'Z')
+      : null;
+    const windowMax = new Date(window.latest.getTime() + PITR_WINDOW_WAL_SLACK_MS)
+      .toISOString()
+      .replace(/\.\d{3}Z$/, 'Z');
+    return {
+      ok: true,
+      earliest: earliestIso,
+      latest: latestIso,
+      recommended_pitr: latestIso,
+      window_max: windowMax,
+      labels: window.labels,
+      stanza: cfg.stanza,
+      repoPrefix: cfg.pgbackrestPrefix,
+      errors: [],
+    };
+  } finally {
+    try {
+      rmSync(scratch, { recursive: true, force: true });
+      rmSync(`${scratch}.holo-pgbackrest`, { recursive: true, force: true });
+    } catch {
+      // best-effort cleanup
+    }
+  }
+}
+
+export function formatPitrWindowText(report: PitrWindowReport): string {
+  const lines = [
+    'holo restore:window — live pgBackRest PITR bounds',
+    `  ok:                ${report.ok ? 'true' : 'false'}`,
+    `  earliest:          ${report.earliest ?? '(none)'}`,
+    `  latest:            ${report.latest ?? '(none)'}`,
+    `  recommended_pitr:  ${report.recommended_pitr ?? '(none)'}`,
+    `  window_max:        ${report.window_max ?? '(none)'}`,
+    `  labels:            ${report.labels.length ? report.labels.join(', ') : '(none)'}`,
+    `  stanza:            ${report.stanza || '(none)'}`,
+    `  repo_prefix:       ${report.repoPrefix || '(none)'}`,
+  ];
+  if (report.recommended_pitr) {
+    lines.push(`  export PITR_TIMESTAMP=${report.recommended_pitr}`);
+  }
+  if (report.errors.length) {
+    lines.push('  errors:');
+    for (const e of report.errors) lines.push(`    - ${e}`);
+  }
+  return lines.join('\n');
 }
 
 function mapPgbackrestFailure(combined: string): string[] {
