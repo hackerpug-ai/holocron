@@ -101,10 +101,12 @@ describe('GATE-FIX-S28R3-QA1 run isolation + host-accessible volumes (always)', 
     writeEvidence('ac1-step1-literal_cmd.txt', cmd);
 
     // Must include GATE_RUN_ID (or equivalent) in scratch path — not sole fixed shared path.
+    // GATE-FIX-S28R3-QA3: no :-manual; required preflight uses "${GATE_RUN_ID}" only.
     expect(cmd).toMatch(/GATE_RUN_ID/);
     expect(cmd).toMatch(
-      /\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID:-manual\}\/step1-scratch|\.tmp\/REDHAT-FIX-H2\/"\$\{GATE_RUN_ID:-manual\}"\/step1-scratch|\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID:-manual\}/
+      /\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID(?::-manual)?\}\/step1-scratch|\.tmp\/REDHAT-FIX-H2\/"\$\{GATE_RUN_ID(?::-manual)?\}"\/step1-scratch|\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID(?::-manual)?\}/
     );
+    expect(cmd).not.toMatch(/GATE_RUN_ID:-manual/);
     // Fixed sole path without run id is the defect.
     expect(cmd).not.toMatch(
       /--scratch\s+\.tmp\/REDHAT-FIX-H2\/step1-scratch(?!\/)|mkdir -p \.tmp\/REDHAT-FIX-H2\/step1-scratch(?!\/)/
@@ -122,8 +124,9 @@ describe('GATE-FIX-S28R3-QA1 run isolation + host-accessible volumes (always)', 
 
     expect(cmd).toMatch(/GATE_RUN_ID/);
     expect(cmd).toMatch(
-      /\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID:-manual\}\/step6-scratch|\.tmp\/REDHAT-FIX-H2\/"\$\{GATE_RUN_ID:-manual\}"\/step6-scratch|\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID:-manual\}/
+      /\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID(?::-manual)?\}\/step6-scratch|\.tmp\/REDHAT-FIX-H2\/"\$\{GATE_RUN_ID(?::-manual)?\}"\/step6-scratch|\.tmp\/REDHAT-FIX-H2\/\$\{GATE_RUN_ID(?::-manual)?\}/
     );
+    expect(cmd).not.toMatch(/GATE_RUN_ID:-manual/);
     expect(cmd).not.toMatch(
       /--scratch\s+\.tmp\/REDHAT-FIX-H2\/step6-scratch(?!\/)|mkdir -p \.tmp\/REDHAT-FIX-H2\/step6-scratch(?!\/)/
     );

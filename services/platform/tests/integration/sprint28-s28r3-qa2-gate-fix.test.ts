@@ -181,23 +181,27 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     });
   });
 
-  it('C2 oracle: each gate-plan literal_cmd sha256 appears in HUMAN-GATE (or rendered block)', () => {
+  it('C2 oracle: each HUMAN-GATE fenced bash block hashes to gate-plan literal_cmd', () => {
+    // GATE-FIX-S28R3-QA3 / M-1: hash fenced command bodies (not digest-in-note alone).
     const plan = loadPlan();
     const hg = readFileSync(HUMAN_GATE, 'utf8');
-    const digests: Array<{ n: number; sha: string; present: boolean }> = [];
+    const fenced = new Map<number, string>();
+    const re = /###\s+(\d+)\s+[^\n]*\n[\s\S]*?```bash\n([\s\S]*?)```/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(hg)) !== null) {
+      const n = Number(m[1]);
+      if (!fenced.has(n)) fenced.set(n, m[2].replace(/\n$/, ''));
+    }
+    const digests: Array<{ n: number; sha: string; match: boolean }> = [];
     for (const step of plan.steps ?? []) {
       const cmd = String(step.literal_cmd ?? '');
       expect(cmd.length, `step ${step.n} literal_cmd`).toBeGreaterThan(0);
       const sha = sha256(cmd);
-      // Allow either raw literal_cmd embed or explicit sha256:HEX marker.
-      const present =
-        hg.includes(cmd) ||
-        hg.includes(sha) ||
-        hg.includes(`sha256:${sha}`) ||
-        hg.includes(`cmd_sha256=${sha}`) ||
-        hg.includes(`literal_cmd_sha256: ${sha}`);
-      digests.push({ n: step.n, sha, present });
-      expect(present, `HUMAN-GATE must lock step ${step.n} cmd digest ${sha}`).toBe(true);
+      const block = fenced.get(step.n);
+      expect(block, `HUMAN-GATE fenced bash for step ${step.n}`).toBeTruthy();
+      const match = (block ?? '') === cmd && sha256(block ?? '') === sha;
+      digests.push({ n: step.n, sha, match });
+      expect(match, `step ${step.n} fenced block must equal literal_cmd`).toBe(true);
     }
     writeEvidence('c2-cmd-digests.json', digests);
   });
@@ -393,10 +397,13 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     );
   });
 
-  it('M3: gate-plan step3 uses trap for docker cleanup; provisioner validates identifiers', () => {
+  it('M3: gate-plan step3 uses trap for docker cleanup incl. network; provisioner validates identifiers', () => {
     const step3 = String(stepOf(loadPlan(), 3).literal_cmd ?? '');
     expect(step3).toMatch(/\btrap\b/);
     expect(step3).toMatch(/docker rm|volume rm/);
+    // GATE-FIX-S28R3-QA3 / M-3: trap must remove ${HOST}-net
+    expect(step3).toMatch(/network rm/);
+    expect(step3).not.toMatch(/GATE_RUN_ID:-manual/);
     const prov = readFileSync(PROVISION, 'utf8');
     expect(prov).toMatch(/GATE_RUN_ID|allowlist|valid.*host|HOST_NAME.*\^\[/i);
   });
@@ -554,7 +561,8 @@ PY
         recorder_exists: existsSync(recorderOut),
       });
 
-      // Recorder should have been invoked (exit 0 from recorder).
+      // GATE-FIX-S28R3-QA3 / M-2: full-run success — status 0 + recorder reached.
+      expect(run.status, combined.slice(0, 1200)).toBe(0);
       expect(
         existsSync(recorderOut),
         `recorder output missing; run: ${combined.slice(0, 1200)}`
@@ -574,6 +582,12 @@ PY
         'child must not see ambient writer as R2_ACCESS_KEY_ID'
       ).toBe(false);
       expect(rec.argv?.join(' ') ?? '').toMatch(/restore:fire-drill|--fresh-target/);
+
+      const attPath = resolve(EVIDENCE_DIR, `c1-att-${host}.json`);
+      if (existsSync(attPath)) {
+        const att = JSON.parse(readFileSync(attPath, 'utf8')) as { ok?: boolean };
+        expect(att.ok).toBe(true);
+      }
 
       if (existsSync(dumpPath)) {
         const dump = JSON.parse(readFileSync(dumpPath, 'utf8')) as {
@@ -817,6 +831,8 @@ PY
         stdout: (run.stdout ?? '').slice(0, 3000),
         stderr: (run.stderr ?? '').slice(0, 2000),
       });
+      // GATE-FIX-S28R3-QA3 / M-2: require successful runner exit + attestation ok.
+      expect(run.status, (run.stderr ?? run.stdout ?? '').slice(0, 1200)).toBe(0);
       expect(existsSync(recorderOut), run.stderr ?? run.stdout).toBe(true);
       const rec = JSON.parse(readFileSync(recorderOut, 'utf8')) as {
         argv: string[];
@@ -832,13 +848,14 @@ PY
       // Bound host paths appear in argv (scratch/blob).
       expect(argvJoined).toMatch(/--scratch/);
       expect(argvJoined).toMatch(/--blob-dir/);
-      if (existsSync(att)) {
-        const body = JSON.parse(readFileSync(att, 'utf8')) as {
-          host_execution?: { scratch?: string; blob?: string };
-        };
-        if (body.host_execution?.scratch) {
-          expect(argvJoined).toContain(body.host_execution.scratch);
-        }
+      expect(existsSync(att)).toBe(true);
+      const body = JSON.parse(readFileSync(att, 'utf8')) as {
+        ok?: boolean;
+        host_execution?: { scratch?: string; blob?: string };
+      };
+      expect(body.ok).toBe(true);
+      if (body.host_execution?.scratch) {
+        expect(argvJoined).toContain(body.host_execution.scratch);
       }
     },
     300_000

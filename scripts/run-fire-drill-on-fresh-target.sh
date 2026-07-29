@@ -18,11 +18,14 @@
 #       --target-timestamp 2026-07-28T12:00:00Z --attestation /tmp/att.json
 #
 # Environment:
-#   BUN_BIN, HOLO_SECRETS_PATH, DATABASE_URL (passed through to holo restore:fire-drill)
+#   BUN_BIN, HOLO_SECRETS_PATH (secrets file + env; env overrides file per key)
 #   STAGING_ROOT (optional hint for paths.txt lookup)
 #   R2_RESTORE_ACCESS_KEY_ID / R2_RESTORE_SECRET_ACCESS_KEY — REQUIRED for full fire-drill
 #     (mapped to R2_ACCESS_* in a minimal child env; ambient writer keys stripped).
-#     Missing/equal-to-ambient/placeholder → DEPENDENCY-S28-R2-RO
+#     Missing/equal-to-writer/placeholder → DEPENDENCY-S28-R2-RO
+#     Writer + restore identities resolved from the SAME secrets source before compare
+#     (file-only equal writer/restore still refused when env lacks writer keys).
+#   DATABASE_URL / PG* — NEVER forwarded to the fire-drill child (fresh-target: baseline only)
 #   HOLO_FIRE_DRILL_ENV_DUMP — optional path; writes redacted key inventory (no raw secrets)
 #   HOLO_CLI — override CLI path (ts via bun, or injectable recorder script)
 set -euo pipefail
@@ -438,9 +441,11 @@ fi
 REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
 mkdir -p "$(dirname "$REPORT_PATH")"
 
-# ── GATE-FIX-S28R3-QA2 / C1: restore-only minimal child env ──────────────────
+# ── GATE-FIX-S28R3-QA3 / C-1: restore-only minimal child env ─────────────────
 # Map verified distinct R2_RESTORE_* → R2_ACCESS_* for loadBackupConfig(); never
-# leak ambient backup-writer R2_ACCESS_* into the fire-drill process.
+# leak backup-writer R2_ACCESS_* into the fire-drill process.
+# Writer + restore are resolved from the SAME secrets file + env (env overrides
+# file per key) before equality compare — file-only equal identities still fail.
 is_placeholder_restore_key() {
   local v="${1:-}"
   case "$v" in
@@ -451,34 +456,84 @@ is_placeholder_restore_key() {
   return 1
 }
 
-load_restore_keys_from_secrets() {
+# Resolve writer + restore (+ shared R2 config) from secrets file then env override.
+# Sets: WRITER_AK, WRITER_SK, RESTORE_AK, RESTORE_SK, RESTORE_ST
+# Also exports non-identity R2_* config keys when env lacks them (endpoint/bucket/prefix).
+resolve_r2_identities_from_secrets_and_env() {
   local secrets="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}}"
-  [[ -f "$secrets" ]] || return 0
+  local file_writer_ak="" file_writer_sk=""
+  local file_restore_ak="" file_restore_sk="" file_restore_st=""
   local line k v
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue
-    k="${BASH_REMATCH[1]}"
-    v="${BASH_REMATCH[2]}"
-    v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
-    case "$k" in
-      R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX)
-        if [[ -z "${!k:-}" && -n "$v" ]]; then
-          export "$k=$v"
-        fi
-        ;;
-    esac
-  done <"$secrets"
+
+  if [[ -f "$secrets" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue
+      k="${BASH_REMATCH[1]}"
+      v="${BASH_REMATCH[2]}"
+      v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+      case "$k" in
+        R2_ACCESS_KEY_ID) file_writer_ak="$v" ;;
+        R2_SECRET_ACCESS_KEY) file_writer_sk="$v" ;;
+        R2_RESTORE_ACCESS_KEY_ID) file_restore_ak="$v" ;;
+        R2_RESTORE_SECRET_ACCESS_KEY) file_restore_sk="$v" ;;
+        R2_RESTORE_SESSION_TOKEN) file_restore_st="$v" ;;
+        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX|R2_SESSION_TOKEN)
+          # Env overrides file for each key (export only when env empty).
+          if [[ -z "${!k:-}" && -n "$v" ]]; then
+            export "$k=$v"
+          fi
+          ;;
+      esac
+    done <"$secrets"
+  fi
+
+  # Env overrides file for identity keys (empty env string still means "unset" here:
+  # treat empty process env as absent so file values can supply identity for compare).
+  if [[ -n "${R2_ACCESS_KEY_ID:-}" ]]; then
+    WRITER_AK="$R2_ACCESS_KEY_ID"
+  else
+    WRITER_AK="$file_writer_ak"
+  fi
+  if [[ -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
+    WRITER_SK="$R2_SECRET_ACCESS_KEY"
+  else
+    WRITER_SK="$file_writer_sk"
+  fi
+  if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" ]]; then
+    RESTORE_AK="$R2_RESTORE_ACCESS_KEY_ID"
+  else
+    RESTORE_AK="$file_restore_ak"
+  fi
+  if [[ -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
+    RESTORE_SK="$R2_RESTORE_SECRET_ACCESS_KEY"
+  else
+    RESTORE_SK="$file_restore_sk"
+  fi
+  if [[ -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
+    RESTORE_ST="$R2_RESTORE_SESSION_TOKEN"
+  else
+    RESTORE_ST="$file_restore_st"
+  fi
+
+  # Export resolved restore keys for any parent-side tooling (child uses explicit map).
+  if [[ -n "$RESTORE_AK" ]]; then
+    export R2_RESTORE_ACCESS_KEY_ID="$RESTORE_AK"
+  fi
+  if [[ -n "$RESTORE_SK" ]]; then
+    export R2_RESTORE_SECRET_ACCESS_KEY="$RESTORE_SK"
+  fi
+  if [[ -n "$RESTORE_ST" ]]; then
+    export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
+  fi
 }
 
-load_restore_keys_from_secrets
-
-AMBIENT_WRITER_AK="${R2_ACCESS_KEY_ID:-}"
-AMBIENT_WRITER_SK="${R2_SECRET_ACCESS_KEY:-}"
-
-RESTORE_AK="${R2_RESTORE_ACCESS_KEY_ID:-}"
-RESTORE_SK="${R2_RESTORE_SECRET_ACCESS_KEY:-}"
-RESTORE_ST="${R2_RESTORE_SESSION_TOKEN:-}"
+WRITER_AK=""
+WRITER_SK=""
+RESTORE_AK=""
+RESTORE_SK=""
+RESTORE_ST=""
+resolve_r2_identities_from_secrets_and_env
 
 if [[ -z "$RESTORE_AK" || -z "$RESTORE_SK" ]]; then
   err "DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* required for fire-drill child env (refuse ambient writer fallback)"
@@ -490,13 +545,14 @@ if is_placeholder_restore_key "$RESTORE_AK" || is_placeholder_restore_key "$REST
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   exit 2
 fi
-if [[ -n "$AMBIENT_WRITER_AK" && "$RESTORE_AK" == "$AMBIENT_WRITER_AK" ]]; then
-  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_ACCESS_KEY_ID equals ambient R2_ACCESS_KEY_ID (must be distinct restore-only identity)"
+# Compare fully resolved identities (file and/or env). Equal AK or SK → residual.
+if [[ -n "$WRITER_AK" && "$RESTORE_AK" == "$WRITER_AK" ]]; then
+  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_ACCESS_KEY_ID equals writer R2_ACCESS_KEY_ID after secrets+env resolve (must be distinct restore-only identity)"
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   exit 2
 fi
-if [[ -n "$AMBIENT_WRITER_SK" && "$RESTORE_SK" == "$AMBIENT_WRITER_SK" ]]; then
-  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_SECRET_ACCESS_KEY equals ambient writer secret (must be distinct)"
+if [[ -n "$WRITER_SK" && "$RESTORE_SK" == "$WRITER_SK" ]]; then
+  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_SECRET_ACCESS_KEY equals writer secret after secrets+env resolve (must be distinct)"
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   exit 2
 fi
@@ -504,9 +560,9 @@ fi
 # Optional redacted env dump for tests (keys + presence/length/hash only — never raw secrets).
 if [[ -n "${HOLO_FIRE_DRILL_ENV_DUMP:-}" ]]; then
   mkdir -p "$(dirname "$HOLO_FIRE_DRILL_ENV_DUMP")"
-  python3 - "$HOLO_FIRE_DRILL_ENV_DUMP" "$RESTORE_AK" "$AMBIENT_WRITER_AK" <<'PY' || true
+  python3 - "$HOLO_FIRE_DRILL_ENV_DUMP" "$RESTORE_AK" "$WRITER_AK" <<'PY' || true
 import hashlib, json, os, sys
-path, restore_ak, ambient_ak = sys.argv[1], sys.argv[2], sys.argv[3]
+path, restore_ak, writer_ak = sys.argv[1], sys.argv[2], sys.argv[3]
 def meta(name: str):
     v = os.environ.get(name)
     if v is None or v == "":
@@ -516,15 +572,20 @@ def meta(name: str):
         "length": len(v),
         "sha256_16": hashlib.sha256(v.encode()).hexdigest()[:16],
     }
-keys = sorted(k for k in os.environ if k.startswith("R2_") or k.startswith("HOLO") or k in ("PATH", "HOME", "RESTIC_PASSWORD", "DATABASE_URL"))
+keys = sorted(
+    k
+    for k in os.environ
+    if k.startswith("R2_") or k.startswith("HOLO") or k in ("PATH", "HOME", "RESTIC_PASSWORD")
+)
 payload = {
     "schema": "holo.fire-drill.child-env-dump.v1",
     "keys": keys,
     "R2_RESTORE_ACCESS_KEY_ID": meta("R2_RESTORE_ACCESS_KEY_ID"),
     "R2_ACCESS_KEY_ID_parent": meta("R2_ACCESS_KEY_ID"),
-    "restore_ak_distinct_from_ambient": bool(restore_ak) and restore_ak != ambient_ak,
+    "restore_ak_distinct_from_writer": bool(restore_ak) and restore_ak != writer_ak,
     "child_will_map_restore_to_access": True,
-    "note": "values never included; parent dump only",
+    "child_forwards_DATABASE_URL": False,
+    "note": "values never included; parent dump only; writer/restore resolved from same secrets+env",
 }
 with open(path, "w") as f:
     json.dump(payload, f, indent=2)
@@ -572,11 +633,12 @@ if [[ -n "$RESTORE_ST" ]]; then
   CHILD_ENV_ARGS+=("R2_SESSION_TOKEN=$RESTORE_ST" "R2_RESTORE_SESSION_TOKEN=$RESTORE_ST")
 fi
 # Passthrough non-writer R2 / holo config when present.
+# GATE-FIX-S28R3-QA3 / C-2: NEVER forward DATABASE_URL or PG* (fresh-target is baseline-only).
 for _k in \
   R2_ENDPOINT R2_ACCOUNT_ID R2_BUCKET_NAME R2_PGBACKREST_PREFIX R2_RESTORE_OBJECT_PREFIX \
   R2_RESTIC_PREFIX R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY R2_REPO_CIPHER_PASS \
   HOLO_SECRETS_PATH HOLOCRON_SECRETS_PATH HOLO_FIRE_DRILL_ENV_DUMP \
-  STAGING_ROOT DATABASE_URL RESTIC_PASSWORD RESTIC_REPOSITORY \
+  STAGING_ROOT RESTIC_PASSWORD RESTIC_REPOSITORY \
   PGBACKREST_CONFIG PGBACKREST_STANZA PGBACKREST_PG1_PATH \
   BUN_INSTALL BUN_INSTALL_CACHE_DIR NODE_PATH \
   CI PLATFORM_IT; do

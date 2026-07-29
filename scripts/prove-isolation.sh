@@ -774,14 +774,80 @@ check_r2_axis() {
         bad=1
       fi
     fi
-    # GATE-FIX-S28R3-QA2 / H2: reject bare arn:aws:s3:::bucket/* object Resource
-    # (missing exact prefix segment). Require arn:aws:s3:::bucket/<prefix>/* shape.
-    if echo "$policy" | grep -qE 'arn:aws:s3:::[A-Za-z0-9._-]+/\*'; then
-      # Bare bucket/* (no prefix segment between bucket and /*).
-      if ! echo "$policy" | grep -qE 'arn:aws:s3:::[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/\*'; then
-        echo "  detail: R2_CREDENTIAL_POLICY object Resource is bare bucket/* without exact prefix segment — not least-privilege" >&2
-        bad=1
-      fi
+    # GATE-FIX-S28R3-QA3 / H-1: JSON-parse every Allow object Resource.
+    # Require exact arn:aws:s3:::${bucket}/${exactPrefix}/* — reject bare bucket/*
+    # even when exact prefix is also present; reject wrong bucket/prefix.
+    local expect_bucket="${R2_BUCKET_NAME:-holocron-backup}"
+    local expect_prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+    expect_prefix="${expect_prefix#/}"
+    expect_prefix="${expect_prefix%/}"
+    local policy_check_rc=0
+    set +e
+    python3 - "$policy" "$expect_bucket" "$expect_prefix" <<'PY'
+import json, sys
+
+raw, bucket, prefix = sys.argv[1], sys.argv[2], sys.argv[3].strip("/")
+errors = []
+try:
+    policy = json.loads(raw)
+except Exception as e:
+    print(f"  detail: R2_CREDENTIAL_POLICY is not valid JSON — refuse ({e})", file=sys.stderr)
+    sys.exit(2)
+
+stmts = policy.get("Statement") or []
+if isinstance(stmts, dict):
+    stmts = [stmts]
+
+object_resources = []
+for stmt in stmts:
+    if not isinstance(stmt, dict):
+        continue
+    if str(stmt.get("Effect", "")).lower() != "allow":
+        continue
+    resources = stmt.get("Resource", [])
+    if isinstance(resources, str):
+        resources = [resources]
+    if not isinstance(resources, list):
+        continue
+    for r in resources:
+        if not isinstance(r, str):
+            continue
+        if not r.startswith("arn:aws:s3:::"):
+            continue
+        rest = r[len("arn:aws:s3:::"):]
+        if "/" not in rest:
+            # Bucket-level ARN (ListBucket). Exact bucket only.
+            if rest != bucket:
+                errors.append(f"Allow Resource wrong bucket (bucket-level): {r}")
+            continue
+        # Object-scoped ARN
+        b, path = rest.split("/", 1)
+        object_resources.append(r)
+        if b != bucket:
+            errors.append(f"Allow object Resource wrong bucket: {r}")
+            continue
+        expected_path = f"{prefix}/*"
+        if path == "*":
+            errors.append(
+                f"Allow object Resource is bare bucket/* (not least-privilege even if exact prefix also present): {r}"
+            )
+        elif path != expected_path:
+            errors.append(
+                f"Allow object Resource off exact prefix (require arn:aws:s3:::{bucket}/{expected_path}): {r}"
+            )
+
+if not object_resources and not errors:
+    # No object ARN at all — still require GetObject shape elsewhere via string checks below.
+    pass
+
+for e in errors:
+    print(f"  detail: R2_CREDENTIAL_POLICY {e}", file=sys.stderr)
+sys.exit(1 if errors else 0)
+PY
+    policy_check_rc=$?
+    set -e
+    if [[ $policy_check_rc -ne 0 ]]; then
+      bad=1
     fi
     if ! echo "$policy" | grep -qiE 's3:ListBucket|ListBucket'; then
       echo "  detail: R2_CREDENTIAL_POLICY missing ListBucket" >&2

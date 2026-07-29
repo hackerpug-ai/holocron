@@ -796,7 +796,9 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   }
 
   // ── 1a) Load immutable R2 recovery baseline (SHA-256 oracle) ───────────
-  const requireBaseline = options.requireRecoveryBaseline !== false;
+  // GATE-FIX-S28R3-QA3 / C-2: fresh-target never queries live mini; baseline required.
+  const isFreshTarget = Boolean(options.freshTarget && String(options.freshTarget).trim());
+  const requireBaseline = isFreshTarget ? true : options.requireRecoveryBaseline !== false;
   const baselineResolve = resolveFireDrillBaseline(options, env);
   const loadedBaseline = baselineResolve.loaded;
   if (!loadedBaseline && requireBaseline) {
@@ -804,7 +806,9 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       ...(baselineResolve.errors.length
         ? baselineResolve.errors
         : [
-            'recovery baseline missing/unverified from R2 — refuse fire-drill parity (REDHAT-FIX-C5)',
+            isFreshTarget
+              ? 'fresh-target fire-drill requires verified R2 recovery baseline — refuse live source fallback (GATE-FIX-S28R3-QA3/C-2)'
+              : 'recovery baseline missing/unverified from R2 — refuse fire-drill parity (REDHAT-FIX-C5)',
           ])
     );
   } else if (!loadedBaseline && baselineResolve.errors.length) {
@@ -813,18 +817,12 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   }
 
   // ── 1b) Optional live pre-failure snapshot (diagnostic; not sole oracle) ─
+  // freshTarget: skip defaultSourceConnection / live captureRowCounts entirely.
   let sourceConn: PsqlConnection;
-  if (options.sourceDatabaseUrl) {
-    const { connectionFromDatabaseUrl } = await import('./evidence-ledger-verify.ts');
-    sourceConn = connectionFromDatabaseUrl(options.sourceDatabaseUrl, env);
-  } else {
-    sourceConn = defaultSourceConnection(env);
-  }
-
   let preCounts = {
     capturedAt: new Date().toISOString(),
     row_counts: {} as Record<string, number>,
-    connection: { host: sourceConn.host, port: sourceConn.port, database: sourceConn.database },
+    connection: { host: 'fresh-target-no-live-source', port: 0, database: 'n/a' },
   };
   let preLedger = {
     ledger_checksum: '',
@@ -834,22 +832,58 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   };
   let preLedgerSha256: string | null = null;
   let livePreFailureOk = false;
-  try {
-    preCounts = captureRowCounts(sourceConn, FIRE_DRILL_COUNT_TABLES);
-    preLedger = computeLedgerChecksum(sourceConn);
-    const sha = computeLedgerSha256(sourceConn);
-    preLedgerSha256 = normalizeSha256Digest(sha.ledger_sha256);
-    livePreFailureOk =
-      Object.keys(preCounts.row_counts).length > 0 &&
-      (preLedgerSha256 !== null ||
-        (typeof preLedger.ledger_checksum === 'string' && preLedger.ledger_checksum.length === 32));
-  } catch (e) {
+
+  if (isFreshTarget) {
+    // Synthetic connection metadata only — never dial DATABASE_URL / PG*.
+    sourceConn = {
+      host: 'fresh-target-no-live-source',
+      port: 0,
+      database: 'n/a',
+    };
+    preCounts = {
+      capturedAt: new Date().toISOString(),
+      row_counts: loadedBaseline ? { ...loadedBaseline.baseline.row_counts } : {},
+      connection: {
+        host: sourceConn.host,
+        port: sourceConn.port,
+        database: sourceConn.database,
+      },
+    };
     if (!loadedBaseline) {
       errors.push(
-        `pre-failure live snapshot failed and no R2 baseline: ${
-          e instanceof Error ? e.message : String(e)
-        }`
+        'fresh-target mode: no live source snapshot attempted; recovery baseline required and missing — refuse fire-drill'
       );
+    }
+  } else {
+    if (options.sourceDatabaseUrl) {
+      const { connectionFromDatabaseUrl } = await import('./evidence-ledger-verify.ts');
+      sourceConn = connectionFromDatabaseUrl(options.sourceDatabaseUrl, env);
+    } else {
+      sourceConn = defaultSourceConnection(env);
+    }
+
+    preCounts = {
+      capturedAt: new Date().toISOString(),
+      row_counts: {} as Record<string, number>,
+      connection: { host: sourceConn.host, port: sourceConn.port, database: sourceConn.database },
+    };
+    try {
+      preCounts = captureRowCounts(sourceConn, FIRE_DRILL_COUNT_TABLES);
+      preLedger = computeLedgerChecksum(sourceConn);
+      const sha = computeLedgerSha256(sourceConn);
+      preLedgerSha256 = normalizeSha256Digest(sha.ledger_sha256);
+      livePreFailureOk =
+        Object.keys(preCounts.row_counts).length > 0 &&
+        (preLedgerSha256 !== null ||
+          (typeof preLedger.ledger_checksum === 'string' && preLedger.ledger_checksum.length === 32));
+    } catch (e) {
+      if (!loadedBaseline) {
+        errors.push(
+          `pre-failure live snapshot failed and no R2 baseline: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        );
+      }
     }
   }
 
