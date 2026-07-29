@@ -94,7 +94,10 @@ describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('h1-provision-no-writer-secret.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('h1-provision-no-writer-secret.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/writer secret|cannot establish distinct|GATE-FIX-S28R3-QA9/i);
     expect(combined).toMatch(/DEPENDENCY-S28-R2-RO/);
@@ -118,7 +121,10 @@ describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('h1-prove-no-writer-secret.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('h1-prove-no-writer-secret.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/writer secret|cannot establish distinct|GATE-FIX-S28R3-QA9|tuple/i);
   });
@@ -141,7 +147,10 @@ describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
       }
     );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('h1-firedrill-no-writer-secret.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('h1-firedrill-no-writer-secret.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/writer secret|cannot establish distinct|GATE-FIX-S28R3-QA9/i);
     // Must not only fail on docker after accepting shape.
@@ -183,10 +192,15 @@ describe('GATE-FIX-S28R3-QA9 H2 session token from secrets file', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('h2-verify-secrets-session.json', { status: run.status, combined: combined.slice(0, 5000) });
+    writeEvidence('h2-verify-secrets-session.json', {
+      status: run.status,
+      combined: combined.slice(0, 5000),
+    });
     // Must not claim incomplete session after secrets load.
     expect(combined).not.toMatch(/without session token/);
-    expect(combined).toMatch(/session token present|Cloudflare temporary|GATE-FIX-S28R3-QA8\/QA9|same parent AK/i);
+    expect(combined).toMatch(
+      /session token present|Cloudflare temporary|GATE-FIX-S28R3-QA8\/QA9|same parent AK/i
+    );
     // Never print token value.
     expect(combined).not.toContain(RESTORE_ST);
     expect(combined).not.toContain(RESTORE_SK);
@@ -226,7 +240,10 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m1-mismatched-proof.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('m1-mismatched-proof.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/tuple_fp16 mismatch|proof not bound|RO proof/i);
   });
@@ -251,7 +268,10 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m1-matching-proof-ok.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('m1-matching-proof-ok.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status, combined.slice(0, 1500)).toBe(0);
     expect(combined).toMatch(/RO proof bound ok|accepted Cloudflare temporary/i);
     expect(combined).not.toContain(RESTORE_ST);
@@ -310,7 +330,10 @@ PY
       }
     );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m2-firedrill-token.json', { status: run.status, combined: combined.slice(0, 4000) });
+    writeEvidence('m2-firedrill-token.json', {
+      status: run.status,
+      combined: combined.slice(0, 4000),
+    });
     // Must accept CF shape (not refuse same AK).
     expect(combined).not.toMatch(/without non-empty restore session token/);
     expect(combined).not.toMatch(/without authoritative writer secret/);
@@ -319,7 +342,9 @@ PY
     expect(combined).not.toContain(RESTORE_SK);
     // Either got to volume resolve (proof+identity passed) or recorder ran.
     expect(
-      combined.match(/Cloudflare temporary credential tuple shape accepted|volume unresolvable|RO proof bound|recorder:ok|running restore-only/i)
+      combined.match(
+        /Cloudflare temporary credential tuple shape accepted|volume unresolvable|RO proof bound|recorder:ok|running restore-only/i
+      )
     ).toBeTruthy();
   });
 
@@ -341,7 +366,10 @@ PY
       }
     );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m2-firedrill-equal-secret.json', { status: run.status, combined: combined.slice(0, 2000) });
+    writeEvidence('m2-firedrill-equal-secret.json', {
+      status: run.status,
+      combined: combined.slice(0, 2000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/writer-equivalent|equals writer secret/i);
   });
