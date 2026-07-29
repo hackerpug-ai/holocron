@@ -171,3 +171,13 @@ export function assertParity(
 export function isRegularBlobFile(path: string): boolean {
   return isRegularFile(path);
 }
+
+/**
+ * REDHAT-FIX-C5: SHA-256 of a sorted list of content digests (blob manifest binding).
+ * Fire-drill/parity loads the full recovery baseline via recovery-baseline.ts.
+ */
+export function computeBlobManifestSha256FromHashes(
+  sortedContentSha256: readonly string[]
+): string {
+  return createHash('sha256').update(sortedContentSha256.join('\n'), 'utf8').digest('hex');
+}

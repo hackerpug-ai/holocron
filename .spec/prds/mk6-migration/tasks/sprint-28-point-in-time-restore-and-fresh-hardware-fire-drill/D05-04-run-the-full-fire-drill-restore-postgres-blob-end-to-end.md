@@ -62,27 +62,29 @@ OUTCOME
 --------------------------------------------------------------------------------
 Execute a full fire-drill restore onto fresh hardware using only the remote R2 repository, then verify the restored state is bit-for-bit identical to the pre-failure state
 
-**Success state:** holo restore:fire-drill completes with exit 0; the parity report shows (a) all table row counts exactly match pre-failure snapshot (e.g., beliefs=1234, sources=56, passages=789), (b) evidence-ledger checksum matches (e.g., md5=abc123...), (c) blob SHA-256 digests all match the restic manifest; the restored Postgres is queryable and the blob store is fully hydrated
+**Success state:** holo restore:fire-drill completes with exit 0; the parity report shows (a) all table row counts exactly match the immutable R2 recovery baseline (e.g., beliefs=1234, sources=56, passages=789), (b) evidence-ledger SHA-256 matches baseline.ledger_sha256 (collision-resistant — never MD5-only as sole oracle), (c) blob SHA-256 digests all match the restic / baseline blob_manifest_sha256; the restored Postgres is queryable and the blob store is fully hydrated
 
 --------------------------------------------------------------------------------
 🚫 CRITICAL CONSTRAINTS (Never tier)
 --------------------------------------------------------------------------------
 - MUST restore Postgres from R2 alone using holo restore --pitr
-- MUST capture pre-failure snapshot of per-table row counts and evidence-ledger checksum
-- MUST compare restored Postgres row counts to pre-failure snapshot (exact match)
+- MUST load the immutable recovery baseline from R2 (recovery-baseline.json bound to pgBackRest label + restic snapshot id + target LSN/timestamp) as the parity oracle — not live mini state alone
+- MUST capture pre-failure snapshot of per-table row counts and evidence-ledger SHA-256 (or load the R2-retained baseline written at backup time)
+- MUST compare restored Postgres row counts to baseline/pre-failure snapshot (exact match)
 - MUST verify evidence-ledger as-of chain integrity (tx_from/tx_to validity windows preserved)
-- MUST restore blobs via restic and verify SHA-256 digests match source manifest
-- MUST emit a parity report artifact documenting the comparison
-- MUST fail non-zero if any parity check fails
+- MUST restore blobs via restic and verify SHA-256 digests match source manifest / baseline.blob_manifest_sha256
+- MUST emit a parity report artifact documenting the comparison (including baseline_id or pgbackrest_backup_label)
+- MUST fail non-zero if any parity check fails or if the recovery baseline is missing/unverified
 - NEVER use the original mini's PGDATA or blob storage during restore
-- NEVER skip the pre-failure snapshot capture
+- NEVER skip the pre-failure snapshot / baseline load
 - NEVER accept approximate row count matches (must be exact)
 - NEVER accept a corrupted or truncated evidence ledger chain
+- NEVER use MD5 as the only ledger integrity mechanism (SHA-256 or stronger required; REDHAT-FIX-C5)
 - NEVER ignore blob SHA-256 mismatches
 - NEVER return exit 0 when parity checks fail
-- STRICTLY pre-failure snapshot is captured BEFORE the restore begins (not after)
-- STRICTLY row counts are per-table COUNT(*) from restored Postgres compared to snapshot
-- STRICTLY evidence-ledger integrity is verified by a deterministic checksum (e.g., md5 of concatenated belief claim passage source rows ordered by id)
+- STRICTLY pre-failure snapshot / recovery baseline is captured BEFORE the restore begins (not after)
+- STRICTLY row counts are per-table COUNT(*) from restored Postgres compared to R2 baseline (or snapshot co-retained with backup)
+- STRICTLY evidence-ledger integrity is verified by a collision-resistant digest (SHA-256 of concatenated belief/claim/passage/source rows ordered by id) matching baseline.ledger_sha256
 - STRICTLY blob parity uses SHA-256 content-addressable verification (every object's digest matches)
 - STRICTLY parity report includes concrete counts/digests (not just 'passed')
 
@@ -110,15 +112,15 @@ AC-1 [PRIMARY] Postgres restore and row-count parity (flow_ref T-PLAT-025)
   verify: holo restore:fire-drill --target-timestamp 2024-01-15T12:00:00Z --scratch /var/lib/postgresql/restore; parity-report.json contains 'POSTGRES_PARITY_PASS': true and 'row_counts': {'beliefs': 1234, 'sources': 56, 'passages': 789}
 
 AC-2 Evidence ledger as-of chain integrity (flow_ref T-PLAT-025)
-  GIVEN: Restored Postgres with row-count parity verified
-  WHEN:  operator runs evidence-ledger-verify against the restored database
-  THEN:  the evidence ledger (beliefs, sources, passages, claims, relations) preserves the as-of chain: tx_from/tx_to validity windows match, supersedes_id chains are intact, a deterministic checksum (md5 of ordered concatenated rows) matches the pre-failure snapshot
-  TEST_TIER: e2e · VERIFICATION_SERVICE: Postgres+evidence-ledger-verify · TDD_STATE: none
+  GIVEN: Restored Postgres with row-count parity verified against the R2 recovery baseline
+  WHEN:  operator runs evidence-ledger-verify / baseline compare against the restored database
+  THEN:  the evidence ledger (beliefs, sources, passages, claims, relations) preserves the as-of chain: tx_from/tx_to validity windows match, supersedes_id chains are intact, a collision-resistant ledger_sha256 (SHA-256 of ordered concatenated rows) matches the immutable R2 recovery baseline (REDHAT-FIX-C5) — MD5-only is never the sole oracle
+  TEST_TIER: e2e · VERIFICATION_SERVICE: Postgres+evidence-ledger-verify+recovery-baseline · TDD_STATE: none
   SCENARIO — start_ref: postgres_restored_with_row_parity · evidence: file_artifact
-    NEGATIVE_CONTROL: would fail if ledger checksum is not computed (assumes match - no-op); checksum comparison passes despite mismatch (stub); tx windows corrupted but report shows pass (static shell)
-    MUST_OBSERVE: jq '.LEDGER_CHECKSUM_MATCH' parity-report.json = true; jq '.ledger_checksum' parity-report.json matches '<actual-md5-digest>' (32-char hex string); SELECT tx_from, tx_to FROM beliefs WHERE id='<sample-id>' returns 2 non-null timestamps (validity windows intact)
-    MUST_NOT_OBSERVE: jq '.LEDGER_CHECKSUM_MATCH' = false; jq '.ledger_checksum' = null (empty checksum); jq '.ledger_checksum' = '' (empty string); SELECT tx_from, tx_to returns NULL for non-deleted row (corrupted)
-  verify: evidence-ledger-verify --db-url postgresql://localhost/restore_db; parity-report.json contains 'LEDGER_CHECKSUM_MATCH': true and 'ledger_checksum': 'abc123def456...' (actual digest)
+    NEGATIVE_CONTROL: would fail if ledger checksum is not computed (assumes match - no-op); checksum comparison passes despite mismatch (stub); MD5-only used as sole ledger oracle; tx windows corrupted but report shows pass (static shell)
+    MUST_OBSERVE: jq '.LEDGER_CHECKSUM_MATCH' parity-report.json = true; ledger digest equals baseline.ledger_sha256 (64-hex or sha256:…); SELECT tx_from, tx_to FROM beliefs WHERE id='<sample-id>' returns 2 non-null timestamps (validity windows intact)
+    MUST_NOT_OBSERVE: jq '.LEDGER_CHECKSUM_MATCH' = false; empty ledger digest; MD5-only (32-hex) as sole ledger field without SHA-256 baseline; SELECT tx_from, tx_to returns NULL for non-deleted row (corrupted)
+  verify: load recovery-baseline from R2; compareRestoredToBaseline; parity-report.json contains 'LEDGER_CHECKSUM_MATCH': true and ledger_sha256 matching baseline
 
 AC-3 Blob SHA-256 parity from restic restore (flow_ref T-PLAT-025)
   GIVEN: Restored Postgres with ledger parity verified
