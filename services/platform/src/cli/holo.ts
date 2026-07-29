@@ -2685,8 +2685,9 @@ async function main(): Promise<void> {
           const host = args.freshTarget.trim();
           const volPg = `${host}-pgdata`;
           const volBlob = `${host}-blobs`;
-          const { existsSync, mkdirSync, writeFileSync, unlinkSync, realpathSync } =
-            await import('node:fs');
+          const { existsSync, mkdirSync, writeFileSync, unlinkSync, realpathSync } = await import(
+            'node:fs'
+          );
           const { join } = await import('node:path');
 
           const inspectField = (vol: string, template: string): string | null => {
@@ -2823,7 +2824,10 @@ async function main(): Promise<void> {
           };
 
           if (args.scratch) {
-            if (isUnboundH2Step3(args.scratch) || !sameCanonical(args.scratch, scratchResolved.exec)) {
+            if (
+              isUnboundH2Step3(args.scratch) ||
+              !sameCanonical(args.scratch, scratchResolved.exec)
+            ) {
               const msg =
                 `fresh-target --scratch must canonical-equal resolved host path ` +
                 `(${scratchResolved.exec}); refuse unrelated writable destination`;

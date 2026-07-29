@@ -9,8 +9,9 @@
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-s28r3-qa2-gate-fix.test.ts
  */
-import { createHash } from 'node:crypto';
+
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   accessSync,
   constants,
@@ -57,8 +58,7 @@ afterEach(() => {
   while (dockerCleanup.length > 0) {
     const item = dockerCleanup.pop()!;
     spawnSync('docker', ['rm', '-f', item.host], { encoding: 'utf8', timeout: 30_000 });
-    const vols =
-      item.volumes ?? [`${item.host}-pgdata`, `${item.host}-blobs`];
+    const vols = item.volumes ?? [`${item.host}-pgdata`, `${item.host}-blobs`];
     spawnSync('docker', ['volume', 'rm', '-f', ...vols], {
       encoding: 'utf8',
       timeout: 30_000,
@@ -218,9 +218,7 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
 
   it('H2: provisioner emits exact bucket+prefix object Resource (not bucket/*)', () => {
     const src = readFileSync(PROVISION, 'utf8');
-    expect(src).not.toMatch(
-      /Resource":\["arn:aws:s3:::\$\{R2_BUCKET_NAME\}\/\*"\]/
-    );
+    expect(src).not.toMatch(/Resource":\["arn:aws:s3:::\$\{R2_BUCKET_NAME\}\/\*"\]/);
     // Must reference prefix (R2_PGBACKREST_PREFIX / R2_RESTORE_OBJECT_PREFIX / pgbackrest).
     expect(src).toMatch(/R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|pgbackrest/);
     expect(src).toMatch(/\$\{R2_BUCKET_NAME\}\/\$\{[^}]+\}|\/*\$\{.*PREFIX/);
@@ -345,11 +343,11 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     const secrets = secretsCandidates[0]!;
     const out = resolve(EVIDENCE_DIR, 'credential-inventory.json');
     mkdirSync(dirname(out), { recursive: true });
-    const run = spawnSync(
-      'bash',
-      [INVENTORY, '--secrets', secrets, '--out', out],
-      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
-    );
+    const run = spawnSync('bash', [INVENTORY, '--secrets', secrets, '--out', out], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
     writeEvidence('h4-inventory-run.json', {
       status: run.status,
       stdout: (run.stdout ?? '').slice(0, 2000),
@@ -485,13 +483,7 @@ PY
         // Without docker, exercise residual path only.
         const missing = spawnSync(
           'bash',
-          [
-            RUNNER,
-            '--host',
-            'no-such-host-qa2',
-            '--target-timestamp',
-            '2026-07-28T12:00:00Z',
-          ],
+          [RUNNER, '--host', 'no-such-host-qa2', '--target-timestamp', '2026-07-28T12:00:00Z'],
           {
             cwd: REPO_ROOT,
             encoding: 'utf8',
@@ -558,9 +550,10 @@ PY
       });
 
       // Recorder should have been invoked (exit 0 from recorder).
-      expect(existsSync(recorderOut), `recorder output missing; run: ${combined.slice(0, 1200)}`).toBe(
-        true
-      );
+      expect(
+        existsSync(recorderOut),
+        `recorder output missing; run: ${combined.slice(0, 1200)}`
+      ).toBe(true);
       const rec = JSON.parse(readFileSync(recorderOut, 'utf8')) as {
         has_writer_ak_in_env?: boolean;
         has_restore_ak_mapped?: boolean;
@@ -571,9 +564,10 @@ PY
       expect(rec.has_restore_ak_mapped, 'child R2_ACCESS_KEY_ID must be restore identity').toBe(
         true
       );
-      expect(rec.has_writer_ak_in_env, 'child must not see ambient writer as R2_ACCESS_KEY_ID').toBe(
-        false
-      );
+      expect(
+        rec.has_writer_ak_in_env,
+        'child must not see ambient writer as R2_ACCESS_KEY_ID'
+      ).toBe(false);
       expect(rec.argv?.join(' ') ?? '').toMatch(/restore:fire-drill|--fresh-target/);
 
       if (existsSync(dumpPath)) {
@@ -590,68 +584,69 @@ PY
     300_000
   );
 
-  itLive('C1 residual: missing restore keys → DEPENDENCY-S28-R2-RO (no ambient RW fallback)', () => {
-    if (!dockerAvailable()) return;
-    const host = `s28r3-qa2-c1miss-${Date.now().toString(36)}`;
-    dockerCleanup.push({ host });
-    const staging = resolve(EVIDENCE_DIR, 'c1-miss-staging');
-    const pgPort = String(59500 + (Date.now() % 500));
-    const provision = spawnSync(
-      'bash',
-      [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 180_000,
-        env: {
-          ...process.env,
-          STAGING_ROOT: staging,
-          ALLOW_PLACEHOLDER_R2_RO: '1',
-          R2_RESTORE_ACCESS_KEY_ID: '',
-          R2_RESTORE_SECRET_ACCESS_KEY: '',
-        },
-      }
-    );
-    expect(provision.status, provision.stderr ?? '').toBe(0);
+  itLive(
+    'C1 residual: missing restore keys → DEPENDENCY-S28-R2-RO (no ambient RW fallback)',
+    () => {
+      if (!dockerAvailable()) return;
+      const host = `s28r3-qa2-c1miss-${Date.now().toString(36)}`;
+      dockerCleanup.push({ host });
+      const staging = resolve(EVIDENCE_DIR, 'c1-miss-staging');
+      const pgPort = String(59500 + (Date.now() % 500));
+      const provision = spawnSync(
+        'bash',
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 180_000,
+          env: {
+            ...process.env,
+            STAGING_ROOT: staging,
+            ALLOW_PLACEHOLDER_R2_RO: '1',
+            R2_RESTORE_ACCESS_KEY_ID: '',
+            R2_RESTORE_SECRET_ACCESS_KEY: '',
+          },
+        }
+      );
+      expect(provision.status, provision.stderr ?? '').toBe(0);
 
-    const recorder = resolve(EVIDENCE_DIR, `c1-miss-recorder.sh`);
-    writeFileSync(
-      recorder,
-      '#!/usr/bin/env bash\necho "recorder-should-not-run" >&2\nexit 99\n',
-      'utf8'
-    );
-    spawnSync('chmod', ['+x', recorder]);
+      const recorder = resolve(EVIDENCE_DIR, `c1-miss-recorder.sh`);
+      writeFileSync(
+        recorder,
+        '#!/usr/bin/env bash\necho "recorder-should-not-run" >&2\nexit 99\n',
+        'utf8'
+      );
+      spawnSync('chmod', ['+x', recorder]);
 
-    const run = spawnSync(
-      'bash',
-      [
-        RUNNER,
-        '--host',
-        host,
-        '--target-timestamp',
-        '2026-07-28T12:00:00Z',
-      ],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 60_000,
-        env: {
-          ...process.env,
-          R2_ACCESS_KEY_ID: WRITER_AK,
-          R2_SECRET_ACCESS_KEY: WRITER_SK,
-          R2_RESTORE_ACCESS_KEY_ID: '',
-          R2_RESTORE_SECRET_ACCESS_KEY: '',
-          HOLO_CLI: recorder,
-          HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
-        },
-      }
-    );
-    const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('c1-missing-restore.json', { status: run.status, combined: combined.slice(0, 3000) });
-    expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/DEPENDENCY-S28-R2-RO/);
-    expect(combined).not.toMatch(/recorder-should-not-run/);
-  }, 300_000);
+      const run = spawnSync(
+        'bash',
+        [RUNNER, '--host', host, '--target-timestamp', '2026-07-28T12:00:00Z'],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 60_000,
+          env: {
+            ...process.env,
+            R2_ACCESS_KEY_ID: WRITER_AK,
+            R2_SECRET_ACCESS_KEY: WRITER_SK,
+            R2_RESTORE_ACCESS_KEY_ID: '',
+            R2_RESTORE_SECRET_ACCESS_KEY: '',
+            HOLO_CLI: recorder,
+            HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
+          },
+        }
+      );
+      const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+      writeEvidence('c1-missing-restore.json', {
+        status: run.status,
+        combined: combined.slice(0, 3000),
+      });
+      expect(run.status).not.toBe(0);
+      expect(combined).toMatch(/DEPENDENCY-S28-R2-RO/);
+      expect(combined).not.toMatch(/recorder-should-not-run/);
+    },
+    300_000
+  );
 });
 
 describe('GATE-FIX-S28R3-QA2 H1/M1/M2 PLATFORM_IT', () => {
@@ -886,11 +881,10 @@ PY
       });
 
       // Inspect whether mountpoint is host-writable; if it is (native Linux docker), skip assert refuse.
-      const mp = spawnSync(
-        'docker',
-        ['volume', 'inspect', '-f', '{{ .Mountpoint }}', volPg],
-        { encoding: 'utf8', timeout: 15_000 }
-      );
+      const mp = spawnSync('docker', ['volume', 'inspect', '-f', '{{ .Mountpoint }}', volPg], {
+        encoding: 'utf8',
+        timeout: 15_000,
+      });
       const mountpoint = (mp.stdout ?? '').trim();
       const hostWritableMp = mountpoint && hostPathWritable(mountpoint);
       writeEvidence('m2-mountpoint.json', { mountpoint, hostWritableMp });
