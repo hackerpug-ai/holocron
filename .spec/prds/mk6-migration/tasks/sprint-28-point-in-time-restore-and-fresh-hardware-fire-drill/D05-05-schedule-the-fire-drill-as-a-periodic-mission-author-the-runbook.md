@@ -1,43 +1,52 @@
 # D05-05 — Schedule the fire drill as a periodic mission + author the runbook
 > Status: ✅ Completed
 > Completed: 2026-07-29T01:13:23Z
+> REDHAT-FIX-C4: aligned with live 0017 mission schema + on-demand DSL
 
 ## What this does
 
-Authors the monthly fire-drill mission template and operator runbook; registers the mission in the mission_templates table; ensures a scheduled run produces a parity report and fails if parity checks fail
+Authors the **on-demand** fire-drill mission template and operator runbook; registers the mission in `mission_templates` (`template_key`); stores the parity report pointer in `mission_runs.typed_output_json`; fails with `status='failed'` + `error_message` when parity fails. **Monthly cadence is external launchd** (`holocron-fire-drill-monthly.plist`), not a mission DSL schedule field.
 
 
-**Provides:** Monthly scheduled mission template for fire drill; Operator runbook (step-by-step checklist) in mission templates directory; Mission execution produces parity report artifact
+**Provides:** On-demand mission template `fire-drill-monthly`; external monthly launchd unit; operator runbook; parity report pointer via `typed_output_json`
 
 
-**Consumes:** D05-04 (end-to-end fire drill command); services/platform/src/mission/templates system
+**Consumes:** D05-04 (end-to-end fire drill command); `services/platform/src/mission` system; `0017_mission_contracts.sql` columns only
 
 
 ## Why
 
-CAP-BAK-01 requires the fire drill to run monthly (scheduled mission) and operators need a clear runbook for manual execution or troubleshooting
+CAP-BAK-01 requires the fire drill to run monthly and operators need a clear runbook. The mission **DSL is on-demand only** (`MissionTriggerSchema`); monthly cadence mirrors base-backup scheduling via launchd outside the DSL.
 
 
-Grounded in: UC-PLAT-06, T-PLAT-025, CAP-BAK-01.
+Grounded in: UC-PLAT-06, T-PLAT-025, CAP-BAK-01. Remediated by REDHAT-FIX-C4 (live columns only: `template_key`, `typed_output_json`, `error_message`, lowercase statuses).
 
 
 ## How to verify
 
-Register the mission template; trigger a test run via mission executor; verify the mission completes and emits parity-report.json; inject a parity failure and verify mission status is FAILED
+```bash
+test -f services/platform/deploy/launchd/holocron-fire-drill-monthly.plist
+
+PLATFORM_IT=1 pnpm vitest run \
+  services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts
+
+pnpm tsgo --noEmit && pnpm biome check \
+  services/platform/src/mission/templates/fire-drill-monthly.ts \
+  services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts
+```
 
 
 ## Scope
 
 
-**Writes:** services/platform/src/mission/templates/fire-drill-monthly.json (NEW); .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md (NEW); services/platform/src/mission/index.ts (MODIFY — if registration helper needed)
+**Writes:** `services/platform/src/mission/templates/fire-drill-monthly.json`; `services/platform/src/mission/templates/fire-drill-monthly.ts`; `services/platform/deploy/launchd/holocron-fire-drill-monthly.plist`; `.spec/prds/mk6-migration/runbooks/fire-drill-monthly.md`; `services/platform/src/mission/index.ts` (registration helper)
 
 
-**Prohibited:** Modifying mission_templates schema (0017_mission_contracts.sql owns it); Scheduling the mission more frequently than monthly; Omitting the parity report from mission outputs; Authoring a runbook that skips verification steps; Hardcoding credentials or timestamps in the mission template
+**Prohibited:** Modifying `0017_mission_contracts.sql`; inventing columns outside live schema; uppercase terminal statuses; embedding monthly cron inside `MissionTemplateSchema` as the only cadence; scheduling more frequently than monthly; hardcoding credentials/timestamps in the template
 
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
-
 
 ================================================================================
 TASK: D05-05 — Schedule the fire drill as a periodic mission + author the runbook
@@ -53,128 +62,136 @@ CAPABILITY: CAP-BAK-01
 SPRINT:     [Sprint 28 — Point-in-Time Restore and Fresh-Hardware Fire Drill](./SPRINT.md)
 
 RUNTIME_COMMANDS:
-  test:      PLATFORM_IT=1 pnpm vitest run <path>
+  test:      PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts
   typecheck: pnpm tsgo --noEmit
   lint:      pnpm biome check .
 
 --------------------------------------------------------------------------------
 OUTCOME
 --------------------------------------------------------------------------------
-Schedule the CAP-BAK-01 fire drill as a monthly mission and author an operator runbook so the drill runs automatically and operators can execute or troubleshoot it manually
+Register on-demand mission template `fire-drill-monthly` and author the operator runbook; schedule monthly invocation via version-controlled launchd (outside mission DSL).
 
-**Success state:** Mission template 'fire-drill-monthly' is registered; a scheduled run executes holo restore:fire-drill and produces parity-report.json; the mission status is SUCCESS when all parity checks pass, FAILED when any fail; the operator runbook documents the full flow with troubleshooting steps
+**Success state:**
+- `mission_templates` has `template_key='fire-drill-monthly'` with valid `definition_json` (`trigger.kind='on-demand'`, **no** `schedule` key)
+- Mission run rows use `template_key`, lowercase `status` ∈ (`pending`,`running`,`completed`,`failed`,`blocked`,`budget_exceeded`), `typed_output_json` (parity report pointer e.g. `reportPath`), `error_message` on failure
+- Parity fail → `status='failed'` and `error_message` contains `PARITY`
+- launchd plist schedules monthly `holo mission run fire-drill-monthly` / fire-drill path
+- Runbook covers pre-drill, execute (on-demand + launchd), verify, teardown, troubleshoot
 
 --------------------------------------------------------------------------------
 🚫 CRITICAL CONSTRAINTS (Never tier)
 --------------------------------------------------------------------------------
-- MUST author the mission template in services/platform/src/mission/templates/
-- MUST register the mission in mission_templates table
-- MUST specify monthly schedule (cron expression or interval)
-- MUST mission executes holo restore:fire-drill or the equivalent flow
-- MUST mission outputs parity-report.json as an artifact
-- MUST mission status reflects parity check results (FAILED if any check fails)
+- MUST author the mission template under services/platform/src/mission/templates/
+- MUST register via template_key (mission_templates / mission_template_versions)
+- MUST use trigger.kind='on-demand' only (MissionTriggerSchema)
+- MUST implement monthly cadence via launchd/cron under services/platform/deploy/launchd/ (outside DSL)
+- MUST mission execute holo restore:fire-drill (or equivalent stage executor)
+- MUST store parity-report pointer in typed_output_json (e.g. reportPath or nested map keys) — live jsonb column only
+- MUST on any PARITY_PASS=false set status='failed' and non-empty error_message containing PARITY
 - MUST author the operator runbook as a step-by-step checklist
-- NEVER schedule the mission to run more frequently than monthly (too disruptive)
-- NEVER omit the parity report from mission outputs
-- NEVER set mission status to SUCCESS when parity checks fail
-- NEVER author a runbook that skips isolation checks or verification steps
+- NEVER invent columns beyond 0017_mission_contracts.sql
+- NEVER use uppercase terminal statuses (only lowercase pending/running/completed/failed/blocked/budget_exceeded)
+- NEVER put schedule/cron as the sole cadence inside MissionTemplateSchema / definition_json
+- NEVER schedule more frequently than monthly
 - NEVER hardcode timestamps or credentials in the mission template
-- STRICTLY mission template follows the mission schema (template_key, version, definition_json, compiled_plan_json)
-- STRICTLY runbook is version-controlled and references the current fire-drill command
-- STRICTLY mission failure on parity check is surfaced to alerting (D04-05)
-- STRICTLY runbook includes troubleshooting steps for common failures
+- NEVER modify 0017_mission_contracts.sql
+- STRICTLY statuses satisfy CHECK (status IN ('pending','running','completed','failed','blocked','budget_exceeded'))
+- STRICTLY template validates with parseMissionTemplateDefinition / MissionTemplateSchema.strict()
+- STRICTLY failure on parity is surfaceable via D04-05 alerting
+- STRICTLY runbook documents both on-demand mission run and monthly launchd invocation
 
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1 (PRIMARY): Mission template registered and scheduled
-- [ ] AC-2: Mission execution produces parity report
-- [ ] AC-3: Failed parity check surfaces as mission failure
-- [ ] AC-4: Operator runbook authored and committed
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean (only SCOPE.writeAllowed files modified)
+- [ ] AC-1 (PRIMARY): Mission template registered (on-demand, no schedule field); launchd provides monthly cadence
+- [ ] AC-2: Mission execution stores parity report pointer in typed_output_json
+- [ ] AC-3: Failed parity → status='failed' + error_message contains PARITY
+- [ ] AC-4: Operator runbook authored (incl. launchd + on-demand)
+- [ ] `pnpm tsgo --noEmit` clean + biome clean on scoped files
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads — proven by real services)
 --------------------------------------------------------------------------------
-AC-1 [PRIMARY] Mission template registered and scheduled (flow_ref T-PLAT-025)
-  GIVEN: D05-04 fire drill command is working
+AC-1 [PRIMARY] Mission template registered as on-demand; monthly via launchd (flow_ref T-PLAT-025)
+  GIVEN: D05-04 fire drill command is working; live 0017 schema
   WHEN:  operator registers the fire-drill-monthly mission template
-  THEN:  mission_templates table contains the template with template_key='fire-drill-monthly', latest_version, schedule='monthly', and a valid definition_json; the mission is scheduled to run monthly
+  THEN:  mission_templates contains template_key='fire-drill-monthly', latest_version set; definition_json has trigger.kind='on-demand', valid stageGraph/steps, and NO schedule key; monthly cadence is documented/installed via holocron-fire-drill-monthly.plist
   TEST_TIER: integration · VERIFICATION_SERVICE: Postgres+mission-registry · TDD_STATE: none
-  SCENARIO — start_ref: d05_04_fire_drill_working · evidence: db_query
-    NEGATIVE_CONTROL: would fail if template is a stub; definition_json is empty; schedule is missing
-    MUST_OBSERVE: SELECT count(*) FROM mission_templates WHERE template_key='fire-drill-monthly' = 1 (one row); SELECT latest_version FROM mission_templates WHERE template_key='fire-drill-monthly' = '1.0.0' (length > 0); SELECT definition_json->>'schedule' FROM mission_templates WHERE template_key='fire-drill-monthly' = 'monthly'; jsonb_array_length(definition_json->'steps') >= 1 (at least one step)
-    MUST_NOT_OBSERVE: SELECT count(*) = 0 (not registered — fake-success start state); latest_version = NULL or empty; definition_json->>'schedule' != 'monthly'; jsonb_array_length(definition_json->'steps') = 0
-  verify: SELECT template_key, latest_version, description FROM mission_templates WHERE template_key='fire-drill-monthly' returns one row; definition_json contains schedule and steps for fire drill
+  SCENARIO — start_ref: live_mission_schema · evidence: db_query
+    NEGATIVE_CONTROL: would fail if template missing; definition embeds schedule as only cadence; fails MissionTemplateSchema.strict()
+    MUST_OBSERVE: SELECT count(*) FROM mission_templates WHERE template_key='fire-drill-monthly' = 1; latest_version length > 0; definition_json->'trigger'->>'kind' = 'on-demand'; definition_json ? 'schedule' = false; test -f services/platform/deploy/launchd/holocron-fire-drill-monthly.plist
+    MUST_NOT_OBSERVE: count=0; definition_json->>'schedule' = 'monthly' as sole cadence mechanism
+  verify: PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts -t 'register|template'
 
-AC-2 Mission execution produces parity report (flow_ref T-PLAT-025)
-  GIVEN: Mission template registered and scheduled
-  WHEN:  the mission executes (scheduled or manual trigger)
-  THEN:  the mission runs holo restore:fire-drill and captures parity-report.json as an output artifact; the mission record contains a pointer to the parity report
+AC-2 Mission execution stores parity report in typed_output_json (flow_ref T-PLAT-025)
+  GIVEN: Mission template registered
+  WHEN:  the mission executes (launchd monthly or manual on-demand)
+  THEN:  mission_runs row has template_key='fire-drill-monthly'; status in lowercase allowed set; typed_output_json contains a parity report pointer (reportPath or equivalent) to a non-empty parity-report.json
   TEST_TIER: integration · VERIFICATION_SERVICE: Postgres+mission-executor · TDD_STATE: none
-  SCENARIO — start_ref: mission_template_registered · evidence: db_query
-    NEGATIVE_CONTROL: would fail if template is a stub; definition_json is empty; schedule is missing
-    MUST_OBSERVE: SELECT count(*) FROM mission_runs WHERE mission_key='fire-drill-monthly' = 1 (record created); SELECT status FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1 IN ('SUCCESS', 'FAILED'); SELECT output_artifacts ? 'parity-report.json' FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1 = true; test -f parity-report.json exit = 0 AND stat -f %s parity-report.json > 0 (file exists and non-empty)
-    MUST_NOT_OBSERVE: SELECT count(*) = 0 (no record — fake-success start state); status NOT IN ('SUCCESS', 'FAILED'); output_artifacts ? 'parity-report.json' = false; test -f parity-report.json exit != 0
-  verify: SELECT * FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1 shows status='SUCCESS' or 'FAILED'; output_artifacts contains 'parity-report.json'
+  SCENARIO — start_ref: on_demand_mission_dsl · evidence: db_query
+    NEGATIVE_CONTROL: would fail if uses uppercase terminal status; typed_output_json null when report written
+    MUST_OBSERVE: template_key = 'fire-drill-monthly'; status IN ('completed','failed',...allowed); typed_output_json has reportPath (or parity pointer) non-empty; test -f <path> && size > 0
+    MUST_NOT_OBSERVE: uppercase terminal status; typed_output_json null on terminal run with report
+  verify: PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts -t 'typed_output|parity'
 
 AC-3 Failed parity check surfaces as mission failure (flow_ref T-PLAT-025)
   GIVEN: Mission execution running
-  WHEN:  parity-report.json shows any PARITY_PASS=false
-  THEN:  the mission status is set to FAILED; an alert is emitted (via D04-05 alerting integration); the mission record captures the failure reason
+  WHEN:  parity-report shows any PARITY_PASS=false
+  THEN:  status='failed'; error_message non-empty containing 'PARITY' (or concrete check name); alerting may use D04-05 path
   TEST_TIER: integration · VERIFICATION_SERVICE: Postgres+mission-executor+alerting · TDD_STATE: none
-  SCENARIO — start_ref: mission_template_registered · evidence: db_query
-    NEGATIVE_CONTROL: would fail if template is a stub; definition_json is empty; schedule is missing
-    MUST_OBSERVE: SELECT status FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1 = 'FAILED'; SELECT failure_reason FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1 CONTAINS 'PARITY' or 'false'; alert webhook POST count = 1 in alert log (alert emitted); jq '.POSTGRES_PARITY_PASS' parity-report.json = false
-    MUST_NOT_OBSERVE: status = 'SUCCESS' (fake-success start state); failure_reason IS NULL or empty; alert webhook POST count = 0; jq '.POSTGRES_PARITY_PASS' = true
-  verify: Inject parity failure (e.g., corrupt R2 repo); run mission; SELECT status FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1 shows 'FAILED'; failure_reason contains 'PARITY_PASS false'
+  SCENARIO — start_ref: on_demand_mission_dsl · evidence: db_query
+    NEGATIVE_CONTROL: would fail if status remains completed; error_message empty
+    MUST_OBSERVE: status = 'failed'; error_message ILIKE '%PARITY%'; status lowercase + allowed by check constraint
+    MUST_NOT_OBSERVE: status = 'completed'; error_message NULL
+  verify: PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts -t 'parity failure|failed'
 
-AC-4 Operator runbook authored and committed (flow_ref T-PLAT-025)
-  GIVEN: Mission template and fire drill command working
+AC-4 Operator runbook + external monthly scheduler (flow_ref T-PLAT-025)
+  GIVEN: Template and fire drill command working
   WHEN:  operator reads the runbook
-  THEN:  the runbook is a step-by-step checklist covering: pre-drill snapshot capture, fresh target provision (or use existing), restore execution, parity verification, teardown, and troubleshooting; the runbook is version-controlled in .spec/prds/mk6-migration/runbooks/
+  THEN:  runbook is a checklist covering pre-drill, execute (on-demand mission + direct CLI + launchd monthly), verification (template_key/status/typed_output_json/error_message), teardown, troubleshooting; version-controlled under .spec/prds/mk6-migration/runbooks/
   TEST_TIER: unit · VERIFICATION_SERVICE: filesystem · TDD_STATE: none
-  SCENARIO — start_ref: d05_04_fire_drill_working · evidence: file_artifact
-    NEGATIVE_CONTROL: would fail if template is a stub; definition_json is empty; schedule is missing
-    MUST_OBSERVE: test -f .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md exit = 0 (file exists); grep -c '^## ' .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md >= 4 (at least 4 sections); grep -c 'Pre-Drill Checklist' .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md >= 1; grep -c 'holo restore:fire-drill' .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md >= 1 (contains concrete command)
-    MUST_NOT_OBSERVE: test -f exit != 0 (missing — fake-success start state); grep -c '^## ' < 4 (sections missing); grep -c 'holo restore:fire-drill' = 0 (no concrete commands)
-  verify: ls .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md exists; cat contains sections: Pre-Drill Checklist, Execution Steps, Verification, Troubleshooting; each step has concrete commands
+  SCENARIO — start_ref: external_monthly_scheduler · evidence: file_artifact
+    NEGATIVE_CONTROL: would fail if runbook missing; no launchd mention; documents non-live columns as required
+    MUST_OBSERVE: test -f .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md; sections >= 4; contains holo restore:fire-drill; documents launchd + template_key + typed_output_json + error_message
+    MUST_NOT_OBSERVE: missing launchd; missing on-demand trigger documentation
+  verify: rg -n 'on-demand|launchd|template_key|typed_output_json|error_message' .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md D05-05*.md
 
 --------------------------------------------------------------------------------
 SCOPE (writeAllowed)
 --------------------------------------------------------------------------------
-- services/platform/src/mission/templates/fire-drill-monthly.json (NEW)
-- .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md (NEW)
-- services/platform/src/mission/index.ts (MODIFY — if registration helper needed)
-writeProhibited: Modifying mission_templates schema (0017_mission_contracts.sql owns it); Scheduling the mission more frequently than monthly; Omitting the parity report from mission outputs; Authoring a runbook that skips verification steps; Hardcoding credentials or timestamps in the mission template
+- services/platform/src/mission/templates/fire-drill-monthly.json
+- services/platform/src/mission/templates/fire-drill-monthly.ts
+- services/platform/deploy/launchd/holocron-fire-drill-monthly.plist
+- .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md
+- services/platform/src/mission/index.ts (registration helper)
+- services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts
+writeProhibited: 0017_mission_contracts.sql schema changes; inventing columns; schedule-only cadence inside DSL without external scheduler
 
 --------------------------------------------------------------------------------
 READING LIST
 --------------------------------------------------------------------------------
-1. /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/D04-03-configure-continuous-wal-archiving-and-scheduled-base-backups.md:32-280 [INFRA task structure with REQUIREMENT-CONTRACT v1 block, AC/TC pattern, scenario shaping]
-2. /Users/inference1/Projects/holocron/services/platform/src/db/migrations/0017_mission_contracts.sql:1-50 [mission_templates and mission_template_versions schema: template_key, latest_version, definition_json, compiled_plan_json]
-3. /Users/inference1/Projects/holocron/services/platform/src/mission/templates/README.md:1-80 [Mission template structure, definition_json schema, and schedule patterns]
-4. /Users/inference1/Projects/holocron/services/platform/src/observability/mission-research.ts:1-60 [Mission executor pattern: run mission, capture output artifacts, set status]
-5. /Users/inference1/Projects/holocron/services/platform/src/backup/fire-drill.ts:1-50 [Fire drill command that the mission will execute]
+1. services/platform/src/db/migrations/0017_mission_contracts.sql — template_key, typed_output_json, error_message, status check
+2. services/platform/src/mission/contract.ts — MissionTriggerSchema on-demand only; MissionTemplateSchema.strict()
+3. services/platform/deploy/launchd/holocron-base-backup.plist — external schedule pattern
+4. services/platform/src/backup/fire-drill.ts — fire-drill command the mission executes
 
 --------------------------------------------------------------------------------
 EVIDENCE GATES
 --------------------------------------------------------------------------------
-- Mission template registered: `SELECT template_key, latest_version, schedule FROM mission_templates WHERE template_key='fire-drill-monthly'` → 1 row; schedule='monthly'
-- Runbook exists: `ls -la .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md; cat .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md | grep '## Pre-Drill Checklist'` → File exists; contains sections
-- Mission produces parity report: `SELECT output_artifacts FROM mission_runs WHERE mission_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1` → output_artifacts contains 'parity-report.json'
-- Parity failure surfaces: `Inject failure; run mission; SELECT status, failure_reason FROM mission_runs ORDER BY created_at DESC LIMIT 1` → status='FAILED'; failure_reason mentions parity
+- launchd-monthly: `test -f services/platform/deploy/launchd/holocron-fire-drill-monthly.plist`
+- mission-contract-test: `PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts`
+- typecheck: `pnpm tsgo --noEmit`
 
 --------------------------------------------------------------------------------
 DESIGN / ANTI-PATTERN
 --------------------------------------------------------------------------------
-pattern: Mission template registration with monthly schedule and parity-check-driven status
-anti_pattern: Mission that runs fire drill but ignores parity results; runbook that omits verification; mission status always SUCCESS; scheduling too frequently
+pattern: On-demand mission template for execution/observability + external launchd monthly cadence (same split as base-backup jobs).
+anti_pattern: Non-live mission_runs columns; uppercase statuses; schedule inside strict on-demand DSL as only cadence; ignoring parity results
 
 --------------------------------------------------------------------------------
 DEPENDENCIES
 --------------------------------------------------------------------------------
-Depends on: D05-04 · Blocks: D05-06
+Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H1
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
@@ -189,24 +206,28 @@ Depends on: D05-04 · Blocks: D05-06
     "requires_seeded_evidence": true
   },
   "fixtures": {
-    "d05_04_fire_drill_working": {
-      "description": "D05-04 fire drill command is implemented and working; holo restore:fire-drill exits 0 and produces parity-report.json with all PARITY_PASS=true",
-      "seed_method": "cli",
+    "live_mission_schema": {
+      "description": "Live mission_templates / mission_runs columns from 0017_mission_contracts.sql",
+      "seed_method": "public_api",
       "records": [
-        "holo restore:fire-drill --target-timestamp <ts> --scratch <pgdata> exits 0",
-        "parity-report.json contains POSTGRES_PARITY_PASS:true, LEDGER_CHECKSUM_MATCH:true, BLOB_PARITY_PASS:true",
-        "all concrete counts/digests present"
+        "mission_templates.template_key PK",
+        "mission_runs.template_key, status lowercase check, typed_output_json, error_message"
       ]
     },
-    "mission_template_registered": {
-      "description": "fire-drill-monthly mission template is registered in mission_templates table with template_key, version, schedule='monthly', and valid definition_json",
+    "on_demand_mission_dsl": {
+      "description": "MissionTemplateSchema permits only trigger.kind='on-demand'",
+      "seed_method": "public_api",
+      "records": [
+        "MissionTriggerSchema = z.object({ kind: z.literal('on-demand') }).strict()",
+        "Monthly cadence is launchd outside definition_json"
+      ]
+    },
+    "external_monthly_scheduler": {
+      "description": "launchd plist installing monthly fire-drill invocation",
       "seed_method": "cli",
       "records": [
-        "mission_templates contains fire-drill-monthly row",
-        "template_key='fire-drill-monthly'",
-        "latest_version='1.0.0' (or similar)",
-        "definition_json.schedule='monthly'",
-        "definition_json.steps contains fire-drill command"
+        "StartCalendarInterval Day=1 Hour=4",
+        "ProgramArguments invoke mission run fire-drill-monthly"
       ]
     }
   },
@@ -216,8 +237,8 @@ Depends on: D05-04 · Blocks: D05-06
       "type": "acceptance_criterion",
       "primary": true,
       "flow_ref": "T-PLAT-025",
-      "description": "GIVEN D05-04 working WHEN operator registers fire-drill-monthly mission THEN mission_templates contains the template with template_key, version, schedule='monthly', and valid definition_json",
-      "verify": "SELECT FROM mission_templates WHERE template_key='fire-drill-monthly' returns 1 row; definition_json contains schedule and steps",
+      "description": "GIVEN live mission schema WHEN operator registers fire-drill-monthly THEN template_key row exists; trigger.kind=on-demand; no schedule key; launchd provides monthly cadence",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts -t 'register|template'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -226,10 +247,9 @@ Depends on: D05-04 · Blocks: D05-06
         "flow_ref": "T-PLAT-025",
         "negative_control": {
           "would_fail_if": [
-            "template not registered (stub)",
-            "definition_json is empty (static)",
-            "schedule is omitted",
-            "template_key does not match"
+            "template not registered",
+            "schedule is the only cadence mechanism",
+            "MissionTemplateSchema.strict() fails"
           ]
         },
         "evidence": {
@@ -238,25 +258,24 @@ Depends on: D05-04 · Blocks: D05-06
         },
         "cases": [
           {
-            "start_ref": "d05_04_fire_drill_working",
+            "start_ref": "live_mission_schema",
             "action": {
               "actor": "operator",
               "steps": [
-                "run mission-template-register",
-                "query mission_templates"
+                "register fire-drill-monthly template",
+                "query mission_templates / mission_template_versions"
               ]
             },
             "end_state": {
               "must_observe": [
-                "SELECT count(*) = 1",
-                "latest_version = '1.0.0' (length > 0)",
-                "definition_json->>'schedule' = 'monthly'",
-                "jsonb_array_length(definition_json->'steps') >= 1"
+                "SELECT count(*) = 1 for template_key=fire-drill-monthly",
+                "trigger.kind = on-demand",
+                "definition_json has no schedule key",
+                "launchd plist exists"
               ],
               "must_not_observe": [
-                "count(*) = 0",
-                "latest_version NULL",
-                "definition_json->>'schedule' != 'monthly'"
+                "count = 0",
+                "uppercase terminal status requirements"
               ]
             }
           }
@@ -270,8 +289,8 @@ Depends on: D05-04 · Blocks: D05-06
       "type": "acceptance_criterion",
       "primary": false,
       "flow_ref": "T-PLAT-025",
-      "description": "GIVEN mission registered WHEN mission executes THEN runs holo restore:fire-drill; captures parity-report.json; mission_runs record contains output_artifacts",
-      "verify": "mission_runs shows status; output_artifacts contains 'parity-report.json'; file exists",
+      "description": "GIVEN registered template WHEN mission runs THEN typed_output_json holds parity report pointer; template_key set; lowercase status",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts -t 'typed_output|parity'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -280,10 +299,8 @@ Depends on: D05-04 · Blocks: D05-06
         "flow_ref": "T-PLAT-025",
         "negative_control": {
           "would_fail_if": [
-            "template is a stub",
-            "definition_json is empty",
-            "schedule is missing",
-            "template_key does not match"
+            "uses uppercase terminal status",
+            "typed_output_json empty when report written"
           ]
         },
         "evidence": {
@@ -292,27 +309,23 @@ Depends on: D05-04 · Blocks: D05-06
         },
         "cases": [
           {
-            "start_ref": "mission_template_registered",
+            "start_ref": "on_demand_mission_dsl",
             "action": {
               "actor": "system",
               "steps": [
-                "scheduler triggers mission",
-                "executor runs steps",
-                "captures artifacts"
+                "run mission fire-drill-monthly",
+                "inspect mission_runs.typed_output_json"
               ]
             },
             "end_state": {
               "must_observe": [
-                "SELECT count(*) FROM mission_runs = 1",
-                "status IN ('SUCCESS', 'FAILED')",
-                "output_artifacts ? 'parity-report.json' = true",
-                "test -f parity-report.json exit = 0 AND stat -f %s > 0"
+                "template_key = fire-drill-monthly",
+                "status lowercase allowed",
+                "typed_output_json has reportPath or parity pointer",
+                "parity-report file non-empty"
               ],
               "must_not_observe": [
-                "count(*) = 0",
-                "status NOT IN ('SUCCESS', 'FAILED')",
-                "output_artifacts ? 'parity-report.json' = false",
-                "test -f exit != 0"
+                "uppercase terminal status"
               ]
             }
           }
@@ -326,8 +339,8 @@ Depends on: D05-04 · Blocks: D05-06
       "type": "acceptance_criterion",
       "primary": false,
       "flow_ref": "T-PLAT-025",
-      "description": "GIVEN mission executing WHEN parity fails THEN mission status FAILED; alert emitted; failure_reason captured",
-      "verify": "Inject parity failure; run mission; status='FAILED'; failure_reason mentions parity; alert emitted",
+      "description": "GIVEN parity failure WHEN mission finishes THEN status=failed and error_message contains PARITY",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts -t 'parity failure|failed'",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -336,10 +349,8 @@ Depends on: D05-04 · Blocks: D05-06
         "flow_ref": "T-PLAT-025",
         "negative_control": {
           "would_fail_if": [
-            "template is a stub",
-            "definition_json is empty",
-            "schedule is missing",
-            "template_key does not match"
+            "status remains completed",
+            "error_message empty"
           ]
         },
         "evidence": {
@@ -348,26 +359,24 @@ Depends on: D05-04 · Blocks: D05-06
         },
         "cases": [
           {
-            "start_ref": "mission_template_registered",
+            "start_ref": "on_demand_mission_dsl",
             "action": {
               "actor": "operator",
               "steps": [
-                "corrupt R2 or mock failure",
-                "trigger mission",
-                "check status"
+                "induce parity failure",
+                "run mission",
+                "SELECT status, error_message FROM mission_runs WHERE template_key='fire-drill-monthly' ORDER BY created_at DESC LIMIT 1"
               ]
             },
             "end_state": {
               "must_observe": [
-                "status = 'FAILED'",
-                "failure_reason CONTAINS 'PARITY' or 'false'",
-                "alert webhook POST count = 1",
-                "jq '.POSTGRES_PARITY_PASS' = false"
+                "status = failed",
+                "error_message ILIKE %PARITY%",
+                "typed_output_json still has parity pointer"
               ],
               "must_not_observe": [
-                "status = 'SUCCESS'",
-                "failure_reason IS NULL",
-                "alert count = 0"
+                "status = completed",
+                "error_message NULL"
               ]
             }
           }
@@ -381,8 +390,8 @@ Depends on: D05-04 · Blocks: D05-06
       "type": "acceptance_criterion",
       "primary": false,
       "flow_ref": "T-PLAT-025",
-      "description": "GIVEN mission and drill working WHEN operator reads runbook THEN runbook exists with sections: Pre-Drill Checklist, Execution Steps, Verification, Troubleshooting; contains concrete commands",
-      "verify": "cat runbooks/fire-drill-monthly.md contains sections with executable commands",
+      "description": "GIVEN template working WHEN operator reads runbook THEN checklist covers pre-drill, execute, verify, troubleshoot + launchd monthly + real column names",
+      "verify": "test -f .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md && rg -n 'launchd|template_key|typed_output_json|error_message' .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -391,10 +400,8 @@ Depends on: D05-04 · Blocks: D05-06
         "flow_ref": "T-PLAT-025",
         "negative_control": {
           "would_fail_if": [
-            "template is a stub",
-            "definition_json is empty",
-            "schedule is missing",
-            "template_key does not match"
+            "runbook missing",
+            "no launchd section"
           ]
         },
         "evidence": {
@@ -403,25 +410,24 @@ Depends on: D05-04 · Blocks: D05-06
         },
         "cases": [
           {
-            "start_ref": "d05_04_fire_drill_working",
+            "start_ref": "external_monthly_scheduler",
             "action": {
               "actor": "operator",
               "steps": [
-                "cat runbooks/fire-drill-monthly.md",
-                "verify sections"
+                "read fire-drill-monthly.md",
+                "verify sections and commands"
               ]
             },
             "end_state": {
               "must_observe": [
-                "test -f runbooks/fire-drill-monthly.md exit = 0",
-                "grep -c '^## ' >= 4",
-                "grep -c 'Pre-Drill Checklist' >= 1",
-                "grep -c 'holo restore:fire-drill' >= 1"
+                "runbook exists",
+                "Pre-Drill Checklist",
+                "holo restore:fire-drill",
+                "launchd monthly",
+                "template_key / typed_output_json / error_message"
               ],
               "must_not_observe": [
-                "test -f exit != 0",
-                "grep -c '^## ' < 4",
-                "grep -c 'holo restore:fire-drill' = 0"
+                "missing launchd documentation"
               ]
             }
           }
@@ -429,35 +435,35 @@ Depends on: D05-04 · Blocks: D05-06
         "primary": false
       },
       "test_tier": "unit",
-      "unit_test_justified": "Runbook is documentation; verified by file existence + section structure, not a real-service integration test"
+      "unit_test_justified": "Runbook is documentation; verified by file existence + section structure"
     },
     {
       "id": "TC-1",
       "type": "test_criterion",
-      "description": "Mission template registered and scheduled monthly",
+      "description": "D05-05 contract uses only live 0017 column names",
       "maps_to_ac": "AC-1",
-      "verify": "SELECT FROM mission_templates WHERE template_key='fire-drill-monthly' returns 1 row with schedule='monthly'"
+      "verify": "rg -n \"template_key|typed_output_json|error_message|on-demand\" D05-05-schedule-the-fire-drill-as-a-periodic-mission-author-the-runbook.md"
     },
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "Mission execution produces parity report artifact",
-      "maps_to_ac": "AC-2",
-      "verify": "mission_runs record shows output_artifacts contains 'parity-report.json'"
+      "description": "Template validates on-demand / template_key",
+      "maps_to_ac": "AC-1",
+      "verify": "rg -n \"on-demand|templateKey|template_key\" services/platform/src/mission/templates/fire-drill-monthly.ts"
     },
     {
       "id": "TC-3",
       "type": "test_criterion",
-      "description": "Failed parity check surfaces as mission failure",
-      "maps_to_ac": "AC-3",
-      "verify": "Inject parity failure; mission_runs status='FAILED'; failure_reason mentions parity"
+      "description": "External monthly launchd unit present",
+      "maps_to_ac": "AC-4",
+      "verify": "test -f services/platform/deploy/launchd/holocron-fire-drill-monthly.plist"
     },
     {
       "id": "TC-4",
       "type": "test_criterion",
-      "description": "Operator runbook authored and committed",
-      "maps_to_ac": "AC-4",
-      "verify": "fire-drill-monthly.md exists with sections: Pre-Drill, Execution, Verification, Troubleshooting"
+      "description": "Mission contract integration test PLATFORM_IT",
+      "maps_to_ac": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts"
     }
   ]
 }

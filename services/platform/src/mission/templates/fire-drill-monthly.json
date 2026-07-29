@@ -1,8 +1,7 @@
 {
   "templateKey": "fire-drill-monthly",
   "version": "1.0.0",
-  "description": "CAP-BAK-01 monthly fire drill: run holo restore:fire-drill on scratch targets, emit parity-report.json, fail the mission if any PARITY_PASS is false. Schedule is monthly (never more frequent).",
-  "schedule": "monthly",
+  "description": "CAP-BAK-01 fire drill (on-demand): run holo restore:fire-drill on scratch targets, emit parity-report.json into typed_output_json, set status=failed + error_message when any PARITY_PASS is false. Monthly cadence is external launchd (holocron-fire-drill-monthly.plist), not mission DSL.",
   "steps": [
     {
       "id": "pre-drill-isolation",
@@ -19,7 +18,7 @@
     {
       "id": "verify-parity",
       "command": "jq '{ok, POSTGRES_PARITY_PASS, LEDGER_CHECKSUM_MATCH, BLOB_PARITY_PASS}' <parity-report.json>",
-      "description": "Mission fails closed if any PARITY_PASS flag is false.",
+      "description": "Mission fails closed (status='failed', error_message contains PARITY) if any PARITY_PASS flag is false.",
       "artifacts": ["parity-report.json"]
     }
   ],
