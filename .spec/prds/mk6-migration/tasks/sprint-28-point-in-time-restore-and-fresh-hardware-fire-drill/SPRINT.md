@@ -38,14 +38,71 @@ The gate is one un-fakeable outcome: **restore Postgres + blob storage from the 
 
 **Gate:** An operator restoring Postgres/blob storage from the R2 bucket alone onto a freshly provisioned machine gets a queryable database whose row counts plus evidence-ledger chain match the pre-failure snapshot, with zero access to the original mini.
 
+**Executable plan:** [`gate-plan.json`](./gate-plan.json) · operator notes: [`HUMAN-GATE.md`](./HUMAN-GATE.md)
+
+**Dispatcher (required):** `bun services/platform/src/cli/holo.ts` — do not use a PATH `holo` stub.
+
+**Automated pre-check oracles:**
+
+```bash
+# REDHAT-FIX-H1 — capability completeness (paths + CLI verbs → .tmp/REDHAT-FIX-H1/capability-inventory.json)
+pnpm vitest run services/platform/tests/integration/sprint28-capability-inventory.test.ts
+
+# REDHAT-FIX-H2 — human-gate surface oracles (outside-WAL, isolation, fire-drill surface, empty-chain)
+PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-human-gate-oracles.test.ts
+
+# Full empty/corrupt/healthy restore suite
+PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts
+```
+
 ## Human Test Deliverable
 
-1. Run `holo restore --pitr <timestamp>` against a scratch DB — restores to the named point exactly.
-2. Provision a fresh VM with zero mini access — restore Postgres from R2 alone, DB queryable.
-3. Compare row counts pre/post-restore — exact match against the pre-failure snapshot.
-4. Compare the evidence-ledger chain pre/post-restore — as-of chain matches exactly.
-5. Restore blob storage on the fresh VM — every object SHA-256 matches the source.
-6. Point the restore at an empty/corrupted backup chain — restore fails closed, no fake success.
+Concrete runnable commands (also in `gate-plan.json` `literal_cmd` fields). Set `HOLO_SECRETS_PATH` and an in-window `PITR_TIMESTAMP` for positive fire-drill steps.
+
+1. **PITR restore** — restores to the named point exactly (or fail-closed outside WAL with a named error; never `unknown flag: --pitr`):
+   ```bash
+   mkdir -p .tmp/REDHAT-FIX-H2/step1-scratch
+   bun services/platform/src/cli/holo.ts restore \
+     --pitr "${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}" \
+     --scratch .tmp/REDHAT-FIX-H2/step1-scratch \
+     --target-action promote
+   ```
+2. **Fresh target isolation** — multi-axis prove (zero mini access):
+   ```bash
+   MINI_HOST=203.0.113.1 TARGET_ATTESTED_IDENTITY=target-vm-uuid-gate \
+   MINI_ATTESTED_IDENTITY=mini-hw-uuid-gate REQUIRE_ATTESTED_IDENTITY=1 \
+   MINI_SOCKET_DEFAULTS=0 NC_TIMEOUT_SEC=1 \
+   bash scripts/prove-isolation.sh
+   # Expect: RESULT: PASS
+   ```
+3. **Row-count parity** — fire-drill + `POSTGRES_PARITY_PASS`:
+   ```bash
+   mkdir -p .tmp/REDHAT-FIX-H2/step3-scratch .tmp/REDHAT-FIX-H2/step3-blob
+   bun services/platform/src/cli/holo.ts restore:fire-drill \
+     --target-timestamp "${PITR_TIMESTAMP:?set in-window ISO}" \
+     --scratch .tmp/REDHAT-FIX-H2/step3-scratch \
+     --blob-dir .tmp/REDHAT-FIX-H2/step3-blob \
+     --report .tmp/REDHAT-FIX-H2/parity-report.json
+   jq -e '.POSTGRES_PARITY_PASS == true' .tmp/REDHAT-FIX-H2/parity-report.json
+   ```
+4. **Evidence-ledger chain** — SHA-256 baseline match:
+   ```bash
+   jq -e '.LEDGER_CHECKSUM_MATCH == true' .tmp/REDHAT-FIX-H2/parity-report.json
+   ```
+5. **Blob SHA-256 parity** — every object matches source:
+   ```bash
+   jq -e '.BLOB_PARITY_PASS == true and (.matched_objects // 0) >= 1' .tmp/REDHAT-FIX-H2/parity-report.json
+   ```
+6. **Empty/corrupt chain fail-closed** — named restore error + zero PGDATA files; **must_not** sole-observe `unknown flag: --pitr`:
+   ```bash
+   mkdir -p .tmp/REDHAT-FIX-H2/step6-scratch
+   R2_PGBACKREST_PREFIX="pgbackrest-s28-gate-empty/${GATE_RUN_ID:-manual}" \
+     bun services/platform/src/cli/holo.ts restore \
+       --pitr 2024-01-01T00:00:00Z \
+       --scratch .tmp/REDHAT-FIX-H2/step6-scratch \
+       --target-action promote
+   # Expect: exit != 0; stderr matches no base backup|backup chain missing|integrity|outside WAL
+   ```
 
 ## Tasks
 
