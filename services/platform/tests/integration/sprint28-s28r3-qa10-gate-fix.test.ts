@@ -94,10 +94,16 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('h1-forge-overwrite.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('h1-forge-overwrite.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(run.status, combined.slice(0, 1500)).toBe(0);
     expect(combined).toMatch(/fresh live RO proof|caller proof never authoritative/i);
-    const att = JSON.parse(readFileSync(proof, 'utf8')) as { tuple_fp16: string; producer?: string };
+    const att = JSON.parse(readFileSync(proof, 'utf8')) as {
+      tuple_fp16: string;
+      producer?: string;
+    };
     expect(att.tuple_fp16).toBe(tupleFp16(WRITER_AK, RESTORE_SK, RESTORE_ST));
     expect(att.tuple_fp16).not.toBe('deadbeefdeadbeef');
   });
@@ -120,7 +126,10 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('h1-unknown-writer-secret.json', { status: run.status, combined: combined.slice(0, 2000) });
+    writeEvidence('h1-unknown-writer-secret.json', {
+      status: run.status,
+      combined: combined.slice(0, 2000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(
       /same parent Access Key ID without authoritative writer secret|cannot establish distinct restore secret/
@@ -193,7 +202,10 @@ PY
       }
     );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m1-token-precedence.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('m1-token-precedence.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(combined).toMatch(/recorder:ok/);
     expect(existsSync(recorderOut)).toBe(true);
     const rec = JSON.parse(readFileSync(recorderOut, 'utf8')) as {
@@ -265,7 +277,10 @@ PY
       }
     );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m1-file-restore-token.json', { status: run.status, combined: combined.slice(0, 3000) });
+    writeEvidence('m1-file-restore-token.json', {
+      status: run.status,
+      combined: combined.slice(0, 3000),
+    });
     expect(combined).toMatch(/recorder:ok/);
     const rec = JSON.parse(readFileSync(recorderOut, 'utf8')) as {
       is_file: boolean;
@@ -346,7 +361,10 @@ describe('GATE-FIX-S28R3-QA10 C1 mutation-sensitive oracles', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('c1-env-over-file.json', { status: run.status, combined: combined.slice(0, 4000) });
+    writeEvidence('c1-env-over-file.json', {
+      status: run.status,
+      combined: combined.slice(0, 4000),
+    });
     expect(combined).not.toMatch(/without session token/);
     expect(combined).toMatch(/session token present|same parent AK/i);
     // Neither token value may appear in output.

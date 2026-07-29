@@ -241,7 +241,9 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
       combined: combined.slice(0, 3000),
     });
     expect(run.status, combined.slice(0, 1500)).toBe(0);
-    expect(combined).toMatch(/fresh live RO proof|RO proof fresh-bound ok|accepted Cloudflare temporary/i);
+    expect(combined).toMatch(
+      /fresh live RO proof|RO proof fresh-bound ok|accepted Cloudflare temporary/i
+    );
     const att = JSON.parse(readFileSync(proof, 'utf8')) as { tuple_fp16: string };
     expect(att.tuple_fp16).toBe(tupleFp16(WRITER_AK, RESTORE_SK, RESTORE_ST));
     expect(combined).not.toContain(RESTORE_ST);
@@ -272,7 +274,10 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m1-prove-required.json', { status: run.status, combined: combined.slice(0, 2000) });
+    writeEvidence('m1-prove-required.json', {
+      status: run.status,
+      combined: combined.slice(0, 2000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/fresh live RO proof failed|DEPENDENCY-S28-R2-RO/i);
   });
@@ -326,7 +331,10 @@ PY
       }
     );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m2-firedrill-token.json', { status: run.status, combined: combined.slice(0, 4000) });
+    writeEvidence('m2-firedrill-token.json', {
+      status: run.status,
+      combined: combined.slice(0, 4000),
+    });
     expect(combined).toMatch(/recorder:ok/);
     expect(existsSync(recorderOut)).toBe(true);
     const rec = JSON.parse(readFileSync(recorderOut, 'utf8')) as {
