@@ -1,11 +1,17 @@
 /**
- * Point-in-time restore via real pgBackRest (CAP-BAK-01 / D05-02).
+ * Point-in-time restore via real pgBackRest (CAP-BAK-01 / D05-02 / REDHAT-FIX-C3).
  *
  * - Wraps `pgbackrest restore --type=time --target=<ts> --target-action=promote|pause`
  * - Restores only into an empty `--scratch` PGDATA (never live mini PGDATA)
  * - Fail-closed: empty chain, corrupted chain, timestamp outside WAL range
  * - Structured JSON report: exit code, target timestamp, actual stop timestamp, PGDATA path
- * - Re-points restored cluster at live R2 repo (`restore_command` → archive-get)
+ * - Stop proof uses real recovery sources only (startup log, pg_last_xact_replay_timestamp,
+ *   recovery_target_time, pg_last_wal_replay_lsn for pause) — never invented
+ *   pg_stat_recovery.last_applied_timestamp and never echos operator --pitr argv as proof
+ * - Pause path leaves the cluster in recovery; promote path is a separate writable proof
+ * - Optional restore_command re-point for archive-get rehearsal (pause); promote is not
+ *   required to act as a standby of the original primary
+ * - Physical dual restores of the same source share system_identifier
  * - Credentials from loadBackupConfig / env only — never hardcoded
  */
 import { spawnSync } from 'node:child_process';
@@ -606,18 +612,78 @@ function restoreSocketDir(port: number): string {
   return dir;
 }
 
+function probeRecoveryState(
+  pgdata: string,
+  port: number,
+  env: NodeJS.ProcessEnv,
+  socketDir?: string
+): { reachable: boolean; inRecovery: boolean | null } {
+  // Prefer TCP — socket dir is a short /tmp path (not pgdata) to avoid AF_UNIX length limits.
+  const attempts: Array<{ args: string[]; host: string }> = [
+    {
+      host: '127.0.0.1',
+      args: [
+        '-h',
+        '127.0.0.1',
+        '-p',
+        String(port),
+        '-d',
+        'postgres',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-tAc',
+        'SELECT pg_is_in_recovery()::text',
+      ],
+    },
+  ];
+  // Fallback to short socket dir (C1), then pgdata for older layouts.
+  for (const host of [socketDir, pgdata].filter((h): h is string => typeof h === 'string' && h.length > 0)) {
+    attempts.push({
+      host,
+      args: [
+        '-h',
+        host,
+        '-p',
+        String(port),
+        '-d',
+        'postgres',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-tAc',
+        'SELECT pg_is_in_recovery()::text',
+      ],
+    });
+  }
+  for (const attempt of attempts) {
+    const probe = run('psql', attempt.args, {
+      env: { ...env, PGDATA: pgdata, PGHOST: attempt.host },
+      timeoutMs: 10_000,
+    });
+    if (probe.status !== 0) continue;
+    const v = probe.stdout.trim().toLowerCase();
+    if (v === 't' || v === 'true') return { reachable: true, inRecovery: true };
+    if (v === 'f' || v === 'false') return { reachable: true, inRecovery: false };
+  }
+  return { reachable: false, inRecovery: null };
+}
+
 function tryStartPostgres(
   pgdata: string,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  options?: { targetAction?: RestoreTargetAction }
 ): {
   started: boolean;
   port: number | null;
   log: string;
 } {
   // Use a free high port so we never collide with the live mini instance.
-  // Avoid 55432 which may be used by standing tunnels.
-  const port = 56000 + (Math.abs(Date.now()) % 2000);
+  // Avoid 55432 which may be used by standing tunnels. Prefer random high port
+  // with a process-unique offset so parallel restore tests do not collide.
+  const port = 56000 + (Math.abs(Date.now() + Math.floor(Math.random() * 10_000)) % 4000);
   const logFile = join(pgdata, 'holo-restore-start.log');
+  // Short -k path required on macOS (C1); also listen on localhost for TCP probes.
+  // Long --scratch PGDATA paths exceed sockaddr_un (~103 bytes) and FATAL with
+  // "could not create any Unix-domain sockets".
   const socketDir = restoreSocketDir(port);
   // Remove stale log so we only parse this start attempt.
   try {
@@ -625,6 +691,10 @@ function tryStartPostgres(
   } catch {
     // ignore
   }
+
+  // Short initial -w only; long WAL replay / promote finishes in the poll loop below.
+  // Avoid multi-minute spawnSync timeouts that can kill pg_ctl mid-start.
+  const initialWaitSecs = 45;
   const started = run(
     'pg_ctl',
     [
@@ -638,31 +708,71 @@ function tryStartPostgres(
       `-p ${port} -k ${socketDir} -h 127.0.0.1`,
       '-w',
       '-t',
-      '120',
+      String(initialWaitSecs),
     ],
-    { env: { ...env, PGDATA: pgdata }, timeoutMs: 150_000 }
+    { env: { ...env, PGDATA: pgdata }, timeoutMs: (initialWaitSecs + 30) * 1000 }
   );
-  // Give promote/recovery a moment to finish after "ready for read-only".
-  // pg_ctl -w can return at consistent state before recovery_target_action=promote.
-  const settle = run('sleep', ['3'], { env, timeoutMs: 10_000 });
-  void settle;
+
+  // Promote: replay to target + promote + checkpoint can take several minutes on R2.
+  // Pause: reach recovery target and accept RO connections.
+  const action: RestoreTargetAction = options?.targetAction === 'pause' ? 'pause' : 'promote';
+  const pollBudgetSecs = action === 'pause' ? 240 : 480;
+  const deadline = Date.now() + pollBudgetSecs * 1000;
   let log = readStartLog(pgdata);
-  // Fail closed if recovery aborted before target (would leave a non-promoted cluster).
-  if (/recovery ended before configured recovery target was reached/i.test(log)) {
-    tryStopPostgres(pgdata, env);
+  let up = false;
+  let lastProbe: { reachable: boolean; inRecovery: boolean | null } = {
+    reachable: false,
+    inRecovery: null,
+  };
+
+  while (Date.now() < deadline) {
     log = readStartLog(pgdata);
-    return {
-      started: false,
-      port: null,
-      log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
-    };
+    // Fail closed if recovery aborted before target (would leave a non-promoted cluster).
+    if (/recovery ended before configured recovery target was reached/i.test(log)) {
+      tryStopPostgres(pgdata, env);
+      log = readStartLog(pgdata);
+      return {
+        started: false,
+        port: null,
+        log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
+      };
+    }
+
+    const status = run('pg_ctl', ['status', '-D', pgdata], {
+      env: { ...env, PGDATA: pgdata },
+      timeoutMs: 15_000,
+    });
+    if (status.status !== 0) {
+      // Postmaster never came up, or already exited. Keep polling until budget ends.
+      run('sleep', ['2'], { env, timeoutMs: 5_000 });
+      continue;
+    }
+
+    lastProbe = probeRecoveryState(pgdata, port, env, socketDir);
+    if (!lastProbe.reachable) {
+      run('sleep', ['2'], { env, timeoutMs: 5_000 });
+      continue;
+    }
+
+    if (action === 'pause') {
+      // Pause proof requires still-in-recovery.
+      if (lastProbe.inRecovery === true) {
+        up = true;
+        break;
+      }
+      run('sleep', ['2'], { env, timeoutMs: 5_000 });
+      continue;
+    }
+
+    // Promote path: wait until out of recovery (writable primary).
+    if (lastProbe.inRecovery === false) {
+      up = true;
+      break;
+    }
+    // Still replaying / awaiting promote.
+    run('sleep', ['2'], { env, timeoutMs: 5_000 });
   }
-  // Confirm postmaster is still up after settle (promote path).
-  const status = run('pg_ctl', ['status', '-D', pgdata], {
-    env: { ...env, PGDATA: pgdata },
-    timeoutMs: 15_000,
-  });
-  const up = started.status === 0 && status.status === 0;
+
   log = readStartLog(pgdata);
   if (up) {
     // Operator/test probes use TCP (socket dir is /tmp/holo-restore-<port>, not PGDATA).
@@ -673,10 +783,11 @@ function tryStartPostgres(
       // best-effort discovery files
     }
   }
+  const probeNote = `probe reachable=${lastProbe.reachable} in_recovery=${String(lastProbe.inRecovery)} action=${action} budget_s=${pollBudgetSecs}`;
   return {
     started: up,
     port: up ? port : null,
-    log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
+    log: `${started.stdout}\n${started.stderr}\n${probeNote}\n${log}`.slice(-12000),
   };
 }
 
@@ -748,9 +859,124 @@ function readRecoveryTargetTimeFromPgdata(pgdata: string): string | null {
   return null;
 }
 
+export type RecoveryStopObservation = {
+  /** ISO stop time from real sources, or null if unobserved. */
+  actualStopTimestamp: string | null;
+  /** True when cluster reports pg_is_in_recovery(). */
+  inRecovery: boolean | null;
+  /** pg_last_wal_replay_lsn() text when available (pause/recovery path). */
+  lastWalReplayLsn: string | null;
+  /** pg_last_xact_replay_timestamp() when available. */
+  lastXactReplayTimestamp: string | null;
+  /** recovery_target_time from pg_settings (configured by pgBackRest, not argv echo). */
+  recoveryTargetTime: string | null;
+};
+
+/**
+ * Probe real recovery catalogs on a restored scratch cluster.
+ * Never reads invented columns (e.g. pg_stat_recovery.last_applied_timestamp).
+ */
+export function queryRecoveryStopObservation(
+  pgdata: string,
+  port: number | null,
+  env: NodeJS.ProcessEnv,
+  startupLog = ''
+): RecoveryStopObservation {
+  const fromLog =
+    parseStopTimestampFromLog(startupLog) ??
+    (() => {
+      const logFile = join(pgdata, 'holo-restore-start.log');
+      if (!existsSync(logFile)) return null;
+      try {
+        return parseStopTimestampFromLog(readFileSync(logFile, 'utf8'));
+      } catch {
+        return null;
+      }
+    })();
+
+  // Real catalogs only — no pg_stat_recovery.last_applied_timestamp (does not exist).
+  // format() yields a stable single-field line for psql -tAc.
+  const sql = `SELECT format(
+    '%s|%s|%s|%s',
+    pg_is_in_recovery()::text,
+    COALESCE(pg_last_wal_replay_lsn()::text, ''),
+    COALESCE(pg_last_xact_replay_timestamp()::text, ''),
+    COALESCE(
+      (SELECT NULLIF(trim(setting), '') FROM pg_settings WHERE name = 'recovery_target_time'),
+      ''
+    )
+  )`;
+
+  // Prefer TCP (socket dir is short /tmp path, not pgdata — AF_UNIX length limits).
+  // C1 writes holo-restore.socket_dir for discovery when sockets live under /tmp.
+  let discoveredSocketDir: string | null = null;
+  try {
+    const socketMarker = join(pgdata, 'holo-restore.socket_dir');
+    if (existsSync(socketMarker)) {
+      discoveredSocketDir = readFileSync(socketMarker, 'utf8').trim() || null;
+    }
+  } catch {
+    discoveredSocketDir = null;
+  }
+  const hostCandidates = [
+    '127.0.0.1',
+    discoveredSocketDir,
+    pgdata,
+  ].filter((h): h is string => typeof h === 'string' && h.length > 0);
+  const attempts: Array<{ args: string[]; host: string }> = hostCandidates.map((host) => ({
+    host,
+    args: [
+      '-h',
+      host,
+      '-p',
+      String(port ?? 5432),
+      '-d',
+      'postgres',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-tAc',
+      sql,
+    ],
+  }));
+
+  let inRecovery: boolean | null = null;
+  let lastWalReplayLsn: string | null = null;
+  let lastXactReplayTimestamp: string | null = null;
+  let recoveryTargetTime: string | null = null;
+
+  for (const attempt of attempts) {
+    const res = run('psql', attempt.args, {
+      env: { ...env, PGDATA: pgdata, PGHOST: attempt.host },
+      timeoutMs: 15_000,
+    });
+    if (res.status !== 0 || !res.stdout.trim()) continue;
+    const cols = res.stdout.trim().split('|');
+    if (cols.length >= 4) {
+      inRecovery = cols[0] === 't' || cols[0] === 'true';
+      lastWalReplayLsn = cols[1] && cols[1].length > 0 ? cols[1] : null;
+      lastXactReplayTimestamp = cols[2] && cols[2].length > 0 ? cols[2] : null;
+      recoveryTargetTime = cols[3] && cols[3].length > 0 ? cols[3] : null;
+      break;
+    }
+  }
+
+  const fromXact = lastXactReplayTimestamp ? normalizeStopTimestamp(lastXactReplayTimestamp) : null;
+  const fromTarget = recoveryTargetTime ? normalizeStopTimestamp(recoveryTargetTime) : null;
+  const actualStopTimestamp = fromLog ?? fromXact ?? fromTarget;
+
+  return {
+    actualStopTimestamp,
+    inRecovery,
+    lastWalReplayLsn,
+    lastXactReplayTimestamp: fromXact,
+    recoveryTargetTime: fromTarget,
+  };
+}
+
 /**
  * Observe the actual recovery stop timestamp from a live restored cluster + logs.
  * Fail-closed sources only — never falls back to now() or the operator target ISO.
+ * Prefer: startup recovery-stop log → pg_last_xact_replay_timestamp → recovery_target_time.
  */
 function queryActualStopTimestamp(
   pgdata: string,
@@ -758,67 +984,7 @@ function queryActualStopTimestamp(
   env: NodeJS.ProcessEnv,
   startupLog = ''
 ): string | null {
-  // 1) Startup log is the strongest post-promote evidence (replay timestamp may clear).
-  const fromLog = parseStopTimestampFromLog(startupLog);
-  if (fromLog) return fromLog;
-
-  // Also try the on-disk start log if caller did not pass full content.
-  const logFile = join(pgdata, 'holo-restore-start.log');
-  if (existsSync(logFile)) {
-    try {
-      const diskLog = readFileSync(logFile, 'utf8');
-      const fromDisk = parseStopTimestampFromLog(diskLog);
-      if (fromDisk) return fromDisk;
-    } catch {
-      // continue to SQL probes
-    }
-  }
-
-  // 2) SQL probes — only real recovery instrumentation (no now() / target spoof).
-  // pg_last_xact_replay_timestamp is valid during recovery; often NULL after promote.
-  // recovery_target_time in pg_settings is the configured target pgBackRest wrote into
-  // the restored cluster (not the operator argv echo) — accepted only after log miss.
-  const sql = `SELECT COALESCE(
-    (SELECT pg_last_xact_replay_timestamp()::text),
-    (SELECT NULLIF(trim(setting), '') FROM pg_settings WHERE name = 'recovery_target_time')
-  )`;
-  const attempts: Array<string[]> = [
-    [
-      '-h',
-      pgdata,
-      '-p',
-      String(port ?? 5432),
-      '-d',
-      'postgres',
-      '-v',
-      'ON_ERROR_STOP=1',
-      '-tAc',
-      sql,
-    ],
-    [
-      '-h',
-      '127.0.0.1',
-      '-p',
-      String(port ?? 5432),
-      '-d',
-      'postgres',
-      '-v',
-      'ON_ERROR_STOP=1',
-      '-tAc',
-      sql,
-    ],
-  ];
-  for (const args of attempts) {
-    const res = run('psql', args, {
-      env: { ...env, PGDATA: pgdata, PGHOST: pgdata },
-      timeoutMs: 15_000,
-    });
-    if (res.status === 0 && res.stdout.trim()) {
-      const iso = normalizeStopTimestamp(res.stdout);
-      if (iso) return iso;
-    }
-  }
-  return null;
+  return queryRecoveryStopObservation(pgdata, port, env, startupLog).actualStopTimestamp;
 }
 
 function writeStatusFile(path: string, report: PitrRestoreReport): void {
@@ -1215,7 +1381,7 @@ export async function runPitrRestore(options: {
 
   let actualStopTimestamp: string | null = null;
   if (!options.skipStart) {
-    const started = tryStartPostgres(scratch, env);
+    const started = tryStartPostgres(scratch, env, { targetAction });
     if (!started.started) {
       // Promote mode requires a queryable DB for AC-1; fail closed if start fails.
       wipeScratch(scratch);
