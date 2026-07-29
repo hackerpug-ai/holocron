@@ -1,0 +1,99 @@
+{
+  "lens": "technical",
+  "verdict": "NEEDS_FIXES",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "satisfied": false,
+      "notes": "Named-error mapping is real and gate-aligned (classifyPostgresStartFailure / mapPostgresStartFailureNamedErrors → outside available WAL for recovery-ended-before-target + archive-get/WAL miss; wired into runPitrRestore namedErrors). Fail-closed wipe on start failure preserved. BUT tryStartPostgres now forces SELECT pg_promote after ~30s reachable while still in_recovery, and again as a last-chance after the poll budget when logs show ready/consistent recovery — without proof that recovery_target_time was reached. Under --type=time --target-action=promote, mid-replay promote ends recovery at current LSN and can mark started:true with wrong PITR stop (R2 archive-get catch-up routinely exceeds 30s). AC-1 requires queryable scratch when WAL can reach target OR named outside-WAL — not early promote masquerading as success. Pure TC-1a/b/c cover classifier only; no new IT proves tryStartPostgres success on in-window restore. AC-1 VERIFY suite (sprint28-restore-fails-closed + sprint28-pitr-recovery-contract) not evidenced re-run on final HEAD (green evidence is gate-fix-qa1 helpers)."
+    },
+    {
+      "id": "AC-2",
+      "satisfied": true,
+      "notes": "verifyResticSnapshotInRepo is non-stub: resolves secrets/config, runs restic snapshots --json, prefix-matches id/short_id, fail-closed on missing bin/password/list/parse/miss. captureAndUploadRecoveryBaseline refuses upload (ok:false, uploaded:false) when verify fails before build/upload. Live TC-4 evidence: ghost id refused among 17 real snapshots. buildRecoveryBaseline re-queries captureRowCounts when supplied domain total is 0 so emit does not bind synthetic all-zeros over a live non-empty capture DB. skipResticVerify is explicit test-only escape (used in synthetic recovery-baseline suite) — not production default. Residual LOW: if caller supplies non-zero counts + stale ledger, ledger is not re-derived; not the observed gate bug."
+    },
+    {
+      "id": "AC-3",
+      "satisfied": true,
+      "notes": "selectBestFireDrillBaseline + isBaselineParityMeaningful prefer non-zero domain totals and restic id length ≥8; resolveFireDrillBaseline uses requireMeaningful:true and fails closed with explicit error when only zero-count junk exists — fixes timestamp-desc selection of newer all-zero baselines that poisoned POSTGRES_PARITY. Pure TC-2/2b/3 pass. Residual MEDIUM: discovery does not live-verify restic restorable (hint suggested restic list when reachable); ranking scores domain-row-total desc before target_timestamp desc, so an older fatter baseline can beat a newer valid one (hint preferred timestamp among survivors). Emit-time refuse mitigates new ghost restic binds; pre-existing non-zero+ghost can still be selected until blob step fails honestly."
+    },
+    {
+      "id": "AC-4",
+      "satisfied": true,
+      "notes": "Write-scope clean: only services/platform/src/backup/{restore,recovery-baseline,fire-drill,index}.ts + sprint28 integration tests. No gate-plan.json / gate-results / gate-verification / .gate-evidence touches. Evidence: biome check backup/ exit 0; tsgo --noEmit exit 0."
+    },
+    {
+      "id": "TC-1",
+      "satisfied": false,
+      "notes": "Maps AC-1. Classifier unit tests are real (not theatre) but insufficient for promote-start path correctness; early pg_promote undermines in-window PITR semantics; full AC-1 IT VERIFY not shown on HEAD."
+    },
+    {
+      "id": "TC-2",
+      "satisfied": true,
+      "notes": "Maps AC-2. Live refuse path proven (tc4-capture-refuse.json / green-it-output); pure helpers for meaningfulness. Not mock-theatre for restic."
+    },
+    {
+      "id": "TC-3",
+      "satisfied": true,
+      "notes": "Maps AC-3. Pure selection tests exercise real selectBestFireDrillBaseline against zero-junk vs valid candidates and junk-only fail-closed."
+    },
+    {
+      "id": "TC-4",
+      "satisfied": true,
+      "notes": "Maps AC-4. typecheck + biome clean on touched paths per evidence."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "HIGH",
+      "id": "T-PROMOTE-EARLY",
+      "summary": "tryStartPostgres (restore.ts ~847–865, ~877–908) calls pg_promote while still in_recovery after 30s reachable and again as last-chance without confirming recovery target reached. With pgBackRest --type=time --target-action=promote this can end recovery early during WAL catch-up and return started:true at the wrong LSN/time. Fix: only accept in_recovery=false from natural promote, or promote only after log/settings prove recovery target reached / recovery_target_action completed; keep named outside-WAL fail-closed on recovery-ended-before-target / archive exhaustion. Do not treat fire-drill's looser postmaster-up start as license to force promote mid-PITR.",
+      "file": "services/platform/src/backup/restore.ts",
+      "blocks_approval": true
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "T-SELECT-RANK",
+      "summary": "selectBestFireDrillBaseline ranks by domain row total before target_timestamp. Prefer latest meaningful target_timestamp among survivors (per task hint) to avoid stale high-count baselines over newer valid ones.",
+      "file": "services/platform/src/backup/fire-drill.ts",
+      "blocks_approval": false
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "T-DISC-RESTIC",
+      "summary": "Discovery treats restic as 'present' via id length only; does not call verifyResticSnapshotInRepo. Acceptable for the observed all-zero junk case once emit refuses ghosts, but incomplete vs 'restorable' AC/hint when restic is reachable.",
+      "file": "services/platform/src/backup/fire-drill.ts",
+      "blocks_approval": false
+    },
+    {
+      "severity": "MEDIUM",
+      "id": "T-AC1-EVIDENCE",
+      "summary": "GREEN evidence re-ran sprint28-gate-fix-qa1 (pure + TC-4) and fire-drill-baseline-consume; did not show PLATFORM_IT re-run of sprint28-restore-fails-closed + sprint28-pitr-recovery-contract on final HEAD as AC-1 VERIFY requires.",
+      "file": ".tmp/GATE-FIX-QA1/",
+      "blocks_approval": false
+    },
+    {
+      "severity": "INFO",
+      "id": "T-SCOPE-CLEAN",
+      "summary": "Write-scope compliance OK: no gate-plan.json or gate artifact edits; product changes confined to backup/** + sprint28 tests + .tmp evidence.",
+      "blocks_approval": false
+    }
+  ],
+  "stubs": [
+    {
+      "severity": "INFO",
+      "id": "S-SKIP-RESTIC-VERIFY",
+      "summary": "skipResticVerify / verifyResticSnapshotInRepo({skip:true}) is an explicit test-only bypass, not a production stub. Default path is live restic list. Acceptable.",
+      "file": "services/platform/src/backup/recovery-baseline.ts",
+      "blocks_approval": false
+    },
+    {
+      "severity": "LOW",
+      "id": "S-AC1-UNIT-ONLY",
+      "summary": "AC-1/TC-1 new coverage is pure log-classifier tests; tryStartPostgres promote path and live in-window start are not directly RED→GREEN proven by GATE-FIX-QA1 tests. Helpers themselves are not stubs.",
+      "file": "services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts",
+      "blocks_approval": false
+    }
+  ],
+  "summary": "NEEDS_FIXES. AC-2/AC-3/AC-4 are technically sound and non-stub: restic verify+refuse is live, domain re-capture fixes zero-count lies, discovery prefers meaningful baselines and fails closed on junk-only, scope/lint/typecheck clean. AC-1 named-error mapping is correct and real, but the tryStartPostgres 'align with fire-drill' change introduces HIGH-risk early pg_promote while still in recovery, which can false-succeed PITR at the wrong stop during multi-minute R2 WAL catch-up. Remove/guard forced promote; re-prove AC-1 VERIFY on HEAD. Do not merge until T-PROMOTE-EARLY is fixed."
+}

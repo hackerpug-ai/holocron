@@ -1,0 +1,14 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-QA1
+
+ ✓ |integration| services/platform/tests/integration/sprint28-fire-drill-baseline-consume.test.ts (3 tests) 1537ms
+     ✓ fire-drill imports recovery-baseline helpers  527ms
+     ✓ runFireDrill fails closed without R2 baseline  1007ms
+ ✓ |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts (8 tests) 3763ms
+     ✓ TC-4: captureAndUploadRecoveryBaseline refuses missing/unlistable restic snapshot id  3741ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  23:02:19
+   Duration  4.53s (transform 483ms, setup 243ms, import 544ms, tests 5.30s, environment 0ms)
+

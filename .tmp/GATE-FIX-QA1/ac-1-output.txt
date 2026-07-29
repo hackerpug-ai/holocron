@@ -1,0 +1,4 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-QA1
+
+ ✓ |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts (7 tests) 21ms

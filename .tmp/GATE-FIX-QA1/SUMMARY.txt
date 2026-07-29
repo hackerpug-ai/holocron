@@ -1,0 +1,23 @@
+GATE-FIX-QA1 completion summary
+================================
+branch: task/GATE-FIX-QA1
+RED:    57cb36a494c4c035b2a90208c7c1512b55f233ef
+GREEN:  5a13308ea683d47b9f9532ce664c1920d103f677
+commits:
+  57cb36a4 GATE-FIX-QA1: RED tests for start+baseline
+  2eb5a996 GATE-FIX-QA1: GREEN start mapping + baseline honesty
+  5a13308e GATE-FIX-QA1: load secrets for restic snapshot verify
+
+Tests (real exit codes):
+  PLATFORM_IT=1 vitest sprint28-gate-fix-qa1 → 7 passed (TC-4 ~3.5s restic list, exit 0)
+  vitest fire-drill-baseline-consume → 3 passed (exit 0)
+  biome check backup/ → exit 0
+  tsgo --noEmit → exit 0
+
+tc4 evidence: restic snapshot not found among 17 repo snapshots; uploaded=false
+
+Product fixes:
+  Bug A — classifyPostgresStartFailure / mapPostgresStartFailureNamedErrors;
+          tryStartPostgres fire-drill-aligned start + outside-WAL naming
+  Bug B — verifyResticSnapshotInRepo + refuse capture; re-capture domain counts;
+          selectBestFireDrillBaseline prefers non-zero; fail closed on junk-only

@@ -141,9 +141,10 @@ export type FireDrillBaselineCandidate = {
  *
  * Prefer parity-meaningful baselines (non-zero domain row_counts + restic id)
  * over zero-count / junk entries even when junk is newer. Among meaningful
- * candidates, prefer latest target_timestamp. When requireMeaningful is true
- * (discovery default), return null if only zero-count junk remains — fail closed
- * rather than loading expected counts of 0 that poison POSTGRES_PARITY_PASS.
+ * survivors, rank by target_timestamp desc then domain row totals as tiebreaker.
+ * When requireMeaningful is true (discovery default), return null if only
+ * zero-count junk remains — fail closed rather than loading expected counts of 0
+ * that poison POSTGRES_PARITY_PASS.
  */
 export function selectBestFireDrillBaseline(
   candidates: FireDrillBaselineCandidate[],
@@ -160,12 +161,12 @@ export function selectBestFireDrillBaseline(
   const pool = meaningful.length > 0 ? meaningful : requireMeaningful ? [] : candidates;
   if (pool.length === 0) return null;
 
-  // Score: domain row total desc, then target_timestamp desc.
+  // Among meaningful survivors: prefer latest target_timestamp, then higher domain row totals.
   const ranked = [...pool].sort((a, b) => {
+    if (b.ts !== a.ts) return b.ts - a.ts;
     const ta = baselineDomainRowTotal(a.baseline.row_counts);
     const tb = baselineDomainRowTotal(b.baseline.row_counts);
-    if (tb !== ta) return tb - ta;
-    return b.ts - a.ts;
+    return tb - ta;
   });
   return ranked[0] ?? null;
 }

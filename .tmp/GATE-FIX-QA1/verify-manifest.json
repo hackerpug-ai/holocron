@@ -1,0 +1,41 @@
+{
+  "task_id": "GATE-FIX-QA1",
+  "sprint": "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill",
+  "commit_sha_at_dispatch": "447cf7b036ad6ccaa44b7cf07baa2c49b084c1f1",
+  "typecheck": "pnpm tsgo --noEmit",
+  "lint": "pnpm biome check services/platform/src/backup/ services/platform/tests/integration/sprint28-*.ts",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-pitr-recovery-contract.test.ts services/platform/tests/integration/sprint28-restore-fails-closed.test.ts services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-recovery-baseline.test.ts services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-fire-drill-baseline-consume.test.ts services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts"
+    },
+    {
+      "id": "AC-4",
+      "verify": "pnpm tsgo --noEmit && pnpm biome check services/platform/src/backup/"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts -t 'start|promote|outside'"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts -t 'baseline|emit|restic'"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts -t 'discover|select|prefer'"
+    },
+    {
+      "id": "TC-4",
+      "verify": "pnpm tsgo --noEmit"
+    }
+  ]
+}

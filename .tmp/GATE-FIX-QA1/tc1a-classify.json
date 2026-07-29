@@ -1,0 +1,7 @@
+{
+  "log": "LOG:  starting point-in-time recovery to 2026-08-01 00:00:00+00\nLOG:  restored log file \"000000010000000000000001\" from archive\nFATAL:  recovery ended before configured recovery target was reached",
+  "named": [
+    "timestamp is outside available WAL range (not in retention window) — recovery ended before target",
+    "timestamp is outside available WAL range (not in retention window) — refuse restore"
+  ]
+}

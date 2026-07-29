@@ -172,6 +172,51 @@ describe('GATE-FIX-QA1 pure helpers (always)', () => {
     expect(best).toBeNull();
   });
 
+  it('TC-2c: among meaningful survivors, prefer later target_timestamp over higher row totals', () => {
+    const olderRicher = makeBaseline({
+      baseline_id: '4'.repeat(64),
+      target_timestamp: '2026-07-27T00:00:00Z',
+      row_counts: {
+        beliefs: 100,
+        sources: 100,
+        passages: 100,
+        claims: 100,
+        relations: 100,
+        file_objects: 100,
+      },
+      restic_snapshot_id: 'older-richer-snap01',
+    });
+    const newerLeaner = makeBaseline({
+      baseline_id: '5'.repeat(64),
+      target_timestamp: '2026-07-28T18:00:00Z',
+      row_counts: {
+        beliefs: 2,
+        sources: 2,
+        passages: 2,
+        claims: 2,
+        relations: 2,
+        file_objects: 2,
+      },
+      restic_snapshot_id: 'newer-leaner-snap02',
+    });
+    const best = selectBestFireDrillBaseline(
+      [
+        {
+          baseline: olderRicher,
+          key: 'k4',
+          ts: Date.parse(olderRicher.target_timestamp),
+        },
+        {
+          baseline: newerLeaner,
+          key: 'k5',
+          ts: Date.parse(newerLeaner.target_timestamp),
+        },
+      ],
+      { targetTimestamp: '2026-08-01T00:00:00Z' }
+    );
+    expect(best?.baseline.baseline_id).toBe(newerLeaner.baseline_id);
+  });
+
   it('TC-3: isBaselineParityMeaningful rejects all-zero domain maps', () => {
     expect(
       isBaselineParityMeaningful(

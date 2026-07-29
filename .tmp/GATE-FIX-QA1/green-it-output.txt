@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-QA1
+
+ ✓ |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts (7 tests) 3509ms
+     ✓ TC-4: captureAndUploadRecoveryBaseline refuses missing/unlistable restic snapshot id  3505ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  22:57:50
+   Duration  4.17s (transform 197ms, setup 112ms, import 452ms, tests 3.51s, environment 0ms)
+

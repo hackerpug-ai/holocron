@@ -783,8 +783,6 @@ function tryStartPostgres(
     reachable: false,
     inRecovery: null,
   };
-  let promoteAttempted = false;
-  let firstReachableAt: number | null = null;
 
   while (Date.now() < deadline) {
     log = readStartLog(pgdata);
@@ -826,10 +824,9 @@ function tryStartPostgres(
       run('sleep', ['2'], { env, timeoutMs: 5_000 });
       continue;
     }
-    if (firstReachableAt === null) firstReachableAt = Date.now();
 
     if (action === 'pause') {
-      // Pause proof requires still-in-recovery.
+      // Pause proof requires still-in-recovery (natural recovery_target_action=pause).
       if (lastProbe.inRecovery === true) {
         up = true;
         break;
@@ -838,74 +835,27 @@ function tryStartPostgres(
       continue;
     }
 
-    // Promote path: wait until out of recovery (writable primary).
+    // Promote path: accept ONLY after natural promote (recovery_target_action=promote)
+    // completes — never force pg_promote mid-WAL catch-up (would end recovery at wrong LSN).
     if (lastProbe.inRecovery === false) {
       up = true;
       break;
     }
-    // Still in recovery: after ~30s reachable, nudge pg_promote once so in-window
-    // restores become queryable (align with fire-drill's looser start + promote wait).
-    if (!promoteAttempted && firstReachableAt !== null && Date.now() - firstReachableAt >= 30_000) {
-      promoteAttempted = true;
-      run(
-        'psql',
-        [
-          '-h',
-          '127.0.0.1',
-          '-p',
-          String(port),
-          '-d',
-          'postgres',
-          '-v',
-          'ON_ERROR_STOP=1',
-          '-tAc',
-          'SELECT pg_promote(true, 60)',
-        ],
-        { env: { ...env, PGDATA: pgdata, PGHOST: '127.0.0.1' }, timeoutMs: 90_000 }
-      );
-    }
-    // Still replaying / awaiting promote.
+    // Still replaying / awaiting natural promote — keep polling until budget ends.
     run('sleep', ['2'], { env, timeoutMs: 5_000 });
   }
 
   log = readStartLog(pgdata);
-  // Last-chance: postmaster up + SELECT 1 works and not in recovery (or promote completed).
+  // Final probe only — no forced pg_promote. Promote: reachable && out of recovery.
+  // Pause: reachable && still in recovery.
   if (!up) {
     lastProbe = probeRecoveryState(pgdata, port, env, socketDir);
-    if (lastProbe.reachable && lastProbe.inRecovery === false) {
-      up = true;
-    } else if (
-      action === 'promote' &&
-      lastProbe.reachable &&
-      lastProbe.inRecovery === true &&
-      /(?:database system is ready to accept (?:read-only )?connections|consistent recovery state reached)/i.test(
-        log
-      ) &&
-      !/recovery ended before configured recovery target was reached/i.test(log)
-    ) {
-      // Nudge promote one more time, then re-probe — fire-drill accepts postmaster-up;
-      // promote path must be writable, so only accept after successful promote.
-      run(
-        'psql',
-        [
-          '-h',
-          '127.0.0.1',
-          '-p',
-          String(port),
-          '-d',
-          'postgres',
-          '-v',
-          'ON_ERROR_STOP=1',
-          '-tAc',
-          'SELECT pg_promote(true, 120)',
-        ],
-        { env: { ...env, PGDATA: pgdata, PGHOST: '127.0.0.1' }, timeoutMs: 150_000 }
-      );
-      run('sleep', ['3'], { env, timeoutMs: 10_000 });
-      lastProbe = probeRecoveryState(pgdata, port, env, socketDir);
-      if (lastProbe.reachable && lastProbe.inRecovery === false) {
+    if (action === 'pause') {
+      if (lastProbe.reachable && lastProbe.inRecovery === true) {
         up = true;
       }
+    } else if (lastProbe.reachable && lastProbe.inRecovery === false) {
+      up = true;
     }
   }
   if (up) {

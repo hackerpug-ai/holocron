@@ -1,0 +1,93 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-QA1
+
+ ❯ |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts (7 tests | 6 failed | 1 skipped) 4ms
+     × TC-1a: classifyPostgresStartFailure maps recovery-ended-before-target to outside available WAL 2ms
+     × TC-1b: mapPostgresStartFailureNamedErrors falls back to generic start error only when no named class 0ms
+     × TC-1c: archive-get / missing WAL log classifies as outside available WAL 0ms
+     × TC-2: selectBestFireDrillBaseline prefers non-zero domain counts over zero junk 0ms
+     × TC-2b: selectBestFireDrillBaseline fails closed when only zero-count junk exists 0ms
+     × TC-3: isBaselineParityMeaningful rejects all-zero domain maps 0ms
+     ↓ TC-4: captureAndUploadRecoveryBaseline refuses missing/unlistable restic snapshot id
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts > GATE-FIX-QA1 pure helpers (always) > TC-1a: classifyPostgresStartFailure maps recovery-ended-before-target to outside available WAL
+TypeError: classifyPostgresStartFailure is not a function
+ ❯ services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts:81:19
+     79|       'FATAL:  recovery ended before configured recovery target was re…
+     80|     ].join('\n');
+     81|     const named = classifyPostgresStartFailure(log);
+       |                   ^
+     82|     writeEvidence('tc1a-classify.json', { log, named });
+     83|     expect(named.some((e) => /outside available WAL/i.test(e))).toBe(t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts > GATE-FIX-QA1 pure helpers (always) > TC-1b: mapPostgresStartFailureNamedErrors falls back to generic start error only when no named class
+TypeError: mapPostgresStartFailureNamedErrors is not a function
+ ❯ services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts:91:21
+     89|
+     90|   it('TC-1b: mapPostgresStartFailureNamedErrors falls back to generic …
+     91|     const generic = mapPostgresStartFailureNamedErrors('totally unknow…
+       |                     ^
+     92|     expect(generic.length).toBeGreaterThan(0);
+     93|     expect(generic.join(' ')).toMatch(/Postgres failed to start/i);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts > GATE-FIX-QA1 pure helpers (always) > TC-1c: archive-get / missing WAL log classifies as outside available WAL
+TypeError: classifyPostgresStartFailure is not a function
+ ❯ services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts:105:19
+    103|     const log =
+    104|       'pgbackrest archive-get: [ERROR] raised from remote-0 protocol o…
+    105|     const named = classifyPostgresStartFailure(log);
+       |                   ^
+    106|     expect(named.some((e) => /outside available WAL/i.test(e))).toBe(t…
+    107|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts > GATE-FIX-QA1 pure helpers (always) > TC-2: selectBestFireDrillBaseline prefers non-zero domain counts over zero junk
+TypeError: selectBestFireDrillBaseline is not a function
+ ❯ services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts:143:18
+    141|       { baseline: valid, key: 'recovery-baselines/sha256/2/recovery-ba…
+    142|     ];
+    143|     const best = selectBestFireDrillBaseline(candidates, {
+       |                  ^
+    144|       targetTimestamp: '2026-08-01T00:00:00Z',
+    145|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts > GATE-FIX-QA1 pure helpers (always) > TC-2b: selectBestFireDrillBaseline fails closed when only zero-count junk exists
+TypeError: selectBestFireDrillBaseline is not a function
+ ❯ services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts:162:18
+    160|       restic_snapshot_id: 'notarealsnapshot999',
+    161|     });
+    162|     const best = selectBestFireDrillBaseline(
+       |                  ^
+    163|       [{ baseline: junk, key: 'k', ts: Date.parse(junk.target_timestam…
+    164|       { targetTimestamp: '2026-08-01T00:00:00Z', requireMeaningful: tr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts > GATE-FIX-QA1 pure helpers (always) > TC-3: isBaselineParityMeaningful rejects all-zero domain maps
+TypeError: isBaselineParityMeaningful is not a function
+ ❯ services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts:171:7
+    169|   it('TC-3: isBaselineParityMeaningful rejects all-zero domain maps', …
+    170|     expect(
+    171|       isBaselineParityMeaningful(
+       |       ^
+    172|         makeBaseline({
+    173|           target_timestamp: '2026-07-01T00:00:00Z',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 1 skipped (7)
+   Start at  22:48:23
+   Duration  687ms (transform 198ms, setup 116ms, import 468ms, tests 4ms, environment 0ms)
+
+vitest_exit=1
