@@ -113,6 +113,7 @@ Residual **`DEPENDENCY-S28-R2-RO`** until distinct live `R2_RESTORE_*` credentia
 | GATE-FIX-S28R3-QA7 | Test-contract: QA3 host oracle + self-contained inventory fixture (Terra HIGH-1/MEDIUM-1) | devops-engineer | 60 min |
 | GATE-FIX-S28R3-QA8 | Cloudflare temporary credential identity tuple (same parent AK + distinct secret + session) | devops-engineer | 90 min |
 | GATE-FIX-S28R3-QA9 | Fail-closed temp tuple + RO proof binding (Terra H1/H2/M1/M2/L1) | devops-engineer | 90 min |
+| GATE-FIX-S28R3-QA10 | Unforgeable live proof + mutation-resistant oracles (Terra C1/H1/M1/L1) | devops-engineer | 90 min |
 
 ## Source Coverage
 

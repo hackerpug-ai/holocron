@@ -140,7 +140,8 @@ resolve_r2_identities_from_secrets_and_env() {
         R2_RESTORE_ACCESS_KEY_ID) file_restore_ak="$v" ;;
         R2_RESTORE_SECRET_ACCESS_KEY) file_restore_sk="$v" ;;
         R2_RESTORE_SESSION_TOKEN) file_restore_st="$v" ;;
-        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX|R2_SESSION_TOKEN)
+        # GATE-FIX-S28R3-QA10 / M1: never auto-export writer R2_SESSION_TOKEN into restore path.
+        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX)
           if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi
           ;;
       esac
@@ -167,10 +168,12 @@ resolve_r2_identities_from_secrets_and_env() {
   else
     RESTORE_SK="$file_restore_sk"
   fi
+  # GATE-FIX-S28R3-QA10 / M1: restore session token precedence —
+  #   1) explicit env R2_RESTORE_SESSION_TOKEN
+  #   2) canonical-file R2_RESTORE_SESSION_TOKEN
+  # Never substitute writer/generic R2_SESSION_TOKEN (env or file).
   if [[ -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
     RESTORE_ST="$R2_RESTORE_SESSION_TOKEN"
-  elif [[ -n "${R2_SESSION_TOKEN:-}" ]]; then
-    RESTORE_ST="$R2_SESSION_TOKEN"
   else
     RESTORE_ST="$file_restore_st"
   fi
@@ -183,59 +186,72 @@ resolve_r2_identities_from_secrets_and_env() {
   if [[ -n "$RESTORE_ST" ]]; then
     export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
   fi
+  # Ensure generic writer session is not left as the restore session.
+  unset R2_SESSION_TOKEN 2>/dev/null || true
 }
 
 assert_bound_r2_ro_proof() {
+  # GATE-FIX-S28R3-QA10 / H1: always fresh live proof; caller proof path never skips probe.
   local rak="$1" rsk="$2" rst="$3"
-  local expected_fp proof
+  local expected_fp proof prove_cmd
   expected_fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 ]]; then
-    err "GATE-FIX-S28R3-QA9 unable to fingerprint restore credential tuple"
+    err "GATE-FIX-S28R3-QA10 unable to fingerprint restore credential tuple"
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  proof="${HOLO_R2_RO_PROOF_PATH:-}"
-  if [[ -z "$proof" || ! -f "$proof" ]]; then
-    proof="$(mktemp "${TMPDIR:-/tmp}/holo-r2-ro-proof.XXXXXX.json")"
-    log "GATE-FIX-S28R3-QA9: binding live RO proof to exact restore tuple before fire-drill (values not logged)"
-    if ! env \
-      REQUIRE_LIVE_R2_RO=1 \
-      HOLO_R2_RO_PROOF_OUT="$proof" \
-      R2_RESTORE_ACCESS_KEY_ID="$rak" \
-      R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
-      R2_RESTORE_SESSION_TOKEN="$rst" \
-      R2_ACCESS_KEY_ID="${WRITER_AK:-}" \
-      R2_SECRET_ACCESS_KEY="${WRITER_SK:-}" \
-      R2_ENDPOINT="${R2_ENDPOINT:-}" \
-      R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
-      R2_BUCKET_NAME="${R2_BUCKET_NAME:-}" \
-      HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
-      HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
-      bash "$ROOT/scripts/prove-r2-readonly.sh" >/dev/null; then
-      err "GATE-FIX-S28R3-QA9 live RO proof failed for the exact restore tuple before fire-drill"
-      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-      rm -f "$proof"
-      exit 2
-    fi
+  if [[ -n "${HOLO_R2_RO_PROOF_PATH:-}" ]]; then
+    proof="$HOLO_R2_RO_PROOF_PATH"
+    mkdir -p "$(dirname "$proof")"
+  else
+    proof="$(mktemp "${TMPDIR:-/tmp}/holo-r2-ro-proof.XXXXXX")"
+  fi
+  : >"$proof"
+  chmod 600 "$proof" 2>/dev/null || true
+  prove_cmd="${HOLO_PROVE_R2_READONLY:-$ROOT/scripts/prove-r2-readonly.sh}"
+  log "GATE-FIX-S28R3-QA10: fresh live RO proof for exact restore tuple before fire-drill (caller proof never authoritative; values not logged)"
+  if ! env \
+    REQUIRE_LIVE_R2_RO=1 \
+    HOLO_R2_RO_PROOF_OUT="$proof" \
+    R2_RESTORE_ACCESS_KEY_ID="$rak" \
+    R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
+    R2_RESTORE_SESSION_TOKEN="$rst" \
+    R2_ACCESS_KEY_ID="${WRITER_AK:-}" \
+    R2_SECRET_ACCESS_KEY="${WRITER_SK:-}" \
+    R2_ENDPOINT="${R2_ENDPOINT:-}" \
+    R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
+    R2_BUCKET_NAME="${R2_BUCKET_NAME:-}" \
+    R2_PGBACKREST_PREFIX="${R2_PGBACKREST_PREFIX:-}" \
+    R2_RESTORE_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-}" \
+    R2_CREDENTIAL_POLICY="${R2_CREDENTIAL_POLICY:-}" \
+    HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
+    HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
+    bash "$prove_cmd"; then
+    err "GATE-FIX-S28R3-QA10 fresh live RO proof failed for the exact restore tuple before fire-drill"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
   fi
   if ! python3 - "$proof" "$expected_fp" <<'PY'
-import json, sys
+import json, os, sys
 from datetime import datetime, timezone
 path, expected = sys.argv[1], sys.argv[2]
+st = os.stat(path)
+if st.st_mode & 0o002:
+    print("error: RO proof attestation is world-writable", file=sys.stderr); sys.exit(2)
 data = json.load(open(path, encoding="utf-8"))
 if data.get("schema") != "holo.r2-ro-proof.v1" or data.get("ok") is not True:
-    print("error: RO proof attestation missing schema/ok", file=sys.stderr); sys.exit(2)
+    print("error: RO proof attestation missing schema/ok after live prove", file=sys.stderr); sys.exit(2)
 if data.get("tuple_fp16") != expected:
-    print("error: RO proof attestation tuple_fp16 mismatch", file=sys.stderr); sys.exit(2)
+    print("error: RO proof attestation tuple_fp16 mismatch after live prove", file=sys.stderr); sys.exit(2)
 for k in ("list_allowed", "put_denied", "delete_denied"):
     if data.get(k) is not True:
-        print(f"error: RO proof {k} not true", file=sys.stderr); sys.exit(2)
+        print(f"error: RO proof {k} not true after live prove", file=sys.stderr); sys.exit(2)
 proved = data.get("proved_at") or ""
 dt = datetime.strptime(proved, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 age = (datetime.now(timezone.utc) - dt).total_seconds()
 if age < 0 or age > 7200:
-    print("error: RO proof attestation stale or future-dated", file=sys.stderr); sys.exit(2)
-print(f"RO proof bound ok tuple_fp16={expected}")
+    print("error: RO proof attestation stale or future-dated after live prove", file=sys.stderr); sys.exit(2)
+print(f"RO proof fresh-bound ok tuple_fp16={expected}")
 sys.exit(0)
 PY
   then
@@ -292,7 +308,34 @@ if [[ "$RESOLVE_ONLY" -eq 0 ]]; then
   assert_restore_credential_tuple
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
+# GATE-FIX-S28R3-QA10: deterministic unit-test path — fake volumes so child/recorder must run.
+if [[ "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-0}" == "1" ]]; then
+  FAKE_ROOT="${HOLO_FIRE_DRILL_FAKE_ROOT:-${TMPDIR:-/tmp}/holo-fire-drill-fake-$$}"
+  mkdir -p "$FAKE_ROOT/scratch" "$FAKE_ROOT/blob"
+  SCRATCH_MP="$FAKE_ROOT/scratch"
+  BLOB_MP="$FAKE_ROOT/blob"
+  DAEMON_SCRATCH_MP=""
+  DAEMON_BLOB_MP=""
+  EXECUTION_MODE="fake-volumes-unit-test"
+  CONTAINER_STATE="absent"
+  log "HOLO_FIRE_DRILL_FAKE_VOLUMES=1: using fake host paths (no docker)"
+  if [[ "$RESOLVE_ONLY" -eq 1 ]]; then
+    echo "{\"ok\":true,\"execution_mode\":\"fake-volumes-unit-test\",\"scratch\":\"$SCRATCH_MP\",\"blobDir\":\"$BLOB_MP\"}"
+    exit 0
+  fi
+  if [[ -z "$TARGET_TIMESTAMP" ]]; then
+    err "--target-timestamp required unless --resolve-only"
+    exit 2
+  fi
+  REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
+  mkdir -p "$(dirname "$REPORT_PATH")"
+  # Jump to child env construction (skip docker volume resolve).
+  SKIP_DOCKER_VOLUME_RESOLVE=1
+else
+  SKIP_DOCKER_VOLUME_RESOLVE=0
+fi
+
+if [[ "$SKIP_DOCKER_VOLUME_RESOLVE" -eq 0 ]] && ! command -v docker >/dev/null 2>&1; then
   err "docker binary missing — refuse fresh-target volume resolve"
   exit 2
 fi
@@ -457,6 +500,8 @@ container_running() {
 }
 
 # Resolve both volumes — fail closed when either cannot be host-bound.
+# Skipped when HOLO_FIRE_DRILL_FAKE_VOLUMES=1 (GATE-FIX-S28R3-QA10 recorder unit path).
+if [[ "${SKIP_DOCKER_VOLUME_RESOLVE:-0}" -eq 0 ]]; then
 if ! volume_exists "$VOLUME_PGDATA"; then
   err "volume unresolvable/missing: ${VOLUME_PGDATA} (provision fresh target first)"
   exit 2
@@ -555,6 +600,7 @@ fi
 if [[ -z "$DAEMON_BLOB_MP" ]]; then
   DAEMON_BLOB_MP="$(volume_mountpoint "$VOLUME_BLOB" || true)"
 fi
+fi # SKIP_DOCKER_VOLUME_RESOLVE
 
 TS_JSON="null"
 if [[ -n "$TARGET_TIMESTAMP" ]]; then
