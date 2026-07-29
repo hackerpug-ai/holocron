@@ -1,0 +1,13 @@
+{
+  "ok": false,
+  "exitCode": 50,
+  "actual": null,
+  "named": [
+    "backup chain integrity check failed",
+    "timestamp is outside available WAL range (not in retention window) — refuse restore"
+  ],
+  "errors": [
+    "backup chain integrity check failed",
+    "timestamp is outside available WAL range (not in retention window) — refuse restore"
+  ]
+}
