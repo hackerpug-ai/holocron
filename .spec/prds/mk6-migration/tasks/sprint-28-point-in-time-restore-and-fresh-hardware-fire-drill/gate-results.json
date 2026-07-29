@@ -1,7 +1,7 @@
 {
   "sprint_id": "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill",
   "verdict": "pass",
-  "run_id": "20260729T011120Z",
+  "run_id": "20260729T031355Z",
   "runner": "kb-run-human-tests",
   "ui_driver": "none",
   "steps_total": 6,
@@ -14,8 +14,8 @@
       "type": "terminal",
       "executed": true,
       "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-1.log",
-      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-1.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-1.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-1.log"
     },
     {
       "n": 2,
@@ -23,8 +23,8 @@
       "type": "terminal",
       "executed": true,
       "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-2.log",
-      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-2.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-2.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-2.log"
     },
     {
       "n": 3,
@@ -32,8 +32,8 @@
       "type": "terminal",
       "executed": true,
       "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-3.log",
-      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-3.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-3.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-3.log"
     },
     {
       "n": 4,
@@ -41,8 +41,8 @@
       "type": "terminal",
       "executed": true,
       "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-4.log",
-      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-4.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-4.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-4.log"
     },
     {
       "n": 5,
@@ -50,8 +50,8 @@
       "type": "terminal",
       "executed": true,
       "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-5.log",
-      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-5.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-5.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-5.log"
     },
     {
       "n": 6,
@@ -59,10 +59,11 @@
       "type": "terminal",
       "executed": true,
       "result": "pass",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-6.log",
-      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T011120Z/step-6.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-6.log",
+      "evidence": ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/20260729T031355Z/step-6.log"
     }
   ],
-  "written_at": "2026-07-29T01:12:44Z",
-  "cycle_start": "2026-07-29T01:11:20Z"
+  "written_at": "2026-07-29T03:15:10Z",
+  "cycle_start": "2026-07-29T03:13:55Z",
+  "notes": "post-redhat-fix re-gate"
 }

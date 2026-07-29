@@ -1,0 +1,12 @@
+holo restore --pitr — pgBackRest point-in-time restore
+  ok:                    false
+  exit_code:             1
+  target_timestamp:      2099-01-01T00:00:00Z
+  actual_stop_timestamp: (none)
+  pgdata:                /tmp/s28-rh-gate-out
+  target_action:         promote
+  restored_wal_count:    (unknown)
+  errors:
+    - timestamp 2099-01-01T00:00:00Z is outside available WAL range (not in retention window); available approx 2026-07-28T09:55:42.000Z .. 2026-08-05T00:28:02.000Z
+  overall:               FAILED
+timestamp 2099-01-01T00:00:00Z is outside available WAL range (not in retention window); available approx 2026-07-28T09:55:42.000Z .. 2026-08-05T00:28:02.000Z

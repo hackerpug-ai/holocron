@@ -1,0 +1,14 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+ ✓ |integration| services/platform/tests/integration/sprint28-human-gate-oracles.test.ts (5 tests) 27574ms
+     ✓ step-1 / pitr: restore --pitr is known and fail-closed outside WAL (not unknown flag)  8270ms
+     ✓ step-2: isolation script exit semantics (missing host fail; fixture pass)  9558ms
+     ✓ step-3..5 surface: fire-drill CLI help + required-flag usage (not unknown verb)  9333ms
+     ✓ step-6 / empty-chain IT subset: named restore failure, not unknown-flag theatre  402ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  21:14:13
+   Duration  27.80s (transform 79ms, setup 109ms, import 26ms, tests 27.57s, environment 0ms)
+

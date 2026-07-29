@@ -1,0 +1,25 @@
+INFO: TARGET_ATTESTED_IDENTITY source=os value=46318642-6807-5F57-AA81-D3797C647E39
+INFO: MINI_ATTESTED_IDENTITY value=<empty>
+PASS: target attested identity non-empty
+FAIL: MINI_ATTESTED_IDENTITY empty
+AXIS identity: FAIL (1 check(s))
+--- AXIS: control_plane ---
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: SSH closed to mini at 203.0.113.1:22
+PASS: SSH and alternate control-plane paths to mini are closed
+AXIS control_plane: PASS
+--- AXIS: docker_runtime ---
+INFO: container=fresh-restore-01 NetworkMode=fresh-restore-01-net PidMode= IpcMode=private
+INFO: PortBindings={"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"55432"}]}
+PASS: restore container not on host network (mode=fresh-restore-01-net)
+PASS: restore container not sharing host PID namespace
+PASS: restore container not sharing host IPC namespace
+PASS: restore container has no mini live-data bind mounts
+PASS: restore container Postgres publish is loopback-only (127.0.0.1)
+PASS: in-container nc cannot reach mini Postgres
+AXIS docker_runtime: PASS
+=== SUMMARY: pass=22 fail=3 axis_fail=2 mini=203.0.113.1:5432 ===
+reachable_mini_routes_failed_checks=3
+attested_identity_target=46318642-6807-5F57-AA81-D3797C647E39
+attested_identity_mini=
+=== RESULT: FAIL (isolation broken or probe incomplete; multi-axis open) ===
