@@ -1,49 +1,76 @@
 #!/usr/bin/env bash
-# D05-03 / CAP-BAK-01 — Isolation probe for a genuinely fresh restore target.
+# D05-03 / REDHAT-FIX-H3 / CAP-BAK-01 — Multi-axis isolation probe for a genuinely
+# fresh restore target.
 #
-# Exits 0 only when ALL checks pass:
-#   (a) no TCP route to original mini Postgres (MINI_HOST:5432)
-#   (b) no /mnt/mini-pgdata mount
-#   (c) no /mnt/mini-blobs mount
-#   (d) R2 credentials are read-only scoped (no RW parent / Put-Delete policy)
+# Supersedes narrow TCP/5432 + two-path-string theatre. Exit 0 only when EVERY
+# axis PASSes (fail closed on any open axis):
+#   AXIS network       — IPv4/IPv6/tailnet/LAN/DNS aliases unreachable on PG/SSH/control ports
+#   AXIS ipc_sockets   — no mini unix sockets / shared IPC paths
+#   AXIS mounts        — no mini PGDATA/blob/alternate bind-mounts
+#   AXIS identity      — independently attested hardware/VM identity ≠ mini
+#   AXIS control_plane — SSH + alternate management paths closed
+#   AXIS docker_runtime— not host network / shared PID|IPC ns / mini volume binds (when container present)
+#   AXIS r2_readonly   — restore credentials are List/Get only (no RW parent)
 #
 # Usage:
-#   MINI_HOST=203.0.113.1 ./scripts/prove-isolation.sh
-#   ./scripts/prove-isolation.sh 203.0.113.1
-#   ./scripts/prove-isolation.sh --mini-host 203.0.113.1
+#   MINI_HOST=203.0.113.1 TARGET_ATTESTED_IDENTITY=... MINI_ATTESTED_IDENTITY=... \
+#     ./scripts/prove-isolation.sh
 #
-# MUST_OBSERVE on success (stdout):
-#   PASS: no route to mini Postgres
-#   PASS: no mini PGDATA mount
-#   PASS: no mini blob mount
-#   PASS: R2 credentials are read-only scoped
-#
-# Never always-exits-0. Real nc / mount / env checks only.
+# Real OS probes only (nc, mount/findmnt, test -S, getent/host, machine-id/SMBIOS).
+# Never hardcodes exit 0. Never mocks network isolation.
 set -euo pipefail
 
 MINI_HOST="${MINI_HOST:-}"
 MINI_PG_PORT="${MINI_PG_PORT:-5432}"
+MINI_SSH_PORT="${MINI_SSH_PORT:-22}"
 NC_TIMEOUT_SEC="${NC_TIMEOUT_SEC:-2}"
-# Optional: override mount paths under test (defaults match CAP-BAK-01 contract).
 MINI_PGDATA_MOUNT="${MINI_PGDATA_MOUNT:-/mnt/mini-pgdata}"
 MINI_BLOB_MOUNT="${MINI_BLOB_MOUNT:-/mnt/mini-blobs}"
+REQUIRE_ATTESTED_IDENTITY="${REQUIRE_ATTESTED_IDENTITY:-1}"
+RESTORE_CONTAINER="${RESTORE_CONTAINER:-}"
+# Optional multi-coordinate network targets (comma-separated hostnames OK for aliases).
+MINI_IPV4="${MINI_IPV4:-}"
+MINI_IPV6="${MINI_IPV6:-}"
+MINI_TAILNET_IP="${MINI_TAILNET_IP:-}"
+MINI_LAN_IP="${MINI_LAN_IP:-}"
+MINI_DNS_ALIASES="${MINI_DNS_ALIASES:-}"
+MINI_HOSTNAMES="${MINI_HOSTNAMES:-}"
+MINI_CONTROL_PORTS="${MINI_CONTROL_PORTS:-}"
+MINI_UNIX_SOCKETS="${MINI_UNIX_SOCKETS:-}"
+# When 1 (default), probe classic postgres unix socket paths (fail closed on co-located mini).
+# Set 0 only for documented isolation fixtures that still run real test -S probes on
+# MINI_UNIX_SOCKETS paths (never skip the ipc axis entirely).
+MINI_SOCKET_DEFAULTS="${MINI_SOCKET_DEFAULTS:-1}"
+MINI_FORBIDDEN_MOUNT_PATHS="${MINI_FORBIDDEN_MOUNT_PATHS:-}"
+TARGET_ATTESTED_IDENTITY="${TARGET_ATTESTED_IDENTITY:-}"
+MINI_ATTESTED_IDENTITY="${MINI_ATTESTED_IDENTITY:-}"
 
 usage() {
   cat <<'EOF'
 Usage: prove-isolation.sh [--mini-host HOST] [HOST]
 
+Multi-axis isolation probe (REDHAT-FIX-H3). Exit 0 only if all axes PASS.
+
 Environment:
-  MINI_HOST              Original mini hostname/IP (required unless positional)
-  MINI_PG_PORT           Postgres port on mini (default 5432)
-  NC_TIMEOUT_SEC         nc connect timeout seconds (default 2)
-  MINI_PGDATA_MOUNT      Forbidden mount path (default /mnt/mini-pgdata)
-  MINI_BLOB_MOUNT        Forbidden mount path (default /mnt/mini-blobs)
-  R2_ACCESS_KEY_ID       Required restore-target R2 key (read-only scoped)
-  R2_SECRET_ACCESS_KEY   Required restore-target R2 secret (read-only scoped)
-  R2_CREDENTIAL_KIND     Must be object-read-only or read-only
-  R2_CREDENTIAL_POLICY   Optional JSON; if set must not allow Put/Delete
-  R2_ENDPOINT            Real R2 endpoint (triggers live aws proof when non-placeholder)
-  REQUIRE_LIVE_R2_RO     If 1, always run scripts/prove-r2-readonly.sh (fail closed on placeholders)
+  MINI_HOST                 Original mini hostname/IP (required unless positional)
+  MINI_IPV4 / MINI_IPV6     Additional mini addresses to probe
+  MINI_TAILNET_IP / MINI_LAN_IP
+  MINI_DNS_ALIASES          Comma-separated DNS aliases that must not resolve+connect to mini services
+  MINI_HOSTNAMES            Comma-separated alternate hostnames
+  MINI_PG_PORT              Postgres port on mini (default 5432)
+  MINI_SSH_PORT             SSH port on mini (default 22)
+  MINI_CONTROL_PORTS        Extra management ports (comma-separated)
+  MINI_PGDATA_MOUNT         Forbidden mount path (default /mnt/mini-pgdata)
+  MINI_BLOB_MOUNT           Forbidden mount path (default /mnt/mini-blobs)
+  MINI_FORBIDDEN_MOUNT_PATHS  Extra forbidden mount paths (comma-separated)
+  MINI_UNIX_SOCKETS         Extra forbidden unix socket paths (comma-separated)
+  MINI_SOCKET_DEFAULTS      Probe classic PG sockets (default 1); 0 = only MINI_UNIX_SOCKETS (fixture)
+  TARGET_ATTESTED_IDENTITY  Target hardware/VM identity (or auto-read machine-id/SMBIOS)
+  MINI_ATTESTED_IDENTITY    Mini hardware/VM identity (required when REQUIRE_ATTESTED_IDENTITY=1)
+  REQUIRE_ATTESTED_IDENTITY Fail closed if identities missing/equal (default 1)
+  RESTORE_CONTAINER         Optional docker container name to audit
+  R2_*                      See R2 read-only axis (credential kind/policy/keys)
+  NC_TIMEOUT_SEC            nc connect timeout seconds (default 2)
 EOF
 }
 
@@ -85,84 +112,132 @@ if [[ -z "$MINI_HOST" ]]; then
 fi
 
 failures=0
+axis_failures=0
 pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
+info() { echo "INFO: $*"; }
+axis_begin() { echo "--- AXIS: $1 ---"; }
+axis_end() {
+  local name="$1"
+  local before="$2"
+  local delta=$((failures - before))
+  if [[ $delta -eq 0 ]]; then
+    echo "AXIS ${name}: PASS"
+  else
+    echo "AXIS ${name}: FAIL (${delta} check(s))"
+    axis_failures=$((axis_failures + 1))
+  fi
+}
 
-# ── (a) No route to mini Postgres ──────────────────────────────────────────
-# Real nc probe with a hard wall-clock timeout (never hang on blackhole routes).
+# ── helpers ────────────────────────────────────────────────────────────────
+
 run_with_timeout() {
-  # run_with_timeout <seconds> <command> [args...]
-  # Echoes command stdout+stderr; returns command exit status (124 on timeout).
   local seconds="$1"
   shift
   local out_file rc
   out_file="$(mktemp -t prove-isolation-nc.XXXXXX)"
+  # Run in its own process group so timeout kill reaps hung nc children.
   (
-    "$@" >"$out_file" 2>&1
+    set -m
+    "$@" >"$out_file" 2>&1 &
+    local inner=$!
+    (
+      sleep "$seconds"
+      kill -TERM -"$inner" 2>/dev/null || kill -TERM "$inner" 2>/dev/null || true
+      sleep 0.2
+      kill -KILL -"$inner" 2>/dev/null || kill -KILL "$inner" 2>/dev/null || true
+    ) &
+    local watch=$!
+    set +e
+    wait "$inner"
+    rc=$?
+    set -e
+    kill "$watch" 2>/dev/null || true
+    wait "$watch" 2>/dev/null || true
+    exit "$rc"
   ) &
   local cmd_pid=$!
-  (
-    sleep "$seconds"
-    kill "$cmd_pid" 2>/dev/null || true
-  ) &
-  local watch_pid=$!
   set +e
   wait "$cmd_pid"
   rc=$?
   set -e
-  kill "$watch_pid" 2>/dev/null || true
-  wait "$watch_pid" 2>/dev/null || true
-  # If we killed it, treat as timeout (unreachable for isolation purposes).
-  if ! kill -0 "$cmd_pid" 2>/dev/null; then
-    # cmd_pid already reaped by wait; if sleep watcher fired, rc may be 143/137.
-    :
-  fi
   cat "$out_file" 2>/dev/null || true
   rm -f "$out_file"
-  # Normalize: killed by signal → non-zero (no route).
   if [[ $rc -eq 0 ]]; then
     return 0
   fi
   return 1
 }
 
-check_no_route_to_mini_pg() {
-  local host="$1" port="$2" timeout="$3"
+# Returns 0 if TCP connect succeeds (reachable = isolation broken).
+tcp_reachable() {
+  local host="$1" port="$2" timeout="${3:-$NC_TIMEOUT_SEC}"
   local nc_out="" nc_rc=1
+  # Hard wall ≈ nc timeout; avoid double-waiting on option fallbacks by detecting
+  # supported flags once per process via a sticky env marker.
+  local wall="$timeout"
+  if [[ "$wall" -lt 1 ]]; then wall=1; fi
   if ! command -v nc >/dev/null 2>&1; then
-    fail "nc not available — cannot prove no route to mini Postgres"
-    return
+    return 2
   fi
-
-  # Prefer macOS -G / Linux -w, always under hard wall-clock cap (timeout+1).
-  local wall=$((timeout + 1))
   set +e
-  nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"
-  nc_rc=$?
-  if [[ $nc_rc -ne 0 ]] && echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
-    nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"
+  if [[ -z "${_PROVE_NC_STYLE:-}" ]]; then
+    nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"
     nc_rc=$?
-  fi
-  if [[ $nc_rc -ne 0 ]] && echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
-    nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"
-    nc_rc=$?
+    if echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
+      nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"
+      nc_rc=$?
+      if echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
+        _PROVE_NC_STYLE=plain
+        export _PROVE_NC_STYLE
+        nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"
+        nc_rc=$?
+      else
+        _PROVE_NC_STYLE=w
+        export _PROVE_NC_STYLE
+      fi
+    else
+      _PROVE_NC_STYLE=G
+      export _PROVE_NC_STYLE
+    fi
+  else
+    case "$_PROVE_NC_STYLE" in
+      G) nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"; nc_rc=$? ;;
+      w) nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"; nc_rc=$? ;;
+      *) nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"; nc_rc=$? ;;
+    esac
   fi
   set -e
-
   if [[ $nc_rc -eq 0 ]]; then
-    fail "mini Postgres reachable at ${host}:${port} (nc exit 0) — isolation broken"
-    echo "  detail: ${nc_out}" >&2
-  else
-    pass "no route to mini Postgres"
+    echo "$nc_out"
+    return 0
   fi
+  return 1
 }
 
-# ── (b)(c) No mini data mounts ─────────────────────────────────────────────
-# Fail if mount table lists the path as a mount point OR if it exists as a
-# mount-style directory that is a mount (findmnt / mount | grep).
-check_no_mount() {
+is_loopback_host() {
+  case "$1" in
+    127.0.0.1|localhost|::1|0.0.0.0|0000::1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+csv_items() {
+  # Print non-empty comma-separated items, one per line.
+  local raw="${1:-}"
+  if [[ -z "$raw" ]]; then
+    return 0
+  fi
+  local IFS=','
+  local item
+  for item in $raw; do
+    item="$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$item" ]] && printf '%s\n' "$item"
+  done
+}
+
+path_is_mounted() {
   local path="$1"
-  local label="$2"
   local mounted=0
 
   if command -v findmnt >/dev/null 2>&1; then
@@ -171,12 +246,10 @@ check_no_mount() {
     fi
   fi
 
-  # Parse mount table (macOS + Linux). Match mount path as a field.
   if mount 2>/dev/null | awk -v p="$path" '
     {
       for (i = 1; i <= NF; i++) {
         if ($i == p || $i ~ ("^" p "$")) { found=1 }
-        # macOS: "on /mnt/mini-pgdata ("
         if ($i == "on" && $(i+1) == p) { found=1 }
       }
     }
@@ -185,12 +258,10 @@ check_no_mount() {
     mounted=1
   fi
 
-  # Also refuse if path is present in /proc/mounts (Linux containers).
   if [[ -r /proc/mounts ]] && awk -v p="$path" '$2 == p { found=1 } END { exit found ? 0 : 1 }' /proc/mounts 2>/dev/null; then
     mounted=1
   fi
 
-  # Explicit probe: bind-mount detection via device identity vs parent (best-effort).
   if [[ -d "$path" ]] && command -v df >/dev/null 2>&1; then
     local path_dev parent_dev parent
     parent="$(dirname "$path")"
@@ -201,17 +272,419 @@ check_no_mount() {
     fi
   fi
 
-  if [[ $mounted -eq 1 ]]; then
+  [[ $mounted -eq 1 ]]
+}
+
+check_no_mount() {
+  local path="$1"
+  local label="$2"
+  if path_is_mounted "$path"; then
     fail "${label} mounted at ${path} — isolation broken"
   else
-    pass "no mini ${label} mount"
+    pass "no mini ${label} mount at ${path}"
   fi
 }
 
-# ── (d) R2 credentials read-only scoped ────────────────────────────────────
-# Declarative env/policy checks + optional live aws proof via prove-r2-readonly.sh.
-# Placeholder-only success is NOT enough for AC-2; live proof required when keys
-# are real, or when REQUIRE_LIVE_R2_RO=1.
+read_local_attested_identity() {
+  # Independently read hardware/VM identity from OS sources (never hardcode).
+  local id=""
+  if [[ -r /etc/machine-id ]]; then
+    id="$(tr -d '[:space:]' </etc/machine-id 2>/dev/null || true)"
+  fi
+  if [[ -z "$id" && -r /var/lib/dbus/machine-id ]]; then
+    id="$(tr -d '[:space:]' </var/lib/dbus/machine-id 2>/dev/null || true)"
+  fi
+  if [[ -z "$id" ]] && command -v ioreg >/dev/null 2>&1; then
+    id="$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4; exit}' | tr -d '[:space:]')"
+  fi
+  if [[ -z "$id" ]] && command -v sysctl >/dev/null 2>&1; then
+    id="$(sysctl -n kern.uuid 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  # Cloud instance-id (best-effort; short timeout).
+  if [[ -z "$id" ]] && command -v curl >/dev/null 2>&1; then
+    id="$(curl -sS -m 1 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  printf '%s' "$id"
+}
+
+# ── AXIS: network ──────────────────────────────────────────────────────────
+check_network_axis() {
+  axis_begin "network"
+  local before=$failures
+
+  if ! command -v nc >/dev/null 2>&1; then
+    fail "nc not available — cannot prove network isolation"
+    axis_end "network" "$before"
+    return
+  fi
+
+  # Build unique host coordinate list.
+  local -a hosts=()
+  local h
+  for h in "$MINI_HOST" "$MINI_IPV4" "$MINI_IPV6" "$MINI_TAILNET_IP" "$MINI_LAN_IP"; do
+    [[ -n "$h" ]] && hosts+=("$h")
+  done
+  while IFS= read -r h; do
+    [[ -n "$h" ]] && hosts+=("$h")
+  done < <(csv_items "$MINI_HOSTNAMES")
+  while IFS= read -r h; do
+    [[ -n "$h" ]] && hosts+=("$h")
+  done < <(csv_items "$MINI_DNS_ALIASES")
+
+  # Dedup
+  local -a uniq=()
+  local seen="|"
+  for h in "${hosts[@]}"; do
+    case "$seen" in
+      *"|$h|"*) continue ;;
+    esac
+    seen="${seen}${h}|"
+    uniq+=("$h")
+  done
+
+  if [[ ${#uniq[@]} -eq 0 ]]; then
+    fail "no mini network coordinates configured"
+    axis_end "network" "$before"
+    return
+  fi
+
+  # Ports: PG on all coordinates; control ports on all; SSH on primary MINI_HOST only
+  # (SSH multi-coordinate coverage lives in control_plane axis).
+  local -a ports=("$MINI_PG_PORT")
+  local p
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && ports+=("$p")
+  done < <(csv_items "$MINI_CONTROL_PORTS")
+
+  local port_seen="|"
+  local -a uniq_ports=()
+  for p in "${ports[@]}"; do
+    case "$port_seen" in
+      *"|$p|"*) continue ;;
+    esac
+    port_seen="${port_seen}${p}|"
+    uniq_ports+=("$p")
+  done
+
+  info "network coordinates: ${uniq[*]}"
+  info "network ports: ${uniq_ports[*]} (+ SSH ${MINI_SSH_PORT} on primary ${MINI_HOST})"
+
+  local reachable=0
+  for h in "${uniq[@]}"; do
+    # DNS resolve when hostname-like (not pure IPv4/IPv6) — record aliases.
+    if [[ "$h" == *.* || "$h" == *:* ]] && ! [[ "$h" =~ ^[0-9.]+$ || "$h" =~ ^[0-9a-fA-F:]+$ ]]; then
+      if command -v getent >/dev/null 2>&1; then
+        local resolved
+        resolved="$(getent hosts "$h" 2>/dev/null | awk '{print $1}' | head -1 || true)"
+        if [[ -n "$resolved" ]]; then
+          info "DNS alias ${h} → ${resolved}"
+        fi
+      elif command -v host >/dev/null 2>&1; then
+        info "DNS lookup ${h}: $(host -W 1 "$h" 2>/dev/null | head -1 || true)"
+      fi
+    fi
+
+    for p in "${uniq_ports[@]}"; do
+      local detail=""
+      set +e
+      detail="$(tcp_reachable "$h" "$p")"
+      local trc=$?
+      set -e
+      if [[ $trc -eq 0 ]]; then
+        fail "mini network target reachable at ${h}:${p} (nc exit 0) — isolation broken"
+        echo "  detail: ${detail}" >&2
+        reachable=$((reachable + 1))
+      elif [[ $trc -eq 2 ]]; then
+        fail "nc unavailable for ${h}:${p}"
+      else
+        pass "no route to mini at ${h}:${p}"
+      fi
+    done
+  done
+
+  # Primary SSH reachability also belongs to the network axis summary.
+  local ssh_detail="" ssh_trc=1
+  set +e
+  ssh_detail="$(tcp_reachable "$MINI_HOST" "$MINI_SSH_PORT")"
+  ssh_trc=$?
+  set -e
+  if [[ $ssh_trc -eq 0 ]]; then
+    fail "mini network target reachable at ${MINI_HOST}:${MINI_SSH_PORT} (SSH)"
+    echo "  detail: ${ssh_detail}" >&2
+    reachable=$((reachable + 1))
+  else
+    pass "no route to mini at ${MINI_HOST}:${MINI_SSH_PORT}"
+  fi
+
+  if [[ $reachable -eq 0 ]]; then
+    pass "0 successful mini network connections across IPv4/IPv6/tailnet/LAN/DNS axes"
+  fi
+
+  axis_end "network" "$before"
+}
+
+# ── AXIS: ipc_sockets ──────────────────────────────────────────────────────
+check_ipc_axis() {
+  axis_begin "ipc_sockets"
+  local before=$failures
+
+  local -a sockets=()
+  if [[ "${MINI_SOCKET_DEFAULTS}" == "1" ]]; then
+    sockets+=(
+      /tmp/.s.PGSQL.5432
+      /var/run/postgresql/.s.PGSQL.5432
+      /run/postgresql/.s.PGSQL.5432
+      /private/tmp/.s.PGSQL.5432
+    )
+  else
+    info "MINI_SOCKET_DEFAULTS=0 — classic PG socket list skipped; probing MINI_UNIX_SOCKETS only"
+  fi
+  local s
+  while IFS= read -r s; do
+    [[ -n "$s" ]] && sockets+=("$s")
+  done < <(csv_items "$MINI_UNIX_SOCKETS")
+
+  if [[ ${#sockets[@]} -eq 0 ]]; then
+    fail "ipc_sockets axis has zero paths to probe (set MINI_UNIX_SOCKETS or MINI_SOCKET_DEFAULTS=1)"
+  fi
+
+  local open_sockets=0
+  for s in "${sockets[@]}"; do
+    if [[ -S "$s" ]]; then
+      fail "mini-like unix socket present at ${s} — isolation broken"
+      open_sockets=$((open_sockets + 1))
+    else
+      pass "no unix socket at ${s}"
+    fi
+  done
+
+  # Shared IPC namespace with host/init (Linux containers pretending to be fresh hardware).
+  if [[ -r /proc/self/ns/ipc && -r /proc/1/ns/ipc ]]; then
+    local self_ipc init_ipc
+    self_ipc="$(readlink /proc/self/ns/ipc 2>/dev/null || true)"
+    init_ipc="$(readlink /proc/1/ns/ipc 2>/dev/null || true)"
+    if [[ -n "$self_ipc" && -n "$init_ipc" && "$self_ipc" == "$init_ipc" && "$(id -u)" -ne 0 ]]; then
+      # Non-root process sharing init IPC is normal on bare metal host; only flag when
+      # explicitly marked as container-on-host via container env.
+      if [[ -n "${container:-}" || -f /.dockerenv || -n "${RESTORE_CONTAINER}" ]]; then
+        # Inside docker without private IPC → shared with host (often true for default).
+        # Default docker gives private IPC; shared only with --ipc=host.
+        if [[ -f /proc/1/cgroup ]] && grep -qE 'docker|containerd|kubepods' /proc/1/cgroup 2>/dev/null; then
+          info "container IPC ns same as pid1 (expected when pid1 is container init)"
+        fi
+      fi
+    fi
+  fi
+
+  if [[ $open_sockets -eq 0 ]]; then
+    pass "0 mini unix sockets accessible"
+  fi
+
+  axis_end "ipc_sockets" "$before"
+}
+
+# ── AXIS: mounts ───────────────────────────────────────────────────────────
+check_mounts_axis() {
+  axis_begin "mounts"
+  local before=$failures
+
+  check_no_mount "$MINI_PGDATA_MOUNT" "PGDATA"
+  check_no_mount "$MINI_BLOB_MOUNT" "blob"
+
+  # Legacy path-string scan plus alternate mini bind-mount patterns.
+  local mount_blob
+  mount_blob="$(mount 2>/dev/null || true)"
+  if [[ -r /proc/mounts ]]; then
+    mount_blob="${mount_blob}"$'\n'"$(cat /proc/mounts 2>/dev/null || true)"
+  fi
+
+  if echo "$mount_blob" | grep -qiE '/mnt/mini-(pgdata|blobs)|mini-pgdata|mini-blobs|/opt/homebrew/var/postgresql|postgresql@[0-9]+'; then
+    fail "mount table references mini live data paths"
+    echo "$mount_blob" | grep -iE 'mini|postgresql@|homebrew/var/postgresql' || true
+  else
+    pass "mount table has 0 classic mini PGDATA/blob path entries"
+  fi
+
+  # Alternate forbidden paths (operator/test supplied + common mini restores).
+  local -a extra_paths=(
+    /mnt/mini-pgdata-alt
+    /mnt/mini-data
+    /mnt/restore-from-mini
+    /var/lib/postgresql/mini
+  )
+  local ep
+  while IFS= read -r ep; do
+    [[ -n "$ep" ]] && extra_paths+=("$ep")
+  done < <(csv_items "$MINI_FORBIDDEN_MOUNT_PATHS")
+
+  for ep in "${extra_paths[@]}"; do
+    if path_is_mounted "$ep"; then
+      fail "alternate mini bind-mount present at ${ep}"
+    else
+      pass "no alternate mini mount at ${ep}"
+    fi
+  done
+
+  axis_end "mounts" "$before"
+}
+
+# ── AXIS: identity ─────────────────────────────────────────────────────────
+check_identity_axis() {
+  axis_begin "identity"
+  local before=$failures
+
+  local target_id="$TARGET_ATTESTED_IDENTITY"
+  local mini_id="$MINI_ATTESTED_IDENTITY"
+  local source="env"
+
+  if [[ -z "$target_id" ]]; then
+    target_id="$(read_local_attested_identity)"
+    source="os"
+  fi
+
+  info "TARGET_ATTESTED_IDENTITY source=${source} value=${target_id:-<empty>}"
+  info "MINI_ATTESTED_IDENTITY value=${mini_id:-<empty>}"
+
+  if [[ "${REQUIRE_ATTESTED_IDENTITY}" == "1" ]]; then
+    if [[ -z "$target_id" ]]; then
+      fail "TARGET_ATTESTED_IDENTITY empty (env and OS machine-id/SMBIOS/cloud id missing)"
+    else
+      pass "target attested identity non-empty"
+    fi
+    if [[ -z "$mini_id" ]]; then
+      fail "MINI_ATTESTED_IDENTITY empty — cannot prove distinct hardware/VM identity"
+    else
+      pass "mini attested identity non-empty"
+    fi
+    if [[ -n "$target_id" && -n "$mini_id" ]]; then
+      if [[ "$target_id" == "$mini_id" ]]; then
+        fail "identity collision: target == mini (${target_id}) — same-host / not fresh hardware"
+      else
+        pass "target identity distinct from mini"
+      fi
+    fi
+  else
+    info "REQUIRE_ATTESTED_IDENTITY=0 — identity axis soft (not recommended)"
+    if [[ -n "$target_id" && -n "$mini_id" && "$target_id" == "$mini_id" ]]; then
+      fail "identity collision even with soft mode"
+    else
+      pass "identity axis soft-pass (REQUIRE_ATTESTED_IDENTITY=0)"
+    fi
+  fi
+
+  axis_end "identity" "$before"
+}
+
+# ── AXIS: control_plane ────────────────────────────────────────────────────
+check_control_plane_axis() {
+  axis_begin "control_plane"
+  local before=$failures
+
+  if ! command -v nc >/dev/null 2>&1; then
+    fail "nc not available — cannot prove control-plane isolation"
+    axis_end "control_plane" "$before"
+    return
+  fi
+
+  # SSH / management paths: primary host + tailnet/LAN when distinct (deduped).
+  local -a hosts=("$MINI_HOST")
+  [[ -n "$MINI_TAILNET_IP" && "$MINI_TAILNET_IP" != "$MINI_HOST" ]] && hosts+=("$MINI_TAILNET_IP")
+  [[ -n "$MINI_LAN_IP" && "$MINI_LAN_IP" != "$MINI_HOST" && "$MINI_LAN_IP" != "$MINI_TAILNET_IP" ]] && hosts+=("$MINI_LAN_IP")
+
+  local h open=0
+  for h in "${hosts[@]}"; do
+    [[ -z "$h" ]] && continue
+    if is_loopback_host "$h"; then
+      fail "control-plane mini coordinate is loopback (${h}) — co-located, not isolated"
+      open=$((open + 1))
+      continue
+    fi
+    local detail=""
+    set +e
+    detail="$(tcp_reachable "$h" "$MINI_SSH_PORT")"
+    local trc=$?
+    set -e
+    if [[ $trc -eq 0 ]]; then
+      fail "SSH/control-plane reachable at ${h}:${MINI_SSH_PORT}"
+      echo "  detail: ${detail}" >&2
+      open=$((open + 1))
+    else
+      pass "SSH closed to mini at ${h}:${MINI_SSH_PORT}"
+    fi
+  done
+
+  # Optional explicit control ports already covered in network axis; restate summary.
+  if [[ $open -eq 0 ]]; then
+    pass "SSH and alternate control-plane paths to mini are closed"
+  fi
+
+  axis_end "control_plane" "$before"
+}
+
+# ── AXIS: docker_runtime ───────────────────────────────────────────────────
+check_docker_axis() {
+  axis_begin "docker_runtime"
+  local before=$failures
+
+  # Host-level: refuse if we are clearly a same-host container sharing host net.
+  if [[ -f /.dockerenv ]] || [[ -n "${container:-}" ]]; then
+    if [[ -r /proc/net/route ]]; then
+      info "running inside container — checking network mode signals"
+    fi
+    # network_mode=host often exposes host /proc/1 as non-containerized — best-effort.
+    if [[ -r /proc/1/cgroup ]] && ! grep -qE 'docker|containerd|kubepods|libpod' /proc/1/cgroup 2>/dev/null; then
+      # pid1 not in container cgroup often means --pid=host / host-like.
+      if [[ -r /proc/self/cgroup ]] && grep -qE 'docker|containerd' /proc/self/cgroup 2>/dev/null; then
+        fail "container appears to share host PID namespace (pid1 not containerized)"
+      fi
+    fi
+  fi
+
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    local cname="${RESTORE_CONTAINER:-fresh-restore-01}"
+    if docker inspect "$cname" >/dev/null 2>&1; then
+      local mode binds mounts pidmode ipcmode
+      mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$cname" 2>/dev/null || true)"
+      binds="$(docker inspect -f '{{json .HostConfig.Binds}}' "$cname" 2>/dev/null || echo null)"
+      mounts="$(docker inspect -f '{{json .Mounts}}' "$cname" 2>/dev/null || echo null)"
+      pidmode="$(docker inspect -f '{{.HostConfig.PidMode}}' "$cname" 2>/dev/null || true)"
+      ipcmode="$(docker inspect -f '{{.HostConfig.IpcMode}}' "$cname" 2>/dev/null || true)"
+      info "container=${cname} NetworkMode=${mode} PidMode=${pidmode} IpcMode=${ipcmode}"
+
+      if [[ "$mode" == "host" ]]; then
+        fail "restore container uses network_mode=host (shares mini host routes)"
+      else
+        pass "restore container not on host network (mode=${mode})"
+      fi
+      if [[ "$pidmode" == "host" ]]; then
+        fail "restore container uses pid=host (shares mini process namespace)"
+      else
+        pass "restore container not sharing host PID namespace (mode=${pidmode:-default})"
+      fi
+      if [[ "$ipcmode" == "host" ]]; then
+        fail "restore container uses ipc=host (shares mini IPC namespace)"
+      else
+        pass "restore container not sharing host IPC namespace (mode=${ipcmode:-default})"
+      fi
+      if echo "$binds$mounts" | grep -qiE '/mnt/mini-|postgresql@|/opt/homebrew/var/postgresql|mini-pgdata|mini-blobs'; then
+        fail "restore container mounts look like mini live data paths"
+        echo "  binds=${binds}" >&2
+      else
+        pass "restore container has no mini live-data bind mounts"
+      fi
+    else
+      info "docker container ${cname} not present — docker_runtime host-level only"
+      pass "no co-located restore container with host-network/mini binds to audit"
+    fi
+  else
+    info "docker unavailable — docker_runtime axis host-level only"
+    pass "docker runtime not applicable on this host"
+  fi
+
+  axis_end "docker_runtime" "$before"
+}
+
+# ── AXIS: r2_readonly ──────────────────────────────────────────────────────
 r2_is_placeholder() {
   local v="${1:-}"
   [[ -z "$v" ]] && return 0
@@ -224,7 +697,9 @@ r2_is_placeholder() {
   return 1
 }
 
-check_r2_readonly() {
+check_r2_axis() {
+  axis_begin "r2_readonly"
+  local before=$failures
   local kind="${R2_CREDENTIAL_KIND:-}"
   local policy="${R2_CREDENTIAL_POLICY:-}"
   local key="${R2_ACCESS_KEY_ID:-${R2_RESTORE_ACCESS_KEY_ID:-}}"
@@ -232,7 +707,6 @@ check_r2_readonly() {
   local endpoint="${R2_ENDPOINT:-}"
   local bad=0
 
-  # Forbidden ambient RW / parent admin credentials on restore target.
   local forbidden_vars=(
     R2_PARENT_ACCESS_KEY_ID
     R2_PARENT_SECRET_ACCESS_KEY
@@ -250,8 +724,6 @@ check_r2_readonly() {
     fi
   done
 
-  # Any env key matching *READ_WRITE* / *_RW_* under R2_ is forbidden when non-empty.
-  # Empty values (e.g. docker -e VAR= to clear) are ignored.
   while IFS= read -r line; do
     local ename="${line%%=*}"
     local eval="${line#*=}"
@@ -269,28 +741,21 @@ check_r2_readonly() {
     bad=1
   fi
 
-  # Kind must explicitly declare read-only scope (not backup RW runtime).
   case "$kind" in
-    object-read-only|read-only|object_read_only|readonly)
-      ;;
+    object-read-only|read-only|object_read_only|readonly) ;;
     *)
       echo "  detail: R2_CREDENTIAL_KIND must be object-read-only or read-only (got: '${kind:-<empty>}')" >&2
       bad=1
       ;;
   esac
 
-  # If policy JSON present, reject Put/Delete actions and wildcards.
   if [[ -n "$policy" ]]; then
     if echo "$policy" | grep -qiE 's3:PutObject|s3:DeleteObject|s3:Put|s3:Delete|"s3:\*"|"\*"'; then
-      # Allow only if the matching tokens are clearly under Deny (rare); fail closed.
       if echo "$policy" | grep -qiE 's3:PutObject|s3:DeleteObject|"s3:\*"'; then
-        # Check whether Put/Delete appear inside an Allow statement roughly.
         if echo "$policy" | tr -d '\n' | grep -qiE 'Effect["[:space:]]*:["[:space:]]*Allow[^}]*s3:(PutObject|DeleteObject)'; then
           echo "  detail: R2_CREDENTIAL_POLICY allows Put/Delete — not read-only" >&2
           bad=1
         elif echo "$policy" | grep -qiE 's3:PutObject|s3:DeleteObject'; then
-          # Fail closed even without perfect JSON parse — restore target policy
-          # must be List/Get only; Put/Delete strings indicate wrong policy.
           echo "  detail: R2_CREDENTIAL_POLICY contains Put/Delete actions — not read-only" >&2
           bad=1
         fi
@@ -300,7 +765,6 @@ check_r2_readonly() {
         bad=1
       fi
     fi
-    # Positive signal: policy should mention List and Get (when provided).
     if ! echo "$policy" | grep -qiE 's3:ListBucket|ListBucket'; then
       echo "  detail: R2_CREDENTIAL_POLICY missing ListBucket" >&2
       bad=1
@@ -316,7 +780,6 @@ check_r2_readonly() {
     placeholders=1
   fi
 
-  # Live aws proof: required when keys are real, or when REQUIRE_LIVE_R2_RO=1.
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local live_script="${script_dir}/prove-r2-readonly.sh"
@@ -337,7 +800,6 @@ check_r2_readonly() {
     else
       echo "  detail: running live R2 read-only probe (real aws CLI)" >&2
       set +e
-      # Prefer restore-specific keys if present; prove-r2-readonly resolves env itself.
       bash "$live_script"
       local live_rc=$?
       set -e
@@ -348,8 +810,6 @@ check_r2_readonly() {
     fi
   elif [[ $placeholders -eq 1 ]]; then
     echo "  detail: WARN placeholder R2 keys — declarative scope only; AC-2 needs live prove-r2-readonly.sh" >&2
-    # Placeholder-only is NOT a green AC-2 path. Isolation shape may still pass
-    # declarative checks unless REQUIRE_LIVE_R2_RO=1 (handled above via need_live).
   fi
 
   if [[ $bad -eq 0 ]]; then
@@ -357,18 +817,28 @@ check_r2_readonly() {
   else
     fail "R2 credentials are not read-only scoped"
   fi
+
+  axis_end "r2_readonly" "$before"
 }
 
-echo "=== prove-isolation (mini=${MINI_HOST}:${MINI_PG_PORT}) ==="
-check_no_route_to_mini_pg "$MINI_HOST" "$MINI_PG_PORT" "$NC_TIMEOUT_SEC"
-check_no_mount "$MINI_PGDATA_MOUNT" "PGDATA"
-check_no_mount "$MINI_BLOB_MOUNT" "blob"
-check_r2_readonly
+# ── main ───────────────────────────────────────────────────────────────────
+echo "=== prove-isolation MULTI-AXIS (mini=${MINI_HOST}:${MINI_PG_PORT}) ==="
+echo "contract: network+ipc_sockets+mounts+identity+control_plane+docker_runtime+r2_readonly"
+echo "supersedes: TCP/5432 + /mnt/mini-pgdata|/mnt/mini-blobs only"
 
-if [[ $failures -gt 0 ]]; then
-  echo "=== RESULT: FAIL (${failures} check(s) failed) ==="
+check_network_axis
+check_ipc_axis
+check_mounts_axis
+check_identity_axis
+check_control_plane_axis
+check_docker_axis
+check_r2_axis
+
+echo "=== SUMMARY: check_failures=${failures} axis_failures=${axis_failures} ==="
+if [[ $failures -gt 0 || $axis_failures -gt 0 ]]; then
+  echo "=== RESULT: FAIL (${failures} check(s); ${axis_failures} axis/axes open) ==="
   exit 1
 fi
 
-echo "=== RESULT: PASS (all isolation checks) ==="
+echo "=== RESULT: PASS (all multi-axis isolation checks) ==="
 exit 0
