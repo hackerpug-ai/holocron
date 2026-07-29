@@ -35,6 +35,15 @@ cd "$ROOT"
 # GATE-FIX-S28R3-QA13 shared live provider helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh
 source "$ROOT/scripts/lib/r2-ro-live.sh"
+# GATE-FIX-S28R3-QA14: production refuses test/CLI seams.
+if [[ -n "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-}" ]]; then
+  echo "error: GATE-FIX-S28R3-QA14 refuses HOLO_FIRE_DRILL_FAKE_VOLUMES in production (harness-only)" >&2
+  exit 2
+fi
+if [[ -n "${HOLO_QA_PROOF_MUTATE:-}" ]]; then
+  echo "error: GATE-FIX-S28R3-QA14 refuses HOLO_QA_PROOF_MUTATE in production" >&2
+  exit 2
+fi
 
 HOST_NAME=""
 TARGET_TIMESTAMP=""
@@ -43,7 +52,7 @@ RESOLVE_ONLY=0
 REPORT=""
 SOURCE_BLOB_ROOT=""
 BUN_BIN="${BUN_BIN:-bun}"
-HOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"
+HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"  # GATE-FIX-S28R3-QA14: fixed CLI only
 
 usage() {
   cat <<'EOF'
@@ -199,6 +208,12 @@ r2_context_fp16() {
 }
 
 assert_bound_r2_ro_proof() {
+  if ! r2_ro_init_trusted_helpers; then
+    err "GATE-FIX-S28R3-QA14 trusted helper chain failed"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+
   # GATE-FIX-S28R3-QA13: fixed prover + trusted AWS independent of PATH;
   # canonical context; exclusive private proof; consumer-level validation.
   local rak="$1" rsk="$2" rst="$3"
@@ -232,7 +247,7 @@ assert_bound_r2_ro_proof() {
   proof="$(r2_ro_new_proof_path)" || exit 2
   prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
   echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
-  if ! env \
+  if ! "$R2_RO_ENV_BIN" \
     REQUIRE_LIVE_R2_RO=1 \
     HOLO_R2_RO_PROOF_OUT="$proof" \
     HOLO_R2_CONTEXT_FP16="$expected_ctx" \
@@ -248,6 +263,11 @@ assert_bound_r2_ro_proof() {
     R2_RESTORE_OBJECT_PREFIX="$prefix" \
     R2_CREDENTIAL_KIND="$kind" \
     R2_CREDENTIAL_POLICY="$policy" \
+    R2_SCOPE_PROBE_IN_KEY="${R2_SCOPE_PROBE_IN_KEY:-}" \
+    R2_SCOPE_PROBE_OUT_KEY="${R2_SCOPE_PROBE_OUT_KEY:-}" \
+    HOLO_R2_PROVIDER_MOCK_MODE="${HOLO_R2_PROVIDER_MOCK_MODE:-}" \
+    HOLO_R2_PROVIDER_MOCK_CANARY="${HOLO_R2_PROVIDER_MOCK_CANARY:-}" \
+    R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
     HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
     HOME="${HOME:-/tmp}" \
@@ -256,10 +276,6 @@ assert_bound_r2_ro_proof() {
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     rm -f "$proof" 2>/dev/null || true
     exit 2
-  fi
-  # Test-only mutation seam (MEDIUM-2): apply before real consumer validation.
-  if [[ -n "${HOLO_QA_PROOF_MUTATE:-}" ]]; then
-    r2_ro_apply_qa_proof_mutate "$proof" || exit 2
   fi
   if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2

@@ -86,7 +86,10 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
+    R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/qa-fixture-object.bin',
+    R2_SCOPE_PROBE_OUT_KEY: 'scope-control/out-of-prefix-object.bin',
     HOLO_AWS_MOCK_MODE: 'default',
+    HOLO_R2_PROVIDER_MOCK_MODE: 'default',
     ...extra,
   };
 }
@@ -280,6 +283,7 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
         HOLO_R2_RO_PROOF_PATH: proof,
         HOLO_AWS_MOCK_MODE: 'list_fail',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'list_fail',
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'm1-fail-proof'),
       }),
     });

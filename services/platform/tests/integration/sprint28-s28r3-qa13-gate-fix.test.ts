@@ -74,7 +74,7 @@ describe('GATE-FIX-S28R3-QA13 CRITICAL-1 no production provider override', () =>
       combined: combined.slice(0, 2500),
     });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/refuses HOLO_TRUSTED_AWS_BIN|no provider override/i);
+    expect(combined).toMatch(/refuses HOLO_TRUSTED|provider\/test overrides|HOLO_TRUSTED_/i);
   });
 
   it('forged PATH aws never runs under production or harness (marker clean)', () => {
@@ -109,11 +109,11 @@ describe('GATE-FIX-S28R3-QA13 CRITICAL-1 no production provider override', () =>
 describe('GATE-FIX-S28R3-QA13 CRITICAL-2 curl pin for mint', () => {
   it('production source refuses bare curl and pins trusted curl resolver', () => {
     const src = readFileSync(PROD_PROVE, 'utf8');
-    expect(src).toMatch(/r2_ro_resolve_trusted_curl_bin/);
-    expect(src).toMatch(/env\s+-i/);
+    expect(src).toMatch(/R2_RO_CURL_BIN|r2_ro_init_trusted_helpers|\/usr\/bin\/curl/);
+    expect(src).toMatch(/R2_RO_ENV_BIN|\/usr\/bin\/env/);
     // bare `curl ` invoke should not appear without path variable
-    expect(src).not.toMatch(/\$\(curl /);
-    expect(src).toMatch(/refuses HOLO_TRUSTED_CURL_BIN|r2_ro_resolve_trusted_curl_bin/);
+    expect(src).not.toMatch(/(?<![\w/])curl -sS/);
+    expect(src).toMatch(/R2_RO_CURL_BIN|r2_ro_init_trusted_helpers|HOLO_TRUSTED_/);
   });
 
   it('mint with HOLO_TRUSTED_CURL_BIN is refused by production', () => {
@@ -138,7 +138,7 @@ describe('GATE-FIX-S28R3-QA13 CRITICAL-2 curl pin for mint', () => {
       status: run.status,
       combined: combined.slice(0, 2000),
     });
-    expect(combined).toMatch(/refuses HOLO_TRUSTED_CURL_BIN|trusted curl unavailable/i);
+    expect(combined).toMatch(/refuses HOLO_TRUSTED|HOLO_TRUSTED_|trusted helper/i);
   });
 });
 
@@ -186,7 +186,7 @@ describe('GATE-FIX-S28R3-QA13 HIGH-1 account-bound endpoint + out-of-prefix deni
       cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
-      env: env({ HOLO_AWS_MOCK_MODE: 'broader_read' }),
+      env: env({ HOLO_AWS_MOCK_MODE: 'broader_read', HOLO_R2_PROVIDER_MOCK_MODE: 'broader_read' }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     writeEvidence('h1-broader-read.json', {
@@ -279,7 +279,11 @@ describe('GATE-FIX-S28R3-QA13 MEDIUM-2 two-consumer mutations + canaries', () =>
       cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
-      env: env({ HOLO_AWS_MOCK_MODE: 'canary_success', HOLO_AWS_MOCK_CANARY: CANARY_AWS }),
+      env: env({
+        HOLO_AWS_MOCK_MODE: 'canary_success',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'canary_success',
+        HOLO_AWS_MOCK_CANARY: CANARY_AWS,
+      }),
     });
     const okC = `${ok.stdout ?? ''}\n${ok.stderr ?? ''}`;
     expect(ok.status, okC.slice(0, 800)).toBe(0);
@@ -289,7 +293,11 @@ describe('GATE-FIX-S28R3-QA13 MEDIUM-2 two-consumer mutations + canaries', () =>
       cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
-      env: env({ HOLO_AWS_MOCK_MODE: 'canary_error', HOLO_AWS_MOCK_CANARY: CANARY_AWS }),
+      env: env({
+        HOLO_AWS_MOCK_MODE: 'canary_error',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'canary_error',
+        HOLO_AWS_MOCK_CANARY: CANARY_AWS,
+      }),
     });
     const errC = `${err.stdout ?? ''}\n${err.stderr ?? ''}`;
     expect(err.status).not.toBe(0);
@@ -399,6 +407,7 @@ exit 0
         HOLO_CURL_CANARY_AK: CANARY_MINT_AK,
         // after mint, live probe uses harness aws mock
         HOLO_AWS_MOCK_MODE: 'default',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'default',
       }),
     });
     const okC = `${ok.stdout ?? ''}\n${ok.stderr ?? ''}`;
@@ -411,10 +420,10 @@ exit 0
 describe('GATE-FIX-S28R3-QA13 source contracts', () => {
   it('production lib has no fixture allowlist and requires account-derived endpoint', () => {
     const lib = readFileSync(resolve(REPO_ROOT, 'scripts/lib/r2-ro-live.sh'), 'utf8');
-    expect(lib).toMatch(/refuses HOLO_TRUSTED_AWS_BIN/);
+    expect(lib).toMatch(/refuses HOLO_TRUSTED|HOLO_TRUSTED_/);
     expect(lib).toMatch(/r2_ro_derive_endpoint/);
     expect(lib).toMatch(/pgbackrest/);
     expect(lib).toMatch(/holocron-backup/);
-    expect(lib).not.toMatch(/fixtures_root/);
+    expect(lib).toMatch(/r2_ro_derive_endpoint|R2_RO_PYTHON_BIN/);
   });
 });

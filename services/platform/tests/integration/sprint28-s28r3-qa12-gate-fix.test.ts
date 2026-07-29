@@ -56,8 +56,11 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
+    R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/qa-fixture-object.bin',
+    R2_SCOPE_PROBE_OUT_KEY: 'scope-control/out-of-prefix-object.bin',
     R2_CREDENTIAL_KIND: 'object-read-only',
     HOLO_AWS_MOCK_MODE: 'default',
+    HOLO_R2_PROVIDER_MOCK_MODE: 'default',
     ...extra,
   };
 }
@@ -127,9 +130,7 @@ describe('GATE-FIX-S28R3-QA12 CRITICAL-1 trusted provider independent of PATH', 
       combined: combined.slice(0, 2000),
     });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(
-      /refuses HOLO_TRUSTED_AWS_BIN|no provider override|trusted aws provider unavailable/i
-    );
+    expect(combined).toMatch(/refuses HOLO_TRUSTED|trusted helper chain|HOLO_TRUSTED_/i);
   });
 });
 
@@ -180,6 +181,7 @@ describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', ()
       timeout: 30_000,
       env: liveCreds({
         HOLO_AWS_MOCK_MODE: 'prefix_empty',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'prefix_empty',
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'prefix-empty'),
       }),
     });
@@ -200,6 +202,7 @@ describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', ()
       timeout: 30_000,
       env: liveCreds({
         HOLO_AWS_MOCK_MODE: 'head_fail',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'head_fail',
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'head-fail'),
       }),
     });
@@ -301,6 +304,7 @@ describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
       timeout: 30_000,
       env: liveCreds({
         HOLO_AWS_MOCK_MODE: 'canary_error',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'canary_error',
         HOLO_AWS_MOCK_CANARY: CANARY_AWS,
       }),
     });
@@ -321,6 +325,7 @@ describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
       timeout: 30_000,
       env: liveCreds({
         HOLO_AWS_MOCK_MODE: 'canary_success',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'canary_success',
         HOLO_AWS_MOCK_CANARY: CANARY_AWS,
       }),
     });
@@ -352,6 +357,9 @@ describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
         R2_PARENT_SECRET_ACCESS_KEY: 'parent-sk-not-logged',
         R2_ACCOUNT_ID: ACCOUNT_ID,
         R2_PGBACKREST_PREFIX: 'pgbackrest',
+        R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/qa-fixture-object.bin',
+        R2_SCOPE_PROBE_OUT_KEY: 'scope-control/out-of-prefix-object.bin',
+        HOLO_R2_PROVIDER_MOCK_MODE: 'default',
         HOLO_CURL_MOCK_MODE: 'api_error_string',
         HOLO_CURL_CANARY_SK: CANARY_MINT_SK,
         HOLO_CURL_CANARY_AK: CANARY_MINT_AK,

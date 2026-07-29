@@ -44,35 +44,36 @@ describe('tools', () => {
     it('schema has query parameter', () => {
       const tool = researchTools.find_recommendations;
       const schema = tool?.inputSchema;
-      // ZodObject stores shape in _def.shape
-      const shape = (schema as any)?._def?.shape();
+      const shape =
+        (schema as any)?.shape ?? (schema as any)?._def?.shape?.() ?? (schema as any)?._def?.shape;
       expect(shape).toHaveProperty('query');
     });
 
     it('schema has count parameter with min(3)', () => {
       const tool = researchTools.find_recommendations;
-      const schema = tool?.inputSchema;
-      const shape = (schema as any)?._def?.shape();
+      const schema = tool?.inputSchema as any;
+      const shape = schema?.shape ?? schema?._def?.shape?.() ?? schema?._def?.shape;
       expect(shape).toHaveProperty('count');
-      // Check that count has min(3) constraint in the checks array
-      const countDef = shape?.count?._def?.innerType?._def?.innerType?._def;
-      const minCheck = countDef?.checks?.find((c: any) => c.kind === 'min');
-      expect(minCheck?.value).toBe(3);
-      const maxCheck = countDef?.checks?.find((c: any) => c.kind === 'max');
-      expect(maxCheck?.value).toBe(7);
+      const parse = (v: unknown) => schema.safeParse({ query: 'x', count: v });
+      expect(parse(2).success).toBe(false);
+      expect(parse(3).success).toBe(true);
+      expect(parse(7).success).toBe(true);
+      expect(parse(8).success).toBe(false);
     });
 
     it('schema has location parameter (optional)', () => {
       const tool = researchTools.find_recommendations;
       const schema = tool?.inputSchema;
-      const shape = (schema as any)?._def?.shape();
+      const shape =
+        (schema as any)?.shape ?? (schema as any)?._def?.shape?.() ?? (schema as any)?._def?.shape;
       expect(shape).toHaveProperty('location');
     });
 
     it('schema has constraints parameter (optional)', () => {
       const tool = researchTools.find_recommendations;
       const schema = tool?.inputSchema;
-      const shape = (schema as any)?._def?.shape();
+      const shape =
+        (schema as any)?.shape ?? (schema as any)?._def?.shape?.() ?? (schema as any)?._def?.shape;
       expect(shape).toHaveProperty('constraints');
     });
   });

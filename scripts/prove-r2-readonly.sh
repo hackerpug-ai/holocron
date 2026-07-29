@@ -170,20 +170,15 @@ try_mint_object_read_only() {
     info "mint skipped: need CLOUDFLARE_API_TOKEN + R2_PARENT_ACCESS_KEY_ID + R2_ACCOUNT_ID"
     return 1
   fi
-  local curl_bin
-  if ! curl_bin="$(r2_ro_resolve_trusted_curl_bin)"; then
-    fail "GATE-FIX-S28R3-QA13 trusted curl unavailable for mint (PATH ignored)"
-    return 1
-  fi
-  if ! command -v python3 >/dev/null 2>&1; then
-    fail "python3 not available — cannot parse mint response"
+  if ! r2_ro_init_trusted_helpers; then
+    fail "GATE-FIX-S28R3-QA14 trusted helper chain unavailable for mint"
     return 1
   fi
 
   info "minting temporary object-read-only credentials via Cloudflare R2 API (ttl=${ttl}s)"
   local body resp http_code
   # Build JSON safely (never log).
-  body="$(BUCKET="$bucket" PARENT="$parent_key" TTL="$ttl" python3 - <<'PY'
+  body="$("$R2_RO_ENV_BIN" -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C BUCKET="$bucket" PARENT="$parent_key" TTL="$ttl" "$R2_RO_PYTHON_BIN" - <<'PY'
 import json, os
 print(json.dumps({
   "bucket": os.environ["BUCKET"],
@@ -197,9 +192,17 @@ PY
   resp="$(mktemp -t r2-ro-mint.XXXXXX)"
   set +e
   http_code="$(
-    env -i       PATH=/usr/bin:/bin       HOME="${HOME:-/tmp}"       LC_ALL=C       "$curl_bin" -sS -o "$resp" -w '%{http_code}'       -X POST "https://api.cloudflare.com/client/v4/accounts/${account_id}/r2/temp-access-credentials"       -H "Authorization: Bearer ${token}"       -H "Content-Type: application/json"       --data "$body"
+    "$R2_RO_ENV_BIN" -i \
+      PATH=/usr/bin:/bin \
+      HOME="${HOME:-/tmp}" \
+      LC_ALL=C \
+      "$R2_RO_CURL_BIN" -sS -o "$resp" -w '%{http_code}' \
+      -X POST "https://api.cloudflare.com/client/v4/accounts/${account_id}/r2/temp-access-credentials" \
+      -H "Authorization: Bearer ${token}" \
+      -H "Content-Type: application/json" \
+      --data "$body"
   )"
-  
+
   local curl_rc=$?
   set -e
   if [[ $curl_rc -ne 0 ]]; then
@@ -211,7 +214,7 @@ PY
   # Parse result without printing secrets or raw API bodies (GATE-FIX-S28R3-QA10 / L1).
   local parsed
   set +e
-  parsed="$(HTTP_CODE="$http_code" RESP_FILE="$resp" python3 - <<'PY'
+  parsed="$("$R2_RO_ENV_BIN" -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C HTTP_CODE="$http_code" RESP_FILE="$resp" "$R2_RO_PYTHON_BIN" - <<'PY'
 import json, os, sys
 code = os.environ["HTTP_CODE"]
 raw = open(os.environ["RESP_FILE"], "r", encoding="utf-8").read()
@@ -370,208 +373,158 @@ make_sacrificial_drill_neg_key() {
 
 run_live_probe() {
   local key="$1" secret="$2" endpoint="$3" bucket="$4" session="${5:-}" prefix="${6:-}"
-  # REDHAT-FIX-H4: uniquely generated sacrificial key only — never live recovery objects.
   local probe_key
   probe_key="$(make_sacrificial_drill_neg_key)"
-  local s3_uri="s3://${bucket}/${probe_key}"
-
   if ! assert_safe_destructive_probe_key "$probe_key" "put/delete probe"; then
     return 1
   fi
 
-  local aws_bin
-  if ! aws_bin="$(r2_ro_resolve_trusted_aws_bin)"; then
-    fail "GATE-FIX-S28R3-QA13 trusted aws provider unavailable (production allowlist only; PATH ignored)"
+  if ! r2_ro_init_trusted_helpers; then
+    fail "GATE-FIX-S28R3-QA14 trusted helper chain unavailable (PATH ignored)"
     return 1
   fi
-  info "using trusted aws provider (absolute path; values not logged)"
+  info "using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)"
 
-  # Minimal PATH for provider process — never caller PATH (CRITICAL-1).
-  local aws_env=(
-    env
-    -i
-    "PATH=/usr/bin:/bin"
-    "HOME=${HOME:-/tmp}"
-    "AWS_ACCESS_KEY_ID=${key}"
-    "AWS_SECRET_ACCESS_KEY=${secret}"
-    "AWS_DEFAULT_REGION=auto"
-    "AWS_EC2_METADATA_DISABLED=true"
-    "AWS_PAGER="
-    "LC_ALL=C"
-    "R2_PGBACKREST_PREFIX=${prefix}"
-    "R2_RESTORE_OBJECT_PREFIX=${prefix}"
-  )
-  if [[ -n "$session" ]]; then
-    aws_env+=("AWS_SESSION_TOKEN=${session}")
-  else
-    aws_env+=("AWS_SESSION_TOKEN=")
+  local in_key="${R2_SCOPE_PROBE_IN_KEY:-}"
+  local out_key="${R2_SCOPE_PROBE_OUT_KEY:-}"
+  if [[ -z "$in_key" || -z "$out_key" ]]; then
+    fail "GATE-FIX-S28R3-QA14 missing known-existing scope probe keys"
+    return 1
   fi
-  # GATE-FIX-S28R3-QA13: production never forwards test mock controls.
 
-  classify_denial() {
-    grep -qiE 'AccessDenied|Access Denied|not authorized|Forbidden|InvalidAccessKeyId|UnknownError|Unauthorized|\b403\b'
-  }
-
-  # (1) Prefix-scoped list must succeed (HIGH-1). Prefer non-recursive, then recursive
-  # to locate a real object under the declared prefix (PRE-only listings are common).
-  local ls_out ls_rc prefix_key=""
-  local prefix_uri="s3://${bucket}/${prefix}/"
+  # (1) Prefix list must succeed and return at least one object.
+  local ls_out ls_rc
   set +e
-  ls_out="$("${aws_env[@]}" "$aws_bin" s3 ls "$prefix_uri" --endpoint-url "$endpoint" 2>&1)"
+  ls_out="$(r2_ro_run_provider "$key" "$secret" "$session" list-prefix \
+    --endpoint "$endpoint" --bucket "$bucket" --prefix "$prefix" 2>&1)"
   ls_rc=$?
   set -e
   if [[ $ls_rc -ne 0 ]]; then
     ls_out=""
-    fail "aws s3 ls prefix failed (exit ${ls_rc}; class=prefix_list_denied_or_error)"
+    fail "prefix list failed (exit ${ls_rc}; class=prefix_list_denied_or_error)"
     return 1
   fi
-  parse_prefix_key() {
-    python3 -c '
-import sys
-prefix = sys.argv[1].rstrip("/") + "/"
-for line in sys.stdin:
-    line = line.rstrip("\n")
-    if not line.strip():
-        continue
-    # Skip pure directory placeholders
-    if line.lstrip().startswith("PRE ") or " PRE " in line[:40]:
-        continue
-    parts = line.split()
-    if len(parts) >= 4:
-        key = " ".join(parts[3:])
-    elif len(parts) >= 1:
-        key = parts[-1]
-    else:
-        continue
-    if key.endswith("/"):
-        continue
-    if not key.startswith(prefix.rstrip("/")):
-        # relative key from non-recursive listing
-        key = prefix.rstrip("/") + "/" + key.lstrip("/")
-    print(key)
-    sys.exit(0)
-sys.exit(1)
-' "$1"
-  }
-  prefix_key="$(printf '%s\n' "$ls_out" | parse_prefix_key "$prefix")" || true
-  if [[ -z "$prefix_key" ]]; then
-    # Recursive list under declared prefix only.
-    set +e
-    ls_out="$("${aws_env[@]}" "$aws_bin" s3 ls "$prefix_uri" --recursive --endpoint-url "$endpoint" 2>&1)"
-    ls_rc=$?
-    set -e
-    if [[ $ls_rc -ne 0 ]]; then
-      ls_out=""
-      fail "aws s3 ls --recursive prefix failed (exit ${ls_rc}; class=prefix_list_denied_or_error)"
-      return 1
-    fi
-    prefix_key="$(printf '%s\n' "$ls_out" | parse_prefix_key "$prefix")" || true
+  if ! printf '%s' "$ls_out" | grep -q '^LIST_OK'; then
+    ls_out=""
+    fail "prefix list missing LIST_OK (class=prefix_list_unclassified)"
+    return 1
   fi
   ls_out=""
-  if [[ -z "$prefix_key" ]]; then
-    fail "prefix-scoped list empty (class=missing_in_prefix_object) — no object under declared restore prefix"
-    return 1
-  fi
-  pass "aws s3 ls prefix exit 0 (prefix List allowed; body not logged)"
+  pass "prefix list allowed (class=prefix_list_ok; body not logged)"
 
-  # (2) HeadObject on an in-prefix object (no body download / no content log).
-  local head_out head_rc
+  # (2) In-prefix Head + Get against known-existing key.
+  local rc
   set +e
-  head_out="$("${aws_env[@]}" "$aws_bin" s3api head-object \
-    --bucket "$bucket" \
-    --key "$prefix_key" \
-    --endpoint-url "$endpoint" 2>&1)"
-  head_rc=$?
+  r2_ro_run_provider "$key" "$secret" "$session" head-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$in_key" >/dev/null 2>&1
+  rc=$?
   set -e
-  head_out=""
-  if [[ $head_rc -ne 0 ]]; then
-    fail "aws s3api head-object under prefix failed (exit ${head_rc}; class=prefix_head_denied_or_error)"
+  if [[ $rc -ne 0 ]]; then
+    fail "in-prefix head-object failed (exit ${rc}; class=prefix_head_denied_or_error) — known-existing probe required"
     return 1
   fi
-  pass "aws s3api head-object under prefix exit 0 (Get/Head allowed; body not logged)"
+  pass "in-prefix head-object allowed (class=prefix_head_ok)"
 
-  # (2b) Out-of-prefix denial — credential must not read outside pgbackrest/ (HIGH-1).
-  local oop_key="drill-neg-out-of-prefix/qa13-scope-probe.txt"
-  local oop_out oop_rc
   set +e
-  oop_out="$("${aws_env[@]}" "$aws_bin" s3api head-object     --bucket "$bucket"     --key "$oop_key"     --endpoint-url "$endpoint" 2>&1)"
-  oop_rc=$?
+  r2_ro_run_provider "$key" "$secret" "$session" get-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$in_key" >/dev/null 2>&1
+  rc=$?
   set -e
-  if [[ $oop_rc -eq 0 ]]; then
-    oop_out=""
-    fail "out-of-prefix head-object SUCCEEDED (class=broader_read_scope) — credential can read outside pgbackrest/"
+  if [[ $rc -ne 0 ]]; then
+    fail "in-prefix get-object failed (exit ${rc}; class=prefix_get_denied_or_error) — known-existing probe required"
     return 1
   fi
-  # Accept AccessDenied/404/NoSuchKey as denial of broader Get (must not succeed).
-  if ! printf '%s' "$oop_out" | grep -qiE 'AccessDenied|Access Denied|NotFound|NoSuchKey|404|Forbidden|not authorized|Unauthorized'; then
-    # Non-zero without classic markers still counts as not-success for scope; soft-pass.
-    :
+  pass "in-prefix get-object allowed (class=prefix_get_ok; body discarded)"
+
+  # (3) Out-of-prefix List/Head/Get against known-existing object.
+  # Head/Get MUST be explicit AccessDenied (exit 2). Never accept 404/NoSuchKey as denial.
+  # ListBucket is often bucket-wide under object-read-only; List may succeed (keys visible)
+  # but Get/Head outside pgbackrest/ must still be AccessDenied.
+  local out_prefix
+  out_prefix="$(dirname "$out_key")"
+  [[ "$out_prefix" == "." ]] && out_prefix=""
+  set +e
+  r2_ro_run_provider "$key" "$secret" "$session" list-prefix \
+    --endpoint "$endpoint" --bucket "$bucket" --prefix "${out_prefix:+$out_prefix/}" >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [[ $rc -eq 2 ]]; then
+    pass "out-of-prefix list AccessDenied (class=prefix_scope_enforced)"
+  elif [[ $rc -eq 0 ]]; then
+    info "out-of-prefix list allowed (bucket List); Head/Get must still AccessDenied"
+  else
+    fail "out-of-prefix list exit ${rc} is ambiguous (class=scope_oracle_ambiguous; refuse 404/other as sole oracle)"
+    return 1
   fi
-  oop_out=""
-  pass "out-of-prefix head-object denied (class=prefix_scope_enforced; body not logged)"
+
+  set +e
+  r2_ro_run_provider "$key" "$secret" "$session" head-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$out_key" >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    fail "out-of-prefix head SUCCEEDED (class=broader_read_scope)"
+    return 1
+  fi
+  if [[ $rc -ne 2 ]]; then
+    fail "out-of-prefix head exit ${rc} is not AccessDenied (class=scope_oracle_ambiguous; refuse 404/other)"
+    return 1
+  fi
+  pass "out-of-prefix head AccessDenied (class=prefix_scope_enforced)"
+
+  set +e
+  r2_ro_run_provider "$key" "$secret" "$session" get-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$out_key" >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    fail "out-of-prefix get SUCCEEDED (class=broader_read_scope)"
+    return 1
+  fi
+  if [[ $rc -ne 2 ]]; then
+    fail "out-of-prefix get exit ${rc} is not AccessDenied (class=scope_oracle_ambiguous; refuse 404/other)"
+    return 1
+  fi
+  pass "out-of-prefix get AccessDenied (class=prefix_scope_enforced)"
+
+  # (4) Put/Delete denial on sacrificial drill-neg key.
   info "sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)"
-
-  # (3) Put must be denied — sacrificial drill-neg only.
-  local put_out put_rc
   set +e
-  put_out="$(echo "SACRIFICIAL_DRILL_NEG_H4-should-deny" | "${aws_env[@]}" "$aws_bin" s3 cp - "$s3_uri" --endpoint-url "$endpoint" 2>&1)"
-  put_rc=$?
+  printf 'SACRIFICIAL_DRILL_NEG_QA14' | r2_ro_run_provider "$key" "$secret" "$session" put-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$probe_key" >/dev/null 2>&1
+  rc=$?
   set -e
-  if [[ $put_rc -eq 0 ]]; then
-    fail "aws s3 cp SUCCEEDED (class=put_allowed) — credentials allow Put (not object-read-only); cleaning sacrificial probe"
+  if [[ $rc -eq 0 ]]; then
+    fail "put-object SUCCEEDED (class=put_allowed) — not object-read-only"
     set +e
-    "${aws_env[@]}" "$aws_bin" s3 rm "$s3_uri" --endpoint-url "$endpoint" >/dev/null 2>&1
+    r2_ro_run_provider "$key" "$secret" "$session" delete-object \
+      --endpoint "$endpoint" --bucket "$bucket" --key "$probe_key" >/dev/null 2>&1
     set -e
-    put_out=""
     return 1
   fi
-  if ! printf '%s' "$put_out" | classify_denial; then
-    put_out=""
-    fail "aws s3 cp failed without AccessDenied/403 class (exit ${put_rc}; class=put_error_unclassified)"
+  if [[ $rc -ne 2 ]]; then
+    fail "put-object exit ${rc} is not AccessDenied (class=put_error_unclassified)"
     return 1
   fi
-  put_out=""
-  pass "aws s3 cp denied (Put blocked; exit ${put_rc}; class=access_denied)"
+  pass "put-object AccessDenied (class=access_denied)"
 
-  # (4) Delete must be denied — sacrificial only.
   if ! assert_safe_destructive_probe_key "$probe_key" "delete probe"; then
     return 1
   fi
-  local del_target="s3://${bucket}/${probe_key}"
-  local del_out del_rc
   set +e
-  del_out="$("${aws_env[@]}" "$aws_bin" s3 rm "$del_target" --endpoint-url "$endpoint" 2>&1)"
-  del_rc=$?
+  r2_ro_run_provider "$key" "$secret" "$session" delete-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$probe_key" >/dev/null 2>&1
+  rc=$?
   set -e
-  if [[ $del_rc -eq 0 ]]; then
-    if printf '%s' "$del_out" | grep -qiE 'delete:'; then
-      del_out=""
-      fail "aws s3 rm reported delete success (class=delete_allowed) — credentials may allow Delete (not RO)"
-      return 1
-    fi
-  fi
-  del_out=""
-
-  local api_out api_rc
-  set +e
-  api_out="$("${aws_env[@]}" "$aws_bin" s3api delete-object \
-    --bucket "$bucket" \
-    --key "$probe_key" \
-    --endpoint-url "$endpoint" 2>&1)"
-  api_rc=$?
-  set -e
-  if [[ $api_rc -eq 0 ]]; then
-    api_out=""
-    fail "aws s3api delete-object SUCCEEDED (class=delete_allowed) — credentials allow Delete (not object-read-only)"
+  if [[ $rc -eq 0 ]]; then
+    fail "delete-object SUCCEEDED (class=delete_allowed) — not object-read-only"
     return 1
   fi
-  if ! printf '%s' "$api_out" | classify_denial; then
-    api_out=""
-    fail "aws s3api delete-object failed without AccessDenied/403 class (exit ${api_rc}; class=delete_error_unclassified)"
+  if [[ $rc -ne 2 ]]; then
+    fail "delete-object exit ${rc} is not AccessDenied (class=delete_error_unclassified)"
     return 1
   fi
-  api_out=""
-  pass "aws s3api delete-object denied (Delete blocked; exit ${api_rc}; class=access_denied)"
+  pass "delete-object AccessDenied (class=access_denied)"
   return 0
 }
 
@@ -780,6 +733,11 @@ if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]
 fi
 
 # Establish canonical context (endpoint/bucket/prefix/policy) before probe.
+if ! r2_ro_init_trusted_helpers; then
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
+  echo "=== RESULT: FAIL (trusted helper chain) ==="
+  exit 1
+fi
 CANON_CTX_LINE=""
 if ! CANON_CTX_LINE="$(R2_ENDPOINT="$ENDPOINT" R2_BUCKET_NAME="${BUCKET:-holocron-backup}"   R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}"   R2_RESTORE_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"   R2_CREDENTIAL_KIND="${R2_CREDENTIAL_KIND:-object-read-only}"   R2_CREDENTIAL_POLICY="${R2_CREDENTIAL_POLICY:-}"   r2_ro_establish_canonical_context)"; then
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
@@ -836,5 +794,5 @@ if ! write_r2_ro_proof_attestation "$AK" "$SK" "$ST"; then
   exit 1
 fi
 
-echo "=== RESULT: PASS (live R2 prefix List+Head allowed; Put/Delete AccessDenied) ==="
+echo "=== RESULT: PASS (live R2 prefix List+Head+Get allowed; out-of-prefix AccessDenied; Put/Delete AccessDenied) ==="
 exit 0
