@@ -205,7 +205,7 @@ PY
     return 1
   fi
 
-  # Parse result without printing secrets
+  # Parse result without printing secrets or raw API bodies (GATE-FIX-S28R3-QA10 / L1).
   local parsed
   set +e
   parsed="$(HTTP_CODE="$http_code" RESP_FILE="$resp" python3 - <<'PY'
@@ -214,19 +214,29 @@ code = os.environ["HTTP_CODE"]
 raw = open(os.environ["RESP_FILE"], "r", encoding="utf-8").read()
 try:
     data = json.loads(raw)
-except Exception as e:
-    print(f"PARSE_FAIL {e}", file=sys.stderr)
+except Exception:
+    # Never print raw body or exception content (may reflect credentials).
+    print(f"PARSE_FAIL http={code} class=invalid_json", file=sys.stderr)
     sys.exit(2)
 if not data.get("success"):
-    errs = data.get("errors") or data.get("messages") or raw[:200]
-    print(f"API_FAIL http={code} errors={errs}", file=sys.stderr)
+    errs = data.get("errors") or []
+    code_list = []
+    if isinstance(errs, list):
+        for e in errs:
+            if isinstance(e, dict) and e.get("code") is not None:
+                code_list.append(str(e.get("code")))
+            elif isinstance(e, (str, int)):
+                code_list.append(str(e)[:32])
+    err_class = ",".join(code_list[:5]) if code_list else "api_error"
+    # Fixed status + error-code class only — never raw messages/body.
+    print(f"API_FAIL http={code} class={err_class}", file=sys.stderr)
     sys.exit(3)
 res = data.get("result") or {}
 ak = res.get("accessKeyId") or ""
 sk = res.get("secretAccessKey") or ""
 st = res.get("sessionToken") or ""
 if not ak or not sk:
-    print("API_FAIL missing access keys in result", file=sys.stderr)
+    print(f"API_FAIL http={code} class=missing_access_keys", file=sys.stderr)
     sys.exit(3)
 # Emit machine-readable for bash (tab-separated); caller must not log.
 print(f"{ak}\t{sk}\t{st}")
@@ -236,7 +246,7 @@ PY
   set -e
   rm -f "$resp"
   if [[ $parse_rc -ne 0 ]]; then
-    fail "mint object-read-only failed (see stderr above)"
+    fail "mint object-read-only failed (HTTP/class only; raw response not logged)"
     return 1
   fi
 
@@ -584,8 +594,9 @@ r2_tuple_fp16() {
 }
 
 write_r2_ro_proof_attestation() {
-  local out="${HOLO_R2_RO_PROOF_OUT:-${HOLO_R2_RO_PROOF_PATH:-}}"
+  local out="${HOLO_R2_RO_PROOF_OUT:-}"
   local rak="$1" rsk="$2" rst="$3"
+  # GATE-FIX-S28R3-QA10: only write evidence from the in-process live prove — never from caller path alone.
   [[ -z "$out" ]] && return 0
   local fp
   fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
@@ -594,10 +605,13 @@ write_r2_ro_proof_attestation() {
     return 1
   fi
   mkdir -p "$(dirname "$out")"
-  python3 - "$out" "$fp" <<'PY'
-import json, sys
+  local endpoint="${ENDPOINT:-${R2_ENDPOINT:-}}"
+  local bucket="${BUCKET:-${R2_BUCKET_NAME:-}}"
+  local prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-}}"
+  python3 - "$out" "$fp" "$endpoint" "$bucket" "$prefix" <<'PY'
+import json, os, sys
 from datetime import datetime, timezone
-out, fp = sys.argv[1], sys.argv[2]
+out, fp, endpoint, bucket, prefix = sys.argv[1:6]
 payload = {
   "schema": "holo.r2-ro-proof.v1",
   "ok": True,
@@ -605,12 +619,17 @@ payload = {
   "list_allowed": True,
   "put_denied": True,
   "delete_denied": True,
+  "endpoint_present": bool(endpoint),
+  "bucket_present": bool(bucket),
+  "prefix_present": bool(prefix),
+  "producer": "scripts/prove-r2-readonly.sh",
   "proved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-  "note": "non-secret fingerprint only — never includes credential values",
+  "note": "non-secret fingerprint + context flags only — never includes credential values",
 }
 with open(out, "w", encoding="utf-8") as f:
   json.dump(payload, f, indent=2)
   f.write("\n")
+os.chmod(out, 0o600)
 print(f"wrote RO proof attestation: {out} tuple_fp16={fp}")
 PY
 }
