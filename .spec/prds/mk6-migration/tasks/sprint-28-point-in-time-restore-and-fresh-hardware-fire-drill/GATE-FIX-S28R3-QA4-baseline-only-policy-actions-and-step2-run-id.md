@@ -1,6 +1,7 @@
 # GATE-FIX-S28R3-QA4 — Baseline-only fresh-target, policy Action semantics, step2 GATE_RUN_ID
 
-> Status: ⬜ Pending  
+> Status: ✅ Implemented  
+
 > Sprint: [Sprint 28](./SPRINT.md)  
 > Agent: devops-engineer  
 > Reviewer: code-reviewer + product-manager  

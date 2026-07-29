@@ -738,9 +738,15 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   const reportPath = resolve(options.reportPath ?? defaultParityReportPath());
   const restorePort = options.restorePort ?? 56111;
   const restoreDatabase = options.restoreDatabase ?? 'holocron';
-  const sourceBlobRoot = resolve(
-    options.sourceBlobRoot ?? env.HOLO_BLOB_ROOT?.trim() ?? defaultBlobRoot(resolveRepoRoot())
-  );
+  // GATE-FIX-S28R3-QA4 / C-1: fresh-target is baseline-only — never resolve/hash
+  // live --source-blob-root or HOLO_BLOB_ROOT as the pre-failure blob oracle.
+  const isFreshTarget = Boolean(options.freshTarget && String(options.freshTarget).trim());
+  const sourceBlobRoot = isFreshTarget
+    ? // Sentinel for restic restore tree discovery only (not pre-failure hash input).
+      blobDir
+    : resolve(
+        options.sourceBlobRoot ?? env.HOLO_BLOB_ROOT?.trim() ?? defaultBlobRoot(resolveRepoRoot())
+      );
 
   // ── Guard: never use live mini mounts ──────────────────────────────────
   if (isForbiddenPath(scratch, env)) {
@@ -753,8 +759,8 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       'refusing fire-drill into live mini blob storage — pass a distinct empty --blob-dir'
     );
   }
-  // Also refuse if blobDir resolves to the standing source blob root.
-  if (resolve(sourceBlobRoot) === blobDir) {
+  // Also refuse if blobDir resolves to the standing source blob root (non-fresh only).
+  if (!isFreshTarget && resolve(sourceBlobRoot) === blobDir) {
     errors.push(
       'refusing fire-drill --blob-dir equal to source blob root — restore into a distinct empty directory'
     );
@@ -797,7 +803,7 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
 
   // ── 1a) Load immutable R2 recovery baseline (SHA-256 oracle) ───────────
   // GATE-FIX-S28R3-QA3 / C-2: fresh-target never queries live mini; baseline required.
-  const isFreshTarget = Boolean(options.freshTarget && String(options.freshTarget).trim());
+  // GATE-FIX-S28R3-QA4 / C-1: fresh-target also never hashes a live pre-failure blob root.
   const requireBaseline = isFreshTarget ? true : options.requireRecoveryBaseline !== false;
   const baselineResolve = resolveFireDrillBaseline(options, env);
   const loadedBaseline = baselineResolve.loaded;
@@ -935,8 +941,13 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
         ledger_per_table: preLedger.per_table,
         sample_tx_windows: preLedger.sample_tx_windows,
         source: preCounts.connection,
-        sourceBlobRoot,
+        // fresh-target: never bind a live source blob path; baseline is sole oracle.
+        sourceBlobRoot: isFreshTarget ? '(fresh-target-baseline-only)' : sourceBlobRoot,
         livePreFailureOk,
+        fresh_target_baseline_only: isFreshTarget,
+        ignored_source_blob_root: isFreshTarget
+          ? Boolean(options.sourceBlobRoot?.trim() || env.HOLO_BLOB_ROOT?.trim())
+          : false,
         baseline_loaded: Boolean(loadedBaseline),
         baseline_id: loadedBaseline?.baseline.baseline_id ?? null,
         baseline_key: loadedBaseline?.key ?? null,
@@ -949,13 +960,30 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     { mode: 0o600 }
   );
 
-  // Pre-failure blob manifest (SHA-256 set of local content-addressed store) — optional when baseline binds blob_manifest.
-  const preBlobHashes = hashLocalBlobStore(sourceBlobRoot);
-  if (preBlobHashes.hashes.length === 0 && !expectedBlobManifest) {
-    // Not yet fatal for postgres path — blob step will fail closed honestly.
-    errors.push(
-      `pre-failure blob store empty at ${sourceBlobRoot} and no baseline.blob_manifest_sha256 — BLOB_PARITY_PASS will fail closed`
-    );
+  // Pre-failure blob manifest:
+  // - fresh-target (QA4/C-1): NEVER hashLocalBlobStore of live source; baseline.blob_manifest_sha256 only.
+  // - normal: local content-addressed store hash (optional when baseline binds blob_manifest).
+  let preBlobHashes: ReturnType<typeof hashLocalBlobStore>;
+  if (isFreshTarget) {
+    preBlobHashes = {
+      hashes: [],
+      byHash: new Map(),
+      fileCount: 0,
+      root: '(fresh-target-baseline-only)',
+    };
+    if (!expectedBlobManifest) {
+      errors.push(
+        'fresh-target: baseline.blob_manifest_sha256 required for BLOB_PARITY — refuse live source hash (GATE-FIX-S28R3-QA4/C-1)'
+      );
+    }
+  } else {
+    preBlobHashes = hashLocalBlobStore(sourceBlobRoot);
+    if (preBlobHashes.hashes.length === 0 && !expectedBlobManifest) {
+      // Not yet fatal for postgres path — blob step will fail closed honestly.
+      errors.push(
+        `pre-failure blob store empty at ${sourceBlobRoot} and no baseline.blob_manifest_sha256 — BLOB_PARITY_PASS will fail closed`
+      );
+    }
   }
 
   // Fail-closed before expensive PITR when baseline is required but missing.

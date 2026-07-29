@@ -775,6 +775,7 @@ check_r2_axis() {
       fi
     fi
     # GATE-FIX-S28R3-QA3 / H-1: JSON-parse every Allow object Resource.
+    # GATE-FIX-S28R3-QA4 / H-1: also parse Action/NotAction/NotResource; reject writes & wildcards.
     # Require exact arn:aws:s3:::${bucket}/${exactPrefix}/* — reject bare bucket/*
     # even when exact prefix is also present; reject wrong bucket/prefix.
     local expect_bucket="${R2_BUCKET_NAME:-holocron-backup}"
@@ -798,31 +799,109 @@ stmts = policy.get("Statement") or []
 if isinstance(stmts, dict):
     stmts = [stmts]
 
+# Allowlist: bucket-level List/GetBucketLocation; object-level GetObject on exact prefix only.
+BUCKET_ACTIONS = {"s3:ListBucket", "s3:GetBucketLocation"}
+OBJECT_ACTIONS = {"s3:GetObject"}
+ALLOWED_ACTIONS = BUCKET_ACTIONS | OBJECT_ACTIONS
+FORBIDDEN_ACTION_SUBSTRINGS = (
+    "Put",
+    "Delete",
+    "Create",
+    "Abort",
+    "Write",
+    "Update",
+    "RestoreObject",
+    "Replicate",
+    "Bypass",
+    "ObjectAcl",
+    "BucketAcl",
+    "Policy",
+    "Admin",
+)
+
+def as_list(val):
+    if val is None:
+        return []
+    if isinstance(val, str):
+        return [val]
+    if isinstance(val, list):
+        return val
+    return [val]
+
+def present_nonempty(val):
+    if val is None:
+        return False
+    if isinstance(val, str):
+        return bool(val.strip())
+    if isinstance(val, list):
+        return len(val) > 0
+    if isinstance(val, dict):
+        return len(val) > 0
+    return True
+
 object_resources = []
+seen_actions = set()
 for stmt in stmts:
     if not isinstance(stmt, dict):
         continue
     if str(stmt.get("Effect", "")).lower() != "allow":
         continue
-    resources = stmt.get("Resource", [])
-    if isinstance(resources, str):
-        resources = [resources]
-    if not isinstance(resources, list):
+
+    # GATE-FIX-S28R3-QA4 / H-1: NotAction / NotResource are write-capable bypasses.
+    if present_nonempty(stmt.get("NotAction")):
+        errors.append("Allow NotAction present (not least-privilege read-only)")
+    if present_nonempty(stmt.get("NotResource")):
+        errors.append("Allow NotResource present (not least-privilege read-only)")
+
+    actions = as_list(stmt.get("Action"))
+    action_strs = []
+    for a in actions:
+        if not isinstance(a, str) or not a.strip():
+            errors.append(f"Allow Action entry invalid: {a!r}")
+            continue
+        action_strs.append(a.strip())
+        seen_actions.add(a.strip())
+
+    for a in action_strs:
+        if a in ("*", "s3:*") or a.endswith(":*") and a.startswith("s3"):
+            errors.append(f"Allow Action wildcard refused: {a}")
+            continue
+        if a not in ALLOWED_ACTIONS:
+            # Explicit forbid Put/Delete/admin even if not in allowlist message.
+            if any(tok.lower() in a.lower() for tok in FORBIDDEN_ACTION_SUBSTRINGS) or a == "*":
+                errors.append(f"Allow Action write/admin refused: {a}")
+            else:
+                errors.append(f"Allow Action not in read-only allowlist: {a}")
+
+    resources = as_list(stmt.get("Resource"))
+    if not resources and not present_nonempty(stmt.get("NotResource")):
+        errors.append("Allow statement missing Resource")
         continue
+
+    bucket_resources = []
+    obj_resources_stmt = []
     for r in resources:
         if not isinstance(r, str):
+            errors.append(f"Allow Resource entry invalid: {r!r}")
+            continue
+        if r == "*":
+            errors.append("Allow Resource wildcard * refused")
             continue
         if not r.startswith("arn:aws:s3:::"):
+            errors.append(f"Allow Resource not an s3 ARN: {r}")
             continue
         rest = r[len("arn:aws:s3:::"):]
         if "/" not in rest:
-            # Bucket-level ARN (ListBucket). Exact bucket only.
+            # Bucket-level ARN (ListBucket / GetBucketLocation). Exact bucket only.
             if rest != bucket:
                 errors.append(f"Allow Resource wrong bucket (bucket-level): {r}")
+            else:
+                bucket_resources.append(r)
             continue
         # Object-scoped ARN
         b, path = rest.split("/", 1)
         object_resources.append(r)
+        obj_resources_stmt.append(r)
         if b != bucket:
             errors.append(f"Allow object Resource wrong bucket: {r}")
             continue
@@ -836,9 +915,30 @@ for stmt in stmts:
                 f"Allow object Resource off exact prefix (require arn:aws:s3:::{bucket}/{expected_path}): {r}"
             )
 
+    # Pair each action with correct resource class.
+    for a in action_strs:
+        if a in BUCKET_ACTIONS:
+            if not bucket_resources and obj_resources_stmt:
+                errors.append(
+                    f"Allow Action {a} must target bucket ARN only (not object ARN)"
+                )
+            elif not bucket_resources and not obj_resources_stmt:
+                # Resource errors already recorded; still note pairing when silent.
+                pass
+        elif a in OBJECT_ACTIONS:
+            if not obj_resources_stmt and bucket_resources:
+                errors.append(
+                    f"Allow Action {a} must target exact prefix object ARN (not bucket ARN alone)"
+                )
+
 if not object_resources and not errors:
-    # No object ARN at all — still require GetObject shape elsewhere via string checks below.
+    # No object ARN at all — still require GetObject shape via action set below.
     pass
+
+if "s3:ListBucket" not in seen_actions and "ListBucket" not in {a.split(":")[-1] for a in seen_actions}:
+    errors.append("missing required Action s3:ListBucket on Allow")
+if "s3:GetObject" not in seen_actions and "GetObject" not in {a.split(":")[-1] for a in seen_actions}:
+    errors.append("missing required Action s3:GetObject on Allow")
 
 for e in errors:
     print(f"  detail: R2_CREDENTIAL_POLICY {e}", file=sys.stderr)
@@ -847,14 +947,6 @@ PY
     policy_check_rc=$?
     set -e
     if [[ $policy_check_rc -ne 0 ]]; then
-      bad=1
-    fi
-    if ! echo "$policy" | grep -qiE 's3:ListBucket|ListBucket'; then
-      echo "  detail: R2_CREDENTIAL_POLICY missing ListBucket" >&2
-      bad=1
-    fi
-    if ! echo "$policy" | grep -qiE 's3:GetObject|GetObject'; then
-      echo "  detail: R2_CREDENTIAL_POLICY missing GetObject" >&2
       bad=1
     fi
   fi

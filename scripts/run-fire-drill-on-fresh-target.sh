@@ -51,7 +51,7 @@ Options:
   --target-timestamp ISO      PITR target for holo restore:fire-drill
   --attestation PATH          Write attestation JSON (volumes + mountpoints + host_execution)
   --report PATH               parity-report.json output path
-  --source-blob-root PATH     Optional pre-failure blob root for fire-drill
+  --source-blob-root PATH     REFUSED on fresh-target (baseline-only; GATE-FIX-S28R3-QA4/C-1)
   --resolve-only              Resolve volumes + write attestation; do not run fire-drill
   -h, --help                  Show help
 
@@ -85,6 +85,12 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# GATE-FIX-S28R3-QA4 / C-1: fresh-target runner is baseline-only — refuse live pre-failure roots early.
+if [[ -n "$SOURCE_BLOB_ROOT" ]]; then
+  err "fresh-target refuses --source-blob-root (baseline-only blob parity; GATE-FIX-S28R3-QA4/C-1): $SOURCE_BLOB_ROOT"
+  exit 2
+fi
 
 if [[ -z "$HOST_NAME" ]]; then
   err "--host is required"
@@ -594,6 +600,11 @@ PY
   log "wrote redacted env dump: $HOLO_FIRE_DRILL_ENV_DUMP"
 fi
 
+# GATE-FIX-S28R3-QA4 / C-1: never forward live HOLO_BLOB_ROOT as a pre-failure source.
+if [[ -n "${HOLO_BLOB_ROOT:-}" ]]; then
+  log "ignoring HOLO_BLOB_ROOT on fresh-target (baseline-only; not forwarded as --source-blob-root)"
+fi
+
 ARGS=(
   restore:fire-drill
   --target-timestamp "$TARGET_TIMESTAMP"
@@ -602,9 +613,6 @@ ARGS=(
   --report "$REPORT_PATH"
   --fresh-target "$HOST_NAME"
 )
-if [[ -n "$SOURCE_BLOB_ROOT" ]]; then
-  ARGS+=(--source-blob-root "$SOURCE_BLOB_ROOT")
-fi
 
 # Minimal child env: map restore → access; strip ambient writer keys.
 # Keep endpoint/account/bucket/prefix/session + passthroughs needed by holo.
@@ -671,6 +679,47 @@ set +e
 env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}"
 STATUS=$?
 set -e
+
+# GATE-FIX-S28R3-QA4 / M-1: after successful child exit, require contract-shaped parity report.
+if [[ "$STATUS" -eq 0 && -n "${REPORT_PATH:-}" ]]; then
+  set +e
+  python3 - "$REPORT_PATH" <<'PY'
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception as e:
+    print(f"error: parity report missing/unreadable at {path}: {e}", file=sys.stderr)
+    sys.exit(1)
+required = ("POSTGRES_PARITY_PASS", "LEDGER_CHECKSUM_MATCH", "BLOB_PARITY_PASS")
+missing = [k for k in required if data.get(k) is not True]
+if missing:
+    print(
+        f"error: parity report contract failed — require true for {', '.join(missing)} at {path}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+baseline_id = data.get("baseline_id")
+baseline_key = data.get("baseline_key")
+bound = (isinstance(baseline_id, str) and baseline_id.strip()) or (
+    isinstance(baseline_key, str) and baseline_key.strip()
+)
+if not bound:
+    print(
+        f"error: parity report contract failed — baseline_id or baseline_key must be nonempty at {path}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+sys.exit(0)
+PY
+  report_rc=$?
+  set -e
+  if [[ $report_rc -ne 0 ]]; then
+    err "fire-drill child exited 0 but report contract failed (GATE-FIX-S28R3-QA4/M-1): $REPORT_PATH"
+    STATUS=1
+  fi
+fi
 
 # Augment attestation with fire-drill exit.
 if [[ -n "$ATTESTATION" ]]; then
