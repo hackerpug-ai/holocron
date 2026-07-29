@@ -17,10 +17,8 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
+import { selectBestFireDrillBaseline } from '../../src/backup/fire-drill.ts';
 import type { RecoveryBaseline } from '../../src/backup/recovery-baseline.ts';
-import {
-  selectBestFireDrillBaseline,
-} from '../../src/backup/fire-drill.ts';
 import {
   baselineDomainRowTotal,
   captureAndUploadRecoveryBaseline,
@@ -137,8 +135,16 @@ describe('GATE-FIX-QA1 pure helpers (always)', () => {
     });
     // Discovery previously sorted solely by target_timestamp desc → junk wins.
     const candidates = [
-      { baseline: junk, key: 'recovery-baselines/sha256/1/recovery-baseline.json', ts: Date.parse(junk.target_timestamp) },
-      { baseline: valid, key: 'recovery-baselines/sha256/2/recovery-baseline.json', ts: Date.parse(valid.target_timestamp) },
+      {
+        baseline: junk,
+        key: 'recovery-baselines/sha256/1/recovery-baseline.json',
+        ts: Date.parse(junk.target_timestamp),
+      },
+      {
+        baseline: valid,
+        key: 'recovery-baselines/sha256/2/recovery-baseline.json',
+        ts: Date.parse(valid.target_timestamp),
+      },
     ];
     const best = selectBestFireDrillBaseline(candidates, {
       targetTimestamp: '2026-08-01T00:00:00Z',

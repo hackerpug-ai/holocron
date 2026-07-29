@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { defaultSecretsPath, getSecretValue } from '../config/secrets.ts';
 import { type BackupConfig, loadBackupConfig } from './config.ts';
 import {
   captureRowCounts,
@@ -91,6 +92,12 @@ export type RecoveryBaselineCaptureInput = {
   databaseUrl?: string;
   conn?: PsqlConnection;
   env?: NodeJS.ProcessEnv;
+  /**
+   * When false (default), refuse upload if restic_snapshot_id is not listable in
+   * the configured restic repository. Set true only for unit tests that inject
+   * digests without a live restic repo.
+   */
+  skipResticVerify?: boolean;
 };
 
 export type RecoveryBaselineUploadResult = {
@@ -514,8 +521,192 @@ export function validateRecoveryBaseline(doc: unknown): {
   return { ok: true, baseline, errors: [] };
 }
 
+/** Sum of non-negative integer domain row counts (missing keys ignored). */
+export function baselineDomainRowTotal(
+  rowCounts: Record<string, number> | null | undefined
+): number {
+  if (!rowCounts) return 0;
+  let total = 0;
+  for (const v of Object.values(rowCounts)) {
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) total += v;
+  }
+  return total;
+}
+
+/**
+ * True when a baseline is parity-meaningful: has at least one positive domain
+ * row count and a restic id long enough to bind. Zero-count junk baselines that
+ * caused gate step3 false POSTGRES_PARITY are rejected.
+ */
+export function isBaselineParityMeaningful(
+  baseline: Pick<RecoveryBaseline, 'row_counts' | 'restic_snapshot_id'> | null | undefined
+): boolean {
+  if (!baseline) return false;
+  if ((baseline.restic_snapshot_id ?? '').trim().length < 8) return false;
+  return baselineDomainRowTotal(baseline.row_counts) > 0;
+}
+
+/**
+ * Build RESTIC_* env for snapshot verification without importing restic-mirror
+ * (avoids circular dependency: restic-mirror → recovery-baseline).
+ */
+function resticVerifyEnv(
+  env: NodeJS.ProcessEnv
+): { ok: true; env: NodeJS.ProcessEnv } | { ok: false; error: string } {
+  try {
+    const cfg = loadBackupConfig({ env });
+    const password =
+      env.RESTIC_PASSWORD?.trim() ||
+      // secrets are already merged into process env by loadBackupConfig callers in production;
+      // also accept HOLO-prefixed overrides.
+      env.HOLO_RESTIC_PASSWORD?.trim() ||
+      '';
+    if (password.length < 8) {
+      const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+      const fromFile = getSecretValue('RESTIC_PASSWORD', { secretsPath, env });
+      if (fromFile && fromFile.length >= 8) {
+        const prefix =
+          env.R2_RESTIC_PREFIX?.trim() ||
+          getSecretValue('R2_RESTIC_PREFIX', { secretsPath, env }) ||
+          'restic';
+        const host = cfg.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const repository = `s3:https://${host}/${cfg.bucketName}/${prefix.replace(/^\/+|\/+$/g, '')}`;
+        const out: NodeJS.ProcessEnv = {
+          ...env,
+          RESTIC_PASSWORD: fromFile,
+          RESTIC_REPOSITORY: env.RESTIC_REPOSITORY?.trim() || repository,
+          AWS_ACCESS_KEY_ID: cfg.accessKeyId,
+          AWS_SECRET_ACCESS_KEY: cfg.secretAccessKey,
+          AWS_DEFAULT_REGION: 'auto',
+          AWS_EC2_METADATA_DISABLED: 'true',
+        };
+        if (cfg.sessionToken) out.AWS_SESSION_TOKEN = cfg.sessionToken;
+        else delete out.AWS_SESSION_TOKEN;
+        return { ok: true, env: out };
+      }
+      return {
+        ok: false,
+        error: 'RESTIC_PASSWORD missing/short — refuse baseline bind without snapshot verification',
+      };
+    }
+    const prefix = env.R2_RESTIC_PREFIX?.trim() || 'restic';
+    const host = cfg.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const repository =
+      env.RESTIC_REPOSITORY?.trim() ||
+      `s3:https://${host}/${cfg.bucketName}/${prefix.replace(/^\/+|\/+$/g, '')}`;
+    const out: NodeJS.ProcessEnv = {
+      ...env,
+      RESTIC_PASSWORD: password,
+      RESTIC_REPOSITORY: repository,
+      AWS_ACCESS_KEY_ID: cfg.accessKeyId,
+      AWS_SECRET_ACCESS_KEY: cfg.secretAccessKey,
+      AWS_DEFAULT_REGION: 'auto',
+      AWS_EC2_METADATA_DISABLED: 'true',
+    };
+    if (cfg.sessionToken) out.AWS_SESSION_TOKEN = cfg.sessionToken;
+    else delete out.AWS_SESSION_TOKEN;
+    return { ok: true, env: out };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `backup config missing for restic verify: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+}
+
+/**
+ * Verify a restic snapshot id exists in the configured restic repository
+ * (`restic snapshots --json` / prefix match). Fail-closed when restic is
+ * unreachable or the id is missing — never bind a ghost snapshot into R2.
+ */
+export function verifyResticSnapshotInRepo(options: {
+  resticSnapshotId: string;
+  env?: NodeJS.ProcessEnv;
+  /** Optional pre-resolved restic bin. */
+  resticBin?: string;
+  /** When true, skip live restic (tests only). */
+  skip?: boolean;
+}): { ok: boolean; matchedId: string | null; error?: string; snapshotsChecked: number } {
+  const snap = options.resticSnapshotId.trim();
+  if (snap.length < 8) {
+    return {
+      ok: false,
+      matchedId: null,
+      error: `restic_snapshot_id too short to verify: ${snap.length}`,
+      snapshotsChecked: 0,
+    };
+  }
+  if (options.skip) {
+    return { ok: true, matchedId: snap, snapshotsChecked: -1 };
+  }
+
+  const env = options.env ?? process.env;
+  let resticBin = options.resticBin ?? null;
+  if (!resticBin) {
+    const which = run('which', ['restic'], { env, timeoutMs: 5_000 });
+    resticBin =
+      (which.status === 0 && which.stdout.trim()) ||
+      (existsSync('/opt/homebrew/bin/restic') ? '/opt/homebrew/bin/restic' : null);
+  }
+  if (!resticBin) {
+    return {
+      ok: false,
+      matchedId: null,
+      error: 'restic binary missing — refuse baseline bind without snapshot verification',
+      snapshotsChecked: 0,
+    };
+  }
+
+  const renv = resticVerifyEnv(env);
+  if (!renv.ok) {
+    return { ok: false, matchedId: null, error: renv.error, snapshotsChecked: 0 };
+  }
+
+  const snaps = run(resticBin, ['snapshots', '--json'], { env: renv.env, timeoutMs: 120_000 });
+  if (snaps.status !== 0) {
+    return {
+      ok: false,
+      matchedId: null,
+      error: `restic snapshots failed — refuse unlistable restic_snapshot_id: ${(snaps.stderr || snaps.stdout).slice(0, 400)}`,
+      snapshotsChecked: 0,
+    };
+  }
+  let parsed: Array<{ id?: string; short_id?: string }> = [];
+  try {
+    parsed = JSON.parse(snaps.stdout) as Array<{ id?: string; short_id?: string }>;
+    if (!Array.isArray(parsed)) parsed = [];
+  } catch {
+    return {
+      ok: false,
+      matchedId: null,
+      error: 'restic snapshots --json parse failed — refuse baseline bind',
+      snapshotsChecked: 0,
+    };
+  }
+  const needle = snap.toLowerCase();
+  for (const row of parsed) {
+    const id = (row.id ?? '').toLowerCase();
+    const short = (row.short_id ?? '').toLowerCase();
+    if (id === needle || short === needle || id.startsWith(needle) || needle.startsWith(short)) {
+      return {
+        ok: true,
+        matchedId: row.id ?? row.short_id ?? snap,
+        snapshotsChecked: parsed.length,
+      };
+    }
+  }
+  return {
+    ok: false,
+    matchedId: null,
+    error: `restic snapshot not found / unlistable for id prefix "${snap}" — refuse baseline bind (no matching ID in repo)`,
+    snapshotsChecked: parsed.length,
+  };
+}
+
 /**
  * Build a complete recovery baseline document from live DB + blob root + bindings.
+ * Always re-queries domain row_counts + ledger when a connection is available so
+ * all-zero synthetic counts cannot replace real capture-DB state.
  */
 export function buildRecoveryBaseline(input: RecoveryBaselineCaptureInput): RecoveryBaseline {
   const env = input.env ?? process.env;
@@ -540,10 +731,19 @@ export function buildRecoveryBaseline(input: RecoveryBaselineCaptureInput): Reco
     throw new Error('target_lsn unavailable — refuse recovery baseline without WAL binding');
   }
 
+  // Prefer live capture over caller-supplied zeros so emit never lies about domain state.
   let row_counts = input.rowCounts;
-  if (!row_counts) {
-    const snap = captureRowCounts(conn, FIRE_DRILL_COUNT_TABLES);
-    row_counts = snap.row_counts;
+  const suppliedTotal = baselineDomainRowTotal(row_counts);
+  if (!row_counts || suppliedTotal === 0) {
+    try {
+      const snap = captureRowCounts(conn, FIRE_DRILL_COUNT_TABLES);
+      if (!row_counts || baselineDomainRowTotal(snap.row_counts) > 0) {
+        row_counts = snap.row_counts;
+      }
+    } catch {
+      // Keep supplied map if capture fails (e.g. unit inject with no live DB).
+      if (!row_counts) row_counts = {};
+    }
   }
 
   let ledger_sha256 = input.ledgerSha256;
@@ -576,7 +776,7 @@ export function buildRecoveryBaseline(input: RecoveryBaselineCaptureInput): Reco
     stanza: input.stanza?.trim() || env.PGBACKREST_STANZA?.trim() || 'main',
     pgbackrest_backup_label: label,
     restic_snapshot_id: restic,
-    row_counts,
+    row_counts: row_counts ?? {},
     ledger_sha256: formatSha256Digest(ledger_sha256),
     blob_manifest_sha256: formatSha256Digest(blob_manifest_sha256),
     algorithm: 'sha256',
@@ -735,6 +935,8 @@ export function uploadRecoveryBaseline(options: {
 
 /**
  * Capture domain state + bindings and store immutable recovery baseline in R2.
+ * Refuses upload when restic_snapshot_id is not present in the configured repo
+ * (unless skipResticVerify is set).
  */
 export function captureAndUploadRecoveryBaseline(
   input: RecoveryBaselineCaptureInput & { config?: BackupConfig; env?: NodeJS.ProcessEnv }
@@ -755,6 +957,29 @@ export function captureAndUploadRecoveryBaseline(
       verified: false,
       errors: [e instanceof Error ? e.message : String(e)],
     };
+  }
+
+  // Fail closed before building/uploading when restic id is ghost/unlistable.
+  if (!input.skipResticVerify) {
+    const resticCheck = verifyResticSnapshotInRepo({
+      resticSnapshotId: input.resticSnapshotId,
+      env,
+    });
+    if (!resticCheck.ok) {
+      return {
+        ok: false,
+        baseline: null,
+        contentKey: null,
+        lookupKey: null,
+        bucketName: cfg.bucketName,
+        uploaded: false,
+        verified: false,
+        errors: [
+          resticCheck.error ??
+            `restic snapshot not found / unlistable: ${input.resticSnapshotId.trim()}`,
+        ],
+      };
+    }
   }
 
   let baseline: RecoveryBaseline;

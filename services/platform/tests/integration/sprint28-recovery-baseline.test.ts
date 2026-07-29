@@ -193,6 +193,9 @@ describe('REDHAT-FIX-C5 recovery baseline (PLATFORM_IT)', () => {
         ledgerSha256: ledger.ledger_sha256,
         ledgerPerTableSha256: ledger.per_table,
         blobManifestSha256: blobManifest,
+        // Synthetic bindings in this suite are not live restic ids; GATE-FIX-QA1
+        // covers refuse-missing-restic separately with skipResticVerify=false.
+        skipResticVerify: true,
       });
 
       writeEvidence('capture-emit-result.json', result);
