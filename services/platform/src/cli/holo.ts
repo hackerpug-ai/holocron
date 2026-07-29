@@ -2685,7 +2685,8 @@ async function main(): Promise<void> {
           const host = args.freshTarget.trim();
           const volPg = `${host}-pgdata`;
           const volBlob = `${host}-blobs`;
-          const { existsSync, mkdirSync, writeFileSync, unlinkSync } = await import('node:fs');
+          const { existsSync, mkdirSync, writeFileSync, unlinkSync, realpathSync } =
+            await import('node:fs');
           const { join } = await import('node:path');
 
           const inspectField = (vol: string, template: string): string | null => {
@@ -2790,27 +2791,11 @@ async function main(): Promise<void> {
             process.exit(2);
           }
 
-          // Prefer explicit --scratch/--blob-dir when already host-writable + volume-bound;
-          // otherwise resolve from Docker volume metadata (never /var/lib/docker if unusable).
-          let scratchResolved = resolveHostExec(volPg, 'pgdata');
-          let blobResolved = resolveHostExec(volBlob, 'blob');
-
-          if (args.scratch && hostWritable(args.scratch) && !isUnboundH2Step3(args.scratch)) {
-            const daemon = inspectField(volPg, '{{ .Mountpoint }}');
-            scratchResolved = {
-              exec: args.scratch,
-              mode: scratchResolved?.mode ?? 'host-bind-device',
-              daemon: scratchResolved?.daemon ?? daemon,
-            };
-          }
-          if (args.blobDir && hostWritable(args.blobDir) && !isUnboundH2Step3(args.blobDir)) {
-            const daemon = inspectField(volBlob, '{{ .Mountpoint }}');
-            blobResolved = {
-              exec: args.blobDir,
-              mode: blobResolved?.mode ?? 'host-bind-device',
-              daemon: blobResolved?.daemon ?? daemon,
-            };
-          }
+          // Resolve host-accessible paths from Docker volume metadata only
+          // (never /var/lib/docker if unusable). GATE-FIX-S28R3-QA2 / H1:
+          // explicit --scratch/--blob-dir must canonical-equal resolved paths.
+          const scratchResolved = resolveHostExec(volPg, 'pgdata');
+          const blobResolved = resolveHostExec(volBlob, 'blob');
 
           if (!scratchResolved || !blobResolved) {
             const msg =
@@ -2823,6 +2808,45 @@ async function main(): Promise<void> {
               console.error(`error: ${msg}`);
             }
             process.exit(2);
+          }
+
+          const sameCanonical = (a: string, b: string): boolean => {
+            try {
+              return realpathSync(resolve(a)) === realpathSync(resolve(b));
+            } catch {
+              try {
+                return resolve(a) === resolve(b);
+              } catch {
+                return false;
+              }
+            }
+          };
+
+          if (args.scratch) {
+            if (isUnboundH2Step3(args.scratch) || !sameCanonical(args.scratch, scratchResolved.exec)) {
+              const msg =
+                `fresh-target --scratch must canonical-equal resolved host path ` +
+                `(${scratchResolved.exec}); refuse unrelated writable destination`;
+              if (args.json) {
+                console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+              } else {
+                console.error(`error: ${msg}`);
+              }
+              process.exit(2);
+            }
+          }
+          if (args.blobDir) {
+            if (isUnboundH2Step3(args.blobDir) || !sameCanonical(args.blobDir, blobResolved.exec)) {
+              const msg =
+                `fresh-target --blob-dir must canonical-equal resolved host path ` +
+                `(${blobResolved.exec}); refuse unrelated writable destination`;
+              if (args.json) {
+                console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+              } else {
+                console.error(`error: ${msg}`);
+              }
+              process.exit(2);
+            }
           }
 
           const scratchExec = scratchResolved.exec;

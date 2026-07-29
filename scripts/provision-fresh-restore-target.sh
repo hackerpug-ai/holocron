@@ -95,6 +95,23 @@ if [[ -z "$HOST_NAME" ]]; then
   exit 2
 fi
 
+# GATE-FIX-S28R3-QA2 / M3: allowlist host + optional GATE_RUN_ID before destructive rm.
+# Host: alphanumeric, dash, underscore; 2–64 chars; no path separators / shell metachar.
+if [[ ! "$HOST_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$|^[A-Za-z0-9]$ ]]; then
+  echo "error: refuse invalid host name (allowlist: alphanumeric + _- , length 1-64): $HOST_NAME" >&2
+  exit 2
+fi
+if [[ "$HOST_NAME" == *"/"* || "$HOST_NAME" == *".."* || "$HOST_NAME" == *";"* ]]; then
+  echo "error: refuse host name with path/metachar: $HOST_NAME" >&2
+  exit 2
+fi
+if [[ -n "${GATE_RUN_ID:-}" ]]; then
+  if [[ ! "$GATE_RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$|^[A-Za-z0-9]$ ]]; then
+    echo "error: refuse invalid GATE_RUN_ID (allowlist: alphanumeric + _- , length 1-64): ${GATE_RUN_ID}" >&2
+    exit 2
+  fi
+fi
+
 case "$HOST_NAME" in
   *mini*pgdata*|*mini*blob*)
     echo "error: refuse host name that implies mini data reuse: $HOST_NAME" >&2
@@ -165,9 +182,17 @@ if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
   fi
 fi
 
-# Bucket-scoped List/Get only (no Put/Delete). See fresh-target.md.
+# Exact bucket + object-prefix List/Get only (no Put/Delete). REDHAT-FIX-H5 / GATE-FIX-S28R3-QA2 H2.
+# Shape matches buildRestoreCredentialPolicy → arn:aws:s3:::bucket/prefix/* (never bare bucket/*).
+R2_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+R2_OBJECT_PREFIX="${R2_OBJECT_PREFIX#/}"
+R2_OBJECT_PREFIX="${R2_OBJECT_PREFIX%/}"
+if [[ -z "$R2_OBJECT_PREFIX" || "$R2_OBJECT_PREFIX" == *"*"* ]]; then
+  echo "error: R2_PGBACKREST_PREFIX/R2_RESTORE_OBJECT_PREFIX must be exact non-empty prefix (no *)" >&2
+  exit 2
+fi
 R2_CREDENTIAL_POLICY="$(cat <<EOF
-{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::${R2_BUCKET_NAME}"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::${R2_BUCKET_NAME}/*"]}]}
+{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::${R2_BUCKET_NAME}"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::${R2_BUCKET_NAME}/${R2_OBJECT_PREFIX}/*"]}]}
 EOF
 )"
 R2_CREDENTIAL_KIND="object-read-only"

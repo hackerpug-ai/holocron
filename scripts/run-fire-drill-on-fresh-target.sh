@@ -20,6 +20,11 @@
 # Environment:
 #   BUN_BIN, HOLO_SECRETS_PATH, DATABASE_URL (passed through to holo restore:fire-drill)
 #   STAGING_ROOT (optional hint for paths.txt lookup)
+#   R2_RESTORE_ACCESS_KEY_ID / R2_RESTORE_SECRET_ACCESS_KEY — REQUIRED for full fire-drill
+#     (mapped to R2_ACCESS_* in a minimal child env; ambient writer keys stripped).
+#     Missing/equal-to-ambient/placeholder → DEPENDENCY-S28-R2-RO
+#   HOLO_FIRE_DRILL_ENV_DUMP — optional path; writes redacted key inventory (no raw secrets)
+#   HOLO_CLI — override CLI path (ts via bun, or injectable recorder script)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -430,16 +435,105 @@ if [[ -z "$TARGET_TIMESTAMP" ]]; then
   exit 2
 fi
 
-if [[ ! -f "$HOLO_CLI" ]]; then
-  err "holo CLI missing: $HOLO_CLI"
-  exit 2
-fi
-
 REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
 mkdir -p "$(dirname "$REPORT_PATH")"
 
+# ── GATE-FIX-S28R3-QA2 / C1: restore-only minimal child env ──────────────────
+# Map verified distinct R2_RESTORE_* → R2_ACCESS_* for loadBackupConfig(); never
+# leak ambient backup-writer R2_ACCESS_* into the fire-drill process.
+is_placeholder_restore_key() {
+  local v="${1:-}"
+  case "$v" in
+    ''|ro-test|ro-test-*|*ro-test*|*placeholder*|*replace-me*|*example*|*not-for-prod*|*test-key*|*test-secret*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+load_restore_keys_from_secrets() {
+  local secrets="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}}"
+  [[ -f "$secrets" ]] || return 0
+  local line k v
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue
+    k="${BASH_REMATCH[1]}"
+    v="${BASH_REMATCH[2]}"
+    v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+    case "$k" in
+      R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX)
+        if [[ -z "${!k:-}" && -n "$v" ]]; then
+          export "$k=$v"
+        fi
+        ;;
+    esac
+  done <"$secrets"
+}
+
+load_restore_keys_from_secrets
+
+AMBIENT_WRITER_AK="${R2_ACCESS_KEY_ID:-}"
+AMBIENT_WRITER_SK="${R2_SECRET_ACCESS_KEY:-}"
+
+RESTORE_AK="${R2_RESTORE_ACCESS_KEY_ID:-}"
+RESTORE_SK="${R2_RESTORE_SECRET_ACCESS_KEY:-}"
+RESTORE_ST="${R2_RESTORE_SESSION_TOKEN:-}"
+
+if [[ -z "$RESTORE_AK" || -z "$RESTORE_SK" ]]; then
+  err "DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* required for fire-drill child env (refuse ambient writer fallback)"
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+  exit 2
+fi
+if is_placeholder_restore_key "$RESTORE_AK" || is_placeholder_restore_key "$RESTORE_SK"; then
+  err "DEPENDENCY-S28-R2-RO — placeholder R2_RESTORE_* refused for fire-drill child env"
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+  exit 2
+fi
+if [[ -n "$AMBIENT_WRITER_AK" && "$RESTORE_AK" == "$AMBIENT_WRITER_AK" ]]; then
+  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_ACCESS_KEY_ID equals ambient R2_ACCESS_KEY_ID (must be distinct restore-only identity)"
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+  exit 2
+fi
+if [[ -n "$AMBIENT_WRITER_SK" && "$RESTORE_SK" == "$AMBIENT_WRITER_SK" ]]; then
+  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_SECRET_ACCESS_KEY equals ambient writer secret (must be distinct)"
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+  exit 2
+fi
+
+# Optional redacted env dump for tests (keys + presence/length/hash only — never raw secrets).
+if [[ -n "${HOLO_FIRE_DRILL_ENV_DUMP:-}" ]]; then
+  mkdir -p "$(dirname "$HOLO_FIRE_DRILL_ENV_DUMP")"
+  python3 - "$HOLO_FIRE_DRILL_ENV_DUMP" "$RESTORE_AK" "$AMBIENT_WRITER_AK" <<'PY' || true
+import hashlib, json, os, sys
+path, restore_ak, ambient_ak = sys.argv[1], sys.argv[2], sys.argv[3]
+def meta(name: str):
+    v = os.environ.get(name)
+    if v is None or v == "":
+        return {"present": False, "length": 0}
+    return {
+        "present": True,
+        "length": len(v),
+        "sha256_16": hashlib.sha256(v.encode()).hexdigest()[:16],
+    }
+keys = sorted(k for k in os.environ if k.startswith("R2_") or k.startswith("HOLO") or k in ("PATH", "HOME", "RESTIC_PASSWORD", "DATABASE_URL"))
+payload = {
+    "schema": "holo.fire-drill.child-env-dump.v1",
+    "keys": keys,
+    "R2_RESTORE_ACCESS_KEY_ID": meta("R2_RESTORE_ACCESS_KEY_ID"),
+    "R2_ACCESS_KEY_ID_parent": meta("R2_ACCESS_KEY_ID"),
+    "restore_ak_distinct_from_ambient": bool(restore_ak) and restore_ak != ambient_ak,
+    "child_will_map_restore_to_access": True,
+    "note": "values never included; parent dump only",
+}
+with open(path, "w") as f:
+    json.dump(payload, f, indent=2)
+    f.write("\n")
+PY
+  log "wrote redacted env dump: $HOLO_FIRE_DRILL_ENV_DUMP"
+fi
+
 ARGS=(
-  "$HOLO_CLI"
   restore:fire-drill
   --target-timestamp "$TARGET_TIMESTAMP"
   --scratch "$SCRATCH_MP"
@@ -451,9 +545,68 @@ if [[ -n "$SOURCE_BLOB_ROOT" ]]; then
   ARGS+=(--source-blob-root "$SOURCE_BLOB_ROOT")
 fi
 
-log "running: $BUN_BIN ${ARGS[*]}"
+# Minimal child env: map restore → access; strip ambient writer keys.
+# Keep endpoint/account/bucket/prefix/session + passthroughs needed by holo.
+CHILD_PATH="${PATH:-/usr/bin:/bin:/usr/local/bin}"
+CHILD_HOME="${HOME:-/tmp}"
+CHILD_TMPDIR="${TMPDIR:-/tmp}"
+CHILD_USER="${USER:-$(id -un 2>/dev/null || echo nobody)}"
+CHILD_LANG="${LANG:-C.UTF-8}"
+CHILD_TERM="${TERM:-dumb}"
+
+# Build env -i argument list (KEY=VAL pairs).
+CHILD_ENV_ARGS=(
+  "PATH=$CHILD_PATH"
+  "HOME=$CHILD_HOME"
+  "TMPDIR=$CHILD_TMPDIR"
+  "USER=$CHILD_USER"
+  "LANG=$CHILD_LANG"
+  "TERM=$CHILD_TERM"
+  "PWD=$ROOT"
+  "R2_ACCESS_KEY_ID=$RESTORE_AK"
+  "R2_SECRET_ACCESS_KEY=$RESTORE_SK"
+  "R2_RESTORE_ACCESS_KEY_ID=$RESTORE_AK"
+  "R2_RESTORE_SECRET_ACCESS_KEY=$RESTORE_SK"
+)
+if [[ -n "$RESTORE_ST" ]]; then
+  CHILD_ENV_ARGS+=("R2_SESSION_TOKEN=$RESTORE_ST" "R2_RESTORE_SESSION_TOKEN=$RESTORE_ST")
+fi
+# Passthrough non-writer R2 / holo config when present.
+for _k in \
+  R2_ENDPOINT R2_ACCOUNT_ID R2_BUCKET_NAME R2_PGBACKREST_PREFIX R2_RESTORE_OBJECT_PREFIX \
+  R2_RESTIC_PREFIX R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY R2_REPO_CIPHER_PASS \
+  HOLO_SECRETS_PATH HOLOCRON_SECRETS_PATH HOLO_FIRE_DRILL_ENV_DUMP \
+  STAGING_ROOT DATABASE_URL RESTIC_PASSWORD RESTIC_REPOSITORY \
+  PGBACKREST_CONFIG PGBACKREST_STANZA PGBACKREST_PG1_PATH \
+  BUN_INSTALL BUN_INSTALL_CACHE_DIR NODE_PATH \
+  CI PLATFORM_IT; do
+  if [[ -n "${!_k:-}" ]]; then
+    CHILD_ENV_ARGS+=("${_k}=${!_k}")
+  fi
+done
+# Explicit object-read-only kind when policy not supplied.
+if [[ -z "${R2_CREDENTIAL_KIND:-}" ]]; then
+  CHILD_ENV_ARGS+=("R2_CREDENTIAL_KIND=object-read-only")
+fi
+
+# HOLO_CLI: .ts/.js via bun; injectable recorder scripts run directly.
+if [[ "$HOLO_CLI" == *.ts || "$HOLO_CLI" == *.js || "$HOLO_CLI" == *.mjs || "$HOLO_CLI" == *.cjs ]]; then
+  if [[ ! -f "$HOLO_CLI" ]]; then
+    err "holo CLI missing: $HOLO_CLI"
+    exit 2
+  fi
+  RUN_PREFIX=("$BUN_BIN" "$HOLO_CLI")
+else
+  if [[ ! -e "$HOLO_CLI" ]]; then
+    err "holo CLI missing: $HOLO_CLI"
+    exit 2
+  fi
+  RUN_PREFIX=("$HOLO_CLI")
+fi
+
+log "running restore-only child env: ${RUN_PREFIX[*]} ${ARGS[*]}"
 set +e
-"$BUN_BIN" "${ARGS[@]}"
+env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}"
 STATUS=$?
 set -e
 

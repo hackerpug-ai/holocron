@@ -774,6 +774,15 @@ check_r2_axis() {
         bad=1
       fi
     fi
+    # GATE-FIX-S28R3-QA2 / H2: reject bare arn:aws:s3:::bucket/* object Resource
+    # (missing exact prefix segment). Require arn:aws:s3:::bucket/<prefix>/* shape.
+    if echo "$policy" | grep -qE 'arn:aws:s3:::[A-Za-z0-9._-]+/\*'; then
+      # Bare bucket/* (no prefix segment between bucket and /*).
+      if ! echo "$policy" | grep -qE 'arn:aws:s3:::[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/\*'; then
+        echo "  detail: R2_CREDENTIAL_POLICY object Resource is bare bucket/* without exact prefix segment — not least-privilege" >&2
+        bad=1
+      fi
+    fi
     if ! echo "$policy" | grep -qiE 's3:ListBucket|ListBucket'; then
       echo "  detail: R2_CREDENTIAL_POLICY missing ListBucket" >&2
       bad=1
