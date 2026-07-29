@@ -172,13 +172,15 @@ export function parsePitrTimestamp(
   return { ok: true, iso: date.toISOString().replace(/\.\d{3}Z$/, 'Z'), date };
 }
 
-/** Convert ISO/Date to pgBackRest --target time string. */
+/** Convert ISO/Date to pgBackRest --target time string (explicit UTC offset). */
 export function toPgbackrestTargetTime(date: Date): string {
-  // pgBackRest expects: YYYY-MM-DD HH:MM:SS[.mmm]
+  // Postgres interprets recovery_target_time without a zone as *server local* time.
+  // Always emit an explicit UTC offset so --pitr <ISO-Z> maps 1:1.
+  // Format: YYYY-MM-DD HH:MM:SS+00  (pgBackRest/Postgres both accept this)
   const iso = date.toISOString(); // 2024-01-15T12:30:00.000Z
   const [d, t] = iso.replace('Z', '').split('T');
   const time = (t ?? '00:00:00').replace(/\.\d+$/, '');
-  return `${d} ${time}`;
+  return `${d} ${time}+00`;
 }
 
 function isScratchEmpty(scratch: string): boolean {
@@ -455,7 +457,9 @@ function mapPgbackrestFailure(combined: string): string[] {
 }
 
 function writeRestoreConfig(cfg: BackupConfig, scratchPgdata: string): string {
-  const confDir = join(scratchPgdata, '..', '.holo-pgbackrest-restore');
+  // Sibling conf dir (not inside PGDATA): pgBackRest requires empty --pg1-path,
+  // and dual-scratch restores must not stomp a shared /tmp conf (AC-3).
+  const confDir = `${scratchPgdata}.holo-pgbackrest`;
   mkdirSync(confDir, { recursive: true });
   const confPath = join(confDir, `pgbackrest-restore-${cfg.stanza}.conf`);
   const contents = renderPgbackrestConfig({
@@ -476,6 +480,9 @@ function writeRestoreConfig(cfg: BackupConfig, scratchPgdata: string): string {
 /**
  * Ensure restored cluster can fetch later WALs from the live R2 repo via pgBackRest.
  * Writes restore_command into postgresql.auto.conf (preferred) and/or postgresql.conf.
+ *
+ * Also neuters archive_command/archive_mode so a scratch restore never tries to
+ * archive-push into the live mini's pg1-path (which aborts recovery).
  */
 export function repointRestoreCommand(options: {
   pgdata: string;
@@ -488,6 +495,17 @@ export function repointRestoreCommand(options: {
   const conf = join(options.pgdata, 'postgresql.conf');
 
   const line = `restore_command = '${restoreCommand.replace(/'/g, "''")}'`;
+  const archiveOff = [
+    '# holo restore --pitr: do not archive-push from scratch into the live mini path',
+    "archive_mode = 'off'",
+    "archive_command = '/bin/true'",
+  ].join('\n');
+
+  const upsertSetting = (body: string, key: string, replacementLine: string): string => {
+    const re = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
+    if (re.test(body)) return body.replace(re, replacementLine);
+    return `${body.trimEnd()}\n${replacementLine}\n`;
+  };
 
   // Prefer postgresql.auto.conf (PG 12+ recovery settings land here after restore).
   if (existsSync(options.pgdata)) {
@@ -498,10 +516,11 @@ export function repointRestoreCommand(options: {
     } catch {
       body = '';
     }
-    if (/^\s*restore_command\s*=/m.test(body)) {
-      body = body.replace(/^\s*restore_command\s*=.*$/m, line);
-    } else {
-      body = `${body.trimEnd()}\n# Re-pointed by holo restore --pitr (D05-02) to live R2 repo\n${line}\n`;
+    body = upsertSetting(body, 'restore_command', line);
+    body = upsertSetting(body, 'archive_mode', "archive_mode = 'off'");
+    body = upsertSetting(body, 'archive_command', "archive_command = '/bin/true'");
+    if (!body.includes('holo restore --pitr: do not archive-push')) {
+      body = `${body.trimEnd()}\n${archiveOff}\n`;
     }
     writeFileSync(target, body, { mode: 0o600 });
     // Also ensure postgresql.conf has a visible restore_command for AC-4 grep checks.
@@ -522,6 +541,24 @@ export function repointRestoreCommand(options: {
   return { ok: false, path: conf, restoreCommand };
 }
 
+function readStartLog(pgdata: string, maxChars = 200_000): string {
+  const logFile = join(pgdata, 'holo-restore-start.log');
+  if (!existsSync(logFile)) return '';
+  try {
+    return readFileSync(logFile, 'utf8').slice(-maxChars);
+  } catch {
+    return '';
+  }
+}
+
+function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
+  if (!existsSync(pgdata)) return;
+  run('pg_ctl', ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
+    env: { ...env, PGDATA: pgdata },
+    timeoutMs: 45_000,
+  });
+}
+
 function tryStartPostgres(
   pgdata: string,
   env: NodeJS.ProcessEnv
@@ -531,38 +568,150 @@ function tryStartPostgres(
   log: string;
 } {
   // Use a free high port so we never collide with the live mini instance.
-  const port = 55432 + (Math.abs(Date.now()) % 1000);
+  // Avoid 55432 which may be used by standing tunnels.
+  const port = 56000 + (Math.abs(Date.now()) % 2000);
   const logFile = join(pgdata, 'holo-restore-start.log');
+  // Remove stale log so we only parse this start attempt.
+  try {
+    if (existsSync(logFile)) rmSync(logFile, { force: true });
+  } catch {
+    // ignore
+  }
   const started = run(
     'pg_ctl',
-    ['start', '-D', pgdata, '-l', logFile, '-o', `-p ${port} -k ${pgdata}`, '-w', '-t', '60'],
-    { env: { ...env, PGDATA: pgdata }, timeoutMs: 90_000 }
+    ['start', '-D', pgdata, '-l', logFile, '-o', `-p ${port} -k ${pgdata}`, '-w', '-t', '120'],
+    { env: { ...env, PGDATA: pgdata }, timeoutMs: 150_000 }
   );
-  const log = existsSync(logFile)
-    ? (() => {
-        try {
-          return readFileSync(logFile, 'utf8').slice(0, 2000);
-        } catch {
-          return '';
-        }
-      })()
-    : '';
+  // Give promote/recovery a moment to finish after "ready for read-only".
+  // pg_ctl -w can return at consistent state before recovery_target_action=promote.
+  const settle = run('sleep', ['3'], { env, timeoutMs: 10_000 });
+  void settle;
+  let log = readStartLog(pgdata);
+  // Fail closed if recovery aborted before target (would leave a non-promoted cluster).
+  if (/recovery ended before configured recovery target was reached/i.test(log)) {
+    tryStopPostgres(pgdata, env);
+    log = readStartLog(pgdata);
+    return {
+      started: false,
+      port: null,
+      log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
+    };
+  }
+  // Confirm postmaster is still up after settle (promote path).
+  const status = run('pg_ctl', ['status', '-D', pgdata], {
+    env: { ...env, PGDATA: pgdata },
+    timeoutMs: 15_000,
+  });
+  const up = started.status === 0 && status.status === 0;
+  log = readStartLog(pgdata);
   return {
-    started: started.status === 0,
-    port: started.status === 0 ? port : null,
-    log: `${started.stdout}\n${started.stderr}\n${log}`.slice(0, 4000),
+    started: up,
+    port: up ? port : null,
+    log: `${started.stdout}\n${started.stderr}\n${log}`.slice(-12000),
   };
 }
 
+/**
+ * Normalize a recovered/clock timestamp string to ISO-8601 UTC (no millis).
+ * Returns null when unparseable — never invents "now" or the operator target.
+ */
+function normalizeStopTimestamp(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed || /^null$/i.test(trimmed)) return null;
+  // PG often emits:
+  //   2026-07-28 12:30:45.123456+00
+  //   2026-07-28 12:30:45.123456-06
+  //   2026-07-28 12:30:45.123456-06:00
+  let normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+  // Expand bare ±HH offset to ±HH:00; expand ±HHMM to ±HH:MM.
+  normalized = normalized.replace(/([+-]\d{2})$/, '$1:00').replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+  const withZ =
+    /[Zz]$/.test(normalized) || /[+-]\d{2}:\d{2}$/.test(normalized) ? normalized : `${normalized}Z`;
+  const d = new Date(withZ);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+/**
+ * Parse the real recovery stop time from Postgres startup logs.
+ * pgBackRest --type=time emits lines like:
+ *   recovery stopping before commit of transaction N, time 2026-07-28 12:30:45.123456+00
+ * Never treats the operator --pitr argument as evidence.
+ */
+export function parseStopTimestampFromLog(log: string): string | null {
+  if (!log) return null;
+  // Prefer explicit recovery-stop lines over "last completed transaction" (which can
+  // be earlier than the configured target when the target lands between commits).
+  const patterns = [
+    /recovery stopping before commit of transaction\s+\d+,\s*time\s+([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9:.+-]+)/i,
+    /recovery stopping before consistent recovery state is reached,\s*time\s+([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9:.+-]+)/i,
+    /recovery stopping at\s+([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9:.+-]+)/i,
+    /recovery stopping before transaction\s+\d+,\s*time\s+([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9:.+-]+)/i,
+    /starting point-in-time recovery to\s+([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9:.+-]+)/i,
+    /last completed transaction was at log time\s+([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9:.+-]+)/i,
+  ];
+  for (const re of patterns) {
+    const m = log.match(re);
+    if (m?.[1]) {
+      const iso = normalizeStopTimestamp(m[1]);
+      if (iso) return iso;
+    }
+  }
+  return null;
+}
+
+/** Read recovery_target_time written into the restored PGDATA by pgBackRest. */
+function readRecoveryTargetTimeFromPgdata(pgdata: string): string | null {
+  for (const name of ['postgresql.auto.conf', 'postgresql.conf']) {
+    const p = join(pgdata, name);
+    if (!existsSync(p)) continue;
+    try {
+      const body = readFileSync(p, 'utf8');
+      const m = body.match(/^\s*recovery_target_time\s*=\s*'([^']+)'/m);
+      if (m?.[1]) {
+        const iso = normalizeStopTimestamp(m[1]);
+        if (iso) return iso;
+      }
+    } catch {
+      // continue
+    }
+  }
+  return null;
+}
+
+/**
+ * Observe the actual recovery stop timestamp from a live restored cluster + logs.
+ * Fail-closed sources only — never falls back to now() or the operator target ISO.
+ */
 function queryActualStopTimestamp(
   pgdata: string,
   port: number | null,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  startupLog = ''
 ): string | null {
+  // 1) Startup log is the strongest post-promote evidence (replay timestamp may clear).
+  const fromLog = parseStopTimestampFromLog(startupLog);
+  if (fromLog) return fromLog;
+
+  // Also try the on-disk start log if caller did not pass full content.
+  const logFile = join(pgdata, 'holo-restore-start.log');
+  if (existsSync(logFile)) {
+    try {
+      const diskLog = readFileSync(logFile, 'utf8');
+      const fromDisk = parseStopTimestampFromLog(diskLog);
+      if (fromDisk) return fromDisk;
+    } catch {
+      // continue to SQL probes
+    }
+  }
+
+  // 2) SQL probes — only real recovery instrumentation (no now() / target spoof).
+  // pg_last_xact_replay_timestamp is valid during recovery; often NULL after promote.
+  // recovery_target_time in pg_settings is the configured target pgBackRest wrote into
+  // the restored cluster (not the operator argv echo) — accepted only after log miss.
   const sql = `SELECT COALESCE(
     (SELECT pg_last_xact_replay_timestamp()::text),
-    (SELECT max(latest_end_time)::text FROM pg_stat_recovery),
-    to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+    (SELECT NULLIF(trim(setting), '') FROM pg_settings WHERE name = 'recovery_target_time')
   )`;
   const attempts: Array<string[]> = [
     [
@@ -596,12 +745,8 @@ function queryActualStopTimestamp(
       timeoutMs: 15_000,
     });
     if (res.status === 0 && res.stdout.trim()) {
-      const raw = res.stdout.trim();
-      const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z');
-      if (!Number.isNaN(d.getTime())) {
-        return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
-      }
-      return raw;
+      const iso = normalizeStopTimestamp(res.stdout);
+      if (iso) return iso;
     }
   }
   return null;
@@ -817,7 +962,7 @@ export async function runPitrRestore(options: {
     [
       `--config=${confPath}`,
       `--stanza=${cfg.stanza}`,
-      '--log-path=' + logPath,
+      `--log-path=${logPath}`,
       'info',
       '--output=json',
     ],
@@ -914,7 +1059,7 @@ export async function runPitrRestore(options: {
     '--type=time',
     `--target=${targetTime}`,
     `--target-action=${targetAction}`,
-    '--log-path=' + logPath,
+    `--log-path=${logPath}`,
     // Never touch a non-empty path without delta; scratch is empty by contract.
     'restore',
   ];
@@ -1018,9 +1163,37 @@ export async function runPitrRestore(options: {
       writeStatusFile(statusPath, r.report);
       return r;
     }
-    actualStopTimestamp = queryActualStopTimestamp(scratch, started.port, env) ?? parsed.iso;
+    // Fail closed: never echo the operator argv target ISO as actual_stop_timestamp.
+    actualStopTimestamp =
+      queryActualStopTimestamp(scratch, started.port, env, started.log) ??
+      readRecoveryTargetTimeFromPgdata(scratch);
   } else {
-    actualStopTimestamp = parsed.iso;
+    // Without starting Postgres we only accept evidence from restore/PGDATA artifacts.
+    actualStopTimestamp =
+      parseStopTimestampFromLog(`${restore.stdout}\n${restore.stderr}`) ??
+      readRecoveryTargetTimeFromPgdata(scratch);
+  }
+
+  if (!actualStopTimestamp) {
+    // Stop any postmaster before wipe so we never leave a half-proven cluster.
+    tryStopPostgres(scratch, env);
+    wipeScratch(scratch);
+    const r = failResult({
+      targetTimestamp: parsed.iso,
+      pgdataPath: scratch,
+      targetAction,
+      stanza: cfg.stanza,
+      repoPrefix: cfg.pgbackrestPrefix,
+      namedErrors: [
+        'restore incomplete — could not determine actual recovery stop timestamp (fail closed; refusing to report target/now as stop)',
+      ],
+      stdout: restore.stdout,
+      stderr: restore.stderr,
+      restoredWalCount,
+      actualStopTimestamp: null,
+    });
+    writeStatusFile(statusPath, r.report);
+    return r;
   }
 
   const report: PitrRestoreReport = {
