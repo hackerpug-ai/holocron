@@ -116,6 +116,88 @@ export function formatCredentialPolicy(bucketName: string): string {
 }
 
 /**
+ * Normalize a restore object prefix for IAM Resource ARNs.
+ * Strips leading/trailing slashes; rejects empty or wildcard-containing prefixes.
+ */
+export function normalizeRestoreObjectPrefix(objectPrefix: string): string {
+  const prefix = objectPrefix.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!prefix) {
+    throw new Error('restore object prefix must be non-empty (exact prefix root required)');
+  }
+  if (prefix.includes('*')) {
+    throw new Error('restore object prefix must not contain wildcard characters');
+  }
+  return prefix;
+}
+
+/**
+ * Assert bucket name is a concrete literal (no class/wildcard patterns).
+ * Rejects `holocron-backup-*`, `*`, empty, and any `*` in the name.
+ */
+export function assertConcreteBucketName(bucketName: string): string {
+  const name = bucketName.trim();
+  if (!name) {
+    throw new Error('restore bucket name must be a non-empty concrete literal');
+  }
+  if (name.includes('*')) {
+    throw new Error(
+      `restore bucket name must be exact (no wildcards); got class/wildcard pattern: ${name}`
+    );
+  }
+  return name;
+}
+
+/**
+ * Least-privilege **restore** policy (REDHAT-FIX-H5 / D05-06 AC-2).
+ *
+ * Distinct from {@link buildBackupCredentialPolicy} (which is RW Put/Get/Delete):
+ * - Actions: ListBucket / GetBucketLocation / GetObject only — never Put/Delete
+ * - Bucket Resource: exact `arn:aws:s3:::${bucketName}` (no `holocron-backup-*` class)
+ * - Object Resource: exact prefix only `arn:aws:s3:::${bucketName}/${prefix}/*`
+ *
+ * Trailing object-key `*` is allowed only after the concrete bucket + concrete prefix root.
+ */
+export function buildRestoreCredentialPolicy(
+  bucketName: string,
+  objectPrefix: string = defaultPgbackrestPrefix()
+): {
+  Version: string;
+  Statement: Array<{
+    Sid: string;
+    Effect: 'Allow';
+    Action: string[];
+    Resource: string[];
+  }>;
+} {
+  const bucket = assertConcreteBucketName(bucketName);
+  const prefix = normalizeRestoreObjectPrefix(objectPrefix);
+  return {
+    Version: '2012-10-17',
+    Statement: [
+      {
+        Sid: 'HolocronRestoreList',
+        Effect: 'Allow',
+        Action: ['s3:ListBucket', 's3:GetBucketLocation'],
+        Resource: [`arn:aws:s3:::${bucket}`],
+      },
+      {
+        Sid: 'HolocronRestoreGet',
+        Effect: 'Allow',
+        Action: ['s3:GetObject'],
+        Resource: [`arn:aws:s3:::${bucket}/${prefix}/*`],
+      },
+    ],
+  };
+}
+
+export function formatRestoreCredentialPolicy(
+  bucketName: string,
+  objectPrefix: string = defaultPgbackrestPrefix()
+): string {
+  return JSON.stringify(buildRestoreCredentialPolicy(bucketName, objectPrefix), null, 2);
+}
+
+/**
  * Load backup config from consolidated secrets. Missing required fields throw
  * with the key name only (never values).
  */

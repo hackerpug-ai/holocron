@@ -66,7 +66,8 @@ export MINI_HOST=203.0.113.1
 export R2_ACCESS_KEY_ID=ro-key
 export R2_SECRET_ACCESS_KEY=ro-secret
 export R2_CREDENTIAL_KIND=object-read-only
-export R2_CREDENTIAL_POLICY='{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/*"]}]}'
+# Exact concrete bucket + exact object prefix (REDHAT-FIX-H5). NEVER holocron-backup-*.
+export R2_CREDENTIAL_POLICY='{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/pgbackrest/*"]}]}'
 
 ./scripts/prove-isolation.sh
 # Expect:
@@ -86,6 +87,11 @@ MINI_HOST=127.0.0.1 ./scripts/prove-isolation.sh   # if local :5432 open → FAI
 # RW credentials present
 R2_PARENT_SECRET_ACCESS_KEY=nope R2_CREDENTIAL_KIND=object-read-only ... → FAIL
 R2_CREDENTIAL_KIND=object-read-write ... → FAIL
+
+# Bucket-class wildcard ARN (REDHAT-FIX-H5 — NOT a literal bucket name)
+VERIFY_POLICY_ONLY=1 R2_BUCKET_NAME=holocron-backup R2_RESTORE_OBJECT_PREFIX=pgbackrest \
+  R2_CREDENTIAL_POLICY='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:ListBucket","s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup-*"]}]}' \
+  ./scripts/verify-restore-creds.sh   # MUST exit != 0
 ```
 
 ## R2 read-only credentials
@@ -94,7 +100,13 @@ Backup **writer** runtime (D04-02) uses object **read-write** (List/Get/Put/Dele
 scoped to the backup bucket. The **restore target** must use a **different**
 identity with **List + Get only**.
 
-### IAM-style policy (List/Get only)
+### IAM-style policy (List/Get only — exact bucket + exact prefix)
+
+**REDHAT-FIX-H5:** Resource ARNs must name one concrete bucket and one concrete
+object-prefix root. `arn:aws:s3:::holocron-backup-*` authorizes a **bucket class**
+and is **rejected** (it is not a literal bucket name). Emit via
+`buildRestoreCredentialPolicy(bucketName, objectPrefix)` in
+`services/platform/src/backup/config.ts`.
 
 ```json
 {
@@ -110,11 +122,20 @@ identity with **List + Get only**.
       "Sid": "HolocronRestoreGet",
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::holocron-backup/*"]
+      "Resource": ["arn:aws:s3:::holocron-backup/pgbackrest/*"]
     }
   ]
 }
 ```
+
+Rejected forms (fail closed in `scripts/verify-restore-creds.sh`):
+
+| Resource | Why rejected |
+| --- | --- |
+| `arn:aws:s3:::holocron-backup-*` | Bucket-class wildcard (not a concrete bucket) |
+| `arn:aws:s3:::*` / `*` | Universal wildcard |
+| `arn:aws:s3:::holocron-backup/*` | Bucket-wide objects without exact prefix root |
+| any Action including `s3:PutObject` / `s3:DeleteObject` | Restore token is List/Get only |
 
 ### Minting on Cloudflare R2
 

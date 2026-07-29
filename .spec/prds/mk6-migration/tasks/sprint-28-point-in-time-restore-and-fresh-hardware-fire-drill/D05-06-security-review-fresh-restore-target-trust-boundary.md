@@ -101,14 +101,14 @@ AC-1 [PRIMARY] Fresh target has zero mini access (flow_ref T-PLAT-025)
     MUST_NOT_OBSERVE: 1 or more reachable mini routes (the insecure start state); a shared volume mount entry present; mini Postgres port 5432 reachable; mini unix socket path accessible
   verify: scripts/verify-restore-isolation.sh → exit 0 with 0 reachable mini routes, 0 shared mounts
 
-AC-2 Restore creds are read-only + scoped (flow_ref T-PLAT-025)
-  GIVEN: GIVEN D05-02 restore command WHEN the reviewer inspects R2 creds THEN the credential is read-only, scoped to the backup bucket/prefix only, distinct from app DATABASE_URL/Fleet creds, with NO write/delete actions
+AC-2 Restore creds are read-only + scoped (flow_ref T-PLAT-025) — REDHAT-FIX-H5 exact ARNs
+  GIVEN: GIVEN D05-02 restore command WHEN the reviewer inspects R2 creds THEN the credential is read-only, scoped to the exact concrete backup bucket + exact object prefix only, distinct from app DATABASE_URL/Fleet creds, with NO write/delete actions
   TEST_TIER: integration · VERIFICATION_SERVICE: r2-credential-inspect · TDD_STATE: none
   SCENARIO — start_ref: restore_command_with_creds · evidence: stdout
-    NEGATIVE_CONTROL: would fail if credential check is a stub returning read-only without inspecting policy; accepts wildcard resource without verifying bucket constraint; static implementation that hardcodes pass without real policy query
-    MUST_OBSERVE: policy Action set size = 2 (GetObject, ListObject); PutObject/DeleteObject action count = 0; policy Resource = 'arn:aws:s3:::holocron-backup-*' (literal bucket name); R2 restore access-key-id != DATABASE_URL user; 0 shared credentials between restore token and app
-    MUST_NOT_OBSERVE: >0 PutObject/DeleteObject actions (the write-capable start state); policy Resource = '*'; restore token usable on non-backup buckets; shared credentials between restore token and app
-  verify: scripts/verify-restore-creds.sh → read-only actions, backup bucket ARN only, distinct from app
+    NEGATIVE_CONTROL: would fail if credential check is a stub returning read-only without inspecting policy; accepts wildcard resource without verifying bucket constraint; accepts arn:aws:s3:::holocron-backup-* as a "literal bucket name"; static implementation that hardcodes pass without real policy query
+    MUST_OBSERVE: policy Actions are ListBucket/GetBucketLocation/GetObject only (PutObject/DeleteObject action count = 0); policy Resource bucket ARN = 'arn:aws:s3:::holocron-backup' (exact concrete bucket — no * in bucket segment); policy Resource object ARN = 'arn:aws:s3:::holocron-backup/<exact-prefix>/*' (exact configured prefix root); R2 restore access-key-id != DATABASE_URL user; 0 shared credentials between restore token and app
+    MUST_NOT_OBSERVE: >0 PutObject/DeleteObject actions (the write-capable start state); policy Resource = '*'; policy Resource = 'arn:aws:s3:::holocron-backup-*' (bucket class — never a literal bucket); policy Resource = 'arn:aws:s3:::*'; restore token usable on non-backup buckets; shared credentials between restore token and app
+  verify: scripts/verify-restore-creds.sh → List/Get only, exact bucket ARN + exact prefix ARNs, distinct from app; wildcards fail closed
 
 AC-3 Zero secret leakage in restored artifacts (flow_ref T-PLAT-025)
   GIVEN: GIVEN D05-04 restored Postgres rows, blobs, runbook, parity report WHEN the reviewer runs secret scan THEN 0 credential matches are returned in restored artifacts
@@ -315,6 +315,7 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
           "would_fail_if": [
             "credential check is a stub returning read-only without inspecting policy",
             "accepts wildcard resource without verifying bucket constraint",
+            "accepts arn:aws:s3:::holocron-backup-* as a literal bucket name",
             "static implementation that hardcodes pass without real policy query"
           ]
         },
@@ -335,13 +336,16 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
             },
             "end_state": {
               "must_observe": [
-                "policy Action set size = 2 (GetObject, ListObject); PutObject/DeleteObject action count = 0",
-                "policy Resource = 'arn:aws:s3:::holocron-backup-*' (literal bucket name)",
+                "policy Actions ListBucket/GetBucketLocation/GetObject only; PutObject/DeleteObject action count = 0",
+                "policy Resource bucket ARN = 'arn:aws:s3:::holocron-backup' (exact concrete bucket — no * in bucket segment)",
+                "policy Resource object ARN = 'arn:aws:s3:::holocron-backup/<exact-prefix>/*' (exact configured prefix root)",
                 "R2 restore access-key-id != DATABASE_URL user; 0 shared credentials between restore token and app"
               ],
               "must_not_observe": [
                 ">0 PutObject/DeleteObject actions (the write-capable start state)",
                 "policy Resource = '*'",
+                "policy Resource = 'arn:aws:s3:::holocron-backup-*' (bucket class — never a literal bucket)",
+                "policy Resource = 'arn:aws:s3:::*'",
                 "restore token usable on non-backup buckets",
                 "shared credentials between restore token and app"
               ]

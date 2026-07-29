@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# D05-06 / CAP-BAK-01 AC-2 — Restore R2 credentials are read-only + bucket-scoped.
+# D05-06 / CAP-BAK-01 AC-2 + REDHAT-FIX-H5 — Restore R2 credentials are
+# read-only + scoped to an EXACT concrete bucket ARN and object prefix.
 #
 # Real policy inspection + optional live aws Put/Delete denial.
 # Fails closed when:
 #   - policy allows Put/Delete or Resource=*
+#   - Resource is a bucket-class wildcard (arn:aws:s3:::holocron-backup-*)
+#   - bucket name segment contains '*' or is not the configured R2_BUCKET_NAME
+#   - object Resource is not the exact configured prefix under that bucket
 #   - restore identity equals backup RW / DATABASE_URL identity
 #   - ambient parent/RW keys present for restore role
 #   - live RO probe required but only RW keys work (Put succeeds)
@@ -17,12 +21,24 @@
 #   ./scripts/verify-restore-creds.sh
 #   REQUIRE_LIVE_R2_RO=1 ./scripts/verify-restore-creds.sh
 #   source restore-target.env && ./scripts/verify-restore-creds.sh
+#   # Policy-document only (REDHAT-FIX-H5 integration; no live R2 required):
+#   VERIFY_POLICY_ONLY=1 R2_CREDENTIAL_POLICY='...' R2_BUCKET_NAME=holocron-backup \
+#     R2_RESTORE_OBJECT_PREFIX=pgbackrest ./scripts/verify-restore-creds.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-EVIDENCE_DIR="${EVIDENCE_DIR:-$ROOT/.tmp/D05-06}"
+POLICY_ONLY=0
+if [[ "${1:-}" == "--policy-only" ]] || [[ "${VERIFY_POLICY_ONLY:-}" == "1" ]]; then
+  POLICY_ONLY=1
+fi
+
+if [[ $POLICY_ONLY -eq 1 ]]; then
+  EVIDENCE_DIR="${EVIDENCE_DIR:-$ROOT/.tmp/REDHAT-FIX-H5}"
+else
+  EVIDENCE_DIR="${EVIDENCE_DIR:-$ROOT/.tmp/D05-06}"
+fi
 mkdir -p "$EVIDENCE_DIR"
 LOG="$EVIDENCE_DIR/ac2-restore-creds.txt"
 exec > >(tee "$LOG") 2>&1
@@ -140,6 +156,11 @@ KIND="${R2_CREDENTIAL_KIND:-}"
 AK="${R2_RESTORE_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}"
 SK="${R2_RESTORE_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}"
 BUCKET="${R2_BUCKET_NAME:-holocron-backup}"
+# Exact object-prefix root for restore GetObject resources (REDHAT-FIX-H5).
+# Default aligns with backup pgBackRest prefix; override via R2_RESTORE_OBJECT_PREFIX.
+RESTORE_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+RESTORE_PREFIX="${RESTORE_PREFIX#/}"
+RESTORE_PREFIX="${RESTORE_PREFIX%/}"
 ENDPOINT="${R2_ENDPOINT:-}"
 # Live probes against real R2 must not use restore-target.env placeholder endpoint.
 LIVE_ENDPOINT="$ENDPOINT"
@@ -151,43 +172,72 @@ if is_placeholder "$LIVE_ENDPOINT"; then
   fi
 fi
 
-# ── (A) Forbidden ambient RW / parent admin credentials ────────────────────
-forbidden_vars=(
-  R2_PARENT_ACCESS_KEY_ID
-  R2_PARENT_SECRET_ACCESS_KEY
-  R2_READ_WRITE_CREDENTIAL
-  R2_READ_WRITE_ACCESS_KEY_ID
-  R2_READ_WRITE_SECRET_ACCESS_KEY
-  R2_RW_ACCESS_KEY_ID
-  R2_RW_SECRET_ACCESS_KEY
-)
-bad_ambient=0
-for v in "${forbidden_vars[@]}"; do
-  if [[ -n "${!v:-}" ]]; then
-    echo "  detail: forbidden env ${v} is set on restore path" >&2
-    bad_ambient=1
+# Reject configured bucket/prefix that already contain wildcards (fail closed).
+if [[ "$BUCKET" == *"*"* ]] || [[ -z "$BUCKET" ]]; then
+  fail "R2_BUCKET_NAME must be an exact concrete bucket name (no *); got '${BUCKET:-<empty>}'"
+  if [[ $POLICY_ONLY -eq 1 ]]; then
+    echo "=== RESULT: FAIL (configured bucket is wildcard/empty) ==="
+    exit 1
   fi
-done
-if [[ $bad_ambient -eq 0 ]]; then
-  pass "no ambient parent/RW R2 credentials on restore path"
-else
-  fail "ambient parent/RW R2 credentials present — not restore-safe"
+fi
+if [[ -z "$RESTORE_PREFIX" ]] || [[ "$RESTORE_PREFIX" == *"*"* ]]; then
+  fail "R2_RESTORE_OBJECT_PREFIX/R2_PGBACKREST_PREFIX must be exact non-empty prefix (no *); got '${RESTORE_PREFIX:-<empty>}'"
+  if [[ $POLICY_ONLY -eq 1 ]]; then
+    echo "=== RESULT: FAIL (configured prefix is wildcard/empty) ==="
+    exit 1
+  fi
 fi
 
-# ── (B) Credential kind ───────────────────────────────────────────────────
-case "$KIND" in
-  object-read-only|read-only|object_read_only|readonly)
-    pass "R2_CREDENTIAL_KIND declares read-only (${KIND})"
-    ;;
-  "")
-    info "R2_CREDENTIAL_KIND unset — will rely on policy + live probe"
-    ;;
-  *)
-    fail "R2_CREDENTIAL_KIND is not read-only (got: ${KIND})"
-    ;;
-esac
+# ── (A) Forbidden ambient RW / parent admin credentials ────────────────────
+if [[ $POLICY_ONLY -eq 0 ]]; then
+  forbidden_vars=(
+    R2_PARENT_ACCESS_KEY_ID
+    R2_PARENT_SECRET_ACCESS_KEY
+    R2_READ_WRITE_CREDENTIAL
+    R2_READ_WRITE_ACCESS_KEY_ID
+    R2_READ_WRITE_SECRET_ACCESS_KEY
+    R2_RW_ACCESS_KEY_ID
+    R2_RW_SECRET_ACCESS_KEY
+  )
+  bad_ambient=0
+  for v in "${forbidden_vars[@]}"; do
+    if [[ -n "${!v:-}" ]]; then
+      echo "  detail: forbidden env ${v} is set on restore path" >&2
+      bad_ambient=1
+    fi
+  done
+  if [[ $bad_ambient -eq 0 ]]; then
+    pass "no ambient parent/RW R2 credentials on restore path"
+  else
+    fail "ambient parent/RW R2 credentials present — not restore-safe"
+  fi
 
-# ── (C) Policy JSON: List/Get only, backup bucket ARN, no Put/Delete, no * ─
+  # ── (B) Credential kind ───────────────────────────────────────────────────
+  case "$KIND" in
+    object-read-only|read-only|object_read_only|readonly)
+      pass "R2_CREDENTIAL_KIND declares read-only (${KIND})"
+      ;;
+    "")
+      info "R2_CREDENTIAL_KIND unset — will rely on policy + live probe"
+      ;;
+    *)
+      fail "R2_CREDENTIAL_KIND is not read-only (got: ${KIND})"
+      ;;
+  esac
+else
+  info "VERIFY_POLICY_ONLY=1 — skipping ambient credential / kind / live R2 probes"
+fi
+
+# ── (C) Policy JSON: exact bucket + exact prefix List/Get only (H-5) ───────
+# Rejects:
+#   - arn:aws:s3:::holocron-backup-*   (bucket class — NOT a literal bucket)
+#   - arn:aws:s3:::* / Resource '*'
+#   - arn:aws:s3:::bucket/* without exact configured prefix root
+#   - PutObject / DeleteObject
+# Allows:
+#   - arn:aws:s3:::${exactBucket}                         (ListBucket resource)
+#   - arn:aws:s3:::${exactBucket}/${exactPrefix}/*        (GetObject resource)
+#   - arn:aws:s3:::${exactBucket}/${exactPrefix}*         (trailing key wildcard only)
 inspect_policy() {
   local policy_json="$1"
   local label="$2"
@@ -195,11 +245,16 @@ inspect_policy() {
     info "${label}: no policy JSON provided"
     return 1
   fi
-  # Normalize escaped JSON from yaml
+  # Normalize escaped JSON from yaml; enforce exact ARN contract (REDHAT-FIX-H5).
   local normalized
-  normalized="$(POLICY_JSON="$policy_json" python3 - <<'PY'
+  normalized="$(
+    POLICY_JSON="$policy_json" EXPECT_BUCKET="$BUCKET" EXPECT_PREFIX="$RESTORE_PREFIX" python3 - <<'PY'
 import json, os, sys
+
 raw = os.environ["POLICY_JSON"]
+expect_bucket = os.environ["EXPECT_BUCKET"].strip()
+expect_prefix = os.environ["EXPECT_PREFIX"].strip().strip("/")
+
 for _ in range(3):
     try:
         data = json.loads(raw)
@@ -216,6 +271,7 @@ else:
 if not isinstance(data, dict):
     print("PARSE_FAIL not object", file=sys.stderr)
     sys.exit(2)
+
 actions = []
 resources = []
 for st in data.get("Statement") or []:
@@ -229,30 +285,131 @@ for st in data.get("Statement") or []:
     if isinstance(r, str):
         r = [r]
     resources.extend(r)
+
 print("ACTIONS\t" + ",".join(sorted(set(actions))))
 print("RESOURCES\t" + ",".join(resources))
-put_del = sum(1 for x in actions if "PutObject" in x or "DeleteObject" in x or x in ("s3:Put","s3:Delete","s3:*","*"))
+print("EXPECT_BUCKET\t" + expect_bucket)
+print("EXPECT_PREFIX\t" + expect_prefix)
+
+put_del = sum(
+    1
+    for x in actions
+    if "PutObject" in x
+    or "DeleteObject" in x
+    or x in ("s3:Put", "s3:Delete", "s3:*", "*")
+)
 print("PUT_DELETE_COUNT\t" + str(put_del))
-star = any(x in ("*", "s3:*") for x in actions) or any(x == "*" for x in resources)
-print("HAS_STAR\t" + ("1" if star else "0"))
-bucket_ok = all(("arn:aws:s3:::holocron-backup" in r) for r in resources) and len(resources) > 0
+
+S3_PREFIX = "arn:aws:s3:::"
+
+def bucket_segment(arn):
+    if arn == "*":
+        return "*"
+    if not arn.startswith(S3_PREFIX):
+        return None
+    rest = arn[len(S3_PREFIX) :]
+    return rest.split("/", 1)[0]
+
+
+def is_exact_bucket_resource(arn):
+    return arn == f"{S3_PREFIX}{expect_bucket}"
+
+
+def is_exact_prefix_object_resource(arn):
+    # Trailing object-key wildcard ONLY after exact bucket + exact prefix root.
+    a = f"{S3_PREFIX}{expect_bucket}/{expect_prefix}/*"
+    b = f"{S3_PREFIX}{expect_bucket}/{expect_prefix}*"
+    return arn in (a, b)
+
+
+wildcard_reasons = []
+exact_bucket_count = 0
+exact_prefix_count = 0
+bad_resource = False
+
+if not resources:
+    bad_resource = True
+    wildcard_reasons.append("empty Resource array")
+
+for r in resources:
+    if r in ("*", "arn:aws:s3:::*"):
+        bad_resource = True
+        wildcard_reasons.append(f"bare/universal wildcard Resource={r}")
+        continue
+    seg = bucket_segment(r)
+    if seg is None:
+        bad_resource = True
+        wildcard_reasons.append(f"non-s3 Resource={r}")
+        continue
+    if "*" in seg:
+        # Bucket-class patterns like arn:aws:s3:::holocron-backup-* are NEVER
+        # a "literal bucket name".
+        bad_resource = True
+        wildcard_reasons.append(f"wildcard in bucket name segment: {r}")
+        continue
+    if seg != expect_bucket:
+        bad_resource = True
+        wildcard_reasons.append(
+            f"Resource bucket '{seg}' != configured exact bucket '{expect_bucket}': {r}"
+        )
+        continue
+    if is_exact_bucket_resource(r):
+        exact_bucket_count += 1
+        continue
+    if is_exact_prefix_object_resource(r):
+        exact_prefix_count += 1
+        continue
+    # e.g. arn:aws:s3:::bucket/* (no concrete prefix) or wrong prefix
+    bad_resource = True
+    wildcard_reasons.append(
+        f"object Resource not exact prefix '{expect_prefix}' under bucket: {r}"
+    )
+
+# Action wildcards
+action_star = any(x in ("*", "s3:*") for x in actions)
+if action_star:
+    wildcard_reasons.append("wildcard Action (* or s3:*)")
+
+has_star = 1 if (bad_resource or action_star or wildcard_reasons) else 0
+print("HAS_STAR\t" + str(has_star))
+print("WILDCARD_REASONS\t" + (" | ".join(wildcard_reasons) if wildcard_reasons else ""))
+print("EXACT_BUCKET_ARN_COUNT\t" + str(exact_bucket_count))
+print("EXACT_PREFIX_ARN_COUNT\t" + str(exact_prefix_count))
+
+# Exact contract: ≥1 exact bucket ARN + ≥1 exact prefix object ARN; no bad resources.
+bucket_ok = (
+    exact_bucket_count >= 1
+    and exact_prefix_count >= 1
+    and not bad_resource
+    and len(resources) > 0
+)
 print("BUCKET_SCOPED\t" + ("1" if bucket_ok else "0"))
-# RO expected action set: ListBucket, GetBucketLocation, GetObject (no Put/Delete)
-ro_ok = put_del == 0 and any("ListBucket" in x for x in actions) and any("GetObject" in x for x in actions)
+print("EXACT_ARN_OK\t" + ("1" if bucket_ok else "0"))
+
+# RO expected action set: ListBucket, GetObject (GetBucketLocation optional); no Put/Delete
+ro_ok = (
+    put_del == 0
+    and any("ListBucket" in x for x in actions)
+    and any("GetObject" in x for x in actions)
+    and not action_star
+)
 print("RO_SHAPE\t" + ("1" if ro_ok else "0"))
 print("ACTION_COUNT\t" + str(len(set(actions))))
 PY
-)" || {
+  )" || {
     fail "${label}: policy JSON failed to parse"
     return 1
   }
 
   echo "$normalized" | sed 's/^/  /'
-  local put_del has_star bucket_ok ro_shape
+  local put_del has_star bucket_ok ro_shape exact_bucket_n exact_prefix_n wildcard_reasons
   put_del="$(echo "$normalized" | awk -F'\t' '/^PUT_DELETE_COUNT/{print $2}')"
   has_star="$(echo "$normalized" | awk -F'\t' '/^HAS_STAR/{print $2}')"
   bucket_ok="$(echo "$normalized" | awk -F'\t' '/^BUCKET_SCOPED/{print $2}')"
   ro_shape="$(echo "$normalized" | awk -F'\t' '/^RO_SHAPE/{print $2}')"
+  exact_bucket_n="$(echo "$normalized" | awk -F'\t' '/^EXACT_BUCKET_ARN_COUNT/{print $2}')"
+  exact_prefix_n="$(echo "$normalized" | awk -F'\t' '/^EXACT_PREFIX_ARN_COUNT/{print $2}')"
+  wildcard_reasons="$(echo "$normalized" | awk -F'\t' '/^WILDCARD_REASONS/{print $2}')"
 
   if [[ "$put_del" != "0" ]]; then
     fail "${label}: PutObject/DeleteObject action count=${put_del} (must be 0 for restore RO)"
@@ -260,14 +417,14 @@ PY
     pass "${label}: PutObject/DeleteObject action count=0"
   fi
   if [[ "$has_star" == "1" ]]; then
-    fail "${label}: wildcard Action/Resource present"
+    fail "${label}: wildcard / non-exact Resource rejected (${wildcard_reasons})"
   else
-    pass "${label}: no wildcard Action/Resource"
+    pass "${label}: no bucket-class or bare wildcard Resource/Action"
   fi
   if [[ "$bucket_ok" == "1" ]]; then
-    pass "${label}: Resource scoped to arn:aws:s3:::holocron-backup(/ *)"
+    pass "${label}: exact bucket ARN arn:aws:s3:::${BUCKET} + exact prefix arn:aws:s3:::${BUCKET}/${RESTORE_PREFIX}/* (bucket_arns=${exact_bucket_n} prefix_arns=${exact_prefix_n})"
   else
-    fail "${label}: Resource not strictly backup-bucket scoped"
+    fail "${label}: Resource not exact concrete bucket+prefix (need arn:aws:s3:::${BUCKET} and arn:aws:s3:::${BUCKET}/${RESTORE_PREFIX}/*; reject holocron-backup-* class)"
   fi
   if [[ "$ro_shape" == "1" ]]; then
     pass "${label}: RO shape includes ListBucket + GetObject without write"
@@ -282,6 +439,17 @@ if [[ -n "$POLICY" ]]; then
 else
   # Contract from code (mint object-read-only / fresh-target.md) — still require env policy for live target
   fail "restore R2_CREDENTIAL_POLICY missing — cannot prove List/Get-only without policy or live RO keys"
+fi
+
+# Policy-only mode: exit after exact-ARN policy inspection (integration RED/GREEN).
+if [[ $POLICY_ONLY -eq 1 ]]; then
+  echo "=== SUMMARY (policy-only): pass=${PASS_COUNT} fail=${FAIL_COUNT} ==="
+  if [[ $FAIL_COUNT -gt 0 ]]; then
+    echo "=== RESULT: FAIL (exact ARN / RO policy checks) ==="
+    exit 1
+  fi
+  echo "=== RESULT: PASS (exact concrete bucket + prefix ARNs; List/Get only) ==="
+  exit 0
 fi
 
 # Backup RW policy (from secrets) must differ: expect Put/Delete present (negative contrast).
