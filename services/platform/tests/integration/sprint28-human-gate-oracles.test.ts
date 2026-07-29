@@ -48,8 +48,9 @@ const SPRINT_MD = resolve(
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-H2');
 const BUN_BIN = process.env.BUN_BIN ?? 'bun';
 
+// GATE-FIX-S28R3-QA2 / H2: exact prefix object Resource (never bare bucket/*).
 const R2_POLICY =
-  '{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/*"]}]}';
+  '{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/pgbackrest/*"]}]}';
 
 const ISOLATED_MINI = {
   MINI_HOST: '203.0.113.1',
@@ -448,17 +449,22 @@ describe('REDHAT-FIX-H2 sprint28 human-gate oracles', () => {
       const step6Blob = JSON.stringify(step6);
       expect(step6Blob).toMatch(/unknown flag|must_not|fail-closed|empty|corrupt/i);
 
-      // Commands may be line-continued in markdown fences (restore \\n --pitr).
-      expect(sprint).toMatch(/bun services\/platform\/src\/cli\/holo\.ts restore[\s\\]*--pitr/);
-      expect(sprint).toMatch(/restore:fire-drill|scripts\/fire-drill\.sh/);
-      expect(sprint).toMatch(/prove-isolation\.sh|verify-restore-isolation\.sh/);
+      // GATE-FIX-S28R3-QA2 / C2: SPRINT defers to gate-plan + HUMAN-GATE (no stale snippets).
+      expect(sprint).toMatch(/gate-plan\.json/);
+      expect(sprint).toMatch(/HUMAN-GATE\.md/);
+      // Plan itself still carries the authoritative restore/isolation surfaces.
+      const planBlob = JSON.stringify(plan.steps ?? []);
+      expect(planBlob).toMatch(/bun services\/platform\/src\/cli\/holo\.ts restore/);
+      expect(planBlob).toMatch(/--pitr|restore:fire-drill|run-fire-drill-on-fresh-target/);
+      expect(planBlob).toMatch(/prove-isolation\.sh|prove-r2-readonly\.sh/);
 
       writeEvidence('ac4-gate-docs.json', {
         gatePlanSteps: (plan.steps ?? []).map((s) => ({
           n: s.n,
           hasLiteral: Boolean(s.literal_cmd),
         })),
-        sprintMentionsRestore: /restore --pitr/.test(sprint),
+        sprintDefersToPlan: /gate-plan\.json/.test(sprint),
+        sprintMentionsHumanGate: /HUMAN-GATE\.md/.test(sprint),
       });
     },
     30_000

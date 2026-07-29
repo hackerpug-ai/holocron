@@ -1,7 +1,7 @@
 ---
 sequence: 28
 timeline: Phase 6 — Standing Backup and Disaster Recovery
-status: Completed
+status: In Progress
 planned_from_roadmap_sha: 95b4657a2d19ffcbd9c0208f4c9aef433c77782cda63a816635c606080f275ae
 planned_from_source_sha: 2c3778c231e21001b4c6095ec9c406f01f94e4ff
 source_kind: git-head
@@ -12,9 +12,9 @@ planned_at: 2026-07-28T01:16:22Z
 
 **Sequence:** 28
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
-**Status:** Completed
-> Progress: 6/6 tasks completed · updated 2026-07-29T01:14:00Z
-> Status-Note: GATE-GOAL ACHIEVED — 6/6 tasks landed on main; human-test 6/6 pass; residual DEPENDENCY-S28-R2-RO
+**Status:** In Progress
+> Progress: implementation landed; final 6/6 human-gate closeout blocked · updated 2026-07-29
+> Status-Note: Residual **DEPENDENCY-S28-R2-RO** (distinct live `R2_RESTORE_*` credentials absent) blocks final 6/6 closeout until credentials + fresh SHA-bound QA. Unbound `20260729T031355Z` gate-results archived; active `gate-results.json` withheld for next independent QA.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-28`)
 **Branch:** `mk6-restore-drill`
@@ -57,52 +57,22 @@ PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-resto
 
 ## Human Test Deliverable
 
-Concrete runnable commands (also in `gate-plan.json` `literal_cmd` fields). Set `HOLO_SECRETS_PATH` and an in-window `PITR_TIMESTAMP` for positive fire-drill steps.
+**Authoritative commands:** only `gate-plan.json` `literal_cmd` fields.  
+**Operator surface:** regenerate [`HUMAN-GATE.md`](./HUMAN-GATE.md) via `bash scripts/render-human-gate-from-plan.sh` (embeds each step command + `literal_cmd_sha256`).
 
-1. **PITR restore** — restores to the named point exactly (or fail-closed outside WAL with a named error; never `unknown flag: --pitr`):
-   ```bash
-   mkdir -p .tmp/REDHAT-FIX-H2/step1-scratch
-   bun services/platform/src/cli/holo.ts restore \
-     --pitr "${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}" \
-     --scratch .tmp/REDHAT-FIX-H2/step1-scratch \
-     --target-action promote
-   ```
-2. **Fresh target isolation** — multi-axis prove (zero mini access):
-   ```bash
-   MINI_HOST=203.0.113.1 TARGET_ATTESTED_IDENTITY=target-vm-uuid-gate \
-   MINI_ATTESTED_IDENTITY=mini-hw-uuid-gate REQUIRE_ATTESTED_IDENTITY=1 \
-   MINI_SOCKET_DEFAULTS=0 NC_TIMEOUT_SEC=1 \
-   bash scripts/prove-isolation.sh
-   # Expect: RESULT: PASS
-   ```
-3. **Row-count parity** — fire-drill + `POSTGRES_PARITY_PASS`:
-   ```bash
-   mkdir -p .tmp/REDHAT-FIX-H2/step3-scratch .tmp/REDHAT-FIX-H2/step3-blob
-   bun services/platform/src/cli/holo.ts restore:fire-drill \
-     --target-timestamp "${PITR_TIMESTAMP:?set in-window ISO}" \
-     --scratch .tmp/REDHAT-FIX-H2/step3-scratch \
-     --blob-dir .tmp/REDHAT-FIX-H2/step3-blob \
-     --report .tmp/REDHAT-FIX-H2/parity-report.json
-   jq -e '.POSTGRES_PARITY_PASS == true' .tmp/REDHAT-FIX-H2/parity-report.json
-   ```
-4. **Evidence-ledger chain** — SHA-256 baseline match:
-   ```bash
-   jq -e '.LEDGER_CHECKSUM_MATCH == true' .tmp/REDHAT-FIX-H2/parity-report.json
-   ```
-5. **Blob SHA-256 parity** — every object matches source:
-   ```bash
-   jq -e '.BLOB_PARITY_PASS == true and (.matched_objects // 0) >= 1' .tmp/REDHAT-FIX-H2/parity-report.json
-   ```
-6. **Empty/corrupt chain fail-closed** — named restore error + zero PGDATA files; **must_not** sole-observe `unknown flag: --pitr`:
-   ```bash
-   mkdir -p .tmp/REDHAT-FIX-H2/step6-scratch
-   R2_PGBACKREST_PREFIX="pgbackrest-s28-gate-empty/${GATE_RUN_ID:-manual}" \
-     bun services/platform/src/cli/holo.ts restore \
-       --pitr 2024-01-01T00:00:00Z \
-       --scratch .tmp/REDHAT-FIX-H2/step6-scratch \
-       --target-action promote
-   # Expect: exit != 0; stderr matches no base backup|backup chain missing|integrity|outside WAL
-   ```
+Do **not** paste obsolete fixed-path snippets (shared `step1-scratch`, `ro-test` live green, unbound `.tmp/REDHAT-FIX-H2/step3-*`).
+
+**Live-run requirements:**
+
+```bash
+export HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-services/platform/config/secrets.yaml}"
+# Allowlisted GATE_RUN_ID required (alphanumeric + '-' / '_', length 1–64):
+export GATE_RUN_ID="${GATE_RUN_ID:?set allowlisted GATE_RUN_ID}"
+export PITR_TIMESTAMP="${PITR_TIMESTAMP:?set in-window ISO}"
+# Then execute each gate-plan step (or follow regenerated HUMAN-GATE.md blocks).
+```
+
+Residual **`DEPENDENCY-S28-R2-RO`** until distinct live `R2_RESTORE_*` credentials exist and fresh SHA-bound QA records a real pass.
 
 ## Tasks
 
@@ -135,6 +105,7 @@ Concrete runnable commands (also in `gate-plan.json` `literal_cmd` fields). Set 
 | GATE-FIX-QA4 | Align step4/step5 assertions with jq -e scalar true (QA `20260729T064907Z`) | devops-engineer | 45 min |
 | REDHAT-FIX-S28R3 | Bind six-step gate to provisioned fresh-target volumes + live distinct R2_RESTORE_* (Terra CRITICAL-1 + HIGH-1 on `e1e92211`) | devops-engineer | 180 min |
 | GATE-FIX-S28R3-QA1 | Run-isolated gate scratch + host-accessible volume-bound fire-drill (QA `20260729T160000Z`) | devops-engineer | 120 min |
+| GATE-FIX-S28R3-QA2 | Restore-only fire-drill identity, doc/plan lock, honest closeout (Terra `red-hat-20260729T084459Z` CRITICAL×3 HIGH×3) | devops-engineer | 240 min |
 
 ## Source Coverage
 
@@ -179,3 +150,4 @@ Generated by /kb-sprint-tasks-plan on 2026-07-28T01:16:22Z (specialist proposals
 - GATE-FIX-QA4-step4-5-assertion-match-jq-true.md — QA remediation for `20260729T064907Z` (step4/5 assertion tokens mismatch jq -e `true` output; literal_cmd frozen)
 - REDHAT-FIX-S28R3-gate-fresh-target-and-live-restore-creds.md — Terra final independent `red-hat-20260729T075401Z` CRITICAL-1 (host-.tmp step3) + HIGH-1 (ro-test placeholders vs live R2_RESTORE_*)
 - GATE-FIX-S28R3-QA1-run-isolated-scratch-and-host-accessible-volumes.md — QA `20260729T160000Z` step1 shared scratch + step3 `/var/lib/docker` EACCES on Colima/Desktop
+- GATE-FIX-S28R3-QA2-restore-identity-doc-drift-and-honest-closeout.md — Terra `red-hat-20260729T084459Z` on `71f12cabe` CRITICAL-1..3 + HIGH-1/2/4 + MEDIUM cleanup
