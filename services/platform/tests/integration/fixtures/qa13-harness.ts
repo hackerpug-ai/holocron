@@ -82,6 +82,14 @@ export function baseHarnessEnv(repoRoot: string, extra: NodeJS.ProcessEnv = {}):
   const fixBin = resolve(repoRoot, 'services/platform/tests/integration/fixtures/bin');
   const mockMode =
     extra.HOLO_R2_PROVIDER_MOCK_MODE || mapAwsMockMode(extra.HOLO_AWS_MOCK_MODE) || 'default';
+  // GATE-FIX-S28R3-QA19: mandatory writer preflight uses BACKUP_R2_* (distinct from restore).
+  // Do not force fixture scope probe keys (production binds versioned probes only).
+  const writerAk =
+    extra.BACKUP_R2_ACCESS_KEY_ID || extra.R2_PARENT_ACCESS_KEY_ID || 'AKIA_WRITER_QA';
+  const writerSk =
+    extra.BACKUP_R2_SECRET_ACCESS_KEY ||
+    extra.R2_PARENT_SECRET_ACCESS_KEY ||
+    'sk_writer_qa_distinct';
   return {
     ...process.env,
     HOLO_TRUSTED_AWS_BIN: '',
@@ -90,8 +98,6 @@ export function baseHarnessEnv(repoRoot: string, extra: NodeJS.ProcessEnv = {}):
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa-harness',
     HOLO_SECRETS_PATH: '/nonexistent-s28r3-qa-harness',
     CLOUDFLARE_API_TOKEN: '',
-    R2_PARENT_ACCESS_KEY_ID: '',
-    R2_PARENT_SECRET_ACCESS_KEY: '',
     R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_ENDPOINT: ENDPOINT,
     R2_BUCKET_NAME: BUCKET,
@@ -101,6 +107,10 @@ export function baseHarnessEnv(repoRoot: string, extra: NodeJS.ProcessEnv = {}):
     R2_SCOPE_PROBE_IN_KEY: SCOPE_IN,
     R2_SCOPE_PROBE_OUT_KEY: SCOPE_OUT,
     ...extra,
+    BACKUP_R2_ACCESS_KEY_ID: extra.BACKUP_R2_ACCESS_KEY_ID || writerAk,
+    BACKUP_R2_SECRET_ACCESS_KEY: extra.BACKUP_R2_SECRET_ACCESS_KEY || writerSk,
+    R2_PARENT_ACCESS_KEY_ID: extra.R2_PARENT_ACCESS_KEY_ID || writerAk,
+    R2_PARENT_SECRET_ACCESS_KEY: extra.R2_PARENT_SECRET_ACCESS_KEY || writerSk,
     HOLO_R2_PROVIDER_MOCK_MODE: mockMode,
   };
 }

@@ -26,9 +26,10 @@ R2_RO_PROVIDER_PY="${ROOT}/scripts/lib/r2_s3_provider.py"
 
 r2_ro_validate_root_bin() {
   # args: absolute path to executable
-  # Bootstrap validator is always absolute /usr/bin/python3 (not PATH).
+  # GATE-FIX-S28R3-QA19: bootstrap with env -i + /usr/bin/python3 -E -s (no hostile PYTHON*).
   local candidate="$1"
-  /usr/bin/python3 - "$candidate" <<'PY'
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+    /usr/bin/python3 -E -s - "$candidate" <<'PY'
 import os, stat, sys
 cand = sys.argv[1]
 if not cand.startswith("/"):
@@ -104,7 +105,7 @@ r2_ro_init_trusted_helpers() {
     return 2
   fi
   # Provider script must live under repo scripts/lib (not world-writable).
-  if ! R2_RO_PROVIDER_PY="$("$R2_RO_PYTHON_BIN" - "$R2_RO_PROVIDER_PY" "$ROOT" <<'PY'
+  if ! R2_RO_PROVIDER_PY="$("$R2_RO_PYTHON_BIN" -E -s - "$R2_RO_PROVIDER_PY" "$ROOT" <<'PY'
 import os, stat, sys
 path, root = sys.argv[1], sys.argv[2]
 real = os.path.realpath(path)
@@ -168,7 +169,8 @@ r2_ro_exec_isolated() {
 # Filter process output to allowlisted status/class lines only (never KEY=value dumps).
 # IMPORTANT: use python -c so stdin remains the pipe to filter (heredoc would steal stdin).
 r2_ro_filter_safe_log() {
-  /usr/bin/python3 -E -s -c '
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+    /usr/bin/python3 -E -s -c '
 import re, sys
 allow = re.compile(
     r"^(PASS:|FAIL:|INFO:|error:|RESIDUAL:|=== RESULT:|=== prove|"
@@ -209,6 +211,16 @@ r2_ro_run_provider() {
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
 }
 
+
+# GATE-FIX-S28R3-QA19: field extract without PATH awk (credential-adjacent parsing).
+r2_ro_field() {
+  # usage: r2_ro_field <1-based-index> <tab-separated-line>
+  local idx="$1" line="$2"
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+    /usr/bin/python3 -E -s -c 'import sys; i=int(sys.argv[1]); parts=sys.argv[2].split("\t"); print(parts[i-1] if 0 < i <= len(parts) else "")' \
+    "$idx" "$line"
+}
+
 # --- canonical restore context ---
 
 r2_ro_canonical_account_id() {
@@ -245,7 +257,7 @@ r2_ro_canonical_prefix() {
 
 r2_ro_build_canonical_policy_json() {
   local bucket="$1" prefix="$2"
-  "$R2_RO_PYTHON_BIN" - "$bucket" "$prefix" <<'PY'
+  "$R2_RO_PYTHON_BIN" -E -s - "$bucket" "$prefix" <<'PY'
 import json, sys
 bucket, prefix = sys.argv[1], sys.argv[2]
 doc = {
@@ -306,7 +318,7 @@ r2_ro_bind_scope_probes() {
     return 2
   fi
 
-  if ! pair="$("$R2_RO_PYTHON_BIN" - "$probes_json" "$ROOT" <<'PY'
+  if ! pair="$("$R2_RO_PYTHON_BIN" -E -s - "$probes_json" "$ROOT" <<'PY'
 import json, os, stat, sys
 path, root = sys.argv[1], sys.argv[2]
 root = os.path.realpath(root)
@@ -376,28 +388,20 @@ PY
     return 2
   fi
 
-  if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
-    # Harness-only: fixture keys allowed; still require both set.
-    if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" || -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
-      echo "error: GATE-FIX-S28R3-QA16 harness requires R2_SCOPE_PROBE_IN_KEY and R2_SCOPE_PROBE_OUT_KEY" >&2
-      return 2
-    fi
-  else
-    # Production: versioned artifact is sole authority. Env cannot replace keys.
-    caller_in="${R2_SCOPE_PROBE_IN_KEY-}"
-    caller_out="${R2_SCOPE_PROBE_OUT_KEY-}"
-    if [[ -n "$caller_in" && "$caller_in" != "$trusted_in" ]]; then
-      echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_IN_KEY" >&2
-      return 2
-    fi
-    if [[ -n "$caller_out" && "$caller_out" != "$trusted_out" ]]; then
-      echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_OUT_KEY" >&2
-      return 2
-    fi
-    # Always re-bind from versioned artifact (env cannot weaken even if empty/partial).
-    R2_SCOPE_PROBE_IN_KEY="$trusted_in"
-    R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
+  # GATE-FIX-S28R3-QA19: production has NO mock branch (harness patches after copy).
+  # Versioned artifact is sole authority. Env cannot replace keys.
+  caller_in="${R2_SCOPE_PROBE_IN_KEY-}"
+  caller_out="${R2_SCOPE_PROBE_OUT_KEY-}"
+  if [[ -n "$caller_in" && "$caller_in" != "$trusted_in" ]]; then
+    echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_IN_KEY" >&2
+    return 2
   fi
+  if [[ -n "$caller_out" && "$caller_out" != "$trusted_out" ]]; then
+    echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_OUT_KEY" >&2
+    return 2
+  fi
+  R2_SCOPE_PROBE_IN_KEY="$trusted_in"
+  R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
 
   case "${R2_SCOPE_PROBE_IN_KEY}" in
     pgbackrest/*) ;;
@@ -463,7 +467,7 @@ r2_ro_establish_canonical_context() {
   fi
   if [[ -n "${R2_CREDENTIAL_POLICY:-}" ]]; then
     local caller_norm
-    caller_norm="$("$R2_RO_PYTHON_BIN" -c 'import json,sys; print(json.dumps(json.loads(sys.argv[1]), separators=(",",":"), sort_keys=True), end="")' \
+    caller_norm="$("$R2_RO_PYTHON_BIN" -E -s -c 'import json,sys; print(json.dumps(json.loads(sys.argv[1]), separators=(",",":"), sort_keys=True), end="")' \
       "$R2_CREDENTIAL_POLICY" 2>/dev/null || true)"
     if [[ -z "$caller_norm" || "$caller_norm" != "$policy_json" ]]; then
       echo "error: GATE-FIX-S28R3-QA14 R2_CREDENTIAL_POLICY noncanonical vs required pgbackrest object-read-only policy" >&2
@@ -486,7 +490,7 @@ r2_ro_establish_canonical_context() {
 # --- private proof dir + exclusive no-follow create + FD-safe consume ---
 
 r2_ro_ensure_private_proof_dir() {
-  "$R2_RO_PYTHON_BIN" - "$R2_RO_TRUSTED_PROOF_DIR" <<'PY'
+  "$R2_RO_PYTHON_BIN" -E -s - "$R2_RO_TRUSTED_PROOF_DIR" <<'PY'
 import os, stat, sys
 path = sys.argv[1]
 os.makedirs(path, mode=0o700, exist_ok=True)
@@ -518,7 +522,7 @@ r2_ro_new_proof_path() {
 r2_ro_write_proof_exclusive() {
   local out="$1" fp="$2" ctx="$3"
   local in_key="${R2_SCOPE_PROBE_IN_KEY:-}" out_key="${R2_SCOPE_PROBE_OUT_KEY:-}"
-  "$R2_RO_PYTHON_BIN" - "$out" "$fp" "$ctx" "$R2_RO_TRUSTED_PROOF_DIR" "$in_key" "$out_key" <<'PY'
+  "$R2_RO_PYTHON_BIN" -E -s - "$out" "$fp" "$ctx" "$R2_RO_TRUSTED_PROOF_DIR" "$in_key" "$out_key" <<'PY'
 import json, os, stat, sys
 from datetime import datetime, timezone
 out, fp, ctx, trusted, in_key, out_key = sys.argv[1:7]
@@ -593,7 +597,7 @@ PY
 
 r2_ro_validate_proof() {
   local path="$1" efp="$2" ectx="$3"
-  "$R2_RO_PYTHON_BIN" - "$path" "$efp" "$ectx" "$R2_RO_TRUSTED_PROOF_DIR" <<'PY'
+  "$R2_RO_PYTHON_BIN" -E -s - "$path" "$efp" "$ectx" "$R2_RO_TRUSTED_PROOF_DIR" <<'PY'
 import json, os, stat, sys
 from datetime import datetime, timezone
 path, efp, ectx, trusted = sys.argv[1:5]

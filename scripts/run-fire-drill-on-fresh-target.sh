@@ -51,16 +51,14 @@ ATTESTATION=""
 RESOLVE_ONLY=0
 REPORT=""
 SOURCE_BLOB_ROOT=""
-# GATE-FIX-S28R3-QA17: refuse ambient BUN_BIN; fixed absolute candidates only.
+# GATE-FIX-S28R3-QA17/QA19: refuse ambient BUN_BIN; only root-owned trust-chain Bun may receive restore secrets.
 if [[ -n "${BUN_BIN:-}" ]]; then
   echo "error: GATE-FIX-S28R3-QA17 refuses ambient BUN_BIN (fixed absolute runtime only)" >&2
   exit 2
 fi
 BUN_BIN=""
-for _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do
-  if [[ -x "$_cand" ]]; then BUN_BIN="$_cand"; break; fi
-done
-# Bun resolved above; hard-fail only when invoking TypeScript CLI (below).
+BUN_TRUSTED=0
+# Defer candidate resolution until after r2_ro_init is available; placeholder only.
 HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"
 
 usage() {
@@ -238,12 +236,12 @@ assert_bound_r2_ro_proof() {
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  ep="$(printf '%s' "$established" | awk -F'\t' '{print $1}')"
-  bucket="$(printf '%s' "$established" | awk -F'\t' '{print $2}')"
-  prefix="$(printf '%s' "$established" | awk -F'\t' '{print $3}')"
-  kind="$(printf '%s' "$established" | awk -F'\t' '{print $4}')"
-  policy="$(printf '%s' "$established" | awk -F'\t' '{print $5}')"
-  expected_ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
+  ep="$(r2_ro_field 1 "${established}")"
+  bucket="$(r2_ro_field 2 "${established}")"
+  prefix="$(r2_ro_field 3 "${established}")"
+  kind="$(r2_ro_field 4 "${established}")"
+  policy="$(r2_ro_field 5 "${established}")"
+  expected_ctx="$(r2_ro_field 6 "${established}")"
   expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
     echo "error: GATE-FIX-S28R3-QA13 unable to fingerprint restore tuple/context" >&2
@@ -260,7 +258,7 @@ assert_bound_r2_ro_proof() {
   local _prove_log
   _prove_log="$(mktemp "${TMPDIR:-/tmp}/holo-prove.log.XXXXXX")"
   set +e
-  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE:-}"     "HOLO_R2_PROVIDER_MOCK_CANARY=${HOLO_R2_PROVIDER_MOCK_CANARY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
+  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "BACKUP_R2_ACCESS_KEY_ID=${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-}}"     "BACKUP_R2_SECRET_ACCESS_KEY=${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-}}"     "R2_PARENT_ACCESS_KEY_ID=${R2_PARENT_ACCESS_KEY_ID:-}"     "R2_PARENT_SECRET_ACCESS_KEY=${R2_PARENT_SECRET_ACCESS_KEY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
   local _prove_rc=$?
   set -e
   if [[ $_prove_rc -ne 0 ]]; then
@@ -793,14 +791,26 @@ if [[ -z "${R2_CREDENTIAL_KIND:-}" ]]; then
   CHILD_ENV_ARGS+=("R2_CREDENTIAL_KIND=object-read-only")
 fi
 
-# HOLO_CLI: .ts/.js via bun; injectable recorder scripts run directly.
+# HOLO_CLI: .ts/.js via Bun only when Bun is root-owned trust-chain validated.
+# GATE-FIX-S28R3-QA19: never pass restore credentials to user-owned Homebrew/local Bun.
 if [[ "$HOLO_CLI" == *.ts || "$HOLO_CLI" == *.js || "$HOLO_CLI" == *.mjs || "$HOLO_CLI" == *.cjs ]]; then
   if [[ ! -f "$HOLO_CLI" ]]; then
     err "holo CLI missing: $HOLO_CLI"
     exit 2
   fi
-  if [[ -z "$BUN_BIN" ]]; then
-    err "GATE-FIX-S28R3-QA17 fixed bun not found (/opt/homebrew/bin/bun or /usr/local/bin/bun)"
+  BUN_BIN=""
+  BUN_TRUSTED=0
+  for _cand in /opt/homebrew/bin/bun /usr/local/bin/bun /usr/bin/bun; do
+    if [[ -x "$_cand" ]]; then
+      if _resolved="$(r2_ro_validate_root_bin "$_cand" 2>/dev/null)"; then
+        BUN_BIN="$_resolved"
+        BUN_TRUSTED=1
+        break
+      fi
+    fi
+  done
+  if [[ "$BUN_TRUSTED" -ne 1 || -z "$BUN_BIN" ]]; then
+    err "GATE-FIX-S28R3-QA19 refuses restore credentials to untrusted/user-owned Bun (require root-owned trust chain or non-TS HOLO_CLI recorder)"
     exit 2
   fi
   RUN_PREFIX=("$BUN_BIN" "$HOLO_CLI")
@@ -809,6 +819,14 @@ else
     err "holo CLI missing: $HOLO_CLI"
     exit 2
   fi
+  # Absolute non-TS recorder/CLI only (no PATH lookup).
+  case "$HOLO_CLI" in
+    /*) ;;
+    *)
+      err "GATE-FIX-S28R3-QA19 HOLO_CLI must be absolute path"
+      exit 2
+      ;;
+  esac
   RUN_PREFIX=("$HOLO_CLI")
 fi
 

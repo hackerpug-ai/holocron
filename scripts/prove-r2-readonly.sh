@@ -397,42 +397,50 @@ run_live_probe() {
     return 1
   fi
 
-  # GATE-FIX-S28R3-QA17: optional writer preflight when explicit BACKUP/PARENT writer secrets exist.
-  # Never treat ambient R2_* as writer (same-parent CF temp RO tuples).
+  # GATE-FIX-S28R3-QA19: MANDATORY writer/control-plane preflight before restore-key oracles.
+  # Explicit BACKUP_* or R2_PARENT_* writer secrets required (never ambient R2_* as writer).
+  # Session token required when parent temporary credentials are used (secrets R2_SESSION_TOKEN).
   local wak="${BACKUP_R2_ACCESS_KEY_ID:-${R2_PARENT_ACCESS_KEY_ID:-}}"
   local wsk="${BACKUP_R2_SECRET_ACCESS_KEY:-${R2_PARENT_SECRET_ACCESS_KEY:-}}"
-  export R2_SCOPE_PREFLIGHT_PROVENANCE="versioned-config-bind"
-  export R2_SCOPE_PREFLIGHT_IN_EXISTS="pending-ro-head"
-  export R2_SCOPE_PREFLIGHT_OUT_EXISTS="pending-access-denied-oracle"
-  # Harness mock: skip writer preflight.
-  if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
-    wak=""
-    wsk=""
-    export R2_SCOPE_PREFLIGHT_PROVENANCE="versioned-config-bind+mock"
+  local wst="${BACKUP_R2_SESSION_TOKEN:-${R2_PARENT_SESSION_TOKEN:-}}"
+  export R2_SCOPE_PREFLIGHT_PROVENANCE=""
+  export R2_SCOPE_PREFLIGHT_IN_EXISTS=""
+  export R2_SCOPE_PREFLIGHT_OUT_EXISTS=""
+  if [[ -z "$wak" || -z "$wsk" ]]; then
+    fail "GATE-FIX-S28R3-QA19 writer preflight required: set BACKUP_R2_* or R2_PARENT_* (class=scope_preflight_missing)"
+    return 1
   fi
-  if [[ -n "$wak" && -n "$wsk" && "$wsk" != "$secret" ]]; then
-    local prc_in prc_out
-    set +e
-    r2_ro_run_provider "$wak" "$wsk" "" head-object \
-      --endpoint "$endpoint" --bucket "$bucket" --key "$in_key" >/dev/null 2>&1
-    prc_in=$?
-    r2_ro_run_provider "$wak" "$wsk" "" head-object \
-      --endpoint "$endpoint" --bucket "$bucket" --key "$out_key" >/dev/null 2>&1
-    prc_out=$?
-    set -e
-    if [[ $prc_in -eq 0 && $prc_out -eq 0 ]]; then
-      export R2_SCOPE_PREFLIGHT_PROVENANCE="writer-head-preflight"
-      export R2_SCOPE_PREFLIGHT_IN_EXISTS="true"
-      export R2_SCOPE_PREFLIGHT_OUT_EXISTS="true"
-      pass "writer preflight: both scope probes exist (class=scope_preflight_ok)"
-    elif [[ "${R2_SCOPE_REQUIRE_WRITER_PREFLIGHT:-0}" == "1" ]]; then
-      fail "GATE-FIX-S28R3-QA17 writer preflight required but failed (in=${prc_in} out=${prc_out})"
-      return 1
-    else
-      info "writer preflight unavailable (in=${prc_in} out=${prc_out}); continuing with versioned bind + RO oracles"
-    fi
+  if [[ "$wsk" == "$secret" ]]; then
+    fail "GATE-FIX-S28R3-QA19 writer preflight refused: writer secret equals restore secret (class=scope_preflight_writer_eq_restore)"
+    return 1
   fi
-
+  # Never reuse restore session token as writer session (distinct identities).
+  if [[ -n "$wst" && -n "$session" && "$wst" == "$session" ]]; then
+    fail "GATE-FIX-S28R3-QA19 writer preflight refused: writer session equals restore session (class=scope_preflight_session_eq_restore)"
+    return 1
+  fi
+  local prc_in prc_out
+  set +e
+  r2_ro_run_provider "$wak" "$wsk" "$wst" head-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$in_key" >/dev/null 2>&1
+  prc_in=$?
+  r2_ro_run_provider "$wak" "$wsk" "$wst" head-object \
+    --endpoint "$endpoint" --bucket "$bucket" --key "$out_key" >/dev/null 2>&1
+  prc_out=$?
+  set -e
+  if [[ $prc_in -ne 0 ]]; then
+    fail "GATE-FIX-S28R3-QA19 writer preflight: in-key not proven existing (exit ${prc_in}; refuse 404/unclassified)"
+    return 1
+  fi
+  if [[ $prc_out -ne 0 ]]; then
+    fail "GATE-FIX-S28R3-QA19 writer preflight: out-key not proven existing (exit ${prc_out}; refuse 404/unclassified)"
+    return 1
+  fi
+  export R2_SCOPE_PREFLIGHT_PROVENANCE="writer-head-preflight"
+  export R2_SCOPE_PREFLIGHT_IN_EXISTS="true"
+  export R2_SCOPE_PREFLIGHT_OUT_EXISTS="true"
+  export R2_SCOPE_PREFLIGHT_WRITER_AK_FP16="$(r2_ro_tuple_fp16 "$wak" "$wsk" "$wst")"
+  pass "writer preflight: both scope probes exist (class=scope_preflight_ok)"
   # (1) Prefix list must succeed and return at least one object.
   local ls_out ls_rc
   set +e
@@ -715,7 +723,7 @@ write_r2_ro_proof_attestation() {
       fail "unable to establish canonical R2 context for proof"
       return 1
     fi
-    ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
+    ctx="$(r2_ro_field 6 "${established}")"
   fi
   if [[ -z "$ctx" || "${#ctx}" -lt 8 ]]; then
     fail "unable to compute non-secret context fingerprint for RO proof attestation"
@@ -790,12 +798,12 @@ if ! CANON_CTX_LINE="$(R2_ENDPOINT="$ENDPOINT" R2_BUCKET_NAME="${BUCKET:-holocro
   echo "=== RESULT: FAIL (canonical context refused) ==="
   exit 1
 fi
-CANON_EP="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $1}')"
-CANON_BUCKET="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $2}')"
-CANON_PREFIX="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $3}')"
-CANON_KIND="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $4}')"
-CANON_POLICY="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $5}')"
-HOLO_R2_CONTEXT_FP16="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $6}')"
+CANON_EP="$(r2_ro_field 1 "${CANON_CTX_LINE}")"
+CANON_BUCKET="$(r2_ro_field 2 "${CANON_CTX_LINE}")"
+CANON_PREFIX="$(r2_ro_field 3 "${CANON_CTX_LINE}")"
+CANON_KIND="$(r2_ro_field 4 "${CANON_CTX_LINE}")"
+CANON_POLICY="$(r2_ro_field 5 "${CANON_CTX_LINE}")"
+HOLO_R2_CONTEXT_FP16="$(r2_ro_field 6 "${CANON_CTX_LINE}")"
 export HOLO_R2_CONTEXT_FP16
 ENDPOINT="$CANON_EP"
 BUCKET="$CANON_BUCKET"
