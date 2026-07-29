@@ -32,6 +32,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# GATE-FIX-S28R3-QA12 shared live provider helpers
+# shellcheck source=scripts/lib/r2-ro-live.sh
+source "$ROOT/scripts/lib/r2-ro-live.sh"
 
 HOST_NAME=""
 TARGET_TIMESTAMP=""
@@ -196,79 +199,70 @@ r2_context_fp16() {
 }
 
 assert_bound_r2_ro_proof() {
-  # GATE-FIX-S28R3-QA11: fixed prover only; private trusted evidence; context digest.
+  # GATE-FIX-S28R3-QA12: fixed prover + trusted AWS independent of PATH;
+  # canonical context; exclusive private proof; consumer-level validation.
   local rak="$1" rsk="$2" rst="$3"
-  local endpoint="${R2_ENDPOINT:-}"
-  local bucket="${R2_BUCKET_NAME:-holocron-backup}"
-  local prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
-  local policy="${R2_CREDENTIAL_POLICY:-}"
-  local expected_fp expected_ctx proof
+  local expected_fp expected_ctx proof prove_cmd established
+  local ep bucket prefix kind policy
   if [[ -n "${HOLO_PROVE_R2_READONLY:-}" ]]; then
-    err "GATE-FIX-S28R3-QA11 refuses HOLO_PROVE_R2_READONLY override in live mode (fixed prover only)"
+    echo "error: GATE-FIX-S28R3-QA11/12 refuses HOLO_PROVE_R2_READONLY override in live mode (fixed prover only)" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  expected_fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
-  expected_ctx="$(r2_context_fp16 "$endpoint" "$bucket" "$prefix" "$policy")"
+  # Build/establish canonical context (reject empty/alternate policy & bad prefix).
+  if ! established="$(r2_ro_establish_canonical_context)"; then
+    echo "error: GATE-FIX-S28R3-QA12 canonical context refused before live proof" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  ep="$(printf '%s' "$established" | awk -F'\t' '{print $1}')"
+  bucket="$(printf '%s' "$established" | awk -F'\t' '{print $2}')"
+  prefix="$(printf '%s' "$established" | awk -F'\t' '{print $3}')"
+  kind="$(printf '%s' "$established" | awk -F'\t' '{print $4}')"
+  policy="$(printf '%s' "$established" | awk -F'\t' '{print $5}')"
+  expected_ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
+  expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
-    err "GATE-FIX-S28R3-QA11 unable to fingerprint restore tuple/context"
+    echo "error: GATE-FIX-S28R3-QA12 unable to fingerprint restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  mkdir -p "$ROOT/.tmp/r2-ro-proofs"
-  proof="$(mktemp "$ROOT/.tmp/r2-ro-proofs/proof.XXXXXX")"
-  chmod 600 "$proof" 2>/dev/null || true
-  log "GATE-FIX-S28R3-QA11: fresh live RO proof via fixed scripts/prove-r2-readonly.sh (values not logged)"
+  # Private 0700 dir + nonexistent proof name (producer creates exclusively).
+  r2_ro_ensure_private_proof_dir >/dev/null || exit 2
+  proof="$(r2_ro_new_proof_path)" || exit 2
+  prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
+  echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA12: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
   if ! env \
     REQUIRE_LIVE_R2_RO=1 \
     HOLO_R2_RO_PROOF_OUT="$proof" \
+    HOLO_R2_CONTEXT_FP16="$expected_ctx" \
+    HOLO_TRUSTED_AWS_BIN="${HOLO_TRUSTED_AWS_BIN:-}" \
     R2_RESTORE_ACCESS_KEY_ID="$rak" \
     R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
     R2_RESTORE_SESSION_TOKEN="$rst" \
-    R2_ACCESS_KEY_ID="${WRITER_AK:-}" \
-    R2_SECRET_ACCESS_KEY="${WRITER_SK:-}" \
-    R2_ENDPOINT="$endpoint" \
+    R2_ACCESS_KEY_ID="${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}" \
+    R2_SECRET_ACCESS_KEY="${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}" \
+    R2_ENDPOINT="$ep" \
     R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
     R2_BUCKET_NAME="$bucket" \
     R2_PGBACKREST_PREFIX="$prefix" \
     R2_RESTORE_OBJECT_PREFIX="$prefix" \
+    R2_CREDENTIAL_KIND="$kind" \
     R2_CREDENTIAL_POLICY="$policy" \
     HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
-    bash "$ROOT/scripts/prove-r2-readonly.sh"; then
-    err "GATE-FIX-S28R3-QA11 fresh live RO proof failed for the exact restore tuple before fire-drill"
+    HOME="${HOME:-/tmp}" \
+    bash "$prove_cmd"; then
+    echo "error: GATE-FIX-S28R3-QA12 fresh live RO proof failed for the exact restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-    rm -f "$proof"
+    rm -f "$proof" 2>/dev/null || true
     exit 2
   fi
-  if ! python3 - "$proof" "$expected_fp" "$expected_ctx" <<'PY'
-import json, os, stat, sys
-from datetime import datetime, timezone
-path, expected_fp, expected_ctx = sys.argv[1:4]
-st = os.stat(path)
-if stat.S_IMODE(st.st_mode) != 0o600:
-    print("error: RO proof attestation mode != 0o600", file=sys.stderr); sys.exit(2)
-data = json.load(open(path, encoding="utf-8"))
-if data.get("schema") != "holo.r2-ro-proof.v1" or data.get("ok") is not True:
-    print("error: RO proof attestation missing schema/ok", file=sys.stderr); sys.exit(2)
-if data.get("tuple_fp16") != expected_fp:
-    print("error: RO proof tuple_fp16 mismatch", file=sys.stderr); sys.exit(2)
-if data.get("context_fp16") != expected_ctx:
-    print("error: RO proof context_fp16 mismatch", file=sys.stderr); sys.exit(2)
-if data.get("producer") != "scripts/prove-r2-readonly.sh":
-    print("error: RO proof producer is not fixed scripts/prove-r2-readonly.sh", file=sys.stderr); sys.exit(2)
-for k in ("list_allowed", "put_denied", "delete_denied"):
-    if data.get(k) is not True:
-        print(f"error: RO proof {k} not true", file=sys.stderr); sys.exit(2)
-proved = data.get("proved_at") or ""
-dt = datetime.strptime(proved, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-age = (datetime.now(timezone.utc) - dt).total_seconds()
-if age < 0 or age > 7200:
-    print("error: RO proof attestation stale or future-dated", file=sys.stderr); sys.exit(2)
-print(f"RO proof fresh-bound ok tuple_fp16={expected_fp} context_fp16={expected_ctx}")
-sys.exit(0)
-PY
-  then
+  # Test-only mutation seam (MEDIUM-2): apply before real consumer validation.
+  if [[ -n "${HOLO_QA_PROOF_MUTATE:-}" ]]; then
+    r2_ro_apply_qa_proof_mutate "$proof" || exit 2
+  fi
+  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
@@ -312,7 +306,17 @@ assert_restore_credential_tuple() {
     fi
     log "GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape accepted (same parent AK; writer secret present; session token present; secret not logged)"
   fi
-  # Bind live denial oracle to exact tuple before child consumes it (QA9/M1).
+  # GATE-FIX-S28R3-QA12: establish canonical prefix/policy before live proof.
+  local _prefix _bucket
+  _prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+  _prefix="${_prefix#/}"; _prefix="${_prefix%/}"
+  _bucket="${R2_BUCKET_NAME:-holocron-backup}"
+  export R2_BUCKET_NAME="$_bucket"
+  export R2_RESTORE_OBJECT_PREFIX="$_prefix"
+  export R2_PGBACKREST_PREFIX="$_prefix"
+  export R2_CREDENTIAL_KIND="object-read-only"
+  export R2_CREDENTIAL_POLICY="$(r2_ro_build_canonical_policy_json "$_bucket" "$_prefix")"
+  # Bind live denial oracle to exact tuple+context before child consumes it.
   assert_bound_r2_ro_proof "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST"
 }
 

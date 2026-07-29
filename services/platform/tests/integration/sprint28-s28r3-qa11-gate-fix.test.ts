@@ -17,6 +17,7 @@ const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh'
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
 const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
 const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
+const TRUSTED_AWS = resolve(FIX_BIN, 'aws');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA11');
 
 const WRITER_AK = 'qa11cfwriterakid0123456789abcdef';
@@ -44,6 +45,8 @@ function tokenFp16(v: string): string {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
+    HOLO_TRUSTED_AWS_BIN: TRUSTED_AWS,
+    // PATH only for curl mock (mint); aws comes from HOLO_TRUSTED_AWS_BIN only.
     PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa11-no-secrets',
     HOLO_SECRETS_PATH: '/nonexistent-s28r3-qa11-no-secrets',

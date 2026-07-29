@@ -41,6 +41,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# GATE-FIX-S28R3-QA12: trusted provider + canonical context + private proof helpers
+# shellcheck source=scripts/lib/r2-ro-live.sh
+source "$ROOT/scripts/lib/r2-ro-live.sh"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -131,7 +134,7 @@ load_secrets_if_present() {
     v="${v%\'}"; v="${v#\'}"
     # Only fill when env unset — never override explicit restore RO env.
     case "$k" in
-      R2_ACCOUNT_ID|R2_ENDPOINT|R2_BUCKET_NAME|R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|CLOUDFLARE_API_TOKEN|R2_PARENT_ACCESS_KEY_ID|R2_PARENT_SECRET_ACCESS_KEY)
+      R2_ACCOUNT_ID|R2_ENDPOINT|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|CLOUDFLARE_API_TOKEN|R2_PARENT_ACCESS_KEY_ID|R2_PARENT_SECRET_ACCESS_KEY)
         if [[ -z "${!k:-}" && -n "$v" ]]; then
           export "$k=$v"
         fi
@@ -366,7 +369,7 @@ make_sacrificial_drill_neg_key() {
 }
 
 run_live_probe() {
-  local key="$1" secret="$2" endpoint="$3" bucket="$4" session="${5:-}"
+  local key="$1" secret="$2" endpoint="$3" bucket="$4" session="${5:-}" prefix="${6:-}"
   # REDHAT-FIX-H4: uniquely generated sacrificial key only — never live recovery objects.
   local probe_key
   probe_key="$(make_sacrificial_drill_neg_key)"
@@ -376,57 +379,137 @@ run_live_probe() {
     return 1
   fi
 
-  if ! command -v aws >/dev/null 2>&1; then
-    fail "aws CLI not installed — cannot live-prove R2 read-only"
+  local aws_bin
+  if ! aws_bin="$(r2_ro_resolve_trusted_aws_bin)"; then
+    fail "GATE-FIX-S28R3-QA12 trusted aws provider unavailable (PATH ignored; no allowlist hit)"
     return 1
   fi
+  info "using trusted aws provider (absolute path; values not logged)"
 
+  # Minimal PATH for provider process — never caller PATH (CRITICAL-1).
   local aws_env=(
     env
+    -i
+    "PATH=/usr/bin:/bin"
+    "HOME=${HOME:-/tmp}"
     "AWS_ACCESS_KEY_ID=${key}"
     "AWS_SECRET_ACCESS_KEY=${secret}"
     "AWS_DEFAULT_REGION=auto"
     "AWS_EC2_METADATA_DISABLED=true"
     "AWS_PAGER="
+    "LC_ALL=C"
+    "R2_PGBACKREST_PREFIX=${prefix}"
+    "R2_RESTORE_OBJECT_PREFIX=${prefix}"
   )
   if [[ -n "$session" ]]; then
     aws_env+=("AWS_SESSION_TOKEN=${session}")
   else
     aws_env+=("AWS_SESSION_TOKEN=")
   fi
+  # Test fixtures only (never secrets): forward mock mode into env -i provider process.
+  if [[ -n "${HOLO_AWS_MOCK_MODE:-}" ]]; then
+    aws_env+=("HOLO_AWS_MOCK_MODE=${HOLO_AWS_MOCK_MODE}")
+  fi
+  if [[ -n "${HOLO_AWS_MOCK_CANARY:-}" ]]; then
+    aws_env+=("HOLO_AWS_MOCK_CANARY=${HOLO_AWS_MOCK_CANARY}")
+  fi
+  if [[ -n "${HOLO_AWS_MOCK_RAN_MARKER:-}" ]]; then
+    aws_env+=("HOLO_AWS_MOCK_RAN_MARKER=${HOLO_AWS_MOCK_RAN_MARKER}")
+  fi
 
-  # GATE-FIX-S28R3-QA11 / HIGH-2: never interpolate raw provider stdout/stderr into logs.
-  # Classify only by exit codes and fixed denial markers; discard response bodies.
   classify_denial() {
-    # stdin: provider output; exit 0 if AccessDenied/403-class denial markers present
     grep -qiE 'AccessDenied|Access Denied|not authorized|Forbidden|InvalidAccessKeyId|UnknownError|Unauthorized|\b403\b'
   }
 
-  # (2) List must succeed
-  local ls_out ls_rc
+  # (1) Prefix-scoped list must succeed (HIGH-1). Prefer non-recursive, then recursive
+  # to locate a real object under the declared prefix (PRE-only listings are common).
+  local ls_out ls_rc prefix_key=""
+  local prefix_uri="s3://${bucket}/${prefix}/"
   set +e
-  ls_out="$("${aws_env[@]}" aws s3 ls "s3://${bucket}" --endpoint-url "$endpoint" 2>&1)"
+  ls_out="$("${aws_env[@]}" "$aws_bin" s3 ls "$prefix_uri" --endpoint-url "$endpoint" 2>&1)"
   ls_rc=$?
   set -e
-  # Drop body immediately after status capture.
-  ls_out=""
   if [[ $ls_rc -ne 0 ]]; then
-    fail "aws s3 ls failed (exit ${ls_rc}; class=list_denied_or_error) — List must be allowed for restore RO"
+    ls_out=""
+    fail "aws s3 ls prefix failed (exit ${ls_rc}; class=prefix_list_denied_or_error)"
     return 1
   fi
-  pass "aws s3 ls exit 0 (List allowed; body not logged)"
+  parse_prefix_key() {
+    python3 -c '
+import sys
+prefix = sys.argv[1].rstrip("/") + "/"
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if not line.strip():
+        continue
+    # Skip pure directory placeholders
+    if line.lstrip().startswith("PRE ") or " PRE " in line[:40]:
+        continue
+    parts = line.split()
+    if len(parts) >= 4:
+        key = " ".join(parts[3:])
+    elif len(parts) >= 1:
+        key = parts[-1]
+    else:
+        continue
+    if key.endswith("/"):
+        continue
+    if not key.startswith(prefix.rstrip("/")):
+        # relative key from non-recursive listing
+        key = prefix.rstrip("/") + "/" + key.lstrip("/")
+    print(key)
+    sys.exit(0)
+sys.exit(1)
+' "$1"
+  }
+  prefix_key="$(printf '%s\n' "$ls_out" | parse_prefix_key "$prefix")" || true
+  if [[ -z "$prefix_key" ]]; then
+    # Recursive list under declared prefix only.
+    set +e
+    ls_out="$("${aws_env[@]}" "$aws_bin" s3 ls "$prefix_uri" --recursive --endpoint-url "$endpoint" 2>&1)"
+    ls_rc=$?
+    set -e
+    if [[ $ls_rc -ne 0 ]]; then
+      ls_out=""
+      fail "aws s3 ls --recursive prefix failed (exit ${ls_rc}; class=prefix_list_denied_or_error)"
+      return 1
+    fi
+    prefix_key="$(printf '%s\n' "$ls_out" | parse_prefix_key "$prefix")" || true
+  fi
+  ls_out=""
+  if [[ -z "$prefix_key" ]]; then
+    fail "prefix-scoped list empty (class=missing_in_prefix_object) — no object under declared restore prefix"
+    return 1
+  fi
+  pass "aws s3 ls prefix exit 0 (prefix List allowed; body not logged)"
+
+  # (2) HeadObject on an in-prefix object (no body download / no content log).
+  local head_out head_rc
+  set +e
+  head_out="$("${aws_env[@]}" "$aws_bin" s3api head-object \
+    --bucket "$bucket" \
+    --key "$prefix_key" \
+    --endpoint-url "$endpoint" 2>&1)"
+  head_rc=$?
+  set -e
+  head_out=""
+  if [[ $head_rc -ne 0 ]]; then
+    fail "aws s3api head-object under prefix failed (exit ${head_rc}; class=prefix_head_denied_or_error)"
+    return 1
+  fi
+  pass "aws s3api head-object under prefix exit 0 (Get/Head allowed; body not logged)"
   info "sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)"
 
-  # (3) Put must be denied — only against sacrificial drill-neg key.
+  # (3) Put must be denied — sacrificial drill-neg only.
   local put_out put_rc
   set +e
-  put_out="$(echo "SACRIFICIAL_DRILL_NEG_H4-should-deny" | "${aws_env[@]}" aws s3 cp - "$s3_uri" --endpoint-url "$endpoint" 2>&1)"
+  put_out="$(echo "SACRIFICIAL_DRILL_NEG_H4-should-deny" | "${aws_env[@]}" "$aws_bin" s3 cp - "$s3_uri" --endpoint-url "$endpoint" 2>&1)"
   put_rc=$?
   set -e
   if [[ $put_rc -eq 0 ]]; then
     fail "aws s3 cp SUCCEEDED (class=put_allowed) — credentials allow Put (not object-read-only); cleaning sacrificial probe"
     set +e
-    "${aws_env[@]}" aws s3 rm "$s3_uri" --endpoint-url "$endpoint" >/dev/null 2>&1
+    "${aws_env[@]}" "$aws_bin" s3 rm "$s3_uri" --endpoint-url "$endpoint" >/dev/null 2>&1
     set -e
     put_out=""
     return 1
@@ -439,15 +522,14 @@ run_live_probe() {
   put_out=""
   pass "aws s3 cp denied (Put blocked; exit ${put_rc}; class=access_denied)"
 
-  # (4) Delete must be denied — sacrificial drill-neg key ONLY (H-4).
+  # (4) Delete must be denied — sacrificial only.
   if ! assert_safe_destructive_probe_key "$probe_key" "delete probe"; then
     return 1
   fi
   local del_target="s3://${bucket}/${probe_key}"
-
   local del_out del_rc
   set +e
-  del_out="$("${aws_env[@]}" aws s3 rm "$del_target" --endpoint-url "$endpoint" 2>&1)"
+  del_out="$("${aws_env[@]}" "$aws_bin" s3 rm "$del_target" --endpoint-url "$endpoint" 2>&1)"
   del_rc=$?
   set -e
   if [[ $del_rc -eq 0 ]]; then
@@ -459,10 +541,9 @@ run_live_probe() {
   fi
   del_out=""
 
-  # Stronger Delete probe via s3api DeleteObject — returns AccessDenied for RO tokens.
   local api_out api_rc
   set +e
-  api_out="$("${aws_env[@]}" aws s3api delete-object \
+  api_out="$("${aws_env[@]}" "$aws_bin" s3api delete-object \
     --bucket "$bucket" \
     --key "$probe_key" \
     --endpoint-url "$endpoint" 2>&1)"
@@ -585,81 +666,52 @@ r2_writer_equivalent_tuple() {
   return 1
 }
 
-# Safe non-secret fingerprint of the effective restore tuple (for proof binding).
-r2_tuple_fp16() {
-  local rak="${1:-}" rsk="${2:-}" rst="${3:-}"
-  printf '%s\0%s\0%s' "$rak" "$rsk" "$rst" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
-}
-
+# Safe non-secret fingerprints — delegate to shared lib (GATE-FIX-S28R3-QA12).
+r2_tuple_fp16() { r2_ro_tuple_fp16 "$@"; }
 r2_context_fp16() {
-  # Non-secret digest of endpoint|bucket|prefix|policy (canonical empty → "").
-  local endpoint="${1:-}" bucket="${2:-}" prefix="${3:-}" policy="${4:-}"
-  printf '%s\0%s\0%s\0%s' "$endpoint" "$bucket" "$prefix" "$policy" \
-    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+  r2_ro_context_fp16 "$1" "$2" "$3" "${4:-object-read-only}" "${5:-}"
 }
 
 write_r2_ro_proof_attestation() {
-  # GATE-FIX-S28R3-QA11: evidence only under trusted dir; exclusive create; mode 0600.
-  # HOLO_R2_RO_PROOF_OUT is internal coordination only and MUST be under .tmp/r2-ro-proofs.
-  local out="${HOLO_R2_RO_PROOF_OUT:-}"
+  # GATE-FIX-S28R3-QA12: exclusive no-follow create under trusted private dir only.
   local rak="$1" rsk="$2" rst="$3"
-  local trusted="$ROOT/.tmp/r2-ro-proofs"
-  mkdir -p "$trusted"
+  local out="${HOLO_R2_RO_PROOF_OUT:-}"
+  local fp ctx
   if [[ -z "$out" ]]; then
-    out="$(mktemp "$trusted/proof.XXXXXX")"
+    out="$(r2_ro_new_proof_path)" || return 1
   else
     case "$out" in
-      "$trusted"/*) ;;
+      "$R2_RO_TRUSTED_PROOF_DIR"/*) ;;
       *)
-        fail "HOLO_R2_RO_PROOF_OUT must be under .tmp/r2-ro-proofs (refusing caller-selected path)"
+        fail "HOLO_R2_RO_PROOF_OUT must be under trusted .tmp/r2-ro-proofs"
         return 1
         ;;
     esac
+    if [[ -e "$out" ]]; then
+      fail "HOLO_R2_RO_PROOF_OUT already exists (refuse truncate/follow)"
+      return 1
+    fi
   fi
-  local fp ctx
-  fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
+  fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$fp" || "${#fp}" -lt 8 ]]; then
     fail "unable to compute non-secret tuple fingerprint for RO proof attestation"
     return 1
   fi
-  local endpoint="${ENDPOINT:-${R2_ENDPOINT:-}}"
-  local bucket="${BUCKET:-${R2_BUCKET_NAME:-}}"
-  local prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-}}"
-  local policy="${R2_CREDENTIAL_POLICY:-}"
-  ctx="$(r2_context_fp16 "$endpoint" "$bucket" "$prefix" "$policy")"
+  if [[ -n "${HOLO_R2_CONTEXT_FP16:-}" ]]; then
+    ctx="${HOLO_R2_CONTEXT_FP16}"
+  else
+    local established
+    if ! established="$(r2_ro_establish_canonical_context)"; then
+      fail "unable to establish canonical R2 context for proof"
+      return 1
+    fi
+    ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
+  fi
   if [[ -z "$ctx" || "${#ctx}" -lt 8 ]]; then
     fail "unable to compute non-secret context fingerprint for RO proof attestation"
     return 1
   fi
-  mkdir -p "$(dirname "$out")"
-  # Exclusive write when possible (no-follow via O_EXCL when file truncated by consumer first).
-  python3 - "$out" "$fp" "$ctx" <<'PY'
-import json, os, sys
-from datetime import datetime, timezone
-out, fp, ctx = sys.argv[1:4]
-# Ensure private mode: open/create, write, fchmod 0o600.
-fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-try:
-    os.fchmod(fd, 0o600)
-except OSError:
-    pass
-payload = {
-  "schema": "holo.r2-ro-proof.v1",
-  "ok": True,
-  "tuple_fp16": fp,
-  "context_fp16": ctx,
-  "list_allowed": True,
-  "put_denied": True,
-  "delete_denied": True,
-  "producer": "scripts/prove-r2-readonly.sh",
-  "proved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-  "note": "non-secret fingerprints only — never includes credential or raw context values",
-}
-with os.fdopen(fd, "w", encoding="utf-8") as f:
-  json.dump(payload, f, indent=2)
-  f.write("\n")
-print(f"wrote RO proof attestation: {out} tuple_fp16={fp} context_fp16={ctx}")
-PY
+  r2_ro_write_proof_exclusive "$out" "$fp" "$ctx"
 }
 
 PLACEHOLDER=0
@@ -716,7 +768,28 @@ if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]
   info "GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session present) — live Put/Delete oracle required"
 fi
 
-if ! run_live_probe "$AK" "$SK" "$ENDPOINT" "$BUCKET" "$ST"; then
+# Establish canonical context (endpoint/bucket/prefix/policy) before probe.
+CANON_CTX_LINE=""
+if ! CANON_CTX_LINE="$(R2_ENDPOINT="$ENDPOINT" R2_BUCKET_NAME="$BUCKET"   R2_RESTORE_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"   R2_CREDENTIAL_KIND="${R2_CREDENTIAL_KIND:-object-read-only}"   R2_CREDENTIAL_POLICY="${R2_CREDENTIAL_POLICY:-}"   r2_ro_establish_canonical_context)"; then
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
+  echo "=== RESULT: FAIL (canonical context refused) ==="
+  exit 1
+fi
+CANON_EP="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $1}')"
+CANON_BUCKET="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $2}')"
+CANON_PREFIX="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $3}')"
+CANON_KIND="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $4}')"
+CANON_POLICY="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $5}')"
+HOLO_R2_CONTEXT_FP16="$(printf '%s' "$CANON_CTX_LINE" | awk -F'	' '{print $6}')"
+export HOLO_R2_CONTEXT_FP16
+ENDPOINT="$CANON_EP"
+BUCKET="$CANON_BUCKET"
+export R2_RESTORE_OBJECT_PREFIX="$CANON_PREFIX"
+export R2_PGBACKREST_PREFIX="$CANON_PREFIX"
+export R2_CREDENTIAL_KIND="$CANON_KIND"
+export R2_CREDENTIAL_POLICY="$CANON_POLICY"
+
+if ! run_live_probe "$AK" "$SK" "$ENDPOINT" "$BUCKET" "$ST" "$CANON_PREFIX"; then
   if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
     fail "probed identity is the backup read-write secret — mint a distinct object-read-only token"
     human_required_mint
@@ -752,5 +825,5 @@ if ! write_r2_ro_proof_attestation "$AK" "$SK" "$ST"; then
   exit 1
 fi
 
-echo "=== RESULT: PASS (live R2 List allowed; Put/Delete AccessDenied) ==="
+echo "=== RESULT: PASS (live R2 prefix List+Head allowed; Put/Delete AccessDenied) ==="
 exit 0
