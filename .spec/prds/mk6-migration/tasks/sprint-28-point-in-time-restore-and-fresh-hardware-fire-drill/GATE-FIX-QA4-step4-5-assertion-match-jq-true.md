@@ -1,6 +1,7 @@
 # GATE-FIX-QA4 — Align step4/step5 gate assertions with jq -e scalar `true` output
 
-> Status: ⬜ Pending  
+> Status: ✅ Done  
+
 > Sprint: [Sprint 28](./SPRINT.md)  
 > Agent: devops-engineer  
 > Reviewer: code-reviewer + product-manager  
