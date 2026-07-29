@@ -1,0 +1,4 @@
+=== Step 5: blob SHA-256 parity ===
+BLOB True
+matched 11
+restic e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360

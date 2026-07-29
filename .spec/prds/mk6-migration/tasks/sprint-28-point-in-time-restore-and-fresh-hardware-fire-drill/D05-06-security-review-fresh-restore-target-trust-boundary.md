@@ -1,4 +1,6 @@
 # D05-06 — Security review: fresh-restore-target trust boundary
+> Status: ✅ Completed
+> Completed: 2026-07-29T01:13:23Z
 
 ## What this does
 

@@ -1,4 +1,6 @@
 # D05-01 — RED: restore fails closed on empty/corrupted backup chain
+> Status: ✅ Completed
+> Completed: 2026-07-29T01:13:23Z
 
 ## What this does
 

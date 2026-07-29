@@ -1,4 +1,6 @@
 # D05-02 — holo restore --pitr <timestamp> operator command
+> Status: ✅ Completed
+> Completed: 2026-07-29T01:13:23Z
 
 ## What this does
 

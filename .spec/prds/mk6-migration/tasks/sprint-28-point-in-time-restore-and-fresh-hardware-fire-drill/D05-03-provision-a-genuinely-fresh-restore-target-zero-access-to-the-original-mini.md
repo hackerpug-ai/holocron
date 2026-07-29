@@ -1,4 +1,6 @@
 # D05-03 — Provision a genuinely fresh restore target (zero access to the original mini)
+> Status: ✅ Completed
+> Completed: 2026-07-29T01:13:23Z
 
 ## What this does
 

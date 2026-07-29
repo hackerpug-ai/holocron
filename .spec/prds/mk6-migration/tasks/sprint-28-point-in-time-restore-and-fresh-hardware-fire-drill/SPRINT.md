@@ -1,7 +1,7 @@
 ---
 sequence: 28
 timeline: Phase 6 — Standing Backup and Disaster Recovery
-status: Planned
+status: Completed
 planned_from_roadmap_sha: 95b4657a2d19ffcbd9c0208f4c9aef433c77782cda63a816635c606080f275ae
 planned_from_source_sha: 2c3778c231e21001b4c6095ec9c406f01f94e4ff
 source_kind: git-head
@@ -12,7 +12,9 @@ planned_at: 2026-07-28T01:16:22Z
 
 **Sequence:** 28
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
-**Status:** Planned
+**Status:** Completed
+> Progress: 4/7 tasks completed · updated 2026-07-29T01:13:22Z
+> Status-Note: GATE-GOAL ACHIEVED — 6/6 tasks landed on main; human-test 6/6 pass; residual DEPENDENCY-S28-R2-RO
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-28`)
 **Branch:** `mk6-restore-drill`
@@ -55,6 +57,16 @@ The gate is one un-fakeable outcome: **restore Postgres + blob storage from the 
 | D05-04 | Run the full fire-drill restore (Postgres + blob) end-to-end | devops-engineer | 150 min |
 | D05-05 | Schedule the fire drill as a periodic mission + author the runbook | devops-engineer | 90 min |
 | D05-06 | Security review: fresh-restore-target trust boundary | security-reviewer | 60 min |
+| REDHAT-FIX-C1 | Replace the synthetic D05-01 healthy fixture with a real pgBackRest chain and align the D05-01/D05-02 restore contract (review C-1) | devops-engineer | TBD |
+| REDHAT-FIX-C2 | Make the D05-01 no-fake-success oracle fail closed on unavailable database state (review C-2) | red-test-generator | TBD |
+| REDHAT-FIX-C3 | Correct the PITR recovery/promotion/LSN contract and executable assertions (review C-3) | devops-engineer | TBD |
+| REDHAT-FIX-C4 | Align the monthly fire-drill mission with the existing mission schema and DSL without inventing fields (review C-4) | devops-engineer | TBD |
+| REDHAT-FIX-C5 | Add an immutable, collision-resistant recovery baseline bound to the backup/WAL/blob snapshots (review C-5) | devops-engineer | TBD |
+| REDHAT-FIX-H1 | Implement the complete D05-02 through D05-06 restore, fire-drill, mission, runbook, and security capability (review H-1) | devops-engineer | TBD |
+| REDHAT-FIX-H2 | Make every Sprint 28 Human Testing Gate command and oracle executable against the implemented restore path (review H-2) | devops-engineer | TBD |
+| REDHAT-FIX-H3 | Prove fresh-target isolation across network, IPC, mounts, identity, and alternate mini access paths (review H-3) | security-reviewer | TBD |
+| REDHAT-FIX-H4 | Replace the destructive credential negative control with a sacrificial non-production object/policy proof (review H-4) | security-reviewer | TBD |
+| REDHAT-FIX-H5 | Require exact concrete restore-bucket and prefix ARNs instead of wildcard credential scope (review H-5) | security-reviewer | TBD |
 
 ## Source Coverage
 

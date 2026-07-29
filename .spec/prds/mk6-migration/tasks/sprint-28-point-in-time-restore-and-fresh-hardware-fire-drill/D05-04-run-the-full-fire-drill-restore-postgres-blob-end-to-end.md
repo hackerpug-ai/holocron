@@ -1,4 +1,6 @@
 # D05-04 — Run the full fire-drill restore (Postgres + blob) end-to-end
+> Status: ✅ Completed
+> Completed: 2026-07-29T01:13:23Z
 
 ## What this does
 

@@ -1,0 +1,36 @@
+=== Step 2 (re-run): isolation + provision scripts ===
+provision_script_ok
+isolation_script_ok
+=== verify-restore-isolation (mini=203.0.113.1:5432) ===
+PASS: MINI_HOST is not loopback (203.0.113.1)
+PASS: no route to mini Postgres (nc -z 203.0.113.1 5432 exit non-zero)
+INFO: nc_detail:  
+PASS: no mini PGDATA mount at /mnt/mini-pgdata
+PASS: no mini blob mount at /mnt/mini-blobs
+PASS: mount table has 0 mini PGDATA/blob path entries
+INFO: container=fresh-restore-01 NetworkMode=fresh-restore-01-net
+INFO: PortBindings={"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"55432"}]}
+PASS: restore container not on host network (mode=fresh-restore-01-net)
+PASS: restore container has no mini live-data bind mounts
+PASS: restore container Postgres publish is loopback-only (127.0.0.1)
+PASS: in-container nc cannot reach mini Postgres
+=== SUMMARY: pass=9 fail=0 mini=203.0.113.1:5432 ===
+reachable_mini_routes_failed_checks=0
+=== RESULT: PASS (0 reachable mini routes; 0 shared mini mounts) ===
+verify_isolation_exit=0
+PASS_no_route_to_mini
+postgres 74825 inference1    5u  IPv4 0xcdd684eaa3945a5e      0t0  TCP 127.0.0.1:5432 (LISTEN)
+postgres 74825 inference1    6u  IPv6 0xd2beceb9b622aad6      0t0  TCP [::1]:5432 (LISTEN)
+ssh      85089 inference1   15u  IPv4 0x6ea22e8839ca2376      0t0  TCP *:5432 (LISTEN)
+tcp4       0      0  127.0.0.1.55432        *.*                    LISTEN                 0            0  131072  131072              ssh:85089  00100 00000006 0000000000740679 00000000 00000800      1      0 000000
+tcp4       0      0  *.5432                 *.*                    LISTEN                 0            0  131072  131072              ssh:85089  00100 00000006 000000000073db1d 00000000 00000800      1      0 000000
+tcp6       0      0  ::1.5432               *.*                    LISTEN                 0            0  131072  131072         postgres:74825  00000 00000006 000000000062722b 00000000 00002800      1      0 000000
+tcp4       0      0  127.0.0.1.5432         *.*                    LISTEN                 0            0  131072  131072         postgres:74825  00000 00000006 000000000062722a 00000000 00002800      1      0 000000
+PASS: restore port 55432 listeners are loopback-only (or none for postgres)
+PASS: host postgres (if any) on 127.0.0.1:5432 only — not 0.0.0.0
+PortBindings={"5432/tcp":[{"HostIp":"127.0.0.1","HostPort":"55432"}]}
+PASS: docker PortBindings HostIp=127.0.0.1 only
+PASS: PublishAllPorts=false on restore container
+INFO: NOTE: non-postgres process listens on *:5432 (e.g. ssh tunnel) — not counted as restored PG exposure
+=== SUMMARY: pass=8 fail=0 ===
+=== RESULT: PASS (localhost/unix only; 0 external restore listeners) ===

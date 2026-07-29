@@ -1,4 +1,6 @@
 # D05-05 — Schedule the fire drill as a periodic mission + author the runbook
+> Status: ✅ Completed
+> Completed: 2026-07-29T01:13:23Z
 
 ## What this does
 

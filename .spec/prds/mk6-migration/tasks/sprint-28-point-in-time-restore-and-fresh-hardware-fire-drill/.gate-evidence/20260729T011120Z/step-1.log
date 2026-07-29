@@ -1,0 +1,19 @@
+=== Step 1: holo restore --pitr CLI surface + PITR path ===
+  restore                   D05-02: pgBackRest PITR restore --pitr <iso> --scratch <dir>
+  restore:pitr              Alias for restore --pitr (same flags)
+  restore:status            Show last PITR restore structured report
+  restore:fire-drill        D05-04: full fire-drill (pre-failure snapshot → PITR → restic blob)
+holo restore --pitr — pgBackRest point-in-time restore
+  ok:                    false
+  exit_code:             1
+  target_timestamp:      2099-01-01T00:00:00Z
+  actual_stop_timestamp: (none)
+  pgdata:                /tmp/s28-gate-outside
+  target_action:         promote
+  restored_wal_count:    (unknown)
+  errors:
+    - timestamp 2099-01-01T00:00:00Z is outside available WAL range (not in retention window); available approx 2026-07-28T09:55:42.000Z .. 2026-08-05T00:28:02.000Z
+  overall:               FAILED
+timestamp 2099-01-01T00:00:00Z is outside available WAL range (not in retention window); available approx 2026-07-28T09:55:42.000Z .. 2026-08-05T00:28:02.000Z
+exit_code=1
+STEP1_NAMED_ERROR_OK

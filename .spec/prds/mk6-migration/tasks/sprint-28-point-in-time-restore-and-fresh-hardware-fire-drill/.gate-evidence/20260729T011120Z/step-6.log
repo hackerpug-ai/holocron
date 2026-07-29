@@ -1,0 +1,12 @@
+=== Step 6: empty/corrupt fail closed ===
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+ ✓ |integration| services/platform/tests/integration/sprint28-restore-fails-closed.test.ts (4 tests | 3 skipped) 6465ms
+     ✓ empty R2 repo / missing base backup → non-zero + named error + PGDATA file count = 0  474ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 3 skipped (4)
+   Start at  19:12:36
+   Duration  6.76s (transform 94ms, setup 157ms, import 42ms, tests 6.46s, environment 0ms)
+

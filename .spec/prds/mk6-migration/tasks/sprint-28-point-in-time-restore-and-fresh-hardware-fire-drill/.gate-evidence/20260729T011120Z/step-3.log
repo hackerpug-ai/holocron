@@ -1,0 +1,6 @@
+=== Step 3-4: row counts + ledger from fire-drill parity ===
+using .tmp/D05-04/parity-report.json
+POSTGRES True
+LEDGER True
+rows {'beliefs': 8, 'sources': 8, 'passages': 19, 'claims': 5, 'relations': 11, 'file_objects': 5, 'entities': 0}
+checksum cdf21cb6fc6b2177cb673dd3aa0e4b72
