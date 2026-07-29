@@ -5,7 +5,14 @@
  * never asserted from restic exit code alone.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, type Stats, statSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  type Stats,
+  statSync,
+} from 'node:fs';
 import { join, relative } from 'node:path';
 
 export type HashSetResult = {
@@ -102,8 +109,20 @@ export function hashDirectoryTree(root: string): HashSetResult {
  * Hash the content-addressed blob store. Only files whose basename is a 64-hex
  * digest are required for parity of blob *objects*; other files under the root
  * (if any) are still hashed for honesty.
+ *
+ * Test seam (GATE-FIX-S28R3-QA4/C-1): when HOLO_TEST_BLOB_HASH_MARKER is set,
+ * append a line naming the hashed root so integration tests can prove a path
+ * was never traversed (fresh-target must not call this for live source roots).
  */
 export function hashLocalBlobStore(blobRoot: string): HashSetResult {
+  const marker = process.env.HOLO_TEST_BLOB_HASH_MARKER?.trim();
+  if (marker) {
+    try {
+      appendFileSync(marker, `hashLocalBlobStore:${blobRoot}\n`, 'utf8');
+    } catch {
+      // ignore marker failures in production paths
+    }
+  }
   return hashDirectoryTree(blobRoot);
 }
 

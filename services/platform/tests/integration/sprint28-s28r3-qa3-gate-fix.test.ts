@@ -126,9 +126,10 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
     expect(syntax.status, syntax.stderr).toBe(0);
   });
 
-  it('C-3: gate-plan steps 1/3/6 preflight GATE_RUN_ID; no :-manual defaults', () => {
+  it('C-3: gate-plan steps 1/2/3/6 preflight GATE_RUN_ID; no :-manual defaults', () => {
     const plan = loadPlan();
-    for (const n of [1, 3, 6]) {
+    // GATE-FIX-S28R3-QA4 / H-2: step 2 is a live authoritative command and must preflight too.
+    for (const n of [1, 2, 3, 6]) {
       const cmd = String(stepOf(plan, n).literal_cmd ?? '');
       expect(cmd, `step ${n} must preflight run id`).toMatch(
         /assert-gate-run-id\.sh|GATE_RUN_ID.*allowlist|refuse.*GATE_RUN_ID/
@@ -138,6 +139,10 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
         /\$\{GATE_RUN_ID\}|"\$\{GATE_RUN_ID\}"/
       );
     }
+    const step2 = String(stepOf(plan, 2).literal_cmd ?? '');
+    expect(step2).toMatch(/assert-gate-run-id\.sh/);
+    expect(step2).toMatch(/\.tmp\/REDHAT-FIX-S28R3\/\$\{GATE_RUN_ID\}/);
+    expect(step2).not.toMatch(/mkdir -p \.tmp\/REDHAT-FIX-S28R3[^-/A-Za-z0-9_$]/);
     const step3 = String(stepOf(plan, 3).literal_cmd ?? '');
     expect(step3).toMatch(/HOST="s28r3-gate-\$\{GATE_RUN_ID\}"/);
     // M-3: trap removes docker network
@@ -145,6 +150,7 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
     expect(step3).toMatch(/\$\{HOST\}-net|"\$\{HOST\}-net"/);
     writeEvidence('c3-step-preflight.json', {
       step1_has_manual: /GATE_RUN_ID:-manual/.test(String(stepOf(plan, 1).literal_cmd ?? '')),
+      step2_has_assert: /assert-gate-run-id\.sh/.test(step2),
       step3_has_network_trap: /network rm/.test(step3),
     });
   });
@@ -336,6 +342,26 @@ describe('GATE-FIX-S28R3-QA3 C-3 GATE_RUN_ID isolation (PLATFORM_IT)', () => {
     });
     expect(assertRun.status).not.toBe(0);
     expect(assertCombined).toMatch(/GATE_RUN_ID|allowlist|required|refuse|unset|empty/i);
+
+    // Step2-shaped path: preflight then would mkdir shared evidence — must stop before mkdir.
+    const step2Like = spawnSync(
+      'bash',
+      [
+        '-c',
+        'set -euo pipefail; bash scripts/assert-gate-run-id.sh; EVID=".tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}"; mkdir -p "$EVID"; echo CREATED >"$EVID/step2-isolation.txt"',
+      ],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 15_000,
+        env: { PATH: process.env.PATH, HOME: process.env.HOME, GATE_RUN_ID: undefined },
+      }
+    );
+    expect(step2Like.status).not.toBe(0);
+    expect(existsSync(resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S28R3/step2-isolation.txt'))).toBe(false);
+    expect(
+      existsSync(resolve(REPO_ROOT, `.tmp/REDHAT-FIX-S28R3/${marker}/step2-isolation.txt`))
+    ).toBe(false);
 
     // Step1-shaped path: preflight then would mkdir — must stop before mkdir.
     const step1Like = spawnSync(
@@ -568,13 +594,35 @@ OUT=${JSON.stringify(recorderOut)}
 python3 - "$OUT" "$@" <<'PY'
 import json, os, sys
 out = sys.argv[1]
+argv = sys.argv[2:]
 keys = sorted(os.environ.keys())
+# GATE-FIX-S28R3-QA4 / M-1: write contract-shaped --report when present
+report = None
+for i, a in enumerate(argv):
+    if a == "--report" and i + 1 < len(argv):
+        report = argv[i + 1]
+        break
+    if a.startswith("--report="):
+        report = a.split("=", 1)[1]
+        break
+if report:
+    with open(report, "w") as f:
+        json.dump({
+            "POSTGRES_PARITY_PASS": True,
+            "LEDGER_CHECKSUM_MATCH": True,
+            "BLOB_PARITY_PASS": True,
+            "baseline_id": "qa3-recorder-baseline",
+            "baseline_key": "recovery-baselines/qa3-recorder.json",
+            "ok": True,
+        }, f, indent=2)
+        f.write("\\n")
 payload = {
-  "argv": sys.argv[2:],
+  "argv": argv,
   "env_keys": keys,
   "has_DATABASE_URL": "DATABASE_URL" in os.environ,
   "pg_keys": [k for k in keys if k.startswith("PG")],
   "R2_ACCESS_is_restore": os.environ.get("R2_ACCESS_KEY_ID") == ${JSON.stringify(RESTORE_AK)},
+  "report_written": bool(report),
 }
 open(out, "w").write(json.dumps(payload, indent=2) + "\\n")
 sys.exit(0)
@@ -754,13 +802,34 @@ describe('GATE-FIX-S28R3-QA3 M-2/M-3 extras', () => {
 
       const recorderOut = resolve(EVIDENCE_DIR, `m2-rec-${host}.json`);
       const recorder = resolve(EVIDENCE_DIR, `m2-rec-${host}.sh`);
+      const reportPath = resolve(EVIDENCE_DIR, `m2-report-${host}.json`);
       writeFileSync(
         recorder,
         `#!/usr/bin/env bash
 set -euo pipefail
 python3 - ${JSON.stringify(recorderOut)} "$@" <<'PY'
 import json, os, sys
-open(sys.argv[1], "w").write(json.dumps({"argv": sys.argv[2:], "ok": True}) + "\\n")
+argv = sys.argv[2:]
+report = None
+for i, a in enumerate(argv):
+    if a == "--report" and i + 1 < len(argv):
+        report = argv[i + 1]
+        break
+    if a.startswith("--report="):
+        report = a.split("=", 1)[1]
+        break
+if report:
+    with open(report, "w") as f:
+        json.dump({
+            "POSTGRES_PARITY_PASS": True,
+            "LEDGER_CHECKSUM_MATCH": True,
+            "BLOB_PARITY_PASS": True,
+            "baseline_id": "qa3-m2-baseline",
+            "baseline_key": "recovery-baselines/qa3-m2.json",
+            "ok": True,
+        }, f, indent=2)
+        f.write("\\n")
+open(sys.argv[1], "w").write(json.dumps({"argv": argv, "ok": True, "report": report}) + "\\n")
 sys.exit(0)
 PY
 `,
@@ -779,7 +848,7 @@ PY
           '--attestation',
           att,
           '--report',
-          resolve(EVIDENCE_DIR, `m2-report-${host}.json`),
+          reportPath,
         ],
         {
           cwd: REPO_ROOT,
@@ -802,6 +871,7 @@ PY
         status: run.status,
         att_exists: existsSync(att),
         rec_exists: existsSync(recorderOut),
+        report_exists: existsSync(reportPath),
         stderr: (run.stderr ?? '').slice(0, 1500),
       });
       expect(run.status).toBe(0);
@@ -809,6 +879,16 @@ PY
       expect(existsSync(att)).toBe(true);
       const attBody = JSON.parse(readFileSync(att, 'utf8')) as { ok?: boolean };
       expect(attBody.ok).toBe(true);
+      // GATE-FIX-S28R3-QA4 / M-1: full-run success requires contract-shaped report.
+      expect(existsSync(reportPath)).toBe(true);
+      const report = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, unknown>;
+      expect(report.POSTGRES_PARITY_PASS).toBe(true);
+      expect(report.LEDGER_CHECKSUM_MATCH).toBe(true);
+      expect(report.BLOB_PARITY_PASS).toBe(true);
+      expect(
+        (typeof report.baseline_id === 'string' && report.baseline_id.length > 0) ||
+          (typeof report.baseline_key === 'string' && report.baseline_key.length > 0)
+      ).toBe(true);
     },
     300_000
   );
