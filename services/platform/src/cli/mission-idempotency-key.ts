@@ -15,7 +15,8 @@ export type MissionIdempotencySurface =
   | 'assimilate'
   | 'shop'
   | 'subscriptions'
-  | 'report';
+  | 'report'
+  | 'fire-drill-monthly';
 
 export type DefaultMissionIdempotencyParams = {
   /** research / deepResearch / subscriptions-research / fulcrum */
@@ -24,7 +25,7 @@ export type DefaultMissionIdempotencyParams = {
   components?: string | number | null;
   /** whatsNew */
   date?: string;
-  /** assimilate */
+  /** assimilate / fire-drill target timestamp identity */
   target?: string;
   /** shop */
   query?: string;
@@ -89,6 +90,9 @@ function baseMissionIdempotencyKey(
       return `subscriptions:${params.topic}`;
     case 'report':
       return `report:${params.reportKind}:${params.subject}`;
+    case 'fire-drill-monthly':
+      // Monthly cadence: default key is calendar month unless --fresh / override.
+      return `fire-drill-monthly:${params.target ?? 'scheduled'}`;
     default: {
       const _exhaustive: never = kind;
       throw new Error(`unknown mission idempotency surface: ${String(_exhaustive)}`);

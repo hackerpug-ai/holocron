@@ -101,6 +101,29 @@ const missionToolbeltOutputSchema = z
   })
   .strict();
 
+/** D05-05 / CAP-BAK-01 monthly fire-drill mission output (parity artifact pointer). */
+const missionFireDrillOutputSchema = z
+  .object({
+    ok: z.boolean(),
+    reportPath: z.string().min(1),
+    targetTimestamp: z.string().min(1),
+    scratch: z.string().min(1),
+    blobDir: z.string().min(1),
+    POSTGRES_PARITY_PASS: z.boolean(),
+    LEDGER_CHECKSUM_MATCH: z.boolean(),
+    BLOB_PARITY_PASS: z.boolean(),
+    /** Mission artifact map — AC-2 requires parity-report.json pointer. */
+    output_artifacts: z
+      .object({
+        'parity-report.json': z.string().min(1),
+      })
+      .strict(),
+    exitCode: z.number().int(),
+    errors: z.array(z.string()),
+    durationMs: z.number().nonnegative(),
+  })
+  .strict();
+
 // missionResearchRetrieveOutputSchema imported from tools/schemas/research.ts
 // (includes optional retrievalMethod / searchMethod for CAP-EMB-01 provenance).
 
@@ -196,6 +219,12 @@ export const MISSION_SCHEMAS: readonly MissionSchemaRegistration[] = [
     schemaVersion: 1,
     schema: missionToolbeltOutputSchema,
     description: 'Durable Toolbelt document created from a validated deep link.',
+  },
+  {
+    schemaRef: 'mission.fire-drill.output',
+    schemaVersion: 1,
+    schema: missionFireDrillOutputSchema,
+    description: 'CAP-BAK-01 fire-drill parity report artifact + pass flags (D05-05).',
   },
   {
     schemaRef: 'mission.research.retrieve.output',
@@ -479,6 +508,12 @@ export const MISSION_EXECUTORS: readonly MissionExecutorRegistration[] = [
     executorRef: 'builtin.subscriptions-commit@1',
     stageKind: 'subscriptions.commit@1',
     description: 'Commit terminal subscriptions output.',
+  },
+  // ── D05-05 fire-drill-monthly (ops / CAP-BAK-01) ────────────────────────
+  {
+    executorRef: 'builtin.fire-drill-execute@1',
+    stageKind: 'fire-drill.execute@1',
+    description: 'Run holo restore:fire-drill and fail closed on any PARITY_PASS=false.',
   },
 ] as const;
 
@@ -808,6 +843,17 @@ export const MISSION_STAGES: readonly MissionStageRegistration[] = [
     inputSchema: { schemaRef: 'mission.subscriptions.context', schemaVersion: 1 },
     outputSchema: { schemaRef: 'mission.subscriptions.output', schemaVersion: 1 },
     description: 'Terminal subscriptions commit.',
+    roleBinding: 'forbidden',
+    checkpointAllowed: false,
+  },
+  // D05-05 fire-drill-monthly
+  {
+    stageKind: 'fire-drill.execute@1',
+    executorRef: 'builtin.fire-drill-execute@1',
+    inputSchema: { schemaRef: 'mission.goal', schemaVersion: 1 },
+    outputSchema: { schemaRef: 'mission.fire-drill.output', schemaVersion: 1 },
+    description:
+      'Execute CAP-BAK-01 fire drill (holo restore:fire-drill); emit parity-report.json; fail if any PARITY_PASS is false.',
     roleBinding: 'forbidden',
     checkpointAllowed: false,
   },

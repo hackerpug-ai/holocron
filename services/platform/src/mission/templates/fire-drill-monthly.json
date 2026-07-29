@@ -1,0 +1,72 @@
+{
+  "templateKey": "fire-drill-monthly",
+  "version": "1.0.0",
+  "description": "CAP-BAK-01 monthly fire drill: run holo restore:fire-drill on scratch targets, emit parity-report.json, fail the mission if any PARITY_PASS is false. Schedule is monthly (never more frequent).",
+  "schedule": "monthly",
+  "steps": [
+    {
+      "id": "pre-drill-isolation",
+      "command": "holo restore:fire-drill --target-timestamp <ISO> --scratch <empty-pgdata> --blob-dir <empty-blob-dir> --report <parity-report.json>",
+      "description": "Confirm scratch PGDATA and blob-dir are empty and distinct from live mini mounts before starting.",
+      "artifacts": []
+    },
+    {
+      "id": "run-fire-drill",
+      "command": "holo restore:fire-drill",
+      "description": "Pre-failure snapshot → PITR Postgres restore → restic blob restore → unified parity report.",
+      "artifacts": ["parity-report.json"]
+    },
+    {
+      "id": "verify-parity",
+      "command": "jq '{ok, POSTGRES_PARITY_PASS, LEDGER_CHECKSUM_MATCH, BLOB_PARITY_PASS}' <parity-report.json>",
+      "description": "Mission fails closed if any PARITY_PASS flag is false.",
+      "artifacts": ["parity-report.json"]
+    }
+  ],
+  "trigger": { "kind": "on-demand" },
+  "stageGraph": [
+    {
+      "id": "execute",
+      "stageKind": "fire-drill.execute@1",
+      "executorRef": "builtin.fire-drill-execute@1",
+      "inputSchema": { "schemaRef": "mission.goal", "schemaVersion": 1 },
+      "outputSchema": { "schemaRef": "mission.fire-drill.output", "schemaVersion": 1 }
+    }
+  ],
+  "toolGrants": [],
+  "modelRoleBindings": {},
+  "budgets": {
+    "wallMs": 3600000,
+    "tokens": 0,
+    "cost": 0,
+    "maxSteps": 4
+  },
+  "gateRubric": null,
+  "humanGate": null,
+  "outputContract": {
+    "schemaRef": "mission.fire-drill.output",
+    "schemaVersion": 1
+  },
+  "parameterSchema": {
+    "targetTimestamp": {
+      "type": "string",
+      "required": false,
+      "description": "ISO-8601 PITR target (defaults to ~1h ago or HOLO_FIRE_DRILL_TARGET_TIMESTAMP). Never hardcode in the template."
+    },
+    "scratch": {
+      "type": "string",
+      "required": false,
+      "description": "Empty scratch PGDATA directory (never live mini PGDATA). Env: HOLO_FIRE_DRILL_SCRATCH."
+    },
+    "blobDir": {
+      "type": "string",
+      "required": false,
+      "description": "Empty blob restore directory (never live mini blobs). Env: HOLO_FIRE_DRILL_BLOB_DIR."
+    },
+    "reportPath": {
+      "type": "string",
+      "required": false,
+      "description": "Where to write parity-report.json. Env: HOLO_FIRE_DRILL_REPORT."
+    }
+  }
+}

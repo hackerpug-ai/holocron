@@ -222,9 +222,16 @@ export async function compileMissionTemplateDefinition(
   }
 
   if (Object.keys(roleResolution).length === 0) {
-    throw new Error(
-      'mission template must resolve at least one real model role through resolveModel(role)'
-    );
+    // Ops/periodic missions (e.g. fire-drill-monthly) may declare only roleBinding:forbidden
+    // stages and carry schedule/steps in definition_json without fleet model roles.
+    const requiresModelRole = definition.stageGraph.some((stage) => {
+      return assertRegisteredStage(stage.stageKind).roleBinding === 'required';
+    });
+    if (requiresModelRole) {
+      throw new Error(
+        'mission template must resolve at least one real model role through resolveModel(role)'
+      );
+    }
   }
 
   const definitionHash = sha256Hex(definition);
