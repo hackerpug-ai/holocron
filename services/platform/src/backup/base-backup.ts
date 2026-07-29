@@ -13,6 +13,11 @@ import { dirname, resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
 import { type BackupConfig, loadBackupConfig } from './config.ts';
 import {
+  captureRowCounts,
+  defaultSourceConnection,
+  FIRE_DRILL_COUNT_TABLES,
+} from './evidence-ledger-verify.ts';
+import {
   type BackupHeartbeatRecord,
   ensureBackupHeartbeatTable,
   upsertBackupHeartbeat,
@@ -20,7 +25,10 @@ import {
 import { listRepoPrefix } from './r2-provision.ts';
 import {
   type BaselineHookResult,
+  computeLedgerSha256,
   emitBaseBackupRecoveryBaselineHook,
+  parseBackupStopForLabel,
+  queryTargetLsn,
 } from './recovery-baseline.ts';
 import { type EmittedBackupSpan, emitBackupSpan } from './span.ts';
 import { ensureContinuousWalArchiving } from './wal-archive.ts';
@@ -268,6 +276,35 @@ export async function runBaseBackupJob(options?: {
   await ensureBackupHeartbeatTable();
   await upsertBackupHeartbeat({ jobName: 'base_backup', status: 'running' });
 
+  // GATE-FIX-QA3 Pattern A: capture domain digests BEFORE base backup so stop
+  // covers the payload epoch (jointly truthful; no temporal relabel).
+  let preCapture: {
+    payloadCapturedAt: string;
+    rowCounts?: Record<string, number>;
+    ledgerSha256?: string;
+    ledgerPerTableSha256?: Record<string, string>;
+    targetLsn?: string;
+  } | null = null;
+  if (!credentialInduce) {
+    try {
+      const conn = defaultSourceConnection(env);
+      const payloadCapturedAt = new Date().toISOString();
+      const counts = captureRowCounts(conn, FIRE_DRILL_COUNT_TABLES);
+      const ledger = computeLedgerSha256(conn);
+      const lsn = queryTargetLsn(conn) ?? undefined;
+      preCapture = {
+        payloadCapturedAt,
+        rowCounts: counts.row_counts,
+        ledgerSha256: ledger.ledger_sha256,
+        ledgerPerTableSha256: ledger.per_table,
+        targetLsn: lsn,
+      };
+    } catch {
+      // Hook may still attempt cover/fail-closed; do not block backup itself.
+      preCapture = { payloadCapturedAt: new Date().toISOString() };
+    }
+  }
+
   // Production-truth: invalid keys so real pgbackrest / R2 path fails auth.
   const pgbEnv = credentialInduce
     ? {
@@ -386,13 +423,27 @@ export async function runBaseBackupJob(options?: {
       objectCount: listed.count,
       traceId: span.traceId,
     });
-    // REDHAT-FIX-C5: emit immutable recovery baseline when restic id is known.
+    // REDHAT-FIX-C5 / GATE-FIX-QA3: emit jointly-truthful recovery baseline.
     try {
+      const stopMeta = parseBackupStopForLabel(info.stdout || '', lastSnapshotId);
+      const captureAt = preCapture?.payloadCapturedAt;
+      const coverageProvenThroughCapture = !!(
+        captureAt &&
+        stopMeta &&
+        stopMeta.stopMs >= Date.parse(captureAt)
+      );
       recoveryBaseline = await emitBaseBackupRecoveryBaselineHook({
         config: cfg,
         pgbackrestBackupLabel: lastSnapshotId,
         env,
         databaseUrl: env.DATABASE_URL,
+        payloadCapturedAt: captureAt,
+        backupStopAt: stopMeta?.stopAt,
+        coverageProvenThroughCapture,
+        rowCounts: preCapture?.rowCounts,
+        ledgerSha256: preCapture?.ledgerSha256,
+        ledgerPerTableSha256: preCapture?.ledgerPerTableSha256,
+        targetLsn: preCapture?.targetLsn,
       });
       if (recoveryBaseline.errors.length > 0 && !recoveryBaseline.skipped) {
         errors.push(...recoveryBaseline.errors.map((e) => `recovery-baseline: ${e}`).slice(0, 3));

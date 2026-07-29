@@ -103,7 +103,251 @@ export type RecoveryBaselineCaptureInput = {
    * fixtures only). Default false — REDHAT-FIX-S28R2-H1 refuses zero/empty baselines.
    */
   allowEmptyDomainBaseline?: boolean;
+  /**
+   * GATE-FIX-QA3: wall-clock epoch when row_counts / ledger / blob digests were
+   * actually captured. Required with backupStopAt for joint-truth binding.
+   */
+  payloadCapturedAt?: string;
+  /**
+   * GATE-FIX-QA3: real pgBackRest backup stop for the bound label (ISO).
+   * Must come from backup metadata — never a fabricated stamp.
+   */
+  backupStopAt?: string;
+  /**
+   * Pattern A: real base backup completed with stop >= payload capture for this emit.
+   */
+  coverageProvenThroughCapture?: boolean;
+  /**
+   * Pattern B: row_counts/ledger/blob were derived from restore/as-of at backup stop.
+   */
+  asOfDerivedAtStop?: boolean;
+  /**
+   * When true, refuse wall-clock target_timestamp without recoverable binding proof.
+   */
+  enforceRecoverableBinding?: boolean;
 };
+
+/** GATE-FIX-QA3: inputs for jointly-truthful target_timestamp binding. */
+export type RecoverableBaselineBindingInput = {
+  /** When digests/counts/blob were actually captured (ISO-8601). */
+  payloadCapturedAt: string;
+  /** Backup stop from real pgBackRest metadata for the bound label (ISO-8601). */
+  backupStopAt: string;
+  pgbackrestBackupLabel: string;
+  /** Pattern A: real backup stop >= payload capture after/for this emit. */
+  coverageProvenThroughCapture?: boolean;
+  /** Pattern B: payload derived from restore/as-of at backup stop S. */
+  asOfDerivedAtStop?: boolean;
+  /** Optional requested stamp — still validated for temporal relabel. */
+  requestedTargetTimestamp?: string;
+};
+
+export type RecoverableBaselineBindingResult =
+  | {
+      ok: true;
+      target_timestamp: string;
+      pgbackrest_backup_label: string;
+      mode: 'capture_then_cover' | 'as_of';
+    }
+  | { ok: false; errors: string[] };
+
+/** Normalize Date to ISO; strip ms when whole seconds (pgBackRest style). */
+function isoFromMs(ms: number): string {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return '';
+  const iso = d.toISOString();
+  return ms % 1000 === 0 ? iso.replace(/\.\d{3}Z$/, 'Z') : iso;
+}
+
+/**
+ * Parse pgBackRest info JSON for the stop timestamp of a specific backup label.
+ * Prefer timestamp.stop (unix seconds); fall back to label-encoded time.
+ */
+export function parseBackupStopForLabel(
+  infoJson: string,
+  label: string
+): { label: string; stopAt: string; stopMs: number; startMs: number | null } | null {
+  const want = label.trim();
+  if (!want) return null;
+  try {
+    const raw = JSON.parse(infoJson) as unknown;
+    const arr = Array.isArray(raw) ? raw : [raw];
+    for (const stanza of arr) {
+      const backups = (stanza as { backup?: unknown[] })?.backup;
+      if (!Array.isArray(backups)) continue;
+      for (const b of backups) {
+        const row = b as {
+          label?: string;
+          timestamp?: { start?: number; stop?: number };
+        };
+        if ((row.label ?? '').trim() !== want) continue;
+        const stopSec = row.timestamp?.stop;
+        if (typeof stopSec === 'number' && stopSec > 0) {
+          const stopMs = stopSec * 1000;
+          const startSec = row.timestamp?.start;
+          return {
+            label: want,
+            stopAt: isoFromMs(stopMs),
+            stopMs,
+            startMs: typeof startSec === 'number' && startSec > 0 ? startSec * 1000 : null,
+          };
+        }
+      }
+    }
+  } catch {
+    // fall through to label-encoded time
+  }
+  const m = want.match(/^(\d{8})-(\d{6})[FDI]/);
+  if (m) {
+    const y = m[1].slice(0, 4);
+    const mo = m[1].slice(4, 6);
+    const d = m[1].slice(6, 8);
+    const hh = m[2].slice(0, 2);
+    const mm = m[2].slice(2, 4);
+    const ss = m[2].slice(4, 6);
+    const dt = new Date(`${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`);
+    if (!Number.isNaN(dt.getTime())) {
+      return {
+        label: want,
+        stopAt: isoFromMs(dt.getTime()),
+        stopMs: dt.getTime(),
+        startMs: null,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * GATE-FIX-QA3: resolve a jointly-truthful target_timestamp for a recovery baseline.
+ *
+ * Pattern A (capture-then-cover): digests captured at T; real backup stop S >= T;
+ * bind target_timestamp to T (recoverable within archive coverage through S).
+ *
+ * Pattern B (as-of derive): digests derived at stop S; bind target_timestamp to S.
+ *
+ * Refuses temporal relabeling: later-captured live payload must not be stamped
+ * with an older stop S without as-of derivation / proven post-capture coverage.
+ */
+export function resolveRecoverableBaselineBinding(
+  input: RecoverableBaselineBindingInput
+): RecoverableBaselineBindingResult {
+  const label = input.pgbackrestBackupLabel?.trim() ?? '';
+  if (label.length < 8) {
+    return {
+      ok: false,
+      errors: [
+        'pgbackrest_backup_label missing or too short — refuse recoverable binding (no fabricated timestamps)',
+      ],
+    };
+  }
+  const captureMs = Date.parse(input.payloadCapturedAt);
+  const stopMs = Date.parse(input.backupStopAt);
+  if (Number.isNaN(captureMs)) {
+    return {
+      ok: false,
+      errors: ['payloadCapturedAt must be ISO-8601 — refuse fabricated timestamp'],
+    };
+  }
+  if (Number.isNaN(stopMs)) {
+    return {
+      ok: false,
+      errors: [
+        'backupStopAt must be ISO-8601 from real backup metadata — refuse fabricated timestamp',
+      ],
+    };
+  }
+
+  const requested = input.requestedTargetTimestamp?.trim();
+  const requestedMs = requested ? Date.parse(requested) : Number.NaN;
+
+  // AC-2: stamping an older target onto a later-captured payload is temporal relabeling
+  // unless Pattern B as-of derivation applies (payload reflects state at S, not live T).
+  if (
+    requested &&
+    !Number.isNaN(requestedMs) &&
+    requestedMs + 1 < captureMs &&
+    !input.asOfDerivedAtStop
+  ) {
+    return {
+      ok: false,
+      errors: [
+        `refuse temporal relabeling: later-captured payload at ${input.payloadCapturedAt} cannot be labeled with older target_timestamp=${requested}`,
+      ],
+    };
+  }
+
+  // Pattern B — as-of/restore derive at stop S
+  if (input.asOfDerivedAtStop) {
+    if (requested && !Number.isNaN(requestedMs) && Math.abs(requestedMs - stopMs) > 2000) {
+      return {
+        ok: false,
+        errors: [
+          'as-of derived payload must bind target_timestamp to backup stop S (refuse mismatched stamp)',
+        ],
+      };
+    }
+    return {
+      ok: true,
+      target_timestamp: isoFromMs(stopMs),
+      pgbackrest_backup_label: label,
+      mode: 'as_of',
+    };
+  }
+
+  // Pattern A — capture-then-cover: stop must cover capture; bind to T
+  if (input.coverageProvenThroughCapture) {
+    if (stopMs < captureMs) {
+      return {
+        ok: false,
+        errors: [
+          `refuse coverage claim: backup stop ${input.backupStopAt} is before payload capture ${input.payloadCapturedAt} (stop must be >= capture for capture-then-cover)`,
+        ],
+      };
+    }
+    let targetMs = captureMs;
+    if (requested && !Number.isNaN(requestedMs)) {
+      if (requestedMs > stopMs) {
+        return {
+          ok: false,
+          errors: ['target_timestamp must be <= proven backup stop for capture-then-cover'],
+        };
+      }
+      if (requestedMs + 1 < captureMs) {
+        return {
+          ok: false,
+          errors: [
+            `refuse temporal relabeling: cannot label later-captured payload with older target_timestamp=${requested}`,
+          ],
+        };
+      }
+      targetMs = requestedMs;
+    }
+    return {
+      ok: true,
+      target_timestamp: isoFromMs(targetMs),
+      pgbackrest_backup_label: label,
+      mode: 'capture_then_cover',
+    };
+  }
+
+  // Unproven: capture after stop without cover/as-of (wall-clock emit defect class)
+  if (captureMs > stopMs) {
+    return {
+      ok: false,
+      errors: [
+        `refuse temporal relabel / unproven coverage: payload captured at ${input.payloadCapturedAt} after backup stop ${input.backupStopAt} without capture-then-cover or as-of derivation`,
+      ],
+    };
+  }
+
+  return {
+    ok: false,
+    errors: [
+      'refuse emit without coverageProvenThroughCapture (Pattern A) or asOfDerivedAtStop (Pattern B) — no fabricated timestamps',
+    ],
+  };
+}
 
 export type RecoveryBaselineUploadResult = {
   ok: boolean;
@@ -748,7 +992,40 @@ export function buildRecoveryBaseline(input: RecoveryBaselineCaptureInput): Reco
     throw new Error(`restic_snapshot_id length must be >= 8 (got ${restic.length})`);
   }
 
-  const target_timestamp = input.targetTimestamp ?? new Date().toISOString();
+  // GATE-FIX-QA3: when recoverable-binding fields are present, require joint truth.
+  // Synthetic fixture paths (C5/H1) omit these and keep prior wall-clock behavior.
+  const hasBindingInput =
+    input.payloadCapturedAt != null ||
+    input.backupStopAt != null ||
+    input.coverageProvenThroughCapture != null ||
+    input.asOfDerivedAtStop != null ||
+    input.enforceRecoverableBinding === true;
+
+  let target_timestamp: string;
+  if (hasBindingInput) {
+    const captureAt = input.payloadCapturedAt?.trim() || new Date().toISOString();
+    const stopAt = input.backupStopAt?.trim();
+    if (!stopAt) {
+      throw new Error(
+        'backupStopAt required for recoverable baseline binding — refuse fabricated timestamp'
+      );
+    }
+    const bound = resolveRecoverableBaselineBinding({
+      payloadCapturedAt: captureAt,
+      backupStopAt: stopAt,
+      pgbackrestBackupLabel: label,
+      coverageProvenThroughCapture: input.coverageProvenThroughCapture,
+      asOfDerivedAtStop: input.asOfDerivedAtStop,
+      requestedTargetTimestamp: input.targetTimestamp,
+    });
+    if (!bound.ok) {
+      throw new Error(bound.errors.join('; '));
+    }
+    target_timestamp = bound.target_timestamp;
+  } else {
+    // Legacy synthetic/fixture path — operational emit must pass binding fields.
+    target_timestamp = input.targetTimestamp ?? new Date().toISOString();
+  }
   const target_lsn = (input.targetLsn ?? queryTargetLsn(conn) ?? '').trim();
   if (!target_lsn) {
     throw new Error('target_lsn unavailable — refuse recovery baseline without WAL binding');
@@ -965,19 +1242,52 @@ export function uploadRecoveryBaseline(options: {
   };
 }
 
-/**
- * GATE-FIX-QA2: operational emit of a parity-meaningful baseline bound to a
- * *listable* restic snapshot (exact verify) + latest pgBackRest label.
- * Used when R2 only holds ghost baselines (e.g. resticc5ms5egca88d4616ab).
- */
-export function emitLiveRecoveryBaseline(options?: {
+export type EmitLiveRecoveryBaselineOptions = {
   env?: NodeJS.ProcessEnv;
   config?: BackupConfig;
   databaseUrl?: string;
   blobRoot?: string;
   resticSnapshotId?: string;
   pgbackrestBackupLabel?: string;
-}): RecoveryBaselineUploadResult & {
+  /**
+   * GATE-FIX-QA3: epoch when digests are considered captured (default: now).
+   * Used for joint-truth binding — never silently swapped for older stop.
+   */
+  payloadCapturedAt?: string;
+  /** Injected real backup stop (ISO); live path resolves from pgBackRest info when omitted. */
+  backupStopAt?: string;
+  /** Requested target_timestamp — still subject to temporal-relabel refusal. */
+  requestedTargetTimestamp?: string;
+  coverageProvenThroughCapture?: boolean;
+  asOfDerivedAtStop?: boolean;
+  /**
+   * Pattern A cover step when capture is after current stop. Tests inject;
+   * live path may run a real base backup when not provided and cover is needed.
+   */
+  ensureCoverageThrough?: (captureAt: string) => {
+    ok: boolean;
+    backupStopAt?: string;
+    pgbackrestBackupLabel?: string;
+    errors?: string[];
+  };
+  /**
+   * When true, skip live restic/pgBackRest resolve and only exercise binding
+   * (+ optional ghost restic refuse). Used by pure inject tests.
+   */
+  skipLiveResolve?: boolean;
+};
+
+/**
+ * GATE-FIX-QA2/QA3: operational emit of a parity-meaningful baseline bound to a
+ * *listable* restic snapshot (exact verify) + real pgBackRest label/stop.
+ *
+ * GATE-FIX-QA3: entire payload is jointly truthful at target_timestamp via
+ * Pattern A (capture-then-cover) or Pattern B (as-of). Refuses temporal
+ * relabeling of later-captured digests onto an older stop S.
+ */
+export function emitLiveRecoveryBaseline(
+  options?: EmitLiveRecoveryBaselineOptions
+): RecoveryBaselineUploadResult & {
   restic_snapshot_id: string | null;
   pgbackrest_backup_label: string | null;
 } {
@@ -1000,6 +1310,97 @@ export function emitLiveRecoveryBaseline(options?: {
     restic_snapshot_id: partial?.restic ?? null,
     pgbackrest_backup_label: partial?.label ?? null,
   });
+
+  const payloadCapturedAt = options?.payloadCapturedAt?.trim() || new Date().toISOString();
+
+  // ── skipLiveResolve: pure binding + fail-closed seams (GATE-FIX-QA3 tests) ──
+  if (options?.skipLiveResolve) {
+    let label = options.pgbackrestBackupLabel?.trim() || '';
+    let stopAt = options.backupStopAt?.trim() || '';
+    let coverage = options.coverageProvenThroughCapture === true;
+    const asOf = options.asOfDerivedAtStop === true;
+    if (!stopAt || label.length < 8) {
+      return fail([
+        'skipLiveResolve requires backupStopAt + pgbackrestBackupLabel for recoverable binding',
+      ]);
+    }
+    if (!coverage && !asOf && Date.parse(payloadCapturedAt) > Date.parse(stopAt)) {
+      if (options.ensureCoverageThrough) {
+        const cover = options.ensureCoverageThrough(payloadCapturedAt);
+        if (cover.ok && cover.backupStopAt && cover.pgbackrestBackupLabel) {
+          coverage = true;
+          stopAt = cover.backupStopAt;
+          label = cover.pgbackrestBackupLabel;
+        } else {
+          return fail(
+            cover.errors?.length
+              ? cover.errors
+              : ['no real backup/WAL coverage for capture point — refuse emit']
+          );
+        }
+      }
+    }
+    const bound = resolveRecoverableBaselineBinding({
+      payloadCapturedAt,
+      backupStopAt: stopAt,
+      pgbackrestBackupLabel: label,
+      coverageProvenThroughCapture: coverage,
+      asOfDerivedAtStop: asOf,
+      requestedTargetTimestamp: options.requestedTargetTimestamp,
+    });
+    if (!bound.ok) {
+      return fail(bound.errors, { label });
+    }
+    // Binding is coherent — still refuse upload without listable restic (QA2).
+    const restic = options.resticSnapshotId?.trim() || '';
+    if (!restic || restic.length < 8) {
+      return fail(['restic_snapshot_id required after recoverable binding'], { label });
+    }
+    const resticCheck = verifyResticSnapshotInRepo({ resticSnapshotId: restic, env });
+    if (!resticCheck.ok) {
+      return fail(
+        [
+          resticCheck.error ??
+            `restic snapshot not listable: ${restic} — refuse emit (fail closed)`,
+        ],
+        { restic, label }
+      );
+    }
+    const blobRoot =
+      options.blobRoot?.trim() ||
+      env.HOLO_BLOB_ROOT?.trim() ||
+      env.HOLOCRON_BLOB_ROOT?.trim() ||
+      '';
+    if (!blobRoot) {
+      return fail(['blobRoot required for recovery baseline emit'], { restic, label });
+    }
+    let cfg: BackupConfig | undefined;
+    try {
+      const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+      cfg = options.config ?? loadBackupConfig({ env, secretsPath });
+    } catch (e) {
+      return fail([e instanceof Error ? e.message : String(e)], { restic, label });
+    }
+    const result = captureAndUploadRecoveryBaseline({
+      config: cfg,
+      env,
+      pgbackrestBackupLabel: bound.pgbackrest_backup_label,
+      resticSnapshotId: resticCheck.matchedId ?? restic,
+      stanza: cfg.stanza,
+      databaseUrl: options.databaseUrl,
+      blobRoot,
+      targetTimestamp: bound.target_timestamp,
+      payloadCapturedAt,
+      backupStopAt: stopAt,
+      coverageProvenThroughCapture: bound.mode === 'capture_then_cover',
+      asOfDerivedAtStop: bound.mode === 'as_of',
+    });
+    return {
+      ...result,
+      restic_snapshot_id: result.baseline?.restic_snapshot_id ?? restic,
+      pgbackrest_backup_label: result.baseline?.pgbackrest_backup_label ?? label,
+    };
+  }
 
   const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
   let cfg: BackupConfig;
@@ -1035,7 +1436,7 @@ export function emitLiveRecoveryBaseline(options?: {
   }
   restic = resticCheck.matchedId ?? restic;
 
-  const label =
+  let label =
     options?.pgbackrestBackupLabel?.trim() || resolvePgbackrestLabelFromInfo(cfg, env) || '';
   if (label.length < 8) {
     return fail(['pgbackrest_backup_label unavailable from pgBackRest info — refuse emit'], {
@@ -1054,19 +1455,235 @@ export function emitLiveRecoveryBaseline(options?: {
     });
   }
 
+  // Resolve real backup stop for the bound label (GATE-FIX-QA3 joint truth).
+  let stopAt = options?.backupStopAt?.trim() || '';
+  let coverage = options?.coverageProvenThroughCapture === true;
+  const asOf = options?.asOfDerivedAtStop === true;
+  if (!stopAt) {
+    const infoStop = resolvePgbackrestStopFromInfo(cfg, env, label);
+    if (infoStop) stopAt = infoStop.stopAt;
+  }
+  if (!stopAt) {
+    return fail(
+      [
+        'backup stop metadata unavailable for pgBackRest label — refuse emit without recoverable coverage proof',
+      ],
+      { restic, label, bucket: cfg.bucketName }
+    );
+  }
+
+  // Pattern A: if capture is after stop, require cover (real base backup or inject).
+  if (!coverage && !asOf && Date.parse(payloadCapturedAt) > Date.parse(stopAt)) {
+    const coverFn =
+      options?.ensureCoverageThrough ??
+      ((captureAt: string) => ensureBaseBackupCoverageThroughCapture({ cfg, env, captureAt }));
+    const cover = coverFn(payloadCapturedAt);
+    if (cover.ok && cover.backupStopAt && cover.pgbackrestBackupLabel) {
+      coverage = true;
+      stopAt = cover.backupStopAt;
+      label = cover.pgbackrestBackupLabel;
+    } else {
+      return fail(
+        cover.errors?.length
+          ? cover.errors
+          : [
+              `no real backup/WAL coverage through capture ${payloadCapturedAt} (latest stop ${stopAt}) — refuse emit`,
+            ],
+        { restic, label, bucket: cfg.bucketName }
+      );
+    }
+  } else if (!coverage && !asOf && Date.parse(payloadCapturedAt) <= Date.parse(stopAt)) {
+    // Capture at/before stop alone is not as-of proof; require explicit cover flag
+    // from a coordinated backup that completed for this capture, or run cover.
+    // Operational live emit: treat "stop already covers capture" after a cover
+    // step that re-confirms the same stop (no temporal relabel of later state).
+    // If operator did not pre-declare coverage, run cover to re-establish stop >= T.
+    const coverFn =
+      options?.ensureCoverageThrough ??
+      ((captureAt: string) => ensureBaseBackupCoverageThroughCapture({ cfg, env, captureAt }));
+    const cover = coverFn(payloadCapturedAt);
+    if (cover.ok && cover.backupStopAt && cover.pgbackrestBackupLabel) {
+      coverage = true;
+      stopAt = cover.backupStopAt;
+      label = cover.pgbackrestBackupLabel;
+    } else if (Date.parse(stopAt) >= Date.parse(payloadCapturedAt)) {
+      // Existing stop already >= capture; accept as Pattern A only when the
+      // capture epoch is not after stop (no later-live digests for older S).
+      coverage = true;
+    } else {
+      return fail(
+        cover.errors?.length
+          ? cover.errors
+          : ['no real backup/WAL coverage for capture point — refuse emit'],
+        { restic, label, bucket: cfg.bucketName }
+      );
+    }
+  }
+
+  const bound = resolveRecoverableBaselineBinding({
+    payloadCapturedAt,
+    backupStopAt: stopAt,
+    pgbackrestBackupLabel: label,
+    coverageProvenThroughCapture: coverage,
+    asOfDerivedAtStop: asOf,
+    requestedTargetTimestamp: options?.requestedTargetTimestamp,
+  });
+  if (!bound.ok) {
+    return fail(bound.errors, { restic, label, bucket: cfg.bucketName });
+  }
+
   const result = captureAndUploadRecoveryBaseline({
     config: cfg,
     env,
-    pgbackrestBackupLabel: label,
+    pgbackrestBackupLabel: bound.pgbackrest_backup_label,
     resticSnapshotId: restic,
     stanza: cfg.stanza,
     databaseUrl: options?.databaseUrl,
     blobRoot,
+    targetTimestamp: bound.target_timestamp,
+    payloadCapturedAt,
+    backupStopAt: stopAt,
+    coverageProvenThroughCapture: bound.mode === 'capture_then_cover',
+    asOfDerivedAtStop: bound.mode === 'as_of',
   });
   return {
     ...result,
     restic_snapshot_id: result.baseline?.restic_snapshot_id ?? restic,
     pgbackrest_backup_label: result.baseline?.pgbackrest_backup_label ?? label,
+  };
+}
+
+/**
+ * Resolve backup stop ISO for a label via live `pgbackrest info --output=json`.
+ */
+function resolvePgbackrestStopFromInfo(
+  cfg: BackupConfig,
+  env: NodeJS.ProcessEnv,
+  label: string
+): { stopAt: string; stopMs: number } | null {
+  const pgbEnv: NodeJS.ProcessEnv = {
+    ...env,
+    PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
+    PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
+    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+  };
+  if (cfg.sessionToken) {
+    pgbEnv.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;
+  } else {
+    delete pgbEnv.PGBACKREST_REPO1_S3_TOKEN;
+  }
+  const info = run(
+    'pgbackrest',
+    [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
+    { env: pgbEnv, timeoutMs: 120_000 }
+  );
+  if (info.status !== 0) return null;
+  const parsed = parseBackupStopForLabel(info.stdout || '', label);
+  if (!parsed) return null;
+  return { stopAt: parsed.stopAt, stopMs: parsed.stopMs };
+}
+
+/**
+ * Pattern A cover: run a real base backup and return stop >= captureAt when proven.
+ * Fail closed when backup/info cannot prove coverage.
+ */
+function ensureBaseBackupCoverageThroughCapture(options: {
+  cfg: BackupConfig;
+  env: NodeJS.ProcessEnv;
+  captureAt: string;
+}): {
+  ok: boolean;
+  backupStopAt?: string;
+  pgbackrestBackupLabel?: string;
+  errors?: string[];
+} {
+  const { cfg, env, captureAt } = options;
+  const captureMs = Date.parse(captureAt);
+  if (Number.isNaN(captureMs)) {
+    return { ok: false, errors: ['captureAt invalid — refuse coverage'] };
+  }
+  const pgbEnv: NodeJS.ProcessEnv = {
+    ...env,
+    PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
+    PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
+    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+  };
+  if (cfg.sessionToken) {
+    pgbEnv.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;
+  } else {
+    delete pgbEnv.PGBACKREST_REPO1_S3_TOKEN;
+  }
+  // Prefer incr after an existing full; fall back to full.
+  const backup = run(
+    'pgbackrest',
+    [
+      `--config=${cfg.pgbackrestConfigPath}`,
+      `--stanza=${cfg.stanza}`,
+      '--type=incr',
+      '--no-archive-mode-check',
+      '--log-path=/tmp/pgbackrest-logs',
+      'backup',
+    ],
+    { env: pgbEnv, timeoutMs: 600_000 }
+  );
+  if (backup.status !== 0) {
+    const full = run(
+      'pgbackrest',
+      [
+        `--config=${cfg.pgbackrestConfigPath}`,
+        `--stanza=${cfg.stanza}`,
+        '--type=full',
+        '--no-archive-mode-check',
+        '--log-path=/tmp/pgbackrest-logs',
+        'backup',
+      ],
+      { env: pgbEnv, timeoutMs: 600_000 }
+    );
+    if (full.status !== 0) {
+      return {
+        ok: false,
+        errors: [
+          `pgbackrest backup failed — cannot prove coverage through capture: ${(full.stderr || full.stdout || backup.stderr || backup.stdout).slice(0, 400)}`,
+        ],
+      };
+    }
+  }
+  const info = run(
+    'pgbackrest',
+    [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
+    { env: pgbEnv, timeoutMs: 120_000 }
+  );
+  if (info.status !== 0) {
+    return {
+      ok: false,
+      errors: [
+        `pgbackrest info after cover backup failed: ${(info.stderr || info.stdout).slice(0, 400)}`,
+      ],
+    };
+  }
+  const latestLabel = parseLatestBackupLabel(info.stdout || '');
+  if (!latestLabel) {
+    return { ok: false, errors: ['no backup label after cover backup — refuse coverage'] };
+  }
+  const stop = parseBackupStopForLabel(info.stdout || '', latestLabel);
+  if (!stop) {
+    return {
+      ok: false,
+      errors: [`could not parse stop for label ${latestLabel} — refuse coverage`],
+    };
+  }
+  if (stop.stopMs < captureMs) {
+    return {
+      ok: false,
+      errors: [
+        `cover backup stop ${stop.stopAt} still before capture ${captureAt} — refuse coverage`,
+      ],
+    };
+  }
+  return {
+    ok: true,
+    backupStopAt: stop.stopAt,
+    pgbackrestBackupLabel: latestLabel,
   };
 }
 
@@ -1459,6 +2076,10 @@ export type BaselineHookResult = RecoveryBaselineUploadResult & {
  * Hook from base-backup.ts after a successful base backup.
  * Emits a full baseline when a restic snapshot id is already known (heartbeat);
  * otherwise records skip so restic-mirror can complete the bound baseline.
+ *
+ * GATE-FIX-QA3: prefers Pattern A pre-capture (payloadCapturedAt + backupStopAt
+ * with coverageProvenThroughCapture). Refuses wall-clock temporal relabel when
+ * digests would be captured after an older stop without cover proof.
  */
 export async function emitBaseBackupRecoveryBaselineHook(options: {
   config: BackupConfig;
@@ -1468,6 +2089,17 @@ export async function emitBaseBackupRecoveryBaselineHook(options: {
   blobRoot?: string;
   resticSnapshotId?: string | null;
   skipUpload?: boolean;
+  /** Pattern A: when digests were (or will be) captured. */
+  payloadCapturedAt?: string;
+  /** Real stop for pgbackrestBackupLabel from backup metadata. */
+  backupStopAt?: string;
+  coverageProvenThroughCapture?: boolean;
+  asOfDerivedAtStop?: boolean;
+  rowCounts?: Record<string, number>;
+  ledgerSha256?: string;
+  ledgerPerTableSha256?: Record<string, string>;
+  blobManifestSha256?: string;
+  targetLsn?: string;
 }): Promise<BaselineHookResult> {
   const env = options.env ?? process.env;
   const restic =
@@ -1506,14 +2138,154 @@ export async function emitBaseBackupRecoveryBaselineHook(options: {
     };
   }
 
+  const label = options.pgbackrestBackupLabel.trim();
+  const payloadCapturedAt = options.payloadCapturedAt?.trim() || new Date().toISOString();
+  let stopAt = options.backupStopAt?.trim() || '';
+  if (!stopAt) {
+    const resolved = resolvePgbackrestStopFromInfo(options.config, env, label);
+    if (resolved) stopAt = resolved.stopAt;
+  }
+  if (!stopAt) {
+    // Label-encoded fallback so we never fall back to wall-clock without a stop.
+    const fromLabel = parseBackupStopForLabel(JSON.stringify([]), label);
+    if (fromLabel) stopAt = fromLabel.stopAt;
+  }
+  if (!stopAt) {
+    return {
+      ok: false,
+      hook: 'base_backup',
+      skipped: false,
+      baseline: null,
+      contentKey: null,
+      lookupKey: null,
+      bucketName: options.config.bucketName,
+      uploaded: false,
+      verified: false,
+      errors: [
+        'backup stop metadata unavailable — refuse recovery baseline without recoverable coverage proof',
+      ],
+    };
+  }
+
+  let coverage = options.coverageProvenThroughCapture === true;
+  const asOf = options.asOfDerivedAtStop === true;
+  if (!coverage && !asOf) {
+    if (Date.parse(stopAt) >= Date.parse(payloadCapturedAt)) {
+      // Coordinated base-backup: stop covers pre-capture, or label stop >= capture.
+      coverage = true;
+    } else {
+      // Post-backup live capture after stop — Pattern A cover required.
+      const cover = ensureBaseBackupCoverageThroughCapture({
+        cfg: options.config,
+        env,
+        captureAt: payloadCapturedAt,
+      });
+      if (cover.ok && cover.backupStopAt && cover.pgbackrestBackupLabel) {
+        coverage = true;
+        stopAt = cover.backupStopAt;
+        // Prefer cover label when it advanced.
+        if (cover.pgbackrestBackupLabel.length >= 8) {
+          // keep label from cover for binding
+          const coverLabel = cover.pgbackrestBackupLabel;
+          const bound = resolveRecoverableBaselineBinding({
+            payloadCapturedAt,
+            backupStopAt: stopAt,
+            pgbackrestBackupLabel: coverLabel,
+            coverageProvenThroughCapture: true,
+          });
+          if (!bound.ok) {
+            return {
+              ok: false,
+              hook: 'base_backup',
+              skipped: false,
+              baseline: null,
+              contentKey: null,
+              lookupKey: null,
+              bucketName: options.config.bucketName,
+              uploaded: false,
+              verified: false,
+              errors: bound.errors,
+            };
+          }
+          const result = captureAndUploadRecoveryBaseline({
+            config: options.config,
+            env,
+            pgbackrestBackupLabel: bound.pgbackrest_backup_label,
+            resticSnapshotId: restic,
+            stanza: options.config.stanza,
+            databaseUrl: options.databaseUrl,
+            blobRoot: options.blobRoot,
+            targetTimestamp: bound.target_timestamp,
+            payloadCapturedAt,
+            backupStopAt: stopAt,
+            coverageProvenThroughCapture: true,
+            rowCounts: options.rowCounts,
+            ledgerSha256: options.ledgerSha256,
+            ledgerPerTableSha256: options.ledgerPerTableSha256,
+            blobManifestSha256: options.blobManifestSha256,
+            targetLsn: options.targetLsn,
+          });
+          return { ...result, hook: 'base_backup', skipped: false };
+        }
+      } else {
+        return {
+          ok: false,
+          hook: 'base_backup',
+          skipped: false,
+          baseline: null,
+          contentKey: null,
+          lookupKey: null,
+          bucketName: options.config.bucketName,
+          uploaded: false,
+          verified: false,
+          errors: cover.errors ?? [
+            'refuse temporal relabel / unproven coverage after base backup stop',
+          ],
+        };
+      }
+    }
+  }
+
+  const bound = resolveRecoverableBaselineBinding({
+    payloadCapturedAt,
+    backupStopAt: stopAt,
+    pgbackrestBackupLabel: label,
+    coverageProvenThroughCapture: coverage,
+    asOfDerivedAtStop: asOf,
+  });
+  if (!bound.ok) {
+    return {
+      ok: false,
+      hook: 'base_backup',
+      skipped: false,
+      baseline: null,
+      contentKey: null,
+      lookupKey: null,
+      bucketName: options.config.bucketName,
+      uploaded: false,
+      verified: false,
+      errors: bound.errors,
+    };
+  }
+
   const result = captureAndUploadRecoveryBaseline({
     config: options.config,
     env,
-    pgbackrestBackupLabel: options.pgbackrestBackupLabel,
+    pgbackrestBackupLabel: bound.pgbackrest_backup_label,
     resticSnapshotId: restic,
     stanza: options.config.stanza,
     databaseUrl: options.databaseUrl,
     blobRoot: options.blobRoot,
+    targetTimestamp: bound.target_timestamp,
+    payloadCapturedAt,
+    backupStopAt: stopAt,
+    coverageProvenThroughCapture: bound.mode === 'capture_then_cover',
+    asOfDerivedAtStop: bound.mode === 'as_of',
+    rowCounts: options.rowCounts,
+    ledgerSha256: options.ledgerSha256,
+    ledgerPerTableSha256: options.ledgerPerTableSha256,
+    blobManifestSha256: options.blobManifestSha256,
+    targetLsn: options.targetLsn,
   });
   return { ...result, hook: 'base_backup', skipped: false };
 }
@@ -1521,6 +2293,7 @@ export async function emitBaseBackupRecoveryBaselineHook(options: {
 /**
  * Hook from restic-mirror.ts after parity-confirmed snapshot.
  * Binds restic snapshot id + latest pgBackRest label into an immutable R2 baseline.
+ * GATE-FIX-QA3: joint-truth binding; fail closed on temporal relabel.
  */
 export async function bindResticSnapshotToRecoveryBaseline(options: {
   config: BackupConfig;
@@ -1530,6 +2303,10 @@ export async function bindResticSnapshotToRecoveryBaseline(options: {
   blobRoot: string;
   pgbackrestBackupLabel?: string | null;
   skipUpload?: boolean;
+  payloadCapturedAt?: string;
+  backupStopAt?: string;
+  coverageProvenThroughCapture?: boolean;
+  asOfDerivedAtStop?: boolean;
 }): Promise<BaselineHookResult> {
   const env = options.env ?? process.env;
   const restic = options.resticSnapshotId.trim();
@@ -1548,7 +2325,7 @@ export async function bindResticSnapshotToRecoveryBaseline(options: {
     };
   }
 
-  const label =
+  let label =
     options.pgbackrestBackupLabel?.trim() ||
     (await resolvePgbackrestLabelFromHeartbeat()) ||
     resolvePgbackrestLabelFromInfo(options.config, env) ||
@@ -1587,14 +2364,103 @@ export async function bindResticSnapshotToRecoveryBaseline(options: {
     };
   }
 
+  // Pattern A: capture epoch at restic bind time; require stop coverage.
+  const payloadCapturedAt = options.payloadCapturedAt?.trim() || new Date().toISOString();
+  let stopAt = options.backupStopAt?.trim() || '';
+  if (!stopAt) {
+    const resolved = resolvePgbackrestStopFromInfo(options.config, env, label);
+    if (resolved) stopAt = resolved.stopAt;
+  }
+  if (!stopAt) {
+    const fromLabel = parseBackupStopForLabel(JSON.stringify([]), label);
+    if (fromLabel) stopAt = fromLabel.stopAt;
+  }
+  if (!stopAt) {
+    return {
+      ok: false,
+      hook: 'restic_mirror',
+      skipped: false,
+      baseline: null,
+      contentKey: null,
+      lookupKey: null,
+      bucketName: options.config.bucketName,
+      uploaded: false,
+      verified: false,
+      errors: [
+        'backup stop metadata unavailable — refuse restic-bound baseline without coverage proof',
+      ],
+    };
+  }
+
+  let coverage = options.coverageProvenThroughCapture === true;
+  const asOf = options.asOfDerivedAtStop === true;
+  if (!coverage && !asOf) {
+    if (Date.parse(stopAt) >= Date.parse(payloadCapturedAt)) {
+      coverage = true;
+    } else {
+      const cover = ensureBaseBackupCoverageThroughCapture({
+        cfg: options.config,
+        env,
+        captureAt: payloadCapturedAt,
+      });
+      if (cover.ok && cover.backupStopAt && cover.pgbackrestBackupLabel) {
+        coverage = true;
+        stopAt = cover.backupStopAt;
+        label = cover.pgbackrestBackupLabel;
+      } else {
+        return {
+          ok: false,
+          hook: 'restic_mirror',
+          skipped: false,
+          baseline: null,
+          contentKey: null,
+          lookupKey: null,
+          bucketName: options.config.bucketName,
+          uploaded: false,
+          verified: false,
+          errors: cover.errors ?? [
+            'refuse temporal relabel / unproven coverage for restic-bound baseline',
+          ],
+        };
+      }
+    }
+  }
+
+  const bound = resolveRecoverableBaselineBinding({
+    payloadCapturedAt,
+    backupStopAt: stopAt,
+    pgbackrestBackupLabel: label,
+    coverageProvenThroughCapture: coverage,
+    asOfDerivedAtStop: asOf,
+  });
+  if (!bound.ok) {
+    return {
+      ok: false,
+      hook: 'restic_mirror',
+      skipped: false,
+      baseline: null,
+      contentKey: null,
+      lookupKey: null,
+      bucketName: options.config.bucketName,
+      uploaded: false,
+      verified: false,
+      errors: bound.errors,
+    };
+  }
+
   const result = captureAndUploadRecoveryBaseline({
     config: options.config,
     env,
-    pgbackrestBackupLabel: label,
+    pgbackrestBackupLabel: bound.pgbackrest_backup_label,
     resticSnapshotId: restic,
     stanza: options.config.stanza,
     databaseUrl: options.databaseUrl,
     blobRoot: options.blobRoot,
+    targetTimestamp: bound.target_timestamp,
+    payloadCapturedAt,
+    backupStopAt: stopAt,
+    coverageProvenThroughCapture: bound.mode === 'capture_then_cover',
+    asOfDerivedAtStop: bound.mode === 'as_of',
   });
   return { ...result, hook: 'restic_mirror', skipped: false };
 }

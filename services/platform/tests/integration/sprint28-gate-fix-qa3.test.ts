@@ -113,8 +113,9 @@ describe('GATE-FIX-QA3 pure helpers (always)', () => {
     const parsed = parseBackupStopForLabel(info, LABEL);
     writeEvidence('tc1b-parse-stop.json', parsed);
     expect(parsed).not.toBeNull();
-    expect(parsed!.label).toBe(LABEL);
-    expect(Date.parse(parsed!.stopAt)).toBe(stopSec * 1000);
+    if (!parsed) throw new Error('expected parseBackupStopForLabel result');
+    expect(parsed.label).toBe(LABEL);
+    expect(Date.parse(parsed.stopAt)).toBe(stopSec * 1000);
   });
 
   it('TC-2 / AC-2: refuse temporal relabel — later-captured payload cannot use older stop S', () => {
@@ -182,9 +183,11 @@ describe('GATE-FIX-QA3 pure helpers (always)', () => {
     writeEvidence('tc3-missing-coverage.json', missing);
     expect(missing.ok).toBe(false);
     if (missing.ok) throw new Error('expected refuse');
-    expect(missing.errors.join(' ')).not.toMatch(/2026-07-29T00:28:02/);
-    // Must not invent success with wall-clock or recommended_pitr stamp.
+    // Fail closed: no successful target_timestamp property on refuse result.
     expect(missing).not.toHaveProperty('target_timestamp');
+    expect(missing.errors.join(' ').toLowerCase()).toMatch(
+      /refuse|coverage|as-of|temporal relabel/
+    );
   });
 
   it('TC-4 / AC-4: selection at recommended_pitr loads window-truthful baseline', () => {
@@ -238,10 +241,9 @@ describe('GATE-FIX-QA3 pure helpers (always)', () => {
       best_id: best?.baseline.baseline_id ?? null,
     });
     expect(best).not.toBeNull();
-    expect(best?.baseline.baseline_id).toBe(windowTruthful.baseline_id);
-    expect(Date.parse(best!.baseline.target_timestamp)).toBeLessThanOrEqual(
-      Date.parse(recommended)
-    );
+    if (!best) throw new Error('expected selectBestFireDrillBaseline result');
+    expect(best.baseline.baseline_id).toBe(windowTruthful.baseline_id);
+    expect(Date.parse(best.baseline.target_timestamp)).toBeLessThanOrEqual(Date.parse(recommended));
   });
 
   it('TC-anti-pattern: source must not only stamp recommended_pitr onto live payload', () => {
@@ -276,8 +278,9 @@ describe('GATE-FIX-QA3 emit path (PLATFORM_IT or pure inject)', () => {
     writeEvidence('ac2-emit-refuse.json', result);
     expect(result.ok).toBe(false);
     expect(result.uploaded).toBe(false);
+    // Must refuse on binding honesty (not merely ghost restic after a false green stamp).
     expect(result.errors.join(' ').toLowerCase()).toMatch(
-      /temporal relabel|refuse|coverage|as-of|later|unlistable|restic|blob|secrets|config/
+      /temporal relabel|unproven coverage|later-captured|as-of/
     );
   });
 
