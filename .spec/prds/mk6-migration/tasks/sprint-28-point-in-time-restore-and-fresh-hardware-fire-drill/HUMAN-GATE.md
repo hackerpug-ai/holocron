@@ -38,13 +38,13 @@ Oracle: `sha256(documented_cmd) == sha256(gate-plan.steps[n].literal_cmd)`.
 
 ### 1 — Run holo restore --pitr <timestamp> against a scratch DB — restores to the named point exactly (or fail-closed outside WAL with named error).
 
-`literal_cmd_sha256: ac16c92215c575c3cced5abcd0fd8c164002d2dc945cda8c4d8ba1e0b44f1e44`
+`literal_cmd_sha256: c989b1de8cbb8cf08c9fb50654e5717c42673d3c82388157c8b8e7f60f11786d`
 
 ```bash
-set -euo pipefail; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID:-manual}/step1-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID:-manual}/step1-restore.txt"; mkdir -p "$SCRATCH" "$(dirname "$LOG")"; bun services/platform/src/cli/holo.ts restore --pitr "${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}" --scratch "$SCRATCH" --target-action promote 2>&1 | tee "$LOG"; ! grep -q 'unknown flag: --pitr' "$LOG"
+set -euo pipefail; bash scripts/assert-gate-run-id.sh; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step1-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step1-restore.txt"; mkdir -p "$SCRATCH" "$(dirname "$LOG")"; bun services/platform/src/cli/holo.ts restore --pitr "${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}" --scratch "$SCRATCH" --target-action promote 2>&1 | tee "$LOG"; ! grep -q 'unknown flag: --pitr' "$LOG"
 ```
 
-_Assertion notes:_ Valid in-window PITR → exit 0 + SELECT 1. Outside-window / empty → non-zero named restore error. Never unknown flag: --pitr. Live runs require allowlisted GATE_RUN_ID (alphanumeric + -/_ , length 1-64).
+_Assertion notes:_ Valid in-window PITR → exit 0 + SELECT 1. Outside-window / empty → non-zero named restore error. Never unknown flag: --pitr. GATE-FIX-S28R3-QA3: scripts/assert-gate-run-id.sh preflight required; no :-manual; use "${GATE_RUN_ID}" only.
 
 ### 2 — Provision / prove a fresh restore target with zero mini access (multi-axis isolation PASS) using live distinct R2_RESTORE_* under REQUIRE_LIVE_R2_RO=1.
 
@@ -58,13 +58,13 @@ _Assertion notes:_ REDHAT-FIX-S28R3/HIGH-1: live distinct R2_RESTORE_* + prove-r
 
 ### 3 — Compare row counts pre/post-restore — exact match against the pre-failure snapshot (parity-report row_counts) on provisioned fresh-target volumes.
 
-`literal_cmd_sha256: 38fc7e31a14613f5e1d808ff2697fd524acbc34563866b4589f5dba1b19d85de`
+`literal_cmd_sha256: 7581383eea3aec2120e26d46b6d0e4c91454e39655e420c4bc99e0c0614cb5f8`
 
 ```bash
-set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-S28R3; HOST="s28r3-gate-${GATE_RUN_ID:-manual}"; PG_PORT="${RESTORE_PG_PORT:-$((56000 + RANDOM % 3000))}"; trap 'docker rm -f "$HOST" >/dev/null 2>&1 || true; docker volume rm -f "${HOST}-pgdata" "${HOST}-blobs" >/dev/null 2>&1 || true' EXIT; SECRETS="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-services/platform/config/secrets.yaml}}"; if [[ -f "$SECRETS" ]]; then while IFS= read -r line || [[ -n "$line" ]]; do [[ "$line" =~ ^[[:space:]]*# ]] && continue; [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue; k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"; v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"; case "$k" in R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME) if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi ;; esac; done <"$SECRETS"; fi; if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then REQUIRE_LIVE_R2_RO=1 STAGING_ROOT=.tmp/REDHAT-FIX-S28R3/fresh-restore bash scripts/provision-fresh-restore-target.sh --host "$HOST" --skip-isolation --pg-port "$PG_PORT" 2>&1 | tee .tmp/REDHAT-FIX-S28R3/step3-provision.txt; else ALLOW_PLACEHOLDER_R2_RO=1 STAGING_ROOT=.tmp/REDHAT-FIX-S28R3/fresh-restore bash scripts/provision-fresh-restore-target.sh --host "$HOST" --skip-isolation --pg-port "$PG_PORT" 2>&1 | tee .tmp/REDHAT-FIX-S28R3/step3-provision.txt; fi; bash scripts/run-fire-drill-on-fresh-target.sh --host "$HOST" --target-timestamp "${PITR_TIMESTAMP:?set PITR_TIMESTAMP to an in-window ISO}" --attestation .tmp/REDHAT-FIX-S28R3/attestation.json --report .tmp/REDHAT-FIX-S28R3/parity-report.json 2>&1 | tee .tmp/REDHAT-FIX-S28R3/step3-fire-drill.txt; test -f .tmp/REDHAT-FIX-S28R3/attestation.json; jq -e '.schema == "holo.fresh-target.fire-drill-attestation.v1" and .ok == true and (.volumes.pgdata | type == "string") and (.mountpoints.scratch | type == "string" and (test("REDHAT-FIX-H2/step3") | not))' .tmp/REDHAT-FIX-S28R3/attestation.json; test -f .tmp/REDHAT-FIX-S28R3/parity-report.json; jq -e '.POSTGRES_PARITY_PASS == true and (.row_counts | type == "object")' .tmp/REDHAT-FIX-S28R3/parity-report.json
+set -euo pipefail; bash scripts/assert-gate-run-id.sh; mkdir -p .tmp/REDHAT-FIX-S28R3; HOST="s28r3-gate-${GATE_RUN_ID}"; PG_PORT="${RESTORE_PG_PORT:-$((56000 + RANDOM % 3000))}"; trap 'docker rm -f "$HOST" >/dev/null 2>&1 || true; docker volume rm -f "${HOST}-pgdata" "${HOST}-blobs" >/dev/null 2>&1 || true; docker network rm -f "${HOST}-net" >/dev/null 2>&1 || true' EXIT; SECRETS="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-services/platform/config/secrets.yaml}}"; if [[ -f "$SECRETS" ]]; then while IFS= read -r line || [[ -n "$line" ]]; do [[ "$line" =~ ^[[:space:]]*# ]] && continue; [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue; k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"; v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"; case "$k" in R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME) if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi ;; esac; done <"$SECRETS"; fi; if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then REQUIRE_LIVE_R2_RO=1 STAGING_ROOT=.tmp/REDHAT-FIX-S28R3/fresh-restore bash scripts/provision-fresh-restore-target.sh --host "$HOST" --skip-isolation --pg-port "$PG_PORT" 2>&1 | tee .tmp/REDHAT-FIX-S28R3/step3-provision.txt; else ALLOW_PLACEHOLDER_R2_RO=1 STAGING_ROOT=.tmp/REDHAT-FIX-S28R3/fresh-restore bash scripts/provision-fresh-restore-target.sh --host "$HOST" --skip-isolation --pg-port "$PG_PORT" 2>&1 | tee .tmp/REDHAT-FIX-S28R3/step3-provision.txt; fi; bash scripts/run-fire-drill-on-fresh-target.sh --host "$HOST" --target-timestamp "${PITR_TIMESTAMP:?set PITR_TIMESTAMP to an in-window ISO}" --attestation .tmp/REDHAT-FIX-S28R3/attestation.json --report .tmp/REDHAT-FIX-S28R3/parity-report.json 2>&1 | tee .tmp/REDHAT-FIX-S28R3/step3-fire-drill.txt; test -f .tmp/REDHAT-FIX-S28R3/attestation.json; jq -e '.schema == "holo.fresh-target.fire-drill-attestation.v1" and .ok == true and (.volumes.pgdata | type == "string") and (.mountpoints.scratch | type == "string" and (test("REDHAT-FIX-H2/step3") | not))' .tmp/REDHAT-FIX-S28R3/attestation.json; test -f .tmp/REDHAT-FIX-S28R3/parity-report.json; jq -e '.POSTGRES_PARITY_PASS == true and (.row_counts | type == "object")' .tmp/REDHAT-FIX-S28R3/parity-report.json
 ```
 
-_Assertion notes:_ REDHAT-FIX-S28R3/CRITICAL-1: volume-bound runner + attestation; restore destinations are provisioned volume Mountpoints (not .tmp/REDHAT-FIX-H2/step3-*).
+_Assertion notes:_ REDHAT-FIX-S28R3/CRITICAL-1: volume-bound runner + attestation; restore destinations are provisioned volume Mountpoints (not .tmp/REDHAT-FIX-H2/step3-*). GATE-FIX-S28R3-QA3: required allowlisted GATE_RUN_ID preflight; trap removes ${HOST}-net.
 
 ### 4 — Compare the evidence-ledger chain pre/post-restore — as-of chain SHA-256 matches baseline.
 
@@ -88,13 +88,13 @@ _Assertion notes:_ GATE-FIX-QA4: literal_cmd ends with jq -e which prints only t
 
 ### 6 — Point restore at an empty/corrupted backup chain — restore fails closed with a named chain error; never fake success; never sole-green on unknown flag: --pitr.
 
-`literal_cmd_sha256: a9eae07b239bfb88afa24b6f8ac92fbcb59276df24c51bb71d0fa570a8ee82fa`
+`literal_cmd_sha256: 13c74843974a5202cfe4c352748ca69edcf92d31e26b74e42a0dce59187a0fff`
 
 ```bash
-set -euo pipefail; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID:-manual}/step6-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID:-manual}/step6-restore.txt"; mkdir -p "$SCRATCH" "$(dirname "$LOG")"; EMPTY_PREFIX="pgbackrest-s28-gate-empty/${GATE_RUN_ID:-manual}"; set +e; R2_PGBACKREST_PREFIX="$EMPTY_PREFIX" bun services/platform/src/cli/holo.ts restore --pitr 2024-01-01T00:00:00Z --scratch "$SCRATCH" --target-action promote > "$LOG" 2>&1; RC=$?; set -e; cat "$LOG"; test "$RC" -ne 0; ! grep -q 'unknown flag: --pitr' "$LOG"; grep -qiE 'no base backup available|backup chain missing|manifest checksum mismatch|WAL segment corrupted|backup chain integrity|outside available WAL|backup config missing secrets' "$LOG"; test "$(find "$SCRATCH" -type f 2>/dev/null | wc -l | tr -d ' ')" -eq 0
+set -euo pipefail; bash scripts/assert-gate-run-id.sh; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step6-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step6-restore.txt"; mkdir -p "$SCRATCH" "$(dirname "$LOG")"; EMPTY_PREFIX="pgbackrest-s28-gate-empty/${GATE_RUN_ID}"; set +e; R2_PGBACKREST_PREFIX="$EMPTY_PREFIX" bun services/platform/src/cli/holo.ts restore --pitr 2024-01-01T00:00:00Z --scratch "$SCRATCH" --target-action promote > "$LOG" 2>&1; RC=$?; set -e; cat "$LOG"; test "$RC" -ne 0; ! grep -q 'unknown flag: --pitr' "$LOG"; grep -qiE 'no base backup available|backup chain missing|manifest checksum mismatch|WAL segment corrupted|backup chain integrity|outside available WAL|backup config missing secrets' "$LOG"; test "$(find "$SCRATCH" -type f 2>/dev/null | wc -l | tr -d ' ')" -eq 0
 ```
 
-_Assertion notes:_ Outer script exits 0 only when restore domain fail-closed is proven. must_not_observe unknown-flag-only.
+_Assertion notes:_ Outer script exits 0 only when restore domain fail-closed is proven. must_not_observe unknown-flag-only. GATE-FIX-S28R3-QA3: assert-gate-run-id preflight; no :-manual.
 
 ## Evidence paths
 
