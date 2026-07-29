@@ -525,11 +525,39 @@ if [[ -z "$ENDPOINT" && -n "${R2_ACCOUNT_ID:-}" ]]; then
   ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 fi
 
-# Distinctness: if caller only has backup RW keys and claims RO, detect.
-if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && -n "$AK" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]]; then
-  # Same identity as backup writer — only OK if we will fail live Put; still flag.
-  info "restore access key matches backup R2_ACCESS_KEY_ID from secrets (likely RW)"
+# When both ambient writer and restore are in env (no secrets file), capture writer for
+# GATE-FIX-S28R3-QA8 credential-tuple compare. Never log values.
+if [[ -z "${BACKUP_R2_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_ACCESS_KEY_ID:-}" ]]; then
+  export BACKUP_R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+  if [[ -z "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
+    export BACKUP_R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+  fi
 fi
+
+# GATE-FIX-S28R3-QA8 — credential-tuple identity (not Access Key ID alone).
+# Cloudflare temp object-read-only sessions may reuse the parent Access Key ID when the
+# secret differs and a non-empty session token is present. Shape never replaces the live
+# List/Put/Delete oracle.
+r2_writer_equivalent_tuple() {
+  # args: restore_ak restore_sk restore_st [writer_ak] [writer_sk]
+  local rak="${1:-}" rsk="${2:-}" rst="${3:-}" wak="${4:-}" wsk="${5:-}"
+  if [[ -z "$rak" || -z "$rsk" ]]; then
+    return 0 # incomplete — handled by placeholder/empty path
+  fi
+  if [[ -n "$wsk" && "$rsk" == "$wsk" ]]; then
+    return 0 # equivalent (true = is writer-equivalent)
+  fi
+  if [[ -n "$wak" && "$rak" == "$wak" ]]; then
+    if [[ -z "$rst" ]]; then
+      return 0 # same parent AK without session token → incomplete CF temp / writer reuse
+    fi
+    if [[ -n "$wsk" && "$rsk" == "$wsk" ]]; then
+      return 0
+    fi
+    return 1 # same parent AK + distinct secret + session → NOT writer-equivalent
+  fi
+  return 1 # distinct AK (or no writer known) → not writer-equivalent by shape
+}
 
 PLACEHOLDER=0
 if is_placeholder "$AK" || is_placeholder "$SK" || is_placeholder "${ENDPOINT:-}"; then
@@ -565,31 +593,49 @@ if [[ $PLACEHOLDER -eq 1 || -z "$AK" || -z "$SK" || -z "$ENDPOINT" ]]; then
   exit 1
 fi
 
-# Refuse using known backup RW secret as "RO" without live denial — live probe will catch Put.
+# Pre-probe credential-tuple gate (never logs secret/session values).
+if r2_writer_equivalent_tuple "$AK" "$SK" "$ST" "${BACKUP_R2_ACCESS_KEY_ID:-}" "${BACKUP_R2_SECRET_ACCESS_KEY:-}"; then
+  if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
+    fail "writer-equivalent credential tuple refused (restore secret equals backup RW secret)"
+  elif [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" && -z "$ST" ]]; then
+    fail "incomplete Cloudflare temporary credential tuple (same parent Access Key ID without non-empty session token)"
+  else
+    fail "writer-equivalent or incomplete restore credential tuple refused"
+  fi
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
+  echo "=== RESULT: FAIL (credential tuple not restore-only; DEPENDENCY-S28-R2-RO) ==="
+  exit 1
+fi
+
 if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]]; then
-  info "WARNING: probing with identity equal to backup RW key — expect Put to succeed and FAIL closed"
+  info "GATE-FIX-S28R3-QA8: Cloudflare temporary credential tuple shape (same parent AK; distinct secret; session present) — live Put/Delete oracle required"
 fi
 
 if ! run_live_probe "$AK" "$SK" "$ENDPOINT" "$BUCKET" "$ST"; then
-  # Extra clarity when RW keys were used
-  if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]]; then
-    fail "probed identity is the backup read-write key — mint a distinct object-read-only token"
+  # Extra clarity when RW-equivalent secrets were somehow still used
+  if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
+    fail "probed identity is the backup read-write secret — mint a distinct object-read-only token"
     human_required_mint
   fi
   echo "=== RESULT: FAIL (live R2 read-only proof) ==="
   exit 1
 fi
 
-# Success path also records that credentials differ from backup RW when that is known.
+# Success path: live List allowed + Put/Delete denied is the permission oracle.
+# Same parent AK with distinct secret + session is a valid Cloudflare temp RO shape.
 if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" ]]; then
   if [[ "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]]; then
-    fail "credentials equal backup RW identity after live probe — impossible for true RO"
-    echo "=== RESULT: FAIL ==="
-    exit 1
+    if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
+      fail "credentials equal backup RW identity after live probe — writer-equivalent tuple"
+      echo "=== RESULT: FAIL ==="
+      exit 1
+    fi
+    pass "GATE-FIX-S28R3-QA8: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle"
+  else
+    pass "restore RO access key differs from backup R2_ACCESS_KEY_ID"
   fi
-  pass "restore RO access key differs from backup R2_ACCESS_KEY_ID"
 else
-  info "backup RW key not loaded from secrets — distinctness checked only via Put/Delete denial"
+  info "backup RW key not loaded — distinctness checked only via Put/Delete denial"
 fi
 
 echo "=== RESULT: PASS (live R2 List allowed; Put/Delete AccessDenied) ==="
