@@ -2,15 +2,19 @@
  * Full CAP-BAK-01 fire drill (D05-04): Postgres PITR + restic blob restore + parity.
  *
  * Flow (strict order):
- *   1. Capture pre-failure snapshot (row counts + ledger checksum + local blob hash set)
+ *   1. Load immutable recovery baseline from R2 (SHA-256 oracle — REDHAT-FIX-C5)
+ *      Optional live-mini pre-failure snapshot is diagnostic only when baseline present
  *   2. Restore Postgres via runPitrRestore into empty --scratch (never live mini PGDATA)
  *   3. Start restored cluster; compare row counts → POSTGRES_PARITY_PASS
- *   4. Compare ledger checksum → LEDGER_CHECKSUM_MATCH
- *   5. restic restore from R2 into empty --blob-dir; SHA-256 set parity → BLOB_PARITY_PASS
- *   6. Emit unified parity-report.json with concrete counts/digests
+ *   4. Compare ledger SHA-256 vs baseline.ledger_sha256 → LEDGER_CHECKSUM_MATCH
+ *      (MD5 ledger_checksum retained as secondary diagnostic only)
+ *   5. restic restore from R2 into empty --blob-dir; SHA-256 set / baseline
+ *      blob_manifest_sha256 parity → BLOB_PARITY_PASS
+ *   6. Emit unified parity-report.json with baseline_id + concrete counts/digests
  *   7. Exit 0 only if ALL three pass (fail-closed otherwise)
  *
  * NEVER stubs BLOB_PARITY_PASS when restic/R2 is unavailable — named error + non-zero exit.
+ * NEVER uses MD5 as the sole ledger integrity oracle.
  */
 import { spawnSync } from 'node:child_process';
 import {
@@ -47,6 +51,15 @@ import {
   writeParityReport,
 } from './parity-report.ts';
 import {
+  compareRestoredToBaseline,
+  computeBlobManifestSha256,
+  computeLedgerSha256,
+  listRecoveryBaselines,
+  loadRecoveryBaselineFromR2,
+  normalizeSha256Digest,
+  type RecoveryBaseline,
+} from './recovery-baseline.ts';
+import {
   findRestoredBlobRoot,
   loadResticMirrorConfig,
   type ResticMirrorConfig,
@@ -78,6 +91,19 @@ export type FireDrillOptions = {
   skipCleanup?: boolean;
   /** Override pgBackRest restore timeout (default 20 minutes). */
   pitrTimeoutMs?: number;
+  /** Content-addressed recovery baseline id (R2). */
+  baselineId?: string;
+  /** Explicit R2 object key for recovery-baseline.json. */
+  baselineKey?: string;
+  /** pgBackRest backup label for by-backup baseline lookup. */
+  pgbackrestBackupLabel?: string;
+  /** restic snapshot id for by-backup baseline lookup / preferred restore. */
+  resticSnapshotId?: string;
+  /**
+   * When true (default), refuse ok without a verified R2 recovery baseline.
+   * Live mini pre-failure alone is never the sole oracle (REDHAT-FIX-C5).
+   */
+  requireRecoveryBaseline?: boolean;
 };
 
 export type FireDrillResult = {
@@ -95,6 +121,131 @@ const FORBIDDEN_PGDATA = [
   '/usr/local/var/postgresql@18',
   '/var/lib/postgresql/data',
 ];
+
+type LoadedBaseline = {
+  baseline: RecoveryBaseline;
+  key: string | null;
+};
+
+/**
+ * Resolve the immutable R2 recovery baseline for this fire-drill.
+ * Prefers explicit id/key/label bindings, then discovers by target timestamp.
+ */
+function resolveFireDrillBaseline(
+  options: FireDrillOptions,
+  env: NodeJS.ProcessEnv
+): { loaded: LoadedBaseline | null; errors: string[] } {
+  const errors: string[] = [];
+  const baselineId =
+    options.baselineId?.trim() ||
+    env.HOLO_RECOVERY_BASELINE_ID?.trim() ||
+    env.RECOVERY_BASELINE_ID?.trim() ||
+    '';
+  const baselineKey =
+    options.baselineKey?.trim() ||
+    env.HOLO_RECOVERY_BASELINE_KEY?.trim() ||
+    env.RECOVERY_BASELINE_KEY?.trim() ||
+    '';
+  const label =
+    options.pgbackrestBackupLabel?.trim() ||
+    env.HOLO_PGBACKREST_BACKUP_LABEL?.trim() ||
+    env.PGBACKREST_BACKUP_LABEL?.trim() ||
+    '';
+  const restic =
+    options.resticSnapshotId?.trim() ||
+    env.HOLO_RESTIC_SNAPSHOT_ID?.trim() ||
+    env.RESTIC_SNAPSHOT_ID?.trim() ||
+    '';
+
+  const tryLoad = (load: {
+    baselineId?: string;
+    key?: string;
+    pgbackrestBackupLabel?: string;
+    resticSnapshotId?: string;
+  }): LoadedBaseline | null => {
+    const res = loadRecoveryBaselineFromR2({ ...load, env });
+    if (res.ok && res.baseline) {
+      return { baseline: res.baseline, key: res.key };
+    }
+    if (res.errors.length) errors.push(...res.errors);
+    return null;
+  };
+
+  if (baselineKey) {
+    const hit = tryLoad({ key: baselineKey });
+    if (hit) return { loaded: hit, errors: [] };
+  }
+  if (baselineId) {
+    const hit = tryLoad({ baselineId });
+    if (hit) return { loaded: hit, errors: [] };
+  }
+  if (label.length >= 8 && restic.length >= 8) {
+    const hit = tryLoad({ pgbackrestBackupLabel: label, resticSnapshotId: restic });
+    if (hit) return { loaded: hit, errors: [] };
+  }
+
+  // Discover by target timestamp: list R2 recovery-baselines, load content-addressed
+  // objects, pick the latest baseline with target_timestamp <= drill target.
+  try {
+    const listed = listRecoveryBaselines({ env });
+    const targetMs = Date.parse(options.targetTimestamp);
+    const contentKeys = listed.keys.filter((k) => /\/sha256\/[0-9a-f]{64}\//i.test(k));
+    const candidates: Array<{ baseline: RecoveryBaseline; key: string; ts: number }> = [];
+    for (const key of contentKeys.slice(0, 64)) {
+      const res = loadRecoveryBaselineFromR2({ key, env });
+      if (!res.ok || !res.baseline) continue;
+      const ts = Date.parse(res.baseline.target_timestamp);
+      if (Number.isNaN(ts)) continue;
+      if (!Number.isNaN(targetMs) && ts > targetMs + 60_000) continue; // allow 60s skew
+      candidates.push({ baseline: res.baseline, key: res.key ?? key, ts });
+    }
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.ts - a.ts);
+      const best = candidates[0];
+      return { loaded: { baseline: best.baseline, key: best.key }, errors: [] };
+    }
+    if (listed.keys.length === 0) {
+      errors.push(
+        'no recovery-baseline objects under R2 recovery-baselines/ — refuse baseline-bound parity'
+      );
+    } else if (!Number.isNaN(targetMs)) {
+      errors.push(
+        `no recovery baseline with target_timestamp <= ${options.targetTimestamp} among ${listed.keys.length} R2 keys`
+      );
+    }
+  } catch (e) {
+    errors.push(
+      `recovery baseline discovery failed: ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+
+  return { loaded: null, errors: [...new Set(errors)] };
+}
+
+function emptyBaselineFields(): Pick<
+  FireDrillParityReport,
+  | 'baseline_loaded'
+  | 'baseline_id'
+  | 'baseline_sha256'
+  | 'baseline_key'
+  | 'pgbackrest_backup_label'
+  | 'ledger_sha256'
+  | 'pre_failure_ledger_sha256'
+  | 'blob_manifest_sha256'
+  | 'baseline_blob_manifest_sha256'
+> {
+  return {
+    baseline_loaded: false,
+    baseline_id: null,
+    baseline_sha256: null,
+    baseline_key: null,
+    pgbackrest_backup_label: null,
+    ledger_sha256: null,
+    pre_failure_ledger_sha256: null,
+    blob_manifest_sha256: null,
+    baseline_blob_manifest_sha256: null,
+  };
+}
 
 function run(
   cmd: string,
@@ -255,14 +406,18 @@ function parseLatestSnapshotId(snapshotsJson: string): {
 }
 
 /**
- * Restore latest restic blob snapshot from R2 into blobDir and compare SHA-256 sets
- * against the pre-failure local manifest.
+ * Restore restic blob snapshot from R2 into blobDir and compare SHA-256 sets /
+ * baseline blob_manifest_sha256 against expected digests.
  */
 function restoreBlobsAndParity(options: {
   blobDir: string;
   preFailureHashes: ReturnType<typeof hashLocalBlobStore>;
   env: NodeJS.ProcessEnv;
   sourceBlobRoot: string;
+  /** Prefer baseline-bound restic snapshot when set. */
+  preferredSnapshotId?: string | null;
+  /** Expected baseline blob manifest (SHA-256); when set, is primary oracle. */
+  expectedBlobManifestSha256?: string | null;
 }): {
   ok: boolean;
   parity: ParityCompareResult | null;
@@ -270,6 +425,7 @@ function restoreBlobsAndParity(options: {
   restored_blob_objects: number;
   snapshotId: string | null;
   repository: string | null;
+  blob_manifest_sha256: string | null;
   errors: string[];
 } {
   const errors: string[] = [];
@@ -287,6 +443,7 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId: null,
       repository: null,
+      blob_manifest_sha256: null,
       errors: [
         `restic blob mirror not available — refuse BLOB_PARITY_PASS: ${
           e instanceof Error ? e.message : String(e)
@@ -309,6 +466,7 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId: null,
       repository: cfg.repository,
+      blob_manifest_sha256: null,
       errors: [
         'restic binary not found — refuse BLOB_PARITY_PASS (no stub success without restic restore)',
       ],
@@ -323,6 +481,7 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId: null,
       repository: cfg.repository,
+      blob_manifest_sha256: null,
       errors: [
         'RESTIC_PASSWORD missing/short — refuse BLOB_PARITY_PASS (restic blob mirror not available in env)',
       ],
@@ -343,13 +502,16 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId: null,
       repository: cfg.repository,
+      blob_manifest_sha256: null,
       errors: [
         `restic snapshots failed — refuse BLOB_PARITY_PASS: ${(snaps.stderr || snaps.stdout).slice(0, 500)}`,
       ],
     };
   }
-  const { snapshotId, count } = parseLatestSnapshotId(snaps.stdout);
-  if (!snapshotId || count === 0) {
+  const latest = parseLatestSnapshotId(snaps.stdout);
+  const preferred = options.preferredSnapshotId?.trim() || '';
+  const snapshotId = preferred.length >= 8 ? preferred : latest.snapshotId;
+  if (!snapshotId || latest.count === 0) {
     return {
       ok: false,
       parity: null,
@@ -357,6 +519,7 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId: null,
       repository: cfg.repository,
+      blob_manifest_sha256: null,
       errors: [
         'restic repository has zero snapshots — refuse BLOB_PARITY_PASS (blob mirror not available)',
       ],
@@ -373,6 +536,7 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId,
       repository: cfg.repository,
+      blob_manifest_sha256: null,
       errors: [
         `blob-dir must be empty before restic restore (strict): ${options.blobDir} is not empty`,
       ],
@@ -391,6 +555,7 @@ function restoreBlobsAndParity(options: {
       restored_blob_objects: 0,
       snapshotId,
       repository: cfg.repository,
+      blob_manifest_sha256: null,
       errors: [
         `restic restore failed (exit ${restore.status}) — refuse BLOB_PARITY_PASS: ${(restore.stderr || restore.stdout).slice(0, 600)}`,
       ],
@@ -399,37 +564,74 @@ function restoreBlobsAndParity(options: {
 
   const restoredRoot = findRestoredBlobRoot(options.blobDir, options.sourceBlobRoot);
   const restoredHashes = hashDirectoryTree(restoredRoot);
-  const parity = compareHashSets(options.preFailureHashes, restoredHashes);
-  const matched_objects = parity.ok
-    ? parity.localCount
-    : Math.max(0, parity.localCount - parity.missingRemote.length);
+  const blob_manifest_sha256 = computeBlobManifestSha256(restoredRoot);
+  const expectedManifest = normalizeSha256Digest(options.expectedBlobManifestSha256 ?? null);
+  const hasBaselineManifest = expectedManifest !== null;
+  const hasLocalPreFailure = options.preFailureHashes.hashes.length > 0;
+
+  let parity: ParityCompareResult | null = null;
+  let matched_objects = 0;
+  let setOk = false;
+
+  if (hasLocalPreFailure) {
+    parity = compareHashSets(options.preFailureHashes, restoredHashes);
+    matched_objects = parity.ok
+      ? parity.localCount
+      : Math.max(0, parity.localCount - parity.missingRemote.length);
+    setOk = parity.ok && matched_objects > 0;
+    if (!parity.ok) {
+      errors.push(
+        `blob SHA-256 set parity FAILED: local=${parity.localCount} restored=${parity.remoteCount} ` +
+          `missing_restored=${parity.missingRemote.length} extra_restored=${parity.extraRemote.length} ` +
+          `sample_missing=${parity.missingRemote.slice(0, 3).join(',') || '-'} ` +
+          `sample_extra=${parity.extraRemote.slice(0, 3).join(',') || '-'}`
+      );
+    }
+  }
+
+  let manifestOk = false;
+  if (hasBaselineManifest) {
+    manifestOk = normalizeSha256Digest(blob_manifest_sha256) === expectedManifest;
+    if (!manifestOk) {
+      errors.push(
+        `blob_manifest_sha256 mismatch vs baseline: expected=${expectedManifest} actual=${blob_manifest_sha256}`
+      );
+    } else if (!hasLocalPreFailure) {
+      // Baseline-only path: matched_objects from restored tree size.
+      matched_objects = restoredHashes.hashes.length;
+    }
+  }
 
   if (restoredHashes.fileCount === 0) {
     errors.push(
       'restic restore produced zero objects — refuse BLOB_PARITY_PASS (matched_objects=0)'
     );
   }
-  if (!parity.ok) {
+  if (!hasLocalPreFailure && !hasBaselineManifest) {
     errors.push(
-      `blob SHA-256 parity FAILED: local=${parity.localCount} restored=${parity.remoteCount} ` +
-        `missing_restored=${parity.missingRemote.length} extra_restored=${parity.extraRemote.length} ` +
-        `sample_missing=${parity.missingRemote.slice(0, 3).join(',') || '-'} ` +
-        `sample_extra=${parity.extraRemote.slice(0, 3).join(',') || '-'}`
+      'blob oracle missing — need pre-failure local hashes or baseline.blob_manifest_sha256'
     );
   }
-  if (options.preFailureHashes.hashes.length === 0) {
-    errors.push('pre-failure blob manifest empty — refuse BLOB_PARITY_PASS (no source digests)');
-  }
 
-  const ok = errors.length === 0 && parity.ok && matched_objects > 0;
+  // Prefer baseline manifest when present; otherwise set parity against local pre-failure.
+  const oracleOk = hasBaselineManifest ? manifestOk : setOk;
+  // Soft: local set-parity noise is secondary when baseline manifest matches.
+  const hardErrors = errors.filter((e) => {
+    if (hasBaselineManifest && e.includes('set parity FAILED')) return false;
+    return true;
+  });
+  const finalOk =
+    hardErrors.length === 0 && oracleOk && matched_objects > 0 && restoredHashes.fileCount > 0;
+
   return {
-    ok,
+    ok: finalOk,
     parity,
-    matched_objects: ok ? matched_objects : parity.ok ? matched_objects : 0,
+    matched_objects: finalOk || (hasBaselineManifest && manifestOk) || setOk ? matched_objects : 0,
     restored_blob_objects: restoredHashes.hashes.length,
     snapshotId,
     repository: cfg.repository.replace(/\/\/([^@/]+)@/, '//***@'),
-    errors,
+    blob_manifest_sha256,
+    errors: finalOk ? [] : hardErrors.length ? hardErrors : errors,
   };
 }
 
@@ -492,6 +694,7 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       blob_parity: null,
       restic_snapshot_id: null,
       restic_repository: null,
+      ...emptyBaselineFields(),
       errors,
       durationMs: Date.now() - started,
       ok: false,
@@ -501,7 +704,24 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     return { ok: false, exitCode: 1, report, reportPath, pitr: null, errors };
   }
 
-  // ── 1) Pre-failure snapshot (BEFORE restore) ───────────────────────────
+  // ── 1a) Load immutable R2 recovery baseline (SHA-256 oracle) ───────────
+  const requireBaseline = options.requireRecoveryBaseline !== false;
+  const baselineResolve = resolveFireDrillBaseline(options, env);
+  const loadedBaseline = baselineResolve.loaded;
+  if (!loadedBaseline && requireBaseline) {
+    errors.push(
+      ...(baselineResolve.errors.length
+        ? baselineResolve.errors
+        : [
+            'recovery baseline missing/unverified from R2 — refuse fire-drill parity (REDHAT-FIX-C5)',
+          ])
+    );
+  } else if (!loadedBaseline && baselineResolve.errors.length) {
+    // Soft: still attempt live pre-failure path only when explicitly not required.
+    errors.push(...baselineResolve.errors.map((e) => `baseline warn: ${e}`));
+  }
+
+  // ── 1b) Optional live pre-failure snapshot (diagnostic; not sole oracle) ─
   let sourceConn: PsqlConnection;
   if (options.sourceDatabaseUrl) {
     const { connectionFromDatabaseUrl } = await import('./evidence-ledger-verify.ts');
@@ -510,30 +730,92 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     sourceConn = defaultSourceConnection(env);
   }
 
-  const preCounts = captureRowCounts(sourceConn, FIRE_DRILL_COUNT_TABLES);
-  const preLedger = computeLedgerChecksum(sourceConn);
-  if (Object.keys(preCounts.row_counts).length === 0) {
-    errors.push(
-      'pre-failure snapshot captured zero domain tables — refuse fire-drill (empty baseline)'
-    );
-  }
-  if (!preLedger.ledger_checksum || preLedger.ledger_checksum.length !== 32) {
-    errors.push('pre-failure ledger checksum empty — refuse fire-drill');
+  let preCounts = {
+    capturedAt: new Date().toISOString(),
+    row_counts: {} as Record<string, number>,
+    connection: { host: sourceConn.host, port: sourceConn.port, database: sourceConn.database },
+  };
+  let preLedger = {
+    ledger_checksum: '',
+    per_table: {} as Record<string, string>,
+    sample_tx_windows: [] as ReturnType<typeof computeLedgerChecksum>['sample_tx_windows'],
+    ok: false,
+  };
+  let preLedgerSha256: string | null = null;
+  let livePreFailureOk = false;
+  try {
+    preCounts = captureRowCounts(sourceConn, FIRE_DRILL_COUNT_TABLES);
+    preLedger = computeLedgerChecksum(sourceConn);
+    const sha = computeLedgerSha256(sourceConn);
+    preLedgerSha256 = normalizeSha256Digest(sha.ledger_sha256);
+    livePreFailureOk =
+      Object.keys(preCounts.row_counts).length > 0 &&
+      (preLedgerSha256 !== null ||
+        (typeof preLedger.ledger_checksum === 'string' && preLedger.ledger_checksum.length === 32));
+  } catch (e) {
+    if (!loadedBaseline) {
+      errors.push(
+        `pre-failure live snapshot failed and no R2 baseline: ${
+          e instanceof Error ? e.message : String(e)
+        }`
+      );
+    }
   }
 
-  // Persist pre-failure snapshot artifact for audit (before any restore mutates targets).
+  // Expected counts/digests: R2 baseline preferred over live mini.
+  const expectedRowCounts = loadedBaseline
+    ? loadedBaseline.baseline.row_counts
+    : preCounts.row_counts;
+  const expectedLedgerSha256 = loadedBaseline
+    ? normalizeSha256Digest(loadedBaseline.baseline.ledger_sha256)
+    : preLedgerSha256;
+  const expectedBlobManifest = loadedBaseline
+    ? normalizeSha256Digest(loadedBaseline.baseline.blob_manifest_sha256)
+    : null;
+
+  if (!loadedBaseline) {
+    if (Object.keys(expectedRowCounts).length === 0) {
+      errors.push(
+        'pre-failure snapshot captured zero domain tables and no R2 baseline — refuse fire-drill'
+      );
+    }
+    if (
+      !expectedLedgerSha256 &&
+      (!preLedger.ledger_checksum || preLedger.ledger_checksum.length !== 32)
+    ) {
+      errors.push(
+        'pre-failure ledger digest empty (no SHA-256, no MD5 diagnostic) and no R2 baseline — refuse fire-drill'
+      );
+    }
+    if (!expectedLedgerSha256 && preLedger.ledger_checksum.length === 32) {
+      errors.push(
+        'MD5-only pre-failure ledger without R2 recovery baseline — refuse sole-oracle MD5 (REDHAT-FIX-C5)'
+      );
+    }
+  }
+
+  // Persist pre-failure / baseline oracle artifact for audit (before any restore mutates targets).
   const preFailurePath = join(dirnameSafe(reportPath), 'pre-failure-snapshot.json');
   writeFileSync(
     preFailurePath,
     `${JSON.stringify(
       {
         capturedAt: preCounts.capturedAt,
-        row_counts: preCounts.row_counts,
+        row_counts: expectedRowCounts,
+        live_row_counts: preCounts.row_counts,
         ledger_checksum: preLedger.ledger_checksum,
+        ledger_sha256: expectedLedgerSha256,
+        live_ledger_sha256: preLedgerSha256,
         ledger_per_table: preLedger.per_table,
         sample_tx_windows: preLedger.sample_tx_windows,
         source: preCounts.connection,
         sourceBlobRoot,
+        livePreFailureOk,
+        baseline_loaded: Boolean(loadedBaseline),
+        baseline_id: loadedBaseline?.baseline.baseline_id ?? null,
+        baseline_key: loadedBaseline?.key ?? null,
+        pgbackrest_backup_label: loadedBaseline?.baseline.pgbackrest_backup_label ?? null,
+        restic_snapshot_id: loadedBaseline?.baseline.restic_snapshot_id ?? null,
       },
       null,
       2
@@ -541,13 +823,33 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     { mode: 0o600 }
   );
 
-  // Pre-failure blob manifest (SHA-256 set of local content-addressed store).
+  // Pre-failure blob manifest (SHA-256 set of local content-addressed store) — optional when baseline binds blob_manifest.
   const preBlobHashes = hashLocalBlobStore(sourceBlobRoot);
-  if (preBlobHashes.hashes.length === 0) {
+  if (preBlobHashes.hashes.length === 0 && !expectedBlobManifest) {
     // Not yet fatal for postgres path — blob step will fail closed honestly.
     errors.push(
-      `pre-failure blob store empty at ${sourceBlobRoot} — BLOB_PARITY_PASS will fail closed`
+      `pre-failure blob store empty at ${sourceBlobRoot} and no baseline.blob_manifest_sha256 — BLOB_PARITY_PASS will fail closed`
     );
+  }
+
+  // Fail-closed before expensive PITR when baseline is required but missing.
+  if (requireBaseline && !loadedBaseline) {
+    const report = failReport({
+      started,
+      options,
+      scratch,
+      blobDir,
+      sourceConn,
+      preCounts,
+      preLedger,
+      preLedgerSha256: expectedLedgerSha256,
+      expectedRowCounts,
+      preBlobHashes,
+      loadedBaseline,
+      errors,
+      reportPath,
+    });
+    return report;
   }
 
   // ── 2) Postgres PITR into empty scratch ────────────────────────────────
@@ -561,7 +863,10 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       sourceConn,
       preCounts,
       preLedger,
+      preLedgerSha256: expectedLedgerSha256,
+      expectedRowCounts,
       preBlobHashes,
+      loadedBaseline,
       errors: [
         ...errors,
         `scratch PGDATA must be empty before fire-drill restore (strict): ${scratch}`,
@@ -607,7 +912,10 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       sourceConn,
       preCounts,
       preLedger,
+      preLedgerSha256: expectedLedgerSha256,
+      expectedRowCounts,
       preBlobHashes,
+      loadedBaseline,
       errors,
       pitr,
       reportPath,
@@ -630,7 +938,10 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       sourceConn,
       preCounts,
       preLedger,
+      preLedgerSha256: expectedLedgerSha256,
+      expectedRowCounts,
       preBlobHashes,
+      loadedBaseline,
       errors,
       pitr,
       reportPath,
@@ -760,6 +1071,7 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     sample_tx_windows: [] as ReturnType<typeof computeLedgerChecksum>['sample_tx_windows'],
     ok: false,
   };
+  let restoredLedgerSha256: string | null = null;
   let postgresParity = false;
   let ledgerMatch = false;
   let rowMismatches: Array<{
@@ -770,24 +1082,52 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
 
   if (errors.filter((e) => e.includes('not queryable')).length === 0) {
     restoredCounts = captureRowCounts(restoredConn, FIRE_DRILL_COUNT_TABLES);
-    const cmp = compareRowCountsExact(preCounts.row_counts, restoredCounts.row_counts);
-    rowMismatches = cmp.mismatches;
-    postgresParity = cmp.ok;
-    if (!postgresParity) {
-      errors.push(
-        `POSTGRES_PARITY_PASS=false: row count mismatches: ${JSON.stringify(cmp.mismatches)}`
-      );
-    }
-
+    const restoredSha = computeLedgerSha256(restoredConn);
+    restoredLedgerSha256 = normalizeSha256Digest(restoredSha.ledger_sha256);
     restoredLedger = computeLedgerChecksum(restoredConn);
-    ledgerMatch =
-      restoredLedger.ok &&
-      restoredLedger.ledger_checksum === preLedger.ledger_checksum &&
-      preLedger.ledger_checksum.length === 32;
-    if (!ledgerMatch) {
-      errors.push(
-        `LEDGER_CHECKSUM_MATCH=false: expected=${preLedger.ledger_checksum} actual=${restoredLedger.ledger_checksum}`
-      );
+
+    if (loadedBaseline) {
+      // Sole integrity oracle: R2 recovery baseline (SHA-256) — never live mini alone.
+      const cmp = compareRestoredToBaseline({
+        baseline: loadedBaseline.baseline,
+        actualRowCounts: restoredCounts.row_counts,
+        actualLedgerSha256: restoredLedgerSha256 ?? restoredSha.ledger_sha256,
+        // blob compared after restic restore
+        actualBlobManifestSha256: null,
+      });
+      postgresParity = cmp.POSTGRES_PARITY_PASS;
+      ledgerMatch = cmp.LEDGER_CHECKSUM_MATCH;
+      rowMismatches = Object.keys({
+        ...loadedBaseline.baseline.row_counts,
+        ...restoredCounts.row_counts,
+      })
+        .filter((t) => loadedBaseline.baseline.row_counts[t] !== restoredCounts.row_counts[t])
+        .map((t) => ({
+          table: t,
+          expected: loadedBaseline.baseline.row_counts[t] ?? null,
+          actual: restoredCounts.row_counts[t] ?? null,
+        }));
+      if (!postgresParity || !ledgerMatch) {
+        errors.push(...cmp.errors);
+      }
+    } else {
+      const cmp = compareRowCountsExact(expectedRowCounts, restoredCounts.row_counts);
+      rowMismatches = cmp.mismatches;
+      postgresParity = cmp.ok;
+      if (!postgresParity) {
+        errors.push(
+          `POSTGRES_PARITY_PASS=false: row count mismatches: ${JSON.stringify(cmp.mismatches)}`
+        );
+      }
+      ledgerMatch =
+        restoredLedgerSha256 !== null &&
+        expectedLedgerSha256 !== null &&
+        restoredLedgerSha256 === expectedLedgerSha256;
+      if (!ledgerMatch) {
+        errors.push(
+          `LEDGER_CHECKSUM_MATCH=false: expected_sha256=${expectedLedgerSha256 ?? '(none)'} actual_sha256=${restoredLedgerSha256 ?? '(none)'} md5_diag expected=${preLedger.ledger_checksum} actual=${restoredLedger.ledger_checksum}`
+        );
+      }
     }
   }
 
@@ -805,13 +1145,19 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   let restored_blob_objects = 0;
   let restic_snapshot_id: string | null = null;
   let restic_repository: string | null = null;
+  let blob_manifest_sha256: string | null = null;
 
-  if (isEmptyDir(blobDir) && preBlobHashes.hashes.length > 0) {
+  const canRestoreBlobs =
+    isEmptyDir(blobDir) && (preBlobHashes.hashes.length > 0 || Boolean(expectedBlobManifest));
+  if (canRestoreBlobs) {
     const blob = restoreBlobsAndParity({
       blobDir,
       preFailureHashes: preBlobHashes,
       env,
       sourceBlobRoot,
+      preferredSnapshotId:
+        options.resticSnapshotId ?? loadedBaseline?.baseline.restic_snapshot_id ?? null,
+      expectedBlobManifestSha256: expectedBlobManifest,
     });
     blobOk = blob.ok;
     blobParity = blob.parity;
@@ -819,16 +1165,70 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     restored_blob_objects = blob.restored_blob_objects;
     restic_snapshot_id = blob.snapshotId;
     restic_repository = blob.repository;
+    blob_manifest_sha256 = blob.blob_manifest_sha256;
     errors.push(...blob.errors);
-  } else if (preBlobHashes.hashes.length === 0) {
-    errors.push('BLOB_PARITY_PASS=false: empty pre-failure blob manifest (no objects to verify)');
+
+    // When baseline present, re-check blob_manifest via compareRestoredToBaseline.
+    if (loadedBaseline && blob_manifest_sha256) {
+      const full = compareRestoredToBaseline({
+        baseline: loadedBaseline.baseline,
+        actualRowCounts: restoredCounts.row_counts,
+        actualLedgerSha256: restoredLedgerSha256 ?? '',
+        actualBlobManifestSha256: blob_manifest_sha256,
+      });
+      if (full.BLOB_MANIFEST_MATCH === false) {
+        blobOk = false;
+        errors.push(...full.errors.filter((e) => e.includes('blob_manifest')));
+      } else if (
+        full.BLOB_MANIFEST_MATCH === true &&
+        full.POSTGRES_PARITY_PASS &&
+        full.LEDGER_CHECKSUM_MATCH
+      ) {
+        // Align flags with full baseline compare when all axes match.
+        postgresParity = full.POSTGRES_PARITY_PASS;
+        ledgerMatch = full.LEDGER_CHECKSUM_MATCH;
+      }
+    }
+  } else if (preBlobHashes.hashes.length === 0 && !expectedBlobManifest) {
+    errors.push(
+      'BLOB_PARITY_PASS=false: empty pre-failure blob manifest and no baseline.blob_manifest_sha256'
+    );
   }
 
   // ── 5) Emit unified report ─────────────────────────────────────────────
-  // Filter "soft" pre-warnings that are already represented by pass flags
-  // when overall still fails — keep all errors for honesty.
   const finalErrors = [...new Set(errors)];
-  const allPass = postgresParity && ledgerMatch && blobOk && matched_objects > 0;
+  // Refuse ok without verified R2 baseline when required (default).
+  if (requireBaseline && !loadedBaseline) {
+    finalErrors.push(
+      'recovery baseline not loaded — refuse ok (MD5/live-mini alone is never sole oracle)'
+    );
+  }
+  const allPass =
+    postgresParity &&
+    ledgerMatch &&
+    blobOk &&
+    matched_objects > 0 &&
+    (!requireBaseline || Boolean(loadedBaseline)) &&
+    Boolean(restoredLedgerSha256 || (loadedBaseline && ledgerMatch));
+
+  const baselineFields = loadedBaseline
+    ? {
+        baseline_loaded: true as const,
+        baseline_id: loadedBaseline.baseline.baseline_id,
+        baseline_sha256: loadedBaseline.baseline.baseline_id,
+        baseline_key: loadedBaseline.key,
+        pgbackrest_backup_label: loadedBaseline.baseline.pgbackrest_backup_label,
+        ledger_sha256: restoredLedgerSha256,
+        pre_failure_ledger_sha256: expectedLedgerSha256,
+        blob_manifest_sha256,
+        baseline_blob_manifest_sha256: expectedBlobManifest,
+      }
+    : {
+        ...emptyBaselineFields(),
+        ledger_sha256: restoredLedgerSha256,
+        pre_failure_ledger_sha256: expectedLedgerSha256,
+        blob_manifest_sha256,
+      };
 
   const report = buildParityReport({
     capturedAt: new Date().toISOString(),
@@ -838,13 +1238,14 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     blobDir,
     sourceDatabase: preCounts.connection,
     POSTGRES_PARITY_PASS: postgresParity,
-    pre_failure_row_counts: preCounts.row_counts,
+    pre_failure_row_counts: expectedRowCounts,
     restored_row_counts: restoredCounts.row_counts,
     row_counts: restoredCounts.row_counts,
     row_count_mismatches: rowMismatches,
     LEDGER_CHECKSUM_MATCH: ledgerMatch,
-    ledger_checksum: restoredLedger.ledger_checksum,
-    pre_failure_ledger_checksum: preLedger.ledger_checksum,
+    // Prefer SHA-256 in ledger_checksum when available; keep MD5 as diagnostic secondary.
+    ledger_checksum: restoredLedgerSha256 ?? restoredLedger.ledger_checksum,
+    pre_failure_ledger_checksum: expectedLedgerSha256 ?? preLedger.ledger_checksum,
     ledger_per_table: restoredLedger.per_table,
     sample_tx_windows: restoredLedger.sample_tx_windows,
     BLOB_PARITY_PASS: blobOk,
@@ -852,8 +1253,9 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     pre_failure_blob_objects: preBlobHashes.hashes.length,
     restored_blob_objects,
     blob_parity: blobParity,
-    restic_snapshot_id,
+    restic_snapshot_id: restic_snapshot_id ?? loadedBaseline?.baseline.restic_snapshot_id ?? null,
     restic_repository,
+    ...baselineFields,
     errors: allPass ? [] : finalErrors,
     durationMs: Date.now() - started,
     ok: allPass,
@@ -888,13 +1290,25 @@ function failReport(args: {
   scratch: string;
   blobDir: string;
   sourceConn: PsqlConnection;
-  preCounts: ReturnType<typeof captureRowCounts>;
-  preLedger: ReturnType<typeof computeLedgerChecksum>;
+  preCounts: {
+    capturedAt?: string;
+    row_counts: Record<string, number>;
+    connection: { host: string; port: number; database: string };
+  };
+  preLedger: {
+    ledger_checksum: string;
+    per_table: Record<string, string>;
+    sample_tx_windows: ReturnType<typeof computeLedgerChecksum>['sample_tx_windows'];
+  };
+  preLedgerSha256: string | null;
+  expectedRowCounts: Record<string, number>;
   preBlobHashes: ReturnType<typeof hashLocalBlobStore>;
+  loadedBaseline: LoadedBaseline | null;
   errors: string[];
   pitr?: PitrRestoreResult | null;
   reportPath: string;
 }): FireDrillResult {
+  const b = args.loadedBaseline;
   const report = buildParityReport({
     capturedAt: new Date().toISOString(),
     targetTimestamp: args.options.targetTimestamp,
@@ -903,13 +1317,13 @@ function failReport(args: {
     blobDir: args.blobDir,
     sourceDatabase: args.preCounts.connection,
     POSTGRES_PARITY_PASS: false,
-    pre_failure_row_counts: args.preCounts.row_counts,
+    pre_failure_row_counts: args.expectedRowCounts,
     restored_row_counts: {},
     row_counts: {},
     row_count_mismatches: [],
     LEDGER_CHECKSUM_MATCH: false,
     ledger_checksum: '',
-    pre_failure_ledger_checksum: args.preLedger.ledger_checksum,
+    pre_failure_ledger_checksum: args.preLedgerSha256 ?? args.preLedger.ledger_checksum,
     ledger_per_table: args.preLedger.per_table,
     sample_tx_windows: args.preLedger.sample_tx_windows,
     BLOB_PARITY_PASS: false,
@@ -917,8 +1331,19 @@ function failReport(args: {
     pre_failure_blob_objects: args.preBlobHashes.hashes.length,
     restored_blob_objects: 0,
     blob_parity: null,
-    restic_snapshot_id: null,
+    restic_snapshot_id: b?.baseline.restic_snapshot_id ?? null,
     restic_repository: null,
+    baseline_loaded: Boolean(b),
+    baseline_id: b?.baseline.baseline_id ?? null,
+    baseline_sha256: b?.baseline.baseline_id ?? null,
+    baseline_key: b?.key ?? null,
+    pgbackrest_backup_label: b?.baseline.pgbackrest_backup_label ?? null,
+    ledger_sha256: null,
+    pre_failure_ledger_sha256: args.preLedgerSha256,
+    blob_manifest_sha256: null,
+    baseline_blob_manifest_sha256: b
+      ? normalizeSha256Digest(b.baseline.blob_manifest_sha256)
+      : null,
     errors: args.errors,
     durationMs: Date.now() - args.started,
     ok: false,
