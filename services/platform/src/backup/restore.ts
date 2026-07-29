@@ -183,6 +183,30 @@ export function toPgbackrestTargetTime(date: Date): string {
   return `${d} ${time}+00`;
 }
 
+/**
+ * pgBackRest --type=time selects a backup set with stop time *strictly less than* --target.
+ * Operators (and seed fixtures) often pass the exact backup stop from `pgbackrest info`;
+ * that equality fails with ERROR [075]. When the requested target is at/just before the
+ * latest known backup stop (≤5s), nudge +1s so the set is selectable and WAL can catch up.
+ * Does not invent far-future targets — only a minimal post-stop pad inside the WAL window.
+ */
+export function adjustPitrTargetForBackupStop(
+  target: Date,
+  window: { earliest: Date | null; latest: Date | null }
+): Date {
+  if (!window.latest) return target;
+  const latestMs = window.latest.getTime();
+  const targetMs = target.getTime();
+  // Already strictly after latest backup stop — no change.
+  if (targetMs > latestMs) return target;
+  // Equal or slightly before latest stop (common: --pitr = info stop timestamp).
+  const behindMs = latestMs - targetMs;
+  if (behindMs >= 0 && behindMs <= 5_000) {
+    return new Date(latestMs + 1_000);
+  }
+  return target;
+}
+
 function isScratchEmpty(scratch: string): boolean {
   if (!existsSync(scratch)) return true;
   try {
@@ -419,6 +443,17 @@ function mapPgbackrestFailure(combined: string): string[] {
   const lower = combined.toLowerCase();
   const named: string[] = [];
 
+  // Specific pgBackRest [075]: target not strictly after a backup stop (not a missing chain).
+  if (/unable to find backup set with stop time less than/i.test(combined)) {
+    named.push(
+      'timestamp is outside available WAL range (not in retention window) — refuse restore'
+    );
+    named.push(
+      'no base backup available for --pitr target (pgBackRest needs a backup stop strictly before --target)'
+    );
+    return named;
+  }
+
   if (
     /checksum|manifest.*mismatch|crypto|cipher|decrypt|integrity|corrupt|invalid.*backup|unable to get|protocol.*error/.test(
       lower
@@ -559,6 +594,18 @@ function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
   });
 }
 
+/**
+ * Short Unix socket directory for restored postmaster.
+ * NEVER use long scratch PGDATA paths — macOS sockaddr_un limit is 103 bytes;
+ * paths under /var/folders/.../d05-01-restore-scratch-.../healthy-pgdata exceed it
+ * (FATAL: could not create any Unix-domain sockets).
+ */
+function restoreSocketDir(port: number): string {
+  const dir = join('/tmp', `holo-restore-${port}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 function tryStartPostgres(
   pgdata: string,
   env: NodeJS.ProcessEnv
@@ -571,6 +618,7 @@ function tryStartPostgres(
   // Avoid 55432 which may be used by standing tunnels.
   const port = 56000 + (Math.abs(Date.now()) % 2000);
   const logFile = join(pgdata, 'holo-restore-start.log');
+  const socketDir = restoreSocketDir(port);
   // Remove stale log so we only parse this start attempt.
   try {
     if (existsSync(logFile)) rmSync(logFile, { force: true });
@@ -579,7 +627,19 @@ function tryStartPostgres(
   }
   const started = run(
     'pg_ctl',
-    ['start', '-D', pgdata, '-l', logFile, '-o', `-p ${port} -k ${pgdata}`, '-w', '-t', '120'],
+    [
+      'start',
+      '-D',
+      pgdata,
+      '-l',
+      logFile,
+      // Short -k path required on macOS; also listen on localhost for TCP probes.
+      '-o',
+      `-p ${port} -k ${socketDir} -h 127.0.0.1`,
+      '-w',
+      '-t',
+      '120',
+    ],
     { env: { ...env, PGDATA: pgdata }, timeoutMs: 150_000 }
   );
   // Give promote/recovery a moment to finish after "ready for read-only".
@@ -604,6 +664,15 @@ function tryStartPostgres(
   });
   const up = started.status === 0 && status.status === 0;
   log = readStartLog(pgdata);
+  if (up) {
+    // Operator/test probes use TCP (socket dir is /tmp/holo-restore-<port>, not PGDATA).
+    try {
+      writeFileSync(join(pgdata, 'holo-restore.port'), `${port}\n`, { mode: 0o600 });
+      writeFileSync(join(pgdata, 'holo-restore.socket_dir'), `${socketDir}\n`, { mode: 0o600 });
+    } catch {
+      // best-effort discovery files
+    }
+  }
   return {
     started: up,
     port: up ? port : null,
@@ -1051,7 +1120,10 @@ export async function runPitrRestore(options: {
   }
 
   // 4) Real pgBackRest restore --type=time
-  const targetTime = toPgbackrestTargetTime(parsed.date);
+  // Honor R2_PGBACKREST_PREFIX / PGBACKREST_STANZA / cipher from loadBackupConfig(env)
+  // (same contract the test seeder uses). Nudge --target when operator passed exact backup stop.
+  const effectiveTargetDate = adjustPitrTargetForBackupStop(parsed.date, window);
+  const targetTime = toPgbackrestTargetTime(effectiveTargetDate);
   const restoreArgs = [
     `--config=${confPath}`,
     `--stanza=${cfg.stanza}`,

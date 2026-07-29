@@ -194,13 +194,14 @@ Depends on: — · Blocks: D05-02, D05-04
       ]
     },
     "healthy_seeded_repo": {
-      "description": "A test-scoped R2 bucket with a complete, verified backup chain and seed data.",
+      "description": "Test-scoped R2/pgBackRest repo prefix produced by a REAL pgbackrest backup --type=full and continuous WAL archive (REDHAT-FIX-C1). Never synthetic text manifests or D05-01-HEALTHY-WAL-PLACEHOLDER.",
       "seed_method": "public_api",
       "records": [
-        "R2 bucket prefix contains a complete base backup",
-        "WAL archive contains continuous WAL segments covering the target PITR window",
-        "pgBackRest manifest checksums are valid for all segments",
-        "Backup includes test data (e.g. a table named 'pitr_test' with >= 1 rows)"
+        "Test Postgres instance with pitr_test INSERT >= 1 row before backup",
+        "pgbackrest --stanza=<test> backup --type=full exit 0 into test-scoped R2 prefix",
+        "At least one WAL archive-push covering the PITR target timestamp",
+        "pgbackrest info --output=json reports backup label non-empty (length >= 8) and status ok",
+        "R2 listing under test prefix contains real pgBackRest backup/archive objects (not hand-written text manifests)"
       ]
     }
   },

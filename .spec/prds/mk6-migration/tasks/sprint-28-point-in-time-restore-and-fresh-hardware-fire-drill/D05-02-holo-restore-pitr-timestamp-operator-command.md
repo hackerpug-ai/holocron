@@ -82,6 +82,8 @@ Implement a production-grade PITR restore command that operators can invoke to r
 - STRICTLY target PGDATA must be empty before restore starts
 - STRICTLY timestamp is validated against the available WAL segment range before restore begins
 - STRICTLY restore command emits a structured JSON report with exit code, target timestamp, actual stop timestamp, and PGDATA path
+- STRICTLY healthy control fixtures (D05-01 AC-3) must be real pgBackRest-produced objects only — reject synthetic text manifests / HEALTHY-WAL-PLACEHOLDER; no test-only restore reader for synthetic objects (REDHAT-FIX-C1)
+- NEVER treat hand-written 'pgBackRest-style' text objects as a valid restorable chain
 
 --------------------------------------------------------------------------------
 DONE WHEN

@@ -24,6 +24,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -36,6 +37,10 @@ import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import type { BackupConfig } from '../../src/backup/config.ts';
 import { loadBackupConfig } from '../../src/backup/config.ts';
 import { listRepoPrefix } from '../../src/backup/r2-provision.ts';
+import {
+  cleanupPgbackrestSeedWorkDir,
+  seedRealPgbackrestHealthyChain,
+} from './helpers/pgbackrest-seed.ts';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
@@ -45,16 +50,19 @@ const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const RESTORE_MODULE = resolve(REPO_ROOT, 'services/platform/src/backup/restore.ts');
 const BUN_BIN = process.env.BUN_BIN ?? 'bun';
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/D05-01');
+const EVIDENCE_DIR_C2 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-C2');
 
-/** PITR target timestamp used across empty/corrupt/healthy restore invocations. */
+/** PITR target timestamp used across empty/corrupt restore invocations. */
 const PITR_TIMESTAMP = process.env.D05_PITR_TIMESTAMP ?? '2024-01-01T00:00:00Z';
-const HEALTHY_PITR_TIMESTAMP =
-  process.env.D05_HEALTHY_PITR_TIMESTAMP ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
+/**
+ * Source DB for heartbeat oracle + pitr_test seed. Prefer secrets holocron DB
+ * (where backup_heartbeat / live cluster data live) over holocron_nonprod.
+ */
 const DATABASE_URL =
   process.env.DATABASE_URL ??
   process.env.DATABASE_URL_OWNER ??
-  'postgres://127.0.0.1:5432/holocron_nonprod';
+  'postgres://127.0.0.1:5432/holocron';
 
 const RUN_ID = `d05-01-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -80,19 +88,29 @@ type FixtureHandles = {
   scratchRoot: string;
   /** Objects uploaded under corruptPrefix for cleanup. */
   corruptKeys: string[];
-  /** Objects uploaded under healthyPrefix for cleanup. */
+  /** Object keys under healthyPrefix (informational; cleanup is recursive). */
   healthyKeys: string[];
+  /** Real pgBackRest stanza used for the healthy seed (not production `main`). */
+  healthyStanza: string;
+  /** Backup label from `pgbackrest info` after real seed. */
+  healthyBackupLabel: string;
+  /** PITR timestamp within the real healthy chain WAL window. */
+  healthyPitrTimestamp: string;
+  /** Seeder workdir (conf with cipher) — cleaned in afterAll. */
+  healthySeedWorkDir: string;
+  healthyObjectCount: number;
 };
 
 let fixtures: FixtureHandles | undefined;
 
 function ensureEvidenceDir(): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
+  mkdirSync(EVIDENCE_DIR_C2, { recursive: true });
 }
 
-function writeEvidence(name: string, body: unknown): string {
-  ensureEvidenceDir();
-  const path = resolve(EVIDENCE_DIR, name);
+function writeEvidence(name: string, body: unknown, dir: string = EVIDENCE_DIR): string {
+  mkdirSync(dir, { recursive: true });
+  const path = resolve(dir, name);
   const text = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
   writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`, 'utf8');
   return path;
@@ -172,14 +190,13 @@ function countFilesRecursive(root: string): number {
 }
 
 /**
- * Seed test-scoped R2 fixtures via real S3-compatible public API (never mocked):
+ * Seed test-scoped R2 fixtures (never mocked):
  *  - emptyPrefix: unique path with 0 objects
- *  - corruptPrefix: base-backup-shaped layout + deliberately corrupted manifest
- *  - healthyPrefix: test-scoped complete-chain contract objects + pitr_test seed dump
+ *  - corruptPrefix: deliberately corrupted base-backup-shaped objects (fail-closed control)
+ *  - healthyPrefix: REAL pgBackRest stanza-create + full backup + WAL archive
+ *    (REDHAT-FIX-C1 — no synthetic text manifests / HEALTHY-WAL-PLACEHOLDER)
  *
- * Healthy fixture is NEVER the production/standing prefix (`pgbackrest`). D05-02
- * restore implementation must treat the seeded object set + seed SQL dump as the
- * contract for a restorable chain that yields `pitr_test` with >= 1 rows.
+ * Healthy fixture is NEVER the production/standing prefix (`pgbackrest`).
  */
 function seedFixtures(
   cfg: BackupConfig
@@ -191,6 +208,11 @@ function seedFixtures(
   | 'testScopedRoot'
   | 'corruptKeys'
   | 'healthyKeys'
+  | 'healthyStanza'
+  | 'healthyBackupLabel'
+  | 'healthyPitrTimestamp'
+  | 'healthySeedWorkDir'
+  | 'healthyObjectCount'
 > {
   const testScopedRoot = `pgbackrest-d05-01-red/${RUN_ID}`;
   const emptyPrefix = `${testScopedRoot}/empty`;
@@ -222,12 +244,12 @@ function seedFixtures(
   ).toBe(0);
 
   // corrupt: upload a base-backup-shaped tree with a poison manifest checksum
+  // (still synthetic — intentional negative control; production restore must reject).
   const corruptKeys: string[] = [];
   const poisonDir = mkdtempSync(join(tmpdir(), 'd05-01-corrupt-'));
   try {
     const manifestPath = join(poisonDir, 'backup.manifest');
     const historyPath = join(poisonDir, 'backup.info');
-    // Deliberate corruption markers the restore path must name when implemented.
     writeFileSync(
       manifestPath,
       [
@@ -293,114 +315,50 @@ function seedFixtures(
     'corrupted_manifest_repo must contain base-backup-shaped + WAL objects'
   ).toBeGreaterThanOrEqual(1);
 
-  // healthy: test-scoped base-backup-shaped chain + pitr_test seed contract
-  // (full restorable pgBackRest binary payload is D05-02/D05-04 ownership when
-  // real backup seed helpers land; RED seeds the object layout + SQL intent so
-  // GREEN can restore pitr_test without depending on production data shape).
-  const healthyKeys: string[] = [];
-  const healthyDir = mkdtempSync(join(tmpdir(), 'd05-01-healthy-'));
-  const pitrSeedSql = [
-    '-- D05-01 healthy_seeded_repo contract: pitr_test seed for PITR negative control',
-    '-- When D05-02 restore lands against this prefix, restored DB MUST include:',
-    '--   CREATE TABLE pitr_test ... + >= 1 row',
-    'CREATE TABLE IF NOT EXISTS pitr_test (',
-    '  id serial PRIMARY KEY,',
-    '  label text NOT NULL,',
-    '  seeded_at timestamptz NOT NULL DEFAULT now()',
-    ');',
-    `INSERT INTO pitr_test (label) VALUES ('d05-01-healthy-seed-${RUN_ID}');`,
-    '',
-  ].join('\n');
-  const healthyManifestBody = [
-    '# HEALTHY pgBackRest-style manifest (D05-01 RED fixture — test-scoped)',
-    `backup-id=d05-01-healthy-${RUN_ID}`,
-    'backup-type=full',
-    'backup-label=d05-01-healthy-seed',
-    `seed-run-id=${RUN_ID}`,
-    'seed-table=pitr_test',
-    'seed-min-rows=1',
-    'chain-status=complete',
-    'manifest-checksum-valid=true',
-    '',
-  ].join('\n');
-  const healthyInfoBody = [
-    'backrest-format=5',
-    `backup-timestamp-start=${Math.floor(Date.now() / 1000) - 3600}`,
-    `backup-timestamp-stop=${Math.floor(Date.now() / 1000) - 3500}`,
-    'backup-type=full',
-    'backup-label=d05-01-healthy-seed',
-    'manifest-checksum-mismatch=false',
-    `seed-run-id=${RUN_ID}`,
-    '',
-  ].join('\n');
-  const seedContract = {
-    fixture: 'healthy_seeded_repo',
-    testScoped: true,
+  // healthy: REAL pgBackRest backup + WAL into test-scoped prefix (REDHAT-FIX-C1).
+  const productionConfigPath = existsSync(cfg.pgbackrestConfigPath)
+    ? cfg.pgbackrestConfigPath
+    : '/Users/inference1/Projects/holocron/services/platform/config/pgbackrest/pgbackrest.conf';
+  expect(
+    existsSync(productionConfigPath),
+    `production pgBackRest conf required for dual-archive seed: ${productionConfigPath}`
+  ).toBe(true);
+
+  const healthySeed = seedRealPgbackrestHealthyChain({
+    cfg,
     prefix: healthyPrefix,
+    databaseUrl: DATABASE_URL,
+    productionConfigPath,
     runId: RUN_ID,
-    pitr_test: {
-      required: true,
-      min_rows: 1,
-      seed_sql_object: `${healthyPrefix}/seed/pitr_test.sql`,
-      intent: 'After D05-02 restore from this prefix, SELECT COUNT(*) FROM pitr_test must be >= 1',
-    },
-    chain_objects: {
-      base_backup_manifest: `${healthyPrefix}/backup/main/d05-01-healthy/backup.manifest`,
-      backup_info: `${healthyPrefix}/backup/main/backup.info`,
-      wal_segment: `${healthyPrefix}/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz`,
-      seed_sql: `${healthyPrefix}/seed/pitr_test.sql`,
-      seed_manifest: `${healthyPrefix}/seed/seed-contract.json`,
-    },
-    note: 'Test-scoped contract objects via public_api; not production pgbackrest prefix',
-  };
+  });
 
-  try {
-    const manifestPath = join(healthyDir, 'backup.manifest');
-    const historyPath = join(healthyDir, 'backup.info');
-    const seedSqlPath = join(healthyDir, 'pitr_test.sql');
-    const seedContractPath = join(healthyDir, 'seed-contract.json');
-    const walPlaceholderPath = join(healthyDir, 'wal-healthy.bin');
-    writeFileSync(manifestPath, healthyManifestBody, 'utf8');
-    writeFileSync(historyPath, healthyInfoBody, 'utf8');
-    writeFileSync(seedSqlPath, pitrSeedSql, 'utf8');
-    writeFileSync(seedContractPath, `${JSON.stringify(seedContract, null, 2)}\n`, 'utf8');
-    writeFileSync(walPlaceholderPath, 'D05-01-HEALTHY-WAL-PLACEHOLDER\n', 'utf8');
+  writeEvidence('healthy-real-pgbackrest-seed.json', healthySeed);
+  writeEvidence(
+    'healthy-real-pgbackrest-seed.json',
+    healthySeed,
+    resolve(REPO_ROOT, '.tmp/REDHAT-FIX-C1')
+  );
 
-    const uploads: Array<{ local: string; key: string }> = [
-      {
-        local: manifestPath,
-        key: `${healthyPrefix}/backup/main/d05-01-healthy/backup.manifest`,
-      },
-      {
-        local: historyPath,
-        key: `${healthyPrefix}/backup/main/backup.info`,
-      },
-      {
-        local: walPlaceholderPath,
-        key: `${healthyPrefix}/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz`,
-      },
-      {
-        local: seedSqlPath,
-        key: `${healthyPrefix}/seed/pitr_test.sql`,
-      },
-      {
-        local: seedContractPath,
-        key: `${healthyPrefix}/seed/seed-contract.json`,
-      },
-    ];
-
-    for (const u of uploads) {
-      const put = awsS3(cfg, ['s3', 'cp', u.local, `s3://${cfg.bucketName}/${u.key}`]);
-      expect(
-        put.status,
-        `failed to seed healthy object s3://${cfg.bucketName}/${u.key}: ${put.stderr || put.stdout}`
-      ).toBe(0);
-      healthyKeys.push(u.key);
-    }
-  } finally {
-    rmSync(healthyDir, { recursive: true, force: true });
+  if (!healthySeed.ok) {
+    throw new Error(
+      `REDHAT-FIX-C1 real pgBackRest healthy seed failed: ${healthySeed.error}\nsteps=${JSON.stringify(healthySeed.steps, null, 2)}`
+    );
   }
 
+  expect(
+    healthySeed.backupLabel.length,
+    `pgbackrest info backup label must be >= 8 chars; got ${healthySeed.backupLabel}`
+  ).toBeGreaterThanOrEqual(8);
+  expect(
+    healthySeed.objectCount,
+    `healthy real chain must list >= 1 R2 objects under ${healthyPrefix}`
+  ).toBeGreaterThanOrEqual(1);
+  expect(
+    healthySeed.pitrTestRows,
+    `pitr_test seed must have >= 1 rows before backup; got ${healthySeed.pitrTestRows}`
+  ).toBeGreaterThanOrEqual(1);
+
+  // Document object keys for evidence (recursive cleanup covers the prefix).
   const healthyList = listRepoPrefix({
     accessKeyId: cfg.accessKeyId,
     secretAccessKey: cfg.secretAccessKey,
@@ -409,10 +367,11 @@ function seedFixtures(
     bucketName: cfg.bucketName,
     prefix: healthyPrefix,
   });
-  expect(
-    healthyList.count,
-    `healthy_seeded_repo must have base-backup-shaped + seed objects under ${healthyPrefix}; got ${healthyList.count}`
-  ).toBeGreaterThanOrEqual(4);
+  const healthyKeys = healthyList.raw
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 50);
 
   writeEvidence('fixtures-seeded.json', {
     runId: RUN_ID,
@@ -424,18 +383,22 @@ function seedFixtures(
     corruptObjectCount: corruptList.count,
     corruptKeys,
     healthyPrefix,
-    healthyObjectCount: healthyList.count,
+    healthyObjectCount: healthySeed.objectCount,
     healthyKeys,
+    healthyStanza: healthySeed.stanza,
+    healthyBackupLabel: healthySeed.backupLabel,
+    healthyPitrTimestamp: healthySeed.pitrTimestamp,
     pitr_test_seed: {
       table: 'pitr_test',
       min_rows: 1,
-      seed_sql_key: `${healthyPrefix}/seed/pitr_test.sql`,
-      seed_contract_key: `${healthyPrefix}/seed/seed-contract.json`,
+      seed_label: healthySeed.seedLabel,
+      seed_batch: healthySeed.seedBatch,
       intent:
-        'Healthy fixture is test-scoped (NOT production pgbackrest). Documents CREATE TABLE pitr_test + INSERT so D05-02 restore can green with SELECT COUNT(*) FROM pitr_test >= 1 without depending on production data shape.',
+        'Healthy fixture is a REAL pgBackRest full backup into a test-scoped R2 prefix (NOT production pgbackrest). pitr_test is inserted into source Postgres before backup so restore can prove COUNT(*) >= 1.',
     },
     seed_method: 'public_api',
-    note: 'Real Cloudflare R2 fixtures — no mocks; all three prefixes under pgbackrest-d05-01-red/<runId>/',
+    seed_tool: 'pgbackrest',
+    note: 'REDHAT-FIX-C1: real pgBackRest chain — no synthetic HEALTHY-WAL-PLACEHOLDER / text manifests',
   });
 
   return {
@@ -445,6 +408,11 @@ function seedFixtures(
     testScopedRoot,
     corruptKeys,
     healthyKeys,
+    healthyStanza: healthySeed.stanza,
+    healthyBackupLabel: healthySeed.backupLabel,
+    healthyPitrTimestamp: healthySeed.pitrTimestamp,
+    healthySeedWorkDir: healthySeed.workDir,
+    healthyObjectCount: healthySeed.objectCount,
   };
 }
 
@@ -471,6 +439,8 @@ function runHoloRestore(options: {
   repoPrefix: string;
   cfg: BackupConfig;
   secretsPath: string;
+  /** Override stanza (healthy real seed uses a test-scoped stanza). */
+  stanza?: string;
   extraArgs?: string[];
   timeoutMs?: number;
 }): RestoreResult {
@@ -481,6 +451,7 @@ function runHoloRestore(options: {
 
   // Real operator command under test (D05-02 implements; live CLI + live R2 + live pgBackRest only).
   const holoCliPath = HOLO_CLI;
+  const stanza = options.stanza ?? options.cfg.stanza;
   const args = [
     'restore',
     '--pitr',
@@ -502,7 +473,7 @@ function runHoloRestore(options: {
     R2_ACCESS_KEY_ID: options.cfg.accessKeyId,
     R2_SECRET_ACCESS_KEY: options.cfg.secretAccessKey,
     R2_REPO_CIPHER_PASS: options.cfg.repoCipherPass,
-    PGBACKREST_STANZA: options.cfg.stanza,
+    PGBACKREST_STANZA: stanza,
     PGBACKREST_PG1_PATH: options.scratchDir,
     HOLO_SECRETS_PATH: options.secretsPath,
     DATABASE_URL,
@@ -550,6 +521,36 @@ function runHoloRestore(options: {
   };
 }
 
+/** Classify holo restore failure as CLI parser vs restore-path (REDHAT-FIX-C2 AC-3). */
+function classifyRestoreFailure(
+  combined: string,
+  status: number | null
+): 'parser' | 'restore_path' {
+  const text = combined.toLowerCase();
+  // Unknown-flag / usage-only parser failures must not sole-green AC-4 restore-path claims.
+  if (
+    /unknown flag:\s*--pitr/.test(text) ||
+    (/unknown (flag|option|command)/.test(text) &&
+      !/no base backup|backup chain|manifest checksum|wal segment corrupted|integrity check failed/.test(
+        text
+      ))
+  ) {
+    return 'parser';
+  }
+  if (
+    /no base backup available|backup chain missing|manifest checksum mismatch|wal segment corrupted|backup chain integrity check failed|restore failed|pgbackrest/.test(
+      text
+    )
+  ) {
+    return 'restore_path';
+  }
+  // Non-zero without clear restore-path wording — still not proven restore-path if only usage/parse.
+  if (status !== 0 && /usage:|error: unknown|not a command|unexpected argument/.test(text)) {
+    return 'parser';
+  }
+  return status !== 0 ? 'restore_path' : 'restore_path';
+}
+
 function pgCtlStatus(pgdata: string): { status: number | null; combined: string } {
   const result = spawnSync('pg_ctl', ['status', '-D', pgdata], {
     encoding: 'utf8',
@@ -563,14 +564,53 @@ function pgCtlStatus(pgdata: string): { status: number | null; combined: string 
 
 function psqlOnScratch(
   scratchDir: string,
-  sql: string
+  sql: string,
+  database = 'postgres'
 ): { status: number | null; stdout: string; stderr: string } {
-  // Prefer unix socket dir if restore places one; fall back to PGDATA as host dir
-  // is an implementation detail D05-02 owns. Try common patterns.
-  const attempts: Array<string[]> = [
-    ['-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
-    ['-h', scratchDir, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
-  ];
+  // Prefer TCP port written by holo restore (macOS socket paths under long scratch
+  // dirs exceed sockaddr_un 103 bytes — restore uses /tmp/holo-restore-<port>).
+  // pitr_test lives in holocron (seeder DATABASE_URL); SELECT 1 uses postgres.
+  const databases = database === 'postgres' ? ['postgres'] : [database, 'postgres'];
+  const attempts: Array<string[]> = [];
+  try {
+    const portPath = join(scratchDir, 'holo-restore.port');
+    if (existsSync(portPath)) {
+      const port = readFileSync(portPath, 'utf8').trim();
+      if (/^\d+$/.test(port)) {
+        for (const db of databases) {
+          attempts.push([
+            '-h',
+            '127.0.0.1',
+            '-p',
+            port,
+            '-d',
+            db,
+            '-v',
+            'ON_ERROR_STOP=1',
+            '-tAc',
+            sql,
+          ]);
+        }
+      }
+    }
+    const sockPath = join(scratchDir, 'holo-restore.socket_dir');
+    if (existsSync(sockPath)) {
+      const sockDir = readFileSync(sockPath, 'utf8').trim();
+      if (sockDir.length > 0) {
+        for (const db of databases) {
+          attempts.push(['-h', sockDir, '-d', db, '-v', 'ON_ERROR_STOP=1', '-tAc', sql]);
+        }
+      }
+    }
+  } catch {
+    /* fall through to legacy attempts */
+  }
+  for (const db of databases) {
+    attempts.push(
+      ['-d', db, '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
+      ['-h', scratchDir, '-d', db, '-v', 'ON_ERROR_STOP=1', '-tAc', sql]
+    );
+  }
   let last = { status: 1 as number | null, stdout: '', stderr: 'no attempt' };
   for (const args of attempts) {
     const env: NodeJS.ProcessEnv = {
@@ -609,20 +649,40 @@ function psqlDb(sqlText: string): { status: number | null; stdout: string; stder
   };
 }
 
+/**
+ * Fail-closed heartbeat oracle (REDHAT-FIX-C2).
+ *
+ * NEVER invents {successRows:0,...} when DATABASE_URL is unreachable, backup_heartbeat
+ * is missing, or COUNT queries fail. Throws with a named reason instead.
+ */
 function countFakeSuccessHeartbeats(): {
   successRows: number;
   okRows: number;
   restoreParityRows: number;
+  db_probe_ok: true;
+  table_present: true;
+  success_count_query_status: number;
+  ok_count_query_status: number;
   raw: unknown;
 } {
+  // Connectivity probe — fail closed with named reason (never soft-zero).
+  const ping = psqlDb('SELECT 1');
+  if (ping.status !== 0 || ping.stdout !== '1') {
+    throw new Error(
+      `database unreachable: psql SELECT 1 failed (status=${ping.status}, stderr=${(ping.stderr || '').slice(0, 300)})`
+    );
+  }
+
   const tableExists = psqlDb(`SELECT to_regclass('public.backup_heartbeat') IS NOT NULL`);
-  if (tableExists.status !== 0 || tableExists.stdout !== 't') {
-    return {
-      successRows: 0,
-      okRows: 0,
-      restoreParityRows: 0,
-      raw: { table: 'missing_or_unreachable', tableExists },
-    };
+  if (tableExists.status !== 0) {
+    throw new Error(
+      `heartbeat query failed: to_regclass probe status=${tableExists.status} stderr=${(tableExists.stderr || '').slice(0, 300)}`
+    );
+  }
+  if (tableExists.stdout !== 't') {
+    throw new Error(
+      `backup_heartbeat missing: to_regclass('public.backup_heartbeat') is not true (stdout=${JSON.stringify(tableExists.stdout)})`
+    );
   }
 
   // Any success/OK heartbeat claiming a restore/pitr job is a fake-success on failure paths.
@@ -637,6 +697,12 @@ function countFakeSuccessHeartbeats(): {
         OR coalesce(last_snapshot_id, '') ILIKE '%restore%'
       )
   `);
+  if (success.status !== 0 || !/^\d+$/.test(success.stdout)) {
+    throw new Error(
+      `heartbeat query failed: success COUNT status=${success.status} stdout=${JSON.stringify(success.stdout)} stderr=${(success.stderr || '').slice(0, 300)}`
+    );
+  }
+
   const recentOk = psqlDb(`
     SELECT COUNT(*)::text
     FROM backup_heartbeat
@@ -647,8 +713,14 @@ function countFakeSuccessHeartbeats(): {
         OR job_name ILIKE '%pitr%'
       )
   `);
+  if (recentOk.status !== 0 || !/^\d+$/.test(recentOk.stdout)) {
+    throw new Error(
+      `heartbeat query failed: ok COUNT status=${recentOk.status} stdout=${JSON.stringify(recentOk.stdout)} stderr=${(recentOk.stderr || '').slice(0, 300)}`
+    );
+  }
 
   // Parity tracking optional until D05-04 — count explicit restore-success claims only.
+  // If parity name listing fails, fail closed (do not invent zero).
   let restoreParityRows = 0;
   const parityNames = psqlDb(`
     SELECT coalesce(string_agg(relname, ','), '')
@@ -661,8 +733,13 @@ function countFakeSuccessHeartbeats(): {
         OR relname = 'backup_parity'
       )
   `);
+  if (parityNames.status !== 0) {
+    throw new Error(
+      `heartbeat query failed: parity table listing status=${parityNames.status} stderr=${(parityNames.stderr || '').slice(0, 300)}`
+    );
+  }
   const names =
-    parityNames.status === 0 && parityNames.stdout.length > 0
+    parityNames.stdout.length > 0
       ? parityNames.stdout.split(',').filter((n) => /^[a-z_][a-z0-9_]*$/i.test(n))
       : [];
   for (const name of names) {
@@ -675,14 +752,23 @@ function countFakeSuccessHeartbeats(): {
           OR position('completed' in lower(t::text)) > 0
         )
     `);
-    if (claim.status === 0) restoreParityRows += Number(claim.stdout || 0);
+    if (claim.status !== 0 || !/^\d+$/.test(claim.stdout)) {
+      throw new Error(
+        `heartbeat query failed: parity COUNT on ${name} status=${claim.status} stdout=${JSON.stringify(claim.stdout)}`
+      );
+    }
+    restoreParityRows += Number(claim.stdout);
   }
 
   return {
-    successRows: Number(success.stdout || 0),
-    okRows: Number(recentOk.stdout || 0),
+    successRows: Number(success.stdout),
+    okRows: Number(recentOk.stdout),
     restoreParityRows,
-    raw: { success, recentOk, parityNames: names },
+    db_probe_ok: true,
+    table_present: true,
+    success_count_query_status: 0,
+    ok_count_query_status: 0,
+    raw: { success, recentOk, parityNames: names, ping },
   };
 }
 
@@ -712,10 +798,14 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
       secretsPath,
       bucket: cfg.bucketName,
       stanza: cfg.stanza,
+      healthyStanza: seeded.healthyStanza,
+      healthyBackupLabel: seeded.healthyBackupLabel,
+      healthyPitrTimestamp: seeded.healthyPitrTimestamp,
+      healthyObjectCount: seeded.healthyObjectCount,
       scratchRoot,
-      note: 'GREENFIELD RED until D05-02 implements holo restore --pitr',
+      note: 'Healthy fixture is a REAL pgBackRest chain (REDHAT-FIX-C1). Suite stays RED until D05-02 restore lands against that chain.',
     });
-  }, 120_000);
+  }, 900_000);
 
   afterAll(() => {
     if (!fixtures) return;
@@ -726,6 +816,7 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
         error: err instanceof Error ? err.message : String(err),
       });
     }
+    cleanupPgbackrestSeedWorkDir(fixtures.healthySeedWorkDir);
     try {
       rmSync(fixtures.scratchRoot, { recursive: true, force: true });
     } catch {
@@ -854,21 +945,33 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
         fixtures.healthyPrefix === 'pgbackrest',
         'healthyPrefix must not equal bare production prefix pgbackrest'
       ).toBe(false);
+      expect(
+        fixtures.healthyBackupLabel.length,
+        'healthy fixture must have real pgBackRest backup label from seeder'
+      ).toBeGreaterThanOrEqual(8);
+      expect(
+        fixtures.healthyObjectCount,
+        'healthy fixture must have real R2 objects from pgbackrest backup'
+      ).toBeGreaterThanOrEqual(1);
 
       // Negative control: proves suite cannot pass on a blanket always-fail stub.
+      // Only passes when production restore recovers the REAL pgBackRest chain.
       const restore = runHoloRestore({
-        pitr: HEALTHY_PITR_TIMESTAMP,
+        pitr: fixtures.healthyPitrTimestamp,
         scratchDir,
         repoPrefix: fixtures.healthyPrefix,
         cfg: fixtures.cfg,
         secretsPath: fixtures.secretsPath,
-        // Healthy path may need a longer timeout once restore is real.
+        stanza: fixtures.healthyStanza,
         timeoutMs: 300_000,
       });
 
       const select1 = restore.status === 0 ? psqlOnScratch(scratchDir, 'SELECT 1') : null;
+      // pitr_test is seeded into the holocron DB (DATABASE_URL), not the postgres maintenance DB.
       const pitrCount =
-        restore.status === 0 ? psqlOnScratch(scratchDir, 'SELECT COUNT(*) FROM pitr_test') : null;
+        restore.status === 0
+          ? psqlOnScratch(scratchDir, 'SELECT COUNT(*) FROM pitr_test', 'holocron')
+          : null;
       const pitrRows =
         pitrCount && pitrCount.status === 0 ? Number(String(pitrCount.stdout).trim()) : 0;
 
@@ -880,18 +983,22 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
         pitrCount,
         pitrRows,
         healthyPrefix: fixtures.healthyPrefix,
+        healthyStanza: fixtures.healthyStanza,
+        healthyBackupLabel: fixtures.healthyBackupLabel,
+        healthyPitrTimestamp: fixtures.healthyPitrTimestamp,
+        healthyObjectCount: fixtures.healthyObjectCount,
         testScopedRoot: fixtures.testScopedRoot,
         healthyKeys: fixtures.healthyKeys,
         pitr_test_seed_intent:
-          'Fixture seeds CREATE TABLE pitr_test + INSERT under test-scoped prefix; GREEN after D05-02 restore',
+          'REAL pgBackRest full backup after INSERT into pitr_test; GREEN only when D05-02 restore recovers that chain (never synthetic objects)',
         args: restore.args,
         combined: restore.combined.slice(0, 4000),
-        note: 'Negative control against blanket always-fail implementations; RED until D05-02 lands PITR',
+        note: 'Negative control against blanket always-fail implementations; honest RED until D05-02 lands PITR against real chain',
       });
 
       expect(
         restore.status,
-        `healthy seeded repo restore must exit 0; got ${restore.status}: ${restore.combined}`
+        `healthy seeded repo restore must exit 0 against real pgBackRest chain; got ${restore.status}: ${restore.combined}`
       ).toBe(0);
 
       expect(select1, 'psql SELECT 1 must run after healthy restore').toBeTruthy();
@@ -936,18 +1043,70 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
       expect(emptyRestore.status, 'empty failed restore must be non-zero').not.toBe(0);
       expect(corruptRestore.status, 'corrupt failed restore must be non-zero').not.toBe(0);
 
+      const emptyFailureClass = classifyRestoreFailure(emptyRestore.combined, emptyRestore.status);
+      const corruptFailureClass = classifyRestoreFailure(
+        corruptRestore.combined,
+        corruptRestore.status
+      );
+
+      // Fail-closed DB probe — throws on unreachable DB / missing backup_heartbeat.
       const heartbeats = countFakeSuccessHeartbeats();
 
-      writeEvidence('ac4-no-fake-success-row.json', {
+      const evidence = {
         must_observe: [
           'exit code != 0 for both failed restores',
-          "ZERO backup_heartbeat rows with status 'success'/'OK' for restore jobs",
+          "ZERO backup_heartbeat rows with status 'success'/'OK' for restore jobs (after real query_ok)",
           'ZERO parity tracking restore-completed rows',
+          'db_probe_ok=true before zero asserts',
         ],
         emptyStatus: emptyRestore.status,
         corruptStatus: corruptRestore.status,
+        emptyRestore: {
+          status: emptyRestore.status,
+          failure_class: emptyFailureClass,
+          combined: emptyRestore.combined.slice(0, 1500),
+        },
+        corruptRestore: {
+          status: corruptRestore.status,
+          failure_class: corruptFailureClass,
+          combined: corruptRestore.combined.slice(0, 1500),
+        },
+        db_probe_ok: heartbeats.db_probe_ok,
+        table_present: heartbeats.table_present,
+        success_count_query_status: heartbeats.success_count_query_status,
+        successRows: heartbeats.successRows,
+        okRows: heartbeats.okRows,
+        restoreParityRows: heartbeats.restoreParityRows,
         heartbeats,
-      });
+        restore_path_proven:
+          emptyFailureClass === 'restore_path' || corruptFailureClass === 'restore_path',
+        note:
+          emptyFailureClass === 'parser' && corruptFailureClass === 'parser'
+            ? 'Both failures are parser-class (e.g. unknown flag: --pitr) — AC-4 restore-path no-fake-success is NOT proven until D05-02 lands'
+            : 'At least one failure classified as restore_path',
+      };
+
+      writeEvidence('ac4-no-fake-success-row.json', evidence);
+      writeEvidence('ac4-no-fake-success-row.json', evidence, EVIDENCE_DIR_C2);
+      writeEvidence(
+        'red-output.txt',
+        [
+          `empty_failure_class=${emptyFailureClass}`,
+          `corrupt_failure_class=${corruptFailureClass}`,
+          `db_probe_ok=${heartbeats.db_probe_ok}`,
+          `successRows=${heartbeats.successRows}`,
+          `okRows=${heartbeats.okRows}`,
+          `restoreParityRows=${heartbeats.restoreParityRows}`,
+          `empty_combined=${emptyRestore.combined.slice(0, 500)}`,
+          `corrupt_combined=${corruptRestore.combined.slice(0, 500)}`,
+        ].join('\n'),
+        EVIDENCE_DIR_C2
+      );
+
+      // Gate: zero-row claims require successful real query first (never fabricated zeroes).
+      expect(heartbeats.db_probe_ok, 'db_probe_ok must be true before zero asserts').toBe(true);
+      expect(heartbeats.table_present, 'backup_heartbeat must be present').toBe(true);
+      expect(heartbeats.success_count_query_status, 'success COUNT must have status 0').toBe(0);
 
       expect(
         heartbeats.successRows,
@@ -961,6 +1120,12 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
         heartbeats.restoreParityRows,
         `must_not_observe: parity restore-completed claims after failure (got ${heartbeats.restoreParityRows})`
       ).toBe(0);
+
+      // Parser-only (unknown flag: --pitr) must NOT sole-green AC-4 restore-path contract.
+      expect(
+        emptyFailureClass === 'restore_path' || corruptFailureClass === 'restore_path',
+        `AC-4 restore-path no-fake-success not proven: empty=${emptyFailureClass} corrupt=${corruptFailureClass} (honest RED while only parser/unknown-flag failures are observed; D05-02 owns restore-path)`
+      ).toBe(true);
     },
     300_000
   );
