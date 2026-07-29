@@ -13,7 +13,7 @@ planned_at: 2026-07-28T01:16:22Z
 **Sequence:** 28
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
 **Status:** Completed
-> Progress: 4/7 tasks completed · updated 2026-07-29T01:13:22Z
+> Progress: 6/6 tasks completed · updated 2026-07-29T01:14:00Z
 > Status-Note: GATE-GOAL ACHIEVED — 6/6 tasks landed on main; human-test 6/6 pass; residual DEPENDENCY-S28-R2-RO
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-28`)
