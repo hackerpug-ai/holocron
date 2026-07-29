@@ -158,7 +158,11 @@ else
   exit 2
 fi
 
-# REQUIRE_LIVE_R2_RO=1: fail closed on placeholders or restore keys equal to ambient RW.
+# REQUIRE_LIVE_R2_RO=1: fail closed on placeholders or writer-equivalent credential tuples.
+# GATE-FIX-S28R3-QA8: identity is the full tuple (AK, secret, session token) — not AK alone.
+# Cloudflare temp object-read-only sessions may reuse the parent Access Key ID when the
+# secret differs and a non-empty restore session token is present. Live Put/Delete denial
+# remains the permission oracle (prove-r2-readonly); shape alone never proves RO.
 if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
   if is_placeholder_key "$R2_ACCESS_KEY_ID" || is_placeholder_key "$R2_SECRET_ACCESS_KEY"; then
     echo "error: REQUIRE_LIVE_R2_RO=1 refuses placeholder restore credentials" >&2
@@ -170,15 +174,25 @@ if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  if [[ -n "$AMBIENT_R2_ACCESS_KEY_ID" && "$R2_RESTORE_ACCESS_KEY_ID" == "$AMBIENT_R2_ACCESS_KEY_ID" ]]; then
-    echo "error: REQUIRE_LIVE_R2_RO=1 refuses restore keys equal to ambient RW R2_ACCESS_KEY_ID (must be distinct)" >&2
+  if [[ -n "$AMBIENT_R2_SECRET_ACCESS_KEY" && "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
+    echo "error: REQUIRE_LIVE_R2_RO=1 refuses writer-equivalent credential tuple (restore secret equals ambient RW secret)" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  if [[ -n "$AMBIENT_R2_SECRET_ACCESS_KEY" && "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
-    echo "error: REQUIRE_LIVE_R2_RO=1 refuses restore secret equal to ambient RW secret (must be distinct)" >&2
-    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-    exit 2
+  if [[ -n "$AMBIENT_R2_ACCESS_KEY_ID" && "$R2_RESTORE_ACCESS_KEY_ID" == "$AMBIENT_R2_ACCESS_KEY_ID" ]]; then
+    # Same parent AK allowed only for Cloudflare temporary sessions: distinct secret + session token.
+    if [[ -z "${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}" ]]; then
+      echo "error: REQUIRE_LIVE_R2_RO=1 refuses same Access Key ID as ambient RW without non-empty restore session token (incomplete Cloudflare temporary credential tuple)" >&2
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      exit 2
+    fi
+    if [[ -n "$AMBIENT_R2_SECRET_ACCESS_KEY" && "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
+      echo "error: REQUIRE_LIVE_R2_RO=1 refuses writer-equivalent credential tuple (same AK+secret as ambient RW)" >&2
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      exit 2
+    fi
+    # Accepted shape: same parent AK, distinct secret, non-empty session — do not log secrets.
+    echo "[provision-fresh-restore-target] GATE-FIX-S28R3-QA8: accepted Cloudflare temporary credential tuple shape (same parent AK; distinct secret; session token present)"
   fi
 fi
 

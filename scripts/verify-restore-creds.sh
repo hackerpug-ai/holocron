@@ -526,9 +526,17 @@ else
   info "DATABASE_URL or restore AK unavailable for distinctness string-compare"
 fi
 
+# GATE-FIX-S28R3-QA8: credential-tuple identity (AK + secret + session), not AK alone.
+RESTORE_ST_CHECK="${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}"
 if [[ -n "$BACKUP_AK" && -n "$AK" ]]; then
-  if [[ "$AK" == "$BACKUP_AK" ]]; then
-    fail "restore access key equals backup R2_ACCESS_KEY_ID (RW identity reuse)"
+  if [[ -n "$BACKUP_SK" && -n "$SK" && "$SK" == "$BACKUP_SK" ]]; then
+    fail "writer-equivalent credential tuple (restore secret equals backup RW secret)"
+  elif [[ "$AK" == "$BACKUP_AK" ]]; then
+    if [[ -z "$RESTORE_ST_CHECK" ]]; then
+      fail "incomplete Cloudflare temporary credential tuple (same parent Access Key ID without session token)"
+    else
+      pass "GATE-FIX-S28R3-QA8: same parent AK with distinct secret + session token (Cloudflare temporary shape)"
+    fi
   else
     pass "restore access key differs from backup R2_ACCESS_KEY_ID"
   fi
@@ -642,10 +650,13 @@ RO_LIVE_OK=0
 if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
   if is_placeholder "${R2_RESTORE_ACCESS_KEY_ID}" || is_placeholder "${R2_RESTORE_SECRET_ACCESS_KEY}" || is_placeholder "${ENDPOINT:-}"; then
     residual "DEPENDENCY-S28-R2-RO: restore RO keys/endpoint are placeholders — live RO PASS blocked"
-  elif [[ -n "$BACKUP_AK" && "${R2_RESTORE_ACCESS_KEY_ID}" == "$BACKUP_AK" ]]; then
-    residual "DEPENDENCY-S28-R2-RO: R2_RESTORE_* still equals backup RW identity"
+  elif [[ -n "$BACKUP_SK" && "${R2_RESTORE_SECRET_ACCESS_KEY}" == "$BACKUP_SK" ]]; then
+    residual "DEPENDENCY-S28-R2-RO: R2_RESTORE_* writer-equivalent credential tuple (same secret as backup RW)"
+  elif [[ -n "$BACKUP_AK" && "${R2_RESTORE_ACCESS_KEY_ID}" == "$BACKUP_AK" && -z "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
+    residual "DEPENDENCY-S28-R2-RO: same parent Access Key ID without restore session token (incomplete Cloudflare temporary tuple)"
   else
-    info "live positive: prove-r2-readonly with R2_RESTORE_* keys"
+    # GATE-FIX-S28R3-QA8: same parent AK + distinct secret + session is eligible for live oracle.
+    info "live positive: prove-r2-readonly with R2_RESTORE_* credential tuple"
     set +e
     env \
       R2_RESTORE_ACCESS_KEY_ID="${R2_RESTORE_ACCESS_KEY_ID}" \

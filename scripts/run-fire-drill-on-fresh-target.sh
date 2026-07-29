@@ -551,16 +551,22 @@ if is_placeholder_restore_key "$RESTORE_AK" || is_placeholder_restore_key "$REST
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   exit 2
 fi
-# Compare fully resolved identities (file and/or env). Equal AK or SK → residual.
-if [[ -n "$WRITER_AK" && "$RESTORE_AK" == "$WRITER_AK" ]]; then
-  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_ACCESS_KEY_ID equals writer R2_ACCESS_KEY_ID after secrets+env resolve (must be distinct restore-only identity)"
+# GATE-FIX-S28R3-QA8: credential-tuple identity (AK + secret + session), not AK alone.
+# Cloudflare temp RO sessions may reuse the parent Access Key ID when secret differs
+# and a non-empty restore session token is present. Equal secret always refused.
+if [[ -n "$WRITER_SK" && "$RESTORE_SK" == "$WRITER_SK" ]]; then
+  err "DEPENDENCY-S28-R2-RO — writer-equivalent credential tuple (restore secret equals writer secret after secrets+env resolve)"
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   exit 2
 fi
-if [[ -n "$WRITER_SK" && "$RESTORE_SK" == "$WRITER_SK" ]]; then
-  err "DEPENDENCY-S28-R2-RO — R2_RESTORE_SECRET_ACCESS_KEY equals writer secret after secrets+env resolve (must be distinct)"
-  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-  exit 2
+if [[ -n "$WRITER_AK" && "$RESTORE_AK" == "$WRITER_AK" ]]; then
+  if [[ -z "$RESTORE_ST" ]]; then
+    err "DEPENDENCY-S28-R2-RO — same parent Access Key ID as writer without non-empty restore session token (incomplete Cloudflare temporary credential tuple)"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  # Same parent AK + distinct secret + session token → accepted shape; live denial is oracle.
+  log "GATE-FIX-S28R3-QA8: Cloudflare temporary credential tuple shape accepted (same parent AK; session token present; secret not logged)"
 fi
 
 # Optional redacted env dump for tests (keys + presence/length/hash only — never raw secrets).
