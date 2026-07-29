@@ -81,7 +81,9 @@ describe('REDHAT-FIX-S28R2 C1 fresh-target fire-drill binding (always)', () => {
     // must invoke that path (asserted in sprint28-s28r3-gate-bind.test.ts).
     const src = readFileSync(RUNNER, 'utf8');
     expect(src).toMatch(/restore:fire-drill/);
-    expect(src).toMatch(/--scratch "\$SCRATCH_MP"|--scratch "\$\{SCRATCH_MP\}"|--scratch "\$SCRATCH_MP"/);
+    expect(src).toMatch(
+      /--scratch "\$SCRATCH_MP"|--scratch "\$\{SCRATCH_MP\}"|--scratch "\$SCRATCH_MP"/
+    );
     expect(src).toMatch(/RESOLVE_ONLY/);
     // Full path requires target timestamp when not resolve-only.
     expect(src).toMatch(/--target-timestamp required unless --resolve-only/);

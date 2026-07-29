@@ -63,7 +63,11 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "notes": "REDHAT-FIX-S28R3/CRITICAL-1: volume-bound runner + attestation; restore destinations are provisioned volume Mountpoints (not .tmp/REDHAT-FIX-H2/step3-*).",
-        "require_all_regex": ["POSTGRES_PARITY_PASS", "row_counts", "run-fire-drill-on-fresh-target|fire-drill-attestation|bound scratch"],
+        "require_all_regex": [
+          "POSTGRES_PARITY_PASS",
+          "row_counts",
+          "run-fire-drill-on-fresh-target|fire-drill-attestation|bound scratch"
+        ],
         "must_not_observe": ["unknown flag:", "unknown command"]
       }
     },

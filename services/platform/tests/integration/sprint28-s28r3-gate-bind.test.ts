@@ -87,7 +87,9 @@ describe('REDHAT-FIX-S28R3 gate-bind contracts (always)', () => {
     writeEvidence('ac1-step3-literal_cmd.txt', cmd);
 
     // Must invoke the volume-bound runner (or equivalent fresh-target path).
-    expect(cmd).toMatch(/run-fire-drill-on-fresh-target\.sh|fresh-target.*fire-drill|provision-fresh-restore-target/);
+    expect(cmd).toMatch(
+      /run-fire-drill-on-fresh-target\.sh|fresh-target.*fire-drill|provision-fresh-restore-target/
+    );
     expect(cmd).toMatch(/run-fire-drill-on-fresh-target\.sh|--fresh-target|attestation/);
 
     // Must not use host-only REDHAT-FIX-H2 step3 scratch as restore destination.
@@ -98,9 +100,10 @@ describe('REDHAT-FIX-S28R3 gate-bind contracts (always)', () => {
       /holo\.ts\s+restore:fire-drill/.test(cmd) &&
       !/run-fire-drill-on-fresh-target\.sh/.test(cmd) &&
       /\.tmp\/REDHAT-FIX-H2\/step3-/.test(cmd);
-    expect(hostOnlyFireDrill, 'step3 must not green on host-only .tmp/REDHAT-FIX-H2/step3-* fire-drill').toBe(
-      false
-    );
+    expect(
+      hostOnlyFireDrill,
+      'step3 must not green on host-only .tmp/REDHAT-FIX-H2/step3-* fire-drill'
+    ).toBe(false);
 
     // Attestation path expected for C1 gate claim.
     expect(cmd).toMatch(/attestation|--attestation|holo\.fresh-target\.fire-drill-attestation/);
@@ -167,41 +170,39 @@ describe('REDHAT-FIX-S28R3 gate-bind contracts (always)', () => {
     });
   });
 
-  it(
-    'AC-4: prove-isolation with REQUIRE_LIVE_R2_RO=1 + placeholders → non-zero + DEPENDENCY-S28-R2-RO',
-    () => {
-      expect(existsSync(PROVE_ISOLATION)).toBe(true);
-      const run = spawnSync('bash', [PROVE_ISOLATION], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 90_000,
-        env: {
-          ...process.env,
-          ...ISOLATED_MINI_BASE,
-          REQUIRE_LIVE_R2_RO: '1',
-          R2_ACCESS_KEY_ID: 'ro-test',
-          R2_SECRET_ACCESS_KEY: 'ro-test',
-          R2_RESTORE_ACCESS_KEY_ID: '',
-          R2_RESTORE_SECRET_ACCESS_KEY: '',
-          // Clear ambient secrets bleed for this negative.
-          HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-no-secrets',
-          HOLO_SECRETS_PATH: '/nonexistent-s28r3-no-secrets',
-        },
-      });
-      const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-      writeEvidence('ac4-prove-isolation-placeholder-require-live.json', {
-        status: run.status,
-        combined: combined.slice(0, 4000),
-      });
-      expect(run.status, combined.slice(0, 1500)).not.toBe(0);
-      expect(combined).toMatch(/DEPENDENCY-S28-R2-RO|refuse|placeholder|no live RO|REQUIRE_LIVE_R2_RO/i);
-      // Must not WARN→PASS under REQUIRE_LIVE_R2_RO=1 with placeholders.
-      expect(combined).not.toMatch(/RESULT:\s+PASS/);
-      // Prefer explicit residual contract id.
-      expect(combined).toMatch(/DEPENDENCY-S28-R2-RO/);
-    },
-    120_000
-  );
+  it('AC-4: prove-isolation with REQUIRE_LIVE_R2_RO=1 + placeholders → non-zero + DEPENDENCY-S28-R2-RO', () => {
+    expect(existsSync(PROVE_ISOLATION)).toBe(true);
+    const run = spawnSync('bash', [PROVE_ISOLATION], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 90_000,
+      env: {
+        ...process.env,
+        ...ISOLATED_MINI_BASE,
+        REQUIRE_LIVE_R2_RO: '1',
+        R2_ACCESS_KEY_ID: 'ro-test',
+        R2_SECRET_ACCESS_KEY: 'ro-test',
+        R2_RESTORE_ACCESS_KEY_ID: '',
+        R2_RESTORE_SECRET_ACCESS_KEY: '',
+        // Clear ambient secrets bleed for this negative.
+        HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-no-secrets',
+        HOLO_SECRETS_PATH: '/nonexistent-s28r3-no-secrets',
+      },
+    });
+    const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    writeEvidence('ac4-prove-isolation-placeholder-require-live.json', {
+      status: run.status,
+      combined: combined.slice(0, 4000),
+    });
+    expect(run.status, combined.slice(0, 1500)).not.toBe(0);
+    expect(combined).toMatch(
+      /DEPENDENCY-S28-R2-RO|refuse|placeholder|no live RO|REQUIRE_LIVE_R2_RO/i
+    );
+    // Must not WARN→PASS under REQUIRE_LIVE_R2_RO=1 with placeholders.
+    expect(combined).not.toMatch(/RESULT:\s+PASS/);
+    // Prefer explicit residual contract id.
+    expect(combined).toMatch(/DEPENDENCY-S28-R2-RO/);
+  }, 120_000);
 
   it('AC-4b: prove-r2-readonly with REQUIRE_LIVE_R2_RO=1 + missing restore keys → non-zero + residual', () => {
     expect(existsSync(PROVE_R2)).toBe(true);
@@ -230,7 +231,9 @@ describe('REDHAT-FIX-S28R3 gate-bind contracts (always)', () => {
       combined: combined.slice(0, 3000),
     });
     expect(run.status, combined.slice(0, 1200)).not.toBe(0);
-    expect(combined).toMatch(/DEPENDENCY-S28-R2-RO|no live RO|human_required|placeholder|REQUIRE_LIVE/i);
+    expect(combined).toMatch(
+      /DEPENDENCY-S28-R2-RO|no live RO|human_required|placeholder|REQUIRE_LIVE/i
+    );
     expect(combined).toMatch(/DEPENDENCY-S28-R2-RO/);
   });
 
