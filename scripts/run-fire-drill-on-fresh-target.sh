@@ -103,6 +103,195 @@ VOLUME_BLOB="${HOST_NAME}-blobs"
 CONTAINER_PGDATA="/var/lib/postgresql/restore"
 CONTAINER_BLOB="/var/lib/holocron/blob-restore"
 
+# ── Identity helpers (also used early for non-resolve-only — GATE-FIX-S28R3-QA9/M2) ──
+is_placeholder_restore_key() {
+  local v="${1:-}"
+  case "$v" in
+    ''|ro-test|ro-test-*|*ro-test*|*placeholder*|*replace-me*|*example*|*not-for-prod*|*test-key*|*test-secret*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+r2_tuple_fp16() {
+  printf '%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+}
+
+# Resolve writer + restore (+ shared R2 config) from secrets file then env override.
+# Sets: WRITER_AK, WRITER_SK, RESTORE_AK, RESTORE_SK, RESTORE_ST
+resolve_r2_identities_from_secrets_and_env() {
+  local secrets="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}}"
+  local file_writer_ak="" file_writer_sk=""
+  local file_restore_ak="" file_restore_sk="" file_restore_st=""
+  local line k v
+
+  if [[ -f "$secrets" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue
+      k="${BASH_REMATCH[1]}"
+      v="${BASH_REMATCH[2]}"
+      v="${v%\"}"; v="${v#\"}"
+      v="${v%\'}"; v="${v#\'}"
+      case "$k" in
+        R2_ACCESS_KEY_ID) file_writer_ak="$v" ;;
+        R2_SECRET_ACCESS_KEY) file_writer_sk="$v" ;;
+        R2_RESTORE_ACCESS_KEY_ID) file_restore_ak="$v" ;;
+        R2_RESTORE_SECRET_ACCESS_KEY) file_restore_sk="$v" ;;
+        R2_RESTORE_SESSION_TOKEN) file_restore_st="$v" ;;
+        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX|R2_SESSION_TOKEN)
+          if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi
+          ;;
+      esac
+    done <"$secrets"
+  fi
+
+  if [[ -n "${R2_ACCESS_KEY_ID:-}" ]]; then
+    WRITER_AK="$R2_ACCESS_KEY_ID"
+  else
+    WRITER_AK="$file_writer_ak"
+  fi
+  if [[ -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
+    WRITER_SK="$R2_SECRET_ACCESS_KEY"
+  else
+    WRITER_SK="$file_writer_sk"
+  fi
+  if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" ]]; then
+    RESTORE_AK="$R2_RESTORE_ACCESS_KEY_ID"
+  else
+    RESTORE_AK="$file_restore_ak"
+  fi
+  if [[ -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
+    RESTORE_SK="$R2_RESTORE_SECRET_ACCESS_KEY"
+  else
+    RESTORE_SK="$file_restore_sk"
+  fi
+  if [[ -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
+    RESTORE_ST="$R2_RESTORE_SESSION_TOKEN"
+  elif [[ -n "${R2_SESSION_TOKEN:-}" ]]; then
+    RESTORE_ST="$R2_SESSION_TOKEN"
+  else
+    RESTORE_ST="$file_restore_st"
+  fi
+  if [[ -n "$RESTORE_AK" ]]; then
+    export R2_RESTORE_ACCESS_KEY_ID="$RESTORE_AK"
+  fi
+  if [[ -n "$RESTORE_SK" ]]; then
+    export R2_RESTORE_SECRET_ACCESS_KEY="$RESTORE_SK"
+  fi
+  if [[ -n "$RESTORE_ST" ]]; then
+    export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
+  fi
+}
+
+assert_bound_r2_ro_proof() {
+  local rak="$1" rsk="$2" rst="$3"
+  local expected_fp proof
+  expected_fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
+  if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 ]]; then
+    err "GATE-FIX-S28R3-QA9 unable to fingerprint restore credential tuple"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  proof="${HOLO_R2_RO_PROOF_PATH:-}"
+  if [[ -z "$proof" || ! -f "$proof" ]]; then
+    proof="$(mktemp "${TMPDIR:-/tmp}/holo-r2-ro-proof.XXXXXX.json")"
+    log "GATE-FIX-S28R3-QA9: binding live RO proof to exact restore tuple before fire-drill (values not logged)"
+    if ! env \
+      REQUIRE_LIVE_R2_RO=1 \
+      HOLO_R2_RO_PROOF_OUT="$proof" \
+      R2_RESTORE_ACCESS_KEY_ID="$rak" \
+      R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
+      R2_RESTORE_SESSION_TOKEN="$rst" \
+      R2_ACCESS_KEY_ID="${WRITER_AK:-}" \
+      R2_SECRET_ACCESS_KEY="${WRITER_SK:-}" \
+      R2_ENDPOINT="${R2_ENDPOINT:-}" \
+      R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
+      R2_BUCKET_NAME="${R2_BUCKET_NAME:-}" \
+      HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
+      HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
+      bash "$ROOT/scripts/prove-r2-readonly.sh" >/dev/null; then
+      err "GATE-FIX-S28R3-QA9 live RO proof failed for the exact restore tuple before fire-drill"
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      rm -f "$proof"
+      exit 2
+    fi
+  fi
+  if ! python3 - "$proof" "$expected_fp" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+path, expected = sys.argv[1], sys.argv[2]
+data = json.load(open(path, encoding="utf-8"))
+if data.get("schema") != "holo.r2-ro-proof.v1" or data.get("ok") is not True:
+    print("error: RO proof attestation missing schema/ok", file=sys.stderr); sys.exit(2)
+if data.get("tuple_fp16") != expected:
+    print("error: RO proof attestation tuple_fp16 mismatch", file=sys.stderr); sys.exit(2)
+for k in ("list_allowed", "put_denied", "delete_denied"):
+    if data.get(k) is not True:
+        print(f"error: RO proof {k} not true", file=sys.stderr); sys.exit(2)
+proved = data.get("proved_at") or ""
+dt = datetime.strptime(proved, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+age = (datetime.now(timezone.utc) - dt).total_seconds()
+if age < 0 or age > 7200:
+    print("error: RO proof attestation stale or future-dated", file=sys.stderr); sys.exit(2)
+print(f"RO proof bound ok tuple_fp16={expected}")
+sys.exit(0)
+PY
+  then
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+}
+
+assert_restore_credential_tuple() {
+  # GATE-FIX-S28R3-QA8/QA9 identity + M1 proof bind. Fail closed.
+  WRITER_AK=""
+  WRITER_SK=""
+  RESTORE_AK=""
+  RESTORE_SK=""
+  RESTORE_ST=""
+  resolve_r2_identities_from_secrets_and_env
+
+  if [[ -z "$RESTORE_AK" || -z "$RESTORE_SK" ]]; then
+    err "DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* required for fire-drill child env (refuse ambient writer fallback)"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  if is_placeholder_restore_key "$RESTORE_AK" || is_placeholder_restore_key "$RESTORE_SK"; then
+    err "DEPENDENCY-S28-R2-RO — placeholder R2_RESTORE_* refused for fire-drill child env"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  if [[ -n "$WRITER_SK" && "$RESTORE_SK" == "$WRITER_SK" ]]; then
+    err "DEPENDENCY-S28-R2-RO — writer-equivalent credential tuple (restore secret equals writer secret after secrets+env resolve)"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  if [[ -n "$WRITER_AK" && "$RESTORE_AK" == "$WRITER_AK" ]]; then
+    # GATE-FIX-S28R3-QA9 / H1: require writer secret to establish distinctness.
+    if [[ -z "$WRITER_SK" ]]; then
+      err "DEPENDENCY-S28-R2-RO — GATE-FIX-S28R3-QA9 same parent Access Key ID without authoritative writer secret (cannot establish distinct restore secret)"
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      exit 2
+    fi
+    if [[ -z "$RESTORE_ST" ]]; then
+      err "DEPENDENCY-S28-R2-RO — same parent Access Key ID as writer without non-empty restore session token (incomplete Cloudflare temporary credential tuple)"
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      exit 2
+    fi
+    log "GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape accepted (same parent AK; writer secret present; session token present; secret not logged)"
+  fi
+  # Bind live denial oracle to exact tuple before child consumes it (QA9/M1).
+  assert_bound_r2_ro_proof "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST"
+}
+
+# Full fire-drill (not resolve-only): fail-closed credential tuple + proof binding
+# BEFORE volume resolve so unit tests can exercise identity without Docker (QA9/M2).
+if [[ "$RESOLVE_ONLY" -eq 0 ]]; then
+  assert_restore_credential_tuple
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   err "docker binary missing — refuse fresh-target volume resolve"
   exit 2
@@ -447,127 +636,10 @@ fi
 REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
 mkdir -p "$(dirname "$REPORT_PATH")"
 
+# Credential tuple already validated + proof-bound early (assert_restore_credential_tuple).
 # ── GATE-FIX-S28R3-QA3 / C-1: restore-only minimal child env ─────────────────
 # Map verified distinct R2_RESTORE_* → R2_ACCESS_* for loadBackupConfig(); never
 # leak backup-writer R2_ACCESS_* into the fire-drill process.
-# Writer + restore are resolved from the SAME secrets file + env (env overrides
-# file per key) before equality compare — file-only equal identities still fail.
-is_placeholder_restore_key() {
-  local v="${1:-}"
-  case "$v" in
-    ''|ro-test|ro-test-*|*ro-test*|*placeholder*|*replace-me*|*example*|*not-for-prod*|*test-key*|*test-secret*)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-# Resolve writer + restore (+ shared R2 config) from secrets file then env override.
-# Sets: WRITER_AK, WRITER_SK, RESTORE_AK, RESTORE_SK, RESTORE_ST
-# Also exports non-identity R2_* config keys when env lacks them (endpoint/bucket/prefix).
-resolve_r2_identities_from_secrets_and_env() {
-  local secrets="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}}"
-  local file_writer_ak="" file_writer_sk=""
-  local file_restore_ak="" file_restore_sk="" file_restore_st=""
-  local line k v
-
-  if [[ -f "$secrets" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      [[ "$line" =~ ^[[:space:]]*# ]] && continue
-      [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue
-      k="${BASH_REMATCH[1]}"
-      v="${BASH_REMATCH[2]}"
-      v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
-      case "$k" in
-        R2_ACCESS_KEY_ID) file_writer_ak="$v" ;;
-        R2_SECRET_ACCESS_KEY) file_writer_sk="$v" ;;
-        R2_RESTORE_ACCESS_KEY_ID) file_restore_ak="$v" ;;
-        R2_RESTORE_SECRET_ACCESS_KEY) file_restore_sk="$v" ;;
-        R2_RESTORE_SESSION_TOKEN) file_restore_st="$v" ;;
-        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX|R2_SESSION_TOKEN)
-          # Env overrides file for each key (export only when env empty).
-          if [[ -z "${!k:-}" && -n "$v" ]]; then
-            export "$k=$v"
-          fi
-          ;;
-      esac
-    done <"$secrets"
-  fi
-
-  # Env overrides file for identity keys (empty env string still means "unset" here:
-  # treat empty process env as absent so file values can supply identity for compare).
-  if [[ -n "${R2_ACCESS_KEY_ID:-}" ]]; then
-    WRITER_AK="$R2_ACCESS_KEY_ID"
-  else
-    WRITER_AK="$file_writer_ak"
-  fi
-  if [[ -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
-    WRITER_SK="$R2_SECRET_ACCESS_KEY"
-  else
-    WRITER_SK="$file_writer_sk"
-  fi
-  if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" ]]; then
-    RESTORE_AK="$R2_RESTORE_ACCESS_KEY_ID"
-  else
-    RESTORE_AK="$file_restore_ak"
-  fi
-  if [[ -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
-    RESTORE_SK="$R2_RESTORE_SECRET_ACCESS_KEY"
-  else
-    RESTORE_SK="$file_restore_sk"
-  fi
-  if [[ -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
-    RESTORE_ST="$R2_RESTORE_SESSION_TOKEN"
-  else
-    RESTORE_ST="$file_restore_st"
-  fi
-
-  # Export resolved restore keys for any parent-side tooling (child uses explicit map).
-  if [[ -n "$RESTORE_AK" ]]; then
-    export R2_RESTORE_ACCESS_KEY_ID="$RESTORE_AK"
-  fi
-  if [[ -n "$RESTORE_SK" ]]; then
-    export R2_RESTORE_SECRET_ACCESS_KEY="$RESTORE_SK"
-  fi
-  if [[ -n "$RESTORE_ST" ]]; then
-    export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
-  fi
-}
-
-WRITER_AK=""
-WRITER_SK=""
-RESTORE_AK=""
-RESTORE_SK=""
-RESTORE_ST=""
-resolve_r2_identities_from_secrets_and_env
-
-if [[ -z "$RESTORE_AK" || -z "$RESTORE_SK" ]]; then
-  err "DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* required for fire-drill child env (refuse ambient writer fallback)"
-  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-  exit 2
-fi
-if is_placeholder_restore_key "$RESTORE_AK" || is_placeholder_restore_key "$RESTORE_SK"; then
-  err "DEPENDENCY-S28-R2-RO — placeholder R2_RESTORE_* refused for fire-drill child env"
-  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-  exit 2
-fi
-# GATE-FIX-S28R3-QA8: credential-tuple identity (AK + secret + session), not AK alone.
-# Cloudflare temp RO sessions may reuse the parent Access Key ID when secret differs
-# and a non-empty restore session token is present. Equal secret always refused.
-if [[ -n "$WRITER_SK" && "$RESTORE_SK" == "$WRITER_SK" ]]; then
-  err "DEPENDENCY-S28-R2-RO — writer-equivalent credential tuple (restore secret equals writer secret after secrets+env resolve)"
-  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-  exit 2
-fi
-if [[ -n "$WRITER_AK" && "$RESTORE_AK" == "$WRITER_AK" ]]; then
-  if [[ -z "$RESTORE_ST" ]]; then
-    err "DEPENDENCY-S28-R2-RO — same parent Access Key ID as writer without non-empty restore session token (incomplete Cloudflare temporary credential tuple)"
-    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-    exit 2
-  fi
-  # Same parent AK + distinct secret + session token → accepted shape; live denial is oracle.
-  log "GATE-FIX-S28R3-QA8: Cloudflare temporary credential tuple shape accepted (same parent AK; session token present; secret not logged)"
-fi
 
 # Optional redacted env dump for tests (keys + presence/length/hash only — never raw secrets).
 if [[ -n "${HOLO_FIRE_DRILL_ENV_DUMP:-}" ]]; then

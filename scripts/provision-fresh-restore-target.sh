@@ -159,10 +159,88 @@ else
 fi
 
 # REQUIRE_LIVE_R2_RO=1: fail closed on placeholders or writer-equivalent credential tuples.
-# GATE-FIX-S28R3-QA8: identity is the full tuple (AK, secret, session token) — not AK alone.
-# Cloudflare temp object-read-only sessions may reuse the parent Access Key ID when the
-# secret differs and a non-empty restore session token is present. Live Put/Delete denial
-# remains the permission oracle (prove-r2-readonly); shape alone never proves RO.
+# GATE-FIX-S28R3-QA8/QA9: identity is the full tuple (AK, secret, session token) — not AK alone.
+# Same-parent-ID temp sessions require authoritative writer AK+secret present, restore secret
+# explicitly unequal, and non-empty session token. Unknown writer secret → refuse (QA9/H1).
+# GATE-FIX-S28R3-QA9/M1: live List/Put/Delete proof must be bound to the exact tuple.
+r2_tuple_fp16() {
+  printf '%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+}
+
+assert_bound_r2_ro_proof() {
+  local rak="$1" rsk="$2" rst="$3"
+  local expected_fp proof
+  expected_fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
+  if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 ]]; then
+    echo "error: GATE-FIX-S28R3-QA9 unable to fingerprint restore credential tuple" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  proof="${HOLO_R2_RO_PROOF_PATH:-}"
+  if [[ -z "$proof" || ! -f "$proof" ]]; then
+    # Auto-run live oracle against the exact effective tuple (writes attestation).
+    proof="$(mktemp "${TMPDIR:-/tmp}/holo-r2-ro-proof.XXXXXX.json")"
+    echo "[provision-fresh-restore-target] GATE-FIX-S28R3-QA9: binding live RO proof to exact restore tuple (values not logged)"
+    if ! env \
+      REQUIRE_LIVE_R2_RO=1 \
+      HOLO_R2_RO_PROOF_OUT="$proof" \
+      R2_RESTORE_ACCESS_KEY_ID="$rak" \
+      R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
+      R2_RESTORE_SESSION_TOKEN="$rst" \
+      R2_ACCESS_KEY_ID="${AMBIENT_R2_ACCESS_KEY_ID:-}" \
+      R2_SECRET_ACCESS_KEY="${AMBIENT_R2_SECRET_ACCESS_KEY:-}" \
+      R2_ENDPOINT="${R2_ENDPOINT:-}" \
+      R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
+      R2_BUCKET_NAME="${R2_BUCKET_NAME:-}" \
+      HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
+      HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
+      bash "$ROOT/scripts/prove-r2-readonly.sh" >/dev/null; then
+      echo "error: GATE-FIX-S28R3-QA9 live RO proof failed for the exact restore tuple before provision" >&2
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      rm -f "$proof"
+      exit 2
+    fi
+  fi
+  # Validate attestation: ok + matching fingerprint (never contains secrets).
+  if ! python3 - "$proof" "$expected_fp" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+path, expected = sys.argv[1], sys.argv[2]
+try:
+    data = json.load(open(path, encoding="utf-8"))
+except Exception as e:
+    print(f"error: invalid RO proof attestation: {e}", file=sys.stderr)
+    sys.exit(2)
+if data.get("schema") != "holo.r2-ro-proof.v1" or data.get("ok") is not True:
+    print("error: RO proof attestation missing schema/ok", file=sys.stderr)
+    sys.exit(2)
+if data.get("tuple_fp16") != expected:
+    print("error: RO proof attestation tuple_fp16 mismatch (proof not bound to exact restore tuple)", file=sys.stderr)
+    sys.exit(2)
+for k in ("list_allowed", "put_denied", "delete_denied"):
+    if data.get(k) is not True:
+        print(f"error: RO proof attestation {k} not true", file=sys.stderr)
+        sys.exit(2)
+# Stale proof: > 2 hours
+proved = data.get("proved_at") or ""
+try:
+    dt = datetime.strptime(proved, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - dt).total_seconds()
+    if age < 0 or age > 7200:
+        print("error: RO proof attestation stale or future-dated", file=sys.stderr)
+        sys.exit(2)
+except Exception:
+    print("error: RO proof attestation missing/invalid proved_at", file=sys.stderr)
+    sys.exit(2)
+print(f"RO proof bound ok tuple_fp16={expected}")
+sys.exit(0)
+PY
+  then
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+}
+
 if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
   if is_placeholder_key "$R2_ACCESS_KEY_ID" || is_placeholder_key "$R2_SECRET_ACCESS_KEY"; then
     echo "error: REQUIRE_LIVE_R2_RO=1 refuses placeholder restore credentials" >&2
@@ -180,20 +258,29 @@ if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
     exit 2
   fi
   if [[ -n "$AMBIENT_R2_ACCESS_KEY_ID" && "$R2_RESTORE_ACCESS_KEY_ID" == "$AMBIENT_R2_ACCESS_KEY_ID" ]]; then
-    # Same parent AK allowed only for Cloudflare temporary sessions: distinct secret + session token.
+    # GATE-FIX-S28R3-QA9 / H1: same-parent exception is fail-closed without writer secret.
+    if [[ -z "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
+      echo "error: REQUIRE_LIVE_R2_RO=1 refuses same parent Access Key ID without authoritative writer secret (cannot establish distinct restore secret)" >&2
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      exit 2
+    fi
     if [[ -z "${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}" ]]; then
       echo "error: REQUIRE_LIVE_R2_RO=1 refuses same Access Key ID as ambient RW without non-empty restore session token (incomplete Cloudflare temporary credential tuple)" >&2
       echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
       exit 2
     fi
-    if [[ -n "$AMBIENT_R2_SECRET_ACCESS_KEY" && "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
+    if [[ "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
       echo "error: REQUIRE_LIVE_R2_RO=1 refuses writer-equivalent credential tuple (same AK+secret as ambient RW)" >&2
       echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
       exit 2
     fi
-    # Accepted shape: same parent AK, distinct secret, non-empty session — do not log secrets.
-    echo "[provision-fresh-restore-target] GATE-FIX-S28R3-QA8: accepted Cloudflare temporary credential tuple shape (same parent AK; distinct secret; session token present)"
+    echo "[provision-fresh-restore-target] GATE-FIX-S28R3-QA8/QA9: accepted Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session token present)"
   fi
+  # Bind live denial oracle to exact effective restore tuple (QA9/M1).
+  assert_bound_r2_ro_proof \
+    "$R2_RESTORE_ACCESS_KEY_ID" \
+    "$R2_RESTORE_SECRET_ACCESS_KEY" \
+    "${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}"
 fi
 
 # Exact bucket + object-prefix List/Get only (no Put/Delete). REDHAT-FIX-H5 / GATE-FIX-S28R3-QA2 H2.
