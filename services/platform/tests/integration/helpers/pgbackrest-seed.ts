@@ -116,6 +116,18 @@ function parseBackupStopIso(infoJson: string, label: string): string | null {
   return null;
 }
 
+/**
+ * pgBackRest --type=time selects a backup set whose stop time is STRICTLY LESS than
+ * --target ("unable to find backup set with stop time less than …" on equality).
+ * Healthy-control PITR must land a few seconds AFTER backup stop (WAL switched after
+ * backup in this seeder) so restore can select the seeded full backup.
+ */
+function pitrTimestampAfterBackupStop(stopIso: string, padSeconds = 2): string {
+  const d = new Date(stopIso);
+  if (Number.isNaN(d.getTime())) return stopIso;
+  return new Date(d.getTime() + padSeconds * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 function pgbackrestEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {
     ...env,
@@ -458,13 +470,35 @@ export function seedRealPgbackrestHealthyChain(options: {
       };
     }
 
-    // Another WAL switch after backup to extend the continuous archive window.
-    const walSwitch2 = psqlOnUrl(dbUrl, `SELECT pg_switch_wal(); SELECT pg_sleep(2);`);
+    // Post-backup: extend continuous WAL past backup stop wall-clock.
+    // pgBackRest --type=time needs a backup with stop < --target, AND Postgres recovery
+    // needs WAL records whose timestamps reach --target. Backup stop is often *after*
+    // the last pre-backup commit time — so we must INSERT + archive after backup.
+    const postBackup = psqlOnUrl(
+      dbUrl,
+      [
+        `INSERT INTO pitr_test (label, batch) VALUES ('${seedLabel.replace(/'/g, "''")}-post', '${seedBatch}')`,
+        `SELECT pg_switch_wal()`,
+        `SELECT pg_sleep(3)`,
+        `INSERT INTO pitr_test (label, batch) VALUES ('${seedLabel.replace(/'/g, "''")}-post2', '${seedBatch}')`,
+        `SELECT pg_switch_wal()`,
+        `SELECT pg_sleep(2)`,
+      ].join('; ')
+    );
     steps.push({
-      step: 'pg_switch_wal_after_backup',
-      status: walSwitch2.status,
-      output: (walSwitch2.stdout || walSwitch2.stderr).slice(0, 200),
+      step: 'post_backup_wal_extend',
+      status: postBackup.status,
+      output: (postBackup.stdout || postBackup.stderr).slice(0, 400),
     });
+    if (postBackup.status !== 0) {
+      return {
+        ok: false,
+        prefix: options.prefix,
+        stanza,
+        error: `failed to extend WAL after backup: ${postBackup.stderr || postBackup.stdout}`,
+        steps,
+      };
+    }
 
     const info = run(
       'pgbackrest',
@@ -526,8 +560,38 @@ export function seedRealPgbackrestHealthyChain(options: {
       };
     }
 
-    // Prefer backup stop time (guaranteed in WAL window); fall back to insert timestamp.
-    const pitrTimestamp = parseBackupStopIso(info.stdout, backupLabel) ?? insertTs;
+    // PITR target contract (must satisfy BOTH):
+    //   1) pgBackRest: backup stop time STRICTLY < --target (else ERROR 075)
+    //   2) Postgres: some archived commit timestamp >= --target (else
+    //      "recovery ended before configured recovery target was reached")
+    // Prefer max(pitr_test.created_at) from post-backup inserts (in WAL via switch),
+    // falling back to stop+1s when that is still strictly after backup stop.
+    const stopIso = parseBackupStopIso(info.stdout, backupLabel);
+    const maxCreated = psqlOnUrl(
+      dbUrl,
+      `SELECT to_char(max(created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') FROM pitr_test WHERE batch = '${seedBatch}'`
+    );
+    steps.push({
+      step: 'pitr_target_from_max_created_at',
+      status: maxCreated.status,
+      output: (maxCreated.stdout || maxCreated.stderr).slice(0, 200),
+    });
+    let pitrTimestamp = stopIso ? pitrTimestampAfterBackupStop(stopIso, 1) : insertTs;
+    if (maxCreated.status === 0 && maxCreated.stdout.trim().length >= 20) {
+      const candidate = maxCreated.stdout.trim();
+      const candMs = new Date(candidate).getTime();
+      const stopMs = stopIso ? new Date(stopIso).getTime() : NaN;
+      if (!Number.isNaN(candMs) && (Number.isNaN(stopMs) || candMs > stopMs)) {
+        pitrTimestamp = candidate;
+      }
+    }
+    // Final archive push so the commit at/before pitrTimestamp is fetchable.
+    const finalSwitch = psqlOnUrl(dbUrl, `SELECT pg_switch_wal(); SELECT pg_sleep(1);`);
+    steps.push({
+      step: 'final_wal_switch_before_return',
+      status: finalSwitch.status,
+      output: (finalSwitch.stdout || finalSwitch.stderr).slice(0, 200),
+    });
 
     return {
       ok: true,

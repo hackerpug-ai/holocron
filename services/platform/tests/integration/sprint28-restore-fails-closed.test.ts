@@ -24,6 +24,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -563,14 +564,53 @@ function pgCtlStatus(pgdata: string): { status: number | null; combined: string 
 
 function psqlOnScratch(
   scratchDir: string,
-  sql: string
+  sql: string,
+  database = 'postgres'
 ): { status: number | null; stdout: string; stderr: string } {
-  // Prefer unix socket dir if restore places one; fall back to PGDATA as host dir
-  // is an implementation detail D05-02 owns. Try common patterns.
-  const attempts: Array<string[]> = [
-    ['-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
-    ['-h', scratchDir, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
-  ];
+  // Prefer TCP port written by holo restore (macOS socket paths under long scratch
+  // dirs exceed sockaddr_un 103 bytes — restore uses /tmp/holo-restore-<port>).
+  // pitr_test lives in holocron (seeder DATABASE_URL); SELECT 1 uses postgres.
+  const databases = database === 'postgres' ? ['postgres'] : [database, 'postgres'];
+  const attempts: Array<string[]> = [];
+  try {
+    const portPath = join(scratchDir, 'holo-restore.port');
+    if (existsSync(portPath)) {
+      const port = readFileSync(portPath, 'utf8').trim();
+      if (/^\d+$/.test(port)) {
+        for (const db of databases) {
+          attempts.push([
+            '-h',
+            '127.0.0.1',
+            '-p',
+            port,
+            '-d',
+            db,
+            '-v',
+            'ON_ERROR_STOP=1',
+            '-tAc',
+            sql,
+          ]);
+        }
+      }
+    }
+    const sockPath = join(scratchDir, 'holo-restore.socket_dir');
+    if (existsSync(sockPath)) {
+      const sockDir = readFileSync(sockPath, 'utf8').trim();
+      if (sockDir.length > 0) {
+        for (const db of databases) {
+          attempts.push(['-h', sockDir, '-d', db, '-v', 'ON_ERROR_STOP=1', '-tAc', sql]);
+        }
+      }
+    }
+  } catch {
+    /* fall through to legacy attempts */
+  }
+  for (const db of databases) {
+    attempts.push(
+      ['-d', db, '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
+      ['-h', scratchDir, '-d', db, '-v', 'ON_ERROR_STOP=1', '-tAc', sql]
+    );
+  }
   let last = { status: 1 as number | null, stdout: '', stderr: 'no attempt' };
   for (const args of attempts) {
     const env: NodeJS.ProcessEnv = {
@@ -927,8 +967,11 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
       });
 
       const select1 = restore.status === 0 ? psqlOnScratch(scratchDir, 'SELECT 1') : null;
+      // pitr_test is seeded into the holocron DB (DATABASE_URL), not the postgres maintenance DB.
       const pitrCount =
-        restore.status === 0 ? psqlOnScratch(scratchDir, 'SELECT COUNT(*) FROM pitr_test') : null;
+        restore.status === 0
+          ? psqlOnScratch(scratchDir, 'SELECT COUNT(*) FROM pitr_test', 'holocron')
+          : null;
       const pitrRows =
         pitrCount && pitrCount.status === 0 ? Number(String(pitrCount.stdout).trim()) : 0;
 
