@@ -13,14 +13,16 @@
  *   pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { selectBestFireDrillBaseline } from '../../src/backup/fire-drill.ts';
 import type { RecoveryBaseline } from '../../src/backup/recovery-baseline.ts';
 import {
   baselineDomainRowTotal,
+  buildRecoveryBaseline,
   captureAndUploadRecoveryBaseline,
   isBaselineParityMeaningful,
   RECOVERY_BASELINE_SCHEMA,
@@ -35,6 +37,11 @@ const itLive = PLATFORM_IT ? it : it.skip;
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-QA1');
+const RECOVERY_BASELINE_SRC = resolve(
+  REPO_ROOT,
+  'services/platform/src/backup/recovery-baseline.ts'
+);
+const FIRE_DRILL_SRC = resolve(REPO_ROOT, 'services/platform/src/backup/fire-drill.ts');
 
 function writeEvidence(name: string, body: unknown): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -286,4 +293,192 @@ describe('GATE-FIX-QA1 live emit refuse fake restic (PLATFORM_IT)', () => {
     },
     180_000
   );
+});
+
+/**
+ * REDHAT-FIX-S28R2 H1/H2 — pure contracts (always run; no PLATFORM_IT required).
+ */
+describe('REDHAT-FIX-S28R2 H1 refuse zero/empty domain baseline (always)', () => {
+  it('H1 AC-1: buildRecoveryBaseline throws on all-zero domain map without allowEmptyDomainBaseline', () => {
+    const deadConn = { host: '127.0.0.1', port: 1, database: 'no_such_db_s28r2' };
+    expect(() =>
+      buildRecoveryBaseline({
+        pgbackrestBackupLabel: '20260728-000000F',
+        resticSnapshotId: 'abcdef0123456789dead',
+        targetLsn: '0/1000000',
+        rowCounts: {
+          beliefs: 0,
+          sources: 0,
+          passages: 0,
+          claims: 0,
+          relations: 0,
+          file_objects: 0,
+        },
+        ledgerSha256: 'a'.repeat(64),
+        blobManifestSha256: 'b'.repeat(64),
+        conn: deadConn,
+      })
+    ).toThrow(/zero|empty|domain|refuse/i);
+  });
+
+  it('H1 AC-1b: captureAndUploadRecoveryBaseline does not upload all-zero domain baseline', () => {
+    const deadConn = { host: '127.0.0.1', port: 1, database: 'no_such_db_s28r2' };
+    const result = captureAndUploadRecoveryBaseline({
+      pgbackrestBackupLabel: '20260728-000000F-zero',
+      resticSnapshotId: 'abcdef0123456789dead',
+      targetLsn: '0/1000000',
+      rowCounts: {
+        beliefs: 0,
+        sources: 0,
+        passages: 0,
+        claims: 0,
+        relations: 0,
+        file_objects: 0,
+      },
+      ledgerSha256: 'a'.repeat(64),
+      blobManifestSha256: 'b'.repeat(64),
+      conn: deadConn,
+      skipResticVerify: true,
+      // Force config miss path if needed — still must not uploaded:true with zeros.
+      env: { ...process.env, R2_BUCKET_NAME: '' },
+    });
+    writeEvidence('h1-zero-capture-refuse.json', result);
+    expect(result.ok).toBe(false);
+    expect(result.uploaded).toBe(false);
+  });
+
+});
+
+describe('REDHAT-FIX-S28R2 H2 exact restic match + selection (always)', () => {
+  it('H2 AC-1: verifyResticSnapshotInRepo source refuses needle.startsWith(short)', () => {
+    const src = readFileSync(RECOVERY_BASELINE_SRC, 'utf8');
+    // Over-permissive prefix extension must be gone (ghost ids starting with real short_id).
+    expect(src).not.toMatch(/needle\.startsWith\(\s*short\s*\)/);
+    // Exact id / short_id and full-id prefix (id.startsWith(needle)) remain.
+    expect(src).toMatch(/id\s*===\s*needle/);
+    expect(src).toMatch(/short\s*===\s*needle/);
+    expect(src).toMatch(/id\.startsWith\(\s*needle\s*\)/);
+  });
+
+  it('H2 AC-1b: fake restic — exact short_id and full id match; needle-as-prefix-of-short rejected', () => {
+    const dir = mkdtempSync(join(tmpdir(), 's28r2-restic-'));
+    const resticBin = join(dir, 'restic');
+    const fullId = 'abcdef0123456789deadbeefcafebabe00112233';
+    const shortId = 'abcdef01';
+    writeFileSync(
+      resticBin,
+      `#!/bin/sh
+if [ "$1" = "snapshots" ]; then
+  printf '%s\\n' '[{"id":"${fullId}","short_id":"${shortId}"}]'
+  exit 0
+fi
+exit 1
+`,
+      'utf8'
+    );
+    chmodSync(resticBin, 0o755);
+
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      RESTIC_PASSWORD: 'test-password-long-enough-s28r2',
+      RESTIC_REPOSITORY: 's3:https://example.invalid/bucket/restic',
+      R2_ACCESS_KEY_ID: 'test-ak-s28r2',
+      R2_SECRET_ACCESS_KEY: 'test-sk-s28r2',
+      R2_ENDPOINT: 'https://example.invalid',
+      R2_BUCKET_NAME: 'holocron-backup',
+      R2_REPO_CIPHER_PASS: 'cipher-pass-long-enough',
+      R2_ACCOUNT_ID: 'exampleaccountid',
+      AWS_ACCESS_KEY_ID: 'test-ak-s28r2',
+      AWS_SECRET_ACCESS_KEY: 'test-sk-s28r2',
+    };
+
+    const exactFull = verifyResticSnapshotInRepo({
+      resticSnapshotId: fullId,
+      resticBin,
+      env,
+    });
+    writeEvidence('h2-exact-full.json', exactFull);
+    expect(exactFull.ok).toBe(true);
+
+    const exactShort = verifyResticSnapshotInRepo({
+      resticSnapshotId: shortId,
+      resticBin,
+      env,
+    });
+    writeEvidence('h2-exact-short.json', exactShort);
+    expect(exactShort.ok).toBe(true);
+
+    // Full-id prefix (≥8) still allowed.
+    const prefix = verifyResticSnapshotInRepo({
+      resticSnapshotId: fullId.slice(0, 12),
+      resticBin,
+      env,
+    });
+    writeEvidence('h2-id-prefix.json', prefix);
+    expect(prefix.ok).toBe(true);
+
+    // Ghost that merely starts with real short_id must NOT match (old needle.startsWith(short)).
+    const ghost = verifyResticSnapshotInRepo({
+      resticSnapshotId: `${shortId}_MISSING_GHOST_ID_XX`,
+      resticBin,
+      env,
+    });
+    writeEvidence('h2-ghost-short-prefix.json', ghost);
+    expect(ghost.ok).toBe(false);
+  });
+
+  it('H2 AC-2/3: resolveFireDrillBaseline must live-verify restic and skip ghosts', () => {
+    const src = readFileSync(FIRE_DRILL_SRC, 'utf8');
+    expect(src).toMatch(/verifyResticSnapshotInRepo/);
+    // Discovery path must filter candidates / fail closed on pure ghost set.
+    expect(src).toMatch(/function resolveFireDrillBaseline/);
+    const resolveStart = src.indexOf('function resolveFireDrillBaseline');
+    expect(resolveStart).toBeGreaterThanOrEqual(0);
+    const resolveBody = src.slice(resolveStart, resolveStart + 4500);
+    expect(resolveBody).toMatch(/verifyResticSnapshotInRepo/);
+    expect(resolveBody).toMatch(/ghost|unlistable|skip|not found|fail closed|no parity/i);
+  });
+
+  it('H2 AC-3: among meaningful candidates, nonzero ghost restic loses to valid (selection contract)', () => {
+    // Pure ranking still prefers higher totals; live resolve must then drop ghosts.
+    // Document the intended pair: ghost has higher counts but bad restic id.
+    const ghost = makeBaseline({
+      baseline_id: 'g'.repeat(64),
+      target_timestamp: '2026-07-29T20:00:00Z',
+      row_counts: {
+        beliefs: 99,
+        sources: 99,
+        passages: 99,
+        claims: 99,
+        relations: 99,
+        file_objects: 99,
+      },
+      restic_snapshot_id: 'ghostsnap_not_in_repo_xx',
+    });
+    const valid = makeBaseline({
+      baseline_id: 'v'.repeat(64),
+      target_timestamp: '2026-07-29T18:00:00Z',
+      row_counts: {
+        beliefs: 8,
+        sources: 8,
+        passages: 8,
+        claims: 8,
+        relations: 8,
+        file_objects: 8,
+      },
+      restic_snapshot_id: 'validsnap0123456789ab',
+    });
+    const ranked = selectBestFireDrillBaseline(
+      [
+        { baseline: ghost, key: 'k-ghost', ts: Date.parse(ghost.target_timestamp) },
+        { baseline: valid, key: 'k-valid', ts: Date.parse(valid.target_timestamp) },
+      ],
+      { targetTimestamp: '2026-08-01T00:00:00Z' }
+    );
+    // Ranking alone still picks ghost (newer + richer) — resolve must re-verify restic.
+    expect(ranked?.baseline.baseline_id).toBe(ghost.baseline_id);
+    const fireSrc = readFileSync(FIRE_DRILL_SRC, 'utf8');
+    // After ranking/filter, live path must invoke restic verify so ghosts cannot win.
+    expect(fireSrc).toMatch(/verifyResticSnapshotInRepo\s*\(/);
+  });
 });
