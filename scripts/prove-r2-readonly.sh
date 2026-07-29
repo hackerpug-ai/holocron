@@ -385,10 +385,15 @@ run_live_probe() {
   fi
   info "using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)"
 
+  # GATE-FIX-S28R3-QA16: re-bind versioned probes in this shell (not env-dependent).
+  if ! r2_ro_bind_scope_probes; then
+    fail "GATE-FIX-S28R3-QA16 versioned scope probe bind failed"
+    return 1
+  fi
   local in_key="${R2_SCOPE_PROBE_IN_KEY:-}"
   local out_key="${R2_SCOPE_PROBE_OUT_KEY:-}"
   if [[ -z "$in_key" || -z "$out_key" ]]; then
-    fail "GATE-FIX-S28R3-QA14 missing known-existing scope probe keys"
+    fail "GATE-FIX-S28R3-QA16 missing versioned known-existing scope probe keys"
     return 1
   fi
 
@@ -756,6 +761,12 @@ export R2_RESTORE_OBJECT_PREFIX="$CANON_PREFIX"
 export R2_PGBACKREST_PREFIX="$CANON_PREFIX"
 export R2_CREDENTIAL_KIND="$CANON_KIND"
 export R2_CREDENTIAL_POLICY="$CANON_POLICY"
+# Parent-shell bind: establish_canonical_context runs in a subshell so exports do not stick.
+if ! r2_ro_bind_scope_probes; then
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
+  echo "=== RESULT: FAIL (versioned scope probe bind refused) ==="
+  exit 1
+fi
 
 if ! run_live_probe "$AK" "$SK" "$ENDPOINT" "$BUCKET" "$ST" "$CANON_PREFIX"; then
   if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then

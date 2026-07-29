@@ -12,8 +12,9 @@ R2_RO_TRUSTED_PROOF_DIR="${ROOT}/.tmp/r2-ro-proofs"
 R2_RO_SUPPORTED_POLICY_KIND="object-read-only"
 R2_RO_REQUIRED_BUCKET="holocron-backup"
 R2_RO_REQUIRED_PREFIX="pgbackrest"
-# Control-plane-listed known-existing scope probes (writer listed; not created).
-R2_RO_SCOPE_PROBES_JSON="${ROOT}/scripts/lib/r2-scope-probes.json"
+# GATE-FIX-S28R3-QA16: fixed repository path only (never env-relocatable in production).
+R2_RO_SCOPE_PROBES_RELPATH="scripts/lib/r2-scope-probes.json"
+R2_RO_SCOPE_PROBES_JSON="${ROOT}/${R2_RO_SCOPE_PROBES_RELPATH}"
 
 # Absolute root-owned helpers only (never PATH, never fixtures, never env overrides).
 R2_RO_ENV_BIN="/usr/bin/env"
@@ -212,27 +213,84 @@ r2_ro_tuple_fp16() {
     | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
 }
 
-# Load control-plane-listed known-existing scope probes and bind into env.
-# Production (no mock mode): keys must match scripts/lib/r2-scope-probes.json exactly
-# (defaults applied when unset). Harness mock mode may use fixture keys.
+# GATE-FIX-S28R3-QA16: load versioned known-existing scope probes.
+# Production: ALWAYS bind from fixed scripts/lib/r2-scope-probes.json.
+# Caller env cannot replace, relocate, or weaken the oracle (override → fail closed).
+# Harness mock mode may use fixture keys only.
 r2_ro_bind_scope_probes() {
-  local probes_json pair trusted_in trusted_out
-  probes_json="${R2_RO_SCOPE_PROBES_JSON}"
-  if [[ ! -f "$probes_json" ]]; then
-    echo "error: GATE-FIX-S28R3-QA14 missing trusted scope probe config $probes_json" >&2
+  local probes_json pair trusted_in trusted_out caller_in caller_out fixed_path
+  # Fixed path only — ignore any relocated R2_RO_SCOPE_PROBES_JSON value.
+  fixed_path="${ROOT}/scripts/lib/r2-scope-probes.json"
+  R2_RO_SCOPE_PROBES_JSON="$fixed_path"
+  probes_json="$fixed_path"
+
+  if [[ -n "${R2_RO_SCOPE_PROBES_JSON_OVERRIDE:-}" || -n "${HOLO_SCOPE_PROBES_JSON:-}" ]]; then
+    echo "error: GATE-FIX-S28R3-QA16 refuses scope-probes path override env (versioned binding only)" >&2
     return 2
   fi
-  if ! pair="$("$R2_RO_PYTHON_BIN" - "$probes_json" <<'PY'
-import json, sys
-doc = json.load(open(sys.argv[1], encoding="utf-8"))
+  if [[ ! -f "$probes_json" ]]; then
+    echo "error: GATE-FIX-S28R3-QA16 missing versioned scope probe config $probes_json" >&2
+    return 2
+  fi
+
+  if ! pair="$("$R2_RO_PYTHON_BIN" - "$probes_json" "$ROOT" <<'PY'
+import json, os, stat, sys
+path, root = sys.argv[1], sys.argv[2]
+root = os.path.realpath(root)
+real = os.path.realpath(path)
+expected = os.path.join(root, "scripts", "lib", "r2-scope-probes.json")
+if real != os.path.realpath(expected):
+    print("error: GATE-FIX-S28R3-QA16 scope probes path must be scripts/lib/r2-scope-probes.json", file=sys.stderr)
+    sys.exit(2)
+st = os.lstat(path)
+if stat.S_ISLNK(st.st_mode):
+    print("error: GATE-FIX-S28R3-QA16 scope probes must not be a symlink", file=sys.stderr)
+    sys.exit(2)
+if not stat.S_ISREG(st.st_mode):
+    print("error: GATE-FIX-S28R3-QA16 scope probes must be a regular file", file=sys.stderr)
+    sys.exit(2)
+mode = stat.S_IMODE(st.st_mode)
+if mode & (stat.S_IWGRP | stat.S_IWOTH):
+    print("error: GATE-FIX-S28R3-QA16 scope probes is group/world-writable", file=sys.stderr)
+    sys.exit(2)
+try:
+    doc = json.load(open(path, encoding="utf-8"))
+except Exception as e:
+    print(f"error: GATE-FIX-S28R3-QA16 malformed scope probes JSON: {e}", file=sys.stderr)
+    sys.exit(2)
 if doc.get("schema") != "holo.r2-scope-probes.v1":
-    print("error: bad scope probes schema", file=sys.stderr); sys.exit(2)
+    print("error: GATE-FIX-S28R3-QA16 bad scope probes schema", file=sys.stderr); sys.exit(2)
 if doc.get("object_created") is not False:
-    print("error: scope probes must be listed-not-created (object_created=false)", file=sys.stderr); sys.exit(2)
+    print("error: GATE-FIX-S28R3-QA16 scope probes must be listed-not-created (object_created=false)", file=sys.stderr)
+    sys.exit(2)
+bucket = doc.get("bucket") or ""
+prefix = doc.get("prefix") or ""
+if bucket != "holocron-backup" or prefix != "pgbackrest":
+    print("error: GATE-FIX-S28R3-QA16 scope probes bucket/prefix must be holocron-backup/pgbackrest", file=sys.stderr)
+    sys.exit(2)
 ink, outk = doc.get("in_key") or "", doc.get("out_key") or ""
-if not ink.startswith("pgbackrest/") or not outk or outk.startswith("pgbackrest/"):
-    print("error: trusted scope probe key placement invalid", file=sys.stderr); sys.exit(2)
-# TAB-separated single line (keys never contain tabs)
+if "\t" in ink or "\t" in outk or "\n" in ink or "\n" in outk:
+    print("error: GATE-FIX-S28R3-QA16 scope probe keys must not contain control chars", file=sys.stderr)
+    sys.exit(2)
+if not ink.startswith(prefix + "/") or not outk or outk.startswith(prefix + "/") or outk.startswith(prefix):
+    print("error: GATE-FIX-S28R3-QA16 scope probe key/prefix relationship invalid", file=sys.stderr)
+    sys.exit(2)
+# Refuse secret-looking fields in versioned non-secret artifact.
+secret_markers = ("secret", "password", "token", "credential", "access_key", "session")
+blob = json.dumps(doc).lower()
+for m in secret_markers:
+    if m in blob and m not in ("listed_via",):
+        # allow words only in note strings carefully — hard-fail on key names
+        pass
+for k in doc.keys():
+    kl = k.lower()
+    if any(s in kl for s in ("secret", "password", "token", "credential", "access_key", "session")):
+        print(f"error: GATE-FIX-S28R3-QA16 scope probes must not contain secret field {k}", file=sys.stderr)
+        sys.exit(2)
+oracles = doc.get("oracles") or {}
+if oracles.get("out_of_prefix_require") != "AccessDenied":
+    print("error: GATE-FIX-S28R3-QA16 oracles.out_of_prefix_require must be AccessDenied", file=sys.stderr)
+    sys.exit(2)
 print(f"{ink}\t{outk}")
 PY
 )"; then
@@ -241,48 +299,47 @@ PY
   trusted_in="${pair%%$'\t'*}"
   trusted_out="${pair#*$'\t'}"
   if [[ -z "$trusted_in" || -z "$trusted_out" || "$trusted_in" == "$pair" ]]; then
-    echo "error: GATE-FIX-S28R3-QA14 trusted scope probes empty" >&2
+    echo "error: GATE-FIX-S28R3-QA16 trusted scope probes empty" >&2
     return 2
   fi
 
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
     # Harness-only: fixture keys allowed; still require both set.
     if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" || -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
-      echo "error: GATE-FIX-S28R3-QA14 requires R2_SCOPE_PROBE_IN_KEY and R2_SCOPE_PROBE_OUT_KEY (known-existing objects)" >&2
+      echo "error: GATE-FIX-S28R3-QA16 harness requires R2_SCOPE_PROBE_IN_KEY and R2_SCOPE_PROBE_OUT_KEY" >&2
       return 2
     fi
   else
-    # Production live: bind exact control-plane keys.
-    if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" ]]; then
-      R2_SCOPE_PROBE_IN_KEY="$trusted_in"
-    fi
-    if [[ -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
-      R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
-    fi
-    if [[ "${R2_SCOPE_PROBE_IN_KEY}" != "$trusted_in" ]]; then
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_IN_KEY must match trusted control-plane in_key" >&2
+    # Production: versioned artifact is sole authority. Env cannot replace keys.
+    caller_in="${R2_SCOPE_PROBE_IN_KEY-}"
+    caller_out="${R2_SCOPE_PROBE_OUT_KEY-}"
+    if [[ -n "$caller_in" && "$caller_in" != "$trusted_in" ]]; then
+      echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_IN_KEY" >&2
       return 2
     fi
-    if [[ "${R2_SCOPE_PROBE_OUT_KEY}" != "$trusted_out" ]]; then
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY must match trusted control-plane out_key" >&2
+    if [[ -n "$caller_out" && "$caller_out" != "$trusted_out" ]]; then
+      echo "error: GATE-FIX-S28R3-QA16 refuses env override of versioned R2_SCOPE_PROBE_OUT_KEY" >&2
       return 2
     fi
+    # Always re-bind from versioned artifact (env cannot weaken even if empty/partial).
+    R2_SCOPE_PROBE_IN_KEY="$trusted_in"
+    R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
   fi
 
   case "${R2_SCOPE_PROBE_IN_KEY}" in
     pgbackrest/*) ;;
     *)
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_IN_KEY must be under pgbackrest/" >&2
+      echo "error: GATE-FIX-S28R3-QA16 R2_SCOPE_PROBE_IN_KEY must be under pgbackrest/" >&2
       return 2
       ;;
   esac
   case "${R2_SCOPE_PROBE_OUT_KEY}" in
-    pgbackrest/*)
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY must be outside pgbackrest/" >&2
+    pgbackrest/*|pgbackrest)
+      echo "error: GATE-FIX-S28R3-QA16 R2_SCOPE_PROBE_OUT_KEY must be outside pgbackrest/" >&2
       return 2
       ;;
     *..*|'')
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY invalid" >&2
+      echo "error: GATE-FIX-S28R3-QA16 R2_SCOPE_PROBE_OUT_KEY invalid" >&2
       return 2
       ;;
   esac

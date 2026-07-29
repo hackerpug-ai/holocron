@@ -205,7 +205,9 @@ describe('GATE-FIX-S28R3-QA14 HIGH scope oracles', () => {
       },
     });
     expect(run.status).not.toBe(0);
-    expect(`${run.stdout}${run.stderr}`).toMatch(/trusted control-plane|R2_SCOPE_PROBE_IN_KEY/i);
+    expect(`${run.stdout}${run.stderr}`).toMatch(
+      /refuses env override|versioned R2_SCOPE_PROBE|trusted control-plane|R2_SCOPE_PROBE_IN_KEY/i
+    );
   });
 
   it('successful harness proof binds scope probe keys into attestation', () => {
