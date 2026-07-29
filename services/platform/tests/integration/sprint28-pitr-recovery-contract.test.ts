@@ -302,6 +302,7 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
     scratchRoot = mkdtempSync(join(tmpdir(), 'redhat-fix-c3-pitr-'));
 
     // One seed attempt for the suite (sentinel window scaffolding).
+    // REDHAT-FIX-S28R2-H4: seed must establish sentinels or fail setup (no soft-skip).
     if (FORCED_PITR_TS) {
       seededTt = FORCED_PITR_TS;
       seedOk = true;
@@ -310,29 +311,34 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       const seed = seedPitrSentinelWindow({
         databaseUrl: DATABASE_URL,
         note: `c3-suite-${Date.now()}`,
+        gapMs: 3000,
       });
       writeEvidence('seed-suite.json', seed);
       seedOk = seed.ok;
-      if (seed.ok) {
-        seededTt = seed.tt;
-        spawnSync('sleep', ['2'], { encoding: 'utf8' });
-        const wal = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:wal', '--json'], {
-          cwd: REPO_ROOT,
-          encoding: 'utf8',
-          env: { ...process.env, HOLO_SECRETS_PATH: secretsPath, DATABASE_URL },
-          timeout: 180_000,
-        });
-        writeEvidence('seed-wal-archive.json', {
-          status: wal.status,
-          stdout: (wal.stdout ?? '').slice(0, 2000),
-          stderr: (wal.stderr ?? '').slice(0, 2000),
-        });
+      if (!seed.ok) {
+        throw new Error(
+          `PITR sentinel seed failed closed — cannot run recovery contract without before/after rows: ${seed.errors.join('; ') || seed.stderr || 'unknown'}`
+        );
       }
-      // Fixed restorable cut for all live cases (avoid per-test clock drift into unarchived WAL).
+      seededTt = seed.tt;
+      spawnSync('sleep', ['2'], { encoding: 'utf8' });
+      const wal = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:wal', '--json'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, HOLO_SECRETS_PATH: secretsPath, DATABASE_URL },
+        timeout: 180_000,
+      });
+      writeEvidence('seed-wal-archive.json', {
+        status: wal.status,
+        stdout: (wal.stdout ?? '').slice(0, 2000),
+        stderr: (wal.stderr ?? '').slice(0, 2000),
+      });
+      // Prefer the seeded cut so before-target is visible and after-target is not.
+      // Override only when REDHAT_FIX_C3_USE_SEED_TT=0 (explicit opt-out).
       suitePitrTarget =
-        process.env.REDHAT_FIX_C3_USE_SEED_TT === '1' && seededTt
-          ? seededTt
-          : new Date(Date.now() - 15 * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+        process.env.REDHAT_FIX_C3_USE_SEED_TT === '0'
+          ? new Date(Date.now() - 15 * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
+          : (seededTt as string);
     }
 
     writeEvidence('suite-boot.json', {
@@ -421,6 +427,15 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
     writeEvidence('tc4-invalid-timestamp-wording.txt', 'OK — fail-closed named errors present');
   });
 
+  itLive('contract: H4 suite has no sentinel pending soft-pass', () => {
+    const self = readFileSync(resolve(HERE, 'sprint28-pitr-recovery-contract.test.ts'), 'utf8');
+    expect(self).not.toMatch(/sentinels-pending/);
+    expect(self).not.toMatch(/sentinel table not in restored cut yet/);
+    expect(self).toMatch(/before-target sentinels must be/);
+    expect(self).toMatch(/seed failed closed|seed must establish|PITR sentinel seed failed/i);
+    writeEvidence('h4-no-soft-pass.txt', 'OK — mandatory sentinel cut; seed fail-closed');
+  });
+
   // ── Live restore proofs (against real R2 + pgBackRest) ───────────────────
 
   itLive(
@@ -459,36 +474,36 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       expect(lsn.stdout.length, 'pg_last_wal_replay_lsn() must be non-null').toBeGreaterThan(0);
       expect(lsn.stdout.toLowerCase()).not.toBe('null');
 
-      // Sentinel visibility when the restorable chain includes the seed window.
+      // REDHAT-FIX-S28R2-H4: mandatory sentinel cut — no pending soft-pass.
       const tableExists = psqlOnScratch(
         scratchDir,
         `SELECT to_regclass('public.pitr_sentinel') IS NOT NULL`
       );
-      writeEvidence('ac1-pause-probes.json', { inRecovery, lsn, tableExists });
+      writeEvidence('ac1-pause-probes.json', { inRecovery, lsn, tableExists, seedOk });
+      expect(
+        tableExists.status === 0 && isPgTrue(tableExists.stdout),
+        `pitr_sentinel must exist after successful pause restore (seedOk=${seedOk}); got ${tableExists.stdout} / ${tableExists.stderr}`
+      ).toBe(true);
 
-      if (tableExists.status === 0 && isPgTrue(tableExists.stdout)) {
-        const before = psqlOnScratch(
-          scratchDir,
-          `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}'`
-        );
-        const after = psqlOnScratch(
-          scratchDir,
-          `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}'`
-        );
-        writeEvidence('ac1-pause-sentinels.json', { before, after });
-        expect(before.status).toBe(0);
-        expect(Number(before.stdout)).toBeGreaterThanOrEqual(1);
-        expect(after.status).toBe(0);
-        expect(Number(after.stdout)).toBe(0);
-      } else {
-        // Recovery catalogs proven (primary C-3 honesty). Full sentinel cut needs the
-        // seeded DDL+rows in the restorable WAL window (H1 seed path / longer archive lag).
-        writeEvidence('ac1-pause-sentinels-pending.json', {
-          seedOk,
-          tableExists,
-          note: 'pause recovery catalogs green; sentinel table not in restored cut yet',
-        });
-      }
+      const before = psqlOnScratch(
+        scratchDir,
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}'`
+      );
+      const after = psqlOnScratch(
+        scratchDir,
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}'`
+      );
+      writeEvidence('ac1-pause-sentinels.json', { before, after });
+      expect(before.status).toBe(0);
+      expect(
+        Number(before.stdout),
+        `before-target sentinels must be ≥1 after pause restore; got ${before.stdout}`
+      ).toBeGreaterThanOrEqual(1);
+      expect(after.status).toBe(0);
+      expect(
+        Number(after.stdout),
+        `after-target sentinels must be 0 after pause restore; got ${after.stdout}`
+      ).toBe(0);
 
       // Explicitly forbid invented field usage in this suite's assertions path.
       expect(run.combined.includes('last_applied_timestamp')).toBe(false);
@@ -533,23 +548,26 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       expect(insert.status, `INSERT must succeed after promote: ${insert.stderr}`).toBe(0);
       expect(insert.stdout).toContain('INSERT 0 1');
 
+      // REDHAT-FIX-S28R2-H4: mandatory sentinel cut on promote path (no soft-pass).
       const tableExists = psqlOnScratch(
         scratchDir,
         `SELECT to_regclass('public.pitr_sentinel') IS NOT NULL`
       );
-      if (tableExists.status === 0 && isPgTrue(tableExists.stdout)) {
-        const before = psqlOnScratch(
-          scratchDir,
-          `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}'`
-        );
-        const after = psqlOnScratch(
-          scratchDir,
-          `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}'`
-        );
-        writeEvidence('ac2-promote-sentinels.json', { before, after });
-        expect(Number(before.stdout)).toBeGreaterThanOrEqual(1);
-        expect(Number(after.stdout)).toBe(0);
-      }
+      expect(
+        tableExists.status === 0 && isPgTrue(tableExists.stdout),
+        `pitr_sentinel must exist after successful promote restore; got ${tableExists.stdout}`
+      ).toBe(true);
+      const before = psqlOnScratch(
+        scratchDir,
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}'`
+      );
+      const after = psqlOnScratch(
+        scratchDir,
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}'`
+      );
+      writeEvidence('ac2-promote-sentinels.json', { before, after });
+      expect(Number(before.stdout)).toBeGreaterThanOrEqual(1);
+      expect(Number(after.stdout)).toBe(0);
 
       // Must not require pg_stat_recovery replay proof after promote.
       expect(run.combined.toLowerCase().includes('last_applied_timestamp')).toBe(false);

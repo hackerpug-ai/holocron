@@ -46,6 +46,7 @@ export {
   loadBaselineAndCompare,
   loadRecoveryBaselineFromR2,
   lookupBaselineKey,
+  matchResticSnapshotId,
   normalizeSha256Digest,
   queryTargetLsn,
   RECOVERY_BASELINE_OBJECT_NAME,

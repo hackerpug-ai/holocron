@@ -60,6 +60,7 @@ import {
   loadRecoveryBaselineFromR2,
   normalizeSha256Digest,
   type RecoveryBaseline,
+  verifyResticSnapshotInRepo,
 } from './recovery-baseline.ts';
 import {
   findRestoredBlobRoot,
@@ -93,6 +94,13 @@ export type FireDrillOptions = {
   skipCleanup?: boolean;
   /** Override pgBackRest restore timeout (default 20 minutes). */
   pitrTimeoutMs?: number;
+  /**
+   * REDHAT-FIX-S28R2-C1: provisioned fresh-target host name (attestation only;
+   * CLI/script bind scratch+blob to volume mountpoints before calling runFireDrill).
+   */
+  freshTarget?: string;
+  /** Optional attestation payload from --fresh-target volume resolve. */
+  freshTargetAttestation?: Record<string, unknown>;
   /** Content-addressed recovery baseline id (R2). */
   baselineId?: string;
   /** Explicit R2 object key for recovery-baseline.json. */
@@ -231,6 +239,7 @@ function resolveFireDrillBaseline(
 
   // Discover by target timestamp: list R2 recovery-baselines, load content-addressed
   // objects, pick the best parity-meaningful baseline with target_timestamp <= drill target.
+  // REDHAT-FIX-S28R2-H2: live-verify restic for each candidate; skip ghosts; fail closed.
   try {
     const listed = listRecoveryBaselines({ env });
     const targetMs = Date.parse(options.targetTimestamp);
@@ -245,7 +254,36 @@ function resolveFireDrillBaseline(
       candidates.push({ baseline: res.baseline, key: res.key ?? key, ts });
     }
     if (candidates.length > 0) {
-      const best = selectBestFireDrillBaseline(candidates, {
+      const verified: FireDrillBaselineCandidate[] = [];
+      const ghostErrors: string[] = [];
+      for (const c of candidates) {
+        const snapId = (c.baseline.restic_snapshot_id ?? '').trim();
+        if (snapId.length < 8) {
+          ghostErrors.push(`skip ghost baseline ${c.key}: restic_snapshot_id too short`);
+          continue;
+        }
+        const resticCheck = verifyResticSnapshotInRepo({
+          resticSnapshotId: snapId,
+          env,
+        });
+        if (!resticCheck.ok) {
+          ghostErrors.push(
+            `skip ghost/unlistable restic baseline ${c.key} id=${snapId}: ${resticCheck.error ?? 'not found'}`
+          );
+          continue;
+        }
+        verified.push(c);
+      }
+      if (ghostErrors.length) {
+        errors.push(...ghostErrors.slice(0, 8));
+      }
+      if (verified.length === 0) {
+        errors.push(
+          `no restic-verified recovery baseline among ${candidates.length} candidates (all ghosts/unlistable) — fail closed`
+        );
+        return { loaded: null, errors: [...new Set(errors)] };
+      }
+      const best = selectBestFireDrillBaseline(verified, {
         targetTimestamp: options.targetTimestamp,
         requireMeaningful: true,
       });
@@ -253,7 +291,7 @@ function resolveFireDrillBaseline(
         return { loaded: { baseline: best.baseline, key: best.key }, errors: [] };
       }
       errors.push(
-        `no parity-meaningful recovery baseline among ${candidates.length} candidates (zero-count/junk only) — refuse baseline-bound parity`
+        `no parity-meaningful recovery baseline among ${verified.length} restic-verified candidates (zero-count/junk only) — refuse baseline-bound parity`
       );
       return { loaded: null, errors: [...new Set(errors)] };
     }
