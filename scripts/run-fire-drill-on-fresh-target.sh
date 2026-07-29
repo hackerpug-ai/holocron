@@ -32,7 +32,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-# GATE-FIX-S28R3-QA12 shared live provider helpers
+# GATE-FIX-S28R3-QA13 shared live provider helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh
 source "$ROOT/scripts/lib/r2-ro-live.sh"
 
@@ -199,7 +199,7 @@ r2_context_fp16() {
 }
 
 assert_bound_r2_ro_proof() {
-  # GATE-FIX-S28R3-QA12: fixed prover + trusted AWS independent of PATH;
+  # GATE-FIX-S28R3-QA13: fixed prover + trusted AWS independent of PATH;
   # canonical context; exclusive private proof; consumer-level validation.
   local rak="$1" rsk="$2" rst="$3"
   local expected_fp expected_ctx proof prove_cmd established
@@ -211,7 +211,7 @@ assert_bound_r2_ro_proof() {
   fi
   # Build/establish canonical context (reject empty/alternate policy & bad prefix).
   if ! established="$(r2_ro_establish_canonical_context)"; then
-    echo "error: GATE-FIX-S28R3-QA12 canonical context refused before live proof" >&2
+    echo "error: GATE-FIX-S28R3-QA13 canonical context refused before live proof" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
@@ -223,7 +223,7 @@ assert_bound_r2_ro_proof() {
   expected_ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
   expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
-    echo "error: GATE-FIX-S28R3-QA12 unable to fingerprint restore tuple/context" >&2
+    echo "error: GATE-FIX-S28R3-QA13 unable to fingerprint restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
@@ -231,12 +231,11 @@ assert_bound_r2_ro_proof() {
   r2_ro_ensure_private_proof_dir >/dev/null || exit 2
   proof="$(r2_ro_new_proof_path)" || exit 2
   prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
-  echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA12: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
+  echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
   if ! env \
     REQUIRE_LIVE_R2_RO=1 \
     HOLO_R2_RO_PROOF_OUT="$proof" \
     HOLO_R2_CONTEXT_FP16="$expected_ctx" \
-    HOLO_TRUSTED_AWS_BIN="${HOLO_TRUSTED_AWS_BIN:-}" \
     R2_RESTORE_ACCESS_KEY_ID="$rak" \
     R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
     R2_RESTORE_SESSION_TOKEN="$rst" \
@@ -253,7 +252,7 @@ assert_bound_r2_ro_proof() {
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
     HOME="${HOME:-/tmp}" \
     bash "$prove_cmd"; then
-    echo "error: GATE-FIX-S28R3-QA12 fresh live RO proof failed for the exact restore tuple/context" >&2
+    echo "error: GATE-FIX-S28R3-QA13 fresh live RO proof failed for the exact restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     rm -f "$proof" 2>/dev/null || true
     exit 2
@@ -306,11 +305,11 @@ assert_restore_credential_tuple() {
     fi
     log "GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape accepted (same parent AK; writer secret present; session token present; secret not logged)"
   fi
-  # GATE-FIX-S28R3-QA12: establish canonical prefix/policy before live proof.
+  # GATE-FIX-S28R3-QA13: establish canonical prefix/policy before live proof.
   local _prefix _bucket
-  _prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+  _prefix="pgbackrest"
   _prefix="${_prefix#/}"; _prefix="${_prefix%/}"
-  _bucket="${R2_BUCKET_NAME:-holocron-backup}"
+  _bucket="holocron-backup"
   export R2_BUCKET_NAME="$_bucket"
   export R2_RESTORE_OBJECT_PREFIX="$_prefix"
   export R2_PGBACKREST_PREFIX="$_prefix"

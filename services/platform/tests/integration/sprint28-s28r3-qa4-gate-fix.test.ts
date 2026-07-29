@@ -590,7 +590,7 @@ PY
       const pgPort = String(64200 + (Date.now() % 700));
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -703,7 +703,7 @@ PY
       const pgPort = String(64300 + (Date.now() % 700));
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',

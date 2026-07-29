@@ -9,15 +9,25 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  ACCOUNT_ID,
+  baseHarnessEnv,
+  ENDPOINT,
+  type HarnessPaths,
+  makeHarness,
+} from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
-const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
+let H: HarnessPaths;
+beforeAll(() => {
+  H = makeHarness(REPO_ROOT, resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA11'));
+});
+const PROVE_R2 = () => H.prove;
+const PROVISION = () => H.provision;
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
-const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
+const RUNNER = () => H.runner;
 const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
-const TRUSTED_AWS = resolve(FIX_BIN, 'aws');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA11');
 
 const WRITER_AK = 'qa11cfwriterakid0123456789abcdef';
@@ -45,7 +55,6 @@ function tokenFp16(v: string): string {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    HOLO_TRUSTED_AWS_BIN: TRUSTED_AWS,
     // PATH only for curl mock (mint); aws comes from HOLO_TRUSTED_AWS_BIN only.
     PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa11-no-secrets',
@@ -53,8 +62,8 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     CLOUDFLARE_API_TOKEN: '',
     R2_PARENT_ACCESS_KEY_ID: '',
     R2_PARENT_SECRET_ACCESS_KEY: '',
-    R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
-    R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    R2_ENDPOINT: ENDPOINT,
+    R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
     HOLO_AWS_MOCK_MODE: 'default',
@@ -69,8 +78,8 @@ describe('GATE-FIX-S28R3-QA11 HIGH-1 fixed prover only', () => {
     mkdirSync(EVIDENCE_DIR, { recursive: true });
     writeFileSync(evil, '#!/usr/bin/env bash\necho EVIL_PROVER_RAN\nexit 0\n');
     chmodSync(evil, 0o755);
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -96,8 +105,8 @@ describe('GATE-FIX-S28R3-QA11 HIGH-1 fixed prover only', () => {
 
   it('live path uses real prove-r2-readonly with PATH aws mock (producer fixed)', () => {
     const host = `s28r3-qa11-live-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({
@@ -140,7 +149,7 @@ describe('GATE-FIX-S28R3-QA11 CRITICAL-1 token precedence oracle', () => {
     const invOut = resolve(EVIDENCE_DIR, 'cred-inv.json');
     // Use inventory script for fingerprint of keys if available; else verify output + sha helper via python in evidence.
     const run = spawnSync('bash', [VERIFY], {
-      cwd: REPO_ROOT,
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({
@@ -224,7 +233,7 @@ exit 0
     const run = spawnSync(
       'bash',
       [
-        RUNNER,
+        RUNNER(),
         '--host',
         's28r3-qa11-rec',
         '--target-timestamp',
@@ -233,7 +242,7 @@ exit 0
         report,
       ],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 90_000,
         env: baseEnv({
@@ -277,11 +286,11 @@ exit 0
 describe('GATE-FIX-S28R3-QA11 CRITICAL-2 stale/malformed post-prove rejection', () => {
   it('tampered proof after prove fails context/tuple/mode checks via real consumer path', () => {
     // Prove with aws mock succeeds under trusted .tmp/r2-ro-proofs; mutate copies for check.
-    const proofDir = resolve(REPO_ROOT, '.tmp/r2-ro-proofs');
+    const proofDir = resolve(H.root, '.tmp/r2-ro-proofs');
     mkdirSync(proofDir, { recursive: true });
     const proof = resolve(proofDir, `qa11-fresh-${Date.now()}.json`);
-    const prove = spawnSync('bash', [PROVE_R2], {
-      cwd: REPO_ROOT,
+    const prove = spawnSync('bash', [PROVE_R2()], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -380,8 +389,8 @@ sys.exit(0)
 
 describe('GATE-FIX-S28R3-QA11 HIGH-2 / CRITICAL-3 credential-safe logs', () => {
   it('aws canary never appears in prove logs', () => {
-    const run = spawnSync('bash', [PROVE_R2], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2()], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -403,8 +412,8 @@ describe('GATE-FIX-S28R3-QA11 HIGH-2 / CRITICAL-3 credential-safe logs', () => {
   });
 
   it('mint API error path never logs canary secrets', () => {
-    const run = spawnSync('bash', [PROVE_R2, '--try-mint'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2(), '--try-mint'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -417,7 +426,7 @@ describe('GATE-FIX-S28R3-QA11 HIGH-2 / CRITICAL-3 credential-safe logs', () => {
         CLOUDFLARE_API_TOKEN: 'unit-token',
         R2_PARENT_ACCESS_KEY_ID: 'parent-ak-not-logged',
         R2_PARENT_SECRET_ACCESS_KEY: 'parent-sk-not-logged',
-        R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        R2_ACCOUNT_ID: ACCOUNT_ID,
         HOLO_CURL_MOCK_MODE: 'api_error_string',
         HOLO_CURL_CANARY_SK: CANARY_MINT_SK,
         HOLO_CURL_CANARY_AK: CANARY_MINT_AK,
@@ -433,18 +442,18 @@ describe('GATE-FIX-S28R3-QA11 HIGH-2 / CRITICAL-3 credential-safe logs', () => {
 
 describe('GATE-FIX-S28R3-QA11 sacrificial + no override regression', () => {
   it('denylist process still holds', () => {
-    const sk = spawnSync('bash', [PROVE_R2, '--make-sacrificial-key'], {
-      cwd: REPO_ROOT,
+    const sk = spawnSync('bash', [PROVE_R2(), '--make-sacrificial-key'], {
+      cwd: H.root,
       encoding: 'utf8',
     });
     expect(sk.status).toBe(0);
     const key = (sk.stdout ?? '').trim();
     expect(key).toMatch(/^drill-neg\//);
     expect(
-      spawnSync('bash', [PROVE_R2, '--assert-safe-key', key], { encoding: 'utf8' }).status
+      spawnSync('bash', [PROVE_R2(), '--assert-safe-key', key], { encoding: 'utf8' }).status
     ).toBe(0);
     expect(
-      spawnSync('bash', [PROVE_R2, '--assert-safe-key', 'existing'], { encoding: 'utf8' }).status
+      spawnSync('bash', [PROVE_R2(), '--assert-safe-key', 'existing'], { encoding: 'utf8' }).status
     ).not.toBe(0);
   });
 });

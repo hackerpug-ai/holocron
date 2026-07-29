@@ -12,15 +12,25 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  ACCOUNT_ID,
+  baseHarnessEnv,
+  ENDPOINT,
+  type HarnessPaths,
+  makeHarness,
+} from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
-const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
+let H: HarnessPaths;
+beforeAll(() => {
+  H = makeHarness(REPO_ROOT, resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA10'));
+});
+const PROVE_R2 = () => H.prove;
+const PROVISION = () => H.provision;
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
-const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
+const RUNNER = () => H.runner;
 const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
-const TRUSTED_AWS = resolve(FIX_BIN, 'aws');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA10');
 
 const WRITER_AK = 'qa10cfwriterakid0123456789abcdef';
@@ -41,7 +51,6 @@ function writeEvidence(name: string, body: unknown): void {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    HOLO_TRUSTED_AWS_BIN: TRUSTED_AWS,
     // PATH only for curl mock (mint); aws comes from HOLO_TRUSTED_AWS_BIN only.
     PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa10-no-secrets',
@@ -49,8 +58,8 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     CLOUDFLARE_API_TOKEN: '',
     R2_PARENT_ACCESS_KEY_ID: '',
     R2_PARENT_SECRET_ACCESS_KEY: '',
-    R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
-    R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    R2_ENDPOINT: ENDPOINT,
+    R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
     HOLO_AWS_MOCK_MODE: 'default',
@@ -76,8 +85,8 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
       })
     );
     const forgedBefore = readFileSync(proof, 'utf8');
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({
@@ -105,8 +114,8 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
 
   it('unknown writer secret still fails with exact residual message', () => {
     const host = `s28r3-qa10-h1-ws-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -190,7 +199,7 @@ exit 0
     const run = spawnSync(
       'bash',
       [
-        RUNNER,
+        RUNNER(),
         '--host',
         's28r3-qa10-tok',
         '--target-timestamp',
@@ -199,7 +208,7 @@ exit 0
         report,
       ],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 60_000,
         env: baseEnv({
@@ -285,7 +294,7 @@ exit 0
     const run = spawnSync(
       'bash',
       [
-        RUNNER,
+        RUNNER(),
         '--host',
         's28r3-qa10-ftok',
         '--target-timestamp',
@@ -294,7 +303,7 @@ exit 0
         report,
       ],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 60_000,
         env: baseEnv({
@@ -331,25 +340,25 @@ exit 0
 
 describe('GATE-FIX-S28R3-QA10 sacrificial denylist process oracle', () => {
   it('make-sacrificial-key is drill-neg and existing is denylisted', () => {
-    const sk = spawnSync('bash', [PROVE_R2, '--make-sacrificial-key'], {
-      cwd: REPO_ROOT,
+    const sk = spawnSync('bash', [PROVE_R2(), '--make-sacrificial-key'], {
+      cwd: H.root,
       encoding: 'utf8',
     });
     expect(sk.status).toBe(0);
     const key = (sk.stdout ?? '').trim();
     expect(key).toMatch(/^drill-neg\/[0-9a-f-]+-redhat-fix-h4\.txt$/);
-    const ok = spawnSync('bash', [PROVE_R2, '--assert-safe-key', key], {
-      cwd: REPO_ROOT,
+    const ok = spawnSync('bash', [PROVE_R2(), '--assert-safe-key', key], {
+      cwd: H.root,
       encoding: 'utf8',
     });
     expect(ok.status).toBe(0);
-    const bad = spawnSync('bash', [PROVE_R2, '--assert-denylisted', 'existing'], {
-      cwd: REPO_ROOT,
+    const bad = spawnSync('bash', [PROVE_R2(), '--assert-denylisted', 'existing'], {
+      cwd: H.root,
       encoding: 'utf8',
     });
     expect(bad.status).toBe(0);
-    const unsafe = spawnSync('bash', [PROVE_R2, '--assert-safe-key', 'existing'], {
-      cwd: REPO_ROOT,
+    const unsafe = spawnSync('bash', [PROVE_R2(), '--assert-safe-key', 'existing'], {
+      cwd: H.root,
       encoding: 'utf8',
     });
     expect(unsafe.status).not.toBe(0);
@@ -358,7 +367,7 @@ describe('GATE-FIX-S28R3-QA10 sacrificial denylist process oracle', () => {
 
 describe('GATE-FIX-S28R3-QA10 L1 mint error redaction', () => {
   it('mint parser never prints raw body or credential canaries', () => {
-    const src = readFileSync(PROVE_R2, 'utf8');
+    const src = readFileSync(resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh'), 'utf8');
     expect(src).toMatch(/class=invalid_json|class=\{err_class\}|HTTP\/class only/);
     expect(src).not.toMatch(/errors=\{errs\}/);
     expect(src).not.toMatch(/raw\[:200\]/);
@@ -383,7 +392,7 @@ describe('GATE-FIX-S28R3-QA10 C1 mutation-sensitive oracles', () => {
       ].join('\n')
     );
     const run = spawnSync('bash', [VERIFY], {
-      cwd: REPO_ROOT,
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({
@@ -410,8 +419,8 @@ describe('GATE-FIX-S28R3-QA10 C1 mutation-sensitive oracles', () => {
 
   it('canaries never appear in provision/fire-drill stdout for valid path', () => {
     const host = `s28r3-qa10-canary-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({

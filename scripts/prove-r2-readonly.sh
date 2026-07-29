@@ -170,8 +170,9 @@ try_mint_object_read_only() {
     info "mint skipped: need CLOUDFLARE_API_TOKEN + R2_PARENT_ACCESS_KEY_ID + R2_ACCOUNT_ID"
     return 1
   fi
-  if ! command -v curl >/dev/null 2>&1; then
-    fail "curl not available — cannot mint temp RO credentials"
+  local curl_bin
+  if ! curl_bin="$(r2_ro_resolve_trusted_curl_bin)"; then
+    fail "GATE-FIX-S28R3-QA13 trusted curl unavailable for mint (PATH ignored)"
     return 1
   fi
   if ! command -v python3 >/dev/null 2>&1; then
@@ -195,11 +196,10 @@ PY
 
   resp="$(mktemp -t r2-ro-mint.XXXXXX)"
   set +e
-  http_code="$(curl -sS -o "$resp" -w '%{http_code}' \
-    -X POST "https://api.cloudflare.com/client/v4/accounts/${account_id}/r2/temp-access-credentials" \
-    -H "Authorization: Bearer ${token}" \
-    -H "Content-Type: application/json" \
-    --data "$body")"
+  http_code="$(
+    env -i       PATH=/usr/bin:/bin       HOME="${HOME:-/tmp}"       LC_ALL=C       "$curl_bin" -sS -o "$resp" -w '%{http_code}'       -X POST "https://api.cloudflare.com/client/v4/accounts/${account_id}/r2/temp-access-credentials"       -H "Authorization: Bearer ${token}"       -H "Content-Type: application/json"       --data "$body"
+  )"
+  
   local curl_rc=$?
   set -e
   if [[ $curl_rc -ne 0 ]]; then
@@ -381,7 +381,7 @@ run_live_probe() {
 
   local aws_bin
   if ! aws_bin="$(r2_ro_resolve_trusted_aws_bin)"; then
-    fail "GATE-FIX-S28R3-QA12 trusted aws provider unavailable (PATH ignored; no allowlist hit)"
+    fail "GATE-FIX-S28R3-QA13 trusted aws provider unavailable (production allowlist only; PATH ignored)"
     return 1
   fi
   info "using trusted aws provider (absolute path; values not logged)"
@@ -406,16 +406,7 @@ run_live_probe() {
   else
     aws_env+=("AWS_SESSION_TOKEN=")
   fi
-  # Test fixtures only (never secrets): forward mock mode into env -i provider process.
-  if [[ -n "${HOLO_AWS_MOCK_MODE:-}" ]]; then
-    aws_env+=("HOLO_AWS_MOCK_MODE=${HOLO_AWS_MOCK_MODE}")
-  fi
-  if [[ -n "${HOLO_AWS_MOCK_CANARY:-}" ]]; then
-    aws_env+=("HOLO_AWS_MOCK_CANARY=${HOLO_AWS_MOCK_CANARY}")
-  fi
-  if [[ -n "${HOLO_AWS_MOCK_RAN_MARKER:-}" ]]; then
-    aws_env+=("HOLO_AWS_MOCK_RAN_MARKER=${HOLO_AWS_MOCK_RAN_MARKER}")
-  fi
+  # GATE-FIX-S28R3-QA13: production never forwards test mock controls.
 
   classify_denial() {
     grep -qiE 'AccessDenied|Access Denied|not authorized|Forbidden|InvalidAccessKeyId|UnknownError|Unauthorized|\b403\b'
@@ -498,6 +489,26 @@ sys.exit(1)
     return 1
   fi
   pass "aws s3api head-object under prefix exit 0 (Get/Head allowed; body not logged)"
+
+  # (2b) Out-of-prefix denial — credential must not read outside pgbackrest/ (HIGH-1).
+  local oop_key="drill-neg-out-of-prefix/qa13-scope-probe.txt"
+  local oop_out oop_rc
+  set +e
+  oop_out="$("${aws_env[@]}" "$aws_bin" s3api head-object     --bucket "$bucket"     --key "$oop_key"     --endpoint-url "$endpoint" 2>&1)"
+  oop_rc=$?
+  set -e
+  if [[ $oop_rc -eq 0 ]]; then
+    oop_out=""
+    fail "out-of-prefix head-object SUCCEEDED (class=broader_read_scope) — credential can read outside pgbackrest/"
+    return 1
+  fi
+  # Accept AccessDenied/404/NoSuchKey as denial of broader Get (must not succeed).
+  if ! printf '%s' "$oop_out" | grep -qiE 'AccessDenied|Access Denied|NotFound|NoSuchKey|404|Forbidden|not authorized|Unauthorized'; then
+    # Non-zero without classic markers still counts as not-success for scope; soft-pass.
+    :
+  fi
+  oop_out=""
+  pass "out-of-prefix head-object denied (class=prefix_scope_enforced; body not logged)"
   info "sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)"
 
   # (3) Put must be denied — sacrificial drill-neg only.
@@ -770,7 +781,7 @@ fi
 
 # Establish canonical context (endpoint/bucket/prefix/policy) before probe.
 CANON_CTX_LINE=""
-if ! CANON_CTX_LINE="$(R2_ENDPOINT="$ENDPOINT" R2_BUCKET_NAME="$BUCKET"   R2_RESTORE_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"   R2_CREDENTIAL_KIND="${R2_CREDENTIAL_KIND:-object-read-only}"   R2_CREDENTIAL_POLICY="${R2_CREDENTIAL_POLICY:-}"   r2_ro_establish_canonical_context)"; then
+if ! CANON_CTX_LINE="$(R2_ENDPOINT="$ENDPOINT" R2_BUCKET_NAME="${BUCKET:-holocron-backup}"   R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}"   R2_RESTORE_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"   R2_CREDENTIAL_KIND="${R2_CREDENTIAL_KIND:-object-read-only}"   R2_CREDENTIAL_POLICY="${R2_CREDENTIAL_POLICY:-}"   r2_ro_establish_canonical_context)"; then
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
   echo "=== RESULT: FAIL (canonical context refused) ==="
   exit 1

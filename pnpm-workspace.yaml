@@ -1,0 +1,4 @@
+# GATE-FIX-S28R3-QA13 — install services/platform deps via root frozen lock
+packages:
+  - "."
+  - "services/platform"

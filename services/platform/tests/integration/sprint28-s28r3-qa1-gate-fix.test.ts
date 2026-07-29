@@ -196,7 +196,10 @@ describe('GATE-FIX-S28R3-QA1 run isolation + host-accessible volumes (always)', 
   });
 
   it('AC-1/AC-2 scripts syntax clean', () => {
-    for (const script of [RUNNER, PROVISION]) {
+    for (const script of [
+      resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh'),
+      resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh'),
+    ]) {
       const syntax = spawnSync('bash', ['-n', script], { encoding: 'utf8' });
       expect(syntax.status, `${script}: ${syntax.stderr}`).toBe(0);
     }
@@ -219,7 +222,7 @@ describe('GATE-FIX-S28R3-QA1 PLATFORM_IT host-accessible volume resolve', () => 
 
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -263,7 +266,14 @@ describe('GATE-FIX-S28R3-QA1 PLATFORM_IT host-accessible volume resolve', () => 
       const att = resolve(EVIDENCE_DIR, `attestation-${host}.json`);
       const resolveOnly = spawnSync(
         'bash',
-        [RUNNER, '--host', host, '--resolve-only', '--attestation', att],
+        [
+          resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh'),
+          '--host',
+          host,
+          '--resolve-only',
+          '--attestation',
+          att,
+        ],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',

@@ -476,7 +476,7 @@ PY
         const pgPort = String(58000 + (Date.now() % 1500));
         const provision = spawnSync(
           'bash',
-          [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+          [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
           {
             cwd: REPO_ROOT,
             encoding: 'utf8',
@@ -501,7 +501,7 @@ PY
         // Without docker, exercise residual path only.
         const missing = spawnSync(
           'bash',
-          [RUNNER, '--host', 'no-such-host-qa2', '--target-timestamp', '2026-07-28T12:00:00Z'],
+          [RUNNER(), '--host', 'no-such-host-qa2', '--target-timestamp', '2026-07-28T12:00:00Z'],
           {
             cwd: REPO_ROOT,
             encoding: 'utf8',
@@ -619,7 +619,7 @@ PY
       const pgPort = String(59500 + (Date.now() % 500));
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -645,7 +645,7 @@ PY
 
       const run = spawnSync(
         'bash',
-        [RUNNER, '--host', host, '--target-timestamp', '2026-07-28T12:00:00Z'],
+        [RUNNER(), '--host', host, '--target-timestamp', '2026-07-28T12:00:00Z'],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -687,7 +687,7 @@ describe('GATE-FIX-S28R3-QA2 H1/M1/M2 PLATFORM_IT', () => {
       const pgPort = String(60000 + (Date.now() % 1500));
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -761,7 +761,7 @@ describe('GATE-FIX-S28R3-QA2 H1/M1/M2 PLATFORM_IT', () => {
       const pgPort = String(61500 + (Date.now() % 1000));
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -890,7 +890,7 @@ PY
       const att = resolve(EVIDENCE_DIR, `m2-att-${host}.json`);
       const run = spawnSync(
         'bash',
-        [RUNNER, '--host', host, '--resolve-only', '--attestation', att],
+        [RUNNER(), '--host', host, '--resolve-only', '--attestation', att],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -942,17 +942,21 @@ PY
 
   itLive('M3: provisioner rejects invalid GATE_RUN_ID / host before destructive staging rm', () => {
     const badHost = '../evil;rm';
-    const run = spawnSync('bash', [PROVISION, '--host', badHost, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      timeout: 30_000,
-      env: {
-        ...process.env,
-        ALLOW_PLACEHOLDER_R2_RO: '1',
-        STAGING_ROOT: resolve(EVIDENCE_DIR, 'm3-staging'),
-        GATE_RUN_ID: 'bad id with spaces!!',
-      },
-    });
+    const run = spawnSync(
+      'bash',
+      [PROVISION(), '--host', badHost, '--dry-run', '--skip-isolation'],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: {
+          ...process.env,
+          ALLOW_PLACEHOLDER_R2_RO: '1',
+          STAGING_ROOT: resolve(EVIDENCE_DIR, 'm3-staging'),
+          GATE_RUN_ID: 'bad id with spaces!!',
+        },
+      }
+    );
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     writeEvidence('m3-bad-host.json', { status: run.status, combined: combined.slice(0, 2000) });
     expect(run.status).not.toBe(0);

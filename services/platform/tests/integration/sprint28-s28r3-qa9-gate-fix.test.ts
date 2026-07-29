@@ -13,15 +13,25 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  ACCOUNT_ID,
+  baseHarnessEnv,
+  ENDPOINT,
+  type HarnessPaths,
+  makeHarness,
+} from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
-const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
+let H: HarnessPaths;
+beforeAll(() => {
+  H = makeHarness(REPO_ROOT, resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA9'));
+});
+const PROVE_R2 = () => H.prove;
+const PROVISION = () => H.provision;
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
-const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
+const RUNNER = () => H.runner;
 const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
-const TRUSTED_AWS = resolve(FIX_BIN, 'aws');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA9');
 
 const WRITER_AK = 'qa9cfwriterakid0123456789abcdef';
@@ -65,7 +75,6 @@ function writeProof(path: string, ak: string, sk: string, st: string): void {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    HOLO_TRUSTED_AWS_BIN: TRUSTED_AWS,
     // PATH only for curl mock (mint); aws comes from HOLO_TRUSTED_AWS_BIN only.
     PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa9-no-secrets',
@@ -73,8 +82,8 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     CLOUDFLARE_API_TOKEN: '',
     R2_PARENT_ACCESS_KEY_ID: '',
     R2_PARENT_SECRET_ACCESS_KEY: '',
-    R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
-    R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    R2_ENDPOINT: ENDPOINT,
+    R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
     HOLO_AWS_MOCK_MODE: 'default',
@@ -85,8 +94,8 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
 describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
   it('provision: same parent AK + session without writer secret is refused', () => {
     const host = `s28r3-qa9-h1-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -113,8 +122,8 @@ describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
   });
 
   it('prove-r2-readonly: same parent AK without writer secret refused', () => {
-    const run = spawnSync('bash', [PROVE_R2], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2()], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -125,8 +134,8 @@ describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
         // Non-placeholder endpoint so identity gate runs before live probe.
-        R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
-        R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        R2_ENDPOINT: ENDPOINT,
+        R2_ACCOUNT_ID: ACCOUNT_ID,
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
@@ -141,9 +150,9 @@ describe('GATE-FIX-S28R3-QA9 H1 fail-closed without writer secret', () => {
   it('fire-drill: same parent AK without writer secret refused before docker', () => {
     const run = spawnSync(
       'bash',
-      [RUNNER, '--host', 's28r3-qa9-h1-fd', '--target-timestamp', '2026-07-28T12:00:00Z'],
+      [RUNNER(), '--host', 's28r3-qa9-h1-fd', '--target-timestamp', '2026-07-28T12:00:00Z'],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 30_000,
         env: baseEnv({
@@ -186,7 +195,7 @@ describe('GATE-FIX-S28R3-QA9 H2 session token from secrets file', () => {
       'utf8'
     );
     const run = spawnSync('bash', [VERIFY], {
-      cwd: REPO_ROOT,
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({
@@ -223,8 +232,8 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
     const proof = resolve(EVIDENCE_DIR, 'ok-proof.json');
     writeProof(proof, 'forged-ak', 'forged-sk', 'forged-st');
     const forgedBefore = readFileSync(proof, 'utf8');
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: baseEnv({
@@ -258,8 +267,8 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
     const host = `s28r3-qa9-m1-fail-${Date.now().toString(36)}`;
     const proof = resolve(EVIDENCE_DIR, 'fail-proof.json');
     writeProof(proof, WRITER_AK, RESTORE_SK, RESTORE_ST);
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -327,7 +336,7 @@ exit 0
     const run = spawnSync(
       'bash',
       [
-        RUNNER,
+        RUNNER(),
         '--host',
         's28r3-qa9-fd-token',
         '--target-timestamp',
@@ -336,7 +345,7 @@ exit 0
         report,
       ],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 60_000,
         env: baseEnv({
@@ -370,9 +379,9 @@ exit 0
   it('fire-drill refuses equal secret', () => {
     const run = spawnSync(
       'bash',
-      [RUNNER, '--host', 's28r3-qa9-fd-eq', '--target-timestamp', '2026-07-28T12:00:00Z'],
+      [RUNNER(), '--host', 's28r3-qa9-fd-eq', '--target-timestamp', '2026-07-28T12:00:00Z'],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 20_000,
         env: baseEnv({
@@ -396,7 +405,7 @@ exit 0
 
 describe('GATE-FIX-S28R3-QA9 L1 mint does not log AK prefix', () => {
   it('prove-r2-readonly mint success message has no access-key prefix pattern', () => {
-    const src = readFileSync(PROVE_R2, 'utf8');
+    const src = readFileSync(resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh'), 'utf8');
     expect(src).not.toMatch(/access key id prefix \$\{MINT_AK:0:6\}/);
     expect(src).toMatch(/values not logged|permission kind=object-read-only/);
   });

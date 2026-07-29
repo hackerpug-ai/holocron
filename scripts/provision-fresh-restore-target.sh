@@ -23,7 +23,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-# GATE-FIX-S28R3-QA12 shared live provider helpers
+# GATE-FIX-S28R3-QA13 shared live provider helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh
 source "$ROOT/scripts/lib/r2-ro-live.sh"
 
@@ -176,7 +176,7 @@ r2_context_fp16() {
 }
 
 assert_bound_r2_ro_proof() {
-  # GATE-FIX-S28R3-QA12: fixed prover + trusted AWS independent of PATH;
+  # GATE-FIX-S28R3-QA13: fixed prover + trusted AWS independent of PATH;
   # canonical context; exclusive private proof; consumer-level validation.
   local rak="$1" rsk="$2" rst="$3"
   local expected_fp expected_ctx proof prove_cmd established
@@ -188,7 +188,7 @@ assert_bound_r2_ro_proof() {
   fi
   # Build/establish canonical context (reject empty/alternate policy & bad prefix).
   if ! established="$(r2_ro_establish_canonical_context)"; then
-    echo "error: GATE-FIX-S28R3-QA12 canonical context refused before live proof" >&2
+    echo "error: GATE-FIX-S28R3-QA13 canonical context refused before live proof" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
@@ -200,7 +200,7 @@ assert_bound_r2_ro_proof() {
   expected_ctx="$(printf '%s' "$established" | awk -F'\t' '{print $6}')"
   expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
-    echo "error: GATE-FIX-S28R3-QA12 unable to fingerprint restore tuple/context" >&2
+    echo "error: GATE-FIX-S28R3-QA13 unable to fingerprint restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
@@ -208,12 +208,11 @@ assert_bound_r2_ro_proof() {
   r2_ro_ensure_private_proof_dir >/dev/null || exit 2
   proof="$(r2_ro_new_proof_path)" || exit 2
   prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
-  echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA12: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
+  echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
   if ! env \
     REQUIRE_LIVE_R2_RO=1 \
     HOLO_R2_RO_PROOF_OUT="$proof" \
     HOLO_R2_CONTEXT_FP16="$expected_ctx" \
-    HOLO_TRUSTED_AWS_BIN="${HOLO_TRUSTED_AWS_BIN:-}" \
     R2_RESTORE_ACCESS_KEY_ID="$rak" \
     R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
     R2_RESTORE_SESSION_TOKEN="$rst" \
@@ -230,7 +229,7 @@ assert_bound_r2_ro_proof() {
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
     HOME="${HOME:-/tmp}" \
     bash "$prove_cmd"; then
-    echo "error: GATE-FIX-S28R3-QA12 fresh live RO proof failed for the exact restore tuple/context" >&2
+    echo "error: GATE-FIX-S28R3-QA13 fresh live RO proof failed for the exact restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     rm -f "$proof" 2>/dev/null || true
     exit 2
@@ -247,20 +246,31 @@ assert_bound_r2_ro_proof() {
 
 # Exact bucket + object-prefix List/Get only (no Put/Delete). REDHAT-FIX-H5 / GATE-FIX-S28R3-QA2 H2.
 # Built before live proof so context_fp16 binds policy (GATE-FIX-S28R3-QA11 / M1).
-# GATE-FIX-S28R3-QA12: empty explicit prefix is refused (do not silently default under live).
+# GATE-FIX-S28R3-QA13: empty explicit prefix is refused (do not silently default under live).
 if [[ -n "${R2_RESTORE_OBJECT_PREFIX+x}" && -z "${R2_RESTORE_OBJECT_PREFIX}" && -n "${R2_PGBACKREST_PREFIX+x}" && -z "${R2_PGBACKREST_PREFIX}" ]]; then
-  echo "error: GATE-FIX-S28R3-QA12 empty restore prefix refused" >&2
+  echo "error: GATE-FIX-S28R3-QA13 empty restore prefix refused" >&2
   echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
   exit 2
 fi
 if [[ -z "${R2_RESTORE_OBJECT_PREFIX:-}" && -z "${R2_PGBACKREST_PREFIX:-}" ]]; then
   if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
-    echo "error: GATE-FIX-S28R3-QA12 empty restore prefix refused under REQUIRE_LIVE_R2_RO" >&2
+    echo "error: GATE-FIX-S28R3-QA13 empty restore prefix refused under REQUIRE_LIVE_R2_RO" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
 fi
 R2_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+# GATE-FIX-S28R3-QA13: gate policy requires exact pgbackrest prefix
+if [[ "${R2_OBJECT_PREFIX#/}" != "pgbackrest" && "${R2_OBJECT_PREFIX#/}" != "pgbackrest/" ]]; then
+  # normalize then check
+  _chk="${R2_OBJECT_PREFIX#/}"; _chk="${_chk%/}"
+  if [[ "$_chk" != "pgbackrest" ]]; then
+    echo "error: GATE-FIX-S28R3-QA13 restore prefix must be exactly pgbackrest" >&2
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  R2_OBJECT_PREFIX="pgbackrest"
+fi
 R2_OBJECT_PREFIX="${R2_OBJECT_PREFIX#/}"
 R2_OBJECT_PREFIX="${R2_OBJECT_PREFIX%/}"
 if [[ -z "$R2_OBJECT_PREFIX" || "$R2_OBJECT_PREFIX" == *"*"* ]]; then

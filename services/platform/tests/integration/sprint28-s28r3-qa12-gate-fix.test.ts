@@ -8,14 +8,24 @@
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  ACCOUNT_ID,
+  baseHarnessEnv,
+  ENDPOINT,
+  type HarnessPaths,
+  makeHarness,
+} from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
-const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
-const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
+let H: HarnessPaths;
+beforeAll(() => {
+  H = makeHarness(REPO_ROOT, resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA12'));
+});
+const PROVE_R2 = () => H.prove;
+const PROVISION = () => H.provision;
+const RUNNER = () => H.runner;
 const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
-const TRUSTED_AWS = resolve(FIX_BIN, 'aws');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA12');
 
 const WRITER_AK = 'qa12cfwriterakid0123456789abcdef';
@@ -36,15 +46,14 @@ function writeEvidence(name: string, body: unknown): void {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    HOLO_TRUSTED_AWS_BIN: TRUSTED_AWS,
     PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa12-no-secrets',
     HOLO_SECRETS_PATH: '/nonexistent-s28r3-qa12-no-secrets',
     CLOUDFLARE_API_TOKEN: '',
     R2_PARENT_ACCESS_KEY_ID: '',
     R2_PARENT_SECRET_ACCESS_KEY: '',
-    R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
-    R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    R2_ENDPOINT: ENDPOINT,
+    R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
     R2_CREDENTIAL_KIND: 'object-read-only',
@@ -81,13 +90,12 @@ describe('GATE-FIX-S28R3-QA12 CRITICAL-1 trusted provider independent of PATH', 
       writeFileSync(marker, '');
     }
     const host = `s28r3-qa12-path-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: liveCreds({
         PATH: `${evilDir}:${process.env.PATH ?? ''}`,
-        HOLO_TRUSTED_AWS_BIN: TRUSTED_AWS,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'path-forge'),
       }),
     });
@@ -104,8 +112,8 @@ describe('GATE-FIX-S28R3-QA12 CRITICAL-1 trusted provider independent of PATH', 
     writeFileSync(evil, '#!/usr/bin/env bash\nexit 0\n');
     chmodSync(evil, 0o755);
     const host = `s28r3-qa12-untrust-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -119,15 +127,17 @@ describe('GATE-FIX-S28R3-QA12 CRITICAL-1 trusted provider independent of PATH', 
       combined: combined.slice(0, 2000),
     });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/HOLO_TRUSTED_AWS_BIN rejected|not on system allowlist|untrusted/i);
+    expect(combined).toMatch(
+      /refuses HOLO_TRUSTED_AWS_BIN|no provider override|trusted aws provider unavailable/i
+    );
   });
 });
 
 describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', () => {
   it('empty prefix fails closed at consumer', () => {
     const host = `s28r3-qa12-eprefix-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -148,8 +158,8 @@ describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', ()
   it('alternate policy fails closed at prove (before provider probe)', () => {
     const badPolicy =
       '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:*","Resource":"*"}]}';
-    const run = spawnSync('bash', [PROVE_R2], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2()], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -164,8 +174,8 @@ describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', ()
 
   it('missing in-prefix object fails closed', () => {
     const host = `s28r3-qa12-emptyobj-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -184,8 +194,8 @@ describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', ()
 
   it('failed in-prefix head fails closed', () => {
     const host = `s28r3-qa12-headfail-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -203,8 +213,8 @@ describe('GATE-FIX-S28R3-QA12 HIGH-1 canonical context at provider boundary', ()
 describe('GATE-FIX-S28R3-QA12 MEDIUM-1 private exclusive proof boundary', () => {
   it('proof files are regular 0600 under .tmp/r2-ro-proofs (not symlink)', () => {
     const host = `s28r3-qa12-proof-${Date.now().toString(36)}`;
-    const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 60_000,
       env: liveCreds({ STAGING_ROOT: resolve(EVIDENCE_DIR, 'proof-ok') }),
@@ -234,15 +244,19 @@ describe('GATE-FIX-S28R3-QA12 MEDIUM-2 consumer-level mutations', () => {
   for (const mut of mutations) {
     it(`provision refuses HOLO_QA_PROOF_MUTATE=${mut}`, () => {
       const host = `s28r3-qa12-mut-${mut}-${Date.now().toString(36)}`;
-      const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 60_000,
-        env: liveCreds({
-          HOLO_QA_PROOF_MUTATE: mut,
-          STAGING_ROOT: resolve(EVIDENCE_DIR, `mut-${mut}`),
-        }),
-      });
+      const run = spawnSync(
+        'bash',
+        [PROVISION(), '--host', host, '--dry-run', '--skip-isolation'],
+        {
+          cwd: H.root,
+          encoding: 'utf8',
+          timeout: 60_000,
+          env: liveCreds({
+            HOLO_QA_PROOF_MUTATE: mut,
+            STAGING_ROOT: resolve(EVIDENCE_DIR, `mut-${mut}`),
+          }),
+        }
+      );
       const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
       writeEvidence(`m2-provision-${mut}.json`, {
         status: run.status,
@@ -258,9 +272,9 @@ describe('GATE-FIX-S28R3-QA12 MEDIUM-2 consumer-level mutations', () => {
   it('fire-drill refuses HOLO_QA_PROOF_MUTATE=wrong-tuple', () => {
     const run = spawnSync(
       'bash',
-      [RUNNER, '--host', 's28r3-qa12-fd-mut', '--target-timestamp', '2026-07-28T12:00:00Z'],
+      [RUNNER(), '--host', 's28r3-qa12-fd-mut', '--target-timestamp', '2026-07-28T12:00:00Z'],
       {
-        cwd: REPO_ROOT,
+        cwd: H.root,
         encoding: 'utf8',
         timeout: 60_000,
         env: liveCreds({
@@ -281,8 +295,8 @@ describe('GATE-FIX-S28R3-QA12 MEDIUM-2 consumer-level mutations', () => {
 
 describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
   it('aws canary_error never appears in prove logs', () => {
-    const run = spawnSync('bash', [PROVE_R2], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2()], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -301,8 +315,8 @@ describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
   });
 
   it('aws success path never logs canary or secrets', () => {
-    const run = spawnSync('bash', [PROVE_R2], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2()], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: liveCreds({
@@ -323,8 +337,8 @@ describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
   });
 
   it('mint error path never logs canaries', () => {
-    const run = spawnSync('bash', [PROVE_R2, '--try-mint'], {
-      cwd: REPO_ROOT,
+    const run = spawnSync('bash', [PROVE_R2(), '--try-mint'], {
+      cwd: H.root,
       encoding: 'utf8',
       timeout: 30_000,
       env: baseEnv({
@@ -336,7 +350,7 @@ describe('GATE-FIX-S28R3-QA12 canaries success/error paths', () => {
         CLOUDFLARE_API_TOKEN: 'unit-token',
         R2_PARENT_ACCESS_KEY_ID: 'parent-ak-not-logged',
         R2_PARENT_SECRET_ACCESS_KEY: 'parent-sk-not-logged',
-        R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        R2_ACCOUNT_ID: ACCOUNT_ID,
         R2_PGBACKREST_PREFIX: 'pgbackrest',
         HOLO_CURL_MOCK_MODE: 'api_error_string',
         HOLO_CURL_CANARY_SK: CANARY_MINT_SK,
