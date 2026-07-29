@@ -3654,15 +3654,36 @@ async function executeRunWithLease(
         if (parityFailed) {
           const reportPath =
             typeof fd.reportPath === 'string' ? fd.reportPath : '(missing report path)';
+          const errorMessage = `fire-drill PARITY_PASS false: POSTGRES_PARITY_PASS=${String(fd.POSTGRES_PARITY_PASS)} LEDGER_CHECKSUM_MATCH=${String(fd.LEDGER_CHECKSUM_MATCH)} BLOB_PARITY_PASS=${String(fd.BLOB_PARITY_PASS)}; report=${reportPath}`;
           const finalized = await finalizeMissionRun(sql, runId, lease, {
             status: 'failed',
             errorCode: 'MISSION_FIRE_DRILL_PARITY_FAILED',
-            errorMessage: `fire-drill PARITY_PASS false: POSTGRES_PARITY_PASS=${String(fd.POSTGRES_PARITY_PASS)} LEDGER_CHECKSUM_MATCH=${String(fd.LEDGER_CHECKSUM_MATCH)} BLOB_PARITY_PASS=${String(fd.BLOB_PARITY_PASS)}; report=${reportPath}`,
+            errorMessage,
             // Persist parity artifact pointer on FAILED runs (AC-2 + AC-3).
             output: output,
           });
           if (!finalized) {
             throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
+          }
+          // D05-05 AC-3: surface MISSION_FIRE_DRILL_PARITY_FAILED to D04-05 alerting
+          // (backup_heartbeat + ALERT_WEBHOOK_URL POST). Soft so terminal mission is kept.
+          try {
+            const { alertFireDrillMissionParityFailure } = await import('../backup/alerting.ts');
+            const alert = await alertFireDrillMissionParityFailure({
+              runId,
+              errorMessage,
+              reportPath: typeof fd.reportPath === 'string' ? fd.reportPath : null,
+              soft: true,
+              sql,
+            });
+            if (!alert.ok) {
+              console.error(
+                `[fire-drill-monthly] D04-05 alert delivery incomplete: ${alert.error ?? 'unknown'}`
+              );
+            }
+          } catch (alertErr) {
+            const msg = alertErr instanceof Error ? alertErr.message : String(alertErr);
+            console.error(`[fire-drill-monthly] D04-05 alert path error: ${msg}`);
           }
           return finalized;
         }

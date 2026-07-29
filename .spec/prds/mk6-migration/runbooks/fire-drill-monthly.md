@@ -160,6 +160,26 @@ psql "$DATABASE_URL" -c \
 
 If **any** `*_PARITY_PASS` is `false`, mission status must be **failed** (not completed). The stage error message includes `PARITY_PASS false`.
 
+**Alerting (D04-05 / AC-3):** On `MISSION_FIRE_DRILL_PARITY_FAILED`, the mission runtime:
+
+1. Upserts `backup_heartbeat` row `job_name=fire_drill_monthly` with `status=failed`
+2. POSTs a JSON alert to `ALERT_WEBHOOK_URL` via the same `postBackupAlert` path as backup overdue/failed sweeps
+
+```bash
+# Confirm failed heartbeat (alert-sweep can re-fire if webhook was down at finalize)
+psql "$DATABASE_URL" -c \
+  "SELECT job_name, status, last_success_at, updated_at, trace_id
+   FROM backup_heartbeat WHERE job_name='fire_drill_monthly';"
+
+# Optional: force one alert-sweep cycle
+holo backup:alert-sweep --json
+
+# Clear after remediation
+holo backup:healthy --job fire_drill_monthly --json
+```
+
+Ensure `ALERT_WEBHOOK_URL` is set in the mission runtime env (launchd plist / shell profile) so operators receive the webhook immediately — not only on the next sweep.
+
 ---
 
 ## Troubleshooting

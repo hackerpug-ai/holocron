@@ -626,6 +626,146 @@ export async function runBackupAlertSweep(options?: {
 }
 
 /**
+ * D05-05 AC-3 — CAP-BAK-01 monthly fire-drill mission job name on backup_heartbeat.
+ * Parity failure writes status=failed so alert-sweep can re-POST if the direct webhook
+ * path was unavailable at finalize time.
+ */
+export const FIRE_DRILL_MONTHLY_ALERT_JOB = 'fire_drill_monthly';
+
+export type FireDrillParityAlertResult = {
+  ok: boolean;
+  job_name: string;
+  run_id: string;
+  heartbeat: BackupHeartbeatRecord | null;
+  /** Direct POST delivery (same path as D04-05 postBackupAlert). */
+  post: { ok: true; status: number; body: string } | null;
+  payload: BackupAlertPayload | null;
+  webhookUrl: string;
+  error: string | null;
+};
+
+/**
+ * Surface fire-drill mission PARITY_PASS failure to D04-05 backup alerting.
+ *
+ * Dual path (both real, not log-only):
+ *   1. upsert backup_heartbeat job=fire_drill_monthly status=failed
+ *   2. POST BackupAlertPayload to ALERT_WEBHOOK_URL via postBackupAlert
+ *
+ * Soft mode (default): never throw after mission is already terminal — return
+ * structured errors so runtime can attach / log without undoing finalize.
+ * Hard mode (soft:false): throw when webhook is missing or POST fails.
+ */
+export async function alertFireDrillMissionParityFailure(options: {
+  runId: string;
+  errorMessage: string;
+  reportPath?: string | null;
+  webhookUrl?: string;
+  /** When true (default), missing webhook / POST errors return ok:false instead of throw. */
+  soft?: boolean;
+  sql?: Sql;
+}): Promise<FireDrillParityAlertResult> {
+  const soft = options.soft !== false;
+  const jobName = FIRE_DRILL_MONTHLY_ALERT_JOB;
+  const runId = options.runId;
+  const failure_reason = (
+    options.errorMessage.includes('PARITY')
+      ? options.errorMessage
+      : `fire-drill PARITY_PASS false: ${options.errorMessage}`
+  ).slice(0, 800);
+  const reportPath = options.reportPath?.trim() || null;
+  const nowIso = new Date().toISOString();
+
+  let heartbeat: BackupHeartbeatRecord | null = null;
+  try {
+    heartbeat = await upsertBackupHeartbeat(
+      {
+        jobName,
+        status: 'failed',
+        traceId: runId,
+        lastSnapshotId: reportPath,
+        objectCount: 0,
+      },
+      options.sql
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!soft) {
+      throw new Error(`fire-drill parity alert: heartbeat upsert failed: ${msg}`, {
+        cause: err instanceof Error ? err : undefined,
+      });
+    }
+    // Continue to webhook — dual path; heartbeat may still be picked up later.
+  }
+
+  const payload: BackupAlertPayload = {
+    job_name: jobName,
+    job_id: runId,
+    reason: 'failed',
+    failure_reason,
+    last_success_at: heartbeat?.last_success_at ?? null,
+    overdue_by_minutes: 0,
+    last_wal_segment: null,
+    last_snapshot_id: reportPath,
+    trace_id: runId,
+    timestamp: nowIso,
+    status: 'failed',
+  };
+
+  const rawWebhook = (options.webhookUrl ?? resolveAlertWebhookUrl()).trim();
+  const safeWebhookUrl = rawWebhook ? redactWebhookUrlForLog(rawWebhook) : '';
+
+  if (!rawWebhook) {
+    const error =
+      'ALERT_WEBHOOK_URL is not configured — fire-drill parity failure recorded on backup_heartbeat only';
+    if (!soft) {
+      throw new Error(error);
+    }
+    return {
+      ok: false,
+      job_name: jobName,
+      run_id: runId,
+      heartbeat,
+      post: null,
+      payload,
+      webhookUrl: '',
+      error,
+    };
+  }
+
+  try {
+    const post = await postBackupAlert(payload, rawWebhook);
+    return {
+      ok: true,
+      job_name: jobName,
+      run_id: runId,
+      heartbeat,
+      post,
+      payload,
+      webhookUrl: safeWebhookUrl,
+      error: null,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const scrubbed = scrubWebhookUrlFromMessage(msg, rawWebhook);
+    if (!soft) {
+      throw new Error(`fire-drill parity alert webhook failed: ${scrubbed}`, {
+        cause: err instanceof Error ? err : undefined,
+      });
+    }
+    return {
+      ok: false,
+      job_name: jobName,
+      run_id: runId,
+      heartbeat,
+      post: null,
+      payload,
+      webhookUrl: safeWebhookUrl,
+      error: scrubbed,
+    };
+  }
+}
+
+/**
  * Seed a healthy success heartbeat for the given job (anti-fake-healthy silence proof).
  * Scoped to the requested job_name (or all jobs when jobId is 'all'/'*') so this is
  * not an unscoped silent-healthy weapon. Also restores any config removed by induction
@@ -636,6 +776,8 @@ export const HEALTHY_ALL_JOB_ALLOWLIST = [
   'wal_archive',
   'base_backup',
   'restic_blob_mirror',
+  // D05-05 fire-drill mission canary (parity-fail → status=failed alert path)
+  'fire_drill_monthly',
   // RED suite / harness isolation rows (D04-01) — not production canaries.
   'cleanup',
   'wal_archive-healthy',
