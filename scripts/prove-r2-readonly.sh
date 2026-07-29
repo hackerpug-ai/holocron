@@ -52,7 +52,8 @@ is_placeholder() {
   local v="${1:-}"
   [[ -z "$v" ]] && return 0
   case "$v" in
-    *placeholder*|*replace-me*|*example*|*not-for-prod*|*ro-test-*|*test-key*|*test-secret*)
+    # REDHAT-FIX-S28R3: bare ro-test (legacy gate default) is not a live RO identity.
+    ro-test|ro-test-*|*ro-test*|*placeholder*|*replace-me*|*example*|*not-for-prod*|*test-key*|*test-secret*)
       return 0
       ;;
   esac
@@ -555,10 +556,12 @@ fi
 if [[ $PLACEHOLDER -eq 1 || -z "$AK" || -z "$SK" || -z "$ENDPOINT" ]]; then
   human_required_mint
   if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
-    echo "=== RESULT: FAIL (REQUIRE_LIVE_R2_RO=1; no live RO credentials) ==="
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
+    echo "=== RESULT: FAIL (REQUIRE_LIVE_R2_RO=1; no live RO credentials; DEPENDENCY-S28-R2-RO) ==="
     exit 1
   fi
-  echo "=== RESULT: FAIL (no live R2 object-read-only credentials; human_required) ==="
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO"
+  echo "=== RESULT: FAIL (no live R2 object-read-only credentials; human_required; DEPENDENCY-S28-R2-RO) ==="
   exit 1
 fi
 

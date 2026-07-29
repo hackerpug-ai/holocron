@@ -74,6 +74,25 @@ describe('REDHAT-FIX-S28R2 C1 fresh-target fire-drill binding (always)', () => {
       /volume|unresolvable|missing|not found|refuse/i
     );
   });
+
+  it('S28R3 AC-2: gate claim is not green solely on resolve-only — full fire-drill path exists', () => {
+    // Terra CRITICAL-1: resolve-only-only is insufficient for the CAP-BAK-01 gate claim.
+    // Runner must implement full restore:fire-drill on volume mountpoints; gate step3
+    // must invoke that path (asserted in sprint28-s28r3-gate-bind.test.ts).
+    const src = readFileSync(RUNNER, 'utf8');
+    expect(src).toMatch(/restore:fire-drill/);
+    expect(src).toMatch(
+      /--scratch "\$SCRATCH_MP"|--scratch "\$\{SCRATCH_MP\}"|--scratch "\$SCRATCH_MP"/
+    );
+    expect(src).toMatch(/RESOLVE_ONLY/);
+    // Full path requires target timestamp when not resolve-only.
+    expect(src).toMatch(/--target-timestamp required unless --resolve-only/);
+    writeEvidence('s28r3-not-resolve-only-only.json', {
+      has_fire_drill: true,
+      has_resolve_only_gate: true,
+      note: 'gate claim requires run without --resolve-only on provisioned volumes',
+    });
+  });
 });
 
 describe('REDHAT-FIX-S28R2 C1 docker volume mountpoint binding (PLATFORM_IT)', () => {
