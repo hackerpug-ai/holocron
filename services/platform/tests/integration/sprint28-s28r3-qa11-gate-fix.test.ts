@@ -59,7 +59,6 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   };
 }
 
-
 describe('GATE-FIX-S28R3-QA11 HIGH-1 fixed prover only', () => {
   it('HOLO_PROVE_R2_READONLY is refused under REQUIRE_LIVE_R2_RO=1', () => {
     const host = `s28r3-qa11-ovr-${Date.now().toString(36)}`;

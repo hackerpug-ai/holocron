@@ -10,7 +10,6 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -37,7 +36,6 @@ function writeEvidence(name: string, body: unknown): void {
   const text = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
   writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`, 'utf8');
 }
-
 
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
