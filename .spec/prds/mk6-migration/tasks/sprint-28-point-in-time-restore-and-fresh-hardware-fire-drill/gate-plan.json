@@ -37,9 +37,7 @@
           "backup chain missing",
           "backup config missing secrets"
         ],
-        "must_not_observe": [
-          "unknown flag: --pitr"
-        ]
+        "must_not_observe": ["unknown flag: --pitr"]
       }
     },
     {
@@ -74,10 +72,7 @@
           "row_counts",
           "run-fire-drill-on-fresh-target|fire-drill-attestation|bound scratch"
         ],
-        "must_not_observe": [
-          "unknown flag:",
-          "unknown command"
-        ]
+        "must_not_observe": ["unknown flag:", "unknown command"]
       }
     },
     {
@@ -90,9 +85,7 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "notes": "GATE-FIX-QA4: literal_cmd ends with jq -e which prints only the scalar true on success (exit 0). Domain tokens are proven by the frozen jq predicate + cmd_sha fidelity, not by stdout tokens that jq never emits. REDHAT-FIX-S28R3: report path is volume-bound step3 output.",
-        "require_all_regex": [
-          "^true$"
-        ]
+        "require_all_regex": ["^true$"]
       }
     },
     {
@@ -105,9 +98,7 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "notes": "GATE-FIX-QA4: literal_cmd ends with jq -e which prints only the scalar true on success (exit 0). Domain tokens are proven by the frozen jq predicate + cmd_sha fidelity, not by stdout tokens that jq never emits. REDHAT-FIX-S28R3: report path is volume-bound step3 output.",
-        "require_all_regex": [
-          "^true$"
-        ]
+        "require_all_regex": ["^true$"]
       }
     },
     {
@@ -123,9 +114,7 @@
         "require_all_regex": [
           "no base backup available|backup chain missing|manifest checksum|WAL segment corrupted|outside available WAL|backup config missing secrets"
         ],
-        "must_not_observe": [
-          "unknown flag: --pitr"
-        ],
+        "must_not_observe": ["unknown flag: --pitr"],
         "must_not_sole_success_on": "unknown flag: --pitr"
       }
     }

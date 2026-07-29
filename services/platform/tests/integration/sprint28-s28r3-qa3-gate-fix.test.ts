@@ -12,13 +12,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
@@ -105,8 +99,7 @@ function dockerAvailable(): boolean {
 function extractHumanGateFencedCmds(md: string): Map<number, string> {
   const map = new Map<number, string>();
   // ### N — title ... then optional sha line ... then ```bash\nCMD\n```
-  const re =
-    /###\s+(\d+)\s+[^\n]*\n[\s\S]*?```bash\n([\s\S]*?)```/g;
+  const re = /###\s+(\d+)\s+[^\n]*\n[\s\S]*?```bash\n([\s\S]*?)```/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(md)) !== null) {
     const n = Number(m[1]);
@@ -205,9 +198,7 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
     // Child env construction must not forward live DB credentials.
     expect(src).toMatch(/CHILD_ENV_ARGS|env -i/);
     // DATABASE_URL / PG* must not appear in the passthrough for-loop list.
-    const passthroughMatch = src.match(
-      /for _k in([\s\S]*?); do\s*\n\s*if \[\[ -n "\$\{!_k/
-    );
+    const passthroughMatch = src.match(/for _k in([\s\S]*?); do\s*\n\s*if \[\[ -n "\$\{!_k/);
     expect(passthroughMatch, 'child env passthrough loop').toBeTruthy();
     const list = passthroughMatch?.[1] ?? '';
     expect(list).not.toMatch(/\bDATABASE_URL\b/);
@@ -224,7 +215,9 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
       /freshTarget[\s\S]{0,400}defaultSourceConnection|!.*freshTarget[\s\S]{0,200}defaultSourceConnection|skip.*live|no live.*source|fresh-target.*baseline/i
     );
     // Fresh target must require recovery baseline.
-    expect(src).toMatch(/freshTarget[\s\S]{0,600}requireRecoveryBaseline|requireBaseline.*freshTarget|freshTarget[\s\S]{0,400}baseline/i);
+    expect(src).toMatch(
+      /freshTarget[\s\S]{0,600}requireRecoveryBaseline|requireBaseline.*freshTarget|freshTarget[\s\S]{0,400}baseline/i
+    );
   });
 
   it('C-1 source: runner loads writer + restore from same secrets source before compare', () => {
@@ -250,10 +243,7 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
         {
           Effect: 'Allow',
           Action: ['s3:GetObject'],
-          Resource: [
-            `arn:aws:s3:::${bucket}/${prefix}/*`,
-            `arn:aws:s3:::${bucket}/*`,
-          ],
+          Resource: [`arn:aws:s3:::${bucket}/${prefix}/*`, `arn:aws:s3:::${bucket}/*`],
         },
       ],
     };
@@ -296,7 +286,9 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
       status: mixedRun.status,
       combined: mixedCombined.slice(0, 4000),
     });
-    expect(mixedCombined).toMatch(/bare|bucket\/\*|least-privilege|exact prefix|object Resource|off-prefix|mixed/i);
+    expect(mixedCombined).toMatch(
+      /bare|bucket\/\*|least-privilege|exact prefix|object Resource|off-prefix|mixed/i
+    );
     expect(mixedRun.status, mixedCombined.slice(0, 800)).not.toBe(0);
     expect(mixedCombined).toMatch(/RESULT:\s+FAIL|AXIS r2_readonly:\s+FAIL/);
 
@@ -360,7 +352,10 @@ describe('GATE-FIX-S28R3-QA3 C-3 GATE_RUN_ID isolation (PLATFORM_IT)', () => {
       }
     );
     const s1 = `${step1Like.stdout ?? ''}\n${step1Like.stderr ?? ''}`;
-    writeEvidence('c3-unset-step1-like.json', { status: step1Like.status, combined: s1.slice(0, 1500) });
+    writeEvidence('c3-unset-step1-like.json', {
+      status: step1Like.status,
+      combined: s1.slice(0, 1500),
+    });
     expect(step1Like.status).not.toBe(0);
     expect(s1).not.toMatch(/CREATED/);
     // Must not create shared "manual" scratch via default.
@@ -408,7 +403,10 @@ describe('GATE-FIX-S28R3-QA3 C-3 GATE_RUN_ID isolation (PLATFORM_IT)', () => {
       env: { ...process.env, GATE_RUN_ID: bad },
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('c3-malformed-assert.json', { status: run.status, combined: combined.slice(0, 1500) });
+    writeEvidence('c3-malformed-assert.json', {
+      status: run.status,
+      combined: combined.slice(0, 1500),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/GATE_RUN_ID|allowlist|invalid|refuse|malformed/i);
 
@@ -681,40 +679,44 @@ PY
     300_000
   );
 
-  itLive('C-2 unit seam: freshTarget path refuses live source when DATABASE_URL would be needed', async () => {
-    // Import runFireDrill with freshTarget + no baseline → fail closed without needing live DB.
-    const { runFireDrill } = await import('../../src/backup/fire-drill.ts');
-    const scratch = resolve(EVIDENCE_DIR, 'c2-unit-scratch');
-    const blobDir = resolve(EVIDENCE_DIR, 'c2-unit-blob');
-    const reportPath = resolve(EVIDENCE_DIR, 'c2-unit-report.json');
-    mkdirSync(scratch, { recursive: true });
-    mkdirSync(blobDir, { recursive: true });
-    // Ensure empty dirs for restore contract; run should fail on baseline before live DB.
-    const result = await runFireDrill({
-      targetTimestamp: '2026-07-28T12:00:00Z',
-      scratch,
-      blobDir,
-      reportPath,
-      freshTarget: 'qa3-fresh-unit-no-live',
-      requireRecoveryBaseline: true,
-      env: {
-        ...process.env,
-        // Even if DATABASE_URL is present, freshTarget must not use it as sole oracle path.
-        DATABASE_URL: 'postgres://127.0.0.1:1/no_such_db_qa3_fresh',
-        HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
-      },
-    });
-    writeEvidence('c2-fresh-target-no-live.json', {
-      ok: result.ok,
-      exitCode: result.exitCode,
-      errors: result.errors.slice(0, 20),
-    });
-    expect(result.ok).toBe(false);
-    const errText = result.errors.join(' ').toLowerCase();
-    expect(errText).toMatch(/baseline|fresh|refuse|recovery/);
-    // Must not claim success via live mini; errors should mention baseline, not solely connection refused as only path.
-    expect(result.exitCode).not.toBe(0);
-  }, 120_000);
+  itLive(
+    'C-2 unit seam: freshTarget path refuses live source when DATABASE_URL would be needed',
+    async () => {
+      // Import runFireDrill with freshTarget + no baseline → fail closed without needing live DB.
+      const { runFireDrill } = await import('../../src/backup/fire-drill.ts');
+      const scratch = resolve(EVIDENCE_DIR, 'c2-unit-scratch');
+      const blobDir = resolve(EVIDENCE_DIR, 'c2-unit-blob');
+      const reportPath = resolve(EVIDENCE_DIR, 'c2-unit-report.json');
+      mkdirSync(scratch, { recursive: true });
+      mkdirSync(blobDir, { recursive: true });
+      // Ensure empty dirs for restore contract; run should fail on baseline before live DB.
+      const result = await runFireDrill({
+        targetTimestamp: '2026-07-28T12:00:00Z',
+        scratch,
+        blobDir,
+        reportPath,
+        freshTarget: 'qa3-fresh-unit-no-live',
+        requireRecoveryBaseline: true,
+        env: {
+          ...process.env,
+          // Even if DATABASE_URL is present, freshTarget must not use it as sole oracle path.
+          DATABASE_URL: 'postgres://127.0.0.1:1/no_such_db_qa3_fresh',
+          HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
+        },
+      });
+      writeEvidence('c2-fresh-target-no-live.json', {
+        ok: result.ok,
+        exitCode: result.exitCode,
+        errors: result.errors.slice(0, 20),
+      });
+      expect(result.ok).toBe(false);
+      const errText = result.errors.join(' ').toLowerCase();
+      expect(errText).toMatch(/baseline|fresh|refuse|recovery/);
+      // Must not claim success via live mini; errors should mention baseline, not solely connection refused as only path.
+      expect(result.exitCode).not.toBe(0);
+    },
+    120_000
+  );
 });
 
 describe('GATE-FIX-S28R3-QA3 M-2/M-3 extras', () => {

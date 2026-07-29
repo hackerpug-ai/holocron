@@ -875,7 +875,8 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       livePreFailureOk =
         Object.keys(preCounts.row_counts).length > 0 &&
         (preLedgerSha256 !== null ||
-          (typeof preLedger.ledger_checksum === 'string' && preLedger.ledger_checksum.length === 32));
+          (typeof preLedger.ledger_checksum === 'string' &&
+            preLedger.ledger_checksum.length === 32));
     } catch (e) {
       if (!loadedBaseline) {
         errors.push(
