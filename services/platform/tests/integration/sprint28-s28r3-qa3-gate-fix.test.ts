@@ -144,7 +144,10 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
     expect(step2).toMatch(/\.tmp\/REDHAT-FIX-S28R3\/\$\{GATE_RUN_ID\}/);
     expect(step2).not.toMatch(/mkdir -p \.tmp\/REDHAT-FIX-S28R3[^-/A-Za-z0-9_$]/);
     const step3 = String(stepOf(plan, 3).literal_cmd ?? '');
-    expect(step3).toMatch(/HOST="s28r3-gate-\$\{GATE_RUN_ID\}"/);
+    // GATE-FIX-S28R3-QA7 / HIGH-1: Step 3 must use collision-resistant host derive (QA6),
+    // not the removed naïve assignment that can exceed the 64-char host allowlist.
+    expect(step3).toMatch(/HOST="\$\(bash scripts\/derive-s28-fresh-host\.sh\)"/);
+    expect(step3).not.toMatch(/HOST="s28r3-gate-\$\{GATE_RUN_ID\}"/);
     // M-3: trap removes docker network
     expect(step3).toMatch(/network rm/);
     expect(step3).toMatch(/\$\{HOST\}-net|"\$\{HOST\}-net"/);

@@ -343,13 +343,18 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     const syntax = spawnSync('bash', ['-n', INVENTORY], { encoding: 'utf8' });
     expect(syntax.status, syntax.stderr).toBe(0);
 
-    const secretsCandidates = [
-      process.env.HOLO_SECRETS_PATH,
-      process.env.HOLOCRON_SECRETS_PATH,
-      resolve(REPO_ROOT, 'services/platform/config/secrets.yaml'),
-    ].filter((p): p is string => Boolean(p && existsSync(p)));
-    expect(secretsCandidates.length, 'need a secrets path for inventory').toBeGreaterThan(0);
-    const secrets = secretsCandidates[0]!;
+    // GATE-FIX-S28R3-QA7 / MEDIUM-1: always-on unit contract uses committed non-secret
+    // fixture (absent restore keys). Never depends on personal secrets.yaml / env path.
+    const secrets = resolve(
+      REPO_ROOT,
+      'services/platform/tests/fixtures/sprint28/secrets-inventory-absent-restore.yaml'
+    );
+    expect(existsSync(secrets), `missing committed inventory fixture: ${secrets}`).toBe(true);
+    const fixtureText = readFileSync(secrets, 'utf8');
+    // Fixture must not look like live restore credentials.
+    expect(fixtureText).not.toMatch(/R2_RESTORE_ACCESS_KEY_ID:\s*['"]?[A-Za-z0-9+/_-]{16,}/);
+    expect(fixtureText).not.toMatch(/R2_RESTORE_SECRET_ACCESS_KEY:\s*['"]?[A-Za-z0-9+/_-]{16,}/);
+
     const out = resolve(EVIDENCE_DIR, 'credential-inventory.json');
     mkdirSync(dirname(out), { recursive: true });
     const run = spawnSync('bash', [INVENTORY, '--secrets', secrets, '--out', out], {
@@ -361,6 +366,7 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
       status: run.status,
       stdout: (run.stdout ?? '').slice(0, 2000),
       stderr: (run.stderr ?? '').slice(0, 2000),
+      secrets_fixture: secrets,
     });
     expect(run.status, run.stderr ?? run.stdout).toBe(0);
     expect(existsSync(out)).toBe(true);
@@ -375,9 +381,9 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     for (const k of Object.keys(inv.keys ?? {})) {
       expect((inv.keys as Record<string, { value?: string }>)[k]?.value).toBeUndefined();
     }
-    if (inv.R2_RESTORE_present === false) {
-      expect(inv.residual).toBe('DEPENDENCY-S28-R2-RO');
-    }
+    // Absent restore keys → honest residual; fixture cannot satisfy live restore.
+    expect(inv.R2_RESTORE_present).toBe(false);
+    expect(inv.residual).toBe('DEPENDENCY-S28-R2-RO');
   });
 
   it('C1: runner builds restore-only child env (source contract)', () => {

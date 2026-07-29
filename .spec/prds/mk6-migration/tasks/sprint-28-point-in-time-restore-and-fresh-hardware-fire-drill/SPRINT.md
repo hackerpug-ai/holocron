@@ -110,6 +110,7 @@ Residual **`DEPENDENCY-S28-R2-RO`** until distinct live `R2_RESTORE_*` credentia
 | GATE-FIX-S28R3-QA4 | Baseline-only fresh-target, policy Action semantics, step2 GATE_RUN_ID (Terra `red-hat-20260729T095141Z` CRITICAL×1 HIGH×2) | devops-engineer | 150 min |
 | GATE-FIX-S28R3-QA5 | Exact action/resource pairing + run-ID steps 3–5 + no Docker false-green (Terra `red-hat-20260729T101625Z` HIGH×2 MEDIUM×1) | devops-engineer | 120 min |
 | GATE-FIX-S28R3-QA6 | Bounded collision-resistant fresh-target host from GATE_RUN_ID (QA `qa28-20260729T104535Z`) | devops-engineer | 90 min |
+| GATE-FIX-S28R3-QA7 | Test-contract: QA3 host oracle + self-contained inventory fixture (Terra HIGH-1/MEDIUM-1) | devops-engineer | 60 min |
 
 ## Source Coverage
 
