@@ -915,21 +915,27 @@ for stmt in stmts:
                 f"Allow object Resource off exact prefix (require arn:aws:s3:::{bucket}/{expected_path}): {r}"
             )
 
-    # Pair each action with correct resource class.
-    for a in action_strs:
-        if a in BUCKET_ACTIONS:
-            if not bucket_resources and obj_resources_stmt:
-                errors.append(
-                    f"Allow Action {a} must target bucket ARN only (not object ARN)"
-                )
-            elif not bucket_resources and not obj_resources_stmt:
-                # Resource errors already recorded; still note pairing when silent.
-                pass
-        elif a in OBJECT_ACTIONS:
-            if not obj_resources_stmt and bucket_resources:
-                errors.append(
-                    f"Allow Action {a} must target exact prefix object ARN (not bucket ARN alone)"
-                )
+    # GATE-FIX-S28R3-QA5 / H-1: exact action↔resource class pairing per Allow.
+    # Bucket actions (ListBucket/GetBucketLocation) require ≥1 bucket ARN and zero object ARNs.
+    # GetObject requires ≥1 object ARN and zero bucket ARNs. Mixed classes in one statement fail.
+    has_bucket_action = any(a in BUCKET_ACTIONS for a in action_strs)
+    has_get_object = any(a in OBJECT_ACTIONS for a in action_strs)
+    if has_bucket_action and obj_resources_stmt:
+        errors.append(
+            "Allow mixes bucket action with object ARN (exact pairing requires bucket ARN only)"
+        )
+    if has_get_object and bucket_resources:
+        errors.append(
+            "Allow mixes GetObject with bucket ARN (exact pairing requires object ARN only)"
+        )
+    if has_bucket_action and not bucket_resources:
+        errors.append(
+            "Allow bucket action requires ≥1 exact bucket ARN (and zero object ARNs)"
+        )
+    if has_get_object and not obj_resources_stmt:
+        errors.append(
+            "Allow GetObject requires ≥1 exact prefix object ARN (and zero bucket ARNs)"
+        )
 
 if not object_resources and not errors:
     # No object ARN at all — still require GetObject shape via action set below.

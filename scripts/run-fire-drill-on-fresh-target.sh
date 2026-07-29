@@ -680,39 +680,11 @@ env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}"
 STATUS=$?
 set -e
 
-# GATE-FIX-S28R3-QA4 / M-1: after successful child exit, require contract-shaped parity report.
+# GATE-FIX-S28R3-QA4 / M-1 + QA5: after successful child exit, require contract-shaped parity report
+# via extracted scripts/assert-fire-drill-report.sh (no-Docker unit-testable).
 if [[ "$STATUS" -eq 0 && -n "${REPORT_PATH:-}" ]]; then
   set +e
-  python3 - "$REPORT_PATH" <<'PY'
-import json, sys
-path = sys.argv[1]
-try:
-    with open(path) as f:
-        data = json.load(f)
-except Exception as e:
-    print(f"error: parity report missing/unreadable at {path}: {e}", file=sys.stderr)
-    sys.exit(1)
-required = ("POSTGRES_PARITY_PASS", "LEDGER_CHECKSUM_MATCH", "BLOB_PARITY_PASS")
-missing = [k for k in required if data.get(k) is not True]
-if missing:
-    print(
-        f"error: parity report contract failed — require true for {', '.join(missing)} at {path}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-baseline_id = data.get("baseline_id")
-baseline_key = data.get("baseline_key")
-bound = (isinstance(baseline_id, str) and baseline_id.strip()) or (
-    isinstance(baseline_key, str) and baseline_key.strip()
-)
-if not bound:
-    print(
-        f"error: parity report contract failed — baseline_id or baseline_key must be nonempty at {path}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-sys.exit(0)
-PY
+  bash "$ROOT/scripts/assert-fire-drill-report.sh" "$REPORT_PATH"
   report_rc=$?
   set -e
   if [[ $report_rc -ne 0 ]]; then

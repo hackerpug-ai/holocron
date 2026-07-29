@@ -109,3 +109,16 @@ The historical `20260729T031355Z` pass is archival only and has no reviewed/head
 **Reviewed SHA:** `a2109d8d27e9eac0862a69e0fd6651b81aa8db78`  
 **Counts:** CRITICAL **0**, HIGH **2**, MEDIUM **1**, LOW **0**  
 **Verdict:** **NEEDS-FIXES**
+
+---
+
+## RUN-lane disposition (GATE-FIX-S28R3-QA5)
+
+> Not a re-review. Records the fix worktree implementation against this report’s findings.
+> Residual **DEPENDENCY-S28-R2-RO** preserved. No gate-results forgery. No merge to primary.
+
+| Finding | Disposition |
+|---|---|
+| H-1 mixed Allow action/resource pairing | **Fixed in worktree.** `prove-isolation.sh` rejects per-Allow: bucket action + object ARN; GetObject + bucket ARN; bucket action without bucket ARN; GetObject without object ARN. Split exact two-Allow policy still PASSes. Negatives in `sprint28-s28r3-qa5-gate-fix.test.ts`. |
+| H-2 step3 shared evidence / steps 4–5 foreign report | **Fixed in worktree.** Steps 3–5 use `EVID=.tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}` after `assert-gate-run-id`; HUMAN-GATE regenerated. Two-run contamination + foreign shared path negatives pass. |
+| M-1 Docker silent green on report contract | **Fixed in worktree.** Extracted `scripts/assert-fire-drill-report.sh`; runner delegates; always-on no-Docker unit tests; PLATFORM_IT Docker IT throws if Docker missing (no `return` green). qa4 updated. |

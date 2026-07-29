@@ -173,11 +173,17 @@ describe('GATE-FIX-S28R3-QA4 always-on contract', () => {
 
   it('M-1 source: runner validates report contract after child exit 0', () => {
     const src = readFileSync(RUNNER, 'utf8');
-    expect(src).toMatch(/POSTGRES_PARITY_PASS/);
-    expect(src).toMatch(/LEDGER_CHECKSUM_MATCH/);
-    expect(src).toMatch(/BLOB_PARITY_PASS/);
-    expect(src).toMatch(/baseline_id|baseline_key/);
+    // GATE-FIX-S28R3-QA5: contract body lives in assert-fire-drill-report.sh; runner invokes it.
+    expect(src).toMatch(/assert-fire-drill-report\.sh/);
     expect(src).toMatch(/report contract|GATE-FIX-S28R3-QA4\/M-1/i);
+    const assertSrc = readFileSync(
+      resolve(REPO_ROOT, 'scripts/assert-fire-drill-report.sh'),
+      'utf8'
+    );
+    expect(assertSrc).toMatch(/POSTGRES_PARITY_PASS/);
+    expect(assertSrc).toMatch(/LEDGER_CHECKSUM_MATCH/);
+    expect(assertSrc).toMatch(/BLOB_PARITY_PASS/);
+    expect(assertSrc).toMatch(/baseline_id|baseline_key/);
   });
 
   it('H-1: NotAction Allow fails overall RESULT', () => {
@@ -512,10 +518,72 @@ PY
     120_000
   );
 
+  it('M-1 no-Docker: assert-fire-drill-report rejects incomplete parity report', () => {
+    const assertReport = resolve(REPO_ROOT, 'scripts/assert-fire-drill-report.sh');
+    expect(existsSync(assertReport)).toBe(true);
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    const bad = resolve(EVIDENCE_DIR, 'm1-qa4-incomplete.json');
+    writeFileSync(
+      bad,
+      JSON.stringify(
+        {
+          POSTGRES_PARITY_PASS: true,
+          LEDGER_CHECKSUM_MATCH: true,
+          ok: true,
+        },
+        null,
+        2
+      ) + '\n',
+      'utf8'
+    );
+    const run = spawnSync('bash', [assertReport, bad], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    writeEvidence('m1-qa4-assert-incomplete.json', {
+      status: run.status,
+      combined: combined.slice(0, 1500),
+    });
+    expect(run.status, combined.slice(0, 800)).not.toBe(0);
+    expect(combined).toMatch(/report contract|BLOB_PARITY_PASS|baseline_id|parity report/i);
+  });
+
+  it('M-1 no-Docker: assert-fire-drill-report accepts complete parity report', () => {
+    const assertReport = resolve(REPO_ROOT, 'scripts/assert-fire-drill-report.sh');
+    const good = resolve(EVIDENCE_DIR, 'm1-qa4-complete.json');
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(
+      good,
+      JSON.stringify(
+        {
+          POSTGRES_PARITY_PASS: true,
+          LEDGER_CHECKSUM_MATCH: true,
+          BLOB_PARITY_PASS: true,
+          baseline_id: 'qa4-m1-baseline',
+          baseline_key: 'recovery-baselines/qa4-m1.json',
+        },
+        null,
+        2
+      ) + '\n',
+      'utf8'
+    );
+    const run = spawnSync('bash', [assertReport, good], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    expect(run.status).toBe(0);
+  });
+
   itLive(
     'M-1: full-run recorder writes contract report; runner accepts',
     () => {
-      if (!dockerAvailable()) return;
+      // GATE-FIX-S28R3-QA5 / M-1: never silent-return green when Docker missing under PLATFORM_IT.
+      if (!dockerAvailable()) {
+        throw new Error('docker required for M-1 report contract full-run (PLATFORM_IT=1)');
+      }
       const host = `s28r3-qa4-m1-${Date.now().toString(36)}`;
       dockerCleanup.push({ host });
       const staging = resolve(EVIDENCE_DIR, 'm1-staging');
@@ -625,7 +693,10 @@ PY
   itLive(
     'M-1 negative: recorder exit 0 without parity fields → runner nonzero',
     () => {
-      if (!dockerAvailable()) return;
+      // GATE-FIX-S28R3-QA5 / M-1: never silent-return green when Docker missing under PLATFORM_IT.
+      if (!dockerAvailable()) {
+        throw new Error('docker required for M-1 negative report contract (PLATFORM_IT=1)');
+      }
       const host = `s28r3-qa4-m1n-${Date.now().toString(36)}`;
       dockerCleanup.push({ host });
       const staging = resolve(EVIDENCE_DIR, 'm1n-staging');

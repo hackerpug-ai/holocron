@@ -1,6 +1,6 @@
 # GATE-FIX-S28R3-QA5 — Exact action/resource pairing + run-ID-scoped steps 3–5 + no Docker false-green
 
-> Status: ⬜ Pending  
+> Status: ✅ Implemented (awaiting dual-lens review)  
 > Sprint: [Sprint 28](./SPRINT.md)  
 > Agent: devops-engineer  
 > Reviewer: code-reviewer + product-manager  
