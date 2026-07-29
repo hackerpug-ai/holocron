@@ -230,6 +230,10 @@ interface CliArgs {
    * REDHAT-FIX-S28R2-C1: bind scratch/blob to provisioned Docker volume mountpoints.
    */
   freshTarget: string | null;
+  /** backup:emit-recovery-baseline --blob-root <path> */
+  blobRoot: string | null;
+  /** backup:emit-recovery-baseline --restic-snapshot <id> */
+  resticSnapshot: string | null;
 }
 
 function printHelp(): void {
@@ -279,9 +283,15 @@ Usage:
                             --mode clear: reset all induced state + healthy heartbeats (alias of backup:healthy --all)
   backup:healthy            REDHAT-FIX-S27-04: clear induced store + success heartbeats
                             --all | --job <name>
+  backup:emit-recovery-baseline
+                            GATE-FIX-QA2: capture+upload recovery baseline bound to a listable
+                            restic snapshot + pgBackRest label (refuses ghosts / zero domain)
+                            [--blob-root <path>] [--restic-snapshot <id>] [--json]
   restore                   D05-02: pgBackRest PITR restore --pitr <iso> --scratch <dir>
                             [--target-action promote|pause] (fail-closed on empty/corrupt/out-of-range)
   restore:pitr              Alias for restore --pitr (same flags)
+  restore:window            GATE-FIX-QA2: live pgBackRest PITR window (earliest/latest/recommended_pitr)
+                            for setting PITR_TIMESTAMP — does not weaken outside-WAL fail-closed
   restore:status            Show last PITR restore structured report
   restore:fire-drill        D05-04: full fire-drill (pre-failure snapshot → PITR → restic blob)
                             --target-timestamp|--pitr <iso> --scratch <empty-pgdata>
@@ -565,6 +575,8 @@ function parseArgs(argv: string[]): CliArgs {
     report: null,
     sourceBlobRoot: null,
     freshTarget: null,
+    blobRoot: null,
+    resticSnapshot: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -906,6 +918,15 @@ function parseArgs(argv: string[]): CliArgs {
       args.freshTarget = argv[++i] ?? null;
     } else if (a.startsWith('--fresh-target=')) {
       args.freshTarget = a.slice('--fresh-target='.length);
+    } else if (a === '--blob-root') {
+      // backup:emit-recovery-baseline --blob-root <path>
+      args.blobRoot = argv[++i] ?? null;
+    } else if (a.startsWith('--blob-root=')) {
+      args.blobRoot = a.slice('--blob-root='.length);
+    } else if (a === '--restic-snapshot') {
+      args.resticSnapshot = argv[++i] ?? null;
+    } else if (a.startsWith('--restic-snapshot=')) {
+      args.resticSnapshot = a.slice('--restic-snapshot='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2471,6 +2492,85 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo backup:induce-failure failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'backup:emit-recovery-baseline': {
+      // GATE-FIX-QA2: upload recovery baseline bound to a listable restic snapshot.
+      const { emitLiveRecoveryBaseline } = await import('../backup/recovery-baseline.ts');
+      try {
+        const result = emitLiveRecoveryBaseline({
+          blobRoot: args.blobRoot
+            ? resolve(args.blobRoot)
+            : args.sourceBlobRoot
+              ? resolve(args.sourceBlobRoot)
+              : undefined,
+          resticSnapshotId: args.resticSnapshot ?? undefined,
+        });
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                uploaded: result.uploaded,
+                verified: result.verified,
+                baseline_id: result.baseline?.baseline_id ?? null,
+                restic_snapshot_id: result.restic_snapshot_id,
+                pgbackrest_backup_label: result.pgbackrest_backup_label,
+                contentKey: result.contentKey,
+                lookupKey: result.lookupKey,
+                row_counts: result.baseline?.row_counts ?? null,
+                errors: result.errors,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log('holo backup:emit-recovery-baseline');
+          console.log(`  ok:                      ${result.ok}`);
+          console.log(`  uploaded:                ${result.uploaded}`);
+          console.log(`  verified:                ${result.verified}`);
+          console.log(`  baseline_id:             ${result.baseline?.baseline_id ?? '(none)'}`);
+          console.log(`  restic_snapshot_id:      ${result.restic_snapshot_id ?? '(none)'}`);
+          console.log(`  pgbackrest_backup_label: ${result.pgbackrest_backup_label ?? '(none)'}`);
+          console.log(`  content_key:             ${result.contentKey ?? '(none)'}`);
+          if (result.errors.length) {
+            console.log('  errors:');
+            for (const e of result.errors) console.log(`    - ${e}`);
+          }
+        }
+        process.exit(result.ok && result.uploaded ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo backup:emit-recovery-baseline failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'restore:window': {
+      // GATE-FIX-QA2: live in-window PITR metadata (does not weaken outside-WAL fail-closed).
+      const { queryPitrWindow, formatPitrWindowText } = await import('../backup/restore.ts');
+      try {
+        const report = queryPitrWindow({});
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatPitrWindowText(report));
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo restore:window failed: ${msg}`);
         }
         process.exit(1);
       }

@@ -966,6 +966,151 @@ export function uploadRecoveryBaseline(options: {
 }
 
 /**
+ * GATE-FIX-QA2: operational emit of a parity-meaningful baseline bound to a
+ * *listable* restic snapshot (exact verify) + latest pgBackRest label.
+ * Used when R2 only holds ghost baselines (e.g. resticc5ms5egca88d4616ab).
+ */
+export function emitLiveRecoveryBaseline(options?: {
+  env?: NodeJS.ProcessEnv;
+  config?: BackupConfig;
+  databaseUrl?: string;
+  blobRoot?: string;
+  resticSnapshotId?: string;
+  pgbackrestBackupLabel?: string;
+}): RecoveryBaselineUploadResult & {
+  restic_snapshot_id: string | null;
+  pgbackrest_backup_label: string | null;
+} {
+  const env = options?.env ?? process.env;
+  const fail = (
+    errors: string[],
+    partial?: { restic?: string | null; label?: string | null; bucket?: string | null }
+  ): RecoveryBaselineUploadResult & {
+    restic_snapshot_id: string | null;
+    pgbackrest_backup_label: string | null;
+  } => ({
+    ok: false,
+    baseline: null,
+    contentKey: null,
+    lookupKey: null,
+    bucketName: partial?.bucket ?? null,
+    uploaded: false,
+    verified: false,
+    errors,
+    restic_snapshot_id: partial?.restic ?? null,
+    pgbackrest_backup_label: partial?.label ?? null,
+  });
+
+  const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+  let cfg: BackupConfig;
+  try {
+    cfg = options?.config ?? loadBackupConfig({ env, secretsPath });
+  } catch (e) {
+    return fail([e instanceof Error ? e.message : String(e)]);
+  }
+
+  // Prefer explicit restic id so ghost-refusal can be proven without full list.
+  let restic = options?.resticSnapshotId?.trim() || '';
+  if (!restic || restic.length < 8) {
+    const listed = listResticSnapshotIds({ env });
+    if (!listed.ok || listed.ids.length === 0) {
+      return fail(
+        [
+          listed.error ??
+            'no restic snapshots in repository — refuse emit without listable restic id',
+        ],
+        { bucket: cfg.bucketName }
+      );
+    }
+    restic = listed.ids[listed.ids.length - 1];
+  }
+
+  // Fail closed on ghost/unlistable before any R2 upload (GATE-FIX-QA2 AC-2).
+  const resticCheck = verifyResticSnapshotInRepo({ resticSnapshotId: restic, env });
+  if (!resticCheck.ok) {
+    return fail(
+      [resticCheck.error ?? `restic snapshot not listable: ${restic} — refuse emit (fail closed)`],
+      { restic, bucket: cfg.bucketName }
+    );
+  }
+  restic = resticCheck.matchedId ?? restic;
+
+  const label =
+    options?.pgbackrestBackupLabel?.trim() || resolvePgbackrestLabelFromInfo(cfg, env) || '';
+  if (label.length < 8) {
+    return fail(['pgbackrest_backup_label unavailable from pgBackRest info — refuse emit'], {
+      restic,
+      bucket: cfg.bucketName,
+    });
+  }
+
+  const blobRoot =
+    options?.blobRoot?.trim() || env.HOLO_BLOB_ROOT?.trim() || env.HOLOCRON_BLOB_ROOT?.trim() || '';
+  if (!blobRoot) {
+    return fail(['blobRoot required (HOLO_BLOB_ROOT / --blob-root) for recovery baseline emit'], {
+      restic,
+      label,
+      bucket: cfg.bucketName,
+    });
+  }
+
+  const result = captureAndUploadRecoveryBaseline({
+    config: cfg,
+    env,
+    pgbackrestBackupLabel: label,
+    resticSnapshotId: restic,
+    stanza: cfg.stanza,
+    databaseUrl: options?.databaseUrl,
+    blobRoot,
+  });
+  return {
+    ...result,
+    restic_snapshot_id: result.baseline?.restic_snapshot_id ?? restic,
+    pgbackrest_backup_label: result.baseline?.pgbackrest_backup_label ?? label,
+  };
+}
+
+/** List restic snapshot ids (newest last) via live `restic snapshots --json`. */
+export function listResticSnapshotIds(options?: { env?: NodeJS.ProcessEnv }): {
+  ok: boolean;
+  ids: string[];
+  error?: string;
+} {
+  const env = options?.env ?? process.env;
+  const resticEnv = resticVerifyEnv(env);
+  if (!resticEnv.ok) return { ok: false, ids: [], error: resticEnv.error };
+  const which = run('which', ['restic'], { env, timeoutMs: 5_000 });
+  const resticBin =
+    (which.status === 0 && which.stdout.trim()) ||
+    (existsSync('/opt/homebrew/bin/restic') ? '/opt/homebrew/bin/restic' : null);
+  if (!resticBin) return { ok: false, ids: [], error: 'restic binary not found' };
+  const snaps = run(resticBin, ['snapshots', '--json'], {
+    env: resticEnv.env,
+    timeoutMs: 180_000,
+  });
+  if (snaps.status !== 0) {
+    return {
+      ok: false,
+      ids: [],
+      error: `restic snapshots failed: ${(snaps.stderr || snaps.stdout).slice(0, 400)}`,
+    };
+  }
+  try {
+    const parsed = JSON.parse(snaps.stdout) as Array<{ id?: string; short_id?: string }>;
+    if (!Array.isArray(parsed))
+      return { ok: false, ids: [], error: 'restic snapshots not an array' };
+    const ids = parsed.map((r) => (r.id ?? r.short_id ?? '').trim()).filter((id) => id.length >= 8);
+    return { ok: true, ids };
+  } catch (e) {
+    return {
+      ok: false,
+      ids: [],
+      error: `restic snapshots parse failed: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+}
+
+/**
  * Capture domain state + bindings and store immutable recovery baseline in R2.
  * Refuses upload when restic_snapshot_id is not present in the configured repo
  * (unless skipResticVerify is set).
