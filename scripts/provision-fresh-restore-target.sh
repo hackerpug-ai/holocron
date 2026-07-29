@@ -36,10 +36,17 @@ CONTAINER_BLOB="/var/lib/holocron/blob-restore"
 R2_BUCKET_NAME="${R2_BUCKET_NAME:-holocron-backup}"
 R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}"
 R2_ENDPOINT="${R2_ENDPOINT:-}"
-# Prefer restore-specific RO keys when present (never reuse backup RW by default).
-R2_ACCESS_KEY_ID="${R2_RESTORE_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}"
-R2_SECRET_ACCESS_KEY="${R2_RESTORE_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}"
-R2_SESSION_TOKEN="${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}"
+# REDHAT-FIX-S28R2-H3: capture ambient RW separately — NEVER silently substitute as RO.
+AMBIENT_R2_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:-}"
+AMBIENT_R2_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:-}"
+AMBIENT_R2_SESSION_TOKEN="${R2_SESSION_TOKEN:-}"
+R2_RESTORE_ACCESS_KEY_ID="${R2_RESTORE_ACCESS_KEY_ID:-}"
+R2_RESTORE_SECRET_ACCESS_KEY="${R2_RESTORE_SECRET_ACCESS_KEY:-}"
+R2_RESTORE_SESSION_TOKEN="${R2_RESTORE_SESSION_TOKEN:-}"
+# Resolved RO identity written into restore-target.env (set after arg parse).
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
+R2_SESSION_TOKEN=""
 
 usage() {
   cat <<'EOF'
@@ -54,14 +61,14 @@ Options:
   --skip-isolation       Skip prove-isolation.sh (not recommended)
   -h, --help             Show help
 
-R2 read-only credentials (env):
-  R2_RESTORE_ACCESS_KEY_ID / R2_RESTORE_SECRET_ACCESS_KEY  — preferred live RO keys
-  R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY                  — bucket-scoped List/Get only
+R2 read-only credentials (env) — REDHAT-FIX-S28R2-H3:
+  R2_RESTORE_ACCESS_KEY_ID / R2_RESTORE_SECRET_ACCESS_KEY  — REQUIRED for live start
   R2_BUCKET_NAME (default holocron-backup)
   R2_ENDPOINT or R2_ACCOUNT_ID
-  If keys are unset, placeholder RO keys are written for isolation-shape drills only.
+  Placeholders ONLY when ALLOW_PLACEHOLDER_R2_RO=1 or --dry-run (shape drills).
+  NEVER silently falls back to ambient backup RW R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY.
+  REQUIRE_LIVE_R2_RO=1: refuse missing/placeholder restore keys and refuse keys equal to ambient RW.
   AC-2 live proof: REQUIRE_LIVE_R2_RO=1 ./scripts/prove-r2-readonly.sh
-  (placeholders alone NEVER satisfy AC-2; need real List ok + Put/Delete AccessDenied)
 EOF
 }
 
@@ -102,11 +109,53 @@ if [[ -z "$R2_ENDPOINT" ]]; then
   R2_ENDPOINT="https://example-accountid.r2.cloudflarestorage.com"
 fi
 
-if [[ -z "$R2_ACCESS_KEY_ID" ]]; then
+# ── REDHAT-FIX-S28R2-H3: resolve distinct RO restore credentials ─────────────
+# Live start requires R2_RESTORE_* unless ALLOW_PLACEHOLDER_R2_RO=1.
+# --dry-run may use placeholders for isolation-shape drills without ambient RW.
+is_placeholder_key() {
+  local v="${1:-}"
+  case "$v" in
+    ''|*placeholder*|*replace-me*|*example*|*not-for-prod*|*ro-test-*|*test-key*|*test-secret*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+if [[ -n "$R2_RESTORE_ACCESS_KEY_ID" && -n "$R2_RESTORE_SECRET_ACCESS_KEY" ]]; then
+  R2_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID"
+  R2_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY"
+  R2_SESSION_TOKEN="${R2_RESTORE_SESSION_TOKEN:-}"
+elif [[ "${ALLOW_PLACEHOLDER_R2_RO:-0}" == "1" || "$DRY_RUN" -eq 1 ]]; then
+  echo "[provision-fresh-restore-target] using placeholder RO keys (ALLOW_PLACEHOLDER_R2_RO=1 or --dry-run); not ambient RW"
   R2_ACCESS_KEY_ID="ro-placeholder-restore-only-not-for-prod"
-fi
-if [[ -z "$R2_SECRET_ACCESS_KEY" ]]; then
   R2_SECRET_ACCESS_KEY="ro-placeholder-secret-restore-only-not-for-prod"
+  R2_SESSION_TOKEN=""
+else
+  echo "error: R2_RESTORE_ACCESS_KEY_ID and R2_RESTORE_SECRET_ACCESS_KEY required for live provision" >&2
+  echo "  (refuse silent ambient R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY RW fallback)" >&2
+  echo "  shape-only: ALLOW_PLACEHOLDER_R2_RO=1 or --dry-run" >&2
+  exit 2
+fi
+
+# REQUIRE_LIVE_R2_RO=1: fail closed on placeholders or restore keys equal to ambient RW.
+if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then
+  if is_placeholder_key "$R2_ACCESS_KEY_ID" || is_placeholder_key "$R2_SECRET_ACCESS_KEY"; then
+    echo "error: REQUIRE_LIVE_R2_RO=1 refuses placeholder restore credentials" >&2
+    exit 2
+  fi
+  if [[ -z "$R2_RESTORE_ACCESS_KEY_ID" || -z "$R2_RESTORE_SECRET_ACCESS_KEY" ]]; then
+    echo "error: REQUIRE_LIVE_R2_RO=1 requires distinct R2_RESTORE_* credentials" >&2
+    exit 2
+  fi
+  if [[ -n "$AMBIENT_R2_ACCESS_KEY_ID" && "$R2_RESTORE_ACCESS_KEY_ID" == "$AMBIENT_R2_ACCESS_KEY_ID" ]]; then
+    echo "error: REQUIRE_LIVE_R2_RO=1 refuses restore keys equal to ambient RW R2_ACCESS_KEY_ID (must be distinct)" >&2
+    exit 2
+  fi
+  if [[ -n "$AMBIENT_R2_SECRET_ACCESS_KEY" && "$R2_RESTORE_SECRET_ACCESS_KEY" == "$AMBIENT_R2_SECRET_ACCESS_KEY" ]]; then
+    echo "error: REQUIRE_LIVE_R2_RO=1 refuses restore secret equal to ambient RW secret (must be distinct)" >&2
+    exit 2
+  fi
 fi
 
 # Bucket-scoped List/Get only (no Put/Delete). See fresh-target.md.

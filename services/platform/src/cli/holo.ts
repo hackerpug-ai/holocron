@@ -225,6 +225,11 @@ interface CliArgs {
   report: string | null;
   /** restore:fire-drill --source-blob-root <path> — pre-failure blob manifest root */
   sourceBlobRoot: string | null;
+  /**
+   * restore:fire-drill --fresh-target <name>
+   * REDHAT-FIX-S28R2-C1: bind scratch/blob to provisioned Docker volume mountpoints.
+   */
+  freshTarget: string | null;
 }
 
 function printHelp(): void {
@@ -281,6 +286,7 @@ Usage:
   restore:fire-drill        D05-04: full fire-drill (pre-failure snapshot → PITR → restic blob)
                             --target-timestamp|--pitr <iso> --scratch <empty-pgdata>
                             --blob-dir <empty-dir> [--report <parity-report.json>]
+                            [--fresh-target <name>] bind scratch/blob to provisioned volume mountpoints
                             Exit 0 only if POSTGRES_PARITY_PASS + LEDGER_CHECKSUM_MATCH + BLOB_PARITY_PASS
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
@@ -558,6 +564,7 @@ function parseArgs(argv: string[]): CliArgs {
     blobDir: null,
     report: null,
     sourceBlobRoot: null,
+    freshTarget: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -894,6 +901,11 @@ function parseArgs(argv: string[]): CliArgs {
       args.sourceBlobRoot = argv[++i] ?? null;
     } else if (a.startsWith('--source-blob-root=')) {
       args.sourceBlobRoot = a.slice('--source-blob-root='.length);
+    } else if (a === '--fresh-target') {
+      // restore:fire-drill --fresh-target <name> (REDHAT-FIX-S28R2-C1)
+      args.freshTarget = argv[++i] ?? null;
+    } else if (a.startsWith('--fresh-target=')) {
+      args.freshTarget = a.slice('--fresh-target='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2557,11 +2569,66 @@ async function main(): Promise<void> {
     }
     case 'restore:fire-drill': {
       // D05-04: full fire-drill — pre-failure snapshot → PITR → restic blob → parity-report
+      // REDHAT-FIX-S28R2-C1: optional --fresh-target binds destinations to provisioned volumes.
       const { runFireDrill, formatParityReportText } = await import('../backup/fire-drill.ts');
+      const { spawnSync } = await import('node:child_process');
       try {
         const targetTimestamp = args.pitr ?? args.positional[1] ?? null;
-        const scratch = args.scratch;
-        const blobDir = args.blobDir;
+        let scratch = args.scratch;
+        let blobDir = args.blobDir;
+        let freshTargetAttestation: Record<string, unknown> | null = null;
+
+        if (args.freshTarget) {
+          const host = args.freshTarget.trim();
+          const volPg = `${host}-pgdata`;
+          const volBlob = `${host}-blobs`;
+          const mp = (vol: string): string | null => {
+            const r = spawnSync('docker', ['volume', 'inspect', '-f', '{{ .Mountpoint }}', vol], {
+              encoding: 'utf8',
+              timeout: 15_000,
+            });
+            if (r.status !== 0) return null;
+            const p = (r.stdout ?? '').trim();
+            return p && p !== '<no value>' ? p : null;
+          };
+          const scratchMp = mp(volPg);
+          const blobMp = mp(volBlob);
+          if (!scratchMp || !blobMp) {
+            const msg = `fresh-target volumes unresolvable for ${host} (need ${volPg} + ${volBlob}) — refuse unbound host-only paths`;
+            if (args.json) {
+              console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+            } else {
+              console.error(`error: ${msg}`);
+            }
+            process.exit(2);
+          }
+          scratch = scratchMp;
+          blobDir = blobMp;
+          freshTargetAttestation = {
+            ok: true,
+            schema: 'holo.fresh-target.fire-drill-attestation.v1',
+            host,
+            container: host,
+            volumes: { pgdata: volPg, blob: volBlob },
+            mountpoints: { scratch: scratchMp, blob: blobMp },
+            scratch: scratchMp,
+            blobDir: blobMp,
+          };
+          const attPath = resolve(
+            process.cwd(),
+            `.tmp/REDHAT-FIX-S28R2/C1/attestation-${host}.json`
+          );
+          const { mkdirSync, writeFileSync } = await import('node:fs');
+          mkdirSync(resolve(attPath, '..'), { recursive: true });
+          writeFileSync(attPath, `${JSON.stringify(freshTargetAttestation, null, 2)}\n`, 'utf8');
+          if (!args.json) {
+            console.log(`  fresh_target:               ${host}`);
+            console.log(`  fresh_target_scratch:       ${scratchMp}`);
+            console.log(`  fresh_target_blob:          ${blobMp}`);
+            console.log(`  fresh_target_attestation:   ${attPath}`);
+          }
+        }
+
         if (!targetTimestamp) {
           console.error(
             'error: restore:fire-drill requires --target-timestamp <iso> (or --pitr <iso>)'
@@ -2570,13 +2637,13 @@ async function main(): Promise<void> {
         }
         if (!scratch) {
           console.error(
-            'error: restore:fire-drill requires --scratch <empty-dir> (never live mini PGDATA)'
+            'error: restore:fire-drill requires --scratch <empty-dir> (never live mini PGDATA) or --fresh-target <name>'
           );
           process.exit(2);
         }
         if (!blobDir) {
           console.error(
-            'error: restore:fire-drill requires --blob-dir <empty-dir> (never live mini blobs)'
+            'error: restore:fire-drill requires --blob-dir <empty-dir> (never live mini blobs) or --fresh-target <name>'
           );
           process.exit(2);
         }
@@ -2588,6 +2655,8 @@ async function main(): Promise<void> {
           blobDir: resolve(blobDir),
           reportPath: resolve(reportPath),
           sourceBlobRoot: args.sourceBlobRoot ? resolve(args.sourceBlobRoot) : undefined,
+          freshTarget: args.freshTarget ?? undefined,
+          freshTargetAttestation: freshTargetAttestation ?? undefined,
         });
         if (args.json) {
           console.log(
@@ -2598,6 +2667,7 @@ async function main(): Promise<void> {
                 reportPath: result.reportPath,
                 report: result.report,
                 errors: result.errors,
+                freshTargetAttestation,
               },
               null,
               2

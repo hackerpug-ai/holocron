@@ -98,6 +98,11 @@ export type RecoveryBaselineCaptureInput = {
    * digests without a live restic repo.
    */
   skipResticVerify?: boolean;
+  /**
+   * When true, allow emit of an all-zero domain row_counts map (intentional empty-DB
+   * fixtures only). Default false — REDHAT-FIX-S28R2-H1 refuses zero/empty baselines.
+   */
+  allowEmptyDomainBaseline?: boolean;
 };
 
 export type RecoveryBaselineUploadResult = {
@@ -598,9 +603,61 @@ function resticVerifyEnv(
 }
 
 /**
+ * Exact restic snapshot match (REDHAT-FIX-S28R2-H2).
+ *
+ * Accept only:
+ *   - exact full id equality
+ *   - exact short_id equality
+ *   - full-id prefix match when needle.length >= 8 and id.startsWith(needle)
+ *
+ * NEVER accept reverse short-id prefix matching (ghost ids that merely
+ * begin with a real short_id must not bind as if present).
+ */
+export function matchResticSnapshotId(
+  resticSnapshotId: string,
+  snapshots: Array<{ id?: string; short_id?: string }>
+): { ok: boolean; matchedId: string | null; error?: string; snapshotsChecked: number } {
+  const snap = resticSnapshotId.trim();
+  if (snap.length < 8) {
+    return {
+      ok: false,
+      matchedId: null,
+      error: `restic_snapshot_id too short to verify: ${snap.length}`,
+      snapshotsChecked: snapshots.length,
+    };
+  }
+  const needle = snap.toLowerCase();
+  for (const row of snapshots) {
+    const id = (row.id ?? '').toLowerCase();
+    const short = (row.short_id ?? '').toLowerCase();
+    if (id === needle || short === needle) {
+      return {
+        ok: true,
+        matchedId: row.id ?? row.short_id ?? snap,
+        snapshotsChecked: snapshots.length,
+      };
+    }
+    // Full-id prefix only (needle is a prefix of id), never the reverse.
+    if (needle.length >= 8 && id.length > 0 && id.startsWith(needle)) {
+      return {
+        ok: true,
+        matchedId: row.id ?? snap,
+        snapshotsChecked: snapshots.length,
+      };
+    }
+  }
+  return {
+    ok: false,
+    matchedId: null,
+    error: `restic snapshot not found / unlistable for id "${snap}" — refuse baseline bind (no exact/prefix ID match in repo)`,
+    snapshotsChecked: snapshots.length,
+  };
+}
+
+/**
  * Verify a restic snapshot id exists in the configured restic repository
- * (`restic snapshots --json` / prefix match). Fail-closed when restic is
- * unreachable or the id is missing — never bind a ghost snapshot into R2.
+ * (`restic snapshots --json` / exact + full-id prefix match). Fail-closed when
+ * restic is unreachable or the id is missing — never bind a ghost snapshot into R2.
  */
 export function verifyResticSnapshotInRepo(options: {
   resticSnapshotId: string;
@@ -666,24 +723,7 @@ export function verifyResticSnapshotInRepo(options: {
       snapshotsChecked: 0,
     };
   }
-  const needle = snap.toLowerCase();
-  for (const row of parsed) {
-    const id = (row.id ?? '').toLowerCase();
-    const short = (row.short_id ?? '').toLowerCase();
-    if (id === needle || short === needle || id.startsWith(needle) || needle.startsWith(short)) {
-      return {
-        ok: true,
-        matchedId: row.id ?? row.short_id ?? snap,
-        snapshotsChecked: parsed.length,
-      };
-    }
-  }
-  return {
-    ok: false,
-    matchedId: null,
-    error: `restic snapshot not found / unlistable for id prefix "${snap}" — refuse baseline bind (no matching ID in repo)`,
-    snapshotsChecked: parsed.length,
-  };
+  return matchResticSnapshotId(snap, parsed);
 }
 
 /**
@@ -727,6 +767,15 @@ export function buildRecoveryBaseline(input: RecoveryBaselineCaptureInput): Reco
       // Keep supplied map if capture fails (e.g. unit inject with no live DB).
       if (!row_counts) row_counts = {};
     }
+  }
+
+  // REDHAT-FIX-S28R2-H1: refuse all-zero / empty required-domain baselines at emit
+  // unless explicitly allowed for intentional empty-DB fixtures.
+  const domainTotal = baselineDomainRowTotal(row_counts);
+  if (domainTotal === 0 && !input.allowEmptyDomainBaseline) {
+    throw new Error(
+      'refuse zero/empty domain recovery baseline — domain row_counts total is 0 after capture (set allowEmptyDomainBaseline only for intentional empty-DB fixtures)'
+    );
   }
 
   let ledger_sha256 = input.ledgerSha256;

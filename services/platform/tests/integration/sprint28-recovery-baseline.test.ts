@@ -357,7 +357,8 @@ describe('REDHAT-FIX-C5 recovery baseline (PLATFORM_IT)', () => {
         pgbackrestBackupLabel: bindings.pgbackrestBackupLabel,
         resticSnapshotId: bindings.resticSnapshotId,
         targetLsn: lsn,
-        rowCounts: { beliefs: 0, sources: 0, passages: 0, claims: 0 },
+        // Non-zero domain counts so H1 zero-refuse does not mask MD5 rejection.
+        rowCounts: { beliefs: 1, sources: 1, passages: 1, claims: 1 },
         ledgerSha256: md5Only,
         blobManifestSha256: sha256Utf8('blob'),
         conn,
