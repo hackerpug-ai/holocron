@@ -1,0 +1,25 @@
+{
+  "task": "D05-04",
+  "ok": true,
+  "POSTGRES_PARITY_PASS": true,
+  "LEDGER_CHECKSUM_MATCH": true,
+  "BLOB_PARITY_PASS": true,
+  "matched_objects": 11,
+  "ledger_checksum": "cdf21cb6fc6b2177cb673dd3aa0e4b72",
+  "row_counts": {
+    "beliefs": 8,
+    "sources": 8,
+    "passages": 19,
+    "claims": 5,
+    "relations": 11,
+    "file_objects": 5,
+    "entities": 0
+  },
+  "targetTimestamp": "2026-07-29T00:01:02Z",
+  "actualStopTimestamp": "2026-07-29T00:01:02Z",
+  "scratch": "/tmp/d05-04-fire-scratch",
+  "blobDir": "/tmp/d05-04-blob-restore",
+  "restic_snapshot_id": "e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360",
+  "durationMs": 154289,
+  "errors": []
+}

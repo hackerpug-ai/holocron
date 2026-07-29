@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "targetTimestamp": "2026-07-29T00:01:02Z",
+  "actualStopTimestamp": "2026-07-29T00:01:02Z",
+  "pgdataPath": "/tmp/d05-04-pitr-debug",
+  "targetAction": "promote",
+  "ok": true,
+  "restoredWalCount": null,
+  "stanza": "main",
+  "repoPrefix": "pgbackrest",
+  "errors": []
+}

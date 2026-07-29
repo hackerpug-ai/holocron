@@ -1,0 +1,44 @@
+{
+  "ok": false,
+  "jobName": "restic_blob_mirror",
+  "spanName": "backup:restic_blob_mirror",
+  "repository": "s3:https://d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com/holocron-backup/restic",
+  "resticPrefix": "restic",
+  "bucketName": "holocron-backup",
+  "blobRoot": "/Users/inference1/Projects/holocron/.tmp/holocron-blobs",
+  "encrypted": true,
+  "plaintextRepo": false,
+  "separatePrefixFromPgbackrest": true,
+  "pgbackrestPrefix": "pgbackrest",
+  "initExit": 0,
+  "backupExit": 0,
+  "checkExit": 0,
+  "snapshotId": null,
+  "snapshotsCount": 0,
+  "objectCount": 0,
+  "parity": null,
+  "parityPassed": false,
+  "heartbeatUpdated": false,
+  "heartbeat": null,
+  "span": {
+    "name": "backup:restic_blob_mirror",
+    "traceId": "afda913a9088862721d0b6ae84102176",
+    "spanId": "d5b7ca1b549536cc",
+    "status": "failed",
+    "snapshotId": null,
+    "objectCount": null,
+    "attributes": {
+      "job_name": "restic_blob_mirror",
+      "status": "failed",
+      "snapshot_id": null,
+      "object_count": null,
+      "span_name": "backup:restic_blob_mirror",
+      "error": "restic snapshots returned zero snapshots (no snapshot id)"
+    }
+  },
+  "resticPasswordInSecrets": true,
+  "errors": [
+    "restic snapshots returned zero snapshots (no snapshot id)"
+  ],
+  "durationMs": 6773
+}

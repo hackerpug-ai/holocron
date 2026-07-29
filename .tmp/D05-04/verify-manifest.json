@@ -1,0 +1,32 @@
+{
+  "task_id": "D05-04",
+  "verification_policy": {
+    "requires_tests": false,
+    "requires_red_evidence": false,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": false
+  },
+  "project_commands": {
+    "typecheck": "pnpm tsgo --noEmit",
+    "lint": "pnpm biome check .",
+    "test": "pnpm vitest run"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "test -f services/platform/src/backup/fire-drill.ts && rg -n fire-drill|parity-report|POSTGRES_PARITY services/platform/src/backup/fire-drill.ts services/platform/src/cli/holo.ts"
+    },
+    {
+      "id": "AC-2",
+      "verify": "rg -n LEDGER_CHECKSUM|ledger_checksum|evidence.ledger services/platform/src/backup/fire-drill.ts"
+    },
+    {
+      "id": "AC-3",
+      "verify": "rg -n BLOB_PARITY|restic|sha256 services/platform/src/backup/fire-drill.ts"
+    },
+    {
+      "id": "AC-4",
+      "verify": "rg -n restore:fire-drill|runFireDrill|parity-report.json services/platform/src/cli/holo.ts services/platform/src/backup/fire-drill.ts"
+    }
+  ]
+}

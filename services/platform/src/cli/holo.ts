@@ -35,6 +35,7 @@
  * backup:induce-failure — real failure induction (production-truth) + overdue/failed alerts
  * Sprint 27 REDHAT-FIX-S27-04: backup:healthy --all — reset induced store + success heartbeats
  * Sprint 28 D05-02: restore | restore:pitr | restore:status — pgBackRest PITR into --scratch
+ * Sprint 28 D05-04: restore:fire-drill — full Postgres+blob restore parity (CAP-BAK-01)
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -212,12 +213,18 @@ interface CliArgs {
    * REDHAT-FIX-S27-04: clear induced store + mark all heartbeats success (gate isolation reset).
    */
   all: boolean;
-  /** restore --pitr <iso-timestamp> | restore:pitr */
+  /** restore --pitr <iso-timestamp> | restore:pitr | restore:fire-drill --target-timestamp */
   pitr: string | null;
   /** restore --scratch <dir> — empty target PGDATA (never live mini PGDATA) */
   scratch: string | null;
   /** restore --target-action promote|pause */
   targetAction: string | null;
+  /** restore:fire-drill --blob-dir <empty-dir> — restic restore target (never live mini blobs) */
+  blobDir: string | null;
+  /** restore:fire-drill --report <path> — parity-report.json output path */
+  report: string | null;
+  /** restore:fire-drill --source-blob-root <path> — pre-failure blob manifest root */
+  sourceBlobRoot: string | null;
 }
 
 function printHelp(): void {
@@ -271,6 +278,10 @@ Usage:
                             [--target-action promote|pause] (fail-closed on empty/corrupt/out-of-range)
   restore:pitr              Alias for restore --pitr (same flags)
   restore:status            Show last PITR restore structured report
+  restore:fire-drill        D05-04: full fire-drill (pre-failure snapshot → PITR → restic blob)
+                            --target-timestamp|--pitr <iso> --scratch <empty-pgdata>
+                            --blob-dir <empty-dir> [--report <parity-report.json>]
+                            Exit 0 only if POSTGRES_PARITY_PASS + LEDGER_CHECKSUM_MATCH + BLOB_PARITY_PASS
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
@@ -544,6 +555,9 @@ function parseArgs(argv: string[]): CliArgs {
     pitr: null,
     scratch: null,
     targetAction: null,
+    blobDir: null,
+    report: null,
+    sourceBlobRoot: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -863,6 +877,23 @@ function parseArgs(argv: string[]): CliArgs {
       args.targetAction = argv[++i] ?? null;
     } else if (a.startsWith('--target-action=')) {
       args.targetAction = a.slice('--target-action='.length);
+    } else if (a === '--target-timestamp') {
+      // restore:fire-drill --target-timestamp <iso> (alias of --pitr)
+      args.pitr = argv[++i] ?? null;
+    } else if (a.startsWith('--target-timestamp=')) {
+      args.pitr = a.slice('--target-timestamp='.length);
+    } else if (a === '--blob-dir') {
+      args.blobDir = argv[++i] ?? null;
+    } else if (a.startsWith('--blob-dir=')) {
+      args.blobDir = a.slice('--blob-dir='.length);
+    } else if (a === '--report') {
+      args.report = argv[++i] ?? null;
+    } else if (a.startsWith('--report=')) {
+      args.report = a.slice('--report='.length);
+    } else if (a === '--source-blob-root') {
+      args.sourceBlobRoot = argv[++i] ?? null;
+    } else if (a.startsWith('--source-blob-root=')) {
+      args.sourceBlobRoot = a.slice('--source-blob-root='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -2519,6 +2550,73 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo restore:status failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'restore:fire-drill': {
+      // D05-04: full fire-drill — pre-failure snapshot → PITR → restic blob → parity-report
+      const { runFireDrill, formatParityReportText } = await import('../backup/fire-drill.ts');
+      try {
+        const targetTimestamp = args.pitr ?? args.positional[1] ?? null;
+        const scratch = args.scratch;
+        const blobDir = args.blobDir;
+        if (!targetTimestamp) {
+          console.error(
+            'error: restore:fire-drill requires --target-timestamp <iso> (or --pitr <iso>)'
+          );
+          process.exit(2);
+        }
+        if (!scratch) {
+          console.error(
+            'error: restore:fire-drill requires --scratch <empty-dir> (never live mini PGDATA)'
+          );
+          process.exit(2);
+        }
+        if (!blobDir) {
+          console.error(
+            'error: restore:fire-drill requires --blob-dir <empty-dir> (never live mini blobs)'
+          );
+          process.exit(2);
+        }
+        const reportPath =
+          args.report ?? args.output ?? resolve(process.cwd(), '.tmp/D05-04/parity-report.json');
+        const result = await runFireDrill({
+          targetTimestamp,
+          scratch: resolve(scratch),
+          blobDir: resolve(blobDir),
+          reportPath: resolve(reportPath),
+          sourceBlobRoot: args.sourceBlobRoot ? resolve(args.sourceBlobRoot) : undefined,
+        });
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: result.ok,
+                exitCode: result.exitCode,
+                reportPath: result.reportPath,
+                report: result.report,
+                errors: result.errors,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log(formatParityReportText(result.report));
+          console.log(`  report_path:                ${result.reportPath}`);
+        }
+        if (!result.ok) {
+          for (const e of result.errors) console.error(e);
+        }
+        process.exit(result.ok ? 0 : result.exitCode === 0 ? 1 : result.exitCode);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo restore:fire-drill failed: ${msg}`);
         }
         process.exit(1);
       }

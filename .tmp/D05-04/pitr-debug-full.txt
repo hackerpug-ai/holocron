@@ -1,0 +1,29 @@
+{
+  "ok": false,
+  "exitCode": 50,
+  "errors": [
+    "backup chain integrity check failed",
+    "timestamp is outside available WAL range (not in retention window) — refuse restore"
+  ],
+  "namedErrors": [
+    "backup chain integrity check failed",
+    "timestamp is outside available WAL range (not in retention window) — refuse restore"
+  ],
+  "stdout": "2026-07-28 18:34:12.737 P00   INFO: restore command begin 2.59.0: --config=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-04/.tmp/D05-04/scratch-debug.holo-pgbackrest/pgbackrest-restore-main.conf --exec-id=4136-21632a40 --log-level-console=info --log-level-file=detail --log-path=/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/pgbackrest-restore-logs --pg1-path=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-04/.tmp/D05-04/scratch-debug --process-max=2 --repo1-cipher-pass=<redacted> --repo1-cipher-type=aes-256-cbc --repo1-path=/pgbackrest --repo1-s3-bucket=holocron-backup --repo1-s3-endpoint=d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com --repo1-s3-key=<redacted> --repo1-s3-key-secret=<redacted> --repo1-s3-region=auto --repo1-s3-token=<redacted> --repo1-s3-uri-style=path --repo1-type=s3 --stanza=main --target=\"2026-07-29 00:28:05+00\" --target-action=promote --type=time\n2026-07-28 18:34:12.738 P00  ERROR: [050]: unable to acquire lock on file '/tmp/pgbackrest/main-restore-1.lock': Resource temporarily unavailable\n                                    HINT: is another pgBackRest process running?\n2026-07-28 18:34:12.738 P00   INFO: restore command end: aborted with exception [050]\n",
+  "stderr": "\nbackup chain integrity check failed\ntimestamp is outside available WAL range (not in retention window) — refuse restore",
+  "report": {
+    "exitCode": 50,
+    "targetTimestamp": "2026-07-29T00:28:05Z",
+    "actualStopTimestamp": null,
+    "pgdataPath": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-04/.tmp/D05-04/scratch-debug",
+    "targetAction": "promote",
+    "ok": false,
+    "restoredWalCount": null,
+    "stanza": "main",
+    "repoPrefix": "pgbackrest",
+    "errors": [
+      "backup chain integrity check failed",
+      "timestamp is outside available WAL range (not in retention window) — refuse restore"
+    ]
+  }
+}

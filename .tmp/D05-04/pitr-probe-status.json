@@ -1,0 +1,15 @@
+{
+  "exitCode": 50,
+  "targetTimestamp": "2026-07-29T00:01:02Z",
+  "actualStopTimestamp": null,
+  "pgdataPath": "/tmp/d05-04-pitr-probe",
+  "targetAction": "promote",
+  "ok": false,
+  "restoredWalCount": null,
+  "stanza": "main",
+  "repoPrefix": "pgbackrest",
+  "errors": [
+    "backup chain integrity check failed",
+    "timestamp is outside available WAL range (not in retention window) — refuse restore"
+  ]
+}
