@@ -104,8 +104,14 @@ load_secrets_if_present() {
       secrets="$main_secrets"
     fi
   fi
-  # Also check primary holocron checkout (worktrees often omit secrets.yaml).
-  if [[ ! -f "$secrets" && -f /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml ]]; then
+  # Primary checkout fallback only when caller did not explicitly set a secrets path
+  # (worktrees often omit secrets.yaml). Explicit HOLO*_SECRETS_PATH must not bleed
+  # personal secrets into isolated unit tests (GATE-FIX-S28R3-QA9).
+  local secrets_explicit=0
+  if [[ -n "${HOLOCRON_SECRETS_PATH:-}" || -n "${HOLO_SECRETS_PATH:-}" ]]; then
+    secrets_explicit=1
+  fi
+  if [[ ! -f "$secrets" && "$secrets_explicit" -eq 0 && -f /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml ]]; then
     secrets=/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
   fi
   [[ -f "$secrets" ]] || return 0
@@ -240,7 +246,8 @@ PY
     export R2_RESTORE_SESSION_TOKEN="$MINT_ST"
   fi
   export R2_CREDENTIAL_KIND="object-read-only"
-  pass "minted temporary object-read-only credentials (access key id prefix ${MINT_AK:0:6}…)"
+  # GATE-FIX-S28R3-QA9 / L1: never log Access Key ID (or any credential fragment).
+  pass "minted temporary object-read-only credentials (permission kind=object-read-only; values not logged)"
   return 0
 }
 
@@ -534,29 +541,73 @@ if [[ -z "${BACKUP_R2_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_ACCESS_KEY_ID:-}" &&
   fi
 fi
 
-# GATE-FIX-S28R3-QA8 — credential-tuple identity (not Access Key ID alone).
-# Cloudflare temp object-read-only sessions may reuse the parent Access Key ID when the
-# secret differs and a non-empty session token is present. Shape never replaces the live
-# List/Put/Delete oracle.
+# GATE-FIX-S28R3-QA8/QA9 — credential-tuple identity (not Access Key ID alone).
+# Cloudflare temp object-read-only sessions may reuse the parent Access Key ID only when
+# the authoritative writer secret is present, restore secret is explicitly unequal, and a
+# non-empty session token is present. Unknown writer secret → fail closed (QA9/H1).
+# Shape never replaces the live List/Put/Delete oracle.
 r2_writer_equivalent_tuple() {
   # args: restore_ak restore_sk restore_st [writer_ak] [writer_sk]
+  # return 0 => refuse (writer-equivalent or incomplete); 1 => shape OK
   local rak="${1:-}" rsk="${2:-}" rst="${3:-}" wak="${4:-}" wsk="${5:-}"
   if [[ -z "$rak" || -z "$rsk" ]]; then
-    return 0 # incomplete — handled by placeholder/empty path
+    return 0
   fi
   if [[ -n "$wsk" && "$rsk" == "$wsk" ]]; then
-    return 0 # equivalent (true = is writer-equivalent)
+    return 0
   fi
   if [[ -n "$wak" && "$rak" == "$wak" ]]; then
     if [[ -z "$rst" ]]; then
-      return 0 # same parent AK without session token → incomplete CF temp / writer reuse
-    fi
-    if [[ -n "$wsk" && "$rsk" == "$wsk" ]]; then
       return 0
     fi
-    return 1 # same parent AK + distinct secret + session → NOT writer-equivalent
+    # GATE-FIX-S28R3-QA9 / H1: cannot establish "distinct secret" without writer secret.
+    if [[ -z "$wsk" ]]; then
+      return 0
+    fi
+    if [[ "$rsk" == "$wsk" ]]; then
+      return 0
+    fi
+    return 1
   fi
-  return 1 # distinct AK (or no writer known) → not writer-equivalent by shape
+  return 1
+}
+
+# Safe non-secret fingerprint of the effective restore tuple (for proof binding).
+r2_tuple_fp16() {
+  local rak="${1:-}" rsk="${2:-}" rst="${3:-}"
+  printf '%s\0%s\0%s' "$rak" "$rsk" "$rst" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+}
+
+write_r2_ro_proof_attestation() {
+  local out="${HOLO_R2_RO_PROOF_OUT:-${HOLO_R2_RO_PROOF_PATH:-}}"
+  local rak="$1" rsk="$2" rst="$3"
+  [[ -z "$out" ]] && return 0
+  local fp
+  fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
+  if [[ -z "$fp" || "${#fp}" -lt 8 ]]; then
+    fail "unable to compute non-secret tuple fingerprint for RO proof attestation"
+    return 1
+  fi
+  mkdir -p "$(dirname "$out")"
+  python3 - "$out" "$fp" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+out, fp = sys.argv[1], sys.argv[2]
+payload = {
+  "schema": "holo.r2-ro-proof.v1",
+  "ok": True,
+  "tuple_fp16": fp,
+  "list_allowed": True,
+  "put_denied": True,
+  "delete_denied": True,
+  "proved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+  "note": "non-secret fingerprint only — never includes credential values",
+}
+with open(out, "w", encoding="utf-8") as f:
+  json.dump(payload, f, indent=2)
+  f.write("\n")
+print(f"wrote RO proof attestation: {out} tuple_fp16={fp}")
+PY
 }
 
 PLACEHOLDER=0
@@ -595,7 +646,9 @@ fi
 
 # Pre-probe credential-tuple gate (never logs secret/session values).
 if r2_writer_equivalent_tuple "$AK" "$SK" "$ST" "${BACKUP_R2_ACCESS_KEY_ID:-}" "${BACKUP_R2_SECRET_ACCESS_KEY:-}"; then
-  if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
+  if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" && -z "${BACKUP_R2_SECRET_ACCESS_KEY:-}" ]]; then
+    fail "GATE-FIX-S28R3-QA9: same parent Access Key ID without authoritative writer secret (cannot establish distinct restore secret)"
+  elif [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
     fail "writer-equivalent credential tuple refused (restore secret equals backup RW secret)"
   elif [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" && -z "$ST" ]]; then
     fail "incomplete Cloudflare temporary credential tuple (same parent Access Key ID without non-empty session token)"
@@ -608,11 +661,10 @@ if r2_writer_equivalent_tuple "$AK" "$SK" "$ST" "${BACKUP_R2_ACCESS_KEY_ID:-}" "
 fi
 
 if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" && "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]]; then
-  info "GATE-FIX-S28R3-QA8: Cloudflare temporary credential tuple shape (same parent AK; distinct secret; session present) — live Put/Delete oracle required"
+  info "GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session present) — live Put/Delete oracle required"
 fi
 
 if ! run_live_probe "$AK" "$SK" "$ENDPOINT" "$BUCKET" "$ST"; then
-  # Extra clarity when RW-equivalent secrets were somehow still used
   if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
     fail "probed identity is the backup read-write secret — mint a distinct object-read-only token"
     human_required_mint
@@ -622,20 +674,30 @@ if ! run_live_probe "$AK" "$SK" "$ENDPOINT" "$BUCKET" "$ST"; then
 fi
 
 # Success path: live List allowed + Put/Delete denied is the permission oracle.
-# Same parent AK with distinct secret + session is a valid Cloudflare temp RO shape.
 if [[ -n "${BACKUP_R2_ACCESS_KEY_ID:-}" ]]; then
   if [[ "$AK" == "$BACKUP_R2_ACCESS_KEY_ID" ]]; then
-    if [[ -n "${BACKUP_R2_SECRET_ACCESS_KEY:-}" && "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
+    if [[ -z "${BACKUP_R2_SECRET_ACCESS_KEY:-}" ]]; then
+      fail "GATE-FIX-S28R3-QA9: post-probe same parent AK without writer secret — refuse"
+      echo "=== RESULT: FAIL ==="
+      exit 1
+    fi
+    if [[ "$SK" == "$BACKUP_R2_SECRET_ACCESS_KEY" ]]; then
       fail "credentials equal backup RW identity after live probe — writer-equivalent tuple"
       echo "=== RESULT: FAIL ==="
       exit 1
     fi
-    pass "GATE-FIX-S28R3-QA8: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle"
+    pass "GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle"
   else
     pass "restore RO access key differs from backup R2_ACCESS_KEY_ID"
   fi
 else
   info "backup RW key not loaded — distinctness checked only via Put/Delete denial"
+fi
+
+# GATE-FIX-S28R3-QA9 / M1: optional/default proof attestation bound to tuple fingerprint.
+if ! write_r2_ro_proof_attestation "$AK" "$SK" "$ST"; then
+  echo "=== RESULT: FAIL (proof attestation write) ==="
+  exit 1
 fi
 
 echo "=== RESULT: PASS (live R2 List allowed; Put/Delete AccessDenied) ==="

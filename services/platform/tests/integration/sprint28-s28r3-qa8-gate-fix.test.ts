@@ -11,6 +11,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -84,6 +85,25 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
   it('RED→GREEN: same AK + distinct secret + session token is accepted (shape)', () => {
     const host = `s28r3-qa8-cf-${Date.now().toString(36)}`;
     const staging = resolve(EVIDENCE_DIR, 'provision-cf-shape');
+    // GATE-FIX-S28R3-QA9/M1: REQUIRE_LIVE requires bound non-secret proof for exact tuple.
+    const proof = resolve(EVIDENCE_DIR, 'qa8-cf-shape-proof.json');
+    const fp = createHash('sha256')
+      .update(`${WRITER_AK}\0${RESTORE_SK_DISTINCT}\0${RESTORE_ST}`, 'utf8')
+      .digest('hex')
+      .slice(0, 16);
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(
+      proof,
+      `${JSON.stringify({
+        schema: 'holo.r2-ro-proof.v1',
+        ok: true,
+        tuple_fp16: fp,
+        list_allowed: true,
+        put_denied: true,
+        delete_denied: true,
+        proved_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      })}\n`
+    );
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -96,6 +116,7 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK, // same parent AK (CF temp shape)
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
+        HOLO_R2_RO_PROOF_PATH: proof,
         STAGING_ROOT: staging,
       }),
     });
@@ -171,6 +192,24 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
 
   it('distinct AK still accepted without session token', () => {
     const host = `s28r3-qa8-distinct-${Date.now().toString(36)}`;
+    const proof = resolve(EVIDENCE_DIR, 'qa8-distinct-ak-proof.json');
+    const fp = createHash('sha256')
+      .update(`${OTHER_AK}\0${RESTORE_SK_DISTINCT}\0`, 'utf8')
+      .digest('hex')
+      .slice(0, 16);
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(
+      proof,
+      `${JSON.stringify({
+        schema: 'holo.r2-ro-proof.v1',
+        ok: true,
+        tuple_fp16: fp,
+        list_allowed: true,
+        put_denied: true,
+        delete_denied: true,
+        proved_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      })}\n`
+    );
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -182,6 +221,7 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
         R2_RESTORE_ACCESS_KEY_ID: OTHER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: '',
+        HOLO_R2_RO_PROOF_PATH: proof,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-distinct-ak'),
       }),
     });

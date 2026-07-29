@@ -145,6 +145,10 @@ if [[ -n "$SECRETS" && -f "$SECRETS" ]]; then
       R2_RESTORE_SECRET_ACCESS_KEY)
         if [[ -z "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then export R2_RESTORE_SECRET_ACCESS_KEY="$local_v"; fi
         ;;
+      # GATE-FIX-S28R3-QA9 / H2: import session token from canonical secrets (env-over-file).
+      R2_RESTORE_SESSION_TOKEN)
+        if [[ -z "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then export R2_RESTORE_SESSION_TOKEN="$local_v"; fi
+        ;;
       R2_BUCKET_NAME|CLOUDFLARE_API_TOKEN|R2_PARENT_ACCESS_KEY_ID)
         if [[ -z "${!local_k:-}" && -n "$local_v" ]]; then export "$local_k=$local_v"; fi
         ;;
@@ -526,16 +530,21 @@ else
   info "DATABASE_URL or restore AK unavailable for distinctness string-compare"
 fi
 
-# GATE-FIX-S28R3-QA8: credential-tuple identity (AK + secret + session), not AK alone.
+# GATE-FIX-S28R3-QA8/QA9: credential-tuple identity (AK + secret + session), not AK alone.
 RESTORE_ST_CHECK="${R2_RESTORE_SESSION_TOKEN:-${R2_SESSION_TOKEN:-}}"
 if [[ -n "$BACKUP_AK" && -n "$AK" ]]; then
   if [[ -n "$BACKUP_SK" && -n "$SK" && "$SK" == "$BACKUP_SK" ]]; then
     fail "writer-equivalent credential tuple (restore secret equals backup RW secret)"
   elif [[ "$AK" == "$BACKUP_AK" ]]; then
-    if [[ -z "$RESTORE_ST_CHECK" ]]; then
+    # GATE-FIX-S28R3-QA9 / H1: fail closed when writer secret is unavailable.
+    if [[ -z "$BACKUP_SK" ]]; then
+      fail "GATE-FIX-S28R3-QA9: same parent Access Key ID without authoritative writer secret (cannot establish distinct restore secret)"
+    elif [[ -z "$RESTORE_ST_CHECK" ]]; then
       fail "incomplete Cloudflare temporary credential tuple (same parent Access Key ID without session token)"
+    elif [[ -n "$SK" && "$SK" == "$BACKUP_SK" ]]; then
+      fail "writer-equivalent credential tuple (same AK+secret)"
     else
-      pass "GATE-FIX-S28R3-QA8: same parent AK with distinct secret + session token (Cloudflare temporary shape)"
+      pass "GATE-FIX-S28R3-QA8/QA9: same parent AK with writer secret present, restore secret unequal, session token present"
     fi
   else
     pass "restore access key differs from backup R2_ACCESS_KEY_ID"
