@@ -553,43 +553,26 @@ export function isBaselineParityMeaningful(
 function resticVerifyEnv(
   env: NodeJS.ProcessEnv
 ): { ok: true; env: NodeJS.ProcessEnv } | { ok: false; error: string } {
+  const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
   try {
-    const cfg = loadBackupConfig({ env });
+    // Always pass secretsPath so R2 + restic credentials resolve from secrets.yaml
+    // even when not exported into the process environment.
+    const cfg = loadBackupConfig({ env, secretsPath });
     const password =
       env.RESTIC_PASSWORD?.trim() ||
-      // secrets are already merged into process env by loadBackupConfig callers in production;
-      // also accept HOLO-prefixed overrides.
       env.HOLO_RESTIC_PASSWORD?.trim() ||
+      getSecretValue('RESTIC_PASSWORD', { secretsPath, env }) ||
       '';
     if (password.length < 8) {
-      const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
-      const fromFile = getSecretValue('RESTIC_PASSWORD', { secretsPath, env });
-      if (fromFile && fromFile.length >= 8) {
-        const prefix =
-          env.R2_RESTIC_PREFIX?.trim() ||
-          getSecretValue('R2_RESTIC_PREFIX', { secretsPath, env }) ||
-          'restic';
-        const host = cfg.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const repository = `s3:https://${host}/${cfg.bucketName}/${prefix.replace(/^\/+|\/+$/g, '')}`;
-        const out: NodeJS.ProcessEnv = {
-          ...env,
-          RESTIC_PASSWORD: fromFile,
-          RESTIC_REPOSITORY: env.RESTIC_REPOSITORY?.trim() || repository,
-          AWS_ACCESS_KEY_ID: cfg.accessKeyId,
-          AWS_SECRET_ACCESS_KEY: cfg.secretAccessKey,
-          AWS_DEFAULT_REGION: 'auto',
-          AWS_EC2_METADATA_DISABLED: 'true',
-        };
-        if (cfg.sessionToken) out.AWS_SESSION_TOKEN = cfg.sessionToken;
-        else delete out.AWS_SESSION_TOKEN;
-        return { ok: true, env: out };
-      }
       return {
         ok: false,
         error: 'RESTIC_PASSWORD missing/short — refuse baseline bind without snapshot verification',
       };
     }
-    const prefix = env.R2_RESTIC_PREFIX?.trim() || 'restic';
+    const prefix =
+      env.R2_RESTIC_PREFIX?.trim() ||
+      getSecretValue('R2_RESTIC_PREFIX', { secretsPath, env }) ||
+      'restic';
     const host = cfg.endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const repository =
       env.RESTIC_REPOSITORY?.trim() ||
