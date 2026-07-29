@@ -92,7 +92,9 @@ describe('REDHAT-FIX-S28R2 H3 distinct RO restore credentials (always)', () => {
       expect(body).not.toContain('ambient-rw-secret-must-not-be-used');
     }
     expect(run.status, run.combined.slice(0, 1500)).not.toBe(0);
-    expect(run.combined).toMatch(/R2_RESTORE_|restore.*(key|credential)|PLACEHOLDER|refuse|required/i);
+    expect(run.combined).toMatch(
+      /R2_RESTORE_|restore.*(key|credential)|PLACEHOLDER|refuse|required/i
+    );
   });
 
   it('H3 AC-2: dry-run may write placeholders without ambient RW substitution', () => {

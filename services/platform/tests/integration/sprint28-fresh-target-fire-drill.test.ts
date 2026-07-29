@@ -88,9 +88,11 @@ describe('REDHAT-FIX-S28R2 C1 docker volume mountpoint binding (PLATFORM_IT)', (
 
       const host = `s28r2-c1-${Date.now().toString(36)}`;
       const staging = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S28R2/C1/staging');
+      // Unique host port to avoid Bind: port already allocated on shared mini.
+      const pgPort = String(56000 + (Date.now() % 4000));
       const provision = spawnSync(
         'bash',
-        [PROVISION, '--host', host, '--skip-isolation'],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -102,6 +104,7 @@ describe('REDHAT-FIX-S28R2 C1 docker volume mountpoint binding (PLATFORM_IT)', (
             R2_RESTORE_ACCESS_KEY_ID: '',
             R2_RESTORE_SECRET_ACCESS_KEY: '',
             MINI_HOST: '203.0.113.1',
+            RESTORE_PG_PORT: pgPort,
           },
         }
       );

@@ -13,7 +13,14 @@
  *   pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts
  */
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -346,7 +353,6 @@ describe('REDHAT-FIX-S28R2 H1 refuse zero/empty domain baseline (always)', () =>
     expect(result.ok).toBe(false);
     expect(result.uploaded).toBe(false);
   });
-
 });
 
 describe('REDHAT-FIX-S28R2 H2 exact restic match + selection (always)', () => {
