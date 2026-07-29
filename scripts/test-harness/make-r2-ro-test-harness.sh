@@ -15,6 +15,7 @@ cp "$ROOT_SRC/scripts/run-fire-drill-on-fresh-target.sh" "$HARNESS/scripts/"
 cp "$ROOT_SRC/scripts/verify-restore-creds.sh" "$HARNESS/scripts/" 2>/dev/null || true
 cp "$ROOT_SRC/scripts/assert-fire-drill-report.sh" "$HARNESS/scripts/" 2>/dev/null || true
 cp "$ROOT_SRC/scripts/lib/r2-ro-live.sh" "$HARNESS/scripts/lib/"
+cp "$ROOT_SRC/scripts/lib/r2-scope-probes.json" "$HARNESS/scripts/lib/"
 # Install mock provider as the repository provider path inside harness.
 cp "$MOCK_PROVIDER" "$HARNESS/scripts/lib/r2_s3_provider.py"
 chmod +x "$HARNESS/scripts/lib/r2_s3_provider.py"

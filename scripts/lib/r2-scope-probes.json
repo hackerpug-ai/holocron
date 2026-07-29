@@ -1,0 +1,18 @@
+{
+  "schema": "holo.r2-scope-probes.v1",
+  "task": "GATE-FIX-S28R3-QA14",
+  "bucket": "holocron-backup",
+  "prefix": "pgbackrest",
+  "listed_via": "authorized-writer-control-plane",
+  "object_created": false,
+  "listed_at": "2026-07-29T18:00:00Z",
+  "in_key": "pgbackrest/archive/main/18-1/0000000100000005/0000000100000005000000E3-13f27e2e010416e3c641c1355c653bee6ec7a24b.gz",
+  "out_key": "recovery-baselines/by-backup/20260728-182755F/e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360/recovery-baseline.json",
+  "oracles": {
+    "in_prefix": ["list-prefix", "head-object", "get-object"],
+    "out_of_prefix": ["list-prefix", "head-object", "get-object"],
+    "out_of_prefix_require": "AccessDenied",
+    "refuse": ["404", "NoSuchKey", "unclassified"]
+  },
+  "note": "Both keys were listed with the authorized writer control plane; no object was created. Production live prove must bind these exact keys. Out-of-prefix List/Head/Get must return explicit AccessDenied (never 404)."
+}

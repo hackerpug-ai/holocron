@@ -12,6 +12,8 @@ R2_RO_TRUSTED_PROOF_DIR="${ROOT}/.tmp/r2-ro-proofs"
 R2_RO_SUPPORTED_POLICY_KIND="object-read-only"
 R2_RO_REQUIRED_BUCKET="holocron-backup"
 R2_RO_REQUIRED_PREFIX="pgbackrest"
+# Control-plane-listed known-existing scope probes (writer listed; not created).
+R2_RO_SCOPE_PROBES_JSON="${ROOT}/scripts/lib/r2-scope-probes.json"
 
 # Absolute root-owned helpers only (never PATH, never fixtures, never env overrides).
 R2_RO_ENV_BIN="/usr/bin/env"
@@ -199,13 +201,93 @@ PY
 }
 
 r2_ro_context_fp16() {
-  printf '%s\0%s\0%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" "${4:-}" "${5:-}" \
+  # args: ep bucket prefix kind policy_json in_key out_key
+  printf '%s\0%s\0%s\0%s\0%s\0%s\0%s' \
+    "${1:-}" "${2:-}" "${3:-}" "${4:-}" "${5:-}" "${6:-}" "${7:-}" \
     | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
 }
 
 r2_ro_tuple_fp16() {
   printf '%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" \
     | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+}
+
+# Load control-plane-listed known-existing scope probes and bind into env.
+# Production (no mock mode): keys must match scripts/lib/r2-scope-probes.json exactly
+# (defaults applied when unset). Harness mock mode may use fixture keys.
+r2_ro_bind_scope_probes() {
+  local probes_json pair trusted_in trusted_out
+  probes_json="${R2_RO_SCOPE_PROBES_JSON}"
+  if [[ ! -f "$probes_json" ]]; then
+    echo "error: GATE-FIX-S28R3-QA14 missing trusted scope probe config $probes_json" >&2
+    return 2
+  fi
+  if ! pair="$("$R2_RO_PYTHON_BIN" - "$probes_json" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+if doc.get("schema") != "holo.r2-scope-probes.v1":
+    print("error: bad scope probes schema", file=sys.stderr); sys.exit(2)
+if doc.get("object_created") is not False:
+    print("error: scope probes must be listed-not-created (object_created=false)", file=sys.stderr); sys.exit(2)
+ink, outk = doc.get("in_key") or "", doc.get("out_key") or ""
+if not ink.startswith("pgbackrest/") or not outk or outk.startswith("pgbackrest/"):
+    print("error: trusted scope probe key placement invalid", file=sys.stderr); sys.exit(2)
+# TAB-separated single line (keys never contain tabs)
+print(f"{ink}\t{outk}")
+PY
+)"; then
+    return 2
+  fi
+  trusted_in="${pair%%$'\t'*}"
+  trusted_out="${pair#*$'\t'}"
+  if [[ -z "$trusted_in" || -z "$trusted_out" || "$trusted_in" == "$pair" ]]; then
+    echo "error: GATE-FIX-S28R3-QA14 trusted scope probes empty" >&2
+    return 2
+  fi
+
+  if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
+    # Harness-only: fixture keys allowed; still require both set.
+    if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" || -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
+      echo "error: GATE-FIX-S28R3-QA14 requires R2_SCOPE_PROBE_IN_KEY and R2_SCOPE_PROBE_OUT_KEY (known-existing objects)" >&2
+      return 2
+    fi
+  else
+    # Production live: bind exact control-plane keys.
+    if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" ]]; then
+      R2_SCOPE_PROBE_IN_KEY="$trusted_in"
+    fi
+    if [[ -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
+      R2_SCOPE_PROBE_OUT_KEY="$trusted_out"
+    fi
+    if [[ "${R2_SCOPE_PROBE_IN_KEY}" != "$trusted_in" ]]; then
+      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_IN_KEY must match trusted control-plane in_key" >&2
+      return 2
+    fi
+    if [[ "${R2_SCOPE_PROBE_OUT_KEY}" != "$trusted_out" ]]; then
+      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY must match trusted control-plane out_key" >&2
+      return 2
+    fi
+  fi
+
+  case "${R2_SCOPE_PROBE_IN_KEY}" in
+    pgbackrest/*) ;;
+    *)
+      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_IN_KEY must be under pgbackrest/" >&2
+      return 2
+      ;;
+  esac
+  case "${R2_SCOPE_PROBE_OUT_KEY}" in
+    pgbackrest/*)
+      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY must be outside pgbackrest/" >&2
+      return 2
+      ;;
+    *..*|'')
+      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY invalid" >&2
+      return 2
+      ;;
+  esac
+  export R2_SCOPE_PROBE_IN_KEY R2_SCOPE_PROBE_OUT_KEY
+  return 0
 }
 
 r2_ro_establish_canonical_context() {
@@ -258,29 +340,12 @@ r2_ro_establish_canonical_context() {
       return 2
     fi
   fi
-  # Known-existing scope probe keys required for live authorization oracles.
-  if [[ -z "${R2_SCOPE_PROBE_IN_KEY:-}" || -z "${R2_SCOPE_PROBE_OUT_KEY:-}" ]]; then
-    echo "error: GATE-FIX-S28R3-QA14 requires R2_SCOPE_PROBE_IN_KEY and R2_SCOPE_PROBE_OUT_KEY (known-existing objects)" >&2
+  # Bind known-existing scope probes from control-plane trusted config.
+  if ! r2_ro_bind_scope_probes; then
     return 2
   fi
-  case "${R2_SCOPE_PROBE_IN_KEY}" in
-    pgbackrest/*) ;;
-    *)
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_IN_KEY must be under pgbackrest/" >&2
-      return 2
-      ;;
-  esac
-  case "${R2_SCOPE_PROBE_OUT_KEY}" in
-    pgbackrest/*)
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY must be outside pgbackrest/" >&2
-      return 2
-      ;;
-    *..*|'')
-      echo "error: GATE-FIX-S28R3-QA14 R2_SCOPE_PROBE_OUT_KEY invalid" >&2
-      return 2
-      ;;
-  esac
-  ctx="$(r2_ro_context_fp16 "$ep" "$bucket" "$prefix" "$kind" "$policy_json")"
+  ctx="$(r2_ro_context_fp16 "$ep" "$bucket" "$prefix" "$kind" "$policy_json" \
+    "${R2_SCOPE_PROBE_IN_KEY}" "${R2_SCOPE_PROBE_OUT_KEY}")"
   if [[ -z "$ctx" || "${#ctx}" -lt 8 ]]; then
     echo "error: GATE-FIX-S28R3-QA14 unable to fingerprint canonical context" >&2
     return 2
@@ -322,10 +387,11 @@ r2_ro_new_proof_path() {
 
 r2_ro_write_proof_exclusive() {
   local out="$1" fp="$2" ctx="$3"
-  "$R2_RO_PYTHON_BIN" - "$out" "$fp" "$ctx" "$R2_RO_TRUSTED_PROOF_DIR" <<'PY'
+  local in_key="${R2_SCOPE_PROBE_IN_KEY:-}" out_key="${R2_SCOPE_PROBE_OUT_KEY:-}"
+  "$R2_RO_PYTHON_BIN" - "$out" "$fp" "$ctx" "$R2_RO_TRUSTED_PROOF_DIR" "$in_key" "$out_key" <<'PY'
 import json, os, stat, sys
 from datetime import datetime, timezone
-out, fp, ctx, trusted = sys.argv[1:5]
+out, fp, ctx, trusted, in_key, out_key = sys.argv[1:7]
 trusted = os.path.realpath(trusted)
 if ".." in out.split(os.sep):
     print("error: proof path contains ..", file=sys.stderr); sys.exit(2)
@@ -349,6 +415,8 @@ try:
     os.fchmod(fd, 0o600)
 except OSError:
     pass
+if not in_key or not out_key:
+    print("error: proof missing bound scope probe keys", file=sys.stderr); sys.exit(2)
 payload = {
     "schema": "holo.r2-ro-proof.v1",
     "ok": True,
@@ -366,9 +434,17 @@ payload = {
     "policy_kind": "object-read-only",
     "bucket": "holocron-backup",
     "prefix": "pgbackrest",
+    "scope_probe_in_key": in_key,
+    "scope_probe_out_key": out_key,
+    "scope_probes_bound": True,
+    "scope_oracles": {
+        "out_of_prefix_list": "AccessDenied",
+        "out_of_prefix_head": "AccessDenied",
+        "out_of_prefix_get": "AccessDenied",
+    },
     "producer": "scripts/prove-r2-readonly.sh",
     "proved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "note": "non-secret fingerprints only",
+    "note": "non-secret fingerprints + bound known-existing scope probe keys",
 }
 with os.fdopen(fd, "w", encoding="utf-8") as f:
     json.dump(payload, f, indent=2)

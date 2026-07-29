@@ -162,7 +162,8 @@ describe('GATE-FIX-S28R3-QA14 HIGH scope oracles', () => {
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     writeEvidence('h1-broader.json', { status: run.status, combined: combined.slice(0, 2500) });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/broader_read_scope/);
+    // List is checked first; broader list or head/get read both fail closed.
+    expect(combined).toMatch(/broader_list_scope|broader_read_scope/);
   });
 
   it('missing scope probe keys fail closed', () => {
@@ -174,6 +175,60 @@ describe('GATE-FIX-S28R3-QA14 HIGH scope oracles', () => {
     });
     expect(run.status).not.toBe(0);
     expect(`${run.stdout}${run.stderr}`).toMatch(/R2_SCOPE_PROBE|known-existing/i);
+  });
+
+  it('production path refuses non-control-plane scope probe keys', () => {
+    // Production scripts (no mock mode) bind exact control-plane keys from r2-scope-probes.json.
+    const derivedEp = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    const run = spawnSync('bash', [PROD_PROVE], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 20_000,
+      env: {
+        PATH: '/usr/bin:/bin',
+        HOME: process.env.HOME,
+        REQUIRE_LIVE_R2_RO: '1',
+        R2_ACCOUNT_ID: ACCOUNT_ID,
+        R2_ENDPOINT: derivedEp,
+        R2_ACCESS_KEY_ID: 'AKIA_TEST',
+        R2_SECRET_ACCESS_KEY: 'secret',
+        R2_SESSION_TOKEN: 'tok',
+        R2_RESTORE_ACCESS_KEY_ID: 'AKIA_TEST',
+        R2_RESTORE_SECRET_ACCESS_KEY: 'secret2',
+        R2_RESTORE_SESSION_TOKEN: 'tok',
+        R2_BUCKET_NAME: 'holocron-backup',
+        R2_PGBACKREST_PREFIX: 'pgbackrest',
+        R2_CREDENTIAL_KIND: 'object-read-only',
+        R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/not-the-control-plane-key.bin',
+        R2_SCOPE_PROBE_OUT_KEY:
+          'recovery-baselines/by-backup/20260728-182755F/e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360/recovery-baseline.json',
+      },
+    });
+    expect(run.status).not.toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toMatch(/trusted control-plane|R2_SCOPE_PROBE_IN_KEY/i);
+  });
+
+  it('successful harness proof binds scope probe keys into attestation', () => {
+    const run = spawnSync('bash', [H.prove], {
+      cwd: H.root,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: env({}),
+    });
+    expect(run.status).toBe(0);
+    const m = `${run.stdout}${run.stderr}`.match(/wrote RO proof attestation:\s+(\S+)/);
+    expect(m?.[1]).toBeTruthy();
+    const proofPath = m![1]!;
+    expect(existsSync(proofPath)).toBe(true);
+    const proof = JSON.parse(readFileSync(proofPath, 'utf8')) as Record<string, unknown>;
+    expect(proof.scope_probes_bound).toBe(true);
+    expect(proof.scope_probe_in_key).toBe(SCOPE_IN);
+    expect(proof.scope_probe_out_key).toBe(SCOPE_OUT);
+    expect(proof.scope_oracles).toMatchObject({
+      out_of_prefix_list: 'AccessDenied',
+      out_of_prefix_head: 'AccessDenied',
+      out_of_prefix_get: 'AccessDenied',
+    });
   });
 
   it('endpoint trailing slash rejected (byte-equal)', () => {

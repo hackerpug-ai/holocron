@@ -437,9 +437,7 @@ run_live_probe() {
   pass "in-prefix get-object allowed (class=prefix_get_ok; body discarded)"
 
   # (3) Out-of-prefix List/Head/Get against known-existing object.
-  # Head/Get MUST be explicit AccessDenied (exit 2). Never accept 404/NoSuchKey as denial.
-  # ListBucket is often bucket-wide under object-read-only; List may succeed (keys visible)
-  # but Get/Head outside pgbackrest/ must still be AccessDenied.
+  # List/Head/Get MUST each be explicit AccessDenied (exit 2). Never accept 404/NoSuchKey.
   local out_prefix
   out_prefix="$(dirname "$out_key")"
   [[ "$out_prefix" == "." ]] && out_prefix=""
@@ -448,14 +446,15 @@ run_live_probe() {
     --endpoint "$endpoint" --bucket "$bucket" --prefix "${out_prefix:+$out_prefix/}" >/dev/null 2>&1
   rc=$?
   set -e
-  if [[ $rc -eq 2 ]]; then
-    pass "out-of-prefix list AccessDenied (class=prefix_scope_enforced)"
-  elif [[ $rc -eq 0 ]]; then
-    info "out-of-prefix list allowed (bucket List); Head/Get must still AccessDenied"
-  else
-    fail "out-of-prefix list exit ${rc} is ambiguous (class=scope_oracle_ambiguous; refuse 404/other as sole oracle)"
+  if [[ $rc -eq 0 ]]; then
+    fail "out-of-prefix list SUCCEEDED (class=broader_list_scope); require AccessDenied"
     return 1
   fi
+  if [[ $rc -ne 2 ]]; then
+    fail "out-of-prefix list exit ${rc} is not AccessDenied (class=scope_oracle_ambiguous; refuse 404/other)"
+    return 1
+  fi
+  pass "out-of-prefix list AccessDenied (class=prefix_scope_enforced)"
 
   set +e
   r2_ro_run_provider "$key" "$secret" "$session" head-object \
