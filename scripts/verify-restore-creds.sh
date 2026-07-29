@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # D05-06 / CAP-BAK-01 AC-2 + REDHAT-FIX-H5 — Restore R2 credentials are
 # read-only + scoped to an EXACT concrete bucket ARN and object prefix.
+# REDHAT-FIX-H4 — Delete negative control is sacrificial drill-neg OR non-mutating
+# policy inspection; NEVER delete live recovery keys (bucket-root "existing", backup/, …).
 #
 # Real policy inspection + optional live aws Put/Delete denial.
 # Fails closed when:
@@ -11,6 +13,7 @@
 #   - restore identity equals backup RW / DATABASE_URL identity
 #   - ambient parent/RW keys present for restore role
 #   - live RO probe required but only RW keys work (Put succeeds)
+#   - any destructive negative control targets live recovery prefixes
 #
 # Residual path (DEPENDENCY-S28-R2-RO):
 #   When only backup RW keys exist and RO mint is unavailable, the script STILL
@@ -533,11 +536,62 @@ else
   info "backup AK or restore AK missing — identity distinctness deferred to live probe"
 fi
 
-# ── (E) Live fail-closed: RW must NOT pass as RO ───────────────────────────
+# ── (E0) REDHAT-FIX-H4: denylist + sacrificial key contract (no live recovery rm) ─
 LIVE_SCRIPT="$ROOT/scripts/prove-r2-readonly.sh"
+H4_DENYLIST_OK=0
+if [[ -f "$LIVE_SCRIPT" ]]; then
+  info "REDHAT-FIX-H4: verifying live recovery denylist + sacrificial drill-neg contract"
+  h4_bad=0
+  # Denylisted keys must be refused before any delete API call.
+  for bad_key in \
+    existing \
+    backup/main/latest \
+    archive/main/000000010000000000000001 \
+    pgbackrest/backup/main/backup.info \
+    restic/snapshots/abc \
+    "s3://${BUCKET}/existing"
+  do
+    set +e
+    bash "$LIVE_SCRIPT" --assert-denylisted "$bad_key" >"$EVIDENCE_DIR/h4-denylist-${bad_key//\//_}.txt" 2>&1
+    dk_rc=$?
+    set -e
+    if [[ $dk_rc -ne 0 ]]; then
+      echo "  detail: denylist miss for key=${bad_key}" >&2
+      h4_bad=1
+    fi
+  done
+  # Sacrificial key must be allowed; live key must not pass --assert-safe-key.
+  set +e
+  sac_key="$(bash "$LIVE_SCRIPT" --make-sacrificial-key)"
+  bash "$LIVE_SCRIPT" --assert-safe-key "$sac_key" >"$EVIDENCE_DIR/h4-sacrificial-ok.txt" 2>&1
+  sac_rc=$?
+  bash "$LIVE_SCRIPT" --assert-safe-key "existing" >"$EVIDENCE_DIR/h4-existing-refused.txt" 2>&1
+  exist_rc=$?
+  set -e
+  if [[ $sac_rc -ne 0 ]]; then
+    echo "  detail: sacrificial key rejected: ${sac_key}" >&2
+    h4_bad=1
+  fi
+  if [[ $exist_rc -eq 0 ]]; then
+    echo "  detail: literal 'existing' incorrectly allowed as destructive target" >&2
+    h4_bad=1
+  fi
+  if [[ $h4_bad -eq 0 ]]; then
+    pass "REDHAT-FIX-H4 denylist enforces live recovery refusal; drill-neg sacrificial allowed"
+    H4_DENYLIST_OK=1
+  else
+    fail "REDHAT-FIX-H4 denylist/sacrificial contract broken"
+  fi
+else
+  fail "prove-r2-readonly.sh missing — cannot prove H-4 denylist"
+fi
+
+# ── (E) Live fail-closed: RW must NOT pass as RO ───────────────────────────
+# Live probe (prove-r2-readonly) uses drill-neg/<uuid> only — never live recovery keys.
 RW_NEGATIVE_OK=0
 if [[ -f "$LIVE_SCRIPT" && -n "$BACKUP_AK" && -n "$BACKUP_SK" && -n "$LIVE_ENDPOINT" ]] && ! is_placeholder "$LIVE_ENDPOINT"; then
   info "negative control: probe backup RW keys through prove-r2-readonly (must FAIL)"
+  info "delete target is sacrificial drill-neg only (REDHAT-FIX-H4); never live recovery keys"
   info "live endpoint host: $(echo "$LIVE_ENDPOINT" | sed -E 's#https://([^/]+).*#\1#')"
   set +e
   # Explicit env -u so restore-target.env placeholder endpoint cannot leak in.
@@ -571,6 +625,12 @@ if [[ -f "$LIVE_SCRIPT" && -n "$BACKUP_AK" && -n "$BACKUP_SK" && -n "$LIVE_ENDPO
         fail "RW negative control did not exercise live Put (placeholder path) — check LIVE_ENDPOINT"
         RW_NEGATIVE_OK=0
       fi
+    fi
+    # H-4: RW negative must target sacrificial drill-neg (not live recovery keys).
+    if grep -qiE 'drill-neg/' "$EVIDENCE_DIR/ac2-rw-negative-control.txt"; then
+      pass "RW negative control used sacrificial drill-neg key (REDHAT-FIX-H4)"
+    else
+      info "RW negative log did not echo drill-neg key (may have failed before probe)"
     fi
   fi
 else
@@ -630,30 +690,37 @@ if is_placeholder "${ENDPOINT:-}"; then
   residual "restore-target.env endpoint/keys are placeholder until live RO mint (DEPENDENCY-S28-R2-RO)"
 fi
 
-echo "=== SUMMARY: pass=${PASS_COUNT} fail=${FAIL_COUNT} ro_live=${RO_LIVE_OK} rw_negative_ok=${RW_NEGATIVE_OK} ==="
+echo "=== SUMMARY: pass=${PASS_COUNT} fail=${FAIL_COUNT} ro_live=${RO_LIVE_OK} rw_negative_ok=${RW_NEGATIVE_OK} h4_denylist_ok=${H4_DENYLIST_OK} ==="
 if [[ ${#RESIDUALS[@]} -gt 0 ]]; then
   echo "=== RESIDUALS (${#RESIDUALS[@]}) ==="
   for r in "${RESIDUALS[@]}"; do echo " - $r"; done
 fi
 
 # Gate logic:
-# - Hard FAILs always block.
+# - Hard FAILs always block (includes REDHAT-FIX-H4 denylist failures).
 # - Live RO positive is required for full AC-2 green UNLESS residual is only missing RO mint
 #   AND fail-closed RW rejection + declarative RO policy both passed.
 # Task instruction: "if only RW R2 keys exist and RO mint unavailable, honestly report residual
 # (DEPENDENCY-S28-R2-RO) but still verify fail-closed probe rejects RW for RO role"
+# Non-mutating path: policy PUT_DELETE_COUNT=0 is sufficient delete-denial evidence when
+# live RO mint is residual; never require deleting a live recovery object.
 if [[ $FAIL_COUNT -gt 0 ]]; then
   echo "=== RESULT: FAIL (credential scope checks) ==="
   exit 1
 fi
 
+if [[ $H4_DENYLIST_OK -ne 1 ]]; then
+  echo "=== RESULT: FAIL (REDHAT-FIX-H4 denylist not proven) ==="
+  exit 1
+fi
+
 if [[ $RO_LIVE_OK -eq 1 ]]; then
-  echo "=== RESULT: PASS (read-only scoped + live RO proof) ==="
+  echo "=== RESULT: PASS (read-only scoped + live RO proof; H-4 sacrificial delete control) ==="
   exit 0
 fi
 
 if [[ $RW_NEGATIVE_OK -eq 1 && -n "$POLICY" ]]; then
-  echo "=== RESULT: PASS_WITH_RESIDUAL (DEPENDENCY-S28-R2-RO; fail-closed RW rejection + RO policy OK; live RO mint pending) ==="
+  echo "=== RESULT: PASS_WITH_RESIDUAL (DEPENDENCY-S28-R2-RO; fail-closed RW rejection + RO policy DeleteObject=0 + H-4 denylist; live RO mint pending) ==="
   # Exit 0 for review gate when residual is documented — full live RO still residual.
   # Security review documents residual; do not pretend live RO exists.
   exit 0

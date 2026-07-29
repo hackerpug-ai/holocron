@@ -6,14 +6,20 @@
 # PASS only when ALL hold:
 #   (1) credentials are non-placeholder and distinct from backup RW keys (when known)
 #   (2) aws s3 ls  s3://$bucket          → exit 0   (List allowed)
-#   (3) aws s3 cp  local → s3://bucket/… → non-zero + AccessDenied (Put blocked)
-#   (4) aws s3 rm  s3://bucket/…         → non-zero + AccessDenied (Delete blocked)
+#   (3) aws s3 cp  local → s3://bucket/drill-neg/… → non-zero + AccessDenied (Put blocked)
+#   (4) aws s3api delete-object on drill-neg/… only → non-zero + AccessDenied (Delete blocked)
+#
+# REDHAT-FIX-H4: NEVER target live recovery keys (backup/, archive/, pgbackrest/,
+# restic/, literal "existing", HOLO_BACKUP_PREFIX). Delete negative control uses
+# only sacrificial keys under drill-neg/<uuid>/ (or non-mutating policy inspect
+# via scripts/verify-restore-creds.sh). Fail closed if a denylisted key is requested.
 #
 # Fails closed when:
 #   - keys/endpoint are placeholders
 #   - Put or Delete succeeds (proves RW identity, not RO)
 #   - List fails (broken/expired/wrong keys)
 #   - REQUIRE_LIVE_R2_RO=1 and live proof cannot run
+#   - any delete/put probe targets a live recovery prefix
 #
 # Credential resolution order (first non-empty wins for access key pair):
 #   R2_RESTORE_ACCESS_KEY_ID / R2_RESTORE_SECRET_ACCESS_KEY
@@ -242,10 +248,107 @@ aws_s3() {
   aws --cli-connect-timeout 10 --cli-read-timeout 30 "$@"
 }
 
+# ── REDHAT-FIX-H4: live recovery key denylist + sacrificial drill-neg keys ──
+# Normalize an S3 key or s3://bucket/key URI to a bare object key (no leading /).
+normalize_object_key() {
+  local raw="${1:-}"
+  raw="${raw#s3://}"
+  # If URI form bucket/key, drop the first path segment when it looks like a bucket.
+  if [[ "$raw" == */* && "$raw" != drill-neg/* && "$raw" != backup/* && "$raw" != archive/* ]]; then
+    # Heuristic: s3://bucket/key → strip bucket only when caller passed full URI.
+    if [[ "${1:-}" == s3://* ]]; then
+      raw="${raw#*/}"
+    fi
+  fi
+  raw="${raw#/}"
+  printf '%s' "$raw"
+}
+
+# Return 0 if key is a denylisted live recovery / production path (must refuse).
+# Denylist: backup/, archive/, pgbackrest/ (production stanza root), restic paths,
+# literal "existing", configured HOLO_BACKUP_PREFIX / R2_PGBACKREST_PREFIX.
+matches_live_recovery_key() {
+  local key
+  key="$(normalize_object_key "${1:-}")"
+  [[ -z "$key" ]] && return 1
+
+  # Literal root key used by the pre-fix D05-03 AC-2 destructive control.
+  if [[ "$key" == "existing" || "$key" == "existing/"* ]]; then
+    return 0
+  fi
+
+  case "$key" in
+    backup|backup/*|archive|archive/*) return 0 ;;
+    restic|restic/*) return 0 ;;
+  esac
+
+  # Production pgBackRest prefix (exact "pgbackrest" or "pgbackrest/…").
+  # Test-scoped fixtures like pgbackrest-d05-01-red/ are NOT denylisted here;
+  # destructive negative controls still must use drill-neg/ only (assert below).
+  if [[ "$key" == "pgbackrest" || "$key" == pgbackrest/* ]]; then
+    return 0
+  fi
+
+  local pref="${HOLO_BACKUP_PREFIX:-${R2_PGBACKREST_PREFIX:-}}"
+  if [[ -n "$pref" ]]; then
+    pref="${pref#/}"
+    pref="${pref%/}"
+    if [[ -n "$pref" && ( "$key" == "$pref" || "$key" == "$pref"/* ) ]]; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+# Return 0 only for sacrificial drill-neg/<uuid>/… keys (H-4 allowed destructive target).
+is_sacrificial_drill_neg_key() {
+  local key
+  key="$(normalize_object_key "${1:-}")"
+  [[ "$key" == drill-neg/* ]] || return 1
+  # drill-neg itself must never alias a denylisted path
+  matches_live_recovery_key "$key" && return 1
+  # require at least drill-neg/<something>
+  [[ "$key" == "drill-neg" || "$key" == "drill-neg/" ]] && return 1
+  return 0
+}
+
+# Hard-stop before any Put/Delete API call against a non-sacrificial key.
+assert_safe_destructive_probe_key() {
+  local key="${1:-}"
+  local op="${2:-destructive}"
+  if matches_live_recovery_key "$key"; then
+    fail "refusing ${op} against live recovery key '${key}' (REDHAT-FIX-H4 denylist)"
+    echo "  detail: use only drill-neg/<uuid>/… sacrificial keys; never backup/, archive/, pgbackrest/, restic/, or 'existing'" >&2
+    return 1
+  fi
+  if ! is_sacrificial_drill_neg_key "$key"; then
+    fail "refusing ${op} against non-sacrificial key '${key}' (must be drill-neg/<uuid>/…)"
+    return 1
+  fi
+  return 0
+}
+
+# Generate a unique sacrificial object key under drill-neg/.
+make_sacrificial_drill_neg_key() {
+  local uuid
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuid="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  else
+    uuid="$(date +%s)-$$-${RANDOM:-0}"
+  fi
+  printf 'drill-neg/%s-redhat-fix-h4.txt' "$uuid"
+}
+
 run_live_probe() {
   local key="$1" secret="$2" endpoint="$3" bucket="$4" session="${5:-}"
-  local probe_key="d05-03-ro-probe/should-deny-$(date +%s)-$$"
+  # REDHAT-FIX-H4: uniquely generated sacrificial key only — never live recovery objects.
+  local probe_key
+  probe_key="$(make_sacrificial_drill_neg_key)"
   local s3_uri="s3://${bucket}/${probe_key}"
+
+  if ! assert_safe_destructive_probe_key "$probe_key" "put/delete probe"; then
+    return 1
+  fi
 
   if ! command -v aws >/dev/null 2>&1; then
     fail "aws CLI not installed — cannot live-prove R2 read-only"
@@ -280,15 +383,17 @@ run_live_probe() {
   pass "aws s3 ls s3://${bucket} exit 0 (List allowed)"
   # Do not dump full listing (may be large); show first line only.
   info "ls sample: $(echo "$ls_out" | head -n 1 | tr '\n' ' ')"
+  info "sacrificial probe key: ${probe_key} (REDHAT-FIX-H4 drill-neg only)"
 
-  # (3) Put must be denied
+  # (3) Put must be denied — only against sacrificial drill-neg key.
   local put_out put_rc
   set +e
-  put_out="$(echo "d05-03-ro-probe-should-deny" | "${aws_env[@]}" aws s3 cp - "$s3_uri" --endpoint-url "$endpoint" 2>&1)"
+  put_out="$(echo "SACRIFICIAL_DRILL_NEG_H4-should-deny" | "${aws_env[@]}" aws s3 cp - "$s3_uri" --endpoint-url "$endpoint" 2>&1)"
   put_rc=$?
   set -e
   if [[ $put_rc -eq 0 ]]; then
-    fail "aws s3 cp SUCCEEDED — credentials allow Put (not object-read-only); cleaning probe object"
+    fail "aws s3 cp SUCCEEDED — credentials allow Put (not object-read-only); cleaning sacrificial probe object"
+    # Cleanup only allowed under drill-neg/ (already asserted).
     set +e
     "${aws_env[@]}" aws s3 rm "$s3_uri" --endpoint-url "$endpoint" >/dev/null 2>&1
     set -e
@@ -306,19 +411,15 @@ run_live_probe() {
     # Soft note if only 403 without AccessDenied token — still count as blocked put.
     info "put blocked (exit ${put_rc}); stderr: $(echo "$put_out" | tr '\n' ' ' | head -c 200)"
   fi
-  pass "aws s3 cp denied (Put blocked; exit ${put_rc}; AccessDenied/403)"
+  pass "aws s3 cp denied on drill-neg key (Put blocked; exit ${put_rc}; AccessDenied/403)"
 
-  # (4) Delete must be denied — target a well-known prefix that may or may not exist.
-  # Prefer an existing object path under pgbackrest/ if list shows one; else probe key.
-  local del_target="$s3_uri"
-  local existing
-  existing="$(echo "$ls_out" | awk '/PRE /{next} NF>=4 {print $4; exit}')"
-  if [[ -n "${existing:-}" ]]; then
-    # listing format for objects: DATE TIME SIZE KEY — rare at bucket root (usually PRE).
-    :
+  # (4) Delete must be denied — sacrificial drill-neg key ONLY (H-4).
+  # NEVER target live recovery keys (bucket-root "existing", backup/, pgbackrest/, …).
+  # AccessDenied on a missing sacrificial key still proves Delete is not allowed.
+  if ! assert_safe_destructive_probe_key "$probe_key" "delete probe"; then
+    return 1
   fi
-  # Use a deterministic non-owned path; AccessDenied on missing object still proves no Delete.
-  del_target="s3://${bucket}/d05-03-ro-probe/delete-should-deny"
+  local del_target="s3://${bucket}/${probe_key}"
 
   local del_out del_rc
   set +e
@@ -329,7 +430,7 @@ run_live_probe() {
     # aws s3 rm often exits 0 even when object missing. Treat success as failure only if
     # delete actually removed something; if "delete: s3://..." with no error, still ambiguous.
     if echo "$del_out" | grep -qiE 'delete:'; then
-      fail "aws s3 rm reported delete success — credentials may allow Delete (not RO)"
+      fail "aws s3 rm reported delete success on sacrificial key — credentials may allow Delete (not RO)"
       echo "  detail: $(echo "$del_out" | tr '\n' ' ' | head -c 300)" >&2
       return 1
     fi
@@ -341,14 +442,14 @@ run_live_probe() {
   set +e
   api_out="$("${aws_env[@]}" aws s3api delete-object \
     --bucket "$bucket" \
-    --key "d05-03-ro-probe/delete-should-deny" \
+    --key "$probe_key" \
     --endpoint-url "$endpoint" 2>&1)"
   api_rc=$?
   set -e
   if [[ $api_rc -eq 0 ]]; then
     # s3api delete-object returns 204 even for missing keys when Delete is allowed.
     # That proves Delete permission exists → not RO.
-    fail "aws s3api delete-object SUCCEEDED — credentials allow Delete (not object-read-only)"
+    fail "aws s3api delete-object SUCCEEDED on sacrificial key — credentials allow Delete (not object-read-only)"
     echo "  detail: $(echo "$api_out" | tr '\n' ' ' | head -c 300)" >&2
     return 1
   fi
@@ -357,16 +458,49 @@ run_live_probe() {
     echo "  detail: $(echo "$api_out" | tr '\n' ' ' | head -c 400)" >&2
     return 1
   fi
-  pass "aws s3api delete-object denied (Delete blocked; exit ${api_rc}; AccessDenied/403)"
+  pass "aws s3api delete-object denied on drill-neg key (Delete blocked; exit ${api_rc}; AccessDenied/403)"
   return 0
 }
 
 TRY_MINT=0
+# REDHAT-FIX-H4 helper modes (no network): denylist / sacrificial key classification.
+#   --assert-safe-key KEY   exit 0 if KEY is sacrificial drill-neg; else non-zero
+#   --assert-denylisted KEY exit 0 if KEY matches live recovery denylist; else non-zero
+#   --make-sacrificial-key  print a new drill-neg/<uuid> key and exit 0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --try-mint) TRY_MINT=1; shift ;;
+    --assert-safe-key)
+      key_arg="${2:-}"
+      if [[ -z "$key_arg" ]]; then
+        echo "FAIL: --assert-safe-key requires a key" >&2
+        exit 2
+      fi
+      if assert_safe_destructive_probe_key "$key_arg" "assert-safe-key"; then
+        echo "PASS: sacrificial drill-neg key allowed: $(normalize_object_key "$key_arg")"
+        exit 0
+      fi
+      exit 1
+      ;;
+    --assert-denylisted)
+      key_arg="${2:-}"
+      if [[ -z "$key_arg" ]]; then
+        echo "FAIL: --assert-denylisted requires a key" >&2
+        exit 2
+      fi
+      if matches_live_recovery_key "$key_arg"; then
+        echo "PASS: key is denylisted live recovery path: $(normalize_object_key "$key_arg")"
+        exit 0
+      fi
+      echo "FAIL: key is NOT denylisted: $(normalize_object_key "$key_arg")" >&2
+      exit 1
+      ;;
+    --make-sacrificial-key)
+      make_sacrificial_drill_neg_key
+      exit 0
+      ;;
     -h|--help)
-      sed -n '1,40p' "$0"
+      sed -n '1,50p' "$0"
       exit 0
       ;;
     *)

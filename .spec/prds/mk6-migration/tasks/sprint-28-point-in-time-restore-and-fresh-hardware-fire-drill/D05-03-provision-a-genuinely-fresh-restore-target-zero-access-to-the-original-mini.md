@@ -111,10 +111,10 @@ AC-2 Restore target uses scoped R2 read-only credentials (flow_ref T-PLAT-025)
   THEN:  the credentials are bucket-scoped with only List and Get permissions (no Put or Delete); the credentials differ from the app's read-write creds
   TEST_TIER: integration · VERIFICATION_SERVICE: R2-credential-scoping · TDD_STATE: none
   SCENARIO — start_ref: fresh_target_provisioned · evidence: stdout
-    NEGATIVE_CONTROL: would fail if R2 credentials are the app's read-write creds (stub reuses same); aws s3 cp test.txt s3://bucket/ succeeds (Put not blocked — mock); aws s3 rm succeeds (Delete not blocked — no-op)
-    MUST_OBSERVE: env | grep -c 'R2_ACCESS_KEY_ID' = 1 AND env | grep -c 'R2_SECRET_ACCESS_KEY' = 1 (both set); aws s3 ls $R2_BUCKET exit code = 0 (List allowed); aws s3 cp /dev/null $R2_BUCKET/test-put exit code != 0 AND stderr contains 'AccessDenied' (Put blocked); aws s3 rm $R2_BUCKET/existing exit code != 0 AND stderr contains 'AccessDenied' (Delete blocked)
-    MUST_NOT_OBSERVE: env | grep -c 'R2_ACCESS_KEY_ID' = 0 (empty); aws s3 cp exit code = 0 (Put allowed — fake-success start state); aws s3 rm exit code = 0 (Delete allowed); credentials match the app's read-write creds
-  verify: env | grep R2_ shows R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY set; R2_BUCKET scoped to holocron-backups; a test aws s3 ls succeeds but aws s3 cp fails with AccessDenied
+    NEGATIVE_CONTROL: would fail if R2 credentials are the app's read-write creds (stub reuses same); aws s3 cp test.txt s3://bucket/drill-neg/<uuid>/ succeeds (Put not blocked — mock); delete against sacrificial drill-neg key succeeds (Delete not blocked — no-op); destructive control targets live recovery key existing/backup/pgbackrest (REDHAT-FIX-H4 forbid)
+    MUST_OBSERVE: env | grep -c 'R2_ACCESS_KEY_ID' = 1 AND env | grep -c 'R2_SECRET_ACCESS_KEY' = 1 (both set); aws s3 ls $R2_BUCKET exit code = 0 (List allowed); aws s3 cp /dev/null $R2_BUCKET/drill-neg/<uuid>-put-probe exit code != 0 AND stderr contains 'AccessDenied' (Put blocked); aws s3api delete-object on drill-neg/<uuid> sacrificial key exit code != 0 AND stderr contains 'AccessDenied' (Delete blocked) OR non-mutating policy inspect shows PutObject/DeleteObject action count = 0; denylist refuses backup/, archive/, pgbackrest/, restic/, literal existing before any delete API
+    MUST_NOT_OBSERVE: env | grep -c 'R2_ACCESS_KEY_ID' = 0 (empty); aws s3 cp exit code = 0 (Put allowed — fake-success start state); delete exit = 0 on sacrificial key (Delete allowed); credentials match the app's read-write creds; delete API against denylisted live recovery prefixes (backup/, archive/, pgbackrest/, restic/, bucket-root key named existing)
+  verify: env | grep R2_ shows R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY set; R2_BUCKET scoped to holocron-backup; REQUIRE_LIVE_R2_RO=1 ./scripts/prove-r2-readonly.sh (drill-neg sacrificial Put/Delete denial) and/or ./scripts/verify-restore-creds.sh (policy DeleteObject=0 + H-4 denylist); NEVER delete live recovery objects (use drill-neg sacrificial keys only)
 
 AC-3 Target PGDATA and blob directories start empty and writable (flow_ref T-PLAT-025)
   GIVEN: Fresh restore target with directories provisioned
@@ -273,8 +273,8 @@ Depends on: D04-02 · Blocks: D05-04, D05-06
       "type": "acceptance_criterion",
       "primary": false,
       "flow_ref": "T-PLAT-025",
-      "description": "GIVEN fresh target WHEN operator inspects R2 credentials THEN credentials are bucket-scoped with only List and Get permissions; aws s3 ls succeeds but cp/rm fail with AccessDenied",
-      "verify": "env shows R2 credentials set; aws s3 ls $R2_BUCKET succeeds; aws s3 cp/rm fail with AccessDenied",
+      "description": "GIVEN fresh target WHEN operator inspects R2 credentials THEN credentials are bucket-scoped with only List and Get permissions; aws s3 ls succeeds but Put/Delete on sacrificial drill-neg/<uuid> keys fail with AccessDenied (or policy shows DeleteObject count=0); NEVER delete live recovery keys (REDHAT-FIX-H4)",
+      "verify": "env shows R2 credentials set; aws s3 ls $R2_BUCKET succeeds; prove-r2-readonly drill-neg Put/Delete AccessDenied OR verify-restore-creds policy DeleteObject=0 + H-4 denylist; never delete live recovery object keys",
       "maps_to_ac": null,
       "scenario": {
         "tier": "visible",
@@ -284,8 +284,9 @@ Depends on: D04-02 · Blocks: D05-04, D05-06
         "negative_control": {
           "would_fail_if": [
             "credentials are read-write (stub)",
-            "aws s3 cp succeeds (mock)",
-            "aws s3 rm succeeds (no-op)",
+            "aws s3 cp succeeds on drill-neg (mock)",
+            "delete succeeds on sacrificial drill-neg key (no-op)",
+            "destructive control targets live recovery key existing/backup/pgbackrest",
             "credentials empty (static)"
           ]
         },
@@ -301,21 +302,24 @@ Depends on: D04-02 · Blocks: D05-04, D05-06
               "steps": [
                 "env | grep R2_",
                 "aws s3 ls $R2_BUCKET",
-                "aws s3 cp /dev/null $R2_BUCKET/test",
-                "aws s3 rm $R2_BUCKET/existing"
+                "aws s3 cp /dev/null $R2_BUCKET/drill-neg/<uuid>-put-probe",
+                "aws s3api delete-object --key drill-neg/<uuid>-redhat-fix-h4.txt (sacrificial only)",
+                "prove-r2-readonly --assert-denylisted existing (must refuse before delete API)"
               ]
             },
             "end_state": {
               "must_observe": [
                 "env | grep -c 'R2_ACCESS_KEY_ID' = 1 AND env | grep -c 'R2_SECRET_ACCESS_KEY' = 1",
                 "aws s3 ls exit = 0",
-                "aws s3 cp exit != 0 AND stderr contains 'AccessDenied'",
-                "aws s3 rm exit != 0 AND stderr contains 'AccessDenied'"
+                "aws s3 cp on drill-neg exit != 0 AND stderr contains 'AccessDenied'",
+                "delete-object on drill-neg exit != 0 AND stderr contains 'AccessDenied' OR policy PutObject/DeleteObject count = 0",
+                "denylist refuses existing/backup/pgbackrest before any delete API"
               ],
               "must_not_observe": [
                 "env | grep -c 'R2_ACCESS_KEY_ID' = 0",
                 "aws s3 cp exit = 0 (Put allowed \u2014 fake-success start state)",
-                "aws s3 rm exit = 0",
+                "delete exit = 0 on sacrificial key",
+                "delete API against live recovery keys (bucket-root existing, backup/, pgbackrest/)",
                 "credentials match app read-write creds"
               ]
             }

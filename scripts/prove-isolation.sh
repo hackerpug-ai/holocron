@@ -685,6 +685,14 @@ check_docker_axis() {
 }
 
 # ── AXIS: r2_readonly ──────────────────────────────────────────────────────
+# Declarative env/policy checks + optional live aws proof via prove-r2-readonly.sh.
+# Placeholder-only success is NOT enough for AC-2; live proof required when keys
+# are real, or when REQUIRE_LIVE_R2_RO=1.
+#
+# REDHAT-FIX-H4 credential negative control: live Put/Delete probes (inside
+# prove-r2-readonly.sh) target only sacrificial drill-neg/<uuid> keys. NEVER
+# delete the bucket-root recovery object key named "existing" or any denylisted
+# recovery prefix (backup/, archive/, pgbackrest/, restic/).
 r2_is_placeholder() {
   local v="${1:-}"
   [[ -z "$v" ]] && return 0
