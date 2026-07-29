@@ -257,7 +257,15 @@ Rejected forms (fail closed in `scripts/verify-restore-creds.sh`):
 
 ### Verify scoping (real R2) — live proof
 
-**Placeholder policy JSON alone does not satisfy live AC-2.** Run the live probe:
+**Placeholder policy JSON alone does not satisfy live AC-2.** Run the live probe.
+
+**REDHAT-FIX-H4:** Delete/Put negative controls MUST use a uniquely generated
+**sacrificial** object under `drill-neg/<uuid>/` only. **NEVER** delete the
+bucket-root recovery object key named `existing` (or any live recovery key under
+`backup/`, `archive/`, `pgbackrest/`, `restic/`, configured `HOLO_BACKUP_PREFIX`).
+Scripts hard-refuse denylisted keys before any delete API call. Alternate
+non-mutating path: `./scripts/verify-restore-creds.sh` proves restore policy
+`PutObject`/`DeleteObject` action count = 0 without deleting objects.
 
 ```bash
 export R2_RESTORE_ACCESS_KEY_ID=...
@@ -270,9 +278,18 @@ export R2_CREDENTIAL_KIND=object-read-only
 REQUIRE_LIVE_R2_RO=1 ./scripts/prove-r2-readonly.sh
 # MUST_OBSERVE:
 #   PASS: aws s3 ls … exit 0
-#   PASS: aws s3 cp denied (Put blocked; AccessDenied/403)
-#   PASS: aws s3api delete-object denied (Delete blocked)
-# MUST_NOT_OBSERVE: put/delete exit 0 (would prove RW identity)
+#   PASS: aws s3 cp denied on drill-neg key (Put blocked; AccessDenied/403)
+#   PASS: aws s3api delete-object denied on drill-neg key (Delete blocked)
+# MUST_NOT_OBSERVE: put/delete exit 0; any delete against existing/backup/pgbackrest
+
+# Denylist self-check (no network):
+./scripts/prove-r2-readonly.sh --assert-denylisted existing
+./scripts/prove-r2-readonly.sh --assert-denylisted backup/main/latest
+SAC=$(./scripts/prove-r2-readonly.sh --make-sacrificial-key)
+./scripts/prove-r2-readonly.sh --assert-safe-key "$SAC"
+
+# Non-mutating policy path (DeleteObject count must be 0 for restore RO):
+./scripts/verify-restore-creds.sh
 
 REQUIRE_LIVE_R2_RO=1 MINI_HOST=203.0.113.1 \
   TARGET_ATTESTED_IDENTITY=target-x MINI_ATTESTED_IDENTITY=mini-y \
@@ -283,26 +300,32 @@ REQUIRE_LIVE_R2_RO=1 MINI_HOST=203.0.113.1 \
   ./scripts/prove-isolation.sh
 ```
 
-Manual equivalent:
+Manual equivalent (sacrificial drill-neg key only):
 
 ```bash
 export AWS_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY"
 export AWS_DEFAULT_REGION=auto
+DRILL_KEY="drill-neg/$(uuidgen | tr '[:upper:]' '[:lower:]')-redhat-fix-h4.txt"
+
 aws s3 ls "s3://${R2_BUCKET_NAME}" --endpoint-url "$R2_ENDPOINT"
 # expect exit 0
 
-aws s3 cp /dev/null "s3://${R2_BUCKET_NAME}/restore-probe-should-deny" --endpoint-url "$R2_ENDPOINT"
-# expect AccessDenied (non-zero)
+aws s3 cp /dev/null "s3://${R2_BUCKET_NAME}/${DRILL_KEY}" --endpoint-url "$R2_ENDPOINT"
+# expect AccessDenied (non-zero) — Put blocked on sacrificial key
 
-aws s3api delete-object --bucket "$R2_BUCKET_NAME" --key restore-probe-should-deny \
+aws s3api delete-object --bucket "$R2_BUCKET_NAME" --key "$DRILL_KEY" \
   --endpoint-url "$R2_ENDPOINT"
-# expect AccessDenied (non-zero)
+# expect AccessDenied (non-zero) — Delete blocked; never target live recovery keys
+
+# FORBIDDEN (REDHAT-FIX-H4): delete-object against live recovery keys such as
+# bucket-root "existing", backup/*, pgbackrest/*, restic/* — scripts denylist these.
 ```
 
 If only D04-02 **read-write** keys exist in `secrets.yaml`, the live probe **must fail**
-(Put succeeds). Mint a distinct Object Read token (dashboard or
-`CLOUDFLARE_API_TOKEN` + `R2_PARENT_ACCESS_KEY_ID` + `./scripts/prove-r2-readonly.sh --try-mint`).
+(Put succeeds on the sacrificial key — fail-closed). Mint a distinct Object Read
+token (dashboard or `CLOUDFLARE_API_TOKEN` + `R2_PARENT_ACCESS_KEY_ID` +
+`./scripts/prove-r2-readonly.sh --try-mint`).
 
 ## What the provision script does
 
@@ -324,6 +347,10 @@ If only D04-02 **read-write** keys exist in `secrets.yaml`, the live probe **mus
 - Isolation probe that always `exit 0` without real `nc` / `mount` / identity checks
 - Same-host containers claiming “fresh hardware” without distinct attested identity
 - Symlinking restore pgBackRest/postgres conf to the mini’s config tree
+- **REDHAT-FIX-H4:** deleting the bucket-root recovery key `existing` (or any live
+  recovery object) as a credential negative control — if the target accidentally holds
+  RW keys, this deletes recovery data. Use `drill-neg/<uuid>/` sacrificial keys or
+  non-mutating policy inspect only.
 
 ## Next step
 
