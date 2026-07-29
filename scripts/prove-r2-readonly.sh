@@ -95,23 +95,28 @@ EOF
 
 # Load optional secrets.yaml key presence into env when unset (values stay local).
 load_secrets_if_present() {
-  local secrets="${HOLOCRON_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
-  # Prefer main repo secrets when worktree has none.
-  if [[ ! -f "$secrets" ]]; then
+  # Prefer explicit HOLOCRON_SECRETS_PATH / HOLO_SECRETS_PATH; never override with personal
+  # checkout secrets when the caller set an isolation path (GATE-FIX-S28R3-QA9).
+  local secrets_explicit=0
+  local secrets=""
+  if [[ -n "${HOLOCRON_SECRETS_PATH:-}" ]]; then
+    secrets="$HOLOCRON_SECRETS_PATH"
+    secrets_explicit=1
+  elif [[ -n "${HOLO_SECRETS_PATH:-}" ]]; then
+    secrets="$HOLO_SECRETS_PATH"
+    secrets_explicit=1
+  else
+    secrets="$ROOT/services/platform/config/secrets.yaml"
+  fi
+  # Worktree/default path only: prefer toplevel secrets when default path is missing.
+  if [[ "$secrets_explicit" -eq 0 && ! -f "$secrets" ]]; then
     local main_secrets
     main_secrets="$(cd "$ROOT" && git rev-parse --show-toplevel 2>/dev/null)/services/platform/config/secrets.yaml" || true
     if [[ -n "${main_secrets:-}" && -f "$main_secrets" ]]; then
       secrets="$main_secrets"
     fi
   fi
-  # Primary checkout fallback only when caller did not explicitly set a secrets path
-  # (worktrees often omit secrets.yaml). Explicit HOLO*_SECRETS_PATH must not bleed
-  # personal secrets into isolated unit tests (GATE-FIX-S28R3-QA9).
-  local secrets_explicit=0
-  if [[ -n "${HOLOCRON_SECRETS_PATH:-}" || -n "${HOLO_SECRETS_PATH:-}" ]]; then
-    secrets_explicit=1
-  fi
-  if [[ ! -f "$secrets" && "$secrets_explicit" -eq 0 && -f /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml ]]; then
+  if [[ "$secrets_explicit" -eq 0 && ! -f "$secrets" && -f /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml ]]; then
     secrets=/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
   fi
   [[ -f "$secrets" ]] || return 0
