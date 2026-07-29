@@ -5592,6 +5592,52 @@ async function main(): Promise<void> {
         }
       }
 
+      // D05-05: holo mission run fire-drill-monthly — CAP-BAK-01 monthly fire drill
+      if (sub === 'run' && kind === 'fire-drill-monthly') {
+        const goal = (args.goal ?? args.prompt)?.trim() || 'CAP-BAK-01 monthly fire drill';
+        const idempotencyKey = defaultMissionIdempotencyKey(
+          'fire-drill-monthly',
+          {
+            target: args.pitr ?? process.env.HOLO_FIRE_DRILL_TARGET_TIMESTAMP ?? 'runtime',
+          },
+          { override: args.idempotencyKey, fresh: args.fresh }
+        );
+        try {
+          // Ensure template is registered before run (idempotent).
+          const { registerFireDrillMonthlyTemplate } = await import('../mission/index.ts');
+          await registerFireDrillMonthlyTemplate();
+          const { runMissionTemplate } = await import('../mission/runtime.ts');
+          const result = await runMissionTemplate(
+            {
+              templateKey: 'fire-drill-monthly',
+              goal,
+              idempotencyKey,
+              targetTimestamp: args.pitr ?? undefined,
+              scratch: args.scratch ?? undefined,
+              blobDir: args.blobDir ?? undefined,
+              reportPath: args.report ?? args.output ?? undefined,
+              sourceBlobRoot: args.sourceBlobRoot ?? undefined,
+            },
+            { ownerScope: 'runtime' }
+          );
+          if (args.json) console.log(JSON.stringify(result, null, 2));
+          else
+            printMissionRuntimeResult(
+              result as Record<string, unknown>,
+              'mission run fire-drill-monthly'
+            );
+          process.exit(result.ok ? 0 : 1);
+        } catch (error) {
+          const payload = missionErrorPayload(error, 'MISSION_FIRE_DRILL_FAILED');
+          if (args.json) console.log(JSON.stringify(payload, null, 2));
+          else {
+            console.error(`error code: ${payload.errorCode}`);
+            console.error(payload.error);
+          }
+          process.exit(1);
+        }
+      }
+
       if (sub === 'run') {
         const templateKey = kind;
         if (!templateKey) {
@@ -5645,6 +5691,11 @@ async function main(): Promise<void> {
             templateKey,
             goal,
             idempotencyKey,
+            targetTimestamp: args.pitr ?? undefined,
+            scratch: args.scratch ?? undefined,
+            blobDir: args.blobDir ?? undefined,
+            reportPath: args.report ?? args.output ?? undefined,
+            sourceBlobRoot: args.sourceBlobRoot ?? undefined,
           });
           if (args.json) {
             console.log(JSON.stringify(result, null, 2));

@@ -2,6 +2,13 @@
  * Ensure system mission templates are registered (idempotent).
  * Used by CLI/runtime so operators do not need a manual template:register step
  * for shared Sprint 22 pipeline templates.
+ *
+ * Note (D05-05): fire-drill-monthly is intentionally NOT registered here.
+ * It is a JSON ops template registered via:
+ *   holo mission template:register services/platform/src/mission/templates/fire-drill-monthly.json
+ * or registerFireDrillMonthlyTemplate() from mission/index.ts.
+ * Bundling it into ensureSystem would recompile all system templates against a
+ * new registry snapshot and fail closed on immutable-surface drift.
  */
 import { registerMissionTemplateDefinition } from '../repository.ts';
 import { assimilateTemplateDefinition } from './assimilate.ts';

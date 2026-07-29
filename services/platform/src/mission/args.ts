@@ -43,6 +43,16 @@ const missionGoalArgsShape = {
   language: z.string().min(1).optional(),
   toolTags: z.string().min(1).optional(),
   useCases: z.string().min(1).optional(),
+  /**
+   * D05-05 fire-drill-monthly mission args (never hardcode these in the template).
+   * Operator/scheduler supplies them at run time (or via HOLO_FIRE_DRILL_* env).
+   */
+  targetTimestamp: z.string().min(1).optional(),
+  scratch: z.string().min(1).optional(),
+  blobDir: z.string().min(1).optional(),
+  reportPath: z.string().min(1).optional(),
+  sourceBlobRoot: z.string().min(1).optional(),
+  sourceDatabaseUrl: z.string().min(1).optional(),
 } as const;
 
 export const MissionGoalArgsSchema = z.object(missionGoalArgsShape).strict();

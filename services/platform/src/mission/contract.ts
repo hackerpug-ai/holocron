@@ -82,6 +82,17 @@ export const MissionParameterSchemaField = z
   })
   .strict();
 
+/** Operator-facing step in a scheduled ops mission (stored in definition_json.steps). */
+export const MissionStepSchema = z
+  .object({
+    id: z.string().min(1),
+    command: z.string().min(1),
+    description: z.string().min(1).optional(),
+    /** Artifact basename(s) expected after this step (e.g. parity-report.json). */
+    artifacts: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+
 export const MissionTemplateSchema = z
   .object({
     templateKey: z.string().min(1),
@@ -97,6 +108,17 @@ export const MissionTemplateSchema = z
     outputContract: MissionSchemaRefSchema,
     /** Declared run parameters (kind enum, target, …). Stored in definition_json. */
     parameterSchema: z.record(z.string().min(1), MissionParameterSchemaField).optional(),
+    /**
+     * Ops/periodic cadence for CAP-BAK-01-style missions (D05-05).
+     * Stored at definition_json.schedule — must not be more frequent than monthly
+     * for disruptive fire-drill work.
+     */
+    schedule: z.enum(['monthly']).optional(),
+    /**
+     * Operator-facing checklist steps (definition_json.steps). Complements stageGraph
+     * which is the closed DSL execution plan.
+     */
+    steps: z.array(MissionStepSchema).optional(),
   })
   .strict();
 

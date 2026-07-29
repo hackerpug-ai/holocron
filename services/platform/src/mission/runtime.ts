@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import { z } from 'zod';
 import { createDb, createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -751,6 +752,84 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     } finally {
       await sql.end({ timeout: 5 });
     }
+  },
+  /**
+   * D05-05 CAP-BAK-01 monthly fire drill.
+   * Invokes runFireDrill (same path as `holo restore:fire-drill`) and fails the
+   * mission when any PARITY_PASS flag is false. Always writes parity-report.json.
+   */
+  'builtin.fire-drill-execute@1': async (input, context) => {
+    parseMissionSchemaValue(
+      { schemaRef: 'mission.goal', schemaVersion: 1 },
+      input,
+      'fire-drill.execute.input'
+    );
+    const args = MissionGoalArgsSchema.parse(context.run.args_json);
+    const env = process.env;
+
+    const targetTimestamp =
+      args.targetTimestamp?.trim() ||
+      env.HOLO_FIRE_DRILL_TARGET_TIMESTAMP?.trim() ||
+      // Runtime default: 1 hour ago (never hardcode a fixed timestamp in the template).
+      new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    const scratch =
+      args.scratch?.trim() ||
+      env.HOLO_FIRE_DRILL_SCRATCH?.trim() ||
+      resolve(process.cwd(), '.tmp/fire-drill-monthly/scratch-pgdata');
+
+    const blobDir =
+      args.blobDir?.trim() ||
+      env.HOLO_FIRE_DRILL_BLOB_DIR?.trim() ||
+      resolve(process.cwd(), '.tmp/fire-drill-monthly/scratch-blobs');
+
+    const reportPath =
+      args.reportPath?.trim() ||
+      env.HOLO_FIRE_DRILL_REPORT?.trim() ||
+      resolve(process.cwd(), '.tmp/fire-drill-monthly/parity-report.json');
+
+    const sourceBlobRoot =
+      args.sourceBlobRoot?.trim() || env.HOLO_FIRE_DRILL_SOURCE_BLOB_ROOT?.trim() || undefined;
+    const sourceDatabaseUrl =
+      args.sourceDatabaseUrl?.trim() ||
+      env.HOLO_FIRE_DRILL_SOURCE_DATABASE_URL?.trim() ||
+      undefined;
+
+    const { runFireDrill } = await import('../backup/fire-drill.ts');
+    const result = await runFireDrill({
+      targetTimestamp,
+      scratch,
+      blobDir,
+      reportPath,
+      sourceBlobRoot,
+      sourceDatabaseUrl,
+      env,
+    });
+
+    const report = result.report;
+    // Always return structured output (incl. output_artifacts) so FAILED runs still
+    // point at parity-report.json. Runtime fails the mission when ok=false / PARITY false.
+    return canonicalJsonValue({
+      ok:
+        result.ok === true &&
+        report.ok === true &&
+        report.POSTGRES_PARITY_PASS === true &&
+        report.LEDGER_CHECKSUM_MATCH === true &&
+        report.BLOB_PARITY_PASS === true,
+      reportPath: result.reportPath,
+      targetTimestamp,
+      scratch,
+      blobDir,
+      POSTGRES_PARITY_PASS: report.POSTGRES_PARITY_PASS === true,
+      LEDGER_CHECKSUM_MATCH: report.LEDGER_CHECKSUM_MATCH === true,
+      BLOB_PARITY_PASS: report.BLOB_PARITY_PASS === true,
+      output_artifacts: {
+        'parity-report.json': result.reportPath,
+      },
+      exitCode: result.exitCode,
+      errors: result.errors,
+      durationMs: report.durationMs,
+    });
   },
   'builtin.research-plan@1': async (input, context) =>
     STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
@@ -3158,6 +3237,9 @@ async function finalizeMissionRun(
     let typedOutput: unknown = run.typed_output_json ?? null;
     if (options.status === 'completed' || options.status === 'budget_exceeded') {
       typedOutput = await resolveTerminalOutput(tx, run, options.status, options.output);
+    } else if (options.output != null) {
+      // FAILED/blocked may still carry typed terminal output (e.g. fire-drill parity report).
+      typedOutput = options.output;
 
       if (crashBoundary === 'before_commit_insert') {
         await emitMissionCommitCrashReadiness(crashBoundary, {
@@ -3549,6 +3631,63 @@ async function executeRunWithLease(
         runtime.budgetPolicy,
         usageDelta
       );
+      // D05-05: fire-drill stage always commits typed output (parity-report artifact),
+      // then fails the mission when any PARITY_PASS is false (AC-2 + AC-3).
+      if (
+        nextStage.stageKind === 'fire-drill.execute@1' &&
+        output &&
+        typeof output === 'object' &&
+        !Array.isArray(output)
+      ) {
+        const fd = output as {
+          ok?: unknown;
+          POSTGRES_PARITY_PASS?: unknown;
+          LEDGER_CHECKSUM_MATCH?: unknown;
+          BLOB_PARITY_PASS?: unknown;
+          reportPath?: unknown;
+        };
+        const parityFailed =
+          fd.ok !== true ||
+          fd.POSTGRES_PARITY_PASS !== true ||
+          fd.LEDGER_CHECKSUM_MATCH !== true ||
+          fd.BLOB_PARITY_PASS !== true;
+        if (parityFailed) {
+          const reportPath =
+            typeof fd.reportPath === 'string' ? fd.reportPath : '(missing report path)';
+          const errorMessage = `fire-drill PARITY_PASS false: POSTGRES_PARITY_PASS=${String(fd.POSTGRES_PARITY_PASS)} LEDGER_CHECKSUM_MATCH=${String(fd.LEDGER_CHECKSUM_MATCH)} BLOB_PARITY_PASS=${String(fd.BLOB_PARITY_PASS)}; report=${reportPath}`;
+          const finalized = await finalizeMissionRun(sql, runId, lease, {
+            status: 'failed',
+            errorCode: 'MISSION_FIRE_DRILL_PARITY_FAILED',
+            errorMessage,
+            // Persist parity artifact pointer on FAILED runs (AC-2 + AC-3).
+            output: output,
+          });
+          if (!finalized) {
+            throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
+          }
+          // D05-05 AC-3: surface MISSION_FIRE_DRILL_PARITY_FAILED to D04-05 alerting
+          // (backup_heartbeat + ALERT_WEBHOOK_URL POST). Soft so terminal mission is kept.
+          try {
+            const { alertFireDrillMissionParityFailure } = await import('../backup/alerting.ts');
+            const alert = await alertFireDrillMissionParityFailure({
+              runId,
+              errorMessage,
+              reportPath: typeof fd.reportPath === 'string' ? fd.reportPath : null,
+              soft: true,
+              sql,
+            });
+            if (!alert.ok) {
+              console.error(
+                `[fire-drill-monthly] D04-05 alert delivery incomplete: ${alert.error ?? 'unknown'}`
+              );
+            }
+          } catch (alertErr) {
+            const msg = alertErr instanceof Error ? alertErr.message : String(alertErr);
+            console.error(`[fire-drill-monthly] D04-05 alert path error: ${msg}`);
+          }
+          return finalized;
+        }
+      }
       if (nextStage.checkpointKey) {
         await waitAtCheckpointBarrierIfRequested({
           runId,
@@ -3835,6 +3974,13 @@ export async function runMissionTemplate(
     language?: string;
     toolTags?: string;
     useCases?: string;
+    /** D05-05 fire-drill-monthly */
+    targetTimestamp?: string;
+    scratch?: string;
+    blobDir?: string;
+    reportPath?: string;
+    sourceBlobRoot?: string;
+    sourceDatabaseUrl?: string;
   },
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
@@ -3865,6 +4011,12 @@ export async function runMissionTemplate(
       language: input.language,
       toolTags: input.toolTags,
       useCases: input.useCases,
+      targetTimestamp: input.targetTimestamp,
+      scratch: input.scratch,
+      blobDir: input.blobDir,
+      reportPath: input.reportPath,
+      sourceBlobRoot: input.sourceBlobRoot,
+      sourceDatabaseUrl: input.sourceDatabaseUrl,
     })
   );
   return runMissionInternal(input.templateKey, args, input.idempotencyKey, options);
