@@ -20,10 +20,7 @@ const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
 const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
 const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
-const PROVE_STUB = resolve(
-  REPO_ROOT,
-  'services/platform/tests/integration/fixtures/qa10-prove-stub.sh'
-);
+const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA10');
 
 const WRITER_AK = 'qa10cfwriterakid0123456789abcdef';
@@ -41,13 +38,11 @@ function writeEvidence(name: string, body: unknown): void {
   writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`, 'utf8');
 }
 
-function tupleFp16(ak: string, sk: string, st: string): string {
-  return createHash('sha256').update(`${ak}\0${sk}\0${st}`, 'utf8').digest('hex').slice(0, 16);
-}
 
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
+    PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa10-no-secrets',
     HOLO_SECRETS_PATH: '/nonexistent-s28r3-qa10-no-secrets',
     CLOUDFLARE_API_TOKEN: '',
@@ -56,12 +51,14 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
     R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     R2_BUCKET_NAME: 'holocron-backup',
+    R2_PGBACKREST_PREFIX: 'pgbackrest',
+    HOLO_AWS_MOCK_MODE: 'default',
     ...extra,
   };
 }
 
 describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
-  it('caller-forged HOLO_R2_RO_PROOF_PATH is overwritten by fresh prove (cannot skip)', () => {
+  it('caller-forged HOLO_R2_RO_PROOF_PATH is never authoritative (fixed prover + PATH aws mock)', () => {
     const host = `s28r3-qa10-h1-${Date.now().toString(36)}`;
     const proof = resolve(EVIDENCE_DIR, 'forged.json');
     mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -77,6 +74,7 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
         proved_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
       })
     );
+    const forgedBefore = readFileSync(proof, 'utf8');
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -88,7 +86,6 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        HOLO_PROVE_R2_READONLY: PROVE_STUB,
         HOLO_R2_RO_PROOF_PATH: proof,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'h1-forge'),
       }),
@@ -99,13 +96,10 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
       combined: combined.slice(0, 3000),
     });
     expect(run.status, combined.slice(0, 1500)).toBe(0);
-    expect(combined).toMatch(/fresh live RO proof|caller proof never authoritative/i);
-    const att = JSON.parse(readFileSync(proof, 'utf8')) as {
-      tuple_fp16: string;
-      producer?: string;
-    };
-    expect(att.tuple_fp16).toBe(tupleFp16(WRITER_AK, RESTORE_SK, RESTORE_ST));
-    expect(att.tuple_fp16).not.toBe('deadbeefdeadbeef');
+    expect(combined).toMatch(/fixed scripts\/prove-r2-readonly\.sh|fresh live RO proof/i);
+    // Caller path is ignored — still forged; authority is trusted .tmp/r2-ro-proofs only.
+    expect(readFileSync(proof, 'utf8')).toBe(forgedBefore);
+    expect(JSON.parse(forgedBefore).tuple_fp16).toBe('deadbeefdeadbeef');
   });
 
   it('unknown writer secret still fails with exact residual message', () => {
@@ -121,7 +115,6 @@ describe('GATE-FIX-S28R3-QA10 H1 unforgeable live proof', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        HOLO_PROVE_R2_READONLY: PROVE_STUB,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'h1-ws'),
       }),
     });
@@ -161,6 +154,13 @@ describe('GATE-FIX-S28R3-QA10 M1 restore-token precedence', () => {
       recorder,
       `#!/usr/bin/env bash
 set -euo pipefail
+report=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --report) report="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 python3 - <<'PY'
 import json, os
 out = ${JSON.stringify(recorderOut)}
@@ -176,12 +176,27 @@ payload = {
 open(out, "w").write(json.dumps(payload, indent=2) + "\\n")
 print("recorder:ok")
 PY
+if [[ -n "$report" ]]; then
+  cat >"$report" <<'JSON'
+{"POSTGRES_PARITY_PASS":true,"LEDGER_CHECKSUM_MATCH":true,"BLOB_PARITY_PASS":true,"baseline_id":"qa10","baseline_key":"recovery-baselines/qa10.json","ok":true}
+JSON
+fi
+exit 0
 `
     );
     spawnSync('chmod', ['+x', recorder]);
+    const report = resolve(EVIDENCE_DIR, 'prec-parity.json');
     const run = spawnSync(
       'bash',
-      [RUNNER, '--host', 's28r3-qa10-tok', '--target-timestamp', '2026-07-28T12:00:00Z'],
+      [
+        RUNNER,
+        '--host',
+        's28r3-qa10-tok',
+        '--target-timestamp',
+        '2026-07-28T12:00:00Z',
+        '--report',
+        report,
+      ],
       {
         cwd: REPO_ROOT,
         encoding: 'utf8',
@@ -195,7 +210,6 @@ PY
           R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
           R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
           R2_SESSION_TOKEN: WRITER_ST,
-          HOLO_PROVE_R2_READONLY: PROVE_STUB,
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: recorder,
         }),
@@ -242,6 +256,13 @@ PY
       recorder,
       `#!/usr/bin/env bash
 set -euo pipefail
+report=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --report) report="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 python3 - <<'PY'
 import json, os
 out = ${JSON.stringify(recorderOut)}
@@ -250,12 +271,27 @@ payload = {"len": len(st), "is_file": st == ${JSON.stringify(fileTok)}, "is_writ
 open(out, "w").write(json.dumps(payload) + "\\n")
 print("recorder:ok")
 PY
+if [[ -n "$report" ]]; then
+  cat >"$report" <<'JSON'
+{"POSTGRES_PARITY_PASS":true,"LEDGER_CHECKSUM_MATCH":true,"BLOB_PARITY_PASS":true,"baseline_id":"qa10f","baseline_key":"recovery-baselines/qa10f.json","ok":true}
+JSON
+fi
+exit 0
 `
     );
     spawnSync('chmod', ['+x', recorder]);
+    const report = resolve(EVIDENCE_DIR, 'file-tok-parity.json');
     const run = spawnSync(
       'bash',
-      [RUNNER, '--host', 's28r3-qa10-ftok', '--target-timestamp', '2026-07-28T12:00:00Z'],
+      [
+        RUNNER,
+        '--host',
+        's28r3-qa10-ftok',
+        '--target-timestamp',
+        '2026-07-28T12:00:00Z',
+        '--report',
+        report,
+      ],
       {
         cwd: REPO_ROOT,
         encoding: 'utf8',
@@ -270,7 +306,6 @@ PY
           R2_SECRET_ACCESS_KEY: '',
           R2_RESTORE_ACCESS_KEY_ID: '',
           R2_RESTORE_SECRET_ACCESS_KEY: '',
-          HOLO_PROVE_R2_READONLY: PROVE_STUB,
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: recorder,
         }),
@@ -385,7 +420,6 @@ describe('GATE-FIX-S28R3-QA10 C1 mutation-sensitive oracles', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        HOLO_PROVE_R2_READONLY: PROVE_STUB,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'canary'),
       }),
     });

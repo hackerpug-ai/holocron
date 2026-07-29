@@ -190,26 +190,35 @@ resolve_r2_identities_from_secrets_and_env() {
   unset R2_SESSION_TOKEN 2>/dev/null || true
 }
 
+r2_context_fp16() {
+  printf '%s\0%s\0%s\0%s' "${1:-}" "${2:-}" "${3:-}" "${4:-}" \
+    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+}
+
 assert_bound_r2_ro_proof() {
-  # GATE-FIX-S28R3-QA10 / H1: always fresh live proof; caller proof path never skips probe.
+  # GATE-FIX-S28R3-QA11: fixed prover only; private trusted evidence; context digest.
   local rak="$1" rsk="$2" rst="$3"
-  local expected_fp proof prove_cmd
-  expected_fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
-  if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 ]]; then
-    err "GATE-FIX-S28R3-QA10 unable to fingerprint restore credential tuple"
+  local endpoint="${R2_ENDPOINT:-}"
+  local bucket="${R2_BUCKET_NAME:-holocron-backup}"
+  local prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
+  local policy="${R2_CREDENTIAL_POLICY:-}"
+  local expected_fp expected_ctx proof
+  if [[ -n "${HOLO_PROVE_R2_READONLY:-}" ]]; then
+    err "GATE-FIX-S28R3-QA11 refuses HOLO_PROVE_R2_READONLY override in live mode (fixed prover only)"
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
-  if [[ -n "${HOLO_R2_RO_PROOF_PATH:-}" ]]; then
-    proof="$HOLO_R2_RO_PROOF_PATH"
-    mkdir -p "$(dirname "$proof")"
-  else
-    proof="$(mktemp "${TMPDIR:-/tmp}/holo-r2-ro-proof.XXXXXX")"
+  expected_fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
+  expected_ctx="$(r2_context_fp16 "$endpoint" "$bucket" "$prefix" "$policy")"
+  if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
+    err "GATE-FIX-S28R3-QA11 unable to fingerprint restore tuple/context"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
   fi
-  : >"$proof"
+  mkdir -p "$ROOT/.tmp/r2-ro-proofs"
+  proof="$(mktemp "$ROOT/.tmp/r2-ro-proofs/proof.XXXXXX")"
   chmod 600 "$proof" 2>/dev/null || true
-  prove_cmd="${HOLO_PROVE_R2_READONLY:-$ROOT/scripts/prove-r2-readonly.sh}"
-  log "GATE-FIX-S28R3-QA10: fresh live RO proof for exact restore tuple before fire-drill (caller proof never authoritative; values not logged)"
+  log "GATE-FIX-S28R3-QA11: fresh live RO proof via fixed scripts/prove-r2-readonly.sh (values not logged)"
   if ! env \
     REQUIRE_LIVE_R2_RO=1 \
     HOLO_R2_RO_PROOF_OUT="$proof" \
@@ -218,40 +227,45 @@ assert_bound_r2_ro_proof() {
     R2_RESTORE_SESSION_TOKEN="$rst" \
     R2_ACCESS_KEY_ID="${WRITER_AK:-}" \
     R2_SECRET_ACCESS_KEY="${WRITER_SK:-}" \
-    R2_ENDPOINT="${R2_ENDPOINT:-}" \
+    R2_ENDPOINT="$endpoint" \
     R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
-    R2_BUCKET_NAME="${R2_BUCKET_NAME:-}" \
-    R2_PGBACKREST_PREFIX="${R2_PGBACKREST_PREFIX:-}" \
-    R2_RESTORE_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-}" \
-    R2_CREDENTIAL_POLICY="${R2_CREDENTIAL_POLICY:-}" \
+    R2_BUCKET_NAME="$bucket" \
+    R2_PGBACKREST_PREFIX="$prefix" \
+    R2_RESTORE_OBJECT_PREFIX="$prefix" \
+    R2_CREDENTIAL_POLICY="$policy" \
     HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
     HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
-    bash "$prove_cmd"; then
-    err "GATE-FIX-S28R3-QA10 fresh live RO proof failed for the exact restore tuple before fire-drill"
+    bash "$ROOT/scripts/prove-r2-readonly.sh"; then
+    err "GATE-FIX-S28R3-QA11 fresh live RO proof failed for the exact restore tuple before fire-drill"
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    rm -f "$proof"
     exit 2
   fi
-  if ! python3 - "$proof" "$expected_fp" <<'PY'
-import json, os, sys
+  if ! python3 - "$proof" "$expected_fp" "$expected_ctx" <<'PY'
+import json, os, stat, sys
 from datetime import datetime, timezone
-path, expected = sys.argv[1], sys.argv[2]
+path, expected_fp, expected_ctx = sys.argv[1:4]
 st = os.stat(path)
-if st.st_mode & 0o002:
-    print("error: RO proof attestation is world-writable", file=sys.stderr); sys.exit(2)
+if stat.S_IMODE(st.st_mode) != 0o600:
+    print("error: RO proof attestation mode != 0o600", file=sys.stderr); sys.exit(2)
 data = json.load(open(path, encoding="utf-8"))
 if data.get("schema") != "holo.r2-ro-proof.v1" or data.get("ok") is not True:
-    print("error: RO proof attestation missing schema/ok after live prove", file=sys.stderr); sys.exit(2)
-if data.get("tuple_fp16") != expected:
-    print("error: RO proof attestation tuple_fp16 mismatch after live prove", file=sys.stderr); sys.exit(2)
+    print("error: RO proof attestation missing schema/ok", file=sys.stderr); sys.exit(2)
+if data.get("tuple_fp16") != expected_fp:
+    print("error: RO proof tuple_fp16 mismatch", file=sys.stderr); sys.exit(2)
+if data.get("context_fp16") != expected_ctx:
+    print("error: RO proof context_fp16 mismatch", file=sys.stderr); sys.exit(2)
+if data.get("producer") != "scripts/prove-r2-readonly.sh":
+    print("error: RO proof producer is not fixed scripts/prove-r2-readonly.sh", file=sys.stderr); sys.exit(2)
 for k in ("list_allowed", "put_denied", "delete_denied"):
     if data.get(k) is not True:
-        print(f"error: RO proof {k} not true after live prove", file=sys.stderr); sys.exit(2)
+        print(f"error: RO proof {k} not true", file=sys.stderr); sys.exit(2)
 proved = data.get("proved_at") or ""
 dt = datetime.strptime(proved, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 age = (datetime.now(timezone.utc) - dt).total_seconds()
 if age < 0 or age > 7200:
-    print("error: RO proof attestation stale or future-dated after live prove", file=sys.stderr); sys.exit(2)
-print(f"RO proof fresh-bound ok tuple_fp16={expected}")
+    print("error: RO proof attestation stale or future-dated", file=sys.stderr); sys.exit(2)
+print(f"RO proof fresh-bound ok tuple_fp16={expected_fp} context_fp16={expected_ctx}")
 sys.exit(0)
 PY
   then

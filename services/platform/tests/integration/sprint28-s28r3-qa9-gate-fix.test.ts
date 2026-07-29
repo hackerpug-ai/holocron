@@ -20,10 +20,7 @@ const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
 const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
 const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
-const PROVE_STUB = resolve(
-  REPO_ROOT,
-  'services/platform/tests/integration/fixtures/qa10-prove-stub.sh'
-);
+const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA9');
 
 const WRITER_AK = 'qa9cfwriterakid0123456789abcdef';
@@ -67,14 +64,17 @@ function writeProof(path: string, ak: string, sk: string, st: string): void {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
+    PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa9-no-secrets',
     HOLO_SECRETS_PATH: '/nonexistent-s28r3-qa9-no-secrets',
     CLOUDFLARE_API_TOKEN: '',
     R2_PARENT_ACCESS_KEY_ID: '',
     R2_PARENT_SECRET_ACCESS_KEY: '',
-    R2_ENDPOINT: 'https://example-accountid.r2.cloudflarestorage.com',
-    R2_ACCOUNT_ID: 'example-accountid',
+    R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
+    R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     R2_BUCKET_NAME: 'holocron-backup',
+    R2_PGBACKREST_PREFIX: 'pgbackrest',
+    HOLO_AWS_MOCK_MODE: 'default',
     ...extra,
   };
 }
@@ -215,10 +215,11 @@ describe('GATE-FIX-S28R3-QA9 H2 session token from secrets file', () => {
 });
 
 describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
-  it('provision REQUIRE_LIVE overwrites caller-forged proof and still succeeds via fresh prove stub', () => {
+  it('provision REQUIRE_LIVE ignores caller-forged proof and succeeds via fixed prover + PATH aws mock', () => {
     const host = `s28r3-qa9-m1-ok-${Date.now().toString(36)}`;
     const proof = resolve(EVIDENCE_DIR, 'ok-proof.json');
     writeProof(proof, 'forged-ak', 'forged-sk', 'forged-st');
+    const forgedBefore = readFileSync(proof, 'utf8');
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -230,7 +231,7 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        HOLO_PROVE_R2_READONLY: PROVE_STUB,
+        // Caller path is never authoritative (QA11).
         HOLO_R2_RO_PROOF_PATH: proof,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'm1-ok-proof'),
       }),
@@ -242,21 +243,18 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
     });
     expect(run.status, combined.slice(0, 1500)).toBe(0);
     expect(combined).toMatch(
-      /fresh live RO proof|RO proof fresh-bound ok|accepted Cloudflare temporary/i
+      /fixed scripts\/prove-r2-readonly\.sh|fresh live RO proof|RO proof fresh-bound ok/i
     );
-    const att = JSON.parse(readFileSync(proof, 'utf8')) as { tuple_fp16: string };
-    expect(att.tuple_fp16).toBe(tupleFp16(WRITER_AK, RESTORE_SK, RESTORE_ST));
+    // Forged caller file remains forged — authority is trusted dir only.
+    expect(readFileSync(proof, 'utf8')).toBe(forgedBefore);
     expect(combined).not.toContain(RESTORE_ST);
     expect(combined).not.toContain(RESTORE_SK);
   });
 
-  it('provision REQUIRE_LIVE fails when prove fails (forged path cannot skip)', () => {
+  it('provision REQUIRE_LIVE fails when live prove fails (forged path cannot skip)', () => {
     const host = `s28r3-qa9-m1-fail-${Date.now().toString(36)}`;
     const proof = resolve(EVIDENCE_DIR, 'fail-proof.json');
     writeProof(proof, WRITER_AK, RESTORE_SK, RESTORE_ST);
-    const failingProve = resolve(EVIDENCE_DIR, 'fail-prove.sh');
-    writeFileSync(failingProve, '#!/usr/bin/env bash\necho FAIL: stub prove\nexit 1\n');
-    spawnSync('chmod', ['+x', failingProve]);
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -268,8 +266,8 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        HOLO_PROVE_R2_READONLY: failingProve,
         HOLO_R2_RO_PROOF_PATH: proof,
+        HOLO_AWS_MOCK_MODE: 'list_fail',
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'm1-fail-proof'),
       }),
     });
@@ -279,19 +277,26 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
       combined: combined.slice(0, 2000),
     });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/fresh live RO proof failed|DEPENDENCY-S28-R2-RO/i);
+    expect(combined).toMatch(/fresh live RO proof failed|list_denied|DEPENDENCY-S28-R2-RO/i);
   });
 });
 
 describe('GATE-FIX-S28R3-QA9 M2 behavioral fire-drill + verifier', () => {
   it('fire-drill maps session token into child (recorder must execute)', () => {
-    const proof = resolve(EVIDENCE_DIR, 'fd-proof.json');
+    const report = resolve(EVIDENCE_DIR, 'fd-parity.json');
     const recorder = resolve(EVIDENCE_DIR, 'fd-recorder.sh');
     const recorderOut = resolve(EVIDENCE_DIR, 'fd-recorder-out.json');
     writeFileSync(
       recorder,
       `#!/usr/bin/env bash
 set -euo pipefail
+report=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --report) report="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 python3 - <<'PY'
 import json, os
 out = ${JSON.stringify(recorderOut)}
@@ -305,6 +310,12 @@ payload = {
 open(out, "w").write(json.dumps(payload, indent=2) + "\\n")
 print("recorder:ok")
 PY
+if [[ -n "$report" ]]; then
+  cat >"$report" <<'JSON'
+{"POSTGRES_PARITY_PASS":true,"LEDGER_CHECKSUM_MATCH":true,"BLOB_PARITY_PASS":true,"baseline_id":"qa9","baseline_key":"recovery-baselines/qa9.json","ok":true}
+JSON
+fi
+exit 0
 `,
       'utf8'
     );
@@ -312,7 +323,15 @@ PY
 
     const run = spawnSync(
       'bash',
-      [RUNNER, '--host', 's28r3-qa9-fd-token', '--target-timestamp', '2026-07-28T12:00:00Z'],
+      [
+        RUNNER,
+        '--host',
+        's28r3-qa9-fd-token',
+        '--target-timestamp',
+        '2026-07-28T12:00:00Z',
+        '--report',
+        report,
+      ],
       {
         cwd: REPO_ROOT,
         encoding: 'utf8',
@@ -323,8 +342,6 @@ PY
           R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
           R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
           R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-          HOLO_PROVE_R2_READONLY: PROVE_STUB,
-          HOLO_R2_RO_PROOF_PATH: proof,
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: recorder,
         }),
@@ -361,7 +378,6 @@ PY
           R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
           R2_RESTORE_SECRET_ACCESS_KEY: WRITER_SK,
           R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-          HOLO_PROVE_R2_READONLY: PROVE_STUB,
         }),
       }
     );

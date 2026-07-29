@@ -224,11 +224,14 @@ if not data.get("success"):
     if isinstance(errs, list):
         for e in errs:
             if isinstance(e, dict) and e.get("code") is not None:
-                code_list.append(str(e.get("code")))
-            elif isinstance(e, (str, int)):
-                code_list.append(str(e)[:32])
+                # Strict: numeric codes only (or short alnum codes); never free-text messages.
+                c = e.get("code")
+                if isinstance(c, int) or (isinstance(c, str) and c.isdigit()):
+                    code_list.append(str(int(c) if not isinstance(c, int) else c))
+                elif isinstance(c, str) and c.isalnum() and len(c) <= 32:
+                    code_list.append(c)
     err_class = ",".join(code_list[:5]) if code_list else "api_error"
-    # Fixed status + error-code class only — never raw messages/body.
+    # Fixed status + error-code class only — never raw messages/body/strings.
     print(f"API_FAIL http={code} class={err_class}", file=sys.stderr)
     sys.exit(3)
 res = data.get("result") or {}
@@ -392,21 +395,27 @@ run_live_probe() {
     aws_env+=("AWS_SESSION_TOKEN=")
   fi
 
+  # GATE-FIX-S28R3-QA11 / HIGH-2: never interpolate raw provider stdout/stderr into logs.
+  # Classify only by exit codes and fixed denial markers; discard response bodies.
+  classify_denial() {
+    # stdin: provider output; exit 0 if AccessDenied/403-class denial markers present
+    grep -qiE 'AccessDenied|Access Denied|not authorized|Forbidden|InvalidAccessKeyId|UnknownError|Unauthorized|\b403\b'
+  }
+
   # (2) List must succeed
   local ls_out ls_rc
   set +e
   ls_out="$("${aws_env[@]}" aws s3 ls "s3://${bucket}" --endpoint-url "$endpoint" 2>&1)"
   ls_rc=$?
   set -e
+  # Drop body immediately after status capture.
+  ls_out=""
   if [[ $ls_rc -ne 0 ]]; then
-    fail "aws s3 ls failed (exit ${ls_rc}) — List must be allowed for restore RO"
-    echo "  detail: $(echo "$ls_out" | tr '\n' ' ' | head -c 300)" >&2
+    fail "aws s3 ls failed (exit ${ls_rc}; class=list_denied_or_error) — List must be allowed for restore RO"
     return 1
   fi
-  pass "aws s3 ls s3://${bucket} exit 0 (List allowed)"
-  # Do not dump full listing (may be large); show first line only.
-  info "ls sample: $(echo "$ls_out" | head -n 1 | tr '\n' ' ')"
-  info "sacrificial probe key: ${probe_key} (REDHAT-FIX-H4 drill-neg only)"
+  pass "aws s3 ls exit 0 (List allowed; body not logged)"
+  info "sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)"
 
   # (3) Put must be denied — only against sacrificial drill-neg key.
   local put_out put_rc
@@ -415,30 +424,22 @@ run_live_probe() {
   put_rc=$?
   set -e
   if [[ $put_rc -eq 0 ]]; then
-    fail "aws s3 cp SUCCEEDED — credentials allow Put (not object-read-only); cleaning sacrificial probe object"
-    # Cleanup only allowed under drill-neg/ (already asserted).
+    fail "aws s3 cp SUCCEEDED (class=put_allowed) — credentials allow Put (not object-read-only); cleaning sacrificial probe"
     set +e
     "${aws_env[@]}" aws s3 rm "$s3_uri" --endpoint-url "$endpoint" >/dev/null 2>&1
     set -e
+    put_out=""
     return 1
   fi
-  if ! echo "$put_out" | grep -qiE 'AccessDenied|Access Denied|not authorized|Forbidden|InvalidAccessKeyId|UnknownError'; then
-    # R2 sometimes returns 403 without classic AccessDenied string — accept non-zero with 403/403-like.
-    if ! echo "$put_out" | grep -qiE '403|denied|denied|Unauthorized'; then
-      fail "aws s3 cp failed but stderr lacks AccessDenied/403 (exit ${put_rc})"
-      echo "  detail: $(echo "$put_out" | tr '\n' ' ' | head -c 400)" >&2
-      return 1
-    fi
+  if ! printf '%s' "$put_out" | classify_denial; then
+    put_out=""
+    fail "aws s3 cp failed without AccessDenied/403 class (exit ${put_rc}; class=put_error_unclassified)"
+    return 1
   fi
-  if ! echo "$put_out" | grep -qiE 'AccessDenied|Access Denied'; then
-    # Soft note if only 403 without AccessDenied token — still count as blocked put.
-    info "put blocked (exit ${put_rc}); stderr: $(echo "$put_out" | tr '\n' ' ' | head -c 200)"
-  fi
-  pass "aws s3 cp denied on drill-neg key (Put blocked; exit ${put_rc}; AccessDenied/403)"
+  put_out=""
+  pass "aws s3 cp denied (Put blocked; exit ${put_rc}; class=access_denied)"
 
   # (4) Delete must be denied — sacrificial drill-neg key ONLY (H-4).
-  # NEVER target live recovery keys (bucket-root "existing", backup/, pgbackrest/, …).
-  # AccessDenied on a missing sacrificial key still proves Delete is not allowed.
   if ! assert_safe_destructive_probe_key "$probe_key" "delete probe"; then
     return 1
   fi
@@ -450,15 +451,13 @@ run_live_probe() {
   del_rc=$?
   set -e
   if [[ $del_rc -eq 0 ]]; then
-    # aws s3 rm often exits 0 even when object missing. Treat success as failure only if
-    # delete actually removed something; if "delete: s3://..." with no error, still ambiguous.
-    if echo "$del_out" | grep -qiE 'delete:'; then
-      fail "aws s3 rm reported delete success on sacrificial key — credentials may allow Delete (not RO)"
-      echo "  detail: $(echo "$del_out" | tr '\n' ' ' | head -c 300)" >&2
+    if printf '%s' "$del_out" | grep -qiE 'delete:'; then
+      del_out=""
+      fail "aws s3 rm reported delete success (class=delete_allowed) — credentials may allow Delete (not RO)"
       return 1
     fi
-    # Empty success on missing key is common for RO and RW alike; strengthen with API-level delete.
   fi
+  del_out=""
 
   # Stronger Delete probe via s3api DeleteObject — returns AccessDenied for RO tokens.
   local api_out api_rc
@@ -470,18 +469,17 @@ run_live_probe() {
   api_rc=$?
   set -e
   if [[ $api_rc -eq 0 ]]; then
-    # s3api delete-object returns 204 even for missing keys when Delete is allowed.
-    # That proves Delete permission exists → not RO.
-    fail "aws s3api delete-object SUCCEEDED on sacrificial key — credentials allow Delete (not object-read-only)"
-    echo "  detail: $(echo "$api_out" | tr '\n' ' ' | head -c 300)" >&2
+    api_out=""
+    fail "aws s3api delete-object SUCCEEDED (class=delete_allowed) — credentials allow Delete (not object-read-only)"
     return 1
   fi
-  if ! echo "$api_out" | grep -qiE 'AccessDenied|Access Denied|403|not authorized|Forbidden|Unauthorized'; then
-    fail "aws s3api delete-object failed without AccessDenied/403 (exit ${api_rc})"
-    echo "  detail: $(echo "$api_out" | tr '\n' ' ' | head -c 400)" >&2
+  if ! printf '%s' "$api_out" | classify_denial; then
+    api_out=""
+    fail "aws s3api delete-object failed without AccessDenied/403 class (exit ${api_rc}; class=delete_error_unclassified)"
     return 1
   fi
-  pass "aws s3api delete-object denied on drill-neg key (Delete blocked; exit ${api_rc}; AccessDenied/403)"
+  api_out=""
+  pass "aws s3api delete-object denied (Delete blocked; exit ${api_rc}; class=access_denied)"
   return 0
 }
 
@@ -593,44 +591,74 @@ r2_tuple_fp16() {
   printf '%s\0%s\0%s' "$rak" "$rsk" "$rst" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
 }
 
+r2_context_fp16() {
+  # Non-secret digest of endpoint|bucket|prefix|policy (canonical empty → "").
+  local endpoint="${1:-}" bucket="${2:-}" prefix="${3:-}" policy="${4:-}"
+  printf '%s\0%s\0%s\0%s' "$endpoint" "$bucket" "$prefix" "$policy" \
+    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' | cut -c1-16
+}
+
 write_r2_ro_proof_attestation() {
+  # GATE-FIX-S28R3-QA11: evidence only under trusted dir; exclusive create; mode 0600.
+  # HOLO_R2_RO_PROOF_OUT is internal coordination only and MUST be under .tmp/r2-ro-proofs.
   local out="${HOLO_R2_RO_PROOF_OUT:-}"
   local rak="$1" rsk="$2" rst="$3"
-  # GATE-FIX-S28R3-QA10: only write evidence from the in-process live prove — never from caller path alone.
-  [[ -z "$out" ]] && return 0
-  local fp
+  local trusted="$ROOT/.tmp/r2-ro-proofs"
+  mkdir -p "$trusted"
+  if [[ -z "$out" ]]; then
+    out="$(mktemp "$trusted/proof.XXXXXX")"
+  else
+    case "$out" in
+      "$trusted"/*) ;;
+      *)
+        fail "HOLO_R2_RO_PROOF_OUT must be under .tmp/r2-ro-proofs (refusing caller-selected path)"
+        return 1
+        ;;
+    esac
+  fi
+  local fp ctx
   fp="$(r2_tuple_fp16 "$rak" "$rsk" "$rst")"
   if [[ -z "$fp" || "${#fp}" -lt 8 ]]; then
     fail "unable to compute non-secret tuple fingerprint for RO proof attestation"
     return 1
   fi
-  mkdir -p "$(dirname "$out")"
   local endpoint="${ENDPOINT:-${R2_ENDPOINT:-}}"
   local bucket="${BUCKET:-${R2_BUCKET_NAME:-}}"
   local prefix="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-}}"
-  python3 - "$out" "$fp" "$endpoint" "$bucket" "$prefix" <<'PY'
+  local policy="${R2_CREDENTIAL_POLICY:-}"
+  ctx="$(r2_context_fp16 "$endpoint" "$bucket" "$prefix" "$policy")"
+  if [[ -z "$ctx" || "${#ctx}" -lt 8 ]]; then
+    fail "unable to compute non-secret context fingerprint for RO proof attestation"
+    return 1
+  fi
+  mkdir -p "$(dirname "$out")"
+  # Exclusive write when possible (no-follow via O_EXCL when file truncated by consumer first).
+  python3 - "$out" "$fp" "$ctx" <<'PY'
 import json, os, sys
 from datetime import datetime, timezone
-out, fp, endpoint, bucket, prefix = sys.argv[1:6]
+out, fp, ctx = sys.argv[1:4]
+# Ensure private mode: open/create, write, fchmod 0o600.
+fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+try:
+    os.fchmod(fd, 0o600)
+except OSError:
+    pass
 payload = {
   "schema": "holo.r2-ro-proof.v1",
   "ok": True,
   "tuple_fp16": fp,
+  "context_fp16": ctx,
   "list_allowed": True,
   "put_denied": True,
   "delete_denied": True,
-  "endpoint_present": bool(endpoint),
-  "bucket_present": bool(bucket),
-  "prefix_present": bool(prefix),
   "producer": "scripts/prove-r2-readonly.sh",
   "proved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-  "note": "non-secret fingerprint + context flags only — never includes credential values",
+  "note": "non-secret fingerprints only — never includes credential or raw context values",
 }
-with open(out, "w", encoding="utf-8") as f:
+with os.fdopen(fd, "w", encoding="utf-8") as f:
   json.dump(payload, f, indent=2)
   f.write("\n")
-os.chmod(out, 0o600)
-print(f"wrote RO proof attestation: {out} tuple_fp16={fp}")
+print(f"wrote RO proof attestation: {out} tuple_fp16={fp} context_fp16={ctx}")
 PY
 }
 

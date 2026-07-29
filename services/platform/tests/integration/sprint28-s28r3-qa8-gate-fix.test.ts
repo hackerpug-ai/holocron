@@ -20,10 +20,7 @@ const PROVE_R2 = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
 const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
 const VERIFY = resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh');
 const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
-const PROVE_STUB = resolve(
-  REPO_ROOT,
-  'services/platform/tests/integration/fixtures/qa10-prove-stub.sh'
-);
+const FIX_BIN = resolve(REPO_ROOT, 'services/platform/tests/integration/fixtures/bin');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA8');
 
 // Synthetic non-placeholder shapes (never real secrets).
@@ -43,15 +40,20 @@ function writeEvidence(name: string, body: unknown): void {
 function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
+    // PATH aws/curl mocks for fixed live prover (GATE-FIX-S28R3-QA11).
+    PATH: `${FIX_BIN}:${process.env.PATH ?? ''}`,
     // Isolate from personal secrets / .env bleed for unit identity checks.
     HOLOCRON_SECRETS_PATH: '/nonexistent-s28r3-qa8-no-secrets',
     HOLO_SECRETS_PATH: '/nonexistent-s28r3-qa8-no-secrets',
     CLOUDFLARE_API_TOKEN: '',
     R2_PARENT_ACCESS_KEY_ID: '',
     R2_PARENT_SECRET_ACCESS_KEY: '',
-    R2_ENDPOINT: 'https://example-accountid.r2.cloudflarestorage.com',
-    R2_ACCOUNT_ID: 'example-accountid',
+    // Non-placeholder endpoint (example-accountid is rejected by is_placeholder).
+    R2_ENDPOINT: 'https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.r2.cloudflarestorage.com',
+    R2_ACCOUNT_ID: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     R2_BUCKET_NAME: 'holocron-backup',
+    R2_PGBACKREST_PREFIX: 'pgbackrest',
+    HOLO_AWS_MOCK_MODE: 'default',
     ...extra,
   };
 }
@@ -88,8 +90,7 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
   it('RED→GREEN: same AK + distinct secret + session token is accepted (shape)', () => {
     const host = `s28r3-qa8-cf-${Date.now().toString(36)}`;
     const staging = resolve(EVIDENCE_DIR, 'provision-cf-shape');
-    // GATE-FIX-S28R3-QA10: fresh live proof always runs (stub for unit; never trust forged JSON).
-    const proof = resolve(EVIDENCE_DIR, 'qa8-cf-shape-proof.json');
+    // GATE-FIX-S28R3-QA11: fixed scripts/prove-r2-readonly.sh + PATH aws mock (no prover override).
     mkdirSync(EVIDENCE_DIR, { recursive: true });
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
@@ -103,8 +104,6 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK, // same parent AK (CF temp shape)
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        HOLO_PROVE_R2_READONLY: PROVE_STUB,
-        HOLO_R2_RO_PROOF_PATH: proof,
         STAGING_ROOT: staging,
       }),
     });
@@ -180,7 +179,6 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
 
   it('distinct AK still accepted without session token', () => {
     const host = `s28r3-qa8-distinct-${Date.now().toString(36)}`;
-    const proof = resolve(EVIDENCE_DIR, 'qa8-distinct-ak-proof.json');
     mkdirSync(EVIDENCE_DIR, { recursive: true });
     const run = spawnSync('bash', [PROVISION, '--host', host, '--dry-run', '--skip-isolation'], {
       cwd: REPO_ROOT,
@@ -193,8 +191,6 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
         R2_RESTORE_ACCESS_KEY_ID: OTHER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: '',
-        HOLO_PROVE_R2_READONLY: PROVE_STUB,
-        HOLO_R2_RO_PROOF_PATH: proof,
         STAGING_ROOT: resolve(EVIDENCE_DIR, 'provision-distinct-ak'),
       }),
     });
@@ -274,8 +270,6 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
-        // Fake endpoint → live probe fails, but must NOT be "impossible for true RO" AK-only.
-        R2_ENDPOINT: 'https://example-accountid.r2.cloudflarestorage.com',
       }),
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
@@ -283,13 +277,12 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
       status: run.status,
       combined: combined.slice(0, 5000),
     });
-    expect(run.status).not.toBe(0); // fake endpoint / no real aws success
+    // PATH aws mock → live List/Put/Delete oracle succeeds without AK-only refuse.
+    expect(run.status, combined.slice(0, 1500)).toBe(0);
+    expect(combined).toMatch(/RESULT:\s*PASS/);
     expect(combined).not.toMatch(/impossible for true RO/);
     expect(combined).not.toMatch(/refuses restore keys equal to ambient RW R2_ACCESS_KEY_ID/);
-    // Should acknowledge CF temp shape or attempt live probe (ls/aws).
-    expect(combined).toMatch(
-      /Cloudflare|temporary|session|distinct secret|aws s3|live R2|List|probe|RESULT:\s*FAIL/i
-    );
+    expect(combined).toMatch(/List allowed|class=access_denied|drill-neg/i);
     // Never leak secrets.
     expect(combined).not.toContain(RESTORE_SK_DISTINCT);
     expect(combined).not.toContain(WRITER_SK);
