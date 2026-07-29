@@ -2679,21 +2679,108 @@ async function main(): Promise<void> {
         let freshTargetAttestation: Record<string, unknown> | null = null;
 
         if (args.freshTarget) {
+          // GATE-FIX-S28R3-QA1: resolve host-accessible volume paths.
+          // Colima/Desktop Mountpoints under /var/lib/docker are not host-writable;
+          // prefer Options.device (bind-backed) or paths.txt host_staging when needed.
           const host = args.freshTarget.trim();
           const volPg = `${host}-pgdata`;
           const volBlob = `${host}-blobs`;
-          const mp = (vol: string): string | null => {
-            const r = spawnSync('docker', ['volume', 'inspect', '-f', '{{ .Mountpoint }}', vol], {
+          const { existsSync, mkdirSync, writeFileSync, unlinkSync } = await import('node:fs');
+          const { join } = await import('node:path');
+
+          const inspectField = (vol: string, template: string): string | null => {
+            const r = spawnSync('docker', ['volume', 'inspect', '-f', template, vol], {
               encoding: 'utf8',
               timeout: 15_000,
             });
             if (r.status !== 0) return null;
             const p = (r.stdout ?? '').trim();
-            return p && p !== '<no value>' ? p : null;
+            return p && p !== '<no value>' && p !== '<nil>' ? p : null;
           };
-          const scratchMp = mp(volPg);
-          const blobMp = mp(volBlob);
-          if (!scratchMp || !blobMp) {
+          const volumeExists = (vol: string): boolean => {
+            const r = spawnSync('docker', ['volume', 'inspect', vol], {
+              encoding: 'utf8',
+              timeout: 15_000,
+            });
+            return r.status === 0;
+          };
+          const isUnboundH2Step3 = (p: string): boolean =>
+            /(?:^|\/)\.tmp\/REDHAT-FIX-H2\/step3-/.test(p);
+          const hostWritable = (p: string): boolean => {
+            if (!p || isUnboundH2Step3(p)) return false;
+            try {
+              mkdirSync(p, { recursive: true });
+              const probe = join(p, `.holo-write-probe-${process.pid}`);
+              writeFileSync(probe, 'ok');
+              try {
+                unlinkSync(probe);
+              } catch {
+                /* ignore */
+              }
+              return true;
+            } catch {
+              return false;
+            }
+          };
+          const findPathsTxt = (h: string): string | null => {
+            const cwd = process.cwd();
+            const candidates = [
+              process.env.STAGING_ROOT
+                ? resolve(cwd, process.env.STAGING_ROOT, h, 'paths.txt')
+                : null,
+              resolve(cwd, '.tmp/fresh-restore', h, 'paths.txt'),
+              resolve(cwd, '.tmp/REDHAT-FIX-S28R3/fresh-restore', h, 'paths.txt'),
+              resolve(cwd, '.tmp/GATE-FIX-S28R3-QA1/fresh-restore', h, 'paths.txt'),
+              resolve(cwd, '.tmp/REDHAT-FIX-S28R2/C1/staging', h, 'paths.txt'),
+            ].filter((x): x is string => Boolean(x));
+            for (const c of candidates) {
+              if (existsSync(c)) return c;
+            }
+            return null;
+          };
+          const readPathsField = (file: string, key: string): string | null => {
+            try {
+              const text = readFileSync(file, 'utf8');
+              const line = text.split('\n').find((l) => l.startsWith(`${key}=`));
+              if (!line) return null;
+              const v = line.slice(key.length + 1).trim();
+              return v || null;
+            } catch {
+              return null;
+            }
+          };
+          type ExecMode = 'host-mountpoint' | 'host-bind-device' | 'host-staging-bind';
+          const resolveHostExec = (
+            vol: string,
+            role: 'pgdata' | 'blob'
+          ): { exec: string; mode: ExecMode; daemon: string | null } | null => {
+            if (!volumeExists(vol)) return null;
+            const daemon = inspectField(vol, '{{ .Mountpoint }}');
+            const device = inspectField(
+              vol,
+              '{{ if .Options }}{{ index .Options "device" }}{{ end }}'
+            );
+            if (daemon && hostWritable(daemon)) {
+              return { exec: daemon, mode: 'host-mountpoint', daemon };
+            }
+            if (device && hostWritable(device)) {
+              return { exec: device, mode: 'host-bind-device', daemon };
+            }
+            const pathsFile = findPathsTxt(host);
+            if (pathsFile) {
+              const key = role === 'pgdata' ? 'host_staging_pgdata' : 'host_staging_blob';
+              const staging = readPathsField(pathsFile, key);
+              if (staging) {
+                const abs = resolve(process.cwd(), staging);
+                if (hostWritable(abs)) {
+                  return { exec: abs, mode: 'host-staging-bind', daemon };
+                }
+              }
+            }
+            return null;
+          };
+
+          if (!volumeExists(volPg) || !volumeExists(volBlob)) {
             const msg = `fresh-target volumes unresolvable for ${host} (need ${volPg} + ${volBlob}) — refuse unbound host-only paths`;
             if (args.json) {
               console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
@@ -2702,29 +2789,94 @@ async function main(): Promise<void> {
             }
             process.exit(2);
           }
-          scratch = scratchMp;
-          blobDir = blobMp;
+
+          // Prefer explicit --scratch/--blob-dir when already host-writable + volume-bound;
+          // otherwise resolve from Docker volume metadata (never /var/lib/docker if unusable).
+          let scratchResolved = resolveHostExec(volPg, 'pgdata');
+          let blobResolved = resolveHostExec(volBlob, 'blob');
+
+          if (args.scratch && hostWritable(args.scratch) && !isUnboundH2Step3(args.scratch)) {
+            const daemon = inspectField(volPg, '{{ .Mountpoint }}');
+            scratchResolved = {
+              exec: args.scratch,
+              mode: scratchResolved?.mode ?? 'host-bind-device',
+              daemon: scratchResolved?.daemon ?? daemon,
+            };
+          }
+          if (args.blobDir && hostWritable(args.blobDir) && !isUnboundH2Step3(args.blobDir)) {
+            const daemon = inspectField(volBlob, '{{ .Mountpoint }}');
+            blobResolved = {
+              exec: args.blobDir,
+              mode: blobResolved?.mode ?? 'host-bind-device',
+              daemon: blobResolved?.daemon ?? daemon,
+            };
+          }
+
+          if (!scratchResolved || !blobResolved) {
+            const msg =
+              `fresh-target host-accessible path unresolvable for ${host} ` +
+              `(daemon Mountpoint not host-writable; no bind device / host_staging) — ` +
+              `refuse unbound host-only paths and refuse /var/lib/docker host mkdir`;
+            if (args.json) {
+              console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+            } else {
+              console.error(`error: ${msg}`);
+            }
+            process.exit(2);
+          }
+
+          const scratchExec = scratchResolved.exec;
+          const blobExec = blobResolved.exec;
+          if (isUnboundH2Step3(scratchExec) || isUnboundH2Step3(blobExec)) {
+            const msg = `refuse unbound host-only REDHAT-FIX-H2/step3 path as volume destination`;
+            if (args.json) {
+              console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+            } else {
+              console.error(`error: ${msg}`);
+            }
+            process.exit(2);
+          }
+
+          scratch = scratchExec;
+          blobDir = blobExec;
+          const executionMode =
+            scratchResolved.mode === blobResolved.mode
+              ? scratchResolved.mode
+              : `${scratchResolved.mode}+${blobResolved.mode}`;
           freshTargetAttestation = {
             ok: true,
             schema: 'holo.fresh-target.fire-drill-attestation.v1',
             host,
             container: host,
             volumes: { pgdata: volPg, blob: volBlob },
-            mountpoints: { scratch: scratchMp, blob: blobMp },
-            scratch: scratchMp,
-            blobDir: blobMp,
+            mountpoints: {
+              scratch: scratchResolved.daemon ?? scratchExec,
+              blob: blobResolved.daemon ?? blobExec,
+            },
+            daemon_mountpoint: {
+              scratch: scratchResolved.daemon,
+              blob: blobResolved.daemon,
+            },
+            host_execution: { scratch: scratchExec, blob: blobExec },
+            container_paths: {
+              pgdata: '/var/lib/postgresql/restore',
+              blob: '/var/lib/holocron/blob-restore',
+            },
+            execution_mode: executionMode,
+            scratch: scratchExec,
+            blobDir: blobExec,
           };
           const attPath = resolve(
             process.cwd(),
             `.tmp/REDHAT-FIX-S28R2/C1/attestation-${host}.json`
           );
-          const { mkdirSync, writeFileSync } = await import('node:fs');
           mkdirSync(resolve(attPath, '..'), { recursive: true });
           writeFileSync(attPath, `${JSON.stringify(freshTargetAttestation, null, 2)}\n`, 'utf8');
           if (!args.json) {
             console.log(`  fresh_target:               ${host}`);
-            console.log(`  fresh_target_scratch:       ${scratchMp}`);
-            console.log(`  fresh_target_blob:          ${blobMp}`);
+            console.log(`  fresh_target_scratch:       ${scratchExec}`);
+            console.log(`  fresh_target_blob:          ${blobExec}`);
+            console.log(`  fresh_target_exec_mode:     ${executionMode}`);
             console.log(`  fresh_target_attestation:   ${attPath}`);
           }
         }

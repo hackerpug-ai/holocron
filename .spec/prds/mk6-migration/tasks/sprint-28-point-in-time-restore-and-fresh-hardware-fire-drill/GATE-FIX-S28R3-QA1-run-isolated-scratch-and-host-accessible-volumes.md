@@ -1,6 +1,6 @@
 # GATE-FIX-S28R3-QA1 — Run-isolated gate scratch + host-accessible volume-bound fire-drill
 
-> Status: ⬜ Pending  
+> Status: ✅ Implemented (worktree; await review)  
 > Sprint: [Sprint 28](./SPRINT.md)  
 > Agent: devops-engineer  
 > Reviewer: code-reviewer + product-manager  

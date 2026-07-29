@@ -77,8 +77,8 @@ describe('REDHAT-FIX-S28R2 C1 fresh-target fire-drill binding (always)', () => {
 
   it('S28R3 AC-2: gate claim is not green solely on resolve-only — full fire-drill path exists', () => {
     // Terra CRITICAL-1: resolve-only-only is insufficient for the CAP-BAK-01 gate claim.
-    // Runner must implement full restore:fire-drill on volume mountpoints; gate step3
-    // must invoke that path (asserted in sprint28-s28r3-gate-bind.test.ts).
+    // Runner must implement full restore:fire-drill on volume-bound host-accessible paths;
+    // gate step3 must invoke that path (asserted in sprint28-s28r3-gate-bind.test.ts).
     const src = readFileSync(RUNNER, 'utf8');
     expect(src).toMatch(/restore:fire-drill/);
     expect(src).toMatch(
@@ -87,6 +87,8 @@ describe('REDHAT-FIX-S28R2 C1 fresh-target fire-drill binding (always)', () => {
     expect(src).toMatch(/RESOLVE_ONLY/);
     // Full path requires target timestamp when not resolve-only.
     expect(src).toMatch(/--target-timestamp required unless --resolve-only/);
+    // GATE-FIX-S28R3-QA1: host-accessible execution (not Mountpoint-only on Colima).
+    expect(src).toMatch(/host_execution|host-bind-device|host-staging-bind|execution_mode/);
     writeEvidence('s28r3-not-resolve-only-only.json', {
       has_fire_drill: true,
       has_resolve_only_gate: true,
@@ -156,6 +158,8 @@ describe('REDHAT-FIX-S28R2 C1 docker volume mountpoint binding (PLATFORM_IT)', (
         container?: string;
         volumes?: { pgdata?: string; blob?: string };
         mountpoints?: { scratch?: string; blob?: string };
+        host_execution?: { scratch?: string; blob?: string };
+        execution_mode?: string;
         scratch?: string;
         blobDir?: string;
         ok?: boolean;
@@ -163,16 +167,22 @@ describe('REDHAT-FIX-S28R2 C1 docker volume mountpoint binding (PLATFORM_IT)', (
       writeEvidence('attestation-parsed.json', body);
       expect(body.ok).toBe(true);
       expect(body.host ?? body.container).toMatch(new RegExp(host));
-      const scratch = body.mountpoints?.scratch ?? body.scratch;
-      const blob = body.mountpoints?.blob ?? body.blobDir;
-      expect(scratch, 'scratch mountpoint').toBeTruthy();
-      expect(blob, 'blob mountpoint').toBeTruthy();
-      // Must not be host-only .tmp scratch without volume binding.
-      expect(String(scratch)).not.toMatch(/\.tmp\/REDHAT-FIX-H2/);
-      // Mountpoints should exist on host when volumes are local.
-      if (scratch && existsSync(scratch)) {
-        expect(existsSync(scratch)).toBe(true);
+      // Prefer host_execution (GATE-FIX-S28R3-QA1); fall back to scratch/blobDir.
+      const scratch = body.host_execution?.scratch ?? body.scratch ?? body.mountpoints?.scratch;
+      const blob = body.host_execution?.blob ?? body.blobDir ?? body.mountpoints?.blob;
+      expect(scratch, 'scratch execution path').toBeTruthy();
+      expect(blob, 'blob execution path').toBeTruthy();
+      // Must not be host-only unbound H2 step3 without volume binding.
+      expect(String(scratch)).not.toMatch(/\.tmp\/REDHAT-FIX-H2\/step3/);
+      expect(String(blob)).not.toMatch(/\.tmp\/REDHAT-FIX-H2\/step3/);
+      // Host execution path must be writable (not inaccessible /var/lib/docker on Colima).
+      expect(String(scratch)).not.toMatch(/^\/var\/lib\/docker\//);
+      expect(existsSync(String(scratch)), `host scratch exists: ${scratch}`).toBe(true);
+      if (body.execution_mode) {
+        expect(body.execution_mode).toMatch(/host-mountpoint|host-bind-device|host-staging-bind/);
       }
+      expect(body.volumes?.pgdata).toBe(`${host}-pgdata`);
+      expect(body.volumes?.blob).toBe(`${host}-blobs`);
 
       // Cleanup container (best-effort).
       spawnSync('docker', ['rm', '-f', host], { encoding: 'utf8', timeout: 30_000 });

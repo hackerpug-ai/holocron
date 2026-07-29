@@ -172,6 +172,13 @@ EOF
 )"
 R2_CREDENTIAL_KIND="object-read-only"
 
+# Absolute staging root required for Docker bind-backed local volumes (device=).
+# Relative STAGING_ROOT (e.g. .tmp/...) would be daemon-relative and unusable on Colima/Desktop.
+case "$STAGING_ROOT" in
+  /*) ;;
+  *) STAGING_ROOT="$(cd "$ROOT" && mkdir -p "$STAGING_ROOT" && cd "$STAGING_ROOT" && pwd)" ;;
+esac
+
 TARGET_DIR="${STAGING_ROOT}/${HOST_NAME}"
 HOST_PGDATA_STAGING="${TARGET_DIR}/pgdata"
 HOST_BLOB_STAGING="${TARGET_DIR}/blob-restore"
@@ -359,13 +366,28 @@ networks:
     name: ${NETWORK_NAME}
     driver: bridge
 
+# GATE-FIX-S28R3-QA1: bind-backed local volumes so host Bun can write the same
+# bytes the container mounts (Colima/Desktop Mountpoints under /var/lib/docker
+# are not host-accessible). device= must be absolute host paths.
 volumes:
   ${VOLUME_PGDATA}:
     name: ${VOLUME_PGDATA}
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_PGDATA_STAGING}
   ${VOLUME_BLOB}:
     name: ${VOLUME_BLOB}
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_BLOB_STAGING}
 EOF
 log "wrote compose: $COMPOSE_FILE"
+log "bind-backed volumes: ${VOLUME_PGDATA} → ${HOST_PGDATA_STAGING}"
+log "bind-backed volumes: ${VOLUME_BLOB} → ${HOST_BLOB_STAGING}"
 
 cat >"$PROBE_WRAPPER" <<EOF
 #!/usr/bin/env bash
