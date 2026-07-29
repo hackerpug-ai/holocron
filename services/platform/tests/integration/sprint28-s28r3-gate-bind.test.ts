@@ -291,19 +291,20 @@ describe('REDHAT-FIX-S28R3 gate-bind contracts (always)', () => {
   it('AC-6: credential inventory evidence records R2_RESTORE absence (lengths only)', () => {
     const invScript = resolve(REPO_ROOT, 'scripts/inventory-restore-credentials.sh');
     expect(existsSync(invScript), `missing ${invScript}`).toBe(true);
-    const secretsCandidates = [
-      process.env.HOLO_SECRETS_PATH,
-      process.env.HOLOCRON_SECRETS_PATH,
-      resolve(REPO_ROOT, 'services/platform/config/secrets.yaml'),
-    ].filter((p): p is string => Boolean(p && existsSync(p)));
-    expect(secretsCandidates.length, 'secrets path required for real inventory').toBeGreaterThan(0);
+    // GATE-FIX-S28R3-QA7 / MEDIUM-1: committed non-secret fixture (absent restore).
+    // Always-on; no personal secrets.yaml / env path dependency.
+    const secrets = resolve(
+      REPO_ROOT,
+      'services/platform/tests/fixtures/sprint28/secrets-inventory-absent-restore.yaml'
+    );
+    expect(existsSync(secrets), `missing committed inventory fixture: ${secrets}`).toBe(true);
     const invPath = resolve(EVIDENCE_DIR, 'credential-inventory.json');
     mkdirSync(EVIDENCE_DIR, { recursive: true });
-    const run = spawnSync(
-      'bash',
-      [invScript, '--secrets', secretsCandidates[0]!, '--out', invPath],
-      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
-    );
+    const run = spawnSync('bash', [invScript, '--secrets', secrets, '--out', invPath], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
     expect(run.status, run.stderr ?? run.stdout).toBe(0);
     expect(existsSync(invPath)).toBe(true);
     const inv = JSON.parse(readFileSync(invPath, 'utf8')) as {
@@ -315,13 +316,13 @@ describe('REDHAT-FIX-S28R3 gate-bind contracts (always)', () => {
     const text = readFileSync(invPath, 'utf8');
     expect(text).not.toMatch(/R2_SECRET_ACCESS_KEY"\s*:\s*"[A-Za-z0-9+/]{20,}/);
     expect(text).not.toMatch(/"value"\s*:/);
-    if (inv.R2_RESTORE_present === false || inv.residual === 'DEPENDENCY-S28-R2-RO') {
-      expect(inv.residual).toBe('DEPENDENCY-S28-R2-RO');
-    }
+    expect(inv.R2_RESTORE_present).toBe(false);
+    expect(inv.residual).toBe('DEPENDENCY-S28-R2-RO');
     writeEvidence('ac6-inventory-check.json', {
       residual: inv.residual ?? null,
       R2_RESTORE_present: inv.R2_RESTORE_present ?? null,
       source: 'scripts/inventory-restore-credentials.sh',
+      secrets_fixture: secrets,
     });
   });
 });
