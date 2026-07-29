@@ -1,0 +1,113 @@
+{
+  "sprint": "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill",
+    "sprint_slug": "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill"
+  },
+  "capability": "CAP-BAK-01",
+  "planned_at": "20260728T000000Z",
+  "planned_steps": 6,
+  "dispatcher": "bun services/platform/src/cli/holo.ts",
+  "notes": [
+    "REDHAT-FIX-H2: every literal_cmd uses the real bun dispatcher (not PATH holo stubs).",
+    "Step 6 must observe a named restore-path failure — never sole-green on 'unknown flag: --pitr'.",
+    "Executable oracle suite: PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-human-gate-oracles.test.ts"
+  ],
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo restore --pitr <timestamp> against a scratch DB — restores to the named point exactly (or fail-closed outside WAL with named error).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-H2/step1-scratch; bun services/platform/src/cli/holo.ts restore --pitr \"${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}\" --scratch .tmp/REDHAT-FIX-H2/step1-scratch --target-action promote 2>&1 | tee .tmp/REDHAT-FIX-H2/step1-restore.txt; ! grep -q 'unknown flag: --pitr' .tmp/REDHAT-FIX-H2/step1-restore.txt",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": null,
+        "notes": "Valid in-window PITR → exit 0 + SELECT 1. Outside-window / empty → non-zero named restore error. Never unknown flag: --pitr.",
+        "must_observe_any": [
+          "overall:.*OK",
+          "outside available WAL",
+          "no base backup available",
+          "backup chain missing",
+          "backup config missing secrets"
+        ],
+        "must_not_observe": ["unknown flag: --pitr"]
+      }
+    },
+    {
+      "n": 2,
+      "text": "Provision / prove a fresh restore target with zero mini access (multi-axis isolation PASS).",
+      "type": "terminal",
+      "method": "real-script",
+      "literal_cmd": "set -euo pipefail; MINI_HOST=\"${MINI_HOST:-203.0.113.1}\" MINI_IPV4=\"${MINI_IPV4:-203.0.113.1}\" MINI_IPV6=\"${MINI_IPV6:-2001:db8::1}\" MINI_TAILNET_IP=\"${MINI_TAILNET_IP:-203.0.113.2}\" MINI_LAN_IP=\"${MINI_LAN_IP:-203.0.113.3}\" MINI_DNS_ALIASES=\"${MINI_DNS_ALIASES:-mini.invalid}\" MINI_SOCKET_DEFAULTS=\"${MINI_SOCKET_DEFAULTS:-0}\" MINI_UNIX_SOCKETS=\"${MINI_UNIX_SOCKETS:-/tmp/.s.PGSQL.5432-gate-absent}\" TARGET_ATTESTED_IDENTITY=\"${TARGET_ATTESTED_IDENTITY:-target-vm-uuid-gate}\" MINI_ATTESTED_IDENTITY=\"${MINI_ATTESTED_IDENTITY:-mini-hw-uuid-gate}\" REQUIRE_ATTESTED_IDENTITY=1 R2_ACCESS_KEY_ID=\"${R2_ACCESS_KEY_ID:-ro-test}\" R2_SECRET_ACCESS_KEY=\"${R2_SECRET_ACCESS_KEY:-ro-test}\" R2_CREDENTIAL_KIND=object-read-only R2_CREDENTIAL_POLICY='{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:ListBucket\",\"s3:GetBucketLocation\"],\"Resource\":[\"arn:aws:s3:::holocron-backup\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::holocron-backup/*\"]}]}' NC_TIMEOUT_SEC=1 bash scripts/prove-isolation.sh 2>&1 | tee .tmp/REDHAT-FIX-H2/step2-isolation.txt; grep -qE 'RESULT:[[:space:]]+PASS' .tmp/REDHAT-FIX-H2/step2-isolation.txt",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": [
+          "AXIS network:[[:space:]]*PASS",
+          "AXIS identity:[[:space:]]*PASS",
+          "RESULT:[[:space:]]+PASS"
+        ]
+      }
+    },
+    {
+      "n": 3,
+      "text": "Compare row counts pre/post-restore — exact match against the pre-failure snapshot (parity-report row_counts).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-H2/step3-scratch .tmp/REDHAT-FIX-H2/step3-blob; bun services/platform/src/cli/holo.ts restore:fire-drill --target-timestamp \"${PITR_TIMESTAMP:?set PITR_TIMESTAMP to an in-window ISO}\" --scratch .tmp/REDHAT-FIX-H2/step3-scratch --blob-dir .tmp/REDHAT-FIX-H2/step3-blob --report .tmp/REDHAT-FIX-H2/parity-report.json 2>&1 | tee .tmp/REDHAT-FIX-H2/step3-fire-drill.txt; test -f .tmp/REDHAT-FIX-H2/parity-report.json; jq -e '.POSTGRES_PARITY_PASS == true and (.row_counts | type == \"object\")' .tmp/REDHAT-FIX-H2/parity-report.json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": ["POSTGRES_PARITY_PASS", "row_counts"],
+        "must_not_observe": ["unknown flag:", "unknown command"]
+      }
+    },
+    {
+      "n": 4,
+      "text": "Compare the evidence-ledger chain pre/post-restore — as-of chain SHA-256 matches baseline.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; test -f .tmp/REDHAT-FIX-H2/parity-report.json; jq -e '.LEDGER_CHECKSUM_MATCH == true and ((.ledger_sha256 // .ledgerDigest // .LEDGER_SHA256 // \"\") | tostring | test(\"^[a-f0-9]{64}$\"; \"i\"))' .tmp/REDHAT-FIX-H2/parity-report.json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": ["LEDGER_CHECKSUM_MATCH"]
+      }
+    },
+    {
+      "n": 5,
+      "text": "Restore blob storage on the fresh target — every object SHA-256 matches (BLOB_PARITY_PASS + matched_objects >= 1).",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; test -f .tmp/REDHAT-FIX-H2/parity-report.json; jq -e '.BLOB_PARITY_PASS == true and (.matched_objects // .blob_matched_objects // 0) >= 1' .tmp/REDHAT-FIX-H2/parity-report.json",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": ["BLOB_PARITY_PASS"]
+      }
+    },
+    {
+      "n": 6,
+      "text": "Point restore at an empty/corrupted backup chain — restore fails closed with a named chain error; never fake success; never sole-green on unknown flag: --pitr.",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/REDHAT-FIX-H2/step6-scratch; EMPTY_PREFIX=\"pgbackrest-s28-gate-empty/${GATE_RUN_ID:-manual}\"; set +e; R2_PGBACKREST_PREFIX=\"$EMPTY_PREFIX\" bun services/platform/src/cli/holo.ts restore --pitr 2024-01-01T00:00:00Z --scratch .tmp/REDHAT-FIX-H2/step6-scratch --target-action promote > .tmp/REDHAT-FIX-H2/step6-restore.txt 2>&1; RC=$?; set -e; cat .tmp/REDHAT-FIX-H2/step6-restore.txt; test \"$RC\" -ne 0; ! grep -q 'unknown flag: --pitr' .tmp/REDHAT-FIX-H2/step6-restore.txt; grep -qiE 'no base backup available|backup chain missing|manifest checksum mismatch|WAL segment corrupted|backup chain integrity|outside available WAL|backup config missing secrets' .tmp/REDHAT-FIX-H2/step6-restore.txt; test \"$(find .tmp/REDHAT-FIX-H2/step6-scratch -type f 2>/dev/null | wc -l | tr -d ' ')\" -eq 0",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "notes": "Outer script exits 0 only when restore domain fail-closed is proven. must_not_observe unknown-flag-only.",
+        "require_all_regex": [
+          "no base backup available|backup chain missing|manifest checksum|WAL segment corrupted|outside available WAL|backup config missing secrets"
+        ],
+        "must_not_observe": ["unknown flag: --pitr"],
+        "must_not_sole_success_on": "unknown flag: --pitr"
+      }
+    }
+  ],
+  "oracle_suite": {
+    "command": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-human-gate-oracles.test.ts",
+    "capability_inventory": "pnpm vitest run services/platform/tests/integration/sprint28-capability-inventory.test.ts",
+    "empty_chain_full": "PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-restore-fails-closed.test.ts"
+  }
+}
