@@ -125,12 +125,79 @@ PY
   return 0
 }
 
+# GATE-FIX-S28R3-QA17 sanitize: isolated exec that NEVER dumps ambient environment.
+# Usage: r2_ro_exec_isolated KEY=val KEY=val -- /abs/command [args...]
+# Requires env -i, a "--" separator, and a non-empty command. Values are never logged.
+r2_ro_exec_isolated() {
+  local -a pairs=()
+  local -a cmd=()
+  local saw_sep=0 arg
+  local env_bin="${R2_RO_ENV_BIN:-/usr/bin/env}"
+  for arg in "$@"; do
+    if [[ $saw_sep -eq 1 ]]; then
+      cmd+=("$arg")
+    elif [[ "$arg" == "--" ]]; then
+      saw_sep=1
+    else
+      if [[ "$arg" != *=* ]]; then
+        echo "error: GATE-FIX-S28R3-QA17 r2_ro_exec_isolated expects KEY=VAL before -- (got non-assignment)" >&2
+        return 2
+      fi
+      pairs+=("$arg")
+    fi
+  done
+  if [[ $saw_sep -ne 1 || ${#cmd[@]} -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA17 r2_ro_exec_isolated requires KEY=VAL... -- command [args] (refuse bare env dump)" >&2
+    return 2
+  fi
+  # Absolute command only (no PATH lookup for credential-bearing runtimes).
+  case "${cmd[0]}" in
+    /*) ;;
+    *)
+      echo "error: GATE-FIX-S28R3-QA17 isolated command must be absolute path" >&2
+      return 2
+      ;;
+  esac
+  if [[ ! -x "${cmd[0]}" && ! -f "${cmd[0]}" ]]; then
+    echo "error: GATE-FIX-S28R3-QA17 isolated command missing: ${cmd[0]}" >&2
+    return 2
+  fi
+  "$env_bin" -i "${pairs[@]}" "${cmd[@]}"
+}
+
+# Filter process output to allowlisted status/class lines only (never KEY=value dumps).
+# IMPORTANT: use python -c so stdin remains the pipe to filter (heredoc would steal stdin).
+r2_ro_filter_safe_log() {
+  /usr/bin/python3 -E -s -c '
+import re, sys
+allow = re.compile(
+    r"^(PASS:|FAIL:|INFO:|error:|RESIDUAL:|=== RESULT:|=== prove|"
+    r"\[assert_bound|\[run-fire-drill|wrote RO proof|human_required|"
+    r"Cloudflare dashboard|Automated mint|NEVER reuse|"
+    r"GATE-FIX-|writer preflight)"
+)
+deny = re.compile(
+    r"(?i)(api[_-]?key|secret|token|password|bearer |authorization:|"
+    r"sk-[a-z0-9]|xai-|lin_api_|OPENAI_|ANTHROPIC_|JINA_|CONVEX_TEAM|"
+    r"^SHELL=|^PATH=|^HOME=|^USER=|^npm_|^CMUX_|^OTEL_|^SSH_|"
+    r"^[A-Z][A-Z0-9_]{2,}=.)"
+)
+for line in sys.stdin:
+    s = line.rstrip("\n")
+    if deny.search(s) and not allow.search(s):
+        continue
+    if allow.search(s):
+        s = re.sub(r"(?i)((?:secret|token|password|api_key)\s*=\s*)\S+", r"\1[redacted]", s)
+        print(s)
+'
+}
+
 r2_ro_run_provider() {
   # Run stdlib S3 provider with absolute env -i + absolute python. Credentials via env only.
-  # Usage: r2_ro_run_provider <cmd> [args...]
+  # Usage: r2_ro_run_provider <ak> <sk> <st> <cmd> [args...]
   local ak="$1" sk="$2" st="$3"
   shift 3
-  "$R2_RO_ENV_BIN" -i \
+  r2_ro_exec_isolated \
     "PATH=/usr/bin:/bin" \
     "HOME=${HOME:-/tmp}" \
     "LC_ALL=C" \
@@ -138,6 +205,7 @@ r2_ro_run_provider() {
     "AWS_SECRET_ACCESS_KEY=${sk}" \
     "AWS_SESSION_TOKEN=${st}" \
     "AWS_DEFAULT_REGION=auto" \
+    -- \
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
 }
 

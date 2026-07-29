@@ -219,34 +219,25 @@ assert_bound_r2_ro_proof() {
   proof="$(r2_ro_new_proof_path)" || exit 2
   prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
   echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
-  if ! "$R2_RO_ENV_BIN" \
-    REQUIRE_LIVE_R2_RO=1 \
-    HOLO_R2_RO_PROOF_OUT="$proof" \
-    HOLO_R2_CONTEXT_FP16="$expected_ctx" \
-    R2_RESTORE_ACCESS_KEY_ID="$rak" \
-    R2_RESTORE_SECRET_ACCESS_KEY="$rsk" \
-    R2_RESTORE_SESSION_TOKEN="$rst" \
-    R2_ACCESS_KEY_ID="${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}" \
-    R2_SECRET_ACCESS_KEY="${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}" \
-    R2_ENDPOINT="$ep" \
-    R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
-    R2_BUCKET_NAME="$bucket" \
-    R2_PGBACKREST_PREFIX="$prefix" \
-    R2_RESTORE_OBJECT_PREFIX="$prefix" \
-    R2_CREDENTIAL_KIND="$kind" \
-    R2_CREDENTIAL_POLICY="$policy" \
-    R2_SCOPE_PROBE_IN_KEY="${R2_SCOPE_PROBE_IN_KEY:-}" \
-    R2_SCOPE_PROBE_OUT_KEY="${R2_SCOPE_PROBE_OUT_KEY:-}" \
-    R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}" \
-    HOLOCRON_SECRETS_PATH="${HOLOCRON_SECRETS_PATH:-}" \
-    HOLO_SECRETS_PATH="${HOLO_SECRETS_PATH:-}" \
-    HOME="${HOME:-/tmp}" \
-    /bin/bash "$prove_cmd"; then
-    echo "error: GATE-FIX-S28R3-QA14 fresh live RO proof failed for the exact restore tuple/context" >&2
+  # GATE-FIX-S28R3-QA17 sanitize: always env -i via r2_ro_exec_isolated; never bare env (env-dump).
+  # Capture prove logs to a temp file and emit only allowlisted lines on failure.
+  local _prove_log
+  _prove_log="$(mktemp "${TMPDIR:-/tmp}/holo-prove.XXXXXX.log")"
+  set +e
+  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE:-}"     "HOLO_R2_PROVIDER_MOCK_CANARY=${HOLO_R2_PROVIDER_MOCK_CANARY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
+  local _prove_rc=$?
+  set -e
+  if [[ $_prove_rc -ne 0 ]]; then
+    echo "error: GATE-FIX-S28R3-QA17 fresh live RO proof failed (class=prove_nonzero exit=${_prove_rc})" >&2
+    # Allowlisted log only — never ambient env dump or secret values.
+    r2_ro_filter_safe_log <"$_prove_log" >&2 || true
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
-    rm -f "$proof" 2>/dev/null || true
+    rm -f "$proof" "$_prove_log" 2>/dev/null || true
     exit 2
   fi
+  # Success path: still never echo raw prove log (may contain class lines only if needed).
+  r2_ro_filter_safe_log <"$_prove_log" || true
+  rm -f "$_prove_log" 2>/dev/null || true
   if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2

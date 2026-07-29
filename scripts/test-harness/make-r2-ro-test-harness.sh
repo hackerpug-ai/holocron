@@ -247,8 +247,8 @@ t = t.replace(
     '    return 2\n'
     '  fi\n',
 )
-# Forward mock env vars into r2_ro_run_provider
-old = '''  "$R2_RO_ENV_BIN" -i \\
+# Forward mock env vars into r2_ro_run_provider (QA17 isolated form).
+old = '''  r2_ro_exec_isolated \\
     "PATH=/usr/bin:/bin" \\
     "HOME=${HOME:-/tmp}" \\
     "LC_ALL=C" \\
@@ -256,6 +256,7 @@ old = '''  "$R2_RO_ENV_BIN" -i \\
     "AWS_SECRET_ACCESS_KEY=${sk}" \\
     "AWS_SESSION_TOKEN=${st}" \\
     "AWS_DEFAULT_REGION=auto" \\
+    -- \\
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
 '''
 new = '''  local mock_args=()
@@ -268,7 +269,7 @@ new = '''  local mock_args=()
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_RAN_MARKER:-}" ]]; then
     mock_args+=("HOLO_R2_PROVIDER_MOCK_RAN_MARKER=${HOLO_R2_PROVIDER_MOCK_RAN_MARKER}")
   fi
-  "$R2_RO_ENV_BIN" -i \\
+  r2_ro_exec_isolated \\
     "PATH=/usr/bin:/bin" \\
     "HOME=${HOME:-/tmp}" \\
     "LC_ALL=C" \\
@@ -277,10 +278,11 @@ new = '''  local mock_args=()
     "AWS_SESSION_TOKEN=${st}" \\
     "AWS_DEFAULT_REGION=auto" \\
     ${mock_args[@]+"${mock_args[@]}"} \\
+    -- \\
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
 '''
 if old not in t:
-    raise SystemExit('r2_ro_run_provider env block missing')
+    raise SystemExit('r2_ro_run_provider isolated block missing')
 t = t.replace(old, new, 1)
 # Forward curl mock for mint path - patch prove separately
 p.write_text(t)

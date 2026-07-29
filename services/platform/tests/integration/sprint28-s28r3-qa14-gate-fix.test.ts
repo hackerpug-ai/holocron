@@ -43,7 +43,15 @@ let H: HarnessPaths;
 function writeEvidence(name: string, body: unknown): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   const path = resolve(EVIDENCE_DIR, name);
-  const text = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+  let text = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+  // GATE-FIX-S28R3-QA17 sanitize: never persist ambient env dumps or secret values.
+  text = text
+    .replace(/((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+/gi, '$1[redacted]')
+    .replace(/\b(sk-[a-z0-9_-]{10,}|xai-[a-z0-9]{10,}|lin_api_[a-z0-9]+)\b/gi, '[redacted-token]')
+    .replace(
+      /^(SHELL|PATH|HOME|USER|OPENAI_|XAI_|ANTHROPIC_|JINA_|CONVEX_|CMUX_|OTEL_|SSH_|AWS_|NPM_|FPATH|LOGNAME)=.*$/gm,
+      '[redacted-env-line]'
+    );
   writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`, 'utf8');
 }
 
