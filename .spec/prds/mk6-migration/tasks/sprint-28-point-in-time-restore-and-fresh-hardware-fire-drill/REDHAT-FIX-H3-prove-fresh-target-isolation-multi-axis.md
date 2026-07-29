@@ -70,13 +70,13 @@ scripts/prove-isolation.sh and scripts/verify-restore-isolation.sh require multi
 --------------------------------------------------------------------------------
 DONE WHEN
 --------------------------------------------------------------------------------
-- [ ] AC-1: GIVEN a candidate fresh restore target WHEN multi-axis isolation probes run THEN exit 0 only if network, IPC/sockets, mo
-- [ ] AC-2: GIVEN target and mini attested identities WHEN probe compares them THEN identities are non-empty, independently read, an
-- [ ] AC-3: GIVEN mini network coordinates WHEN probe runs THEN all configured mini network targets are unreachable across IPv4/IPv6
-- [ ] AC-4: GIVEN target mounts and sockets WHEN probe inspects beyond legacy path strings THEN alternate mini bind-mounts and socke
-- [ ] AC-5: GIVEN mini management endpoints WHEN probe validates denial THEN SSH and alternate control-plane paths to mini are close
-- [ ] AC-6: GIVEN H-3 negative control WHEN suite runs against narrow TCP/mount-only checks THEN suite fails; GREEN only after multi
-- [ ] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean
+- [x] AC-1: GIVEN a candidate fresh restore target WHEN multi-axis isolation probes run THEN exit 0 only if network, IPC/sockets, mo
+- [x] AC-2: GIVEN target and mini attested identities WHEN probe compares them THEN identities are non-empty, independently read, an
+- [x] AC-3: GIVEN mini network coordinates WHEN probe runs THEN all configured mini network targets are unreachable across IPv4/IPv6
+- [x] AC-4: GIVEN target mounts and sockets WHEN probe inspects beyond legacy path strings THEN alternate mini bind-mounts and socke
+- [x] AC-5: GIVEN mini management endpoints WHEN probe validates denial THEN SSH and alternate control-plane paths to mini are close
+- [x] AC-6: GIVEN H-3 negative control WHEN suite runs against narrow TCP/mount-only checks THEN suite fails; GREEN only after multi
+- [x] `pnpm tsgo --noEmit` clean + `pnpm biome check .` clean
 
 --------------------------------------------------------------------------------
 ACCEPTANCE CRITERIA (TDD beads)

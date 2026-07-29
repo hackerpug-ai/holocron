@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# D05-06 / CAP-BAK-01 AC-1 — Fresh restore target isolation probe (security review).
+# D05-06 / REDHAT-FIX-H3 / CAP-BAK-01 — Multi-axis fresh restore target isolation
+# probe (security review oracle).
 #
-# Real connectivity + mount checks only. Never always-exits-0.
+# Real connectivity + mount + identity + IPC + control-plane checks only.
+# Never always-exits-0. Supersedes narrow TCP/5432 + two path strings.
 #
-# PASS only when ALL hold:
-#   (1) MINI_HOST is set and is NOT a co-located/local mini address when local :5432 is open
-#   (2) nc to MINI_HOST:MINI_PG_PORT is unreachable (non-zero)
-#   (3) mount table has 0 entries for mini PGDATA / blob paths
-#   (4) optional: Docker restore target not on host network / not sharing mini volumes
+# PASS only when ALL multi-axis hold:
+#   AXIS network / ipc_sockets / mounts / identity / control_plane / docker_runtime
+#   → 0 reachable mini routes/sockets/mounts and distinct attested identity
 #
 # Usage:
-#   MINI_HOST=203.0.113.1 ./scripts/verify-restore-isolation.sh
-#   ./scripts/verify-restore-isolation.sh --mini-host 203.0.113.1
+#   MINI_HOST=203.0.113.1 MINI_ATTESTED_IDENTITY=... TARGET_ATTESTED_IDENTITY=... \
+#     ./scripts/verify-restore-isolation.sh
 #   RESTORE_CONTAINER=fresh-restore-01 ./scripts/verify-restore-isolation.sh --mini-host 203.0.113.1
 set -euo pipefail
 
@@ -20,30 +20,60 @@ cd "$ROOT"
 
 MINI_HOST="${MINI_HOST:-}"
 MINI_PG_PORT="${MINI_PG_PORT:-5432}"
+MINI_SSH_PORT="${MINI_SSH_PORT:-22}"
 NC_TIMEOUT_SEC="${NC_TIMEOUT_SEC:-2}"
 MINI_PGDATA_MOUNT="${MINI_PGDATA_MOUNT:-/mnt/mini-pgdata}"
 MINI_BLOB_MOUNT="${MINI_BLOB_MOUNT:-/mnt/mini-blobs}"
 RESTORE_CONTAINER="${RESTORE_CONTAINER:-fresh-restore-01}"
 EVIDENCE_DIR="${EVIDENCE_DIR:-$ROOT/.tmp/D05-06}"
+REQUIRE_ATTESTED_IDENTITY="${REQUIRE_ATTESTED_IDENTITY:-1}"
+MINI_IPV4="${MINI_IPV4:-}"
+MINI_IPV6="${MINI_IPV6:-}"
+MINI_TAILNET_IP="${MINI_TAILNET_IP:-}"
+MINI_LAN_IP="${MINI_LAN_IP:-}"
+MINI_DNS_ALIASES="${MINI_DNS_ALIASES:-}"
+MINI_HOSTNAMES="${MINI_HOSTNAMES:-}"
+MINI_CONTROL_PORTS="${MINI_CONTROL_PORTS:-}"
+MINI_UNIX_SOCKETS="${MINI_UNIX_SOCKETS:-}"
+MINI_SOCKET_DEFAULTS="${MINI_SOCKET_DEFAULTS:-1}"
+MINI_FORBIDDEN_MOUNT_PATHS="${MINI_FORBIDDEN_MOUNT_PATHS:-}"
+TARGET_ATTESTED_IDENTITY="${TARGET_ATTESTED_IDENTITY:-}"
+MINI_ATTESTED_IDENTITY="${MINI_ATTESTED_IDENTITY:-}"
 
 PASS_COUNT=0
 FAIL_COUNT=0
+AXIS_FAIL=0
 pass() { echo "PASS: $*"; PASS_COUNT=$((PASS_COUNT + 1)); }
 fail() { echo "FAIL: $*"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 info() { echo "INFO: $*"; }
+axis_begin() { echo "--- AXIS: $1 ---"; }
+axis_end() {
+  local name="$1"
+  local before="$2"
+  local delta=$((FAIL_COUNT - before))
+  if [[ $delta -eq 0 ]]; then
+    echo "AXIS ${name}: PASS"
+  else
+    echo "AXIS ${name}: FAIL (${delta} check(s))"
+    AXIS_FAIL=$((AXIS_FAIL + 1))
+  fi
+}
 
 usage() {
   cat <<'EOF'
 Usage: verify-restore-isolation.sh [--mini-host HOST] [HOST]
 
+Multi-axis isolation oracle (REDHAT-FIX-H3). Exit 0 only if all axes PASS.
+
 Environment:
-  MINI_HOST              Original mini hostname/IP (required)
-  MINI_PG_PORT           Postgres port on mini (default 5432)
-  NC_TIMEOUT_SEC         nc connect timeout seconds (default 2)
-  MINI_PGDATA_MOUNT      Forbidden mount path (default /mnt/mini-pgdata)
-  MINI_BLOB_MOUNT        Forbidden mount path (default /mnt/mini-blobs)
-  RESTORE_CONTAINER      Optional docker container to audit (default fresh-restore-01)
-  EVIDENCE_DIR           Where to write probe logs (default .tmp/D05-06)
+  MINI_HOST / MINI_IPV4 / MINI_IPV6 / MINI_TAILNET_IP / MINI_LAN_IP
+  MINI_DNS_ALIASES / MINI_HOSTNAMES / MINI_CONTROL_PORTS
+  MINI_PG_PORT / MINI_SSH_PORT / NC_TIMEOUT_SEC
+  MINI_PGDATA_MOUNT / MINI_BLOB_MOUNT / MINI_FORBIDDEN_MOUNT_PATHS
+  MINI_UNIX_SOCKETS
+  TARGET_ATTESTED_IDENTITY / MINI_ATTESTED_IDENTITY / REQUIRE_ATTESTED_IDENTITY
+  RESTORE_CONTAINER   Optional docker container to audit (default fresh-restore-01)
+  EVIDENCE_DIR        Where to write probe logs (default .tmp/D05-06)
 EOF
 }
 
@@ -67,7 +97,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$MINI_HOST" ]]; then
-  # Prefer restore-target.env if present
   for cand in \
     "$ROOT/.tmp/fresh-restore/fresh-restore-01/restore-target.env" \
     "$ROOT/../D05-03/.tmp/fresh-restore/fresh-restore-01/restore-target.env" \
@@ -77,7 +106,7 @@ if [[ -z "$MINI_HOST" ]]; then
       # shellcheck disable=SC1090
       set -a; source "$cand"; set +a
       MINI_HOST="${MINI_HOST:-}"
-      info "loaded MINI_HOST from $cand"
+      info "loaded env from $cand"
       break
     fi
   done
@@ -93,10 +122,10 @@ mkdir -p "$EVIDENCE_DIR"
 LOG="$EVIDENCE_DIR/ac1-isolation-probe.txt"
 exec > >(tee "$LOG") 2>&1
 
-echo "=== verify-restore-isolation (mini=${MINI_HOST}:${MINI_PG_PORT}) ==="
+echo "=== verify-restore-isolation MULTI-AXIS (mini=${MINI_HOST}:${MINI_PG_PORT}) ==="
+echo "contract: network+ipc_sockets+mounts+identity+control_plane+docker_runtime"
+echo "supersedes: TCP/5432 + /mnt/mini-pgdata|/mnt/mini-blobs only"
 
-# Refuse treating localhost / loopback as "isolated" when local Postgres is listening —
-# that is co-location, not a fresh hardware boundary.
 is_loopback_host() {
   case "$1" in
     127.0.0.1|localhost|::1|0.0.0.0) return 0 ;;
@@ -116,75 +145,97 @@ local_pg_listening() {
   return 1
 }
 
-if is_loopback_host "$MINI_HOST"; then
-  if local_pg_listening; then
-    fail "MINI_HOST=${MINI_HOST} is loopback and local :${MINI_PG_PORT} is listening — co-located, not isolated"
-  else
-    info "MINI_HOST is loopback but local :${MINI_PG_PORT} not listening — still rejecting loopback as mini identity"
-    fail "MINI_HOST must be the original mini address (not loopback) for a meaningful isolation probe"
-  fi
-else
-  pass "MINI_HOST is not loopback (${MINI_HOST})"
-fi
-
 run_with_timeout() {
   local seconds="$1"; shift
   local out_file rc
   out_file="$(mktemp -t verify-isolation-nc.XXXXXX)"
   (
-    "$@" >"$out_file" 2>&1
+    set -m
+    "$@" >"$out_file" 2>&1 &
+    local inner=$!
+    (
+      sleep "$seconds"
+      kill -TERM -"$inner" 2>/dev/null || kill -TERM "$inner" 2>/dev/null || true
+      sleep 0.2
+      kill -KILL -"$inner" 2>/dev/null || kill -KILL "$inner" 2>/dev/null || true
+    ) &
+    local watch=$!
+    set +e
+    wait "$inner"
+    rc=$?
+    set -e
+    kill "$watch" 2>/dev/null || true
+    wait "$watch" 2>/dev/null || true
+    exit "$rc"
   ) &
   local cmd_pid=$!
-  (
-    sleep "$seconds"
-    kill "$cmd_pid" 2>/dev/null || true
-  ) &
-  local watch_pid=$!
   set +e
   wait "$cmd_pid"
   rc=$?
   set -e
-  kill "$watch_pid" 2>/dev/null || true
-  wait "$watch_pid" 2>/dev/null || true
   cat "$out_file" 2>/dev/null || true
   rm -f "$out_file"
   [[ $rc -eq 0 ]] && return 0
   return 1
 }
 
-# (1) Real nc probe to mini Postgres
-if ! command -v nc >/dev/null 2>&1; then
-  fail "nc not available — cannot prove no route to mini Postgres"
-else
-  wall=$((NC_TIMEOUT_SEC + 1))
-  nc_out=""
-  nc_rc=1
-  set +e
-  nc_out="$(run_with_timeout "$wall" nc -z -G "$NC_TIMEOUT_SEC" "$MINI_HOST" "$MINI_PG_PORT")"
-  nc_rc=$?
-  if [[ $nc_rc -ne 0 ]] && echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
-    nc_out="$(run_with_timeout "$wall" nc -z -w "$NC_TIMEOUT_SEC" "$MINI_HOST" "$MINI_PG_PORT")"
-    nc_rc=$?
+tcp_reachable() {
+  local host="$1" port="$2" timeout="${3:-$NC_TIMEOUT_SEC}"
+  local nc_out="" nc_rc=1
+  local wall="$timeout"
+  if [[ "$wall" -lt 1 ]]; then wall=1; fi
+  if ! command -v nc >/dev/null 2>&1; then
+    return 2
   fi
-  if [[ $nc_rc -ne 0 ]] && echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
-    nc_out="$(run_with_timeout "$wall" nc -z -v "$MINI_HOST" "$MINI_PG_PORT")"
+  set +e
+  if [[ -z "${_VERIFY_NC_STYLE:-}" ]]; then
+    nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"
     nc_rc=$?
+    if echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
+      nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"
+      nc_rc=$?
+      if echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
+        _VERIFY_NC_STYLE=plain
+        export _VERIFY_NC_STYLE
+        nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"
+        nc_rc=$?
+      else
+        _VERIFY_NC_STYLE=w
+        export _VERIFY_NC_STYLE
+      fi
+    else
+      _VERIFY_NC_STYLE=G
+      export _VERIFY_NC_STYLE
+    fi
+  else
+    case "$_VERIFY_NC_STYLE" in
+      G) nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"; nc_rc=$? ;;
+      w) nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"; nc_rc=$? ;;
+      *) nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"; nc_rc=$? ;;
+    esac
   fi
   set -e
   if [[ $nc_rc -eq 0 ]]; then
-    fail "mini Postgres reachable at ${MINI_HOST}:${MINI_PG_PORT} (nc exit 0) — isolation broken"
-    echo "  detail: ${nc_out}" >&2
-  else
-    pass "no route to mini Postgres (nc -z ${MINI_HOST} ${MINI_PG_PORT} exit non-zero)"
-    info "nc_detail: $(echo "$nc_out" | tr '\n' ' ' | head -c 200)"
+    echo "$nc_out"
+    return 0
   fi
-fi
+  return 1
+}
 
-# (2) Mount table: no shared mini PGDATA / blob mounts
-check_no_mount() {
-  local path="$1" label="$2"
+csv_items() {
+  local raw="${1:-}"
+  [[ -z "$raw" ]] && return 0
+  local IFS=','
+  local item
+  for item in $raw; do
+    item="$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$item" ]] && printf '%s\n' "$item"
+  done
+}
+
+path_is_mounted() {
+  local path="$1"
   local mounted=0
-
   if command -v findmnt >/dev/null 2>&1; then
     if findmnt -n "$path" >/dev/null 2>&1; then mounted=1; fi
   fi
@@ -211,33 +262,244 @@ check_no_mount() {
       mounted=1
     fi
   fi
+  [[ $mounted -eq 1 ]]
+}
 
-  if [[ $mounted -eq 1 ]]; then
+read_local_attested_identity() {
+  local id=""
+  if [[ -r /etc/machine-id ]]; then
+    id="$(tr -d '[:space:]' </etc/machine-id 2>/dev/null || true)"
+  fi
+  if [[ -z "$id" && -r /var/lib/dbus/machine-id ]]; then
+    id="$(tr -d '[:space:]' </var/lib/dbus/machine-id 2>/dev/null || true)"
+  fi
+  if [[ -z "$id" ]] && command -v ioreg >/dev/null 2>&1; then
+    id="$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4; exit}' | tr -d '[:space:]')"
+  fi
+  if [[ -z "$id" ]] && command -v sysctl >/dev/null 2>&1; then
+    id="$(sysctl -n kern.uuid 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  if [[ -z "$id" ]] && command -v curl >/dev/null 2>&1; then
+    id="$(curl -sS -m 1 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  printf '%s' "$id"
+}
+
+# Refuse loopback mini identity when co-located.
+if is_loopback_host "$MINI_HOST"; then
+  if local_pg_listening; then
+    fail "MINI_HOST=${MINI_HOST} is loopback and local :${MINI_PG_PORT} is listening — co-located, not isolated"
+  else
+    info "MINI_HOST is loopback but local :${MINI_PG_PORT} not listening — still rejecting loopback as mini identity"
+    fail "MINI_HOST must be the original mini address (not loopback) for a meaningful isolation probe"
+  fi
+else
+  pass "MINI_HOST is not loopback (${MINI_HOST})"
+fi
+
+# ── AXIS network ───────────────────────────────────────────────────────────
+axis_begin "network"
+_net_before=$FAIL_COUNT
+if ! command -v nc >/dev/null 2>&1; then
+  fail "nc not available — cannot prove no route to mini"
+else
+  hosts=("$MINI_HOST")
+  [[ -n "$MINI_IPV4" ]] && hosts+=("$MINI_IPV4")
+  [[ -n "$MINI_IPV6" ]] && hosts+=("$MINI_IPV6")
+  [[ -n "$MINI_TAILNET_IP" ]] && hosts+=("$MINI_TAILNET_IP")
+  [[ -n "$MINI_LAN_IP" ]] && hosts+=("$MINI_LAN_IP")
+  while IFS= read -r h; do [[ -n "$h" ]] && hosts+=("$h"); done < <(csv_items "$MINI_HOSTNAMES")
+  while IFS= read -r h; do [[ -n "$h" ]] && hosts+=("$h"); done < <(csv_items "$MINI_DNS_ALIASES")
+
+  ports=("$MINI_PG_PORT")
+  while IFS= read -r p; do [[ -n "$p" ]] && ports+=("$p"); done < <(csv_items "$MINI_CONTROL_PORTS")
+
+  info "network coordinates: ${hosts[*]}"
+  info "network ports: ${ports[*]} (+ SSH ${MINI_SSH_PORT} on primary)"
+
+  reachable=0
+  for h in "${hosts[@]}"; do
+    [[ -z "$h" ]] && continue
+    for p in "${ports[@]}"; do
+      set +e
+      detail="$(tcp_reachable "$h" "$p")"
+      trc=$?
+      set -e
+      if [[ $trc -eq 0 ]]; then
+        fail "mini network target reachable at ${h}:${p}"
+        echo "  detail: ${detail}" >&2
+        reachable=$((reachable + 1))
+      else
+        pass "no route to mini at ${h}:${p}"
+      fi
+    done
+  done
+  set +e
+  detail="$(tcp_reachable "$MINI_HOST" "$MINI_SSH_PORT")"
+  trc=$?
+  set -e
+  if [[ $trc -eq 0 ]]; then
+    fail "mini network target reachable at ${MINI_HOST}:${MINI_SSH_PORT} (SSH)"
+    reachable=$((reachable + 1))
+  else
+    pass "no route to mini at ${MINI_HOST}:${MINI_SSH_PORT}"
+  fi
+  if [[ $reachable -eq 0 ]]; then
+    pass "0 successful mini network connections (IPv4/IPv6/tailnet/LAN/DNS)"
+  fi
+fi
+axis_end "network" "$_net_before"
+
+# ── AXIS ipc_sockets ───────────────────────────────────────────────────────
+axis_begin "ipc_sockets"
+_ipc_before=$FAIL_COUNT
+sockets=()
+if [[ "${MINI_SOCKET_DEFAULTS}" == "1" ]]; then
+  sockets+=(
+    /tmp/.s.PGSQL.5432
+    /var/run/postgresql/.s.PGSQL.5432
+    /run/postgresql/.s.PGSQL.5432
+    /private/tmp/.s.PGSQL.5432
+  )
+else
+  info "MINI_SOCKET_DEFAULTS=0 — classic PG socket list skipped; probing MINI_UNIX_SOCKETS only"
+fi
+while IFS= read -r s; do [[ -n "$s" ]] && sockets+=("$s"); done < <(csv_items "$MINI_UNIX_SOCKETS")
+if [[ ${#sockets[@]} -eq 0 ]]; then
+  fail "ipc_sockets axis has zero paths to probe (set MINI_UNIX_SOCKETS or MINI_SOCKET_DEFAULTS=1)"
+fi
+open_socks=0
+for s in "${sockets[@]}"; do
+  if [[ -S "$s" ]]; then
+    fail "mini-like unix socket present at ${s}"
+    open_socks=$((open_socks + 1))
+  else
+    pass "no unix socket at ${s}"
+  fi
+done
+if [[ $open_socks -eq 0 ]]; then
+  pass "0 mini unix sockets accessible"
+fi
+axis_end "ipc_sockets" "$_ipc_before"
+
+# ── AXIS mounts ────────────────────────────────────────────────────────────
+axis_begin "mounts"
+_mnt_before=$FAIL_COUNT
+for pair in "${MINI_PGDATA_MOUNT}:PGDATA" "${MINI_BLOB_MOUNT}:blob"; do
+  path="${pair%%:*}"
+  label="${pair##*:}"
+  if path_is_mounted "$path"; then
     fail "${label} mounted at ${path} — isolation broken"
   else
     pass "no mini ${label} mount at ${path}"
   fi
-}
+done
 
-check_no_mount "$MINI_PGDATA_MOUNT" "PGDATA"
-check_no_mount "$MINI_BLOB_MOUNT" "blob"
-
-# Also fail if mount table references classic mini live paths as restore mounts
-if mount 2>/dev/null | grep -qiE '/mnt/mini-(pgdata|blobs)|mini-pgdata|mini-blobs'; then
+if mount 2>/dev/null | grep -qiE '/mnt/mini-(pgdata|blobs)|mini-pgdata|mini-blobs|/opt/homebrew/var/postgresql|postgresql@[0-9]+'; then
   fail "mount table still references mini data paths"
-  mount 2>/dev/null | grep -iE 'mini' || true
+  mount 2>/dev/null | grep -iE 'mini|postgresql@|homebrew/var/postgresql' || true
 else
   pass "mount table has 0 mini PGDATA/blob path entries"
 fi
 
-# (3) Docker restore target audit (best-effort when container exists)
+extra_paths=(/mnt/mini-pgdata-alt /mnt/mini-data /mnt/restore-from-mini /var/lib/postgresql/mini)
+while IFS= read -r ep; do [[ -n "$ep" ]] && extra_paths+=("$ep"); done < <(csv_items "$MINI_FORBIDDEN_MOUNT_PATHS")
+for ep in "${extra_paths[@]}"; do
+  if path_is_mounted "$ep"; then
+    fail "alternate mini bind-mount present at ${ep}"
+  else
+    pass "no alternate mini mount at ${ep}"
+  fi
+done
+axis_end "mounts" "$_mnt_before"
+
+# ── AXIS identity ──────────────────────────────────────────────────────────
+axis_begin "identity"
+_id_before=$FAIL_COUNT
+target_id="$TARGET_ATTESTED_IDENTITY"
+mini_id="$MINI_ATTESTED_IDENTITY"
+source="env"
+if [[ -z "$target_id" ]]; then
+  target_id="$(read_local_attested_identity)"
+  source="os"
+fi
+info "TARGET_ATTESTED_IDENTITY source=${source} value=${target_id:-<empty>}"
+info "MINI_ATTESTED_IDENTITY value=${mini_id:-<empty>}"
+
+if [[ "${REQUIRE_ATTESTED_IDENTITY}" == "1" ]]; then
+  if [[ -z "$target_id" ]]; then
+    fail "TARGET_ATTESTED_IDENTITY empty"
+  else
+    pass "target attested identity non-empty"
+  fi
+  if [[ -z "$mini_id" ]]; then
+    fail "MINI_ATTESTED_IDENTITY empty"
+  else
+    pass "mini attested identity non-empty"
+  fi
+  if [[ -n "$target_id" && -n "$mini_id" ]]; then
+    if [[ "$target_id" == "$mini_id" ]]; then
+      fail "identity collision: target == mini (${target_id})"
+    else
+      pass "target identity distinct from mini"
+    fi
+  fi
+else
+  info "REQUIRE_ATTESTED_IDENTITY=0 — soft identity axis"
+  if [[ -n "$target_id" && -n "$mini_id" && "$target_id" == "$mini_id" ]]; then
+    fail "identity collision even with soft mode"
+  else
+    pass "identity axis soft-pass"
+  fi
+fi
+axis_end "identity" "$_id_before"
+
+# ── AXIS control_plane ─────────────────────────────────────────────────────
+axis_begin "control_plane"
+_cp_before=$FAIL_COUNT
+if ! command -v nc >/dev/null 2>&1; then
+  fail "nc not available for control-plane probe"
+else
+  cp_hosts=("$MINI_HOST")
+  [[ -n "$MINI_TAILNET_IP" && "$MINI_TAILNET_IP" != "$MINI_HOST" ]] && cp_hosts+=("$MINI_TAILNET_IP")
+  [[ -n "$MINI_LAN_IP" && "$MINI_LAN_IP" != "$MINI_HOST" && "$MINI_LAN_IP" != "$MINI_TAILNET_IP" ]] && cp_hosts+=("$MINI_LAN_IP")
+  open_cp=0
+  for h in "${cp_hosts[@]}"; do
+    [[ -z "$h" ]] && continue
+    if is_loopback_host "$h"; then
+      fail "control-plane mini coordinate is loopback (${h})"
+      open_cp=$((open_cp + 1))
+      continue
+    fi
+    set +e
+    detail="$(tcp_reachable "$h" "$MINI_SSH_PORT")"
+    trc=$?
+    set -e
+    if [[ $trc -eq 0 ]]; then
+      fail "SSH/control-plane reachable at ${h}:${MINI_SSH_PORT}"
+      open_cp=$((open_cp + 1))
+    else
+      pass "SSH closed to mini at ${h}:${MINI_SSH_PORT}"
+    fi
+  done
+  if [[ $open_cp -eq 0 ]]; then
+    pass "SSH and alternate control-plane paths to mini are closed"
+  fi
+fi
+axis_end "control_plane" "$_cp_before"
+
+# ── AXIS docker_runtime ────────────────────────────────────────────────────
+axis_begin "docker_runtime"
+_dk_before=$FAIL_COUNT
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   if docker inspect "$RESTORE_CONTAINER" >/dev/null 2>&1; then
     mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$RESTORE_CONTAINER" 2>/dev/null || true)"
     binds="$(docker inspect -f '{{json .HostConfig.Binds}}' "$RESTORE_CONTAINER" 2>/dev/null || echo null)"
-    mounts="$(docker inspect -f '{{json .Mounts}}' "$RESTORE_CONTAINER" 2>/dev/null || echo null)"
+    mounts_json="$(docker inspect -f '{{json .Mounts}}' "$RESTORE_CONTAINER" 2>/dev/null || echo null)"
     ports="$(docker inspect -f '{{json .HostConfig.PortBindings}}' "$RESTORE_CONTAINER" 2>/dev/null || echo null)"
-    info "container=${RESTORE_CONTAINER} NetworkMode=${mode}"
+    pidmode="$(docker inspect -f '{{.HostConfig.PidMode}}' "$RESTORE_CONTAINER" 2>/dev/null || true)"
+    ipcmode="$(docker inspect -f '{{.HostConfig.IpcMode}}' "$RESTORE_CONTAINER" 2>/dev/null || true)"
+    info "container=${RESTORE_CONTAINER} NetworkMode=${mode} PidMode=${pidmode} IpcMode=${ipcmode}"
     info "PortBindings=${ports}"
 
     if [[ "$mode" == "host" ]]; then
@@ -245,29 +507,34 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     else
       pass "restore container not on host network (mode=${mode})"
     fi
-
-    if echo "$binds$mounts" | grep -qiE '/mnt/mini-|postgresql@|/opt/homebrew/var/postgresql|mini-pgdata|mini-blobs'; then
+    if [[ "$pidmode" == "host" ]]; then
+      fail "restore container uses pid=host"
+    else
+      pass "restore container not sharing host PID namespace"
+    fi
+    if [[ "$ipcmode" == "host" ]]; then
+      fail "restore container uses ipc=host"
+    else
+      pass "restore container not sharing host IPC namespace"
+    fi
+    if echo "$binds$mounts_json" | grep -qiE '/mnt/mini-|postgresql@|/opt/homebrew/var/postgresql|mini-pgdata|mini-blobs'; then
       fail "restore container mounts look like mini live data paths"
       echo "  binds=${binds}" >&2
     else
       pass "restore container has no mini live-data bind mounts"
     fi
-
-    # Host port publish must be loopback-only if published
     if echo "$ports" | grep -qE '"HostIp":\s*""|"HostIp":\s*"0\.0\.0\.0"|"HostIp":\s*"::"'; then
       fail "restore container publishes Postgres on non-loopback HostIp"
     elif echo "$ports" | grep -q 'HostPort'; then
       if echo "$ports" | grep -qE '"HostIp":\s*"127\.0\.0\.1"'; then
         pass "restore container Postgres publish is loopback-only (127.0.0.1)"
       else
-        # empty HostIp means 0.0.0.0 on docker
         fail "restore container Postgres publish HostIp is not 127.0.0.1"
       fi
     else
       info "no PortBindings on restore container (ok if not yet started)"
     fi
 
-    # In-container nc if prove script mounted
     set +e
     docker exec \
       -e "MINI_HOST=${MINI_HOST}" \
@@ -280,33 +547,31 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     if [[ $in_rc -eq 0 ]] && grep -q 'nc_rc=0' "$EVIDENCE_DIR/ac1-incontainer-nc.txt" 2>/dev/null; then
       fail "in-container nc reached mini ${MINI_HOST}:${MINI_PG_PORT}"
     elif [[ -f "$EVIDENCE_DIR/ac1-incontainer-nc.txt" ]]; then
-      # non-zero or nc missing: if nc ran and reported non-zero, pass
       if grep -qE 'nc_rc=[1-9]' "$EVIDENCE_DIR/ac1-incontainer-nc.txt" 2>/dev/null; then
         pass "in-container nc cannot reach mini Postgres"
       else
-        info "in-container nc probe skipped or inconclusive (see ac1-incontainer-nc.txt)"
+        info "in-container nc probe skipped or inconclusive"
       fi
     fi
   else
     info "docker container ${RESTORE_CONTAINER} not present — host-level isolation only"
+    pass "no co-located restore container with host-network/mini binds to audit"
   fi
 else
   info "docker unavailable — host-level isolation only"
+  pass "docker runtime not applicable on this host"
 fi
+axis_end "docker_runtime" "$_dk_before"
 
-reachable_routes=0
-if [[ $FAIL_COUNT -gt 0 ]]; then
-  # count route-related fails loosely for summary
-  reachable_routes=$FAIL_COUNT
-fi
-
-echo "=== SUMMARY: pass=${PASS_COUNT} fail=${FAIL_COUNT} mini=${MINI_HOST}:${MINI_PG_PORT} ==="
+echo "=== SUMMARY: pass=${PASS_COUNT} fail=${FAIL_COUNT} axis_fail=${AXIS_FAIL} mini=${MINI_HOST}:${MINI_PG_PORT} ==="
 echo "reachable_mini_routes_failed_checks=${FAIL_COUNT}"
+echo "attested_identity_target=${target_id:-}"
+echo "attested_identity_mini=${mini_id:-}"
 
-if [[ $FAIL_COUNT -gt 0 ]]; then
-  echo "=== RESULT: FAIL (isolation broken or probe incomplete) ==="
+if [[ $FAIL_COUNT -gt 0 || $AXIS_FAIL -gt 0 ]]; then
+  echo "=== RESULT: FAIL (isolation broken or probe incomplete; multi-axis open) ==="
   exit 1
 fi
 
-echo "=== RESULT: PASS (0 reachable mini routes; 0 shared mini mounts) ==="
+echo "=== RESULT: PASS (0 reachable mini routes/sockets/mounts; distinct attested identity) ==="
 exit 0
