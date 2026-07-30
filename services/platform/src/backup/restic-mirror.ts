@@ -14,9 +14,11 @@ import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -226,11 +228,57 @@ function run(
   };
 }
 
-function which(bin: string, env?: NodeJS.ProcessEnv): string | null {
-  const res = run('which', [bin], { env });
-  if (res.status !== 0) return null;
-  const p = res.stdout.trim();
-  return p.length > 0 ? p : null;
+/**
+ * GATE-FIX-S28R3-QA21: trust-chain validate absolute root-owned executables
+ * (mirrors r2_ro_validate_root_bin / recovery-baseline validateRootOwnedBin).
+ * No PATH/Homebrew discovery while credentials ambient.
+ * Operational prerequisite: root-owned restic at /usr/local/bin or /usr/bin.
+ */
+function validateRootOwnedBin(candidate: string): string | null {
+  const cand = candidate.trim();
+  if (!cand.startsWith('/')) return null;
+  try {
+    const parts = cand.split('/').filter(Boolean);
+    let path = '';
+    for (const part of parts) {
+      path = `${path}/${part}`;
+      let st = lstatSync(path);
+      if (st.isSymbolicLink()) {
+        const real = realpathSync(path);
+        st = lstatSync(real);
+      }
+      const mode = st.mode & 0o777;
+      if (st.uid !== 0) return null;
+      if (mode & 0o022) return null;
+    }
+    const finalPath = realpathSync(cand);
+    const st = lstatSync(finalPath);
+    if (!st.isFile()) return null;
+    if (st.uid !== 0) return null;
+    if ((st.mode & 0o111) === 0) return null;
+    if ((st.mode & 0o022) !== 0) return null;
+    return finalPath;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve restic exclusively via root-owned trust chain before credentials enter resticEnv.
+ * Prefer RESTIC_BIN only when root-owned; else fixed /usr/local/bin/restic and /usr/bin/restic.
+ * Refuses Homebrew paths, PATH lookup, and bare `restic`.
+ */
+export function resolveTrustedResticBin(env: NodeJS.ProcessEnv = process.env): string | null {
+  const fromEnv = env.RESTIC_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/restic', '/usr/bin/restic']) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
 }
 
 export function defaultResticPrefix(env: NodeJS.ProcessEnv = process.env): string {
@@ -308,9 +356,13 @@ export function loadResticMirrorConfig(options?: {
     bucketName: backup.bucketName,
     resticPrefix: prefix,
   });
-  const resticBin =
-    which('restic', env) ||
-    (existsSync('/opt/homebrew/bin/restic') ? '/opt/homebrew/bin/restic' : 'restic');
+  // Resolve trusted restic BEFORE resticEnv injects AWS/RESTIC secrets.
+  const resticBin = resolveTrustedResticBin(env);
+  if (!resticBin) {
+    throw new Error(
+      'GATE-FIX-S28R3-QA21: trusted restic not found — require root-owned RESTIC_BIN or /usr/local/bin/restic or /usr/bin/restic (Homebrew/PATH discovery forbidden)'
+    );
+  }
   const blobRoot = resolve(options?.blobRoot ?? defaultBlobRoot(resolveRepoRoot()));
   return {
     backup,

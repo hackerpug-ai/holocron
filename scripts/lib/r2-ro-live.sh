@@ -225,7 +225,8 @@ r2_ro_field() {
 
 r2_ro_canonical_account_id() {
   local a="${1:-}"
-  a="$(printf '%s' "$a" | tr '[:upper:]' '[:lower:]')"
+  # GATE-FIX-S28R3-QA21: fixed absolute /usr/bin/tr (no PATH helper while credentials ambient).
+  a="$(printf '%s' "$a" | /usr/bin/tr '[:upper:]' '[:lower:]')"
   if [[ ! "$a" =~ ^[0-9a-f]{32}$ ]]; then
     return 1
   fi
@@ -509,8 +510,13 @@ PY
 
 r2_ro_new_proof_path() {
   r2_ro_ensure_private_proof_dir >/dev/null
-  local name path
-  name="proof.$(date +%s).$$.$RANDOM.json"
+  local name path ts
+  # GATE-FIX-S28R3-QA21: fixed absolute /bin/date — never PATH `date` while credentials ambient.
+  ts="$(/bin/date +%s)" || {
+    echo "error: GATE-FIX-S28R3-QA21 /bin/date failed for proof name" >&2
+    return 2
+  }
+  name="proof.${ts}.$$.$RANDOM.json"
   path="${R2_RO_TRUSTED_PROOF_DIR}/${name}"
   if [[ -e "$path" ]]; then
     echo "error: proof path collision" >&2

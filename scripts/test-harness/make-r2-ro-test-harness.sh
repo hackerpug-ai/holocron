@@ -122,7 +122,7 @@ SKIP_DOCKER_VOLUME_RESOLVE=0
 ''',
 '',
 )
-# Insert mutation seam after prove success / before validate in assert_bound
+# Insert mutation + deterministic race-swap seams after prove success / before validate
 needle = '  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then'
 insert = '''  if [[ -n "${HOLO_QA_PROOF_MUTATE:-}" ]]; then
     # Harness-only mutation seam (not present in production sources).
@@ -155,10 +155,112 @@ os.chmod(path, 0o600)
 print(f"HOLO_QA_PROOF_MUTATE applied: {kind}", file=sys.stderr)
 MPY
   fi
+  # GATE-FIX-S28R3-QA21: deterministic consumer-level proof races (file + parent dir).
+  # Forced BEFORE validation so the race always wins; uses correct tuple/context content.
+  if [[ -n "${HOLO_QA_RACE_SWAP:-}" ]]; then
+    case "$HOLO_QA_RACE_SWAP" in
+      file|parent) ;;
+      *)
+        echo "error: HOLO_QA_RACE_SWAP must be file|parent" >&2
+        exit 2
+        ;;
+    esac
+    if [[ -n "${HOLO_QA_RACE_BARRIER:-}" ]]; then
+      # Deterministic barrier: wait until test removes the barrier file (or timeout).
+      _b_wait=0
+      while [[ -e "${HOLO_QA_RACE_BARRIER}" && $_b_wait -lt 500 ]]; do
+        /bin/sleep 0.01 2>/dev/null || sleep 0.01
+        _b_wait=$((_b_wait + 1))
+      done
+    fi
+    /usr/bin/python3 -E -s - "$proof" "$HOLO_QA_RACE_SWAP" "${HOLO_QA_RACE_MARKER:-}" <<'RPY'
+import json, os, sys
+proof, kind, marker = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(proof) as f:
+    body = json.load(f)
+# Syntactically valid fresh proof with correct tuple/context (content would pass).
+evil_body = dict(body)
+evil_body["note"] = f"qa21-race-swap-{kind}"
+parent = os.path.dirname(proof)
+name = os.path.basename(proof)
+evil_path = os.path.join(os.path.dirname(parent) if kind == "parent" else parent, f".qa21-evil-{name}")
+if kind == "file":
+    evil_path = proof + ".qa21-evil-valid.json"
+    with open(evil_path, "w") as f:
+        json.dump(evil_body, f, indent=2)
+        f.write("\\n")
+    os.chmod(evil_path, 0o600)
+    os.rename(proof, proof + ".qa21-real")
+    os.symlink(evil_path, proof)
+    print(f"HOLO_QA_RACE_SWAP applied: file symlink->valid-content", file=sys.stderr)
+elif kind == "parent":
+    decoy = parent + ".qa21-decoy"
+    if os.path.exists(decoy):
+        import shutil
+        shutil.rmtree(decoy, ignore_errors=True)
+    os.mkdir(decoy, 0o700)
+    decoy_proof = os.path.join(decoy, name)
+    with open(decoy_proof, "w") as f:
+        json.dump(evil_body, f, indent=2)
+        f.write("\\n")
+    os.chmod(decoy_proof, 0o600)
+    os.rename(parent, parent + ".qa21-moved")
+    os.symlink(decoy, parent)
+    print(f"HOLO_QA_RACE_SWAP applied: parent-dir symlink->decoy", file=sys.stderr)
+if marker:
+    open(marker, "w").write(kind + "\\n")
+RPY
+  fi
 ''' + needle
 if needle not in t:
     raise SystemExit('validate proof needle missing in fire-drill harness')
 t = t.replace(needle, insert, 1)
+# After validation attempt, restore race damage so later tests share a clean harness.
+restore_fire = '''  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then'''
+restore_fire_new = '''  _qa21_validate_rc=0
+  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then
+    _qa21_validate_rc=1
+  fi
+  if [[ -n "${HOLO_QA_RACE_SWAP:-}" ]]; then
+    /usr/bin/python3 -E -s - "$proof" "$HOLO_QA_RACE_SWAP" <<'CRPY' || true
+import os, sys
+proof, kind = sys.argv[1], sys.argv[2]
+parent = os.path.dirname(proof)
+if kind == "file":
+    real = proof + ".qa21-real"
+    if os.path.islink(proof) or os.path.exists(proof):
+        try: os.unlink(proof)
+        except OSError: pass
+    if os.path.exists(real):
+        os.rename(real, proof)
+    evil = proof + ".qa21-evil-valid.json"
+    if os.path.exists(evil):
+        try: os.unlink(evil)
+        except OSError: pass
+elif kind == "parent":
+    moved = parent + ".qa21-moved"
+    decoy = parent + ".qa21-decoy"
+    if os.path.islink(parent) or os.path.exists(parent):
+        try:
+            if os.path.islink(parent):
+                os.unlink(parent)
+            else:
+                import shutil
+                shutil.rmtree(parent, ignore_errors=True)
+        except OSError:
+            pass
+    if os.path.exists(moved):
+        os.rename(moved, parent)
+    if os.path.exists(decoy):
+        import shutil
+        shutil.rmtree(decoy, ignore_errors=True)
+CRPY
+  fi
+  if [[ "${_qa21_validate_rc:-0}" -ne 0 ]]; then'''
+# Only replace the first validate that sits after our race insert (the one we just created)
+if restore_fire not in t:
+    raise SystemExit('fire-drill validate restore needle missing')
+t = t.replace(restore_fire, restore_fire_new, 1)
 # Force ambient BUN for harness
 import re as _re
 t = _re.sub(
@@ -222,10 +324,106 @@ os.chmod(path, 0o600)
 print(f"HOLO_QA_PROOF_MUTATE applied: {kind}", file=sys.stderr)
 MPY
   fi
+  # GATE-FIX-S28R3-QA21: deterministic consumer-level proof races (file + parent dir).
+  if [[ -n "${HOLO_QA_RACE_SWAP:-}" ]]; then
+    case "$HOLO_QA_RACE_SWAP" in
+      file|parent) ;;
+      *)
+        echo "error: HOLO_QA_RACE_SWAP must be file|parent" >&2
+        exit 2
+        ;;
+    esac
+    if [[ -n "${HOLO_QA_RACE_BARRIER:-}" ]]; then
+      _b_wait=0
+      while [[ -e "${HOLO_QA_RACE_BARRIER}" && $_b_wait -lt 500 ]]; do
+        /bin/sleep 0.01 2>/dev/null || sleep 0.01
+        _b_wait=$((_b_wait + 1))
+      done
+    fi
+    /usr/bin/python3 -E -s - "$proof" "$HOLO_QA_RACE_SWAP" "${HOLO_QA_RACE_MARKER:-}" <<'RPY'
+import json, os, sys
+proof, kind, marker = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(proof) as f:
+    body = json.load(f)
+evil_body = dict(body)
+evil_body["note"] = f"qa21-race-swap-{kind}"
+parent = os.path.dirname(proof)
+name = os.path.basename(proof)
+if kind == "file":
+    evil_path = proof + ".qa21-evil-valid.json"
+    with open(evil_path, "w") as f:
+        json.dump(evil_body, f, indent=2)
+        f.write("\\n")
+    os.chmod(evil_path, 0o600)
+    os.rename(proof, proof + ".qa21-real")
+    os.symlink(evil_path, proof)
+    print(f"HOLO_QA_RACE_SWAP applied: file symlink->valid-content", file=sys.stderr)
+elif kind == "parent":
+    decoy = parent + ".qa21-decoy"
+    if os.path.exists(decoy):
+        import shutil
+        shutil.rmtree(decoy, ignore_errors=True)
+    os.mkdir(decoy, 0o700)
+    decoy_proof = os.path.join(decoy, name)
+    with open(decoy_proof, "w") as f:
+        json.dump(evil_body, f, indent=2)
+        f.write("\\n")
+    os.chmod(decoy_proof, 0o600)
+    os.rename(parent, parent + ".qa21-moved")
+    os.symlink(decoy, parent)
+    print(f"HOLO_QA_RACE_SWAP applied: parent-dir symlink->decoy", file=sys.stderr)
+if marker:
+    open(marker, "w").write(kind + "\\n")
+RPY
+  fi
 ''' + needle
 if needle not in t:
     raise SystemExit('validate proof needle missing in provision harness')
 t = t.replace(needle, insert, 1)
+restore_prov = '''  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then'''
+restore_prov_new = '''  _qa21_validate_rc=0
+  if ! r2_ro_validate_proof "$proof" "$expected_fp" "$expected_ctx"; then
+    _qa21_validate_rc=1
+  fi
+  if [[ -n "${HOLO_QA_RACE_SWAP:-}" ]]; then
+    /usr/bin/python3 -E -s - "$proof" "$HOLO_QA_RACE_SWAP" <<'CRPY' || true
+import os, sys
+proof, kind = sys.argv[1], sys.argv[2]
+parent = os.path.dirname(proof)
+if kind == "file":
+    real = proof + ".qa21-real"
+    if os.path.islink(proof) or os.path.exists(proof):
+        try: os.unlink(proof)
+        except OSError: pass
+    if os.path.exists(real):
+        os.rename(real, proof)
+    evil = proof + ".qa21-evil-valid.json"
+    if os.path.exists(evil):
+        try: os.unlink(evil)
+        except OSError: pass
+elif kind == "parent":
+    moved = parent + ".qa21-moved"
+    decoy = parent + ".qa21-decoy"
+    if os.path.islink(parent) or os.path.exists(parent):
+        try:
+            if os.path.islink(parent):
+                os.unlink(parent)
+            else:
+                import shutil
+                shutil.rmtree(parent, ignore_errors=True)
+        except OSError:
+            pass
+    if os.path.exists(moved):
+        os.rename(moved, parent)
+    if os.path.exists(decoy):
+        import shutil
+        shutil.rmtree(decoy, ignore_errors=True)
+CRPY
+  fi
+  if [[ "${_qa21_validate_rc:-0}" -ne 0 ]]; then'''
+if restore_prov not in t:
+    raise SystemExit('provision validate restore needle missing')
+t = t.replace(restore_prov, restore_prov_new, 1)
 p.write_text(t)
 print('provision harness patched', file=__import__('sys').stderr)
 PY

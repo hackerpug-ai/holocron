@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # D05-03 / CAP-BAK-01 AC-2 — Live R2 object-read-only isolation proof.
 #
 # Real aws CLI against real Cloudflare R2. No mocks.
@@ -189,7 +189,7 @@ print(json.dumps({
 PY
 )"
 
-  resp="$(mktemp -t r2-ro-mint.XXXXXX)"
+  resp="$(/usr/bin/mktemp -t r2-ro-mint.XXXXXX)"
   set +e
   http_code="$(
     "$R2_RO_ENV_BIN" -i \
@@ -361,12 +361,13 @@ assert_safe_destructive_probe_key() {
 }
 
 # Generate a unique sacrificial object key under drill-neg/.
+# GATE-FIX-S28R3-QA21: fixed absolute helpers only (no PATH uuidgen/tr/date).
 make_sacrificial_drill_neg_key() {
   local uuid
-  if command -v uuidgen >/dev/null 2>&1; then
-    uuid="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  if [[ -x /usr/bin/uuidgen && -x /usr/bin/tr ]]; then
+    uuid="$(/usr/bin/uuidgen | /usr/bin/tr '[:upper:]' '[:lower:]')"
   else
-    uuid="$(date +%s)-$$-${RANDOM:-0}"
+    uuid="$(/bin/date +%s)-$$-${RANDOM:-0}"
   fi
   printf 'drill-neg/%s-redhat-fix-h4.txt' "$uuid"
 }

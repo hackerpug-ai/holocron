@@ -59,6 +59,8 @@ describe('tools', () => {
       expect(parse(3).success).toBe(true);
       expect(parse(7).success).toBe(true);
       expect(parse(8).success).toBe(false);
+      // GATE-FIX-S28R3-QA21: integer constraint rejects non-integers.
+      expect(parse(3.5).success).toBe(false);
     });
 
     it('schema has location parameter (optional)', () => {
@@ -181,6 +183,25 @@ describe('tools', () => {
           steps: [base.steps[0]],
         }).success
       ).toBe(false);
+    });
+  });
+
+  /**
+   * GATE-FIX-S28R3-QA21 — retained integer/default count contract.
+   * find_recommendations.count rejects 3.5 (AC-3); list_improvements.limit omitted → 20.
+   */
+  describe('AC-7: list_improvements omitted limit defaults to 20', () => {
+    it('omitted limit defaults to 20', () => {
+      const tool = agentTools.list_improvements as {
+        inputSchema?: {
+          safeParse: (v: unknown) => { success: boolean; data?: { limit?: number } };
+        };
+      };
+      const schema = tool?.inputSchema;
+      expect(schema).toBeDefined();
+      const omitted = schema!.safeParse({});
+      expect(omitted.success).toBe(true);
+      expect(omitted.data?.limit).toBe(20);
     });
   });
 });

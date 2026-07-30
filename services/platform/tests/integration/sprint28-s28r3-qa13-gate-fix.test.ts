@@ -273,6 +273,8 @@ describe('GATE-FIX-S28R3-QA13 MEDIUM-2 two-consumer mutations + canaries', () =>
     });
   }
 
+  // GATE-FIX-S28R3-QA21: intentionally multi-process (prove success + prove error + fire-drill
+  // with recorder). Explicit timeout justified — default 5s flakes on cold worktrees (observed 5.2s).
   it('aws canaries absent on success/error; recorder+parity clean', () => {
     // success
     const ok = spawnSync('bash', [H.prove], {
@@ -366,7 +368,7 @@ exit 0
     expect(recBody).not.toContain(CANARY_AWS);
     expect(repBody).not.toContain(CANARY_AWS);
     expect(repBody).not.toContain(RESTORE_ST);
-  });
+  }, 120_000);
 
   it('mint success/error canaries absent from logs (harness curl)', () => {
     const run = spawnSync('bash', [H.prove, '--try-mint'], {

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # REDHAT-FIX-S28R2-C1 / GATE-FIX-S28R3-QA1 — Run CAP-BAK-01 fire drill against
 # provisioned fresh-target volumes via a host-accessible execution path.
 #
@@ -256,7 +256,8 @@ assert_bound_r2_ro_proof() {
   # GATE-FIX-S28R3-QA17 sanitize: always env -i via r2_ro_exec_isolated; never bare env (env-dump).
   # Capture prove logs to a temp file and emit only allowlisted lines on failure.
   local _prove_log
-  _prove_log="$(mktemp "${TMPDIR:-/tmp}/holo-prove.log.XXXXXX")"
+  # GATE-FIX-S28R3-QA21: fixed absolute mktemp (no PATH helper while credentials ambient).
+  _prove_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-prove.log.XXXXXX")"
   set +e
   r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "BACKUP_R2_ACCESS_KEY_ID=${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-}}"     "BACKUP_R2_SECRET_ACCESS_KEY=${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-}}"     "R2_PARENT_ACCESS_KEY_ID=${R2_PARENT_ACCESS_KEY_ID:-}"     "R2_PARENT_SECRET_ACCESS_KEY=${R2_PARENT_SECRET_ACCESS_KEY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
   local _prove_rc=$?
@@ -659,7 +660,7 @@ ATTESTATION_BODY="$(cat <<EOF
   "scratch": ${J_SCRATCH},
   "blobDir": ${J_BLOB},
   "target_timestamp": ${TS_JSON},
-  "resolved_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  "resolved_at": "$(/bin/date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF
 )"
@@ -748,13 +749,37 @@ ARGS=(
 
 # Minimal child env: map restore → access; strip ambient writer keys.
 # Keep endpoint/account/bucket/prefix/session + passthroughs needed by holo.
-# GATE-FIX-S28R3-QA18: fixed PATH only — never forward caller PATH.
-CHILD_PATH="/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin"
+# GATE-FIX-S28R3-QA18/QA21: fixed PATH only — never forward caller PATH or Homebrew.
+# Credential-bearing child must NOT discover pgbackrest/restic via PATH/Homebrew.
+# Operational prerequisite: root-owned pgBackRest/restic at /usr/local/bin or /usr/bin
+# (validated by restore.ts / recovery-baseline.ts before credentials are used).
+CHILD_PATH="/usr/bin:/bin"
 CHILD_HOME="${HOME:-/tmp}"
 CHILD_TMPDIR="${TMPDIR:-/tmp}"
-CHILD_USER="${USER:-$(id -un 2>/dev/null || echo nobody)}"
+CHILD_USER="${USER:-$(/usr/bin/id -un 2>/dev/null || echo nobody)}"
 CHILD_LANG="${LANG:-C.UTF-8}"
 CHILD_TERM="${TERM:-dumb}"
+
+# GATE-FIX-S28R3-QA21: resolve trusted restore tools BEFORE credentials enter child env.
+# Prefer fixed absolute root-owned candidates only (same trust class as Bun via r2_ro_validate_root_bin).
+TRUSTED_PGBACKREST=""
+TRUSTED_RESTIC=""
+for _cand in "${PGBACKREST_BIN:-}" /usr/local/bin/pgbackrest /usr/bin/pgbackrest; do
+  [[ -n "$_cand" && -x "$_cand" ]] || continue
+  if _resolved="$(r2_ro_validate_root_bin "$_cand" 2>/dev/null)"; then
+    TRUSTED_PGBACKREST="$_resolved"
+    break
+  fi
+done
+for _cand in "${RESTIC_BIN:-}" /usr/local/bin/restic /usr/bin/restic; do
+  [[ -n "$_cand" && -x "$_cand" ]] || continue
+  if _resolved="$(r2_ro_validate_root_bin "$_cand" 2>/dev/null)"; then
+    TRUSTED_RESTIC="$_resolved"
+    break
+  fi
+done
+# Note: missing tools are fail-closed inside the TypeScript restore/baseline path when invoked.
+# Non-TS recorders (harness) do not need them; we only pass validated absolute paths when present.
 
 # Build env -i argument list (KEY=VAL pairs).
 CHILD_ENV_ARGS=(
@@ -772,6 +797,12 @@ CHILD_ENV_ARGS=(
 )
 if [[ -n "$RESTORE_ST" ]]; then
   CHILD_ENV_ARGS+=("R2_SESSION_TOKEN=$RESTORE_ST" "R2_RESTORE_SESSION_TOKEN=$RESTORE_ST")
+fi
+if [[ -n "$TRUSTED_PGBACKREST" ]]; then
+  CHILD_ENV_ARGS+=("PGBACKREST_BIN=$TRUSTED_PGBACKREST")
+fi
+if [[ -n "$TRUSTED_RESTIC" ]]; then
+  CHILD_ENV_ARGS+=("RESTIC_BIN=$TRUSTED_RESTIC")
 fi
 # Passthrough non-writer R2 / holo config when present.
 # GATE-FIX-S28R3-QA3 / C-2: NEVER forward DATABASE_URL or PG* (fresh-target is baseline-only).
@@ -800,7 +831,8 @@ if [[ "$HOLO_CLI" == *.ts || "$HOLO_CLI" == *.js || "$HOLO_CLI" == *.mjs || "$HO
   fi
   BUN_BIN=""
   BUN_TRUSTED=0
-  for _cand in /opt/homebrew/bin/bun /usr/local/bin/bun /usr/bin/bun; do
+  # Prefer /usr/local/bin then /usr/bin; Homebrew only if root-owned (normally rejected).
+  for _cand in /usr/local/bin/bun /usr/bin/bun /opt/homebrew/bin/bun; do
     if [[ -x "$_cand" ]]; then
       if _resolved="$(r2_ro_validate_root_bin "$_cand" 2>/dev/null)"; then
         BUN_BIN="$_resolved"
@@ -811,6 +843,16 @@ if [[ "$HOLO_CLI" == *.ts || "$HOLO_CLI" == *.js || "$HOLO_CLI" == *.mjs || "$HO
   done
   if [[ "$BUN_TRUSTED" -ne 1 || -z "$BUN_BIN" ]]; then
     err "GATE-FIX-S28R3-QA19 refuses restore credentials to untrusted/user-owned Bun (require root-owned trust chain or non-TS HOLO_CLI recorder)"
+    exit 2
+  fi
+  # TS path requires trusted restore tools on the host (operational prerequisite).
+  if [[ -z "$TRUSTED_PGBACKREST" ]]; then
+    err "GATE-FIX-S28R3-QA21 refuses credential-bearing TypeScript restore without root-owned pgbackrest at /usr/local/bin/pgbackrest or /usr/bin/pgbackrest (Homebrew/PATH discovery forbidden)"
+    exit 2
+  fi
+  # Blob restore credentials (RESTIC_PASSWORD / AWS via resticEnv) require trusted restic too.
+  if [[ -z "$TRUSTED_RESTIC" ]]; then
+    err "GATE-FIX-S28R3-QA21 refuses credential-bearing TypeScript restore without root-owned restic at /usr/local/bin/restic or /usr/bin/restic (Homebrew/PATH discovery forbidden)"
     exit 2
   fi
   RUN_PREFIX=("$BUN_BIN" "$HOLO_CLI")
@@ -830,11 +872,31 @@ else
   RUN_PREFIX=("$HOLO_CLI")
 fi
 
+# GATE-FIX-S28R3-QA21: capture child stdout/stderr and redact secrets before emission
+# (gate-plan tees this stream into durable evidence).
+_child_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-fire-drill-child.XXXXXX")"
 log "running restore-only child env: ${RUN_PREFIX[*]} ${ARGS[*]}"
 set +e
-/usr/bin/env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}"
+/usr/bin/env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}" >"$_child_log" 2>&1
 STATUS=$?
 set -e
+# Redact known secret values from child diagnostics before writing evidence.
+/usr/bin/python3 -E -s - "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST" "$_child_log" <<'PY'
+import sys
+ak, sk, st, path = sys.argv[1:5]
+try:
+    text = open(path, "r", errors="replace").read()
+except OSError:
+    sys.exit(0)
+for secret in (sk, ak, st):
+    if secret:
+        text = text.replace(secret, "[redacted]")
+# Generic patterns
+import re
+text = re.sub(r"(?i)((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+", r"\1[redacted]", text)
+sys.stdout.write(text)
+PY
+rm -f "$_child_log" 2>/dev/null || true
 
 # GATE-FIX-S28R3-QA4 / M-1 + QA5: after successful child exit, require contract-shaped parity report
 # via extracted scripts/assert-fire-drill-report.sh (no-Docker unit-testable).

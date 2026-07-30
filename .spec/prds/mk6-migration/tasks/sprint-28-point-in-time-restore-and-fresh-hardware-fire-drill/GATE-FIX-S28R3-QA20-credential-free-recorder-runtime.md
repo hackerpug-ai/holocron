@@ -1,10 +1,10 @@
 # GATE-FIX-S28R3-QA20 — Credential-free recorder runtime
 
-> Status: ✅ Completed (resolution-only; no product-source change)  
-> Sprint: [Sprint 28](./SPRINT.md)  
-> Agent: devops-engineer / security / test-quality  
-> Reviewer: code-reviewer + security-reviewer + test-quality-reviewer  
-> Priority: P0  
+> Status: ✅ Completed (resolution-only; no product-source change)
+> Sprint: [Sprint 28](./SPRINT.md)
+> Agent: devops-engineer / security / test-quality
+> Reviewer: code-reviewer + security-reviewer + test-quality-reviewer
+> Priority: P0
 > Source SHA: `bd879c1eb746017992ed9e51a83f4a160cc3413f` (main tip after QA19)
 
 ## Human-selected resolution (binding)

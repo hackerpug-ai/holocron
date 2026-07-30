@@ -199,6 +199,7 @@ describe('GATE-FIX-S28R3-QA19 production source contracts', () => {
 
 describe('GATE-FIX-S28R3-QA19 SigV4 request-capture regression', () => {
   it('encodes %23 %25 %20 non-ASCII; preserves slashes; signs session token', () => {
+    // GATE-FIX-S28R3-QA21: capture urllib.request.urlopen + real _request (not tautological self-compare).
     const run = spawnSync(
       '/usr/bin/python3',
       [
@@ -206,7 +207,7 @@ describe('GATE-FIX-S28R3-QA19 SigV4 request-capture regression', () => {
         '-s',
         '-c',
         `
-import importlib.util, os, json
+import importlib.util, os, json, urllib.request, urllib.parse
 spec=importlib.util.spec_from_file_location('p', ${JSON.stringify(PROD_PROVIDER)})
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 path=m._encode_s3_path('holocron-backup', 'pgbackrest/a b/#%x/ü.bin')
@@ -214,41 +215,62 @@ assert path.startswith('/holocron-backup/pgbackrest/'), path
 assert '%20' in path, path
 assert '%23' in path, path
 assert '%25' in path, path
-# non-ASCII ü must be percent-encoded (not raw)
 assert 'ü' not in path, path
-assert '%' in path
-# slash preservation between segments
 assert path.count('/') >= 4, path
 os.environ['AWS_ACCESS_KEY_ID']='AKIATEST'
 os.environ['AWS_SECRET_ACCESS_KEY']='secretsecretsecretsecretsecret12'
 os.environ['AWS_SESSION_TOKEN']='session-token-qa19'
-hdrs=m._sigv4_headers(
-  method='GET',
-  endpoint='https://acct.r2.cloudflarestorage.com',
-  path=path,
-  query={},
-  payload=b'',
-)
-assert 'x-amz-security-token' in {k.lower():v for k,v in hdrs.items()} or any(
-  k.lower()=='x-amz-security-token' for k in hdrs
-), hdrs
-# token value present in signed header set
+endpoint='https://acct.r2.cloudflarestorage.com'
+hdrs=m._sigv4_headers(method='GET', endpoint=endpoint, path=path, query={}, payload=b'')
 token_vals=[v for k,v in hdrs.items() if k.lower()=='x-amz-security-token']
-assert token_vals and token_vals[0]=='session-token-qa19'
-# request URL path equals canonical URI path
-url_path=path
-assert url_path == path
-print(json.dumps({'path': path, 'has_token': True, 'signed_keys': sorted(hdrs.keys())}))
+assert token_vals and token_vals[0]=='session-token-qa19', hdrs
+auth=hdrs.get('Authorization') or hdrs.get('authorization') or ''
+assert 'x-amz-security-token' in auth.lower(), auth
+# Transport-level: capture urlopen from real _request
+captured=[]
+class FakeResp:
+    status=200
+    headers={}
+    def __enter__(self): return self
+    def __exit__(self,*a): return False
+    def read(self, n=-1): return b''
+def fake_urlopen(req, timeout=None):
+    captured.append(req)
+    return FakeResp()
+urllib.request.urlopen = fake_urlopen
+code, body, rh = m._request('GET', endpoint, path, query={})
+assert code==200
+assert len(captured)==1, captured
+req=captured[0]
+full_url=req.full_url if hasattr(req,'full_url') else str(req.get_full_url())
+parsed=urllib.parse.urlparse(full_url)
+captured_path=parsed.path
+assert captured_path==path, (captured_path, path)
+# canonical URI inside signed request equals encoded path
+assert path == captured_path
+print(json.dumps({
+  'path': path,
+  'captured_url_path': captured_path,
+  'has_token': True,
+  'signed_headers_include_token': 'x-amz-security-token' in auth.lower(),
+  'signed_keys': sorted(hdrs.keys()),
+}))
 `,
       ],
       { encoding: 'utf8', env: { PATH: '/usr/bin:/bin', HOME: process.env.HOME || '/tmp' } }
     );
     writeEv('sigv4-full.json', `${run.stdout}${run.stderr}`);
     expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
-    const j = JSON.parse(run.stdout.trim()) as { path: string };
+    const j = JSON.parse(run.stdout.trim()) as {
+      path: string;
+      captured_url_path: string;
+      signed_headers_include_token: boolean;
+    };
     expect(j.path).toMatch(/%20/);
     expect(j.path).toMatch(/%23/);
     expect(j.path).toMatch(/%25/);
+    expect(j.captured_url_path).toBe(j.path);
+    expect(j.signed_headers_include_token).toBe(true);
   });
 });
 

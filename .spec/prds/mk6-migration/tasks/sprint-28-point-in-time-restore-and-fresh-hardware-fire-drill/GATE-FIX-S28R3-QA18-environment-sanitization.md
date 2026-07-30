@@ -1,11 +1,11 @@
 # GATE-FIX-S28R3-QA18 — Credential environment sanitization
 
-> Status: ✅ Complete  
-> Sprint: [Sprint 28](./SPRINT.md)  
-> Agent: devops-engineer / security  
-> Reviewer: security-reviewer + test-quality-reviewer  
-> Priority: P0  
-> Source: QA17 debug-path ambient-environment exposure on `8aaf8d088b3695cb4d8fbb8e95b79f57993afcd3`  
+> Status: ✅ Complete
+> Sprint: [Sprint 28](./SPRINT.md)
+> Agent: devops-engineer / security
+> Reviewer: security-reviewer + test-quality-reviewer
+> Priority: P0
+> Source: QA17 debug-path ambient-environment exposure on `8aaf8d088b3695cb4d8fbb8e95b79f57993afcd3`
 > TDD_MODE: red_first · RED_GREEN_REQUIRED: yes
 
 ## Outcome
