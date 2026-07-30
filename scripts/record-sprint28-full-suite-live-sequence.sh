@@ -102,7 +102,9 @@ print(f"{fp}\t{ff}\t{tp}\t{tf}")
 PY
 }
 
-SUITE_CMD='pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts'
+# GATE-FIX-S28R3-QA26: serialize file workers so concurrent provision/docker
+# isolation + live R2 probes do not thrash and false-timeout under load.
+SUITE_CMD='./node_modules/.bin/vitest run --project integration --no-file-parallelism services/platform/tests/integration/sprint28-*.test.ts'
 LIVE_CMD='REQUIRE_LIVE_R2_RO=1 /bin/bash scripts/prove-r2-readonly.sh'
 
 SHA="$(git_sha)"

@@ -97,38 +97,54 @@ _ENV_OVR="${ENV_BIN:-}"
 _PYTHON_OVR="${PYTHON_BIN:-}"
 _MKTEMP_OVR="${MKTEMP_BIN:-}"
 _TR_OVR="${TR_BIN:-}"
-# GATE-FIX-S28R3-QA26: try /usr/bin then /bin fixed candidates (alpine containers
-# often only have busybox tools under /bin; never PATH lookup).
-_prove_iso_pick_tool() {
-  local name="$1"
-  shift
-  local cand
-  for cand in "$@"; do
-    [[ -n "$cand" ]] || continue
-    if _resolved="$(_prove_iso_validate_tool "$name" "$cand" 2>/dev/null)"; then
-      printf '%s' "$_resolved"
-      return 0
-    fi
-  done
-  # Last attempt: surface the first candidate's error for diagnostics.
-  _prove_iso_validate_tool "$name" "${1:-/usr/bin/false}"
-  return 2
-}
 # Fixed defaults under /usr/bin|/bin — never PATH lookup.
-NC_BIN="$(_prove_iso_pick_tool NC_BIN "${_NC_OVR}" /usr/bin/nc /bin/nc)" || exit 2
-GREP_BIN="$(_prove_iso_pick_tool GREP_BIN "${_GREP_OVR}" /usr/bin/grep /bin/grep)" || exit 2
-ENV_BIN="$(_prove_iso_pick_tool ENV_BIN "${_ENV_OVR}" /usr/bin/env /bin/env)" || exit 2
+# GATE-FIX-S28R3-QA26: prefer /usr/bin then /bin (alpine busybox) for each tool.
+# Keep literal `_prove_iso_validate_tool NAME` call sites for source contracts (QA23/QA24).
+if [[ -n "$_NC_OVR" ]]; then
+  NC_BIN="$(_prove_iso_validate_tool NC_BIN "$_NC_OVR")" || exit 2
+elif [[ -x /usr/bin/nc ]]; then
+  NC_BIN="$(_prove_iso_validate_tool NC_BIN /usr/bin/nc)" || exit 2
+else
+  NC_BIN="$(_prove_iso_validate_tool NC_BIN /bin/nc)" || exit 2
+fi
+if [[ -n "$_GREP_OVR" ]]; then
+  GREP_BIN="$(_prove_iso_validate_tool GREP_BIN "$_GREP_OVR")" || exit 2
+elif [[ -x /usr/bin/grep ]]; then
+  GREP_BIN="$(_prove_iso_validate_tool GREP_BIN /usr/bin/grep)" || exit 2
+else
+  GREP_BIN="$(_prove_iso_validate_tool GREP_BIN /bin/grep)" || exit 2
+fi
+if [[ -n "$_ENV_OVR" ]]; then
+  ENV_BIN="$(_prove_iso_validate_tool ENV_BIN "$_ENV_OVR")" || exit 2
+elif [[ -x /usr/bin/env ]]; then
+  ENV_BIN="$(_prove_iso_validate_tool ENV_BIN /usr/bin/env)" || exit 2
+else
+  ENV_BIN="$(_prove_iso_validate_tool ENV_BIN /bin/env)" || exit 2
+fi
 # Python may be absent inside minimal postgres alpine; allow empty for static R2 only.
 PYTHON_BIN=""
-if _py="$(_prove_iso_pick_tool PYTHON_BIN "${_PYTHON_OVR}" /usr/bin/python3 /bin/python3 2>/dev/null)"; then
-  PYTHON_BIN="$_py"
-elif [[ -n "${_PYTHON_OVR}" ]]; then
-  # Explicit override must validate.
-  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN "${_PYTHON_OVR}")" || exit 2
+if [[ -n "$_PYTHON_OVR" ]]; then
+  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN "$_PYTHON_OVR")" || exit 2
+elif [[ -x /usr/bin/python3 ]]; then
+  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN /usr/bin/python3)" || exit 2
+elif [[ -x /bin/python3 ]]; then
+  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN /bin/python3)" || exit 2
 fi
-MKTEMP_BIN="$(_prove_iso_pick_tool MKTEMP_BIN "${_MKTEMP_OVR}" /usr/bin/mktemp /bin/mktemp)" || exit 2
-TR_BIN="$(_prove_iso_pick_tool TR_BIN "${_TR_OVR}" /usr/bin/tr /bin/tr)" || exit 2
-BASH_BIN="$(_prove_iso_pick_tool BASH_BIN /bin/bash /usr/bin/bash)" || exit 2
+if [[ -n "$_MKTEMP_OVR" ]]; then
+  MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN "$_MKTEMP_OVR")" || exit 2
+elif [[ -x /usr/bin/mktemp ]]; then
+  MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN /usr/bin/mktemp)" || exit 2
+else
+  MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN /bin/mktemp)" || exit 2
+fi
+if [[ -n "$_TR_OVR" ]]; then
+  TR_BIN="$(_prove_iso_validate_tool TR_BIN "$_TR_OVR")" || exit 2
+elif [[ -x /usr/bin/tr ]]; then
+  TR_BIN="$(_prove_iso_validate_tool TR_BIN /usr/bin/tr)" || exit 2
+else
+  TR_BIN="$(_prove_iso_validate_tool TR_BIN /bin/tr)" || exit 2
+fi
+BASH_BIN="$(_prove_iso_validate_tool BASH_BIN /bin/bash)" || exit 2
 # GATE-FIX-S28R3-QA25: Docker optional but must pass same absolute root-trust validator
 # (never bare PATH `docker` / unvalidated Homebrew after credentials ambient).
 DOCKER_BIN=""
