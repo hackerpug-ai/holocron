@@ -5,10 +5,10 @@
 > Reviewer: product+technical dual-lens APPROVED
 > Completed: 2026-07-30T09:45:01Z
 
-**Task id:** `GATE-FIX-S28R3-QA26`  
-**Sprint:** sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill  
-**Binding review:** `red-hat-20260730T065943Z-sprint-28-main-sha-4a38e6f27ac7e368d12d80076e7cb25797ec86ab.md`  
-**Reviewed SHA:** `4a38e6f27ac7e368d12d80076e7cb25797ec86ab`  
+**Task id:** `GATE-FIX-S28R3-QA26`
+**Sprint:** sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill
+**Binding review:** `red-hat-20260730T065943Z-sprint-28-main-sha-4a38e6f27ac7e368d12d80076e7cb25797ec86ab.md`
+**Reviewed SHA:** `4a38e6f27ac7e368d12d80076e7cb25797ec86ab`
 **Starting main SHA:** `fd73cca520eecfaaf6b9567cd328d9f811eaeba6`
 
 ## Intent
@@ -37,4 +37,3 @@ Close all three CRITICAL and two HIGH findings from the binding independent Terr
 - Read-only consumer positive and destructive-mutation evidence.
 - Disposable-resource before/after inventory showing zero QA26 leftovers.
 - Exact whitespace, focused, full-suite, live R2, validator, and independent-review results.
-
