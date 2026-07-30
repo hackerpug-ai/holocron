@@ -829,12 +829,15 @@ if [[ -n "$TRUSTED_RESTIC" ]]; then
 fi
 # Passthrough non-writer R2 / holo config when present.
 # GATE-FIX-S28R3-QA3 / C-2: NEVER forward DATABASE_URL or PG* (fresh-target is baseline-only).
+# GATE-FIX-S28R3-QA24: NEVER forward PGBACKREST_PG1_PATH (live mini PGDATA) — archive-get
+# during PITR recovery would reject scratch PGDATA vs live path (checkpoint/WAL fail).
+# Restore writes its own conf with --pg1-path=scratch; stanza/config file ok without pg1 env.
 for _k in \
   R2_ENDPOINT R2_ACCOUNT_ID R2_BUCKET_NAME R2_PGBACKREST_PREFIX R2_RESTORE_OBJECT_PREFIX \
   R2_RESTIC_PREFIX R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY R2_REPO_CIPHER_PASS \
   HOLO_SECRETS_PATH HOLOCRON_SECRETS_PATH HOLO_FIRE_DRILL_ENV_DUMP \
   STAGING_ROOT RESTIC_PASSWORD RESTIC_REPOSITORY \
-  PGBACKREST_CONFIG PGBACKREST_STANZA PGBACKREST_PG1_PATH \
+  PGBACKREST_CONFIG PGBACKREST_STANZA \
   CI PLATFORM_IT; do
   if [[ -n "${!_k:-}" ]]; then
     CHILD_ENV_ARGS+=("${_k}=${!_k}")

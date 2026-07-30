@@ -161,17 +161,22 @@ describe('GATE-FIX-S28R3-QA23 absolute executables on credential stream', () => 
     expect(prove).not.toMatch(/\|\s+grep\s+-/);
 
     const iso = readFileSync(PROD_ISO, 'utf8');
-    expect(iso).toMatch(/NC_BIN="\$\{NC_BIN:-\/usr\/bin\/nc\}"/);
-    expect(iso).toMatch(/GREP_BIN="\$\{GREP_BIN:-\/usr\/bin\/grep\}"/);
-    expect(iso).toMatch(/ENV_BIN="\$\{ENV_BIN:-\/usr\/bin\/env\}"/);
-    expect(iso).toMatch(/PYTHON_BIN="\$\{PYTHON_BIN:-\/usr\/bin\/python3\}"/);
+    // GATE-FIX-S28R3-QA24: overrides validated via _prove_iso_validate_tool (not raw env defaults).
+    expect(iso).toMatch(/_prove_iso_validate_tool/);
+    expect(iso).toMatch(/_prove_iso_validate_tool NC_BIN/);
+    expect(iso).toMatch(/_prove_iso_validate_tool GREP_BIN/);
+    expect(iso).toMatch(/_prove_iso_validate_tool ENV_BIN/);
+    expect(iso).toMatch(/_prove_iso_validate_tool PYTHON_BIN/);
+    expect(iso).toMatch(/BASH_BIN=/);
+    expect(iso).toMatch(/"\$BASH_BIN" "\$live_script"/);
     expect(iso).toMatch(/"\$NC_BIN"/);
     expect(iso).toMatch(/"\$GREP_BIN"/);
     expect(iso).toMatch(/"\$ENV_BIN"/);
     expect(iso).toMatch(/"\$PYTHON_BIN"/);
-    // no bare `nc -z` or bare `python3 -`
+    // no bare `nc -z` or bare `python3 -` or bare bash live proof
     expect(iso).not.toMatch(/(?:^|[\s;|&])nc -z/m);
     expect(iso).not.toMatch(/(?:^|[\s;|&])python3 -/m);
+    expect(iso).not.toMatch(/^\s*bash "\$live_script"/m);
     expect(iso).not.toMatch(/done < <\(env \|/);
 
     const fire = readFileSync(PROD_FIRE, 'utf8');

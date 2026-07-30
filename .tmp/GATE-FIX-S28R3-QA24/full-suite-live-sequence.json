@@ -1,0 +1,58 @@
+{
+  "schema": "holo.sprint28-full-suite-live-sequence.v1",
+  "task_id": "GATE-FIX-S28R3-QA24",
+  "run_id": "qa24-seq-20260730T042706Z-56604",
+  "git_sha": "f7002fb4ae318050acaf2dc1213d0247fb6d026a",
+  "started_at": "2026-07-30T04:27:06Z",
+  "finished_at": "2026-07-30T04:29:09Z",
+  "probe_path": "scripts/lib/r2-scope-probes.json",
+  "phases": [
+    {
+      "n": 1,
+      "name": "full_sprint28_suite",
+      "command": "pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts",
+      "started_at": "2026-07-30T04:27:06Z",
+      "exit_code": 0,
+      "probe_sha256_before": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+      "probe_sha256_after": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+      "qa16bak_absent": true,
+      "log": "sequence-qa24-seq-20260730T042706Z-56604/phase1-full-suite.log",
+      "test_files_passed": 31,
+      "test_files_failed": 0,
+      "tests_passed": 327,
+      "tests_failed": 0
+    },
+    {
+      "n": 2,
+      "name": "live_r2_readonly_proof",
+      "command": "REQUIRE_LIVE_R2_RO=1 /bin/bash scripts/prove-r2-readonly.sh",
+      "started_at": "2026-07-30T04:28:05Z",
+      "exit_code": 0,
+      "probe_sha256_before": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+      "probe_sha256_after": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+      "qa16bak_absent": true,
+      "log": "sequence-qa24-seq-20260730T042706Z-56604/phase2-live-r2-ro.log"
+    },
+    {
+      "n": 3,
+      "name": "full_sprint28_suite",
+      "command": "pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts",
+      "started_at": "2026-07-30T04:28:08Z",
+      "exit_code": 0,
+      "probe_sha256_before": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+      "probe_sha256_after": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+      "qa16bak_absent": true,
+      "log": "sequence-qa24-seq-20260730T042706Z-56604/phase3-full-suite.log",
+      "test_files_passed": 31,
+      "test_files_failed": 0,
+      "tests_passed": 327,
+      "tests_failed": 0
+    }
+  ],
+  "probe_sha256_initial": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+  "probe_sha256_final": "55110c4a0085d096b1f4901102855bab5555997075e8681f1c3e8e8a1e89e60e",
+  "probe_hash_stable": true,
+  "qa16bak_absent_all_phases": true,
+  "all_phases_exit_zero": true,
+  "evidence_dir": "sequence-qa24-seq-20260730T042706Z-56604"
+}

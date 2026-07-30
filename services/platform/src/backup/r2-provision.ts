@@ -90,6 +90,23 @@ function resolveTrustedPgbackrestBin(env?: NodeJS.ProcessEnv): string | null {
   return null;
 }
 
+/**
+ * GATE-FIX-S28R3-QA24: absolute root-owned AWS CLI only (no PATH/Homebrew shadow
+ * while R2 credentials are ambient). Prefer AWS_BIN env when it passes trust chain.
+ */
+function resolveTrustedAwsBin(env?: NodeJS.ProcessEnv): string | null {
+  const fromEnv = env?.AWS_BIN?.trim() || env?.HOLO_TRUSTED_AWS_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/aws', '/usr/bin/aws']) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
+}
+
 export type ProvisionOptions = {
   /** Target backup bucket (default holocron-backup). */
   bucketName?: string;
@@ -197,18 +214,44 @@ function awsEnv(creds: {
   endpoint: string;
   env?: NodeJS.ProcessEnv;
 }): NodeJS.ProcessEnv {
-  const base = { ...(creds.env ?? process.env) };
-  base.AWS_ACCESS_KEY_ID = creds.accessKeyId;
-  base.AWS_SECRET_ACCESS_KEY = creds.secretAccessKey;
-  base.AWS_DEFAULT_REGION = 'auto';
-  base.AWS_EC2_METADATA_DISABLED = 'true';
+  // GATE-FIX-S28R3-QA24: minimal fixed child environment — never clone ambient PATH
+  // (hostile PATH must not receive R2 credentials via bare `aws`).
+  const base: NodeJS.ProcessEnv = {
+    PATH: '/usr/bin:/bin',
+    HOME: creds.env?.HOME ?? process.env.HOME ?? '/tmp',
+    LC_ALL: 'C',
+    AWS_ACCESS_KEY_ID: creds.accessKeyId,
+    AWS_SECRET_ACCESS_KEY: creds.secretAccessKey,
+    AWS_DEFAULT_REGION: 'auto',
+    AWS_EC2_METADATA_DISABLED: 'true',
+  };
   if (creds.sessionToken) {
     base.AWS_SESSION_TOKEN = creds.sessionToken;
-  } else {
-    delete base.AWS_SESSION_TOKEN;
   }
-  // Never leak parent AWS_* from ambient env accidentally for scoped calls
   return base;
+}
+
+/** GATE-FIX-S28R3-QA24: run absolute trusted aws only (never bare PATH `aws`). */
+function runAws(
+  args: string[],
+  creds: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string | null;
+    endpoint: string;
+    env?: NodeJS.ProcessEnv;
+  }
+): { status: number; stdout: string; stderr: string } {
+  const awsBin = resolveTrustedAwsBin(creds.env);
+  if (!awsBin) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr:
+        'GATE-FIX-S28R3-QA24: no root-owned aws at /usr/local/bin/aws or /usr/bin/aws (refuse PATH/Homebrew)',
+    };
+  }
+  return run(awsBin, args, { env: awsEnv(creds) });
 }
 
 function awsJson(
@@ -221,9 +264,7 @@ function awsJson(
     env?: NodeJS.ProcessEnv;
   }
 ): { ok: boolean; data: unknown; raw: string; status: number } {
-  const res = run('aws', [...args, '--endpoint-url', creds.endpoint, '--output', 'json'], {
-    env: awsEnv(creds),
-  });
+  const res = runAws([...args, '--endpoint-url', creds.endpoint, '--output', 'json'], creds);
   const raw = (res.stdout || res.stderr || '').trim();
   if (res.status !== 0) {
     return { ok: false, data: null, raw, status: res.status };
@@ -781,8 +822,7 @@ export function enableBucketVersioning(creds: {
   bucketName: string;
   env?: NodeJS.ProcessEnv;
 }): { attempted: boolean; applied: boolean; detail: string } {
-  const res = run(
-    'aws',
+  const res = runAws(
     [
       's3api',
       'put-bucket-versioning',
@@ -793,7 +833,7 @@ export function enableBucketVersioning(creds: {
       '--endpoint-url',
       creds.endpoint,
     ],
-    { env: awsEnv(creds) }
+    creds
   );
   const detail = (res.stderr || res.stdout || '').trim();
   if (res.status === 0) {
@@ -824,8 +864,7 @@ export function putBucketEncryptionAes256(creds: {
       },
     ],
   });
-  const res = run(
-    'aws',
+  const res = runAws(
     [
       's3api',
       'put-bucket-encryption',
@@ -836,7 +875,7 @@ export function putBucketEncryptionAes256(creds: {
       '--endpoint-url',
       creds.endpoint,
     ],
-    { env: awsEnv(creds) }
+    creds
   );
   // Some R2 accounts reject put-bucket-encryption (SSE is always on). Treat
   // failure as non-fatal if get-bucket-encryption later returns AES256.
@@ -895,10 +934,9 @@ export function headBucket(creds: {
   bucketName: string;
   env?: NodeJS.ProcessEnv;
 }): boolean {
-  const res = run(
-    'aws',
+  const res = runAws(
     ['s3api', 'head-bucket', '--bucket', creds.bucketName, '--endpoint-url', creds.endpoint],
-    { env: awsEnv(creds) }
+    creds
   );
   return res.status === 0;
 }
@@ -1137,6 +1175,40 @@ export function ensureArchiveCommandForCheck(options: {
   };
 }
 
+/**
+ * GATE-FIX-S28R3-QA24: list via root-owned aws when present; otherwise fixed
+ * repository stdlib provider via root-owned /usr/bin/python3 (never Homebrew aws).
+ */
+function runTrustedPythonR2(
+  args: string[],
+  creds: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string | null;
+    env?: NodeJS.ProcessEnv;
+  }
+): { status: number; stdout: string; stderr: string } {
+  const py = validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
+  if (!py) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr: 'GATE-FIX-S28R3-QA24: no root-owned python3 for R2 provider fallback',
+    };
+  }
+  // Resolve provider relative to repo root (this file lives under services/platform/src/backup).
+  const provider = `${resolveRepoRoot()}/scripts/lib/r2_s3_provider.py`;
+  if (!existsSync(provider)) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr: `GATE-FIX-S28R3-QA24: missing R2 provider ${provider}`,
+    };
+  }
+  const env = awsEnv(creds);
+  return run(py, ['-E', '-s', provider, ...args], { env, timeoutMs: 180_000 });
+}
+
 export function listRepoPrefix(creds: {
   accessKeyId: string;
   secretAccessKey: string;
@@ -1146,17 +1218,43 @@ export function listRepoPrefix(creds: {
   prefix: string;
   env?: NodeJS.ProcessEnv;
 }): { count: number; raw: string } {
-  const res = run(
-    'aws',
+  const prefix = creds.prefix.replace(/^\//, '').replace(/\/$/, '');
+  // Prefer root-owned aws when present (production trust chain).
+  if (resolveTrustedAwsBin(creds.env)) {
+    const res = runAws(
+      [
+        's3',
+        'ls',
+        `s3://${creds.bucketName}/${prefix}/`,
+        '--endpoint-url',
+        creds.endpoint,
+        '--recursive',
+      ],
+      creds
+    );
+    const lines = (res.stdout || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return { count: lines.length, raw: res.stdout || res.stderr || '' };
+  }
+  // Fallback: repository stdlib provider (same trust class as prove-r2-readonly).
+  // GATE-FIX-S28R3-QA24: paginate far enough that pgbackrest archive/ does not
+  // starve backup.manifest / backup.info discovery (max-keys=1000 truncated early).
+  const res = runTrustedPythonR2(
     [
-      's3',
-      'ls',
-      `s3://${creds.bucketName}/${creds.prefix.replace(/^\//, '')}/`,
-      '--endpoint-url',
+      'list-prefix',
+      '--endpoint',
       creds.endpoint,
-      '--recursive',
+      '--bucket',
+      creds.bucketName,
+      '--prefix',
+      prefix,
+      '--max-keys',
+      '100000',
+      '--aws-ls-format',
     ],
-    { env: awsEnv(creds) }
+    creds
   );
   const lines = (res.stdout || '')
     .split('\n')

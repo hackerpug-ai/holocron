@@ -308,6 +308,17 @@ function inspectRepoChain(
   listing: string;
 } {
   const prefix = cfg.pgbackrestPrefix.replace(/^\//, '').replace(/\/$/, '');
+  // GATE-FIX-S28R3-QA24: list backup/ sub-prefix first — archive/ can exceed list
+  // caps and starve backup.manifest / backup.info detection under RO python listing.
+  const listedBackup = listRepoPrefix({
+    accessKeyId: cfg.accessKeyId,
+    secretAccessKey: cfg.secretAccessKey,
+    sessionToken: cfg.sessionToken,
+    endpoint: cfg.endpoint,
+    bucketName: cfg.bucketName,
+    prefix: `${prefix}/backup`,
+    env,
+  });
   const listed = listRepoPrefix({
     accessKeyId: cfg.accessKeyId,
     secretAccessKey: cfg.secretAccessKey,
@@ -318,8 +329,8 @@ function inspectRepoChain(
     env,
   });
 
-  const listing = listed.raw || '';
-  const objectCount = listed.count;
+  const listing = `${listedBackup.raw || ''}\n${listed.raw || ''}`;
+  const objectCount = listed.count + listedBackup.count;
   if (objectCount === 0) {
     return {
       objectCount: 0,
@@ -333,7 +344,8 @@ function inspectRepoChain(
   const hasBaseBackupShape =
     /backup\.manifest/i.test(listing) ||
     /backup\.info/i.test(listing) ||
-    /\/backup\//i.test(listing);
+    /\/backup\//i.test(listing) ||
+    listedBackup.count > 0;
 
   // Key-path signals (D05-01 corrupt fixture uses deadbeef / d05-01-corrupt in object keys).
   // Do NOT match healthy keys (d05-01-healthy, healthyseed, seed-contract).
@@ -776,10 +788,39 @@ function readStartLog(pgdata: string, maxChars = 200_000): string {
   }
 }
 
+/**
+ * GATE-FIX-S28R3-QA24: absolute pg_ctl when restore-only PATH=/usr/bin:/bin.
+ * Local postmaster start is not an R2 credential trust boundary.
+ */
+function resolvePgCtlBin(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = env.PG_CTL_BIN?.trim() || env.POSTGRES_PG_CTL?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
+    '/usr/local/opt/postgresql@18/bin/pg_ctl',
+    '/opt/homebrew/bin/pg_ctl',
+    '/usr/local/bin/pg_ctl',
+    '/usr/lib/postgresql/18/bin/pg_ctl',
+    '/usr/bin/pg_ctl',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  return 'pg_ctl';
+}
+
+function pgCtlEnv(pgdata: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    PGDATA: pgdata,
+    PATH: '/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
+  };
+}
+
 function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
   if (!existsSync(pgdata)) return;
-  run('pg_ctl', ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
-    env: { ...env, PGDATA: pgdata },
+  const pgCtl = resolvePgCtlBin(env);
+  run(pgCtl, ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
+    env: pgCtlEnv(pgdata, env),
     timeoutMs: 45_000,
   });
 }
@@ -936,8 +977,9 @@ function tryStartPostgres(
   // Fire-drill uses -t 120; match that so R2 archive-get catch-up can finish under -w
   // before we enter the longer promote poll loop.
   const initialWaitSecs = 120;
+  const pgCtl = resolvePgCtlBin(env);
   const started = run(
-    'pg_ctl',
+    pgCtl,
     [
       'start',
       '-D',
@@ -951,7 +993,7 @@ function tryStartPostgres(
       '-t',
       String(initialWaitSecs),
     ],
-    { env: { ...env, PGDATA: pgdata }, timeoutMs: (initialWaitSecs + 45) * 1000 }
+    { env: pgCtlEnv(pgdata, env), timeoutMs: (initialWaitSecs + 45) * 1000 }
   );
   // Brief settle (same as fire-drill) so promote can complete after pg_ctl -w returns.
   run('sleep', ['3'], { env, timeoutMs: 10_000 });
@@ -985,8 +1027,8 @@ function tryStartPostgres(
       };
     }
 
-    const status = run('pg_ctl', ['status', '-D', pgdata], {
-      env: { ...env, PGDATA: pgdata },
+    const status = run(pgCtl, ['status', '-D', pgdata], {
+      env: pgCtlEnv(pgdata, env),
       timeoutMs: 15_000,
     });
     if (status.status !== 0) {

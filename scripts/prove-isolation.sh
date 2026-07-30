@@ -19,17 +19,101 @@
 # Real OS probes only (nc, mount/findmnt, test -S, getent/host, machine-id/SMBIOS).
 # Never hardcodes exit 0. Never mocks network isolation.
 set -euo pipefail
-# GATE-FIX-S28R3-QA23 absolute tools (no PATH lookup while credentials ambient).
-NC_BIN="${NC_BIN:-/usr/bin/nc}"
-GREP_BIN="${GREP_BIN:-/usr/bin/grep}"
-ENV_BIN="${ENV_BIN:-/usr/bin/env}"
-PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
-MKTEMP_BIN="${MKTEMP_BIN:-/usr/bin/mktemp}"
-TR_BIN="${TR_BIN:-/usr/bin/tr}"
+# GATE-FIX-S28R3-QA24: fixed absolute tools + validate any override BEFORE credentials
+# are ambient. Reject unvalidated NC_BIN/GREP_BIN/ENV_BIN/PYTHON_BIN/MKTEMP_BIN/TR_BIN
+# and never invoke bare `bash` on the live proof path.
+#
+# Accept only:
+#   - absolute path under /bin or /usr/bin, OR
+#   - absolute root-owned regular executable whose every path component is root-owned
+#     and not group/world-writable (same trust class as r2_ro_validate_root_bin).
+_prove_iso_validate_tool() {
+  local name="$1" cand="$2"
+  case "$cand" in
+    /bin/*|/usr/bin/*)
+      if [[ -x "$cand" && -f "$cand" ]]; then
+        printf '%s' "$cand"
+        return 0
+      fi
+      echo "FAIL: GATE-FIX-S28R3-QA24 ${name} not executable: ${cand}" >&2
+      return 2
+      ;;
+    /*) ;;
+    *)
+      echo "FAIL: GATE-FIX-S28R3-QA24 ${name} must be absolute path (got: ${cand})" >&2
+      return 2
+      ;;
+  esac
+  # Absolute outside /bin|/usr/bin: require root-owned trust chain via fixed python.
+  local resolved
+  if ! resolved="$(
+    /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+      /usr/bin/python3 -E -s - "$cand" <<'PY'
+import os, stat, sys
+cand = sys.argv[1]
+if not cand.startswith("/"):
+    print("error: tool path must be absolute", file=sys.stderr); sys.exit(2)
+parts = [p for p in cand.split("/") if p]
+path = ""
+for part in parts:
+    path = path + "/" + part
+    try:
+        st = os.lstat(path)
+    except OSError as e:
+        print(f"error: cannot lstat {path}: {e}", file=sys.stderr); sys.exit(2)
+    if stat.S_ISLNK(st.st_mode):
+        try:
+            real = os.path.realpath(path)
+            st = os.lstat(real)
+            path_check = real
+        except OSError as e:
+            print(f"error: symlink unresolvable: {e}", file=sys.stderr); sys.exit(2)
+    else:
+        path_check = path
+        st = os.lstat(path_check)
+    mode = stat.S_IMODE(st.st_mode)
+    if st.st_uid != 0:
+        print(f"error: not root-owned: {path_check}", file=sys.stderr); sys.exit(2)
+    if mode & (stat.S_IWGRP | stat.S_IWOTH):
+        print(f"error: group/world-writable: {path_check}", file=sys.stderr); sys.exit(2)
+st = os.lstat(os.path.realpath(cand))
+if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or (stat.S_IMODE(st.st_mode) & 0o111) == 0:
+    print("error: tool not root-owned regular executable", file=sys.stderr); sys.exit(2)
+print(os.path.realpath(cand))
+sys.exit(0)
+PY
+  )"; then
+    echo "FAIL: GATE-FIX-S28R3-QA24 refused untrusted ${name}=${cand}" >&2
+    return 2
+  fi
+  printf '%s' "$resolved"
+  return 0
+}
+
+# Capture caller overrides (if any) then validate before any R2/credential work.
+_NC_OVR="${NC_BIN:-}"
+_GREP_OVR="${GREP_BIN:-}"
+_ENV_OVR="${ENV_BIN:-}"
+_PYTHON_OVR="${PYTHON_BIN:-}"
+_MKTEMP_OVR="${MKTEMP_BIN:-}"
+_TR_OVR="${TR_BIN:-}"
+# Fixed defaults under /usr/bin|/bin — never PATH lookup.
+NC_BIN="$(_prove_iso_validate_tool NC_BIN "${_NC_OVR:-/usr/bin/nc}")" || exit 2
+GREP_BIN="$(_prove_iso_validate_tool GREP_BIN "${_GREP_OVR:-/usr/bin/grep}")" || exit 2
+ENV_BIN="$(_prove_iso_validate_tool ENV_BIN "${_ENV_OVR:-/usr/bin/env}")" || exit 2
+PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN "${_PYTHON_OVR:-/usr/bin/python3}")" || exit 2
+MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN "${_MKTEMP_OVR:-/usr/bin/mktemp}")" || exit 2
+TR_BIN="$(_prove_iso_validate_tool TR_BIN "${_TR_OVR:-/usr/bin/tr}")" || exit 2
+BASH_BIN="$(_prove_iso_validate_tool BASH_BIN /bin/bash)" || exit 2
 DOCKER_BIN=""
 for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do
-  if [[ -x "$_d" ]]; then DOCKER_BIN="$_d"; break; fi
+  if [[ -x "$_d" ]]; then
+    # Docker is optional; prefer absolute path without requiring root-owned on macOS.
+    DOCKER_BIN="$_d"
+    break
+  fi
 done
+unset _NC_OVR _GREP_OVR _ENV_OVR _PYTHON_OVR _MKTEMP_OVR _TR_OVR
 
 MINI_HOST="${MINI_HOST:-}"
 MINI_PG_PORT="${MINI_PG_PORT:-5432}"
@@ -1018,8 +1102,9 @@ PY
       bad=1
     else
       echo "  detail: running live R2 read-only probe (real aws CLI)" >&2
+      # GATE-FIX-S28R3-QA24: absolute validated bash only (never bare `bash` under credentials).
       set +e
-      bash "$live_script"
+      "$BASH_BIN" "$live_script"
       local live_rc=$?
       set -e
       if [[ $live_rc -ne 0 ]]; then

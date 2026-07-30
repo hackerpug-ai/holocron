@@ -180,10 +180,13 @@ r2_ro_exec_isolated() {
       printf '%s\0' "$p"
     done
   )
+  # GATE-FIX-S28R3-QA24: never re-enable set -e before return of non-zero.
+  # Bash 3.2 treats `set -e; return 1` inside a function as fatal to the *caller*
+  # even when the caller has set +e around the function invocation — which dropped
+  # the "fresh live RO proof failed" diagnostic (review HIGH/QA9).
   set +e
   "$py_bin" -E -s "$launcher" -- "${cmd[@]}"
   local rc=$?
-  set -e
   exec 3<&- 2>/dev/null || true
   return "$rc"
 }

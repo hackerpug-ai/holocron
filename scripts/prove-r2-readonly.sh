@@ -193,26 +193,37 @@ PY
 )"
 
   resp="$(/usr/bin/mktemp -t r2-ro-mint.XXXXXX)"
-  set +e
-  http_code="$(
-    "$R2_RO_ENV_BIN" -i \
-      PATH=/usr/bin:/bin \
-      HOME="${HOME:-/tmp}" \
-      LC_ALL=C \
-      "$R2_RO_CURL_BIN" -sS -o "$resp" -w '%{http_code}' \
-      -X POST "https://api.cloudflare.com/client/v4/accounts/${account_id}/r2/temp-access-credentials" \
-      -H "Authorization: Bearer ${token}" \
-      -H "Content-Type: application/json" \
-      --data "$body"
-  )"
-
-  local curl_rc=$?
-  set -e
-  if [[ $curl_rc -ne 0 ]]; then
-    rm -f "$resp"
-    fail "mint HTTP request failed (curl exit $curl_rc)"
+  # GATE-FIX-S28R3-QA24: NEVER put Cloudflare management token on curl/process argv.
+  # Mint via fixed scripts/lib/r2-mint-temp-ro.py; Authorization from env via FD 3
+  # (r2_ro_exec_isolated). Child argv is only absolute python + script path.
+  local mint_helper="${ROOT}/scripts/lib/r2-mint-temp-ro.py"
+  if [[ ! -f "$mint_helper" ]]; then
+    fail "GATE-FIX-S28R3-QA24 missing mint helper $mint_helper"
     return 1
   fi
+  local mint_rc
+  set +e
+  http_code="$(
+    r2_ro_exec_isolated \
+      "PATH=/usr/bin:/bin" \
+      "HOME=${HOME:-/tmp}" \
+      "LC_ALL=C" \
+      "CF_API_TOKEN=${token}" \
+      "CF_ACCOUNT_ID=${account_id}" \
+      "MINT_BODY=${body}" \
+      "MINT_RESP=${resp}" \
+      -- \
+      "$R2_RO_PYTHON_BIN" -E -s "$mint_helper"
+  )"
+  mint_rc=$?
+  set -e
+  if [[ $mint_rc -ne 0 ]]; then
+    rm -f "$resp"
+    fail "mint HTTP request failed (python urllib exit $mint_rc)"
+    return 1
+  fi
+  http_code="${http_code:-000}"
+
 
   # Parse result without printing secrets or raw API bodies (GATE-FIX-S28R3-QA10 / L1).
   local parsed

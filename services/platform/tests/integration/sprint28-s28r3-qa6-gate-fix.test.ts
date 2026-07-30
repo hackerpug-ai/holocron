@@ -35,13 +35,13 @@ const QA_RUN_ID = 'qa28-20260729T104535Z-420995be4d2d4690911d9bb2e7f96678';
 
 const HOST_ALLOWLIST = /^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$|^[A-Za-z0-9]$/;
 
-/** Frozen digests of steps 1,2,4,5,6 (GATE-FIX-S28R3-QA22 absolute-executable gate stream). */
+/** Frozen digests of steps 1,2,4,5,6 (GATE-FIX-S28R3-QA22/QA23/QA24 absolute-executable gate stream). */
 const FROZEN_STEP_DIGESTS: Record<number, string> = {
-  1: '4ea4d8cb33f9e931cb62fed87e0106128927e7b3bb9e73214e17fa272fb93dbc',
-  2: 'baa7172a6a26aa16e9c55522d17424b5d590a2cc131fd55c27a20a3f93361978',
+  1: 'd4034742684ad6e11969967017419aecae313ea9117f50eeeae536160f87e1e3',
+  2: '9857c6ec9d814b2e21635e5c154e9a046fdc3dc4120ebb44f826fe29cbc32729',
   4: 'd985ca9e08433b0c8fe34cff46a9c530b1a6aee9a5b40921765b460b82f5e3d4',
   5: 'c2cae3dedda433bf2ccd09ad9046da561c76f482cdfece513593df107ce9bfd3',
-  6: '02edd38e198f34041d9afdefb6b05b0363377a0879b6d984081cbc524db01314',
+  6: '1993c1def20666b67f370dddedf7a0b2f368205f54f0ef41ff8bdece574ddb3a',
 };
 
 const PRE_QA6_STEP3_DIGEST = '90e9b01fbf63d161c4aca1ce3871a9e9dd3dec08e1a9a922615d5b16bd39c134';

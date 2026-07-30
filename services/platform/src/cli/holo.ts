@@ -2685,13 +2685,48 @@ async function main(): Promise<void> {
           const host = args.freshTarget.trim();
           const volPg = `${host}-pgdata`;
           const volBlob = `${host}-blobs`;
-          const { existsSync, mkdirSync, writeFileSync, unlinkSync, realpathSync } = await import(
-            'node:fs'
-          );
+          const {
+            existsSync,
+            mkdirSync,
+            writeFileSync,
+            unlinkSync,
+            realpathSync,
+            accessSync,
+            constants: fsConstants,
+          } = await import('node:fs');
           const { join } = await import('node:path');
 
+          // GATE-FIX-S28R3-QA24: fixed credential-child PATH is /usr/bin:/bin (no Homebrew).
+          // Resolve docker via absolute candidates (same allowlist as shell provision/fire-drill).
+          let dockerBin: string | null = null;
+          for (const c of [
+            '/usr/bin/docker',
+            '/usr/local/bin/docker',
+            '/opt/homebrew/bin/docker',
+          ] as const) {
+            try {
+              if (existsSync(c)) {
+                accessSync(c, fsConstants.X_OK);
+                dockerBin = c;
+                break;
+              }
+            } catch {
+              /* try next */
+            }
+          }
+          if (!dockerBin) {
+            const msg =
+              'fresh-target requires absolute docker client at /usr/bin/docker, /usr/local/bin/docker, or /opt/homebrew/bin/docker (PATH discovery forbidden under restore-only child env)';
+            if (args.json) {
+              console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+            } else {
+              console.error(`error: ${msg}`);
+            }
+            process.exit(2);
+          }
+          const dockerExe = dockerBin;
           const inspectField = (vol: string, template: string): string | null => {
-            const r = spawnSync('docker', ['volume', 'inspect', '-f', template, vol], {
+            const r = spawnSync(dockerExe, ['volume', 'inspect', '-f', template, vol], {
               encoding: 'utf8',
               timeout: 15_000,
             });
@@ -2700,7 +2735,7 @@ async function main(): Promise<void> {
             return p && p !== '<no value>' && p !== '<nil>' ? p : null;
           };
           const volumeExists = (vol: string): boolean => {
-            const r = spawnSync('docker', ['volume', 'inspect', vol], {
+            const r = spawnSync(dockerExe, ['volume', 'inspect', vol], {
               encoding: 'utf8',
               timeout: 15_000,
             });

@@ -6,8 +6,10 @@ Never prints credential values or object body content.
 
 Commands (argv):
   list-prefix   --endpoint URL --bucket B --prefix P [--max-keys N]
+                [--emit-keys] [--aws-ls-format]  # optional machine listings for restore path
   head-object   --endpoint URL --bucket B --key K
-  get-object    --endpoint URL --bucket B --key K   # status only; body discarded
+  get-object    --endpoint URL --bucket B --key K [--out-file PATH]
+                # default: status only, body discarded; --out-file writes body (never prints)
   put-object    --endpoint URL --bucket B --key K   # body from stdin (small probe)
   delete-object --endpoint URL --bucket B --key K
 
@@ -196,6 +198,7 @@ def _request(
     query: Mapping[str, str] | None = None,
     payload: bytes = b"",
     amz_headers: Mapping[str, str] | None = None,
+    out_file: str | None = None,
 ) -> tuple[int, bytes, dict[str, str]]:
     q = dict(query or {})
     headers = _sigv4_headers(
@@ -212,16 +215,24 @@ def _request(
     for k, v in headers.items():
         req.add_header(k, v)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            # Object GET: discard body after status (never log content).
-            # List/HEAD/other: retain small response for XML/status classification.
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            # Object GET: discard body after status (never log content), unless
+            # out_file requested for restore-path consumers (body never printed).
             if method == "GET" and "list-type" not in (query or {}):
+                if out_file:
+                    with open(out_file, "wb") as fh:
+                        while True:
+                            chunk = resp.read(65536)
+                            if not chunk:
+                                break
+                            fh.write(chunk)
+                    return int(resp.status), b"", dict(resp.headers.items())
                 _ = resp.read(64)
                 while resp.read(65536):
                     pass
                 data = b""
             else:
-                data = resp.read(2_000_000)
+                data = resp.read(8_000_000)
             return int(resp.status), data, dict(resp.headers.items())
     except urllib.error.HTTPError as e:
         body = e.read() if e.fp else b""
@@ -235,35 +246,83 @@ def cmd_list_prefix(args: argparse.Namespace) -> None:
     prefix = args.prefix
     if not prefix.endswith("/") and prefix:
         prefix = prefix + "/"
-    query = {
-        "list-type": "2",
-        "prefix": prefix,
-        "max-keys": str(args.max_keys),
-    }
+    emit_keys = bool(getattr(args, "emit_keys", False) or getattr(args, "aws_ls_format", False))
+    aws_ls = bool(getattr(args, "aws_ls_format", False))
+    max_keys = int(args.max_keys)
     path = _encode_s3_path(args.bucket)
-    code, body, _ = _request("GET", args.endpoint, path, query=query)
-    if code != 200:
-        raise SystemExit(_classify_http_error(code, body))
-    # Parse first object key only (no content).
-    try:
-        root = ET.fromstring(body)
-    except ET.ParseError:
-        _die("list-prefix invalid xml", 4)
-    ns = ""
-    if root.tag.startswith("{"):
-        ns = root.tag.split("}")[0] + "}"
-    key = None
-    for contents in root.findall(f".//{ns}Contents"):
-        k_el = contents.find(f"{ns}Key")
-        if k_el is not None and k_el.text and not k_el.text.endswith("/"):
+    collected: list[tuple[str, int, str]] = []  # key, size, last_modified
+    token: str | None = None
+    first_key: str | None = None
+    while True:
+        query: dict[str, str] = {
+            "list-type": "2",
+            "prefix": prefix,
+            "max-keys": str(min(1000, max_keys if not emit_keys else 1000)),
+        }
+        if token:
+            query["continuation-token"] = token
+        code, body, _ = _request("GET", args.endpoint, path, query=query)
+        if code != 200:
+            raise SystemExit(_classify_http_error(code, body))
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError:
+            _die("list-prefix invalid xml", 4)
+        ns = ""
+        if root.tag.startswith("{"):
+            ns = root.tag.split("}")[0] + "}"
+        for contents in root.findall(f".//{ns}Contents"):
+            k_el = contents.find(f"{ns}Key")
+            if k_el is None or not k_el.text or k_el.text.endswith("/"):
+                continue
             key = k_el.text
+            if first_key is None:
+                first_key = key
+            size_el = contents.find(f"{ns}Size")
+            lm_el = contents.find(f"{ns}LastModified")
+            size = int(size_el.text) if size_el is not None and size_el.text else 0
+            lm = (lm_el.text or "") if lm_el is not None else ""
+            collected.append((key, size, lm))
+            if not emit_keys:
+                break
+            if len(collected) >= max_keys:
+                break
+        if not emit_keys:
             break
-    if not key:
+        if len(collected) >= max_keys:
+            break
+        is_truncated = root.find(f".//{ns}IsTruncated")
+        next_token = root.find(f".//{ns}NextContinuationToken")
+        if (
+            is_truncated is not None
+            and (is_truncated.text or "").lower() == "true"
+            and next_token is not None
+            and next_token.text
+        ):
+            token = next_token.text
+            continue
+        break
+
+    if not first_key and not collected:
         print("LIST_EMPTY class=missing_in_prefix_object")
         raise SystemExit(3)
-    # Emit only non-secret metadata.
+
+    if aws_ls:
+        # Match `aws s3 ls --recursive` line shape for listRepoPrefix consumers.
+        for key, size, lm in collected:
+            day = lm[:10] if len(lm) >= 10 else "1970-01-01"
+            tod = lm[11:19] if len(lm) >= 19 else "00:00:00"
+            print(f"{day} {tod} {size:>10} {key}")
+        raise SystemExit(0)
+
+    if emit_keys:
+        print(f"LIST_OK count={len(collected)}")
+        for key, _size, _lm in collected:
+            print(f"KEY={key}")
+        raise SystemExit(0)
+
+    key = first_key or collected[0][0]
     print(f"LIST_OK key_len={len(key)}")
-    # Machine field for callers that need the key (not a secret).
     print(f"KEY={key}")
 
 
@@ -279,12 +338,15 @@ def cmd_head_object(args: argparse.Namespace) -> None:
 
 def cmd_get_object(args: argparse.Namespace) -> None:
     path = _encode_s3_path(args.bucket, args.key)
-    code, body, _ = _request("GET", args.endpoint, path)
+    out_file = getattr(args, "out_file", None) or None
+    code, body, _ = _request("GET", args.endpoint, path, out_file=out_file)
     if code == 200:
-        print("GET_OK body_discarded=1")
+        if out_file:
+            print("GET_OK out_file_written=1")
+        else:
+            print("GET_OK body_discarded=1")
         raise SystemExit(0)
     raise SystemExit(_classify_http_error(code, body))
-
 
 def cmd_put_object(args: argparse.Namespace) -> None:
     payload = sys.stdin.buffer.read(4096)
@@ -341,6 +403,16 @@ def main(argv: list[str] | None = None) -> None:
     add_common(sp)
     sp.add_argument("--prefix", required=True)
     sp.add_argument("--max-keys", type=int, default=5)
+    sp.add_argument(
+        "--emit-keys",
+        action="store_true",
+        help="emit all keys as KEY= lines (paginated; for restore discovery)",
+    )
+    sp.add_argument(
+        "--aws-ls-format",
+        action="store_true",
+        help="emit aws s3 ls --recursive compatible lines for listRepoPrefix",
+    )
     sp.set_defaults(func=cmd_list_prefix)
 
     sp = sub.add_parser("head-object")
@@ -351,6 +423,11 @@ def main(argv: list[str] | None = None) -> None:
     sp = sub.add_parser("get-object")
     add_common(sp)
     sp.add_argument("--key", required=True)
+    sp.add_argument(
+        "--out-file",
+        default=None,
+        help="write object body to path (never print body); restore-path only",
+    )
     sp.set_defaults(func=cmd_get_object)
 
     sp = sub.add_parser("put-object")
