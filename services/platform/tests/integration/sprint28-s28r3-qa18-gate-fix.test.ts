@@ -100,18 +100,25 @@ function assertNoCanaries(label: string, text: string): void {
 }
 
 describe('GATE-FIX-S28R3-QA18 production isolation contracts', () => {
-  it('source requires env -i isolated exec and fixed child PATH', () => {
+  it('source requires FD-3 isolated exec and fixed child PATH (QA23/QA24 transport)', () => {
+    // GATE-FIX-S28R3-QA24: assert current FD transport contract, not removed env -i KEY=secret.
     const live = readFileSync(PROD_LIVE, 'utf8');
     expect(live).toMatch(/r2_ro_exec_isolated/);
-    expect(live).toMatch(/env_bin.*-i|"\$env_bin" -i/);
+    expect(live).toMatch(/exec-env-from-fd\.py/);
     expect(live).toMatch(/refuse bare env dump/);
+    // FD 3 carries KEY=VAL pairs; argv of launcher is secret-free.
+    expect(live).toMatch(/exec 3</);
+    expect(live).not.toMatch(/"\$env_bin" -i .*AWS_SECRET_ACCESS_KEY=/);
 
     const fire = readFileSync(PROD_FIRE, 'utf8');
     expect(fire).toMatch(/r2_ro_exec_isolated/);
     expect(fire).toMatch(/CHILD_PATH="\/usr\/bin:\/bin/);
     expect(fire).not.toMatch(/CHILD_PATH="\$\{PATH:-/);
     expect(fire).not.toMatch(/BUN_INSTALL BUN_INSTALL_CACHE_DIR NODE_PATH/);
-    expect(fire).toMatch(/\/usr\/bin\/env -i "\$\{CHILD_ENV_ARGS/);
+    // Production child credentials via FD 3 + exec-env-from-fd (never env -i KEY=secret on argv).
+    expect(fire).toMatch(/exec-env-from-fd\.py/);
+    expect(fire).toMatch(/for _pair in "\$\{CHILD_ENV_ARGS\[@\]\}"/);
+    expect(fire).not.toMatch(/\/usr\/bin\/env -i "\$\{CHILD_ENV_ARGS\[@\]\}"/);
 
     const prov = readFileSync(PROD_PROV, 'utf8');
     expect(prov).toMatch(/r2_ro_exec_isolated/);

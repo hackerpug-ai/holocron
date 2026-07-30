@@ -1,0 +1,6 @@
+{
+  "provider_status": 0,
+  "fire_status": 2,
+  "scanned_files": 4,
+  "fire_snippet": "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)\n\nerror: GATE-FIX-S28R3-QA17 fresh live RO proof failed (class=prove_nonzero exit=1)\n=== prove-r2-readonly (live aws → real R2) ===\nINFO: using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)\nFAIL: GATE-FIX-S28R3-QA19 writer preflight: in-key not proven existing (exit 4; refuse 404/unclassified)\n=== RESULT: FAIL (live R2 read-only proof) ===\nRESIDUAL: DEPENDENCY-S28-R2-RO\n"
+}

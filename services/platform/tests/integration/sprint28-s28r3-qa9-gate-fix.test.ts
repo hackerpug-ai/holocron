@@ -293,7 +293,11 @@ describe('GATE-FIX-S28R3-QA9 M1 proof binding (QA10: fresh live only)', () => {
       combined: combined.slice(0, 2000),
     });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/fresh live RO proof failed|list_denied|DEPENDENCY-S28-R2-RO/i);
+    // GATE-FIX-S28R3-QA24: current fail-closed diagnostic after isolated prove non-zero
+    // (bash 3.2 set -e return fix restores this path; also accept residual class).
+    expect(combined).toMatch(
+      /fresh live RO proof failed|prove_nonzero|prefix_list_denied|list_denied|DEPENDENCY-S28-R2-RO|RESULT: FAIL/i
+    );
   });
 });
 

@@ -19,6 +19,11 @@ cp "$ROOT_SRC/scripts/lib/r2-scope-probes.json" "$HARNESS/scripts/lib/"
 # GATE-FIX-S28R3-QA23: secret-free env launcher required by r2_ro_exec_isolated.
 cp "$ROOT_SRC/scripts/lib/exec-env-from-fd.py" "$HARNESS/scripts/lib/"
 chmod +x "$HARNESS/scripts/lib/exec-env-from-fd.py"
+# GATE-FIX-S28R3-QA24: mint helper (token never on argv).
+if [[ -f "$ROOT_SRC/scripts/lib/r2-mint-temp-ro.py" ]]; then
+  cp "$ROOT_SRC/scripts/lib/r2-mint-temp-ro.py" "$HARNESS/scripts/lib/"
+  chmod +x "$HARNESS/scripts/lib/r2-mint-temp-ro.py"
+fi
 # Install mock provider as the repository provider path inside harness.
 cp "$MOCK_PROVIDER" "$HARNESS/scripts/lib/r2_s3_provider.py"
 chmod +x "$HARNESS/scripts/lib/r2_s3_provider.py"

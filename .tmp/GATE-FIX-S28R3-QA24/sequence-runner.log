@@ -1,0 +1,7 @@
+INFO: GATE-FIX-S28R3-QA24 sequence start run_id=qa24-seq-20260730T023028Z-74057 sha=4630c1b4aa6019507af13435862801777b11a93d
+INFO: probe_sha256_before=e64f4e8d2649fc1d056b0ec3f77a8fd15e1330ed7e44992fae865fd05c2c075b qa16bak_absent=true
+INFO: phase1 exit=0 probe=e64f4e8d2649fc1d056b0ec3f77a8fd15e1330ed7e44992fae865fd05c2c075b
+INFO: phase2 exit=0 probe=e64f4e8d2649fc1d056b0ec3f77a8fd15e1330ed7e44992fae865fd05c2c075b
+INFO: phase3 exit=0 probe=e64f4e8d2649fc1d056b0ec3f77a8fd15e1330ed7e44992fae865fd05c2c075b
+INFO: wrote /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA24/.tmp/GATE-FIX-S28R3-QA24/full-suite-live-sequence.json
+INFO: sequence complete all_zero=true
