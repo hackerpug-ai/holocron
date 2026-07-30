@@ -1,0 +1,22 @@
+{
+  "status": 2,
+  "host": "s28r3-qa27-bound-1785429967919",
+  "env_discovered": true,
+  "secrets_discovered": true,
+  "transcript": {
+    "schema": "holo.qa27-prod-boundary-transcript.v1",
+    "host": "s28r3-qa27-bound-1785429967919",
+    "prov_rc": 1,
+    "fire_rc": 2,
+    "paths_present": true,
+    "launcher_pid_samples": 33,
+    "argv_lines": 365,
+    "provision_reach": true,
+    "fire_reach": true,
+    "soft_pass_refused": true,
+    "overall_nonzero": true
+  },
+  "soft_pass_refused": true,
+  "real_scripts": true,
+  "out": "PASS: secret scan clean\nFAIL: provision exit=1 (refuse soft-pass even if paths.txt present=1) fire_rc=2\nPASS: real production-boundary soft-fail refuse (overall non-zero)\n\n"
+}

@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "schema": "holo.fresh-target.fire-drill-attestation.v1",
+  "host": "s28r3-qa27-d05-1785428086",
+  "container": "s28r3-qa27-d05-1785428086",
+  "container_state": "running",
+  "volumes": {
+    "pgdata": "s28r3-qa27-d05-1785428086-pgdata",
+    "blob": "s28r3-qa27-d05-1785428086-blobs"
+  },
+  "mountpoints": {
+    "scratch": "/var/lib/docker/volumes/s28r3-qa27-d05-1785428086-pgdata/_data",
+    "blob": "/var/lib/docker/volumes/s28r3-qa27-d05-1785428086-blobs/_data"
+  },
+  "daemon_mountpoint": {
+    "scratch": "/var/lib/docker/volumes/s28r3-qa27-d05-1785428086-pgdata/_data",
+    "blob": "/var/lib/docker/volumes/s28r3-qa27-d05-1785428086-blobs/_data"
+  },
+  "host_execution": {
+    "scratch": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA27/.tmp/fresh-restore/s28r3-qa27-d05-1785428086/pgdata",
+    "blob": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA27/.tmp/fresh-restore/s28r3-qa27-d05-1785428086/blob-restore"
+  },
+  "container_paths": {
+    "pgdata": "/var/lib/postgresql/restore",
+    "blob": "/var/lib/holocron/blob-restore"
+  },
+  "execution_mode": "host-bind-device",
+  "scratch": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA27/.tmp/fresh-restore/s28r3-qa27-d05-1785428086/pgdata",
+  "blobDir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA27/.tmp/fresh-restore/s28r3-qa27-d05-1785428086/blob-restore",
+  "target_timestamp": "2026-07-30T04:01:28Z",
+  "resolved_at": "2026-07-30T16:15:17Z",
+  "fire_drill_exit": 0,
+  "report_path": ".tmp/GATE-FIX-S28R3-QA27/d05-04-run/parity-report.json"
+}

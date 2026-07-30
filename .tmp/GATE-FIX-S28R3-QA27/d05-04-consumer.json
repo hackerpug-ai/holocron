@@ -1,0 +1,26 @@
+{
+  "positive_pass": true,
+  "parity_hash_unchanged": true,
+  "source_bundle": "qa27",
+  "mutations_rejected": {
+    "delete-parity": 2,
+    "delete-attestation": 2,
+    "zero-matched": 2,
+    "mismatch-blob-parity": 2,
+    "replace-summary-false": 2,
+    "null-blob-parity": 2,
+    "missing-baseline-id-key": 2,
+    "mismatched-baseline-key": 2,
+    "replaced-baseline-id": 2,
+    "baseline-loaded-false": 2,
+    "bad-baseline-sha256": 2,
+    "delete-expected-identities": 2,
+    "delete-restored-identities": 2,
+    "mismatched-identity-sets": 2,
+    "bad-identity-shape": 2,
+    "manifest-hash-mismatch": 2,
+    "manifest-bytes-mismatch": 2,
+    "manifest-linked-file-missing": 2,
+    "delete-oracle-manifest-linked-parity": 2
+  }
+}

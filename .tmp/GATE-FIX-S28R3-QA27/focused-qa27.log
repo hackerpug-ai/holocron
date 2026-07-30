@@ -1,0 +1,13 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA27
+
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa27-gate-fix.test.ts (6 tests) 22144ms
+     ✓ mutation commits after bound SHA are rejected; only exact evidence layout accepted  3121ms
+     ✓ invokes real provision+fire-drill; failed provision with paths.txt is non-zero (no soft-pass)  10175ms
+     ✓ runs real production provision cleanup path twice; zero QA27 namespace residue each time  7625ms
+     ✓ consumer rejects missing/replaced/mismatched baseline, identities, and manifest links  1190ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  10:46:04
+   Duration  22.36s (transform 77ms, setup 107ms, import 18ms, tests 22.14s, environment 0ms)
