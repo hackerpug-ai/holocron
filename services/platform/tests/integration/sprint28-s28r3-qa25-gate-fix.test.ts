@@ -781,7 +781,9 @@ echo "fire_rc=$fire_rc"
     expect(existsSync(fireOut)).toBe(true);
     const fireBody = readFileSync(fireOut, 'utf8');
     expect(fireBody).toMatch(/running restore-only child|exec-env-from-fd|restore:fire-drill/i);
-    expect(fireBody).not.toMatch(/missing secrets:\s*R2_REPO_CIPHER_PASS|R2_REPO_CIPHER_PASS missing/i);
+    expect(fireBody).not.toMatch(
+      /missing secrets:\s*R2_REPO_CIPHER_PASS|R2_REPO_CIPHER_PASS missing/i
+    );
     expect(existsSync(report)).toBe(true);
     const parity = JSON.parse(readFileSync(report, 'utf8')) as Record<string, unknown>;
     expect(parity.POSTGRES_PARITY_PASS).toBe(true);
