@@ -105,14 +105,31 @@ PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN "${_PYTHON_OVR:-/usr/bin/pytho
 MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN "${_MKTEMP_OVR:-/usr/bin/mktemp}")" || exit 2
 TR_BIN="$(_prove_iso_validate_tool TR_BIN "${_TR_OVR:-/usr/bin/tr}")" || exit 2
 BASH_BIN="$(_prove_iso_validate_tool BASH_BIN /bin/bash)" || exit 2
+# GATE-FIX-S28R3-QA25: Docker optional but must pass same absolute root-trust validator
+# (never bare PATH `docker` / unvalidated Homebrew after credentials ambient).
 DOCKER_BIN=""
-for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do
-  if [[ -x "$_d" ]]; then
-    # Docker is optional; prefer absolute path without requiring root-owned on macOS.
-    DOCKER_BIN="$_d"
-    break
-  fi
-done
+if [[ -n "${DOCKER_BIN_OVERRIDE:-}" ]]; then
+  DOCKER_BIN="$(_prove_iso_validate_tool DOCKER_BIN "$DOCKER_BIN_OVERRIDE")" || exit 2
+else
+  for _d in /usr/bin/docker /usr/local/bin/docker; do
+    if [[ -x "$_d" ]]; then
+      if _resolved="$(_prove_iso_validate_tool DOCKER_BIN "$_d" 2>/dev/null)"; then
+        DOCKER_BIN="$_resolved"
+        break
+      fi
+    fi
+  done
+  # Homebrew docker is typically user-owned — refuse for credential-ambient path.
+  # Leave DOCKER_BIN empty (docker axis reports skip/not-present) rather than shadow.
+fi
+# Fixed absolute utilities — never command -v / PATH lookup after credentials ambient.
+FINDMNT_BIN="/usr/bin/findmnt"
+DF_BIN="/usr/bin/df"
+IOREG_BIN="/usr/sbin/ioreg"
+SYSCTL_BIN="/usr/sbin/sysctl"
+CURL_BIN="/usr/bin/curl"
+GETENT_BIN="/usr/bin/getent"
+HOST_BIN="/usr/bin/host"
 unset _NC_OVR _GREP_OVR _ENV_OVR _PYTHON_OVR _MKTEMP_OVR _TR_OVR
 
 MINI_HOST="${MINI_HOST:-}"
@@ -335,8 +352,8 @@ path_is_mounted() {
   local path="$1"
   local mounted=0
 
-  if command -v findmnt >/dev/null 2>&1; then
-    if findmnt -n "$path" >/dev/null 2>&1; then
+  if [[ -x "$FINDMNT_BIN" ]]; then
+    if "$FINDMNT_BIN" -n "$path" >/dev/null 2>&1; then
       mounted=1
     fi
   fi
@@ -357,13 +374,13 @@ path_is_mounted() {
     mounted=1
   fi
 
-  if [[ -d "$path" ]] && command -v df >/dev/null 2>&1; then
+  if [[ -d "$path" && -x "$DF_BIN" ]]; then
     local path_dev parent_dev parent
     # GATE-FIX-S28R3-QA22: shell-native parent path (no PATH dirname)
     parent="${path%/*}"
     [[ "$parent" == "$path" || -z "$parent" ]] && parent="."
-    path_dev="$(df -P "$path" 2>/dev/null | awk 'NR==2 {print $1}')"
-    parent_dev="$(df -P "$parent" 2>/dev/null | awk 'NR==2 {print $1}')"
+    path_dev="$("$DF_BIN" -P "$path" 2>/dev/null | awk 'NR==2 {print $1}')"
+    parent_dev="$("$DF_BIN" -P "$parent" 2>/dev/null | awk 'NR==2 {print $1}')"
     if [[ -n "$path_dev" && -n "$parent_dev" && "$path_dev" != "$parent_dev" ]]; then
       mounted=1
     fi
@@ -391,15 +408,15 @@ read_local_attested_identity() {
   if [[ -z "$id" && -r /var/lib/dbus/machine-id ]]; then
     id="$(tr -d '[:space:]' </var/lib/dbus/machine-id 2>/dev/null || true)"
   fi
-  if [[ -z "$id" ]] && command -v ioreg >/dev/null 2>&1; then
-    id="$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4; exit}' | "$TR_BIN" -d '[:space:]')"
+  if [[ -z "$id" && -x "$IOREG_BIN" ]]; then
+    id="$("$IOREG_BIN" -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4; exit}' | "$TR_BIN" -d '[:space:]')"
   fi
-  if [[ -z "$id" ]] && command -v sysctl >/dev/null 2>&1; then
-    id="$(sysctl -n kern.uuid 2>/dev/null | "$TR_BIN" -d '[:space:]' || true)"
+  if [[ -z "$id" && -x "$SYSCTL_BIN" ]]; then
+    id="$("$SYSCTL_BIN" -n kern.uuid 2>/dev/null | "$TR_BIN" -d '[:space:]' || true)"
   fi
   # Cloud instance-id (best-effort; short timeout).
-  if [[ -z "$id" ]] && command -v curl >/dev/null 2>&1; then
-    id="$(curl -sS -m 1 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null | "$TR_BIN" -d '[:space:]' || true)"
+  if [[ -z "$id" && -x "$CURL_BIN" ]]; then
+    id="$("$CURL_BIN" -sS -m 1 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null | "$TR_BIN" -d '[:space:]' || true)"
   fi
   printf '%s' "$id"
 }
@@ -470,14 +487,14 @@ check_network_axis() {
   for h in "${uniq[@]}"; do
     # DNS resolve when hostname-like (not pure IPv4/IPv6) — record aliases.
     if [[ "$h" == *.* || "$h" == *:* ]] && ! [[ "$h" =~ ^[0-9.]+$ || "$h" =~ ^[0-9a-fA-F:]+$ ]]; then
-      if command -v getent >/dev/null 2>&1; then
+      if [[ -x "$GETENT_BIN" ]]; then
         local resolved
-        resolved="$(getent hosts "$h" 2>/dev/null | awk '{print $1}' | head -1 || true)"
+        resolved="$("$GETENT_BIN" hosts "$h" 2>/dev/null | awk '{print $1}' | head -1 || true)"
         if [[ -n "$resolved" ]]; then
           info "DNS alias ${h} → ${resolved}"
         fi
-      elif command -v host >/dev/null 2>&1; then
-        info "DNS lookup ${h}: $(host -W 1 "$h" 2>/dev/null | head -1 || true)"
+      elif [[ -x "$HOST_BIN" ]]; then
+        info "DNS lookup ${h}: $("$HOST_BIN" -W 1 "$h" 2>/dev/null | head -1 || true)"
       fi
     fi
 

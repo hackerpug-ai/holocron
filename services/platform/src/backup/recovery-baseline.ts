@@ -611,6 +611,31 @@ function canonicalRowsSql(table: LedgerDomainTable): string | null {
   }
 }
 
+/**
+ * GATE-FIX-S28R3-QA25: absolute psql only — never bare PATH `psql` with credentialed env.
+ */
+function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = env.PSQL_BIN?.trim() || env.POSTGRES_PSQL?.trim();
+  if (fromEnv) {
+    const trusted = validateRootOwnedBin(fromEnv);
+    if (trusted) return trusted;
+    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
+  }
+  for (const candidate of ['/usr/local/bin/psql', '/usr/bin/psql'] as const) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/psql',
+    '/usr/local/opt/postgresql@18/bin/psql',
+    '/opt/homebrew/bin/psql',
+    '/usr/lib/postgresql/18/bin/psql',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  return '/usr/bin/psql';
+}
+
 function runPsql(
   conn: PsqlConnection,
   sql: string
@@ -628,7 +653,8 @@ function runPsql(
     sql,
   ];
   if (conn.user) args.push('-U', conn.user);
-  return run('psql', args, { env: conn.env ?? process.env, timeoutMs: 60_000 });
+  const env = conn.env ?? process.env;
+  return run(resolvePsqlBin(env), args, { env, timeoutMs: 60_000 });
 }
 
 /** Query current WAL LSN (non-empty string on success). */
@@ -1211,7 +1237,7 @@ export function buildRecoveryBaseline(input: RecoveryBaselineCaptureInput): Reco
   return { ...partial, baseline_id };
 }
 
-/** Upload UTF-8 body to R2 via real aws s3 cp (no mocks). */
+/** Upload UTF-8 body to R2 via trusted root-owned aws or python provider (no bare PATH). */
 export function putR2Object(options: {
   config: BackupConfig;
   key: string;
@@ -1225,25 +1251,74 @@ export function putR2Object(options: {
   const local = join(dir, RECOVERY_BASELINE_OBJECT_NAME);
   try {
     writeFileSync(local, options.body, 'utf8');
-    const res = run(
-      'aws',
-      [
-        's3',
-        'cp',
-        local,
-        `s3://${cfg.bucketName}/${key}`,
-        '--endpoint-url',
-        cfg.endpoint,
-        '--content-type',
-        'application/json',
-      ],
-      { env: awsEnv(cfg, env), timeoutMs: 120_000 }
-    );
-    if (res.status !== 0) {
+    const awsBin = resolveTrustedAwsBinForBaseline(env);
+    if (awsBin) {
+      const res = run(
+        awsBin,
+        [
+          's3',
+          'cp',
+          local,
+          `s3://${cfg.bucketName}/${key}`,
+          '--endpoint-url',
+          cfg.endpoint,
+          '--content-type',
+          'application/json',
+        ],
+        {
+          env: {
+            ...awsEnv(cfg, env),
+            PATH: '/usr/bin:/bin',
+          },
+          timeoutMs: 120_000,
+        }
+      );
+      if (res.status === 0) return { ok: true, key };
+      // Fall through to python provider.
+    }
+    const py = validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
+    if (!py) {
       return {
         ok: false,
         key,
-        error: `aws s3 cp put failed: ${(res.stderr || res.stdout).slice(0, 400)}`,
+        error:
+          'GATE-FIX-S28R3-QA25: no root-owned aws or python3 for recovery-baseline PUT (PATH/Homebrew forbidden)',
+      };
+    }
+    const provider = `${resolveRepoRoot()}/scripts/lib/r2_s3_provider.py`;
+    if (!existsSync(provider)) {
+      return { ok: false, key, error: `GATE-FIX-S28R3-QA25: missing R2 provider ${provider}` };
+    }
+    const body = readFileSync(local, 'utf8');
+    const res = spawnSync(
+      py,
+      [
+        '-E',
+        '-s',
+        provider,
+        'put-object',
+        '--endpoint',
+        cfg.endpoint,
+        '--bucket',
+        cfg.bucketName,
+        '--key',
+        key,
+      ],
+      {
+        encoding: 'utf8',
+        input: body,
+        env: {
+          ...awsEnv(cfg, env),
+          PATH: '/usr/bin:/bin',
+        },
+        timeout: 120_000,
+      }
+    );
+    if ((res.status ?? 1) !== 0) {
+      return {
+        ok: false,
+        key,
+        error: `recovery-baseline PUT failed: ${(res.stderr || res.stdout || '').toString().slice(0, 400)}`,
       };
     }
     return { ok: true, key };

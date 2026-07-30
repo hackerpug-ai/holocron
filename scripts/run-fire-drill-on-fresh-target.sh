@@ -922,30 +922,78 @@ STATUS=$?
 exec 3<&- 2>/dev/null || true
 set -e
 # Redact known secret values from child diagnostics before writing evidence.
+# GATE-FIX-S28R3-QA25: fail-closed on FD 3 OSError / decode / shape failure —
+# do NOT emit child log, delete child log, exit non-zero (never leak unredacted).
 # FD 3 carries ak\0sk\0st\0; argv is only the log path (no secrets).
 exec 3< <(printf '%s\0' "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST")
+set +e
 /usr/bin/python3 -E -s - "$_child_log" <<'PY'
 import os, re, sys
+
 path = sys.argv[1]
+
+def fail_closed(msg: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    print(f"error: GATE-FIX-S28R3-QA25 redactor fail-closed: {msg}", file=sys.stderr)
+    sys.exit(2)
+
 try:
     raw = os.read(3, 1 << 20)
-except OSError:
-    raw = b""
+except OSError as e:
+    fail_closed(f"FD 3 unreadable: {e}")
+
+if not raw:
+    fail_closed("FD 3 empty (refuse unredacted child log)")
+if not raw.endswith(b"\0"):
+    fail_closed("FD 3 missing terminating NUL (truncated secrets tuple)")
+
 parts = raw.split(b"\0")
-ak = parts[0].decode("utf-8", "replace") if len(parts) > 0 else ""
-sk = parts[1].decode("utf-8", "replace") if len(parts) > 1 else ""
-st = parts[2].decode("utf-8", "replace") if len(parts) > 2 else ""
+if parts and parts[-1] == b"":
+    parts = parts[:-1]
+# Expect exactly 3 fields (ak, sk, st) — st may be empty string but must be present.
+if len(parts) != 3:
+    fail_closed(f"FD 3 secrets tuple shape invalid (got {len(parts)} fields, need 3)")
+
 try:
-    text = open(path, "r", errors="replace").read()
-except OSError:
-    sys.exit(0)
+    ak = parts[0].decode("utf-8")
+    sk = parts[1].decode("utf-8")
+    st = parts[2].decode("utf-8")
+except UnicodeDecodeError as e:
+    fail_closed(f"FD 3 secrets not valid UTF-8: {e}")
+
+try:
+    text = open(path, "r", encoding="utf-8", errors="strict").read()
+except OSError as e:
+    fail_closed(f"child log unreadable: {e}")
+except UnicodeDecodeError as e:
+    fail_closed(f"child log not valid UTF-8: {e}")
+
 for secret in (sk, ak, st):
     if secret:
         text = text.replace(secret, "[redacted]")
-text = re.sub(r"(?i)((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+", r"\1[redacted]", text)
+text = re.sub(
+    r"(?i)((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+",
+    r"\1[redacted]",
+    text,
+)
 sys.stdout.write(text)
+try:
+    os.unlink(path)
+except OSError:
+    pass
+sys.exit(0)
 PY
+_redact_rc=$?
 exec 3<&- 2>/dev/null || true
+set -e
+if [[ "$_redact_rc" -ne 0 ]]; then
+  rm -f "$_child_log" 2>/dev/null || true
+  err "GATE-FIX-S28R3-QA25 redactor fail-closed (refusing unredacted child diagnostics)"
+  exit 2
+fi
 rm -f "$_child_log" 2>/dev/null || true
 
 # GATE-FIX-S28R3-QA4 / M-1 + QA5: after successful child exit, require contract-shaped parity report

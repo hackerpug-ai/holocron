@@ -1,0 +1,27 @@
+{
+  "schema": "holo.qa25-d05-04-attestation.v1",
+  "task_id": "GATE-FIX-S28R3-QA25",
+  "exit_code": 0,
+  "ok": true,
+  "parity_report": "parity-report.json",
+  "parity_sha256": "4f2429b0f5f62d72f114aa0b6d63c47889a56f3739b00c332bb43c07b8b8c10e",
+  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
+  "baseline_content_key": "recovery-baselines/sha256/6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020/recovery-baseline.json",
+  "baseline_lookup_key": "recovery-baselines/by-backup/20260728-182755F_20260729-220125I/cd885c31baa2f701c2d079f27eeba0ce0be4c238504296969a57c4ee5ac27f79/recovery-baseline.json",
+  "ledger_checksum": "cdf21cb6fc6b2177cb673dd3aa0e4b72",
+  "restic_snapshot_id": "e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360",
+  "pgbackrest_backup_label": "20260728-182755F_20260729-220125I",
+  "matched_objects": 11,
+  "restored_blob_objects": 11,
+  "row_counts": {
+    "beliefs": 8,
+    "sources": 8,
+    "passages": 19,
+    "claims": 5,
+    "relations": 11,
+    "file_objects": 5,
+    "entities": 0
+  },
+  "total_rows": 56,
+  "written_at": "2026-07-30T05:13:32.927Z"
+}

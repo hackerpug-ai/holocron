@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "bundle": "d05-04-bundle",
+  "matched_objects": 11,
+  "total_rows": 56,
+  "parity_sha256": "4f2429b0f5f62d72f114aa0b6d63c47889a56f3739b00c332bb43c07b8b8c10e",
+  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020"
+}

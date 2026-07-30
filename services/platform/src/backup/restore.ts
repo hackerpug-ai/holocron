@@ -167,10 +167,115 @@ function awsEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     AWS_SECRET_ACCESS_KEY: cfg.secretAccessKey,
     AWS_DEFAULT_REGION: 'auto',
     AWS_EC2_METADATA_DISABLED: 'true',
+    // GATE-FIX-S28R3-QA25: never allow PATH discovery while credentials ambient.
+    PATH: '/usr/bin:/bin',
   };
   if (cfg.sessionToken) out.AWS_SESSION_TOKEN = cfg.sessionToken;
   else delete out.AWS_SESSION_TOKEN;
   return out;
+}
+
+/**
+ * GATE-FIX-S28R3-QA25: absolute root-owned AWS CLI only while credentials ambient.
+ * Never bare `aws` / Homebrew PATH discovery.
+ */
+function resolveTrustedAwsBin(env: NodeJS.ProcessEnv = process.env): string | null {
+  const fromEnv = env.AWS_BIN?.trim() || env.HOLO_TRUSTED_AWS_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/aws', '/usr/bin/aws'] as const) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
+}
+
+/**
+ * GATE-FIX-S28R3-QA25: absolute psql for restore probes — never bare PATH `psql`.
+ * Prefer root-owned fixed candidates; allow absolute PSQL_BIN when root-owned;
+ * last resort fixed absolute Homebrew/system paths that exist (local postmaster only).
+ * Never returns bare `psql`.
+ */
+function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = env.PSQL_BIN?.trim() || env.POSTGRES_PSQL?.trim();
+  if (fromEnv) {
+    const trusted = validateRootOwnedBin(fromEnv);
+    if (trusted) return trusted;
+    // Absolute existing only — never relative/PATH bare name.
+    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
+  }
+  for (const candidate of ['/usr/local/bin/psql', '/usr/bin/psql'] as const) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/psql',
+    '/usr/local/opt/postgresql@18/bin/psql',
+    '/opt/homebrew/bin/psql',
+    '/usr/lib/postgresql/18/bin/psql',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  // Fail closed with absolute sentinel — callers surface spawn failure; never PATH.
+  return '/usr/bin/psql';
+}
+
+/**
+ * GATE-FIX-S28R3-QA25: download R2 object via trusted root-owned aws or python provider.
+ * Never bare `aws` with credential-bearing awsEnv.
+ */
+function downloadR2ObjectTrusted(
+  cfg: BackupConfig,
+  env: NodeJS.ProcessEnv,
+  key: string,
+  local: string
+): { status: number; stdout: string; stderr: string } {
+  const awsBin = resolveTrustedAwsBin(env);
+  if (awsBin) {
+    return run(awsBin, ['s3', 'cp', `s3://${cfg.bucketName}/${key}`, local, '--endpoint-url', cfg.endpoint], {
+      env: awsEnv(cfg, env),
+      timeoutMs: 60_000,
+    });
+  }
+  const py = validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
+  if (!py) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr:
+        'GATE-FIX-S28R3-QA25: no root-owned aws or python3 for restore object probe (PATH/Homebrew forbidden)',
+    };
+  }
+  // import.meta.dirname is services/platform/src/backup → repo root is 4 levels up.
+  const repoRoot = resolve(import.meta.dirname, '../../../..');
+  const providerPath = resolve(repoRoot, 'scripts/lib/r2_s3_provider.py');
+  if (!existsSync(providerPath)) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr: `GATE-FIX-S28R3-QA25: missing R2 provider ${providerPath}`,
+    };
+  }
+  return run(
+    py,
+    [
+      '-E',
+      '-s',
+      providerPath,
+      'get-object',
+      '--endpoint',
+      cfg.endpoint,
+      '--bucket',
+      cfg.bucketName,
+      '--key',
+      key,
+      '--out-file',
+      local,
+    ],
+    { env: awsEnv(cfg, env), timeoutMs: 60_000 }
+  );
 }
 
 /** Count regular files under a directory tree (0 if missing). */
@@ -377,11 +482,8 @@ function inspectRepoChain(
       if (/d05-01-healthy|healthyseed|\/healthy\//i.test(key)) continue;
 
       const local = join(probeDir, key.replace(/\//g, '__'));
-      const cp = run(
-        'aws',
-        ['s3', 'cp', `s3://${cfg.bucketName}/${key}`, local, '--endpoint-url', cfg.endpoint],
-        { env: awsEnv(cfg, env), timeoutMs: 60_000 }
-      );
+      // GATE-FIX-S28R3-QA25: never bare `aws` with credential-bearing awsEnv.
+      const cp = downloadR2ObjectTrusted(cfg, env, key, local);
       if (cp.status !== 0 || !existsSync(local)) continue;
       let body = '';
       try {
@@ -789,23 +891,31 @@ function readStartLog(pgdata: string, maxChars = 200_000): string {
 }
 
 /**
- * GATE-FIX-S28R3-QA24: absolute pg_ctl when restore-only PATH=/usr/bin:/bin.
- * Local postmaster start is not an R2 credential trust boundary.
+ * GATE-FIX-S28R3-QA25: absolute pg_ctl only — never bare PATH `pg_ctl`.
+ * Prefer root-owned fixed candidates; allow absolute env override; fixed absolute
+ * Homebrew/system paths for local postmaster. Never returns bare name.
  */
 function resolvePgCtlBin(env: NodeJS.ProcessEnv = process.env): string {
   const fromEnv = env.PG_CTL_BIN?.trim() || env.POSTGRES_PG_CTL?.trim();
-  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  if (fromEnv) {
+    const trusted = validateRootOwnedBin(fromEnv);
+    if (trusted) return trusted;
+    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
+  }
+  for (const candidate of ['/usr/local/bin/pg_ctl', '/usr/bin/pg_ctl'] as const) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
   for (const c of [
     '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
     '/usr/local/opt/postgresql@18/bin/pg_ctl',
     '/opt/homebrew/bin/pg_ctl',
-    '/usr/local/bin/pg_ctl',
     '/usr/lib/postgresql/18/bin/pg_ctl',
-    '/usr/bin/pg_ctl',
   ] as const) {
     if (existsSync(c)) return c;
   }
-  return 'pg_ctl';
+  // Fail closed with absolute sentinel — never bare PATH discovery.
+  return '/usr/bin/pg_ctl';
 }
 
 function pgCtlEnv(pgdata: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -881,8 +991,9 @@ function probeRecoveryState(
       ],
     });
   }
+  const psql = resolvePsqlBin(env);
   for (const attempt of attempts) {
-    const probe = run('psql', attempt.args, {
+    const probe = run(psql, attempt.args, {
       env: { ...env, PGDATA: pgdata, PGHOST: attempt.host },
       timeoutMs: 10_000,
     });
@@ -1255,8 +1366,9 @@ export function queryRecoveryStopObservation(
   let lastXactReplayTimestamp: string | null = null;
   let recoveryTargetTime: string | null = null;
 
+  const psql = resolvePsqlBin(env);
   for (const attempt of attempts) {
-    const res = run('psql', attempt.args, {
+    const res = run(psql, attempt.args, {
       env: { ...env, PGDATA: pgdata, PGHOST: attempt.host },
       timeoutMs: 15_000,
     });
