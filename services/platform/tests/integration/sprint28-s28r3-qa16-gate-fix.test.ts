@@ -10,11 +10,15 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   renameSync,
+  rmSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   ACCOUNT_ID,
@@ -184,13 +188,26 @@ describe('GATE-FIX-S28R3-QA16 versioned scope-probe artifact', () => {
     expect(run.status).not.toBe(0);
   });
 
-  it('malformed versioned artifact fails closed (temporary replace)', () => {
-    const bak = `${PROD_PROBES}.qa16bak`;
-    copyFileSync(PROD_PROBES, bak);
+  it('malformed versioned artifact fails closed (isolated tree — never mutates tracked probes)', () => {
+    // GATE-FIX-S28R3-QA22: hermetic — do NOT temporarily replace tracked
+    // scripts/lib/r2-scope-probes.json (races with parallel harness makers).
+    // Use an isolated script tree with a bad probes schema instead.
+    const original = readFileSync(PROD_PROBES);
+    const tree = mkdtempSync(join(tmpdir(), 'qa16-malformed-'));
     try {
-      writeFileSync(PROD_PROBES, '{ "schema": "bad" }\n', 'utf8');
-      const run = spawnSync('bash', [PROD_PROVE], {
-        cwd: REPO_ROOT,
+      mkdirSync(join(tree, 'scripts', 'lib'), { recursive: true });
+      copyFileSync(PROD_PROVE, join(tree, 'scripts', 'prove-r2-readonly.sh'));
+      copyFileSync(
+        resolve(REPO_ROOT, 'scripts/lib/r2-ro-live.sh'),
+        join(tree, 'scripts', 'lib', 'r2-ro-live.sh')
+      );
+      copyFileSync(
+        resolve(REPO_ROOT, 'scripts/lib/r2_s3_provider.py'),
+        join(tree, 'scripts', 'lib', 'r2_s3_provider.py')
+      );
+      writeFileSync(join(tree, 'scripts', 'lib', 'r2-scope-probes.json'), '{ "schema": "bad" }\n', 'utf8');
+      const run = spawnSync('bash', [join(tree, 'scripts', 'prove-r2-readonly.sh')], {
+        cwd: tree,
         encoding: 'utf8',
         timeout: 20_000,
         env: prodEnv({}),
@@ -198,7 +215,10 @@ describe('GATE-FIX-S28R3-QA16 versioned scope-probe artifact', () => {
       expect(run.status).not.toBe(0);
       expect(`${run.stdout}${run.stderr}`).toMatch(/schema|malformed|GATE-FIX-S28R3-QA16/i);
     } finally {
-      renameSync(bak, PROD_PROBES);
+      rmSync(tree, { recursive: true, force: true });
+      // Tracked probes must remain byte-identical; no .qa16bak residue.
+      expect(Buffer.compare(readFileSync(PROD_PROBES), original)).toBe(0);
+      expect(existsSync(`${PROD_PROBES}.qa16bak`)).toBe(false);
     }
   });
 

@@ -249,7 +249,9 @@ Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H
           "would_fail_if": [
             "template not registered",
             "schedule is the only cadence mechanism",
-            "MissionTemplateSchema.strict() fails"
+            "MissionTemplateSchema.strict() fails",
+            "stub/static implementation hardcodes pass without real product behavior",
+            "mock empty start state still passes oracle"
           ]
         },
         "evidence": {
@@ -269,9 +271,9 @@ Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H
             "end_state": {
               "must_observe": [
                 "SELECT count(*) = 1 for template_key=fire-drill-monthly",
-                "trigger.kind = on-demand",
-                "definition_json has no schedule key",
-                "launchd plist exists"
+                "trigger.kind == `on-demand`",
+                "definition_json has no `schedule` key (key count for schedule == 0)",
+                "launchd plist path exists AND file size >= 1 byte"
               ],
               "must_not_observe": [
                 "count = 0",
@@ -319,13 +321,14 @@ Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H
             },
             "end_state": {
               "must_observe": [
-                "template_key = fire-drill-monthly",
-                "status lowercase allowed",
-                "typed_output_json has reportPath or parity pointer",
-                "parity-report file non-empty"
+                "template_key == `fire-drill-monthly`",
+                "status is lowercase terminal token (`completed` or `failed` or `running`)",
+                "typed_output_json has `reportPath` or `parity` pointer string length >= 1",
+                "parity-report file size >= 1 byte (non-empty)"
               ],
               "must_not_observe": [
-                "uppercase terminal status"
+                "uppercase terminal status",
+                "empty/start signature: (0) or blank success without real work"
               ]
             }
           }
@@ -370,13 +373,14 @@ Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H
             },
             "end_state": {
               "must_observe": [
-                "status = failed",
-                "error_message ILIKE %PARITY%",
-                "typed_output_json still has parity pointer"
+                "status == `failed`",
+                "error_message ILIKE `%PARITY%` (substring match length >= 1)",
+                "typed_output_json still has `parity` pointer string length >= 1"
               ],
               "must_not_observe": [
                 "status = completed",
-                "error_message NULL"
+                "error_message NULL",
+                "empty/start signature: (0) or blank success without real work"
               ]
             }
           }
@@ -401,7 +405,9 @@ Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H
         "negative_control": {
           "would_fail_if": [
             "runbook missing",
-            "no launchd section"
+            "no launchd section",
+            "stub/static implementation hardcodes pass without real product behavior",
+            "mock empty start state still passes oracle"
           ]
         },
         "evidence": {
@@ -420,14 +426,15 @@ Depends on: D05-04 · Blocks: D05-06 · Coordinates: REDHAT-FIX-C4, REDHAT-FIX-H
             },
             "end_state": {
               "must_observe": [
-                "runbook exists",
-                "Pre-Drill Checklist",
+                "runbook file exists AND size >= 1 byte at fire-drill-monthly.md",
+                "section heading `Pre-Drill Checklist` present (count >= 1)",
                 "holo restore:fire-drill",
-                "launchd monthly",
-                "template_key / typed_output_json / error_message"
+                "runbook documents `launchd` monthly cadence (count >= 1)",
+                "runbook names columns `template_key`, `typed_output_json`, `error_message` (each count >= 1)"
               ],
               "must_not_observe": [
-                "missing launchd documentation"
+                "missing launchd documentation",
+                "empty/start signature: (0) or blank success without real work"
               ]
             }
           }

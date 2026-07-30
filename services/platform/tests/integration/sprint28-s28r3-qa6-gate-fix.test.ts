@@ -35,13 +35,13 @@ const QA_RUN_ID = 'qa28-20260729T104535Z-420995be4d2d4690911d9bb2e7f96678';
 
 const HOST_ALLOWLIST = /^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$|^[A-Za-z0-9]$/;
 
-/** Frozen digests of steps 1,2,4,5,6 (must remain byte-identical after QA6). */
+/** Frozen digests of steps 1,2,4,5,6 (GATE-FIX-S28R3-QA22 absolute-executable gate stream). */
 const FROZEN_STEP_DIGESTS: Record<number, string> = {
-  1: 'c989b1de8cbb8cf08c9fb50654e5717c42673d3c82388157c8b8e7f60f11786d',
-  2: '8fec1023252d1f3e23b211746c48ccf3ab6a69c8a3c3db0d8a128f6fe8d42a8e',
-  4: '4fbce84a23cd9d81f13244a82a253221ff705f29947ae48ed06f7b848efb90b7',
-  5: '35da486ca7c3179319a432171a85f1a78f6176b6ee6495ae461d4dcaa39e901f',
-  6: '13c74843974a5202cfe4c352748ca69edcf92d31e26b74e42a0dce59187a0fff',
+  1: '4ea4d8cb33f9e931cb62fed87e0106128927e7b3bb9e73214e17fa272fb93dbc',
+  2: 'baa7172a6a26aa16e9c55522d17424b5d590a2cc131fd55c27a20a3f93361978',
+  4: 'd985ca9e08433b0c8fe34cff46a9c530b1a6aee9a5b40921765b460b82f5e3d4',
+  5: 'c2cae3dedda433bf2ccd09ad9046da561c76f482cdfece513593df107ce9bfd3',
+  6: '02edd38e198f34041d9afdefb6b05b0363377a0879b6d984081cbc524db01314',
 };
 
 const PRE_QA6_STEP3_DIGEST = '90e9b01fbf63d161c4aca1ce3871a9e9dd3dec08e1a9a922615d5b16bd39c134';
@@ -267,13 +267,16 @@ describe('GATE-FIX-S28R3-QA6 always-on contract', () => {
   it('step3 uses derive-s28-fresh-host.sh; no bare HOST="s28r3-gate-${GATE_RUN_ID}"', () => {
     const plan = loadPlan();
     const step3 = String(stepOf(plan, 3).literal_cmd ?? '');
-    expect(step3.startsWith('set -euo pipefail; bash scripts/assert-gate-run-id.sh')).toBe(true);
-    expect(step3).toMatch(/HOST="\$\(bash scripts\/derive-s28-fresh-host\.sh\)"/);
+    // GATE-FIX-S28R3-QA22: absolute /bin/bash + absolute docker candidates before assert
+    expect(step3).toMatch(/^set -euo pipefail; /);
+    expect(step3).toMatch(/\/bin\/bash scripts\/assert-gate-run-id\.sh/);
+    expect(step3).not.toMatch(/(?:^|[^/\w])bash scripts\/assert-gate-run-id\.sh/);
+    expect(step3).toMatch(/HOST="\$\(\/bin\/bash scripts\/derive-s28-fresh-host\.sh\)"/);
     expect(step3).not.toMatch(/HOST="s28r3-gate-\$\{GATE_RUN_ID\}"/);
     // Evidence path still full run id
     expect(step3).toMatch(/EVID="\.tmp\/REDHAT-FIX-S28R3\/\$\{GATE_RUN_ID\}"/);
-    // Trap/cleanup still uses $HOST
-    expect(step3).toMatch(/docker rm -f "\$HOST"/);
+    // Trap/cleanup still uses $HOST via absolute "$DOCKER"
+    expect(step3).toMatch(/(?:docker|"\$DOCKER") rm -f "\$HOST"/);
     expect(step3).toMatch(/\$\{HOST\}-pgdata/);
     expect(step3).toMatch(/\$\{HOST\}-blobs/);
     expect(step3).toMatch(/\$\{HOST\}-net/);

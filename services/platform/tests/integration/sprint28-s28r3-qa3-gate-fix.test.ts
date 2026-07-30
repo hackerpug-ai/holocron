@@ -146,7 +146,8 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
     const step3 = String(stepOf(plan, 3).literal_cmd ?? '');
     // GATE-FIX-S28R3-QA7 / HIGH-1: Step 3 must use collision-resistant host derive (QA6),
     // not the removed naïve assignment that can exceed the 64-char host allowlist.
-    expect(step3).toMatch(/HOST="\$\(bash scripts\/derive-s28-fresh-host\.sh\)"/);
+    // GATE-FIX-S28R3-QA22: absolute /bin/bash for derive (not bare PATH bash)
+    expect(step3).toMatch(/HOST="\$\(\/bin\/bash scripts\/derive-s28-fresh-host\.sh\)"/);
     expect(step3).not.toMatch(/HOST="s28r3-gate-\$\{GATE_RUN_ID\}"/);
     // M-3: trap removes docker network
     expect(step3).toMatch(/network rm/);
@@ -320,7 +321,8 @@ describe('GATE-FIX-S28R3-QA3 always-on contract', () => {
   it('M-3: gate-plan step3 trap removes ${HOST}-net', () => {
     const step3 = String(stepOf(loadPlan(), 3).literal_cmd ?? '');
     expect(step3).toMatch(/\btrap\b/);
-    expect(step3).toMatch(/docker network rm -f ["']?\$\{HOST\}-net/);
+    // GATE-FIX-S28R3-QA22: docker via absolute "$DOCKER" candidate, not bare PATH docker
+    expect(step3).toMatch(/(?:docker|"\$DOCKER") network rm -f ["']?\$\{HOST\}-net/);
   });
 });
 
@@ -777,7 +779,8 @@ describe('GATE-FIX-S28R3-QA3 M-2/M-3 extras', () => {
     const trapMatch = step3.match(/trap\s+'([^']+)'\s+EXIT/);
     expect(trapMatch, 'step3 trap EXIT').toBeTruthy();
     const body = trapMatch?.[1] ?? '';
-    expect(body).toMatch(/docker rm/);
+    // GATE-FIX-S28R3-QA22: absolute "$DOCKER" in trap (not bare PATH docker)
+    expect(body).toMatch(/(?:docker|"\$DOCKER") rm/);
     expect(body).toMatch(/volume rm/);
     expect(body).toMatch(/network rm/);
     writeEvidence('m3-trap-body.json', { body });

@@ -30,7 +30,10 @@
 #   HOLO_CLI — override CLI path (ts via bun, or injectable recorder script)
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# GATE-FIX-S28R3-QA22: shell-native root resolution (no PATH dirname before secrets).
+_SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]] && _SCRIPT_DIR="."
+ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 # GATE-FIX-S28R3-QA13 shared live provider helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh
@@ -666,7 +669,8 @@ EOF
 )"
 
 if [[ -n "$ATTESTATION" ]]; then
-  mkdir -p "$(dirname "$ATTESTATION")"
+  _att_dir="${ATTESTATION%/*}"
+  [[ -n "$_att_dir" && "$_att_dir" != "$ATTESTATION" ]] && mkdir -p "$_att_dir"
   printf '%s\n' "$ATTESTATION_BODY" >"$ATTESTATION"
   log "wrote attestation: $ATTESTATION"
 fi
@@ -689,7 +693,8 @@ if [[ -z "$TARGET_TIMESTAMP" ]]; then
 fi
 
 REPORT_PATH="${REPORT:-$ROOT/.tmp/REDHAT-FIX-S28R2/C1/parity-report-${HOST_NAME}.json}"
-mkdir -p "$(dirname "$REPORT_PATH")"
+_report_dir="${REPORT_PATH%/*}"
+[[ -n "$_report_dir" && "$_report_dir" != "$REPORT_PATH" ]] && mkdir -p "$_report_dir"
 
 # Credential tuple already validated + proof-bound early (assert_restore_credential_tuple).
 # ── GATE-FIX-S28R3-QA3 / C-1: restore-only minimal child env ─────────────────
@@ -697,11 +702,17 @@ mkdir -p "$(dirname "$REPORT_PATH")"
 # leak backup-writer R2_ACCESS_* into the fire-drill process.
 
 # Optional redacted env dump for tests (keys + presence/length/hash only — never raw secrets).
+# GATE-FIX-S28R3-QA22: pass ak identity flags over FD 3 — never secrets on argv.
 if [[ -n "${HOLO_FIRE_DRILL_ENV_DUMP:-}" ]]; then
-  mkdir -p "$(dirname "$HOLO_FIRE_DRILL_ENV_DUMP")"
-  /usr/bin/python3 -E -s - "$HOLO_FIRE_DRILL_ENV_DUMP" "$RESTORE_AK" "$WRITER_AK" <<'PY' || true
+  _env_dump_dir="${HOLO_FIRE_DRILL_ENV_DUMP%/*}"
+  [[ -n "$_env_dump_dir" && "$_env_dump_dir" != "$HOLO_FIRE_DRILL_ENV_DUMP" ]] && mkdir -p "$_env_dump_dir"
+  _restore_eq_writer=0
+  [[ -n "$RESTORE_AK" && -n "$WRITER_AK" && "$RESTORE_AK" == "$WRITER_AK" ]] && _restore_eq_writer=1
+  _restore_present=0
+  [[ -n "$RESTORE_AK" ]] && _restore_present=1
+  /usr/bin/python3 -E -s - "$HOLO_FIRE_DRILL_ENV_DUMP" "$_restore_present" "$_restore_eq_writer" <<'PY' || true
 import hashlib, json, os, sys
-path, restore_ak, writer_ak = sys.argv[1], sys.argv[2], sys.argv[3]
+path, restore_present, restore_eq_writer = sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1"
 def meta(name: str):
     v = os.environ.get(name)
     if v is None or v == "":
@@ -721,7 +732,7 @@ payload = {
     "keys": keys,
     "R2_RESTORE_ACCESS_KEY_ID": meta("R2_RESTORE_ACCESS_KEY_ID"),
     "R2_ACCESS_KEY_ID_parent": meta("R2_ACCESS_KEY_ID"),
-    "restore_ak_distinct_from_writer": bool(restore_ak) and restore_ak != writer_ak,
+    "restore_ak_distinct_from_writer": bool(restore_present) and not restore_eq_writer,
     "child_will_map_restore_to_access": True,
     "child_forwards_DATABASE_URL": False,
     "note": "values never included; parent dump only; writer/restore resolved from same secrets+env",
@@ -874,6 +885,7 @@ fi
 
 # GATE-FIX-S28R3-QA21: capture child stdout/stderr and redact secrets before emission
 # (gate-plan tees this stream into durable evidence).
+# GATE-FIX-S28R3-QA22: secrets transfer over FD 3 (NUL-separated) — never on argv.
 _child_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-fire-drill-child.XXXXXX")"
 log "running restore-only child env: ${RUN_PREFIX[*]} ${ARGS[*]}"
 set +e
@@ -881,9 +893,19 @@ set +e
 STATUS=$?
 set -e
 # Redact known secret values from child diagnostics before writing evidence.
-/usr/bin/python3 -E -s - "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST" "$_child_log" <<'PY'
-import sys
-ak, sk, st, path = sys.argv[1:5]
+# FD 3 carries ak\0sk\0st\0; argv is only the log path (no secrets).
+exec 3< <(printf '%s\0' "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST")
+/usr/bin/python3 -E -s - "$_child_log" <<'PY'
+import os, re, sys
+path = sys.argv[1]
+try:
+    raw = os.read(3, 1 << 20)
+except OSError:
+    raw = b""
+parts = raw.split(b"\0")
+ak = parts[0].decode("utf-8", "replace") if len(parts) > 0 else ""
+sk = parts[1].decode("utf-8", "replace") if len(parts) > 1 else ""
+st = parts[2].decode("utf-8", "replace") if len(parts) > 2 else ""
 try:
     text = open(path, "r", errors="replace").read()
 except OSError:
@@ -891,11 +913,10 @@ except OSError:
 for secret in (sk, ak, st):
     if secret:
         text = text.replace(secret, "[redacted]")
-# Generic patterns
-import re
 text = re.sub(r"(?i)((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+", r"\1[redacted]", text)
 sys.stdout.write(text)
 PY
+exec 3<&- 2>/dev/null || true
 rm -f "$_child_log" 2>/dev/null || true
 
 # GATE-FIX-S28R3-QA4 / M-1 + QA5: after successful child exit, require contract-shaped parity report

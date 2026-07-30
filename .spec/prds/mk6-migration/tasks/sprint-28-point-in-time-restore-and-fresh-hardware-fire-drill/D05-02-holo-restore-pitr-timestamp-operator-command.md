@@ -254,7 +254,9 @@ Depends on: D04-02, D04-03 · Blocks: D05-04, D05-06 · Contract corrected by: R
             "AC still requires promote + pg_stat_recovery together",
             "test asserts invented recovery-timestamp column column",
             "pause mode not used for recovery proof",
-            "after-target rows visible at paused Tt (replay too far)"
+            "after-target rows visible at paused Tt (replay too far)",
+            "stub/static implementation hardcodes pass without real product behavior",
+            "mock empty start state still passes oracle"
           ]
         },
         "evidence": {
@@ -275,10 +277,10 @@ Depends on: D04-02, D04-03 · Blocks: D05-04, D05-06 · Contract corrected by: R
             "end_state": {
               "must_observe": [
                 "restore exit code = 0",
-                "SELECT pg_is_in_recovery() = true",
+                "SELECT pg_is_in_recovery() returns boolean true (== true)",
                 "COUNT(*) pitr_sentinel label=before-target >= 1",
                 "COUNT(*) pitr_sentinel label=after-target = 0",
-                "pg_last_wal_replay_lsn() IS NOT NULL",
+                "pg_last_wal_replay_lsn() IS NOT NULL AND length(text) >= 1",
                 "zero invented non-existent pg_stat_recovery fields in D05-02 contract and test"
               ],
               "must_not_observe": [
@@ -311,7 +313,9 @@ Depends on: D04-02, D04-03 · Blocks: D05-04, D05-06 · Contract corrected by: R
           "would_fail_if": [
             "promotion AC still queries pg_stat_recovery for replay proof",
             "INSERT fails because still in recovery",
-            "after-target data present"
+            "after-target data present",
+            "stub/static implementation hardcodes pass without real product behavior",
+            "mock empty start state still passes oracle"
           ]
         },
         "evidence": {
@@ -331,7 +335,7 @@ Depends on: D04-02, D04-03 · Blocks: D05-04, D05-06 · Contract corrected by: R
             "end_state": {
               "must_observe": [
                 "exit code = 0",
-                "pg_is_in_recovery() = false",
+                "pg_is_in_recovery() returns boolean false (== false)",
                 "INSERT 0 1 succeeds",
                 "before-target count >= 1 AND after-target count = 0"
               ],
@@ -364,7 +368,9 @@ Depends on: D04-02, D04-03 · Blocks: D05-04, D05-06 · Contract corrected by: R
           "would_fail_if": [
             "contract still requires system_identifier inequality",
             "second restore fails because first consumed backups",
-            "row counts differ between clones"
+            "row counts differ between clones",
+            "stub/static implementation hardcodes pass without real product behavior",
+            "mock empty start state still passes oracle"
           ]
         },
         "evidence": {
@@ -384,8 +390,8 @@ Depends on: D04-02, D04-03 · Blocks: D05-04, D05-06 · Contract corrected by: R
             "end_state": {
               "must_observe": [
                 "both restores exit 0",
-                "COUNT(*) beliefs/pitr_sentinel equal across both (concrete integer match)",
-                "system_identifier_first = system_identifier_second",
+                "COUNT(*) beliefs/pitr_sentinel equal across both clones (integer N == N, N >= 0)",
+                "system_identifier_first == system_identifier_second (equal 64-bit ids)",
                 "D05-02 contract text does not require system_identifier inequality"
               ],
               "must_not_observe": [

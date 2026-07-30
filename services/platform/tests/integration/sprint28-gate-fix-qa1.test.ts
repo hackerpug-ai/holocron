@@ -366,23 +366,12 @@ describe('REDHAT-FIX-S28R2 H2 exact restic match + selection (always)', () => {
     expect(src).toMatch(/id\.startsWith\(\s*needle\s*\)/);
   });
 
-  it('H2 AC-1b: fake restic — exact short_id and full id match; needle-as-prefix-of-short rejected', () => {
-    const dir = mkdtempSync(join(tmpdir(), 's28r2-restic-'));
-    const resticBin = join(dir, 'restic');
+  it('H2 AC-1b: match oracle via runProcess injection (not user-owned resticBin)', () => {
+    // GATE-FIX-S28R3-QA22: user-owned absolute resticBin is refused; inject process
+    // runner BELOW the production trust boundary instead of a credential-bearing fake bin.
     const fullId = 'abcdef0123456789deadbeefcafebabe00112233';
     const shortId = 'abcdef01';
-    writeFileSync(
-      resticBin,
-      `#!/bin/sh
-if [ "$1" = "snapshots" ]; then
-  printf '%s\\n' '[{"id":"${fullId}","short_id":"${shortId}"}]'
-  exit 0
-fi
-exit 1
-`,
-      'utf8'
-    );
-    chmodSync(resticBin, 0o755);
+    const snapJson = JSON.stringify([{ id: fullId, short_id: shortId }]);
 
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -398,18 +387,25 @@ exit 1
       AWS_SECRET_ACCESS_KEY: 'test-sk-s28r2',
     };
 
+    const runProcess = (_cmd: string, args: string[]) => {
+      if (args[0] === 'snapshots') {
+        return { status: 0, stdout: snapJson, stderr: '' };
+      }
+      return { status: 1, stdout: '', stderr: 'unexpected' };
+    };
+
     const exactFull = verifyResticSnapshotInRepo({
       resticSnapshotId: fullId,
-      resticBin,
       env,
+      runProcess,
     });
     writeEvidence('h2-exact-full.json', exactFull);
     expect(exactFull.ok).toBe(true);
 
     const exactShort = verifyResticSnapshotInRepo({
       resticSnapshotId: shortId,
-      resticBin,
       env,
+      runProcess,
     });
     writeEvidence('h2-exact-short.json', exactShort);
     expect(exactShort.ok).toBe(true);
@@ -417,8 +413,8 @@ exit 1
     // Full-id prefix (≥8) still allowed.
     const prefix = verifyResticSnapshotInRepo({
       resticSnapshotId: fullId.slice(0, 12),
-      resticBin,
       env,
+      runProcess,
     });
     writeEvidence('h2-id-prefix.json', prefix);
     expect(prefix.ok).toBe(true);
@@ -426,11 +422,28 @@ exit 1
     // Ghost that merely starts with real short_id must NOT match (old needle.startsWith(short)).
     const ghost = verifyResticSnapshotInRepo({
       resticSnapshotId: `${shortId}_MISSING_GHOST_ID_XX`,
-      resticBin,
       env,
+      runProcess,
     });
     writeEvidence('h2-ghost-short-prefix.json', ghost);
     expect(ghost.ok).toBe(false);
+
+    // Negative: user-owned absolute resticBin is refused BEFORE credential env use.
+    const dir = mkdtempSync(join(tmpdir(), 's28r2-restic-'));
+    const userOwned = join(dir, 'restic');
+    writeFileSync(userOwned, '#!/bin/sh\necho EVIL\nexit 0\n', 'utf8');
+    chmodSync(userOwned, 0o755);
+    const refused = verifyResticSnapshotInRepo({
+      resticSnapshotId: fullId,
+      resticBin: userOwned,
+      env,
+      runProcess: () => {
+        throw new Error('runProcess must not run when resticBin is untrusted');
+      },
+    });
+    writeEvidence('h2-user-owned-restic-refused.json', refused);
+    expect(refused.ok).toBe(false);
+    expect(refused.error ?? '').toMatch(/untrusted|root-owned/i);
   });
 
   it('H2 AC-2/3: resolveFireDrillBaseline must live-verify restic and skip ghosts', () => {

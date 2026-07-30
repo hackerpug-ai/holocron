@@ -130,7 +130,10 @@ describe('GATE-FIX-S28R3-QA5 always-on contract', () => {
     const plan = loadPlan();
     for (const n of [3, 4, 5] as const) {
       const cmd = String(stepOf(plan, n).literal_cmd ?? '');
-      expect(cmd.startsWith('set -euo pipefail; bash scripts/assert-gate-run-id.sh')).toBe(true);
+      // GATE-FIX-S28R3-QA22: absolute /bin/bash; step3 may prefix DOCKER candidate resolution
+      expect(cmd).toMatch(/^set -euo pipefail; /);
+      expect(cmd).toMatch(/\/bin\/bash scripts\/assert-gate-run-id\.sh/);
+      expect(cmd).not.toMatch(/(?:^|[^/\w])bash scripts\/assert-gate-run-id\.sh/);
       expect(cmd).toMatch(/\.tmp\/REDHAT-FIX-S28R3\/\$\{GATE_RUN_ID\}/);
       expect(cmd).toMatch(/parity-report\.json/);
       // Shared (non-run-scoped) parity path must not appear.

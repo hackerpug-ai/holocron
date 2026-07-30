@@ -94,24 +94,17 @@ function validateRootOwnedBin(candidate: string): string | null {
   }
 }
 
+/**
+ * GATE-FIX-S28R3-QA22: every restic path — including options.resticBin — must
+ * pass the same root-owned trust chain. User-owned absolute executables are refused
+ * before any R2/restic credential env is constructed.
+ */
 function resolveTrustedResticBin(
   env: NodeJS.ProcessEnv,
   preResolved?: string | null
 ): string | null {
-  // Explicit API argument (options.resticBin): absolute executable only.
-  // Production callers pass root-validated paths; unit tests may inject absolute fakes.
-  // Discovery via RESTIC_BIN env / fixed candidates always requires root trust-chain.
   if (preResolved) {
-    const cand = preResolved.trim();
-    if (!cand.startsWith('/')) return null;
-    try {
-      const real = realpathSync(cand);
-      const st = lstatSync(real);
-      if (!st.isFile() || (st.mode & 0o111) === 0) return null;
-      return real;
-    } catch {
-      return null;
-    }
+    return validateRootOwnedBin(preResolved);
   }
   const fromEnv = env.RESTIC_BIN?.trim();
   if (fromEnv) {
@@ -124,6 +117,14 @@ function resolveTrustedResticBin(
   }
   return null;
 }
+
+/** Process runner signature for test injection BELOW the production trust boundary. */
+export type ProcessRunResult = { status: number; stdout: string; stderr: string };
+export type ProcessRunner = (
+  cmd: string,
+  args: string[],
+  options?: { env?: NodeJS.ProcessEnv; timeoutMs?: number }
+) => ProcessRunResult;
 
 function resolveTrustedPgbackrestBin(env: NodeJS.ProcessEnv): string | null {
   const fromEnv = env.PGBACKREST_BIN?.trim();
@@ -480,7 +481,7 @@ function run(
   cmd: string,
   args: string[],
   options?: { env?: NodeJS.ProcessEnv; timeoutMs?: number }
-): { status: number; stdout: string; stderr: string } {
+): ProcessRunResult {
   const res = spawnSync(cmd, args, {
     encoding: 'utf8',
     env: options?.env ?? process.env,
@@ -994,10 +995,20 @@ export function matchResticSnapshotId(
 export function verifyResticSnapshotInRepo(options: {
   resticSnapshotId: string;
   env?: NodeJS.ProcessEnv;
-  /** Optional pre-resolved restic bin. */
+  /**
+   * Optional pre-resolved restic bin — MUST pass root-owned validateRootOwnedBin
+   * (GATE-FIX-S28R3-QA22). User-owned absolute paths are refused before credentials.
+   */
   resticBin?: string;
   /** When true, skip live restic (tests only). */
   skip?: boolean;
+  /**
+   * GATE-FIX-S28R3-QA22 test-only: inject a process runner BELOW the production
+   * trust boundary. Does not accept a user-owned resticBin that receives credentials.
+   * When set without resticBin, a synthetic trusted-label path is used only as the
+   * runner argument (never spawnSync'd by production run()).
+   */
+  runProcess?: ProcessRunner;
 }): { ok: boolean; matchedId: string | null; error?: string; snapshotsChecked: number } {
   const snap = options.resticSnapshotId.trim();
   if (snap.length < 8) {
@@ -1013,9 +1024,19 @@ export function verifyResticSnapshotInRepo(options: {
   }
 
   const env = options.env ?? process.env;
-  // GATE-FIX-S28R3-QA21: resolve + validate root-owned restic BEFORE credentials used.
+  // GATE-FIX-S28R3-QA22: resolve + validate root-owned restic BEFORE any credential env.
+  // Explicit options.resticBin uses the same validateRootOwnedBin chain (no user-owned bypass).
   const resticBin = resolveTrustedResticBin(env, options.resticBin ?? null);
-  if (!resticBin) {
+  if (options.resticBin && !resticBin) {
+    return {
+      ok: false,
+      matchedId: null,
+      error:
+        'restic binary missing or untrusted — refuse baseline bind (require root-owned /usr/local/bin/restic or /usr/bin/restic; PATH/Homebrew discovery forbidden; options.resticBin must pass root-owned trust chain)',
+      snapshotsChecked: 0,
+    };
+  }
+  if (!resticBin && !options.runProcess) {
     return {
       ok: false,
       matchedId: null,
@@ -1025,12 +1046,20 @@ export function verifyResticSnapshotInRepo(options: {
     };
   }
 
+  // Credential env is constructed only AFTER the trust boundary above.
   const renv = resticVerifyEnv(env);
   if (!renv.ok) {
     return { ok: false, matchedId: null, error: renv.error, snapshotsChecked: 0 };
   }
 
-  const snaps = run(resticBin, ['snapshots', '--json'], { env: renv.env, timeoutMs: 120_000 });
+  const runner: ProcessRunner = options.runProcess ?? run;
+  // When runProcess is injected without a trusted on-disk bin, pass a fixed label only —
+  // production run() is not used, so no untrusted executable receives credentials.
+  const binForRunner = resticBin ?? '/usr/bin/restic';
+  const snaps = runner(binForRunner, ['snapshots', '--json'], {
+    env: renv.env,
+    timeoutMs: 120_000,
+  });
   if (snaps.status !== 0) {
     return {
       ok: false,

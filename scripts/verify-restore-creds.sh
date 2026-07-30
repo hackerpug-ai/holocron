@@ -29,7 +29,10 @@
 #     R2_RESTORE_OBJECT_PREFIX=pgbackrest ./scripts/verify-restore-creds.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# GATE-FIX-S28R3-QA22: shell-native root resolution (no PATH dirname before secrets).
+_SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]] && _SCRIPT_DIR="."
+ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
 POLICY_ONLY=0
