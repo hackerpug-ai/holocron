@@ -13,5 +13,5 @@ INFO: sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged
 PASS: put-object AccessDenied (class=access_denied)
 PASS: delete-object AccessDenied (class=access_denied)
 PASS: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle
-wrote RO proof attestation: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/r2-ro-proofs/proof.1785388156.37276.13587.json tuple_fp16=b3ed726d102195fc context_fp16=02970ca9822e939d
+wrote RO proof attestation: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/r2-ro-proofs/proof.1785392494.62122.27782.json tuple_fp16=b3ed726d102195fc context_fp16=02970ca9822e939d
 === RESULT: PASS (live R2 prefix List+Head+Get allowed; out-of-prefix AccessDenied; Put/Delete AccessDenied) ===

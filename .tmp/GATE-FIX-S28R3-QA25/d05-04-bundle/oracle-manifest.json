@@ -3,22 +3,21 @@
   "task_id": "GATE-FIX-S28R3-QA25",
   "files": {
     "parity-report.json": {
-      "sha256": "8ed441cfcef0b87b554195d72644f16dca47d142d01f6108d9b31d2ae1a44112",
+      "sha256": "b720b8717ed7c1537e96048090731e03bc427907db6f039fc3c6d1a6d47e3f38",
       "bytes": 3952
     },
     "attestation.json": {
-      "sha256": "849715d458b47759b613797695f3e28d3d7d3aea5e838a36797af5cd0e3102a1",
-      "bytes": 1045
+      "sha256": "0e0bc2fd9a40e51db7277a7de14d828ac6211333b08f12fc70197562a3e01abc",
+      "bytes": 1048
     },
     "SUMMARY.json": {
-      "sha256": "e4938d5208b77e85aad72f74a761b1e96df9d64d29930ccb46beca7d3e403739",
-      "bytes": 675
+      "sha256": "9aad33feec53e231ecbde4735275d6a3ec15f7429a2f316b5cd55f5f10084db9",
+      "bytes": 432
     }
   },
   "attestation_exit": 0,
   "matched_objects": 11,
   "total_rows": 56,
   "ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
-  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
   "source_run": "d05-04-run"
 }

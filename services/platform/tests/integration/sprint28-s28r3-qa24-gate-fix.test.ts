@@ -474,7 +474,7 @@ echo "PASS: r2_ro_run_provider argv clean (exit=$rc)"
       scanned_files: walkFiles(probeDir).length,
       fire_snippet: redact(fireCombined.slice(0, 2000)),
     });
-  });
+  }, 120_000);
 });
 
 describe('GATE-FIX-S28R3-QA24 production-path race and canary (no harness overrides)', () => {

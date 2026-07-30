@@ -6,7 +6,7 @@
   "fire_drill_exit": 0,
   "source_run": "d05-04-run",
   "parity_report": "parity-report.json",
-  "parity_sha256": "8ed441cfcef0b87b554195d72644f16dca47d142d01f6108d9b31d2ae1a44112",
+  "parity_sha256": "b720b8717ed7c1537e96048090731e03bc427907db6f039fc3c6d1a6d47e3f38",
   "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
   "baseline_key": "recovery-baselines/sha256/6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020/recovery-baseline.json",
   "ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
@@ -24,5 +24,5 @@
     "entities": 0
   },
   "total_rows": 56,
-  "written_at": "2026-07-30T06:25:46.226Z"
+  "written_at": "2026-07-30T06:32:30.184348Z"
 }

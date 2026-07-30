@@ -1,10 +1,10 @@
 {
   "schema": "holo.fire-drill.parity-report.v2",
-  "capturedAt": "2026-07-30T06:25:26.064Z",
+  "capturedAt": "2026-07-30T06:32:11.556Z",
   "targetTimestamp": "2026-07-30T04:01:28Z",
   "actualStopTimestamp": "2026-07-30T04:01:28Z",
-  "scratchPgdata": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/fresh-restore/s28r3-qa25-disposable-1785392555453/pgdata",
-  "blobDir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/fresh-restore/s28r3-qa25-disposable-1785392555453/blob-restore",
+  "scratchPgdata": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/fresh-restore/s28r3-qa25-disposable-1785392962925/pgdata",
+  "blobDir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/fresh-restore/s28r3-qa25-disposable-1785392962925/blob-restore",
   "sourceDatabase": {
     "host": "fresh-target-no-live-source",
     "port": 0,
@@ -104,7 +104,7 @@
   "blob_manifest_sha256": "2e2f7df5823284157ed2e30ba075754d0bfd3a1ff5a914a1c990efc8762ced2d",
   "baseline_blob_manifest_sha256": "2e2f7df5823284157ed2e30ba075754d0bfd3a1ff5a914a1c990efc8762ced2d",
   "errors": [],
-  "durationMs": 155213,
+  "durationMs": 153113,
   "ok": true,
   "exitCode": 0
 }

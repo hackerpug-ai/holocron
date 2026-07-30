@@ -6,7 +6,7 @@
   "real_fire_drill_child_reached": true,
   "fire_drill_exit": 0,
   "parity_ok": true,
-  "real_fire_drill_notes": "production-boundary + d05-04-run credentialed child exit 0 with full parity after secret-FD cipher propagation",
-  "never_weakened_trust": true,
-  "cipher_propagated": true
+  "cipher_propagated": true,
+  "real_fire_drill_notes": "credentialed child exit 0 with full parity after secret-FD cipher + data-plane prefix coverage",
+  "never_weakened_trust": true
 }
