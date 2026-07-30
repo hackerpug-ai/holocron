@@ -1,0 +1,20 @@
+{
+  "schema": "holo.qa27-d05-04-oracle-manifest.v1",
+  "task_id": "GATE-FIX-S28R3-QA27",
+  "files": {
+    "parity-report.json": {
+      "sha256": "c7cc98cd8f52ca8a621db62806d3c6d42df0fbba09607a006d9d46e839266b62",
+      "bytes": 5721
+    },
+    "attestation.json": {
+      "sha256": "6600eacefb5995e4b10068a7b2ac0e2e0ad6ec804b3c17e130e661fb6fda3c35",
+      "bytes": 1654
+    },
+    "SUMMARY.json": {
+      "sha256": "2b89155825a41baf29868865805f2e506c132bd8ed15ff2d30bcd61b244028ee",
+      "bytes": 807
+    }
+  },
+  "attestation_exit": 0,
+  "source_run": "d05-04-run"
+}

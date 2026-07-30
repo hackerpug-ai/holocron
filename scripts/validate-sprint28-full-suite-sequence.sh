@@ -1,17 +1,19 @@
 #!/bin/bash
-# GATE-FIX-S28R3-QA26 — fail-closed validator for full-suite → live → full-suite record.
+# GATE-FIX-S28R3-QA27 — fail-closed validator for full-suite → live → full-suite record.
 #
 # Recomputes probe hash, exit codes, and Vitest totals from committed log files.
 # Rejects missing/dangling logs, self-asserted totals, zero-filled records,
 # reordered phases, hash drift, .qa16bak presence, and immutable-record replacement.
 #
 # Two-commit layout: record git_sha binds the frozen CODE commit; git diff
-# record..HEAD may only list an explicit minimal set of immutable evidence /
-# task-status paths. NEVER allowlist validator/test/product code.
+# record..HEAD may only list an exact closed set of immutable evidence /
+# task-status paths (NO whole-directory prefixes). NEVER allowlist
+# validator/test/product code, nested unlisted paths, symlinks, mode-only
+# executables, or executables under former QA26/QA27 evidence trees.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RECORD="${1:-$ROOT/.tmp/GATE-FIX-S28R3-QA26/full-suite-live-sequence.json}"
+RECORD="${1:-$ROOT/.tmp/GATE-FIX-S28R3-QA27/full-suite-live-sequence.json}"
 PROBE="${ROOT}/scripts/lib/r2-scope-probes.json"
 # Optional expected git_sha (defaults to HEAD of this worktree).
 EXPECT_SHA="${2:-}"
@@ -58,11 +60,16 @@ if task_id not in (
     "GATE-FIX-S28R3-QA24",
     "GATE-FIX-S28R3-QA25",
     "GATE-FIX-S28R3-QA26",
+    "GATE-FIX-S28R3-QA27",
 ):
     errors.append(f"task_id mismatch: {task_id!r}")
 for req in ("run_id", "git_sha", "started_at", "finished_at", "phases", "probe_path"):
     if not doc.get(req):
         errors.append(f"missing {req}")
+
+run_id = str(doc.get("run_id") or "")
+if run_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,120}", run_id):
+    errors.append(f"run_id not allowlisted shape: {run_id!r}")
 
 
 def git(*args: str) -> tuple[int, str, str]:
@@ -74,10 +81,142 @@ def git(*args: str) -> tuple[int, str, str]:
     return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
 
 
+def build_exact_allowlist(task: str, rid: str) -> set[str]:
+    """Closed exact-file allowlist. NO whole-directory prefixes (QA27 H-1)."""
+    task_dir = (
+        ".spec/prds/mk6-migration/tasks/"
+        "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill"
+    )
+    allow: set[str] = set()
+    if task == "GATE-FIX-S28R3-QA27":
+        ev = ".tmp/GATE-FIX-S28R3-QA27"
+        allow.add(
+            f"{task_dir}/GATE-FIX-S28R3-QA27-exact-evidence-allowlist-and-real-production-boundary.md"
+        )
+        # Sequence record + immutable marker
+        allow.update(
+            {
+                f"{ev}/full-suite-live-sequence.json",
+                f"{ev}/full-suite-live-sequence.json.immutable",
+                f"{ev}/sequence-runner.log",
+                f"{ev}/live-r2.log",
+                f"{ev}/focused-qa27.log",
+                f"{ev}/focused-qa27-resume.log",
+                f"{ev}/whitespace-clean.json",
+                f"{ev}/sequence-allowlist-contract.json",
+                f"{ev}/mutation-rejects.json",
+                f"{ev}/prod-boundary.json",
+                f"{ev}/lifecycle-cleanup.json",
+                f"{ev}/lifecycle-after-d05.json",
+                f"{ev}/d05-04-consumer.json",
+                f"{ev}/d05-04-consumer-pending.json",
+                f"{ev}/hostile-bin-refuse.json",
+                f"{ev}/human-prerequisite-root-pg-tools.txt",
+                f"{ev}/d05-04-bundle/parity-report.json",
+                f"{ev}/d05-04-bundle/attestation.json",
+                f"{ev}/d05-04-bundle/SUMMARY.json",
+                f"{ev}/d05-04-bundle/oracle-manifest.json",
+                f"{ev}/d05-04-run/parity-report.json",
+                f"{ev}/d05-04-run/attestation.json",
+                f"{ev}/d05-04-run/pitr-restore-status.json",
+                f"{ev}/d05-04-run/pre-failure-snapshot.json",
+            }
+        )
+        # Phase logs only when run_id is strictly validated and matches declared phases.
+        if rid and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,120}", rid):
+            allow.update(
+                {
+                    f"{ev}/sequence-{rid}/phase1-full-suite.log",
+                    f"{ev}/sequence-{rid}/phase2-live-r2-ro.log",
+                    f"{ev}/sequence-{rid}/phase3-full-suite.log",
+                }
+            )
+        # Phase log paths declared in the record (must resolve under evidence + match names).
+        phases = doc.get("phases") or []
+        if isinstance(phases, list) and len(phases) == 3 and rid:
+            expected_logs = [
+                f"sequence-{rid}/phase1-full-suite.log",
+                f"sequence-{rid}/phase2-live-r2-ro.log",
+                f"sequence-{rid}/phase3-full-suite.log",
+            ]
+            for i, ph in enumerate(phases):
+                log_rel = str((ph or {}).get("log") or "")
+                if not log_rel:
+                    continue
+                # Normalize absolute → relative-to-evidence basename chain
+                if os.path.isabs(log_rel):
+                    # Only accept if under the evidence dir on disk; store as relative allow path.
+                    try:
+                        common = os.path.commonpath(
+                            [os.path.realpath(log_rel), os.path.realpath(os.path.join(root, ev))]
+                        )
+                        if common == os.path.realpath(os.path.join(root, ev)):
+                            rel = os.path.relpath(os.path.realpath(log_rel), os.path.realpath(os.path.join(root, ev)))
+                            log_rel = f"{ev}/{rel.replace(os.sep, '/')}"
+                        else:
+                            continue
+                    except ValueError:
+                        continue
+                else:
+                    log_rel = log_rel.lstrip("./")
+                    if not log_rel.startswith(ev + "/") and not log_rel.startswith("sequence-"):
+                        # Relative to record dir
+                        log_rel = f"{ev}/{log_rel}"
+                    elif log_rel.startswith("sequence-"):
+                        log_rel = f"{ev}/{log_rel}"
+                # Must match the three declared phase log names exactly (no nested extras).
+                tail = log_rel[len(ev) + 1 :] if log_rel.startswith(ev + "/") else log_rel
+                if tail in expected_logs or log_rel.endswith(expected_logs[i].split("/", 1)[-1]):
+                    if tail == expected_logs[i] or log_rel == f"{ev}/{expected_logs[i]}":
+                        allow.add(f"{ev}/{expected_logs[i]}")
+    elif task == "GATE-FIX-S28R3-QA26":
+        # Historical QA26: exact closed set only (whole-dir prefix removed — QA27 H-1).
+        ev = ".tmp/GATE-FIX-S28R3-QA26"
+        allow.add(
+            f"{task_dir}/GATE-FIX-S28R3-QA26-final-trusted-descendants-and-evidence-consumer.md"
+        )
+        allow.update(
+            {
+                f"{ev}/full-suite-live-sequence.json",
+                f"{ev}/full-suite-live-sequence.json.immutable",
+                f"{ev}/sequence-runner.log",
+                f"{ev}/live-r2.log",
+                f"{ev}/focused-qa26.log",
+                f"{ev}/focused-qa26-resume.log",
+                f"{ev}/whitespace-clean.json",
+                f"{ev}/sequence-allowlist-contract.json",
+                f"{ev}/prod-boundary-contract.json",
+                f"{ev}/lifecycle-cleanup.json",
+                f"{ev}/lifecycle-after-d05.json",
+                f"{ev}/d05-04-consumer-pending.json",
+                f"{ev}/hostile-bin-refuse.json",
+                f"{ev}/human-prerequisite-root-pg-tools.txt",
+                f"{ev}/d05-04-bundle/parity-report.json",
+                f"{ev}/d05-04-bundle/attestation.json",
+                f"{ev}/d05-04-bundle/SUMMARY.json",
+                f"{ev}/d05-04-bundle/oracle-manifest.json",
+                f"{ev}/d05-04-run/parity-report.json",
+                f"{ev}/d05-04-run/attestation.json",
+                f"{ev}/d05-04-run/pitr-restore-status.json",
+                f"{ev}/d05-04-run/pre-failure-snapshot.json",
+            }
+        )
+        if rid and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,120}", rid):
+            allow.update(
+                {
+                    f"{ev}/sequence-{rid}/phase1-full-suite.log",
+                    f"{ev}/sequence-{rid}/phase2-live-r2-ro.log",
+                    f"{ev}/sequence-{rid}/phase3-full-suite.log",
+                }
+            )
+    # QA24/QA25: no open directory prefixes; only same-commit (full_sha==head) passes.
+    return allow
+
+
 # Fail-closed bind: record git_sha must resolve, be an ancestor of HEAD, and
-# git diff record..HEAD may only contain explicit immutable evidence/task-status
-# paths. NEVER allowlist validator code, tests, product code, whole directories
-# generically, or task-stem prefixes that swallow code.
+# git diff record..HEAD may only contain exact immutable evidence/task-status
+# files. NEVER allowlist validator code, tests, product code, whole directories,
+# nested unlisted paths, symlinks, or executables.
 git_sha = str(doc.get("git_sha") or "")
 if not re.fullmatch(r"[0-9a-f]{40}", git_sha):
     errors.append(f"git_sha not 40-char hex: {git_sha!r}")
@@ -105,15 +244,7 @@ else:
             if rc_a != 0:
                 errors.append(f"git_sha is not an ancestor of HEAD: {full_sha} !<= {head}")
             elif full_sha != head:
-                # Explicit minimal evidence-only allowlist (QA26 two-commit layout).
-                # Exact files OR directory prefixes ending with '/'. No task-stem
-                # wildcards, no validator/test/product paths, no QA24 free-for-all.
-                ALLOW_EXACT = {
-                    ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/GATE-FIX-S28R3-QA26-final-trusted-descendants-and-evidence-consumer.md",
-                }
-                ALLOW_DIR_PREFIXES = (
-                    ".tmp/GATE-FIX-S28R3-QA26/",
-                )
+                ALLOW_EXACT = build_exact_allowlist(str(task_id or ""), run_id)
                 FORBIDDEN_SUBSTRINGS = (
                     "validate-sprint28-full-suite-sequence.sh",
                     "sprint28-s28r3-qa",
@@ -128,36 +259,104 @@ else:
                     "scripts/provision-",
                     "scripts/run-fire-drill",
                 )
+                # Former whole-dir evidence trees — no unlisted nested path may pass.
+                FORMER_EVIDENCE_PREFIXES = (
+                    ".tmp/GATE-FIX-S28R3-QA26/",
+                    ".tmp/GATE-FIX-S28R3-QA27/",
+                )
+                EXEC_SUFFIXES = (
+                    ".ts",
+                    ".js",
+                    ".sh",
+                    ".py",
+                    ".mjs",
+                    ".cjs",
+                    ".exe",
+                    ".bin",
+                    ".so",
+                    ".dylib",
+                )
 
                 def path_allowed(p: str) -> bool:
-                    if p in ALLOW_EXACT:
-                        return True
-                    for pref in ALLOW_DIR_PREFIXES:
-                        if p == pref.rstrip("/") or p.startswith(pref):
-                            # Still refuse if an "evidence" path smuggles executable surfaces
-                            # (should not happen under .tmp/, but fail closed).
-                            base = os.path.basename(p)
-                            if base.endswith((".ts", ".js", ".sh", ".py", ".mjs", ".cjs")):
-                                # Allow durable log/evidence helpers only when not product code.
-                                # .tmp evidence may include .sh probe transcripts that are data —
-                                # but never allow scripts/ or services/ paths (already excluded by prefix).
-                                pass
-                            return True
-                    return False
+                    return p in ALLOW_EXACT
+
+                def tree_mode_type(commit: str, p: str) -> tuple[str, str]:
+                    """Return (mode, type) from git ls-tree, or ('','') if missing."""
+                    rc_t, out_t, _ = git("ls-tree", commit, "--", p)
+                    if rc_t != 0 or not out_t:
+                        return "", ""
+                    # format: <mode> <type> <object>\t<file>
+                    line = out_t.splitlines()[0]
+                    parts = line.split()
+                    if len(parts) < 2:
+                        return "", ""
+                    return parts[0], parts[1]
 
                 rc_d, diff_out, err_d = git("diff", "--name-only", f"{full_sha}..{head}")
                 if rc_d != 0:
                     errors.append(f"git diff failed for bind check: {err_d or rc_d}")
                 else:
-                    for p in (line.strip() for line in diff_out.splitlines() if line.strip()):
-                        # Hard refuse known control surfaces even if someone nests them under .tmp.
-                        if any(s in p for s in FORBIDDEN_SUBSTRINGS) and not p.startswith(
-                            ".tmp/GATE-FIX-S28R3-QA26/"
-                        ):
+                    changed = [line.strip() for line in diff_out.splitlines() if line.strip()]
+                    for p in changed:
+                        base = os.path.basename(p)
+                        # Hard refuse known control surfaces always (no evidence-prefix bypass).
+                        if any(s in p for s in FORBIDDEN_SUBSTRINGS):
                             errors.append(f"non-evidence path after bound git_sha: {p}")
+                            continue
+                        # Refuse alternate/executable extensions even if nested under evidence.
+                        if base.endswith(EXEC_SUFFIXES):
+                            errors.append(
+                                f"executable/control extension forbidden after bound git_sha: {p}"
+                            )
+                            continue
+                        # Nested path under former evidence prefix but not exact-allowlisted.
+                        under_former = any(p.startswith(pref) for pref in FORMER_EVIDENCE_PREFIXES)
+                        if under_former and not path_allowed(p):
+                            errors.append(
+                                f"unlisted/nested evidence path after bound git_sha: {p}"
+                            )
                             continue
                         if not path_allowed(p):
                             errors.append(f"non-evidence path after bound git_sha: {p}")
+                            continue
+                        # Exact-allowlisted path still fails closed on symlink / executable mode.
+                        mode, typ = tree_mode_type(head, p)
+                        if typ == "commit":
+                            errors.append(f"gitlink forbidden after bound git_sha: {p}")
+                            continue
+                        if mode == "120000" or typ == "commit":
+                            errors.append(f"symlink forbidden after bound git_sha: {p}")
+                            continue
+                        if mode.startswith("100755") or mode == "100755":
+                            errors.append(
+                                f"executable mode forbidden after bound git_sha: {p}"
+                            )
+                            continue
+                        if mode and not mode.startswith("100644") and mode != "100644":
+                            # Also reject other non-regular modes
+                            if mode.startswith("120") or mode.startswith("160"):
+                                errors.append(
+                                    f"non-regular mode forbidden after bound git_sha: {p} mode={mode}"
+                                )
+
+                    # Mode-only flips (name-only may omit pure mode changes on some git versions;
+                    # --summary always reports "mode change 100644 => 100755 path").
+                    rc_sum, summary, err_sum = git(
+                        "diff", "--summary", f"{full_sha}..{head}"
+                    )
+                    if rc_sum != 0:
+                        errors.append(f"git diff --summary failed: {err_sum or rc_sum}")
+                    else:
+                        for line in summary.splitlines():
+                            low = line.strip().lower()
+                            if "mode change" in low and "100755" in low:
+                                errors.append(
+                                    f"mode-only executable change forbidden after bound git_sha: {line.strip()}"
+                                )
+                            if "mode change" in low and "=> 100755" in low.replace(" ", ""):
+                                errors.append(
+                                    f"mode-only executable change forbidden after bound git_sha: {line.strip()}"
+                                )
 
 phases = doc.get("phases") or []
 if not isinstance(phases, list) or len(phases) != 3:

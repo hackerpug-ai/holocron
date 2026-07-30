@@ -1,0 +1,13 @@
+{
+  "hosts": [
+    "s28r3-qa27-life-a-1785429978142",
+    "s28r3-qa27-life-b-1785429981840"
+  ],
+  "first_leftovers": [],
+  "second_leftovers": [],
+  "first_staging": [],
+  "second_staging": [],
+  "sentinel_preserved_until_assert": true,
+  "real_provision": true,
+  "real_fire_resolve": true
+}

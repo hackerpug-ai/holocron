@@ -1,0 +1,31 @@
+{
+  "freeze_sha": "a49d7f0a469ca85b2ca4f73f7615ee1e442cebc5",
+  "results": {
+    "executable_under_prefix": {
+      "status": 2,
+      "out": "FAIL: executable/control extension forbidden after bound git_sha: .tmp/GATE-FIX-S28R3-QA27/nested-evil/smuggle.sh\n"
+    },
+    "unlisted_nested": {
+      "status": 2,
+      "out": "FAIL: unlisted/nested evidence path after bound git_sha: .tmp/GATE-FIX-S28R3-QA27/nested/unlisted.json\n"
+    },
+    "changed_validator": {
+      "status": 2,
+      "out": "FAIL: non-evidence path after bound git_sha: scripts/validate-sprint28-full-suite-sequence.sh\n"
+    },
+    "mode_only_executable": {
+      "status": 2,
+      "out": "FAIL: executable mode forbidden after bound git_sha: .tmp/GATE-FIX-S28R3-QA27/whitespace-clean.json\nFAIL: mode-only executable change forbidden after bound git_sha: mode change 100644 => 100755 .tmp/GATE-FIX-S28R3-QA27/whitespace-clean.json\n"
+    },
+    "non_ancestor": {
+      "status": 2,
+      "out": "FAIL: git_sha does not resolve to a commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "exact_evidence_accept": {
+      "status": 0,
+      "out": "PASS: sprint28 full-suite → live R2 → full-suite sequence valid (logs recomputed)\n"
+    }
+  },
+  "all_mutations_rejected": true,
+  "exact_evidence_accepted": true
+}

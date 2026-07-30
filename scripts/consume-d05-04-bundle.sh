@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GATE-FIX-S28R3-QA26 — production read-only D05-04 bundle consumer.
+# GATE-FIX-S28R3-QA26/QA27 — production read-only D05-04 bundle consumer.
 #
 # Validates a committed fire-drill bundle WITHOUT creating, copying, or
 # rewriting any file under the bundle it judges. Open / stat / hash only.
@@ -15,7 +15,8 @@
 #   - non-zero pre/restored row totals match
 #   - 11 pre/restored object identities present and agree with blob_parity
 #   - blob_parity.ok/equal and counts agree with matched_objects
-#   - if oracle-manifest.json present: recomputed sha256 of linked files match
+#   - baseline_id/key present and baseline_loaded true; baseline_sha256 shape ok
+#   - if oracle-manifest.json present: recomputed sha256 + bytes of every linked file match
 set -euo pipefail
 
 BUNDLE="${1:-${BUNDLE_DIR:-}}"
@@ -110,6 +111,23 @@ if parity.get("baseline_loaded") is not True:
     errors.append("baseline_loaded is not true")
 if not parity.get("baseline_id") and not parity.get("baseline_key"):
     errors.append("baseline_id/key missing")
+# GATE-FIX-S28R3-QA27 M-1: baseline binding integrity (id/key/sha when present).
+b_id = parity.get("baseline_id")
+b_key = parity.get("baseline_key")
+b_sha = parity.get("baseline_sha256")
+if b_id is not None and not (
+    isinstance(b_id, str) and len(b_id) == 64 and all(c in "0123456789abcdef" for c in b_id.lower())
+):
+    errors.append("baseline_id not 64-hex")
+if b_key is not None:
+    if not isinstance(b_key, str) or not b_key.strip():
+        errors.append("baseline_key empty/invalid")
+    elif b_id and isinstance(b_id, str) and b_id not in b_key:
+        errors.append("baseline_key does not bind baseline_id")
+if b_sha is not None and not (
+    isinstance(b_sha, str) and len(b_sha) == 64 and all(c in "0123456789abcdef" for c in b_sha.lower())
+):
+    errors.append("baseline_sha256 not 64-hex")
 
 # --- Row counts: non-zero pre + restored, consistent ---
 pre_rows = parity.get("pre_failure_row_counts") or {}

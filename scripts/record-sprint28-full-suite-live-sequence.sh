@@ -1,13 +1,13 @@
 #!/bin/bash
-# GATE-FIX-S28R3-QA24 / QA25 / QA26 — durable full Sprint 28 suite → live R2 RO → full suite record.
+# GATE-FIX-S28R3-QA24 / QA25 / QA26 / QA27 — durable full Sprint 28 suite → live R2 RO → full suite record.
 #
-# Writes immutable JSON under .tmp/GATE-FIX-S28R3-QA26/full-suite-live-sequence.json
+# Writes immutable JSON under .tmp/GATE-FIX-S28R3-QA27/full-suite-live-sequence.json
 # (override with SEQ_OUT_DIR) with exact commands, exit codes, test totals, probe
 # hashes, .qa16bak absence, SHA, run id, timestamps, and evidence pointers.
 #
-# GATE-FIX-S28R3-QA26 two-commit layout:
+# GATE-FIX-S28R3-QA27 two-commit layout:
 #   1) Freeze code commit (validator/tests/product) — record git_sha binds THIS.
-#   2) Evidence-only commit after recording (no code/test/validator changes).
+#   2) Evidence-only commit after recording (exact closed allowlist only).
 #
 # GATE-FIX-S28R3-QA25: refuse silent overwrite of a completed 0444 record.
 #
@@ -19,10 +19,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-OUT_DIR="${SEQ_OUT_DIR:-${ROOT}/.tmp/GATE-FIX-S28R3-QA26}"
+OUT_DIR="${SEQ_OUT_DIR:-${ROOT}/.tmp/GATE-FIX-S28R3-QA27}"
 mkdir -p "$OUT_DIR"
-TASK_ID="${SEQ_TASK_ID:-GATE-FIX-S28R3-QA26}"
-RUN_ID="${SEQ_RUN_ID_PREFIX:-qa26-seq}-$(/bin/date -u +%Y%m%dT%H%M%SZ)-$$"
+TASK_ID="${SEQ_TASK_ID:-GATE-FIX-S28R3-QA27}"
+RUN_ID="${SEQ_RUN_ID_PREFIX:-qa27-seq}-$(/bin/date -u +%Y%m%dT%H%M%SZ)-$$"
 RECORD="${OUT_DIR}/full-suite-live-sequence.json"
 PROBE="${ROOT}/scripts/lib/r2-scope-probes.json"
 EVID_DIR="${OUT_DIR}/sequence-${RUN_ID}"
@@ -102,11 +102,11 @@ print(f"{fp}\t{ff}\t{tp}\t{tf}")
 PY
 }
 
-# GATE-FIX-S28R3-QA26: serialize file workers so concurrent provision/docker
+# GATE-FIX-S28R3-QA26/QA27: serialize file workers so concurrent provision/docker
 # isolation + live R2 probes do not thrash and false-timeout under load.
 # Also strip ambient R2_* credentials from the suite process so harness/mock
 # tests are not poisoned by a pre-sourced .env (live phase re-exports below).
-SUITE_CMD='env -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY -u R2_SESSION_TOKEN -u R2_RESTORE_ACCESS_KEY_ID -u R2_RESTORE_SECRET_ACCESS_KEY -u R2_RESTORE_SESSION_TOKEN -u R2_PARENT_ACCESS_KEY_ID -u R2_PARENT_SECRET_ACCESS_KEY -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u R2_CREDENTIAL_POLICY -u CLOUDFLARE_API_TOKEN -u HOLOCRON_SECRETS_PATH -u HOLO_SECRETS_PATH -u R2_REPO_CIPHER_PASS -u RESTIC_PASSWORD MINI_SOCKET_DEFAULTS=0 MINI_UNIX_SOCKETS=/tmp/.s.PGSQL.5432-qa26-absent HOLOCRON_SECRETS_PATH=/nonexistent/qa26-suite-no-secrets HOLO_SECRETS_PATH=/nonexistent/qa26-suite-no-secrets ./node_modules/.bin/vitest run --project integration --no-file-parallelism --testTimeout=180000 services/platform/tests/integration/sprint28-*.test.ts'
+SUITE_CMD='env -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY -u R2_SESSION_TOKEN -u R2_RESTORE_ACCESS_KEY_ID -u R2_RESTORE_SECRET_ACCESS_KEY -u R2_RESTORE_SESSION_TOKEN -u R2_PARENT_ACCESS_KEY_ID -u R2_PARENT_SECRET_ACCESS_KEY -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u R2_CREDENTIAL_POLICY -u CLOUDFLARE_API_TOKEN -u HOLOCRON_SECRETS_PATH -u HOLO_SECRETS_PATH -u R2_REPO_CIPHER_PASS -u RESTIC_PASSWORD MINI_SOCKET_DEFAULTS=0 MINI_UNIX_SOCKETS=/tmp/.s.PGSQL.5432-qa27-absent HOLOCRON_SECRETS_PATH=/nonexistent/qa27-suite-no-secrets HOLO_SECRETS_PATH=/nonexistent/qa27-suite-no-secrets ./node_modules/.bin/vitest run --project integration --no-file-parallelism --testTimeout=180000 services/platform/tests/integration/sprint28-*.test.ts'
 LIVE_CMD='REQUIRE_LIVE_R2_RO=1 /bin/bash scripts/prove-r2-readonly.sh'
 
 SHA="$(git_sha)"
