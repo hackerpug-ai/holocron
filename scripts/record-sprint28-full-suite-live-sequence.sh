@@ -104,7 +104,9 @@ PY
 
 # GATE-FIX-S28R3-QA26: serialize file workers so concurrent provision/docker
 # isolation + live R2 probes do not thrash and false-timeout under load.
-SUITE_CMD='./node_modules/.bin/vitest run --project integration --no-file-parallelism services/platform/tests/integration/sprint28-*.test.ts'
+# Also strip ambient R2_* credentials from the suite process so harness/mock
+# tests are not poisoned by a pre-sourced .env (live phase re-exports below).
+SUITE_CMD='env -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY -u R2_SESSION_TOKEN -u R2_RESTORE_ACCESS_KEY_ID -u R2_RESTORE_SECRET_ACCESS_KEY -u R2_RESTORE_SESSION_TOKEN -u R2_PARENT_ACCESS_KEY_ID -u R2_PARENT_SECRET_ACCESS_KEY -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u R2_CREDENTIAL_POLICY -u CLOUDFLARE_API_TOKEN MINI_SOCKET_DEFAULTS=0 MINI_UNIX_SOCKETS=/tmp/.s.PGSQL.5432-qa26-absent ./node_modules/.bin/vitest run --project integration --no-file-parallelism services/platform/tests/integration/sprint28-*.test.ts'
 LIVE_CMD='REQUIRE_LIVE_R2_RO=1 /bin/bash scripts/prove-r2-readonly.sh'
 
 SHA="$(git_sha)"
