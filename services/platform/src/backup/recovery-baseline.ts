@@ -41,6 +41,10 @@ import {
 import { getBackupHeartbeat } from './heartbeat.ts';
 import { hashLocalBlobStore } from './parity-check.ts';
 import { listRepoPrefix } from './r2-provision.ts';
+import { pgToolEnv, resolveTrustedPsqlBin } from './trusted-bin.ts';
+
+/** Re-export for descendant/hostile tests (GATE-FIX-S28R3-QA26). */
+export { resolveTrustedPsqlBin };
 
 /** Parse pgbackrest info --output=json for the latest backup label (no base-backup import — avoid cycle). */
 function parseLatestBackupLabel(infoJson: string): string | null {
@@ -612,28 +616,11 @@ function canonicalRowsSql(table: LedgerDomainTable): string | null {
 }
 
 /**
- * GATE-FIX-S28R3-QA25: absolute psql only — never bare PATH `psql` with credentialed env.
+ * GATE-FIX-S28R3-QA26: absolute root-trusted psql only — never bare PATH or
+ * user-owned absolute/Homebrew fallback with credentialed env.
  */
 function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env.PSQL_BIN?.trim() || env.POSTGRES_PSQL?.trim();
-  if (fromEnv) {
-    const trusted = validateRootOwnedBin(fromEnv);
-    if (trusted) return trusted;
-    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
-  }
-  for (const candidate of ['/usr/local/bin/psql', '/usr/bin/psql'] as const) {
-    const t = validateRootOwnedBin(candidate);
-    if (t) return t;
-  }
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/psql',
-    '/usr/local/opt/postgresql@18/bin/psql',
-    '/opt/homebrew/bin/psql',
-    '/usr/lib/postgresql/18/bin/psql',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  return '/usr/bin/psql';
+  return resolveTrustedPsqlBin(env);
 }
 
 function runPsql(
@@ -654,7 +641,8 @@ function runPsql(
   ];
   if (conn.user) args.push('-U', conn.user);
   const env = conn.env ?? process.env;
-  return run(resolvePsqlBin(env), args, { env, timeoutMs: 60_000 });
+  const bin = resolvePsqlBin(env);
+  return run(bin, args, { env: pgToolEnv(env), timeoutMs: 60_000 });
 }
 
 /** Query current WAL LSN (non-empty string on success). */

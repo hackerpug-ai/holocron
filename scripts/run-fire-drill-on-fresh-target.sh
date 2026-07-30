@@ -1055,18 +1055,32 @@ fi
 # GATE-FIX-S28R3-QA3 / C-2: NEVER forward DATABASE_URL or PG* (fresh-target is baseline-only).
 # GATE-FIX-S28R3-QA24: NEVER forward PGBACKREST_PG1_PATH.
 #
-# GATE-FIX-S28R3-QA25: secrets path + R2_REPO_CIPHER_PASS must reach the clean-env child via FD.
-if ! _resolved_secrets="$(resolve_absolute_secrets_path)"; then
-  err "GATE-FIX-S28R3-QA25 refuse credentialed child: secrets.yaml not readable (HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH)"
-  echo "RESIDUAL: DEPENDENCY-S28-SECRETS" >&2
-  exit 2
-fi
-export HOLO_SECRETS_PATH="$_resolved_secrets"
-export HOLOCRON_SECRETS_PATH="$_resolved_secrets"
-if [[ -z "${R2_REPO_CIPHER_PASS:-}" ]]; then
-  err "GATE-FIX-S28R3-QA25 refuse credentialed child: R2_REPO_CIPHER_PASS empty after secrets resolve (value not logged)"
-  echo "RESIDUAL: DEPENDENCY-S28-CIPHER" >&2
-  exit 2
+# GATE-FIX-S28R3-QA25/QA26: secrets path + R2_REPO_CIPHER_PASS must reach the clean-env
+# TypeScript fire-drill child via FD. Non-TS HOLO_CLI recorders (harness unit tests) do not
+# load restic/pgbackrest and must not require cipher/secrets presence.
+_holo_cli_is_ts=0
+case "${HOLO_CLI:-}" in
+  *.ts|*.js|*.mjs|*.cjs) _holo_cli_is_ts=1 ;;
+esac
+if [[ "$_holo_cli_is_ts" -eq 1 ]]; then
+  if ! _resolved_secrets="$(resolve_absolute_secrets_path)"; then
+    err "GATE-FIX-S28R3-QA25 refuse credentialed TypeScript child: secrets.yaml not readable (HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH)"
+    echo "RESIDUAL: DEPENDENCY-S28-SECRETS" >&2
+    exit 2
+  fi
+  export HOLO_SECRETS_PATH="$_resolved_secrets"
+  export HOLOCRON_SECRETS_PATH="$_resolved_secrets"
+  if [[ -z "${R2_REPO_CIPHER_PASS:-}" ]]; then
+    err "GATE-FIX-S28R3-QA25 refuse credentialed TypeScript child: R2_REPO_CIPHER_PASS empty after secrets resolve (value not logged)"
+    echo "RESIDUAL: DEPENDENCY-S28-CIPHER" >&2
+    exit 2
+  fi
+else
+  # Harness/recorder path: forward secrets path when resolvable; never fail closed on cipher.
+  if _resolved_secrets="$(resolve_absolute_secrets_path 2>/dev/null)"; then
+    export HOLO_SECRETS_PATH="$_resolved_secrets"
+    export HOLOCRON_SECRETS_PATH="$_resolved_secrets"
+  fi
 fi
 if [[ -z "${R2_CREDENTIAL_KIND:-}" ]]; then
   export R2_CREDENTIAL_KIND="object-read-only"

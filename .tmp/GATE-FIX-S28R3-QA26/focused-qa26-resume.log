@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA26
+
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa26-gate-fix.test.ts (7 tests) 1580ms
+     ✓ real TypeScript resolvers refuse hostile absolute overrides before credentials ambient  558ms
+     ✓ second provision+cleanup leaves zero QA26-namespace docker resources  800ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  02:09:58
+   Duration  1.85s (transform 214ms, setup 154ms, import 13ms, tests 1.58s, environment 0ms)

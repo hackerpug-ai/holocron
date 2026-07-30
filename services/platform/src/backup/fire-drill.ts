@@ -69,6 +69,9 @@ import {
   resticEnv,
 } from './restic-mirror.ts';
 import { type PitrRestoreResult, runPitrRestore } from './restore.ts';
+import { pgToolEnv, resolveTrustedPgCtlBin, resolveTrustedPsqlBin } from './trusted-bin.ts';
+
+export { resolveTrustedPgCtlBin, resolveTrustedPsqlBin };
 
 export type FireDrillOptions = {
   /** ISO-8601 PITR target (pre-failure timestamp). */
@@ -390,57 +393,26 @@ function wipeDirContents(dir: string): void {
 }
 
 /**
- * GATE-FIX-S28R3-QA24: absolute pg_ctl/psql for restore-only PATH=/usr/bin:/bin.
- * Postgres local start/query is not an R2 trust boundary — Homebrew paths allowed.
+ * GATE-FIX-S28R3-QA26: root-trusted absolute pg_ctl/psql only — never bare PATH
+ * or user-owned absolute/Homebrew fallback while restore credentials may be ambient.
  */
 function resolvePgCtlBin(env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env.PG_CTL_BIN?.trim() || env.POSTGRES_PG_CTL?.trim();
-  if (fromEnv && existsSync(fromEnv)) return fromEnv;
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
-    '/usr/local/opt/postgresql@18/bin/pg_ctl',
-    '/opt/homebrew/bin/pg_ctl',
-    '/usr/local/bin/pg_ctl',
-    '/usr/lib/postgresql/18/bin/pg_ctl',
-    '/usr/bin/pg_ctl',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  return 'pg_ctl';
+  return resolveTrustedPgCtlBin(env);
 }
 
 function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env.PSQL_BIN?.trim();
-  if (fromEnv && existsSync(fromEnv)) return fromEnv;
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/psql',
-    '/usr/local/opt/postgresql@18/bin/psql',
-    '/opt/homebrew/bin/psql',
-    '/usr/local/bin/psql',
-    '/usr/lib/postgresql/18/bin/psql',
-    '/usr/bin/psql',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  return 'psql';
+  return resolveTrustedPsqlBin(env);
 }
 
 function pgClientEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return {
-    ...env,
-    PATH: '/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
-  };
+  return pgToolEnv(env);
 }
 
 function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
   if (!existsSync(pgdata)) return;
   const pgCtl = resolvePgCtlBin(env);
   run(pgCtl, ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
-    env: {
-      ...env,
-      PGDATA: pgdata,
-      PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-    },
+    env: pgToolEnv(env, { PGDATA: pgdata }),
     timeoutMs: 45_000,
   });
 }
@@ -495,11 +467,7 @@ function startRestoredPostgres(
   const socketDir = restoreSocketDir(port);
   const pgCtl = resolvePgCtlBin(env);
   // Postgres needs its bin dir on PATH for the postmaster sibling of pg_ctl.
-  const pgEnv: NodeJS.ProcessEnv = {
-    ...env,
-    PGDATA: pgdata,
-    PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-  };
+  const pgEnv: NodeJS.ProcessEnv = pgToolEnv(env, { PGDATA: pgdata });
   const started = run(
     pgCtl,
     [
@@ -569,12 +537,27 @@ function restoreBlobsAndParity(options: {
   parity: ParityCompareResult | null;
   matched_objects: number;
   restored_blob_objects: number;
+  pre_failure_blob_objects: number;
+  restored_object_identities: string[];
+  expected_object_identities: string[];
   snapshotId: string | null;
   repository: string | null;
   blob_manifest_sha256: string | null;
   errors: string[];
 } {
   const errors: string[] = [];
+  const emptyBlobResult = {
+    ok: false as const,
+    parity: null,
+    matched_objects: 0,
+    restored_blob_objects: 0,
+    pre_failure_blob_objects: 0,
+    restored_object_identities: [] as string[],
+    expected_object_identities: [] as string[],
+    snapshotId: null as string | null,
+    repository: null as string | null,
+    blob_manifest_sha256: null as string | null,
+  };
   let cfg: ResticMirrorConfig;
   try {
     cfg = loadResticMirrorConfig({
@@ -583,13 +566,7 @@ function restoreBlobsAndParity(options: {
     });
   } catch (e) {
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
-      snapshotId: null,
-      repository: null,
-      blob_manifest_sha256: null,
+      ...emptyBlobResult,
       errors: [
         `restic blob mirror not available — refuse BLOB_PARITY_PASS: ${
           e instanceof Error ? e.message : String(e)
@@ -603,13 +580,8 @@ function restoreBlobsAndParity(options: {
   const resticBin = cfg.resticBin?.trim() || '';
   if (!resticBin.startsWith('/') || !existsSync(resticBin)) {
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
-      snapshotId: null,
+      ...emptyBlobResult,
       repository: cfg.repository,
-      blob_manifest_sha256: null,
       errors: [
         'trusted restic binary not found — refuse BLOB_PARITY_PASS (require root-owned RESTIC_BIN or /usr/local/bin/restic or /usr/bin/restic; Homebrew/PATH discovery forbidden)',
       ],
@@ -618,13 +590,8 @@ function restoreBlobsAndParity(options: {
 
   if (!cfg.resticPassword || cfg.resticPassword.length < 8) {
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
-      snapshotId: null,
+      ...emptyBlobResult,
       repository: cfg.repository,
-      blob_manifest_sha256: null,
       errors: [
         'RESTIC_PASSWORD missing/short — refuse BLOB_PARITY_PASS (restic blob mirror not available in env)',
       ],
@@ -641,13 +608,8 @@ function restoreBlobsAndParity(options: {
   });
   if (snaps.status !== 0) {
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
-      snapshotId: null,
+      ...emptyBlobResult,
       repository: cfg.repository,
-      blob_manifest_sha256: null,
       errors: [
         `restic snapshots failed — refuse BLOB_PARITY_PASS: ${(snaps.stderr || snaps.stdout).slice(0, 500)}`,
       ],
@@ -658,13 +620,8 @@ function restoreBlobsAndParity(options: {
   const snapshotId = preferred.length >= 8 ? preferred : latest.snapshotId;
   if (!snapshotId || latest.count === 0) {
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
-      snapshotId: null,
+      ...emptyBlobResult,
       repository: cfg.repository,
-      blob_manifest_sha256: null,
       errors: [
         'restic repository has zero snapshots — refuse BLOB_PARITY_PASS (blob mirror not available)',
       ],
@@ -675,13 +632,9 @@ function restoreBlobsAndParity(options: {
   if (!isEmptyDir(options.blobDir)) {
     // Strict: blob restore target must be empty (never reuse live mini blobs).
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
+      ...emptyBlobResult,
       snapshotId,
       repository: cfg.repository,
-      blob_manifest_sha256: null,
       errors: [
         `blob-dir must be empty before restic restore (strict): ${options.blobDir} is not empty`,
       ],
@@ -699,13 +652,9 @@ function restoreBlobsAndParity(options: {
   );
   if (restore.status !== 0) {
     return {
-      ok: false,
-      parity: null,
-      matched_objects: 0,
-      restored_blob_objects: 0,
+      ...emptyBlobResult,
       snapshotId,
       repository: cfg.repository,
-      blob_manifest_sha256: null,
       errors: [
         `restic restore failed (exit ${restore.status}) — refuse BLOB_PARITY_PASS: ${(restore.stderr || restore.stdout).slice(0, 600)}`,
       ],
@@ -722,6 +671,11 @@ function restoreBlobsAndParity(options: {
   let parity: ParityCompareResult | null = null;
   let matched_objects = 0;
   let setOk = false;
+  /** Sorted restored content digests (object identities for D05 consumer). */
+  const restored_object_identities = [...restoredHashes.hashes];
+  let expected_object_identities: string[] = hasLocalPreFailure
+    ? [...options.preFailureHashes.hashes]
+    : [];
 
   if (hasLocalPreFailure) {
     parity = compareHashSets(options.preFailureHashes, restoredHashes);
@@ -747,8 +701,18 @@ function restoreBlobsAndParity(options: {
         `blob_manifest_sha256 mismatch vs baseline: expected=${expectedManifest} actual=${blob_manifest_sha256}`
       );
     } else if (!hasLocalPreFailure) {
-      // Baseline-only path: matched_objects from restored tree size.
+      // Baseline-only path: restored digests are the object identity set; treat
+      // pre/restored as equal when the baseline blob_manifest_sha256 matches.
       matched_objects = restoredHashes.hashes.length;
+      expected_object_identities = [...restored_object_identities];
+      parity = {
+        ok: true,
+        localCount: restoredHashes.hashes.length,
+        remoteCount: restoredHashes.hashes.length,
+        missingRemote: [],
+        extraRemote: [],
+        equal: true,
+      };
     }
   }
 
@@ -773,11 +737,19 @@ function restoreBlobsAndParity(options: {
   const finalOk =
     hardErrors.length === 0 && oracleOk && matched_objects > 0 && restoredHashes.fileCount > 0;
 
+  const preCount =
+    expected_object_identities.length > 0
+      ? expected_object_identities.length
+      : options.preFailureHashes.hashes.length;
+
   return {
     ok: finalOk,
     parity,
     matched_objects: finalOk || (hasBaselineManifest && manifestOk) || setOk ? matched_objects : 0,
     restored_blob_objects: restoredHashes.hashes.length,
+    pre_failure_blob_objects: preCount,
+    restored_object_identities,
+    expected_object_identities,
     snapshotId,
     repository: cfg.repository.replace(/\/\/([^@/]+)@/, '//***@'),
     blob_manifest_sha256,
@@ -1358,6 +1330,9 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   let blobParity: ParityCompareResult | null = null;
   let matched_objects = 0;
   let restored_blob_objects = 0;
+  let pre_failure_blob_objects = preBlobHashes.hashes.length;
+  let restored_object_identities: string[] = [];
+  let expected_object_identities: string[] = [...preBlobHashes.hashes];
   let restic_snapshot_id: string | null = null;
   let restic_repository: string | null = null;
   let blob_manifest_sha256: string | null = null;
@@ -1378,6 +1353,9 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     blobParity = blob.parity;
     matched_objects = blob.matched_objects;
     restored_blob_objects = blob.restored_blob_objects;
+    pre_failure_blob_objects = blob.pre_failure_blob_objects;
+    restored_object_identities = blob.restored_object_identities;
+    expected_object_identities = blob.expected_object_identities;
     restic_snapshot_id = blob.snapshotId;
     restic_repository = blob.repository;
     blob_manifest_sha256 = blob.blob_manifest_sha256;
@@ -1465,9 +1443,11 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
     sample_tx_windows: restoredLedger.sample_tx_windows,
     BLOB_PARITY_PASS: blobOk,
     matched_objects,
-    pre_failure_blob_objects: preBlobHashes.hashes.length,
+    pre_failure_blob_objects,
     restored_blob_objects,
     blob_parity: blobParity,
+    expected_object_identities,
+    restored_object_identities,
     restic_snapshot_id: restic_snapshot_id ?? loadedBaseline?.baseline.restic_snapshot_id ?? null,
     restic_repository,
     ...baselineFields,

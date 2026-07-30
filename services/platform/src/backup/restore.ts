@@ -32,6 +32,19 @@ import { dirname, join, resolve } from 'node:path';
 import { resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { type BackupConfig, endpointHost, loadBackupConfig } from './config.ts';
 import { listRepoPrefix, renderPgbackrestConfig, writePgbackrestConfig } from './r2-provision.ts';
+import {
+  pgToolEnv,
+  resolveTrustedPgCtlBin,
+  resolveTrustedPsqlBin,
+  validateRootOwnedBin as validateRootOwnedBinShared,
+} from './trusted-bin.ts';
+
+/** Re-export for descendant/hostile tests (GATE-FIX-S28R3-QA26). */
+export {
+  resolveTrustedPgCtlBin,
+  resolveTrustedPsqlBin,
+  validateRootOwnedBinShared as validateRootOwnedBin,
+};
 
 export type RestoreTargetAction = 'promote' | 'pause';
 
@@ -193,33 +206,11 @@ function resolveTrustedAwsBin(env: NodeJS.ProcessEnv = process.env): string | nu
 }
 
 /**
- * GATE-FIX-S28R3-QA25: absolute psql for restore probes — never bare PATH `psql`.
- * Prefer root-owned fixed candidates; allow absolute PSQL_BIN when root-owned;
- * last resort fixed absolute Homebrew/system paths that exist (local postmaster only).
- * Never returns bare `psql`.
+ * GATE-FIX-S28R3-QA26: absolute root-trusted psql only — never bare PATH or
+ * user-owned absolute/Homebrew fallback. Throws before credentials ambient.
  */
 function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env.PSQL_BIN?.trim() || env.POSTGRES_PSQL?.trim();
-  if (fromEnv) {
-    const trusted = validateRootOwnedBin(fromEnv);
-    if (trusted) return trusted;
-    // Absolute existing only — never relative/PATH bare name.
-    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
-  }
-  for (const candidate of ['/usr/local/bin/psql', '/usr/bin/psql'] as const) {
-    const t = validateRootOwnedBin(candidate);
-    if (t) return t;
-  }
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/psql',
-    '/usr/local/opt/postgresql@18/bin/psql',
-    '/opt/homebrew/bin/psql',
-    '/usr/lib/postgresql/18/bin/psql',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  // Fail closed with absolute sentinel — callers surface spawn failure; never PATH.
-  return '/usr/bin/psql';
+  return resolveTrustedPsqlBin(env);
 }
 
 /**
@@ -896,39 +887,15 @@ function readStartLog(pgdata: string, maxChars = 200_000): string {
 }
 
 /**
- * GATE-FIX-S28R3-QA25: absolute pg_ctl only — never bare PATH `pg_ctl`.
- * Prefer root-owned fixed candidates; allow absolute env override; fixed absolute
- * Homebrew/system paths for local postmaster. Never returns bare name.
+ * GATE-FIX-S28R3-QA26: absolute root-trusted pg_ctl only — never bare PATH or
+ * user-owned absolute/Homebrew fallback. Throws before credentials ambient.
  */
 function resolvePgCtlBin(env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env.PG_CTL_BIN?.trim() || env.POSTGRES_PG_CTL?.trim();
-  if (fromEnv) {
-    const trusted = validateRootOwnedBin(fromEnv);
-    if (trusted) return trusted;
-    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
-  }
-  for (const candidate of ['/usr/local/bin/pg_ctl', '/usr/bin/pg_ctl'] as const) {
-    const t = validateRootOwnedBin(candidate);
-    if (t) return t;
-  }
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
-    '/usr/local/opt/postgresql@18/bin/pg_ctl',
-    '/opt/homebrew/bin/pg_ctl',
-    '/usr/lib/postgresql/18/bin/pg_ctl',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  // Fail closed with absolute sentinel — never bare PATH discovery.
-  return '/usr/bin/pg_ctl';
+  return resolveTrustedPgCtlBin(env);
 }
 
 function pgCtlEnv(pgdata: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return {
-    ...env,
-    PGDATA: pgdata,
-    PATH: '/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
-  };
+  return pgToolEnv(env, { PGDATA: pgdata });
 }
 
 function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
@@ -999,7 +966,7 @@ function probeRecoveryState(
   const psql = resolvePsqlBin(env);
   for (const attempt of attempts) {
     const probe = run(psql, attempt.args, {
-      env: { ...env, PGDATA: pgdata, PGHOST: attempt.host },
+      env: pgToolEnv(env, { PGDATA: pgdata, PGHOST: attempt.host }),
       timeoutMs: 10_000,
     });
     if (probe.status !== 0) continue;
@@ -1374,7 +1341,7 @@ export function queryRecoveryStopObservation(
   const psql = resolvePsqlBin(env);
   for (const attempt of attempts) {
     const res = run(psql, attempt.args, {
-      env: { ...env, PGDATA: pgdata, PGHOST: attempt.host },
+      env: pgToolEnv(env, { PGDATA: pgdata, PGHOST: attempt.host }),
       timeoutMs: 15_000,
     });
     if (res.status !== 0 || !res.stdout.trim()) continue;

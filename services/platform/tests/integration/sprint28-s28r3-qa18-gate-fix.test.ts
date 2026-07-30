@@ -117,7 +117,10 @@ describe('GATE-FIX-S28R3-QA18 production isolation contracts', () => {
     expect(fire).not.toMatch(/BUN_INSTALL BUN_INSTALL_CACHE_DIR NODE_PATH/);
     // Production child credentials via FD 3 + exec-env-from-fd (never env -i KEY=secret on argv).
     expect(fire).toMatch(/exec-env-from-fd\.py/);
-    expect(fire).toMatch(/for _pair in "\$\{CHILD_ENV_ARGS\[@\]\}"/);
+    // GATE-FIX-S28R3-QA25/QA26: sealed FD transport uses CHILD_ENV_KEYS + seal-env-to-file
+    // (CHILD_ENV_ARGS KEY=val loop removed — would put secrets on argv).
+    expect(fire).toMatch(/CHILD_ENV_KEYS/);
+    expect(fire).toMatch(/seal-env-to-file|exec-env-from-fd/);
     expect(fire).not.toMatch(/\/usr\/bin\/env -i "\$\{CHILD_ENV_ARGS\[@\]\}"/);
 
     const prov = readFileSync(PROD_PROV, 'utf8');

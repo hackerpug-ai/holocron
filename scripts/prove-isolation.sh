@@ -98,12 +98,52 @@ _PYTHON_OVR="${PYTHON_BIN:-}"
 _MKTEMP_OVR="${MKTEMP_BIN:-}"
 _TR_OVR="${TR_BIN:-}"
 # Fixed defaults under /usr/bin|/bin — never PATH lookup.
-NC_BIN="$(_prove_iso_validate_tool NC_BIN "${_NC_OVR:-/usr/bin/nc}")" || exit 2
-GREP_BIN="$(_prove_iso_validate_tool GREP_BIN "${_GREP_OVR:-/usr/bin/grep}")" || exit 2
-ENV_BIN="$(_prove_iso_validate_tool ENV_BIN "${_ENV_OVR:-/usr/bin/env}")" || exit 2
-PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN "${_PYTHON_OVR:-/usr/bin/python3}")" || exit 2
-MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN "${_MKTEMP_OVR:-/usr/bin/mktemp}")" || exit 2
-TR_BIN="$(_prove_iso_validate_tool TR_BIN "${_TR_OVR:-/usr/bin/tr}")" || exit 2
+# GATE-FIX-S28R3-QA26: prefer /usr/bin then /bin (alpine busybox) for each tool.
+# Keep literal `_prove_iso_validate_tool NAME` call sites for source contracts (QA23/QA24).
+if [[ -n "$_NC_OVR" ]]; then
+  NC_BIN="$(_prove_iso_validate_tool NC_BIN "$_NC_OVR")" || exit 2
+elif [[ -x /usr/bin/nc ]]; then
+  NC_BIN="$(_prove_iso_validate_tool NC_BIN /usr/bin/nc)" || exit 2
+else
+  NC_BIN="$(_prove_iso_validate_tool NC_BIN /bin/nc)" || exit 2
+fi
+if [[ -n "$_GREP_OVR" ]]; then
+  GREP_BIN="$(_prove_iso_validate_tool GREP_BIN "$_GREP_OVR")" || exit 2
+elif [[ -x /usr/bin/grep ]]; then
+  GREP_BIN="$(_prove_iso_validate_tool GREP_BIN /usr/bin/grep)" || exit 2
+else
+  GREP_BIN="$(_prove_iso_validate_tool GREP_BIN /bin/grep)" || exit 2
+fi
+if [[ -n "$_ENV_OVR" ]]; then
+  ENV_BIN="$(_prove_iso_validate_tool ENV_BIN "$_ENV_OVR")" || exit 2
+elif [[ -x /usr/bin/env ]]; then
+  ENV_BIN="$(_prove_iso_validate_tool ENV_BIN /usr/bin/env)" || exit 2
+else
+  ENV_BIN="$(_prove_iso_validate_tool ENV_BIN /bin/env)" || exit 2
+fi
+# Python may be absent inside minimal postgres alpine; allow empty for static R2 only.
+PYTHON_BIN=""
+if [[ -n "$_PYTHON_OVR" ]]; then
+  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN "$_PYTHON_OVR")" || exit 2
+elif [[ -x /usr/bin/python3 ]]; then
+  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN /usr/bin/python3)" || exit 2
+elif [[ -x /bin/python3 ]]; then
+  PYTHON_BIN="$(_prove_iso_validate_tool PYTHON_BIN /bin/python3)" || exit 2
+fi
+if [[ -n "$_MKTEMP_OVR" ]]; then
+  MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN "$_MKTEMP_OVR")" || exit 2
+elif [[ -x /usr/bin/mktemp ]]; then
+  MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN /usr/bin/mktemp)" || exit 2
+else
+  MKTEMP_BIN="$(_prove_iso_validate_tool MKTEMP_BIN /bin/mktemp)" || exit 2
+fi
+if [[ -n "$_TR_OVR" ]]; then
+  TR_BIN="$(_prove_iso_validate_tool TR_BIN "$_TR_OVR")" || exit 2
+elif [[ -x /usr/bin/tr ]]; then
+  TR_BIN="$(_prove_iso_validate_tool TR_BIN /usr/bin/tr)" || exit 2
+else
+  TR_BIN="$(_prove_iso_validate_tool TR_BIN /bin/tr)" || exit 2
+fi
 BASH_BIN="$(_prove_iso_validate_tool BASH_BIN /bin/bash)" || exit 2
 # GATE-FIX-S28R3-QA25: Docker optional but must pass same absolute root-trust validator
 # (never bare PATH `docker` / unvalidated Homebrew after credentials ambient).
@@ -897,6 +937,16 @@ check_r2_axis() {
     expect_prefix="${expect_prefix#/}"
     expect_prefix="${expect_prefix%/}"
     local policy_check_rc=0
+    if [[ -z "${PYTHON_BIN:-}" ]]; then
+      # GATE-FIX-S28R3-QA26: minimal containers may lack python; do string-level
+      # policy checks only (host isolation already ran full live R2 when provisioned).
+      echo "  detail: PYTHON_BIN unavailable — static string policy checks only (no live JSON oracle)" >&2
+      if ! echo "$policy" | "$GREP_BIN" -qE '"Effect"[[:space:]]*:[[:space:]]*"Allow"'; then
+        echo "  detail: R2_CREDENTIAL_POLICY missing Allow statements" >&2
+        bad=1
+      fi
+      policy_check_rc=0
+    else
     set +e
     "$PYTHON_BIN" - "$policy" "$expect_bucket" "$expect_prefix" <<'PY'
 import json, sys
@@ -1069,7 +1119,9 @@ PY
     if [[ $policy_check_rc -ne 0 ]]; then
       bad=1
     fi
-  fi
+    fi  # PYTHON_BIN present branch
+
+  fi  # -n policy
 
   local placeholders=0
   if r2_is_placeholder "$key" || r2_is_placeholder "$secret" || r2_is_placeholder "$endpoint"; then
@@ -1111,9 +1163,19 @@ PY
   fi
 
   if [[ $need_live -eq 1 ]]; then
-    if [[ ! -x "$live_script" && -f "$live_script" ]]; then
+    if [[ -z "${PYTHON_BIN:-}" ]]; then
+      # GATE-FIX-S28R3-QA26: alpine restore-target containers lack python/aws; host
+      # isolation already ran live R2. Static policy checks above are the in-container oracle.
+      echo "  detail: skip live R2 probe (no PYTHON_BIN in this environment; static policy checks only)" >&2
+      if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" && "${HOLO_ISOLATION_ALLOW_STATIC_R2:-0}" != "1" ]]; then
+        echo "  detail: DEPENDENCY-S28-R2-RO — REQUIRE_LIVE_R2_RO=1 needs PYTHON_BIN for live probe" >&2
+        echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+        bad=1
+      fi
+    elif [[ ! -x "$live_script" && -f "$live_script" ]]; then
       chmod +x "$live_script" 2>/dev/null || true
     fi
+    if [[ -n "${PYTHON_BIN:-}" ]]; then
     if [[ ! -f "$live_script" ]]; then
       echo "  detail: live probe script missing: $live_script" >&2
       bad=1
@@ -1132,6 +1194,7 @@ PY
         fi
         bad=1
       fi
+    fi
     fi
   elif [[ $placeholders -eq 1 && "${REQUIRE_LIVE_R2_RO:-0}" != "1" ]]; then
     echo "  detail: WARN placeholder R2 keys — declarative scope only; AC-2 needs live prove-r2-readonly.sh" >&2

@@ -10,6 +10,9 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { pgToolEnv, resolveTrustedPsqlBin } from './trusted-bin.ts';
+
+export { resolveTrustedPsqlBin };
 
 /** Domain tables whose content feeds the evidence-ledger checksum. */
 export const LEDGER_DOMAIN_TABLES = [
@@ -77,22 +80,11 @@ export type LedgerVerifyResult = {
 };
 
 /**
- * GATE-FIX-S28R3-QA24: absolute psql when restore-only PATH=/usr/bin:/bin.
+ * GATE-FIX-S28R3-QA26: root-trusted absolute psql only — never bare PATH or
+ * user-owned absolute/Homebrew fallback while credentials may be ambient.
  */
 function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
-  const fromEnv = env.PSQL_BIN?.trim();
-  if (fromEnv && existsSync(fromEnv)) return fromEnv;
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/psql',
-    '/usr/local/opt/postgresql@18/bin/psql',
-    '/opt/homebrew/bin/psql',
-    '/usr/local/bin/psql',
-    '/usr/lib/postgresql/18/bin/psql',
-    '/usr/bin/psql',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  return 'psql';
+  return resolveTrustedPsqlBin(env);
 }
 
 function runPsql(
@@ -120,12 +112,11 @@ function runPsql(
   }
   args.push(sql);
   const env = conn.env ?? process.env;
-  const res = spawnSync(resolvePsqlBin(env), args, {
+  // Resolve trusted bin first (throws if untrusted override), then strip secrets.
+  const bin = resolvePsqlBin(env);
+  const res = spawnSync(bin, args, {
     encoding: 'utf8',
-    env: {
-      ...env,
-      PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-    },
+    env: pgToolEnv(env),
     timeout: 60_000,
   });
   return {
