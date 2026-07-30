@@ -155,7 +155,7 @@ describe('GATE-FIX-S28R3-QA23 absolute executables on credential stream', () => 
     expect(all).toMatch(/\/bin\/mkdir /);
   });
 
-  it('credential child scripts bind absolute grep/nc/env/python3 (source contract)', () => {
+  it('credential child scripts bind absolute grep/nc/env/python3/docker (source contract)', () => {
     const prove = readFileSync(PROD_PROVE, 'utf8');
     expect(prove).toMatch(/\/usr\/bin\/grep/);
     expect(prove).not.toMatch(/\|\s+grep\s+-/);
@@ -177,18 +177,44 @@ describe('GATE-FIX-S28R3-QA23 absolute executables on credential stream', () => 
     const fire = readFileSync(PROD_FIRE, 'utf8');
     expect(fire).toMatch(/exec-env-from-fd\.py/);
     expect(fire).not.toMatch(/\/usr\/bin\/env -i "\$\{CHILD_ENV_ARGS\[@\]\}"/);
+    // GATE-FIX-S28R3-QA23 cycle2: absolute docker/grep — never PATH/command -v
+    expect(fire).toMatch(/DOCKER_BIN=""/);
+    expect(fire).toMatch(
+      /\/usr\/bin\/docker \/usr\/local\/bin\/docker \/opt\/homebrew\/bin\/docker/
+    );
+    expect(fire).toMatch(/GREP_BIN="\$\{GREP_BIN:-\/usr\/bin\/grep\}"/);
+    expect(fire).toMatch(/"\$DOCKER_BIN"/);
+    expect(fire).toMatch(/"\$GREP_BIN"/);
+    expect(fire).not.toMatch(/command -v docker/);
+    expect(fire).not.toMatch(/(?:^|[\s;|&`])docker (volume|inspect|rm|compose|exec|logs|info)\b/m);
+    expect(fire).not.toMatch(/\|\s*grep\s+-/);
 
     const live = readFileSync(PROD_LIVE, 'utf8');
     expect(live).toMatch(/exec-env-from-fd\.py/);
     expect(live).not.toMatch(/"\$env_bin" -i "\$\{pairs\[@\]\}"/);
+    // Fingerprint fields must not ride provider argv
+    expect(live).toMatch(/fp16 --from-fd3/);
+    expect(live).not.toMatch(/"\$provider" fp16 "\$@"/);
+    expect(live).not.toMatch(/\$provider" fp16 "\$@/);
 
     const prov = readFileSync(PROD_PROV, 'utf8');
     expect(prov).toMatch(/--env-file/);
     expect(prov).not.toMatch(/docker exec \\\s*\n\s*-e "R2_SECRET_ACCESS_KEY=/);
+    expect(prov).toMatch(/DOCKER_BIN=""/);
+    expect(prov).toMatch(
+      /\/usr\/bin\/docker \/usr\/local\/bin\/docker \/opt\/homebrew\/bin\/docker/
+    );
+    expect(prov).toMatch(/"\$DOCKER_BIN"/);
+    expect(prov).not.toMatch(/command -v docker/);
+    expect(prov).not.toMatch(/(?:^|[\s;|&`])docker (volume|inspect|rm|compose|exec|logs|info)\b/m);
 
     const fireSh = readFileSync(PROD_FIRE_SH, 'utf8');
     expect(fireSh).toMatch(/\/usr\/local\/bin\/bun|root-owned bun/);
     expect(fireSh).not.toMatch(/^exec bun /m);
+
+    const provider = readFileSync(resolve(REPO_ROOT, 'scripts/lib/r2_s3_provider.py'), 'utf8');
+    expect(provider).toMatch(/--from-fd3/);
+    expect(provider).toMatch(/os\.read\(3/);
   });
 
   it('base-backup.ts and r2-provision.ts use validateRootOwnedBin; no bare PATH pgbackrest', () => {
@@ -385,13 +411,239 @@ echo "PASS: production transport boundary secret-free argv"
     expect(live).toMatch(/FD 3 carries KEY=VAL/);
   });
 
-  it('fire-drill production child launch uses exec-env-from-fd (not env -i secrets)', () => {
+  it('fingerprint path: r2_ro_tuple_fp16 canaries never appear on python argv', () => {
+    const probeDir = resolve(EVIDENCE, 'transport-boundary');
+    mkdirSync(probeDir, { recursive: true });
+    const argvLog = resolve(probeDir, 'fp16-argv.txt');
+    const fpOut = resolve(probeDir, 'fp16-out.txt');
+    const script = `#!/bin/bash
+set -euo pipefail
+ROOT=${JSON.stringify(REPO_ROOT)}
+source "$ROOT/scripts/lib/r2-ro-live.sh"
+r2_ro_init_trusted_helpers || true
+CANARY_SK=${JSON.stringify(CANARY_SK)}
+CANARY_AK=${JSON.stringify(CANARY_AK)}
+CANARY_ST=${JSON.stringify(CANARY_ST)}
+ARGV_LOG=${JSON.stringify(argvLog)}
+FP_OUT=${JSON.stringify(fpOut)}
+# Run fingerprint in background with a tiny delay so ps can sample the python cmdline.
+(
+  # Slow the provider slightly via python -c wrapper is not allowed — instead
+  # sample while calling production r2_ro_tuple_fp16 (fast). Capture via /bin/ps
+  # during a loop that invokes many times with a sleep helper on FD sample side.
+  for _i in 1 2 3 4 5 6 7 8 9 10; do
+    r2_ro_tuple_fp16 "$CANARY_AK" "$CANARY_SK" "$CANARY_ST" >>"$FP_OUT" 2>/dev/null || true
+    printf '\\n' >>"$FP_OUT"
+  done
+) &
+child=$!
+# Concurrent ps sampling while fingerprints run
+for _j in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  ps -ax -o args= 2>/dev/null | /usr/bin/head -n 8000 >>"$ARGV_LOG" || true
+  sleep 0.02
+done
+wait "$child" || true
+# Fail closed if canaries appear in captured argv dump
+if /usr/bin/grep -Fq "$CANARY_SK" "$ARGV_LOG"; then
+  echo "FAIL: secret on fingerprint argv" >&2
+  exit 2
+fi
+if /usr/bin/grep -Fq "$CANARY_AK" "$ARGV_LOG"; then
+  echo "FAIL: access key on fingerprint argv" >&2
+  exit 2
+fi
+if /usr/bin/grep -Fq "$CANARY_ST" "$ARGV_LOG"; then
+  echo "FAIL: session token on fingerprint argv" >&2
+  exit 2
+fi
+# Fingerprint must still produce 16-hex (functional)
+if ! /usr/bin/grep -E '^[0-9a-f]{16}$' "$FP_OUT" >/dev/null; then
+  echo "FAIL: fp16 did not produce 16-hex" >&2
+  /bin/cat "$FP_OUT" >&2 || true
+  exit 2
+fi
+# Cross-check: FD-3 path matches positional hash of same fields
+expected="$(/usr/bin/python3 -E -s -c 'import hashlib,sys; print(hashlib.sha256((sys.argv[1]+"\\0"+sys.argv[2]+"\\0"+sys.argv[3]).encode()).hexdigest()[:16], end="")' "$CANARY_AK" "$CANARY_SK" "$CANARY_ST")"
+got="$(/usr/bin/head -1 "$FP_OUT" | /usr/bin/tr -d '\\n')"
+if [[ "$got" != "$expected" ]]; then
+  echo "FAIL: fp16 mismatch got=$got expected=$expected" >&2
+  exit 2
+fi
+echo "PASS: fingerprint path secret-free argv"
+`;
+    const probe = resolve(probeDir, 'fp16-probe.sh');
+    writeFileSync(probe, script);
+    chmodSync(probe, 0o755);
+    const run = spawnSync('/bin/bash', [probe], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: { PATH: '/usr/bin:/bin', HOME: process.env.HOME, LC_ALL: 'C' },
+    });
+    const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    writeEv('fp16-boundary.json', {
+      status: run.status,
+      out: redact(combined.slice(0, 3000)),
+      argvSample: existsSync(argvLog) ? redact(readFileSync(argvLog, 'utf8').slice(0, 2000)) : '',
+      fpOut: existsSync(fpOut) ? redact(readFileSync(fpOut, 'utf8').slice(0, 500)) : '',
+    });
+    expect(combined).not.toContain(CANARY_SK);
+    expect(combined).not.toContain(CANARY_ST);
+    expect(run.status, combined).toBe(0);
+    expect(combined).toMatch(/PASS: fingerprint path secret-free argv/);
+  });
+
+  it('fire-drill production child launch path: dynamic canary (shared exec-env-from-fd)', () => {
+    // Source contract
     const src = readFileSync(PROD_FIRE, 'utf8');
     expect(src).toMatch(/exec-env-from-fd\.py/);
     expect(src).toMatch(/for _pair in "\$\{CHILD_ENV_ARGS\[@\]\}"/);
     expect(src).not.toMatch(/\/usr\/bin\/env -i "\$\{CHILD_ENV_ARGS\[@\]\}"/);
-    // Redactor still FD 3
     expect(src).toMatch(/exec 3< <\(printf '%s\\0' "\$RESTORE_AK"/);
+
+    // Dynamic canary: replay the exact production launch pattern used by fire-drill
+    // (FD 3 KEY=VAL pairs → exec-env-from-fd.py → absolute child), with canary secrets.
+    const probeDir = resolve(EVIDENCE, 'transport-boundary');
+    mkdirSync(probeDir, { recursive: true });
+    const argvLog = resolve(probeDir, 'fire-drill-launch-argv.txt');
+    const childOut = resolve(probeDir, 'fire-drill-launch-child.txt');
+    const evidenceScan = resolve(probeDir, 'fire-drill-launch-artifacts');
+    rmSync(evidenceScan, { recursive: true, force: true });
+    mkdirSync(evidenceScan, { recursive: true });
+    const script = `#!/bin/bash
+set -euo pipefail
+ROOT=${JSON.stringify(REPO_ROOT)}
+CANARY_SK=${JSON.stringify(CANARY_SK)}
+CANARY_AK=${JSON.stringify(CANARY_AK)}
+CANARY_ST=${JSON.stringify(CANARY_ST)}
+ARGV_LOG=${JSON.stringify(argvLog)}
+CHILD_OUT=${JSON.stringify(childOut)}
+EVID=${JSON.stringify(evidenceScan)}
+EXEC_FD="$ROOT/scripts/lib/exec-env-from-fd.py"
+# Exact production pattern from run-fire-drill-on-fresh-target.sh:
+# CHILD_ENV_ARGS include restore secrets; launch via FD 3 + exec-env-from-fd.
+CHILD_ENV_ARGS=(
+  "PATH=/usr/bin:/bin"
+  "HOME=/tmp"
+  "LC_ALL=C"
+  "R2_ACCESS_KEY_ID=$CANARY_AK"
+  "R2_SECRET_ACCESS_KEY=$CANARY_SK"
+  "R2_RESTORE_ACCESS_KEY_ID=$CANARY_AK"
+  "R2_RESTORE_SECRET_ACCESS_KEY=$CANARY_SK"
+  "R2_SESSION_TOKEN=$CANARY_ST"
+  "R2_RESTORE_SESSION_TOKEN=$CANARY_ST"
+)
+_child_log="$(/usr/bin/mktemp "$EVID/holo-fire-drill-child.XXXXXX")"
+set +e
+exec 3< <(
+  for _pair in "\${CHILD_ENV_ARGS[@]}"; do
+    printf '%s\\0' "$_pair"
+  done
+)
+# Child sleeps so argv sampling can observe the python launcher
+/usr/bin/python3 -E -s "$EXEC_FD" -- /bin/bash -c 'sleep 0.3; /bin/echo FIRE_CHILD_OK; /usr/bin/env | /usr/bin/grep -E "^(PATH|HOME|LC_ALL)=" || true' >"$_child_log" 2>&1 &
+child=$!
+sleep 0.05
+ps -ax -o args= 2>/dev/null | /usr/bin/head -n 8000 >"$ARGV_LOG" || true
+wait "$child" || true
+exec 3<&- 2>/dev/null || true
+# Redact path (same FD-3 redactor pattern as production) into durable evidence
+exec 3< <(printf '%s\\0' "$CANARY_AK" "$CANARY_SK" "$CANARY_ST")
+/usr/bin/python3 -E -s - "$_child_log" <<'PY' >"$CHILD_OUT"
+import os, re, sys
+path = sys.argv[1]
+try:
+    raw = os.read(3, 1 << 20)
+except OSError:
+    raw = b""
+parts = raw.split(b"\\0")
+ak = parts[0].decode("utf-8", "replace") if len(parts) > 0 else ""
+sk = parts[1].decode("utf-8", "replace") if len(parts) > 1 else ""
+st = parts[2].decode("utf-8", "replace") if len(parts) > 2 else ""
+try:
+    text = open(path, "r", errors="replace").read()
+except OSError:
+    sys.exit(0)
+for secret in (sk, ak, st):
+    if secret:
+        text = text.replace(secret, "[redacted]")
+sys.stdout.write(text)
+PY
+exec 3<&- 2>/dev/null || true
+/bin/cp "$_child_log" "$EVID/raw-child-log.txt" 2>/dev/null || true
+# Fail if canaries on launcher argv
+if /usr/bin/grep -Fq "$CANARY_SK" "$ARGV_LOG"; then
+  echo "FAIL: secret on fire-drill launch argv" >&2
+  exit 2
+fi
+if /usr/bin/grep -Fq "$CANARY_AK" "$ARGV_LOG"; then
+  echo "FAIL: access key on fire-drill launch argv" >&2
+  exit 2
+fi
+if /usr/bin/grep -Fq "$CANARY_ST" "$ARGV_LOG"; then
+  echo "FAIL: session token on fire-drill launch argv" >&2
+  exit 2
+fi
+/usr/bin/grep -q FIRE_CHILD_OK "$CHILD_OUT"
+# Recursively scan produced evidence/artifacts for canary secrets
+# (raw child log is allowed to hold env dump of secrets if child printed them —
+# production redacts before evidence write; we scan redacted CHILD_OUT + argv +
+# any other files that are intended as durable evidence.)
+scan_fail=0
+while IFS= read -r -d '' f; do
+  case "$f" in
+    */raw-child-log.txt|*/holo-fire-drill-child.*) continue ;;
+  esac
+  if /usr/bin/grep -Fq "$CANARY_SK" "$f" 2>/dev/null; then
+    echo "FAIL: secret in evidence artifact $f" >&2
+    scan_fail=1
+  fi
+  if /usr/bin/grep -Fq "$CANARY_ST" "$f" 2>/dev/null; then
+    echo "FAIL: session token in evidence artifact $f" >&2
+    scan_fail=1
+  fi
+done < <(/usr/bin/find "$EVID" -type f -print0 2>/dev/null)
+# Also scan CHILD_OUT and ARGV_LOG
+for f in "$CHILD_OUT" "$ARGV_LOG"; do
+  if /usr/bin/grep -Fq "$CANARY_SK" "$f" 2>/dev/null; then
+    echo "FAIL: secret in $f" >&2
+    scan_fail=1
+  fi
+done
+[[ "$scan_fail" -eq 0 ]] || exit 2
+echo "PASS: fire-drill launch path secret-free argv + evidence clean"
+`;
+    const probe = resolve(probeDir, 'fire-drill-launch-probe.sh');
+    writeFileSync(probe, script);
+    chmodSync(probe, 0o755);
+    const run = spawnSync('/bin/bash', [probe], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: { PATH: '/usr/bin:/bin', HOME: process.env.HOME, LC_ALL: 'C' },
+    });
+    const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
+    writeEv('fire-drill-launch-boundary.json', {
+      status: run.status,
+      out: redact(combined.slice(0, 3000)),
+      argvSample: existsSync(argvLog) ? redact(readFileSync(argvLog, 'utf8').slice(0, 2000)) : '',
+      childOut: existsSync(childOut) ? redact(readFileSync(childOut, 'utf8').slice(0, 1000)) : '',
+    });
+    // Recursive scan of transport-boundary evidence for canaries
+    for (const f of walkFiles(probeDir)) {
+      if (f.endsWith('.sh') || f.includes('raw-child-log') || f.includes('holo-fire-drill-child')) {
+        continue;
+      }
+      const body = readFileSync(f, 'utf8');
+      // Skip binary-ish; only text evidence
+      if (body.includes('\0')) continue;
+      expect(body, f).not.toContain(CANARY_SK);
+      expect(body, f).not.toContain(CANARY_ST);
+    }
+    expect(combined).not.toContain(CANARY_SK);
+    expect(combined).not.toContain(CANARY_ST);
+    expect(run.status, combined).toBe(0);
+    expect(combined).toMatch(/PASS: fire-drill launch path/);
   });
 
   it('exec-env-from-fd.py rejects non-absolute command and never needs secrets on argv', () => {

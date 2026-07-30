@@ -28,7 +28,9 @@ def main() -> None:
         sp.add_argument("--bucket", required=True)
 
     # GATE-FIX-S28R3-QA17: fingerprint helper (same as production provider).
+    # GATE-FIX-S28R3-QA23: --from-fd3 reads NUL-separated fields (secret-free argv).
     sp = sub.add_parser("fp16")
+    sp.add_argument("--from-fd3", action="store_true")
     sp.add_argument("field", nargs="*")
 
     sp = sub.add_parser("list-prefix")
@@ -70,7 +72,18 @@ def main() -> None:
         or sk.startswith("sk_parent")
     )
     if args.cmd == "fp16":
-        raw = b"\0".join(f.encode("utf-8") for f in (args.field or []))
+        if getattr(args, "from_fd3", False):
+            try:
+                raw_fd = os.read(3, 1 << 22)
+            except OSError:
+                raw_fd = b""
+            parts_b = raw_fd.split(b"\0")
+            if parts_b and parts_b[-1] == b"":
+                parts_b = parts_b[:-1]
+            fields = [p.decode("utf-8", "surrogateescape") for p in parts_b]
+        else:
+            fields = list(args.field or [])
+        raw = b"\0".join(f.encode("utf-8") for f in fields)
         print(hashlib.sha256(raw).hexdigest()[:16], end="")
         raise SystemExit(0)
     cmd = args.cmd

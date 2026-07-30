@@ -70,8 +70,22 @@ def _encode_s3_path(bucket: str, key: str | None = None) -> str:
 
 
 def cmd_fp16(args: argparse.Namespace) -> None:
-    """Hash NUL-separated fields to 16-hex fingerprint (no openssl)."""
-    parts = args.field if args.field is not None else []
+    """Hash NUL-separated fields to 16-hex fingerprint (no openssl).
+
+    GATE-FIX-S28R3-QA23: prefer --from-fd3 so secret fields never appear on argv.
+    FD 3 carries field\\0field\\0... (empty fields preserved; trailing split empty dropped).
+    """
+    if getattr(args, "from_fd3", False):
+        try:
+            raw_fd = os.read(3, 1 << 22)
+        except OSError:
+            raw_fd = b""
+        parts_b = raw_fd.split(b"\0")
+        if parts_b and parts_b[-1] == b"":
+            parts_b = parts_b[:-1]
+        parts = [p.decode("utf-8", "surrogateescape") for p in parts_b]
+    else:
+        parts = args.field if args.field is not None else []
     raw = b"\0".join(p.encode("utf-8") for p in parts)
     print(hashlib.sha256(raw).hexdigest()[:16], end="")
 
@@ -316,7 +330,12 @@ def main(argv: list[str] | None = None) -> None:
         sp.add_argument("--bucket", required=True)
 
     sp = sub.add_parser("fp16")
-    sp.add_argument("field", nargs="*", help="fields hashed with NUL separators")
+    sp.add_argument(
+        "--from-fd3",
+        action="store_true",
+        help="read NUL-separated fields from FD 3 (never put secrets on argv)",
+    )
+    sp.add_argument("field", nargs="*", help="fields hashed with NUL separators (prefer --from-fd3)")
     sp.set_defaults(func=cmd_fp16)
     sp = sub.add_parser("list-prefix")
     add_common(sp)

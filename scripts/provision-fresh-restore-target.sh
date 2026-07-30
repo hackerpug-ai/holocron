@@ -30,6 +30,13 @@ cd "$ROOT"
 # shellcheck source=scripts/lib/r2-ro-live.sh
 source "$ROOT/scripts/lib/r2-ro-live.sh"
 
+# GATE-FIX-S28R3-QA23: absolute docker only (no PATH lookup while credentials ambient).
+# Same trusted candidate list as prove-isolation / gate-plan consumers.
+DOCKER_BIN=""
+for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do
+  if [[ -x "$_d" ]]; then DOCKER_BIN="$_d"; break; fi
+done
+
 HOST_NAME=""
 MINI_HOST="${MINI_HOST:-203.0.113.1}" # TEST-NET-3 — unroutable by design for local drills
 DRY_RUN=0
@@ -559,7 +566,7 @@ EOF
 chmod +x "$PROBE_WRAPPER"
 
 docker_available() {
-  command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
+  [[ -n "${DOCKER_BIN:-}" && -x "$DOCKER_BIN" ]] && "$DOCKER_BIN" info >/dev/null 2>&1
 }
 
 CONTAINER_STARTED=0
@@ -567,40 +574,40 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   log "dry-run: skip docker start (compose + env ready under $TARGET_DIR)"
 elif docker_available; then
   log "docker available — bringing up ${HOST_NAME}"
-  docker rm -f "$HOST_NAME" >/dev/null 2>&1 || true
-  docker volume rm -f "$VOLUME_PGDATA" "$VOLUME_BLOB" >/dev/null 2>&1 || true
+  "$DOCKER_BIN" rm -f "$HOST_NAME" >/dev/null 2>&1 || true
+  "$DOCKER_BIN" volume rm -f "$VOLUME_PGDATA" "$VOLUME_BLOB" >/dev/null 2>&1 || true
   (
     cd "$TARGET_DIR"
-    docker compose -f docker-compose.yml pull 2>/dev/null || true
-    docker compose -f docker-compose.yml up -d
+    "$DOCKER_BIN" compose -f docker-compose.yml pull 2>/dev/null || true
+    "$DOCKER_BIN" compose -f docker-compose.yml up -d
   )
   log "waiting for container health (${HOST_NAME})"
   for _ in $(seq 1 40); do
-    if docker exec "$HOST_NAME" postgres --version >/dev/null 2>&1 \
-      && docker exec "$HOST_NAME" test -d "$CONTAINER_PGDATA" \
-      && docker exec "$HOST_NAME" test -d "$CONTAINER_BLOB"; then
+    if "$DOCKER_BIN" exec "$HOST_NAME" postgres --version >/dev/null 2>&1 \
+      && "$DOCKER_BIN" exec "$HOST_NAME" test -d "$CONTAINER_PGDATA" \
+      && "$DOCKER_BIN" exec "$HOST_NAME" test -d "$CONTAINER_BLOB"; then
       break
     fi
     sleep 1
   done
-  if ! docker exec "$HOST_NAME" postgres --version >/dev/null 2>&1; then
+  if ! "$DOCKER_BIN" exec "$HOST_NAME" postgres --version >/dev/null 2>&1; then
     echo "error: container ${HOST_NAME} did not become ready" >&2
-    docker logs "$HOST_NAME" 2>&1 | tail -50 >&2 || true
+    "$DOCKER_BIN" logs "$HOST_NAME" 2>&1 | /usr/bin/tail -50 >&2 || true
     exit 1
   fi
   # AC-3 inside container: empty dirs
-  in_pg="$(docker exec "$HOST_NAME" sh -c "find '${CONTAINER_PGDATA}' -mindepth 1 | wc -l" | tr -d ' ')"
-  in_blob="$(docker exec "$HOST_NAME" sh -c "find '${CONTAINER_BLOB}' -mindepth 1 | wc -l" | tr -d ' ')"
+  in_pg="$("$DOCKER_BIN" exec "$HOST_NAME" sh -c "find '${CONTAINER_PGDATA}' -mindepth 1 | wc -l" | /usr/bin/tr -d ' ')"
+  in_blob="$("$DOCKER_BIN" exec "$HOST_NAME" sh -c "find '${CONTAINER_BLOB}' -mindepth 1 | wc -l" | /usr/bin/tr -d ' ')"
   if [[ "$in_pg" != "0" || "$in_blob" != "0" ]]; then
     echo "error: container PGDATA/blob not empty (pg=${in_pg} blob=${in_blob})" >&2
     exit 1
   fi
-  docker exec "$HOST_NAME" postgres --version
+  "$DOCKER_BIN" exec "$HOST_NAME" postgres --version
   CONTAINER_STARTED=1
   log "container ${HOST_NAME} is up (network=${NETWORK_NAME})"
 else
   log "WARNING: Docker daemon not available — wrote compose/env/dirs only"
-  log "  start Docker/Colima then re-run, or: (cd $TARGET_DIR && docker compose up -d)"
+  log "  start Docker/Colima then re-run, or: (cd $TARGET_DIR && ${DOCKER_BIN:-docker} compose up -d)"
 fi
 
 DOC_PATHS_FILE="${TARGET_DIR}/paths.txt"
@@ -638,13 +645,10 @@ fi
 if [[ "$CONTAINER_STARTED" -eq 1 && "$SKIP_ISOLATION" -eq 0 ]]; then
   log "running prove-isolation inside container ${HOST_NAME}"
   set +e
-  # GATE-FIX-S28R3-QA23: never docker exec -e KEY=secret (secrets on argv).
-  # Use a 0600 env-file; docker argv sees only the path, not secret values.
-  DOCKER=""
-  for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do
-    [[ -x "$_d" ]] && DOCKER="$_d" && break
-  done
-  [[ -n "$DOCKER" ]] || { echo "error: docker absolute executable not found" >&2; exit 2; }
+  # GATE-FIX-S28R3-QA23: never pass KEY=secret via -e on container exec argv.
+  # Use a 0600 env-file; absolute DOCKER_BIN argv sees only the path, not secret values.
+  # DOCKER_BIN bound once at script top (absolute trusted candidates only).
+  [[ -n "${DOCKER_BIN:-}" && -x "$DOCKER_BIN" ]] || { echo "error: docker absolute executable not found" >&2; exit 2; }
   _envf="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-prov-ro-env.XXXXXX")"
   /bin/chmod 600 "$_envf"
   {
@@ -656,7 +660,7 @@ if [[ "$CONTAINER_STARTED" -eq 1 && "$SKIP_ISOLATION" -eq 0 ]]; then
     printf 'R2_BUCKET_NAME=%s\n' "$R2_BUCKET_NAME"
     printf 'R2_ENDPOINT=%s\n' "$R2_ENDPOINT"
   } >"$_envf"
-  "$DOCKER" exec --env-file "$_envf" \
+  "$DOCKER_BIN" exec --env-file "$_envf" \
     "$HOST_NAME" \
     /usr/bin/env -u R2_PARENT_ACCESS_KEY_ID -u R2_PARENT_SECRET_ACCESS_KEY \
       -u R2_READ_WRITE_CREDENTIAL -u R2_READ_WRITE_ACCESS_KEY_ID \

@@ -305,11 +305,26 @@ PY
 }
 
 # GATE-FIX-S28R3-QA17: hash via repository provider + absolute python (no openssl/awk/cut).
+# GATE-FIX-S28R3-QA23 cycle2: fields (may include AK/SK/ST) travel on FD 3 only —
+# never on python/env argv (tuple fingerprint must not expose secrets to /proc cmdline).
 r2_ro_fp16_fields() {
   local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
   local provider="${R2_RO_PROVIDER_PY:-${ROOT}/scripts/lib/r2_s3_provider.py}"
+  local f rc
   # Absolute python only; -E ignores PYTHON* knobs; env -i drops ambient runtime env.
-  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}"     "$py_bin" -E -s "$provider" fp16 "$@"
+  # FD 3: NUL-separated fields; argv is only: python -E -s provider fp16 --from-fd3
+  exec 3< <(
+    for f in "$@"; do
+      printf '%s\0' "$f"
+    done
+  )
+  set +e
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+    "$py_bin" -E -s "$provider" fp16 --from-fd3
+  rc=$?
+  set -e
+  exec 3<&- 2>/dev/null || true
+  return "$rc"
 }
 
 r2_ro_context_fp16() {

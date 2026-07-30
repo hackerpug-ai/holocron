@@ -38,6 +38,16 @@ cd "$ROOT"
 # GATE-FIX-S28R3-QA13 shared live provider helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh
 source "$ROOT/scripts/lib/r2-ro-live.sh"
+
+# GATE-FIX-S28R3-QA23: absolute docker/grep only (no PATH lookup while credentials ambient).
+# Same trusted candidate list as prove-isolation / gate-plan consumers.
+DOCKER_BIN=""
+for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do
+  if [[ -x "$_d" ]]; then DOCKER_BIN="$_d"; break; fi
+done
+GREP_BIN="${GREP_BIN:-/usr/bin/grep}"
+[[ -x "$GREP_BIN" ]] || GREP_BIN="/usr/bin/grep"
+
 # GATE-FIX-S28R3-QA14: production refuses test/CLI seams.
 if [[ -n "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-}" ]]; then
   echo "error: GATE-FIX-S28R3-QA14 refuses HOLO_FIRE_DRILL_FAKE_VOLUMES in production (harness-only)" >&2
@@ -347,20 +357,22 @@ if [[ -n "${HOLO_FIRE_DRILL_FAKE_VOLUMES:-}" ]]; then
 fi
 SKIP_DOCKER_VOLUME_RESOLVE=0
 
-if [[ "$SKIP_DOCKER_VOLUME_RESOLVE" -eq 0 ]] && ! command -v docker >/dev/null 2>&1; then
-  err "docker binary missing — refuse fresh-target volume resolve"
-  exit 2
+if [[ "$SKIP_DOCKER_VOLUME_RESOLVE" -eq 0 ]]; then
+  if [[ -z "${DOCKER_BIN:-}" || ! -x "$DOCKER_BIN" ]]; then
+    err "docker absolute executable missing — refuse fresh-target volume resolve"
+    exit 2
+  fi
 fi
 
 volume_exists() {
   local vol="$1"
-  docker volume inspect "$vol" >/dev/null 2>&1
+  "$DOCKER_BIN" volume inspect "$vol" >/dev/null 2>&1
 }
 
 volume_mountpoint() {
   local vol="$1"
   local mp
-  mp="$(docker volume inspect -f '{{ .Mountpoint }}' "$vol" 2>/dev/null || true)"
+  mp="$("$DOCKER_BIN" volume inspect -f '{{ .Mountpoint }}' "$vol" 2>/dev/null || true)"
   if [[ -n "$mp" && "$mp" != "<no value>" ]]; then
     printf '%s' "$mp"
     return 0
@@ -371,8 +383,8 @@ volume_mountpoint() {
 volume_bind_device() {
   local vol="$1"
   local device
-  # docker volume inspect template for Options.device (bind-backed local volumes)
-  device="$(docker volume inspect -f '{{ if .Options }}{{ index .Options "device" }}{{ end }}' "$vol" 2>/dev/null || true)"
+  # volume Options.device template (bind-backed local volumes)
+  device="$("$DOCKER_BIN" volume inspect -f '{{ if .Options }}{{ index .Options "device" }}{{ end }}' "$vol" 2>/dev/null || true)"
   if [[ -n "$device" && "$device" != "<no value>" ]]; then
     printf '%s' "$device"
     return 0
@@ -438,7 +450,7 @@ read_paths_txt_field() {
   local file="$1"
   local key="$2"
   local line val
-  line="$(grep -E "^${key}=" "$file" 2>/dev/null | head -1 || true)"
+  line="$("$GREP_BIN" -E "^${key}=" "$file" 2>/dev/null | /usr/bin/head -1 || true)"
   val="${line#${key}=}"
   if [[ -n "$val" ]]; then
     printf '%s' "$val"
@@ -508,7 +520,7 @@ resolve_host_exec() {
 }
 
 container_running() {
-  docker inspect -f '{{ .State.Running }}' "$HOST_NAME" 2>/dev/null | grep -qi true
+  "$DOCKER_BIN" inspect -f '{{ .State.Running }}' "$HOST_NAME" 2>/dev/null | "$GREP_BIN" -qi true
 }
 
 # Resolve both volumes — fail closed when either cannot be host-bound.
@@ -586,7 +598,7 @@ if ! host_writable "$BLOB_MP"; then
 fi
 
 CONTAINER_STATE="missing"
-if docker inspect "$HOST_NAME" >/dev/null 2>&1; then
+if [[ -n "${DOCKER_BIN:-}" ]] && "$DOCKER_BIN" inspect "$HOST_NAME" >/dev/null 2>&1; then
   if container_running; then
     CONTAINER_STATE="running"
   else
