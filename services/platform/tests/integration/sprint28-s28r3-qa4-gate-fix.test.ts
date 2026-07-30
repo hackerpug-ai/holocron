@@ -151,7 +151,10 @@ describe('GATE-FIX-S28R3-QA4 always-on contract', () => {
 
   it('H-2: gate-plan step2 preflights GATE_RUN_ID and uses run-id evidence paths', () => {
     const step2 = String(stepOf(loadPlan(), 2).literal_cmd ?? '');
-    expect(step2.startsWith('set -euo pipefail; bash scripts/assert-gate-run-id.sh')).toBe(true);
+    // GATE-FIX-S28R3-QA22: absolute /bin/bash (not bare PATH bash)
+    expect(step2.startsWith('set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh')).toBe(
+      true
+    );
     expect(step2).toMatch(/\.tmp\/REDHAT-FIX-S28R3\/\$\{GATE_RUN_ID\}/);
     expect(step2).toMatch(/step2-isolation\.txt/);
     expect(step2).toMatch(/step2-r2-readonly\.txt/);

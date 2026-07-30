@@ -264,7 +264,9 @@ path_is_mounted() {
 
   if [[ -d "$path" ]] && command -v df >/dev/null 2>&1; then
     local path_dev parent_dev parent
-    parent="$(dirname "$path")"
+    # GATE-FIX-S28R3-QA22: shell-native parent path (no PATH dirname)
+    parent="${path%/*}"
+    [[ "$parent" == "$path" || -z "$parent" ]] && parent="."
     path_dev="$(df -P "$path" 2>/dev/null | awk 'NR==2 {print $1}')"
     parent_dev="$(df -P "$parent" 2>/dev/null | awk 'NR==2 {print $1}')"
     if [[ -n "$path_dev" && -n "$parent_dev" && "$path_dev" != "$parent_dev" ]]; then
@@ -973,8 +975,11 @@ PY
     missing_restore=1
   fi
 
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local script_dir _sd
+  # GATE-FIX-S28R3-QA22: shell-native script dir (no PATH dirname)
+  _sd="${BASH_SOURCE[0]%/*}"
+  [[ "$_sd" == "${BASH_SOURCE[0]}" ]] && _sd="."
+  script_dir="$(cd "$_sd" && pwd)"
   local live_script="${script_dir}/prove-r2-readonly.sh"
   local need_live=0
   if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]]; then

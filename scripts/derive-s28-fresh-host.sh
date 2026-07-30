@@ -16,7 +16,10 @@
 set -euo pipefail
 
 # Resolve repo root relative to this script so assert can be invoked from any cwd.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# GATE-FIX-S28R3-QA22: shell-native path (no PATH dirname).
+_SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]] && _SCRIPT_DIR="."
+SCRIPT_DIR="$(cd "$_SCRIPT_DIR" && pwd)"
 
 # Re-validate via the authoritative allowlist (no weaker copy).
 bash "${SCRIPT_DIR}/assert-gate-run-id.sh"

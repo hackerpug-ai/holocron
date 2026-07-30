@@ -246,7 +246,7 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
       "flow_ref": "T-PLAT-025",
       "name": "Fresh target has zero mini access",
       "description": "GIVEN D05-03 provisioned a fresh restore target WHEN the reviewer runs an isolation probe THEN 0 reachable routes to the original mini are confirmed (no shared PGDATA/blob mount, no network route to mini Postgres/socket/IPC); probe exit 0",
-      "verify": "scripts/verify-restore-isolation.sh \u2192 exit 0 with 0 reachable mini routes, 0 shared mounts",
+      "verify": "scripts/verify-restore-isolation.sh → exit 0 with 0 reachable mini routes, 0 shared mounts",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "isolation-probe",
@@ -288,7 +288,8 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
                 "1 or more reachable mini routes (the insecure start state)",
                 "a shared volume mount entry present",
                 "mini Postgres port 5432 reachable",
-                "mini unix socket path accessible"
+                "mini unix socket path accessible",
+                "empty/start signature: (0) or blank success without real work"
               ]
             }
           }
@@ -302,7 +303,7 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
       "flow_ref": "T-PLAT-025",
       "name": "Restore creds are read-only + scoped",
       "description": "GIVEN D05-02 restore command WHEN the reviewer inspects R2 creds THEN the credential is read-only, scoped to the backup bucket/prefix only, distinct from app DATABASE_URL/Fleet creds, with NO write/delete actions",
-      "verify": "scripts/verify-restore-creds.sh \u2192 read-only actions, backup bucket ARN only, distinct from app",
+      "verify": "scripts/verify-restore-creds.sh → read-only actions, backup bucket ARN only, distinct from app",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "r2-credential-inspect",
@@ -361,7 +362,7 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
       "flow_ref": "T-PLAT-025",
       "name": "Zero secret leakage in restored artifacts",
       "description": "GIVEN D05-04 restored Postgres rows, blobs, runbook, parity report WHEN the reviewer runs secret scan THEN 0 credential matches are returned in restored artifacts",
-      "verify": "scripts/verify-restored-artifacts.sh (gitleaks/trufflehog/grep) \u2192 0 credential matches",
+      "verify": "scripts/verify-restored-artifacts.sh (gitleaks/trufflehog/grep) → 0 credential matches",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "secret-scan",
@@ -416,7 +417,7 @@ Depends on: D05-02, D05-03, D05-04, D05-05 · Blocks: —
       "flow_ref": "T-PLAT-025",
       "name": "Restored Postgres not exposed",
       "description": "GIVEN D05-04 restored Postgres on the target WHEN the reviewer checks binding THEN Postgres is bound to localhost/unix socket only, NOT a reachable external address; target torn down/access-scoped",
-      "verify": "scripts/verify-postgres-exposure.sh \u2192 localhost/unix socket only, 0 external listeners",
+      "verify": "scripts/verify-postgres-exposure.sh → localhost/unix socket only, 0 external listeners",
       "maps_to_ac": null,
       "test_tier": "integration",
       "verification_service": "postgres-binding-inspect",

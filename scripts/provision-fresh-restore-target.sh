@@ -21,7 +21,10 @@
 #   R2_ACCOUNT_ID, POSTGRES_IMAGE, RESTORE_PG_PORT, STAGING_ROOT
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# GATE-FIX-S28R3-QA22: shell-native root resolution (no PATH dirname before secrets).
+_SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]] && _SCRIPT_DIR="."
+ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 # GATE-FIX-S28R3-QA13 shared live provider helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh

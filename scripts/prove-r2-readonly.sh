@@ -39,7 +39,10 @@
 #   source restore-target.env && ./scripts/prove-r2-readonly.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# GATE-FIX-S28R3-QA22: shell-native root resolution (no PATH dirname before secrets).
+_SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_SCRIPT_DIR" == "${BASH_SOURCE[0]}" ]] && _SCRIPT_DIR="."
+ROOT="$(cd "$_SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 # GATE-FIX-S28R3-QA12: trusted provider + canonical context + private proof helpers
 # shellcheck source=scripts/lib/r2-ro-live.sh
@@ -490,7 +493,9 @@ run_live_probe() {
   # (3) Out-of-prefix List/Head/Get against known-existing object.
   # List/Head/Get MUST each be explicit AccessDenied (exit 2). Never accept 404/NoSuchKey.
   local out_prefix
-  out_prefix="$(dirname "$out_key")"
+  # GATE-FIX-S28R3-QA22: shell-native dirname (no PATH helper while credentials ambient)
+  out_prefix="${out_key%/*}"
+  [[ "$out_prefix" == "$out_key" ]] && out_prefix="."
   [[ "$out_prefix" == "." ]] && out_prefix=""
   set +e
   r2_ro_run_provider "$key" "$secret" "$session" list-prefix \

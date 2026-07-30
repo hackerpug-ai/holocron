@@ -307,7 +307,9 @@ Depends on: D04-02, D04-03, D04-04, D05-02, D05-03 · Blocks: D05-05, D05-06
           "would_fail_if": [
             "checksum not computed",
             "pass despite mismatch",
-            "tx windows corrupted"
+            "tx windows corrupted",
+            "stub/static implementation hardcodes pass without real product behavior",
+            "mock empty start state still passes oracle"
           ]
         },
         "evidence": {
@@ -333,7 +335,8 @@ Depends on: D04-02, D04-03, D04-04, D05-02, D05-03 · Blocks: D05-05, D05-06
               "must_not_observe": [
                 "jq '.LEDGER_CHECKSUM_MATCH' = false",
                 "jq '.ledger_checksum' = null",
-                "SELECT tx_from,tx_to returns NULL"
+                "SELECT tx_from,tx_to returns NULL",
+                "empty/start signature: (0) or blank success without real work"
               ]
             }
           }

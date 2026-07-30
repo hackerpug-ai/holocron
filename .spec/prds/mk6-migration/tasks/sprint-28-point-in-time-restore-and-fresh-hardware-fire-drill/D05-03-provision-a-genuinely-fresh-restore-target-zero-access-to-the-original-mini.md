@@ -258,7 +258,7 @@ Depends on: D04-02 · Blocks: D05-04, D05-06
               "must_not_observe": [
                 "exit code != 0",
                 "stdout contains 'FAIL: mini Postgres reachable'",
-                "nc -zv exit = 0 (route exists \u2014 fake-success start state)",
+                "nc -zv exit = 0 (route exists — fake-success start state)",
                 "mount shows /mnt/uni-* paths"
               ]
             }
@@ -313,11 +313,11 @@ Depends on: D04-02 · Blocks: D05-04, D05-06
                 "aws s3 ls exit = 0",
                 "aws s3 cp on drill-neg exit != 0 AND stderr contains 'AccessDenied'",
                 "delete-object on drill-neg exit != 0 AND stderr contains 'AccessDenied' OR policy PutObject/DeleteObject count = 0",
-                "denylist refuses existing/backup/pgbackrest before any delete API"
+                "denylist refuses key prefix `existing` / `backup` / `pgbackrest` before any delete API (exit != 0)"
               ],
               "must_not_observe": [
                 "env | grep -c 'R2_ACCESS_KEY_ID' = 0",
-                "aws s3 cp exit = 0 (Put allowed \u2014 fake-success start state)",
+                "aws s3 cp exit = 0 (Put allowed — fake-success start state)",
                 "delete exit = 0 on sacrificial key",
                 "delete API against live recovery keys (bucket-root existing, backup/, pgbackrest/)",
                 "credentials match app read-write creds"
@@ -376,7 +376,7 @@ Depends on: D04-02 · Blocks: D05-04, D05-06
               "must_not_observe": [
                 "test -d <PGDATA> exit != 0 (missing)",
                 "find <PGDATA> -mindepth 1 | wc -l > 0 (not empty)",
-                "touch exit != 0 (PermissionDenied \u2014 fake-success start state)",
+                "touch exit != 0 (PermissionDenied — fake-success start state)",
                 "ls shows PG_VERSION or files"
               ]
             }
