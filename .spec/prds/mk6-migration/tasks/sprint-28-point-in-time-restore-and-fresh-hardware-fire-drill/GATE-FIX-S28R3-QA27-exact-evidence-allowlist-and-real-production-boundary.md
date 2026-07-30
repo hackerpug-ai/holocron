@@ -1,9 +1,9 @@
 # GATE-FIX-S28R3-QA27 — Exact evidence allowlist and real production boundary
 
 > Status: ✅ Completed
-> Commit: e6fc8db55ba99fbdc3ca489adf54c615e3570b1e
+> Commit: 1e71c7aa017b355bad241d0e3d887efcecac30ec
 > Reviewer: internal dual-lens pending land
-> Completed: 2026-07-30T16:47:13Z
+> Completed: 2026-07-30T16:47:14Z
 
 **Task id:** `GATE-FIX-S28R3-QA27`
 **Sprint:** sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill
