@@ -12,7 +12,14 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
   defaultSecretsPath,
@@ -36,6 +43,52 @@ import {
 const CF_PERM_R2_BUCKET_ITEM_WRITE = '2efd5506f9c8494dacb1fa10a3e7d5b6';
 /** Cloudflare permission group: Workers R2 Storage Bucket Item Read (bucket-scoped). */
 const CF_PERM_R2_BUCKET_ITEM_READ = '6a018a9f2fc74eb6b293b0c548f38b39';
+
+/**
+ * GATE-FIX-S28R3-QA23: trust-chain validate absolute root-owned executables.
+ * No PATH/Homebrew discovery while credentials ambient.
+ */
+function validateRootOwnedBin(candidate: string): string | null {
+  const cand = candidate.trim();
+  if (!cand.startsWith('/')) return null;
+  try {
+    const parts = cand.split('/').filter(Boolean);
+    let path = '';
+    for (const part of parts) {
+      path = `${path}/${part}`;
+      let st = lstatSync(path);
+      if (st.isSymbolicLink()) {
+        const real = realpathSync(path);
+        st = lstatSync(real);
+      }
+      const mode = st.mode & 0o777;
+      if (st.uid !== 0) return null;
+      if (mode & 0o022) return null;
+    }
+    const finalPath = realpathSync(cand);
+    const st = lstatSync(finalPath);
+    if (!st.isFile()) return null;
+    if (st.uid !== 0) return null;
+    if ((st.mode & 0o111) === 0) return null;
+    if ((st.mode & 0o022) !== 0) return null;
+    return finalPath;
+  } catch {
+    return null;
+  }
+}
+
+function resolveTrustedPgbackrestBin(env?: NodeJS.ProcessEnv): string | null {
+  const fromEnv = env?.PGBACKREST_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/pgbackrest', '/usr/bin/pgbackrest']) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
+}
 
 export type ProvisionOptions = {
   /** Target backup bucket (default holocron-backup). */
@@ -921,18 +974,29 @@ export function runStanzaCreate(options: {
   sessionToken?: string | null;
   env?: NodeJS.ProcessEnv;
 }): { status: number; stdout: string; stderr: string } {
+  // GATE-FIX-S28R3-QA23: fixed PATH; absolute root-owned pgbackrest only.
   const env: NodeJS.ProcessEnv = {
     ...(options.env ?? process.env),
     PGBACKREST_REPO1_S3_KEY: options.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: options.secretAccessKey,
+    PATH: '/usr/bin:/bin',
   };
   if (options.sessionToken) {
     env.PGBACKREST_REPO1_S3_TOKEN = options.sessionToken;
   } else {
     delete env.PGBACKREST_REPO1_S3_TOKEN;
   }
+  const bin = resolveTrustedPgbackrestBin(options.env ?? process.env);
+  if (!bin) {
+    return {
+      status: 1,
+      stdout: '',
+      stderr:
+        'GATE-FIX-S28R3-QA23 refuses credential-bearing stanza-create without root-owned pgbackrest',
+    };
+  }
   const create = run(
-    'pgbackrest',
+    bin,
     [`--config=${options.configPath}`, `--stanza=${options.stanza}`, 'stanza-create'],
     { env, timeoutMs: 180_000 }
   );
@@ -951,19 +1015,27 @@ export function runPgbackrestCheck(options: {
     ...(options.env ?? process.env),
     PGBACKREST_REPO1_S3_KEY: options.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: options.secretAccessKey,
-    // archive-push inherits PATH for pgbackrest binary
-    PATH: options.env?.PATH ?? process.env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+    // GATE-FIX-S28R3-QA23: no ambient/Homebrew PATH while credentials ambient.
+    PATH: '/usr/bin:/bin',
   };
   if (options.sessionToken) {
     env.PGBACKREST_REPO1_S3_TOKEN = options.sessionToken;
   } else {
     delete env.PGBACKREST_REPO1_S3_TOKEN;
   }
-  return run(
-    'pgbackrest',
-    [`--config=${options.configPath}`, `--stanza=${options.stanza}`, 'check'],
-    { env, timeoutMs: 180_000 }
-  );
+  const bin = resolveTrustedPgbackrestBin(options.env ?? process.env);
+  if (!bin) {
+    return {
+      status: 1,
+      stdout: '',
+      stderr:
+        'GATE-FIX-S28R3-QA23 refuses credential-bearing pgbackrest check without root-owned binary',
+    };
+  }
+  return run(bin, [`--config=${options.configPath}`, `--stanza=${options.stanza}`, 'check'], {
+    env,
+    timeoutMs: 180_000,
+  });
 }
 
 /**
@@ -976,8 +1048,13 @@ export function ensureArchiveCommandForCheck(options: {
   env?: NodeJS.ProcessEnv;
 }): { archiveMode: string; archiveCommand: string; restarted: boolean } {
   const env = options.env ?? process.env;
-  const pgbackrestBin =
-    run('which', ['pgbackrest'], { env }).stdout.trim() || '/opt/homebrew/bin/pgbackrest';
+  // GATE-FIX-S28R3-QA23: never which/Homebrew for credential-adjacent archive-push.
+  const pgbackrestBin = resolveTrustedPgbackrestBin(env);
+  if (!pgbackrestBin) {
+    throw new Error(
+      'GATE-FIX-S28R3-QA23 refuses archive_command without root-owned pgbackrest at /usr/local/bin/pgbackrest or /usr/bin/pgbackrest'
+    );
+  }
   const archiveCommand = `${pgbackrestBin} --config=${options.configPath} --stanza=${options.stanza} archive-push %p`;
 
   const showMode = run('psql', ['-d', 'holocron', '-tAc', 'SHOW archive_mode'], { env });

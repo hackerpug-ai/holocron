@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # D05-03 / REDHAT-FIX-H3 / CAP-BAK-01 — Multi-axis isolation probe for a genuinely
 # fresh restore target.
 #
@@ -19,6 +19,17 @@
 # Real OS probes only (nc, mount/findmnt, test -S, getent/host, machine-id/SMBIOS).
 # Never hardcodes exit 0. Never mocks network isolation.
 set -euo pipefail
+# GATE-FIX-S28R3-QA23 absolute tools (no PATH lookup while credentials ambient).
+NC_BIN="${NC_BIN:-/usr/bin/nc}"
+GREP_BIN="${GREP_BIN:-/usr/bin/grep}"
+ENV_BIN="${ENV_BIN:-/usr/bin/env}"
+PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
+MKTEMP_BIN="${MKTEMP_BIN:-/usr/bin/mktemp}"
+TR_BIN="${TR_BIN:-/usr/bin/tr}"
+DOCKER_BIN=""
+for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do
+  if [[ -x "$_d" ]]; then DOCKER_BIN="$_d"; break; fi
+done
 
 MINI_HOST="${MINI_HOST:-}"
 MINI_PG_PORT="${MINI_PG_PORT:-5432}"
@@ -46,7 +57,7 @@ TARGET_ATTESTED_IDENTITY="${TARGET_ATTESTED_IDENTITY:-}"
 MINI_ATTESTED_IDENTITY="${MINI_ATTESTED_IDENTITY:-}"
 
 usage() {
-  cat <<'EOF'
+  /bin/cat <<'EOF'
 Usage: prove-isolation.sh [--mini-host HOST] [HOST]
 
 Multi-axis isolation probe (REDHAT-FIX-H3). Exit 0 only if all axes PASS.
@@ -135,7 +146,7 @@ run_with_timeout() {
   local seconds="$1"
   shift
   local out_file rc
-  out_file="$(mktemp -t prove-isolation-nc.XXXXXX)"
+  out_file="$($MKTEMP_BIN -t prove-isolation-nc.XXXXXX)"
   # Run in its own process group so timeout kill reaps hung nc children.
   (
     set -m
@@ -161,7 +172,7 @@ run_with_timeout() {
   wait "$cmd_pid"
   rc=$?
   set -e
-  cat "$out_file" 2>/dev/null || true
+  /bin/cat "$out_file" 2>/dev/null || true
   rm -f "$out_file"
   if [[ $rc -eq 0 ]]; then
     return 0
@@ -177,20 +188,20 @@ tcp_reachable() {
   # supported flags once per process via a sticky env marker.
   local wall="$timeout"
   if [[ "$wall" -lt 1 ]]; then wall=1; fi
-  if ! command -v nc >/dev/null 2>&1; then
+  if ! [[ -x "$NC_BIN" ]]; then
     return 2
   fi
   set +e
   if [[ -z "${_PROVE_NC_STYLE:-}" ]]; then
-    nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"
+    nc_out="$(run_with_timeout "$wall" "$NC_BIN" -z -G "$timeout" "$host" "$port")"
     nc_rc=$?
-    if echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
-      nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"
+    if echo "$nc_out" | "$GREP_BIN" -qiE 'invalid|illegal|usage|unknown option'; then
+      nc_out="$(run_with_timeout "$wall" "$NC_BIN" -z -w "$timeout" "$host" "$port")"
       nc_rc=$?
-      if echo "$nc_out" | grep -qiE 'invalid|illegal|usage|unknown option'; then
+      if echo "$nc_out" | "$GREP_BIN" -qiE 'invalid|illegal|usage|unknown option'; then
         _PROVE_NC_STYLE=plain
         export _PROVE_NC_STYLE
-        nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"
+        nc_out="$(run_with_timeout "$wall" "$NC_BIN" -z -v "$host" "$port")"
         nc_rc=$?
       else
         _PROVE_NC_STYLE=w
@@ -202,9 +213,9 @@ tcp_reachable() {
     fi
   else
     case "$_PROVE_NC_STYLE" in
-      G) nc_out="$(run_with_timeout "$wall" nc -z -G "$timeout" "$host" "$port")"; nc_rc=$? ;;
-      w) nc_out="$(run_with_timeout "$wall" nc -z -w "$timeout" "$host" "$port")"; nc_rc=$? ;;
-      *) nc_out="$(run_with_timeout "$wall" nc -z -v "$host" "$port")"; nc_rc=$? ;;
+      G) nc_out="$(run_with_timeout "$wall" "$NC_BIN" -z -G "$timeout" "$host" "$port")"; nc_rc=$? ;;
+      w) nc_out="$(run_with_timeout "$wall" "$NC_BIN" -z -w "$timeout" "$host" "$port")"; nc_rc=$? ;;
+      *) nc_out="$(run_with_timeout "$wall" "$NC_BIN" -z -v "$host" "$port")"; nc_rc=$? ;;
     esac
   fi
   set -e
@@ -297,14 +308,14 @@ read_local_attested_identity() {
     id="$(tr -d '[:space:]' </var/lib/dbus/machine-id 2>/dev/null || true)"
   fi
   if [[ -z "$id" ]] && command -v ioreg >/dev/null 2>&1; then
-    id="$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4; exit}' | tr -d '[:space:]')"
+    id="$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4; exit}' | "$TR_BIN" -d '[:space:]')"
   fi
   if [[ -z "$id" ]] && command -v sysctl >/dev/null 2>&1; then
-    id="$(sysctl -n kern.uuid 2>/dev/null | tr -d '[:space:]' || true)"
+    id="$(sysctl -n kern.uuid 2>/dev/null | "$TR_BIN" -d '[:space:]' || true)"
   fi
   # Cloud instance-id (best-effort; short timeout).
   if [[ -z "$id" ]] && command -v curl >/dev/null 2>&1; then
-    id="$(curl -sS -m 1 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null | tr -d '[:space:]' || true)"
+    id="$(curl -sS -m 1 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null | "$TR_BIN" -d '[:space:]' || true)"
   fi
   printf '%s' "$id"
 }
@@ -314,7 +325,7 @@ check_network_axis() {
   axis_begin "network"
   local before=$failures
 
-  if ! command -v nc >/dev/null 2>&1; then
+  if ! [[ -x "$NC_BIN" ]]; then
     fail "nc not available — cannot prove network isolation"
     axis_end "network" "$before"
     return
@@ -471,7 +482,7 @@ check_ipc_axis() {
       if [[ -n "${container:-}" || -f /.dockerenv || -n "${RESTORE_CONTAINER}" ]]; then
         # Inside docker without private IPC → shared with host (often true for default).
         # Default docker gives private IPC; shared only with --ipc=host.
-        if [[ -f /proc/1/cgroup ]] && grep -qE 'docker|containerd|kubepods' /proc/1/cgroup 2>/dev/null; then
+        if [[ -f /proc/1/cgroup ]] && "$GREP_BIN" -qE 'docker|containerd|kubepods' /proc/1/cgroup 2>/dev/null; then
           info "container IPC ns same as pid1 (expected when pid1 is container init)"
         fi
       fi
@@ -500,9 +511,9 @@ check_mounts_axis() {
     mount_blob="${mount_blob}"$'\n'"$(cat /proc/mounts 2>/dev/null || true)"
   fi
 
-  if echo "$mount_blob" | grep -qiE '/mnt/mini-(pgdata|blobs)|mini-pgdata|mini-blobs|/opt/homebrew/var/postgresql|postgresql@[0-9]+'; then
+  if echo "$mount_blob" | "$GREP_BIN" -qiE '/mnt/mini-(pgdata|blobs)|mini-pgdata|mini-blobs|/opt/homebrew/var/postgresql|postgresql@[0-9]+'; then
     fail "mount table references mini live data paths"
-    echo "$mount_blob" | grep -iE 'mini|postgresql@|homebrew/var/postgresql' || true
+    echo "$mount_blob" | "$GREP_BIN" -iE 'mini|postgresql@|homebrew/var/postgresql' || true
   else
     pass "mount table has 0 classic mini PGDATA/blob path entries"
   fi
@@ -582,7 +593,7 @@ check_control_plane_axis() {
   axis_begin "control_plane"
   local before=$failures
 
-  if ! command -v nc >/dev/null 2>&1; then
+  if ! [[ -x "$NC_BIN" ]]; then
     fail "nc not available — cannot prove control-plane isolation"
     axis_end "control_plane" "$before"
     return
@@ -634,23 +645,23 @@ check_docker_axis() {
       info "running inside container — checking network mode signals"
     fi
     # network_mode=host often exposes host /proc/1 as non-containerized — best-effort.
-    if [[ -r /proc/1/cgroup ]] && ! grep -qE 'docker|containerd|kubepods|libpod' /proc/1/cgroup 2>/dev/null; then
+    if [[ -r /proc/1/cgroup ]] && ! "$GREP_BIN" -qE 'docker|containerd|kubepods|libpod' /proc/1/cgroup 2>/dev/null; then
       # pid1 not in container cgroup often means --pid=host / host-like.
-      if [[ -r /proc/self/cgroup ]] && grep -qE 'docker|containerd' /proc/self/cgroup 2>/dev/null; then
+      if [[ -r /proc/self/cgroup ]] && "$GREP_BIN" -qE 'docker|containerd' /proc/self/cgroup 2>/dev/null; then
         fail "container appears to share host PID namespace (pid1 not containerized)"
       fi
     fi
   fi
 
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  if [[ -n "$DOCKER_BIN" ]] && "$DOCKER_BIN" info >/dev/null 2>&1; then
     local cname="${RESTORE_CONTAINER:-fresh-restore-01}"
-    if docker inspect "$cname" >/dev/null 2>&1; then
+    if "$DOCKER_BIN" inspect "$cname" >/dev/null 2>&1; then
       local mode binds mounts pidmode ipcmode
-      mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$cname" 2>/dev/null || true)"
-      binds="$(docker inspect -f '{{json .HostConfig.Binds}}' "$cname" 2>/dev/null || echo null)"
-      mounts="$(docker inspect -f '{{json .Mounts}}' "$cname" 2>/dev/null || echo null)"
-      pidmode="$(docker inspect -f '{{.HostConfig.PidMode}}' "$cname" 2>/dev/null || true)"
-      ipcmode="$(docker inspect -f '{{.HostConfig.IpcMode}}' "$cname" 2>/dev/null || true)"
+      mode="$("$DOCKER_BIN" inspect -f '{{.HostConfig.NetworkMode}}' "$cname" 2>/dev/null || true)"
+      binds="$("$DOCKER_BIN" inspect -f '{{json .HostConfig.Binds}}' "$cname" 2>/dev/null || echo null)"
+      mounts="$("$DOCKER_BIN" inspect -f '{{json .Mounts}}' "$cname" 2>/dev/null || echo null)"
+      pidmode="$("$DOCKER_BIN" inspect -f '{{.HostConfig.PidMode}}' "$cname" 2>/dev/null || true)"
+      ipcmode="$("$DOCKER_BIN" inspect -f '{{.HostConfig.IpcMode}}' "$cname" 2>/dev/null || true)"
       info "container=${cname} NetworkMode=${mode} PidMode=${pidmode} IpcMode=${ipcmode}"
 
       if [[ "$mode" == "host" ]]; then
@@ -668,7 +679,7 @@ check_docker_axis() {
       else
         pass "restore container not sharing host IPC namespace (mode=${ipcmode:-default})"
       fi
-      if echo "$binds$mounts" | grep -qiE '/mnt/mini-|postgresql@|/opt/homebrew/var/postgresql|mini-pgdata|mini-blobs'; then
+      if echo "$binds$mounts" | "$GREP_BIN" -qiE '/mnt/mini-|postgresql@|/opt/homebrew/var/postgresql|mini-pgdata|mini-blobs'; then
         fail "restore container mounts look like mini live data paths"
         echo "  binds=${binds}" >&2
       else
@@ -745,7 +756,7 @@ check_r2_axis() {
       echo "  detail: forbidden env pattern ${ename} is set" >&2
       bad=1
     fi
-  done < <(env | grep -E '^R2_' || true)
+  done < <("$ENV_BIN" | "$GREP_BIN" -E '^R2_' || true)
 
   if [[ -z "$key" || -z "$secret" ]]; then
     echo "  detail: R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must both be set" >&2
@@ -761,17 +772,17 @@ check_r2_axis() {
   esac
 
   if [[ -n "$policy" ]]; then
-    if echo "$policy" | grep -qiE 's3:PutObject|s3:DeleteObject|s3:Put|s3:Delete|"s3:\*"|"\*"'; then
-      if echo "$policy" | grep -qiE 's3:PutObject|s3:DeleteObject|"s3:\*"'; then
-        if echo "$policy" | tr -d '\n' | grep -qiE 'Effect["[:space:]]*:["[:space:]]*Allow[^}]*s3:(PutObject|DeleteObject)'; then
+    if echo "$policy" | "$GREP_BIN" -qiE 's3:PutObject|s3:DeleteObject|s3:Put|s3:Delete|"s3:\*"|"\*"'; then
+      if echo "$policy" | "$GREP_BIN" -qiE 's3:PutObject|s3:DeleteObject|"s3:\*"'; then
+        if echo "$policy" | "$TR_BIN" -d '\n' | "$GREP_BIN" -qiE 'Effect["[:space:]]*:["[:space:]]*Allow[^}]*s3:(PutObject|DeleteObject)'; then
           echo "  detail: R2_CREDENTIAL_POLICY allows Put/Delete — not read-only" >&2
           bad=1
-        elif echo "$policy" | grep -qiE 's3:PutObject|s3:DeleteObject'; then
+        elif echo "$policy" | "$GREP_BIN" -qiE 's3:PutObject|s3:DeleteObject'; then
           echo "  detail: R2_CREDENTIAL_POLICY contains Put/Delete actions — not read-only" >&2
           bad=1
         fi
       fi
-      if echo "$policy" | grep -qE '"Action"[[:space:]]*:[[:space:]]*"\*"|"Resource"[[:space:]]*:[[:space:]]*"\*"|"s3:\*"'; then
+      if echo "$policy" | "$GREP_BIN" -qE '"Action"[[:space:]]*:[[:space:]]*"\*"|"Resource"[[:space:]]*:[[:space:]]*"\*"|"s3:\*"'; then
         echo "  detail: R2_CREDENTIAL_POLICY contains wildcards — not least-privilege" >&2
         bad=1
       fi
@@ -786,7 +797,7 @@ check_r2_axis() {
     expect_prefix="${expect_prefix%/}"
     local policy_check_rc=0
     set +e
-    python3 - "$policy" "$expect_bucket" "$expect_prefix" <<'PY'
+    "$PYTHON_BIN" - "$policy" "$expect_bucket" "$expect_prefix" <<'PY'
 import json, sys
 
 raw, bucket, prefix = sys.argv[1], sys.argv[2], sys.argv[3].strip("/")

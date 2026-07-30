@@ -71,7 +71,7 @@ is_placeholder() {
 }
 
 human_required_mint() {
-  cat <<'EOF'
+  /bin/cat <<'EOF'
 human_required: mint R2 object-read-only (List/Get only) credentials
 
 Cloudflare dashboard (durable — preferred for restore target):
@@ -457,7 +457,7 @@ run_live_probe() {
     fail "prefix list failed (exit ${ls_rc}; class=prefix_list_denied_or_error)"
     return 1
   fi
-  if ! printf '%s' "$ls_out" | grep -q '^LIST_OK'; then
+  if ! printf '%s' "$ls_out" | /usr/bin/grep -q '^LIST_OK'; then
     ls_out=""
     fail "prefix list missing LIST_OK (class=prefix_list_unclassified)"
     return 1

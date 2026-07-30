@@ -65,7 +65,7 @@ BUN_TRUSTED=0
 HOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"
 
 usage() {
-  cat <<'EOF'
+  /bin/cat <<'EOF'
 Usage: run-fire-drill-on-fresh-target.sh --host <name> [options]
 
 Options:
@@ -885,12 +885,26 @@ fi
 
 # GATE-FIX-S28R3-QA21: capture child stdout/stderr and redact secrets before emission
 # (gate-plan tees this stream into durable evidence).
-# GATE-FIX-S28R3-QA22: secrets transfer over FD 3 (NUL-separated) — never on argv.
+# GATE-FIX-S28R3-QA22: redactor secrets transfer over FD 3 (NUL-separated) — never on argv.
+# GATE-FIX-S28R3-QA23: child credential env also via FD 3 + exec-env-from-fd (never
+# /usr/bin/env -i KEY=secret on intermediate argv).
 _child_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-fire-drill-child.XXXXXX")"
 log "running restore-only child env: ${RUN_PREFIX[*]} ${ARGS[*]}"
+_EXEC_ENV_FD_PY="${ROOT}/scripts/lib/exec-env-from-fd.py"
+if [[ ! -f "$_EXEC_ENV_FD_PY" ]]; then
+  err "GATE-FIX-S28R3-QA23 missing $_EXEC_ENV_FD_PY"
+  exit 2
+fi
 set +e
-/usr/bin/env -i "${CHILD_ENV_ARGS[@]}" "${RUN_PREFIX[@]}" "${ARGS[@]}" >"$_child_log" 2>&1
+# FD 3: NUL-separated KEY=VAL pairs for the child environment (may include secrets).
+exec 3< <(
+  for _pair in "${CHILD_ENV_ARGS[@]}"; do
+    printf '%s\0' "$_pair"
+  done
+)
+/usr/bin/python3 -E -s "$_EXEC_ENV_FD_PY" -- "${RUN_PREFIX[@]}" "${ARGS[@]}" >"$_child_log" 2>&1
 STATUS=$?
+exec 3<&- 2>/dev/null || true
 set -e
 # Redact known secret values from child diagnostics before writing evidence.
 # FD 3 carries ak\0sk\0st\0; argv is only the log path (no secrets).

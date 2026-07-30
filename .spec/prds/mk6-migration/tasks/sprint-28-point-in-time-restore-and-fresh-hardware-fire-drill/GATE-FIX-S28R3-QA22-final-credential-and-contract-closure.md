@@ -1,9 +1,9 @@
 # GATE-FIX-S28R3-QA22 — Final credential PATH/argv, restic trust, contracts, hermetic proof
 
-**Task id:** `GATE-FIX-S28R3-QA22`  
-**H1 id:** `GATE-FIX-S28R3-QA22`  
-**Sprint:** sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill  
-**Binding review:** `red-hat-20260730T002820Z-sprint-28-main-sha-6a2a61b9fdcc3d0f890fd722ad3470a6cf4f9aff`  
+**Task id:** `GATE-FIX-S28R3-QA22`
+**H1 id:** `GATE-FIX-S28R3-QA22`
+**Sprint:** sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill
+**Binding review:** `red-hat-20260730T002820Z-sprint-28-main-sha-6a2a61b9fdcc3d0f890fd722ad3470a6cf4f9aff`
 **Source SHA:** `6a2a61b9fdcc3d0f890fd722ad3470a6cf4f9aff`
 
 ## Intent

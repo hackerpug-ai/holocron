@@ -15,7 +15,6 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -109,6 +108,10 @@ describe('GATE-FIX-S28R3-QA22 gate-plan absolute credential path', () => {
       expect(hasBareUtil(cmd, 'bash'), `step ${step.n} bare bash`).toBe(false);
       expect(hasBareUtil(cmd, 'tee'), `step ${step.n} bare tee`).toBe(false);
       expect(hasBareUtil(cmd, 'jq'), `step ${step.n} bare jq`).toBe(false);
+      // GATE-FIX-S28R3-QA23: also bun/grep/mkdir on credential-ambient gate stream
+      expect(hasBareUtil(cmd, 'bun'), `step ${step.n} bare bun`).toBe(false);
+      expect(hasBareUtil(cmd, 'grep'), `step ${step.n} bare grep`).toBe(false);
+      expect(hasBareUtil(cmd, 'mkdir'), `step ${step.n} bare mkdir`).toBe(false);
       // every script entry uses /bin/bash
       if (cmd.includes('scripts/assert-gate-run-id.sh')) {
         expect(cmd).toMatch(/\/bin\/bash scripts\/assert-gate-run-id\.sh/);
@@ -119,6 +122,9 @@ describe('GATE-FIX-S28R3-QA22 gate-plan absolute credential path', () => {
     expect(all).not.toMatch(/(?:^|[^/\w])tee /);
     expect(all).toMatch(/\/usr\/bin\/jq /);
     expect(all).not.toMatch(/(?:^|[^/\w])jq /);
+    expect(all).toMatch(/\/usr\/local\/bin\/bun |\/usr\/bin\/bun /);
+    expect(all).toMatch(/\/usr\/bin\/grep /);
+    expect(all).toMatch(/\/bin\/mkdir /);
     // docker only via absolute candidates / "$DOCKER"
     expect(all).toMatch(/DOCKER=""/);
     expect(all).toMatch(
@@ -151,8 +157,27 @@ describe('GATE-FIX-S28R3-QA22 ordered hostile-PATH gate stream', () => {
     const shadow = resolve(EVIDENCE, 'hostile-gate-path-bin');
     rmSync(shadow, { recursive: true, force: true });
     mkdirSync(shadow, { recursive: true });
+    // GATE-FIX-S28R3-QA23: shadow real credential-stream command words (not just bash/tee/jq).
     const markers: string[] = [];
-    for (const name of ['bash', 'tee', 'jq', 'docker', 'dirname', 'date', 'mktemp']) {
+    for (const name of [
+      'bash',
+      'tee',
+      'jq',
+      'docker',
+      'dirname',
+      'date',
+      'mktemp',
+      'bun',
+      'grep',
+      'env',
+      'nc',
+      'python3',
+      'mkdir',
+      'find',
+      'cat',
+      'wc',
+      'tr',
+    ]) {
       const marker = `EVIL_${name.toUpperCase()}_QA22`;
       markers.push(marker);
       const p = resolve(shadow, name);
@@ -179,7 +204,7 @@ set -euo pipefail
 export GATE_RUN_ID="${runId}"
 /bin/bash ${JSON.stringify(assertGate)}
 EVID=${JSON.stringify(evid)}
-mkdir -p "$EVID"
+/bin/mkdir -p "$EVID"
 export R2_RESTORE_ACCESS_KEY_ID=${JSON.stringify(CANARY_AK)}
 export R2_RESTORE_SECRET_ACCESS_KEY=${JSON.stringify(CANARY_SK)}
 export R2_RESTORE_SESSION_TOKEN=${JSON.stringify(CANARY_ST)}
@@ -369,19 +394,40 @@ echo "PASS: no secrets on argv"
 });
 
 describe('GATE-FIX-S28R3-QA22 hermetic scope probes', () => {
-  it('mutation + restore leaves tracked probes byte-identical and no .qa16bak', () => {
+  it('isolated-tree malformed probes never mutates tracked probes or leaves .qa16bak', () => {
+    // GATE-FIX-S28R3-QA23: hermetic — never write tracked scripts/lib/r2-scope-probes.json
+    // (QA16 pattern: temporary script tree only).
     const original = readFileSync(PROD_PROBES);
-    const bakDir = mkdtempSync(join(tmpdir(), 'qa22-hermetic-'));
-    const bak = join(bakDir, 'probes.bak');
-    copyFileSync(PROD_PROBES, bak);
+    const tree = mkdtempSync(join(tmpdir(), 'qa22-hermetic-'));
     try {
-      writeFileSync(PROD_PROBES, '{ "schema": "qa22-temp-bad" }\n', 'utf8');
-      // Simulate live-proof / suite boundary: restore from ephemeral bak
-      writeFileSync(PROD_PROBES, readFileSync(bak));
+      mkdirSync(join(tree, 'scripts', 'lib'), { recursive: true });
+      copyFileSync(PROD_PROVE, join(tree, 'scripts', 'prove-r2-readonly.sh'));
+      copyFileSync(
+        resolve(REPO_ROOT, 'scripts/lib/r2-ro-live.sh'),
+        join(tree, 'scripts', 'lib', 'r2-ro-live.sh')
+      );
+      copyFileSync(
+        resolve(REPO_ROOT, 'scripts/lib/r2_s3_provider.py'),
+        join(tree, 'scripts', 'lib', 'r2_s3_provider.py')
+      );
+      copyFileSync(
+        resolve(REPO_ROOT, 'scripts/lib/exec-env-from-fd.py'),
+        join(tree, 'scripts', 'lib', 'exec-env-from-fd.py')
+      );
+      writeFileSync(
+        join(tree, 'scripts', 'lib', 'r2-scope-probes.json'),
+        '{ "schema": "qa22-temp-bad" }\n',
+        'utf8'
+      );
+      const run = spawnSync('bash', [join(tree, 'scripts', 'prove-r2-readonly.sh')], {
+        cwd: tree,
+        encoding: 'utf8',
+        timeout: 20_000,
+        env: env({ REQUIRE_LIVE_R2_RO: '1' }),
+      });
+      expect(run.status).not.toBe(0);
     } finally {
-      writeFileSync(PROD_PROBES, original);
-      rmSync(bakDir, { recursive: true, force: true });
-      if (existsSync(`${PROD_PROBES}.qa16bak`)) unlinkSync(`${PROD_PROBES}.qa16bak`);
+      rmSync(tree, { recursive: true, force: true });
     }
     expect(Buffer.compare(readFileSync(PROD_PROBES), original)).toBe(0);
     expect(existsSync(`${PROD_PROBES}.qa16bak`)).toBe(false);
@@ -394,7 +440,7 @@ describe('GATE-FIX-S28R3-QA22 hermetic scope probes', () => {
     );
     const src = readFileSync(qa16, 'utf8');
     expect(src).toMatch(/mkdtempSync/);
-    expect(src).toMatch(/Byte-for-byte hermetic|GATE-FIX-S28R3-QA22/);
+    expect(src).toMatch(/Byte-for-byte hermetic|GATE-FIX-S28R3-QA22|isolated tree/);
     // Must not leave in-tree qa16bak as the only backup strategy
     expect(src).not.toMatch(/const bak = `\$\{PROD_PROBES\}\.qa16bak`/);
   });
