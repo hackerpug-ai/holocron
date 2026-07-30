@@ -15,6 +15,7 @@ export {
   type RequiredSecretKey,
   resolveRepoRoot,
   resolveSecret,
+  resolveSecretsPathFromEnv,
   runSecretsDoctor,
   type SecretResolution,
   type SecretsMap,

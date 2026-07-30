@@ -75,6 +75,22 @@ export function defaultSecretsPath(repoRoot = resolveRepoRoot()): string {
   return resolve(repoRoot, 'services/platform/config/secrets.yaml');
 }
 
+/**
+ * Resolve secrets.yaml path from env (GATE-FIX-S28R3-QA25).
+ * Precedence: HOLO_SECRETS_PATH → HOLOCRON_SECRETS_PATH → SECRETS_PATH → defaultSecretsPath().
+ */
+export function resolveSecretsPathFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  repoRoot = resolveRepoRoot()
+): string {
+  const fromEnv =
+    env.HOLO_SECRETS_PATH?.trim() ||
+    env.HOLOCRON_SECRETS_PATH?.trim() ||
+    env.SECRETS_PATH?.trim() ||
+    '';
+  return fromEnv || defaultSecretsPath(repoRoot);
+}
+
 export function defaultSecretsExamplePath(repoRoot = resolveRepoRoot()): string {
   return resolve(repoRoot, 'services/platform/config/secrets.example.yaml');
 }

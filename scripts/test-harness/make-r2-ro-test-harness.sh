@@ -19,6 +19,11 @@ cp "$ROOT_SRC/scripts/lib/r2-scope-probes.json" "$HARNESS/scripts/lib/"
 # GATE-FIX-S28R3-QA23: secret-free env launcher required by r2_ro_exec_isolated.
 cp "$ROOT_SRC/scripts/lib/exec-env-from-fd.py" "$HARNESS/scripts/lib/"
 chmod +x "$HARNESS/scripts/lib/exec-env-from-fd.py"
+# GATE-FIX-S28R3-QA25: seal env keys to private file (argv = key names only).
+if [[ -f "$ROOT_SRC/scripts/lib/seal-env-to-file.py" ]]; then
+  cp "$ROOT_SRC/scripts/lib/seal-env-to-file.py" "$HARNESS/scripts/lib/"
+  chmod +x "$HARNESS/scripts/lib/seal-env-to-file.py"
+fi
 # GATE-FIX-S28R3-QA24: mint helper (token never on argv).
 if [[ -f "$ROOT_SRC/scripts/lib/r2-mint-temp-ro.py" ]]; then
   cp "$ROOT_SRC/scripts/lib/r2-mint-temp-ro.py" "$HARNESS/scripts/lib/"
@@ -27,6 +32,26 @@ fi
 # Install mock provider as the repository provider path inside harness.
 cp "$MOCK_PROVIDER" "$HARNESS/scripts/lib/r2_s3_provider.py"
 chmod +x "$HARNESS/scripts/lib/r2_s3_provider.py"
+
+# GATE-FIX-S28R3-QA25 harness: drop exclusive host lock (tests run many parallel harness drills).
+/usr/bin/python3 - "$HARNESS/scripts/run-fire-drill-on-fresh-target.sh" <<'PYL'
+from pathlib import Path
+import re, sys
+p = Path(sys.argv[1])
+t = p.read_text()
+t2 = re.sub(
+    r"# GATE-FIX-S28R3-QA25: exclusive host fire-drill lock.*?trap '/bin/rm -rf \"\$_FIRE_DRILL_LOCKDIR\" 2>/dev/null \|\| true' EXIT INT TERM\n",
+    "# Harness: exclusive host lock skipped (parallel unit/integration harness drills).\n",
+    t,
+    count=1,
+    flags=re.S,
+)
+if t2 == t:
+    # softer: replace mkdir lock loop with true
+    t2 = t.replace('_FIRE_DRILL_LOCKDIR=', '_FIRE_DRILL_LOCKDIR_UNUSED=')
+p.write_text(t2)
+print('harness: skip exclusive host lock', file=__import__('sys').stderr)
+PYL
 
 # Patch harness fire-drill: remove production refuse seams; re-enable fake volumes + HOLO_CLI + mutate.
 /usr/bin/python3 - "$HARNESS/scripts/run-fire-drill-on-fresh-target.sh" <<'PY'
@@ -453,40 +478,51 @@ t = t.replace(
     '    return 2\n'
     '  fi\n',
 )
-# Forward mock env vars into r2_ro_run_provider (QA17 isolated form).
-old = '''  r2_ro_exec_isolated \\
-    "PATH=/usr/bin:/bin" \\
-    "HOME=${HOME:-/tmp}" \\
-    "LC_ALL=C" \\
-    "AWS_ACCESS_KEY_ID=${ak}" \\
-    "AWS_SECRET_ACCESS_KEY=${sk}" \\
-    "AWS_SESSION_TOKEN=${st}" \\
-    "AWS_DEFAULT_REGION=auto" \\
+# Forward mock env vars into r2_ro_run_provider (QA25 sealed-from-env form).
+old = '''  export AWS_ACCESS_KEY_ID="$ak"
+  export AWS_SECRET_ACCESS_KEY="$sk"
+  export AWS_SESSION_TOKEN="$st"
+  export AWS_DEFAULT_REGION=auto
+  export PATH="/usr/bin:/bin"
+  export HOME="${HOME:-/tmp}"
+  export LC_ALL=C
+  set +e
+  r2_ro_exec_isolated_from_env \\
+    PATH HOME LC_ALL \\
+    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION \\
     -- \\
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
 '''
-new = '''  local mock_args=()
+new = '''  export AWS_ACCESS_KEY_ID="$ak"
+  export AWS_SECRET_ACCESS_KEY="$sk"
+  export AWS_SESSION_TOKEN="$st"
+  export AWS_DEFAULT_REGION=auto
+  export PATH="/usr/bin:/bin"
+  export HOME="${HOME:-/tmp}"
+  export LC_ALL=C
+  # Harness mock markers (non-secret) — export then seal by key name.
+  local mock_keys=()
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]]; then
-    mock_args+=("HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE}")
+    export HOLO_R2_PROVIDER_MOCK_MODE
+    mock_keys+=(HOLO_R2_PROVIDER_MOCK_MODE)
   fi
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_CANARY:-}" ]]; then
-    mock_args+=("HOLO_R2_PROVIDER_MOCK_CANARY=${HOLO_R2_PROVIDER_MOCK_CANARY}")
+    export HOLO_R2_PROVIDER_MOCK_CANARY
+    mock_keys+=(HOLO_R2_PROVIDER_MOCK_CANARY)
   fi
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_RAN_MARKER:-}" ]]; then
-    mock_args+=("HOLO_R2_PROVIDER_MOCK_RAN_MARKER=${HOLO_R2_PROVIDER_MOCK_RAN_MARKER}")
+    export HOLO_R2_PROVIDER_MOCK_RAN_MARKER
+    mock_keys+=(HOLO_R2_PROVIDER_MOCK_RAN_MARKER)
   fi
   if [[ -n "${HOLO_R2_PROVIDER_MOCK_AS_WRITER:-}" ]]; then
-    mock_args+=("HOLO_R2_PROVIDER_MOCK_AS_WRITER=${HOLO_R2_PROVIDER_MOCK_AS_WRITER}")
+    export HOLO_R2_PROVIDER_MOCK_AS_WRITER
+    mock_keys+=(HOLO_R2_PROVIDER_MOCK_AS_WRITER)
   fi
-  r2_ro_exec_isolated \\
-    "PATH=/usr/bin:/bin" \\
-    "HOME=${HOME:-/tmp}" \\
-    "LC_ALL=C" \\
-    "AWS_ACCESS_KEY_ID=${ak}" \\
-    "AWS_SECRET_ACCESS_KEY=${sk}" \\
-    "AWS_SESSION_TOKEN=${st}" \\
-    "AWS_DEFAULT_REGION=auto" \\
-    ${mock_args[@]+"${mock_args[@]}"} \\
+  set +e
+  r2_ro_exec_isolated_from_env \\
+    PATH HOME LC_ALL \\
+    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION \\
+    ${mock_keys[@]+"${mock_keys[@]}"} \\
     -- \\
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
 '''
@@ -609,13 +645,46 @@ fi
 
 
 
-# GATE-FIX-S28R3-QA19: forward mock knobs into assert_bound prove isolated env (production omits them)
+# GATE-FIX-S28R3-QA19/QA25: forward mock knobs into assert_bound prove isolated env.
+# Production uses r2_ro_exec_isolated_from_env KEY... -- /bin/bash "$prove_cmd".
 for cons in provision-fresh-restore-target.sh run-fire-drill-on-fresh-target.sh; do
 /usr/bin/python3 - "$HARNESS/scripts/$cons" <<'PY'
 from pathlib import Path
+import re
 import sys
 p = Path(sys.argv[1])
 t = p.read_text()
+if "HOLO_R2_PROVIDER_MOCK_MODE" in t and "prove_cmd" in t:
+    print("forward mock knobs already present", p.name, file=__import__("sys").stderr)
+    raise SystemExit(0)
+# Prefer sealed-from-env form (QA25): insert mock KEY names BEFORE --.
+m = re.search(
+    r'(r2_ro_exec_isolated_from_env[\s\S]*?)(    --\s*\\\n\s*/bin/bash "\$prove_cmd")',
+    t,
+)
+if not m:
+    m = re.search(
+        r'(r2_ro_exec_isolated_from_env[\s\S]*?)(    --\s*\n\s*/bin/bash "\$prove_cmd")',
+        t,
+    )
+if m:
+    insert = (
+        m.group(1)
+        + '    HOLO_R2_PROVIDER_MOCK_MODE HOLO_R2_PROVIDER_MOCK_CANARY HOLO_R2_PROVIDER_MOCK_RAN_MARKER \\\n'
+        + m.group(2)
+    )
+    # Also export mock keys before the launcher so sealer can read them.
+    export_block = (
+        '  # Harness: export mock knobs (non-secret) for sealed-from-env prove child.\n'
+        '  [[ -n "${HOLO_R2_PROVIDER_MOCK_MODE:-}" ]] && export HOLO_R2_PROVIDER_MOCK_MODE\n'
+        '  [[ -n "${HOLO_R2_PROVIDER_MOCK_CANARY:-}" ]] && export HOLO_R2_PROVIDER_MOCK_CANARY\n'
+        '  [[ -n "${HOLO_R2_PROVIDER_MOCK_RAN_MARKER:-}" ]] && export HOLO_R2_PROVIDER_MOCK_RAN_MARKER\n'
+    )
+    t = t[: m.start()] + export_block + insert + t[m.end() :]
+    p.write_text(t)
+    print("forward mock knobs into assert_bound prove (from_env)", p.name, file=__import__("sys").stderr)
+    raise SystemExit(0)
+# Legacy KEY=val form
 needle = '     --     /bin/bash "$prove_cmd"'
 if needle not in t:
     needle = '--     /bin/bash "$prove_cmd"'
@@ -627,10 +696,9 @@ insert = (
     '     "HOLO_R2_PROVIDER_MOCK_RAN_MARKER=${HOLO_R2_PROVIDER_MOCK_RAN_MARKER:-}"'
     '     --     /bin/bash "$prove_cmd"'
 )
-if "HOLO_R2_PROVIDER_MOCK_MODE=${HOLO_R2_PROVIDER_MOCK_MODE" not in t:
-    t = t.replace(needle, insert, 1)
+t = t.replace(needle, insert, 1)
 p.write_text(t)
-print("forward mock knobs into assert_bound prove", p.name, file=__import__("sys").stderr)
+print("forward mock knobs into assert_bound prove (legacy)", p.name, file=__import__("sys").stderr)
 PY
 done
 

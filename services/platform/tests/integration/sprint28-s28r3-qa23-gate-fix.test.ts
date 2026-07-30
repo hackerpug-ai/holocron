@@ -339,7 +339,7 @@ describe('GATE-FIX-S28R3-QA23 production credential transport boundary', () => {
     const argvLog = resolve(probeDir, 'launcher-argv.txt');
     const childOut = resolve(probeDir, 'child-out.txt');
 
-    // Production path: source r2-ro-live.sh and call r2_ro_exec_isolated with canaries.
+    // Production path: sealed-from-env (key names only on argv); canaries never on ps args.
     // Observer: while the isolated command sleeps briefly, capture process argv via ps.
     const script = `#!/bin/bash
 set -euo pipefail
@@ -351,16 +351,14 @@ CANARY_AK=${JSON.stringify(CANARY_AK)}
 CANARY_ST=${JSON.stringify(CANARY_ST)}
 ARGV_LOG=${JSON.stringify(argvLog)}
 CHILD_OUT=${JSON.stringify(childOut)}
-# Target: short sleep so we can sample argv of the python launcher / child tree.
-# Use absolute sleep.
-r2_ro_exec_isolated \\
-  "PATH=/usr/bin:/bin" \\
-  "HOME=/tmp" \\
-  "LC_ALL=C" \\
-  "AWS_ACCESS_KEY_ID=$CANARY_AK" \\
-  "AWS_SECRET_ACCESS_KEY=$CANARY_SK" \\
-  "AWS_SESSION_TOKEN=$CANARY_ST" \\
-  "AWS_DEFAULT_REGION=auto" \\
+# GATE-FIX-S28R3-QA25: export canaries then pass KEY NAMES only (never KEY=secret on argv).
+export PATH=/usr/bin:/bin HOME=/tmp LC_ALL=C AWS_DEFAULT_REGION=auto
+export AWS_ACCESS_KEY_ID="$CANARY_AK"
+export AWS_SECRET_ACCESS_KEY="$CANARY_SK"
+export AWS_SESSION_TOKEN="$CANARY_ST"
+r2_ro_exec_isolated_from_env \\
+  PATH HOME LC_ALL \\
+  AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION \\
   -- \\
   /bin/bash -c 'sleep 0.25; /bin/echo CHILD_OK; /usr/bin/env | /usr/bin/grep -E "^(PATH|HOME|LC_ALL|AWS_DEFAULT_REGION)=" || true' \\
   >"$CHILD_OUT" 2>&1 &
@@ -411,9 +409,10 @@ echo "PASS: production transport boundary secret-free argv"
     expect(combined).not.toContain(CANARY_ST);
     expect(run.status, combined).toBe(0);
     expect(combined).toMatch(/PASS: production transport boundary/);
-    // Source: no env -i KEY=secret pair expansion
+    // Source: sealed-from-env path present; credential KEY=val refused on legacy form.
     const live = readFileSync(PROD_LIVE, 'utf8');
-    expect(live).toMatch(/FD 3 carries KEY=VAL/);
+    expect(live).toMatch(/r2_ro_exec_isolated_from_env/);
+    expect(live).toMatch(/seal-env-to-file/);
   });
 
   it('fingerprint path: r2_ro_tuple_fp16 canaries never appear on python argv', () => {
@@ -499,12 +498,14 @@ echo "PASS: fingerprint path secret-free argv"
   });
 
   it('fire-drill production child launch path: dynamic canary (shared exec-env-from-fd)', () => {
-    // Source contract
+    // Source contract — GATE-FIX-S28R3-QA25 sealed-from-env (no KEY=secret process-sub).
     const src = readFileSync(PROD_FIRE, 'utf8');
-    expect(src).toMatch(/exec-env-from-fd\.py/);
-    expect(src).toMatch(/for _pair in "\$\{CHILD_ENV_ARGS\[@\]\}"/);
+    expect(src).toMatch(/exec-env-from-fd\.py|r2_ro_exec_isolated_from_env/);
+    expect(src).toMatch(/r2_ro_exec_isolated_from_env/);
+    expect(src).toMatch(/CHILD_ENV_KEYS/);
     expect(src).not.toMatch(/\/usr\/bin\/env -i "\$\{CHILD_ENV_ARGS\[@\]\}"/);
-    expect(src).toMatch(/exec 3< <\(printf '%s\\0' "\$RESTORE_AK"/);
+    expect(src).not.toMatch(/printf '%s\\0' "\$RESTORE_AK"/);
+    expect(src).toMatch(/r2_ro_open_fd3_from_env_values|HOLO_REDACT_/);
 
     // Dynamic canary: replay the exact production launch pattern used by fire-drill
     // (FD 3 KEY=VAL pairs → exec-env-from-fd.py → absolute child), with canary secrets.
@@ -524,36 +525,35 @@ CANARY_ST=${JSON.stringify(CANARY_ST)}
 ARGV_LOG=${JSON.stringify(argvLog)}
 CHILD_OUT=${JSON.stringify(childOut)}
 EVID=${JSON.stringify(evidenceScan)}
-EXEC_FD="$ROOT/scripts/lib/exec-env-from-fd.py"
-# Exact production pattern from run-fire-drill-on-fresh-target.sh:
-# CHILD_ENV_ARGS include restore secrets; launch via FD 3 + exec-env-from-fd.
-CHILD_ENV_ARGS=(
-  "PATH=/usr/bin:/bin"
-  "HOME=/tmp"
-  "LC_ALL=C"
-  "R2_ACCESS_KEY_ID=$CANARY_AK"
-  "R2_SECRET_ACCESS_KEY=$CANARY_SK"
-  "R2_RESTORE_ACCESS_KEY_ID=$CANARY_AK"
-  "R2_RESTORE_SECRET_ACCESS_KEY=$CANARY_SK"
-  "R2_SESSION_TOKEN=$CANARY_ST"
-  "R2_RESTORE_SESSION_TOKEN=$CANARY_ST"
-)
+source "$ROOT/scripts/lib/r2-ro-live.sh"
+r2_ro_init_trusted_helpers || true
+# GATE-FIX-S28R3-QA25 production pattern: export values, seal by key names only.
+export PATH=/usr/bin:/bin HOME=/tmp LC_ALL=C
+export R2_ACCESS_KEY_ID="$CANARY_AK"
+export R2_SECRET_ACCESS_KEY="$CANARY_SK"
+export R2_RESTORE_ACCESS_KEY_ID="$CANARY_AK"
+export R2_RESTORE_SECRET_ACCESS_KEY="$CANARY_SK"
+export R2_SESSION_TOKEN="$CANARY_ST"
+export R2_RESTORE_SESSION_TOKEN="$CANARY_ST"
 _child_log="$(/usr/bin/mktemp "$EVID/holo-fire-drill-child.XXXXXX")"
 set +e
-exec 3< <(
-  for _pair in "\${CHILD_ENV_ARGS[@]}"; do
-    printf '%s\\0' "$_pair"
-  done
-)
-# Child sleeps so argv sampling can observe the python launcher
-/usr/bin/python3 -E -s "$EXEC_FD" -- /bin/bash -c 'sleep 0.3; /bin/echo FIRE_CHILD_OK; /usr/bin/env | /usr/bin/grep -E "^(PATH|HOME|LC_ALL)=" || true' >"$_child_log" 2>&1 &
+r2_ro_exec_isolated_from_env \\
+  PATH HOME LC_ALL \\
+  R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY \\
+  R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY \\
+  R2_SESSION_TOKEN R2_RESTORE_SESSION_TOKEN \\
+  -- \\
+  /bin/bash -c 'sleep 0.3; /bin/echo FIRE_CHILD_OK; /usr/bin/env | /usr/bin/grep -E "^(PATH|HOME|LC_ALL)=" || true' \\
+  >"$_child_log" 2>&1 &
 child=$!
 sleep 0.05
 ps -ax -o args= 2>/dev/null | /usr/bin/head -n 8000 >"$ARGV_LOG" || true
 wait "$child" || true
-exec 3<&- 2>/dev/null || true
-# Redact path (same FD-3 redactor pattern as production) into durable evidence
-exec 3< <(printf '%s\\0' "$CANARY_AK" "$CANARY_SK" "$CANARY_ST")
+# Redact via sealed env values (key names only on sealer argv)
+export HOLO_REDACT_AK="$CANARY_AK" HOLO_REDACT_SK="$CANARY_SK" HOLO_REDACT_ST="$CANARY_ST"
+export HOLO_REDACT_DATA_AK="$CANARY_AK" HOLO_REDACT_DATA_SK="$CANARY_SK" HOLO_REDACT_DATA_ST="$CANARY_ST"
+r2_ro_open_fd3_from_env_values HOLO_REDACT_AK HOLO_REDACT_SK HOLO_REDACT_ST \\
+  HOLO_REDACT_DATA_AK HOLO_REDACT_DATA_SK HOLO_REDACT_DATA_ST
 /usr/bin/python3 -E -s - "$_child_log" <<'PY' >"$CHILD_OUT"
 import os, re, sys
 path = sys.argv[1]
@@ -562,16 +562,15 @@ try:
 except OSError:
     raw = b""
 parts = raw.split(b"\\0")
-ak = parts[0].decode("utf-8", "replace") if len(parts) > 0 else ""
-sk = parts[1].decode("utf-8", "replace") if len(parts) > 1 else ""
-st = parts[2].decode("utf-8", "replace") if len(parts) > 2 else ""
+if parts and parts[-1] == b"":
+    parts = parts[:-1]
+secrets = [p.decode("utf-8", "replace") for p in parts if p]
 try:
     text = open(path, "r", errors="replace").read()
 except OSError:
     sys.exit(0)
-for secret in (sk, ak, st):
-    if secret:
-        text = text.replace(secret, "[redacted]")
+for secret in sorted((s for s in secrets if s), key=len, reverse=True):
+    text = text.replace(secret, "[redacted]")
 sys.stdout.write(text)
 PY
 exec 3<&- 2>/dev/null || true
@@ -590,10 +589,6 @@ if /usr/bin/grep -Fq "$CANARY_ST" "$ARGV_LOG"; then
   exit 2
 fi
 /usr/bin/grep -q FIRE_CHILD_OK "$CHILD_OUT"
-# Recursively scan produced evidence/artifacts for canary secrets
-# (raw child log is allowed to hold env dump of secrets if child printed them —
-# production redacts before evidence write; we scan redacted CHILD_OUT + argv +
-# any other files that are intended as durable evidence.)
 scan_fail=0
 while IFS= read -r -d '' f; do
   case "$f" in
@@ -608,7 +603,6 @@ while IFS= read -r -d '' f; do
     scan_fail=1
   fi
 done < <(/usr/bin/find "$EVID" -type f -print0 2>/dev/null)
-# Also scan CHILD_OUT and ARGV_LOG
 for f in "$CHILD_OUT" "$ARGV_LOG"; do
   if /usr/bin/grep -Fq "$CANARY_SK" "$f" 2>/dev/null; then
     echo "FAIL: secret in $f" >&2

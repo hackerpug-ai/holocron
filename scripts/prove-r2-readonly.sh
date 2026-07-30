@@ -202,21 +202,25 @@ PY
     return 1
   fi
   local mint_rc
+  # GATE-FIX-S28R3-QA25: seal mint token/body from env key names only (never KEY=secret on argv).
+  export CF_API_TOKEN="${token}"
+  export CF_ACCOUNT_ID="${account_id}"
+  export MINT_BODY="${body}"
+  export MINT_RESP="${resp}"
+  export PATH="/usr/bin:/bin"
+  export HOME="${HOME:-/tmp}"
+  export LC_ALL=C
   set +e
   http_code="$(
-    r2_ro_exec_isolated \
-      "PATH=/usr/bin:/bin" \
-      "HOME=${HOME:-/tmp}" \
-      "LC_ALL=C" \
-      "CF_API_TOKEN=${token}" \
-      "CF_ACCOUNT_ID=${account_id}" \
-      "MINT_BODY=${body}" \
-      "MINT_RESP=${resp}" \
+    r2_ro_exec_isolated_from_env \
+      PATH HOME LC_ALL \
+      CF_API_TOKEN CF_ACCOUNT_ID MINT_BODY MINT_RESP \
       -- \
       "$R2_RO_PYTHON_BIN" -E -s "$mint_helper"
   )"
   mint_rc=$?
   set -e
+  unset CF_API_TOKEN 2>/dev/null || true
   if [[ $mint_rc -ne 0 ]]; then
     rm -f "$resp"
     fail "mint HTTP request failed (python urllib exit $mint_rc)"

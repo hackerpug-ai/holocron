@@ -4,7 +4,12 @@
  * R2 endpoint/bucket/prefix + credential key names resolve from the consolidated
  * secrets store (env > secrets.yaml). Never hardcode credential values.
  */
-import { getSecretValue, loadConsolidatedSecrets, resolveRepoRoot } from '../config/secrets.ts';
+import {
+  getSecretValue,
+  loadConsolidatedSecrets,
+  resolveRepoRoot,
+  resolveSecretsPathFromEnv,
+} from '../config/secrets.ts';
 
 /** Secrets keys used by the backup/R2 stack (distinct from DATABASE_URL / Fleet). */
 export const BACKUP_SECRET_KEYS = [
@@ -206,7 +211,8 @@ export function loadBackupConfig(options?: {
   env?: NodeJS.ProcessEnv;
 }): BackupConfig {
   const env = options?.env ?? process.env;
-  const secretsPath = options?.secretsPath;
+  // GATE-FIX-S28R3-QA25: honor HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH / SECRETS_PATH.
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const get = (key: string) => getSecretValue(key, { secretsPath, env });
 
   const accountIdRaw = get('R2_ACCOUNT_ID');

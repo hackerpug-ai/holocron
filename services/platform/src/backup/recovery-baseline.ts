@@ -26,7 +26,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { defaultSecretsPath, getSecretValue, resolveRepoRoot } from '../config/secrets.ts';
+import { getSecretValue, resolveRepoRoot, resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { type BackupConfig, loadBackupConfig } from './config.ts';
 import {
   captureRowCounts,
@@ -915,7 +915,7 @@ export function isBaselineParityMeaningful(
 function resticVerifyEnv(
   env: NodeJS.ProcessEnv
 ): { ok: true; env: NodeJS.ProcessEnv } | { ok: false; error: string } {
-  const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+  const secretsPath = resolveSecretsPathFromEnv(env);
   try {
     // Always pass secretsPath so R2 + restic credentials resolve from secrets.yaml
     // even when not exported into the process environment.
@@ -1639,7 +1639,7 @@ export function emitLiveRecoveryBaseline(
     }
     let cfg: BackupConfig | undefined;
     try {
-      const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+      const secretsPath = resolveSecretsPathFromEnv(env);
       cfg = options.config ?? loadBackupConfig({ env, secretsPath });
     } catch (e) {
       return fail([e instanceof Error ? e.message : String(e)], { restic, label });
@@ -1665,7 +1665,7 @@ export function emitLiveRecoveryBaseline(
     };
   }
 
-  const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+  const secretsPath = resolveSecretsPathFromEnv(env);
   let cfg: BackupConfig;
   try {
     cfg = options?.config ?? loadBackupConfig({ env, secretsPath });

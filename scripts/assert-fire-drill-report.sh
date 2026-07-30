@@ -16,7 +16,7 @@ if [[ -z "$path" ]]; then
   exit 2
 fi
 
-python3 - "$path" <<'PY'
+/usr/bin/python3 -E -s - "$path" <<'PY'
 import json, sys
 
 path = sys.argv[1]

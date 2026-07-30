@@ -3,21 +3,22 @@
   "task_id": "GATE-FIX-S28R3-QA25",
   "files": {
     "parity-report.json": {
-      "sha256": "4f2429b0f5f62d72f114aa0b6d63c47889a56f3739b00c332bb43c07b8b8c10e",
-      "bytes": 2980
+      "sha256": "8ed441cfcef0b87b554195d72644f16dca47d142d01f6108d9b31d2ae1a44112",
+      "bytes": 3952
     },
     "attestation.json": {
-      "sha256": "b59d100134fed7cf9832920237bc0a6804e64c153990a164a1253c0a728a1250",
-      "bytes": 1146
+      "sha256": "849715d458b47759b613797695f3e28d3d7d3aea5e838a36797af5cd0e3102a1",
+      "bytes": 1045
     },
     "SUMMARY.json": {
-      "sha256": "ee650d76143a6ad02019c00fe58b6caa128fbc6f31d2d8aac1624e246f371cb7",
-      "bytes": 678
+      "sha256": "e4938d5208b77e85aad72f74a761b1e96df9d64d29930ccb46beca7d3e403739",
+      "bytes": 675
     }
   },
   "attestation_exit": 0,
   "matched_objects": 11,
   "total_rows": 56,
-  "ledger_checksum": "cdf21cb6fc6b2177cb673dd3aa0e4b72",
-  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020"
+  "ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
+  "source_run": "d05-04-run"
 }

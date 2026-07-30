@@ -29,7 +29,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { defaultSecretsPath } from '../config/secrets.ts';
+import { resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { type BackupConfig, endpointHost, loadBackupConfig } from './config.ts';
 import { listRepoPrefix, renderPgbackrestConfig, writePgbackrestConfig } from './r2-provision.ts';
 
@@ -650,7 +650,8 @@ export function queryPitrWindow(options?: {
   let cfg: BackupConfig;
   try {
     // Align with restic verify: resolve secrets.yaml even when not exported into env.
-    const secretsPath = env.HOLO_SECRETS_PATH || env.SECRETS_PATH || defaultSecretsPath();
+    // GATE-FIX-S28R3-QA25: also honor HOLOCRON_SECRETS_PATH (worktree / FD-bound child).
+    const secretsPath = resolveSecretsPathFromEnv(env);
     cfg = options?.config ?? loadBackupConfig({ env, secretsPath });
   } catch (e) {
     return empty([`backup config missing secrets: ${e instanceof Error ? e.message : String(e)}`]);

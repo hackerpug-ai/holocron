@@ -218,7 +218,11 @@ assert_bound_r2_ro_proof() {
   kind="$(r2_ro_field 4 "${established}")"
   policy="$(r2_ro_field 5 "${established}")"
   expected_ctx="$(r2_ro_field 6 "${established}")"
-  expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
+  # GATE-FIX-S28R3-QA25: fingerprint + prove child via sealed-from-env (no KEY=secret on argv).
+  export R2_RESTORE_ACCESS_KEY_ID="$rak"
+  export R2_RESTORE_SECRET_ACCESS_KEY="$rsk"
+  export R2_RESTORE_SESSION_TOKEN="${rst:-}"
+  expected_fp="$(r2_ro_tuple_fp16_from_env R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY R2_RESTORE_SESSION_TOKEN)"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
     echo "error: GATE-FIX-S28R3-QA13 unable to fingerprint restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
@@ -229,13 +233,38 @@ assert_bound_r2_ro_proof() {
   proof="$(r2_ro_new_proof_path)" || exit 2
   prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
   echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
-  # GATE-FIX-S28R3-QA17 sanitize: always env -i via r2_ro_exec_isolated; never bare env (env-dump).
-  # Capture prove logs to a temp file and emit only allowlisted lines on failure.
   local _prove_log
-  # GATE-FIX-S28R3-QA21: fixed absolute mktemp (no PATH helper while credentials ambient).
   _prove_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-prove.log.XXXXXX")"
+  export PATH="/usr/bin:/bin"
+  export HOME="${HOME:-/tmp}"
+  export LC_ALL=C
+  export REQUIRE_LIVE_R2_RO=1
+  export HOLO_R2_RO_PROOF_OUT="$proof"
+  export HOLO_R2_CONTEXT_FP16="$expected_ctx"
+  export R2_ACCESS_KEY_ID="${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"
+  export R2_SECRET_ACCESS_KEY="${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"
+  export R2_ENDPOINT="$ep"
+  export R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}"
+  export R2_BUCKET_NAME="$bucket"
+  export R2_PGBACKREST_PREFIX="$prefix"
+  export R2_RESTORE_OBJECT_PREFIX="$prefix"
+  export R2_CREDENTIAL_KIND="$kind"
+  export R2_CREDENTIAL_POLICY="$policy"
+  export BACKUP_R2_ACCESS_KEY_ID="${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-${AMBIENT_R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}}}"
+  export BACKUP_R2_SECRET_ACCESS_KEY="${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${AMBIENT_R2_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}}}"
   set +e
-  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "BACKUP_R2_ACCESS_KEY_ID=${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-${AMBIENT_R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}}}"     "BACKUP_R2_SECRET_ACCESS_KEY=${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${AMBIENT_R2_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}}}"     "R2_PARENT_ACCESS_KEY_ID=${R2_PARENT_ACCESS_KEY_ID:-}"     "R2_PARENT_SECRET_ACCESS_KEY=${R2_PARENT_SECRET_ACCESS_KEY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
+  r2_ro_exec_isolated_from_env \
+    PATH HOME LC_ALL REQUIRE_LIVE_R2_RO HOLO_R2_RO_PROOF_OUT HOLO_R2_CONTEXT_FP16 \
+    R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY R2_RESTORE_SESSION_TOKEN \
+    R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY \
+    R2_ENDPOINT R2_ACCOUNT_ID R2_BUCKET_NAME R2_PGBACKREST_PREFIX R2_RESTORE_OBJECT_PREFIX \
+    R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY \
+    R2_SCOPE_PROBE_IN_KEY R2_SCOPE_PROBE_OUT_KEY \
+    HOLOCRON_SECRETS_PATH HOLO_SECRETS_PATH \
+    BACKUP_R2_ACCESS_KEY_ID BACKUP_R2_SECRET_ACCESS_KEY \
+    R2_PARENT_ACCESS_KEY_ID R2_PARENT_SECRET_ACCESS_KEY \
+    -- \
+    /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
   local _prove_rc=$?
   set -e
   if [[ $_prove_rc -ne 0 ]]; then
