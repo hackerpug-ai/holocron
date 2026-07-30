@@ -947,17 +947,100 @@ fi
       expect(existsSync(SEQ_VALIDATOR)).toBe(true);
       return;
     }
+    // Fail-closed bind: empty EXPECT_SHA still resolves worktree HEAD for ancestor/allowlist.
+    // No RECORD_REQUIRE_HEAD soft-bind escape.
     const run = spawnSync('/bin/bash', [SEQ_VALIDATOR, record, ''], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       timeout: 15_000,
-      env: { ...process.env, RECORD_REQUIRE_HEAD: '0', PATH: '/usr/bin:/bin' },
+      env: { ...process.env, PATH: '/usr/bin:/bin' },
     });
     writeEv('sequence-validate.json', {
       status: run.status,
       out: `${run.stdout}${run.stderr}`.slice(0, 3000),
     });
     expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toMatch(/PASS:.*sequence valid/i);
+  });
+
+  it('validator rejects unresolvable / non-ancestor git_sha (fail-closed bind)', () => {
+    const record = resolve(EVIDENCE, 'full-suite-live-sequence.json');
+    expect(existsSync(record), 'durable sequence record required for mutation').toBe(true);
+    const mutDir = resolve(EVIDENCE, 'bad-sequence-non-ancestor');
+    rmSync(mutDir, { recursive: true, force: true });
+    mkdirSync(mutDir, { recursive: true });
+    // Point logs at real durable phase logs via absolute paths in a cloned record.
+    const base = JSON.parse(readFileSync(record, 'utf8')) as Record<string, unknown>;
+    const phases = (base.phases as Array<Record<string, unknown>>).map((ph) => {
+      const logRel = String(ph.log ?? '');
+      return {
+        ...ph,
+        log: resolve(EVIDENCE, logRel),
+      };
+    });
+    const fakeSha = 'f'.repeat(40);
+    const mut = {
+      ...base,
+      git_sha: fakeSha,
+      phases,
+    };
+    const mutPath = resolve(mutDir, 'full-suite-live-sequence.json');
+    writeFileSync(mutPath, JSON.stringify(mut, null, 2));
+    const run = spawnSync('/bin/bash', [SEQ_VALIDATOR, mutPath, ''], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 15_000,
+      env: { ...process.env, PATH: '/usr/bin:/bin' },
+    });
+    writeEv('sequence-reject-non-ancestor.json', {
+      status: run.status,
+      out: `${run.stdout}${run.stderr}`.slice(0, 3000),
+      fake_sha: fakeSha,
+    });
+    expect(run.status, `${run.stdout}${run.stderr}`).not.toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toMatch(
+      /does not resolve|not an ancestor|not a commit|git_sha/i
+    );
+  });
+
+  it('validator rejects product-code paths after bound git_sha (allowlist)', () => {
+    const record = resolve(EVIDENCE, 'full-suite-live-sequence.json');
+    expect(existsSync(record), 'durable sequence record required for mutation').toBe(true);
+    // Pre-product QA25 base: range to HEAD includes services/platform/src/** and product scripts.
+    const preProduct = '552515ab5d41f1437a20de04ec82a5657acf84dd';
+    const mutDir = resolve(EVIDENCE, 'bad-sequence-allowlist');
+    rmSync(mutDir, { recursive: true, force: true });
+    mkdirSync(mutDir, { recursive: true });
+    const base = JSON.parse(readFileSync(record, 'utf8')) as Record<string, unknown>;
+    const phases = (base.phases as Array<Record<string, unknown>>).map((ph) => {
+      const logRel = String(ph.log ?? '');
+      return {
+        ...ph,
+        log: resolve(EVIDENCE, logRel),
+      };
+    });
+    const mut = {
+      ...base,
+      git_sha: preProduct,
+      phases,
+    };
+    const mutPath = resolve(mutDir, 'full-suite-live-sequence.json');
+    writeFileSync(mutPath, JSON.stringify(mut, null, 2));
+    const run = spawnSync('/bin/bash', [SEQ_VALIDATOR, mutPath, ''], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 15_000,
+      env: { ...process.env, PATH: '/usr/bin:/bin' },
+    });
+    writeEv('sequence-reject-allowlist.json', {
+      status: run.status,
+      out: `${run.stdout}${run.stderr}`.slice(0, 4000),
+      bound_sha: preProduct,
+    });
+    expect(run.status, `${run.stdout}${run.stderr}`).not.toBe(0);
+    expect(`${run.stdout}${run.stderr}`).toMatch(
+      /non-evidence path|allowlist|product|services\/platform\/src|scripts\//i
+    );
   });
 });
 

@@ -32,10 +32,10 @@ fi
 RECORD_DIR="$(cd "$(dirname "$RECORD")" && pwd)"
 
 /usr/bin/env -i PATH=/usr/bin:/bin HOME=/tmp LC_ALL=C \
-  /usr/bin/python3 -E -s - "$RECORD" "$CURRENT_HASH" "$QA16BAK_ABSENT" "$RECORD_DIR" "$EXPECT_SHA" <<'PY'
-import json, os, re, sys
+  /usr/bin/python3 -E -s - "$RECORD" "$CURRENT_HASH" "$QA16BAK_ABSENT" "$RECORD_DIR" "$EXPECT_SHA" "$ROOT" <<'PY'
+import json, os, re, subprocess, sys
 
-path, current_hash, qa16, record_dir, expect_sha = sys.argv[1:6]
+path, current_hash, qa16, record_dir, expect_sha, root = sys.argv[1:7]
 try:
     doc = json.load(open(path, encoding="utf-8"))
 except Exception as e:
@@ -56,14 +56,72 @@ for req in ("run_id", "git_sha", "started_at", "finished_at", "phases", "probe_p
     if not doc.get(req):
         errors.append(f"missing {req}")
 
+
+def git(*args: str) -> tuple[int, str, str]:
+    r = subprocess.run(
+        ["git", "-C", root, *args],
+        capture_output=True,
+        text=True,
+    )
+    return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
+
+
+# Fail-closed bind: record git_sha must resolve, be an ancestor of HEAD, and
+# git diff record..HEAD may only contain explicit QA25 evidence-only paths.
+# No RECORD_REQUIRE_HEAD soft-bind escape — empty expect_sha still uses HEAD.
 git_sha = str(doc.get("git_sha") or "")
 if not re.fullmatch(r"[0-9a-f]{40}", git_sha):
     errors.append(f"git_sha not 40-char hex: {git_sha!r}")
-# When expect_sha is provided and non-empty, bind exactly (callers may pass "").
-if expect_sha and git_sha and expect_sha != git_sha:
-    # Soft bind: warn-as-fail only when RECORD_REQUIRE_HEAD=1.
-    if os.environ.get("RECORD_REQUIRE_HEAD") == "1":
-        errors.append(f"git_sha {git_sha} != HEAD {expect_sha}")
+else:
+    head = (expect_sha or "").strip()
+    if not head:
+        rc_h, head, err_h = git("rev-parse", "HEAD")
+        if rc_h != 0 or not head:
+            errors.append(f"cannot resolve HEAD for bind check: {err_h or 'empty'}")
+            head = ""
+    else:
+        rc_h, head_full, err_h = git("rev-parse", "--verify", f"{head}^{{commit}}")
+        if rc_h != 0 or not head_full:
+            errors.append(f"EXPECT_SHA does not resolve to a commit: {expect_sha!r}")
+            head = ""
+        else:
+            head = head_full
+
+    if head:
+        rc_s, full_sha, err_s = git("rev-parse", "--verify", f"{git_sha}^{{commit}}")
+        if rc_s != 0 or not full_sha:
+            errors.append(f"git_sha does not resolve to a commit: {git_sha}")
+        else:
+            rc_a, _, _ = git("merge-base", "--is-ancestor", full_sha, head)
+            if rc_a != 0:
+                errors.append(f"git_sha is not an ancestor of HEAD: {full_sha} !<= {head}")
+            elif full_sha != head:
+                # Evidence-only allowlist for paths introduced after the bound SHA.
+                ALLOW_PREFIXES = (
+                    ".tmp/GATE-FIX-S28R3-QA25/",
+                    ".tmp/GATE-FIX-S28R3-QA24/",
+                    "scripts/validate-sprint28-full-suite-sequence.sh",
+                    "services/platform/tests/integration/sprint28-s28r3-qa25-gate-fix.test.ts",
+                    ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/GATE-FIX-S28R3-QA25",
+                )
+
+                def path_allowed(p: str) -> bool:
+                    for pref in ALLOW_PREFIXES:
+                        if pref.endswith("/"):
+                            if p == pref.rstrip("/") or p.startswith(pref):
+                                return True
+                        else:
+                            if p == pref or p.startswith(pref + "/"):
+                                return True
+                    return False
+
+                rc_d, diff_out, err_d = git("diff", "--name-only", f"{full_sha}..{head}")
+                if rc_d != 0:
+                    errors.append(f"git diff failed for bind check: {err_d or rc_d}")
+                else:
+                    for p in (line.strip() for line in diff_out.splitlines() if line.strip()):
+                        if not path_allowed(p):
+                            errors.append(f"non-evidence path after bound git_sha: {p}")
 
 phases = doc.get("phases") or []
 if not isinstance(phases, list) or len(phases) != 3:
