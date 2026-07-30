@@ -543,13 +543,10 @@ function restoreBlobsAndParity(options: {
     };
   }
 
-  // restic binary must exist.
-  const which = run('which', ['restic'], { env: options.env, timeoutMs: 5_000 });
-  const resticBin =
-    cfg.resticBin ||
-    (which.status === 0 && which.stdout.trim()) ||
-    (existsSync('/opt/homebrew/bin/restic') ? '/opt/homebrew/bin/restic' : null);
-  if (!resticBin) {
+  // GATE-FIX-S28R3-QA21: restic exclusively from root-owned trust chain
+  // (loadResticMirrorConfig → resolveTrustedResticBin). Never PATH/Homebrew/bare restic.
+  const resticBin = cfg.resticBin?.trim() || '';
+  if (!resticBin.startsWith('/') || !existsSync(resticBin)) {
     return {
       ok: false,
       parity: null,
@@ -559,7 +556,7 @@ function restoreBlobsAndParity(options: {
       repository: cfg.repository,
       blob_manifest_sha256: null,
       errors: [
-        'restic binary not found — refuse BLOB_PARITY_PASS (no stub success without restic restore)',
+        'trusted restic binary not found — refuse BLOB_PARITY_PASS (require root-owned RESTIC_BIN or /usr/local/bin/restic or /usr/bin/restic; Homebrew/PATH discovery forbidden)',
       ],
     };
   }
@@ -579,6 +576,7 @@ function restoreBlobsAndParity(options: {
     };
   }
 
+  // Credentials enter resticEnv only after trusted resticBin is resolved above.
   const renv = resticEnv(cfg, options.env);
 
   const snaps = run(resticBin, ['snapshots', '--json'], {

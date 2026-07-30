@@ -30,6 +30,8 @@ const PROD_LIVE = resolve(REPO_ROOT, 'scripts/lib/r2-ro-live.sh');
 const PROD_PROVIDER = resolve(REPO_ROOT, 'scripts/lib/r2_s3_provider.py');
 const PROD_RESTORE = resolve(REPO_ROOT, 'services/platform/src/backup/restore.ts');
 const PROD_BASELINE = resolve(REPO_ROOT, 'services/platform/src/backup/recovery-baseline.ts');
+const PROD_FIRE_DRILL_TS = resolve(REPO_ROOT, 'services/platform/src/backup/fire-drill.ts');
+const PROD_RESTIC_MIRROR = resolve(REPO_ROOT, 'services/platform/src/backup/restic-mirror.ts');
 const GATE_PLAN = resolve(
   REPO_ROOT,
   '.spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/gate-plan.json'
@@ -173,6 +175,11 @@ describe('GATE-FIX-S28R3-QA21 production source contracts', () => {
     expect(src).toMatch(
       /refuses credential-bearing TypeScript restore without root-owned pgbackrest/
     );
+    // TS HOLO_CLI path must fail-closed without trusted restic (blob restore credentials).
+    expect(src).toMatch(/refuses credential-bearing TypeScript restore without root-owned restic/);
+    expect(src).toMatch(/TRUSTED_RESTIC/);
+    expect(src).toMatch(/\/usr\/local\/bin\/restic/);
+    expect(src).toMatch(/\/usr\/bin\/restic/);
   });
 
   it('restore.ts and recovery-baseline.ts refuse PATH/Homebrew tool discovery', () => {
@@ -186,6 +193,30 @@ describe('GATE-FIX-S28R3-QA21 production source contracts', () => {
     expect(baseline).toMatch(/validateRootOwnedBin/);
     expect(baseline).not.toMatch(/run\('which',\s*\['restic'\]/);
     expect(baseline).not.toMatch(/\/opt\/homebrew\/bin\/restic/);
+  });
+
+  it('fire-drill.ts and restic-mirror.ts refuse which+Homebrew restic on credential paths', () => {
+    // MUST-2 residual oracle: credential-bearing TypeScript must not PATH/Homebrew-discover restic.
+    const fire = readFileSync(PROD_FIRE_DRILL_TS, 'utf8');
+    const mirror = readFileSync(PROD_RESTIC_MIRROR, 'utf8');
+
+    // fire-drill restoreBlobsAndParity: no which('restic') / Homebrew fallback.
+    expect(fire).not.toMatch(/run\('which',\s*\['restic'\]/);
+    expect(fire).not.toMatch(/which\(['"]restic['"]/);
+    expect(fire).not.toMatch(/\/opt\/homebrew\/bin\/restic/);
+    expect(fire).toMatch(/trusted restic|resolveTrustedResticBin|cfg\.resticBin/i);
+
+    // restic-mirror loadResticMirrorConfig: exclusive root-owned trust chain.
+    expect(mirror).toMatch(/resolveTrustedResticBin/);
+    expect(mirror).toMatch(/validateRootOwnedBin/);
+    expect(mirror).toMatch(/\/usr\/local\/bin\/restic/);
+    expect(mirror).toMatch(/\/usr\/bin\/restic/);
+    expect(mirror).not.toMatch(/which\(['"]restic['"]/);
+    expect(mirror).not.toMatch(/run\('which',\s*\['restic'\]/);
+    expect(mirror).not.toMatch(/\/opt\/homebrew\/bin\/restic/);
+    // Must not fall back to bare PATH `restic` on credential-bearing config load.
+    expect(mirror).not.toMatch(/:\s*['"]restic['"]\s*;/);
+    expect(mirror).toMatch(/Homebrew\/PATH discovery forbidden/);
   });
 });
 

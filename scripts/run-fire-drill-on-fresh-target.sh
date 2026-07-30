@@ -850,6 +850,11 @@ if [[ "$HOLO_CLI" == *.ts || "$HOLO_CLI" == *.js || "$HOLO_CLI" == *.mjs || "$HO
     err "GATE-FIX-S28R3-QA21 refuses credential-bearing TypeScript restore without root-owned pgbackrest at /usr/local/bin/pgbackrest or /usr/bin/pgbackrest (Homebrew/PATH discovery forbidden)"
     exit 2
   fi
+  # Blob restore credentials (RESTIC_PASSWORD / AWS via resticEnv) require trusted restic too.
+  if [[ -z "$TRUSTED_RESTIC" ]]; then
+    err "GATE-FIX-S28R3-QA21 refuses credential-bearing TypeScript restore without root-owned restic at /usr/local/bin/restic or /usr/bin/restic (Homebrew/PATH discovery forbidden)"
+    exit 2
+  fi
   RUN_PREFIX=("$BUN_BIN" "$HOLO_CLI")
 else
   if [[ ! -e "$HOLO_CLI" ]]; then
