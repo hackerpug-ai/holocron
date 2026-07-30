@@ -1,0 +1,11 @@
+{
+  "helper_policy_sha256": "229e0e15587d9df27c4f9b1ac6ff672cf465637466c26dd5d3f39a690dfe9be7",
+  "normalized_plan_matches_helper": true,
+  "statement_sids": [
+    "HolocronRestoreList",
+    "HolocronRestoreGet"
+  ],
+  "object_resource": [
+    "arn:aws:s3:::holocron-backup/pgbackrest/*"
+  ]
+}
