@@ -389,10 +389,54 @@ function wipeDirContents(dir: string): void {
   }
 }
 
+/**
+ * GATE-FIX-S28R3-QA24: absolute pg_ctl/psql for restore-only PATH=/usr/bin:/bin.
+ * Postgres local start/query is not an R2 trust boundary — Homebrew paths allowed.
+ */
+function resolvePgCtlBin(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = env.PG_CTL_BIN?.trim() || env.POSTGRES_PG_CTL?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
+    '/usr/local/opt/postgresql@18/bin/pg_ctl',
+    '/opt/homebrew/bin/pg_ctl',
+    '/usr/local/bin/pg_ctl',
+    '/usr/lib/postgresql/18/bin/pg_ctl',
+    '/usr/bin/pg_ctl',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  return 'pg_ctl';
+}
+
+function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = env.PSQL_BIN?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/psql',
+    '/usr/local/opt/postgresql@18/bin/psql',
+    '/opt/homebrew/bin/psql',
+    '/usr/local/bin/psql',
+    '/usr/lib/postgresql/18/bin/psql',
+    '/usr/bin/psql',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  return 'psql';
+}
+
+function pgClientEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    PATH: '/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
+  };
+}
+
 function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
   if (!existsSync(pgdata)) return;
-  run('pg_ctl', ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
-    env: { ...env, PGDATA: pgdata },
+  const pgCtl = resolvePgCtlBin(env);
+  run(pgCtl, ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
+    env: { ...env, PGDATA: pgdata, PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` },
     timeoutMs: 45_000,
   });
 }
@@ -445,8 +489,15 @@ function startRestoredPostgres(
   tryStopPostgres(pgdata, env);
   const logFile = join(pgdata, 'holo-fire-drill-start.log');
   const socketDir = restoreSocketDir(port);
+  const pgCtl = resolvePgCtlBin(env);
+  // Postgres needs its bin dir on PATH for the postmaster sibling of pg_ctl.
+  const pgEnv: NodeJS.ProcessEnv = {
+    ...env,
+    PGDATA: pgdata,
+    PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+  };
   const started = run(
-    'pg_ctl',
+    pgCtl,
     [
       'start',
       '-D',
@@ -460,12 +511,12 @@ function startRestoredPostgres(
       '-t',
       '120',
     ],
-    { env: { ...env, PGDATA: pgdata }, timeoutMs: 150_000 }
+    { env: pgEnv, timeoutMs: 150_000 }
   );
   // Brief settle for promote completion.
   run('sleep', ['3'], { env, timeoutMs: 10_000 });
-  const status = run('pg_ctl', ['status', '-D', pgdata], {
-    env: { ...env, PGDATA: pgdata },
+  const status = run(pgCtl, ['status', '-D', pgdata], {
+    env: pgEnv,
     timeoutMs: 15_000,
   });
   let logTail = '';
@@ -579,7 +630,8 @@ function restoreBlobsAndParity(options: {
   // Credentials enter resticEnv only after trusted resticBin is resolved above.
   const renv = resticEnv(cfg, options.env);
 
-  const snaps = run(resticBin, ['snapshots', '--json'], {
+  // GATE-FIX-S28R3-QA24: --no-lock for restore-only R2 credentials (no PutObject for locks).
+  const snaps = run(resticBin, ['snapshots', '--json', '--no-lock'], {
     env: renv,
     timeoutMs: 120_000,
   });
@@ -632,10 +684,15 @@ function restoreBlobsAndParity(options: {
     };
   }
 
-  const restore = run(resticBin, ['restore', snapshotId, '--target', options.blobDir], {
-    env: renv,
-    timeoutMs: 600_000,
-  });
+  // GATE-FIX-S28R3-QA24: --no-lock so RO restore credentials can read without lock Put.
+  const restore = run(
+    resticBin,
+    ['restore', snapshotId, '--target', options.blobDir, '--no-lock'],
+    {
+      env: renv,
+      timeoutMs: 600_000,
+    }
+  );
   if (restore.status !== 0) {
     return {
       ok: false,
@@ -1102,15 +1159,17 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
   }
 
   // Prefer short unix socket dir, then TCP 127.0.0.1 (never long worktree PGDATA as -h).
+  const psqlBin = resolvePsqlBin(env);
+  const clientEnv = pgClientEnv(env);
   let restoredConn: PsqlConnection = {
     host: startedPg.socketDir,
     port: restorePort,
     database: restoreDatabase,
-    env,
+    env: clientEnv,
   };
   // Probe connectivity / discover actual DB name.
   const probe = run(
-    'psql',
+    psqlBin,
     [
       '-h',
       startedPg.socketDir,
@@ -1121,25 +1180,25 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       '-tAc',
       'SELECT 1',
     ],
-    { env, timeoutMs: 15_000 }
+    { env: clientEnv, timeoutMs: 15_000 }
   );
   if (probe.status !== 0) {
     const probe2 = run(
-      'psql',
+      psqlBin,
       ['-h', '127.0.0.1', '-p', String(restorePort), '-d', restoreDatabase, '-tAc', 'SELECT 1'],
-      { env, timeoutMs: 15_000 }
+      { env: clientEnv, timeoutMs: 15_000 }
     );
     if (probe2.status === 0) {
       restoredConn = {
         host: '127.0.0.1',
         port: restorePort,
         database: restoreDatabase,
-        env,
+        env: clientEnv,
       };
     } else {
       // Try postgres DB then list.
       const probePg = run(
-        'psql',
+        psqlBin,
         [
           '-h',
           startedPg.socketDir,
@@ -1150,18 +1209,18 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
           '-tAc',
           'SELECT 1',
         ],
-        { env, timeoutMs: 15_000 }
+        { env: clientEnv, timeoutMs: 15_000 }
       );
       if (probePg.status === 0) {
         restoredConn = {
           host: startedPg.socketDir,
           port: restorePort,
           database: 'postgres',
-          env,
+          env: clientEnv,
         };
         // Prefer holocron if it exists.
         const dbs = run(
-          'psql',
+          psqlBin,
           [
             '-h',
             startedPg.socketDir,
@@ -1172,26 +1231,26 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
             '-tAc',
             "SELECT datname FROM pg_database WHERE datname = 'holocron'",
           ],
-          { env, timeoutMs: 15_000 }
+          { env: clientEnv, timeoutMs: 15_000 }
         );
         if (dbs.status === 0 && dbs.stdout.trim() === 'holocron') {
           restoredConn.database = 'holocron';
         }
       } else {
         const probeTcpPg = run(
-          'psql',
+          psqlBin,
           ['-h', '127.0.0.1', '-p', String(restorePort), '-d', 'postgres', '-tAc', 'SELECT 1'],
-          { env, timeoutMs: 15_000 }
+          { env: clientEnv, timeoutMs: 15_000 }
         );
         if (probeTcpPg.status === 0) {
           restoredConn = {
             host: '127.0.0.1',
             port: restorePort,
             database: 'postgres',
-            env,
+            env: clientEnv,
           };
           const dbs = run(
-            'psql',
+            psqlBin,
             [
               '-h',
               '127.0.0.1',
@@ -1202,7 +1261,7 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
               '-tAc',
               "SELECT datname FROM pg_database WHERE datname = 'holocron'",
             ],
-            { env, timeoutMs: 15_000 }
+            { env: clientEnv, timeoutMs: 15_000 }
           );
           if (dbs.status === 0 && dbs.stdout.trim() === 'holocron') {
             restoredConn.database = 'holocron';

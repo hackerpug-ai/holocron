@@ -9,6 +9,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 
 /** Domain tables whose content feeds the evidence-ledger checksum. */
 export const LEDGER_DOMAIN_TABLES = [
@@ -75,6 +76,25 @@ export type LedgerVerifyResult = {
   errors: string[];
 };
 
+/**
+ * GATE-FIX-S28R3-QA24: absolute psql when restore-only PATH=/usr/bin:/bin.
+ */
+function resolvePsqlBin(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = env.PSQL_BIN?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/psql',
+    '/usr/local/opt/postgresql@18/bin/psql',
+    '/opt/homebrew/bin/psql',
+    '/usr/local/bin/psql',
+    '/usr/lib/postgresql/18/bin/psql',
+    '/usr/bin/psql',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  return 'psql';
+}
+
 function runPsql(
   conn: PsqlConnection,
   sql: string,
@@ -99,9 +119,13 @@ function runPsql(
     args.push('-c');
   }
   args.push(sql);
-  const res = spawnSync('psql', args, {
+  const env = conn.env ?? process.env;
+  const res = spawnSync(resolvePsqlBin(env), args, {
     encoding: 'utf8',
-    env: conn.env ?? process.env,
+    env: {
+      ...env,
+      PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+    },
     timeout: 60_000,
   });
   return {

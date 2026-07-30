@@ -1,18 +1,18 @@
 {
   "schema": "holo.r2-scope-probes.v1",
-  "task": "GATE-FIX-S28R3-QA16",
+  "task": "GATE-FIX-S28R3-QA24",
   "bucket": "holocron-backup",
   "prefix": "pgbackrest",
   "listed_via": "authorized-writer-control-plane",
   "object_created": false,
-  "listed_at": "2026-07-29T18:00:00Z",
+  "listed_at": "2026-07-30T04:05:00Z",
   "in_key": "pgbackrest/archive/main/18-1/0000000100000005/0000000100000005000000E3-13f27e2e010416e3c641c1355c653bee6ec7a24b.gz",
-  "out_key": "recovery-baselines/by-backup/20260728-182755F/e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360/recovery-baseline.json",
+  "out_key": "drill-out/qa24-scope-probe-out.txt",
   "oracles": {
     "in_prefix": ["list-prefix", "head-object", "get-object"],
     "out_of_prefix": ["list-prefix", "head-object", "get-object"],
     "out_of_prefix_require": "AccessDenied",
     "refuse": ["404", "NoSuchKey", "unclassified"]
   },
-  "note": "GATE-FIX-S28R3-QA16: versioned non-secret known-existing keys (writer-listed, not created). Production binds ONLY from this fixed repository path; caller env cannot replace or weaken the oracle. Out-of-prefix List/Head/Get require explicit AccessDenied (never 404)."
+  "note": "GATE-FIX-S28R3-QA24: out_key moved off recovery-baselines/ so multi-prefix RO (pgbackrest+restic+recovery-baselines) can List/Get baselines while true out-of-prefix drill-out/ still AccessDenied. Writer-listed existing object; never 404 oracle. Re-record full-suite sequence after this intentional out-key change."
 }

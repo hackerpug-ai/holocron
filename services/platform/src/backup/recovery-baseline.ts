@@ -26,7 +26,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { defaultSecretsPath, getSecretValue } from '../config/secrets.ts';
+import { defaultSecretsPath, getSecretValue, resolveRepoRoot } from '../config/secrets.ts';
 import { type BackupConfig, loadBackupConfig } from './config.ts';
 import {
   captureRowCounts,
@@ -1056,7 +1056,9 @@ export function verifyResticSnapshotInRepo(options: {
   // When runProcess is injected without a trusted on-disk bin, pass a fixed label only —
   // production run() is not used, so no untrusted executable receives credentials.
   const binForRunner = resticBin ?? '/usr/bin/restic';
-  const snaps = runner(binForRunner, ['snapshots', '--json'], {
+  // GATE-FIX-S28R3-QA24: --no-lock so restore-only R2 creds (List/Get, no Put) can list
+  // snapshots without creating exclusive locks in the restic repo.
+  const snaps = runner(binForRunner, ['snapshots', '--json', '--no-lock'], {
     env: renv.env,
     timeoutMs: 120_000,
   });
@@ -1250,7 +1252,24 @@ export function putR2Object(options: {
   }
 }
 
-/** Download R2 object body via real aws s3 cp. */
+/**
+ * GATE-FIX-S28R3-QA24: resolve root-owned aws for restore-only PATH=/usr/bin:/bin.
+ * Never bare PATH discovery (Homebrew aws forbidden while credentials ambient).
+ */
+function resolveTrustedAwsBinForBaseline(env: NodeJS.ProcessEnv): string | null {
+  const fromEnv = env.AWS_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/aws', '/usr/bin/aws'] as const) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
+}
+
+/** Download R2 object body via trusted root-owned aws, else stdlib python provider. */
 export function getR2Object(options: {
   config: BackupConfig;
   key: string;
@@ -1262,16 +1281,73 @@ export function getR2Object(options: {
   const dir = mkdtempSync(join(tmpdir(), 'holo-recovery-baseline-get-'));
   const local = join(dir, RECOVERY_BASELINE_OBJECT_NAME);
   try {
+    const awsBin = resolveTrustedAwsBinForBaseline(env);
+    if (awsBin) {
+      const res = run(
+        awsBin,
+        ['s3', 'cp', `s3://${cfg.bucketName}/${key}`, local, '--endpoint-url', cfg.endpoint],
+        {
+          env: {
+            ...awsEnv(cfg, env),
+            PATH: '/usr/bin:/bin',
+          },
+          timeoutMs: 120_000,
+        }
+      );
+      if (res.status === 0 && existsSync(local)) {
+        return { ok: true, body: readFileSync(local, 'utf8') };
+      }
+      // Fall through to python provider when trusted aws fails (e.g. missing on host).
+    }
+
+    // Fallback: repository stdlib provider via root-owned python3 (same class as listRepoPrefix).
+    const py =
+      validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
+    if (!py) {
+      return {
+        ok: false,
+        body: null,
+        error:
+          'GATE-FIX-S28R3-QA24: no root-owned aws or python3 for recovery-baseline GET (PATH/Homebrew forbidden)',
+      };
+    }
+    const provider = `${resolveRepoRoot()}/scripts/lib/r2_s3_provider.py`;
+    if (!existsSync(provider)) {
+      return {
+        ok: false,
+        body: null,
+        error: `GATE-FIX-S28R3-QA24: missing R2 provider ${provider}`,
+      };
+    }
     const res = run(
-      'aws',
-      ['s3', 'cp', `s3://${cfg.bucketName}/${key}`, local, '--endpoint-url', cfg.endpoint],
-      { env: awsEnv(cfg, env), timeoutMs: 120_000 }
+      py,
+      [
+        '-E',
+        '-s',
+        provider,
+        'get-object',
+        '--endpoint',
+        cfg.endpoint,
+        '--bucket',
+        cfg.bucketName,
+        '--key',
+        key,
+        '--out-file',
+        local,
+      ],
+      {
+        env: {
+          ...awsEnv(cfg, env),
+          PATH: '/usr/bin:/bin',
+        },
+        timeoutMs: 120_000,
+      }
     );
     if (res.status !== 0 || !existsSync(local)) {
       return {
         ok: false,
         body: null,
-        error: `aws s3 cp get failed: ${(res.stderr || res.stdout).slice(0, 400)}`,
+        error: `recovery-baseline GET failed: ${(res.stderr || res.stdout).slice(0, 400)}`,
       };
     }
     return { ok: true, body: readFileSync(local, 'utf8') };
@@ -1829,7 +1905,8 @@ export function listResticSnapshotIds(options?: { env?: NodeJS.ProcessEnv }): {
         'restic binary missing or untrusted — require root-owned /usr/local/bin/restic or /usr/bin/restic (PATH/Homebrew forbidden)',
     };
   }
-  const snaps = run(resticBin, ['snapshots', '--json'], {
+  // GATE-FIX-S28R3-QA24: --no-lock for restore-only List/Get credentials.
+  const snaps = run(resticBin, ['snapshots', '--json', '--no-lock'], {
     env: resticEnv.env,
     timeoutMs: 180_000,
   });

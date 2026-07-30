@@ -1175,6 +1175,40 @@ export function ensureArchiveCommandForCheck(options: {
   };
 }
 
+/**
+ * GATE-FIX-S28R3-QA24: list via root-owned aws when present; otherwise fixed
+ * repository stdlib provider via root-owned /usr/bin/python3 (never Homebrew aws).
+ */
+function runTrustedPythonR2(
+  args: string[],
+  creds: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string | null;
+    env?: NodeJS.ProcessEnv;
+  }
+): { status: number; stdout: string; stderr: string } {
+  const py = validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
+  if (!py) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr: 'GATE-FIX-S28R3-QA24: no root-owned python3 for R2 provider fallback',
+    };
+  }
+  // Resolve provider relative to repo root (this file lives under services/platform/src/backup).
+  const provider = `${resolveRepoRoot()}/scripts/lib/r2_s3_provider.py`;
+  if (!existsSync(provider)) {
+    return {
+      status: 127,
+      stdout: '',
+      stderr: `GATE-FIX-S28R3-QA24: missing R2 provider ${provider}`,
+    };
+  }
+  const env = awsEnv(creds);
+  return run(py, ['-E', '-s', provider, ...args], { env, timeoutMs: 180_000 });
+}
+
 export function listRepoPrefix(creds: {
   accessKeyId: string;
   secretAccessKey: string;
@@ -1184,14 +1218,41 @@ export function listRepoPrefix(creds: {
   prefix: string;
   env?: NodeJS.ProcessEnv;
 }): { count: number; raw: string } {
-  const res = runAws(
+  const prefix = creds.prefix.replace(/^\//, '').replace(/\/$/, '');
+  // Prefer root-owned aws when present (production trust chain).
+  if (resolveTrustedAwsBin(creds.env)) {
+    const res = runAws(
+      [
+        's3',
+        'ls',
+        `s3://${creds.bucketName}/${prefix}/`,
+        '--endpoint-url',
+        creds.endpoint,
+        '--recursive',
+      ],
+      creds
+    );
+    const lines = (res.stdout || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return { count: lines.length, raw: res.stdout || res.stderr || '' };
+  }
+  // Fallback: repository stdlib provider (same trust class as prove-r2-readonly).
+  // GATE-FIX-S28R3-QA24: paginate far enough that pgbackrest archive/ does not
+  // starve backup.manifest / backup.info discovery (max-keys=1000 truncated early).
+  const res = runTrustedPythonR2(
     [
-      's3',
-      'ls',
-      `s3://${creds.bucketName}/${creds.prefix.replace(/^\//, '')}/`,
-      '--endpoint-url',
+      'list-prefix',
+      '--endpoint',
       creds.endpoint,
-      '--recursive',
+      '--bucket',
+      creds.bucketName,
+      '--prefix',
+      prefix,
+      '--max-keys',
+      '100000',
+      '--aws-ls-format',
     ],
     creds
   );
