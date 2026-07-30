@@ -1,6 +1,7 @@
 # GATE-FIX-S28R3-QA20 — Credential-free recorder runtime
 
-> Status: ✅ Completed (resolution-only supersession of forbidden 31fee195; no product-source SHA; not a landable task commit)
+> Status: ✅ Completed (resolution-only; no product-source landable SHA)
+> Commit: 5fe574a30826236c4edf80f79d9710940fe1b79c
 > Sprint: [Sprint 28](./SPRINT.md)
 > Agent: devops-engineer / security / test-quality
 > Reviewer: code-reviewer + security-reviewer + test-quality-reviewer
