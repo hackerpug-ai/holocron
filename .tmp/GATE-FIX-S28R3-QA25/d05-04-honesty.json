@@ -1,0 +1,12 @@
+{
+  "schema": "holo.qa25-d05-04-honesty.v1",
+  "task_id": "GATE-FIX-S28R3-QA25",
+  "durable_bundle": "d05-04-bundle",
+  "source_run": "d05-04-run",
+  "real_fire_drill_child_reached": true,
+  "fire_drill_exit": 0,
+  "parity_ok": true,
+  "real_fire_drill_notes": "production-boundary + d05-04-run credentialed child exit 0 with full parity after secret-FD cipher propagation",
+  "never_weakened_trust": true,
+  "cipher_propagated": true
+}

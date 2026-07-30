@@ -46,7 +46,16 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(2)
-    # Require at least one NUL-terminated assignment (trailing NUL optional after last).
+    # GATE-FIX-S28R3-QA25: require terminating NUL on the stream. Reject truncated or
+    # trailing-malformed records (unterminated final assignment would silently execve
+    # with a partial credential environment).
+    if not raw.endswith(b"\0"):
+        print(
+            "error: GATE-FIX-S28R3-QA25 exec-env-from-fd FD 3 missing terminating NUL (truncated/malformed)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    # split yields a final empty element when stream ends with NUL — drop it.
     items = raw.split(b"\0")
     if items and items[-1] == b"":
         items = items[:-1]

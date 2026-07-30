@@ -1,0 +1,24 @@
+{
+  "schema": "holo.qa25-d05-04-oracle-manifest.v1",
+  "task_id": "GATE-FIX-S28R3-QA25",
+  "files": {
+    "parity-report.json": {
+      "sha256": "b720b8717ed7c1537e96048090731e03bc427907db6f039fc3c6d1a6d47e3f38",
+      "bytes": 3952
+    },
+    "attestation.json": {
+      "sha256": "3947c2cbf9718046a63df011915122cabc4a3067bbff5aec797e8912991318a9",
+      "bytes": 1045
+    },
+    "SUMMARY.json": {
+      "sha256": "e4938d5208b77e85aad72f74a761b1e96df9d64d29930ccb46beca7d3e403739",
+      "bytes": 675
+    }
+  },
+  "attestation_exit": 0,
+  "matched_objects": 11,
+  "total_rows": 56,
+  "ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
+  "source_run": "d05-04-run"
+}

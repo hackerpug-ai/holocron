@@ -23,6 +23,8 @@ R2_RO_CURL_BIN="/usr/bin/curl"
 R2_RO_PROVIDER_PY="${ROOT}/scripts/lib/r2_s3_provider.py"
 # GATE-FIX-S28R3-QA23: secret-free env launch (FD 3 pairs → execve); never env -i KEY=secret.
 R2_RO_EXEC_ENV_FROM_FD_PY="${ROOT}/scripts/lib/exec-env-from-fd.py"
+# GATE-FIX-S28R3-QA25: seal env values to private file (argv = paths + key names only).
+R2_RO_SEAL_ENV_TO_FILE_PY="${ROOT}/scripts/lib/seal-env-to-file.py"
 
 # --- trust chain validation (root-owned, no group/world-writable parents) ---
 
@@ -128,16 +130,107 @@ PY
   return 0
 }
 
-# GATE-FIX-S28R3-QA18 env-sanitize + GATE-FIX-S28R3-QA23 secret-free argv:
-# isolated exec that NEVER dumps ambient environment and NEVER puts KEY=secret on
-# intermediate process argv. Pairs travel on FD 3 (NUL-separated); launcher is
-# absolute /usr/bin/python3 + scripts/lib/exec-env-from-fd.py.
-# Usage: r2_ro_exec_isolated KEY=val KEY=val -- /abs/command [args...]
-# Requires a "--" separator and a non-empty absolute command. Values are never logged.
-r2_ro_exec_isolated() {
-  local -a pairs=()
+# GATE-FIX-S28R3-QA25: create private 0600 temp file under TMPDIR (absolute path).
+r2_ro_mktemp_private() {
+  local tmp
+  tmp="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-r2-seal.XXXXXX")" || return 2
+  /bin/chmod 600 "$tmp" || { /bin/rm -f "$tmp"; return 2; }
+  # Ensure absolute (mktemp may return relative on some TMPDIR shapes).
+  case "$tmp" in
+    /*) printf '%s' "$tmp" ;;
+    *) printf '%s' "$(pwd)/$tmp" ;;
+  esac
+}
+
+# GATE-FIX-S28R3-QA25: seal named env keys into a private file (argv = path + key names only).
+# format: assignments → KEY=VAL\0 ; values → VAL\0
+# Usage: r2_ro_seal_env_to_file assignments|values OUT_PATH KEY1 KEY2 ...
+r2_ro_seal_env_to_file() {
+  local fmt="$1" out_path="$2"
+  shift 2
+  local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
+  local sealer="${R2_RO_SEAL_ENV_TO_FILE_PY:-${ROOT}/scripts/lib/seal-env-to-file.py}"
+  if [[ ! -f "$sealer" ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 missing seal-env helper: $sealer" >&2
+    return 2
+  fi
+  if [[ $# -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 r2_ro_seal_env_to_file requires KEY names" >&2
+    return 2
+  fi
+  "$py_bin" -E -s "$sealer" --format="$fmt" "$out_path" "$@"
+}
+
+# GATE-FIX-S28R3-QA25: open FD 3 from sealed env-key assignments, unlink file immediately.
+# Usage: r2_ro_open_fd3_from_env_keys KEY1 KEY2 ...
+# Leaves FD 3 open for the caller; returns 0 on success.
+r2_ro_open_fd3_from_env_keys() {
+  local tmp
+  if [[ $# -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 r2_ro_open_fd3_from_env_keys requires KEY names" >&2
+    return 2
+  fi
+  tmp="$(r2_ro_mktemp_private)" || return 2
+  if ! r2_ro_seal_env_to_file assignments "$tmp" "$@"; then
+    /bin/rm -f "$tmp"
+    return 2
+  fi
+  # Open then unlink so no durable sealed material remains on disk.
+  exec 3< "$tmp"
+  /bin/rm -f "$tmp"
+  return 0
+}
+
+# GATE-FIX-S28R3-QA25: open FD 3 from sealed raw field values (for fp16 / redactor tuples).
+# Usage: r2_ro_open_fd3_from_env_values KEY1 KEY2 ...
+r2_ro_open_fd3_from_env_values() {
+  local tmp
+  if [[ $# -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 r2_ro_open_fd3_from_env_values requires KEY names" >&2
+    return 2
+  fi
+  tmp="$(r2_ro_mktemp_private)" || return 2
+  if ! r2_ro_seal_env_to_file values "$tmp" "$@"; then
+    /bin/rm -f "$tmp"
+    return 2
+  fi
+  exec 3< "$tmp"
+  /bin/rm -f "$tmp"
+  return 0
+}
+
+# GATE-FIX-S28R3-QA18/23/25 env-sanitize + secret-free argv:
+# Preferred: r2_ro_exec_isolated_from_env KEY1 KEY2 -- /abs/cmd [args...]
+#   Values already in caller's environment under those key names; sealer argv is
+#   only absolute paths + key names; FD 3 carries KEY=VAL\0 into exec-env-from-fd.
+#
+# Legacy: r2_ro_exec_isolated KEY=val KEY=val -- /abs/cmd [args...]
+#   NON-SECRET pairs only (PATH, HOME, LC_ALL, proof paths, REQUIRE_*). Credential
+#   material (R2_*/AWS_*/RESTIC_*/cipher/session/token/password) must use from_env.
+#   Sealed via bash-builtin write to private temp (never process-sub printf of values).
+
+# Credential-ish key detector (case-insensitive name match).
+r2_ro_key_is_credentialish() {
+  local k="$1"
+  local kl
+  kl="$(printf '%s' "$k" | /usr/bin/tr '[:upper:]' '[:lower:]')"
+  case "$kl" in
+    *secret*|*password*|*token*|*session*|*cipher*|*credential*) return 0 ;;
+  esac
+  case "$k" in
+    R2_*|AWS_*|RESTIC_*|CF_API_TOKEN|CLOUDFLARE_API_TOKEN|BACKUP_R2_*) return 0 ;;
+  esac
+  return 1
+}
+
+# Usage: r2_ro_exec_isolated_from_env KEY1 KEY2 KEY3 -- /abs/command [args...]
+# Optional non-secret KEY=val assignments may appear before -- ONLY for keys that
+# are not credentialish (PATH, HOME, LC_ALL, REQUIRE_*, HOLO_R2_RO_PROOF_OUT, ...).
+# Credential keys must already be present in the caller's environment.
+r2_ro_exec_isolated_from_env() {
+  local -a keys=()
   local -a cmd=()
-  local saw_sep=0 arg
+  local saw_sep=0 arg key val
   local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
   local launcher="${R2_RO_EXEC_ENV_FROM_FD_PY:-${ROOT}/scripts/lib/exec-env-from-fd.py}"
   for arg in "$@"; do
@@ -145,19 +238,32 @@ r2_ro_exec_isolated() {
       cmd+=("$arg")
     elif [[ "$arg" == "--" ]]; then
       saw_sep=1
-    else
-      if [[ "$arg" != *=* ]]; then
-        echo "error: GATE-FIX-S28R3-QA18 r2_ro_exec_isolated expects KEY=VAL before -- (got non-assignment)" >&2
+    elif [[ "$arg" == *=* ]]; then
+      key="${arg%%=*}"
+      val="${arg#*=}"
+      if r2_ro_key_is_credentialish "$key"; then
+        echo "error: GATE-FIX-S28R3-QA25 r2_ro_exec_isolated_from_env refuses credential KEY=val on argv (export key then pass name only): $key" >&2
         return 2
       fi
-      pairs+=("$arg")
+      # Non-secret override: export into this shell so sealer can read it.
+      export "$key=$val"
+      keys+=("$key")
+    else
+      if [[ ! "$arg" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        echo "error: GATE-FIX-S28R3-QA25 r2_ro_exec_isolated_from_env invalid KEY name" >&2
+        return 2
+      fi
+      keys+=("$arg")
     fi
   done
   if [[ $saw_sep -ne 1 || ${#cmd[@]} -lt 1 ]]; then
-    echo "error: GATE-FIX-S28R3-QA18 r2_ro_exec_isolated requires KEY=VAL... -- command [args] (refuse bare env dump)" >&2
+    echo "error: GATE-FIX-S28R3-QA25 r2_ro_exec_isolated_from_env requires KEY... -- command [args]" >&2
     return 2
   fi
-  # Absolute command only (no PATH lookup for credential-bearing runtimes).
+  if [[ ${#keys[@]} -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 r2_ro_exec_isolated_from_env requires at least one KEY" >&2
+    return 2
+  fi
   case "${cmd[0]}" in
     /*) ;;
     *)
@@ -173,17 +279,74 @@ r2_ro_exec_isolated() {
     echo "error: GATE-FIX-S28R3-QA23 missing env-from-fd launcher: $launcher" >&2
     return 2
   fi
-  # FD 3 carries KEY=VAL\0... — never serialized into python/cmd argv.
-  exec 3< <(
-    local p
-    for p in "${pairs[@]}"; do
-      printf '%s\0' "$p"
-    done
-  )
+  if ! r2_ro_open_fd3_from_env_keys "${keys[@]}"; then
+    echo "error: GATE-FIX-S28R3-QA25 failed to seal env keys onto FD 3" >&2
+    return 2
+  fi
+  set +e
+  "$py_bin" -E -s "$launcher" -- "${cmd[@]}"
+  local rc=$?
+  exec 3<&- 2>/dev/null || true
+  return "$rc"
+}
+
+# Legacy KEY=val form. GATE-FIX-S28R3-QA25: refuse credentialish KEY=val (force from_env).
+# Non-secret pairs sealed via private temp file + bash-builtin printf (no process-sub).
+r2_ro_exec_isolated() {
+  local -a pairs=()
+  local -a cmd=()
+  local saw_sep=0 arg key
+  local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
+  local launcher="${R2_RO_EXEC_ENV_FROM_FD_PY:-${ROOT}/scripts/lib/exec-env-from-fd.py}"
+  for arg in "$@"; do
+    if [[ $saw_sep -eq 1 ]]; then
+      cmd+=("$arg")
+    elif [[ "$arg" == "--" ]]; then
+      saw_sep=1
+    else
+      if [[ "$arg" != *=* ]]; then
+        echo "error: GATE-FIX-S28R3-QA18 r2_ro_exec_isolated expects KEY=VAL before -- (got non-assignment); for credentials use r2_ro_exec_isolated_from_env KEYNAMES -- cmd" >&2
+        return 2
+      fi
+      key="${arg%%=*}"
+      if r2_ro_key_is_credentialish "$key"; then
+        echo "error: GATE-FIX-S28R3-QA25 r2_ro_exec_isolated refuses credential KEY=val on intermediate argv ($key); export value and use r2_ro_exec_isolated_from_env" >&2
+        return 2
+      fi
+      pairs+=("$arg")
+    fi
+  done
+  if [[ $saw_sep -ne 1 || ${#cmd[@]} -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA18 r2_ro_exec_isolated requires KEY=VAL... -- command [args] (refuse bare env dump)" >&2
+    return 2
+  fi
+  case "${cmd[0]}" in
+    /*) ;;
+    *)
+      echo "error: GATE-FIX-S28R3-QA17 isolated command must be absolute path" >&2
+      return 2
+      ;;
+  esac
+  if [[ ! -x "${cmd[0]}" && ! -f "${cmd[0]}" ]]; then
+    echo "error: GATE-FIX-S28R3-QA17 isolated command missing: ${cmd[0]}" >&2
+    return 2
+  fi
+  if [[ ! -f "$launcher" ]]; then
+    echo "error: GATE-FIX-S28R3-QA23 missing env-from-fd launcher: $launcher" >&2
+    return 2
+  fi
+  # Seal non-secret pairs via private temp + bash builtin printf (no process-sub, no external printf).
+  local tmp p
+  tmp="$(r2_ro_mktemp_private)" || return 2
+  : >"$tmp"
+  /bin/chmod 600 "$tmp"
+  for p in "${pairs[@]}"; do
+    # bash builtin printf — does not spawn a process; values never appear on ps argv.
+    printf '%s\0' "$p" >>"$tmp"
+  done
+  exec 3< "$tmp"
+  /bin/rm -f "$tmp"
   # GATE-FIX-S28R3-QA24: never re-enable set -e before return of non-zero.
-  # Bash 3.2 treats `set -e; return 1` inside a function as fatal to the *caller*
-  # even when the caller has set +e around the function invocation — which dropped
-  # the "fresh live RO proof failed" diagnostic (review HIGH/QA9).
   set +e
   "$py_bin" -E -s "$launcher" -- "${cmd[@]}"
   local rc=$?
@@ -220,20 +383,47 @@ for line in sys.stdin:
 }
 
 r2_ro_run_provider() {
-  # Run stdlib S3 provider with absolute env -i + absolute python. Credentials via env only.
+  # Run stdlib S3 provider with sealed-from-env credentials (never KEY=secret on argv).
   # Usage: r2_ro_run_provider <ak> <sk> <st> <cmd> [args...]
+  # Function args stay in-shell; sealer reads exported AWS_* from this function scope only.
   local ak="$1" sk="$2" st="$3"
   shift 3
-  r2_ro_exec_isolated \
-    "PATH=/usr/bin:/bin" \
-    "HOME=${HOME:-/tmp}" \
-    "LC_ALL=C" \
-    "AWS_ACCESS_KEY_ID=${ak}" \
-    "AWS_SECRET_ACCESS_KEY=${sk}" \
-    "AWS_SESSION_TOKEN=${st}" \
-    "AWS_DEFAULT_REGION=auto" \
+  # Export into current shell for sealer; restore prior values after to avoid ambient leak growth.
+  local _prev_ak="${AWS_ACCESS_KEY_ID-}" _prev_sk="${AWS_SECRET_ACCESS_KEY-}" \
+    _prev_st="${AWS_SESSION_TOKEN-}" _prev_reg="${AWS_DEFAULT_REGION-}" \
+    _prev_path="${PATH-}" _prev_home="${HOME-}" _prev_lc="${LC_ALL-}"
+  local _had_ak=0 _had_sk=0 _had_st=0 _had_reg=0 _had_path=0 _had_home=0 _had_lc=0
+  [[ -n "${AWS_ACCESS_KEY_ID+x}" ]] && _had_ak=1
+  [[ -n "${AWS_SECRET_ACCESS_KEY+x}" ]] && _had_sk=1
+  [[ -n "${AWS_SESSION_TOKEN+x}" ]] && _had_st=1
+  [[ -n "${AWS_DEFAULT_REGION+x}" ]] && _had_reg=1
+  [[ -n "${PATH+x}" ]] && _had_path=1
+  [[ -n "${HOME+x}" ]] && _had_home=1
+  [[ -n "${LC_ALL+x}" ]] && _had_lc=1
+  export AWS_ACCESS_KEY_ID="$ak"
+  export AWS_SECRET_ACCESS_KEY="$sk"
+  export AWS_SESSION_TOKEN="$st"
+  export AWS_DEFAULT_REGION=auto
+  export PATH="/usr/bin:/bin"
+  export HOME="${HOME:-/tmp}"
+  export LC_ALL=C
+  set +e
+  r2_ro_exec_isolated_from_env \
+    PATH HOME LC_ALL \
+    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_DEFAULT_REGION \
     -- \
     "$R2_RO_PYTHON_BIN" "$R2_RO_PROVIDER_PY" "$@"
+  local rc=$?
+  set +e
+  # Restore prior env (do not leave provider credentials ambient; restore PATH).
+  if [[ $_had_ak -eq 1 ]]; then export AWS_ACCESS_KEY_ID="$_prev_ak"; else unset AWS_ACCESS_KEY_ID; fi
+  if [[ $_had_sk -eq 1 ]]; then export AWS_SECRET_ACCESS_KEY="$_prev_sk"; else unset AWS_SECRET_ACCESS_KEY; fi
+  if [[ $_had_st -eq 1 ]]; then export AWS_SESSION_TOKEN="$_prev_st"; else unset AWS_SESSION_TOKEN; fi
+  if [[ $_had_reg -eq 1 ]]; then export AWS_DEFAULT_REGION="$_prev_reg"; else unset AWS_DEFAULT_REGION; fi
+  if [[ $_had_path -eq 1 ]]; then export PATH="$_prev_path"; else unset PATH; fi
+  if [[ $_had_home -eq 1 ]]; then export HOME="$_prev_home"; else unset HOME; fi
+  if [[ $_had_lc -eq 1 ]]; then export LC_ALL="$_prev_lc"; else unset LC_ALL; fi
+  return "$rc"
 }
 
 
@@ -308,35 +498,73 @@ PY
 }
 
 # GATE-FIX-S28R3-QA17: hash via repository provider + absolute python (no openssl/awk/cut).
-# GATE-FIX-S28R3-QA23 cycle2: fields (may include AK/SK/ST) travel on FD 3 only —
+# GATE-FIX-S28R3-QA23/25: fields (may include AK/SK/ST) travel on sealed FD 3 only —
 # never on python/env argv (tuple fingerprint must not expose secrets to /proc cmdline).
-r2_ro_fp16_fields() {
+# Prefer r2_ro_fp16_from_env_keys / r2_ro_tuple_fp16_from_env for credential fields.
+r2_ro_fp16_from_env_keys() {
+  # Usage: r2_ro_fp16_from_env_keys KEY1 KEY2 KEY3 ...
+  # Values read from caller's environment; sealer argv = paths + key names only.
   local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
   local provider="${R2_RO_PROVIDER_PY:-${ROOT}/scripts/lib/r2_s3_provider.py}"
-  local f rc
-  # Absolute python only; -E ignores PYTHON* knobs; env -i drops ambient runtime env.
-  # FD 3: NUL-separated fields; argv is only: python -E -s provider fp16 --from-fd3
-  exec 3< <(
-    for f in "$@"; do
-      printf '%s\0' "$f"
-    done
-  )
+  local rc
+  if [[ $# -lt 1 ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 r2_ro_fp16_from_env_keys requires KEY names" >&2
+    return 2
+  fi
+  if ! r2_ro_open_fd3_from_env_values "$@"; then
+    return 2
+  fi
   set +e
   /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
     "$py_bin" -E -s "$provider" fp16 --from-fd3
   rc=$?
-  set -e
+  set +e
+  exec 3<&- 2>/dev/null || true
+  return "$rc"
+}
+
+r2_ro_fp16_fields() {
+  # Legacy positional fields. GATE-FIX-S28R3-QA25: seal via private temp + bash builtin
+  # (never process-sub printf — external/subshell argv must not carry field values).
+  local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
+  local provider="${R2_RO_PROVIDER_PY:-${ROOT}/scripts/lib/r2_s3_provider.py}"
+  local f rc tmp
+  tmp="$(r2_ro_mktemp_private)" || return 2
+  : >"$tmp"
+  /bin/chmod 600 "$tmp"
+  for f in "$@"; do
+    # bash builtin printf — no separate process argv
+    printf '%s\0' "$f" >>"$tmp"
+  done
+  exec 3< "$tmp"
+  /bin/rm -f "$tmp"
+  set +e
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+    "$py_bin" -E -s "$provider" fp16 --from-fd3
+  rc=$?
+  set +e
   exec 3<&- 2>/dev/null || true
   return "$rc"
 }
 
 r2_ro_context_fp16() {
-  # args: ep bucket prefix kind policy_json in_key out_key
+  # args: ep bucket prefix kind policy_json in_key out_key (non-secret context fields)
   r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}" "${4:-}" "${5:-}" "${6:-}" "${7:-}"
 }
 
 r2_ro_tuple_fp16() {
+  # Credential tuple fingerprint — prefer r2_ro_tuple_fp16_from_env when values are in env.
   r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}"
+}
+
+# Preferred: fingerprint restore/writer tuple already present under named env keys.
+r2_ro_tuple_fp16_from_env() {
+  # Usage: r2_ro_tuple_fp16_from_env AK_KEY SK_KEY [ST_KEY]
+  # Default keys: R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY R2_RESTORE_SESSION_TOKEN
+  local ak_key="${1:-R2_RESTORE_ACCESS_KEY_ID}"
+  local sk_key="${2:-R2_RESTORE_SECRET_ACCESS_KEY}"
+  local st_key="${3:-R2_RESTORE_SESSION_TOKEN}"
+  r2_ro_fp16_from_env_keys "$ak_key" "$sk_key" "$st_key"
 }
 
 # GATE-FIX-S28R3-QA16: load versioned known-existing scope probes.

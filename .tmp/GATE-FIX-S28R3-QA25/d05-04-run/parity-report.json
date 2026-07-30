@@ -1,0 +1,110 @@
+{
+  "schema": "holo.fire-drill.parity-report.v2",
+  "capturedAt": "2026-07-30T06:32:11.556Z",
+  "targetTimestamp": "2026-07-30T04:01:28Z",
+  "actualStopTimestamp": "2026-07-30T04:01:28Z",
+  "scratchPgdata": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/fresh-restore/s28r3-qa25-disposable-1785392962925/pgdata",
+  "blobDir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA25/.tmp/fresh-restore/s28r3-qa25-disposable-1785392962925/blob-restore",
+  "sourceDatabase": {
+    "host": "fresh-target-no-live-source",
+    "port": 0,
+    "database": "n/a"
+  },
+  "POSTGRES_PARITY_PASS": true,
+  "pre_failure_row_counts": {
+    "beliefs": 8,
+    "sources": 8,
+    "passages": 19,
+    "claims": 5,
+    "relations": 11,
+    "file_objects": 5,
+    "entities": 0
+  },
+  "restored_row_counts": {
+    "beliefs": 8,
+    "sources": 8,
+    "passages": 19,
+    "claims": 5,
+    "relations": 11,
+    "file_objects": 5,
+    "entities": 0
+  },
+  "row_counts": {
+    "beliefs": 8,
+    "sources": 8,
+    "passages": 19,
+    "claims": 5,
+    "relations": 11,
+    "file_objects": 5,
+    "entities": 0
+  },
+  "row_count_mismatches": [],
+  "LEDGER_CHECKSUM_MATCH": true,
+  "ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "pre_failure_ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "ledger_per_table": {
+    "beliefs": "94dc2a0c9bf49a64add5851803ea387f",
+    "sources": "6073dc6fa5a51aa8a03d5383fd6f1d40",
+    "passages": "66fda25f9667ccfa2aea1693ee4a7c05",
+    "claims": "ace64a910bce05837f05ee4d72c46652",
+    "relations": "e1e1d6d5ee3228f7e0c5cf131d00271e"
+  },
+  "sample_tx_windows": [
+    {
+      "table": "beliefs",
+      "id": "019f774d-3aed-79ae-bf30-9f04209c6a6a",
+      "tx_from": "2026-07-18 16:16:17.900092-06",
+      "tx_to": "2026-07-18 16:16:17.931275-06"
+    },
+    {
+      "table": "beliefs",
+      "id": "019f774d-3b0e-7d35-bfc1-ad5cc9745d47",
+      "tx_from": "2026-07-18 16:16:17.931275-06",
+      "tx_to": null
+    },
+    {
+      "table": "beliefs",
+      "id": "019f774d-3ba3-7258-a546-3115c3d7351d",
+      "tx_from": "2026-07-18 16:16:18.082616-06",
+      "tx_to": "2026-07-18 16:16:18.133264-06"
+    },
+    {
+      "table": "relations",
+      "id": "019f73cc-066d-781c-bb79-23731927e431",
+      "tx_from": "2026-07-17 23:56:18.668784-06",
+      "tx_to": null
+    },
+    {
+      "table": "relations",
+      "id": "019f73cc-066e-76bf-ab13-b54c698f654b",
+      "tx_from": "2026-07-17 23:56:18.668784-06",
+      "tx_to": null
+    },
+    {
+      "table": "relations",
+      "id": "019f73cc-066e-7782-bd28-17a2b6f86b37",
+      "tx_from": "2026-07-17 23:56:18.668784-06",
+      "tx_to": null
+    }
+  ],
+  "BLOB_PARITY_PASS": true,
+  "matched_objects": 11,
+  "pre_failure_blob_objects": 0,
+  "restored_blob_objects": 11,
+  "blob_parity": null,
+  "restic_snapshot_id": "cd885c31baa2f701c2d079f27eeba0ce0be4c238504296969a57c4ee5ac27f79",
+  "restic_repository": "s3:https://d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com/holocron-backup/restic",
+  "baseline_loaded": true,
+  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
+  "baseline_sha256": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
+  "baseline_key": "recovery-baselines/sha256/6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020/recovery-baseline.json",
+  "pgbackrest_backup_label": "20260728-182755F_20260729-220125I",
+  "ledger_sha256": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "pre_failure_ledger_sha256": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "blob_manifest_sha256": "2e2f7df5823284157ed2e30ba075754d0bfd3a1ff5a914a1c990efc8762ced2d",
+  "baseline_blob_manifest_sha256": "2e2f7df5823284157ed2e30ba075754d0bfd3a1ff5a914a1c990efc8762ced2d",
+  "errors": [],
+  "durationMs": 153113,
+  "ok": true,
+  "exitCode": 0
+}

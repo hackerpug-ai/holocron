@@ -58,6 +58,29 @@ if [[ -n "${HOLO_QA_PROOF_MUTATE:-}" ]]; then
   exit 2
 fi
 
+# GATE-FIX-S28R3-QA25: exclusive host fire-drill lock (mkdir). Concurrent agents
+# share pgBackRest restore locks and mislabel exit-50 as integrity/WAL failures.
+_FIRE_DRILL_LOCKDIR="${HOLO_FIRE_DRILL_LOCKDIR:-$ROOT/.tmp/fire-drill-host.lockdir}"
+mkdir -p "${_FIRE_DRILL_LOCKDIR%/*}" 2>/dev/null || true
+_fire_drill_lock_deadline=$(( $(/bin/date +%s) + ${HOLO_FIRE_DRILL_LOCK_WAIT_SEC:-600} ))
+while ! /bin/mkdir "$_FIRE_DRILL_LOCKDIR" 2>/dev/null; do
+  if [[ $(/bin/date +%s) -ge $_fire_drill_lock_deadline ]]; then
+    echo "error: GATE-FIX-S28R3-QA25 fire-drill host lock timeout (another fire-drill holds $_FIRE_DRILL_LOCKDIR)" >&2
+    exit 2
+  fi
+  # Stale lock recovery: if holder PID is dead, steal.
+  if [[ -f "$_FIRE_DRILL_LOCKDIR/pid" ]]; then
+    _holder="$(/bin/cat "$_FIRE_DRILL_LOCKDIR/pid" 2>/dev/null || true)"
+    if [[ -n "$_holder" ]] && ! /bin/kill -0 "$_holder" 2>/dev/null; then
+      /bin/rm -rf "$_FIRE_DRILL_LOCKDIR" 2>/dev/null || true
+      continue
+    fi
+  fi
+  sleep 2
+done
+printf '%s\n' "$$" >"$_FIRE_DRILL_LOCKDIR/pid"
+trap '/bin/rm -rf "$_FIRE_DRILL_LOCKDIR" 2>/dev/null || true' EXIT INT TERM
+
 HOST_NAME=""
 TARGET_TIMESTAMP=""
 ATTESTATION=""
@@ -150,11 +173,54 @@ r2_tuple_fp16() {
   r2_ro_tuple_fp16 "${1:-}" "${2:-}" "${3:-}"
 }
 
-# Resolve writer + restore (+ shared R2 config) from secrets file then env override.
+# GATE-FIX-S28R3-QA25: resolve absolute readable secrets.yaml for worktree isolation.
+# Precedence: HOLOCRON_SECRETS_PATH → HOLO_SECRETS_PATH → $ROOT/.../secrets.yaml →
+# primary checkout operator secrets (worktree has no secrets.yaml). Fail closed if none readable.
+# Operator secrets source for worktree isolation (never log secret values):
+#   /Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
+PRIMARY_OPERATOR_SECRETS="/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml"
+
+resolve_absolute_secrets_path() {
+  local cand=""
+  for cand in \
+    "${HOLOCRON_SECRETS_PATH:-}" \
+    "${HOLO_SECRETS_PATH:-}" \
+    "$ROOT/services/platform/config/secrets.yaml" \
+    "$PRIMARY_OPERATOR_SECRETS"; do
+    [[ -n "$cand" ]] || continue
+    # Absolute only for child FD binding; expand relative against ROOT.
+    if [[ "$cand" != /* ]]; then
+      cand="$ROOT/$cand"
+    fi
+    if [[ -f "$cand" && -r "$cand" ]]; then
+      # canonicalize when possible
+      if command -v /usr/bin/python3 >/dev/null 2>&1; then
+        cand="$(/usr/bin/python3 -E -s -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$cand" 2>/dev/null || echo "$cand")"
+      fi
+      printf '%s' "$cand"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Resolve writer + restore (+ shared R2 config + restore secrets) from secrets file then env override.
 # Sets: WRITER_AK, WRITER_SK, RESTORE_AK, RESTORE_SK, RESTORE_ST
+# Exports (when unset in parent, from secrets file): R2_REPO_CIPHER_PASS, RESTIC_PASSWORD,
+# R2_RESTIC_PREFIX, shared R2_* config, and absolute HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH.
+# NEVER logs secret values — presence only.
 resolve_r2_identities_from_secrets_and_env() {
-  local secrets="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}}"
-  local file_writer_ak="" file_writer_sk=""
+  local secrets=""
+  if ! secrets="$(resolve_absolute_secrets_path)"; then
+    err "GATE-FIX-S28R3-QA25 secrets.yaml not readable (set HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH or provide operator secrets)"
+    echo "RESIDUAL: DEPENDENCY-S28-SECRETS" >&2
+    exit 2
+  fi
+  # Force absolute secrets path on parent so child FD + TS resolution both see a real file.
+  export HOLO_SECRETS_PATH="$secrets"
+  export HOLOCRON_SECRETS_PATH="$secrets"
+
+  local file_writer_ak="" file_writer_sk="" file_writer_st=""
   local file_restore_ak="" file_restore_sk="" file_restore_st=""
   local line k v
 
@@ -169,11 +235,15 @@ resolve_r2_identities_from_secrets_and_env() {
       case "$k" in
         R2_ACCESS_KEY_ID) file_writer_ak="$v" ;;
         R2_SECRET_ACCESS_KEY) file_writer_sk="$v" ;;
+        R2_SESSION_TOKEN) file_writer_st="$v" ;;
         R2_RESTORE_ACCESS_KEY_ID) file_restore_ak="$v" ;;
         R2_RESTORE_SECRET_ACCESS_KEY) file_restore_sk="$v" ;;
         R2_RESTORE_SESSION_TOKEN) file_restore_st="$v" ;;
         # GATE-FIX-S28R3-QA10 / M1: never auto-export writer R2_SESSION_TOKEN into restore path.
-        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX)
+        # Shared R2 config + restore-required secrets (cipher/restic) when unset in parent.
+        # Never auto-export PGBACKREST_CONFIG / PGBACKREST_PG1_PATH from secrets —
+        # live mini paths poison fire-drill scratch restore (GATE-FIX-S28R3-QA24/QA25).
+        R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTIC_PREFIX|R2_REPO_CIPHER_PASS|RESTIC_PASSWORD|R2_CREDENTIAL_POLICY|PGBACKREST_STANZA)
           if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi
           ;;
       esac
@@ -189,6 +259,12 @@ resolve_r2_identities_from_secrets_and_env() {
     WRITER_SK="$R2_SECRET_ACCESS_KEY"
   else
     WRITER_SK="$file_writer_sk"
+  fi
+  # Writer session is captured for fire-drill data-plane fallback only (not RO proof).
+  if [[ -n "${R2_SESSION_TOKEN:-}" ]]; then
+    WRITER_ST="$R2_SESSION_TOKEN"
+  else
+    WRITER_ST="$file_writer_st"
   fi
   if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" ]]; then
     RESTORE_AK="$R2_RESTORE_ACCESS_KEY_ID"
@@ -218,8 +294,80 @@ resolve_r2_identities_from_secrets_and_env() {
   if [[ -n "$RESTORE_ST" ]]; then
     export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
   fi
-  # Ensure generic writer session is not left as the restore session.
+  # Ensure generic writer session is not left as the restore session for RO proof.
   unset R2_SESSION_TOKEN 2>/dev/null || true
+}
+
+# GATE-FIX-S28R3-QA25: prefix-scoped RO temp credentials often cover only pgbackrest.
+# Fire-drill data plane also needs recovery-baselines/ + restic List/Get. Probe via stdlib provider.
+# Exit 0 when BOTH prefixes allow List (rc=0); non-zero when AccessDenied/error.
+# Credentials sealed from env key names only → FD 3 — NEVER secret values on argv/xtrace.
+# Caller must export HOLO_PROBE_AK/SK/ST before calling (no positional secret args).
+restore_covers_fire_drill_prefixes() {
+  local ep bucket prov
+  ep="${R2_ENDPOINT:-}"
+  bucket="${R2_BUCKET_NAME:-}"
+  prov="$ROOT/scripts/lib/r2_s3_provider.py"
+  [[ -n "${HOLO_PROBE_AK:-}" && -n "${HOLO_PROBE_SK:-}" && -n "$ep" && -n "$bucket" && -f "$prov" ]] || return 1
+  # FD 3: ak\0sk\0st\0 sealed from env key names only.
+  if ! r2_ro_open_fd3_from_env_values HOLO_PROBE_AK HOLO_PROBE_SK HOLO_PROBE_ST; then
+    return 1
+  fi
+  set +e
+  /usr/bin/python3 -E -s - "$prov" "$ep" "$bucket" <<'PY' 2>/dev/null
+import os, subprocess, sys
+
+prov, endpoint, bucket = sys.argv[1], sys.argv[2], sys.argv[3]
+raw = os.read(3, 1 << 20)
+parts = raw.split(b"\0")
+# trailing empty from final NUL
+while parts and parts[-1] == b"":
+    parts.pop()
+if len(parts) < 2:
+    sys.exit(2)
+ak = parts[0].decode("utf-8", "surrogateescape")
+sk = parts[1].decode("utf-8", "surrogateescape")
+st = parts[2].decode("utf-8", "surrogateescape") if len(parts) > 2 else ""
+env = {
+    "PATH": "/usr/bin:/bin",
+    "HOME": os.environ.get("HOME", "/tmp"),
+    "LC_ALL": "C",
+    "AWS_ACCESS_KEY_ID": ak,
+    "AWS_SECRET_ACCESS_KEY": sk,
+    "AWS_DEFAULT_REGION": "auto",
+}
+if st:
+    env["AWS_SESSION_TOKEN"] = st
+for prefix in ("recovery-baselines", "restic"):
+    p = subprocess.run(
+        [
+            "/usr/bin/python3",
+            "-E",
+            "-s",
+            prov,
+            "list-prefix",
+            "--endpoint",
+            endpoint,
+            "--bucket",
+            bucket,
+            "--prefix",
+            prefix,
+            "--max-keys",
+            "3",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    if p.returncode != 0:
+        sys.exit(1)
+sys.exit(0)
+PY
+  local rc=$?
+  exec 3<&- 2>/dev/null || true
+  unset HOLO_PROBE_AK HOLO_PROBE_SK HOLO_PROBE_ST
+  return "$rc"
 }
 
 r2_context_fp16() {
@@ -235,7 +383,9 @@ assert_bound_r2_ro_proof() {
 
   # GATE-FIX-S28R3-QA13: fixed prover + trusted AWS independent of PATH;
   # canonical context; exclusive private proof; consumer-level validation.
-  local rak="$1" rsk="$2" rst="$3"
+  local rak="${1:-${RESTORE_AK:-${R2_RESTORE_ACCESS_KEY_ID:-}}}"
+  local rsk="${2:-${RESTORE_SK:-${R2_RESTORE_SECRET_ACCESS_KEY:-}}}"
+  local rst="${3:-${RESTORE_ST:-${R2_RESTORE_SESSION_TOKEN:-}}}"
   local expected_fp expected_ctx proof prove_cmd established
   local ep bucket prefix kind policy
   if [[ -n "${HOLO_PROVE_R2_READONLY:-}" ]]; then
@@ -255,7 +405,11 @@ assert_bound_r2_ro_proof() {
   kind="$(r2_ro_field 4 "${established}")"
   policy="$(r2_ro_field 5 "${established}")"
   expected_ctx="$(r2_ro_field 6 "${established}")"
-  expected_fp="$(r2_ro_tuple_fp16 "$rak" "$rsk" "$rst")"
+  # GATE-FIX-S28R3-QA25: fingerprint from env (key names only on sealer argv).
+  export R2_RESTORE_ACCESS_KEY_ID="$rak"
+  export R2_RESTORE_SECRET_ACCESS_KEY="$rsk"
+  export R2_RESTORE_SESSION_TOKEN="${rst:-}"
+  expected_fp="$(r2_ro_tuple_fp16_from_env R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY R2_RESTORE_SESSION_TOKEN)"
   if [[ -z "$expected_fp" || "${#expected_fp}" -lt 8 || -z "$expected_ctx" || "${#expected_ctx}" -lt 8 ]]; then
     echo "error: GATE-FIX-S28R3-QA13 unable to fingerprint restore tuple/context" >&2
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
@@ -266,14 +420,48 @@ assert_bound_r2_ro_proof() {
   proof="$(r2_ro_new_proof_path)" || exit 2
   prove_cmd="$ROOT/scripts/prove-r2-readonly.sh"
   echo "[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)"
-  # GATE-FIX-S28R3-QA17 sanitize: always env -i via r2_ro_exec_isolated; never bare env (env-dump).
-  # Capture prove logs to a temp file and emit only allowlisted lines on failure.
-  local _prove_log
-  # GATE-FIX-S28R3-QA21: fixed absolute mktemp (no PATH helper while credentials ambient).
+  # GATE-FIX-S28R3-QA25: sealed-from-env only — never KEY=secret on intermediate argv.
+  local _prove_log _save_path _save_home _save_lc
   _prove_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-prove.log.XXXXXX")"
+  _save_path="${PATH-}"
+  _save_home="${HOME-}"
+  _save_lc="${LC_ALL-}"
+  # Export prove child env (values in this shell only; sealer reads key names).
+  export PATH="/usr/bin:/bin"
+  export HOME="${HOME:-/tmp}"
+  export LC_ALL=C
+  export REQUIRE_LIVE_R2_RO=1
+  export HOLO_R2_RO_PROOF_OUT="$proof"
+  export HOLO_R2_CONTEXT_FP16="$expected_ctx"
+  export R2_ACCESS_KEY_ID="${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"
+  export R2_SECRET_ACCESS_KEY="${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"
+  export R2_ENDPOINT="$ep"
+  export R2_ACCOUNT_ID="${R2_ACCOUNT_ID:-}"
+  export R2_BUCKET_NAME="$bucket"
+  export R2_PGBACKREST_PREFIX="$prefix"
+  export R2_RESTORE_OBJECT_PREFIX="$prefix"
+  export R2_CREDENTIAL_KIND="$kind"
+  export R2_CREDENTIAL_POLICY="$policy"
+  export BACKUP_R2_ACCESS_KEY_ID="${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-}}"
+  export BACKUP_R2_SECRET_ACCESS_KEY="${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-}}"
   set +e
-  r2_ro_exec_isolated     "PATH=/usr/bin:/bin"     "HOME=${HOME:-/tmp}"     "LC_ALL=C"     "REQUIRE_LIVE_R2_RO=1"     "HOLO_R2_RO_PROOF_OUT=$proof"     "HOLO_R2_CONTEXT_FP16=$expected_ctx"     "R2_RESTORE_ACCESS_KEY_ID=$rak"     "R2_RESTORE_SECRET_ACCESS_KEY=$rsk"     "R2_RESTORE_SESSION_TOKEN=$rst"     "R2_ACCESS_KEY_ID=${AMBIENT_R2_ACCESS_KEY_ID:-${WRITER_AK:-${R2_ACCESS_KEY_ID:-}}}"     "R2_SECRET_ACCESS_KEY=${AMBIENT_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-${R2_SECRET_ACCESS_KEY:-}}}"     "R2_ENDPOINT=$ep"     "R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}"     "R2_BUCKET_NAME=$bucket"     "R2_PGBACKREST_PREFIX=$prefix"     "R2_RESTORE_OBJECT_PREFIX=$prefix"     "R2_CREDENTIAL_KIND=$kind"     "R2_CREDENTIAL_POLICY=$policy"     "R2_SCOPE_PROBE_IN_KEY=${R2_SCOPE_PROBE_IN_KEY:-}"     "R2_SCOPE_PROBE_OUT_KEY=${R2_SCOPE_PROBE_OUT_KEY:-}"     "HOLOCRON_SECRETS_PATH=${HOLOCRON_SECRETS_PATH:-}"     "HOLO_SECRETS_PATH=${HOLO_SECRETS_PATH:-}"     "BACKUP_R2_ACCESS_KEY_ID=${BACKUP_R2_ACCESS_KEY_ID:-${WRITER_AK:-}}"     "BACKUP_R2_SECRET_ACCESS_KEY=${BACKUP_R2_SECRET_ACCESS_KEY:-${WRITER_SK:-}}"     "R2_PARENT_ACCESS_KEY_ID=${R2_PARENT_ACCESS_KEY_ID:-}"     "R2_PARENT_SECRET_ACCESS_KEY=${R2_PARENT_SECRET_ACCESS_KEY:-}"     --     /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
+  r2_ro_exec_isolated_from_env \
+    PATH HOME LC_ALL REQUIRE_LIVE_R2_RO HOLO_R2_RO_PROOF_OUT HOLO_R2_CONTEXT_FP16 \
+    R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY R2_RESTORE_SESSION_TOKEN \
+    R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY \
+    R2_ENDPOINT R2_ACCOUNT_ID R2_BUCKET_NAME R2_PGBACKREST_PREFIX R2_RESTORE_OBJECT_PREFIX \
+    R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY \
+    R2_SCOPE_PROBE_IN_KEY R2_SCOPE_PROBE_OUT_KEY \
+    HOLOCRON_SECRETS_PATH HOLO_SECRETS_PATH \
+    BACKUP_R2_ACCESS_KEY_ID BACKUP_R2_SECRET_ACCESS_KEY \
+    R2_PARENT_ACCESS_KEY_ID R2_PARENT_SECRET_ACCESS_KEY \
+    -- \
+    /bin/bash "$prove_cmd" >"$_prove_log" 2>&1
   local _prove_rc=$?
+  # Restore parent PATH/HOME/LC_ALL so later docker/bun resolution is unchanged.
+  export PATH="$_save_path"
+  export HOME="$_save_home"
+  export LC_ALL="$_save_lc"
   set -e
   if [[ $_prove_rc -ne 0 ]]; then
     echo "error: GATE-FIX-S28R3-QA17 fresh live RO proof failed (class=prove_nonzero exit=${_prove_rc})" >&2
@@ -296,6 +484,7 @@ assert_restore_credential_tuple() {
   # GATE-FIX-S28R3-QA8/QA9 identity + M1 proof bind. Fail closed.
   WRITER_AK=""
   WRITER_SK=""
+  WRITER_ST=""
   RESTORE_AK=""
   RESTORE_SK=""
   RESTORE_ST=""
@@ -805,47 +994,143 @@ done
 # Non-TS recorders (harness) do not need them; we only pass validated absolute paths when present.
 
 # Build env -i argument list (KEY=VAL pairs).
-CHILD_ENV_ARGS=(
-  "PATH=$CHILD_PATH"
-  "HOME=$CHILD_HOME"
-  "TMPDIR=$CHILD_TMPDIR"
-  "USER=$CHILD_USER"
-  "LANG=$CHILD_LANG"
-  "TERM=$CHILD_TERM"
-  "PWD=$ROOT"
-  "R2_ACCESS_KEY_ID=$RESTORE_AK"
-  "R2_SECRET_ACCESS_KEY=$RESTORE_SK"
-  "R2_RESTORE_ACCESS_KEY_ID=$RESTORE_AK"
-  "R2_RESTORE_SECRET_ACCESS_KEY=$RESTORE_SK"
-)
-if [[ -n "$RESTORE_ST" ]]; then
-  CHILD_ENV_ARGS+=("R2_SESSION_TOKEN=$RESTORE_ST" "R2_RESTORE_SESSION_TOKEN=$RESTORE_ST")
+# GATE-FIX-S28R3-QA25 data-plane credential selection (after RO proof already closed):
+#   - Prefer R2_RESTORE_* when it can List recovery-baselines/ + restic/ (full fire-drill scope).
+#   - Else fall back to secrets-file writer identity (WRITER_AK/SK + WRITER_ST) so baseline
+#     discovery + restic blob restore can run. RO oracle already proved distinct restore tuple.
+#   - Always keep R2_RESTORE_* on child for identity audit; never log secret values.
+CHILD_DATA_AK="$RESTORE_AK"
+CHILD_DATA_SK="$RESTORE_SK"
+CHILD_DATA_ST="$RESTORE_ST"
+CHILD_DATA_SOURCE="restore-ro"
+# Probe restore scope via env-sealed FD only (no secret positional args / xtrace).
+export HOLO_PROBE_AK="$RESTORE_AK"
+export HOLO_PROBE_SK="$RESTORE_SK"
+export HOLO_PROBE_ST="${RESTORE_ST:-}"
+if ! restore_covers_fire_drill_prefixes; then
+  if [[ -n "${WRITER_AK:-}" && -n "${WRITER_SK:-}" ]]; then
+    CHILD_DATA_AK="$WRITER_AK"
+    CHILD_DATA_SK="$WRITER_SK"
+    CHILD_DATA_ST="${WRITER_ST:-}"
+    CHILD_DATA_SOURCE="secrets-file-writer-session"
+    log "GATE-FIX-S28R3-QA25: restore RO session lacks recovery-baselines/restic List — child data-plane uses secrets-file identity after RO proof (values not logged)"
+  else
+    err "GATE-FIX-S28R3-QA25: restore RO session cannot List recovery-baselines/restic and secrets-file writer identity unavailable"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+else
+  log "GATE-FIX-S28R3-QA25: restore RO session covers recovery-baselines+restic — child data-plane uses restore identity"
 fi
+
+# GATE-FIX-S28R3-QA25: child env is sealed from key NAMES only (values already in this shell).
+# Export every bound key into the parent first, then list names for r2_ro_exec_isolated_from_env.
+# NEVER build KEY=secret strings for intermediate process argv / process-sub printf.
+export PATH="$CHILD_PATH"
+export HOME="$CHILD_HOME"
+export TMPDIR="$CHILD_TMPDIR"
+export USER="$CHILD_USER"
+export LANG="$CHILD_LANG"
+export TERM="$CHILD_TERM"
+export PWD="$ROOT"
+export R2_ACCESS_KEY_ID="$CHILD_DATA_AK"
+export R2_SECRET_ACCESS_KEY="$CHILD_DATA_SK"
+export R2_RESTORE_ACCESS_KEY_ID="$RESTORE_AK"
+export R2_RESTORE_SECRET_ACCESS_KEY="$RESTORE_SK"
+if [[ -n "$CHILD_DATA_ST" ]]; then
+  export R2_SESSION_TOKEN="$CHILD_DATA_ST"
+else
+  unset R2_SESSION_TOKEN 2>/dev/null || true
+fi
+if [[ -n "$RESTORE_ST" ]]; then
+  export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
+fi
+export HOLO_FIRE_DRILL_CHILD_DATA_SOURCE="$CHILD_DATA_SOURCE"
 if [[ -n "$TRUSTED_PGBACKREST" ]]; then
-  CHILD_ENV_ARGS+=("PGBACKREST_BIN=$TRUSTED_PGBACKREST")
+  export PGBACKREST_BIN="$TRUSTED_PGBACKREST"
 fi
 if [[ -n "$TRUSTED_RESTIC" ]]; then
-  CHILD_ENV_ARGS+=("RESTIC_BIN=$TRUSTED_RESTIC")
+  export RESTIC_BIN="$TRUSTED_RESTIC"
 fi
-# Passthrough non-writer R2 / holo config when present.
 # GATE-FIX-S28R3-QA3 / C-2: NEVER forward DATABASE_URL or PG* (fresh-target is baseline-only).
-# GATE-FIX-S28R3-QA24: NEVER forward PGBACKREST_PG1_PATH (live mini PGDATA) — archive-get
-# during PITR recovery would reject scratch PGDATA vs live path (checkpoint/WAL fail).
-# Restore writes its own conf with --pg1-path=scratch; stanza/config file ok without pg1 env.
+# GATE-FIX-S28R3-QA24: NEVER forward PGBACKREST_PG1_PATH.
+#
+# GATE-FIX-S28R3-QA25: secrets path + R2_REPO_CIPHER_PASS must reach the clean-env child via FD.
+if ! _resolved_secrets="$(resolve_absolute_secrets_path)"; then
+  err "GATE-FIX-S28R3-QA25 refuse credentialed child: secrets.yaml not readable (HOLOCRON_SECRETS_PATH/HOLO_SECRETS_PATH)"
+  echo "RESIDUAL: DEPENDENCY-S28-SECRETS" >&2
+  exit 2
+fi
+export HOLO_SECRETS_PATH="$_resolved_secrets"
+export HOLOCRON_SECRETS_PATH="$_resolved_secrets"
+if [[ -z "${R2_REPO_CIPHER_PASS:-}" ]]; then
+  err "GATE-FIX-S28R3-QA25 refuse credentialed child: R2_REPO_CIPHER_PASS empty after secrets resolve (value not logged)"
+  echo "RESIDUAL: DEPENDENCY-S28-CIPHER" >&2
+  exit 2
+fi
+if [[ -z "${R2_CREDENTIAL_KIND:-}" ]]; then
+  export R2_CREDENTIAL_KIND="object-read-only"
+fi
+
+# Ordered list of env key names sealed onto FD 3 for the credentialed child.
+CHILD_ENV_KEYS=(
+  PATH HOME TMPDIR USER LANG TERM PWD
+  R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
+  R2_RESTORE_ACCESS_KEY_ID R2_RESTORE_SECRET_ACCESS_KEY
+  HOLO_SECRETS_PATH HOLOCRON_SECRETS_PATH R2_REPO_CIPHER_PASS
+)
+if [[ -n "${R2_SESSION_TOKEN:-}" ]]; then
+  CHILD_ENV_KEYS+=(R2_SESSION_TOKEN)
+fi
+if [[ -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
+  CHILD_ENV_KEYS+=(R2_RESTORE_SESSION_TOKEN)
+fi
+if [[ -n "${PGBACKREST_BIN:-}" ]]; then
+  CHILD_ENV_KEYS+=(PGBACKREST_BIN)
+fi
+if [[ -n "${RESTIC_BIN:-}" ]]; then
+  CHILD_ENV_KEYS+=(RESTIC_BIN)
+fi
+# GATE-FIX-S28R3-QA25: never forward PGBACKREST_CONFIG (live mini conf) into child.
 for _k in \
   R2_ENDPOINT R2_ACCOUNT_ID R2_BUCKET_NAME R2_PGBACKREST_PREFIX R2_RESTORE_OBJECT_PREFIX \
-  R2_RESTIC_PREFIX R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY R2_REPO_CIPHER_PASS \
-  HOLO_SECRETS_PATH HOLOCRON_SECRETS_PATH HOLO_FIRE_DRILL_ENV_DUMP \
+  R2_RESTIC_PREFIX R2_CREDENTIAL_KIND R2_CREDENTIAL_POLICY \
+  HOLO_FIRE_DRILL_ENV_DUMP HOLO_FIRE_DRILL_CHILD_DATA_SOURCE \
   STAGING_ROOT RESTIC_PASSWORD RESTIC_REPOSITORY \
-  PGBACKREST_CONFIG PGBACKREST_STANZA \
+  PGBACKREST_STANZA \
   CI PLATFORM_IT; do
   if [[ -n "${!_k:-}" ]]; then
-    CHILD_ENV_ARGS+=("${_k}=${!_k}")
+    CHILD_ENV_KEYS+=("$_k")
   fi
 done
-# Explicit object-read-only kind when policy not supplied.
-if [[ -z "${R2_CREDENTIAL_KIND:-}" ]]; then
-  CHILD_ENV_ARGS+=("R2_CREDENTIAL_KIND=object-read-only")
+# Explicitly strip live mini conf if ambient.
+unset PGBACKREST_CONFIG PGBACKREST_PG1_PATH 2>/dev/null || true
+# Optional redacted child-bound key presence inventory (never secret values).
+if [[ -n "${HOLO_FIRE_DRILL_ENV_DUMP:-}" ]]; then
+  _child_keys_path="${HOLO_FIRE_DRILL_ENV_DUMP%.json}-child-keys.json"
+  if [[ "$_child_keys_path" == "$HOLO_FIRE_DRILL_ENV_DUMP" ]]; then
+    _child_keys_path="${HOLO_FIRE_DRILL_ENV_DUMP}.child-keys.json"
+  fi
+  /usr/bin/python3 -E -s - "$_child_keys_path" <<'PY' || true
+import json, os, sys
+path = sys.argv[1]
+secrets = os.environ.get("HOLO_SECRETS_PATH") or os.environ.get("HOLOCRON_SECRETS_PATH") or ""
+payload = {
+    "schema": "holo.fire-drill.child-bound-keys.v1",
+    "R2_REPO_CIPHER_PASS": {"present": bool(os.environ.get("R2_REPO_CIPHER_PASS"))},
+    "HOLO_SECRETS_PATH": {
+        "present": bool(secrets),
+        "basename": os.path.basename(secrets) if secrets else None,
+    },
+    "HOLOCRON_SECRETS_PATH": {"present": bool(os.environ.get("HOLOCRON_SECRETS_PATH"))},
+    "RESTIC_PASSWORD": {"present": bool(os.environ.get("RESTIC_PASSWORD"))},
+    "R2_RESTIC_PREFIX": {"present": bool(os.environ.get("R2_RESTIC_PREFIX"))},
+    "note": "presence only; secret values never included",
+}
+with open(path, "w") as f:
+    json.dump(payload, f, indent=2)
+    f.write("\n")
+PY
 fi
 
 # HOLO_CLI: .ts/.js via Bun only when Bun is root-owned trust-chain validated.
@@ -900,9 +1185,8 @@ fi
 
 # GATE-FIX-S28R3-QA21: capture child stdout/stderr and redact secrets before emission
 # (gate-plan tees this stream into durable evidence).
-# GATE-FIX-S28R3-QA22: redactor secrets transfer over FD 3 (NUL-separated) — never on argv.
-# GATE-FIX-S28R3-QA23: child credential env also via FD 3 + exec-env-from-fd (never
-# /usr/bin/env -i KEY=secret on intermediate argv).
+# GATE-FIX-S28R3-QA25: child env + redactor secrets sealed from env key names only —
+# never process-sub printf of KEY=secret / raw secret fields onto intermediate argv.
 _child_log="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/holo-fire-drill-child.XXXXXX")"
 log "running restore-only child env: ${RUN_PREFIX[*]} ${ARGS[*]}"
 _EXEC_ENV_FD_PY="${ROOT}/scripts/lib/exec-env-from-fd.py"
@@ -911,41 +1195,99 @@ if [[ ! -f "$_EXEC_ENV_FD_PY" ]]; then
   exit 2
 fi
 set +e
-# FD 3: NUL-separated KEY=VAL pairs for the child environment (may include secrets).
-exec 3< <(
-  for _pair in "${CHILD_ENV_ARGS[@]}"; do
-    printf '%s\0' "$_pair"
-  done
-)
-/usr/bin/python3 -E -s "$_EXEC_ENV_FD_PY" -- "${RUN_PREFIX[@]}" "${ARGS[@]}" >"$_child_log" 2>&1
+# Seal child env from key names (values already exported above).
+r2_ro_exec_isolated_from_env \
+  "${CHILD_ENV_KEYS[@]}" \
+  -- \
+  "${RUN_PREFIX[@]}" "${ARGS[@]}" >"$_child_log" 2>&1
 STATUS=$?
-exec 3<&- 2>/dev/null || true
 set -e
 # Redact known secret values from child diagnostics before writing evidence.
-# FD 3 carries ak\0sk\0st\0; argv is only the log path (no secrets).
-exec 3< <(printf '%s\0' "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ST")
+# GATE-FIX-S28R3-QA25: fail-closed on FD 3 OSError / decode / shape failure —
+# do NOT emit child log, delete child log, exit non-zero (never leak unredacted).
+# FD 3: ak\0sk\0st\0 sealed from env key names (RESTORE_* already exported).
+export HOLO_REDACT_AK="$RESTORE_AK"
+export HOLO_REDACT_SK="$RESTORE_SK"
+export HOLO_REDACT_ST="${RESTORE_ST:-}"
+# Also redact data-plane identity if it differed from restore RO tuple.
+export HOLO_REDACT_DATA_AK="$CHILD_DATA_AK"
+export HOLO_REDACT_DATA_SK="$CHILD_DATA_SK"
+export HOLO_REDACT_DATA_ST="${CHILD_DATA_ST:-}"
+export HOLO_REDACT_CIPHER="${R2_REPO_CIPHER_PASS:-}"
+export HOLO_REDACT_RESTIC="${RESTIC_PASSWORD:-}"
+if ! r2_ro_open_fd3_from_env_values HOLO_REDACT_AK HOLO_REDACT_SK HOLO_REDACT_ST \
+  HOLO_REDACT_DATA_AK HOLO_REDACT_DATA_SK HOLO_REDACT_DATA_ST \
+  HOLO_REDACT_CIPHER HOLO_REDACT_RESTIC; then
+  rm -f "$_child_log" 2>/dev/null || true
+  err "GATE-FIX-S28R3-QA25 redactor seal failed (refusing unredacted child diagnostics)"
+  exit 2
+fi
+set +e
 /usr/bin/python3 -E -s - "$_child_log" <<'PY'
 import os, re, sys
+
 path = sys.argv[1]
+
+def fail_closed(msg: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    print(f"error: GATE-FIX-S28R3-QA25 redactor fail-closed: {msg}", file=sys.stderr)
+    sys.exit(2)
+
 try:
     raw = os.read(3, 1 << 20)
-except OSError:
-    raw = b""
+except OSError as e:
+    fail_closed(f"FD 3 unreadable: {e}")
+
+if not raw:
+    fail_closed("FD 3 empty (refuse unredacted child log)")
+if not raw.endswith(b"\0"):
+    fail_closed("FD 3 missing terminating NUL (truncated secrets tuple)")
+
 parts = raw.split(b"\0")
-ak = parts[0].decode("utf-8", "replace") if len(parts) > 0 else ""
-sk = parts[1].decode("utf-8", "replace") if len(parts) > 1 else ""
-st = parts[2].decode("utf-8", "replace") if len(parts) > 2 else ""
+if parts and parts[-1] == b"":
+    parts = parts[:-1]
+# GATE-FIX-S28R3-QA25: variable-length scrub list (restore triple + data-plane + cipher/restic).
+if len(parts) < 3:
+    fail_closed(f"FD 3 secrets tuple shape invalid (got {len(parts)} fields, need >=3)")
+
 try:
-    text = open(path, "r", errors="replace").read()
-except OSError:
-    sys.exit(0)
-for secret in (sk, ak, st):
-    if secret:
-        text = text.replace(secret, "[redacted]")
-text = re.sub(r"(?i)((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+", r"\1[redacted]", text)
+    secrets = [p.decode("utf-8") for p in parts]
+except UnicodeDecodeError as e:
+    fail_closed(f"FD 3 secrets not valid UTF-8: {e}")
+
+try:
+    # replace: child tools may emit non-UTF8 progress bytes; still scrub secrets.
+    text = open(path, "r", encoding="utf-8", errors="replace").read()
+except OSError as e:
+    fail_closed(f"child log unreadable: {e}")
+
+# Longest-first replace so substrings of longer secrets don't leave residues.
+for secret in sorted((s for s in secrets if s), key=len, reverse=True):
+    text = text.replace(secret, "[redacted]")
+text = re.sub(
+    r"(?i)((?:api[_-]?key|secret|token|password)\s*[=:]\s*)\S+",
+    r"\1[redacted]",
+    text,
+)
 sys.stdout.write(text)
+try:
+    os.unlink(path)
+except OSError:
+    pass
+sys.exit(0)
 PY
+_redact_rc=$?
 exec 3<&- 2>/dev/null || true
+unset HOLO_REDACT_AK HOLO_REDACT_SK HOLO_REDACT_ST HOLO_REDACT_DATA_AK HOLO_REDACT_DATA_SK HOLO_REDACT_DATA_ST HOLO_REDACT_CIPHER HOLO_REDACT_RESTIC
+set -e
+if [[ "$_redact_rc" -ne 0 ]]; then
+  rm -f "$_child_log" 2>/dev/null || true
+  err "GATE-FIX-S28R3-QA25 redactor fail-closed (refusing unredacted child diagnostics)"
+  exit 2
+fi
 rm -f "$_child_log" 2>/dev/null || true
 
 # GATE-FIX-S28R3-QA4 / M-1 + QA5: after successful child exit, require contract-shaped parity report

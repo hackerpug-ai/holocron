@@ -1,0 +1,22 @@
+{
+  "task": "D05-04",
+  "ok": true,
+  "POSTGRES_PARITY_PASS": true,
+  "BLOB_PARITY_PASS": true,
+  "LEDGER_CHECKSUM_MATCH": true,
+  "matched_objects": 11,
+  "ledger_checksum": "f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286",
+  "row_counts": {
+    "beliefs": 8,
+    "sources": 8,
+    "passages": 19,
+    "claims": 5,
+    "relations": 11,
+    "file_objects": 5,
+    "entities": 0
+  },
+  "restic_snapshot_id": "cd885c31baa2f701c2d079f27eeba0ce0be4c238504296969a57c4ee5ac27f79",
+  "pgbackrest_backup_label": "20260728-182755F_20260729-220125I",
+  "baseline_id": "6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020",
+  "source_run": "d05-04-run"
+}

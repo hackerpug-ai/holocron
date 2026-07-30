@@ -107,6 +107,33 @@ function resolveTrustedAwsBin(env?: NodeJS.ProcessEnv): string | null {
   return null;
 }
 
+/**
+ * GATE-FIX-S28R3-QA25: absolute psql for archive setup — never bare PATH `psql`.
+ * Prefer root-owned; fixed absolute Homebrew/system candidates for local Postgres.
+ */
+function resolvePsqlBin(env?: NodeJS.ProcessEnv): string {
+  const e = env ?? process.env;
+  const fromEnv = e.PSQL_BIN?.trim() || e.POSTGRES_PSQL?.trim();
+  if (fromEnv) {
+    const trusted = validateRootOwnedBin(fromEnv);
+    if (trusted) return trusted;
+    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
+  }
+  for (const candidate of ['/usr/local/bin/psql', '/usr/bin/psql'] as const) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  for (const c of [
+    '/opt/homebrew/opt/postgresql@18/bin/psql',
+    '/usr/local/opt/postgresql@18/bin/psql',
+    '/opt/homebrew/bin/psql',
+    '/usr/lib/postgresql/18/bin/psql',
+  ] as const) {
+    if (existsSync(c)) return c;
+  }
+  return '/usr/bin/psql';
+}
+
 export type ProvisionOptions = {
   /** Target backup bucket (default holocron-backup). */
   bucketName?: string;
@@ -1095,14 +1122,17 @@ export function ensureArchiveCommandForCheck(options: {
   }
   const archiveCommand = `${pgbackrestBin} --config=${options.configPath} --stanza=${options.stanza} archive-push %p`;
 
-  const showMode = run('psql', ['-d', 'holocron', '-tAc', 'SHOW archive_mode'], { env });
+  // GATE-FIX-S28R3-QA25: absolute psql only — never bare PATH `psql`.
+  const psql = resolvePsqlBin(env);
+
+  const showMode = run(psql, ['-d', 'holocron', '-tAc', 'SHOW archive_mode'], { env });
   const currentMode = showMode.stdout.trim();
-  const showCmd = run('psql', ['-d', 'holocron', '-tAc', 'SHOW archive_command'], { env });
+  const showCmd = run(psql, ['-d', 'holocron', '-tAc', 'SHOW archive_command'], { env });
   const currentCmd = showCmd.stdout.trim();
 
   // Always set archive_command (reloadable)
   const setCmd = run(
-    'psql',
+    psql,
     [
       '-d',
       'holocron',
@@ -1120,7 +1150,7 @@ export function ensureArchiveCommandForCheck(options: {
   let restarted = false;
   if (currentMode !== 'on' && currentMode !== 'always') {
     const setMode = run(
-      'psql',
+      psql,
       ['-d', 'holocron', '-v', 'ON_ERROR_STOP=1', '-c', `ALTER SYSTEM SET archive_mode = 'on'`],
       { env }
     );
@@ -1134,9 +1164,15 @@ export function ensureArchiveCommandForCheck(options: {
       { env, timeoutMs: 60_000 }
     );
     if (bounce.status !== 0) {
-      // Fallback: pg_ctl restart
+      // Fallback: absolute pg_ctl only (never bare PATH).
+      const pgctlBin =
+        validateRootOwnedBin('/usr/local/bin/pg_ctl') ??
+        validateRootOwnedBin('/usr/bin/pg_ctl') ??
+        (existsSync('/opt/homebrew/opt/postgresql@18/bin/pg_ctl')
+          ? '/opt/homebrew/opt/postgresql@18/bin/pg_ctl'
+          : '/usr/bin/pg_ctl');
       const pgctl = run(
-        '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
+        pgctlBin,
         ['-D', '/opt/homebrew/var/postgresql@18', 'restart', '-m', 'fast'],
         { env, timeoutMs: 60_000 }
       );
@@ -1149,17 +1185,17 @@ export function ensureArchiveCommandForCheck(options: {
     restarted = true;
     // Wait for readiness
     for (let i = 0; i < 30; i++) {
-      const ready = run('psql', ['-d', 'holocron', '-tAc', 'SELECT 1'], { env });
+      const ready = run(psql, ['-d', 'holocron', '-tAc', 'SELECT 1'], { env });
       if (ready.status === 0 && ready.stdout.trim() === '1') break;
       spawnSync('sleep', ['1']);
     }
   } else {
     // Reload is enough when only archive_command changed
-    run('psql', ['-d', 'holocron', '-c', 'SELECT pg_reload_conf()'], { env });
+    run(psql, ['-d', 'holocron', '-c', 'SELECT pg_reload_conf()'], { env });
   }
 
-  const modeAfter = run('psql', ['-d', 'holocron', '-tAc', 'SHOW archive_mode'], { env });
-  const cmdAfter = run('psql', ['-d', 'holocron', '-tAc', 'SHOW archive_command'], { env });
+  const modeAfter = run(psql, ['-d', 'holocron', '-tAc', 'SHOW archive_mode'], { env });
+  const cmdAfter = run(psql, ['-d', 'holocron', '-tAc', 'SHOW archive_command'], { env });
   if (modeAfter.stdout.trim() !== 'on' && modeAfter.stdout.trim() !== 'always') {
     throw new Error(`archive_mode still ${modeAfter.stdout.trim()} after restart`);
   }

@@ -1,9 +1,11 @@
 #!/bin/bash
-# GATE-FIX-S28R3-QA24 — durable full Sprint 28 suite → live R2 RO → full suite record.
+# GATE-FIX-S28R3-QA24 / QA25 — durable full Sprint 28 suite → live R2 RO → full suite record.
 #
-# Writes immutable JSON under .tmp/GATE-FIX-S28R3-QA24/full-suite-live-sequence.json
-# with exact commands, exit codes, test totals, probe hashes, .qa16bak absence,
-# SHA, run id, timestamps, and evidence pointers.
+# Writes immutable JSON under .tmp/GATE-FIX-S28R3-QA25/full-suite-live-sequence.json
+# (override with SEQ_OUT_DIR) with exact commands, exit codes, test totals, probe
+# hashes, .qa16bak absence, SHA, run id, timestamps, and evidence pointers.
+#
+# GATE-FIX-S28R3-QA25: refuse silent overwrite of a completed 0444 record.
 #
 # Usage (from repo root, with live R2 secrets available via sourced .env):
 #   set -a; source /path/to/.env; set +a
@@ -13,13 +15,41 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-OUT_DIR="${ROOT}/.tmp/GATE-FIX-S28R3-QA24"
+OUT_DIR="${SEQ_OUT_DIR:-${ROOT}/.tmp/GATE-FIX-S28R3-QA25}"
 mkdir -p "$OUT_DIR"
-RUN_ID="qa24-seq-$(/bin/date -u +%Y%m%dT%H%M%SZ)-$$"
+TASK_ID="${SEQ_TASK_ID:-GATE-FIX-S28R3-QA25}"
+RUN_ID="${SEQ_RUN_ID_PREFIX:-qa25-seq}-$(/bin/date -u +%Y%m%dT%H%M%SZ)-$$"
 RECORD="${OUT_DIR}/full-suite-live-sequence.json"
 PROBE="${ROOT}/scripts/lib/r2-scope-probes.json"
 EVID_DIR="${OUT_DIR}/sequence-${RUN_ID}"
 mkdir -p "$EVID_DIR"
+
+# GATE-FIX-S28R3-QA25: refuse overwriting a completed immutable record.
+if [[ -f "$RECORD" ]]; then
+  mode="$(/usr/bin/stat -f '%Lp' "$RECORD" 2>/dev/null || /usr/bin/stat -c '%a' "$RECORD" 2>/dev/null || echo '')"
+  if [[ "$mode" == "444" || "$mode" == "0444" ]]; then
+    if /usr/bin/python3 -E -s - "$RECORD" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(0)
+if d.get("all_phases_exit_zero") is True:
+    print(
+        f"FAIL: GATE-FIX-S28R3-QA25 refuses overwrite of completed immutable sequence "
+        f"run_id={d.get('run_id')} (mode 0444). Move or remove deliberately.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+sys.exit(0)
+PY
+    then
+      :
+    else
+      exit 2
+    fi
+  fi
+fi
 
 sha256_file() {
   /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{print $1}'
@@ -139,6 +169,7 @@ export QA24_SEQ_TS0="$TS0"
 export QA24_SEQ_TS_END="$TS_END"
 export QA24_SEQ_SUITE_CMD="$SUITE_CMD"
 export QA24_SEQ_LIVE_CMD="$LIVE_CMD"
+export QA24_SEQ_TASK_ID="$TASK_ID"
 export QA24_SEQ_P1_TS="$PHASE1_TS" QA24_SEQ_P1_RC="$PHASE1_RC" QA24_SEQ_P1_TOTALS="$PHASE1_TOTALS"
 export QA24_SEQ_P2_TS="$PHASE2_TS" QA24_SEQ_P2_RC="$PHASE2_RC"
 export QA24_SEQ_P3_TS="$PHASE3_TS" QA24_SEQ_P3_RC="$PHASE3_RC" QA24_SEQ_P3_TOTALS="$PHASE3_TOTALS"
@@ -167,9 +198,11 @@ rc3 = int(os.environ["QA24_SEQ_P3_RC"])
 run_id = os.environ["QA24_SEQ_RUN_ID"]
 suite = os.environ["QA24_SEQ_SUITE_CMD"]
 live = os.environ["QA24_SEQ_LIVE_CMD"]
+task_id = os.environ.get("QA24_SEQ_TASK_ID") or "GATE-FIX-S28R3-QA25"
+all_zero = rc1 == 0 and rc2 == 0 and rc3 == 0
 doc = {
     "schema": "holo.sprint28-full-suite-live-sequence.v1",
-    "task_id": "GATE-FIX-S28R3-QA24",
+    "task_id": task_id,
     "run_id": run_id,
     "git_sha": os.environ["QA24_SEQ_SHA"],
     "started_at": os.environ["QA24_SEQ_TS0"],
@@ -222,22 +255,37 @@ doc = {
     "probe_sha256_final": h3,
     "probe_hash_stable": h0 == h1 == h2 == h3,
     "qa16bak_absent_all_phases": all(b(x) for x in (b0, b1, b2, b3)),
-    "all_phases_exit_zero": rc1 == 0 and rc2 == 0 and rc3 == 0,
+    "all_phases_exit_zero": all_zero,
     "evidence_dir": f"sequence-{run_id}",
 }
 path = os.environ["QA24_SEQ_RECORD"]
-# Allow rewrite if a previous run left the file mode 0444
-try:
-    os.chmod(path, 0o644)
-except OSError:
-    pass
+# GATE-FIX-S28R3-QA25: never chmod+overwrite a completed immutable record.
+if os.path.isfile(path):
+    try:
+        mode = os.stat(path).st_mode & 0o777
+    except OSError:
+        mode = 0
+    if mode == 0o444:
+        try:
+            prev = json.load(open(path, encoding="utf-8"))
+        except Exception:
+            prev = {}
+        if prev.get("all_phases_exit_zero") is True:
+            raise SystemExit(
+                f"FAIL: GATE-FIX-S28R3-QA25 refuses overwrite of completed immutable sequence "
+                f"run_id={prev.get('run_id')}"
+            )
 open(path, "w", encoding="utf-8").write(json.dumps(doc, indent=2) + "\n")
+if all_zero:
+    open(path + ".immutable", "w", encoding="utf-8").write(run_id + "\n")
 print(f"INFO: wrote {path}")
 PY
 
 
-# chmod immutable-ish (owner write only for this process; validator rejects rewrite by schema)
-/bin/chmod 0444 "$RECORD" 2>/dev/null || true
+# chmod immutable-ish after successful all-zero write
+if [[ $PHASE1_RC -eq 0 && $PHASE2_RC -eq 0 && $PHASE3_RC -eq 0 ]]; then
+  /bin/chmod 0444 "$RECORD" 2>/dev/null || true
+fi
 
 echo "INFO: sequence complete all_zero=$([[ $PHASE1_RC -eq 0 && $PHASE2_RC -eq 0 && $PHASE3_RC -eq 0 ]] && echo true || echo false)"
 if [[ $PHASE1_RC -ne 0 || $PHASE2_RC -ne 0 || $PHASE3_RC -ne 0 ]]; then
