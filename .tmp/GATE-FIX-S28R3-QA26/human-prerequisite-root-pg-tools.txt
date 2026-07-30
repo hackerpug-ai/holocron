@@ -1,0 +1,21 @@
+GATE-FIX-S28R3-QA26 operational prerequisite (human-owned sudo)
+
+Root-owned PostgreSQL client/control tools are required for credential-adjacent
+fire-drill descendants after the QA26 fail-closed fix. Currently present:
+  /usr/local/bin/bun (root)
+  /usr/local/bin/pgbackrest (root)
+  /usr/local/bin/restic (root)
+Missing:
+  /usr/local/bin/psql
+  /usr/local/bin/pg_ctl
+  /usr/local/bin/postgres  (sibling for pg_ctl start)
+
+Install:
+  sudo install -o root -g wheel -m 0755 \
+    /opt/homebrew/opt/postgresql@18/bin/psql /usr/local/bin/psql
+  sudo install -o root -g wheel -m 0755 \
+    /opt/homebrew/opt/postgresql@18/bin/pg_ctl /usr/local/bin/pg_ctl
+  sudo install -o root -g wheel -m 0755 \
+    /opt/homebrew/opt/postgresql@18/bin/postgres /usr/local/bin/postgres
+
+After install, re-run D05-04 / full suite / sequence recorder from code freeze SHA above.
