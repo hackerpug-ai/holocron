@@ -1,0 +1,18 @@
+{
+  "schema": "holo.gate-fix-s28r3-qa31.positive-skip.v1",
+  "status": "skipped",
+  "task": "GATE-FIX-S28R3-QA31",
+  "reason": "live credentials are available but PITR_TIMESTAMP/HOLO_QA31_TARGET_TIMESTAMP is unset",
+  "credential_gate": {
+    "configFound": true,
+    "configBasename": "secrets.yaml",
+    "restoreAccessKeyPresent": true,
+    "restoreSecretPresent": true,
+    "restoreTupleDistinct": true,
+    "available": true,
+    "reason": "distinct live R2_RESTORE_* credentials are available"
+  },
+  "target_timestamp_present": false,
+  "provider_or_docker_invoked": false,
+  "note": "No live positive claim is made; the no-key negative control still runs."
+}

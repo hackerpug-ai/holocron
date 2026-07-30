@@ -1,0 +1,586 @@
+/**
+ * GATE-FIX-S28R3-QA31 — ambient-free execution of the real restore consumers.
+ *
+ * The live case is credential-gated from an ignored operator secret file. It
+ * never fabricates provider or Docker success. The no-key case always runs
+ * with a disposable empty secret file and must fail before a restore artifact
+ * can be produced.
+ */
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
+const SPRINT_DIR = resolve(
+  REPO_ROOT,
+  '.spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill'
+);
+const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
+const FIRE_DRILL = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
+const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA31');
+const PRIMARY_SECRET_FILE =
+  '/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml';
+
+const SECRET_KEYS = new Set([
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_SESSION_TOKEN',
+  'R2_RESTORE_ACCESS_KEY_ID',
+  'R2_RESTORE_SECRET_ACCESS_KEY',
+  'R2_RESTORE_SESSION_TOKEN',
+  'R2_ENDPOINT',
+  'R2_ACCOUNT_ID',
+  'R2_BUCKET_NAME',
+  'R2_REPO_CIPHER_PASS',
+  'RESTIC_PASSWORD',
+  'R2_RESTIC_PREFIX',
+  'PGBACKREST_STANZA',
+  'R2_CREDENTIAL_POLICY',
+]);
+
+const CONFIG_ENV_KEYS = new Set([
+  ...SECRET_KEYS,
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_SESSION_TOKEN',
+]);
+
+const AMBIENT_KEYS = new Set([
+  'ALLOW_PLACEHOLDER_R2_RO',
+  'BUN_BIN',
+  'HOLO_CLI',
+  'HOLO_FIRE_DRILL_FAKE_VOLUMES',
+  'HOLO_PROVE_R2_READONLY',
+  'HOLO_QA_PROOF_MUTATE',
+  'PGBACKREST_BIN',
+  'RESTIC_BIN',
+]);
+
+type SecretValues = Record<string, string>;
+
+type SecretConfig = {
+  path: string;
+  values: SecretValues;
+};
+
+type CommandResult = {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  error: string;
+};
+
+type ConsumerRun = CommandResult & {
+  prefixVariablesInitiallyUnset: boolean;
+  explicitPrefixTuple: boolean;
+  placeholderEscapeInjected: boolean;
+};
+
+function stripQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function parseSecretFile(path: string): SecretValues {
+  const values: SecretValues = {};
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
+    const yaml = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*?)\s*$/);
+    const dotenv = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    const match = yaml ?? dotenv;
+    if (!match) continue;
+    const key = match[1];
+    if (!SECRET_KEYS.has(key)) continue;
+    values[key] = stripQuotes(match[2]);
+  }
+  return values;
+}
+
+function absoluteCandidate(path: string): string {
+  return path.startsWith('/') ? path : resolve(REPO_ROOT, path);
+}
+
+function discoverSecretConfig(): SecretConfig | null {
+  const candidates = [
+    process.env.HOLO_QA31_SECRETS_PATH,
+    process.env.HOLOCRON_SECRETS_PATH,
+    process.env.HOLO_SECRETS_PATH,
+    resolve(REPO_ROOT, 'services/platform/config/secrets.yaml'),
+    PRIMARY_SECRET_FILE,
+    resolve(REPO_ROOT, '.env'),
+    '/Users/inference1/Projects/holocron/.env',
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  let firstReadable: SecretConfig | null = null;
+  for (const candidate of [...new Set(candidates)].map(absoluteCandidate)) {
+    if (!existsSync(candidate)) continue;
+    let values: SecretValues;
+    try {
+      values = parseSecretFile(candidate);
+    } catch {
+      continue;
+    }
+    const config = { path: candidate, values };
+    firstReadable ??= config;
+    if (values.R2_RESTORE_ACCESS_KEY_ID || values.R2_RESTORE_SECRET_ACCESS_KEY) {
+      return config;
+    }
+  }
+  return firstReadable;
+}
+
+function isPlaceholder(value: string): boolean {
+  return /(?:^|[-_])(ro-test|placeholder|replace-me|example|not-for-prod|test-key|test-secret)(?:$|[-_])/i.test(
+    value
+  );
+}
+
+function credentialGate(config: SecretConfig | null) {
+  const values = config?.values ?? {};
+  const restoreAccessKey = values.R2_RESTORE_ACCESS_KEY_ID ?? '';
+  const restoreSecret = values.R2_RESTORE_SECRET_ACCESS_KEY ?? '';
+  const restoreSession = values.R2_RESTORE_SESSION_TOKEN ?? '';
+  const writerAccessKey = values.R2_ACCESS_KEY_ID ?? '';
+  const writerSecret = values.R2_SECRET_ACCESS_KEY ?? '';
+  const hasRestoreTuple = Boolean(restoreAccessKey && restoreSecret);
+  const placeholder = isPlaceholder(restoreAccessKey) || isPlaceholder(restoreSecret);
+  const exactWriterTuple =
+    Boolean(writerAccessKey && writerSecret) &&
+    restoreAccessKey === writerAccessKey &&
+    restoreSecret === writerSecret;
+  const sameParentWithoutSession =
+    Boolean(writerAccessKey && restoreAccessKey === writerAccessKey) && !restoreSession;
+  const distinct = !exactWriterTuple && !sameParentWithoutSession;
+  const available = Boolean(config && hasRestoreTuple && !placeholder && distinct);
+
+  let reason = 'distinct live R2_RESTORE_* credentials are available';
+  if (!config) reason = 'no ignored secret configuration is readable';
+  else if (!hasRestoreTuple) reason = 'R2_RESTORE_ACCESS_KEY_ID/SECRET_ACCESS_KEY are absent';
+  else if (placeholder) reason = 'R2_RESTORE_* values are placeholders';
+  else if (exactWriterTuple) reason = 'restore tuple equals the configured writer tuple';
+  else if (sameParentWithoutSession)
+    reason = 'same parent access key requires a non-empty restore session token';
+
+  return {
+    configFound: Boolean(config),
+    configBasename: config ? basename(config.path) : null,
+    restoreAccessKeyPresent: Boolean(restoreAccessKey),
+    restoreSecretPresent: Boolean(restoreSecret),
+    restoreTupleDistinct: distinct,
+    available,
+    reason,
+  };
+}
+
+function redact(text: string, secretValues: string[] = []): string {
+  let output = text;
+  for (const value of [...new Set(secretValues)].filter((candidate) => candidate.length >= 4)) {
+    output = output.replaceAll(value, '[redacted]');
+  }
+  return output
+    .replace(
+      /((?:access[_-]?key|secret|session[_-]?token|password|cipher[_-]?pass)\s*[=:]\s*)\S+/gi,
+      '$1[redacted]'
+    )
+    .replace(/\b(AKIA[A-Z0-9]{8,}|sk-[a-z0-9_-]{8,})\b/gi, '[redacted-token]');
+}
+
+function writeEvidence(name: string, body: unknown, secretValues: string[] = []): string {
+  mkdirSync(EVIDENCE_DIR, { recursive: true });
+  const path = resolve(EVIDENCE_DIR, name);
+  const text = redact(`${JSON.stringify(body, null, 2)}\n`, secretValues);
+  writeFileSync(path, text, 'utf8');
+  return path;
+}
+
+function ambientFreeEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (
+      key.startsWith('R2_') ||
+      key.startsWith('PGBACKREST_') ||
+      key.startsWith('RESTIC_') ||
+      key.startsWith('HOLO_SECRETS') ||
+      key.startsWith('HOLOCRON_SECRETS') ||
+      key.startsWith('ALLOW_PLACEHOLDER_R2_RO')
+    ) {
+      delete env[key];
+    }
+  }
+  for (const key of AMBIENT_KEYS) delete env[key];
+  env.PATH = '/usr/bin:/bin';
+  env.HOME = '/tmp';
+  env.LC_ALL = 'C';
+  return env;
+}
+
+function envForConfig(config: SecretConfig, stagingRoot: string): NodeJS.ProcessEnv {
+  const env = ambientFreeEnv();
+  for (const [key, value] of Object.entries(config.values)) {
+    if (CONFIG_ENV_KEYS.has(key) && value) env[key] = value;
+  }
+  env.HOLO_SECRETS_PATH = config.path;
+  env.HOLOCRON_SECRETS_PATH = config.path;
+  env.STAGING_ROOT = stagingRoot;
+  env.MINI_HOST = '203.0.113.1';
+  env.HOLO_FIRE_DRILL_LOCKDIR = resolve(stagingRoot, 'fire-drill.lockdir');
+  return env;
+}
+
+function runRealConsumer(
+  script: string,
+  args: string[],
+  baseEnv: NodeJS.ProcessEnv,
+  explicitPrefixTuple: boolean
+): ConsumerRun {
+  const initialPrefixVariablesUnset =
+    !baseEnv.R2_RESTORE_OBJECT_PREFIX && !baseEnv.R2_PGBACKREST_PREFIX;
+  const childEnv = { ...baseEnv };
+  delete childEnv.R2_RESTORE_OBJECT_PREFIX;
+  delete childEnv.R2_PGBACKREST_PREFIX;
+
+  const launcherArgs = ['-u', 'R2_RESTORE_OBJECT_PREFIX', '-u', 'R2_PGBACKREST_PREFIX'];
+  if (explicitPrefixTuple) {
+    launcherArgs.push('R2_RESTORE_OBJECT_PREFIX=pgbackrest', 'R2_PGBACKREST_PREFIX=pgbackrest');
+  }
+  launcherArgs.push('REQUIRE_LIVE_R2_RO=1', '/bin/bash', script, ...args);
+  const result = spawnSync('/usr/bin/env', launcherArgs, {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env: childEnv,
+    timeout: 600_000,
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    error: result.error?.message ?? '',
+    prefixVariablesInitiallyUnset: initialPrefixVariablesUnset,
+    explicitPrefixTuple,
+    placeholderEscapeInjected:
+      'ALLOW_PLACEHOLDER_R2_RO' in childEnv ||
+      launcherArgs.some((arg) => arg.startsWith('ALLOW_PLACEHOLDER_R2_RO=')),
+  };
+}
+
+function summarizeResult(result: CommandResult, secretValues: string[]) {
+  return {
+    status: result.status,
+    error: redact(result.error, secretValues),
+    stdout: redact(result.stdout, secretValues).slice(0, 2400),
+    stderr: redact(result.stderr, secretValues).slice(0, 2400),
+  };
+}
+
+function combined(result: CommandResult, secretValues: string[]): string {
+  return redact(`${result.stdout}\n${result.stderr}\n${result.error}`, secretValues);
+}
+
+function dockerBin(): string | null {
+  for (const candidate of [
+    '/usr/bin/docker',
+    '/usr/local/bin/docker',
+    '/opt/homebrew/bin/docker',
+  ]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function cleanupNamespace(host: string, stagingRoot: string): void {
+  const docker = dockerBin();
+  if (docker) {
+    for (const args of [
+      ['rm', '-f', host],
+      ['volume', 'rm', '-f', `${host}-pgdata`, `${host}-blobs`],
+      ['network', 'rm', `${host}-net`],
+    ]) {
+      spawnSync(docker, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 });
+    }
+  }
+  rmSync(stagingRoot, { recursive: true, force: true });
+}
+
+function containsSecret(path: string, secretValues: string[]): boolean {
+  if (!existsSync(path)) return false;
+  const text = readFileSync(path, 'utf8');
+  return secretValues.some((value) => Boolean(value) && text.includes(value));
+}
+
+const secretConfig = discoverSecretConfig();
+const gate = credentialGate(secretConfig);
+const configuredSecrets = Object.values(secretConfig?.values ?? {});
+const targetTimestamp = process.env.HOLO_QA31_TARGET_TIMESTAMP ?? process.env.PITR_TIMESTAMP ?? '';
+const credentialSecrets = secretConfig
+  ? [
+      secretConfig.values.R2_ACCESS_KEY_ID,
+      secretConfig.values.R2_SECRET_ACCESS_KEY,
+      secretConfig.values.R2_SESSION_TOKEN,
+      secretConfig.values.R2_RESTORE_ACCESS_KEY_ID,
+      secretConfig.values.R2_RESTORE_SECRET_ACCESS_KEY,
+      secretConfig.values.R2_RESTORE_SESSION_TOKEN,
+      secretConfig.values.R2_REPO_CIPHER_PASS,
+      secretConfig.values.RESTIC_PASSWORD,
+    ].filter((value): value is string => Boolean(value))
+  : [];
+
+const positiveRunnable = gate.available && Boolean(targetTimestamp);
+if (!positiveRunnable) {
+  writeEvidence('positive-skip.json', {
+    schema: 'holo.gate-fix-s28r3-qa31.positive-skip.v1',
+    status: 'skipped',
+    task: 'GATE-FIX-S28R3-QA31',
+    reason: gate.available
+      ? 'live credentials are available but PITR_TIMESTAMP/HOLO_QA31_TARGET_TIMESTAMP is unset'
+      : gate.reason,
+    credential_gate: gate,
+    target_timestamp_present: Boolean(targetTimestamp),
+    provider_or_docker_invoked: false,
+    note: 'No live positive claim is made; the no-key negative control still runs.',
+  });
+}
+
+describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
+  it('real scripts exist and parse without changing their gate contracts', () => {
+    expect(existsSync(PROVISION)).toBe(true);
+    expect(existsSync(FIRE_DRILL)).toBe(true);
+    for (const script of [PROVISION, FIRE_DRILL]) {
+      const syntax = spawnSync('/bin/bash', ['-n', script], { encoding: 'utf8' });
+      expect(syntax.status, `bash -n failed for ${basename(script)}`).toBe(0);
+    }
+    const plan = JSON.parse(readFileSync(resolve(SPRINT_DIR, 'gate-plan.json'), 'utf8')) as {
+      steps?: Array<{ n: number; literal_cmd?: string }>;
+    };
+    const step3 = plan.steps?.find((step) => step.n === 3);
+    expect(step3?.literal_cmd).toContain('R2_RESTORE_OBJECT_PREFIX="pgbackrest"');
+    expect(step3?.literal_cmd).toContain('R2_PGBACKREST_PREFIX="pgbackrest"');
+    expect(step3?.literal_cmd).not.toContain('ALLOW_PLACEHOLDER_R2_RO=1');
+    expect(
+      readFileSync(
+        resolve(
+          REPO_ROOT,
+          'services/platform/tests/integration/sprint28-s28r3-qa30-gate-fix.test.ts'
+        ),
+        'utf8'
+      )
+    ).toContain('canonicalPolicyFromHelper');
+  });
+
+  const itLive = positiveRunnable ? it : it.skip;
+
+  itLive(
+    'runs provision and fire-drill with an explicit prefix tuple after ambient-free startup',
+    () => {
+      if (!secretConfig)
+        throw new Error('credential gate reported available without secret config');
+      const host = `s28r3-qa31-${Date.now().toString(36)}-${process.pid}`;
+      const stagingRoot = resolve(EVIDENCE_DIR, 'positive-staging', host);
+      const attestation = resolve(EVIDENCE_DIR, `attestation-${host}.json`);
+      const report = resolve(EVIDENCE_DIR, `parity-report-${host}.json`);
+      const envFile = resolve(stagingRoot, host, 'restore-target.env');
+      const env = envForConfig(secretConfig, stagingRoot);
+      let provision: ConsumerRun;
+      let fireDrill: ConsumerRun;
+      let boundRestoreEnv = false;
+      let attestationBody: Record<string, unknown> = {};
+      let reportBody: Record<string, unknown> = {};
+
+      try {
+        provision = runRealConsumer(
+          PROVISION,
+          ['--host', host, '--skip-isolation', '--pg-port', String(56000 + (Date.now() % 3000))],
+          env,
+          true
+        );
+        if (existsSync(envFile)) {
+          const generated = readFileSync(envFile, 'utf8');
+          boundRestoreEnv =
+            /R2_RESTORE_OBJECT_PREFIX=.?pgbackrest/.test(generated) &&
+            /R2_PGBACKREST_PREFIX=.?pgbackrest/.test(generated);
+        }
+
+        fireDrill = runRealConsumer(
+          FIRE_DRILL,
+          [
+            '--host',
+            host,
+            '--target-timestamp',
+            targetTimestamp,
+            '--attestation',
+            attestation,
+            '--report',
+            report,
+          ],
+          env,
+          true
+        );
+        if (existsSync(attestation)) {
+          if (containsSecret(attestation, credentialSecrets))
+            throw new Error('attestation contains a configured secret');
+          try {
+            attestationBody = JSON.parse(readFileSync(attestation, 'utf8')) as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            attestationBody = {};
+          }
+        }
+        if (existsSync(report)) {
+          if (containsSecret(report, credentialSecrets))
+            throw new Error('parity report contains a configured secret');
+          try {
+            reportBody = JSON.parse(readFileSync(report, 'utf8')) as Record<string, unknown>;
+          } catch {
+            reportBody = {};
+          }
+        }
+      } finally {
+        cleanupNamespace(host, stagingRoot);
+      }
+
+      const evidence = {
+        schema: 'holo.gate-fix-s28r3-qa31.positive-live.v1',
+        status: 'executed',
+        task: 'GATE-FIX-S28R3-QA31',
+        secret_config_basename: basename(secretConfig.path),
+        prefix_start: {
+          R2_RESTORE_OBJECT_PREFIX: 'unset',
+          R2_PGBACKREST_PREFIX: 'unset',
+        },
+        explicit_prefix_tuple:
+          'R2_RESTORE_OBJECT_PREFIX=pgbackrest R2_PGBACKREST_PREFIX=pgbackrest',
+        provision: {
+          ...summarizeResult(provision, configuredSecrets),
+          prefix_variables_initially_unset: provision.prefixVariablesInitiallyUnset,
+          explicit_prefix_tuple: provision.explicitPrefixTuple,
+          bound_restore_env: boundRestoreEnv,
+        },
+        fire_drill: {
+          ...summarizeResult(fireDrill, configuredSecrets),
+          prefix_variables_initially_unset: fireDrill.prefixVariablesInitiallyUnset,
+          explicit_prefix_tuple: fireDrill.explicitPrefixTuple,
+          attestation_ok: attestationBody.ok === true,
+          report_postgres_parity_pass: reportBody.POSTGRES_PARITY_PASS === true,
+        },
+        cleanup: {
+          docker_namespace: `${host}, ${host}-pgdata, ${host}-blobs, ${host}-net`,
+          staging_removed: !existsSync(stagingRoot),
+        },
+      };
+      writeEvidence('positive-live.json', evidence, configuredSecrets);
+
+      const evidenceText = readFileSync(resolve(EVIDENCE_DIR, 'positive-live.json'), 'utf8');
+      expect(evidenceText).not.toMatch(
+        /R2_(?:RESTORE_)?(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)\s*[=:]\s*[^\s[]+/i
+      );
+      expect(provision.status, summarizeResult(provision, configuredSecrets)).toBe(0);
+      expect(provision.prefixVariablesInitiallyUnset).toBe(true);
+      expect(provision.explicitPrefixTuple).toBe(true);
+      expect(boundRestoreEnv).toBe(true);
+      expect(fireDrill.status, summarizeResult(fireDrill, configuredSecrets)).toBe(0);
+      expect(fireDrill.prefixVariablesInitiallyUnset).toBe(true);
+      expect(fireDrill.explicitPrefixTuple).toBe(true);
+      expect(attestationBody.ok).toBe(true);
+      expect(reportBody.POSTGRES_PARITY_PASS).toBe(true);
+    },
+    1_200_000
+  );
+
+  it('real no-key provision and fire-drill paths fail closed without prefix ambient state or artifacts', () => {
+    const root = mkdtempSync(join(tmpdir(), 'holo-qa31-no-key-'));
+    const emptySecrets = resolve(root, 'empty-secrets.yaml');
+    writeFileSync(emptySecrets, '# deliberately empty disposable secret configuration\n', {
+      mode: 0o600,
+    });
+    const host = `s28r3-qa31-no-key-${Date.now().toString(36)}-${process.pid}`;
+    const stagingRoot = resolve(root, 'staging');
+    const attestation = resolve(root, 'attestation.json');
+    const report = resolve(root, 'parity-report.json');
+    const env = ambientFreeEnv();
+    env.HOLO_SECRETS_PATH = emptySecrets;
+    env.HOLOCRON_SECRETS_PATH = emptySecrets;
+    env.STAGING_ROOT = stagingRoot;
+    env.MINI_HOST = '203.0.113.1';
+    env.HOLO_FIRE_DRILL_LOCKDIR = resolve(stagingRoot, 'fire-drill.lockdir');
+
+    let provision: ConsumerRun;
+    let fireDrill: ConsumerRun;
+    try {
+      provision = runRealConsumer(PROVISION, ['--host', host, '--skip-isolation'], env, false);
+      fireDrill = runRealConsumer(
+        FIRE_DRILL,
+        [
+          '--host',
+          host,
+          '--target-timestamp',
+          '2000-01-01T00:00:00Z',
+          '--attestation',
+          attestation,
+          '--report',
+          report,
+        ],
+        env,
+        false
+      );
+    } finally {
+      cleanupNamespace(host, stagingRoot);
+    }
+
+    const secretValues: string[] = [];
+    const provisionOutput = combined(provision, secretValues);
+    const fireDrillOutput = combined(fireDrill, secretValues);
+    const noSuccessfulRestoreArtifact =
+      !existsSync(attestation) && !existsSync(report) && !existsSync(stagingRoot);
+    const evidence = {
+      schema: 'holo.gate-fix-s28r3-qa31.no-key-negative.v1',
+      status: 'executed',
+      task: 'GATE-FIX-S28R3-QA31',
+      secret_config: 'empty disposable file; no credentials',
+      prefix_start: {
+        R2_RESTORE_OBJECT_PREFIX: 'unset',
+        R2_PGBACKREST_PREFIX: 'unset',
+      },
+      provision: {
+        ...summarizeResult(provision, secretValues),
+        prefix_variables_initially_unset: provision.prefixVariablesInitiallyUnset,
+        explicit_prefix_tuple: provision.explicitPrefixTuple,
+        placeholder_escape_injected: provision.placeholderEscapeInjected,
+        dependency_marker_observed: /DEPENDENCY-S28-R2-RO/.test(provisionOutput),
+      },
+      fire_drill: {
+        ...summarizeResult(fireDrill, secretValues),
+        prefix_variables_initially_unset: fireDrill.prefixVariablesInitiallyUnset,
+        explicit_prefix_tuple: fireDrill.explicitPrefixTuple,
+        placeholder_escape_injected: fireDrill.placeholderEscapeInjected,
+        dependency_marker_observed: /DEPENDENCY-S28-R2-RO/.test(fireDrillOutput),
+      },
+      no_successful_restore_artifact: noSuccessfulRestoreArtifact,
+      docker_or_provider_success_fabricated: false,
+    };
+    const evidencePath = writeEvidence('no-key-negative.json', evidence);
+    rmSync(root, { recursive: true, force: true });
+
+    expect(evidencePath).toContain('GATE-FIX-S28R3-QA31');
+    expect(provision.status).not.toBe(0);
+    expect(fireDrill.status).not.toBe(0);
+    expect(provisionOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
+    expect(fireDrillOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
+    expect(provision.prefixVariablesInitiallyUnset).toBe(true);
+    expect(fireDrill.prefixVariablesInitiallyUnset).toBe(true);
+    expect(provision.explicitPrefixTuple).toBe(false);
+    expect(fireDrill.explicitPrefixTuple).toBe(false);
+    expect(provision.placeholderEscapeInjected).toBe(false);
+    expect(fireDrill.placeholderEscapeInjected).toBe(false);
+    expect(provisionOutput).not.toMatch(/SUCCESS: fresh restore target/);
+    expect(fireDrillOutput).not.toMatch(/POSTGRES_PARITY_PASS\s*[:=]\s*true/);
+    expect(noSuccessfulRestoreArtifact).toBe(true);
+  });
+});
