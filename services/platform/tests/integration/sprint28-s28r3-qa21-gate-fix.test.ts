@@ -20,11 +20,7 @@ import {
 } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import {
-  baseHarnessEnv,
-  type HarnessPaths,
-  makeHarness,
-} from './fixtures/qa13-harness';
+import { baseHarnessEnv, type HarnessPaths, makeHarness } from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const PROD_PROVE = resolve(REPO_ROOT, 'scripts/prove-r2-readonly.sh');
@@ -145,7 +141,12 @@ describe('GATE-FIX-S28R3-QA21 production source contracts', () => {
   });
 
   it('credential scripts use #!/bin/bash shebang not env bash', () => {
-    for (const f of [PROD_PROVE, PROD_PROV, PROD_FIRE, resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh')]) {
+    for (const f of [
+      PROD_PROVE,
+      PROD_PROV,
+      PROD_FIRE,
+      resolve(REPO_ROOT, 'scripts/verify-restore-creds.sh'),
+    ]) {
       const first = readFileSync(f, 'utf8').split('\n')[0];
       expect(first, f).toBe('#!/bin/bash');
     }
@@ -169,7 +170,9 @@ describe('GATE-FIX-S28R3-QA21 production source contracts', () => {
     expect(src).not.toMatch(/CHILD_PATH=.*\/opt\/homebrew\/bin/);
     expect(src).toMatch(/r2_ro_validate_root_bin/);
     expect(src).toMatch(/\[redacted\]/);
-    expect(src).toMatch(/refuses credential-bearing TypeScript restore without root-owned pgbackrest/);
+    expect(src).toMatch(
+      /refuses credential-bearing TypeScript restore without root-owned pgbackrest/
+    );
   });
 
   it('restore.ts and recovery-baseline.ts refuse PATH/Homebrew tool discovery', () => {

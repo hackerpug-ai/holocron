@@ -94,7 +94,10 @@ function validateRootOwnedBin(candidate: string): string | null {
   }
 }
 
-function resolveTrustedResticBin(env: NodeJS.ProcessEnv, preResolved?: string | null): string | null {
+function resolveTrustedResticBin(
+  env: NodeJS.ProcessEnv,
+  preResolved?: string | null
+): string | null {
   // Explicit API argument (options.resticBin): absolute executable only.
   // Production callers pass root-validated paths; unit tests may inject absolute fakes.
   // Discovery via RESTIC_BIN env / fixed candidates always requires root trust-chain.
