@@ -111,7 +111,14 @@ else:
                             if p == pref.rstrip("/") or p.startswith(pref):
                                 return True
                         else:
-                            if p == pref or p.startswith(pref + "/"):
+                            # Exact file, directory child, or task-stem suffix
+                            # (e.g. GATE-FIX-S28R3-QA25-independent-....md).
+                            if (
+                                p == pref
+                                or p.startswith(pref + "/")
+                                or p.startswith(pref + "-")
+                                or p.startswith(pref + ".")
+                            ):
                                 return True
                     return False
 
