@@ -1,9 +1,13 @@
 #!/bin/bash
-# GATE-FIX-S28R3-QA24 / QA25 — durable full Sprint 28 suite → live R2 RO → full suite record.
+# GATE-FIX-S28R3-QA24 / QA25 / QA26 — durable full Sprint 28 suite → live R2 RO → full suite record.
 #
-# Writes immutable JSON under .tmp/GATE-FIX-S28R3-QA25/full-suite-live-sequence.json
+# Writes immutable JSON under .tmp/GATE-FIX-S28R3-QA26/full-suite-live-sequence.json
 # (override with SEQ_OUT_DIR) with exact commands, exit codes, test totals, probe
 # hashes, .qa16bak absence, SHA, run id, timestamps, and evidence pointers.
+#
+# GATE-FIX-S28R3-QA26 two-commit layout:
+#   1) Freeze code commit (validator/tests/product) — record git_sha binds THIS.
+#   2) Evidence-only commit after recording (no code/test/validator changes).
 #
 # GATE-FIX-S28R3-QA25: refuse silent overwrite of a completed 0444 record.
 #
@@ -15,10 +19,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-OUT_DIR="${SEQ_OUT_DIR:-${ROOT}/.tmp/GATE-FIX-S28R3-QA25}"
+OUT_DIR="${SEQ_OUT_DIR:-${ROOT}/.tmp/GATE-FIX-S28R3-QA26}"
 mkdir -p "$OUT_DIR"
-TASK_ID="${SEQ_TASK_ID:-GATE-FIX-S28R3-QA25}"
-RUN_ID="${SEQ_RUN_ID_PREFIX:-qa25-seq}-$(/bin/date -u +%Y%m%dT%H%M%SZ)-$$"
+TASK_ID="${SEQ_TASK_ID:-GATE-FIX-S28R3-QA26}"
+RUN_ID="${SEQ_RUN_ID_PREFIX:-qa26-seq}-$(/bin/date -u +%Y%m%dT%H%M%SZ)-$$"
 RECORD="${OUT_DIR}/full-suite-live-sequence.json"
 PROBE="${ROOT}/scripts/lib/r2-scope-probes.json"
 EVID_DIR="${OUT_DIR}/sequence-${RUN_ID}"

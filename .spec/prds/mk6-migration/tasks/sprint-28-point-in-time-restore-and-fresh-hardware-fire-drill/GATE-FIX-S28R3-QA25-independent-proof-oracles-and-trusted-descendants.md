@@ -34,4 +34,3 @@ Close all five CRITICAL and two HIGH findings from the binding independent Terra
 - [ ] The real D05-04 proof is rerun if code changes could affect execution or evidence shape. No recorder, synthetic identifiers, or summary-only substitute can satisfy completion.
 - [ ] D05-01 through D05-06 scenario contracts, TypeScript, focused QA21–QA25 tests, shell/Python checks, the exact full Sprint 28 suite, live R2 proof, strengthened sequence validator, evidence consumer, and dual-lens independent review all pass.
 - [ ] Independent review is bound to the final branch commit before landing; primary checkout WIP and the existing backup stash remain untouched.
-

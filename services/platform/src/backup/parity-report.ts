@@ -70,6 +70,13 @@ export type FireDrillParityReport = {
   pre_failure_blob_objects: number;
   restored_blob_objects: number;
   blob_parity: ParityCompareResult | null;
+  /**
+   * GATE-FIX-S28R3-QA26: sorted SHA-256 object identities (pre-failure / expected).
+   * When baseline-only, equals restored identities after manifest match.
+   */
+  expected_object_identities?: string[];
+  /** Sorted SHA-256 digests of restored blob objects. */
+  restored_object_identities?: string[];
   restic_snapshot_id: string | null;
   restic_repository: string | null;
   /** Restored blob manifest binding (SHA-256 of sorted content digests). */

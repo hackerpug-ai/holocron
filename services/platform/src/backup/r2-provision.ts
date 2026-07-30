@@ -38,6 +38,18 @@ import {
   formatCredentialPolicy,
   r2EndpointForAccount,
 } from './config.ts';
+import {
+  resolveTrustedPgCtlBin,
+  resolveTrustedPsqlBin,
+  validateRootOwnedBin as validateRootOwnedBinShared,
+} from './trusted-bin.ts';
+
+/** Re-export for descendant/hostile tests (GATE-FIX-S28R3-QA26). */
+export {
+  resolveTrustedPgCtlBin,
+  resolveTrustedPsqlBin,
+  validateRootOwnedBinShared as validateRootOwnedBinExport,
+};
 
 /** Cloudflare permission group: Workers R2 Storage Bucket Item Write (bucket-scoped). */
 const CF_PERM_R2_BUCKET_ITEM_WRITE = '2efd5506f9c8494dacb1fa10a3e7d5b6';
@@ -108,30 +120,11 @@ function resolveTrustedAwsBin(env?: NodeJS.ProcessEnv): string | null {
 }
 
 /**
- * GATE-FIX-S28R3-QA25: absolute psql for archive setup — never bare PATH `psql`.
- * Prefer root-owned; fixed absolute Homebrew/system candidates for local Postgres.
+ * GATE-FIX-S28R3-QA26: absolute root-trusted psql only — never bare PATH or
+ * user-owned absolute/Homebrew fallback. Throws before credentials ambient.
  */
 function resolvePsqlBin(env?: NodeJS.ProcessEnv): string {
-  const e = env ?? process.env;
-  const fromEnv = e.PSQL_BIN?.trim() || e.POSTGRES_PSQL?.trim();
-  if (fromEnv) {
-    const trusted = validateRootOwnedBin(fromEnv);
-    if (trusted) return trusted;
-    if (fromEnv.startsWith('/') && existsSync(fromEnv)) return fromEnv;
-  }
-  for (const candidate of ['/usr/local/bin/psql', '/usr/bin/psql'] as const) {
-    const t = validateRootOwnedBin(candidate);
-    if (t) return t;
-  }
-  for (const c of [
-    '/opt/homebrew/opt/postgresql@18/bin/psql',
-    '/usr/local/opt/postgresql@18/bin/psql',
-    '/opt/homebrew/bin/psql',
-    '/usr/lib/postgresql/18/bin/psql',
-  ] as const) {
-    if (existsSync(c)) return c;
-  }
-  return '/usr/bin/psql';
+  return resolveTrustedPsqlBin(env ?? process.env);
 }
 
 export type ProvisionOptions = {
@@ -1164,13 +1157,17 @@ export function ensureArchiveCommandForCheck(options: {
       { env, timeoutMs: 60_000 }
     );
     if (bounce.status !== 0) {
-      // Fallback: absolute pg_ctl only (never bare PATH).
-      const pgctlBin =
-        validateRootOwnedBin('/usr/local/bin/pg_ctl') ??
-        validateRootOwnedBin('/usr/bin/pg_ctl') ??
-        (existsSync('/opt/homebrew/opt/postgresql@18/bin/pg_ctl')
-          ? '/opt/homebrew/opt/postgresql@18/bin/pg_ctl'
-          : '/usr/bin/pg_ctl');
+      // Fallback: root-trusted absolute pg_ctl only (GATE-FIX-S28R3-QA26).
+      let pgctlBin: string;
+      try {
+        pgctlBin = resolveTrustedPgCtlBin(env);
+      } catch (e) {
+        throw new Error(
+          `postgres restart failed (launchctl) and no root-trusted pg_ctl: ${
+            e instanceof Error ? e.message : String(e)
+          }; launchctl: ${(bounce.stderr || bounce.stdout).slice(0, 200)}`
+        );
+      }
       const pgctl = run(
         pgctlBin,
         ['-D', '/opt/homebrew/var/postgresql@18', 'restart', '-m', 'fast'],

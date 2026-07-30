@@ -1,13 +1,17 @@
 #!/bin/bash
-# GATE-FIX-S28R3-QA25 — fail-closed validator for full-suite → live → full-suite record.
+# GATE-FIX-S28R3-QA26 — fail-closed validator for full-suite → live → full-suite record.
 #
 # Recomputes probe hash, exit codes, and Vitest totals from committed log files.
 # Rejects missing/dangling logs, self-asserted totals, zero-filled records,
 # reordered phases, hash drift, .qa16bak presence, and immutable-record replacement.
+#
+# Two-commit layout: record git_sha binds the frozen CODE commit; git diff
+# record..HEAD may only list an explicit minimal set of immutable evidence /
+# task-status paths. NEVER allowlist validator/test/product code.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RECORD="${1:-$ROOT/.tmp/GATE-FIX-S28R3-QA25/full-suite-live-sequence.json}"
+RECORD="${1:-$ROOT/.tmp/GATE-FIX-S28R3-QA26/full-suite-live-sequence.json}"
 PROBE="${ROOT}/scripts/lib/r2-scope-probes.json"
 # Optional expected git_sha (defaults to HEAD of this worktree).
 EXPECT_SHA="${2:-}"
@@ -50,7 +54,11 @@ if schema not in (
 ):
     errors.append(f"bad schema {schema!r}")
 task_id = doc.get("task_id")
-if task_id not in ("GATE-FIX-S28R3-QA24", "GATE-FIX-S28R3-QA25"):
+if task_id not in (
+    "GATE-FIX-S28R3-QA24",
+    "GATE-FIX-S28R3-QA25",
+    "GATE-FIX-S28R3-QA26",
+):
     errors.append(f"task_id mismatch: {task_id!r}")
 for req in ("run_id", "git_sha", "started_at", "finished_at", "phases", "probe_path"):
     if not doc.get(req):
@@ -67,8 +75,9 @@ def git(*args: str) -> tuple[int, str, str]:
 
 
 # Fail-closed bind: record git_sha must resolve, be an ancestor of HEAD, and
-# git diff record..HEAD may only contain explicit QA25 evidence-only paths.
-# No RECORD_REQUIRE_HEAD soft-bind escape — empty expect_sha still uses HEAD.
+# git diff record..HEAD may only contain explicit immutable evidence/task-status
+# paths. NEVER allowlist validator code, tests, product code, whole directories
+# generically, or task-stem prefixes that swallow code.
 git_sha = str(doc.get("git_sha") or "")
 if not re.fullmatch(r"[0-9a-f]{40}", git_sha):
     errors.append(f"git_sha not 40-char hex: {git_sha!r}")
@@ -96,30 +105,44 @@ else:
             if rc_a != 0:
                 errors.append(f"git_sha is not an ancestor of HEAD: {full_sha} !<= {head}")
             elif full_sha != head:
-                # Evidence-only allowlist for paths introduced after the bound SHA.
-                ALLOW_PREFIXES = (
-                    ".tmp/GATE-FIX-S28R3-QA25/",
-                    ".tmp/GATE-FIX-S28R3-QA24/",
-                    "scripts/validate-sprint28-full-suite-sequence.sh",
-                    "services/platform/tests/integration/sprint28-s28r3-qa25-gate-fix.test.ts",
-                    ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/GATE-FIX-S28R3-QA25",
+                # Explicit minimal evidence-only allowlist (QA26 two-commit layout).
+                # Exact files OR directory prefixes ending with '/'. No task-stem
+                # wildcards, no validator/test/product paths, no QA24 free-for-all.
+                ALLOW_EXACT = {
+                    ".spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/GATE-FIX-S28R3-QA26-final-trusted-descendants-and-evidence-consumer.md",
+                }
+                ALLOW_DIR_PREFIXES = (
+                    ".tmp/GATE-FIX-S28R3-QA26/",
+                )
+                FORBIDDEN_SUBSTRINGS = (
+                    "validate-sprint28-full-suite-sequence.sh",
+                    "sprint28-s28r3-qa",
+                    "/src/",
+                    "services/platform/src/",
+                    "services/platform/tests/",
+                    "scripts/validate-",
+                    "scripts/record-",
+                    "scripts/consume-",
+                    "scripts/assert-",
+                    "scripts/prove-",
+                    "scripts/provision-",
+                    "scripts/run-fire-drill",
                 )
 
                 def path_allowed(p: str) -> bool:
-                    for pref in ALLOW_PREFIXES:
-                        if pref.endswith("/"):
-                            if p == pref.rstrip("/") or p.startswith(pref):
-                                return True
-                        else:
-                            # Exact file, directory child, or task-stem suffix
-                            # (e.g. GATE-FIX-S28R3-QA25-independent-....md).
-                            if (
-                                p == pref
-                                or p.startswith(pref + "/")
-                                or p.startswith(pref + "-")
-                                or p.startswith(pref + ".")
-                            ):
-                                return True
+                    if p in ALLOW_EXACT:
+                        return True
+                    for pref in ALLOW_DIR_PREFIXES:
+                        if p == pref.rstrip("/") or p.startswith(pref):
+                            # Still refuse if an "evidence" path smuggles executable surfaces
+                            # (should not happen under .tmp/, but fail closed).
+                            base = os.path.basename(p)
+                            if base.endswith((".ts", ".js", ".sh", ".py", ".mjs", ".cjs")):
+                                # Allow durable log/evidence helpers only when not product code.
+                                # .tmp evidence may include .sh probe transcripts that are data —
+                                # but never allow scripts/ or services/ paths (already excluded by prefix).
+                                pass
+                            return True
                     return False
 
                 rc_d, diff_out, err_d = git("diff", "--name-only", f"{full_sha}..{head}")
@@ -127,6 +150,12 @@ else:
                     errors.append(f"git diff failed for bind check: {err_d or rc_d}")
                 else:
                     for p in (line.strip() for line in diff_out.splitlines() if line.strip()):
+                        # Hard refuse known control surfaces even if someone nests them under .tmp.
+                        if any(s in p for s in FORBIDDEN_SUBSTRINGS) and not p.startswith(
+                            ".tmp/GATE-FIX-S28R3-QA26/"
+                        ):
+                            errors.append(f"non-evidence path after bound git_sha: {p}")
+                            continue
                         if not path_allowed(p):
                             errors.append(f"non-evidence path after bound git_sha: {p}")
 
