@@ -234,10 +234,14 @@ function downloadR2ObjectTrusted(
 ): { status: number; stdout: string; stderr: string } {
   const awsBin = resolveTrustedAwsBin(env);
   if (awsBin) {
-    return run(awsBin, ['s3', 'cp', `s3://${cfg.bucketName}/${key}`, local, '--endpoint-url', cfg.endpoint], {
-      env: awsEnv(cfg, env),
-      timeoutMs: 60_000,
-    });
+    return run(
+      awsBin,
+      ['s3', 'cp', `s3://${cfg.bucketName}/${key}`, local, '--endpoint-url', cfg.endpoint],
+      {
+        env: awsEnv(cfg, env),
+        timeoutMs: 60_000,
+      }
+    );
   }
   const py = validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
   if (!py) {

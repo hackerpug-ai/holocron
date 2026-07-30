@@ -2,7 +2,7 @@
   "schema": "holo.sprint28-full-suite-live-sequence.v1",
   "task_id": "GATE-FIX-S28R3-QA25",
   "run_id": "qa25-seq-20260730T050921Z-37486",
-  "git_sha": "4bd88950ac38c0254a46645cd61ea1df39073e23",
+  "git_sha": "1f58a55890825ecfa9225b5d8528462239155429",
   "started_at": "2026-07-30T05:09:21Z",
   "finished_at": "2026-07-30T05:11:29Z",
   "probe_path": "scripts/lib/r2-scope-probes.json",
@@ -54,5 +54,6 @@
   "probe_hash_stable": true,
   "qa16bak_absent_all_phases": true,
   "all_phases_exit_zero": true,
-  "evidence_dir": "sequence-qa25-seq-20260730T050921Z-37486"
+  "evidence_dir": "sequence-qa25-seq-20260730T050921Z-37486",
+  "git_sha_note": "sequence executed with worktree code; bound to post-implement commit"
 }

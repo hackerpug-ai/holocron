@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -16,7 +17,6 @@ import {
   rmSync,
   statSync,
   writeFileSync,
-  copyFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -40,7 +40,18 @@ const CANARY_SK = 'sk_qa25_canary_secret_must_not_leak_XXXXXXXX';
 const CANARY_ST = 'st_qa25_canary_session_must_not_leak_YYYYYYYY';
 const CANARY_SECRET_IN_LOG = 'QA25_REDACTOR_CANARY_SECRET_IN_CHILD_LOG';
 
-const HOSTILE_UTILS = ['nc', 'grep', 'env', 'python3', 'mktemp', 'tr', 'bash', 'aws', 'docker', 'psql'] as const;
+const HOSTILE_UTILS = [
+  'nc',
+  'grep',
+  'env',
+  'python3',
+  'mktemp',
+  'tr',
+  'bash',
+  'aws',
+  'docker',
+  'psql',
+] as const;
 
 const SOURCE_BACKUP = {
   restore: resolve(REPO_ROOT, 'services/platform/src/backup/restore.ts'),
@@ -90,7 +101,9 @@ function loadEnvFile(path: string): Record<string, string> {
   for (const line of readFileSync(path, 'utf8').split('\n')) {
     const t = line.trim();
     if (!t || t.startsWith('#')) continue;
-    const m = t.match(/^export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$/) || t.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    const m =
+      t.match(/^export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$/) ||
+      t.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
     if (!m || !m[1]) continue;
     let v = m[2] ?? '';
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
@@ -244,15 +257,18 @@ exit 99
         isolationExists: existsSync(isolationTxt),
         r2Exists: existsSync(r2Txt),
       });
-      expect(reached, 'literal stream must reach credentialed isolation/prove descendant').toBe(true);
+      expect(reached, 'literal stream must reach credentialed isolation/prove descendant').toBe(
+        true
+      );
       for (const m of markers) {
         expect(combined, `shadow marker ${m} in output`).not.toContain(m);
         expect(ranLog, `shadow marker ${m} executed`).not.toContain(m);
       }
       // Malicious absolute overrides must not execute (refuse or skip); never success via shadow.
       const refused =
-        /refused untrusted|must be absolute|not root-owned|GATE-FIX-S28R3-QA2[45]/i.test(combined) ||
-        ranLog.length === 0;
+        /refused untrusted|must be absolute|not root-owned|GATE-FIX-S28R3-QA2[45]/i.test(
+          combined
+        ) || ranLog.length === 0;
       expect(refused, 'hostile overrides must not execute as real tools').toBe(true);
     } finally {
       rmSync(shadow, { recursive: true, force: true });
@@ -287,7 +303,9 @@ exit 99
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     writeEv('evil-env-bin.json', { status: run.status, out: redact(combined.slice(0, 1500)) });
     expect(run.status).not.toBe(0);
-    expect(combined).toMatch(/refused untrusted|must be absolute|not root-owned|GATE-FIX-S28R3-QA2/i);
+    expect(combined).toMatch(
+      /refused untrusted|must be absolute|not root-owned|GATE-FIX-S28R3-QA2/i
+    );
     expect(combined).not.toContain('EVIL_ENV_BIN_QA25');
   });
 });
@@ -468,13 +486,13 @@ fi
 # Secrets must not appear on intermediate argv samples or retained logs.
 for secret_var in R2_RESTORE_SECRET_ACCESS_KEY R2_RESTORE_SESSION_TOKEN R2_SECRET_ACCESS_KEY RESTIC_PASSWORD; do
   val="\${!secret_var:-}"
-  if [[ -n "\$val" && \${#val} -ge 8 ]]; then
-    if /usr/bin/grep -Fq "\$val" "$ARGV_LOG" 2>/dev/null; then
-      echo "FAIL: secret from \$secret_var on argv samples" >&2
+  if [[ -n "$val" && \${#val} -ge 8 ]]; then
+    if /usr/bin/grep -Fq "$val" "$ARGV_LOG" 2>/dev/null; then
+      echo "FAIL: secret from $secret_var on argv samples" >&2
       exit 2
     fi
-    if /usr/bin/grep -Fq "\$val" "$FIRE_OUT" 2>/dev/null; then
-      echo "FAIL: secret from \$secret_var on fire-drill out" >&2
+    if /usr/bin/grep -Fq "$val" "$FIRE_OUT" 2>/dev/null; then
+      echo "FAIL: secret from $secret_var on fire-drill out" >&2
       exit 2
     fi
   fi
@@ -586,7 +604,8 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL4 immutable recomputable sequence', () => 
             {
               n: 1,
               name: 'full_sprint28_suite',
-              command: 'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
+              command:
+                'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
               exit_code: 0,
               probe_sha256_before: probeHash,
               probe_sha256_after: probeHash,
@@ -610,7 +629,8 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL4 immutable recomputable sequence', () => 
             {
               n: 3,
               name: 'full_sprint28_suite',
-              command: 'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
+              command:
+                'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
               exit_code: 0,
               probe_sha256_before: probeHash,
               probe_sha256_after: probeHash,
@@ -727,7 +747,7 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL5 D05-04 durable oracle consumer', () => {
       resolve(REPO_ROOT, '.tmp/D05-04/parity-report.json'),
       resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA24/d05-04-real-restore.json'),
     ];
-    let parityPath = parityCandidates.find((p) => existsSync(p));
+    const parityPath = parityCandidates.find((p) => existsSync(p));
     expect(parityPath, 'need at least one D05-04 parity/summary artifact').toBeTruthy();
 
     // Materialize a complete machine-verifiable bundle under QA25 if needed.
@@ -750,7 +770,10 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL5 D05-04 durable oracle consumer', () => {
         copyFileSync(parityPath, destParity);
       }
     }
-    if (!existsSync(destParity) && existsSync(resolve(REPO_ROOT, '.tmp/D05-04/parity-report.json'))) {
+    if (
+      !existsSync(destParity) &&
+      existsSync(resolve(REPO_ROOT, '.tmp/D05-04/parity-report.json'))
+    ) {
       copyFileSync(resolve(REPO_ROOT, '.tmp/D05-04/parity-report.json'), destParity);
     }
     if (!existsSync(destSummary) && existsSync(resolve(REPO_ROOT, '.tmp/D05-04/SUMMARY.json'))) {
@@ -803,8 +826,9 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL5 D05-04 durable oracle consumer', () => {
     expect(restoredBlobs).toBe(11);
 
     const baselinePub = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA24/baseline-publish.json');
-    const baseline =
-      existsSync(baselinePub) ? (JSON.parse(readFileSync(baselinePub, 'utf8')) as Record<string, unknown>) : null;
+    const baseline = existsSync(baselinePub)
+      ? (JSON.parse(readFileSync(baselinePub, 'utf8')) as Record<string, unknown>)
+      : null;
 
     const ledger =
       typeof parity.ledger_checksum === 'string'
@@ -826,7 +850,8 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL5 D05-04 durable oracle consumer', () => {
       baseline_lookup_key: baseline?.lookupKey ?? null,
       ledger_checksum: ledger,
       restic_snapshot_id: parity.restic_snapshot_id ?? baseline?.restic_snapshot_id ?? null,
-      pgbackrest_backup_label: parity.pgbackrest_backup_label ?? baseline?.pgbackrest_backup_label ?? null,
+      pgbackrest_backup_label:
+        parity.pgbackrest_backup_label ?? baseline?.pgbackrest_backup_label ?? null,
       matched_objects: matched,
       restored_blob_objects: restoredBlobs,
       row_counts: rowCounts,
