@@ -16,6 +16,9 @@ cp "$ROOT_SRC/scripts/verify-restore-creds.sh" "$HARNESS/scripts/" 2>/dev/null |
 cp "$ROOT_SRC/scripts/assert-fire-drill-report.sh" "$HARNESS/scripts/" 2>/dev/null || true
 cp "$ROOT_SRC/scripts/lib/r2-ro-live.sh" "$HARNESS/scripts/lib/"
 cp "$ROOT_SRC/scripts/lib/r2-scope-probes.json" "$HARNESS/scripts/lib/"
+# GATE-FIX-S28R3-QA23: secret-free env launcher required by r2_ro_exec_isolated.
+cp "$ROOT_SRC/scripts/lib/exec-env-from-fd.py" "$HARNESS/scripts/lib/"
+chmod +x "$HARNESS/scripts/lib/exec-env-from-fd.py"
 # Install mock provider as the repository provider path inside harness.
 cp "$MOCK_PROVIDER" "$HARNESS/scripts/lib/r2_s3_provider.py"
 chmod +x "$HARNESS/scripts/lib/r2_s3_provider.py"

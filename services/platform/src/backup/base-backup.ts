@@ -7,7 +7,14 @@
  * - Installs launchd StartInterval job for the schedule
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
@@ -32,6 +39,52 @@ import {
 } from './recovery-baseline.ts';
 import { type EmittedBackupSpan, emitBackupSpan } from './span.ts';
 import { ensureContinuousWalArchiving } from './wal-archive.ts';
+
+/**
+ * GATE-FIX-S28R3-QA23: trust-chain validate absolute root-owned executables
+ * (mirrors recovery-baseline / restore). No PATH/Homebrew discovery while credentials ambient.
+ */
+function validateRootOwnedBin(candidate: string): string | null {
+  const cand = candidate.trim();
+  if (!cand.startsWith('/')) return null;
+  try {
+    const parts = cand.split('/').filter(Boolean);
+    let path = '';
+    for (const part of parts) {
+      path = `${path}/${part}`;
+      let st = lstatSync(path);
+      if (st.isSymbolicLink()) {
+        const real = realpathSync(path);
+        st = lstatSync(real);
+      }
+      const mode = st.mode & 0o777;
+      if (st.uid !== 0) return null;
+      if (mode & 0o022) return null;
+    }
+    const finalPath = realpathSync(cand);
+    const st = lstatSync(finalPath);
+    if (!st.isFile()) return null;
+    if (st.uid !== 0) return null;
+    if ((st.mode & 0o111) === 0) return null;
+    if ((st.mode & 0o022) !== 0) return null;
+    return finalPath;
+  } catch {
+    return null;
+  }
+}
+
+function resolveTrustedPgbackrestBin(env: NodeJS.ProcessEnv): string | null {
+  const fromEnv = env.PGBACKREST_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/pgbackrest', '/usr/bin/pgbackrest']) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
+}
 
 export type BaseBackupType = 'full' | 'incr' | 'diff';
 
@@ -89,11 +142,12 @@ function run(
 }
 
 function pgbackrestEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  // GATE-FIX-S28R3-QA23: minimal fixed PATH — no ambient/Homebrew while credentials ambient.
   const out: NodeJS.ProcessEnv = {
     ...env,
     PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
-    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+    PATH: '/usr/bin:/bin',
   };
   if (cfg.sessionToken) {
     out.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;
@@ -194,10 +248,54 @@ export async function runBaseBackupJob(options?: {
         ...env,
         PGBACKREST_REPO1_S3_KEY: 'AKIAINDUCEDINVALID000000',
         PGBACKREST_REPO1_S3_KEY_SECRET: 'induced-expired-invalid-secret',
-        PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+        PATH: '/usr/bin:/bin',
       };
       delete badEnv.PGBACKREST_REPO1_S3_TOKEN;
-      const probe = run('pgbackrest', ['info', '--output=json'], {
+      const trustedBin = resolveTrustedPgbackrestBin(env);
+      if (!trustedBin) {
+        errors.push(
+          'credential expired — R2 auth denied for job base_backup (load failed; GATE-FIX-S28R3-QA23 no root-owned pgbackrest)'
+        );
+        await ensureBackupHeartbeatTable();
+        const span = await emitBackupSpan({
+          name: 'backup:base_backup',
+          attributes: {
+            job_name: 'base_backup',
+            status: 'failed',
+            last_snapshot_id: null,
+            object_count: 0,
+            detail: errors.join('; ').slice(0, 200),
+            induce_fault: 'credential_expired',
+          },
+        });
+        const heartbeat = await upsertBackupHeartbeat({
+          jobName: 'base_backup',
+          status: 'failed',
+          lastSnapshotId: 'auth-denied',
+          objectCount: 0,
+          traceId: span.traceId,
+        });
+        return {
+          ok: false,
+          job_name: 'base_backup',
+          status: 'failed',
+          backupType,
+          exitCode: 1,
+          stdout: '',
+          stderr: '',
+          lastSnapshotId: null,
+          r2BackupObjectCount: 0,
+          manifestPresent: false,
+          heartbeat,
+          span,
+          recoveryBaseline: null,
+          errors,
+          real_auth_fault: true,
+          production_catch: true,
+          fault_output: errors.join('; '),
+        };
+      }
+      const probe = run(trustedBin, ['info', '--output=json'], {
         env: badEnv,
         timeoutMs: 60_000,
       });
@@ -317,13 +415,53 @@ export async function runBaseBackupJob(options?: {
     delete pgbEnv.PGBACKREST_REPO1_S3_TOKEN;
   }
 
+  // GATE-FIX-S28R3-QA23: absolute root-owned pgbackrest only (never bare PATH).
+  const pgbackrestBin = resolveTrustedPgbackrestBin(env);
+  if (!pgbackrestBin) {
+    errors.push(
+      'GATE-FIX-S28R3-QA23 refuses credential-bearing base backup without root-owned pgbackrest at /usr/local/bin/pgbackrest or /usr/bin/pgbackrest'
+    );
+    await upsertBackupHeartbeat({
+      jobName: 'base_backup',
+      status: 'failed',
+      lastSnapshotId: null,
+      objectCount: 0,
+    });
+    const span = await emitBackupSpan({
+      name: 'backup:base_backup',
+      attributes: {
+        job_name: 'base_backup',
+        status: 'failed',
+        last_snapshot_id: null,
+        object_count: 0,
+        detail: errors.join('; ').slice(0, 200),
+      },
+    });
+    return {
+      ok: false,
+      job_name: 'base_backup',
+      status: 'failed',
+      backupType,
+      exitCode: 1,
+      stdout: '',
+      stderr: '',
+      lastSnapshotId: null,
+      r2BackupObjectCount: 0,
+      manifestPresent: false,
+      heartbeat: null,
+      span,
+      recoveryBaseline: null,
+      errors,
+    };
+  }
+
   // archive_mode=always is required by CAP-BAK-01 continuous archiving (D04-03).
   // pgBackRest's default --archive-mode-check rejects "always"; disable the
   // check only — WAL is still archived via archive_command → archive-push.
   // Credential induction uses `info` (fast auth probe) rather than full backup.
   const backup = credentialInduce
     ? run(
-        'pgbackrest',
+        pgbackrestBin,
         [
           `--config=${cfg.pgbackrestConfigPath}`,
           `--stanza=${cfg.stanza}`,
@@ -334,7 +472,7 @@ export async function runBaseBackupJob(options?: {
         { env: pgbEnv, timeoutMs: 120_000 }
       )
     : run(
-        'pgbackrest',
+        pgbackrestBin,
         [
           `--config=${cfg.pgbackrestConfigPath}`,
           `--stanza=${cfg.stanza}`,
@@ -349,7 +487,7 @@ export async function runBaseBackupJob(options?: {
   const info = credentialInduce
     ? backup
     : run(
-        'pgbackrest',
+        pgbackrestBin,
         [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
         { env: pgbEnv, timeoutMs: 120_000 }
       );

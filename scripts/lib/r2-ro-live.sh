@@ -21,6 +21,8 @@ R2_RO_ENV_BIN="/usr/bin/env"
 R2_RO_PYTHON_BIN="/usr/bin/python3"
 R2_RO_CURL_BIN="/usr/bin/curl"
 R2_RO_PROVIDER_PY="${ROOT}/scripts/lib/r2_s3_provider.py"
+# GATE-FIX-S28R3-QA23: secret-free env launch (FD 3 pairs → execve); never env -i KEY=secret.
+R2_RO_EXEC_ENV_FROM_FD_PY="${ROOT}/scripts/lib/exec-env-from-fd.py"
 
 # --- trust chain validation (root-owned, no group/world-writable parents) ---
 
@@ -126,14 +128,18 @@ PY
   return 0
 }
 
-# GATE-FIX-S28R3-QA18 env-sanitize: isolated exec that NEVER dumps ambient environment.
+# GATE-FIX-S28R3-QA18 env-sanitize + GATE-FIX-S28R3-QA23 secret-free argv:
+# isolated exec that NEVER dumps ambient environment and NEVER puts KEY=secret on
+# intermediate process argv. Pairs travel on FD 3 (NUL-separated); launcher is
+# absolute /usr/bin/python3 + scripts/lib/exec-env-from-fd.py.
 # Usage: r2_ro_exec_isolated KEY=val KEY=val -- /abs/command [args...]
-# Requires env -i, a "--" separator, and a non-empty command. Values are never logged.
+# Requires a "--" separator and a non-empty absolute command. Values are never logged.
 r2_ro_exec_isolated() {
   local -a pairs=()
   local -a cmd=()
   local saw_sep=0 arg
-  local env_bin="${R2_RO_ENV_BIN:-/usr/bin/env}"
+  local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
+  local launcher="${R2_RO_EXEC_ENV_FROM_FD_PY:-${ROOT}/scripts/lib/exec-env-from-fd.py}"
   for arg in "$@"; do
     if [[ $saw_sep -eq 1 ]]; then
       cmd+=("$arg")
@@ -163,7 +169,23 @@ r2_ro_exec_isolated() {
     echo "error: GATE-FIX-S28R3-QA17 isolated command missing: ${cmd[0]}" >&2
     return 2
   fi
-  "$env_bin" -i "${pairs[@]}" "${cmd[@]}"
+  if [[ ! -f "$launcher" ]]; then
+    echo "error: GATE-FIX-S28R3-QA23 missing env-from-fd launcher: $launcher" >&2
+    return 2
+  fi
+  # FD 3 carries KEY=VAL\0... — never serialized into python/cmd argv.
+  exec 3< <(
+    local p
+    for p in "${pairs[@]}"; do
+      printf '%s\0' "$p"
+    done
+  )
+  set +e
+  "$py_bin" -E -s "$launcher" -- "${cmd[@]}"
+  local rc=$?
+  set -e
+  exec 3<&- 2>/dev/null || true
+  return "$rc"
 }
 
 # Filter process output to allowlisted status/class lines only (never KEY=value dumps).
@@ -283,11 +305,26 @@ PY
 }
 
 # GATE-FIX-S28R3-QA17: hash via repository provider + absolute python (no openssl/awk/cut).
+# GATE-FIX-S28R3-QA23 cycle2: fields (may include AK/SK/ST) travel on FD 3 only —
+# never on python/env argv (tuple fingerprint must not expose secrets to /proc cmdline).
 r2_ro_fp16_fields() {
   local py_bin="${R2_RO_PYTHON_BIN:-/usr/bin/python3}"
   local provider="${R2_RO_PROVIDER_PY:-${ROOT}/scripts/lib/r2_s3_provider.py}"
+  local f rc
   # Absolute python only; -E ignores PYTHON* knobs; env -i drops ambient runtime env.
-  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}"     "$py_bin" -E -s "$provider" fp16 "$@"
+  # FD 3: NUL-separated fields; argv is only: python -E -s provider fp16 --from-fd3
+  exec 3< <(
+    for f in "$@"; do
+      printf '%s\0' "$f"
+    done
+  )
+  set +e
+  /usr/bin/env -i PATH=/usr/bin:/bin HOME="${HOME:-/tmp}" LC_ALL=C \
+    "$py_bin" -E -s "$provider" fp16 --from-fd3
+  rc=$?
+  set -e
+  exec 3<&- 2>/dev/null || true
+  return "$rc"
 }
 
 r2_ro_context_fp16() {
