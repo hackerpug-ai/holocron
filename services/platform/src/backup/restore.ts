@@ -17,10 +17,12 @@
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -90,23 +92,65 @@ function run(
   };
 }
 
+/**
+ * GATE-FIX-S28R3-QA21: trust-chain validate absolute root-owned executables
+ * (mirrors scripts/lib/r2-ro-live.sh r2_ro_validate_root_bin). No PATH/Homebrew discovery.
+ * Operational prerequisite: install root-owned pgbackrest at /usr/local/bin or /usr/bin.
+ */
+function validateRootOwnedBin(candidate: string): string | null {
+  const cand = candidate.trim();
+  if (!cand.startsWith('/')) return null;
+  try {
+    const parts = cand.split('/').filter(Boolean);
+    let path = '';
+    for (const part of parts) {
+      path = `${path}/${part}`;
+      let st = lstatSync(path);
+      let pathCheck = path;
+      if (st.isSymbolicLink()) {
+        const real = realpathSync(path);
+        st = lstatSync(real);
+        pathCheck = real;
+      }
+      const mode = st.mode & 0o777;
+      if (st.uid !== 0) return null;
+      if (mode & 0o022) return null; // group/world writable
+      void pathCheck;
+    }
+    const finalPath = realpathSync(cand);
+    const st = lstatSync(finalPath);
+    if (!st.isFile()) return null;
+    if (st.uid !== 0) return null;
+    if ((st.mode & 0o111) === 0) return null;
+    if ((st.mode & 0o022) !== 0) return null;
+    return finalPath;
+  } catch {
+    return null;
+  }
+}
+
 function whichPgbackrest(env: NodeJS.ProcessEnv): string | null {
+  // Prefer explicit absolute PGBACKREST_BIN only when root-owned trust-chain validates.
   const fromEnv = env.PGBACKREST_BIN?.trim();
-  if (fromEnv && existsSync(fromEnv)) return fromEnv;
-  const w = run('which', ['pgbackrest'], { env, timeoutMs: 5_000 }).stdout.trim();
-  if (w && existsSync(w)) return w;
-  for (const candidate of ['/opt/homebrew/bin/pgbackrest', '/usr/local/bin/pgbackrest']) {
-    if (existsSync(candidate)) return candidate;
+  if (fromEnv) {
+    const trusted = validateRootOwnedBin(fromEnv);
+    if (trusted) return trusted;
+  }
+  // Fixed candidates only — never PATH `which` or user-owned Homebrew.
+  for (const candidate of ['/usr/local/bin/pgbackrest', '/usr/bin/pgbackrest']) {
+    const trusted = validateRootOwnedBin(candidate);
+    if (trusted) return trusted;
   }
   return null;
 }
 
 function pgbackrestEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  // GATE-FIX-S28R3-QA21: minimal fixed PATH — no Homebrew while credentials ambient.
   const out: NodeJS.ProcessEnv = {
     ...env,
     PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
-    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+    PATH: '/usr/bin:/bin',
   };
   if (cfg.sessionToken) {
     out.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # D05-06 / CAP-BAK-01 AC-2 + REDHAT-FIX-H5 — Restore R2 credentials are
 # read-only + scoped to an EXACT concrete bucket ARN and object prefix.
 # REDHAT-FIX-H4 — Delete negative control is sacrificial drill-neg OR non-mutating

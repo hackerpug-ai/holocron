@@ -15,7 +15,15 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defaultSecretsPath, getSecretValue } from '../config/secrets.ts';
@@ -50,6 +58,81 @@ function parseLatestBackupLabel(infoJson: string): string | null {
     const m = infoJson.match(/\b(\d{8}-\d{6}[FDI](?:_\d{8}-\d{6}[FDI])*)\b/);
     return m?.[1] ?? null;
   }
+}
+
+/**
+ * GATE-FIX-S28R3-QA21: trust-chain validate absolute root-owned executables
+ * (mirrors r2_ro_validate_root_bin). No PATH/Homebrew discovery while credentials ambient.
+ * Operational prerequisite: root-owned restic/pgbackrest at /usr/local/bin or /usr/bin.
+ */
+function validateRootOwnedBin(candidate: string): string | null {
+  const cand = candidate.trim();
+  if (!cand.startsWith('/')) return null;
+  try {
+    const parts = cand.split('/').filter(Boolean);
+    let path = '';
+    for (const part of parts) {
+      path = `${path}/${part}`;
+      let st = lstatSync(path);
+      if (st.isSymbolicLink()) {
+        const real = realpathSync(path);
+        st = lstatSync(real);
+      }
+      const mode = st.mode & 0o777;
+      if (st.uid !== 0) return null;
+      if (mode & 0o022) return null;
+    }
+    const finalPath = realpathSync(cand);
+    const st = lstatSync(finalPath);
+    if (!st.isFile()) return null;
+    if (st.uid !== 0) return null;
+    if ((st.mode & 0o111) === 0) return null;
+    if ((st.mode & 0o022) !== 0) return null;
+    return finalPath;
+  } catch {
+    return null;
+  }
+}
+
+function resolveTrustedResticBin(env: NodeJS.ProcessEnv, preResolved?: string | null): string | null {
+  // Explicit API argument (options.resticBin): absolute executable only.
+  // Production callers pass root-validated paths; unit tests may inject absolute fakes.
+  // Discovery via RESTIC_BIN env / fixed candidates always requires root trust-chain.
+  if (preResolved) {
+    const cand = preResolved.trim();
+    if (!cand.startsWith('/')) return null;
+    try {
+      const real = realpathSync(cand);
+      const st = lstatSync(real);
+      if (!st.isFile() || (st.mode & 0o111) === 0) return null;
+      return real;
+    } catch {
+      return null;
+    }
+  }
+  const fromEnv = env.RESTIC_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/restic', '/usr/bin/restic']) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
+}
+
+function resolveTrustedPgbackrestBin(env: NodeJS.ProcessEnv): string | null {
+  const fromEnv = env.PGBACKREST_BIN?.trim();
+  if (fromEnv) {
+    const t = validateRootOwnedBin(fromEnv);
+    if (t) return t;
+  }
+  for (const candidate of ['/usr/local/bin/pgbackrest', '/usr/bin/pgbackrest']) {
+    const t = validateRootOwnedBin(candidate);
+    if (t) return t;
+  }
+  return null;
 }
 
 export const RECOVERY_BASELINE_SCHEMA = 'holo.recovery-baseline.v1' as const;
@@ -834,6 +917,8 @@ function resticVerifyEnv(
       AWS_SECRET_ACCESS_KEY: cfg.secretAccessKey,
       AWS_DEFAULT_REGION: 'auto',
       AWS_EC2_METADATA_DISABLED: 'true',
+      // GATE-FIX-S28R3-QA21: no Homebrew/PATH discovery while credentials ambient.
+      PATH: '/usr/bin:/bin',
     };
     if (cfg.sessionToken) out.AWS_SESSION_TOKEN = cfg.sessionToken;
     else delete out.AWS_SESSION_TOKEN;
@@ -925,18 +1010,14 @@ export function verifyResticSnapshotInRepo(options: {
   }
 
   const env = options.env ?? process.env;
-  let resticBin = options.resticBin ?? null;
-  if (!resticBin) {
-    const which = run('which', ['restic'], { env, timeoutMs: 5_000 });
-    resticBin =
-      (which.status === 0 && which.stdout.trim()) ||
-      (existsSync('/opt/homebrew/bin/restic') ? '/opt/homebrew/bin/restic' : null);
-  }
+  // GATE-FIX-S28R3-QA21: resolve + validate root-owned restic BEFORE credentials used.
+  const resticBin = resolveTrustedResticBin(env, options.resticBin ?? null);
   if (!resticBin) {
     return {
       ok: false,
       matchedId: null,
-      error: 'restic binary missing — refuse baseline bind without snapshot verification',
+      error:
+        'restic binary missing or untrusted — refuse baseline bind (require root-owned /usr/local/bin/restic or /usr/bin/restic; PATH/Homebrew discovery forbidden)',
       snapshotsChecked: 0,
     };
   }
@@ -1561,11 +1642,13 @@ function resolvePgbackrestStopFromInfo(
   env: NodeJS.ProcessEnv,
   label: string
 ): { stopAt: string; stopMs: number } | null {
+  const pgbBin = resolveTrustedPgbackrestBin(env);
+  if (!pgbBin) return null;
   const pgbEnv: NodeJS.ProcessEnv = {
     ...env,
     PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
-    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+    PATH: '/usr/bin:/bin',
   };
   if (cfg.sessionToken) {
     pgbEnv.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;
@@ -1573,7 +1656,7 @@ function resolvePgbackrestStopFromInfo(
     delete pgbEnv.PGBACKREST_REPO1_S3_TOKEN;
   }
   const info = run(
-    'pgbackrest',
+    pgbBin,
     [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
     { env: pgbEnv, timeoutMs: 120_000 }
   );
@@ -1602,11 +1685,20 @@ function ensureBaseBackupCoverageThroughCapture(options: {
   if (Number.isNaN(captureMs)) {
     return { ok: false, errors: ['captureAt invalid — refuse coverage'] };
   }
+  const pgbBin = resolveTrustedPgbackrestBin(env);
+  if (!pgbBin) {
+    return {
+      ok: false,
+      errors: [
+        'pgbackrest binary missing or untrusted — require root-owned /usr/local/bin/pgbackrest or /usr/bin/pgbackrest (PATH/Homebrew forbidden)',
+      ],
+    };
+  }
   const pgbEnv: NodeJS.ProcessEnv = {
     ...env,
     PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
-    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+    PATH: '/usr/bin:/bin',
   };
   if (cfg.sessionToken) {
     pgbEnv.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;
@@ -1615,7 +1707,7 @@ function ensureBaseBackupCoverageThroughCapture(options: {
   }
   // Prefer incr after an existing full; fall back to full.
   const backup = run(
-    'pgbackrest',
+    pgbBin,
     [
       `--config=${cfg.pgbackrestConfigPath}`,
       `--stanza=${cfg.stanza}`,
@@ -1628,7 +1720,7 @@ function ensureBaseBackupCoverageThroughCapture(options: {
   );
   if (backup.status !== 0) {
     const full = run(
-      'pgbackrest',
+      pgbBin,
       [
         `--config=${cfg.pgbackrestConfigPath}`,
         `--stanza=${cfg.stanza}`,
@@ -1649,7 +1741,7 @@ function ensureBaseBackupCoverageThroughCapture(options: {
     }
   }
   const info = run(
-    'pgbackrest',
+    pgbBin,
     [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
     { env: pgbEnv, timeoutMs: 120_000 }
   );
@@ -1696,11 +1788,15 @@ export function listResticSnapshotIds(options?: { env?: NodeJS.ProcessEnv }): {
   const env = options?.env ?? process.env;
   const resticEnv = resticVerifyEnv(env);
   if (!resticEnv.ok) return { ok: false, ids: [], error: resticEnv.error };
-  const which = run('which', ['restic'], { env, timeoutMs: 5_000 });
-  const resticBin =
-    (which.status === 0 && which.stdout.trim()) ||
-    (existsSync('/opt/homebrew/bin/restic') ? '/opt/homebrew/bin/restic' : null);
-  if (!resticBin) return { ok: false, ids: [], error: 'restic binary not found' };
+  const resticBin = resolveTrustedResticBin(env);
+  if (!resticBin) {
+    return {
+      ok: false,
+      ids: [],
+      error:
+        'restic binary missing or untrusted — require root-owned /usr/local/bin/restic or /usr/bin/restic (PATH/Homebrew forbidden)',
+    };
+  }
   const snaps = run(resticBin, ['snapshots', '--json'], {
     env: resticEnv.env,
     timeoutMs: 180_000,
@@ -2046,11 +2142,13 @@ async function resolvePgbackrestLabelFromHeartbeat(): Promise<string | null> {
 }
 
 function resolvePgbackrestLabelFromInfo(cfg: BackupConfig, env: NodeJS.ProcessEnv): string | null {
+  const pgbBin = resolveTrustedPgbackrestBin(env);
+  if (!pgbBin) return null;
   const pgbEnv: NodeJS.ProcessEnv = {
     ...env,
     PGBACKREST_REPO1_S3_KEY: cfg.accessKeyId,
     PGBACKREST_REPO1_S3_KEY_SECRET: cfg.secretAccessKey,
-    PATH: env.PATH ?? '/opt/homebrew/bin:/usr/bin:/bin',
+    PATH: '/usr/bin:/bin',
   };
   if (cfg.sessionToken) {
     pgbEnv.PGBACKREST_REPO1_S3_TOKEN = cfg.sessionToken;
@@ -2058,7 +2156,7 @@ function resolvePgbackrestLabelFromInfo(cfg: BackupConfig, env: NodeJS.ProcessEn
     delete pgbEnv.PGBACKREST_REPO1_S3_TOKEN;
   }
   const info = run(
-    'pgbackrest',
+    pgbBin,
     [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'info', '--output=json'],
     { env: pgbEnv, timeoutMs: 120_000 }
   );
