@@ -1301,8 +1301,7 @@ export function getR2Object(options: {
     }
 
     // Fallback: repository stdlib provider via root-owned python3 (same class as listRepoPrefix).
-    const py =
-      validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
+    const py = validateRootOwnedBin('/usr/bin/python3') ?? validateRootOwnedBin('/bin/python3');
     if (!py) {
       return {
         ok: false,

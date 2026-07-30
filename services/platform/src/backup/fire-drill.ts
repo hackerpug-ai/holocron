@@ -436,7 +436,11 @@ function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
   if (!existsSync(pgdata)) return;
   const pgCtl = resolvePgCtlBin(env);
   run(pgCtl, ['stop', '-D', pgdata, '-m', 'fast', '-w', '-t', '30'], {
-    env: { ...env, PGDATA: pgdata, PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` },
+    env: {
+      ...env,
+      PGDATA: pgdata,
+      PATH: `/opt/homebrew/opt/postgresql@18/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+    },
     timeoutMs: 45_000,
   });
 }
