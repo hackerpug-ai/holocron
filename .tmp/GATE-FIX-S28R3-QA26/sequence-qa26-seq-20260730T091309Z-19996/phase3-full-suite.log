@@ -1,0 +1,172 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA26
+
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa25-gate-fix.test.ts (15 tests) 164773ms
+     ✓ reaches real fire-drill FD launcher + credentialed child; races; scans artifacts  163962ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa19-gate-fix.test.ts (26 tests) 70997ms
+     ✓ provision dry-run baseline succeeds  4613ms
+     ✓ fire-drill baseline reaches recorder with zero exit  4560ms
+     ✓ provision mutate=stale fails at exact validator (not dependency)  3350ms
+     ✓ fire-drill mutate=stale exact fail; no recorder side effects  3374ms
+     ✓ provision mutate=future fails at exact validator (not dependency)  3329ms
+     ✓ fire-drill mutate=future exact fail; no recorder side effects  3376ms
+     ✓ provision mutate=wrong-tuple fails at exact validator (not dependency)  3406ms
+     ✓ fire-drill mutate=wrong-tuple exact fail; no recorder side effects  3444ms
+     ✓ provision mutate=wrong-context fails at exact validator (not dependency)  3349ms
+     ✓ fire-drill mutate=wrong-context exact fail; no recorder side effects  3451ms
+     ✓ provision mutate=malformed fails at exact validator (not dependency)  3367ms
+     ✓ fire-drill mutate=malformed exact fail; no recorder side effects  3459ms
+     ✓ provision mutate=wrong-producer fails at exact validator (not dependency)  3418ms
+     ✓ fire-drill mutate=wrong-producer exact fail; no recorder side effects  3442ms
+     ✓ symlink proof swap fails with no-follow/identity under correct tuple/context  2414ms
+     ✓ parent-directory replacement fails FD/private-dir identity checks  2377ms
+     ✓ fire-drill concurrent proof swap yields no recorder side effects  3391ms
+     ✓ success + error paths for prove/provision/fire-drill leave no canaries in tree  12394ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa14-gate-fix.test.ts (28 tests) 64345ms
+     ✓ forged PATH env/python3/aws never execute on harness prove (markers clean)  2232ms
+     ✓ 404 out-of-prefix is refused (not treated as AccessDenied)  924ms
+     ✓ broader out-of-prefix head success fails closed  1530ms
+     ✓ empty env scope probe keys bind versioned/trusted keys under harness  2221ms
+     ✓ successful harness proof binds scope probe keys into attestation  2220ms
+     ✓ fire-drill baseline reaches recorder with zero exit  4536ms
+     ✓ provision refuses mutate=stale at proof validation  3354ms
+     ✓ fire-drill mutate=stale fails at proof validation (no recorder)  3382ms
+     ✓ provision refuses mutate=future at proof validation  3403ms
+     ✓ fire-drill mutate=future fails at proof validation (no recorder)  3484ms
+     ✓ provision refuses mutate=wrong-tuple at proof validation  3442ms
+     ✓ fire-drill mutate=wrong-tuple fails at proof validation (no recorder)  3453ms
+     ✓ provision refuses mutate=malformed at proof validation  3414ms
+     ✓ fire-drill mutate=malformed fails at proof validation (no recorder)  3454ms
+     ✓ provision refuses mutate=wrong-producer at proof validation  3439ms
+     ✓ fire-drill mutate=wrong-producer fails at proof validation (no recorder)  3454ms
+     ✓ provision refuses mutate=wrong-context at proof validation  3336ms
+     ✓ fire-drill mutate=wrong-context fails at proof validation (no recorder)  3441ms
+     ✓ symlink proof path is rejected by validate  2395ms
+     ✓ provider canary never appears in prove logs or proof JSON  3143ms
+     ✓ proof-canary mutation is visible in proof JSON and fails validation  3333ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa13-gate-fix.test.ts (24 tests) 56217ms
+     ✓ forged PATH aws never runs under production or harness (marker clean)  4516ms
+     ✓ broader out-of-prefix head success fails closed at harness prove  1527ms
+     ✓ provision refuses mutate=stale  3335ms
+     ✓ fire-drill refuses mutate=stale  3378ms
+     ✓ provision refuses mutate=future  3358ms
+     ✓ fire-drill refuses mutate=future  3415ms
+     ✓ provision refuses mutate=wrong-tuple  3366ms
+     ✓ fire-drill refuses mutate=wrong-tuple  3418ms
+     ✓ provision refuses mutate=malformed  3413ms
+     ✓ fire-drill refuses mutate=malformed  3418ms
+     ✓ provision refuses mutate=wrong-producer  3310ms
+     ✓ fire-drill refuses mutate=wrong-producer  3377ms
+     ✓ provision refuses mutate=wrong-context  3392ms
+     ✓ fire-drill refuses mutate=wrong-context  3469ms
+     ✓ aws canaries absent on success/error; recorder+parity clean  7901ms
+     ✓ mint success/error canaries absent from logs (harness curl)  1037ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa4-gate-fix.test.ts (18 tests | 5 skipped) 48954ms
+     ✓ H-1: NotAction Allow fails overall RESULT  9772ms
+     ✓ H-1: NotResource Allow fails overall RESULT  9555ms
+     ✓ H-1: s3:* Allow fails overall RESULT  9753ms
+     ✓ H-1: separate Allow with PutObject fails overall RESULT  10178ms
+     ✓ H-1: exact-only policy still PASSes r2_readonly axis  9557ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa12-gate-fix.test.ts (17 tests) 41296ms
+     ✓ forged PATH aws is never executed when HOLO_TRUSTED_AWS_BIN is fixture  4682ms
+     ✓ missing in-prefix object fails closed  2166ms
+     ✓ failed in-prefix head fails closed  1950ms
+     ✓ proof files are regular 0600 under .tmp/r2-ro-proofs (not symlink)  4511ms
+     ✓ provision refuses HOLO_QA_PROOF_MUTATE=stale  3346ms
+     ✓ provision refuses HOLO_QA_PROOF_MUTATE=future  3337ms
+     ✓ provision refuses HOLO_QA_PROOF_MUTATE=wrong-tuple  3319ms
+     ✓ provision refuses HOLO_QA_PROOF_MUTATE=malformed  3328ms
+     ✓ provision refuses HOLO_QA_PROOF_MUTATE=wrong-producer  3335ms
+     ✓ provision refuses HOLO_QA_PROOF_MUTATE=wrong-context  3354ms
+     ✓ fire-drill refuses HOLO_QA_PROOF_MUTATE=wrong-tuple  3464ms
+     ✓ aws canary_error never appears in prove logs  982ms
+     ✓ aws success path never logs canary or secrets  2300ms
+     ✓ mint error path never logs canaries  615ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa21-gate-fix.test.ts (15 tests) 41078ms
+     ✓ shadowed date/mktemp/uuidgen do not run in credential-bearing helper path  2284ms
+     ✓ gate-plan consumer path with hostile PATH still uses /bin/bash fixed shell  4648ms
+     ✓ provision race swap=file fails identity/no-follow; no post-validation effects  3480ms
+     ✓ fire-drill race swap=file fails identity; no recorder/report/attestation effects  3500ms
+     ✓ provision race swap=parent fails identity/no-follow; no post-validation effects  3511ms
+     ✓ fire-drill race swap=parent fails identity; no recorder/report/attestation effects  3563ms
+     ✓ requires both consumer success + failure paths and scans raw artifacts  19611ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa5-gate-fix.test.ts (15 tests | 5 skipped) 38164ms
+     ✓ H-1: mixed List+GetObject with both resource classes FAILs  9547ms
+     ✓ H-1: ListBucket with only object ARN FAILs  9344ms
+     ✓ H-1: GetObject with only bucket ARN FAILs  9325ms
+     ✓ H-1: split two-Allow exact policy still PASSes r2_readonly  9771ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa3-gate-fix.test.ts (16 tests | 6 skipped) 19132ms
+     ✓ H-1: prove-isolation rejects mixed exact+bare object resources (overall RESULT fail)  19119ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa2-gate-fix.test.ts (20 tests | 6 skipped) 19578ms
+     ✓ H2: prove-isolation rejects bare arn:aws:s3:::bucket/* object Resource  19524ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa10-gate-fix.test.ts (8 tests) 18763ms
+     ✓ caller-forged HOLO_R2_RO_PROOF_PATH is never authoritative (fixed prover + PATH aws mock)  4624ms
+     ✓ env R2_RESTORE_SESSION_TOKEN wins over file writer R2_SESSION_TOKEN and file restore token  4481ms
+     ✓ file restore token used when env R2_RESTORE_SESSION_TOKEN unset (not writer R2_SESSION_TOKEN)  4333ms
+     ✓ verify env restore token is not overwritten by file (env-over-file)  343ms
+     ✓ canaries never appear in provision/fire-drill stdout for valid path  4573ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts (9 tests) 15124ms
+     ✓ fire-drill: same parent AK without writer secret refused before docker  3375ms
+     ✓ verify-restore-creds loads R2_RESTORE_SESSION_TOKEN from secrets and accepts CF shape  342ms
+     ✓ provision REQUIRE_LIVE ignores caller-forged proof and succeeds via fixed prover + PATH aws mock  4512ms
+     ✓ provision REQUIRE_LIVE fails when live prove fails (forged path cannot skip)  2108ms
+     ✓ fire-drill maps session token into child (recorder must execute)  4372ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa11-gate-fix.test.ts (8 tests) 13592ms
+     ✓ live path uses real prove-r2-readonly with PATH aws mock (producer fixed)  4517ms
+     ✓ verify redacts token and fingerprints env restore token (not file)  342ms
+     ✓ fire-drill child receives env restore token metadata only (status 0 + parity report)  4425ms
+     ✓ tampered proof after prove fails context/tuple/mode checks via real consumer path  2389ms
+     ✓ aws canary never appears in prove logs  926ms
+     ✓ mint API error path never logs canary secrets  506ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa18-gate-fix.test.ts (7 tests) 11509ms
+     ✓ prove (harness) never emits ambient canaries on success  2231ms
+     ✓ provision (harness) never emits ambient canaries  4580ms
+     ✓ fire-drill (harness) never emits ambient canaries on success path  4365ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa8-gate-fix.test.ts (11 tests) 11855ms
+     ✓ RED→GREEN: same AK + distinct secret + session token is accepted (shape)  4637ms
+     ✓ distinct AK still accepted without session token  4515ms
+     ✓ same AK + distinct secret + session reaches live probe (not AK-only refuse)  2225ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-gate-bind.test.ts (8 tests) 9467ms
+     ✓ AC-4: prove-isolation with REQUIRE_LIVE_R2_RO=1 + placeholders → non-zero + DEPENDENCY-S28-R2-RO  9352ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa24-gate-fix.test.ts (12 tests) 6402ms
+     ✓ mint canary: observes real mint child argv — token never appears  992ms
+     ✓ production fire-drill / r2_ro_run_provider boundary with canaries — no exclusions scan  3277ms
+     ✓ production r2_ro_validate_proof fails closed on proof-file and parent-dir symlink races  1518ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa16-gate-fix.test.ts (9 tests) 4837ms
+     ✓ production binds versioned keys when env probe keys are unset  1206ms
+     ✓ harness still allows fixture keys under mock mode only  2228ms
+ ✓ |integration| services/platform/tests/integration/sprint28-fresh-target-creds.test.ts (7 tests) 3765ms
+     ✓ H3 AC-2: dry-run may write placeholders without ambient RW substitution  1232ms
+     ✓ H3 AC-2b: distinct R2_RESTORE_* written when provided (dry-run)  1218ms
+     ✓ H3: ALLOW_PLACEHOLDER_R2_RO=1 allows live-shape provision without R2_RESTORE_*  1241ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa23-gate-fix.test.ts (10 tests) 3348ms
+     ✓ r2_ro_exec_isolated production path: canaries never appear on launcher argv  524ms
+     ✓ fingerprint path: r2_ro_tuple_fp16 canaries never appear on python argv  1757ms
+     ✓ fire-drill production child launch path: dynamic canary (shared exec-env-from-fd)  702ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa22-gate-fix.test.ts (8 tests) 3024ms
+     ✓ executes credential-ambient gate fragment with shadow utils — no shadow markers  2251ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa17-gate-fix.test.ts (13 tests) 2823ms
+     ✓ harness prove succeeds with mock provider  2219ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa26-gate-fix.test.ts (7 tests) 1684ms
+     ✓ real TypeScript resolvers refuse hostile absolute overrides before credentials ambient  331ms
+     ✓ consumer validates committed bundle read-only; mutations on disposable copies are rejected  409ms
+     ✓ second provision+cleanup leaves zero QA26-namespace docker resources  794ms
+ ✓ |integration| services/platform/tests/integration/sprint28-fire-drill-baseline-consume.test.ts (3 tests) 1126ms
+     ✓ runFireDrill fails closed without R2 baseline  832ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa6-gate-fix.test.ts (13 tests | 1 skipped) 254ms
+ ✓ |integration| services/platform/tests/integration/sprint28-capability-inventory.test.ts (3 tests) 150ms
+ ✓ |integration| services/platform/tests/integration/sprint28-gate-fix-qa1.test.ts (14 tests | 1 skipped) 104ms
+ ✓ |integration| services/platform/tests/integration/sprint28-fresh-target-fire-drill.test.ts (5 tests | 1 skipped) 37ms
+ ✓ |integration| services/platform/tests/integration/sprint28-s28r3-qa1-gate-fix.test.ts (8 tests | 1 skipped) 17ms
+ ✓ |integration| services/platform/tests/integration/sprint28-gate-fix-qa3.test.ts (10 tests | 1 skipped) 6ms
+ ✓ |integration| services/platform/tests/integration/sprint28-fire-drill-mission-contract.test.ts (6 tests | 3 skipped) 5ms
+ ✓ |integration| services/platform/tests/integration/sprint28-gate-fix-qa2.test.ts (6 tests | 3 skipped) 4ms
+ ✓ |integration| services/platform/tests/integration/sprint28-recovery-baseline.test.ts (8 tests | 5 skipped) 3ms
+ ↓ |integration| services/platform/tests/integration/sprint28-human-gate-oracles.test.ts (5 tests | 5 skipped)
+ ↓ |integration| services/platform/tests/integration/sprint28-pitr-recovery-contract.test.ts (9 tests | 9 skipped)
+ ↓ |integration| services/platform/tests/integration/sprint28-restore-fails-closed.test.ts (4 tests | 4 skipped)
+
+ Test Files  33 passed | 3 skipped (36)
+      Tests  349 passed | 56 skipped (405)
+   Start at  03:25:17
+   Duration  679.44s (transform 556ms, setup 1.61s, import 2.28s, tests 672.43s, environment 1ms)
