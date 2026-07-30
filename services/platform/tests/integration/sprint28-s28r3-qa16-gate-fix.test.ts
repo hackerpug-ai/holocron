@@ -124,7 +124,9 @@ describe('GATE-FIX-S28R3-QA16 versioned scope-probe artifact', () => {
       combined: `${run.stdout}${run.stderr}`.slice(0, 2000),
     });
     expect(run.status).not.toBe(0);
-    expect(`${run.stdout}${run.stderr}`).toMatch(/refuses env override.*IN_KEY|versioned R2_SCOPE_PROBE_IN_KEY/i);
+    expect(`${run.stdout}${run.stderr}`).toMatch(
+      /refuses env override.*IN_KEY|versioned R2_SCOPE_PROBE_IN_KEY/i
+    );
   });
 
   it('production refuses env override of versioned out_key', () => {
@@ -138,7 +140,9 @@ describe('GATE-FIX-S28R3-QA16 versioned scope-probe artifact', () => {
       }),
     });
     expect(run.status).not.toBe(0);
-    expect(`${run.stdout}${run.stderr}`).toMatch(/refuses env override.*OUT_KEY|versioned R2_SCOPE_PROBE_OUT_KEY/i);
+    expect(`${run.stdout}${run.stderr}`).toMatch(
+      /refuses env override.*OUT_KEY|versioned R2_SCOPE_PROBE_OUT_KEY/i
+    );
   });
 
   it('production refuses path override env HOLO_SCOPE_PROBES_JSON', () => {
@@ -180,9 +184,14 @@ describe('GATE-FIX-S28R3-QA16 versioned scope-probe artifact', () => {
       }),
     });
     const combined = `${run.stdout}${run.stderr}`;
-    writeEvidence('bind-without-env-keys.json', { status: run.status, combined: combined.slice(0, 2500) });
+    writeEvidence('bind-without-env-keys.json', {
+      status: run.status,
+      combined: combined.slice(0, 2500),
+    });
     // Must not fail on missing scope probes — versioned artifact supplies them.
-    expect(combined).not.toMatch(/missing versioned scope probe|missing known-existing scope probe/i);
+    expect(combined).not.toMatch(
+      /missing versioned scope probe|missing known-existing scope probe/i
+    );
     expect(combined).not.toMatch(/refuses env override/i);
     // Fake credentials fail later at provider; still proves bind accepted versioned keys.
     expect(run.status).not.toBe(0);
@@ -205,7 +214,11 @@ describe('GATE-FIX-S28R3-QA16 versioned scope-probe artifact', () => {
         resolve(REPO_ROOT, 'scripts/lib/r2_s3_provider.py'),
         join(tree, 'scripts', 'lib', 'r2_s3_provider.py')
       );
-      writeFileSync(join(tree, 'scripts', 'lib', 'r2-scope-probes.json'), '{ "schema": "bad" }\n', 'utf8');
+      writeFileSync(
+        join(tree, 'scripts', 'lib', 'r2-scope-probes.json'),
+        '{ "schema": "bad" }\n',
+        'utf8'
+      );
       const run = spawnSync('bash', [join(tree, 'scripts', 'prove-r2-readonly.sh')], {
         cwd: tree,
         encoding: 'utf8',

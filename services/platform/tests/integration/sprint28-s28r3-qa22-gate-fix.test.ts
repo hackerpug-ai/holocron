@@ -121,7 +121,9 @@ describe('GATE-FIX-S28R3-QA22 gate-plan absolute credential path', () => {
     expect(all).not.toMatch(/(?:^|[^/\w])jq /);
     // docker only via absolute candidates / "$DOCKER"
     expect(all).toMatch(/DOCKER=""/);
-    expect(all).toMatch(/\/usr\/bin\/docker|\/usr\/local\/bin\/docker|\/opt\/homebrew\/bin\/docker/);
+    expect(all).toMatch(
+      /\/usr\/bin\/docker|\/usr\/local\/bin\/docker|\/opt\/homebrew\/bin\/docker/
+    );
     expect(all).not.toMatch(/(?<!["$/])\bdocker\s+rm\b/);
     // no bare dirname in gate stream
     expect(all).not.toMatch(/(?:^|[^/\w])dirname /);
@@ -279,9 +281,7 @@ describe('GATE-FIX-S28R3-QA22 no secrets on argv', () => {
   it('fire-drill redactor does not place RESTORE_* secrets on python argv', () => {
     const src = readFileSync(PROD_FIRE, 'utf8');
     // Old pattern must be gone
-    expect(src).not.toMatch(
-      /python3 -E -s - "\$RESTORE_AK" "\$RESTORE_SK" "\$RESTORE_ST"/
-    );
+    expect(src).not.toMatch(/python3 -E -s - "\$RESTORE_AK" "\$RESTORE_SK" "\$RESTORE_ST"/);
     // FD-based transfer present
     expect(src).toMatch(/exec 3</);
     expect(src).toMatch(/os\.read\(3/);
