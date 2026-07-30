@@ -2,7 +2,7 @@
   "schema": "holo.sprint28-full-suite-live-sequence.v1",
   "task_id": "GATE-FIX-S28R3-QA25",
   "run_id": "qa25-seq-20260730T050921Z-37486",
-  "git_sha": "891ffae9209c90c95bf54744abea794e895ccf89",
+  "git_sha": "3cae080489d4b02d583889de7b556be917b21817",
   "started_at": "2026-07-30T05:09:21Z",
   "finished_at": "2026-07-30T05:11:29Z",
   "probe_path": "scripts/lib/r2-scope-probes.json",
@@ -55,5 +55,5 @@
   "qa16bak_absent_all_phases": true,
   "all_phases_exit_zero": true,
   "evidence_dir": "sequence-qa25-seq-20260730T050921Z-37486",
-  "git_sha_note": "bound to final evidence commit; re-amended to tip"
+  "git_sha_note": "bound to final reviewed evidence tip (parent of packaging bind commit)"
 }
