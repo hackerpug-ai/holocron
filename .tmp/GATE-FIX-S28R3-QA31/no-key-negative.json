@@ -62,7 +62,7 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms874b80-10619"
+          "s28r3-qa31-no-key-ms87hb2e-22770"
         ],
         "status": 0,
         "error": ""
@@ -72,8 +72,8 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms874b80-10619-pgdata",
-          "s28r3-qa31-no-key-ms874b80-10619-blobs"
+          "s28r3-qa31-no-key-ms87hb2e-22770-pgdata",
+          "s28r3-qa31-no-key-ms87hb2e-22770-blobs"
         ],
         "status": 0,
         "error": ""
@@ -82,7 +82,7 @@
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-ms874b80-10619-net"
+          "s28r3-qa31-no-key-ms87hb2e-22770-net"
         ],
         "status": 1,
         "error": ""

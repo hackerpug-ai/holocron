@@ -553,6 +553,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       let attestationBody: Record<string, unknown> = {};
       let reportBody: Record<string, unknown> = {};
       let beforeCleanup: NamespaceObservation;
+      let afterConsumersBeforeCleanup: NamespaceObservation;
       let afterCleanup: NamespaceObservation;
       let cleanup: CleanupResult;
 
@@ -607,6 +608,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
             reportBody = {};
           }
         }
+        afterConsumersBeforeCleanup = observeNamespace(host, stagingRoot, attestation, report);
       } finally {
         cleanup = cleanupNamespace(host, stagingRoot);
         afterCleanup = observeNamespace(host, stagingRoot, attestation, report);
@@ -642,6 +644,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         cleanup: {
           docker_namespace: `${host}, ${host}-pgdata, ${host}-blobs, ${host}-net`,
           before_cleanup: beforeCleanup,
+          after_consumers_before_cleanup: afterConsumersBeforeCleanup,
           after_cleanup: afterCleanup,
           ...cleanup,
         },
@@ -662,6 +665,15 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       expect(attestationBody.ok).toBe(true);
       expect(reportBody.POSTGRES_PARITY_PASS).toBe(true);
       expect(cleanup.stagingRemoved).toBe(true);
+      expect(beforeCleanup.dockerRuntimeStatus).toBe(0);
+      expect(afterConsumersBeforeCleanup.dockerRuntimeStatus).toBe(0);
+      expect(afterConsumersBeforeCleanup.containerStatus).toBe(0);
+      expect(afterConsumersBeforeCleanup.pgdataVolumeStatus).toBe(0);
+      expect(afterConsumersBeforeCleanup.blobsVolumeStatus).toBe(0);
+      expect(afterConsumersBeforeCleanup.networkStatus).toBe(0);
+      expect(afterConsumersBeforeCleanup.restoreArtifactsExist).toBe(true);
+      expect(afterConsumersBeforeCleanup.attestationExists).toBe(true);
+      expect(afterConsumersBeforeCleanup.reportExists).toBe(true);
       expect(afterCleanup.containerStatus).not.toBe(0);
       expect(afterCleanup.pgdataVolumeStatus).not.toBe(0);
       expect(afterCleanup.blobsVolumeStatus).not.toBe(0);
