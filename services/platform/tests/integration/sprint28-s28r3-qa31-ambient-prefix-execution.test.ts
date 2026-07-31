@@ -19,6 +19,11 @@ const SPRINT_DIR = resolve(
 );
 const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
 const FIRE_DRILL = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
+const QA30_TEST = resolve(
+  REPO_ROOT,
+  'services/platform/tests/integration/sprint28-s28r3-qa30-gate-fix.test.ts'
+);
+const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA31');
 const PRIMARY_SECRET_FILE =
   '/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml';
@@ -216,7 +221,10 @@ function ambientFreeEnv(): NodeJS.ProcessEnv {
   }
   for (const key of AMBIENT_KEYS) delete env[key];
   env.PATH = '/usr/bin:/bin';
-  env.HOME = '/tmp';
+  // Keep the operator's Docker context discoverable while still removing all
+  // credential/prefix ambient state; the child consumer explicitly allowlists
+  // HOME but does not forward arbitrary Docker transport variables.
+  env.HOME = process.env.HOME ?? '/tmp';
   env.LC_ALL = 'C';
   const explicitDockerHost = dockerContextHost();
   if (explicitDockerHost) env.DOCKER_HOST = explicitDockerHost;
@@ -299,6 +307,17 @@ function dockerBin(): string | null {
   return null;
 }
 
+function bunBin(): string | null {
+  for (const candidate of [
+    '/usr/local/bin/bun',
+    '/Users/inference1/.bun/bin/bun',
+    '/opt/homebrew/bin/bun',
+  ]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 function dockerContextHost(): string | null {
   const docker = dockerBin();
   if (!docker) return null;
@@ -318,6 +337,36 @@ function dockerContextHost(): string | null {
   return host || null;
 }
 
+type PitrWindow = {
+  ok: boolean;
+  earliest?: string;
+  latest?: string;
+  recommended_pitr?: string;
+  window_max?: string;
+  error?: string;
+};
+
+function queryPitrWindow(config: SecretConfig): PitrWindow {
+  const bun = bunBin();
+  if (!bun) return { ok: false, error: 'trusted Bun executable unavailable' };
+  const env = envForConfig(config, resolve(EVIDENCE_DIR, 'window-probe'));
+  const result = spawnSync(bun, [HOLO_CLI, 'restore:window', '--json'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env,
+    timeout: 120_000,
+  });
+  try {
+    const report = JSON.parse(result.stdout ?? '') as PitrWindow;
+    return result.status === 0 ? report : { ...report, ok: false };
+  } catch {
+    return {
+      ok: false,
+      error: `restore:window exited ${result.status ?? 'unknown'} without JSON`,
+    };
+  }
+}
+
 type CleanupResult = {
   dockerAvailable: boolean;
   commands: Array<{ args: string[]; status: number | null; error: string }>;
@@ -326,6 +375,7 @@ type CleanupResult = {
 
 type NamespaceObservation = {
   dockerAvailable: boolean;
+  dockerRuntimeStatus: number | null;
   containerStatus: number | null;
   pgdataVolumeStatus: number | null;
   blobsVolumeStatus: number | null;
@@ -349,6 +399,7 @@ function observeNamespace(
   };
   return {
     dockerAvailable: Boolean(docker),
+    dockerRuntimeStatus: inspect(['info']),
     containerStatus: inspect(['container', 'inspect', host]),
     pgdataVolumeStatus: inspect(['volume', 'inspect', `${host}-pgdata`]),
     blobsVolumeStatus: inspect(['volume', 'inspect', `${host}-blobs`]),
@@ -394,7 +445,16 @@ function containsSecret(path: string, secretValues: string[]): boolean {
 const secretConfig = discoverSecretConfig();
 const gate = credentialGate(secretConfig);
 const configuredSecrets = Object.values(secretConfig?.values ?? {});
-const targetTimestamp = process.env.HOLO_QA31_TARGET_TIMESTAMP ?? process.env.PITR_TIMESTAMP ?? '';
+const requestedTargetTimestamp =
+  process.env.HOLO_QA31_TARGET_TIMESTAMP ?? process.env.PITR_TIMESTAMP ?? '';
+const pitrWindow = gate.available && secretConfig ? queryPitrWindow(secretConfig) : null;
+const targetTimestamp = requestedTargetTimestamp || pitrWindow?.recommended_pitr || '';
+const pitrTimestampInWindow = (() => {
+  if (!targetTimestamp || !pitrWindow?.ok || !pitrWindow.earliest || !pitrWindow.latest)
+    return false;
+  const timestamp = Date.parse(targetTimestamp);
+  return timestamp >= Date.parse(pitrWindow.earliest) && timestamp <= Date.parse(pitrWindow.latest);
+})();
 const credentialSecrets = secretConfig
   ? [
       secretConfig.values.R2_ACCESS_KEY_ID,
@@ -420,14 +480,16 @@ if (!gate.available) {
     provider_or_docker_invoked: false,
     note: 'No live positive claim is made; the no-key negative control still runs.',
   });
-} else if (!targetTimestamp) {
+} else if (!pitrTimestampInWindow) {
   writeEvidence('positive-required.json', {
     schema: 'holo.gate-fix-s28r3-qa31.positive-required.v1',
     status: 'blocked',
     task: 'GATE-FIX-S28R3-QA31',
     reason:
-      'live credentials are available; PITR_TIMESTAMP/HOLO_QA31_TARGET_TIMESTAMP must be supplied for the real disposable consumer gate',
+      'live credentials are available; restore:window must provide an in-window PITR timestamp before the real disposable consumer gate runs',
     credential_gate: gate,
+    pitr_window: pitrWindow,
+    requested_target_timestamp: Boolean(requestedTargetTimestamp),
     target_timestamp_present: false,
     provider_or_docker_invoked: false,
   });
@@ -457,6 +519,15 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         'utf8'
       )
     ).toContain('canonicalPolicyFromHelper');
+    const bun = bunBin();
+    expect(bun).not.toBeNull();
+    const qa30 = spawnSync(bun as string, ['x', 'vitest', 'run', QA30_TEST], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+    });
+    expect(`${qa30.stdout ?? ''}\n${qa30.stderr ?? ''}`).toContain('Test Files');
+    expect(qa30.status).toBe(0);
   });
 
   const itLive = positiveRunnable ? it : it.skip;
@@ -466,9 +537,9 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     () => {
       if (!secretConfig)
         throw new Error('credential gate reported available without secret config');
-      if (!targetTimestamp)
+      if (!pitrTimestampInWindow)
         throw new Error(
-          'QA31 positive gate requires PITR_TIMESTAMP or HOLO_QA31_TARGET_TIMESTAMP; do not silently skip live consumer execution'
+          'QA31 positive gate requires a restore:window-derived in-window PITR timestamp; do not silently skip live consumer execution'
         );
       const host = `s28r3-qa31-${Date.now().toString(36)}-${process.pid}`;
       const stagingRoot = resolve(EVIDENCE_DIR, 'positive-staging', host);
@@ -481,8 +552,12 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       let boundRestoreEnv = false;
       let attestationBody: Record<string, unknown> = {};
       let reportBody: Record<string, unknown> = {};
+      let beforeCleanup: NamespaceObservation;
+      let afterCleanup: NamespaceObservation;
+      let cleanup: CleanupResult;
 
       try {
+        beforeCleanup = observeNamespace(host, stagingRoot, attestation, report);
         provision = runRealConsumer(
           PROVISION,
           ['--host', host, '--skip-isolation', '--pg-port', String(56000 + (Date.now() % 3000))],
@@ -533,7 +608,8 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
           }
         }
       } finally {
-        cleanupNamespace(host, stagingRoot);
+        cleanup = cleanupNamespace(host, stagingRoot);
+        afterCleanup = observeNamespace(host, stagingRoot, attestation, report);
       }
 
       const evidence = {
@@ -547,6 +623,9 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         },
         explicit_prefix_tuple:
           'R2_RESTORE_OBJECT_PREFIX=pgbackrest R2_PGBACKREST_PREFIX=pgbackrest',
+        pitr_window: pitrWindow,
+        requested_target_timestamp: Boolean(requestedTargetTimestamp),
+        target_timestamp: targetTimestamp,
         provision: {
           ...summarizeResult(provision, configuredSecrets),
           prefix_variables_initially_unset: provision.prefixVariablesInitiallyUnset,
@@ -562,7 +641,9 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         },
         cleanup: {
           docker_namespace: `${host}, ${host}-pgdata, ${host}-blobs, ${host}-net`,
-          staging_removed: !existsSync(stagingRoot),
+          before_cleanup: beforeCleanup,
+          after_cleanup: afterCleanup,
+          ...cleanup,
         },
       };
       writeEvidence('positive-live.json', evidence, configuredSecrets);
@@ -580,6 +661,15 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       expect(fireDrill.explicitPrefixTuple).toBe(true);
       expect(attestationBody.ok).toBe(true);
       expect(reportBody.POSTGRES_PARITY_PASS).toBe(true);
+      expect(cleanup.stagingRemoved).toBe(true);
+      expect(afterCleanup.containerStatus).not.toBe(0);
+      expect(afterCleanup.pgdataVolumeStatus).not.toBe(0);
+      expect(afterCleanup.blobsVolumeStatus).not.toBe(0);
+      expect(afterCleanup.networkStatus).not.toBe(0);
+      for (const command of cleanup.commands) {
+        expect(command.status === 0 || command.status === 1).toBe(true);
+        expect(command.error).toBe('');
+      }
     },
     1_200_000
   );
@@ -636,6 +726,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       !afterConsumersBeforeCleanup.attestationExists &&
       !afterConsumersBeforeCleanup.reportExists &&
       !afterConsumersBeforeCleanup.restoreArtifactsExist &&
+      afterConsumersBeforeCleanup.dockerRuntimeStatus === 0 &&
       afterConsumersBeforeCleanup.containerStatus !== 0 &&
       afterConsumersBeforeCleanup.pgdataVolumeStatus !== 0 &&
       afterConsumersBeforeCleanup.blobsVolumeStatus !== 0 &&
@@ -692,7 +783,16 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     expect(provisionOutput).not.toMatch(/SUCCESS: fresh restore target/);
     expect(fireDrillOutput).not.toMatch(/POSTGRES_PARITY_PASS\s*[:=]\s*true/);
     expect(noSuccessfulRestoreArtifact).toBe(true);
+    expect(beforeCleanup.dockerRuntimeStatus).toBe(0);
+    expect(afterConsumersBeforeCleanup.dockerRuntimeStatus).toBe(0);
+    expect(afterConsumersBeforeCleanup.containerStatus).not.toBe(0);
+    expect(afterConsumersBeforeCleanup.pgdataVolumeStatus).not.toBe(0);
+    expect(afterConsumersBeforeCleanup.blobsVolumeStatus).not.toBe(0);
+    expect(afterConsumersBeforeCleanup.networkStatus).not.toBe(0);
     expect(cleanup.stagingRemoved).toBe(true);
-    for (const command of cleanup.commands) expect(command.status).not.toBe(125);
+    for (const command of cleanup.commands) {
+      expect(command.status === 0 || command.status === 1).toBe(true);
+      expect(command.error).toBe('');
+    }
   });
 });

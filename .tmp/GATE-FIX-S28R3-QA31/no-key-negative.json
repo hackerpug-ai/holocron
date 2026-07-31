@@ -31,6 +31,7 @@
   "docker_observation": {
     "before_cleanup": {
       "dockerAvailable": true,
+      "dockerRuntimeStatus": 0,
       "containerStatus": 1,
       "pgdataVolumeStatus": 1,
       "blobsVolumeStatus": 1,
@@ -42,6 +43,7 @@
     },
     "after_consumers_before_cleanup": {
       "dockerAvailable": true,
+      "dockerRuntimeStatus": 0,
       "containerStatus": 1,
       "pgdataVolumeStatus": 1,
       "blobsVolumeStatus": 1,
@@ -60,7 +62,7 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms86ltxn-90601"
+          "s28r3-qa31-no-key-ms874b80-10619"
         ],
         "status": 0,
         "error": ""
@@ -70,8 +72,8 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms86ltxn-90601-pgdata",
-          "s28r3-qa31-no-key-ms86ltxn-90601-blobs"
+          "s28r3-qa31-no-key-ms874b80-10619-pgdata",
+          "s28r3-qa31-no-key-ms874b80-10619-blobs"
         ],
         "status": 0,
         "error": ""
@@ -80,7 +82,7 @@
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-ms86ltxn-90601-net"
+          "s28r3-qa31-no-key-ms874b80-10619-net"
         ],
         "status": 1,
         "error": ""
