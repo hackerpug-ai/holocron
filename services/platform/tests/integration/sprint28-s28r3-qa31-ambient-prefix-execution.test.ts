@@ -761,7 +761,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     let cleanup: CleanupResult;
     try {
       beforeCleanup = observeNamespace(host, stagingRoot, attestation, report);
-      provision = runRealConsumer(PROVISION, ['--host', host, '--skip-isolation'], env, false);
+      provision = runRealConsumer(PROVISION, ['--host', host, '--skip-isolation'], env, true);
       fireDrill = runRealConsumer(
         FIRE_DRILL,
         [
@@ -775,7 +775,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
           report,
         ],
         env,
-        false
+        true
       );
       afterConsumersBeforeCleanup = observeNamespace(host, stagingRoot, attestation, report);
     } finally {
@@ -839,8 +839,8 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     expect(fireDrillOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
     expect(provision.prefixVariablesInitiallyUnset).toBe(true);
     expect(fireDrill.prefixVariablesInitiallyUnset).toBe(true);
-    expect(provision.explicitPrefixTuple).toBe(false);
-    expect(fireDrill.explicitPrefixTuple).toBe(false);
+    expect(provision.explicitPrefixTuple).toBe(true);
+    expect(fireDrill.explicitPrefixTuple).toBe(true);
     expect(provision.placeholderEscapeInjected).toBe(false);
     expect(fireDrill.placeholderEscapeInjected).toBe(false);
     expect(provisionOutput).not.toMatch(/SUCCESS: fresh restore target/);

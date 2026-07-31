@@ -13,7 +13,7 @@
     "stdout": "",
     "stderr": "error: R2_RESTORE_ACCESS_KEY_ID and R2_RESTORE_SECRET_ACCESS_KEY required for live provision\n  (refuse silent ambient R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY RW fallback)\n  residual: DEPENDENCY-S28-R2-RO\nRESIDUAL: DEPENDENCY-S28-R2-RO\n  shape-only: ALLOW_PLACEHOLDER_R2_RO=1 or --dry-run\n",
     "prefix_variables_initially_unset": true,
-    "explicit_prefix_tuple": false,
+    "explicit_prefix_tuple": true,
     "placeholder_escape_injected": false,
     "dependency_marker_observed": true
   },
@@ -21,9 +21,9 @@
     "status": 2,
     "error": "",
     "stdout": "",
-    "stderr": "error: DEPENDENCY-S28-R2-RO — REQUIRE_LIVE_R2_RO=1 requires both explicit pgbackrest restore prefixes\nRESIDUAL: DEPENDENCY-S28-R2-RO\n",
+    "stderr": "error: DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* required for fire-drill child env (refuse ambient writer fallback)\nRESIDUAL: DEPENDENCY-S28-R2-RO\n",
     "prefix_variables_initially_unset": true,
-    "explicit_prefix_tuple": false,
+    "explicit_prefix_tuple": true,
     "placeholder_escape_injected": false,
     "dependency_marker_observed": true
   },
@@ -62,7 +62,7 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms884zyy-46291"
+          "s28r3-qa31-no-key-ms88q5g4-65997"
         ],
         "status": 0,
         "error": ""
@@ -72,8 +72,8 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms884zyy-46291-pgdata",
-          "s28r3-qa31-no-key-ms884zyy-46291-blobs"
+          "s28r3-qa31-no-key-ms88q5g4-65997-pgdata",
+          "s28r3-qa31-no-key-ms88q5g4-65997-blobs"
         ],
         "status": 0,
         "error": ""
@@ -82,7 +82,7 @@
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-ms884zyy-46291-net"
+          "s28r3-qa31-no-key-ms88q5g4-65997-net"
         ],
         "status": 1,
         "error": ""
