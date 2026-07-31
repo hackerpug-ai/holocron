@@ -218,6 +218,11 @@ function ambientFreeEnv(): NodeJS.ProcessEnv {
   env.PATH = '/usr/bin:/bin';
   env.HOME = '/tmp';
   env.LC_ALL = 'C';
+  const explicitDockerHost = dockerContextHost();
+  if (explicitDockerHost) env.DOCKER_HOST = explicitDockerHost;
+  const explicitDockerConfig = '/opt/homebrew/opt/docker-compose/lib/docker';
+  if (existsSync(join(explicitDockerConfig, 'cli-plugins', 'docker-compose')))
+    env.DOCKER_CONFIG = explicitDockerConfig;
   return env;
 }
 
@@ -294,18 +299,90 @@ function dockerBin(): string | null {
   return null;
 }
 
-function cleanupNamespace(host: string, stagingRoot: string): void {
+function dockerContextHost(): string | null {
   const docker = dockerBin();
+  if (!docker) return null;
+  const context = spawnSync(docker, ['context', 'show'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    timeout: 30_000,
+  });
+  const name = context.status === 0 ? context.stdout.trim() : '';
+  if (!name) return null;
+  const inspected = spawnSync(
+    docker,
+    ['context', 'inspect', '--format', '{{.Endpoints.docker.Host}}', name],
+    { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }
+  );
+  const host = inspected.status === 0 ? inspected.stdout.trim() : '';
+  return host || null;
+}
+
+type CleanupResult = {
+  dockerAvailable: boolean;
+  commands: Array<{ args: string[]; status: number | null; error: string }>;
+  stagingRemoved: boolean;
+};
+
+type NamespaceObservation = {
+  dockerAvailable: boolean;
+  containerStatus: number | null;
+  pgdataVolumeStatus: number | null;
+  blobsVolumeStatus: number | null;
+  networkStatus: number | null;
+  stagingExists: boolean;
+  restoreArtifactsExist: boolean;
+  attestationExists: boolean;
+  reportExists: boolean;
+};
+
+function observeNamespace(
+  host: string,
+  stagingRoot: string,
+  attestation: string,
+  report: string
+): NamespaceObservation {
+  const docker = dockerBin();
+  const inspect = (args: string[]): number | null => {
+    if (!docker) return null;
+    return spawnSync(docker, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 }).status;
+  };
+  return {
+    dockerAvailable: Boolean(docker),
+    containerStatus: inspect(['container', 'inspect', host]),
+    pgdataVolumeStatus: inspect(['volume', 'inspect', `${host}-pgdata`]),
+    blobsVolumeStatus: inspect(['volume', 'inspect', `${host}-blobs`]),
+    networkStatus: inspect(['network', 'inspect', `${host}-net`]),
+    stagingExists: existsSync(stagingRoot),
+    restoreArtifactsExist: [
+      resolve(stagingRoot, host, 'restore-target.env'),
+      resolve(stagingRoot, host, 'docker-compose.yml'),
+      resolve(stagingRoot, host, 'paths.txt'),
+    ].some((path) => existsSync(path)),
+    attestationExists: existsSync(attestation),
+    reportExists: existsSync(report),
+  };
+}
+
+function cleanupNamespace(host: string, stagingRoot: string): CleanupResult {
+  const docker = dockerBin();
+  const commands: CleanupResult['commands'] = [];
   if (docker) {
     for (const args of [
       ['rm', '-f', host],
       ['volume', 'rm', '-f', `${host}-pgdata`, `${host}-blobs`],
       ['network', 'rm', `${host}-net`],
     ]) {
-      spawnSync(docker, args, { cwd: REPO_ROOT, encoding: 'utf8', timeout: 30_000 });
+      const result = spawnSync(docker, args, {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 30_000,
+      });
+      commands.push({ args, status: result.status, error: result.error?.message ?? '' });
     }
   }
   rmSync(stagingRoot, { recursive: true, force: true });
+  return { dockerAvailable: Boolean(docker), commands, stagingRemoved: !existsSync(stagingRoot) };
 }
 
 function containsSecret(path: string, secretValues: string[]): boolean {
@@ -331,19 +408,28 @@ const credentialSecrets = secretConfig
     ].filter((value): value is string => Boolean(value))
   : [];
 
-const positiveRunnable = gate.available && Boolean(targetTimestamp);
-if (!positiveRunnable) {
+const positiveRunnable = gate.available;
+if (!gate.available) {
   writeEvidence('positive-skip.json', {
     schema: 'holo.gate-fix-s28r3-qa31.positive-skip.v1',
     status: 'skipped',
     task: 'GATE-FIX-S28R3-QA31',
-    reason: gate.available
-      ? 'live credentials are available but PITR_TIMESTAMP/HOLO_QA31_TARGET_TIMESTAMP is unset'
-      : gate.reason,
+    reason: gate.reason,
     credential_gate: gate,
     target_timestamp_present: Boolean(targetTimestamp),
     provider_or_docker_invoked: false,
     note: 'No live positive claim is made; the no-key negative control still runs.',
+  });
+} else if (!targetTimestamp) {
+  writeEvidence('positive-required.json', {
+    schema: 'holo.gate-fix-s28r3-qa31.positive-required.v1',
+    status: 'blocked',
+    task: 'GATE-FIX-S28R3-QA31',
+    reason:
+      'live credentials are available; PITR_TIMESTAMP/HOLO_QA31_TARGET_TIMESTAMP must be supplied for the real disposable consumer gate',
+    credential_gate: gate,
+    target_timestamp_present: false,
+    provider_or_docker_invoked: false,
   });
 }
 
@@ -380,6 +466,10 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     () => {
       if (!secretConfig)
         throw new Error('credential gate reported available without secret config');
+      if (!targetTimestamp)
+        throw new Error(
+          'QA31 positive gate requires PITR_TIMESTAMP or HOLO_QA31_TARGET_TIMESTAMP; do not silently skip live consumer execution'
+        );
       const host = `s28r3-qa31-${Date.now().toString(36)}-${process.pid}`;
       const stagingRoot = resolve(EVIDENCE_DIR, 'positive-staging', host);
       const attestation = resolve(EVIDENCE_DIR, `attestation-${host}.json`);
@@ -513,7 +603,11 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
 
     let provision: ConsumerRun;
     let fireDrill: ConsumerRun;
+    let beforeCleanup: NamespaceObservation;
+    let afterConsumersBeforeCleanup: NamespaceObservation;
+    let cleanup: CleanupResult;
     try {
+      beforeCleanup = observeNamespace(host, stagingRoot, attestation, report);
       provision = runRealConsumer(PROVISION, ['--host', host, '--skip-isolation'], env, false);
       fireDrill = runRealConsumer(
         FIRE_DRILL,
@@ -530,15 +624,22 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         env,
         false
       );
+      afterConsumersBeforeCleanup = observeNamespace(host, stagingRoot, attestation, report);
     } finally {
-      cleanupNamespace(host, stagingRoot);
+      cleanup = cleanupNamespace(host, stagingRoot);
     }
 
     const secretValues: string[] = [];
     const provisionOutput = combined(provision, secretValues);
     const fireDrillOutput = combined(fireDrill, secretValues);
     const noSuccessfulRestoreArtifact =
-      !existsSync(attestation) && !existsSync(report) && !existsSync(stagingRoot);
+      !afterConsumersBeforeCleanup.attestationExists &&
+      !afterConsumersBeforeCleanup.reportExists &&
+      !afterConsumersBeforeCleanup.restoreArtifactsExist &&
+      afterConsumersBeforeCleanup.containerStatus !== 0 &&
+      afterConsumersBeforeCleanup.pgdataVolumeStatus !== 0 &&
+      afterConsumersBeforeCleanup.blobsVolumeStatus !== 0 &&
+      afterConsumersBeforeCleanup.networkStatus !== 0;
     const evidence = {
       schema: 'holo.gate-fix-s28r3-qa31.no-key-negative.v1',
       status: 'executed',
@@ -563,7 +664,16 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         dependency_marker_observed: /DEPENDENCY-S28-R2-RO/.test(fireDrillOutput),
       },
       no_successful_restore_artifact: noSuccessfulRestoreArtifact,
-      docker_or_provider_success_fabricated: false,
+      docker_observation: {
+        before_cleanup: beforeCleanup,
+        after_consumers_before_cleanup: afterConsumersBeforeCleanup,
+        resource_created_before_cleanup:
+          afterConsumersBeforeCleanup.containerStatus === 0 ||
+          afterConsumersBeforeCleanup.pgdataVolumeStatus === 0 ||
+          afterConsumersBeforeCleanup.blobsVolumeStatus === 0 ||
+          afterConsumersBeforeCleanup.networkStatus === 0,
+      },
+      cleanup,
     };
     const evidencePath = writeEvidence('no-key-negative.json', evidence);
     rmSync(root, { recursive: true, force: true });
@@ -582,5 +692,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     expect(provisionOutput).not.toMatch(/SUCCESS: fresh restore target/);
     expect(fireDrillOutput).not.toMatch(/POSTGRES_PARITY_PASS\s*[:=]\s*true/);
     expect(noSuccessfulRestoreArtifact).toBe(true);
+    expect(cleanup.stagingRemoved).toBe(true);
+    for (const command of cleanup.commands) expect(command.status).not.toBe(125);
   });
 });

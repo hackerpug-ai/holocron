@@ -28,5 +28,64 @@
     "dependency_marker_observed": true
   },
   "no_successful_restore_artifact": true,
-  "docker_or_provider_success_fabricated": false
+  "docker_observation": {
+    "before_cleanup": {
+      "dockerAvailable": true,
+      "containerStatus": 1,
+      "pgdataVolumeStatus": 1,
+      "blobsVolumeStatus": 1,
+      "networkStatus": 1,
+      "stagingExists": false,
+      "restoreArtifactsExist": false,
+      "attestationExists": false,
+      "reportExists": false
+    },
+    "after_consumers_before_cleanup": {
+      "dockerAvailable": true,
+      "containerStatus": 1,
+      "pgdataVolumeStatus": 1,
+      "blobsVolumeStatus": 1,
+      "networkStatus": 1,
+      "stagingExists": true,
+      "restoreArtifactsExist": false,
+      "attestationExists": false,
+      "reportExists": false
+    },
+    "resource_created_before_cleanup": false
+  },
+  "cleanup": {
+    "dockerAvailable": true,
+    "commands": [
+      {
+        "args": [
+          "rm",
+          "-f",
+          "s28r3-qa31-no-key-ms86ltxn-90601"
+        ],
+        "status": 0,
+        "error": ""
+      },
+      {
+        "args": [
+          "volume",
+          "rm",
+          "-f",
+          "s28r3-qa31-no-key-ms86ltxn-90601-pgdata",
+          "s28r3-qa31-no-key-ms86ltxn-90601-blobs"
+        ],
+        "status": 0,
+        "error": ""
+      },
+      {
+        "args": [
+          "network",
+          "rm",
+          "s28r3-qa31-no-key-ms86ltxn-90601-net"
+        ],
+        "status": 1,
+        "error": ""
+      }
+    ],
+    "stagingRemoved": true
+  }
 }
