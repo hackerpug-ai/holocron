@@ -614,6 +614,48 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
         afterCleanup = observeNamespace(host, stagingRoot, attestation, report);
       }
 
+      const omissionHost = `s28r3-qa31-omission-${Date.now().toString(36)}-${process.pid}`;
+      const omissionStaging = resolve(EVIDENCE_DIR, 'omission-staging', omissionHost);
+      const omissionEnv = envForConfig(secretConfig, omissionStaging);
+      const omittedProvision = runRealConsumer(
+        PROVISION,
+        ['--host', omissionHost, '--skip-isolation'],
+        omissionEnv,
+        false
+      );
+      const omittedFireDrill = runRealConsumer(
+        FIRE_DRILL,
+        [
+          '--host',
+          omissionHost,
+          '--target-timestamp',
+          targetTimestamp,
+          '--attestation',
+          resolve(EVIDENCE_DIR, `omission-attestation-${omissionHost}.json`),
+          '--report',
+          resolve(EVIDENCE_DIR, `omission-report-${omissionHost}.json`),
+        ],
+        omissionEnv,
+        false
+      );
+      const omittedProvisionOutput = combined(omittedProvision, configuredSecrets);
+      const omittedFireDrillOutput = combined(omittedFireDrill, configuredSecrets);
+      const prefixOmissionNegative = {
+        provision: {
+          status: omittedProvision.status,
+          dependency_marker_observed: /DEPENDENCY-S28-R2-RO/.test(omittedProvisionOutput),
+          prefix_variables_initially_unset: omittedProvision.prefixVariablesInitiallyUnset,
+          explicit_prefix_tuple: omittedProvision.explicitPrefixTuple,
+        },
+        fire_drill: {
+          status: omittedFireDrill.status,
+          dependency_marker_observed: /DEPENDENCY-S28-R2-RO/.test(omittedFireDrillOutput),
+          prefix_variables_initially_unset: omittedFireDrill.prefixVariablesInitiallyUnset,
+          explicit_prefix_tuple: omittedFireDrill.explicitPrefixTuple,
+        },
+      };
+      cleanupNamespace(omissionHost, omissionStaging);
+
       const evidence = {
         schema: 'holo.gate-fix-s28r3-qa31.positive-live.v1',
         status: 'executed',
@@ -641,6 +683,7 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
           attestation_ok: attestationBody.ok === true,
           report_postgres_parity_pass: reportBody.POSTGRES_PARITY_PASS === true,
         },
+        prefix_omission_negative: prefixOmissionNegative,
         cleanup: {
           docker_namespace: `${host}, ${host}-pgdata, ${host}-blobs, ${host}-net`,
           before_cleanup: beforeCleanup,
@@ -678,6 +721,14 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       expect(afterCleanup.pgdataVolumeStatus).not.toBe(0);
       expect(afterCleanup.blobsVolumeStatus).not.toBe(0);
       expect(afterCleanup.networkStatus).not.toBe(0);
+      expect(omittedProvision.status).not.toBe(0);
+      expect(omittedFireDrill.status).not.toBe(0);
+      expect(omittedProvisionOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
+      expect(omittedFireDrillOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
+      expect(omittedProvision.prefixVariablesInitiallyUnset).toBe(true);
+      expect(omittedFireDrill.prefixVariablesInitiallyUnset).toBe(true);
+      expect(omittedProvision.explicitPrefixTuple).toBe(false);
+      expect(omittedFireDrill.explicitPrefixTuple).toBe(false);
       for (const command of cleanup.commands) {
         expect(command.status === 0 || command.status === 1).toBe(true);
         expect(command.error).toBe('');

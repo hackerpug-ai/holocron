@@ -21,7 +21,7 @@
     "status": 2,
     "error": "",
     "stdout": "",
-    "stderr": "error: DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* required for fire-drill child env (refuse ambient writer fallback)\nRESIDUAL: DEPENDENCY-S28-R2-RO\n",
+    "stderr": "error: DEPENDENCY-S28-R2-RO — REQUIRE_LIVE_R2_RO=1 requires both explicit pgbackrest restore prefixes\nRESIDUAL: DEPENDENCY-S28-R2-RO\n",
     "prefix_variables_initially_unset": true,
     "explicit_prefix_tuple": false,
     "placeholder_escape_injected": false,
@@ -62,7 +62,7 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms87hb2e-22770"
+          "s28r3-qa31-no-key-ms884zyy-46291"
         ],
         "status": 0,
         "error": ""
@@ -72,8 +72,8 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms87hb2e-22770-pgdata",
-          "s28r3-qa31-no-key-ms87hb2e-22770-blobs"
+          "s28r3-qa31-no-key-ms884zyy-46291-pgdata",
+          "s28r3-qa31-no-key-ms884zyy-46291-blobs"
         ],
         "status": 0,
         "error": ""
@@ -82,7 +82,7 @@
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-ms87hb2e-22770-net"
+          "s28r3-qa31-no-key-ms884zyy-46291-net"
         ],
         "status": 1,
         "error": ""

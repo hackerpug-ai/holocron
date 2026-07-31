@@ -535,6 +535,14 @@ assert_restore_credential_tuple() {
 
 # Full fire-drill (not resolve-only): fail-closed credential tuple + proof binding
 # BEFORE volume resolve so unit tests can exercise identity without Docker (QA9/M2).
+if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]] && {
+  [[ "${R2_RESTORE_OBJECT_PREFIX:-}" != "pgbackrest" ]] ||
+  [[ "${R2_PGBACKREST_PREFIX:-}" != "pgbackrest" ]]
+}; then
+  err "DEPENDENCY-S28-R2-RO — REQUIRE_LIVE_R2_RO=1 requires both explicit pgbackrest restore prefixes"
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+  exit 2
+fi
 if [[ "$RESOLVE_ONLY" -eq 0 ]]; then
   assert_restore_credential_tuple
 fi
