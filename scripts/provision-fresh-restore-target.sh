@@ -299,6 +299,14 @@ if [[ -z "${R2_RESTORE_OBJECT_PREFIX:-}" && -z "${R2_PGBACKREST_PREFIX:-}" ]]; t
     exit 2
   fi
 fi
+if [[ "${REQUIRE_LIVE_R2_RO:-0}" == "1" ]] && {
+  [[ "${R2_RESTORE_OBJECT_PREFIX:-}" != "pgbackrest" ]] ||
+  [[ "${R2_PGBACKREST_PREFIX:-}" != "pgbackrest" ]]
+}; then
+  echo "error: REQUIRE_LIVE_R2_RO=1 requires both explicit pgbackrest restore prefixes" >&2
+  echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+  exit 2
+fi
 R2_OBJECT_PREFIX="${R2_RESTORE_OBJECT_PREFIX:-${R2_PGBACKREST_PREFIX:-pgbackrest}}"
 # GATE-FIX-S28R3-QA13: gate policy requires exact pgbackrest prefix
 if [[ "${R2_OBJECT_PREFIX#/}" != "pgbackrest" && "${R2_OBJECT_PREFIX#/}" != "pgbackrest/" ]]; then
