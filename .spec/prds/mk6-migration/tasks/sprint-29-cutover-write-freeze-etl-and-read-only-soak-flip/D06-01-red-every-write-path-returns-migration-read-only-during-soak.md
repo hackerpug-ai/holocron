@@ -1,4 +1,8 @@
 # D06-01: RED: every write path returns migration_read_only during soak
+> Status: ✅ Completed
+> Commit: d62c570e83fc38bbd021d92d4c760be136e1a23d
+> Reviewer: product-manager+code-reviewer
+> Completed: 2026-08-01T23:08:45Z
 
 > **Task ID:** D06-01
 > **Sprint:** [Sprint 29 — Cutover](./SPRINT.md)
