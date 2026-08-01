@@ -1,0 +1,15 @@
+@@GATE-META step=step1 cmd_sha=d4034742684ad6e11969967017419aecae313ea9117f50eeeae536160f87e1e3@@
++ set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step1-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step1-restore.txt"; /bin/mkdir -p "$SCRATCH" "${LOG%/*}"; /usr/local/bin/bun services/platform/src/cli/holo.ts restore --pitr "${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}" --scratch "$SCRATCH" --target-action promote 2>&1 | /usr/bin/tee "$LOG"; ! /usr/bin/grep -q 'unknown flag: --pitr' "$LOG"
+holo restore --pitr — pgBackRest point-in-time restore
+  ok:                    false
+  exit_code:             1
+  target_timestamp:      2024-01-01T00:00:00Z
+  actual_stop_timestamp: (none)
+  pgdata:                /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA33-human-gate/.tmp/REDHAT-FIX-H2/qa33-20260801T055710Z-3e7ca408/step1-scratch
+  target_action:         promote
+  restored_wal_count:    (unknown)
+  errors:
+    - backup config missing secrets: backup config missing secrets: R2_ACCOUNT_ID, R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_REPO_CIPHER_PASS
+  overall:               FAILED
+backup config missing secrets: backup config missing secrets: R2_ACCOUNT_ID, R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_REPO_CIPHER_PASS
+@@GATE-EXIT=1@@

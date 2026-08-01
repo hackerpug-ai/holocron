@@ -1,0 +1,3 @@
+@@GATE-META step=step5 cmd_sha=c2cae3dedda433bf2ccd09ad9046da561c76f482cdfece513593df107ce9bfd3@@
++ set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh; EVID=".tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}"; test -f "$EVID/parity-report.json"; /usr/bin/jq -e '.BLOB_PARITY_PASS == true and (.matched_objects // .blob_matched_objects // 0) >= 1' "$EVID/parity-report.json"
+@@GATE-EXIT=1@@
