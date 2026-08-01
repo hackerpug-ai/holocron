@@ -1,0 +1,92 @@
+{
+  "results": [
+    {
+      "toolId": "store_document",
+      "ok": true
+    },
+    {
+      "toolId": "update_document",
+      "ok": true
+    },
+    {
+      "toolId": "share_document",
+      "ok": true
+    },
+    {
+      "toolId": "add_subscription",
+      "ok": true
+    },
+    {
+      "toolId": "remove_subscription",
+      "ok": true
+    },
+    {
+      "toolId": "check_subscriptions",
+      "ok": true
+    },
+    {
+      "toolId": "set_subscription_filter",
+      "ok": true
+    },
+    {
+      "toolId": "store_tool",
+      "ok": true
+    },
+    {
+      "toolId": "update_tool",
+      "ok": true
+    },
+    {
+      "toolId": "remove_tool",
+      "ok": true
+    },
+    {
+      "toolId": "shop_products",
+      "ok": true,
+      "error": "RETAILER_ERROR: amazon: HTTP 500"
+    },
+    {
+      "toolId": "start_assimilation",
+      "ok": true
+    },
+    {
+      "toolId": "approve_assimilation_plan",
+      "ok": true
+    },
+    {
+      "toolId": "reject_assimilation_plan",
+      "ok": true
+    },
+    {
+      "toolId": "cancel_assimilation",
+      "ok": true
+    },
+    {
+      "toolId": "steer_assimilation",
+      "ok": true
+    },
+    {
+      "toolId": "assimilate_creator",
+      "ok": true
+    },
+    {
+      "toolId": "regenerate_transcript",
+      "ok": true
+    },
+    {
+      "toolId": "add_improvement",
+      "ok": true
+    },
+    {
+      "toolId": "close_improvement",
+      "ok": true
+    },
+    {
+      "toolId": "set_improvement_status",
+      "ok": true
+    }
+  ],
+  "failures": [],
+  "seedDocumentId": "5bbb54e6-09c4-4c14-a1a4-086284459af3",
+  "docRows": 2
+}

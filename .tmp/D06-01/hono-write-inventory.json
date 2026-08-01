@@ -1,0 +1,266 @@
+{
+  "runId": "9e64abd5-dde9-4234-9057-7b6ed2b73d91",
+  "count": 23,
+  "routes": [
+    "POST /api/chat-runs",
+    "POST /api/chat-runs/:id/cancel",
+    "PATCH /api/conversations/:id",
+    "DELETE /api/conversations/:id",
+    "POST /api/documents",
+    "POST /api/documents/:id/narration",
+    "POST /api/voice-sessions",
+    "POST /api/voice-sessions/:id/end",
+    "POST /api/improvements",
+    "PATCH /api/improvements/:id",
+    "DELETE /api/improvements/:id",
+    "PATCH /api/subscriptions/:id",
+    "POST /api/feed-items/:id/feedback",
+    "PATCH /api/assimilations/:id",
+    "DELETE /api/subscriptions/:id",
+    "POST /api/documents/:id/import",
+    "POST /api/documents/:id/publish",
+    "POST /api/uploads",
+    "PUT /api/uploads/:id",
+    "POST /api/uploads/:id/finalize",
+    "POST /api/missions",
+    "POST /api/missions/:id/verdicts",
+    "POST /api/missions/:id/steer"
+  ],
+  "reachability": [
+    {
+      "id": "POST /api/chat-runs",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "replay": false,
+        "runId": "1634f58b-c000-4018-8820-dcf603a505e4",
+        "conversationId": "f536e27c-da69-4226-8a7d-222faa9d4c24",
+        "durableMessageId": "019fbf92-6380-7376-9330-c9a5adc5846b",
+        "requestId": "s29-d0601-9e64abd5-dde9-4234-9057-7b6ed2b73d91-chat",
+        "status": "pending",
+        "role": "divergent",
+        "traceId": null,
+        "lastEventId": 0,
+        "maxSteps": 8,
+        "stepsUsed": 0
+      }
+    },
+    {
+      "id": "POST /api/chat-runs/:id/cancel",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "chat run not found"
+      }
+    },
+    {
+      "id": "PATCH /api/conversations/:id",
+      "status": 200,
+      "body": {
+        "conversation": {
+          "id": "be5867ab-6183-4869-8f41-3fdb3993b428",
+          "title": "s29-d0601-9e64abd5-dde9-4234-9057-7b6ed2b73d91-renamed"
+        }
+      }
+    },
+    {
+      "id": "DELETE /api/conversations/:id",
+      "status": 200,
+      "body": {
+        "deleted": true,
+        "id": "be5867ab-6183-4869-8f41-3fdb3993b428"
+      }
+    },
+    {
+      "id": "POST /api/documents",
+      "status": 201,
+      "body": {
+        "document": {
+          "id": "54e27c18-f799-45ed-89dc-c3265e0f6777",
+          "title": "s29-d0601-9e64abd5-dde9-4234-9057-7b6ed2b73d91-hono-doc",
+          "content": "red-fence probe",
+          "category": "general"
+        }
+      }
+    },
+    {
+      "id": "POST /api/documents/:id/narration",
+      "status": 201,
+      "body": {
+        "job": {
+          "id": "3810d3b2-a43a-442c-9c4c-97a6c04eca7e",
+          "status": "completed"
+        },
+        "segments": [
+          {
+            "id": "b941ecfa-5fff-4346-ad9c-898ae4a469ed",
+            "blobId": "804ddbecee5f766e64e0720a75b15336677296aed55c8b938e75bfac52fedfda"
+          }
+        ],
+        "reused": false
+      }
+    },
+    {
+      "id": "POST /api/voice-sessions",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "conversation not found"
+      }
+    },
+    {
+      "id": "POST /api/voice-sessions/:id/end",
+      "status": 200,
+      "body": {
+        "session": {
+          "id": "678ac584-1c39-484b-8105-fbfce33b9836"
+        }
+      }
+    },
+    {
+      "id": "POST /api/improvements",
+      "status": 201,
+      "body": {
+        "improvement": {
+          "id": "712a5eac-4575-4f08-8ceb-ce96b31d80e5"
+        }
+      }
+    },
+    {
+      "id": "PATCH /api/improvements/:id",
+      "status": 200,
+      "body": {
+        "improvement": {
+          "id": "b3941847-2670-4eb2-a3c7-7750bd900ae9"
+        }
+      }
+    },
+    {
+      "id": "DELETE /api/improvements/:id",
+      "status": 200,
+      "body": {
+        "deleted": true,
+        "id": "b3941847-2670-4eb2-a3c7-7750bd900ae9"
+      }
+    },
+    {
+      "id": "PATCH /api/subscriptions/:id",
+      "status": 200,
+      "body": {
+        "subscription": {
+          "id": "9f0eef1a-d991-42b9-aab0-ddd05c1288b1",
+          "auto_research": false
+        }
+      }
+    },
+    {
+      "id": "POST /api/feed-items/:id/feedback",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "feed item not found"
+      }
+    },
+    {
+      "id": "PATCH /api/assimilations/:id",
+      "status": 200,
+      "body": {
+        "session": {
+          "id": "d22e9d67-76c5-460b-ae5c-a5e650ad6791",
+          "status": "running",
+          "plan_feedback": null
+        }
+      }
+    },
+    {
+      "id": "DELETE /api/subscriptions/:id",
+      "status": 200,
+      "body": {
+        "deleted": true,
+        "id": "9f0eef1a-d991-42b9-aab0-ddd05c1288b1"
+      }
+    },
+    {
+      "id": "POST /api/documents/:id/import",
+      "status": 200,
+      "body": {
+        "document": {
+          "id": "1914eb9a-1694-4553-9bff-4e2a15b30f8b",
+          "content": "seed content\n\nimport-9e64abd5-dde9-4234-9057-7b6ed2b73d91"
+        }
+      }
+    },
+    {
+      "id": "POST /api/documents/:id/publish",
+      "status": 200,
+      "body": {
+        "document": {
+          "id": "1914eb9a-1694-4553-9bff-4e2a15b30f8b",
+          "shareToken": "share-aeaac06a-88be-4c2f-bdfe-9b13dac20b8e",
+          "isPublic": true
+        }
+      }
+    },
+    {
+      "id": "POST /api/uploads",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "uploadId": "019fbf92-6992-7199-9a2c-55b9c6c0bc0a",
+        "status": "initiated",
+        "replay": false
+      }
+    },
+    {
+      "id": "PUT /api/uploads/:id",
+      "status": 404,
+      "body": {
+        "error": "upload_error",
+        "message": "unknown upload id: a64f53c0-a20e-4baf-82d8-91d98669aa8c"
+      }
+    },
+    {
+      "id": "POST /api/uploads/:id/finalize",
+      "status": 404,
+      "body": {
+        "error": "upload_error",
+        "message": "unknown upload id: a64f53c0-a20e-4baf-82d8-91d98669aa8c"
+      }
+    },
+    {
+      "id": "POST /api/missions",
+      "status": 500,
+      "body": {
+        "ok": false,
+        "error": "mission request failed",
+        "code": "MISSION_RUNTIME_FAILED",
+        "errorCode": "MISSION_RUNTIME_FAILED"
+      }
+    },
+    {
+      "id": "POST /api/missions/:id/verdicts",
+      "status": 422,
+      "body": {
+        "ok": false,
+        "error": "(root): Unrecognized keys: \"note\", \"idempotencyKey\"",
+        "code": "INVALID_REQUEST",
+        "errorCode": "INVALID_REQUEST"
+      }
+    },
+    {
+      "id": "POST /api/missions/:id/steer",
+      "status": 422,
+      "body": {
+        "ok": false,
+        "error": "(root): Unrecognized key: \"idempotencyKey\"",
+        "code": "INVALID_REQUEST",
+        "errorCode": "INVALID_REQUEST"
+      }
+    }
+  ],
+  "postAc1Counts": {
+    "documents": 27,
+    "subscription_sources": 6,
+    "improvement_requests": 11
+  }
+}

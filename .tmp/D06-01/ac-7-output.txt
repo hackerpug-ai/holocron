@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
+
+ ✓ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 15 skipped) 7218ms
+     ✓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced  5850ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 15 skipped (16)
+   Start at  17:02:47
+   Duration  8.16s (transform 295ms, setup 104ms, import 755ms, tests 7.22s, environment 0ms)
+

@@ -1,0 +1,10 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
+
+ ✓ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 15 skipped) 2365ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 15 skipped (16)
+   Start at  17:03:32
+   Duration  3.36s (transform 306ms, setup 108ms, import 793ms, tests 2.37s, environment 0ms)
+

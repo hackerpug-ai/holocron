@@ -1,0 +1,277 @@
+{
+  "task_id": "D06-01",
+  "timestamp": "2026-08-01T23:01:25Z",
+  "commit_sha": "299379e287781c0abfea8f9ff1eb31ab041539fe",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-1:|TC-2:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-3:|TC-4:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-5:|TC-6:|TC-7:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-8:|TC-9:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10:|TC-11:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/ac-5-output.txt"
+    },
+    {
+      "id": "AC-6",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-12:|TC-13:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/ac-6-output.txt"
+    },
+    {
+      "id": "AC-7",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-14:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/ac-7-output.txt"
+    },
+    {
+      "id": "AC-8",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-15:|TC-16:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/ac-8-output.txt"
+    },
+    {
+      "id": "TC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-1:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-1-output.txt"
+    },
+    {
+      "id": "TC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-2:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-2-output.txt"
+    },
+    {
+      "id": "TC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-3:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-3-output.txt"
+    },
+    {
+      "id": "TC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-4:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-4-output.txt"
+    },
+    {
+      "id": "TC-5",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-5:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-5-output.txt"
+    },
+    {
+      "id": "TC-6",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-6:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-6-output.txt"
+    },
+    {
+      "id": "TC-7",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-7:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-7-output.txt"
+    },
+    {
+      "id": "TC-8",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-8:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-8-output.txt"
+    },
+    {
+      "id": "TC-9",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-9:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-9-output.txt"
+    },
+    {
+      "id": "TC-10",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-10-output.txt"
+    },
+    {
+      "id": "TC-11",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-11:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-11-output.txt"
+    },
+    {
+      "id": "TC-12",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-12:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-12-output.txt"
+    },
+    {
+      "id": "TC-13",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-13:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-13-output.txt"
+    },
+    {
+      "id": "TC-14",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-14:\"",
+      "exit_code": 0,
+      "output_file": ".tmp/D06-01/tc-14-output.txt"
+    },
+    {
+      "id": "TC-15",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-15:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-15-output.txt"
+    },
+    {
+      "id": "TC-16",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-16:\"",
+      "exit_code": 1,
+      "output_file": ".tmp/D06-01/tc-16-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": true
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-08-01T23:01:25Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "cea5622a038f182a1c2379e7eef3e89f6ba7c10d07353c45968069a07f89a1fd"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "ee4738d870e596f8699ed2b1910d9098cc177396520a14ecaa136991409d3e9d"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "4c56903bf2a21a16285b06d29604c51f58250dcb6679dfd5bde537bdaaa8a880"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "c8cf484ea778d9386a8c59ce168f06d48eab84f99e57d731f9b206935b4947e7"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "9b71672c64ea89bb2e1a6c4e15d220ef65680a68d2f202da5112e68b2ce3b218"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "9bbf6588d82ccca980ec9402be6297735120e929e74cd172c9352a7e2f83e76b"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "9414911b2de37eb9679c47eb0e62a6fc668c932d4ba32576d5fb9f09e7750890"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "4ee00d7c50aea72cfa87f272120f0e1b3c96896d8f70b48f1ed54e684c8e8616"
+      },
+      {
+        "path": "ac-6-output.txt",
+        "sha256": "a1aac4c0d630ba4a97fe579b0b24acadb034f15e22fa372b484146089c55b86b"
+      },
+      {
+        "path": "ac-7-output.txt",
+        "sha256": "0b9490969bec4c849bd7d09c577aa94a5bba6b3bbf65e0bf452a724400c530e6"
+      },
+      {
+        "path": "ac-8-output.txt",
+        "sha256": "5c6ef8bc6043f4c8c8d12775c045474d93d9c62dcd97aeade72097d8c10747d7"
+      },
+      {
+        "path": "tc-1-output.txt",
+        "sha256": "cfd7f54b66a0bd89cc23564e8de98fade3d9a267b2167d237b64723349005106"
+      },
+      {
+        "path": "tc-2-output.txt",
+        "sha256": "bcba275c85fe11dfbe349f60fa9911c18694ced7ccad5341773fbd86af619e34"
+      },
+      {
+        "path": "tc-3-output.txt",
+        "sha256": "d129f75db502cb52e79f5c6bbbc1a6cc6cfc40c9d77517998d10f1c19a1e880d"
+      },
+      {
+        "path": "tc-4-output.txt",
+        "sha256": "b8147319d57eb654e793ab92cc305d63e58ef1ce517b256eb6eda8e7693f612a"
+      },
+      {
+        "path": "tc-5-output.txt",
+        "sha256": "eab99491534866ccc73792c269f068ff0de56dd22ca53583d9f0e56a4859e1ee"
+      },
+      {
+        "path": "tc-6-output.txt",
+        "sha256": "b2ac215b5565580ae0a1417191f1f5e6fb8cf1173ed25ebc37b0762d409ba50a"
+      },
+      {
+        "path": "tc-7-output.txt",
+        "sha256": "77c184f2aa15388ec84a41b3a986c9ee870b4f71c1e2b3c9a8ecf14140e775f3"
+      },
+      {
+        "path": "tc-8-output.txt",
+        "sha256": "06379b6f47cb366d7ce135f5f3ed7e614d1f514c384f13ad634bd5e75f6f8914"
+      },
+      {
+        "path": "tc-9-output.txt",
+        "sha256": "091bcc05ff9f9572074797340dabeb4a784d6c3dfc937b4339d3641c1625bade"
+      },
+      {
+        "path": "tc-10-output.txt",
+        "sha256": "8eb7d56c2a7601563c1e17a3a5e4a2e0c0cb07cfef452b4e1698b0965d328be2"
+      },
+      {
+        "path": "tc-11-output.txt",
+        "sha256": "53968460dbcbee6681863f6855d92b67968a785305409025a6e9f79a947d3ebe"
+      },
+      {
+        "path": "tc-12-output.txt",
+        "sha256": "054a6334ffa7702263cea5288fb17a2f30323b589b2d7eefa589ead29fcf341a"
+      },
+      {
+        "path": "tc-13-output.txt",
+        "sha256": "f975c14f12bcb663e3fb930b93ba021a5ee0805acade75bc81c2bb169d4fdf2a"
+      },
+      {
+        "path": "tc-14-output.txt",
+        "sha256": "5a30ce4469bf6f7ef68ed5d3bf63b14c324f359e7c14dac193fa4541ef7f3469"
+      },
+      {
+        "path": "tc-15-output.txt",
+        "sha256": "1adbed3774fcef9db63342aeff38b7929508d97f94a520e6b47452e4d64727e0"
+      },
+      {
+        "path": "tc-16-output.txt",
+        "sha256": "c89ec84cb64cf08b8f61181a9e6b8df6a878c635ee3b8f882a20f227e3108f79"
+      }
+    ]
+  }
+}
