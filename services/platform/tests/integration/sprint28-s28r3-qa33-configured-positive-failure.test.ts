@@ -50,10 +50,10 @@ describe('GATE-FIX-S28R3-QA33 configured-positive failure semantics', () => {
           TARGET_TEST,
         ],
         {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        env,
-        timeout: 180_000,
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          env,
+          timeout: 180_000,
         }
       );
       const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
