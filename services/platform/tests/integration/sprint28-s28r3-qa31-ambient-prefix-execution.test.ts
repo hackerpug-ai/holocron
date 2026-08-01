@@ -401,6 +401,12 @@ type PitrWindow = {
   error?: string;
 };
 
+type ProbeSpawn = (
+  command: string,
+  args: string[],
+  options: Parameters<typeof spawnSync>[2]
+) => ReturnType<typeof spawnSync>;
+
 /**
  * Candidate seam used only by the filesystem-backed trust rejection test below.
  * The live path calls queryPitrWindow(), which supplies the fixed path and has
@@ -409,7 +415,8 @@ type PitrWindow = {
 function queryPitrWindowAtCandidate(
   config: SecretConfig,
   candidate: string,
-  lstat: (path: string) => ReturnType<typeof lstatSync> = lstatSync
+  lstat: (path: string) => ReturnType<typeof lstatSync> = lstatSync,
+  spawn: ProbeSpawn = spawnSync
 ): PitrWindow {
   const trust = inspectTrustedBunCandidate(candidate, lstat);
   if (!trust.path) {
@@ -419,7 +426,7 @@ function queryPitrWindowAtCandidate(
     };
   }
   const env = envForConfig(config, resolve(EVIDENCE_DIR, 'window-probe'));
-  const result = spawnSync(trust.path, [HOLO_CLI, 'restore:window', '--json'], {
+  const result = spawn(trust.path, [HOLO_CLI, 'restore:window', '--json'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env,
@@ -612,10 +619,36 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
   });
 
   it('routes a credentialed PITR-window probe only through the fixed trusted Bun path', () => {
-    const source = readFileSync(import.meta.filename, 'utf8');
-    expect(source).toContain("spawnSync(bun, [HOLO_CLI, 'restore:window', '--json']");
-    expect(source).toContain('return queryPitrWindowAtCandidate(config, TRUSTED_BUN_PATH);');
     expect(TRUSTED_BUN_PATH).toBe('/usr/local/bin/bun');
+    let observedCommand = '';
+    let observedArgs: string[] = [];
+    let observedEnv: NodeJS.ProcessEnv | undefined;
+    const probe = queryPitrWindowAtCandidate(
+      {
+        path: '/tmp/qa32-trust-boundary-secrets.yaml',
+        values: {
+          R2_RESTORE_ACCESS_KEY_ID: 'qa32-access-sentinel',
+          R2_RESTORE_SECRET_ACCESS_KEY: 'qa32-secret-sentinel',
+        },
+      },
+      TRUSTED_BUN_PATH,
+      lstatSync,
+      (command, args, options) => {
+        observedCommand = command;
+        observedArgs = args;
+        observedEnv = options?.env as NodeJS.ProcessEnv | undefined;
+        return {
+          status: 0,
+          stdout:
+            '{"ok":true,"earliest":"2026-01-01T00:00:00Z","latest":"2026-01-02T00:00:00Z","recommended_pitr":"2026-01-01T12:00:00Z"}',
+          stderr: '',
+        } as ReturnType<typeof spawnSync>;
+      }
+    );
+    expect(observedCommand).toBe(TRUSTED_BUN_PATH);
+    expect(observedArgs).toEqual([HOLO_CLI, 'restore:window', '--json']);
+    expect(observedEnv?.R2_RESTORE_SECRET_ACCESS_KEY).toBe('qa32-secret-sentinel');
+    expect(probe.ok).toBe(true);
 
     if (!positiveRunnable) {
       const evidencePath = writePositiveDependencyEvidence();
