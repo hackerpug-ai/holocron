@@ -317,246 +317,655 @@ Expanded by `red-test-generator` from handoff `s29-red.json`. Fakeability audit:
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
 {
- "version": "1",
- "task_id": "D06-01",
- "tdd_mode": "red_first",
- "verification_policy": {
-  "requires_tests": true,
-  "requires_red_evidence": true,
-  "requires_seeded_evidence": true
- },
- "fixtures": {
-  "run_id": {
-   "description": "s29-d0601-<randomUUID()> generated once in beforeAll via node:crypto randomUUID(); every seeded row/tool-call carries this prefix in a title/description/identifier field so afterAll cleanup and evidence capture are unambiguous.",
-   "seed_method": "public_api",
-   "records": [
-    "s29-d0601-<uuid>"
-   ]
+  "version": "1",
+  "task_id": "D06-01",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
   },
-  "fx-hono-write-inventory": {
-   "description": "Computed live as app.routes.filter(r => ['POST','PUT','PATCH','DELETE'].includes(r.method) && r.path.startsWith('/api/')) from a real createHonoApp({ keys: DEFAULT_KEYS }) instance (services/platform/src/http/hono-app.ts) \u2014 NEVER a literal path array. At planning SHA c7873378 this yields at least 23 routes.",
-   "seed_method": "public_api",
-   "records": [
-    "POST /api/chat-runs",
-    "POST /api/chat-runs/:id/cancel",
-    "PATCH /api/conversations/:id",
-    "DELETE /api/conversations/:id",
-    "POST /api/documents",
-    "POST /api/documents/:id/narration",
-    "POST /api/documents/:id/import",
-    "POST /api/documents/:id/publish",
-    "POST /api/voice-sessions",
-    "POST /api/voice-sessions/:id/end",
-    "POST /api/improvements",
-    "PATCH /api/improvements/:id",
-    "DELETE /api/improvements/:id",
-    "PATCH /api/subscriptions/:id",
-    "DELETE /api/subscriptions/:id",
-    "POST /api/feed-items/:id/feedback",
-    "PATCH /api/assimilations/:id",
-    "POST /api/uploads",
-    "PUT /api/uploads/:id",
-    "POST /api/uploads/:id/finalize",
-    "POST /api/missions",
-    "POST /api/missions/:id/verdicts",
-    "POST /api/missions/:id/steer"
-   ]
+  "fixtures": {
+    "run_id": {
+      "description": "s29-d0601-<randomUUID()> generated once in beforeAll via node:crypto randomUUID(); every seeded row/tool-call carries this prefix in a title/description/identifier field so afterAll cleanup and evidence capture are unambiguous.",
+      "seed_method": "public_api",
+      "records": [
+        "s29-d0601-<uuid>"
+      ]
+    },
+    "fx-hono-write-inventory": {
+      "description": "Computed live as app.routes.filter(r => ['POST','PUT','PATCH','DELETE'].includes(r.method) && r.path.startsWith('/api/')) from a real createHonoApp({ keys: DEFAULT_KEYS }) instance (services/platform/src/http/hono-app.ts) \u2014 NEVER a literal path array. At planning SHA c7873378 this yields at least 23 routes.",
+      "seed_method": "public_api",
+      "records": [
+        "POST /api/chat-runs",
+        "POST /api/chat-runs/:id/cancel",
+        "PATCH /api/conversations/:id",
+        "DELETE /api/conversations/:id",
+        "POST /api/documents",
+        "POST /api/documents/:id/narration",
+        "POST /api/documents/:id/import",
+        "POST /api/documents/:id/publish",
+        "POST /api/voice-sessions",
+        "POST /api/voice-sessions/:id/end",
+        "POST /api/improvements",
+        "PATCH /api/improvements/:id",
+        "DELETE /api/improvements/:id",
+        "PATCH /api/subscriptions/:id",
+        "DELETE /api/subscriptions/:id",
+        "POST /api/feed-items/:id/feedback",
+        "PATCH /api/assimilations/:id",
+        "POST /api/uploads",
+        "PUT /api/uploads/:id",
+        "POST /api/uploads/:id/finalize",
+        "POST /api/missions",
+        "POST /api/missions/:id/verdicts",
+        "POST /api/missions/:id/steer"
+      ]
+    },
+    "fx-mcp-write-inventory": {
+      "description": "buildMutationsReport(loadManifest(defaultManifestPath())).mutations.map(m => m.tool_id) (services/platform/src/mcp/list-mutations.ts + manifest-loader.ts) \u2014 at SHA c7873378 this yields 21 tool ids, each cross-checked against Object.keys(toolsAsRecord()) from services/platform/src/tools/registry.ts. Setup throws in beforeAll if any id is missing from the live registry (fail-closed, not a soft skip).",
+      "seed_method": "public_api",
+      "records": [
+        "store_document",
+        "update_document",
+        "share_document",
+        "add_subscription",
+        "remove_subscription",
+        "check_subscriptions",
+        "set_subscription_filter",
+        "store_tool",
+        "update_tool",
+        "remove_tool",
+        "shop_products",
+        "start_assimilation",
+        "approve_assimilation_plan",
+        "reject_assimilation_plan",
+        "cancel_assimilation",
+        "steer_assimilation",
+        "assimilate_creator",
+        "regenerate_transcript",
+        "add_improvement",
+        "close_improvement",
+        "set_improvement_status"
+      ]
+    },
+    "fx-convex-functions": {
+      "description": "Two real, currently-live Convex mutations with no external I/O dependency: api.documents.mutations.create (convex/documents/mutations.ts:8, embedding: v.array(v.float64()) \u2014 pass a 3-element zero vector) and api.subscriptions.mutations.add (convex/subscriptions/mutations.ts:7). Invoked via new ConvexHttpClient(process.env.EXPO_PUBLIC_CONVEX_URL) against a real Convex dev deployment \u2014 the same connection pattern as scripts/migrate-all.ts:27,63,83.",
+      "seed_method": "public_api",
+      "records": [
+        "api.documents.mutations.create",
+        "api.subscriptions.mutations.add"
+      ]
+    },
+    "fx-job": {
+      "description": "MIGRATED_JOBS.find(j => j.name === 'task-timeout-worker') from services/platform/src/queue/jobs-registry.ts:32 \u2014 a real migrated cron job with no external I/O, executed via the real runJob() entrypoint in services/platform/src/queue/jobs-runner.ts.",
+      "seed_method": "public_api",
+      "records": [
+        "task-timeout-worker"
+      ]
+    },
+    "fx-mcp-seed-doc": {
+      "description": "Document id returned by the AC-3 positive-control call to store_document (title 's29-d0601-<run_id>-doc'), produced via the real executePostgresMcpTool('store_document', ...) entrypoint \u2014 reused as the target id for the AC-3/4 update_document/share_document calls so those two tools operate on a real row instead of a synthetic id.",
+      "seed_method": "public_api",
+      "records": [
+        "s29-d0601-<run_id>-doc (document id captured at runtime)"
+      ]
+    },
+    "fx-hono-min-bodies": {
+      "description": "One minimal-valid JSON request body per route in fx-hono-write-inventory, built from each route's documented required fields in services/platform/src/http/hono-app.ts (e.g. POST /api/documents needs { title, content }). Lives in the NEW helper file as a Record<route-key, body>, not hardcoded inline per test.",
+      "seed_method": "public_api",
+      "records": [
+        "POST /api/documents -> { title: 's29-d0601-<run_id>-doc', content: 'red-fence probe', category: 'general' }",
+        "POST /api/uploads -> { idempotencyKey: 's29-d0601-<run_id>-upload', filename: 'probe.txt', contentType: 'text/plain', size: 4 }"
+      ]
+    }
   },
-  "fx-mcp-write-inventory": {
-   "description": "buildMutationsReport(loadManifest(defaultManifestPath())).mutations.map(m => m.tool_id) (services/platform/src/mcp/list-mutations.ts + manifest-loader.ts) \u2014 at SHA c7873378 this yields 21 tool ids, each cross-checked against Object.keys(toolsAsRecord()) from services/platform/src/tools/registry.ts. Setup throws in beforeAll if any id is missing from the live registry (fail-closed, not a soft skip).",
-   "seed_method": "public_api",
-   "records": [
-    "store_document",
-    "update_document",
-    "share_document",
-    "add_subscription",
-    "remove_subscription",
-    "check_subscriptions",
-    "set_subscription_filter",
-    "store_tool",
-    "update_tool",
-    "remove_tool",
-    "shop_products",
-    "start_assimilation",
-    "approve_assimilation_plan",
-    "reject_assimilation_plan",
-    "cancel_assimilation",
-    "steer_assimilation",
-    "assimilate_creator",
-    "regenerate_transcript",
-    "add_improvement",
-    "close_improvement",
-    "set_improvement_status"
-   ]
-  },
-  "fx-convex-functions": {
-   "description": "Two real, currently-live Convex mutations with no external I/O dependency: api.documents.mutations.create (convex/documents/mutations.ts:8, embedding: v.array(v.float64()) \u2014 pass a 3-element zero vector) and api.subscriptions.mutations.add (convex/subscriptions/mutations.ts:7). Invoked via new ConvexHttpClient(process.env.EXPO_PUBLIC_CONVEX_URL) against a real Convex dev deployment \u2014 the same connection pattern as scripts/migrate-all.ts:27,63,83.",
-   "seed_method": "public_api",
-   "records": [
-    "api.documents.mutations.create",
-    "api.subscriptions.mutations.add"
-   ]
-  },
-  "fx-job": {
-   "description": "MIGRATED_JOBS.find(j => j.name === 'task-timeout-worker') from services/platform/src/queue/jobs-registry.ts:32 \u2014 a real migrated cron job with no external I/O, executed via the real runJob() entrypoint in services/platform/src/queue/jobs-runner.ts.",
-   "seed_method": "public_api",
-   "records": [
-    "task-timeout-worker"
-   ]
-  },
-  "fx-mcp-seed-doc": {
-   "description": "Document id returned by the AC-3 positive-control call to store_document (title 's29-d0601-<run_id>-doc'), produced via the real executePostgresMcpTool('store_document', ...) entrypoint \u2014 reused as the target id for the AC-3/4 update_document/share_document calls so those two tools operate on a real row instead of a synthetic id.",
-   "seed_method": "public_api",
-   "records": [
-    "s29-d0601-<run_id>-doc (document id captured at runtime)"
-   ]
-  },
-  "fx-hono-min-bodies": {
-   "description": "One minimal-valid JSON request body per route in fx-hono-write-inventory, built from each route's documented required fields in services/platform/src/http/hono-app.ts (e.g. POST /api/documents needs { title, content }). Lives in the NEW helper file as a Record<route-key, body>, not hardcoded inline per test.",
-   "seed_method": "public_api",
-   "records": [
-    "POST /api/documents -> { title: 's29-d0601-<run_id>-doc', content: 'red-fence probe', category: 'general' }",
-    "POST /api/uploads -> { idempotencyKey: 's29-d0601-<run_id>-upload', filename: 'probe.txt', contentType: 'text/plain', size: 4 }"
-   ]
-  }
- },
- "requirements": [
-  {
-   "id": "AC-1",
-   "type": "acceptance_criterion",
-   "statement": "Live Hono write-route inventory (>=23 routes) is discovered via app.routes and every route accepts a write pre-fence."
-  },
-  {
-   "id": "AC-2",
-   "type": "acceptance_criterion",
-   "statement": "Every discovered Hono write route returns HTTP 423 { error: 'migration_read_only' } when fenced, with zero additional Postgres mutation."
-  },
-  {
-   "id": "AC-3",
-   "type": "acceptance_criterion",
-   "statement": "MCP mutation-tool inventory (21 tools, manifest-derived, cross-checked against live registry) accepts a write pre-fence via executePostgresMcpTool."
-  },
-  {
-   "id": "AC-4",
-   "type": "acceptance_criterion",
-   "statement": "Every MCP mutation tool rejects with a MIGRATION_READ_ONLY-prefixed error when fenced, surfaced as isError:true through createMcpServer."
-  },
-  {
-   "id": "AC-5",
-   "type": "acceptance_criterion",
-   "statement": "Two real Convex mutations (documents.mutations.create, subscriptions.mutations.add) accept a write pre-fence against a real dev deployment."
-  },
-  {
-   "id": "AC-6",
-   "type": "acceptance_criterion",
-   "statement": "The same two Convex mutations reject with a migration_read_only-prefixed error when the deployment-level read-only gate is enabled."
-  },
-  {
-   "id": "AC-7",
-   "type": "acceptance_criterion",
-   "statement": "runJob() for the real task-timeout-worker job accepts a write pre-fence and inserts one job_runs row."
-  },
-  {
-   "id": "AC-8",
-   "type": "acceptance_criterion",
-   "statement": "runJob() for the same job returns ok:false with a migration_read_only-prefixed error and inserts zero additional rows when fenced."
-  },
-  {
-   "id": "TC-1",
-   "type": "test_criterion",
-   "statement": "Discovered Hono write-route count is 23 or greater when app.routes is filtered to POST/PUT/PATCH/DELETE /api/* paths.",
-   "maps_to_ac": "AC-1"
-  },
-  {
-   "id": "TC-2",
-   "type": "test_criterion",
-   "statement": "Every discovered Hono write route returns a non-423 HTTP status when HOLO_MIGRATION_READ_ONLY is unset.",
-   "maps_to_ac": "AC-1"
-  },
-  {
-   "id": "TC-3",
-   "type": "test_criterion",
-   "statement": "Every discovered Hono write route returns HTTP 423 when HOLO_MIGRATION_READ_ONLY is set to '1'.",
-   "maps_to_ac": "AC-2"
-  },
-  {
-   "id": "TC-4",
-   "type": "test_criterion",
-   "statement": "Every fenced Hono write-route response body equals { error: 'migration_read_only' } when HOLO_MIGRATION_READ_ONLY is set to '1'.",
-   "maps_to_ac": "AC-2"
-  },
-  {
-   "id": "TC-5",
-   "type": "test_criterion",
-   "statement": "MCP mutation-tool inventory count equals 21 when derived from the manifest side_effects field.",
-   "maps_to_ac": "AC-3"
-  },
-  {
-   "id": "TC-6",
-   "type": "test_criterion",
-   "statement": "Every MCP mutation tool id exists in the live tools/registry.ts record when cross-checked against buildMutationsReport output.",
-   "maps_to_ac": "AC-3"
-  },
-  {
-   "id": "TC-7",
-   "type": "test_criterion",
-   "statement": "executePostgresMcpTool resolves without a MIGRATION_READ_ONLY-prefixed error for every mutation tool id when HOLO_MIGRATION_READ_ONLY is unset.",
-   "maps_to_ac": "AC-3"
-  },
-  {
-   "id": "TC-8",
-   "type": "test_criterion",
-   "statement": "executePostgresMcpTool rejects with a MIGRATION_READ_ONLY-prefixed error for every mutation tool id when HOLO_MIGRATION_READ_ONLY is set to '1'.",
-   "maps_to_ac": "AC-4"
-  },
-  {
-   "id": "TC-9",
-   "type": "test_criterion",
-   "statement": "createMcpServer's registered store_document handler returns isError true with parsed code MIGRATION_READ_ONLY when HOLO_MIGRATION_READ_ONLY is set to '1'.",
-   "maps_to_ac": "AC-4"
-  },
-  {
-   "id": "TC-10",
-   "type": "test_criterion",
-   "statement": "The real api.documents.mutations.create call returns a non-null document id when the Convex read-only gate is unset.",
-   "maps_to_ac": "AC-5"
-  },
-  {
-   "id": "TC-11",
-   "type": "test_criterion",
-   "statement": "The real api.subscriptions.mutations.add call returns a non-null subscription id when the Convex read-only gate is unset.",
-   "maps_to_ac": "AC-5"
-  },
-  {
-   "id": "TC-12",
-   "type": "test_criterion",
-   "statement": "The real api.documents.mutations.create call rejects with a migration_read_only-prefixed error message when the Convex read-only gate is set.",
-   "maps_to_ac": "AC-6"
-  },
-  {
-   "id": "TC-13",
-   "type": "test_criterion",
-   "statement": "The real api.subscriptions.mutations.add call rejects with a migration_read_only-prefixed error message when the Convex read-only gate is set.",
-   "maps_to_ac": "AC-6"
-  },
-  {
-   "id": "TC-14",
-   "type": "test_criterion",
-   "statement": "runJob returns ok true and inserts exactly one job_runs row for task-timeout-worker when HOLO_MIGRATION_READ_ONLY is unset.",
-   "maps_to_ac": "AC-7"
-  },
-  {
-   "id": "TC-15",
-   "type": "test_criterion",
-   "statement": "runJob returns ok false with an error message starting migration_read_only when HOLO_MIGRATION_READ_ONLY is set to '1'.",
-   "maps_to_ac": "AC-8"
-  },
-  {
-   "id": "TC-16",
-   "type": "test_criterion",
-   "statement": "job_runs row count after the fenced task-timeout-worker call equals the row count after the unfenced call when HOLO_MIGRATION_READ_ONLY is set to '1'.",
-   "maps_to_ac": "AC-8"
-  }
- ]
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the live Hono app.routes table with HOLO_MIGRATION_READ_ONLY unset WHEN the suite issues one authenticated request per discovered POST/PUT/PATCH/DELETE /api/* route THEN at least 23 routes are discovered and every discovered route returns an HTTP status other than 423",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-1|TC-1|TC-2\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub empty mock of app.routes returning a static hardcoded path array instead of live introspection",
+            "disconnect from real createHonoApp so no request is issued",
+            "inventory filtered to GET-only leaving an empty write surface"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-hono-write-inventory",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "Construct createHonoApp({ keys: DEFAULT_KEYS }) with process.env.HOLO_MIGRATION_READ_ONLY unset",
+                "Compute fx-hono-write-inventory by filtering app.routes to method in {POST,PUT,PATCH,DELETE} and path starting with /api/",
+                "For each discovered route, call app.request(path, { method, headers: { authorization: 'Bearer ' + DEFAULT_KEYS.rn }, body: fx-hono-min-bodies[route] })"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "23 or more routes discovered from app.routes (count >= 23)",
+                "every discovered route responds with an HTTP status other than 423"
+              ],
+              "must_not_observe": [
+                "0 routes discovered (empty inventory)",
+                "any discovered route returning HTTP 423"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the same fx-hono-write-inventory with a fresh createHonoApp() constructed AFTER setting HOLO_MIGRATION_READ_ONLY='1' WHEN the suite re-issues the identical request for every discovered route THEN every route returns HTTP 423 with JSON body { error: 'migration_read_only' } and Postgres row counts are unchanged from post-AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-2|TC-3|TC-4\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub fence middleware that never actually sets status 423",
+            "mock response body hardcoding migration_read_only without running the real route table",
+            "static disconnect leaving 0 routes exercised"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-hono-write-inventory",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "Set process.env.HOLO_MIGRATION_READ_ONLY = '1'",
+                "Construct a fresh createHonoApp({ keys: DEFAULT_KEYS }) instance",
+                "Re-issue the identical request (same fx-hono-min-bodies) for every route in fx-hono-write-inventory",
+                "Capture the pre-fence (AC-1) and post-fence row counts for documents/subscription_sources/improvement_requests via SELECT count(*)"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "every discovered route responds with HTTP 423",
+                "every response body deep-equals { \"error\": \"migration_read_only\" }",
+                "documents/subscription_sources/improvement_requests row counts equal their post-AC-1 values (delta == 0)"
+              ],
+              "must_not_observe": [
+                "HTTP 200 status on any discovered route (the AC-1 pre-fence signature)",
+                "0 routes returning HTTP 423",
+                "any response body lacking the migration_read_only error code"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the manifest-derived mutation tool list (fx-mcp-write-inventory, 21 tool ids) cross-checked against toolsAsRecord() with HOLO_MIGRATION_READ_ONLY unset WHEN the suite calls executePostgresMcpTool for each of the 21 tools THEN exactly 21 tool ids are discovered, every one exists in toolsAsRecord(), and every call resolves without a MIGRATION_READ_ONLY-prefixed error",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-3|TC-5|TC-6|TC-7\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub empty mock of buildMutationsReport returning a static hardcoded tool list",
+            "disconnect from real Postgres so store_document never inserts a row",
+            "mock executePostgresMcpTool that always resolves without hitting the DB"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-mcp-write-inventory",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "Compute fx-mcp-write-inventory via buildMutationsReport(loadManifest(defaultManifestPath()))",
+                "Assert every discovered tool_id is present in Object.keys(toolsAsRecord())",
+                "For each of the 21 tool ids call executePostgresMcpTool(toolId, minimalValidInput) with HOLO_MIGRATION_READ_ONLY unset, capturing fx-mcp-seed-doc from the store_document call"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "21 mutation tool ids discovered from the manifest side_effects field",
+                "all 21 ids present in toolsAsRecord()",
+                "21 of 21 executePostgresMcpTool calls resolve without throwing",
+                "store_document returns a document id string matching `/^[0-9a-f-]{36}$/`",
+                "follow-up SELECT id FROM documents WHERE title = 's29-d0601-<run_id>-doc' returns exactly 1 row"
+              ],
+              "must_not_observe": [
+                "0 mutation tool ids discovered (empty inventory)",
+                "fewer than 21 of 21 calls resolving without throwing",
+                "any call rejecting with a MIGRATION_READ_ONLY-prefixed error",
+                "0 rows returned by the follow-up SELECT for the seeded document"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the same 21-tool fx-mcp-write-inventory with HOLO_MIGRATION_READ_ONLY='1' WHEN the suite re-calls executePostgresMcpTool for each tool AND routes store_document through createMcpServer() THEN every direct call rejects with Error message starting 'MIGRATION_READ_ONLY:' and the gateway-routed call returns isError:true with parsed code MIGRATION_READ_ONLY",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-4|TC-8|TC-9\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub error throw that never checks HOLO_MIGRATION_READ_ONLY",
+            "mock createMcpServer handler that hardcodes isError without routing through the real prefix parser",
+            "static disconnect leaving 0 tools exercised"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-mcp-write-inventory",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "Set process.env.HOLO_MIGRATION_READ_ONLY = '1'",
+                "Re-call executePostgresMcpTool(toolId, sameInput) for each of the 21 tool ids in fx-mcp-write-inventory",
+                "Route the store_document tool call through createMcpServer()'s registered handler via the MCP SDK transport and inspect isError + parsed content code"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "21 of 21 executePostgresMcpTool calls reject with an Error message starting 'MIGRATION_READ_ONLY:'",
+                "createMcpServer()-routed store_document call returns isError:true with parsed code `MIGRATION_READ_ONLY`"
+              ],
+              "must_not_observe": [
+                "0 of the 21 calls rejecting with a MIGRATION_READ_ONLY-prefixed error",
+                "any of the 21 calls resolving successfully (the AC-3 pre-fence signature)",
+                "createMcpServer()-routed call returning isError:false"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN a real Convex dev deployment via ConvexHttpClient(EXPO_PUBLIC_CONVEX_URL) with no read-only gate WHEN the suite calls api.documents.mutations.create and api.subscriptions.mutations.add THEN both resolve successfully with non-null Convex ids proving the write surface is live",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-5|TC-10|TC-11\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "convex",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub mock ConvexHttpClient that returns a hardcoded id without a real mutation",
+            "disconnect from EXPO_PUBLIC_CONVEX_URL so no real deployment is contacted",
+            "static empty query result accepted as success"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-convex-functions",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "const client = new ConvexHttpClient(process.env.EXPO_PUBLIC_CONVEX_URL)",
+                "await client.mutation(api.documents.mutations.create, { title: 's29-d0601-<run_id>-convex-doc', content: 'red-fence probe', category: 'general', embedding: [0,0,0] })",
+                "await client.mutation(api.subscriptions.mutations.add, { sourceType: 'github', identifier: 's29-d0601-<run_id>-sub', name: 's29-d0601-<run_id>-sub' })"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "api.documents.mutations.create returns a Convex document id matching `/^[a-z0-9]{32}$/`",
+                "follow-up Convex query for documents where title = 's29-d0601-<run_id>-convex-doc' returns exactly 1 row",
+                "api.subscriptions.mutations.add returns a Convex subscriptionSources id matching `/^[a-z0-9]{32}$/`",
+                "follow-up Convex query for subscriptionSources where identifier = 's29-d0601-<run_id>-sub' returns exactly 1 row"
+              ],
+              "must_not_observe": [
+                "either call rejecting with an error",
+                "0 documents rows matching title 's29-d0601-<run_id>-convex-doc'",
+                "0 subscriptionSources rows matching identifier 's29-d0601-<run_id>-sub'"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the same Convex deployment with HOLO_MIGRATION_READ_ONLY=true set via npx convex env set WHEN the suite re-calls documents.create and subscriptions.add THEN both reject with message starting 'migration_read_only:' and row counts equal their post-AC-5 values",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-6|TC-12|TC-13\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "convex",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub env-gate check that never runs inside the mutation handler body",
+            "mock Convex client that always throws migration_read_only without contacting the deployment",
+            "static disconnect leaving mutations uninvoked"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-convex-functions",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "Run `npx convex env set HOLO_MIGRATION_READ_ONLY true` against the dev deployment",
+                "Re-call client.mutation(api.documents.mutations.create, sameArgs) and client.mutation(api.subscriptions.mutations.add, sameArgs)",
+                "Query documents/subscriptionSources row counts via a follow-up Convex query and compare to the post-AC-5 counts"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "both calls reject with an error message starting 'migration_read_only:'",
+                "documents row count for title 's29-d0601-<run_id>-convex-doc' equals 1 (unchanged from post-AC-5)",
+                "subscriptionSources row count for identifier 's29-d0601-<run_id>-sub' equals 1 (unchanged from post-AC-5)"
+              ],
+              "must_not_observe": [
+                "either call resolving successfully (the AC-5 pre-fence signature)",
+                "documents row count greater than 1 (0 additional rows allowed) for that title",
+                "subscriptionSources row count greater than 1 (0 additional rows allowed) for that identifier"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-7",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the real task-timeout-worker entry from MIGRATED_JOBS (fx-job) with HOLO_MIGRATION_READ_ONLY unset WHEN the suite calls runJob(job, { databaseUrl }) THEN runJob returns { ok: true, error: null } and exactly one new job_runs row is inserted",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-7|TC-14\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub runJob that returns ok:true without inserting a job_runs row",
+            "mock MIGRATED_JOBS empty array so the job is never found",
+            "disconnect from real Postgres leaving after == before with no insert"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-job",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "const job = MIGRATED_JOBS.find(j => j.name === 'task-timeout-worker')",
+                "SELECT count(*) AS before FROM job_runs WHERE job_name = 'task-timeout-worker'",
+                "await runJob(job, { databaseUrl: DEFAULT_DATABASE_URL })",
+                "SELECT count(*) AS after FROM job_runs WHERE job_name = 'task-timeout-worker'"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "runJob returns { ok: true, error: null }",
+                "job_runs row count for task-timeout-worker increases by exactly 1 (after == before + 1)"
+              ],
+              "must_not_observe": [
+                "runJob returns ok: false",
+                "job_runs row count unchanged after the call (0 new rows, after == before)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-8",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "flow_ref": "T-SYNC-010",
+      "description": "GIVEN the same fx-job with HOLO_MIGRATION_READ_ONLY='1' WHEN the suite re-calls runJob(job, { databaseUrl, runId: newRunId }) THEN runJob returns { ok: false, error: <string starting with 'migration_read_only:'> } and job_runs row count is unchanged from post-AC-7",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"AC-8|TC-15|TC-16\"",
+      "maps_to_ac": null,
+      "test_tier": "integration",
+      "scenario": {
+        "tier": "visible",
+        "test_tier": "integration",
+        "verification_service": "postgres",
+        "topology": "single-node",
+        "negative_control": {
+          "would_fail_if": [
+            "stub fence that returns ok:false without the migration_read_only: prefix",
+            "mock runJob that never consults HOLO_MIGRATION_READ_ONLY and still inserts a row",
+            "static empty disconnect leaving the job uninvoked"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "db_query",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fx-job",
+            "action": {
+              "actor": "test_suite",
+              "steps": [
+                "Set process.env.HOLO_MIGRATION_READ_ONLY = '1'",
+                "SELECT count(*) AS before FROM job_runs WHERE job_name = 'task-timeout-worker'",
+                "await runJob(job, { databaseUrl: DEFAULT_DATABASE_URL, runId: newRunId })",
+                "SELECT count(*) AS after FROM job_runs WHERE job_name = 'task-timeout-worker'"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "runJob returns { ok: false, error: <string starting with 'migration_read_only:'> }",
+                "job_runs row count unchanged after the call (0 new rows, after == before, matching the post-AC-7 value)"
+              ],
+              "must_not_observe": [
+                "runJob returns ok: true",
+                "job_runs row count increased by 1 (after == before + 1, the AC-7 pre-fence signature)",
+                "0 migration_read_only rejections observed (empty fence surface)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Discovered Hono write-route count is 23 or greater when app.routes is filtered to POST/PUT/PATCH/DELETE /api/* paths.",
+      "statement": "Discovered Hono write-route count is 23 or greater when app.routes is filtered to POST/PUT/PATCH/DELETE /api/* paths.",
+      "maps_to_ac": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-1\""
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Every discovered Hono write route returns a non-423 HTTP status when HOLO_MIGRATION_READ_ONLY is unset.",
+      "statement": "Every discovered Hono write route returns a non-423 HTTP status when HOLO_MIGRATION_READ_ONLY is unset.",
+      "maps_to_ac": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-2\""
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Every discovered Hono write route returns HTTP 423 when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "statement": "Every discovered Hono write route returns HTTP 423 when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "maps_to_ac": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-3\""
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Every fenced Hono write-route response body equals { error: 'migration_read_only' } when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "statement": "Every fenced Hono write-route response body equals { error: 'migration_read_only' } when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "maps_to_ac": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-4\""
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "MCP mutation-tool inventory count equals 21 when derived from the manifest side_effects field.",
+      "statement": "MCP mutation-tool inventory count equals 21 when derived from the manifest side_effects field.",
+      "maps_to_ac": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-5\""
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Every MCP mutation tool id exists in the live tools/registry.ts record when cross-checked against buildMutationsReport output.",
+      "statement": "Every MCP mutation tool id exists in the live tools/registry.ts record when cross-checked against buildMutationsReport output.",
+      "maps_to_ac": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-6\""
+    },
+    {
+      "id": "TC-7",
+      "type": "test_criterion",
+      "description": "executePostgresMcpTool resolves without a MIGRATION_READ_ONLY-prefixed error for every mutation tool id when HOLO_MIGRATION_READ_ONLY is unset.",
+      "statement": "executePostgresMcpTool resolves without a MIGRATION_READ_ONLY-prefixed error for every mutation tool id when HOLO_MIGRATION_READ_ONLY is unset.",
+      "maps_to_ac": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-7\""
+    },
+    {
+      "id": "TC-8",
+      "type": "test_criterion",
+      "description": "executePostgresMcpTool rejects with a MIGRATION_READ_ONLY-prefixed error for every mutation tool id when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "statement": "executePostgresMcpTool rejects with a MIGRATION_READ_ONLY-prefixed error for every mutation tool id when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "maps_to_ac": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-8\""
+    },
+    {
+      "id": "TC-9",
+      "type": "test_criterion",
+      "description": "createMcpServer's registered store_document handler returns isError true with parsed code MIGRATION_READ_ONLY when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "statement": "createMcpServer's registered store_document handler returns isError true with parsed code MIGRATION_READ_ONLY when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "maps_to_ac": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-9\""
+    },
+    {
+      "id": "TC-10",
+      "type": "test_criterion",
+      "description": "The real api.documents.mutations.create call returns a non-null document id when the Convex read-only gate is unset.",
+      "statement": "The real api.documents.mutations.create call returns a non-null document id when the Convex read-only gate is unset.",
+      "maps_to_ac": "AC-5",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10\""
+    },
+    {
+      "id": "TC-11",
+      "type": "test_criterion",
+      "description": "The real api.subscriptions.mutations.add call returns a non-null subscription id when the Convex read-only gate is unset.",
+      "statement": "The real api.subscriptions.mutations.add call returns a non-null subscription id when the Convex read-only gate is unset.",
+      "maps_to_ac": "AC-5",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-11\""
+    },
+    {
+      "id": "TC-12",
+      "type": "test_criterion",
+      "description": "The real api.documents.mutations.create call rejects with a migration_read_only-prefixed error message when the Convex read-only gate is set.",
+      "statement": "The real api.documents.mutations.create call rejects with a migration_read_only-prefixed error message when the Convex read-only gate is set.",
+      "maps_to_ac": "AC-6",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-12\""
+    },
+    {
+      "id": "TC-13",
+      "type": "test_criterion",
+      "description": "The real api.subscriptions.mutations.add call rejects with a migration_read_only-prefixed error message when the Convex read-only gate is set.",
+      "statement": "The real api.subscriptions.mutations.add call rejects with a migration_read_only-prefixed error message when the Convex read-only gate is set.",
+      "maps_to_ac": "AC-6",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-13\""
+    },
+    {
+      "id": "TC-14",
+      "type": "test_criterion",
+      "description": "runJob returns ok true and inserts exactly one job_runs row for task-timeout-worker when HOLO_MIGRATION_READ_ONLY is unset.",
+      "statement": "runJob returns ok true and inserts exactly one job_runs row for task-timeout-worker when HOLO_MIGRATION_READ_ONLY is unset.",
+      "maps_to_ac": "AC-7",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-14\""
+    },
+    {
+      "id": "TC-15",
+      "type": "test_criterion",
+      "description": "runJob returns ok false with an error message starting migration_read_only when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "statement": "runJob returns ok false with an error message starting migration_read_only when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "maps_to_ac": "AC-8",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-15\""
+    },
+    {
+      "id": "TC-16",
+      "type": "test_criterion",
+      "description": "job_runs row count after the fenced task-timeout-worker call equals the row count after the unfenced call when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "statement": "job_runs row count after the fenced task-timeout-worker call equals the row count after the unfenced call when HOLO_MIGRATION_READ_ONLY is set to '1'.",
+      "maps_to_ac": "AC-8",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-16\""
+    }
+  ]
 }
 -->
