@@ -10,7 +10,7 @@
   "green_suite": "services/platform/tests/integration/sprint29-convex-fence.test.ts",
   "linked_red_suite": "services/platform/tests/integration/sprint29-write-fence-red.test.ts",
   "notes": "D06-03 implements durable Convex HOLO_MIGRATION_READ_ONLY fence (env==1) via fencedMutation/Action/HttpAction + codemod, cutover:freeze/quiet-check/capture-article-baseline/verify:convex-fence-coverage. D06-01 Convex fence TCs (TC-12/13) GREEN with message extraction; Hono/MCP/jobs fence remains D06-05 scope per WRITE-PROHIBITED. FIX-D06-03-AC2: 4/4 AC-2, freeze fail-closed, honest quiet-check, row-count AC-1.",
-  "green_commit": "29ca0ba0460c9b583b5a98cb9da5966ef75214b5",
-  "green_commit_short": "29ca0ba0460c",
+  "green_commit": "9ec04e530d635b262545c95a5a29e07f21abd771",
+  "green_commit_short": "9ec04e530d63",
   "remediation": "FIX-D06-03-AC2"
 }
