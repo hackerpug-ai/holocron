@@ -14,8 +14,8 @@
 import { generateText } from 'ai';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
-import { internalAction } from '../_generated/server';
 import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 
 // ============================================================================
 // AI Relevance Scoring

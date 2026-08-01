@@ -14,7 +14,7 @@
  * Run this with: npx convex run migrations/refactor_deep_research_messages:migrate
  */
 
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 export const migrate = internalMutation({
   args: {},

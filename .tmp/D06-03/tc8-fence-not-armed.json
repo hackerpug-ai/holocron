@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": {
+    "code": "FENCE_NOT_ARMED",
+    "message": "Fence is not armed (HOLO_MIGRATION_READ_ONLY != 1). Run holo cutover:freeze first."
+  }
+}

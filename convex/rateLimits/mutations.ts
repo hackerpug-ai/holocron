@@ -3,7 +3,7 @@
  */
 
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 import type { RateLimitProvider } from '../synthesis/rateLimits';
 import { providerValidator, RATE_LIMITS } from '../synthesis/rateLimits';
 

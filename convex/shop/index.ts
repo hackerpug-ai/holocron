@@ -7,8 +7,8 @@
 'use node';
 
 import { v } from 'convex/values';
-import { action } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import { fencedAction as action } from '../lib/migrationFence';
 
 const HINT = "holo mission run shop --query '<term>'";
 

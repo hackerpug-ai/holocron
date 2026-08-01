@@ -2,8 +2,8 @@
 
 import { v } from 'convex/values';
 import { api } from '../_generated/api';
-import { action } from '../_generated/server';
 import { detectPodcastPlatform } from '../audioTranscripts/internal';
+import { fencedAction as action } from '../lib/migrationFence';
 
 interface HandlePodcastUrlResult {
   success: boolean;

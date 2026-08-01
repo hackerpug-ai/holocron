@@ -11,8 +11,11 @@
 import { embed } from 'ai';
 import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
-import { action, internalMutation } from '../_generated/server';
 import { cohereEmbedding } from '../lib/ai/embeddings_provider';
+import {
+  fencedAction as action,
+  fencedInternalMutation as internalMutation,
+} from '../lib/migrationFence';
 
 ('use node');
 

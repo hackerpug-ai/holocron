@@ -1,6 +1,9 @@
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
-import { internalMutation, mutation } from '../_generated/server';
+import {
+  fencedInternalMutation as internalMutation,
+  fencedMutation as mutation,
+} from '../lib/migrationFence';
 import { toTitleCase } from '../lib/strings';
 import { TOOLS_REQUIRING_APPROVAL, VALID_TOOL_NAMES } from './toolConfig';
 

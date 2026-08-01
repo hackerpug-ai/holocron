@@ -1,6 +1,6 @@
 import { httpRouter } from 'convex/server';
 import { api } from './_generated/api';
-import { httpAction } from './_generated/server';
+import { fencedHttpAction as httpAction } from './lib/migrationFence';
 
 // Import documents functions to ensure they're deployed
 import './documents/queries';
@@ -33,6 +33,26 @@ http.route({
       status: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
+  }),
+});
+
+/**
+ * D06-03 cutover write probe — mutating httpAction surface for freeze evidence.
+ * fencedHttpAction rejects POST/PUT/PATCH/DELETE with migration_read_only: before
+ * the handler runs when HOLO_MIGRATION_READ_ONLY is armed. Unfenced: no-op 200.
+ */
+http.route({
+  path: '/cutover/write-probe',
+  method: 'POST',
+  handler: httpAction(async () => {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        surface: 'httpAction',
+        note: 'write probe accepted (fence disengaged)',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   }),
 });
 

@@ -10,8 +10,8 @@
 import { generateText } from 'ai';
 import { v } from 'convex/values';
 import { api } from '../_generated/api';
-import { action } from '../_generated/server';
 import { claudeFlash } from '../lib/ai/anthropic_provider';
+import { fencedAction as action } from '../lib/migrationFence';
 
 type ToolCategory = 'libraries' | 'cli' | 'framework' | 'service' | 'database' | 'tool';
 

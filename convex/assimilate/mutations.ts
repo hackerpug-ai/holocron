@@ -8,7 +8,10 @@ import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import { api } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { internalMutation, mutation } from '../_generated/server';
+import {
+  fencedInternalMutation as internalMutation,
+  fencedMutation as mutation,
+} from '../lib/migrationFence';
 
 /**
  * Save assimilation results

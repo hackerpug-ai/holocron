@@ -5,8 +5,8 @@
  * RN CRUD/list queries remain in ./queries.ts and ./mutations.ts.
  */
 import { v } from 'convex/values';
-import { action } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import { fencedAction as action } from '../lib/migrationFence';
 
 const HINT = 'holo mission run subscriptions --claims <path> [--topic <text>]';
 

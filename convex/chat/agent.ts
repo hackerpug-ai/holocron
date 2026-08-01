@@ -22,9 +22,12 @@ import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { ActionCtx } from '../_generated/server';
-import { action, internalAction } from '../_generated/server';
 import { isPendingExpired } from '../conversations/mutations';
 import { claudePro } from '../lib/ai/anthropic_provider';
+import {
+  fencedAction as action,
+  fencedInternalAction as internalAction,
+} from '../lib/migrationFence';
 import { generateTextWithReAct } from '../lib/react';
 import { toTitleCase } from '../lib/strings';
 import { HOLOCRON_SYSTEM_PROMPT } from './prompts';

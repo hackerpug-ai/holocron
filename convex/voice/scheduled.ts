@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 const SESSION_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 

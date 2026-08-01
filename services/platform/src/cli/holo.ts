@@ -235,6 +235,10 @@ interface CliArgs {
   blobRoot: string | null;
   /** backup:emit-recovery-baseline --restic-snapshot <id> */
   resticSnapshot: string | null;
+  /** cutover:quiet-check --window-seconds <n> */
+  windowSeconds: string | null;
+  /** cutover:capture-article-baseline --token <shareToken> */
+  token: string | null;
 }
 
 function printHelp(): void {
@@ -301,6 +305,12 @@ Usage:
                             Exit 0 only if POSTGRES_PARITY_PASS + LEDGER_CHECKSUM_MATCH + BLOB_PARITY_PASS
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   cutover:go-no-go          D06-02 pre-cutover harness suite (8 real gates) [--json] [--output <path>]
+  cutover:freeze            D06-03 arm HOLO_MIGRATION_READ_ONLY=1 + fence_armed_at [--reason] [--json] [--output]
+  cutover:quiet-check       D06-03 quiet interval oracle [--window-seconds N] [--json] [--output]
+  cutover:capture-article-baseline
+                            D06-03 post-freeze article sha256 baseline --token <t> [--json] [--output]
+  verify:convex-fence-coverage
+                            D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
@@ -579,6 +589,8 @@ function parseArgs(argv: string[]): CliArgs {
     freshTarget: null,
     blobRoot: null,
     resticSnapshot: null,
+    windowSeconds: null,
+    token: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -929,6 +941,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.resticSnapshot = argv[++i] ?? null;
     } else if (a.startsWith('--restic-snapshot=')) {
       args.resticSnapshot = a.slice('--restic-snapshot='.length);
+    } else if (a === '--window-seconds') {
+      args.windowSeconds = argv[++i] ?? null;
+    } else if (a.startsWith('--window-seconds=')) {
+      args.windowSeconds = a.slice('--window-seconds='.length);
+    } else if (a === '--token') {
+      args.token = argv[++i] ?? null;
+    } else if (a.startsWith('--token=')) {
+      args.token = a.slice('--token='.length);
     } else if (a.startsWith('-')) {
       exitUnknownFlag(a, argv);
     } else {
@@ -3072,6 +3092,119 @@ async function main(): Promise<void> {
         }
         process.exit(1);
       }
+      break;
+    }
+    case 'cutover:freeze': {
+      // D06-03 / T-SYNC-009: arm HOLO_MIGRATION_READ_ONLY=1 + emit fence_armed_at
+      const { runCutoverFreeze, formatFreezeText, defaultFreezeReportPath } = await import(
+        '../cutover/convex-fence-client.ts'
+      );
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultFreezeReportPath(process.cwd());
+        const report = await runCutoverFreeze({
+          reason: args.reason,
+          reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatFreezeText(report));
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:freeze failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:quiet-check': {
+      // D06-03: acceptedWriteCount=0 && rejectedWriteCount>0 over window
+      const { runQuietCheck, formatQuietCheckText, defaultQuietCheckReportPath } = await import(
+        '../cutover/convex-fence-client.ts'
+      );
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultQuietCheckReportPath(process.cwd());
+        const windowSeconds = args.windowSeconds ? Number.parseInt(args.windowSeconds, 10) : 30;
+        const report = await runQuietCheck({
+          windowSeconds: Number.isFinite(windowSeconds) ? windowSeconds : 30,
+          reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatQuietCheckText(report));
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:quiet-check failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:capture-article-baseline': {
+      // D06-03: real post-freeze /article/:token sha256 baseline (FENCE_NOT_ARMED fail-closed)
+      const {
+        captureArticleBaseline,
+        formatArticleBaselineText,
+        defaultArticleBaselinePath,
+        FENCE_NOT_ARMED,
+      } = await import('../cutover/article-baseline.ts');
+      try {
+        const token = args.token ?? args.positional[0] ?? '';
+        const outputPath = args.output
+          ? resolve(args.output)
+          : defaultArticleBaselinePath(process.cwd());
+        const result = await captureArticleBaseline({ token, outputPath });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(formatArticleBaselineText(result));
+        }
+        if (!result.ok) {
+          const code =
+            'error' in result && result.error?.code ? result.error.code : 'CAPTURE_FAILED';
+          process.exit(code === FENCE_NOT_ARMED ? 2 : 1);
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:capture-article-baseline failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'verify:convex-fence-coverage': {
+      // D06-03: zero raw mutation/action/httpAction imports remain
+      const { verifyConvexFenceCoverage, formatCoverageText } = await import(
+        '../cutover/convex-fence-client.ts'
+      );
+      const report = verifyConvexFenceCoverage(
+        args.root ? { convexRoot: resolve(args.root) } : undefined
+      );
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatCoverageText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
       break;
     }
     case 'verify-no-convex-env': {

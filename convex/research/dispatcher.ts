@@ -27,7 +27,10 @@ import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { ActionCtx } from '../_generated/server';
-import { action, internalAction } from '../_generated/server';
+import {
+  fencedAction as action,
+  fencedInternalAction as internalAction,
+} from '../lib/migrationFence';
 import { executeParallelSearchWithRetry, type ParallelSearchResult } from './search';
 
 // ============================================================================

@@ -6,7 +6,8 @@
  */
 
 import { v } from 'convex/values';
-import { internalMutation, query } from '../_generated/server';
+import { query } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 // ============================================================================
 // Internal Mutations (for logging)

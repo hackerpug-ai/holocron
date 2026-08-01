@@ -1,6 +1,6 @@
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 // The actions file does not exist yet; reference it explicitly so the scheduler
 // call can be wired at runtime without a generated-API type error.

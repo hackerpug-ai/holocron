@@ -6,7 +6,10 @@
 
 import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
-import { internalMutation, mutation } from '../_generated/server';
+import {
+  fencedInternalMutation as internalMutation,
+  fencedMutation as mutation,
+} from '../lib/migrationFence';
 
 const deepResearchSessionStatus = v.union(
   v.literal('pending'),

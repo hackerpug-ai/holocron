@@ -2,8 +2,8 @@
  * MIGRATED_TO_MISSION_ENGINE — residual subscriptions AI scoring disabled (pipes-3).
  */
 import { v } from 'convex/values';
-import { internalAction } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 
 const HINT = 'holo mission run subscriptions --claims <path>';
 

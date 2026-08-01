@@ -7,8 +7,12 @@
  * Pure internalQuery/internalMutation data helpers remain for RN/CRUD and tests.
  */
 import { v } from 'convex/values';
-import { internalAction, internalMutation, internalQuery } from '../_generated/server';
+import { internalQuery } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import {
+  fencedInternalAction as internalAction,
+  fencedInternalMutation as internalMutation,
+} from '../lib/migrationFence';
 
 const HINT = 'holo mission run subscriptions --claims <path> [--topic <text>]';
 

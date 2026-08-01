@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { action, internalAction, mutation, query } from './_generated/server';
+import { query } from './_generated/server';
+import {
+  fencedAction as action,
+  fencedInternalAction as internalAction,
+  fencedMutation as mutation,
+} from './lib/migrationFence';
 
 // ============================================================================
 // Queries

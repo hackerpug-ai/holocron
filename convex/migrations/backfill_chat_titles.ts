@@ -14,7 +14,8 @@
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { action, internalQuery } from '../_generated/server';
+import { internalQuery } from '../_generated/server';
+import { fencedAction as action } from '../lib/migrationFence';
 
 interface ConversationNeedingTitle {
   _id: Id<'conversations'>;

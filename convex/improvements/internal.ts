@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 /**
  * Apply the agent's analysis result to an improvement request.

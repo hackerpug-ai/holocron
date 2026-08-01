@@ -12,8 +12,8 @@
 
 import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
-import { internalAction } from '../_generated/server';
 import { executeAgentTool } from '../chat/toolExecutor';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 
 // ---------------------------------------------------------------------------
 // executePlanStep

@@ -5,8 +5,8 @@
  * RN read/approve surfaces remain in ./queries.ts and non-agentic mutations.
  */
 import { v } from 'convex/values';
-import { internalAction } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 
 const HINT = "holo mission run assimilate --target '<owner/repo>'";
 

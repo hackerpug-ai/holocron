@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalAction } from '../_generated/server';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 
 // Handle normalization patterns
 const YOUTUBE_HANDLE_REGEX = /^[a-zA-Z0-9_-]{3,30}$/;

@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
-import { mutation, query } from '../_generated/server';
+import { query } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 // Generate short random token using nanoid-like approach
 function generateToken(length: number): string {

@@ -4,7 +4,7 @@ import type { FunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import { getToolDefinitions } from '../../lib/voice/tool-definitions';
 import { api, internal } from '../_generated/api';
-import { action } from '../_generated/server';
+import { fencedAction as action } from '../lib/migrationFence';
 
 const OPENAI_REALTIME_SESSIONS_URL = 'https://api.openai.com/v1/realtime/client_secrets';
 

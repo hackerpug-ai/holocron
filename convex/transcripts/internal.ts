@@ -11,8 +11,8 @@
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { internalAction } from '../_generated/server';
 import { JinaError, jinaReader } from '../lib/jina';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 import { fetchNodeTranscript } from './nodeTranscript';
 
 /**

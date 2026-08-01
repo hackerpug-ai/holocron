@@ -7,8 +7,11 @@
 'use node';
 
 import { v } from 'convex/values';
-import { action, internalAction } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import {
+  fencedAction as action,
+  fencedInternalAction as internalAction,
+} from '../lib/migrationFence';
 
 const HINT = 'holo mission run whatsNew --date YYYY-MM-DD';
 

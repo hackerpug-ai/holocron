@@ -8,7 +8,7 @@
  * - {category}: Count per category
  */
 
-import { mutation } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 export const backfillDocumentCounters = mutation({
   args: {},

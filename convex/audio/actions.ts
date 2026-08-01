@@ -4,7 +4,10 @@ import { createHash } from 'node:crypto';
 import { v } from 'convex/values';
 import { ElevenLabsClient } from 'elevenlabs';
 import { api, internal } from '../_generated/api';
-import { action, internalAction } from '../_generated/server';
+import {
+  fencedAction as action,
+  fencedInternalAction as internalAction,
+} from '../lib/migrationFence';
 
 const DEFAULT_VOICE_ID = 'DODLEQrClDo8wCz460ld';
 const MODEL_FLASH = 'eleven_flash_v2_5';

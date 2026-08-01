@@ -5,7 +5,7 @@
  */
 
 import { internal } from '../_generated/api';
-import { action } from '../_generated/server';
+import { fencedAction as action } from '../lib/migrationFence';
 
 ('use node');
 

@@ -11,7 +11,8 @@
  */
 
 import { v } from 'convex/values';
-import { mutation, query } from '../_generated/server';
+import { query } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 /**
  * Check how many array cardData documents exist
