@@ -625,7 +625,11 @@ function writePositiveDependencyEvidence(noKeyControlExecuted = false): string |
 }
 
 function assertConfiguredPositiveDependencies(): void {
-  const dependencyFailure = configuredPositiveDependencyFailure(gate, pitrWindow, pitrTimestampInWindow);
+  const dependencyFailure = configuredPositiveDependencyFailure(
+    gate,
+    pitrWindow,
+    pitrTimestampInWindow
+  );
   if (!dependencyFailure) return;
   const evidencePath = writePositiveDependencyEvidence();
   try {
@@ -645,9 +649,9 @@ describe('GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real res
         false
       )
     ).toThrow(BUN_DEPENDENCY_FAILURE);
-    expect(() =>
-      assertPositiveDependenciesAvailable(configuredGate, { ok: false }, false)
-    ).toThrow(PITR_WINDOW_DEPENDENCY_FAILURE);
+    expect(() => assertPositiveDependenciesAvailable(configuredGate, { ok: false }, false)).toThrow(
+      PITR_WINDOW_DEPENDENCY_FAILURE
+    );
   });
 
   it('real scripts exist and parse without changing their gate contracts', () => {
