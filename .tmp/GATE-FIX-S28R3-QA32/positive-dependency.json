@@ -1,0 +1,21 @@
+{
+  "schema": "holo.gate-fix-s28r3-qa32.positive-dependency.v1",
+  "status": "blocked",
+  "task": "GATE-FIX-S28R3-QA32",
+  "reason": "no ignored secret configuration is readable",
+  "credential_gate": {
+    "configFound": false,
+    "configBasename": null,
+    "restoreAccessKeyPresent": false,
+    "restoreSecretPresent": false,
+    "restoreTupleDistinct": true,
+    "available": false,
+    "reason": "no ignored secret configuration is readable"
+  },
+  "pitr_window": null,
+  "requested_target_timestamp": false,
+  "target_timestamp_present": false,
+  "positive_control_executed": false,
+  "no_key_control_executed": true,
+  "provider_or_docker_invoked": false
+}
