@@ -1,4 +1,8 @@
 # D06-03: Durable write-fence + cron/queue drain + quiet interval
+> Status: ✅ Completed
+> Commit: 9f00f18ec532cce4ba9b051a6d10b78942f993d3
+> Reviewer: product-manager+mastra-reviewer
+> Completed: 2026-08-01T23:39:08Z
 
 > **Task ID:** D06-03
 > **Sprint:** [Sprint 29 — Cutover](./SPRINT.md)
