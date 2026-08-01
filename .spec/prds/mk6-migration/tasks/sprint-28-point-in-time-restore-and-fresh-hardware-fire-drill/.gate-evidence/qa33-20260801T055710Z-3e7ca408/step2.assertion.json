@@ -1,0 +1,10 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "notes": "REDHAT-FIX-S28R3/HIGH-1: live distinct R2_RESTORE_* + prove-r2-readonly required. Absent keys → non-zero + DEPENDENCY-S28-R2-RO (honest residual; never ro-test green). GATE-FIX-S28R3-QA4/H-2: assert-gate-run-id before mkdir; evidence under .tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}/.",
+  "require_all_regex": [
+    "AXIS network:[[:space:]]*PASS",
+    "AXIS identity:[[:space:]]*PASS",
+    "RESULT:[[:space:]]+PASS"
+  ]
+}

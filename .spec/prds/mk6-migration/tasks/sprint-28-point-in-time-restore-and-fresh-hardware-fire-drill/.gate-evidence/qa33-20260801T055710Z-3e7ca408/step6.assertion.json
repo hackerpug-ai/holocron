@@ -1,0 +1,12 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "notes": "Outer script exits 0 only when restore domain fail-closed is proven. must_not_observe unknown-flag-only. GATE-FIX-S28R3-QA3: assert-gate-run-id preflight; no :-manual.",
+  "require_all_regex": [
+    "no base backup available|backup chain missing|manifest checksum|WAL segment corrupted|outside available WAL|backup config missing secrets"
+  ],
+  "must_not_observe": [
+    "unknown flag: --pitr"
+  ],
+  "must_not_sole_success_on": "unknown flag: --pitr"
+}

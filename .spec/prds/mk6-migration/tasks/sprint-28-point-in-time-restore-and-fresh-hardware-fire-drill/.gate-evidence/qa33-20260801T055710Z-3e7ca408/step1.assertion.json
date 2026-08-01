@@ -1,0 +1,15 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": null,
+  "notes": "Valid in-window PITR → exit 0 + SELECT 1. Outside-window / empty → non-zero named restore error. Never unknown flag: --pitr. GATE-FIX-S28R3-QA3: scripts/assert-gate-run-id.sh preflight required; no :-manual; use \"${GATE_RUN_ID}\" only.",
+  "must_observe_any": [
+    "overall:.*OK",
+    "outside available WAL",
+    "no base backup available",
+    "backup chain missing",
+    "backup config missing secrets"
+  ],
+  "must_not_observe": [
+    "unknown flag: --pitr"
+  ]
+}

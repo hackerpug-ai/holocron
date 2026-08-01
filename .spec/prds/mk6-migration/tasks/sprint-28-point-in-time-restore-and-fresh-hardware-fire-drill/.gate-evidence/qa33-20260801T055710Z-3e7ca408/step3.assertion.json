@@ -1,0 +1,14 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "notes": "REDHAT-FIX-S28R3/CRITICAL-1: volume-bound runner + attestation; restore destinations are provisioned volume Mountpoints (not .tmp/REDHAT-FIX-H2/step3-*). GATE-FIX-S28R3-QA3: required allowlisted GATE_RUN_ID preflight; trap removes ${HOST}-net. GATE-FIX-S28R3-QA5/H-2: evidence under .tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}/ (step3-provision.txt, step3-fire-drill.txt, attestation.json, parity-report.json; STAGING_ROOT=$EVID/fresh-restore). GATE-FIX-S28R3-QA6: HOST via scripts/derive-s28-fresh-host.sh (≤64, collision-resistant).",
+  "require_all_regex": [
+    "POSTGRES_PARITY_PASS",
+    "row_counts",
+    "run-fire-drill-on-fresh-target|fire-drill-attestation|bound scratch"
+  ],
+  "must_not_observe": [
+    "unknown flag:",
+    "unknown command"
+  ]
+}
