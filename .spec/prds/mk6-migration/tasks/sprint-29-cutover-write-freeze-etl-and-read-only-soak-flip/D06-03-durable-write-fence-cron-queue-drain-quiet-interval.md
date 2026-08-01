@@ -15,19 +15,20 @@
 
 ## Specification
 
-**Objective.** Durably fence every Convex mutation/action/httpAction via the pinned HOLO_MIGRATION_READ_ONLY env-var contract, capture a real pre-freeze article baseline, drain crons, and prove a quiet interval — UC-SYNC-03 AC-2 / T-SYNC-009.
+**Objective.** Durably fence every Convex mutation/action/httpAction via the pinned HOLO_MIGRATION_READ_ONLY env-var contract, emit a machine-readable fence_armed_at anchor, capture a real post-freeze (frozen-final-state) article baseline against that anchor, drain crons, and prove a quiet interval — UC-SYNC-03 AC-2 / T-SYNC-009.
 
-**Success state.** `holo cutover:capture-article-baseline` persists a real sha256 baseline; `holo cutover:freeze` sets HOLO_MIGRATION_READ_ONLY=1 durably and refuses without a baseline; a subsequent write to any wrapped surface throws `migration_read_only: ...` with zero rows added; `holo cutover:quiet-check` reports acceptedWriteCount=0 with rejectedWriteCount>0; `holo verify:convex-fence-coverage` proves zero unfenced imports remain.
+**Success state.** `holo cutover:freeze` sets HOLO_MIGRATION_READ_ONLY=1 durably and emits fence_armed_at (epoch-ms) in both --json and the audit row; `holo cutover:capture-article-baseline` then persists a real sha256 baseline with capturedAtMs strictly greater than fence_armed_at, refusing with FENCE_NOT_ARMED if run before the fence is armed; a subsequent write to any wrapped surface throws `migration_read_only: ...` with zero rows added; `holo cutover:quiet-check` reports acceptedWriteCount=0 with rejectedWriteCount>0; `holo verify:convex-fence-coverage` proves zero unfenced imports remain.
 
 ## Critical Constraints
 
 - **MUST** — MUST implement the fence as the SINGLE pinned contract from D06-01: the env var HOLO_MIGRATION_READ_ONLY=='1', read via `npx convex env get/set` at the deployment level (durable across restarts) — this is the ONLY fencing mechanism; do not invent a second one
 - **MUST** — MUST throw `new Error('migration_read_only: <reason>')` (lowercase prefix) from every wrapped mutation/action/httpAction when the env var is set, mirroring the ALLOW_CLEAR_ALL precedent at convex/documents/mutations.ts:209-217 exactly
 - **MUST** — MUST fence mutation/action/httpAction entry points via one shared convex-helpers wrapper, applied repo-wide via a mechanical codemod (import swap only), never hand-editing handler bodies
-- **MUST** — MUST capture a real pre-freeze article baseline (sha256 + byteLength of the live Convex-served /article/:shareToken route) BEFORE engaging the fence, since holo article:compat (holo.ts:5311) is a static stub with no real comparison and cannot serve as the later parity oracle
+- **MUST** — MUST have cutover:freeze emit a machine-readable fence_armed_at (epoch-ms integer, e.g. 1735689599000) in BOTH its --json output and the migrationFenceAudit audit row, recorded at the moment HOLO_MIGRATION_READ_ONLY flips to '1' — this is the anchor D06-05 uses to prove the article baseline reflects the frozen final state, not a racy pre-fence snapshot
+- **MUST** — MUST capture the real article baseline (sha256 + byteLength of the live Convex-served /article/:shareToken route) AFTER the fence is armed (capturedAtMs strictly greater than fence_armed_at), since holo article:compat (holo.ts:5311) is a static stub with no real comparison and a pre-fence capture cannot prove the state is final — cutover:capture-article-baseline reads the fence's fence_armed_at and fail-closes if the fence is not yet armed
 - **MUST** — MUST record a lightweight audit row (accepted vs rejected) for every write attempt after fence engagement so quiet-check has a concrete, queryable oracle — the audit table is observability only; the env var remains the sole enforcement mechanism
 - **NEVER** — NEVER delete any convex/ module, dependency, or the Convex cloud deployment — Sprint 31's job
-- **NEVER** — NEVER let cutover:freeze proceed if no article baseline has been captured — it MUST exit non-zero with error.code=='ARTICLE_BASELINE_MISSING'
+- **NEVER** — NEVER let cutover:capture-article-baseline proceed if the fence is not yet armed — it MUST exit non-zero with error.code=='FENCE_NOT_ARMED' (baseline capture depends on the fence being armed, not the reverse, so the captured state is provably post-freeze final)
 - **NEVER** — NEVER treat 'crons stopped running' as proof of drain — must show a positive rejected-write audit trail
 - **STRICTLY** — STRICTLY the env-var check is the FIRST statement inside every wrapped handler
 - **STRICTLY** — STRICTLY this remains config/flag-driven and reversible — Sprint 30 exercises un-fencing it as the rollback drill, this task does not
@@ -37,8 +38,8 @@
 #### AC-1 (PRIMARY)
 
 - **GIVEN** convex_dev_deployment_writes_enabled
-- **WHEN** operator runs cutover:freeze after a baseline capture
-- **THEN** HOLO_MIGRATION_READ_ONLY becomes '1' durably and documents.create throws migration_read_only: with zero row-count change
+- **WHEN** operator runs cutover:freeze
+- **THEN** HOLO_MIGRATION_READ_ONLY becomes '1' durably, fence_armed_at is emitted as a real epoch-ms integer in both --json and the audit row, and documents.create throws migration_read_only: with zero row-count change
 
 `test_tier: integration` · `service: convex` · `flow_ref: T-SYNC-009`
 #### AC-2
@@ -64,9 +65,9 @@
 `test_tier: integration` · `service: convex` · `flow_ref: T-SYNC-009`
 #### AC-5
 
-- **GIVEN** pre_freeze_live_deployment
-- **WHEN** operator runs cutover:capture-article-baseline before freeze
-- **THEN** a real sha256/byteLength baseline persists and freeze refuses without it
+- **GIVEN** fence_armed_awaiting_baseline
+- **WHEN** operator runs cutover:capture-article-baseline after the fence is armed
+- **THEN** a real sha256/byteLength baseline persists with capturedAtMs strictly greater than fence_armed_at, and capture fails closed with FENCE_NOT_ARMED if attempted before the fence is armed
 
 `test_tier: integration` · `service: convex` · `flow_ref: T-SYNC-009`
 
@@ -81,7 +82,8 @@
 | TC-5 | rejectedWriteCount is greater than zero after the quiet-check observation window | AC-3 | `jq .rejectedWriteCount` |
 | TC-6 | verify:convex-fence-coverage reports zero unfenced import matches | AC-4 | `holo verify:convex-fence-coverage --json; jq .matches` |
 | TC-7 | article-baseline.json contains a 64-hex sha256 and a nonzero byteLength | AC-5 | `jq '.sha256, .byteLength' article-baseline.json` |
-| TC-8 | cutover:freeze exits non-zero with error.code ARTICLE_BASELINE_MISSING when the baseline file is absent | AC-5 | `rm article-baseline.json; holo cutover:freeze; echo $?` |
+| TC-8 | cutover:capture-article-baseline exits non-zero with error.code FENCE_NOT_ARMED when the fence is not yet armed | AC-5 | `holo cutover:capture-article-baseline --token <t> (fence disengaged); echo $?` |
+| TC-9 | article-baseline.json capturedAtMs is strictly greater than the freeze report's fence_armed_at | AC-5 | `jq .fence_armed_at freeze-report.json; jq .capturedAtMs article-baseline.json` |
 
 ## Reading List
 
@@ -178,20 +180,22 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "documents.create returns a new _id and documents row count increases by 1 (e.g. from 12 to 13)"
    ]
   },
-  "pre_freeze_live_deployment": {
-   "description": "Convex deployment still serving reads/writes with at least one document marked isPublic=true and a real shareToken, before the fence is engaged.",
-   "seed_method": "public_api",
+  "fence_armed_awaiting_baseline": {
+   "description": "Fence already armed via holo cutover:freeze (HOLO_MIGRATION_READ_ONLY='1', fence_armed_at recorded as a real epoch-ms integer in both --json and the audit row) with at least one document marked isPublic=true and a real shareToken; article baseline not yet captured.",
+   "seed_method": "cli",
    "records": [
+    "holo cutover:freeze --reason 'sprint-29 cutover drill' exits 0",
+    "fence_armed_at is a real epoch-ms integer greater than 0 in the freeze --json output",
     "a sampled document has isPublic=true and a non-null shareToken",
-    "the live Convex-served /article/:shareToken route returns HTTP 200 with real HTML bytes (length > 0)"
+    "the live Convex-served /article/:shareToken route returns HTTP 200 with real HTML bytes (length > 0) even while the fence blocks writes"
    ]
   },
   "convex_dev_deployment_frozen": {
-   "description": "Fence engaged via holo cutover:freeze against the real deployment after a baseline capture; HOLO_MIGRATION_READ_ONLY='1'.",
+   "description": "Fence engaged via holo cutover:freeze against the real deployment, with fence_armed_at recorded and the article baseline subsequently captured; HOLO_MIGRATION_READ_ONLY='1'.",
    "seed_method": "cli",
    "records": [
-    "holo cutover:capture-article-baseline --token <token> exits 0 first",
-    "holo cutover:freeze --reason 'sprint-29 cutover drill' exits 0",
+    "holo cutover:freeze --reason 'sprint-29 cutover drill' exits 0 and emits fence_armed_at > 0",
+    "holo cutover:capture-article-baseline --token <token> exits 0 with capturedAtMs > fence_armed_at",
     "npx convex env get HOLO_MIGRATION_READ_ONLY returns '1'"
    ]
   }
@@ -202,8 +206,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
    "type": "acceptance_criterion",
    "primary": true,
    "flow_ref": "T-SYNC-009",
-   "description": "GIVEN writes enabled WHEN operator runs cutover:freeze THEN HOLO_MIGRATION_READ_ONLY becomes 1 durably and a real mutation is rejected with zero side effects",
-   "verify": "holo cutover:capture-article-baseline --token <t>; holo cutover:freeze --reason drill; call documents.create; expect message prefix migration_read_only:; documents count unchanged",
+   "description": "GIVEN writes enabled WHEN operator runs cutover:freeze THEN HOLO_MIGRATION_READ_ONLY becomes 1 durably, fence_armed_at is emitted, and a real mutation is rejected with zero side effects",
+   "verify": "holo cutover:freeze --reason drill --json; jq .fence_armed_at freeze-report.json; call documents.create; expect message prefix migration_read_only:; documents count unchanged",
    "maps_to_ac": null,
    "test_tier": "integration",
    "scenario": {
@@ -214,7 +218,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "negative_control": {
      "would_fail_if": [
       "the env var flips but the wrapped mutation still executes its handler body and inserts a row (a stub fence check)",
-      "the env-var check runs after the handler body instead of before it (mock ordering)"
+      "the env-var check runs after the handler body instead of before it (mock ordering)",
+      "fence_armed_at is a stubbed/hardcoded constant instead of the real arm moment"
      ]
     },
     "evidence": {
@@ -227,8 +232,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
       "action": {
        "actor": "operator",
        "steps": [
-        "run holo cutover:capture-article-baseline --token <sampled-token>",
-        "run holo cutover:freeze --reason drill",
+        "run holo cutover:freeze --reason drill --json",
+        "inspect fence_armed_at in the --json output and the migrationFenceAudit row",
         "call documents.create against the real deployment",
         "re-query the documents table row count"
        ]
@@ -236,11 +241,13 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
       "end_state": {
        "must_observe": [
         "npx convex env get HOLO_MIGRATION_READ_ONLY returns the literal string '1'",
+        "fence_armed_at is greater than the literal 0 (epoch-ms) and present in both the --json output and the migrationFenceAudit row",
         "documents.create throws an Error whose message starts with the literal 'migration_read_only:'",
         "documents row count identical before/after the attempt (e.g. 12 before, 12 after)"
        ],
        "must_not_observe": [
         "HOLO_MIGRATION_READ_ONLY returns '0' or empty after freeze",
+        "fence_armed_at equals 0 or is absent/none from the --json output or the audit row",
         "documents.create returns a new _id",
         "documents row count increases by 1 (was 12, now 13)"
        ]
@@ -399,8 +406,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
    "type": "acceptance_criterion",
    "primary": false,
    "flow_ref": "T-SYNC-009",
-   "description": "GIVEN a pre-freeze live deployment WHEN operator captures the article baseline before freeze THEN a real baseline persists and freeze fail-closes without one",
-   "verify": "holo cutover:capture-article-baseline --token <t>; jq '.sha256,.byteLength' article-baseline.json; rm article-baseline.json; holo cutover:freeze; echo $?",
+   "description": "GIVEN the fence is already armed WHEN operator captures the article baseline THEN a real post-freeze baseline persists with capturedAtMs strictly greater than fence_armed_at, and capture fail-closes if attempted before the fence is armed",
+   "verify": "holo cutover:freeze --reason drill --json; jq .fence_armed_at freeze-report.json; holo cutover:capture-article-baseline --token <t>; jq '.sha256,.byteLength,.capturedAtMs' article-baseline.json",
    "maps_to_ac": null,
    "test_tier": "integration",
    "scenario": {
@@ -410,8 +417,9 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "topology": "single-node",
     "negative_control": {
      "would_fail_if": [
-      "the baseline is synthesized/hardcoded instead of fetched from the live route",
-      "cutover:freeze proceeds (exit 0) with no baseline file present"
+      "the baseline is synthesized/hardcoded instead of fetched from the live route (mock capture)",
+      "capturedAtMs is not actually compared against fence_armed_at (a static pass)",
+      "cutover:capture-article-baseline proceeds (exit 0) with the fence disengaged"
      ]
     },
     "evidence": {
@@ -420,26 +428,28 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     },
     "cases": [
      {
-      "start_ref": "pre_freeze_live_deployment",
+      "start_ref": "fence_armed_awaiting_baseline",
       "action": {
        "actor": "operator",
        "steps": [
+        "confirm fence_armed_at from the prior cutover:freeze --json output",
         "run holo cutover:capture-article-baseline --token <sampled-token>",
         "inspect article-baseline.json",
-        "delete article-baseline.json",
-        "run holo cutover:freeze --reason drill"
+        "attempt cutover:capture-article-baseline again against a fence-disengaged fixture"
        ]
       },
       "end_state": {
        "must_observe": [
         "article-baseline.json sha256 matches ^[0-9a-f]{64}$",
         "byteLength is greater than 0 (e.g. 4821)",
-        "the freeze attempt without a baseline exits with a non-zero code and error.code equal to the literal 'ARTICLE_BASELINE_MISSING'"
+        "capturedAtMs is strictly greater than fence_armed_at (e.g. capturedAtMs=1735689600123 > fence_armed_at=1735689599000)",
+        "the fence-disengaged capture attempt exits with a non-zero code and error.code equal to the literal 'FENCE_NOT_ARMED'"
        ],
        "must_not_observe": [
         "sha256 is an empty string",
         "byteLength equals 0",
-        "the baseline-less freeze exits 0 (0 = success despite missing baseline)"
+        "capturedAtMs is less than or equal to fence_armed_at (a racy pre-fence or simultaneous snapshot)",
+        "the fence-disengaged capture exits 0 (0 = success despite the fence being disarmed)"
        ]
       }
      }
@@ -498,9 +508,16 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
   {
    "id": "TC-8",
    "type": "test_criterion",
-   "description": "freeze without a baseline exits non-zero with ARTICLE_BASELINE_MISSING",
+   "description": "capture-article-baseline exits non-zero with FENCE_NOT_ARMED when the fence is not yet armed",
    "maps_to_ac": "AC-5",
-   "verify": "rm article-baseline.json; holo cutover:freeze; echo $?"
+   "verify": "holo cutover:capture-article-baseline --token <t> (fence disengaged); echo $?"
+  },
+  {
+   "id": "TC-9",
+   "type": "test_criterion",
+   "description": "article baseline capturedAtMs is strictly greater than the freeze report's fence_armed_at",
+   "maps_to_ac": "AC-5",
+   "verify": "jq .fence_armed_at freeze-report.json; jq .capturedAtMs article-baseline.json"
   }
  ]
 }
