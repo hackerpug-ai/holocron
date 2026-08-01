@@ -1,5 +1,5 @@
 /**
- * GATE-FIX-S28R3-QA32 — trusted PITR probing and ambient-free real consumers.
+ * GATE-FIX-S28R3-QA33 — configured-positive failure semantics and SHA-bound proof.
  *
  * The live case is credential-gated from an ignored operator secret file. It
  * never fabricates provider or Docker success. The no-key case always runs
@@ -35,9 +35,11 @@ const QA30_TEST = resolve(
   'services/platform/tests/integration/sprint28-s28r3-qa30-gate-fix.test.ts'
 );
 const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
-const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA32');
+const TASK_ID = 'GATE-FIX-S28R3-QA33';
+const EVIDENCE_DIR = resolve(REPO_ROOT, `.tmp/${TASK_ID}`);
 const TRUSTED_BUN_PATH = '/usr/local/bin/bun';
 const BUN_DEPENDENCY_FAILURE = 'DEPENDENCY-S28R3-QA32-BUN-TRUST';
+const PITR_WINDOW_DEPENDENCY_FAILURE = 'DEPENDENCY-S28R3-QA33-PITR-WINDOW';
 
 const SECRET_KEYS = new Set([
   'R2_ACCESS_KEY_ID',
@@ -205,10 +207,30 @@ function redact(text: string, secretValues: string[] = []): string {
     .replace(/\b(AKIA[A-Z0-9]{8,}|sk-[a-z0-9_-]{8,})\b/gi, '[redacted-token]');
 }
 
+function executionHead(): string {
+  const result = spawnSync('/usr/bin/git', ['rev-parse', 'HEAD'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    timeout: 30_000,
+  });
+  const sha = result.status === 0 ? result.stdout.trim() : '';
+  if (!/^[0-9a-f]{40}$/i.test(sha)) {
+    throw new Error(`${TASK_ID}: unable to resolve exact execution HEAD`);
+  }
+  return sha;
+}
+
 function writeEvidence(name: string, body: unknown, secretValues: string[] = []): string {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   const path = resolve(EVIDENCE_DIR, name);
-  const text = redact(`${JSON.stringify(body, null, 2)}\n`, secretValues);
+  const sha = executionHead();
+  const stampedBody = {
+    ...(body as Record<string, unknown>),
+    generated_at: new Date().toISOString(),
+    reviewed_sha: sha,
+    execution_head: sha,
+  };
+  const text = redact(`${JSON.stringify(stampedBody, null, 2)}\n`, secretValues);
   writeFileSync(path, text, 'utf8');
   return path;
 }
@@ -438,7 +460,7 @@ function queryPitrWindowAtCandidate(
   } catch {
     return {
       ok: false,
-      error: `restore:window exited ${result.status ?? 'unknown'} without JSON`,
+      error: `${PITR_WINDOW_DEPENDENCY_FAILURE}: restore:window exited ${result.status ?? 'unknown'} without JSON`,
     };
   }
 }
@@ -554,18 +576,41 @@ const credentialSecrets = secretConfig
 
 const positiveRunnable = gate.available && pitrTimestampInWindow;
 
+function configuredPositiveDependencyFailure(
+  credentialGateResult: ReturnType<typeof credentialGate>,
+  window: PitrWindow | null,
+  timestampInWindow: boolean
+): string | null {
+  if (!credentialGateResult.available || (window?.ok && timestampInWindow)) return null;
+  if (window?.error) return window.error;
+  if (!window?.ok)
+    return `${PITR_WINDOW_DEPENDENCY_FAILURE}: trusted restore:window discovery did not return an OK window`;
+  return `${PITR_WINDOW_DEPENDENCY_FAILURE}: requested PITR timestamp is outside the discovered window`;
+}
+
+function assertPositiveDependenciesAvailable(
+  credentialGateResult: ReturnType<typeof credentialGate>,
+  window: PitrWindow | null,
+  timestampInWindow: boolean
+): void {
+  const dependencyFailure = configuredPositiveDependencyFailure(
+    credentialGateResult,
+    window,
+    timestampInWindow
+  );
+  if (dependencyFailure) throw new Error(dependencyFailure);
+}
+
 function writePositiveDependencyEvidence(noKeyControlExecuted = false): string | null {
   if (positiveRunnable) return null;
-  const dependencyFailure = gate.available
-    ? (pitrWindow?.error ??
-      'live credentials are available; restore:window must provide an in-window PITR timestamp before the real disposable consumer gate runs')
-    : gate.reason;
+  const dependencyFailure =
+    configuredPositiveDependencyFailure(gate, pitrWindow, pitrTimestampInWindow) ?? gate.reason;
   return writeEvidence(
     'positive-dependency.json',
     {
-      schema: 'holo.gate-fix-s28r3-qa32.positive-dependency.v1',
+      schema: 'holo.gate-fix-s28r3-qa33.positive-dependency.v1',
       status: 'blocked',
-      task: 'GATE-FIX-S28R3-QA32',
+      task: TASK_ID,
       reason: dependencyFailure,
       credential_gate: gate,
       pitr_window: pitrWindow,
@@ -579,7 +624,36 @@ function writePositiveDependencyEvidence(noKeyControlExecuted = false): string |
   );
 }
 
-describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore consumers', () => {
+function assertConfiguredPositiveDependencies(): void {
+  const dependencyFailure = configuredPositiveDependencyFailure(
+    gate,
+    pitrWindow,
+    pitrTimestampInWindow
+  );
+  if (!dependencyFailure) return;
+  const evidencePath = writePositiveDependencyEvidence();
+  try {
+    assertPositiveDependenciesAvailable(gate, pitrWindow, pitrTimestampInWindow);
+  } catch (error) {
+    throw new Error(`${(error as Error).message}; evidence=${evidencePath}`);
+  }
+}
+
+describe('GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real restore proof', () => {
+  it('throws the named dependency outcome for configured-positive discovery failure', () => {
+    const configuredGate = { ...gate, available: true };
+    expect(() =>
+      assertPositiveDependenciesAvailable(
+        configuredGate,
+        { ok: false, error: `${BUN_DEPENDENCY_FAILURE}: fixed Bun is untrusted` },
+        false
+      )
+    ).toThrow(BUN_DEPENDENCY_FAILURE);
+    expect(() => assertPositiveDependenciesAvailable(configuredGate, { ok: false }, false)).toThrow(
+      PITR_WINDOW_DEPENDENCY_FAILURE
+    );
+  });
+
   it('real scripts exist and parse without changing their gate contracts', () => {
     const source = readFileSync(import.meta.filename, 'utf8');
     expect(source).not.toContain(['/Users', 'inference1', '/'].join(''));
@@ -653,6 +727,9 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
     expect(observedEnv?.R2_RESTORE_SECRET_ACCESS_KEY).toBe('qa32-secret-sentinel');
     expect(probe.ok).toBe(true);
 
+    if (gate.available && !positiveRunnable) {
+      assertConfiguredPositiveDependencies();
+    }
     if (!positiveRunnable) {
       const evidencePath = writePositiveDependencyEvidence();
       expect(evidencePath).not.toBeNull();
@@ -664,9 +741,12 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
         provider_or_docker_invoked: boolean;
       };
       expect(evidence.status).toBe('blocked');
-      expect(evidence.task).toBe('GATE-FIX-S28R3-QA32');
+      expect(evidence.task).toBe(TASK_ID);
       expect(evidence.positive_control_executed).toBe(false);
       expect(evidence.provider_or_docker_invoked).toBe(false);
+      expect(evidence.reviewed_sha).toBe(executionHead());
+      expect(evidence.execution_head).toBe(evidence.reviewed_sha);
+      expect(evidence.generated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       for (const secret of configuredSecrets) expect(evidenceText).not.toContain(secret);
       return;
     }
@@ -764,6 +844,9 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
   });
 
   it('runs provision and fire-drill with an explicit prefix tuple after ambient-free startup', () => {
+    if (gate.available && !positiveRunnable) {
+      assertConfiguredPositiveDependencies();
+    }
     if (!positiveRunnable) {
       const evidencePath = writePositiveDependencyEvidence();
       expect(evidencePath).not.toBeNull();
@@ -910,9 +993,9 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
     );
 
     const evidence = {
-      schema: 'holo.gate-fix-s28r3-qa32.positive-live.v1',
+      schema: 'holo.gate-fix-s28r3-qa33.positive-live.v1',
       status: 'executed',
-      task: 'GATE-FIX-S28R3-QA32',
+      task: TASK_ID,
       secret_config_basename: basename(secretConfig.path),
       prefix_start: {
         R2_RESTORE_OBJECT_PREFIX: 'unset',
@@ -1059,9 +1142,9 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
       afterConsumersBeforeCleanup.blobsVolumeStatus !== 0 &&
       afterConsumersBeforeCleanup.networkStatus !== 0;
     const evidence = {
-      schema: 'holo.gate-fix-s28r3-qa32.no-key-negative.v1',
+      schema: 'holo.gate-fix-s28r3-qa33.no-key-negative.v1',
       status: 'executed',
-      task: 'GATE-FIX-S28R3-QA32',
+      task: TASK_ID,
       secret_config: 'empty disposable file; no credentials',
       prefix_start: {
         R2_RESTORE_OBJECT_PREFIX: 'unset',
@@ -1095,9 +1178,17 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
     };
     const evidencePath = writeEvidence('no-key-negative.json', evidence);
     writePositiveDependencyEvidence(true);
+    const evidenceBody = JSON.parse(readFileSync(evidencePath, 'utf8')) as {
+      generated_at: string;
+      reviewed_sha: string;
+      execution_head: string;
+    };
     rmSync(root, { recursive: true, force: true });
 
-    expect(evidencePath).toContain('GATE-FIX-S28R3-QA32');
+    expect(evidencePath).toContain('GATE-FIX-S28R3-QA33');
+    expect(evidenceBody.reviewed_sha).toBe(executionHead());
+    expect(evidenceBody.execution_head).toBe(evidenceBody.reviewed_sha);
+    expect(evidenceBody.generated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(provision.status).not.toBe(0);
     expect(fireDrill.status).not.toBe(0);
     expect(provisionOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
@@ -1121,6 +1212,19 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
     for (const command of cleanup.commands) {
       expect(command.status === 0 || command.status === 1).toBe(true);
       expect(command.error).toBe('');
+    }
+  });
+
+  it('binds every durable QA33 record to generated time, review, and execution head', () => {
+    for (const name of ['positive-dependency.json', 'no-key-negative.json']) {
+      const path = resolve(EVIDENCE_DIR, name);
+      expect(existsSync(path), name).toBe(true);
+      const evidence = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      expect(evidence.schema, name).toMatch(/^holo\.gate-fix-s28r3-qa33\./);
+      expect(evidence.task, name).toBe('GATE-FIX-S28R3-QA33');
+      expect(evidence.generated_at, name).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(evidence.reviewed_sha, name).toMatch(/^[0-9a-f]{40}$/);
+      expect(evidence.execution_head, name).toMatch(/^[0-9a-f]{40}$/);
     }
   });
 });

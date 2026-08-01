@@ -1,0 +1,36 @@
+{
+  "schema": "holo.gate-fix-s28r3-qa33.positive-dependency.v1",
+  "status": "blocked",
+  "task": "GATE-FIX-S28R3-QA33",
+  "reason": "DEPENDENCY-S28R3-QA33-PITR-WINDOW: trusted restore:window discovery did not return an OK window",
+  "credential_gate": {
+    "configFound": true,
+    "configBasename": "secrets.yaml",
+    "restoreAccessKeyPresent": true,
+    "restoreSecretPresent": true,
+    "restoreTupleDistinct": true,
+    "available": true,
+    "reason": "distinct live R2_RESTORE_* credentials are available"
+  },
+  "pitr_window": {
+    "ok": false,
+    "earliest": null,
+    "latest": null,
+    "recommended_pitr": null,
+    "window_max": null,
+    "labels": [],
+    "stanza": "",
+    "repoPrefix": "",
+    "errors": [
+      "backup config missing secrets: backup config missing secrets: R2_ACCOUNT_ID, R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_REPO_CIPHER_PASS"
+    ]
+  },
+  "requested_target_timestamp": false,
+  "target_timestamp_present": false,
+  "positive_control_executed": false,
+  "no_key_control_executed": false,
+  "provider_or_docker_invoked": false,
+  "generated_at": "2026-08-01T05:46:39.085Z",
+  "reviewed_sha": "0ea3fce3df0b9ebf0efd5468a76ba8077ab30e0f",
+  "execution_head": "0ea3fce3df0b9ebf0efd5468a76ba8077ab30e0f"
+}
