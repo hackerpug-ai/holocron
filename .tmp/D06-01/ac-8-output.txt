@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 2 failed | 14 skipped) 14491ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 2 failed | 14 skipped) 14313ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -16,8 +16,8 @@
      ↓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
      ↓ TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set
      ↓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced
-     × TC-15: runJob returns ok false with migration_read_only error when fenced 5505ms
-     × TC-16: job_runs row count unchanged after fenced task-timeout-worker call 5603ms
+     × TC-15: runJob returns ok false with migration_read_only error when fenced 5750ms
+     × TC-16: job_runs row count unchanged after fenced task-timeout-worker call 6153ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -41,13 +41,13 @@ AssertionError: runJob should fail under fence: expected true to be false // Obj
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
 
  FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-16: job_runs row count unchanged after fenced task-timeout-worker call
-AssertionError: fenced run must not insert job_runs: expected 29 to be 28 // Object.is equality
+AssertionError: fenced run must not insert job_runs: expected 35 to be 34 // Object.is equality
 
 - Expected
 + Received
 
-- 28
-+ 29
+- 34
++ 35
 
  ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:722:58
     720|       postAc7: jobAfterUnfencedCount,
@@ -62,6 +62,6 @@ AssertionError: fenced run must not insert job_runs: expected 29 to be 28 // Obj
 
  Test Files  1 failed (1)
       Tests  2 failed | 14 skipped (16)
-   Start at  16:59:38
-   Duration  15.47s (transform 297ms, setup 106ms, import 782ms, tests 14.49s, environment 0ms)
+   Start at  17:02:56
+   Duration  15.35s (transform 328ms, setup 113ms, import 830ms, tests 14.31s, environment 0ms)
 

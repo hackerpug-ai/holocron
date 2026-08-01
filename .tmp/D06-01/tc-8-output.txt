@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 4177ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 4299ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -9,7 +9,7 @@
      ↓ TC-5: MCP mutation-tool inventory count equals 21 from manifest side_effects
      ↓ TC-6: every MCP mutation tool id exists in live toolsAsRecord()
      ↓ TC-7: executePostgresMcpTool resolves without MIGRATION_READ_ONLY for every mutation tool when unfenced
-     × TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced 1769ms
+     × TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced 2790ms
      ↓ TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
      ↓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced
      ↓ TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
@@ -65,6 +65,6 @@ AssertionError: unfenced MCP mutation tools (fence missing): store_document: res
 
  Test Files  1 failed (1)
       Tests  1 failed | 15 skipped (16)
-   Start at  17:00:27
-   Duration  5.13s (transform 294ms, setup 104ms, import 759ms, tests 4.18s, environment 0ms)
+   Start at  17:03:41
+   Duration  5.33s (transform 318ms, setup 126ms, import 808ms, tests 4.30s, environment 0ms)
 

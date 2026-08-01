@@ -413,32 +413,95 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
      20  20 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
   
 
-.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-priority.ts:14:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-boundaries.ts format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     16  16 │    *   boundary ∈ before-commit | after-commit-before-enqueue | after-dispatch-before-ack
+     17  17 │    */
+     18     │ - import·{·runDurableEffectBoundary,·auditDurableEffect·}·from·'../../../../../../../services/platform/src/queue/durable-effect';
+         18 │ + import·{
+         19 │ + ··runDurableEffectBoundary,
+         20 │ + ··auditDurableEffect,
+         21 │ + }·from·'../../../../../../../services/platform/src/queue/durable-effect';
+     19  22 │   
+     20  23 │   const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+    ······· │ 
+     40  43 │     boundary: string;
+     41  44 │     key: string;
+     42     │ - ··crash_pass:·{·effect_count:·number;·outbox_count:·number;·inbox_dedupe_count:·number;·fencing_token:·string·|·null·};
+     43     │ - ··recovery_pass:·{·effect_count:·number;·outbox_count:·number;·inbox_dedupe_count:·number;·fencing_token:·string·|·null·};
+         45 │ + ··crash_pass:·{
+         46 │ + ····effect_count:·number;
+         47 │ + ····outbox_count:·number;
+         48 │ + ····inbox_dedupe_count:·number;
+         49 │ + ····fencing_token:·string·|·null;
+         50 │ + ··};
+         51 │ + ··recovery_pass:·{
+         52 │ + ····effect_count:·number;
+         53 │ + ····outbox_count:·number;
+         54 │ + ····inbox_dedupe_count:·number;
+         55 │ + ····fencing_token:·string·|·null;
+         56 │ + ··};
+     44  57 │     exactly_one: boolean;
+     45  58 │   }> = [];
+    ······· │ 
+     94 107 │     database_url: DATABASE_URL,
+     95 108 │     boundaries_requested: requested,
+     96     │ - ··final_audit_contract:·'effect_count===1·AND·outbox_count===1·AND·inbox_dedupe_count===1·AND·fencing_token·present,·for·EACH·boundary·key',
+        109 │ + ··final_audit_contract:
+        110 │ + ····'effect_count===1·AND·outbox_count===1·AND·inbox_dedupe_count===1·AND·fencing_token·present,·for·EACH·boundary·key',
+     97 111 │     all_exactly_one: allOk,
+     98 112 │     results,
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts:13:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
 
   × The imports and exports are not sorted.
   
-    12 │  * Usage: bun drive-priority.ts
-    13 │  */
-  > 14 │ import {
+    11 │  * Usage: bun drive-dlq.ts
+    12 │  */
+  > 13 │ import {
        │ ^^^^^^^^
-  > 15 │   enqueue,
-  > 16 │   dequeue,
-  > 17 │   resetPriorityLanes,
-  > 18 │ } from '../../../../../../../services/platform/src/queue/priority';
-       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 14 │   seedPoisonJob,
+  > 15 │   runUntilTerminal,
+  > 16 │   resetDlq,
+  > 17 │   getJob,
+  > 18 │ } from '../../../../../../../services/platform/src/queue/dlq';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     19 │ 
     20 │ const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
   
   i Safe fix: Organize Imports (Biome)
   
-    13 13 │    */
-    14 14 │   import {
-    15    │ - ··enqueue,
-    16    │ - ··dequeue,
-       15 │ + ··dequeue,
-       16 │ + ··enqueue,
-    17 17 │     resetPriorityLanes,
-    18 18 │   } from '../../../../../../../services/platform/src/queue/priority';
+    12 12 │    */
+    13 13 │   import {
+    14    │ - ··seedPoisonJob,
+    15    │ - ··runUntilTerminal,
+    16    │ - ··resetDlq,
+    17    │ - ··getJob,
+       14 │ + ··getJob,
+       15 │ + ··resetDlq,
+       16 │ + ··runUntilTerminal,
+       17 │ + ··seedPoisonJob,
+    18 18 │   } from '../../../../../../../services/platform/src/queue/dlq';
+    19 19 │   
+  
+
+.spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/.gate-evidence/drivers/drive-dlq.ts format ━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    24 24 │   await resetDlq(DATABASE_URL);
+    25 25 │   
+    26    │ - const·seeded·=·await·seedPoisonJob({·key:·KEY,·maxAttempts:·MAX_ATTEMPTS,·databaseUrl:·DATABASE_URL·});
+       26 │ + const·seeded·=·await·seedPoisonJob({
+       27 │ + ··key:·KEY,
+       28 │ + ··maxAttempts:·MAX_ATTEMPTS,
+       29 │ + ··databaseUrl:·DATABASE_URL,
+       30 │ + });
+    27 31 │   const terminal = await runUntilTerminal({ key: KEY, databaseUrl: DATABASE_URL });
+    28 32 │   const jobAfter = await getJob(KEY, DATABASE_URL);
   
 
 .spec/prds/mk6-migration/tasks/sprint-11-scheduler-and-durable-queue/gate-plan.json format ━━━━━━━━━━
@@ -552,44 +615,11 @@ vitest.setup.ts:39:18 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━�
     2 9 │   
   
 
-.spec/prds/mk6-migration/tasks/sprint-12-observability-telemetry-and-eval-gate/gate-results.prev.json format ━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     94  94 │         "log": ".tmp/sprint-12-observability-telemetry-and-eval-gate/human-tests/step6-evals-drift.log",
-     95  95 │         "observed": {
-     96     │ - ········"keys":·[
-     97     │ - ··········"ok",
-     98     │ - ··········"datasetVersion",
-     99     │ - ··········"entryCount",
-    100     │ - ··········"entries"
-    101     │ - ········]
-         96 │ + ········"keys":·["ok",·"datasetVersion",·"entryCount",·"entries"]
-    102  97 │         }
-    103  98 │       }
-  
-
-.spec/prds/mk6-migration/tasks/sprint-13-vitest-integration-harness-and-real-service-ci-lanes/.gate-evidence/2026-07-18T06-52-00Z/verification-output.json format ━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    1   │ - {"verified":true,"claimed_verdict":"pass","recomputed_verdict":"pass","steps_planned":6,"steps_recomputed":6,"discrepancies":[]}
-      1 │ + {
-      2 │ + ··"verified":·true,
-      3 │ + ··"claimed_verdict":·"pass",
-      4 │ + ··"recomputed_verdict":·"pass",
-      5 │ + ··"steps_planned":·6,
-      6 │ + ··"steps_recomputed":·6,
-      7 │ + ··"discrepancies":·[]
-      8 │ + }
-    2 9 │   
-  
-
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 2096.
-Checked 1960 files in 472ms. No fixes applied.
+Diagnostics not shown: 2106.
+Checked 1962 files in 398ms. No fixes applied.
 Found 1338 errors.
-Found 731 warnings.
+Found 741 warnings.
 Found 47 infos.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

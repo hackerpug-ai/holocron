@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 2 failed | 14 skipped) 4204ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 2 failed | 14 skipped) 2348ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -13,8 +13,8 @@
      ↓ TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
      ↓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced
      ↓ TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
-     × TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set 518ms
-     × TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set 192ms
+     × TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set 523ms
+     × TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set 0ms
      ↓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced
      ↓ TC-15: runJob returns ok false with migration_read_only error when fenced
      ↓ TC-16: job_runs row count unchanged after fenced task-timeout-worker call
@@ -22,46 +22,34 @@
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
-AssertionError: documents.create should reject under migration_read_only: expected false to be true // Object.is equality
-
-- Expected
-+ Received
-
-- true
-+ false
-
- ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:647:82
-    645|     }
-    646|     writeEvidence('convex-create-fenced.json', { rejected, message });
-    647|     expect(rejected, 'documents.create should reject under migration_r…
-       |                                                                                  ^
-    648|     expect(message.startsWith('migration_read_only:'), `message=${mess…
-    649|   }, 120_000);
+Error: EXPO_PUBLIC_CONVEX_URL (or VITE_CONVEX_HTTP_URL) is required for Convex fence RED tests
+ ❯ createConvexClient services/platform/tests/integration/write-fence-red.helpers.ts:437:11
+    435|     process.env.CONVEX_URL;
+    436|   if (!url) {
+    437|     throw new Error(
+       |           ^
+    438|       'EXPO_PUBLIC_CONVEX_URL (or VITE_CONVEX_HTTP_URL) is required fo…
+    439|     );
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:632:20
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
 
  FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set
-AssertionError: subscriptions.add should reject under migration_read_only: expected false to be true // Object.is equality
-
-- Expected
-+ Received
-
-- true
-+ false
-
- ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:666:83
-    664|     }
-    665|     writeEvidence('convex-add-sub-fenced.json', { rejected, message });
-    666|     expect(rejected, 'subscriptions.add should reject under migration_…
-       |                                                                                   ^
-    667|     expect(message.startsWith('migration_read_only:'), `message=${mess…
-    668|   }, 60_000);
+Error: EXPO_PUBLIC_CONVEX_URL (or VITE_CONVEX_HTTP_URL) is required for Convex fence RED tests
+ ❯ createConvexClient services/platform/tests/integration/write-fence-red.helpers.ts:437:11
+    435|     process.env.CONVEX_URL;
+    436|   if (!url) {
+    437|     throw new Error(
+       |           ^
+    438|       'EXPO_PUBLIC_CONVEX_URL (or VITE_CONVEX_HTTP_URL) is required fo…
+    439|     );
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:652:20
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
 
 
  Test Files  1 failed (1)
       Tests  2 failed | 14 skipped (16)
-   Start at  16:59:25
-   Duration  5.19s (transform 314ms, setup 102ms, import 797ms, tests 4.20s, environment 0ms)
+   Start at  17:02:43
+   Duration  3.30s (transform 301ms, setup 103ms, import 760ms, tests 2.35s, environment 0ms)
 

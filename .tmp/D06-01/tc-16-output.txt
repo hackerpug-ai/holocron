@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 8949ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 8748ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -17,18 +17,18 @@
      ↓ TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set
      ↓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced
      ↓ TC-15: runJob returns ok false with migration_read_only error when fenced
-     × TC-16: job_runs row count unchanged after fenced task-timeout-worker call 6239ms
+     × TC-16: job_runs row count unchanged after fenced task-timeout-worker call 6422ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-16: job_runs row count unchanged after fenced task-timeout-worker call
-AssertionError: fenced run must not insert job_runs: expected 32 to be 31 // Object.is equality
+AssertionError: fenced run must not insert job_runs: expected 38 to be 37 // Object.is equality
 
 - Expected
 + Received
 
-- 31
-+ 32
+- 37
++ 38
 
  ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:722:58
     720|       postAc7: jobAfterUnfencedCount,
@@ -43,6 +43,6 @@ AssertionError: fenced run must not insert job_runs: expected 32 to be 31 // Obj
 
  Test Files  1 failed (1)
       Tests  1 failed | 15 skipped (16)
-   Start at  17:01:15
-   Duration  10.00s (transform 340ms, setup 105ms, import 852ms, tests 8.95s, environment 0ms)
+   Start at  17:04:28
+   Duration  9.72s (transform 305ms, setup 103ms, import 783ms, tests 8.75s, environment 0ms)
 

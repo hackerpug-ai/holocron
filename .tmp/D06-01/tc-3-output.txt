@@ -1,10 +1,10 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 2221ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 2626ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
-     × TC-3: every discovered Hono write route returns HTTP 423 when fenced 537ms
+     × TC-3: every discovered Hono write route returns HTTP 423 when fenced 428ms
      ↓ TC-4: every fenced Hono write-route body equals { error: migration_read_only }
      ↓ TC-5: MCP mutation-tool inventory count equals 21 from manifest side_effects
      ↓ TC-6: every MCP mutation tool id exists in live toolsAsRecord()
@@ -67,6 +67,6 @@ AssertionError: unfenced Hono write paths (fence missing): POST /api/chat-runs s
 
  Test Files  1 failed (1)
       Tests  1 failed | 15 skipped (16)
-   Start at  17:00:06
-   Duration  3.16s (transform 293ms, setup 101ms, import 751ms, tests 2.22s, environment 0ms)
+   Start at  17:03:19
+   Duration  3.63s (transform 311ms, setup 116ms, import 786ms, tests 2.63s, environment 0ms)
 

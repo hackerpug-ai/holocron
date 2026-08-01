@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 2378ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 1877ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -10,7 +10,7 @@
      ↓ TC-6: every MCP mutation tool id exists in live toolsAsRecord()
      ↓ TC-7: executePostgresMcpTool resolves without MIGRATION_READ_ONLY for every mutation tool when unfenced
      ↓ TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced
-     × TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced 32ms
+     × TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced 30ms
      ↓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced
      ↓ TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
      ↓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
@@ -22,7 +22,7 @@
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
-AssertionError: gateway isError expected true, got {"content":[{"type":"text","text":"{\"documentId\":\"42bec01f-edc5-4cfb-a670-767ef7e7055b\",\"title\":\"s29-d0601-e6053619-db35-4c39-87a9-173b16cebdd8-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"}],"structuredContent":{"documentId":"42bec01f-edc5-4cfb-a670-767ef7e7055b","title":"s29-d0601-e6053619-db35-4c39-87a9-173b16cebdd8-mcp-gateway-doc","embeddingStatus":"pending"}}: expected false to be true // Object.is equality
+AssertionError: gateway isError expected true, got {"content":[{"type":"text","text":"{\"documentId\":\"5a737dfe-91ef-40c2-bcb3-9772dc545527\",\"title\":\"s29-d0601-7221d1d0-aa14-4a8e-a26a-9f183b3bc2a5-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"}],"structuredContent":{"documentId":"5a737dfe-91ef-40c2-bcb3-9772dc545527","title":"s29-d0601-7221d1d0-aa14-4a8e-a26a-9f183b3bc2a5-mcp-gateway-doc","embeddingStatus":"pending"}}: expected false to be true // Object.is equality
 
 - Expected
 + Received
@@ -43,6 +43,6 @@ AssertionError: gateway isError expected true, got {"content":[{"type":"text","t
 
  Test Files  1 failed (1)
       Tests  1 failed | 15 skipped (16)
-   Start at  17:00:33
-   Duration  3.33s (transform 297ms, setup 107ms, import 756ms, tests 2.38s, environment 0ms)
+   Start at  17:03:47
+   Duration  2.84s (transform 299ms, setup 104ms, import 772ms, tests 1.88s, environment 0ms)
 

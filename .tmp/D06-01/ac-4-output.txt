@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 2 failed | 14 skipped) 5668ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 2 failed | 14 skipped) 3404ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -9,8 +9,8 @@
      ↓ TC-5: MCP mutation-tool inventory count equals 21 from manifest side_effects
      ↓ TC-6: every MCP mutation tool id exists in live toolsAsRecord()
      ↓ TC-7: executePostgresMcpTool resolves without MIGRATION_READ_ONLY for every mutation tool when unfenced
-     × TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced 3309ms
-     × TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced 51ms
+     × TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced 1646ms
+     × TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced 30ms
      ↓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced
      ↓ TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
      ↓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
@@ -63,7 +63,7 @@ AssertionError: unfenced MCP mutation tools (fence missing): store_document: res
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
 
  FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
-AssertionError: gateway isError expected true, got {"content":[{"type":"text","text":"{\"documentId\":\"1609f22a-0c2c-435c-92eb-615e2821b09b\",\"title\":\"s29-d0601-046da2ae-1e23-482b-8780-4918bb20eb29-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"}],"structuredContent":{"documentId":"1609f22a-0c2c-435c-92eb-615e2821b09b","title":"s29-d0601-046da2ae-1e23-482b-8780-4918bb20eb29-mcp-gateway-doc","embeddingStatus":"pending"}}: expected false to be true // Object.is equality
+AssertionError: gateway isError expected true, got {"content":[{"type":"text","text":"{\"documentId\":\"4cbd0a27-b193-4c44-82c9-d79470904cb5\",\"title\":\"s29-d0601-7519eb57-146b-420a-875b-2c6d37032771-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"}],"structuredContent":{"documentId":"4cbd0a27-b193-4c44-82c9-d79470904cb5","title":"s29-d0601-7519eb57-146b-420a-875b-2c6d37032771-mcp-gateway-doc","embeddingStatus":"pending"}}: expected false to be true // Object.is equality
 
 - Expected
 + Received
@@ -84,6 +84,6 @@ AssertionError: gateway isError expected true, got {"content":[{"type":"text","t
 
  Test Files  1 failed (1)
       Tests  2 failed | 14 skipped (16)
-   Start at  16:59:13
-   Duration  6.62s (transform 295ms, setup 102ms, import 765ms, tests 5.67s, environment 0ms)
+   Start at  17:02:34
+   Duration  4.35s (transform 296ms, setup 102ms, import 758ms, tests 3.40s, environment 0ms)
 

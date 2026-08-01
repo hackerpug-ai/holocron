@@ -1,7 +1,7 @@
 {
   "task_id": "D06-01",
-  "timestamp": "2026-08-01T23:04:39Z",
-  "commit_sha": "d198908ec3f5bf1efe4025de50a2633e66735046",
+  "timestamp": "2026-08-01T23:01:25Z",
+  "commit_sha": "299379e287781c0abfea8f9ff1eb31ab041539fe",
   "typecheck": {
     "exit_code": 0
   },
@@ -38,7 +38,7 @@
     {
       "id": "AC-5",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10:|TC-11:\"",
-      "exit_code": 1,
+      "exit_code": 0,
       "output_file": ".tmp/D06-01/ac-5-output.txt"
     },
     {
@@ -116,13 +116,13 @@
     {
       "id": "TC-10",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10:\"",
-      "exit_code": 1,
+      "exit_code": 0,
       "output_file": ".tmp/D06-01/tc-10-output.txt"
     },
     {
       "id": "TC-11",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-11:\"",
-      "exit_code": 1,
+      "exit_code": 0,
       "output_file": ".tmp/D06-01/tc-11-output.txt"
     },
     {
@@ -162,7 +162,7 @@
   "generator": {
     "tool": "harvest-evidence.sh",
     "version": "1.0",
-    "generated_at": "2026-08-01T23:04:39Z",
+    "generated_at": "2026-08-01T23:01:25Z",
     "inputs": [
       {
         "path": "typecheck-output.txt",
@@ -170,107 +170,107 @@
       },
       {
         "path": "lint-output.txt",
-        "sha256": "e6cfdb6036fb0fa3578733dcde2909a5ec5d7adbfeb08d7879d91c9338c7f7d6"
+        "sha256": "ee4738d870e596f8699ed2b1910d9098cc177396520a14ecaa136991409d3e9d"
       },
       {
         "path": "test-output.txt",
-        "sha256": "e261b301c30f74f76b06c7c37f20cb13bf263dd9b216144ceb5bcf9a9cac347b"
+        "sha256": "4c56903bf2a21a16285b06d29604c51f58250dcb6679dfd5bde537bdaaa8a880"
       },
       {
         "path": "ac-1-output.txt",
-        "sha256": "0da79c6b99ad58e89c5945731db985d3b7a3a4a18a21d7c8f0f18f54c20729fc"
+        "sha256": "c8cf484ea778d9386a8c59ce168f06d48eab84f99e57d731f9b206935b4947e7"
       },
       {
         "path": "ac-2-output.txt",
-        "sha256": "266f83068c3e560a81061384d6bc29ddb77328783d37406c99f01711983e0692"
+        "sha256": "9b71672c64ea89bb2e1a6c4e15d220ef65680a68d2f202da5112e68b2ce3b218"
       },
       {
         "path": "ac-3-output.txt",
-        "sha256": "2e57d0bb2716863bcce7a40309c2135d1306b12dd8bdf4e33304c0af1f14a7bf"
+        "sha256": "9bbf6588d82ccca980ec9402be6297735120e929e74cd172c9352a7e2f83e76b"
       },
       {
         "path": "ac-4-output.txt",
-        "sha256": "cb64810896a53396b8e6362036b25f63809a17882cdacc5b93e7eccd4f124149"
+        "sha256": "9414911b2de37eb9679c47eb0e62a6fc668c932d4ba32576d5fb9f09e7750890"
       },
       {
         "path": "ac-5-output.txt",
-        "sha256": "3a318c24dce0d04743d7a46f4d07f026c097de3a04c1dc0cf55123030d874b72"
+        "sha256": "4ee00d7c50aea72cfa87f272120f0e1b3c96896d8f70b48f1ed54e684c8e8616"
       },
       {
         "path": "ac-6-output.txt",
-        "sha256": "5e184bdcc041bcc9343ab68407e54295dc7a684afc26d622a3d6462a9896b467"
+        "sha256": "a1aac4c0d630ba4a97fe579b0b24acadb034f15e22fa372b484146089c55b86b"
       },
       {
         "path": "ac-7-output.txt",
-        "sha256": "205a69ae75ccd8d5b3bc9729ec2623cf55b1682960b275477ecfbd8f948254db"
+        "sha256": "0b9490969bec4c849bd7d09c577aa94a5bba6b3bbf65e0bf452a724400c530e6"
       },
       {
         "path": "ac-8-output.txt",
-        "sha256": "2ff28033ad01bec1704927d6079e4cd448d88ab21720e3a6dd52e9d5b508e8e1"
+        "sha256": "5c6ef8bc6043f4c8c8d12775c045474d93d9c62dcd97aeade72097d8c10747d7"
       },
       {
         "path": "tc-1-output.txt",
-        "sha256": "b1bcc2b33ccdfe691466803be66f783d0195ef970b3009ba3e6903405d86518e"
+        "sha256": "cfd7f54b66a0bd89cc23564e8de98fade3d9a267b2167d237b64723349005106"
       },
       {
         "path": "tc-2-output.txt",
-        "sha256": "fa614b83181b27c36e7a05b69a6b941c75800a0af48df4561f21e1c69cda8657"
+        "sha256": "bcba275c85fe11dfbe349f60fa9911c18694ced7ccad5341773fbd86af619e34"
       },
       {
         "path": "tc-3-output.txt",
-        "sha256": "298150b0adb525b0ce9de398f858ace3f26fe7edbbb188cf405a427eaaaeb353"
+        "sha256": "d129f75db502cb52e79f5c6bbbc1a6cc6cfc40c9d77517998d10f1c19a1e880d"
       },
       {
         "path": "tc-4-output.txt",
-        "sha256": "acc3522a66b9b8b88fcfe589e80c7b24f02438d55065cfe41a2f60f7f06486ee"
+        "sha256": "b8147319d57eb654e793ab92cc305d63e58ef1ce517b256eb6eda8e7693f612a"
       },
       {
         "path": "tc-5-output.txt",
-        "sha256": "d484f0576a87e86c126ae716efa625b402e35067f9ba6aef3b0bd38385e89038"
+        "sha256": "eab99491534866ccc73792c269f068ff0de56dd22ca53583d9f0e56a4859e1ee"
       },
       {
         "path": "tc-6-output.txt",
-        "sha256": "b19da557b37939e14fbf5e9f9d7041a846855c673577255697e102e56159b5bf"
+        "sha256": "b2ac215b5565580ae0a1417191f1f5e6fb8cf1173ed25ebc37b0762d409ba50a"
       },
       {
         "path": "tc-7-output.txt",
-        "sha256": "519837c4523b67b01e27b8981b6afd8b6a99010b9c73bdbd9f7df23baa9b1480"
+        "sha256": "77c184f2aa15388ec84a41b3a986c9ee870b4f71c1e2b3c9a8ecf14140e775f3"
       },
       {
         "path": "tc-8-output.txt",
-        "sha256": "c6dc4dde2023bbfad9e1add443fd3aff6e1897163da8ed1b83e85b514a2923dc"
+        "sha256": "06379b6f47cb366d7ce135f5f3ed7e614d1f514c384f13ad634bd5e75f6f8914"
       },
       {
         "path": "tc-9-output.txt",
-        "sha256": "d235bbbf7259103fe821f6ff86e421f30654d9f2e68486922c4ba7b309c7ee44"
+        "sha256": "091bcc05ff9f9572074797340dabeb4a784d6c3dfc937b4339d3641c1625bade"
       },
       {
         "path": "tc-10-output.txt",
-        "sha256": "37c4e3000244bd847e4d3b649e5e1d612647bff9409a43b09ae10ee617f947fa"
+        "sha256": "8eb7d56c2a7601563c1e17a3a5e4a2e0c0cb07cfef452b4e1698b0965d328be2"
       },
       {
         "path": "tc-11-output.txt",
-        "sha256": "af716fb23e2b11620d64c9e07324380495ad766e3ebf022f6a8d75bd59a32df2"
+        "sha256": "53968460dbcbee6681863f6855d92b67968a785305409025a6e9f79a947d3ebe"
       },
       {
         "path": "tc-12-output.txt",
-        "sha256": "9b9512c7a36297421758675c7a557b0b5db495cea084d1de00bf5b290d643e23"
+        "sha256": "054a6334ffa7702263cea5288fb17a2f30323b589b2d7eefa589ead29fcf341a"
       },
       {
         "path": "tc-13-output.txt",
-        "sha256": "2525897c0ed441b9231b91f87c6c49130db9d66740e2c69889d13d1faa21f9a8"
+        "sha256": "f975c14f12bcb663e3fb930b93ba021a5ee0805acade75bc81c2bb169d4fdf2a"
       },
       {
         "path": "tc-14-output.txt",
-        "sha256": "d63821374ad9a9f1dd31b8b200d8e39e1db512d8e7003cb24cfa09539098d2be"
+        "sha256": "5a30ce4469bf6f7ef68ed5d3bf63b14c324f359e7c14dac193fa4541ef7f3469"
       },
       {
         "path": "tc-15-output.txt",
-        "sha256": "07350538e1ea90a7d8abda1d00f1df8a88f24eeae29c5490520b9ae3bfaf23ca"
+        "sha256": "1adbed3774fcef9db63342aeff38b7929508d97f94a520e6b47452e4d64727e0"
       },
       {
         "path": "tc-16-output.txt",
-        "sha256": "916df10eb06b1ab680b5c53390b2babaa14fbe176df0f6f3bceaee0a526a2440"
+        "sha256": "c89ec84cb64cf08b8f61181a9e6b8df6a878c635ee3b8f882a20f227e3108f79"
       }
     ]
   }

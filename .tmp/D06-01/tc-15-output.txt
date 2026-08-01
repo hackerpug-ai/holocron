@@ -1,7 +1,7 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
 
- ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 7026ms
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 9229ms
      ↓ TC-1: discovers >= 23 live Hono write routes
      ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
      ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
@@ -16,7 +16,7 @@
      ↓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
      ↓ TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set
      ↓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced
-     × TC-15: runJob returns ok false with migration_read_only error when fenced 5516ms
+     × TC-15: runJob returns ok false with migration_read_only error when fenced 6486ms
      ↓ TC-16: job_runs row count unchanged after fenced task-timeout-worker call
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
@@ -43,6 +43,6 @@ AssertionError: runJob should fail under fence: expected true to be false // Obj
 
  Test Files  1 failed (1)
       Tests  1 failed | 15 skipped (16)
-   Start at  17:01:06
-   Duration  8.07s (transform 327ms, setup 112ms, import 840ms, tests 7.03s, environment 0ms)
+   Start at  17:04:17
+   Duration  10.31s (transform 343ms, setup 112ms, import 873ms, tests 9.23s, environment 0ms)
 

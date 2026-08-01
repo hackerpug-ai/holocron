@@ -5,12 +5,12 @@
       "content": [
         {
           "type": "text",
-          "text": "{\"documentId\":\"42bec01f-edc5-4cfb-a670-767ef7e7055b\",\"title\":\"s29-d0601-e6053619-db35-4c39-87a9-173b16cebdd8-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"
+          "text": "{\"documentId\":\"5a737dfe-91ef-40c2-bcb3-9772dc545527\",\"title\":\"s29-d0601-7221d1d0-aa14-4a8e-a26a-9f183b3bc2a5-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"
         }
       ],
       "structuredContent": {
-        "documentId": "42bec01f-edc5-4cfb-a670-767ef7e7055b",
-        "title": "s29-d0601-e6053619-db35-4c39-87a9-173b16cebdd8-mcp-gateway-doc",
+        "documentId": "5a737dfe-91ef-40c2-bcb3-9772dc545527",
+        "title": "s29-d0601-7221d1d0-aa14-4a8e-a26a-9f183b3bc2a5-mcp-gateway-doc",
         "embeddingStatus": "pending"
       }
     },
