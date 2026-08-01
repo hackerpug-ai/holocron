@@ -213,8 +213,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "topology": "single-node",
     "negative_control": {
      "would_fail_if": [
-      "the env var flips but the wrapped mutation still executes its handler body and inserts a row",
-      "the env-var check runs after the handler body instead of before it"
+      "the env var flips but the wrapped mutation still executes its handler body and inserts a row (a stub fence check)",
+      "the env-var check runs after the handler body instead of before it (mock ordering)"
      ]
     },
     "evidence": {
@@ -265,8 +265,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "topology": "single-node",
     "negative_control": {
      "would_fail_if": [
-      "the codemod fenced mutations but missed actions/httpAction/uploads",
-      "one of the four surfaces still succeeds"
+      "the codemod fenced mutations but missed actions/httpAction/uploads (a static/incomplete rewrite)",
+      "one of the four surfaces still succeeds (mock handler bypasses the check)"
      ]
     },
     "evidence": {
@@ -315,8 +315,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "topology": "single-node",
     "negative_control": {
      "would_fail_if": [
-      "quiet-check reports acceptedWriteCount==0 with rejectedWriteCount also 0 (a degenerate idle window, not proof of blocking)",
-      "acceptedWriteCount is nonzero (a write slipped through)"
+      "quiet-check reports acceptedWriteCount==0 with rejectedWriteCount also 0 (an empty/degenerate idle window, not proof of blocking)",
+      "acceptedWriteCount is nonzero (a stub check that never actually blocks a write)"
      ]
     },
     "evidence": {
@@ -363,8 +363,8 @@ Expanded by `devops-engineer` from handoff `s29-devops.json`. Fakeability audit:
     "topology": "single-node",
     "negative_control": {
      "would_fail_if": [
-      "the scan reports files_scanned==0 (never walked the tree)",
-      "a raw import is missed and the scan still reports 0 matches"
+      "the scan reports files_scanned==0 (a static/stub scan that never walks the filesystem)",
+      "a raw import is missed and the scan still reports 0 matches (empty result masking a real miss)"
      ]
     },
     "evidence": {
