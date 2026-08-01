@@ -2,7 +2,5 @@
   "kind": "exit_and_log_regex",
   "expected_exit": 0,
   "notes": "GATE-FIX-QA4: literal_cmd ends with jq -e which prints only the scalar true on success (exit 0). Domain tokens are proven by the frozen jq predicate + cmd_sha fidelity, not by stdout tokens that jq never emits. GATE-FIX-S28R3-QA5/H-2: assert-gate-run-id then read only .tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}/parity-report.json.",
-  "require_all_regex": [
-    "^true$"
-  ]
+  "require_all_regex": ["^true$"]
 }

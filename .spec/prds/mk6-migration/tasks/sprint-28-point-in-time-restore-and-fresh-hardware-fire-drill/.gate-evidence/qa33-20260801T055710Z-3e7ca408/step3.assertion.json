@@ -7,8 +7,5 @@
     "row_counts",
     "run-fire-drill-on-fresh-target|fire-drill-attestation|bound scratch"
   ],
-  "must_not_observe": [
-    "unknown flag:",
-    "unknown command"
-  ]
+  "must_not_observe": ["unknown flag:", "unknown command"]
 }

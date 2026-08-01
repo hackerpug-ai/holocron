@@ -9,7 +9,5 @@
     "backup chain missing",
     "backup config missing secrets"
   ],
-  "must_not_observe": [
-    "unknown flag: --pitr"
-  ]
+  "must_not_observe": ["unknown flag: --pitr"]
 }
