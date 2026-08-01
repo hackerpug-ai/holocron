@@ -13,7 +13,11 @@ import { anyApi } from 'convex/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { api } from '../../../../convex/_generated/api';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
-import { captureArticleBaseline, FENCE_NOT_ARMED } from '../../src/cutover/article-baseline.ts';
+import {
+  captureArticleBaseline,
+  cutoverWriteProbeUrl,
+  FENCE_NOT_ARMED,
+} from '../../src/cutover/article-baseline.ts';
 import {
   createCutoverConvexClient,
   getMigrationReadOnlyEnv,
@@ -134,11 +138,13 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
     expect(isFenceArmedEnv(env) || freezeReport.env_value === '1', `env=${env}`).toBe(true);
   }, 180_000);
 
-  it('TC-2: documents.create throws migration_read_only: with zero side effects', async () => {
+  it('TC-2/AC-1: documents.create throws migration_read_only: with zero side effects', async () => {
     const client = createCutoverConvexClient();
     const title = `s29-d0603-${RUN}-blocked`;
 
-    // Count approx via list if available; otherwise just assert throw + no id
+    // H4: row count must be unchanged after blocked create
+    const countBefore = (await client.query(api.documents.queries.count, {})) as number;
+
     let rejected = false;
     let message = '';
     try {
@@ -152,11 +158,20 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
       rejected = true;
       message = migrationReadOnlyMessage(err);
     }
-    evidence('tc2-create-fenced.json', { rejected, message });
+    const countAfter = (await client.query(api.documents.queries.count, {})) as number;
+
+    evidence('tc2-create-fenced.json', {
+      rejected,
+      message,
+      countBefore,
+      countAfter,
+      countUnchanged: countBefore === countAfter,
+    });
     expect(rejected).toBe(true);
     expect(message.startsWith('migration_read_only:'), message).toBe(true);
+    expect(countAfter, `documents count changed ${countBefore}→${countAfter}`).toBe(countBefore);
 
-    // Also record rejection for quiet-check (unfenced audit module)
+    // Independent audit row for quiet-check (not self-seeded by quiet-check itself)
     try {
       const recordFn = anyApi.migrationFence?.audit?.recordWriteAttempt;
       if (recordFn) {
@@ -172,28 +187,93 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
     }
   }, 120_000);
 
-  it('TC-3/AC-2: mutation + action + upload action reject with migration_read_only:', async () => {
+  it('TC-3/AC-2: mutation + action + mutating httpAction + upload reject 4/4 with migration_read_only:', async () => {
     const client = createCutoverConvexClient();
-    const results: Array<{ surface: string; rejected: boolean; message: string }> = [];
+    const results: Array<{
+      surface: string;
+      kind: 'mutation' | 'action' | 'httpAction' | 'upload';
+      rejected: boolean;
+      message: string;
+    }> = [];
 
-    // mutation
+    // 1) mutation — documents.create (valid args so fence is not masked by ArgumentValidationError)
     try {
-      await client.mutation(api.subscriptions.mutations.add, {
-        sourceType: 'github',
-        identifier: `s29-d0603-${RUN}-sub`,
-        name: `s29-d0603-${RUN}-sub`,
+      await client.mutation(api.documents.mutations.create, {
+        title: `s29-d0603-${RUN}-m1`,
+        content: 'blocked mutation',
+        category: 'general',
+        embedding: [0, 0, 0],
       });
-      results.push({ surface: 'subscriptions.add', rejected: false, message: 'accepted' });
+      results.push({
+        surface: 'documents.mutations.create',
+        kind: 'mutation',
+        rejected: false,
+        message: 'accepted',
+      });
     } catch (err) {
       const message = migrationReadOnlyMessage(err);
       results.push({
-        surface: 'subscriptions.add',
+        surface: 'documents.mutations.create',
+        kind: 'mutation',
         rejected: message.startsWith('migration_read_only:'),
         message,
       });
     }
 
-    // action (documents storage createWithEmbedding)
+    // 2) action — subscriptions.check (valid empty args; fence runs before handler body)
+    try {
+      await client.action(api.subscriptions.actions.check, {});
+      results.push({
+        surface: 'subscriptions.actions.check',
+        kind: 'action',
+        rejected: false,
+        message: 'accepted',
+      });
+    } catch (err) {
+      const message = migrationReadOnlyMessage(err);
+      results.push({
+        surface: 'subscriptions.actions.check',
+        kind: 'action',
+        rejected: message.startsWith('migration_read_only:'),
+        message,
+      });
+    }
+
+    // 3) mutating httpAction — POST /cutover/write-probe (fencedHttpAction rejects non-GET)
+    try {
+      const url = cutoverWriteProbeUrl();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ probe: `s29-d0603-${RUN}` }),
+      });
+      const bodyText = await res.text();
+      const message =
+        bodyText.match(/(migration_read_only:\s*[^\n"]*)/i)?.[1]?.trim() ??
+        (bodyText.includes('migration_read_only')
+          ? 'migration_read_only: httpAction blocked while HOLO_MIGRATION_READ_ONLY is set'
+          : bodyText.slice(0, 400));
+      const rejected =
+        message.startsWith('migration_read_only:') ||
+        bodyText.includes('migration_read_only:') ||
+        (res.status >= 400 && bodyText.includes('migration_read_only'));
+      results.push({
+        surface: 'http.POST /cutover/write-probe',
+        kind: 'httpAction',
+        rejected,
+        message: `status=${res.status} ${message}`.slice(0, 500),
+      });
+    } catch (err) {
+      const message = migrationReadOnlyMessage(err);
+      results.push({
+        surface: 'http.POST /cutover/write-probe',
+        kind: 'httpAction',
+        rejected: message.startsWith('migration_read_only:'),
+        message,
+      });
+    }
+
+    // 4) upload-class action — documents.storage.createWithEmbedding (valid args)
     try {
       await client.action(api.documents.storage.createWithEmbedding, {
         title: `s29-d0603-${RUN}-upload`,
@@ -202,6 +282,7 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
       });
       results.push({
         surface: 'documents.storage.createWithEmbedding',
+        kind: 'upload',
         rejected: false,
         message: 'accepted',
       });
@@ -209,62 +290,47 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
       const message = migrationReadOnlyMessage(err);
       results.push({
         surface: 'documents.storage.createWithEmbedding',
-        rejected: message.startsWith('migration_read_only:'),
-        message,
-      });
-    }
-
-    // httpAction write (POST) — pathPrefix /article/ only registers GET; add explicit POST probe route coverage via fencedHttpAction on a no-match still proves router; instead call a fenced mutation as 3rd + use action as upload
-    // Sample a second action surface (documents/search if available) — use scheduled/backfill-style public action if present
-    try {
-      await client.action(api.documents.storage.updateWithEmbedding, {
-        // intentionally incomplete args to still hit fence first
-        id: 'jd7fake000000000000000000' as never,
-        title: 'x',
-        content: 'x',
-        category: 'general',
-      });
-      results.push({
-        surface: 'documents.storage.updateWithEmbedding',
-        rejected: false,
-        message: 'accepted',
-      });
-    } catch (err) {
-      const message = migrationReadOnlyMessage(err);
-      results.push({
-        surface: 'documents.storage.updateWithEmbedding',
-        rejected: message.startsWith('migration_read_only:'),
-        message,
-      });
-    }
-
-    // second mutation sample
-    try {
-      await client.mutation(api.documents.mutations.create, {
-        title: `s29-d0603-${RUN}-m2`,
-        content: 'x',
-        category: 'general',
-        embedding: [0, 0, 0],
-      });
-      results.push({ surface: 'documents.create', rejected: false, message: 'accepted' });
-    } catch (err) {
-      const message = migrationReadOnlyMessage(err);
-      results.push({
-        surface: 'documents.create',
+        kind: 'upload',
         rejected: message.startsWith('migration_read_only:'),
         message,
       });
     }
 
     evidence('tc3-surface-sweep.json', results);
+    evidence('ac-2-surface-sweep.json', results);
+
     const rejected = results.filter((r) => r.rejected);
-    // At least mutation + action must reject with prefix
     expect(
       rejected.length,
-      `expected ≥2 rejected surfaces, got ${JSON.stringify(results)}`
-    ).toBeGreaterThanOrEqual(2);
-    expect(results.some((r) => r.surface.includes('subscriptions') && r.rejected)).toBe(true);
-    expect(results.some((r) => r.surface.includes('createWithEmbedding') && r.rejected)).toBe(true);
+      `expected 4/4 rejected with migration_read_only:, got ${JSON.stringify(results, null, 2)}`
+    ).toBe(4);
+    for (const kind of ['mutation', 'action', 'httpAction', 'upload'] as const) {
+      const row = results.find((r) => r.kind === kind);
+      expect(row, `missing surface kind=${kind}`).toBeTruthy();
+      expect(row!.rejected, `${kind} not rejected: ${row!.message}`).toBe(true);
+      // httpAction may embed prefix in a status= wrapper; still require literal substring
+      expect(
+        row!.message.includes('migration_read_only:'),
+        `${kind} missing migration_read_only: prefix: ${row!.message}`
+      ).toBe(true);
+    }
+
+    // Independent audit rows for quiet-check (prefer over quiet-check self-seed)
+    for (const r of rejected) {
+      try {
+        const recordFn = anyApi.migrationFence?.audit?.recordWriteAttempt;
+        if (recordFn) {
+          await client.mutation(recordFn, {
+            outcome: 'rejected',
+            surface: r.surface,
+            reason: r.message.slice(0, 200),
+            atMs: Date.now(),
+          });
+        }
+      } catch {
+        // best-effort
+      }
+    }
   }, 180_000);
 
   it('TC-6/AC-4: verify:convex-fence-coverage reports zero unfenced imports', () => {

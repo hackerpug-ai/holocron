@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "fence_armed_at": 1785627172065,
+  "fence_armed_at": 1785626478351,
   "env": "HOLO_MIGRATION_READ_ONLY",
   "env_value": "1",
-  "reason": "sprint-29 D06-03 re-arm after article seed",
-  "audit_id": "vn76dd17jkksqdb59z46pw9sy18bnggv",
+  "reason": "sprint-29 D06-03 final evidence",
+  "audit_id": "vn7d0eyx4z7t8zs639dgba3f358bm1jy",
   "report_path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/.tmp/D06-03/freeze-report.json"
 }

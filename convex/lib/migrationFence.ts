@@ -77,13 +77,23 @@ type HttpHandler = (
 /**
  * httpAction wrapper. GET/HEAD/OPTIONS stay open so /article/:shareToken
  * remains readable for post-freeze article baseline capture (AC-5).
- * Mutating methods (POST/PUT/PATCH/DELETE) are fenced.
+ * Mutating methods (POST/PUT/PATCH/DELETE) are fenced via assertMigrationWritable
+ * (throws Error with migration_read_only: prefix), then mapped to HTTP 423 so
+ * cutover probes can observe the literal prefix in the response body.
  */
 export function fencedHttpAction(handler: HttpHandler) {
   return rawHttpAction(async (ctx, request) => {
     const method = request.method.toUpperCase();
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-      assertMigrationWritable('httpAction');
+      try {
+        assertMigrationWritable('httpAction');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return new Response(message, {
+          status: 423,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      }
     }
     return handler(ctx, request);
   });

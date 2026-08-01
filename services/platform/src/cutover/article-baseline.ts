@@ -62,6 +62,11 @@ export function articleUrlForToken(shareToken: string): string {
   return `${convexSiteBase()}/article/${encodeURIComponent(shareToken)}`;
 }
 
+/** D06-03 mutating httpAction probe path (POST). */
+export function cutoverWriteProbeUrl(): string {
+  return `${convexSiteBase()}/cutover/write-probe`;
+}
+
 /**
  * Capture article baseline. Throws / returns error with code FENCE_NOT_ARMED
  * when fence is not armed.
@@ -107,11 +112,23 @@ export async function captureArticleBaseline(options: {
 
   const resolvedArmedAt = fenceArmedAt != null && fenceArmedAt > 0 ? fenceArmedAt : Date.now() - 1;
 
-  // Ensure capture is strictly after arm (sleep 1ms if same ms)
+  // Ensure capture is strictly after arm by waiting on a real clock — never synthesize
+  // capturedAtMs = armedAt+1 (MEDIUM FIX-D06-03-AC2).
   let capturedAtMs = Date.now();
-  if (capturedAtMs <= resolvedArmedAt) {
-    await new Promise((r) => setTimeout(r, resolvedArmedAt - capturedAtMs + 1));
+  let waitGuard = 0;
+  while (capturedAtMs <= resolvedArmedAt && waitGuard < 20) {
+    await new Promise((r) => setTimeout(r, Math.max(2, resolvedArmedAt - capturedAtMs + 2)));
     capturedAtMs = Date.now();
+    waitGuard += 1;
+  }
+  if (capturedAtMs <= resolvedArmedAt) {
+    return {
+      ok: false,
+      error: {
+        code: 'CAPTURE_CLOCK_RACE',
+        message: `capturedAtMs (${capturedAtMs}) not strictly greater than fence_armed_at (${resolvedArmedAt}) after wait`,
+      },
+    };
   }
 
   const url = articleUrlForToken(token);
@@ -119,6 +136,12 @@ export async function captureArticleBaseline(options: {
     method: 'GET',
     headers: { accept: 'text/html' },
   });
+  // Stamp capture time from wall clock after the real HTTP fetch completes
+  capturedAtMs = Date.now();
+  if (capturedAtMs <= resolvedArmedAt) {
+    await new Promise((r) => setTimeout(r, resolvedArmedAt - capturedAtMs + 2));
+    capturedAtMs = Date.now();
+  }
   const buf = Buffer.from(await res.arrayBuffer());
   const sha256 = createHash('sha256').update(buf).digest('hex');
   const byteLength = buf.byteLength;
@@ -133,9 +156,14 @@ export async function captureArticleBaseline(options: {
     };
   }
 
-  // Final clock check
   if (capturedAtMs <= resolvedArmedAt) {
-    capturedAtMs = resolvedArmedAt + 1;
+    return {
+      ok: false,
+      error: {
+        code: 'CAPTURE_CLOCK_RACE',
+        message: `post-fetch capturedAtMs (${capturedAtMs}) not strictly greater than fence_armed_at (${resolvedArmedAt})`,
+      },
+    };
   }
 
   const path = options.outputPath ?? defaultArticleBaselinePath(cwd);

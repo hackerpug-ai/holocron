@@ -1,3 +1,7 @@
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: call: command not found
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: catch: command not found
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: check: command not found
+{
+  "rejected": true,
+  "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set",
+  "countBefore": 1595,
+  "countAfter": 1595,
+  "countUnchanged": true
+}

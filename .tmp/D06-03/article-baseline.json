@@ -1,11 +1,11 @@
 {
   "ok": true,
-  "sha256": "2285c124599552547ecda354b942bc31ea4e8a016034952ad013484f609aa78d",
+  "sha256": "5da5f33d5f042a947d1495bc16a286e89fcd68d3b2acafad42de6d42f6d61834",
   "byteLength": 4044,
-  "capturedAtMs": 1785626425279,
-  "fence_armed_at": 1785626421433,
-  "shareToken": "2a98aebc-63e1-4a32-95ee-c5dda56b298a",
-  "url": "https://acrobatic-echidna-253.convex.site/article/2a98aebc-63e1-4a32-95ee-c5dda56b298a",
+  "capturedAtMs": 1785627175929,
+  "fence_armed_at": 1785627172065,
+  "shareToken": "9cf8cd35-42e0-4f2a-9b32-1316f3081521",
+  "url": "https://acrobatic-echidna-253.convex.site/article/9cf8cd35-42e0-4f2a-9b32-1316f3081521",
   "status": 200,
   "path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/.tmp/D06-03/article-baseline.json"
 }

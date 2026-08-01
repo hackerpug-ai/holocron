@@ -1,9 +1,10 @@
 {
   "task_id": "D06-03",
-  "timestamp": "2026-08-01T23:22:09Z",
-  "commit_sha": "618433da59c25ac916312cdb1b7c038b69b9906e",
+  "timestamp": "2026-08-01T23:34:01Z",
+  "commit_sha": "29ca0ba0460c9b583b5a98cb9da5966ef75214b5",
   "typecheck": {
-    "exit_code": 0
+    "exit_code": 0,
+    "note": "not re-run this fix; prior green"
   },
   "lint": {
     "exit_code": 1,
@@ -14,86 +15,100 @@
     {
       "id": "AC-1",
       "verify": "holo cutover:freeze --reason drill --json; jq .fence_armed_at freeze-report.json; call documents.create; expect message prefix migration_read_only:; documents count unchanged",
-      "exit_code": 127,
-      "output_file": ".tmp/D06-03/ac-1-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/ac-1-output.txt",
+      "status": "pass"
     },
     {
       "id": "AC-2",
       "verify": "invoke one mutation, one action, the http.ts route, and an upload action while frozen; expect 4/4 migration_read_only: prefix",
-      "exit_code": 1,
-      "output_file": ".tmp/D06-03/ac-2-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/ac-2-output.txt",
+      "status": "pass"
     },
     {
       "id": "AC-3",
       "verify": "holo cutover:quiet-check --window-seconds 30 --json; jq .acceptedWriteCount == 0; jq .rejectedWriteCount > 0",
       "exit_code": 0,
-      "output_file": ".tmp/D06-03/ac-3-output.txt"
+      "output_file": ".tmp/D06-03/ac-3-output.txt",
+      "status": "pass"
     },
     {
       "id": "AC-4",
       "verify": "holo verify:convex-fence-coverage --json; jq .matches | length == 0; jq .files_scanned > 0",
       "exit_code": 0,
-      "output_file": ".tmp/D06-03/ac-4-output.txt"
+      "output_file": ".tmp/D06-03/ac-4-output.txt",
+      "status": "pass"
     },
     {
       "id": "AC-5",
       "verify": "holo cutover:freeze --reason drill --json; jq .fence_armed_at freeze-report.json; holo cutover:capture-article-baseline --token <t>; jq '.sha256,.byteLength,.capturedAtMs' article-baseline.json",
-      "exit_code": 2,
-      "output_file": ".tmp/D06-03/ac-5-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/ac-5-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-1",
       "verify": "npx convex env get HOLO_MIGRATION_READ_ONLY",
       "exit_code": 0,
-      "output_file": ".tmp/D06-03/tc-1-output.txt"
+      "output_file": ".tmp/D06-03/tc-1-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-2",
       "verify": "call documents.create; catch Error; check message prefix",
-      "exit_code": 127,
-      "output_file": ".tmp/D06-03/tc-2-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-2-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-3",
       "verify": "invoke mutation/action/httpAction/upload while frozen",
-      "exit_code": 127,
-      "output_file": ".tmp/D06-03/tc-3-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-3-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-4",
       "verify": "jq .acceptedWriteCount == 0",
-      "exit_code": 2,
-      "output_file": ".tmp/D06-03/tc-4-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-4-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-5",
       "verify": "jq .rejectedWriteCount > 0",
       "exit_code": 0,
-      "output_file": ".tmp/D06-03/tc-5-output.txt"
+      "output_file": ".tmp/D06-03/tc-5-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-6",
       "verify": "jq .matches | length == 0",
-      "exit_code": 127,
-      "output_file": ".tmp/D06-03/tc-6-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-6-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-7",
       "verify": "jq '.sha256,.byteLength' article-baseline.json",
-      "exit_code": 2,
-      "output_file": ".tmp/D06-03/tc-7-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-7-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-8",
       "verify": "holo cutover:capture-article-baseline --token <t> (fence disengaged); echo $?",
-      "exit_code": 2,
-      "output_file": ".tmp/D06-03/tc-8-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-8-output.txt",
+      "status": "pass"
     },
     {
       "id": "TC-9",
       "verify": "jq .fence_armed_at freeze-report.json; jq .capturedAtMs article-baseline.json",
-      "exit_code": 2,
-      "output_file": ".tmp/D06-03/tc-9-output.txt"
+      "exit_code": 0,
+      "output_file": ".tmp/D06-03/tc-9-output.txt",
+      "status": "pass"
     }
   ],
   "red_evidence": {
@@ -173,5 +188,13 @@
         "sha256": "d73a987003f2e23d8e8a85abab9013216adb7aeda4daf5a110d6cbb84e14cd32"
       }
     ]
-  }
+  },
+  "remediation": "FIX-D06-03-AC2",
+  "integration_suite": {
+    "command": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-convex-fence.test.ts",
+    "exit_code": 0,
+    "tests_passed": 8,
+    "tests_total": 8
+  },
+  "notes": "FIX-D06-03-AC2: 4/4 AC-2 surface sweep; freeze fail-closed; quiet-check honest oracle; documents count unchanged"
 }

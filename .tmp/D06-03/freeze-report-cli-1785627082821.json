@@ -1,9 +1,9 @@
 {
   "ok": true,
-  "fence_armed_at": 1785627176028,
+  "fence_armed_at": 1785627082821,
   "env": "HOLO_MIGRATION_READ_ONLY",
   "env_value": "1",
   "reason": "cli-json-probe",
-  "audit_id": "vn71cpay513c0tnchytmr3dnwn8bmzc4",
+  "audit_id": "vn77mjq7th374jvj15bjbh0d458bn83y",
   "report_path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/.tmp/D06-03/freeze-report-cli.json"
 }

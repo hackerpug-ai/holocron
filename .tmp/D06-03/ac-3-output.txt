@@ -1,3 +1,24 @@
-holo: unknown command: cutover:quiet-check
-jq: error: Could not open file ==: No such file or directory
-jq: error: Could not open file 0: No such file or directory
+{
+  "ok": true,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 5,
+  "windowSeconds": 30,
+  "sinceMs": 1785627138499,
+  "untilMs": 1785627168499,
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ],
+  "oracle": "mixed",
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 5,
+  "report_path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/.tmp/D06-03/quiet-check-report.json"
+}

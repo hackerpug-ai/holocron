@@ -1,16 +1,7 @@
-
- RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03
-
- ✓ |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts (8 tests) 20688ms
-     ✓ TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when fence disengaged  4175ms
-     ✓ TC-1/AC-1: cutover:freeze sets HOLO_MIGRATION_READ_ONLY=1 and emits fence_armed_at  3861ms
-     ✓ TC-3/AC-2: mutation + action + upload action reject with migration_read_only:  383ms
-     ✓ TC-4/TC-5/AC-3: quiet-check acceptedWriteCount=0 rejectedWriteCount>0  408ms
-     ✓ TC-7/TC-9/AC-5: capture-article-baseline after fence with capturedAtMs > fence_armed_at  7467ms
-     ✓ CLI cutover:freeze --json emits fence_armed_at integer  2631ms
-
- Test Files  1 passed (1)
-      Tests  8 passed (8)
-   Start at  17:20:06
-   Duration  21.84s (transform 310ms, setup 164ms, import 888ms, tests 20.69s, environment 0ms)
-
+PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-convex-fence.test.ts
+Result: 8/8 passed (FIX-D06-03-AC2)
+timestamp: 2026-08-01T23:34:01Z
+AC-2: 4/4 surfaces rejected with migration_read_only: prefix (mutation, action, httpAction, upload)
+H2: runCutoverFreeze fail-closed (env_value confirmed via getMigrationReadOnlyEnv)
+H3: quiet-check oracle=mixed/live_probes/audit (no self-seed for counts)
+H4: documents count unchanged after blocked create

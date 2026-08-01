@@ -42,7 +42,22 @@ export type QuietCheckReport = {
   windowSeconds: number;
   sinceMs: number;
   untilMs: number;
+  /**
+   * Live fence observations from real fenced write paths (not synthetic audit inserts).
+   * Primary proof that the fence rejects writes during the quiet window.
+   */
   probes: Array<{ surface: string; rejected: boolean; message: string }>;
+  /**
+   * Oracle honesty:
+   * - audit: rejectedWriteCount comes from independent migrationFenceAudit rows
+   * - live_probes: audit had no rejected rows; count is live probe rejections only
+   * - mixed: audit rows present and live probes also observed
+   */
+  oracle: 'audit' | 'live_probes' | 'mixed';
+  /** Independent audit accepted count before any quiet-check self-record. */
+  auditAcceptedWriteCount: number;
+  /** Independent audit rejected count before any quiet-check self-record. */
+  auditRejectedWriteCount: number;
   report_path: string;
 };
 
@@ -143,10 +158,35 @@ function ensureParent(path: string): void {
 }
 
 /**
+ * Archive an existing freeze-report so re-arm keeps TC-9 file pairing evidence.
+ * Writes freeze-report-<fence_armed_at|mtime>.json beside the canonical path.
+ */
+export function archiveFreezeReportIfPresent(reportPath: string): string | null {
+  if (!existsSync(reportPath)) return null;
+  try {
+    const prev = JSON.parse(readFileSync(reportPath, 'utf8')) as { fence_armed_at?: number };
+    const stamp =
+      typeof prev.fence_armed_at === 'number' && prev.fence_armed_at > 0
+        ? String(prev.fence_armed_at)
+        : String(Date.now());
+    const archived = reportPath.replace(/\.json$/i, `-${stamp}.json`);
+    // Avoid clobbering an identical archive path
+    const dest = existsSync(archived)
+      ? reportPath.replace(/\.json$/i, `-${stamp}-${Date.now()}.json`)
+      : archived;
+    writeFileSync(dest, readFileSync(reportPath));
+    return dest;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Arm the durable write fence:
  * 1. Record fence_armed_at (epoch-ms) via unfenced audit mutation
  * 2. `npx convex env set HOLO_MIGRATION_READ_ONLY 1`
- * 3. Persist freeze-report.json
+ * 3. FAIL CLOSED unless getMigrationReadOnlyEnv() confirms '1'|'true'
+ * 4. Persist freeze-report.json (prior report archived for TC-9 pairing)
  */
 export async function runCutoverFreeze(options: {
   reason?: string | null;
@@ -182,22 +222,27 @@ export async function runCutoverFreeze(options: {
     );
   }
 
-  // Confirm durable value
-  const env_value = getMigrationReadOnlyEnv(cwd);
-  const _ok = isFenceArmedEnv(env_value) || env_value === '' /* eventual */;
-  // Re-get once more if empty (CLI lag)
-  const confirmed = isFenceArmedEnv(env_value)
-    ? env_value
-    : (() => {
-        const again = getMigrationReadOnlyEnv(cwd);
-        return again || '1';
-      })();
+  // FAIL CLOSED: must observe durable '1'|'true' via convex env get — never soft-confirm
+  // with env_value||'1'. Retry briefly for CLI/deployment lag only.
+  let confirmed = getMigrationReadOnlyEnv(cwd);
+  for (let attempt = 0; attempt < 5 && !isFenceArmedEnv(confirmed); attempt++) {
+    await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    confirmed = getMigrationReadOnlyEnv(cwd);
+  }
+
+  if (!isFenceArmedEnv(confirmed)) {
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: ${MIGRATION_READ_ONLY_ENV} not confirmed as '1'|'true' after set (got ${JSON.stringify(confirmed)})`
+    );
+  }
+
+  archiveFreezeReportIfPresent(reportPath);
 
   const report: FreezeReport = {
-    ok: isFenceArmedEnv(confirmed) || setRes.status === 0,
+    ok: true,
     fence_armed_at,
     env: MIGRATION_READ_ONLY_ENV,
-    env_value: confirmed || '1',
+    env_value: confirmed,
     reason,
     audit_id,
     report_path: reportPath,
@@ -246,29 +291,12 @@ export async function resolveFenceArmedAt(options?: {
   return null;
 }
 
-async function recordProbe(
-  client: ConvexHttpClient,
-  outcome: 'accepted' | 'rejected',
-  surface: string,
-  reason?: string
-): Promise<void> {
-  try {
-    await client.mutation(auditApi.recordWriteAttempt, {
-      outcome,
-      surface,
-      reason,
-      atMs: Date.now(),
-    });
-  } catch {
-    // best-effort
-  }
-}
-
 /**
- * Quiet interval check:
- * - Probe real write surfaces; record rejected/accepted in audit
- * - Query accepted/rejected counts over the window
- * - ok iff acceptedWriteCount===0 && rejectedWriteCount>0
+ * Quiet interval check (oracle honesty):
+ * 1. Snapshot independent audit rows first (from prior fenced attempts, e.g. AC-1/AC-2)
+ * 2. Invoke real fenced write paths and observe rejection in-process (primary proof)
+ * 3. Do NOT self-seed audit solely to manufacture rejectedWriteCount
+ * 4. ok iff no accepted writes and at least one rejection (audit and/or live probes)
  */
 export async function runQuietCheck(options: {
   windowSeconds?: number;
@@ -284,7 +312,23 @@ export async function runQuietCheck(options: {
   const client = createCutoverConvexClient();
   const probes: QuietCheckReport['probes'] = [];
 
-  // Probe 1: documents.create mutation
+  // Independent audit snapshot BEFORE any quiet-check side effects
+  let auditAcceptedWriteCount = 0;
+  let auditRejectedWriteCount = 0;
+  let auditQueryOk = false;
+  try {
+    const counts = (await client.query(auditApi.countAttemptsInWindow, {
+      sinceMs,
+      untilMs,
+    })) as { acceptedWriteCount: number; rejectedWriteCount: number };
+    auditAcceptedWriteCount = counts.acceptedWriteCount;
+    auditRejectedWriteCount = counts.rejectedWriteCount;
+    auditQueryOk = true;
+  } catch {
+    auditQueryOk = false;
+  }
+
+  // Live probe 1: documents.create mutation (real fenced path)
   try {
     await client.mutation(docsCreate, {
       title: `s29-quiet-probe-${untilMs}`,
@@ -292,12 +336,6 @@ export async function runQuietCheck(options: {
       category: 'general',
       embedding: [0, 0, 0],
     });
-    await recordProbe(
-      client,
-      'accepted',
-      'documents.mutations.create',
-      'probe unexpectedly accepted'
-    );
     probes.push({
       surface: 'documents.mutations.create',
       rejected: false,
@@ -308,12 +346,6 @@ export async function runQuietCheck(options: {
     const message = raw.match(/(migration_read_only:\s*[^\n]*)/i)?.[1]?.trim() ?? raw;
     const rejected =
       message.startsWith('migration_read_only:') || raw.includes('migration_read_only:');
-    await recordProbe(
-      client,
-      rejected ? 'rejected' : 'accepted',
-      'documents.mutations.create',
-      message.slice(0, 200)
-    );
     probes.push({
       surface: 'documents.mutations.create',
       rejected,
@@ -321,14 +353,13 @@ export async function runQuietCheck(options: {
     });
   }
 
-  // Probe 2: subscriptions.add
+  // Live probe 2: subscriptions.add mutation (real fenced path)
   try {
     await client.mutation(subsAdd, {
       sourceType: 'github',
       identifier: `s29-quiet-${untilMs}`,
       name: `s29-quiet-${untilMs}`,
     });
-    await recordProbe(client, 'accepted', 'subscriptions.mutations.add');
     probes.push({
       surface: 'subscriptions.mutations.add',
       rejected: false,
@@ -339,35 +370,31 @@ export async function runQuietCheck(options: {
     const message = raw.match(/(migration_read_only:\s*[^\n]*)/i)?.[1]?.trim() ?? raw;
     const rejected =
       message.startsWith('migration_read_only:') || raw.includes('migration_read_only:');
-    await recordProbe(
-      client,
-      rejected ? 'rejected' : 'accepted',
-      'subscriptions.mutations.add',
-      message.slice(0, 200)
-    );
     probes.push({ surface: 'subscriptions.mutations.add', rejected, message });
   }
 
-  const rejectedProbes = probes.filter((p) => p.rejected);
+  const liveRejected = probes.filter((p) => p.rejected).length;
+  const liveAccepted = probes.filter((p) => !p.rejected).length;
 
-  let acceptedWriteCount = 0;
-  let rejectedWriteCount = 0;
-  try {
-    const counts = (await client.query(auditApi.countAttemptsInWindow, {
-      sinceMs,
-      untilMs: Date.now(),
-    })) as { acceptedWriteCount: number; rejectedWriteCount: number };
-    acceptedWriteCount = counts.acceptedWriteCount;
-    rejectedWriteCount = counts.rejectedWriteCount;
-  } catch {
-    // Fall back to in-process probe tallies
-    acceptedWriteCount = probes.filter((p) => !p.rejected).length;
-    rejectedWriteCount = probes.filter((p) => p.rejected).length;
+  // Prefer independent audit rejections; fall back to live probe observations.
+  // Never invent counts via self-written audit rows.
+  let acceptedWriteCount = auditQueryOk ? auditAcceptedWriteCount : liveAccepted;
+  let rejectedWriteCount = auditQueryOk ? auditRejectedWriteCount : liveRejected;
+  let oracle: QuietCheckReport['oracle'] = auditQueryOk ? 'audit' : 'live_probes';
+
+  if (auditQueryOk && auditRejectedWriteCount === 0 && liveRejected > 0) {
+    // Independent audit empty in window — live probes prove fence (not circular self-seed)
+    rejectedWriteCount = liveRejected;
+    oracle = 'live_probes';
+  } else if (auditQueryOk && auditRejectedWriteCount > 0 && liveRejected > 0) {
+    oracle = 'mixed';
+    // acceptedWriteCount stays on audit; any live acceptance is a hard fail signal
+    if (liveAccepted > 0) acceptedWriteCount = Math.max(acceptedWriteCount, liveAccepted);
   }
 
-  // If audit under-counted rejections but probes saw them, prefer probe evidence
-  if (rejectedWriteCount === 0 && rejectedProbes.length > 0) {
-    rejectedWriteCount = rejectedProbes.length;
+  // Any live acceptance means the fence is not holding
+  if (liveAccepted > 0) {
+    acceptedWriteCount = Math.max(acceptedWriteCount, liveAccepted);
   }
 
   const report: QuietCheckReport = {
@@ -378,6 +405,9 @@ export async function runQuietCheck(options: {
     sinceMs,
     untilMs,
     probes,
+    oracle,
+    auditAcceptedWriteCount,
+    auditRejectedWriteCount,
     report_path: reportPath,
   };
   ensureParent(reportPath);
@@ -470,6 +500,9 @@ export function formatQuietCheckText(r: QuietCheckReport): string {
     `  ok:                   ${r.ok}`,
     `  acceptedWriteCount:   ${r.acceptedWriteCount}`,
     `  rejectedWriteCount:   ${r.rejectedWriteCount}`,
+    `  oracle:               ${r.oracle}`,
+    `  auditAccepted:        ${r.auditAcceptedWriteCount}`,
+    `  auditRejected:        ${r.auditRejectedWriteCount}`,
     `  windowSeconds:        ${r.windowSeconds}`,
     `  probes:               ${r.probes.length}`,
     `  report:               ${r.report_path}`,

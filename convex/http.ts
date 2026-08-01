@@ -36,6 +36,26 @@ http.route({
   }),
 });
 
+/**
+ * D06-03 cutover write probe — mutating httpAction surface for freeze evidence.
+ * fencedHttpAction rejects POST/PUT/PATCH/DELETE with migration_read_only: before
+ * the handler runs when HOLO_MIGRATION_READ_ONLY is armed. Unfenced: no-op 200.
+ */
+http.route({
+  path: '/cutover/write-probe',
+  method: 'POST',
+  handler: httpAction(async () => {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        surface: 'httpAction',
+        note: 'write probe accepted (fence disengaged)',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  }),
+});
+
 export default http;
 
 // ---------------------------------------------------------------------------

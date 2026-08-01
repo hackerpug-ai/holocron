@@ -1,5 +1,7 @@
-holo: unknown command: cutover:freeze
-jq: error: Could not open file freeze-report.json: No such file or directory
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: call: command not found
-couldn't read file "message": no such file or directory
-/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: documents: command not found
+{
+  "rejected": true,
+  "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set",
+  "countBefore": 1595,
+  "countAfter": 1595,
+  "countUnchanged": true
+}
