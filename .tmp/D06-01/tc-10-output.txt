@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
+
+ ✓ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 15 skipped) 2613ms
+     ✓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced  477ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 15 skipped (16)
+   Start at  17:00:37
+   Duration  3.57s (transform 306ms, setup 110ms, import 761ms, tests 2.61s, environment 0ms)
+

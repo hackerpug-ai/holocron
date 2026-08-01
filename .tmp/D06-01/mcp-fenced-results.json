@@ -42,7 +42,8 @@
     },
     {
       "toolId": "shop_products",
-      "rejected": false
+      "rejected": false,
+      "message": "RETAILER_ERROR: amazon: HTTP 500"
     },
     {
       "toolId": "start_assimilation",
@@ -50,8 +51,7 @@
     },
     {
       "toolId": "approve_assimilation_plan",
-      "rejected": false,
-      "message": "INVALID_STATE: assimilation session is not awaiting approval"
+      "rejected": false
     },
     {
       "toolId": "reject_assimilation_plan",
@@ -59,8 +59,7 @@
     },
     {
       "toolId": "cancel_assimilation",
-      "rejected": false,
-      "message": "NOT_FOUND: assimilation session is not cancellable"
+      "rejected": false
     },
     {
       "toolId": "steer_assimilation",
@@ -98,11 +97,11 @@
     "store_tool: resolved successfully (fence missing)",
     "update_tool: resolved successfully (fence missing)",
     "remove_tool: resolved successfully (fence missing)",
-    "shop_products: resolved successfully (fence missing)",
+    "shop_products: rejected without MIGRATION_READ_ONLY prefix: RETAILER_ERROR: amazon: HTTP 500",
     "start_assimilation: resolved successfully (fence missing)",
-    "approve_assimilation_plan: rejected without MIGRATION_READ_ONLY prefix: INVALID_STATE: assimilation session is not awaiting approval",
+    "approve_assimilation_plan: resolved successfully (fence missing)",
     "reject_assimilation_plan: resolved successfully (fence missing)",
-    "cancel_assimilation: rejected without MIGRATION_READ_ONLY prefix: NOT_FOUND: assimilation session is not cancellable",
+    "cancel_assimilation: resolved successfully (fence missing)",
     "steer_assimilation: resolved successfully (fence missing)",
     "assimilate_creator: resolved successfully (fence missing)",
     "regenerate_transcript: resolved successfully (fence missing)",

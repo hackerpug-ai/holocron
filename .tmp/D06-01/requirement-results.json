@@ -1,0 +1,146 @@
+[
+  {
+    "id": "AC-1",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-1:|TC-2:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/ac-1-output.txt"
+  },
+  {
+    "id": "AC-2",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-3:|TC-4:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/ac-2-output.txt"
+  },
+  {
+    "id": "AC-3",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-5:|TC-6:|TC-7:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/ac-3-output.txt"
+  },
+  {
+    "id": "AC-4",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-8:|TC-9:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/ac-4-output.txt"
+  },
+  {
+    "id": "AC-5",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10:|TC-11:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/ac-5-output.txt"
+  },
+  {
+    "id": "AC-6",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-12:|TC-13:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/ac-6-output.txt"
+  },
+  {
+    "id": "AC-7",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-14:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/ac-7-output.txt"
+  },
+  {
+    "id": "AC-8",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-15:|TC-16:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/ac-8-output.txt"
+  },
+  {
+    "id": "TC-1",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-1:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-1-output.txt"
+  },
+  {
+    "id": "TC-2",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-2:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-2-output.txt"
+  },
+  {
+    "id": "TC-3",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-3:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-3-output.txt"
+  },
+  {
+    "id": "TC-4",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-4:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-4-output.txt"
+  },
+  {
+    "id": "TC-5",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-5:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-5-output.txt"
+  },
+  {
+    "id": "TC-6",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-6:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-6-output.txt"
+  },
+  {
+    "id": "TC-7",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-7:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-7-output.txt"
+  },
+  {
+    "id": "TC-8",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-8:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-8-output.txt"
+  },
+  {
+    "id": "TC-9",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-9:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-9-output.txt"
+  },
+  {
+    "id": "TC-10",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-10:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-10-output.txt"
+  },
+  {
+    "id": "TC-11",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-11:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-11-output.txt"
+  },
+  {
+    "id": "TC-12",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-12:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-12-output.txt"
+  },
+  {
+    "id": "TC-13",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-13:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-13-output.txt"
+  },
+  {
+    "id": "TC-14",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-14:\"",
+    "exit_code": 0,
+    "output_file": ".tmp/D06-01/tc-14-output.txt"
+  },
+  {
+    "id": "TC-15",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-15:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-15-output.txt"
+  },
+  {
+    "id": "TC-16",
+    "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-write-fence-red.test.ts -t \"TC-16:\"",
+    "exit_code": 1,
+    "output_file": ".tmp/D06-01/tc-16-output.txt"
+  }
+]

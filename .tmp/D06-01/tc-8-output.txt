@@ -1,0 +1,70 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
+
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 4177ms
+     ↓ TC-1: discovers >= 23 live Hono write routes
+     ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
+     ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
+     ↓ TC-4: every fenced Hono write-route body equals { error: migration_read_only }
+     ↓ TC-5: MCP mutation-tool inventory count equals 21 from manifest side_effects
+     ↓ TC-6: every MCP mutation tool id exists in live toolsAsRecord()
+     ↓ TC-7: executePostgresMcpTool resolves without MIGRATION_READ_ONLY for every mutation tool when unfenced
+     × TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced 1769ms
+     ↓ TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
+     ↓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced
+     ↓ TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
+     ↓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
+     ↓ TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set
+     ↓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced
+     ↓ TC-15: runJob returns ok false with migration_read_only error when fenced
+     ↓ TC-16: job_runs row count unchanged after fenced task-timeout-worker call
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced
+AssertionError: unfenced MCP mutation tools (fence missing): store_document: resolved successfully (fence missing); update_document: resolved successfully (fence missing); share_document: resolved successfully (fence missing); add_subscription: resolved successfully (fence missing); remove_subscription: resolved successfully (fence missing); check_subscriptions: resolved successfully (fence missing); set_subscription_filter: resolved successfully (fence missing); store_tool: resolved successfully (fence missing); update_tool: resolved successfully (fence missing); remove_tool: resolved successfully (fence missing); shop_products: rejected without MIGRATION_READ_ONLY prefix: RETAILER_ERROR: amazon: HTTP 500; start_assimilation: resolved successfully (fence missing); approve_assimilation_plan: resolved successfully (fence missing); reject_assimilation_plan: resolved successfully (fence missing); cancel_assimilation: resolved successfully (fence missing); steer_assimilation: resolved successfully (fence missing); assimilate_creator: resolved successfully (fence missing); regenerate_transcript: resolved successfully (fence missing); add_improvement: resolved successfully (fence missing); close_improvement: resolved successfully (fence missing); set_improvement_status: resolved successfully (fence missing): expected [ …(21) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "store_document: resolved successfully (fence missing)",
++   "update_document: resolved successfully (fence missing)",
++   "share_document: resolved successfully (fence missing)",
++   "add_subscription: resolved successfully (fence missing)",
++   "remove_subscription: resolved successfully (fence missing)",
++   "check_subscriptions: resolved successfully (fence missing)",
++   "set_subscription_filter: resolved successfully (fence missing)",
++   "store_tool: resolved successfully (fence missing)",
++   "update_tool: resolved successfully (fence missing)",
++   "remove_tool: resolved successfully (fence missing)",
++   "shop_products: rejected without MIGRATION_READ_ONLY prefix: RETAILER_ERROR: amazon: HTTP 500",
++   "start_assimilation: resolved successfully (fence missing)",
++   "approve_assimilation_plan: resolved successfully (fence missing)",
++   "reject_assimilation_plan: resolved successfully (fence missing)",
++   "cancel_assimilation: resolved successfully (fence missing)",
++   "steer_assimilation: resolved successfully (fence missing)",
++   "assimilate_creator: resolved successfully (fence missing)",
++   "regenerate_transcript: resolved successfully (fence missing)",
++   "add_improvement: resolved successfully (fence missing)",
++   "close_improvement: resolved successfully (fence missing)",
++   "set_improvement_status: resolved successfully (fence missing)",
++ ]
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:499:93
+    497|     unsetMigrationFlag();
+    498|     writeEvidence('mcp-fenced-results.json', { results, failures });
+    499|     expect(failures, `unfenced MCP mutation tools (fence missing): ${f…
+       |                                                                                             ^
+    500|       []
+    501|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 skipped (16)
+   Start at  17:00:27
+   Duration  5.13s (transform 294ms, setup 104ms, import 759ms, tests 4.18s, environment 0ms)
+

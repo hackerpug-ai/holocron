@@ -1,14 +1,14 @@
 {
   "failures": [
-    "POST /api/chat-runs status=200 body={\"ok\":true,\"replay\":true,\"runId\":\"34f4315f-a804-4ca9-9e52-74f4c1612798\",\"conversationId\":\"47f4c6d1-9fbf-428f-bc2d-cb50fa681b90\",\"durableMessageId\":\"019fbf88-6995-70f5-9131-a1bb6d8f3f6a\",\"requestId\":\"s",
+    "POST /api/chat-runs status=200 body={\"ok\":true,\"replay\":true,\"runId\":\"d71115a1-6ec2-4344-bf62-60728287b398\",\"conversationId\":\"a8902287-9dbe-4307-b111-15c10008ce63\",\"durableMessageId\":\"019fbf8e-73c5-707a-a9b4-9207748037d2\",\"requestId\":\"s",
     "POST /api/chat-runs/:id/cancel status=404 body={\"error\":\"not_found\",\"message\":\"chat run not found\"}",
     "PATCH /api/conversations/:id status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
     "DELETE /api/conversations/:id status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
-    "POST /api/documents status=201 body={\"document\":{\"id\":\"3dc12937-54e4-4e11-b0eb-6d7e6ed8173d\",\"title\":\"s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-hono-doc\",\"content\":\"red-fence probe\",\"category\":\"general\"}}",
+    "POST /api/documents status=201 body={\"document\":{\"id\":\"0ffdec65-422e-4673-8eb9-5df3e487ce43\",\"title\":\"s29-d0601-ef581191-62ac-4d2b-95ae-71173ffacd46-hono-doc\",\"content\":\"red-fence probe\",\"category\":\"general\"}}",
     "POST /api/documents/:id/narration status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
     "POST /api/voice-sessions status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
     "POST /api/voice-sessions/:id/end status=404 body={\"error\":\"not_found\",\"message\":\"voice session not found\"}",
-    "POST /api/improvements status=201 body={\"improvement\":{\"id\":\"99d23290-df08-42c7-b8c4-e3ee9a5b6b11\"}}",
+    "POST /api/improvements status=201 body={\"improvement\":{\"id\":\"b2d3bab1-40ad-45dc-9a3e-64577eafe7c4\"}}",
     "PATCH /api/improvements/:id status=404 body={\"error\":\"not_found\",\"message\":\"improvement not found\"}",
     "DELETE /api/improvements/:id status=404 body={\"error\":\"not_found\",\"message\":\"improvement not found\"}",
     "PATCH /api/subscriptions/:id status=404 body={\"error\":\"not_found\",\"message\":\"subscription not found\"}",
@@ -17,10 +17,10 @@
     "DELETE /api/subscriptions/:id status=404 body={\"error\":\"not_found\",\"message\":\"subscription not found\"}",
     "POST /api/documents/:id/import status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
     "POST /api/documents/:id/publish status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
-    "POST /api/uploads status=404 body={\"error\":\"upload_error\",\"message\":\"upload target not found: improvement_image:d57d1145-b223-46b3-97ef-e78f07290128\"}",
-    "PUT /api/uploads/:id status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: a19b2d2e-b89f-44c7-865f-41fd8de534fd\"}",
-    "POST /api/uploads/:id/finalize status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: a19b2d2e-b89f-44c7-865f-41fd8de534fd\"}",
-    "POST /api/missions status=200 body={\"attemptCount\":1,\"checkpointStageIndex\":0,\"code\":\"MISSION_WHATSNEW_DATE_REQUIRED\",\"error\":\"whatsnew requires --date YYYY-MM-DD\",\"errorCode\":\"MISSION_WHATSNEW_DATE_REQUIRED\",\"goal\":\"s29-d0601-462d0d50",
+    "POST /api/uploads status=404 body={\"error\":\"upload_error\",\"message\":\"upload target not found: improvement_image:ac0955cc-7c32-4db6-bbf0-f5c13dab6532\"}",
+    "PUT /api/uploads/:id status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: ed745abd-1b92-4104-a3fe-fc55256fefc3\"}",
+    "POST /api/uploads/:id/finalize status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: ed745abd-1b92-4104-a3fe-fc55256fefc3\"}",
+    "POST /api/missions status=200 body={\"attemptCount\":1,\"checkpointStageIndex\":0,\"code\":\"MISSION_WHATSNEW_DATE_REQUIRED\",\"error\":\"whatsnew requires --date YYYY-MM-DD\",\"errorCode\":\"MISSION_WHATSNEW_DATE_REQUIRED\",\"goal\":\"s29-d0601-ef581191",
     "POST /api/missions/:id/verdicts status=422 body={\"ok\":false,\"error\":\"(root): Unrecognized keys: \\\"note\\\", \\\"idempotencyKey\\\"\",\"code\":\"INVALID_REQUEST\",\"errorCode\":\"INVALID_REQUEST\"}",
     "POST /api/missions/:id/steer status=422 body={\"ok\":false,\"error\":\"(root): Unrecognized key: \\\"idempotencyKey\\\"\",\"code\":\"INVALID_REQUEST\",\"errorCode\":\"INVALID_REQUEST\"}"
   ],
@@ -30,8 +30,8 @@
     "improvement_requests": 11
   },
   "after": {
-    "documents": 30,
+    "documents": 29,
     "subscription_sources": 8,
-    "improvement_requests": 14
+    "improvement_requests": 13
   }
 }

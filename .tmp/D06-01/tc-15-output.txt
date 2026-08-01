@@ -1,0 +1,48 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01
+
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 1 failed | 15 skipped) 7026ms
+     ↓ TC-1: discovers >= 23 live Hono write routes
+     ↓ TC-2: every discovered Hono write route returns non-423 when unfenced
+     ↓ TC-3: every discovered Hono write route returns HTTP 423 when fenced
+     ↓ TC-4: every fenced Hono write-route body equals { error: migration_read_only }
+     ↓ TC-5: MCP mutation-tool inventory count equals 21 from manifest side_effects
+     ↓ TC-6: every MCP mutation tool id exists in live toolsAsRecord()
+     ↓ TC-7: executePostgresMcpTool resolves without MIGRATION_READ_ONLY for every mutation tool when unfenced
+     ↓ TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced
+     ↓ TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
+     ↓ TC-10: api.documents.mutations.create returns a Convex document id when unfenced
+     ↓ TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
+     ↓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set
+     ↓ TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set
+     ↓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced
+     × TC-15: runJob returns ok false with migration_read_only error when fenced 5516ms
+     ↓ TC-16: job_runs row count unchanged after fenced task-timeout-worker call
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-15: runJob returns ok false with migration_read_only error when fenced
+AssertionError: runJob should fail under fence: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:697:57
+    695|     unsetMigrationFlag();
+    696|     writeEvidence('job-fenced.json', { result });
+    697|     expect(result.ok, 'runJob should fail under fence').toBe(false);
+       |                                                         ^
+    698|     expect(typeof result.error).toBe('string');
+    699|     expect(String(result.error).startsWith('migration_read_only:'), `e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 skipped (16)
+   Start at  17:01:06
+   Duration  8.07s (transform 327ms, setup 112ms, import 840ms, tests 7.03s, environment 0ms)
+

@@ -6,13 +6,13 @@
       "body": {
         "ok": true,
         "replay": true,
-        "runId": "34f4315f-a804-4ca9-9e52-74f4c1612798",
-        "conversationId": "47f4c6d1-9fbf-428f-bc2d-cb50fa681b90",
-        "durableMessageId": "019fbf88-6995-70f5-9131-a1bb6d8f3f6a",
-        "requestId": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-chat",
+        "runId": "7683840c-a9e7-4167-aef0-aa834ec705f4",
+        "conversationId": "d1375a89-2d01-4c98-9c35-0df7f4f90d2e",
+        "durableMessageId": "019fbf8e-63d2-71e6-a857-78db9b458cb7",
+        "requestId": "s29-d0601-0d344574-80fb-4920-80fe-bc55bf1456ea-chat",
         "status": "running",
         "role": "divergent",
-        "traceId": "chat:34f4315f-a804-4ca9-9e52-74f4c1612798",
+        "traceId": "chat:7683840c-a9e7-4167-aef0-aa834ec705f4",
         "lastEventId": 0,
         "maxSteps": 8,
         "stepsUsed": 0
@@ -47,8 +47,8 @@
       "status": 201,
       "body": {
         "document": {
-          "id": "48bd6616-bcdf-4434-a6de-d31b676e18c4",
-          "title": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-hono-doc",
+          "id": "89544ae5-7ad6-4875-8904-e731bc92223c",
+          "title": "s29-d0601-0d344574-80fb-4920-80fe-bc55bf1456ea-hono-doc",
           "content": "red-fence probe",
           "category": "general"
         }
@@ -83,7 +83,7 @@
       "status": 201,
       "body": {
         "improvement": {
-          "id": "dab8e742-8ba1-46e0-a81d-10a3950c5810"
+          "id": "ca0ec4c3-e984-46c9-8f4f-37762288192b"
         }
       }
     },
@@ -156,7 +156,7 @@
       "status": 404,
       "body": {
         "error": "upload_error",
-        "message": "upload target not found: improvement_image:3cd35ef4-0735-4511-bf25-84e2cb1453af"
+        "message": "upload target not found: improvement_image:6bfc979e-7700-409b-98ca-80a443fe9a3c"
       }
     },
     {
@@ -164,7 +164,7 @@
       "status": 404,
       "body": {
         "error": "upload_error",
-        "message": "unknown upload id: 1e4612d2-28a2-4752-a8f1-2b6c93efa87d"
+        "message": "unknown upload id: 2a944c9a-5a9e-4d89-8f0b-40afc4c1a3c9"
       }
     },
     {
@@ -172,7 +172,7 @@
       "status": 404,
       "body": {
         "error": "upload_error",
-        "message": "unknown upload id: 1e4612d2-28a2-4752-a8f1-2b6c93efa87d"
+        "message": "unknown upload id: 2a944c9a-5a9e-4d89-8f0b-40afc4c1a3c9"
       }
     },
     {
@@ -184,8 +184,8 @@
         "code": "MISSION_WHATSNEW_DATE_REQUIRED",
         "error": "whatsnew requires --date YYYY-MM-DD",
         "errorCode": "MISSION_WHATSNEW_DATE_REQUIRED",
-        "goal": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-mission-goal",
-        "idempotencyKey": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-mission",
+        "goal": "s29-d0601-0d344574-80fb-4920-80fe-bc55bf1456ea-mission-goal",
+        "idempotencyKey": "s29-d0601-0d344574-80fb-4920-80fe-bc55bf1456ea-mission",
         "ok": false,
         "provenance": {
           "budgetPolicy": {
@@ -332,14 +332,14 @@
           "schemaVersion": 1,
           "templateKey": "whatsnew",
           "templateVersion": "1.0.3",
-          "traceId": "mission:1c1b1732-aa1d-4458-b578-cda5d94b8f96"
+          "traceId": "mission:cd177d9d-577b-4945-bb33-158facb33ea4"
         },
         "replay": true,
-        "runId": "019fbf88-76a4-71a7-884d-0153856fbd42",
+        "runId": "019fbf8e-691d-7256-8b10-5cecd20fc5ea",
         "status": "failed",
         "templateKey": "whatsnew",
         "templateVersion": "1.0.3",
-        "traceId": "mission:1c1b1732-aa1d-4458-b578-cda5d94b8f96",
+        "traceId": "mission:cd177d9d-577b-4945-bb33-158facb33ea4",
         "usage": {
           "budget": {
             "cost": 0,
@@ -351,7 +351,7 @@
           "maxSteps": 12,
           "stepsUsed": 1,
           "tokens": 0,
-          "wallMs": 2
+          "wallMs": 3
         }
       }
     },
