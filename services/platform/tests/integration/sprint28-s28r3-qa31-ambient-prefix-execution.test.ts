@@ -315,31 +315,58 @@ function dockerBin(): string | null {
   return null;
 }
 
-function validateTrustedBunCandidate(
+type BunTrustCheck = {
+  path: string | null;
+  reason: string;
+};
+
+function inspectTrustedBunCandidate(
   candidate: string,
   lstat: (path: string) => ReturnType<typeof lstatSync> = lstatSync
-): string | null {
-  if (!candidate.startsWith('/')) return null;
+): BunTrustCheck {
+  if (!candidate.startsWith('/')) return { path: null, reason: 'path is not absolute' };
   try {
     const parts = candidate.split('/').filter(Boolean);
     let current = '/';
     const root = lstat(current);
-    if (root.isSymbolicLink() || root.uid !== 0 || (root.mode & 0o022) !== 0) return null;
+    if (root.isSymbolicLink())
+      return { path: null, reason: 'root trust-chain component is a symlink' };
+    if (root.uid !== 0)
+      return { path: null, reason: 'root trust-chain component is not root-owned' };
+    if ((root.mode & 0o022) !== 0)
+      return { path: null, reason: 'root trust-chain component is group/world-writable' };
 
     for (const [index, part] of parts.entries()) {
       current = current === '/' ? `/${part}` : `${current}/${part}`;
       const stat = lstat(current);
-      if (stat.isSymbolicLink() || stat.uid !== 0 || (stat.mode & 0o022) !== 0) return null;
+      if (stat.isSymbolicLink())
+        return { path: null, reason: `trust-chain component is a symlink: ${current}` };
+      if (stat.uid !== 0)
+        return { path: null, reason: `trust-chain component is not root-owned: ${current}` };
+      if ((stat.mode & 0o022) !== 0)
+        return { path: null, reason: `trust-chain component is group/world-writable: ${current}` };
       if (index < parts.length - 1) {
-        if (!stat.isDirectory() || (stat.mode & 0o111) === 0) return null;
-      } else if (!stat.isFile() || (stat.mode & 0o111) === 0) {
-        return null;
+        if (!stat.isDirectory())
+          return { path: null, reason: `trust-chain component is not a directory: ${current}` };
+        if ((stat.mode & 0o111) === 0)
+          return { path: null, reason: `trust-chain directory is not searchable: ${current}` };
+      } else {
+        if (!stat.isFile()) return { path: null, reason: 'executable is not a regular file' };
+        if ((stat.mode & 0o111) === 0)
+          return { path: null, reason: 'executable is not executable' };
       }
     }
-    return candidate;
+    return { path: candidate, reason: 'trusted' };
   } catch {
-    return null;
+    return { path: null, reason: 'trust-chain stat failed' };
   }
+}
+
+function validateTrustedBunCandidate(
+  candidate: string,
+  lstat: (path: string) => ReturnType<typeof lstatSync> = lstatSync
+): string | null {
+  return inspectTrustedBunCandidate(candidate, lstat).path;
 }
 
 function bunBin(): string | null {
@@ -384,15 +411,15 @@ function queryPitrWindowAtCandidate(
   candidate: string,
   lstat: (path: string) => ReturnType<typeof lstatSync> = lstatSync
 ): PitrWindow {
-  const bun = validateTrustedBunCandidate(candidate, lstat);
-  if (!bun) {
+  const trust = inspectTrustedBunCandidate(candidate, lstat);
+  if (!trust.path) {
     return {
       ok: false,
-      error: `${BUN_DEPENDENCY_FAILURE}: Bun executable is missing or untrusted at ${candidate}`,
+      error: `${BUN_DEPENDENCY_FAILURE}: ${trust.reason} at ${candidate}`,
     };
   }
   const env = envForConfig(config, resolve(EVIDENCE_DIR, 'window-probe'));
-  const result = spawnSync(bun, [HOLO_CLI, 'restore:window', '--json'], {
+  const result = spawnSync(trust.path, [HOLO_CLI, 'restore:window', '--json'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env,
@@ -612,7 +639,7 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
   });
 
   it('rejects symlink, user-owned, and writable Bun substitutes before credential env or child launch', () => {
-    const root = mkdtempSync('/private/tmp/holo-qa32-bun-trust-');
+    const root = mkdtempSync(join(tmpdir(), 'holo-qa32-bun-trust-'));
     const secretPath = resolve(root, 'credentials.yaml');
     const observer = resolve(root, 'observer-bun');
     const observationPath = `${secretPath}.observed`;
@@ -646,20 +673,55 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
     };
 
     try {
+      const expectedReasons = new Map([
+        [symlink, 'trust-chain component is a symlink'],
+        [userOwned, 'trust-chain component is not root-owned'],
+        [writable, 'trust-chain component is group/world-writable'],
+      ]);
       for (const candidate of [symlink, userOwned, writable]) {
         // /private/tmp is intentionally mode 1777, so the production validator
         // correctly rejects its ancestor chain. Use the real candidate lstat
         // while supplying a trusted directory stat only for fixture ancestors;
         // the fixed live path remains covered with the default full-chain check.
-        const fixtureLstat = (path: string) =>
-          path === candidate || !path.startsWith(`${root}/`)
+        const fixtureLstat = (path: string) => {
+          if (path === candidate) {
+            const stat = lstatSync(path);
+            if (candidate === symlink) {
+              Object.defineProperty(stat, 'uid', { value: 0 });
+              Object.defineProperty(stat, 'mode', {
+                value: (stat.mode & 0o170000) | 0o555,
+              });
+            }
+            if (candidate === writable) Object.defineProperty(stat, 'uid', { value: 0 });
+            return stat;
+          }
+          return !root.startsWith(`${path}/`) && path !== root
             ? lstatSync(path)
             : lstatSync('/usr/local/bin');
+        };
         const probe = queryPitrWindowAtCandidate(config, candidate, fixtureLstat);
         expect(probe.ok, candidate).toBe(false);
-        expect(probe.error, candidate).toMatch(/DEPENDENCY-S28R3-QA32-BUN-TRUST/);
+        expect(probe.error, candidate).toContain(
+          `${BUN_DEPENDENCY_FAILURE}: ${expectedReasons.get(candidate)}`
+        );
         expect(existsSync(observationPath), candidate).toBe(false);
       }
+
+      const untrustedParentLstat = (path: string) => {
+        const stat = lstatSync(path);
+        if (path === '/usr/local/bin') Object.defineProperty(stat, 'uid', { value: 501 });
+        return stat;
+      };
+      const ancestorProbe = queryPitrWindowAtCandidate(
+        config,
+        TRUSTED_BUN_PATH,
+        untrustedParentLstat
+      );
+      expect(ancestorProbe.ok).toBe(false);
+      expect(ancestorProbe.error).toContain(
+        `${BUN_DEPENDENCY_FAILURE}: trust-chain component is not root-owned: /usr/local/bin`
+      );
+      expect(existsSync(observationPath)).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
