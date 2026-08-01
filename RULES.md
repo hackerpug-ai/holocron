@@ -72,6 +72,8 @@ Runtime policy:
 ```yaml
 kb-orchestrate:
   stage-models:
+    run: grok:grok-composer-2.5-fast@medium
+    plan: grok:grok-4.5@high
     review: codex:gpt-5.6-terra@high
     qa: codex:gpt-5.6-terra@high
 ```

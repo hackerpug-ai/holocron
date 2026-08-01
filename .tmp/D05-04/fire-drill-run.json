@@ -4,10 +4,10 @@
   "reportPath": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-04/.tmp/D05-04/parity-report.json",
   "report": {
     "schema": "holo.fire-drill.parity-report.v1",
-    "capturedAt": "2026-07-29T00:40:31.605Z",
-    "targetTimestamp": "2026-07-29T00:01:02Z",
-    "actualStopTimestamp": "2026-07-29T00:01:02Z",
-    "scratchPgdata": "/tmp/d05-04-fire-scratch",
+    "capturedAt": "2026-07-29T00:45:36.875Z",
+    "targetTimestamp": "2026-07-29T00:42:35Z",
+    "actualStopTimestamp": "2026-07-29T00:42:35Z",
+    "scratchPgdata": "/tmp/d05-04-pgdata-restore",
     "blobDir": "/tmp/d05-04-blob-restore",
     "sourceDatabase": {
       "host": "127.0.0.1",
@@ -106,7 +106,7 @@
     "restic_snapshot_id": "e1525b1f368a45062149243b9ddfcdfe5dc54fdf23b25136c9ef0cf1037e6360",
     "restic_repository": "s3:https://d5110b1895ee190e145c0c8756f49879.r2.cloudflarestorage.com/holocron-backup/restic",
     "errors": [],
-    "durationMs": 154289,
+    "durationMs": 148684,
     "ok": true,
     "exitCode": 0
   },

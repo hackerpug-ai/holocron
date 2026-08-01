@@ -85,18 +85,35 @@ describe('REDHAT-FIX-C5-consume fire-drill baseline wiring', () => {
     const blob = resolve(root, 'blob-empty');
     mkdirSync(scratch, { recursive: true });
     mkdirSync(blob, { recursive: true });
-    // ensure empty
+    // GATE-FIX-S28R3-QA19: isolate from ambient R2/secrets so discovery cannot load a real baseline.
+    // Do not pass through process.env credential keys (values never logged here).
+    const isolated: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      TMPDIR: process.env.TMPDIR,
+      LANG: process.env.LANG ?? 'C.UTF-8',
+      HOLO_RECOVERY_BASELINE_ID: '0'.repeat(64),
+      HOLOCRON_SECRETS_PATH: '/nonexistent-c5-consume-no-secrets',
+      HOLO_SECRETS_PATH: '/nonexistent-c5-consume-no-secrets',
+      // Explicit empty credential slots — refuse ambient R2 discovery.
+      R2_ACCESS_KEY_ID: '',
+      R2_SECRET_ACCESS_KEY: '',
+      R2_SESSION_TOKEN: '',
+      R2_RESTORE_ACCESS_KEY_ID: '',
+      R2_RESTORE_SECRET_ACCESS_KEY: '',
+      R2_RESTORE_SESSION_TOKEN: '',
+      R2_ENDPOINT: '',
+      AWS_ACCESS_KEY_ID: '',
+      AWS_SECRET_ACCESS_KEY: '',
+      AWS_SESSION_TOKEN: '',
+    };
     const r = await runFireDrill({
       targetTimestamp: '2099-01-01T00:00:00Z',
       scratch,
       blobDir: blob,
       reportPath: resolve(root, 'parity-report-failclosed.json'),
       requireRecoveryBaseline: true,
-      env: {
-        ...process.env,
-        HOLO_RECOVERY_BASELINE_ID: '0'.repeat(64),
-        // avoid accidental real secrets path surprises
-      },
+      env: isolated,
     });
     expect(r.ok).toBe(false);
     expect(r.exitCode).not.toBe(0);

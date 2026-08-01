@@ -1,10 +1,14 @@
 {
-  "runId": "d05-01-ms5akvat-qrq4vn",
-  "holoCli": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D05-01/services/platform/src/cli/holo.ts",
-  "restoreModuleExists": false,
+  "runId": "d05-01-ms5ih76q-ig972k",
+  "holoCli": "/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts",
+  "restoreModuleExists": true,
   "secretsPath": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
   "bucket": "holocron-backup",
   "stanza": "main",
-  "scratchRoot": "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-HDMOv2",
-  "note": "GREENFIELD RED until D05-02 implements holo restore --pitr"
+  "healthyStanza": "d05sh76qig972k",
+  "healthyBackupLabel": "20260728-211448F",
+  "healthyPitrTimestamp": "2026-07-29T03:14:59Z",
+  "healthyObjectCount": 23,
+  "scratchRoot": "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-fioX5j",
+  "note": "Healthy fixture is a REAL pgBackRest chain (REDHAT-FIX-C1). Suite stays RED until D05-02 restore lands against that chain."
 }

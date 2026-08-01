@@ -1,32 +1,54 @@
 {
-  "runId": "d05-01-ms5akvat-qrq4vn",
+  "runId": "d05-01-ms5ih76q-ig972k",
   "bucket": "holocron-backup",
-  "testScopedRoot": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn",
-  "emptyPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/empty",
+  "testScopedRoot": "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k",
+  "emptyPrefix": "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/empty",
   "emptyObjectCount": 0,
-  "corruptPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt",
+  "corruptPrefix": "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/corrupt",
   "corruptObjectCount": 3,
   "corruptKeys": [
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt/backup/main/d05-01-corrupt/backup.manifest",
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt/backup/main/backup.info",
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/corrupt/archive/main/18-1/0000000100000000/000000010000000000000001-deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.gz"
+    "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/corrupt/backup/main/d05-01-corrupt/backup.manifest",
+    "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/corrupt/backup/main/backup.info",
+    "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/corrupt/archive/main/18-1/0000000100000000/000000010000000000000001-deadbeefdeadbeefdeadbeefdeadbeefdeadbeef.gz"
   ],
-  "healthyPrefix": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy",
-  "healthyObjectCount": 5,
+  "healthyPrefix": "pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy",
+  "healthyObjectCount": 23,
   "healthyKeys": [
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/backup/main/d05-01-healthy/backup.manifest",
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/backup/main/backup.info",
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/archive/main/18-1/0000000100000000/000000010000000000000001-healthyseedhealthyseedhealthyseedhealthy.gz",
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/pitr_test.sql",
-    "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/seed-contract.json"
+    "2026-07-28 21:14:47      18304 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/18-1/000000010000000A/000000010000000A00000031-1331446b4d256ecc297a2f7854c2b447cb80e19c.gz",
+    "2026-07-28 21:14:50      16576 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/18-1/000000010000000A/000000010000000A00000032-4e068c7c5d959f7c2fd5b7b13981ca5c1f3aa314.gz",
+    "2026-07-28 21:14:57        400 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/18-1/000000010000000A/000000010000000A00000032.00000028.backup",
+    "2026-07-28 21:14:56      17328 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/18-1/000000010000000A/000000010000000A00000033-afa72b3a97614f1d094858453b295cffd7b5e6e3.gz",
+    "2026-07-28 21:15:01      18256 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/18-1/000000010000000A/000000010000000A00000034-845d556858d1c43a8f14e860400457fa6d5e5ae7.gz",
+    "2026-07-28 21:15:05      16544 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/18-1/000000010000000A/000000010000000A00000035-89ac33260500cc0f085651e33258eae22ad648f7.gz",
+    "2026-07-28 21:14:59        368 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/archive.info.copy",
+    "2026-07-28 21:14:59        368 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/archive/d05sh76qig972k/archive.info",
+    "2026-07-28 21:14:57     956704 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/backup.manifest.copy",
+    "2026-07-28 21:14:57     956704 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/backup.manifest",
+    "2026-07-28 21:14:53    2801920 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/bundle/1",
+    "2026-07-28 21:14:54    2423832 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/bundle/2",
+    "2026-07-28 21:14:54    2281336 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/bundle/3",
+    "2026-07-28 21:14:54    2130240 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/bundle/4",
+    "2026-07-28 21:14:54    1553480 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/bundle/5",
+    "2026-07-28 21:14:55        224 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/pg_data/backup_label.gz",
+    "2026-07-28 21:14:53    8590936 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/pg_data/base/16384/702991.pgbi",
+    "2026-07-28 21:14:52    1009920 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/pg_data/base/16384/703001.pgbi",
+    "2026-07-28 21:14:52     959904 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/pg_data/base/77182/1259.pgbi",
+    "2026-07-28 21:14:53     660184 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/20260728-211448F/pg_data/base/77182/2619.pgbi",
+    "2026-07-28 21:14:58     245648 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/backup.history/2026/20260728-211448F.manifest.gz",
+    "2026-07-28 21:14:59       1248 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/backup.info.copy",
+    "2026-07-28 21:14:58       1248 pgbackrest-d05-01-red/d05-01-ms5ih76q-ig972k/healthy/backup/d05sh76qig972k/backup.info"
   ],
+  "healthyStanza": "d05sh76qig972k",
+  "healthyBackupLabel": "20260728-211448F",
+  "healthyPitrTimestamp": "2026-07-29T03:14:59Z",
   "pitr_test_seed": {
     "table": "pitr_test",
     "min_rows": 1,
-    "seed_sql_key": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/pitr_test.sql",
-    "seed_contract_key": "pgbackrest-d05-01-red/d05-01-ms5akvat-qrq4vn/healthy/seed/seed-contract.json",
-    "intent": "Healthy fixture is test-scoped (NOT production pgbackrest). Documents CREATE TABLE pitr_test + INSERT so D05-02 restore can green with SELECT COUNT(*) FROM pitr_test >= 1 without depending on production data shape."
+    "seed_label": "d05-01-healthy-seed-d05-01-ms5ih76q-ig972k",
+    "seed_batch": "d05-01-healthy",
+    "intent": "Healthy fixture is a REAL pgBackRest full backup into a test-scoped R2 prefix (NOT production pgbackrest). pitr_test is inserted into source Postgres before backup so restore can prove COUNT(*) >= 1."
   },
   "seed_method": "public_api",
-  "note": "Real Cloudflare R2 fixtures — no mocks; all three prefixes under pgbackrest-d05-01-red/<runId>/"
+  "seed_tool": "pgbackrest",
+  "note": "REDHAT-FIX-C1: real pgBackRest chain — no synthetic HEALTHY-WAL-PLACEHOLDER / text manifests"
 }

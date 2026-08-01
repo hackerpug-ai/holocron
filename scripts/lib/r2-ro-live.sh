@@ -850,6 +850,8 @@ payload = {
     "scope_probes_preflight": os.environ.get("R2_SCOPE_PREFLIGHT_PROVENANCE") or "versioned-config-bind",
     "scope_probes_in_exists": os.environ.get("R2_SCOPE_PREFLIGHT_IN_EXISTS") or "bound",
     "scope_probes_out_exists": os.environ.get("R2_SCOPE_PREFLIGHT_OUT_EXISTS") or "bound",
+    # Non-secret writer-tuple fingerprint when mandatory preflight ran (QA19).
+    "scope_probes_writer_fp16": os.environ.get("R2_SCOPE_PREFLIGHT_WRITER_AK_FP16") or "",
     "scope_oracles": {
         "out_of_prefix_list": "AccessDenied",
         "out_of_prefix_head": "AccessDenied",
