@@ -1,7 +1,7 @@
 {
   "task_id": "D06-01",
   "tdd_mode": "red_first",
-  "red_commit": "1283bf77b46fea188028fae55da818a3b5119311",
+  "red_commit": "90367448de340a8cd5dc6bc32ff7e558a62a4bc7",
   "green_commit": null,
   "green_status": "deferred",
   "green_waiver": "GREEN is owned by later fence tasks D06-03 (implement write fence) and D06-05 (soak-flip verification). This bead only authors the RED fail-closed oracle against the unfenced tree.",
