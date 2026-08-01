@@ -62,7 +62,7 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms9y1720-8427"
+          "s28r3-qa31-no-key-ms9y2kjj-10469"
         ],
         "status": 0,
         "error": ""
@@ -72,8 +72,8 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms9y1720-8427-pgdata",
-          "s28r3-qa31-no-key-ms9y1720-8427-blobs"
+          "s28r3-qa31-no-key-ms9y2kjj-10469-pgdata",
+          "s28r3-qa31-no-key-ms9y2kjj-10469-blobs"
         ],
         "status": 0,
         "error": ""
@@ -82,7 +82,7 @@
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-ms9y1720-8427-net"
+          "s28r3-qa31-no-key-ms9y2kjj-10469-net"
         ],
         "status": 1,
         "error": ""
@@ -90,7 +90,7 @@
     ],
     "stagingRemoved": true
   },
-  "generated_at": "2026-08-01T05:41:14.140Z",
-  "reviewed_sha": "f458479ab02f5b05eb29f013791985758f634f57",
-  "execution_head": "f458479ab02f5b05eb29f013791985758f634f57"
+  "generated_at": "2026-08-01T05:42:18.212Z",
+  "reviewed_sha": "ffbb48292e549ed680724b4492ca352ff86aab19",
+  "execution_head": "ffbb48292e549ed680724b4492ca352ff86aab19"
 }
