@@ -1,0 +1,15 @@
+TDD phase: RED
+Base/test commit: 19f8a14b (QA32 implementation still present; QA33 implementation absent)
+Command:
+  vitest run --project integration services/platform/tests/integration/sprint28-s28r3-qa33-configured-positive-failure.test.ts
+
+Observed failure against QA32:
+  Test Files  1 passed (1)
+  Tests       1 passed | 5 skipped (6)
+  AssertionError: expected +0 not to be +0
+  configured-positive failure harness received child exit status 0
+
+Interpretation: the credential-configured PITR probe returned green after the
+QA32 path recorded/treated the dependency failure as blocked. This is the RED
+proof for the QA33 non-pass requirement; no credentials or gate verdicts are
+contained in this artifact.
