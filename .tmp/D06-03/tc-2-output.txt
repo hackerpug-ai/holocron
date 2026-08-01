@@ -1,0 +1,3 @@
+/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: call: command not found
+/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: catch: command not found
+/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: check: command not found

@@ -1,0 +1,22 @@
+[
+  {
+    "surface": "subscriptions.add",
+    "rejected": true,
+    "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+  },
+  {
+    "surface": "documents.storage.createWithEmbedding",
+    "rejected": true,
+    "message": "migration_read_only: action blocked while HOLO_MIGRATION_READ_ONLY is set"
+  },
+  {
+    "surface": "documents.storage.updateWithEmbedding",
+    "rejected": false,
+    "message": "[Request ID: 418f3cfb4be24a25] Server Error\nArgumentValidationError: Value does not match validator.\nPath: .id\nValue: \"jd7fake000000000000000000\"\nValidator: v.id(\"documents\")\n\n"
+  },
+  {
+    "surface": "documents.create",
+    "rejected": true,
+    "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+  }
+]

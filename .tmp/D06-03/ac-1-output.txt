@@ -1,0 +1,5 @@
+holo: unknown command: cutover:freeze
+jq: error: Could not open file freeze-report.json: No such file or directory
+/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: call: command not found
+couldn't read file "message": no such file or directory
+/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: documents: command not found

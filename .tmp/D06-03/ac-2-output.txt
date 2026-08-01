@@ -1,0 +1,2 @@
+/Users/inference1/Projects/brain/skills/kb-run-sprint/scripts/harvest-evidence.sh: line 142: invoke: command not found
+couldn't read file "4/4": no such file or directory
