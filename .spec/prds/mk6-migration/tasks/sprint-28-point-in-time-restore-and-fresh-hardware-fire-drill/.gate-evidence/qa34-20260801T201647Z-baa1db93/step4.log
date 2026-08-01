@@ -1,0 +1,4 @@
+@@GATE-META step=step4 cmd_sha=d985ca9e08433b0c8fe34cff46a9c530b1a6aee9a5b40921765b460b82f5e3d4@@
++ set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh; EVID=".tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}"; test -f "$EVID/parity-report.json"; /usr/bin/jq -e '.LEDGER_CHECKSUM_MATCH == true and ((.ledger_sha256 // .ledgerDigest // .LEDGER_SHA256 // "") | tostring | test("^[a-f0-9]{64}$"; "i"))' "$EVID/parity-report.json"
+true
+@@GATE-EXIT=0@@

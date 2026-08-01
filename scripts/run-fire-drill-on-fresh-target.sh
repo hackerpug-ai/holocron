@@ -205,7 +205,8 @@ resolve_absolute_secrets_path() {
 }
 
 # Resolve writer + restore (+ shared R2 config + restore secrets) from secrets file then env override.
-# Sets: WRITER_AK, WRITER_SK, RESTORE_AK, RESTORE_SK, RESTORE_ST
+# Sets: WRITER_AK, WRITER_SK, RESTORE_AK, RESTORE_SK, RESTORE_ST,
+#       DATA_RESTORE_AK, DATA_RESTORE_SK, DATA_RESTORE_ST
 # Exports (when unset in parent, from secrets file): R2_REPO_CIPHER_PASS, RESTIC_PASSWORD,
 # R2_RESTIC_PREFIX, shared R2_* config, and absolute HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH.
 # NEVER logs secret values — presence only.
@@ -266,24 +267,32 @@ resolve_r2_identities_from_secrets_and_env() {
   else
     WRITER_ST="$file_writer_st"
   fi
-  if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" ]]; then
+  # Resolve the restore tuple atomically. A complete env keypair may correctly
+  # have no session token; never graft the file token onto it. Only when no
+  # restore tuple fields are supplied by env do all three fields come from the
+  # canonical file. Partial env tuples fail closed.
+  if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
     RESTORE_AK="$R2_RESTORE_ACCESS_KEY_ID"
+    RESTORE_SK="$R2_RESTORE_SECRET_ACCESS_KEY"
+    RESTORE_ST="${R2_RESTORE_SESSION_TOKEN:-}"
+  elif [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" || -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" || -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
+    err "partial R2_RESTORE_* tuple in env; refusing secrets-file field mixing"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
   else
     RESTORE_AK="$file_restore_ak"
-  fi
-  if [[ -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
-    RESTORE_SK="$R2_RESTORE_SECRET_ACCESS_KEY"
-  else
     RESTORE_SK="$file_restore_sk"
-  fi
-  # GATE-FIX-S28R3-QA10 / M1: restore session token precedence —
-  #   1) explicit env R2_RESTORE_SESSION_TOKEN
-  #   2) canonical-file R2_RESTORE_SESSION_TOKEN
-  # Never substitute writer/generic R2_SESSION_TOKEN (env or file).
-  if [[ -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
-    RESTORE_ST="$R2_RESTORE_SESSION_TOKEN"
-  else
     RESTORE_ST="$file_restore_st"
+  fi
+  DATA_RESTORE_AK="${R2_FIRE_DRILL_DATA_ACCESS_KEY_ID:-}"
+  DATA_RESTORE_SK="${R2_FIRE_DRILL_DATA_SECRET_ACCESS_KEY:-}"
+  DATA_RESTORE_ST="${R2_FIRE_DRILL_DATA_SESSION_TOKEN:-}"
+  if [[ -n "$DATA_RESTORE_AK" || -n "$DATA_RESTORE_SK" || -n "$DATA_RESTORE_ST" ]]; then
+    if [[ -z "$DATA_RESTORE_AK" || -z "$DATA_RESTORE_SK" ]]; then
+      err "partial R2_FIRE_DRILL_DATA_* tuple refused"
+      echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+      exit 2
+    fi
   fi
   if [[ -n "$RESTORE_AK" ]]; then
     export R2_RESTORE_ACCESS_KEY_ID="$RESTORE_AK"
@@ -293,6 +302,8 @@ resolve_r2_identities_from_secrets_and_env() {
   fi
   if [[ -n "$RESTORE_ST" ]]; then
     export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
+  else
+    unset R2_RESTORE_SESSION_TOKEN 2>/dev/null || true
   fi
   # Ensure generic writer session is not left as the restore session for RO proof.
   unset R2_SESSION_TOKEN 2>/dev/null || true
@@ -300,10 +311,12 @@ resolve_r2_identities_from_secrets_and_env() {
 
 # GATE-FIX-S28R3-QA25: prefix-scoped RO temp credentials often cover only pgbackrest.
 # Fire-drill data plane also needs recovery-baselines/ + restic List/Get. Probe via stdlib provider.
-# Exit 0 when BOTH prefixes allow List (rc=0); non-zero when AccessDenied/error.
+# Exit 0 only when BOTH prefixes allow List and sacrificial Put/Delete are
+# explicitly AccessDenied. This is the data-plane read-only oracle.
 # Credentials sealed from env key names only → FD 3 — NEVER secret values on argv/xtrace.
 # Caller must export HOLO_PROBE_AK/SK/ST before calling (no positional secret args).
-restore_covers_fire_drill_prefixes() {
+restore_covers_fire_drill_prefixes() (
+  set +e
   local ep bucket prov
   ep="${R2_ENDPOINT:-}"
   bucket="${R2_BUCKET_NAME:-}"
@@ -313,8 +326,8 @@ restore_covers_fire_drill_prefixes() {
   if ! r2_ro_open_fd3_from_env_values HOLO_PROBE_AK HOLO_PROBE_SK HOLO_PROBE_ST; then
     return 1
   fi
-  set +e
-  /usr/bin/python3 -E -s - "$prov" "$ep" "$bucket" <<'PY' 2>/dev/null
+  local rc
+  if /usr/bin/python3 -E -s - "$prov" "$ep" "$bucket" <<'PY' 2>/dev/null; then
 import os, subprocess, sys
 
 prov, endpoint, bucket = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -338,6 +351,8 @@ env = {
 }
 if st:
     env["AWS_SESSION_TOKEN"] = st
+if os.environ.get("HOLO_R2_PROVIDER_MOCK_MODE"):
+    env["HOLO_R2_PROVIDER_MOCK_MODE"] = os.environ["HOLO_R2_PROVIDER_MOCK_MODE"]
 for prefix in ("recovery-baselines", "restic"):
     p = subprocess.run(
         [
@@ -362,13 +377,39 @@ for prefix in ("recovery-baselines", "restic"):
     )
     if p.returncode != 0:
         sys.exit(1)
+import uuid
+probe_key = "drill-neg/fire-drill-data-ro-" + uuid.uuid4().hex
+put = subprocess.run(
+    ["/usr/bin/python3", "-E", "-s", prov, "put-object", "--endpoint", endpoint,
+     "--bucket", bucket, "--key", probe_key],
+    env=env, input="SACRIFICIAL_FIRE_DRILL_DATA_RO", capture_output=True, text=True, timeout=45,
+)
+if put.returncode == 0:
+    subprocess.run(
+        ["/usr/bin/python3", "-E", "-s", prov, "delete-object", "--endpoint", endpoint,
+         "--bucket", bucket, "--key", probe_key],
+        env=env, capture_output=True, text=True, timeout=45,
+    )
+    sys.exit(1)
+if put.returncode != 2:
+    sys.exit(1)
+delete = subprocess.run(
+    ["/usr/bin/python3", "-E", "-s", prov, "delete-object", "--endpoint", endpoint,
+     "--bucket", bucket, "--key", probe_key],
+    env=env, capture_output=True, text=True, timeout=45,
+)
+if delete.returncode != 2:
+    sys.exit(1)
 sys.exit(0)
 PY
-  local rc=$?
+    rc=0
+  else
+    rc=$?
+  fi
   exec 3<&- 2>/dev/null || true
   unset HOLO_PROBE_AK HOLO_PROBE_SK HOLO_PROBE_ST
   return "$rc"
-}
+)
 
 r2_context_fp16() {
   r2_ro_fp16_fields "${1:-}" "${2:-}" "${3:-}" "${4:-}"
@@ -1004,9 +1045,10 @@ done
 # Build env -i argument list (KEY=VAL pairs).
 # GATE-FIX-S28R3-QA25 data-plane credential selection (after RO proof already closed):
 #   - Prefer R2_RESTORE_* when it can List recovery-baselines/ + restic/ (full fire-drill scope).
-#   - Else fall back to secrets-file writer identity (WRITER_AK/SK + WRITER_ST) so baseline
-#     discovery + restic blob restore can run. RO oracle already proved distinct restore tuple.
-#   - Always keep R2_RESTORE_* on child for identity audit; never log secret values.
+#   - Else use the durable R2_FIRE_DRILL_DATA_* tuple preserved before the
+#     pgbackrest-only proof mint, after independently proving baseline/restic
+#     reads plus Put/Delete denial.
+#   - Writer credentials are never a data-plane fallback.
 CHILD_DATA_AK="$RESTORE_AK"
 CHILD_DATA_SK="$RESTORE_SK"
 CHILD_DATA_ST="$RESTORE_ST"
@@ -1016,19 +1058,31 @@ export HOLO_PROBE_AK="$RESTORE_AK"
 export HOLO_PROBE_SK="$RESTORE_SK"
 export HOLO_PROBE_ST="${RESTORE_ST:-}"
 if ! restore_covers_fire_drill_prefixes; then
-  if [[ -n "${WRITER_AK:-}" && -n "${WRITER_SK:-}" ]]; then
-    CHILD_DATA_AK="$WRITER_AK"
-    CHILD_DATA_SK="$WRITER_SK"
-    CHILD_DATA_ST="${WRITER_ST:-}"
-    CHILD_DATA_SOURCE="secrets-file-writer-session"
-    log "GATE-FIX-S28R3-QA25: restore RO session lacks recovery-baselines/restic List — child data-plane uses secrets-file identity after RO proof (values not logged)"
-  else
-    err "GATE-FIX-S28R3-QA25: restore RO session cannot List recovery-baselines/restic and secrets-file writer identity unavailable"
+  if [[ -z "${DATA_RESTORE_AK:-}" || -z "${DATA_RESTORE_SK:-}" ]]; then
+    err "restore proof tuple lacks fire-drill scope and no complete R2_FIRE_DRILL_DATA_* read-only tuple is available"
     echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
     exit 2
   fi
+  if [[ -n "${WRITER_SK:-}" && "$DATA_RESTORE_SK" == "$WRITER_SK" ]]; then
+    err "R2_FIRE_DRILL_DATA_* is writer-equivalent; refusing writer fallback"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  export HOLO_PROBE_AK="$DATA_RESTORE_AK"
+  export HOLO_PROBE_SK="$DATA_RESTORE_SK"
+  export HOLO_PROBE_ST="${DATA_RESTORE_ST:-}"
+  if ! restore_covers_fire_drill_prefixes; then
+    err "R2_FIRE_DRILL_DATA_* failed baseline/restic read plus Put/Delete-denial proof"
+    echo "RESIDUAL: DEPENDENCY-S28-R2-RO" >&2
+    exit 2
+  fi
+  CHILD_DATA_AK="$DATA_RESTORE_AK"
+  CHILD_DATA_SK="$DATA_RESTORE_SK"
+  CHILD_DATA_ST="${DATA_RESTORE_ST:-}"
+  CHILD_DATA_SOURCE="verified-read-only-data-tuple"
+  log "restore proof tuple is pgbackrest-scoped; child data-plane uses separately verified read-only data tuple (values not logged)"
 else
-  log "GATE-FIX-S28R3-QA25: restore RO session covers recovery-baselines+restic — child data-plane uses restore identity"
+  log "restore tuple covers recovery-baselines/restic and denies Put/Delete — child data-plane uses restore identity"
 fi
 
 # GATE-FIX-S28R3-QA25: child env is sealed from key NAMES only (values already in this shell).
@@ -1043,15 +1097,17 @@ export TERM="$CHILD_TERM"
 export PWD="$ROOT"
 export R2_ACCESS_KEY_ID="$CHILD_DATA_AK"
 export R2_SECRET_ACCESS_KEY="$CHILD_DATA_SK"
-export R2_RESTORE_ACCESS_KEY_ID="$RESTORE_AK"
-export R2_RESTORE_SECRET_ACCESS_KEY="$RESTORE_SK"
+export R2_RESTORE_ACCESS_KEY_ID="$CHILD_DATA_AK"
+export R2_RESTORE_SECRET_ACCESS_KEY="$CHILD_DATA_SK"
 if [[ -n "$CHILD_DATA_ST" ]]; then
   export R2_SESSION_TOKEN="$CHILD_DATA_ST"
 else
   unset R2_SESSION_TOKEN 2>/dev/null || true
 fi
-if [[ -n "$RESTORE_ST" ]]; then
-  export R2_RESTORE_SESSION_TOKEN="$RESTORE_ST"
+if [[ -n "$CHILD_DATA_ST" ]]; then
+  export R2_RESTORE_SESSION_TOKEN="$CHILD_DATA_ST"
+else
+  unset R2_RESTORE_SESSION_TOKEN 2>/dev/null || true
 fi
 export HOLO_FIRE_DRILL_CHILD_DATA_SOURCE="$CHILD_DATA_SOURCE"
 if [[ -n "$TRUSTED_PGBACKREST" ]]; then

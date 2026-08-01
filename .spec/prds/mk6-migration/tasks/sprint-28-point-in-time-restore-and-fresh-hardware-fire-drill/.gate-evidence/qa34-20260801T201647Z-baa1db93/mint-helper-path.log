@@ -1,0 +1,5 @@
+@@GATE-META step=mint-helper-path cmd_sha=96e17a175e16df3490fb75a5ff2befc55117776430b4bd2985ca22b1b96d2ffb@@
++ before_path="$PATH"; source scripts/mint-r2-prefix-restore-env.sh; test "$PATH" = "$before_path"; test -n "$R2_FIRE_DRILL_DATA_ACCESS_KEY_ID"; test -n "$R2_FIRE_DRILL_DATA_SECRET_ACCESS_KEY"; test -n "$R2_FIRE_DRILL_DATA_SESSION_TOKEN"; test "$R2_FIRE_DRILL_DATA_SECRET_ACCESS_KEY" != "$R2_RESTORE_SECRET_ACCESS_KEY"; echo mint_helper_preserves_path_and_mints_distinct_data_tuple=true
+PASS: minted temporary pgbackrest proof + fire-drill data object-read-only R2 tuples (ttl=21600s; values not logged)
+mint_helper_preserves_path_and_mints_distinct_data_tuple=true
+@@GATE-EXIT=0@@

@@ -1,0 +1,99 @@
+@@GATE-META step=step2 cmd_sha=2e6319633ab38aed414bc231aa736b197ec48e5edf710682fc4c901963a8fd52@@
++ set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh; EVID=".tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}"; /bin/mkdir -p "$EVID"; RESTORE_ENV_TUPLE=0; if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then RESTORE_ENV_TUPLE=1; elif [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" || -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" || -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then echo "error: partial R2_RESTORE_* tuple in env; refusing secrets-file field mixing" >&2; exit 1; fi; SECRETS="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-services/platform/config/secrets.yaml}}"; if [[ -f "$SECRETS" ]]; then while IFS= read -r line || [[ -n "$line" ]]; do [[ "$line" =~ ^[[:space:]]*# ]] && continue; [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue; k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"; v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"; case "$k" in R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN) if [[ "$RESTORE_ENV_TUPLE" -eq 0 && -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi ;; R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME) if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi ;; esac; done <"$SECRETS"; fi; if [[ -n "${CLOUDFLARE_API_TOKEN:-}" && ( -n "${R2_PARENT_ACCESS_KEY_ID:-}" || -n "${BACKUP_R2_ACCESS_KEY_ID:-}" ) ]]; then source scripts/mint-r2-prefix-restore-env.sh; fi; if [[ -z "${R2_RESTORE_ACCESS_KEY_ID:-}" || -z "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then echo "RESIDUAL: DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* absent from secrets/env; refuse ro-test placeholders as live green" | /usr/bin/tee "$EVID/step2-isolation.txt"; exit 1; fi; export REQUIRE_LIVE_R2_RO=1; export R2_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID"; export R2_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY"; export R2_SESSION_TOKEN="${R2_RESTORE_SESSION_TOKEN:-}"; export R2_CREDENTIAL_KIND=object-read-only; export R2_CREDENTIAL_POLICY='{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/pgbackrest/*"]}]}'; MINI_HOST="${MINI_HOST:-203.0.113.1}" MINI_IPV4="${MINI_IPV4:-203.0.113.1}" MINI_IPV6="${MINI_IPV6:-2001:db8::1}" MINI_TAILNET_IP="${MINI_TAILNET_IP:-203.0.113.2}" MINI_LAN_IP="${MINI_LAN_IP:-203.0.113.3}" MINI_DNS_ALIASES="${MINI_DNS_ALIASES:-mini.invalid}" MINI_SOCKET_DEFAULTS="${MINI_SOCKET_DEFAULTS:-0}" MINI_UNIX_SOCKETS="${MINI_UNIX_SOCKETS:-/tmp/.s.PGSQL.5432-gate-absent}" TARGET_ATTESTED_IDENTITY="${TARGET_ATTESTED_IDENTITY:-target-vm-uuid-gate}" MINI_ATTESTED_IDENTITY="${MINI_ATTESTED_IDENTITY:-mini-hw-uuid-gate}" REQUIRE_ATTESTED_IDENTITY=1 NC_TIMEOUT_SEC=1 REQUIRE_LIVE_R2_RO=1 /bin/bash scripts/prove-r2-readonly.sh 2>&1 | /usr/bin/tee "$EVID/step2-r2-readonly.txt"; MINI_HOST="${MINI_HOST:-203.0.113.1}" MINI_IPV4="${MINI_IPV4:-203.0.113.1}" MINI_IPV6="${MINI_IPV6:-2001:db8::1}" MINI_TAILNET_IP="${MINI_TAILNET_IP:-203.0.113.2}" MINI_LAN_IP="${MINI_LAN_IP:-203.0.113.3}" MINI_DNS_ALIASES="${MINI_DNS_ALIASES:-mini.invalid}" MINI_SOCKET_DEFAULTS="${MINI_SOCKET_DEFAULTS:-0}" MINI_UNIX_SOCKETS="${MINI_UNIX_SOCKETS:-/tmp/.s.PGSQL.5432-gate-absent}" TARGET_ATTESTED_IDENTITY="${TARGET_ATTESTED_IDENTITY:-target-vm-uuid-gate}" MINI_ATTESTED_IDENTITY="${MINI_ATTESTED_IDENTITY:-mini-hw-uuid-gate}" REQUIRE_ATTESTED_IDENTITY=1 R2_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID" R2_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY" R2_RESTORE_ACCESS_KEY_ID="$R2_RESTORE_ACCESS_KEY_ID" R2_RESTORE_SECRET_ACCESS_KEY="$R2_RESTORE_SECRET_ACCESS_KEY" R2_CREDENTIAL_KIND=object-read-only R2_CREDENTIAL_POLICY="$R2_CREDENTIAL_POLICY" NC_TIMEOUT_SEC=1 REQUIRE_LIVE_R2_RO=1 /bin/bash scripts/prove-isolation.sh 2>&1 | /usr/bin/tee "$EVID/step2-isolation.txt"; /usr/bin/grep -qE 'RESULT:[[:space:]]+PASS' "$EVID/step2-isolation.txt"
+PASS: minted temporary pgbackrest proof + fire-drill data object-read-only R2 tuples (ttl=21600s; values not logged)
+=== prove-r2-readonly (live aws → real R2) ===
+INFO: loading key presence from secrets file (values not logged)
+INFO: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session present) — live Put/Delete oracle required
+INFO: using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)
+PASS: writer preflight: both scope probes exist (class=scope_preflight_ok)
+PASS: prefix list allowed (class=prefix_list_ok; body not logged)
+PASS: in-prefix head-object allowed (class=prefix_head_ok)
+PASS: in-prefix get-object allowed (class=prefix_get_ok; body discarded)
+PASS: out-of-prefix list AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix head AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix get AccessDenied (class=prefix_scope_enforced)
+INFO: sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)
+PASS: put-object AccessDenied (class=access_denied)
+PASS: delete-object AccessDenied (class=access_denied)
+PASS: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle
+wrote RO proof attestation: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/r2-ro-proofs/proof.1785619572.40874.8931.json tuple_fp16=cca83b10dd122c46 context_fp16=02970ca9822e939d
+=== RESULT: PASS (live R2 prefix List+Head+Get allowed; out-of-prefix AccessDenied; Put/Delete AccessDenied) ===
+=== prove-isolation MULTI-AXIS (mini=203.0.113.1:5432) ===
+contract: network+ipc_sockets+mounts+identity+control_plane+docker_runtime+r2_readonly
+supersedes: TCP/5432 + /mnt/mini-pgdata|/mnt/mini-blobs only
+--- AXIS: network ---
+INFO: network coordinates: 203.0.113.1 2001:db8::1 203.0.113.2 203.0.113.3 mini.invalid
+INFO: network ports: 5432 (+ SSH 22 on primary 203.0.113.1)
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: no route to mini at 203.0.113.1:5432
+scripts/prove-isolation.sh: line 304: 41113 Terminated: 15          "$@" > "$out_file" 2>&1
+PASS: no route to mini at 2001:db8::1:5432
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: no route to mini at 203.0.113.2:5432
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: no route to mini at 203.0.113.3:5432
+INFO: DNS lookup mini.invalid: Host mini.invalid not found: 3(NXDOMAIN)
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: no route to mini at mini.invalid:5432
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: no route to mini at 203.0.113.1:22
+PASS: 0 successful mini network connections across IPv4/IPv6/tailnet/LAN/DNS axes
+AXIS network: PASS
+--- AXIS: ipc_sockets ---
+INFO: MINI_SOCKET_DEFAULTS=0 — classic PG socket list skipped; probing MINI_UNIX_SOCKETS only
+PASS: no unix socket at /tmp/.s.PGSQL.5432-gate-absent
+PASS: 0 mini unix sockets accessible
+AXIS ipc_sockets: PASS
+--- AXIS: mounts ---
+PASS: no mini PGDATA mount at /mnt/mini-pgdata
+PASS: no mini blob mount at /mnt/mini-blobs
+PASS: mount table has 0 classic mini PGDATA/blob path entries
+PASS: no alternate mini mount at /mnt/mini-pgdata-alt
+PASS: no alternate mini mount at /mnt/mini-data
+PASS: no alternate mini mount at /mnt/restore-from-mini
+PASS: no alternate mini mount at /var/lib/postgresql/mini
+AXIS mounts: PASS
+--- AXIS: identity ---
+INFO: TARGET_ATTESTED_IDENTITY source=env value=target-vm-uuid-gate
+INFO: MINI_ATTESTED_IDENTITY value=mini-hw-uuid-gate
+PASS: target attested identity non-empty
+PASS: mini attested identity non-empty
+PASS: target identity distinct from mini
+AXIS identity: PASS
+--- AXIS: control_plane ---
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: SSH closed to mini at 203.0.113.1:22
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: SSH closed to mini at 203.0.113.2:22
+[1]-  Exit 1                  "$@" > "$out_file" 2>&1
+PASS: SSH closed to mini at 203.0.113.3:22
+PASS: SSH and alternate control-plane paths to mini are closed
+AXIS control_plane: PASS
+--- AXIS: docker_runtime ---
+INFO: docker unavailable — docker_runtime axis host-level only
+PASS: docker runtime not applicable on this host
+AXIS docker_runtime: PASS
+--- AXIS: r2_readonly ---
+  detail: running live R2 read-only probe (real aws CLI)
+=== prove-r2-readonly (live aws → real R2) ===
+INFO: loading key presence from secrets file (values not logged)
+INFO: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session present) — live Put/Delete oracle required
+INFO: using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)
+PASS: writer preflight: both scope probes exist (class=scope_preflight_ok)
+PASS: prefix list allowed (class=prefix_list_ok; body not logged)
+PASS: in-prefix head-object allowed (class=prefix_head_ok)
+PASS: in-prefix get-object allowed (class=prefix_get_ok; body discarded)
+PASS: out-of-prefix list AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix head AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix get AccessDenied (class=prefix_scope_enforced)
+INFO: sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)
+PASS: put-object AccessDenied (class=access_denied)
+PASS: delete-object AccessDenied (class=access_denied)
+PASS: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle
+wrote RO proof attestation: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/r2-ro-proofs/proof.1785619585.41319.16355.json tuple_fp16=cca83b10dd122c46 context_fp16=02970ca9822e939d
+=== RESULT: PASS (live R2 prefix List+Head+Get allowed; out-of-prefix AccessDenied; Put/Delete AccessDenied) ===
+PASS: R2 credentials are read-only scoped
+AXIS r2_readonly: PASS
+=== SUMMARY: check_failures=0 axis_failures=0 ===
+=== RESULT: PASS (all multi-axis isolation checks) ===
+@@GATE-EXIT=0@@

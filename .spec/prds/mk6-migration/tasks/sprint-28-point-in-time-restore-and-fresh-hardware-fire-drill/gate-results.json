@@ -1,0 +1,75 @@
+{
+  "sprint": "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill",
+    "sprint_slug": "sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill"
+  },
+  "run_id": "qa34-20260801T201647Z-baa1db93",
+  "verdict": "pass",
+  "verified": true,
+  "method": "verify-gate-evidence.sh:recompute-strong@febb48afeaa2",
+  "runner": "cmux-exec-pane",
+  "ui_driver": "none",
+  "exec_surface": "surface:302 (C6DB434B-F37A-4072-821C-47A05B4980D7)",
+  "qa_surface_id": "E88F3BE5-834D-41AE-B353-6F8F3CCD08C8",
+  "steps_total": 6,
+  "steps_executed": 6,
+  "steps_passed": 6,
+  "steps": [
+    {
+      "n": 1,
+      "text": "Run holo restore --pitr <timestamp> against a scratch DB — restores to the named point exactly (or fail-closed outside WAL with named error).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0 and deterministic assertion passed; .gate-evidence/qa34-20260801T201647Z-baa1db93/step1.log",
+      "log": ".gate-evidence/qa34-20260801T201647Z-baa1db93/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "Provision / prove a fresh restore target with zero mini access (multi-axis isolation PASS) using live distinct R2_RESTORE_* under REQUIRE_LIVE_R2_RO=1.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0 and deterministic assertion passed; .gate-evidence/qa34-20260801T201647Z-baa1db93/step2.log",
+      "log": ".gate-evidence/qa34-20260801T201647Z-baa1db93/step2.log"
+    },
+    {
+      "n": 3,
+      "text": "Compare row counts pre/post-restore — exact match against the pre-failure snapshot (parity-report row_counts) on provisioned fresh-target volumes.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0 and deterministic assertion passed; .gate-evidence/qa34-20260801T201647Z-baa1db93/step3.log",
+      "log": ".gate-evidence/qa34-20260801T201647Z-baa1db93/step3.log"
+    },
+    {
+      "n": 4,
+      "text": "Compare the evidence-ledger chain pre/post-restore — as-of chain SHA-256 matches baseline.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0 and deterministic assertion passed; .gate-evidence/qa34-20260801T201647Z-baa1db93/step4.log",
+      "log": ".gate-evidence/qa34-20260801T201647Z-baa1db93/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "Restore blob storage on the fresh target — every object SHA-256 matches (BLOB_PARITY_PASS + matched_objects >= 1).",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0 and deterministic assertion passed; .gate-evidence/qa34-20260801T201647Z-baa1db93/step5.log",
+      "log": ".gate-evidence/qa34-20260801T201647Z-baa1db93/step5.log"
+    },
+    {
+      "n": 6,
+      "text": "Point restore at an empty/corrupted backup chain — restore fails closed with a named chain error; never fake success; never sole-green on unknown flag: --pitr.",
+      "type": "terminal",
+      "executed": true,
+      "result": "pass",
+      "evidence": "exit 0 and deterministic assertion passed; .gate-evidence/qa34-20260801T201647Z-baa1db93/step6.log",
+      "log": ".gate-evidence/qa34-20260801T201647Z-baa1db93/step6.log"
+    }
+  ],
+  "written_at": "2026-08-01T21:30:12Z"
+}

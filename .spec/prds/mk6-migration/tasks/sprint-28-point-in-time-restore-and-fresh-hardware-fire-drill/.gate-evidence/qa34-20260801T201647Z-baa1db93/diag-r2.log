@@ -1,0 +1,15 @@
+@@GATE-META step=diag-r2 cmd_sha=5053943c1c1d61c05f5bbe409ea38610b801d85b2ab8eb5e74dbe97cca3b13f4@@
++ /bin/bash /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.spec/prds/mk6-migration/tasks/sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill/.gate-evidence/qa34-20260801T201647Z-baa1db93/diag-r2-permissions.sh
+restore_session=absent
+restore_access_distinct_from_writer=true
+restore_secret_distinct_from_writer=true
+restore_tuple_fp16=22ea4441c933774e
+restore_list_in=0
+restore_head_in=0
+restore_get_in=0
+restore_list_out=0
+restore_head_out=0
+restore_get_out=0
+writer_list_in=0
+restore_list_in_with_gate_ambient=0
+@@GATE-EXIT=0@@

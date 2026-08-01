@@ -654,7 +654,7 @@ import re
 import sys
 p = Path(sys.argv[1])
 t = p.read_text()
-if "HOLO_R2_PROVIDER_MOCK_MODE" in t and "prove_cmd" in t:
+if "HOLO_R2_PROVIDER_MOCK_MODE HOLO_R2_PROVIDER_MOCK_CANARY" in t and "prove_cmd" in t:
     print("forward mock knobs already present", p.name, file=__import__("sys").stderr)
     raise SystemExit(0)
 # Prefer sealed-from-env form (QA25): insert mock KEY names BEFORE --.

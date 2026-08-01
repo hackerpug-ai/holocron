@@ -126,6 +126,17 @@ load_secrets_if_present() {
     secrets=/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml
   fi
   [[ -f "$secrets" ]] || return 0
+  # Keep the restore credential tuple source-atomic. A complete env keypair may
+  # intentionally have no session token (durable R2 API token); never graft a
+  # session token from secrets.yaml onto that pair. Partial env tuples fail
+  # closed instead of being completed from another source.
+  local restore_env_complete=0
+  if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then
+    restore_env_complete=1
+  elif [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" || -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" || -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then
+    fail "partial R2_RESTORE_* tuple in env; refusing secrets-file field mixing"
+    return 2
+  fi
   info "loading key presence from secrets file (values not logged)"
   # shellcheck disable=SC2094
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -137,7 +148,12 @@ load_secrets_if_present() {
     v="${v%\'}"; v="${v#\'}"
     # Only fill when env unset — never override explicit restore RO env.
     case "$k" in
-      R2_ACCOUNT_ID|R2_ENDPOINT|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN|CLOUDFLARE_API_TOKEN|R2_PARENT_ACCESS_KEY_ID|R2_PARENT_SECRET_ACCESS_KEY)
+      R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN)
+        if [[ "$restore_env_complete" -eq 0 && -z "${!k:-}" && -n "$v" ]]; then
+          export "$k=$v"
+        fi
+        ;;
+      R2_ACCOUNT_ID|R2_ENDPOINT|R2_BUCKET_NAME|R2_PGBACKREST_PREFIX|R2_RESTORE_OBJECT_PREFIX|CLOUDFLARE_API_TOKEN|R2_PARENT_ACCESS_KEY_ID|R2_PARENT_SECRET_ACCESS_KEY)
         if [[ -z "${!k:-}" && -n "$v" ]]; then
           export "$k=$v"
         fi
@@ -187,6 +203,7 @@ print(json.dumps({
   "bucket": os.environ["BUCKET"],
   "parentAccessKeyId": os.environ["PARENT"],
   "permission": "object-read-only",
+  "prefixes": ["pgbackrest/"],
   "ttlSeconds": int(os.environ["TTL"]),
 }))
 PY

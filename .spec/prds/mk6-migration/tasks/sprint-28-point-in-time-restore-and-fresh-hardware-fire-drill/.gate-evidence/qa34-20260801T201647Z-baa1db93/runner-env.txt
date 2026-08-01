@@ -1,0 +1,6 @@
+R2_RESTORE_ACCESS_KEY_ID=present
+R2_RESTORE_SECRET_ACCESS_KEY=present
+restore_access_distinct=true
+restore_secret_distinct=true
+PITR_TIMESTAMP=2026-07-30T04:01:29Z
+GATE_RUN_ID=qa34-20260801T201647Z-baa1db93

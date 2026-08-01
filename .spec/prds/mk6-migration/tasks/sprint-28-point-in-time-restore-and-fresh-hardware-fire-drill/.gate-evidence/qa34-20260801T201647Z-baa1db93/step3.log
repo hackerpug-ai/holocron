@@ -1,0 +1,120 @@
+@@GATE-META step=step3 cmd_sha=b7a938b2ab20b4a6fb0196e22e4bc82c33a0e62296a25460f2d37c5b0a2d0e5b@@
++ set -euo pipefail; DOCKER=""; for _d in /usr/bin/docker /usr/local/bin/docker /opt/homebrew/bin/docker; do [[ -x "$_d" ]] && DOCKER="$_d" && break; done; [[ -n "$DOCKER" ]] || { echo "error: docker absolute executable not found" >&2; exit 2; }; /bin/bash scripts/assert-gate-run-id.sh; EVID=".tmp/REDHAT-FIX-S28R3/${GATE_RUN_ID}"; /bin/mkdir -p "$EVID"; HOST="$(/bin/bash scripts/derive-s28-fresh-host.sh)"; PG_PORT="${RESTORE_PG_PORT:-$((56000 + RANDOM % 3000))}"; trap '"$DOCKER" rm -f "$HOST" >/dev/null 2>&1 || true; "$DOCKER" volume rm -f "${HOST}-pgdata" "${HOST}-blobs" >/dev/null 2>&1 || true; "$DOCKER" network rm -f "${HOST}-net" >/dev/null 2>&1 || true' EXIT; RESTORE_ENV_TUPLE=0; if [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" && -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then RESTORE_ENV_TUPLE=1; elif [[ -n "${R2_RESTORE_ACCESS_KEY_ID:-}" || -n "${R2_RESTORE_SECRET_ACCESS_KEY:-}" || -n "${R2_RESTORE_SESSION_TOKEN:-}" ]]; then echo "error: partial R2_RESTORE_* tuple in env; refusing secrets-file field mixing" >&2; exit 1; fi; SECRETS="${HOLOCRON_SECRETS_PATH:-${HOLO_SECRETS_PATH:-services/platform/config/secrets.yaml}}"; if [[ -f "$SECRETS" ]]; then while IFS= read -r line || [[ -n "$line" ]]; do [[ "$line" =~ ^[[:space:]]*# ]] && continue; [[ "$line" =~ ^([A-Za-z0-9_]+):[[:space:]]*(.*)$ ]] || continue; k="${BASH_REMATCH[1]}"; v="${BASH_REMATCH[2]}"; v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"; case "$k" in R2_RESTORE_ACCESS_KEY_ID|R2_RESTORE_SECRET_ACCESS_KEY|R2_RESTORE_SESSION_TOKEN) if [[ "$RESTORE_ENV_TUPLE" -eq 0 && -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi ;; R2_ENDPOINT|R2_ACCOUNT_ID|R2_BUCKET_NAME) if [[ -z "${!k:-}" && -n "$v" ]]; then export "$k=$v"; fi ;; esac; done <"$SECRETS"; fi; if [[ -n "${CLOUDFLARE_API_TOKEN:-}" && ( -n "${R2_PARENT_ACCESS_KEY_ID:-}" || -n "${BACKUP_R2_ACCESS_KEY_ID:-}" ) ]]; then source scripts/mint-r2-prefix-restore-env.sh; fi; if [[ -z "${R2_RESTORE_ACCESS_KEY_ID:-}" || -z "${R2_RESTORE_SECRET_ACCESS_KEY:-}" ]]; then echo "RESIDUAL: DEPENDENCY-S28-R2-RO — distinct live R2_RESTORE_* absent from secrets/env; refuse ro-test placeholders as live green" | /usr/bin/tee "$EVID/step3-provision.txt"; exit 1; fi; REQUIRE_LIVE_R2_RO=1 R2_RESTORE_OBJECT_PREFIX="pgbackrest" R2_PGBACKREST_PREFIX="pgbackrest" STAGING_ROOT="$EVID/fresh-restore" /bin/bash scripts/provision-fresh-restore-target.sh --host "$HOST" --skip-isolation --pg-port "$PG_PORT" 2>&1 | /usr/bin/tee "$EVID/step3-provision.txt"; REQUIRE_LIVE_R2_RO=1 R2_RESTORE_OBJECT_PREFIX="pgbackrest" R2_PGBACKREST_PREFIX="pgbackrest" /bin/bash scripts/run-fire-drill-on-fresh-target.sh --host "$HOST" --target-timestamp "${PITR_TIMESTAMP:?set PITR_TIMESTAMP to an in-window ISO}" --attestation "$EVID/attestation.json" --report "$EVID/parity-report.json" 2>&1 | /usr/bin/tee "$EVID/step3-fire-drill.txt"; test -f "$EVID/attestation.json"; /usr/bin/jq -e '.schema == "holo.fresh-target.fire-drill-attestation.v1" and .ok == true and (.volumes.pgdata | type == "string") and (.mountpoints.scratch | type == "string" and (test("REDHAT-FIX-H2/step3") | not))' "$EVID/attestation.json"; test -f "$EVID/parity-report.json"; /usr/bin/jq -e '.POSTGRES_PARITY_PASS == true and (.row_counts | type == "object")' "$EVID/parity-report.json"
+PASS: minted temporary pgbackrest proof + fire-drill data object-read-only R2 tuples (ttl=21600s; values not logged)
+[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)
+=== prove-r2-readonly (live aws → real R2) ===
+INFO: loading key presence from secrets file (values not logged)
+INFO: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session present) — live Put/Delete oracle required
+INFO: using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)
+PASS: writer preflight: both scope probes exist (class=scope_preflight_ok)
+PASS: prefix list allowed (class=prefix_list_ok; body not logged)
+PASS: in-prefix head-object allowed (class=prefix_head_ok)
+PASS: in-prefix get-object allowed (class=prefix_get_ok; body discarded)
+PASS: out-of-prefix list AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix head AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix get AccessDenied (class=prefix_scope_enforced)
+INFO: sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)
+PASS: put-object AccessDenied (class=access_denied)
+PASS: delete-object AccessDenied (class=access_denied)
+PASS: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle
+wrote RO proof attestation: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/r2-ro-proofs/proof.1785619596.41724.13533.json tuple_fp16=62eab1bf91316aba context_fp16=02970ca9822e939d
+=== RESULT: PASS (live R2 prefix List+Head+Get allowed; out-of-prefix AccessDenied; Put/Delete AccessDenied) ===
+RO proof fresh-bound ok tuple_fp16=62eab1bf91316aba context_fp16=02970ca9822e939d
+[provision-fresh-restore-target] empty writable staging: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata + /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore
+[provision-fresh-restore-target] wrote R2 read-only + multi-axis identity env: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/restore-target.env
+[provision-fresh-restore-target] TARGET_ATTESTED_IDENTITY=
+[provision-fresh-restore-target] MINI_ATTESTED_IDENTITY=mini-attested-identity-unset
+[provision-fresh-restore-target] wrote compose: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/docker-compose.yml
+[provision-fresh-restore-target] bind-backed volumes: s28r3-gate-qa34-20260801T201647Z-baa1db93-pgdata → /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata
+[provision-fresh-restore-target] bind-backed volumes: s28r3-gate-qa34-20260801T201647Z-baa1db93-blobs → /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore
+[provision-fresh-restore-target] docker available — bringing up s28r3-gate-qa34-20260801T201647Z-baa1db93
+ Network s28r3-gate-qa34-20260801T201647Z-baa1db93-net Creating
+ Network s28r3-gate-qa34-20260801T201647Z-baa1db93-net Created
+ Volume s28r3-gate-qa34-20260801T201647Z-baa1db93-pgdata Creating
+ Volume s28r3-gate-qa34-20260801T201647Z-baa1db93-pgdata Created
+ Volume s28r3-gate-qa34-20260801T201647Z-baa1db93-blobs Creating
+ Volume s28r3-gate-qa34-20260801T201647Z-baa1db93-blobs Created
+ Container s28r3-gate-qa34-20260801T201647Z-baa1db93 Creating
+ Container s28r3-gate-qa34-20260801T201647Z-baa1db93 Created
+ Container s28r3-gate-qa34-20260801T201647Z-baa1db93 Starting
+ Container s28r3-gate-qa34-20260801T201647Z-baa1db93 Started
+[provision-fresh-restore-target] waiting for container health (s28r3-gate-qa34-20260801T201647Z-baa1db93)
+postgres (PostgreSQL) 18.4
+[provision-fresh-restore-target] container s28r3-gate-qa34-20260801T201647Z-baa1db93 is up (network=s28r3-gate-qa34-20260801T201647Z-baa1db93-net)
+[provision-fresh-restore-target] path map: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/paths.txt
+[provision-fresh-restore-target] skip isolation probe (--skip-isolation)
+[provision-fresh-restore-target] SUCCESS: fresh restore target 's28r3-gate-qa34-20260801T201647Z-baa1db93' provisioned
+[provision-fresh-restore-target]   compose: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/docker-compose.yml
+[provision-fresh-restore-target]   env:     /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/restore-target.env (mode 0600, read-only R2 policy)
+[provision-fresh-restore-target]   staging: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata (empty) + /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore (empty)
+[provision-fresh-restore-target]   docker:  container s28r3-gate-qa34-20260801T201647Z-baa1db93 network=s28r3-gate-qa34-20260801T201647Z-baa1db93-net
+[run-fire-drill-on-fresh-target] GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape accepted (same parent AK; writer secret present; session token present; secret not logged)
+[assert_bound_r2_ro_proof] GATE-FIX-S28R3-QA13: fresh live RO proof via fixed scripts/prove-r2-readonly.sh + trusted provider (values not logged)
+=== prove-r2-readonly (live aws → real R2) ===
+INFO: loading key presence from secrets file (values not logged)
+INFO: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary credential tuple shape (same parent AK; writer secret present and unequal; session present) — live Put/Delete oracle required
+INFO: using repository stdlib R2 provider via root-owned /usr/bin/python3 (values not logged)
+PASS: writer preflight: both scope probes exist (class=scope_preflight_ok)
+PASS: prefix list allowed (class=prefix_list_ok; body not logged)
+PASS: in-prefix head-object allowed (class=prefix_head_ok)
+PASS: in-prefix get-object allowed (class=prefix_get_ok; body discarded)
+PASS: out-of-prefix list AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix head AccessDenied (class=prefix_scope_enforced)
+PASS: out-of-prefix get AccessDenied (class=prefix_scope_enforced)
+INFO: sacrificial probe key class=drill-neg (REDHAT-FIX-H4; key value not logged)
+PASS: put-object AccessDenied (class=access_denied)
+PASS: delete-object AccessDenied (class=access_denied)
+PASS: GATE-FIX-S28R3-QA8/QA9: Cloudflare temporary RO tuple (same parent AK) passed live List/Put/Delete oracle
+wrote RO proof attestation: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/r2-ro-proofs/proof.1785619605.42125.9686.json tuple_fp16=62eab1bf91316aba context_fp16=02970ca9822e939d
+=== RESULT: PASS (live R2 prefix List+Head+Get allowed; out-of-prefix AccessDenied; Put/Delete AccessDenied) ===
+RO proof fresh-bound ok tuple_fp16=62eab1bf91316aba context_fp16=02970ca9822e939d
+[run-fire-drill-on-fresh-target] wrote attestation: .tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/attestation.json
+[run-fire-drill-on-fresh-target] bound host_execution.scratch=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata
+[run-fire-drill-on-fresh-target] bound host_execution.blob=/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore
+[run-fire-drill-on-fresh-target] daemon_mountpoint.scratch=/var/lib/docker/volumes/s28r3-gate-qa34-20260801T201647Z-baa1db93-pgdata/_data
+[run-fire-drill-on-fresh-target] daemon_mountpoint.blob=/var/lib/docker/volumes/s28r3-gate-qa34-20260801T201647Z-baa1db93-blobs/_data
+[run-fire-drill-on-fresh-target] execution_mode=host-bind-device
+[run-fire-drill-on-fresh-target] volumes s28r3-gate-qa34-20260801T201647Z-baa1db93-pgdata, s28r3-gate-qa34-20260801T201647Z-baa1db93-blobs (container=running)
+[run-fire-drill-on-fresh-target] restore proof tuple is pgbackrest-scoped; child data-plane uses separately verified read-only data tuple (values not logged)
+[run-fire-drill-on-fresh-target] running restore-only child env: /usr/local/bin/bun /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/services/platform/src/cli/holo.ts restore:fire-drill --target-timestamp 2026-07-30T04:01:29Z --scratch /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata --blob-dir /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore --report .tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/parity-report.json --fresh-target s28r3-gate-qa34-20260801T201647Z-baa1db93
+  fresh_target:               s28r3-gate-qa34-20260801T201647Z-baa1db93
+  fresh_target_scratch:       /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata
+  fresh_target_blob:          /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore
+  fresh_target_exec_mode:     host-bind-device
+  fresh_target_attestation:   /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R2/C1/attestation-s28r3-gate-qa34-20260801T201647Z-baa1db93.json
+holo restore:fire-drill — CAP-BAK-01 parity report
+  ok:                         true
+  POSTGRES_PARITY_PASS:       true
+  LEDGER_CHECKSUM_MATCH:      true
+  BLOB_PARITY_PASS:           true
+  target_timestamp:           2026-07-30T04:01:29Z
+  actual_stop_timestamp:      2026-07-30T04:01:29Z
+  scratch:                    /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/pgdata
+  blob_dir:                   /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/fresh-restore/s28r3-gate-qa34-20260801T201647Z-baa1db93/blob-restore
+  baseline_loaded:            true
+  baseline_id:                6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020
+  baseline_sha256:            6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020
+  baseline_key:               recovery-baselines/sha256/6c98d487bb9405014ede7d211fc167157065f24ada587853c06f395623667020/recovery-baseline.json
+  pgbackrest_backup_label:    20260728-182755F_20260729-220125I
+  ledger_sha256:              f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286
+  pre_failure_ledger_sha256:  f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286
+  ledger_checksum (diag):     f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286
+  pre_failure_ledger (diag):  f0c73fcc463aba39c9653802cd485801fb86d3f963732f56104ac4e803684286
+  matched_objects:            11
+  pre_failure_blob_objects:   11
+  restored_blob_objects:      11
+  blob_manifest_sha256:       2e2f7df5823284157ed2e30ba075754d0bfd3a1ff5a914a1c990efc8762ced2d
+  restic_snapshot_id:         cd885c31baa2f701c2d079f27eeba0ce0be4c238504296969a57c4ee5ac27f79
+  duration_ms:                172219
+  row_counts (restored / baseline):
+    beliefs: 8 / 8
+    claims: 5 / 5
+    entities: 0 / 0
+    file_objects: 5 / 5
+    passages: 19 / 19
+    relations: 11 / 11
+    sources: 8 / 8
+  report_path:                /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-S28R3/qa34-20260801T201647Z-baa1db93/parity-report.json
+true
+true
+@@GATE-EXIT=0@@

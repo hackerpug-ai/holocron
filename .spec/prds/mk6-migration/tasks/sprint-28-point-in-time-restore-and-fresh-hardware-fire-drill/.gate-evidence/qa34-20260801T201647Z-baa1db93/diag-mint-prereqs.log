@@ -1,0 +1,6 @@
+@@GATE-META step=diag-mint-prereqs cmd_sha=5671a6b4c50c768e236f40230e553403efe4f0fe3298999d6b05c4fb6314910c@@
++ for v in CLOUDFLARE_API_TOKEN R2_PARENT_ACCESS_KEY_ID BACKUP_R2_ACCESS_KEY_ID; do if [[ -n "${!v:-}" ]]; then echo "${v}=present"; else echo "${v}=absent"; fi; done
+CLOUDFLARE_API_TOKEN=present
+R2_PARENT_ACCESS_KEY_ID=absent
+BACKUP_R2_ACCESS_KEY_ID=present
+@@GATE-EXIT=0@@

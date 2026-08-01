@@ -3,7 +3,8 @@
 
 Modes via HOLO_R2_PROVIDER_MOCK_MODE:
   default | list_fail | head_fail | get_fail | broader_read | put_allowed |
-  delete_allowed | canary_error | canary_success | oop_not_found
+  delete_allowed | canary_error | canary_success | oop_not_found | reject_session |
+  fire_drill_scope
 """
 from __future__ import annotations
 
@@ -90,6 +91,10 @@ def main() -> None:
     key = getattr(args, "key", "") or ""
     prefix = getattr(args, "prefix", "") or ""
 
+    if mode == "reject_session" and not is_writer and os.environ.get("AWS_SESSION_TOKEN"):
+        print("AccessDenied", file=sys.stderr)
+        raise SystemExit(2)
+
     if mode == "canary_error":
         print(canary, file=sys.stderr)
         raise SystemExit(255)
@@ -103,6 +108,10 @@ def main() -> None:
             raise SystemExit(2)
         # out-of-prefix list: prefix may be drill-neg-scope/ etc.
         if not prefix.startswith("pgbackrest"):
+            if mode == "fire_drill_scope" and prefix.rstrip("/") in ("recovery-baselines", "restic"):
+                print("LIST_OK key_len=32")
+                print(f"KEY={prefix.rstrip('/')}/qa-fixture-object.bin")
+                raise SystemExit(0)
             if mode == "broader_read":
                 print("LIST_OK key_len=10")
                 print("KEY=other/key.bin")

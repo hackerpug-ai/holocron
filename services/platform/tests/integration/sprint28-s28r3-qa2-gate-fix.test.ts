@@ -24,13 +24,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import {
   buildRestoreCredentialPolicy,
   defaultBucketName,
   defaultPgbackrestPrefix,
 } from '../../src/backup/config.ts';
+import { baseHarnessEnv, type HarnessPaths, makeHarness } from './fixtures/qa13-harness';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
@@ -43,6 +44,7 @@ const GATE_PLAN = resolve(SPRINT_DIR, 'gate-plan.json');
 const HUMAN_GATE = resolve(SPRINT_DIR, 'HUMAN-GATE.md');
 const SPRINT_MD = resolve(SPRINT_DIR, 'SPRINT.md');
 const GATE_RESULTS = resolve(SPRINT_DIR, 'gate-results.json');
+const GATE_VERIFICATION = resolve(SPRINT_DIR, 'gate-verification.json');
 const GATE_RESULTS_UNBOUND = resolve(SPRINT_DIR, 'gate-results.unbound-20260729T031355Z.json');
 const RUNNER = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
 const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh');
@@ -51,13 +53,21 @@ const INVENTORY = resolve(REPO_ROOT, 'scripts/inventory-restore-credentials.sh')
 const RENDER_HG = resolve(REPO_ROOT, 'scripts/render-human-gate-from-plan.sh');
 const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA2');
+let H: HarnessPaths;
+
+beforeAll(() => {
+  H = makeHarness(REPO_ROOT, resolve(EVIDENCE_DIR, 'r2-harness'));
+});
 
 const dockerCleanup: Array<{ host: string; volumes?: string[] }> = [];
 
 afterEach(() => {
   while (dockerCleanup.length > 0) {
     const item = dockerCleanup.pop()!;
-    spawnSync('docker', ['rm', '-f', item.host], { encoding: 'utf8', timeout: 30_000 });
+    spawnSync('docker', ['rm', '-f', item.host], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
     const vols = item.volumes ?? [`${item.host}-pgdata`, `${item.host}-blobs`];
     spawnSync('docker', ['volume', 'rm', '-f', ...vols], {
       encoding: 'utf8',
@@ -106,7 +116,10 @@ function sha256(s: string): string {
 }
 
 function dockerAvailable(): boolean {
-  const info = spawnSync('docker', ['info'], { encoding: 'utf8', timeout: 15_000 });
+  const info = spawnSync('docker', ['info'], {
+    encoding: 'utf8',
+    timeout: 15_000,
+  });
   return info.status === 0;
 }
 
@@ -132,35 +145,66 @@ const WRITER_AK = 'qa2-writer-akid-deliberate-identity';
 const WRITER_SK = 'qa2-writer-sk-deliberate-identity-value';
 const RESTORE_AK = 'qa2-restore-akid-deliberate-identity';
 const RESTORE_SK = 'qa2-restore-sk-deliberate-identity-value';
+const TEST_ACCOUNT_ID = '0123456789abcdef0123456789abcdef';
+const TEST_ENDPOINT = `https://${TEST_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
-  it('C3: SPRINT.md is not Completed / 6-6 closeout while residual depends', () => {
+  it('C3: SPRINT.md closes only against the verified 6/6 gate run', () => {
     const md = readFileSync(SPRINT_MD, 'utf8');
-    // Frontmatter or body must not claim completed 6/6 pass closeout as current truth.
     const fm = md.match(/^---\n([\s\S]*?)\n---/);
     expect(fm, 'SPRINT frontmatter').toBeTruthy();
     const statusLine = (fm?.[1] ?? '').split('\n').find((l) => /^status:/i.test(l)) ?? '';
-    expect(statusLine.toLowerCase()).not.toMatch(/completed/);
+    expect(statusLine.toLowerCase()).toMatch(/completed/);
+    expect(md).toMatch(/qa34-20260801T201647Z-baa1db93/);
+    expect(md).toMatch(/passed 6\/6/);
     expect(md).toMatch(/DEPENDENCY-S28-R2-RO/);
-    expect(md).not.toMatch(/GATE-GOAL ACHIEVED/);
+    expect(md).toMatch(/DEPENDENCY-S28-R2-RO[^\n]*closed/i);
     writeEvidence('c3-sprint-status.json', { statusLine });
   });
 
-  it('C3: unbound gate-results pass archived; active gate-results.json absent', () => {
-    expect(existsSync(GATE_RESULTS), 'active gate-results.json must be removed for next QA').toBe(
-      false
+  it('C3: active gate result is verified and the historical unbound result stays archived', () => {
+    expect(existsSync(GATE_RESULTS), 'active verified gate-results.json required').toBe(true);
+    expect(existsSync(GATE_VERIFICATION), 'deterministic gate-verification.json required').toBe(
+      true
     );
     expect(
       existsSync(GATE_RESULTS_UNBOUND),
       `archived unbound pass required at ${GATE_RESULTS_UNBOUND}`
     ).toBe(true);
+    const active = JSON.parse(readFileSync(GATE_RESULTS, 'utf8')) as {
+      run_id?: string;
+      verdict?: string;
+      verified?: boolean;
+      steps_total?: number;
+      steps_executed?: number;
+      steps_passed?: number;
+    };
+    const verification = JSON.parse(readFileSync(GATE_VERIFICATION, 'utf8')) as {
+      verified?: boolean;
+      recomputed_verdict?: string;
+      discrepancies?: unknown[];
+    };
     const archived = JSON.parse(readFileSync(GATE_RESULTS_UNBOUND, 'utf8')) as {
       run_id?: string;
       verdict?: string;
     };
+    expect(active).toMatchObject({
+      run_id: 'qa34-20260801T201647Z-baa1db93',
+      verdict: 'pass',
+      verified: true,
+      steps_total: 6,
+      steps_executed: 6,
+      steps_passed: 6,
+    });
+    expect(verification).toMatchObject({
+      verified: true,
+      recomputed_verdict: 'pass',
+      discrepancies: [],
+    });
     expect(archived.run_id).toBe('20260729T031355Z');
     writeEvidence('c3-archive.json', {
-      active_absent: !existsSync(GATE_RESULTS),
+      active_run_id: active.run_id,
+      active_verified: active.verified,
       archived_run_id: archived.run_id,
     });
   });
@@ -416,7 +460,9 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
 
   it('render-human-gate-from-plan.sh exists and bash -n clean (optional but preferred)', () => {
     if (!existsSync(RENDER_HG)) {
-      writeEvidence('c2-render-script-absent.json', { note: 'embed path allowed if digests lock' });
+      writeEvidence('c2-render-script-absent.json', {
+        note: 'embed path allowed if digests lock',
+      });
       return;
     }
     const syntax = spawnSync('bash', ['-n', RENDER_HG], { encoding: 'utf8' });
@@ -463,6 +509,10 @@ payload = {
   "writer_ak_present_as_access": os.environ.get("R2_ACCESS_KEY_ID") == ${JSON.stringify(WRITER_AK)},
 }
 open(out, "w").write(json.dumps(payload, indent=2) + "\\n")
+if "--report" in cli_argv:
+    report = cli_argv[cli_argv.index("--report") + 1]
+    parity = {"POSTGRES_PARITY_PASS": True, "LEDGER_CHECKSUM_MATCH": True, "BLOB_PARITY_PASS": True, "baseline_id": "qa2", "baseline_key": "recovery-baselines/qa2.json", "ok": True}
+    open(report, "w").write(json.dumps(parity) + "\\n")
 print("recorder:ok")
 sys.exit(0)
 PY
@@ -476,7 +526,7 @@ PY
         const pgPort = String(58000 + (Date.now() % 1500));
         const provision = spawnSync(
           'bash',
-          [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+          [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
           {
             cwd: REPO_ROOT,
             encoding: 'utf8',
@@ -501,7 +551,7 @@ PY
         // Without docker, exercise residual path only.
         const missing = spawnSync(
           'bash',
-          [RUNNER(), '--host', 'no-such-host-qa2', '--target-timestamp', '2026-07-28T12:00:00Z'],
+          [RUNNER, '--host', 'no-such-host-qa2', '--target-timestamp', '2026-07-28T12:00:00Z'],
           {
             cwd: REPO_ROOT,
             encoding: 'utf8',
@@ -528,7 +578,7 @@ PY
       const run = spawnSync(
         'bash',
         [
-          RUNNER,
+          H.runner,
           '--host',
           host,
           '--target-timestamp',
@@ -542,13 +592,17 @@ PY
           cwd: REPO_ROOT,
           encoding: 'utf8',
           timeout: 120_000,
-          env: {
-            ...process.env,
+          env: baseHarnessEnv(REPO_ROOT, {
+            REQUIRE_LIVE_R2_RO: '0',
             R2_ACCESS_KEY_ID: WRITER_AK,
             R2_SECRET_ACCESS_KEY: WRITER_SK,
             R2_RESTORE_ACCESS_KEY_ID: RESTORE_AK,
             R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
-            R2_ENDPOINT: 'https://example.invalid',
+            R2_RESTORE_SESSION_TOKEN: '',
+            R2_SESSION_TOKEN: '',
+            HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
+            R2_ACCOUNT_ID: TEST_ACCOUNT_ID,
+            R2_ENDPOINT: TEST_ENDPOINT,
             R2_BUCKET_NAME: 'holocron-backup',
             R2_PGBACKREST_PREFIX: 'pgbackrest',
             HOLO_CLI: recorder,
@@ -556,7 +610,7 @@ PY
             // Prevent real secrets file from masking the deliberate writer/restore split.
             HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
             HOLOCRON_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
-          },
+          }),
         }
       );
       const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
@@ -591,7 +645,9 @@ PY
 
       const attPath = resolve(EVIDENCE_DIR, `c1-att-${host}.json`);
       if (existsSync(attPath)) {
-        const att = JSON.parse(readFileSync(attPath, 'utf8')) as { ok?: boolean };
+        const att = JSON.parse(readFileSync(attPath, 'utf8')) as {
+          ok?: boolean;
+        };
         expect(att.ok).toBe(true);
       }
 
@@ -619,13 +675,14 @@ PY
       const pgPort = String(59500 + (Date.now() % 500));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
           timeout: 180_000,
           env: {
             ...process.env,
+            REQUIRE_LIVE_R2_RO: '0',
             STAGING_ROOT: staging,
             ALLOW_PLACEHOLDER_R2_RO: '1',
             R2_RESTORE_ACCESS_KEY_ID: '',
@@ -645,7 +702,7 @@ PY
 
       const run = spawnSync(
         'bash',
-        [RUNNER(), '--host', host, '--target-timestamp', '2026-07-28T12:00:00Z'],
+        [RUNNER, '--host', host, '--target-timestamp', '2026-07-28T12:00:00Z'],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -687,7 +744,7 @@ describe('GATE-FIX-S28R3-QA2 H1/M1/M2 PLATFORM_IT', () => {
       const pgPort = String(60000 + (Date.now() % 1500));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -761,7 +818,7 @@ describe('GATE-FIX-S28R3-QA2 H1/M1/M2 PLATFORM_IT', () => {
       const pgPort = String(61500 + (Date.now() % 1000));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -793,6 +850,10 @@ payload = {
   "R2_ACCESS_is_writer": os.environ.get("R2_ACCESS_KEY_ID") == ${JSON.stringify(WRITER_AK)},
 }
 open(out, "w").write(json.dumps(payload, indent=2)+"\\n")
+if "--report" in cli_argv:
+    report = cli_argv[cli_argv.index("--report") + 1]
+    parity = {"POSTGRES_PARITY_PASS": True, "LEDGER_CHECKSUM_MATCH": True, "BLOB_PARITY_PASS": True, "baseline_id": "qa2", "baseline_key": "recovery-baselines/qa2.json", "ok": True}
+    open(report, "w").write(json.dumps(parity) + "\\n")
 sys.exit(0)
 PY
 `,
@@ -804,7 +865,7 @@ PY
       const run = spawnSync(
         'bash',
         [
-          RUNNER,
+          H.runner,
           '--host',
           host,
           '--target-timestamp',
@@ -818,18 +879,22 @@ PY
           cwd: REPO_ROOT,
           encoding: 'utf8',
           timeout: 120_000,
-          env: {
-            ...process.env,
+          env: baseHarnessEnv(REPO_ROOT, {
+            REQUIRE_LIVE_R2_RO: '0',
             STAGING_ROOT: staging,
             R2_ACCESS_KEY_ID: WRITER_AK,
             R2_SECRET_ACCESS_KEY: WRITER_SK,
             R2_RESTORE_ACCESS_KEY_ID: RESTORE_AK,
             R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
-            R2_ENDPOINT: 'https://example.invalid',
+            R2_RESTORE_SESSION_TOKEN: '',
+            R2_SESSION_TOKEN: '',
+            HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
+            R2_ACCOUNT_ID: TEST_ACCOUNT_ID,
+            R2_ENDPOINT: TEST_ENDPOINT,
             R2_BUCKET_NAME: 'holocron-backup',
             HOLO_CLI: recorder,
             HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
-          },
+          }),
         }
       );
       writeEvidence('m1-full-runner.json', {
@@ -890,7 +955,7 @@ PY
       const att = resolve(EVIDENCE_DIR, `m2-att-${host}.json`);
       const run = spawnSync(
         'bash',
-        [RUNNER(), '--host', host, '--resolve-only', '--attestation', att],
+        [RUNNER, '--host', host, '--resolve-only', '--attestation', att],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -942,23 +1007,22 @@ PY
 
   itLive('M3: provisioner rejects invalid GATE_RUN_ID / host before destructive staging rm', () => {
     const badHost = '../evil;rm';
-    const run = spawnSync(
-      'bash',
-      [PROVISION(), '--host', badHost, '--dry-run', '--skip-isolation'],
-      {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        timeout: 30_000,
-        env: {
-          ...process.env,
-          ALLOW_PLACEHOLDER_R2_RO: '1',
-          STAGING_ROOT: resolve(EVIDENCE_DIR, 'm3-staging'),
-          GATE_RUN_ID: 'bad id with spaces!!',
-        },
-      }
-    );
+    const run = spawnSync('bash', [PROVISION, '--host', badHost, '--dry-run', '--skip-isolation'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: {
+        ...process.env,
+        ALLOW_PLACEHOLDER_R2_RO: '1',
+        STAGING_ROOT: resolve(EVIDENCE_DIR, 'm3-staging'),
+        GATE_RUN_ID: 'bad id with spaces!!',
+      },
+    });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
-    writeEvidence('m3-bad-host.json', { status: run.status, combined: combined.slice(0, 2000) });
+    writeEvidence('m3-bad-host.json', {
+      status: run.status,
+      combined: combined.slice(0, 2000),
+    });
     expect(run.status).not.toBe(0);
     expect(combined).toMatch(/refuse|invalid|allowlist|host/i);
   });

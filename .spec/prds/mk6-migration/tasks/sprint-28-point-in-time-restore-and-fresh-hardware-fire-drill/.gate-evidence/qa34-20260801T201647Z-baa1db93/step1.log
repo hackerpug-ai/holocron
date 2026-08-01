@@ -1,0 +1,12 @@
+@@GATE-META step=step1 cmd_sha=d4034742684ad6e11969967017419aecae313ea9117f50eeeae536160f87e1e3@@
++ set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step1-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step1-restore.txt"; /bin/mkdir -p "$SCRATCH" "${LOG%/*}"; /usr/local/bin/bun services/platform/src/cli/holo.ts restore --pitr "${PITR_TIMESTAMP:-2099-01-01T00:00:00Z}" --scratch "$SCRATCH" --target-action promote 2>&1 | /usr/bin/tee "$LOG"; ! /usr/bin/grep -q 'unknown flag: --pitr' "$LOG"
+holo restore --pitr — pgBackRest point-in-time restore
+  ok:                    true
+  exit_code:             0
+  target_timestamp:      2026-07-30T04:01:29Z
+  actual_stop_timestamp: 2026-07-30T04:01:33Z
+  pgdata:                /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-H2/qa34-20260801T201647Z-baa1db93/step1-scratch
+  target_action:         promote
+  restored_wal_count:    (unknown)
+  overall:               OK
+@@GATE-EXIT=0@@

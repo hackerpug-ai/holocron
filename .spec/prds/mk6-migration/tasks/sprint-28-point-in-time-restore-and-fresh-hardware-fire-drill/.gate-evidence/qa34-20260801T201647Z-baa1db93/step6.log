@@ -1,0 +1,15 @@
+@@GATE-META step=step6 cmd_sha=1993c1def20666b67f370dddedf7a0b2f368205f54f0ef41ff8bdece574ddb3a@@
++ set -euo pipefail; /bin/bash scripts/assert-gate-run-id.sh; SCRATCH=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step6-scratch"; LOG=".tmp/REDHAT-FIX-H2/${GATE_RUN_ID}/step6-restore.txt"; /bin/mkdir -p "$SCRATCH" "${LOG%/*}"; EMPTY_PREFIX="pgbackrest-s28-gate-empty/${GATE_RUN_ID}"; set +e; R2_PGBACKREST_PREFIX="$EMPTY_PREFIX" /usr/local/bin/bun services/platform/src/cli/holo.ts restore --pitr 2024-01-01T00:00:00Z --scratch "$SCRATCH" --target-action promote > "$LOG" 2>&1; RC=$?; set -e; /bin/cat "$LOG"; test "$RC" -ne 0; ! /usr/bin/grep -q 'unknown flag: --pitr' "$LOG"; /usr/bin/grep -qiE 'no base backup available|backup chain missing|manifest checksum mismatch|WAL segment corrupted|backup chain integrity|outside available WAL|backup config missing secrets' "$LOG"; test "$(/usr/bin/find "$SCRATCH" -type f 2>/dev/null | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -eq 0
+holo restore --pitr — pgBackRest point-in-time restore
+  ok:                    false
+  exit_code:             1
+  target_timestamp:      2024-01-01T00:00:00Z
+  actual_stop_timestamp: (none)
+  pgdata:                /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate/.tmp/REDHAT-FIX-H2/qa34-20260801T201647Z-baa1db93/step6-scratch
+  target_action:         promote
+  restored_wal_count:    (unknown)
+  errors:
+    - no base backup available — backup chain missing (pgBackRest info found no restorable backup set)
+  overall:               FAILED
+no base backup available — backup chain missing (pgBackRest info found no restorable backup set)
+@@GATE-EXIT=0@@

@@ -1,0 +1,32 @@
+@@GATE-META step=focused-regression cmd_sha=e098c4d9a6a49fffb03822064e6ff872d303fd716f5a00a5bb9cc4f8effd6956@@
++ PLATFORM_IT=1 /opt/homebrew/bin/pnpm exec vitest run services/platform/tests/integration/sprint28-s28r3-qa2-gate-fix.test.ts services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts services/platform/tests/integration/sprint28-s28r3-qa10-gate-fix.test.ts
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90m/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/GATE-FIX-S28R3-QA34-manual-gate[39m
+
+ [32m✓[39m [30m[45m integration [49m[39m services/platform/tests/integration/sprint28-s28r3-qa9-gate-fix.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 15085[2mms[22m[39m
+     [33m[2m✓[22m[39m fire-drill: same parent AK without writer secret refused before docker [33m 3310[2mms[22m[39m
+     [33m[2m✓[22m[39m verify-restore-creds loads R2_RESTORE_SESSION_TOKEN from secrets and accepts CF shape [33m 336[2mms[22m[39m
+     [33m[2m✓[22m[39m provision REQUIRE_LIVE ignores caller-forged proof and succeeds via fixed prover + PATH aws mock [33m 4378[2mms[22m[39m
+     [33m[2m✓[22m[39m provision REQUIRE_LIVE fails when live prove fails (forged path cannot skip) [33m 2090[2mms[22m[39m
+     [33m[2m✓[22m[39m fire-drill maps session token into child (recorder must execute) [33m 4534[2mms[22m[39m
+ [32m✓[39m [30m[45m integration [49m[39m services/platform/tests/integration/sprint28-s28r3-qa10-gate-fix.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 25468[2mms[22m[39m
+     [33m[2m✓[22m[39m caller-forged HOLO_R2_RO_PROOF_PATH is never authoritative (fixed prover + PATH aws mock) [33m 4368[2mms[22m[39m
+     [33m[2m✓[22m[39m does not graft a secrets-file session token onto a complete env keypair [33m 2190[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps the fire-drill child sessionless when the complete env keypair is sessionless [33m 4598[2mms[22m[39m
+     [33m[2m✓[22m[39m env R2_RESTORE_SESSION_TOKEN wins over file writer R2_SESSION_TOKEN and file restore token [33m 4543[2mms[22m[39m
+     [33m[2m✓[22m[39m file restore token used when env R2_RESTORE_SESSION_TOKEN unset (not writer R2_SESSION_TOKEN) [33m 4404[2mms[22m[39m
+     [33m[2m✓[22m[39m verify env restore token is not overwritten by file (env-over-file) [33m 553[2mms[22m[39m
+     [33m[2m✓[22m[39m canaries never appear in provision/fire-drill stdout for valid path [33m 4388[2mms[22m[39m
+ [32m✓[39m [30m[45m integration [49m[39m services/platform/tests/integration/sprint28-s28r3-qa2-gate-fix.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 40826[2mms[22m[39m
+     [33m[2m✓[22m[39m H2: prove-isolation rejects bare arn:aws:s3:::bucket/* object Resource [33m 18674[2mms[22m[39m
+     [33m[2m✓[22m[39m C1: deliberately different writer vs restore keys — child sees only restore identity [33m 7922[2mms[22m[39m
+     [33m[2m✓[22m[39m C1 residual: missing restore keys → DEPENDENCY-S28-R2-RO (no ambient RW fallback) [33m 2901[2mms[22m[39m
+     [33m[2m✓[22m[39m H1: --fresh-target + unrelated writable --scratch → exit 2, no successful attestation [33m 3080[2mms[22m[39m
+     [33m[2m✓[22m[39m M1: full runner without --resolve-only binds paths + restore-only identity via recorder [33m 7706[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m40 passed[39m[22m[90m (40)[39m
+[2m   Start at [22m 15:20:43
+[2m   Duration [22m 41.10s[2m (transform 245ms, setup 390ms, import 98ms, tests 81.38s, environment 0ms)[22m
+
+@@GATE-EXIT=0@@

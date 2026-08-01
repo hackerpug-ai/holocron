@@ -1,7 +1,7 @@
 ---
 sequence: 28
 timeline: Phase 6 — Standing Backup and Disaster Recovery
-status: In Progress
+status: Completed
 planned_from_roadmap_sha: 95b4657a2d19ffcbd9c0208f4c9aef433c77782cda63a816635c606080f275ae
 planned_from_source_sha: 2c3778c231e21001b4c6095ec9c406f01f94e4ff
 source_kind: git-head
@@ -12,9 +12,9 @@ planned_at: 2026-07-28T01:16:22Z
 
 **Sequence:** 28
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
-**Status:** In Progress
-> Progress: implementation landed; final 6/6 human-gate closeout blocked · updated 2026-07-29
-> Status-Note: Residual **DEPENDENCY-S28-R2-RO** (distinct live `R2_RESTORE_*` credentials absent) blocks final 6/6 closeout until credentials + fresh SHA-bound QA. Unbound `20260729T031355Z` gate-results archived; active `gate-results.json` withheld for next independent QA.
+**Status:** Completed
+> Progress: implementation landed; fresh 6/6 human gate verified · updated 2026-08-01T20:48:38Z
+> Status-Note: QA run `qa34-20260801T201647Z-baa1db93` passed 6/6 and survived `verify-gate-evidence.sh:recompute-strong@febb48afeaa2` with zero discrepancies. The prior `DEPENDENCY-S28-R2-RO` residual is closed by source-atomic restore tuples plus two temporary read-only Cloudflare R2 tuples: an exact `pgbackrest/` proof tuple and a separately verified fire-drill data tuple scoped only to `pgbackrest/`, `recovery-baselines/`, and `restic/`. The fresh-target child has no writer-credential fallback.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-28`)
 **Branch:** `mk6-restore-drill`
@@ -72,7 +72,7 @@ export PITR_TIMESTAMP="${PITR_TIMESTAMP:?set in-window ISO}"
 # Then execute each gate-plan step (or follow regenerated HUMAN-GATE.md blocks).
 ```
 
-Residual **`DEPENDENCY-S28-R2-RO`** until distinct live `R2_RESTORE_*` credentials exist and fresh SHA-bound QA records a real pass.
+Closed by verified run **`qa34-20260801T201647Z-baa1db93`**: live distinct, prefix-scoped temporary `R2_RESTORE_*` credentials were minted without logging values, and all six SHA-bound gate steps passed. See [`gate-results.json`](./gate-results.json), [`gate-verification.json`](./gate-verification.json), and [`GATE-RESULTS.md`](./GATE-RESULTS.md).
 
 ## Tasks
 
