@@ -36,6 +36,7 @@
  * Sprint 27 REDHAT-FIX-S27-04: backup:healthy --all — reset induced store + success heartbeats
  * Sprint 28 D05-02: restore | restore:pitr | restore:status — pgBackRest PITR into --scratch
  * Sprint 28 D05-04: restore:fire-drill — full Postgres+blob restore parity (CAP-BAK-01)
+ * Sprint 29 D06-02: cutover:go-no-go — full harness suite go/no-go (T-SYNC-008 / CAP-CUT-01)
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -299,6 +300,7 @@ Usage:
                             [--fresh-target <name>] bind scratch/blob to provisioned volume mountpoints
                             Exit 0 only if POSTGRES_PARITY_PASS + LEDGER_CHECKSUM_MATCH + BLOB_PARITY_PASS
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
+  cutover:go-no-go          D06-02 pre-cutover harness suite (8 real gates) [--json] [--output <path>]
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
   stack up                  Launch Postgres + Mastra (launchd) and wait healthy (≤60s)
   stack down                Stop stack services; zero orphaned holocron PIDs
@@ -3040,6 +3042,33 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo verify:backup failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:go-no-go': {
+      // D06-02 / T-SYNC-008: spawn 8 real harness gates; exit 0 iff overall.ok
+      const { runGoNoGo, formatGoNoGoText, defaultGoNoGoReportPath } = await import(
+        '../cutover/go-no-go.ts'
+      );
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultGoNoGoReportPath(process.cwd());
+        const report = runGoNoGo({ reportPath });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatGoNoGoText(report));
+        }
+        process.exit(report.overall.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:go-no-go failed: ${msg}`);
         }
         process.exit(1);
       }
