@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "body": {
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"documentId\":\"ef23b9e5-137e-455b-b535-f3c9f91b3286\",\"title\":\"s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"
+        }
+      ],
+      "structuredContent": {
+        "documentId": "ef23b9e5-137e-455b-b535-f3c9f91b3286",
+        "title": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-mcp-gateway-doc",
+        "embeddingStatus": "pending"
+      }
+    },
+    "jsonrpc": "2.0",
+    "id": 2
+  }
+}

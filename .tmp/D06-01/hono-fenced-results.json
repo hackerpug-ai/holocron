@@ -1,0 +1,404 @@
+{
+  "results": [
+    {
+      "id": "POST /api/chat-runs",
+      "status": 200,
+      "body": {
+        "ok": true,
+        "replay": true,
+        "runId": "34f4315f-a804-4ca9-9e52-74f4c1612798",
+        "conversationId": "47f4c6d1-9fbf-428f-bc2d-cb50fa681b90",
+        "durableMessageId": "019fbf88-6995-70f5-9131-a1bb6d8f3f6a",
+        "requestId": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-chat",
+        "status": "running",
+        "role": "divergent",
+        "traceId": "chat:34f4315f-a804-4ca9-9e52-74f4c1612798",
+        "lastEventId": 0,
+        "maxSteps": 8,
+        "stepsUsed": 0
+      }
+    },
+    {
+      "id": "POST /api/chat-runs/:id/cancel",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "chat run not found"
+      }
+    },
+    {
+      "id": "PATCH /api/conversations/:id",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "conversation not found"
+      }
+    },
+    {
+      "id": "DELETE /api/conversations/:id",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "conversation not found"
+      }
+    },
+    {
+      "id": "POST /api/documents",
+      "status": 201,
+      "body": {
+        "document": {
+          "id": "48bd6616-bcdf-4434-a6de-d31b676e18c4",
+          "title": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-hono-doc",
+          "content": "red-fence probe",
+          "category": "general"
+        }
+      }
+    },
+    {
+      "id": "POST /api/documents/:id/narration",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "document not found"
+      }
+    },
+    {
+      "id": "POST /api/voice-sessions",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "conversation not found"
+      }
+    },
+    {
+      "id": "POST /api/voice-sessions/:id/end",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "voice session not found"
+      }
+    },
+    {
+      "id": "POST /api/improvements",
+      "status": 201,
+      "body": {
+        "improvement": {
+          "id": "dab8e742-8ba1-46e0-a81d-10a3950c5810"
+        }
+      }
+    },
+    {
+      "id": "PATCH /api/improvements/:id",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "improvement not found"
+      }
+    },
+    {
+      "id": "DELETE /api/improvements/:id",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "improvement not found"
+      }
+    },
+    {
+      "id": "PATCH /api/subscriptions/:id",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "subscription not found"
+      }
+    },
+    {
+      "id": "POST /api/feed-items/:id/feedback",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "feed item not found"
+      }
+    },
+    {
+      "id": "PATCH /api/assimilations/:id",
+      "status": 409,
+      "body": {
+        "error": "invalid_assimilation_state",
+        "message": "session is not awaiting a reviewer decision"
+      }
+    },
+    {
+      "id": "DELETE /api/subscriptions/:id",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "subscription not found"
+      }
+    },
+    {
+      "id": "POST /api/documents/:id/import",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "document not found"
+      }
+    },
+    {
+      "id": "POST /api/documents/:id/publish",
+      "status": 404,
+      "body": {
+        "error": "not_found",
+        "message": "document not found"
+      }
+    },
+    {
+      "id": "POST /api/uploads",
+      "status": 404,
+      "body": {
+        "error": "upload_error",
+        "message": "upload target not found: improvement_image:3cd35ef4-0735-4511-bf25-84e2cb1453af"
+      }
+    },
+    {
+      "id": "PUT /api/uploads/:id",
+      "status": 404,
+      "body": {
+        "error": "upload_error",
+        "message": "unknown upload id: 1e4612d2-28a2-4752-a8f1-2b6c93efa87d"
+      }
+    },
+    {
+      "id": "POST /api/uploads/:id/finalize",
+      "status": 404,
+      "body": {
+        "error": "upload_error",
+        "message": "unknown upload id: 1e4612d2-28a2-4752-a8f1-2b6c93efa87d"
+      }
+    },
+    {
+      "id": "POST /api/missions",
+      "status": 200,
+      "body": {
+        "attemptCount": 1,
+        "checkpointStageIndex": 0,
+        "code": "MISSION_WHATSNEW_DATE_REQUIRED",
+        "error": "whatsnew requires --date YYYY-MM-DD",
+        "errorCode": "MISSION_WHATSNEW_DATE_REQUIRED",
+        "goal": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-mission-goal",
+        "idempotencyKey": "s29-d0601-462d0d50-0a5a-413d-9cbd-0642fc723a75-mission",
+        "ok": false,
+        "provenance": {
+          "budgetPolicy": {
+            "cost": 0,
+            "maxSteps": 12,
+            "tokens": 12000,
+            "wallMs": 180000
+          },
+          "compilerVersion": "mission-compiler@1.0.0",
+          "definitionHash": "00965063fa4e4ddf499fade193972dcef769ef9c084498c8ba81e714fbb9ab39",
+          "executorRef": "builtin.whatsnew-commit@1",
+          "fleetManifest": {
+            "defaultEndpoint": "http://127.0.0.1:4545",
+            "roles": {
+              "convergent": {
+                "concurrency": 2,
+                "contextLimit": 262144,
+                "degradationAction": "surface-unavailable",
+                "endpoint": "http://127.0.0.1:4545",
+                "healthProbe": {
+                  "expectStatus": 200,
+                  "method": "GET",
+                  "path": "/v1/models",
+                  "timeoutMs": 3000
+                },
+                "litellmModelId": "reviewer",
+                "modelRevision": "qwen3.6-27b-mtp-q8_0",
+                "role": "convergent",
+                "structuredOutput": true,
+                "timeoutMs": 180000
+              },
+              "divergent": {
+                "concurrency": 4,
+                "contextLimit": 32768,
+                "degradationAction": "surface-unavailable",
+                "endpoint": "http://127.0.0.1:4545",
+                "healthProbe": {
+                  "expectStatus": 200,
+                  "method": "GET",
+                  "path": "/v1/models",
+                  "timeoutMs": 3000
+                },
+                "litellmModelId": "implementer",
+                "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+                "role": "divergent",
+                "structuredOutput": true,
+                "timeoutMs": 120000
+              },
+              "embed": {
+                "concurrency": 8,
+                "contextLimit": 8192,
+                "degradationAction": "fail-closed",
+                "embed": {
+                  "embeddingDimension": 1024,
+                  "prefixPolicy": {
+                    "document": "passage: ",
+                    "query": "query: "
+                  }
+                },
+                "endpoint": "http://127.0.0.1:4545",
+                "healthProbe": {
+                  "expectStatus": 200,
+                  "method": "GET",
+                  "path": "/v1/models",
+                  "timeoutMs": 3000
+                },
+                "litellmModelId": "qwen3-embedding",
+                "modelRevision": "qwen3-embedding-0.6b-1024",
+                "role": "embed",
+                "structuredOutput": false,
+                "timeoutMs": 30000
+              },
+              "judge": {
+                "concurrency": 2,
+                "contextLimit": 262144,
+                "degradationAction": "surface-unavailable",
+                "endpoint": "http://127.0.0.1:4545",
+                "healthProbe": {
+                  "expectStatus": 200,
+                  "method": "GET",
+                  "path": "/v1/models",
+                  "timeoutMs": 3000
+                },
+                "litellmModelId": "reviewer",
+                "modelRevision": "qwen3.6-27b-mtp-q8_0",
+                "role": "judge",
+                "structuredOutput": true,
+                "timeoutMs": 180000
+              },
+              "rerank": {
+                "concurrency": 4,
+                "contextLimit": 8192,
+                "degradationAction": "fail-closed",
+                "endpoint": "http://127.0.0.1:4545",
+                "healthProbe": {
+                  "expectStatus": 200,
+                  "method": "GET",
+                  "path": "/v1/models",
+                  "timeoutMs": 3000
+                },
+                "litellmModelId": "qwen3-reranker",
+                "modelRevision": "qwen3-reranker-0.6b",
+                "role": "rerank",
+                "structuredOutput": false,
+                "timeoutMs": 30000
+              }
+            },
+            "schemaVersion": "1.0.0"
+          },
+          "fleetManifestHash": "b64b1bcc2843978d224ced2f47edf23fd67e3fe3b2b0919ce152f5cca9382cba",
+          "fleetManifestPath": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-01/services/platform/fleet/manifest.json",
+          "fleetManifestVersion": "1.0.0",
+          "modelRevisions": {
+            "assay": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+            "plan": "qwen3.6-35b-a3b-mtp-q8_k_xl"
+          },
+          "noCloudFallback": true,
+          "outputSchemaRef": "mission.whatsnew.briefing",
+          "outputSchemaVersion": 1,
+          "registrySnapshotHash": "2506c9d9f04d620744d837c3f642099c51af840a0edf4d92744f7cb35826e4fb",
+          "roleResolution": {
+            "assay": {
+              "allowEscape": false,
+              "endpoint": "http://127.0.0.1:4545",
+              "fleetManifestVersion": "1.0.0",
+              "litellmModelId": "implementer",
+              "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+              "provider": "fleet",
+              "role": "divergent",
+              "stageId": "assay"
+            },
+            "plan": {
+              "allowEscape": false,
+              "endpoint": "http://127.0.0.1:4545",
+              "fleetManifestVersion": "1.0.0",
+              "litellmModelId": "implementer",
+              "modelRevision": "qwen3.6-35b-a3b-mtp-q8_k_xl",
+              "provider": "fleet",
+              "role": "divergent",
+              "stageId": "plan"
+            }
+          },
+          "schemaRef": "mission.whatsnew.briefing",
+          "schemaVersion": 1,
+          "templateKey": "whatsnew",
+          "templateVersion": "1.0.3",
+          "traceId": "mission:1c1b1732-aa1d-4458-b578-cda5d94b8f96"
+        },
+        "replay": true,
+        "runId": "019fbf88-76a4-71a7-884d-0153856fbd42",
+        "status": "failed",
+        "templateKey": "whatsnew",
+        "templateVersion": "1.0.3",
+        "traceId": "mission:1c1b1732-aa1d-4458-b578-cda5d94b8f96",
+        "usage": {
+          "budget": {
+            "cost": 0,
+            "maxSteps": 12,
+            "tokens": 12000,
+            "wallMs": 180000
+          },
+          "cost": 0,
+          "maxSteps": 12,
+          "stepsUsed": 1,
+          "tokens": 0,
+          "wallMs": 2
+        }
+      }
+    },
+    {
+      "id": "POST /api/missions/:id/verdicts",
+      "status": 422,
+      "body": {
+        "ok": false,
+        "error": "(root): Unrecognized keys: \"note\", \"idempotencyKey\"",
+        "code": "INVALID_REQUEST",
+        "errorCode": "INVALID_REQUEST"
+      }
+    },
+    {
+      "id": "POST /api/missions/:id/steer",
+      "status": 422,
+      "body": {
+        "ok": false,
+        "error": "(root): Unrecognized key: \"idempotencyKey\"",
+        "code": "INVALID_REQUEST",
+        "errorCode": "INVALID_REQUEST"
+      }
+    }
+  ],
+  "failures": [
+    "POST /api/chat-runs status=200",
+    "POST /api/chat-runs/:id/cancel status=404",
+    "PATCH /api/conversations/:id status=404",
+    "DELETE /api/conversations/:id status=404",
+    "POST /api/documents status=201",
+    "POST /api/documents/:id/narration status=404",
+    "POST /api/voice-sessions status=404",
+    "POST /api/voice-sessions/:id/end status=404",
+    "POST /api/improvements status=201",
+    "PATCH /api/improvements/:id status=404",
+    "DELETE /api/improvements/:id status=404",
+    "PATCH /api/subscriptions/:id status=404",
+    "POST /api/feed-items/:id/feedback status=404",
+    "PATCH /api/assimilations/:id status=409",
+    "DELETE /api/subscriptions/:id status=404",
+    "POST /api/documents/:id/import status=404",
+    "POST /api/documents/:id/publish status=404",
+    "POST /api/uploads status=404",
+    "PUT /api/uploads/:id status=404",
+    "POST /api/uploads/:id/finalize status=404",
+    "POST /api/missions status=200",
+    "POST /api/missions/:id/verdicts status=422",
+    "POST /api/missions/:id/steer status=422"
+  ]
+}

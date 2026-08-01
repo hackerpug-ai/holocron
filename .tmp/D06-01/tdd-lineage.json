@@ -1,0 +1,11 @@
+{
+  "task_id": "D06-01",
+  "tdd_mode": "red_first",
+  "red_commit": "1283bf77b46fea188028fae55da818a3b5119311",
+  "green_commit": null,
+  "green_status": "deferred",
+  "green_waiver": "GREEN is owned by later fence tasks D06-03 (implement write fence) and D06-05 (soak-flip verification). This bead only authors the RED fail-closed oracle against the unfenced tree.",
+  "red_evidence": ".tmp/D06-01/red-output.txt",
+  "red_against_start": ".tmp/D06-01/red-against-start.txt",
+  "notes": "PLATFORM_IT=1 suite collects cleanly and fails 8/16 exclusively on fence assertions TC-3/4/8/9/12/13/15/16. Reachability TC-1/2/5/6/7/10/11/14 all pass on real Postgres + createHonoApp + executePostgresMcpTool + ConvexHttpClient + runJob."
+}

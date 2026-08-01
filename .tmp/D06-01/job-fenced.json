@@ -1,0 +1,12 @@
+{
+  "result": {
+    "name": "task-timeout-worker",
+    "run_key": "job:task-timeout-worker:382bae72-46ef-40e9-a617-0bf78c38a22d",
+    "category": "janitor",
+    "lane": "interactive",
+    "effect_id": "019fbf88-a502-7d4d-8db7-0a932b962901",
+    "fence_token": "fence-61948439-e1df-4686-9b7f-c16254e9431b",
+    "ok": true,
+    "error": null
+  }
+}

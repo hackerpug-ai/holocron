@@ -1,0 +1,28 @@
+{
+  "runId": "462d0d50-0a5a-413d-9cbd-0642fc723a75",
+  "count": 21,
+  "toolIds": [
+    "store_document",
+    "update_document",
+    "share_document",
+    "add_subscription",
+    "remove_subscription",
+    "check_subscriptions",
+    "set_subscription_filter",
+    "store_tool",
+    "update_tool",
+    "remove_tool",
+    "shop_products",
+    "start_assimilation",
+    "approve_assimilation_plan",
+    "reject_assimilation_plan",
+    "cancel_assimilation",
+    "steer_assimilation",
+    "assimilate_creator",
+    "regenerate_transcript",
+    "add_improvement",
+    "close_improvement",
+    "set_improvement_status"
+  ],
+  "seedDocumentId": "64c9b0b3-5362-44b0-a396-f39b9f22b050"
+}
