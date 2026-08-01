@@ -39,17 +39,26 @@ describe('GATE-FIX-S28R3-QA33 configured-positive failure semantics', () => {
     }
 
     try {
-      const result = spawnSync(TRUSTED_BUN_PATH, ['x', 'vitest', 'run', TARGET_TEST], {
+      const result = spawnSync(
+        TRUSTED_BUN_PATH,
+        [
+          'x',
+          'vitest',
+          'run',
+          '--testNamePattern',
+          'routes a credentialed PITR-window probe',
+          TARGET_TEST,
+        ],
+        {
         cwd: REPO_ROOT,
         encoding: 'utf8',
         env,
         timeout: 180_000,
-      });
+        }
+      );
       const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
       expect(result.status, output).not.toBe(0);
-      expect(output).toMatch(
-        /DEPENDENCY-S28R3-QA32-BUN-TRUST|DEPENDENCY-S28R3-QA33-PITR-WINDOW/
-      );
+      expect(output).toMatch(/DEPENDENCY-S28R3-QA32-BUN-TRUST|DEPENDENCY-S28R3-QA33-PITR-WINDOW/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
