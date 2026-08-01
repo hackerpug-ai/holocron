@@ -4,7 +4,8 @@
  */
 
 import { v } from 'convex/values';
-import { internalMutation, internalQuery } from '../_generated/server';
+import { internalQuery } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 /**
  * Get a document by ID, returning only fields needed for dedup comparison

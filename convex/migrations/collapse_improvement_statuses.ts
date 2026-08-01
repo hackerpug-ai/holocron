@@ -13,7 +13,7 @@
  *   npx convex run migrations/collapse_improvement_statuses:run
  */
 
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 type OldStatus =
   | 'submitted'

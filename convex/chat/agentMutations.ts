@@ -7,7 +7,11 @@
  */
 
 import { v } from 'convex/values';
-import { internalMutation, internalQuery, mutation } from '../_generated/server';
+import { internalQuery } from '../_generated/server';
+import {
+  fencedInternalMutation as internalMutation,
+  fencedMutation as mutation,
+} from '../lib/migrationFence';
 import { buildConversationContext } from './context';
 
 /**

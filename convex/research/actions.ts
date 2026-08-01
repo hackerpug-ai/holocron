@@ -15,8 +15,11 @@ import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { ActionCtx } from '../_generated/server';
-import { action, internalAction } from '../_generated/server';
 import { stripMarkdownCodeBlock } from '../lib/json';
+import {
+  fencedAction as action,
+  fencedInternalAction as internalAction,
+} from '../lib/migrationFence';
 
 // The scheduled file does not exist yet; reference it explicitly so the scheduler
 // call can be wired at runtime without a generated-API type error.

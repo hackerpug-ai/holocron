@@ -4,8 +4,8 @@ import { v } from 'convex/values';
 import { api } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { ActionCtx } from '../_generated/server';
-import { action } from '../_generated/server';
 import { executeAgentTool } from '../chat/toolExecutor';
+import { fencedAction as action } from '../lib/migrationFence';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -4,9 +4,10 @@ import { generateText } from 'ai';
 import { v } from 'convex/values';
 import { api, internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { type ActionCtx, action } from '../_generated/server';
+import type { ActionCtx } from '../_generated/server';
 import { claudeFlash } from '../lib/ai/anthropic_provider';
 import { DOCUMENT_CATEGORIES, isValidCategory } from '../lib/categories';
+import { fencedAction as action } from '../lib/migrationFence';
 
 /**
  * Slash command parser

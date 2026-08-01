@@ -14,8 +14,8 @@ import { embed } from 'ai';
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
-import { action } from '../_generated/server';
 import { cohereEmbedding } from '../lib/ai/embeddings_provider';
+import { fencedAction as action } from '../lib/migrationFence';
 
 // Direct function references avoid the regenerated-api requirement for new modules.
 const improvementsQueriesFullTextSearch = makeFunctionReference<

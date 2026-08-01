@@ -3,7 +3,7 @@
 // See CLAUDE.md: "this is a personal app that will NEVER be published"
 
 import { api, internal } from '../_generated/api';
-import { action } from '../_generated/server';
+import { fencedAction as action } from '../lib/migrationFence';
 import {
   assimilateCreatorValidator,
   discoverCreatorValidator,

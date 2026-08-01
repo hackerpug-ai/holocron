@@ -15,7 +15,8 @@
 
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
-import { internalMutation, internalQuery } from '../_generated/server';
+import { internalQuery } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 // ============================================================================
 // Helpers

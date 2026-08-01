@@ -1,6 +1,6 @@
 import { httpRouter } from 'convex/server';
 import { api } from './_generated/api';
-import { httpAction } from './_generated/server';
+import { fencedHttpAction as httpAction } from './lib/migrationFence';
 
 // Import documents functions to ensure they're deployed
 import './documents/queries';

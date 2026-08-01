@@ -1,6 +1,10 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
-import { internalAction, internalMutation, internalQuery } from './_generated/server';
+import { internalQuery } from './_generated/server';
+import {
+  fencedInternalAction as internalAction,
+  fencedInternalMutation as internalMutation,
+} from './lib/migrationFence';
 
 /**
  * Task Timeout Cron Job Handler

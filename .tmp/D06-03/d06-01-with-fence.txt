@@ -1,0 +1,243 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03
+
+ ❯ |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts (16 tests | 8 failed) 26220ms
+     ✓ TC-1: discovers >= 23 live Hono write routes 1ms
+     ✓ TC-2: every discovered Hono write route returns non-423 when unfenced 1ms
+     × TC-3: every discovered Hono write route returns HTTP 423 when fenced 337ms
+     × TC-4: every fenced Hono write-route body equals { error: migration_read_only } 331ms
+     ✓ TC-5: MCP mutation-tool inventory count equals 21 from manifest side_effects 0ms
+     ✓ TC-6: every MCP mutation tool id exists in live toolsAsRecord() 1ms
+     ✓ TC-7: executePostgresMcpTool resolves without MIGRATION_READ_ONLY for every mutation tool when unfenced  3072ms
+     × TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced 337ms
+     × TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced 24ms
+     × TC-10: api.documents.mutations.create returns a Convex document id when unfenced 110ms
+     × TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced 92ms
+     ✓ TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set  1357ms
+     ✓ TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set 112ms
+     ✓ TC-14: runJob returns ok true and inserts one job_runs row when unfenced  5474ms
+     × TC-15: runJob returns ok false with migration_read_only error when fenced 5565ms
+     × TC-16: job_runs row count unchanged after fenced task-timeout-worker call 6011ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-3: every discovered Hono write route returns HTTP 423 when fenced
+AssertionError: unfenced Hono write paths (fence missing): POST /api/chat-runs status=200; POST /api/chat-runs/:id/cancel status=404; PATCH /api/conversations/:id status=404; DELETE /api/conversations/:id status=404; POST /api/documents status=201; POST /api/documents/:id/narration status=404; POST /api/voice-sessions status=404; POST /api/voice-sessions/:id/end status=404; POST /api/improvements status=201; PATCH /api/improvements/:id status=404; DELETE /api/improvements/:id status=404; PATCH /api/subscriptions/:id status=404; POST /api/feed-items/:id/feedback status=404; PATCH /api/assimilations/:id status=409; DELETE /api/subscriptions/:id status=404; POST /api/documents/:id/import status=404; POST /api/documents/:id/publish status=404; POST /api/uploads status=404; PUT /api/uploads/:id status=404; POST /api/uploads/:id/finalize status=404; POST /api/missions status=500; POST /api/missions/:id/verdicts status=422; POST /api/missions/:id/steer status=422: expected [ …(23) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "POST /api/chat-runs status=200",
++   "POST /api/chat-runs/:id/cancel status=404",
++   "PATCH /api/conversations/:id status=404",
++   "DELETE /api/conversations/:id status=404",
++   "POST /api/documents status=201",
++   "POST /api/documents/:id/narration status=404",
++   "POST /api/voice-sessions status=404",
++   "POST /api/voice-sessions/:id/end status=404",
++   "POST /api/improvements status=201",
++   "PATCH /api/improvements/:id status=404",
++   "DELETE /api/improvements/:id status=404",
++   "PATCH /api/subscriptions/:id status=404",
++   "POST /api/feed-items/:id/feedback status=404",
++   "PATCH /api/assimilations/:id status=409",
++   "DELETE /api/subscriptions/:id status=404",
++   "POST /api/documents/:id/import status=404",
++   "POST /api/documents/:id/publish status=404",
++   "POST /api/uploads status=404",
++   "PUT /api/uploads/:id status=404",
++   "POST /api/uploads/:id/finalize status=404",
++   "POST /api/missions status=500",
++   "POST /api/missions/:id/verdicts status=422",
++   "POST /api/missions/:id/steer status=422",
++ ]
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:390:91
+    388|     unsetMigrationFlag();
+    389|     writeEvidence('hono-fenced-results.json', { results, failures });
+    390|     expect(failures, `unfenced Hono write paths (fence missing): ${fai…
+       |                                                                                           ^
+    391|       []
+    392|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-4: every fenced Hono write-route body equals { error: migration_read_only }
+AssertionError: body contract failures: POST /api/chat-runs status=200 body={"ok":true,"replay":true,"runId":"62294d56-271f-46f0-af80-6b8ebf79dcba","conversationId":"a61b3e75-85e1-4abc-ab1e-52183d4ac471","durableMessageId":"019fbf9f-549b-7304-8c2d-af6b2b3beccf","requestId":"s; POST /api/chat-runs/:id/cancel status=404 body={"error":"not_found","message":"chat run not found"}; PATCH /api/conversations/:id status=404 body={"error":"not_found","message":"conversation not found"}; DELETE /api/conversations/:id status=404 body={"error":"not_found","message":"conversation not found"}; POST /api/documents status=201 body={"document":{"id":"1e7acf39-dea7-4309-9478-79ab02af5d50","title":"s29-d0601-67079104-3529-4bac-95d9-d4d3d75b7294-hono-doc","content":"red-fence probe","category":"general"}}; POST /api/documents/:id/narration status=404 body={"error":"not_found","message":"document not found"}; POST /api/voice-sessions status=404 body={"error":"not_found","message":"conversation not found"}; POST /api/voice-sessions/:id/end status=404 body={"error":"not_found","message":"voice session not found"}; POST /api/improvements status=201 body={"improvement":{"id":"a8ba39c3-b77b-49ba-a43c-6ede6785947a"}}; PATCH /api/improvements/:id status=404 body={"error":"not_found","message":"improvement not found"}; DELETE /api/improvements/:id status=404 body={"error":"not_found","message":"improvement not found"}; PATCH /api/subscriptions/:id status=404 body={"error":"not_found","message":"subscription not found"}; POST /api/feed-items/:id/feedback status=404 body={"error":"not_found","message":"feed item not found"}; PATCH /api/assimilations/:id status=409 body={"error":"invalid_assimilation_state","message":"session is not awaiting a reviewer decision"}; DELETE /api/subscriptions/:id status=404 body={"error":"not_found","message":"subscription not found"}; POST /api/documents/:id/import status=404 body={"error":"not_found","message":"document not found"}; POST /api/documents/:id/publish status=404 body={"error":"not_found","message":"document not found"}; POST /api/uploads status=404 body={"error":"upload_error","message":"upload target not found: improvement_image:69dcd1d6-0db0-40f0-aff8-a0adab7245a5"}; PUT /api/uploads/:id status=404 body={"error":"upload_error","message":"unknown upload id: 5acc9720-3ec8-4392-9d79-455c6f33cc8f"}; POST /api/uploads/:id/finalize status=404 body={"error":"upload_error","message":"unknown upload id: 5acc9720-3ec8-4392-9d79-455c6f33cc8f"}; POST /api/missions status=500 body={"ok":false,"error":"mission request failed","code":"MISSION_RUNTIME_FAILED","errorCode":"MISSION_RUNTIME_FAILED"}; POST /api/missions/:id/verdicts status=422 body={"ok":false,"error":"(root): Unrecognized keys: \"note\", \"idempotencyKey\"","code":"INVALID_REQUEST","errorCode":"INVALID_REQUEST"}; POST /api/missions/:id/steer status=422 body={"ok":false,"error":"(root): Unrecognized key: \"idempotencyKey\"","code":"INVALID_REQUEST","errorCode":"INVALID_REQUEST"}: expected [ …(23) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "POST /api/chat-runs status=200 body={\"ok\":true,\"replay\":true,\"runId\":\"62294d56-271f-46f0-af80-6b8ebf79dcba\",\"conversationId\":\"a61b3e75-85e1-4abc-ab1e-52183d4ac471\",\"durableMessageId\":\"019fbf9f-549b-7304-8c2d-af6b2b3beccf\",\"requestId\":\"s",
++   "POST /api/chat-runs/:id/cancel status=404 body={\"error\":\"not_found\",\"message\":\"chat run not found\"}",
++   "PATCH /api/conversations/:id status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
++   "DELETE /api/conversations/:id status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
++   "POST /api/documents status=201 body={\"document\":{\"id\":\"1e7acf39-dea7-4309-9478-79ab02af5d50\",\"title\":\"s29-d0601-67079104-3529-4bac-95d9-d4d3d75b7294-hono-doc\",\"content\":\"red-fence probe\",\"category\":\"general\"}}",
++   "POST /api/documents/:id/narration status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
++   "POST /api/voice-sessions status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
++   "POST /api/voice-sessions/:id/end status=404 body={\"error\":\"not_found\",\"message\":\"voice session not found\"}",
++   "POST /api/improvements status=201 body={\"improvement\":{\"id\":\"a8ba39c3-b77b-49ba-a43c-6ede6785947a\"}}",
++   "PATCH /api/improvements/:id status=404 body={\"error\":\"not_found\",\"message\":\"improvement not found\"}",
++   "DELETE /api/improvements/:id status=404 body={\"error\":\"not_found\",\"message\":\"improvement not found\"}",
++   "PATCH /api/subscriptions/:id status=404 body={\"error\":\"not_found\",\"message\":\"subscription not found\"}",
++   "POST /api/feed-items/:id/feedback status=404 body={\"error\":\"not_found\",\"message\":\"feed item not found\"}",
++   "PATCH /api/assimilations/:id status=409 body={\"error\":\"invalid_assimilation_state\",\"message\":\"session is not awaiting a reviewer decision\"}",
++   "DELETE /api/subscriptions/:id status=404 body={\"error\":\"not_found\",\"message\":\"subscription not found\"}",
++   "POST /api/documents/:id/import status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
++   "POST /api/documents/:id/publish status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
++   "POST /api/uploads status=404 body={\"error\":\"upload_error\",\"message\":\"upload target not found: improvement_image:69dcd1d6-0db0-40f0-aff8-a0adab7245a5\"}",
++   "PUT /api/uploads/:id status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: 5acc9720-3ec8-4392-9d79-455c6f33cc8f\"}",
++   "POST /api/uploads/:id/finalize status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: 5acc9720-3ec8-4392-9d79-455c6f33cc8f\"}",
++   "POST /api/missions status=500 body={\"ok\":false,\"error\":\"mission request failed\",\"code\":\"MISSION_RUNTIME_FAILED\",\"errorCode\":\"MISSION_RUNTIME_FAILED\"}",
++   "POST /api/missions/:id/verdicts status=422 body={\"ok\":false,\"error\":\"(root): Unrecognized keys: \\\"note\\\", \\\"idempotencyKey\\\"\",\"code\":\"INVALID_REQUEST\",\"errorCode\":\"INVALID_REQUEST\"}",
++   "POST /api/missions/:id/steer status=422 body={\"ok\":false,\"error\":\"(root): Unrecognized key: \\\"idempotencyKey\\\"\",\"code\":\"INVALID_REQUEST\",\"errorCode\":\"INVALID_REQUEST\"}",
++ ]
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:426:72
+    424|     unsetMigrationFlag();
+    425|     writeEvidence('hono-fenced-body-results.json', { failures, postAc1…
+    426|     expect(failures, `body contract failures: ${failures.join('; ')}`)…
+       |                                                                        ^
+    427|     // Counts may drift from AC-3 seeds; assert no *additional* 423 su…
+    428|     // primary contract is the body shape above. Soft-check deltas onl…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced
+AssertionError: unfenced MCP mutation tools (fence missing): store_document: resolved successfully (fence missing); update_document: resolved successfully (fence missing); share_document: resolved successfully (fence missing); add_subscription: resolved successfully (fence missing); remove_subscription: resolved successfully (fence missing); check_subscriptions: resolved successfully (fence missing); set_subscription_filter: resolved successfully (fence missing); store_tool: resolved successfully (fence missing); update_tool: resolved successfully (fence missing); remove_tool: resolved successfully (fence missing); shop_products: resolved successfully (fence missing); start_assimilation: resolved successfully (fence missing); approve_assimilation_plan: rejected without MIGRATION_READ_ONLY prefix: INVALID_STATE: assimilation session is not awaiting approval; reject_assimilation_plan: resolved successfully (fence missing); cancel_assimilation: rejected without MIGRATION_READ_ONLY prefix: NOT_FOUND: assimilation session is not cancellable; steer_assimilation: resolved successfully (fence missing); assimilate_creator: resolved successfully (fence missing); regenerate_transcript: resolved successfully (fence missing); add_improvement: resolved successfully (fence missing); close_improvement: resolved successfully (fence missing); set_improvement_status: resolved successfully (fence missing): expected [ …(21) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "store_document: resolved successfully (fence missing)",
++   "update_document: resolved successfully (fence missing)",
++   "share_document: resolved successfully (fence missing)",
++   "add_subscription: resolved successfully (fence missing)",
++   "remove_subscription: resolved successfully (fence missing)",
++   "check_subscriptions: resolved successfully (fence missing)",
++   "set_subscription_filter: resolved successfully (fence missing)",
++   "store_tool: resolved successfully (fence missing)",
++   "update_tool: resolved successfully (fence missing)",
++   "remove_tool: resolved successfully (fence missing)",
++   "shop_products: resolved successfully (fence missing)",
++   "start_assimilation: resolved successfully (fence missing)",
++   "approve_assimilation_plan: rejected without MIGRATION_READ_ONLY prefix: INVALID_STATE: assimilation session is not awaiting approval",
++   "reject_assimilation_plan: resolved successfully (fence missing)",
++   "cancel_assimilation: rejected without MIGRATION_READ_ONLY prefix: NOT_FOUND: assimilation session is not cancellable",
++   "steer_assimilation: resolved successfully (fence missing)",
++   "assimilate_creator: resolved successfully (fence missing)",
++   "regenerate_transcript: resolved successfully (fence missing)",
++   "add_improvement: resolved successfully (fence missing)",
++   "close_improvement: resolved successfully (fence missing)",
++   "set_improvement_status: resolved successfully (fence missing)",
++ ]
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:499:93
+    497|     unsetMigrationFlag();
+    498|     writeEvidence('mcp-fenced-results.json', { results, failures });
+    499|     expect(failures, `unfenced MCP mutation tools (fence missing): ${f…
+       |                                                                                             ^
+    500|       []
+    501|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-9: createMcpServer store_document handler returns isError + MIGRATION_READ_ONLY when fenced
+AssertionError: gateway isError expected true, got {"content":[{"type":"text","text":"{\"documentId\":\"2139cb85-9674-44f3-873a-e0bfd1b438f5\",\"title\":\"s29-d0601-67079104-3529-4bac-95d9-d4d3d75b7294-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"}],"structuredContent":{"documentId":"2139cb85-9674-44f3-873a-e0bfd1b438f5","title":"s29-d0601-67079104-3529-4bac-95d9-d4d3d75b7294-mcp-gateway-doc","embeddingStatus":"pending"}}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:570:85
+    568|       }
+    569|     }
+    570|     expect(isError, `gateway isError expected true, got ${JSON.stringi…
+       |                                                                                     ^
+    571|     expect(code, `parsed code expected MIGRATION_READ_ONLY, body=${tex…
+    572|       'MIGRATION_READ_ONLY'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-10: api.documents.mutations.create returns a Convex document id when unfenced
+Error: [Request ID: b5efdffd8dda25d8] Server Error
+Uncaught Error: migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set
+    at assertMigrationWritable (../../convex/lib/migrationFence.ts:43:6)
+    at input (../../convex/lib/migrationFence.ts:56:2)
+    at handler (../../../../../node_modules/convex-helpers/server/customFunctions.js:265:30)
+
+ ❯ assertMigrationWritable ../../convex/lib/migrationFence.ts:43:6
+ ❯ input ../../convex/lib/migrationFence.ts:56:2
+ ❯ handler ../../../../../node_modules/convex-helpers/server/customFunctions.js:265:30
+ ❯ ConvexHttpClient.mutationInner ../../../node_modules/convex/src/browser/http_client.ts:387:14
+ ❯ ConvexHttpClient.processMutationQueue ../../../node_modules/convex/src/browser/http_client.ts:402:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced
+Error: [Request ID: 9a3c0d23567a6aef] Server Error
+Uncaught Error: migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set
+    at assertMigrationWritable (../../convex/lib/migrationFence.ts:43:6)
+    at input (../../convex/lib/migrationFence.ts:56:2)
+    at handler (../../../../../node_modules/convex-helpers/server/customFunctions.js:265:30)
+
+ ❯ assertMigrationWritable ../../convex/lib/migrationFence.ts:43:6
+ ❯ input ../../convex/lib/migrationFence.ts:56:2
+ ❯ handler ../../../../../node_modules/convex-helpers/server/customFunctions.js:265:30
+ ❯ ConvexHttpClient.mutationInner ../../../node_modules/convex/src/browser/http_client.ts:387:14
+ ❯ ConvexHttpClient.processMutationQueue ../../../node_modules/convex/src/browser/http_client.ts:402:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-15: runJob returns ok false with migration_read_only error when fenced
+AssertionError: runJob should fail under fence: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:697:57
+    695|     unsetMigrationFlag();
+    696|     writeEvidence('job-fenced.json', { result });
+    697|     expect(result.ok, 'runJob should fail under fence').toBe(false);
+       |                                                         ^
+    698|     expect(typeof result.error).toBe('string');
+    699|     expect(String(result.error).startsWith('migration_read_only:'), `e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-write-fence-red.test.ts > Sprint 29 D06-01 write-fence RED > TC-16: job_runs row count unchanged after fenced task-timeout-worker call
+AssertionError: fenced run must not insert job_runs: expected 41 to be 40 // Object.is equality
+
+- Expected
++ Received
+
+- 40
++ 41
+
+ ❯ services/platform/tests/integration/sprint29-write-fence-red.test.ts:722:58
+    720|       postAc7: jobAfterUnfencedCount,
+    721|     });
+    722|     expect(after, 'fenced run must not insert job_runs').toBe(before);
+       |                                                          ^
+    723|   }, 60_000);
+    724| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 8 passed (16)
+   Start at  17:18:36
+   Duration  27.41s (transform 389ms, setup 117ms, import 980ms, tests 26.22s, environment 0ms)
+

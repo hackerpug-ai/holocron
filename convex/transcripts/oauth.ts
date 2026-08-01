@@ -12,7 +12,7 @@
 'use node';
 
 import { v } from 'convex/values';
-import { internalAction } from '../_generated/server';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 
 /**
  * OAuth2 token response from Google

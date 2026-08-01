@@ -445,7 +445,17 @@ export function isConvexId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-z0-9]{32}$/.test(value);
 }
 
+/**
+ * Extract the migration_read_only / MIGRATION_READ_ONLY payload from a thrown
+ * value. ConvexHttpClient wraps server throws as:
+ *   "[Request ID: …] Server Error\nUncaught Error: migration_read_only: …"
+ * so callers that assert startsWith('migration_read_only:') need the inner line.
+ */
 export function migrationReadOnlyMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return String(err);
+  const raw = err instanceof Error ? err.message : String(err);
+  const m = raw.match(/(migration_read_only:\s*[^\n]*)/i);
+  if (m?.[1]) return m[1].trim();
+  const m2 = raw.match(/(MIGRATION_READ_ONLY:\s*[^\n]*)/);
+  if (m2?.[1]) return m2[1].trim();
+  return raw;
 }

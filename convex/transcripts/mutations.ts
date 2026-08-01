@@ -1,5 +1,8 @@
 import { v } from 'convex/values';
-import { internalMutation, mutation } from '../_generated/server';
+import {
+  fencedInternalMutation as internalMutation,
+  fencedMutation as mutation,
+} from '../lib/migrationFence';
 
 /**
  * Create a new transcript job for a contentId (e.g., YouTube video ID).

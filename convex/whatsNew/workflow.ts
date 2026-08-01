@@ -4,8 +4,12 @@
  * Use: `holo mission run whatsNew --date YYYY-MM-DD`
  */
 import { v } from 'convex/values';
-import { internalAction, internalMutation, internalQuery } from '../_generated/server';
+import { internalQuery } from '../_generated/server';
 import { migratedToMissionEngineError } from '../lib/migratedToMissionEngine';
+import {
+  fencedInternalAction as internalAction,
+  fencedInternalMutation as internalMutation,
+} from '../lib/migrationFence';
 
 const HINT = 'holo mission run whatsNew --date YYYY-MM-DD';
 

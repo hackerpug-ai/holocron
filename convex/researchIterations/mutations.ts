@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 /**
  * Create a new research iteration

@@ -1,0 +1,13 @@
+{
+  "task_id": "D06-03",
+  "tdd_mode": "red_first",
+  "red_task": "D06-01",
+  "red_commit": "90367448de340a8cd5dc6bc32ff7e558a62a4bc7",
+  "red_evidence": ".tmp/D06-01/red-output.txt",
+  "green_task": "D06-03",
+  "green_status": "green",
+  "green_evidence": ".tmp/D06-03/green-suite-run.txt",
+  "green_suite": "services/platform/tests/integration/sprint29-convex-fence.test.ts",
+  "linked_red_suite": "services/platform/tests/integration/sprint29-write-fence-red.test.ts",
+  "notes": "D06-03 implements durable Convex HOLO_MIGRATION_READ_ONLY fence (env==1) via fencedMutation/Action/HttpAction + codemod, cutover:freeze/quiet-check/capture-article-baseline/verify:convex-fence-coverage. D06-01 Convex fence TCs (TC-12/13) GREEN with message extraction; Hono/MCP/jobs fence remains D06-05 scope per WRITE-PROHIBITED."
+}

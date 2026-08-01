@@ -15,7 +15,8 @@ export default defineSchema({
     pendingSince: v.optional(v.number()), // epoch ms; used for 30-min expiry
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_updated', ['updatedAt'])
+  })
+    .index('by_updated', ['updatedAt'])
     .searchIndex('search_title', { searchField: 'title' }),
 
   // Agent telemetry for intent classification (INT-001)
@@ -75,7 +76,8 @@ export default defineSchema({
     toolCallId: v.optional(v.string()),
     reasoning: v.optional(v.string()), // AGENT-01: Store LLM reasoning for transparency
     createdAt: v.number(),
-  }).index('by_conversation', ['conversationId', 'createdAt'])
+  })
+    .index('by_conversation', ['conversationId', 'createdAt'])
     .searchIndex('search_content', { searchField: 'content' }),
 
   documents: defineTable({
@@ -1514,4 +1516,16 @@ export default defineSchema({
   })
     .index('by_key', ['key'])
     .index('by_key_timestamp', ['key', 'timestamp']),
+
+  // D06-03: migration write-fence audit (observability only — env var enforces)
+  migrationFenceAudit: defineTable({
+    kind: v.union(v.literal('fence_armed'), v.literal('write_attempt')),
+    outcome: v.optional(v.union(v.literal('accepted'), v.literal('rejected'))),
+    surface: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    fenceArmedAtMs: v.optional(v.number()),
+    atMs: v.number(),
+  })
+    .index('by_atMs', ['atMs'])
+    .index('by_kind_atMs', ['kind', 'atMs']),
 });

@@ -24,9 +24,9 @@ import { v } from 'convex/values';
 import { api } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import type { ActionCtx } from '../_generated/server';
-import { action } from '../_generated/server';
 import { claudeFlash, claudePro } from '../lib/ai/anthropic_provider';
 import { stripMarkdownCodeBlock } from '../lib/json';
+import { fencedAction as action } from '../lib/migrationFence';
 import type { ResearchMode } from './intent';
 import {
   buildFollowUpContext,

@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import type { MutationCtx } from '../_generated/server';
-import { mutation, query } from '../_generated/server';
+import { query } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 const MAX_IMPORTS_PER_HOUR = 10;
 const HOUR_IN_MS = 60 * 60 * 1000;

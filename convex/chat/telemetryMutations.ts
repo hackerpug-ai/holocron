@@ -6,7 +6,7 @@
  */
 
 import { v } from 'convex/values';
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 // Valid intent categories from triage.ts
 const _VALID_INTENTS = [

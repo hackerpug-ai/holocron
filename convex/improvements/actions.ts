@@ -18,9 +18,9 @@ import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { internalAction } from '../_generated/server';
 import { claudeFlash } from '../lib/ai/anthropic_provider';
 import { cohereEmbedding } from '../lib/ai/embeddings_provider';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 import { buildUserPrompt, DEDUP_SYSTEM_PROMPT } from './prompts';
 
 // Use makeFunctionReference to avoid dependency on the generated API not yet

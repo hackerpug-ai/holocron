@@ -1,4 +1,4 @@
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 /**
  * Tool-specific timeout thresholds.

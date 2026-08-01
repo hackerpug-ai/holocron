@@ -1,5 +1,8 @@
 import { v } from 'convex/values';
-import { internalMutation, mutation } from '../_generated/server';
+import {
+  fencedInternalMutation as internalMutation,
+  fencedMutation as mutation,
+} from '../lib/migrationFence';
 
 /**
  * Internal mutation to create a voiceSession record.

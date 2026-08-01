@@ -9,8 +9,8 @@
 
 import { embed } from 'ai';
 import { api } from '../_generated/api';
-import { action } from '../_generated/server';
 import { cohereEmbedding } from '../lib/ai/embeddings_provider';
+import { fencedAction as action } from '../lib/migrationFence';
 
 export const reembedAllDocuments = action({
   args: {},

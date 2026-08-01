@@ -1,0 +1,4 @@
+{
+  "rejected": true,
+  "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+}

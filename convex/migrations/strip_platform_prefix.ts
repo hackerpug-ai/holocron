@@ -7,7 +7,7 @@
  * Run with: npx convex run migrations/strip_platform_prefix:stripPlatformPrefixFromTitles
  */
 
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 const PLATFORM_PREFIX = /^\[(TWITTER|YOUTUBE|GITHUB|BLUESKY)\]\s*/;
 

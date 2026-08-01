@@ -1,4 +1,4 @@
-import { internalMutation } from '../_generated/server';
+import { fencedInternalMutation as internalMutation } from '../lib/migrationFence';
 
 const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 

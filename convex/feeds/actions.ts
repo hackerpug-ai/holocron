@@ -1,6 +1,6 @@
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { action } from '../_generated/server';
+import { fencedAction as action } from '../lib/migrationFence';
 
 // ============================================================================
 // Feed Building Actions

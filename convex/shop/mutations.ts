@@ -6,7 +6,7 @@
 
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
-import { mutation } from '../_generated/server';
+import { fencedMutation as mutation } from '../lib/migrationFence';
 
 // ============================================================================
 // Planning Phase Mutations

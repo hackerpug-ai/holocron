@@ -14,7 +14,7 @@
 
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
-import { internalAction } from '../_generated/server';
+import { fencedInternalAction as internalAction } from '../lib/migrationFence';
 import {
   downloadAndStoreAudio,
   extractApplePodcastsAudioUrl,
