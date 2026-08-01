@@ -7,7 +7,18 @@
  * can be produced.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  chownSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -24,9 +35,9 @@ const QA30_TEST = resolve(
   'services/platform/tests/integration/sprint28-s28r3-qa30-gate-fix.test.ts'
 );
 const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
-const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA31');
-const PRIMARY_SECRET_FILE =
-  '/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml';
+const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA32');
+const TRUSTED_BUN_PATH = '/usr/local/bin/bun';
+const BUN_DEPENDENCY_FAILURE = 'DEPENDENCY-S28R3-QA32-BUN-TRUST';
 
 const SECRET_KEYS = new Set([
   'R2_ACCESS_KEY_ID',
@@ -113,14 +124,11 @@ function absoluteCandidate(path: string): string {
 }
 
 function discoverSecretConfig(): SecretConfig | null {
+  const explicitSecretPath = process.env.HOLO_QA31_SECRETS_PATH?.trim();
   const candidates = [
-    process.env.HOLO_QA31_SECRETS_PATH,
-    process.env.HOLOCRON_SECRETS_PATH,
-    process.env.HOLO_SECRETS_PATH,
+    explicitSecretPath,
     resolve(REPO_ROOT, 'services/platform/config/secrets.yaml'),
-    PRIMARY_SECRET_FILE,
     resolve(REPO_ROOT, '.env'),
-    '/Users/inference1/Projects/holocron/.env',
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   let firstReadable: SecretConfig | null = null;
@@ -307,15 +315,32 @@ function dockerBin(): string | null {
   return null;
 }
 
-function bunBin(): string | null {
-  for (const candidate of [
-    '/usr/local/bin/bun',
-    '/Users/inference1/.bun/bin/bun',
-    '/opt/homebrew/bin/bun',
-  ]) {
-    if (existsSync(candidate)) return candidate;
+function validateTrustedBunCandidate(candidate: string): string | null {
+  if (!candidate.startsWith('/')) return null;
+  try {
+    const parts = candidate.split('/').filter(Boolean);
+    let current = '/';
+    const root = lstatSync(current);
+    if (root.isSymbolicLink() || root.uid !== 0 || (root.mode & 0o022) !== 0) return null;
+
+    for (const [index, part] of parts.entries()) {
+      current = current === '/' ? `/${part}` : `${current}/${part}`;
+      const stat = lstatSync(current);
+      if (stat.isSymbolicLink() || stat.uid !== 0 || (stat.mode & 0o022) !== 0) return null;
+      if (index < parts.length - 1) {
+        if (!stat.isDirectory() || (stat.mode & 0o111) === 0) return null;
+      } else if (!stat.isFile() || (stat.mode & 0o111) === 0) {
+        return null;
+      }
+    }
+    return candidate;
+  } catch {
+    return null;
   }
-  return null;
+}
+
+function bunBin(): string | null {
+  return validateTrustedBunCandidate(TRUSTED_BUN_PATH);
 }
 
 function dockerContextHost(): string | null {
@@ -346,9 +371,19 @@ type PitrWindow = {
   error?: string;
 };
 
-function queryPitrWindow(config: SecretConfig): PitrWindow {
-  const bun = bunBin();
-  if (!bun) return { ok: false, error: 'trusted Bun executable unavailable' };
+/**
+ * Candidate seam used only by the filesystem-backed trust rejection test below.
+ * The live path calls queryPitrWindow(), which supplies the fixed path and has
+ * no environment or caller override.
+ */
+function queryPitrWindowAtCandidate(config: SecretConfig, candidate: string): PitrWindow {
+  const bun = validateTrustedBunCandidate(candidate);
+  if (!bun) {
+    return {
+      ok: false,
+      error: `${BUN_DEPENDENCY_FAILURE}: Bun executable is missing or untrusted at ${candidate}`,
+    };
+  }
   const env = envForConfig(config, resolve(EVIDENCE_DIR, 'window-probe'));
   const result = spawnSync(bun, [HOLO_CLI, 'restore:window', '--json'], {
     cwd: REPO_ROOT,
@@ -365,6 +400,10 @@ function queryPitrWindow(config: SecretConfig): PitrWindow {
       error: `restore:window exited ${result.status ?? 'unknown'} without JSON`,
     };
   }
+}
+
+function queryPitrWindow(config: SecretConfig): PitrWindow {
+  return queryPitrWindowAtCandidate(config, TRUSTED_BUN_PATH);
 }
 
 type CleanupResult = {
@@ -469,34 +508,35 @@ const credentialSecrets = secretConfig
   : [];
 
 const positiveRunnable = gate.available;
-if (!gate.available) {
-  writeEvidence('positive-skip.json', {
-    schema: 'holo.gate-fix-s28r3-qa31.positive-skip.v1',
-    status: 'skipped',
-    task: 'GATE-FIX-S28R3-QA31',
-    reason: gate.reason,
-    credential_gate: gate,
-    target_timestamp_present: Boolean(targetTimestamp),
-    provider_or_docker_invoked: false,
-    note: 'No live positive claim is made; the no-key negative control still runs.',
-  });
-} else if (!pitrTimestampInWindow) {
-  writeEvidence('positive-required.json', {
-    schema: 'holo.gate-fix-s28r3-qa31.positive-required.v1',
+
+function writePositiveDependencyEvidence(): void {
+  if (positiveRunnable && pitrTimestampInWindow) return;
+  const dependencyFailure = gate.available
+    ? (pitrWindow?.error ??
+      'live credentials are available; restore:window must provide an in-window PITR timestamp before the real disposable consumer gate runs')
+    : gate.reason;
+  writeEvidence('positive-dependency.json', {
+    schema: 'holo.gate-fix-s28r3-qa32.positive-dependency.v1',
     status: 'blocked',
-    task: 'GATE-FIX-S28R3-QA31',
-    reason:
-      'live credentials are available; restore:window must provide an in-window PITR timestamp before the real disposable consumer gate runs',
+    task: 'GATE-FIX-S28R3-QA32',
+    reason: dependencyFailure,
     credential_gate: gate,
     pitr_window: pitrWindow,
     requested_target_timestamp: Boolean(requestedTargetTimestamp),
-    target_timestamp_present: false,
+    target_timestamp_present: Boolean(targetTimestamp),
+    positive_control_executed: false,
+    no_key_control_executed: true,
     provider_or_docker_invoked: false,
   });
 }
 
 describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
   it('real scripts exist and parse without changing their gate contracts', () => {
+    const source = readFileSync(import.meta.filename, 'utf8');
+    expect(source).not.toContain(['/Users', 'inference1', '/'].join(''));
+    expect(source).not.toContain(['.bun', 'bin', 'bun'].join('/'));
+    expect(source).not.toMatch(new RegExp(['/opt', 'homebrew', 'bin', 'bun'].join('[/\\/]')));
+    expect(source).not.toContain(['process.env', 'BUN_BIN'].join('.'));
     expect(existsSync(PROVISION)).toBe(true);
     expect(existsSync(FIRE_DRILL)).toBe(true);
     for (const script of [PROVISION, FIRE_DRILL]) {
@@ -520,7 +560,10 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       )
     ).toContain('canonicalPolicyFromHelper');
     const bun = bunBin();
-    expect(bun).not.toBeNull();
+    expect(
+      bun,
+      `${BUN_DEPENDENCY_FAILURE}: fixed ${TRUSTED_BUN_PATH} is missing or untrusted`
+    ).not.toBeNull();
     const qa30 = spawnSync(bun as string, ['x', 'vitest', 'run', QA30_TEST], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -528,6 +571,66 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
     });
     expect(`${qa30.stdout ?? ''}\n${qa30.stderr ?? ''}`).toContain('Test Files');
     expect(qa30.status).toBe(0);
+  });
+
+  it('routes a credentialed PITR-window probe only through the fixed trusted Bun path', () => {
+    const source = readFileSync(import.meta.filename, 'utf8');
+    expect(source).toContain("spawnSync(bun, [HOLO_CLI, 'restore:window', '--json']");
+    expect(source).toContain('return queryPitrWindowAtCandidate(config, TRUSTED_BUN_PATH);');
+    expect(TRUSTED_BUN_PATH).toBe('/usr/local/bin/bun');
+
+    if (!gate.available) {
+      expect(pitrWindow).toBeNull();
+      return;
+    }
+
+    expect(pitrWindow).not.toBeNull();
+  });
+
+  it('rejects symlink, user-owned, and writable Bun substitutes before credential env or child launch', () => {
+    const root = mkdtempSync(join(tmpdir(), 'holo-qa32-bun-trust-'));
+    const secretPath = resolve(root, 'credentials.yaml');
+    const observer = resolve(root, 'observer-bun');
+    const observationPath = `${secretPath}.observed`;
+    const observerSource = [
+      '#!/bin/sh',
+      'printf \'restore_secret=%s\\n\' "${R2_RESTORE_SECRET_ACCESS_KEY:-unset}" > "${HOLO_SECRETS_PATH}.observed"',
+      'printf \'%s\\n\' \'{"ok":true,"earliest":"2026-01-01T00:00:00Z","latest":"2026-01-02T00:00:00Z","recommended_pitr":"2026-01-01T12:00:00Z"}\'',
+      '',
+    ].join('\n');
+    writeFileSync(secretPath, '# disposable trust-boundary fixture\n', { mode: 0o600 });
+    writeFileSync(observer, observerSource, { mode: 0o755 });
+
+    const userOwned = resolve(root, 'user-owned-bun');
+    writeFileSync(userOwned, observerSource, { mode: 0o755 });
+    if (process.getuid?.() === 0) chownSync(userOwned, 65534, 65534);
+    const writable = resolve(root, 'writable-bun');
+    writeFileSync(writable, observerSource, { mode: 0o755 });
+    chmodSync(writable, 0o777);
+    const symlink = resolve(root, 'symlink-bun');
+    symlinkSync(observer, symlink);
+    expect(lstatSync(symlink).isSymbolicLink()).toBe(true);
+    expect(lstatSync(userOwned).uid).not.toBe(0);
+    expect(lstatSync(writable).mode & 0o022).not.toBe(0);
+
+    const config: SecretConfig = {
+      path: secretPath,
+      values: {
+        R2_RESTORE_ACCESS_KEY_ID: 'qa32-access-sentinel',
+        R2_RESTORE_SECRET_ACCESS_KEY: 'qa32-secret-sentinel',
+      },
+    };
+
+    try {
+      for (const candidate of [symlink, userOwned, writable]) {
+        const probe = queryPitrWindowAtCandidate(config, candidate);
+        expect(probe.ok, candidate).toBe(false);
+        expect(probe.error, candidate).toMatch(/DEPENDENCY-S28R3-QA32-BUN-TRUST/);
+        expect(existsSync(observationPath), candidate).toBe(false);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   const itLive = positiveRunnable ? it : it.skip;
@@ -657,9 +760,9 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       cleanupNamespace(omissionHost, omissionStaging);
 
       const evidence = {
-        schema: 'holo.gate-fix-s28r3-qa31.positive-live.v1',
+        schema: 'holo.gate-fix-s28r3-qa32.positive-live.v1',
         status: 'executed',
-        task: 'GATE-FIX-S28R3-QA31',
+        task: 'GATE-FIX-S28R3-QA32',
         secret_config_basename: basename(secretConfig.path),
         prefix_start: {
           R2_RESTORE_OBJECT_PREFIX: 'unset',
@@ -795,9 +898,9 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       afterConsumersBeforeCleanup.blobsVolumeStatus !== 0 &&
       afterConsumersBeforeCleanup.networkStatus !== 0;
     const evidence = {
-      schema: 'holo.gate-fix-s28r3-qa31.no-key-negative.v1',
+      schema: 'holo.gate-fix-s28r3-qa32.no-key-negative.v1',
       status: 'executed',
-      task: 'GATE-FIX-S28R3-QA31',
+      task: 'GATE-FIX-S28R3-QA32',
       secret_config: 'empty disposable file; no credentials',
       prefix_start: {
         R2_RESTORE_OBJECT_PREFIX: 'unset',
@@ -830,9 +933,10 @@ describe('GATE-FIX-S28R3-QA31 ambient-free real restore consumers', () => {
       cleanup,
     };
     const evidencePath = writeEvidence('no-key-negative.json', evidence);
+    writePositiveDependencyEvidence();
     rmSync(root, { recursive: true, force: true });
 
-    expect(evidencePath).toContain('GATE-FIX-S28R3-QA31');
+    expect(evidencePath).toContain('GATE-FIX-S28R3-QA32');
     expect(provision.status).not.toBe(0);
     expect(fireDrill.status).not.toBe(0);
     expect(provisionOutput).toMatch(/DEPENDENCY-S28-R2-RO/);
