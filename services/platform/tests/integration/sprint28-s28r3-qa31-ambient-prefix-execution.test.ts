@@ -1123,4 +1123,17 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
       expect(command.error).toBe('');
     }
   });
+
+  it('binds every durable QA33 record to generated time, review, and execution head', () => {
+    for (const name of ['positive-dependency.json', 'no-key-negative.json']) {
+      const path = resolve(EVIDENCE_DIR, name);
+      expect(existsSync(path), name).toBe(true);
+      const evidence = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      expect(evidence.schema, name).toMatch(/^holo\.gate-fix-s28r3-qa33\./);
+      expect(evidence.task, name).toBe('GATE-FIX-S28R3-QA33');
+      expect(evidence.generated_at, name).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(evidence.reviewed_sha, name).toMatch(/^[0-9a-f]{40}$/);
+      expect(evidence.execution_head, name).toMatch(/^[0-9a-f]{40}$/);
+    }
+  });
 });
