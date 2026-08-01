@@ -443,8 +443,12 @@ function queryPitrWindowAtCandidate(
   }
 }
 
-function queryPitrWindow(config: SecretConfig): PitrWindow {
-  return queryPitrWindowAtCandidate(config, TRUSTED_BUN_PATH);
+function queryPitrWindow(
+  config: SecretConfig,
+  lstat: (path: string) => ReturnType<typeof lstatSync> = lstatSync,
+  spawn: ProbeSpawn = spawnSync
+): PitrWindow {
+  return queryPitrWindowAtCandidate(config, TRUSTED_BUN_PATH, lstat, spawn);
 }
 
 type CleanupResult = {
@@ -623,7 +627,7 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
     let observedCommand = '';
     let observedArgs: string[] = [];
     let observedEnv: NodeJS.ProcessEnv | undefined;
-    const probe = queryPitrWindowAtCandidate(
+    const probe = queryPitrWindow(
       {
         path: '/tmp/qa32-trust-boundary-secrets.yaml',
         values: {
@@ -631,7 +635,6 @@ describe('GATE-FIX-S28R3-QA32 trusted PITR probe and ambient-free real restore c
           R2_RESTORE_SECRET_ACCESS_KEY: 'qa32-secret-sentinel',
         },
       },
-      TRUSTED_BUN_PATH,
       lstatSync,
       (command, args, options) => {
         observedCommand = command;

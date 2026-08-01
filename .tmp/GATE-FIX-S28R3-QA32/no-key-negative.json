@@ -62,7 +62,7 @@
         "args": [
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms9uqlkj-47209"
+          "s28r3-qa31-no-key-ms9uzk4k-60978"
         ],
         "status": 0,
         "error": ""
@@ -72,8 +72,8 @@
           "volume",
           "rm",
           "-f",
-          "s28r3-qa31-no-key-ms9uqlkj-47209-pgdata",
-          "s28r3-qa31-no-key-ms9uqlkj-47209-blobs"
+          "s28r3-qa31-no-key-ms9uzk4k-60978-pgdata",
+          "s28r3-qa31-no-key-ms9uzk4k-60978-blobs"
         ],
         "status": 0,
         "error": ""
@@ -82,7 +82,7 @@
         "args": [
           "network",
           "rm",
-          "s28r3-qa31-no-key-ms9uqlkj-47209-net"
+          "s28r3-qa31-no-key-ms9uzk4k-60978-net"
         ],
         "status": 1,
         "error": ""
