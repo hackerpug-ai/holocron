@@ -1,0 +1,15 @@
+{
+  "finding": "R3-H01",
+  "pre_fix_CUTOVER_DRAIN_SURFACES": [
+    "crons",
+    "queues",
+    "outbox",
+    "scheduled_jobs"
+  ],
+  "measured": [
+    "tasks",
+    "subscriptionContent"
+  ],
+  "pre_fix_honest": false,
+  "fixed_honest": true
+}

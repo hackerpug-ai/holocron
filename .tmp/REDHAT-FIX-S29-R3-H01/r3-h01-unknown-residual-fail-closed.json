@@ -1,0 +1,82 @@
+{
+  "finding": "R3-H01",
+  "status": "RED_fail_closed",
+  "results": [
+    {
+      "surfaces": [
+        "crons"
+      ],
+      "ok": false,
+      "error": "unknown residual inventory for surface(s): crons (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).",
+      "reported": []
+    },
+    {
+      "surfaces": [
+        "queues"
+      ],
+      "ok": false,
+      "error": "unknown residual inventory for surface(s): queues (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).",
+      "reported": []
+    },
+    {
+      "surfaces": [
+        "outbox"
+      ],
+      "ok": false,
+      "error": "unknown residual inventory for surface(s): outbox (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).",
+      "reported": []
+    },
+    {
+      "surfaces": [
+        "scheduled_jobs"
+      ],
+      "ok": false,
+      "error": "unknown residual inventory for surface(s): scheduled_jobs (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).",
+      "reported": []
+    },
+    {
+      "surfaces": [
+        "tasks",
+        "outbox"
+      ],
+      "ok": false,
+      "error": "unknown residual inventory for surface(s): outbox (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).",
+      "reported": []
+    }
+  ],
+  "schedule_drain": {
+    "ok": false,
+    "surfaces": [],
+    "completedAtMs": 0,
+    "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+    "disabledEnvValue": "",
+    "convexDrainOk": false,
+    "consumersHonored": false,
+    "samples": {
+      "afterActiveTasks": -1,
+      "afterRunningTasks": -1,
+      "afterQueuedSubscriptionContent": -1,
+      "measuredSurfaces": [
+        "tasks",
+        "subscriptionContent"
+      ],
+      "unknownSurfaces": [
+        "crons",
+        "queues",
+        "outbox",
+        "scheduled_jobs"
+      ]
+    },
+    "error": "unknown residual inventory for surface(s): crons, queues, outbox, scheduled_jobs (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01)."
+  },
+  "pre_fix_theatre_claims": [
+    "crons",
+    "queues",
+    "outbox",
+    "scheduled_jobs"
+  ],
+  "measured_only": [
+    "tasks",
+    "subscriptionContent"
+  ]
+}

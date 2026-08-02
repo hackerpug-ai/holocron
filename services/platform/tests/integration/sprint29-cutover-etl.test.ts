@@ -156,12 +156,19 @@ function seedQuietCheck(ok = true): string {
         drainCompletedAtMs,
         drain: {
           ok: true,
-          surfaces: ['crons', 'queues', 'outbox', 'scheduled_jobs'],
+          surfaces: ['tasks', 'subscriptionContent'],
           completedAtMs: drainCompletedAtMs,
           disabledEnv: 'HOLO_CUTOVER_SCHEDULES_DISABLED',
           disabledEnvValue: '1',
           convexDrainOk: true,
           consumersHonored: true,
+          // R3-H01 / C-02: residual inventory present and zero (unknown residual fails closed)
+          samples: {
+            afterActiveTasks: 0,
+            afterRunningTasks: 0,
+            afterQueuedSubscriptionContent: 0,
+            measuredSurfaces: ['tasks', 'subscriptionContent'],
+          },
         },
       },
       null,

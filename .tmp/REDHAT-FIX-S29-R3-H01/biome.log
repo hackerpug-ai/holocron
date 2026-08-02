@@ -1,0 +1,68 @@
+services/platform/src/cutover/convex-fence-client.ts:44:29 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    43 │ // anyApi is an open proxy; cast the whole chain through unknown for strict TS.
+  > 44 │ const auditApi = (anyApi as any).migrationFence.audit as {
+       │                             ^^^
+    45 │   recordFenceArmed: FunctionReference<'mutation'>;
+    46 │   recordWriteAttempt: FunctionReference<'mutation'>;
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+services/platform/src/cutover/convex-fence-client.ts:51:29 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    49 │ };
+    50 │ 
+  > 51 │ const drainApi = (anyApi as any).migrationFence.drain as {
+       │                             ^^^
+    52 │   disableAndDrain: FunctionReference<'mutation'>;
+    53 │   latestDrain: FunctionReference<'query'>;
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+services/platform/src/cutover/convex-fence-client.ts:59:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    57 │ };
+    58 │ 
+  > 59 │ const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
+       │                               ^^^
+    60 │ const subsAdd = (anyApi as any).subscriptions.mutations.add as FunctionReference<'mutation'>;
+    61 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+services/platform/src/cutover/convex-fence-client.ts:60:28 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    59 │ const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
+  > 60 │ const subsAdd = (anyApi as any).subscriptions.mutations.add as FunctionReference<'mutation'>;
+       │                            ^^^
+    61 │ 
+    62 │ /** Cross-process blocked-write probe result (H-05 / AC-2). */
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+services/platform/tests/integration/sprint29-cutover-etl.test.ts:561:7 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    559 │       '--json',
+    560 │       '--export',
+  > 561 │       firstExportDir!,
+        │       ^^^^^^^^^^^^^^^
+    562 │       '--catalog',
+    563 │       CATALOG,
+  
+
+Checked 5 files in 13ms. No fixes applied.
+Found 5 warnings.
