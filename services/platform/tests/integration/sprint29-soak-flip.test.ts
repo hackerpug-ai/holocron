@@ -1,10 +1,7 @@
 /**
-<<<<<<< HEAD
  * D06-05 GREEN + REDHAT-FIX-S29-C02: durable flip, cross-process fence, rollback-repoint.
-=======
  * D06-05 GREEN + REDHAT-FIX-S29-H01: flip app + MCP into rollbackable read-only soak;
  * verification gates hit a real listening network /mcp and /article (not in-process sole oracle).
->>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
@@ -62,14 +59,11 @@ if (!PLATFORM_IT) {
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/D06-05');
-<<<<<<< HEAD
 const C02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-C02');
-=======
 const H01_EVIDENCE = resolve(
   REPO_ROOT,
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
->>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
@@ -125,7 +119,6 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   beforeAll(async () => {
     mkdirSync(EVIDENCE, { recursive: true });
-<<<<<<< HEAD
     mkdirSync(C02_EVIDENCE, { recursive: true });
     // Disposable control-plane — isolate durable fence from operator secrets.yaml
     writeFileSync(
@@ -134,9 +127,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       { mode: 0o600 }
     );
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
-=======
     mkdirSync(H01_EVIDENCE, { recursive: true });
->>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
     unsetMigrationFlag();
     // Explicit disengage so durable re-read of "0" does not arm fence
     setMigrationReadOnlyEnv('0');

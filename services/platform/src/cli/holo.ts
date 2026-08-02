@@ -330,20 +330,14 @@ Usage:
   cutover:flip              D06-05 engage HOLO_MIGRATION_READ_ONLY=1 after green ETL [--json]
                             [--etl-report <watermark-report.json>] [--output <flip-report.json>]
                             Fail-closed: ETL_NOT_RECONCILED when unexplainedVariance>0
-<<<<<<< HEAD
-<<<<<<< HEAD
   cutover:rollback-repoint  H-05 / UC-SYNC-04: re-point data plane to frozen Convex [--json]
                             [--output <rollback-repoint-report.json>] [--etl-report <watermark>]
                             Fail-closed: POST_EXPORT_WRITE_ACCEPTED | ROLLBACK_INELIGIBLE
-=======
                             Writes durable control-plane (secrets.yaml via HOLO_SECRETS_PATH)
   cutover:rollback-repoint  UC-SYNC-04 re-point data plane to frozen Convex [--json]
                             [--output <rollback-report.json>] [--target <convex-label>]
->>>>>>> 6de387c6 (fix(sprint-29): REDHAT-FIX-S29-C02 durable distributed write fence + rollback repoint)
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over real /mcp [--json]
-=======
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over network /mcp [--json] [--base-url URL]
->>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
   cutover:verify-reads      D06-05 Postgres zero_pub counts vs ETL baseline [--json]
   cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json] [--base-url URL]
   verify:convex-fence-coverage
@@ -3320,7 +3314,6 @@ async function main(): Promise<void> {
       break;
     }
     case 'cutover:rollback-repoint': {
-<<<<<<< HEAD
       // H-05 / UC-SYNC-04: executable data-plane re-point to frozen Convex
       const {
         runRollbackRepoint,
@@ -3337,7 +3330,6 @@ async function main(): Promise<void> {
         const report = runRollbackRepoint({
           reportPath,
           watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
-=======
       // UC-SYNC-04 / REDHAT-FIX-S29-C02: reciprocal data-plane repoint to frozen Convex
       const { runCutoverRollbackRepoint, formatRollbackRepointText, defaultRollbackReportPath } =
         await import('../cutover/soak-fence.ts');
@@ -3348,14 +3340,12 @@ async function main(): Promise<void> {
         const report = runCutoverRollbackRepoint({
           reportPath,
           target: args.target ?? undefined,
->>>>>>> 6de387c6 (fix(sprint-29): REDHAT-FIX-S29-C02 durable distributed write fence + rollback repoint)
         });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));
         } else {
           console.log(formatRollbackRepointText(report));
         }
-<<<<<<< HEAD
         if (!report.ok) {
           const code = report.error?.code ?? ROLLBACK_INELIGIBLE;
           process.exit(
@@ -3367,9 +3357,7 @@ async function main(): Promise<void> {
           );
         }
         process.exit(0);
-=======
         process.exit(report.ok ? 0 : 1);
->>>>>>> 6de387c6 (fix(sprint-29): REDHAT-FIX-S29-C02 durable distributed write fence + rollback repoint)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (args.json) {
@@ -5853,7 +5841,7 @@ async function main(): Promise<void> {
       break;
     }
 
-    case 'fulcrum:authorable-check': {
+    case 'fulcrum:authorable-check': 
       // Capstone seam compilation: contract + ledger + gate + role-bindings + publish.
       // Fail-fast on first MISSING seam → Overall INSUFFICIENT (exit 1).
       try {
@@ -5900,7 +5888,6 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       break;
-    }
 
     case 'fulcrum': {
       // Top-level CLI alias → shared evidence-research template (instantiation=fulcrum).
@@ -6973,7 +6960,7 @@ async function main(): Promise<void> {
     }
 
     default:
-      console.error(`unknown command: ${args.command}`);
+      console.error(`unknown command: $args.command`);
       printHelp();
       process.exit(2);
   }
