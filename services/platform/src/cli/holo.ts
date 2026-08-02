@@ -43,6 +43,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import {
+  defaultComposePath,
+  defaultImageLockPath,
+  packageRelease,
+  preflightRollback,
+} from '../deploy/production-release.ts';
 import { defaultMissionIdempotencyKey } from './mission-idempotency-key.ts';
 
 // Suppress unhandled storage errors only for the explicit PG-down negative control.
@@ -259,6 +265,11 @@ interface CliArgs {
   baseUrl: string | null;
   /** cutover:verify-tools — optional service / deployment label for target_identity */
   serviceLabel: string | null;
+  /** deploy:package — digest-qualified candidate and rollback image identities. */
+  image: string | null;
+  previousImage: string | null;
+  /** deploy:rollback-preflight — explicit release lock path. */
+  lockPath: string | null;
 }
 
 function printHelp(): void {
@@ -437,13 +448,16 @@ Usage:
                            projection / offline / optimistic / conflict / rejection
                            / identifier / e2e_criterion semantics.
                            (--inventory <path> alias; --output <path>)
-   verify:client-contract
+  verify:client-contract
                            S-CONTRACT-02 — verify the authored client data contract.
                            --schema      AC-2: every entry declares all required fields.
                            --targets     AC-3: every target resolves against live zero_pub / Hono.
                            --e2e-links   AC-4: every entry links a valid T-SYNC criterion;
                                          all five offline-behavior cases are represented.
                            (no flag = run all three; --contract <path>; --inventory <path>)
+  deploy:package            Validate a pushed immutable OCI release and write image-lock.json.
+                            Requires --image and --previous-image, both @sha256-qualified.
+  deploy:rollback-preflight Verify and select the lock-backed previous image; never starts Compose.
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -506,6 +520,9 @@ Options:
   --output <path>       (inventory:convex-callsites | client-contract:author) write artifact to this path
   --inventory <path>    (client-contract:author | verify:client-contract) inventory JSON path
   --contract <path>     (verify:client-contract) YAML contract path
+  --image <ref>         (deploy:package) candidate registry image with @sha256 digest
+  --previous-image <ref>(deploy:package) prior registry image with @sha256 digest
+  --lock <path>          (deploy:rollback-preflight) release lock path
   -h, --help            Show help
 `);
 }
@@ -640,6 +657,9 @@ function parseArgs(argv: string[]): CliArgs {
     parityPath: null,
     baseUrl: null,
     serviceLabel: null,
+    image: null,
+    previousImage: null,
+    lockPath: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -662,6 +682,18 @@ function parseArgs(argv: string[]): CliArgs {
       args.goal = argv[++i] ?? null;
     } else if (a.startsWith('--goal=')) {
       args.goal = a.slice('--goal='.length);
+    } else if (a === '--image') {
+      args.image = argv[++i] ?? null;
+    } else if (a.startsWith('--image=')) {
+      args.image = a.slice('--image='.length);
+    } else if (a === '--previous-image') {
+      args.previousImage = argv[++i] ?? null;
+    } else if (a.startsWith('--previous-image=')) {
+      args.previousImage = a.slice('--previous-image='.length);
+    } else if (a === '--lock') {
+      args.lockPath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--lock=')) {
+      args.lockPath = resolve(a.slice('--lock='.length));
     } else if (a === '--sample') {
       args.sample = argv[++i] ?? null;
     } else if (a.startsWith('--sample=')) {
@@ -1112,6 +1144,48 @@ async function main(): Promise<void> {
   const cat = catalog as SourceCatalog;
 
   switch (args.command) {
+    case 'deploy:package': {
+      if (!args.image || !args.previousImage) {
+        throw new Error('deploy:package requires --image and --previous-image');
+      }
+      const lock = packageRelease({
+        image: args.image,
+        previousImage: args.previousImage,
+        composePath: defaultComposePath(),
+        lockPath: defaultImageLockPath(),
+      });
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(lock, null, 2)}\n`);
+      } else {
+        console.log('holo deploy:package — immutable release lock written');
+        console.log(`  image:             ${lock.image}`);
+        console.log(`  source revision:   ${lock.sourceRevision}`);
+        console.log(`  compose sha256:    ${lock.composeSha256}`);
+        console.log(`  rollback digest:   ${lock.previousDigest}`);
+      }
+      process.exit(0);
+      break;
+    }
+    case 'deploy:rollback-preflight': {
+      const lock = preflightRollback({
+        composePath: defaultComposePath(),
+        lockPath: args.lockPath ?? defaultImageLockPath(),
+      });
+      const image = lock.previousImage;
+      if (args.json) {
+        process.stdout.write(
+          `${JSON.stringify({ ok: true, action: 'rollback-preflight', image, lock }, null, 2)}\n`
+        );
+      } else {
+        console.log(
+          'holo deploy:rollback-preflight — previous release verified; no Compose action taken'
+        );
+        console.log(`  selected image:    ${image}`);
+        console.log(`  lock:              ${args.lockPath ?? defaultImageLockPath()}`);
+      }
+      process.exit(0);
+      break;
+    }
     case 'catalog:verify': {
       // Prefer export cross-check; if no export, still validate catalog self-consistency
       // but fail closed if export is expected for completeness.

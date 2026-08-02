@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "deployable": false,
+  "nonDeployableReason": "Checked-in documentation template only. registry.example and synthetic digests are rejected by deploy:package and rollback preflight.",
+  "image": "registry.example/holocron-platform@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "sourceRevision": "NOT_A_DEPLOYABLE_SOURCE_REVISION",
+  "composeSha256": "58b550a360bf163b3562328b37f9159ee7b55d0a5555664ecd263968d9b7506a",
+  "previousDigest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "generatedAt": "1970-01-01T00:00:00.000Z"
+}

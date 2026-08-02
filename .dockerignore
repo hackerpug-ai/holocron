@@ -1,0 +1,13 @@
+# Root-context policy for services/platform/Dockerfile. The release build uses
+# `docker build -f services/platform/Dockerfile .`, so this file—not the
+# service-local .dockerignore—is the effective context boundary.
+#
+# Deny by default. The Dockerfile only needs these whitelisted runtime inputs.
+**
+!services/
+!services/platform/
+!services/platform/Dockerfile
+!services/platform/package.json
+!services/platform/bun.lock
+!services/platform/src/
+!services/platform/src/**

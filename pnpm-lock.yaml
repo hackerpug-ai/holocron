@@ -387,6 +387,9 @@ importers:
       ai:
         specifier: 7.0.28
         version: 7.0.28(zod@4.4.3)
+      convex:
+        specifier: 1.33.1
+        version: 1.33.1(react@19.2.0)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10

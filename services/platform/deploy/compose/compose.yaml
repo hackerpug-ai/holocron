@@ -1,0 +1,163 @@
+# Holocron production container contract v1.  The only application image
+# identity accepted here is a registry name qualified by an immutable digest.
+name: holocron
+
+x-holocron-contract: &contract
+  io.holocron.compose-contract: "v1"
+
+services:
+  postgres:
+    # Pinned from the Docker Hub pgvector/pgvector:pg18 OCI index (PostgreSQL
+    # 18.4, whose built-in uuidv7() is required by the platform schema).
+    image: pgvector/pgvector@sha256:691673308c99d2161ba298736f3147f1f22d79de2fb7ec93ae9b4afcab870b62
+    restart: unless-stopped
+    labels: *contract
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-holocron}
+      POSTGRES_USER: ${POSTGRES_USER:-holocron}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - source: postgres-password
+        target: postgres_password
+    volumes:
+      # PG18's official image declares /var/lib/postgresql as its volume root.
+      - postgres-data:/var/lib/postgresql
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  mastra:
+    image: ${HOLO_PLATFORM_IMAGE:?HOLO_PLATFORM_IMAGE must use @sha256:<64-hex>}
+    restart: unless-stopped
+    labels: *contract
+    environment:
+      PORT: "4111"
+      FLEET_URL: ${FLEET_URL:?FLEET_URL is required}
+      HOLO_BLOB_ROOT: /var/lib/holocron/blobs
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        export DATABASE_URL="$$(cat /run/secrets/database_url)";
+        export MASTRA_API_KEY="$$(cat /run/secrets/mastra_api_key)";
+        export FLEET_KEY="$$(cat /run/secrets/fleet_key)";
+        export PGPASSWORD="$$(bun -e 'const u = new URL(process.env.DATABASE_URL); process.stdout.write(decodeURIComponent(u.password))')";
+        export DATABASE_URL="$$(bun -e 'const u = new URL(process.env.DATABASE_URL); u.password = ""; process.stdout.write(u.toString())')";
+        bun src/cli/holo.ts db:migrate;
+        exec bun src/index.ts
+    secrets:
+      - source: database-url
+        target: database_url
+      - source: mastra-api-key
+        target: mastra_api_key
+      - source: fleet-key
+        target: fleet_key
+    volumes:
+      - blob-data:/var/lib/holocron/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r=await fetch('http://127.0.0.1:4111/health');if(!r.ok)process.exit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  scheduler:
+    image: ${HOLO_PLATFORM_IMAGE:?HOLO_PLATFORM_IMAGE must use @sha256:<64-hex>}
+    restart: unless-stopped
+    labels: *contract
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        export DATABASE_URL="$$(cat /run/secrets/database_url)";
+        exec bun src/queue/scheduler-worker.ts
+    secrets:
+      - source: database-url
+        target: database_url
+    volumes:
+      - blob-data:/var/lib/holocron/blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      mastra:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      # The scheduler is healthy only when its actual Postgres-backed worker
+      # has recorded a ready pg-boss/graphile-worker backend. PID 1 alone is
+      # not a readiness signal. Docker launches this check in a separate
+      # process, so it must read the runtime-only secret itself. Keep the
+      # failure budget below the worker's 30s heartbeat interval so a stale
+      # ready row cannot mask an unhealthy scheduler indefinitely.
+      test: ["CMD-SHELL", "export DATABASE_URL=\"$$(cat /run/secrets/database_url)\"; exec bun src/queue/probe-cli.ts"]
+      interval: 10s
+      timeout: 5s
+      retries: 2
+      start_period: 15s
+
+  zero-cache:
+    # Pinned from the GHCR rociCorp/zero:1.8.0 OCI index.
+    image: ghcr.io/rocicorp/zero@sha256:9be2d9303b076f2aef29cbcc629350dbc40cf0531ead59a7f61572eeb65fef72
+    restart: unless-stopped
+    labels: *contract
+    environment:
+      ZERO_PORT: "4848"
+      ZERO_PUBLICATION: zero_pub
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        export DATABASE_URL="$$(cat /run/secrets/database_url)";
+        export ZERO_ADMIN_PASSWORD="$$(cat /run/secrets/zero_admin_password)";
+        exec zero-cache --upstream-db "$$DATABASE_URL" --cvr-db "$$DATABASE_URL" --change-db "$$DATABASE_URL" --app-publications "$$ZERO_PUBLICATION" --port "$$ZERO_PORT" --admin-password "$$ZERO_ADMIN_PASSWORD"
+    secrets:
+      - source: database-url
+        target: database_url
+      - source: zero-admin-password
+        target: zero_admin_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      mastra:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:4848/keepalive"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  postgres-data:
+    name: ${HOLO_POSTGRES_VOLUME:-holocron-postgres}
+  blob-data:
+    name: ${HOLO_BLOB_VOLUME:-holocron-blobs}
+
+secrets:
+  postgres-password:
+    environment: POSTGRES_PASSWORD
+  database-url:
+    environment: DATABASE_URL
+  mastra-api-key:
+    environment: MASTRA_API_KEY
+  fleet-key:
+    environment: FLEET_KEY
+  zero-admin-password:
+    environment: ZERO_ADMIN_PASSWORD

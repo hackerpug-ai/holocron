@@ -1,0 +1,21 @@
+# Laptop override: endpoint and named-volume locations may change, but service
+# names and image identities are deliberately inherited unchanged.
+services:
+  postgres:
+    labels:
+      io.holocron.environment: laptop
+  mastra:
+    labels:
+      io.holocron.environment: laptop
+  scheduler:
+    labels:
+      io.holocron.environment: laptop
+  zero-cache:
+    labels:
+      io.holocron.environment: laptop
+
+volumes:
+  postgres-data:
+    name: ${HOLO_POSTGRES_VOLUME:-holocron-postgres-laptop}
+  blob-data:
+    name: ${HOLO_BLOB_VOLUME:-holocron-blobs-laptop}
