@@ -84,6 +84,11 @@ export function assertQuietCheckConfirmed(
         surfaces?: string[];
         consumersHonored?: boolean;
         convexDrainOk?: boolean;
+        samples?: {
+          afterActiveTasks?: number;
+          afterRunningTasks?: number;
+          afterQueuedSubscriptionContent?: number;
+        };
       };
       oracle?: string;
       auditRejectedWriteCount?: number;
@@ -105,6 +110,30 @@ export function assertQuietCheckConfirmed(
             'Re-run holo cutover:quiet-check (C-03).',
         },
       };
+    }
+
+    // C-02: refuse residual>0 even if a forged report claims drain.ok
+    const samples = j.drain?.samples;
+    if (samples) {
+      const aa = samples.afterActiveTasks;
+      const ar = samples.afterRunningTasks;
+      const aq = samples.afterQueuedSubscriptionContent;
+      const residualPresent =
+        (typeof aa === 'number' && aa !== 0) ||
+        (typeof ar === 'number' && ar !== 0) ||
+        (typeof aq === 'number' && aq !== 0);
+      if (residualPresent) {
+        return {
+          ok: false,
+          error: {
+            code: QUIET_CHECK_REQUIRED,
+            message:
+              `Quiet-check drain residual not zero (afterActiveTasks=${String(aa)}, ` +
+              `afterRunningTasks=${String(ar)}, afterQueuedSubscriptionContent=${String(aq)}). ` +
+              'C-02 requires residual-zero drain before quiet/export (D06-04).',
+          },
+        };
+      }
     }
 
     const windowSeconds =
