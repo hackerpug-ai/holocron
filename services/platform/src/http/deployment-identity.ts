@@ -162,6 +162,30 @@ export function readDeploymentIdentity(
   };
 }
 
+function ipv6Words(address: string): number[] | null {
+  if (isIP(address) !== 6) return null;
+  const dottedTail = address.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  let normalized = address;
+  if (dottedTail) {
+    const octets = dottedTail[2]?.split('.').map(Number) ?? [];
+    if (octets.length !== 4 || octets.some((octet) => octet < 0 || octet > 255)) return null;
+    const high = (((octets[0] ?? 0) << 8) | (octets[1] ?? 0)).toString(16);
+    const low = (((octets[2] ?? 0) << 8) | (octets[3] ?? 0)).toString(16);
+    normalized = `${dottedTail[1]}${high}:${low}`;
+  }
+  const halves = normalized.split('::');
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves[1] ? halves[1].split(':') : [];
+  const missing = halves.length === 2 ? 8 - left.length - right.length : 0;
+  const groups = [...left, ...Array.from({ length: missing }, () => '0'), ...right];
+  if (groups.length !== 8) return null;
+  const words = groups.map((group) => Number.parseInt(group, 16));
+  return words.every((word) => Number.isInteger(word) && word >= 0 && word <= 0xffff)
+    ? words
+    : null;
+}
+
 function isLoopbackHostname(hostname: string): boolean {
   const normalized = hostname
     .toLowerCase()
@@ -179,6 +203,17 @@ function isLoopbackHostname(hostname: string): boolean {
   if (isIP(normalized) === 4) {
     const first = Number(normalized.split('.')[0]);
     return first === 127 || first === 0;
+  }
+  const words = ipv6Words(normalized);
+  if (words) {
+    if (words.every((word) => word === 0)) return true;
+    if (words.slice(0, 7).every((word) => word === 0) && words[7] === 1) return true;
+    const embeddedIpv4 =
+      words.slice(0, 5).every((word) => word === 0) && (words[5] === 0 || words[5] === 0xffff);
+    if (embeddedIpv4) {
+      const firstOctet = (words[6] ?? 0) >> 8;
+      return firstOctet === 127 || firstOctet === 0;
+    }
   }
   return false;
 }

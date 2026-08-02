@@ -173,6 +173,23 @@ function readPrivateJson(path: string): Record<string, string> {
   return out;
 }
 
+/** Move legacy evidence-local credentials into the private operator store before reuse checks. */
+export function migrateLegacyRuntimeSecrets(options: {
+  runtimeSecretsPath: string;
+  legacyEvidenceSecretsPath: string;
+}): void {
+  if (!existsSync(options.legacyEvidenceSecretsPath)) return;
+  if (resolve(options.legacyEvidenceSecretsPath) === resolve(options.runtimeSecretsPath)) {
+    deployFail('legacy and private runtime secret paths must differ');
+  }
+  const retained = readPrivateJson(options.legacyEvidenceSecretsPath);
+  if (Object.keys(retained).length === 0) {
+    deployFail('legacy runtime secrets are empty');
+  }
+  atomicJson(options.runtimeSecretsPath, retained, 0o600);
+  unlinkSync(options.legacyEvidenceSecretsPath);
+}
+
 function randomSecret(): string {
   return randomBytes(32).toString('base64url');
 }
@@ -374,6 +391,7 @@ function reusableDeployment(options: {
   } catch {
     return null;
   }
+  if ('runtimeSecretsPath' in record) return null;
   if (
     record.baseUrl !== options.baseUrl ||
     record.project !== options.project ||
@@ -458,6 +476,9 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const port = portFromBaseUrl(baseUrl);
   const lock = readDeployableRelease(releasePath, composePath);
   const runner = options.runner ?? defaultRunner;
+  const runtimeSecretsPath = defaultRuntimeSecretsPath();
+  const legacyEvidenceSecretsPath = resolve(evidenceDir, '.runtime-secrets.json');
+  migrateLegacyRuntimeSecrets({ runtimeSecretsPath, legacyEvidenceSecretsPath });
   const existing = reusableDeployment({
     recordPath: resolve(evidenceDir, DEPLOYMENT_RECORD_NAME),
     lock,
@@ -471,12 +492,11 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const now = (options.now ?? (() => new Date()))();
   const deployedAt = now.toISOString();
   const generation = deploymentGeneration(now, lock.digest);
-  const runtimeSecretsPath = defaultRuntimeSecretsPath();
   const overridePath = resolve(evidenceDir, 'compose.inference1.generated.yaml');
   const runtime = runtimeSecrets({
     secretsPath,
     runtimeSecretsPath,
-    legacyEvidenceSecretsPath: resolve(evidenceDir, '.runtime-secrets.json'),
+    legacyEvidenceSecretsPath,
   });
   mkdirSync(evidenceDir, { recursive: true });
   writeFileSync(

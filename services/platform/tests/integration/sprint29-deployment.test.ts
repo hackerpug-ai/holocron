@@ -1,9 +1,19 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applyProductionDeployment,
+  migrateLegacyRuntimeSecrets,
   renderDeploymentOverride,
 } from '../../src/deploy/production-deploy.ts';
 import type { ReleaseLock } from '../../src/deploy/production-release.ts';
@@ -71,6 +81,12 @@ const expected = {
 describe('D06-07 inference1 deployment contract', () => {
   it('rejects loopback identity', async () => {
     expect(() => assertExternalBaseUrl('http://127.0.0.1:4111')).toThrowError(/LOOPBACK_REJECTED/);
+    expect(() => assertExternalBaseUrl('http://[::ffff:127.0.0.1]:4111')).toThrowError(
+      /LOOPBACK_REJECTED/
+    );
+    expect(() => assertExternalBaseUrl('http://[0:0:0:0:0:0:0:1]:4111')).toThrowError(
+      /LOOPBACK_REJECTED/
+    );
     await expect(
       verifyExternalDeploymentIdentity({
         baseUrl: 'http://localhost:4111',
@@ -87,6 +103,40 @@ describe('D06-07 inference1 deployment contract', () => {
         fetchImpl: () => response(health()),
       })
     ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
+
+    for (const address of ['::ffff:127.0.0.1', '0:0:0:0:0:0:0:1']) {
+      await expect(
+        verifyExternalDeploymentIdentity({
+          baseUrl: 'http://external-alias.invalid:44111',
+          expected,
+          dnsLookup: async () => [{ address, family: 6 }],
+          fetchImpl: () => response(health()),
+        })
+      ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
+    }
+  });
+
+  it('migrates legacy evidence credentials before deployment reuse', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-runtime-migration-'));
+    const legacy = resolve(root, 'evidence', '.runtime-secrets.json');
+    const privatePath = resolve(root, 'private', 'inference1.json');
+    try {
+      mkdirSync(resolve(root, 'evidence'), { recursive: true });
+      writeFileSync(legacy, `${JSON.stringify({ POSTGRES_PASSWORD: 'retained' })}\n`, {
+        mode: 0o600,
+      });
+      migrateLegacyRuntimeSecrets({
+        runtimeSecretsPath: privatePath,
+        legacyEvidenceSecretsPath: legacy,
+      });
+      expect(existsSync(legacy)).toBe(false);
+      expect(JSON.parse(readFileSync(privatePath, 'utf8'))).toEqual({
+        POSTGRES_PASSWORD: 'retained',
+      });
+      expect(statSync(privatePath).mode & 0o777).toBe(0o600);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('accepts only complete observed external identity and rejects stale/mismatched/missing fields', async () => {
