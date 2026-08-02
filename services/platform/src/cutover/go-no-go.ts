@@ -250,6 +250,34 @@ export type RunGoNoGoOptions = {
 };
 
 /**
+ * Optional test-only filter: comma-separated gate names in HOLO_GO_NO_GO_ONLY.
+ * Production human-gate step 1 NEVER sets this — DEFAULT_GATE_SPECS stay unbound.
+ * Integration tests may set it so the real CLI path is finite (avoids nested full
+ * vitest project recursion when already inside the integration lane).
+ */
+export function resolveGateSpecs(
+  gates: readonly GateSpec[] | undefined,
+  env: NodeJS.ProcessEnv
+): readonly GateSpec[] {
+  const base = gates ?? DEFAULT_GATE_SPECS;
+  const only = (env.HOLO_GO_NO_GO_ONLY ?? '').trim();
+  if (!only) return base;
+  const wanted = new Set(
+    only
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+  const filtered = base.filter((g) => wanted.has(g.name));
+  if (filtered.length === 0) {
+    throw new Error(
+      `HOLO_GO_NO_GO_ONLY=${only} matched zero gates; known: ${GO_NO_GO_GATE_NAMES.join(',')}`
+    );
+  }
+  return filtered;
+}
+
+/**
  * Sequential real-subprocess gate runner. Produces one unified report.
  * overall.ok = AND(every gate.pass).
  */
@@ -257,7 +285,7 @@ export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
   const repoRoot = options.repoRoot ?? resolveRepoRoot();
   const cwd = options.cwd ?? repoRoot;
   const env = { ...process.env, ...(options.env ?? {}) };
-  const specs = options.gates ?? DEFAULT_GATE_SPECS;
+  const specs = resolveGateSpecs(options.gates, env);
   const reportPath = resolve(options.reportPath ?? defaultGoNoGoReportPath(cwd));
 
   const gates: GateResult[] = [];
@@ -286,6 +314,63 @@ export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
 
   return report;
 }
+
+/**
+ * Human-gate / C-01 success oracle for a go-no-go report.
+ *
+ * Pass requires ALL of:
+ *   - gates.length === 8
+ *   - overall.ok === true
+ *   - failed_count === 0
+ *   - every vitest lane (unit/integration/live) has collectedTests > 0
+ *
+ * Length alone is never sufficient (red-hat C-01 false pass).
+ */
+export type GoNoGoOracleResult = {
+  ok: boolean;
+  reasons: string[];
+};
+
+export function evaluateGoNoGoOracle(
+  report: Pick<GoNoGoReport, 'overall' | 'failed_count' | 'gates' | 'ok'>
+): GoNoGoOracleResult {
+  const reasons: string[] = [];
+  const gateCount = report.gates?.length ?? 0;
+  if (gateCount !== 8) {
+    reasons.push(`gates.length=${gateCount} (require 8)`);
+  }
+  if (report.overall?.ok !== true) {
+    reasons.push(`overall.ok=${String(report.overall?.ok)} (require true)`);
+  }
+  if (report.ok !== true) {
+    reasons.push(`ok=${String(report.ok)} (require true)`);
+  }
+  if (report.failed_count !== 0) {
+    reasons.push(`failed_count=${report.failed_count} (require 0)`);
+  }
+  const vitestNames = new Set(['unit', 'integration', 'live']);
+  for (const g of report.gates ?? []) {
+    if (!vitestNames.has(g.name)) continue;
+    const n = g.collectedTests;
+    if (n == null || n <= 0) {
+      reasons.push(`${g.name}.collectedTests=${String(n)} (require >0)`);
+    }
+  }
+  // Also require the three vitest gates are present when length is 8.
+  for (const name of vitestNames) {
+    if (!(report.gates ?? []).some((g) => g.name === name)) {
+      reasons.push(`missing vitest gate: ${name}`);
+    }
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
+ * jq predicate matching gate-plan step 1 post-CLI assertion (C-01).
+ * Keep in sync with gate-plan.json step 1 literal_cmd.
+ */
+export const GO_NO_GO_STEP1_JQ_ORACLE =
+  '.overall.ok == true and .failed_count == 0 and (.gates|length) == 8 and ([.gates[] | select(.name=="unit" or .name=="integration" or .name=="live") | .collectedTests // 0] | min) > 0';
 
 /** Human-readable text matching holo verify:* `status: OK|FAIL` convention. */
 export function formatGoNoGoText(report: GoNoGoReport): string {
