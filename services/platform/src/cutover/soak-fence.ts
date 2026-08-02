@@ -1,22 +1,31 @@
 /**
- * D06-05 — new-backend HOLO_MIGRATION_READ_ONLY soak fence.
+ * D06-05 / REDHAT-FIX-S29-C02 — new-backend HOLO_MIGRATION_READ_ONLY soak fence.
  *
  * SINGLE enforcement mechanism (pinned D06-01 contract):
- *   process.env.HOLO_MIGRATION_READ_ONLY === '1' | 'true'
+ *   HOLO_MIGRATION_READ_ONLY === '1' | 'true'
  * read FRESH at every write chokepoint (never cached at process start).
+ *
+ * Resolution (every call of isMigrationReadOnly):
+ *   1. process.env when set (explicit '1'/'true' engage; '0'/'false' disengage)
+ *   2. else durable control-plane secrets.yaml (HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH)
  *
  * Surfaces:
  *   - Hono: HTTP 423 { error, code: 'migration_read_only' } on non-GET /api/*
  *   - MCP:  throw Error('MIGRATION_READ_ONLY: …') for mutation tools
  *   - queue: runJob() returns { ok:false, error:'migration_read_only: …' }
  *
- * cutover:flip refuses unless D06-04 reconciliation is green, then durably
- * sets the env var (process.env + flip-report artifact). No new DB tables.
+ * cutover:flip refuses unless D06-04 reconciliation is green, then writes the
+ * durable control-plane key + process.env + flip-report. No new DB tables.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Context, MiddlewareHandler, Next } from 'hono';
-import { resolveRepoRoot } from '../config/secrets.ts';
+import {
+  loadSecretsFile,
+  resolveRepoRoot,
+  resolveSecretsPathFromEnv,
+  upsertSecretsFile,
+} from '../config/secrets.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { loadScopedKeysFromEnv, type ScopedKeyConfig } from '../http/middleware/scoped-key.ts';
@@ -34,6 +43,8 @@ async function loadCreateHonoApp() {
 }
 
 export const MIGRATION_READ_ONLY_ENV = 'HOLO_MIGRATION_READ_ONLY';
+/** UC-SYNC-04 data-plane repoint key (control-plane durable). */
+export const DATA_PLANE_ENV = 'HOLO_DATA_PLANE';
 export const ETL_NOT_RECONCILED = 'ETL_NOT_RECONCILED';
 export const ETL_REPORT_MISSING = 'ETL_REPORT_MISSING';
 
@@ -43,19 +54,53 @@ export const MIGRATION_READ_ONLY_BODY = {
   code: 'migration_read_only',
 } as const;
 
-// ── Fresh env read (never cache at module load) ─────────────────────────────
+// ── Fresh env + durable control-plane read (never cache at module load) ──────
+
+/**
+ * Fresh re-read of HOLO_MIGRATION_READ_ONLY from durable secrets control-plane.
+ * Returns the raw string value or undefined when missing/unreadable.
+ */
+export function readDurableMigrationReadOnly(
+  env: NodeJS.ProcessEnv = process.env,
+  secretsPath?: string
+): string | undefined {
+  try {
+    const path = secretsPath ?? resolveSecretsPathFromEnv(env);
+    if (!existsSync(path)) return undefined;
+    const map = loadSecretsFile(path);
+    const v = map[MIGRATION_READ_ONLY_ENV];
+    return typeof v === 'string' && v.length > 0 ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isTruthyFenceValue(v: string | undefined): boolean {
+  return v === '1' || v === 'true';
+}
+
+function isFalsyFenceValue(v: string | undefined): boolean {
+  return v === '0' || v === 'false';
+}
 
 /**
  * True when the soak fence is armed.
  * Primary contract value is the literal '1'; 'true' accepted for D06-01 parity.
- * MUST read process.env on every call — never cache at process start.
+ * MUST re-resolve on every call — never cache at process start.
+ *
+ * Order (REDHAT-FIX-S29-C02 durable distributed fence):
+ *   1. process.env when explicitly set ('1'/'true' → armed; '0'/'false' → disarmed)
+ *   2. else durable control-plane secrets.yaml (fresh file read every call)
  */
 export function isMigrationReadOnly(env: NodeJS.ProcessEnv = process.env): boolean {
   const v = env[MIGRATION_READ_ONLY_ENV];
-  return v === '1' || v === 'true';
+  if (isTruthyFenceValue(v)) return true;
+  if (isFalsyFenceValue(v)) return false;
+  // Unset/empty → durable control-plane re-read (cross-process without env inject)
+  return isTruthyFenceValue(readDurableMigrationReadOnly(env));
 }
 
-/** Engage the fence in-process (tests + flip). */
+/** Engage the fence in-process (tests + flip). Does not alone satisfy production durability. */
 export function setMigrationReadOnlyEnv(value: '1' | '0' | '' = '1'): void {
   if (value === '1') {
     process.env[MIGRATION_READ_ONLY_ENV] = '1';
@@ -64,6 +109,21 @@ export function setMigrationReadOnlyEnv(value: '1' | '0' | '' = '1'): void {
   } else {
     delete process.env[MIGRATION_READ_ONLY_ENV];
   }
+}
+
+/**
+ * Write HOLO_MIGRATION_READ_ONLY to the authoritative durable control-plane
+ * (secrets.yaml via HOLO_SECRETS_PATH / default path) and overlay process.env.
+ */
+export function writeDurableMigrationReadOnly(
+  value: '1' | '0',
+  options?: { secretsPath?: string; env?: NodeJS.ProcessEnv }
+): { secretsPath: string; writtenKeys: string[] } {
+  const env = options?.env ?? process.env;
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
+  const writtenKeys = upsertSecretsFile(secretsPath, { [MIGRATION_READ_ONLY_ENV]: value });
+  setMigrationReadOnlyEnv(value);
+  return { secretsPath, writtenKeys };
 }
 
 /** MCP mutation rejection — uppercase prefix parsed by gateway.ts. */
@@ -138,6 +198,18 @@ export type EtlReconcileSnapshot = {
   loadedByTable: Record<string, number>;
 };
 
+/** Serving-unit process generation snapshot for flip evidence (AC-2). */
+export type ProcessGenerationUnit = {
+  id: string;
+  pid?: number;
+  label?: string;
+};
+
+export type ProcessGenerations = {
+  before: ProcessGenerationUnit[];
+  after: ProcessGenerationUnit[];
+};
+
 export type FlipReport = {
   ok: boolean;
   engaged_at: string;
@@ -147,6 +219,29 @@ export type FlipReport = {
   etl_run_id: string;
   etl_report_path: string;
   unexplainedVariance: number;
+  report_path: string;
+  /** Absolute path or labeled control-plane id written by flip (C-02). */
+  configured_target: string;
+  /** True when fence is observed via durable secrets re-read (no restart required). */
+  durable_reread: boolean;
+  process_generations: ProcessGenerations;
+  error?: { code: string; message: string };
+};
+
+export type RollbackRepointReport = {
+  ok: boolean;
+  action: 'rollback-repoint';
+  /** Identifier of frozen Convex data plane (path or deployment label). */
+  target: string;
+  target_kind: 'convex';
+  data_plane: 'convex';
+  engaged_at: string;
+  engaged_at_ms: number;
+  configured_target: string;
+  precondition: {
+    soak_fence_engaged: boolean;
+    convex_dir_exists: boolean;
+  };
   report_path: string;
   error?: { code: string; message: string };
 };
@@ -159,8 +254,56 @@ export function defaultSoakStatePath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D06-05/soak-state.json');
 }
 
+export function defaultRollbackReportPath(cwd = process.cwd()): string {
+  return resolve(cwd, '.tmp/D06-05/rollback-report.json');
+}
+
 function ensureParent(path: string): void {
   mkdirSync(resolve(path, '..'), { recursive: true });
+}
+
+function emptyFlipFields(): Pick<
+  FlipReport,
+  'configured_target' | 'durable_reread' | 'process_generations'
+> {
+  return {
+    configured_target: '',
+    durable_reread: false,
+    process_generations: { before: [], after: [] },
+  };
+}
+
+/**
+ * Capture serving-unit generation ids for flip evidence.
+ * Always records the current process; best-effort stack direct-pid file when present.
+ */
+export function captureProcessGenerations(cwd = resolveRepoRoot()): ProcessGenerationUnit[] {
+  const units: ProcessGenerationUnit[] = [
+    { id: 'cutover-cli', pid: process.pid, label: 'holo-cutover' },
+  ];
+  // Direct-mode stack pids (operator laptop / CI without launchd reload)
+  const home = process.env.HOME?.trim() || '';
+  const candidates = [
+    home ? resolve(home, '.holocron/stack-direct.pids.json') : '',
+    resolve(cwd, '.tmp/stack-direct.pids.json'),
+  ].filter(Boolean);
+  for (const f of candidates) {
+    if (!existsSync(f)) continue;
+    try {
+      const pids = JSON.parse(readFileSync(f, 'utf8')) as Record<string, number>;
+      for (const [id, pid] of Object.entries(pids)) {
+        if (typeof pid === 'number' && pid > 0) {
+          units.push({ id: `stack:${id}`, pid, label: id });
+        }
+      }
+    } catch {
+      // ignore corrupt pid file
+    }
+    break;
+  }
+  // Document durable_reread serving generation for hono/mcp/worker observers
+  units.push({ id: 'hono-mcp-worker', label: 'durable-reread-observers' });
+  return units;
 }
 
 /**
@@ -203,16 +346,21 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
 
 /**
  * cutover:flip — refuse unless D06-04 reconciliation is green, then durably
- * set HOLO_MIGRATION_READ_ONLY=1 (process.env + flip-report + soak-state).
+ * write HOLO_MIGRATION_READ_ONLY=1 to the control-plane secrets file, overlay
+ * process.env, and emit flip-report with configured_target + process_generations.
  */
 export function runCutoverFlip(options?: {
   cwd?: string;
   etlReportPath?: string;
   reportPath?: string;
+  /** Disposable or production secrets path (defaults to resolveSecretsPathFromEnv). */
+  secretsPath?: string;
 }): FlipReport {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const etlReportPath = options?.etlReportPath ?? defaultWatermarkReportPath(cwd);
   const reportPath = options?.reportPath ?? defaultFlipReportPath(cwd);
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(process.env, cwd);
+  const gensBefore = captureProcessGenerations(cwd);
 
   const snap = loadEtlReconcileSnapshot(etlReportPath);
   if (!snap) {
@@ -226,6 +374,8 @@ export function runCutoverFlip(options?: {
       etl_report_path: etlReportPath,
       unexplainedVariance: -1,
       report_path: reportPath,
+      ...emptyFlipFields(),
+      process_generations: { before: gensBefore, after: [] },
       error: {
         code: ETL_REPORT_MISSING,
         message: `D06-04 ETL report missing at ${etlReportPath}. Run holo cutover:run-etl first.`,
@@ -247,6 +397,8 @@ export function runCutoverFlip(options?: {
       etl_report_path: etlReportPath,
       unexplainedVariance: snap.unexplainedVariance,
       report_path: reportPath,
+      ...emptyFlipFields(),
+      process_generations: { before: gensBefore, after: [] },
       error: {
         code: ETL_NOT_RECONCILED,
         message:
@@ -260,13 +412,15 @@ export function runCutoverFlip(options?: {
     return fail;
   }
 
-  // Durable engage — env var is the sole enforcement mechanism
-  setMigrationReadOnlyEnv('1');
+  // Authoritative durable control-plane write (REDHAT-FIX-S29-C02)
+  const durable = writeDurableMigrationReadOnly('1', { secretsPath });
   const engaged_at_ms = Date.now();
   const engaged_at = new Date(engaged_at_ms).toISOString();
+  const gensAfter = captureProcessGenerations(cwd);
 
-  // Confirm fresh read
-  if (!isMigrationReadOnly()) {
+  // Confirm env + durable re-read (prove secrets file, not process.env alone)
+  const durableValue = readDurableMigrationReadOnly(process.env, durable.secretsPath);
+  if (!isMigrationReadOnly() || !isTruthyFenceValue(durableValue)) {
     const fail: FlipReport = {
       ok: false,
       engaged_at: '',
@@ -277,9 +431,50 @@ export function runCutoverFlip(options?: {
       etl_report_path: etlReportPath,
       unexplainedVariance: snap.unexplainedVariance,
       report_path: reportPath,
+      configured_target: durable.secretsPath,
+      durable_reread: false,
+      process_generations: { before: gensBefore, after: gensAfter },
       error: {
         code: 'FENCE_SET_FAILED',
-        message: `${MIGRATION_READ_ONLY_ENV} not confirmed as '1' after flip`,
+        message:
+          `${MIGRATION_READ_ONLY_ENV} not confirmed as '1' after flip ` +
+          `(env=${process.env[MIGRATION_READ_ONLY_ENV] ?? ''}, durable=${durableValue ?? ''})`,
+      },
+    };
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
+  }
+
+  // Prove durable_reread path: unset env temporarily, re-read from control-plane only
+  const prevEnv = process.env[MIGRATION_READ_ONLY_ENV];
+  delete process.env[MIGRATION_READ_ONLY_ENV];
+  const durableRereadOk = isMigrationReadOnly();
+  if (prevEnv !== undefined) {
+    process.env[MIGRATION_READ_ONLY_ENV] = prevEnv;
+  } else {
+    // Keep process engaged after flip for the CLI process itself
+    setMigrationReadOnlyEnv('1');
+  }
+  if (!durableRereadOk) {
+    const fail: FlipReport = {
+      ok: false,
+      engaged_at: '',
+      engaged_at_ms: 0,
+      env: MIGRATION_READ_ONLY_ENV,
+      env_value: process.env[MIGRATION_READ_ONLY_ENV] ?? '',
+      etl_run_id: snap.runId,
+      etl_report_path: etlReportPath,
+      unexplainedVariance: snap.unexplainedVariance,
+      report_path: reportPath,
+      configured_target: durable.secretsPath,
+      durable_reread: false,
+      process_generations: { before: gensBefore, after: gensAfter },
+      error: {
+        code: 'FENCE_DURABLE_REREAD_FAILED',
+        message:
+          `isMigrationReadOnly() did not observe durable control-plane ` +
+          `${MIGRATION_READ_ONLY_ENV}=1 at ${durable.secretsPath} without process.env inject`,
       },
     };
     ensureParent(reportPath);
@@ -297,12 +492,15 @@ export function runCutoverFlip(options?: {
     etl_report_path: etlReportPath,
     unexplainedVariance: snap.unexplainedVariance,
     report_path: reportPath,
+    configured_target: durable.secretsPath,
+    durable_reread: true,
+    process_generations: { before: gensBefore, after: gensAfter },
   };
 
   ensureParent(reportPath);
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
-  // Operator-reloadable state (reversible by deleting / setting 0 — no code deletion)
+  // Operator-readable audit mirror (not the authoritative control-plane)
   const statePath = defaultSoakStatePath(cwd);
   ensureParent(statePath);
   writeFileSync(
@@ -313,6 +511,8 @@ export function runCutoverFlip(options?: {
         engaged_at,
         engaged_at_ms,
         etl_run_id: snap.runId,
+        configured_target: durable.secretsPath,
+        durable_reread: true,
       },
       null,
       2
@@ -338,9 +538,110 @@ export function formatFlipText(r: FlipReport): string {
     `  ok:            ${r.ok}`,
     `  engaged_at:    ${r.engaged_at}`,
     `  env:           ${r.env}=${r.env_value}`,
+    `  configured_target: ${r.configured_target}`,
+    `  durable_reread: ${r.durable_reread}`,
     `  etl_run_id:    ${r.etl_run_id}`,
     `  unexplainedVariance: ${r.unexplainedVariance}`,
     `  report:        ${r.report_path}`,
+  ].join('\n');
+}
+
+/**
+ * cutover:rollback-repoint — UC-SYNC-04 reciprocal config re-point to frozen Convex.
+ * Writes HOLO_DATA_PLANE=convex (+ optional target label) to durable control-plane.
+ * Does NOT delete convex/; soak fence may remain armed (Sprint 30 owns full rollback drill).
+ */
+export function runCutoverRollbackRepoint(options?: {
+  cwd?: string;
+  reportPath?: string;
+  secretsPath?: string;
+  /** Convex deployment URL or frozen snapshot label. */
+  target?: string;
+}): RollbackRepointReport {
+  const cwd = options?.cwd ?? resolveRepoRoot();
+  const reportPath = options?.reportPath ?? defaultRollbackReportPath(cwd);
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(process.env, cwd);
+  const convexDir = resolve(cwd, 'convex');
+  const convexExists = existsSync(convexDir);
+  const soakEngaged = isMigrationReadOnly();
+  const engaged_at_ms = Date.now();
+  const engaged_at = new Date(engaged_at_ms).toISOString();
+  const target =
+    options?.target?.trim() ||
+    process.env.CONVEX_URL?.trim() ||
+    process.env.VITE_CONVEX_URL?.trim() ||
+    (convexExists ? `frozen:convex:${convexDir}` : 'frozen:convex');
+
+  if (!convexExists) {
+    const fail: RollbackRepointReport = {
+      ok: false,
+      action: 'rollback-repoint',
+      target,
+      target_kind: 'convex',
+      data_plane: 'convex',
+      engaged_at: '',
+      engaged_at_ms: 0,
+      configured_target: secretsPath,
+      precondition: { soak_fence_engaged: soakEngaged, convex_dir_exists: false },
+      report_path: reportPath,
+      error: {
+        code: 'CONVEX_DIR_MISSING',
+        message: `convex/ directory missing at ${convexDir}; refuse destructive rollback path`,
+      },
+    };
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
+  }
+
+  // Durable data-plane repoint + record last rollback target
+  upsertSecretsFile(secretsPath, {
+    [DATA_PLANE_ENV]: 'convex',
+    HOLO_ROLLBACK_TARGET: target,
+    HOLO_ROLLBACK_ENGAGED_AT: engaged_at,
+  });
+
+  const report: RollbackRepointReport = {
+    ok: true,
+    action: 'rollback-repoint',
+    target,
+    target_kind: 'convex',
+    data_plane: 'convex',
+    engaged_at,
+    engaged_at_ms,
+    configured_target: secretsPath,
+    precondition: {
+      soak_fence_engaged: soakEngaged,
+      convex_dir_exists: true,
+    },
+    report_path: reportPath,
+  };
+
+  ensureParent(reportPath);
+  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  return report;
+}
+
+export function formatRollbackRepointText(r: RollbackRepointReport): string {
+  if (!r.ok) {
+    return [
+      'holo cutover:rollback-repoint — FAILED',
+      `  error.code:    ${r.error?.code ?? 'ROLLBACK_REPOINT_FAILED'}`,
+      `  error.message: ${r.error?.message ?? ''}`,
+    ].join('\n');
+  }
+  return [
+    'holo cutover:rollback-repoint — data plane re-pointed to frozen Convex',
+    `  ok:                 ${r.ok}`,
+    `  action:             ${r.action}`,
+    `  data_plane:         ${r.data_plane}`,
+    `  target:             ${r.target}`,
+    `  target_kind:        ${r.target_kind}`,
+    `  engaged_at:         ${r.engaged_at}`,
+    `  configured_target:  ${r.configured_target}`,
+    `  soak_fence:         ${r.precondition.soak_fence_engaged}`,
+    `  convex_dir_exists:  ${r.precondition.convex_dir_exists}`,
+    `  report:             ${r.report_path}`,
   ].join('\n');
 }
 

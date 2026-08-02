@@ -8,8 +8,8 @@
  * Never hardcode secrets in code. Real secrets.yaml is gitignored;
  * secrets.example.yaml is the committed schema.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
 /** Keys that `holo secrets doctor` must resolve (AC-1 / TC-1 / TC-6). */
@@ -176,6 +176,33 @@ export function loadConsolidatedSecrets(options?: {
     if (s !== undefined) out[k] = s;
   }
   return out;
+}
+
+/**
+ * Upsert flat keys into secrets.yaml (control-plane durable write).
+ * Used by cutover:flip / rollback-repoint and backup:provision.
+ * NEVER logs secret values. Mode 0600. Creates parent dirs as needed.
+ */
+export function upsertSecretsFile(path: string, updates: SecretsMap): string[] {
+  const dir = dirname(path);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  const existing = existsSync(path) ? loadSecretsFile(path) : {};
+  const merged: SecretsMap = { ...existing, ...updates };
+
+  const lines: string[] = [
+    '# Holocron consolidated secrets (gitignored). DO NOT COMMIT.',
+    '# Written/updated by holo cutover + backup tooling.',
+    '',
+  ];
+  for (const key of Object.keys(merged).sort()) {
+    const value = merged[key] ?? '';
+    const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    lines.push(`${key}: "${escaped}"`);
+  }
+  lines.push('');
+  writeFileSync(path, lines.join('\n'), { mode: 0o600 });
+  return Object.keys(updates);
 }
 
 export type ApplySecretsResult = {
