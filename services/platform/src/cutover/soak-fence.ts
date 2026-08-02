@@ -20,8 +20,9 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import type { Context, MiddlewareHandler, Next } from 'hono';
+import { defaultCatalogPath, loadCatalog } from '../catalog/catalog-loader.ts';
 import {
   loadSecretsFile,
   resolveRepoRoot,
@@ -30,6 +31,7 @@ import {
 } from '../config/secrets.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import { readImmutableExport } from '../etl/archive.ts';
 import { camelToSnake } from '../etl/metadata.ts';
 import { loadScopedKeysFromEnv, type ScopedKeyConfig } from '../http/middleware/scoped-key.ts';
 import { buildMutationsReport } from '../mcp/list-mutations.ts';
@@ -308,7 +310,22 @@ export type EtlReconcileSnapshot = {
   unexplainedVariance: number;
   loadedByTable: Record<string, number>;
   exportArchiveHash: string;
+  /**
+   * SHA-256 of the watermark/ETL report file bytes.
+   * Mutable and caller-rewritable — never sole provenance for verify-reads (R2-C03).
+   */
+  report_sha256: string;
+  /**
+   * @deprecated Prefer report_sha256. Kept for flip/ETL consumers that still
+   * read baseline_hash as "content hash of the report file".
+   */
   baseline_hash: string;
+  /** Optional content-address of bound cutover-parity inventory (64-hex). */
+  parityHash: string;
+  /** Optional relative/absolute export dir declared on the report. */
+  exportRelPath: string;
+  /** Optional relative/absolute cutover-parity path declared on the report. */
+  parityRelPath: string;
 };
 
 /** Serving-unit process generation snapshot for flip evidence (AC-2). */
@@ -432,18 +449,25 @@ export function captureProcessGenerations(cwd = resolveRepoRoot()): ProcessGener
 /**
  * Load D06-04 watermark/ETL report and evaluate reconciliation green.
  * Green ≡ unexplainedVariance === 0 and non-empty runId.
+ *
+ * Note (R2-C03): report_sha256 / baseline_hash is a self-hash of this mutable
+ * file and is NOT sufficient provenance for cutover:verify-reads. verify-reads
+ * binds to an on-disk content-addressed export archive + cutover-parity inventory.
  */
 export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapshot | null {
   if (!existsSync(reportPath)) return null;
   try {
     const raw = readFileSync(reportPath);
-    const baseline_hash = createHash('sha256').update(raw).digest('hex');
+    const report_sha256 = createHash('sha256').update(raw).digest('hex');
     const j = JSON.parse(raw.toString('utf8')) as {
       ok?: boolean;
       runId?: string;
       unexplainedVariance?: number;
       loadedByTable?: Record<string, number>;
       exportArchiveHash?: string;
+      parityHash?: string;
+      exportRelPath?: string;
+      parityRelPath?: string;
       reconcile?: { unexplainedVariance?: number; ok?: boolean };
     };
     const unexplained =
@@ -459,6 +483,12 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
       typeof j.exportArchiveHash === 'string' && /^[a-f0-9]{64}$/i.test(j.exportArchiveHash)
         ? j.exportArchiveHash.toLowerCase()
         : '';
+    const parityHash =
+      typeof j.parityHash === 'string' && /^[a-f0-9]{64}$/i.test(j.parityHash)
+        ? j.parityHash.toLowerCase()
+        : '';
+    const exportRelPath = typeof j.exportRelPath === 'string' ? j.exportRelPath : '';
+    const parityRelPath = typeof j.parityRelPath === 'string' ? j.parityRelPath : '';
     const reconcileOk = typeof j.reconcile?.ok === 'boolean' ? j.reconcile.ok : unexplained === 0;
     // Reconciliation green: zero unexplained variance + real run id
     const ok = unexplained === 0 && runId.length > 0 && reconcileOk;
@@ -469,11 +499,299 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
       unexplainedVariance: Number.isFinite(unexplained) ? unexplained : -1,
       loadedByTable,
       exportArchiveHash,
-      baseline_hash,
+      report_sha256,
+      baseline_hash: report_sha256,
+      parityHash,
+      exportRelPath,
+      parityRelPath,
     };
   } catch {
     return null;
   }
+}
+
+/** Default cutover-parity inventory path (sibling of D06-04 watermark). */
+export function defaultCutoverParityPath(cwd = resolveRepoRoot()): string {
+  return resolve(cwd, '.tmp/D06-04/cutover-parity.json');
+}
+
+/** Default export dir for verify-reads archive binding. */
+export function defaultVerifyExportDir(cwd = resolveRepoRoot()): string {
+  const envDir = process.env.CONVEX_EXPORT_DIR?.trim();
+  if (envDir) return resolve(envDir);
+  return resolve(cwd, '.tmp/D06-04/export');
+}
+
+/** Committed sprint-29 cutover-parity fixture (content-addressed inventory). */
+export function defaultFixtureCutoverParityPath(cwd = resolveRepoRoot()): string {
+  return resolve(
+    cwd,
+    'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json'
+  );
+}
+
+function resolveMaybeRel(pathOrRel: string, cwd: string): string {
+  if (!pathOrRel) return '';
+  return isAbsolute(pathOrRel) ? pathOrRel : resolve(cwd, pathOrRel);
+}
+
+export type CutoverParityInventory = {
+  path: string;
+  parityHash: string;
+  boundExportArchiveHash: string;
+  exportRelPath: string;
+  catalogRelPath: string;
+  loadedByTable: Record<string, number>;
+  catalog_table_count_expected: number;
+};
+
+/**
+ * Load immutable cutover-parity inventory (expected table set + counts).
+ * Content-addressed: parityHash = sha256(file bytes). Fail closed on empty set.
+ */
+export function loadCutoverParityInventory(parityPath: string): CutoverParityInventory | null {
+  if (!existsSync(parityPath)) return null;
+  try {
+    const raw = readFileSync(parityPath);
+    const parityHash = createHash('sha256').update(raw).digest('hex');
+    const j = JSON.parse(raw.toString('utf8')) as {
+      boundExportArchiveHash?: string;
+      exportRelPath?: string;
+      catalogRelPath?: string;
+      loadedByTable?: Record<string, number>;
+      catalog_table_count_expected?: number;
+    };
+    const boundExportArchiveHash =
+      typeof j.boundExportArchiveHash === 'string' &&
+      /^[a-f0-9]{64}$/i.test(j.boundExportArchiveHash)
+        ? j.boundExportArchiveHash.toLowerCase()
+        : '';
+    const loadedByTable =
+      j.loadedByTable && typeof j.loadedByTable === 'object' ? j.loadedByTable : {};
+    if (Object.keys(loadedByTable).length === 0 || !boundExportArchiveHash) return null;
+    return {
+      path: parityPath,
+      parityHash,
+      boundExportArchiveHash,
+      exportRelPath: typeof j.exportRelPath === 'string' ? j.exportRelPath : '',
+      catalogRelPath: typeof j.catalogRelPath === 'string' ? j.catalogRelPath : '',
+      loadedByTable,
+      catalog_table_count_expected:
+        typeof j.catalog_table_count_expected === 'number' ? j.catalog_table_count_expected : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type BoundExportCatalogBaseline = {
+  ok: boolean;
+  mismatches: string[];
+  exportDir: string;
+  catalogPath: string;
+  parityPath: string;
+  exportArchiveHash: string;
+  parityHash: string;
+  /** Expected source-table counts (camelCase keys) from immutable parity inventory. */
+  expectedLoadedByTable: Record<string, number>;
+  catalog_table_count: number;
+  listedTables: string[];
+  /** Immutable baseline digest: export archive content address (not report self-hash). */
+  baseline_hash: string;
+  baseline_source: string;
+};
+
+/**
+ * R2-C03: bind verify-reads to on-disk content-addressed export + catalog + parity.
+ * Rejects missing archive/catalog/parity, hash mismatch, and empty expected sets.
+ */
+export function loadBoundExportCatalogBaseline(options: {
+  cwd?: string;
+  exportDir?: string;
+  catalogPath?: string;
+  parityPath?: string;
+  /** Declared exportArchiveHash from watermark (must match on-disk archive). */
+  declaredExportArchiveHash?: string;
+  /** Declared parityHash from watermark (must match on-disk parity when present). */
+  declaredParityHash?: string;
+  /** Optional paths declared on the watermark for resolution. */
+  exportRelPath?: string;
+  parityRelPath?: string;
+}): BoundExportCatalogBaseline {
+  const cwd = options.cwd ?? resolveRepoRoot();
+  const mismatches: string[] = [];
+
+  const parityPath = (() => {
+    if (options.parityPath) return options.parityPath;
+    if (options.parityRelPath) return resolveMaybeRel(options.parityRelPath, cwd);
+    return defaultCutoverParityPath(cwd);
+  })();
+  let parity = loadCutoverParityInventory(parityPath);
+  // Fall back to committed fixture when operator D06-04 parity is absent.
+  if (!parity && existsSync(defaultFixtureCutoverParityPath(cwd))) {
+    const fixtureParity = defaultFixtureCutoverParityPath(cwd);
+    parity = loadCutoverParityInventory(fixtureParity);
+  }
+  if (!parity) {
+    return {
+      ok: false,
+      mismatches: [
+        `cutover-parity inventory missing or invalid (looked at ${parityPath}); refuse verify-reads without immutable catalog bind`,
+      ],
+      exportDir: '',
+      catalogPath: '',
+      parityPath,
+      exportArchiveHash: '',
+      parityHash: '',
+      expectedLoadedByTable: {},
+      catalog_table_count: 0,
+      listedTables: [],
+      baseline_hash: '',
+      baseline_source: '',
+    };
+  }
+
+  const exportDir = (() => {
+    if (options.exportDir) return options.exportDir;
+    if (options.exportRelPath) return resolveMaybeRel(options.exportRelPath, cwd);
+    if (parity.exportRelPath) return resolveMaybeRel(parity.exportRelPath, cwd);
+    return defaultVerifyExportDir(cwd);
+  })();
+  const catalogPath = (() => {
+    if (options.catalogPath) return options.catalogPath;
+    if (parity.catalogRelPath) return resolveMaybeRel(parity.catalogRelPath, cwd);
+    return defaultCatalogPath(cwd);
+  })();
+
+  if (options.declaredParityHash && options.declaredParityHash !== parity.parityHash) {
+    mismatches.push(
+      `parity hash/provenance mismatch: report parityHash=${options.declaredParityHash} on-disk=${parity.parityHash}`
+    );
+  }
+
+  if (!existsSync(exportDir)) {
+    mismatches.push(`export archive directory missing: ${exportDir}`);
+  }
+  if (!existsSync(catalogPath)) {
+    mismatches.push(`source catalog missing: ${catalogPath}`);
+  }
+
+  let exportArchiveHash = '';
+  let listedTables: string[] = [];
+  if (mismatches.length === 0) {
+    try {
+      const catalog = loadCatalog(catalogPath);
+      const archive = readImmutableExport(exportDir, catalog);
+      exportArchiveHash = archive.archiveHash.toLowerCase();
+      listedTables = archive.listedTables;
+      if (exportArchiveHash !== parity.boundExportArchiveHash) {
+        mismatches.push(
+          `archive hash mismatch: parity.boundExportArchiveHash=${parity.boundExportArchiveHash} on-disk archive=${exportArchiveHash}`
+        );
+      }
+      const declared = (options.declaredExportArchiveHash ?? '').toLowerCase();
+      if (!declared || declared.length !== 64) {
+        mismatches.push(
+          'exportArchiveHash missing on watermark report (64-hex required for archive provenance binding)'
+        );
+      } else if (declared !== exportArchiveHash) {
+        mismatches.push(
+          `exportArchiveHash provenance mismatch: report=${declared} on-disk archive=${exportArchiveHash}`
+        );
+      }
+      // Every expected parity table must exist in catalog + export inventory.
+      for (const sourceTable of Object.keys(parity.loadedByTable)) {
+        if (!catalog.tables[sourceTable]) {
+          mismatches.push(`catalog missing expected parity table: ${sourceTable}`);
+        }
+        if (!listedTables.includes(sourceTable)) {
+          mismatches.push(`export archive missing expected parity table: ${sourceTable}`);
+        }
+      }
+    } catch (err) {
+      mismatches.push(
+        `archive/catalog bind failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  const expectedKeys = Object.keys(parity.loadedByTable);
+  const catalog_table_count = expectedKeys.length;
+  if (catalog_table_count < 4) {
+    mismatches.push(
+      `catalog/export expected table count too small: ${catalog_table_count} (need >= 4 for CAP-MIG-01 parity)`
+    );
+  }
+
+  const baseline_hash = exportArchiveHash || parity.boundExportArchiveHash;
+  const baseline_source = `export-catalog:${exportDir}#${baseline_hash.slice(0, 12)}+parity:${parity.path}#${parity.parityHash.slice(0, 12)}`;
+
+  return {
+    ok: mismatches.length === 0,
+    mismatches,
+    exportDir,
+    catalogPath,
+    parityPath: parity.path,
+    exportArchiveHash: exportArchiveHash || parity.boundExportArchiveHash,
+    parityHash: parity.parityHash,
+    expectedLoadedByTable: { ...parity.loadedByTable },
+    catalog_table_count,
+    listedTables,
+    baseline_hash,
+    baseline_source,
+  };
+}
+
+/**
+ * Detect truncated or rewritten caller loadedByTable vs immutable parity inventory.
+ */
+export function diffCallerLoadedByTableAgainstParity(
+  caller: Record<string, number>,
+  expected: Record<string, number>
+): string[] {
+  const mismatches: string[] = [];
+  const callerKeys = Object.keys(caller).filter((k) => typeof caller[k] === 'number');
+  const expectedKeys = Object.keys(expected);
+  if (callerKeys.length === 0) {
+    // Empty caller is ok when authority is parity-only; no truncated signal.
+    return mismatches;
+  }
+  const expectedPg = new Map<string, { source: string; n: number }>();
+  for (const [k, n] of Object.entries(expected)) {
+    expectedPg.set(camelToSnake(k), { source: k, n });
+  }
+  const callerPg = new Map<string, { source: string; n: number }>();
+  for (const [k, n] of Object.entries(caller)) {
+    if (typeof n !== 'number' || !Number.isFinite(n)) continue;
+    callerPg.set(camelToSnake(k), { source: k, n });
+  }
+  // Truncated: caller proper subset of expected
+  const missing: string[] = [];
+  for (const [pg, exp] of expectedPg) {
+    if (!callerPg.has(pg)) missing.push(exp.source);
+  }
+  if (missing.length > 0) {
+    mismatches.push(
+      `truncated/incomplete-set: caller loadedByTable missing ${missing.length} catalog/export expected table(s): ${missing.sort().join(',')}`
+    );
+  }
+  // Rewritten counts
+  for (const [pg, c] of callerPg) {
+    const exp = expectedPg.get(pg);
+    if (!exp) continue;
+    if (c.n !== exp.n) {
+      mismatches.push(
+        `rewritten/provenance count drift for ${exp.source}: caller=${c.n} parity=${exp.n}`
+      );
+    }
+  }
+  // Extra unexpected keys are soft: still report for visibility
+  if (callerKeys.length < expectedKeys.length && missing.length === 0) {
+    mismatches.push(
+      `truncated/incomplete-set: caller tables=${callerKeys.length} expected=${expectedKeys.length}`
+    );
+  }
+  return mismatches;
 }
 
 /**
@@ -1257,18 +1575,31 @@ export type ReadsVerifyReport = {
   mismatches: string[];
   etl_run_id: string;
   report_path?: string;
-  /** Number of mapped target tables under reconciliation (from loadedByTable). */
+  /** Number of mapped target tables under reconciliation (catalog/export expected set). */
   tablesTotal: number;
   /** Count of tables where live count === immutable baseline count. */
   tablesMatched: number;
-  /** sha256 hex of the immutable ETL/watermark report file (content-addressed). */
+  /**
+   * Immutable baseline digest: export archive content address (R2-C03).
+   * Never solely SHA-256 of the mutable caller watermark report.
+   */
   baseline_hash: string;
-  /** Absolute path of the immutable ETL baseline artifact. */
+  /** Absolute path of the immutable parity inventory (or ETL report when unbound). */
   baseline_path: string;
-  /** exportArchiveHash from D06-04 report when present (64-hex). */
+  /** exportArchiveHash verified against on-disk immutable archive (64-hex). */
   exportArchiveHash: string;
-  /** Human-readable baseline provenance (path + run id). */
+  /** Human-readable baseline provenance (export archive + parity). */
   baseline_source: string;
+  /** Expected table count from bound cutover-parity / catalog inventory. */
+  catalog_table_count: number;
+  /** Content hash of cutover-parity inventory when bound. */
+  parity_hash: string;
+  /** On-disk export directory used for archive bind. */
+  export_dir: string;
+  /** On-disk catalog path used for inventory bind. */
+  catalog_path: string;
+  /** SHA-256 of the caller watermark report (mutable; not sole provenance). */
+  report_sha256: string;
 };
 
 /** Safe Postgres identifier: snake_case public tables only. */
@@ -1319,22 +1650,34 @@ function emptyReadsReport(
     exportArchiveHash: '',
     baseline_source: '',
     etl_run_id: '',
+    catalog_table_count: 0,
+    parity_hash: '',
+    export_dir: '',
+    catalog_path: '',
+    report_sha256: '',
     ...partial,
   };
 }
 
 /**
- * D06-05 / H-02: reconcile every loadedByTable (mapped) target against live
- * Postgres counts using an immutable D06-04 ETL/watermark baseline.
+ * D06-05 / H-02 / R2-C03: reconcile every catalog/export expected table against
+ * live Postgres using an immutable content-addressed export archive + cutover-parity
+ * inventory (not a mutable caller-selected loadedByTable alone).
  *
- * Table set is derived from loadedByTable keys (camelCase → snake_case), not a
- * hard-coded three-table sample. Baseline is content-hashed (baseline_hash) and
- * optionally bound by exportArchiveHash from the report.
+ * Authority:
+ *   1. On-disk export archive digest (exportArchiveHash) via readImmutableExport
+ *   2. cutover-parity.json expected table set + counts (content-addressed)
+ *   3. Source catalog membership for every expected table
+ * Watermark report supplies runId and must declare matching exportArchiveHash;
+ * truncated/rewritten caller loadedByTable is rejected.
  */
 export async function runVerifyReads(options?: {
   cwd?: string;
   etlReportPath?: string;
   databaseUrl?: string;
+  exportDir?: string;
+  catalogPath?: string;
+  parityPath?: string;
 }): Promise<ReadsVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const etlReportPath = options?.etlReportPath ?? defaultWatermarkReportPath(cwd);
@@ -1350,16 +1693,60 @@ export async function runVerifyReads(options?: {
     });
   }
 
-  const targets = mapLoadedByTableToPgTargets(snap.loadedByTable);
+  // R2-C03: bind to immutable export + catalog + parity (not report self-hash alone).
+  const bound = loadBoundExportCatalogBaseline({
+    cwd,
+    exportDir: options?.exportDir,
+    catalogPath: options?.catalogPath,
+    parityPath: options?.parityPath,
+    declaredExportArchiveHash: snap.exportArchiveHash,
+    declaredParityHash: snap.parityHash || undefined,
+    exportRelPath: snap.exportRelPath || undefined,
+    parityRelPath: snap.parityRelPath || undefined,
+  });
+  mismatches.push(...bound.mismatches);
+
+  // Reject truncated / rewritten caller loadedByTable when present.
+  if (
+    Object.keys(snap.loadedByTable).length > 0 &&
+    Object.keys(bound.expectedLoadedByTable).length > 0
+  ) {
+    mismatches.push(
+      ...diffCallerLoadedByTableAgainstParity(snap.loadedByTable, bound.expectedLoadedByTable)
+    );
+  }
+
+  // Target set ALWAYS from immutable parity inventory (catalog/export expected), never
+  // solely from caller-selected loadedByTable subset.
+  const authorityLoaded =
+    Object.keys(bound.expectedLoadedByTable).length > 0
+      ? bound.expectedLoadedByTable
+      : snap.loadedByTable;
+  const targets = mapLoadedByTableToPgTargets(authorityLoaded);
   if (targets.length === 0) {
     return emptyReadsReport({
-      mismatches: ['etl report loadedByTable empty or unmapped'],
-      baseline_path: snap.path,
-      baseline_hash: snap.baseline_hash,
-      exportArchiveHash: snap.exportArchiveHash,
+      mismatches: [
+        ...mismatches,
+        'expected table set empty: cutover-parity/catalog export inventory produced no mapped targets',
+      ],
+      baseline_path: bound.parityPath || snap.path,
+      baseline_hash: bound.baseline_hash || '',
+      exportArchiveHash: bound.exportArchiveHash || snap.exportArchiveHash,
       etl_run_id: snap.runId,
-      baseline_source: `d06-04:${snap.path}#${snap.runId || 'no-run-id'}`,
+      baseline_source: bound.baseline_source || `d06-04:${snap.path}#${snap.runId || 'no-run-id'}`,
+      catalog_table_count: bound.catalog_table_count,
+      parity_hash: bound.parityHash,
+      export_dir: bound.exportDir,
+      catalog_path: bound.catalogPath,
+      report_sha256: snap.report_sha256,
     });
+  }
+
+  // Fail closed if authority set is smaller than bound catalog expectation.
+  if (bound.catalog_table_count > 0 && targets.length < bound.catalog_table_count) {
+    mismatches.push(
+      `truncated/incomplete-set: tablesTotal would be ${targets.length} < catalog_table_count ${bound.catalog_table_count}`
+    );
   }
 
   const url = resolveHolocronNonprodDatabaseUrl({
@@ -1394,11 +1781,17 @@ export async function runVerifyReads(options?: {
     if (perTableCounts[t.pgTable] === t.baseline) tablesMatched += 1;
   }
 
-  const hashBound =
-    (typeof snap.baseline_hash === 'string' && snap.baseline_hash.length === 64) ||
-    (typeof snap.exportArchiveHash === 'string' && snap.exportArchiveHash.length === 64);
-  if (!hashBound) {
-    mismatches.push('baseline hash binding missing (baseline_hash/exportArchiveHash)');
+  // R2-C03: integrity requires verified on-disk export archive hash (not report self-hash).
+  const archiveBound =
+    typeof bound.exportArchiveHash === 'string' &&
+    bound.exportArchiveHash.length === 64 &&
+    bound.ok;
+  if (!archiveBound) {
+    if (!mismatches.some((m) => /archive|parity|catalog|provenance|hash/i.test(m))) {
+      mismatches.push(
+        'baseline archive/provenance binding missing (exportArchiveHash must match on-disk immutable export)'
+      );
+    }
   }
   if (!snap.runId) {
     mismatches.push('etl_run_id empty');
@@ -1408,8 +1801,10 @@ export async function runVerifyReads(options?: {
     mismatches.length === 0 &&
     tablesTotal > 0 &&
     tablesMatched === tablesTotal &&
-    hashBound &&
-    snap.runId.length > 0;
+    archiveBound &&
+    snap.runId.length > 0 &&
+    bound.catalog_table_count > 0 &&
+    tablesTotal === bound.catalog_table_count;
 
   return {
     ok,
@@ -1419,10 +1814,16 @@ export async function runVerifyReads(options?: {
     etl_run_id: snap.runId,
     tablesTotal,
     tablesMatched,
-    baseline_hash: snap.baseline_hash,
-    baseline_path: snap.path,
-    exportArchiveHash: snap.exportArchiveHash,
-    baseline_source: `d06-04:${snap.path}#${snap.runId || 'no-run-id'}`,
+    // Immutable export archive digest — independent of caller-rewritable report body.
+    baseline_hash: bound.baseline_hash || bound.exportArchiveHash,
+    baseline_path: bound.parityPath || snap.path,
+    exportArchiveHash: bound.exportArchiveHash || snap.exportArchiveHash,
+    baseline_source: bound.baseline_source || `d06-04:${snap.path}#${snap.runId || 'no-run-id'}`,
+    catalog_table_count: bound.catalog_table_count || tablesTotal,
+    parity_hash: bound.parityHash,
+    export_dir: bound.exportDir,
+    catalog_path: bound.catalogPath,
+    report_sha256: snap.report_sha256,
   };
 }
 

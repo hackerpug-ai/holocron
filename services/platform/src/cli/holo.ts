@@ -248,6 +248,11 @@ interface CliArgs {
   /** cutover:flip --etl-report <watermark-report.json> */
   etlReport: string | null;
   /**
+   * cutover:verify-reads --parity <cutover-parity.json>
+   * Immutable content-addressed expected table inventory (R2-C03).
+   */
+  parityPath: string | null;
+  /**
    * cutover:verify-tools / verify-soak — deployed Hono/MCP base URL
    * (also HOLO_VERIFY_BASE_URL / PLATFORM_URL).
    */
@@ -346,7 +351,9 @@ Usage:
                             [--output <rollback-report.json>] [--target <convex-label>]
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over real /mcp [--json]
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over network /mcp [--json] [--base-url URL]
-  cutover:verify-reads      D06-05 Postgres zero_pub counts vs ETL baseline [--json]
+  cutover:verify-reads      D06-05 Postgres counts vs export/catalog parity baseline [--json]
+                            [--etl-report <watermark>] [--export <dir>] [--catalog <yaml>]
+                            [--parity <cutover-parity.json>]
   cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json] [--base-url URL]
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
@@ -631,6 +638,7 @@ function parseArgs(argv: string[]): CliArgs {
     windowSeconds: null,
     token: null,
     etlReport: null,
+    parityPath: null,
     baseUrl: null,
     baseline: null,
   };
@@ -911,6 +919,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.etlReport = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--etl-report=')) {
       args.etlReport = resolve(a.slice('--etl-report='.length));
+    } else if (a === '--parity') {
+      args.parityPath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--parity=')) {
+      args.parityPath = resolve(a.slice('--parity='.length));
     } else if (a === '--base-url') {
       args.baseUrl = argv[++i] ?? null;
     } else if (a.startsWith('--base-url=')) {
@@ -3465,17 +3477,20 @@ async function main(): Promise<void> {
       break;
     }
     case 'cutover:verify-reads': {
-      // D06-05: Postgres counts vs ETL baseline
+      // D06-05 / R2-C03: Postgres counts vs immutable export/catalog parity baseline
       const { runVerifyReads } = await import('../cutover/soak-fence.ts');
       try {
         const report = await runVerifyReads({
           etlReportPath: args.etlReport ? resolve(args.etlReport) : undefined,
+          exportDir: args.exportDir ? resolve(args.exportDir) : undefined,
+          catalogPath: args.catalogPath ? resolve(args.catalogPath) : undefined,
+          parityPath: args.parityPath ? resolve(args.parityPath) : undefined,
         });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));
         } else {
           console.log(
-            `reads ok=${report.ok} tables=${report.tablesMatched}/${report.tablesTotal} docs=${report.perTableCounts.documents ?? '?'} mismatches=${report.mismatches.length} baseline_hash=${(report.baseline_hash ?? '').slice(0, 12)}`
+            `reads ok=${report.ok} tables=${report.tablesMatched}/${report.tablesTotal} catalog=${report.catalog_table_count} docs=${report.perTableCounts.documents ?? '?'} mismatches=${report.mismatches.length} exportArchiveHash=${(report.exportArchiveHash ?? '').slice(0, 12)}`
           );
         }
         process.exit(report.ok ? 0 : 1);
