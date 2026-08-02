@@ -2,11 +2,11 @@
 sequence: 29
 timeline: Phase 7 — Cutover and Decommission
 status: In Progress
-planned_from_roadmap_sha: 7d4a01d8dd1ab646c021f97e45df3ad1a5ea4a50a1d651a52f6cdb0c7dffa402
-planned_from_source_sha: c787337843cc4f0066795a6a28b28cffd01dd253
-source_kind: git-head
-planned_at: 2026-08-01T00:26:19Z
-capability_coverage: [CAP-CUT-01, CAP-MIG-01]
+planned_from_roadmap_sha: 74a7aa730d3539e59b37cd0191f79c99549d4690624411e5d5525d48aacee161
+planned_from_source_sha: 82342b50d6fce525c1fa1f732253f7b8cf2e463228960a3f9021a66f6f0065cd
+source_kind: local-prd-sha256
+planned_at: 2026-08-02T17:07:23Z
+capability_coverage: [CAP-DEP-01, CAP-CUT-01, CAP-MIG-01]
 ---
 
 # Sprint 29: Cutover — Write Freeze, ETL and Read-Only Soak Flip
@@ -14,9 +14,9 @@ capability_coverage: [CAP-CUT-01, CAP-MIG-01]
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: 5/5 tasks completed · updated 2026-08-02T04:08:21Z
+> Progress: 5/7 base tasks completed · D06-06 and D06-07 added by the 2026-08-02 deployment-boundary delta replan
 > Status-Note: IMPLEMENTATION_COMPLETE @ 79287567 — R3 C01–C03/H01–H03 consolidated on main; H02/H03 verify harness fixed; honest partial gate 3/6 HEAD-bound local-process (not GATE-GOAL; awaiting independent red-hat + full human-gate QA)
-**Proposed by:** devops-engineer
+**Proposed by:** devops-engineer + mastra-planner + mcp-planner + convex-planner + react-native-ui-planner + frontend-designer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`
 **PR:** —
@@ -27,44 +27,48 @@ capability_coverage: [CAP-CUT-01, CAP-MIG-01]
 
 Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where production stops being served by Convex and starts being served by Postgres + Mastra. It implements **UC-SYNC-03 (Big-bang cutover)** as the ordered chain the PRD specifies: *parallel-build → freeze → drain → ETL → flip → verify → read-only soak*, with a rollback path preserved throughout the soak (UC-SYNC-04 owns the rollback drill itself in Sprint 30).
 
-**What the PRD requires of this sprint** (`08-uc-sync.md` §UC-SYNC-03, AC-1 through AC-4):
-1. Stand up and validate the entire new stack (Postgres + Mastra + Zero + fleet) against a real integration suite **while Convex still serves production untouched** — the go/no-go (`T-SYNC-008`).
-2. Durably fence Convex mutations/actions/uploads/webhooks, disable and drain all scheduled work, observe a declared quiet interval, capture an export watermark plus final-write audit, run the one-time ETL, and produce a source-catalog reconciliation report with **zero unexplained variance** (`T-SYNC-009`, human-gate tier).
-3. Serve the app + MCP entirely from the new backend in a **read-only rollbackable soak**, verified end-to-end across reads, all 44 MCP tools, the `/article/` endpoint, and every migrated cron against real services, **while every production write path returns `migration_read_only`** (`T-SYNC-010`, e2e-automated).
-4. Prove all 44 MCP tools return Postgres-backed results post-flip with `src/convex/client.ts` no longer importing `convex/browser`.
+**What the PRD requires of this sprint** (`04-uc-plat.md` §UC-PLAT-05 and `08-uc-sync.md` §UC-SYNC-03):
+1. Package the production platform as an immutable OCI release and a versioned four-service Compose contract, then deploy it on the named host `inference1` before the freeze (`T-PLAT-015`, `T-SYNC-020`).
+2. Prove the already-listening external endpoint reports the exact host, container runtime, image digest, and source revision; an unexpected Mastra termination must recover automatically with durable data intact (`CAP-DEP-01`).
+3. Stand up and validate the entire new stack (Postgres + Mastra + Zero + fleet) against a real integration suite **while Convex still serves production untouched** — the go/no-go (`T-SYNC-008`).
+4. Durably fence Convex mutations/actions/uploads/webhooks, disable and drain all scheduled work, observe a declared quiet interval, capture an export watermark plus final-write audit, run the one-time ETL, and produce a source-catalog reconciliation report with **zero unexplained variance** (`T-SYNC-009`, human-gate tier).
+5. Serve the app + MCP entirely from the deployed backend in a **read-only rollbackable soak**, verified end-to-end across reads, all 44 MCP tools, the `/article/` endpoint, and every migrated cron against real services, **while every production write path returns `migration_read_only`** (`T-SYNC-010`, e2e-automated).
+6. Prove all 44 MCP tools return Postgres-backed results post-flip with `src/convex/client.ts` no longer importing `convex/browser`.
 
 **What already exists at the planning SHA (`c7873378`).** The ETL machinery is built and exercised (Sprint 14): `services/platform/src/etl/{run,transform,reconcile,fk-audit,metadata,archive,vectors,deterministic-uuidv7,latest-run}.ts`. The MCP rehost is built (Sprint 19): `services/platform/src/mcp/{gateway,executor,manifest-loader,manifest-replay,verify-manifest,verify-rehost}.ts`. The client-data contract and its CI gate are built (Sprint 21): `services/platform/src/sync/{client-callsite-inventory,client-data-contract-author,client-data-contract-verify}.ts`, plus `holo verify:no-convex-client` and `holo verify-no-convex-env`. The integration lanes exist (Sprint 13): `pnpm test:integration` / `test:live` / `test:lanes` over the Vitest project split.
 
-**What does not exist yet — the actual build surface of this sprint.** `migration_read_only` currently appears **only inside the client-data-contract authoring/verification modules** (`services/platform/src/sync/client-data-contract-{author,verify}.ts`) as a declared contract token — there is **no runtime write fence enforcing it**, on either the Convex side or the new backend. There is no drain/quiet-interval command, no export-watermark capture, no soak-flip configuration surface, and no post-flip verification gate binding reads + 44 tools + `/article/` + crons into one pass/fail. The `convex/` tree is still fully live. Sprint 29 builds exactly those five things (D06-01 … D06-05).
+**What the delta adds.** D06-01 through D06-05 implemented the cutover controls, but the revised PRD makes a real production-container boundary mandatory. The repository still lacks a canonical production Dockerfile, a digest-pinned four-service Compose release, a deployment receipt for `inference1`, and a fail-closed external identity/restart proof. D06-06 and D06-07 add those two missing contracts without reopening the five shipped cutover tasks or their red-hat remediation history.
 
-**The gate is one un-fakeable operator outcome:** after the freeze-drain-ETL sequence, the app plus all 44 MCP tools serve reads from Postgres, and **every** production write path — app mutation, MCP tool write, upload, job, mission — visibly returns `migration_read_only` rather than succeeding or hanging. The negative control is the inverse: a write path that still succeeds post-flip, or a fence that reports "frozen" while a mutation lands, fails the gate.
+**The gate is one un-fakeable operator outcome:** after a pinned Compose release is externally identified and survives restart, the freeze-drain-ETL sequence leaves the app plus all 44 MCP tools serving reads from Postgres, and **every** production write path — app mutation, MCP tool write, upload, job, mission — visibly returns `migration_read_only` rather than succeeding or hanging. In-process, stale, or mismatched deployment identities fail before the write freeze begins.
 
 > **Dependency caveat (advisory, non-blocking).** This sprint was expanded via explicit `--sprint 29` selection. At planning time Sprint 20 (E2E Maestro harness) and Sprint 24 (RN app rewrite) are 🟠 In flight and Sprint 26 (uploads) is ⚪ Deferred with an incomplete runtime gate. The go/no-go task (D06-02) is exactly the gate that must catch that state — it is expected to **fail closed** until those sprints land. If the Sprint 24 provider wiring or the Sprint 26 upload path changes shape, re-run `/kb-sprint-tasks-plan 29 --only D06-02,D06-05 --overwrite` to refresh those tasks.
 
 ## Human Testing Gate
 
-**Gate:** An operator executing the freeze-drain-ETL sequence gets the app plus all 44 MCP tools serving reads from Postgres, with every production write path returning `migration_read_only`.
+**Gate:** After cutover, the pinned `inference1` container serves Postgres-backed app and 44-tool MCP reads while every production write path returns `migration_read_only`.
 
 **Dispatcher (required):** `bun services/platform/src/cli/holo.ts` — do not use a PATH `holo` stub.
 
-**Authoritative plan:** `gate-plan.json` (remediated by REDHAT-FIX-S29-H03). Every step is a real cutover CLI action plus a conjunctive multi-field jq oracle — never jq-only peeks on pre-baked `.tmp` JSON, never any-of freeze fields, never `overall.ok` with null `toolsPassed`/`toolsTotal`.
+**Authoritative plan:** `gate-plan.json` (remediated by REDHAT-FIX-S29-H03 and extended by D06-07). Every step is a real deployment/cutover CLI action plus a conjunctive multi-field jq oracle — never jq-only peeks on pre-baked `.tmp` JSON, never any-of freeze fields, never `overall.ok` with null `toolsPassed`/`toolsTotal`.
 
 **Oracle suite:** `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts`
 
 **Freshness suite (REDHAT-FIX-S29-R2-H01):** `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-freshness.test.ts`
 
-**Re-run harness:** `bash scripts/run-sprint29-human-gate-rerun.sh` — executes all six `gate-plan.json` `literal_cmd` steps via real cutover CLI, writes `.gate-evidence/{new-run-id}/step{1..6}.log` + honest `gate-results.json`. Refuses historical false-pass run_id `20260802T004525Z` as current pass. Full **6/6 green may remain blocked** until sibling remediations land: **R2-C01..C04** (durable fence / drain / immutable catalog / control-plane rollback) and **R2-H02..H04** (deployed MCP identity / article comparator / cross-process arm fail-closed). Honest fail/partial is required — never forge 6/6 or copy stale results.
+**Re-run harness:** `bash scripts/run-sprint29-human-gate-rerun.sh` — D06-07 extends the current six-step harness to all eight `gate-plan.json` `literal_cmd` steps and writes `.gate-evidence/{new-run-id}/step{1..8}.log` plus honest `gate-results.json`. It must refuse historical false-pass run_id `20260802T004525Z`, any local-process identity, and any stale release receipt. Honest fail/partial is required — never forge 8/8 or copy stale results.
 
 ## Human Test Deliverable
 
-**Test Steps** (1:1 with `gate-plan.json`; each action uses the dispatcher above):
+**Test Steps** (1:1 with the post-D06-07 `gate-plan.json`; each action uses the dispatcher above):
 
-1. **`cutover:go-no-go`** — Run the full harness suite against the new stack. Pass only when `overall.ok==true` and `failed_count==0` (and eight gates collected; never `gates|length==8` alone). Coordinates with REDHAT-FIX-S29-C01.
-2. **`cutover:freeze`** — Arm the write fence. Pass only when `ok==true` **and** `env_value=="1"` **and** `fence_armed_at>0` (require-all; never any-of).
-3. **`cutover:quiet-check`** — Drain crons/queues and observe the quiet interval. Pass only when `acceptedWriteCount==0` **and** `rejectedWriteCount>0` **and** `windowSeconds>=` declared window **and** `ok==true`.
-4. **`cutover:run-etl`** — Run the one-time ETL (CAP-MIG-01). Pass only when `ok==true` **and** `unexplainedVariance==0` **and** non-empty source **and** `fkAudit.ok` **and** `vectors.ok` **and** `stages.nonEmpty==true`.
-5. **`cutover:flip` + `cutover:verify-soak`** — Flip app plus MCP into read-only soak and verify. Pass only when `overall.ok==true` **and** non-null `toolsPassed==toolsTotal` with `toolsTotal>0` **and** `jobsAccounted==jobsTotal` **and** `article.ok` **and** `honoWrite.ok` **and** `reads.ok` **and** explicit `zeroWritePath`.
-6. **Write probe (`migration_read_only`)** — Attempt a write on a real Hono surface during soak. Pass only when status is **423** and body `error`/`code` is `migration_read_only`. Residual until REDHAT-FIX-S29-C02: process-local env engagement cannot alone prove distributed flip propagation; the body oracle remains mandatory.
+1. **`cutover:go-no-go`** — Run the full harness suite against the candidate stack while Convex still serves production. Pass only when `overall.ok==true`, `failed_count==0`, and eight real gates are collected.
+2. **`deploy:apply`** — Cold-recreate the pinned Compose release on `inference1`. Pass only when exactly four declared services reach real health without deleting durable volumes.
+3. **Restart proof** — Unexpectedly terminate the Mastra container process (not `docker compose stop`), then fetch production `/health` externally. Pass only when restart policy returns a new serving process on the same image digest and source revision.
+4. **`deploy:verify` negative controls** — Reject loopback/in-process listeners plus wrong host, runtime, digest, and source revision before any cutover state changes.
+5. **`cutover:freeze` + `cutover:quiet-check`** — Arm the durable write fence, drain scheduled work, and require zero accepted writes across the declared quiet interval.
+6. **`cutover:run-etl`** — Run the one-time ETL (CAP-MIG-01) and require zero unexplained variance, non-empty source evidence, clean FK audit, and clean vectors.
+7. **`cutover:flip` + `cutover:verify-soak`** — Derive app, MCP, article, and cutover endpoints from the verified deployment base URL; require reads, 44 tools, jobs, and `/article/` to pass.
+8. **Write probe (`migration_read_only`)** — Attempt a write on the deployed Hono surface during soak. Pass only when status is **423** and body `error`/`code` is `migration_read_only`.
 
 ## Tasks
 
@@ -75,6 +79,8 @@ Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where
 | D06-03 | Durable write-fence + cron/queue drain + quiet interval | devops-engineer | 150 min |
 | D06-04 | Capture export watermark + orchestrate the one-time ETL run | devops-engineer | 120 min |
 | D06-05 | Flip app plus MCP into rollbackable read-only soak, run verification gates | devops-engineer | 150 min |
+| D06-06 | Package pinned production OCI image and versioned Compose contract | devops-engineer | 120 min |
+| D06-07 | Deploy on inference1 and prove external network identity before cutover | devops-engineer | 120 min |
 | REDHAT-FIX-S29-C01 | Replace the false go/no-go oracle with real CLI execution and require failed_count=0 (C-01; gate-plan.json:11-20) | devops-engineer | 90 min |
 | REDHAT-FIX-S29-C02 | Implement a durable distributed production write fence and reciprocal rollback repoint (C-02; soak-fence.ts:53-67,302-321) | devops-engineer | 150 min |
 | REDHAT-FIX-S29-C03 | Implement real schedule disable/drain and measured post-drain quiet interval with write oracles (C-03; convex-fence-client.ts:307-401) | devops-engineer | 150 min |
@@ -100,15 +106,17 @@ Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where
 
 ## Source Coverage
 
-- UC-SYNC-03; T-SYNC-008, T-SYNC-009, T-SYNC-010
+- UC-PLAT-05, UC-SYNC-03; AP-10, R20; T-PLAT-015, T-SYNC-008, T-SYNC-009, T-SYNC-010, T-SYNC-020
+- `.spec/prds/mk6-migration/04-uc-plat.md` (UC-PLAT-05 — named-host container deployment)
 - `.spec/prds/mk6-migration/08-uc-sync.md` (UC-SYNC-03 lines 44–53; UC-SYNC-04 rollback boundary lines 56–59)
 - `.spec/prds/mk6-migration/11-e2e-testing-criteria.md` (lines 210–212 — tier + real-service bindings)
-- `.spec/prds/mk6-migration/10-technical-requirements/09-capability-chains.md` (CAP-CUT-01, CAP-MIG-01)
+- `.spec/prds/mk6-migration/10-technical-requirements/09-capability-chains.md` (CAP-DEP-01, CAP-CUT-01, CAP-MIG-01)
 - `.spec/prds/mk6-migration/10-technical-requirements/12-migration-contract-artifacts.md`
 - `.spec/prds/mk6-migration/10-technical-requirements/11-runtime-contracts.md`
 
 ## Capability Coverage
 
+- CAP-DEP-01: exact source → immutable image/Compose contract → `inference1` deploy → external identity, restart, and durability proof
 - CAP-CUT-01: freeze → drain → flip → read-only soak with every write path returning `migration_read_only`
 - CAP-MIG-01: the operator-orchestrated one-time ETL run + reconciliation gate
 
@@ -119,15 +127,17 @@ Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where
 
 ## Task Detail Files
 
-Generated by /kb-sprint-tasks-plan on 2026-08-01T01:10:00Z. Specialist proposals: **red-test-generator** (D06-01), **devops-engineer** (D06-02…D06-05). `convex-planner` and `mastra-planner` contributed the domain analysis that reshaped D06-03/D06-04/D06-05 (Convex fence mechanism, watermark definition, MCP/article verification); their full expansions are retained as planning evidence.
+Generated by /kb-sprint-tasks-plan on 2026-08-01T01:10:00Z and delta-replanned on 2026-08-02T17:07:23Z. Specialist proposals: **red-test-generator** (D06-01), **devops-engineer** (D06-02…D06-07), with deployment-boundary analysis from **mastra-planner** and **mcp-planner**. `convex-planner` and `mastra-planner` contributed the original domain analysis that reshaped D06-03/D06-04/D06-05; their full expansions remain planning evidence.
 
-**Fakeability audit (real tool, not hand-audited):** `validate_scenario.py` (`~/Projects/brain/tools/validate-scenario/`) run on every behavioral AC of all 5 tasks → **0 CRITICAL, 0 HIGH**, with non-zero `scenario_count` verified per task (an exit-0 on a contract carrying zero scenarios validates vacuously — that trap produced one false CLEAN during this expansion and is called out here so it is checked, not assumed).
+**Fakeability audit (real tool, not hand-audited):** `validate_scenario.py` (`~/Projects/brain/tools/validate-scenario/`) run on every behavioral AC of all 7 base tasks → **0 CRITICAL, 0 HIGH**, with non-zero `scenario_count` verified per task. The D06-06 and D06-07 delta contracts each report `scenario_count=5`; an exit-0 contract with zero scenarios is not accepted.
 
 - D06-01-red-every-write-path-returns-migration-read-only-during-soak.md
 - D06-02-pre-cutover-go-no-go-full-harness-suite-green-against-the-new-stack.md
 - D06-03-durable-write-fence-cron-queue-drain-quiet-interval.md
 - D06-04-capture-export-watermark-orchestrate-the-one-time-etl-run.md
 - D06-05-flip-app-plus-mcp-into-rollbackable-read-only-soak-run-verification-ga.md
+- D06-06-package-pinned-production-oci-image-and-versioned-compose-contract.md
+- D06-07-deploy-on-inference1-and-prove-external-network-identity-before-cutover.md
 
 
 ### Red-hat remediation task detail files

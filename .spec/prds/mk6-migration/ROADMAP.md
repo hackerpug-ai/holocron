@@ -1,7 +1,7 @@
 ---
 roadmap: 1
 project: MK-VI Platform Migration (Convex → Mastra + Postgres)
-generated: 2026-07-14T01:46:20Z
+generated: 2026-08-02T17:07:23Z
 prd: .spec/prds/mk6-migration/README.md
 sprint_count: 31
 pr_sequencing: true
@@ -12,14 +12,14 @@ pr_sequencing: true
 ## Overview
 
 **Sprints:** 31
-**Total Tasks:** 166
-**Current Sprint:** 19 — MCP Gateway Rehost — 44 Tools on Postgres (sprints 1–18 closed)
+**Total Tasks:** 168
+**Current Sprint:** 29 — Cutover — Write Freeze, ETL and Read-Only Soak Flip
 
-A complete, decisive migration of holocron off Convex — cloud database and all services — onto a Mastra (Bun) + Postgres platform on the tailnet mini, with the RN app resyncing via Zero and all reasoning on the local inference fleet. Sequencing follows the PRD mandate: a **leading INFRA phase** (runtime compatibility lock + real-service e2e harness + machine-readable migration-contract artifacts) gates all feature work, then **PLAT → DATA → SVC/INFER → SYNC**, with the **big-bang cutover, rollback, and Convex decommission last**. Standing remote backup & disaster recovery (CAP-BAK-01) runs in parallel and outlasts the cutover.
+A complete, decisive migration of holocron off Convex — cloud database and all services — onto a containerized Mastra (Bun) + Postgres platform on the named local production host `inference1`, with the RN app resyncing via Zero and all reasoning on the local inference fleet. Sequencing follows the PRD mandate: a **leading INFRA phase** (runtime compatibility lock + real-service e2e harness + machine-readable migration-contract artifacts) gates all feature work, then **PLAT → DATA → SVC/INFER → SYNC**, with the **big-bang cutover, rollback, and Convex decommission last**. Standing remote backup & disaster recovery (CAP-BAK-01) runs in parallel and outlasts the cutover.
 
 > **PR sequencing enabled.** Lifecycle: 🔵 Planned → 🟠 In flight → 🟣 In review → ✅ Completed → 🔴 Blocked. A PR cell is required once work is published through a PR; locally verified closure may use committed source-head and gate evidence until publication. See [`~/Projects/brain/docs/PR-SEQUENCING.md`](~/Projects/brain/docs/PR-SEQUENCING.md) for the full convention.
 
-This roadmap is a **consolidation** of proposals from the project's dispatched planning-specialist SET — `mastra-planner`, `mcp-planner`, `react-native-ui-planner`, and `devops-engineer`. Every sprint's `**Proposed by:**` line records its authoring specialist(s); the orchestrator merged, deduped, sequenced, and validated but did not author sprint content.
+This roadmap is a **consolidation** of proposals from the project's dispatched planning-specialist SET — `mastra-planner`, `mcp-planner`, `convex-planner`, `react-native-ui-planner`, `frontend-designer`, and `devops-engineer`. Every sprint's `**Proposed by:**` line records its authoring specialist(s); the orchestrator merged, deduped, sequenced, and validated but did not author sprint content.
 
 ## Sprint Sequence
 
@@ -53,7 +53,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 26 | — | [Sprint 26: Image and Voice Upload Lifecycle Client](#sprint-26-image-and-voice-upload-lifecycle-client) | Uploading the seeded image yields exactly one hash-matched `file_objects` row | 4 | 14, 24 | ⚪ Deferred (user-directed; runtime gate incomplete) | `mk6-uploads` | — |
 | 27 | — | [Sprint 27: Standing Off-Mini Backup Pipeline and Alerting](#sprint-27-standing-off-mini-backup-pipeline-and-alerting) | Induced backup failure fires an alert within 15 min, no dashboard-polling | 6 | 4, 6 | ✅ Completed | `mk6-backup` | — |
 | 28 | — | [Sprint 28: Point-in-Time Restore and Fresh-Hardware Fire Drill](#sprint-28-point-in-time-restore-and-fresh-hardware-fire-drill) | Restore from R2 alone onto fresh machine — row counts + ledger chain match | 6 | 27 | ✅ Completed | `mk6-restore-drill` | — |
-| 29 | — | [Sprint 29: Cutover — Write Freeze, ETL and Read-Only Soak Flip](#sprint-29-cutover--write-freeze-etl-and-read-only-soak-flip) | App + 44 MCP tools serve reads from Postgres; every write returns `migration_read_only` | 5 | 13, 14, 19, 20, 22, 23, 24, 25, 26, 6 | 🟠 In flight | `mk6-cutover` | — |
+| 29 | — | [Sprint 29: Cutover — Write Freeze, ETL and Read-Only Soak Flip](#sprint-29-cutover--write-freeze-etl-and-read-only-soak-flip) | Pinned `inference1` container serves Postgres reads; every write returns `migration_read_only` | 7 | 13, 14, 19, 20, 22, 23, 24, 25, 26, 6 | 🟠 In flight | `mk6-cutover` | — |
 | 30 | — | [Sprint 30: Cutover Rollback Drill and Data-Plane Point of No Return](#sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return) | Rollback during soak re-points to frozen Convex with zero accepted writes lost | 5 | 29 | 🟠 In Progress | `mk6-rollback` | — |
 | 31 | — | [Sprint 31: Convex Decommission — Code, Deps and Cloud Deletion](#sprint-31-convex-decommission--code-deps-and-cloud-deletion) | Convex deleted after fresh restore drill; zero Convex surface reachable | 5 | 28, 30 | 🔵 Planned | `mk6-decommission` | — |
 
@@ -1665,7 +1665,7 @@ Generated by /kb-sprint-tasks-plan on 2026-07-28T01:16:22Z — SPRINT.md + 6 tas
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-**Proposed by:** devops-engineer
+**Proposed by:** devops-engineer + mastra-planner + mcp-planner + convex-planner + react-native-ui-planner + frontend-designer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`
 **PR:** —
@@ -1674,15 +1674,17 @@ Generated by /kb-sprint-tasks-plan on 2026-07-28T01:16:22Z — SPRINT.md + 6 tas
 
 #### Human Testing Gate
 
-**Gate:** An operator executing the freeze-drain-ETL sequence gets the app plus all 44 MCP tools serving reads from Postgres, with every production write path returning `migration_read_only`.
+**Gate:** After cutover, the pinned `inference1` container serves Postgres-backed app/44-tool MCP reads while every production write returns `migration_read_only`.
 
 **Test Steps:**
-1. Run the full harness suite against the new stack — green, while Convex still serves production.
-2. Trigger the write fence — Convex mutations/actions/uploads/webhooks all reject with a fenced error.
-3. Drain crons and queues, observe the quiet interval — zero in-flight writes remain.
-4. Run the one-time ETL — reconciliation report shows zero unexplained variance.
-5. Flip app plus MCP to the new backend — reads pass, all 44 tools pass, `/article/` byte-matches.
-6. Attempt a write on any surface during soak — every path returns `migration_read_only`.
+1. Run full harness against candidate stack — eight gates pass while Convex serves production.
+2. Cold-recreate pinned Compose release on `inference1` — all four services become healthy.
+3. SIGKILL Mastra PID 1, then fetch production `/health` externally — restart policy returns the exact deployment identity automatically.
+4. Run deployment negative controls — in-process, stale, or mismatched identities fail closed.
+5. Trigger write fence and drain scheduled work — quiet interval records zero accepted writes.
+6. Run one-time ETL — reconciliation shows zero unexplained variance.
+7. Flip app plus MCP to deployed base URL — reads, 44 tools, `/article/` pass.
+8. Attempt production write during soak — deployed Hono returns `423 migration_read_only`.
 
 #### Tasks
 
@@ -1693,6 +1695,8 @@ Generated by /kb-sprint-tasks-plan on 2026-07-28T01:16:22Z — SPRINT.md + 6 tas
 | D06-03 | Durable write-fence + cron/queue drain + quiet interval | devops-engineer | 150 min |
 | D06-04 | Capture export watermark + orchestrate the one-time ETL run | devops-engineer | 120 min |
 | D06-05 | Flip app plus MCP into rollbackable read-only soak, run verification gates | devops-engineer | 150 min |
+| D06-06 | Package pinned production OCI image and versioned Compose contract | devops-engineer | 120 min |
+| D06-07 | Deploy on inference1 and prove external network identity before cutover | devops-engineer | 120 min |
 
 #### Dependencies
 
@@ -1701,23 +1705,27 @@ Generated by /kb-sprint-tasks-plan on 2026-07-28T01:16:22Z — SPRINT.md + 6 tas
 
 #### PRD Coverage
 
-- UC-SYNC-03
-- T-SYNC-008, T-SYNC-009, T-SYNC-010
+- UC-PLAT-05, UC-SYNC-03
+- AP-10, R20
+- T-PLAT-015, T-SYNC-008, T-SYNC-009, T-SYNC-010, T-SYNC-020
 
 #### Capability Coverage
 
+- CAP-DEP-01: pinned image/Compose contract → `inference1` deployment → external identity/restart proof
 - CAP-CUT-01: freeze → drain → flip → read-only soak with every write path returning `migration_read_only`
 - CAP-MIG-01: the operator-orchestrated one-time ETL run + reconciliation gate
 
 #### Next Sprint Tasks
 
-Generated by /kb-sprint-tasks-plan on 2026-08-01T01:10:00Z — SPRINT.md + 5 task files at [`tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/`](tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/); **0 CRITICAL / 0 HIGH** fakeability (`validate_scenario.py` clean on every behavioral AC, non-zero `scenario_count` verified per task).
+Generated by /kb-sprint-tasks-plan on 2026-08-01T01:10:00Z and delta-replanned on 2026-08-02T17:07:23Z — SPRINT.md + 7 base task files at [`tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/`](tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/); **0 CRITICAL / 0 HIGH** fakeability (`validate_scenario.py` clean on every behavioral AC, non-zero `scenario_count` verified per task).
 
 - D06-01-red-every-write-path-returns-migration-read-only-during-soak.md
 - D06-02-pre-cutover-go-no-go-full-harness-suite-green-against-the-new-stack.md
 - D06-03-durable-write-fence-cron-queue-drain-quiet-interval.md
 - D06-04-capture-export-watermark-orchestrate-the-one-time-etl-run.md
 - D06-05-flip-app-plus-mcp-into-rollbackable-read-only-soak-run-verification-ga.md
+- D06-06-package-pinned-production-oci-image-and-versioned-compose-contract.md
+- D06-07-deploy-on-inference1-and-prove-external-network-identity-before-cutover.md
 
 Planner-flagged estimate discrepancies (not applied — see SPRINT.md): D06-03 240–300 min vs 150; D06-05 300–360 min vs 150.
 
