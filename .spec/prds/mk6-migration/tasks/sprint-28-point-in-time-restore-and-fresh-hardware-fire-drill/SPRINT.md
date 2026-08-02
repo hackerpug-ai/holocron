@@ -13,8 +13,8 @@ planned_at: 2026-07-28T01:16:22Z
 **Sequence:** 28
 **Timeline:** Phase 6 — Standing Backup and Disaster Recovery
 **Status:** Completed
-> Progress: implementation landed; fresh 6/6 human gate verified · updated 2026-08-01T20:48:38Z
-> Status-Note: QA run `qa34-20260801T201647Z-baa1db93` passed 6/6 and survived `verify-gate-evidence.sh:recompute-strong@febb48afeaa2` with zero discrepancies. The prior `DEPENDENCY-S28-R2-RO` residual is closed by source-atomic restore tuples plus two temporary read-only Cloudflare R2 tuples: an exact `pgbackrest/` proof tuple and a separately verified fire-drill data tuple scoped only to `pgbackrest/`, `recovery-baselines/`, and `restic/`. The fresh-target child has no writer-credential fallback.
+> Progress: 7/7 tasks completed · updated 2026-08-02T16:35:47Z
+> Status-Note: goal met — gate 6/6 · human-test 6/6 · trunk consolidated
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-28`)
 **Branch:** `mk6-restore-drill`
