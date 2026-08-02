@@ -1,0 +1,28 @@
+@@GATE-META step=3 cmd_sha=80388a793daacab6d6fe30114dabf1f44fc19ac9ec1398a4f5a43112ac1ac16a@@
+CMD: jq -e '.acceptedWriteCount==0' .tmp/D06-03/quiet-check-report.json
+{
+  "ok": true,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 2,
+  "windowSeconds": 30,
+  "sinceMs": 1785631308086,
+  "untilMs": 1785631338086,
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ],
+  "oracle": "live_probes",
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 0,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-03/quiet-check-report.json"
+}
+true
+@@GATE-EXIT=0@@

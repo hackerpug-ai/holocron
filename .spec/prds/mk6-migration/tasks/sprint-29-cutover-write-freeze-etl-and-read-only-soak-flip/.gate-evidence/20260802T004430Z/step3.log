@@ -1,0 +1,4 @@
+@@GATE-META step=3 cmd_sha=eab895b075a34fe0bb1f225febcf14e6fa67b708982006069878928754139e17@@
+CMD: bun services/platform/src/cli/holo.ts cutover:quiet-check --json
+(eval):56: no such file or directory: bun services/platform/src/cli/holo.ts cutover:quiet-check --json
+@@GATE-EXIT=4@@

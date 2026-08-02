@@ -1,0 +1,8 @@
+@@GATE-META step=1 cmd_sha=24c62f4ced5900728f4feb216cc5ad3f4c3e9f14de47ec61ba7e23ef2a2aae35@@
+CMD: jq -e ".gates | length == 8" go-no-go-report.json
+{
+  "n": 8,
+  "failed_count": 5
+}
+true
+@@GATE-EXIT=0@@

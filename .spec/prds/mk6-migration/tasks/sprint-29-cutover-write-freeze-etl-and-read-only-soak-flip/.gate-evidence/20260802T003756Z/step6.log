@@ -1,0 +1,2 @@
+{"status":423,"body":{"error":"migration_read_only","code":"migration_read_only"},"text":"{\"error\":\"migration_read_only\",\"code\":\"migration_read_only\"}"}
+@@GATE-EXIT=@@

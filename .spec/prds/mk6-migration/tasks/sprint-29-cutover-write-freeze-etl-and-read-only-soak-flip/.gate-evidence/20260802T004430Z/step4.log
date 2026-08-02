@@ -1,0 +1,9 @@
+@@GATE-META step=4 cmd_sha=564af555b8aabff378e28d1999963899917dc4f3ae1a13cd07aa44bb6f603aaf@@
+CMD: jq -e ".unexplainedVariance == 0" .tmp/D06-04/watermark-report.json
+{
+  "unexplainedVariance": 0,
+  "docs": 1596,
+  "convs": 101
+}
+true
+@@GATE-EXIT=0@@

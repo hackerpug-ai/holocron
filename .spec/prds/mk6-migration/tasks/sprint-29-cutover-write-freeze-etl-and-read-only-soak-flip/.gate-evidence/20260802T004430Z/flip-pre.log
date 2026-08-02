@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "engaged_at": "2026-08-02T00:44:42.058Z",
+  "engaged_at_ms": 1785631482058,
+  "env": "HOLO_MIGRATION_READ_ONLY",
+  "env_value": "1",
+  "etl_run_id": "019fbfd4-5a08-7a32-ae4e-805c9ac2609e",
+  "etl_report_path": "/Users/inference1/Projects/holocron/.tmp/D06-04/watermark-report.json",
+  "unexplainedVariance": 0,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/flip-report.json"
+}

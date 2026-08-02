@@ -1,0 +1,24 @@
+@@GATE-META step=1@@
+      "duration_ms": 90,
+      "pass": true,
+      "collectedTests": null,
+      "stdout_tail": "holo verify:no-convex-client — CAP-CUT-01 build gate\n  scanned_roots (4): app, components, hooks, screens\n  zero convex/react client imports (clean)\n  status: OK\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "no-convex-env",
+      "command": "bun services/platform/src/cli/holo.ts verify-no-convex-env",
+      "exit_code": 1,
+      "duration_ms": 90,
+      "pass": false,
+      "collectedTests": null,
+      "stdout_tail": "holo verify-no-convex-env — T-PLAT-017 build gate\n  scanned: app, holocron-mcp, services/platform\n  Found 9 Convex env aliases\n\nservices/platform/tests/integration/write-fence-red.helpers.ts: EXPO_PUBLIC_CONVEX_URL\n  L433: process.env.EXPO_PUBLIC_CONVEX_URL ??\nservices/platform/tests/integration/write-fence-red.helpers.ts: CONVEX_URL\n  L435: process.env.CONVEX_URL;\nservices/platform/tests/integration/write-fence-red.helpers.ts: EXPO_PUBLIC_CONVEX_URL\n  L438: 'EXPO_PUBLIC_CONVEX_URL (or VITE_CONVEX_HTTP_URL) is required for Convex fence RED tests'\nservices/platform/src/cutover/convex-fence-client.ts: EXPO_PUBLIC_CONVEX_URL\n  L87: process.env.EXPO_PUBLIC_CONVEX_URL ??\nservices/platform/src/cutover/convex-fence-client.ts: CONVEX_URL\n  L89: process.env.CONVEX_URL;\nservices/platform/src/cutover/convex-fence-client.ts: EXPO_PUBLIC_CONVEX_URL\n  L92: 'EXPO_PUBLIC_CONVEX_URL (or CONVEX_URL) is required for cutover fence operations'\nservices/platform/src/cutover/article-baseline.ts: EXPO_PUBLIC_CONVEX_URL\n  L50: process.env.EXPO_PUBLIC_CONVEX_URL ??\nservices/platform/src/cutover/article-baseline.ts: CONVEX_URL\n  L52: process.env.CONVEX_URL;\nservices/platform/src/cutover/article-baseline.ts: EXPO_PUBLIC_CONVEX_URL\n  L57: 'EXPO_PUBLIC_CONVEX_SITE_URL (or EXPO_PUBLIC_CONVEX_URL) required for article baseline'\n  status: FAIL\n",
+      "stderr_tail": ""
+    }
+  ],
+  "report_path": "/Users/inference1/Projects/holocron/go-no-go-report.json",
+  "failed_count": 5
+}
+true
+exit=0
+@@GATE-EXIT=0@@

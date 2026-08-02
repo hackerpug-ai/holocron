@@ -1,0 +1,4 @@
+@@GATE-META step=2 cmd_sha=e3db18fdf3103dc77c433968691cc8c2981843b31e2ae71f777005ac5ca9607d@@
+CMD: bun services/platform/src/cli/holo.ts cutover:freeze --reason sprint29-human-gate --json
+(eval):47: no such file or directory: bun services/platform/src/cli/holo.ts cutover:freeze --reason sprint29-human-gate --json
+@@GATE-EXIT=4@@

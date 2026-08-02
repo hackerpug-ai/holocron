@@ -1,0 +1,42 @@
+        "name": "audio-transcript-job-processor",
+        "ok": true,
+        "error": null,
+        "writeBlocked": false
+      },
+      {
+        "name": "document-embedding-backfill",
+        "ok": true,
+        "error": null,
+        "writeBlocked": false
+      },
+      {
+        "name": "research-embedding-backfill",
+        "ok": true,
+        "error": null,
+        "writeBlocked": false
+      },
+      {
+        "name": "improvements-embedding-backfill",
+        "ok": true,
+        "error": null,
+        "writeBlocked": false
+      },
+      {
+        "name": "morning-digest",
+        "ok": true,
+        "error": null,
+        "writeBlocked": false
+      }
+    ]
+  },
+  "jobsTotal": 16,
+  "jobsAccounted": 0,
+  "zeroWritePath": {
+    "status": "NOT_LANDED",
+    "note": "No Zero mutator/write surface landed at c7873378 — reported loudly, not omitted"
+  },
+  "engaged": false,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/verify-soak-report.json"
+}
+false
+@@GATE-EXIT=1@@

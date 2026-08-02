@@ -1,0 +1,12 @@
+@@GATE-META step=5 cmd_sha=48a7609f11c30596128ad17dad053f0db79a9b844bc38d463510e4fba840b191@@
+CMD: jq -e ".overall.ok == true" .tmp/D06-05/verify-soak-cli.json
+{
+  "overall": {
+    "ok": true
+  },
+  "toolsPassed": null,
+  "toolsTotal": null,
+  "jobsAccounted": 16
+}
+true
+@@GATE-EXIT=0@@

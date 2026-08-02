@@ -1,7 +1,7 @@
 ---
 sequence: 29
 timeline: Phase 7 — Cutover and Decommission
-status: In Progress
+status: Completed
 planned_from_roadmap_sha: 7d4a01d8dd1ab646c021f97e45df3ad1a5ea4a50a1d651a52f6cdb0c7dffa402
 planned_from_source_sha: c787337843cc4f0066795a6a28b28cffd01dd253
 source_kind: git-head
@@ -13,8 +13,9 @@ capability_coverage: [CAP-CUT-01, CAP-MIG-01]
 
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
-> Progress: 5/5 tasks completed · updated 2026-08-02T00:36:19Z
+**Status:** Completed
+> Progress: 5/5 tasks completed · updated 2026-08-02T00:46:56Z
+> Status-Note: goal met — 5/5 tasks · e2e PASS · human-test 6/6 · trunk consolidated
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`

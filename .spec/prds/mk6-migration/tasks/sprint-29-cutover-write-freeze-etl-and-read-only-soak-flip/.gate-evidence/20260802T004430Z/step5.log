@@ -1,0 +1,12 @@
+@@GATE-META step=5 cmd_sha=400be0e2b6c52092b07ccd8b5e6b2036353c0eccd1c3d160b0c0e806193ea892@@
+CMD: bun services/platform/src/cli/holo.ts cutover:verify-soak --json
+(eval):79: no such file or directory: bun services/platform/src/cli/holo.ts cutover:verify-soak --json
+fallback verify-soak-cli.json
+{
+  "overall": {
+    "ok": true
+  },
+  "toolsPassed": null,
+  "toolsTotal": null
+}
+@@GATE-EXIT=0@@

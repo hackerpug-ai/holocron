@@ -1,0 +1,4 @@
+@@GATE-META step=6 cmd_sha=33c06470d4e15d913ddc67e91bafe27c9731e729e28a2105daf287b24d9b53f3@@
+CMD: HOLO_MIGRATION_READ_ONLY=1 bun -e 'import { createHonoApp } from "./services/platform/src/http/hono-app.ts"; const app=createHonoApp({keys:{rn:"rn-test-key",control:"c",mcp:"m"}}); const r=await app.request("/api/documents",{method:"POST",headers:{authorization:"Bearer rn-test-key","content-type":"application/json"},body:JSON.stringify({title:"g",content:"x"})}); const body=await r.json().catch(()=>({})); console.log(JSON.stringify({status:r.status,body})); process.exit(r.status===423&&(body.error==="migration_read_only"||body.code==="migration_read_only")?0:1);'
+{"status":423,"body":{"error":"migration_read_only","code":"migration_read_only"}}
+@@GATE-EXIT=0@@

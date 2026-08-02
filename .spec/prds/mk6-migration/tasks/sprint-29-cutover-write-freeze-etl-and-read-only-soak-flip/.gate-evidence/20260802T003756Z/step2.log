@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "fence_armed_at": 1785631335242,
+  "env": "HOLO_MIGRATION_READ_ONLY",
+  "env_value": "1",
+  "reason": "sprint29-human-gate",
+  "audit_id": "vn72c3fmjp178wryaj9fmsype98bp27a",
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-03/freeze-report.json"
+}
+true
+@@GATE-EXIT=0@@
