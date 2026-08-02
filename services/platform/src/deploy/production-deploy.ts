@@ -10,7 +10,6 @@ import {
   assertSourceRevision,
   composeSha256,
   defaultComposePath,
-  preflightRollback,
   REQUIRED_SERVICES,
   type ReleaseLock,
 } from './production-release.ts';
@@ -268,6 +267,57 @@ function composeArgs(project: string, composePath: string, overridePath: string)
   return ['compose', '-p', project, '-f', composePath, '-f', overridePath];
 }
 
+function verifyLockedImage(options: {
+  runner: DeploymentRunner;
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  image: string;
+  digest: string;
+  sourceRevision?: string;
+}): void {
+  // Docker 29 / buildx 0.30 exposes the index digest under Manifest.Digest.
+  const remoteDigest = runOrFail(options.runner, options.cwd, options.env, 'docker', [
+    'buildx',
+    'imagetools',
+    'inspect',
+    '--format',
+    '{{.Manifest.Digest}}',
+    options.image,
+  ]);
+  if (remoteDigest !== options.digest) {
+    deployFail(`remote manifest digest differs from lock for ${options.image}`);
+  }
+  runOrFail(options.runner, options.cwd, options.env, 'docker', ['pull', options.image]);
+  const repoDigestsRaw = runOrFail(options.runner, options.cwd, options.env, 'docker', [
+    'image',
+    'inspect',
+    '--format',
+    '{{json .RepoDigests}}',
+    options.image,
+  ]);
+  let repoDigests: unknown;
+  try {
+    repoDigests = JSON.parse(repoDigestsRaw);
+  } catch {
+    deployFail(`Docker returned invalid RepoDigests for ${options.image}`);
+  }
+  if (!Array.isArray(repoDigests) || !repoDigests.includes(options.image)) {
+    deployFail(`local image does not retain exact RepoDigest ${options.image}`);
+  }
+  if (options.sourceRevision) {
+    const revision = runOrFail(options.runner, options.cwd, options.env, 'docker', [
+      'image',
+      'inspect',
+      '--format',
+      '{{index .Config.Labels "org.opencontainers.image.revision"}}',
+      options.image,
+    ]);
+    if (revision !== options.sourceRevision) {
+      deployFail('candidate OCI source revision differs from the release lock');
+    }
+  }
+}
+
 function portFromBaseUrl(baseUrl: string): number {
   const url = new URL(baseUrl);
   const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
@@ -315,25 +365,26 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     HOLO_POSTGRES_VOLUME: 'holocron-postgres',
     HOLO_BLOB_VOLUME: 'holocron-blobs',
   };
+  const runner = options.runner ?? defaultRunner;
   if (!options.skipImagePreflight) {
-    const previous = { ...process.env };
-    Object.assign(process.env, env);
-    try {
-      preflightRollback({ composePath, lockPath: releasePath, cwd });
-    } finally {
-      for (const key of Object.keys(process.env)) {
-        if (!(key in previous)) delete process.env[key];
-      }
-      Object.assign(process.env, previous);
-    }
+    verifyLockedImage({
+      runner,
+      cwd,
+      env,
+      image: lock.image,
+      digest: lock.digest,
+      sourceRevision: lock.sourceRevision,
+    });
+    verifyLockedImage({
+      runner,
+      cwd,
+      env,
+      image: lock.previousImage,
+      digest: lock.previousDigest,
+    });
   }
-
   const prefix = composeArgs(project, composePath, overridePath);
-  const services = runOrFail(options.runner ?? defaultRunner, cwd, env, 'docker', [
-    ...prefix,
-    'config',
-    '--services',
-  ])
+  const services = runOrFail(runner, cwd, env, 'docker', [...prefix, 'config', '--services'])
     .split(/\s+/)
     .filter(Boolean)
     .sort();
@@ -342,7 +393,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
   if (options.dryRun) deployFail('dry-run cannot produce an authorized deployment receipt');
 
-  runOrFail(options.runner ?? defaultRunner, cwd, env, 'docker', [
+  runOrFail(runner, cwd, env, 'docker', [
     ...prefix,
     'up',
     '-d',
@@ -351,7 +402,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     '--wait-timeout',
     '240',
   ]);
-  const running = runOrFail(options.runner ?? defaultRunner, cwd, env, 'docker', [
+  const running = runOrFail(runner, cwd, env, 'docker', [
     ...prefix,
     'ps',
     '--services',
@@ -367,17 +418,12 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
 
   const containers: Record<string, string> = {};
   for (const service of REQUIRED_SERVICES) {
-    const id = runOrFail(options.runner ?? defaultRunner, cwd, env, 'docker', [
-      ...prefix,
-      'ps',
-      '-q',
-      service,
-    ]);
+    const id = runOrFail(runner, cwd, env, 'docker', [...prefix, 'ps', '-q', service]);
     if (!/^[a-f0-9]{12,64}$/.test(id)) deployFail(`container id missing for ${service}`);
     containers[service] = id;
   }
   for (const service of ['mastra', 'scheduler'] as const) {
-    const actualImage = runOrFail(options.runner ?? defaultRunner, cwd, env, 'docker', [
+    const actualImage = runOrFail(runner, cwd, env, 'docker', [
       'inspect',
       '--format',
       '{{.Config.Image}}',
