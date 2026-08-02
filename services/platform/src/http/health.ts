@@ -8,9 +8,9 @@
  * the durable serving control-plane (fresh re-read every request — never cached).
  */
 
-import postgres from "postgres";
-import { resolveObservedDataPlane } from "../cutover/soak-fence.ts";
-import { DATABASE_URL } from "../mastra.ts";
+import postgres from 'postgres';
+import { resolveObservedDataPlane } from '../cutover/soak-fence.ts';
+import { DATABASE_URL } from '../mastra.ts';
 import {
   isProcessQueueReady,
   probeQueueBackend,
@@ -19,14 +19,11 @@ import {
   setProcessQueueReady,
   startQueueBackend,
   stopQueueBackend,
-} from "../queue/backend.ts";
-import {
-  type DeploymentIdentityProbe,
-  readDeploymentIdentity,
-} from "./deployment-identity.ts";
+} from '../queue/backend.ts';
+import { type DeploymentIdentityProbe, readDeploymentIdentity } from './deployment-identity.ts';
 
 /** Fleet base as required by AC-2 (no /v1 suffix on the reported endpoint). */
-export const DEFAULT_FLEET_ENDPOINT = "http://127.0.0.1:4545";
+export const DEFAULT_FLEET_ENDPOINT = 'http://127.0.0.1:4545';
 
 /**
  * @deprecated Process-local adapter kept for type-compat only.
@@ -54,7 +51,7 @@ export class ProcessLocalQueue {
  */
 export class PostgresQueue {
   #started = false;
-  #backend: QueueBackendName = "pg-boss";
+  #backend: QueueBackendName = 'pg-boss';
   #databaseUrl: string;
 
   constructor(databaseUrl = DATABASE_URL) {
@@ -73,10 +70,7 @@ export class PostgresQueue {
     this.#started = true;
     setProcessQueueReady(true);
     void this.start().catch((err) => {
-      console.error(
-        "[queue] start failed:",
-        err instanceof Error ? err.message : String(err),
-      );
+      console.error('[queue] start failed:', err instanceof Error ? err.message : String(err));
       this.#started = false;
       setProcessQueueReady(false);
     });
@@ -122,7 +116,7 @@ export type EndpointProbeResult = ProbeResult & {
 };
 
 export type HealthBody = {
-  status: "ok" | "degraded";
+  status: 'ok' | 'degraded';
   db: ProbeResult;
   /** Production alias retained alongside db for explicit dependency reporting. */
   postgres: ProbeResult;
@@ -130,15 +124,9 @@ export type HealthBody = {
   queue: ProbeResult;
   zeroCache: EndpointProbeResult;
   deployment: DeploymentIdentityProbe;
-  failing_dependency:
-    | "postgres"
-    | "fleet"
-    | "queue"
-    | "zero-cache"
-    | "deployment"
-    | null;
+  failing_dependency: 'postgres' | 'fleet' | 'queue' | 'zero-cache' | 'deployment' | null;
   host: string | null;
-  runtime: "container" | null;
+  runtime: 'container' | null;
   imageDigest: string | null;
   sourceRevision: string | null;
   composeGeneration: string | null;
@@ -182,9 +170,7 @@ function elapsedMs(start: number): number {
  * Probe Postgres with a real SELECT 1 against the same connection string
  * used by PostgresStore (DATABASE_URL / mastra.ts default).
  */
-export async function probeDb(
-  connectionString = DATABASE_URL,
-): Promise<ProbeResult> {
+export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeResult> {
   const start = performance.now();
   const sql = postgres(connectionString, {
     max: 1,
@@ -209,18 +195,17 @@ export async function probeDb(
  * Hits /v1/models (OpenAI-compatible) — real HTTP, not a static flag.
  */
 export async function probeFleet(
-  endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, "") ??
-    DEFAULT_FLEET_ENDPOINT,
+  endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT
 ): Promise<FleetProbeResult> {
-  const base = endpoint.replace(/\/$/, "");
+  const base = endpoint.replace(/\/$/, '');
   const start = performance.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3000);
   try {
     const res = await fetch(`${base}/v1/models`, {
-      method: "GET",
+      method: 'GET',
       signal: controller.signal,
-      headers: { accept: "application/json" },
+      headers: { accept: 'application/json' },
     });
     const ready = res.ok;
     return {
@@ -252,7 +237,7 @@ export type QueueLike = {
  */
 export async function probeQueue(
   queue: QueueLike = serviceQueue,
-  databaseUrl?: string,
+  databaseUrl?: string
 ): Promise<ProbeResult> {
   const start = performance.now();
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -266,19 +251,16 @@ export async function probeQueue(
       timeout = setTimeout(
         () =>
           resolveTimeout({
-            backend: "pg-boss",
+            backend: 'pg-boss',
             ready: false,
             placeholder: false,
-            detail: "queue probe timed out",
+            detail: 'queue probe timed out',
             error: `queue probe exceeded ${timeoutMs}ms`,
           }),
-        timeoutMs,
+        timeoutMs
       );
     });
-    const backend = await Promise.race([
-      probeQueueBackend(databaseUrl ?? DATABASE_URL),
-      timedOut,
-    ]);
+    const backend = await Promise.race([probeQueueBackend(databaseUrl ?? DATABASE_URL), timedOut]);
     // Process adapter must also be started (composition root startSync).
     const processReady = queue.isReady();
     const ready = backend.ready && processReady;
@@ -289,9 +271,7 @@ export async function probeQueue(
       ...(ready
         ? {}
         : {
-            error:
-              backend.error ??
-              (processReady ? backend.detail : "queue not started"),
+            error: backend.error ?? (processReady ? backend.detail : 'queue not started'),
           }),
     };
   } catch (err) {
@@ -309,18 +289,16 @@ export async function probeQueue(
 /** Probe zero-cache's real keepalive endpoint. */
 export async function probeZeroCache(
   endpoint = process.env.ZERO_CACHE_URL,
-  required = process.env.HOLO_PRODUCTION_READINESS === "1",
+  required = process.env.HOLO_PRODUCTION_READINESS === '1'
 ): Promise<EndpointProbeResult> {
   const start = performance.now();
-  const raw = endpoint?.trim() ?? "";
+  const raw = endpoint?.trim() ?? '';
   if (!raw) {
     return {
       ready: !required,
       endpoint: null,
       latency_ms: elapsedMs(start),
-      ...(required
-        ? { error: "ZERO_CACHE_URL is required for production readiness" }
-        : {}),
+      ...(required ? { error: 'ZERO_CACHE_URL is required for production readiness' } : {}),
     };
   }
   let base: string;
@@ -331,15 +309,15 @@ export async function probeZeroCache(
       ready: false,
       endpoint: raw,
       latency_ms: elapsedMs(start),
-      error: "ZERO_CACHE_URL is invalid",
+      error: 'ZERO_CACHE_URL is invalid',
     };
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3_000);
   try {
     const response = await fetch(`${base}/keepalive`, {
-      method: "GET",
-      headers: { accept: "application/json, text/plain, */*" },
+      method: 'GET',
+      headers: { accept: 'application/json, text/plain, */*' },
       signal: controller.signal,
     });
     return {
@@ -375,12 +353,8 @@ export async function runHealthCheck(options?: {
   deploymentEnv?: NodeJS.ProcessEnv;
   processFacts?: { pid?: number; uptimeMs?: number };
 }): Promise<HealthResponse> {
-  const strictReadiness =
-    options?.strictReadiness ?? process.env.HOLO_PRODUCTION_READINESS === "1";
-  const deployment = readDeploymentIdentity(
-    options?.deploymentEnv,
-    options?.processFacts,
-  );
+  const strictReadiness = options?.strictReadiness ?? process.env.HOLO_PRODUCTION_READINESS === '1';
+  const deployment = readDeploymentIdentity(options?.deploymentEnv, options?.processFacts);
   const [db, fleet, queue, zeroCache] = await Promise.all([
     probeDb(options?.databaseUrl),
     probeFleet(options?.fleetEndpoint),
@@ -388,22 +362,17 @@ export async function runHealthCheck(options?: {
     probeZeroCache(options?.zeroCacheEndpoint, strictReadiness),
   ]);
 
-  const allReady =
-    db.ready &&
-    fleet.ready &&
-    queue.ready &&
-    zeroCache.ready &&
-    deployment.ready;
+  const allReady = db.ready && fleet.ready && queue.ready && zeroCache.ready && deployment.ready;
   const failingDependency = !db.ready
-    ? "postgres"
+    ? 'postgres'
     : !fleet.ready
-      ? "fleet"
+      ? 'fleet'
       : !queue.ready
-        ? "queue"
+        ? 'queue'
         : !zeroCache.ready
-          ? "zero-cache"
+          ? 'zero-cache'
           : !deployment.ready
-            ? "deployment"
+            ? 'deployment'
             : null;
   // Fresh control-plane re-read every health request (R2-C04 live ack surface)
   const observed = resolveObservedDataPlane();
@@ -411,14 +380,14 @@ export async function runHealthCheck(options?: {
     process.env.HOLO_SERVICE_LABEL ??
     process.env.HOLO_VERIFY_SERVICE_LABEL ??
     process.env.HOLO_SOAK_SERVICE_LABEL ??
-    "";
+    '';
   const generationRaw =
     process.env.HOLO_GENERATION ??
     process.env.HOLO_VERIFY_GENERATION ??
     process.env.HOLO_SOAK_GENERATION ??
-    "";
+    '';
   const body: HealthBody = {
-    status: allReady ? "ok" : "degraded",
+    status: allReady ? 'ok' : 'degraded',
     db: {
       ready: db.ready,
       latency_ms: db.latency_ms,
@@ -463,13 +432,9 @@ export async function runHealthCheck(options?: {
     },
     // R3-C03: identity bound to this already-listening process (never caller-minted).
     pid: options?.processFacts?.pid ?? process.pid,
-    service_label:
-      serviceLabelRaw.trim().length > 0 ? serviceLabelRaw.trim() : null,
+    service_label: serviceLabelRaw.trim().length > 0 ? serviceLabelRaw.trim() : null,
     generation: generationRaw.trim().length > 0 ? generationRaw.trim() : null,
-    uptime_ms: Math.max(
-      1,
-      Math.ceil(options?.processFacts?.uptimeMs ?? process.uptime() * 1000),
-    ),
+    uptime_ms: Math.max(1, Math.ceil(options?.processFacts?.uptimeMs ?? process.uptime() * 1000)),
   };
 
   if (!db.ready || (strictReadiness && !allReady)) {
