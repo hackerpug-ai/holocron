@@ -133,6 +133,10 @@ function materializeEmptyExport(): {
 
 function seedQuietCheck(ok = true): string {
   const path = resolve(EVIDENCE, 'quiet-check-report.json');
+  // C-03: D06-04 assertQuietCheckConfirmed requires drain + measured post-drain window.
+  const drainCompletedAtMs = Date.now() - 35_000;
+  const quietSinceMs = drainCompletedAtMs;
+  const quietUntilMs = quietSinceMs + 30_000;
   writeFileSync(
     path,
     `${JSON.stringify(
@@ -143,7 +147,22 @@ function seedQuietCheck(ok = true): string {
         auditAcceptedWriteCount: 0,
         auditRejectedWriteCount: 2,
         windowSeconds: 30,
-        oracle: 'live_probes',
+        oracle: 'mixed',
+        sinceMs: quietSinceMs,
+        untilMs: quietUntilMs,
+        quietSinceMs,
+        quietUntilMs,
+        elapsedMs: quietUntilMs - quietSinceMs,
+        drainCompletedAtMs,
+        drain: {
+          ok: true,
+          surfaces: ['crons', 'queues', 'outbox', 'scheduled_jobs'],
+          completedAtMs: drainCompletedAtMs,
+          disabledEnv: 'HOLO_CUTOVER_SCHEDULES_DISABLED',
+          disabledEnvValue: '1',
+          convexDrainOk: true,
+          consumersHonored: true,
+        },
       },
       null,
       2

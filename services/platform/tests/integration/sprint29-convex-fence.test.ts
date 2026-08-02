@@ -356,14 +356,23 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
   }, 60_000);
 
   it('TC-4/TC-5/AC-3: quiet-check acceptedWriteCount=0 rejectedWriteCount>0', async () => {
+    // C-03: use a short measured window so the suite stays practical; protocol still waits.
     const report = await runQuietCheck({
-      windowSeconds: 30,
+      windowSeconds: 3,
       reportPath: resolve(EVIDENCE, 'quiet-check-report.json'),
     });
     evidence('quiet-check-report.json', report);
     expect(report.acceptedWriteCount).toBe(0);
     expect(report.rejectedWriteCount).toBeGreaterThan(0);
     expect(report.ok).toBe(true);
+    // C-03 drain + measured post-drain window
+    expect(report.drain.ok).toBe(true);
+    expect(report.drainCompletedAtMs).toBeGreaterThan(0);
+    expect(report.quietSinceMs).toBeGreaterThanOrEqual(report.drainCompletedAtMs);
+    expect(report.elapsedMs).toBeGreaterThanOrEqual(report.windowSeconds * 1000);
+    expect(report.quietUntilMs - report.drainCompletedAtMs).toBeGreaterThanOrEqual(
+      report.windowSeconds * 1000
+    );
   }, 180_000);
 
   it('TC-7/TC-9/AC-5: capture-article-baseline after fence with capturedAtMs > fence_armed_at', async () => {

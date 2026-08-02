@@ -1,0 +1,21 @@
+{
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 2,
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 2,
+  "oracle": "mixed",
+  "quietSinceMs": 1785636719955,
+  "drainCompletedAtMs": 1785636718944,
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ]
+}

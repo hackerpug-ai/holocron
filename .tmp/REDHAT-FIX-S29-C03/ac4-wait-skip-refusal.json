@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": {
+    "code": "QUIET_CHECK_REQUIRED",
+    "message": "Quiet-check window was not measured post-drain (elapsedMs=5, drainElapsed=5, need>=30000). Retrospective closed windows without wait are refused (C-03)."
+  }
+}

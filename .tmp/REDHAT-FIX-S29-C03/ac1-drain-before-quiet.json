@@ -1,0 +1,11 @@
+{
+  "drain_ok": true,
+  "drainCompletedAtMs": 1785636703457,
+  "surfaces": [
+    "crons",
+    "queues",
+    "outbox",
+    "scheduled_jobs"
+  ],
+  "quietSinceMs": 1785636704318
+}

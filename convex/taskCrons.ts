@@ -2,8 +2,10 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { internalQuery } from './_generated/server';
 import {
+  CUTOVER_SCHEDULES_DISABLED_ENV,
   fencedInternalAction as internalAction,
   fencedInternalMutation as internalMutation,
+  isCutoverSchedulesDisabled,
 } from './lib/migrationFence';
 
 /**
@@ -30,6 +32,17 @@ export const timeoutStuckTasks = internalAction({
     timeoutMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // C-03: real schedule consumer — honor HOLO_CUTOVER_SCHEDULES_DISABLED
+    // (also enforced by fencedInternalAction; explicit check for drain evidence).
+    if (isCutoverSchedulesDisabled()) {
+      return {
+        timed_out_count: 0,
+        timeout_minutes: args.timeoutMinutes ?? 60,
+        skipped: true,
+        reason: `${CUTOVER_SCHEDULES_DISABLED_ENV}=1`,
+      };
+    }
+
     const timeoutMinutes = args.timeoutMinutes ?? 60;
     const timeoutMs = timeoutMinutes * 60 * 1000;
     const now = Date.now();
@@ -106,6 +119,14 @@ export const timeoutTask = internalMutation({
     timeoutMinutes: v.number(),
   },
   handler: async (ctx, args) => {
+    // C-03: scheduled-job consumer honors HOLO_CUTOVER_SCHEDULES_DISABLED
+    if (isCutoverSchedulesDisabled()) {
+      return {
+        skipped: true,
+        reason: `${CUTOVER_SCHEDULES_DISABLED_ENV}=1`,
+      };
+    }
+
     await ctx.db.patch(args.taskId, {
       status: 'error',
       errorMessage: `Task timed out after running for ${args.runningTime} minutes (timeout: ${args.timeoutMinutes} minutes)`,
@@ -118,5 +139,6 @@ export const timeoutTask = internalMutation({
       completedAt: Date.now(),
       updatedAt: Date.now(),
     });
+    return { skipped: false };
   },
 });
