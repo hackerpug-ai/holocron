@@ -9,6 +9,9 @@
  *   3. Writes one job_runs side-effect row linked to the effect.
  *
  * `holo jobs:run-all` fires all 16 once; `holo jobs:list` reports the registry.
+ *
+ * REDHAT-FIX-S29-R3-H02: durable soak fence is re-checked at every irreversible
+ * step (not only runJob admission) so already-running / leased workers fail closed.
  */
 import { randomUUID } from 'node:crypto';
 import { isMigrationReadOnly, migrationReadOnlyJobError } from '../cutover/soak-fence.ts';
@@ -55,10 +58,29 @@ export type JobRunResult = {
   error: string | null;
 };
 
+function migrationBlockedResult(
+  job: Pick<MigratedJob, 'name' | 'category' | 'lane'>,
+  runKey: string
+): JobRunResult {
+  return {
+    name: job.name,
+    run_key: runKey,
+    category: job.category,
+    lane: job.lane,
+    effect_id: null,
+    fence_token: null,
+    ok: false,
+    error: migrationReadOnlyJobError(job.name),
+  };
+}
+
 /**
  * Fire ONE migrated job: durable outbox enqueue + fenced ack + job_runs row.
  * Also enqueues it into the leased priority queue (queue_jobs) so the leased
  * worker path observes the job with its lane priority recorded.
+ *
+ * Re-checks isMigrationReadOnly at every irreversible step (beginEffect,
+ * dispatchAndAck, job_runs INSERT) so a fence that arms mid-flight still blocks.
  */
 export async function runJob(
   job: MigratedJob,
@@ -71,21 +93,17 @@ export async function runJob(
 
   // D06-05 / D06-01: soak fence — return ok:false (never throw) before beginEffect
   if (isMigrationReadOnly()) {
-    return {
-      name: job.name,
-      run_key: runKey,
-      category: job.category,
-      lane: job.lane,
-      effect_id: null,
-      fence_token: null,
-      ok: false,
-      error: migrationReadOnlyJobError(job.name),
-    };
+    return migrationBlockedResult(job, runKey);
   }
 
   const sql = createSql(url);
   try {
     await ensureJobRunsSchema(sql);
+
+    // Re-check immediately before irreversible outbox intent.
+    if (isMigrationReadOnly()) {
+      return migrationBlockedResult(job, runKey);
+    }
 
     // Durable effect: outbox intent → fenced ack (exactly-once observable effect).
     await beginEffect({
@@ -94,9 +112,17 @@ export async function runJob(
       payload,
       databaseUrl: url,
     });
-    const ack = await dispatchAndAck({ key: runKey, databaseUrl: url });
+
+    // Re-check after outbox commit, before irreversible effect application.
+    // Covers the TOCTOU where fence arms between admission and effect.
+    if (isMigrationReadOnly()) {
+      return migrationBlockedResult(job, runKey);
+    }
+
+    const ack = await dispatchAndAck({ key: runKey, name: job.name, databaseUrl: url });
 
     // Enqueue into the leased priority queue so the lane is observable there too.
+    // Best-effort observability only — never a second irreversible business write.
     await enqueue({
       name: job.name,
       lane: job.lane,
@@ -109,6 +135,7 @@ export async function runJob(
     });
 
     // Observable side-effect row (the former Convex cron side effect).
+    // Recorded only after a successful irreversible effect application.
     const rows = await sql<{ id: string }[]>`
       INSERT INTO job_runs (job_name, run_key, category, lane, effect_id, fence_token)
       VALUES (
@@ -149,6 +176,140 @@ export async function runJob(
     };
   } finally {
     await sql.end({ timeout: 5 });
+  }
+}
+
+/**
+ * Apply the irreversible durable effect for work that is already mid-flight
+ * (outbox intent committed and/or queue_jobs row already leased).
+ *
+ * This is the already-running / leased worker path — it does NOT short-circuit
+ * only at runJob admission. The durable fence is re-checked at dispatchAndAck.
+ *
+ * REDHAT-FIX-S29-R3-H02.
+ */
+export async function applyIrreversibleJobEffect(opts: {
+  key: string;
+  jobName: string;
+  category?: string;
+  lane?: 'interactive' | 'background';
+  databaseUrl?: string;
+}): Promise<JobRunResult> {
+  const runKey = opts.key;
+  const job = {
+    name: opts.jobName,
+    category: opts.category ?? 'janitor',
+    lane: opts.lane ?? 'background',
+  } as MigratedJob;
+
+  if (isMigrationReadOnly()) {
+    return migrationBlockedResult(job, runKey);
+  }
+
+  try {
+    // Fresh re-check at the irreversible boundary (defense in depth with
+    // dispatchAndAck's own fence check).
+    if (isMigrationReadOnly()) {
+      return migrationBlockedResult(job, runKey);
+    }
+    const ack = await dispatchAndAck({
+      key: opts.key,
+      name: opts.jobName,
+      databaseUrl: opts.databaseUrl,
+    });
+    return {
+      name: opts.jobName,
+      run_key: runKey,
+      category: job.category,
+      lane: job.lane,
+      effect_id: ack.effectId,
+      fence_token: ack.fenceToken,
+      ok: true,
+      error: null,
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    return {
+      name: opts.jobName,
+      run_key: runKey,
+      category: job.category,
+      lane: job.lane,
+      effect_id: null,
+      fence_token: null,
+      ok: false,
+      error,
+    };
+  }
+}
+
+/**
+ * Process an already-leased priority-queue job under the soak fence.
+ * Acquires no new lease — caller must already hold `leased` from dequeue().
+ * Fail-closed when the durable fence is armed at effect time.
+ */
+export async function processLeasedJob(
+  leased: {
+    id: string;
+    name: string;
+    lane: 'interactive' | 'background';
+    fence_token?: string | null;
+  },
+  opts: { databaseUrl?: string; category?: string; runId?: string } = {}
+): Promise<JobRunResult> {
+  const url = opts.databaseUrl ?? DEFAULT_URL();
+  const runId = opts.runId ?? randomUUID();
+  const runKey = `leased-job:${leased.name}:${leased.id}:${runId}`;
+  const category = opts.category ?? 'janitor';
+  const job = {
+    name: leased.name,
+    category,
+    lane: leased.lane,
+  } as MigratedJob;
+
+  if (isMigrationReadOnly()) {
+    return migrationBlockedResult(job, runKey);
+  }
+
+  const payload = {
+    job: leased.name,
+    lane: leased.lane,
+    leasedId: leased.id,
+    leaseFence: leased.fence_token ?? null,
+    runId,
+  };
+
+  try {
+    if (isMigrationReadOnly()) {
+      return migrationBlockedResult(job, runKey);
+    }
+    await beginEffect({
+      key: runKey,
+      name: leased.name,
+      payload,
+      databaseUrl: url,
+    });
+    if (isMigrationReadOnly()) {
+      return migrationBlockedResult(job, runKey);
+    }
+    return await applyIrreversibleJobEffect({
+      key: runKey,
+      jobName: leased.name,
+      category,
+      lane: leased.lane,
+      databaseUrl: url,
+    });
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    return {
+      name: leased.name,
+      run_key: runKey,
+      category,
+      lane: leased.lane,
+      effect_id: null,
+      fence_token: null,
+      ok: false,
+      error,
+    };
   }
 }
 

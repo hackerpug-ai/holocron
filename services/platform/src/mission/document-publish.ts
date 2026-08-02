@@ -2,8 +2,12 @@
  * Idempotent document publish for standing missions (pipes-3 AC-4 / TC-4).
  *
  * Atomic path: INSERT … ON CONFLICT (source_run_id) DO NOTHING / read-back.
+ *
+ * REDHAT-FIX-S29-R3-H02: soak fence — refuse document writes when
+ * isMigrationReadOnly() is armed (fresh durable/env re-read every call).
  */
 import { randomUUID } from 'node:crypto';
+import { isMigrationReadOnly, migrationReadOnlyMissionError } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
 
 export type PublishDocumentInput = {
@@ -32,6 +36,10 @@ export async function publishDocumentForRun(
   sql: SqlExecutor,
   input: PublishDocumentInput
 ): Promise<PublishDocumentResult> {
+  // Fail closed before any INSERT — irreversible document side effect.
+  if (isMigrationReadOnly()) {
+    throw new Error(migrationReadOnlyMissionError('publish'));
+  }
   const sourceRunId = input.sourceRunId.trim();
   if (!/^[0-9a-f-]{36}$/i.test(sourceRunId)) {
     throw new Error(`publishDocumentForRun requires uuid sourceRunId; got ${sourceRunId}`);

@@ -251,6 +251,25 @@ export function migrationReadOnlyJobError(jobName: string): string {
   return `migration_read_only: ${jobName} blocked while ${MIGRATION_READ_ONLY_ENV} is set`;
 }
 
+/** Mission / document-publish rejection — lowercase prefix (REDHAT-FIX-S29-R3-H02). */
+export function migrationReadOnlyMissionError(surface: string): string {
+  return `migration_read_only: mission ${surface} blocked while ${MIGRATION_READ_ONLY_ENV} is set`;
+}
+
+/**
+ * Fail-closed write chokepoint helper. Throws Error with `migration_read_only:`
+ * prefix when the durable/env fence is armed. Re-resolve every call (never cache).
+ */
+export function assertMigrationWritable(surface: string): void {
+  if (isMigrationReadOnly()) {
+    throw new Error(
+      surface.startsWith('mission ')
+        ? migrationReadOnlyMissionError(surface.slice('mission '.length))
+        : `migration_read_only: ${surface} blocked while ${MIGRATION_READ_ONLY_ENV} is set`
+    );
+  }
+}
+
 // ── Mutation-tool classification (static manifest; ok to cache ids) ─────────
 
 let _mutationIds: Set<string> | null = null;
