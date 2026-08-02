@@ -47,15 +47,20 @@ Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where
 
 **Dispatcher (required):** `bun services/platform/src/cli/holo.ts` — do not use a PATH `holo` stub.
 
+**Authoritative plan:** `gate-plan.json` (remediated by REDHAT-FIX-S29-H03). Every step is a real cutover CLI action plus a conjunctive multi-field jq oracle — never jq-only peeks on pre-baked `.tmp` JSON, never any-of freeze fields, never `overall.ok` with null `toolsPassed`/`toolsTotal`.
+
+**Oracle suite:** `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts`
+
 ## Human Test Deliverable
 
-**Test Steps:**
-1. Run the full harness suite against the new stack — green, while Convex still serves production.
-2. Trigger the write fence — Convex mutations/actions/uploads/webhooks all reject with a fenced error.
-3. Drain crons and queues, observe the quiet interval — zero in-flight writes remain.
-4. Run the one-time ETL — reconciliation report shows zero unexplained variance.
-5. Flip app plus MCP to the new backend — reads pass, all 44 tools pass, `/article/` byte-matches.
-6. Attempt a write on any surface during soak — every path returns `migration_read_only`.
+**Test Steps** (1:1 with `gate-plan.json`; each action uses the dispatcher above):
+
+1. **`cutover:go-no-go`** — Run the full harness suite against the new stack. Pass only when `overall.ok==true` and `failed_count==0` (and eight gates collected; never `gates|length==8` alone). Coordinates with REDHAT-FIX-S29-C01.
+2. **`cutover:freeze`** — Arm the write fence. Pass only when `ok==true` **and** `env_value=="1"` **and** `fence_armed_at>0` (require-all; never any-of).
+3. **`cutover:quiet-check`** — Drain crons/queues and observe the quiet interval. Pass only when `acceptedWriteCount==0` **and** `rejectedWriteCount>0` **and** `windowSeconds>=` declared window **and** `ok==true`.
+4. **`cutover:run-etl`** — Run the one-time ETL (CAP-MIG-01). Pass only when `ok==true` **and** `unexplainedVariance==0` **and** non-empty source **and** `fkAudit.ok` **and** `vectors.ok` **and** `stages.nonEmpty==true`.
+5. **`cutover:flip` + `cutover:verify-soak`** — Flip app plus MCP into read-only soak and verify. Pass only when `overall.ok==true` **and** non-null `toolsPassed==toolsTotal` with `toolsTotal>0` **and** `jobsAccounted==jobsTotal` **and** `article.ok` **and** `honoWrite.ok` **and** `reads.ok` **and** explicit `zeroWritePath`.
+6. **Write probe (`migration_read_only`)** — Attempt a write on a real Hono surface during soak. Pass only when status is **423** and body `error`/`code` is `migration_read_only`. Residual until REDHAT-FIX-S29-C02: process-local env engagement cannot alone prove distributed flip propagation; the body oracle remains mandatory.
 
 ## Tasks
 
