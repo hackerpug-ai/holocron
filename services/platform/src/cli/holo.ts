@@ -37,6 +37,7 @@
  * Sprint 28 D05-02: restore | restore:pitr | restore:status — pgBackRest PITR into --scratch
  * Sprint 28 D05-04: restore:fire-drill — full Postgres+blob restore parity (CAP-BAK-01)
  * Sprint 29 D06-02: cutover:go-no-go — full harness suite go/no-go (T-SYNC-008 / CAP-CUT-01)
+ * Sprint 29 D06-04: cutover:run-etl — watermark + convex export + one-time ETL (T-SYNC-009)
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -309,6 +310,11 @@ Usage:
   cutover:quiet-check       D06-03 quiet interval oracle [--window-seconds N] [--json] [--output]
   cutover:capture-article-baseline
                             D06-03 post-freeze article sha256 baseline --token <t> [--json] [--output]
+  cutover:run-etl           D06-04 watermark + real convex export + one-time ETL (CAP-MIG-01)
+                            [--json] [--output <watermark-report.json>] [--export <dir>]
+                            Default: real npx convex export (runConvexExport). --export reuses archive.
+                            Fail-closed: FENCE_NOT_ENGAGED, QUIET_CHECK_REQUIRED (missing/quiet_ok!=true).
+                            Re-run with --export <prior> to resume same archive without row dupes.
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
@@ -3186,6 +3192,49 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:capture-article-baseline failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:run-etl': {
+      // D06-04 / T-SYNC-009 / CAP-MIG-01: watermark → export → ETL → zero unexplained variance
+      const { runCutoverEtl, formatCutoverEtlText, FENCE_NOT_ENGAGED } = await import(
+        '../cutover/etl-orchestrate.ts'
+      );
+      const { defaultWatermarkReportPath } = await import('../cutover/export-watermark.ts');
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultWatermarkReportPath(process.cwd());
+        const result = await runCutoverEtl({
+          reportPath,
+          catalogPath: args.catalogPath,
+          exportDir: args.exportDir,
+          blobRoot: args.blobRoot ?? undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(formatCutoverEtlText(result));
+        }
+        if (!result.ok) {
+          const code =
+            'error' in result &&
+            result.error &&
+            typeof result.error === 'object' &&
+            'code' in result.error
+              ? String((result.error as { code: string }).code)
+              : 'ETL_FAILED';
+          process.exit(code === FENCE_NOT_ENGAGED ? 2 : 1);
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:run-etl failed: ${msg}`);
         }
         process.exit(1);
       }
