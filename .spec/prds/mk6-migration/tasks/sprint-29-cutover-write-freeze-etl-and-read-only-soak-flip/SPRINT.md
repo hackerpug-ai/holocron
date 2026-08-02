@@ -14,8 +14,8 @@ capability_coverage: [CAP-CUT-01, CAP-MIG-01]
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: 5/5 tasks completed · updated 2026-08-02T02:19:50Z
-> Status-Note: post-remediation review blocked at cab5c071 — 4 CRITICAL, 4 HIGH; cycle-2 fixes required
+> Progress: 5/5 tasks completed · updated 2026-08-02T03:41:18Z
+> Status-Note: post-R2 independent red-hat BLOCK @ 03bdaddb (report 20260802T033909Z) — cycle-3 HIGH-confidence remediation; GATE-GOAL not claimed
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`
@@ -91,6 +91,12 @@ Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where
 | REDHAT-FIX-S29-R2-H02 | Require deployed endpoint identity and schema-valid non-sentinel Postgres-backed MCP/article results (H-02; sprint29-soak-flip.test.ts:159-173, soak-fence.ts:957-1004) | devops-engineer | 150 min |
 | REDHAT-FIX-S29-R2-H03 | Compare article output to an immutable pre-freeze comparator, never a child authored from the SUT (H-03; sprint29-soak-flip.test.ts:157-213,863-894) | devops-engineer | 120 min |
 | REDHAT-FIX-S29-R2-H04 | Make cross-process fence probe failure fail closed and block arm timestamp fallback (H-04; convex-fence-client.ts:341-382,442-465) | devops-engineer | 90 min |
+| REDHAT-FIX-S29-R3-C01 | Bind human-gate evidence to HEAD and require 6/6 deployed identity | devops-engineer | 120 min |
+| REDHAT-FIX-S29-R3-C02 | Remove production fixture fallback from verify-reads parity | devops-engineer | 90 min |
+| REDHAT-FIX-S29-R3-C03 | Real Postgres-backed MCP oracle + non-self-supplied deployed identity | devops-engineer | 120 min |
+| REDHAT-FIX-S29-R3-H01 | Drain all claimed surfaces or honest residual inventory | devops-engineer | 120 min |
+| REDHAT-FIX-S29-R3-H02 | Fence mission + already-running worker irreversible effects | devops-engineer | 150 min |
+| REDHAT-FIX-S29-R3-H03 | Rollback requires pre-existing serving generation acks | devops-engineer | 120 min |
 
 ## Source Coverage
 
