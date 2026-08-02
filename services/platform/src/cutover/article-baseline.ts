@@ -1,14 +1,19 @@
 /**
- * D06-03 — real post-freeze article baseline capture.
+ * D06-03 / R2-H03 — article baseline capture + immutable load.
  *
- * Fetches live Convex-served GET /article/:shareToken, persists sha256 +
- * byteLength + capturedAtMs. Fail-closes with FENCE_NOT_ARMED when the fence
- * is not yet armed (captured state must be post-freeze final).
+ * Capture (operator cutover:capture-article-baseline): fetches live
+ * GET /article/:shareToken after fence arm, persists sha256 + byteLength +
+ * capturedAtMs. Fail-closes with FENCE_NOT_ARMED when the fence is not armed.
+ *
+ * Verify (cutover:verify-article / runVerifyArticle): loads an *immutable*
+ * pre-freeze / D06-03 baseline file and compares network GET bytes to it.
+ * NEVER re-authors the baseline from the SUT under test in the same run.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
+import { renderPublicArticle } from '../http/article.ts';
 import {
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
@@ -16,6 +21,23 @@ import {
 } from './convex-fence-client.ts';
 
 export const FENCE_NOT_ARMED = 'FENCE_NOT_ARMED';
+export const BASELINE_MISSING = 'BASELINE_MISSING';
+export const BASELINE_CORRUPT = 'BASELINE_CORRUPT';
+export const BASELINE_INVALID_SHA = 'BASELINE_INVALID_SHA';
+
+/** Committed frozen fixture path (R2-H03 immutable pre-freeze comparator template). */
+export function immutablePreFreezeArticleBaselineFixturePath(cwd = process.cwd()): string {
+  return resolve(cwd, 'services/platform/tests/fixtures/sprint29/article-baseline-pre-freeze.json');
+}
+
+export type ArticleBaselinePhase = 'pre-freeze' | 'd06-03-post-arm';
+
+export type ArticleBaselineProvenance = {
+  kind: 'immutable-pre-freeze-article-baseline';
+  /** How bytes were obtained (never post-fence SUT child of the same verify run). */
+  source: string;
+  note?: string;
+};
 
 export type ArticleBaseline = {
   ok: boolean;
@@ -27,6 +49,9 @@ export type ArticleBaseline = {
   url: string;
   status: number;
   path: string;
+  /** R2-H03: documented capture phase (pre-freeze or D06-03 post-arm). */
+  phase?: ArticleBaselinePhase;
+  provenance?: ArticleBaselineProvenance;
 };
 
 export type ArticleBaselineError = {
@@ -36,6 +61,207 @@ export type ArticleBaselineError = {
 
 export function defaultArticleBaselinePath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D06-03/article-baseline.json');
+}
+
+const SHA256_HEX = /^[0-9a-f]{64}$/i;
+
+/**
+ * Fail-closed structural validation of a baseline object (no I/O).
+ * Requires 64-hex sha256, byteLength > 0, non-empty shareToken, capturedAtMs > 0.
+ */
+export function validateArticleBaselineFields(
+  b: Partial<ArticleBaseline> | null | undefined
+): { ok: true; baseline: ArticleBaseline } | { ok: false; code: string; message: string } {
+  if (!b || typeof b !== 'object') {
+    return { ok: false, code: BASELINE_CORRUPT, message: 'baseline is not an object' };
+  }
+  const sha256 = typeof b.sha256 === 'string' ? b.sha256.trim() : '';
+  const byteLength = typeof b.byteLength === 'number' ? b.byteLength : 0;
+  const shareToken = typeof b.shareToken === 'string' ? b.shareToken.trim() : '';
+  const capturedAtMs = typeof b.capturedAtMs === 'number' ? b.capturedAtMs : 0;
+  const status = typeof b.status === 'number' ? b.status : 0;
+
+  if (!sha256 || !SHA256_HEX.test(sha256)) {
+    return {
+      ok: false,
+      code: BASELINE_INVALID_SHA,
+      message: `baseline.sha256 must be 64-hex, got length=${sha256.length}`,
+    };
+  }
+  if (!(byteLength > 0)) {
+    return {
+      ok: false,
+      code: BASELINE_CORRUPT,
+      message: `baseline.byteLength must be > 0, got ${byteLength}`,
+    };
+  }
+  if (!shareToken) {
+    return {
+      ok: false,
+      code: BASELINE_CORRUPT,
+      message: 'baseline.shareToken is required',
+    };
+  }
+  if (!(capturedAtMs > 0)) {
+    return {
+      ok: false,
+      code: BASELINE_CORRUPT,
+      message: 'baseline.capturedAtMs must be > 0',
+    };
+  }
+  if (status !== 0 && status !== 200) {
+    return {
+      ok: false,
+      code: BASELINE_CORRUPT,
+      message: `baseline.status at capture must be 200 (or omitted), got ${status}`,
+    };
+  }
+
+  return {
+    ok: true,
+    baseline: {
+      ok: b.ok !== false,
+      sha256: sha256.toLowerCase(),
+      byteLength,
+      capturedAtMs,
+      fence_armed_at: typeof b.fence_armed_at === 'number' ? b.fence_armed_at : 0,
+      shareToken,
+      url: typeof b.url === 'string' ? b.url : '',
+      status: status === 0 ? 200 : status,
+      path: typeof b.path === 'string' ? b.path : '',
+      phase: b.phase,
+      provenance: b.provenance,
+    },
+  };
+}
+
+/**
+ * Read-only load of an immutable article baseline. Never fetches SUT.
+ * Fail-closed: missing path / empty / corrupt / invalid sha256.
+ */
+export function loadArticleBaseline(
+  baselinePath: string
+): { ok: true; baseline: ArticleBaseline; path: string } | ArticleBaselineError {
+  if (!baselinePath || !existsSync(baselinePath)) {
+    return {
+      ok: false,
+      error: {
+        code: BASELINE_MISSING,
+        message: `article baseline missing: ${baselinePath || '(empty path)'}`,
+      },
+    };
+  }
+  let raw: string;
+  try {
+    raw = readFileSync(baselinePath, 'utf8');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: {
+        code: BASELINE_MISSING,
+        message: `article baseline unreadable at ${baselinePath}: ${msg}`,
+      },
+    };
+  }
+  if (!raw.trim()) {
+    return {
+      ok: false,
+      error: {
+        code: BASELINE_CORRUPT,
+        message: `article baseline empty at ${baselinePath}`,
+      },
+    };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: {
+        code: BASELINE_CORRUPT,
+        message: `article baseline JSON parse failed at ${baselinePath}: ${msg}`,
+      },
+    };
+  }
+  const v = validateArticleBaselineFields(parsed as Partial<ArticleBaseline>);
+  if (!v.ok) {
+    return {
+      ok: false,
+      error: { code: v.code, message: `${v.message} (path=${baselinePath})` },
+    };
+  }
+  return {
+    ok: true,
+    baseline: { ...v.baseline, path: v.baseline.path || baselinePath },
+    path: baselinePath,
+  };
+}
+
+/**
+ * Capture a pre-freeze article baseline from Postgres-backed HTML render
+ * (same articleHtml path as Hono GET /article/:token) WITHOUT talking to the
+ * post-fence SUT child. Used by integration suites to author the D06-03
+ * comparator before arming the soak child.
+ */
+export async function capturePreFreezeArticleBaseline(options: {
+  token: string;
+  outputPath?: string;
+  cwd?: string;
+  databaseUrl?: string;
+}): Promise<ArticleBaseline | ArticleBaselineError> {
+  const cwd = options.cwd ?? resolveRepoRoot();
+  const token = options.token?.trim();
+  if (!token) {
+    return {
+      ok: false,
+      error: {
+        code: 'TOKEN_REQUIRED',
+        message: 'capturePreFreezeArticleBaseline requires token',
+      },
+    };
+  }
+
+  const html = await renderPublicArticle(token, options.databaseUrl);
+  if (!html || html.length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: 'ARTICLE_FETCH_FAILED',
+        message: `renderPublicArticle returned empty/null for token=${token}`,
+      },
+    };
+  }
+
+  const buf = Buffer.from(html, 'utf8');
+  const sha256 = createHash('sha256').update(buf).digest('hex');
+  const byteLength = buf.byteLength;
+  const capturedAtMs = Date.now();
+  const path = options.outputPath ?? defaultArticleBaselinePath(cwd);
+  mkdirSync(resolve(path, '..'), { recursive: true });
+
+  const baseline: ArticleBaseline = {
+    ok: true,
+    sha256,
+    byteLength,
+    capturedAtMs,
+    // Pre-freeze: fence not yet armed (0). Ordering: capturedAtMs is the freeze watermark.
+    fence_armed_at: 0,
+    shareToken: token,
+    url: `pre-freeze://renderPublicArticle/article/${encodeURIComponent(token)}`,
+    status: 200,
+    path,
+    phase: 'pre-freeze',
+    provenance: {
+      kind: 'immutable-pre-freeze-article-baseline',
+      source: 'renderPublicArticle',
+      note: 'R2-H03: captured before post-fence SUT child; verify must only READ this file',
+    },
+  };
+  writeFileSync(path, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8');
+  return baseline;
 }
 
 function convexSiteBase(): string {
@@ -179,6 +405,12 @@ export async function captureArticleBaseline(options: {
     url,
     status: res.status,
     path,
+    phase: 'd06-03-post-arm',
+    provenance: {
+      kind: 'immutable-pre-freeze-article-baseline',
+      source: 'network-GET-after-fence-arm',
+      note: 'D06-03 operator capture; immutable for later cutover:verify-article (do not re-author from SUT)',
+    },
   };
   writeFileSync(path, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8');
   return baseline;

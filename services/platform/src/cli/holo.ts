@@ -252,6 +252,11 @@ interface CliArgs {
    * (also HOLO_VERIFY_BASE_URL / PLATFORM_URL).
    */
   baseUrl: string | null;
+  /**
+   * cutover:verify-article --baseline <article-baseline.json>
+   * Immutable pre-freeze / D06-03 comparator path (R2-H03).
+   */
+  baseline: string | null;
 }
 
 function printHelp(): void {
@@ -322,6 +327,9 @@ Usage:
   cutover:quiet-check       D06-03 quiet interval oracle [--window-seconds N] [--json] [--output]
   cutover:capture-article-baseline
                             D06-03 post-freeze article sha256 baseline --token <t> [--json] [--output]
+  cutover:verify-article    D06-05 / R2-H03: network GET /article/:token vs immutable pre-freeze baseline
+                            [--json] [--baseline <article-baseline.json>] [--base-url URL]
+                            Fail-closed: missing/corrupt baseline (no SUT auto-author)
   cutover:run-etl           D06-04 watermark + real convex export + one-time ETL (CAP-MIG-01)
                             [--json] [--output <watermark-report.json>] [--export <dir>]
                             Default: real npx convex export (runConvexExport). --export reuses archive.
@@ -624,6 +632,7 @@ function parseArgs(argv: string[]): CliArgs {
     token: null,
     etlReport: null,
     baseUrl: null,
+    baseline: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -906,6 +915,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.baseUrl = argv[++i] ?? null;
     } else if (a.startsWith('--base-url=')) {
       args.baseUrl = a.slice('--base-url='.length);
+    } else if (a === '--baseline') {
+      args.baseline = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--baseline=')) {
+      args.baseline = resolve(a.slice('--baseline='.length));
     } else if (a === '--inventory') {
       args.inventory = argv[++i] ?? null;
     } else if (a.startsWith('--inventory=')) {
@@ -3227,6 +3240,50 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:capture-article-baseline failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:verify-article': {
+      // D06-05 / R2-H03: network GET /article/:token vs immutable pre-freeze baseline
+      const { runVerifyArticle, resolveVerifyBaseUrl } = await import('../cutover/soak-fence.ts');
+      const { defaultArticleBaselinePath } = await import('../cutover/article-baseline.ts');
+      try {
+        const baselinePath = args.baseline
+          ? resolve(args.baseline)
+          : defaultArticleBaselinePath(process.cwd());
+        const baseUrl = resolveVerifyBaseUrl(args.baseUrl);
+        const report = await runVerifyArticle({
+          baselinePath,
+          baseUrl: baseUrl || undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(
+            `article ok=${report.ok} match=${report.match} transport=${report.transport} status=${report.status} sha256=${report.sha256.slice(0, 12)}… baseline=${report.baselineSha256.slice(0, 12)}… bytes=${report.byteLength}`
+          );
+          if (report.error) console.log(`  error: ${report.error}`);
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(
+            JSON.stringify(
+              {
+                ok: false,
+                match: false,
+                transport: 'network',
+                error: msg,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.error(`holo cutover:verify-article failed: ${msg}`);
         }
         process.exit(1);
       }

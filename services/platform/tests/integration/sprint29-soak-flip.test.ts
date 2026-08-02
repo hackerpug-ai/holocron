@@ -21,6 +21,11 @@ import {
 } from '../../../../tests/integration/service/harness';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
+  capturePreFreezeArticleBaseline,
+  defaultArticleBaselinePath,
+  loadArticleBaseline,
+} from '../../src/cutover/article-baseline.ts';
+import {
   ETL_NOT_RECONCILED,
   isMigrationReadOnly,
   MIGRATION_READ_ONLY_ENV,
@@ -65,16 +70,24 @@ const H01_EVIDENCE = resolve(
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
 const H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H02');
-/** REDHAT-FIX-S29-R2-C01 evidence tree (durable override + already-running service). */
-const R2_C01_EVIDENCE = resolve(
+const H03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H03');
+const H03_SPRINT_EVIDENCE = resolve(
   REPO_ROOT,
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
-const R2_C01_ALT = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C01');
 /** Immutable multi-table D06-04-shaped watermark (committed). Never authored from live SELECT. */
 const IMMUTABLE_ETL_FIXTURE = resolve(
   REPO_ROOT,
   'services/platform/tests/fixtures/sprint29/watermark-report-multi-table.json'
+);
+/**
+ * R2-H03: committed pre-freeze article baseline fixture (structure + provenance).
+ * Suite captures live pre-freeze bytes into working D06-03 path via renderPublicArticle
+ * BEFORE starting the post-fence SUT child — never fetch→write from that child.
+ */
+const IMMUTABLE_ARTICLE_BASELINE_FIXTURE = resolve(
+  REPO_ROOT,
+  'services/platform/tests/fixtures/sprint29/article-baseline-pre-freeze.json'
 );
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
@@ -167,12 +180,60 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     }
     shareToken = existingPublic[0].share_token;
 
-    // Capture baseline from the real Hono /article/ route (same bytes AC-4 compares)
     process.env.DATABASE_URL = DATABASE_URL;
-    // R2-C01: start live child DISARMED (env '0' or omit) so fence propagation is
-    // proven via durable control-plane re-read after flip — never inject-only green.
-    // In-process suite paths still arm via setMigrationReadOnlyEnv / writeDurable.
-    setMigrationReadOnlyEnv('0');
+
+    // ── R2-H03: immutable pre-freeze article baseline (NOT from post-fence SUT) ──
+    // Capture via renderPublicArticle (same articleHtml as Hono) BEFORE arming fence
+    // or starting the soak child. Verify phase only READs this file.
+    if (!existsSync(IMMUTABLE_ARTICLE_BASELINE_FIXTURE)) {
+      throw new Error(
+        `R2-H03 immutable article baseline fixture missing: ${IMMUTABLE_ARTICLE_BASELINE_FIXTURE}`
+      );
+    }
+    const fixtureMeta = JSON.parse(readFileSync(IMMUTABLE_ARTICLE_BASELINE_FIXTURE, 'utf8')) as {
+      provenance?: { kind?: string };
+      phase?: string;
+    };
+    if (fixtureMeta.provenance?.kind !== 'immutable-pre-freeze-article-baseline') {
+      throw new Error(
+        'R2-H03 fixture missing provenance.kind=immutable-pre-freeze-article-baseline'
+      );
+    }
+
+    articleBaselinePath = resolve(EVIDENCE, 'article-baseline.json');
+    const d06_03Path = defaultArticleBaselinePath(REPO_ROOT);
+    const preFreeze = await capturePreFreezeArticleBaseline({
+      token: shareToken,
+      outputPath: articleBaselinePath,
+      cwd: REPO_ROOT,
+      databaseUrl: DATABASE_URL,
+    });
+    if (!preFreeze.ok || !('sha256' in preFreeze) || preFreeze.sha256.length !== 64) {
+      throw new Error(
+        `R2-H03 pre-freeze capture failed: ${JSON.stringify(preFreeze).slice(0, 400)}`
+      );
+    }
+    // Install at D06-03 default path (operator artifact location); verify only reads.
+    mkdirSync(resolve(REPO_ROOT, '.tmp/D06-03'), { recursive: true });
+    writeFileSync(d06_03Path, readFileSync(articleBaselinePath, 'utf8'), 'utf8');
+    mkdirSync(H03_EVIDENCE, { recursive: true });
+    mkdirSync(H03_SPRINT_EVIDENCE, { recursive: true });
+    writeFileSync(
+      resolve(H03_EVIDENCE, 'article-baseline-pre-freeze-working.json'),
+      readFileSync(articleBaselinePath, 'utf8'),
+      'utf8'
+    );
+    const loadedBaseline = loadArticleBaseline(articleBaselinePath);
+    if (!loadedBaseline.ok) {
+      throw new Error(`R2-H03 loadArticleBaseline failed: ${loadedBaseline.error.message}`);
+    }
+    if (loadedBaseline.baseline.phase !== 'pre-freeze') {
+      throw new Error('R2-H03 baseline phase must be pre-freeze');
+    }
+
+    // Arm fence in this process (jobs / hono sweep / flip) AND the live server child
+    // AFTER pre-freeze baseline is sealed (immutable for verify).
+    setMigrationReadOnlyEnv('1');
     liveService = await startLiveService({
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
@@ -189,46 +250,6 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     networkBaseUrl = liveService.baseUrl;
     process.env.HOLO_VERIFY_BASE_URL = networkBaseUrl;
     process.env.PLATFORM_URL = networkBaseUrl;
-
-    // Network baseline capture (H-01: not sole in-process oracle)
-    const baselineRes = await fetch(`${networkBaseUrl}/article/${shareToken}`, {
-      method: 'GET',
-      headers: { accept: 'text/html' },
-    });
-    const baselineBuf = Buffer.from(await baselineRes.arrayBuffer());
-    if (baselineRes.status !== 200 || baselineBuf.byteLength === 0) {
-      throw new Error(
-        `failed to capture article baseline status=${baselineRes.status} bytes=${baselineBuf.byteLength} stderr=${liveService.stderr.slice(0, 500)}`
-      );
-    }
-    const sha256 = createHash('sha256').update(baselineBuf).digest('hex');
-    articleBaselinePath = resolve(EVIDENCE, 'article-baseline.json');
-    writeFileSync(
-      articleBaselinePath,
-      `${JSON.stringify(
-        {
-          ok: true,
-          sha256,
-          byteLength: baselineBuf.byteLength,
-          capturedAtMs: Date.now(),
-          fence_armed_at: Date.now() - 1000,
-          shareToken,
-          url: `${networkBaseUrl}/article/${shareToken}`,
-          status: 200,
-          path: articleBaselinePath,
-        },
-        null,
-        2
-      )}\n`,
-      'utf8'
-    );
-    // Also place at D06-03 default path so CLI defaults resolve
-    mkdirSync(resolve(REPO_ROOT, '.tmp/D06-03'), { recursive: true });
-    writeFileSync(
-      resolve(REPO_ROOT, '.tmp/D06-03/article-baseline.json'),
-      readFileSync(articleBaselinePath, 'utf8'),
-      'utf8'
-    );
 
     // H-02: load immutable multi-table D06-04-shaped watermark from committed fixture.
     // NEVER derive loadedByTable from live SELECT count(*) (dual-lens anti-stub).
@@ -295,9 +316,12 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       baselineCounts,
       greenEtlPath,
       immutableEtlFixture: IMMUTABLE_ETL_FIXTURE,
+      immutableArticleBaselineFixture: IMMUTABLE_ARTICLE_BASELINE_FIXTURE,
       articleBaselinePath,
+      articleBaselinePhase: loadedBaseline.baseline.phase,
+      articleBaselineSha256: loadedBaseline.baseline.sha256,
       networkBaseUrl,
-      note: 'H-02 baselineCounts loaded from committed fixture — not live SELECT',
+      note: 'H-02 baselineCounts from committed fixture; R2-H03 article baseline from pre-freeze renderPublicArticle (not post-fence SUT child)',
     });
   }, 120_000);
 
@@ -1082,11 +1106,19 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.tablesTotal).toBe(0);
   }, 30_000);
 
-  // ── AC-4 / TC-6 / H-01 network article ────────────────────────────────────
+  // ── AC-4 / TC-6 / H-01 / R2-H03 network article vs immutable pre-freeze ───
 
-  it('TC-6/AC-4 H-01: network GET /article/:token sha256 matches article-baseline.json', async () => {
+  it('TC-6/AC-4 H-01 R2-H03: network GET /article/:token matches immutable pre-freeze baseline', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
+    // Baseline must already exist and be read-only during verify (no rewrite).
+    const sealed = loadArticleBaseline(articleBaselinePath);
+    expect(sealed.ok).toBe(true);
+    if (!sealed.ok) throw new Error(sealed.error.message);
+    expect(sealed.baseline.phase).toBe('pre-freeze');
+    expect(sealed.baseline.sha256).toHaveLength(64);
+    expect(sealed.baseline.byteLength).toBeGreaterThan(0);
+
     const report = await runVerifyArticle({
       cwd: REPO_ROOT,
       baselinePath: articleBaselinePath,
@@ -1100,6 +1132,11 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       `${JSON.stringify(report, null, 2)}\n`,
       'utf8'
     );
+    writeFileSync(
+      resolve(H03_EVIDENCE, 'tc-verify-article.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
     expect(report.transport).toBe('network');
     expect(report.base_url).toBe(networkBaseUrl);
     expect(report.status).toBe(200);
@@ -1108,6 +1145,9 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.byteLength).toBe(report.baselineByteLength);
     expect(report.match).toBe(true);
     expect(report.ok).toBe(true);
+    // Equality is to the pre-freeze sealed hash — not a same-run SUT rewrite.
+    expect(report.baselineSha256).toBe(sealed.baseline.sha256);
+    expect(report.baselineByteLength).toBe(sealed.baseline.byteLength);
 
     // Network fetch cross-check (not in-process app.request as sole oracle)
     const res = await fetch(`${networkBaseUrl}/article/${shareToken}`);
@@ -1116,6 +1156,96 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(res.status).toBe(200);
     expect(sha).toBe(report.baselineSha256);
   }, 60_000);
+
+  it('R2-H03/AC-3: missing baseline fails closed (no SUT auto-author)', async () => {
+    setMigrationReadOnlyEnv('1');
+    process.env.DATABASE_URL = DATABASE_URL;
+    const missing = resolve(H03_EVIDENCE, 'missing-article-baseline.json');
+    const report = await runVerifyArticle({
+      cwd: REPO_ROOT,
+      baselinePath: missing,
+      databaseUrl: DATABASE_URL,
+      baseUrl: networkBaseUrl,
+    });
+    writeFileSync(
+      resolve(H03_EVIDENCE, 'tc-verify-article-missing.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(report.match).toBe(false);
+    expect(report.transport).toBe('network');
+    expect(report.error ?? '').toMatch(/BASELINE_MISSING/);
+    // Must not have invented a baseline file from the SUT
+    expect(existsSync(missing)).toBe(false);
+  }, 30_000);
+
+  it('R2-H03/AC-4 article-negative: divergent baseline sha yields match false', async () => {
+    setMigrationReadOnlyEnv('1');
+    process.env.DATABASE_URL = DATABASE_URL;
+    const sealed = loadArticleBaseline(articleBaselinePath);
+    expect(sealed.ok).toBe(true);
+    if (!sealed.ok) throw new Error(sealed.error.message);
+    const mutatedPath = resolve(H03_EVIDENCE, 'article-baseline-mutated.json');
+    writeFileSync(
+      mutatedPath,
+      `${JSON.stringify(
+        {
+          ...sealed.baseline,
+          // Flip first nibble so sha differs while remaining 64-hex
+          sha256: sealed.baseline.sha256.replace(/^[0-9a-f]/, (c) => (c === '0' ? '1' : '0')),
+          path: mutatedPath,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    const report = await runVerifyArticle({
+      cwd: REPO_ROOT,
+      baselinePath: mutatedPath,
+      databaseUrl: DATABASE_URL,
+      baseUrl: networkBaseUrl,
+    });
+    writeFileSync(
+      resolve(H03_EVIDENCE, 'tc-verify-article-mismatch.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(report.match).toBe(false);
+    expect(report.transport).toBe('network');
+    expect(report.status).toBe(200);
+    expect(report.sha256).not.toBe(report.baselineSha256);
+  }, 30_000);
+
+  it('R2-H03/AC-2 static: suite does not author baseline from post-fence SUT fetch', () => {
+    const src = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/tests/integration/sprint29-soak-flip.test.ts'),
+      'utf8'
+    );
+    // Anti-pattern: fetch(`${networkBaseUrl}/article/...`) then writeFileSync article-baseline
+    expect(src).toMatch(/capturePreFreezeArticleBaseline/);
+    expect(src).toMatch(/IMMUTABLE_ARTICLE_BASELINE_FIXTURE/);
+    // The historical self-author block must be gone (baselineRes + writeFileSync of article-baseline from network child)
+    expect(src).not.toMatch(/baselineRes\s*=\s*await\s+fetch\(`\$\{networkBaseUrl\}\/article/);
+    writeFileSync(
+      resolve(H03_EVIDENCE, 'tc-static-no-sut-self-author.json'),
+      `${JSON.stringify(
+        {
+          ok: true,
+          observed_status: 'PASS',
+          observed_count: 1,
+          uses_capturePreFreezeArticleBaseline: true,
+          uses_immutable_fixture: true,
+          no_baselineRes_from_networkBaseUrl: true,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+  });
 
   // ── AC-6 / TC-8 / TC-9 ────────────────────────────────────────────────────
 
