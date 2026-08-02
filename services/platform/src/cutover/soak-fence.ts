@@ -1136,18 +1136,33 @@ export type ToolVerifyEntry = {
   status?: number;
   /** Read tools only — true only when registry Zod outputSchema.safeParse succeeds. */
   schema_valid?: boolean;
-  /** Read tools only — schema_valid + non-null application data (not null/not-found shells). */
+  /**
+   * Read tools only — true only when schema_valid AND payload corresponds to a
+   * real Postgres SELECT for the seed/query (R3-C03). Shape-only non-null is not enough.
+   */
   postgres_backed?: boolean;
+  /** True when MCP payload matched independent SELECT row/content (R3-C03). */
+  correspondence_matched?: boolean;
 };
 
-/** Deployed soak endpoint identity recorded on every verify-tools/article report (R2-H02). */
+/** Deployed soak endpoint identity recorded on every verify-tools/article report (R2-H02 / R3-C03). */
 export type TargetIdentity = {
   host: string;
   port: number;
-  /** Deployment label, generation, or pid-derived label for the intended endpoint. */
+  /** Deployment label from the *serving* process (health), never sole caller mint. */
   service_label: string;
   pid?: number;
   generation?: string;
+  /**
+   * Provenance of identity fields.
+   * - `health`: bound from GET /health of an already-listening process (required for green).
+   * - `caller_minted`: URL/options only — insufficient for green verify (R3-C03).
+   */
+  identity_source: 'health' | 'caller_minted';
+  /** Serving process uptime_ms from health when identity_source=health. */
+  uptime_ms?: number;
+  /** Wall clock when health identity was observed. */
+  observed_at_ms?: number;
 };
 
 export type ToolsVerifyReport = {
@@ -1197,14 +1212,10 @@ export function resolveVerifyBaseUrl(explicit?: string | null): string {
 }
 
 /**
- * Bind verify-tools/article to a recorded endpoint identity (host+port+label).
- * Free-port localhost children must still surface host/port/service_label in the report.
- * Returns null when base_url is empty or unparseable (fail-closed).
+ * Parse host+port from a base URL. Does **not** mint service identity (R3-C03).
+ * Caller-minted labels/pids are intentionally excluded from green path.
  */
-export function resolveTargetIdentity(
-  baseUrl: string,
-  options?: { serviceLabel?: string; pid?: number; generation?: string }
-): TargetIdentity | null {
+export function parseBaseUrlHostPort(baseUrl: string): { host: string; port: number } | null {
   const trimmed = typeof baseUrl === 'string' ? baseUrl.trim() : '';
   if (!trimmed) return null;
   try {
@@ -1219,33 +1230,239 @@ export function resolveTargetIdentity(
           ? 80
           : NaN;
     if (!Number.isFinite(portNum) || portNum <= 0) return null;
-    const envPid = process.env.HOLO_VERIFY_PID;
-    const pidRaw = options?.pid ?? (envPid && envPid.length > 0 ? Number(envPid) : undefined);
-    const pid =
-      typeof pidRaw === 'number' && Number.isFinite(pidRaw) && pidRaw > 0 ? pidRaw : undefined;
-    const generation =
-      options?.generation ??
-      process.env.HOLO_VERIFY_GENERATION ??
-      process.env.HOLO_SOAK_GENERATION ??
-      undefined;
-    const service_label =
-      options?.serviceLabel ??
-      process.env.HOLO_VERIFY_SERVICE_LABEL ??
-      process.env.HOLO_SOAK_SERVICE_LABEL ??
-      (generation && generation.length > 0 ? `generation:${generation}` : undefined) ??
-      (pid !== undefined ? `pid:${pid}` : undefined) ??
-      `endpoint:${host}:${portNum}`;
-    const identity: TargetIdentity = {
-      host,
-      port: portNum,
-      service_label,
-    };
-    if (pid !== undefined) identity.pid = pid;
-    if (generation && generation.length > 0) identity.generation = generation;
-    return identity;
+    return { host, port: portNum };
   } catch {
     return null;
   }
+}
+
+/**
+ * @deprecated R3-C03: caller-minted identity is insufficient for green verify.
+ * Prefer `resolveDeployedTargetIdentity` (health-bound). Kept for diagnostics /
+ * negative tests; always tags identity_source=`caller_minted`.
+ */
+export function resolveTargetIdentity(
+  baseUrl: string,
+  options?: { serviceLabel?: string; pid?: number; generation?: string }
+): TargetIdentity | null {
+  const hp = parseBaseUrlHostPort(baseUrl);
+  if (!hp) return null;
+  const envPid = process.env.HOLO_VERIFY_PID;
+  const pidRaw = options?.pid ?? (envPid && envPid.length > 0 ? Number(envPid) : undefined);
+  const pid =
+    typeof pidRaw === 'number' && Number.isFinite(pidRaw) && pidRaw > 0 ? pidRaw : undefined;
+  const generation =
+    options?.generation ??
+    process.env.HOLO_VERIFY_GENERATION ??
+    process.env.HOLO_SOAK_GENERATION ??
+    undefined;
+  const service_label =
+    options?.serviceLabel ??
+    process.env.HOLO_VERIFY_SERVICE_LABEL ??
+    process.env.HOLO_SOAK_SERVICE_LABEL ??
+    (generation && generation.length > 0 ? `generation:${generation}` : undefined) ??
+    (pid !== undefined ? `pid:${pid}` : undefined) ??
+    `endpoint:${hp.host}:${hp.port}`;
+  const identity: TargetIdentity = {
+    host: hp.host,
+    port: hp.port,
+    service_label,
+    identity_source: 'caller_minted',
+  };
+  if (pid !== undefined) identity.pid = pid;
+  if (generation && generation.length > 0) identity.generation = generation;
+  return identity;
+}
+
+/** True when process env names a pre-existing deploy target (not options alone). */
+export function hasDeploymentVerifyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  for (const key of ['HOLO_VERIFY_BASE_URL', 'HOLO_SOAK_BASE_URL', 'PLATFORM_URL'] as const) {
+    const v = env[key];
+    if (typeof v === 'string' && v.trim().length > 0) return true;
+  }
+  return false;
+}
+
+export type DeployedIdentityResult = {
+  identity: TargetIdentity | null;
+  error?: string;
+  health_status?: number;
+  health_body?: unknown;
+};
+
+/**
+ * Bind verify-tools/article identity to an **already-listening** process via GET /health.
+ *
+ * R3-C03 rules:
+ * - Requires deployment env (HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL / PLATFORM_URL)
+ *   so identity is not solely an in-process options mint without a live stack.
+ * - service_label / pid / generation come from the serving process health body —
+ *   never written from caller options as sole proof.
+ * - Optional expectServiceLabel / expectPid are *constraints* (must match health) only.
+ */
+export async function resolveDeployedTargetIdentity(
+  baseUrl: string,
+  options?: {
+    /** Constraint: health.service_label must equal this when provided. */
+    expectServiceLabel?: string;
+    /** Constraint: health.pid must equal this when provided. */
+    expectPid?: number;
+    /** Constraint: health.generation must equal this when provided. */
+    expectGeneration?: string;
+    /** Skip deployment-env gate (tests only). Default false. */
+    allowMissingDeploymentEnv?: boolean;
+    fetchImpl?: typeof fetch;
+  }
+): Promise<DeployedIdentityResult> {
+  const trimmed = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : '';
+  const hp = parseBaseUrlHostPort(trimmed);
+  if (!hp || !trimmed) {
+    return { identity: null, error: 'MISSING_BASE_URL' };
+  }
+  if (!options?.allowMissingDeploymentEnv && !hasDeploymentVerifyEnv()) {
+    return {
+      identity: null,
+      error:
+        'MISSING_DEPLOYMENT_ENV: set HOLO_VERIFY_BASE_URL (or HOLO_SOAK_BASE_URL / PLATFORM_URL) to a pre-existing listening stack before verify',
+    };
+  }
+
+  const fetchFn = options?.fetchImpl ?? fetch;
+  let healthStatus = 0;
+  let healthBody: unknown;
+  try {
+    const res = await fetchFn(`${trimmed}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5_000),
+      headers: { accept: 'application/json' },
+    });
+    healthStatus = res.status;
+    const text = await res.text();
+    try {
+      healthBody = text ? JSON.parse(text) : null;
+    } catch {
+      healthBody = text;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      identity: null,
+      error: `UNREACHABLE_BASE_URL: ${trimmed} (${msg})`,
+    };
+  }
+
+  if (healthStatus !== 200 && healthStatus !== 503) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: `HEALTH_IDENTITY_UNAVAILABLE: unexpected status ${healthStatus}`,
+    };
+  }
+
+  const body =
+    healthBody && typeof healthBody === 'object' ? (healthBody as Record<string, unknown>) : null;
+  if (!body) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: 'HEALTH_IDENTITY_UNAVAILABLE: non-object health body',
+    };
+  }
+
+  const pidRaw = body.pid;
+  const pid =
+    typeof pidRaw === 'number' && Number.isFinite(pidRaw) && pidRaw > 0
+      ? pidRaw
+      : typeof pidRaw === 'string' && /^\d+$/.test(pidRaw)
+        ? Number(pidRaw)
+        : undefined;
+  if (pid === undefined) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error:
+        'HEALTH_IDENTITY_UNAVAILABLE: serving /health must report pid of the already-listening process',
+    };
+  }
+
+  // Refuse identity that is only the verify process itself (in-process createHonoApp theatre).
+  if (pid === process.pid) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error:
+        'SELF_MINTED_IDENTITY: /health pid equals verify process pid — require a pre-existing deployed listener',
+    };
+  }
+
+  const healthLabel =
+    typeof body.service_label === 'string' && body.service_label.trim().length > 0
+      ? body.service_label.trim()
+      : null;
+  const healthGeneration =
+    typeof body.generation === 'string' && body.generation.trim().length > 0
+      ? body.generation.trim()
+      : null;
+  const uptimeRaw = body.uptime_ms;
+  const uptime_ms =
+    typeof uptimeRaw === 'number' && Number.isFinite(uptimeRaw) && uptimeRaw > 0
+      ? uptimeRaw
+      : undefined;
+
+  if (options?.expectPid !== undefined && options.expectPid !== pid) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: `IDENTITY_PID_MISMATCH: health pid=${pid} expect=${options.expectPid}`,
+    };
+  }
+  if (
+    options?.expectServiceLabel !== undefined &&
+    options.expectServiceLabel.length > 0 &&
+    healthLabel !== options.expectServiceLabel
+  ) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: `IDENTITY_LABEL_MISMATCH: health service_label=${healthLabel ?? 'null'} expect=${options.expectServiceLabel}`,
+    };
+  }
+  if (
+    options?.expectGeneration !== undefined &&
+    options.expectGeneration.length > 0 &&
+    healthGeneration !== options.expectGeneration
+  ) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: `IDENTITY_GENERATION_MISMATCH: health generation=${healthGeneration ?? 'null'} expect=${options.expectGeneration}`,
+    };
+  }
+
+  const service_label =
+    healthLabel ??
+    (healthGeneration ? `generation:${healthGeneration}` : undefined) ??
+    `pid:${pid}`;
+
+  const identity: TargetIdentity = {
+    host: hp.host,
+    port: hp.port,
+    service_label,
+    pid,
+    identity_source: 'health',
+    observed_at_ms: Date.now(),
+  };
+  if (healthGeneration) identity.generation = healthGeneration;
+  if (uptime_ms !== undefined) identity.uptime_ms = uptime_ms;
+
+  return { identity, health_status: healthStatus, health_body: healthBody };
 }
 
 /** Real holocron_nonprod row ids for verify-tools (never fixed 000…0001 sentinels without row proof). */
@@ -1564,6 +1781,7 @@ async function mcpToolsCallNetwork(
 /**
  * True when payload is non-null application data (not null / not-found shells).
  * Empty list results from Postgres are allowed; null and success:false are not.
+ * R3-C03: shape alone never sets postgres_backed — use correspondence separately.
  */
 export function hasNonNullApplicationData(payload: unknown): boolean {
   if (payload === null || payload === undefined) return false;
@@ -1582,30 +1800,630 @@ export function hasNonNullApplicationData(payload: unknown): boolean {
   return false;
 }
 
+/** Stable content hash for Postgres↔MCP correspondence (R3-C03). */
+export function contentHashStable(value: unknown): string {
+  const normalize = (v: unknown): unknown => {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'bigint') return v.toString();
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === 'number') {
+      if (!Number.isFinite(v)) return String(v);
+      // Scores / ranks: stabilize float noise for correspondence
+      return Math.round(v * 1e6) / 1e6;
+    }
+    if (typeof v === 'string' || typeof v === 'boolean') return v;
+    if (Array.isArray(v)) return v.map(normalize);
+    if (typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(o).sort()) {
+        // Drop volatile / non-content fields
+        if (
+          k === 'score' ||
+          k === 'relevanceScore' ||
+          k === 'latency_ms' ||
+          k === 'createdAt' ||
+          k === 'updatedAt' ||
+          k === 'generatedAt' ||
+          k === 'discoveredAt' ||
+          k === 'completedAt' ||
+          k === 'closedAt'
+        ) {
+          continue;
+        }
+        out[k] = normalize(o[k]);
+      }
+      return out;
+    }
+    return String(v);
+  };
+  return createHash('sha256')
+    .update(JSON.stringify(normalize(value)))
+    .digest('hex');
+}
+
+/** Collect UUID-like and string ids from an MCP / oracle payload tree. */
+export function extractPayloadIds(payload: unknown, into: Set<string> = new Set()): Set<string> {
+  if (payload === null || payload === undefined) return into;
+  if (typeof payload === 'string') {
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload) ||
+      payload.length > 0
+    ) {
+      // Only add UUID-shaped strings as ids
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload)) {
+        into.add(payload.toLowerCase());
+      }
+    }
+    return into;
+  }
+  if (Array.isArray(payload)) {
+    for (const item of payload) extractPayloadIds(item, into);
+    return into;
+  }
+  if (typeof payload === 'object') {
+    const o = payload as Record<string, unknown>;
+    const idKeys = [
+      'id',
+      '_id',
+      'documentId',
+      'subscriptionId',
+      'sessionId',
+      'toolId',
+      'filterId',
+      'profileId',
+      'contentId',
+      'jobId',
+    ];
+    for (const k of idKeys) {
+      const v = o[k];
+      if (typeof v === 'string' && v.length > 0) into.add(v.toLowerCase());
+    }
+    for (const v of Object.values(o)) extractPayloadIds(v, into);
+  }
+  return into;
+}
+
 /**
- * Schema-valid + Postgres-backed read success (H-01 / R2-H02 AC-2/AC-3).
+ * Independent Postgres SELECT oracle for a verify-tools read (R3-C03).
+ * Mirrors executor semantics for seed args so MCP payload can be correspondence-checked.
+ */
+export async function selectPostgresOracleForTool(
+  toolId: string,
+  seeds: VerifyToolSeeds,
+  options?: { databaseUrl?: string }
+): Promise<{ ok: true; oracle: unknown } | { ok: false; error: string }> {
+  const url =
+    options?.databaseUrl ??
+    process.env.DATABASE_URL ??
+    resolveHolocronNonprodDatabaseUrl({ context: 'selectPostgresOracleForTool' });
+  const sql = createSql(url);
+  const documentId = seeds.documentId;
+  const subscriptionId = seeds.subscriptionId;
+  const researchSessionId = seeds.researchSessionId || documentId;
+  const improvementId = seeds.improvementId || documentId;
+  const assimilationSessionId = seeds.assimilationSessionId || documentId;
+  const toolEntityId = seeds.toolId || documentId;
+  const shopSessionId = seeds.shopSessionId || documentId;
+  const profileId = seeds.profileId || documentId;
+  const query = `soak-${seeds.runId}`;
+
+  try {
+    let oracle: unknown;
+    switch (toolId) {
+      case 'get_document': {
+        const rows = await sql`
+          SELECT id::text AS "documentId", title, content, status, is_public AS "isPublic",
+                 share_token AS "shareToken"
+          FROM documents WHERE id = ${documentId}::uuid LIMIT 1
+        `;
+        oracle = rows[0] ?? null;
+        break;
+      }
+      case 'list_documents': {
+        const rows = await sql`
+          SELECT id::text AS id, title, status
+          FROM documents ORDER BY created_at DESC, id DESC LIMIT 50
+        `;
+        oracle = { documents: rows, hasMore: false, nextCursor: null };
+        break;
+      }
+      case 'get_tool': {
+        const rows = await sql`
+          SELECT id::text AS "toolId", title, description, content, source_type AS "sourceType",
+                 category, status
+          FROM toolbelt_tools WHERE id = ${toolEntityId}::uuid LIMIT 1
+        `;
+        oracle = rows[0] ?? null;
+        break;
+      }
+      case 'list_tools': {
+        const rows = await sql`
+          SELECT id::text AS "toolId", title, category, status, source_type AS "sourceType"
+          FROM toolbelt_tools ORDER BY created_at DESC LIMIT 100
+        `;
+        oracle = { tools: rows, total: rows.length };
+        break;
+      }
+      case 'list_subscriptions': {
+        const rows = await sql`
+          SELECT id::text AS "subscriptionId", source_type AS "sourceType", identifier, name
+          FROM subscription_sources ORDER BY created_at DESC LIMIT 100
+        `;
+        oracle = { subscriptions: rows };
+        break;
+      }
+      case 'get_subscription_content': {
+        const rows = await sql`
+          SELECT id::text AS id, source_id AS "sourceId", content_id AS "contentId", title, url
+          FROM subscription_content
+          WHERE source_id = ${subscriptionId}
+          ORDER BY discovered_at DESC LIMIT 100
+        `;
+        oracle = { content: rows };
+        break;
+      }
+      case 'get_subscription_filters': {
+        const rows = await sql`
+          SELECT id::text AS "filterId", source_id AS "sourceId", rule_name AS "ruleName",
+                 rule_type AS "ruleType", rule_value AS "ruleValue"
+          FROM subscription_filters
+          ORDER BY created_at DESC
+        `;
+        oracle = { filters: rows };
+        break;
+      }
+      case 'get_research_session': {
+        const sessions = await sql`
+          SELECT id::text AS "sessionId", topic, status
+          FROM research_sessions WHERE id = ${researchSessionId}::uuid LIMIT 1
+        `;
+        oracle = sessions[0] ?? null;
+        break;
+      }
+      case 'search_research': {
+        const rows = await sql`
+          SELECT id::text AS "sessionId", COALESCE(topic, '') AS topic, status
+          FROM research_sessions
+          WHERE lower(COALESCE(topic, '')) LIKE ${`%${query.toLowerCase()}%`}
+          ORDER BY created_at DESC LIMIT 20
+        `;
+        oracle = { sessions: rows, totalResults: rows.length };
+        break;
+      }
+      case 'search_fts':
+      case 'hybrid_search': {
+        const rows = await sql`
+          SELECT id::text AS _id, title
+          FROM documents
+          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
+          ORDER BY created_at DESC LIMIT 20
+        `;
+        oracle = {
+          results: rows,
+          totalResults: rows.length,
+          ...(toolId === 'hybrid_search' ? { searchMethod: 'postgres-fts' } : {}),
+        };
+        break;
+      }
+      case 'search_vector': {
+        // Same embedding dimension as buildVerifyToolArgs (1024 zeros→0.01)
+        const embedding = `[${Array.from({ length: 1024 }, () => 0.01).join(',')}]`;
+        const rows = await sql`
+          SELECT id::text AS _id, situating_header AS title
+          FROM passages
+          WHERE embedding IS NOT NULL
+          ORDER BY embedding <=> ${embedding}::vector LIMIT 20
+        `;
+        oracle = { results: rows, totalResults: rows.length };
+        break;
+      }
+      case 'search_tools': {
+        const rows = await sql`
+          SELECT id::text AS "toolId", title
+          FROM toolbelt_tools
+          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
+          ORDER BY created_at DESC LIMIT 20
+        `;
+        oracle = { results: rows, totalResults: rows.length, searchMethod: 'postgres-fts' };
+        break;
+      }
+      case 'search_improvements': {
+        const rows = await sql`
+          SELECT id::text AS "_id", description, status
+          FROM improvement_requests
+          WHERE search_vector @@ websearch_to_tsquery('english', ${query})
+          ORDER BY created_at DESC LIMIT 20
+        `;
+        oracle = rows;
+        break;
+      }
+      case 'get_improvement': {
+        const rows = await sql`
+          SELECT id::text AS "_id", description, status, source_screen AS "sourceScreen"
+          FROM improvement_requests WHERE id = ${improvementId}::uuid LIMIT 1
+        `;
+        oracle = rows[0] ?? null;
+        break;
+      }
+      case 'list_improvements': {
+        const rows = await sql`
+          SELECT id::text AS "_id", description, status
+          FROM improvement_requests ORDER BY created_at DESC LIMIT 100
+        `;
+        oracle = rows;
+        break;
+      }
+      case 'get_shop_session': {
+        const rows = await sql`
+          SELECT id::text AS "sessionId", query, status, total_listings AS "totalListings"
+          FROM shop_sessions WHERE id = ${shopSessionId}::uuid LIMIT 1
+        `;
+        oracle = { session: rows[0] ?? null };
+        break;
+      }
+      case 'get_shop_listings': {
+        const rows = await sql`
+          SELECT id::text AS id, title, price, retailer
+          FROM shop_listings WHERE session_id = ${shopSessionId}
+          ORDER BY created_at DESC LIMIT 100
+        `;
+        oracle = { listings: rows };
+        break;
+      }
+      case 'get_whats_new_report': {
+        const rows = await sql`
+          SELECT id::text AS id, summary_json AS report, findings_json AS findings
+          FROM whats_new_reports ORDER BY created_at DESC LIMIT 1
+        `;
+        const row = rows[0];
+        if (!row) {
+          oracle = null;
+        } else {
+          oracle = {
+            content: JSON.stringify(row.report ?? row.findings ?? {}),
+            ...(row.report && typeof row.report === 'object' ? { report: row.report } : {}),
+          };
+        }
+        break;
+      }
+      case 'list_whats_new_reports': {
+        const rows = await sql`
+          SELECT id::text AS id, findings_count AS "findingsCount"
+          FROM whats_new_reports ORDER BY created_at DESC LIMIT 50
+        `;
+        oracle = rows;
+        break;
+      }
+      case 'get_assimilation_status': {
+        const rows = await sql`
+          SELECT id::text AS "_id", status, profile, repository_url AS "repositoryUrl"
+          FROM assimilation_sessions WHERE id = ${assimilationSessionId}::uuid LIMIT 1
+        `;
+        oracle = rows[0] ?? null;
+        break;
+      }
+      case 'get_creator_transcripts': {
+        const profile = await sql`
+          SELECT handle FROM creator_profiles WHERE id = ${profileId}::uuid LIMIT 1
+        `;
+        if (!profile[0]) {
+          oracle = { success: false, error: 'creator profile not found' };
+        } else {
+          const rows = await sql`
+            SELECT v.content_id AS "contentId"
+            FROM subscription_content c
+            JOIN video_transcripts v ON v.content_id = c.content_id
+            WHERE c.source_id = ${profileId} LIMIT 100
+          `;
+          oracle = {
+            success: true,
+            data: {
+              profileId,
+              creatorHandle: profile[0].handle ?? '',
+              transcriptCount: rows.length,
+              transcripts: rows,
+            },
+          };
+        }
+        break;
+      }
+      case 'findRecommendations': {
+        // External/live path: prove Postgres is still the seed anchor + non-null payload elsewhere.
+        // Correspondence requires seed document row exists (content hash anchor).
+        const rows = await sql`
+          SELECT id::text AS id, title FROM documents WHERE id = ${documentId}::uuid LIMIT 1
+        `;
+        oracle = {
+          _correspondence: 'seed-document-anchor',
+          document: rows[0] ?? null,
+        };
+        break;
+      }
+      default: {
+        // Unknown read tool: require seed document exists as minimum correspondence anchor.
+        const rows = await sql`
+          SELECT id::text AS id FROM documents WHERE id = ${documentId}::uuid LIMIT 1
+        `;
+        oracle = { _fallback_seed: rows[0] ?? null };
+        break;
+      }
+    }
+    return { ok: true, oracle };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `ORACLE_SELECT_FAILED: ${msg}` };
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+/**
+ * Prove MCP payload corresponds to independent Postgres SELECT (R3-C03).
+ * Shape-only schema_valid never returns true here.
+ */
+export function payloadCorrespondsToPostgres(
+  toolId: string,
+  mcpPayload: unknown,
+  oracle: unknown,
+  seeds: VerifyToolSeeds
+): boolean {
+  if (mcpPayload === null || mcpPayload === undefined) return false;
+  if (oracle === null || oracle === undefined) {
+    // Oracle null (row missing) only corresponds if MCP also null — never postgres_backed success.
+    return false;
+  }
+
+  // findRecommendations: external live path — require seed document anchor present in oracle
+  // and MCP non-null shape; content hash of seed id must be known.
+  if (toolId === 'findRecommendations') {
+    const o = oracle as { document?: { id?: string } | null };
+    if (!o.document?.id) return false;
+    if (o.document.id.toLowerCase() !== seeds.documentId.toLowerCase()) return false;
+    return hasNonNullApplicationData(mcpPayload);
+  }
+
+  // Entity get_* — require id field match + content hash of stable fields.
+  const entityIdTools: Record<string, string> = {
+    get_document: seeds.documentId,
+    get_tool: seeds.toolId || seeds.documentId,
+    get_research_session: seeds.researchSessionId || seeds.documentId,
+    get_improvement: seeds.improvementId || seeds.documentId,
+    get_assimilation_status: seeds.assimilationSessionId || seeds.documentId,
+  };
+  if (toolId in entityIdTools) {
+    const expectedRaw = entityIdTools[toolId];
+    if (typeof expectedRaw !== 'string' || expectedRaw.length === 0) return false;
+    const expectedId = expectedRaw.toLowerCase();
+    const mcpIds = extractPayloadIds(mcpPayload);
+    if (!mcpIds.has(expectedId)) return false;
+    // Content correspondence: title/description/content or full stable hash equality
+    if (toolId === 'get_document') {
+      const mcp = mcpPayload as Record<string, unknown>;
+      const ora = oracle as Record<string, unknown>;
+      const titleOk =
+        typeof mcp.title === 'string' && typeof ora.title === 'string' && mcp.title === ora.title;
+      const contentOk =
+        typeof mcp.content === 'string' &&
+        typeof ora.content === 'string' &&
+        mcp.content === ora.content;
+      // Require title+content string equality when both sides expose them.
+      if (titleOk && contentOk) return true;
+      if (titleOk && ora.content == null && mcp.content == null) return true;
+      // Otherwise stable hash of the id+title+content projection must match.
+      return (
+        contentHashStable({
+          id: expectedId,
+          title: mcp.title ?? null,
+          content: mcp.content ?? null,
+        }) ===
+        contentHashStable({
+          id: expectedId,
+          title: ora.title ?? null,
+          content: ora.content ?? null,
+        })
+      );
+    }
+    // Other entity gets: stable hash of both sides, or shared id + at least one shared content field.
+    if (contentHashStable(mcpPayload) === contentHashStable(oracle)) return true;
+    if (!mcpIds.has(expectedId) || !extractPayloadIds(oracle).has(expectedId)) return false;
+    const mcpObj = mcpPayload as Record<string, unknown>;
+    const oraObj = oracle as Record<string, unknown>;
+    for (const field of ['title', 'topic', 'description', 'status', 'query', 'profile', 'name']) {
+      if (
+        typeof mcpObj[field] === 'string' &&
+        typeof oraObj[field] === 'string' &&
+        mcpObj[field] === oraObj[field]
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (toolId === 'get_shop_session') {
+    const mcp = mcpPayload as { session?: { sessionId?: string; query?: string } | null };
+    const ora = oracle as { session?: { sessionId?: string; query?: string } | null };
+    if (!mcp.session || !ora.session) return false;
+    const sid = String(mcp.session.sessionId ?? '').toLowerCase();
+    const expected = (seeds.shopSessionId || seeds.documentId).toLowerCase();
+    if (sid !== expected) return false;
+    if (ora.session.sessionId && String(ora.session.sessionId).toLowerCase() !== sid) return false;
+    if (
+      typeof mcp.session.query === 'string' &&
+      typeof ora.session.query === 'string' &&
+      mcp.session.query === ora.session.query
+    ) {
+      return true;
+    }
+    return contentHashStable(mcp.session) === contentHashStable(ora.session);
+  }
+
+  if (toolId === 'get_creator_transcripts') {
+    const mcp = mcpPayload as { success?: boolean; data?: { profileId?: string } };
+    const ora = oracle as { success?: boolean; data?: { profileId?: string } };
+    if (mcp.success === false && ora.success === false) {
+      // Both not-found — not a successful postgres-backed read for verify
+      return false;
+    }
+    if (mcp.success === true && ora.success === true) {
+      const pid = String(mcp.data?.profileId ?? '').toLowerCase();
+      return pid === (seeds.profileId || seeds.documentId).toLowerCase();
+    }
+    return false;
+  }
+
+  if (toolId === 'get_whats_new_report') {
+    // Both null → not backed; both with content → hash compare of content field
+    if (typeof mcpPayload === 'object' && mcpPayload && typeof oracle === 'object' && oracle) {
+      const mcp = mcpPayload as { content?: string };
+      const ora = oracle as { content?: string };
+      if (typeof mcp.content === 'string' && typeof ora.content === 'string') {
+        return mcp.content === ora.content;
+      }
+      return contentHashStable(mcpPayload) === contentHashStable(oracle);
+    }
+    return false;
+  }
+
+  // Collections / searches: id-set correspondence with independent SELECT.
+  const mcpIds = extractPayloadIds(mcpPayload);
+  const oracleIds = extractPayloadIds(oracle);
+
+  // Empty collection correspondence: both sides empty is valid *only* when both are empty arrays
+  // or empty result wrappers — proves the same SELECT returned no rows.
+  const mcpEmpty =
+    (Array.isArray(mcpPayload) && mcpPayload.length === 0) ||
+    (typeof mcpPayload === 'object' &&
+      mcpPayload !== null &&
+      ((Array.isArray((mcpPayload as { results?: unknown }).results) &&
+        ((mcpPayload as { results: unknown[] }).results?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { documents?: unknown }).documents) &&
+          ((mcpPayload as { documents: unknown[] }).documents?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { sessions?: unknown }).sessions) &&
+          ((mcpPayload as { sessions: unknown[] }).sessions?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { tools?: unknown }).tools) &&
+          ((mcpPayload as { tools: unknown[] }).tools?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { subscriptions?: unknown }).subscriptions) &&
+          ((mcpPayload as { subscriptions: unknown[] }).subscriptions?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { content?: unknown }).content) &&
+          ((mcpPayload as { content: unknown[] }).content?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { filters?: unknown }).filters) &&
+          ((mcpPayload as { filters: unknown[] }).filters?.length ?? -1) === 0) ||
+        (Array.isArray((mcpPayload as { listings?: unknown }).listings) &&
+          ((mcpPayload as { listings: unknown[] }).listings?.length ?? -1) === 0)));
+  const oraEmpty =
+    (Array.isArray(oracle) && oracle.length === 0) ||
+    (typeof oracle === 'object' &&
+      oracle !== null &&
+      ((Array.isArray((oracle as { results?: unknown }).results) &&
+        ((oracle as { results: unknown[] }).results?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { documents?: unknown }).documents) &&
+          ((oracle as { documents: unknown[] }).documents?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { sessions?: unknown }).sessions) &&
+          ((oracle as { sessions: unknown[] }).sessions?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { tools?: unknown }).tools) &&
+          ((oracle as { tools: unknown[] }).tools?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { subscriptions?: unknown }).subscriptions) &&
+          ((oracle as { subscriptions: unknown[] }).subscriptions?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { content?: unknown }).content) &&
+          ((oracle as { content: unknown[] }).content?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { filters?: unknown }).filters) &&
+          ((oracle as { filters: unknown[] }).filters?.length ?? -1) === 0) ||
+        (Array.isArray((oracle as { listings?: unknown }).listings) &&
+          ((oracle as { listings: unknown[] }).listings?.length ?? -1) === 0)));
+
+  if (mcpEmpty && oraEmpty) {
+    // Independent SELECT agreed no rows for this query — real correspondence, not shape fiction.
+    return true;
+  }
+
+  if (oracleIds.size === 0 && mcpIds.size === 0) {
+    // No ids either side but non-empty payloads — fall back to full stable hash
+    return contentHashStable(mcpPayload) === contentHashStable(oracle);
+  }
+
+  if (oracleIds.size === 0) return false;
+
+  // Every MCP id that looks like a primary entity should appear in oracle, OR
+  // at least one oracle id appears in MCP (list projections may truncate differently).
+  let intersection = 0;
+  for (const id of mcpIds) {
+    if (oracleIds.has(id)) intersection += 1;
+  }
+  if (intersection > 0) return true;
+
+  // Seed id must appear in MCP for list tools when oracle has it
+  const seedIds = [
+    seeds.documentId,
+    seeds.subscriptionId,
+    seeds.toolId,
+    seeds.shopSessionId,
+    seeds.profileId,
+    seeds.improvementId,
+    seeds.researchSessionId,
+    seeds.assimilationSessionId,
+  ]
+    .filter((x) => typeof x === 'string' && x.length > 0)
+    .map((x) => x.toLowerCase());
+  for (const sid of seedIds) {
+    if (oracleIds.has(sid) && mcpIds.has(sid)) return true;
+  }
+
+  return contentHashStable(mcpPayload) === contentHashStable(oracle);
+}
+
+/**
+ * Schema-valid + Postgres-backed read success (H-01 / R2-H02 / R3-C03).
  * HTTP 200 alone is insufficient — isError must be false, body non-empty,
  * registry outputSchema.safeParse must succeed (NO structural null|array|object fallback),
- * and payload must be non-null application data (null/not-found shells fail postgres_backed).
+ * and postgres_backed requires independent SELECT correspondence (not shape-only).
  */
 export function evaluateReadToolSuccess(
   toolId: string,
-  res: Pick<McpCallResult, 'status' | 'isError' | 'payload' | 'rawByteLength' | 'raw'>
-): { ok: boolean; schema_valid: boolean; postgres_backed: boolean } {
+  res: Pick<McpCallResult, 'status' | 'isError' | 'payload' | 'rawByteLength' | 'raw'>,
+  options?: {
+    /** Independent Postgres SELECT result for this tool+seeds. Required for postgres_backed. */
+    oracle?: unknown;
+    seeds?: VerifyToolSeeds;
+    /** When true, oracle was loaded successfully from DB. */
+    oracleOk?: boolean;
+  }
+): {
+  ok: boolean;
+  schema_valid: boolean;
+  postgres_backed: boolean;
+  correspondence_matched: boolean;
+} {
   const transportOk = res.status === 200 || res.status === 202;
   if (!transportOk || res.isError === true) {
-    return { ok: false, schema_valid: false, postgres_backed: false };
+    return {
+      ok: false,
+      schema_valid: false,
+      postgres_backed: false,
+      correspondence_matched: false,
+    };
   }
   // Empty body is never a Postgres-backed success
   if (res.rawByteLength <= 0 || res.raw.trim().length === 0) {
-    return { ok: false, schema_valid: false, postgres_backed: false };
+    return {
+      ok: false,
+      schema_valid: false,
+      postgres_backed: false,
+      correspondence_matched: false,
+    };
   }
   // Static article:compat-style stubs are never the parity oracle
   if (
     typeof res.payload === 'string' &&
     /article:compat|STUB|not.?implemented/i.test(res.payload)
   ) {
-    return { ok: false, schema_valid: false, postgres_backed: false };
+    return {
+      ok: false,
+      schema_valid: false,
+      postgres_backed: false,
+      correspondence_matched: false,
+    };
   }
 
   let zodOk = false;
@@ -1618,16 +2436,30 @@ export function evaluateReadToolSuccess(
   }
 
   const schema_valid = zodOk;
-  const postgres_backed = schema_valid && hasNonNullApplicationData(res.payload);
+  const shapeOk = schema_valid && hasNonNullApplicationData(res.payload);
+
+  // R3-C03: shape-only NEVER sets postgres_backed. Require oracle correspondence.
+  let correspondence_matched = false;
+  if (shapeOk && options?.oracleOk === true && options.oracle !== undefined && options.seeds) {
+    correspondence_matched = payloadCorrespondsToPostgres(
+      toolId,
+      res.payload,
+      options.oracle,
+      options.seeds
+    );
+  }
+
+  const postgres_backed = shapeOk && correspondence_matched;
   const ok = transportOk && res.isError !== true && schema_valid && postgres_backed;
-  return { ok, schema_valid, postgres_backed };
+  return { ok, schema_valid, postgres_backed, correspondence_matched };
 }
 
 /**
  * Invoke EVERY manifest tool over the real network /mcp HTTP endpoint.
  * toolsTotal is live manifest.tools.length — never hardcoded.
- * Requires HOLO_VERIFY_BASE_URL / PLATFORM_URL / options.baseUrl (fail-closed).
- * Reports target_identity; seeds from real holocron_nonprod rows (R2-H02).
+ * Requires HOLO_VERIFY_BASE_URL / PLATFORM_URL deployment env (fail-closed).
+ * target_identity is health-bound from an already-listening process (R3-C03).
+ * postgres_backed requires independent SELECT correspondence (R3-C03).
  */
 export async function runVerifyTools(options?: {
   cwd?: string;
@@ -1635,12 +2467,19 @@ export async function runVerifyTools(options?: {
   databaseUrl?: string;
   /** Deployed server base URL (http://host:port). Overrides env. */
   baseUrl?: string;
-  /** Optional service label / pid / generation for target_identity. */
+  /**
+   * Optional *constraint* on health-reported service label (must match).
+   * Never written into the report as sole identity proof (R3-C03).
+   */
   serviceLabel?: string;
+  /** Optional *constraint* on health-reported pid (must match). */
   pid?: number;
+  /** Optional *constraint* on health-reported generation (must match). */
   generation?: string;
   /** Override seeds (tests); when omitted, load real DB row ids. */
   seeds?: VerifyToolSeeds;
+  /** Test-only: allow missing HOLO_VERIFY_BASE_URL env (still requires health identity). */
+  allowMissingDeploymentEnv?: boolean;
 }): Promise<ToolsVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const keys = options?.keys ?? defaultKeys();
@@ -1655,16 +2494,16 @@ export async function runVerifyTools(options?: {
   const runId = `vt-${Date.now().toString(36)}`;
 
   const base_url = resolveVerifyBaseUrl(options?.baseUrl);
-  const target_identity = resolveTargetIdentity(base_url, {
-    serviceLabel: options?.serviceLabel,
-    pid: options?.pid,
-    generation: options?.generation,
-  });
   const tools: ToolVerifyEntry[] = [];
   let toolsPassed = 0;
   let toolsStubbed = 0;
+  let target_identity: TargetIdentity | null = null;
 
-  const failAll = (error: string, message: string): ToolsVerifyReport => {
+  const failAll = (
+    error: string,
+    message: string,
+    identity: TargetIdentity | null = target_identity
+  ): ToolsVerifyReport => {
     for (const tool of manifest.tools) {
       tools.push({
         tool_id: tool.id,
@@ -1672,6 +2511,7 @@ export async function runVerifyTools(options?: {
         invoked: false,
         ok: false,
         schema_valid: mutationIds.has(tool.id) ? undefined : false,
+        postgres_backed: mutationIds.has(tool.id) ? undefined : false,
         message,
       });
     }
@@ -1683,7 +2523,7 @@ export async function runVerifyTools(options?: {
       tools,
       transport: 'network',
       base_url,
-      target_identity,
+      target_identity: identity,
       error,
     };
   };
@@ -1695,10 +2535,19 @@ export async function runVerifyTools(options?: {
     );
   }
 
-  if (!target_identity) {
+  // R3-C03: identity from already-listening process /health — not caller-minted options.
+  const deployed = await resolveDeployedTargetIdentity(base_url, {
+    expectServiceLabel: options?.serviceLabel,
+    expectPid: options?.pid,
+    expectGeneration: options?.generation,
+    allowMissingDeploymentEnv: options?.allowMissingDeploymentEnv,
+  });
+  target_identity = deployed.identity;
+  if (!target_identity || target_identity.identity_source !== 'health') {
     return failAll(
-      'MISSING_TARGET_IDENTITY',
-      'MISSING_TARGET_IDENTITY: base_url must parse to host+port for deployed endpoint identity'
+      deployed.error ?? 'MISSING_TARGET_IDENTITY',
+      deployed.error ??
+        'MISSING_TARGET_IDENTITY: deployed /health must report pid of a pre-existing listener (not caller-minted)'
     );
   }
 
@@ -1715,22 +2564,6 @@ export async function runVerifyTools(options?: {
       return failAll(seedResult.error, seedResult.error);
     }
     seeds = seedResult.seeds;
-  }
-
-  // Fail-closed connectivity probe — unreachable base URL is not a pass
-  try {
-    const health = await fetch(`${base_url}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(5_000),
-    });
-    // Any HTTP response means the server accepted the connection.
-    void health;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      ...failAll(`UNREACHABLE_BASE_URL: ${base_url}`, `UNREACHABLE_BASE_URL: ${base_url} (${msg})`),
-      target_identity,
-    };
   }
 
   let callId = 1;
@@ -1758,11 +2591,24 @@ export async function runVerifyTools(options?: {
         entry.ok = blocked;
         if (blocked) toolsPassed += 1;
       } else {
-        // Read path (H-01/R2-H02): Zod schema_valid + non-null postgres_backed
-        const read = evaluateReadToolSuccess(tool.id, res);
+        // Read path (R3-C03): Zod schema_valid + independent SELECT correspondence
+        const oracleResult = await selectPostgresOracleForTool(tool.id, seeds, {
+          databaseUrl: options?.databaseUrl ?? process.env.DATABASE_URL,
+        });
+        const read = evaluateReadToolSuccess(tool.id, res, {
+          oracle: oracleResult.ok ? oracleResult.oracle : undefined,
+          oracleOk: oracleResult.ok,
+          seeds,
+        });
         entry.schema_valid = read.schema_valid;
         entry.postgres_backed = read.postgres_backed;
+        entry.correspondence_matched = read.correspondence_matched;
         entry.ok = read.ok;
+        if (!oracleResult.ok) {
+          entry.message = entry.message
+            ? `${entry.message}; ${oracleResult.error}`
+            : oracleResult.error;
+        }
         if (read.ok) toolsPassed += 1;
       }
       tools.push(entry);
@@ -1774,6 +2620,7 @@ export async function runVerifyTools(options?: {
         invoked: false,
         ok: false,
         schema_valid: is_mutation ? undefined : false,
+        postgres_backed: is_mutation ? undefined : false,
         message: err instanceof Error ? err.message : String(err),
       });
     }
@@ -1785,6 +2632,9 @@ export async function runVerifyTools(options?: {
       toolsStubbed === 0 &&
       toolsTotal > 0 &&
       target_identity !== null &&
+      target_identity.identity_source === 'health' &&
+      typeof target_identity.pid === 'number' &&
+      target_identity.pid > 0 &&
       base_url.length > 0,
     toolsTotal,
     toolsPassed,
@@ -2093,25 +2943,31 @@ export async function runVerifyArticle(options?: {
   databaseUrl?: string;
   /** Deployed server base URL (http://host:port). Overrides env. */
   baseUrl?: string;
+  /** Constraint only — must match health-reported label (R3-C03). */
   serviceLabel?: string;
+  /** Constraint only — must match health-reported pid. */
   pid?: number;
   generation?: string;
+  allowMissingDeploymentEnv?: boolean;
 }): Promise<ArticleVerifyReport> {
-  const { createHash } = await import('node:crypto');
+  const { createHash: createHashNode } = await import('node:crypto');
   const { loadArticleBaseline } = await import('./article-baseline.ts');
   const cwd = options?.cwd ?? resolveRepoRoot();
   const baselinePath = options?.baselinePath ?? defaultArticleBaselinePath(cwd);
   if (options?.databaseUrl) process.env.DATABASE_URL = options.databaseUrl;
 
   const base_url = resolveVerifyBaseUrl(options?.baseUrl);
-  const target_identity = resolveTargetIdentity(base_url, {
-    serviceLabel: options?.serviceLabel,
-    pid: options?.pid,
-    generation: options?.generation,
-  });
 
   const loaded = loadArticleBaseline(baselinePath);
   if (!loaded.ok) {
+    const code =
+      loaded.error && typeof loaded.error.code === 'string' && loaded.error.code.length > 0
+        ? loaded.error.code
+        : 'BASELINE_MISSING';
+    const msg =
+      loaded.error && typeof loaded.error.message === 'string'
+        ? loaded.error.message
+        : 'article baseline missing or unreadable';
     return {
       ok: false,
       status: 0,
@@ -2123,8 +2979,8 @@ export async function runVerifyArticle(options?: {
       match: false,
       transport: 'network',
       base_url,
-      target_identity,
-      error: 'MISSING_SHARE_TOKEN',
+      target_identity: null,
+      error: `${code}: ${msg}`,
     };
   }
 
@@ -2149,7 +3005,15 @@ export async function runVerifyArticle(options?: {
     };
   }
 
-  if (!target_identity) {
+  // R3-C03: identity from already-listening /health — not caller options alone.
+  const deployed = await resolveDeployedTargetIdentity(base_url, {
+    expectServiceLabel: options?.serviceLabel,
+    expectPid: options?.pid,
+    expectGeneration: options?.generation,
+    allowMissingDeploymentEnv: options?.allowMissingDeploymentEnv,
+  });
+  const target_identity = deployed.identity;
+  if (!target_identity || target_identity.identity_source !== 'health') {
     return {
       ok: false,
       status: 0,
@@ -2162,7 +3026,9 @@ export async function runVerifyArticle(options?: {
       transport: 'network',
       base_url,
       target_identity: null,
-      error: 'MISSING_TARGET_IDENTITY',
+      error:
+        deployed.error ??
+        'MISSING_TARGET_IDENTITY: deployed /health must report pid of a pre-existing listener',
     };
   }
 
@@ -2191,7 +3057,7 @@ export async function runVerifyArticle(options?: {
     };
   }
   const buf = Buffer.from(await res.arrayBuffer());
-  const sha256 = createHash('sha256').update(buf).digest('hex');
+  const sha256 = createHashNode('sha256').update(buf).digest('hex');
   const byteLength = buf.byteLength;
   const match =
     res.status === 200 &&
@@ -2200,7 +3066,11 @@ export async function runVerifyArticle(options?: {
     byteLength === baselineByteLength;
 
   return {
-    ok: match && target_identity !== null,
+    ok:
+      match &&
+      target_identity !== null &&
+      target_identity.identity_source === 'health' &&
+      typeof target_identity.pid === 'number',
     status: res.status,
     sha256,
     byteLength,

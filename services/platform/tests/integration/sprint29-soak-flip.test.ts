@@ -26,11 +26,14 @@ import {
   loadArticleBaseline,
 } from '../../src/cutover/article-baseline.ts';
 import {
+  contentHashStable,
   ETL_NOT_RECONCILED,
   evaluateReadToolSuccess,
   isMigrationReadOnly,
   MIGRATION_READ_ONLY_ENV,
+  payloadCorrespondsToPostgres,
   readDurableMigrationReadOnly,
+  resolveDeployedTargetIdentity,
   resolveTargetIdentity,
   resolveVerifyToolSeeds,
   runCutoverFlip,
@@ -41,6 +44,7 @@ import {
   runVerifyReads,
   runVerifySoak,
   runVerifyTools,
+  selectPostgresOracleForTool,
   setMigrationReadOnlyEnv,
   writeDurableMigrationReadOnly,
 } from '../../src/cutover/soak-fence.ts';
@@ -73,12 +77,27 @@ const H01_EVIDENCE = resolve(
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
 const H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H02');
+const H03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H03');
+const H03_SPRINT_EVIDENCE = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
 /** R2-H02 evidence (user path + sprint gate path). */
 const R2_H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H02');
 const R2_H02_SPRINT_EVIDENCE = resolve(
   REPO_ROOT,
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
+/** REDHAT-FIX-S29-R2-C01 evidence tree (durable override + already-running service). */
+const R2_C01_EVIDENCE = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
+const R2_C01_ALT = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C01');
+/** R2-C03 evidence path. */
+const C03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C03');
+/** R3-C03 evidence: real Postgres correspondence + health-bound identity. */
+const R3_C03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R3-C03');
 /** Immutable multi-table D06-04-shaped watermark (committed). Never authored from live SELECT. */
 const IMMUTABLE_ETL_FIXTURE = resolve(
   REPO_ROOT,
@@ -90,6 +109,15 @@ const IMMUTABLE_PARITY_FIXTURE = resolve(
   'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json'
 );
 const IMMUTABLE_EXPORT_DIR = resolve(REPO_ROOT, 'services/platform/tests/fixtures/export-sample');
+/**
+ * R2-H03: committed pre-freeze article baseline fixture (structure + provenance).
+ * Suite captures live pre-freeze bytes into working D06-03 path via renderPublicArticle
+ * BEFORE starting the post-fence SUT child — never fetch→write from that child.
+ */
+const IMMUTABLE_ARTICLE_BASELINE_FIXTURE = resolve(
+  REPO_ROOT,
+  'services/platform/tests/fixtures/sprint29/article-baseline-pre-freeze.json'
+);
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
@@ -159,6 +187,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     mkdirSync(C02_EVIDENCE, { recursive: true });
     mkdirSync(R2_H02_EVIDENCE, { recursive: true });
     mkdirSync(R2_H02_SPRINT_EVIDENCE, { recursive: true });
+    mkdirSync(R3_C03_EVIDENCE, { recursive: true });
     // Disposable control-plane — isolate durable fence from operator secrets.yaml
     writeFileSync(
       DISPOSABLE_SECRETS,
@@ -185,16 +214,17 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     }
     shareToken = existingPublic[0].share_token;
 
-    // R2-H02: ensure non-ETL-bound rows exist so get_tool / shop / creator reads
-    // return non-null application data (do NOT touch documents/subscription_sources counts).
+    // R2-H02 / R3-C03: ensure non-ETL-bound rows exist so get_* reads return
+    // real SELECT-correspondable application data (do NOT touch documents /
+    // subscription_sources counts used by the immutable ETL fixture).
     const toolCount = Number((await sql`SELECT count(*)::int AS c FROM toolbelt_tools`)[0]?.c ?? 0);
     if (toolCount === 0) {
       await sql`
         INSERT INTO toolbelt_tools (id, title, description, content, source_type, category, status)
         VALUES (
           ${randomUUID()}::uuid,
-          ${`r2-h02-seed-tool-${RUN}`},
-          'R2-H02 verify-tools seed',
+          ${`r3-c03-seed-tool-${RUN}`},
+          'R3-C03 verify-tools seed',
           'seed content',
           'github',
           'tool',
@@ -206,7 +236,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     if (shopCount === 0) {
       await sql`
         INSERT INTO shop_sessions (id, query, status, retailers)
-        VALUES (${randomUUID()}::uuid, ${`r2-h02-seed-${RUN}`}, 'completed', ${sql.json(['amazon'])})
+        VALUES (${randomUUID()}::uuid, ${`r3-c03-seed-${RUN}`}, 'completed', ${sql.json(['amazon'])})
       `;
     }
     const profileCount = Number(
@@ -215,7 +245,56 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     if (profileCount === 0) {
       await sql`
         INSERT INTO creator_profiles (id, name, handle)
-        VALUES (${randomUUID()}::uuid, ${`r2-h02-${RUN}`}, ${`r2h02_${RUN}`})
+        VALUES (${randomUUID()}::uuid, ${`r3-c03-${RUN}`}, ${`r3c03_${RUN}`})
+      `;
+    }
+    const researchCount = Number(
+      (await sql`SELECT count(*)::int AS c FROM research_sessions`)[0]?.c ?? 0
+    );
+    if (researchCount === 0) {
+      await sql`
+        INSERT INTO research_sessions (id, topic, status)
+        VALUES (${randomUUID()}::uuid, ${`r3-c03-research-${RUN}`}, 'completed')
+      `;
+    }
+    const improvementCount = Number(
+      (await sql`SELECT count(*)::int AS c FROM improvement_requests`)[0]?.c ?? 0
+    );
+    if (improvementCount === 0) {
+      await sql`
+        INSERT INTO improvement_requests (id, description, status, source_screen)
+        VALUES (${randomUUID()}::uuid, ${`r3-c03-imp-${RUN}`}, 'pending', 'soak')
+      `;
+    }
+    const assimCount = Number(
+      (await sql`SELECT count(*)::int AS c FROM assimilation_sessions`)[0]?.c ?? 0
+    );
+    if (assimCount === 0) {
+      await sql`
+        INSERT INTO assimilation_sessions (id, repository_url, profile, status)
+        VALUES (
+          ${randomUUID()}::uuid,
+          ${`https://github.com/example/r3-c03-${RUN}`},
+          'standard',
+          'planning'
+        )
+      `;
+    }
+    const whatsNewCount = Number(
+      (await sql`SELECT count(*)::int AS c FROM whats_new_reports`)[0]?.c ?? 0
+    );
+    if (whatsNewCount === 0) {
+      await sql`
+        INSERT INTO whats_new_reports (
+          id, period_start, period_end, summary_json, findings_json, findings_count
+        ) VALUES (
+          ${randomUUID()}::uuid,
+          now() - interval '7 days',
+          now(),
+          ${sql.json({ summary: `r3-c03-${RUN}` })},
+          ${sql.json([])},
+          0
+        )
       `;
     }
 
@@ -274,6 +353,9 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     // Arm fence in this process (jobs / hono sweep / flip) AND the live server child
     // AFTER pre-freeze baseline is sealed (immutable for verify).
     setMigrationReadOnlyEnv('1');
+    // R3-C03: label lives on the *serving* process env so /health reports it —
+    // verify must not mint identity solely from caller options/env overwrite.
+    soakServiceLabel = `soak-flip-r3-c03-${RUN}`;
     liveService = await startLiveService({
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
@@ -282,19 +364,21 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
         HOLO_MIGRATION_READ_ONLY: '0',
         HOLO_SECRETS_PATH: DISPOSABLE_SECRETS,
         HOLOCRON_SECRETS_PATH: DISPOSABLE_SECRETS,
+        // Serving-process identity (health-bound; not caller-minted into report)
+        HOLO_SERVICE_LABEL: soakServiceLabel,
         // Propagate live search key when present so findRecommendations is schema-valid
         ...(process.env.JINA_API_KEY ? { JINA_API_KEY: process.env.JINA_API_KEY } : {}),
       },
       readyTimeoutMs: 180_000,
     });
     networkBaseUrl = liveService.baseUrl;
-    soakServiceLabel = `soak-flip-r2-h02-${RUN}`;
+    // Deployment env points at the pre-existing listener (started above, before verify).
     process.env.HOLO_VERIFY_BASE_URL = networkBaseUrl;
     process.env.PLATFORM_URL = networkBaseUrl;
-    process.env.HOLO_VERIFY_SERVICE_LABEL = soakServiceLabel;
-    if (liveService.pid) {
-      process.env.HOLO_VERIFY_PID = String(liveService.pid);
-    }
+    // Clear parent-side label/pid minting — identity must come from /health of the child.
+    delete process.env.HOLO_VERIFY_SERVICE_LABEL;
+    delete process.env.HOLO_SOAK_SERVICE_LABEL;
+    delete process.env.HOLO_VERIFY_PID;
 
     // H-02: load immutable multi-table D06-04-shaped watermark from committed fixture.
     // NEVER derive loadedByTable from live SELECT count(*) (dual-lens anti-stub).
@@ -957,18 +1041,21 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-2 / TC-3 / TC-4 / H-01 network ─────────────────────────────────────
 
-  it('TC-3/4 AC-2 H-01/R2-H02: network /mcp verify-tools; identity; Zod schema_valid; non-sentinel seeds', async () => {
+  it('TC-3/4 AC-2 H-01/R2-H02/R3-C03: network /mcp; health identity; Postgres correspondence', async () => {
     setMigrationReadOnlyEnv('1');
+    // Arm durable control-plane so the already-running child re-reads fence (R2-C01).
+    writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
     process.env.DATABASE_URL = DATABASE_URL;
     expect(networkBaseUrl.length).toBeGreaterThan(0);
+    expect(process.env.HOLO_VERIFY_BASE_URL).toBe(networkBaseUrl);
     const manifest = loadManifest(defaultManifestPath(REPO_ROOT));
+    // R3-C03: do NOT pass serviceLabel/pid as sole identity mint — health binds them.
+    // Optional constraints may match health; omit so report cannot be self-supplied.
     const report = await runVerifyTools({
       cwd: REPO_ROOT,
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
       baseUrl: networkBaseUrl,
-      serviceLabel: soakServiceLabel,
-      pid: liveService?.pid,
     });
     evidence('tc-verify-tools.json', {
       toolsTotal: report.toolsTotal,
@@ -994,6 +1081,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
           isError: t.isError,
           schema_valid: t.schema_valid,
           postgres_backed: t.postgres_backed,
+          correspondence_matched: t.correspondence_matched,
           status: t.status,
           message: t.message,
         })),
@@ -1013,19 +1101,29 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       `${JSON.stringify(report, null, 2)}\n`,
       'utf8'
     );
+    writeFileSync(
+      resolve(R3_C03_EVIDENCE, 'verify-tools-network.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
 
     // H-01: network transport + non-null concrete counts
     expect(report.transport).toBe('network');
     expect(report.base_url).toBe(networkBaseUrl);
-    // R2-H02 AC-1: deployed endpoint identity bound in report
+    // R3-C03: identity from serving /health (already-listening child), not caller mint
     const identity = report.target_identity;
     expect(identity).not.toBeNull();
     if (!identity) throw new Error('target_identity missing');
+    expect(identity.identity_source).toBe('health');
     expect(identity.host.length).toBeGreaterThan(0);
     expect(identity.port).toBeGreaterThan(0);
+    expect(identity.pid).toBe(liveService?.pid);
+    expect(identity.pid).not.toBe(process.pid);
     expect(identity.service_label).toBe(soakServiceLabel);
     expect(identity.host).toBe(new URL(networkBaseUrl).hostname);
     expect(identity.port).toBe(Number(new URL(networkBaseUrl).port));
+    expect(typeof identity.uptime_ms).toBe('number');
+    expect((identity.uptime_ms ?? 0) > 0).toBe(true);
 
     // R2-H02: seeds are real holocron_nonprod ids (not sole fixed sentinels without row proof)
     const seeds = report.seeds;
@@ -1040,6 +1138,22 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       // Only allowed when those exact rows exist and return non-null (SELECT-backed).
       const doc = await sql`SELECT id FROM documents WHERE id = ${seeds.documentId}::uuid`;
       expect(doc.length).toBe(1);
+    }
+
+    // R3-C03: get_document correspondence — MCP title/content match independent SELECT
+    const docOracle = await selectPostgresOracleForTool('get_document', seeds, {
+      databaseUrl: DATABASE_URL,
+    });
+    expect(docOracle.ok).toBe(true);
+    if (docOracle.ok) {
+      const ora = docOracle.oracle as { documentId?: string; title?: string; content?: string };
+      expect(ora?.documentId).toBe(seeds.documentId);
+      expect(typeof ora?.title).toBe('string');
+      writeFileSync(
+        resolve(R3_C03_EVIDENCE, 'get-document-oracle.json'),
+        `${JSON.stringify({ seeds, oracle: ora, content_sha256: contentHashStable(ora) }, null, 2)}\n`,
+        'utf8'
+      );
     }
 
     expect(report.toolsTotal).toBe(manifest.tools.length);
@@ -1067,9 +1181,10 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     const reads = report.tools.filter((t) => !t.is_mutation);
     // H-01 AC-2: never pass a read solely on HTTP 200 when isError
     expect(reads.every((t) => !(t.ok === true && t.isError === true))).toBe(true);
-    // R2-H02: schema_valid only via Zod; postgres_backed requires non-null data
+    // R2-H02 / R3-C03: schema_valid via Zod; postgres_backed requires correspondence
     expect(reads.every((t) => t.schema_valid === true)).toBe(true);
     expect(reads.every((t) => t.postgres_backed === true)).toBe(true);
+    expect(reads.every((t) => t.correspondence_matched === true)).toBe(true);
     expect(reads.every((t) => t.isError !== true)).toBe(true);
     expect(reads.every((t) => t.ok === true)).toBe(true);
 
@@ -1077,7 +1192,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.ok).toBe(true);
   }, 300_000);
 
-  it('R2-H02 AC-3: evaluateReadToolSuccess rejects null and Zod-failing payloads', () => {
+  it('R2-H02/R3-C03 AC-3: shape-only never sets postgres_backed; null/Zod fail', () => {
     // list_documents output is non-nullable object — null fails Zod (no structural fallback)
     const nullResult = evaluateReadToolSuccess('list_documents', {
       status: 200,
@@ -1112,25 +1227,94 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(zodFail.postgres_backed).toBe(false);
     expect(zodFail.ok).toBe(false);
 
-    const okPayload = evaluateReadToolSuccess('list_documents', {
+    // R3-C03: schema-valid shape WITHOUT oracle correspondence is NOT postgres_backed
+    const shapeOnly = evaluateReadToolSuccess('list_documents', {
       status: 200,
       isError: false,
       payload: { documents: [{ id: 'x' }], hasMore: false },
       rawByteLength: 40,
       raw: '{"documents":[{"id":"x"}],"hasMore":false}',
     });
-    expect(okPayload.schema_valid).toBe(true);
-    expect(okPayload.postgres_backed).toBe(true);
-    expect(okPayload.ok).toBe(true);
+    expect(shapeOnly.schema_valid).toBe(true);
+    expect(shapeOnly.postgres_backed).toBe(false);
+    expect(shapeOnly.correspondence_matched).toBe(false);
+    expect(shapeOnly.ok).toBe(false);
+
+    const seeds = {
+      documentId: '11111111-1111-4111-8111-111111111111',
+      subscriptionId: '22222222-2222-4222-8222-222222222222',
+      researchSessionId: '',
+      improvementId: '',
+      assimilationSessionId: '',
+      toolId: '',
+      shopSessionId: '',
+      profileId: '',
+      runId: 'unit',
+    };
+    const withOracle = evaluateReadToolSuccess(
+      'list_documents',
+      {
+        status: 200,
+        isError: false,
+        payload: {
+          documents: [{ id: seeds.documentId, title: 't' }],
+          hasMore: false,
+        },
+        rawByteLength: 80,
+        raw: '{"documents":[{"id":"11111111-1111-4111-8111-111111111111"}]}',
+      },
+      {
+        oracleOk: true,
+        oracle: { documents: [{ id: seeds.documentId, title: 't' }], hasMore: false },
+        seeds,
+      }
+    );
+    expect(withOracle.schema_valid).toBe(true);
+    expect(withOracle.correspondence_matched).toBe(true);
+    expect(withOracle.postgres_backed).toBe(true);
+    expect(withOracle.ok).toBe(true);
+
+    // Fabricated payload that does not match oracle ids fails correspondence
+    const fabricated = evaluateReadToolSuccess(
+      'get_document',
+      {
+        status: 200,
+        isError: false,
+        payload: {
+          documentId: seeds.documentId,
+          title: 'forged',
+          content: 'not-in-db',
+        },
+        rawByteLength: 60,
+        raw: '{"documentId":"...","title":"forged"}',
+      },
+      {
+        oracleOk: true,
+        oracle: {
+          documentId: seeds.documentId,
+          title: 'real-title',
+          content: 'real-content',
+        },
+        seeds,
+      }
+    );
+    expect(fabricated.schema_valid).toBe(true);
+    expect(fabricated.correspondence_matched).toBe(false);
+    expect(fabricated.postgres_backed).toBe(false);
+
+    const minted = resolveTargetIdentity('http://127.0.0.1:4111', {
+      serviceLabel: 'unit',
+    });
+    expect(minted?.identity_source).toBe('caller_minted');
 
     const evidenceBody = {
       nullResult,
       nullGetDoc,
       zodFail,
-      okPayload,
-      resolveTargetIdentity: resolveTargetIdentity('http://127.0.0.1:4111', {
-        serviceLabel: 'unit',
-      }),
+      shapeOnly,
+      withOracle,
+      fabricated,
+      resolveTargetIdentity: minted,
     };
     writeFileSync(
       resolve(R2_H02_EVIDENCE, 'evaluate-read-tool-success.json'),
@@ -1142,6 +1326,81 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       `${JSON.stringify(evidenceBody, null, 2)}\n`,
       'utf8'
     );
+    writeFileSync(
+      resolve(R3_C03_EVIDENCE, 'evaluate-read-tool-success.json'),
+      `${JSON.stringify(evidenceBody, null, 2)}\n`,
+      'utf8'
+    );
+  });
+
+  it('R3-C03: resolveDeployedTargetIdentity binds health pid/label; fails without deploy env', async () => {
+    expect(networkBaseUrl.length).toBeGreaterThan(0);
+    const bound = await resolveDeployedTargetIdentity(networkBaseUrl);
+    expect(bound.identity).not.toBeNull();
+    expect(bound.identity?.identity_source).toBe('health');
+    expect(bound.identity?.pid).toBe(liveService?.pid);
+    expect(bound.identity?.service_label).toBe(soakServiceLabel);
+    expect(bound.identity?.pid).not.toBe(process.pid);
+
+    const saved = {
+      HOLO_VERIFY_BASE_URL: process.env.HOLO_VERIFY_BASE_URL,
+      HOLO_SOAK_BASE_URL: process.env.HOLO_SOAK_BASE_URL,
+      PLATFORM_URL: process.env.PLATFORM_URL,
+    };
+    delete process.env.HOLO_VERIFY_BASE_URL;
+    delete process.env.HOLO_SOAK_BASE_URL;
+    delete process.env.PLATFORM_URL;
+    const noEnv = await resolveDeployedTargetIdentity(networkBaseUrl);
+    expect(noEnv.identity).toBeNull();
+    expect(noEnv.error ?? '').toMatch(/MISSING_DEPLOYMENT_ENV/);
+    process.env.HOLO_VERIFY_BASE_URL = saved.HOLO_VERIFY_BASE_URL;
+    if (saved.HOLO_SOAK_BASE_URL) process.env.HOLO_SOAK_BASE_URL = saved.HOLO_SOAK_BASE_URL;
+    if (saved.PLATFORM_URL) process.env.PLATFORM_URL = saved.PLATFORM_URL;
+
+    writeFileSync(
+      resolve(R3_C03_EVIDENCE, 'deployed-identity.json'),
+      `${JSON.stringify({ bound, noEnv_error: noEnv.error }, null, 2)}\n`,
+      'utf8'
+    );
+  }, 30_000);
+
+  it('R3-C03: payloadCorrespondsToPostgres requires SELECT match not shape', () => {
+    const seeds = {
+      documentId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      subscriptionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      researchSessionId: '',
+      improvementId: '',
+      assimilationSessionId: '',
+      toolId: '',
+      shopSessionId: '',
+      profileId: '',
+      runId: 'corr',
+    };
+    expect(
+      payloadCorrespondsToPostgres(
+        'get_document',
+        { documentId: seeds.documentId, title: 'A', content: 'body' },
+        { documentId: seeds.documentId, title: 'A', content: 'body' },
+        seeds
+      )
+    ).toBe(true);
+    expect(
+      payloadCorrespondsToPostgres(
+        'get_document',
+        { documentId: seeds.documentId, title: 'forged', content: 'x' },
+        { documentId: seeds.documentId, title: 'A', content: 'body' },
+        seeds
+      )
+    ).toBe(false);
+    // Empty FTS both sides — correspondence holds
+    expect(
+      payloadCorrespondsToPostgres(
+        'search_fts',
+        { results: [], totalResults: 0 },
+        { results: [], totalResults: 0 },
+        seeds
+      )
+    ).toBe(true);
   });
 
   it('R2-H02: resolveVerifyToolSeeds returns non-sentinel holocron_nonprod ids', async () => {
