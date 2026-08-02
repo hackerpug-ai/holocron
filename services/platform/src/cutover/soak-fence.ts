@@ -541,11 +541,40 @@ export function defaultVerifyExportDir(cwd = resolveRepoRoot()): string {
   return resolve(cwd, '.tmp/D06-04/export');
 }
 
-/** Committed sprint-29 cutover-parity fixture (content-addressed inventory). */
+/**
+ * Test-only escape hatch for committed cutover fixtures.
+ * Production cutover:verify-reads MUST NOT set this — fail closed without operator export/catalog.
+ */
+export const CUTOVER_ALLOW_TEST_FIXTURES_ENV = 'HOLO_CUTOVER_ALLOW_TEST_FIXTURES';
+
+/** True when HOLO_CUTOVER_ALLOW_TEST_FIXTURES is '1' or 'true' (tests only). */
+export function allowCutoverTestFixtures(env: NodeJS.ProcessEnv = process.env): boolean {
+  return isTruthyFenceValue(env[CUTOVER_ALLOW_TEST_FIXTURES_ENV]);
+}
+
+/** Committed sprint-29 cutover-parity fixture (content-addressed inventory). Test-only path. */
 export function defaultFixtureCutoverParityPath(cwd = resolveRepoRoot()): string {
   return resolve(
     cwd,
     'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json'
+  );
+}
+
+/**
+ * True when `p` resolves under a committed repo test-fixture tree.
+ * Used to refuse accidental production bind to services/platform/tests/fixtures/**.
+ */
+export function isCommittedTestFixturePath(p: string, cwd = resolveRepoRoot()): boolean {
+  if (!p) return false;
+  const norm = resolve(p).replace(/\\/g, '/');
+  const root = resolve(cwd).replace(/\\/g, '/');
+  const rel = norm.startsWith(root + '/') ? norm.slice(root.length + 1) : norm;
+  return (
+    rel.includes('services/platform/tests/fixtures/') ||
+    rel.startsWith('services/platform/tests/fixtures/') ||
+    /(^|\/)tests\/fixtures\//.test(rel) ||
+    norm.includes('/services/platform/tests/fixtures/') ||
+    /\/tests\/fixtures\//.test(norm)
   );
 }
 
@@ -621,8 +650,13 @@ export type BoundExportCatalogBaseline = {
 };
 
 /**
- * R2-C03: bind verify-reads to on-disk content-addressed export + catalog + parity.
- * Rejects missing archive/catalog/parity, hash mismatch, and empty expected sets.
+ * R2-C03 / R3-C02: bind verify-reads to on-disk content-addressed export + catalog + parity.
+ * Rejects missing archive/catalog/parity, hash mismatch, empty expected sets, and
+ * production fallback to committed test fixtures (fail closed).
+ *
+ * Fixture paths are allowed only when:
+ *   - HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1|true, or
+ *   - caller passed explicit exportDir / catalogPath / parityPath (tests inject paths).
  */
 export function loadBoundExportCatalogBaseline(options: {
   cwd?: string;
@@ -636,9 +670,18 @@ export function loadBoundExportCatalogBaseline(options: {
   /** Optional paths declared on the watermark for resolution. */
   exportRelPath?: string;
   parityRelPath?: string;
+  /**
+   * Tests only: permit committed fixture trees / auto fixture fallback.
+   * Production CLI must leave this unset and rely on operator export/catalog.
+   */
+  allowTestFixtures?: boolean;
 }): BoundExportCatalogBaseline {
   const cwd = options.cwd ?? resolveRepoRoot();
   const mismatches: string[] = [];
+  const allowFixtures = options.allowTestFixtures === true || allowCutoverTestFixtures();
+  const explicitParity = Boolean(options.parityPath);
+  const explicitExport = Boolean(options.exportDir);
+  const explicitCatalog = Boolean(options.catalogPath);
 
   const parityPath = (() => {
     if (options.parityPath) return options.parityPath;
@@ -646,8 +689,8 @@ export function loadBoundExportCatalogBaseline(options: {
     return defaultCutoverParityPath(cwd);
   })();
   let parity = loadCutoverParityInventory(parityPath);
-  // Fall back to committed fixture when operator D06-04 parity is absent.
-  if (!parity && existsSync(defaultFixtureCutoverParityPath(cwd))) {
+  // R3-C02: committed fixture fallback ONLY under explicit test flag — never production default.
+  if (!parity && allowFixtures && existsSync(defaultFixtureCutoverParityPath(cwd))) {
     const fixtureParity = defaultFixtureCutoverParityPath(cwd);
     parity = loadCutoverParityInventory(fixtureParity);
   }
@@ -655,11 +698,31 @@ export function loadBoundExportCatalogBaseline(options: {
     return {
       ok: false,
       mismatches: [
-        `cutover-parity inventory missing or invalid (looked at ${parityPath}); refuse verify-reads without immutable catalog bind`,
+        `cutover-parity inventory missing or invalid (looked at ${parityPath}); refuse verify-reads without immutable operator export/catalog bind (no production fixture fallback; pass --parity/--export/--catalog or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`,
       ],
       exportDir: '',
       catalogPath: '',
       parityPath,
+      exportArchiveHash: '',
+      parityHash: '',
+      expectedLoadedByTable: {},
+      catalog_table_count: 0,
+      listedTables: [],
+      baseline_hash: '',
+      baseline_source: '',
+    };
+  }
+
+  // Refuse auto-resolved fixture parity in production (explicit --parity still allowed for tests).
+  if (!allowFixtures && !explicitParity && isCommittedTestFixturePath(parity.path, cwd)) {
+    return {
+      ok: false,
+      mismatches: [
+        `refusing committed test fixture parity path in production: ${parity.path} (pass operator --parity or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`,
+      ],
+      exportDir: '',
+      catalogPath: '',
+      parityPath: parity.path,
       exportArchiveHash: '',
       parityHash: '',
       expectedLoadedByTable: {},
@@ -681,6 +744,18 @@ export function loadBoundExportCatalogBaseline(options: {
     if (parity.catalogRelPath) return resolveMaybeRel(parity.catalogRelPath, cwd);
     return defaultCatalogPath(cwd);
   })();
+
+  // Refuse auto-resolved fixture export/catalog dirs in production.
+  if (!allowFixtures && !explicitExport && isCommittedTestFixturePath(exportDir, cwd)) {
+    mismatches.push(
+      `refusing committed test fixture export dir in production: ${exportDir} (pass operator --export or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`
+    );
+  }
+  if (!allowFixtures && !explicitCatalog && isCommittedTestFixturePath(catalogPath, cwd)) {
+    mismatches.push(
+      `refusing committed test fixture catalog path in production: ${catalogPath} (pass operator --catalog or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`
+    );
+  }
 
   if (options.declaredParityHash && options.declaredParityHash !== parity.parityHash) {
     mismatches.push(
@@ -736,7 +811,13 @@ export function loadBoundExportCatalogBaseline(options: {
 
   const expectedKeys = Object.keys(parity.loadedByTable);
   const catalog_table_count = expectedKeys.length;
-  if (catalog_table_count < 4) {
+  // R3-C02: when parity declares N expected tables, require full inventory (not silent >=4).
+  const declaredExpected = parity.catalog_table_count_expected;
+  if (declaredExpected > 0 && catalog_table_count !== declaredExpected) {
+    mismatches.push(
+      `truncated/incomplete-set: loadedByTable has ${catalog_table_count} tables but catalog_table_count_expected=${declaredExpected}`
+    );
+  } else if (catalog_table_count < 4) {
     mismatches.push(
       `catalog/export expected table count too small: ${catalog_table_count} (need >= 4 for CAP-MIG-01 parity)`
     );
@@ -2759,6 +2840,8 @@ export async function runVerifyReads(options?: {
   exportDir?: string;
   catalogPath?: string;
   parityPath?: string;
+  /** Tests only — see loadBoundExportCatalogBaseline.allowTestFixtures. */
+  allowTestFixtures?: boolean;
 }): Promise<ReadsVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const etlReportPath = options?.etlReportPath ?? defaultWatermarkReportPath(cwd);
@@ -2774,7 +2857,8 @@ export async function runVerifyReads(options?: {
     });
   }
 
-  // R2-C03: bind to immutable export + catalog + parity (not report self-hash alone).
+  // R2-C03 / R3-C02: bind to immutable export + catalog + parity (not report self-hash alone).
+  // No production fallback to committed test fixtures.
   const bound = loadBoundExportCatalogBaseline({
     cwd,
     exportDir: options?.exportDir,
@@ -2784,6 +2868,7 @@ export async function runVerifyReads(options?: {
     declaredParityHash: snap.parityHash || undefined,
     exportRelPath: snap.exportRelPath || undefined,
     parityRelPath: snap.parityRelPath || undefined,
+    allowTestFixtures: options?.allowTestFixtures,
   });
   mismatches.push(...bound.mismatches);
 

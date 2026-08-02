@@ -351,6 +351,8 @@ Usage:
   cutover:verify-reads      D06-05 Postgres counts vs export/catalog parity baseline [--json]
                             [--etl-report <watermark>] [--export <dir>] [--catalog <yaml>]
                             [--parity <cutover-parity.json>]
+                            Requires operator export+catalog+parity (fail closed; no test-fixture default).
+                            Tests only: HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 or explicit fixture paths.
   cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json] [--base-url URL]
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
