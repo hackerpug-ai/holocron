@@ -1,0 +1,6 @@
+{
+  "threw": true,
+  "errMsg": "cutover:freeze FAIL CLOSED: cross-process probe accepted a write (fence not durable). message=\"cross_process_probe_fail_closed: unparseable_child_stdout (status=0, signal=null, stdout_len=24, stderr_len=0)\"",
+  "ok": false,
+  "report_exists_after": false
+}

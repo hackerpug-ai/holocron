@@ -1,12 +1,13 @@
 /**
  * REDHAT-FIX-S29-H05 — fence arm-after-confirm ordering + cross-process probe.
+ * REDHAT-FIX-S29-R2-H04 — fail-closed cross-process probe (no in-process arm fallback).
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
  *     services/platform/tests/integration/sprint29-fence-arm-order.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { anyApi } from 'convex/server';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -17,6 +18,7 @@ import {
   createCutoverConvexClient,
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
+  runCrossProcessBlockedWriteProbe,
   runCutoverFreeze,
 } from '../../src/cutover/convex-fence-client.ts';
 
@@ -25,6 +27,11 @@ if (!PLATFORM_IT) {
 }
 
 const EVIDENCE = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-H05');
+const EVIDENCE_R2_H04 = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-R2-H04');
+const EVIDENCE_SPRINT = resolve(
+  process.cwd(),
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
 const D0603 = resolve(process.cwd(), '.tmp/D06-03');
 
 function evidence(name: string, body: unknown): void {
@@ -37,6 +44,15 @@ function evidence(name: string, body: unknown): void {
   if (name === 'freeze-report.json') {
     writeFileSync(resolve(D0603, name), payload, 'utf8');
   }
+}
+
+function evidenceR2H04(name: string, body: unknown): void {
+  mkdirSync(EVIDENCE_R2_H04, { recursive: true });
+  mkdirSync(EVIDENCE_SPRINT, { recursive: true });
+  const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
+  const payload = text.endsWith('\n') ? text : `${text}\n`;
+  writeFileSync(resolve(EVIDENCE_R2_H04, name), payload, 'utf8');
+  writeFileSync(resolve(EVIDENCE_SPRINT, name), payload, 'utf8');
 }
 
 function holo(args: string[]): {
@@ -76,6 +92,48 @@ function sourceHasPreFixArmBeforeSetOrdering(): boolean {
     return armIdx >= 0 && (setIdx < 0 || armIdx < setIdx);
   }
   return armIdx < setIdx;
+}
+
+/**
+ * H-04 RED control: pre-fix :341-382 fell back to in-process mutation with
+ * child_pid:null and still returned rejected:true on fence rejection.
+ */
+function sourceHasInProcessProbeFallbackSuccessPath(): boolean {
+  const src = readFileSync(
+    resolve(process.cwd(), 'services/platform/src/cutover/convex-fence-client.ts'),
+    'utf8'
+  );
+  const start = src.indexOf('export async function runCrossProcessBlockedWriteProbe');
+  if (start < 0) return true;
+  const next = src.indexOf('export async function', start + 10);
+  const body = src.slice(start, next > 0 ? next : undefined);
+  // Forbidden success-path markers from reviewed SHA cab5c071
+  return (
+    body.includes('s29-h05-xproc-fallback-') ||
+    /Fallback:\s*in-process real mutation/.test(body) ||
+    (/child_pid:\s*null/.test(body) && /client\.mutation\s*\(\s*docsCreate/.test(body))
+  );
+}
+
+/**
+ * H-04 RED control: pre-fix :442-465 armed after rejected only — no child_pid gate.
+ */
+function sourceRequiresChildPidBeforeArm(): boolean {
+  const src = readFileSync(
+    resolve(process.cwd(), 'services/platform/src/cutover/convex-fence-client.ts'),
+    'utf8'
+  );
+  const start = src.indexOf('export async function runCutoverFreeze');
+  if (start < 0) return false;
+  const next = src.indexOf('export async function', start + 10);
+  const body = src.slice(start, next > 0 ? next : undefined);
+  const armIdx = body.search(/fence_armed_at\s*=\s*Date\.now\s*\(/);
+  if (armIdx < 0) return false;
+  const beforeArm = body.slice(0, armIdx);
+  return (
+    /child_pid/.test(beforeArm) &&
+    /typeof\s+cross_process_probe\.child_pid\s*(?:===|!==)\s*['"]number['"]/.test(beforeArm)
+  );
 }
 
 describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
@@ -154,6 +212,9 @@ describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
     expect(freezeReport.cross_process_probe).toBeTruthy();
     expect(freezeReport.cross_process_probe.rejected).toBe(true);
     expect(freezeReport.cross_process_probe.message.startsWith('migration_read_only:')).toBe(true);
+    // H-04 / AC-3: successful arm requires real OS child identity (not in-process fallback)
+    expect(typeof freezeReport.cross_process_probe.child_pid).toBe('number');
+    expect(freezeReport.cross_process_probe.child_pid).toBeGreaterThan(0);
     if (
       freezeReport.cross_process_probe.documentsBefore >= 0 &&
       freezeReport.cross_process_probe.documentsAfter >= 0
@@ -245,4 +306,104 @@ describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
       // audit module optional
     }
   }, 360_000);
+});
+
+describe('REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process arm fallback)', () => {
+  beforeAll(() => {
+    mkdirSync(EVIDENCE_R2_H04, { recursive: true });
+    mkdirSync(EVIDENCE_SPRINT, { recursive: true });
+  });
+
+  it('r2-h04 RED static: source must not reintroduce in-process probe success fallback', () => {
+    const hasFallback = sourceHasInProcessProbeFallbackSuccessPath();
+    const requiresChildPid = sourceRequiresChildPidBeforeArm();
+    evidenceR2H04('r2-h04-source-gate.json', {
+      has_inprocess_probe_fallback_success_path: hasFallback,
+      requires_child_pid_before_arm: requiresChildPid,
+      note: 'GREEN requires has_fallback===false && requires_child_pid===true',
+    });
+    expect(hasFallback, 'pre-fix in-process probe fallback still present (:341-382)').toBe(false);
+    expect(requiresChildPid, 'runCutoverFreeze must gate arm on child_pid number').toBe(true);
+  });
+
+  it('cross-process-probe-fail-closed-no-inprocess-fallback: unparseable child fails closed', async () => {
+    // Real OS spawn; mutant eval emits non-JSON so parse cannot yield rejected boolean.
+    // Pre-fix fell back to in-process mutation (child_pid:null) and could return rejected:true.
+    const probe = await runCrossProcessBlockedWriteProbe({
+      childEvalScript: 'console.log("r2-h04-unparseable-not-json");',
+    });
+    evidenceR2H04('r2-h04-ac1-unparseable-probe.json', probe);
+
+    expect(probe.rejected, 'unparseable child must fail closed (rejected===false)').toBe(false);
+    expect(
+      /cross_process_probe_fail_closed|unparseable|spawn/i.test(probe.message),
+      `expected fail-closed diagnostic, got ${probe.message}`
+    ).toBe(true);
+    // child_pid may be null or a spawn pid, but rejected must never green via in-process
+    expect(probe.message).not.toMatch(/^migration_read_only:/);
+  }, 120_000);
+
+  it('freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child', async () => {
+    // Ensure env can confirm, then force probe parse failure so arm must refuse.
+    const prior = getMigrationReadOnlyEnv();
+    if (isFenceArmedEnv(prior)) {
+      spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        timeout: 90_000,
+      });
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    const refusePath = resolve(EVIDENCE_R2_H04, 'freeze-report-must-not-arm.json');
+    if (existsSync(refusePath)) {
+      unlinkSync(refusePath);
+    }
+
+    let threw = false;
+    let errMsg = '';
+    try {
+      await runCutoverFreeze({
+        reason: 's29-r2-h04-probe-fail',
+        reportPath: refusePath,
+        probe: {
+          childEvalScript: 'console.log("r2-h04-force-unparseable");',
+        },
+      });
+    } catch (err) {
+      threw = true;
+      errMsg = err instanceof Error ? err.message : String(err);
+    }
+    evidenceR2H04('r2-h04-ac2-freeze-refuse.json', {
+      threw,
+      errMsg,
+      ok: false,
+      report_exists_after: existsSync(refusePath),
+    });
+
+    expect(threw, 'freeze must throw FAIL CLOSED when probe fails').toBe(true);
+    expect(errMsg).toMatch(/FAIL CLOSED|cross-process probe/i);
+    // Must not persist success freeze-report with authoritative arm
+    if (existsSync(refusePath)) {
+      const raw = readFileSync(refusePath, 'utf8');
+      const parsed = JSON.parse(raw) as { ok?: boolean; fence_armed_at?: number };
+      expect(parsed.ok, 'refuse path must not be ok:true after probe fail').not.toBe(true);
+    }
+  }, 300_000);
+
+  it('r2-h04 child_pid: successful arm requires non-null child_pid number', async () => {
+    const freezeReport = await runCutoverFreeze({
+      reason: 's29-r2-h04',
+      reportPath: resolve(EVIDENCE_R2_H04, 'freeze-report.json'),
+    });
+    evidenceR2H04('freeze-report.json', freezeReport);
+    evidenceR2H04('r2-h04-ac3-child-pid.json', freezeReport.cross_process_probe);
+
+    expect(freezeReport.ok).toBe(true);
+    expect(freezeReport.cross_process_probe.rejected).toBe(true);
+    expect(freezeReport.cross_process_probe.message.startsWith('migration_read_only:')).toBe(true);
+    expect(typeof freezeReport.cross_process_probe.child_pid).toBe('number');
+    expect(freezeReport.cross_process_probe.child_pid).toBeGreaterThan(0);
+    expect(freezeReport.fence_armed_at).toBeGreaterThanOrEqual(freezeReport.confirmed_at_ms);
+  }, 300_000);
 });

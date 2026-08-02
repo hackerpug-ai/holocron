@@ -36,7 +36,6 @@ const drainApi = (anyApi as any).migrationFence.drain as {
 };
 
 const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
-const docsCount = (anyApi as any).documents.queries.count as FunctionReference<'query'>;
 const subsAdd = (anyApi as any).subscriptions.mutations.add as FunctionReference<'mutation'>;
 
 /** Cross-process blocked-write probe result (H-05 / AC-2). */
@@ -46,7 +45,10 @@ export type CrossProcessProbe = {
   surface: string;
   documentsBefore: number;
   documentsAfter: number;
-  /** Child process pid when probe was spawned OS-separate; null if in-process fallback. */
+  /**
+   * Child process pid when probe was spawned OS-separate with parseable result.
+   * Null / missing is never acceptable for freeze arm (H-04; pre-fix in-process fallback).
+   */
   child_pid: number | null;
 };
 
@@ -263,21 +265,34 @@ export function extractMigrationReadOnlyMessage(err: unknown): string {
   return m?.[1]?.trim() ?? raw;
 }
 
+/** Options for the OS-spawned blocked-write probe (H-05 / H-04). */
+export type CrossProcessProbeOptions = {
+  cwd?: string;
+  /**
+   * Test harness only: replace bun --eval body while still using a real OS spawn.
+   * Used to force unparseable child stdout (H-04 fail-closed proof). Never mock rejection.
+   */
+  childEvalScript?: string;
+};
+
 /**
  * Real blocked-write probe against the deployment after durable env confirm.
  *
  * Spawns a separate OS process with a fresh ConvexHttpClient so the observation
  * cannot be an in-process mock and cannot share optimistic pre-confirmation
- * state with the freeze control path (H-05 AC-2).
+ * state with the freeze control path (H-05 AC-2 / H-04 fail-closed).
+ *
+ * H-04: NEVER falls back to in-process client.mutation as a success path for arm.
+ * Unparseable child / spawn failure / timeout / missing rejected → fail closed.
  */
-export async function runCrossProcessBlockedWriteProbe(options?: {
-  cwd?: string;
-}): Promise<CrossProcessProbe> {
+export async function runCrossProcessBlockedWriteProbe(
+  options?: CrossProcessProbeOptions
+): Promise<CrossProcessProbe> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const url = convexUrl();
   // Child entry: independent OS process + fresh ConvexHttpClient (H-05 AC-2).
   // CONVEX_URL is injected explicitly; child must not rely on parent in-memory state.
-  const childScript = [
+  const defaultChildScript = [
     'import { ConvexHttpClient } from "convex/browser";',
     'import { anyApi } from "convex/server";',
     'const url = process.env.EXPO_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;',
@@ -313,6 +328,10 @@ export async function runCrossProcessBlockedWriteProbe(options?: {
     '  child_pid: process.pid,',
     '}));',
   ].join('\n');
+  const childScript =
+    typeof options?.childEvalScript === 'string' && options.childEvalScript.length > 0
+      ? options.childEvalScript
+      : defaultChildScript;
 
   const child = spawnSync('bun', ['--eval', childScript], {
     cwd,
@@ -326,6 +345,11 @@ export async function runCrossProcessBlockedWriteProbe(options?: {
   });
 
   const stdout = (child.stdout ?? '').trim();
+  const stderr = (child.stderr ?? '').trim();
+  const spawnError = child.error?.message ?? null;
+  const timedOut =
+    child.signal === 'SIGTERM' || (child.status === null && spawnError == null && !stdout);
+
   // Last JSON line wins (bun may emit warnings)
   const lines = stdout.split(/\r?\n/).filter(Boolean);
   let parsed: Partial<CrossProcessProbe> | null = null;
@@ -338,52 +362,35 @@ export async function runCrossProcessBlockedWriteProbe(options?: {
     }
   }
 
-  if (!parsed || typeof parsed.rejected !== 'boolean') {
-    // Fallback: in-process real mutation (still against live deployment — never mock).
-    // Used when child spawn fails (e.g. eval packaging); still fail-closed on accept.
-    const client = createCutoverConvexClient();
-    let documentsBefore = -1;
-    let documentsAfter = -1;
-    try {
-      documentsBefore = Number(await client.query(docsCount, {})) || 0;
-    } catch {
-      documentsBefore = -1;
-    }
-    let rejected = false;
-    let message = 'accepted';
-    try {
-      await client.mutation(docsCreate, {
-        title: `s29-h05-xproc-fallback-${Date.now()}`,
-        content: 'cross-process fence probe — must be rejected',
-        category: 'general',
-        embedding: [0, 0, 0],
-      });
-    } catch (err) {
-      message = extractMigrationReadOnlyMessage(err);
-      rejected =
-        message.startsWith('migration_read_only:') ||
-        (err instanceof Error && err.message.includes('migration_read_only:'));
-    }
-    try {
-      documentsAfter = Number(await client.query(docsCount, {})) || 0;
-    } catch {
-      documentsAfter = -1;
-    }
+  if (spawnError || child.error || timedOut || !parsed || typeof parsed.rejected !== 'boolean') {
+    // H-04: FAIL CLOSED — never fall back to in-process mutation as arm eligibility proof.
+    // In-process rejection cannot prove deployment-wide durable fence propagation.
+    const reason = spawnError
+      ? `spawn_error: ${spawnError}`
+      : timedOut
+        ? 'timeout_or_no_output'
+        : !parsed
+          ? 'unparseable_child_stdout'
+          : 'missing_rejected_boolean';
     return {
-      rejected,
-      message:
-        rejected && !message.startsWith('migration_read_only:')
-          ? `migration_read_only: ${message}`
-          : message,
+      rejected: false,
+      message: `cross_process_probe_fail_closed: ${reason} (status=${String(child.status)}, signal=${String(child.signal)}, stdout_len=${stdout.length}, stderr_len=${stderr.length})`,
       surface: 'documents.mutations.create',
-      documentsBefore,
-      documentsAfter,
-      child_pid: null,
+      documentsBefore: -1,
+      documentsAfter: -1,
+      // Spawn may have a pid without a parseable probe — identity alone is not success.
+      child_pid: typeof child.pid === 'number' && child.pid > 0 ? child.pid : null,
     };
   }
 
   const message = String(parsed.message ?? '');
   const rejected = Boolean(parsed.rejected);
+  const childPid =
+    typeof parsed.child_pid === 'number' && parsed.child_pid > 0
+      ? parsed.child_pid
+      : typeof child.pid === 'number' && child.pid > 0
+        ? child.pid
+        : null;
   return {
     rejected,
     message:
@@ -393,7 +400,7 @@ export async function runCrossProcessBlockedWriteProbe(options?: {
     surface: String(parsed.surface ?? 'documents.mutations.create'),
     documentsBefore: Number(parsed.documentsBefore ?? -1),
     documentsAfter: Number(parsed.documentsAfter ?? -1),
-    child_pid: typeof parsed.child_pid === 'number' ? parsed.child_pid : (child.pid ?? null),
+    child_pid: childPid,
   };
 }
 
@@ -411,6 +418,8 @@ export async function runCutoverFreeze(options: {
   reason?: string | null;
   reportPath?: string;
   cwd?: string;
+  /** Optional probe harness options (H-04 fail-closed tests). */
+  probe?: CrossProcessProbeOptions;
 }): Promise<FreezeReport> {
   const cwd = options.cwd ?? resolveRepoRoot();
   const reportPath = options.reportPath ?? defaultFreezeReportPath(cwd);
@@ -440,7 +449,11 @@ export async function runCutoverFreeze(options: {
   const confirmed_at_ms = Date.now();
 
   // 3) Cross-process blocked-write observation — final gate before arm timestamp
-  const cross_process_probe = await runCrossProcessBlockedWriteProbe({ cwd });
+  // H-04: require real OS child identity; never arm after in-process fallback (child_pid null).
+  const cross_process_probe = await runCrossProcessBlockedWriteProbe({
+    cwd,
+    childEvalScript: options.probe?.childEvalScript,
+  });
   if (!cross_process_probe.rejected) {
     throw new Error(
       `cutover:freeze FAIL CLOSED: cross-process probe accepted a write (fence not durable). message=${JSON.stringify(cross_process_probe.message)}`
@@ -449,6 +462,15 @@ export async function runCutoverFreeze(options: {
   if (!cross_process_probe.message.startsWith('migration_read_only:')) {
     throw new Error(
       `cutover:freeze FAIL CLOSED: cross-process probe rejection missing migration_read_only: prefix (got ${JSON.stringify(cross_process_probe.message)})`
+    );
+  }
+  if (
+    typeof cross_process_probe.child_pid !== 'number' ||
+    !Number.isFinite(cross_process_probe.child_pid) ||
+    cross_process_probe.child_pid <= 0
+  ) {
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: cross-process probe missing non-null child_pid (got ${JSON.stringify(cross_process_probe.child_pid)}); in-process fallback cannot arm`
     );
   }
   if (
@@ -461,7 +483,8 @@ export async function runCutoverFreeze(options: {
     );
   }
 
-  // 4) Authoritative arm timestamp — ONLY after confirm + successful blocked-write probe
+  // 4) Authoritative arm timestamp — ONLY after confirm + successful cross-process probe
+  // with non-null child_pid (H-04; residual of H-05 confirm-then-arm)
   const fence_armed_at = Date.now();
   if (fence_armed_at < confirmed_at_ms) {
     // Clock skew guard — still never arm before confirm
