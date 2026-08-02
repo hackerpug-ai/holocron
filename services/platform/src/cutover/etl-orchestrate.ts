@@ -19,12 +19,15 @@ import { type EtlRunResult, runEtl } from '../etl/run.ts';
 import { type EtlVectorRunResult, runEtlVectors } from '../etl/vectors.ts';
 import {
   assertFenceEngaged,
+  assertQuietCheckConfirmed,
   captureExportWatermark,
   defaultExportRoot,
   defaultWatermarkReportPath,
   type ExportWatermark,
   FENCE_NOT_ENGAGED,
   type FenceNotEngagedError,
+  QUIET_CHECK_REQUIRED,
+  type QuietCheckRequiredError,
 } from './export-watermark.ts';
 import {
   type ConvexExportResult,
@@ -32,8 +35,9 @@ import {
   hashExportDirectory,
   runConvexExport,
 } from './run-convex-export.ts';
+import { ensureCatalogScopedExport } from './scope-export-for-etl.ts';
 
-export { FENCE_NOT_ENGAGED };
+export { FENCE_NOT_ENGAGED, QUIET_CHECK_REQUIRED };
 
 export type CutoverEtlReport = {
   ok: boolean;
@@ -43,6 +47,8 @@ export type CutoverEtlReport = {
   fence_armed_at: number | null;
   exportArchiveHash: string;
   exportDir: string;
+  /** Raw convex export dir before catalog scoping (equals exportDir when already clean). */
+  rawExportDir: string;
   exportStartedAtMs: number;
   exportFinishedAtMs: number;
   /** True when watermarkAtMs strictly precedes exportStartedAtMs. */
@@ -57,6 +63,12 @@ export type CutoverEtlReport = {
       conversations: string[];
       rowCounts: Record<string, number>;
     };
+  };
+  scope?: {
+    tablesKept: number;
+    tablesDropped: string[];
+    blobsKept: number;
+    blobsDropped: number;
   };
   reconcile: EtlReconcileReport | null;
   fkAudit: FkAuditReport | null;
@@ -76,9 +88,15 @@ export type CutoverEtlReport = {
   report_path: string;
 };
 
-export type CutoverEtlFailure = FenceNotEngagedError & {
+export type CutoverEtlFailure = (FenceNotEngagedError | QuietCheckRequiredError) & {
   report_path?: string;
   stages?: Partial<CutoverEtlReport['stages']>;
+  watermarkAt?: string;
+  watermarkAtMs?: number;
+  lastWriteAuditCount?: number;
+  exportDir?: string;
+  exportStartedAtMs?: number;
+  exportFinishedAtMs?: number;
 };
 
 export type RunCutoverEtlOptions = {
@@ -196,23 +214,36 @@ export async function runCutoverEtl(
     freezeReportPath: options.freezeReportPath,
   });
 
+  // ── 2b. Quiet-check fail-closed (missing / quiet_ok != true) ─────────────
+  const quietErr = assertQuietCheckConfirmed(watermark);
+  if (quietErr) {
+    const failure = {
+      ...quietErr,
+      watermarkAt: watermark.watermarkAt,
+      watermarkAtMs: watermark.watermarkAtMs,
+      lastWriteAuditCount: watermark.lastWriteAuditCount,
+      report_path: reportPath,
+      stages: { fence: true, watermark: true, export: false },
+    };
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(failure, null, 2)}\n`, 'utf8');
+    return failure;
+  }
+
   // ── 3. Export (fresh) or reuse provided archive (AC-4) ───────────────────
+  // Production default: real `npx convex export` via runConvexExport.
+  // Tests may inject exportRunner (fixture) for sequencing-only secondary paths.
   let exportDir: string;
   let exportStartedAtMs: number;
   let exportFinishedAtMs: number;
   let exportZipHash: string | null = null;
 
   if (options.exportDir && existsSync(options.exportDir)) {
-    // Re-run path: same archive, no new convex export
+    // Re-run path: same archive, no new convex export.
+    // Natural timestamps only — no fabricated resume "nudge" (+1 ms).
     exportDir = resolve(options.exportDir);
     exportStartedAtMs = Date.now();
     exportFinishedAtMs = exportStartedAtMs;
-    // watermark still precedes (same ms window ok if equal? TC-1 says precedes —
-    // ensure watermarkAtMs <= exportStartedAtMs; if equal, nudge export start)
-    if (exportStartedAtMs <= watermark.watermarkAtMs) {
-      exportStartedAtMs = watermark.watermarkAtMs + 1;
-      exportFinishedAtMs = exportStartedAtMs;
-    }
   } else {
     const exportResult = options.exportRunner
       ? options.exportRunner()
@@ -261,7 +292,7 @@ export async function runCutoverEtl(
     }
   }
 
-  // ── 4. Non-empty source gate (block empty-export false green) ────────────
+  // ── 4. Non-empty source gate on raw export (before catalog scope) ────────
   const documentsCount = countExportTableRows(exportDir, 'documents');
   const conversationsCount = countExportTableRows(exportDir, 'conversations');
   if (documentsCount <= 0 || conversationsCount <= 0) {
@@ -290,11 +321,45 @@ export async function runCutoverEtl(
     return failure as unknown as CutoverEtlFailure;
   }
 
+  const rawExportDir = exportDir;
+  // ── 4b. Scope live export to catalog surface for Sprint 14 ETL modules ───
+  // Raw export remains under rawExportDir (zip/meta evidence). Scoped copy is
+  // what load/reconcile/fk/vectors consume.
+  const catalog = loadCatalog(catalogPath);
+  let scopeMeta: CutoverEtlReport['scope'];
+  try {
+    const scoped = ensureCatalogScopedExport({
+      sourceExportDir: rawExportDir,
+      destParent: exportRoot,
+      catalog,
+    });
+    exportDir = scoped.exportDir;
+    scopeMeta = {
+      tablesKept: scoped.tablesKept.length,
+      tablesDropped: scoped.tablesDropped,
+      blobsKept: scoped.blobsKept,
+      blobsDropped: scoped.blobsDropped,
+    };
+  } catch (err) {
+    const failure = {
+      ok: false as const,
+      error: {
+        code: 'EXPORT_SCOPE_FAILED',
+        message: err instanceof Error ? err.message : String(err),
+      },
+      exportDir: rawExportDir,
+      report_path: reportPath,
+      stages: { fence: true, watermark: true, export: true, nonEmpty: true },
+    };
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(failure, null, 2)}\n`, 'utf8');
+    return failure as unknown as CutoverEtlFailure;
+  }
+
   const documentIds = legacyIdsFromTable(exportDir, 'documents');
   const conversationIds = legacyIdsFromTable(exportDir, 'conversations');
 
-  // Resolve archive hash via immutable export reader (ETL-canonical).
-  const catalog = loadCatalog(catalogPath);
+  // Resolve archive hash via immutable export reader (ETL-canonical) on scoped dir.
   const archive = readImmutableExport(exportDir, catalog);
   const exportArchiveHash = archive.archiveHash || exportZipHash || hashExportDirectory(exportDir);
 
@@ -505,6 +570,7 @@ export async function runCutoverEtl(
     fence_armed_at: watermark.fence_armed_at,
     exportArchiveHash,
     exportDir,
+    rawExportDir,
     exportStartedAtMs,
     exportFinishedAtMs,
     watermarkBeforeExport: watermark.watermarkAtMs <= exportStartedAtMs,
@@ -522,6 +588,7 @@ export async function runCutoverEtl(
         },
       },
     },
+    scope: scopeMeta,
     reconcile,
     fkAudit,
     vectors,

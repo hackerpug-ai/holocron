@@ -312,7 +312,8 @@ Usage:
                             D06-03 post-freeze article sha256 baseline --token <t> [--json] [--output]
   cutover:run-etl           D06-04 watermark + real convex export + one-time ETL (CAP-MIG-01)
                             [--json] [--output <watermark-report.json>] [--export <dir>]
-                            Fail-closed when HOLO_MIGRATION_READ_ONLY != 1 (FENCE_NOT_ENGAGED).
+                            Default: real npx convex export (runConvexExport). --export reuses archive.
+                            Fail-closed: FENCE_NOT_ENGAGED, QUIET_CHECK_REQUIRED (missing/quiet_ok!=true).
                             Re-run with --export <prior> to resume same archive without row dupes.
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]

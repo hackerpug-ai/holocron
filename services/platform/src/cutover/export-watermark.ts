@@ -15,6 +15,8 @@ import {
 } from './convex-fence-client.ts';
 
 export const FENCE_NOT_ENGAGED = 'FENCE_NOT_ENGAGED';
+/** Quiet-check report missing or quiet_ok !== true — fail-closed before export. */
+export const QUIET_CHECK_REQUIRED = 'QUIET_CHECK_REQUIRED';
 
 export type ExportWatermark = {
   /** ISO-8601 timestamp captured before export spawn. */
@@ -36,6 +38,32 @@ export type FenceNotEngagedError = {
   ok: false;
   error: { code: typeof FENCE_NOT_ENGAGED; message: string };
 };
+
+export type QuietCheckRequiredError = {
+  ok: false;
+  error: { code: typeof QUIET_CHECK_REQUIRED; message: string };
+};
+
+/**
+ * Fail-closed when D06-03 quiet-check evidence is missing or not ok.
+ * Call AFTER watermark capture and BEFORE convex export / Postgres load.
+ */
+export function assertQuietCheckConfirmed(
+  watermark: ExportWatermark
+): QuietCheckRequiredError | null {
+  if (!watermark.quiet_check_path || watermark.quiet_ok !== true) {
+    return {
+      ok: false,
+      error: {
+        code: QUIET_CHECK_REQUIRED,
+        message:
+          `Quiet-check not confirmed (path=${watermark.quiet_check_path ?? 'missing'}, ` +
+          `quiet_ok=${String(watermark.quiet_ok)}). Run holo cutover:quiet-check first.`,
+      },
+    };
+  }
+  return null;
+}
 
 export function defaultWatermarkReportPath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D06-04/watermark-report.json');
