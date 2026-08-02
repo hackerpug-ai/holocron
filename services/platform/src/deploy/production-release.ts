@@ -179,13 +179,33 @@ function hasNamedVolume(service: ComposeService, name: string): boolean {
   const volumes = service.volumes;
   return (
     Array.isArray(volumes) &&
-    volumes.some((entry) => typeof entry === 'string' && entry.startsWith(`${name}:`))
+    volumes.some(
+      (entry) =>
+        (typeof entry === 'string' && entry.startsWith(`${name}:`)) ||
+        (entry !== null &&
+          typeof entry === 'object' &&
+          !Array.isArray(entry) &&
+          (entry as Record<string, unknown>).type === 'volume' &&
+          (entry as Record<string, unknown>).source === name)
+    )
   );
 }
 
 function hasNamedVolumeMount(service: ComposeService, name: string, target: string): boolean {
   const volumes = service.volumes;
-  return Array.isArray(volumes) && volumes.some((entry) => entry === `${name}:${target}`);
+  return (
+    Array.isArray(volumes) &&
+    volumes.some(
+      (entry) =>
+        entry === `${name}:${target}` ||
+        (entry !== null &&
+          typeof entry === 'object' &&
+          !Array.isArray(entry) &&
+          (entry as Record<string, unknown>).type === 'volume' &&
+          (entry as Record<string, unknown>).source === name &&
+          (entry as Record<string, unknown>).target === target)
+    )
+  );
 }
 
 function hasDatabaseUrlSecretMount(service: ComposeService): boolean {
