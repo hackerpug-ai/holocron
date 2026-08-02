@@ -13,7 +13,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -24,7 +24,7 @@ import {
 import {
   isMigrationReadOnly,
   migrationReadOnlyJobError,
-  setMigrationReadOnlyEnv,
+  writeDurableMigrationReadOnly,
 } from '../../src/cutover/soak-fence.ts';
 import { createSql, type Sql } from '../../src/db/client.ts';
 import { publishDocumentForRun } from '../../src/mission/document-publish.ts';
@@ -43,6 +43,8 @@ if (!PLATFORM_IT) {
 }
 
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R3-H02');
+/** Disposable secrets only — never mutate operator production secrets.yaml (R2-C01 durable). */
+const DISPOSABLE_SECRETS = resolve(EVIDENCE_DIR, 'disposable-secrets.yaml');
 const DATABASE_URL = DEFAULT_DATABASE_URL;
 const RUN = randomUUID().slice(0, 8);
 
@@ -54,18 +56,37 @@ function writeEvidence(name: string, body: unknown): string {
   return path;
 }
 
+function bindDisposableSecrets(): void {
+  mkdirSync(EVIDENCE_DIR, { recursive: true });
+  // Minimal control-plane; fence arm/disarm goes through writeDurableMigrationReadOnly.
+  if (!existsSync(DISPOSABLE_SECRETS)) {
+    writeFileSync(DISPOSABLE_SECRETS, 'HOLO_MIGRATION_READ_ONLY: "0"\n', 'utf8');
+  }
+  process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+  process.env.HOLOCRON_SECRETS_PATH = DISPOSABLE_SECRETS;
+}
+
 function armFence(): void {
-  setMigrationReadOnlyEnv('1');
+  bindDisposableSecrets();
+  writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
   expect(isMigrationReadOnly()).toBe(true);
 }
 
 function disarmFence(): void {
-  setMigrationReadOnlyEnv('0');
-  // Durable control-plane may still arm; for these tests we force process env '0'
-  // and rely on env-only engagement when secrets lack HOLO_MIGRATION_READ_ONLY.
-  // When durable is '1', isMigrationReadOnly stays true — unset to empty.
-  setMigrationReadOnlyEnv('');
-  delete process.env.HOLO_MIGRATION_READ_ONLY;
+  bindDisposableSecrets();
+  // R2-C01: durable must be cleared — process.env '0' alone does not disarm durable '1'.
+  writeDurableMigrationReadOnly('0', { secretsPath: DISPOSABLE_SECRETS });
+  expect(isMigrationReadOnly()).toBe(false);
+}
+
+function childFenceEnv(fence: '0' | '1'): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    DATABASE_URL,
+    HOLO_SECRETS_PATH: DISPOSABLE_SECRETS,
+    HOLOCRON_SECRETS_PATH: DISPOSABLE_SECRETS,
+    HOLO_MIGRATION_READ_ONLY: fence,
+  };
 }
 
 describe('REDHAT-FIX-S29-R3-H02 mission + already-running worker fence', () => {
@@ -73,6 +94,7 @@ describe('REDHAT-FIX-S29-R3-H02 mission + already-running worker fence', () => {
 
   beforeAll(async () => {
     mkdirSync(EVIDENCE_DIR, { recursive: true });
+    bindDisposableSecrets();
     sql = createSql(DATABASE_URL);
     // Ensure job_runs / outbox schemas exist via a no-op unfenced schema touch.
     disarmFence();
@@ -313,13 +335,14 @@ describe('REDHAT-FIX-S29-R3-H02 mission + already-running worker fence', () => {
     const key = `r3-h02-child:${RUN}:${randomUUID()}`;
     const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0]!;
 
-    // Phase 1: child begins effect with fence OFF
+    // Phase 1: child begins effect with fence OFF (disposable durable + env 0)
+    disarmFence();
     const phase1 = spawnSync(
       process.execPath.includes('bun') ? process.execPath : 'bun',
       [childScript, 'begin', key, job.name, DATABASE_URL],
       {
         cwd: REPO_ROOT,
-        env: { ...process.env, HOLO_MIGRATION_READ_ONLY: '0', DATABASE_URL },
+        env: childFenceEnv('0'),
         encoding: 'utf8',
         timeout: 60_000,
       }
@@ -333,13 +356,16 @@ describe('REDHAT-FIX-S29-R3-H02 mission + already-running worker fence', () => {
     const begun = JSON.parse(phase1.stdout.trim()) as { committed: boolean };
     expect(begun.committed).toBe(true);
 
+    // Arm durable fence before phase 2 (already-running worker path).
+    armFence();
+
     // Phase 2: child attempts irreversible effect with fence ON (already-running path)
     const phase2 = spawnSync(
       process.execPath.includes('bun') ? process.execPath : 'bun',
       [childScript, 'dispatch', key, job.name, DATABASE_URL],
       {
         cwd: REPO_ROOT,
-        env: { ...process.env, HOLO_MIGRATION_READ_ONLY: '1', DATABASE_URL },
+        env: childFenceEnv('1'),
         encoding: 'utf8',
         timeout: 60_000,
       }

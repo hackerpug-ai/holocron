@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
+import { PLATFORM_IT, REPO_ROOT } from '../../../../tests/integration/service/harness';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
   defaultDataPlaneConfigPath,
@@ -36,7 +36,8 @@ if (!PLATFORM_IT) {
   throw new Error('sprint29-rollback-repoint requires PLATFORM_IT=1');
 }
 
-const REPO_ROOT = process.cwd();
+// REPO_ROOT must be the git monorepo root (harness), never process.cwd() —
+// cwd is often services/platform under bun test and would double services/platform/.
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H05');
 const R2_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C04');
 const R3_H03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R3-H03');
