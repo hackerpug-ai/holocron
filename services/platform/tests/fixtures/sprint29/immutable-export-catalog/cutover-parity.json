@@ -5,7 +5,7 @@
   "exportRelPath": "services/platform/tests/fixtures/export-sample",
   "catalogRelPath": ".spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
   "catalog_id": "12-convex-source-catalog",
-  "catalog_table_count_expected": 60,
+  "catalog_table_count_expected": 7,
   "loadedByTable": {
     "documents": 1627,
     "conversations": 106,
@@ -16,7 +16,7 @@
     "improvementRequests": 36
   },
   "provenance": {
-    "note": "Immutable content-addressed cutover parity inventory for R2-C03. Counts frozen at fixture authoring time; tests must READ only. Bound to export-sample archiveHash via readImmutableExport. Not rewritten from live SELECT inside test hooks.",
+    "note": "Immutable content-addressed cutover parity inventory for R2-C03/R3-C02. Counts frozen at fixture authoring time; tests must READ only. Bound to export-sample archiveHash via readImmutableExport. catalog_table_count_expected MUST equal loadedByTable size (full parity inventory, not silent >=4). Production verify-reads requires explicit operator paths or HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 — never auto-fallback to this file.",
     "exportListedTableCount": 60,
     "expectedParityTableCount": 7
   }

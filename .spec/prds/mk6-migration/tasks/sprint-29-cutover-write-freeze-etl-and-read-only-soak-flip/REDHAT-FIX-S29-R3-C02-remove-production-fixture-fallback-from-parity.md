@@ -1,6 +1,6 @@
 # REDHAT-FIX-S29-R3-C02 — Remove production fixture fallback from cutover:verify-reads parity
 
-> Status: Backlog
+> Status: Done
 > Task ID: REDHAT-FIX-S29-R3-C02
 > Assignee: devops-engineer
 > Priority: P0
