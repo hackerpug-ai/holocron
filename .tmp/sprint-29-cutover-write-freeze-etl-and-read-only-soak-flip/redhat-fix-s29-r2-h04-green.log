@@ -1,0 +1,27 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H04
+
+ ✓ |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts (8 tests) 39278ms
+     ✓ AC-1 arm-after-confirm: fence_armed_at only after confirmed env=='1'  10326ms
+     ✓ AC-2 cross-process-blocked-write: probe rejects with migration_read_only: before arm  4186ms
+     ✓ AC-5 baseline-after-confirmed-arm: capturedAtMs > fence_armed_at >= confirmed_at_ms  11037ms
+     ✓ freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child  5970ms
+     ✓ r2-h04 child_pid: successful arm requires non-null child_pid number  2949ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:59:11
+   Duration  39.92s (transform 266ms, setup 344ms, import 138ms, tests 39.28s, environment 0ms)
+
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H04
+
+ ✓ |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts (8 tests | 4 skipped) 10057ms
+     ✓ freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child  6650ms
+     ✓ r2-h04 child_pid: successful arm requires non-null child_pid number  3394ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 4 skipped (8)
+   Start at  21:01:41
+   Duration  10.32s (transform 83ms, setup 106ms, import 55ms, tests 10.06s, environment 0ms)
+

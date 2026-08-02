@@ -1,0 +1,46 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H04
+
+ ❯ |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts (8 tests | 1 failed) 32064ms
+     × TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when fence disengaged 1280ms
+     ✓ TC-1/AC-1: cutover:freeze sets HOLO_MIGRATION_READ_ONLY=1 and emits fence_armed_at  4268ms
+     ✓ TC-2/AC-1: documents.create throws migration_read_only: with zero side effects  489ms
+     ✓ TC-3/AC-2: mutation + action + mutating httpAction + upload reject 4/4 with migration_read_only:  1279ms
+     ✓ TC-6/AC-4: verify:convex-fence-coverage reports zero unfenced imports 125ms
+     ✓ TC-4/TC-5/AC-3: quiet-check acceptedWriteCount=0 rejectedWriteCount>0  7980ms
+     ✓ TC-7/TC-9/AC-5: capture-article-baseline after fence with capturedAtMs > fence_armed_at  8189ms
+     ✓ CLI cutover:freeze --json emits fence_armed_at integer  4584ms
+ ✓ |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts (8 tests) 37375ms
+     ✓ AC-1 arm-after-confirm: fence_armed_at only after confirmed env=='1'  7433ms
+     ✓ AC-2 cross-process-blocked-write: probe rejects with migration_read_only: before arm  2961ms
+     ✓ AC-5 baseline-after-confirmed-arm: capturedAtMs > fence_armed_at >= confirmed_at_ms  14138ms
+     ✓ freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child  5812ms
+     ✓ r2-h04 child_pid: successful arm requires non-null child_pid number  2864ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts > Sprint 29 D06-03 durable Convex write fence > TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when fence disengaged
+AssertionError: expected unfenced env, got 1: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ services/platform/tests/integration/sprint29-convex-fence.test.ts:98:71
+     96|   it('TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when f…
+     97|     const env = getMigrationReadOnlyEnv();
+     98|     expect(isFenceArmedEnv(env), `expected unfenced env, got ${env}`).…
+       |                                                                       ^
+     99|
+    100|     const result = await captureArticleBaseline({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 15 passed (16)
+   Start at  20:59:57
+   Duration  37.79s (transform 740ms, setup 395ms, import 1.49s, tests 69.44s, environment 0ms)
+

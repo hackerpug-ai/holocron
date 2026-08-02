@@ -1,0 +1,78 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H04
+
+ ❯ |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts (8 tests | 3 failed | 4 skipped) 11977ms
+     ↓ TC-7 RED: source must not reintroduce pre-fix arm-before-set ordering at :199-237
+     ↓ AC-1 arm-after-confirm: fence_armed_at only after confirmed env=='1'
+     ↓ AC-2 cross-process-blocked-write: probe rejects with migration_read_only: before arm
+     ↓ AC-5 baseline-after-confirmed-arm: capturedAtMs > fence_armed_at >= confirmed_at_ms
+     × r2-h04 RED static: source must not reintroduce in-process probe success fallback 4ms
+     × cross-process-probe-fail-closed-no-inprocess-fallback: unparseable child fails closed 428ms
+     × freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child 8015ms
+     ✓ r2-h04 child_pid: successful arm requires non-null child_pid number  3529ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts > REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process arm fallback) > r2-h04 RED static: source must not reintroduce in-process probe success fallback
+AssertionError: pre-fix in-process probe fallback still present (:341-382): expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ services/platform/tests/integration/sprint29-fence-arm-order.test.ts:325:87
+    323|       note: 'GREEN requires has_fallback===false && requires_child_pid…
+    324|     });
+    325|     expect(hasFallback, 'pre-fix in-process probe fallback still prese…
+       |                                                                                       ^
+    326|     expect(requiresChildPid, 'runCutoverFreeze must gate arm on child_…
+    327|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts > REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process arm fallback) > cross-process-probe-fail-closed-no-inprocess-fallback: unparseable child fails closed
+AssertionError: unparseable child must fail closed (rejected===false): expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ services/platform/tests/integration/sprint29-fence-arm-order.test.ts:337:85
+    335|     evidenceR2H04('r2-h04-ac1-unparseable-probe.json', probe);
+    336|
+    337|     expect(probe.rejected, 'unparseable child must fail closed (reject…
+       |                                                                                     ^
+    338|     expect(
+    339|       /cross_process_probe_fail_closed|unparseable|spawn/i.test(probe.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-fence-arm-order.test.ts > REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process arm fallback) > freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child
+AssertionError: freeze must throw FAIL CLOSED when probe fails: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ services/platform/tests/integration/sprint29-fence-arm-order.test.ts:378:69
+    376|     });
+    377|
+    378|     expect(threw, 'freeze must throw FAIL CLOSED when probe fails').to…
+       |                                                                     ^
+    379|     expect(errMsg).toMatch(/FAIL CLOSED|cross-process probe/i);
+    380|     // Must not persist success freeze-report with authoritative arm
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed | 4 skipped (8)
+   Start at  20:58:08
+   Duration  12.25s (transform 85ms, setup 106ms, import 62ms, tests 11.98s, environment 0ms)
+
