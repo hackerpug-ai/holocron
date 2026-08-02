@@ -393,6 +393,24 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
   if (options.dryRun) deployFail('dry-run cannot produce an authorized deployment receipt');
 
+  // Named volumes are created as root by Docker while the production image
+  // deliberately runs as the unprivileged `bun` user. Initialize ownership in
+  // a disposable container before starting the four long-lived services. This
+  // retains every existing blob and never removes or recreates the volume.
+  runOrFail(runner, cwd, env, 'docker', [
+    'run',
+    '--rm',
+    '--user',
+    '0:0',
+    '--volume',
+    'holocron-blobs:/var/lib/holocron/blobs',
+    '--entrypoint',
+    '/bin/sh',
+    lock.image,
+    '-ec',
+    'chown -R bun:bun /var/lib/holocron/blobs; chmod 0750 /var/lib/holocron/blobs',
+  ]);
+
   runOrFail(runner, cwd, env, 'docker', [
     ...prefix,
     'up',
