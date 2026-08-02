@@ -1,16 +1,19 @@
 {
   "ok": true,
-  "runId": "d06-04-immutable-h02-multi-table",
+  "runId": "d06-04-immutable-r2-c03-export-catalog-bound",
   "unexplainedVariance": 0,
-  "exportArchiveHash": "0454c0767b34027114445fd0f514c5712f1026c9d0792df20032fc9008384e29",
+  "exportArchiveHash": "415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+  "parityHash": "172021e1f700e0d3b5dd7ea3f38780ce2f7ef52d4e3547f24f767b258c9bff16",
+  "exportRelPath": "services/platform/tests/fixtures/export-sample",
+  "parityRelPath": "services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json",
   "loadedByTable": {
-    "documents": 26,
-    "conversations": 5,
-    "subscriptionSources": 4,
-    "researchSessions": 3,
-    "chatMessages": 11,
-    "tasks": 0,
-    "improvementRequests": 2
+    "documents": 1627,
+    "conversations": 106,
+    "subscriptionSources": 77,
+    "researchSessions": 142,
+    "chatMessages": 1110,
+    "tasks": 305,
+    "improvementRequests": 36
   },
   "reconcile": {
     "ok": true,
@@ -22,17 +25,10 @@
     "vectors": true
   },
   "provenance": {
-    "kind": "immutable-d06-04-shaped-watermark",
-    "source": "frozen multi-table loadedByTable for H-02; tests must only READ this file",
-    "exportSampleLineCounts": {
-      "documents": 2,
-      "conversations": 2,
-      "subscriptionSources": 1,
-      "researchSessions": 2,
-      "chatMessages": 1,
-      "tasks": 1,
-      "improvementRequests": 1
-    },
-    "note": "Do not rewrite loadedByTable from live SELECT count(*) in tests (anti-stub)."
+    "kind": "immutable-export-catalog-bound-watermark",
+    "source": "R2-C03: watermark supplies runId; table set+counts authority is cutover-parity.json bound to content-addressed export archive",
+    "boundExportArchiveHash": "415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+    "parityHash": "172021e1f700e0d3b5dd7ea3f38780ce2f7ef52d4e3547f24f767b258c9bff16",
+    "note": "Do not rewrite loadedByTable from live SELECT count(*) in tests. Truncated loadedByTable is rejected when full parity inventory is larger."
   }
 }

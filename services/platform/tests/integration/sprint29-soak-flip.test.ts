@@ -70,25 +70,18 @@ const H01_EVIDENCE = resolve(
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
 const H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H02');
-const H03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H03');
-const H03_SPRINT_EVIDENCE = resolve(
-  REPO_ROOT,
-  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
-);
+const C03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C03');
 /** Immutable multi-table D06-04-shaped watermark (committed). Never authored from live SELECT. */
 const IMMUTABLE_ETL_FIXTURE = resolve(
   REPO_ROOT,
   'services/platform/tests/fixtures/sprint29/watermark-report-multi-table.json'
 );
-/**
- * R2-H03: committed pre-freeze article baseline fixture (structure + provenance).
- * Suite captures live pre-freeze bytes into working D06-03 path via renderPublicArticle
- * BEFORE starting the post-fence SUT child — never fetch→write from that child.
- */
-const IMMUTABLE_ARTICLE_BASELINE_FIXTURE = resolve(
+/** R2-C03: content-addressed cutover-parity inventory bound to export archive. */
+const IMMUTABLE_PARITY_FIXTURE = resolve(
   REPO_ROOT,
-  'services/platform/tests/fixtures/sprint29/article-baseline-pre-freeze.json'
+  'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json'
 );
+const IMMUTABLE_EXPORT_DIR = resolve(REPO_ROOT, 'services/platform/tests/fixtures/export-sample');
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
@@ -288,7 +281,16 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     writeFileSync(greenEtlPath, fixtureBody, 'utf8');
     mkdirSync(resolve(REPO_ROOT, '.tmp/D06-04'), { recursive: true });
     writeFileSync(resolve(REPO_ROOT, '.tmp/D06-04/watermark-report.json'), fixtureBody, 'utf8');
+    // R2-C03: stage cutover-parity inventory next to watermark for default CLI bind path.
+    if (existsSync(IMMUTABLE_PARITY_FIXTURE)) {
+      writeFileSync(
+        resolve(REPO_ROOT, '.tmp/D06-04/cutover-parity.json'),
+        readFileSync(IMMUTABLE_PARITY_FIXTURE, 'utf8'),
+        'utf8'
+      );
+    }
     mkdirSync(H02_EVIDENCE, { recursive: true });
+    mkdirSync(C03_EVIDENCE, { recursive: true });
     writeFileSync(resolve(H02_EVIDENCE, 'immutable-etl-fixture-copy.json'), fixtureBody, 'utf8');
 
     // Variance fixture reuses the same immutable loadedByTable (flip refuse path only).
@@ -1005,24 +1007,33 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-3 / TC-5 ───────────────────────────────────────────────────────────
 
-  it('TC-5/AC-3/H-02: verify-reads full loadedByTable parity vs immutable baseline', async () => {
+  it('TC-5/AC-3/H-02/R2-C03: verify-reads full catalog/export parity vs immutable baseline', async () => {
     setMigrationReadOnlyEnv('1');
-    // Point at committed fixture path directly (immutable — not live-authored).
+    // Point at committed fixtures (immutable — not live-authored).
     const report = await runVerifyReads({
       cwd: REPO_ROOT,
       etlReportPath: IMMUTABLE_ETL_FIXTURE,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
     });
     evidence('tc-verify-reads.json', report);
     mkdirSync(H02_EVIDENCE, { recursive: true });
+    mkdirSync(C03_EVIDENCE, { recursive: true });
     writeFileSync(
       resolve(H02_EVIDENCE, 'verify-reads-green.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    writeFileSync(
+      resolve(C03_EVIDENCE, 'verify-reads-green.json'),
       `${JSON.stringify(report, null, 2)}\n`,
       'utf8'
     );
     expect(report.tablesTotal).toBeGreaterThanOrEqual(4);
     expect(report.tablesTotal).toBe(Object.keys(report.perTableCounts).length);
     expect(report.tablesTotal).toBe(Object.keys(report.baselineCounts).length);
+    expect(report.catalog_table_count).toBe(report.tablesTotal);
     expect(report.tablesMatched).toBe(report.tablesTotal);
     expect(report.perTableCounts.documents).toBe(report.baselineCounts.documents);
     expect(report.perTableCounts.conversations).toBe(report.baselineCounts.conversations);
@@ -1035,10 +1046,16 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     );
     expect(extraKeys.length).toBeGreaterThanOrEqual(1);
     expect(report.mismatches).toEqual([]);
+    // R2-C03: baseline_hash is export archive digest, not report self-hash
     expect(report.baseline_hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(report.baseline_path).toContain('watermark-report-multi-table.json');
+    expect(report.baseline_hash).toBe(report.exportArchiveHash);
+    expect(report.baseline_hash).not.toBe(report.report_sha256);
+    expect(report.baseline_path).toContain('cutover-parity.json');
+    expect(report.baseline_source).toMatch(/export-catalog|parity/i);
     expect(report.etl_run_id.length).toBeGreaterThan(0);
     expect(report.exportArchiveHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(report.parity_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(report.export_dir.length).toBeGreaterThan(0);
     expect(report.ok).toBe(true);
   }, 60_000);
 
@@ -1050,6 +1067,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       runId: string;
       unexplainedVariance: number;
       exportArchiveHash: string;
+      parityHash?: string;
       loadedByTable: Record<string, number>;
       reconcile: { ok: boolean; unexplainedVariance: number };
     };
@@ -1077,6 +1095,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     const report = await runVerifyReads({
       cwd: REPO_ROOT,
       etlReportPath: divergedPath,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
     });
     evidence('tc-verify-reads-mismatch.json', report);
@@ -1087,10 +1107,149 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     );
     expect(report.ok).toBe(false);
     expect(report.mismatches.length).toBeGreaterThanOrEqual(1);
-    expect(report.tablesMatched).toBeLessThan(report.tablesTotal);
-    expect(report.mismatches.some((m) => m.includes('live=') && m.includes('baseline='))).toBe(
-      true
+    // R2-C03: rewritten caller counts vs immutable parity are rejected even if live matches parity
+    expect(
+      report.mismatches.some(
+        (m) =>
+          (m.includes('live=') && m.includes('baseline=')) ||
+          /rewritten|provenance|truncated/i.test(m)
+      )
+    ).toBe(true);
+  }, 60_000);
+
+  it('R2-C03/AC-2: truncated one-table caller report fails closed (incomplete-set)', async () => {
+    setMigrationReadOnlyEnv('1');
+    const frozen = JSON.parse(readFileSync(IMMUTABLE_ETL_FIXTURE, 'utf8')) as {
+      exportArchiveHash: string;
+      parityHash?: string;
+      loadedByTable: Record<string, number>;
+      runId: string;
+    };
+    const truncPath = resolve(C03_EVIDENCE, 'truncated-one-table.json');
+    mkdirSync(C03_EVIDENCE, { recursive: true });
+    writeFileSync(
+      truncPath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          runId: 'r2-c03-truncated',
+          unexplainedVariance: 0,
+          exportArchiveHash: frozen.exportArchiveHash,
+          parityHash: frozen.parityHash,
+          exportRelPath: 'services/platform/tests/fixtures/export-sample',
+          parityRelPath:
+            'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json',
+          loadedByTable: { documents: frozen.loadedByTable.documents },
+          reconcile: { ok: true, unexplainedVariance: 0 },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
     );
+    const report = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: truncPath,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
+      databaseUrl: DATABASE_URL,
+    });
+    writeFileSync(
+      resolve(C03_EVIDENCE, 'verify-reads-truncated.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(report.mismatches.length).toBeGreaterThan(0);
+    expect(report.mismatches.some((m) => /truncated|incomplete-set/i.test(m))).toBe(true);
+    // Authority set remains full catalog/export expected count (not caller length)
+    expect(report.tablesTotal).toBeGreaterThanOrEqual(4);
+    expect(report.catalog_table_count).toBe(report.tablesTotal);
+  }, 60_000);
+
+  it('R2-C03/AC-3: rewritten mutable report fails archive/parity provenance binding', async () => {
+    setMigrationReadOnlyEnv('1');
+    const frozen = JSON.parse(readFileSync(IMMUTABLE_ETL_FIXTURE, 'utf8')) as {
+      exportArchiveHash: string;
+      parityHash?: string;
+      loadedByTable: Record<string, number>;
+    };
+    const rewrittenPath = resolve(C03_EVIDENCE, 'rewritten-mutable.json');
+    mkdirSync(C03_EVIDENCE, { recursive: true });
+    const loaded = { ...frozen.loadedByTable };
+    loaded.documents = (loaded.documents ?? 0) + 999;
+    writeFileSync(
+      rewrittenPath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          runId: 'r2-c03-rewritten',
+          unexplainedVariance: 0,
+          exportArchiveHash: frozen.exportArchiveHash,
+          parityHash: frozen.parityHash,
+          exportRelPath: 'services/platform/tests/fixtures/export-sample',
+          parityRelPath:
+            'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json',
+          loadedByTable: loaded,
+          reconcile: { ok: true, unexplainedVariance: 0 },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    const report = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: rewrittenPath,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
+      databaseUrl: DATABASE_URL,
+    });
+    writeFileSync(
+      resolve(C03_EVIDENCE, 'verify-reads-rewritten.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(
+      report.mismatches.some((m) => /hash|archive|provenance|catalog|rewritten/i.test(m))
+    ).toBe(true);
+  }, 60_000);
+
+  it('R2-C03: freestanding fake exportArchiveHash without on-disk archive bind fails', async () => {
+    setMigrationReadOnlyEnv('1');
+    const fakePath = resolve(C03_EVIDENCE, 'fake-archive-hash.json');
+    mkdirSync(C03_EVIDENCE, { recursive: true });
+    writeFileSync(
+      fakePath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          runId: 'r2-c03-fake-hash',
+          unexplainedVariance: 0,
+          exportArchiveHash: 'a'.repeat(64),
+          loadedByTable: { documents: baselineCounts.documents },
+          reconcile: { ok: true, unexplainedVariance: 0 },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    const report = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: fakePath,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
+      databaseUrl: DATABASE_URL,
+    });
+    writeFileSync(
+      resolve(C03_EVIDENCE, 'verify-reads-fake-hash.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(report.mismatches.some((m) => /hash|archive|provenance/i.test(m))).toBe(true);
   }, 60_000);
 
   it('TC-H02-missing: missing ETL report fails closed', async () => {
