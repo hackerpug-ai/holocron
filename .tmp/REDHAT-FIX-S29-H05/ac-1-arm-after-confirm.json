@@ -1,18 +1,18 @@
 {
   "ok": true,
-  "fence_armed_at": 1785635234100,
-  "confirmed_at_ms": 1785635233773,
+  "fence_armed_at": 1785635205368,
+  "confirmed_at_ms": 1785635204948,
   "cross_process_probe": {
     "rejected": true,
     "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set",
     "surface": "documents.mutations.create",
-    "documentsBefore": 1597,
-    "documentsAfter": 1597,
-    "child_pid": 66072
+    "documentsBefore": 1596,
+    "documentsAfter": 1596,
+    "child_pid": 62805
   },
   "env": "HOLO_MIGRATION_READ_ONLY",
   "env_value": "1",
-  "reason": "s29-h05",
-  "audit_id": "vn7by8efq7ajf8xr1q0pezn9m18bqw9v",
+  "reason": "s29-h05 arm-after-confirm",
+  "audit_id": "vn7bxa8zth4xmk3eqwpprvt1yn8bptns",
   "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-03/freeze-report.json"
 }

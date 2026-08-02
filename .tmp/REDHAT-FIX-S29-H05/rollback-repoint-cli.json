@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "repointed": true,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "2026-08-02T01:46:38.974Z",
+  "engaged_at_ms": 1785635198974,
+  "precondition": {
+    "ok": true,
+    "accepted_post_export_writes": 0,
+    "export_watermark_ms": 1785635138833,
+    "audit_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "a5576600e9d93c1b8c08522792e89d9d138a2f79df6cd28b524a39fdb2e7bc07",
+    "prior_target": "convex-frozen"
+  },
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/REDHAT-FIX-S29-H05/rollback-repoint-cli.json"
+}

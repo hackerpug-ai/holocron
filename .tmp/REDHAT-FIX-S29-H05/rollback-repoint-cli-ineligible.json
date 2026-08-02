@@ -1,0 +1,25 @@
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "precondition": {
+    "ok": false,
+    "accepted_post_export_writes": 1,
+    "export_watermark_ms": 1785635138977,
+    "audit_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": "postgres-soak"
+  },
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/REDHAT-FIX-S29-H05/rollback-repoint-cli-ineligible.json",
+  "error": {
+    "code": "POST_EXPORT_WRITE_ACCEPTED",
+    "message": "cutover:rollback-repoint refuses: 1 accepted post-export production write(s) (point of no return / UC-SYNC-04). Convex re-point is ineligible; recover from Postgres/blob backups."
+  }
+}

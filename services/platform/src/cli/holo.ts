@@ -321,6 +321,9 @@ Usage:
   cutover:flip              D06-05 engage HOLO_MIGRATION_READ_ONLY=1 after green ETL [--json]
                             [--etl-report <watermark-report.json>] [--output <flip-report.json>]
                             Fail-closed: ETL_NOT_RECONCILED when unexplainedVariance>0
+  cutover:rollback-repoint  H-05 / UC-SYNC-04: re-point data plane to frozen Convex [--json]
+                            [--output <rollback-repoint-report.json>] [--etl-report <watermark>]
+                            Fail-closed: POST_EXPORT_WRITE_ACCEPTED | ROLLBACK_INELIGIBLE
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over real /mcp [--json]
   cutover:verify-reads      D06-05 Postgres zero_pub counts vs ETL baseline [--json]
   cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json]
@@ -3287,6 +3290,51 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:flip failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:rollback-repoint': {
+      // H-05 / UC-SYNC-04: executable data-plane re-point to frozen Convex
+      const {
+        runRollbackRepoint,
+        formatRollbackRepointText,
+        defaultRollbackRepointReportPath,
+        POST_EXPORT_WRITE_ACCEPTED,
+        ROLLBACK_INELIGIBLE,
+        EXPORT_WATERMARK_MISSING,
+      } = await import('../cutover/rollback-repoint.ts');
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultRollbackRepointReportPath(process.cwd());
+        const report = runRollbackRepoint({
+          reportPath,
+          watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatRollbackRepointText(report));
+        }
+        if (!report.ok) {
+          const code = report.error?.code ?? ROLLBACK_INELIGIBLE;
+          process.exit(
+            code === POST_EXPORT_WRITE_ACCEPTED ||
+              code === ROLLBACK_INELIGIBLE ||
+              code === EXPORT_WATERMARK_MISSING
+              ? 2
+              : 1
+          );
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:rollback-repoint failed: ${msg}`);
         }
         process.exit(1);
       }
