@@ -1,0 +1,79 @@
+@@GATE-META step=3 task=REDHAT-FIX-S29-R3-C01 run_id=20260802T035237Z source_sha=820355eb10d85489bca190d0d28085853d51bd86 git_sha=820355eb10d85489bca190d0d28085853d51bd86 started_at=2026-08-02T03:53:16Z deployed_base_url=local-process://holo-cli identity_class=local-process@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-03 .tmp/REDHAT-FIX-S29-H03; QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"; bun services/platform/src/cli/holo.ts cutover:quiet-check --json --window-seconds "$QUIET_WINDOW_SECONDS" --output .tmp/D06-03/quiet-check-report.json | tee .tmp/REDHAT-FIX-S29-H03/step3-quiet-check.json; jq -e --argjson minWindow "${QUIET_WINDOW_SECONDS:-30}" '.ok == true and .acceptedWriteCount == 0 and .rejectedWriteCount > 0 and .windowSeconds >= $minWindow' .tmp/D06-03/quiet-check-report.json
+---
+{
+  "ok": false,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 2,
+  "windowSeconds": 30,
+  "sinceMs": 1785642801004,
+  "untilMs": 1785642831015,
+  "quietSinceMs": 1785642801004,
+  "quietUntilMs": 1785642831015,
+  "elapsedMs": 30011,
+  "drainCompletedAtMs": 1785642800176,
+  "drain": {
+    "ok": false,
+    "surfaces": [
+      "crons",
+      "queues",
+      "outbox",
+      "scheduled_jobs"
+    ],
+    "completedAtMs": 1785642800176,
+    "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+    "disabledEnvValue": "1",
+    "convexDrainOk": false,
+    "consumersHonored": true,
+    "samples": {
+      "activeTasks": 0,
+      "afterActiveTasks": 0,
+      "afterQueuedSubscriptionContent": 0,
+      "afterRunningTasks": 0,
+      "batchesProcessed": 0,
+      "contentSkipped": 0,
+      "drainBatches": 0,
+      "measuredSurfaces": [
+        "tasks",
+        "subscriptionContent"
+      ],
+      "queuedSubscriptionContent": 0,
+      "runningTasks": 0,
+      "tasksCancelled": 0,
+      "unknownSurfaces": [
+        "crons",
+        "queues",
+        "outbox",
+        "scheduled_jobs"
+      ]
+    },
+    "probe": {
+      "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+      "honored": true,
+      "reason": "schedules_disabled: cutover:quiet-check skipped while HOLO_CUTOVER_SCHEDULES_DISABLED is set",
+      "skipped": true,
+      "surface": "cutover:quiet-check"
+    },
+    "error": "unknown residual inventory for surface(s): crons, queues, outbox, scheduled_jobs (measured-only: tasks, subscriptionContent). Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01)."
+  },
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ],
+  "oracle": "mixed",
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 2,
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/.tmp/D06-03/quiet-check-report.json"
+}
+---
+@@GATE-EXIT=1@@
+@@GATE-ENDED=2026-08-02T03:53:51Z@@
+@@GATE-TIMEOUT-CAP=180s@@

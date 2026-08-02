@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REDHAT-FIX-S29-R2-H01 — Re-run all six Sprint 29 human-gate steps against remediated gate-plan.
+# REDHAT-FIX-S29-R2-H01 + REDHAT-FIX-S29-R3-C01 — Re-run all six Sprint 29 human-gate steps.
 #
 # Executes gate-plan.json literal_cmd for steps 1–6 via real cutover CLI
 # (bun services/platform/src/cli/holo.ts). Writes:
@@ -7,13 +7,22 @@
 #   - .gate-evidence/{run_id}/meta.json
 #   - gate-results.json + GATE-RESULTS.md (honest pass/fail; never forge 6/6)
 #
+# R3-C01 binding rules:
+#   - source_sha/git_sha MUST equal `git rev-parse HEAD` of this worktree (refuse unknown).
+#   - Prefer independently deployed HTTP identity (HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL /
+#     PLATFORM_URL / HOLO_SERVICE_IDENTITY). If only local-process:// is available, record it
+#     honestly and set landing_eligible=false (non-landing; never claim cutover approval).
+#   - landing_eligible=true only when verdict==pass AND 6/6 AND identity is not local-process://
+#     AND git_sha == HEAD.
+#
 # NEVER accepts historical run_id 20260802T004525Z as pass for the remediated SHA.
 # NEVER rewrites historical .gate-evidence/20260802T004525Z/**.
-# Full 6/6 may remain blocked until R2-C01..C04 / R2-H02..H04 — record honest fail.
+# Full 6/6 may remain blocked — record honest fail/partial; never forge.
 #
 # Usage:
 #   export HOLO_SECRETS_PATH=...   # optional; defaults may resolve secrets
 #   export GATE_RUN_ID=20260802TxxxxxxZ   # optional; auto-generated if unset
+#   export HOLO_VERIFY_BASE_URL=https://...  # preferred deployed identity for landing
 #   bash scripts/run-sprint29-human-gate-rerun.sh
 #   WRITE_GATE_RESULTS=0 bash scripts/run-sprint29-human-gate-rerun.sh  # evidence only
 set -euo pipefail
@@ -26,7 +35,9 @@ PLAN="$SPRINT_DIR/gate-plan.json"
 RESULTS="$SPRINT_DIR/gate-results.json"
 RESULTS_MD="$SPRINT_DIR/GATE-RESULTS.md"
 HISTORICAL_STALE_RUN_ID="20260802T004525Z"
-TMP_ROOT="$ROOT/.tmp/REDHAT-FIX-S29-R2-H01"
+# R3-C01 evidence root (R2-H01 path also mirrored for lineage consumers).
+TMP_ROOT="$ROOT/.tmp/REDHAT-FIX-S29-R3-C01"
+TMP_ROOT_R2="$ROOT/.tmp/REDHAT-FIX-S29-R2-H01"
 WRITE_GATE_RESULTS="${WRITE_GATE_RESULTS:-1}"
 QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"
 # Per-step wall-clock caps (seconds). Honest fail on timeout — never hang forever.
@@ -59,19 +70,38 @@ fi
 export GATE_RUN_ID
 export QUIET_WINDOW_SECONDS
 
-SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+# R3-C01: require real HEAD (never "unknown" theatre).
+SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "error: git rev-parse HEAD did not return a 40-char sha: $SOURCE_SHA" >&2
+  exit 2
+fi
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Prefer deployed identity when the operator supplies one; else honest local-process (non-landing).
+IDENTITY_CLASS="deployed-http"
+NON_LANDING_REASON=""
 DEPLOYED_BASE_URL="${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}"
 if [[ -z "$DEPLOYED_BASE_URL" ]]; then
-  # Honest local identity — do not claim remote deployment (R2-H02 owns that quality).
+  # Honest local identity — do not claim remote deployment (R2-H02 / R3-C01).
   DEPLOYED_BASE_URL="local-process://holo-cli"
+  IDENTITY_CLASS="local-process"
+  NON_LANDING_REASON="no HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing"
 fi
 SERVICE_IDENTITY="${HOLO_SERVICE_IDENTITY:-${DEPLOYED_BASE_URL}}"
+if [[ "$SERVICE_IDENTITY" == local-process://* ]] || [[ "$DEPLOYED_BASE_URL" == local-process://* ]]; then
+  IDENTITY_CLASS="local-process"
+  if [[ -z "$NON_LANDING_REASON" ]]; then
+    NON_LANDING_REASON="service_identity is local-process:// (self-minted CLI theatre; non-landing)"
+  fi
+fi
+# Landing eligibility is finalized after the run (needs 6/6). Default false until then.
+LANDING_ELIGIBLE=false
 
 EVID_DIR="$SPRINT_DIR/.gate-evidence/$GATE_RUN_ID"
-mkdir -p "$EVID_DIR" "$TMP_ROOT" \
+mkdir -p "$EVID_DIR" "$TMP_ROOT" "$TMP_ROOT_R2" \
   "$ROOT/.tmp/D06-02" "$ROOT/.tmp/D06-03" "$ROOT/.tmp/D06-04" "$ROOT/.tmp/D06-05" \
-  "$ROOT/.tmp/REDHAT-FIX-S29-H03" "$TMP_ROOT/steps"
+  "$ROOT/.tmp/REDHAT-FIX-S29-H03" "$TMP_ROOT/steps" "$TMP_ROOT_R2/steps"
 
 # Prefer operator secrets when available (worktrees often lack local secrets.yaml).
 if [[ -z "${HOLO_SECRETS_PATH:-}" ]]; then
@@ -95,19 +125,27 @@ elif [[ -f "${HOME}/Projects/holocron/.env" ]]; then
   set +a
 fi
 
-echo "R2-H01 human-gate re-run"
+echo "R3-C01 / R2-H01 human-gate re-run"
 echo "  GATE_RUN_ID=$GATE_RUN_ID"
-echo "  source_sha=$SOURCE_SHA"
+echo "  source_sha=$SOURCE_SHA  (git rev-parse HEAD)"
 echo "  deployed_base_url=$DEPLOYED_BASE_URL"
 echo "  service_identity=$SERVICE_IDENTITY"
+echo "  identity_class=$IDENTITY_CLASS"
+echo "  landing_eligible(pre-run)=$LANDING_ELIGIBLE  (true only after 6/6 + deployed identity + HEAD)"
 echo "  evidence=$EVID_DIR"
 echo "  started_at=$STARTED_AT"
+if [[ -n "$NON_LANDING_REASON" ]]; then
+  echo "  non_landing_reason=$NON_LANDING_REASON"
+fi
 
-python3 - "$PLAN" "$EVID_DIR/meta.json" "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" "$SERVICE_IDENTITY" "$STARTED_AT" "$HISTORICAL_STALE_RUN_ID" <<'PY'
+python3 - "$PLAN" "$EVID_DIR/meta.json" "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" \
+  "$SERVICE_IDENTITY" "$STARTED_AT" "$HISTORICAL_STALE_RUN_ID" "$IDENTITY_CLASS" \
+  "$NON_LANDING_REASON" <<'PY'
 import json, sys
 from pathlib import Path
 plan_path, meta_path = Path(sys.argv[1]), Path(sys.argv[2])
-run_id, sha, base, ident, started, stale = sys.argv[3:9]
+run_id, sha, base, ident, started, stale, identity_class, non_landing = sys.argv[3:11]
+assert len(sha) == 40 and all(c in "0123456789abcdef" for c in sha), f"HEAD sha invalid: {sha}"
 plan = json.loads(plan_path.read_text())
 steps = plan.get("steps") or []
 assert [s["n"] for s in steps] == [1, 2, 3, 4, 5, 6], "gate-plan must have steps 1..6"
@@ -116,12 +154,17 @@ for s in steps:
     assert "bun services/platform/src/cli/holo.ts" in cmd, f"step {s['n']} missing dispatcher"
     assert s.get("method") == "real-cli", f"step {s['n']} method must be real-cli"
 meta = {
-    "task_id": "REDHAT-FIX-S29-R2-H01",
+    "task_id": "REDHAT-FIX-S29-R3-C01",
+    "lineage_task_id": "REDHAT-FIX-S29-R2-H01",
     "run_id": run_id,
     "source_sha": sha,
     "git_sha": sha,
+    "head_bound": True,
     "deployed_base_url": base,
     "service_identity": ident,
+    "identity_class": identity_class,
+    "landing_eligible": False,  # finalized after steps
+    "non_landing_reason": non_landing or None,
     "started_at": started,
     "historical_stale_run_id": stale,
     "historical_preserved": True,
@@ -135,11 +178,14 @@ meta = {
         "REDHAT-FIX-S29-R2-H02",
         "REDHAT-FIX-S29-R2-H03",
         "REDHAT-FIX-S29-R2-H04",
+        "REDHAT-FIX-S29-R3-C02",
+        "REDHAT-FIX-S29-R3-C03",
     ],
     "notes": [
-        "Honest re-run under current gate-plan predicates (H03 + C01).",
+        "Honest re-run under current gate-plan predicates (H03 + C01 + R3-C01 HEAD bind).",
         "Never reuses 20260802T004525Z as pass evidence for remediated SHA.",
-        "Full 6/6 may remain blocked until sibling R2 remediations land.",
+        "git_sha == git rev-parse HEAD required; local-process:// is non-landing.",
+        "Full 6/6 may remain blocked until sibling remediations land — never forge.",
     ],
 }
 meta_path.write_text(json.dumps(meta, indent=2) + "\n")
@@ -174,7 +220,7 @@ run_step() {
   started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   {
-    echo "@@GATE-META step=${n} task=REDHAT-FIX-S29-R2-H01 run_id=${GATE_RUN_ID} source_sha=${SOURCE_SHA} started_at=${started} deployed_base_url=${DEPLOYED_BASE_URL}@@"
+    echo "@@GATE-META step=${n} task=REDHAT-FIX-S29-R3-C01 run_id=${GATE_RUN_ID} source_sha=${SOURCE_SHA} git_sha=${SOURCE_SHA} started_at=${started} deployed_base_url=${DEPLOYED_BASE_URL} identity_class=${IDENTITY_CLASS}@@"
     echo "CMD: ${cmd}"
     echo "---"
   } >"$log"
@@ -226,8 +272,9 @@ run_step() {
   } >>"$log"
   echo "$rc" >"$exit_file"
 
-  # Copy log into .tmp evidence root for worktree-local capture
+  # Copy log into .tmp evidence roots for worktree-local capture (R3-C01 + R2 lineage)
   cp "$log" "$TMP_ROOT/steps/step${n}.log" 2>/dev/null || true
+  cp "$log" "$TMP_ROOT_R2/steps/step${n}.log" 2>/dev/null || true
 
   local result="fail"
   if [[ "$rc" -eq 0 ]]; then
@@ -273,7 +320,8 @@ echo "Executing 6 gate-plan steps (real-cli)..."
 for n in 1 2 3 4 5 6; do
   echo "=== Step $n: $(step_text "$n") ==="
   # After step 2 (freeze), carry fence into later steps so ETL/flip/write probe see engagement.
-  if [[ "$n" -ge 4 ]]; then
+  # Also re-export after step 2 itself completes (n>=3) so quiet-check/ETL share fence.
+  if [[ "$n" -ge 3 ]]; then
     propagate_fence_env
   fi
   run_step "$n" || true
@@ -296,11 +344,30 @@ if [[ "$GATE_RUN_ID" == "$HISTORICAL_STALE_RUN_ID" ]]; then
   VERDICT="fail"
 fi
 
+# R3-C01 landing eligibility: 6/6 + HEAD-bound + non-local-process deployed identity.
+LANDING_ELIGIBLE=false
+if [[ "$VERDICT" == "pass" \
+   && "$steps_passed" -eq 6 \
+   && "$IDENTITY_CLASS" != "local-process" \
+   && "$DEPLOYED_BASE_URL" != local-process://* \
+   && "$SERVICE_IDENTITY" != local-process://* \
+   && "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  LANDING_ELIGIBLE=true
+  NON_LANDING_REASON=""
+else
+  if [[ "$IDENTITY_CLASS" == "local-process" || "$DEPLOYED_BASE_URL" == local-process://* ]]; then
+    NON_LANDING_REASON="${NON_LANDING_REASON:-local-process:// identity is non-landing for cutover approval (R3-C01)}"
+  elif [[ "$VERDICT" != "pass" || "$steps_passed" -ne 6 ]]; then
+    NON_LANDING_REASON="${NON_LANDING_REASON:-human-gate not 6/6 under current oracles (honest partial/fail)}"
+  fi
+fi
+
 python3 - "$RESULTS" "$RESULTS_MD" "$TMP_ROOT/step-results.tsv" \
   "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" "$SERVICE_IDENTITY" \
   "$STARTED_AT" "$FINISHED_AT" "$VERDICT" "$steps_executed" "$steps_passed" \
   "$steps_failed" "$WRITE_GATE_RESULTS" "$HISTORICAL_STALE_RUN_ID" "$EVID_DIR" \
-  "$SPRINT_DIR" <<'PY'
+  "$SPRINT_DIR" "$IDENTITY_CLASS" "$LANDING_ELIGIBLE" "$NON_LANDING_REASON" \
+  "$TMP_ROOT" <<'PY'
 import json, sys
 from pathlib import Path
 
@@ -322,12 +389,20 @@ from pathlib import Path
     stale_id,
     evid_dir,
     sprint_dir,
+    identity_class,
+    landing_eligible_s,
+    non_landing_reason,
+    tmp_root,
 ) = sys.argv[1:]
 
 steps_executed = int(steps_executed)
 steps_passed = int(steps_passed)
 steps_failed = int(steps_failed)
 write = write_gate_results == "1"
+landing_eligible = landing_eligible_s == "true"
+assert len(source_sha) == 40 and all(c in "0123456789abcdef" for c in source_sha), (
+    f"R3-C01 refuse: source_sha must be 40-char HEAD, got {source_sha!r}"
+)
 
 steps = []
 for line in Path(tsv_path).read_text().splitlines():
@@ -371,6 +446,18 @@ if verdict == "pass":
 if run_id == stale_id and verdict == "pass":
     raise SystemExit("refuse: historical false-pass run_id cannot be current pass")
 
+# R3-C01: never mark landing_eligible under local-process theatre
+if identity_class == "local-process" or str(deployed_base_url).startswith("local-process://"):
+    landing_eligible = False
+    if not non_landing_reason:
+        non_landing_reason = (
+            "local-process:// identity is non-landing for cutover approval (R3-C01)"
+        )
+if landing_eligible and not (
+    verdict == "pass" and steps_passed == 6 and identity_class != "local-process"
+):
+    raise SystemExit("refuse: landing_eligible=true without 6/6 deployed identity")
+
 payload = {
     "sprint": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
     "sprint_identity": {
@@ -390,16 +477,24 @@ payload = {
     "git_sha": source_sha,
     "deployed_base_url": deployed_base_url,
     "service_identity": service_identity,
+    "identity_class": identity_class,
+    "landing_eligible": landing_eligible,
     "started_at": started_at,
     "finished_at": finished_at,
     "written_at": finished_at,
     "meta": {
-        "task_id": "REDHAT-FIX-S29-R2-H01",
+        "task_id": "REDHAT-FIX-S29-R3-C01",
+        "lineage_task_id": "REDHAT-FIX-S29-R2-H01",
         "source_sha": source_sha,
+        "git_sha": source_sha,
+        "head_bound": True,
         "deployed_base_url": deployed_base_url,
         "service_identity": service_identity,
+        "identity_class": identity_class,
+        "landing_eligible": landing_eligible,
+        "non_landing_reason": non_landing_reason or None,
         "historical_stale_run_id_preserved": stale_id,
-        "gate_plan_predicates": "REDHAT-FIX-S29-H03 + REDHAT-FIX-S29-C01 (failed_count==0, require-all, non-null tools)",
+        "gate_plan_predicates": "REDHAT-FIX-S29-H03 + REDHAT-FIX-S29-C01 + R3-C01 HEAD bind",
         "sibling_blockers_for_full_6_of_6": [
             "REDHAT-FIX-S29-R2-C01",
             "REDHAT-FIX-S29-R2-C02",
@@ -408,19 +503,26 @@ payload = {
             "REDHAT-FIX-S29-R2-H02",
             "REDHAT-FIX-S29-R2-H03",
             "REDHAT-FIX-S29-R2-H04",
+            "REDHAT-FIX-S29-R3-C02",
+            "REDHAT-FIX-S29-R3-C03",
         ],
         "honest_note": (
             "Verdict is honest per-step under current gate-plan oracles. "
-            "Full 6/6 pass is not claimed while sibling remediations remain open "
-            "unless all six current oracles actually pass."
+            "git_sha equals git rev-parse HEAD. "
+            "local-process:// is non-landing; 6/6 against deployed HTTP identity required for landing. "
+            "Full 6/6 is not claimed unless all six current oracles actually pass."
         ),
     },
     "steps": steps,
 }
 
-out_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01") / "gate-results.json"
+out_tmp = Path(tmp_root) / "gate-results.json"
 out_tmp.parent.mkdir(parents=True, exist_ok=True)
 out_tmp.write_text(json.dumps(payload, indent=2) + "\n")
+# Mirror for R2-H01 lineage consumers
+r2_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01")
+r2_tmp.mkdir(parents=True, exist_ok=True)
+(r2_tmp / "gate-results.json").write_text(json.dumps(payload, indent=2) + "\n")
 
 if write:
     Path(results_path).write_text(json.dumps(payload, indent=2) + "\n")
@@ -429,12 +531,21 @@ if write:
 rows = "\n".join(
     f"| {s['n']} | {s['text'][:60]} | {s['result']} |" for s in steps
 )
-if verdict == "pass":
-    header = "## ✅ VERIFIED — human-test assert exit 0; 6/6 steps ran & passed"
+if verdict == "pass" and landing_eligible:
+    header = "## ✅ VERIFIED — human-test assert exit 0; 6/6 steps ran & passed (deployed identity; landing-eligible)"
+elif verdict == "pass" and not landing_eligible:
+    header = "## ⚠️ PASS (non-landing) — 6/6 under local-process or non-deployed identity (R3-C01 refuses landing)"
 elif verdict == "partial":
-    header = f"## ⚠️ PARTIAL — {steps_passed}/6 steps passed under current oracles (honest fail on rest)"
+    header = f"## ⚠️ PARTIAL — {steps_passed}/6 steps passed under current oracles (honest fail on rest; non-landing)"
 else:
-    header = f"## ❌ FAIL — {steps_passed}/6 steps passed; re-run under remediated gate-plan (R2-H01)"
+    header = f"## ❌ FAIL — {steps_passed}/6 steps passed; re-run under remediated gate-plan (R3-C01 / R2-H01)"
+
+landing_line = (
+    f"**Landing eligible:** `{str(landing_eligible).lower()}` "
+    f"(identity_class=`{identity_class}`)"
+)
+if non_landing_reason:
+    landing_line += f"\n**Non-landing reason:** {non_landing_reason}"
 
 md = f"""# Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip
 
@@ -442,9 +553,11 @@ md = f"""# Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-f
 **Date:** {finished_at}
 **Verdict:** {verdict}
 **Run ID:** {run_id}
-**Source SHA:** `{source_sha}`
+**Source SHA (git rev-parse HEAD):** `{source_sha}`
+**git_sha:** `{source_sha}`
 **Deployed identity:** `{deployed_base_url}` / `{service_identity}`
-**Task:** REDHAT-FIX-S29-R2-H01 (fresh re-run; historical false-pass `{stale_id}` preserved under `.gate-evidence/{stale_id}/`)
+{landing_line}
+**Task:** REDHAT-FIX-S29-R3-C01 (HEAD-bound re-run; lineage R2-H01; historical false-pass `{stale_id}` preserved under `.gate-evidence/{stale_id}/`)
 
 ## Summary
 
@@ -454,15 +567,16 @@ md = f"""# Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-f
 
 **Evidence:** `.gate-evidence/{run_id}/step{{1..6}}.log`
 
-**Predicates:** current `gate-plan.json` (REDHAT-FIX-S29-H03 + C01) — step1 requires `overall.ok && failed_count==0`; step5 requires non-null `toolsPassed==toolsTotal`.
+**Predicates:** current `gate-plan.json` (REDHAT-FIX-S29-H03 + C01 + R3-C01) — step1 requires `overall.ok && failed_count==0`; step5 requires non-null `toolsPassed==toolsTotal`; evidence `git_sha` must equal worktree HEAD.
 
-**Sibling dependency (full 6/6):** R2-C01..C04 and R2-H02..H04 may still block end-to-end green; this re-run records honest per-step fail rather than reusing `{stale_id}` theatre.
+**Sibling dependency (full 6/6):** R2-C01..C04, R2-H02..H04, R3-C02/C03 may still block end-to-end green; this re-run records honest per-step fail rather than reusing `{stale_id}` theatre or ancestor SHAs.
 
 **Gate:** freeze → drain → ETL → flip → every write returns `migration_read_only`.
 """
 
-md_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01") / "GATE-RESULTS.md"
+md_tmp = Path(tmp_root) / "GATE-RESULTS.md"
 md_tmp.write_text(md)
+(r2_tmp / "GATE-RESULTS.md").write_text(md)
 if write:
     Path(results_md_path).write_text(md)
 
@@ -476,23 +590,35 @@ meta.update(
         "steps_executed": steps_executed,
         "steps_passed": steps_passed,
         "steps_failed": steps_failed,
+        "landing_eligible": landing_eligible,
+        "identity_class": identity_class,
+        "non_landing_reason": non_landing_reason or None,
+        "git_sha": source_sha,
+        "source_sha": source_sha,
+        "head_bound": True,
     }
 )
 meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 
-print(json.dumps({
+summary = {
     "run_id": run_id,
     "verdict": verdict,
     "steps_passed": steps_passed,
     "steps_executed": steps_executed,
     "steps_failed": steps_failed,
     "source_sha": source_sha,
+    "git_sha": source_sha,
+    "identity_class": identity_class,
+    "landing_eligible": landing_eligible,
+    "non_landing_reason": non_landing_reason or None,
     "wrote_gate_results": write,
     "evidence_dir": evid_dir,
-}, indent=2))
+}
+print(json.dumps(summary, indent=2))
+(Path(tmp_root) / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 PY
 
-echo "Done. verdict=$VERDICT steps_passed=$steps_passed/6 run_id=$GATE_RUN_ID"
+echo "Done. verdict=$VERDICT steps_passed=$steps_passed/6 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA landing_eligible=$LANDING_ELIGIBLE identity_class=$IDENTITY_CLASS"
 # Exit non-zero only if harness itself failed to run (always exit 0 after honest record
 # so CI can inspect gate-results; operator can check verdict).
 exit 0

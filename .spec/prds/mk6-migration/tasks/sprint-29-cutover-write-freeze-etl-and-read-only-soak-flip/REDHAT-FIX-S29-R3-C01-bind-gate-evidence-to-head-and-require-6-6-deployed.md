@@ -1,6 +1,6 @@
 # REDHAT-FIX-S29-R3-C01 — Bind human-gate evidence to HEAD and require 6/6 against deployed identity
 
-> Status: Backlog
+> Status: Implemented
 > Task ID: REDHAT-FIX-S29-R3-C01
 > Assignee: devops-engineer
 > Priority: P0

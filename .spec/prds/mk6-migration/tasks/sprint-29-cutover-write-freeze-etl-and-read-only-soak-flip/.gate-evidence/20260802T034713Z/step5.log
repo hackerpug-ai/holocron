@@ -1,0 +1,579 @@
+@@GATE-META step=5 task=REDHAT-FIX-S29-R3-C01 run_id=20260802T034713Z source_sha=0b10964a4abc902b7eea51206e4f84ca66dfc620 git_sha=0b10964a4abc902b7eea51206e4f84ca66dfc620 started_at=2026-08-02T03:49:45Z deployed_base_url=local-process://holo-cli identity_class=local-process@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-05 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:flip --json --etl-report .tmp/D06-04/watermark-report.json --output .tmp/D06-05/flip-report.json | tee .tmp/REDHAT-FIX-S29-H03/step5-flip.json; jq -e '.ok == true and .env_value == "1"' .tmp/D06-05/flip-report.json; export HOLO_MIGRATION_READ_ONLY=1; bun services/platform/src/cli/holo.ts cutover:verify-soak --json --etl-report .tmp/D06-04/watermark-report.json --output .tmp/D06-05/verify-soak-report.json | tee .tmp/REDHAT-FIX-S29-H03/step5-verify-soak.json; jq -e '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and ((.zeroWritePath.status == "NOT_LANDED") or (.zeroWritePath.status == "BLOCKED")) and ((.engaged == true) or (.tools.ok == true))' .tmp/D06-05/verify-soak-report.json
+---
+{
+  "ok": true,
+  "engaged_at": "2026-08-02T03:49:45.669Z",
+  "engaged_at_ms": 1785642585669,
+  "env": "HOLO_MIGRATION_READ_ONLY",
+  "env_value": "1",
+  "durable_value": "1",
+  "etl_run_id": "019fc096-b516-7dfa-8807-5b2a42603f79",
+  "etl_report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/.tmp/D06-04/watermark-report.json",
+  "unexplainedVariance": 0,
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/.tmp/D06-05/flip-report.json",
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "durable_reread": true,
+  "lookup_mode": "durable_overrides_env",
+  "process_generations": {
+    "before": [
+      {
+        "id": "cutover-cli",
+        "pid": 34250,
+        "label": "holo-cutover"
+      },
+      {
+        "id": "hono-mcp-worker",
+        "label": "durable-reread-observers"
+      }
+    ],
+    "after": [
+      {
+        "id": "cutover-cli",
+        "pid": 34250,
+        "label": "holo-cutover"
+      },
+      {
+        "id": "hono-mcp-worker",
+        "label": "durable-reread-observers"
+      }
+    ]
+  }
+}
+true
+{
+  "ok": false,
+  "overall": {
+    "ok": false
+  },
+  "tools": {
+    "ok": false,
+    "toolsTotal": 44,
+    "toolsPassed": 0,
+    "toolsStubbed": 0,
+    "tools": [
+      {
+        "tool_id": "get_research_session",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "search_research",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "search_fts",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "search_vector",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "hybrid_search",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "store_document",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "update_document",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "share_document",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_document",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "list_documents",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "add_subscription",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "remove_subscription",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "list_subscriptions",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "check_subscriptions",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_subscription_content",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "set_subscription_filter",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_subscription_filters",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "store_tool",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "search_tools",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_tool",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "list_tools",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "update_tool",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "remove_tool",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "shop_products",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_shop_session",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_shop_listings",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_whats_new_report",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "list_whats_new_reports",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "start_assimilation",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "approve_assimilation_plan",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "reject_assimilation_plan",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_assimilation_status",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "cancel_assimilation",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "steer_assimilation",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "assimilate_creator",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_creator_transcripts",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "regenerate_transcript",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "search_improvements",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "get_improvement",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "list_improvements",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "add_improvement",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "close_improvement",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "set_improvement_status",
+        "is_mutation": true,
+        "invoked": false,
+        "ok": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      },
+      {
+        "tool_id": "findRecommendations",
+        "is_mutation": false,
+        "invoked": false,
+        "ok": false,
+        "schema_valid": false,
+        "message": "MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server"
+      }
+    ],
+    "transport": "network",
+    "base_url": "",
+    "target_identity": null,
+    "error": "MISSING_BASE_URL"
+  },
+  "reads": {
+    "ok": false,
+    "perTableCounts": {
+      "chat_messages": 1111,
+      "conversations": 106,
+      "documents": 1640,
+      "improvement_requests": 36,
+      "research_sessions": 142,
+      "subscription_sources": 82,
+      "tasks": 911
+    },
+    "baselineCounts": {
+      "chat_messages": 1110,
+      "conversations": 106,
+      "documents": 1627,
+      "improvement_requests": 36,
+      "research_sessions": 142,
+      "subscription_sources": 77,
+      "tasks": 305
+    },
+    "mismatches": [
+      "exportArchiveHash provenance mismatch: report=b426e865759b9e3ff14c2ca33357f9cc63a4b94e19494b291f45e5937129a4aa on-disk archive=415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+      "rewritten/provenance count drift for conversations: caller=101 parity=106",
+      "rewritten/provenance count drift for documents: caller=1614 parity=1627",
+      "rewritten/provenance count drift for tasks: caller=911 parity=305",
+      "rewritten/provenance count drift for researchSessions: caller=12 parity=142",
+      "rewritten/provenance count drift for improvementRequests: caller=34 parity=36",
+      "rewritten/provenance count drift for chatMessages: caller=1100 parity=1110",
+      "rewritten/provenance count drift for subscriptionSources: caller=78 parity=77",
+      "chat_messages: live=1111 baseline=1110",
+      "documents: live=1640 baseline=1627",
+      "subscription_sources: live=82 baseline=77",
+      "tasks: live=911 baseline=305"
+    ],
+    "etl_run_id": "019fc096-b516-7dfa-8807-5b2a42603f79",
+    "tablesTotal": 7,
+    "tablesMatched": 3,
+    "baseline_hash": "415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+    "baseline_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json",
+    "exportArchiveHash": "415bd9d354cbd5956808322ba6e0240d2493cad341b69a761760ff0423791c25",
+    "baseline_source": "export-catalog:/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/services/platform/tests/fixtures/export-sample#415bd9d354cb+parity:/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json#172021e1f700",
+    "catalog_table_count": 7,
+    "parity_hash": "172021e1f700e0d3b5dd7ea3f38780ce2f7ef52d4e3547f24f767b258c9bff16",
+    "export_dir": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/services/platform/tests/fixtures/export-sample",
+    "catalog_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
+    "report_sha256": "8d04cbaa32d4dbc2b783a940fe390d5d5e1f900b62ef898f21f626794a0d4f1d"
+  },
+  "article": {
+    "ok": false,
+    "status": 0,
+    "sha256": "",
+    "byteLength": 0,
+    "baselineSha256": "5da5f33d5f042a947d1495bc16a286e89fcd68d3b2acafad42de6d42f6d61834",
+    "baselineByteLength": 4044,
+    "shareToken": "9cf8cd35-42e0-4f2a-9b32-1316f3081521",
+    "match": false,
+    "transport": "network",
+    "base_url": "",
+    "target_identity": null,
+    "error": "MISSING_BASE_URL"
+  },
+  "honoWrite": {
+    "ok": false,
+    "status": 401,
+    "body": {
+      "error": "unauthorized",
+      "message": "missing or invalid Authorization Bearer token"
+    },
+    "documentsBefore": 1640,
+    "documentsAfter": 1640,
+    "rowCountUnchanged": true
+  },
+  "jobs": {
+    "ok": true,
+    "jobsTotal": 16,
+    "jobsAccounted": 16,
+    "jobs": [
+      {
+        "name": "task-timeout-worker",
+        "ok": false,
+        "error": "migration_read_only: task-timeout-worker blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "audio-stuck-segment-cleanup",
+        "ok": false,
+        "error": "migration_read_only: audio-stuck-segment-cleanup blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "toolcall-timeout",
+        "ok": false,
+        "error": "migration_read_only: toolcall-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "assimilation-timeout",
+        "ok": false,
+        "error": "migration_read_only: assimilation-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "agent-plan-timeout",
+        "ok": false,
+        "error": "migration_read_only: agent-plan-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "voice-session-timeout",
+        "ok": false,
+        "error": "migration_read_only: voice-session-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "cleanup-agent-telemetry",
+        "ok": false,
+        "error": "migration_read_only: cleanup-agent-telemetry blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "subscription-monitor",
+        "ok": false,
+        "error": "migration_read_only: subscription-monitor blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "subscription-auto-research",
+        "ok": false,
+        "error": "migration_read_only: subscription-auto-research blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "feed-builder",
+        "ok": false,
+        "error": "migration_read_only: feed-builder blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "whats-new-daily",
+        "ok": false,
+        "error": "migration_read_only: whats-new-daily blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "audio-transcript-job-processor",
+        "ok": false,
+        "error": "migration_read_only: audio-transcript-job-processor blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "document-embedding-backfill",
+        "ok": false,
+        "error": "migration_read_only: document-embedding-backfill blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "research-embedding-backfill",
+        "ok": false,
+        "error": "migration_read_only: research-embedding-backfill blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "improvements-embedding-backfill",
+        "ok": false,
+        "error": "migration_read_only: improvements-embedding-backfill blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "morning-digest",
+        "ok": false,
+        "error": "migration_read_only: morning-digest blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      }
+    ]
+  },
+  "jobsTotal": 16,
+  "jobsAccounted": 16,
+  "zeroWritePath": {
+    "status": "NOT_LANDED",
+    "note": "No Zero mutator/write surface landed at c7873378 — reported loudly, not omitted"
+  },
+  "engaged": true,
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/.tmp/D06-05/verify-soak-report.json"
+}
+---
+@@GATE-EXIT=1@@
+@@GATE-ENDED=2026-08-02T03:49:46Z@@
+@@GATE-TIMEOUT-CAP=300s@@
