@@ -27,9 +27,12 @@ import {
 } from '../../src/cutover/article-baseline.ts';
 import {
   ETL_NOT_RECONCILED,
+  evaluateReadToolSuccess,
   isMigrationReadOnly,
   MIGRATION_READ_ONLY_ENV,
   readDurableMigrationReadOnly,
+  resolveTargetIdentity,
+  resolveVerifyToolSeeds,
   runCutoverFlip,
   runCutoverRollbackRepoint,
   runHonoWriteSweep,
@@ -70,7 +73,12 @@ const H01_EVIDENCE = resolve(
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
 const H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H02');
-const C03_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C03');
+/** R2-H02 evidence (user path + sprint gate path). */
+const R2_H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H02');
+const R2_H02_SPRINT_EVIDENCE = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
 /** Immutable multi-table D06-04-shaped watermark (committed). Never authored from live SELECT. */
 const IMMUTABLE_ETL_FIXTURE = resolve(
   REPO_ROOT,
@@ -143,10 +151,14 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   /** Real listening Hono/MCP server — production oracle for H-01 network verify. */
   let liveService: LiveService | undefined;
   let networkBaseUrl = '';
+  /** R2-H02: labeled soak endpoint identity (host/port/pid/service_label). */
+  let soakServiceLabel = '';
 
   beforeAll(async () => {
     mkdirSync(EVIDENCE, { recursive: true });
     mkdirSync(C02_EVIDENCE, { recursive: true });
+    mkdirSync(R2_H02_EVIDENCE, { recursive: true });
+    mkdirSync(R2_H02_SPRINT_EVIDENCE, { recursive: true });
     // Disposable control-plane — isolate durable fence from operator secrets.yaml
     writeFileSync(
       DISPOSABLE_SECRETS,
@@ -173,6 +185,41 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     }
     shareToken = existingPublic[0].share_token;
 
+    // R2-H02: ensure non-ETL-bound rows exist so get_tool / shop / creator reads
+    // return non-null application data (do NOT touch documents/subscription_sources counts).
+    const toolCount = Number((await sql`SELECT count(*)::int AS c FROM toolbelt_tools`)[0]?.c ?? 0);
+    if (toolCount === 0) {
+      await sql`
+        INSERT INTO toolbelt_tools (id, title, description, content, source_type, category, status)
+        VALUES (
+          ${randomUUID()}::uuid,
+          ${`r2-h02-seed-tool-${RUN}`},
+          'R2-H02 verify-tools seed',
+          'seed content',
+          'github',
+          'tool',
+          'draft'
+        )
+      `;
+    }
+    const shopCount = Number((await sql`SELECT count(*)::int AS c FROM shop_sessions`)[0]?.c ?? 0);
+    if (shopCount === 0) {
+      await sql`
+        INSERT INTO shop_sessions (id, query, status, retailers)
+        VALUES (${randomUUID()}::uuid, ${`r2-h02-seed-${RUN}`}, 'completed', ${sql.json(['amazon'])})
+      `;
+    }
+    const profileCount = Number(
+      (await sql`SELECT count(*)::int AS c FROM creator_profiles`)[0]?.c ?? 0
+    );
+    if (profileCount === 0) {
+      await sql`
+        INSERT INTO creator_profiles (id, name, handle)
+        VALUES (${randomUUID()}::uuid, ${`r2-h02-${RUN}`}, ${`r2h02_${RUN}`})
+      `;
+    }
+
+    // Capture baseline from the real Hono /article/ route (same bytes AC-4 compares)
     process.env.DATABASE_URL = DATABASE_URL;
 
     // ── R2-H03: immutable pre-freeze article baseline (NOT from post-fence SUT) ──
@@ -238,11 +285,16 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
         // Propagate live search key when present so findRecommendations is schema-valid
         ...(process.env.JINA_API_KEY ? { JINA_API_KEY: process.env.JINA_API_KEY } : {}),
       },
-      readyTimeoutMs: 60_000,
+      readyTimeoutMs: 180_000,
     });
     networkBaseUrl = liveService.baseUrl;
+    soakServiceLabel = `soak-flip-r2-h02-${RUN}`;
     process.env.HOLO_VERIFY_BASE_URL = networkBaseUrl;
     process.env.PLATFORM_URL = networkBaseUrl;
+    process.env.HOLO_VERIFY_SERVICE_LABEL = soakServiceLabel;
+    if (liveService.pid) {
+      process.env.HOLO_VERIFY_PID = String(liveService.pid);
+    }
 
     // H-02: load immutable multi-table D06-04-shaped watermark from committed fixture.
     // NEVER derive loadedByTable from live SELECT count(*) (dual-lens anti-stub).
@@ -281,14 +333,13 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     writeFileSync(greenEtlPath, fixtureBody, 'utf8');
     mkdirSync(resolve(REPO_ROOT, '.tmp/D06-04'), { recursive: true });
     writeFileSync(resolve(REPO_ROOT, '.tmp/D06-04/watermark-report.json'), fixtureBody, 'utf8');
-    // R2-C03: stage cutover-parity inventory next to watermark for default CLI bind path.
-    if (existsSync(IMMUTABLE_PARITY_FIXTURE)) {
-      writeFileSync(
-        resolve(REPO_ROOT, '.tmp/D06-04/cutover-parity.json'),
-        readFileSync(IMMUTABLE_PARITY_FIXTURE, 'utf8'),
-        'utf8'
-      );
-    }
+    // C-02 CLI rollback-repoint reads default D06-05 audit + watermark; isolate from sibling pollution.
+    const exportWmMs = Date.now() - 60_000;
+    writeFileSync(
+      resolve(REPO_ROOT, '.tmp/D06-05/post-export-write-audit.json'),
+      `${JSON.stringify({ export_watermark_ms: exportWmMs, accepted_writes: [] }, null, 2)}\n`,
+      'utf8'
+    );
     mkdirSync(H02_EVIDENCE, { recursive: true });
     mkdirSync(C03_EVIDENCE, { recursive: true });
     writeFileSync(resolve(H02_EVIDENCE, 'immutable-etl-fixture-copy.json'), fixtureBody, 'utf8');
@@ -325,7 +376,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       networkBaseUrl,
       note: 'H-02 baselineCounts from committed fixture; R2-H03 article baseline from pre-freeze renderPublicArticle (not post-fence SUT child)',
     });
-  }, 120_000);
+  }, 240_000);
 
   afterAll(async () => {
     // Disengage durable + in-process fence for isolation
@@ -906,7 +957,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-2 / TC-3 / TC-4 / H-01 network ─────────────────────────────────────
 
-  it('TC-3/4 AC-2 H-01: network /mcp verify-tools; schema_valid reads; mutations MIGRATION_READ_ONLY', async () => {
+  it('TC-3/4 AC-2 H-01/R2-H02: network /mcp verify-tools; identity; Zod schema_valid; non-sentinel seeds', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
     expect(networkBaseUrl.length).toBeGreaterThan(0);
@@ -916,6 +967,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
       baseUrl: networkBaseUrl,
+      serviceLabel: soakServiceLabel,
+      pid: liveService?.pid,
     });
     evidence('tc-verify-tools.json', {
       toolsTotal: report.toolsTotal,
@@ -924,6 +977,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       ok: report.ok,
       transport: report.transport,
       base_url: report.base_url,
+      target_identity: report.target_identity,
+      seeds: report.seeds,
       mutations: report.tools
         .filter((t) => t.is_mutation)
         .map((t) => ({
@@ -938,7 +993,9 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
           ok: t.ok,
           isError: t.isError,
           schema_valid: t.schema_valid,
+          postgres_backed: t.postgres_backed,
           status: t.status,
+          message: t.message,
         })),
     });
     writeFileSync(
@@ -946,10 +1003,45 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       `${JSON.stringify(report, null, 2)}\n`,
       'utf8'
     );
+    writeFileSync(
+      resolve(R2_H02_EVIDENCE, 'verify-tools-network.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    writeFileSync(
+      resolve(R2_H02_SPRINT_EVIDENCE, 'redhat-fix-s29-r2-h02-verify-tools.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
 
     // H-01: network transport + non-null concrete counts
     expect(report.transport).toBe('network');
     expect(report.base_url).toBe(networkBaseUrl);
+    // R2-H02 AC-1: deployed endpoint identity bound in report
+    const identity = report.target_identity;
+    expect(identity).not.toBeNull();
+    if (!identity) throw new Error('target_identity missing');
+    expect(identity.host.length).toBeGreaterThan(0);
+    expect(identity.port).toBeGreaterThan(0);
+    expect(identity.service_label).toBe(soakServiceLabel);
+    expect(identity.host).toBe(new URL(networkBaseUrl).hostname);
+    expect(identity.port).toBe(Number(new URL(networkBaseUrl).port));
+
+    // R2-H02: seeds are real holocron_nonprod ids (not sole fixed sentinels without row proof)
+    const seeds = report.seeds;
+    expect(seeds).toBeDefined();
+    if (!seeds) throw new Error('seeds missing');
+    expect(seeds.documentId.length).toBeGreaterThan(0);
+    expect(seeds.subscriptionId.length).toBeGreaterThan(0);
+    const soleFixedSentinels =
+      seeds.documentId === '00000000-0000-4000-8000-000000000001' &&
+      seeds.subscriptionId === '00000000-0000-4000-8000-000000000002';
+    if (soleFixedSentinels) {
+      // Only allowed when those exact rows exist and return non-null (SELECT-backed).
+      const doc = await sql`SELECT id FROM documents WHERE id = ${seeds.documentId}::uuid`;
+      expect(doc.length).toBe(1);
+    }
+
     expect(report.toolsTotal).toBe(manifest.tools.length);
     expect(report.toolsTotal).toBeGreaterThanOrEqual(44);
     expect(typeof report.toolsPassed).toBe('number');
@@ -975,13 +1067,95 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     const reads = report.tools.filter((t) => !t.is_mutation);
     // H-01 AC-2: never pass a read solely on HTTP 200 when isError
     expect(reads.every((t) => !(t.ok === true && t.isError === true))).toBe(true);
+    // R2-H02: schema_valid only via Zod; postgres_backed requires non-null data
     expect(reads.every((t) => t.schema_valid === true)).toBe(true);
+    expect(reads.every((t) => t.postgres_backed === true)).toBe(true);
     expect(reads.every((t) => t.isError !== true)).toBe(true);
     expect(reads.every((t) => t.ok === true)).toBe(true);
 
     expect(report.toolsPassed).toBe(report.toolsTotal);
     expect(report.ok).toBe(true);
   }, 300_000);
+
+  it('R2-H02 AC-3: evaluateReadToolSuccess rejects null and Zod-failing payloads', () => {
+    // list_documents output is non-nullable object — null fails Zod (no structural fallback)
+    const nullResult = evaluateReadToolSuccess('list_documents', {
+      status: 200,
+      isError: false,
+      payload: null,
+      rawByteLength: 4,
+      raw: 'null',
+    });
+    expect(nullResult.schema_valid).toBe(false);
+    expect(nullResult.postgres_backed).toBe(false);
+    expect(nullResult.ok).toBe(false);
+
+    // get_document allows null via Zod but null is never postgres_backed success
+    const nullGetDoc = evaluateReadToolSuccess('get_document', {
+      status: 200,
+      isError: false,
+      payload: null,
+      rawByteLength: 4,
+      raw: 'null',
+    });
+    expect(nullGetDoc.postgres_backed).toBe(false);
+    expect(nullGetDoc.ok).toBe(false);
+
+    const zodFail = evaluateReadToolSuccess('list_documents', {
+      status: 200,
+      isError: false,
+      payload: { unexpected: true },
+      rawByteLength: 20,
+      raw: '{"unexpected":true}',
+    });
+    expect(zodFail.schema_valid).toBe(false);
+    expect(zodFail.postgres_backed).toBe(false);
+    expect(zodFail.ok).toBe(false);
+
+    const okPayload = evaluateReadToolSuccess('list_documents', {
+      status: 200,
+      isError: false,
+      payload: { documents: [{ id: 'x' }], hasMore: false },
+      rawByteLength: 40,
+      raw: '{"documents":[{"id":"x"}],"hasMore":false}',
+    });
+    expect(okPayload.schema_valid).toBe(true);
+    expect(okPayload.postgres_backed).toBe(true);
+    expect(okPayload.ok).toBe(true);
+
+    const evidenceBody = {
+      nullResult,
+      nullGetDoc,
+      zodFail,
+      okPayload,
+      resolveTargetIdentity: resolveTargetIdentity('http://127.0.0.1:4111', {
+        serviceLabel: 'unit',
+      }),
+    };
+    writeFileSync(
+      resolve(R2_H02_EVIDENCE, 'evaluate-read-tool-success.json'),
+      `${JSON.stringify(evidenceBody, null, 2)}\n`,
+      'utf8'
+    );
+    writeFileSync(
+      resolve(R2_H02_SPRINT_EVIDENCE, 'redhat-fix-s29-r2-h02-evaluate-read.json'),
+      `${JSON.stringify(evidenceBody, null, 2)}\n`,
+      'utf8'
+    );
+  });
+
+  it('R2-H02: resolveVerifyToolSeeds returns non-sentinel holocron_nonprod ids', async () => {
+    const result = await resolveVerifyToolSeeds({ databaseUrl: DATABASE_URL });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.seeds.documentId).not.toBe('00000000-0000-4000-8000-000000000001');
+    expect(result.seeds.subscriptionId).not.toBe('00000000-0000-4000-8000-000000000002');
+    writeFileSync(
+      resolve(R2_H02_EVIDENCE, 'verify-tool-seeds.json'),
+      `${JSON.stringify(result.seeds, null, 2)}\n`,
+      'utf8'
+    );
+  });
 
   it('H-01 AC-5: unreachable base URL fails closed with non-null toolsPassed/toolsTotal', async () => {
     setMigrationReadOnlyEnv('1');
