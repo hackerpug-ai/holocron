@@ -1,4 +1,8 @@
 # D06-04: Capture export watermark + orchestrate the one-time ETL run
+> Status: ✅ Completed
+> Commit: 99eb87ab1f26eb4f0befe2c8a94e8c80a0cdc8d2
+> Reviewer: product-manager+mastra-reviewer
+> Completed: 2026-08-02T00:22:57Z
 
 > **Task ID:** D06-04
 > **Sprint:** [Sprint 29 — Cutover](./SPRINT.md)
