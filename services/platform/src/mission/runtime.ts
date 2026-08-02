@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { isMigrationReadOnly, migrationReadOnlyMissionError } from '../cutover/soak-fence.ts';
 import { createDb, createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manifest.schema.ts';
@@ -121,6 +122,13 @@ export class MissionRuntimeError extends Error {
   ) {
     super(message);
     this.name = 'MissionRuntimeError';
+  }
+}
+
+/** REDHAT-FIX-S29-R3-H02: throw MissionRuntimeError when soak fence is armed. */
+function assertMissionWritable(surface: string): void {
+  if (isMigrationReadOnly()) {
+    throw new MissionRuntimeError('MIGRATION_READ_ONLY', migrationReadOnlyMissionError(surface));
   }
 }
 
@@ -2512,8 +2520,16 @@ async function createMissionRun(
           `mission idempotency conflict for ${templateVersion.template_key}/${idempotencyKey}: persisted args differ from this request`
         );
       }
+      // Terminal replay is a pure read; non-terminal resume is a write path and
+      // must fail closed under the soak fence (REDHAT-FIX-S29-R3-H02).
+      if (!isTerminalStatus(existing.status)) {
+        assertMissionWritable('create');
+      }
       return { run: existing, created: false };
     }
+
+    // New admission INSERT is irreversible — fence before write.
+    assertMissionWritable('create');
 
     const traceId = `mission:${randomUUID()}`;
     const rows = await tx<MissionRunRow[]>`
@@ -2993,6 +3009,9 @@ async function commitStageRun(
   budgetPolicy: z.infer<typeof MissionBudgetPolicySchema>,
   usageDelta: MissionUsageDelta
 ): Promise<void> {
+  // REDHAT-FIX-S29-R3-H02: re-check durable fence at irreversible stage commit
+  // (already-running mission under a lease must still fail closed).
+  assertMissionWritable('commit');
   await sql.begin(async (tx) => {
     const run = await assertLeaseStillOwned(tx, runId, lease);
     const currentUsage = parseUsageSnapshot(run.usage_json, budgetPolicy);
@@ -3529,6 +3548,8 @@ async function executeRunWithLease(
   lease: MissionLease,
   databaseUrl: string
 ): Promise<MissionRunRow> {
+  // Already-running / leased mission: re-check fence before any stage side effects.
+  assertMissionWritable('execute');
   const run = await selectMissionRunById(sql, runId);
   if (!run) {
     throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
@@ -3775,6 +3796,10 @@ async function runMissionInternal(
   idempotencyKey: string,
   options?: { databaseUrl?: string; ownerScope?: MissionRunOwnerScope }
 ): Promise<MissionStatusPayload> {
+  // REDHAT-FIX-S29-R3-H02: admission fence before any template write or run
+  // create. Status reads use getMissionRunStatus (not this path).
+  assertMissionWritable('admission');
+
   const databaseUrl = resolveHolocronNonprodDatabaseUrl({
     databaseUrl: options?.databaseUrl,
     context: 'mission runtime',
@@ -3799,6 +3824,7 @@ async function runMissionInternal(
       );
     }
 
+    // createMissionRun re-checks again before INSERT (defense in depth).
     const ownerScope = options?.ownerScope ?? 'runtime';
     const created = await createMissionRun(sql, templateVersion, args, idempotencyKey, ownerScope);
     if (isTerminalStatus(created.run.status)) {
@@ -3876,6 +3902,9 @@ async function resumeMissionInternal(
     if (isTerminalStatus(existing.status)) {
       return buildMissionPayload(existing, { replay: true });
     }
+
+    // Non-terminal resume is a write path (lease + stage progress).
+    assertMissionWritable('resume');
 
     if (options?.researchEvidence !== undefined) {
       const args = MissionGoalArgsSchema.parse(existing.args_json);

@@ -1,6 +1,6 @@
 # REDHAT-FIX-S29-R3-H02 — Fence mission admission/publish and already-running worker irreversible effects
 
-> Status: Backlog
+> Status: Done
 > Task ID: REDHAT-FIX-S29-R3-H02
 > Assignee: devops-engineer
 > Priority: P0

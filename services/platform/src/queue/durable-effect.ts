@@ -24,6 +24,7 @@
  * uncommitted work. NOT a stub: assertions read real row counts from Postgres.
  */
 import { randomUUID } from 'node:crypto';
+import { isMigrationReadOnly, migrationReadOnlyJobError } from '../cutover/soak-fence.ts';
 import { createSql, type Sql } from '../db/client.ts';
 
 export type CrashBoundary =
@@ -113,6 +114,11 @@ export async function beginEffect(opts: {
   databaseUrl?: string;
   crashAt?: CrashBoundary;
 }): Promise<BeginEffectResult> {
+  // REDHAT-FIX-S29-R3-H02: re-check durable fence at irreversible outbox write —
+  // not only at runJob admission (covers already-running / mid-flight workers).
+  if (isMigrationReadOnly()) {
+    throw new Error(migrationReadOnlyJobError(opts.name));
+  }
   const url = opts.databaseUrl ?? DEFAULT_URL();
   const fence = `fence-${randomUUID()}`;
   const payload = opts.payload ?? {};
@@ -155,7 +161,15 @@ export async function dispatchAndAck(opts: {
   key: string;
   databaseUrl?: string;
   crashAt?: CrashBoundary;
+  /** Optional job name for migration_read_only diagnostics (defaults to key). */
+  name?: string;
 }): Promise<DispatchAckResult> {
+  // REDHAT-FIX-S29-R3-H02: re-check at irreversible effect application. A worker
+  // that already committed an outbox intent (or held a lease) before the soak
+  // fence armed must still fail closed here — never write queue_effects.
+  if (isMigrationReadOnly()) {
+    throw new Error(migrationReadOnlyJobError(opts.name ?? opts.key));
+  }
   const url = opts.databaseUrl ?? DEFAULT_URL();
   const fence = `fence-${randomUUID()}`;
   const crash = opts.crashAt ?? null;
@@ -163,12 +177,17 @@ export async function dispatchAndAck(opts: {
   try {
     await ensureOutboxSchema(sql);
 
-    const outboxRows = await sql<{ id: string; payload: unknown }[]>`
-      SELECT id::text AS id, payload FROM queue_outbox WHERE key = ${opts.key}
+    const outboxRows = await sql<{ id: string; payload: unknown; name: string }[]>`
+      SELECT id::text AS id, payload, name FROM queue_outbox WHERE key = ${opts.key}
     `;
     const outbox = outboxRows[0];
     if (!outbox) {
       throw new Error(`dispatchAndAck: no outbox row for key=${opts.key}`);
+    }
+
+    // Fresh re-check immediately before the effect transaction (TOCTOU close).
+    if (isMigrationReadOnly()) {
+      throw new Error(migrationReadOnlyJobError(opts.name ?? outbox.name ?? opts.key));
     }
 
     try {
