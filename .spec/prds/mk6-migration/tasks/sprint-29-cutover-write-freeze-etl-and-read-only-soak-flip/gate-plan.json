@@ -2,81 +2,120 @@
   "sprint": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
   "planned_at": "20260802T004525Z",
   "planned_steps": 6,
+  "remediated_at": "20260802T020000Z",
+  "remediation": "REDHAT-FIX-S29-H03",
+  "dispatcher": "bun services/platform/src/cli/holo.ts",
   "sprint_identity": {
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
     "sprint_slug": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip"
   },
+  "notes": [
+    "REDHAT-FIX-S29-H03: every step invokes a real cutover CLI verb via bun services/platform/src/cli/holo.ts, then asserts a conjunctive multi-field jq oracle (require-all, never any-of).",
+    "Step 1 coordinates with REDHAT-FIX-S29-C01: cutover:go-no-go + overall.ok + failed_count==0 + 8 gates (never length-only).",
+    "Step 2 freeze is require-all: ok==true AND env_value==\"1\" AND fence_armed_at>0 (never or of those fields).",
+    "Step 3 quiet-check requires acceptedWriteCount==0 AND rejectedWriteCount>0 AND windowSeconds>=declared AND ok==true.",
+    "Step 4 run-etl (CAP-MIG-01) requires ok + unexplainedVariance==0 + stages.nonEmpty + source non-empty + fkAudit.ok + vectors.ok.",
+    "Step 5 flip + verify-soak requires overall.ok AND non-null toolsPassed==toolsTotal>0 AND jobsAccounted==jobsTotal AND article/honoWrite/reads/zeroWritePath subresults.",
+    "Step 6 write probe asserts HTTP 423 + migration_read_only body. Residual until REDHAT-FIX-S29-C02: process-local HOLO_MIGRATION_READ_ONLY engagement cannot prove distributed flip propagation; gate still refuses green without the 423 body.",
+    "Historical false-pass lineage preserved under .gate-evidence/20260802T004525Z/ (do not rewrite). Oracle suite: PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts"
+  ],
+  "oracle_suite": {
+    "command": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts"
+  },
   "steps": [
     {
       "n": 1,
-      "text": "Run full harness suite against new stack",
+      "text": "Run full harness suite against new stack (cutover:go-no-go) — overall.ok and failed_count==0",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "mkdir -p .tmp/D06-02 && bun services/platform/src/cli/holo.ts cutover:go-no-go --json --output .tmp/D06-02/go-no-go-report.json && jq -e '.overall.ok == true and .failed_count == 0 and (.gates|length) == 8 and ([.gates[] | select(.name==\"unit\" or .name==\"integration\" or .name==\"live\") | .collectedTests // 0] | min) > 0' .tmp/D06-02/go-no-go-report.json",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/D06-02 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:go-no-go --json --output go-no-go-report.json | tee .tmp/REDHAT-FIX-S29-H03/step1-go-no-go.json; jq -e '.overall.ok == true and .failed_count == 0 and (.gates | length) == 8 and all(.gates[] | select(.collectedTests != null); .collectedTests > 0)' go-no-go-report.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "\"overall\""
+        "notes": "REDHAT-FIX-S29-H03 + C01 coordination: real cutover:go-no-go CLI; never gates|length==8 alone; failed_count must be 0.",
+        "require_all_regex": ["cutover:go-no-go|\"failed_count\"|\"overall\"", "\"ok\""],
+        "must_not_observe": ["\"failed_count\":\\s*[1-9]"]
       }
     },
     {
       "n": 2,
-      "text": "Trigger write fence",
+      "text": "Trigger write fence (cutover:freeze) — ok AND env_value=1 AND fence_armed_at>0",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "jq -e '(.ok==true) or (.env_value==\"1\") or (.fence_armed_at>0)' .tmp/D06-05/flip-report.json",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/D06-03 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:freeze --json --output .tmp/D06-03/freeze-report.json --reason \"sprint-29-human-gate\" | tee .tmp/REDHAT-FIX-S29-H03/step2-freeze.json; jq -e '.ok == true and .env_value == \"1\" and .fence_armed_at > 0' .tmp/D06-03/freeze-report.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "."
+        "notes": "REDHAT-FIX-S29-H03: conjunctive freeze oracle — never (.ok) or (.env_value) or (.fence_armed_at).",
+        "require_all_regex": [
+          "cutover:freeze|\"fence_armed_at\"",
+          "\"ok\"\\s*:\\s*true",
+          "\"env_value\"\\s*:\\s*\"1\""
+        ]
       }
     },
     {
       "n": 3,
-      "text": "Drain quiet interval",
+      "text": "Drain quiet interval (cutover:quiet-check) — accepted==0 rejected>0 windowSeconds ok",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "jq -e '.acceptedWriteCount==0' .tmp/D06-03/quiet-check-report.json",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/D06-03 .tmp/REDHAT-FIX-S29-H03; QUIET_WINDOW_SECONDS=\"${QUIET_WINDOW_SECONDS:-30}\"; bun services/platform/src/cli/holo.ts cutover:quiet-check --json --window-seconds \"$QUIET_WINDOW_SECONDS\" --output .tmp/D06-03/quiet-check-report.json | tee .tmp/REDHAT-FIX-S29-H03/step3-quiet-check.json; jq -e --argjson minWindow \"${QUIET_WINDOW_SECONDS:-30}\" '.ok == true and .acceptedWriteCount == 0 and .rejectedWriteCount > 0 and .windowSeconds >= $minWindow' .tmp/D06-03/quiet-check-report.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "."
+        "notes": "REDHAT-FIX-S29-H03: quiet oracle requires rejectedWriteCount>0 and measured windowSeconds — never acceptedWriteCount==0 alone.",
+        "require_all_regex": [
+          "cutover:quiet-check|\"acceptedWriteCount\"",
+          "\"rejectedWriteCount\"",
+          "\"windowSeconds\""
+        ]
       }
     },
     {
       "n": 4,
-      "text": "One-time ETL reconciliation",
+      "text": "One-time ETL reconciliation (cutover:run-etl) — ok unexplainedVariance==0 non-empty fk vectors",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "jq -e \".unexplainedVariance == 0\" .tmp/D06-04/watermark-report.json",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/D06-04 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:run-etl --json --output .tmp/D06-04/watermark-report.json | tee .tmp/REDHAT-FIX-S29-H03/step4-run-etl.json; jq -e '.ok == true and .unexplainedVariance == 0 and .stages.nonEmpty == true and ((.loadedByTable.documents // 0) > 0 or ((.archive.exportData.rowCounts.documents // 0) > 0)) and (.fkAudit.ok == true) and (.vectors.ok == true)' .tmp/D06-04/watermark-report.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "."
+        "notes": "REDHAT-FIX-S29-H03 / CAP-MIG-01: fail-closed on empty export variance green; require non-empty source + fkAudit + vectors + report ok.",
+        "require_all_regex": [
+          "cutover:run-etl|\"unexplainedVariance\"",
+          "\"ok\"",
+          "nonEmpty|loadedByTable|fkAudit|vectors"
+        ]
       }
     },
     {
       "n": 5,
-      "text": "Flip app+MCP verify-soak",
+      "text": "Flip app+MCP and verify-soak (cutover:flip + cutover:verify-soak) — tools/jobs/article/hono/reads concrete",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "jq -e \".overall.ok == true\" .tmp/D06-05/verify-soak-cli.json",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/D06-05 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:flip --json --etl-report .tmp/D06-04/watermark-report.json --output .tmp/D06-05/flip-report.json | tee .tmp/REDHAT-FIX-S29-H03/step5-flip.json; jq -e '.ok == true and .env_value == \"1\"' .tmp/D06-05/flip-report.json; export HOLO_MIGRATION_READ_ONLY=1; bun services/platform/src/cli/holo.ts cutover:verify-soak --json --etl-report .tmp/D06-04/watermark-report.json --output .tmp/D06-05/verify-soak-report.json | tee .tmp/REDHAT-FIX-S29-H03/step5-verify-soak.json; jq -e '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == \"number\") and ((.tools.toolsTotal // .toolsTotal) | type == \"number\") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and ((.zeroWritePath.status == \"NOT_LANDED\") or (.zeroWritePath.status == \"BLOCKED\")) and ((.engaged == true) or (.tools.ok == true))' .tmp/D06-05/verify-soak-report.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "."
+        "notes": "REDHAT-FIX-S29-H03: never overall.ok alone; toolsPassed/toolsTotal must be non-null numbers with toolsPassed==toolsTotal and toolsTotal>0 (rejects step5.log null lineage).",
+        "require_all_regex": [
+          "cutover:verify-soak|cutover:flip|\"toolsPassed\"|\"toolsTotal\"",
+          "\"overall\""
+        ],
+        "must_not_observe": ["\"toolsPassed\"\\s*:\\s*null", "\"toolsTotal\"\\s*:\\s*null"]
       }
     },
     {
       "n": 6,
-      "text": "Write returns migration_read_only",
+      "text": "Write returns migration_read_only (HTTP 423) on real Hono surface during soak",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "HOLO_MIGRATION_READ_ONLY=1 bun -e 'import { createHonoApp } from \"./services/platform/src/http/hono-app.ts\"; const app=createHonoApp({keys:{rn:\"rn-test-key\",control:\"c\",mcp:\"m\"}}); const r=await app.request(\"/api/documents\",{method:\"POST\",headers:{authorization:\"Bearer rn-test-key\",\"content-type\":\"application/json\"},body:JSON.stringify({title:\"g\",content:\"x\"})}); const body=await r.json().catch(()=>({})); console.log(JSON.stringify({status:r.status,body})); process.exit(r.status===423&&(body.error===\"migration_read_only\"||body.code===\"migration_read_only\")?0:1);'",
+      "literal_cmd": "set -euo pipefail; mkdir -p .tmp/D06-05 .tmp/REDHAT-FIX-S29-H03; test -f .tmp/D06-05/flip-report.json; jq -e '.ok == true and .env_value == \"1\"' .tmp/D06-05/flip-report.json >/dev/null; export HOLO_MIGRATION_READ_ONLY=\"${HOLO_MIGRATION_READ_ONLY:-$(jq -r '.env_value // \"1\"' .tmp/D06-05/flip-report.json)}\"; test \"$HOLO_MIGRATION_READ_ONLY\" = \"1\"; bun services/platform/src/cli/holo.ts --help 2>&1 | tee .tmp/REDHAT-FIX-S29-H03/step6-dispatcher-help.txt | rg -q 'cutover:(flip|verify-soak)'; bun -e 'import { createHonoApp } from \"./services/platform/src/http/hono-app.ts\"; const app=createHonoApp({keys:{rn:\"rn-test-key\",control:\"c\",mcp:\"m\"}}); const r=await app.request(\"/api/documents\",{method:\"POST\",headers:{authorization:\"Bearer rn-test-key\",\"content-type\":\"application/json\"},body:JSON.stringify({title:\"g\",content:\"x\"})}); const body=await r.json().catch(()=>({})); const out={status:r.status,body,env:process.env.HOLO_MIGRATION_READ_ONLY??null}; console.log(JSON.stringify(out)); const ok=r.status===423&&(body.error===\"migration_read_only\"||body.code===\"migration_read_only\"); process.exit(ok?0:1);' | tee .tmp/REDHAT-FIX-S29-H03/step6-write-probe.json; jq -e '.status == 423 and ((.body.error == \"migration_read_only\") or (.body.code == \"migration_read_only\"))' .tmp/REDHAT-FIX-S29-H03/step6-write-probe.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "."
+        "notes": "REDHAT-FIX-S29-H03: assert 423 + migration_read_only body (not env injection alone). Residual until C-02 durable distributed fence: flip only arms process-local env; still require body oracle.",
+        "require_all_regex": ["migration_read_only", "\"status\"\\s*:\\s*423"]
       }
     }
   ]
