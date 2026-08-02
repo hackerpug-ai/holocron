@@ -9,8 +9,11 @@ import { resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
 import {
   defaultQuietCheckReportPath,
+  drainResidualZero,
+  drainSurfacesHonest,
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
+  isMeasuredDrainSurface,
   resolveFenceArmedAt,
 } from './convex-fence-client.ts';
 
@@ -112,28 +115,51 @@ export function assertQuietCheckConfirmed(
       };
     }
 
-    // C-02: refuse residual>0 even if a forged report claims drain.ok
+    // C-02 + R3-H01: residual inventory must be present and zero (unknown residual fails closed)
     const samples = j.drain?.samples;
-    if (samples) {
-      const aa = samples.afterActiveTasks;
-      const ar = samples.afterRunningTasks;
-      const aq = samples.afterQueuedSubscriptionContent;
-      const residualPresent =
-        (typeof aa === 'number' && aa !== 0) ||
-        (typeof ar === 'number' && ar !== 0) ||
-        (typeof aq === 'number' && aq !== 0);
-      if (residualPresent) {
-        return {
-          ok: false,
-          error: {
-            code: QUIET_CHECK_REQUIRED,
-            message:
-              `Quiet-check drain residual not zero (afterActiveTasks=${String(aa)}, ` +
-              `afterRunningTasks=${String(ar)}, afterQueuedSubscriptionContent=${String(aq)}). ` +
-              'C-02 requires residual-zero drain before quiet/export (D06-04).',
-          },
-        };
-      }
+    if (!samples || !drainResidualZero(samples)) {
+      const aa = samples?.afterActiveTasks;
+      const ar = samples?.afterRunningTasks;
+      const aq = samples?.afterQueuedSubscriptionContent;
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            `Quiet-check drain residual not zero or unknown ` +
+            `(afterActiveTasks=${String(aa)}, afterRunningTasks=${String(ar)}, ` +
+            `afterQueuedSubscriptionContent=${String(aq)}). ` +
+            'C-02/R3-H01 require residual-zero measured drain before quiet/export (D06-04).',
+        },
+      };
+    }
+
+    // R3-H01: surfaces[] must only name measured residual inventory (no crons/outbox theatre)
+    const drainSurfaces = Array.isArray(j.drain?.surfaces) ? j.drain.surfaces : [];
+    if (drainSurfaces.length === 0 || !drainSurfaces.every((s) => isMeasuredDrainSurface(s))) {
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            `Quiet-check drain surfaces dishonest/unmeasured ` +
+            `(surfaces=${JSON.stringify(drainSurfaces)}). ` +
+            'R3-H01 requires surfaces[] only for residual-re-sampled inventory ' +
+            '(tasks, subscriptionContent).',
+        },
+      };
+    }
+    if (!drainSurfacesHonest(drainSurfaces)) {
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            `Quiet-check drain surfaces incomplete measured inventory ` +
+            `(surfaces=${JSON.stringify(drainSurfaces)}). ` +
+            'R3-H01 requires tasks + subscriptionContent residual-zero claims.',
+        },
+      };
     }
 
     const windowSeconds =

@@ -11,17 +11,22 @@ import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import {
+  CUTOVER_DRAIN_SURFACES,
   CUTOVER_SCHEDULES_DISABLED_ENV,
   callDisableAndDrain,
   createCutoverConvexClient,
   drainResidualZero,
+  drainSurfacesHonest,
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
+  isMeasuredDrainSurface,
+  MEASURED_DRAIN_SURFACES,
   type QuietCheckReport,
   runCutoverFreeze,
   runQuietCheck,
   runScheduleDrain,
   seedInFlightForDrainTest,
+  UNMEASURED_DRAIN_SURFACE_CLAIMS,
 } from '../../src/cutover/convex-fence-client.ts';
 import {
   assertQuietCheckConfirmed,
@@ -41,6 +46,7 @@ const C02_SPRINT_EVIDENCE = resolve(
   process.cwd(),
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
+const H01_EVIDENCE = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-R3-H01');
 
 /** Short window for integration speed; formula still asserts full wait. */
 const WINDOW_SECONDS = 3;
@@ -141,12 +147,16 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
 
     expect(report.drain.ok, JSON.stringify(report.drain)).toBe(true);
     expect(report.drainCompletedAtMs).toBeGreaterThan(0);
-    expect(report.drain.surfaces).toContain('crons');
-    const hasSecondary =
-      report.drain.surfaces.includes('queues') ||
-      report.drain.surfaces.includes('outbox') ||
-      report.drain.surfaces.includes('scheduled_jobs');
-    expect(hasSecondary, `surfaces=${report.drain.surfaces.join(',')}`).toBe(true);
+    // R3-H01: surfaces[] only measured residual inventory (not crons/outbox theatre)
+    expect(
+      drainSurfacesHonest(report.drain.surfaces),
+      `surfaces=${report.drain.surfaces.join(',')}`
+    ).toBe(true);
+    expect(report.drain.surfaces).toContain('tasks');
+    expect(report.drain.surfaces).toContain('subscriptionContent');
+    for (const s of report.drain.surfaces) {
+      expect(isMeasuredDrainSurface(s), `unmeasured surface claimed: ${s}`).toBe(true);
+    }
     expect(report.quietSinceMs).toBeGreaterThanOrEqual(report.drainCompletedAtMs);
     // Dual-lens C-03: real consumers honor HOLO_CUTOVER_SCHEDULES_DISABLED
     expect(report.drain.consumersHonored, JSON.stringify(report.drain)).toBe(true);
@@ -242,7 +252,7 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
       elapsedMs: 5,
       drain: {
         ok: true,
-        surfaces: ['crons', 'queues'],
+        surfaces: [...CUTOVER_DRAIN_SURFACES],
         consumersHonored: true,
         convexDrainOk: true,
       },
@@ -261,7 +271,7 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
       elapsedMs: 30_000,
       drain: {
         ok: true,
-        surfaces: ['crons', 'queues'],
+        surfaces: [...CUTOVER_DRAIN_SURFACES],
         consumersHonored: false,
         convexDrainOk: false,
       },
@@ -621,4 +631,189 @@ describe('Sprint 29 R2-C02 residual-zero paginated drain', () => {
     expect(report.drain.disabledEnv).toBe(CUTOVER_SCHEDULES_DISABLED_ENV);
     expect(report.ok).toBe(true);
   }, 180_000);
+});
+
+function h01Evidence(name: string, body: unknown): void {
+  mkdirSync(H01_EVIDENCE, { recursive: true });
+  const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
+  const payload = text.endsWith('\n') ? text : `${text}\n`;
+  writeFileSync(resolve(H01_EVIDENCE, name), payload, 'utf8');
+}
+
+describe('Sprint 29 R3-H01 honest drain inventory / unknown residual fail-closed', () => {
+  beforeAll(async () => {
+    mkdirSync(H01_EVIDENCE, { recursive: true });
+    let env = getMigrationReadOnlyEnv();
+    if (!isFenceArmedEnv(env)) {
+      try {
+        await runCutoverFreeze({
+          reason: 'REDHAT-FIX-S29-R3-H01 honest inventory suite arm',
+          reportPath: resolve(D06_03, 'freeze-report-r3-h01.json'),
+        });
+      } catch (err) {
+        env = getMigrationReadOnlyEnv();
+        if (!isFenceArmedEnv(env)) throw err;
+      }
+    }
+    const drain = await runScheduleDrain({
+      reason: 'REDHAT-FIX-S29-R3-H01 ensure schedules disabled before honest inventory tests',
+    });
+    if (!drain.ok && !drain.consumersHonored) {
+      throw new Error(`R3-H01 beforeAll drain not ready: ${drain.error ?? JSON.stringify(drain)}`);
+    }
+  }, 240_000);
+
+  it('r3-h01 honest-inventory: surfaces only measured residual inventory at residual 0', async () => {
+    const client = createCutoverConvexClient();
+    // Seed both measured surfaces so multi-surface residual drain is real
+    const seed = await seedInFlightForDrainTest({
+      client,
+      activeTasks: 12,
+      queuedSubscriptionContent: 12,
+      tag: `r3h01-both-${Date.now()}`,
+    });
+    expect(seed.ok).toBe(true);
+
+    const full = await callDisableAndDrain({
+      client,
+      reason: 'r3-h01 multi-surface residual-zero honest inventory',
+    });
+    h01Evidence('r3-h01-multi-surface-residual-zero.json', {
+      finding: 'R3-H01',
+      seed,
+      drain: full,
+      residual_zero: drainResidualZero(full.samples),
+      surfaces_honest: drainSurfacesHonest(full.surfaces),
+      measured: [...MEASURED_DRAIN_SURFACES],
+      unmeasured_claims: [...UNMEASURED_DRAIN_SURFACE_CLAIMS],
+    });
+
+    expect(full.ok, JSON.stringify(full)).toBe(true);
+    expect(drainResidualZero(full.samples)).toBe(true);
+    expect(full.samples?.afterActiveTasks).toBe(0);
+    expect(full.samples?.afterRunningTasks).toBe(0);
+    expect(full.samples?.afterQueuedSubscriptionContent).toBe(0);
+    expect(drainSurfacesHonest(full.surfaces)).toBe(true);
+    expect(full.surfaces).toEqual(expect.arrayContaining([...MEASURED_DRAIN_SURFACES]));
+    for (const claim of UNMEASURED_DRAIN_SURFACE_CLAIMS) {
+      expect(full.surfaces, `must not claim unmeasured ${claim}`).not.toContain(claim);
+    }
+  }, 300_000);
+
+  it('r3-h01 unknown-residual-fail-closed: unmeasured surface claims refused', async () => {
+    const client = createCutoverConvexClient();
+    const redClaims = [...UNMEASURED_DRAIN_SURFACE_CLAIMS];
+    const results: Array<{ surfaces: string[]; ok: boolean; error?: string; reported: string[] }> =
+      [];
+
+    for (const claim of redClaims) {
+      const res = await callDisableAndDrain({
+        client,
+        surfaces: [claim],
+        reason: `r3-h01 RED unmeasured claim ${claim}`,
+      });
+      results.push({
+        surfaces: [claim],
+        ok: res.ok,
+        error: res.error,
+        reported: res.surfaces,
+      });
+      expect(res.ok, `unmeasured ${claim} must fail closed`).toBe(false);
+      expect(res.surfaces, `must not report unmeasured ${claim} as drained`).not.toContain(claim);
+      expect(res.error ?? '').toMatch(/unknown residual|unmeasured|measured-only|R3-H01/i);
+      expect(drainResidualZero(res.samples)).toBe(false);
+    }
+
+    // Mixed measured + unmeasured also fails closed (never partial claim of unmeasured)
+    const mixed = await callDisableAndDrain({
+      client,
+      surfaces: ['tasks', 'outbox'],
+      reason: 'r3-h01 RED mixed measured+unmeasured',
+    });
+    results.push({
+      surfaces: ['tasks', 'outbox'],
+      ok: mixed.ok,
+      error: mixed.error,
+      reported: mixed.surfaces,
+    });
+    expect(mixed.ok).toBe(false);
+    expect(mixed.surfaces).not.toContain('outbox');
+    expect(mixed.error ?? '').toMatch(/unknown residual|unmeasured|outbox|measured-only/i);
+
+    // Client schedule drain path also refuses
+    const schedule = await runScheduleDrain({
+      client,
+      surfaces: ['crons', 'queues', 'outbox', 'scheduled_jobs'],
+      reason: 'r3-h01 RED runScheduleDrain legacy claims',
+    });
+    expect(schedule.ok).toBe(false);
+    expect(schedule.surfaces.every((s) => isMeasuredDrainSurface(s))).toBe(true);
+    for (const claim of UNMEASURED_DRAIN_SURFACE_CLAIMS) {
+      expect(schedule.surfaces).not.toContain(claim);
+    }
+
+    h01Evidence('r3-h01-unknown-residual-fail-closed.json', {
+      finding: 'R3-H01',
+      status: 'RED_fail_closed',
+      results,
+      schedule_drain: schedule,
+      pre_fix_theatre_claims: [...UNMEASURED_DRAIN_SURFACE_CLAIMS],
+      measured_only: [...MEASURED_DRAIN_SURFACES],
+    });
+  }, 180_000);
+
+  it('r3-h01 quiet-check report surfaces honest after residual-zero drain', async () => {
+    const report = await runQuietCheck({
+      windowSeconds: WINDOW_SECONDS,
+      reportPath: resolve(H01_EVIDENCE, 'quiet-check-report-r3-h01.json'),
+    });
+    h01Evidence('quiet-check-report-r3-h01.json', report);
+    h01Evidence('r3-h01-green.log', {
+      finding: 'R3-H01',
+      status: 'GREEN',
+      drain_ok: report.drain.ok,
+      surfaces: report.drain.surfaces,
+      residual_zero: drainResidualZero(report.drain.samples),
+      surfaces_honest: drainSurfacesHonest(report.drain.surfaces),
+      samples: report.drain.samples,
+    });
+
+    expect(report.drain.ok, JSON.stringify(report.drain)).toBe(true);
+    expect(drainResidualZero(report.drain.samples)).toBe(true);
+    expect(drainSurfacesHonest(report.drain.surfaces)).toBe(true);
+    expect(report.drain.surfaces).toEqual(expect.arrayContaining([...CUTOVER_DRAIN_SURFACES]));
+    for (const claim of UNMEASURED_DRAIN_SURFACE_CLAIMS) {
+      expect(report.drain.surfaces).not.toContain(claim);
+    }
+    expect(report.ok).toBe(true);
+  }, 180_000);
+
+  it('r3-h01 mutant-kill: pre-fix crons/queues/outbox/scheduled_jobs claim is dishonest', () => {
+    const preFixSurfaces = ['crons', 'queues', 'outbox', 'scheduled_jobs'];
+    h01Evidence('r3-h01-prefix-theatre-surfaces.json', {
+      finding: 'R3-H01',
+      pre_fix_CUTOVER_DRAIN_SURFACES: preFixSurfaces,
+      measured: [...MEASURED_DRAIN_SURFACES],
+      pre_fix_honest: drainSurfacesHonest(preFixSurfaces),
+      fixed_honest: drainSurfacesHonest([...MEASURED_DRAIN_SURFACES]),
+    });
+    expect(drainSurfacesHonest(preFixSurfaces)).toBe(false);
+    expect(drainSurfacesHonest([...MEASURED_DRAIN_SURFACES])).toBe(true);
+    expect(drainResidualZero(undefined)).toBe(false);
+    expect(
+      drainResidualZero({
+        afterActiveTasks: 0,
+        afterRunningTasks: 0,
+        afterQueuedSubscriptionContent: 0,
+        unknownSurfaces: ['outbox'],
+      })
+    ).toBe(false);
+    expect(
+      drainResidualZero({
+        afterActiveTasks: -1,
+        afterRunningTasks: -1,
+        afterQueuedSubscriptionContent: -1,
+      })
+    ).toBe(false);
+  });
 });

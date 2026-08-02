@@ -1,0 +1,40 @@
+{
+  "finding": "R3-H01",
+  "status": "GREEN",
+  "drain_ok": true,
+  "surfaces": [
+    "tasks",
+    "subscriptionContent"
+  ],
+  "residual_zero": true,
+  "surfaces_honest": true,
+  "samples": {
+    "activeTasks": 0,
+    "afterActiveTasks": 0,
+    "afterQueuedSubscriptionContent": 0,
+    "afterRunningTasks": 0,
+    "batchesProcessed": 1,
+    "contentSkipped": 0,
+    "drainBatches": 1,
+    "measuredSurfaces": [
+      "tasks",
+      "subscriptionContent"
+    ],
+    "queuedSubscriptionContent": 0,
+    "runningTasks": 0,
+    "surfaceResiduals": {
+      "subscriptionContent": {
+        "after": 0,
+        "before": 0
+      },
+      "tasks": {
+        "after": 0,
+        "before": 0,
+        "runningAfter": 0,
+        "runningBefore": 0
+      }
+    },
+    "tasksCancelled": 0,
+    "unknownSurfaces": []
+  }
+}

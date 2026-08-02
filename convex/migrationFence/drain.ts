@@ -19,8 +19,82 @@ import type { MutationCtx } from '../_generated/server';
 import { mutation, query } from '../_generated/server';
 import { CUTOVER_SCHEDULES_DISABLED_ENV, isCutoverSchedulesDisabled } from '../lib/migrationFence';
 
-/** Inventory of schedule surfaces drained during cutover quiet protocol. */
-export const CUTOVER_DRAIN_SURFACES = ['crons', 'queues', 'outbox', 'scheduled_jobs'] as const;
+/**
+ * Honest drain inventory (REDHAT-FIX-S29-R3-H01).
+ *
+ * Only surfaces that are actually drained AND residual-re-sampled may appear in
+ * report.surfaces[]. Residual map:
+ *   - tasks              → activeTasks / runningTasks (pending|queued|loading|running)
+ *   - subscriptionContent → queuedSubscriptionContent (researchStatus=queued)
+ *
+ * Legacy unmeasured claims (crons, queues, outbox, scheduled_jobs) had no residual
+ * sampling path. Requesting them fails closed with unknown residual inventory.
+ *
+ * Schedule disable (HOLO_CUTOVER_SCHEDULES_DISABLED) still gates cron/queue consumers
+ * separately — that is sequencing, not a residual-drain surface claim.
+ */
+export const MEASURED_DRAIN_SURFACES = ['tasks', 'subscriptionContent'] as const;
+export type MeasuredDrainSurface = (typeof MEASURED_DRAIN_SURFACES)[number];
+
+/** Default honest inventory — identical to measured residual set. */
+export const CUTOVER_DRAIN_SURFACES = [...MEASURED_DRAIN_SURFACES] as const;
+
+/** Legacy dishonest surface labels (pre-R3-H01 theatre). Never ok:true if requested. */
+export const UNMEASURED_DRAIN_SURFACE_CLAIMS = [
+  'crons',
+  'queues',
+  'outbox',
+  'scheduled_jobs',
+] as const;
+
+export function isMeasuredDrainSurface(s: string): s is MeasuredDrainSurface {
+  return (MEASURED_DRAIN_SURFACES as readonly string[]).includes(s);
+}
+
+/**
+ * Resolve requested surfaces to honest measured inventory.
+ * Unknown / unmeasured residual inventory → fail closed (ok:false).
+ */
+export function resolveDrainSurfaceInventory(requested?: string[]): {
+  ok: boolean;
+  surfaces: MeasuredDrainSurface[];
+  unknown: string[];
+  error?: string;
+} {
+  const req = requested?.length
+    ? requested.map((s) => String(s).trim()).filter(Boolean)
+    : [...CUTOVER_DRAIN_SURFACES];
+  const unknown = [...new Set(req.filter((s) => !isMeasuredDrainSurface(s)))];
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      surfaces: [],
+      unknown,
+      error:
+        `unknown residual inventory for surface(s): ${unknown.join(', ')} ` +
+        `(measured-only: ${MEASURED_DRAIN_SURFACES.join(', ')}). ` +
+        'Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).',
+    };
+  }
+  // Preserve order, de-dupe
+  const seen = new Set<string>();
+  const surfaces: MeasuredDrainSurface[] = [];
+  for (const s of req) {
+    if (!seen.has(s) && isMeasuredDrainSurface(s)) {
+      seen.add(s);
+      surfaces.push(s);
+    }
+  }
+  if (surfaces.length === 0) {
+    return {
+      ok: false,
+      surfaces: [],
+      unknown: [],
+      error: 'empty drain surface inventory — refuse unknown residual (REDHAT-FIX-S29-R3-H01)',
+    };
+  }
+  return { ok: true, surfaces, unknown: [] };
+}
 
 const TASK_ACTIVE_STATUSES = ['pending', 'queued', 'loading', 'running'] as const;
 /** Per-pass batch size (Convex take limit convenience; MUST loop until residual zero). */
@@ -148,12 +222,16 @@ export const disableAndDrain = mutation({
   },
   handler: async (ctx, args) => {
     const atMs = args.atMs ?? Date.now();
-    const surfaces = args.surfaces?.length ? args.surfaces : [...CUTOVER_DRAIN_SURFACES];
     const maxPasses =
       typeof args.maxPasses === 'number' && args.maxPasses > 0
         ? Math.min(Math.floor(args.maxPasses), MAX_DRAIN_PASSES_DEFAULT)
         : MAX_DRAIN_PASSES_DEFAULT;
     const injectFault = args.injectFault as DrainFault | undefined;
+
+    // ── 0. Honest inventory: refuse unmeasured / unknown residual surfaces ─
+    const inventory = resolveDrainSurfaceInventory(args.surfaces);
+    // Only measured surfaces may be claimed; never echo unmeasured labels as drained.
+    const surfaces: string[] = inventory.ok ? [...inventory.surfaces] : [];
 
     const emptySamples = {
       runningTasks: 0,
@@ -166,6 +244,8 @@ export const disableAndDrain = mutation({
       afterQueuedSubscriptionContent: 0,
       batchesProcessed: 0,
       drainBatches: 0,
+      measuredSurfaces: [...MEASURED_DRAIN_SURFACES],
+      unknownSurfaces: inventory.unknown,
     };
 
     // ── 1. Consumers MUST see the durable disable flag in Convex runtime ──
@@ -190,6 +270,26 @@ export const disableAndDrain = mutation({
       };
     }
 
+    // R3-H01: unknown residual inventory fails closed before any theatre drain claim
+    if (!inventory.ok) {
+      return {
+        ok: false,
+        id: null,
+        drainCompletedAtMs: 0,
+        surfaces: [],
+        consumersHonored: true,
+        consumers: {
+          env: CUTOVER_SCHEDULES_DISABLED_ENV,
+          envValue: envRaw || '1',
+          isCutoverSchedulesDisabled: true,
+          fencedInternalBuilders: true,
+          taskCrons: true,
+        },
+        samples: emptySamples,
+        error: inventory.error ?? 'unknown residual inventory',
+      };
+    }
+
     let before: InFlightSample = {
       runningTasks: 0,
       activeTasks: 0,
@@ -206,6 +306,8 @@ export const disableAndDrain = mutation({
       before = await sampleInFlight(ctx, injectFault === 'sample' ? 'sample' : undefined);
 
       // ── 3. Paginated drain-to-zero (C-02: not a single .take(DRAIN_BATCH)) ─
+      // Always drain the full measured residual set (tasks + subscriptionContent)
+      // so residual inventory cannot be silently skipped for an unlisted surface.
       for (let pass = 0; pass < maxPasses; pass++) {
         // Inject patch fault on first pass only when requested
         const fault = injectFault === 'patch' && pass === 0 ? 'patch' : undefined;
@@ -223,7 +325,7 @@ export const disableAndDrain = mutation({
         }
       }
 
-      // ── 4. Re-sample residual after drain ────────────────────────────────
+      // ── 4. Re-sample residual after drain (full measured inventory) ──────
       after = await sampleInFlight(ctx);
     } catch (err) {
       // Fail closed: never coerce residual to zero on query/patch exceptions
@@ -239,12 +341,15 @@ export const disableAndDrain = mutation({
         afterQueuedSubscriptionContent: -1,
         batchesProcessed,
         drainBatches: batchesProcessed,
+        measuredSurfaces: [...MEASURED_DRAIN_SURFACES],
+        unknownSurfaces: [] as string[],
       };
       return {
         ok: false,
         id: null,
         drainCompletedAtMs: 0,
-        surfaces,
+        // Fail-closed path: do not claim drained surfaces when residual is unknown
+        surfaces: [],
         consumersHonored: true,
         consumers: {
           env: CUTOVER_SCHEDULES_DISABLED_ENV,
@@ -258,6 +363,18 @@ export const disableAndDrain = mutation({
       };
     }
 
+    // C-02: ok:true ONLY when all after* residual counts are zero
+    const residualOk = residualZero(after);
+    // R3-H01: surfaces[] only names actually drained + re-sampled to residual 0
+    const claimedSurfaces = residualOk ? [...inventory.surfaces] : [];
+    if (!residualOk) {
+      error =
+        `residual after drain: afterActiveTasks=${after.activeTasks} ` +
+        `afterRunningTasks=${after.runningTasks} ` +
+        `afterQueuedSubscriptionContent=${after.queuedSubscriptionContent} ` +
+        `(batchesProcessed=${batchesProcessed}, maxPasses=${maxPasses})`;
+    }
+
     const samples = {
       runningTasks: before.runningTasks,
       activeTasks: before.activeTasks,
@@ -269,24 +386,31 @@ export const disableAndDrain = mutation({
       afterQueuedSubscriptionContent: after.queuedSubscriptionContent,
       batchesProcessed,
       drainBatches: batchesProcessed,
+      measuredSurfaces: [...MEASURED_DRAIN_SURFACES],
+      unknownSurfaces: [] as string[],
+      surfaceResiduals: {
+        tasks: {
+          before: before.activeTasks,
+          after: after.activeTasks,
+          runningBefore: before.runningTasks,
+          runningAfter: after.runningTasks,
+        },
+        subscriptionContent: {
+          before: before.queuedSubscriptionContent,
+          after: after.queuedSubscriptionContent,
+        },
+      },
     };
 
-    // C-02: ok:true ONLY when all after* residual counts are zero
-    const ok = residualZero(after);
-    if (!ok) {
-      error =
-        `residual after drain: afterActiveTasks=${after.activeTasks} ` +
-        `afterRunningTasks=${after.runningTasks} ` +
-        `afterQueuedSubscriptionContent=${after.queuedSubscriptionContent} ` +
-        `(batchesProcessed=${batchesProcessed}, maxPasses=${maxPasses})`;
-    }
+    const ok = residualOk;
 
     const id = await ctx.db.insert('migrationFenceAudit', {
       kind: 'drain_completed',
-      surface: surfaces.join(','),
+      surface: claimedSurfaces.join(','),
       reason: args.reason ?? 'cutover:quiet-check schedule disable/drain',
       drainSurfacesJson: JSON.stringify({
-        surfaces,
+        surfaces: claimedSurfaces,
+        measuredSurfaces: [...MEASURED_DRAIN_SURFACES],
         consumersHonored: true,
         ok,
         consumers: {
@@ -302,6 +426,7 @@ export const disableAndDrain = mutation({
           tasksCancelled,
           contentSkipped,
           batchesProcessed,
+          surfaceResiduals: samples.surfaceResiduals,
         },
         error: error ?? null,
       }),
@@ -312,7 +437,7 @@ export const disableAndDrain = mutation({
       ok,
       id,
       drainCompletedAtMs: ok ? atMs : 0,
-      surfaces,
+      surfaces: claimedSurfaces,
       consumersHonored: true,
       consumers: {
         env: CUTOVER_SCHEDULES_DISABLED_ENV,

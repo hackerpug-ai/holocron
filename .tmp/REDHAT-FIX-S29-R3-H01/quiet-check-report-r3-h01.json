@@ -1,0 +1,76 @@
+{
+  "ok": true,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 2,
+  "windowSeconds": 3,
+  "sinceMs": 1785642625637,
+  "untilMs": 1785642628639,
+  "quietSinceMs": 1785642625637,
+  "quietUntilMs": 1785642628639,
+  "elapsedMs": 3002,
+  "drainCompletedAtMs": 1785642624779,
+  "drain": {
+    "ok": true,
+    "surfaces": [
+      "tasks",
+      "subscriptionContent"
+    ],
+    "completedAtMs": 1785642624779,
+    "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+    "disabledEnvValue": "1",
+    "convexDrainOk": true,
+    "consumersHonored": true,
+    "samples": {
+      "activeTasks": 0,
+      "afterActiveTasks": 0,
+      "afterQueuedSubscriptionContent": 0,
+      "afterRunningTasks": 0,
+      "batchesProcessed": 1,
+      "contentSkipped": 0,
+      "drainBatches": 1,
+      "measuredSurfaces": [
+        "tasks",
+        "subscriptionContent"
+      ],
+      "queuedSubscriptionContent": 0,
+      "runningTasks": 0,
+      "surfaceResiduals": {
+        "subscriptionContent": {
+          "after": 0,
+          "before": 0
+        },
+        "tasks": {
+          "after": 0,
+          "before": 0,
+          "runningAfter": 0,
+          "runningBefore": 0
+        }
+      },
+      "tasksCancelled": 0,
+      "unknownSurfaces": []
+    },
+    "probe": {
+      "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+      "honored": true,
+      "reason": "schedules_disabled: cutover:quiet-check skipped while HOLO_CUTOVER_SCHEDULES_DISABLED is set",
+      "skipped": true,
+      "surface": "cutover:quiet-check"
+    }
+  },
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ],
+  "oracle": "mixed",
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 2,
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H01/.tmp/REDHAT-FIX-S29-R3-H01/quiet-check-report-r3-h01.json"
+}

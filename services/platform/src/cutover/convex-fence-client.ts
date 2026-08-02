@@ -17,8 +17,28 @@ export const MIGRATION_READ_ONLY_ENV = 'HOLO_MIGRATION_READ_ONLY';
 /** Non-destructive schedule-disable flag set during quiet-check drain (C-03). */
 export const CUTOVER_SCHEDULES_DISABLED_ENV = 'HOLO_CUTOVER_SCHEDULES_DISABLED';
 
-/** Surfaces that must appear in drain evidence (crons + ≥1 of the rest). */
-export const CUTOVER_DRAIN_SURFACES = ['crons', 'queues', 'outbox', 'scheduled_jobs'] as const;
+/**
+ * Honest drain inventory (REDHAT-FIX-S29-R3-H01).
+ * Only surfaces that are actually drained + residual-re-sampled may be claimed.
+ * Residual map: tasks → afterActiveTasks/afterRunningTasks;
+ * subscriptionContent → afterQueuedSubscriptionContent.
+ * Legacy unmeasured labels (crons/queues/outbox/scheduled_jobs) fail closed.
+ */
+export const MEASURED_DRAIN_SURFACES = ['tasks', 'subscriptionContent'] as const;
+export type MeasuredDrainSurface = (typeof MEASURED_DRAIN_SURFACES)[number];
+/** Default honest inventory — identical to measured residual set. */
+export const CUTOVER_DRAIN_SURFACES = [...MEASURED_DRAIN_SURFACES] as const;
+/** Pre-R3-H01 dishonest surface claims (no residual sample path). */
+export const UNMEASURED_DRAIN_SURFACE_CLAIMS = [
+  'crons',
+  'queues',
+  'outbox',
+  'scheduled_jobs',
+] as const;
+
+export function isMeasuredDrainSurface(s: string): s is MeasuredDrainSurface {
+  return (MEASURED_DRAIN_SURFACES as readonly string[]).includes(s);
+}
 
 // anyApi is an open proxy; cast the whole chain through unknown for strict TS.
 const auditApi = (anyApi as any).migrationFence.audit as {
@@ -81,6 +101,15 @@ export type DrainReportSamples = {
   batchesProcessed?: number;
   /** Alias of batchesProcessed for evidence jq. */
   drainBatches?: number;
+  /** Honest measured surface names (R3-H01). */
+  measuredSurfaces?: string[];
+  /** Unmeasured/unknown residual surface names if any (R3-H01). */
+  unknownSurfaces?: string[];
+  /** Per-surface residual before/after (R3-H01). */
+  surfaceResiduals?: Record<
+    string,
+    { before?: number; after?: number; runningBefore?: number; runningAfter?: number }
+  >;
 };
 
 export type DrainReport = {
@@ -100,9 +129,13 @@ export type DrainReport = {
 /**
  * C-02 residual-zero gate: all after* counts must be present and === 0.
  * Negative sentinels (fail-closed sample path) are non-zero residual.
+ * R3-H01: unknown residual (missing fields or unknownSurfaces) fails closed.
  */
 export function drainResidualZero(samples?: DrainReportSamples | null): boolean {
   if (!samples) return false;
+  if (Array.isArray(samples.unknownSurfaces) && samples.unknownSurfaces.length > 0) {
+    return false;
+  }
   const afterActive = samples.afterActiveTasks;
   const afterRunning = samples.afterRunningTasks;
   const afterQueued = samples.afterQueuedSubscriptionContent;
@@ -113,7 +146,25 @@ export function drainResidualZero(samples?: DrainReportSamples | null): boolean 
   ) {
     return false;
   }
+  // Negative sentinels mean residual inventory is unknown (fail closed).
+  if (afterActive < 0 || afterRunning < 0 || afterQueued < 0) {
+    return false;
+  }
   return afterActive === 0 && afterRunning === 0 && afterQueued === 0;
+}
+
+/**
+ * R3-H01 honest inventory gate: surfaces[] must only name measured residual surfaces,
+ * and must include the full default measured inventory drained+re-sampled to 0.
+ */
+export function drainSurfacesHonest(surfaces: string[] | undefined | null): boolean {
+  if (!Array.isArray(surfaces) || surfaces.length === 0) return false;
+  if (!surfaces.every((s) => isMeasuredDrainSurface(s))) return false;
+  // Full measured inventory must be claimed when residual-zero is asserted.
+  for (const required of MEASURED_DRAIN_SURFACES) {
+    if (!surfaces.includes(required)) return false;
+  }
+  return true;
 }
 
 export type QuietCheckReport = {
@@ -597,12 +648,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function drainSurfacesOk(surfaces: string[]): boolean {
-  const set = new Set(surfaces);
-  if (!set.has('crons')) return false;
-  return set.has('queues') || set.has('outbox') || set.has('scheduled_jobs');
-}
-
 /**
  * C-03: disable schedules (non-destructive env flag) + real in-flight drain.
  * Complementary to HOLO_MIGRATION_READ_ONLY (still the sole write fence).
@@ -615,14 +660,22 @@ export async function runScheduleDrain(options?: {
   cwd?: string;
   client?: ConvexHttpClient;
   reason?: string;
+  /** Override surface inventory (must be measured-only; unmeasured fails closed). */
+  surfaces?: string[];
 }): Promise<DrainReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const client = options?.client ?? createCutoverConvexClient();
-  const surfaces = [...CUTOVER_DRAIN_SURFACES];
+  // R3-H01: default to measured-only honest inventory; never claim unmeasured labels.
+  const requestedSurfaces = options?.surfaces?.length
+    ? [...options.surfaces]
+    : [...CUTOVER_DRAIN_SURFACES];
+  const unmeasuredRequested = requestedSurfaces.filter((s) => !isMeasuredDrainSurface(s));
+  let surfaces = requestedSurfaces.filter((s) => isMeasuredDrainSurface(s));
 
   const fail = (error: string, partial?: Partial<DrainReport>): DrainReport => ({
     ok: false,
-    surfaces: partial?.surfaces ?? [],
+    // Honest: never report unmeasured surfaces as drained
+    surfaces: (partial?.surfaces ?? []).filter((s) => isMeasuredDrainSurface(s)),
     completedAtMs: partial?.completedAtMs ?? 0,
     disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
     disabledEnvValue: partial?.disabledEnvValue ?? '',
@@ -632,6 +685,26 @@ export async function runScheduleDrain(options?: {
     probe: partial?.probe,
     error,
   });
+
+  if (unmeasuredRequested.length > 0) {
+    return fail(
+      `unknown residual inventory for surface(s): ${unmeasuredRequested.join(', ')} ` +
+        `(measured-only: ${MEASURED_DRAIN_SURFACES.join(', ')}). ` +
+        'Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).',
+      {
+        samples: {
+          afterActiveTasks: -1,
+          afterRunningTasks: -1,
+          afterQueuedSubscriptionContent: -1,
+          measuredSurfaces: [...MEASURED_DRAIN_SURFACES],
+          unknownSurfaces: unmeasuredRequested,
+        },
+      }
+    );
+  }
+  if (surfaces.length === 0) {
+    return fail('empty drain surface inventory — refuse unknown residual (REDHAT-FIX-S29-R3-H01)');
+  }
 
   // Non-destructive disable flag on the deployment (complements write fence).
   const setRes = convexEnv('set', CUTOVER_SCHEDULES_DISABLED_ENV, '1', cwd);
@@ -719,10 +792,9 @@ export async function runScheduleDrain(options?: {
     if (typeof res?.drainCompletedAtMs === 'number' && res.drainCompletedAtMs > 0) {
       completedAtMs = res.drainCompletedAtMs;
     }
-    if (Array.isArray(res?.surfaces) && res.surfaces.length > 0) {
-      for (const s of res.surfaces) {
-        if (!surfaces.includes(s)) surfaces.push(s);
-      }
+    // R3-H01: accept only measured surfaces from mutation; never merge unmeasured claims.
+    if (Array.isArray(res?.surfaces)) {
+      surfaces = res.surfaces.filter((s) => isMeasuredDrainSurface(s));
     }
     samples = res?.samples;
     if (!convexDrainOk) {
@@ -733,27 +805,37 @@ export async function runScheduleDrain(options?: {
     consumersHonored = false;
     error = err instanceof Error ? err.message : String(err);
     completedAtMs = 0;
+    surfaces = [];
   }
 
   // Settle so any last in-flight work reaches terminal state under disable+fence.
   await sleep(750);
   if (completedAtMs <= 0 && convexDrainOk) completedAtMs = Date.now();
 
-  const surfacesOk = drainSurfacesOk(surfaces);
-  // C-02: residual-after samples must be zero — pre-fix cab5c071 ignored after*.
+  // R3-H01: only residual-zero measured inventory may be claimed.
   const residualOk = drainResidualZero(samples);
+  const surfacesOk = residualOk && drainSurfacesHonest(surfaces);
   if (!residualOk && !error) {
     const a = samples?.afterActiveTasks;
     const r = samples?.afterRunningTasks;
     const q = samples?.afterQueuedSubscriptionContent;
+    const unknown = samples?.unknownSurfaces;
     error =
-      `residual after drain not zero (afterActiveTasks=${String(a)}, ` +
-      `afterRunningTasks=${String(r)}, afterQueuedSubscriptionContent=${String(q)})`;
+      Array.isArray(unknown) && unknown.length > 0
+        ? `unknown residual inventory for surface(s): ${unknown.join(', ')}`
+        : `residual after drain not zero (afterActiveTasks=${String(a)}, ` +
+          `afterRunningTasks=${String(r)}, afterQueuedSubscriptionContent=${String(q)})`;
+  }
+  if (residualOk && !surfacesOk && !error) {
+    error =
+      `drain surfaces inventory dishonest (got [${surfaces.join(',')}], ` +
+      `need measured-only ${MEASURED_DRAIN_SURFACES.join(',')})`;
   }
 
-  // REAL drain: env + Convex runtime consumers + mutation ok + residual zero + surfaces.
+  // REAL drain: env + Convex runtime consumers + mutation ok + residual zero + honest surfaces.
   // Never ok:true on env-set + audit theatre alone (dual-lens C-03 reject).
   // Never ok:true when after* residual > 0 (C-02 / D06-03 AC-3).
+  // Never ok:true when surfaces claim unmeasured residual inventory (R3-H01).
   const ok =
     envOk &&
     surfacesOk &&
@@ -764,9 +846,16 @@ export async function runScheduleDrain(options?: {
     residualOk &&
     (runtimeDisabled || probe?.skipped === true);
 
+  // R3-H01: report surfaces[] only when residual-zero measured drain succeeded.
+  const reportedSurfaces = ok
+    ? surfaces.filter((s) => isMeasuredDrainSurface(s))
+    : residualOk
+      ? surfaces.filter((s) => isMeasuredDrainSurface(s))
+      : [];
+
   return {
     ok,
-    surfaces,
+    surfaces: reportedSurfaces,
     completedAtMs: ok ? completedAtMs : completedAtMs > 0 ? completedAtMs : 0,
     disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
     disabledEnvValue,
@@ -785,7 +874,9 @@ export async function runScheduleDrain(options?: {
               ? 'disableAndDrain failed'
               : !residualOk
                 ? 'disableAndDrain left non-zero residual after* counts'
-                : 'drain incomplete')),
+                : !surfacesOk
+                  ? 'drain surfaces inventory dishonest / incomplete'
+                  : 'drain incomplete')),
   };
 }
 
@@ -848,8 +939,30 @@ export async function callDisableAndDrain(options?: {
   error?: string;
 }> {
   const client = options?.client ?? createCutoverConvexClient();
+  const requested = options?.surfaces ?? [...CUTOVER_DRAIN_SURFACES];
+  // R3-H01 client-side fail-closed: never claim unmeasured residual inventory.
+  const unknown = requested.filter((s) => !isMeasuredDrainSurface(s));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      drainCompletedAtMs: 0,
+      surfaces: [],
+      consumersHonored: false,
+      samples: {
+        afterActiveTasks: -1,
+        afterRunningTasks: -1,
+        afterQueuedSubscriptionContent: -1,
+        measuredSurfaces: [...MEASURED_DRAIN_SURFACES],
+        unknownSurfaces: unknown,
+      },
+      error:
+        `unknown residual inventory for surface(s): ${unknown.join(', ')} ` +
+        `(measured-only: ${MEASURED_DRAIN_SURFACES.join(', ')}). ` +
+        'Refuse unmeasured drain claims (REDHAT-FIX-S29-R3-H01).',
+    };
+  }
   const res = (await client.mutation(drainApi.disableAndDrain, {
-    surfaces: options?.surfaces ?? [...CUTOVER_DRAIN_SURFACES],
+    surfaces: requested,
     reason: options?.reason ?? 'c02 residual-zero test drain',
     atMs: Date.now(),
     maxPasses: options?.maxPasses,
@@ -862,13 +975,27 @@ export async function callDisableAndDrain(options?: {
     samples?: DrainReportSamples;
     error?: string;
   };
+  const resSurfaces = Array.isArray(res?.surfaces)
+    ? res.surfaces.filter((s) => isMeasuredDrainSurface(s))
+    : [];
+  const residualOk = drainResidualZero(res?.samples);
+  // Honest: only residual-zero measured surfaces may be reported as drained.
+  const honestOk =
+    res?.ok === true &&
+    residualOk &&
+    drainSurfacesHonest(resSurfaces.length ? resSurfaces : requested);
   return {
-    ok: res?.ok === true,
-    drainCompletedAtMs: res?.drainCompletedAtMs ?? 0,
-    surfaces: Array.isArray(res?.surfaces) ? res.surfaces : [],
+    ok: honestOk,
+    drainCompletedAtMs: honestOk ? (res?.drainCompletedAtMs ?? 0) : 0,
+    surfaces: residualOk ? (resSurfaces.length ? resSurfaces : [...MEASURED_DRAIN_SURFACES]) : [],
     consumersHonored: res?.consumersHonored === true,
     samples: res?.samples,
-    error: res?.error,
+    error: honestOk
+      ? res?.error
+      : (res?.error ??
+        (!residualOk
+          ? 'residual after drain not zero / unknown residual'
+          : 'disableAndDrain returned ok:false or dishonest surfaces')),
   };
 }
 
