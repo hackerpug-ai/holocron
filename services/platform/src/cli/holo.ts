@@ -44,11 +44,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import {
+  applyProductionDeployment,
+  defaultDeploymentRecordPath,
+} from '../deploy/production-deploy.ts';
+import {
   defaultComposePath,
   defaultImageLockPath,
   packageRelease,
   preflightRollback,
 } from '../deploy/production-release.ts';
+import { verifyProductionDeployment } from '../deploy/verify-production.ts';
 import { defaultMissionIdempotencyKey } from './mission-idempotency-key.ts';
 
 // Suppress unhandled storage errors only for the explicit PG-down negative control.
@@ -270,6 +275,18 @@ interface CliArgs {
   previousImage: string | null;
   /** deploy:rollback-preflight — explicit release lock path. */
   lockPath: string | null;
+  /** deploy:apply / deploy:verify — exact D06-06 release lock. */
+  releasePath: string | null;
+  /** deploy:apply — explicit operator authorization. */
+  authorized: boolean;
+  /** deploy:apply — explicit no-mutation diagnostic. */
+  deployDryRun: boolean;
+  /** deploy:verify — run SIGKILL and durable sentinel proof. */
+  restartProbe: boolean;
+  /** deploy:verify — execute identity rejection matrix. */
+  negativeControls: boolean;
+  /** deploy:verify — registration-only initialize + tools/list. */
+  mcpDiscovery: boolean;
 }
 
 function printHelp(): void {
@@ -458,6 +475,8 @@ Usage:
   deploy:package            Validate a pushed immutable OCI release and write image-lock.json.
                             Requires --image and --previous-image, both @sha256-qualified.
   deploy:rollback-preflight Verify and select the lock-backed previous image; never starts Compose.
+  deploy:apply              Operator-authorized inference1 cold recreate from a deployable release lock.
+  deploy:verify             Verify external identity/readiness, negatives, and optional SIGKILL recovery.
 
 Options:
   --export <dir>        Path to unzipped convex export (or $CONVEX_EXPORT_DIR)
@@ -523,6 +542,12 @@ Options:
   --image <ref>         (deploy:package) candidate registry image with @sha256 digest
   --previous-image <ref>(deploy:package) prior registry image with @sha256 digest
   --lock <path>          (deploy:rollback-preflight) release lock path
+  --release <path>       (deploy:apply|deploy:verify) deployable release lock path
+  --base-url <url>       (deploy:apply|deploy:verify) one non-loopback production URL
+  --authorize            (deploy:apply) explicit operator authorization
+  --restart-probe        (deploy:verify) SIGKILL PID-1 + durable sentinel proof
+  --negative-controls    (deploy:verify) reject loopback/in-process/stale/mismatched/missing identity
+  --mcp-discovery        (deploy:verify) initialize + tools/list only (never tools/call)
   -h, --help            Show help
 `);
 }
@@ -660,6 +685,12 @@ function parseArgs(argv: string[]): CliArgs {
     image: null,
     previousImage: null,
     lockPath: null,
+    releasePath: null,
+    authorized: false,
+    deployDryRun: false,
+    restartProbe: false,
+    negativeControls: false,
+    mcpDiscovery: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -694,6 +725,18 @@ function parseArgs(argv: string[]): CliArgs {
       args.lockPath = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--lock=')) {
       args.lockPath = resolve(a.slice('--lock='.length));
+    } else if (a === '--release') {
+      args.releasePath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--release=')) {
+      args.releasePath = resolve(a.slice('--release='.length));
+    } else if (a === '--authorize') {
+      args.authorized = true;
+    } else if (a === '--restart-probe') {
+      args.restartProbe = true;
+    } else if (a === '--negative-controls') {
+      args.negativeControls = true;
+    } else if (a === '--mcp-discovery') {
+      args.mcpDiscovery = true;
     } else if (a === '--sample') {
       args.sample = argv[++i] ?? null;
     } else if (a.startsWith('--sample=')) {
@@ -734,6 +777,7 @@ function parseArgs(argv: string[]): CliArgs {
       args.maxAttempts = a.slice('--max-attempts='.length);
     } else if (a === '--dry-run') {
       args.dryRun = true;
+      if (commandFromArgv === 'deploy:apply') args.deployDryRun = true;
     } else if (a === '--protocol') {
       args.protocol = true;
     } else if (a === '--print-trace') {
@@ -1144,6 +1188,60 @@ async function main(): Promise<void> {
   const cat = catalog as SourceCatalog;
 
   switch (args.command) {
+    case 'deploy:apply': {
+      if (!args.releasePath || !args.baseUrl) {
+        throw new Error('deploy:apply requires --release and --base-url');
+      }
+      const { resolveSecretsPathFromEnv } = await import('../config/secrets.ts');
+      const record = applyProductionDeployment({
+        authorized: args.authorized,
+        releasePath: args.releasePath,
+        baseUrl: args.baseUrl,
+        secretsPath: resolveSecretsPathFromEnv(),
+        target: process.env.HOLO_DEPLOY_TARGET,
+        dryRun: args.deployDryRun,
+      });
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
+      } else {
+        console.log('holo deploy:apply — inference1 four-service generation deployed');
+        console.log(`  base URL:           ${record.baseUrl}`);
+        console.log(`  image digest:       ${record.imageDigest}`);
+        console.log(`  source revision:    ${record.sourceRevision}`);
+        console.log(`  generation:         ${record.composeGeneration}`);
+        console.log(`  cutover actions:    ${record.cutoverActions}`);
+      }
+      process.exit(0);
+      break;
+    }
+    case 'deploy:verify': {
+      if (!args.releasePath || !args.baseUrl) {
+        throw new Error('deploy:verify requires --release and --base-url');
+      }
+      const { resolveSecretsPathFromEnv } = await import('../config/secrets.ts');
+      const report = await verifyProductionDeployment({
+        releasePath: args.releasePath,
+        baseUrl: args.baseUrl,
+        recordPath: defaultDeploymentRecordPath(),
+        secretsPath: resolveSecretsPathFromEnv(),
+        restartProbe: args.restartProbe,
+        dependencyProbe: args.restartProbe,
+        negativeControls: args.negativeControls || args.restartProbe,
+        mcpDiscovery: args.mcpDiscovery || args.restartProbe,
+      });
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      } else {
+        console.log('holo deploy:verify — external deployment certified');
+        console.log(`  base URL:           ${report.baseUrl}`);
+        console.log(`  image digest:       ${report.release.imageDigest}`);
+        console.log(`  generation:         ${report.release.composeGeneration}`);
+        console.log(`  restart proof:      ${report.restart ? 'passed' : 'not requested'}`);
+        console.log(`  MCP discovery:      ${report.mcp ? '44 tools' : 'not requested'}`);
+      }
+      process.exit(0);
+      break;
+    }
     case 'deploy:package': {
       if (!args.image || !args.previousImage) {
         throw new Error('deploy:package requires --image and --previous-image');

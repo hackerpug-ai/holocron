@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://holocron.local/schemas/sprint29-deployment-record.schema.json",
+  "title": "Sprint 29 inference1 deployment record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorized",
+    "authorizationScope",
+    "host",
+    "runtime",
+    "baseUrl",
+    "project",
+    "image",
+    "imageDigest",
+    "sourceRevision",
+    "composeSha256",
+    "composeGeneration",
+    "deployedAt",
+    "services",
+    "containers",
+    "previousImage",
+    "previousDigest",
+    "durableVolumes",
+    "coldRecreate",
+    "cutoverActions",
+    "volumeDeletions",
+    "releasePath",
+    "composePath",
+    "overridePath",
+    "runtimeSecretsPath"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "authorized": { "const": true },
+    "authorizationScope": { "pattern": "^inference1:sha256:[a-f0-9]{64}$" },
+    "host": { "const": "inference1" },
+    "runtime": { "const": "container" },
+    "baseUrl": { "type": "string", "format": "uri", "pattern": "^https?://" },
+    "project": { "const": "holocron-production" },
+    "image": { "type": "string", "pattern": "@sha256:[a-f0-9]{64}$" },
+    "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "sourceRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "composeSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "composeGeneration": { "type": "string", "pattern": "^inference1-[a-f0-9]{24}$" },
+    "deployedAt": { "type": "string", "format": "date-time" },
+    "services": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "postgres" },
+        { "const": "mastra" },
+        { "const": "scheduler" },
+        { "const": "zero-cache" }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "containers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["postgres", "mastra", "scheduler", "zero-cache"],
+      "properties": {
+        "postgres": { "$ref": "#/$defs/containerId" },
+        "mastra": { "$ref": "#/$defs/containerId" },
+        "scheduler": { "$ref": "#/$defs/containerId" },
+        "zero-cache": { "$ref": "#/$defs/containerId" }
+      }
+    },
+    "previousImage": { "type": "string", "pattern": "@sha256:[a-f0-9]{64}$" },
+    "previousDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "durableVolumes": {
+      "const": ["holocron-postgres", "holocron-blobs"]
+    },
+    "coldRecreate": { "const": true },
+    "cutoverActions": { "const": 0 },
+    "volumeDeletions": { "const": 0 },
+    "releasePath": { "type": "string", "minLength": 1 },
+    "composePath": { "type": "string", "minLength": 1 },
+    "overridePath": { "type": "string", "minLength": 1 },
+    "runtimeSecretsPath": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "containerId": { "type": "string", "pattern": "^[a-f0-9]{12,64}$" }
+  }
+}

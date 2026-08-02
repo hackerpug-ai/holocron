@@ -1273,15 +1273,27 @@ function defaultKeys(): ScopedKeyConfig {
 
 /**
  * Resolve the deployed Hono/MCP base URL for cutover verify.
- * Order: explicit option → HOLO_VERIFY_BASE_URL → HOLO_SOAK_BASE_URL → PLATFORM_URL.
+ * D06-07 production order: verified deployment receipt → explicit/production
+ * URL (which must match it) → legacy verify/soak/platform env.
  * Empty / missing ⇒ fail-closed (caller must not fall back to in-process createHonoApp).
  */
 export function resolveVerifyBaseUrl(explicit?: string | null): string {
+  const verified = readVerifiedDeploymentBaseUrl();
+  const production = process.env.HOLO_PRODUCTION_BASE_URL?.trim().replace(/\/+$/, '') ?? '';
+  if (production) {
+    // Naming a production URL opts into the D06-07 handoff contract. It is not
+    // accepted until deploy:verify wrote matching, external verification evidence.
+    if (!verified || verified !== production) return '';
+    const explicitValue = explicit?.trim().replace(/\/+$/, '') ?? '';
+    if (explicitValue && explicitValue !== verified) return '';
+    return verified;
+  }
   const candidates = [
     explicit,
     process.env.HOLO_VERIFY_BASE_URL,
     process.env.HOLO_SOAK_BASE_URL,
     process.env.PLATFORM_URL,
+    verified,
   ];
   for (const c of candidates) {
     if (typeof c === 'string') {
@@ -1290,6 +1302,37 @@ export function resolveVerifyBaseUrl(explicit?: string | null): string {
     }
   }
   return '';
+}
+
+/** Read the non-secret, deploy:verify-produced handoff evidence. */
+export function readVerifiedDeploymentBaseUrl(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd()
+): string {
+  const path =
+    env.HOLO_DEPLOYMENT_VERIFICATION_PATH?.trim() ||
+    resolve(cwd, '.tmp/REDHAT-FIX-S29-DEPLOY/verification.json');
+  try {
+    if (!existsSync(path)) return '';
+    const value = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    if (
+      value.ok !== true ||
+      value.handoffVerified !== true ||
+      value.identityClass !== 'deployed-http' ||
+      value.cutoverActions !== 0 ||
+      value.toolInvocations !== 0 ||
+      value.soakInvocations !== 0 ||
+      typeof value.baseUrl !== 'string'
+    ) {
+      return '';
+    }
+    const baseUrl = value.baseUrl.trim().replace(/\/+$/, '');
+    const parsed = parseBaseUrlHostPort(baseUrl);
+    if (!parsed || /^(?:localhost|127\.|0\.)/i.test(parsed.host)) return '';
+    return baseUrl;
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -1357,11 +1400,16 @@ export function resolveTargetIdentity(
 
 /** True when process env names a pre-existing deploy target (not options alone). */
 export function hasDeploymentVerifyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  for (const key of ['HOLO_VERIFY_BASE_URL', 'HOLO_SOAK_BASE_URL', 'PLATFORM_URL'] as const) {
+  for (const key of [
+    'HOLO_PRODUCTION_BASE_URL',
+    'HOLO_VERIFY_BASE_URL',
+    'HOLO_SOAK_BASE_URL',
+    'PLATFORM_URL',
+  ] as const) {
     const v = env[key];
     if (typeof v === 'string' && v.trim().length > 0) return true;
   }
-  return false;
+  return readVerifiedDeploymentBaseUrl(env).length > 0;
 }
 
 export type DeployedIdentityResult = {
@@ -1484,10 +1532,41 @@ export async function resolveDeployedTargetIdentity(
     typeof body.service_label === 'string' && body.service_label.trim().length > 0
       ? body.service_label.trim()
       : null;
-  const healthGeneration =
-    typeof body.generation === 'string' && body.generation.trim().length > 0
-      ? body.generation.trim()
+  const deploymentProbe =
+    body.deployment && typeof body.deployment === 'object' && !Array.isArray(body.deployment)
+      ? (body.deployment as Record<string, unknown>)
       : null;
+  const deploymentIdentity =
+    deploymentProbe?.identity &&
+    typeof deploymentProbe.identity === 'object' &&
+    !Array.isArray(deploymentProbe.identity)
+      ? (deploymentProbe.identity as Record<string, unknown>)
+      : null;
+  if (deploymentProbe && deploymentProbe.ready !== true) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: 'HEALTH_IDENTITY_UNAVAILABLE: deployment identity probe is not ready',
+    };
+  }
+  if (deploymentIdentity && deploymentIdentity.runtime !== 'container') {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: 'HEALTH_IDENTITY_UNAVAILABLE: deployment runtime must be container',
+    };
+  }
+  const healthGeneration =
+    typeof body.composeGeneration === 'string' && body.composeGeneration.trim().length > 0
+      ? body.composeGeneration.trim()
+      : typeof deploymentIdentity?.composeGeneration === 'string' &&
+          deploymentIdentity.composeGeneration.trim().length > 0
+        ? deploymentIdentity.composeGeneration.trim()
+        : typeof body.generation === 'string' && body.generation.trim().length > 0
+          ? body.generation.trim()
+          : null;
   const uptimeRaw = body.uptime_ms;
   const uptime_ms =
     typeof uptimeRaw === 'number' && Number.isFinite(uptimeRaw) && uptimeRaw > 0
@@ -1527,8 +1606,14 @@ export async function resolveDeployedTargetIdentity(
     };
   }
 
+  const deploymentLabel =
+    typeof deploymentIdentity?.host === 'string' &&
+    typeof deploymentIdentity.imageDigest === 'string'
+      ? `container:${deploymentIdentity.host}:${deploymentIdentity.imageDigest.slice(0, 19)}`
+      : null;
   const service_label =
     healthLabel ??
+    deploymentLabel ??
     (healthGeneration ? `generation:${healthGeneration}` : undefined) ??
     `pid:${pid}`;
 
