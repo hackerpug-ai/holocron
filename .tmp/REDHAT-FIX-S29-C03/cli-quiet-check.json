@@ -3,12 +3,12 @@
   "acceptedWriteCount": 0,
   "rejectedWriteCount": 2,
   "windowSeconds": 30,
-  "sinceMs": 1785635372543,
-  "untilMs": 1785635402546,
-  "quietSinceMs": 1785635372543,
-  "quietUntilMs": 1785635402546,
-  "elapsedMs": 30003,
-  "drainCompletedAtMs": 1785635371816,
+  "sinceMs": 1785636780701,
+  "untilMs": 1785636810703,
+  "quietSinceMs": 1785636780701,
+  "quietUntilMs": 1785636810703,
+  "elapsedMs": 30002,
+  "drainCompletedAtMs": 1785636779853,
   "drain": {
     "ok": true,
     "surfaces": [
@@ -17,13 +17,27 @@
       "outbox",
       "scheduled_jobs"
     ],
-    "completedAtMs": 1785635371816,
+    "completedAtMs": 1785636779853,
     "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
     "disabledEnvValue": "1",
     "convexDrainOk": true,
+    "consumersHonored": true,
     "samples": {
+      "activeTasks": 0,
+      "afterActiveTasks": 0,
+      "afterQueuedSubscriptionContent": 0,
+      "afterRunningTasks": 0,
+      "contentSkipped": 0,
       "queuedSubscriptionContent": 0,
-      "runningTasks": 0
+      "runningTasks": 0,
+      "tasksCancelled": 0
+    },
+    "probe": {
+      "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+      "honored": true,
+      "reason": "schedules_disabled: cutover:quiet-check skipped while HOLO_CUTOVER_SCHEDULES_DISABLED is set",
+      "skipped": true,
+      "surface": "cutover:quiet-check"
     }
   },
   "probes": [

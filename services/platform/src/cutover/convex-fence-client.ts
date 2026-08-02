@@ -31,6 +31,8 @@ const auditApi = (anyApi as any).migrationFence.audit as {
 const drainApi = (anyApi as any).migrationFence.drain as {
   disableAndDrain: FunctionReference<'mutation'>;
   latestDrain: FunctionReference<'query'>;
+  scheduleDisableStatus: FunctionReference<'query'>;
+  probeScheduleConsumer: FunctionReference<'mutation'>;
 };
 
 const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
@@ -70,7 +72,19 @@ export type DrainReport = {
   disabledEnv: string;
   disabledEnvValue: string;
   convexDrainOk: boolean;
-  samples?: { runningTasks?: number; queuedSubscriptionContent?: number };
+  /** True when Convex runtime consumers read HOLO_CUTOVER_SCHEDULES_DISABLED (not theatre). */
+  consumersHonored: boolean;
+  samples?: {
+    runningTasks?: number;
+    activeTasks?: number;
+    queuedSubscriptionContent?: number;
+    tasksCancelled?: number;
+    contentSkipped?: number;
+    afterRunningTasks?: number;
+    afterActiveTasks?: number;
+    afterQueuedSubscriptionContent?: number;
+  };
+  probe?: { skipped?: boolean; honored?: boolean; reason?: string };
   error?: string;
 };
 
@@ -96,7 +110,9 @@ export type QuietCheckReport = {
     disabledEnv: string;
     disabledEnvValue: string;
     convexDrainOk: boolean;
+    consumersHonored: boolean;
     samples?: DrainReport['samples'];
+    probe?: DrainReport['probe'];
     error?: string;
   };
   /**
@@ -539,8 +555,12 @@ function drainSurfacesOk(surfaces: string[]): boolean {
 }
 
 /**
- * C-03: disable schedules (non-destructive env flag) + record drain inventory.
+ * C-03: disable schedules (non-destructive env flag) + real in-flight drain.
  * Complementary to HOLO_MIGRATION_READ_ONLY (still the sole write fence).
+ *
+ * Fail-closed: env set alone is NOT enough — Convex runtime must report
+ * consumersHonored (isCutoverSchedulesDisabled) and disableAndDrain must
+ * cancel/skip in-flight work (not audit-row theatre).
  */
 export async function runScheduleDrain(options?: {
   cwd?: string;
@@ -551,22 +571,29 @@ export async function runScheduleDrain(options?: {
   const client = options?.client ?? createCutoverConvexClient();
   const surfaces = [...CUTOVER_DRAIN_SURFACES];
 
+  const fail = (error: string, partial?: Partial<DrainReport>): DrainReport => ({
+    ok: false,
+    surfaces: partial?.surfaces ?? [],
+    completedAtMs: partial?.completedAtMs ?? 0,
+    disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
+    disabledEnvValue: partial?.disabledEnvValue ?? '',
+    convexDrainOk: partial?.convexDrainOk ?? false,
+    consumersHonored: partial?.consumersHonored ?? false,
+    samples: partial?.samples,
+    probe: partial?.probe,
+    error,
+  });
+
   // Non-destructive disable flag on the deployment (complements write fence).
   const setRes = convexEnv('set', CUTOVER_SCHEDULES_DISABLED_ENV, '1', cwd);
   if (setRes.status !== 0) {
-    return {
-      ok: false,
-      surfaces: [],
-      completedAtMs: 0,
-      disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
-      disabledEnvValue: '',
-      convexDrainOk: false,
-      error: `convex env set ${CUTOVER_SCHEDULES_DISABLED_ENV}=1 failed: ${setRes.stderr || setRes.stdout}`,
-    };
+    return fail(
+      `convex env set ${CUTOVER_SCHEDULES_DISABLED_ENV}=1 failed: ${setRes.stderr || setRes.stdout}`
+    );
   }
 
   let disabledEnvValue = '';
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     const r = convexEnv('get', CUTOVER_SCHEDULES_DISABLED_ENV, undefined, cwd);
     const raw = (r.stdout || '').trim();
     const eq = raw.indexOf('=');
@@ -575,10 +602,52 @@ export async function runScheduleDrain(options?: {
         ? raw.slice(eq + 1).trim()
         : raw;
     if (disabledEnvValue === '1' || disabledEnvValue === 'true') break;
-    await sleep(200 * (attempt + 1));
+    await sleep(250 * (attempt + 1));
   }
 
+  const envOk = disabledEnvValue === '1' || disabledEnvValue === 'true';
+  if (!envOk) {
+    return fail(
+      `${CUTOVER_SCHEDULES_DISABLED_ENV} not confirmed via convex env get (got ${JSON.stringify(disabledEnvValue)})`,
+      { disabledEnvValue }
+    );
+  }
+
+  // Wait until Convex runtime consumers see the flag (env propagation).
+  let runtimeDisabled = false;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    try {
+      const status = (await client.query(drainApi.scheduleDisableStatus, {})) as {
+        disabled?: boolean;
+        envValue?: string | null;
+      };
+      if (status?.disabled === true) {
+        runtimeDisabled = true;
+        break;
+      }
+    } catch {
+      // module may still be deploying
+    }
+    await sleep(300 * (attempt + 1));
+  }
+
+  // Positive consumer probe — must report skipped when disabled.
+  let probe: DrainReport['probe'];
+  try {
+    probe = (await client.mutation(drainApi.probeScheduleConsumer, {
+      surface: 'cutover:quiet-check',
+    })) as DrainReport['probe'];
+  } catch (err) {
+    return fail(
+      `probeScheduleConsumer failed: ${err instanceof Error ? err.message : String(err)}`,
+      { disabledEnvValue, consumersHonored: false }
+    );
+  }
+
+  const probeHonored = probe?.honored === true && (probe?.skipped === true || runtimeDisabled);
+
   let convexDrainOk = false;
+  let consumersHonored = false;
   let completedAtMs = Date.now();
   let samples: DrainReport['samples'];
   let error: string | undefined;
@@ -593,44 +662,66 @@ export async function runScheduleDrain(options?: {
       drainCompletedAtMs?: number;
       surfaces?: string[];
       samples?: DrainReport['samples'];
+      consumersHonored?: boolean;
+      error?: string;
     };
     convexDrainOk = res?.ok === true;
+    consumersHonored = res?.consumersHonored === true;
     if (typeof res?.drainCompletedAtMs === 'number' && res.drainCompletedAtMs > 0) {
       completedAtMs = res.drainCompletedAtMs;
     }
     if (Array.isArray(res?.surfaces) && res.surfaces.length > 0) {
-      // Prefer Convex-confirmed surfaces when present
       for (const s of res.surfaces) {
         if (!surfaces.includes(s)) surfaces.push(s);
       }
     }
     samples = res?.samples;
+    if (!convexDrainOk) {
+      error = res?.error ?? 'disableAndDrain returned ok:false';
+    }
   } catch (err) {
-    // Deploy may lag schema push — platform-side inventory still records surfaces.
     convexDrainOk = false;
+    consumersHonored = false;
     error = err instanceof Error ? err.message : String(err);
-    completedAtMs = Date.now();
+    completedAtMs = 0;
   }
 
-  // Brief settle so in-flight scheduled work reaches terminal rejected/idle under fence.
-  await sleep(500);
-  if (completedAtMs <= 0) completedAtMs = Date.now();
+  // Settle so any last in-flight work reaches terminal state under disable+fence.
+  await sleep(750);
+  if (completedAtMs <= 0 && convexDrainOk) completedAtMs = Date.now();
 
-  const envOk = disabledEnvValue === '1' || disabledEnvValue === 'true';
   const surfacesOk = drainSurfacesOk(surfaces);
-  // Drain is ok when disable flag is confirmed and surfaces are inventoried.
-  // Convex mutation is preferred evidence but not required if deploy lags.
-  const ok = envOk && surfacesOk && completedAtMs > 0;
+  // REAL drain: env + Convex runtime consumers + mutation ok + surfaces + timestamp.
+  // Never ok:true on env-set + audit theatre alone (dual-lens C-03 reject).
+  const ok =
+    envOk &&
+    surfacesOk &&
+    completedAtMs > 0 &&
+    convexDrainOk &&
+    consumersHonored &&
+    probeHonored &&
+    (runtimeDisabled || probe?.skipped === true);
 
   return {
     ok,
     surfaces,
-    completedAtMs,
+    completedAtMs: ok ? completedAtMs : completedAtMs > 0 ? completedAtMs : 0,
     disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
     disabledEnvValue,
     convexDrainOk,
+    consumersHonored: consumersHonored && probeHonored,
     samples,
-    error: ok ? undefined : (error ?? 'drain incomplete'),
+    probe,
+    error: ok
+      ? undefined
+      : (error ??
+        (!runtimeDisabled
+          ? 'Convex runtime did not observe HOLO_CUTOVER_SCHEDULES_DISABLED'
+          : !consumersHonored
+            ? 'consumersHonored=false — schedule consumers did not confirm disable'
+            : !convexDrainOk
+              ? 'disableAndDrain failed'
+              : 'drain incomplete')),
   };
 }
 
@@ -723,6 +814,7 @@ export async function runQuietCheck(options: {
     disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
     disabledEnvValue: '',
     convexDrainOk: false,
+    consumersHonored: false,
   });
 
   // Fail closed if durable write fence is not armed
@@ -759,7 +851,9 @@ export async function runQuietCheck(options: {
     disabledEnv: drainResult.disabledEnv,
     disabledEnvValue: drainResult.disabledEnvValue,
     convexDrainOk: drainResult.convexDrainOk,
+    consumersHonored: drainResult.consumersHonored,
     samples: drainResult.samples,
+    probe: drainResult.probe,
     error: drainResult.error,
   };
 
@@ -948,6 +1042,8 @@ export function formatQuietCheckText(r: QuietCheckReport): string {
     `  auditRejected:        ${r.auditRejectedWriteCount}`,
     `  windowSeconds:        ${r.windowSeconds}`,
     `  drain.ok:             ${r.drain.ok}`,
+    `  drain.consumersHonored:${r.drain.consumersHonored}`,
+    `  drain.convexDrainOk:  ${r.drain.convexDrainOk}`,
     `  drainCompletedAtMs:   ${r.drainCompletedAtMs}`,
     `  drain.surfaces:       ${r.drain.surfaces.join(',')}`,
     `  quietSinceMs:         ${r.quietSinceMs}`,

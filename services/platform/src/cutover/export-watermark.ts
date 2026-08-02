@@ -79,21 +79,29 @@ export function assertQuietCheckConfirmed(
       sinceMs?: number;
       untilMs?: number;
       elapsedMs?: number;
-      drain?: { ok?: boolean; surfaces?: string[] };
+      drain?: {
+        ok?: boolean;
+        surfaces?: string[];
+        consumersHonored?: boolean;
+        convexDrainOk?: boolean;
+      };
       oracle?: string;
       auditRejectedWriteCount?: number;
     };
 
     const drainOk = j.drain?.ok === true;
     const drainCompletedAtMs = typeof j.drainCompletedAtMs === 'number' ? j.drainCompletedAtMs : 0;
-    if (!drainOk || drainCompletedAtMs <= 0) {
+    const consumersHonored = j.drain?.consumersHonored === true;
+    const convexDrainOk = j.drain?.convexDrainOk === true;
+    if (!drainOk || drainCompletedAtMs <= 0 || !consumersHonored || !convexDrainOk) {
       return {
         ok: false,
         error: {
           code: QUIET_CHECK_REQUIRED,
           message:
-            'Quiet-check missing drain proof (drain.ok/drainCompletedAtMs). ' +
-            'Pre-fix theatre reports without schedule disable/drain are refused. ' +
+            'Quiet-check missing real drain proof (drain.ok/drainCompletedAtMs/' +
+            'consumersHonored/convexDrainOk). Pre-fix theatre (env flag + audit row ' +
+            'without consumers reading HOLO_CUTOVER_SCHEDULES_DISABLED) is refused. ' +
             'Re-run holo cutover:quiet-check (C-03).',
         },
       };

@@ -1,14 +1,14 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-C03
 
- ✓ |integration| services/platform/tests/integration/sprint29-quiet-drain.test.ts (5 tests) 33676ms
-     ✓ drain-before-quiet: drain.ok, drainCompletedAtMs>0, surfaces, quietSince>=drain  8513ms
-     ✓ measured-post-drain-window: elapsed wall-clock >= windowSeconds after drain  7618ms
-     ✓ post-drain-write-oracles: acceptedWriteCount==0 and rejectedWriteCount>0  7420ms
-     ✓ d06-04-quiet-precondition: theatre report without drain is refused  8603ms
+ ✓ |integration| services/platform/tests/integration/sprint29-quiet-drain.test.ts (5 tests) 34226ms
+     ✓ drain-before-quiet: drain.ok, drainCompletedAtMs>0, surfaces, quietSince>=drain  8186ms
+     ✓ measured-post-drain-window: elapsed wall-clock >= windowSeconds after drain  7798ms
+     ✓ post-drain-write-oracles: acceptedWriteCount==0 and rejectedWriteCount>0  7750ms
+     ✓ d06-04-quiet-precondition: theatre report without drain is refused  9103ms
 
  Test Files  1 passed (1)
       Tests  5 passed (5)
-   Start at  19:47:54
-   Duration  34.01s (transform 86ms, setup 147ms, import 85ms, tests 33.68s, environment 0ms)
+   Start at  20:09:04
+   Duration  34.53s (transform 80ms, setup 130ms, import 73ms, tests 34.23s, environment 0ms)
 

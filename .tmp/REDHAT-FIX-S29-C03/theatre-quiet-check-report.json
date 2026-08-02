@@ -6,8 +6,8 @@
   "auditRejectedWriteCount": 0,
   "windowSeconds": 30,
   "oracle": "live_probes",
-  "sinceMs": 1785635269649,
-  "untilMs": 1785635299649,
+  "sinceMs": 1785636693068,
+  "untilMs": 1785636723068,
   "probes": [
     {
       "surface": "documents.mutations.create",

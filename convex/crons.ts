@@ -1,13 +1,22 @@
 import { cronJobs, makeFunctionReference } from 'convex/server';
 import { internal } from './_generated/api';
+import { CUTOVER_SCHEDULES_DISABLED_ENV } from './lib/migrationFence';
 
 /**
  * Convex Cron Jobs
  *
  * This file defines scheduled jobs that run automatically on a cron schedule.
  *
+ * Cutover (C-03): cron handlers are not unregistered (non-destructive). When
+ * HOLO_CUTOVER_SCHEDULES_DISABLED=1, fencedInternal* builders and taskCrons
+ * honor the flag and skip scheduled work. quiet-check drain proves consumers
+ * read this env before the measured quiet window.
+ *
  * @see https://docs.convex.dev/scheduling/cron-jobs
+ * @see convex/lib/migrationFence.ts isCutoverSchedulesDisabled
+ * @see convex/migrationFence/drain.ts disableAndDrain
  */
+void CUTOVER_SCHEDULES_DISABLED_ENV;
 
 // Function references for scheduled/internal functions that may not be
 // available in the generated API at type-check time.

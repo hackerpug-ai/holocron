@@ -105,9 +105,14 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
       report.drain.surfaces.includes('scheduled_jobs');
     expect(hasSecondary, `surfaces=${report.drain.surfaces.join(',')}`).toBe(true);
     expect(report.quietSinceMs).toBeGreaterThanOrEqual(report.drainCompletedAtMs);
+    // Dual-lens C-03: real consumers honor HOLO_CUTOVER_SCHEDULES_DISABLED
+    expect(report.drain.consumersHonored, JSON.stringify(report.drain)).toBe(true);
+    expect(report.drain.convexDrainOk, JSON.stringify(report.drain)).toBe(true);
+    expect(report.drain.disabledEnvValue).toMatch(/^(1|true)$/);
+    expect(report.drain.probe?.skipped === true || report.drain.probe?.honored === true).toBe(true);
     // Must not look like pre-fix live_probes-only theatre
     expect(report.drainCompletedAtMs).not.toBe(0);
-  }, 120_000);
+  }, 180_000);
 
   it('measured-post-drain-window: elapsed wall-clock >= windowSeconds after drain', async () => {
     const report = await runQuietCheck({
@@ -192,8 +197,42 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
       quietSinceMs: Date.now(),
       quietUntilMs: Date.now() + 5, // << 30s
       elapsedMs: 5,
-      drain: { ok: true, surfaces: ['crons', 'queues'] },
+      drain: {
+        ok: true,
+        surfaces: ['crons', 'queues'],
+        consumersHonored: true,
+        convexDrainOk: true,
+      },
     };
+
+    // Theatre: env/audit bookkeeping without consumersHonored
+    const theatreNoConsumerPath = resolve(EVIDENCE, 'theatre-no-consumer-honor.json');
+    const theatreNoConsumer = {
+      ok: true,
+      acceptedWriteCount: 0,
+      rejectedWriteCount: 2,
+      windowSeconds: 30,
+      drainCompletedAtMs: Date.now() - 35_000,
+      quietSinceMs: Date.now() - 35_000,
+      quietUntilMs: Date.now() - 5_000,
+      elapsedMs: 30_000,
+      drain: {
+        ok: true,
+        surfaces: ['crons', 'queues'],
+        consumersHonored: false,
+        convexDrainOk: false,
+      },
+    };
+    writeFileSync(theatreNoConsumerPath, `${JSON.stringify(theatreNoConsumer, null, 2)}\n`, 'utf8');
+    const noConsumerErr = assertQuietCheckConfirmed({
+      ...watermark,
+      quiet_check_path: theatreNoConsumerPath,
+      quiet_ok: true,
+    });
+    evidence('ac4-no-consumer-honor-refusal.json', noConsumerErr);
+    expect(noConsumerErr).not.toBeNull();
+    expect(noConsumerErr?.error.code).toBe(QUIET_CHECK_REQUIRED);
+    expect(noConsumerErr?.error.message.toLowerCase()).toMatch(/consumer|drain|theatre/);
     writeFileSync(waitSkipPath, `${JSON.stringify(waitSkip, null, 2)}\n`, 'utf8');
     const waitErr = assertQuietCheckConfirmed({
       ...watermark,
@@ -204,12 +243,20 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
     expect(waitErr).not.toBeNull();
     expect(waitErr?.error.code).toBe(QUIET_CHECK_REQUIRED);
 
-    // Good report from prior live quiet-check must pass
+    // Good report from live quiet-check must pass (re-arm fence — sibling suites may unset it)
+    const envNow = getMigrationReadOnlyEnv();
+    if (!isFenceArmedEnv(envNow)) {
+      await runCutoverFreeze({
+        reason: 'REDHAT-FIX-S29-C03 re-arm before good quiet report',
+        reportPath: resolve(D06_03, 'freeze-report-ac4.json'),
+      });
+    }
     const good = await runQuietCheck({
       windowSeconds: WINDOW_SECONDS,
       reportPath: resolve(EVIDENCE, 'quiet-check-report-good-for-d06-04.json'),
     });
     evidence('quiet-check-report-good-for-d06-04.json', good);
+    expect(good.ok, JSON.stringify(good.drain)).toBe(true);
     const goodWm = await captureExportWatermark({
       quietCheckPath: good.report_path,
     });

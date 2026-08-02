@@ -1,17 +1,71 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-C03
 
- ✓ |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts (8 tests) 30065ms
-     ✓ TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when fence disengaged  3855ms
-     ✓ TC-1/AC-1: cutover:freeze sets HOLO_MIGRATION_READ_ONLY=1 and emits fence_armed_at  3807ms
-     ✓ TC-2/AC-1: documents.create throws migration_read_only: with zero side effects  411ms
-     ✓ TC-3/AC-2: mutation + action + mutating httpAction + upload reject 4/4 with migration_read_only:  897ms
-     ✓ TC-4/TC-5/AC-3: quiet-check acceptedWriteCount=0 rejectedWriteCount>0  7281ms
-     ✓ TC-7/TC-9/AC-5: capture-article-baseline after fence with capturedAtMs > fence_armed_at  7274ms
-     ✓ CLI cutover:freeze --json emits fence_armed_at integer  2527ms
+ ❯ |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts (8 tests | 3 failed) 27543ms
+     × TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when fence disengaged 2592ms
+     ✓ TC-1/AC-1: cutover:freeze sets HOLO_MIGRATION_READ_ONLY=1 and emits fence_armed_at  4104ms
+     ✓ TC-2/AC-1: documents.create throws migration_read_only: with zero side effects  333ms
+     ✓ TC-3/AC-2: mutation + action + mutating httpAction + upload reject 4/4 with migration_read_only:  1038ms
+     × TC-6/AC-4: verify:convex-fence-coverage reports zero unfenced imports 34ms
+     ✓ TC-4/TC-5/AC-3: quiet-check acceptedWriteCount=0 rejectedWriteCount>0  7951ms
+     ✓ TC-7/TC-9/AC-5: capture-article-baseline after fence with capturedAtMs > fence_armed_at  7671ms
+     × CLI cutover:freeze --json emits fence_armed_at integer 12ms
 
- Test Files  1 passed (1)
-      Tests  8 passed (8)
-   Start at  19:48:32
-   Duration  31.16s (transform 339ms, setup 112ms, import 883ms, tests 30.07s, environment 0ms)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts > Sprint 29 D06-03 durable Convex write fence > TC-8: capture-article-baseline fails with FENCE_NOT_ARMED when fence disengaged
+SyntaxError: Unexpected non-whitespace character after JSON at position 5 (line 1 column 6)
+ ❯ services/platform/tests/integration/sprint29-convex-fence.test.ts:119:25
+    117|     evidence('tc8-cli.json', cli);
+    118|     expect(cli.status).not.toBe(0);
+    119|     const parsed = JSON.parse(cli.stdout || cli.stderr || '{}') as {
+       |                         ^
+    120|       error?: { code?: string };
+    121|       ok?: boolean;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts > Sprint 29 D06-03 durable Convex write fence > TC-6/AC-4: verify:convex-fence-coverage reports zero unfenced imports
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/tests/integration/sprint29-convex-fence.test.ts:352:24
+    350|     const cli = holo(['verify:convex-fence-coverage', '--json']);
+    351|     evidence('tc6-cli.json', cli);
+    352|     expect(cli.status).toBe(0);
+       |                        ^
+    353|     const parsed = JSON.parse(cli.stdout) as { matches: unknown[]; fil…
+    354|     expect(parsed.matches).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint29-convex-fence.test.ts > Sprint 29 D06-03 durable Convex write fence > CLI cutover:freeze --json emits fence_armed_at integer
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ services/platform/tests/integration/sprint29-convex-fence.test.ts:448:24
+    446|     ]);
+    447|     evidence('cli-freeze.json', cli);
+    448|     expect(cli.status).toBe(0);
+       |                        ^
+    449|     const parsed = JSON.parse(cli.stdout) as {
+    450|       fence_armed_at: number;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 5 passed (8)
+   Start at  20:09:46
+   Duration  29.07s (transform 483ms, setup 133ms, import 1.29s, tests 27.54s, environment 0ms)
 

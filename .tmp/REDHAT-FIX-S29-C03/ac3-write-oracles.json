@@ -4,8 +4,8 @@
   "auditAcceptedWriteCount": 0,
   "auditRejectedWriteCount": 2,
   "oracle": "mixed",
-  "quietSinceMs": 1785635296561,
-  "drainCompletedAtMs": 1785635295966,
+  "quietSinceMs": 1785636719955,
+  "drainCompletedAtMs": 1785636718944,
   "probes": [
     {
       "surface": "documents.mutations.create",

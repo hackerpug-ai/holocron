@@ -161,6 +161,7 @@ function seedQuietCheck(ok = true): string {
           disabledEnv: 'HOLO_CUTOVER_SCHEDULES_DISABLED',
           disabledEnvValue: '1',
           convexDrainOk: true,
+          consumersHonored: true,
         },
       },
       null,

@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 2,
+  "windowSeconds": 30,
+  "drainCompletedAtMs": 1785636688069,
+  "quietSinceMs": 1785636688069,
+  "quietUntilMs": 1785636718069,
+  "elapsedMs": 30000,
+  "drain": {
+    "ok": true,
+    "surfaces": [
+      "crons",
+      "queues"
+    ],
+    "consumersHonored": false,
+    "convexDrainOk": false
+  }
+}

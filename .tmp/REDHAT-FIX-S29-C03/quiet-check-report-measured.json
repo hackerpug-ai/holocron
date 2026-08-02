@@ -2,13 +2,13 @@
   "ok": true,
   "acceptedWriteCount": 0,
   "rejectedWriteCount": 2,
-  "windowSeconds": 30,
-  "sinceMs": 1785636780701,
-  "untilMs": 1785636810703,
-  "quietSinceMs": 1785636780701,
-  "quietUntilMs": 1785636810703,
-  "elapsedMs": 30002,
-  "drainCompletedAtMs": 1785636779853,
+  "windowSeconds": 3,
+  "sinceMs": 1785636712018,
+  "untilMs": 1785636715020,
+  "quietSinceMs": 1785636712018,
+  "quietUntilMs": 1785636715020,
+  "elapsedMs": 3002,
+  "drainCompletedAtMs": 1785636711175,
   "drain": {
     "ok": true,
     "surfaces": [
@@ -17,7 +17,7 @@
       "outbox",
       "scheduled_jobs"
     ],
-    "completedAtMs": 1785636779853,
+    "completedAtMs": 1785636711175,
     "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
     "disabledEnvValue": "1",
     "convexDrainOk": true,
@@ -55,5 +55,5 @@
   "oracle": "mixed",
   "auditAcceptedWriteCount": 0,
   "auditRejectedWriteCount": 2,
-  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-C03/.tmp/D06-03/quiet-check-report.json"
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-C03/.tmp/REDHAT-FIX-S29-C03/quiet-check-report-measured.json"
 }
