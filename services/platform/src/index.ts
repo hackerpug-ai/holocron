@@ -111,6 +111,8 @@ export async function startService(options?: {
     port,
     hostname,
     fetch: app.fetch,
+    // /health + MCP tools (findRecommendations/Jina) can exceed default 10s idle.
+    idleTimeout: 120,
   });
 
   if (log) {

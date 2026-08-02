@@ -72,8 +72,10 @@ async function waitForHealth(baseUrl: string, timeoutMs = 20_000): Promise<Respo
   let lastErr: unknown;
   while (Date.now() < deadline) {
     try {
+      // Queue probe can take several seconds under parallel worktree load; keep
+      // per-attempt timeout above probeDb+fleet+queue worst case so readiness works.
       const res = await fetch(`${baseUrl}/health`, {
-        signal: AbortSignal.timeout(2_000),
+        signal: AbortSignal.timeout(15_000),
       });
       // Any HTTP response means the server accepted the connection.
       return res;

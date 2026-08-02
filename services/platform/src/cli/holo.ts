@@ -257,11 +257,8 @@ interface CliArgs {
    * (also HOLO_VERIFY_BASE_URL / PLATFORM_URL).
    */
   baseUrl: string | null;
-  /**
-   * cutover:verify-article --baseline <article-baseline.json>
-   * Immutable pre-freeze / D06-03 comparator path (R2-H03).
-   */
-  baseline: string | null;
+  /** cutover:verify-tools — optional service / deployment label for target_identity */
+  serviceLabel: string | null;
 }
 
 function printHelp(): void {
@@ -640,7 +637,7 @@ function parseArgs(argv: string[]): CliArgs {
     etlReport: null,
     parityPath: null,
     baseUrl: null,
-    baseline: null,
+    serviceLabel: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -927,10 +924,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.baseUrl = argv[++i] ?? null;
     } else if (a.startsWith('--base-url=')) {
       args.baseUrl = a.slice('--base-url='.length);
-    } else if (a === '--baseline') {
-      args.baseline = resolve(argv[++i] ?? '');
-    } else if (a.startsWith('--baseline=')) {
-      args.baseline = resolve(a.slice('--baseline='.length));
+    } else if (a === '--service-label') {
+      args.serviceLabel = argv[++i] ?? null;
+    } else if (a.startsWith('--service-label=')) {
+      args.serviceLabel = a.slice('--service-label='.length);
     } else if (a === '--inventory') {
       args.inventory = argv[++i] ?? null;
     } else if (a.startsWith('--inventory=')) {
@@ -3436,16 +3433,20 @@ async function main(): Promise<void> {
       break;
     }
     case 'cutover:verify-tools': {
-      // D06-05 / H-01: all manifest tools over network /mcp (HOLO_VERIFY_BASE_URL)
+      // D06-05 / H-01 / R2-H02: all manifest tools over network /mcp with target_identity
       const { runVerifyTools, resolveVerifyBaseUrl } = await import('../cutover/soak-fence.ts');
       try {
         const baseUrl = resolveVerifyBaseUrl(args.baseUrl);
-        const report = await runVerifyTools({ baseUrl: baseUrl || undefined });
+        const report = await runVerifyTools({
+          baseUrl: baseUrl || undefined,
+          serviceLabel: args.serviceLabel ?? undefined,
+        });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));
         } else {
+          const id = report.target_identity;
           console.log(
-            `tools ${report.toolsPassed}/${report.toolsTotal} stubbed=${report.toolsStubbed} ok=${report.ok} transport=${report.transport} base_url=${report.base_url}`
+            `tools ${report.toolsPassed}/${report.toolsTotal} stubbed=${report.toolsStubbed} ok=${report.ok} transport=${report.transport} base_url=${report.base_url} identity=${id ? `${id.host}:${id.port}/${id.service_label}` : 'none'}`
           );
         }
         process.exit(report.ok ? 0 : 1);
@@ -3463,6 +3464,7 @@ async function main(): Promise<void> {
                 tools: [],
                 transport: 'network',
                 base_url: args.baseUrl ?? process.env.HOLO_VERIFY_BASE_URL ?? '',
+                target_identity: null,
                 error: msg,
               },
               null,

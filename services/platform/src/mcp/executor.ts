@@ -405,7 +405,25 @@ export async function executePostgresMcpTool(
           FROM whats_new_reports ORDER BY created_at DESC LIMIT 1
         `;
         const row = rows[0];
-        return row ? { ...row, content: JSON.stringify(row.report ?? row.findings ?? {}) } : null;
+        if (!row) return null;
+        // Match getWhatsNewReportOutputSchema (content/generatedAt number/report object).
+        const generatedAt =
+          row.generatedAt instanceof Date
+            ? row.generatedAt.getTime()
+            : typeof row.generatedAt === 'number'
+              ? row.generatedAt
+              : typeof row.generatedAt === 'string'
+                ? Date.parse(row.generatedAt)
+                : undefined;
+        const reportObj =
+          row.report && typeof row.report === 'object' && !Array.isArray(row.report)
+            ? (row.report as Record<string, unknown>)
+            : undefined;
+        return {
+          content: JSON.stringify(row.report ?? row.findings ?? {}),
+          ...(Number.isFinite(generatedAt) ? { generatedAt } : {}),
+          ...(reportObj ? { report: reportObj } : {}),
+        };
       }
       case 'list_whats_new_reports': {
         const limit = Math.min(Number(input.limit ?? 50), 100);

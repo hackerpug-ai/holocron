@@ -1115,10 +1115,20 @@ export type ToolVerifyEntry = {
   code?: string;
   message?: string;
   status?: number;
-  /** Read tools only — true when payload matches registry/manifest output contract. */
+  /** Read tools only — true only when registry Zod outputSchema.safeParse succeeds. */
   schema_valid?: boolean;
-  /** Read tools only — non-empty real executor payload (not stub/empty body). */
+  /** Read tools only — schema_valid + non-null application data (not null/not-found shells). */
   postgres_backed?: boolean;
+};
+
+/** Deployed soak endpoint identity recorded on every verify-tools/article report (R2-H02). */
+export type TargetIdentity = {
+  host: string;
+  port: number;
+  /** Deployment label, generation, or pid-derived label for the intended endpoint. */
+  service_label: string;
+  pid?: number;
+  generation?: string;
 };
 
 export type ToolsVerifyReport = {
@@ -1131,8 +1141,15 @@ export type ToolsVerifyReport = {
   transport: 'network';
   /** Resolved base URL used for /mcp (never empty on success). */
   base_url: string;
+  /**
+   * Host/port (+ optional service label/pid/generation) for the intended soak endpoint.
+   * Required for green verify-tools — free-port overwrite alone is not identity.
+   */
+  target_identity: TargetIdentity | null;
   report_path?: string;
   error?: string;
+  /** Seeds used for read/mutation tool args (non-sentinel holocron_nonprod row ids when available). */
+  seeds?: VerifyToolSeeds;
 };
 
 function defaultKeys(): ScopedKeyConfig {
@@ -1160,15 +1177,175 @@ export function resolveVerifyBaseUrl(explicit?: string | null): string {
   return '';
 }
 
-/** Minimal args so tools/call reaches executor (reads may 4xx/empty; mutations fence). */
+/**
+ * Bind verify-tools/article to a recorded endpoint identity (host+port+label).
+ * Free-port localhost children must still surface host/port/service_label in the report.
+ * Returns null when base_url is empty or unparseable (fail-closed).
+ */
+export function resolveTargetIdentity(
+  baseUrl: string,
+  options?: { serviceLabel?: string; pid?: number; generation?: string }
+): TargetIdentity | null {
+  const trimmed = typeof baseUrl === 'string' ? baseUrl.trim() : '';
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    const host = u.hostname;
+    if (!host) return null;
+    const portNum = u.port
+      ? Number(u.port)
+      : u.protocol === 'https:'
+        ? 443
+        : u.protocol === 'http:'
+          ? 80
+          : NaN;
+    if (!Number.isFinite(portNum) || portNum <= 0) return null;
+    const envPid = process.env.HOLO_VERIFY_PID;
+    const pidRaw = options?.pid ?? (envPid && envPid.length > 0 ? Number(envPid) : undefined);
+    const pid =
+      typeof pidRaw === 'number' && Number.isFinite(pidRaw) && pidRaw > 0 ? pidRaw : undefined;
+    const generation =
+      options?.generation ??
+      process.env.HOLO_VERIFY_GENERATION ??
+      process.env.HOLO_SOAK_GENERATION ??
+      undefined;
+    const service_label =
+      options?.serviceLabel ??
+      process.env.HOLO_VERIFY_SERVICE_LABEL ??
+      process.env.HOLO_SOAK_SERVICE_LABEL ??
+      (generation && generation.length > 0 ? `generation:${generation}` : undefined) ??
+      (pid !== undefined ? `pid:${pid}` : undefined) ??
+      `endpoint:${host}:${portNum}`;
+    const identity: TargetIdentity = {
+      host,
+      port: portNum,
+      service_label,
+    };
+    if (pid !== undefined) identity.pid = pid;
+    if (generation && generation.length > 0) identity.generation = generation;
+    return identity;
+  } catch {
+    return null;
+  }
+}
+
+/** Real holocron_nonprod row ids for verify-tools (never fixed 000…0001 sentinels without row proof). */
+export type VerifyToolSeeds = {
+  documentId: string;
+  subscriptionId: string;
+  researchSessionId: string;
+  improvementId: string;
+  assimilationSessionId: string;
+  toolId: string;
+  shopSessionId: string;
+  profileId: string;
+  runId: string;
+};
+
+const FIXED_SENTINEL_DOCUMENT = '00000000-0000-4000-8000-000000000001';
+const FIXED_SENTINEL_SUBSCRIPTION = '00000000-0000-4000-8000-000000000002';
+
+/**
+ * Load real row ids from holocron_nonprod for verify-tools args.
+ * Fail-closed when documents/subscription_sources (required) are empty.
+ * Optional entities may be empty strings — get_* tools then fail postgres_backed (not silent green).
+ */
+export async function resolveVerifyToolSeeds(options?: {
+  databaseUrl?: string;
+  runId?: string;
+}): Promise<{ ok: true; seeds: VerifyToolSeeds } | { ok: false; error: string }> {
+  const runId = options?.runId ?? `vt-${Date.now().toString(36)}`;
+  const url =
+    options?.databaseUrl ??
+    process.env.DATABASE_URL ??
+    resolveHolocronNonprodDatabaseUrl({ context: 'resolveVerifyToolSeeds' });
+  const sql = createSql(url);
+  try {
+    const documents = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM documents ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    const subscriptions = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM subscription_sources ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    if (!documents[0]?.id || !subscriptions[0]?.id) {
+      return {
+        ok: false,
+        error:
+          'SEEDS_UNAVAILABLE: holocron_nonprod missing documents and/or subscription_sources rows for verify-tools',
+      };
+    }
+    const research = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM research_sessions ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    const improvements = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM improvement_requests ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    const assimilation = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM assimilation_sessions ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    const tools = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM toolbelt_tools ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    const shop = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM shop_sessions ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+    const profiles = await sql<{ id: string }[]>`
+      SELECT id::text AS id FROM creator_profiles ORDER BY created_at DESC, id DESC LIMIT 1
+    `;
+
+    const seeds: VerifyToolSeeds = {
+      documentId: documents[0].id,
+      subscriptionId: subscriptions[0].id,
+      researchSessionId: research[0]?.id ?? '',
+      improvementId: improvements[0]?.id ?? '',
+      assimilationSessionId: assimilation[0]?.id ?? '',
+      toolId: tools[0]?.id ?? '',
+      shopSessionId: shop[0]?.id ?? '',
+      profileId: profiles[0]?.id ?? '',
+      runId,
+    };
+
+    // Reject sole fixed-sentinel path unless those exact rows exist in DB (row proof above).
+    if (
+      seeds.documentId === FIXED_SENTINEL_DOCUMENT &&
+      seeds.subscriptionId === FIXED_SENTINEL_SUBSCRIPTION
+    ) {
+      // Allowed only when SELECT actually returned those rows (they exist).
+    }
+
+    return { ok: true, seeds };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `SEEDS_UNAVAILABLE: ${msg}` };
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+/** Minimal args so tools/call reaches executor (reads need real seeded ids; mutations fence). */
 export function buildVerifyToolArgs(
   toolId: string,
-  seeds: { documentId: string; subscriptionId: string; runId: string }
+  seeds: VerifyToolSeeds | { documentId: string; subscriptionId: string; runId: string }
 ): Record<string, unknown> {
-  const { documentId, subscriptionId, runId } = seeds;
+  const documentId = seeds.documentId;
+  const subscriptionId = seeds.subscriptionId;
+  const runId = seeds.runId;
+  const researchSessionId =
+    'researchSessionId' in seeds && seeds.researchSessionId ? seeds.researchSessionId : documentId;
+  const improvementId =
+    'improvementId' in seeds && seeds.improvementId ? seeds.improvementId : documentId;
+  const assimilationSessionId =
+    'assimilationSessionId' in seeds && seeds.assimilationSessionId
+      ? seeds.assimilationSessionId
+      : documentId;
+  const toolEntityId = 'toolId' in seeds && seeds.toolId ? seeds.toolId : documentId;
+  const shopSessionId =
+    'shopSessionId' in seeds && seeds.shopSessionId ? seeds.shopSessionId : documentId;
+  const profileId = 'profileId' in seeds && seeds.profileId ? seeds.profileId : documentId;
+
   switch (toolId) {
     case 'get_research_session':
-      return { sessionId: documentId };
+      return { sessionId: researchSessionId };
     case 'search_research':
     case 'search_fts':
     case 'hybrid_search':
@@ -1177,7 +1354,8 @@ export function buildVerifyToolArgs(
     case 'findRecommendations':
       return { query: `soak-${runId}` };
     case 'search_vector':
-      return { embedding: Array.from({ length: 8 }, () => 0.01) };
+      // passages.embedding is vector(1024) — dimension must match or executor errors
+      return { embedding: Array.from({ length: 1024 }, () => 0.01) };
     case 'store_document':
       return { title: `soak-${runId}-doc`, content: 'soak verify' };
     case 'update_document':
@@ -1219,30 +1397,31 @@ export function buildVerifyToolArgs(
     case 'get_tool':
     case 'update_tool':
     case 'remove_tool':
-      return { toolId: documentId };
+      return { toolId: toolEntityId };
     case 'shop_products':
       return { query: `soak-${runId}-shop`, retailers: ['amazon'] };
     case 'get_shop_session':
     case 'get_shop_listings':
+      return { sessionId: shopSessionId };
     case 'get_assimilation_status':
     case 'approve_assimilation_plan':
     case 'reject_assimilation_plan':
     case 'cancel_assimilation':
-      return { sessionId: documentId };
+      return { sessionId: assimilationSessionId };
     case 'start_assimilation':
       return { repositoryUrl: `https://github.com/example/soak-${runId}` };
     case 'steer_assimilation':
-      return { sessionId: documentId, note: `steer-${runId}` };
+      return { sessionId: assimilationSessionId, note: `steer-${runId}` };
     case 'assimilate_creator':
     case 'get_creator_transcripts':
-      return { profileId: documentId };
+      return { profileId };
     case 'regenerate_transcript':
       return { contentId: documentId };
     case 'get_improvement':
     case 'close_improvement':
-      return { id: documentId };
+      return { id: improvementId };
     case 'set_improvement_status':
-      return { id: documentId, status: 'open' };
+      return { id: improvementId, status: 'open' };
     case 'add_improvement':
       return { items: [{ description: `soak-${runId}-imp`, sourceScreen: 'soak' }] };
     default:
@@ -1303,7 +1482,7 @@ async function mcpToolsCallNetwork(
       method: 'tools/call',
       params: { name: toolName, arguments: args },
     }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(120_000),
   });
   const raw = await call.text();
   let parsed: unknown = raw;
@@ -1364,11 +1543,31 @@ async function mcpToolsCallNetwork(
 }
 
 /**
- * Schema-valid + Postgres-backed read success (H-01 / AC-2).
- * HTTP 200 alone is insufficient — isError must be false, payload present
- * (non-empty body), and either registry outputSchema safeParse succeeds OR
- * the payload is a structured executor result (null | object | array).
- * Application-level MCP errors (isError===true) always fail.
+ * True when payload is non-null application data (not null / not-found shells).
+ * Empty list results from Postgres are allowed; null and success:false are not.
+ */
+export function hasNonNullApplicationData(payload: unknown): boolean {
+  if (payload === null || payload === undefined) return false;
+  if (typeof payload === 'string') return payload.trim().length > 0;
+  if (Array.isArray(payload)) return true;
+  if (typeof payload === 'object') {
+    const o = payload as Record<string, unknown>;
+    const keys = Object.keys(o);
+    if (keys.length === 0) return false;
+    // Explicit not-found / error shells
+    if (o.success === false) return false;
+    if (keys.length === 1 && keys[0] === 'session' && o.session === null) return false;
+    if (keys.length === 1 && keys[0] === 'error') return false;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Schema-valid + Postgres-backed read success (H-01 / R2-H02 AC-2/AC-3).
+ * HTTP 200 alone is insufficient — isError must be false, body non-empty,
+ * registry outputSchema.safeParse must succeed (NO structural null|array|object fallback),
+ * and payload must be non-null application data (null/not-found shells fail postgres_backed).
  */
 export function evaluateReadToolSuccess(
   toolId: string,
@@ -1392,29 +1591,15 @@ export function evaluateReadToolSuccess(
 
   let zodOk = false;
   try {
-    // Prefer registry Zod output contracts (same instances as MCP gateway).
+    // Registry Zod output contracts only (same instances as MCP gateway). R2-H02: no structural fallback.
     const { outputSchema } = getToolSchema(toolId);
     zodOk = outputSchema.safeParse(res.payload).success;
   } catch {
     zodOk = false;
   }
 
-  // Structural contract: real executor payloads are null | object | array
-  // (string-only stubs / empty strings are rejected above).
-  const structuralOk =
-    res.payload === null ||
-    Array.isArray(res.payload) ||
-    (typeof res.payload === 'object' && res.payload !== null);
-
-  // schema_valid: Zod when it matches; otherwise accept structured Postgres-shaped
-  // results (registry/executor shape drift must not greenwash isError).
-  const schema_valid = zodOk || structuralOk;
-
-  const postgres_backed =
-    schema_valid &&
-    res.payload !== undefined &&
-    !(typeof res.payload === 'string' && res.payload.trim().length === 0);
-
+  const schema_valid = zodOk;
+  const postgres_backed = schema_valid && hasNonNullApplicationData(res.payload);
   const ok = transportOk && res.isError !== true && schema_valid && postgres_backed;
   return { ok, schema_valid, postgres_backed };
 }
@@ -1423,6 +1608,7 @@ export function evaluateReadToolSuccess(
  * Invoke EVERY manifest tool over the real network /mcp HTTP endpoint.
  * toolsTotal is live manifest.tools.length — never hardcoded.
  * Requires HOLO_VERIFY_BASE_URL / PLATFORM_URL / options.baseUrl (fail-closed).
+ * Reports target_identity; seeds from real holocron_nonprod rows (R2-H02).
  */
 export async function runVerifyTools(options?: {
   cwd?: string;
@@ -1430,6 +1616,12 @@ export async function runVerifyTools(options?: {
   databaseUrl?: string;
   /** Deployed server base URL (http://host:port). Overrides env. */
   baseUrl?: string;
+  /** Optional service label / pid / generation for target_identity. */
+  serviceLabel?: string;
+  pid?: number;
+  generation?: string;
+  /** Override seeds (tests); when omitted, load real DB row ids. */
+  seeds?: VerifyToolSeeds;
 }): Promise<ToolsVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const keys = options?.keys ?? defaultKeys();
@@ -1442,18 +1634,18 @@ export async function runVerifyTools(options?: {
   const mutationIds = mcpMutationToolIds(cwd);
   const toolsTotal = manifest.tools.length;
   const runId = `vt-${Date.now().toString(36)}`;
-  const seeds = {
-    documentId: '00000000-0000-4000-8000-000000000001',
-    subscriptionId: '00000000-0000-4000-8000-000000000002',
-    runId,
-  };
 
   const base_url = resolveVerifyBaseUrl(options?.baseUrl);
+  const target_identity = resolveTargetIdentity(base_url, {
+    serviceLabel: options?.serviceLabel,
+    pid: options?.pid,
+    generation: options?.generation,
+  });
   const tools: ToolVerifyEntry[] = [];
   let toolsPassed = 0;
   let toolsStubbed = 0;
 
-  if (!base_url) {
+  const failAll = (error: string, message: string): ToolsVerifyReport => {
     for (const tool of manifest.tools) {
       tools.push({
         tool_id: tool.id,
@@ -1461,8 +1653,7 @@ export async function runVerifyTools(options?: {
         invoked: false,
         ok: false,
         schema_valid: mutationIds.has(tool.id) ? undefined : false,
-        message:
-          'MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server',
+        message,
       });
     }
     return {
@@ -1472,9 +1663,39 @@ export async function runVerifyTools(options?: {
       toolsStubbed: 0,
       tools,
       transport: 'network',
-      base_url: '',
-      error: 'MISSING_BASE_URL',
+      base_url,
+      target_identity,
+      error,
     };
+  };
+
+  if (!base_url) {
+    return failAll(
+      'MISSING_BASE_URL',
+      'MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server'
+    );
+  }
+
+  if (!target_identity) {
+    return failAll(
+      'MISSING_TARGET_IDENTITY',
+      'MISSING_TARGET_IDENTITY: base_url must parse to host+port for deployed endpoint identity'
+    );
+  }
+
+  // Resolve real DB seeds (never sole fixed 000…0001 / 000…0002 without row proof)
+  let seeds: VerifyToolSeeds;
+  if (options?.seeds) {
+    seeds = options.seeds;
+  } else {
+    const seedResult = await resolveVerifyToolSeeds({
+      databaseUrl: options?.databaseUrl ?? process.env.DATABASE_URL,
+      runId,
+    });
+    if (!seedResult.ok) {
+      return failAll(seedResult.error, seedResult.error);
+    }
+    seeds = seedResult.seeds;
   }
 
   // Fail-closed connectivity probe — unreachable base URL is not a pass
@@ -1487,25 +1708,9 @@ export async function runVerifyTools(options?: {
     void health;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    for (const tool of manifest.tools) {
-      tools.push({
-        tool_id: tool.id,
-        is_mutation: mutationIds.has(tool.id),
-        invoked: false,
-        ok: false,
-        schema_valid: mutationIds.has(tool.id) ? undefined : false,
-        message: `UNREACHABLE_BASE_URL: ${base_url} (${msg})`,
-      });
-    }
     return {
-      ok: false,
-      toolsTotal,
-      toolsPassed: 0,
-      toolsStubbed: 0,
-      tools,
-      transport: 'network',
-      base_url,
-      error: `UNREACHABLE_BASE_URL: ${base_url}`,
+      ...failAll(`UNREACHABLE_BASE_URL: ${base_url}`, `UNREACHABLE_BASE_URL: ${base_url} (${msg})`),
+      target_identity,
     };
   }
 
@@ -1534,7 +1739,7 @@ export async function runVerifyTools(options?: {
         entry.ok = blocked;
         if (blocked) toolsPassed += 1;
       } else {
-        // Read path (H-01): transport success AND !isError AND schema_valid Postgres-backed
+        // Read path (H-01/R2-H02): Zod schema_valid + non-null postgres_backed
         const read = evaluateReadToolSuccess(tool.id, res);
         entry.schema_valid = read.schema_valid;
         entry.postgres_backed = read.postgres_backed;
@@ -1556,13 +1761,20 @@ export async function runVerifyTools(options?: {
   }
 
   return {
-    ok: toolsPassed === toolsTotal && toolsStubbed === 0 && toolsTotal > 0,
+    ok:
+      toolsPassed === toolsTotal &&
+      toolsStubbed === 0 &&
+      toolsTotal > 0 &&
+      target_identity !== null &&
+      base_url.length > 0,
     toolsTotal,
     toolsPassed,
     toolsStubbed,
     tools,
     transport: 'network',
     base_url,
+    target_identity,
+    seeds,
   };
 }
 
@@ -1842,6 +2054,8 @@ export type ArticleVerifyReport = {
   transport: 'network';
   /** Resolved base URL used for GET /article/:token. */
   base_url: string;
+  /** Deployed endpoint identity (host/port/label) — R2-H02. */
+  target_identity: TargetIdentity | null;
   error?: string;
 };
 
@@ -1860,6 +2074,9 @@ export async function runVerifyArticle(options?: {
   databaseUrl?: string;
   /** Deployed server base URL (http://host:port). Overrides env. */
   baseUrl?: string;
+  serviceLabel?: string;
+  pid?: number;
+  generation?: string;
 }): Promise<ArticleVerifyReport> {
   const { createHash } = await import('node:crypto');
   const { loadArticleBaseline } = await import('./article-baseline.ts');
@@ -1868,6 +2085,11 @@ export async function runVerifyArticle(options?: {
   if (options?.databaseUrl) process.env.DATABASE_URL = options.databaseUrl;
 
   const base_url = resolveVerifyBaseUrl(options?.baseUrl);
+  const target_identity = resolveTargetIdentity(base_url, {
+    serviceLabel: options?.serviceLabel,
+    pid: options?.pid,
+    generation: options?.generation,
+  });
 
   const loaded = loadArticleBaseline(baselinePath);
   if (!loaded.ok) {
@@ -1881,8 +2103,9 @@ export async function runVerifyArticle(options?: {
       shareToken: '',
       match: false,
       transport: 'network',
-      base_url: base_url || '',
-      error: `${loaded.error.code}: ${loaded.error.message}`,
+      base_url,
+      target_identity,
+      error: 'MISSING_SHARE_TOKEN',
     };
   }
 
@@ -1902,7 +2125,25 @@ export async function runVerifyArticle(options?: {
       match: false,
       transport: 'network',
       base_url: '',
+      target_identity: null,
       error: 'MISSING_BASE_URL',
+    };
+  }
+
+  if (!target_identity) {
+    return {
+      ok: false,
+      status: 0,
+      sha256: '',
+      byteLength: 0,
+      baselineSha256,
+      baselineByteLength,
+      shareToken,
+      match: false,
+      transport: 'network',
+      base_url,
+      target_identity: null,
+      error: 'MISSING_TARGET_IDENTITY',
     };
   }
 
@@ -1926,6 +2167,7 @@ export async function runVerifyArticle(options?: {
       match: false,
       transport: 'network',
       base_url,
+      target_identity,
       error: `UNREACHABLE_BASE_URL: ${msg}`,
     };
   }
@@ -1939,7 +2181,7 @@ export async function runVerifyArticle(options?: {
     byteLength === baselineByteLength;
 
   return {
-    ok: match,
+    ok: match && target_identity !== null,
     status: res.status,
     sha256,
     byteLength,
@@ -1949,16 +2191,7 @@ export async function runVerifyArticle(options?: {
     match,
     transport: 'network',
     base_url,
-    ...(match
-      ? {}
-      : {
-          error:
-            res.status !== 200
-              ? `ARTICLE_STATUS_${res.status}`
-              : sha256 !== baselineSha256 || byteLength !== baselineByteLength
-                ? 'SHA256_OR_BYTELENGTH_MISMATCH'
-                : 'ARTICLE_EMPTY',
-        }),
+    target_identity,
   };
 }
 
