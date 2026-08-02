@@ -15,7 +15,7 @@ capability_coverage: [CAP-CUT-01, CAP-MIG-01]
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
 > Progress: 5/5 tasks completed · updated 2026-08-02T04:08:21Z
-> Status-Note: IMPLEMENTATION_COMPLETE @ d4570f58 — R3 C01–C03/H01–H03 on main + H02/H03 verify-harness fix; honest partial gate 3/6 HEAD-bound local-process (not GATE-GOAL; awaiting fresh independent red-hat + full human-gate QA)
+> Status-Note: IMPLEMENTATION_COMPLETE @ 79287567 — R3 C01–C03/H01–H03 consolidated on main; H02/H03 verify harness fixed; honest partial gate 3/6 HEAD-bound local-process (not GATE-GOAL; awaiting independent red-hat + full human-gate QA)
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`

@@ -1,0 +1,40 @@
+{
+  "task_id": "REDHAT-FIX-S29-R3-C01",
+  "lineage_task_id": "REDHAT-FIX-S29-R2-H01",
+  "run_id": "20260802T050145Z",
+  "source_sha": "79287567bdc5d1848f53d0bf0aa712419fa37f53",
+  "git_sha": "79287567bdc5d1848f53d0bf0aa712419fa37f53",
+  "head_bound": true,
+  "deployed_base_url": "local-process://holo-cli",
+  "service_identity": "local-process://holo-cli",
+  "identity_class": "local-process",
+  "landing_eligible": false,
+  "non_landing_reason": "no HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing",
+  "started_at": "2026-08-02T05:01:45Z",
+  "historical_stale_run_id": "20260802T004525Z",
+  "historical_preserved": true,
+  "gate_plan_remediation": "REDHAT-FIX-S29-H03",
+  "gate_plan_remediated_at": "20260802T020000Z",
+  "sibling_blockers_for_full_6_of_6": [
+    "REDHAT-FIX-S29-R2-C01",
+    "REDHAT-FIX-S29-R2-C02",
+    "REDHAT-FIX-S29-R2-C03",
+    "REDHAT-FIX-S29-R2-C04",
+    "REDHAT-FIX-S29-R2-H02",
+    "REDHAT-FIX-S29-R2-H03",
+    "REDHAT-FIX-S29-R2-H04",
+    "REDHAT-FIX-S29-R3-C02",
+    "REDHAT-FIX-S29-R3-C03"
+  ],
+  "notes": [
+    "Honest re-run under current gate-plan predicates (H03 + C01 + R3-C01 HEAD bind).",
+    "Never reuses 20260802T004525Z as pass evidence for remediated SHA.",
+    "git_sha == git rev-parse HEAD required; local-process:// is non-landing.",
+    "Full 6/6 may remain blocked until sibling remediations land \u2014 never forge."
+  ],
+  "finished_at": "2026-08-02T05:07:17Z",
+  "verdict": "partial",
+  "steps_executed": 6,
+  "steps_passed": 3,
+  "steps_failed": 3
+}

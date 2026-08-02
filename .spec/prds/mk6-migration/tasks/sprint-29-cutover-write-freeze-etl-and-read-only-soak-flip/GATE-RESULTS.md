@@ -1,11 +1,11 @@
 # Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip
 
 ## ⚠️ PARTIAL — 3/6 steps passed under current oracles (honest fail on rest; non-landing)
-**Date:** 2026-08-02T05:00:24Z
+**Date:** 2026-08-02T05:07:17Z
 **Verdict:** partial
-**Run ID:** 20260802T045450Z
-**Source SHA (git rev-parse HEAD):** `d4570f585a5ccfdc073fcf4d55d65458386447d6`
-**git_sha:** `d4570f585a5ccfdc073fcf4d55d65458386447d6`
+**Run ID:** 20260802T050145Z
+**Source SHA (git rev-parse HEAD):** `79287567bdc5d1848f53d0bf0aa712419fa37f53`
+**git_sha:** `79287567bdc5d1848f53d0bf0aa712419fa37f53`
 **Deployed identity:** `local-process://holo-cli` / `local-process://holo-cli`
 **Landing eligible:** `false` (identity_class=`local-process`)
 **Non-landing reason:** no HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing
@@ -22,7 +22,7 @@
 | 5 | Flip app+MCP and verify-soak (cutover:flip + cutover:verify- | fail |
 | 6 | Write returns migration_read_only (HTTP 423) on real Hono su | pass |
 
-**Evidence:** `.gate-evidence/20260802T045450Z/step{1..6}.log`
+**Evidence:** `.gate-evidence/20260802T050145Z/step{1..6}.log`
 
 **Predicates:** current `gate-plan.json` (REDHAT-FIX-S29-H03 + C01 + R3-C01) — step1 requires `overall.ok && failed_count==0`; step5 requires non-null `toolsPassed==toolsTotal`; evidence `git_sha` must equal worktree HEAD.
 
