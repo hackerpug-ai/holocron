@@ -48,6 +48,18 @@ if (!PLATFORM_IT) {
   );
 }
 
+/**
+ * H-04 / D06-01 AC-3: unfenced reachability means the Promise fulfills without throw.
+ * Any thrown error (including MIGRATION_READ_ONLY while unfenced, and non-fence errors)
+ * is a failure — never ok:true with an error field.
+ */
+export function classifyUnfencedMcpMutationOutcome(
+  result: { resolved: true } | { resolved: false; error: string }
+): { ok: boolean; error?: string } {
+  if (result.resolved) return { ok: true };
+  return { ok: false, error: result.error };
+}
+
 const RUN_ID = makeRunId();
 const DATABASE_URL = DEFAULT_DATABASE_URL;
 
@@ -266,22 +278,28 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
     )) as { ids?: string[] };
     const improvementId = String(addImp.ids?.[0] ?? randomUUID());
 
-    // Pre-seed shop_sessions so shop_products positive path avoids live retailers
+    // Pre-seed shop_sessions so shop_products positive path avoids live retailers.
+    // Match executor cache key exactly (query/condition/price/retailers/verified_only).
     const shopQuery = `s29-d0601-${RUN_ID}-shop`;
     try {
       await sql`
-        INSERT INTO shop_sessions (id, query, condition, retailers, status, total_listings)
+        INSERT INTO shop_sessions (
+          id, query, condition, price_min, price_max, retailers, verified_only, status, total_listings
+        )
         VALUES (
           ${randomUUID()}::uuid,
           ${shopQuery},
           'any',
+          ${null},
+          ${null},
           ${sql.json(['amazon'])},
+          ${false},
           'completed',
           0
         )
       `;
     } catch {
-      // best-effort; tool may throw non-fence errors which TC-7 still filters
+      // best-effort seed; unfenced TC-7 treats any tool throw as failure (H-04)
     }
 
     mcpInputs = buildMcpMinInputs(RUN_ID, {
@@ -396,6 +414,16 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
     const app = createFencedApp();
     const seeds = freshSeedIds();
     const bodies = buildHonoMinBodies(RUN_ID, seeds);
+    // H-04: exact before/after side-effect counts for every tracked table under fence
+    const before = {
+      documents: Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0),
+      subscription_sources: Number(
+        (await sql`SELECT count(*)::int AS c FROM subscription_sources`)[0]?.c ?? 0
+      ),
+      improvement_requests: Number(
+        (await sql`SELECT count(*)::int AS c FROM improvement_requests`)[0]?.c ?? 0
+      ),
+    };
     const failures: string[] = [];
     for (const route of honoRoutes) {
       const req = buildRouteRequest(route, RUN_ID, seeds, bodies);
@@ -411,7 +439,6 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
         );
       }
     }
-    // Row counts must be unchanged from post-AC-1 for key tables
     const after = {
       documents: Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0),
       subscription_sources: Number(
@@ -422,10 +449,23 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
       ),
     };
     unsetMigrationFlag();
-    writeEvidence('hono-fenced-body-results.json', { failures, postAc1Counts, after });
+    const countsEqual =
+      after.documents === before.documents &&
+      after.subscription_sources === before.subscription_sources &&
+      after.improvement_requests === before.improvement_requests;
+    writeEvidence('hono-fenced-body-results.json', {
+      failures,
+      postAc1Counts,
+      before,
+      after,
+      countsEqual,
+    });
     expect(failures, `body contract failures: ${failures.join('; ')}`).toEqual([]);
-    // Counts may drift from AC-3 seeds; assert no *additional* 423 success path writes —
-    // primary contract is the body shape above. Soft-check deltas only when fence works.
+    // H-04: fenced writes must not leak rows — exact equality, not soft-check deltas
+    expect(after, 'fenced Hono must leave row counts unchanged').toEqual(before);
+    expect(after.documents).toEqual(before.documents);
+    expect(after.subscription_sources).toEqual(before.subscription_sources);
+    expect(after.improvement_requests).toEqual(before.improvement_requests);
   });
 
   // ── MCP AC-3 / AC-4 ───────────────────────────────────────────────────
@@ -450,15 +490,21 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
       const input = mcpInputs[toolId] ?? {};
       try {
         await executePostgresMcpTool(toolId, input, { databaseUrl: DATABASE_URL });
-        results.push({ toolId, ok: true });
+        // H-04: ok:true only when the call resolves (Promise fulfills without throw)
+        const classified = classifyUnfencedMcpMutationOutcome({ resolved: true });
+        results.push({ toolId, ...classified });
       } catch (err) {
         const msg = migrationReadOnlyMessage(err);
+        // H-04: any throw is failure — MIGRATION_READ_ONLY while unfenced AND non-fence errors
+        const classified = classifyUnfencedMcpMutationOutcome({
+          resolved: false,
+          error: msg,
+        });
+        results.push({ toolId, ...classified });
         if (msg.startsWith('MIGRATION_READ_ONLY:')) {
           failures.push(`${toolId}: unexpected fence ${msg}`);
-          results.push({ toolId, ok: false, error: msg });
         } else {
-          // Non-fence errors still prove the path was entered (no fence short-circuit).
-          results.push({ toolId, ok: true, error: msg });
+          failures.push(`${toolId}: non-success error ${msg}`);
         }
       }
     }
@@ -471,11 +517,42 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
       failures,
       seedDocumentId,
       docRows: docs.length,
+      h04: {
+        okTrueOnlyOnResolve: true,
+        nonFenceErrorsAreFailures: true,
+      },
     });
     expect(failures, failures.join('; ')).toEqual([]);
+    expect(results.every((r) => r.ok)).toBe(true);
     expect(seedDocumentId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(docs.length).toBeGreaterThanOrEqual(1);
   }, 180_000);
+
+  it('H-04: non-fence MCP errors classify as ok:false (fail-closed)', () => {
+    const nonFence = classifyUnfencedMcpMutationOutcome({
+      resolved: false,
+      error: 'RETAILER_ERROR: amazon: HTTP 500',
+    });
+    expect(nonFence.ok).toBe(false);
+    expect(nonFence.error).toBe('RETAILER_ERROR: amazon: HTTP 500');
+
+    const fenceWhileUnfenced = classifyUnfencedMcpMutationOutcome({
+      resolved: false,
+      error: 'MIGRATION_READ_ONLY: write blocked during soak',
+    });
+    expect(fenceWhileUnfenced.ok).toBe(false);
+    expect(fenceWhileUnfenced.error?.startsWith('MIGRATION_READ_ONLY:')).toBe(true);
+
+    const resolved = classifyUnfencedMcpMutationOutcome({ resolved: true });
+    expect(resolved.ok).toBe(true);
+    expect(resolved.error).toBeUndefined();
+
+    writeEvidence('h04-non-fence-classification.json', {
+      nonFence,
+      fenceWhileUnfenced,
+      resolved,
+    });
+  });
 
   it('TC-8: executePostgresMcpTool rejects with MIGRATION_READ_ONLY for every mutation tool when fenced', async () => {
     setMigrationFlag();
