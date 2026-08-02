@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "runId": "d06-04-immutable-h02-multi-table",
+  "unexplainedVariance": 0,
+  "exportArchiveHash": "0454c0767b34027114445fd0f514c5712f1026c9d0792df20032fc9008384e29",
+  "loadedByTable": {
+    "documents": 26,
+    "conversations": 5,
+    "subscriptionSources": 4,
+    "researchSessions": 3,
+    "chatMessages": 11,
+    "tasks": 0,
+    "improvementRequests": 2
+  },
+  "reconcile": {
+    "ok": true,
+    "unexplainedVariance": 0
+  },
+  "stages": {
+    "reconcile": true,
+    "fkAudit": true,
+    "vectors": true
+  },
+  "provenance": {
+    "kind": "immutable-d06-04-shaped-watermark",
+    "source": "frozen multi-table loadedByTable for H-02; tests must only READ this file",
+    "exportSampleLineCounts": {
+      "documents": 2,
+      "conversations": 2,
+      "subscriptionSources": 1,
+      "researchSessions": 2,
+      "chatMessages": 1,
+      "tasks": 1,
+      "improvementRequests": 1
+    },
+    "note": "Do not rewrite loadedByTable from live SELECT count(*) in tests (anti-stub)."
+  }
+}

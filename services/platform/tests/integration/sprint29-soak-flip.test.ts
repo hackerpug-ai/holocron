@@ -64,6 +64,12 @@ const H01_EVIDENCE = resolve(
   REPO_ROOT,
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
+const H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H02');
+/** Immutable multi-table D06-04-shaped watermark (committed). Never authored from live SELECT. */
+const IMMUTABLE_ETL_FIXTURE = resolve(
+  REPO_ROOT,
+  'services/platform/tests/fixtures/sprint29/watermark-report-multi-table.json'
+);
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
@@ -133,25 +139,20 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     setMigrationReadOnlyEnv('0');
     sql = createSql(DATABASE_URL);
 
-    // Seed a public article for Hono byte-parity baseline (AC-4 shape)
-    shareToken = randomUUID();
-    const docId = randomUUID();
-    const title = `s29-d0605-article-${RUN}`;
-    const content = `# ${title}\n\nSoak flip article baseline content for ${RUN}.\n`;
-    await sql`
-      INSERT INTO documents (id, title, content, category, status, date, is_public, share_token)
-      VALUES (
-        ${docId}::uuid,
-        ${title},
-        ${content},
-        'general',
-        'published',
-        ${new Date().toISOString()},
-        true,
-        ${shareToken}
-      )
-      ON CONFLICT DO NOTHING
-    `;
+    // H-02: reuse a pre-existing public document so we do not mutate table counts
+    // that the immutable ETL fixture binds (no live SELECT→loadedByTable authorship).
+    const existingPublic = await sql<
+      { share_token: string }[]
+    >`SELECT share_token FROM documents
+      WHERE is_public = true AND share_token IS NOT NULL
+      ORDER BY id
+      LIMIT 1`;
+    if (!existingPublic[0]?.share_token) {
+      throw new Error(
+        'H-02 requires a pre-existing public document for article baseline; refusing to INSERT and rewrite ETL counts from live SELECT'
+      );
+    }
+    shareToken = existingPublic[0].share_token;
 
     // Capture baseline from the real Hono /article/ route (same bytes AC-4 compares)
     process.env.DATABASE_URL = DATABASE_URL;
@@ -211,56 +212,56 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       'utf8'
     );
 
-    // Capture live table counts as ETL baseline (AC-3 exact match)
-    const docs = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
-    const convs = Number((await sql`SELECT count(*)::int AS c FROM conversations`)[0]?.c ?? 0);
-    let subs = 0;
-    try {
-      subs = Number((await sql`SELECT count(*)::int AS c FROM subscription_sources`)[0]?.c ?? 0);
-    } catch {
-      subs = 0;
+    // H-02: load immutable multi-table D06-04-shaped watermark from committed fixture.
+    // NEVER derive loadedByTable from live SELECT count(*) (dual-lens anti-stub).
+    if (!existsSync(IMMUTABLE_ETL_FIXTURE)) {
+      throw new Error(`H-02 immutable ETL fixture missing: ${IMMUTABLE_ETL_FIXTURE}`);
     }
-    baselineCounts = {
-      documents: docs,
-      conversations: convs,
-      subscriptionSources: subs,
-      subscription_sources: subs,
+    const frozenRaw = readFileSync(IMMUTABLE_ETL_FIXTURE, 'utf8');
+    const frozen = JSON.parse(frozenRaw) as {
+      ok?: boolean;
+      runId?: string;
+      unexplainedVariance?: number;
+      exportArchiveHash?: string;
+      loadedByTable?: Record<string, number>;
+      reconcile?: { ok?: boolean; unexplainedVariance?: number };
     };
+    if (!frozen.loadedByTable || typeof frozen.loadedByTable !== 'object') {
+      throw new Error('H-02 immutable fixture missing loadedByTable');
+    }
+    baselineCounts = { ...frozen.loadedByTable };
+    if (Object.keys(baselineCounts).length < 4) {
+      throw new Error('H-02 requires multi-table immutable baseline (>=4 tables)');
+    }
+    if (!frozen.runId || frozen.runId.length === 0) {
+      throw new Error('H-02 immutable fixture missing runId');
+    }
+    if (
+      typeof frozen.exportArchiveHash !== 'string' ||
+      !/^[a-f0-9]{64}$/i.test(frozen.exportArchiveHash)
+    ) {
+      throw new Error('H-02 immutable fixture missing exportArchiveHash (64-hex)');
+    }
 
-    const runId = randomUUID();
+    // Copy fixture verbatim into evidence + default D06-04 path (read-only source of truth).
     greenEtlPath = resolve(EVIDENCE, 'watermark-report-green.json');
-    writeFileSync(
-      greenEtlPath,
-      `${JSON.stringify(
-        {
-          ok: true,
-          runId,
-          unexplainedVariance: 0,
-          loadedByTable: baselineCounts,
-          reconcile: { ok: true, unexplainedVariance: 0 },
-          stages: { reconcile: true, fkAudit: true, vectors: true },
-        },
-        null,
-        2
-      )}\n`,
-      'utf8'
-    );
-    // Default path used by flip without --etl-report
+    const fixtureBody = frozenRaw.endsWith('\n') ? frozenRaw : `${frozenRaw}\n`;
+    writeFileSync(greenEtlPath, fixtureBody, 'utf8');
     mkdirSync(resolve(REPO_ROOT, '.tmp/D06-04'), { recursive: true });
-    writeFileSync(
-      resolve(REPO_ROOT, '.tmp/D06-04/watermark-report.json'),
-      readFileSync(greenEtlPath, 'utf8'),
-      'utf8'
-    );
+    writeFileSync(resolve(REPO_ROOT, '.tmp/D06-04/watermark-report.json'), fixtureBody, 'utf8');
+    mkdirSync(H02_EVIDENCE, { recursive: true });
+    writeFileSync(resolve(H02_EVIDENCE, 'immutable-etl-fixture-copy.json'), fixtureBody, 'utf8');
 
+    // Variance fixture reuses the same immutable loadedByTable (flip refuse path only).
     varianceEtlPath = resolve(EVIDENCE, 'watermark-report-variance.json');
     writeFileSync(
       varianceEtlPath,
       `${JSON.stringify(
         {
           ok: false,
-          runId: randomUUID(),
+          runId: `variance-${frozen.runId}`,
           unexplainedVariance: 3,
+          exportArchiveHash: frozen.exportArchiveHash,
           loadedByTable: baselineCounts,
           reconcile: { ok: false, unexplainedVariance: 3 },
         },
@@ -275,8 +276,10 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       shareToken,
       baselineCounts,
       greenEtlPath,
+      immutableEtlFixture: IMMUTABLE_ETL_FIXTURE,
       articleBaselinePath,
       networkBaseUrl,
+      note: 'H-02 baselineCounts loaded from committed fixture — not live SELECT',
     });
   }, 120_000);
 
@@ -754,19 +757,106 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-3 / TC-5 ───────────────────────────────────────────────────────────
 
-  it('TC-5/AC-3: verify-reads matches ETL loadedByTable baseline exactly', async () => {
+  it('TC-5/AC-3/H-02: verify-reads full loadedByTable parity vs immutable baseline', async () => {
     setMigrationReadOnlyEnv('1');
+    // Point at committed fixture path directly (immutable — not live-authored).
     const report = await runVerifyReads({
       cwd: REPO_ROOT,
-      etlReportPath: greenEtlPath,
+      etlReportPath: IMMUTABLE_ETL_FIXTURE,
       databaseUrl: DATABASE_URL,
     });
     evidence('tc-verify-reads.json', report);
-    expect(report.perTableCounts.documents).toBe(baselineCounts.documents);
-    expect(report.perTableCounts.conversations).toBe(baselineCounts.conversations);
+    mkdirSync(H02_EVIDENCE, { recursive: true });
+    writeFileSync(
+      resolve(H02_EVIDENCE, 'verify-reads-green.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.tablesTotal).toBeGreaterThanOrEqual(4);
+    expect(report.tablesTotal).toBe(Object.keys(report.perTableCounts).length);
+    expect(report.tablesTotal).toBe(Object.keys(report.baselineCounts).length);
+    expect(report.tablesMatched).toBe(report.tablesTotal);
+    expect(report.perTableCounts.documents).toBe(report.baselineCounts.documents);
+    expect(report.perTableCounts.conversations).toBe(report.baselineCounts.conversations);
+    // baselineCounts must equal committed fixture keys (not a live-derived map)
+    expect(report.baselineCounts.documents).toBe(baselineCounts.documents);
+    expect(report.baselineCounts.conversations).toBe(baselineCounts.conversations);
+    // At least one additional mapped table beyond the old three-table sample set
+    const extraKeys = Object.keys(report.perTableCounts).filter(
+      (k) => !['documents', 'conversations', 'subscription_sources'].includes(k)
+    );
+    expect(extraKeys.length).toBeGreaterThanOrEqual(1);
     expect(report.mismatches).toEqual([]);
+    expect(report.baseline_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(report.baseline_path).toContain('watermark-report-multi-table.json');
+    expect(report.etl_run_id.length).toBeGreaterThan(0);
+    expect(report.exportArchiveHash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.ok).toBe(true);
   }, 60_000);
+
+  it('TC-H02-mismatch: induced single-table baseline divergence fails closed', async () => {
+    setMigrationReadOnlyEnv('1');
+    // Start from committed immutable fixture (not live-authored counts)
+    const frozen = JSON.parse(readFileSync(IMMUTABLE_ETL_FIXTURE, 'utf8')) as {
+      ok: boolean;
+      runId: string;
+      unexplainedVariance: number;
+      exportArchiveHash: string;
+      loadedByTable: Record<string, number>;
+      reconcile: { ok: boolean; unexplainedVariance: number };
+    };
+    const divergedPath = resolve(EVIDENCE, 'watermark-report-diverged.json');
+    const loaded = { ...frozen.loadedByTable };
+    // Diverge a non-sample table so three-table sampling cannot hide it
+    const targetKey = Object.hasOwn(loaded, 'researchSessions')
+      ? 'researchSessions'
+      : Object.hasOwn(loaded, 'tasks')
+        ? 'tasks'
+        : 'documents';
+    loaded[targetKey] = (loaded[targetKey] ?? 0) + 999;
+    writeFileSync(
+      divergedPath,
+      `${JSON.stringify(
+        {
+          ...frozen,
+          loadedByTable: loaded,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    const report = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: divergedPath,
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('tc-verify-reads-mismatch.json', report);
+    writeFileSync(
+      resolve(H02_EVIDENCE, 'verify-reads-mismatch.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(report.mismatches.length).toBeGreaterThanOrEqual(1);
+    expect(report.tablesMatched).toBeLessThan(report.tablesTotal);
+    expect(report.mismatches.some((m) => m.includes('live=') && m.includes('baseline='))).toBe(
+      true
+    );
+  }, 60_000);
+
+  it('TC-H02-missing: missing ETL report fails closed', async () => {
+    setMigrationReadOnlyEnv('1');
+    const report = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: resolve(EVIDENCE, 'does-not-exist-watermark.json'),
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('tc-verify-reads-missing.json', report);
+    expect(report.ok).toBe(false);
+    expect(report.mismatches.some((m) => m.includes('etl report missing'))).toBe(true);
+    expect(report.tablesTotal).toBe(0);
+  }, 30_000);
 
   // ── AC-4 / TC-6 / H-01 network article ────────────────────────────────────
 
@@ -808,35 +898,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   it('TC-8/9 AC-6: verify-soak aggregates all gates; jobsAccounted; zeroWritePath NOT_LANDED', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
-    // Refresh ETL baseline counts (writes may not have landed under fence)
-    const docs = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
-    const convs = Number((await sql`SELECT count(*)::int AS c FROM conversations`)[0]?.c ?? 0);
-    let subs = 0;
-    try {
-      subs = Number((await sql`SELECT count(*)::int AS c FROM subscription_sources`)[0]?.c ?? 0);
-    } catch {
-      subs = 0;
-    }
-    writeFileSync(
-      greenEtlPath,
-      `${JSON.stringify(
-        {
-          ok: true,
-          runId: JSON.parse(readFileSync(greenEtlPath, 'utf8')).runId,
-          unexplainedVariance: 0,
-          loadedByTable: {
-            documents: docs,
-            conversations: convs,
-            subscriptionSources: subs,
-            subscription_sources: subs,
-          },
-          reconcile: { ok: true, unexplainedVariance: 0 },
-        },
-        null,
-        2
-      )}\n`,
-      'utf8'
-    );
+    // H-02: use the frozen beforeAll ETL baseline as-is — do NOT rewrite loadedByTable
+    // from live SELECT counts. Fence keeps write paths closed so counts stay stable.
 
     const jobsOnly = await runVerifyJobs({ databaseUrl: DATABASE_URL });
     evidence('tc-jobs-only.json', jobsOnly);
@@ -864,6 +927,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       toolsTransport: report.tools.transport,
       toolsBaseUrl: report.tools.base_url,
       readsOk: report.reads.ok,
+      readsTablesTotal: report.reads.tablesTotal,
+      readsTablesMatched: report.reads.tablesMatched,
       articleOk: report.article.ok,
       articleTransport: report.article.transport,
       honoOk: report.honoWrite.ok,
@@ -900,6 +965,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.tools.toolsTotal).not.toBeNull();
     expect(report.tools.ok).toBe(true);
     expect(report.reads.ok).toBe(true);
+    expect(report.reads.tablesTotal).toBeGreaterThanOrEqual(4);
+    expect(report.reads.tablesMatched).toBe(report.reads.tablesTotal);
     expect(report.article.transport).toBe('network');
     expect(report.article.ok).toBe(true);
     expect(report.honoWrite.ok).toBe(true);

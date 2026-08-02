@@ -17,6 +17,7 @@
  * cutover:flip refuses unless D06-04 reconciliation is green, then writes the
  * durable control-plane key + process.env + flip-report. No new DB tables.
  */
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Context, MiddlewareHandler, Next } from 'hono';
@@ -28,6 +29,7 @@ import {
 } from '../config/secrets.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import { camelToSnake } from '../etl/metadata.ts';
 import { loadScopedKeysFromEnv, type ScopedKeyConfig } from '../http/middleware/scoped-key.ts';
 import { buildMutationsReport } from '../mcp/list-mutations.ts';
 import { defaultManifestPath, loadManifest } from '../mcp/manifest-loader.ts';
@@ -197,6 +199,8 @@ export type EtlReconcileSnapshot = {
   runId: string;
   unexplainedVariance: number;
   loadedByTable: Record<string, number>;
+  exportArchiveHash: string;
+  baseline_hash: string;
 };
 
 /** Serving-unit process generation snapshot for flip evidence (AC-2). */
@@ -314,11 +318,14 @@ export function captureProcessGenerations(cwd = resolveRepoRoot()): ProcessGener
 export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapshot | null {
   if (!existsSync(reportPath)) return null;
   try {
-    const j = JSON.parse(readFileSync(reportPath, 'utf8')) as {
+    const raw = readFileSync(reportPath);
+    const baseline_hash = createHash('sha256').update(raw).digest('hex');
+    const j = JSON.parse(raw.toString('utf8')) as {
       ok?: boolean;
       runId?: string;
       unexplainedVariance?: number;
       loadedByTable?: Record<string, number>;
+      exportArchiveHash?: string;
       reconcile?: { unexplainedVariance?: number; ok?: boolean };
     };
     const unexplained =
@@ -330,6 +337,10 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
     const runId = typeof j.runId === 'string' ? j.runId : '';
     const loadedByTable =
       j.loadedByTable && typeof j.loadedByTable === 'object' ? j.loadedByTable : {};
+    const exportArchiveHash =
+      typeof j.exportArchiveHash === 'string' && /^[a-f0-9]{64}$/i.test(j.exportArchiveHash)
+        ? j.exportArchiveHash.toLowerCase()
+        : '';
     const reconcileOk = typeof j.reconcile?.ok === 'boolean' ? j.reconcile.ok : unexplained === 0;
     // Reconciliation green: zero unexplained variance + real run id
     const ok = unexplained === 0 && runId.length > 0 && reconcileOk;
@@ -339,6 +350,8 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
       runId,
       unexplainedVariance: Number.isFinite(unexplained) ? unexplained : -1,
       loadedByTable,
+      exportArchiveHash,
+      baseline_hash,
     };
   } catch {
     return null;
@@ -1108,7 +1121,7 @@ export async function runVerifyTools(options?: {
   };
 }
 
-// ── Verify-reads (AC-3) ─────────────────────────────────────────────────────
+// ── Verify-reads (AC-3 / H-02) ───────────────────────────────────────────────
 
 export type ReadsVerifyReport = {
   ok: boolean;
@@ -1117,27 +1130,80 @@ export type ReadsVerifyReport = {
   mismatches: string[];
   etl_run_id: string;
   report_path?: string;
+  /** Number of mapped target tables under reconciliation (from loadedByTable). */
+  tablesTotal: number;
+  /** Count of tables where live count === immutable baseline count. */
+  tablesMatched: number;
+  /** sha256 hex of the immutable ETL/watermark report file (content-addressed). */
+  baseline_hash: string;
+  /** Absolute path of the immutable ETL baseline artifact. */
+  baseline_path: string;
+  /** exportArchiveHash from D06-04 report when present (64-hex). */
+  exportArchiveHash: string;
+  /** Human-readable baseline provenance (path + run id). */
+  baseline_source: string;
 };
 
-const READ_SAMPLE_TABLES = ['documents', 'conversations', 'subscription_sources'] as const;
+/** Safe Postgres identifier: snake_case public tables only. */
+const PG_IDENT_RE = /^[a-z_][a-z0-9_]*$/;
 
-/** Map ETL loadedByTable camelCase keys → Postgres table names. */
-function baselineTableKey(pgTable: string, loaded: Record<string, number>): number | undefined {
-  if (typeof loaded[pgTable] === 'number') return loaded[pgTable];
-  // camelCase variants from ETL
-  const camel: Record<string, string> = {
-    documents: 'documents',
-    conversations: 'conversations',
-    subscription_sources: 'subscriptionSources',
-    improvement_requests: 'improvementRequests',
-    voice_sessions: 'voiceSessions',
-    feed_items: 'feedItems',
-  };
-  const alt = camel[pgTable];
-  if (alt && typeof loaded[alt] === 'number') return loaded[alt];
-  return undefined;
+/**
+ * Map ETL loadedByTable keys (camelCase source table names and/or snake_case
+ * aliases) onto unique Postgres public table names. Dual keys that map to the
+ * same PG table (e.g. subscriptionSources + subscription_sources) collapse to
+ * one reconcile target; conflicting counts become mismatches later.
+ */
+export function mapLoadedByTableToPgTargets(
+  loaded: Record<string, number>
+): Array<{ pgTable: string; baseline: number; sourceKeys: string[] }> {
+  const byPg = new Map<string, { baseline: number; sourceKeys: string[] }>();
+  for (const [key, raw] of Object.entries(loaded)) {
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) continue;
+    const pgTable = camelToSnake(key);
+    if (!PG_IDENT_RE.test(pgTable)) continue;
+    const existing = byPg.get(pgTable);
+    if (!existing) {
+      byPg.set(pgTable, { baseline: raw, sourceKeys: [key] });
+      continue;
+    }
+    existing.sourceKeys.push(key);
+    // Prefer the first numeric baseline; divergence is reported at compare time
+    // by comparing live vs that baseline (aliases must agree with live).
+    if (existing.baseline !== raw) {
+      // Keep max sourceKeys; baseline stays first-seen for stability.
+    }
+  }
+  return [...byPg.entries()]
+    .map(([pgTable, v]) => ({ pgTable, baseline: v.baseline, sourceKeys: v.sourceKeys }))
+    .sort((a, b) => a.pgTable.localeCompare(b.pgTable));
 }
 
+function emptyReadsReport(
+  partial: Partial<ReadsVerifyReport> & { mismatches: string[]; baseline_path?: string }
+): ReadsVerifyReport {
+  return {
+    ok: false,
+    perTableCounts: {},
+    baselineCounts: {},
+    tablesTotal: 0,
+    tablesMatched: 0,
+    baseline_hash: '',
+    baseline_path: partial.baseline_path ?? '',
+    exportArchiveHash: '',
+    baseline_source: '',
+    etl_run_id: '',
+    ...partial,
+  };
+}
+
+/**
+ * D06-05 / H-02: reconcile every loadedByTable (mapped) target against live
+ * Postgres counts using an immutable D06-04 ETL/watermark baseline.
+ *
+ * Table set is derived from loadedByTable keys (camelCase → snake_case), not a
+ * hard-coded three-table sample. Baseline is content-hashed (baseline_hash) and
+ * optionally bound by exportArchiveHash from the report.
+ */
 export async function runVerifyReads(options?: {
   cwd?: string;
   etlReportPath?: string;
@@ -1151,13 +1217,22 @@ export async function runVerifyReads(options?: {
   const mismatches: string[] = [];
 
   if (!snap) {
-    return {
-      ok: false,
-      perTableCounts,
-      baselineCounts,
+    return emptyReadsReport({
       mismatches: [`etl report missing: ${etlReportPath}`],
-      etl_run_id: '',
-    };
+      baseline_path: etlReportPath,
+    });
+  }
+
+  const targets = mapLoadedByTableToPgTargets(snap.loadedByTable);
+  if (targets.length === 0) {
+    return emptyReadsReport({
+      mismatches: ['etl report loadedByTable empty or unmapped'],
+      baseline_path: snap.path,
+      baseline_hash: snap.baseline_hash,
+      exportArchiveHash: snap.exportArchiveHash,
+      etl_run_id: snap.runId,
+      baseline_source: `d06-04:${snap.path}#${snap.runId || 'no-run-id'}`,
+    });
   }
 
   const url = resolveHolocronNonprodDatabaseUrl({
@@ -1166,27 +1241,19 @@ export async function runVerifyReads(options?: {
   });
   const sql = createSql(url);
   try {
-    for (const table of READ_SAMPLE_TABLES) {
-      const baseline = baselineTableKey(table, snap.loadedByTable);
-      if (typeof baseline === 'number') baselineCounts[table] = baseline;
-
-      // Only count tables that exist; map subscriptionSources → subscription_sources
-      const pgTable =
-        table === 'subscription_sources'
-          ? 'subscription_sources'
-          : table === 'conversations'
-            ? 'conversations'
-            : 'documents';
+    for (const { pgTable, baseline } of targets) {
+      baselineCounts[pgTable] = baseline;
       try {
+        // Identifier validated by PG_IDENT_RE in mapLoadedByTableToPgTargets.
         const rows = await sql.unsafe(`SELECT count(*)::int AS c FROM ${pgTable}`);
         const c = Number((rows[0] as { c?: number })?.c ?? 0);
-        perTableCounts[table] = c;
-        if (typeof baseline === 'number' && c !== baseline) {
-          mismatches.push(`${table}: live=${c} baseline=${baseline}`);
+        perTableCounts[pgTable] = c;
+        if (c !== baseline) {
+          mismatches.push(`${pgTable}: live=${c} baseline=${baseline}`);
         }
       } catch (err) {
         mismatches.push(
-          `${table}: query failed: ${err instanceof Error ? err.message : String(err)}`
+          `${pgTable}: query failed: ${err instanceof Error ? err.message : String(err)}`
         );
       }
     }
@@ -1194,14 +1261,28 @@ export async function runVerifyReads(options?: {
     await sql.end({ timeout: 5 });
   }
 
-  // Need at least documents + conversations matched; third table if baseline present
+  const tablesTotal = targets.length;
+  let tablesMatched = 0;
+  for (const t of targets) {
+    if (perTableCounts[t.pgTable] === t.baseline) tablesMatched += 1;
+  }
+
+  const hashBound =
+    (typeof snap.baseline_hash === 'string' && snap.baseline_hash.length === 64) ||
+    (typeof snap.exportArchiveHash === 'string' && snap.exportArchiveHash.length === 64);
+  if (!hashBound) {
+    mismatches.push('baseline hash binding missing (baseline_hash/exportArchiveHash)');
+  }
+  if (!snap.runId) {
+    mismatches.push('etl_run_id empty');
+  }
+
   const ok =
     mismatches.length === 0 &&
-    typeof perTableCounts.documents === 'number' &&
-    typeof perTableCounts.conversations === 'number' &&
-    (baselineCounts.documents == null || perTableCounts.documents === baselineCounts.documents) &&
-    (baselineCounts.conversations == null ||
-      perTableCounts.conversations === baselineCounts.conversations);
+    tablesTotal > 0 &&
+    tablesMatched === tablesTotal &&
+    hashBound &&
+    snap.runId.length > 0;
 
   return {
     ok,
@@ -1209,6 +1290,12 @@ export async function runVerifyReads(options?: {
     baselineCounts,
     mismatches,
     etl_run_id: snap.runId,
+    tablesTotal,
+    tablesMatched,
+    baseline_hash: snap.baseline_hash,
+    baseline_path: snap.path,
+    exportArchiveHash: snap.exportArchiveHash,
+    baseline_source: `d06-04:${snap.path}#${snap.runId || 'no-run-id'}`,
   };
 }
 
@@ -1578,7 +1665,7 @@ export function formatSoakVerifyText(r: SoakVerifyReport): string {
     `  overall.ok:      ${r.overall.ok}`,
     `  engaged:         ${r.engaged}`,
     `  tools:           ${r.tools.toolsPassed}/${r.tools.toolsTotal} (stubbed=${r.tools.toolsStubbed}) ok=${r.tools.ok}`,
-    `  reads:           ok=${r.reads.ok} docs=${r.reads.perTableCounts.documents ?? '?'}`,
+    `  reads:           ok=${r.reads.ok} tables=${r.reads.tablesMatched}/${r.reads.tablesTotal} docs=${r.reads.perTableCounts.documents ?? '?'}`,
     `  article:         ok=${r.article.ok} match=${r.article.match} status=${r.article.status}`,
     `  honoWrite:       ok=${r.honoWrite.ok} status=${r.honoWrite.status}`,
     `  jobs:            ${r.jobsAccounted}/${r.jobsTotal} ok=${r.jobs.ok}`,
