@@ -3315,6 +3315,8 @@ async function main(): Promise<void> {
     }
     case 'cutover:rollback-repoint': {
       // H-05 / UC-SYNC-04: executable data-plane re-point to frozen Convex
+      // (C-02 also exposes soak-fence runCutoverRollbackRepoint; H-05 is the
+      // confirm/watermark-gated executable path used by cutover gates.)
       const {
         runRollbackRepoint,
         formatRollbackRepointText,
@@ -3330,16 +3332,6 @@ async function main(): Promise<void> {
         const report = runRollbackRepoint({
           reportPath,
           watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
-      // UC-SYNC-04 / REDHAT-FIX-S29-C02: reciprocal data-plane repoint to frozen Convex
-      const { runCutoverRollbackRepoint, formatRollbackRepointText, defaultRollbackReportPath } =
-        await import('../cutover/soak-fence.ts');
-      try {
-        const reportPath = args.output
-          ? resolve(args.output)
-          : defaultRollbackReportPath(process.cwd());
-        const report = runCutoverRollbackRepoint({
-          reportPath,
-          target: args.target ?? undefined,
         });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));
@@ -3357,7 +3349,6 @@ async function main(): Promise<void> {
           );
         }
         process.exit(0);
-        process.exit(report.ok ? 0 : 1);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (args.json) {
