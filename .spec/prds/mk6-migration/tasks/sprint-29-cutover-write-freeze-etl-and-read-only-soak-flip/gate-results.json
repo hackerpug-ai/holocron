@@ -1,32 +1,40 @@
 {
   "sprint": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
   "sprint_identity": {
-    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H01/.spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/.spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
     "sprint_slug": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip"
   },
-  "run_id": "20260802T025804Z",
+  "run_id": "20260802T034713Z",
   "verdict": "partial",
   "steps_total": 6,
   "steps_executed": 6,
-  "steps_passed": 2,
-  "steps_failed": 4,
+  "steps_passed": 3,
+  "steps_failed": 3,
   "ui_driver": "none",
   "exec_surface": "agent-real-cli",
   "runner": "real-cli",
-  "source_sha": "76ec02a9045a29059c5b9683b5c6f530d1be73dc",
-  "git_sha": "76ec02a9045a29059c5b9683b5c6f530d1be73dc",
+  "source_sha": "0b10964a4abc902b7eea51206e4f84ca66dfc620",
+  "git_sha": "0b10964a4abc902b7eea51206e4f84ca66dfc620",
   "deployed_base_url": "local-process://holo-cli",
   "service_identity": "local-process://holo-cli",
-  "started_at": "2026-08-02T02:58:04Z",
-  "finished_at": "2026-08-02T03:00:47Z",
-  "written_at": "2026-08-02T03:00:47Z",
+  "identity_class": "local-process",
+  "landing_eligible": false,
+  "started_at": "2026-08-02T03:47:13Z",
+  "finished_at": "2026-08-02T03:49:47Z",
+  "written_at": "2026-08-02T03:49:47Z",
   "meta": {
-    "task_id": "REDHAT-FIX-S29-R2-H01",
-    "source_sha": "76ec02a9045a29059c5b9683b5c6f530d1be73dc",
+    "task_id": "REDHAT-FIX-S29-R3-C01",
+    "lineage_task_id": "REDHAT-FIX-S29-R2-H01",
+    "source_sha": "0b10964a4abc902b7eea51206e4f84ca66dfc620",
+    "git_sha": "0b10964a4abc902b7eea51206e4f84ca66dfc620",
+    "head_bound": true,
     "deployed_base_url": "local-process://holo-cli",
     "service_identity": "local-process://holo-cli",
+    "identity_class": "local-process",
+    "landing_eligible": false,
+    "non_landing_reason": "no HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing",
     "historical_stale_run_id_preserved": "20260802T004525Z",
-    "gate_plan_predicates": "REDHAT-FIX-S29-H03 + REDHAT-FIX-S29-C01 (failed_count==0, require-all, non-null tools)",
+    "gate_plan_predicates": "REDHAT-FIX-S29-H03 + REDHAT-FIX-S29-C01 + R3-C01 HEAD bind",
     "sibling_blockers_for_full_6_of_6": [
       "REDHAT-FIX-S29-R2-C01",
       "REDHAT-FIX-S29-R2-C02",
@@ -34,9 +42,11 @@
       "REDHAT-FIX-S29-R2-C04",
       "REDHAT-FIX-S29-R2-H02",
       "REDHAT-FIX-S29-R2-H03",
-      "REDHAT-FIX-S29-R2-H04"
+      "REDHAT-FIX-S29-R2-H04",
+      "REDHAT-FIX-S29-R3-C02",
+      "REDHAT-FIX-S29-R3-C03"
     ],
-    "honest_note": "Verdict is honest per-step under current gate-plan oracles. Full 6/6 pass is not claimed while sibling remediations remain open unless all six current oracles actually pass."
+    "honest_note": "Verdict is honest per-step under current gate-plan oracles. git_sha equals git rev-parse HEAD. local-process:// is non-landing; 6/6 against deployed HTTP identity required for landing. Full 6/6 is not claimed unless all six current oracles actually pass."
   },
   "steps": [
     {
@@ -47,7 +57,7 @@
       "result": "fail",
       "evidence": "exit=1",
       "exit_code": 1,
-      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T025804Z/step1.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T034713Z/step1.log"
     },
     {
       "n": 2,
@@ -57,7 +67,7 @@
       "result": "pass",
       "evidence": "exit=0",
       "exit_code": 0,
-      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T025804Z/step2.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T034713Z/step2.log"
     },
     {
       "n": 3,
@@ -67,7 +77,7 @@
       "result": "pass",
       "evidence": "exit=0",
       "exit_code": 0,
-      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T025804Z/step3.log"
+      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T034713Z/step3.log"
     },
     {
       "n": 4,
@@ -75,9 +85,9 @@
       "type": "terminal",
       "executed": true,
       "result": "fail",
-      "evidence": "exit=2",
-      "exit_code": 2,
-      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T025804Z/step4.log"
+      "evidence": "exit=1",
+      "exit_code": 1,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T034713Z/step4.log"
     },
     {
       "n": 5,
@@ -85,19 +95,19 @@
       "type": "terminal",
       "executed": true,
       "result": "fail",
-      "evidence": "exit=2",
-      "exit_code": 2,
-      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T025804Z/step5.log"
+      "evidence": "exit=1",
+      "exit_code": 1,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T034713Z/step5.log"
     },
     {
       "n": 6,
       "text": "Write returns migration_read_only (HTTP 423) on real Hono surface during soak",
       "type": "terminal",
       "executed": true,
-      "result": "fail",
-      "evidence": "exit=1",
-      "exit_code": 1,
-      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T025804Z/step6.log"
+      "result": "pass",
+      "evidence": "exit=0",
+      "exit_code": 0,
+      "log": ".spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/.gate-evidence/20260802T034713Z/step6.log"
     }
   ]
 }

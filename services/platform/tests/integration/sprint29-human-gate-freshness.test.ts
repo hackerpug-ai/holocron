@@ -1,10 +1,15 @@
 /**
- * REDHAT-FIX-S29-R2-H01 — Sprint 29 human-gate freshness + re-run harness oracles.
+ * REDHAT-FIX-S29-R2-H01 + REDHAT-FIX-S29-R3-C01 — Sprint 29 human-gate freshness.
  *
  * AC-1 (PRIMARY / RED→GREEN): Authoritative gate-results.json MUST NOT present
  * historical false-pass run_id 20260802T004525Z as verdict:pass for the remediated
  * gate-plan/source. While that stale pass is still current, this suite fails closed.
  * After GREEN re-run: new run_id, evidence binds SHA + deployed identity, honest verdict.
+ *
+ * R3-C01 (CRITICAL): gate-results.git_sha / source_sha MUST equal `git rev-parse HEAD`
+ * of the candidate worktree — not merely "looks like a SHA". local-process:// identity
+ * is recorded honestly but is non-landing; 6/6 against a deployed HTTP identity is
+ * required before landing claims.
  *
  * AC-2–AC-5: re-run harness executes gate-plan literal_cmds via real cutover CLI;
  * step1 failed_count==0; sibling incomplete does not authorize fake 6/6.
@@ -38,7 +43,11 @@ const STALE_EVIDENCE = resolve(EVIDENCE_ROOT, STALE_RUN_ID);
 const RERUN_SCRIPT = resolve(REPO_ROOT, 'scripts/run-sprint29-human-gate-rerun.sh');
 const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const HOLO_CLI_TOKEN = 'bun services/platform/src/cli/holo.ts';
-const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H01');
+/** R2-H01 lineage evidence root (preserved). */
+const EVIDENCE_DIR_R2 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-H01');
+/** R3-C01 evidence root — HEAD-bound freshness + landing eligibility. */
+const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R3-C01');
+const LOCAL_PROCESS_IDENTITY_RE = /^local-process:\/\//i;
 
 type GateResults = {
   run_id?: string;
@@ -52,15 +61,22 @@ type GateResults = {
   tree_sha?: string;
   deployed_base_url?: string;
   service_identity?: string;
+  landing_eligible?: boolean;
+  identity_class?: string;
   started_at?: string;
   finished_at?: string;
   written_at?: string;
   meta?: {
     source_sha?: string;
+    git_sha?: string;
     deployed_base_url?: string;
     service_identity?: string;
     sibling_blockers_for_full_6_of_6?: string[];
     task_id?: string;
+    landing_eligible?: boolean;
+    identity_class?: string;
+    non_landing_reason?: string;
+    head_bound?: boolean;
   };
   steps?: Array<{
     n: number;
@@ -70,6 +86,69 @@ type GateResults = {
     exit_code?: number;
   }>;
 };
+
+function revParseHead(): string {
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  });
+  expect(head.status, `git rev-parse HEAD failed: ${head.stderr ?? ''}`).toBe(0);
+  const sha = (head.stdout ?? '').trim();
+  expect(sha).toMatch(/^[0-9a-f]{40}$/);
+  return sha;
+}
+
+/**
+ * R3-C01: gate-results must bind to the code under test.
+ * Prefer exact `git rev-parse HEAD` equality. If HEAD only adds evidence artifacts
+ * on top of the bound SHA (self-referential commit-hash problem), allow git_sha ===
+ * HEAD~N when the diff from git_sha..HEAD is evidence-only paths.
+ */
+function assertGitShaBoundToHead(gitSha: string): { head: string; mode: string } {
+  const head = revParseHead();
+  if (gitSha === head) {
+    return { head, mode: 'exact-HEAD' };
+  }
+
+  // Evidence-only delta allowance (never silent ancestor drift across product code).
+  const mergeBase = spawnSync('git', ['merge-base', gitSha, head], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  });
+  const base = (mergeBase.stdout ?? '').trim();
+  expect(
+    mergeBase.status,
+    `git_sha ${gitSha} is not an ancestor of HEAD ${head} (stale ancestor binding forbidden)`
+  ).toBe(0);
+  expect(base).toBe(gitSha);
+
+  const diff = spawnSync('git', ['diff', '--name-only', `${gitSha}..${head}`], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  });
+  expect(diff.status, `git diff ${gitSha}..${head} failed`).toBe(0);
+  const files = (diff.stdout ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const evidenceOnly = files.every(
+    (f) =>
+      /gate-results\.json$/.test(f) ||
+      /GATE-RESULTS\.md$/.test(f) ||
+      /\/\.gate-evidence\//.test(f) ||
+      /^\.tmp\//.test(f) ||
+      /REDHAT-FIX-S29-R3-C01/.test(f)
+  );
+  expect(
+    evidenceOnly && files.length > 0,
+    `git_sha ${gitSha} != HEAD ${head}; diff includes non-evidence paths:\n${files.join('\n') || '(empty)'}`
+  ).toBe(true);
+  return { head, mode: 'evidence-only-delta' };
+}
+
+function isLocalProcessIdentity(identity: string | null | undefined): boolean {
+  return LOCAL_PROCESS_IDENTITY_RE.test(String(identity ?? ''));
+}
 
 type GatePlan = {
   steps?: Array<{ n: number; method?: string; literal_cmd?: string; text?: string }>;
@@ -138,18 +217,21 @@ const STEP1_ORACLE =
 const STEP5_ORACLE =
   '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and ((.zeroWritePath.status == "NOT_LANDED") or (.zeroWritePath.status == "BLOCKED")) and ((.engaged == true) or (.tools.ok == true))';
 
-describe('REDHAT-FIX-S29-R2-H01 sprint29 human-gate freshness', () => {
+describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   beforeAll(() => {
     ensureEvidenceDir();
+    mkdirSync(EVIDENCE_DIR_R2, { recursive: true });
     expect(PLATFORM_IT, 'PLATFORM_IT=1 required for R2-H01 freshness integration').toBe(true);
     expect(existsSync(HOLO_CLI), `holo CLI missing: ${HOLO_CLI}`).toBe(true);
     writeEvidence('boot.json', {
-      task: 'REDHAT-FIX-S29-R2-H01',
+      task: 'REDHAT-FIX-S29-R3-C01',
+      lineage: 'REDHAT-FIX-S29-R2-H01',
       gateResults: GATE_RESULTS,
       gatePlan: GATE_PLAN,
       staleRunId: STALE_RUN_ID,
       rerunScript: RERUN_SCRIPT,
       platformIt: PLATFORM_IT,
+      head: revParseHead(),
     });
   });
 
@@ -262,7 +344,7 @@ describe('REDHAT-FIX-S29-R2-H01 sprint29 human-gate freshness', () => {
     () => {
       expect(existsSync(RERUN_SCRIPT), `re-run harness missing: ${RERUN_SCRIPT}`).toBe(true);
       const script = readFileSync(RERUN_SCRIPT, 'utf8');
-      expect(script).toMatch(/REDHAT-FIX-S29-R2-H01/);
+      expect(script).toMatch(/REDHAT-FIX-S29-R2-H01|REDHAT-FIX-S29-R3-C01/);
       expect(script).toMatch(/gate-plan\.json/);
       expect(script).toMatch(/literal_cmd/);
       expect(script).toMatch(/20260802T004525Z/);
@@ -270,6 +352,10 @@ describe('REDHAT-FIX-S29-R2-H01 sprint29 human-gate freshness', () => {
       // Must refuse forging pass / refuse stale id
       expect(script).toMatch(/never forge|refuse|honest/i);
       expect(script).not.toMatch(/PATH holo stub|holo cutover/);
+      // R3-C01: harness must bind evidence to HEAD and classify landing eligibility
+      expect(script).toMatch(/rev-parse HEAD/);
+      expect(script).toMatch(/landing_eligible/);
+      expect(script).toMatch(/local-process/);
 
       const plan = loadPlan();
       expect(plan.dispatcher).toContain('services/platform/src/cli/holo.ts');
@@ -317,17 +403,33 @@ describe('REDHAT-FIX-S29-R2-H01 sprint29 human-gate freshness', () => {
   );
 
   itLive(
-    'AC-3 / R2-H01: fresh gate-results bind new run_id, source SHA, deployed identity, step logs',
+    'AC-3 / R2-H01 + R3-C01: fresh gate-results bind new run_id, HEAD-equal SHA, identity, step logs',
     () => {
       const results = loadResults();
       const runId = String(results.run_id ?? '');
+      const head = revParseHead();
 
       expect(runId.length, 'run_id required').toBeGreaterThan(0);
       expect(runId).not.toBe(STALE_RUN_ID);
 
       const sha = sourceSha(results);
       expect(sha, 'source_sha/git_sha required on fresh results').toBeTruthy();
-      expect(String(sha)).toMatch(/^[0-9a-f]{7,40}$|unknown/);
+      expect(String(sha)).toMatch(/^[0-9a-f]{40}$/);
+      // R3-C01 PRIMARY: bind to HEAD (exact) or evidence-only delta off the bound code SHA —
+      // never mere "looks like a SHA" and never silent ancestor drift across product code.
+      const bind = assertGitShaBoundToHead(String(sha));
+      expect(String(results.git_sha ?? '')).toBe(String(sha));
+      expect(String(results.source_sha ?? results.git_sha ?? '')).toBe(String(sha));
+      if (results.meta?.source_sha) {
+        expect(String(results.meta.source_sha)).toBe(String(sha));
+      }
+      if (results.meta?.git_sha) {
+        expect(String(results.meta.git_sha)).toBe(String(sha));
+      }
+      // Prefer exact HEAD when working tree has no post-bind commits
+      if (bind.mode === 'exact-HEAD') {
+        expect(String(sha)).toBe(head);
+      }
 
       const identity = deployedIdentity(results);
       expect(identity, 'deployed_base_url or service_identity required').toBeTruthy();
@@ -351,12 +453,15 @@ describe('REDHAT-FIX-S29-R2-H01 sprint29 human-gate freshness', () => {
           /CMD:|cutover:|bun services\/platform\/src\/cli\/holo\.ts|migration_read_only/
         );
         expect(body).toMatch(/GATE-EXIT=|@@GATE-EXIT=/);
+        // Logs must cite the HEAD-bound source_sha (R3-C01)
+        expect(body).toMatch(new RegExp(head.slice(0, 12)));
       }
 
-      // GATE-RESULTS.md cites the fresh run_id
+      // GATE-RESULTS.md cites the fresh run_id and HEAD
       expect(existsSync(GATE_RESULTS_MD)).toBe(true);
       const md = readFileSync(GATE_RESULTS_MD, 'utf8');
       expect(md).toContain(runId);
+      expect(md).toContain(head);
       // Must not present only the stale id as current VERIFIED 6/6
       if (results.verdict === 'pass') {
         expect(md).toMatch(new RegExp(runId));
@@ -370,12 +475,85 @@ describe('REDHAT-FIX-S29-R2-H01 sprint29 human-gate freshness', () => {
       writeEvidence('ac3-fresh-meta.json', {
         run_id: runId,
         source_sha: sha,
+        git_sha: results.git_sha,
+        head: bind.head,
+        head_equal: sha === bind.head,
+        bind_mode: bind.mode,
         deployed_identity: identity,
         verdict: results.verdict,
         steps_passed: results.steps_passed,
         steps_executed: results.steps_executed,
         evidence_dir: runEvidence,
         historical_preserved: existsSync(STALE_EVIDENCE),
+      });
+    }
+  );
+
+  itLive(
+    'R3-C01: local-process identity is non-landing; 6/6 pass requires deployed identity for landing',
+    () => {
+      const results = loadResults();
+      const head = revParseHead();
+      const identity = String(deployedIdentity(results) ?? '');
+      const local = isLocalProcessIdentity(identity);
+      const landingEligible = results.landing_eligible ?? results.meta?.landing_eligible ?? null;
+      const identityClass =
+        results.identity_class ??
+        results.meta?.identity_class ??
+        (local ? 'local-process' : 'deployed-http');
+
+      // HEAD binding still required (exact or evidence-only delta)
+      assertGitShaBoundToHead(String(results.git_sha ?? ''));
+      expect(String(results.git_sha ?? '')).toMatch(/^[0-9a-f]{40}$/);
+      void head;
+
+      if (local) {
+        // Self-minted localhost / local-process:// is honest but never landable
+        expect(
+          landingEligible === false || landingEligible === null,
+          'local-process identity must not set landing_eligible=true'
+        ).toBe(true);
+        if (landingEligible !== null) {
+          expect(landingEligible).toBe(false);
+        }
+        expect(String(identityClass)).toMatch(/local-process/i);
+        // Even a forged 6/6 under local-process cannot certify landing
+        if (results.verdict === 'pass' && results.steps_passed === 6) {
+          expect(
+            results.landing_eligible ?? results.meta?.landing_eligible,
+            '6/6 under local-process:// is non-landing (R3-C01)'
+          ).toBe(false);
+        }
+      } else {
+        // Deployed HTTP identity may be landing-eligible only when 6/6 and HEAD-bound
+        const canLand =
+          results.verdict === 'pass' &&
+          results.steps_passed === 6 &&
+          results.steps_executed === 6 &&
+          String(results.git_sha) === head;
+        if (landingEligible !== null) {
+          expect(landingEligible).toBe(canLand);
+        }
+      }
+
+      // Harness must refuse claiming landing for local-process theatre
+      const script = readFileSync(RERUN_SCRIPT, 'utf8');
+      expect(script).toMatch(/landing_eligible|non-landing|local-process/i);
+      expect(script).toMatch(/REDHAT-FIX-S29-R3-C01|R3-C01/);
+      expect(script).toMatch(/rev-parse HEAD|git_sha/);
+
+      writeEvidence('r3-c01-identity-landing.json', {
+        head,
+        git_sha: results.git_sha,
+        identity,
+        local_process: local,
+        identity_class: identityClass,
+        landing_eligible: landingEligible,
+        verdict: results.verdict,
+        steps_passed: results.steps_passed,
+        note: local
+          ? 'local-process://holo-cli recorded honestly; non-landing for cutover approval'
+          : 'deployed identity present; landing requires 6/6 + HEAD bind',
       });
     }
   );

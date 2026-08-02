@@ -4,6 +4,25 @@
   "planned_steps": 6,
   "remediated_at": "20260802T020000Z",
   "remediation": "REDHAT-FIX-S29-H03",
+  "identity_binding": {
+    "task": "REDHAT-FIX-S29-R3-C01",
+    "require_git_sha_equals_head": true,
+    "prefer_deployed_http_env": [
+      "HOLO_VERIFY_BASE_URL",
+      "HOLO_SOAK_BASE_URL",
+      "PLATFORM_URL",
+      "HOLO_SERVICE_IDENTITY"
+    ],
+    "local_process_identity": "local-process://holo-cli",
+    "local_process_landing_eligible": false,
+    "landing_requires": [
+      "verdict==pass",
+      "steps_passed==6",
+      "git_sha==git rev-parse HEAD",
+      "identity_class!=local-process"
+    ],
+    "notes": "gate-results.git_sha/source_sha must equal worktree HEAD. local-process:// is honest non-landing theatre. Prefer independently identified deployed HTTP service for landing claims."
+  },
   "dispatcher": "bun services/platform/src/cli/holo.ts",
   "sprint_identity": {
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
@@ -18,7 +37,8 @@
     "Step 5 flip + verify-soak requires overall.ok AND non-null toolsPassed==toolsTotal>0 AND jobsAccounted==jobsTotal AND article/honoWrite/reads/zeroWritePath subresults.",
     "Step 6 write probe asserts HTTP 423 + migration_read_only body. Residual until REDHAT-FIX-S29-C02: process-local HOLO_MIGRATION_READ_ONLY engagement cannot prove distributed flip propagation; gate still refuses green without the 423 body.",
     "Historical false-pass lineage preserved under .gate-evidence/20260802T004525Z/ (do not rewrite). Oracle suite: PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts",
-    "REDHAT-FIX-S29-R2-H01: re-run via scripts/run-sprint29-human-gate-rerun.sh; freshness suite services/platform/tests/integration/sprint29-human-gate-freshness.test.ts refuses run_id 20260802T004525Z as current pass. Full 6/6 may block on R2-C01..C04 / R2-H02..H04 — honest fail/partial required."
+    "REDHAT-FIX-S29-R2-H01: re-run via scripts/run-sprint29-human-gate-rerun.sh; freshness suite services/platform/tests/integration/sprint29-human-gate-freshness.test.ts refuses run_id 20260802T004525Z as current pass. Full 6/6 may block on R2-C01..C04 / R2-H02..H04 — honest fail/partial required.",
+    "REDHAT-FIX-S29-R3-C01: gate-results.git_sha MUST equal git rev-parse HEAD (not merely look like a SHA). Prefer deployed HTTP identity; local-process:// is documented as non-landing. Never forge 6/6."
   ],
   "oracle_suite": {
     "command": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts",

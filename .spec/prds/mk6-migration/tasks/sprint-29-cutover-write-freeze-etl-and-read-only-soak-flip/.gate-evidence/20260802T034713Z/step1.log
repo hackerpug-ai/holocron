@@ -1,0 +1,99 @@
+@@GATE-META step=1 task=REDHAT-FIX-S29-R3-C01 run_id=20260802T034713Z source_sha=0b10964a4abc902b7eea51206e4f84ca66dfc620 git_sha=0b10964a4abc902b7eea51206e4f84ca66dfc620 started_at=2026-08-02T03:47:13Z deployed_base_url=local-process://holo-cli identity_class=local-process@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-02 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:go-no-go --json --output go-no-go-report.json | tee .tmp/REDHAT-FIX-S29-H03/step1-go-no-go.json; jq -e '.overall.ok == true and .failed_count == 0 and (.gates | length) == 8 and all(.gates[] | select(.collectedTests != null); .collectedTests > 0)' go-no-go-report.json
+---
+{
+  "ok": false,
+  "overall": {
+    "ok": false
+  },
+  "git_sha": "0b10964a4abc902b7eea51206e4f84ca66dfc620",
+  "generated_at": "2026-08-02T03:47:19.280Z",
+  "gates": [
+    {
+      "name": "lint",
+      "command": "pnpm biome check .",
+      "exit_code": 254,
+      "duration_ms": 733,
+      "pass": false,
+      "collectedTests": null,
+      "stdout_tail": "undefined\n ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command \"biome\" not found\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm tsgo --noEmit -p services/platform/tsconfig.json",
+      "exit_code": 254,
+      "duration_ms": 695,
+      "pass": false,
+      "collectedTests": null,
+      "stdout_tail": "undefined\n ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command \"tsgo\" not found\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "unit",
+      "command": "pnpm vitest run --project unit",
+      "exit_code": 254,
+      "duration_ms": 749,
+      "pass": false,
+      "collectedTests": 0,
+      "stdout_tail": "undefined\n ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command \"vitest\" not found\n\nDid you mean \"pnpm test\"?\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "integration",
+      "command": "pnpm vitest run --project integration",
+      "exit_code": 254,
+      "duration_ms": 955,
+      "pass": false,
+      "collectedTests": 0,
+      "stdout_tail": "undefined\n ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command \"vitest\" not found\n\nDid you mean \"pnpm test\"?\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "live",
+      "command": "pnpm vitest run --project live",
+      "exit_code": 254,
+      "duration_ms": 754,
+      "pass": false,
+      "collectedTests": 0,
+      "stdout_tail": "undefined\n ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command \"vitest\" not found\n\nDid you mean \"pnpm test\"?\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "lanes",
+      "command": "pnpm test:lanes",
+      "exit_code": 1,
+      "duration_ms": 1288,
+      "pass": false,
+      "collectedTests": null,
+      "stdout_tail": "\n> holocron@1.0.0 test:lanes /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01\n> npx tsx scripts/check-test-lanes.ts\n\nvitest lane file-count guard (AC-6 / F3)\n=========================================\nOK    workspace: vitest.workspace.ts defines unit/integration/live + vitest.config.ts wires test.projects\n\nOK   unit          100 files (expected 80-200)\nFAIL integration   227 files (expected 150-170)\n        OVERCOLLECTED — lane collected 227 > 170; include too broad\nOK   live            2 files (expected 1-10)\n\nbun:test excluded (different runner): 8 files\ntotal vitest integration files: 227\n\n ELIFECYCLE  Command failed with exit code 1.\n WARN   Local package.json exists, but node_modules missing, did you mean to install?\n",
+      "stderr_tail": "npm warn Unknown env config \"node-linker\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown project config \"node-linker\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nLANE GUARD FAILED — see above\n"
+    },
+    {
+      "name": "no-convex-client",
+      "command": "bun services/platform/src/cli/holo.ts verify:no-convex-client",
+      "exit_code": 0,
+      "duration_ms": 102,
+      "pass": true,
+      "collectedTests": null,
+      "stdout_tail": "holo verify:no-convex-client — CAP-CUT-01 build gate\n  scanned_roots (4): app, components, hooks, screens\n  zero convex/react client imports (clean)\n  status: OK\n",
+      "stderr_tail": ""
+    },
+    {
+      "name": "no-convex-env",
+      "command": "bun services/platform/src/cli/holo.ts verify-no-convex-env",
+      "exit_code": 1,
+      "duration_ms": 101,
+      "pass": false,
+      "collectedTests": null,
+      "stdout_tail": "holo verify-no-convex-env — T-PLAT-017 build gate\n  scanned: app, holocron-mcp, services/platform\n  Found 16 Convex env aliases\n\nservices/platform/tests/integration/write-fence-red.helpers.ts: EXPO_PUBLIC_CONVEX_URL\n  L433: process.env.EXPO_PUBLIC_CONVEX_URL ??\nservices/platform/tests/integration/write-fence-red.helpers.ts: CONVEX_URL\n  L435: process.env.CONVEX_URL;\nservices/platform/tests/integration/write-fence-red.helpers.ts: EXPO_PUBLIC_CONVEX_URL\n  L438: 'EXPO_PUBLIC_CONVEX_URL (or VITE_CONVEX_HTTP_URL) is required for Convex fence RED tests'\nservices/platform/src/cutover/article-baseline.ts: EXPO_PUBLIC_CONVEX_URL\n  L276: process.env.EXPO_PUBLIC_CONVEX_URL ??\nservices/platform/src/cutover/article-baseline.ts: CONVEX_URL\n  L278: process.env.CONVEX_URL;\nservices/platform/src/cutover/article-baseline.ts: EXPO_PUBLIC_CONVEX_URL\n  L283: 'EXPO_PUBLIC_CONVEX_SITE_URL (or EXPO_PUBLIC_CONVEX_URL) required for article baseline'\nservices/platform/src/cutover/convex-fence-client.ts: EXPO_PUBLIC_CONVEX_URL\n  L188: process.env.EXPO_PUBLIC_CONVEX_URL ??\nservices/platform/src/cutover/convex-fence-client.ts: CONVEX_URL\n  L190: process.env.CONVEX_URL;\nservices/platform/src/cutover/convex-fence-client.ts: EXPO_PUBLIC_CONVEX_URL\n  L193: 'EXPO_PUBLIC_CONVEX_URL (or CONVEX_URL) is required for cutover fence operations'\nservices/platform/src/cutover/convex-fence-client.ts: CONVEX_URL\n  L320: // CONVEX_URL is injected explicitly; child must not rely on parent in-memory state.\nservices/platform/src/cutover/convex-fence-client.ts: EXPO_PUBLIC_CONVEX_URL\n  L324: 'const url = process.env.EXPO_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;',\nservices/platform/src/cutover/convex-fence-client.ts: CONVEX_URL\n  L325: 'if (!url) { console.log(JSON.stringify({ ok:false, error:\"missing CONVEX_URL\" })); process.exit(2); }',\nservices/platform/src/cutover/convex-fence-client.ts: EXPO_PUBLIC_CONVEX_URL\n  L368: EXPO_PUBLIC_CONVEX_URL: url,\nservices/platform/src/cutover/convex-fence-client.ts: CONVEX_URL\n  L369: CONVEX_URL: url,\nservices/platform/src/cutover/soak-fence.ts: CONVEX_URL\n  L1033: process.env.CONVEX_URL?.trim() ||\nservices/platform/src/cutover/soak-fence.ts: CONVEX_URL\n  L1034: process.env.VITE_CONVEX_URL?.trim() ||\n  status: FAIL\n",
+      "stderr_tail": ""
+    }
+  ],
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-C01/go-no-go-report.json",
+  "failed_count": 7
+}
+---
+@@GATE-EXIT=1@@
+@@GATE-ENDED=2026-08-02T03:47:19Z@@
+@@GATE-TIMEOUT-CAP=600s@@
