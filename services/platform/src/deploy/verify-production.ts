@@ -364,6 +364,7 @@ async function restartAndDurabilityProbe(options: {
     '{{.State.Pid}}',
     'old PID'
   );
+  if (oldPid <= 1) verifyFail(`Mastra host PID is unsafe for SIGKILL: ${oldPid}`);
   const restartCountBefore = inspectNumber(
     options.runner,
     options.cwd,
@@ -372,10 +373,24 @@ async function restartAndDurabilityProbe(options: {
     '{{.RestartCount}}',
     'restart count'
   );
+  // `docker kill` is classified by Docker as an operator stop and suppresses
+  // restart-policy recovery. Send SIGKILL to the container's host PID from a
+  // short-lived host-PID helper instead, which models an actual unexpected PID
+  // 1 death and lets Docker's restart manager perform the recovery under test.
   runOrFail(options.runner, options.cwd, options.env, 'docker', [
-    'kill',
-    '--signal=KILL',
-    containerId,
+    'run',
+    '--rm',
+    '--privileged',
+    '--pid=host',
+    '--user',
+    '0:0',
+    '--entrypoint',
+    '/bin/sh',
+    options.record.image,
+    '-ec',
+    'kill -KILL "$1"',
+    'pid1-killer',
+    String(oldPid),
   ]);
 
   const deadline = Date.now() + 180_000;
