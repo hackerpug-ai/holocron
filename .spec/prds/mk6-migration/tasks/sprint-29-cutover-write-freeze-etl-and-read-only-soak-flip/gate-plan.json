@@ -70,7 +70,11 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "notes": "D06-07: explicit authorization, exact four services, no cutover action or volume deletion.",
-        "require_all_regex": ["\"authorized\"\\s*:\\s*true", "\"host\"\\s*:\\s*\"inference1\"", "\"cutoverActions\"\\s*:\\s*0"]
+        "require_all_regex": [
+          "\"authorized\"\\s*:\\s*true",
+          "\"host\"\\s*:\\s*\"inference1\"",
+          "\"cutoverActions\"\\s*:\\s*0"
+        ]
       }
     },
     {
@@ -83,7 +87,11 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "notes": "D06-07: docker kill SIGKILL, not compose stop, proves restart policy and both durable sentinels.",
-        "require_all_regex": ["\"signal\"\\s*:\\s*\"SIGKILL\"", "\"toolsListCount\"\\s*:\\s*44", "\"status\"\\s*:\\s*503"]
+        "require_all_regex": [
+          "\"signal\"\\s*:\\s*\"SIGKILL\"",
+          "\"toolsListCount\"\\s*:\\s*44",
+          "\"status\"\\s*:\\s*503"
+        ]
       }
     },
     {
@@ -96,7 +104,11 @@
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "notes": "D06-07: observed health identity only; initialize/tools-list registration proof, never tools/call or soak.",
-        "require_all_regex": ["LOOPBACK_REJECTED|\"loopback\"", "\"toolsListCount\"\\s*:\\s*44", "\"toolInvocations\"\\s*:\\s*0"]
+        "require_all_regex": [
+          "LOOPBACK_REJECTED|\"loopback\"",
+          "\"toolsListCount\"\\s*:\\s*44",
+          "\"toolInvocations\"\\s*:\\s*0"
+        ]
       }
     },
     {
@@ -108,7 +120,12 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "require_all_regex": ["cutover:freeze|\"fence_armed_at\"", "cutover:quiet-check|\"acceptedWriteCount\"", "\"rejectedWriteCount\"", "\"windowSeconds\""]
+        "require_all_regex": [
+          "cutover:freeze|\"fence_armed_at\"",
+          "cutover:quiet-check|\"acceptedWriteCount\"",
+          "\"rejectedWriteCount\"",
+          "\"windowSeconds\""
+        ]
       }
     },
     {
@@ -120,7 +137,10 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "require_all_regex": ["cutover:run-etl|\"unexplainedVariance\"", "nonEmpty|loadedByTable|fkAudit|vectors"]
+        "require_all_regex": [
+          "cutover:run-etl|\"unexplainedVariance\"",
+          "nonEmpty|loadedByTable|fkAudit|vectors"
+        ]
       }
     },
     {
@@ -132,7 +152,10 @@
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "require_all_regex": ["cutover:verify-soak|cutover:flip|\"toolsPassed\"|\"toolsTotal\"", "\"overall\""],
+        "require_all_regex": [
+          "cutover:verify-soak|cutover:flip|\"toolsPassed\"|\"toolsTotal\"",
+          "\"overall\""
+        ],
         "must_not_observe": ["\"toolsPassed\"\\s*:\\s*null", "\"toolsTotal\"\\s*:\\s*null"]
       }
     },

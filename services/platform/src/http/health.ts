@@ -19,10 +19,7 @@ import {
   startQueueBackend,
   stopQueueBackend,
 } from '../queue/backend.ts';
-import {
-  type DeploymentIdentityProbe,
-  readDeploymentIdentity,
-} from './deployment-identity.ts';
+import { type DeploymentIdentityProbe, readDeploymentIdentity } from './deployment-identity.ts';
 
 /** Fleet base as required by AC-2 (no /v1 suffix on the reported endpoint). */
 export const DEFAULT_FLEET_ENDPOINT = 'http://127.0.0.1:4545';
