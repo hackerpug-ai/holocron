@@ -12,11 +12,11 @@
       "text": "Run full harness suite against new stack",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "jq -e \".gates | length == 8\" go-no-go-report.json",
+      "literal_cmd": "mkdir -p .tmp/D06-02 && bun services/platform/src/cli/holo.ts cutover:go-no-go --json --output .tmp/D06-02/go-no-go-report.json && jq -e '.overall.ok == true and .failed_count == 0 and (.gates|length) == 8 and ([.gates[] | select(.name==\"unit\" or .name==\"integration\" or .name==\"live\") | .collectedTests // 0] | min) > 0' .tmp/D06-02/go-no-go-report.json",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
-        "expect_log_regex": "."
+        "expect_log_regex": "\"overall\""
       }
     },
     {
