@@ -1,5 +1,5 @@
 /**
- * D06-05 GREEN: flip app + MCP into rollbackable read-only soak; verification gates.
+ * D06-05 GREEN + REDHAT-FIX-S29-C02: durable flip, cross-process fence, rollback-repoint.
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
@@ -7,7 +7,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -15,10 +15,14 @@ import {
   DEFAULT_KEYS,
   PLATFORM_IT,
 } from '../../../../tests/integration/service/harness';
+import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
   ETL_NOT_RECONCILED,
   isMigrationReadOnly,
+  MIGRATION_READ_ONLY_ENV,
+  readDurableMigrationReadOnly,
   runCutoverFlip,
+  runCutoverRollbackRepoint,
   runHonoWriteSweep,
   runVerifyArticle,
   runVerifyJobs,
@@ -26,6 +30,7 @@ import {
   runVerifySoak,
   runVerifyTools,
   setMigrationReadOnlyEnv,
+  writeDurableMigrationReadOnly,
 } from '../../src/cutover/soak-fence.ts';
 import { createSql, type Sql } from '../../src/db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
@@ -51,17 +56,26 @@ if (!PLATFORM_IT) {
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/D06-05');
+const C02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-C02');
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
   context: 'sprint29-soak-flip test',
 });
 const RUN = randomUUID().slice(0, 8);
+/** Disposable control-plane for durable fence tests (never touch real secrets.yaml). */
+const DISPOSABLE_SECRETS = resolve(C02_EVIDENCE, `secrets-${RUN}.yaml`);
 
 function evidence(name: string, body: unknown): void {
   mkdirSync(EVIDENCE, { recursive: true });
   const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
   writeFileSync(resolve(EVIDENCE, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
+}
+
+function c02Evidence(name: string, body: unknown): void {
+  mkdirSync(C02_EVIDENCE, { recursive: true });
+  const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
+  writeFileSync(resolve(C02_EVIDENCE, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
 }
 
 function holo(
@@ -78,6 +92,7 @@ function holo(
       HOLO_KEY_RN: DEFAULT_KEYS.rn,
       HOLO_KEY_MCP: DEFAULT_KEYS.mcp,
       HOLO_KEY_CONTROL: DEFAULT_KEYS.control,
+      HOLO_SECRETS_PATH: DISPOSABLE_SECRETS,
       ...env,
     },
   });
@@ -94,7 +109,17 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   beforeAll(async () => {
     mkdirSync(EVIDENCE, { recursive: true });
+    mkdirSync(C02_EVIDENCE, { recursive: true });
+    // Disposable control-plane — isolate durable fence from operator secrets.yaml
+    writeFileSync(
+      DISPOSABLE_SECRETS,
+      '# disposable C-02 secrets\nHOLO_MIGRATION_READ_ONLY: "0"\nHOLO_DATA_PLANE: "postgres"\n',
+      { mode: 0o600 }
+    );
+    process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
     unsetMigrationFlag();
+    // Explicit disengage so durable re-read of "0" does not arm fence
+    setMigrationReadOnlyEnv('0');
     sql = createSql(DATABASE_URL);
 
     // Seed a public article for Hono byte-parity baseline (AC-4 shape)
@@ -228,6 +253,13 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   }, 120_000);
 
   afterAll(async () => {
+    // Disengage durable + in-process fence for isolation
+    try {
+      writeDurableMigrationReadOnly('0', { secretsPath: DISPOSABLE_SECRETS });
+    } catch {
+      /* ignore */
+    }
+    setMigrationReadOnlyEnv('0');
     unsetMigrationFlag();
     await sql?.end({ timeout: 5 });
   });
@@ -235,16 +267,19 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   // ── AC-1 / TC-1 / TC-2 ────────────────────────────────────────────────────
 
   it('TC-1/AC-1: cutover:flip refuses when unexplainedVariance > 0', () => {
-    unsetMigrationFlag();
+    setMigrationReadOnlyEnv('0');
     const report = runCutoverFlip({
       cwd: REPO_ROOT,
       etlReportPath: varianceEtlPath,
       reportPath: resolve(EVIDENCE, 'flip-variance.json'),
+      secretsPath: DISPOSABLE_SECRETS,
     });
     evidence('tc1-flip-variance.json', report);
     expect(report.ok).toBe(false);
     expect(report.error?.code).toBe(ETL_NOT_RECONCILED);
     expect(report.unexplainedVariance).toBeGreaterThan(0);
+    // Failed flip must not arm durable fence to 1
+    expect(readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS)).not.toBe('1');
     expect(isMigrationReadOnly()).toBe(false);
 
     const cli = holo([
@@ -260,11 +295,12 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   });
 
   it('TC-2/AC-1: cutover:flip engages HOLO_MIGRATION_READ_ONLY=1 with engaged_at + etl runId', () => {
-    unsetMigrationFlag();
+    setMigrationReadOnlyEnv('0');
     const report = runCutoverFlip({
       cwd: REPO_ROOT,
       etlReportPath: greenEtlPath,
       reportPath: resolve(EVIDENCE, 'flip-green.json'),
+      secretsPath: DISPOSABLE_SECRETS,
     });
     evidence('tc2-flip-green.json', report);
     expect(report.ok).toBe(true);
@@ -273,6 +309,15 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.env_value).toBe('1');
     expect(isMigrationReadOnly()).toBe(true);
     expect(process.env.HOLO_MIGRATION_READ_ONLY).toBe('1');
+    // C-02: durable control-plane write (not process.env alone)
+    expect(report.configured_target.length).toBeGreaterThanOrEqual(8);
+    expect(report.configured_target).toBe(DISPOSABLE_SECRETS);
+    expect(report.durable_reread).toBe(true);
+    expect(report.process_generations.before.length).toBeGreaterThan(0);
+    expect(report.process_generations.after.length).toBeGreaterThan(0);
+    const durable = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
+    expect(durable).toBe('1');
+    expect(loadSecretsFile(DISPOSABLE_SECRETS)[MIGRATION_READ_ONLY_ENV]).toBe('1');
 
     const cli = holo([
       'cutover:flip',
@@ -284,9 +329,209 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     ]);
     evidence('tc2-cli.json', { status: cli.status, stdout: cli.stdout.slice(0, 2000) });
     expect(cli.status).toBe(0);
-    const parsed = JSON.parse(cli.stdout) as { ok?: boolean; engaged_at?: string };
+    const parsed = JSON.parse(cli.stdout) as {
+      ok?: boolean;
+      engaged_at?: string;
+      configured_target?: string;
+      durable_reread?: boolean;
+    };
     expect(parsed.ok).toBe(true);
     expect(parsed.engaged_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect((parsed.configured_target ?? '').length).toBeGreaterThanOrEqual(8);
+    expect(parsed.durable_reread).toBe(true);
+  });
+
+  // ── REDHAT-FIX-S29-C02: durable + cross-process + rollback ────────────────
+
+  it('REDHAT-FIX-S29-C02: durable control-plane write + process_generations on flip', () => {
+    setMigrationReadOnlyEnv('0');
+    writeDurableMigrationReadOnly('0', { secretsPath: DISPOSABLE_SECRETS });
+    const report = runCutoverFlip({
+      cwd: REPO_ROOT,
+      etlReportPath: greenEtlPath,
+      reportPath: resolve(C02_EVIDENCE, 'flip-report.json'),
+      secretsPath: DISPOSABLE_SECRETS,
+    });
+    c02Evidence('tc-c02-durable-flip.json', report);
+    expect(report.ok).toBe(true);
+    expect(report.configured_target).toBe(DISPOSABLE_SECRETS);
+    expect(report.durable_reread).toBe(true);
+    expect(report.env_value).toBe('1');
+    expect(report.etl_run_id.length).toBeGreaterThan(0);
+    expect(report.engaged_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(report.process_generations.before.some((u) => u.id.length > 0)).toBe(true);
+    expect(report.process_generations.after.some((u) => u.id.length > 0)).toBe(true);
+    // Authoritative file content
+    const fileBody = readFileSync(DISPOSABLE_SECRETS, 'utf8');
+    expect(fileBody).toMatch(/HOLO_MIGRATION_READ_ONLY[: ]+["']?1/);
+    // Mirror report for operators
+    writeFileSync(
+      resolve(REPO_ROOT, '.tmp/D06-05/flip-report.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+  });
+
+  it('REDHAT-FIX-S29-C02: cross-process child without env inject still fences writes', async () => {
+    // Ensure durable fence is armed on disposable control-plane
+    writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
+    // Parent process must NOT inject HOLO_MIGRATION_READ_ONLY into the child
+    setMigrationReadOnlyEnv('0'); // explicit parent disengage — child has no inherit of '1'
+    unsetMigrationFlag();
+
+    const before = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+
+    // Child process: HOLO_SECRETS_PATH set, HOLO_MIGRATION_READ_ONLY stripped
+    const childScript = `
+      import { createHonoApp } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/http/hono-app.ts'))};
+      import { isMigrationReadOnly, MIGRATION_READ_ONLY_BODY } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/cutover/soak-fence.ts'))};
+      import { runJob } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/queue/jobs-runner.ts'))};
+      import { MIGRATED_JOBS } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/queue/jobs-registry.ts'))};
+      import { executePostgresMcpTool } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/mcp/executor.ts'))};
+
+      const envInjected = process.env.HOLO_MIGRATION_READ_ONLY;
+      const fenced = isMigrationReadOnly();
+      const app = createHonoApp({
+        keys: {
+          rn: process.env.HOLO_KEY_RN ?? 'test-rn',
+          mcp: process.env.HOLO_KEY_MCP ?? 'test-mcp',
+          control: process.env.HOLO_KEY_CONTROL ?? 'test-control',
+        },
+        databaseUrl: process.env.DATABASE_URL,
+      });
+      const res = await app.request('/api/documents', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer ' + (process.env.HOLO_KEY_RN ?? 'test-rn'),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'c02-cross-process', content: 'must-block' }),
+      });
+      const body = await res.json().catch(() => ({}));
+      let mcpMsg = '';
+      try {
+        await executePostgresMcpTool(
+          'store_document',
+          { title: 'c02-mcp', content: 'blocked' },
+          { databaseUrl: process.env.DATABASE_URL }
+        );
+      } catch (e) {
+        mcpMsg = e instanceof Error ? e.message : String(e);
+      }
+      const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0];
+      const jobResult = await runJob(job, { databaseUrl: process.env.DATABASE_URL });
+      console.log(JSON.stringify({
+        envInjected: envInjected ?? null,
+        fenced,
+        status: res.status,
+        error: body?.error ?? null,
+        code: body?.code ?? null,
+        mcpMsg,
+        jobOk: jobResult.ok,
+        jobError: jobResult.error ?? null,
+      }));
+    `;
+
+    const childEnv: Record<string, string | undefined> = {
+      ...process.env,
+      DATABASE_URL,
+      HOLO_KEY_RN: DEFAULT_KEYS.rn,
+      HOLO_KEY_MCP: DEFAULT_KEYS.mcp,
+      HOLO_KEY_CONTROL: DEFAULT_KEYS.control,
+      HOLO_SECRETS_PATH: DISPOSABLE_SECRETS,
+      HOLOCRON_SECRETS_PATH: DISPOSABLE_SECRETS,
+    };
+    // Critical: strip client env inject anti-pattern (gate-plan.json:75-80)
+    delete childEnv.HOLO_MIGRATION_READ_ONLY;
+
+    const child = spawnSync('bun', ['-e', childScript], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: childEnv as NodeJS.ProcessEnv,
+    });
+    c02Evidence('tc-c02-cross-process.json', {
+      status: child.status,
+      stdout: child.stdout,
+      stderr: child.stderr?.slice(0, 2000),
+    });
+    expect(child.status, `child failed: ${child.stderr}`).toBe(0);
+    const parsed = JSON.parse(child.stdout.trim().split('\n').pop() ?? '{}') as {
+      envInjected: string | null;
+      fenced: boolean;
+      status: number;
+      error: string | null;
+      code: string | null;
+      mcpMsg: string;
+      jobOk: boolean;
+      jobError: string | null;
+    };
+    expect(parsed.envInjected).toBeNull();
+    expect(parsed.fenced).toBe(true);
+    expect(parsed.status).toBe(423);
+    expect(parsed.error).toBe('migration_read_only');
+    expect(parsed.code).toBe('migration_read_only');
+    expect(parsed.mcpMsg.startsWith('MIGRATION_READ_ONLY:')).toBe(true);
+    expect(parsed.jobOk).toBe(false);
+    expect(String(parsed.jobError).startsWith('migration_read_only:')).toBe(true);
+
+    const after = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+    expect(after).toBe(before);
+
+    // Re-arm parent env for subsequent suite tests
+    setMigrationReadOnlyEnv('1');
+  }, 180_000);
+
+  it('REDHAT-FIX-S29-C02: cutover:rollback-repoint writes Convex data-plane audit', () => {
+    writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
+    setMigrationReadOnlyEnv('1');
+    const report = runCutoverRollbackRepoint({
+      cwd: REPO_ROOT,
+      reportPath: resolve(C02_EVIDENCE, 'rollback-report.json'),
+      secretsPath: DISPOSABLE_SECRETS,
+      target: 'frozen:convex:c02-test',
+    });
+    c02Evidence('tc-c02-rollback-repoint.json', report);
+    expect(report.ok).toBe(true);
+    expect(report.action).toBe('rollback-repoint');
+    expect(report.data_plane).toBe('convex');
+    expect(report.target_kind).toBe('convex');
+    expect(report.target.length).toBeGreaterThan(0);
+    expect(report.engaged_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(report.configured_target).toBe(DISPOSABLE_SECRETS);
+    expect(existsSync(resolve(REPO_ROOT, 'convex'))).toBe(true);
+    const secrets = loadSecretsFile(DISPOSABLE_SECRETS);
+    expect(secrets.HOLO_DATA_PLANE).toBe('convex');
+    expect(secrets.HOLO_ROLLBACK_TARGET).toBe('frozen:convex:c02-test');
+
+    const cli = holo([
+      'cutover:rollback-repoint',
+      '--json',
+      '--target',
+      'frozen:convex:cli',
+      '--output',
+      resolve(C02_EVIDENCE, 'rollback-report-cli.json'),
+    ]);
+    c02Evidence('tc-c02-rollback-cli.json', {
+      status: cli.status,
+      stdout: cli.stdout.slice(0, 2000),
+    });
+    expect(cli.status).toBe(0);
+    const parsed = JSON.parse(cli.stdout) as {
+      ok?: boolean;
+      data_plane?: string;
+      target?: string;
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data_plane).toBe('convex');
+    expect((parsed.target ?? '').length).toBeGreaterThan(0);
+
+    // Also land under D06-05 path for VERIFY jq contract
+    writeFileSync(
+      resolve(REPO_ROOT, '.tmp/D06-05/rollback-report.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
   });
 
   // ── D06-01 fence ACs turned GREEN ─────────────────────────────────────────
