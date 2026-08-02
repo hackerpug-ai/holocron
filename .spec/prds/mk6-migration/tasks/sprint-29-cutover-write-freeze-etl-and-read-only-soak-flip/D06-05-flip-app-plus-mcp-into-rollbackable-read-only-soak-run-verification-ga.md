@@ -1,4 +1,8 @@
 # D06-05: Flip app plus MCP into rollbackable read-only soak, run verification gates
+> Status: ✅ Completed
+> Commit: 1b4195d9ed846b2e0d5eab20796e50903464ca92
+> Reviewer: product-manager+mastra-reviewer
+> Completed: 2026-08-02T00:36:19Z
 
 > **Task ID:** D06-05
 > **Sprint:** [Sprint 29 — Cutover](./SPRINT.md)
