@@ -13,6 +13,7 @@ import { streamSSE } from 'hono/streaming';
 import { upsertFileObject } from '../blob/file-objects.ts';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
 import { isSha256Hex } from '../blob/utils.ts';
+import { createSoakFenceMiddleware } from '../cutover/soak-fence.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { handleMcpRequest } from '../mcp/gateway.ts';
@@ -186,6 +187,9 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
 
   // Global scoped-key gate — exempt paths decided inside middleware (/health, /article/*)
   app.use('*', createScopedKeyMiddleware(keys));
+
+  // D06-05: HOLO_MIGRATION_READ_ONLY fence on non-GET /api/* (fresh env read per request)
+  app.use('*', createSoakFenceMiddleware());
 
   app.get('/health', async (c) => {
     const result = await runHealthCheck();

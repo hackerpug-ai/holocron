@@ -38,6 +38,7 @@
  * Sprint 28 D05-04: restore:fire-drill — full Postgres+blob restore parity (CAP-BAK-01)
  * Sprint 29 D06-02: cutover:go-no-go — full harness suite go/no-go (T-SYNC-008 / CAP-CUT-01)
  * Sprint 29 D06-04: cutover:run-etl — watermark + convex export + one-time ETL (T-SYNC-009)
+ * Sprint 29 D06-05: cutover:flip / verify-tools / verify-reads / verify-soak (T-SYNC-010)
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -240,6 +241,8 @@ interface CliArgs {
   windowSeconds: string | null;
   /** cutover:capture-article-baseline --token <shareToken> */
   token: string | null;
+  /** cutover:flip --etl-report <watermark-report.json> */
+  etlReport: string | null;
 }
 
 function printHelp(): void {
@@ -315,6 +318,12 @@ Usage:
                             Default: real npx convex export (runConvexExport). --export reuses archive.
                             Fail-closed: FENCE_NOT_ENGAGED, QUIET_CHECK_REQUIRED (missing/quiet_ok!=true).
                             Re-run with --export <prior> to resume same archive without row dupes.
+  cutover:flip              D06-05 engage HOLO_MIGRATION_READ_ONLY=1 after green ETL [--json]
+                            [--etl-report <watermark-report.json>] [--output <flip-report.json>]
+                            Fail-closed: ETL_NOT_RECONCILED when unexplainedVariance>0
+  cutover:verify-tools      D06-05 invoke all manifest MCP tools over real /mcp [--json]
+  cutover:verify-reads      D06-05 Postgres zero_pub counts vs ETL baseline [--json]
+  cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json]
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
@@ -597,6 +606,7 @@ function parseArgs(argv: string[]): CliArgs {
     resticSnapshot: null,
     windowSeconds: null,
     token: null,
+    etlReport: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -871,6 +881,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.output = argv[++i] ?? null;
     } else if (a.startsWith('--output=')) {
       args.output = a.slice('--output='.length);
+    } else if (a === '--etl-report') {
+      args.etlReport = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--etl-report=')) {
+      args.etlReport = resolve(a.slice('--etl-report='.length));
     } else if (a === '--inventory') {
       args.inventory = argv[++i] ?? null;
     } else if (a.startsWith('--inventory=')) {
@@ -3235,6 +3249,124 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:run-etl failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:flip': {
+      // D06-05 / T-SYNC-010: engage HOLO_MIGRATION_READ_ONLY after green ETL reconciliation
+      const {
+        runCutoverFlip,
+        formatFlipText,
+        defaultFlipReportPath,
+        ETL_NOT_RECONCILED,
+        ETL_REPORT_MISSING,
+      } = await import('../cutover/soak-fence.ts');
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultFlipReportPath(process.cwd());
+        const report = runCutoverFlip({
+          etlReportPath: args.etlReport ? resolve(args.etlReport) : undefined,
+          reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatFlipText(report));
+        }
+        if (!report.ok) {
+          const code = report.error?.code ?? 'FLIP_FAILED';
+          process.exit(code === ETL_NOT_RECONCILED || code === ETL_REPORT_MISSING ? 2 : 1);
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:flip failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:verify-tools': {
+      // D06-05: all manifest tools over real /mcp
+      const { runVerifyTools } = await import('../cutover/soak-fence.ts');
+      try {
+        const report = await runVerifyTools({});
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(
+            `tools ${report.toolsPassed}/${report.toolsTotal} stubbed=${report.toolsStubbed} ok=${report.ok}`
+          );
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:verify-tools failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:verify-reads': {
+      // D06-05: Postgres counts vs ETL baseline
+      const { runVerifyReads } = await import('../cutover/soak-fence.ts');
+      try {
+        const report = await runVerifyReads({
+          etlReportPath: args.etlReport ? resolve(args.etlReport) : undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(
+            `reads ok=${report.ok} docs=${report.perTableCounts.documents ?? '?'} mismatches=${report.mismatches.length}`
+          );
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:verify-reads failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:verify-soak': {
+      // D06-05: aggregate soak gate
+      const { runVerifySoak, formatSoakVerifyText, defaultSoakVerifyReportPath } = await import(
+        '../cutover/soak-fence.ts'
+      );
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultSoakVerifyReportPath(process.cwd());
+        const report = await runVerifySoak({
+          etlReportPath: args.etlReport ? resolve(args.etlReport) : undefined,
+          reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatSoakVerifyText(report));
+        }
+        process.exit(report.overall.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:verify-soak failed: ${msg}`);
         }
         process.exit(1);
       }

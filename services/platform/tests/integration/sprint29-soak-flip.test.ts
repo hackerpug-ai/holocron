@@ -1,0 +1,534 @@
+/**
+ * D06-05 GREEN: flip app + MCP into rollbackable read-only soak; verification gates.
+ *
+ * Run:
+ *   PLATFORM_IT=1 pnpm vitest run --project integration \
+ *     services/platform/tests/integration/sprint29-soak-flip.test.ts
+ */
+import { spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  DEFAULT_DATABASE_URL,
+  DEFAULT_KEYS,
+  PLATFORM_IT,
+} from '../../../../tests/integration/service/harness';
+import {
+  ETL_NOT_RECONCILED,
+  isMigrationReadOnly,
+  runCutoverFlip,
+  runHonoWriteSweep,
+  runVerifyArticle,
+  runVerifyJobs,
+  runVerifyReads,
+  runVerifySoak,
+  runVerifyTools,
+  setMigrationReadOnlyEnv,
+} from '../../src/cutover/soak-fence.ts';
+import { createSql, type Sql } from '../../src/db/client.ts';
+import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
+import { createHonoApp } from '../../src/http/hono-app.ts';
+import { executePostgresMcpTool } from '../../src/mcp/executor.ts';
+import { defaultManifestPath, loadManifest } from '../../src/mcp/manifest-loader.ts';
+import { MIGRATED_JOBS } from '../../src/queue/jobs-registry.ts';
+import { runJob } from '../../src/queue/jobs-runner.ts';
+import {
+  buildHonoMinBodies,
+  buildRouteRequest,
+  createFencedApp,
+  discoverHonoWriteRoutes,
+  discoverTaskTimeoutJob,
+  freshSeedIds,
+  issueHonoWrite,
+  unsetMigrationFlag,
+} from './write-fence-red.helpers';
+
+if (!PLATFORM_IT) {
+  throw new Error('sprint29-soak-flip requires PLATFORM_IT=1');
+}
+
+const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
+const EVIDENCE = resolve(REPO_ROOT, '.tmp/D06-05');
+const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
+const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
+  databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+  context: 'sprint29-soak-flip test',
+});
+const RUN = randomUUID().slice(0, 8);
+
+function evidence(name: string, body: unknown): void {
+  mkdirSync(EVIDENCE, { recursive: true });
+  const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
+  writeFileSync(resolve(EVIDENCE, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
+}
+
+function holo(
+  args: string[],
+  env: Record<string, string | undefined> = {}
+): { status: number | null; stdout: string; stderr: string } {
+  const r = spawnSync('bun', [HOLO, ...args], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+    env: {
+      ...process.env,
+      DATABASE_URL,
+      HOLO_KEY_RN: DEFAULT_KEYS.rn,
+      HOLO_KEY_MCP: DEFAULT_KEYS.mcp,
+      HOLO_KEY_CONTROL: DEFAULT_KEYS.control,
+      ...env,
+    },
+  });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+describe('Sprint 29 D06-05 soak flip + verify gates', () => {
+  let sql: Sql;
+  let greenEtlPath: string;
+  let varianceEtlPath: string;
+  let articleBaselinePath: string;
+  let shareToken: string;
+  let baselineCounts: Record<string, number>;
+
+  beforeAll(async () => {
+    mkdirSync(EVIDENCE, { recursive: true });
+    unsetMigrationFlag();
+    sql = createSql(DATABASE_URL);
+
+    // Seed a public article for Hono byte-parity baseline (AC-4 shape)
+    shareToken = randomUUID();
+    const docId = randomUUID();
+    const title = `s29-d0605-article-${RUN}`;
+    const content = `# ${title}\n\nSoak flip article baseline content for ${RUN}.\n`;
+    await sql`
+      INSERT INTO documents (id, title, content, category, status, date, is_public, share_token)
+      VALUES (
+        ${docId}::uuid,
+        ${title},
+        ${content},
+        'general',
+        'published',
+        ${new Date().toISOString()},
+        true,
+        ${shareToken}
+      )
+      ON CONFLICT DO NOTHING
+    `;
+
+    // Capture baseline from the real Hono /article/ route (same bytes AC-4 compares)
+    process.env.DATABASE_URL = DATABASE_URL;
+    const baselineApp = createHonoApp({ keys: { ...DEFAULT_KEYS } });
+    const baselineRes = await baselineApp.request(`/article/${shareToken}`, {
+      method: 'GET',
+      headers: { accept: 'text/html' },
+    });
+    const baselineBuf = Buffer.from(await baselineRes.arrayBuffer());
+    if (baselineRes.status !== 200 || baselineBuf.byteLength === 0) {
+      throw new Error(
+        `failed to capture article baseline status=${baselineRes.status} bytes=${baselineBuf.byteLength}`
+      );
+    }
+    const sha256 = createHash('sha256').update(baselineBuf).digest('hex');
+    articleBaselinePath = resolve(EVIDENCE, 'article-baseline.json');
+    writeFileSync(
+      articleBaselinePath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          sha256,
+          byteLength: baselineBuf.byteLength,
+          capturedAtMs: Date.now(),
+          fence_armed_at: Date.now() - 1000,
+          shareToken,
+          url: `hono://local/article/${shareToken}`,
+          status: 200,
+          path: articleBaselinePath,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    // Also place at D06-03 default path so CLI defaults resolve
+    mkdirSync(resolve(REPO_ROOT, '.tmp/D06-03'), { recursive: true });
+    writeFileSync(
+      resolve(REPO_ROOT, '.tmp/D06-03/article-baseline.json'),
+      readFileSync(articleBaselinePath, 'utf8'),
+      'utf8'
+    );
+
+    // Capture live table counts as ETL baseline (AC-3 exact match)
+    const docs = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+    const convs = Number((await sql`SELECT count(*)::int AS c FROM conversations`)[0]?.c ?? 0);
+    let subs = 0;
+    try {
+      subs = Number((await sql`SELECT count(*)::int AS c FROM subscription_sources`)[0]?.c ?? 0);
+    } catch {
+      subs = 0;
+    }
+    baselineCounts = {
+      documents: docs,
+      conversations: convs,
+      subscriptionSources: subs,
+      subscription_sources: subs,
+    };
+
+    const runId = randomUUID();
+    greenEtlPath = resolve(EVIDENCE, 'watermark-report-green.json');
+    writeFileSync(
+      greenEtlPath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          runId,
+          unexplainedVariance: 0,
+          loadedByTable: baselineCounts,
+          reconcile: { ok: true, unexplainedVariance: 0 },
+          stages: { reconcile: true, fkAudit: true, vectors: true },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    // Default path used by flip without --etl-report
+    mkdirSync(resolve(REPO_ROOT, '.tmp/D06-04'), { recursive: true });
+    writeFileSync(
+      resolve(REPO_ROOT, '.tmp/D06-04/watermark-report.json'),
+      readFileSync(greenEtlPath, 'utf8'),
+      'utf8'
+    );
+
+    varianceEtlPath = resolve(EVIDENCE, 'watermark-report-variance.json');
+    writeFileSync(
+      varianceEtlPath,
+      `${JSON.stringify(
+        {
+          ok: false,
+          runId: randomUUID(),
+          unexplainedVariance: 3,
+          loadedByTable: baselineCounts,
+          reconcile: { ok: false, unexplainedVariance: 3 },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+
+    evidence('setup.json', {
+      RUN,
+      shareToken,
+      baselineCounts,
+      greenEtlPath,
+      articleBaselinePath,
+    });
+  }, 120_000);
+
+  afterAll(async () => {
+    unsetMigrationFlag();
+    await sql?.end({ timeout: 5 });
+  });
+
+  // ── AC-1 / TC-1 / TC-2 ────────────────────────────────────────────────────
+
+  it('TC-1/AC-1: cutover:flip refuses when unexplainedVariance > 0', () => {
+    unsetMigrationFlag();
+    const report = runCutoverFlip({
+      cwd: REPO_ROOT,
+      etlReportPath: varianceEtlPath,
+      reportPath: resolve(EVIDENCE, 'flip-variance.json'),
+    });
+    evidence('tc1-flip-variance.json', report);
+    expect(report.ok).toBe(false);
+    expect(report.error?.code).toBe(ETL_NOT_RECONCILED);
+    expect(report.unexplainedVariance).toBeGreaterThan(0);
+    expect(isMigrationReadOnly()).toBe(false);
+
+    const cli = holo([
+      'cutover:flip',
+      '--json',
+      '--etl-report',
+      varianceEtlPath,
+      '--output',
+      resolve(EVIDENCE, 'flip-variance-cli.json'),
+    ]);
+    evidence('tc1-cli.json', { status: cli.status, stdout: cli.stdout, stderr: cli.stderr });
+    expect(cli.status).not.toBe(0);
+  });
+
+  it('TC-2/AC-1: cutover:flip engages HOLO_MIGRATION_READ_ONLY=1 with engaged_at + etl runId', () => {
+    unsetMigrationFlag();
+    const report = runCutoverFlip({
+      cwd: REPO_ROOT,
+      etlReportPath: greenEtlPath,
+      reportPath: resolve(EVIDENCE, 'flip-green.json'),
+    });
+    evidence('tc2-flip-green.json', report);
+    expect(report.ok).toBe(true);
+    expect(report.engaged_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(report.etl_run_id.length).toBeGreaterThan(0);
+    expect(report.env_value).toBe('1');
+    expect(isMigrationReadOnly()).toBe(true);
+    expect(process.env.HOLO_MIGRATION_READ_ONLY).toBe('1');
+
+    const cli = holo([
+      'cutover:flip',
+      '--json',
+      '--etl-report',
+      greenEtlPath,
+      '--output',
+      resolve(EVIDENCE, 'flip-green-cli.json'),
+    ]);
+    evidence('tc2-cli.json', { status: cli.status, stdout: cli.stdout.slice(0, 2000) });
+    expect(cli.status).toBe(0);
+    const parsed = JSON.parse(cli.stdout) as { ok?: boolean; engaged_at?: string };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.engaged_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  // ── D06-01 fence ACs turned GREEN ─────────────────────────────────────────
+
+  it('TC-Hono/AC-5: fenced Hono write routes return 423 + dual-key body; row count unchanged', async () => {
+    setMigrationReadOnlyEnv('1');
+    const app = createFencedApp();
+    const routes = discoverHonoWriteRoutes(app);
+    expect(routes.length).toBeGreaterThanOrEqual(23);
+    const seeds = freshSeedIds();
+    const bodies = buildHonoMinBodies(RUN, seeds);
+    const before = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+    const failures: string[] = [];
+    for (const route of routes) {
+      const req = buildRouteRequest(route, RUN, seeds, bodies);
+      const res = await issueHonoWrite(app, req);
+      const bodyOk =
+        res.status === 423 &&
+        res.body !== null &&
+        typeof res.body === 'object' &&
+        (res.body as { error?: string }).error === 'migration_read_only' &&
+        (res.body as { code?: string }).code === 'migration_read_only';
+      if (!bodyOk) {
+        failures.push(
+          `${route.id} status=${res.status} body=${JSON.stringify(res.body).slice(0, 180)}`
+        );
+      }
+    }
+    const after = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+    evidence('tc-hono-fenced.json', { failures, before, after, routeCount: routes.length });
+    expect(failures, failures.join('; ')).toEqual([]);
+    expect(after).toBe(before);
+
+    // AC-5 primary path: POST /api/documents
+    const sweep = await runHonoWriteSweep({ keys: { ...DEFAULT_KEYS }, databaseUrl: DATABASE_URL });
+    evidence('tc-hono-sweep.json', sweep);
+    expect(sweep.ok).toBe(true);
+    expect(sweep.status).toBe(423);
+  }, 120_000);
+
+  it('TC-MCP: mutation tools throw MIGRATION_READ_ONLY when fenced; reads still invoke', async () => {
+    setMigrationReadOnlyEnv('1');
+    let rejected = false;
+    let msg = '';
+    try {
+      await executePostgresMcpTool(
+        'store_document',
+        { title: `soak-${RUN}`, content: 'blocked' },
+        { databaseUrl: DATABASE_URL }
+      );
+    } catch (err) {
+      rejected = true;
+      msg = err instanceof Error ? err.message : String(err);
+    }
+    evidence('tc-mcp-mutation.json', { rejected, msg });
+    expect(rejected).toBe(true);
+    expect(msg.startsWith('MIGRATION_READ_ONLY:')).toBe(true);
+
+    // Read tool should not throw MIGRATION_READ_ONLY
+    let readOk = false;
+    try {
+      await executePostgresMcpTool('list_documents', { limit: 1 }, { databaseUrl: DATABASE_URL });
+      readOk = true;
+    } catch (err) {
+      const m = err instanceof Error ? err.message : String(err);
+      // Domain errors ok; fence prefix is not
+      expect(m.startsWith('MIGRATION_READ_ONLY:')).toBe(false);
+      readOk = true;
+    }
+    expect(readOk).toBe(true);
+  }, 60_000);
+
+  it('TC-Jobs: runJob returns ok:false migration_read_only: without side effects', async () => {
+    setMigrationReadOnlyEnv('1');
+    const job = discoverTaskTimeoutJob();
+    const before = Number(
+      (await sql`SELECT count(*)::int AS c FROM job_runs WHERE job_name = 'task-timeout-worker'`)[0]
+        ?.c ?? 0
+    );
+    const result = await runJob(job, { databaseUrl: DATABASE_URL, runId: randomUUID() });
+    const after = Number(
+      (await sql`SELECT count(*)::int AS c FROM job_runs WHERE job_name = 'task-timeout-worker'`)[0]
+        ?.c ?? 0
+    );
+    evidence('tc-job-fenced.json', { result, before, after });
+    expect(result.ok).toBe(false);
+    expect(String(result.error).startsWith('migration_read_only:')).toBe(true);
+    expect(after).toBe(before);
+  }, 60_000);
+
+  // ── AC-2 / TC-3 / TC-4 ────────────────────────────────────────────────────
+
+  it('TC-3/4 AC-2: verify-tools accounts all manifest tools; mutations MIGRATION_READ_ONLY', async () => {
+    setMigrationReadOnlyEnv('1');
+    process.env.DATABASE_URL = DATABASE_URL;
+    const manifest = loadManifest(defaultManifestPath(REPO_ROOT));
+    const report = await runVerifyTools({
+      cwd: REPO_ROOT,
+      keys: { ...DEFAULT_KEYS },
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('tc-verify-tools.json', {
+      toolsTotal: report.toolsTotal,
+      toolsPassed: report.toolsPassed,
+      toolsStubbed: report.toolsStubbed,
+      ok: report.ok,
+      mutations: report.tools
+        .filter((t) => t.is_mutation)
+        .map((t) => ({
+          id: t.tool_id,
+          ok: t.ok,
+          code: t.code,
+        })),
+    });
+    expect(report.toolsTotal).toBe(manifest.tools.length);
+    expect(report.toolsTotal).toBeGreaterThanOrEqual(44);
+    expect(report.toolsStubbed).toBe(0);
+    expect(report.toolsPassed).toBe(report.toolsTotal);
+    const mutations = report.tools.filter((t) => t.is_mutation);
+    expect(mutations.length).toBe(21);
+    expect(mutations.every((t) => t.code === 'MIGRATION_READ_ONLY' || t.ok)).toBe(true);
+    expect(mutations.every((t) => t.ok)).toBe(true);
+    expect(report.ok).toBe(true);
+  }, 300_000);
+
+  // ── AC-3 / TC-5 ───────────────────────────────────────────────────────────
+
+  it('TC-5/AC-3: verify-reads matches ETL loadedByTable baseline exactly', async () => {
+    setMigrationReadOnlyEnv('1');
+    const report = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: greenEtlPath,
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('tc-verify-reads.json', report);
+    expect(report.perTableCounts.documents).toBe(baselineCounts.documents);
+    expect(report.perTableCounts.conversations).toBe(baselineCounts.conversations);
+    expect(report.mismatches).toEqual([]);
+    expect(report.ok).toBe(true);
+  }, 60_000);
+
+  // ── AC-4 / TC-6 ───────────────────────────────────────────────────────────
+
+  it('TC-6/AC-4: real Hono /article/:token sha256 matches article-baseline.json', async () => {
+    setMigrationReadOnlyEnv('1');
+    process.env.DATABASE_URL = DATABASE_URL;
+    const report = await runVerifyArticle({
+      cwd: REPO_ROOT,
+      baselinePath: articleBaselinePath,
+      keys: { ...DEFAULT_KEYS },
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('tc-verify-article.json', report);
+    expect(report.status).toBe(200);
+    expect(report.byteLength).toBeGreaterThan(0);
+    expect(report.sha256).toBe(report.baselineSha256);
+    expect(report.byteLength).toBe(report.baselineByteLength);
+    expect(report.match).toBe(true);
+    expect(report.ok).toBe(true);
+
+    // Direct app.request cross-check
+    const app = createHonoApp({ keys: { ...DEFAULT_KEYS } });
+    const res = await app.request(`/article/${shareToken}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    const sha = createHash('sha256').update(buf).digest('hex');
+    expect(res.status).toBe(200);
+    expect(sha).toBe(report.baselineSha256);
+  }, 60_000);
+
+  // ── AC-6 / TC-8 / TC-9 ────────────────────────────────────────────────────
+
+  it('TC-8/9 AC-6: verify-soak aggregates all gates; jobsAccounted; zeroWritePath NOT_LANDED', async () => {
+    setMigrationReadOnlyEnv('1');
+    process.env.DATABASE_URL = DATABASE_URL;
+    // Refresh ETL baseline counts (writes may not have landed under fence)
+    const docs = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+    const convs = Number((await sql`SELECT count(*)::int AS c FROM conversations`)[0]?.c ?? 0);
+    let subs = 0;
+    try {
+      subs = Number((await sql`SELECT count(*)::int AS c FROM subscription_sources`)[0]?.c ?? 0);
+    } catch {
+      subs = 0;
+    }
+    writeFileSync(
+      greenEtlPath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          runId: JSON.parse(readFileSync(greenEtlPath, 'utf8')).runId,
+          unexplainedVariance: 0,
+          loadedByTable: {
+            documents: docs,
+            conversations: convs,
+            subscriptionSources: subs,
+            subscription_sources: subs,
+          },
+          reconcile: { ok: true, unexplainedVariance: 0 },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+
+    const jobsOnly = await runVerifyJobs({ databaseUrl: DATABASE_URL });
+    evidence('tc-jobs-only.json', jobsOnly);
+    expect(jobsOnly.jobsTotal).toBe(MIGRATED_JOBS.length);
+    expect(jobsOnly.jobsAccounted).toBe(jobsOnly.jobsTotal);
+    expect(jobsOnly.ok).toBe(true);
+
+    const report = await runVerifySoak({
+      cwd: REPO_ROOT,
+      keys: { ...DEFAULT_KEYS },
+      databaseUrl: DATABASE_URL,
+      etlReportPath: greenEtlPath,
+      baselinePath: articleBaselinePath,
+      reportPath: resolve(EVIDENCE, 'verify-soak-report.json'),
+    });
+    evidence('tc-verify-soak.json', {
+      overall: report.overall,
+      jobsTotal: report.jobsTotal,
+      jobsAccounted: report.jobsAccounted,
+      zeroWritePath: report.zeroWritePath,
+      toolsOk: report.tools.ok,
+      readsOk: report.reads.ok,
+      articleOk: report.article.ok,
+      honoOk: report.honoWrite.ok,
+      jobsOk: report.jobs.ok,
+      engaged: report.engaged,
+    });
+
+    expect(report.zeroWritePath).toBeDefined();
+    expect(report.zeroWritePath.status).toBe('NOT_LANDED');
+    expect(report.jobsTotal).toBe(MIGRATED_JOBS.length);
+    expect(report.jobsAccounted).toBe(report.jobsTotal);
+    expect(report.engaged).toBe(true);
+    expect(report.tools.ok).toBe(true);
+    expect(report.reads.ok).toBe(true);
+    expect(report.article.ok).toBe(true);
+    expect(report.honoWrite.ok).toBe(true);
+    expect(report.jobs.ok).toBe(true);
+    expect(report.overall.ok).toBe(true);
+    expect(report.ok).toBe(true);
+  }, 600_000);
+});
