@@ -129,6 +129,110 @@ export function writeDurableMigrationReadOnly(
   return { secretsPath, writtenKeys };
 }
 
+// ── UC-SYNC-04 data-plane control-plane (REDHAT-FIX-S29-R2-C04) ─────────────
+
+/** Rollback target key written alongside HOLO_DATA_PLANE. */
+export const ROLLBACK_TARGET_ENV = 'HOLO_ROLLBACK_TARGET';
+export const ROLLBACK_ENGAGED_AT_ENV = 'HOLO_ROLLBACK_ENGAGED_AT';
+
+export type ObservedDataPlane = {
+  /** Concrete data-plane identity (e.g. convex | postgres). */
+  data_plane: string | null;
+  /** Routing target label (e.g. convex-frozen). */
+  target: string | null;
+  /** Where the observation was read from. */
+  source: 'process.env' | 'secrets' | 'unset';
+  /** Absolute secrets path consulted (when source is secrets or for diagnostics). */
+  secrets_path: string;
+};
+
+/**
+ * Fresh re-read of HOLO_DATA_PLANE / HOLO_ROLLBACK_TARGET from durable secrets.
+ * Never cached — serving modules call this on every health/control observation.
+ */
+export function readDurableDataPlane(
+  env: NodeJS.ProcessEnv = process.env,
+  secretsPath?: string
+): { data_plane: string | null; target: string | null; secrets_path: string } {
+  const path = secretsPath ?? resolveSecretsPathFromEnv(env);
+  try {
+    if (!existsSync(path)) {
+      return { data_plane: null, target: null, secrets_path: path };
+    }
+    const map = loadSecretsFile(path);
+    const data_plane =
+      typeof map[DATA_PLANE_ENV] === 'string' && map[DATA_PLANE_ENV].length > 0
+        ? map[DATA_PLANE_ENV]
+        : null;
+    const target =
+      typeof map[ROLLBACK_TARGET_ENV] === 'string' && map[ROLLBACK_TARGET_ENV].length > 0
+        ? map[ROLLBACK_TARGET_ENV]
+        : null;
+    return { data_plane, target, secrets_path: path };
+  } catch {
+    return { data_plane: null, target: null, secrets_path: path };
+  }
+}
+
+/**
+ * Observed data-plane for serving processes (fresh every call).
+ * Order: process.env when set → else durable secrets control-plane re-read.
+ */
+export function resolveObservedDataPlane(
+  env: NodeJS.ProcessEnv = process.env,
+  secretsPath?: string
+): ObservedDataPlane {
+  const path = secretsPath ?? resolveSecretsPathFromEnv(env);
+  const envPlane = env[DATA_PLANE_ENV]?.trim();
+  const envTarget = env[ROLLBACK_TARGET_ENV]?.trim();
+  if (envPlane) {
+    return {
+      data_plane: envPlane,
+      target: envTarget || null,
+      source: 'process.env',
+      secrets_path: path,
+    };
+  }
+  const durable = readDurableDataPlane(env, path);
+  if (durable.data_plane) {
+    return {
+      data_plane: durable.data_plane,
+      target: durable.target,
+      source: 'secrets',
+      secrets_path: durable.secrets_path,
+    };
+  }
+  return {
+    data_plane: null,
+    target: durable.target,
+    source: 'unset',
+    secrets_path: path,
+  };
+}
+
+/**
+ * Write HOLO_DATA_PLANE + HOLO_ROLLBACK_TARGET to durable control-plane and
+ * overlay process.env so co-located processes see the new generation immediately.
+ */
+export function writeDurableDataPlane(
+  dataPlane: string,
+  target: string,
+  options?: { secretsPath?: string; env?: NodeJS.ProcessEnv; engagedAt?: string }
+): { secretsPath: string; writtenKeys: string[] } {
+  const env = options?.env ?? process.env;
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
+  const engagedAt = options?.engagedAt ?? new Date().toISOString();
+  const writtenKeys = upsertSecretsFile(secretsPath, {
+    [DATA_PLANE_ENV]: dataPlane,
+    [ROLLBACK_TARGET_ENV]: target,
+    [ROLLBACK_ENGAGED_AT_ENV]: engagedAt,
+  });
+  env[DATA_PLANE_ENV] = dataPlane;
+  env[ROLLBACK_TARGET_ENV] = target;
+  env[ROLLBACK_ENGAGED_AT_ENV] = engagedAt;
+  return { secretsPath, writtenKeys };
+}
+
 /** MCP mutation rejection — uppercase prefix parsed by gateway.ts. */
 export function migrationReadOnlyMcpError(toolId: string): Error {
   return new Error(
@@ -608,12 +712,9 @@ export function runCutoverRollbackRepoint(options?: {
     return fail;
   }
 
-  // Durable data-plane repoint + record last rollback target
-  upsertSecretsFile(secretsPath, {
-    [DATA_PLANE_ENV]: 'convex',
-    HOLO_ROLLBACK_TARGET: target,
-    HOLO_ROLLBACK_ENGAGED_AT: engaged_at,
-  });
+  // Durable data-plane repoint via shared control-plane helper (R2-C04).
+  // Fixture/helper path — registered CLI is rollback-repoint.runRollbackRepoint.
+  writeDurableDataPlane('convex', target, { secretsPath, engagedAt: engaged_at });
 
   const report: RollbackRepointReport = {
     ok: true,

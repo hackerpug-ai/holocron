@@ -3314,9 +3314,10 @@ async function main(): Promise<void> {
       break;
     }
     case 'cutover:rollback-repoint': {
-      // H-05 / UC-SYNC-04: executable data-plane re-point to frozen Convex
-      // (C-02 also exposes soak-fence runCutoverRollbackRepoint; H-05 is the
-      // confirm/watermark-gated executable path used by cutover gates.)
+      // H-05 / R2-C04 / UC-SYNC-04: serving control-plane re-point + live acks.
+      // Authoritative path is rollback-repoint.ts (writes HOLO_DATA_PLANE to
+      // secrets + collects serving acknowledgements). soak-fence helper remains
+      // for unit fixtures only — never leave the registered CLI on .tmp-only.
       const {
         runRollbackRepoint,
         formatRollbackRepointText,
@@ -3324,14 +3325,17 @@ async function main(): Promise<void> {
         POST_EXPORT_WRITE_ACCEPTED,
         ROLLBACK_INELIGIBLE,
         EXPORT_WATERMARK_MISSING,
+        LIVE_ACK_MISSING,
+        CONTROL_PLANE_WRITE_FAILED,
       } = await import('../cutover/rollback-repoint.ts');
       try {
         const reportPath = args.output
           ? resolve(args.output)
           : defaultRollbackRepointReportPath(process.cwd());
-        const report = runRollbackRepoint({
+        const report = await runRollbackRepoint({
           reportPath,
           watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
+          target: args.target ?? undefined,
         });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));
@@ -3343,7 +3347,9 @@ async function main(): Promise<void> {
           process.exit(
             code === POST_EXPORT_WRITE_ACCEPTED ||
               code === ROLLBACK_INELIGIBLE ||
-              code === EXPORT_WATERMARK_MISSING
+              code === EXPORT_WATERMARK_MISSING ||
+              code === LIVE_ACK_MISSING ||
+              code === CONTROL_PLANE_WRITE_FAILED
               ? 2
               : 1
           );

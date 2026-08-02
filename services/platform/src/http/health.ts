@@ -3,9 +3,13 @@
  *
  * Never returns a static 200: every field is measured against a real dependency.
  * Queue readiness is Postgres-backed (pg-boss preferred / graphile-worker fallback).
+ *
+ * REDHAT-FIX-S29-R2-C04: also exposes observed data_plane / rollback target from
+ * the durable serving control-plane (fresh re-read every request — never cached).
  */
 
 import postgres from 'postgres';
+import { resolveObservedDataPlane } from '../cutover/soak-fence.ts';
 import { DATABASE_URL } from '../mastra.ts';
 import {
   isProcessQueueReady,
@@ -110,6 +114,15 @@ export type HealthBody = {
   db: ProbeResult;
   fleet: FleetProbeResult;
   queue: ProbeResult;
+  /**
+   * Observed serving data-plane (UC-SYNC-04 / R2-C04).
+   * Fresh control-plane re-read — null when unset.
+   */
+  data_plane: string | null;
+  /** Observed rollback routing target (e.g. convex-frozen). */
+  target: string | null;
+  /** Nested rollback observation for clients that probe `.rollback.target`. */
+  rollback: { target: string | null; data_plane: string | null; source: string };
 };
 
 export type HealthResponse = {
@@ -239,6 +252,8 @@ export async function runHealthCheck(options?: {
   ]);
 
   const allReady = db.ready && fleet.ready && queue.ready;
+  // Fresh control-plane re-read every health request (R2-C04 live ack surface)
+  const observed = resolveObservedDataPlane();
   const body: HealthBody = {
     status: allReady ? 'ok' : 'degraded',
     db: { ready: db.ready, latency_ms: db.latency_ms, ...(db.error ? { error: db.error } : {}) },
@@ -253,6 +268,13 @@ export async function runHealthCheck(options?: {
       latency_ms: queue.latency_ms,
       ...(queue.backend ? { backend: queue.backend } : {}),
       ...(queue.error ? { error: queue.error } : {}),
+    },
+    data_plane: observed.data_plane,
+    target: observed.target,
+    rollback: {
+      target: observed.target,
+      data_plane: observed.data_plane,
+      source: observed.source,
     },
   };
 
