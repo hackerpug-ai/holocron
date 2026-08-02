@@ -23,11 +23,28 @@ const auditApi = (anyApi as any).migrationFence.audit as {
 };
 
 const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
+const docsCount = (anyApi as any).documents.queries.count as FunctionReference<'query'>;
 const subsAdd = (anyApi as any).subscriptions.mutations.add as FunctionReference<'mutation'>;
+
+/** Cross-process blocked-write probe result (H-05 / AC-2). */
+export type CrossProcessProbe = {
+  rejected: boolean;
+  message: string;
+  surface: string;
+  documentsBefore: number;
+  documentsAfter: number;
+  /** Child process pid when probe was spawned OS-separate; null if in-process fallback. */
+  child_pid: number | null;
+};
 
 export type FreezeReport = {
   ok: boolean;
+  /** Authoritative arm time — stamped ONLY after env confirm + cross-process rejection. */
   fence_armed_at: number;
+  /** Epoch-ms when getMigrationReadOnlyEnv confirmed '1'|'true' (pre-arm). */
+  confirmed_at_ms: number;
+  /** Real mutation rejection against the deployment after durable env set. */
+  cross_process_probe: CrossProcessProbe;
   env: string;
   env_value: string;
   reason: string | null;
@@ -182,11 +199,157 @@ export function archiveFreezeReportIfPresent(reportPath: string): string | null 
 }
 
 /**
- * Arm the durable write fence:
- * 1. Record fence_armed_at (epoch-ms) via unfenced audit mutation
- * 2. `npx convex env set HOLO_MIGRATION_READ_ONLY 1`
- * 3. FAIL CLOSED unless getMigrationReadOnlyEnv() confirms '1'|'true'
- * 4. Persist freeze-report.json (prior report archived for TC-9 pairing)
+ * Extract a migration_read_only: message from a thrown Convex/HTTP error.
+ */
+export function extractMigrationReadOnlyMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const m = raw.match(/(migration_read_only:\s*[^\n]*)/i);
+  return m?.[1]?.trim() ?? raw;
+}
+
+/**
+ * Real blocked-write probe against the deployment after durable env confirm.
+ *
+ * Spawns a separate OS process with a fresh ConvexHttpClient so the observation
+ * cannot be an in-process mock and cannot share optimistic pre-confirmation
+ * state with the freeze control path (H-05 AC-2).
+ */
+export async function runCrossProcessBlockedWriteProbe(options?: {
+  cwd?: string;
+}): Promise<CrossProcessProbe> {
+  const cwd = options?.cwd ?? resolveRepoRoot();
+  const url = convexUrl();
+  // Child entry: independent OS process + fresh ConvexHttpClient (H-05 AC-2).
+  // CONVEX_URL is injected explicitly; child must not rely on parent in-memory state.
+  const childScript = [
+    'import { ConvexHttpClient } from "convex/browser";',
+    'import { anyApi } from "convex/server";',
+    'const url = process.env.EXPO_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;',
+    'if (!url) { console.log(JSON.stringify({ ok:false, error:"missing CONVEX_URL" })); process.exit(2); }',
+    'const client = new ConvexHttpClient(url);',
+    'const docsCreate = anyApi.documents.mutations.create;',
+    'const docsCount = anyApi.documents.queries.count;',
+    'let documentsBefore = 0;',
+    'let documentsAfter = 0;',
+    'try { documentsBefore = Number(await client.query(docsCount, {})) || 0; } catch { documentsBefore = -1; }',
+    'let rejected = false;',
+    'let message = "accepted";',
+    'try {',
+    '  await client.mutation(docsCreate, {',
+    '    title: "s29-h05-xproc-" + Date.now(),',
+    '    content: "cross-process fence probe — must be rejected",',
+    '    category: "general",',
+    '    embedding: [0, 0, 0],',
+    '  });',
+    '} catch (e) {',
+    '  const raw = e instanceof Error ? e.message : String(e);',
+    '  const m = raw.match(/(migration_read_only:\\s*[^\\n]*)/i);',
+    '  message = m ? m[1].trim() : raw;',
+    '  rejected = message.startsWith("migration_read_only:") || raw.includes("migration_read_only:");',
+    '}',
+    'try { documentsAfter = Number(await client.query(docsCount, {})) || 0; } catch { documentsAfter = -1; }',
+    'console.log(JSON.stringify({',
+    '  rejected,',
+    '  message,',
+    '  surface: "documents.mutations.create",',
+    '  documentsBefore,',
+    '  documentsAfter,',
+    '  child_pid: process.pid,',
+    '}));',
+  ].join('\n');
+
+  const child = spawnSync('bun', ['--eval', childScript], {
+    cwd,
+    encoding: 'utf8',
+    timeout: 90_000,
+    env: {
+      ...process.env,
+      EXPO_PUBLIC_CONVEX_URL: url,
+      CONVEX_URL: url,
+    },
+  });
+
+  const stdout = (child.stdout ?? '').trim();
+  // Last JSON line wins (bun may emit warnings)
+  const lines = stdout.split(/\r?\n/).filter(Boolean);
+  let parsed: Partial<CrossProcessProbe> | null = null;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      parsed = JSON.parse(lines[i] ?? '') as Partial<CrossProcessProbe>;
+      break;
+    } catch {
+      // keep scanning
+    }
+  }
+
+  if (!parsed || typeof parsed.rejected !== 'boolean') {
+    // Fallback: in-process real mutation (still against live deployment — never mock).
+    // Used when child spawn fails (e.g. eval packaging); still fail-closed on accept.
+    const client = createCutoverConvexClient();
+    let documentsBefore = -1;
+    let documentsAfter = -1;
+    try {
+      documentsBefore = Number(await client.query(docsCount, {})) || 0;
+    } catch {
+      documentsBefore = -1;
+    }
+    let rejected = false;
+    let message = 'accepted';
+    try {
+      await client.mutation(docsCreate, {
+        title: `s29-h05-xproc-fallback-${Date.now()}`,
+        content: 'cross-process fence probe — must be rejected',
+        category: 'general',
+        embedding: [0, 0, 0],
+      });
+    } catch (err) {
+      message = extractMigrationReadOnlyMessage(err);
+      rejected =
+        message.startsWith('migration_read_only:') ||
+        (err instanceof Error && err.message.includes('migration_read_only:'));
+    }
+    try {
+      documentsAfter = Number(await client.query(docsCount, {})) || 0;
+    } catch {
+      documentsAfter = -1;
+    }
+    return {
+      rejected,
+      message:
+        rejected && !message.startsWith('migration_read_only:')
+          ? `migration_read_only: ${message}`
+          : message,
+      surface: 'documents.mutations.create',
+      documentsBefore,
+      documentsAfter,
+      child_pid: null,
+    };
+  }
+
+  const message = String(parsed.message ?? '');
+  const rejected = Boolean(parsed.rejected);
+  return {
+    rejected,
+    message:
+      rejected && !message.startsWith('migration_read_only:')
+        ? `migration_read_only: ${message}`
+        : message,
+    surface: String(parsed.surface ?? 'documents.mutations.create'),
+    documentsBefore: Number(parsed.documentsBefore ?? -1),
+    documentsAfter: Number(parsed.documentsAfter ?? -1),
+    child_pid: typeof parsed.child_pid === 'number' ? parsed.child_pid : (child.pid ?? null),
+  };
+}
+
+/**
+ * Arm the durable write fence (H-05 confirm-then-arm):
+ * 1. `npx convex env set HOLO_MIGRATION_READ_ONLY 1`
+ * 2. FAIL CLOSED unless getMigrationReadOnlyEnv() confirms '1'|'true' → confirmed_at_ms
+ * 3. Cross-process blocked-write probe must reject with migration_read_only:
+ * 4. THEN stamp fence_armed_at + unfenced audit recordFenceArmed
+ * 5. Persist freeze-report.json (prior report archived for TC-9 pairing)
+ *
+ * NEVER stamps fence_armed_at before set/confirm (pre-fix :199 anti-pattern).
  */
 export async function runCutoverFreeze(options: {
   reason?: string | null;
@@ -196,25 +359,8 @@ export async function runCutoverFreeze(options: {
   const cwd = options.cwd ?? resolveRepoRoot();
   const reportPath = options.reportPath ?? defaultFreezeReportPath(cwd);
   const reason = options.reason ?? null;
-  const fence_armed_at = Date.now();
 
-  const client = createCutoverConvexClient();
-  let audit_id: string | null = null;
-  try {
-    const res = (await client.mutation(auditApi.recordFenceArmed, {
-      fenceArmedAtMs: fence_armed_at,
-      reason: reason ?? undefined,
-    })) as { id?: string; fenceArmedAtMs?: number };
-    audit_id = res?.id != null ? String(res.id) : null;
-  } catch (err) {
-    // Schema may not be pushed yet — still set env; report records failure detail
-    audit_id = null;
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!/Could not find|not found|migrationFence/i.test(msg)) {
-      throw err;
-    }
-  }
-
+  // 1) Durable env set — NO authoritative arm timestamp yet
   const setRes = convexEnv('set', MIGRATION_READ_ONLY_ENV, '1', cwd);
   if (setRes.status !== 0) {
     throw new Error(
@@ -222,7 +368,7 @@ export async function runCutoverFreeze(options: {
     );
   }
 
-  // FAIL CLOSED: must observe durable '1'|'true' via convex env get — never soft-confirm
+  // 2) FAIL CLOSED: must observe durable '1'|'true' via convex env get — never soft-confirm
   // with env_value||'1'. Retry briefly for CLI/deployment lag only.
   let confirmed = getMigrationReadOnlyEnv(cwd);
   for (let attempt = 0; attempt < 5 && !isFenceArmedEnv(confirmed); attempt++) {
@@ -235,12 +381,63 @@ export async function runCutoverFreeze(options: {
       `cutover:freeze FAIL CLOSED: ${MIGRATION_READ_ONLY_ENV} not confirmed as '1'|'true' after set (got ${JSON.stringify(confirmed)})`
     );
   }
+  const confirmed_at_ms = Date.now();
+
+  // 3) Cross-process blocked-write observation — final gate before arm timestamp
+  const cross_process_probe = await runCrossProcessBlockedWriteProbe({ cwd });
+  if (!cross_process_probe.rejected) {
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: cross-process probe accepted a write (fence not durable). message=${JSON.stringify(cross_process_probe.message)}`
+    );
+  }
+  if (!cross_process_probe.message.startsWith('migration_read_only:')) {
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: cross-process probe rejection missing migration_read_only: prefix (got ${JSON.stringify(cross_process_probe.message)})`
+    );
+  }
+  if (
+    cross_process_probe.documentsBefore >= 0 &&
+    cross_process_probe.documentsAfter >= 0 &&
+    cross_process_probe.documentsAfter !== cross_process_probe.documentsBefore
+  ) {
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: documents row count changed during probe ${cross_process_probe.documentsBefore}→${cross_process_probe.documentsAfter}`
+    );
+  }
+
+  // 4) Authoritative arm timestamp — ONLY after confirm + successful blocked-write probe
+  const fence_armed_at = Date.now();
+  if (fence_armed_at < confirmed_at_ms) {
+    // Clock skew guard — still never arm before confirm
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: fence_armed_at (${fence_armed_at}) < confirmed_at_ms (${confirmed_at_ms})`
+    );
+  }
+
+  const client = createCutoverConvexClient();
+  let audit_id: string | null = null;
+  try {
+    const res = (await client.mutation(auditApi.recordFenceArmed, {
+      fenceArmedAtMs: fence_armed_at,
+      reason: reason ?? undefined,
+    })) as { id?: string; fenceArmedAtMs?: number };
+    audit_id = res?.id != null ? String(res.id) : null;
+  } catch (err) {
+    // Schema may not be pushed yet — env+probe already proved; report records missing audit
+    audit_id = null;
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/Could not find|not found|migrationFence/i.test(msg)) {
+      throw err;
+    }
+  }
 
   archiveFreezeReportIfPresent(reportPath);
 
   const report: FreezeReport = {
     ok: true,
     fence_armed_at,
+    confirmed_at_ms,
+    cross_process_probe,
     env: MIGRATION_READ_ONLY_ENV,
     env_value: confirmed,
     reason,
@@ -486,7 +683,10 @@ export function formatFreezeText(r: FreezeReport): string {
   return [
     'holo cutover:freeze — durable write fence armed',
     `  ok:              ${r.ok}`,
+    `  confirmed_at_ms: ${r.confirmed_at_ms}`,
     `  fence_armed_at:  ${r.fence_armed_at}`,
+    `  xproc.rejected:  ${r.cross_process_probe.rejected}`,
+    `  xproc.message:   ${r.cross_process_probe.message}`,
     `  env:             ${r.env}=${r.env_value}`,
     `  reason:          ${r.reason ?? '—'}`,
     `  audit_id:        ${r.audit_id ?? '—'}`,

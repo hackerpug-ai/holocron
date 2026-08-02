@@ -1,0 +1,11 @@
+{
+  "data_plane": "convex",
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "convex_deployment_deleted": false,
+  "repointed_at": "2026-08-02T01:47:14.354Z",
+  "repointed_at_ms": 1785635234354,
+  "export_watermark_ms": 1000,
+  "accepted_post_export_writes": 0,
+  "note": "UC-SYNC-04 rollback re-point: data plane → frozen Convex under read-only soak"
+}

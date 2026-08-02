@@ -63,7 +63,9 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
   let freezeReport: {
     ok: boolean;
     fence_armed_at: number;
+    confirmed_at_ms: number;
     env_value: string;
+    cross_process_probe: { rejected: boolean; message: string };
   };
   let shareToken: string | null = null;
   let _publicDocId: string | null = null;
@@ -131,6 +133,11 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
 
     expect(freezeReport.ok).toBe(true);
     expect(freezeReport.fence_armed_at).toBeGreaterThan(0);
+    // H-05: arm only after durable confirm + cross-process blocked write
+    expect(freezeReport.confirmed_at_ms).toBeGreaterThan(0);
+    expect(freezeReport.fence_armed_at).toBeGreaterThanOrEqual(freezeReport.confirmed_at_ms);
+    expect(freezeReport.cross_process_probe?.rejected).toBe(true);
+    expect(freezeReport.cross_process_probe?.message.startsWith('migration_read_only:')).toBe(true);
 
     const env = getMigrationReadOnlyEnv();
     evidence('tc1-env.json', { env });
@@ -430,9 +437,17 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
     ]);
     evidence('cli-freeze.json', cli);
     expect(cli.status).toBe(0);
-    const parsed = JSON.parse(cli.stdout) as { fence_armed_at: number; ok: boolean };
+    const parsed = JSON.parse(cli.stdout) as {
+      fence_armed_at: number;
+      confirmed_at_ms: number;
+      ok: boolean;
+      cross_process_probe: { rejected: boolean };
+    };
     expect(parsed.ok).toBe(true);
     expect(typeof parsed.fence_armed_at).toBe('number');
     expect(parsed.fence_armed_at).toBeGreaterThan(0);
+    expect(parsed.confirmed_at_ms).toBeGreaterThan(0);
+    expect(parsed.fence_armed_at).toBeGreaterThanOrEqual(parsed.confirmed_at_ms);
+    expect(parsed.cross_process_probe.rejected).toBe(true);
   }, 180_000);
 });
