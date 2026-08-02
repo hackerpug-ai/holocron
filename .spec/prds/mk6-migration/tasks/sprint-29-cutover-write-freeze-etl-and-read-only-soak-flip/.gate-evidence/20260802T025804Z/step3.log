@@ -1,0 +1,66 @@
+@@GATE-META step=3 task=REDHAT-FIX-S29-R2-H01 run_id=20260802T025804Z source_sha=76ec02a9045a29059c5b9683b5c6f530d1be73dc started_at=2026-08-02T03:00:10Z deployed_base_url=local-process://holo-cli@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-03 .tmp/REDHAT-FIX-S29-H03; QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"; bun services/platform/src/cli/holo.ts cutover:quiet-check --json --window-seconds "$QUIET_WINDOW_SECONDS" --output .tmp/D06-03/quiet-check-report.json | tee .tmp/REDHAT-FIX-S29-H03/step3-quiet-check.json; jq -e --argjson minWindow "${QUIET_WINDOW_SECONDS:-30}" '.ok == true and .acceptedWriteCount == 0 and .rejectedWriteCount > 0 and .windowSeconds >= $minWindow' .tmp/D06-03/quiet-check-report.json
+---
+{
+  "ok": true,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 4,
+  "windowSeconds": 30,
+  "sinceMs": 1785639614993,
+  "untilMs": 1785639644997,
+  "quietSinceMs": 1785639614993,
+  "quietUntilMs": 1785639644997,
+  "elapsedMs": 30004,
+  "drainCompletedAtMs": 1785639614142,
+  "drain": {
+    "ok": true,
+    "surfaces": [
+      "crons",
+      "queues",
+      "outbox",
+      "scheduled_jobs"
+    ],
+    "completedAtMs": 1785639614142,
+    "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+    "disabledEnvValue": "1",
+    "convexDrainOk": true,
+    "consumersHonored": true,
+    "samples": {
+      "activeTasks": 0,
+      "afterActiveTasks": 0,
+      "afterQueuedSubscriptionContent": 0,
+      "afterRunningTasks": 0,
+      "contentSkipped": 0,
+      "queuedSubscriptionContent": 0,
+      "runningTasks": 0,
+      "tasksCancelled": 0
+    },
+    "probe": {
+      "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+      "honored": true,
+      "reason": "schedules_disabled: cutover:quiet-check skipped while HOLO_CUTOVER_SCHEDULES_DISABLED is set",
+      "skipped": true,
+      "surface": "cutover:quiet-check"
+    }
+  },
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ],
+  "oracle": "mixed",
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 4,
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H01/.tmp/D06-03/quiet-check-report.json"
+}
+true
+---
+@@GATE-EXIT=0@@
+@@GATE-ENDED=2026-08-02T03:00:45Z@@

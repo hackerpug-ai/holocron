@@ -51,6 +51,10 @@ Sprint 29 is **the cutover** — the one irreversible-in-practice sequence where
 
 **Oracle suite:** `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts`
 
+**Freshness suite (REDHAT-FIX-S29-R2-H01):** `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-freshness.test.ts`
+
+**Re-run harness:** `bash scripts/run-sprint29-human-gate-rerun.sh` — executes all six `gate-plan.json` `literal_cmd` steps via real cutover CLI, writes `.gate-evidence/{new-run-id}/step{1..6}.log` + honest `gate-results.json`. Refuses historical false-pass run_id `20260802T004525Z` as current pass. Full **6/6 green may remain blocked** until sibling remediations land: **R2-C01..C04** (durable fence / drain / immutable catalog / control-plane rollback) and **R2-H02..H04** (deployed MCP identity / article comparator / cross-process arm fail-closed). Honest fail/partial is required — never forge 6/6 or copy stale results.
+
 ## Human Test Deliverable
 
 **Test Steps** (1:1 with `gate-plan.json`; each action uses the dispatcher above):
