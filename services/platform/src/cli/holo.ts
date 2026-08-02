@@ -3421,7 +3421,7 @@ async function main(): Promise<void> {
           console.log(JSON.stringify(report, null, 2));
         } else {
           console.log(
-            `reads ok=${report.ok} docs=${report.perTableCounts.documents ?? '?'} mismatches=${report.mismatches.length}`
+            `reads ok=${report.ok} tables=${report.tablesMatched}/${report.tablesTotal} docs=${report.perTableCounts.documents ?? '?'} mismatches=${report.mismatches.length} baseline_hash=${(report.baseline_hash ?? '').slice(0, 12)}`
           );
         }
         process.exit(report.ok ? 0 : 1);
