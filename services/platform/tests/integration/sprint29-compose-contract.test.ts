@@ -60,7 +60,11 @@ function commandRunner(
     if (command === 'docker' && args.join(' ').startsWith('buildx imagetools inspect')) {
       const image = args.at(-1);
       if (!image) return { status: 1, stdout: '', stderr: 'missing image for manifest inspection' };
-      return { status: 0, stdout: `${image.slice(image.indexOf('@') + 1)}\n`, stderr: '' };
+      return {
+        status: 0,
+        stdout: `Name: ${image}\nDigest: ${image.slice(image.indexOf('@') + 1)}\n`,
+        stderr: '',
+      };
     }
     if (command === 'docker' && args[0] === 'pull') return { status: 0, stdout: '', stderr: '' };
     if (command === 'docker' && args.join(' ').includes('{{json .RepoDigests}}')) {
@@ -395,15 +399,7 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       });
       expect(commands).toContainEqual(['git', 'rev-parse', 'HEAD']);
       expect(commands).toContainEqual(['git', 'status', '--porcelain=v1', '--untracked-files=all']);
-      expect(commands).toContainEqual([
-        'docker',
-        'buildx',
-        'imagetools',
-        'inspect',
-        '--format',
-        '{{.Digest}}',
-        CANDIDATE,
-      ]);
+      expect(commands).toContainEqual(['docker', 'buildx', 'imagetools', 'inspect', CANDIDATE]);
       expect(commands).toContainEqual(['docker', 'pull', CANDIDATE]);
       expect(commands.some((command) => command.includes('{{json .RepoDigests}}'))).toBe(true);
       expect(

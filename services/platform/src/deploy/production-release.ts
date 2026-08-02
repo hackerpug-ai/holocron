@@ -379,15 +379,11 @@ function runOrFail(
 }
 
 function inspectRemoteDigest(runner: ProcessRunner, cwd: string, image: string): string {
-  const inspected = runOrFail(runner, cwd, 'docker', [
-    'buildx',
-    'imagetools',
-    'inspect',
-    '--format',
-    '{{.Digest}}',
-    image,
-  ]);
-  const digest = inspected.stdout.trim();
+  const inspected = runOrFail(runner, cwd, 'docker', ['buildx', 'imagetools', 'inspect', image]);
+  const output = inspected.stdout.trim();
+  const digest = DIGEST_PATTERN.test(output)
+    ? output
+    : (/^Digest:\s+(sha256:[a-f0-9]{64})$/m.exec(output)?.[1] ?? '');
   if (!DIGEST_PATTERN.test(digest)) fail(`Docker did not return a RepoDigest for ${image}`);
   return digest;
 }
