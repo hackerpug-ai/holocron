@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { assertMcpWritable } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -166,6 +167,9 @@ export async function executePostgresMcpTool(
   input: Record<string, unknown>,
   options?: { databaseUrl?: string; signal?: AbortSignal }
 ): Promise<unknown> {
+  // D06-05 / D06-01: mutation-tool fence — fresh HOLO_MIGRATION_READ_ONLY read
+  assertMcpWritable(id);
+
   const sql = createSql(
     resolveHolocronNonprodDatabaseUrl({
       databaseUrl: options?.databaseUrl,

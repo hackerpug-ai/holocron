@@ -11,6 +11,7 @@
  * `holo jobs:run-all` fires all 16 once; `holo jobs:list` reports the registry.
  */
 import { randomUUID } from 'node:crypto';
+import { isMigrationReadOnly, migrationReadOnlyJobError } from '../cutover/soak-fence.ts';
 import { createSql, type Sql } from '../db/client.ts';
 import { beginEffect, dispatchAndAck, ensureOutboxSchema } from './durable-effect.ts';
 import { MIGRATED_JOBS, type MigratedJob } from './jobs-registry.ts';
@@ -67,6 +68,20 @@ export async function runJob(
   const runId = opts.runId ?? randomUUID();
   const runKey = `job:${job.name}:${runId}`;
   const payload = { job: job.name, category: job.category, lane: job.lane, runId };
+
+  // D06-05 / D06-01: soak fence — return ok:false (never throw) before beginEffect
+  if (isMigrationReadOnly()) {
+    return {
+      name: job.name,
+      run_key: runKey,
+      category: job.category,
+      lane: job.lane,
+      effect_id: null,
+      fence_token: null,
+      ok: false,
+      error: migrationReadOnlyJobError(job.name),
+    };
+  }
 
   const sql = createSql(url);
   try {
