@@ -1,5 +1,6 @@
 /**
  * REDHAT-FIX-S29-C03: real schedule disable/drain + measured post-drain quiet window.
+ * REDHAT-FIX-S29-R2-C02: paginated residual-zero drain + fail-closed residual/error.
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
@@ -10,11 +11,17 @@ import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import {
+  CUTOVER_SCHEDULES_DISABLED_ENV,
+  callDisableAndDrain,
+  createCutoverConvexClient,
+  drainResidualZero,
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
   type QuietCheckReport,
   runCutoverFreeze,
   runQuietCheck,
+  runScheduleDrain,
+  seedInFlightForDrainTest,
 } from '../../src/cutover/convex-fence-client.ts';
 import {
   assertQuietCheckConfirmed,
@@ -29,6 +36,11 @@ if (!PLATFORM_IT) {
 
 const EVIDENCE = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-C03');
 const D06_03 = resolve(process.cwd(), '.tmp/D06-03');
+const C02_EVIDENCE = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-R2-C02');
+const C02_SPRINT_EVIDENCE = resolve(
+  process.cwd(),
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
 
 /** Short window for integration speed; formula still asserts full wait. */
 const WINDOW_SECONDS = 3;
@@ -40,6 +52,37 @@ function evidence(name: string, body: unknown): void {
   const payload = text.endsWith('\n') ? text : `${text}\n`;
   writeFileSync(resolve(EVIDENCE, name), payload, 'utf8');
   writeFileSync(resolve(D06_03, name), payload, 'utf8');
+}
+
+function c02Evidence(name: string, body: unknown): void {
+  mkdirSync(C02_EVIDENCE, { recursive: true });
+  mkdirSync(C02_SPRINT_EVIDENCE, { recursive: true });
+  const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
+  const payload = text.endsWith('\n') ? text : `${text}\n`;
+  writeFileSync(resolve(C02_EVIDENCE, name), payload, 'utf8');
+  writeFileSync(resolve(C02_SPRINT_EVIDENCE, name), payload, 'utf8');
+}
+
+/** Pre-fix cab5c071 runScheduleDrain success predicate — ignored after* residual. */
+function preFixRunScheduleDrainOk(fields: {
+  envOk: boolean;
+  surfacesOk: boolean;
+  completedAtMs: number;
+  convexDrainOk: boolean;
+  consumersHonored: boolean;
+  probeHonored: boolean;
+  runtimeDisabled: boolean;
+  probeSkipped?: boolean;
+}): boolean {
+  return (
+    fields.envOk &&
+    fields.surfacesOk &&
+    fields.completedAtMs > 0 &&
+    fields.convexDrainOk &&
+    fields.consumersHonored &&
+    fields.probeHonored &&
+    (fields.runtimeDisabled || fields.probeSkipped === true)
+  );
 }
 
 function theatreQuietReport(): Record<string, unknown> {
@@ -293,4 +336,289 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
       );
     }
   });
+});
+
+describe('Sprint 29 R2-C02 residual-zero paginated drain', () => {
+  beforeAll(async () => {
+    mkdirSync(C02_EVIDENCE, { recursive: true });
+    mkdirSync(C02_SPRINT_EVIDENCE, { recursive: true });
+    // Prefer existing fence from C-03 suite; only re-arm if clearly disengaged.
+    // Avoid hard-failing freeze when a concurrent suite races env propagation.
+    let env = getMigrationReadOnlyEnv();
+    if (!isFenceArmedEnv(env)) {
+      try {
+        await runCutoverFreeze({
+          reason: 'REDHAT-FIX-S29-R2-C02 residual-zero suite arm',
+          reportPath: resolve(D06_03, 'freeze-report-c02.json'),
+        });
+      } catch (err) {
+        env = getMigrationReadOnlyEnv();
+        if (!isFenceArmedEnv(env)) throw err;
+      }
+    }
+    // Ensure schedules-disabled flag is visible so seed+drain can run
+    const drain = await runScheduleDrain({
+      reason: 'REDHAT-FIX-S29-R2-C02 ensure schedules disabled before residual tests',
+    });
+    if (!drain.ok && !drain.consumersHonored) {
+      throw new Error(`C-02 beforeAll drain not ready: ${drain.error ?? JSON.stringify(drain)}`);
+    }
+  }, 240_000);
+
+  it('r2-c02 residual-zero-paginated-drain: multi-batch clears >100 active tasks', async () => {
+    const client = createCutoverConvexClient();
+    const seed = await seedInFlightForDrainTest({
+      client,
+      activeTasks: 101,
+      queuedSubscriptionContent: 0,
+      tag: `c02-tasks-${Date.now()}`,
+    });
+    expect(seed.ok).toBe(true);
+    expect(seed.activeTasks).toBeGreaterThan(100);
+
+    // RED: single-pass (pre-fix DRAIN_BATCH once) leaves residual
+    const single = await callDisableAndDrain({
+      client,
+      maxPasses: 1,
+      reason: 'c02 RED single-batch residual proof',
+    });
+    const redPayload = {
+      finding: 'C-02',
+      reviewed_sha: 'cab5c0717974a96e33c338105b5d198d82cb607d',
+      defect:
+        'pre-fix drain.ts:113-150 single .take(DRAIN_BATCH=100); drain.ts:191-205 ok:true without residual zero; convex-fence-client.ts:689-724 ignored after*',
+      seed,
+      single_batch: single,
+      residual_after_single: {
+        afterActiveTasks: single.samples?.afterActiveTasks,
+        afterRunningTasks: single.samples?.afterRunningTasks,
+        afterQueuedSubscriptionContent: single.samples?.afterQueuedSubscriptionContent,
+      },
+      pre_fix_would_ok_true_with_residual: preFixRunScheduleDrainOk({
+        envOk: true,
+        surfacesOk: true,
+        completedAtMs: Date.now(),
+        // pre-fix mutation returned ok:true even with residual
+        convexDrainOk: true,
+        consumersHonored: true,
+        probeHonored: true,
+        runtimeDisabled: true,
+        probeSkipped: true,
+      }),
+      fixed_single_batch_ok: single.ok,
+      fixed_requires_residual_zero: !drainResidualZero(single.samples),
+    };
+    c02Evidence('redhat-fix-s29-r2-c02-red.log', redPayload);
+    expect(
+      (single.samples?.afterActiveTasks ?? 0) > 0 || single.ok === false,
+      'single-batch must leave residual or fail closed'
+    ).toBe(true);
+    expect(single.ok, 'fixed path must NOT ok:true with residual after single batch').toBe(false);
+    expect(drainResidualZero(single.samples)).toBe(false);
+
+    // Clear leftover residual from RED single-pass, then re-seed >100 for multi-batch GREEN
+    await callDisableAndDrain({
+      client,
+      reason: 'c02 clear residual after RED single-batch',
+    });
+    const seedGreen = await seedInFlightForDrainTest({
+      client,
+      activeTasks: 101,
+      queuedSubscriptionContent: 0,
+      tag: `c02-tasks-green-${Date.now()}`,
+    });
+    expect(seedGreen.activeTasks).toBeGreaterThan(100);
+
+    // GREEN: multi-batch drain to residual zero from a full >100 seed
+    const full = await callDisableAndDrain({
+      client,
+      reason: 'c02 GREEN multi-batch residual-zero',
+    });
+    const greenSamples = {
+      ok: full.ok,
+      samples: full.samples,
+      drainCompletedAtMs: full.drainCompletedAtMs,
+      consumersHonored: full.consumersHonored,
+      error: full.error,
+    };
+    c02Evidence('redhat-fix-s29-r2-c02-drain-samples.json', greenSamples);
+    c02Evidence('redhat-fix-s29-r2-c02-green.log', {
+      finding: 'C-02',
+      status: 'GREEN',
+      seed_activeTasks: seedGreen.activeTasks,
+      drain: full,
+      residual_zero: drainResidualZero(full.samples),
+      batchesProcessed: full.samples?.batchesProcessed ?? full.samples?.drainBatches,
+    });
+
+    expect(full.ok, JSON.stringify(full)).toBe(true);
+    expect(full.samples?.afterActiveTasks).toBe(0);
+    expect(full.samples?.afterRunningTasks).toBe(0);
+    expect(full.samples?.afterQueuedSubscriptionContent).toBe(0);
+    const batches = full.samples?.batchesProcessed ?? full.samples?.drainBatches ?? 0;
+    expect(
+      batches,
+      `expected multi-batch drain for 101 tasks, got batches=${batches}`
+    ).toBeGreaterThan(1);
+    expect(full.drainCompletedAtMs).toBeGreaterThan(0);
+  }, 300_000);
+
+  it('r2-c02 subscription-queue-residual-zero: >100 queued content drains to zero', async () => {
+    const client = createCutoverConvexClient();
+    const seed = await seedInFlightForDrainTest({
+      client,
+      activeTasks: 0,
+      queuedSubscriptionContent: 101,
+      tag: `c02-subq-${Date.now()}`,
+    });
+    expect(seed.ok).toBe(true);
+    expect(seed.queuedSubscriptionContent).toBeGreaterThan(100);
+
+    const single = await callDisableAndDrain({
+      client,
+      maxPasses: 1,
+      reason: 'c02 subscription single-batch residual',
+    });
+    expect((single.samples?.afterQueuedSubscriptionContent ?? 0) > 0 || single.ok === false).toBe(
+      true
+    );
+
+    // Clear residual + re-seed full >100 so multi-batch is observable on GREEN path
+    await callDisableAndDrain({
+      client,
+      reason: 'c02 clear subscription residual after single-batch',
+    });
+    const seedGreen = await seedInFlightForDrainTest({
+      client,
+      activeTasks: 0,
+      queuedSubscriptionContent: 101,
+      tag: `c02-subq-green-${Date.now()}`,
+    });
+    expect(seedGreen.queuedSubscriptionContent).toBeGreaterThan(100);
+
+    const full = await callDisableAndDrain({
+      client,
+      reason: 'c02 subscription multi-batch residual-zero',
+    });
+    c02Evidence('redhat-fix-s29-r2-c02-subscription-samples.json', {
+      ok: full.ok,
+      samples: full.samples,
+      seed: seedGreen,
+    });
+    // Merge residual-zero proof into canonical samples without wiping multi-batch task proof
+    expect(full.ok, JSON.stringify(full)).toBe(true);
+    expect(full.samples?.afterQueuedSubscriptionContent).toBe(0);
+    expect(full.samples?.afterActiveTasks).toBe(0);
+    expect(full.samples?.afterRunningTasks).toBe(0);
+    const batches = full.samples?.batchesProcessed ?? full.samples?.drainBatches ?? 0;
+    expect(batches, `subscription multi-batch expected, got ${batches}`).toBeGreaterThan(1);
+  }, 300_000);
+
+  it('r2-c02 drain-fail-closed-on-query-patch-error: injectFault fails closed', async () => {
+    const client = createCutoverConvexClient();
+    const sampleFail = await callDisableAndDrain({
+      client,
+      injectFault: 'sample',
+      reason: 'c02 AC-3 sample fault',
+    });
+    c02Evidence('redhat-fix-s29-r2-c02-fail-closed-sample.json', sampleFail);
+    expect(sampleFail.ok).toBe(false);
+    expect(sampleFail.error ?? '').toMatch(/fail-closed|injectFault|sample/i);
+    // Residual must not be coerced to zero theatre
+    const s = sampleFail.samples;
+    const coercedZero =
+      s?.afterActiveTasks === 0 &&
+      s?.afterRunningTasks === 0 &&
+      s?.afterQueuedSubscriptionContent === 0 &&
+      sampleFail.ok === true;
+    expect(coercedZero).toBe(false);
+
+    const patchFail = await callDisableAndDrain({
+      client,
+      injectFault: 'patch',
+      reason: 'c02 AC-3 patch fault',
+    });
+    c02Evidence('redhat-fix-s29-r2-c02-fail-closed-patch.json', patchFail);
+    expect(patchFail.ok).toBe(false);
+    expect(patchFail.error ?? '').toMatch(/fail-closed|injectFault|patch/i);
+  }, 180_000);
+
+  it('r2-c02 runScheduleDrain-requires-residual-zero: residual gate on client', async () => {
+    const client = createCutoverConvexClient();
+    // Seed residual then force single-pass incomplete drain via mutation, then
+    // prove drainResidualZero + client predicate refuse success.
+    await seedInFlightForDrainTest({
+      client,
+      activeTasks: 101,
+      queuedSubscriptionContent: 0,
+      tag: `c02-client-residual-${Date.now()}`,
+    });
+    const incomplete = await callDisableAndDrain({
+      client,
+      maxPasses: 1,
+      reason: 'c02 incomplete residual for runScheduleDrain gate',
+    });
+    expect(incomplete.ok).toBe(false);
+    expect(drainResidualZero(incomplete.samples)).toBe(false);
+
+    // Pre-fix client would still ok with residual if mutation lied ok:true
+    const preFixOk = preFixRunScheduleDrainOk({
+      envOk: true,
+      surfacesOk: true,
+      completedAtMs: Date.now(),
+      convexDrainOk: true,
+      consumersHonored: true,
+      probeHonored: true,
+      runtimeDisabled: true,
+      probeSkipped: true,
+    });
+    expect(preFixOk, 'pre-fix predicate ignores residual').toBe(true);
+    expect(drainResidualZero(incomplete.samples), 'fixed residual gate').toBe(false);
+
+    // Live runScheduleDrain after incomplete residual must either clear residual
+    // (multi-batch) with ok:true, or fail if residual remains — never ok with residual.
+    const drain = await runScheduleDrain({
+      client,
+      reason: 'c02 runScheduleDrain residual-aware',
+    });
+    c02Evidence('redhat-fix-s29-r2-c02-runScheduleDrain.json', drain);
+    if (drain.ok) {
+      expect(drainResidualZero(drain.samples)).toBe(true);
+      expect(drain.samples?.afterActiveTasks).toBe(0);
+    } else {
+      expect(drainResidualZero(drain.samples) || drain.ok === false).toBe(true);
+    }
+    // Quiet-check report residual contract
+    writeFileSync(
+      resolve(D06_03, 'quiet-check-report.json'),
+      `${JSON.stringify(
+        {
+          ok: drain.ok,
+          drain: {
+            ok: drain.ok,
+            samples: drain.samples,
+            consumersHonored: drain.consumersHonored,
+            convexDrainOk: drain.convexDrainOk,
+          },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    expect(drain.ok === false || (drain.samples?.afterActiveTasks ?? 0) === 0).toBe(true);
+  }, 300_000);
+
+  it('r2-c02 env flag still required: schedules disabled surfaces in drain path', async () => {
+    // Smoke: full quiet-check still greens with residual-aware drain
+    const report = await runQuietCheck({
+      windowSeconds: WINDOW_SECONDS,
+      reportPath: resolve(C02_EVIDENCE, 'quiet-check-report-c02.json'),
+    });
+    c02Evidence('quiet-check-report-c02.json', report);
+    expect(report.drain.ok, JSON.stringify(report.drain)).toBe(true);
+    expect(drainResidualZero(report.drain.samples)).toBe(true);
+    expect(report.drain.disabledEnv).toBe(CUTOVER_SCHEDULES_DISABLED_ENV);
+    expect(report.ok).toBe(true);
+  }, 180_000);
 });

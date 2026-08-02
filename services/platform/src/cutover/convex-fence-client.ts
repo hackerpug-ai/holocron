@@ -33,6 +33,7 @@ const drainApi = (anyApi as any).migrationFence.drain as {
   latestDrain: FunctionReference<'query'>;
   scheduleDisableStatus: FunctionReference<'query'>;
   probeScheduleConsumer: FunctionReference<'mutation'>;
+  seedInFlightForDrainTest: FunctionReference<'mutation'>;
 };
 
 const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
@@ -67,6 +68,21 @@ export type FreezeReport = {
   report_path: string;
 };
 
+export type DrainReportSamples = {
+  runningTasks?: number;
+  activeTasks?: number;
+  queuedSubscriptionContent?: number;
+  tasksCancelled?: number;
+  contentSkipped?: number;
+  afterRunningTasks?: number;
+  afterActiveTasks?: number;
+  afterQueuedSubscriptionContent?: number;
+  /** Multi-pass count from paginated drain-to-zero (C-02). */
+  batchesProcessed?: number;
+  /** Alias of batchesProcessed for evidence jq. */
+  drainBatches?: number;
+};
+
 export type DrainReport = {
   ok: boolean;
   surfaces: string[];
@@ -76,19 +92,29 @@ export type DrainReport = {
   convexDrainOk: boolean;
   /** True when Convex runtime consumers read HOLO_CUTOVER_SCHEDULES_DISABLED (not theatre). */
   consumersHonored: boolean;
-  samples?: {
-    runningTasks?: number;
-    activeTasks?: number;
-    queuedSubscriptionContent?: number;
-    tasksCancelled?: number;
-    contentSkipped?: number;
-    afterRunningTasks?: number;
-    afterActiveTasks?: number;
-    afterQueuedSubscriptionContent?: number;
-  };
+  samples?: DrainReportSamples;
   probe?: { skipped?: boolean; honored?: boolean; reason?: string };
   error?: string;
 };
+
+/**
+ * C-02 residual-zero gate: all after* counts must be present and === 0.
+ * Negative sentinels (fail-closed sample path) are non-zero residual.
+ */
+export function drainResidualZero(samples?: DrainReportSamples | null): boolean {
+  if (!samples) return false;
+  const afterActive = samples.afterActiveTasks;
+  const afterRunning = samples.afterRunningTasks;
+  const afterQueued = samples.afterQueuedSubscriptionContent;
+  if (
+    typeof afterActive !== 'number' ||
+    typeof afterRunning !== 'number' ||
+    typeof afterQueued !== 'number'
+  ) {
+    return false;
+  }
+  return afterActive === 0 && afterRunning === 0 && afterQueued === 0;
+}
 
 export type QuietCheckReport = {
   ok: boolean;
@@ -714,8 +740,20 @@ export async function runScheduleDrain(options?: {
   if (completedAtMs <= 0 && convexDrainOk) completedAtMs = Date.now();
 
   const surfacesOk = drainSurfacesOk(surfaces);
-  // REAL drain: env + Convex runtime consumers + mutation ok + surfaces + timestamp.
+  // C-02: residual-after samples must be zero — pre-fix cab5c071 ignored after*.
+  const residualOk = drainResidualZero(samples);
+  if (!residualOk && !error) {
+    const a = samples?.afterActiveTasks;
+    const r = samples?.afterRunningTasks;
+    const q = samples?.afterQueuedSubscriptionContent;
+    error =
+      `residual after drain not zero (afterActiveTasks=${String(a)}, ` +
+      `afterRunningTasks=${String(r)}, afterQueuedSubscriptionContent=${String(q)})`;
+  }
+
+  // REAL drain: env + Convex runtime consumers + mutation ok + residual zero + surfaces.
   // Never ok:true on env-set + audit theatre alone (dual-lens C-03 reject).
+  // Never ok:true when after* residual > 0 (C-02 / D06-03 AC-3).
   const ok =
     envOk &&
     surfacesOk &&
@@ -723,6 +761,7 @@ export async function runScheduleDrain(options?: {
     convexDrainOk &&
     consumersHonored &&
     probeHonored &&
+    residualOk &&
     (runtimeDisabled || probe?.skipped === true);
 
   return {
@@ -744,7 +783,92 @@ export async function runScheduleDrain(options?: {
             ? 'consumersHonored=false — schedule consumers did not confirm disable'
             : !convexDrainOk
               ? 'disableAndDrain failed'
-              : 'drain incomplete')),
+              : !residualOk
+                ? 'disableAndDrain left non-zero residual after* counts'
+                : 'drain incomplete')),
+  };
+}
+
+/**
+ * Seed >DRAIN_BATCH in-flight rows for C-02 multi-batch residual proofs (PLATFORM_IT).
+ * Unfenced Convex mutation — works under HOLO_MIGRATION_READ_ONLY.
+ */
+export async function seedInFlightForDrainTest(options?: {
+  client?: ConvexHttpClient;
+  activeTasks?: number;
+  queuedSubscriptionContent?: number;
+  tag?: string;
+}): Promise<{
+  ok: boolean;
+  activeTasks: number;
+  queuedSubscriptionContent: number;
+  tag?: string;
+  taskIds?: string[];
+  contentIds?: string[];
+}> {
+  const client = options?.client ?? createCutoverConvexClient();
+  const res = (await client.mutation(drainApi.seedInFlightForDrainTest, {
+    activeTasks: options?.activeTasks ?? 101,
+    queuedSubscriptionContent: options?.queuedSubscriptionContent ?? 101,
+    tag: options?.tag,
+  })) as {
+    ok?: boolean;
+    activeTasks?: number;
+    queuedSubscriptionContent?: number;
+    tag?: string;
+    taskIds?: string[];
+    contentIds?: string[];
+  };
+  return {
+    ok: res?.ok === true,
+    activeTasks: res?.activeTasks ?? 0,
+    queuedSubscriptionContent: res?.queuedSubscriptionContent ?? 0,
+    tag: res?.tag,
+    taskIds: res?.taskIds,
+    contentIds: res?.contentIds,
+  };
+}
+
+/**
+ * Direct disableAndDrain for residual/pagination tests (bypasses env set loop).
+ * Requires HOLO_CUTOVER_SCHEDULES_DISABLED already visible in Convex runtime.
+ */
+export async function callDisableAndDrain(options?: {
+  client?: ConvexHttpClient;
+  maxPasses?: number;
+  injectFault?: 'sample' | 'patch';
+  reason?: string;
+  surfaces?: string[];
+}): Promise<{
+  ok: boolean;
+  drainCompletedAtMs: number;
+  surfaces: string[];
+  consumersHonored: boolean;
+  samples?: DrainReportSamples;
+  error?: string;
+}> {
+  const client = options?.client ?? createCutoverConvexClient();
+  const res = (await client.mutation(drainApi.disableAndDrain, {
+    surfaces: options?.surfaces ?? [...CUTOVER_DRAIN_SURFACES],
+    reason: options?.reason ?? 'c02 residual-zero test drain',
+    atMs: Date.now(),
+    maxPasses: options?.maxPasses,
+    injectFault: options?.injectFault,
+  })) as {
+    ok?: boolean;
+    drainCompletedAtMs?: number;
+    surfaces?: string[];
+    consumersHonored?: boolean;
+    samples?: DrainReportSamples;
+    error?: string;
+  };
+  return {
+    ok: res?.ok === true,
+    drainCompletedAtMs: res?.drainCompletedAtMs ?? 0,
+    surfaces: Array.isArray(res?.surfaces) ? res.surfaces : [],
+    consumersHonored: res?.consumersHonored === true,
+    samples: res?.samples,
+    error: res?.error,
   };
 }
 
