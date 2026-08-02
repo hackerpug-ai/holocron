@@ -138,6 +138,9 @@ function assertGitShaBoundToHead(gitSha: string): { head: string; mode: string }
       /\/\.gate-evidence\//.test(f) ||
       /^\.tmp\//.test(f) ||
       /REDHAT-FIX-S29-R3-C01/.test(f) ||
+      // Status-note / progress-only updates after a HEAD-bound gate re-run (R3-C01
+      // self-referential commit: committing gate-results always advances HEAD).
+      /sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip\/SPRINT\.md$/.test(f) ||
       // Binding-oracle suite may land with evidence-only commits (self-referential HEAD).
       /sprint29-human-gate-freshness\.test\.ts$/.test(f)
   );
