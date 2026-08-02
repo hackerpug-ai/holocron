@@ -1,5 +1,6 @@
 /**
- * REDHAT-FIX-S29-H05 — executable UC-SYNC-04 rollback re-point + precondition.
+ * REDHAT-FIX-S29-H05 + REDHAT-FIX-S29-R2-C04 — serving control-plane rollback
+ * re-point with live acknowledgements (UC-SYNC-04).
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
@@ -8,8 +9,9 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
+import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
   defaultDataPlaneConfigPath,
   defaultPostExportWriteAuditPath,
@@ -19,32 +21,48 @@ import {
   TARGET_CONVEX_FROZEN,
   writePostExportWriteAudit,
 } from '../../src/cutover/rollback-repoint.ts';
+import {
+  DATA_PLANE_ENV,
+  ROLLBACK_TARGET_ENV,
+  resolveObservedDataPlane,
+} from '../../src/cutover/soak-fence.ts';
+import { createHonoApp } from '../../src/http/hono-app.ts';
 
 if (!PLATFORM_IT) {
   throw new Error('sprint29-rollback-repoint requires PLATFORM_IT=1');
 }
 
-const EVIDENCE = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-H05');
-const D0605 = resolve(process.cwd(), '.tmp/D06-05');
-const D0604 = resolve(process.cwd(), '.tmp/D06-04');
+const REPO_ROOT = process.cwd();
+const EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H05');
+const R2_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C04');
+const SPRINT_EVIDENCE = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
+const D0605 = resolve(REPO_ROOT, '.tmp/D06-05');
+const D0604 = resolve(REPO_ROOT, '.tmp/D06-04');
+const DISPOSABLE_SECRETS = resolve(R2_EVIDENCE, 'disposable-secrets.yaml');
 
-function evidence(name: string, body: unknown): void {
-  mkdirSync(EVIDENCE, { recursive: true });
+function evidence(name: string, body: unknown, dir = EVIDENCE): void {
+  mkdirSync(dir, { recursive: true });
   mkdirSync(D0605, { recursive: true });
   const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
-  writeFileSync(resolve(EVIDENCE, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
+  writeFileSync(resolve(dir, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
 }
 
-function holo(args: string[]): {
+function holo(
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env
+): {
   status: number | null;
   stdout: string;
   stderr: string;
 } {
   const r = spawnSync('bun', ['services/platform/src/cli/holo.ts', ...args], {
-    cwd: process.cwd(),
+    cwd: REPO_ROOT,
     encoding: 'utf8',
     timeout: 120_000,
-    env: process.env,
+    env,
   });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
@@ -70,7 +88,7 @@ function seedEligibleFixture(opts?: { withAcceptedWrite?: boolean }): {
         fence_env: '1',
         quiet_check_path: null,
         quiet_ok: true,
-        runId: 's29-h05-rollback-fixture',
+        runId: 's29-r2-c04-rollback-fixture',
         unexplainedVariance: 0,
       },
       null,
@@ -79,7 +97,7 @@ function seedEligibleFixture(opts?: { withAcceptedWrite?: boolean }): {
     'utf8'
   );
 
-  const auditPath = defaultPostExportWriteAuditPath(process.cwd());
+  const auditPath = defaultPostExportWriteAuditPath(REPO_ROOT);
   writePostExportWriteAudit(
     {
       export_watermark_ms: exportMs,
@@ -99,25 +117,58 @@ function seedEligibleFixture(opts?: { withAcceptedWrite?: boolean }): {
   return { watermarkPath, auditPath, exportMs };
 }
 
-describe('REDHAT-FIX-S29-H05 rollback re-point (UC-SYNC-04)', () => {
+function seedDisposableSecrets(): void {
+  mkdirSync(R2_EVIDENCE, { recursive: true });
+  writeFileSync(
+    DISPOSABLE_SECRETS,
+    [
+      '# disposable R2-C04 secrets — never production',
+      'HOLO_MIGRATION_READ_ONLY: "1"',
+      'HOLO_DATA_PLANE: "postgres"',
+      'HOLO_ROLLBACK_TARGET: "postgres-soak"',
+      '',
+    ].join('\n'),
+    { mode: 0o600 }
+  );
+}
+
+describe('REDHAT-FIX-S29-H05 / R2-C04 rollback re-point (UC-SYNC-04)', () => {
+  const priorSecrets = process.env.HOLO_SECRETS_PATH;
+  const priorPlane = process.env[DATA_PLANE_ENV];
+  const priorTarget = process.env[ROLLBACK_TARGET_ENV];
+
   beforeEach(() => {
     mkdirSync(EVIDENCE, { recursive: true });
+    mkdirSync(R2_EVIDENCE, { recursive: true });
+    mkdirSync(SPRINT_EVIDENCE, { recursive: true });
     mkdirSync(D0605, { recursive: true });
-    // Clean prior config so prior_target assertions are stable
-    const cfg = defaultDataPlaneConfigPath(process.cwd());
+    seedDisposableSecrets();
+    process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+    delete process.env[DATA_PLANE_ENV];
+    delete process.env[ROLLBACK_TARGET_ENV];
+    const cfg = defaultDataPlaneConfigPath(REPO_ROOT);
     if (existsSync(cfg)) rmSync(cfg);
-    const report = defaultRollbackRepointReportPath(process.cwd());
+    const report = defaultRollbackRepointReportPath(REPO_ROOT);
     if (existsSync(report)) rmSync(report);
   });
 
+  afterEach(() => {
+    if (priorSecrets !== undefined) process.env.HOLO_SECRETS_PATH = priorSecrets;
+    else delete process.env.HOLO_SECRETS_PATH;
+    if (priorPlane !== undefined) process.env[DATA_PLANE_ENV] = priorPlane;
+    else delete process.env[DATA_PLANE_ENV];
+    if (priorTarget !== undefined) process.env[ROLLBACK_TARGET_ENV] = priorTarget;
+    else delete process.env[ROLLBACK_TARGET_ENV];
+  });
+
   it('TC-3: cutover:rollback-repoint is a registered executable command', () => {
-    // Unknown commands exit non-zero with "unknown command:" — registered ones do not
-    const help = holo(['cutover:rollback-repoint', '--json']);
+    const help = holo(['cutover:rollback-repoint', '--json'], {
+      ...process.env,
+      HOLO_SECRETS_PATH: DISPOSABLE_SECRETS,
+    });
     evidence('tc3-cli-registered.json', help);
-    // Without watermark fixture this may refuse, but must NOT be "unknown command"
     const combined = `${help.stdout}\n${help.stderr}`;
     expect(combined.includes('unknown command: cutover:rollback-repoint')).toBe(false);
-    // Parse JSON response (ok true or structured error)
     const parsed = JSON.parse(help.stdout || help.stderr || '{}') as {
       ok?: boolean;
       error?: { code?: string } | string;
@@ -126,19 +177,21 @@ describe('REDHAT-FIX-S29-H05 rollback re-point (UC-SYNC-04)', () => {
     expect(parsed.ok === true || parsed.ok === false || parsed.error != null).toBe(true);
   }, 60_000);
 
-  it('AC-3 executable-repoint: re-points to convex-frozen with auditable config evidence', () => {
+  it('AC-3 executable-repoint: re-points to convex-frozen with auditable config evidence', async () => {
     const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
     const reportPath = resolve(D0605, 'rollback-repoint-report.json');
-    const configPath = defaultDataPlaneConfigPath(process.cwd());
+    const configPath = defaultDataPlaneConfigPath(REPO_ROOT);
 
-    const report = runRollbackRepoint({
+    const report = await runRollbackRepoint({
       reportPath,
       configPath,
       auditPath,
       watermarkPath,
+      secretsPath: DISPOSABLE_SECRETS,
     });
     evidence('rollback-repoint-report.json', report);
     evidence('ac-3-executable-repoint.json', report);
+    evidence('r2-c04-repoint-report.json', report, R2_EVIDENCE);
 
     expect(report.ok).toBe(true);
     expect(report.repointed).toBe(true);
@@ -149,73 +202,98 @@ describe('REDHAT-FIX-S29-H05 rollback re-point (UC-SYNC-04)', () => {
     expect(report.precondition.accepted_post_export_writes).toBe(0);
     expect(report.config.path).toBe(configPath);
     expect(report.config.digest_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(report.configured_target.length).toBeGreaterThanOrEqual(8);
+    expect(report.configured_target).toBe(DISPOSABLE_SECRETS);
+    expect(report.acknowledgements.length).toBeGreaterThanOrEqual(1);
     expect(existsSync(configPath)).toBe(true);
+
+    const secrets = loadSecretsFile(DISPOSABLE_SECRETS);
+    expect(secrets.HOLO_DATA_PLANE).toBe('convex');
+    expect(secrets.HOLO_ROLLBACK_TARGET).toBe(TARGET_CONVEX_FROZEN);
 
     const cfg = JSON.parse(readFileSync(configPath, 'utf8')) as {
       target: string;
       convex_deployment_deleted: boolean;
+      configured_target?: string;
     };
     evidence('ac-3-data-plane-config.json', cfg);
     expect(cfg.target).toBe(TARGET_CONVEX_FROZEN);
     expect(cfg.convex_deployment_deleted).toBe(false);
-    // Convex tree must still exist (re-point is not decommission)
-    expect(existsSync(resolve(process.cwd(), 'convex'))).toBe(true);
+    expect(existsSync(resolve(REPO_ROOT, 'convex'))).toBe(true);
 
-    // CLI path
-    const cli = holo([
-      'cutover:rollback-repoint',
-      '--json',
-      '--etl-report',
-      watermarkPath,
-      '--output',
-      resolve(EVIDENCE, 'rollback-repoint-cli.json'),
-    ]);
+    // CLI path (registered command → serving control-plane)
+    const cli = holo(
+      [
+        'cutover:rollback-repoint',
+        '--json',
+        '--etl-report',
+        watermarkPath,
+        '--output',
+        resolve(EVIDENCE, 'rollback-repoint-cli.json'),
+      ],
+      { ...process.env, HOLO_SECRETS_PATH: DISPOSABLE_SECRETS }
+    );
     evidence('ac-3-cli.json', cli);
+    evidence('r2-c04-cli.json', cli, R2_EVIDENCE);
     expect(cli.status).toBe(0);
     const parsed = JSON.parse(cli.stdout) as {
       ok: boolean;
       repointed: boolean;
       target: string;
+      data_plane: string;
+      configured_target: string;
+      acknowledgements: unknown[];
     };
     expect(parsed.ok).toBe(true);
     expect(parsed.repointed).toBe(true);
     expect(parsed.target).toBe(TARGET_CONVEX_FROZEN);
-  }, 60_000);
+    expect(parsed.data_plane).toBe('convex');
+    expect(parsed.configured_target.length).toBeGreaterThanOrEqual(8);
+    expect(parsed.acknowledgements.length).toBeGreaterThanOrEqual(1);
+  }, 120_000);
 
-  it('AC-4 no-accepted-post-export-write-precondition: refuses when writes accepted after export', () => {
+  it('AC-4 no-accepted-post-export-write-precondition: refuses when writes accepted after export', async () => {
     const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: true });
-    // Snapshot prior config if any
-    const configPath = defaultDataPlaneConfigPath(process.cwd());
+    const configPath = defaultDataPlaneConfigPath(REPO_ROOT);
     writeFileSync(
       configPath,
       `${JSON.stringify({ target: 'postgres-soak', data_plane: 'postgres' }, null, 2)}\n`,
       'utf8'
     );
     const prior = readFileSync(configPath, 'utf8');
+    // Snapshot secrets prior to refuse
+    const priorSecretsBody = readFileSync(DISPOSABLE_SECRETS, 'utf8');
 
-    const report = runRollbackRepoint({
+    const report = await runRollbackRepoint({
       reportPath: resolve(D0605, 'rollback-repoint-report-ineligible.json'),
       configPath,
       auditPath,
       watermarkPath,
+      secretsPath: DISPOSABLE_SECRETS,
     });
     evidence('ac-4-post-export-refused.json', report);
+    evidence('r2-c04-post-export-refused.json', report, R2_EVIDENCE);
 
     expect(report.ok).toBe(false);
     expect(report.repointed).toBe(false);
     expect(report.error?.code).toBe(POST_EXPORT_WRITE_ACCEPTED);
     expect(report.precondition.accepted_post_export_writes).toBeGreaterThan(0);
-    // Config target must remain pre-command state
+    expect(report.acknowledgements.length).toBe(0);
     expect(readFileSync(configPath, 'utf8')).toBe(prior);
+    // Control-plane must not have been repointed
+    expect(readFileSync(DISPOSABLE_SECRETS, 'utf8')).toBe(priorSecretsBody);
 
-    const cli = holo([
-      'cutover:rollback-repoint',
-      '--json',
-      '--etl-report',
-      watermarkPath,
-      '--output',
-      resolve(EVIDENCE, 'rollback-repoint-cli-ineligible.json'),
-    ]);
+    const cli = holo(
+      [
+        'cutover:rollback-repoint',
+        '--json',
+        '--etl-report',
+        watermarkPath,
+        '--output',
+        resolve(EVIDENCE, 'rollback-repoint-cli-ineligible.json'),
+      ],
+      { ...process.env, HOLO_SECRETS_PATH: DISPOSABLE_SECRETS }
+    );
     evidence('ac-4-cli.json', cli);
     expect(cli.status).not.toBe(0);
     const parsed = JSON.parse(cli.stdout) as {
@@ -230,4 +308,85 @@ describe('REDHAT-FIX-S29-H05 rollback re-point (UC-SYNC-04)', () => {
         parsed.error?.code === 'ROLLBACK_INELIGIBLE'
     ).toBe(true);
   }, 60_000);
+
+  it('R2-C04 live-ack: serving health observes data_plane convex after repoint', async () => {
+    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const report = await runRollbackRepoint({
+      reportPath: resolve(R2_EVIDENCE, 'live-ack-report.json'),
+      auditPath,
+      watermarkPath,
+      secretsPath: DISPOSABLE_SECRETS,
+    });
+    evidence('r2-c04-live-ack-report.json', report, R2_EVIDENCE);
+
+    expect(report.ok).toBe(true);
+    expect(report.repointed).toBe(true);
+    expect(report.acknowledgements.length).toBeGreaterThanOrEqual(1);
+    expect(
+      report.acknowledgements.some(
+        (a) =>
+          a.kind === 'serving_health' ||
+          a.kind === 'cross_process' ||
+          a.kind === 'process_generation'
+      )
+    ).toBe(true);
+    expect(
+      report.acknowledgements.some(
+        (a) => a.observed_data_plane === 'convex' || a.observed_target === TARGET_CONVEX_FROZEN
+      )
+    ).toBe(true);
+
+    // Force durable re-read and probe real Hono /health
+    delete process.env[DATA_PLANE_ENV];
+    delete process.env[ROLLBACK_TARGET_ENV];
+    process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+    const observed = resolveObservedDataPlane(process.env, DISPOSABLE_SECRETS);
+    expect(observed.data_plane).toBe('convex');
+    expect(observed.target).toBe(TARGET_CONVEX_FROZEN);
+    expect(observed.source).toBe('secrets');
+
+    const app = createHonoApp();
+    const res = await app.request('http://local.test/health');
+    const body = (await res.json()) as {
+      data_plane?: string | null;
+      target?: string | null;
+      rollback?: { target?: string | null };
+    };
+    evidence('r2-c04-health-observe.json', { status: res.status, body, observed }, R2_EVIDENCE);
+    expect(body.data_plane === 'convex' || body.target === TARGET_CONVEX_FROZEN).toBe(true);
+    expect(
+      body.target === TARGET_CONVEX_FROZEN || body.rollback?.target === TARGET_CONVEX_FROZEN
+    ).toBe(true);
+
+    // Cross-process consumer exists outside cutover producers
+    const rg = spawnSync(
+      'rg',
+      [
+        '-n',
+        'resolveObservedDataPlane|HOLO_DATA_PLANE',
+        'services/platform/src/http/health.ts',
+        'services/platform/src/cutover/soak-fence.ts',
+      ],
+      { cwd: REPO_ROOT, encoding: 'utf8' }
+    );
+    evidence('r2-c04-runtime-consumer-rg.txt', rg.stdout || rg.stderr, R2_EVIDENCE);
+    expect(rg.status).toBe(0);
+    expect((rg.stdout || '').includes('resolveObservedDataPlane')).toBe(true);
+  }, 120_000);
+
+  it('R2-C04: .tmp data-plane-config alone is not the configured_target success oracle', async () => {
+    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const report = await runRollbackRepoint({
+      reportPath: resolve(R2_EVIDENCE, 'oracle-report.json'),
+      auditPath,
+      watermarkPath,
+      secretsPath: DISPOSABLE_SECRETS,
+    });
+    // configured_target must be the secrets control-plane path, not .tmp config
+    expect(report.configured_target).toBe(DISPOSABLE_SECRETS);
+    expect(report.configured_target.includes('data-plane-config.json')).toBe(false);
+    expect(report.config.path.includes('data-plane-config.json')).toBe(true);
+    expect(report.acknowledgements.length).toBeGreaterThanOrEqual(1);
+    evidence('r2-c04-oracle-contract.json', report, R2_EVIDENCE);
+  }, 120_000);
 });
