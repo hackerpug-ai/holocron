@@ -1517,13 +1517,19 @@ export default defineSchema({
     .index('by_key', ['key'])
     .index('by_key_timestamp', ['key', 'timestamp']),
 
-  // D06-03: migration write-fence audit (observability only — env var enforces)
+  // D06-03 / C-03: migration write-fence audit (observability only — env var enforces)
   migrationFenceAudit: defineTable({
-    kind: v.union(v.literal('fence_armed'), v.literal('write_attempt')),
+    kind: v.union(
+      v.literal('fence_armed'),
+      v.literal('write_attempt'),
+      v.literal('drain_completed')
+    ),
     outcome: v.optional(v.union(v.literal('accepted'), v.literal('rejected'))),
     surface: v.optional(v.string()),
     reason: v.optional(v.string()),
     fenceArmedAtMs: v.optional(v.number()),
+    /** JSON-encoded drain surface inventory (C-03). */
+    drainSurfacesJson: v.optional(v.string()),
     atMs: v.number(),
   })
     .index('by_atMs', ['atMs'])

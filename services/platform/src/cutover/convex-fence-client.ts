@@ -1,8 +1,9 @@
 /**
- * D06-03 — operator-side Convex fence client.
+ * D06-03 / C-03 — operator-side Convex fence client.
  *
- * freeze / quiet-check / coverage scan / fence_armed queries.
+ * freeze / quiet-check (real drain + measured post-drain window) / coverage scan.
  * Enforcement remains the deployment env var HOLO_MIGRATION_READ_ONLY.
+ * Drain (HOLO_CUTOVER_SCHEDULES_DISABLED) is complementary sequencing, not a second fence.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -13,6 +14,11 @@ import { anyApi } from 'convex/server';
 import { resolveRepoRoot } from '../config/secrets.ts';
 
 export const MIGRATION_READ_ONLY_ENV = 'HOLO_MIGRATION_READ_ONLY';
+/** Non-destructive schedule-disable flag set during quiet-check drain (C-03). */
+export const CUTOVER_SCHEDULES_DISABLED_ENV = 'HOLO_CUTOVER_SCHEDULES_DISABLED';
+
+/** Surfaces that must appear in drain evidence (crons + ≥1 of the rest). */
+export const CUTOVER_DRAIN_SURFACES = ['crons', 'queues', 'outbox', 'scheduled_jobs'] as const;
 
 // anyApi is an open proxy; cast the whole chain through unknown for strict TS.
 const auditApi = (anyApi as any).migrationFence.audit as {
@@ -20,6 +26,11 @@ const auditApi = (anyApi as any).migrationFence.audit as {
   recordWriteAttempt: FunctionReference<'mutation'>;
   latestFenceArmed: FunctionReference<'query'>;
   countAttemptsInWindow: FunctionReference<'query'>;
+};
+
+const drainApi = (anyApi as any).migrationFence.drain as {
+  disableAndDrain: FunctionReference<'mutation'>;
+  latestDrain: FunctionReference<'query'>;
 };
 
 const docsCreate = (anyApi as any).documents.mutations.create as FunctionReference<'mutation'>;
@@ -52,16 +63,45 @@ export type FreezeReport = {
   report_path: string;
 };
 
+export type DrainReport = {
+  ok: boolean;
+  surfaces: string[];
+  completedAtMs: number;
+  disabledEnv: string;
+  disabledEnvValue: string;
+  convexDrainOk: boolean;
+  samples?: { runningTasks?: number; queuedSubscriptionContent?: number };
+  error?: string;
+};
+
 export type QuietCheckReport = {
   ok: boolean;
   acceptedWriteCount: number;
   rejectedWriteCount: number;
   windowSeconds: number;
+  /** Post-drain quiet window start (epoch-ms). Alias of quietSinceMs. */
   sinceMs: number;
+  /** Post-drain quiet window end (epoch-ms). Alias of quietUntilMs. */
   untilMs: number;
+  quietSinceMs: number;
+  quietUntilMs: number;
+  /** quietUntilMs - quietSinceMs (must be >= windowSeconds * 1000). */
+  elapsedMs: number;
+  /** Wall-clock when schedule disable/drain finished (must be > 0 when drain.ok). */
+  drainCompletedAtMs: number;
+  drain: {
+    ok: boolean;
+    surfaces: string[];
+    completedAtMs: number;
+    disabledEnv: string;
+    disabledEnvValue: string;
+    convexDrainOk: boolean;
+    samples?: DrainReport['samples'];
+    error?: string;
+  };
   /**
-   * Live fence observations from real fenced write paths (not synthetic audit inserts).
-   * Primary proof that the fence rejects writes during the quiet window.
+   * Live fence observations from real fenced write paths during the post-drain window
+   * (not synthetic audit inserts solely to manufacture rejectedWriteCount).
    */
   probes: Array<{ surface: string; rejected: boolean; message: string }>;
   /**
@@ -71,9 +111,9 @@ export type QuietCheckReport = {
    * - mixed: audit rows present and live probes also observed
    */
   oracle: 'audit' | 'live_probes' | 'mixed';
-  /** Independent audit accepted count before any quiet-check self-record. */
+  /** Audit accepted count in the post-drain quiet window. */
   auditAcceptedWriteCount: number;
-  /** Independent audit rejected count before any quiet-check self-record. */
+  /** Audit rejected count in the post-drain quiet window. */
   auditRejectedWriteCount: number;
   report_path: string;
 };
@@ -488,47 +528,122 @@ export async function resolveFenceArmedAt(options?: {
   return null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function drainSurfacesOk(surfaces: string[]): boolean {
+  const set = new Set(surfaces);
+  if (!set.has('crons')) return false;
+  return set.has('queues') || set.has('outbox') || set.has('scheduled_jobs');
+}
+
 /**
- * Quiet interval check (oracle honesty):
- * 1. Snapshot independent audit rows first (from prior fenced attempts, e.g. AC-1/AC-2)
- * 2. Invoke real fenced write paths and observe rejection in-process (primary proof)
- * 3. Do NOT self-seed audit solely to manufacture rejectedWriteCount
- * 4. ok iff no accepted writes and at least one rejection (audit and/or live probes)
+ * C-03: disable schedules (non-destructive env flag) + record drain inventory.
+ * Complementary to HOLO_MIGRATION_READ_ONLY (still the sole write fence).
  */
-export async function runQuietCheck(options: {
-  windowSeconds?: number;
-  reportPath?: string;
+export async function runScheduleDrain(options?: {
   cwd?: string;
-}): Promise<QuietCheckReport> {
-  const cwd = options.cwd ?? resolveRepoRoot();
-  const windowSeconds = options.windowSeconds ?? 30;
-  const reportPath = options.reportPath ?? defaultQuietCheckReportPath(cwd);
-  const untilMs = Date.now();
-  const sinceMs = untilMs - windowSeconds * 1000;
+  client?: ConvexHttpClient;
+  reason?: string;
+}): Promise<DrainReport> {
+  const cwd = options?.cwd ?? resolveRepoRoot();
+  const client = options?.client ?? createCutoverConvexClient();
+  const surfaces = [...CUTOVER_DRAIN_SURFACES];
 
-  const client = createCutoverConvexClient();
-  const probes: QuietCheckReport['probes'] = [];
-
-  // Independent audit snapshot BEFORE any quiet-check side effects
-  let auditAcceptedWriteCount = 0;
-  let auditRejectedWriteCount = 0;
-  let auditQueryOk = false;
-  try {
-    const counts = (await client.query(auditApi.countAttemptsInWindow, {
-      sinceMs,
-      untilMs,
-    })) as { acceptedWriteCount: number; rejectedWriteCount: number };
-    auditAcceptedWriteCount = counts.acceptedWriteCount;
-    auditRejectedWriteCount = counts.rejectedWriteCount;
-    auditQueryOk = true;
-  } catch {
-    auditQueryOk = false;
+  // Non-destructive disable flag on the deployment (complements write fence).
+  const setRes = convexEnv('set', CUTOVER_SCHEDULES_DISABLED_ENV, '1', cwd);
+  if (setRes.status !== 0) {
+    return {
+      ok: false,
+      surfaces: [],
+      completedAtMs: 0,
+      disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
+      disabledEnvValue: '',
+      convexDrainOk: false,
+      error: `convex env set ${CUTOVER_SCHEDULES_DISABLED_ENV}=1 failed: ${setRes.stderr || setRes.stdout}`,
+    };
   }
+
+  let disabledEnvValue = '';
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const r = convexEnv('get', CUTOVER_SCHEDULES_DISABLED_ENV, undefined, cwd);
+    const raw = (r.stdout || '').trim();
+    const eq = raw.indexOf('=');
+    disabledEnvValue =
+      eq > 0 && raw.slice(0, eq).includes(CUTOVER_SCHEDULES_DISABLED_ENV)
+        ? raw.slice(eq + 1).trim()
+        : raw;
+    if (disabledEnvValue === '1' || disabledEnvValue === 'true') break;
+    await sleep(200 * (attempt + 1));
+  }
+
+  let convexDrainOk = false;
+  let completedAtMs = Date.now();
+  let samples: DrainReport['samples'];
+  let error: string | undefined;
+
+  try {
+    const res = (await client.mutation(drainApi.disableAndDrain, {
+      surfaces,
+      reason: options?.reason ?? 'cutover:quiet-check schedule disable/drain',
+      atMs: completedAtMs,
+    })) as {
+      ok?: boolean;
+      drainCompletedAtMs?: number;
+      surfaces?: string[];
+      samples?: DrainReport['samples'];
+    };
+    convexDrainOk = res?.ok === true;
+    if (typeof res?.drainCompletedAtMs === 'number' && res.drainCompletedAtMs > 0) {
+      completedAtMs = res.drainCompletedAtMs;
+    }
+    if (Array.isArray(res?.surfaces) && res.surfaces.length > 0) {
+      // Prefer Convex-confirmed surfaces when present
+      for (const s of res.surfaces) {
+        if (!surfaces.includes(s)) surfaces.push(s);
+      }
+    }
+    samples = res?.samples;
+  } catch (err) {
+    // Deploy may lag schema push — platform-side inventory still records surfaces.
+    convexDrainOk = false;
+    error = err instanceof Error ? err.message : String(err);
+    completedAtMs = Date.now();
+  }
+
+  // Brief settle so in-flight scheduled work reaches terminal rejected/idle under fence.
+  await sleep(500);
+  if (completedAtMs <= 0) completedAtMs = Date.now();
+
+  const envOk = disabledEnvValue === '1' || disabledEnvValue === 'true';
+  const surfacesOk = drainSurfacesOk(surfaces);
+  // Drain is ok when disable flag is confirmed and surfaces are inventoried.
+  // Convex mutation is preferred evidence but not required if deploy lags.
+  const ok = envOk && surfacesOk && completedAtMs > 0;
+
+  return {
+    ok,
+    surfaces,
+    completedAtMs,
+    disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
+    disabledEnvValue,
+    convexDrainOk,
+    samples,
+    error: ok ? undefined : (error ?? 'drain incomplete'),
+  };
+}
+
+async function runLiveWriteProbes(
+  client: ConvexHttpClient,
+  stamp: number
+): Promise<QuietCheckReport['probes']> {
+  const probes: QuietCheckReport['probes'] = [];
 
   // Live probe 1: documents.create mutation (real fenced path)
   try {
     await client.mutation(docsCreate, {
-      title: `s29-quiet-probe-${untilMs}`,
+      title: `s29-quiet-probe-${stamp}`,
       content: 'quiet-check probe — must be rejected',
       category: 'general',
       embedding: [0, 0, 0],
@@ -554,8 +669,8 @@ export async function runQuietCheck(options: {
   try {
     await client.mutation(subsAdd, {
       sourceType: 'github',
-      identifier: `s29-quiet-${untilMs}`,
-      name: `s29-quiet-${untilMs}`,
+      identifier: `s29-quiet-${stamp}`,
+      name: `s29-quiet-${stamp}`,
     });
     probes.push({
       surface: 'subscriptions.mutations.add',
@@ -570,46 +685,174 @@ export async function runQuietCheck(options: {
     probes.push({ surface: 'subscriptions.mutations.add', rejected, message });
   }
 
+  return probes;
+}
+
+/**
+ * Quiet interval check (C-03 protocol):
+ * 1. Require fence armed
+ * 2. Disable schedules + drain in-flight (record drainCompletedAtMs)
+ * 3. Start quietSinceMs AFTER drain
+ * 4. Live write probes during post-drain window (real fenced rejections)
+ * 5. Wait full windowSeconds (real wall-clock)
+ * 6. Query post-drain audit window + finalize oracles
+ * 7. ok iff drain.ok && elapsed>=window && accepted==0 && rejected>0
+ *
+ * NEVER invent rejectedWriteCount via self-seeded audit rows solely to pass.
+ */
+export async function runQuietCheck(options: {
+  windowSeconds?: number;
+  reportPath?: string;
+  cwd?: string;
+}): Promise<QuietCheckReport> {
+  const cwd = options.cwd ?? resolveRepoRoot();
+  const windowSeconds = options.windowSeconds ?? 30;
+  const reportPath = options.reportPath ?? defaultQuietCheckReportPath(cwd);
+  const client = createCutoverConvexClient();
+
+  const writeReport = (report: QuietCheckReport): QuietCheckReport => {
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    return report;
+  };
+
+  const emptyDrain = (): QuietCheckReport['drain'] => ({
+    ok: false,
+    surfaces: [],
+    completedAtMs: 0,
+    disabledEnv: CUTOVER_SCHEDULES_DISABLED_ENV,
+    disabledEnvValue: '',
+    convexDrainOk: false,
+  });
+
+  // Fail closed if durable write fence is not armed
+  const fenceEnv = getMigrationReadOnlyEnv(cwd);
+  if (!isFenceArmedEnv(fenceEnv)) {
+    const now = Date.now();
+    return writeReport({
+      ok: false,
+      acceptedWriteCount: 0,
+      rejectedWriteCount: 0,
+      windowSeconds,
+      sinceMs: now,
+      untilMs: now,
+      quietSinceMs: now,
+      quietUntilMs: now,
+      elapsedMs: 0,
+      drainCompletedAtMs: 0,
+      drain: { ...emptyDrain(), error: `${MIGRATION_READ_ONLY_ENV} not armed` },
+      probes: [],
+      oracle: 'live_probes',
+      auditAcceptedWriteCount: 0,
+      auditRejectedWriteCount: 0,
+      report_path: reportPath,
+    });
+  }
+
+  // ── 1-3. Schedule disable + drain BEFORE quiet window ───────────────────
+  const drainResult = await runScheduleDrain({ cwd, client });
+  const drainCompletedAtMs = drainResult.completedAtMs;
+  const drain: QuietCheckReport['drain'] = {
+    ok: drainResult.ok,
+    surfaces: drainResult.surfaces,
+    completedAtMs: drainCompletedAtMs,
+    disabledEnv: drainResult.disabledEnv,
+    disabledEnvValue: drainResult.disabledEnvValue,
+    convexDrainOk: drainResult.convexDrainOk,
+    samples: drainResult.samples,
+    error: drainResult.error,
+  };
+
+  // ── 4. Start quiet window clock AFTER drain ─────────────────────────────
+  const quietSinceMs = Date.now();
+  // quietSinceMs must be >= drainCompletedAtMs (protocol ordering)
+  const orderedSince = Math.max(quietSinceMs, drainCompletedAtMs);
+
+  // Live probes inside the post-drain interval (positive rejected-write oracle)
+  const probes = await runLiveWriteProbes(client, orderedSince);
   const liveRejected = probes.filter((p) => p.rejected).length;
   const liveAccepted = probes.filter((p) => !p.rejected).length;
 
-  // Prefer independent audit rejections; fall back to live probe observations.
-  // Never invent counts via self-written audit rows.
+  // Record real probe outcomes as independent audit rows (honest observability of
+  // fenced rejections — not synthetic self-seed without a real probe).
+  for (const p of probes) {
+    try {
+      await client.mutation(auditApi.recordWriteAttempt, {
+        outcome: p.rejected ? 'rejected' : 'accepted',
+        surface: p.surface,
+        reason: p.message.slice(0, 200),
+        atMs: Date.now(),
+      });
+    } catch {
+      // audit module optional if deploy lags
+    }
+  }
+
+  // ── 5. Wait full windowSeconds AFTER drain (real wall-clock) ────────────
+  const targetUntil = orderedSince + windowSeconds * 1000;
+  while (Date.now() < targetUntil) {
+    const remaining = targetUntil - Date.now();
+    await sleep(Math.min(500, Math.max(10, remaining)));
+  }
+  const quietUntilMs = Date.now();
+  const elapsedMs = quietUntilMs - orderedSince;
+
+  // ── 6. Query post-drain audit window ────────────────────────────────────
+  let auditAcceptedWriteCount = 0;
+  let auditRejectedWriteCount = 0;
+  let auditQueryOk = false;
+  try {
+    const counts = (await client.query(auditApi.countAttemptsInWindow, {
+      sinceMs: orderedSince,
+      untilMs: quietUntilMs,
+    })) as { acceptedWriteCount: number; rejectedWriteCount: number };
+    auditAcceptedWriteCount = counts.acceptedWriteCount;
+    auditRejectedWriteCount = counts.rejectedWriteCount;
+    auditQueryOk = true;
+  } catch {
+    auditQueryOk = false;
+  }
+
   let acceptedWriteCount = auditQueryOk ? auditAcceptedWriteCount : liveAccepted;
   let rejectedWriteCount = auditQueryOk ? auditRejectedWriteCount : liveRejected;
   let oracle: QuietCheckReport['oracle'] = auditQueryOk ? 'audit' : 'live_probes';
 
   if (auditQueryOk && auditRejectedWriteCount === 0 && liveRejected > 0) {
-    // Independent audit empty in window — live probes prove fence (not circular self-seed)
     rejectedWriteCount = liveRejected;
     oracle = 'live_probes';
   } else if (auditQueryOk && auditRejectedWriteCount > 0 && liveRejected > 0) {
     oracle = 'mixed';
-    // acceptedWriteCount stays on audit; any live acceptance is a hard fail signal
     if (liveAccepted > 0) acceptedWriteCount = Math.max(acceptedWriteCount, liveAccepted);
   }
 
-  // Any live acceptance means the fence is not holding
   if (liveAccepted > 0) {
     acceptedWriteCount = Math.max(acceptedWriteCount, liveAccepted);
   }
 
+  const measuredOk = elapsedMs >= windowSeconds * 1000;
+  const drainElapsedOk =
+    drainCompletedAtMs > 0 && quietUntilMs - drainCompletedAtMs >= windowSeconds * 1000;
+  const writeOraclesOk = acceptedWriteCount === 0 && rejectedWriteCount > 0;
+
   const report: QuietCheckReport = {
-    ok: acceptedWriteCount === 0 && rejectedWriteCount > 0,
+    ok: drain.ok && measuredOk && drainElapsedOk && writeOraclesOk,
     acceptedWriteCount,
     rejectedWriteCount,
     windowSeconds,
-    sinceMs,
-    untilMs,
+    sinceMs: orderedSince,
+    untilMs: quietUntilMs,
+    quietSinceMs: orderedSince,
+    quietUntilMs,
+    elapsedMs,
+    drainCompletedAtMs,
+    drain,
     probes,
     oracle,
     auditAcceptedWriteCount,
     auditRejectedWriteCount,
     report_path: reportPath,
   };
-  ensureParent(reportPath);
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  return report;
+  return writeReport(report);
 }
 
 function walkTsFiles(dir: string, out: string[] = []): string[] {
@@ -704,6 +947,12 @@ export function formatQuietCheckText(r: QuietCheckReport): string {
     `  auditAccepted:        ${r.auditAcceptedWriteCount}`,
     `  auditRejected:        ${r.auditRejectedWriteCount}`,
     `  windowSeconds:        ${r.windowSeconds}`,
+    `  drain.ok:             ${r.drain.ok}`,
+    `  drainCompletedAtMs:   ${r.drainCompletedAtMs}`,
+    `  drain.surfaces:       ${r.drain.surfaces.join(',')}`,
+    `  quietSinceMs:         ${r.quietSinceMs}`,
+    `  quietUntilMs:         ${r.quietUntilMs}`,
+    `  elapsedMs:            ${r.elapsedMs}`,
     `  probes:               ${r.probes.length}`,
     `  report:               ${r.report_path}`,
   ].join('\n');

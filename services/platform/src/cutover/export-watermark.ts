@@ -47,6 +47,9 @@ export type QuietCheckRequiredError = {
 /**
  * Fail-closed when D06-03 quiet-check evidence is missing or not ok.
  * Call AFTER watermark capture and BEFORE convex export / Postgres load.
+ *
+ * C-03: also rejects pre-fix theatre reports that lack drain proof or a
+ * measured post-drain quiet window (even if report.ok was true).
  */
 export function assertQuietCheckConfirmed(
   watermark: ExportWatermark
@@ -62,6 +65,107 @@ export function assertQuietCheckConfirmed(
       },
     };
   }
+
+  // Re-read report for C-03 drain + measured-window requirements
+  try {
+    const j = JSON.parse(readFileSync(watermark.quiet_check_path, 'utf8')) as {
+      ok?: boolean;
+      acceptedWriteCount?: number;
+      rejectedWriteCount?: number;
+      windowSeconds?: number;
+      drainCompletedAtMs?: number;
+      quietSinceMs?: number;
+      quietUntilMs?: number;
+      sinceMs?: number;
+      untilMs?: number;
+      elapsedMs?: number;
+      drain?: { ok?: boolean; surfaces?: string[] };
+      oracle?: string;
+      auditRejectedWriteCount?: number;
+    };
+
+    const drainOk = j.drain?.ok === true;
+    const drainCompletedAtMs = typeof j.drainCompletedAtMs === 'number' ? j.drainCompletedAtMs : 0;
+    if (!drainOk || drainCompletedAtMs <= 0) {
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            'Quiet-check missing drain proof (drain.ok/drainCompletedAtMs). ' +
+            'Pre-fix theatre reports without schedule disable/drain are refused. ' +
+            'Re-run holo cutover:quiet-check (C-03).',
+        },
+      };
+    }
+
+    const windowSeconds =
+      typeof j.windowSeconds === 'number' && j.windowSeconds > 0 ? j.windowSeconds : 30;
+    const quietSinceMs =
+      typeof j.quietSinceMs === 'number'
+        ? j.quietSinceMs
+        : typeof j.sinceMs === 'number'
+          ? j.sinceMs
+          : 0;
+    const quietUntilMs =
+      typeof j.quietUntilMs === 'number'
+        ? j.quietUntilMs
+        : typeof j.untilMs === 'number'
+          ? j.untilMs
+          : 0;
+    const elapsedMs = typeof j.elapsedMs === 'number' ? j.elapsedMs : quietUntilMs - quietSinceMs;
+    const elapsedFromDrain = quietUntilMs - drainCompletedAtMs;
+    const minMs = windowSeconds * 1000;
+
+    if (quietUntilMs <= 0 || elapsedMs < minMs || elapsedFromDrain < minMs) {
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            `Quiet-check window was not measured post-drain ` +
+            `(elapsedMs=${elapsedMs}, drainElapsed=${elapsedFromDrain}, need>=${minMs}). ` +
+            'Retrospective closed windows without wait are refused (C-03).',
+        },
+      };
+    }
+
+    if (quietSinceMs < drainCompletedAtMs) {
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            `Quiet-check quietSinceMs (${quietSinceMs}) is before drainCompletedAtMs ` +
+            `(${drainCompletedAtMs}) — quiet window must start after drain (C-03).`,
+        },
+      };
+    }
+
+    const accepted = typeof j.acceptedWriteCount === 'number' ? j.acceptedWriteCount : -1;
+    const rejected = typeof j.rejectedWriteCount === 'number' ? j.rejectedWriteCount : 0;
+    if (accepted !== 0 || rejected <= 0) {
+      return {
+        ok: false,
+        error: {
+          code: QUIET_CHECK_REQUIRED,
+          message:
+            `Quiet-check write oracles failed (accepted=${accepted}, rejected=${rejected}; ` +
+            'need accepted==0 and rejected>0 from post-drain interval).',
+        },
+      };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      error: {
+        code: QUIET_CHECK_REQUIRED,
+        message: `Quiet-check report unreadable at ${watermark.quiet_check_path}: ${msg}`,
+      },
+    };
+  }
+
   return null;
 }
 

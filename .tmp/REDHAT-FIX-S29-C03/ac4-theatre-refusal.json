@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": {
+    "code": "QUIET_CHECK_REQUIRED",
+    "message": "Quiet-check missing drain proof (drain.ok/drainCompletedAtMs). Pre-fix theatre reports without schedule disable/drain are refused. Re-run holo cutover:quiet-check (C-03)."
+  }
+}
