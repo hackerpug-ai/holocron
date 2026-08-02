@@ -1,6 +1,7 @@
 /**
- * REDHAT-FIX-S29-H05 / REDHAT-FIX-S29-R2-C04 / UC-SYNC-04 — executable data-plane
- * rollback re-point through the serving control plane with live acknowledgements.
+ * REDHAT-FIX-S29-H05 / REDHAT-FIX-S29-R2-C04 / REDHAT-FIX-S29-R3-H03 / UC-SYNC-04 —
+ * executable data-plane rollback re-point through the serving control plane
+ * with live acknowledgements from pre-existing serving generations.
  *
  * During read-only soak, operator may re-point the data plane back to the
  * frozen Convex deployment (Convex stays live/un-deleted). Eligibility ends
@@ -10,19 +11,27 @@
  * control-plane that running Hono/MCP/worker modules re-read, plus at least
  * one live acknowledgement from a serving observer. Writing .tmp alone is
  * never sufficient for repointed:true.
+ *
+ * R3-H03: repointed:true requires acknowledgement from a process that was
+ * already serving before this command — HTTP /health on an already-listening
+ * base URL (HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL / PLATFORM_URL) and/or a
+ * pre-existing worker generation (stack pid alive before control-plane write).
+ * Self-created createHonoApp().request, same-command cross-process spawns, and
+ * cutover-cli process_generation must never authorize repointed:true.
  */
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveRepoRoot, resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 import {
+  captureProcessGenerations,
   DATA_PLANE_ENV,
   defaultSoakStatePath,
+  type ProcessGenerationUnit,
   ROLLBACK_TARGET_ENV,
   readDurableDataPlane,
-  resolveObservedDataPlane,
+  resolveVerifyBaseUrl,
   setMigrationReadOnlyEnv,
   writeDurableDataPlane,
 } from './soak-fence.ts';
@@ -52,7 +61,12 @@ export type PostExportWriteAudit = {
   accepted_writes: PostExportWriteRecord[];
 };
 
-/** Live unit that observed the post-repoint data-plane target. */
+/**
+ * Live unit that observed the post-repoint data-plane target.
+ * R3-H03: only preexisting:true network_health / process_generation authorize
+ * repointed:true. Kinds serving_health / cross_process are retained only for
+ * type compatibility with historical reports and must never set preexisting.
+ */
 export type RollbackAcknowledgement = {
   unit: string;
   kind: 'serving_health' | 'cross_process' | 'process_generation' | 'network_health';
@@ -61,6 +75,11 @@ export type RollbackAcknowledgement = {
   observed_at: string;
   source: string;
   pid?: number;
+  /**
+   * True when the unit was proven listening/alive before the control-plane
+   * write of this command. Required for authorizing repointed:true (R3-H03).
+   */
+  preexisting: boolean;
 };
 
 export type RollbackRepointReport = {
@@ -218,123 +237,148 @@ function matchesExpectedPlane(
   return dataPlane === expectedPlane || target === expectedTarget;
 }
 
+/** Resolve deployed/already-running base URL for rollback serving acks (R3-H03). */
+export function resolveRollbackBaseUrl(explicit?: string | null): string {
+  return resolveVerifyBaseUrl(explicit);
+}
+
+function isPidAlive(pid: number): boolean {
+  if (!Number.isFinite(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Collect live acknowledgements that the serving control-plane target is observed.
- * Requires real module I/O — never hard-codes a green ack.
+ * R3-H03: only pre-existing network_health / process_generation may authorize
+ * repointed:true. Same-command createHonoApp, newly spawned children, and the
+ * cutover CLI process itself are never authorizing.
+ */
+export function isAuthorizingRollbackAck(ack: RollbackAcknowledgement): boolean {
+  if (!ack.preexisting) return false;
+  if (ack.kind !== 'network_health' && ack.kind !== 'process_generation') return false;
+  // Same-command CLI process can never authorize.
+  if (ack.pid === process.pid) return false;
+  if (ack.unit === 'cutover-cli' || ack.unit === 'hono-serving-health') return false;
+  if (ack.unit === 'cross-process-secrets-reader') return false;
+  if (ack.source.includes('createHonoApp')) return false;
+  return true;
+}
+
+export function filterAuthorizingRollbackAcks(
+  acks: RollbackAcknowledgement[]
+): RollbackAcknowledgement[] {
+  return acks.filter(isAuthorizingRollbackAck);
+}
+
+type HealthPlaneBody = {
+  data_plane?: string | null;
+  target?: string | null;
+  rollback?: { target?: string | null; data_plane?: string | null };
+};
+
+/**
+ * Prove a base URL is already listening (pre-existing serving process).
+ * Any HTTP response (including 503) counts as listening.
+ */
+export async function probePreexistingServingListening(
+  baseUrl: string,
+  timeoutMs = 3_000
+): Promise<{ listening: boolean; status?: number; error?: string }> {
+  const trimmed = baseUrl.trim().replace(/\/$/, '');
+  if (!trimmed) return { listening: false, error: 'empty base URL' };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`${trimmed}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { accept: 'application/json' },
+    });
+    clearTimeout(timer);
+    return { listening: true, status: res.status };
+  } catch (err) {
+    return {
+      listening: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Capture serving generations that exist before control-plane write.
+ * Excludes the cutover CLI process (never authorizing under R3-H03).
+ */
+export function capturePreexistingServingUnits(cwd: string): ProcessGenerationUnit[] {
+  return captureProcessGenerations(cwd).filter(
+    (u) =>
+      u.id !== 'cutover-cli' &&
+      typeof u.pid === 'number' &&
+      u.pid > 0 &&
+      u.pid !== process.pid &&
+      isPidAlive(u.pid)
+  );
+}
+
+/**
+ * Collect live acknowledgements from pre-existing serving units only (R3-H03).
+ *
+ * Does NOT construct createHonoApp, spawn secrets-reader children, or treat
+ * the current CLI process as a deployment ack. Requires:
+ * - baseUrl proven listening before control-plane write (network_health), and/or
+ * - pre-existing stack/worker pid still alive after write that observed the plane
+ *   via the network health path (process_generation co-ack).
  */
 export async function collectLiveDataPlaneAcknowledgements(options: {
   cwd: string;
   secretsPath: string;
   expectedDataPlane: string;
   expectedTarget: string;
-  /** Optional live base URL (PLATFORM_URL / HOLO_SOAK_BASE_URL). */
+  /** Optional live base URL (PLATFORM_URL / HOLO_SOAK_BASE_URL / HOLO_VERIFY_BASE_URL). */
   baseUrl?: string;
+  /**
+   * Must be true for network_health to authorize — base URL was listening
+   * before the control-plane write of this command.
+   */
+  baseUrlPreexisting?: boolean;
+  /** Stack/worker units captured before control-plane write. */
+  preexistingUnits?: ProcessGenerationUnit[];
 }): Promise<RollbackAcknowledgement[]> {
   const acks: RollbackAcknowledgement[] = [];
-  const observedAt = new Date().toISOString();
   const expectedPlane = options.expectedDataPlane;
   const expectedTarget = options.expectedTarget;
-
-  // 1) Cross-process durable control-plane re-read (no env inject for plane keys)
-  const childEnv: NodeJS.ProcessEnv = { ...process.env, HOLO_SECRETS_PATH: options.secretsPath };
-  delete childEnv[DATA_PLANE_ENV];
-  delete childEnv[ROLLBACK_TARGET_ENV];
-  const child = spawnSync(
-    'bun',
-    [
-      '-e',
-      `
-import { readDurableDataPlane } from ${JSON.stringify(resolve(options.cwd, 'services/platform/src/cutover/soak-fence.ts'))};
-const r = readDurableDataPlane(process.env, process.env.HOLO_SECRETS_PATH);
-console.log(JSON.stringify({ ...r, pid: process.pid }));
-`,
-    ],
-    {
-      cwd: options.cwd,
-      encoding: 'utf8',
-      timeout: 30_000,
-      env: childEnv,
-    }
+  const baseUrl = resolveRollbackBaseUrl(options.baseUrl);
+  const preexistingUnits = options.preexistingUnits ?? [];
+  const preexistingPidSet = new Set(
+    preexistingUnits
+      .map((u) => u.pid)
+      .filter((p): p is number => typeof p === 'number' && p > 0 && p !== process.pid)
   );
-  if (child.status === 0 && child.stdout.trim()) {
-    try {
-      const parsed = JSON.parse(child.stdout.trim()) as {
-        data_plane: string | null;
-        target: string | null;
-        secrets_path?: string;
-        pid?: number;
-      };
-      if (matchesExpectedPlane(parsed.data_plane, parsed.target, expectedPlane, expectedTarget)) {
-        acks.push({
-          unit: 'cross-process-secrets-reader',
-          kind: 'cross_process',
-          observed_data_plane: parsed.data_plane ?? '',
-          observed_target: parsed.target ?? '',
-          observed_at: observedAt,
-          source: parsed.secrets_path ?? options.secretsPath,
-          pid: typeof parsed.pid === 'number' ? parsed.pid : undefined,
-        });
-      }
-    } catch {
-      // non-fatal — other ack paths may still succeed
+
+  // Optional verify-pid from env (operator-declared pre-existing serving identity)
+  const envPidRaw = process.env.HOLO_VERIFY_PID;
+  const envPid =
+    envPidRaw && envPidRaw.length > 0 && Number.isFinite(Number(envPidRaw))
+      ? Number(envPidRaw)
+      : undefined;
+  if (envPid !== undefined && preexistingPidSet.has(envPid) === false && isPidAlive(envPid)) {
+    // Only count env pid when it was also in the pre-write capture set OR we
+    // treat a listening baseUrlPreexisting + matching HOLO_VERIFY_PID as pre-existing.
+    // HOLO_VERIFY_PID alone without pre-write capture is accepted only when
+    // baseUrlPreexisting is true (server was already answering /health).
+    if (options.baseUrlPreexisting === true) {
+      preexistingPidSet.add(envPid);
     }
   }
 
-  // 2) Serving Hono health observer (real createHonoApp handler re-reads control plane)
-  const prevPlane = process.env[DATA_PLANE_ENV];
-  const prevTarget = process.env[ROLLBACK_TARGET_ENV];
-  const prevSecrets = process.env.HOLO_SECRETS_PATH;
-  // Force durable re-read path so ack proves secrets consumption, not env alone
-  delete process.env[DATA_PLANE_ENV];
-  delete process.env[ROLLBACK_TARGET_ENV];
-  process.env.HOLO_SECRETS_PATH = options.secretsPath;
-  try {
-    const { createHonoApp } = await import('../http/hono-app.ts');
-    const app = createHonoApp();
-    const res = await app.request('http://local.test/health');
-    const body = (await res.json()) as {
-      data_plane?: string | null;
-      target?: string | null;
-      rollback?: { target?: string | null; data_plane?: string | null };
-    };
-    const plane = body.data_plane ?? body.rollback?.data_plane ?? null;
-    const target = body.target ?? body.rollback?.target ?? null;
-    if (matchesExpectedPlane(plane, target, expectedPlane, expectedTarget)) {
-      acks.push({
-        unit: 'hono-serving-health',
-        kind: 'serving_health',
-        observed_data_plane: plane ?? '',
-        observed_target: target ?? '',
-        observed_at: new Date().toISOString(),
-        source: 'hono GET /health (createHonoApp)',
-        pid: process.pid,
-      });
-    }
-  } catch {
-    // Hono mount failure is non-fatal if other live acks exist
-  } finally {
-    if (prevPlane !== undefined) process.env[DATA_PLANE_ENV] = prevPlane;
-    else delete process.env[DATA_PLANE_ENV];
-    if (prevTarget !== undefined) process.env[ROLLBACK_TARGET_ENV] = prevTarget;
-    else delete process.env[ROLLBACK_TARGET_ENV];
-    if (prevSecrets !== undefined) process.env.HOLO_SECRETS_PATH = prevSecrets;
-    else delete process.env.HOLO_SECRETS_PATH;
-  }
-
-  // 3) Optional live network health probe (deployed / already-running service)
-  const baseUrl = (
-    options.baseUrl ??
-    process.env.HOLO_VERIFY_BASE_URL ??
-    process.env.HOLO_SOAK_BASE_URL ??
-    process.env.PLATFORM_URL ??
-    ''
-  )
-    .trim()
-    .replace(/\/$/, '');
-  if (baseUrl) {
+  // R3-H03: network /health on already-listening base URL (primary authorizing path)
+  if (baseUrl && options.baseUrlPreexisting === true) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3000);
+      const timer = setTimeout(() => controller.abort(), 3_000);
       const res = await fetch(`${baseUrl}/health`, {
         method: 'GET',
         signal: controller.signal,
@@ -342,42 +386,68 @@ console.log(JSON.stringify({ ...r, pid: process.pid }));
       });
       clearTimeout(timer);
       if (res.ok || res.status === 503) {
-        const body = (await res.json()) as {
-          data_plane?: string | null;
-          target?: string | null;
-          rollback?: { target?: string | null };
-        };
-        const plane = body.data_plane ?? null;
+        const body = (await res.json()) as HealthPlaneBody;
+        const plane = body.data_plane ?? body.rollback?.data_plane ?? null;
         const target = body.target ?? body.rollback?.target ?? null;
         if (matchesExpectedPlane(plane, target, expectedPlane, expectedTarget)) {
+          const observedAt = new Date().toISOString();
+          const boundPid =
+            envPid !== undefined && preexistingPidSet.has(envPid) && isPidAlive(envPid)
+              ? envPid
+              : undefined;
           acks.push({
             unit: 'network-serving-health',
             kind: 'network_health',
             observed_data_plane: plane ?? '',
             observed_target: target ?? '',
-            observed_at: new Date().toISOString(),
+            observed_at: observedAt,
             source: `${baseUrl}/health`,
+            pid: boundPid,
+            preexisting: true,
           });
+          // Co-ack: pre-existing worker/stack generation that matches verify pid
+          // or any captured stack unit still alive (proves generation continuity).
+          for (const unit of preexistingUnits) {
+            if (typeof unit.pid !== 'number' || unit.pid === process.pid) continue;
+            if (!isPidAlive(unit.pid)) continue;
+            // Only co-ack when network already observed the plane (shared oracle).
+            acks.push({
+              unit: unit.id.startsWith('stack:') ? unit.id : `stack:${unit.id}`,
+              kind: 'process_generation',
+              observed_data_plane: plane ?? '',
+              observed_target: target ?? '',
+              observed_at: observedAt,
+              source: `preexisting-generation:${unit.label ?? unit.id}`,
+              pid: unit.pid,
+              preexisting: true,
+            });
+          }
+          if (
+            boundPid !== undefined &&
+            !acks.some((a) => a.kind === 'process_generation' && a.pid === boundPid)
+          ) {
+            acks.push({
+              unit: `verify-pid:${boundPid}`,
+              kind: 'process_generation',
+              observed_data_plane: plane ?? '',
+              observed_target: target ?? '',
+              observed_at: observedAt,
+              source: 'HOLO_VERIFY_PID+network_health',
+              pid: boundPid,
+              preexisting: true,
+            });
+          }
         }
       }
     } catch {
-      // live service may be down during unit/integration fixtures
+      // Pre-existing service may have died between preflight and post-write probe.
     }
   }
 
-  // 4) Process-generation unit for flip-style evidence (current CLI process)
-  const local = resolveObservedDataPlane(process.env, options.secretsPath);
-  if (matchesExpectedPlane(local.data_plane, local.target, expectedPlane, expectedTarget)) {
-    acks.push({
-      unit: 'cutover-cli',
-      kind: 'process_generation',
-      observed_data_plane: local.data_plane ?? '',
-      observed_target: local.target ?? '',
-      observed_at: new Date().toISOString(),
-      source: local.source === 'secrets' ? options.secretsPath : 'process.env',
-      pid: process.pid,
-    });
-  }
+  // Intentionally omitted (R3-H03 — never authorize repointed:true):
+  // - in-process createHonoApp().request (self-created serving_health)
+  // - spawnSync secrets-reader child (same-command cross_process)
+  // - cutover-cli process_generation (same-command CLI)
 
   return acks;
 }
@@ -396,7 +466,9 @@ console.log(JSON.stringify({ ...r, pid: process.pid }));
  * - does NOT delete Convex deployment
  * - does NOT unset HOLO_MIGRATION_READ_ONLY (fence stays for soak integrity)
  *
- * repointed:true ONLY when acknowledgements.length >= 1 from a live unit.
+ * repointed:true ONLY when ≥1 authorizing ack from a pre-existing serving unit
+ * (R3-H03: network_health on already-listening base URL and/or pre-existing
+ * worker generation — never self-created createHonoApp).
  */
 export async function runRollbackRepoint(options?: {
   cwd?: string;
@@ -425,6 +497,15 @@ export async function runRollbackRepoint(options?: {
   const watermarkPath = options?.watermarkPath ?? defaultWatermarkReportPath(cwd);
   const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(process.env, cwd);
   const target = options?.target?.trim() || TARGET_CONVEX_FROZEN;
+  const baseUrl = resolveRollbackBaseUrl(options?.baseUrl);
+
+  // R3-H03: snapshot pre-existing serving generations BEFORE control-plane write
+  const preexistingUnits = capturePreexistingServingUnits(cwd);
+  let baseUrlPreexisting = false;
+  if (baseUrl) {
+    const preflight = await probePreexistingServingListening(baseUrl);
+    baseUrlPreexisting = preflight.listening;
+  }
 
   const engaged_at_ms = Date.now();
   const engaged_at = new Date(engaged_at_ms).toISOString();
@@ -632,16 +713,24 @@ export async function runRollbackRepoint(options?: {
     setMigrationReadOnlyEnv('0');
   }
 
-  // ── Live acknowledgements (required for repointed:true) ──────────────────
+  // ── Live acknowledgements from pre-existing serving units (R3-H03) ───────
   const acknowledgements = await collectLiveDataPlaneAcknowledgements({
     cwd,
     secretsPath: durablePath,
     expectedDataPlane: 'convex',
     expectedTarget: target,
-    baseUrl: options?.baseUrl,
+    baseUrl: baseUrl || undefined,
+    baseUrlPreexisting,
+    preexistingUnits,
   });
+  const authorizingAcks = filterAuthorizingRollbackAcks(acknowledgements);
 
-  if (acknowledgements.length < 1) {
+  if (authorizingAcks.length < 1) {
+    const preflightHint = baseUrl
+      ? baseUrlPreexisting
+        ? `base URL ${baseUrl} was listening before write but post-write /health did not observe data_plane=convex / target=${target}`
+        : `base URL ${baseUrl} was not listening before control-plane write (not a pre-existing serving process)`
+      : `no HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL / PLATFORM_URL — cannot contact a pre-existing serving process`;
     const fail = baseFail({
       ok: false,
       repointed: false,
@@ -659,8 +748,10 @@ export async function runRollbackRepoint(options?: {
       error: {
         code: LIVE_ACK_MISSING,
         message:
-          `cutover:rollback-repoint wrote control-plane at ${durablePath} but no live serving unit ` +
-          `acknowledged data_plane=convex / target=${target}. repointed remains false.`,
+          `cutover:rollback-repoint wrote control-plane at ${durablePath} but no pre-existing ` +
+          `serving unit acknowledged data_plane=convex / target=${target}. ` +
+          `${preflightHint}. Self-created createHonoApp / same-command children do not authorize ` +
+          `repointed:true (R3-H03). repointed remains false.`,
       },
     });
     ensureParent(reportPath);
@@ -688,7 +779,8 @@ export async function runRollbackRepoint(options?: {
       digest_sha256,
       prior_target,
     },
-    acknowledgements,
+    // Report only authorizing pre-existing acks (never self-created theatre).
+    acknowledgements: authorizingAcks,
     report_path: reportPath,
   };
 

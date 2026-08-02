@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "body": {
+    "status": "ok",
+    "data_plane": "convex",
+    "target": "convex-frozen",
+    "rollback": {
+      "target": "convex-frozen",
+      "data_plane": "convex",
+      "source": "secrets"
+    }
+  },
+  "baseUrl": "http://127.0.0.1:51443",
+  "pid": 32023
+}

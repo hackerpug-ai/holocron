@@ -1,0 +1,36 @@
+19: * Self-created createHonoApp().request, same-command cross-process spawns, and
+66: * R3-H03: only preexisting:true network_health / process_generation authorize
+68: * type compatibility with historical reports and must never set preexisting.
+82:  preexisting: boolean;
+257: * repointed:true. Same-command createHonoApp, newly spawned children, and the
+260:export function isAuthorizingRollbackAck(ack: RollbackAcknowledgement): boolean {
+261:  if (!ack.preexisting) return false;
+267:  if (ack.source.includes('createHonoApp')) return false;
+274:  return acks.filter(isAuthorizingRollbackAck);
+329: * Does NOT construct createHonoApp, spawn secrets-reader children, or treat
+346:  baseUrlPreexisting?: boolean;
+348:  preexistingUnits?: ProcessGenerationUnit[];
+354:  const preexistingUnits = options.preexistingUnits ?? [];
+355:  const preexistingPidSet = new Set(
+356:    preexistingUnits
+367:  if (envPid !== undefined && preexistingPidSet.has(envPid) === false && isPidAlive(envPid)) {
+369:    // treat a listening baseUrlPreexisting + matching HOLO_VERIFY_PID as pre-existing.
+371:    // baseUrlPreexisting is true (server was already answering /health).
+372:    if (options.baseUrlPreexisting === true) {
+373:      preexistingPidSet.add(envPid);
+378:  if (baseUrl && options.baseUrlPreexisting === true) {
+395:            envPid !== undefined && preexistingPidSet.has(envPid) && isPidAlive(envPid)
+406:            preexisting: true,
+410:          for (const unit of preexistingUnits) {
+420:              source: `preexisting-generation:${unit.label ?? unit.id}`,
+422:              preexisting: true,
+437:              preexisting: true,
+448:  // - in-process createHonoApp().request (self-created serving_health)
+471: * worker generation — never self-created createHonoApp).
+503:  const preexistingUnits = capturePreexistingServingUnits(cwd);
+504:  let baseUrlPreexisting = false;
+507:    baseUrlPreexisting = preflight.listening;
+723:    baseUrlPreexisting,
+724:    preexistingUnits,
+730:      ? baseUrlPreexisting
+753:          `${preflightHint}. Self-created createHonoApp / same-command children do not authorize ` +
