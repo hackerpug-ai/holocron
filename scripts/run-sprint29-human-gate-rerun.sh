@@ -1,0 +1,498 @@
+#!/usr/bin/env bash
+# REDHAT-FIX-S29-R2-H01 — Re-run all six Sprint 29 human-gate steps against remediated gate-plan.
+#
+# Executes gate-plan.json literal_cmd for steps 1–6 via real cutover CLI
+# (bun services/platform/src/cli/holo.ts). Writes:
+#   - .gate-evidence/{run_id}/step{1..6}.log  (real command transcripts)
+#   - .gate-evidence/{run_id}/meta.json
+#   - gate-results.json + GATE-RESULTS.md (honest pass/fail; never forge 6/6)
+#
+# NEVER accepts historical run_id 20260802T004525Z as pass for the remediated SHA.
+# NEVER rewrites historical .gate-evidence/20260802T004525Z/**.
+# Full 6/6 may remain blocked until R2-C01..C04 / R2-H02..H04 — record honest fail.
+#
+# Usage:
+#   export HOLO_SECRETS_PATH=...   # optional; defaults may resolve secrets
+#   export GATE_RUN_ID=20260802TxxxxxxZ   # optional; auto-generated if unset
+#   bash scripts/run-sprint29-human-gate-rerun.sh
+#   WRITE_GATE_RESULTS=0 bash scripts/run-sprint29-human-gate-rerun.sh  # evidence only
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+SPRINT_DIR="$ROOT/.spec/prds/mk6-migration/tasks/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip"
+PLAN="$SPRINT_DIR/gate-plan.json"
+RESULTS="$SPRINT_DIR/gate-results.json"
+RESULTS_MD="$SPRINT_DIR/GATE-RESULTS.md"
+HISTORICAL_STALE_RUN_ID="20260802T004525Z"
+TMP_ROOT="$ROOT/.tmp/REDHAT-FIX-S29-R2-H01"
+WRITE_GATE_RESULTS="${WRITE_GATE_RESULTS:-1}"
+QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"
+# Per-step wall-clock caps (seconds). Honest fail on timeout — never hang forever.
+STEP_TIMEOUT_DEFAULT="${STEP_TIMEOUT_DEFAULT:-180}"
+STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-240}"   # go-no-go (8 gates)
+STEP_TIMEOUT_4="${STEP_TIMEOUT_4:-300}"   # run-etl / convex export
+STEP_TIMEOUT_5="${STEP_TIMEOUT_5:-240}"   # flip + verify-soak
+
+if [[ ! -f "$PLAN" ]]; then
+  echo "error: gate-plan missing: $PLAN" >&2
+  exit 2
+fi
+
+if [[ -z "${GATE_RUN_ID:-}" ]]; then
+  GATE_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
+fi
+
+# Refuse historical false-pass id as the new run.
+if [[ "$GATE_RUN_ID" == "$HISTORICAL_STALE_RUN_ID" ]]; then
+  echo "error: refuse GATE_RUN_ID=$HISTORICAL_STALE_RUN_ID (historical false-pass lineage)" >&2
+  exit 2
+fi
+
+# Allowlist: same contract as scripts/assert-gate-run-id.sh
+if [[ ! "$GATE_RUN_ID" =~ ^[A-Za-z0-9]([A-Za-z0-9_-]{0,62}[A-Za-z0-9])?$ ]]; then
+  echo "error: refuse invalid GATE_RUN_ID: $GATE_RUN_ID" >&2
+  exit 2
+fi
+
+export GATE_RUN_ID
+export QUIET_WINDOW_SECONDS
+
+SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+DEPLOYED_BASE_URL="${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}"
+if [[ -z "$DEPLOYED_BASE_URL" ]]; then
+  # Honest local identity — do not claim remote deployment (R2-H02 owns that quality).
+  DEPLOYED_BASE_URL="local-process://holo-cli"
+fi
+SERVICE_IDENTITY="${HOLO_SERVICE_IDENTITY:-${DEPLOYED_BASE_URL}}"
+
+EVID_DIR="$SPRINT_DIR/.gate-evidence/$GATE_RUN_ID"
+mkdir -p "$EVID_DIR" "$TMP_ROOT" \
+  "$ROOT/.tmp/D06-02" "$ROOT/.tmp/D06-03" "$ROOT/.tmp/D06-04" "$ROOT/.tmp/D06-05" \
+  "$ROOT/.tmp/REDHAT-FIX-S29-H03" "$TMP_ROOT/steps"
+
+# Prefer operator secrets when available (worktrees often lack local secrets.yaml).
+if [[ -z "${HOLO_SECRETS_PATH:-}" ]]; then
+  if [[ -f "$ROOT/services/platform/config/secrets.yaml" ]]; then
+    export HOLO_SECRETS_PATH="$ROOT/services/platform/config/secrets.yaml"
+  elif [[ -f "${HOME}/Projects/holocron/services/platform/config/secrets.yaml" ]]; then
+    export HOLO_SECRETS_PATH="${HOME}/Projects/holocron/services/platform/config/secrets.yaml"
+  fi
+fi
+
+# Load root .env when present (or primary checkout) for live credentials.
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+elif [[ -f "${HOME}/Projects/holocron/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${HOME}/Projects/holocron/.env"
+  set +a
+fi
+
+echo "R2-H01 human-gate re-run"
+echo "  GATE_RUN_ID=$GATE_RUN_ID"
+echo "  source_sha=$SOURCE_SHA"
+echo "  deployed_base_url=$DEPLOYED_BASE_URL"
+echo "  service_identity=$SERVICE_IDENTITY"
+echo "  evidence=$EVID_DIR"
+echo "  started_at=$STARTED_AT"
+
+python3 - "$PLAN" "$EVID_DIR/meta.json" "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" "$SERVICE_IDENTITY" "$STARTED_AT" "$HISTORICAL_STALE_RUN_ID" <<'PY'
+import json, sys
+from pathlib import Path
+plan_path, meta_path = Path(sys.argv[1]), Path(sys.argv[2])
+run_id, sha, base, ident, started, stale = sys.argv[3:9]
+plan = json.loads(plan_path.read_text())
+steps = plan.get("steps") or []
+assert [s["n"] for s in steps] == [1, 2, 3, 4, 5, 6], "gate-plan must have steps 1..6"
+for s in steps:
+    cmd = s.get("literal_cmd") or ""
+    assert "bun services/platform/src/cli/holo.ts" in cmd, f"step {s['n']} missing dispatcher"
+    assert s.get("method") == "real-cli", f"step {s['n']} method must be real-cli"
+meta = {
+    "task_id": "REDHAT-FIX-S29-R2-H01",
+    "run_id": run_id,
+    "source_sha": sha,
+    "git_sha": sha,
+    "deployed_base_url": base,
+    "service_identity": ident,
+    "started_at": started,
+    "historical_stale_run_id": stale,
+    "historical_preserved": True,
+    "gate_plan_remediation": plan.get("remediation"),
+    "gate_plan_remediated_at": plan.get("remediated_at"),
+    "sibling_blockers_for_full_6_of_6": [
+        "REDHAT-FIX-S29-R2-C01",
+        "REDHAT-FIX-S29-R2-C02",
+        "REDHAT-FIX-S29-R2-C03",
+        "REDHAT-FIX-S29-R2-C04",
+        "REDHAT-FIX-S29-R2-H02",
+        "REDHAT-FIX-S29-R2-H03",
+        "REDHAT-FIX-S29-R2-H04",
+    ],
+    "notes": [
+        "Honest re-run under current gate-plan predicates (H03 + C01).",
+        "Never reuses 20260802T004525Z as pass evidence for remediated SHA.",
+        "Full 6/6 may remain blocked until sibling R2 remediations land.",
+    ],
+}
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+print(f"wrote {meta_path}")
+PY
+
+# Extract step N literal_cmd from plan
+step_cmd() {
+  local n="$1"
+  jq -r --argjson n "$n" '.steps[] | select(.n==$n) | .literal_cmd' "$PLAN"
+}
+
+step_text() {
+  local n="$1"
+  jq -r --argjson n "$n" '.steps[] | select(.n==$n) | .text' "$PLAN"
+}
+
+# Per-step results accumulate for gate-results.json
+declare -a STEP_RESULTS=()
+steps_executed=0
+steps_passed=0
+steps_failed=0
+
+run_step() {
+  local n="$1"
+  local cmd text log exit_file started ended rc tmo tmo_var cmd_pid waited
+  rc=""
+  cmd="$(step_cmd "$n")"
+  text="$(step_text "$n")"
+  log="$EVID_DIR/step${n}.log"
+  exit_file="$EVID_DIR/step${n}.exit"
+  started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  {
+    echo "@@GATE-META step=${n} task=REDHAT-FIX-S29-R2-H01 run_id=${GATE_RUN_ID} source_sha=${SOURCE_SHA} started_at=${started} deployed_base_url=${DEPLOYED_BASE_URL}@@"
+    echo "CMD: ${cmd}"
+    echo "---"
+  } >"$log"
+
+  # Resolve per-step timeout
+  tmo_var="STEP_TIMEOUT_${n}"
+  tmo="${!tmo_var:-$STEP_TIMEOUT_DEFAULT}"
+
+  set +e
+  # Real shell execution of the gate-plan literal_cmd (not a jq-only peek).
+  # Prefer gtimeout/timeout when present; else background + wait with kill on expiry.
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout --signal=TERM --kill-after=15 "$tmo" bash -c "$cmd" >>"$log" 2>&1
+    rc=$?
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout --signal=TERM --kill-after=15 "$tmo" bash -c "$cmd" >>"$log" 2>&1
+    rc=$?
+  else
+    bash -c "$cmd" >>"$log" 2>&1 &
+    cmd_pid=$!
+    waited=0
+    while kill -0 "$cmd_pid" 2>/dev/null; do
+      if [[ "$waited" -ge "$tmo" ]]; then
+        echo "@@GATE-TIMEOUT=${tmo}s killing pid=${cmd_pid}@@" >>"$log"
+        kill -TERM "$cmd_pid" 2>/dev/null || true
+        sleep 2
+        kill -KILL "$cmd_pid" 2>/dev/null || true
+        pkill -P "$cmd_pid" 2>/dev/null || true
+        wait "$cmd_pid" 2>/dev/null
+        rc=124
+        break
+      fi
+      sleep 1
+      waited=$((waited + 1))
+    done
+    if [[ -z "${rc}" ]]; then
+      wait "$cmd_pid"
+      rc=$?
+    fi
+  fi
+  set -e
+
+  ended="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  {
+    echo "---"
+    echo "@@GATE-EXIT=${rc}@@"
+    echo "@@GATE-ENDED=${ended}@@"
+    echo "@@GATE-TIMEOUT-CAP=${tmo}s@@"
+  } >>"$log"
+  echo "$rc" >"$exit_file"
+
+  # Copy log into .tmp evidence root for worktree-local capture
+  cp "$log" "$TMP_ROOT/steps/step${n}.log" 2>/dev/null || true
+
+  local result="fail"
+  if [[ "$rc" -eq 0 ]]; then
+    result="pass"
+    steps_passed=$((steps_passed + 1))
+  else
+    steps_failed=$((steps_failed + 1))
+  fi
+  steps_executed=$((steps_executed + 1))
+
+  echo "  step ${n}: result=${result} exit=${rc} log=${log}"
+
+  # Accumulate JSON fragment via python later — store line records
+  printf '%s\t%s\t%s\t%s\t%s\n' "$n" "$result" "$rc" "$log" "$text" >>"$TMP_ROOT/step-results.tsv"
+}
+
+: >"$TMP_ROOT/step-results.tsv"
+
+# Carry freeze engagement into subsequent steps when freeze report proves env_value=1.
+# cutover:freeze arms Convex + process env in its own process; operator re-runs
+# continue with HOLO_MIGRATION_READ_ONLY=1 (see gate-plan step5 explicit export).
+propagate_fence_env() {
+  local freeze_report="$ROOT/.tmp/D06-03/freeze-report.json"
+  local flip_report="$ROOT/.tmp/D06-05/flip-report.json"
+  if [[ -f "$freeze_report" ]]; then
+    local v
+    v="$(jq -r '.env_value // empty' "$freeze_report" 2>/dev/null || true)"
+    if [[ "$v" == "1" ]]; then
+      export HOLO_MIGRATION_READ_ONLY=1
+      echo "  (propagated HOLO_MIGRATION_READ_ONLY=1 from freeze-report)"
+    fi
+  fi
+  if [[ -f "$flip_report" ]]; then
+    local fv
+    fv="$(jq -r '.env_value // empty' "$flip_report" 2>/dev/null || true)"
+    if [[ "$fv" == "1" ]]; then
+      export HOLO_MIGRATION_READ_ONLY=1
+    fi
+  fi
+}
+
+echo "Executing 6 gate-plan steps (real-cli)..."
+for n in 1 2 3 4 5 6; do
+  echo "=== Step $n: $(step_text "$n") ==="
+  # After step 2 (freeze), carry fence into later steps so ETL/flip/write probe see engagement.
+  if [[ "$n" -ge 4 ]]; then
+    propagate_fence_env
+  fi
+  run_step "$n" || true
+done
+
+FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Determine overall verdict — pass ONLY when all 6 pass (never forge).
+VERDICT="fail"
+if [[ "$steps_passed" -eq 6 && "$steps_executed" -eq 6 && "$steps_failed" -eq 0 ]]; then
+  VERDICT="pass"
+elif [[ "$steps_passed" -gt 0 ]]; then
+  VERDICT="partial"
+else
+  VERDICT="fail"
+fi
+
+# Absolute refuse: never claim pass for historical stale run id.
+if [[ "$GATE_RUN_ID" == "$HISTORICAL_STALE_RUN_ID" ]]; then
+  VERDICT="fail"
+fi
+
+python3 - "$RESULTS" "$RESULTS_MD" "$TMP_ROOT/step-results.tsv" \
+  "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" "$SERVICE_IDENTITY" \
+  "$STARTED_AT" "$FINISHED_AT" "$VERDICT" "$steps_executed" "$steps_passed" \
+  "$steps_failed" "$WRITE_GATE_RESULTS" "$HISTORICAL_STALE_RUN_ID" "$EVID_DIR" \
+  "$SPRINT_DIR" <<'PY'
+import json, sys
+from pathlib import Path
+
+(
+    results_path,
+    results_md_path,
+    tsv_path,
+    run_id,
+    source_sha,
+    deployed_base_url,
+    service_identity,
+    started_at,
+    finished_at,
+    verdict,
+    steps_executed,
+    steps_passed,
+    steps_failed,
+    write_gate_results,
+    stale_id,
+    evid_dir,
+    sprint_dir,
+) = sys.argv[1:]
+
+steps_executed = int(steps_executed)
+steps_passed = int(steps_passed)
+steps_failed = int(steps_failed)
+write = write_gate_results == "1"
+
+steps = []
+for line in Path(tsv_path).read_text().splitlines():
+    if not line.strip():
+        continue
+    n_s, result, rc, log, text = line.split("\t", 4)
+    n = int(n_s)
+    steps.append(
+        {
+            "n": n,
+            "text": text,
+            "type": "terminal",
+            "executed": True,
+            "result": result,
+            "evidence": f"exit={rc}",
+            "exit_code": int(rc),
+            "log": str(Path(log).relative_to(Path(sprint_dir).parents[4]) if False else log).replace(
+                str(Path.cwd()) + "/", ""
+            )
+            if log.startswith(str(Path.cwd()))
+            else log,
+        }
+    )
+
+# Normalize log paths to repo-relative when under repo
+repo = Path.cwd()
+for s in steps:
+    lp = Path(s["log"])
+    try:
+        s["log"] = str(lp.resolve().relative_to(repo.resolve()))
+    except Exception:
+        s["log"] = str(lp)
+
+# Fail-closed: pass only when all six green under current oracles
+if verdict == "pass":
+    assert steps_passed == 6 and steps_executed == 6 and steps_failed == 0
+    assert run_id != stale_id
+    assert all(s["result"] == "pass" and s["executed"] for s in steps)
+
+# Never present stale historical id as current pass
+if run_id == stale_id and verdict == "pass":
+    raise SystemExit("refuse: historical false-pass run_id cannot be current pass")
+
+payload = {
+    "sprint": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
+    "sprint_identity": {
+        "resolved_sprint_path": str(Path(sprint_dir)),
+        "sprint_slug": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
+    },
+    "run_id": run_id,
+    "verdict": verdict,
+    "steps_total": 6,
+    "steps_executed": steps_executed,
+    "steps_passed": steps_passed,
+    "steps_failed": steps_failed,
+    "ui_driver": "none",
+    "exec_surface": "agent-real-cli",
+    "runner": "real-cli",
+    "source_sha": source_sha,
+    "git_sha": source_sha,
+    "deployed_base_url": deployed_base_url,
+    "service_identity": service_identity,
+    "started_at": started_at,
+    "finished_at": finished_at,
+    "written_at": finished_at,
+    "meta": {
+        "task_id": "REDHAT-FIX-S29-R2-H01",
+        "source_sha": source_sha,
+        "deployed_base_url": deployed_base_url,
+        "service_identity": service_identity,
+        "historical_stale_run_id_preserved": stale_id,
+        "gate_plan_predicates": "REDHAT-FIX-S29-H03 + REDHAT-FIX-S29-C01 (failed_count==0, require-all, non-null tools)",
+        "sibling_blockers_for_full_6_of_6": [
+            "REDHAT-FIX-S29-R2-C01",
+            "REDHAT-FIX-S29-R2-C02",
+            "REDHAT-FIX-S29-R2-C03",
+            "REDHAT-FIX-S29-R2-C04",
+            "REDHAT-FIX-S29-R2-H02",
+            "REDHAT-FIX-S29-R2-H03",
+            "REDHAT-FIX-S29-R2-H04",
+        ],
+        "honest_note": (
+            "Verdict is honest per-step under current gate-plan oracles. "
+            "Full 6/6 pass is not claimed while sibling remediations remain open "
+            "unless all six current oracles actually pass."
+        ),
+    },
+    "steps": steps,
+}
+
+out_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01") / "gate-results.json"
+out_tmp.parent.mkdir(parents=True, exist_ok=True)
+out_tmp.write_text(json.dumps(payload, indent=2) + "\n")
+
+if write:
+    Path(results_path).write_text(json.dumps(payload, indent=2) + "\n")
+
+# GATE-RESULTS.md
+rows = "\n".join(
+    f"| {s['n']} | {s['text'][:60]} | {s['result']} |" for s in steps
+)
+if verdict == "pass":
+    header = "## ✅ VERIFIED — human-test assert exit 0; 6/6 steps ran & passed"
+elif verdict == "partial":
+    header = f"## ⚠️ PARTIAL — {steps_passed}/6 steps passed under current oracles (honest fail on rest)"
+else:
+    header = f"## ❌ FAIL — {steps_passed}/6 steps passed; re-run under remediated gate-plan (R2-H01)"
+
+md = f"""# Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip
+
+{header}
+**Date:** {finished_at}
+**Verdict:** {verdict}
+**Run ID:** {run_id}
+**Source SHA:** `{source_sha}`
+**Deployed identity:** `{deployed_base_url}` / `{service_identity}`
+**Task:** REDHAT-FIX-S29-R2-H01 (fresh re-run; historical false-pass `{stale_id}` preserved under `.gate-evidence/{stale_id}/`)
+
+## Summary
+
+| # | Step | Result |
+|---|------|--------|
+{rows}
+
+**Evidence:** `.gate-evidence/{run_id}/step{{1..6}}.log`
+
+**Predicates:** current `gate-plan.json` (REDHAT-FIX-S29-H03 + C01) — step1 requires `overall.ok && failed_count==0`; step5 requires non-null `toolsPassed==toolsTotal`.
+
+**Sibling dependency (full 6/6):** R2-C01..C04 and R2-H02..H04 may still block end-to-end green; this re-run records honest per-step fail rather than reusing `{stale_id}` theatre.
+
+**Gate:** freeze → drain → ETL → flip → every write returns `migration_read_only`.
+"""
+
+md_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01") / "GATE-RESULTS.md"
+md_tmp.write_text(md)
+if write:
+    Path(results_md_path).write_text(md)
+
+# Update meta with finish
+meta_path = Path(evid_dir) / "meta.json"
+meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+meta.update(
+    {
+        "finished_at": finished_at,
+        "verdict": verdict,
+        "steps_executed": steps_executed,
+        "steps_passed": steps_passed,
+        "steps_failed": steps_failed,
+    }
+)
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+
+print(json.dumps({
+    "run_id": run_id,
+    "verdict": verdict,
+    "steps_passed": steps_passed,
+    "steps_executed": steps_executed,
+    "steps_failed": steps_failed,
+    "source_sha": source_sha,
+    "wrote_gate_results": write,
+    "evidence_dir": evid_dir,
+}, indent=2))
+PY
+
+echo "Done. verdict=$VERDICT steps_passed=$steps_passed/6 run_id=$GATE_RUN_ID"
+# Exit non-zero only if harness itself failed to run (always exit 0 after honest record
+# so CI can inspect gate-results; operator can check verdict).
+exit 0

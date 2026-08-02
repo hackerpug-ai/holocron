@@ -17,10 +17,13 @@
     "Step 4 run-etl (CAP-MIG-01) requires ok + unexplainedVariance==0 + stages.nonEmpty + source non-empty + fkAudit.ok + vectors.ok.",
     "Step 5 flip + verify-soak requires overall.ok AND non-null toolsPassed==toolsTotal>0 AND jobsAccounted==jobsTotal AND article/honoWrite/reads/zeroWritePath subresults.",
     "Step 6 write probe asserts HTTP 423 + migration_read_only body. Residual until REDHAT-FIX-S29-C02: process-local HOLO_MIGRATION_READ_ONLY engagement cannot prove distributed flip propagation; gate still refuses green without the 423 body.",
-    "Historical false-pass lineage preserved under .gate-evidence/20260802T004525Z/ (do not rewrite). Oracle suite: PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts"
+    "Historical false-pass lineage preserved under .gate-evidence/20260802T004525Z/ (do not rewrite). Oracle suite: PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts",
+    "REDHAT-FIX-S29-R2-H01: re-run via scripts/run-sprint29-human-gate-rerun.sh; freshness suite services/platform/tests/integration/sprint29-human-gate-freshness.test.ts refuses run_id 20260802T004525Z as current pass. Full 6/6 may block on R2-C01..C04 / R2-H02..H04 — honest fail/partial required."
   ],
   "oracle_suite": {
-    "command": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts"
+    "command": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-oracles.test.ts",
+    "freshness": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-human-gate-freshness.test.ts",
+    "rerun_harness": "bash scripts/run-sprint29-human-gate-rerun.sh"
   },
   "steps": [
     {

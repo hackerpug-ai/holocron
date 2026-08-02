@@ -1,0 +1,17 @@
+@@GATE-META step=4 task=REDHAT-FIX-S29-R2-H01 run_id=20260802T025804Z source_sha=76ec02a9045a29059c5b9683b5c6f530d1be73dc started_at=2026-08-02T03:00:45Z deployed_base_url=local-process://holo-cli@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-04 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:run-etl --json --output .tmp/D06-04/watermark-report.json | tee .tmp/REDHAT-FIX-S29-H03/step4-run-etl.json; jq -e '.ok == true and .unexplainedVariance == 0 and .stages.nonEmpty == true and ((.loadedByTable.documents // 0) > 0 or ((.archive.exportData.rowCounts.documents // 0) > 0)) and (.fkAudit.ok == true) and (.vectors.ok == true)' .tmp/D06-04/watermark-report.json
+---
+{
+  "ok": false,
+  "error": {
+    "code": "FENCE_NOT_ENGAGED",
+    "message": "Fence is not engaged (HOLO_MIGRATION_READ_ONLY != '1'). Run holo cutover:freeze first."
+  },
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R2-H01/.tmp/D06-04/watermark-report.json",
+  "stages": {
+    "fence": false
+  }
+}
+---
+@@GATE-EXIT=2@@
+@@GATE-ENDED=2026-08-02T03:00:46Z@@

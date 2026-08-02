@@ -1,0 +1,32 @@
+{
+  "task_id": "REDHAT-FIX-S29-R2-H01",
+  "run_id": "20260802T025804Z",
+  "source_sha": "76ec02a9045a29059c5b9683b5c6f530d1be73dc",
+  "git_sha": "76ec02a9045a29059c5b9683b5c6f530d1be73dc",
+  "deployed_base_url": "local-process://holo-cli",
+  "service_identity": "local-process://holo-cli",
+  "started_at": "2026-08-02T02:58:04Z",
+  "historical_stale_run_id": "20260802T004525Z",
+  "historical_preserved": true,
+  "gate_plan_remediation": "REDHAT-FIX-S29-H03",
+  "gate_plan_remediated_at": "20260802T020000Z",
+  "sibling_blockers_for_full_6_of_6": [
+    "REDHAT-FIX-S29-R2-C01",
+    "REDHAT-FIX-S29-R2-C02",
+    "REDHAT-FIX-S29-R2-C03",
+    "REDHAT-FIX-S29-R2-C04",
+    "REDHAT-FIX-S29-R2-H02",
+    "REDHAT-FIX-S29-R2-H03",
+    "REDHAT-FIX-S29-R2-H04"
+  ],
+  "notes": [
+    "Honest re-run under current gate-plan predicates (H03 + C01).",
+    "Never reuses 20260802T004525Z as pass evidence for remediated SHA.",
+    "Full 6/6 may remain blocked until sibling R2 remediations land."
+  ],
+  "finished_at": "2026-08-02T03:00:47Z",
+  "verdict": "partial",
+  "steps_executed": 6,
+  "steps_passed": 2,
+  "steps_failed": 4
+}
