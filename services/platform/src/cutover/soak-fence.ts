@@ -1446,7 +1446,11 @@ export type ArticleVerifyReport = {
 
 /**
  * GET /article/:shareToken over real network HTTP and compare sha256+byteLength
- * to D06-03 article-baseline.json. Never uses in-process createHonoApp().request.
+ * to an *immutable* D06-03 / pre-freeze article-baseline.json.
+ *
+ * R2-H03: baseline is file/artifact only — never re-authored from this network
+ * response. Missing/corrupt baseline fail-closes without auto-author.
+ * Never uses in-process createHonoApp().request as sole oracle.
  */
 export async function runVerifyArticle(options?: {
   cwd?: string;
@@ -1457,41 +1461,33 @@ export async function runVerifyArticle(options?: {
   baseUrl?: string;
 }): Promise<ArticleVerifyReport> {
   const { createHash } = await import('node:crypto');
+  const { loadArticleBaseline } = await import('./article-baseline.ts');
   const cwd = options?.cwd ?? resolveRepoRoot();
   const baselinePath = options?.baselinePath ?? defaultArticleBaselinePath(cwd);
   if (options?.databaseUrl) process.env.DATABASE_URL = options.databaseUrl;
 
-  let baselineSha256 = '';
-  let baselineByteLength = 0;
-  let shareToken = '';
-  if (existsSync(baselinePath)) {
-    const b = JSON.parse(readFileSync(baselinePath, 'utf8')) as {
-      sha256?: string;
-      byteLength?: number;
-      shareToken?: string;
-    };
-    baselineSha256 = b.sha256 ?? '';
-    baselineByteLength = b.byteLength ?? 0;
-    shareToken = b.shareToken ?? '';
-  }
-
   const base_url = resolveVerifyBaseUrl(options?.baseUrl);
 
-  if (!shareToken) {
+  const loaded = loadArticleBaseline(baselinePath);
+  if (!loaded.ok) {
     return {
       ok: false,
       status: 0,
       sha256: '',
       byteLength: 0,
-      baselineSha256,
-      baselineByteLength,
+      baselineSha256: '',
+      baselineByteLength: 0,
       shareToken: '',
       match: false,
       transport: 'network',
-      base_url,
-      error: 'MISSING_SHARE_TOKEN',
+      base_url: base_url || '',
+      error: `${loaded.error.code}: ${loaded.error.message}`,
     };
   }
+
+  const baselineSha256 = loaded.baseline.sha256;
+  const baselineByteLength = loaded.baseline.byteLength;
+  const shareToken = loaded.baseline.shareToken;
 
   if (!base_url) {
     return {
@@ -1552,6 +1548,16 @@ export async function runVerifyArticle(options?: {
     match,
     transport: 'network',
     base_url,
+    ...(match
+      ? {}
+      : {
+          error:
+            res.status !== 200
+              ? `ARTICLE_STATUS_${res.status}`
+              : sha256 !== baselineSha256 || byteLength !== baselineByteLength
+                ? 'SHA256_OR_BYTELENGTH_MISMATCH'
+                : 'ARTICLE_EMPTY',
+        }),
   };
 }
 
