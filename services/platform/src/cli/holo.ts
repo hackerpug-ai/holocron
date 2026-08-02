@@ -5832,7 +5832,7 @@ async function main(): Promise<void> {
       break;
     }
 
-    case 'fulcrum:authorable-check': 
+    case 'fulcrum:authorable-check':
       // Capstone seam compilation: contract + ledger + gate + role-bindings + publish.
       // Fail-fast on first MISSING seam → Overall INSUFFICIENT (exit 1).
       try {
