@@ -123,6 +123,17 @@ export type HealthBody = {
   target: string | null;
   /** Nested rollback observation for clients that probe `.rollback.target`. */
   rollback: { target: string | null; data_plane: string | null; source: string };
+  /**
+   * Serving-process identity (REDHAT-FIX-S29-R3-C03).
+   * Reported by the already-listening process — not caller-minted by verify CLI.
+   */
+  pid: number;
+  /** Optional deployment label from the serving process env (HOLO_SERVICE_LABEL). */
+  service_label: string | null;
+  /** Optional generation/build id from the serving process env. */
+  generation: string | null;
+  /** process.uptime() in ms at health observation time. */
+  uptime_ms: number;
 };
 
 export type HealthResponse = {
@@ -254,6 +265,16 @@ export async function runHealthCheck(options?: {
   const allReady = db.ready && fleet.ready && queue.ready;
   // Fresh control-plane re-read every health request (R2-C04 live ack surface)
   const observed = resolveObservedDataPlane();
+  const serviceLabelRaw =
+    process.env.HOLO_SERVICE_LABEL ??
+    process.env.HOLO_VERIFY_SERVICE_LABEL ??
+    process.env.HOLO_SOAK_SERVICE_LABEL ??
+    '';
+  const generationRaw =
+    process.env.HOLO_GENERATION ??
+    process.env.HOLO_VERIFY_GENERATION ??
+    process.env.HOLO_SOAK_GENERATION ??
+    '';
   const body: HealthBody = {
     status: allReady ? 'ok' : 'degraded',
     db: { ready: db.ready, latency_ms: db.latency_ms, ...(db.error ? { error: db.error } : {}) },
@@ -276,6 +297,11 @@ export async function runHealthCheck(options?: {
       data_plane: observed.data_plane,
       source: observed.source,
     },
+    // R3-C03: identity bound to this already-listening process (never caller-minted).
+    pid: process.pid,
+    service_label: serviceLabelRaw.trim().length > 0 ? serviceLabelRaw.trim() : null,
+    generation: generationRaw.trim().length > 0 ? generationRaw.trim() : null,
+    uptime_ms: Math.max(1, Math.ceil(process.uptime() * 1000)),
   };
 
   if (!db.ready) {
