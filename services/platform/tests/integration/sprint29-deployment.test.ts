@@ -134,6 +134,45 @@ describe('D06-07 inference1 deployment contract', () => {
         POSTGRES_PASSWORD: 'retained',
       });
       expect(statSync(privatePath).mode & 0o777).toBe(0o600);
+      writeFileSync(legacy, `${JSON.stringify({ POSTGRES_PASSWORD: 'retained' })}\n`, {
+        mode: 0o600,
+      });
+      migrateLegacyRuntimeSecrets({
+        runtimeSecretsPath: privatePath,
+        legacyEvidenceSecretsPath: legacy,
+      });
+      expect(existsSync(legacy)).toBe(false);
+      expect(JSON.parse(readFileSync(privatePath, 'utf8'))).toEqual({
+        POSTGRES_PASSWORD: 'retained',
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('never overwrites a differing private runtime credential store', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-runtime-conflict-'));
+    const legacy = resolve(root, 'evidence', '.runtime-secrets.json');
+    const privatePath = resolve(root, 'private', 'inference1.json');
+    try {
+      mkdirSync(resolve(root, 'evidence'), { recursive: true });
+      mkdirSync(resolve(root, 'private'), { recursive: true });
+      writeFileSync(legacy, `${JSON.stringify({ POSTGRES_PASSWORD: 'legacy' })}\n`, {
+        mode: 0o600,
+      });
+      writeFileSync(privatePath, `${JSON.stringify({ POSTGRES_PASSWORD: 'authoritative' })}\n`, {
+        mode: 0o600,
+      });
+      expect(() =>
+        migrateLegacyRuntimeSecrets({
+          runtimeSecretsPath: privatePath,
+          legacyEvidenceSecretsPath: legacy,
+        })
+      ).toThrow(/differ from the private operator store/);
+      expect(existsSync(legacy)).toBe(true);
+      expect(JSON.parse(readFileSync(privatePath, 'utf8'))).toEqual({
+        POSTGRES_PASSWORD: 'authoritative',
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -186,6 +186,19 @@ export function migrateLegacyRuntimeSecrets(options: {
   if (Object.keys(retained).length === 0) {
     deployFail('legacy runtime secrets are empty');
   }
+  if (existsSync(options.runtimeSecretsPath)) {
+    const current = readPrivateJson(options.runtimeSecretsPath);
+    if (Object.keys(current).length === 0) {
+      deployFail('private runtime secrets are empty');
+    }
+    const keys = [...new Set([...Object.keys(retained), ...Object.keys(current)])].sort();
+    if (keys.some((key) => retained[key] !== current[key])) {
+      deployFail('legacy runtime secrets differ from the private operator store');
+    }
+    chmodSync(options.runtimeSecretsPath, 0o600);
+    unlinkSync(options.legacyEvidenceSecretsPath);
+    return;
+  }
   atomicJson(options.runtimeSecretsPath, retained, 0o600);
   unlinkSync(options.legacyEvidenceSecretsPath);
 }
