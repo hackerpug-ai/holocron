@@ -45,7 +45,7 @@ STEP_TIMEOUT_DEFAULT="${STEP_TIMEOUT_DEFAULT:-180}"
 STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-240}"   # go-no-go (8 gates)
 STEP_TIMEOUT_2="${STEP_TIMEOUT_2:-600}"   # build/pull/cold-recreate deployment
 STEP_TIMEOUT_3="${STEP_TIMEOUT_3:-600}"   # dependency + SIGKILL + durability + MCP
-STEP_TIMEOUT_6="${STEP_TIMEOUT_6:-300}"   # run-etl / convex export
+STEP_TIMEOUT_6="${STEP_TIMEOUT_6:-1800}"  # run-etl / convex export / real embeddings
 STEP_TIMEOUT_7="${STEP_TIMEOUT_7:-300}"   # flip + verify-soak
 
 if [[ ! -f "$PLAN" ]]; then
@@ -96,6 +96,9 @@ if [[ "$SERVICE_IDENTITY" == local-process://* ]] || [[ "$DEPLOYED_BASE_URL" == 
   if [[ -z "$NON_LANDING_REASON" ]]; then
     NON_LANDING_REASON="service_identity is local-process:// (self-minted CLI theatre; non-landing)"
   fi
+fi
+if [[ "$DEPLOYED_BASE_URL" != local-process://* ]]; then
+  export HOLO_PRODUCTION_BASE_URL="$DEPLOYED_BASE_URL"
 fi
 # Landing eligibility is finalized after the run (needs 8/8). Default false until then.
 LANDING_ELIGIBLE=false
@@ -317,12 +320,60 @@ propagate_fence_env() {
   fi
 }
 
+# Steps 6–7 must operate on the exact Postgres data plane served by the deployed
+# four-service Compose generation. The generated deployment override publishes
+# that database on loopback at app-port+1; credentials remain in the private
+# 0600 runtime store and are captured into the child environment without logs.
+activate_deployed_database() {
+  local runtime_path
+  runtime_path="${HOLO_RUNTIME_SECRETS_PATH:-${HOME}/.config/holocron/runtime/inference1.json}"
+  if [[ ! -f "$runtime_path" ]]; then
+    echo "error: deployed runtime secret store missing" >&2
+    return 2
+  fi
+  DATABASE_URL="$(
+    HOLO_GATE_RUNTIME_PATH="$runtime_path" HOLO_GATE_BASE_URL="$DEPLOYED_BASE_URL" bun -e '
+      import { readFileSync } from "node:fs";
+      import { statSync } from "node:fs";
+      if ((statSync(process.env.HOLO_GATE_RUNTIME_PATH).mode & 0o777) !== 0o600) process.exit(2);
+      const runtime = JSON.parse(readFileSync(process.env.HOLO_GATE_RUNTIME_PATH, "utf8"));
+      const internal = new URL(runtime.DATABASE_URL);
+      const deployed = new URL(process.env.HOLO_GATE_BASE_URL);
+      const appPort = Number(deployed.port || (deployed.protocol === "https:" ? 443 : 80));
+      if (!Number.isInteger(appPort) || appPort < 1 || appPort >= 65535) process.exit(2);
+      internal.hostname = "127.0.0.1";
+      internal.port = String(appPort + 1);
+      process.stdout.write(internal.toString());
+    '
+  )"
+  if [[ -z "$DATABASE_URL" ]]; then
+    echo "error: failed to resolve deployed Postgres operator connection" >&2
+    return 2
+  fi
+  export DATABASE_URL
+  export HOLO_DANGEROUS_ALLOW_PROD_DB=1
+  HOLO_ZERO_BASE_URL="$(
+    HOLO_GATE_BASE_URL="$DEPLOYED_BASE_URL" bun -e '
+      const deployed = new URL(process.env.HOLO_GATE_BASE_URL);
+      const appPort = Number(deployed.port || (deployed.protocol === "https:" ? 443 : 80));
+      if (!Number.isInteger(appPort) || appPort < 1 || appPort > 65533) process.exit(2);
+      process.stdout.write(`http://127.0.0.1:${appPort + 2}`);
+    '
+  )"
+  if [[ -z "$HOLO_ZERO_BASE_URL" ]]; then
+    echo "error: failed to resolve deployed Zero operator endpoint" >&2
+    return 2
+  fi
+  export HOLO_ZERO_BASE_URL
+}
+
 echo "Executing 8 gate-plan steps (real-cli)..."
 for n in 1 2 3 4 5 6 7 8; do
   echo "=== Step $n: $(step_text "$n") ==="
   # After combined freeze/drain step 5, carry fence into later CLI processes.
   if [[ "$n" -ge 6 ]]; then
     propagate_fence_env
+    activate_deployed_database
   fi
   run_step "$n" || true
 done

@@ -269,6 +269,8 @@ interface CliArgs {
    * (also HOLO_VERIFY_BASE_URL / PLATFORM_URL).
    */
   baseUrl: string | null;
+  /** cutover:verify-soak — deployed Zero cache endpoint used by the write-fence probe. */
+  zeroBaseUrl: string | null;
   /** cutover:verify-tools — optional service / deployment label for target_identity */
   serviceLabel: string | null;
   /** deploy:package — digest-qualified candidate and rollback image identities. */
@@ -682,6 +684,7 @@ function parseArgs(argv: string[]): CliArgs {
     etlReport: null,
     parityPath: null,
     baseUrl: null,
+    zeroBaseUrl: null,
     serviceLabel: null,
     image: null,
     previousImage: null,
@@ -1003,6 +1006,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.baseUrl = argv[++i] ?? null;
     } else if (a.startsWith('--base-url=')) {
       args.baseUrl = a.slice('--base-url='.length);
+    } else if (a === '--zero-base-url') {
+      args.zeroBaseUrl = argv[++i] ?? null;
+    } else if (a.startsWith('--zero-base-url=')) {
+      args.zeroBaseUrl = a.slice('--zero-base-url='.length);
     } else if (a === '--service-label') {
       args.serviceLabel = argv[++i] ?? null;
     } else if (a.startsWith('--service-label=')) {
@@ -3485,6 +3492,7 @@ async function main(): Promise<void> {
           reportPath,
           catalogPath: args.catalogPath,
           exportDir: args.exportDir,
+          parityPath: args.parityPath ? resolve(args.parityPath) : undefined,
           blobRoot: args.blobRoot ?? undefined,
         });
         if (args.json) {
@@ -3695,8 +3703,12 @@ async function main(): Promise<void> {
         const baseUrl = resolveVerifyBaseUrl(args.baseUrl);
         const report = await runVerifySoak({
           etlReportPath: args.etlReport ? resolve(args.etlReport) : undefined,
+          exportDir: args.exportDir ? resolve(args.exportDir) : undefined,
+          catalogPath: args.catalogPath ? resolve(args.catalogPath) : undefined,
+          parityPath: args.parityPath ? resolve(args.parityPath) : undefined,
           reportPath,
           baseUrl: baseUrl || undefined,
+          zeroBaseUrl: args.zeroBaseUrl ?? undefined,
         });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));

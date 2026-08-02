@@ -206,7 +206,13 @@ function runOneGate(spec: GateSpec, options: { cwd: string; env: NodeJS.ProcessE
   const result = spawnSync(bin, args, {
     cwd: options.cwd,
     encoding: 'utf8',
-    env: options.env,
+    // Fail-closed integration/live suites require their explicit real-service
+    // switch. Keep it off the unit lane so live-only unit fixtures do not run
+    // under the wrong project merely because go/no-go is the parent process.
+    env:
+      spec.name === 'integration' || spec.name === 'live'
+        ? { ...options.env, PLATFORM_IT: '1' }
+        : options.env,
     maxBuffer: MAX_BUFFER,
     // No timeout: full harness suites can run for many minutes.
   });

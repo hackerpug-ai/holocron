@@ -1,7 +1,7 @@
 /**
  * REDHAT-FIX-S29-H03 — Sprint 29 Human Testing Gate executable oracles.
  *
- * Proves gate-plan.json steps 1–6 bind real cutover CLI verbs and conjunctive
+ * Proves gate-plan.json steps 1–8 bind real deployment/cutover CLI verbs and conjunctive
  * multi-field jq oracles that fail closed on the historical weak greening cases:
  *   - any-of freeze fields (step 2)
  *   - acceptedWriteCount==0 alone (step 3)
@@ -56,21 +56,23 @@ const STEP_ORACLES: Record<number, string> = {
   2: '.ok == true and .env_value == "1" and .fence_armed_at > 0',
   3: '.ok == true and .acceptedWriteCount == 0 and .rejectedWriteCount > 0 and .windowSeconds >= 30',
   4: '.ok == true and .unexplainedVariance == 0 and .stages.nonEmpty == true and ((.loadedByTable.documents // 0) > 0 or ((.archive.exportData.rowCounts.documents // 0) > 0)) and (.fkAudit.ok == true) and (.vectors.ok == true)',
-  5: '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and ((.zeroWritePath.status == "NOT_LANDED") or (.zeroWritePath.status == "BLOCKED")) and ((.engaged == true) or (.tools.ok == true))',
+  5: '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and (.zeroWritePath.status == "BLOCKED") and ((.engaged == true) or (.tools.ok == true))',
   6: '.status == 423 and ((.body.error == "migration_read_only") or (.body.code == "migration_read_only"))',
 };
 
 const STEP_VERBS: Record<number, RegExp> = {
   1: /cutover:go-no-go/,
-  2: /cutover:freeze/,
-  3: /cutover:quiet-check/,
-  4: /cutover:run-etl/,
-  5: /cutover:verify-soak/,
-  6: /migration_read_only/,
+  2: /deploy:apply|deploy-inference1/,
+  3: /deploy:verify/,
+  4: /deploy:verify/,
+  5: /cutover:freeze[\s\S]*cutover:quiet-check/,
+  6: /cutover:run-etl/,
+  7: /cutover:verify-soak/,
+  8: /migration_read_only/,
 };
 
-/** Step 5 also sequences cutover:flip before verify-soak. */
-const STEP5_FLIP = /cutover:flip/;
+/** Step 7 also sequences cutover:flip before verify-soak. */
+const STEP7_FLIP = /cutover:flip/;
 
 function oracle(n: number): string {
   const p = STEP_ORACLES[n];
@@ -138,62 +140,64 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
     });
   });
 
-  itLive('AC-1 / H-03: all 6 steps invoke cutover CLI with conjunctive oracles', () => {
+  itLive('AC-1 / H-03: all 8 steps invoke deployment/cutover CLI with conjunctive oracles', () => {
     const plan = loadPlan();
     expect(plan.remediation).toMatch(/REDHAT-FIX-S29-H03/);
     expect(plan.dispatcher).toContain('services/platform/src/cli/holo.ts');
     expect(Array.isArray(plan.steps)).toBe(true);
-    expect((plan.steps ?? []).map((s) => s.n).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect((plan.steps ?? []).map((s) => s.n).sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
 
     const verbHits: Record<number, string> = {};
-    for (const n of [1, 2, 3, 4, 5, 6]) {
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
       const step = stepByN(plan, n);
       const cmd = String(step.literal_cmd ?? '');
       expect(cmd.length, `step ${n} empty literal_cmd`).toBeGreaterThan(20);
       expect(step.method).toBe('real-cli');
       expect(cmd, `step ${n} must use bun holo dispatcher`).toContain(HOLO_CLI_TOKEN);
-      expect(cmd, `step ${n} must reference cutover verb family`).toMatch(stepVerb(n));
+      expect(cmd, `step ${n} must reference deployment/cutover verb family`).toMatch(stepVerb(n));
       // Action is real CLI, not isolated jq on pre-baked JSON alone
-      expect(cmd).toMatch(/cutover:/);
-      verbHits[n] = cmd.match(/cutover:[a-z0-9-]+|migration_read_only/)?.[0] ?? 'unknown';
+      expect(cmd).toMatch(/cutover:|deploy:|deploy-inference1/);
+      verbHits[n] =
+        cmd.match(/(?:cutover|deploy):[a-z0-9-]+|migration_read_only/)?.[0] ?? 'unknown';
     }
 
-    // Step 5 sequences flip then verify-soak
-    expect(String(stepByN(plan, 5).literal_cmd)).toMatch(STEP5_FLIP);
+    // Step 7 sequences flip then verify-soak
+    expect(String(stepByN(plan, 7).literal_cmd)).toMatch(STEP7_FLIP);
 
-    // Step 2: never any-of of ok/env/timestamp
-    const step2 = String(stepByN(plan, 2).literal_cmd);
-    expect(step2).not.toMatch(/\)\s*or\s*\(/);
-    expect(step2).toMatch(/\.ok\s*==\s*true/);
-    expect(step2).toMatch(/\.env_value\s*==\s*"1"/);
-    expect(step2).toMatch(/\.fence_armed_at\s*>\s*0/);
-
-    // Step 3: rejectedWriteCount + windowSeconds required
-    const step3 = String(stepByN(plan, 3).literal_cmd);
-    expect(step3).toMatch(/rejectedWriteCount/);
-    expect(step3).toMatch(/windowSeconds/);
-    expect(step3).toMatch(/acceptedWriteCount/);
-
-    // Step 4: full ETL oracle (not variance alone)
-    const step4 = String(stepByN(plan, 4).literal_cmd);
-    expect(step4).toMatch(/unexplainedVariance/);
-    expect(step4).toMatch(/nonEmpty|loadedByTable/);
-    expect(step4).toMatch(/fkAudit/);
-    expect(step4).toMatch(/vectors/);
-
-    // Step 5: tools counters required
+    // Step 5: never any-of of freeze ok/env/timestamp and requires quiet evidence
     const step5 = String(stepByN(plan, 5).literal_cmd);
-    expect(step5).toMatch(/toolsPassed/);
-    expect(step5).toMatch(/toolsTotal/);
-    expect(step5).toMatch(/cutover:verify-soak/);
+    expect(step5).not.toMatch(/\)\s*or\s*\(/);
+    expect(step5).toMatch(/\.ok\s*==\s*true/);
+    expect(step5).toMatch(/\.env_value\s*==\s*"1"/);
+    expect(step5).toMatch(/\.fence_armed_at\s*>\s*0/);
 
-    // Step 6: migration_read_only body
+    expect(step5).toMatch(/rejectedWriteCount/);
+    expect(step5).toMatch(/windowSeconds/);
+    expect(step5).toMatch(/acceptedWriteCount/);
+
+    // Step 6: full ETL oracle (not variance alone)
     const step6 = String(stepByN(plan, 6).literal_cmd);
-    expect(step6).toMatch(/migration_read_only/);
-    expect(step6).toMatch(/423/);
+    expect(step6).toMatch(/unexplainedVariance/);
+    expect(step6).toMatch(/nonEmpty|loadedByTable/);
+    expect(step6).toMatch(/fkAudit/);
+    expect(step6).toMatch(/vectors/);
+
+    // Step 7: tools counters + Zero write proof required
+    const step7 = String(stepByN(plan, 7).literal_cmd);
+    expect(step7).toMatch(/toolsPassed/);
+    expect(step7).toMatch(/toolsTotal/);
+    expect(step7).toMatch(/zeroWritePath/);
+    expect(step7).toMatch(/cutover:verify-soak/);
+
+    // Step 8: migration_read_only body
+    const step8 = String(stepByN(plan, 8).literal_cmd);
+    expect(step8).toMatch(/migration_read_only/);
+    expect(step8).toMatch(/423/);
 
     // Plan predicates must embed the shared oracle tokens (conjunctive)
-    for (const n of [1, 2, 3, 4, 5, 6]) {
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
       const cmd = String(stepByN(plan, n).literal_cmd);
       expect(cmd, `step ${n} must embed jq -e conjunctive oracle`).toMatch(/jq\s+-e/);
     }
@@ -216,7 +220,7 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
       article: { ok: true },
       honoWrite: { ok: true },
       reads: { ok: true },
-      zeroWritePath: { status: 'NOT_LANDED' },
+      zeroWritePath: { status: 'BLOCKED' },
       engaged: true,
       tools: { ok: true, toolsPassed: null, toolsTotal: null },
     };
@@ -236,7 +240,7 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
       article: { ok: true },
       honoWrite: { ok: true },
       reads: { ok: true },
-      zeroWritePath: { status: 'NOT_LANDED' },
+      zeroWritePath: { status: 'BLOCKED' },
       engaged: true,
     };
 
@@ -257,10 +261,10 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
 
     // Plan literal_cmd must embed the tools tokens so re-runs cannot drop them
     const plan = loadPlan();
-    const step5Cmd = String(stepByN(plan, 5).literal_cmd);
-    expect(step5Cmd).toMatch(/toolsPassed/);
-    expect(step5Cmd).toMatch(/toolsTotal/);
-    expect(step5Cmd).not.toMatch(/jq -e "\.overall\.ok == true"/);
+    const step7Cmd = String(stepByN(plan, 7).literal_cmd);
+    expect(step7Cmd).toMatch(/toolsPassed/);
+    expect(step7Cmd).toMatch(/toolsTotal/);
+    expect(step7Cmd).not.toMatch(/jq -e "\.overall\.ok == true"/);
   });
 
   itLive('AC-3 / H-03 step-2|step-4: partial freeze and empty ETL fail require-all', () => {
@@ -358,8 +362,8 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
 
     // Plan must not contain step-2 any-of
     const plan = loadPlan();
-    const step2Cmd = String(stepByN(plan, 2).literal_cmd);
-    expect(step2Cmd).not.toMatch(/\)\s*or\s*\(/);
+    const step5Cmd = String(stepByN(plan, 5).literal_cmd);
+    expect(step5Cmd).not.toMatch(/\)\s*or\s*\(/);
   });
 
   itLive('AC-4 / H-03 step-3: quiet-check requires rejected>0 and windowSeconds', () => {
@@ -409,9 +413,9 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
     expect(greenEval.ok, 'complete quiet report must pass').toBe(true);
 
     const plan = loadPlan();
-    const step3Cmd = String(stepByN(plan, 3).literal_cmd);
-    expect(step3Cmd).toMatch(/rejectedWriteCount/);
-    expect(step3Cmd).toMatch(/windowSeconds/);
+    const step5Cmd = String(stepByN(plan, 5).literal_cmd);
+    expect(step5Cmd).toMatch(/rejectedWriteCount/);
+    expect(step5Cmd).toMatch(/windowSeconds/);
   });
 
   itLive('AC-5 / H-03: SPRINT.md human steps align with cutover CLI verb family', () => {
@@ -437,10 +441,10 @@ describe('REDHAT-FIX-S29-H03 sprint29 human-gate oracles', () => {
       expect(planBlob, `gate-plan missing ${v}`).toContain(v);
     }
 
-    // Human Test Deliverable still lists 6 ordered steps
+    // Human Test Deliverable lists all 8 ordered steps
     expect(sprint).toMatch(/## Human Test Deliverable/);
     expect(sprint).toMatch(/1\..*go-no-go|1\..*harness/i);
-    expect(sprint).toMatch(/6\..*migration_read_only/i);
+    expect(sprint).toMatch(/8\..*migration_read_only/i);
 
     writeEvidence('ac5-docs-align.json', {
       verbs,

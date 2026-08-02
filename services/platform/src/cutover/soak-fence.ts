@@ -18,6 +18,8 @@
  * cutover:flip refuses unless D06-04 reconciliation is green, then writes the
  * durable control-plane key + process.env + flip-report. No new DB tables.
  */
+
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
@@ -328,6 +330,7 @@ export type EtlReconcileSnapshot = {
   runId: string;
   unexplainedVariance: number;
   loadedByTable: Record<string, number>;
+  targetLoadedByTable: Record<string, number>;
   exportArchiveHash: string;
   /**
    * SHA-256 of the watermark/ETL report file bytes.
@@ -483,10 +486,19 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
       runId?: string;
       unexplainedVariance?: number;
       loadedByTable?: Record<string, number>;
+      targetLoadedByTable?: Record<string, number>;
       exportArchiveHash?: string;
       parityHash?: string;
       exportRelPath?: string;
       parityRelPath?: string;
+      fkAudit?: { ok?: boolean };
+      vectors?: { ok?: boolean };
+      stages?: {
+        nonEmpty?: boolean;
+        reconcile?: boolean;
+        fkAudit?: boolean;
+        vectors?: boolean;
+      };
       reconcile?: { unexplainedVariance?: number; ok?: boolean };
     };
     const unexplained =
@@ -498,6 +510,10 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
     const runId = typeof j.runId === 'string' ? j.runId : '';
     const loadedByTable =
       j.loadedByTable && typeof j.loadedByTable === 'object' ? j.loadedByTable : {};
+    const targetLoadedByTable =
+      j.targetLoadedByTable && typeof j.targetLoadedByTable === 'object'
+        ? j.targetLoadedByTable
+        : {};
     const exportArchiveHash =
       typeof j.exportArchiveHash === 'string' && /^[a-f0-9]{64}$/i.test(j.exportArchiveHash)
         ? j.exportArchiveHash.toLowerCase()
@@ -509,14 +525,34 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
     const exportRelPath = typeof j.exportRelPath === 'string' ? j.exportRelPath : '';
     const parityRelPath = typeof j.parityRelPath === 'string' ? j.parityRelPath : '';
     const reconcileOk = typeof j.reconcile?.ok === 'boolean' ? j.reconcile.ok : unexplained === 0;
-    // Reconciliation green: zero unexplained variance + real run id
-    const ok = unexplained === 0 && runId.length > 0 && reconcileOk;
+    const fkAuditOk = j.fkAudit?.ok === true || j.stages?.fkAudit === true;
+    const vectorsOk = j.vectors?.ok === true || j.stages?.vectors === true;
+    const nonEmptyOk =
+      j.stages?.nonEmpty === true ||
+      ((loadedByTable.documents ?? 0) > 0 && (loadedByTable.conversations ?? 0) > 0);
+    const provenanceOk =
+      exportArchiveHash.length === 64 &&
+      parityHash.length === 64 &&
+      exportRelPath.length > 0 &&
+      parityRelPath.length > 0;
+    // Flip safety: the complete ETL product gate must be green. Zero variance
+    // alone is insufficient when FK/vector/provenance stages failed or are stale.
+    const ok =
+      j.ok === true &&
+      unexplained === 0 &&
+      runId.length > 0 &&
+      reconcileOk &&
+      fkAuditOk &&
+      vectorsOk &&
+      nonEmptyOk &&
+      provenanceOk;
     return {
       path: reportPath,
       ok,
       runId,
       unexplainedVariance: Number.isFinite(unexplained) ? unexplained : -1,
       loadedByTable,
+      targetLoadedByTable,
       exportArchiveHash,
       report_sha256,
       baseline_hash: report_sha256,
@@ -590,6 +626,7 @@ export type CutoverParityInventory = {
   exportRelPath: string;
   catalogRelPath: string;
   loadedByTable: Record<string, number>;
+  sourceTablesByTarget: Record<string, string[]>;
   catalog_table_count_expected: number;
 };
 
@@ -607,6 +644,7 @@ export function loadCutoverParityInventory(parityPath: string): CutoverParityInv
       exportRelPath?: string;
       catalogRelPath?: string;
       loadedByTable?: Record<string, number>;
+      sourceTablesByTarget?: Record<string, string[]>;
       catalog_table_count_expected?: number;
     };
     const boundExportArchiveHash =
@@ -616,6 +654,10 @@ export function loadCutoverParityInventory(parityPath: string): CutoverParityInv
         : '';
     const loadedByTable =
       j.loadedByTable && typeof j.loadedByTable === 'object' ? j.loadedByTable : {};
+    const sourceTablesByTarget =
+      j.sourceTablesByTarget && typeof j.sourceTablesByTarget === 'object'
+        ? j.sourceTablesByTarget
+        : {};
     if (Object.keys(loadedByTable).length === 0 || !boundExportArchiveHash) return null;
     return {
       path: parityPath,
@@ -624,6 +666,7 @@ export function loadCutoverParityInventory(parityPath: string): CutoverParityInv
       exportRelPath: typeof j.exportRelPath === 'string' ? j.exportRelPath : '',
       catalogRelPath: typeof j.catalogRelPath === 'string' ? j.catalogRelPath : '',
       loadedByTable,
+      sourceTablesByTarget,
       catalog_table_count_expected:
         typeof j.catalog_table_count_expected === 'number' ? j.catalog_table_count_expected : 0,
     };
@@ -793,13 +836,27 @@ export function loadBoundExportCatalogBaseline(options: {
           `exportArchiveHash provenance mismatch: report=${declared} on-disk archive=${exportArchiveHash}`
         );
       }
-      // Every expected parity table must exist in catalog + export inventory.
-      for (const sourceTable of Object.keys(parity.loadedByTable)) {
-        if (!catalog.tables[sourceTable]) {
-          mismatches.push(`catalog missing expected parity table: ${sourceTable}`);
-        }
-        if (!listedTables.includes(sourceTable)) {
-          mismatches.push(`export archive missing expected parity table: ${sourceTable}`);
+      // Every expected target must bind back to its catalog/export source tables.
+      for (const parityKey of Object.keys(parity.loadedByTable)) {
+        const declaredSources = parity.sourceTablesByTarget[parityKey];
+        const sourceTables =
+          Array.isArray(declaredSources) && declaredSources.length > 0
+            ? declaredSources
+            : [parityKey];
+        for (const sourceTable of sourceTables) {
+          const entry = catalog.tables[sourceTable];
+          if (!entry) {
+            mismatches.push(`catalog missing expected parity source table: ${sourceTable}`);
+            continue;
+          }
+          if (declaredSources && entry.target !== parityKey) {
+            mismatches.push(
+              `catalog target mismatch for ${sourceTable}: parity=${parityKey} catalog=${entry.target ?? 'null'}`
+            );
+          }
+          if (!listedTables.includes(sourceTable)) {
+            mismatches.push(`export archive missing expected parity source table: ${sourceTable}`);
+          }
         }
       }
     } catch (err) {
@@ -2958,12 +3015,13 @@ export async function runVerifyReads(options?: {
   mismatches.push(...bound.mismatches);
 
   // Reject truncated / rewritten caller loadedByTable when present.
-  if (
-    Object.keys(snap.loadedByTable).length > 0 &&
-    Object.keys(bound.expectedLoadedByTable).length > 0
-  ) {
+  const callerLoaded =
+    Object.keys(snap.targetLoadedByTable).length > 0
+      ? snap.targetLoadedByTable
+      : snap.loadedByTable;
+  if (Object.keys(callerLoaded).length > 0 && Object.keys(bound.expectedLoadedByTable).length > 0) {
     mismatches.push(
-      ...diffCallerLoadedByTableAgainstParity(snap.loadedByTable, bound.expectedLoadedByTable)
+      ...diffCallerLoadedByTableAgainstParity(callerLoaded, bound.expectedLoadedByTable)
     );
   }
 
@@ -3109,6 +3167,9 @@ export type ArticleVerifyReport = {
 export async function runVerifyArticle(options?: {
   cwd?: string;
   baselinePath?: string;
+  exportDir?: string;
+  catalogPath?: string;
+  parityPath?: string;
   keys?: ScopedKeyConfig;
   databaseUrl?: string;
   /** Deployed server base URL (http://host:port). Overrides env. */
@@ -3379,6 +3440,26 @@ export async function runVerifyJobs(options?: { databaseUrl?: string }): Promise
 export type ZeroWritePathReport = {
   status: 'NOT_LANDED' | 'BLOCKED' | 'OPEN' | 'MISSING';
   note: string;
+  zeroBaseUrl?: string;
+  probe?: {
+    ok?: boolean;
+    custom?: {
+      connected?: boolean;
+      clientOptimistic?: boolean;
+      serverRejected?: boolean;
+      expectedRejection?: boolean;
+      rejectionMessage?: string;
+    };
+    crud?: {
+      connected?: boolean;
+      serverRejected?: boolean;
+      expectedRejection?: boolean;
+      rejectionMessage?: string;
+    };
+    authoritativeUnchanged?: boolean;
+    cleanedUnexpectedRows?: boolean;
+    error?: string;
+  };
 };
 
 export type SoakVerifyReport = {
@@ -3400,25 +3481,91 @@ export function defaultSoakVerifyReportPath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D06-05/verify-soak-report.json');
 }
 
+export function resolveZeroVerifyBaseUrl(explicit?: string): string {
+  return explicit ?? process.env.HOLO_ZERO_BASE_URL ?? process.env.ZERO_CACHE_URL ?? '';
+}
+
 /**
- * Zero client write path at planning SHA c7873378: no landed mutator.
- * MUST be present with status NOT_LANDED — never omitted.
- * overall.ok requires an *explicit* branch (missing ⇒ fail).
+ * Drive both real Zero mutation envelopes against the deployed cache and prove
+ * with independent Postgres SELECTs that neither optimistic write committed.
  */
-export function evaluateZeroWritePath(): ZeroWritePathReport {
+export function evaluateZeroWritePath(options?: {
+  cwd?: string;
+  databaseUrl?: string;
+  zeroBaseUrl?: string;
+}): ZeroWritePathReport {
+  const cwd = options?.cwd ?? resolveRepoRoot();
+  const databaseUrl = options?.databaseUrl ?? process.env.DATABASE_URL ?? '';
+  const zeroBaseUrl = resolveZeroVerifyBaseUrl(options?.zeroBaseUrl);
+  const probePath = resolve(cwd, 'scripts/e2e/zero-write-fence-probe.ts');
+  if (!databaseUrl || !zeroBaseUrl || !existsSync(probePath)) {
+    return {
+      status: 'MISSING',
+      note: 'Zero write-fence probe requires a deployed Zero endpoint, DATABASE_URL, and probe script',
+      zeroBaseUrl: zeroBaseUrl || undefined,
+    };
+  }
+
+  const child = spawnSync('bun', [probePath], {
+    cwd,
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl,
+      ZERO_CACHE_URL: zeroBaseUrl,
+    },
+    encoding: 'utf8',
+    timeout: 90_000,
+    maxBuffer: 1024 * 1024,
+  });
+  let probe: ZeroWritePathReport['probe'];
+  for (const line of child.stdout.trim().split(/\r?\n/).reverse()) {
+    try {
+      const parsed = JSON.parse(line) as ZeroWritePathReport['probe'];
+      if (parsed && typeof parsed === 'object') {
+        probe = parsed;
+        break;
+      }
+    } catch {
+      // Zero may log before the script's final JSON line; only that line is evidence.
+    }
+  }
+
+  const blocked =
+    child.status === 0 &&
+    probe?.ok === true &&
+    probe.custom?.connected === true &&
+    probe.custom.serverRejected === true &&
+    probe.custom.expectedRejection === true &&
+    probe.crud?.connected === true &&
+    probe.crud.serverRejected === true &&
+    probe.crud.expectedRejection === true &&
+    probe.authoritativeUnchanged === true &&
+    probe.cleanedUnexpectedRows !== true;
+  if (blocked) {
+    return {
+      status: 'BLOCKED',
+      note: 'Deployed Zero rejected custom and legacy CRUD mutations; Postgres remained unchanged',
+      zeroBaseUrl,
+      probe,
+    };
+  }
   return {
-    status: 'NOT_LANDED',
-    note: 'No Zero mutator/write surface landed at c7873378 — reported loudly, not omitted',
+    status: probe?.custom || probe?.crud ? 'OPEN' : 'MISSING',
+    note:
+      child.error instanceof Error
+        ? `Zero write-fence probe failed: ${child.error.message}`
+        : 'Zero write-fence probe did not prove both mutation envelopes blocked',
+    zeroBaseUrl,
+    probe,
   };
 }
 
-function zeroWritePathOk(z: ZeroWritePathReport | undefined | null): boolean {
+export function zeroWritePathOk(z: ZeroWritePathReport | undefined | null): boolean {
   // Missing ⇒ fail (never implicit pass)
   if (!z || !z.status) return false;
-  // Explicit known-safe states only
-  if (z.status === 'NOT_LANDED') return true;
-  if (z.status === 'BLOCKED') return true;
-  return false;
+  // A landed client write path must be proven blocked. Historical NOT_LANDED
+  // evidence is intentionally non-green and cannot authorize a soak flip.
+  return z.status === 'BLOCKED';
 }
 
 export async function runVerifySoak(options?: {
@@ -3426,10 +3573,15 @@ export async function runVerifySoak(options?: {
   keys?: ScopedKeyConfig;
   databaseUrl?: string;
   etlReportPath?: string;
+  exportDir?: string;
+  catalogPath?: string;
+  parityPath?: string;
   baselinePath?: string;
   reportPath?: string;
   /** Deployed server base URL for network /mcp and /article (H-01). */
   baseUrl?: string;
+  /** Deployed Zero endpoint for the custom + CRUD write-fence probe. */
+  zeroBaseUrl?: string;
 }): Promise<SoakVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultSoakVerifyReportPath(cwd);
@@ -3444,6 +3596,9 @@ export async function runVerifySoak(options?: {
     cwd,
     etlReportPath: options?.etlReportPath,
     databaseUrl,
+    exportDir: options?.exportDir,
+    catalogPath: options?.catalogPath,
+    parityPath: options?.parityPath,
   });
   const article = await runVerifyArticle({
     cwd,
@@ -3454,7 +3609,11 @@ export async function runVerifySoak(options?: {
   });
   const honoWrite = await runHonoWriteSweep({ keys, databaseUrl });
   const jobs = await runVerifyJobs({ databaseUrl });
-  const zeroWritePath = evaluateZeroWritePath();
+  const zeroWritePath = evaluateZeroWritePath({
+    cwd,
+    databaseUrl,
+    zeroBaseUrl: options?.zeroBaseUrl,
+  });
 
   const overallOk =
     engaged &&

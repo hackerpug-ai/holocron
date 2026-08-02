@@ -119,12 +119,16 @@ services:
     environment:
       ZERO_PORT: "4848"
       ZERO_PUBLICATION: zero_pub
+      # Read-only soak contract: retain replication/query service while rejecting
+      # every legacy CRUD push. Custom mutations also fail closed because this
+      # deployment intentionally has no ZERO_MUTATE_URL.
+      ZERO_ENABLE_CRUD_MUTATIONS: "false"
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - >-
         export DATABASE_URL="$$(cat /run/secrets/database_url)";
         export ZERO_ADMIN_PASSWORD="$$(cat /run/secrets/zero_admin_password)";
-        exec zero-cache --upstream-db "$$DATABASE_URL" --cvr-db "$$DATABASE_URL" --change-db "$$DATABASE_URL" --app-publications "$$ZERO_PUBLICATION" --port "$$ZERO_PORT" --admin-password "$$ZERO_ADMIN_PASSWORD"
+        exec zero-cache --upstream-db "$$DATABASE_URL" --cvr-db "$$DATABASE_URL" --change-db "$$DATABASE_URL" --app-publications "$$ZERO_PUBLICATION" --enable-crud-mutations "$$ZERO_ENABLE_CRUD_MUTATIONS" --port "$$ZERO_PORT" --admin-password "$$ZERO_ADMIN_PASSWORD"
     secrets:
       - source: database-url
         target: database_url

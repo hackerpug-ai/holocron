@@ -6,8 +6,9 @@
  *
  * Does not reimplement Sprint 14 transform/load logic.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { defaultCatalogPath, loadCatalog } from '../catalog/catalog-loader.ts';
 import { resolveRepoRoot } from '../config/secrets.ts';
 import { createSql } from '../db/client.ts';
@@ -57,6 +58,16 @@ export type CutoverEtlReport = {
   resumed: boolean;
   unexplainedVariance: number;
   loadedByTable: Record<string, number>;
+  /** Unique Postgres target counts derived from the catalog/reconcile report. */
+  targetLoadedByTable: Record<string, number>;
+  /** Content hash of the immutable target parity inventory. */
+  parityHash: string;
+  /** Worktree-relative parity inventory path. */
+  parityRelPath: string;
+  /** Worktree-relative scoped export path bound by parityHash. */
+  exportRelPath: string;
+  /** Worktree-relative source catalog path bound by the parity inventory. */
+  catalogRelPath: string;
   archive: {
     exportData: {
       documents: string[];
@@ -108,6 +119,8 @@ export type RunCutoverEtlOptions = {
   quietCheckPath?: string;
   freezeReportPath?: string;
   exportRoot?: string;
+  /** Immutable target parity inventory output. */
+  parityPath?: string;
   /**
    * Existing export directory (AC-4 re-run against the same archive).
    * When set, skips convex export spawn and uses this path.
@@ -137,6 +150,92 @@ export type RunCutoverEtlOptions = {
     databaseUrl: string;
   }) => Promise<EtlVectorRunResult>;
 };
+
+export type CutoverParityArtifact = {
+  kind: 'cutover-verify-reads-parity';
+  version: 1;
+  boundExportArchiveHash: string;
+  exportRelPath: string;
+  catalogRelPath: string;
+  catalog_id: string;
+  catalog_table_count_expected: number;
+  loadedByTable: Record<string, number>;
+  sourceTablesByTarget: Record<string, string[]>;
+  provenance: {
+    runId: string;
+    source: 'd06-04-reconcile';
+    note: string;
+  };
+};
+
+export function buildCutoverParityArtifact(options: {
+  exportArchiveHash: string;
+  exportRelPath: string;
+  catalogRelPath: string;
+  catalogId: string;
+  runId: string;
+  reconcileTables: ReadonlyArray<{
+    table: string;
+    targetTable: string | null;
+    expectedTarget: number;
+  }>;
+}): CutoverParityArtifact {
+  const targetCounts = new Map<string, number>();
+  const sourceTablesByTarget = new Map<string, string[]>();
+  for (const row of options.reconcileTables) {
+    const target = row.targetTable?.trim();
+    if (!target) continue;
+    const expected = Number(row.expectedTarget);
+    if (!Number.isFinite(expected) || expected < 0) {
+      throw new Error(`invalid expected target count for ${row.table}: ${row.expectedTarget}`);
+    }
+    targetCounts.set(target, (targetCounts.get(target) ?? 0) + expected);
+    const sources = sourceTablesByTarget.get(target) ?? [];
+    sources.push(row.table);
+    sourceTablesByTarget.set(target, sources);
+  }
+  const loadedByTable = Object.fromEntries(
+    [...targetCounts.entries()].sort(([a], [b]) => a.localeCompare(b))
+  );
+  const sortedSourcesByTarget = Object.fromEntries(
+    [...sourceTablesByTarget.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([target, sources]) => [target, [...sources].sort()])
+  );
+  return {
+    kind: 'cutover-verify-reads-parity',
+    version: 1,
+    boundExportArchiveHash: options.exportArchiveHash,
+    exportRelPath: options.exportRelPath,
+    catalogRelPath: options.catalogRelPath,
+    catalog_id: options.catalogId,
+    catalog_table_count_expected: Object.keys(loadedByTable).length,
+    loadedByTable,
+    sourceTablesByTarget: sortedSourcesByTarget,
+    provenance: {
+      runId: options.runId,
+      source: 'd06-04-reconcile',
+      note: 'Generated from the immutable export archive plus catalog-derived reconcile targets; merge-source counts are summed per unique Postgres target.',
+    },
+  };
+}
+
+function relativeArtifactPath(cwd: string, path: string): string {
+  const rel = relative(cwd, path).replace(/\\/g, '/');
+  return rel && !rel.startsWith('../') && !isAbsolute(rel) ? rel : resolve(path);
+}
+
+function writeCutoverParityArtifact(
+  path: string,
+  artifact: CutoverParityArtifact
+): { parityHash: string } {
+  const bytes = `${JSON.stringify(artifact, null, 2)}\n`;
+  ensureParent(path);
+  if (existsSync(path)) chmodSync(path, 0o600);
+  writeFileSync(path, bytes, { encoding: 'utf8', mode: 0o600 });
+  chmodSync(path, 0o444);
+  return { parityHash: createHash('sha256').update(bytes).digest('hex') };
+}
 
 function ensureParent(path: string): void {
   mkdirSync(resolve(path, '..'), { recursive: true });
@@ -198,6 +297,7 @@ export async function runCutoverEtl(
   const reportPath = options.reportPath ?? defaultWatermarkReportPath(cwd);
   const catalogPath = options.catalogPath ?? defaultCatalogPath();
   const exportRoot = options.exportRoot ?? defaultExportRoot(cwd);
+  const parityPath = options.parityPath ?? resolve(cwd, '.tmp/D06-04/cutover-parity.json');
 
   // ── 1. Fence fail-closed (AC-2) ──────────────────────────────────────────
   const fenceErr = assertFenceEngaged(cwd);
@@ -562,6 +662,19 @@ export async function runCutoverEtl(
     documentIds.length > 0 &&
     conversationIds.length > 0;
 
+  const exportRelPath = relativeArtifactPath(cwd, exportDir);
+  const catalogRelPath = relativeArtifactPath(cwd, catalogPath);
+  const parityRelPath = relativeArtifactPath(cwd, parityPath);
+  const parityArtifact = buildCutoverParityArtifact({
+    exportArchiveHash,
+    exportRelPath,
+    catalogRelPath,
+    catalogId: catalog.catalog_id,
+    runId,
+    reconcileTables: reconcile.tables,
+  });
+  const { parityHash } = writeCutoverParityArtifact(parityPath, parityArtifact);
+
   const report: CutoverEtlReport = {
     ok,
     watermarkAt: watermark.watermarkAt,
@@ -578,6 +691,11 @@ export async function runCutoverEtl(
     resumed,
     unexplainedVariance: reconcile.unexplainedVariance,
     loadedByTable,
+    targetLoadedByTable: parityArtifact.loadedByTable,
+    parityHash,
+    parityRelPath,
+    exportRelPath,
+    catalogRelPath,
     archive: {
       exportData: {
         documents: documentIds,

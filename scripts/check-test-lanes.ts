@@ -10,7 +10,7 @@
  * Lanes (must match vitest.workspace.ts):
  *   unit         — test files outside integration/live roots (~100+ files / ~970+ tests)
  *   integration  — tests/integration/** + services/platform/tests/integration/**
- *                  minus 8 bun:test files (different runner) → ~159 vitest files
+ *                  minus 8 bun:test files (different runner) → ~231 vitest files
  *   live         — seed-e2e + zero-cache-boot (real Postgres + PLATFORM_IT)
  *
  * Exit 0 if every lane's file count is in its expected band; exit 1 otherwise.
@@ -135,11 +135,13 @@ const unitSet = [...new Set(unitFiles)].sort();
 // --- assert ---
 type Lane = { name: string; files: string[]; min: number; max: number };
 // unit ≈ 100+ files (102 observed → ~978 tests). Band catches a >20-file drop.
-// integration ≈ 159 vitest files (122 + 37). Band allows ±5 drift.
+// integration ≈ 231 vitest files after Sprint 28/29 red-hat regression suites.
+// The guard catches material drops/accidental broadening without freezing the
+// pre-remediation 159-file count forever.
 // live = 2 files (seed-e2e, zero-cache-boot).
 const lanes: Lane[] = [
   { name: 'unit', files: unitSet, min: 80, max: 200 },
-  { name: 'integration', files: integrationFiles, min: 150, max: 170 },
+  { name: 'integration', files: integrationFiles, min: 220, max: 260 },
   { name: 'live', files: liveFiles, min: 1, max: 10 },
 ];
 

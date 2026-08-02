@@ -311,6 +311,9 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       const depends = services[name].depends_on as Record<string, Record<string, unknown>>;
       expect(depends.mastra).toMatchObject({ condition: 'service_healthy' });
     }
+    expect(zeroCache.environment).toMatchObject({ ZERO_ENABLE_CRUD_MUTATIONS: 'false' });
+    expect(JSON.stringify(zeroCache.command)).toContain('--enable-crud-mutations');
+    expect(JSON.stringify(zeroCache)).not.toMatch(/ZERO_(?:MUTATE|PUSH)_URL/);
     expect(() => assertComposeContract(candidate)).not.toThrow();
 
     mastra.command = ['/bin/sh', '-ec', 'exec bun src/index.ts'];

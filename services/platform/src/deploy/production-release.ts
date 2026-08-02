@@ -233,6 +233,17 @@ function hasSemanticSchedulerHealthcheck(service: ComposeService): boolean {
   );
 }
 
+function hasZeroReadOnlyMutationFence(service: ComposeService): boolean {
+  const environment = service.environment;
+  if (!environment || typeof environment !== 'object' || Array.isArray(environment)) return false;
+  const env = environment as Record<string, unknown>;
+  if (env.ZERO_ENABLE_CRUD_MUTATIONS !== 'false') return false;
+  if (Object.hasOwn(env, 'ZERO_MUTATE_URL') || Object.hasOwn(env, 'ZERO_PUSH_URL')) return false;
+  const command = JSON.stringify(service.command ?? '');
+  if (!command.includes('--enable-crud-mutations')) return false;
+  return !/--(?:mutate|push)-url|ZERO_(?:MUTATE|PUSH)_URL/.test(command);
+}
+
 function containsCredentialLiteral(value: unknown): boolean {
   if (typeof value === 'string') {
     return /(?:postgres(?:ql)?:\/\/[^\s"']*:[^\s"']+@|sk-[A-Za-z0-9_-]{8,}|api[_-]?key\s*[:=]\s*[^$\s"']+)/i.test(
@@ -271,6 +282,11 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   }
   if (exposesDatabaseUrlEnvironment(services.scheduler)) {
     fail('scheduler DATABASE_URL must remain runtime-only and absent from Compose environment');
+  }
+  if (!hasZeroReadOnlyMutationFence(services['zero-cache'])) {
+    fail(
+      'zero-cache must disable legacy CRUD mutations and omit every custom mutate/push URL during read-only soak'
+    );
   }
 
   if (!hasMastraMigrationBootstrap(services.mastra)) {

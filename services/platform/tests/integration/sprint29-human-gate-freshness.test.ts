@@ -8,11 +8,11 @@
  *
  * R3-C01 (CRITICAL): gate-results.git_sha / source_sha MUST equal `git rev-parse HEAD`
  * of the candidate worktree — not merely "looks like a SHA". local-process:// identity
- * is recorded honestly but is non-landing; 6/6 against a deployed HTTP identity is
+ * is recorded honestly but is non-landing; 8/8 against a deployed HTTP identity is
  * required before landing claims.
  *
  * AC-2–AC-5: re-run harness executes gate-plan literal_cmds via real cutover CLI;
- * step1 failed_count==0; sibling incomplete does not authorize fake 6/6.
+ * step1 failed_count==0; sibling incomplete does not authorize fake 8/8.
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
@@ -218,9 +218,9 @@ function evalJq(
 const STEP1_ORACLE =
   '.overall.ok == true and .failed_count == 0 and (.gates | length) == 8 and all(.gates[] | select(.collectedTests != null); .collectedTests > 0)';
 
-/** Current step5 oracle — toolsPassed/toolsTotal non-null. */
-const STEP5_ORACLE =
-  '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and ((.zeroWritePath.status == "NOT_LANDED") or (.zeroWritePath.status == "BLOCKED")) and ((.engaged == true) or (.tools.ok == true))';
+/** Current step7 oracle — toolsPassed/toolsTotal non-null. */
+const STEP7_ORACLE =
+  '(.overall.ok == true) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and (.zeroWritePath.status == "BLOCKED") and ((.engaged == true) or (.tools.ok == true))';
 
 describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   beforeAll(() => {
@@ -327,11 +327,11 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
         article: { ok: true },
         honoWrite: { ok: true },
         reads: { ok: true },
-        zeroWritePath: { status: 'NOT_LANDED' },
+        zeroWritePath: { status: 'BLOCKED' },
         engaged: true,
         tools: { ok: true, toolsPassed: null, toolsTotal: null },
       };
-      const nullEval = evalJq(STEP5_ORACLE, nullTools);
+      const nullEval = evalJq(STEP7_ORACLE, nullTools);
       expect(nullEval.ok, 'null tools counters must fail step5 oracle').toBe(false);
 
       writeEvidence('ac1-lineage-oracles.json', {
@@ -345,7 +345,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   );
 
   itLive(
-    'AC-2 / R2-H01: re-run harness + gate-plan bind all 6 steps to real cutover CLI and conjunctive oracles',
+    'AC-2 / R2-H01: re-run harness + gate-plan bind all 8 steps to real deployment/cutover CLI and conjunctive oracles',
     () => {
       expect(existsSync(RERUN_SCRIPT), `re-run harness missing: ${RERUN_SCRIPT}`).toBe(true);
       const script = readFileSync(RERUN_SCRIPT, 'utf8');
@@ -365,18 +365,20 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       const plan = loadPlan();
       expect(plan.dispatcher).toContain('services/platform/src/cli/holo.ts');
       const steps = plan.steps ?? [];
-      expect(steps.map((s) => s.n).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(steps.map((s) => s.n).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
 
       const verbs: Record<number, RegExp> = {
         1: /cutover:go-no-go/,
-        2: /cutover:freeze/,
-        3: /cutover:quiet-check/,
-        4: /cutover:run-etl/,
-        5: /cutover:verify-soak/,
-        6: /migration_read_only/,
+        2: /deploy:apply|deploy-inference1/,
+        3: /deploy:verify/,
+        4: /deploy:verify/,
+        5: /cutover:freeze[\s\S]*cutover:quiet-check/,
+        6: /cutover:run-etl/,
+        7: /cutover:verify-soak/,
+        8: /migration_read_only/,
       };
 
-      for (const n of [1, 2, 3, 4, 5, 6]) {
+      for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const step = steps.find((s) => s.n === n);
         expect(step, `step ${n}`).toBeTruthy();
         const cmd = String(step?.literal_cmd ?? '');
@@ -393,16 +395,17 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       expect(step1).toMatch(/overall\.ok\s*==\s*true/);
       expect(step1).not.toMatch(/jq -e "\.gates \| length == 8"/);
 
-      const step5 = String(steps.find((s) => s.n === 5)?.literal_cmd ?? '');
-      expect(step5).toMatch(/toolsPassed/);
-      expect(step5).toMatch(/toolsTotal/);
-      expect(step5).toMatch(/cutover:flip/);
+      const step7 = String(steps.find((s) => s.n === 7)?.literal_cmd ?? '');
+      expect(step7).toMatch(/toolsPassed/);
+      expect(step7).toMatch(/toolsTotal/);
+      expect(step7).toMatch(/zeroWritePath/);
+      expect(step7).toMatch(/cutover:flip/);
 
       writeEvidence('ac2-harness-plan.json', {
         rerunScript: RERUN_SCRIPT,
         stepCount: steps.length,
         step1_has_failed_count: /failed_count\s*==\s*0/.test(step1),
-        step5_has_tools: /toolsPassed/.test(step5) && /toolsTotal/.test(step5),
+        step7_has_tools: /toolsPassed/.test(step7) && /toolsTotal/.test(step7),
       });
     }
   );
@@ -444,10 +447,10 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       const ts = results.finished_at ?? results.written_at ?? results.started_at;
       expect(ts, 'timestamp required').toBeTruthy();
 
-      // Evidence dir with six non-empty step logs
+      // Evidence dir with eight non-empty step logs
       const runEvidence = resolve(EVIDENCE_ROOT, runId);
       expect(existsSync(runEvidence), `evidence dir missing for ${runId}`).toBe(true);
-      for (const n of [1, 2, 3, 4, 5, 6]) {
+      for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const logPath = resolve(runEvidence, `step${n}.log`);
         expect(existsSync(logPath), `missing ${logPath}`).toBe(true);
         const st = statSync(logPath);
@@ -468,11 +471,11 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       const md = readFileSync(GATE_RESULTS_MD, 'utf8');
       expect(md).toContain(runId);
       expect(md).toContain(String(sha));
-      // Must not present only the stale id as current VERIFIED 6/6
+      // Must not present only the stale id as current VERIFIED 8/8
       if (results.verdict === 'pass') {
         expect(md).toMatch(new RegExp(runId));
-        expect(results.steps_passed).toBe(6);
-        expect(results.steps_executed).toBe(6);
+        expect(results.steps_passed).toBe(8);
+        expect(results.steps_executed).toBe(8);
       }
 
       // Historical lineage still present (not deleted)
@@ -496,7 +499,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   );
 
   itLive(
-    'R3-C01: local-process identity is non-landing; 6/6 pass requires deployed identity for landing',
+    'R3-C01: local-process identity is non-landing; 8/8 pass requires deployed identity for landing',
     () => {
       const results = loadResults();
       const head = revParseHead();
@@ -523,19 +526,19 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
           expect(landingEligible).toBe(false);
         }
         expect(String(identityClass)).toMatch(/local-process/i);
-        // Even a forged 6/6 under local-process cannot certify landing
-        if (results.verdict === 'pass' && results.steps_passed === 6) {
+        // Even a forged 8/8 under local-process cannot certify landing
+        if (results.verdict === 'pass' && results.steps_passed === 8) {
           expect(
             results.landing_eligible ?? results.meta?.landing_eligible,
-            '6/6 under local-process:// is non-landing (R3-C01)'
+            '8/8 under local-process:// is non-landing (R3-C01)'
           ).toBe(false);
         }
       } else {
-        // Deployed HTTP identity may be landing-eligible only when 6/6 and HEAD-bound
+        // Deployed HTTP identity may be landing-eligible only when 8/8 and HEAD-bound
         const canLand =
           results.verdict === 'pass' &&
-          results.steps_passed === 6 &&
-          results.steps_executed === 6 &&
+          results.steps_passed === 8 &&
+          results.steps_executed === 8 &&
           String(results.git_sha) === head;
         if (landingEligible !== null) {
           expect(landingEligible).toBe(canLand);
@@ -559,7 +562,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
         steps_passed: results.steps_passed,
         note: local
           ? 'local-process://holo-cli recorded honestly; non-landing for cutover approval'
-          : 'deployed identity present; landing requires 6/6 + HEAD bind',
+          : 'deployed identity present; landing requires 8/8 + HEAD bind',
       });
     }
   );
@@ -612,13 +615,13 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   );
 
   itLive(
-    'AC-5 / R2-H01: honest sibling dependency — no fake 6/6; docs name R2-C01..C04 / R2-H02..H04',
+    'AC-5 / R2-H01: honest sibling dependency — no fake 8/8; docs name R2-C01..C04 / R2-H02..H04',
     () => {
       const results = loadResults();
       const sprint = readFileSync(SPRINT_MD, 'utf8');
       const md = existsSync(GATE_RESULTS_MD) ? readFileSync(GATE_RESULTS_MD, 'utf8') : '';
 
-      // Docs must name sibling blockers for full 6/6 honesty
+      // Docs must name sibling blockers for full 8/8 honesty
       const docsBlob = `${sprint}\n${md}\n${JSON.stringify(results.meta ?? {})}`;
       expect(docsBlob).toMatch(/R2-C01|REDHAT-FIX-S29-R2-C01/);
       expect(docsBlob).toMatch(/R2-H02|REDHAT-FIX-S29-R2-H02|honest/);
@@ -628,7 +631,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
         expect(results.run_id).not.toBe(STALE_RUN_ID);
         expect(results.steps_passed).toBe(results.steps_total);
         expect(results.steps_executed).toBe(results.steps_total);
-        expect(results.steps_passed).toBe(6);
+        expect(results.steps_passed).toBe(8);
         for (const s of results.steps ?? []) {
           expect(s.executed).toBe(true);
           expect(s.result).toBe('pass');

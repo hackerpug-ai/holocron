@@ -11,3 +11,8 @@
 !services/platform/bun.lock
 !services/platform/src/
 !services/platform/src/**
+!.spec/
+!.spec/prds/
+!.spec/prds/mk6-migration/
+!.spec/prds/mk6-migration/10-technical-requirements/
+!.spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml

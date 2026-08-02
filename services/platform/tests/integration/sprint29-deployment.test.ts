@@ -240,7 +240,7 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(script.stderr).toMatch(/operator authorization is required/);
   });
 
-  it('generated Compose override carries identity, one external port, and no secret values', () => {
+  it('generated Compose override carries identity, loopback operator ports, and no secret values', () => {
     const lock: ReleaseLock = {
       schemaVersion: 1,
       deployable: true,
@@ -262,6 +262,8 @@ describe('D06-07 inference1 deployment contract', () => {
       secretsPath: '/operator/secrets.yaml',
     });
     expect(override).toContain('0.0.0.0:44111:4111');
+    expect(override).toContain('127.0.0.1:44112:5432');
+    expect(override).toContain('127.0.0.1:44113:4848');
     expect(override).toContain(`HOLO_IMAGE_DIGEST: ${DIGEST}`);
     expect(override).toContain(`HOLO_SOURCE_REVISION: ${REVISION}`);
     expect(override).toContain('restart: always');

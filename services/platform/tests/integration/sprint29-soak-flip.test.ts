@@ -1841,7 +1841,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-6 / TC-8 / TC-9 ────────────────────────────────────────────────────
 
-  it('TC-8/9 AC-6: verify-soak aggregates all gates; jobsAccounted; zeroWritePath NOT_LANDED', async () => {
+  it('TC-8/9 AC-6: verify-soak fails closed without deployed Zero write-fence proof', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
     // H-02: use the frozen beforeAll ETL baseline as-is — do NOT rewrite loadedByTable
@@ -1861,6 +1861,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       baselinePath: articleBaselinePath,
       reportPath: resolve(EVIDENCE, 'verify-soak-report.json'),
       baseUrl: networkBaseUrl,
+      zeroBaseUrl: '',
     });
     evidence('tc-verify-soak.json', {
       overall: report.overall,
@@ -1899,7 +1900,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     );
 
     expect(report.zeroWritePath).toBeDefined();
-    expect(report.zeroWritePath.status).toBe('NOT_LANDED');
+    expect(report.zeroWritePath.status).toBe('MISSING');
     expect(report.jobsTotal).toBe(MIGRATED_JOBS.length);
     expect(report.jobsAccounted).toBe(report.jobsTotal);
     expect(report.engaged).toBe(true);
@@ -1917,7 +1918,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.article.ok).toBe(true);
     expect(report.honoWrite.ok).toBe(true);
     expect(report.jobs.ok).toBe(true);
-    expect(report.overall.ok).toBe(true);
-    expect(report.ok).toBe(true);
+    expect(report.overall.ok).toBe(false);
+    expect(report.ok).toBe(false);
   }, 600_000);
 });
