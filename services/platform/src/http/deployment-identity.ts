@@ -5,6 +5,7 @@
  * generated Compose generation. Verifiers may compare against them, but may
  * never supply values that are treated as observed server identity.
  */
+import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
 export const DEPLOYMENT_DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
@@ -182,6 +183,40 @@ function isLoopbackHostname(hostname: string): boolean {
   return false;
 }
 
+export type DeploymentDnsLookup = (
+  hostname: string
+) => Promise<Array<{ address: string; family: number }>>;
+
+const defaultDnsLookup: DeploymentDnsLookup = async (hostname) =>
+  lookup(hostname, { all: true, verbatim: true });
+
+/** Reject hostnames whose current DNS answers include a loopback address. */
+export async function assertExternalDnsResolution(
+  baseUrl: string,
+  dnsLookup: DeploymentDnsLookup = defaultDnsLookup
+): Promise<void> {
+  const hostname = new URL(baseUrl).hostname;
+  if (isIP(hostname) !== 0) return;
+  let answers: Array<{ address: string; family: number }>;
+  try {
+    answers = await dnsLookup(hostname);
+  } catch (error) {
+    throw new DeploymentIdentityError(
+      'DNS_UNRESOLVED',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+  if (answers.length === 0) {
+    throw new DeploymentIdentityError('DNS_UNRESOLVED', 'base URL hostname has no DNS answers');
+  }
+  if (answers.some(({ address }) => isLoopbackHostname(address))) {
+    throw new DeploymentIdentityError(
+      'LOOPBACK_REJECTED',
+      'base URL hostname resolves to loopback'
+    );
+  }
+}
+
 /** Require one HTTP(S), non-loopback URL with no credentials/query/fragment. */
 export function assertExternalBaseUrl(value: string): string {
   let url: URL;
@@ -254,8 +289,10 @@ export async function verifyExternalDeploymentIdentity(options: {
   fetchImpl?: typeof fetch;
   verifierPid?: number;
   timeoutMs?: number;
+  dnsLookup?: DeploymentDnsLookup;
 }): Promise<ExternalIdentityVerification> {
   const baseUrl = assertExternalBaseUrl(options.baseUrl);
+  await assertExternalDnsResolution(baseUrl, options.dnsLookup);
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 10_000);

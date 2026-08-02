@@ -15,6 +15,7 @@ import {
   type DeploymentRecord,
   type DeploymentRunner,
   defaultDeploymentRecordPath,
+  defaultRuntimeSecretsPath,
   readDeployableRelease,
   readDeploymentRecord,
 } from './production-deploy.ts';
@@ -111,13 +112,11 @@ function atomicJson(path: string, value: unknown): void {
 }
 
 function runtimeEnvironment(record: DeploymentRecord): NodeJS.ProcessEnv {
-  if (!existsSync(record.runtimeSecretsPath)) {
-    verifyFail(`runtime secrets are missing: ${record.runtimeSecretsPath}`);
+  const runtimeSecretsPath = defaultRuntimeSecretsPath();
+  if (!existsSync(runtimeSecretsPath)) {
+    verifyFail('private runtime credentials are missing from the operator runtime store');
   }
-  const secrets = asObject(
-    JSON.parse(readFileSync(record.runtimeSecretsPath, 'utf8')),
-    'runtime secrets'
-  );
+  const secrets = asObject(JSON.parse(readFileSync(runtimeSecretsPath, 'utf8')), 'runtime secrets');
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     HOLO_PLATFORM_IMAGE: record.image,
@@ -538,28 +537,28 @@ async function mcpDiscovery(options: {
   };
 }
 
-function responseFor(body: Record<string, unknown>, status = 200): Promise<Response> {
-  return Promise.resolve(Response.json(body, { status }));
-}
-
 async function identityNegativeControls(options: {
   record: DeploymentRecord;
   liveHealth: Record<string, unknown>;
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  runner: DeploymentRunner;
+  fetchImpl: typeof fetch;
 }): Promise<Record<string, unknown>> {
   const expected = expectedIdentity(options.record);
   const rejected: string[] = [];
   const attempt = async (
     label: string,
     baseUrl: string,
-    body: Record<string, unknown>,
+    attemptExpected: ExpectedDeploymentIdentity,
     verifierPid = process.pid
   ) => {
     try {
       await verifyExternalDeploymentIdentity({
         baseUrl,
-        expected,
+        expected: attemptExpected,
         verifierPid,
-        fetchImpl: () => responseFor(body),
+        fetchImpl: options.fetchImpl,
       });
       verifyFail(`identity negative control unexpectedly accepted ${label}`);
     } catch (error) {
@@ -571,7 +570,7 @@ async function identityNegativeControls(options: {
     await verifyExternalDeploymentIdentity({
       baseUrl: 'http://127.0.0.1:4111',
       expected,
-      fetchImpl: () => responseFor(options.liveHealth),
+      fetchImpl: options.fetchImpl,
     });
     verifyFail('loopback identity was accepted');
   } catch (error) {
@@ -579,24 +578,79 @@ async function identityNegativeControls(options: {
     else throw error;
   }
 
-  const clone = () => structuredClone(options.liveHealth);
-  const inProcess = clone();
-  asObject(asObject(inProcess.deployment, 'deployment').identity, 'identity').pid = process.pid;
-  await attempt('in-process', options.record.baseUrl, inProcess);
-  const stale = clone();
-  asObject(asObject(stale.deployment, 'deployment').identity, 'identity').composeGeneration =
-    'inference1-stale00000000';
-  await attempt('stale', options.record.baseUrl, stale, -1);
-  const mismatch = clone();
-  asObject(asObject(mismatch.deployment, 'deployment').identity, 'identity').imageDigest =
-    `sha256:${'0'.repeat(64)}`;
-  await attempt('mismatched', options.record.baseUrl, mismatch, -1);
-  const missing = clone();
-  delete asObject(missing.deployment, 'deployment').identity;
-  await attempt('missing', options.record.baseUrl, missing, -1);
-  // The public verifier has no caller-supplied identity option. Supplying only
-  // expected values while the response omits identity must still fail.
-  await attempt('verifier-supplied', options.record.baseUrl, { status: 'ok' }, -1);
+  const observedPid = Number(
+    asObject(asObject(options.liveHealth.deployment, 'deployment').identity, 'identity').pid
+  );
+  if (!Number.isInteger(observedPid) || observedPid <= 0) {
+    verifyFail('live identity PID is invalid for in-process negative control');
+  }
+  await attempt('in-process', options.record.baseUrl, expected, observedPid);
+  await attempt(
+    'stale',
+    options.record.baseUrl,
+    { ...expected, composeGeneration: 'inference1-stale00000000' },
+    -1
+  );
+  await attempt(
+    'mismatched',
+    options.record.baseUrl,
+    { ...expected, imageDigest: `sha256:${'0'.repeat(64)}` },
+    -1
+  );
+
+  // Missing/server-independent identity controls must still cross a real
+  // non-loopback socket. A disposable container serves the malformed payload;
+  // the production verifier fetches it normally and must reject it. The
+  // container is never accepted as a deployment and is removed in all paths.
+  const malformedScript =
+    "Bun.serve({hostname:'0.0.0.0',port:4120,fetch(){return Response.json({status:'ok'})}})";
+  const malformedContainer = runOrFail(options.runner, options.cwd, options.env, 'docker', [
+    'run',
+    '--detach',
+    '--rm',
+    '--publish',
+    '0:4120',
+    '--entrypoint',
+    'bun',
+    options.record.image,
+    '-e',
+    malformedScript,
+  ]);
+  try {
+    const portOutput = runOrFail(options.runner, options.cwd, options.env, 'docker', [
+      'port',
+      malformedContainer,
+      '4120/tcp',
+    ]);
+    const portMatch = portOutput.match(/:(\d+)\s*$/m);
+    if (!portMatch) verifyFail('malformed identity container did not publish a port');
+    const malformedEndpoint = new URL(options.record.baseUrl);
+    malformedEndpoint.protocol = 'http:';
+    malformedEndpoint.port = portMatch[1];
+    const malformedUrl = malformedEndpoint.origin;
+    let reachable = false;
+    for (let attemptNumber = 0; attemptNumber < 30; attemptNumber += 1) {
+      try {
+        const response = await options.fetchImpl(`${malformedUrl}/health`, {
+          signal: AbortSignal.timeout(1_000),
+        });
+        if (response.status === 200) {
+          reachable = true;
+          break;
+        }
+      } catch {
+        await delay(100);
+      }
+    }
+    if (!reachable) verifyFail('malformed external identity endpoint did not become reachable');
+    await attempt('missing', malformedUrl, expected, -1);
+    await attempt('verifier-supplied', malformedUrl, expected, -1);
+  } finally {
+    options.runner('docker', ['rm', '--force', malformedContainer], {
+      cwd: options.cwd,
+      env: options.env,
+    });
+  }
   const expectedRejected = [
     'loopback',
     'in-process',
@@ -640,7 +694,14 @@ export async function verifyProductionDeployment(
       ? await dependencyNegativeControl({ record, cwd, env, runner, fetchImpl })
       : null;
   const negatives = options.negativeControls
-    ? await identityNegativeControls({ record, liveHealth: accepted.health })
+    ? await identityNegativeControls({
+        record,
+        liveHealth: accepted.health,
+        cwd,
+        env,
+        runner,
+        fetchImpl,
+      })
     : null;
   const restart = options.restartProbe
     ? await restartAndDurabilityProbe({ record, cwd, env, runner, fetchImpl })

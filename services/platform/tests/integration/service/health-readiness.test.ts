@@ -6,7 +6,7 @@ import {
   readDeploymentIdentity,
   verifyExternalDeploymentIdentity,
 } from '../../../src/http/deployment-identity.ts';
-import { probeZeroCache } from '../../../src/http/health.ts';
+import { probeFleet, probeZeroCache } from '../../../src/http/health.ts';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const DEPLOY_TARGET = process.env.HOLO_DEPLOY_TARGET;
@@ -65,6 +65,16 @@ describe('D06-07 production health readiness', () => {
     const down = await probeZeroCache(zeroUrl, true);
     expect(down.ready).toBe(false);
     expect(down.error).toBeTruthy();
+  });
+
+  it('never exposes fleet URL credentials in readiness output', async () => {
+    const result = await probeFleet('https://operator-secret@fleet.example/v1');
+    expect(result).toMatchObject({
+      ready: false,
+      endpoint: 'https://fleet.example',
+      error: 'fleet endpoint credentials are forbidden',
+    });
+    expect(JSON.stringify(result)).not.toContain('operator-secret');
   });
 
   itInference1(

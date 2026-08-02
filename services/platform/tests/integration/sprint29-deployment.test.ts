@@ -78,6 +78,15 @@ describe('D06-07 inference1 deployment contract', () => {
         fetchImpl: () => response(health()),
       })
     ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
+
+    await expect(
+      verifyExternalDeploymentIdentity({
+        baseUrl: 'http://external-alias.invalid:44111',
+        expected,
+        dnsLookup: async () => [{ address: '127.0.0.1', family: 4 }],
+        fetchImpl: () => response(health()),
+      })
+    ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
   });
 
   it('accepts only complete observed external identity and rejects stale/mismatched/missing fields', async () => {
@@ -184,6 +193,12 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(plan.steps[2]?.literal_cmd).toContain('--restart-probe');
     expect(plan.steps[3]?.literal_cmd).toContain('--negative-controls');
     expect(plan.steps[3]?.literal_cmd).not.toContain('tools/call');
+
+    const schema = JSON.parse(
+      readFileSync(resolve(SPRINT_DIR, 'deployment-record.schema.json'), 'utf8')
+    ) as { required: string[]; properties: Record<string, unknown> };
+    expect(schema.required).not.toContain('runtimeSecretsPath');
+    expect(schema.properties).not.toHaveProperty('runtimeSecretsPath');
   });
 
   itInference1(

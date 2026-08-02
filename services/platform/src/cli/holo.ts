@@ -43,6 +43,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import {
   applyProductionDeployment,
   defaultDeploymentRecordPath,
@@ -1192,7 +1193,6 @@ async function main(): Promise<void> {
       if (!args.releasePath || !args.baseUrl) {
         throw new Error('deploy:apply requires --release and --base-url');
       }
-      const { resolveSecretsPathFromEnv } = await import('../config/secrets.ts');
       const record = applyProductionDeployment({
         authorized: args.authorized,
         releasePath: args.releasePath,
@@ -1218,7 +1218,6 @@ async function main(): Promise<void> {
       if (!args.releasePath || !args.baseUrl) {
         throw new Error('deploy:verify requires --release and --base-url');
       }
-      const { resolveSecretsPathFromEnv } = await import('../config/secrets.ts');
       const report = await verifyProductionDeployment({
         releasePath: args.releasePath,
         baseUrl: args.baseUrl,

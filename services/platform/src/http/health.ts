@@ -197,8 +197,27 @@ export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeRes
 export async function probeFleet(
   endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT
 ): Promise<FleetProbeResult> {
-  const base = endpoint.replace(/\/$/, '');
   const start = performance.now();
+  let base: string;
+  try {
+    const parsed = new URL(endpoint);
+    if (parsed.username || parsed.password) {
+      return {
+        ready: false,
+        endpoint: parsed.origin,
+        latency_ms: elapsedMs(start),
+        error: 'fleet endpoint credentials are forbidden',
+      };
+    }
+    base = parsed.origin;
+  } catch {
+    return {
+      ready: false,
+      endpoint: 'invalid',
+      latency_ms: elapsedMs(start),
+      error: 'fleet endpoint is invalid',
+    };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3000);
   try {

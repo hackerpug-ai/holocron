@@ -1,7 +1,16 @@
 /** Operator-authorized deployment of the immutable D06-06 Compose release. */
 import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { loadConsolidatedSecrets } from '../config/secrets.ts';
 import { assertExternalBaseUrl } from '../http/deployment-identity.ts';
@@ -55,7 +64,6 @@ export type DeploymentRecord = {
   releasePath: string;
   composePath: string;
   overridePath: string;
-  runtimeSecretsPath: string;
 };
 
 export type ApplyProductionOptions = {
@@ -177,6 +185,9 @@ function fleetUrlForContainer(value: string | undefined): string {
   } catch {
     deployFail('FLEET_URL is not a valid URL');
   }
+  if (url.username || url.password) {
+    deployFail('FLEET_URL must not contain URL credentials');
+  }
   if (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname === '::1') {
     url.hostname = 'host.docker.internal';
   }
@@ -186,11 +197,14 @@ function fleetUrlForContainer(value: string | undefined): string {
 function runtimeSecrets(options: {
   secretsPath: string;
   runtimeSecretsPath: string;
+  legacyEvidenceSecretsPath?: string;
 }): Record<string, string> {
   if (!existsSync(options.secretsPath))
     deployFail(`secrets file is missing: ${options.secretsPath}`);
   const consolidated = loadConsolidatedSecrets({ secretsPath: options.secretsPath });
-  const retained = readPrivateJson(options.runtimeSecretsPath);
+  const retained = existsSync(options.runtimeSecretsPath)
+    ? readPrivateJson(options.runtimeSecretsPath)
+    : readPrivateJson(options.legacyEvidenceSecretsPath ?? '');
   const postgresPassword = retained.POSTGRES_PASSWORD ?? randomSecret();
   const zeroAdminPassword = retained.ZERO_ADMIN_PASSWORD ?? randomSecret();
   const mastraApiKey = consolidated.MASTRA_API_KEY;
@@ -209,6 +223,13 @@ function runtimeSecrets(options: {
     FLEET_URL: fleetUrlForContainer(consolidated.FLEET_URL),
   };
   atomicJson(options.runtimeSecretsPath, values, 0o600);
+  if (
+    options.legacyEvidenceSecretsPath &&
+    resolve(options.legacyEvidenceSecretsPath) !== resolve(options.runtimeSecretsPath) &&
+    existsSync(options.legacyEvidenceSecretsPath)
+  ) {
+    unlinkSync(options.legacyEvidenceSecretsPath);
+  }
   return values;
 }
 
@@ -329,11 +350,102 @@ export function defaultDeploymentRecordPath(cwd = process.cwd()): string {
   return resolve(cwd, DEPLOY_EVIDENCE_DIR, DEPLOYMENT_RECORD_NAME);
 }
 
+/** Private operator runtime state. Never place this beneath a gate/evidence directory. */
+export function defaultRuntimeSecretsPath(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.HOLO_RUNTIME_SECRETS_PATH?.trim();
+  return configured
+    ? resolve(configured)
+    : resolve(homedir(), '.config', 'holocron', 'runtime', 'inference1.json');
+}
+
+function reusableDeployment(options: {
+  recordPath: string;
+  lock: ReleaseLock;
+  baseUrl: string;
+  project: string;
+  composePath: string;
+  cwd: string;
+  runner: DeploymentRunner;
+}): DeploymentRecord | null {
+  if (!existsSync(options.recordPath)) return null;
+  let record: DeploymentRecord;
+  try {
+    record = readDeploymentRecord(options.recordPath);
+  } catch {
+    return null;
+  }
+  if (
+    record.baseUrl !== options.baseUrl ||
+    record.project !== options.project ||
+    record.image !== options.lock.image ||
+    record.imageDigest !== options.lock.digest ||
+    record.sourceRevision !== options.lock.sourceRevision ||
+    record.composeSha256 !== options.lock.composeSha256 ||
+    record.previousImage !== options.lock.previousImage ||
+    record.previousDigest !== options.lock.previousDigest ||
+    resolve(record.composePath) !== resolve(options.composePath) ||
+    !existsSync(record.overridePath)
+  ) {
+    return null;
+  }
+
+  const healthResult = options.runner(
+    'curl',
+    ['--fail', '--silent', '--show-error', '--max-time', '10', `${record.baseUrl}/health`],
+    { cwd: options.cwd, env: process.env }
+  );
+  if (healthResult.status !== 0) return null;
+  let identity: Record<string, unknown>;
+  try {
+    const health = asObject(JSON.parse(healthResult.stdout), 'existing deployment health');
+    if (health.status !== 'ok') return null;
+    identity = asObject(
+      asObject(health.deployment, 'existing deployment identity').identity,
+      'existing deployment identity'
+    );
+  } catch {
+    return null;
+  }
+  if (
+    identity.host !== record.host ||
+    identity.runtime !== record.runtime ||
+    identity.imageDigest !== record.imageDigest ||
+    identity.sourceRevision !== record.sourceRevision ||
+    identity.composeGeneration !== record.composeGeneration ||
+    identity.composeSha256 !== record.composeSha256
+  ) {
+    return null;
+  }
+
+  for (const service of REQUIRED_SERVICES) {
+    const containerId = record.containers[service];
+    if (!containerId) return null;
+    const inspected = options.runner(
+      'docker',
+      [
+        'inspect',
+        '--format',
+        '{{.State.Running}}|{{index .Config.Labels "com.docker.compose.service"}}|{{.Config.Image}}',
+        containerId,
+      ],
+      { cwd: options.cwd, env: process.env }
+    );
+    if (inspected.status !== 0) return null;
+    const [running, observedService, image] = inspected.stdout.trim().split('|');
+    if (running !== 'true' || observedService !== service) return null;
+    if ((service === 'mastra' || service === 'scheduler') && image !== options.lock.image) {
+      return null;
+    }
+  }
+  return record;
+}
+
 /** Cold-recreate the exact four-service generation without deleting volumes. */
 export function applyProductionDeployment(options: ApplyProductionOptions): DeploymentRecord {
   if (!options.authorized) {
     deployFail('operator authorization is required (--authorize)');
   }
+  if (options.dryRun) deployFail('dry-run cannot produce an authorized deployment receipt');
   const cwd = options.cwd ?? process.cwd();
   const target = options.target ?? process.env.HOLO_DEPLOY_TARGET ?? '';
   if (target !== 'inference1') deployFail('HOLO_DEPLOY_TARGET must be exactly inference1');
@@ -345,12 +457,27 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const baseUrl = assertExternalBaseUrl(options.baseUrl);
   const port = portFromBaseUrl(baseUrl);
   const lock = readDeployableRelease(releasePath, composePath);
+  const runner = options.runner ?? defaultRunner;
+  const existing = reusableDeployment({
+    recordPath: resolve(evidenceDir, DEPLOYMENT_RECORD_NAME),
+    lock,
+    baseUrl,
+    project,
+    composePath,
+    cwd,
+    runner,
+  });
+  if (existing) return existing;
   const now = (options.now ?? (() => new Date()))();
   const deployedAt = now.toISOString();
   const generation = deploymentGeneration(now, lock.digest);
-  const runtimeSecretsPath = resolve(evidenceDir, '.runtime-secrets.json');
+  const runtimeSecretsPath = defaultRuntimeSecretsPath();
   const overridePath = resolve(evidenceDir, 'compose.inference1.generated.yaml');
-  const runtime = runtimeSecrets({ secretsPath, runtimeSecretsPath });
+  const runtime = runtimeSecrets({
+    secretsPath,
+    runtimeSecretsPath,
+    legacyEvidenceSecretsPath: resolve(evidenceDir, '.runtime-secrets.json'),
+  });
   mkdirSync(evidenceDir, { recursive: true });
   writeFileSync(
     overridePath,
@@ -365,7 +492,6 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     HOLO_POSTGRES_VOLUME: 'holocron-postgres',
     HOLO_BLOB_VOLUME: 'holocron-blobs',
   };
-  const runner = options.runner ?? defaultRunner;
   if (!options.skipImagePreflight) {
     verifyLockedImage({
       runner,
@@ -391,8 +517,6 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   if (services.join(',') !== [...REQUIRED_SERVICES].sort().join(',')) {
     deployFail(`rendered services must be exactly ${REQUIRED_SERVICES.join(',')}`);
   }
-  if (options.dryRun) deployFail('dry-run cannot produce an authorized deployment receipt');
-
   // Named volumes are created as root by Docker while the production image
   // deliberately runs as the unprivileged `bun` user. Initialize ownership in
   // a disposable container before starting the four long-lived services. This
@@ -475,7 +599,6 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     releasePath,
     composePath,
     overridePath,
-    runtimeSecretsPath,
   };
   atomicJson(resolve(evidenceDir, DEPLOYMENT_RECORD_NAME), record);
   return record;
