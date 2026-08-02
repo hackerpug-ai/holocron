@@ -166,6 +166,7 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(override).toContain('0.0.0.0:44111:4111');
     expect(override).toContain(`HOLO_IMAGE_DIGEST: ${DIGEST}`);
     expect(override).toContain(`HOLO_SOURCE_REVISION: ${REVISION}`);
+    expect(override).toContain('restart: always');
     expect(override).toContain('depends_on: !override');
     expect(override).not.toMatch(/Bearer |HOLO_KEY_MCP:|POSTGRES_PASSWORD:/);
   });
