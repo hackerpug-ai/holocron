@@ -1,11 +1,11 @@
 # Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip
 
-## ⚠️ PARTIAL — 1/6 steps passed under current oracles (honest fail on rest; non-landing)
-**Date:** 2026-08-02T03:57:25Z
+## ⚠️ PARTIAL — 3/6 steps passed under current oracles (honest fail on rest; non-landing)
+**Date:** 2026-08-02T05:00:24Z
 **Verdict:** partial
-**Run ID:** 20260802T035458Z
-**Source SHA (git rev-parse HEAD):** `adb64463e9107dfc24acdb399651593c4a5436c1`
-**git_sha:** `adb64463e9107dfc24acdb399651593c4a5436c1`
+**Run ID:** 20260802T045450Z
+**Source SHA (git rev-parse HEAD):** `d4570f585a5ccfdc073fcf4d55d65458386447d6`
+**git_sha:** `d4570f585a5ccfdc073fcf4d55d65458386447d6`
 **Deployed identity:** `local-process://holo-cli` / `local-process://holo-cli`
 **Landing eligible:** `false` (identity_class=`local-process`)
 **Non-landing reason:** no HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing
@@ -17,12 +17,12 @@
 |---|------|--------|
 | 1 | Run full harness suite against new stack (cutover:go-no-go)  | fail |
 | 2 | Trigger write fence (cutover:freeze) — ok AND env_value=1 AN | pass |
-| 3 | Drain quiet interval (cutover:quiet-check) — accepted==0 rej | fail |
+| 3 | Drain quiet interval (cutover:quiet-check) — accepted==0 rej | pass |
 | 4 | One-time ETL reconciliation (cutover:run-etl) — ok unexplain | fail |
 | 5 | Flip app+MCP and verify-soak (cutover:flip + cutover:verify- | fail |
-| 6 | Write returns migration_read_only (HTTP 423) on real Hono su | fail |
+| 6 | Write returns migration_read_only (HTTP 423) on real Hono su | pass |
 
-**Evidence:** `.gate-evidence/20260802T035458Z/step{1..6}.log`
+**Evidence:** `.gate-evidence/20260802T045450Z/step{1..6}.log`
 
 **Predicates:** current `gate-plan.json` (REDHAT-FIX-S29-H03 + C01 + R3-C01) — step1 requires `overall.ok && failed_count==0`; step5 requires non-null `toolsPassed==toolsTotal`; evidence `git_sha` must equal worktree HEAD.
 

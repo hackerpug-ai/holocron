@@ -14,8 +14,8 @@ capability_coverage: [CAP-CUT-01, CAP-MIG-01]
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: 5/5 tasks completed · updated 2026-08-02T03:41:18Z
-> Status-Note: post-R2 independent red-hat BLOCK @ 03bdaddb (report 20260802T033909Z) — cycle-3 HIGH-confidence remediation; GATE-GOAL not claimed
+> Progress: 5/5 tasks completed · updated 2026-08-02T04:08:21Z
+> Status-Note: IMPLEMENTATION_COMPLETE @ d4570f58 — R3 C01–C03/H01–H03 on main + H02/H03 verify-harness fix; honest partial gate 3/6 HEAD-bound local-process (not GATE-GOAL; awaiting fresh independent red-hat + full human-gate QA)
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`

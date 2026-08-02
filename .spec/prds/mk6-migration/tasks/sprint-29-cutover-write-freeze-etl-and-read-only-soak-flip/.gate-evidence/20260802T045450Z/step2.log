@@ -1,0 +1,26 @@
+@@GATE-META step=2 task=REDHAT-FIX-S29-R3-C01 run_id=20260802T045450Z source_sha=d4570f585a5ccfdc073fcf4d55d65458386447d6 git_sha=d4570f585a5ccfdc073fcf4d55d65458386447d6 started_at=2026-08-02T04:58:54Z deployed_base_url=local-process://holo-cli identity_class=local-process@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-03 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:freeze --json --output .tmp/D06-03/freeze-report.json --reason "sprint-29-human-gate" | tee .tmp/REDHAT-FIX-S29-H03/step2-freeze.json; jq -e '.ok == true and .env_value == "1" and .fence_armed_at > 0' .tmp/D06-03/freeze-report.json
+---
+{
+  "ok": true,
+  "fence_armed_at": 1785646736838,
+  "confirmed_at_ms": 1785646736541,
+  "cross_process_probe": {
+    "rejected": true,
+    "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set",
+    "surface": "documents.mutations.create",
+    "documentsBefore": 1617,
+    "documentsAfter": 1617,
+    "child_pid": 80531
+  },
+  "env": "HOLO_MIGRATION_READ_ONLY",
+  "env_value": "1",
+  "reason": "sprint-29-human-gate",
+  "audit_id": "vn744jtfxgj6sk9gwhvdj1m4kn8bqsb1",
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-03/freeze-report.json"
+}
+true
+---
+@@GATE-EXIT=0@@
+@@GATE-ENDED=2026-08-02T04:58:58Z@@
+@@GATE-TIMEOUT-CAP=180s@@
