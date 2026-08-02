@@ -5,9 +5,10 @@
  *   HOLO_MIGRATION_READ_ONLY === '1' | 'true'
  * read FRESH at every write chokepoint (never cached at process start).
  *
- * Resolution (every call of isMigrationReadOnly):
- *   1. process.env when set (explicit '1'/'true' engage; '0'/'false' disengage)
- *   2. else durable control-plane secrets.yaml (HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH)
+ * Resolution (every call of isMigrationReadOnly) — R2-C01 durable overrides env:
+ *   1. process.env truthy ('1'/'true') → engage
+ *   2. durable control-plane secrets.yaml truthy → engage (wins over boot-time env '0')
+ *   3. otherwise → disengage
  *
  * Surfaces:
  *   - Hono: HTTP 423 { error, code: 'migration_read_only' } on non-GET /api/*
@@ -82,25 +83,28 @@ function isTruthyFenceValue(v: string | undefined): boolean {
   return v === '1' || v === 'true';
 }
 
-function isFalsyFenceValue(v: string | undefined): boolean {
-  return v === '0' || v === 'false';
-}
-
 /**
  * True when the soak fence is armed.
  * Primary contract value is the literal '1'; 'true' accepted for D06-01 parity.
  * MUST re-resolve on every call — never cache at process start.
  *
- * Order (REDHAT-FIX-S29-C02 durable distributed fence):
- *   1. process.env when explicitly set ('1'/'true' → armed; '0'/'false' → disarmed)
- *   2. else durable control-plane secrets.yaml (fresh file read every call)
+ * Order (REDHAT-FIX-S29-R2-C01 authoritative durable override):
+ *   1. process.env truthy ('1'/'true') → armed (process can force engage)
+ *   2. durable control-plane secrets.yaml truthy (fresh file read every call) → armed
+ *      even when process.env still holds boot-time '0'/'false' from
+ *      applyConsolidatedSecretsToEnv (secrets.ts sticky skip)
+ *   3. otherwise → disarmed
+ *
+ * Boot-time process.env '0' MUST NOT permanently disarm a post-flip durable '1'.
+ * Path A: durable re-read every call; no second fence mechanism.
  */
 export function isMigrationReadOnly(env: NodeJS.ProcessEnv = process.env): boolean {
   const v = env[MIGRATION_READ_ONLY_ENV];
   if (isTruthyFenceValue(v)) return true;
-  if (isFalsyFenceValue(v)) return false;
-  // Unset/empty → durable control-plane re-read (cross-process without env inject)
-  return isTruthyFenceValue(readDurableMigrationReadOnly(env));
+  // Always consult durable control-plane — even when env is explicit '0'/'false'.
+  // R2-C01: durable '1' overrides boot-pinned process.env '0'.
+  if (isTruthyFenceValue(readDurableMigrationReadOnly(env))) return true;
+  return false;
 }
 
 /** Engage the fence in-process (tests + flip). Does not alone satisfy production durability. */
@@ -319,12 +323,17 @@ export type ProcessGenerations = {
   after: ProcessGenerationUnit[];
 };
 
+/** How isMigrationReadOnly resolves env vs durable control-plane (R2-C01). */
+export type FenceLookupMode = 'durable_overrides_env';
+
 export type FlipReport = {
   ok: boolean;
   engaged_at: string;
   engaged_at_ms: number;
   env: string;
   env_value: string;
+  /** Durable control-plane value observed after flip (R2-C01). */
+  durable_value?: string;
   etl_run_id: string;
   etl_report_path: string;
   unexplainedVariance: number;
@@ -333,6 +342,11 @@ export type FlipReport = {
   configured_target: string;
   /** True when fence is observed via durable secrets re-read (no restart required). */
   durable_reread: boolean;
+  /**
+   * R2-C01: authoritative durable wins over boot-time process.env '0'.
+   * Always 'durable_overrides_env' on successful flip.
+   */
+  lookup_mode?: FenceLookupMode;
   process_generations: ProcessGenerations;
   error?: { code: string; message: string };
 };
@@ -545,12 +559,14 @@ export function runCutoverFlip(options?: {
       engaged_at_ms: 0,
       env: MIGRATION_READ_ONLY_ENV,
       env_value: process.env[MIGRATION_READ_ONLY_ENV] ?? '',
+      durable_value: durableValue,
       etl_run_id: snap.runId,
       etl_report_path: etlReportPath,
       unexplainedVariance: snap.unexplainedVariance,
       report_path: reportPath,
       configured_target: durable.secretsPath,
       durable_reread: false,
+      lookup_mode: 'durable_overrides_env',
       process_generations: { before: gensBefore, after: gensAfter },
       error: {
         code: 'FENCE_SET_FAILED',
@@ -564,8 +580,11 @@ export function runCutoverFlip(options?: {
     return fail;
   }
 
-  // Prove durable_reread path: unset env temporarily, re-read from control-plane only
+  // R2-C01: prove durable overrides boot-time env '0' (not only unset/empty).
+  // Pre-fix short-circuit on falsy env made already-running services ignore flip.
   const prevEnv = process.env[MIGRATION_READ_ONLY_ENV];
+  process.env[MIGRATION_READ_ONLY_ENV] = '0';
+  const durableOverridesEnvOk = isMigrationReadOnly();
   delete process.env[MIGRATION_READ_ONLY_ENV];
   const durableRereadOk = isMigrationReadOnly();
   if (prevEnv !== undefined) {
@@ -574,25 +593,28 @@ export function runCutoverFlip(options?: {
     // Keep process engaged after flip for the CLI process itself
     setMigrationReadOnlyEnv('1');
   }
-  if (!durableRereadOk) {
+  if (!durableRereadOk || !durableOverridesEnvOk) {
     const fail: FlipReport = {
       ok: false,
       engaged_at: '',
       engaged_at_ms: 0,
       env: MIGRATION_READ_ONLY_ENV,
       env_value: process.env[MIGRATION_READ_ONLY_ENV] ?? '',
+      durable_value: durableValue,
       etl_run_id: snap.runId,
       etl_report_path: etlReportPath,
       unexplainedVariance: snap.unexplainedVariance,
       report_path: reportPath,
       configured_target: durable.secretsPath,
       durable_reread: false,
+      lookup_mode: 'durable_overrides_env',
       process_generations: { before: gensBefore, after: gensAfter },
       error: {
         code: 'FENCE_DURABLE_REREAD_FAILED',
         message:
           `isMigrationReadOnly() did not observe durable control-plane ` +
-          `${MIGRATION_READ_ONLY_ENV}=1 at ${durable.secretsPath} without process.env inject`,
+          `${MIGRATION_READ_ONLY_ENV}=1 at ${durable.secretsPath} ` +
+          `(reread_unset=${durableRereadOk}, overrides_env_0=${durableOverridesEnvOk})`,
       },
     };
     ensureParent(reportPath);
@@ -606,12 +628,14 @@ export function runCutoverFlip(options?: {
     engaged_at_ms,
     env: MIGRATION_READ_ONLY_ENV,
     env_value: '1',
+    durable_value: '1',
     etl_run_id: snap.runId,
     etl_report_path: etlReportPath,
     unexplainedVariance: snap.unexplainedVariance,
     report_path: reportPath,
     configured_target: durable.secretsPath,
     durable_reread: true,
+    lookup_mode: 'durable_overrides_env',
     process_generations: { before: gensBefore, after: gensAfter },
   };
 
@@ -656,8 +680,10 @@ export function formatFlipText(r: FlipReport): string {
     `  ok:            ${r.ok}`,
     `  engaged_at:    ${r.engaged_at}`,
     `  env:           ${r.env}=${r.env_value}`,
+    `  durable_value: ${r.durable_value ?? ''}`,
     `  configured_target: ${r.configured_target}`,
     `  durable_reread: ${r.durable_reread}`,
+    `  lookup_mode:   ${r.lookup_mode ?? 'durable_overrides_env'}`,
     `  etl_run_id:    ${r.etl_run_id}`,
     `  unexplainedVariance: ${r.unexplainedVariance}`,
     `  report:        ${r.report_path}`,

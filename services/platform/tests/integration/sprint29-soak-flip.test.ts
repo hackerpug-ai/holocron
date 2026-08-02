@@ -65,6 +65,12 @@ const H01_EVIDENCE = resolve(
   '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
 );
 const H02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-H02');
+/** REDHAT-FIX-S29-R2-C01 evidence tree (durable override + already-running service). */
+const R2_C01_EVIDENCE = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
+const R2_C01_ALT = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-R2-C01');
 /** Immutable multi-table D06-04-shaped watermark (committed). Never authored from live SELECT. */
 const IMMUTABLE_ETL_FIXTURE = resolve(
   REPO_ROOT,
@@ -89,6 +95,15 @@ function c02Evidence(name: string, body: unknown): void {
   mkdirSync(C02_EVIDENCE, { recursive: true });
   const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
   writeFileSync(resolve(C02_EVIDENCE, name), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
+}
+
+function r2c01Evidence(name: string, body: unknown): void {
+  mkdirSync(R2_C01_EVIDENCE, { recursive: true });
+  mkdirSync(R2_C01_ALT, { recursive: true });
+  const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
+  const payload = text.endsWith('\n') ? text : `${text}\n`;
+  writeFileSync(resolve(R2_C01_EVIDENCE, name), payload, 'utf8');
+  writeFileSync(resolve(R2_C01_ALT, name), payload, 'utf8');
 }
 
 function holo(
@@ -141,9 +156,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
     // H-02: reuse a pre-existing public document so we do not mutate table counts
     // that the immutable ETL fixture binds (no live SELECT→loadedByTable authorship).
-    const existingPublic = await sql<
-      { share_token: string }[]
-    >`SELECT share_token FROM documents
+    const existingPublic = await sql<{ share_token: string }[]>`SELECT share_token FROM documents
       WHERE is_public = true AND share_token IS NOT NULL
       ORDER BY id
       LIMIT 1`;
@@ -156,13 +169,18 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
     // Capture baseline from the real Hono /article/ route (same bytes AC-4 compares)
     process.env.DATABASE_URL = DATABASE_URL;
-    // Arm fence in this process (jobs / hono sweep / flip) AND the live server child
-    setMigrationReadOnlyEnv('1');
+    // R2-C01: start live child DISARMED (env '0' or omit) so fence propagation is
+    // proven via durable control-plane re-read after flip — never inject-only green.
+    // In-process suite paths still arm via setMigrationReadOnlyEnv / writeDurable.
+    setMigrationReadOnlyEnv('0');
     liveService = await startLiveService({
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
       extraEnv: {
-        HOLO_MIGRATION_READ_ONLY: '1',
+        // Explicit boot-time disarmed overlay (secrets.ts sticky skip path)
+        HOLO_MIGRATION_READ_ONLY: '0',
+        HOLO_SECRETS_PATH: DISPOSABLE_SECRETS,
+        HOLOCRON_SECRETS_PATH: DISPOSABLE_SECRETS,
         // Propagate live search key when present so findRecommendations is schema-valid
         ...(process.env.JINA_API_KEY ? { JINA_API_KEY: process.env.JINA_API_KEY } : {}),
       },
@@ -345,11 +363,19 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.configured_target.length).toBeGreaterThanOrEqual(8);
     expect(report.configured_target).toBe(DISPOSABLE_SECRETS);
     expect(report.durable_reread).toBe(true);
+    // R2-C01: durable overrides boot-time env
+    expect(report.lookup_mode).toBe('durable_overrides_env');
+    expect(report.durable_value).toBe('1');
     expect(report.process_generations.before.length).toBeGreaterThan(0);
     expect(report.process_generations.after.length).toBeGreaterThan(0);
     const durable = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
     expect(durable).toBe('1');
     expect(loadSecretsFile(DISPOSABLE_SECRETS)[MIGRATION_READ_ONLY_ENV]).toBe('1');
+    // R2-C01 AC-1: durable '1' wins even when process.env still holds boot-time '0'
+    setMigrationReadOnlyEnv('0');
+    expect(process.env.HOLO_MIGRATION_READ_ONLY).toBe('0');
+    expect(isMigrationReadOnly()).toBe(true);
+    setMigrationReadOnlyEnv('1');
 
     const cli = holo([
       'cutover:flip',
@@ -366,11 +392,15 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       engaged_at?: string;
       configured_target?: string;
       durable_reread?: boolean;
+      lookup_mode?: string;
+      durable_value?: string;
     };
     expect(parsed.ok).toBe(true);
     expect(parsed.engaged_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect((parsed.configured_target ?? '').length).toBeGreaterThanOrEqual(8);
     expect(parsed.durable_reread).toBe(true);
+    expect(parsed.lookup_mode).toBe('durable_overrides_env');
+    expect(parsed.durable_value).toBe('1');
   });
 
   // ── REDHAT-FIX-S29-C02: durable + cross-process + rollback ────────────────
@@ -511,6 +541,200 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(after).toBe(before);
 
     // Re-arm parent env for subsequent suite tests
+    setMigrationReadOnlyEnv('1');
+  }, 180_000);
+
+  // ── REDHAT-FIX-S29-R2-C01: durable override + already-running service ─────
+
+  it('REDHAT-FIX-S29-R2-C01: durable control-plane wins over boot-time env 0', () => {
+    // AC-1: same long-lived process with boot overlay '0' observes durable flip
+    writeDurableMigrationReadOnly('0', { secretsPath: DISPOSABLE_SECRETS });
+    setMigrationReadOnlyEnv('0');
+    expect(process.env.HOLO_MIGRATION_READ_ONLY).toBe('0');
+    expect(isMigrationReadOnly()).toBe(false);
+
+    const report = runCutoverFlip({
+      cwd: REPO_ROOT,
+      etlReportPath: greenEtlPath,
+      reportPath: resolve(R2_C01_EVIDENCE, 'redhat-fix-s29-r2-c01-flip-report.json'),
+      secretsPath: DISPOSABLE_SECRETS,
+    });
+    // Simulate already-running process that still holds boot-time env '0'
+    // (applyConsolidatedSecretsToEnv sticky skip — secrets.ts:252-261)
+    setMigrationReadOnlyEnv('0');
+    const envStillZero = process.env.HOLO_MIGRATION_READ_ONLY;
+    const armed = isMigrationReadOnly();
+    const durable = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
+    r2c01Evidence('redhat-fix-s29-r2-c01-durable-override.json', {
+      ok: report.ok && armed === true && envStillZero === '0' && durable === '1',
+      report,
+      envStillZero,
+      durable,
+      isMigrationReadOnly: armed,
+      lookup_mode: report.lookup_mode,
+      durable_value: report.durable_value,
+      durable_reread: report.durable_reread,
+    });
+    expect(report.ok).toBe(true);
+    expect(report.lookup_mode).toBe('durable_overrides_env');
+    expect(report.durable_value).toBe('1');
+    expect(report.durable_reread).toBe(true);
+    expect(envStillZero).toBe('0');
+    expect(durable).toBe('1');
+    expect(armed).toBe(true);
+    expect(readFileSync(DISPOSABLE_SECRETS, 'utf8')).toMatch(/HOLO_MIGRATION_READ_ONLY[: ]+["']?1/);
+    // Re-arm parent env for subsequent suite tests that use process-local fence
+    setMigrationReadOnlyEnv('1');
+  });
+
+  it('REDHAT-FIX-S29-R2-C01: already-running disarmed liveService blocks clean-env POST after flip', async () => {
+    // AC-2: live child was started WITHOUT extraEnv HOLO_MIGRATION_READ_ONLY=1
+    // (beforeAll uses '0' + disposable secrets). Flip durable, then clean-env POST.
+    expect(networkBaseUrl.length).toBeGreaterThan(0);
+    expect(liveService?.pid).toBeTypeOf('number');
+    const pidBefore = liveService?.pid;
+
+    writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
+    // Parent may hold any env; client must not inject fence
+    setMigrationReadOnlyEnv('0');
+
+    const before = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+
+    // Clean-env client: do not set HOLO_MIGRATION_READ_ONLY on the HTTP request path
+    const res = await fetch(`${networkBaseUrl}/api/documents`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${DEFAULT_KEYS.rn}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ title: `r2-c01-${RUN}`, content: 'must-block-already-running' }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+    };
+    const after = Number((await sql`SELECT count(*)::int AS c FROM documents`)[0]?.c ?? 0);
+
+    const evidenceBody = {
+      observed_status: res.status === 423 ? 'PASS' : 'FAIL',
+      observed_count: res.status === 423 ? 1 : 0,
+      ok:
+        res.status === 423 &&
+        body.error === 'migration_read_only' &&
+        body.code === 'migration_read_only',
+      live_child_start_extraEnv_fence: '0',
+      note: 'beforeAll starts liveService with HOLO_MIGRATION_READ_ONLY=0 (not 1)',
+      pidBefore,
+      pidAfter: liveService?.pid,
+      same_process_generation: liveService?.pid === pidBefore,
+      status: res.status,
+      error: body.error ?? null,
+      code: body.code ?? null,
+      before,
+      after,
+      networkBaseUrl,
+    };
+    r2c01Evidence('redhat-fix-s29-r2-c01-already-running-post.json', evidenceBody);
+    r2c01Evidence('redhat-fix-s29-r2-c01-green.json', {
+      ac2: evidenceBody,
+      path: 'A',
+      agent: 'devops-engineer',
+    });
+
+    expect(res.status).toBe(423);
+    expect(body.error).toBe('migration_read_only');
+    expect(body.code).toBe('migration_read_only');
+    expect(after).toBe(before);
+    expect(liveService?.pid).toBe(pidBefore);
+    setMigrationReadOnlyEnv('1');
+  }, 120_000);
+
+  it('REDHAT-FIX-S29-R2-C01: mcp + job blocked without client fence inject on already-running fence', async () => {
+    // AC-3: mutation tools/call + runJob without client HOLO_MIGRATION_READ_ONLY inject
+    writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
+    // Parent env intentionally '0' — proves durable override, not process inject
+    setMigrationReadOnlyEnv('0');
+    expect(process.env.HOLO_MIGRATION_READ_ONLY).toBe('0');
+    expect(isMigrationReadOnly()).toBe(true);
+
+    let mcpMsg = '';
+    let mcpBlocked = false;
+    try {
+      await executePostgresMcpTool(
+        'store_document',
+        { title: `r2-c01-mcp-${RUN}`, content: 'blocked' },
+        { databaseUrl: DATABASE_URL }
+      );
+    } catch (e) {
+      mcpMsg = e instanceof Error ? e.message : String(e);
+      mcpBlocked = mcpMsg.startsWith('MIGRATION_READ_ONLY:');
+    }
+
+    const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0];
+    const jobResult = await runJob(job, { databaseUrl: DATABASE_URL, runId: randomUUID() });
+    const jobBlocked =
+      jobResult.ok === false && String(jobResult.error ?? '').includes('migration_read_only');
+
+    // Network MCP against already-running live child (no client fence inject)
+    let networkMcpBlocked = false;
+    let networkMcpMsg = '';
+    if (networkBaseUrl) {
+      const headers = {
+        authorization: `Bearer ${DEFAULT_KEYS.mcp}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      };
+      const mcpUrl = `${networkBaseUrl}/mcp`;
+      await fetch(mcpUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-11-25',
+            capabilities: {},
+            clientInfo: { name: 'r2-c01', version: '1' },
+          },
+        }),
+        signal: AbortSignal.timeout(15_000),
+      }).catch(() => undefined);
+      const call = await fetch(mcpUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: {
+            name: 'store_document',
+            arguments: { title: `r2-c01-net-${RUN}`, content: 'blocked' },
+          },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const raw = await call.text();
+      networkMcpMsg = raw.slice(0, 800);
+      networkMcpBlocked =
+        /MIGRATION_READ_ONLY/i.test(raw) || call.status === 423 || /migration_read_only/i.test(raw);
+    }
+
+    const mcpJob = {
+      mcp_blocked: mcpBlocked,
+      job_blocked: jobBlocked,
+      network_mcp_blocked: networkMcpBlocked,
+      mcpMsg,
+      jobOk: jobResult.ok,
+      jobError: jobResult.error ?? null,
+      networkMcpMsg,
+      env: process.env.HOLO_MIGRATION_READ_ONLY,
+      durable: readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS),
+    };
+    r2c01Evidence('redhat-fix-s29-r2-c01-mcp-job.json', mcpJob);
+    expect(mcpBlocked).toBe(true);
+    expect(jobBlocked).toBe(true);
+    expect(networkMcpBlocked).toBe(true);
     setMigrationReadOnlyEnv('1');
   }, 180_000);
 
