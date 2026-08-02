@@ -1,5 +1,10 @@
 /**
+<<<<<<< HEAD
  * D06-05 GREEN + REDHAT-FIX-S29-C02: durable flip, cross-process fence, rollback-repoint.
+=======
+ * D06-05 GREEN + REDHAT-FIX-S29-H01: flip app + MCP into rollbackable read-only soak;
+ * verification gates hit a real listening network /mcp and /article (not in-process sole oracle).
+>>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
@@ -13,7 +18,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DEFAULT_DATABASE_URL,
   DEFAULT_KEYS,
+  type LiveService,
   PLATFORM_IT,
+  startLiveService,
 } from '../../../../tests/integration/service/harness';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
@@ -34,7 +41,6 @@ import {
 } from '../../src/cutover/soak-fence.ts';
 import { createSql, type Sql } from '../../src/db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
-import { createHonoApp } from '../../src/http/hono-app.ts';
 import { executePostgresMcpTool } from '../../src/mcp/executor.ts';
 import { defaultManifestPath, loadManifest } from '../../src/mcp/manifest-loader.ts';
 import { MIGRATED_JOBS } from '../../src/queue/jobs-registry.ts';
@@ -56,7 +62,14 @@ if (!PLATFORM_IT) {
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/D06-05');
+<<<<<<< HEAD
 const C02_EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-S29-C02');
+=======
+const H01_EVIDENCE = resolve(
+  REPO_ROOT,
+  '.tmp/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip'
+);
+>>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
 const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
@@ -106,9 +119,13 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   let articleBaselinePath: string;
   let shareToken: string;
   let baselineCounts: Record<string, number>;
+  /** Real listening Hono/MCP server — production oracle for H-01 network verify. */
+  let liveService: LiveService | undefined;
+  let networkBaseUrl = '';
 
   beforeAll(async () => {
     mkdirSync(EVIDENCE, { recursive: true });
+<<<<<<< HEAD
     mkdirSync(C02_EVIDENCE, { recursive: true });
     // Disposable control-plane — isolate durable fence from operator secrets.yaml
     writeFileSync(
@@ -117,6 +134,9 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       { mode: 0o600 }
     );
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+=======
+    mkdirSync(H01_EVIDENCE, { recursive: true });
+>>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
     unsetMigrationFlag();
     // Explicit disengage so durable re-read of "0" does not arm fence
     setMigrationReadOnlyEnv('0');
@@ -144,15 +164,31 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
     // Capture baseline from the real Hono /article/ route (same bytes AC-4 compares)
     process.env.DATABASE_URL = DATABASE_URL;
-    const baselineApp = createHonoApp({ keys: { ...DEFAULT_KEYS } });
-    const baselineRes = await baselineApp.request(`/article/${shareToken}`, {
+    // Arm fence in this process (jobs / hono sweep / flip) AND the live server child
+    setMigrationReadOnlyEnv('1');
+    liveService = await startLiveService({
+      keys: { ...DEFAULT_KEYS },
+      databaseUrl: DATABASE_URL,
+      extraEnv: {
+        HOLO_MIGRATION_READ_ONLY: '1',
+        // Propagate live search key when present so findRecommendations is schema-valid
+        ...(process.env.JINA_API_KEY ? { JINA_API_KEY: process.env.JINA_API_KEY } : {}),
+      },
+      readyTimeoutMs: 60_000,
+    });
+    networkBaseUrl = liveService.baseUrl;
+    process.env.HOLO_VERIFY_BASE_URL = networkBaseUrl;
+    process.env.PLATFORM_URL = networkBaseUrl;
+
+    // Network baseline capture (H-01: not sole in-process oracle)
+    const baselineRes = await fetch(`${networkBaseUrl}/article/${shareToken}`, {
       method: 'GET',
       headers: { accept: 'text/html' },
     });
     const baselineBuf = Buffer.from(await baselineRes.arrayBuffer());
     if (baselineRes.status !== 200 || baselineBuf.byteLength === 0) {
       throw new Error(
-        `failed to capture article baseline status=${baselineRes.status} bytes=${baselineBuf.byteLength}`
+        `failed to capture article baseline status=${baselineRes.status} bytes=${baselineBuf.byteLength} stderr=${liveService.stderr.slice(0, 500)}`
       );
     }
     const sha256 = createHash('sha256').update(baselineBuf).digest('hex');
@@ -167,7 +203,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
           capturedAtMs: Date.now(),
           fence_armed_at: Date.now() - 1000,
           shareToken,
-          url: `hono://local/article/${shareToken}`,
+          url: `${networkBaseUrl}/article/${shareToken}`,
           status: 200,
           path: articleBaselinePath,
         },
@@ -249,6 +285,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       baselineCounts,
       greenEtlPath,
       articleBaselinePath,
+      networkBaseUrl,
     });
   }, 120_000);
 
@@ -261,6 +298,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     }
     setMigrationReadOnlyEnv('0');
     unsetMigrationFlag();
+    await liveService?.stop();
     await sql?.end({ timeout: 5 });
   });
 
@@ -622,22 +660,26 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(after).toBe(before);
   }, 60_000);
 
-  // ── AC-2 / TC-3 / TC-4 ────────────────────────────────────────────────────
+  // ── AC-2 / TC-3 / TC-4 / H-01 network ─────────────────────────────────────
 
-  it('TC-3/4 AC-2: verify-tools accounts all manifest tools; mutations MIGRATION_READ_ONLY', async () => {
+  it('TC-3/4 AC-2 H-01: network /mcp verify-tools; schema_valid reads; mutations MIGRATION_READ_ONLY', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
+    expect(networkBaseUrl.length).toBeGreaterThan(0);
     const manifest = loadManifest(defaultManifestPath(REPO_ROOT));
     const report = await runVerifyTools({
       cwd: REPO_ROOT,
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
+      baseUrl: networkBaseUrl,
     });
     evidence('tc-verify-tools.json', {
       toolsTotal: report.toolsTotal,
       toolsPassed: report.toolsPassed,
       toolsStubbed: report.toolsStubbed,
       ok: report.ok,
+      transport: report.transport,
+      base_url: report.base_url,
       mutations: report.tools
         .filter((t) => t.is_mutation)
         .map((t) => ({
@@ -645,17 +687,79 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
           ok: t.ok,
           code: t.code,
         })),
+      reads: report.tools
+        .filter((t) => !t.is_mutation)
+        .map((t) => ({
+          id: t.tool_id,
+          ok: t.ok,
+          isError: t.isError,
+          schema_valid: t.schema_valid,
+          status: t.status,
+        })),
     });
+    writeFileSync(
+      resolve(H01_EVIDENCE, 'verify-tools-network.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+
+    // H-01: network transport + non-null concrete counts
+    expect(report.transport).toBe('network');
+    expect(report.base_url).toBe(networkBaseUrl);
     expect(report.toolsTotal).toBe(manifest.tools.length);
     expect(report.toolsTotal).toBeGreaterThanOrEqual(44);
+    expect(typeof report.toolsPassed).toBe('number');
+    expect(typeof report.toolsTotal).toBe('number');
+    expect(report.toolsPassed).not.toBeNull();
+    expect(report.toolsTotal).not.toBeNull();
     expect(report.toolsStubbed).toBe(0);
-    expect(report.toolsPassed).toBe(report.toolsTotal);
+    expect(report.tools.length).toBe(report.toolsTotal);
+    expect(report.tools.every((t) => t.invoked === true)).toBe(true);
+
     const mutations = report.tools.filter((t) => t.is_mutation);
     expect(mutations.length).toBe(21);
-    expect(mutations.every((t) => t.code === 'MIGRATION_READ_ONLY' || t.ok)).toBe(true);
-    expect(mutations.every((t) => t.ok)).toBe(true);
+    expect(
+      mutations.every(
+        (t) =>
+          t.ok === true &&
+          t.isError === true &&
+          (t.code === 'MIGRATION_READ_ONLY' ||
+            (typeof t.message === 'string' && t.message.startsWith('MIGRATION_READ_ONLY:')))
+      )
+    ).toBe(true);
+
+    const reads = report.tools.filter((t) => !t.is_mutation);
+    // H-01 AC-2: never pass a read solely on HTTP 200 when isError
+    expect(reads.every((t) => !(t.ok === true && t.isError === true))).toBe(true);
+    expect(reads.every((t) => t.schema_valid === true)).toBe(true);
+    expect(reads.every((t) => t.isError !== true)).toBe(true);
+    expect(reads.every((t) => t.ok === true)).toBe(true);
+
+    expect(report.toolsPassed).toBe(report.toolsTotal);
     expect(report.ok).toBe(true);
   }, 300_000);
+
+  it('H-01 AC-5: unreachable base URL fails closed with non-null toolsPassed/toolsTotal', async () => {
+    setMigrationReadOnlyEnv('1');
+    const report = await runVerifyTools({
+      cwd: REPO_ROOT,
+      keys: { ...DEFAULT_KEYS },
+      databaseUrl: DATABASE_URL,
+      baseUrl: 'http://127.0.0.1:1',
+    });
+    writeFileSync(
+      resolve(H01_EVIDENCE, 'verify-tools-unreachable.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.ok).toBe(false);
+    expect(typeof report.toolsTotal).toBe('number');
+    expect(typeof report.toolsPassed).toBe('number');
+    expect(report.toolsTotal).toBeGreaterThan(0);
+    expect(report.toolsPassed).toBe(0);
+    expect(report.transport).toBe('network');
+    expect(report.base_url).toBe('http://127.0.0.1:1');
+  }, 60_000);
 
   // ── AC-3 / TC-5 ───────────────────────────────────────────────────────────
 
@@ -673,9 +777,9 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.ok).toBe(true);
   }, 60_000);
 
-  // ── AC-4 / TC-6 ───────────────────────────────────────────────────────────
+  // ── AC-4 / TC-6 / H-01 network article ────────────────────────────────────
 
-  it('TC-6/AC-4: real Hono /article/:token sha256 matches article-baseline.json', async () => {
+  it('TC-6/AC-4 H-01: network GET /article/:token sha256 matches article-baseline.json', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
     const report = await runVerifyArticle({
@@ -683,8 +787,16 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       baselinePath: articleBaselinePath,
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
+      baseUrl: networkBaseUrl,
     });
     evidence('tc-verify-article.json', report);
+    writeFileSync(
+      resolve(H01_EVIDENCE, 'verify-article-network.json'),
+      `${JSON.stringify(report, null, 2)}\n`,
+      'utf8'
+    );
+    expect(report.transport).toBe('network');
+    expect(report.base_url).toBe(networkBaseUrl);
     expect(report.status).toBe(200);
     expect(report.byteLength).toBeGreaterThan(0);
     expect(report.sha256).toBe(report.baselineSha256);
@@ -692,9 +804,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.match).toBe(true);
     expect(report.ok).toBe(true);
 
-    // Direct app.request cross-check
-    const app = createHonoApp({ keys: { ...DEFAULT_KEYS } });
-    const res = await app.request(`/article/${shareToken}`);
+    // Network fetch cross-check (not in-process app.request as sole oracle)
+    const res = await fetch(`${networkBaseUrl}/article/${shareToken}`);
     const buf = Buffer.from(await res.arrayBuffer());
     const sha = createHash('sha256').update(buf).digest('hex');
     expect(res.status).toBe(200);
@@ -749,6 +860,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       etlReportPath: greenEtlPath,
       baselinePath: articleBaselinePath,
       reportPath: resolve(EVIDENCE, 'verify-soak-report.json'),
+      baseUrl: networkBaseUrl,
     });
     evidence('tc-verify-soak.json', {
       overall: report.overall,
@@ -756,20 +868,48 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       jobsAccounted: report.jobsAccounted,
       zeroWritePath: report.zeroWritePath,
       toolsOk: report.tools.ok,
+      toolsPassed: report.tools.toolsPassed,
+      toolsTotal: report.tools.toolsTotal,
+      toolsTransport: report.tools.transport,
+      toolsBaseUrl: report.tools.base_url,
       readsOk: report.reads.ok,
       articleOk: report.article.ok,
+      articleTransport: report.article.transport,
       honoOk: report.honoWrite.ok,
       jobsOk: report.jobs.ok,
       engaged: report.engaged,
     });
+    writeFileSync(
+      resolve(H01_EVIDENCE, 'verify-soak-network.json'),
+      `${JSON.stringify(
+        {
+          overall: report.overall,
+          toolsPassed: report.tools.toolsPassed,
+          toolsTotal: report.tools.toolsTotal,
+          toolsTransport: report.tools.transport,
+          articleTransport: report.article.transport,
+          ok: report.ok,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
 
     expect(report.zeroWritePath).toBeDefined();
     expect(report.zeroWritePath.status).toBe('NOT_LANDED');
     expect(report.jobsTotal).toBe(MIGRATED_JOBS.length);
     expect(report.jobsAccounted).toBe(report.jobsTotal);
     expect(report.engaged).toBe(true);
+    expect(report.tools.transport).toBe('network');
+    expect(report.tools.base_url).toBe(networkBaseUrl);
+    expect(typeof report.tools.toolsPassed).toBe('number');
+    expect(typeof report.tools.toolsTotal).toBe('number');
+    expect(report.tools.toolsPassed).not.toBeNull();
+    expect(report.tools.toolsTotal).not.toBeNull();
     expect(report.tools.ok).toBe(true);
     expect(report.reads.ok).toBe(true);
+    expect(report.article.transport).toBe('network');
     expect(report.article.ok).toBe(true);
     expect(report.honoWrite.ok).toBe(true);
     expect(report.jobs.ok).toBe(true);
