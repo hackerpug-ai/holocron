@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "repointed": true,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "2026-08-02T03:49:05.541Z",
+  "engaged_at_ms": 1785642545541,
+  "configured_target": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/REDHAT-FIX-S29-R2-C04/disposable-secrets.yaml",
+  "precondition": {
+    "ok": true,
+    "accepted_post_export_writes": 0,
+    "export_watermark_ms": 1785642485317,
+    "audit_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "1147cf277550ec37405a62d5aac94e7fcdba6f80fce074138c7750725c6d9553",
+    "prior_target": "postgres-soak"
+  },
+  "acknowledgements": [
+    {
+      "unit": "network-serving-health",
+      "kind": "network_health",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-02T03:49:05.543Z",
+      "source": "http://127.0.0.1:51443/health",
+      "pid": 32023,
+      "preexisting": true
+    },
+    {
+      "unit": "verify-pid:32023",
+      "kind": "process_generation",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-02T03:49:05.543Z",
+      "source": "HOLO_VERIFY_PID+network_health",
+      "pid": 32023,
+      "preexisting": true
+    }
+  ],
+  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/REDHAT-FIX-S29-R2-C04/live-ack-report.json"
+}

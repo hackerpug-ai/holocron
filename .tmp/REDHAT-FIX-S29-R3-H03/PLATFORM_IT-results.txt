@@ -1,0 +1,7 @@
+PLATFORM_IT=1 pnpm test -- --project integration services/platform/tests/integration/sprint29-rollback-repoint.test.ts
+Test Files  1 passed (1)
+Tests  7 passed (7)
+Includes:
+- AC-3 with pre-existing serving base URL → repointed:true + network_health preexisting
+- R3-H03 negative: no base URL → LIVE_ACK_MISSING even though createHonoApp would observe convex
+- R3-H03 negative: not-listening base URL preflight → LIVE_ACK_MISSING

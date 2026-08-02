@@ -1,0 +1,29 @@
+{
+  "status": 200,
+  "body": {
+    "status": "degraded",
+    "db": {
+      "ready": true,
+      "latency_ms": 14
+    },
+    "fleet": {
+      "ready": true,
+      "endpoint": "http://127.0.0.1:4545",
+      "latency_ms": 1
+    },
+    "queue": {
+      "ready": false,
+      "latency_ms": 18,
+      "backend": "pg-boss",
+      "error": "queue not started"
+    },
+    "data_plane": "convex",
+    "target": "convex-frozen",
+    "rollback": {
+      "target": "convex-frozen",
+      "data_plane": "convex",
+      "source": "secrets"
+    }
+  },
+  "note": "must not authorize repointed:true"
+}
