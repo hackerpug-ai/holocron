@@ -247,6 +247,11 @@ interface CliArgs {
   token: string | null;
   /** cutover:flip --etl-report <watermark-report.json> */
   etlReport: string | null;
+  /**
+   * cutover:verify-tools / verify-soak — deployed Hono/MCP base URL
+   * (also HOLO_VERIFY_BASE_URL / PLATFORM_URL).
+   */
+  baseUrl: string | null;
 }
 
 function printHelp(): void {
@@ -326,6 +331,7 @@ Usage:
                             [--etl-report <watermark-report.json>] [--output <flip-report.json>]
                             Fail-closed: ETL_NOT_RECONCILED when unexplainedVariance>0
 <<<<<<< HEAD
+<<<<<<< HEAD
   cutover:rollback-repoint  H-05 / UC-SYNC-04: re-point data plane to frozen Convex [--json]
                             [--output <rollback-repoint-report.json>] [--etl-report <watermark>]
                             Fail-closed: POST_EXPORT_WRITE_ACCEPTED | ROLLBACK_INELIGIBLE
@@ -335,8 +341,11 @@ Usage:
                             [--output <rollback-report.json>] [--target <convex-label>]
 >>>>>>> 6de387c6 (fix(sprint-29): REDHAT-FIX-S29-C02 durable distributed write fence + rollback repoint)
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over real /mcp [--json]
+=======
+  cutover:verify-tools      D06-05 invoke all manifest MCP tools over network /mcp [--json] [--base-url URL]
+>>>>>>> 1ba46fc7 (fix(REDHAT-FIX-S29-H01): network /mcp and /article verify with schema-valid reads)
   cutover:verify-reads      D06-05 Postgres zero_pub counts vs ETL baseline [--json]
-  cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json]
+  cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json] [--base-url URL]
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
@@ -620,6 +629,7 @@ function parseArgs(argv: string[]): CliArgs {
     windowSeconds: null,
     token: null,
     etlReport: null,
+    baseUrl: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -898,6 +908,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.etlReport = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--etl-report=')) {
       args.etlReport = resolve(a.slice('--etl-report='.length));
+    } else if (a === '--base-url') {
+      args.baseUrl = argv[++i] ?? null;
+    } else if (a.startsWith('--base-url=')) {
+      args.baseUrl = a.slice('--base-url='.length);
     } else if (a === '--inventory') {
       args.inventory = argv[++i] ?? null;
     } else if (a.startsWith('--inventory=')) {
@@ -3368,22 +3382,39 @@ async function main(): Promise<void> {
       break;
     }
     case 'cutover:verify-tools': {
-      // D06-05: all manifest tools over real /mcp
-      const { runVerifyTools } = await import('../cutover/soak-fence.ts');
+      // D06-05 / H-01: all manifest tools over network /mcp (HOLO_VERIFY_BASE_URL)
+      const { runVerifyTools, resolveVerifyBaseUrl } = await import('../cutover/soak-fence.ts');
       try {
-        const report = await runVerifyTools({});
+        const baseUrl = resolveVerifyBaseUrl(args.baseUrl);
+        const report = await runVerifyTools({ baseUrl: baseUrl || undefined });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));
         } else {
           console.log(
-            `tools ${report.toolsPassed}/${report.toolsTotal} stubbed=${report.toolsStubbed} ok=${report.ok}`
+            `tools ${report.toolsPassed}/${report.toolsTotal} stubbed=${report.toolsStubbed} ok=${report.ok} transport=${report.transport} base_url=${report.base_url}`
           );
         }
         process.exit(report.ok ? 0 : 1);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (args.json) {
-          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+          // toolsPassed/toolsTotal never null — emit concrete zeros on hard failure
+          console.error(
+            JSON.stringify(
+              {
+                ok: false,
+                toolsTotal: 0,
+                toolsPassed: 0,
+                toolsStubbed: 0,
+                tools: [],
+                transport: 'network',
+                base_url: args.baseUrl ?? process.env.HOLO_VERIFY_BASE_URL ?? '',
+                error: msg,
+              },
+              null,
+              2
+            )
+          );
         } else {
           console.error(`holo cutover:verify-tools failed: ${msg}`);
         }
@@ -3418,17 +3449,22 @@ async function main(): Promise<void> {
       break;
     }
     case 'cutover:verify-soak': {
-      // D06-05: aggregate soak gate
-      const { runVerifySoak, formatSoakVerifyText, defaultSoakVerifyReportPath } = await import(
-        '../cutover/soak-fence.ts'
-      );
+      // D06-05 / H-01: aggregate soak gate (network /mcp + /article)
+      const {
+        runVerifySoak,
+        formatSoakVerifyText,
+        defaultSoakVerifyReportPath,
+        resolveVerifyBaseUrl,
+      } = await import('../cutover/soak-fence.ts');
       try {
         const reportPath = args.output
           ? resolve(args.output)
           : defaultSoakVerifyReportPath(process.cwd());
+        const baseUrl = resolveVerifyBaseUrl(args.baseUrl);
         const report = await runVerifySoak({
           etlReportPath: args.etlReport ? resolve(args.etlReport) : undefined,
           reportPath,
+          baseUrl: baseUrl || undefined,
         });
         if (args.json) {
           console.log(JSON.stringify(report, null, 2));

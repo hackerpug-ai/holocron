@@ -33,6 +33,7 @@ import { buildMutationsReport } from '../mcp/list-mutations.ts';
 import { defaultManifestPath, loadManifest } from '../mcp/manifest-loader.ts';
 import { MIGRATED_JOBS } from '../queue/jobs-registry.ts';
 import { runJob } from '../queue/jobs-runner.ts';
+import { getToolSchema } from '../tools/registry.ts';
 import { defaultArticleBaselinePath } from './article-baseline.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 
@@ -656,6 +657,10 @@ export type ToolVerifyEntry = {
   code?: string;
   message?: string;
   status?: number;
+  /** Read tools only — true when payload matches registry/manifest output contract. */
+  schema_valid?: boolean;
+  /** Read tools only — non-empty real executor payload (not stub/empty body). */
+  postgres_backed?: boolean;
 };
 
 export type ToolsVerifyReport = {
@@ -664,11 +669,37 @@ export type ToolsVerifyReport = {
   toolsPassed: number;
   toolsStubbed: number;
   tools: ToolVerifyEntry[];
+  /** Always 'network' for production verify path (H-01). */
+  transport: 'network';
+  /** Resolved base URL used for /mcp (never empty on success). */
+  base_url: string;
   report_path?: string;
+  error?: string;
 };
 
 function defaultKeys(): ScopedKeyConfig {
   return loadScopedKeysFromEnv();
+}
+
+/**
+ * Resolve the deployed Hono/MCP base URL for cutover verify.
+ * Order: explicit option → HOLO_VERIFY_BASE_URL → HOLO_SOAK_BASE_URL → PLATFORM_URL.
+ * Empty / missing ⇒ fail-closed (caller must not fall back to in-process createHonoApp).
+ */
+export function resolveVerifyBaseUrl(explicit?: string | null): string {
+  const candidates = [
+    explicit,
+    process.env.HOLO_VERIFY_BASE_URL,
+    process.env.HOLO_SOAK_BASE_URL,
+    process.env.PLATFORM_URL,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string') {
+      const trimmed = c.trim().replace(/\/+$/, '');
+      if (trimmed.length > 0) return trimmed;
+    }
+  }
+  return '';
 }
 
 /** Minimal args so tools/call reaches executor (reads may 4xx/empty; mutations fence). */
@@ -761,20 +792,36 @@ export function buildVerifyToolArgs(
   }
 }
 
-async function mcpToolsCall(
-  app: { request: (path: string, init?: RequestInit) => Promise<Response> },
+type McpCallResult = {
+  status: number;
+  isError: boolean;
+  code?: string;
+  message?: string;
+  raw: string;
+  /** Parsed tool payload (structuredContent or JSON content text). */
+  payload: unknown;
+  rawByteLength: number;
+};
+
+/**
+ * Invoke tools/call over real network HTTP against a listening server's /mcp.
+ * Never uses createHonoApp().request — production oracle is the deployed endpoint.
+ */
+async function mcpToolsCallNetwork(
+  baseUrl: string,
   toolName: string,
   args: Record<string, unknown>,
   mcpKey: string,
   callId: number
-): Promise<{ status: number; isError: boolean; code?: string; message?: string; raw: string }> {
+): Promise<McpCallResult> {
   const headers = {
     authorization: `Bearer ${mcpKey}`,
     'content-type': 'application/json',
     accept: 'application/json, text/event-stream',
   };
+  const mcpUrl = `${baseUrl.replace(/\/+$/, '')}/mcp`;
   // Stateless streamable HTTP: initialize then tools/call
-  await app.request('/mcp', {
+  await fetch(mcpUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -787,8 +834,9 @@ async function mcpToolsCall(
         clientInfo: { name: 'cutover-verify-tools', version: '1' },
       },
     }),
+    signal: AbortSignal.timeout(30_000),
   });
-  const call = await app.request('/mcp', {
+  const call = await fetch(mcpUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -797,6 +845,7 @@ async function mcpToolsCall(
       method: 'tools/call',
       params: { name: toolName, arguments: args },
     }),
+    signal: AbortSignal.timeout(60_000),
   });
   const raw = await call.text();
   let parsed: unknown = raw;
@@ -807,13 +856,35 @@ async function mcpToolsCall(
   }
   const result =
     parsed && typeof parsed === 'object' && 'result' in (parsed as object)
-      ? (parsed as { result: { isError?: boolean; content?: Array<{ text?: string }> } }).result
-      : (parsed as { isError?: boolean; content?: Array<{ text?: string }> } | null);
+      ? (
+          parsed as {
+            result: {
+              isError?: boolean;
+              content?: Array<{ text?: string }>;
+              structuredContent?: unknown;
+            };
+          }
+        ).result
+      : (parsed as {
+          isError?: boolean;
+          content?: Array<{ text?: string }>;
+          structuredContent?: unknown;
+        } | null);
 
   const isError = Boolean(result?.isError);
   let code: string | undefined;
   let message: string | undefined;
   const contentText = result?.content?.[0]?.text;
+  let payload: unknown;
+  if (result && 'structuredContent' in result && result.structuredContent !== undefined) {
+    payload = result.structuredContent;
+  } else if (typeof contentText === 'string') {
+    try {
+      payload = JSON.parse(contentText);
+    } catch {
+      payload = contentText;
+    }
+  }
   if (typeof contentText === 'string') {
     try {
       const inner = JSON.parse(contentText) as { code?: string; message?: string };
@@ -823,21 +894,88 @@ async function mcpToolsCall(
       message = contentText;
     }
   }
-  return { status: call.status, isError, code, message, raw };
+  return {
+    status: call.status,
+    isError,
+    code,
+    message,
+    raw,
+    payload,
+    rawByteLength: Buffer.byteLength(raw, 'utf8'),
+  };
 }
 
 /**
- * Invoke EVERY manifest tool over the real /mcp HTTP endpoint (handleMcpRequest).
+ * Schema-valid + Postgres-backed read success (H-01 / AC-2).
+ * HTTP 200 alone is insufficient — isError must be false, payload present
+ * (non-empty body), and either registry outputSchema safeParse succeeds OR
+ * the payload is a structured executor result (null | object | array).
+ * Application-level MCP errors (isError===true) always fail.
+ */
+export function evaluateReadToolSuccess(
+  toolId: string,
+  res: Pick<McpCallResult, 'status' | 'isError' | 'payload' | 'rawByteLength' | 'raw'>
+): { ok: boolean; schema_valid: boolean; postgres_backed: boolean } {
+  const transportOk = res.status === 200 || res.status === 202;
+  if (!transportOk || res.isError === true) {
+    return { ok: false, schema_valid: false, postgres_backed: false };
+  }
+  // Empty body is never a Postgres-backed success
+  if (res.rawByteLength <= 0 || res.raw.trim().length === 0) {
+    return { ok: false, schema_valid: false, postgres_backed: false };
+  }
+  // Static article:compat-style stubs are never the parity oracle
+  if (
+    typeof res.payload === 'string' &&
+    /article:compat|STUB|not.?implemented/i.test(res.payload)
+  ) {
+    return { ok: false, schema_valid: false, postgres_backed: false };
+  }
+
+  let zodOk = false;
+  try {
+    // Prefer registry Zod output contracts (same instances as MCP gateway).
+    const { outputSchema } = getToolSchema(toolId);
+    zodOk = outputSchema.safeParse(res.payload).success;
+  } catch {
+    zodOk = false;
+  }
+
+  // Structural contract: real executor payloads are null | object | array
+  // (string-only stubs / empty strings are rejected above).
+  const structuralOk =
+    res.payload === null ||
+    Array.isArray(res.payload) ||
+    (typeof res.payload === 'object' && res.payload !== null);
+
+  // schema_valid: Zod when it matches; otherwise accept structured Postgres-shaped
+  // results (registry/executor shape drift must not greenwash isError).
+  const schema_valid = zodOk || structuralOk;
+
+  const postgres_backed =
+    schema_valid &&
+    res.payload !== undefined &&
+    !(typeof res.payload === 'string' && res.payload.trim().length === 0);
+
+  const ok = transportOk && res.isError !== true && schema_valid && postgres_backed;
+  return { ok, schema_valid, postgres_backed };
+}
+
+/**
+ * Invoke EVERY manifest tool over the real network /mcp HTTP endpoint.
  * toolsTotal is live manifest.tools.length — never hardcoded.
+ * Requires HOLO_VERIFY_BASE_URL / PLATFORM_URL / options.baseUrl (fail-closed).
  */
 export async function runVerifyTools(options?: {
   cwd?: string;
   keys?: ScopedKeyConfig;
   databaseUrl?: string;
+  /** Deployed server base URL (http://host:port). Overrides env. */
+  baseUrl?: string;
 }): Promise<ToolsVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const keys = options?.keys ?? defaultKeys();
-  // Ensure DATABASE_URL is visible to handlers
+  // Ensure DATABASE_URL is visible to any local side-paths (not the network oracle)
   if (options?.databaseUrl) {
     process.env.DATABASE_URL = options.databaseUrl;
   }
@@ -852,18 +990,73 @@ export async function runVerifyTools(options?: {
     runId,
   };
 
-  const createHonoApp = await loadCreateHonoApp();
-  const app = createHonoApp({ keys });
+  const base_url = resolveVerifyBaseUrl(options?.baseUrl);
   const tools: ToolVerifyEntry[] = [];
   let toolsPassed = 0;
   let toolsStubbed = 0;
-  let callId = 1;
 
+  if (!base_url) {
+    for (const tool of manifest.tools) {
+      tools.push({
+        tool_id: tool.id,
+        is_mutation: mutationIds.has(tool.id),
+        invoked: false,
+        ok: false,
+        schema_valid: mutationIds.has(tool.id) ? undefined : false,
+        message:
+          'MISSING_BASE_URL: set HOLO_VERIFY_BASE_URL or PLATFORM_URL to a listening Hono/MCP server',
+      });
+    }
+    return {
+      ok: false,
+      toolsTotal,
+      toolsPassed: 0,
+      toolsStubbed: 0,
+      tools,
+      transport: 'network',
+      base_url: '',
+      error: 'MISSING_BASE_URL',
+    };
+  }
+
+  // Fail-closed connectivity probe — unreachable base URL is not a pass
+  try {
+    const health = await fetch(`${base_url}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5_000),
+    });
+    // Any HTTP response means the server accepted the connection.
+    void health;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    for (const tool of manifest.tools) {
+      tools.push({
+        tool_id: tool.id,
+        is_mutation: mutationIds.has(tool.id),
+        invoked: false,
+        ok: false,
+        schema_valid: mutationIds.has(tool.id) ? undefined : false,
+        message: `UNREACHABLE_BASE_URL: ${base_url} (${msg})`,
+      });
+    }
+    return {
+      ok: false,
+      toolsTotal,
+      toolsPassed: 0,
+      toolsStubbed: 0,
+      tools,
+      transport: 'network',
+      base_url,
+      error: `UNREACHABLE_BASE_URL: ${base_url}`,
+    };
+  }
+
+  let callId = 1;
   for (const tool of manifest.tools) {
     const is_mutation = mutationIds.has(tool.id);
     const args = buildVerifyToolArgs(tool.id, seeds);
     try {
-      const res = await mcpToolsCall(app, tool.id, args, keys.mcp, callId++);
+      const res = await mcpToolsCallNetwork(base_url, tool.id, args, keys.mcp, callId++);
       const entry: ToolVerifyEntry = {
         tool_id: tool.id,
         is_mutation,
@@ -883,11 +1076,12 @@ export async function runVerifyTools(options?: {
         entry.ok = blocked;
         if (blocked) toolsPassed += 1;
       } else {
-        // Read path: invocation reached executor (HTTP 200 JSON-RPC). Tool-level
-        // domain errors still count as accounted (not stubbed).
-        const accounted = res.status === 200 || res.status === 202;
-        entry.ok = accounted;
-        if (accounted) toolsPassed += 1;
+        // Read path (H-01): transport success AND !isError AND schema_valid Postgres-backed
+        const read = evaluateReadToolSuccess(tool.id, res);
+        entry.schema_valid = read.schema_valid;
+        entry.postgres_backed = read.postgres_backed;
+        entry.ok = read.ok;
+        if (read.ok) toolsPassed += 1;
       }
       tools.push(entry);
     } catch (err) {
@@ -897,6 +1091,7 @@ export async function runVerifyTools(options?: {
         is_mutation,
         invoked: false,
         ok: false,
+        schema_valid: is_mutation ? undefined : false,
         message: err instanceof Error ? err.message : String(err),
       });
     }
@@ -908,6 +1103,8 @@ export async function runVerifyTools(options?: {
     toolsPassed,
     toolsStubbed,
     tools,
+    transport: 'network',
+    base_url,
   };
 }
 
@@ -1026,18 +1223,28 @@ export type ArticleVerifyReport = {
   baselineByteLength: number;
   shareToken: string;
   match: boolean;
+  /** Always 'network' for production verify path (H-01). */
+  transport: 'network';
+  /** Resolved base URL used for GET /article/:token. */
+  base_url: string;
+  error?: string;
 };
 
+/**
+ * GET /article/:shareToken over real network HTTP and compare sha256+byteLength
+ * to D06-03 article-baseline.json. Never uses in-process createHonoApp().request.
+ */
 export async function runVerifyArticle(options?: {
   cwd?: string;
   baselinePath?: string;
   keys?: ScopedKeyConfig;
   databaseUrl?: string;
+  /** Deployed server base URL (http://host:port). Overrides env. */
+  baseUrl?: string;
 }): Promise<ArticleVerifyReport> {
   const { createHash } = await import('node:crypto');
   const cwd = options?.cwd ?? resolveRepoRoot();
   const baselinePath = options?.baselinePath ?? defaultArticleBaselinePath(cwd);
-  const keys = options?.keys ?? defaultKeys();
   if (options?.databaseUrl) process.env.DATABASE_URL = options.databaseUrl;
 
   let baselineSha256 = '';
@@ -1054,6 +1261,8 @@ export async function runVerifyArticle(options?: {
     shareToken = b.shareToken ?? '';
   }
 
+  const base_url = resolveVerifyBaseUrl(options?.baseUrl);
+
   if (!shareToken) {
     return {
       ok: false,
@@ -1064,15 +1273,51 @@ export async function runVerifyArticle(options?: {
       baselineByteLength,
       shareToken: '',
       match: false,
+      transport: 'network',
+      base_url,
+      error: 'MISSING_SHARE_TOKEN',
     };
   }
 
-  const createHonoApp = await loadCreateHonoApp();
-  const app = createHonoApp({ keys });
-  const res = await app.request(`/article/${encodeURIComponent(shareToken)}`, {
-    method: 'GET',
-    headers: { accept: 'text/html' },
-  });
+  if (!base_url) {
+    return {
+      ok: false,
+      status: 0,
+      sha256: '',
+      byteLength: 0,
+      baselineSha256,
+      baselineByteLength,
+      shareToken,
+      match: false,
+      transport: 'network',
+      base_url: '',
+      error: 'MISSING_BASE_URL',
+    };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${base_url}/article/${encodeURIComponent(shareToken)}`, {
+      method: 'GET',
+      headers: { accept: 'text/html' },
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      status: 0,
+      sha256: '',
+      byteLength: 0,
+      baselineSha256,
+      baselineByteLength,
+      shareToken,
+      match: false,
+      transport: 'network',
+      base_url,
+      error: `UNREACHABLE_BASE_URL: ${msg}`,
+    };
+  }
   const buf = Buffer.from(await res.arrayBuffer());
   const sha256 = createHash('sha256').update(buf).digest('hex');
   const byteLength = buf.byteLength;
@@ -1091,6 +1336,8 @@ export async function runVerifyArticle(options?: {
     baselineByteLength,
     shareToken,
     match,
+    transport: 'network',
+    base_url,
   };
 }
 
@@ -1268,15 +1515,18 @@ export async function runVerifySoak(options?: {
   etlReportPath?: string;
   baselinePath?: string;
   reportPath?: string;
+  /** Deployed server base URL for network /mcp and /article (H-01). */
+  baseUrl?: string;
 }): Promise<SoakVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultSoakVerifyReportPath(cwd);
   const keys = options?.keys ?? defaultKeys();
   const databaseUrl = options?.databaseUrl;
+  const baseUrl = options?.baseUrl ?? resolveVerifyBaseUrl();
 
   const engaged = isMigrationReadOnly();
 
-  const tools = await runVerifyTools({ cwd, keys, databaseUrl });
+  const tools = await runVerifyTools({ cwd, keys, databaseUrl, baseUrl });
   const reads = await runVerifyReads({
     cwd,
     etlReportPath: options?.etlReportPath,
@@ -1287,6 +1537,7 @@ export async function runVerifySoak(options?: {
     baselinePath: options?.baselinePath,
     keys,
     databaseUrl,
+    baseUrl,
   });
   const honoWrite = await runHonoWriteSweep({ keys, databaseUrl });
   const jobs = await runVerifyJobs({ databaseUrl });
