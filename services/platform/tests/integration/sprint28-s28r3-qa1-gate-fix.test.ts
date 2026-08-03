@@ -222,7 +222,7 @@ describe('GATE-FIX-S28R3-QA1 PLATFORM_IT host-accessible volume resolve', () => 
 
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',

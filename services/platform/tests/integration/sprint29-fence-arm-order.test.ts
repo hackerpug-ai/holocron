@@ -295,12 +295,15 @@ describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
 
     // Audit latest should match post-confirmation arm when present
     try {
-      const latest = (await client.query(anyApi.migrationFence.audit.latestFenceArmed, {})) as {
-        fenceArmedAtMs?: number;
-      } | null;
-      evidence('ac-5-audit-latest.json', latest);
-      if (latest && typeof latest.fenceArmedAtMs === 'number') {
-        expect(latest.fenceArmedAtMs).toBe(rearm.fence_armed_at);
+      const latestFenceArmed = anyApi.migrationFence?.audit?.latestFenceArmed;
+      if (latestFenceArmed) {
+        const latest = (await client.query(latestFenceArmed, {})) as {
+          fenceArmedAtMs?: number;
+        } | null;
+        evidence('ac-5-audit-latest.json', latest);
+        if (latest && typeof latest.fenceArmedAtMs === 'number') {
+          expect(latest.fenceArmedAtMs).toBe(rearm.fence_armed_at);
+        }
       }
     } catch {
       // audit module optional

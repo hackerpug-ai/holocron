@@ -43,7 +43,9 @@ function holoJson(cmd: string[]): any {
   const lines = out.split('\n');
   const candidates: number[] = [];
   for (let i = 0; i < lines.length; i += 1) {
-    const t = lines[i].trim();
+    const line = lines[i];
+    if (line === undefined) continue;
+    const t = line.trim();
     if (t === '{' || t.startsWith('{')) candidates.push(i);
   }
   let lastErr: unknown = null;

@@ -12,6 +12,12 @@ const itLive = PLATFORM_IT ? it : it.skip;
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
 const KEYS = { rn: 's20-rn', mcp: 's20-mcp', control: 's20-control' };
 
+type ChatRunBody = {
+  runId: string;
+  replay?: boolean;
+  conversationId?: string;
+};
+
 describe('Sprint 20 chat/Zero boundary', () => {
   let sql: Sql | undefined;
   let conversationId: string | undefined;
@@ -56,7 +62,7 @@ describe('Sprint 20 chat/Zero boundary', () => {
       }),
     });
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body = (await response.json()) as ChatRunBody;
     expect(body.runId).toMatch(/[0-9a-f-]{36}/);
     const replayResponse = await app.request('/api/chat-runs', {
       method: 'POST',
@@ -68,7 +74,8 @@ describe('Sprint 20 chat/Zero boundary', () => {
       }),
     });
     expect(replayResponse.status).toBe(200);
-    expect((await replayResponse.json()).replay).toBe(true);
+    const replayBody = (await replayResponse.json()) as ChatRunBody;
+    expect(replayBody.replay).toBe(true);
     const messages = await sql`
       SELECT role, content, conversation_id AS "conversationId"
       FROM chat_messages WHERE conversation_id = ${conversationId}
@@ -97,8 +104,9 @@ describe('Sprint 20 chat/Zero boundary', () => {
       });
 
       expect(response.status).toBe(200);
-      const body = (await response.json()) as { conversationId?: string };
+      const body = (await response.json()) as ChatRunBody;
       expect(body.conversationId).toMatch(/[0-9a-f-]{36}/);
+      if (!body.conversationId) throw new Error('chat run response omitted conversationId');
       createdConversationId = body.conversationId;
 
       const [conversation] = await sql`

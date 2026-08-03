@@ -61,6 +61,14 @@ export interface ParallelUrlReadOptions {
   maxContentLength?: number;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function firstNonEmptyString(values: unknown[]): string | undefined {
+  return values.find((value): value is string => typeof value === 'string' && value.length > 0);
+}
+
 /**
  * Read a single URL using Jina Reader API
  *
@@ -120,10 +128,11 @@ export async function readUrlWithJina(
     // Extract title from first line if it looks like a title
     let title: string | undefined;
     const lines = fullContent.split('\n');
-    if (lines.length > 0 && lines[0].startsWith('# ')) {
-      title = lines[0].substring(2).trim();
-    } else if (lines.length > 0 && lines[0].startsWith('Title: ')) {
-      title = lines[0].substring(7).trim();
+    const firstLine = lines[0];
+    if (firstLine?.startsWith('# ')) {
+      title = firstLine.substring(2).trim();
+    } else if (firstLine?.startsWith('Title: ')) {
+      title = firstLine.substring(7).trim();
     }
 
     // Truncate content to maxContentLength
@@ -207,35 +216,40 @@ export async function readUrlWithJinaAndLinks(
     }
 
     const data = await response.json();
+    const root = isRecord(data) ? data : undefined;
+    const nested = isRecord(root?.data) ? root.data : undefined;
 
     // Extract content
-    const fullContent = data.data?.content || data.content || '';
+    const contentValue = nested?.content || root?.content;
+    const fullContent = typeof contentValue === 'string' ? contentValue : '';
     const content = fullContent.slice(0, maxContentLength);
 
     // Extract title
-    const title = data.data?.title || data.title || undefined;
+    const title = firstNonEmptyString([nested?.title, root?.title]);
 
     // Extract links from the response
     // Jina Reader returns links as { anchorText: url, ... } object map
-    const linksData = data.data?.links || data.links;
+    const linksData = nested?.links || root?.links;
 
     // Handle different link formats
-    let rawLinks: any[] = [];
+    let rawLinks: unknown[] = [];
     if (Array.isArray(linksData)) {
       // Links as array of objects: [{ text, url }, ...]
       rawLinks = linksData;
-    } else if (linksData && typeof linksData === 'object') {
+    } else if (isRecord(linksData)) {
       // Links as object map: { anchorText: url, ... }
       // Convert to array format
       rawLinks = Object.entries(linksData).map(([text, url]) => ({ text, url }));
     }
 
     const links: ExtractedLink[] = rawLinks
-      .map((link: any) => ({
-        text: link.text || link.anchorText || link.title || '',
-        url: link.url || link.href || '',
-      }))
-      .filter((link: ExtractedLink) => link.url);
+      .map((link): ExtractedLink | null => {
+        if (!isRecord(link)) return null;
+        const text = firstNonEmptyString([link.text, link.anchorText, link.title]) ?? '';
+        const linkUrl = firstNonEmptyString([link.url, link.href]);
+        return linkUrl ? { text, url: linkUrl } : null;
+      })
+      .filter((link): link is ExtractedLink => link !== null);
 
     return {
       url,
@@ -289,6 +303,7 @@ export async function executeParallelUrlRead(
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i];
+    if (!batch) continue;
     console.log(
       `[executeParallelUrlRead] Processing batch ${i + 1}/${batches.length} (${batch.length} URLs)`
     );

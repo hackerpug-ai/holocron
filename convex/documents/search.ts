@@ -78,7 +78,7 @@ export const hybridSearch = action({
     const FTS_WEIGHT = 0.3;
 
     // Score vector results - normalize to 0-1 range
-    const maxVectorScore = vectorResults.length > 0 ? vectorResults[0].score : 1;
+    const maxVectorScore = vectorResults[0]?.score ?? 1;
 
     for (const doc of vectorResults) {
       const id = doc._id.toString();

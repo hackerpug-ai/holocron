@@ -119,6 +119,8 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
       error_code?: string | null;
     } | null;
   }> {
+    if (!sql) throw new Error('Postgres is required');
+    const activeSql = sql;
     const requestId = `s25-f1-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     requestIds.push(requestId);
     const savedEnv: Record<string, string | undefined> = {};
@@ -139,6 +141,7 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
       expect(create.status).toBe(200);
       const body = (await create.json()) as { runId?: string; conversationId?: string };
       expect(body.runId).toMatch(/[0-9a-f-]{36}/);
+      if (!body.runId) throw new Error('chat run response omitted runId');
       if (body.conversationId) conversationIds.push(body.conversationId);
 
       const deadline = Date.now() + 30_000;
@@ -149,7 +152,14 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
         error_code?: string | null;
       } | null = null;
       while (Date.now() < deadline) {
-        const rows = await sql!`
+        const rows = await activeSql<
+          Array<{
+            status: string;
+            final_text: string | null;
+            error: string | null;
+            error_code: string | null;
+          }>
+        >`
           SELECT status, final_text, error, error_code
           FROM chat_runs WHERE id = ${body.runId}::uuid
         `;
@@ -157,7 +167,7 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
         if (row && ['completed', 'failed', 'blocked'].includes(row.status)) break;
         await new Promise((r) => setTimeout(r, 50));
       }
-      return { runId: body.runId!, row };
+      return { runId: body.runId, row };
     } finally {
       for (const [k, v] of Object.entries(savedEnv)) {
         if (v === undefined) delete process.env[k];

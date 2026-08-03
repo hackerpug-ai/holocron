@@ -8,7 +8,7 @@
  * remains a protected placeholder until Streamable HTTP lands.
  */
 
-import { Hono } from 'hono';
+import { type Handler, Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { upsertFileObject } from '../blob/file-objects.ts';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
@@ -1063,7 +1063,7 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
-  const mcpHandler = async (c: Parameters<HonoApp['all']>[1]) => {
+  const mcpHandler: Handler<{ Variables: HonoAppVariables }> = async (c) => {
     const origin = c.req.header('Origin');
     if (origin && origin !== new URL(c.req.url).origin) {
       return c.json(

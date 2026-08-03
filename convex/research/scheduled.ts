@@ -242,10 +242,8 @@ export const processDeepResearchIteration = internalAction({
       const researchMode = (session as any).researchMode as ResearchMode | undefined;
 
       // Get gaps from previous iterations for query refinement
-      const previousGaps =
-        context.previousIterations.length > 0
-          ? context.previousIterations[context.previousIterations.length - 1].gaps
-          : [];
+      const previousIteration = context.previousIterations[context.previousIterations.length - 1];
+      const previousGaps = previousIteration?.gaps ?? [];
 
       // ─── PHASE 1: EXPAND QUERIES ───────────────────────────────────────
       await updateLoadingCardSteps(

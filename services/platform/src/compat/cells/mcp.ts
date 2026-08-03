@@ -7,6 +7,8 @@
  */
 
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { noopObserve } from '@mastra/core/tools';
 import { MCPClient } from '@mastra/mcp';
 
 export interface McpCellResult {
@@ -18,7 +20,7 @@ export interface McpCellResult {
 
 export async function runMcpCell(): Promise<McpCellResult> {
   // Resolve relative to this file's directory (not CWD)
-  const serverEntry = resolve(import.meta.dir, 'mcp-server-entry.ts');
+  const serverEntry = resolve(fileURLToPath(new URL('.', import.meta.url)), 'mcp-server-entry.ts');
 
   const mcpClient = new MCPClient({
     id: 'compat-mcp-client',
@@ -65,7 +67,10 @@ export async function runMcpCell(): Promise<McpCellResult> {
     }
 
     // Call the tool — real execute over a real transport
-    const result = await echoTool.execute({ message: 'mcp-transport-ok' });
+    const result = await echoTool.execute(
+      { message: 'mcp-transport-ok' },
+      { observe: noopObserve }
+    );
 
     await mcpClient.disconnect();
 

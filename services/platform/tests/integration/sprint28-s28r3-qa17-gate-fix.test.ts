@@ -5,12 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import {
-  ACCOUNT_ID,
-  baseHarnessEnv,
-  type HarnessPaths,
-  makeHarness,
-} from './fixtures/qa13-harness';
+import { baseHarnessEnv, type HarnessPaths, makeHarness } from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const PROD_FIRE = resolve(REPO_ROOT, 'scripts/run-fire-drill-on-fresh-target.sh');
@@ -32,7 +27,11 @@ function redactForEvidence(text: string): string {
     .replace(/\b(sk-[a-z0-9_-]{10,}|xai-[a-z0-9]{10,}|lin_api_[a-z0-9]+)\b/gi, '[redacted-token]')
     .replace(/^[A-Z][A-Z0-9_]{2,}=.+$/gm, (line) => {
       // Drop ambient KEY=value env dump lines entirely.
-      if (/^(SHELL|PATH|HOME|USER|OPENAI_|XAI_|ANTHROPIC_|JINA_|CONVEX_|CMUX_|OTEL_|SSH_|AWS_|NPM_)/.test(line)) {
+      if (
+        /^(SHELL|PATH|HOME|USER|OPENAI_|XAI_|ANTHROPIC_|JINA_|CONVEX_|CMUX_|OTEL_|SSH_|AWS_|NPM_)/.test(
+          line
+        )
+      ) {
         return '[redacted-env-line]';
       }
       return line;
@@ -150,8 +149,10 @@ describe('GATE-FIX-S28R3-QA17 harness still works after production seam strip', 
     });
     expect(run.status).toBe(0);
     const m = `${run.stdout}${run.stderr}`.match(/wrote RO proof attestation:\s+(\S+)/);
-    expect(m?.[1] && existsSync(m[1])).toBeTruthy();
-    const proof = JSON.parse(readFileSync(m![1]!, 'utf8')) as Record<string, unknown>;
+    const proofPath = m?.[1];
+    expect(proofPath && existsSync(proofPath)).toBeTruthy();
+    if (!proofPath) throw new Error('RO proof attestation path was not emitted');
+    const proof = JSON.parse(readFileSync(proofPath, 'utf8')) as Record<string, unknown>;
     expect(proof.scope_probes_bound).toBe(true);
     expect(proof.scope_probes_versioned_config).toBe('scripts/lib/r2-scope-probes.json');
   });
@@ -187,7 +188,7 @@ r2_ro_exec_isolated "FOO=bar" "OPENAI_API_KEY=sk-should-never-appear"
 rc=$?
 set -e
 echo "RC=$rc"
-exit "\$rc"
+exit "$rc"
 `;
     const run = spawnSync('bash', ['-c', script], {
       cwd: REPO_ROOT,
@@ -226,7 +227,12 @@ printf '%s\\n' \
   'FOO=bar' | r2_ro_filter_safe_log
 `,
       ],
-      { cwd: REPO_ROOT, encoding: 'utf8', timeout: 10_000, env: { PATH: '/usr/bin:/bin', HOME: process.env.HOME } }
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { PATH: '/usr/bin:/bin', HOME: process.env.HOME },
+      }
     );
     const out = run.stdout ?? '';
     writeEv('filter-safe-log.txt', redactForEvidence(out));

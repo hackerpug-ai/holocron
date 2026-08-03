@@ -290,12 +290,15 @@ export function parseBackupStopForLabel(
   }
   const m = want.match(/^(\d{8})-(\d{6})[FDI]/);
   if (m) {
-    const y = m[1].slice(0, 4);
-    const mo = m[1].slice(4, 6);
-    const d = m[1].slice(6, 8);
-    const hh = m[2].slice(0, 2);
-    const mm = m[2].slice(2, 4);
-    const ss = m[2].slice(4, 6);
+    const date = m[1];
+    const time = m[2];
+    if (!date || !time) return null;
+    const y = date.slice(0, 4);
+    const mo = date.slice(4, 6);
+    const d = date.slice(6, 8);
+    const hh = time.slice(0, 2);
+    const mm = time.slice(2, 4);
+    const ss = time.slice(4, 6);
     const dt = new Date(`${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`);
     if (!Number.isNaN(dt.getTime())) {
       return {
@@ -1674,7 +1677,7 @@ export function emitLiveRecoveryBaseline(
         { bucket: cfg.bucketName }
       );
     }
-    restic = listed.ids[listed.ids.length - 1];
+    restic = listed.ids[listed.ids.length - 1]!;
   }
 
   // Fail closed on ghost/unlistable before any R2 upload (GATE-FIX-QA2 AC-2).

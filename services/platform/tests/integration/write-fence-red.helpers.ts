@@ -38,7 +38,7 @@ export type HonoWriteRoute = {
 export type RouteRequest = {
   path: string;
   method: string;
-  body: BodyInit | undefined;
+  body: string | Uint8Array | undefined;
   headers: Record<string, string>;
 };
 

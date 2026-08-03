@@ -262,8 +262,7 @@ export const cleanupIrrelevantTwitter = internalAction({
     const kept: string[] = [];
     const removed: string[] = [];
 
-    for (let i = 0; i < itemsToScore.length; i++) {
-      const item = itemsToScore[i];
+    for (const [i, item] of itemsToScore.entries()) {
       const scoreResult = allScores[i];
 
       if (scoreResult && scoreResult.score < RELEVANCE_THRESHOLD) {

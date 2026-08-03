@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { upsertFileObject as upsertSharedFileObject } from '../blob/file-objects.ts';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
 import { detectMimeFromBuffer, isSha256Hex, sha256Hex } from '../blob/utils.ts';
-import { createSql, type Sql } from '../db/client.ts';
+import { createSql, type Sql, type TransactionSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { deterministicUuidV7 } from '../etl/deterministic-uuidv7.ts';
 
@@ -201,10 +201,11 @@ export async function prepareUploadPut(
 
 async function ensureTargetExists(sql: Sql, kind: UploadInitInput['kind'], targetId: string) {
   const table = kind === 'improvement_image' ? 'improvement_requests' : 'voice_sessions';
-  const rows = await sql.unsafe(`SELECT id::text AS id FROM "${table}" WHERE "id" = $1::uuid`, [
-    targetId,
-  ]);
-  if (!(rows as Array<{ id: string }>)[0]?.id) {
+  const rows = await sql.unsafe<Array<{ id: string }>>(
+    `SELECT id::text AS id FROM "${table}" WHERE "id" = $1::uuid`,
+    [targetId]
+  );
+  if (!rows[0]?.id) {
     throw new UploadServiceError(404, `upload target not found: ${kind}:${targetId}`);
   }
 }
@@ -408,7 +409,7 @@ export async function putUploadBytes(
 }
 
 async function attachUpload(
-  sql: Sql,
+  sql: Sql | TransactionSql,
   kind: string,
   targetId: string,
   blobId: string,
@@ -523,13 +524,15 @@ export async function finalizeUploadIntent(
           },
         });
         const fileObjectId = fileObject.id;
-        const attachmentId = await attachUpload(
-          tx,
-          String(row.kind),
-          String(row.target_id),
-          stored.sha256,
-          fileObjectId
-        );
+        const kind = row.kind;
+        const targetId = row.target_id;
+        if (
+          (kind !== 'improvement_image' && kind !== 'voice_artifact') ||
+          typeof targetId !== 'string'
+        ) {
+          throw new UploadServiceError(422, `invalid persisted upload target for ${uploadId}`);
+        }
+        const attachmentId = await attachUpload(tx, kind, targetId, stored.sha256, fileObjectId);
         const payload = {
           ok: true,
           uploadId,
@@ -546,7 +549,7 @@ export async function finalizeUploadIntent(
             actual_mime_type = ${actualMimeType},
             result_blob_id = ${stored.sha256},
             result_file_object_id = ${fileObjectId},
-            result_json = ${tx.json(payload)},
+            result_json = ${tx.json(toSqlJsonValue(payload))},
             status = 'finalized',
             finalized_at = now(),
             updated_at = now()

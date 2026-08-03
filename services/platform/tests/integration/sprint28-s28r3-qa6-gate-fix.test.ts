@@ -358,7 +358,7 @@ describe('GATE-FIX-S28R3-QA6 live seams (PLATFORM_IT)', () => {
       const pgPort = String(64600 + (Date.now() % 500));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',

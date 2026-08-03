@@ -213,17 +213,19 @@ async function runGeneration(
 
   // Stagger scheduling to avoid thundering-herd on ElevenLabs
   let staggerIndex = 0;
-  for (let i = 0; i < segmentIds.length; i++) {
+  for (const [i, segmentId] of segmentIds.entries()) {
     if (completedIndexes.has(i)) continue; // Already generated — skip
+    const paragraph = paragraphs[i];
+    if (!paragraph) continue;
     await ctx.scheduler.runAfter(
       staggerIndex * STAGGER_MS,
       internal.audio.actions.generateSegment,
       {
-        segmentId: segmentIds[i],
-        text: paragraphs[i].text,
+        segmentId,
+        text: paragraph.text,
         voiceId,
-        previous_text: i > 0 ? paragraphs[i - 1].text : undefined,
-        next_text: i < paragraphs.length - 1 ? paragraphs[i + 1].text : undefined,
+        previous_text: paragraphs[i - 1]?.text,
+        next_text: paragraphs[i + 1]?.text,
       }
     );
     staggerIndex++;
@@ -312,13 +314,14 @@ export const retryFailedSegments = action({
       );
       if (paraIndex === -1) continue;
       const para = paragraphs[paraIndex];
+      if (!para) continue;
 
       await ctx.scheduler.runAfter(0, internal.audio.actions.generateSegment, {
         segmentId: segment._id,
         text: para.text,
         voiceId,
-        previous_text: paraIndex > 0 ? paragraphs[paraIndex - 1].text : undefined,
-        next_text: paraIndex < paragraphs.length - 1 ? paragraphs[paraIndex + 1].text : undefined,
+        previous_text: paragraphs[paraIndex - 1]?.text,
+        next_text: paragraphs[paraIndex + 1]?.text,
       });
       retriedCount++;
     }

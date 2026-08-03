@@ -553,7 +553,6 @@ export function extractBackupTimeWindow(infoJson: string): {
         const row = b as {
           label?: string;
           timestamp?: { start?: number; stop?: number };
-          timestamp?: { start?: number; stop?: number };
           time?: string;
         };
         if (row.label) labels.push(row.label);
@@ -583,12 +582,15 @@ export function extractBackupTimeWindow(infoJson: string): {
     const m = infoJson.matchAll(/\b(\d{8})-(\d{6})[FDI]/g);
     for (const match of m) {
       labels.push(match[0]);
-      const y = match[1].slice(0, 4);
-      const mo = match[1].slice(4, 6);
-      const d = match[1].slice(6, 8);
-      const hh = match[2].slice(0, 2);
-      const mm = match[2].slice(2, 4);
-      const ss = match[2].slice(4, 6);
+      const date = match[1];
+      const time = match[2];
+      if (!date || !time) continue;
+      const y = date.slice(0, 4);
+      const mo = date.slice(4, 6);
+      const d = date.slice(6, 8);
+      const hh = time.slice(0, 2);
+      const mm = time.slice(2, 4);
+      const ss = time.slice(4, 6);
       const dt = new Date(`${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`);
       if (!Number.isNaN(dt.getTime())) {
         if (!earliest || dt < earliest) earliest = dt;

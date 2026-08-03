@@ -240,6 +240,7 @@ export const getFeedItemUrl = query({
 
     // Get the first content item to extract URL
     const firstContentId = feedItem.itemIds[0];
+    if (!firstContentId) return null;
     const content = await ctx.db.get(firstContentId);
 
     return content?.url ?? null;

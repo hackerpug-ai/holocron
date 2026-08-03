@@ -58,7 +58,10 @@ export const fireDrillMonthlyTemplateDefinition: MissionTemplateDefinition = {
   // On-demand only — MissionTriggerSchema.strict() rejects schedule triggers.
   trigger: { kind: 'on-demand' },
   // Operator checklist; monthly cadence lives in launchd, not here.
-  steps: [...FIRE_DRILL_MONTHLY_STEPS],
+  steps: FIRE_DRILL_MONTHLY_STEPS.map((step) => ({
+    ...step,
+    artifacts: [...step.artifacts],
+  })),
   stageGraph: [
     {
       id: 'execute',

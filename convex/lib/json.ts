@@ -18,8 +18,9 @@ export function stripMarkdownCodeBlock(text: string): string {
 
   // Match ```json ... ``` or ``` ... ```
   const codeBlockMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
-  if (codeBlockMatch) {
-    return codeBlockMatch[1].trim();
+  const codeBlockContent = codeBlockMatch?.[1];
+  if (codeBlockContent !== undefined) {
+    return codeBlockContent.trim();
   }
 
   return trimmed;

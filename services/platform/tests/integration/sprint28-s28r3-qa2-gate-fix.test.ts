@@ -234,7 +234,8 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     let m: RegExpExecArray | null;
     while ((m = re.exec(hg)) !== null) {
       const n = Number(m[1]);
-      if (!fenced.has(n)) fenced.set(n, m[2].replace(/\n$/, ''));
+      const command = m[2];
+      if (command !== undefined && !fenced.has(n)) fenced.set(n, command.replace(/\n$/, ''));
     }
     const digests: Array<{ n: number; sha: string; match: boolean }> = [];
     for (const step of plan.steps ?? []) {

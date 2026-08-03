@@ -115,16 +115,12 @@ export function buildReconcileReport(catalog: SourceCatalog, exp: ConvexExport):
       source_count: sourceCount,
       expected_target: isApprovedDrop ? 0 : expected,
       expected_target_formula: entry.expected_target_formula,
-      variance: isApprovedDrop ? sourceCount : variance, // show raw for drop but unexplained=false
+      variance,
       disposition: entry.disposition,
       approved_exception,
       exception_reason: approved_exception ? (entry.reason ?? entry.disposition) : undefined,
       unexplained: unexpl,
     });
-    // Fix: for drop display variance as explained
-    if (isApprovedDrop) {
-      rows[rows.length - 1].variance = 0;
-    }
   }
 
   // Export tables not in catalog and not system-excluded → unexplained variance

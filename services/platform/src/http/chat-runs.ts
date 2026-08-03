@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
-import { createSql } from '../db/client.ts';
+import { createSql, toSqlJsonValue } from '../db/client.ts';
 import {
   isHolocronNonprodDatabaseUrl,
   resolveHolocronNonprodDatabaseUrl,
@@ -305,8 +305,10 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
           {
             maxSteps: run.max_steps,
             abortSignal: controller.signal,
-            tools: {
-              chat_context: createChatContextTool(run.role as ChatSpecialistRole, run.max_steps),
+            toolsets: {
+              chat: {
+                chat_context: createChatContextTool(run.role as ChatSpecialistRole, run.max_steps),
+              },
             },
           }
         );
@@ -505,7 +507,7 @@ export async function createChatRun(
           'user',
           ${input.msg},
           ${input.cardData ? 'result_card' : 'text'},
-          ${input.cardData ? tx.json(input.cardData) : null},
+          ${input.cardData ? tx.json(toSqlJsonValue(input.cardData)) : null},
           ${input.documentId ?? null},
           ${run.id}
         )

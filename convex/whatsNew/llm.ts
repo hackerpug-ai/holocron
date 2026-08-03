@@ -531,8 +531,7 @@ function generateStaticFallback(
   // TL;DR — top 5 by score, with links
   const top5 = topByScore(findings, 5);
   if (top5.length > 0) {
-    for (let i = 0; i < Math.min(5, top5.length); i++) {
-      const item = top5[i];
+    for (const [i, item] of top5.slice(0, 5).entries()) {
       const summary = item.summary ? ` — ${item.summary}` : '';
       const sourceName = item.source || 'Source';
       markdown += `${i + 1}. **${item.title}**${summary} [${sourceName}](${item.url})\n`;
@@ -626,8 +625,7 @@ function generateStaticFallback(
   // Trends & Patterns
   markdown += `### TRENDS & PATTERNS\n\n`;
   if (trends.length > 0) {
-    for (let i = 0; i < Math.min(8, trends.length); i++) {
-      const item = trends[i];
+    for (const [i, item] of trends.slice(0, 8).entries()) {
       const desc = item.summary ? ` — ${item.summary}` : '';
       markdown += `${i + 1}. **${item.title}**${desc}\n`;
     }
@@ -636,8 +634,7 @@ function generateStaticFallback(
     const corroborated = findings.filter((f) => (f.crossSourceCorroboration ?? 0) >= 2).slice(0, 8);
 
     if (corroborated.length > 0) {
-      for (let i = 0; i < corroborated.length; i++) {
-        const item = corroborated[i];
+      for (const [i, item] of corroborated.entries()) {
         const desc = item.summary ? ` — ${item.summary}` : '';
         markdown += `${i + 1}. **${item.title}**${desc}\n`;
       }

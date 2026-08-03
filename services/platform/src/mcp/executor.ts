@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { assertMcpWritable } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
-import { createSql } from '../db/client.ts';
+import { createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 
 type ShopSearchResult = {
@@ -27,8 +27,9 @@ const SHOP_RETAILERS: Record<string, { domain: string; trustTier: number; verifi
 
 function parseShopPrice(text: string): number | null {
   const match = text.match(/(?:[$€£])\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
-  if (!match) return null;
-  const value = Number(match[1].replaceAll(',', ''));
+  const matchedPrice = match?.[1];
+  if (!matchedPrice) return null;
+  const value = Number(matchedPrice.replaceAll(',', ''));
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
@@ -248,16 +249,20 @@ export async function executePostgresMcpTool(
             listings: replayListings,
           };
         }
-        const rows = await sql`
+        const rows = await sql<Array<{ sessionId: string; status: string }>>`
           INSERT INTO shop_sessions (id, query, condition, price_min, price_max, retailers, verified_only, status)
           VALUES (${randomUUID()}::uuid, ${query}, ${condition}, ${priceMin}, ${priceMax},
                   ${sql.json(retailers)}, ${verifiedOnly}, 'pending')
           RETURNING id::text AS "sessionId", status
         `;
+        const session = rows[0];
+        if (!session) {
+          throw new Error('SHOP_SESSION_CREATE_FAILED: insert returned no session');
+        }
         try {
           const result = await runLiveShopSearch(
             sql,
-            rows[0].sessionId,
+            session.sessionId,
             query,
             retailers,
             condition,
@@ -267,7 +272,7 @@ export async function executePostgresMcpTool(
             options?.signal
           );
           return {
-            sessionId: rows[0].sessionId,
+            sessionId: session.sessionId,
             status: 'completed',
             totalListings: result.listings.length,
             bestDeal: result.listings[0] ?? null,
@@ -279,7 +284,7 @@ export async function executePostgresMcpTool(
             UPDATE shop_sessions SET status = ${cancelled ? 'cancelled' : 'failed'},
               error_reason = ${error instanceof Error ? error.message : String(error)},
               completed_at = now(), updated_at = now()
-            WHERE id = ${rows[0].sessionId}::uuid
+            WHERE id = ${session.sessionId}::uuid
           `;
           throw error;
         }
@@ -579,7 +584,7 @@ export async function executePostgresMcpTool(
           UPDATE improvement_requests
           SET status = ${dbStatus},
               closure_reason = ${typeof input.reason === 'string' ? input.reason : null},
-              closure_evidence = ${sql.json((input.evidence as unknown[]) ?? [])},
+              closure_evidence = ${sql.json(toSqlJsonValue(input.evidence ?? []))},
               closed_at = CASE WHEN ${closed} THEN now() ELSE NULL END,
               updated_at = now()
           WHERE id = ${requestId}::uuid
@@ -600,12 +605,14 @@ export async function executePostgresMcpTool(
       }
       case 'get_subscription_content': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
+        const researchStatus =
+          typeof input.researchStatus === 'string' ? input.researchStatus : null;
         const rows = await sql`
           SELECT id::text AS id, source_id AS "sourceId", content_id AS "contentId", title, url,
                  metadata_json AS metadata, research_status AS "researchStatus", discovered_at AS "discoveredAt"
           FROM subscription_content
           WHERE source_id = ${String(input.subscriptionId)}
-            AND (${input.researchStatus ?? null}::text IS NULL OR research_status = ${input.researchStatus ?? null})
+            AND (${researchStatus}::text IS NULL OR research_status = ${researchStatus})
           ORDER BY discovered_at DESC LIMIT ${limit}
         `;
         return { content: rows };
@@ -623,12 +630,15 @@ export async function executePostgresMcpTool(
         return rows[0];
       }
       case 'get_subscription_filters': {
+        const subscriptionId =
+          typeof input.subscriptionId === 'string' ? input.subscriptionId : null;
+        const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
         const rows = await sql`
           SELECT id::text AS "filterId", source_id AS "sourceId", source_type AS "sourceType",
                  rule_name AS "ruleName", rule_type AS "ruleType", rule_value AS "ruleValue", weight
           FROM subscription_filters
-          WHERE (${input.subscriptionId ?? null}::text IS NULL OR source_id = ${input.subscriptionId ?? null})
-            AND (${input.sourceType ?? null}::text IS NULL OR source_type = ${input.sourceType ?? null})
+          WHERE (${subscriptionId}::text IS NULL OR source_id = ${subscriptionId})
+            AND (${sourceType}::text IS NULL OR source_type = ${sourceType})
           ORDER BY created_at DESC
         `;
         return { filters: rows };
@@ -690,17 +700,22 @@ export async function executePostgresMcpTool(
       }
       case 'list_subscriptions': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
+        const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
+        const autoResearchOnly = input.autoResearchOnly === true;
         const rows = await sql`
           SELECT id::text AS "subscriptionId", source_type AS "sourceType", identifier, name,
                  url, feed_url AS "feedUrl", auto_research AS "autoResearch"
           FROM subscription_sources
-          WHERE (${input.sourceType ?? null}::text IS NULL OR source_type = ${input.sourceType ?? null})
-            AND (${input.autoResearchOnly ?? false} = false OR auto_research = true)
+          WHERE (${sourceType}::text IS NULL OR source_type = ${sourceType})
+            AND (${autoResearchOnly} = false OR auto_research = true)
           ORDER BY created_at DESC LIMIT ${limit}
         `;
         return { subscriptions: rows };
       }
       case 'store_tool': {
+        const tags = Array.isArray(input.tags) ? input.tags : [];
+        const useCases = Array.isArray(input.useCases) ? input.useCases : [];
+        const keywords = Array.isArray(input.keywords) ? input.keywords : [];
         const rows = await sql`
           INSERT INTO toolbelt_tools (
             id, title, description, content, source_url, source_type, category, status,
@@ -709,8 +724,8 @@ export async function executePostgresMcpTool(
             ${randomUUID()}::uuid, ${String(input.title)}, ${typeof input.description === 'string' ? input.description : null},
             ${typeof input.content === 'string' ? input.content : null}, ${typeof input.sourceUrl === 'string' ? input.sourceUrl : null},
             ${String(input.sourceType)}, ${String(input.category)}, ${String(input.status ?? 'draft')},
-            ${sql.json((input.tags as unknown[]) ?? [])}, ${sql.json((input.useCases as unknown[]) ?? [])},
-            ${sql.json((input.keywords as unknown[]) ?? [])}, ${typeof input.language === 'string' ? input.language : null},
+            ${sql.json(toSqlJsonValue(tags))}, ${sql.json(toSqlJsonValue(useCases))},
+            ${sql.json(toSqlJsonValue(keywords))}, ${typeof input.language === 'string' ? input.language : null},
             ${typeof input.date === 'string' ? input.date : null}, ${typeof input.time === 'string' ? input.time : null}
           )
           RETURNING id::text AS "toolId", title
@@ -728,13 +743,16 @@ export async function executePostgresMcpTool(
       }
       case 'list_tools': {
         const limit = Math.min(Number(input.limit ?? 100), 100);
+        const category = typeof input.category === 'string' ? input.category : null;
+        const status = typeof input.status === 'string' ? input.status : null;
+        const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
         const rows = await sql`
           SELECT id::text AS "toolId", title, description, category, status,
                  source_type AS "sourceType", source_url AS "sourceUrl"
           FROM toolbelt_tools
-          WHERE (${input.category ?? null}::text IS NULL OR category = ${input.category ?? null})
-            AND (${input.status ?? null}::text IS NULL OR status = ${input.status ?? null})
-            AND (${input.sourceType ?? null}::text IS NULL OR source_type = ${input.sourceType ?? null})
+          WHERE (${category}::text IS NULL OR category = ${category})
+            AND (${status}::text IS NULL OR status = ${status})
+            AND (${sourceType}::text IS NULL OR source_type = ${sourceType})
           ORDER BY created_at DESC LIMIT ${limit}
         `;
         return { tools: rows, total: rows.length };
@@ -742,12 +760,13 @@ export async function executePostgresMcpTool(
       case 'search_tools': {
         const query = String(input.query);
         const limit = Math.min(Number(input.limit ?? 20), 100);
+        const category = typeof input.category === 'string' ? input.category : null;
         const rows = await sql`
           SELECT id::text AS "toolId", title, description, content,
                  ts_rank(search_vector, websearch_to_tsquery('english', ${query}))::float8 AS score
           FROM toolbelt_tools
           WHERE search_vector @@ websearch_to_tsquery('english', ${query})
-            AND (${input.category ?? null}::text IS NULL OR category = ${input.category ?? null})
+            AND (${category}::text IS NULL OR category = ${category})
           ORDER BY score DESC, created_at DESC LIMIT ${limit}
         `;
         return { results: rows, totalResults: rows.length, searchMethod: 'postgres-fts' };

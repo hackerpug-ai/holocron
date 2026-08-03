@@ -196,7 +196,7 @@ export function formatFlightsReport(
   if (session.bestDealPrice !== undefined && session.bestDealAirline && session.bestDealDates) {
     bestDealLine = `★ BEST DEAL: ${session.bestDealDates} — ${formatPrice(session.bestDealPrice)} on ${session.bestDealAirline}`;
   } else if (routes.length > 0) {
-    const cheapest = [...routes].sort((a, b) => a.price - b.price)[0];
+    const cheapest = routes.reduce((best, route) => (route.price < best.price ? route : best));
     bestDealLine = `★ BEST DEAL: ${cheapest.departDate} — ${formatPrice(cheapest.price)} on ${cheapest.airline}`;
   } else {
     bestDealLine = 'No flight options found.';
@@ -211,10 +211,9 @@ export function formatFlightsReport(
 
   // Determine month label from first price calendar entry or route
   let month: string | undefined;
-  if (priceCalendar.length > 0) {
-    const firstDate = priceCalendar[0].date; // YYYY-MM-DD
-    const [year, mon] = firstDate.split('-');
-    const monthName = new Date(`${year}-${mon}-01`).toLocaleString('en-US', {
+  const firstDate = priceCalendar[0]?.date;
+  if (firstDate) {
+    const monthName = new Date(`${firstDate.slice(0, 7)}-01`).toLocaleString('en-US', {
       month: 'long',
       year: 'numeric',
     });

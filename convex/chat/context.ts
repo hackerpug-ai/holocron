@@ -60,8 +60,7 @@ export async function buildConversationContext(
   let accumulatedChars = 0;
   const includedMessages: typeof messages = [];
 
-  for (let i = 0; i < messages.length; i++) {
-    const message = messages[i];
+  for (const [i, message] of messages.entries()) {
     const messageChars = message.content.length;
     const isWithinMinRecent = i < MIN_RECENT_MESSAGES;
 

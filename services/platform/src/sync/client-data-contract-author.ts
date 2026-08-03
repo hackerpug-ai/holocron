@@ -45,7 +45,7 @@ export type TargetKind = 'zero_query' | 'zero_mutator' | 'hono_command';
 
 /** Live Hono route descriptor (mirrors hono-app.ts). */
 export interface HonoRoute {
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'ALL';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
   path: string;
   /** Live purpose — quoted from services/platform/src/http/hono-app.ts. */
   purpose: string;
@@ -2412,8 +2412,7 @@ export function serializeContractYaml(contract: ClientDataContract): string {
     sortMapEntries: false,
     defaultStringType: 'PLAIN',
     defaultKeyType: 'PLAIN',
-    nullableStr: 'null',
+    nullStr: 'null',
     aliasDuplicateObjects: false,
-    maxAliasCount: 0,
   });
 }

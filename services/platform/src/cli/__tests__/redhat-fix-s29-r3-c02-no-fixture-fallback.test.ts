@@ -162,12 +162,19 @@ describe('REDHAT-FIX-S29-R3-C02 no production fixture fallback', () => {
     const parity = loadCutoverParityInventory(IMMUTABLE_PARITY_FIXTURE);
     expect(parity).not.toBeNull();
     const loaded = { ...parity!.loadedByTable };
+    const requireLoadedCount = (table: string): number => {
+      const count = loaded[table];
+      if (count === undefined) {
+        throw new Error(`fixture parity is missing loadedByTable.${table}`);
+      }
+      return count;
+    };
     // Truncate inventory while declaring full expected count
     const truncated: Record<string, number> = {
-      documents: loaded.documents,
-      conversations: loaded.conversations,
-      tasks: loaded.tasks,
-      researchSessions: loaded.researchSessions,
+      documents: requireLoadedCount('documents'),
+      conversations: requireLoadedCount('conversations'),
+      tasks: requireLoadedCount('tasks'),
+      researchSessions: requireLoadedCount('researchSessions'),
     };
     expect(Object.keys(truncated).length).toBe(4); // would pass old >=4 threshold
     const badParityPath = resolve(scratch, 'truncated-expected-parity.json');

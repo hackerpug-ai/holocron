@@ -10,7 +10,7 @@
  * reported green while the disconnect is present.
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -88,13 +88,7 @@ describe('MCP manifest negative controls (RED teeth)', () => {
       const fixtureFile = resolve(tmpDir, 'store_document_success.json');
       rmSync(fixtureFile, { force: true });
       expect(existsSync(fixtureFile), 'fixture must be deleted for test').toBe(false);
-      const r = runHolo([
-        'mcp:verify-manifest',
-        '--manifest',
-        MANIFEST,
-        '--fixtures-dir',
-        tmpDir,
-      ]);
+      const r = runHolo(['mcp:verify-manifest', '--manifest', MANIFEST, '--fixtures-dir', tmpDir]);
       const out = `${r.stdout}\n${r.stderr}`;
       expect(r.status, out).not.toBe(0);
       expect(out).toMatch(/store_document/);

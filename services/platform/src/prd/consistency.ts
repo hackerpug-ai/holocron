@@ -24,7 +24,7 @@ export type ConsistencyResult = {
 };
 
 const UC_RE = /\bUC-[A-Z]+-\d+\b/g;
-const DATE_RE = /\b(20\d{2}-\d{2}-\d{2})\b/g;
+const _DATE_RE = /\b(20\d{2}-\d{2}-\d{2})\b/g;
 // protocol claims like protocol: "2099-01-01" or future dated "protocol pin 2099-..."
 const PROTOCOL_DATE_RE = /protocol[^.\n]{0,80}?(20\d{2}-\d{2}-\d{2})/gi;
 
@@ -49,8 +49,7 @@ function loadCatalog(path: string): { table_count: number; expected: number | nu
   const raw = parseYaml(readFileSync(path, 'utf8')) as Record<string, unknown>;
   const tables = (raw.tables as Record<string, unknown>) ?? {};
   const table_count = Object.keys(tables).length;
-  const expected =
-    typeof raw.table_count_expected === 'number' ? raw.table_count_expected : null;
+  const expected = typeof raw.table_count_expected === 'number' ? raw.table_count_expected : null;
   return { table_count, expected };
 }
 
@@ -60,8 +59,7 @@ function loadManifest(path: string): { tool_count: number; expected: number | nu
   const tools = (raw.tools as unknown[]) ?? [];
   const tool_count = tools.length;
   // optional expected field; default expectation is derived count itself for live PRD
-  const expected =
-    typeof raw.tool_count_expected === 'number' ? raw.tool_count_expected : null;
+  const expected = typeof raw.tool_count_expected === 'number' ? raw.tool_count_expected : null;
   return { tool_count, expected };
 }
 
@@ -71,7 +69,8 @@ function extractClaimedCounts(text: string): { tables: number | null; tools: num
   // patterns: "60 tables", "60/60 tables", "44 tools", "44/44"
   const t1 = text.match(/\b(\d+)\s*(?:\/\s*\d+\s*)?tables?\b/i);
   if (t1) tables = Number(t1[1]);
-  const t2 = text.match(/\b(\d+)\s*(?:\/\s*\d+\s*)?MCP tools?\b/i) ||
+  const t2 =
+    text.match(/\b(\d+)\s*(?:\/\s*\d+\s*)?MCP tools?\b/i) ||
     text.match(/\b(\d+)\s*(?:\/\s*\d+\s*)?tools?\b/i);
   if (t2) tools = Number(t2[1]);
   // explicit quick-stat keys
@@ -82,7 +81,7 @@ function extractClaimedCounts(text: string): { tables: number | null; tools: num
   return { tables, tools };
 }
 
-function checkIndexLinks(indexPath: string, root: string): string[] {
+function checkIndexLinks(indexPath: string, _root: string): string[] {
   if (!existsSync(indexPath)) return [`missing technical index: ${indexPath}`];
   const text = readFileSync(indexPath, 'utf8');
   const broken: string[] = [];
@@ -91,6 +90,7 @@ function checkIndexLinks(indexPath: string, root: string): string[] {
   const baseDir = join(indexPath, '..');
   while ((m = linkRe.exec(text))) {
     const href = m[2];
+    if (!href) continue;
     if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) continue;
     const target = resolve(baseDir, href.split('#')[0]!);
     if (!existsSync(target)) {
@@ -115,10 +115,7 @@ function findFutureDates(text: string, today: Date): string[] {
   return found;
 }
 
-export function runPrdConsistency(options?: {
-  root?: string;
-  today?: Date;
-}): ConsistencyResult {
+export function runPrdConsistency(options?: { root?: string; today?: Date }): ConsistencyResult {
   const root = resolve(options?.root ?? resolve(process.cwd(), '.spec/prds/mk6-migration'));
   const today = options?.today ?? new Date();
   const errors: string[] = [];

@@ -8,6 +8,19 @@ const itLive = PLATFORM_IT ? it : it.skip;
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
 const KEYS = { rn: 's18-rn', mcp: 's18-mcp', control: 's18-control' };
 
+type ChatRunCreateBody = {
+  runId: string;
+  durableMessageId: string;
+  status: string;
+  role: string;
+  replay?: boolean;
+};
+
+type ChatRunStatusBody = {
+  status: string;
+  errorCode?: string;
+};
+
 describe('Sprint 18 chat runs', () => {
   let sql: Sql | undefined;
   const requestIds: string[] = [];
@@ -46,7 +59,7 @@ describe('Sprint 18 chat runs', () => {
         body: JSON.stringify({ requestId, msg: 'Say hello in one short sentence.' }),
       });
       expect(create.status).toBe(200);
-      const first = await create.json();
+      const first = (await create.json()) as ChatRunCreateBody;
       expect(first.runId).toMatch(/[0-9a-f-]{36}/);
       expect(first.durableMessageId).toMatch(/[0-9a-f-]{36}/);
       expect(['pending', 'running']).toContain(first.status);
@@ -57,7 +70,7 @@ describe('Sprint 18 chat runs', () => {
         headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
         body: JSON.stringify({ requestId, msg: 'different message ignored on replay' }),
       });
-      const second = await replay.json();
+      const second = (await replay.json()) as ChatRunCreateBody;
       expect(second.replay).toBe(true);
       expect(second.runId).toBe(first.runId);
       expect(second.durableMessageId).toBe(first.durableMessageId);
@@ -85,7 +98,8 @@ describe('Sprint 18 chat runs', () => {
       const final = await app.request(`/api/chat-runs/${first.runId}`, {
         headers: { authorization: `Bearer ${KEYS.rn}` },
       });
-      expect((await final.json()).status).toBe('completed');
+      const finalBody = (await final.json()) as ChatRunStatusBody;
+      expect(finalBody.status).toBe('completed');
     },
     180_000
   );
@@ -101,7 +115,7 @@ describe('Sprint 18 chat runs', () => {
         headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
         body: JSON.stringify({ requestId, msg: '[[tripwire]] unsafe request' }),
       });
-      const body = await response.json();
+      const body = (await response.json()) as ChatRunCreateBody;
       expect(response.status).toBe(200);
       expect(['pending', 'running']).toContain(body.status);
       const events = await app.request(`/api/chat-runs/${body.runId}/events`, {
@@ -111,7 +125,7 @@ describe('Sprint 18 chat runs', () => {
       const final = await app.request(`/api/chat-runs/${body.runId}`, {
         headers: { authorization: `Bearer ${KEYS.rn}` },
       });
-      const finalBody = await final.json();
+      const finalBody = (await final.json()) as ChatRunStatusBody;
       expect(finalBody.status).toBe('blocked');
       expect(finalBody.errorCode).toBe('CHAT_PROCESSOR_BLOCKED');
       const foreign = await app.request(`/api/chat-runs/${body.runId}`, {
@@ -133,13 +147,13 @@ describe('Sprint 18 chat runs', () => {
         headers: { authorization: `Bearer ${KEYS.rn}`, 'content-type': 'application/json' },
         body: JSON.stringify({ requestId, msg: 'Answer with a detailed research summary.' }),
       });
-      const body = await response.json();
+      const body = (await response.json()) as ChatRunCreateBody;
       const cancel = await app.request(`/api/chat-runs/${body.runId}/cancel`, {
         method: 'POST',
         headers: { authorization: `Bearer ${KEYS.rn}` },
       });
       expect(cancel.status).toBe(200);
-      const cancelled = await cancel.json();
+      const cancelled = (await cancel.json()) as ChatRunStatusBody;
       expect(['blocked', 'completed']).toContain(cancelled.status);
     },
     30_000

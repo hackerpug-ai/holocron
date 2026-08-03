@@ -287,39 +287,46 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
     );
   }
 
+  const requiredServices = {
+    postgres: asObject(services.postgres, 'postgres service') as ComposeService,
+    mastra: asObject(services.mastra, 'mastra service') as ComposeService,
+    scheduler: asObject(services.scheduler, 'scheduler service') as ComposeService,
+    'zero-cache': asObject(services['zero-cache'], 'zero-cache service') as ComposeService,
+  } satisfies Record<(typeof REQUIRED_SERVICES)[number], ComposeService>;
+
   for (const name of REQUIRED_SERVICES) {
-    const service = asObject(services[name], `${name} service`) as ComposeService;
+    const service = requiredServices[name];
     if (service.restart !== 'unless-stopped') fail(`${name} must use restart: unless-stopped`);
     if (!hasHealthcheck(service)) fail(`${name} requires a real healthcheck`);
   }
-  if (!hasSemanticSchedulerHealthcheck(services.scheduler)) {
+  if (!hasSemanticSchedulerHealthcheck(requiredServices.scheduler)) {
     fail(
       'scheduler healthcheck must read /run/secrets/database_url and probe queue_backend_meta through queue/probe-cli.ts'
     );
   }
-  if (!hasDatabaseUrlSecretMount(services.scheduler)) {
+  if (!hasDatabaseUrlSecretMount(requiredServices.scheduler)) {
     fail('scheduler must mount database-url at /run/secrets/database_url');
   }
-  if (exposesDatabaseUrlEnvironment(services.scheduler)) {
+  if (exposesDatabaseUrlEnvironment(requiredServices.scheduler)) {
     fail('scheduler DATABASE_URL must remain runtime-only and absent from Compose environment');
   }
-  if (!hasZeroReadOnlyMutationFence(services['zero-cache'])) {
+  if (!hasZeroReadOnlyMutationFence(requiredServices['zero-cache'])) {
     fail(
       'zero-cache must disable legacy CRUD mutations and omit every custom mutate/push URL during read-only soak'
     );
   }
 
-  if (!hasMastraMigrationBootstrap(services.mastra)) {
+  if (!hasMastraMigrationBootstrap(requiredServices.mastra)) {
     fail('mastra must run bun src/cli/holo.ts db:migrate before exec bun src/index.ts');
   }
 
   for (const name of ['mastra', 'scheduler', 'zero-cache'] as const) {
-    if (!hasHealthyPostgresDependency(services[name])) {
+    if (!hasHealthyPostgresDependency(requiredServices[name])) {
       fail(`${name} must depend on postgres with condition: service_healthy`);
     }
   }
   for (const name of ['scheduler', 'zero-cache'] as const) {
-    if (!hasHealthyDependency(services[name], 'mastra')) {
+    if (!hasHealthyDependency(requiredServices[name], 'mastra')) {
       fail(`${name} must depend on mastra with condition: service_healthy after migration`);
     }
   }
@@ -328,17 +335,18 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   for (const name of ['postgres-data', 'blob-data']) {
     if (!volumes[name]) fail(`durable ${name} volume is required`);
   }
-  if (services.postgres.image !== PGVECTOR_PG18_IMAGE) {
+  if (requiredServices.postgres.image !== PGVECTOR_PG18_IMAGE) {
     fail(`postgres must use the verified PG18 pgvector image ${PGVECTOR_PG18_IMAGE}`);
   }
-  if (!hasNamedVolumeMount(services.postgres, 'postgres-data', '/var/lib/postgresql')) {
+  if (!hasNamedVolumeMount(requiredServices.postgres, 'postgres-data', '/var/lib/postgresql')) {
     fail('postgres must mount postgres-data at /var/lib/postgresql for PG18');
   }
-  if (!hasNamedVolume(services.mastra, 'blob-data')) fail('mastra must mount blob-data');
-  if (!hasNamedVolume(services.scheduler, 'blob-data')) fail('scheduler must mount blob-data');
+  if (!hasNamedVolume(requiredServices.mastra, 'blob-data')) fail('mastra must mount blob-data');
+  if (!hasNamedVolume(requiredServices.scheduler, 'blob-data'))
+    fail('scheduler must mount blob-data');
 
   for (const name of ['mastra', 'scheduler'] as const) {
-    const serviceImage = services[name].image;
+    const serviceImage = requiredServices[name].image;
     if (typeof serviceImage !== 'string') fail(`${name} requires an application image`);
     if (serviceImage.includes('${') && !serviceImage.includes('HOLO_PLATFORM_IMAGE')) {
       fail(`${name} must reference HOLO_PLATFORM_IMAGE when interpolated`);
@@ -347,7 +355,7 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   }
 
   for (const name of ['postgres', 'zero-cache'] as const) {
-    const serviceImage = services[name].image;
+    const serviceImage = requiredServices[name].image;
     if (typeof serviceImage !== 'string') fail(`${name} requires an immutable image`);
     digestFromImage(serviceImage);
   }
@@ -355,7 +363,7 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   if (image) {
     const expectedImage = image;
     for (const name of ['mastra', 'scheduler'] as const) {
-      if (services[name].image !== expectedImage)
+      if (requiredServices[name].image !== expectedImage)
         fail(`${name} image does not match release image`);
     }
   }

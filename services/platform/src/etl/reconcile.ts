@@ -143,7 +143,7 @@ export async function runEtlReconcile(options?: {
 
       let loadedCount = 0;
       if (entry.target) {
-        const result = await sql.unsafe(
+        const result = await sql.unsafe<Array<{ count: string }>>(
           `
             SELECT count(*)::text AS count
             FROM "${entry.target.replace(/"/g, '""')}" t
@@ -152,7 +152,7 @@ export async function runEtlReconcile(options?: {
           `,
           [table]
         );
-        loadedCount = Number((result as Array<{ count: string }>)[0]?.count ?? 0);
+        loadedCount = Number(result[0]?.count ?? 0);
       }
 
       const variance = loadedCount - expectedTarget;

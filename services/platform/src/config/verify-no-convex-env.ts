@@ -118,11 +118,18 @@ export function verifyNoConvexEnv(options?: {
         hits.push({ file: line, line: 0, match: identifyToken(line, patterns), text: line });
         continue;
       }
+      const file = m[1];
+      const lineNumber = m[2];
+      const text = m[3];
+      if (!file || !lineNumber || text === undefined) {
+        hits.push({ file: line, line: 0, match: identifyToken(line, patterns), text: line });
+        continue;
+      }
       hits.push({
-        file: m[1],
-        line: Number(m[2]),
-        match: identifyToken(m[3], patterns),
-        text: m[3],
+        file,
+        line: Number(lineNumber),
+        match: identifyToken(text, patterns),
+        text,
       });
     }
   }

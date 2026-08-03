@@ -74,7 +74,8 @@ export async function detectRefinement(
   const userMessages = messages.filter((m) => m.role === 'user');
   if (userMessages.length === 0) return { shouldInherit: false };
 
-  const lastUserMessage = userMessages[userMessages.length - 1];
+  const lastUserMessage = userMessages.at(-1);
+  if (!lastUserMessage) return { shouldInherit: false };
   const content = typeof lastUserMessage.content === 'string' ? lastUserMessage.content : '';
 
   // Step 1: Lexicon check — does the message start with a refinement phrase?
@@ -254,7 +255,8 @@ async function computeClarificationDepth(
   // Count consecutive ambiguous results from the end
   let depth = 0;
   for (let i = recentClassifications.length - 1; i >= 0; i--) {
-    if (recentClassifications[i].queryShape === 'ambiguous') {
+    const classification = recentClassifications[i];
+    if (classification?.queryShape === 'ambiguous') {
       depth++;
     } else {
       break;
@@ -286,7 +288,8 @@ async function callLlmAndHandleResponse(
   // Check if the latest user message contains a podcast URL
   const userMessages = messages.filter((m) => m.role === 'user');
   if (userMessages.length > 0) {
-    const lastUserMessage = userMessages[userMessages.length - 1];
+    const lastUserMessage = userMessages.at(-1);
+    if (!lastUserMessage) return null;
     const content = typeof lastUserMessage.content === 'string' ? lastUserMessage.content : '';
 
     // Detect podcast URLs (Spotify, Apple Podcasts, RSS feeds, direct MP3)

@@ -104,9 +104,11 @@ function extractHumanGateFencedCmds(md: string): Map<number, string> {
   while ((m = re.exec(md)) !== null) {
     const n = Number(m[1]);
     if (!Number.isFinite(n) || n < 1) continue;
+    const command = m[2];
+    if (command === undefined) continue;
     // First fenced bash under each step is the literal_cmd.
     if (!map.has(n)) {
-      map.set(n, m[2].replace(/\n$/, ''));
+      map.set(n, command.replace(/\n$/, ''));
     }
   }
   return map;
@@ -496,7 +498,7 @@ describe('GATE-FIX-S28R3-QA3 C-1/C-2 runner (PLATFORM_IT)', () => {
       const pgPort = String(62000 + (Date.now() % 1000));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -640,7 +642,7 @@ PY
       const pgPort = String(63000 + (Date.now() % 1000));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -796,7 +798,7 @@ describe('GATE-FIX-S28R3-QA3 M-2/M-3 extras', () => {
       const pgPort = String(64000 + (Date.now() % 800));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',

@@ -19,6 +19,13 @@ http.route({
     const pathParts = url.pathname.split('/');
     const shareToken = pathParts[pathParts.length - 1];
 
+    if (!shareToken) {
+      return new Response(notFoundHtml(), {
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
     const doc = await ctx.runQuery(api.documents.queries.getByShareToken, { shareToken });
 
     if (!doc) {
@@ -294,8 +301,8 @@ function markdownToHtml(md: string): string {
     let headerDone = false;
     let inBody = false;
 
-    for (let i = 0; i < rows.length; i++) {
-      if (isSeparator(rows[i])) {
+    for (const [i, row] of rows.entries()) {
+      if (isSeparator(row)) {
         if (!headerDone) {
           html += '</tr></thead>\n<tbody>\n';
           headerDone = true;
@@ -303,7 +310,7 @@ function markdownToHtml(md: string): string {
         }
         continue;
       }
-      const cells = parseRow(rows[i]);
+      const cells = parseRow(row);
       if (!headerDone && i === 0) {
         html += '<thead>\n<tr>';
         cells.forEach((c) => {
@@ -371,8 +378,7 @@ function markdownToHtml(md: string): string {
     flushBlockquote();
   };
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const line of lines) {
     const trimmed = line.trim();
 
     // Blank line: flush current context
@@ -385,7 +391,7 @@ function markdownToHtml(md: string): string {
     if (codePlaceholderTest.test(trimmed)) {
       flushAll();
       const idx = parseInt(trimmed.replace(codePlaceholderCapture, '$1'), 10);
-      output.push(codeBlocks[idx]);
+      output.push(codeBlocks[idx] ?? '');
       continue;
     }
 
@@ -400,8 +406,8 @@ function markdownToHtml(md: string): string {
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       flushAll();
-      const level = headingMatch[1].length;
-      const headingText = headingMatch[2].trim();
+      const level = headingMatch[1]?.length ?? 1;
+      const headingText = headingMatch[2]?.trim() ?? '';
       const slug = slugifyText(headingText);
       output.push(`<h${level} id="${slug}">${inlineMarkdown(headingText)}</h${level}>`);
       continue;
@@ -428,23 +434,25 @@ function markdownToHtml(md: string): string {
 
     // Unordered list item
     const ulMatch = trimmed.match(/^[*\-+]\s+(.*)/);
-    if (ulMatch) {
+    const ulItem = ulMatch?.[1];
+    if (ulItem !== undefined) {
       flushParagraph();
       flushBlockquote();
       if (listType === 'ol') flushList();
       listType = 'ul';
-      listItems.push(ulMatch[1]);
+      listItems.push(ulItem);
       continue;
     }
 
     // Ordered list item
     const olMatch = trimmed.match(/^\d+\.\s+(.*)/);
-    if (olMatch) {
+    const olItem = olMatch?.[1];
+    if (olItem !== undefined) {
       flushParagraph();
       flushBlockquote();
       if (listType === 'ul') flushList();
       listType = 'ol';
-      listItems.push(olMatch[1]);
+      listItems.push(olItem);
       continue;
     }
 
@@ -464,7 +472,10 @@ function markdownToHtml(md: string): string {
 
   // Restore any remaining code block placeholders (e.g. inline in paragraphs)
   const codePlaceholderGlobal = new RegExp(`${NUL}CODE(\\d+)${NUL}`, 'g');
-  result = result.replace(codePlaceholderGlobal, (_m, idx) => codeBlocks[parseInt(idx, 10)]);
+  result = result.replace(
+    codePlaceholderGlobal,
+    (_m, idx) => codeBlocks[Number.parseInt(idx, 10)] ?? ''
+  );
 
   return result;
 }
@@ -500,7 +511,10 @@ function inlineMarkdown(text: string): string {
   // Restore inline codes
   const SOH = '\x01';
   const icPlaceholderGlobal = new RegExp(`${SOH}IC(\\d+)${SOH}`, 'g');
-  text = text.replace(icPlaceholderGlobal, (_m, idx) => inlineCodes[parseInt(idx, 10)]);
+  text = text.replace(
+    icPlaceholderGlobal,
+    (_m, idx) => inlineCodes[Number.parseInt(idx, 10)] ?? ''
+  );
 
   return text;
 }
@@ -535,13 +549,14 @@ function stripLeadingTitle(content: string, title: string): string {
 
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+    const trimmed = lines[i]?.trim() ?? '';
     if (trimmed === '') continue; // skip leading blank lines
     const headingMatch = trimmed.match(/^#{1,2}\s+(.+)$/);
-    if (headingMatch && normalize(headingMatch[1]) === normalizedTitle) {
+    const headingText = headingMatch?.[1];
+    if (headingText && normalize(headingText) === normalizedTitle) {
       // Remove this line and any immediately following blank lines
       lines.splice(i, 1);
-      while (i < lines.length && lines[i].trim() === '') {
+      while (i < lines.length && lines[i]?.trim() === '') {
         lines.splice(i, 1);
       }
       return lines.join('\n');

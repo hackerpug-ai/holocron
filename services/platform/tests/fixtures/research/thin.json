@@ -1,1 +1,25 @@
-{"claims":[{"id":"claim-a","text":"a","component":"market"},{"id":"claim-b","text":"b","component":"risk"}],"evidence":[{"id":"e1","claimId":"claim-a","component":"market","sourceId":"s1","independenceGroup":"publisher-a","grade":4,"entailment":0.9,"direction":"supporting","quote":"a","sourceText":"Evidence says a","disconfirmationResolved":true}],"requiredComponents":["market","risk"],"gradeFloor":3,"entailmentFloor":0.8,"independentSourceFloor":2}
+{
+  "claims": [
+    { "id": "claim-a", "text": "a", "component": "market" },
+    { "id": "claim-b", "text": "b", "component": "risk" }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "claimId": "claim-a",
+      "component": "market",
+      "sourceId": "s1",
+      "independenceGroup": "publisher-a",
+      "grade": 4,
+      "entailment": 0.9,
+      "direction": "supporting",
+      "quote": "a",
+      "sourceText": "Evidence says a",
+      "disconfirmationResolved": true
+    }
+  ],
+  "requiredComponents": ["market", "risk"],
+  "gradeFloor": 3,
+  "entailmentFloor": 0.8,
+  "independentSourceFloor": 2
+}

@@ -159,6 +159,7 @@ describe('obs-3 evals versioning (local judge + Postgres)', () => {
       const rows = await listScoresByRun(sql, payload.runId);
       expect(rows.length).toBeGreaterThanOrEqual(1);
       const row = rows.find((r) => r.sample_id === 'known-good') ?? rows[0];
+      if (!row) throw new Error('known-good score row was not persisted');
       expect(Number(row.score)).toBeGreaterThanOrEqual(0.8);
       expect(Number(row.baseline_threshold)).toBe(0.8);
       expect(row.dataset_version).toBe('research_v1');
@@ -197,6 +198,7 @@ describe('obs-3 evals versioning (local judge + Postgres)', () => {
       const rows = await listScoresByRun(sql, payload.runId);
       expect(rows.length).toBeGreaterThanOrEqual(1);
       const row = rows.find((r) => r.sample_id === 'deliberately-bad') ?? rows[0];
+      if (!row) throw new Error('deliberately-bad score row was not persisted');
       expect(Number(row.score)).toBeLessThan(0.8);
       expect(row.tag).toBe('adversarial');
       writeArtifact('ac2-db-row.json', row);

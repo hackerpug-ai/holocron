@@ -1218,6 +1218,7 @@ function runTrustedPythonR2(
     accessKeyId: string;
     secretAccessKey: string;
     sessionToken?: string | null;
+    endpoint: string;
     env?: NodeJS.ProcessEnv;
   }
 ): { status: number; stdout: string; stderr: string } {

@@ -1,39 +1,37 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { toolsAsRecord } from '../tools/registry.ts';
+import { listTools } from '../tools/registry.ts';
 import { executePostgresMcpTool } from './executor.ts';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 export function createMcpServer(): McpServer {
   const server = new McpServer({ name: 'holocron-postgres', version: '1.0.0' });
-  const tools = toolsAsRecord();
-  for (const [id, tool] of Object.entries(tools)) {
-    const registered = tool as unknown as {
-      description?: string;
-      inputSchema?: unknown;
-    };
+  const tools = listTools();
+  for (const tool of tools) {
+    const id = tool.id;
     server.registerTool(
       id,
       {
-        description: registered.description ?? id,
-        inputSchema: registered.inputSchema as never,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
       },
       async (input, extra) => {
-        const signal =
-          extra && typeof extra === 'object' && 'signal' in extra
-            ? (extra as { signal?: AbortSignal }).signal
-            : undefined;
         try {
-          const result = await executePostgresMcpTool(id, input as Record<string, unknown>, {
-            signal,
+          if (!isRecord(input)) {
+            throw new Error('INVALID_ARGUMENT: MCP tool input must be an object');
+          }
+          const result = await executePostgresMcpTool(id, input, {
+            signal: extra.signal,
           });
           const content = [{ type: 'text' as const, text: JSON.stringify(result) }];
           // MCP structuredContent is an object by protocol; array-shaped tool outputs
           // remain lossless in the canonical text content instead of being rejected by
           // CallToolResultSchema.
-          return Array.isArray(result) || result === null || typeof result !== 'object'
-            ? { content }
-            : { content, structuredContent: result as Record<string, unknown> };
+          return isRecord(result) ? { content, structuredContent: result } : { content };
         } catch (error) {
           const rawMessage = error instanceof Error ? error.message : String(error);
           const separator = rawMessage.indexOf(':');

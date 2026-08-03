@@ -470,9 +470,13 @@ describe.sequential('pipes-3 GREEN — pipeline templates + sub-workflow publish
       expect(asRecord(a.architecture).components).toBeTruthy();
       expect(Array.isArray(a.patterns) && a.patterns.length > 0).toBe(true);
       expect(String(a.assayText ?? '').trim().length).toBeGreaterThan(0);
-      expect(Array.isArray(s.products) && s.products.length > 0).toBe(true);
-      expect(asRecord(s.products?.[0] as unknown).price).not.toBeNull();
-      expect(asRecord(s.products?.[0] as unknown).rating).not.toBeNull();
+      const products = s.products;
+      expect(Array.isArray(products) && products.length > 0).toBe(true);
+      if (!Array.isArray(products) || products.length === 0) {
+        throw new Error('shop pipeline returned no products');
+      }
+      expect(asRecord(products[0]).price).not.toBeNull();
+      expect(asRecord(products[0]).rating).not.toBeNull();
       expect(String(s.assayText ?? '').trim().length).toBeGreaterThan(0);
     },
     420_000

@@ -160,7 +160,7 @@ describe('search-3: searchSurface inline-HNSW (AC-3)', () => {
     // Guard: no outbound Cohere during this call. Track fetch hosts if global fetch is used.
     const cohereHosts: string[] = [];
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       if (/cohere\.ai|api\.cohere/i.test(url)) {

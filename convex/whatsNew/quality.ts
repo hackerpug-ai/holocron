@@ -92,7 +92,7 @@ export const getSummaryStats = query({
     let totalFindings = 0;
     let withSummary = 0;
     let lengthSum = 0;
-    const lengthDistribution: Record<string, number> = {
+    const lengthDistribution = {
       '80-120': 0,
       '121-150': 0,
       '151+': 0,

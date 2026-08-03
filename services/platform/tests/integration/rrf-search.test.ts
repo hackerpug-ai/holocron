@@ -387,16 +387,17 @@ describe('search-3: rrfHybridSearch (RRF hybrid, one round-trip)', () => {
     if (!sql || !db) throw new Error('sql/db not initialized');
 
     const rrfHybridSearch = await loadRrfHybridSearch();
+    const activeDb = db;
+    const captured: { value?: HybridResult } = {};
 
     // Run against a rolled-back empty snapshot so both RRF legs produce zero rows.
     // rrfHybridSearch only uses the sql tag (db is unused) — pass the outer db handle
     // and the transaction client as sql so DELETE is visible and then rolled back.
-    let out: HybridResult | null = null;
     let threw: unknown = null;
     try {
       await sql.begin(async (tx) => {
         await tx`DELETE FROM passages`;
-        out = await rrfHybridSearch(db, tx as unknown as Sql, {
+        captured.value = await rrfHybridSearch(activeDb, tx as unknown as Sql, {
           query: EMPTY_QUERY,
           limit: 10,
         });
@@ -414,12 +415,14 @@ describe('search-3: rrfHybridSearch (RRF hybrid, one round-trip)', () => {
       }
     }
 
+    const out = captured.value;
     writeArtifact('AC-4-result.json', { out, threw: threw ? String(threw) : null });
 
     expect(threw, 'must not throw on empty result set').toBeNull();
-    expect(out).not.toBeNull();
-    expect(out?.searchMethod).toBe('rrf');
-    expect(out?.totalResults).toBe(0);
-    expect(out?.results).toEqual([]);
+    expect(out).toBeDefined();
+    if (!out) throw new Error('empty-passages search did not produce a result');
+    expect(out.searchMethod).toBe('rrf');
+    expect(out.totalResults).toBe(0);
+    expect(out.results).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { fencedInternalAction as internalAction } from '../lib/migrationFence';
+import { asRecord } from '../lib/unknown';
 
 // Handle normalization patterns
 const YOUTUBE_HANDLE_REGEX = /^[a-zA-Z0-9_-]{3,30}$/;
@@ -74,9 +75,10 @@ export const lookupYouTubeChannel = internalAction({
         throw new Error(`YouTube API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = asRecord(await response.json());
+      const items = Array.isArray(data?.items) ? data.items : [];
 
-      if (!data.items || data.items.length === 0) {
+      if (items.length === 0) {
         return {
           handle: args.handle,
           verified: false,
@@ -84,15 +86,23 @@ export const lookupYouTubeChannel = internalAction({
         };
       }
 
-      const channel = data.items[0];
+      const channel = asRecord(items[0]);
+      const statistics = asRecord(channel?.statistics);
+      const snippet = asRecord(channel?.snippet);
+      if (!channel || !snippet) {
+        throw new Error('YouTube API returned an invalid channel');
+      }
       return {
         handle: args.handle,
-        channelId: channel.id,
+        channelId: typeof channel.id === 'string' ? channel.id : undefined,
         verified: true,
-        subscriberCount: parseInt(channel.statistics.subscriberCount, 10),
-        title: channel.snippet.title,
-        description: channel.snippet.description,
-        thumbnails: channel.snippet.thumbnails,
+        subscriberCount: Number.parseInt(
+          typeof statistics?.subscriberCount === 'string' ? statistics.subscriberCount : '',
+          10
+        ),
+        title: typeof snippet.title === 'string' ? snippet.title : undefined,
+        description: typeof snippet.description === 'string' ? snippet.description : undefined,
+        thumbnails: snippet.thumbnails,
       };
     } catch (error) {
       console.error('YouTube lookup error:', error);
@@ -130,16 +140,19 @@ export const lookupBlueskyUser = internalAction({
         throw new Error(`Bluesky API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = asRecord(await response.json());
+      if (!data) {
+        throw new Error('Bluesky API returned an invalid profile');
+      }
 
       return {
-        handle: data.handle,
-        did: data.did,
+        handle: typeof data.handle === 'string' ? data.handle : undefined,
+        did: typeof data.did === 'string' ? data.did : undefined,
         verified: true,
-        followerCount: data.followersCount || 0,
-        displayName: data.displayName,
-        description: data.description,
-        avatar: data.avatar,
+        followerCount: typeof data.followersCount === 'number' ? data.followersCount : 0,
+        displayName: typeof data.displayName === 'string' ? data.displayName : undefined,
+        description: typeof data.description === 'string' ? data.description : undefined,
+        avatar: typeof data.avatar === 'string' ? data.avatar : undefined,
       };
     } catch (error) {
       console.error('Bluesky lookup error:', error);
@@ -190,17 +203,20 @@ export const lookupGitHubUser = internalAction({
         throw new Error(`GitHub API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = asRecord(await response.json());
+      if (!data) {
+        throw new Error('GitHub API returned an invalid profile');
+      }
 
       return {
-        handle: data.login,
-        userId: data.id,
+        handle: typeof data.login === 'string' ? data.login : undefined,
+        userId: typeof data.id === 'number' ? data.id : undefined,
         verified: true,
-        followerCount: data.followers || 0,
-        name: data.name,
-        bio: data.bio,
-        avatarUrl: data.avatar_url,
-        type: data.type, // User or Organization
+        followerCount: typeof data.followers === 'number' ? data.followers : 0,
+        name: typeof data.name === 'string' || data.name === null ? data.name : undefined,
+        bio: typeof data.bio === 'string' || data.bio === null ? data.bio : undefined,
+        avatarUrl: typeof data.avatar_url === 'string' ? data.avatar_url : undefined,
+        type: typeof data.type === 'string' ? data.type : undefined, // User or Organization
       };
     } catch (error) {
       console.error('GitHub lookup error:', error);

@@ -75,7 +75,7 @@ function normalizeFileObjectMetadata(
 }
 
 export async function upsertFileObject(
-  sql: Sql,
+  sql: Pick<Sql, 'unsafe'>,
   input: UpsertFileObjectInput
 ): Promise<UpsertFileObjectResult> {
   const metadata = normalizeFileObjectMetadata(input.metadata, input.legacyConvexId ?? null);
@@ -164,7 +164,7 @@ export async function upsertFileObject(
       input.byteSize ?? null,
       input.storagePath ?? null,
       input.originalName ?? null,
-      metadata,
+      JSON.stringify(metadata),
     ]
   );
 

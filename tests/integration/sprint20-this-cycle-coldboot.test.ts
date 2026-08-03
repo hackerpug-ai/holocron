@@ -140,15 +140,14 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
 
   it('AC-2: capstone green from this-cycle artifacts + live Zero/Postgres', () => {
     const { exitCode, verdict } = runCapstone(ARTIFACT_DIR);
-    expect(exitCode, `capstone exit must be 0; reasons=${JSON.stringify(verdict.reasons)}`).toBe(
-      0
-    );
+    expect(exitCode, `capstone exit must be 0; reasons=${JSON.stringify(verdict.reasons)}`).toBe(0);
     expect(verdict.coldboot_gate).toBe('green');
     expect(verdict.junit_failures).toBe(0);
     expect(Number(verdict.zero_agent_content_len)).toBeGreaterThanOrEqual(1);
     expect(Number(verdict.postgres_agent_count)).toBeGreaterThanOrEqual(1);
 
-    const evidence = (verdict.evidence as Array<{ path: string; sha256: string; bytes: number }>) ?? [];
+    const evidence =
+      (verdict.evidence as Array<{ path: string; sha256: string; bytes: number }>) ?? [];
     expect(evidence.length).toBeGreaterThanOrEqual(3);
     for (const e of evidence) {
       expect(e.sha256).toMatch(/^[0-9a-f]{64}$/);
@@ -231,9 +230,10 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
 
     // Capstone must be current for step3.
     const { exitCode, verdict } = runCapstone(ARTIFACT_DIR);
-    expect(exitCode, `capstone must be green first; reasons=${JSON.stringify(verdict.reasons)}`).toBe(
-      0
-    );
+    expect(
+      exitCode,
+      `capstone must be green first; reasons=${JSON.stringify(verdict.reasons)}`
+    ).toBe(0);
     expect(verdict.coldboot_gate).toBe('green');
 
     const gate = runRegenerator(ARTIFACT_DIR);
@@ -249,14 +249,11 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
   });
 });
 
-describe.skipIf(!skip)(
-  'GATE-FIX-G2 — this-cycle cold-boot (skipped: PLATFORM_IT unset)',
-  () => {
-    it('skips with reason when PLATFORM_IT=1 is unset (refuse skip-to-green)', () => {
-      console.warn(
-        '[GATE-FIX-G2] SKIPPED: set PLATFORM_IT=1 to drive real this-cycle cold-boot checks'
-      );
-      expect(skip).toBe(true);
-    });
-  }
-);
+describe.skipIf(!skip)('GATE-FIX-G2 — this-cycle cold-boot (skipped: PLATFORM_IT unset)', () => {
+  it('skips with reason when PLATFORM_IT=1 is unset (refuse skip-to-green)', () => {
+    console.warn(
+      '[GATE-FIX-G2] SKIPPED: set PLATFORM_IT=1 to drive real this-cycle cold-boot checks'
+    );
+    expect(skip).toBe(true);
+  });
+});

@@ -423,10 +423,8 @@ export async function runIterativeResearch(
       // Step 2a: SEARCH - Execute parallel searches with retry
 
       // Extract gaps from previous iteration's review (if any)
-      const previousGaps =
-        context.previousIterations.length > 0
-          ? context.previousIterations[context.previousIterations.length - 1].gaps
-          : [];
+      const previousIteration = context.previousIterations[context.previousIterations.length - 1];
+      const previousGaps = previousIteration?.gaps ?? [];
 
       const searchStartTime = Date.now();
       const parallelSearchResult = await executeParallelSearchWithRetry(
@@ -1016,15 +1014,22 @@ State whether confidence is HIGH, MEDIUM, or LOW based on:
 
       // Extract summary from the Summary section
       const summaryMatch = report.match(/## Summary\s*\n+([\s\S]*?)(?=\n##|\n#|$)/);
-      const summary = summaryMatch
-        ? summaryMatch[1].trim().substring(0, 250)
-        : report.substring(0, 250);
+      const summarySection = summaryMatch?.[1];
+      const summary =
+        summarySection !== undefined
+          ? summarySection.trim().substring(0, 250)
+          : report.substring(0, 250);
 
       // Extract confidence from the Confidence Assessment section
       let confidence: 'HIGH' | 'MEDIUM' | 'LOW';
       const confidenceMatch = report.match(/confidence is (HIGH|MEDIUM|LOW)/i);
-      if (confidenceMatch) {
-        confidence = confidenceMatch[1].toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW';
+      const matchedConfidence = confidenceMatch?.[1]?.toUpperCase();
+      if (
+        matchedConfidence === 'HIGH' ||
+        matchedConfidence === 'MEDIUM' ||
+        matchedConfidence === 'LOW'
+      ) {
+        confidence = matchedConfidence;
       } else if (sourceCount >= 8) {
         confidence = 'HIGH';
       } else if (sourceCount >= 4) {

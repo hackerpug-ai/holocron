@@ -7,7 +7,7 @@
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/sprint20-macos-runner-status.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -33,10 +33,7 @@ function runHolo(
   };
 }
 
-function writeStatusFile(
-  dir: string,
-  payload: unknown
-): string {
+function writeStatusFile(dir: string, payload: unknown): string {
   const file = join(dir, 'runner-status.json');
   writeFileSync(file, JSON.stringify(payload, null, 2));
   return file;

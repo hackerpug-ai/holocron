@@ -623,10 +623,11 @@ async function identityNegativeControls(options: {
       '4120/tcp',
     ]);
     const portMatch = portOutput.match(/:(\d+)\s*$/m);
-    if (!portMatch) verifyFail('malformed identity container did not publish a port');
+    const publishedPort = portMatch?.[1];
+    if (!publishedPort) verifyFail('malformed identity container did not publish a port');
     const malformedEndpoint = new URL(options.record.baseUrl);
     malformedEndpoint.protocol = 'http:';
-    malformedEndpoint.port = portMatch[1];
+    malformedEndpoint.port = publishedPort;
     const malformedUrl = malformedEndpoint.origin;
     let reachable = false;
     for (let attemptNumber = 0; attemptNumber < 30; attemptNumber += 1) {

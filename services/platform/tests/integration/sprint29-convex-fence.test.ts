@@ -139,8 +139,12 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
     expect(freezeReport.cross_process_probe?.rejected).toBe(true);
     expect(freezeReport.cross_process_probe?.message.startsWith('migration_read_only:')).toBe(true);
     // H-04: arm requires real OS child identity (never in-process fallback child_pid:null)
-    expect(typeof freezeReport.cross_process_probe?.child_pid).toBe('number');
-    expect(freezeReport.cross_process_probe?.child_pid).toBeGreaterThan(0);
+    const crossProcessProbe = freezeReport.cross_process_probe;
+    if (!crossProcessProbe || !('child_pid' in crossProcessProbe)) {
+      throw new Error('freeze report omitted cross-process child identity');
+    }
+    expect(typeof crossProcessProbe.child_pid).toBe('number');
+    expect(crossProcessProbe.child_pid).toBeGreaterThan(0);
 
     const env = getMigrationReadOnlyEnv();
     evidence('tc1-env.json', { env });

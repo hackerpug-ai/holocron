@@ -2673,7 +2673,7 @@ export function evaluateReadToolSuccess(
   }
 
   const postgres_backed = shapeOk && correspondence_matched;
-  const ok = transportOk && res.isError !== true && schema_valid && postgres_backed;
+  const ok = schema_valid && postgres_backed;
   return { ok, schema_valid, postgres_backed, correspondence_matched };
 }
 

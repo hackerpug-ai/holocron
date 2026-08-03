@@ -600,6 +600,10 @@ export async function runCutoverEtl(
         unitNorm: { checked: 0, violations: 0, maxDeviation: 0, tolerance: 0.02 },
         retrieval: {
           query: '',
+          querySha256: null,
+          anchorMarkerSha256: null,
+          anchorDocumentId: null,
+          anchorSourceOffset: null,
           searchMethod: null,
           ok: false,
           status: 'empty-corpus',
@@ -638,6 +642,10 @@ export async function runCutoverEtl(
       unitNorm: { checked: 0, violations: 0, maxDeviation: 0, tolerance: 0.02 },
       retrieval: {
         query: '',
+        querySha256: null,
+        anchorMarkerSha256: null,
+        anchorDocumentId: null,
+        anchorSourceOffset: null,
         searchMethod: null,
         ok: false,
         status: 'empty-corpus',

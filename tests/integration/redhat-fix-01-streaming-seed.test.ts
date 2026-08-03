@@ -185,10 +185,9 @@ describe('REDHAT-FIX-01 Streaming seed closeout', () => {
         const yml = readFileSync(join(REPO_ROOT, '.maestro/reactive', flow), 'utf8');
         optionalTotal += countOptionalStreamingAsserts(yml);
       }
-      expect(
-        optionalTotal,
-        'PATH-A: optional:true adjacent to Streaming asserts must be 0'
-      ).toBe(0);
+      expect(optionalTotal, 'PATH-A: optional:true adjacent to Streaming asserts must be 0').toBe(
+        0
+      );
     } else {
       let visibleTotal = 0;
       for (const flow of MAESTRO_STREAMING_FLOWS) {

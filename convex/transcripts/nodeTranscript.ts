@@ -6,6 +6,8 @@
  * Note: youtube-transcript is an ESM-only module, so we use dynamic import
  */
 
+/// <reference path="./youtube-transcript.d.ts" />
+
 export interface TranscriptResponse {
   text: string;
   duration: number;

@@ -10,7 +10,12 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { Mastra } from '@mastra/core/mastra';
-import { MastraStorageExporter, Observability, SensitiveDataFilter } from '@mastra/observability';
+import {
+  MastraStorageExporter,
+  Observability,
+  SamplingStrategyType,
+  SensitiveDataFilter,
+} from '@mastra/observability';
 import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -113,7 +118,7 @@ export function createMissionObservability(args?: { langfuse?: HolocronLangfuseE
     configs: {
       default: {
         serviceName: HOLOCRON_SERVICE_NAME,
-        sampling: { type: 'always' as const },
+        sampling: { type: SamplingStrategyType.ALWAYS },
         exporters: [new MastraStorageExporter(), langfuseExporter],
         spanOutputProcessors: [
           new SensitiveDataFilter({

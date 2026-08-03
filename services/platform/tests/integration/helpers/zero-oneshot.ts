@@ -39,6 +39,10 @@ export interface ZeroReadResult {
   agentContentLen: number;
   /** id of the first agent row (undefined if none). */
   agentId?: string;
+  /** True iff the conversation row is visible through Zero. */
+  conversationPresent?: boolean;
+  /** Replicated conversation title, or null when absent. */
+  conversationTitle?: string | null;
   /** Set when the client never reached a 'complete' resultType in time. */
   timedOut?: boolean;
   /** Error message on failure. */
@@ -71,7 +75,6 @@ export async function readConversationViaZero(opts: ZeroReadOptions): Promise<Ze
       server,
       schema,
       userID: userId,
-      logConfig: { level: 'error', format: 'text' },
     });
   } catch (err) {
     return { ...base, error: `Zero client construction failed: ${String(err)}` };

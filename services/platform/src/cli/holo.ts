@@ -146,9 +146,6 @@ interface CliArgs {
   /** gate:eval --claims/--refuting <json> */
   claimsPath: string | null;
   refutingPath: string | null;
-  /** mission run research/deepResearch --topic / --components */
-  topic: string | null;
-  components: string | null;
   /** research:trace --processes */
   processes: boolean;
   /** probe:capabilities flags */
@@ -271,6 +268,8 @@ interface CliArgs {
   baseUrl: string | null;
   /** cutover:verify-soak — deployed Zero cache endpoint used by the write-fence probe. */
   zeroBaseUrl: string | null;
+  /** cutover:verify-article --baseline <article-baseline.json> */
+  baseline?: string | null;
   /** cutover:verify-tools — optional service / deployment label for target_identity */
   serviceLabel: string | null;
   /** deploy:package — digest-qualified candidate and rollback image identities. */
@@ -709,6 +708,7 @@ function parseArgs(argv: string[]): CliArgs {
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
+    if (a === undefined) continue;
     if (a === '-h' || a === '--help') {
       args.help = true;
     } else if (a === '--json') {
@@ -1530,19 +1530,21 @@ async function main(): Promise<void> {
         if (args.json) {
           console.log(JSON.stringify(result, null, 2));
         } else if (mode === '--last') {
-          const last = (result as Awaited<ReturnType<typeof verifyLastUploadedBlob>>).row;
+          const lastResult = result as Awaited<ReturnType<typeof verifyLastUploadedBlob>>;
+          const last = lastResult.row;
           console.log('holo verify:blob --last — content-addressed upload proof');
-          console.log(`  file_objects rows: ${result.rowCount}`);
+          console.log(`  file_objects rows: ${lastResult.rowCount}`);
           if (last) {
             console.log(`  id:             ${last.id}`);
             console.log(`  SHA-256:        ${last.contentHash}`);
             console.log(`  byte_size:      ${last.actualByteSize ?? last.byteSize ?? 'unknown'}`);
             console.log(`  mime_type:      ${last.mimeType ?? 'unknown'}`);
             console.log(`  storage_path:   ${last.storagePath ?? 'missing'}`);
-            if (result.fixtureChecked) console.log(`  fixture_sha256: ${result.fixtureSha256}`);
+            if (lastResult.fixtureChecked)
+              console.log(`  fixture_sha256: ${lastResult.fixtureSha256}`);
           }
-          if (result.reason) console.error(`  reason: ${result.reason}`);
-          console.log(result.ok ? '  status: OK' : '  status: FAIL');
+          if (lastResult.reason) console.error(`  reason: ${lastResult.reason}`);
+          console.log(lastResult.ok ? '  status: OK' : '  status: FAIL');
         } else {
           const orphanResult = result as Awaited<ReturnType<typeof verifyUploadOrphans>>;
           console.log('holo verify:blob --orphans — staged upload proof');
@@ -4166,7 +4168,7 @@ async function main(): Promise<void> {
           method: String(init?.method ?? 'GET').toUpperCase(),
           at: Date.now(),
         });
-        return origFetch(input as RequestInfo, init as RequestInit);
+        return origFetch(input, init);
       }) as typeof globalThis.fetch;
 
       const deepseekHits = () =>
@@ -4484,7 +4486,8 @@ async function main(): Promise<void> {
       const repoRoot = resolve(here, '../../../..');
       const result = scanPerDomainShells(repoRoot);
       if (args.json) {
-        console.log(JSON.stringify({ ok: result.ok, ...result }, null, 2));
+        const { ok, ...details } = result;
+        console.log(JSON.stringify({ ok, ...details }, null, 2));
       } else {
         console.log(`holo verify:no-shells — ${result.message}`);
         if (result.found.length > 0) {
@@ -4765,9 +4768,9 @@ async function main(): Promise<void> {
             ? err.code
             : err instanceof BlockedError
               ? err.code
-              : err instanceof UnknownFleetRoleError
+              : err instanceof Error && 'code' in err && err.code === 'UNKNOWN_FLEET_ROLE'
                 ? 'UNKNOWN_FLEET_ROLE'
-                : err instanceof RoleUnavailableError
+                : err instanceof Error && 'code' in err && err.code === 'ROLE_UNAVAILABLE'
                   ? 'ROLE_UNAVAILABLE'
                   : 'EXTRACTION_FAILED';
 
@@ -5229,8 +5232,9 @@ async function main(): Promise<void> {
           const contentHit =
             expectedContent.length > 0 &&
             top.some((r) => {
-              if (typeof r.content !== 'string') return false;
-              return expectedContent.some((needle) => r.content.includes(needle));
+              const content = r.content;
+              if (typeof content !== 'string') return false;
+              return expectedContent.some((needle) => content.includes(needle));
             });
 
           // If no expected criteria provided, treat non-empty top-k as a hit (smoke).
@@ -6898,7 +6902,7 @@ async function main(): Promise<void> {
       const sub = args.positional[1] ?? '';
       if (sub === 'runner:status' || sub === 'runner-status') {
         const { checkRunnerStatus } = await import('../ci/runner-status.ts');
-        let result;
+        let result: Awaited<ReturnType<typeof checkRunnerStatus>>;
         try {
           result = await checkRunnerStatus({ lane: args.lane });
         } catch (e) {
@@ -6929,7 +6933,7 @@ async function main(): Promise<void> {
     case 'ci:runner:status':
     case 'ci:runner-status': {
       const { checkRunnerStatus } = await import('../ci/runner-status.ts');
-      let result;
+      let result: Awaited<ReturnType<typeof checkRunnerStatus>>;
       try {
         result = await checkRunnerStatus({ lane: args.lane });
       } catch (e) {

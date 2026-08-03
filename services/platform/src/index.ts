@@ -10,7 +10,10 @@
  *   bun services/platform/src/cli/holo.ts service:up
  */
 
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Mastra } from '@mastra/core/mastra';
+import { serve } from 'bun';
 import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
@@ -40,7 +43,7 @@ process.on('unhandledRejection', (reason) => {
 export type ServiceHandle = {
   mastra: Mastra;
   port: number;
-  server: ReturnType<typeof Bun.serve>;
+  server: ReturnType<typeof serve>;
   stop: () => Promise<void>;
 };
 
@@ -107,7 +110,7 @@ export async function startService(options?: {
   // listAgents() is a real 1.x API (not a stub); empty registry is expected here.
   void mastra.listAgents();
 
-  const server = Bun.serve({
+  const server = serve({
     port,
     hostname,
     fetch: app.fetch,
@@ -132,12 +135,13 @@ export async function startService(options?: {
 }
 
 // Composition-root entry: `bun run services/platform/src/index.ts`
+const argvEntry = process.argv[1];
 const isMain =
-  typeof Bun !== 'undefined' &&
-  (import.meta.path === Bun.main ||
-    process.argv[1]?.endsWith('/services/platform/src/index.ts') ||
-    process.argv[1]?.endsWith('services/platform/src/index.ts') ||
-    process.argv[1]?.endsWith('/index.ts'));
+  argvEntry !== undefined &&
+  (resolve(argvEntry) === fileURLToPath(import.meta.url) ||
+    argvEntry.endsWith('/services/platform/src/index.ts') ||
+    argvEntry.endsWith('services/platform/src/index.ts') ||
+    argvEntry.endsWith('/index.ts'));
 
 if (isMain) {
   startService().catch((err) => {

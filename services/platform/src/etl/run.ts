@@ -74,6 +74,55 @@ const LOAD_ORDER = [
 
 const EXPLICIT_SKIP_DISPOSITIONS = new Set(['drop', 'archive', 'regenerate']);
 
+type SqlJsonValue = Parameters<Sql['json']>[0];
+type SqlParameter = NonNullable<Parameters<Sql['unsafe']>[1]>[number];
+
+function toSqlJsonValue(value: unknown, seen = new Set<object>()): SqlJsonValue {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value instanceof Date
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    if (seen.has(value)) {
+      throw new Error('etl: cannot serialize circular JSON array');
+    }
+    seen.add(value);
+    const output = value.map((item) => toSqlJsonValue(item, seen));
+    seen.delete(value);
+    return output;
+  }
+
+  if (typeof value === 'object') {
+    if (seen.has(value)) {
+      throw new Error('etl: cannot serialize circular JSON object');
+    }
+    seen.add(value);
+    const output: Record<string, SqlJsonValue | undefined> = {};
+    for (const [key, child] of Object.entries(value)) {
+      if (child !== undefined) {
+        output[key] = toSqlJsonValue(child, seen);
+      }
+    }
+    seen.delete(value);
+    return output;
+  }
+
+  throw new Error(`etl: unsupported JSON value type ${typeof value}`);
+}
+
+function toSqlParameter(value: unknown): SqlParameter {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  return toSqlJsonValue(value);
+}
+
 function ensureCatalogCoverage(
   catalog: ReturnType<typeof loadCatalog>,
   archive: ImmutableExport
@@ -139,12 +188,14 @@ async function createRunRecord(
       ${catalogVersion},
       'validated',
       'running',
-      ${sql.json({
-        files: archive.fileManifest,
-        listedTables: archive.listedTables,
-        retainedObjects: archive.assetInventory.objects,
-      })},
-      ${sql.json({ stageRowCount: archive.rows.length })}
+      ${sql.json(
+        toSqlJsonValue({
+          files: archive.fileManifest,
+          listedTables: archive.listedTables,
+          retainedObjects: archive.assetInventory.objects,
+        })
+      )},
+      ${sql.json(toSqlJsonValue({ stageRowCount: archive.rows.length }))}
     )
     RETURNING id::text AS id
   `;
@@ -167,7 +218,7 @@ async function updateRun(
   }>
 ): Promise<void> {
   const assignments: string[] = ['"updated_at" = now()'];
-  const values: unknown[] = [];
+  const values: SqlParameter[] = [];
   let i = 1;
 
   if (patch.checkpoint !== undefined) {
@@ -207,7 +258,7 @@ async function stageRows(sql: Sql, runId: string, rows: ParsedExportRow[]): Prom
         ${row.legacyId},
         ${String(row.creationTimeMs)},
         ${row.rowHash},
-        ${sql.json(row.rowJson)}
+        ${sql.json(toSqlJsonValue(row.rowJson))}
       )
       ON CONFLICT (run_id, source_table, legacy_id) DO UPDATE
         SET row_hash = EXCLUDED.row_hash,
@@ -258,7 +309,7 @@ async function upsertDynamic(
   if (columns.length === 0) {
     throw new Error(`etl: empty payload for ${tableName}`);
   }
-  const values = columns.map((column) => payload[column]);
+  const values = columns.map((column) => toSqlParameter(payload[column]));
   const quotedCols = columns.map(quoteIdent);
   const placeholders = columns.map((_, index) => `$${index + 1}`);
   const updates = columns
@@ -411,6 +462,11 @@ function buildRowPayload(
     }
 
     const [targetTable, rawTargetColumn] = fieldEntry.target.split('.', 2);
+    if (!targetTable || !rawTargetColumn) {
+      throw new Error(
+        `etl: malformed target for ${row.sourceTable}.${sourceField}: ${fieldEntry.target}`
+      );
+    }
     if (targetTable === 'content_addressed_blobs') {
       applyStorageField(payload, columns, sourceValue, importedAssets);
       continue;

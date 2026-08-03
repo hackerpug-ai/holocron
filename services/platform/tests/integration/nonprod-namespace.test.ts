@@ -1,15 +1,16 @@
 /**
- * D02-02 nonprod namespace + seed/reset (bun:test, real Postgres).
+ * D02-02 nonprod namespace + seed/reset (real Postgres).
  */
-import { describe, expect, test } from 'bun:test';
+import { readFile } from 'node:fs/promises';
+import { describe, expect, test } from 'vitest';
 import {
   countPublicRows,
   dbStatusPayload,
   provisionNonprodNamespace,
   toNonprodUrl,
 } from '../../src/db/nonprod.ts';
-import { assertSeedTargetAllowed, seedDatabase } from '../../src/db/seed.ts';
 import { getReplStatus } from '../../src/db/repl-status.ts';
+import { assertSeedTargetAllowed, seedDatabase } from '../../src/db/seed.ts';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const PROD_URL = process.env.HOLO_PROD_URL ?? 'postgres://127.0.0.1:5432/holocron';
@@ -58,9 +59,10 @@ describeLive('D02-02 nonprod-namespace (live Postgres)', () => {
 
 describe('D02-02 nonprod-namespace (always)', () => {
   test('AC-5 env contract docs mention holocron_nonprod', async () => {
-    const doc = await Bun.file(
-      new URL('../../../../docs/ci/nonprod-namespace.md', import.meta.url)
-    ).text();
+    const doc = await readFile(
+      new URL('../../../../docs/ci/nonprod-namespace.md', import.meta.url),
+      'utf8'
+    );
     expect(doc).toMatch(/holocron_nonprod/);
     expect(doc).toMatch(/DATABASE_URL/);
     expect(doc).toMatch(/test:integration/);

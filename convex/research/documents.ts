@@ -204,7 +204,7 @@ export const createResearchDocument = internalAction({
         const claimMatch = match.match(/### \d+\.\s+[\s\S]*?\n([\s\S]*?)\n\*\*Sources\*\*/);
         if (claimMatch?.[1]) {
           // Extract just the first line or two of the finding
-          const claim = claimMatch[1].trim().split('\n')[0].slice(0, 100);
+          const claim = claimMatch[1].trim().split('\n')[0]?.slice(0, 100) ?? '';
           keyFindings.push(claim);
         }
       });

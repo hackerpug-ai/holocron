@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'bun:test';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, test } from 'vitest';
 import { runPrdConsistency } from '../../src/prd/consistency.ts';
 
-const repoRoot = resolve(import.meta.dir, '../../../..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 
 describe('D02-07 prd-consistency', () => {
   test('AC-1 current PRD derives 60/44', () => {

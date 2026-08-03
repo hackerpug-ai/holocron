@@ -312,7 +312,9 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       /bun src\/cli\/holo\.ts db:migrate[\s\S]*exec bun src\/index\.ts/
     );
     for (const name of ['scheduler', 'zero-cache']) {
-      const depends = services[name].depends_on as Record<string, Record<string, unknown>>;
+      const service = services[name];
+      if (!service) throw new Error(`compose fixture is missing ${name}`);
+      const depends = service.depends_on as Record<string, Record<string, unknown>>;
       expect(depends.mastra).toMatchObject({ condition: 'service_healthy' });
     }
     expect(zeroCache.environment).toMatchObject({ ZERO_ENABLE_CRUD_MUTATIONS: 'false' });
@@ -324,7 +326,7 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     expect(() => assertComposeContract(candidate)).toThrow(/run bun src\/cli\/holo\.ts db:migrate/);
 
     mastra.command = ['/bin/sh', '-ec', 'bun src/cli/holo.ts db:migrate; exec bun src/index.ts'];
-    delete (services.scheduler.depends_on as Record<string, unknown>).mastra;
+    delete (scheduler.depends_on as Record<string, unknown>).mastra;
     expect(() => assertComposeContract(candidate)).toThrow(/scheduler must depend on mastra/);
   });
 

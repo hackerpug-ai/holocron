@@ -94,7 +94,7 @@ export const findSimilar = action({
     const resultMap = new Map<string, any>();
 
     // Score vector results - normalize to 0-1 range
-    const maxVectorScore = hydratedVectorResults.length > 0 ? hydratedVectorResults[0].score : 1;
+    const maxVectorScore = hydratedVectorResults[0]?.score ?? 1;
 
     for (const doc of hydratedVectorResults) {
       const id = doc._id.toString();
@@ -106,8 +106,7 @@ export const findSimilar = action({
 
     // Score FTS results - Convex search index returns results in relevance order
     // but does not expose a numeric score, so we derive one from position
-    for (let i = 0; i < ftsResults.length; i++) {
-      const doc = ftsResults[i];
+    for (const [i, doc] of ftsResults.entries()) {
       const id = doc._id.toString();
       const positionalScore = ftsResults.length > 0 ? 1 - i / ftsResults.length : 0;
       const weightedScore = positionalScore * FTS_WEIGHT;

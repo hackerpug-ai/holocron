@@ -69,6 +69,13 @@ function response(body: Record<string, unknown>): Promise<Response> {
   return Promise.resolve(Response.json(body));
 }
 
+function mockFetch(responseFactory: () => Promise<Response>): typeof fetch {
+  const implementation = (..._args: Parameters<typeof fetch>): ReturnType<typeof fetch> =>
+    responseFactory();
+  const preconnect: typeof fetch.preconnect = () => undefined;
+  return Object.assign(implementation, { preconnect });
+}
+
 const expected = {
   host: 'inference1',
   runtime: 'container' as const,
@@ -91,7 +98,7 @@ describe('D06-07 inference1 deployment contract', () => {
       verifyExternalDeploymentIdentity({
         baseUrl: 'http://localhost:4111',
         expected,
-        fetchImpl: () => response(health()),
+        fetchImpl: mockFetch(() => response(health())),
       })
     ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
 
@@ -100,7 +107,7 @@ describe('D06-07 inference1 deployment contract', () => {
         baseUrl: 'http://external-alias.invalid:44111',
         expected,
         dnsLookup: async () => [{ address: '127.0.0.1', family: 4 }],
-        fetchImpl: () => response(health()),
+        fetchImpl: mockFetch(() => response(health())),
       })
     ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
 
@@ -110,7 +117,7 @@ describe('D06-07 inference1 deployment contract', () => {
           baseUrl: 'http://external-alias.invalid:44111',
           expected,
           dnsLookup: async () => [{ address, family: 6 }],
-          fetchImpl: () => response(health()),
+          fetchImpl: mockFetch(() => response(health())),
         })
       ).rejects.toMatchObject({ code: 'LOOPBACK_REJECTED' });
     }
@@ -183,7 +190,7 @@ describe('D06-07 inference1 deployment contract', () => {
       baseUrl: 'http://192.168.1.160:44111',
       expected,
       verifierPid: 99,
-      fetchImpl: () => response(health()),
+      fetchImpl: mockFetch(() => response(health())),
     });
     expect(accepted.ok).toBe(true);
     expect(accepted.observed).toMatchObject(expected);
@@ -208,7 +215,7 @@ describe('D06-07 inference1 deployment contract', () => {
           baseUrl: 'http://192.168.1.160:44111',
           expected,
           verifierPid: 99,
-          fetchImpl: () => response(body),
+          fetchImpl: mockFetch(() => response(body)),
         }),
         label
       ).rejects.toMatchObject({ code });

@@ -158,8 +158,10 @@ function parseRatingAndReviewCount(text: string): {
 } {
   const ratingMatch = text.match(/(?:^|\s)([1-5](?:\.[0-9])?)\s*(?:\/\s*5|stars?|★)/i);
   const reviewMatch = text.match(/(\d[\d,]*)\s+(?:reviews?|ratings?)/i);
-  const rating = ratingMatch ? Number.parseFloat(ratingMatch[1]) : undefined;
-  const reviewCount = reviewMatch ? toInt(reviewMatch[1]) : undefined;
+  const ratingText = ratingMatch?.[1];
+  const reviewCountText = reviewMatch?.[1];
+  const rating = ratingText !== undefined ? Number.parseFloat(ratingText) : undefined;
+  const reviewCount = reviewCountText !== undefined ? toInt(reviewCountText) : undefined;
 
   return {
     rating: Number.isFinite(rating) ? rating : undefined,
@@ -400,6 +402,9 @@ export async function selectivelyEnrichRecommendations(
   const settled = await Promise.allSettled(
     plan.map(async (index) => {
       const item = items[index];
+      if (!item) {
+        throw new Error(`Missing recommendation item at enrichment index ${index}`);
+      }
       const entityQueries = buildEntityQueries(item, args);
 
       const searchSettled = await Promise.allSettled(
@@ -419,11 +424,15 @@ export async function selectivelyEnrichRecommendations(
       });
 
       const candidates = searchResults
-        .flatMap((results, queryIndex) =>
-          results
-            .map((result) => normalizeCandidate(result, entityQueries[queryIndex].platform))
-            .filter((candidate): candidate is EnrichmentCandidate => !!candidate)
-        )
+        .flatMap((results, queryIndex) => {
+          const entityQuery = entityQueries[queryIndex];
+          if (!entityQuery) {
+            throw new Error(`Missing enrichment query at index ${queryIndex}`);
+          }
+          return results
+            .map((result) => normalizeCandidate(result, entityQuery.platform))
+            .filter((candidate): candidate is EnrichmentCandidate => !!candidate);
+        })
         .slice(0, ENTITY_SEARCH_LIMIT);
 
       const requiresReaderEvidence = candidates.some(

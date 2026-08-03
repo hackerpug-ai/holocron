@@ -39,11 +39,11 @@ async function fetchActualValue(
   column: string,
   rowId: string
 ): Promise<string | null> {
-  const rows = await sql.unsafe(
+  const rows = await sql.unsafe<Array<{ value: string | null }>>(
     `SELECT "${column.replace(/"/g, '""')}"::text AS value FROM "${tableName.replace(/"/g, '""')}" WHERE "id" = $1::uuid`,
     [rowId]
   );
-  return (rows as Array<{ value: string | null }>)[0]?.value ?? null;
+  return rows[0]?.value ?? null;
 }
 
 export async function runFkAudit(options?: {
@@ -97,6 +97,11 @@ export async function runFkAudit(options?: {
         }
 
         const [, rawTargetColumn] = fieldEntry.target.split('.', 2);
+        if (!rawTargetColumn) {
+          throw new Error(
+            `etl: malformed target for ${row.sourceTable}.${sourceField}: ${fieldEntry.target}`
+          );
+        }
         const resolvedColumn = resolveTargetColumnName(columns, rawTargetColumn, sourceField);
         if (!resolvedColumn || resolvedColumn === 'legacy_convex_id') continue;
 

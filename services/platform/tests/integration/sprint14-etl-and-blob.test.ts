@@ -1079,10 +1079,12 @@ describe('Sprint 14 ETL + blob verify', () => {
         FROM chat_messages
         WHERE legacy_convex_id = 'chat_legacy_1'
       `;
+      const seededOrphanId = seededOrphan[0]?.id;
+      if (!seededOrphanId) throw new Error('seeded chat orphan row was not found');
       await db`
         UPDATE chat_messages
         SET document_id = '00000000-0000-7000-8000-000000000999'
-        WHERE id = ${seededOrphan[0]?.id}::uuid
+        WHERE id = ${seededOrphanId}::uuid
       `;
       const fkRed = runHolo(['etl:fk-audit', '--json']);
       expect(fkRed.status, `${fkRed.stdout}\n${fkRed.stderr}`).not.toBe(0);
@@ -1098,7 +1100,7 @@ describe('Sprint 14 ETL + blob verify', () => {
         SET document_id = (
           SELECT new_id FROM convex_id_map WHERE old_id = 'doc_legacy_1'
         )
-        WHERE id = ${seededOrphan[0]?.id}::uuid
+        WHERE id = ${seededOrphanId}::uuid
       `;
 
       await db`

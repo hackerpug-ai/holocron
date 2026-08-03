@@ -832,6 +832,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     }
 
     const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0];
+    if (!job) throw new Error('migrated job registry is empty');
     const jobResult = await runJob(job, { databaseUrl: DATABASE_URL, runId: randomUUID() });
     const jobBlocked =
       jobResult.ok === false && String(jobResult.error ?? '').includes('migration_read_only');

@@ -603,11 +603,13 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     containers[service] = id;
   }
   for (const service of ['mastra', 'scheduler'] as const) {
+    const containerId = containers[service];
+    if (!containerId) deployFail(`container id missing for ${service}`);
     const actualImage = runOrFail(runner, cwd, env, 'docker', [
       'inspect',
       '--format',
       '{{.Config.Image}}',
-      containers[service],
+      containerId,
     ]);
     if (actualImage !== lock.image) deployFail(`${service} is not running the locked image`);
   }
