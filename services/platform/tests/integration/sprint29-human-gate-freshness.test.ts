@@ -426,9 +426,15 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       expect(script).toMatch(/landing_eligible/);
       expect(script).toMatch(/local-process/);
       const envLoad = script.search(/source "\$\{HOME\}\/Projects\/holocron\/\.env"/);
+      const selfHostedConvexMode = script.indexOf('unset CONVEX_DEPLOYMENT');
       const scopedMint = script.indexOf('source "$ROOT/scripts/mint-r2-prefix-restore-env.sh"');
       expect(envLoad, 'primary .env load must remain explicit').toBeGreaterThanOrEqual(0);
+      expect(
+        selfHostedConvexMode,
+        'self-hosted Convex mode must clear the conflicting deployment selector after .env load'
+      ).toBeGreaterThan(envLoad);
       expect(scopedMint, 'optional scoped restore mint must be wired').toBeGreaterThan(envLoad);
+      expect(selfHostedConvexMode).toBeLessThan(scopedMint);
 
       const plan = loadPlan();
       expect(plan.dispatcher).toContain('services/platform/src/cli/holo.ts');

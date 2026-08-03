@@ -137,6 +137,16 @@ elif [[ -f "${HOME}/Projects/holocron/.env" ]]; then
   set +a
 fi
 
+# The operator .env can name a cloud/dev deployment, but an explicitly
+# configured self-hosted Convex endpoint must use the self-hosted CLI mode.
+# Convex refuses to run when CONVEX_DEPLOYMENT is present alongside both
+# self-hosted credentials, so clear only that conflicting selector after the
+# .env load. The isolated go/no-go lane receives its own local deployment via
+# HOLO_GO_NO_GO_CONVEX_DEPLOYMENT.
+if [[ -n "${CONVEX_SELF_HOSTED_URL:-}" && -n "${CONVEX_SELF_HOSTED_ADMIN_KEY:-}" ]]; then
+  unset CONVEX_DEPLOYMENT
+fi
+
 # A caller may request fresh temporary restore tuples for the exact-scope R2
 # and fire-drill gates. This must run after .env is loaded so durable operator
 # values cannot overwrite the minted tuples. The helper never logs values.
