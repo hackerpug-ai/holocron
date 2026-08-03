@@ -51,10 +51,10 @@ export function toSqlJsonValue(value: unknown, seen = new Set<object>()): SqlJso
   throw new TypeError(`Cannot serialize JSON value of type ${typeof value}`);
 }
 
-export function createSql(url?: string): Sql {
+export function createSql(url?: string, options?: { max?: number }): Sql {
   const connectionString = url ?? resolveDatabaseUrl({ preferHolocron: true });
   return postgres(connectionString, {
-    max: 10,
+    max: options?.max ?? 10,
     prepare: false,
     onnotice: () => {},
   });

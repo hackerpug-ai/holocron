@@ -12,9 +12,16 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
-import { resolveRepoRoot } from '../config/secrets.ts';
+import {
+  loadSecretsFile,
+  resolveRepoRoot,
+  resolveSecretsPathFromEnv,
+  upsertSecretsFile,
+} from '../config/secrets.ts';
+import { DEFAULT_HOLOCRON_NONPROD_DATABASE_URL } from '../db/connection.ts';
 
 export const GO_NO_GO_GATE_NAMES = [
   'lint',
@@ -81,8 +88,16 @@ export const DEFAULT_GATE_SPECS: readonly GateSpec[] = [
   },
   {
     name: 'integration',
-    command: 'pnpm vitest run --project integration',
-    argv: ['pnpm', 'vitest', 'run', '--project', 'integration'],
+    command: 'pnpm vitest run --project integration --no-file-parallelism --maxWorkers=1',
+    argv: [
+      'pnpm',
+      'vitest',
+      'run',
+      '--project',
+      'integration',
+      '--no-file-parallelism',
+      '--maxWorkers=1',
+    ],
     kind: 'vitest',
   },
   {
@@ -243,6 +258,50 @@ function runOneGate(spec: GateSpec, options: { cwd: string; env: NodeJS.ProcessE
   };
 }
 
+function nonprodDatabaseUrl(raw: string | undefined): string {
+  if (!raw) return DEFAULT_HOLOCRON_NONPROD_DATABASE_URL;
+  const parsed = new URL(raw);
+  parsed.pathname = '/holocron_nonprod';
+  return parsed.toString();
+}
+
+type IsolatedIntegrationEnv = {
+  env: NodeJS.ProcessEnv;
+  cleanup: () => void;
+};
+
+/**
+ * Build the integration lane's documented real-service environment without
+ * exposing or mutating the operator's durable cutover control-plane file.
+ */
+function createIsolatedIntegrationEnv(
+  repoRoot: string,
+  baseEnv: NodeJS.ProcessEnv
+): IsolatedIntegrationEnv {
+  const sourcePath = resolveSecretsPathFromEnv(baseEnv, repoRoot);
+  const sourceSecrets = loadSecretsFile(sourcePath);
+  const databaseUrl = nonprodDatabaseUrl(baseEnv.DATABASE_URL ?? sourceSecrets.DATABASE_URL);
+  const tempRoot = mkdtempSync(resolve(tmpdir(), 'holocron-go-no-go-'));
+  const secretsPath = resolve(tempRoot, 'secrets.yaml');
+
+  upsertSecretsFile(secretsPath, {
+    ...sourceSecrets,
+    DATABASE_URL: databaseUrl,
+    HOLO_MIGRATION_READ_ONLY: '0',
+  });
+
+  return {
+    env: {
+      ...baseEnv,
+      DATABASE_URL: databaseUrl,
+      DATABASE_URL_OWNER: databaseUrl,
+      HOLO_MIGRATION_READ_ONLY: '0',
+      HOLO_SECRETS_PATH: secretsPath,
+    },
+    cleanup: () => rmSync(tempRoot, { recursive: true, force: true }),
+  };
+}
+
 export type RunGoNoGoOptions = {
   repoRoot?: string;
   /** Working directory for subprocesses (default: repoRoot). */
@@ -295,8 +354,18 @@ export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
   const reportPath = resolve(options.reportPath ?? defaultGoNoGoReportPath(cwd));
 
   const gates: GateResult[] = [];
-  for (const spec of specs) {
-    gates.push(runOneGate(spec, { cwd, env }));
+  const needsIntegrationEnv = specs.some(
+    (spec) => spec.name === 'integration' || spec.name === 'live'
+  );
+  const isolated = needsIntegrationEnv ? createIsolatedIntegrationEnv(repoRoot, env) : null;
+  try {
+    for (const spec of specs) {
+      const gateEnv =
+        spec.name === 'integration' || spec.name === 'live' ? (isolated?.env ?? env) : env;
+      gates.push(runOneGate(spec, { cwd, env: gateEnv }));
+    }
+  } finally {
+    isolated?.cleanup();
   }
 
   const overallOk = gates.length > 0 && gates.every((g) => g.pass);

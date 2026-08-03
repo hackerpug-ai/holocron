@@ -90,7 +90,10 @@ export async function embedRun(options: EmbedRunOptions = {}): Promise<EmbedRunR
   const embedFn: EmbedFn = options.embedFn ?? ((text, mode) => embed(text, mode));
   const expectedDim = options.expectedDimension ?? EMBED_RUN_EXPECTED_DIM;
   const ownsSql = !options.sql;
-  const sql = options.sql ?? createSql(databaseUrl);
+  // Each embed worker holds at most one transaction at a time. A one-connection
+  // pool preserves the requested worker concurrency without multiplying it by
+  // postgres.js' default application pool size and exhausting Postgres.
+  const sql = options.sql ?? createSql(databaseUrl, { max: 1 });
 
   let processed = 0;
 
