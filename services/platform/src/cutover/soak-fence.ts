@@ -689,6 +689,12 @@ export type BoundExportCatalogBaseline = {
   parityHash: string;
   /** Expected source-table counts (camelCase keys) from immutable parity inventory. */
   expectedLoadedByTable: Record<string, number>;
+  /**
+   * Immutable source-table membership for each expected target. A current
+   * cutover artifact always declares this; legacy fixture artifacts fall back
+   * to their single loadedByTable key and are still bound through the catalog.
+   */
+  sourceTablesByTarget: Record<string, string[]>;
   catalog_table_count: number;
   listedTables: string[];
   /** Immutable baseline digest: export archive content address (not report self-hash). */
@@ -750,6 +756,7 @@ export function loadBoundExportCatalogBaseline(options: {
       exportArchiveHash: '',
       parityHash: '',
       expectedLoadedByTable: {},
+      sourceTablesByTarget: {},
       catalog_table_count: 0,
       listedTables: [],
       baseline_hash: '',
@@ -770,6 +777,7 @@ export function loadBoundExportCatalogBaseline(options: {
       exportArchiveHash: '',
       parityHash: '',
       expectedLoadedByTable: {},
+      sourceTablesByTarget: {},
       catalog_table_count: 0,
       listedTables: [],
       baseline_hash: '',
@@ -893,6 +901,12 @@ export function loadBoundExportCatalogBaseline(options: {
     exportArchiveHash: exportArchiveHash || parity.boundExportArchiveHash,
     parityHash: parity.parityHash,
     expectedLoadedByTable: { ...parity.loadedByTable },
+    sourceTablesByTarget: Object.fromEntries(
+      Object.entries(parity.sourceTablesByTarget).map(([target, sources]) => [
+        target,
+        Array.isArray(sources) ? [...sources] : [],
+      ])
+    ),
     catalog_table_count,
     listedTables,
     baseline_hash,
@@ -2960,6 +2974,120 @@ export function mapLoadedByTableToPgTargets(
     .sort((a, b) => a.pgTable.localeCompare(b.pgTable));
 }
 
+type CurrentExportMappedTarget = {
+  pgTable: string;
+  baseline: number;
+  /** Source IDs from the immutable export, grouped for the ETL id-map join. */
+  sourceLegacyIds: Array<{ sourceTable: string; legacyIds: string[] }>;
+};
+
+/**
+ * Build the read-parity scope from the same immutable export/catalog/id-map
+ * relationship used by ETL reconciliation. Target tables are additive in
+ * production, so whole-table counts would include valid rows from earlier
+ * migrations and are not a current-cutover oracle.
+ */
+function buildCurrentExportMappedTargets(options: {
+  bound: BoundExportCatalogBaseline;
+  expectedLoadedByTable: Record<string, number>;
+}): { targets: CurrentExportMappedTarget[]; mismatches: string[] } {
+  const { bound, expectedLoadedByTable } = options;
+  const mismatches: string[] = [];
+  const targets: CurrentExportMappedTarget[] = [];
+
+  try {
+    const catalog = loadCatalog(bound.catalogPath);
+    const archive = readImmutableExport(bound.exportDir, catalog);
+    if (archive.archiveHash.toLowerCase() !== bound.exportArchiveHash.toLowerCase()) {
+      mismatches.push(
+        `archive changed after provenance bind: bound=${bound.exportArchiveHash} current=${archive.archiveHash}`
+      );
+    }
+
+    const legacyIdsBySource = new Map<string, string[]>();
+    for (const row of archive.rows) {
+      const ids = legacyIdsBySource.get(row.sourceTable) ?? [];
+      ids.push(row.legacyId);
+      legacyIdsBySource.set(row.sourceTable, ids);
+    }
+
+    const seenPgTables = new Set<string>();
+    for (const [parityTarget, rawBaseline] of Object.entries(expectedLoadedByTable)) {
+      if (!Number.isSafeInteger(rawBaseline) || rawBaseline < 0) {
+        mismatches.push(`invalid immutable parity baseline for ${parityTarget}: ${rawBaseline}`);
+        continue;
+      }
+
+      const declaredSources = bound.sourceTablesByTarget[parityTarget];
+      const sourceTables =
+        Array.isArray(declaredSources) && declaredSources.length > 0
+          ? declaredSources
+          : [parityTarget];
+      const sourceLegacyIds: Array<{ sourceTable: string; legacyIds: string[] }> = [];
+      const catalogTargets = new Set<string>();
+      const seenSources = new Set<string>();
+
+      for (const sourceTable of sourceTables) {
+        if (typeof sourceTable !== 'string' || !sourceTable.trim()) {
+          mismatches.push(`invalid source table mapping for parity target ${parityTarget}`);
+          continue;
+        }
+        if (seenSources.has(sourceTable)) {
+          mismatches.push(
+            `duplicate source table mapping for parity target ${parityTarget}: ${sourceTable}`
+          );
+          continue;
+        }
+        seenSources.add(sourceTable);
+
+        const entry = catalog.tables[sourceTable];
+        if (!entry?.target) {
+          mismatches.push(
+            `catalog target missing for parity source ${sourceTable} (parity target ${parityTarget})`
+          );
+          continue;
+        }
+        if (!PG_IDENT_RE.test(entry.target)) {
+          mismatches.push(`unsafe catalog target for ${sourceTable}: ${entry.target}`);
+          continue;
+        }
+        catalogTargets.add(entry.target);
+        sourceLegacyIds.push({
+          sourceTable,
+          legacyIds: legacyIdsBySource.get(sourceTable) ?? [],
+        });
+      }
+
+      if (catalogTargets.size !== 1) {
+        mismatches.push(
+          `ambiguous catalog target mapping for ${parityTarget}: ${
+            [...catalogTargets].join(', ') || 'none'
+          }`
+        );
+        continue;
+      }
+      const pgTable = [...catalogTargets][0];
+      if (!pgTable) {
+        mismatches.push(`catalog target missing for parity target ${parityTarget}`);
+        continue;
+      }
+      if (seenPgTables.has(pgTable)) {
+        mismatches.push(`duplicate immutable parity target mapping: ${pgTable}`);
+        continue;
+      }
+      seenPgTables.add(pgTable);
+
+      targets.push({ pgTable, baseline: rawBaseline, sourceLegacyIds });
+    }
+  } catch (err) {
+    mismatches.push(
+      `current export mapping scope failed: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  return { targets, mismatches };
+}
+
 function emptyReadsReport(
   partial: Partial<ReadsVerifyReport> & { mismatches: string[]; baseline_path?: string }
 ): ReadsVerifyReport {
@@ -2986,7 +3114,9 @@ function emptyReadsReport(
 /**
  * D06-05 / H-02 / R2-C03: reconcile every catalog/export expected table against
  * live Postgres using an immutable content-addressed export archive + cutover-parity
- * inventory (not a mutable caller-selected loadedByTable alone).
+ * inventory (not a mutable caller-selected loadedByTable alone). Each target
+ * count is scoped to current export source IDs through convex_id_map, never a
+ * whole target-table count: production intentionally preserves historical rows.
  *
  * Authority:
  *   1. On-disk export archive digest (exportArchiveHash) via readImmutableExport
@@ -3051,7 +3181,12 @@ export async function runVerifyReads(options?: {
     Object.keys(bound.expectedLoadedByTable).length > 0
       ? bound.expectedLoadedByTable
       : snap.loadedByTable;
-  const targets = mapLoadedByTableToPgTargets(authorityLoaded);
+  const scope = buildCurrentExportMappedTargets({
+    bound,
+    expectedLoadedByTable: authorityLoaded,
+  });
+  mismatches.push(...scope.mismatches);
+  const targets = scope.targets;
   if (targets.length === 0) {
     return emptyReadsReport({
       mismatches: [
@@ -3084,15 +3219,30 @@ export async function runVerifyReads(options?: {
   });
   const sql = createSql(url);
   try {
-    for (const { pgTable, baseline } of targets) {
+    for (const { pgTable, baseline, sourceLegacyIds } of targets) {
       baselineCounts[pgTable] = baseline;
       try {
-        // Identifier validated by PG_IDENT_RE in mapLoadedByTableToPgTargets.
-        const rows = await sql.unsafe(`SELECT count(*)::int AS c FROM ${pgTable}`);
-        const c = Number((rows[0] as { c?: number })?.c ?? 0);
-        perTableCounts[pgTable] = c;
-        if (c !== baseline) {
-          mismatches.push(`${pgTable}: live=${c} baseline=${baseline}`);
+        let mappedCount = 0;
+        for (const { sourceTable, legacyIds } of sourceLegacyIds) {
+          if (legacyIds.length === 0) continue;
+          // pgTable is catalog-derived and constrained by PG_IDENT_RE above.
+          // This deliberately mirrors etl/reconcile.ts: only mappings for the
+          // immutable export's current source IDs prove this cutover completed.
+          const rows = await sql.unsafe<Array<{ count?: string }>>(
+            `
+              SELECT count(*)::text AS count
+              FROM "${pgTable}" t
+              JOIN convex_id_map m ON t.id::text = m.new_id
+              WHERE m.table_name = $1
+                AND m.old_id = ANY($2::text[])
+            `,
+            [sourceTable, legacyIds]
+          );
+          mappedCount += Number(rows[0]?.count ?? 0);
+        }
+        perTableCounts[pgTable] = mappedCount;
+        if (mappedCount !== baseline) {
+          mismatches.push(`${pgTable}: mapped=${mappedCount} baseline=${baseline}`);
         }
       } catch (err) {
         mismatches.push(

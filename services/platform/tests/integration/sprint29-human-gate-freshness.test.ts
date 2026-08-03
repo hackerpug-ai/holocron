@@ -472,7 +472,23 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       const step5 = String(steps.find((s) => s.n === 5)?.literal_cmd ?? '');
       expect(step5).toMatch(/HOLO_ARTICLE_SHARE_TOKEN/);
       expect(step5).toMatch(/convex dev --once/);
-      expect(step5.indexOf('convex dev --once')).toBeLessThan(step5.indexOf('cutover:freeze'));
+      expect(step5).toMatch(/convex function-spec/);
+      expect(step5).toMatch(/migrationFence\/audit\.js:migrationReadOnlyStatus/);
+      expect(step5).toMatch(/migrationFence\/audit\.js:recordFenceArmed/);
+      expect(step5).toMatch(/migrationFence\/audit\.js:recordWriteAttempt/);
+      expect(step5).toMatch(/migrationFence\/audit\.js:latestFenceArmed/);
+      expect(step5).toMatch(/migrationFence\/audit\.js:countAttemptsInWindow/);
+      expect(step5).toMatch(/migrationFence\/drain\.js:disableAndDrain/);
+      expect(step5).toMatch(/migrationFence\/drain\.js:seedInFlightForDrainTest/);
+      expect(step5).toMatch(/migrationFence\/drain\.js:scheduleDisableStatus/);
+      expect(step5).toMatch(/migrationFence\/drain\.js:probeScheduleConsumer/);
+      expect(step5).toMatch(/migrationFence\/drain\.js:latestDrain/);
+      expect(step5).toMatch(/grep -F[\s\S]*<<<"\$convex_function_spec"/);
+      expect(step5).not.toMatch(/printf[^;]*\$convex_function_spec[^;]*\|\s*grep/);
+      expect(step5.indexOf('convex dev --once')).toBeLessThan(
+        step5.indexOf('convex function-spec')
+      );
+      expect(step5.indexOf('convex function-spec')).toBeLessThan(step5.indexOf('cutover:freeze'));
       expect(step5).toMatch(/rm -f \.tmp\/D06-03\/article-baseline\.json/);
       expect(step5).toMatch(/capturedAtMs\s*>\s*\$freeze\[0\]\.fence_armed_at/);
       expect(step5).toMatch(/\.phase\s*==\s*"d06-03-post-arm"/);

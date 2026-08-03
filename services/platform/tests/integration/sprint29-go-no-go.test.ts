@@ -76,7 +76,16 @@ afterEach(() => {
   }
 });
 
-function isolatedLaneEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+const AMBIENT_RESTORE_KEYS = [
+  'R2_RESTORE_ACCESS_KEY_ID',
+  'R2_RESTORE_SECRET_ACCESS_KEY',
+  'R2_RESTORE_SESSION_TOKEN',
+] as const;
+
+function isolatedLaneEnv(
+  overrides: NodeJS.ProcessEnv = {},
+  ambientEnv: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
   const root = mkdtempSync(resolve(tmpdir(), 's29-go-no-go-test-pg-'));
   transientRoots.push(root);
   const secretsPath = resolve(root, 'secrets.yaml');
@@ -85,8 +94,13 @@ function isolatedLaneEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     'R2_ENDPOINT: https://integration-r2.example.invalid\nR2_BUCKET_NAME: integration-bucket\nR2_PGBACKREST_PREFIX: pgbackrest\n',
     'utf8'
   );
+  const env = { ...ambientEnv };
+  // A full operator environment may contain the restore-reader tuple. It is
+  // not an integration-lane input: only the explicit R2_INTEGRATION_RESTORE_*
+  // tuple below may cross this test boundary.
+  for (const key of AMBIENT_RESTORE_KEYS) delete env[key];
   return {
-    ...process.env,
+    ...env,
     HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:test-s29',
     HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
     HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
@@ -338,6 +352,9 @@ describe('D06-02 cutover:go-no-go', () => {
         '  r2ParentId: process.env.R2_PARENT_ACCESS_KEY_ID ?? null,',
         '  r2AccessId: process.env.R2_ACCESS_KEY_ID ?? null,',
         '  r2Secret: process.env.R2_SECRET_ACCESS_KEY ?? null,',
+        '  restoreAccessId: process.env.R2_RESTORE_ACCESS_KEY_ID ?? null,',
+        '  restoreSecret: process.env.R2_RESTORE_SECRET_ACCESS_KEY ?? null,',
+        '  restoreToken: process.env.R2_RESTORE_SESSION_TOKEN ?? null,',
         '  r2Cipher: process.env.R2_REPO_CIPHER_PASS ?? null,',
         '  resticPassword: process.env.RESTIC_PASSWORD ?? null,',
         '  expoToken: process.env.EXPO_TOKEN ?? null,',
@@ -372,6 +389,8 @@ describe('D06-02 cutover:go-no-go', () => {
         "  secretsHasNonprod: secrets.includes('/holocron_nonprod'),",
         "  secretsHasOperatorDatabase: secrets.includes('/holocron\\n'),",
         "  secretsHasOperatorFleetKey: secrets.includes('operator-fleet-key-must-not-cross-boundary'),",
+        "  secretsHasOperatorRestore: secrets.includes('operator-restore-reader-must-not-cross-boundary'),",
+        "  secretsHasIntegrationRestore: secrets.includes('integration-reader-id'),",
         "  integrationWriterMapped: process.env.R2_ACCESS_KEY_ID === 'integration-writer-id',",
         "  integrationRestoreMapped: process.env.R2_RESTORE_ACCESS_KEY_ID === 'integration-reader-id',",
         '  inheritedProductionConvex: process.env.CONVEX_DEPLOY_KEY ?? null,',
@@ -387,6 +406,9 @@ describe('D06-02 cutover:go-no-go', () => {
         '  inheritedR2ParentId: ambient.r2ParentId,',
         '  inheritedR2AccessId: ambient.r2AccessId,',
         '  inheritedR2Secret: ambient.r2Secret,',
+        '  inheritedRestoreAccessId: ambient.restoreAccessId,',
+        '  inheritedRestoreSecret: ambient.restoreSecret,',
+        '  inheritedRestoreToken: ambient.restoreToken,',
         '  inheritedR2Cipher: ambient.r2Cipher,',
         '  inheritedResticPassword: ambient.resticPassword,',
         '  inheritedExpoToken: ambient.expoToken,',
@@ -423,43 +445,51 @@ describe('D06-02 cutover:go-no-go', () => {
           kind: 'vitest',
         },
       ],
-      env: isolatedLaneEnv({
-        BACKUP_R2_ACCESS_KEY_ID: 'operator-backup-id-must-not-cross-boundary',
-        BACKUP_R2_SECRET_ACCESS_API_TOKEN: 'operator-backup-token-must-not-cross-boundary',
-        BACKUP_R2_SECRET_ACCESS_KEY: 'operator-backup-secret-must-not-cross-boundary',
-        CLOUDFLARE_API_TOKEN: 'operator-admin-must-not-cross-boundary',
-        CONVEX_DEPLOY_KEY: 'operator-deploy-key-must-not-cross-boundary',
-        DATABASE_URL: 'postgres://operator@127.0.0.1:5432/holocron',
-        EXPO_TOKEN: 'operator-expo-token-must-not-cross-boundary',
-        EXPO_PUBLIC_CONVEX_SITE_URL: 'https://operator.example.invalid',
-        EXPO_PUBLIC_CONVEX_URL: 'https://operator.example.invalid',
-        HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:boundary-test',
-        HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
-        HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
-        HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
-        HOLO_GO_NO_GO_DATABASE_URL_OWNER: 'postgres://owner@127.0.0.1:65433/holocron_nonprod',
-        HOLO_GO_NO_GO_FLEET_URL: 'http://127.0.0.1:4545/v1',
-        HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: pg1Path,
-        HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-boundary-test',
-        HOLO_PRODUCTION_BASE_URL: 'http://192.0.2.10:44111',
-        HOLO_SECRETS_PATH: durableSecrets,
-        R2_S3_ID: 'operator-r2-account-must-not-cross-boundary',
-        R2_S3_KEY_ID: 'operator-r2-admin-key-must-not-cross-boundary',
-        R2_S3_SECRET: 'operator-r2-admin-secret-must-not-cross-boundary',
-        R2_S3_TOKEN: 'operator-r2-token-must-not-cross-boundary',
-        R2_ACCESS_KEY_ID: 'operator-r2-access-id-must-not-cross-boundary',
-        R2_PARENT_ACCESS_KEY_ID: 'operator-r2-parent-id-must-not-cross-boundary',
-        R2_REPO_CIPHER_PASS: 'operator-r2-cipher-must-not-cross-boundary',
-        R2_SECRET_ACCESS_KEY: 'operator-r2-secret-must-not-cross-boundary',
-        RESTIC_PASSWORD: 'operator-restic-password-must-not-cross-boundary',
-        MINT_R2_PREFIX_RESTORE: '1',
-        R2_INTEGRATION_ACCESS_KEY_ID: 'integration-writer-id',
-        R2_INTEGRATION_SECRET_ACCESS_KEY: 'integration-writer-secret',
-        R2_INTEGRATION_SESSION_TOKEN: 'integration-writer-session',
-        R2_INTEGRATION_RESTORE_ACCESS_KEY_ID: 'integration-reader-id',
-        R2_INTEGRATION_RESTORE_SECRET_ACCESS_KEY: 'integration-reader-secret',
-        R2_INTEGRATION_RESTORE_SESSION_TOKEN: 'integration-reader-session',
-      }),
+      env: isolatedLaneEnv(
+        {
+          BACKUP_R2_ACCESS_KEY_ID: 'operator-backup-id-must-not-cross-boundary',
+          BACKUP_R2_SECRET_ACCESS_API_TOKEN: 'operator-backup-token-must-not-cross-boundary',
+          BACKUP_R2_SECRET_ACCESS_KEY: 'operator-backup-secret-must-not-cross-boundary',
+          CLOUDFLARE_API_TOKEN: 'operator-admin-must-not-cross-boundary',
+          CONVEX_DEPLOY_KEY: 'operator-deploy-key-must-not-cross-boundary',
+          DATABASE_URL: 'postgres://operator@127.0.0.1:5432/holocron',
+          EXPO_TOKEN: 'operator-expo-token-must-not-cross-boundary',
+          EXPO_PUBLIC_CONVEX_SITE_URL: 'https://operator.example.invalid',
+          EXPO_PUBLIC_CONVEX_URL: 'https://operator.example.invalid',
+          HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:boundary-test',
+          HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+          HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
+          HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
+          HOLO_GO_NO_GO_DATABASE_URL_OWNER: 'postgres://owner@127.0.0.1:65433/holocron_nonprod',
+          HOLO_GO_NO_GO_FLEET_URL: 'http://127.0.0.1:4545/v1',
+          HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: pg1Path,
+          HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-boundary-test',
+          HOLO_PRODUCTION_BASE_URL: 'http://192.0.2.10:44111',
+          HOLO_SECRETS_PATH: durableSecrets,
+          R2_S3_ID: 'operator-r2-account-must-not-cross-boundary',
+          R2_S3_KEY_ID: 'operator-r2-admin-key-must-not-cross-boundary',
+          R2_S3_SECRET: 'operator-r2-admin-secret-must-not-cross-boundary',
+          R2_S3_TOKEN: 'operator-r2-token-must-not-cross-boundary',
+          R2_ACCESS_KEY_ID: 'operator-r2-access-id-must-not-cross-boundary',
+          R2_PARENT_ACCESS_KEY_ID: 'operator-r2-parent-id-must-not-cross-boundary',
+          R2_REPO_CIPHER_PASS: 'operator-r2-cipher-must-not-cross-boundary',
+          R2_SECRET_ACCESS_KEY: 'operator-r2-secret-must-not-cross-boundary',
+          RESTIC_PASSWORD: 'operator-restic-password-must-not-cross-boundary',
+          MINT_R2_PREFIX_RESTORE: '1',
+          R2_INTEGRATION_ACCESS_KEY_ID: 'integration-writer-id',
+          R2_INTEGRATION_SECRET_ACCESS_KEY: 'integration-writer-secret',
+          R2_INTEGRATION_SESSION_TOKEN: 'integration-writer-session',
+          R2_INTEGRATION_RESTORE_ACCESS_KEY_ID: 'integration-reader-id',
+          R2_INTEGRATION_RESTORE_SECRET_ACCESS_KEY: 'integration-reader-secret',
+          R2_INTEGRATION_RESTORE_SESSION_TOKEN: 'integration-reader-session',
+        },
+        {
+          ...process.env,
+          R2_RESTORE_ACCESS_KEY_ID: 'operator-restore-reader-must-not-cross-boundary',
+          R2_RESTORE_SECRET_ACCESS_KEY: 'operator-restore-secret-must-not-cross-boundary',
+          R2_RESTORE_SESSION_TOKEN: 'operator-restore-session-must-not-cross-boundary',
+        }
+      ),
     });
 
     expect(report.overall.ok).toBe(true);
@@ -489,6 +519,8 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.secretsHasNonprod).toBe(true);
     expect(snapshot.secretsHasOperatorDatabase).toBe(false);
     expect(snapshot.secretsHasOperatorFleetKey).toBe(false);
+    expect(snapshot.secretsHasOperatorRestore).toBe(false);
+    expect(snapshot.secretsHasIntegrationRestore).toBe(true);
     expect(snapshot.integrationWriterMapped).toBe(true);
     expect(snapshot.integrationRestoreMapped).toBe(true);
     expect(snapshot.inheritedProductionConvex).toBeNull();
@@ -504,6 +536,9 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.inheritedR2ParentId).toBeNull();
     expect(snapshot.inheritedR2AccessId).toBeNull();
     expect(snapshot.inheritedR2Secret).toBeNull();
+    expect(snapshot.inheritedRestoreAccessId).toBeNull();
+    expect(snapshot.inheritedRestoreSecret).toBeNull();
+    expect(snapshot.inheritedRestoreToken).toBeNull();
     expect(snapshot.inheritedR2Cipher).toBeNull();
     expect(snapshot.inheritedResticPassword).toBeNull();
     expect(snapshot.inheritedExpoToken).toBeNull();

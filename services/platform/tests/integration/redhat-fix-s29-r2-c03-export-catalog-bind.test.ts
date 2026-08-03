@@ -83,7 +83,7 @@ describe('REDHAT-FIX-S29-R2-C03 immutable export/catalog bind', () => {
     writeFileSync(defaultParityPath, readFileSync(IMMUTABLE_PARITY_FIXTURE, 'utf8'), 'utf8');
   });
 
-  it('AC-1/AC-4: immutable export/catalog binds the full set and reports live variance honestly', async () => {
+  it('AC-1/AC-4: immutable export/catalog rejects an unbacked fixture honestly', async () => {
     const bound = loadBoundExportCatalogBaseline({
       cwd: REPO_ROOT,
       exportDir: IMMUTABLE_EXPORT_DIR,
@@ -113,15 +113,17 @@ describe('REDHAT-FIX-S29-R2-C03 immutable export/catalog bind', () => {
     evidence('verify-reads-green.json', report);
     expect(report.tablesTotal).toBeGreaterThanOrEqual(4);
     expect(report.catalog_table_count).toBe(report.tablesTotal);
-    expect(report.ok).toBe(report.mismatches.length === 0);
-    expect(report.tablesMatched + report.mismatches.length).toBe(report.tablesTotal);
+    // The fixture has no current export ID mappings in this database. It cannot
+    // become a fake-green Step 7 oracle by matching whole target table counts.
+    expect(report.ok).toBe(false);
+    expect(report.mismatches.some((m) => m.includes('mapped='))).toBe(true);
     const expectedTables = new Set(
       Object.keys(frozen.loadedByTable).map((table) =>
         table.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
       )
     );
     for (const mismatch of report.mismatches) {
-      const match = mismatch.match(/^([^:]+): live=\d+ baseline=\d+$/);
+      const match = mismatch.match(/^([^:]+): mapped=\d+ baseline=\d+$/);
       expect(match, `unexpected non-count mismatch: ${mismatch}`).not.toBeNull();
       expect(expectedTables.has(match?.[1] ?? '')).toBe(true);
     }

@@ -27,7 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const COLDBOOT_IT = process.env.COLDBOOT_IT === '1';
@@ -80,6 +80,9 @@ function extractFailures(xml: string): number {
  * Throws closed if the platform process is not discoverable.
  */
 function platformDatabaseUrl(): string {
+  const explicit = process.env.DATABASE_URL?.trim();
+  if (explicit) return explicit;
+
   const pgrep = spawnSync('pgrep', ['-f', 'services/platform/src'], {
     encoding: 'utf8',
     timeout: 5_000,
@@ -234,8 +237,116 @@ describe('S-COLDBOOT-03 cold-boot journey', () => {
  * capstone replay / reset-idempotency contract is executable, not just documented.
  */
 describe('REDHAT-FIX-H10 — namespace reset returns conversation 020 to a deterministic zero-message state', () => {
+  let referenceDbUrl: string | null = null;
+  let snapshotSchema: string | null = null;
+
+  function quoteIdentifier(identifier: string): string {
+    return `"${identifier.replaceAll('"', '""')}"`;
+  }
+
+  function runPsql(sql: string, purpose: string): void {
+    if (!referenceDbUrl) throw new Error(`cannot ${purpose}: reference DB was not resolved`);
+    const result = spawnSync('psql', [referenceDbUrl, '-X', '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    if (result.status !== 0) {
+      throw new Error(`${purpose} failed (status=${result.status}): ${result.stderr}`);
+    }
+  }
+
+  function assertNonprodDatabaseUrl(databaseUrl: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(databaseUrl);
+    } catch {
+      throw new Error('refusing namespace reset: platform DATABASE_URL is not a valid URL');
+    }
+    const databaseName = decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+    if (
+      !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
+      databaseName !== 'holocron_nonprod'
+    ) {
+      throw new Error(
+        `refusing namespace reset: destructive cold-boot test requires holocron_nonprod, got ${databaseName || '<missing>'}`
+      );
+    }
+  }
+
+  /**
+   * Namespace reset truncates every public table. Keep the reference rows in
+   * an isolated schema so the destructive reset cannot truncate the snapshot.
+   * CTAS preserves every current column, including nullable/jsonb state, rather
+   * than rebuilding only the fields used by today's assertions.
+   */
+  function snapshotReferenceConversation(): string {
+    referenceDbUrl = platformDatabaseUrl();
+    assertNonprodDatabaseUrl(referenceDbUrl);
+    const schema = `s29_coldboot_reference_${process.pid}_${Date.now()}`;
+    const quotedSchema = quoteIdentifier(schema);
+    try {
+      runPsql(
+        [
+          `CREATE SCHEMA ${quotedSchema}`,
+          `CREATE TABLE ${quotedSchema}.conversation AS SELECT * FROM public.conversations WHERE id='${CONV_020}'::uuid`,
+          `CREATE TABLE ${quotedSchema}.chat_messages AS SELECT * FROM public.chat_messages WHERE conversation_id='${CONV_020}'`,
+        ].join(';\n'),
+        'snapshot reference conversation state'
+      );
+    } catch (error) {
+      // Snapshot creation is before the destructive reset. Remove any partial
+      // schema when possible; if the database is unavailable, preserve the
+      // original failure rather than masking it with cleanup noise.
+      try {
+        runPsql(`DROP SCHEMA ${quotedSchema} CASCADE`, 'clean up partial reference snapshot');
+      } catch {
+        // The database may be the reason snapshot creation failed.
+      }
+      throw error;
+    }
+    return schema;
+  }
+
+  function restoreReferenceConversation(schema: string): void {
+    const quotedSchema = quoteIdentifier(schema);
+    runPsql(
+      [
+        'BEGIN',
+        `DELETE FROM public.chat_messages WHERE conversation_id='${CONV_020}'`,
+        `DELETE FROM public.conversations WHERE id='${CONV_020}'::uuid`,
+        `INSERT INTO public.conversations SELECT * FROM ${quotedSchema}.conversation`,
+        `INSERT INTO public.chat_messages SELECT * FROM ${quotedSchema}.chat_messages`,
+        'COMMIT',
+      ].join(';\n'),
+      'restore reference conversation state'
+    );
+  }
+
+  function dropSnapshotSchema(schema: string): void {
+    runPsql(
+      `DROP SCHEMA ${quoteIdentifier(schema)} CASCADE`,
+      'drop reference conversation snapshot'
+    );
+  }
+
+  beforeAll(() => {
+    if (!PLATFORM_IT || !COLDBOOT_IT) return;
+    snapshotSchema = snapshotReferenceConversation();
+  });
+
+  afterAll(() => {
+    if (!snapshotSchema) return;
+    const schema = snapshotSchema;
+    // If restoration fails, the schema is intentionally left in place so the
+    // original reference rows remain recoverable for the operator; do not
+    // silently turn a failed cleanup into data loss.
+    restoreReferenceConversation(schema);
+    dropSnapshotSchema(schema);
+    snapshotSchema = null;
+  });
+
   function countConv020(): number {
-    const dbUrl = platformDatabaseUrl();
+    const dbUrl = referenceDbUrl ?? platformDatabaseUrl();
     const psql = spawnSync(
       'psql',
       [

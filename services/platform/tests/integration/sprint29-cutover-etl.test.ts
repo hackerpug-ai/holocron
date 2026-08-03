@@ -41,6 +41,7 @@ import {
   QUIET_CHECK_REQUIRED,
   runCutoverEtl,
 } from '../../src/cutover/etl-orchestrate.ts';
+import { runVerifyReads } from '../../src/cutover/soak-fence.ts';
 import { createSql, type Sql } from '../../src/db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
 
@@ -540,6 +541,86 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     `;
     expect(Number(historicalRows[0]?.n ?? 0)).toBe(1);
 
+    // Step 7 uses the same current-export source-ID mapping as ETL
+    // reconciliation. The whole table is deliberately one larger because the
+    // retained historical document is valid additive production state.
+    const readParity = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: resolve(EVIDENCE, 'watermark-report.json'),
+      exportDir: report.exportDir,
+      catalogPath: CATALOG,
+      parityPath: resolve(REPO_ROOT, report.parityRelPath),
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('ac3-current-source-mapping-read-parity.json', readParity);
+    expect(readParity.ok).toBe(true);
+    expect(readParity.mismatches).toEqual([]);
+    expect(readParity.baselineCounts.documents).toBe(reconciledDocuments?.sourceCount);
+    expect(readParity.perTableCounts.documents).toBe(reconciledDocuments?.sourceCount);
+
+    // Negative control: removing a current export's map must fail even while
+    // the target document and the historical document both remain present.
+    const currentDocumentLegacyId = report.archive.exportData.documents[0];
+    expect(currentDocumentLegacyId).toBeTruthy();
+    if (!currentDocumentLegacyId) {
+      throw new Error('cutover ETL report has no current-export document ID');
+    }
+    const currentDocumentMap = (
+      await sql<
+        {
+          id: string;
+          legacy_convex_id: string;
+          old_id: string;
+          new_id: string;
+          table_name: string;
+        }[]
+      >`
+        SELECT id::text, legacy_convex_id, old_id, new_id, table_name
+        FROM convex_id_map
+        WHERE table_name = 'documents' AND old_id = ${currentDocumentLegacyId}
+      `
+    )[0];
+    expect(currentDocumentMap).toBeDefined();
+    if (!currentDocumentMap) {
+      throw new Error(`missing current-export documents id map: ${currentDocumentLegacyId}`);
+    }
+    await sql`DELETE FROM convex_id_map WHERE id = ${currentDocumentMap.id}::uuid`;
+    try {
+      const missingMap = await runVerifyReads({
+        cwd: REPO_ROOT,
+        etlReportPath: resolve(EVIDENCE, 'watermark-report.json'),
+        exportDir: report.exportDir,
+        catalogPath: CATALOG,
+        parityPath: resolve(REPO_ROOT, report.parityRelPath),
+        databaseUrl: DATABASE_URL,
+      });
+      evidence('ac3-current-source-mapping-negative.json', missingMap);
+      expect(missingMap.ok).toBe(false);
+      expect(missingMap.perTableCounts.documents).toBe(
+        (readParity.baselineCounts.documents ?? 0) - 1
+      );
+      expect(
+        missingMap.mismatches.some((m) =>
+          m.includes(
+            `documents: mapped=${(readParity.baselineCounts.documents ?? 0) - 1} baseline=${
+              readParity.baselineCounts.documents
+            }`
+          )
+        )
+      ).toBe(true);
+    } finally {
+      await sql`
+        INSERT INTO convex_id_map (id, legacy_convex_id, old_id, new_id, table_name)
+        VALUES (
+          ${currentDocumentMap.id}::uuid,
+          ${currentDocumentMap.legacy_convex_id},
+          ${currentDocumentMap.old_id},
+          ${currentDocumentMap.new_id},
+          ${currentDocumentMap.table_name}
+        )
+      `;
+    }
+
     // loaded counts non-zero (blocks empty-export false green)
     expect(report.loadedByTable.documents).toBeGreaterThan(0);
     expect(report.loadedByTable.conversations).toBeGreaterThan(0);
@@ -571,9 +652,11 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     `;
     evidence('ac1-docs-count.json', {
       documents: Number(docsCount[0]?.n ?? 0),
+      currentExportMappedDocuments: readParity.perTableCounts.documents,
       loadedByTable: report.loadedByTable,
       LIVE_EXPORT,
     });
+    expect(Number(docsCount[0]?.n ?? 0)).toBe((readParity.perTableCounts.documents ?? 0) + 1);
   }, 900_000);
 
   it('TC-6/AC-4: re-run against same archive resumes without duplicating rows', async () => {
