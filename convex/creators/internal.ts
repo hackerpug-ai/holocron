@@ -92,14 +92,19 @@ export const lookupYouTubeChannel = internalAction({
       if (!channel || !snippet) {
         throw new Error('YouTube API returned an invalid channel');
       }
+      const channelId = typeof channel.id === 'string' ? channel.id.trim() : '';
+      const subscriberCount = Number.parseInt(
+        typeof statistics?.subscriberCount === 'string' ? statistics.subscriberCount : '',
+        10
+      );
+      if (!channelId || !Number.isFinite(subscriberCount)) {
+        throw new Error('YouTube API returned incomplete channel statistics');
+      }
       return {
         handle: args.handle,
-        channelId: typeof channel.id === 'string' ? channel.id : undefined,
+        channelId,
         verified: true,
-        subscriberCount: Number.parseInt(
-          typeof statistics?.subscriberCount === 'string' ? statistics.subscriberCount : '',
-          10
-        ),
+        subscriberCount,
         title: typeof snippet.title === 'string' ? snippet.title : undefined,
         description: typeof snippet.description === 'string' ? snippet.description : undefined,
         thumbnails: snippet.thumbnails,
