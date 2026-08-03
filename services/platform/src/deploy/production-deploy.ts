@@ -292,6 +292,9 @@ export function renderDeploymentOverride(options: {
   const identityEnvironment = [
     '      HOLO_PRODUCTION_READINESS: "1"',
     '      HOLO_DEPLOYMENT_REQUIRED: "1"',
+    // The production Compose database is intentionally named `holocron`.
+    // Runtime routes otherwise refuse it as an accidental production target.
+    '      HOLO_DANGEROUS_ALLOW_PROD_DB: "1"',
     '      HOLO_DEPLOY_HOST: inference1',
     '      HOLO_DEPLOY_RUNTIME: container',
     `      HOLO_IMAGE_DIGEST: ${options.lock.digest}`,

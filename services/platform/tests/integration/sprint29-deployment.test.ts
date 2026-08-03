@@ -273,6 +273,7 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(override).toContain('127.0.0.1:44113:4848');
     expect(override).toContain(`HOLO_IMAGE_DIGEST: ${DIGEST}`);
     expect(override).toContain(`HOLO_SOURCE_REVISION: ${REVISION}`);
+    expect(override).toContain('HOLO_DANGEROUS_ALLOW_PROD_DB: "1"');
     expect(override).toContain('restart: always');
     expect(override).toContain('depends_on: !override');
     expect(override).not.toMatch(/Bearer |HOLO_KEY_MCP:|POSTGRES_PASSWORD:/);

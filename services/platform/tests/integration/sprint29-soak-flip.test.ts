@@ -33,6 +33,7 @@ import {
   MIGRATION_READ_ONLY_ENV,
   payloadCorrespondsToPostgres,
   readDurableMigrationReadOnly,
+  resolveCutoverScopedKeys,
   resolveDeployedTargetIdentity,
   resolveTargetIdentity,
   resolveVerifyToolSeeds,
@@ -520,6 +521,25 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     unsetMigrationFlag();
     await liveService?.stop();
     await sql?.end({ timeout: 5 });
+  });
+
+  it('CLI verifier resolves scoped keys from HOLO_SECRETS_PATH without ambient key exports', () => {
+    const verifierSecrets = resolve(C02_EVIDENCE, `verifier-keys-${RUN}.yaml`);
+    writeFileSync(
+      verifierSecrets,
+      [
+        'HOLO_KEY_RN: "file-rn"',
+        'HOLO_KEY_MCP: "file-mcp"',
+        'HOLO_KEY_CONTROL: "file-control"',
+        '',
+      ].join('\n'),
+      { mode: 0o600 }
+    );
+    expect(resolveCutoverScopedKeys({ HOLO_SECRETS_PATH: verifierSecrets })).toEqual({
+      rn: 'file-rn',
+      mcp: 'file-mcp',
+      control: 'file-control',
+    });
   });
 
   // ── AC-1 / TC-1 / TC-2 ────────────────────────────────────────────────────

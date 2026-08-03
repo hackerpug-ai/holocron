@@ -1325,8 +1325,27 @@ export type ToolsVerifyReport = {
   seeds?: VerifyToolSeeds;
 };
 
+/**
+ * Resolve verifier credentials using the same env-over-file precedence as the
+ * deployed service. Operator CLIs normally receive HOLO_SECRETS_PATH without
+ * exporting credential values into their ambient environment.
+ */
+export function resolveCutoverScopedKeys(env: NodeJS.ProcessEnv = process.env): ScopedKeyConfig {
+  const fromEnv = loadScopedKeysFromEnv(env);
+  try {
+    const fromFile = loadSecretsFile(resolveSecretsPathFromEnv(env));
+    return {
+      rn: fromEnv.rn || fromFile.HOLO_KEY_RN || fromFile.RN_API_KEY || '',
+      mcp: fromEnv.mcp || fromFile.HOLO_KEY_MCP || fromFile.MCP_API_KEY || '',
+      control: fromEnv.control || fromFile.HOLO_KEY_CONTROL || fromFile.CONTROL_API_KEY || '',
+    };
+  } catch {
+    return fromEnv;
+  }
+}
+
 function defaultKeys(): ScopedKeyConfig {
-  return loadScopedKeysFromEnv();
+  return resolveCutoverScopedKeys();
 }
 
 /**
