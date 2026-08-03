@@ -8,16 +8,76 @@
  * optimistic client write reached the authoritative data plane.
  */
 import { randomUUID } from 'node:crypto';
-import { Zero } from '@rocicorp/zero';
+import {
+  boolean,
+  createSchema,
+  defineMutator,
+  defineMutators,
+  number,
+  string,
+  table,
+  type Transaction,
+  Zero,
+} from '@rocicorp/zero';
 import postgres from 'postgres';
-import { mutators } from '../../app/zero/mutators.ts';
-import { schema } from '../../app/zero/schema.ts';
+
+// The deployed publication deliberately excludes non-replicated application
+// tables (for example media.file_objects). This probe needs only the two tables
+// whose write envelopes it exercises, so negotiate that exact schema with Zero.
+const conversations = table('conversations')
+  .columns({
+    id: string(),
+    title: string().optional(),
+    title_set_by_user: boolean().optional(),
+    agent_busy: boolean().optional(),
+    created_at: number(),
+    updated_at: number(),
+  })
+  .primaryKey('id');
+const documents = table('documents')
+  .columns({
+    id: string(),
+    title: string().optional(),
+    content: string().optional(),
+    category: string().optional(),
+    status: string().optional(),
+    is_public: boolean().optional(),
+    created_at: number(),
+  })
+  .primaryKey('id');
+const probeSchema = createSchema({
+  tables: [conversations, documents],
+  enableLegacyQueries: true,
+  enableLegacyMutators: true,
+});
+type ProbeTransaction = Transaction<typeof probeSchema>;
+const probeMutators = defineMutators({
+  insertDocument: defineMutator(
+    async ({
+      tx,
+      args,
+    }: {
+      tx: ProbeTransaction;
+      args: { id: string; title: string; content: string };
+    }) => {
+      await tx.mutate.documents.insert({
+        id: args.id,
+        title: args.title,
+        content: args.content,
+        category: 'general',
+        status: 'draft',
+        is_public: false,
+        created_at: Date.now(),
+      });
+    }
+  ),
+});
 
 type MutationDetails =
   | { type: 'success' }
   | { type: 'error'; error: { type: string; message: string } };
 
-type QueryOnlyZero = { query: Zero<typeof schema>['query'] };
+type QueryOnlyZero = { query: Zero<typeof probeSchema>['query'] };
 type ProbeView = {
   addListener: (
     listener: (rows: readonly unknown[], resultType: string, error?: unknown) => void
@@ -25,7 +85,7 @@ type ProbeView = {
   destroy: () => void;
 };
 type CustomMutationDispatcher = (
-  request: ReturnType<typeof mutators.insertDocument>
+  request: ReturnType<typeof probeMutators.insertDocument>
 ) => { client: Promise<MutationDetails>; server: Promise<MutationDetails> };
 type LegacyConversationMutate = {
   conversations: {
@@ -44,8 +104,10 @@ const zeroBaseUrl = process.env.ZERO_CACHE_URL ?? process.env.HOLO_ZERO_BASE_URL
 const databaseUrl = process.env.DATABASE_URL ?? '';
 const timeoutMs = Number(process.env.ZERO_WRITE_PROBE_TIMEOUT_MS ?? '30000');
 const runId = randomUUID();
-const documentId = `zero-fence-document-${runId}`;
-const conversationId = `zero-fence-conversation-${runId}`;
+// Both primary keys are PostgreSQL uuid columns. Keep the probe's descriptive
+// labels in user/storage metadata, not in values sent to the database.
+const documentId = randomUUID();
+const conversationId = randomUUID();
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   return Promise.race([
@@ -83,7 +145,7 @@ async function waitForComplete(
   }
 }
 
-async function waitForConnectionError(zero: Zero<typeof schema>): Promise<string> {
+async function waitForConnectionError(zero: Zero<typeof probeSchema>): Promise<string> {
   const current = zero.connection.state.current;
   if (current.name === 'error') return current.reason;
   return withTimeout(
@@ -100,9 +162,10 @@ async function waitForConnectionError(zero: Zero<typeof schema>): Promise<string
 }
 
 async function probeCustomMutation() {
-  const zero = new Zero({
+  const zero = new Zero<typeof probeSchema>({
     cacheURL: zeroBaseUrl,
-    schema,
+    schema: probeSchema,
+    mutators: probeMutators,
     userID: `s29-custom-${runId}`,
     storageKey: `s29-custom-${runId}`,
     logLevel: 'error',
@@ -111,7 +174,7 @@ async function probeCustomMutation() {
     await waitForComplete(zero, 'documents', documentId);
     const dispatch = zero.mutate as unknown as CustomMutationDispatcher;
     const mutation = dispatch(
-      mutators.insertDocument({
+      probeMutators.insertDocument({
         id: documentId,
         title: 'Sprint 29 Zero fence probe',
         content: 'must never reach Postgres',
@@ -133,9 +196,9 @@ async function probeCustomMutation() {
 }
 
 async function probeLegacyCrudMutation() {
-  const zero = new Zero({
+  const zero = new Zero<typeof probeSchema>({
     cacheURL: zeroBaseUrl,
-    schema,
+    schema: probeSchema,
     userID: `s29-crud-${runId}`,
     storageKey: `s29-crud-${runId}`,
     logLevel: 'error',
