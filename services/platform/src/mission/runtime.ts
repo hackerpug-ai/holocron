@@ -3263,7 +3263,14 @@ async function finalizeMissionRun(
     } else if (options.output != null) {
       // FAILED/blocked may still carry typed terminal output (e.g. fire-drill parity report).
       typedOutput = options.output;
+    }
 
+    // Persist the terminal output and provenance in the same transaction as the
+    // run status and terminal event. This block used to be nested under the
+    // FAILED/blocked `options.output` branch, so successful and budget-exceeded
+    // runs skipped mission_commits entirely and the named crash boundaries were
+    // unreachable.
+    if (typedOutput != null) {
       if (crashBoundary === 'before_commit_insert') {
         await emitMissionCommitCrashReadiness(crashBoundary, {
           runId,

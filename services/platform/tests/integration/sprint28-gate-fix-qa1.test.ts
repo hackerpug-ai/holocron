@@ -38,7 +38,9 @@ import {
 import {
   classifyPostgresStartFailure,
   mapPostgresStartFailureNamedErrors,
+  parseRequiredRecoverySettings,
 } from '../../src/backup/restore.ts';
+import { psqlConnectionArgs, psqlConnectionEnv } from '../../src/backup/wal-archive.ts';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
@@ -49,6 +51,7 @@ const RECOVERY_BASELINE_SRC = resolve(
   'services/platform/src/backup/recovery-baseline.ts'
 );
 const FIRE_DRILL_SRC = resolve(REPO_ROOT, 'services/platform/src/backup/fire-drill.ts');
+const RESTORE_SRC = resolve(REPO_ROOT, 'services/platform/src/backup/restore.ts');
 
 function writeEvidence(name: string, body: unknown): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -111,11 +114,47 @@ describe('GATE-FIX-QA1 pure helpers (always)', () => {
     expect(wal.join(' ')).not.toMatch(/^restore incomplete — Postgres failed to start/);
   });
 
-  it('TC-1c: archive-get / missing WAL log classifies as outside available WAL', () => {
+  it('TC-1c: recovery startup extracts only allowlisted primary minimum settings', () => {
+    const log = [
+      'DETAIL: max_connections = 100 is a lower setting than on the primary server, where its value was 250.',
+      'DETAIL: max_worker_processes = 8 is a lower setting than on the primary server, where its value was 16.',
+      'DETAIL: shared_preload_libraries = 0 is a lower setting than on the primary server, where its value was 99.',
+    ].join('\n');
+    expect(parseRequiredRecoverySettings(log)).toEqual({
+      max_connections: '250',
+      max_worker_processes: '16',
+    });
+  });
+
+  it('TC-1d: restored postmaster pins pgBackRest PG1 path to scratch', () => {
+    const source = readFileSync(RESTORE_SRC, 'utf8');
+    expect(source).toMatch(
+      /pgToolEnv\(env,\s*\{\s*PGDATA:\s*pgdata,\s*PGBACKREST_PG1_PATH:\s*pgdata\s*\}\)/
+    );
+  });
+
+  it('TC-1e: archive-get / missing WAL log classifies as outside available WAL', () => {
     const log =
       'pgbackrest archive-get: [ERROR] raised from remote-0 protocol on host: unable to find WAL file 000000010000000000000099';
     const named = classifyPostgresStartFailure(log);
     expect(named.some((e) => /outside available WAL/i.test(e))).toBe(true);
+  });
+
+  it('TC-1f: WAL jobs prefer DATABASE_URL without exposing it on psql argv', () => {
+    const databaseUrl = 'postgres://wal-user:wal-secret-canary@127.0.0.1:56594/holocron_nonprod';
+    const env = {
+      DATABASE_URL: databaseUrl,
+      PGHOST: '127.0.0.1',
+      PGPORT: '5432',
+      PGDATABASE: 'holocron',
+    };
+    expect(
+      psqlConnectionArgs(env),
+      'DATABASE_URL and its password must never be present on psql argv'
+    ).toEqual([]);
+    expect(psqlConnectionArgs(env).join(' ')).not.toContain('wal-secret-canary');
+    expect(psqlConnectionEnv(env).PGDATABASE).toBe(databaseUrl);
+    expect(psqlConnectionArgs({ PGDATABASE: 'fallback_db' })).toEqual(['-d', 'fallback_db']);
   });
 
   it('TC-2: selectBestFireDrillBaseline prefers non-zero domain counts over zero junk', () => {

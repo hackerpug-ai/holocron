@@ -701,9 +701,9 @@ export type BoundExportCatalogBaseline = {
  * Rejects missing archive/catalog/parity, hash mismatch, empty expected sets, and
  * production fallback to committed test fixtures (fail closed).
  *
- * Fixture paths are allowed only when:
- *   - HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1|true, or
- *   - caller passed explicit exportDir / catalogPath / parityPath (tests inject paths).
+ * Fixture paths are allowed only when the in-process caller passes the explicit
+ * test-only option (or the dedicated test environment flag is set). Supplying a
+ * committed fixture through a production CLI path never makes it authoritative.
  */
 export function loadBoundExportCatalogBaseline(options: {
   cwd?: string;
@@ -726,9 +726,6 @@ export function loadBoundExportCatalogBaseline(options: {
   const cwd = options.cwd ?? resolveRepoRoot();
   const mismatches: string[] = [];
   const allowFixtures = options.allowTestFixtures === true || allowCutoverTestFixtures();
-  const explicitParity = Boolean(options.parityPath);
-  const explicitExport = Boolean(options.exportDir);
-  const explicitCatalog = Boolean(options.catalogPath);
 
   const parityPath = (() => {
     if (options.parityPath) return options.parityPath;
@@ -760,12 +757,12 @@ export function loadBoundExportCatalogBaseline(options: {
     };
   }
 
-  // Refuse auto-resolved fixture parity in production (explicit --parity still allowed for tests).
-  if (!allowFixtures && !explicitParity && isCommittedTestFixturePath(parity.path, cwd)) {
+  // Refuse committed fixtures in production even when explicitly named on the CLI.
+  if (!allowFixtures && isCommittedTestFixturePath(parity.path, cwd)) {
     return {
       ok: false,
       mismatches: [
-        `refusing committed test fixture parity path in production: ${parity.path} (pass operator --parity or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`,
+        `refusing committed test fixture parity path in production: ${parity.path} (use operator-generated evidence; test callers must opt in with allowTestFixtures)`,
       ],
       exportDir: '',
       catalogPath: '',
@@ -792,15 +789,15 @@ export function loadBoundExportCatalogBaseline(options: {
     return defaultCatalogPath(cwd);
   })();
 
-  // Refuse auto-resolved fixture export/catalog dirs in production.
-  if (!allowFixtures && !explicitExport && isCommittedTestFixturePath(exportDir, cwd)) {
+  // Refuse committed fixture export/catalog paths in production, explicit or not.
+  if (!allowFixtures && isCommittedTestFixturePath(exportDir, cwd)) {
     mismatches.push(
-      `refusing committed test fixture export dir in production: ${exportDir} (pass operator --export or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`
+      `refusing committed test fixture export dir in production: ${exportDir} (use operator-generated evidence; test callers must opt in with allowTestFixtures)`
     );
   }
-  if (!allowFixtures && !explicitCatalog && isCommittedTestFixturePath(catalogPath, cwd)) {
+  if (!allowFixtures && isCommittedTestFixturePath(catalogPath, cwd)) {
     mismatches.push(
-      `refusing committed test fixture catalog path in production: ${catalogPath} (pass operator --catalog or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`
+      `refusing committed test fixture catalog path in production: ${catalogPath} (use operator-generated evidence; test callers must opt in with allowTestFixtures)`
     );
   }
 
@@ -3586,6 +3583,8 @@ export async function runVerifySoak(options?: {
   baseUrl?: string;
   /** Deployed Zero endpoint for the custom + CRUD write-fence probe. */
   zeroBaseUrl?: string;
+  /** Tests only — production CLI must never enable committed fixture paths. */
+  allowTestFixtures?: boolean;
 }): Promise<SoakVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultSoakVerifyReportPath(cwd);
@@ -3603,6 +3602,7 @@ export async function runVerifySoak(options?: {
     exportDir: options?.exportDir,
     catalogPath: options?.catalogPath,
     parityPath: options?.parityPath,
+    allowTestFixtures: options?.allowTestFixtures,
   });
   const article = await runVerifyArticle({
     cwd,

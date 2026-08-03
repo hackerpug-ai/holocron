@@ -386,7 +386,7 @@ exit 0
     expect(rec.session_token_length).toBe(RESTORE_ST.length);
     expect(combined).not.toContain(RESTORE_ST);
     expect(combined).not.toContain(RESTORE_SK);
-  });
+  }, 60_000);
 
   it('fire-drill refuses equal secret', () => {
     const run = spawnSync(

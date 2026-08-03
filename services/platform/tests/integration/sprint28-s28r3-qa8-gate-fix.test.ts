@@ -14,13 +14,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import {
-  ACCOUNT_ID,
-  baseHarnessEnv,
-  ENDPOINT,
-  type HarnessPaths,
-  makeHarness,
-} from './fixtures/qa13-harness';
+import { ACCOUNT_ID, ENDPOINT, type HarnessPaths, makeHarness } from './fixtures/qa13-harness';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 let H: HarnessPaths;
@@ -65,6 +59,7 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
+    R2_RESTORE_OBJECT_PREFIX: 'pgbackrest',
     R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/qa-fixture-object.bin',
     R2_SCOPE_PROBE_OUT_KEY: 'scope-control/out-of-prefix-object.bin',
     HOLO_AWS_MOCK_MODE: 'default',
@@ -157,6 +152,8 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
         REQUIRE_LIVE_R2_RO: '1',
         R2_ACCESS_KEY_ID: WRITER_AK,
         R2_SECRET_ACCESS_KEY: WRITER_SK,
+        BACKUP_R2_ACCESS_KEY_ID: WRITER_AK,
+        BACKUP_R2_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
@@ -182,6 +179,8 @@ describe('GATE-FIX-S28R3-QA8 provision identity (REQUIRE_LIVE_R2_RO)', () => {
         REQUIRE_LIVE_R2_RO: '1',
         R2_ACCESS_KEY_ID: WRITER_AK,
         R2_SECRET_ACCESS_KEY: WRITER_SK,
+        BACKUP_R2_ACCESS_KEY_ID: WRITER_AK,
+        BACKUP_R2_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: '',
@@ -236,6 +235,8 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
         // Writer in "backup" slot via secrets file simulation: set both ambient and restore equal.
         R2_ACCESS_KEY_ID: WRITER_AK,
         R2_SECRET_ACCESS_KEY: WRITER_SK,
+        BACKUP_R2_ACCESS_KEY_ID: WRITER_AK,
+        BACKUP_R2_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,
@@ -262,6 +263,8 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
         REQUIRE_LIVE_R2_RO: '1',
         R2_ACCESS_KEY_ID: WRITER_AK,
         R2_SECRET_ACCESS_KEY: WRITER_SK,
+        BACKUP_R2_ACCESS_KEY_ID: WRITER_AK,
+        BACKUP_R2_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: '',
@@ -287,6 +290,8 @@ describe('GATE-FIX-S28R3-QA8 prove-r2-readonly identity preflight', () => {
         REQUIRE_LIVE_R2_RO: '1',
         R2_ACCESS_KEY_ID: WRITER_AK,
         R2_SECRET_ACCESS_KEY: WRITER_SK,
+        BACKUP_R2_ACCESS_KEY_ID: WRITER_AK,
+        BACKUP_R2_SECRET_ACCESS_KEY: WRITER_SK,
         R2_RESTORE_ACCESS_KEY_ID: WRITER_AK,
         R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK_DISTINCT,
         R2_RESTORE_SESSION_TOKEN: RESTORE_ST,

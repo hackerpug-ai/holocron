@@ -575,6 +575,7 @@ describe('GATE-FIX-S28R3-QA21 discriminating success/error canary oracle', () =>
         env: {
           ...polluted,
           R2_RESTORE_SECRET_ACCESS_KEY: 'sk_restore_qa21',
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         },

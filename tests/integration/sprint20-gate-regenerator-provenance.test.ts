@@ -23,7 +23,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const REGENERATOR = join(REPO_ROOT, 'scripts', 'e2e', 'regenerate-sprint-gate.sh');
-const OFFICIAL11 = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow-official11');
 const FAILED_CYCLE = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow', 'failed-this-cycle');
 const SPRINT_DIR = resolve(
   REPO_ROOT,
@@ -36,8 +35,9 @@ const SPRINT_DIR = resolve(
 const GATE_RESULTS = join(SPRINT_DIR, 'gate-results.json');
 const STAGE_DIR = join(REPO_ROOT, '.tmp', 'GATE-FIX-G5', 'provenance-stage');
 
-/** Known official11 SUCCESS junit sha (must never be promoted as this-cycle green alone). */
-const OFFICIAL11_SUCCESS_SHA = 'a9eb6f7adb5771585d6d4efae16a7f5123bd6f6c2694923e9ef7269ece15738d';
+const HISTORICAL_SUCCESS_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="historical-negative-control" tests="1" failures="0" time="1.0"><testcase name="historical-pass" status="SUCCESS"/></testsuite></testsuites>
+`;
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const skip = !PLATFORM_IT;
@@ -53,7 +53,10 @@ function parseFailuresAttr(junitXml: string): number {
   return m ? Number(m[1]) : -1;
 }
 
-function runRegenerator(artifactDir: string): {
+function runRegenerator(
+  artifactDir: string,
+  rejectedHistoricalSha: string
+): {
   stdout: string;
   gate: {
     steps: Array<{ n: number; verdict: string; evidence_path: string }>;
@@ -62,7 +65,11 @@ function runRegenerator(artifactDir: string): {
 } {
   const stdout = execFileSync(REGENERATOR, ['sprint-20'], {
     cwd: REPO_ROOT,
-    env: { ...process.env, E2E_ARTIFACT_DIR: artifactDir },
+    env: {
+      ...process.env,
+      E2E_ARTIFACT_DIR: artifactDir,
+      REJECTED_HISTORICAL_JUNIT_SHA: rejectedHistoricalSha,
+    },
     encoding: 'utf8',
   });
   const gate = JSON.parse(readFileSync(GATE_RESULTS, 'utf8')) as {
@@ -75,7 +82,6 @@ function runRegenerator(artifactDir: string): {
 describe.skipIf(skip)('GATE-FIX-G5 — gate regenerator provenance', () => {
   beforeEach(() => {
     expect(existsSync(REGENERATOR), 'regenerate-sprint-gate.sh missing').toBe(true);
-    expect(existsSync(join(OFFICIAL11, 'junit.xml')), 'official11 junit missing').toBe(true);
     expect(existsSync(join(FAILED_CYCLE, 'junit.xml')), 'failed-this-cycle junit missing').toBe(
       true
     );
@@ -97,27 +103,25 @@ describe.skipIf(skip)('GATE-FIX-G5 — gate regenerator provenance', () => {
   });
 
   it('GATE-FIX-G5 AC-2: reject historical SUCCESS junit substitution for this-cycle Step-1 PASS', () => {
-    const officialJunit = join(OFFICIAL11, 'junit.xml');
     const failedJunit = join(FAILED_CYCLE, 'junit.xml');
 
-    // Prove fixture identities: official11 is SUCCESS (failures=0); this-cycle is failures=1.
-    const officialSha = sha256File(officialJunit);
-    expect(officialSha).toBe(OFFICIAL11_SUCCESS_SHA);
-    expect(parseFailuresAttr(readFileSync(officialJunit, 'utf8'))).toBe(0);
+    // Prove fixture identities: deterministic historical SUCCESS vs a real
+    // this-cycle failure preserved by the native harness run.
+    expect(parseFailuresAttr(HISTORICAL_SUCCESS_JUNIT)).toBe(0);
     expect(parseFailuresAttr(readFileSync(failedJunit, 'utf8'))).toBe(1);
 
-    // Attack: copy official11 SUCCESS into live this-cycle dir while retaining failed-this-cycle.
-    copyFileSync(officialJunit, join(STAGE_DIR, 'junit.xml'));
+    // Attack: stage historical SUCCESS while retaining failed-this-cycle.
+    writeFileSync(join(STAGE_DIR, 'junit.xml'), HISTORICAL_SUCCESS_JUNIT);
     copyFileSync(failedJunit, join(STAGE_DIR, 'failed-this-cycle', 'junit.xml'));
 
-    // Live junit is now the historical SUCCESS checksum.
-    expect(sha256File(join(STAGE_DIR, 'junit.xml'))).toBe(OFFICIAL11_SUCCESS_SHA);
+    const historicalSha = sha256File(join(STAGE_DIR, 'junit.xml'));
+    expect(historicalSha).toMatch(/^[0-9a-f]{64}$/);
     // failed-this-cycle still honest-red.
     expect(
       parseFailuresAttr(readFileSync(join(STAGE_DIR, 'failed-this-cycle', 'junit.xml'), 'utf8'))
     ).toBe(1);
 
-    const { gate } = runRegenerator(STAGE_DIR);
+    const { gate } = runRegenerator(STAGE_DIR, historicalSha);
     const step1 = gate.steps.find((s) => s.n === 1);
     expect(step1, 'step 1 missing from regenerator output').toBeDefined();
     if (!step1) throw new Error('step 1 missing');

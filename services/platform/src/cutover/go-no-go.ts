@@ -446,14 +446,16 @@ function createIsolatedIntegrationEnv(
     });
 
     const isolatedEnv: NodeJS.ProcessEnv = { ...baseEnv };
+    // Remove credentials that could retarget the lane at an operator service or
+    // expose broad backup administration through the child ambient environment.
+    // Real-provider API keys intentionally remain because PLATFORM_IT is the
+    // real-provider lane. Backup runtime credentials are available only through
+    // the 0600 isolated secrets file, while the temporary prefix-scoped
+    // R2_RESTORE_* proof tuple remains available to the live read-only probes.
     for (const key of [
       'BACKUP_R2_ACCESS_KEY_ID',
       'BACKUP_R2_SECRET_ACCESS_API_TOKEN',
       'BACKUP_R2_SECRET_ACCESS_KEY',
-      'CLOUDFLARE_API_TOKEN',
-      'DEEPGRAM_API_KEY',
-      'DEEPSEEK_API_KEY',
-      'ELEVENLABS_API_KEY',
       'EXPO_PUBLIC_RN_API_KEY',
       'EXPO_TOKEN',
       'FLEET_KEY',
@@ -461,7 +463,6 @@ function createIsolatedIntegrationEnv(
       'HOLO_KEY_MCP',
       'HOLO_KEY_RN',
       'MASTRA_API_KEY',
-      'ANTHROPIC_API_KEY',
       'AWS_ACCESS_KEY_ID',
       'AWS_CONFIG_FILE',
       'AWS_DEFAULT_PROFILE',
@@ -471,7 +472,7 @@ function createIsolatedIntegrationEnv(
       'AWS_SHARED_CREDENTIALS_FILE',
       'AWS_SESSION_TOKEN',
       'AWS_WEB_IDENTITY_TOKEN_FILE',
-      'OPENROUTER_API_KEY',
+      'CLOUDFLARE_API_TOKEN',
       'CONVEX_DEPLOY_KEY',
       'CONVEX_SELF_HOSTED_ADMIN_KEY',
       'CONVEX_SELF_HOSTED_URL',
@@ -484,18 +485,22 @@ function createIsolatedIntegrationEnv(
       'HOLO_RELEASE_PATH',
       'HOLO_VERIFY_BASE_URL',
       'PLATFORM_URL',
-      'R2_PARENT_ACCESS_KEY_ID',
-      'R2_PARENT_SECRET_ACCESS_KEY',
-      'R2_SCOPE_PROBE_IN_KEY',
-      'R2_SCOPE_PROBE_OUT_KEY',
       'R2_S3_ID',
       'R2_S3_KEY_ID',
       'R2_S3_SECRET',
       'R2_S3_TOKEN',
+      'R2_ACCESS_KEY_ID',
+      'R2_PARENT_ACCESS_KEY_ID',
+      'R2_PARENT_SECRET_ACCESS_KEY',
+      'R2_PARENT_SESSION_TOKEN',
+      'R2_REPO_CIPHER_PASS',
+      'R2_SCOPE_PROBE_IN_KEY',
+      'R2_SCOPE_PROBE_OUT_KEY',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_SESSION_TOKEN',
+      'RESTIC_PASSWORD',
       'RESTIC_REPOSITORY',
       'TAILSCALE_AUTH_KEY',
-      'YOUTUBE_API_KEY',
-      'ZAI_API_KEY',
     ]) {
       delete isolatedEnv[key];
     }

@@ -56,6 +56,7 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
+    R2_RESTORE_OBJECT_PREFIX: 'pgbackrest',
     R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/qa-fixture-object.bin',
     R2_SCOPE_PROBE_OUT_KEY: 'scope-control/out-of-prefix-object.bin',
     R2_CREDENTIAL_KIND: 'object-read-only',

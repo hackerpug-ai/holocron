@@ -32,7 +32,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const VERIFIER = join(REPO_ROOT, 'scripts', 'e2e', 'capstone-verdict.sh');
-const OFFICIAL = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow-official11');
+const THIS_CYCLE = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow');
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const DB = process.env.DATABASE_URL ?? '';
@@ -58,19 +58,29 @@ function headSha() {
 function stageGreenDir() {
   rmSync(GREEN_DIR, { recursive: true, force: true });
   mkdirSync(GREEN_DIR, { recursive: true });
-  // Real junit/screenshot/video from a genuine prior Maestro run.
-  copyFileSync(join(OFFICIAL, 'junit.xml'), join(GREEN_DIR, 'junit.xml'));
-  copyFileSync(join(OFFICIAL, 'final.png'), join(GREEN_DIR, 'final.png'));
-  copyFileSync(join(OFFICIAL, 'reference-flow.mov'), join(GREEN_DIR, 'reference-flow.mov'));
+  // Real junit/screenshot/video from this cycle's genuine Maestro run.
+  copyFileSync(join(THIS_CYCLE, 'junit.xml'), join(GREEN_DIR, 'junit.xml'));
+  copyFileSync(join(THIS_CYCLE, 'final.png'), join(GREEN_DIR, 'final.png'));
+  copyFileSync(join(THIS_CYCLE, 'reference-flow.mov'), join(GREEN_DIR, 'reference-flow.mov'));
+  copyFileSync(
+    join(THIS_CYCLE, 'reference-request.json'),
+    join(GREEN_DIR, 'reference-request.json')
+  );
 }
 
 describe.skipIf(skip)('REDHAT-FIX-H1 — capstone verifier', () => {
   beforeEach(() => {
-    // Sanity: the historical real artifacts must exist; if they don't, the test
+    // Sanity: the fresh real artifacts must exist; if they don't, the test
     // cannot stage a green substrate and must fail loudly (not silently pass).
-    expect(existsSync(join(OFFICIAL, 'junit.xml')), 'official11 junit.xml missing').toBe(true);
-    expect(existsSync(join(OFFICIAL, 'final.png')), 'official11 final.png missing').toBe(true);
-    expect(existsSync(join(OFFICIAL, 'reference-flow.mov')), 'official11 video missing').toBe(true);
+    expect(existsSync(join(THIS_CYCLE, 'junit.xml')), 'this-cycle junit.xml missing').toBe(true);
+    expect(existsSync(join(THIS_CYCLE, 'final.png')), 'this-cycle final.png missing').toBe(true);
+    expect(existsSync(join(THIS_CYCLE, 'reference-flow.mov')), 'this-cycle video missing').toBe(
+      true
+    );
+    expect(
+      existsSync(join(THIS_CYCLE, 'reference-request.json')),
+      'this-cycle reference-request.json missing'
+    ).toBe(true);
   });
   afterEach(() => {
     rmSync(GREEN_DIR, { recursive: true, force: true });

@@ -23,6 +23,7 @@
 #   export HOLO_SECRETS_PATH=...   # optional; defaults may resolve secrets
 #   export GATE_RUN_ID=20260802TxxxxxxZ   # optional; auto-generated if unset
 #   export HOLO_VERIFY_BASE_URL=https://...  # preferred deployed identity for landing
+#   export MINT_R2_PREFIX_RESTORE=1  # mint temporary scoped RO proof/data tuples after .env
 #   bash scripts/run-sprint29-human-gate-rerun.sh
 #   WRITE_GATE_RESULTS=0 bash scripts/run-sprint29-human-gate-rerun.sh  # evidence only
 set -euo pipefail
@@ -71,6 +72,11 @@ fi
 
 export GATE_RUN_ID
 export QUIET_WINDOW_SECONDS
+GATE_RUN_NONCE="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export GATE_RUN_NONCE
+GATE_RUN_NONCE_SHA256="$(printf '%s' "$GATE_RUN_NONCE" | python3 -c 'import hashlib, sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
+RUNNER_PID="$$"
+RUN_FINALIZED=0
 
 # R3-C01: require real HEAD (never "unknown" theatre).
 SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
@@ -130,6 +136,14 @@ elif [[ -f "${HOME}/Projects/holocron/.env" ]]; then
   set +a
 fi
 
+# A caller may request fresh temporary restore tuples for the exact-scope R2
+# and fire-drill gates. This must run after .env is loaded so durable operator
+# values cannot overwrite the minted tuples. The helper never logs values.
+if [[ "${MINT_R2_PREFIX_RESTORE:-0}" == "1" ]]; then
+  # shellcheck source=scripts/mint-r2-prefix-restore-env.sh
+  source "$ROOT/scripts/mint-r2-prefix-restore-env.sh"
+fi
+
 echo "R3-C01 / R2-H01 human-gate re-run"
 echo "  GATE_RUN_ID=$GATE_RUN_ID"
 echo "  source_sha=$SOURCE_SHA  (git rev-parse HEAD)"
@@ -145,11 +159,14 @@ fi
 
 python3 - "$PLAN" "$EVID_DIR/meta.json" "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" \
   "$SERVICE_IDENTITY" "$STARTED_AT" "$HISTORICAL_STALE_RUN_ID" "$IDENTITY_CLASS" \
-  "$NON_LANDING_REASON" <<'PY'
+  "$NON_LANDING_REASON" "$RUNNER_PID" "$GATE_RUN_NONCE_SHA256" <<'PY'
 import json, sys
 from pathlib import Path
 plan_path, meta_path = Path(sys.argv[1]), Path(sys.argv[2])
-run_id, sha, base, ident, started, stale, identity_class, non_landing = sys.argv[3:11]
+(
+    run_id, sha, base, ident, started, stale, identity_class, non_landing,
+    runner_pid, runner_nonce_sha256,
+) = sys.argv[3:13]
 assert len(sha) == 40 and all(c in "0123456789abcdef" for c in sha), f"HEAD sha invalid: {sha}"
 plan = json.loads(plan_path.read_text())
 steps = plan.get("steps") or []
@@ -165,6 +182,10 @@ meta = {
     "source_sha": sha,
     "git_sha": sha,
     "head_bound": True,
+    "status": "in_progress",
+    "runner_pid": int(runner_pid),
+    "runner_nonce_sha256": runner_nonce_sha256,
+    "active_step": 0,
     "deployed_base_url": base,
     "service_identity": ident,
     "identity_class": identity_class,
@@ -196,6 +217,30 @@ meta = {
 meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 print(f"wrote {meta_path}")
 PY
+
+finalize_aborted_run() {
+  local rc=$?
+  if [[ "${RUN_FINALIZED:-0}" != "1" && -f "$EVID_DIR/meta.json" ]]; then
+    python3 - "$EVID_DIR/meta.json" "$rc" <<'PY'
+import datetime, json, sys
+from pathlib import Path
+
+meta_path = Path(sys.argv[1])
+meta = json.loads(meta_path.read_text())
+if meta.get("status") == "in_progress":
+    meta.update(
+        {
+            "status": "aborted",
+            "finished_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "abort_exit_code": int(sys.argv[2]),
+            "landing_eligible": False,
+        }
+    )
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+PY
+  fi
+}
+trap finalize_aborted_run EXIT
 
 # Extract step N literal_cmd from plan
 step_cmd() {
@@ -367,9 +412,34 @@ activate_deployed_database() {
   export HOLO_ZERO_BASE_URL
 }
 
+mark_active_step() {
+  local n="$1"
+  local tmo_var="STEP_TIMEOUT_${n}"
+  local tmo="${!tmo_var:-$STEP_TIMEOUT_DEFAULT}"
+  local deadline_epoch=$(( $(date +%s) + tmo + 60 ))
+  python3 - "$EVID_DIR/meta.json" "$n" "$deadline_epoch" <<'PY'
+import datetime, json, sys
+from pathlib import Path
+
+meta_path = Path(sys.argv[1])
+meta = json.loads(meta_path.read_text())
+if meta.get("status") != "in_progress":
+    raise SystemExit("refuse: gate metadata is not in progress")
+meta.update(
+    {
+        "active_step": int(sys.argv[2]),
+        "active_step_started_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "active_step_deadline_epoch": int(sys.argv[3]),
+    }
+)
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+PY
+}
+
 echo "Executing 8 gate-plan steps (real-cli)..."
 for n in 1 2 3 4 5 6 7 8; do
   echo "=== Step $n: $(step_text "$n") ==="
+  mark_active_step "$n"
   # After combined freeze/drain step 5, carry fence into later CLI processes.
   if [[ "$n" -ge 6 ]]; then
     propagate_fence_env
@@ -575,6 +645,29 @@ r2_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01")
 r2_tmp.mkdir(parents=True, exist_ok=True)
 (r2_tmp / "gate-results.json").write_text(json.dumps(payload, indent=2) + "\n")
 
+# Close the runner-owned provisional state before publishing canonical final
+# results. A crash between these writes fails closed: completed metadata without
+# final results cannot use the step-1 in-progress freshness path.
+meta_path = Path(evid_dir) / "meta.json"
+meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+meta.update(
+    {
+        "status": "complete",
+        "finished_at": finished_at,
+        "verdict": verdict,
+        "steps_executed": steps_executed,
+        "steps_passed": steps_passed,
+        "steps_failed": steps_failed,
+        "landing_eligible": landing_eligible,
+        "identity_class": identity_class,
+        "non_landing_reason": non_landing_reason or None,
+        "git_sha": source_sha,
+        "source_sha": source_sha,
+        "head_bound": True,
+    }
+)
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+
 if write:
     Path(results_path).write_text(json.dumps(payload, indent=2) + "\n")
 
@@ -631,26 +724,6 @@ md_tmp.write_text(md)
 if write:
     Path(results_md_path).write_text(md)
 
-# Update meta with finish
-meta_path = Path(evid_dir) / "meta.json"
-meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-meta.update(
-    {
-        "finished_at": finished_at,
-        "verdict": verdict,
-        "steps_executed": steps_executed,
-        "steps_passed": steps_passed,
-        "steps_failed": steps_failed,
-        "landing_eligible": landing_eligible,
-        "identity_class": identity_class,
-        "non_landing_reason": non_landing_reason or None,
-        "git_sha": source_sha,
-        "source_sha": source_sha,
-        "head_bound": True,
-    }
-)
-meta_path.write_text(json.dumps(meta, indent=2) + "\n")
-
 summary = {
     "run_id": run_id,
     "verdict": verdict,
@@ -668,6 +741,8 @@ summary = {
 print(json.dumps(summary, indent=2))
 (Path(tmp_root) / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 PY
+
+RUN_FINALIZED=1
 
 echo "Done. verdict=$VERDICT steps_passed=$steps_passed/8 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA landing_eligible=$LANDING_ELIGIBLE identity_class=$IDENTITY_CLASS"
 # Exit non-zero only if harness itself failed to run (always exit 0 after honest record

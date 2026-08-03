@@ -7,12 +7,17 @@
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
  *     services/platform/tests/integration/sprint29-rollback-repoint.test.ts
  */
-import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PLATFORM_IT, REPO_ROOT } from '../../../../tests/integration/service/harness';
+import {
+  type LiveService,
+  PLATFORM_IT,
+  REPO_ROOT,
+  startLiveService,
+} from '../../../../tests/integration/service/harness';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
   defaultDataPlaneConfigPath,
@@ -49,130 +54,42 @@ const D0605 = resolve(REPO_ROOT, '.tmp/D06-05');
 const D0604 = resolve(REPO_ROOT, '.tmp/D06-04');
 const DISPOSABLE_SECRETS = resolve(R2_EVIDENCE, 'disposable-secrets.yaml');
 
-type PreexistingServing = {
-  baseUrl: string;
-  port: number;
-  pid: number | undefined;
-  stop: () => Promise<void>;
-};
+type PreexistingServing = Pick<LiveService, 'baseUrl' | 'port' | 'pid' | 'stop'>;
 
 function freePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
-    const srv = createServer();
-    srv.unref();
-    srv.on('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
-      const addr = srv.address();
-      if (!addr || typeof addr === 'string') {
-        srv.close();
+    const server = createServer();
+    server.unref();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close();
         reject(new Error('failed to bind ephemeral port'));
         return;
       }
-      const port = addr.port;
-      srv.close((err) => (err ? reject(err) : resolvePort(port)));
+      server.close((error) => (error ? reject(error) : resolvePort(address.port)));
     });
   });
 }
 
 /**
- * Start a pre-existing serving process that re-reads durable secrets on every
- * /health (R3-H03). Must be up BEFORE runRollbackRepoint — not createHonoApp
- * inside the same command.
+ * Start the real platform composition root before runRollbackRepoint. Its
+ * production /health handler re-reads the durable data-plane control plane on
+ * every request, so a purpose-built test listener cannot authorize the flip.
  */
 async function startPreexistingServing(secretsPath: string): Promise<PreexistingServing> {
-  const port = await freePort();
-  const soakFence = resolve(REPO_ROOT, 'services/platform/src/cutover/soak-fence.ts');
-  const child: ChildProcess = spawn(
-    'bun',
-    [
-      '-e',
-      `
-import { readDurableDataPlane } from ${JSON.stringify(soakFence)};
-const secretsPath = process.env.HOLO_SECRETS_PATH;
-const port = Number(process.env.PORT);
-Bun.serve({
-  port,
-  hostname: '127.0.0.1',
-  fetch(req) {
-    const url = new URL(req.url);
-    if (url.pathname === '/health' || url.pathname === '/health/') {
-      delete process.env.HOLO_DATA_PLANE;
-      delete process.env.HOLO_ROLLBACK_TARGET;
-      const r = readDurableDataPlane(process.env, secretsPath);
-      return Response.json({
-        status: 'ok',
-        data_plane: r.data_plane,
-        target: r.target,
-        rollback: { target: r.target, data_plane: r.data_plane, source: 'secrets' },
-      });
-    }
-    return new Response('not found', { status: 404 });
-  },
-});
-console.log('PREEXISTING_READY ' + port);
-`,
-    ],
-    {
-      cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        PORT: String(port),
-        HOLO_SECRETS_PATH: secretsPath,
-        HOLOCRON_SECRETS_PATH: secretsPath,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }
-  );
-
-  let stdout = '';
-  let stderr = '';
-  child.stdout?.on('data', (b: Buffer) => {
-    stdout += b.toString('utf8');
-  });
-  child.stderr?.on('data', (b: Buffer) => {
-    stderr += b.toString('utf8');
-  });
-
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 15_000;
-  let ready = false;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(1_000) });
-      if (res.ok || res.status === 503) {
-        ready = true;
-        break;
-      }
-    } catch {
-      await new Promise((r) => setTimeout(r, 50));
-    }
-  }
-  if (!ready) {
-    child.kill('SIGKILL');
-    throw new Error(
-      `pre-existing serving did not become ready at ${baseUrl}\nstdout=${stdout}\nstderr=${stderr}`
-    );
-  }
-
-  let exited = false;
-  child.on('exit', () => {
-    exited = true;
-  });
-
-  return {
-    baseUrl,
-    port,
-    pid: child.pid,
-    stop: async () => {
-      if (exited) return;
-      child.kill('SIGTERM');
-      const stopDeadline = Date.now() + 2_000;
-      while (!exited && Date.now() < stopDeadline) {
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      if (!exited) child.kill('SIGKILL');
+  return startLiveService({
+    databaseUrl: process.env.DATABASE_URL,
+    readyTimeoutMs: 30_000,
+    extraEnv: {
+      HOLO_SECRETS_PATH: secretsPath,
+      HOLOCRON_SECRETS_PATH: secretsPath,
+      HOLO_DATA_PLANE: 'postgres',
+      HOLO_ROLLBACK_TARGET: 'boot-time-postgres',
+      HOLO_SERVICE_LABEL: 's29-rollback-preexisting-platform',
     },
-  };
+  });
 }
 
 function evidence(name: string, body: unknown, dir = EVIDENCE): void {

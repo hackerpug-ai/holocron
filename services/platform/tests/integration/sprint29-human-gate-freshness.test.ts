@@ -19,6 +19,7 @@
  *     services/platform/tests/integration/sprint29-human-gate-freshness.test.ts
  */
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -177,6 +178,69 @@ function writeEvidence(name: string, body: unknown): string {
 function loadResults(): GateResults {
   expect(existsSync(GATE_RESULTS), `gate-results missing: ${GATE_RESULTS}`).toBe(true);
   return JSON.parse(readFileSync(GATE_RESULTS, 'utf8')) as GateResults;
+}
+
+/**
+ * During step 1 the current human-gate run cannot already have eight finished
+ * logs or a final gate-results verdict. Bind freshness to the runner-generated
+ * meta.json for that exact GATE_RUN_ID/HEAD; completed runs still use the final
+ * gate-results path below. This breaks the self-certification cycle without
+ * treating an in-progress run as a pass.
+ */
+function loadActiveRun(): GateResults | null {
+  const runId = process.env.GATE_RUN_ID?.trim();
+  if (!runId) return null;
+  expect(runId).toMatch(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/);
+  const metaPath = resolve(EVIDENCE_ROOT, runId, 'meta.json');
+  expect(existsSync(metaPath), `active gate meta missing: ${metaPath}`).toBe(true);
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as Record<string, unknown>;
+  expect(meta.run_id).toBe(runId);
+  if (meta.status !== 'in_progress') return null;
+  expect(meta.status).toBe('in_progress');
+  for (const finalKey of [
+    'finished_at',
+    'verdict',
+    'steps_executed',
+    'steps_passed',
+    'steps_failed',
+  ]) {
+    expect(Object.hasOwn(meta, finalKey), `active metadata must omit ${finalKey}`).toBe(false);
+  }
+  expect(meta.active_step, 'provisional freshness is owned only by runner step 1').toBe(1);
+  const deadlineEpoch = Number(meta.active_step_deadline_epoch);
+  expect(Number.isSafeInteger(deadlineEpoch), 'active step deadline required').toBe(true);
+  expect(Math.floor(Date.now() / 1000), 'active step lease expired').toBeLessThanOrEqual(
+    deadlineEpoch
+  );
+  const runnerPid = Number(meta.runner_pid);
+  expect(Number.isSafeInteger(runnerPid) && runnerPid > 1, 'live runner pid required').toBe(true);
+  expect(() => process.kill(runnerPid, 0), 'runner process is not live').not.toThrow();
+  const runnerNonce = process.env.GATE_RUN_NONCE?.trim();
+  expect(runnerNonce, 'runner-owned nonce required').toBeTruthy();
+  expect(meta.runner_nonce_sha256).toBe(
+    createHash('sha256').update(String(runnerNonce)).digest('hex')
+  );
+  expect(meta.head_bound).toBe(true);
+  expect(meta.landing_eligible).toBe(false);
+  return {
+    run_id: runId,
+    source_sha: String(meta.source_sha ?? ''),
+    git_sha: String(meta.git_sha ?? ''),
+    deployed_base_url: String(meta.deployed_base_url ?? ''),
+    service_identity: String(meta.service_identity ?? ''),
+    identity_class: String(meta.identity_class ?? ''),
+    landing_eligible: false,
+    started_at: String(meta.started_at ?? ''),
+    meta: {
+      source_sha: String(meta.source_sha ?? ''),
+      git_sha: String(meta.git_sha ?? ''),
+      deployed_base_url: String(meta.deployed_base_url ?? ''),
+      service_identity: String(meta.service_identity ?? ''),
+      identity_class: String(meta.identity_class ?? ''),
+      landing_eligible: false,
+      head_bound: true,
+    },
+  };
 }
 
 function loadPlan(): GatePlan {
@@ -361,6 +425,10 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       expect(script).toMatch(/rev-parse HEAD/);
       expect(script).toMatch(/landing_eligible/);
       expect(script).toMatch(/local-process/);
+      const envLoad = script.search(/source "\$\{HOME\}\/Projects\/holocron\/\.env"/);
+      const scopedMint = script.indexOf('source "$ROOT/scripts/mint-r2-prefix-restore-env.sh"');
+      expect(envLoad, 'primary .env load must remain explicit').toBeGreaterThanOrEqual(0);
+      expect(scopedMint, 'optional scoped restore mint must be wired').toBeGreaterThan(envLoad);
 
       const plan = loadPlan();
       expect(plan.dispatcher).toContain('services/platform/src/cli/holo.ts');
@@ -413,7 +481,8 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   itLive(
     'AC-3 / R2-H01 + R3-C01: fresh gate-results bind new run_id, HEAD-equal SHA, identity, step logs',
     () => {
-      const results = loadResults();
+      const activeRun = loadActiveRun();
+      const results = activeRun ?? loadResults();
       const runId = String(results.run_id ?? '');
       const head = revParseHead();
 
@@ -446,6 +515,25 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       // Timestamps
       const ts = results.finished_at ?? results.written_at ?? results.started_at;
       expect(ts, 'timestamp required').toBeTruthy();
+
+      if (activeRun) {
+        expect(String(sha)).toBe(head);
+        expect(results.landing_eligible).toBe(false);
+        expect(existsSync(resolve(EVIDENCE_ROOT, runId, 'meta.json'))).toBe(true);
+        expect(existsSync(STALE_EVIDENCE)).toBe(true);
+        writeEvidence('ac3-active-run-meta.json', {
+          run_id: runId,
+          source_sha: sha,
+          git_sha: results.git_sha,
+          head,
+          head_equal: true,
+          bind_mode: 'active-run-meta',
+          deployed_identity: identity,
+          landing_eligible: false,
+          historical_preserved: true,
+        });
+        return;
+      }
 
       // Evidence dir with eight non-empty step logs
       const runEvidence = resolve(EVIDENCE_ROOT, runId);
@@ -501,7 +589,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
   itLive(
     'R3-C01: local-process identity is non-landing; 8/8 pass requires deployed identity for landing',
     () => {
-      const results = loadResults();
+      const results = loadActiveRun() ?? loadResults();
       const head = revParseHead();
       const identity = String(deployedIdentity(results) ?? '');
       const local = isLocalProcessIdentity(identity);

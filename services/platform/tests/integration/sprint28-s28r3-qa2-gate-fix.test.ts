@@ -156,9 +156,8 @@ describe('GATE-FIX-S28R3-QA2 always-on contract (C2/C3/H2/H4)', () => {
     const statusLine = (fm?.[1] ?? '').split('\n').find((l) => /^status:/i.test(l)) ?? '';
     expect(statusLine.toLowerCase()).toMatch(/completed/);
     expect(md).toMatch(/qa34-20260801T201647Z-baa1db93/);
-    expect(md).toMatch(/passed 6\/6/);
-    expect(md).toMatch(/DEPENDENCY-S28-R2-RO/);
-    expect(md).toMatch(/DEPENDENCY-S28-R2-RO[^\n]*closed/i);
+    expect(md).toMatch(/gate 6\/6 · human-test 6\/6/);
+    expect(md).toMatch(/Closed by verified run[^\n]*all six SHA-bound gate steps passed/);
     writeEvidence('c3-sprint-status.json', { statusLine });
   });
 

@@ -214,14 +214,20 @@ function seedFixtures(
   | 'healthySeedWorkDir'
   | 'healthyObjectCount'
 > {
-  const testScopedRoot = `pgbackrest-d05-01-red/${RUN_ID}`;
+  const fixtureNamespace = `pgbackrest-d05-01-red/${RUN_ID}`;
+  const isolatedBase =
+    process.env.HOLO_GO_NO_GO_ISOLATED === '1'
+      ? cfg.pgbackrestPrefix.replace(/^\/+|\/+$/g, '')
+      : '';
+  const testScopedRoot = [isolatedBase, fixtureNamespace].filter(Boolean).join('/');
   const emptyPrefix = `${testScopedRoot}/empty`;
   const corruptPrefix = `${testScopedRoot}/corrupt`;
   const healthyPrefix = `${testScopedRoot}/healthy`;
 
   // Product contract: healthy must be test-scoped, never bare production prefix.
   expect(
-    healthyPrefix.startsWith('pgbackrest-d05-01-red/') && healthyPrefix.endsWith('/healthy'),
+    healthyPrefix.split('/').includes('pgbackrest-d05-01-red') &&
+      healthyPrefix.endsWith('/healthy'),
     `healthyPrefix must be test-scoped under pgbackrest-d05-01-red/<runId>/healthy; got ${healthyPrefix}`
   ).toBe(true);
   expect(
@@ -937,7 +943,7 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
 
       // Product guard: healthy prefix must stay test-scoped (never bare production).
       expect(
-        fixtures.healthyPrefix.startsWith('pgbackrest-d05-01-red/') &&
+        fixtures.healthyPrefix.split('/').includes('pgbackrest-d05-01-red') &&
           fixtures.healthyPrefix.includes('/healthy'),
         `healthyPrefix must be test-scoped under pgbackrest-d05-01-red/.../healthy; got ${fixtures.healthyPrefix}`
       ).toBe(true);

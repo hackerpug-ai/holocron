@@ -10,6 +10,8 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { api } from '../../../../convex/_generated/api';
+import { waitForMigrationReadOnlyRuntime } from '../../src/cutover/convex-fence-client.ts';
+import { writeDurableMigrationReadOnly } from '../../src/cutover/soak-fence';
 import { createSql, type Sql } from '../../src/db/client';
 import { createHonoApp } from '../../src/http/hono-app';
 import { executePostgresMcpTool } from '../../src/mcp/executor';
@@ -85,6 +87,23 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
   beforeAll(async () => {
     ensureEvidenceDir();
     unsetMigrationFlag();
+    if (process.env.HOLO_GO_NO_GO_ISOLATED === '1' && process.env.HOLO_SECRETS_PATH) {
+      writeDurableMigrationReadOnly('0', { secretsPath: process.env.HOLO_SECRETS_PATH });
+      const convexUrl = new URL(process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '');
+      if (!['127.0.0.1', 'localhost', '::1'].includes(convexUrl.hostname)) {
+        throw new Error('isolated write-fence reset refuses non-loopback Convex deployment');
+      }
+      const { spawnSync } = await import('node:child_process');
+      const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        timeout: 90_000,
+      });
+      if (unset.status !== 0) {
+        throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
+      }
+      await waitForMigrationReadOnlyRuntime({ expected: false });
+    }
     sql = createSql(DATABASE_URL);
 
     // Seed Hono param targets so handlers can run (404 is still non-423).
@@ -342,6 +361,7 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
           encoding: 'utf8',
           timeout: 30_000,
         });
+        await waitForMigrationReadOnlyRuntime({ expected: false });
       } catch {
         // ignore
       }
@@ -707,6 +727,7 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
     });
 
     const client = createConvexClient();
+    await waitForMigrationReadOnlyRuntime({ expected: true, client });
     let rejected = false;
     let message = '';
     try {

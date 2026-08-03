@@ -307,6 +307,19 @@ t = _re.sub(
 if 'BUN_BIN=""' in t and 'BUN_BIN="${BUN_BIN:-bun}"' not in t:
     t = t.replace('BUN_BIN=""\nfor _cand in /opt/homebrew/bin/bun /usr/local/bin/bun; do\n  if [[ -x "$_cand" ]]; then BUN_BIN="$_cand"; break; fi\ndone\n# Bun resolved above; hard-fail only when invoking TypeScript CLI (below).\nHOLO_CLI="$ROOT/services/platform/src/cli/holo.ts"\n',
                   'BUN_BIN="${BUN_BIN:-bun}"\nHOLO_CLI="${HOLO_CLI:-$ROOT/services/platform/src/cli/holo.ts}"  # harness allows override\n')
+# Production's trusted provider receives only credential/config values. Reintroduce the
+# provider mode solely in this generated harness so data-plane tests stay deterministic.
+provider_env = '''if st:
+    env["AWS_SESSION_TOKEN"] = st
+for prefix in ("recovery-baselines", "restic"):'''
+provider_env_harness = '''if st:
+    env["AWS_SESSION_TOKEN"] = st
+if os.environ.get("HOLO_R2_PROVIDER_MOCK_MODE"):
+    env["HOLO_R2_PROVIDER_MOCK_MODE"] = os.environ["HOLO_R2_PROVIDER_MOCK_MODE"]
+for prefix in ("recovery-baselines", "restic"):'''
+if provider_env not in t:
+    raise SystemExit('fire-drill provider env needle missing')
+t = t.replace(provider_env, provider_env_harness, 1)
 p.write_text(t)
 print('fire-drill harness patched', file=__import__('sys').stderr)
 PY

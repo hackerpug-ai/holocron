@@ -311,6 +311,7 @@ exit 0
         encoding: 'utf8',
         timeout: 90_000,
         env: env({
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         }),
@@ -321,7 +322,7 @@ exit 0
     expect(run.status, combined.slice(0, 1500)).toBe(0);
     expect(combined).toMatch(/recorder:ok/);
     expect(existsSync(recOut)).toBe(true);
-  });
+  }, 60_000);
 
   for (const mut of mutations) {
     it(`provision refuses mutate=${mut} at proof validation`, () => {

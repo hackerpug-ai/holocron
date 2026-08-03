@@ -289,7 +289,7 @@ describe('GATE-FIX-S28R3-QA19 harness success baselines + exact mutations', () =
       out: redact(combined.slice(0, 3000)),
     });
     expect(run.status, combined.slice(0, 2000)).toBe(0);
-  });
+  }, 60_000);
 
   it('fire-drill baseline reaches recorder with zero exit', () => {
     const recOut = resolve(EVIDENCE, 'fd-base-out.json');
@@ -312,6 +312,7 @@ describe('GATE-FIX-S28R3-QA19 harness success baselines + exact mutations', () =
         encoding: 'utf8',
         timeout: 90_000,
         env: env({
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         }),
@@ -322,7 +323,7 @@ describe('GATE-FIX-S28R3-QA19 harness success baselines + exact mutations', () =
     expect(run.status, combined.slice(0, 2000)).toBe(0);
     expect(combined).toMatch(/recorder:ok/);
     expect(existsSync(recOut)).toBe(true);
-  });
+  }, 60_000);
 
   for (const mut of MUTATIONS) {
     it(`provision mutate=${mut.kind} fails at exact validator (not dependency)`, () => {

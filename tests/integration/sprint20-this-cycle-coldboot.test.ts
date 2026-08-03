@@ -31,7 +31,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const ARTIFACT_DIR = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow');
 const FAILED_CYCLE = join(ARTIFACT_DIR, 'failed-this-cycle');
-const OFFICIAL11 = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow-official11');
 const VERIFIER = join(REPO_ROOT, 'scripts', 'e2e', 'capstone-verdict.sh');
 const REGENERATOR = join(REPO_ROOT, 'scripts', 'e2e', 'regenerate-sprint-gate.sh');
 const SPRINT_DIR = resolve(
@@ -47,6 +46,9 @@ const STAGE_DIR = join(REPO_ROOT, '.tmp', 'GATE-FIX-G2', 'honesty-stage');
 
 /** Known official11 SUCCESS junit sha — must never be promoted as this-cycle alone. */
 const OFFICIAL11_SUCCESS_SHA = 'a9eb6f7adb5771585d6d4efae16a7f5123bd6f6c2694923e9ef7269ece15738d';
+const HISTORICAL_SUCCESS_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="historical-negative-control" tests="1" failures="0" time="1.0"><testcase name="historical-pass" status="SUCCESS"/></testsuite></testsuites>
+`;
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const skip = !PLATFORM_IT;
@@ -60,13 +62,20 @@ function parseFailuresAttr(junitXml: string): number {
   return m ? Number(m[1]) : -1;
 }
 
-function runRegenerator(artifactDir: string): {
+function runRegenerator(
+  artifactDir: string,
+  rejectedHistoricalSha?: string
+): {
   steps: Array<{ n: number; verdict: string; evidence_path: string }>;
   artifact_dir: string;
 } {
   execFileSync(REGENERATOR, ['sprint-20'], {
     cwd: REPO_ROOT,
-    env: { ...process.env, E2E_ARTIFACT_DIR: artifactDir },
+    env: {
+      ...process.env,
+      E2E_ARTIFACT_DIR: artifactDir,
+      ...(rejectedHistoricalSha ? { REJECTED_HISTORICAL_JUNIT_SHA: rejectedHistoricalSha } : {}),
+    },
     encoding: 'utf8',
   });
   return JSON.parse(readFileSync(GATE_RESULTS, 'utf8')) as {
@@ -97,7 +106,6 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
   beforeEach(() => {
     expect(existsSync(REGENERATOR), 'regenerate-sprint-gate.sh missing').toBe(true);
     expect(existsSync(VERIFIER), 'capstone-verdict.sh missing').toBe(true);
-    expect(existsSync(join(OFFICIAL11, 'junit.xml')), 'official11 junit missing').toBe(true);
     if (existsSync(GATE_RESULTS)) {
       gateResultsBackup = readFileSync(GATE_RESULTS, 'utf8');
     }
@@ -161,30 +169,29 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
       true
     );
 
-    const officialJunit = join(OFFICIAL11, 'junit.xml');
     const failedJunit = join(FAILED_CYCLE, 'junit.xml');
-
-    const officialSha = sha256File(officialJunit);
-    expect(officialSha).toBe(OFFICIAL11_SUCCESS_SHA);
-    expect(parseFailuresAttr(readFileSync(officialJunit, 'utf8'))).toBe(0);
     expect(parseFailuresAttr(readFileSync(failedJunit, 'utf8'))).toBe(1);
 
-    // Attack stage: official11 SUCCESS in live dir + failed-this-cycle red retained.
+    // Attack stage: deterministic historical SUCCESS in the live dir while a
+    // real failed-this-cycle JUnit remains red. The rejected hash is additive
+    // to the production-known official11 hash and cannot authorize a PASS.
     rmSync(STAGE_DIR, { recursive: true, force: true });
     mkdirSync(join(STAGE_DIR, 'failed-this-cycle'), { recursive: true });
-    copyFileSync(officialJunit, join(STAGE_DIR, 'junit.xml'));
+    writeFileSync(join(STAGE_DIR, 'junit.xml'), HISTORICAL_SUCCESS_JUNIT);
     copyFileSync(failedJunit, join(STAGE_DIR, 'failed-this-cycle', 'junit.xml'));
-    // Minimal media so capstone can evaluate junit honesty (not media-missing).
-    if (existsSync(join(OFFICIAL11, 'final.png'))) {
-      copyFileSync(join(OFFICIAL11, 'final.png'), join(STAGE_DIR, 'final.png'));
+    // Fresh real media lets capstone evaluate JUnit honesty, not media absence.
+    if (existsSync(join(ARTIFACT_DIR, 'final.png'))) {
+      copyFileSync(join(ARTIFACT_DIR, 'final.png'), join(STAGE_DIR, 'final.png'));
     }
-    if (existsSync(join(OFFICIAL11, 'reference-flow.mov'))) {
-      copyFileSync(join(OFFICIAL11, 'reference-flow.mov'), join(STAGE_DIR, 'reference-flow.mov'));
+    if (existsSync(join(ARTIFACT_DIR, 'reference-flow.mov'))) {
+      copyFileSync(join(ARTIFACT_DIR, 'reference-flow.mov'), join(STAGE_DIR, 'reference-flow.mov'));
     }
 
-    expect(sha256File(join(STAGE_DIR, 'junit.xml'))).toBe(OFFICIAL11_SUCCESS_SHA);
+    const historicalSha = sha256File(join(STAGE_DIR, 'junit.xml'));
+    expect(historicalSha).toMatch(/^[0-9a-f]{64}$/);
+    expect(parseFailuresAttr(HISTORICAL_SUCCESS_JUNIT)).toBe(0);
 
-    const gate = runRegenerator(STAGE_DIR);
+    const gate = runRegenerator(STAGE_DIR, historicalSha);
     const step1 = gate.steps.find((s) => s.n === 1);
     expect(step1, 'step 1 missing').toBeDefined();
     if (!step1) throw new Error('step 1 missing');
@@ -210,11 +217,11 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
     const failStage = join(STAGE_DIR, 'failed-this-cycle-capstone');
     mkdirSync(failStage, { recursive: true });
     copyFileSync(failedJunit, join(failStage, 'junit.xml'));
-    if (existsSync(join(OFFICIAL11, 'final.png'))) {
-      copyFileSync(join(OFFICIAL11, 'final.png'), join(failStage, 'final.png'));
+    if (existsSync(join(ARTIFACT_DIR, 'final.png'))) {
+      copyFileSync(join(ARTIFACT_DIR, 'final.png'), join(failStage, 'final.png'));
     }
-    if (existsSync(join(OFFICIAL11, 'reference-flow.mov'))) {
-      copyFileSync(join(OFFICIAL11, 'reference-flow.mov'), join(failStage, 'reference-flow.mov'));
+    if (existsSync(join(ARTIFACT_DIR, 'reference-flow.mov'))) {
+      copyFileSync(join(ARTIFACT_DIR, 'reference-flow.mov'), join(failStage, 'reference-flow.mov'));
     }
     const { exitCode, verdict } = runCapstone(failStage);
     expect(exitCode, 'capstone must exit non-zero for failed-this-cycle').not.toBe(0);

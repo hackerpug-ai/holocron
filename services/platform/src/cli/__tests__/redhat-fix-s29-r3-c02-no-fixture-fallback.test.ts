@@ -115,7 +115,7 @@ describe('REDHAT-FIX-S29-R3-C02 no production fixture fallback', () => {
     expect(bound.mismatches.some((m) => /refusing committed test fixture/i.test(m))).toBe(true);
   });
 
-  it('AC-3: explicit fixture paths are allowed for tests (no env flag required)', () => {
+  it('AC-3: explicit fixture paths are refused unless the in-process test opt-in is set', () => {
     const frozen = JSON.parse(readFileSync(IMMUTABLE_ETL_FIXTURE, 'utf8')) as {
       exportArchiveHash: string;
       parityHash: string;
@@ -127,10 +127,20 @@ describe('REDHAT-FIX-S29-R3-C02 no production fixture fallback', () => {
       declaredExportArchiveHash: frozen.exportArchiveHash,
       declaredParityHash: frozen.parityHash,
     });
-    evidence('explicit-fixture-paths-ok.json', bound);
-    expect(bound.ok).toBe(true);
-    expect(bound.catalog_table_count).toBe(7);
-    expect(bound.exportArchiveHash).toBe(frozen.exportArchiveHash);
+    evidence('explicit-fixture-paths-refused.json', bound);
+    expect(bound.ok).toBe(false);
+    expect(bound.mismatches.some((m) => /refusing committed test fixture/i.test(m))).toBe(true);
+
+    const testBound = loadBoundExportCatalogBaseline({
+      cwd: REPO_ROOT,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
+      declaredExportArchiveHash: frozen.exportArchiveHash,
+      declaredParityHash: frozen.parityHash,
+      allowTestFixtures: true,
+    });
+    expect(testBound.ok).toBe(true);
+    expect(testBound.catalog_table_count).toBe(7);
   });
 
   it('AC-4: HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 permits fixture fallback', () => {

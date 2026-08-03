@@ -20,6 +20,7 @@ import {
   isFenceArmedEnv,
   runCrossProcessBlockedWriteProbe,
   runCutoverFreeze,
+  waitForMigrationReadOnlyRuntime,
 } from '../../src/cutover/convex-fence-client.ts';
 
 if (!PLATFORM_IT) {
@@ -148,8 +149,8 @@ describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
         encoding: 'utf8',
         timeout: 90_000,
       });
-      await new Promise((r) => setTimeout(r, 1500));
     }
+    await waitForMigrationReadOnlyRuntime({ expected: false });
   }, 120_000);
 
   it('TC-7 RED: source must not reintroduce pre-fix arm-before-set ordering at :199-237', () => {
@@ -244,7 +245,7 @@ describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
       encoding: 'utf8',
       timeout: 90_000,
     });
-    await new Promise((r) => setTimeout(r, 1500));
+    await waitForMigrationReadOnlyRuntime({ expected: false, client });
 
     let shareToken: string | null = null;
     try {
@@ -355,8 +356,8 @@ describe('REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process a
         encoding: 'utf8',
         timeout: 90_000,
       });
-      await new Promise((r) => setTimeout(r, 1000));
     }
+    await waitForMigrationReadOnlyRuntime({ expected: false });
 
     const refusePath = resolve(EVIDENCE_R2_H04, 'freeze-report-must-not-arm.json');
     if (existsSync(refusePath)) {

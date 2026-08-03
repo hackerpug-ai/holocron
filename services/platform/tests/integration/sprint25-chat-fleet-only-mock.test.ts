@@ -58,7 +58,8 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
       await sql`DELETE FROM chat_runs WHERE request_id = ${requestId}`;
     }
     for (const conversationId of conversationIds) {
-      await sql`DELETE FROM chat_messages WHERE conversation_id = ${conversationId}::uuid`;
+      // chat_messages.conversation_id remains text while conversations.id is uuid.
+      await sql`DELETE FROM chat_messages WHERE conversation_id = ${conversationId}`;
       await sql`DELETE FROM conversations WHERE id = ${conversationId}::uuid`;
     }
     await sql.end({ timeout: 5 });
@@ -115,7 +116,7 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
     row: {
       status: string;
       final_text?: string | null;
-      error?: string | null;
+      error_message?: string | null;
       error_code?: string | null;
     } | null;
   }> {
@@ -148,7 +149,7 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
       let row: {
         status: string;
         final_text?: string | null;
-        error?: string | null;
+        error_message?: string | null;
         error_code?: string | null;
       } | null = null;
       while (Date.now() < deadline) {
@@ -156,11 +157,11 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
           Array<{
             status: string;
             final_text: string | null;
-            error: string | null;
+            error_message: string | null;
             error_code: string | null;
           }>
         >`
-          SELECT status, final_text, error, error_code
+          SELECT status, final_text, error_message, error_code
           FROM chat_runs WHERE id = ${body.runId}::uuid
         `;
         row = rows[0] ?? null;
@@ -179,9 +180,9 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
   /** Read every token event for a run — what the client SSE wire would observe. */
   async function readTokenEvents(runId: string): Promise<string> {
     const rows = await sql!`
-      SELECT (payload::jsonb ->> 'token') AS token
+      SELECT (data_json ->> 'token') AS token
       FROM chat_run_events
-      WHERE run_id = ${runId}::uuid AND event = 'token'
+      WHERE run_id = ${runId}::uuid AND event_type = 'token'
       ORDER BY seq ASC
     `;
     return rows.map((r: { token?: string }) => r.token ?? '').join('');
@@ -216,7 +217,7 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
 
   // ── AC-5: empty stream + FLEET_ONLY=1 → fail-closed envelope ──
   itLive(
-    'AC-5: empty fleet stream under HOLO_CHAT_FLEET_ONLY=1 -> status=failed with regex envelope',
+    'AC-5: empty fleet stream under HOLO_CHAT_FLEET_ONLY=1 -> canonical fail-closed degradation envelope',
     async () => {
       if (!sql) throw new Error('Postgres required for AC-5 fail-closed proof');
 
@@ -229,11 +230,9 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
         expect(result.row?.status).toBe('failed');
         // Sanity: the mock WAS called (path-entry), then empty-stream fired.
         expect(fleetSpy).toHaveBeenCalled();
-        const envelope = `${result.row?.error ?? ''} ${result.row?.final_text ?? ''} ${result.row?.error_code ?? ''}`;
-        // use-resumable-sse-stream.ts:204 client regex.
-        expect(envelope).toMatch(
-          /empty stream under HOLO_CHAT_FLEET_ONLY|fleet role ['"]?[\w-]+['"]? unreachable/i
-        );
+        expect(result.row?.error_code).toBe('ROLE_UNAVAILABLE');
+        expect(result.row?.error_message).toBe('Local fleet unavailable — running in reduced mode');
+        expect(result.row?.final_text).toBe('Local fleet unavailable — running in reduced mode');
       } finally {
         await teardownFleetMock();
       }

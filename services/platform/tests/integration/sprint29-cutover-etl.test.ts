@@ -25,11 +25,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { ConvexHttpClient } from 'convex/browser';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { api } from '../../../../convex/_generated/api';
 import {
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
   runCutoverFreeze,
+  waitForMigrationReadOnlyRuntime,
 } from '../../src/cutover/convex-fence-client.ts';
 import {
   type CutoverEtlReport,
@@ -236,6 +239,33 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     mkdirSync(BLOB_ROOT, { recursive: true });
     sql = createSql(DATABASE_URL);
     await truncateEtlTables(sql);
+
+    // AC-1 exports the live disposable Convex deployment. Make its non-empty
+    // precondition self-contained instead of depending on another test file's
+    // seed/order. This is real Convex state (not an injected export fixture).
+    const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+    const parsedConvexUrl = new URL(convexUrl);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(parsedConvexUrl.hostname)) {
+      throw new Error('sprint29-cutover-etl live seed refuses non-loopback Convex deployment');
+    }
+    const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 90_000,
+      env: process.env,
+    });
+    if (unset.status !== 0) {
+      throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
+    }
+    const convex = new ConvexHttpClient(convexUrl);
+    await waitForMigrationReadOnlyRuntime({ expected: false, client: convex });
+    const conversationCount = await convex.query(api.conversations.queries.count, {});
+    if (conversationCount === 0) {
+      await convex.mutation(api.conversations.mutations.create, {
+        title: `sprint29 live export seed ${RUN}`,
+        lastMessagePreview: 'live Convex export non-empty oracle',
+      });
+    }
     quietCheckPath = seedQuietCheck(true);
     evidence('export-mode.json', {
       LIVE_EXPORT,

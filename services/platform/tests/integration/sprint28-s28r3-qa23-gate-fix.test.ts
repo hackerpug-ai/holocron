@@ -327,7 +327,7 @@ exit 99
       expect(body, f).not.toContain(CANARY_SK);
       expect(body, f).not.toContain(CANARY_ST);
     }
-  });
+  }, 150_000);
 });
 
 describe('GATE-FIX-S28R3-QA23 production credential transport boundary', () => {

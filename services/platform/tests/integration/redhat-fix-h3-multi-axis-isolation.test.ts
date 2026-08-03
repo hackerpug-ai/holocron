@@ -29,7 +29,7 @@ const FRESH_DOC = resolve(REPO_ROOT, 'services/platform/src/backup/fresh-target.
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-H3');
 
 const R2_POLICY =
-  '{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/*"]}]}';
+  '{"Version":"2012-10-17","Statement":[{"Sid":"HolocronRestoreList","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::holocron-backup"]},{"Sid":"HolocronRestoreGet","Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::holocron-backup/pgbackrest/*"]}]}';
 
 /**
  * Documented isolation fixture (still runs real nc/mount/test -S/identity probes).

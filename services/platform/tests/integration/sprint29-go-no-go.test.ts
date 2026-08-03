@@ -332,6 +332,17 @@ describe('D06-02 cutover:go-no-go', () => {
         `import { applyConsolidatedSecretsToEnv } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/config/secrets.ts'))};`,
         `import { ensureResticPrefixSecret } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/backup/restic-mirror.ts'))};`,
         `const out = ${JSON.stringify(snapshotPath)};`,
+        'const ambient = {',
+        '  backupR2Id: process.env.BACKUP_R2_ACCESS_KEY_ID ?? null,',
+        '  backupR2Secret: process.env.BACKUP_R2_SECRET_ACCESS_KEY ?? null,',
+        '  backupR2Token: process.env.BACKUP_R2_SECRET_ACCESS_API_TOKEN ?? null,',
+        '  r2ParentId: process.env.R2_PARENT_ACCESS_KEY_ID ?? null,',
+        '  r2AccessId: process.env.R2_ACCESS_KEY_ID ?? null,',
+        '  r2Secret: process.env.R2_SECRET_ACCESS_KEY ?? null,',
+        '  r2Cipher: process.env.R2_REPO_CIPHER_PASS ?? null,',
+        '  resticPassword: process.env.RESTIC_PASSWORD ?? null,',
+        '  expoToken: process.env.EXPO_TOKEN ?? null,',
+        '};',
         'const applied = applyConsolidatedSecretsToEnv();',
         'const resticPrefix = ensureResticPrefixSecret();',
         "const secretsPath = process.env.HOLO_SECRETS_PATH ?? '';",
@@ -368,6 +379,15 @@ describe('D06-02 cutover:go-no-go', () => {
         '  inheritedR2S3Token: process.env.R2_S3_TOKEN ?? null,',
         '  inheritedR2S3KeyId: process.env.R2_S3_KEY_ID ?? null,',
         '  inheritedR2S3Secret: process.env.R2_S3_SECRET ?? null,',
+        '  inheritedBackupR2Id: ambient.backupR2Id,',
+        '  inheritedBackupR2Secret: ambient.backupR2Secret,',
+        '  inheritedBackupR2Token: ambient.backupR2Token,',
+        '  inheritedR2ParentId: ambient.r2ParentId,',
+        '  inheritedR2AccessId: ambient.r2AccessId,',
+        '  inheritedR2Secret: ambient.r2Secret,',
+        '  inheritedR2Cipher: ambient.r2Cipher,',
+        '  inheritedResticPassword: ambient.resticPassword,',
+        '  inheritedExpoToken: ambient.expoToken,',
         '  resticSecretsPath: resticPrefix.secretsPath,',
         '}));',
         "console.log('Test Files  1 passed (1)');",
@@ -391,9 +411,13 @@ describe('D06-02 cutover:go-no-go', () => {
         },
       ],
       env: isolatedLaneEnv({
+        BACKUP_R2_ACCESS_KEY_ID: 'operator-backup-id-must-not-cross-boundary',
+        BACKUP_R2_SECRET_ACCESS_API_TOKEN: 'operator-backup-token-must-not-cross-boundary',
+        BACKUP_R2_SECRET_ACCESS_KEY: 'operator-backup-secret-must-not-cross-boundary',
         CLOUDFLARE_API_TOKEN: 'operator-admin-must-not-cross-boundary',
         CONVEX_DEPLOY_KEY: 'operator-deploy-key-must-not-cross-boundary',
         DATABASE_URL: 'postgres://operator@127.0.0.1:5432/holocron',
+        EXPO_TOKEN: 'operator-expo-token-must-not-cross-boundary',
         EXPO_PUBLIC_CONVEX_SITE_URL: 'https://operator.example.invalid',
         EXPO_PUBLIC_CONVEX_URL: 'https://operator.example.invalid',
         HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:boundary-test',
@@ -409,6 +433,11 @@ describe('D06-02 cutover:go-no-go', () => {
         R2_S3_KEY_ID: 'operator-r2-admin-key-must-not-cross-boundary',
         R2_S3_SECRET: 'operator-r2-admin-secret-must-not-cross-boundary',
         R2_S3_TOKEN: 'operator-r2-token-must-not-cross-boundary',
+        R2_ACCESS_KEY_ID: 'operator-r2-access-id-must-not-cross-boundary',
+        R2_PARENT_ACCESS_KEY_ID: 'operator-r2-parent-id-must-not-cross-boundary',
+        R2_REPO_CIPHER_PASS: 'operator-r2-cipher-must-not-cross-boundary',
+        R2_SECRET_ACCESS_KEY: 'operator-r2-secret-must-not-cross-boundary',
+        RESTIC_PASSWORD: 'operator-restic-password-must-not-cross-boundary',
       }),
     });
 
@@ -444,6 +473,15 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.inheritedR2S3Token).toBeNull();
     expect(snapshot.inheritedR2S3KeyId).toBeNull();
     expect(snapshot.inheritedR2S3Secret).toBeNull();
+    expect(snapshot.inheritedBackupR2Id).toBeNull();
+    expect(snapshot.inheritedBackupR2Secret).toBeNull();
+    expect(snapshot.inheritedBackupR2Token).toBeNull();
+    expect(snapshot.inheritedR2ParentId).toBeNull();
+    expect(snapshot.inheritedR2AccessId).toBeNull();
+    expect(snapshot.inheritedR2Secret).toBeNull();
+    expect(snapshot.inheritedR2Cipher).toBeNull();
+    expect(snapshot.inheritedResticPassword).toBeNull();
+    expect(snapshot.inheritedExpoToken).toBeNull();
     expect(snapshot.resticSecretsPath).toBe(snapshot.secretsPath);
     expect(existsSync(String(snapshot.secretsPath))).toBe(false);
     expect(readFileSync(durableSecrets, 'utf8')).toBe(durableBefore);
@@ -569,6 +607,7 @@ describe('D06-02 cutover:go-no-go', () => {
       transientRoots.push(root);
       const fakeBin = resolve(root, 'bin');
       const launchctlSentinel = resolve(root, 'launchctl-called');
+      const postgresRestartLog = resolve(root, 'postgres-restart.log');
       mkdirSync(fakeBin);
       writeFileSync(
         resolve(fakeBin, 'launchctl'),
@@ -579,6 +618,7 @@ describe('D06-02 cutover:go-no-go', () => {
       const env: NodeJS.ProcessEnv = {
         ...process.env,
         PATH: `${fakeBin}:${process.env.PATH ?? '/usr/bin:/bin'}`,
+        PGLOG: postgresRestartLog,
       };
       const setMode = spawnSync(
         'psql',
@@ -605,6 +645,11 @@ describe('D06-02 cutover:go-no-go', () => {
       expect(report.ok).toBe(true);
       expect(report.archiveMode).toBe('always');
       expect(existsSync(launchctlSentinel)).toBe(false);
+      expect(
+        existsSync(postgresRestartLog),
+        'isolated pg_ctl must write the configured PGLOG'
+      ).toBe(true);
+      expect(readFileSync(postgresRestartLog, 'utf8')).toMatch(/ready to accept connections/i);
 
       const config = readFileSync(configPath ?? '', 'utf8');
       expect(config).toContain(`pg1-path=${pgdata}`);

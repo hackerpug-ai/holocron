@@ -351,8 +351,6 @@ env = {
 }
 if st:
     env["AWS_SESSION_TOKEN"] = st
-if os.environ.get("HOLO_R2_PROVIDER_MOCK_MODE"):
-    env["HOLO_R2_PROVIDER_MOCK_MODE"] = os.environ["HOLO_R2_PROVIDER_MOCK_MODE"]
 for prefix in ("recovery-baselines", "restic"):
     p = subprocess.run(
         [

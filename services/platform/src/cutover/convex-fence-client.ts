@@ -46,6 +46,7 @@ const auditApi = (anyApi as any).migrationFence.audit as {
   recordWriteAttempt: FunctionReference<'mutation'>;
   latestFenceArmed: FunctionReference<'query'>;
   countAttemptsInWindow: FunctionReference<'query'>;
+  migrationReadOnlyStatus: FunctionReference<'query'>;
 };
 
 const drainApi = (anyApi as any).migrationFence.drain as {
@@ -525,6 +526,17 @@ export async function runCutoverFreeze(options: {
   }
   const confirmed_at_ms = Date.now();
 
+  // The CLI control plane can confirm before every serving generation has
+  // reloaded. Wait on a read-only runtime oracle before the one-shot write
+  // probe; never use an accepted write as a propagation poll.
+  try {
+    await waitForMigrationReadOnlyRuntime({ expected: true });
+  } catch (error) {
+    throw new Error(
+      `cutover:freeze FAIL CLOSED: runtime fence propagation not confirmed: ${convexThrownMessage(error)}`
+    );
+  }
+
   // 3) Cross-process blocked-write observation — final gate before arm timestamp
   // H-04: require real OS child identity; never arm after in-process fallback (child_pid null).
   const cross_process_probe = await runCrossProcessBlockedWriteProbe({
@@ -648,6 +660,64 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+export type MigrationReadOnlyRuntimeStatus = {
+  readOnly: boolean;
+  envValue: string | null;
+};
+
+/**
+ * Wait for a serving Convex generation to observe the durable migration flag.
+ * This is a read-only propagation oracle; it does not replace the blocked-write
+ * proof required by runCutoverFreeze.
+ */
+export async function waitForMigrationReadOnlyRuntime(options: {
+  expected: boolean;
+  client?: ConvexHttpClient;
+  timeoutMs?: number;
+  pollMs?: number;
+}): Promise<MigrationReadOnlyRuntimeStatus> {
+  const client = options.client ?? createCutoverConvexClient();
+  const timeoutMs = Math.max(1, options.timeoutMs ?? 90_000);
+  const pollMs = Math.max(50, options.pollMs ?? 500);
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus: MigrationReadOnlyRuntimeStatus | null = null;
+  let lastError = '';
+
+  do {
+    try {
+      const status = (await client.query(
+        auditApi.migrationReadOnlyStatus,
+        {}
+      )) as Partial<MigrationReadOnlyRuntimeStatus>;
+      lastStatus = {
+        readOnly: status?.readOnly === true,
+        envValue: typeof status?.envValue === 'string' ? status.envValue : null,
+      };
+      if (lastStatus.readOnly === options.expected) return lastStatus;
+    } catch (error) {
+      lastError = convexThrownMessage(error);
+    }
+    await sleep(pollMs);
+  } while (Date.now() < deadline);
+
+  throw new Error(
+    `Convex runtime did not observe ${MIGRATION_READ_ONLY_ENV}=${options.expected ? '1' : 'unset'} ` +
+      `within ${timeoutMs}ms (last=${JSON.stringify(lastStatus)}, error=${JSON.stringify(lastError)})`
+  );
+}
+
+function convexThrownMessage(error: unknown): string {
+  const data =
+    error && typeof error === 'object' && 'data' in error
+      ? (error as { data?: unknown }).data
+      : undefined;
+  const parts = [
+    error instanceof Error ? error.message : String(error),
+    typeof data === 'string' ? data : data == null ? '' : JSON.stringify(data),
+  ].filter(Boolean);
+  return (parts.join('\n') || 'unknown Convex error').slice(0, 500);
+}
+
 /**
  * C-03: disable schedules (non-destructive env flag) + real in-flight drain.
  * Complementary to HOLO_MIGRATION_READ_ONLY (still the sole write fence).
@@ -737,7 +807,9 @@ export async function runScheduleDrain(options?: {
 
   // Wait until Convex runtime consumers see the flag (env propagation).
   let runtimeDisabled = false;
-  for (let attempt = 0; attempt < 12; attempt++) {
+  let runtimeStatusError = '';
+  const runtimeDeadline = Date.now() + 90_000;
+  do {
     try {
       const status = (await client.query(drainApi.scheduleDisableStatus, {})) as {
         disabled?: boolean;
@@ -747,23 +819,40 @@ export async function runScheduleDrain(options?: {
         runtimeDisabled = true;
         break;
       }
-    } catch {
+    } catch (error) {
+      runtimeStatusError = convexThrownMessage(error);
       // module may still be deploying
     }
-    await sleep(300 * (attempt + 1));
+    await sleep(500);
+  } while (Date.now() < runtimeDeadline);
+
+  if (!runtimeDisabled) {
+    return fail(
+      `${CUTOVER_SCHEDULES_DISABLED_ENV} was durable but not visible in the Convex runtime` +
+        (runtimeStatusError ? `: ${runtimeStatusError}` : ''),
+      { disabledEnvValue, consumersHonored: false }
+    );
   }
 
   // Positive consumer probe — must report skipped when disabled.
-  let probe: DrainReport['probe'];
-  try {
-    probe = (await client.mutation(drainApi.probeScheduleConsumer, {
-      surface: 'cutover:quiet-check',
-    })) as DrainReport['probe'];
-  } catch (err) {
-    return fail(
-      `probeScheduleConsumer failed: ${err instanceof Error ? err.message : String(err)}`,
-      { disabledEnvValue, consumersHonored: false }
-    );
+  let probe: DrainReport['probe'] | undefined;
+  let probeError = '';
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      probe = (await client.mutation(drainApi.probeScheduleConsumer, {
+        surface: 'cutover:quiet-check',
+      })) as DrainReport['probe'];
+      break;
+    } catch (error) {
+      probeError = convexThrownMessage(error);
+      await sleep(500);
+    }
+  }
+  if (!probe) {
+    return fail(`probeScheduleConsumer failed after propagation retries: ${probeError}`, {
+      disabledEnvValue,
+      consumersHonored: false,
+    });
   }
 
   const probeHonored = probe?.honored === true && (probe?.skipped === true || runtimeDisabled);

@@ -25,6 +25,7 @@ import {
   runCutoverFreeze,
   runQuietCheck,
   verifyConvexFenceCoverage,
+  waitForMigrationReadOnlyRuntime,
 } from '../../src/cutover/convex-fence-client.ts';
 import { migrationReadOnlyMessage } from './write-fence-red.helpers';
 
@@ -82,9 +83,8 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
         encoding: 'utf8',
         timeout: 90_000,
       });
-      // Give deployment a moment
-      await new Promise((r) => setTimeout(r, 1500));
     }
+    await waitForMigrationReadOnlyRuntime({ expected: false });
   }, 120_000);
 
   afterAll(async () => {
@@ -393,7 +393,7 @@ describe('Sprint 29 D06-03 durable Convex write fence', () => {
       encoding: 'utf8',
       timeout: 90_000,
     });
-    await new Promise((r) => setTimeout(r, 2000));
+    await waitForMigrationReadOnlyRuntime({ expected: false, client });
 
     try {
       const emb = Array.from({ length: 3 }, () => 0);

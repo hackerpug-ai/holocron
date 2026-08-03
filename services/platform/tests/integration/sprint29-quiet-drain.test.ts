@@ -27,6 +27,7 @@ import {
   runScheduleDrain,
   seedInFlightForDrainTest,
   UNMEASURED_DRAIN_SURFACE_CLAIMS,
+  waitForMigrationReadOnlyRuntime,
 } from '../../src/cutover/convex-fence-client.ts';
 import {
   assertQuietCheckConfirmed,
@@ -129,6 +130,8 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
         reason: 'REDHAT-FIX-S29-C03 quiet-drain suite arm',
         reportPath: resolve(D06_03, 'freeze-report.json'),
       });
+    } else {
+      await waitForMigrationReadOnlyRuntime({ expected: true });
     }
   }, 180_000);
 
@@ -303,6 +306,8 @@ describe('Sprint 29 C-03 quiet drain + measured post-drain window', () => {
         reason: 'REDHAT-FIX-S29-C03 re-arm before good quiet report',
         reportPath: resolve(D06_03, 'freeze-report-ac4.json'),
       });
+    } else {
+      await waitForMigrationReadOnlyRuntime({ expected: true });
     }
     const good = await runQuietCheck({
       windowSeconds: WINDOW_SECONDS,
@@ -365,6 +370,8 @@ describe('Sprint 29 R2-C02 residual-zero paginated drain', () => {
         env = getMigrationReadOnlyEnv();
         if (!isFenceArmedEnv(env)) throw err;
       }
+    } else {
+      await waitForMigrationReadOnlyRuntime({ expected: true });
     }
     // Ensure schedules-disabled flag is visible so seed+drain can run
     const drain = await runScheduleDrain({

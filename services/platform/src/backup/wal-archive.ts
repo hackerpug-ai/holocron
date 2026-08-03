@@ -260,9 +260,27 @@ export function killRealPgbackrestProcess(options?: {
   };
 }
 
-function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
+/**
+ * Prefer the explicit connection URL so ambient PG* cannot target another cluster.
+ * libpq accepts a connection URI through PGDATABASE; keeping it there prevents
+ * credentials embedded in DATABASE_URL from appearing in the psql process argv.
+ */
+export function psqlConnectionArgs(env: NodeJS.ProcessEnv): string[] {
+  const databaseUrl = env.DATABASE_URL?.trim();
+  if (databaseUrl) return [];
   const database = env.PGDATABASE?.trim() || 'holocron';
-  const r = run('psql', ['-d', database, '-v', 'ON_ERROR_STOP=1', '-tAc', sql], { env });
+  return ['-d', database];
+}
+
+export function psqlConnectionEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const databaseUrl = env.DATABASE_URL?.trim();
+  return databaseUrl ? { ...env, PGDATABASE: databaseUrl } : env;
+}
+
+function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
+  const r = run('psql', [...psqlConnectionArgs(env), '-v', 'ON_ERROR_STOP=1', '-tAc', sql], {
+    env: psqlConnectionEnv(env),
+  });
   if (r.status !== 0) {
     throw new Error(`psql failed: ${r.stderr || r.stdout}`);
   }
@@ -270,9 +288,8 @@ function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
 }
 
 function psqlExec(sql: string, env: NodeJS.ProcessEnv): void {
-  const database = env.PGDATABASE?.trim() || 'holocron';
-  const r = run('psql', ['-d', database, '-v', 'ON_ERROR_STOP=1', '-c', sql], {
-    env,
+  const r = run('psql', [...psqlConnectionArgs(env), '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+    env: psqlConnectionEnv(env),
   });
   if (r.status !== 0) {
     throw new Error(`psql exec failed: ${r.stderr || r.stdout}`);
@@ -442,9 +459,10 @@ export function ensureContinuousWalArchiving(options?: {
       );
     }
     restarted = true;
-    const database = env.PGDATABASE?.trim() || 'holocron';
     for (let i = 0; i < 40; i++) {
-      const ready = run('psql', ['-d', database, '-tAc', 'SELECT 1'], { env });
+      const ready = run('psql', [...psqlConnectionArgs(env), '-tAc', 'SELECT 1'], {
+        env: psqlConnectionEnv(env),
+      });
       if (ready.status === 0 && ready.stdout.trim() === '1') break;
       sleepMs(500);
     }

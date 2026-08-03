@@ -127,6 +127,52 @@ const RUN = randomUUID().slice(0, 8);
 /** Disposable control-plane for durable fence tests (never touch real secrets.yaml). */
 const DISPOSABLE_SECRETS = resolve(C02_EVIDENCE, `secrets-${RUN}.yaml`);
 
+async function normalizeImmutableCountsForIsolatedHarness(sql: Sql): Promise<void> {
+  if (process.env.HOLO_GO_NO_GO_ISOLATED !== '1') return;
+  // The go/no-go lane supplies a disposable holocron_nonprod database. Normalize
+  // only that isolated substrate to the committed before-freeze baseline so this
+  // oracle compares two independent authorities instead of inheriting mutations
+  // from the 200+ integration files that precede it.
+  await sql.begin(async (tx) => {
+    await tx`TRUNCATE TABLE
+      chat_messages,
+      research_sessions,
+      tasks,
+      improvement_requests,
+      subscription_sources,
+      conversations,
+      documents
+      CASCADE`;
+    await tx`INSERT INTO documents (title, content, status, is_public, share_token)
+      SELECT
+        's29 immutable document ' || n,
+        'immutable cutover baseline content ' || n,
+        'published',
+        n = 1,
+        CASE WHEN n = 1 THEN 's29-immutable-public' ELSE NULL END
+      FROM generate_series(1, 1627) AS n`;
+    await tx`INSERT INTO conversations (title)
+      SELECT 's29 immutable conversation ' || n FROM generate_series(1, 106) AS n`;
+    await tx`INSERT INTO subscription_sources (source_type, identifier, name)
+      SELECT 'fixture', 's29-immutable-source-' || n, 'S29 immutable source ' || n
+      FROM generate_series(1, 77) AS n`;
+    await tx`INSERT INTO research_sessions (topic, status)
+      SELECT 's29 immutable research ' || n, 'completed'
+      FROM generate_series(1, 142) AS n`;
+    await tx`INSERT INTO chat_messages (conversation_id, role, content)
+      SELECT c.id::text, 'user', 's29 immutable message ' || n
+      FROM generate_series(1, 1110) AS n
+      CROSS JOIN LATERAL (
+        SELECT id FROM conversations ORDER BY id OFFSET ((n - 1) % 106) LIMIT 1
+      ) AS c`;
+    await tx`INSERT INTO tasks (task_type, status)
+      SELECT 'immutable', 'completed' FROM generate_series(1, 305)`;
+    await tx`INSERT INTO improvement_requests (description, status, source_screen)
+      SELECT 's29 immutable improvement ' || n, 'completed', 'soak'
+      FROM generate_series(1, 36) AS n`;
+  });
+}
+
 function evidence(name: string, body: unknown): void {
   mkdirSync(EVIDENCE, { recursive: true });
   const text = typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`;
@@ -200,6 +246,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     // Explicit disengage so durable re-read of "0" does not arm fence
     setMigrationReadOnlyEnv('0');
     sql = createSql(DATABASE_URL);
+    await normalizeImmutableCountsForIsolatedHarness(sql);
 
     // H-02: reuse a pre-existing public document so we do not mutate table counts
     // that the immutable ETL fixture binds (no live SELECT→loadedByTable authorship).
@@ -1465,6 +1512,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     evidence('tc-verify-reads.json', report);
     mkdirSync(H02_EVIDENCE, { recursive: true });
@@ -1547,6 +1595,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     evidence('tc-verify-reads-mismatch.json', report);
     writeFileSync(
@@ -1602,6 +1651,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     writeFileSync(
       resolve(C03_EVIDENCE, 'verify-reads-truncated.json'),
@@ -1653,6 +1703,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     writeFileSync(
       resolve(C03_EVIDENCE, 'verify-reads-rewritten.json'),
@@ -1691,6 +1742,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     writeFileSync(
       resolve(C03_EVIDENCE, 'verify-reads-fake-hash.json'),
@@ -1707,6 +1759,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       cwd: REPO_ROOT,
       etlReportPath: resolve(EVIDENCE, 'does-not-exist-watermark.json'),
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     evidence('tc-verify-reads-missing.json', report);
     expect(report.ok).toBe(false);
@@ -1880,6 +1933,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       reportPath: resolve(EVIDENCE, 'verify-soak-report.json'),
       baseUrl: networkBaseUrl,
       zeroBaseUrl: '',
+      allowTestFixtures: true,
     });
     evidence('tc-verify-soak.json', {
       overall: report.overall,

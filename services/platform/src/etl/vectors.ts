@@ -13,6 +13,10 @@ const PAST_8K_MARKER = 'UNIQUE_PAST_8K_MARKER';
 const PAST_8K_QUERY =
   'Sprint 14 vector regeneration should retrieve this exact span UNIQUE_PAST_8K_MARKER';
 const UNIT_NORM_TOLERANCE = 0.02;
+// Bump whenever chunkDocument output or the persisted embedding input contract changes.
+// The revision is stored with every passage so an ETL rerun can invalidate vectors
+// produced for older passage text instead of silently ranking stale embeddings.
+const PASSAGE_EMBEDDING_REVISION = 'chunk-document-v2-past-8k-anchor';
 const PAST_8K_OFFSET = 8_000;
 const ANCHOR_WORDS = 12;
 const MAX_ANCHOR_QUERY_WORDS = 8;
@@ -117,14 +121,29 @@ function isRetrievalWordCharacter(character: string | undefined): boolean {
 }
 
 function buildAnchorQuery(words: readonly string[]): string {
-  const selected = words.filter((word) => {
+  const selected: string[] = [];
+  const seen = new Set<string>();
+  for (const word of words) {
     const lower = word.toLocaleLowerCase();
-    if (word.length < 3 || word.includes('_') || ANCHOR_QUERY_STOP_WORDS.has(lower)) return false;
+    const hyphens = [...word].filter((character) => character === '-').length;
+    if (
+      word.length < 3 ||
+      word.length > 32 ||
+      word.includes('_') ||
+      hyphens > 1 ||
+      ANCHOR_QUERY_STOP_WORDS.has(lower)
+    ) {
+      continue;
+    }
     // Opaque URL/video identifiers are poor websearch_to_tsquery terms. Keep
     // human words and pure numbers, but drop mixed alphanumeric IDs.
-    return !(/[\p{L}]/u.test(word) && /\p{N}/u.test(word));
-  });
-  return normalizeRetrievalText(selected.slice(0, MAX_ANCHOR_QUERY_WORDS).join(' '));
+    if (/[\p{L}]/u.test(word) && /\p{N}/u.test(word)) continue;
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    selected.push(word);
+    if (selected.length >= MAX_ANCHOR_QUERY_WORDS) break;
+  }
+  return normalizeRetrievalText(selected.join(' '));
 }
 
 function retrievalAnchorDistinctiveness(anchor: Past8kRetrievalAnchor): number {
@@ -478,6 +497,7 @@ export async function runEtlVectors(options?: {
               embedding: {
                 role: 'embed',
                 source: 'etl:vectors',
+                passageRevision: PASSAGE_EMBEDDING_REVISION,
                 dimension: fleetProbe.embeddingDimension,
                 modelId: fleetProbe.modelId,
                 modelRevision: fleetProbe.modelRevision,
@@ -493,6 +513,13 @@ export async function runEtlVectors(options?: {
                 text = EXCLUDED.text,
                 token_count = EXCLUDED.token_count,
                 situating_header = EXCLUDED.situating_header,
+                embedding = CASE
+                  WHEN passages.text IS DISTINCT FROM EXCLUDED.text
+                    OR passages.metadata_json -> 'embedding'
+                      IS DISTINCT FROM EXCLUDED.metadata_json -> 'embedding'
+                    THEN NULL
+                  ELSE passages.embedding
+                END,
                 metadata_json = EXCLUDED.metadata_json
         `;
       }

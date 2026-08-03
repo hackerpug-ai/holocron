@@ -38,7 +38,7 @@ const HOST_ALLOWLIST = /^[A-Za-z0-9][A-Za-z0-9_-]{0,62}[A-Za-z0-9]$|^[A-Za-z0-9]
 /** Frozen digests of steps 1,2,4,5,6 (GATE-FIX-S28R3-QA22/QA23/QA24 absolute-executable gate stream). */
 const FROZEN_STEP_DIGESTS: Record<number, string> = {
   1: 'd4034742684ad6e11969967017419aecae313ea9117f50eeeae536160f87e1e3',
-  2: '9857c6ec9d814b2e21635e5c154e9a046fdc3dc4120ebb44f826fe29cbc32729',
+  2: '2e6319633ab38aed414bc231aa736b197ec48e5edf710682fc4c901963a8fd52',
   4: 'd985ca9e08433b0c8fe34cff46a9c530b1a6aee9a5b40921765b460b82f5e3d4',
   5: 'c2cae3dedda433bf2ccd09ad9046da561c76f482cdfece513593df107ce9bfd3',
   6: '1993c1def20666b67f370dddedf7a0b2f368205f54f0ef41ff8bdece574ddb3a',

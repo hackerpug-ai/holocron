@@ -214,9 +214,12 @@ describe('REDHAT-FIX-01 Streaming seed closeout', () => {
         "PATH-A: seed-e2e.ts must contain title 'Streaming' at least once"
       ).toBeGreaterThanOrEqual(1);
       expect(seedSrc).toMatch(/E2E_STREAMING_CONVERSATION_ID/);
-      // SPRINT step 1 must still claim Streaming is seeded (agrees with seed)
+      // The sprint names the Streaming fixture, while the human verdict binds
+      // that claim to the real seed command and the exact reconnect flow whose
+      // required Streaming assertion is checked in AC-2.
       expect(sprint).toMatch(/Streaming/);
-      expect(gate).toMatch(/Streaming/);
+      expect(gate).toMatch(/seed:e2e/i);
+      expect(gate).toMatch(/reconnect-exactly-once/i);
     } else {
       expect(gate).not.toMatch(/seeds the Streaming conversation/i);
       const reactive = readFileSync(S_REACTIVE_01, 'utf8');
