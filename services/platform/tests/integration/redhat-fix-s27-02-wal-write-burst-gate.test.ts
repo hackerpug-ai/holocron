@@ -80,7 +80,10 @@ describe('REDHAT-FIX-S27-02 gate step 1 — real WAL write burst', () => {
       writeFileSync(resolve(EVIDENCE_DIR, 'backup-wal-live.stderr'), res.stderr, 'utf8');
     }
 
-    expect(res.status, `backup:wal exit: ${res.stderr || res.stdout}`).toBe(0);
+    expect(
+      res.status,
+      `backup:wal exit=${res.status}\nstdout:\n${res.stdout}\nstderr:\n${res.stderr}`
+    ).toBe(0);
 
     const body = JSON.parse(res.stdout) as {
       status: string;

@@ -33,6 +33,7 @@ const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/redhat-fix-s27-13');
 const SPAN_JSONL = resolve(REPO_ROOT, '.tmp/D04-03/backup-spans.jsonl');
 const SPAN_SOURCE = resolve(REPO_ROOT, 'services/platform/src/backup/span.ts');
+const BUN_BIN = process.env.BUN_BIN ?? 'bun';
 const D04_03 = resolve(
   REPO_ROOT,
   '.spec/prds/mk6-migration/tasks/sprint-27-standing-off-mini-backup-pipeline-and-alerting/D04-03-configure-continuous-wal-archiving-and-scheduled-base-backups.md'
@@ -105,6 +106,34 @@ describe('REDHAT-FIX-S27-13 honest Langfuse backup span export', () => {
   afterAll(async () => {
     restoreLangfuseEnv(envSnap);
     if (sql) await sql.end({ timeout: 5 });
+  });
+
+  it('unconfigured optional telemetry remains local without a disabled child lifecycle', () => {
+    const childEnv = { ...process.env };
+    for (const key of LANGFUSE_ENV_KEYS) delete childEnv[key];
+    const script = [
+      `const { emitBackupSpan } = await import(${JSON.stringify(SPAN_SOURCE)});`,
+      "const span = await emitBackupSpan({ name: 'backup:wal_archive', attributes: { job_name: 'wal_archive', status: 'success' } });",
+      'console.log(JSON.stringify({ exportOk: span.exportOk, exportError: span.exportError, traceId: span.traceId }));',
+    ].join('\n');
+
+    const child = spawnSync(BUN_BIN, ['-e', script], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: childEnv,
+      timeout: 30_000,
+    });
+
+    expect(child.status, `${child.stdout}\n${child.stderr}`).toBe(0);
+    expect(child.stderr).not.toMatch(/holocron-langfuse-exporter disabled/i);
+    const result = JSON.parse(child.stdout.trim()) as {
+      exportOk: boolean;
+      exportError: string | null;
+      traceId: string;
+    };
+    expect(result.exportOk).toBe(false);
+    expect(result.exportError).toMatch(/not configured.*local span/i);
+    expect(result.traceId).toMatch(/^[0-9a-f]{32}$/);
   });
 
   itLive('AC-1 disabled: exportOk false, exportError set, hex traceId, local jsonl', async () => {

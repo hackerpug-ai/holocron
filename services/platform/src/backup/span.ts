@@ -17,6 +17,7 @@ import {
   HOLOCRON_SERVICE_NAME,
   type HolocronLangfuseExporter,
   REDACTION_TOKEN,
+  readLangfuseConfigFromEnv,
   redactForExport,
 } from '../observability/langfuse-exporter.ts';
 
@@ -162,73 +163,84 @@ export async function emitBackupSpan(args: {
   let exportOk = false;
   let exportError: string | null = null;
 
+  // Langfuse is optional for backup jobs. Avoid constructing Mastra's disabled
+  // exporter when no configuration exists: BaseExporter reports disabled
+  // children to stderr even though this path intentionally records a local
+  // span. An explicitly supplied exporter is still exercised for tests and
+  // callers that own its lifecycle.
   const exporter =
     args.exporter ??
-    createLangfuseExporterFromEnv({
-      serviceName: HOLOCRON_SERVICE_NAME,
-      failOnExportError: args.failOnExportError === true,
-    });
+    (readLangfuseConfigFromEnv()
+      ? createLangfuseExporterFromEnv({
+          serviceName: HOLOCRON_SERVICE_NAME,
+          failOnExportError: args.failOnExportError === true,
+        })
+      : null);
 
-  try {
-    const synthetic = {
-      id: spanId,
-      traceId,
-      name: args.name,
-      type: 'span',
-      isRootSpan: true,
-      startTime: start,
-      endTime: end,
-      metadata: attributes,
-      input: { job_name: attributes.job_name },
-      output: {
-        status: attributes.status,
-        last_wal_segment: attributes.last_wal_segment ?? null,
-        last_snapshot_id: attributes.last_snapshot_id ?? null,
-      },
-      tags: ['backup', HOLOCRON_SERVICE_NAME],
-      parentSpanId: undefined,
-    };
-
-    const anyExporter = exporter as unknown as {
-      exportTracingEvent: (e: { type: string; exportedSpan: typeof synthetic }) => Promise<void>;
-      flush: () => Promise<void>;
-      getStatus: () => {
-        ok: boolean;
-        errorMessage: string | null;
-        baseUrl: string | null;
-        exportedEvents: number;
-      };
-    };
-
-    await anyExporter.exportTracingEvent({
-      type: TracingEventType.SPAN_ENDED,
-      exportedSpan: synthetic,
-    });
-
+  if (exporter) {
     try {
-      await exporter.flush();
-      const status = exporter.getStatus();
-      // exportOk only when exporter reports healthy flush with no error message.
-      if (status.ok && !status.errorMessage) {
-        exportOk = true;
-        exportError = null;
-      } else {
+      const synthetic = {
+        id: spanId,
+        traceId,
+        name: args.name,
+        type: 'span',
+        isRootSpan: true,
+        startTime: start,
+        endTime: end,
+        metadata: attributes,
+        input: { job_name: attributes.job_name },
+        output: {
+          status: attributes.status,
+          last_wal_segment: attributes.last_wal_segment ?? null,
+          last_snapshot_id: attributes.last_snapshot_id ?? null,
+        },
+        tags: ['backup', HOLOCRON_SERVICE_NAME],
+        parentSpanId: undefined,
+      };
+
+      const anyExporter = exporter as unknown as {
+        exportTracingEvent: (e: { type: string; exportedSpan: typeof synthetic }) => Promise<void>;
+        flush: () => Promise<void>;
+        getStatus: () => {
+          ok: boolean;
+          errorMessage: string | null;
+          baseUrl: string | null;
+          exportedEvents: number;
+        };
+      };
+
+      await anyExporter.exportTracingEvent({
+        type: TracingEventType.SPAN_ENDED,
+        exportedSpan: synthetic,
+      });
+
+      try {
+        await exporter.flush();
+        const status = exporter.getStatus();
+        // exportOk only when exporter reports healthy flush with no error message.
+        if (status.ok && !status.errorMessage) {
+          exportOk = true;
+          exportError = null;
+        } else {
+          exportOk = false;
+          exportError =
+            status.errorMessage ??
+            (!status.baseUrl
+              ? 'langfuse not configured (local span only)'
+              : 'Langfuse exporter disabled (missing credentials or baseUrl)');
+        }
+      } catch (err) {
         exportOk = false;
-        exportError =
-          status.errorMessage ??
-          (!status.baseUrl
-            ? 'langfuse not configured (local span only)'
-            : 'Langfuse exporter disabled (missing credentials or baseUrl)');
+        exportError = err instanceof Error ? err.message : String(err);
+        if (args.failOnExportError) throw err;
       }
     } catch (err) {
       exportOk = false;
       exportError = err instanceof Error ? err.message : String(err);
       if (args.failOnExportError) throw err;
     }
-  } catch (err) {
-    exportOk = false;
-    exportError = err instanceof Error ? err.message : String(err);
-    if (args.failOnExportError) throw err;
+  } else {
+    exportError = 'langfuse not configured (local span only)';
   }
 
   // Invariant: exportOk false iff exportError non-null
