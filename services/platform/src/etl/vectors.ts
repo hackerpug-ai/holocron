@@ -15,6 +15,21 @@ const PAST_8K_QUERY =
 const UNIT_NORM_TOLERANCE = 0.02;
 const PAST_8K_OFFSET = 8_000;
 const ANCHOR_WORDS = 12;
+const MAX_ANCHOR_QUERY_WORDS = 8;
+const ANCHOR_QUERY_STOP_WORDS = new Set([
+  'and',
+  'any',
+  'are',
+  'for',
+  'from',
+  'not',
+  'other',
+  'that',
+  'the',
+  'this',
+  'was',
+  'with',
+]);
 
 export type Past8kRetrievalAnchor = {
   documentId: string;
@@ -83,6 +98,61 @@ function normalizeRetrievalText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function retrievalTokens(text: string): string[] {
+  return [...text.matchAll(/[\p{L}\p{N}_'-]+/gu)].map((match) => match[0].toLocaleLowerCase());
+}
+
+export function passageContainsRetrievalAnchor(text: string, marker: string): boolean {
+  const passage = retrievalTokens(text);
+  const anchor = retrievalTokens(marker);
+  if (anchor.length === 0 || passage.length < anchor.length) return false;
+  for (let start = 0; start <= passage.length - anchor.length; start += 1) {
+    if (anchor.every((token, offset) => passage[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+function isRetrievalWordCharacter(character: string | undefined): boolean {
+  return character != null && /[\p{L}\p{N}_'-]/u.test(character);
+}
+
+function buildAnchorQuery(words: readonly string[]): string {
+  const selected = words.filter((word) => {
+    const lower = word.toLocaleLowerCase();
+    if (word.length < 3 || word.includes('_') || ANCHOR_QUERY_STOP_WORDS.has(lower)) return false;
+    // Opaque URL/video identifiers are poor websearch_to_tsquery terms. Keep
+    // human words and pure numbers, but drop mixed alphanumeric IDs.
+    return !(/[\p{L}]/u.test(word) && /\p{N}/u.test(word));
+  });
+  return normalizeRetrievalText(selected.slice(0, MAX_ANCHOR_QUERY_WORDS).join(' '));
+}
+
+function retrievalAnchorDistinctiveness(anchor: Past8kRetrievalAnchor): number {
+  const unique = [...new Set(retrievalTokens(anchor.query))];
+  // Anchor windows have a bounded word count, so character-rich human terms
+  // are a better proxy for selectivity than simply rewarding one more generic
+  // token. Cubing bounded token lengths makes a phrase such as
+  // "kestrel observability" outrank boilerplate such as "system output data".
+  return unique.length * 100 + unique.reduce((sum, word) => sum + word.length ** 3, 0);
+}
+
+export function selectMostDistinctivePast8kAnchor(
+  candidates: readonly Past8kRetrievalAnchor[]
+): Past8kRetrievalAnchor | null {
+  return (
+    [...candidates].sort((left, right) => {
+      const leftFixture = left.marker === PAST_8K_MARKER ? 1 : 0;
+      const rightFixture = right.marker === PAST_8K_MARKER ? 1 : 0;
+      if (leftFixture !== rightFixture) return rightFixture - leftFixture;
+      const scoreDelta =
+        retrievalAnchorDistinctiveness(right) - retrievalAnchorDistinctiveness(left);
+      if (scoreDelta !== 0) return scoreDelta;
+      if (left.sourceOffset !== right.sourceOffset) return left.sourceOffset - right.sourceOffset;
+      return left.documentId.localeCompare(right.documentId);
+    })[0] ?? null
+  );
+}
+
 /**
  * Derive a deterministic retrieval oracle from the actual source document.
  *
@@ -116,7 +186,17 @@ export function selectPast8kRetrievalAnchor(
   for (const chunk of chunks) {
     if (chunk.endOffset <= PAST_8K_OFFSET) continue;
     const relativeStart = Math.max(0, PAST_8K_OFFSET - chunk.startOffset);
-    const tail = chunk.text.slice(relativeStart);
+    let scanStart = relativeStart;
+    if (
+      scanStart > 0 &&
+      isRetrievalWordCharacter(chunk.text[scanStart - 1]) &&
+      isRetrievalWordCharacter(chunk.text[scanStart])
+    ) {
+      while (scanStart < chunk.text.length && isRetrievalWordCharacter(chunk.text[scanStart])) {
+        scanStart += 1;
+      }
+    }
+    const tail = chunk.text.slice(scanStart);
     const matches = [...tail.matchAll(/[\p{L}\p{N}_'-]+/gu)];
     if (matches.length < 4) continue;
 
@@ -126,16 +206,20 @@ export function selectPast8kRetrievalAnchor(
       const words = selected.map((match) => match[0]);
       const marker = normalizeRetrievalText(words.join(' '));
       if (marker.length < 24) continue;
-      const unique = new Set(words.map((word) => word.toLocaleLowerCase())).size;
-      const score = unique * 100 + marker.length;
-      const localOffset = relativeStart + (selected[0]?.index ?? 0);
-      const candidate = {
+      const query = buildAnchorQuery(words);
+      const queryWords = retrievalTokens(query);
+      if (queryWords.length < 3) continue;
+      const localOffset = scanStart + (selected[0]?.index ?? 0);
+      const candidateBase: Past8kRetrievalAnchor = {
         documentId,
         passageOrdinal: chunk.ordinal,
         sourceOffset: chunk.startOffset + localOffset,
         marker,
-        query: marker,
-        score,
+        query,
+      };
+      const candidate = {
+        ...candidateBase,
+        score: retrievalAnchorDistinctiveness(candidateBase),
       };
       if (
         !best ||
@@ -279,7 +363,7 @@ async function verifyPast8kRetrieval(
     result.results.find(
       (item) =>
         item.document_id === options.anchor?.documentId &&
-        normalizeRetrievalText(item.content ?? '').includes(normalizedMarker)
+        passageContainsRetrievalAnchor(item.content ?? '', normalizedMarker)
     ) ?? null;
 
   return {
@@ -334,7 +418,7 @@ export async function runEtlVectors(options?: {
     `;
 
     let passagesInserted = 0;
-    let past8kAnchor: Past8kRetrievalAnchor | null = null;
+    const past8kCandidates: Past8kRetrievalAnchor[] = [];
     for (const doc of docs) {
       const createdAtMs = Number(doc.created_at_ms || 0);
       const sourceId = deterministicUuidV7(createdAtMs, `source:${doc.id}`);
@@ -357,11 +441,11 @@ export async function runEtlVectors(options?: {
               metadata_json = EXCLUDED.metadata_json
       `;
 
-      const chunks = chunkDocument(doc.content ?? '', { title: doc.title ?? 'Untitled' });
+      const chunks = chunkDocument(doc.content ?? '', {
+        title: doc.title ?? 'Untitled',
+      });
       const candidate = selectPast8kRetrievalAnchor(doc.id, chunks);
-      if (candidate && (!past8kAnchor || candidate.sourceOffset < past8kAnchor.sourceOffset)) {
-        past8kAnchor = candidate;
-      }
+      if (candidate) past8kCandidates.push(candidate);
       for (const chunk of chunks) {
         const passageId = deterministicUuidV7(
           createdAtMs + chunk.ordinal,
@@ -420,6 +504,7 @@ export async function runEtlVectors(options?: {
       `;
     }
 
+    const past8kAnchor = selectMostDistinctivePast8kAnchor(past8kCandidates);
     const embedResult = await embedAllPassages({
       sql,
       databaseUrl: ctx.databaseUrl,

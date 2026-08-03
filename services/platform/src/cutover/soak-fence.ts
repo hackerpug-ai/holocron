@@ -184,13 +184,26 @@ export function readDurableDataPlane(
 
 /**
  * Observed data-plane for serving processes (fresh every call).
- * Order: process.env when set → else durable secrets control-plane re-read.
+ * Order: durable secrets control-plane re-read → process.env fallback.
+ *
+ * The service bootstrap overlays secrets into process.env so modules can read
+ * static credentials during ESM evaluation. That boot-time snapshot must not
+ * pin routing after rollback-repoint updates the durable control plane.
  */
 export function resolveObservedDataPlane(
   env: NodeJS.ProcessEnv = process.env,
   secretsPath?: string
 ): ObservedDataPlane {
   const path = secretsPath ?? resolveSecretsPathFromEnv(env);
+  const durable = readDurableDataPlane(env, path);
+  if (durable.data_plane) {
+    return {
+      data_plane: durable.data_plane,
+      target: durable.target,
+      source: 'secrets',
+      secrets_path: durable.secrets_path,
+    };
+  }
   const envPlane = env[DATA_PLANE_ENV]?.trim();
   const envTarget = env[ROLLBACK_TARGET_ENV]?.trim();
   if (envPlane) {
@@ -199,15 +212,6 @@ export function resolveObservedDataPlane(
       target: envTarget || null,
       source: 'process.env',
       secrets_path: path,
-    };
-  }
-  const durable = readDurableDataPlane(env, path);
-  if (durable.data_plane) {
-    return {
-      data_plane: durable.data_plane,
-      target: durable.target,
-      source: 'secrets',
-      secrets_path: durable.secrets_path,
     };
   }
   return {

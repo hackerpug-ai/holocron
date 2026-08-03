@@ -101,4 +101,20 @@ FLEET_KEY: fleet
     expect(env.HOLO_KEY_MCP).toBeUndefined();
     expect(env.FLEET_KEY).toBeUndefined();
   });
+
+  it('uses HOLO_SECRETS_PATH by default so service boot cannot fall back to operator secrets', () => {
+    const secretsPath = writeSecrets(`
+FLEET_KEY: isolated-fleet-key
+HOLO_KEY_CONTROL: isolated-control-key
+`);
+    const env: NodeJS.ProcessEnv = {
+      HOLO_SECRETS_PATH: secretsPath,
+    };
+
+    const result = applyConsolidatedSecretsToEnv({ env });
+
+    expect(result.secretsPath).toBe(secretsPath);
+    expect(env.FLEET_KEY).toBe('isolated-fleet-key');
+    expect(env.HOLO_KEY_CONTROL).toBe('isolated-control-key');
+  });
 });

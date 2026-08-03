@@ -10,6 +10,10 @@
  *   bun services/platform/src/cli/holo.ts service:up
  */
 
+// Must remain the first service dependency: ESM dependencies such as Mastra,
+// queue, and HTTP configuration may capture environment values at evaluation.
+import './config/bootstrap-secrets.ts';
+
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Mastra } from '@mastra/core/mastra';
@@ -98,9 +102,8 @@ export async function startService(options?: {
     console.log(`Starting Mastra service on :${port}`);
   }
 
-  // Postgres-backed queue (pg-boss preferred) — probeQueue() measures live state.
-  serviceQueue.startSync();
-  // Await full backend start so /health queue.ready is honest on first probe.
+  // Postgres-backed queue (pg-boss preferred) — await the single backend start
+  // so /health is honest and stop() owns the same instance it must shut down.
   await serviceQueue.start();
 
   const mastra = createMastra();
@@ -127,8 +130,12 @@ export async function startService(options?: {
   }
 
   const stop = async () => {
-    await serviceQueue.stop();
     server.stop(true);
+    const results = await Promise.allSettled([serviceQueue.stop(), mastra.shutdown()]);
+    const failure = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    if (failure) throw failure.reason;
   };
 
   return { mastra, port, server, stop };

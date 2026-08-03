@@ -177,7 +177,9 @@ export function killRealPgbackrestProcess(options?: {
   }
 
   // Reap child
-  const reaped = spawnSync('kill', ['-0', String(pid ?? -1)], { encoding: 'utf8' });
+  const reaped = spawnSync('kill', ['-0', String(pid ?? -1)], {
+    encoding: 'utf8',
+  });
   processGone = reaped.status !== 0;
 
   // Wait briefly for exit event
@@ -259,7 +261,8 @@ export function killRealPgbackrestProcess(options?: {
 }
 
 function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
-  const r = run('psql', ['-d', 'holocron', '-v', 'ON_ERROR_STOP=1', '-tAc', sql], { env });
+  const database = env.PGDATABASE?.trim() || 'holocron';
+  const r = run('psql', ['-d', database, '-v', 'ON_ERROR_STOP=1', '-tAc', sql], { env });
   if (r.status !== 0) {
     throw new Error(`psql failed: ${r.stderr || r.stdout}`);
   }
@@ -267,7 +270,10 @@ function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
 }
 
 function psqlExec(sql: string, env: NodeJS.ProcessEnv): void {
-  const r = run('psql', ['-d', 'holocron', '-v', 'ON_ERROR_STOP=1', '-c', sql], { env });
+  const database = env.PGDATABASE?.trim() || 'holocron';
+  const r = run('psql', ['-d', database, '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+    env,
+  });
   if (r.status !== 0) {
     throw new Error(`psql exec failed: ${r.stderr || r.stdout}`);
   }
@@ -367,11 +373,14 @@ export function ensureContinuousWalArchiving(options?: {
   const cfg = options?.config ?? loadBackupConfig({ env });
   const pgbackrestBin = whichPgbackrest(env);
   const archiveTimeout = String(options?.archiveTimeoutSeconds ?? 60);
+  const isolatedGoNoGo = walRestartStrategy(env) === 'isolated-pg-ctl';
+  const postgresLogPath = env.PGLOG?.trim() || resolve(cfg.pg1Path, 'postgres.log');
 
   // Keep conf current so Postgres archive_command (no ambient AWS env) works.
   const conf = renderPgbackrestConfig({
     stanza: cfg.stanza,
     pg1Path: cfg.pg1Path,
+    pg1Port: Number.parseInt(env.PGPORT ?? '5432', 10),
     bucketName: cfg.bucketName,
     endpointHost: endpointHost(cfg.endpoint),
     repoPath: cfg.pgbackrestPrefix,
@@ -402,26 +411,40 @@ export function ensureContinuousWalArchiving(options?: {
   // Contract requires always (not merely on).
   if (currentMode !== 'always') {
     psqlExec(`ALTER SYSTEM SET archive_mode = 'always'`, env);
-    const bounce = run(
-      'launchctl',
-      ['kickstart', '-k', `gui/${process.getuid?.() ?? 501}/holocron-postgres`],
-      { env, timeoutMs: 60_000 }
-    );
-    if (bounce.status !== 0) {
+    let restartError = '';
+    if (isolatedGoNoGo) {
       const pgctl = run(
         '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
-        ['-D', cfg.pg1Path, 'restart', '-m', 'fast'],
+        ['-D', cfg.pg1Path, 'restart', '-m', 'fast', '-l', postgresLogPath],
         { env, timeoutMs: 60_000 }
       );
       if (pgctl.status !== 0) {
-        throw new Error(
-          `postgres restart for archive_mode=always failed: ${(bounce.stderr || pgctl.stderr).slice(0, 400)}`
+        restartError = pgctl.stderr || pgctl.stdout;
+      }
+    } else {
+      const bounce = run(
+        'launchctl',
+        ['kickstart', '-k', `gui/${process.getuid?.() ?? 501}/holocron-postgres`],
+        { env, timeoutMs: 60_000 }
+      );
+      if (bounce.status !== 0) {
+        const pgctl = run(
+          '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
+          ['-D', cfg.pg1Path, 'restart', '-m', 'fast', '-l', postgresLogPath],
+          { env, timeoutMs: 60_000 }
         );
+        if (pgctl.status !== 0) restartError = bounce.stderr || pgctl.stderr || pgctl.stdout;
       }
     }
+    if (restartError) {
+      throw new Error(
+        `postgres restart for archive_mode=always failed: ${restartError.slice(0, 400)}`
+      );
+    }
     restarted = true;
+    const database = env.PGDATABASE?.trim() || 'holocron';
     for (let i = 0; i < 40; i++) {
-      const ready = run('psql', ['-d', 'holocron', '-tAc', 'SELECT 1'], { env });
+      const ready = run('psql', ['-d', database, '-tAc', 'SELECT 1'], { env });
       if (ready.status === 0 && ready.stdout.trim() === '1') break;
       sleepMs(500);
     }
@@ -452,6 +475,15 @@ export function ensureContinuousWalArchiving(options?: {
     stanza: cfg.stanza,
     pgbackrestBin,
   };
+}
+
+/** Isolated human-gate lanes must never bounce the operator launchd service. */
+export function walRestartStrategy(
+  env: NodeJS.ProcessEnv = process.env
+): 'isolated-pg-ctl' | 'operator-launchd-with-pg-ctl-fallback' {
+  return env.HOLO_GO_NO_GO_ISOLATED === '1'
+    ? 'isolated-pg-ctl'
+    : 'operator-launchd-with-pg-ctl-fallback';
 }
 
 function countR2WalObjects(
@@ -1027,7 +1059,9 @@ export function installWalArchiveLaunchd(options?: {
 
   let bootstrapped = false;
   if (options?.bootstrap !== false) {
-    run('launchctl', ['bootout', `${domain}/${WAL_ARCHIVE_LAUNCHD_LABEL}`], { env });
+    run('launchctl', ['bootout', `${domain}/${WAL_ARCHIVE_LAUNCHD_LABEL}`], {
+      env,
+    });
     const boot = run('launchctl', ['bootstrap', domain, plistPath], { env });
     if (boot.status !== 0) {
       const load = run('launchctl', ['load', '-w', plistPath], { env });
@@ -1080,13 +1114,23 @@ export function formatWalLaunchdInstallText(result: WalLaunchdInstallResult): st
 export function readWalArchiveSchedule(options?: {
   launchAgentsDir?: string;
   env?: NodeJS.ProcessEnv;
-}): { installed: boolean; plistPath: string; intervalSeconds: number | null; loaded: boolean } {
+}): {
+  installed: boolean;
+  plistPath: string;
+  intervalSeconds: number | null;
+  loaded: boolean;
+} {
   const env = options?.env ?? process.env;
   const home = env.HOME ?? homedir();
   const dir = options?.launchAgentsDir ?? resolve(home, 'Library/LaunchAgents');
   const plistPath = resolve(dir, `${WAL_ARCHIVE_LAUNCHD_LABEL}.plist`);
   if (!existsSync(plistPath)) {
-    return { installed: false, plistPath, intervalSeconds: null, loaded: false };
+    return {
+      installed: false,
+      plistPath,
+      intervalSeconds: null,
+      loaded: false,
+    };
   }
   const text = readFileSync(plistPath, 'utf8');
   const m = text.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/);

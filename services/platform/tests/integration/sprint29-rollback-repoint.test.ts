@@ -522,14 +522,17 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
       )
     ).toBe(true);
 
-    // Force durable re-read and probe real Hono /health (diagnostic only — not the oracle)
-    delete process.env[DATA_PLANE_ENV];
-    delete process.env[ROLLBACK_TARGET_ENV];
+    // Force durable re-read over a boot-pinned environment snapshot and probe
+    // real Hono /health (diagnostic only — not the oracle).
+    process.env[DATA_PLANE_ENV] = 'postgres';
+    process.env[ROLLBACK_TARGET_ENV] = 'boot-time-postgres';
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
     const observed = resolveObservedDataPlane(process.env, DISPOSABLE_SECRETS);
     expect(observed.data_plane).toBe('convex');
     expect(observed.target).toBe(TARGET_CONVEX_FROZEN);
     expect(observed.source).toBe('secrets');
+    delete process.env[DATA_PLANE_ENV];
+    delete process.env[ROLLBACK_TARGET_ENV];
 
     const app = createHonoApp();
     const res = await app.request('http://local.test/health');

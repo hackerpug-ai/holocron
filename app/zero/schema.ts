@@ -1,4 +1,14 @@
-import { boolean, createSchema, json, number, string, table } from '@rocicorp/zero';
+import {
+  ANYONE_CAN,
+  ANYONE_CAN_DO_ANYTHING,
+  boolean,
+  createSchema,
+  definePermissions,
+  json,
+  number,
+  string,
+  table,
+} from '@rocicorp/zero';
 
 /**
  * Integrated Zero client schema — union of S-REWRITE-01..04 clusters:
@@ -448,6 +458,34 @@ export const schema = createSchema({
   // S-REWRITE-01/02/03: table-scoped CRUD helpers on zero.mutate.*
   enableLegacyMutators: true,
 });
+
+/**
+ * Holocron is currently a single-operator application and does not issue Zero
+ * auth tokens. Keep reads available for the complete client schema and permit
+ * writes only on tables that have an in-app Zero mutator call site. Server-only
+ * and upload metadata tables remain read-only through Zero.
+ */
+export const permissions = definePermissions(schema, () => ({
+  conversations: ANYONE_CAN_DO_ANYTHING,
+  chat_messages: ANYONE_CAN_DO_ANYTHING,
+  tool_calls: { row: { select: ANYONE_CAN } },
+  agent_plans: ANYONE_CAN_DO_ANYTHING,
+  agent_plan_steps: ANYONE_CAN_DO_ANYTHING,
+  research_sessions: ANYONE_CAN_DO_ANYTHING,
+  research_iterations: { row: { select: ANYONE_CAN } },
+  documents: ANYONE_CAN_DO_ANYTHING,
+  audio_jobs: { row: { select: ANYONE_CAN } },
+  audio_segments: { row: { select: ANYONE_CAN } },
+  feed_items: { row: { select: ANYONE_CAN } },
+  subscription_sources: { row: { select: ANYONE_CAN } },
+  subscription_content: { row: { select: ANYONE_CAN } },
+  whats_new_reports: { row: { select: ANYONE_CAN } },
+  app_settings: ANYONE_CAN_DO_ANYTHING,
+  improvement_requests: { row: { select: ANYONE_CAN } },
+  assimilation_sessions: ANYONE_CAN_DO_ANYTHING,
+  notifications: ANYONE_CAN_DO_ANYTHING,
+  file_objects: { row: { select: ANYONE_CAN } },
+}));
 
 declare module '@rocicorp/zero' {
   interface DefaultTypes {

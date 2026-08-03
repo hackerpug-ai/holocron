@@ -15,7 +15,18 @@
  *     services/platform/tests/integration/sprint29-go-no-go.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -43,10 +54,12 @@ const GATE_PLAN = resolve(
 );
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const itLive = PLATFORM_IT ? it : it.skip;
+const itIsolatedGoNoGo = PLATFORM_IT && process.env.HOLO_GO_NO_GO_ISOLATED === '1' ? it : it.skip;
 
 const FIXTURE_PATH = resolve(REPO_ROOT, 'services/platform/src/cutover/.tmp-gate-fixture.ts');
 
 const tmpReports: string[] = [];
+const transientRoots: string[] = [];
 
 afterEach(() => {
   if (existsSync(FIXTURE_PATH)) {
@@ -59,7 +72,34 @@ afterEach(() => {
       /* ignore */
     }
   }
+  for (const p of transientRoots.splice(0)) {
+    rmSync(p, { recursive: true, force: true });
+  }
 });
+
+function isolatedLaneEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const root = mkdtempSync(resolve(tmpdir(), 's29-go-no-go-test-pg-'));
+  transientRoots.push(root);
+  const secretsPath = resolve(root, 'secrets.yaml');
+  writeFileSync(
+    secretsPath,
+    'R2_ENDPOINT: https://integration-r2.example.invalid\nR2_BUCKET_NAME: integration-bucket\nR2_PGBACKREST_PREFIX: pgbackrest\n',
+    'utf8'
+  );
+  return {
+    ...process.env,
+    HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:test-s29',
+    HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+    HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
+    HOLO_GO_NO_GO_DATABASE_URL:
+      'postgres://integration:integration@127.0.0.1:65432/holocron_nonprod',
+    HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: root,
+    HOLO_GO_NO_GO_FLEET_URL: 'http://127.0.0.1:4545/v1',
+    HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-go-no-go-test',
+    HOLO_SECRETS_PATH: secretsPath,
+    ...overrides,
+  };
+}
 
 function runHolo(
   args: string[],
@@ -108,7 +148,10 @@ function loadGatePlanStep1(): { literal_cmd: string; n: number; text: string } {
 }
 
 /** Shell-evaluate the post-CLI jq oracle against a report file (C-01). */
-function jqStep1Oracle(reportPath: string): { status: number | null; stdout: string } {
+function jqStep1Oracle(reportPath: string): {
+  status: number | null;
+  stdout: string;
+} {
   const r = spawnSync('jq', ['-e', GO_NO_GO_STEP1_JQ_ORACLE, reportPath], {
     encoding: 'utf8',
   });
@@ -140,6 +183,9 @@ describe('D06-02 cutover:go-no-go', () => {
     );
     expect(DEFAULT_GATE_SPECS.find((g) => g.name === 'integration')!.command).toContain(
       'pnpm vitest run --project integration'
+    );
+    expect(DEFAULT_GATE_SPECS.find((g) => g.name === 'integration')!.argv).toEqual(
+      expect.arrayContaining(['--no-file-parallelism', '--maxWorkers=1'])
     );
     expect(DEFAULT_GATE_SPECS.find((g) => g.name === 'live')!.command).toContain(
       'pnpm vitest run --project live'
@@ -199,6 +245,7 @@ describe('D06-02 cutover:go-no-go', () => {
       cwd: REPO_ROOT,
       reportPath,
       gates,
+      env: isolatedLaneEnv(),
     });
 
     expect(report.gates).toHaveLength(8);
@@ -247,6 +294,494 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(oneFail.gates[1]!.pass).toBe(false);
     expect(oneFail.overall.ok).toBe(false);
     expect(oneFail.failed_count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('integration child receives only explicit nonprod DB/Convex/R2 targets and temp secrets are removed', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 's29-go-no-go-boundary-'));
+    transientRoots.push(root);
+    const durableSecrets = resolve(root, 'operator-secrets.yaml');
+    const pg1Path = resolve(root, 'isolated-pgdata');
+    const childPath = resolve(root, 'boundary-child.ts');
+    const snapshotPath = resolve(root, 'snapshot.json');
+    mkdirSync(pg1Path, { recursive: true });
+    writeFileSync(
+      durableSecrets,
+      [
+        'DATABASE_URL: postgres://operator@127.0.0.1:5432/holocron',
+        'PGBACKREST_CONFIG: /operator/pgbackrest.conf',
+        'PGBACKREST_PG1_PATH: /operator/postgresql@18',
+        'R2_ACCOUNT_ID: test-account',
+        'R2_ENDPOINT: https://example.invalid',
+        'R2_BUCKET_NAME: test-bucket',
+        'R2_ACCESS_KEY_ID: fake-writer-key',
+        'R2_SECRET_ACCESS_KEY: fake-writer-secret',
+        'FLEET_KEY: operator-fleet-key-must-not-cross-boundary',
+        'FLEET_URL: https://operator-fleet.example.invalid/v1',
+        'R2_REPO_CIPHER_PASS: fake-cipher',
+        'R2_PGBACKREST_PREFIX: pgbackrest',
+        '',
+      ].join('\n'),
+      { encoding: 'utf8', mode: 0o600 }
+    );
+    const durableBefore = readFileSync(durableSecrets, 'utf8');
+
+    writeFileSync(
+      childPath,
+      [
+        "import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';",
+        `import { applyConsolidatedSecretsToEnv } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/config/secrets.ts'))};`,
+        `import { ensureResticPrefixSecret } from ${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/backup/restic-mirror.ts'))};`,
+        `const out = ${JSON.stringify(snapshotPath)};`,
+        'const applied = applyConsolidatedSecretsToEnv();',
+        'const resticPrefix = ensureResticPrefixSecret();',
+        "const secretsPath = process.env.HOLO_SECRETS_PATH ?? '';",
+        "const secrets = readFileSync(secretsPath, 'utf8');",
+        'writeFileSync(out, JSON.stringify({',
+        '  databaseUrl: process.env.DATABASE_URL,',
+        '  ownerUrl: process.env.DATABASE_URL_OWNER,',
+        '  convexDeployment: process.env.CONVEX_DEPLOYMENT,',
+        '  convexUrl: process.env.EXPO_PUBLIC_CONVEX_URL,',
+        '  convexSiteUrl: process.env.EXPO_PUBLIC_CONVEX_SITE_URL,',
+        '  fleetUrl: process.env.FLEET_URL,',
+        '  fleetKey: process.env.FLEET_KEY,',
+        '  appliedSecretsPath: applied.secretsPath,',
+        '  r2Prefix: process.env.R2_PGBACKREST_PREFIX,',
+        '  resticRepository: process.env.RESTIC_REPOSITORY,',
+        '  resticConfig: process.env.HOLO_RESTIC_CONFIG_PATH,',
+        '  resticCache: process.env.RESTIC_CACHE_DIR,',
+        '  pgHost: process.env.PGHOST,',
+        '  pgPort: process.env.PGPORT,',
+        '  pgDatabase: process.env.PGDATABASE,',
+        '  pgdata: process.env.PGDATA,',
+        '  pg1Path: process.env.PGBACKREST_PG1_PATH,',
+        '  pgbackrestConfig: process.env.PGBACKREST_CONFIG,',
+        '  secretsPath,',
+        '  secretsExists: existsSync(secretsPath),',
+        '  secretsMode: statSync(secretsPath).mode & 0o777,',
+        "  secretsHasNonprod: secrets.includes('/holocron_nonprod'),",
+        "  secretsHasOperatorDatabase: secrets.includes('/holocron\\n'),",
+        "  secretsHasOperatorFleetKey: secrets.includes('operator-fleet-key-must-not-cross-boundary'),",
+        '  inheritedProductionConvex: process.env.CONVEX_DEPLOY_KEY ?? null,',
+        '  inheritedProductionBase: process.env.HOLO_PRODUCTION_BASE_URL ?? null,',
+        '  inheritedCloudflareAdmin: process.env.CLOUDFLARE_API_TOKEN ?? null,',
+        '  inheritedR2S3Id: process.env.R2_S3_ID ?? null,',
+        '  inheritedR2S3Token: process.env.R2_S3_TOKEN ?? null,',
+        '  inheritedR2S3KeyId: process.env.R2_S3_KEY_ID ?? null,',
+        '  inheritedR2S3Secret: process.env.R2_S3_SECRET ?? null,',
+        '  resticSecretsPath: resticPrefix.secretsPath,',
+        '}));',
+        "console.log('Test Files  1 passed (1)');",
+        "console.log('Tests  1 passed (1)');",
+        '',
+      ].join('\n'),
+      'utf8'
+    );
+
+    const databaseUrl = 'postgres://integration:integration@127.0.0.1:65433/holocron_nonprod';
+    const report = runGoNoGo({
+      repoRoot: REPO_ROOT,
+      cwd: REPO_ROOT,
+      skipWrite: true,
+      gates: [
+        {
+          name: 'integration',
+          command: 'bun boundary-child.ts',
+          argv: ['bun', childPath],
+          kind: 'vitest',
+        },
+      ],
+      env: isolatedLaneEnv({
+        CLOUDFLARE_API_TOKEN: 'operator-admin-must-not-cross-boundary',
+        CONVEX_DEPLOY_KEY: 'operator-deploy-key-must-not-cross-boundary',
+        DATABASE_URL: 'postgres://operator@127.0.0.1:5432/holocron',
+        EXPO_PUBLIC_CONVEX_SITE_URL: 'https://operator.example.invalid',
+        EXPO_PUBLIC_CONVEX_URL: 'https://operator.example.invalid',
+        HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:boundary-test',
+        HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+        HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
+        HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
+        HOLO_GO_NO_GO_FLEET_URL: 'http://127.0.0.1:4545/v1',
+        HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: pg1Path,
+        HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-boundary-test',
+        HOLO_PRODUCTION_BASE_URL: 'http://192.0.2.10:44111',
+        HOLO_SECRETS_PATH: durableSecrets,
+        R2_S3_ID: 'operator-r2-account-must-not-cross-boundary',
+        R2_S3_KEY_ID: 'operator-r2-admin-key-must-not-cross-boundary',
+        R2_S3_SECRET: 'operator-r2-admin-secret-must-not-cross-boundary',
+        R2_S3_TOKEN: 'operator-r2-token-must-not-cross-boundary',
+      }),
+    });
+
+    expect(report.overall.ok).toBe(true);
+    const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as Record<string, unknown>;
+    expect(snapshot.databaseUrl).toBe(databaseUrl);
+    expect(snapshot.ownerUrl).toBe(databaseUrl);
+    expect(snapshot.convexDeployment).toBe('local:boundary-test');
+    expect(snapshot.convexUrl).toBe('http://127.0.0.1:3210/');
+    expect(snapshot.convexSiteUrl).toBe('http://127.0.0.1:3211/');
+    expect(snapshot.fleetUrl).toBe('http://127.0.0.1:4545/v1');
+    expect(snapshot.fleetKey).toBe('sk-none');
+    expect(snapshot.appliedSecretsPath).toBe(snapshot.secretsPath);
+    expect(snapshot.r2Prefix).toBe('integration/s29-boundary-test');
+    expect(snapshot.resticRepository).toContain('/integration/s29-boundary-test/restic');
+    expect(String(snapshot.resticConfig)).toMatch(/holocron-go-no-go-.*restic-mirror\.conf$/);
+    expect(String(snapshot.resticCache)).toMatch(/holocron-go-no-go-.*restic-cache$/);
+    expect(snapshot.pgHost).toBe('127.0.0.1');
+    expect(snapshot.pgPort).toBe('65433');
+    expect(snapshot.pgDatabase).toBe('holocron_nonprod');
+    expect(snapshot.pgdata).toBe(realpathSync(pg1Path));
+    expect(snapshot.pg1Path).toBe(realpathSync(pg1Path));
+    expect(String(snapshot.pgbackrestConfig)).toMatch(/holocron-go-no-go-.*pgbackrest\.conf$/);
+    expect(snapshot.secretsExists).toBe(true);
+    expect(snapshot.secretsMode).toBe(0o600);
+    expect(snapshot.secretsHasNonprod).toBe(true);
+    expect(snapshot.secretsHasOperatorDatabase).toBe(false);
+    expect(snapshot.secretsHasOperatorFleetKey).toBe(false);
+    expect(snapshot.inheritedProductionConvex).toBeNull();
+    expect(snapshot.inheritedProductionBase).toBeNull();
+    expect(snapshot.inheritedCloudflareAdmin).toBeNull();
+    expect(snapshot.inheritedR2S3Id).toBeNull();
+    expect(snapshot.inheritedR2S3Token).toBeNull();
+    expect(snapshot.inheritedR2S3KeyId).toBeNull();
+    expect(snapshot.inheritedR2S3Secret).toBeNull();
+    expect(snapshot.resticSecretsPath).toBe(snapshot.secretsPath);
+    expect(existsSync(String(snapshot.secretsPath))).toBe(false);
+    expect(readFileSync(durableSecrets, 'utf8')).toBe(durableBefore);
+    expect(statSync(durableSecrets).mode & 0o777).toBe(0o600);
+  });
+
+  itLive(
+    'fresh service boot reads database, Fleet, and auth only from HOLO_SECRETS_PATH',
+    () => {
+      const databaseUrl = process.env.DATABASE_URL;
+      const fleetUrl = process.env.FLEET_URL;
+      expect(databaseUrl).toMatch(/\/holocron_nonprod(?:\?|$)/);
+      expect(fleetUrl).toMatch(/^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])/);
+
+      const root = mkdtempSync(resolve(tmpdir(), 's29-service-secret-boot-'));
+      transientRoots.push(root);
+      const secretsPath = resolve(root, 'secrets.yaml');
+      const childPath = resolve(root, 'service-boot-child.ts');
+      const snapshotPath = resolve(root, 'service-boot-snapshot.json');
+      writeFileSync(
+        secretsPath,
+        [
+          `DATABASE_URL: ${JSON.stringify(databaseUrl)}`,
+          `FLEET_URL: ${JSON.stringify(fleetUrl)}`,
+          'FLEET_KEY: sk-none',
+          'HOLO_KEY_CONTROL: service-boot-control-key',
+          'HOLO_KEY_MCP: service-boot-mcp-key',
+          'HOLO_KEY_RN: service-boot-rn-key',
+          'MASTRA_API_KEY: service-boot-mastra-key',
+          'HOLO_MIGRATION_READ_ONLY: 0',
+          'HOLO_CUTOVER_SCHEDULES_DISABLED: 0',
+          '',
+        ].join('\n'),
+        { encoding: 'utf8', mode: 0o600 }
+      );
+      writeFileSync(
+        childPath,
+        [
+          "import { writeFileSync } from 'node:fs';",
+          `const service = await import(${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/index.ts'))});`,
+          `const mastraConfig = await import(${JSON.stringify(resolve(REPO_ROOT, 'services/platform/src/mastra.ts'))});`,
+          "const handle = await service.startService({ port: 0, hostname: '127.0.0.1', log: false });",
+          'try {',
+          '  const response = await fetch(`http://127.0.0.1:${handle.server.port}/health`);',
+          '  const health = await response.json();',
+          `  writeFileSync(${JSON.stringify(snapshotPath)}, JSON.stringify({`,
+          '    databaseUrl: process.env.DATABASE_URL,',
+          '    capturedDatabaseUrl: mastraConfig.DATABASE_URL,',
+          '    fleetUrl: process.env.FLEET_URL,',
+          '    authFromSecrets: Boolean(process.env.HOLO_KEY_CONTROL && process.env.HOLO_KEY_MCP && process.env.HOLO_KEY_RN && process.env.MASTRA_API_KEY),',
+          '    status: response.status,',
+          '    postgresReady: health.postgres?.ready,',
+          '    queueReady: health.queue?.ready,',
+          '    fleetReady: health.fleet?.ready,',
+          '  }));',
+          '} finally {',
+          '  await handle.stop();',
+          '}',
+          '',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const childEnv: NodeJS.ProcessEnv = {
+        ...process.env,
+        HOLO_SECRETS_PATH: secretsPath,
+      };
+      for (const key of [
+        'DATABASE_URL',
+        'DATABASE_URL_OWNER',
+        'FLEET_KEY',
+        'FLEET_URL',
+        'HOLO_KEY_CONTROL',
+        'HOLO_KEY_MCP',
+        'HOLO_KEY_RN',
+        'MASTRA_API_KEY',
+        'HOLO_MIGRATION_READ_ONLY',
+        'HOLO_CUTOVER_SCHEDULES_DISABLED',
+        'HOLO_DANGEROUS_ALLOW_PROD_DB',
+        'HOLO_PRODUCTION_READINESS',
+        'HOLO_PRODUCTION_BASE_URL',
+        'HOLO_VERIFY_BASE_URL',
+        'PLATFORM_URL',
+        'PORT',
+        'HOLO_PORT',
+      ]) {
+        delete childEnv[key];
+      }
+
+      const child = spawnSync(BUN_BIN, [childPath], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: childEnv,
+        timeout: 120_000,
+      });
+      expect(child.status, `${child.stdout ?? ''}\n${child.stderr ?? ''}`).toBe(0);
+      const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as Record<string, unknown>;
+      expect(snapshot.databaseUrl).toBe(databaseUrl);
+      expect(snapshot.capturedDatabaseUrl).toBe(databaseUrl);
+      expect(snapshot.fleetUrl).toBe(fleetUrl);
+      expect(snapshot.authFromSecrets).toBe(true);
+      expect(snapshot.status).toBe(200);
+      expect(snapshot.postgresReady).toBe(true);
+      expect(snapshot.queueReady).toBe(true);
+      expect(snapshot.fleetReady).toBe(true);
+    },
+    150_000
+  );
+
+  itIsolatedGoNoGo(
+    'backup:wal uses the isolated non-default port/database and pg_ctl without launchctl',
+    () => {
+      const pgdata = process.env.PGBACKREST_PG1_PATH;
+      const configPath = process.env.PGBACKREST_CONFIG;
+      const port = process.env.PGPORT;
+      expect(pgdata).toBeTruthy();
+      expect(configPath).toBeTruthy();
+      expect(port).toMatch(/^\d+$/);
+      expect(port).not.toBe('5432');
+      expect(process.env.PGDATABASE).toBe('holocron_nonprod');
+
+      const root = mkdtempSync(resolve(tmpdir(), 's29-wal-restart-boundary-'));
+      transientRoots.push(root);
+      const fakeBin = resolve(root, 'bin');
+      const launchctlSentinel = resolve(root, 'launchctl-called');
+      mkdirSync(fakeBin);
+      writeFileSync(
+        resolve(fakeBin, 'launchctl'),
+        `#!/bin/sh\ntouch ${JSON.stringify(launchctlSentinel)}\nexit 99\n`,
+        { encoding: 'utf8', mode: 0o755 }
+      );
+
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH ?? '/usr/bin:/bin'}`,
+      };
+      const setMode = spawnSync(
+        'psql',
+        ['-v', 'ON_ERROR_STOP=1', '-c', "ALTER SYSTEM SET archive_mode = 'on'"],
+        { cwd: REPO_ROOT, encoding: 'utf8', env, timeout: 30_000 }
+      );
+      expect(setMode.status, `${setMode.stdout ?? ''}\n${setMode.stderr ?? ''}`).toBe(0);
+      const restart = spawnSync(
+        '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
+        ['-D', pgdata ?? '', 'restart', '-m', 'fast'],
+        { cwd: REPO_ROOT, encoding: 'utf8', env, timeout: 60_000 }
+      );
+      expect(restart.status, `${restart.stdout ?? ''}\n${restart.stderr ?? ''}`).toBe(0);
+
+      const wal = runHolo(['backup:wal', '--json'], {
+        env,
+        timeoutMs: 300_000,
+      });
+      expect(wal.status, wal.combined).toBe(0);
+      const report = JSON.parse(wal.stdout) as {
+        ok: boolean;
+        archiveMode?: string;
+      };
+      expect(report.ok).toBe(true);
+      expect(report.archiveMode).toBe('always');
+      expect(existsSync(launchctlSentinel)).toBe(false);
+
+      const config = readFileSync(configPath ?? '', 'utf8');
+      expect(config).toContain(`pg1-path=${pgdata}`);
+      expect(config).toContain(`pg1-port=${port}`);
+      const target = spawnSync(
+        'psql',
+        ['-Atc', "select current_database() || ':' || current_setting('port')"],
+        { cwd: REPO_ROOT, encoding: 'utf8', env, timeout: 30_000 }
+      );
+      expect(target.status, `${target.stdout ?? ''}\n${target.stderr ?? ''}`).toBe(0);
+      expect(target.stdout.trim()).toBe(`holocron_nonprod:${port}`);
+    },
+    360_000
+  );
+
+  it('integration isolation refuses the operator database endpoint', () => {
+    expect(() =>
+      runGoNoGo({
+        repoRoot: REPO_ROOT,
+        skipWrite: true,
+        gates: [shapeEchoGate('integration', 'exit 0', 'vitest')],
+        env: isolatedLaneEnv({
+          DATABASE_URL: 'postgres://operator@localhost:65433/holocron',
+          HOLO_GO_NO_GO_DATABASE_URL: 'postgresql://integration@127.0.0.1:65433/holocron_nonprod',
+        }),
+      })
+    ).toThrow(/must not reuse the operator database server endpoint/);
+  });
+
+  it('integration isolation accepts bracketed IPv6 loopback endpoints', () => {
+    const report = runGoNoGo({
+      repoRoot: REPO_ROOT,
+      skipWrite: true,
+      gates: [shapeEchoGate('integration', "printf 'Tests  1 passed (1)\\n'", 'vitest')],
+      env: isolatedLaneEnv({
+        DATABASE_URL: 'postgres://operator@127.0.0.1:5432/holocron',
+        HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://[::1]:3211',
+        HOLO_GO_NO_GO_CONVEX_URL: 'http://[::1]:3210',
+        HOLO_GO_NO_GO_DATABASE_URL: 'postgresql://integration@[::1]:65434/holocron_nonprod',
+        HOLO_GO_NO_GO_FLEET_URL: 'http://[::1]:4545/v1',
+      }),
+    });
+
+    expect(report.overall.ok).toBe(true);
+  });
+
+  it('integration isolation accepts R2 endpoint and bucket supplied only by environment', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 's29-go-no-go-env-r2-'));
+    transientRoots.push(root);
+    const secretsPath = resolve(root, 'secrets.yaml');
+    writeFileSync(secretsPath, 'TEST_ONLY_PLACEHOLDER: present\n', 'utf8');
+    const report = runGoNoGo({
+      repoRoot: REPO_ROOT,
+      skipWrite: true,
+      gates: [shapeEchoGate('integration', "printf 'Tests  1 passed (1)\\n'", 'vitest')],
+      env: isolatedLaneEnv({
+        HOLO_SECRETS_PATH: secretsPath,
+        R2_BUCKET_NAME: 'environment-only-integration-bucket',
+        R2_ENDPOINT: 'https://environment-only-r2.example.invalid',
+      }),
+    });
+
+    expect(report.overall.ok).toBe(true);
+  });
+
+  it.each([
+    [
+      'non-loopback database',
+      {
+        HOLO_GO_NO_GO_DATABASE_URL:
+          'postgres://integration@db.example.invalid:65432/holocron_nonprod',
+      },
+      /loopback-only integration service/,
+    ],
+    [
+      'non-Postgres database protocol',
+      { HOLO_GO_NO_GO_DATABASE_URL: 'http://127.0.0.1:65432/holocron_nonprod' },
+      /must use postgres:\/\/ or postgresql:\/\//,
+    ],
+    [
+      'wrong database name',
+      {
+        HOLO_GO_NO_GO_DATABASE_URL: 'postgres://integration@127.0.0.1:65432/holocron',
+      },
+      /must target the holocron_nonprod database/,
+    ],
+    [
+      'default Postgres port',
+      {
+        HOLO_GO_NO_GO_DATABASE_URL: 'postgres://integration@127.0.0.1:5432/holocron_nonprod',
+      },
+      /must use an explicit non-default Postgres port/,
+    ],
+    [
+      'cloud Convex deployment',
+      { HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'dev:operator-cloud' },
+      /must name a local Convex deployment/,
+    ],
+    [
+      'non-loopback Convex URL',
+      { HOLO_GO_NO_GO_CONVEX_URL: 'https://operator-convex.example.invalid' },
+      /loopback-only integration service/,
+    ],
+    [
+      'non-loopback Convex site URL',
+      {
+        HOLO_GO_NO_GO_CONVEX_SITE_URL: 'https://operator-site.example.invalid',
+      },
+      /loopback-only integration service/,
+    ],
+    [
+      'non-loopback Fleet URL',
+      { HOLO_GO_NO_GO_FLEET_URL: 'https://operator-fleet.example.invalid/v1' },
+      /loopback-only integration service/,
+    ],
+    [
+      'operator-shaped R2 prefix',
+      { HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'pgbackrest' },
+      /must start with integration\//,
+    ],
+    [
+      'missing isolated PGDATA',
+      { HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: '/no/such/s29-isolated-pgdata' },
+      /does not exist/,
+    ],
+  ])('integration isolation refuses %s', (_label, overrides, expected) => {
+    expect(() =>
+      runGoNoGo({
+        repoRoot: REPO_ROOT,
+        skipWrite: true,
+        gates: [shapeEchoGate('integration', 'exit 0', 'vitest')],
+        env: isolatedLaneEnv(overrides),
+      })
+    ).toThrow(expected);
+  });
+
+  it('integration isolation refuses the operator PGDATA path', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 's29-go-no-go-pgdata-boundary-'));
+    transientRoots.push(root);
+    const secretsPath = resolve(root, 'operator-secrets.yaml');
+    const operatorPgdata = resolve(root, 'operator-pgdata');
+    const aliasPgdata = resolve(root, 'operator-pgdata-alias');
+    mkdirSync(operatorPgdata);
+    symlinkSync(operatorPgdata, aliasPgdata);
+    writeFileSync(
+      secretsPath,
+      `DATABASE_URL: postgres://operator@127.0.0.1:5432/holocron\nPGBACKREST_PG1_PATH: ${operatorPgdata}\nR2_PGBACKREST_PREFIX: pgbackrest\n`,
+      'utf8'
+    );
+
+    expect(() =>
+      runGoNoGo({
+        repoRoot: REPO_ROOT,
+        skipWrite: true,
+        gates: [shapeEchoGate('integration', 'exit 0', 'vitest')],
+        env: isolatedLaneEnv({
+          HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: aliasPgdata,
+          HOLO_SECRETS_PATH: secretsPath,
+          PGBACKREST_PG1_PATH: operatorPgdata,
+          PGDATA: operatorPgdata,
+        }),
+      })
+    ).toThrow(/must differ from the operator Postgres data path/);
+  });
+
+  it('integration isolation refuses the operator R2 prefix supplied by the environment', () => {
+    expect(() =>
+      runGoNoGo({
+        repoRoot: REPO_ROOT,
+        skipWrite: true,
+        gates: [shapeEchoGate('integration', 'exit 0', 'vitest')],
+        env: isolatedLaneEnv({
+          HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/operator-collision',
+          R2_PGBACKREST_PREFIX: 'integration/operator-collision',
+        }),
+      })
+    ).toThrow(/must differ from the operator backup prefix/);
   });
 
   it('AC-1 / failed_count: deliberately broken typecheck fails closed (production gate runner)', () => {

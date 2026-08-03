@@ -12,7 +12,8 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import {
@@ -21,7 +22,6 @@ import {
   resolveSecretsPathFromEnv,
   upsertSecretsFile,
 } from '../config/secrets.ts';
-import { DEFAULT_HOLOCRON_NONPROD_DATABASE_URL } from '../db/connection.ts';
 
 export const GO_NO_GO_GATE_NAMES = [
   'lint',
@@ -258,12 +258,58 @@ function runOneGate(spec: GateSpec, options: { cwd: string; env: NodeJS.ProcessE
   };
 }
 
-function nonprodDatabaseUrl(raw: string | undefined): string {
-  if (!raw) return DEFAULT_HOLOCRON_NONPROD_DATABASE_URL;
-  const parsed = new URL(raw);
-  parsed.pathname = '/holocron_nonprod';
-  return parsed.toString();
+const ISOLATED_DATABASE_URL_ENV = 'HOLO_GO_NO_GO_DATABASE_URL';
+const ISOLATED_CONVEX_DEPLOYMENT_ENV = 'HOLO_GO_NO_GO_CONVEX_DEPLOYMENT';
+const ISOLATED_CONVEX_URL_ENV = 'HOLO_GO_NO_GO_CONVEX_URL';
+const ISOLATED_CONVEX_SITE_URL_ENV = 'HOLO_GO_NO_GO_CONVEX_SITE_URL';
+const ISOLATED_FLEET_URL_ENV = 'HOLO_GO_NO_GO_FLEET_URL';
+const ISOLATED_R2_PREFIX_ENV = 'HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX';
+const ISOLATED_PG1_PATH_ENV = 'HOLO_GO_NO_GO_PGBACKREST_PG1_PATH';
+
+function requiredIsolationValue(env: NodeJS.ProcessEnv, name: string): string {
+  const value = env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} is required for the isolated integration/live go/no-go lanes`);
+  }
+  return value;
 }
+
+function assertLoopbackUrl(raw: string, name: string): URL {
+  const parsed = new URL(raw);
+  if (!isLoopbackHostname(parsed.hostname)) {
+    throw new Error(`${name} must target a loopback-only integration service`);
+  }
+  return parsed;
+}
+
+function canonicalHostname(hostname: string): string {
+  return hostname.replace(/^\[|\]$/g, '').toLocaleLowerCase();
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+  return ['127.0.0.1', 'localhost', '::1'].includes(canonicalHostname(hostname));
+}
+
+function databaseEndpoint(url: URL): string {
+  const hostname = isLoopbackHostname(url.hostname) ? 'loopback' : canonicalHostname(url.hostname);
+  return `${hostname}:${url.port || '5432'}`;
+}
+
+const ISOLATED_SOURCE_SECRET_KEYS = [
+  'PGBACKREST_STANZA',
+  'R2_ACCESS_KEY_ID',
+  'R2_ACCOUNT_ID',
+  'R2_BUCKET_NAME',
+  'R2_CREDENTIAL_POLICY',
+  'R2_ENDPOINT',
+  'R2_REPO_CIPHER_PASS',
+  'R2_RESTORE_ACCESS_KEY_ID',
+  'R2_RESTORE_SECRET_ACCESS_KEY',
+  'R2_RESTORE_SESSION_TOKEN',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_SESSION_TOKEN',
+  'RESTIC_PASSWORD',
+] as const;
 
 type IsolatedIntegrationEnv = {
   env: NodeJS.ProcessEnv;
@@ -280,26 +326,225 @@ function createIsolatedIntegrationEnv(
 ): IsolatedIntegrationEnv {
   const sourcePath = resolveSecretsPathFromEnv(baseEnv, repoRoot);
   const sourceSecrets = loadSecretsFile(sourcePath);
-  const databaseUrl = nonprodDatabaseUrl(baseEnv.DATABASE_URL ?? sourceSecrets.DATABASE_URL);
+  const databaseUrl = requiredIsolationValue(baseEnv, ISOLATED_DATABASE_URL_ENV);
+  const database = assertLoopbackUrl(databaseUrl, ISOLATED_DATABASE_URL_ENV);
+  if (database.protocol !== 'postgres:' && database.protocol !== 'postgresql:') {
+    throw new Error(`${ISOLATED_DATABASE_URL_ENV} must use postgres:// or postgresql://`);
+  }
+  if (database.pathname.replace(/^\//, '') !== 'holocron_nonprod') {
+    throw new Error(`${ISOLATED_DATABASE_URL_ENV} must target the holocron_nonprod database`);
+  }
+  if (!database.port || database.port === '5432') {
+    throw new Error(`${ISOLATED_DATABASE_URL_ENV} must use an explicit non-default Postgres port`);
+  }
+  const operatorDatabaseRaw = baseEnv.DATABASE_URL ?? sourceSecrets.DATABASE_URL;
+  if (operatorDatabaseRaw) {
+    const operatorDatabase = new URL(operatorDatabaseRaw);
+    if (databaseEndpoint(database) === databaseEndpoint(operatorDatabase)) {
+      throw new Error(
+        `${ISOLATED_DATABASE_URL_ENV} must not reuse the operator database server endpoint`
+      );
+    }
+  }
+
+  const convexDeployment = requiredIsolationValue(baseEnv, ISOLATED_CONVEX_DEPLOYMENT_ENV);
+  if (!convexDeployment.startsWith('local:')) {
+    throw new Error(`${ISOLATED_CONVEX_DEPLOYMENT_ENV} must name a local Convex deployment`);
+  }
+  const convexUrl = assertLoopbackUrl(
+    requiredIsolationValue(baseEnv, ISOLATED_CONVEX_URL_ENV),
+    ISOLATED_CONVEX_URL_ENV
+  ).toString();
+  const convexSiteUrl = assertLoopbackUrl(
+    requiredIsolationValue(baseEnv, ISOLATED_CONVEX_SITE_URL_ENV),
+    ISOLATED_CONVEX_SITE_URL_ENV
+  ).toString();
+  const fleetUrl = assertLoopbackUrl(
+    requiredIsolationValue(baseEnv, ISOLATED_FLEET_URL_ENV),
+    ISOLATED_FLEET_URL_ENV
+  ).toString();
+
+  const r2Prefix = requiredIsolationValue(baseEnv, ISOLATED_R2_PREFIX_ENV).replace(
+    /^\/+|\/+$/g,
+    ''
+  );
+  if (!r2Prefix.startsWith('integration/')) {
+    throw new Error(`${ISOLATED_R2_PREFIX_ENV} must start with integration/`);
+  }
+  const operatorR2Prefix = (
+    baseEnv.R2_PGBACKREST_PREFIX ?? sourceSecrets.R2_PGBACKREST_PREFIX
+  )?.replace(/^\/+|\/+$/g, '');
+  if (operatorR2Prefix && r2Prefix === operatorR2Prefix) {
+    throw new Error(`${ISOLATED_R2_PREFIX_ENV} must differ from the operator backup prefix`);
+  }
+
+  const requestedPg1Path = resolve(requiredIsolationValue(baseEnv, ISOLATED_PG1_PATH_ENV));
+  if (!existsSync(requestedPg1Path)) {
+    throw new Error(`${ISOLATED_PG1_PATH_ENV} does not exist`);
+  }
+  const pg1Path = realpathSync(requestedPg1Path);
+  const operatorPg1Path =
+    baseEnv.PGBACKREST_PG1_PATH ?? baseEnv.PGDATA ?? sourceSecrets.PGBACKREST_PG1_PATH;
+  if (operatorPg1Path) {
+    const resolvedOperatorPath = resolve(operatorPg1Path);
+    const canonicalOperatorPath = existsSync(resolvedOperatorPath)
+      ? realpathSync(resolvedOperatorPath)
+      : resolvedOperatorPath;
+    if (pg1Path === canonicalOperatorPath) {
+      throw new Error(`${ISOLATED_PG1_PATH_ENV} must differ from the operator Postgres data path`);
+    }
+  }
+
   const tempRoot = mkdtempSync(resolve(tmpdir(), 'holocron-go-no-go-'));
   const secretsPath = resolve(tempRoot, 'secrets.yaml');
+  const pgbackrestConfig = resolve(tempRoot, 'pgbackrest.conf');
+  const resticConfig = resolve(tempRoot, 'restic-mirror.conf');
+  const resticCache = resolve(tempRoot, 'restic-cache');
+  const blobRoot = resolve(tempRoot, 'blobs');
+  mkdirSync(resticCache, { recursive: true });
+  mkdirSync(blobRoot, { recursive: true });
+  const resticPrefix = `${r2Prefix}/restic`;
+  const r2Endpoint = baseEnv.R2_ENDPOINT ?? sourceSecrets.R2_ENDPOINT;
+  const r2BucketName = baseEnv.R2_BUCKET_NAME ?? sourceSecrets.R2_BUCKET_NAME;
+  if (!r2Endpoint || !r2BucketName) {
+    rmSync(tempRoot, { recursive: true, force: true });
+    throw new Error('isolated integration backup config requires R2_ENDPOINT and R2_BUCKET_NAME');
+  }
+  const resticHost = r2Endpoint.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const resticRepository = `s3:https://${resticHost}/${r2BucketName}/${resticPrefix}`;
+  const localKeySuffix = randomUUID();
+  const localKeys = {
+    FLEET_KEY: 'sk-none',
+    HOLO_KEY_CONTROL: `control-go-no-go-${localKeySuffix}`,
+    HOLO_KEY_MCP: `mcp-go-no-go-${localKeySuffix}`,
+    HOLO_KEY_RN: `rn-go-no-go-${localKeySuffix}`,
+    MASTRA_API_KEY: `mastra-go-no-go-${localKeySuffix}`,
+  };
+  try {
+    const isolatedSourceSecrets: Record<string, string> = {};
+    for (const key of ISOLATED_SOURCE_SECRET_KEYS) {
+      const value = baseEnv[key] ?? sourceSecrets[key];
+      if (value) isolatedSourceSecrets[key] = value;
+    }
+    upsertSecretsFile(secretsPath, {
+      ...isolatedSourceSecrets,
+      DATABASE_URL: databaseUrl,
+      FLEET_URL: fleetUrl,
+      HOLO_BLOB_ROOT: blobRoot,
+      HOLO_MIGRATION_READ_ONLY: '0',
+      HOLO_CUTOVER_SCHEDULES_DISABLED: '0',
+      PLATFORM_URL: 'http://127.0.0.1:4111',
+      PGBACKREST_CONFIG: pgbackrestConfig,
+      PGBACKREST_PG1_PATH: pg1Path,
+      R2_PGBACKREST_PREFIX: r2Prefix,
+      R2_BUCKET_NAME: r2BucketName,
+      R2_ENDPOINT: r2Endpoint,
+      R2_RESTORE_OBJECT_PREFIX: r2Prefix,
+      R2_RESTIC_PREFIX: resticPrefix,
+      RESTIC_REPOSITORY: resticRepository,
+      ...localKeys,
+    });
 
-  upsertSecretsFile(secretsPath, {
-    ...sourceSecrets,
-    DATABASE_URL: databaseUrl,
-    HOLO_MIGRATION_READ_ONLY: '0',
-  });
+    const isolatedEnv: NodeJS.ProcessEnv = { ...baseEnv };
+    for (const key of [
+      'BACKUP_R2_ACCESS_KEY_ID',
+      'BACKUP_R2_SECRET_ACCESS_API_TOKEN',
+      'BACKUP_R2_SECRET_ACCESS_KEY',
+      'CLOUDFLARE_API_TOKEN',
+      'DEEPGRAM_API_KEY',
+      'DEEPSEEK_API_KEY',
+      'ELEVENLABS_API_KEY',
+      'EXPO_PUBLIC_RN_API_KEY',
+      'EXPO_TOKEN',
+      'FLEET_KEY',
+      'HOLO_KEY_CONTROL',
+      'HOLO_KEY_MCP',
+      'HOLO_KEY_RN',
+      'MASTRA_API_KEY',
+      'ANTHROPIC_API_KEY',
+      'AWS_ACCESS_KEY_ID',
+      'AWS_CONFIG_FILE',
+      'AWS_DEFAULT_PROFILE',
+      'AWS_PROFILE',
+      'AWS_ROLE_ARN',
+      'AWS_SECRET_ACCESS_KEY',
+      'AWS_SHARED_CREDENTIALS_FILE',
+      'AWS_SESSION_TOKEN',
+      'AWS_WEB_IDENTITY_TOKEN_FILE',
+      'OPENROUTER_API_KEY',
+      'CONVEX_DEPLOY_KEY',
+      'CONVEX_SELF_HOSTED_ADMIN_KEY',
+      'CONVEX_SELF_HOSTED_URL',
+      'DEPLOY_TARGET',
+      'EXPO_PUBLIC_PLATFORM_URL',
+      'HOLO_DANGEROUS_ALLOW_PROD_DB',
+      'HOLO_DEPLOY_TARGET',
+      'HOLO_PRODUCTION_BASE_URL',
+      'HOLO_RESTIC_CONFIG_PATH',
+      'HOLO_RELEASE_PATH',
+      'HOLO_VERIFY_BASE_URL',
+      'PLATFORM_URL',
+      'R2_PARENT_ACCESS_KEY_ID',
+      'R2_PARENT_SECRET_ACCESS_KEY',
+      'R2_SCOPE_PROBE_IN_KEY',
+      'R2_SCOPE_PROBE_OUT_KEY',
+      'R2_S3_ID',
+      'R2_S3_KEY_ID',
+      'R2_S3_SECRET',
+      'R2_S3_TOKEN',
+      'RESTIC_REPOSITORY',
+      'TAILSCALE_AUTH_KEY',
+      'YOUTUBE_API_KEY',
+      'ZAI_API_KEY',
+    ]) {
+      delete isolatedEnv[key];
+    }
 
-  return {
-    env: {
-      ...baseEnv,
+    Object.assign(isolatedEnv, {
+      CONVEX_DEPLOYMENT: convexDeployment,
+      CONVEX_URL: convexUrl,
       DATABASE_URL: databaseUrl,
       DATABASE_URL_OWNER: databaseUrl,
+      EXPO_PUBLIC_CONVEX_SITE_URL: convexSiteUrl,
+      EXPO_PUBLIC_CONVEX_URL: convexUrl,
+      FLEET_URL: fleetUrl,
+      HOLO_BLOB_ROOT: blobRoot,
+      HOLO_CUTOVER_SCHEDULES_DISABLED: '0',
+      HOLO_DANGEROUS_ALLOW_PROD_DB: '0',
+      HOLO_GO_NO_GO_ISOLATED: '1',
       HOLO_MIGRATION_READ_ONLY: '0',
+      HOLO_RESTIC_CONFIG_PATH: resticConfig,
       HOLO_SECRETS_PATH: secretsPath,
-    },
-    cleanup: () => rmSync(tempRoot, { recursive: true, force: true }),
-  };
+      PGBACKREST_CONFIG: pgbackrestConfig,
+      PGBACKREST_PG1_PATH: pg1Path,
+      PGDATA: pg1Path,
+      PGDATABASE: database.pathname.replace(/^\//, ''),
+      PGHOST: canonicalHostname(database.hostname),
+      PGPORT: database.port || '5432',
+      PGUSER: decodeURIComponent(database.username),
+      R2_PGBACKREST_PREFIX: r2Prefix,
+      R2_RESTORE_OBJECT_PREFIX: r2Prefix,
+      R2_RESTIC_PREFIX: resticPrefix,
+      RESTIC_REPOSITORY: resticRepository,
+      RESTIC_CACHE_DIR: resticCache,
+      VITE_CONVEX_HTTP_URL: convexUrl,
+      VITE_CONVEX_SITE_URL: convexSiteUrl,
+      ...localKeys,
+    });
+    if (database.password) {
+      isolatedEnv.PGPASSWORD = decodeURIComponent(database.password);
+    } else {
+      delete isolatedEnv.PGPASSWORD;
+    }
+
+    return {
+      env: isolatedEnv,
+      cleanup: () => rmSync(tempRoot, { recursive: true, force: true }),
+    };
+  } catch (error) {
+    rmSync(tempRoot, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 export type RunGoNoGoOptions = {

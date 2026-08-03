@@ -1344,19 +1344,34 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(bound.identity?.pid).not.toBe(process.pid);
 
     const saved = {
+      HOLO_PRODUCTION_BASE_URL: process.env.HOLO_PRODUCTION_BASE_URL,
       HOLO_VERIFY_BASE_URL: process.env.HOLO_VERIFY_BASE_URL,
       HOLO_SOAK_BASE_URL: process.env.HOLO_SOAK_BASE_URL,
       PLATFORM_URL: process.env.PLATFORM_URL,
+      HOLO_DEPLOYMENT_VERIFICATION_PATH: process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH,
     };
+    delete process.env.HOLO_PRODUCTION_BASE_URL;
     delete process.env.HOLO_VERIFY_BASE_URL;
     delete process.env.HOLO_SOAK_BASE_URL;
     delete process.env.PLATFORM_URL;
+    process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH = resolve(
+      R3_C03_EVIDENCE,
+      `missing-deployment-verification-${RUN}.json`
+    );
     const noEnv = await resolveDeployedTargetIdentity(networkBaseUrl);
     expect(noEnv.identity).toBeNull();
     expect(noEnv.error ?? '').toMatch(/MISSING_DEPLOYMENT_ENV/);
+    if (saved.HOLO_PRODUCTION_BASE_URL) {
+      process.env.HOLO_PRODUCTION_BASE_URL = saved.HOLO_PRODUCTION_BASE_URL;
+    }
     process.env.HOLO_VERIFY_BASE_URL = saved.HOLO_VERIFY_BASE_URL;
     if (saved.HOLO_SOAK_BASE_URL) process.env.HOLO_SOAK_BASE_URL = saved.HOLO_SOAK_BASE_URL;
     if (saved.PLATFORM_URL) process.env.PLATFORM_URL = saved.PLATFORM_URL;
+    if (saved.HOLO_DEPLOYMENT_VERIFICATION_PATH) {
+      process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH = saved.HOLO_DEPLOYMENT_VERIFICATION_PATH;
+    } else {
+      delete process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH;
+    }
 
     writeFileSync(
       resolve(R3_C03_EVIDENCE, 'deployed-identity.json'),
@@ -1859,6 +1874,8 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
       etlReportPath: greenEtlPath,
+      exportDir: IMMUTABLE_EXPORT_DIR,
+      parityPath: IMMUTABLE_PARITY_FIXTURE,
       baselinePath: articleBaselinePath,
       reportPath: resolve(EVIDENCE, 'verify-soak-report.json'),
       baseUrl: networkBaseUrl,

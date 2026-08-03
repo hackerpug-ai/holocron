@@ -155,7 +155,7 @@ export function getSecretValue(
   const env = options?.env ?? process.env;
   const fromEnv = coerceString(env[key]);
   if (fromEnv !== undefined) return fromEnv;
-  const path = options?.secretsPath ?? defaultSecretsPath();
+  const path = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const fileMap = loadSecretsFile(path);
   return coerceString(fileMap[key]);
 }
@@ -167,8 +167,8 @@ export function loadConsolidatedSecrets(options?: {
   secretsPath?: string;
   env?: NodeJS.ProcessEnv;
 }): SecretsMap {
-  const path = options?.secretsPath ?? defaultSecretsPath();
   const env = options?.env ?? process.env;
+  const path = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const fileMap = loadSecretsFile(path);
   const out: SecretsMap = { ...fileMap };
   for (const [k, v] of Object.entries(env)) {
@@ -233,8 +233,8 @@ export function applyConsolidatedSecretsToEnv(options?: {
   /** Limit to these keys; default = REQUIRED_SECRET_KEYS ∪ file keys. */
   keys?: readonly string[];
 }): ApplySecretsResult {
-  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
   const env = options?.env ?? process.env;
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const fileExists = existsSync(secretsPath);
   const fileMap = fileExists ? loadSecretsFile(secretsPath) : {};
 
@@ -273,8 +273,8 @@ export function runSecretsDoctor(options?: {
   env?: NodeJS.ProcessEnv;
   requiredKeys?: readonly string[];
 }): DoctorReport {
-  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
   const env = options?.env ?? process.env;
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const required = options?.requiredKeys ?? REQUIRED_SECRET_KEYS;
   const fileExists = existsSync(secretsPath);
   const fileMap = fileExists ? loadSecretsFile(secretsPath) : {};

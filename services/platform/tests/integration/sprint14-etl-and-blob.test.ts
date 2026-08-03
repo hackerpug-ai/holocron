@@ -31,6 +31,8 @@ import {
 } from '../../src/db/connection';
 import { readImmutableExport } from '../../src/etl/archive';
 import { deterministicUuidV7 } from '../../src/etl/deterministic-uuidv7';
+import { selectPast8kRetrievalAnchor } from '../../src/etl/vectors';
+import { chunkDocument } from '../../src/inference/chunk';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const itLive = PLATFORM_IT ? it : it.skip;
@@ -977,7 +979,12 @@ describe('Sprint 14 ETL + blob verify', () => {
           probeVectorNorm: number;
           probeUnitNormOk: boolean;
         };
-        unitNorm: { checked: number; violations: number; maxDeviation: number; tolerance: number };
+        unitNorm: {
+          checked: number;
+          violations: number;
+          maxDeviation: number;
+          tolerance: number;
+        };
         retrieval: {
           ok: boolean;
           status: 'marker-found' | 'marker-missing' | 'empty-corpus';
@@ -1170,6 +1177,81 @@ describe('Sprint 14 ETL + blob verify', () => {
     360_000
   );
 
+  itLive(
+    'etl:vectors persists and retrieves a punctuation-heavy production anchor beyond 8K',
+    async () => {
+      const db = requireSql(sql);
+      // Isolate the production-anchor proof from the Sprint 14 fixture's
+      // deliberately privileged UNIQUE_PAST_8K_MARKER document.
+      await truncateSprint14Tables(db);
+      const documentId = deterministicUuidV7(
+        Date.UTC(2000, 0, 1),
+        's29-production-punctuation-retrieval'
+      );
+      const content = `${'x'.repeat(7_999)} Punctuation-heavy retrieval proof: Alpha_Beta ID AEmHcFH1UgQ; Copper kestrel observability survives tables | pipes | and URLs https://example.invalid/path before finding the persisted passage.`;
+      const expectedAnchor = selectPast8kRetrievalAnchor(documentId, chunkDocument(content));
+      expect(expectedAnchor).not.toBeNull();
+      expect(expectedAnchor?.sourceOffset).toBeGreaterThanOrEqual(8_000);
+
+      await db`
+        INSERT INTO documents (
+          id, legacy_convex_id, title, content, category, status, created_at
+        ) VALUES (
+          ${documentId}::uuid,
+          's29-production-punctuation-retrieval',
+          'Sprint 29 punctuation retrieval oracle',
+          ${content},
+          'general',
+          'published',
+          '2000-01-01T00:00:00.000Z'::timestamptz
+        )
+        ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content
+      `;
+
+      const vectors = runHolo(['etl:vectors', '--json']);
+      expect(vectors.status, `${vectors.stdout}\n${vectors.stderr}`).toBe(0);
+      const report = JSON.parse(vectors.stdout) as {
+        ok: boolean;
+        markerFoundPast8k: boolean;
+        embed: { remainingNull: number };
+        retrieval: {
+          ok: boolean;
+          status: string;
+          query: string;
+          anchorDocumentId: string | null;
+          anchorSourceOffset: number | null;
+          hitDocumentId: string | null;
+          hitPassageId: string | null;
+        };
+      };
+
+      expect(report.ok).toBe(true);
+      expect(report.embed.remainingNull).toBe(0);
+      expect(report.markerFoundPast8k).toBe(true);
+      expect(report.retrieval.status).toBe('marker-found');
+      expect(report.retrieval.anchorDocumentId).toBe(documentId);
+      expect(report.retrieval.anchorSourceOffset).toBeGreaterThanOrEqual(8_000);
+      expect(report.retrieval.hitDocumentId).toBe(documentId);
+      expect(report.retrieval.hitPassageId).toBeTruthy();
+      expect(report.retrieval.query).not.toMatch(/Alpha_Beta|AEmHcFH1UgQ/);
+
+      const [negative] = await db<Array<{ matches: string }>>`
+        SELECT count(*)::text AS matches
+        FROM passages
+        WHERE document_id = ${documentId}
+          AND search_vector @@ websearch_to_tsquery(
+            'english',
+            'wrong truncation canary absent zephyr marmalade'
+          )
+      `;
+      expect(Number(negative?.matches ?? -1)).toBe(0);
+      expect(
+        selectPast8kRetrievalAnchor(documentId, chunkDocument(content.slice(0, 7_999)))
+      ).toBeNull();
+    },
+    240_000
+  );
+
   itRealExport(
     'etl:vectors treats a zero-document real export as a vacuous-but-real vector lane',
     async () => {
@@ -1212,7 +1294,12 @@ describe('Sprint 14 ETL + blob verify', () => {
           probeVectorNorm: number;
           probeUnitNormOk: boolean;
         };
-        unitNorm: { checked: number; violations: number; maxDeviation: number; tolerance: number };
+        unitNorm: {
+          checked: number;
+          violations: number;
+          maxDeviation: number;
+          tolerance: number;
+        };
         retrieval: {
           ok: boolean;
           status: 'marker-found' | 'marker-missing' | 'empty-corpus';

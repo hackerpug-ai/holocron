@@ -36,6 +36,8 @@ export const ZERO_PUB_FULL_TABLES = [
   // audio jobs/segments
   'audio_jobs',
   'audio_segments',
+  // content-addressed upload metadata consumed by the RN Zero client
+  'file_objects',
   // whats_new
   'whats_new_reports',
   'whats_new_workflows',
@@ -186,7 +188,6 @@ export const ZERO_PUB_EXCLUDED_TABLES = [
   'mission_verdicts',
   // media / voice / prefs shells not on the reactive subset
   'imports',
-  'file_objects',
   'video_transcripts',
   'transcript_jobs',
   'audio_transcripts',

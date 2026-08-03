@@ -36,6 +36,7 @@ describe('schema constant invariants (schema-5)', () => {
   it('zero_pub excludes evidence + embedding column name', () => {
     expect(ZERO_PUB_NAME).toBe('zero_pub');
     expect(ZERO_PUB_EXCLUDED_COLUMN).toBe('embedding');
+    expect(ZERO_PUB_TABLE_NAMES).toContain('file_objects');
     expect(ZERO_PUB_EXCLUDED_TABLES).toContain('passages');
     expect(ZERO_PUB_EXCLUDED_TABLES).toContain('sources');
     for (const excluded of ZERO_PUB_EXCLUDED_TABLES) {
