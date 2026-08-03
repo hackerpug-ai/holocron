@@ -440,7 +440,7 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
         2: /deploy:apply|deploy-inference1/,
         3: /deploy:verify/,
         4: /deploy:verify/,
-        5: /cutover:freeze[\s\S]*cutover:quiet-check/,
+        5: /cutover:freeze[\s\S]*cutover:capture-article-baseline[\s\S]*cutover:quiet-check/,
         6: /cutover:run-etl/,
         7: /cutover:verify-soak/,
         8: /migration_read_only/,
@@ -462,6 +462,14 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       expect(step1).toMatch(/failed_count\s*==\s*0/);
       expect(step1).toMatch(/overall\.ok\s*==\s*true/);
       expect(step1).not.toMatch(/jq -e "\.gates \| length == 8"/);
+
+      const step5 = String(steps.find((s) => s.n === 5)?.literal_cmd ?? '');
+      expect(step5).toMatch(/HOLO_ARTICLE_SHARE_TOKEN/);
+      expect(step5).toMatch(/convex dev --once/);
+      expect(step5.indexOf('convex dev --once')).toBeLessThan(step5.indexOf('cutover:freeze'));
+      expect(step5).toMatch(/rm -f \.tmp\/D06-03\/article-baseline\.json/);
+      expect(step5).toMatch(/capturedAtMs\s*>\s*\$freeze\[0\]\.fence_armed_at/);
+      expect(step5).toMatch(/\.phase\s*==\s*"d06-03-post-arm"/);
 
       const step7 = String(steps.find((s) => s.n === 7)?.literal_cmd ?? '');
       expect(step7).toMatch(/toolsPassed/);

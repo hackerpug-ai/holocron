@@ -23,6 +23,7 @@
 #   export HOLO_SECRETS_PATH=...   # optional; defaults may resolve secrets
 #   export GATE_RUN_ID=20260802TxxxxxxZ   # optional; auto-generated if unset
 #   export HOLO_VERIFY_BASE_URL=https://...  # preferred deployed identity for landing
+#   export HOLO_ARTICLE_SHARE_TOKEN=...  # existing public Convex article sampled before ETL
 #   export MINT_R2_PREFIX_RESTORE=1  # mint temporary scoped RO proof/data tuples after .env
 #   bash scripts/run-sprint29-human-gate-rerun.sh
 #   WRITE_GATE_RESULTS=0 bash scripts/run-sprint29-human-gate-rerun.sh  # evidence only
@@ -43,7 +44,7 @@ WRITE_GATE_RESULTS="${WRITE_GATE_RESULTS:-1}"
 QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"
 # Per-step wall-clock caps (seconds). Honest fail on timeout — never hang forever.
 STEP_TIMEOUT_DEFAULT="${STEP_TIMEOUT_DEFAULT:-180}"
-STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-240}"   # go-no-go (8 gates)
+STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-10800}" # go/no-go includes serial live backup/PITR suites
 STEP_TIMEOUT_2="${STEP_TIMEOUT_2:-600}"   # build/pull/cold-recreate deployment
 STEP_TIMEOUT_3="${STEP_TIMEOUT_3:-600}"   # dependency + SIGKILL + durability + MCP
 STEP_TIMEOUT_6="${STEP_TIMEOUT_6:-1800}"  # run-etl / convex export / real embeddings

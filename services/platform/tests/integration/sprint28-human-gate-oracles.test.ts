@@ -71,6 +71,8 @@ const ISOLATED_MINI = {
   R2_SECRET_ACCESS_KEY: 'ro-test-secret-h2',
   R2_CREDENTIAL_KIND: 'object-read-only',
   R2_CREDENTIAL_POLICY: R2_POLICY,
+  R2_PGBACKREST_PREFIX: 'pgbackrest',
+  R2_RESTORE_OBJECT_PREFIX: 'pgbackrest',
   RESTORE_CONTAINER: 'redhat-fix-h2-no-such-container',
 } as const;
 
@@ -366,7 +368,15 @@ describe('REDHAT-FIX-H2 sprint28 human-gate oracles', () => {
       const scratchDir = join(scratchRoot, 'empty-chain-pgdata');
       mkdirSync(scratchDir, { recursive: true });
 
-      const emptyPrefix = `pgbackrest-s28-h2-empty/${Date.now().toString(36)}`;
+      const emptySuffix = `pgbackrest-s28-h2-empty/${Date.now().toString(36)}`;
+      const isolatedPrefix = cfg?.pgbackrestPrefix.trim().replace(/^\/+|\/+$/g, '');
+      if (process.env.HOLO_GO_NO_GO_ISOLATED === '1' && !isolatedPrefix) {
+        throw new Error('isolated empty-chain oracle requires cfg.pgbackrestPrefix');
+      }
+      const emptyPrefix =
+        process.env.HOLO_GO_NO_GO_ISOLATED === '1'
+          ? `${isolatedPrefix}/${emptySuffix}`
+          : emptySuffix;
       const env: NodeJS.ProcessEnv = {
         ...process.env,
         R2_PGBACKREST_PREFIX: emptyPrefix,

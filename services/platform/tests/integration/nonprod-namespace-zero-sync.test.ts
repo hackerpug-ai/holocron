@@ -18,7 +18,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createSql, type Sql } from '../../src/db/client';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
@@ -31,6 +32,8 @@ const DB = process.env.DATABASE_URL ?? '';
 const HAS_NONPROD = DB.includes('holocron_nonprod');
 const ZERO_URL = process.env.ZERO_CACHE_URL || 'http://127.0.0.1:4848';
 const canRun = PLATFORM_IT && HAS_NONPROD;
+const OWNER_DB = process.env.DATABASE_URL_OWNER ?? DB;
+let snapshotSql: Sql | null = null;
 
 function holoJson(cmd: string[]): any {
   const res = spawnSync('bun', [HOLO, ...cmd], { encoding: 'utf8', timeout: 90_000 });
@@ -104,6 +107,33 @@ function psqlCount(convId: string): number {
 }
 
 describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read proof', () => {
+  beforeAll(async () => {
+    snapshotSql = createSql(OWNER_DB, { max: 1 });
+    await snapshotSql`
+      CREATE TEMP TABLE s29_saved_reference_conversation AS
+      SELECT * FROM conversations WHERE id = ${CONV_ID}::uuid
+    `;
+    await snapshotSql`
+      CREATE TEMP TABLE s29_saved_reference_messages AS
+      SELECT * FROM chat_messages WHERE conversation_id = ${CONV_ID}
+    `;
+  });
+
+  afterAll(async () => {
+    if (!snapshotSql) return;
+    try {
+      await snapshotSql.begin(async (tx) => {
+        await tx`DELETE FROM chat_messages WHERE conversation_id = ${CONV_ID}`;
+        await tx`DELETE FROM conversations WHERE id = ${CONV_ID}::uuid`;
+        await tx`INSERT INTO conversations SELECT * FROM s29_saved_reference_conversation`;
+        await tx`INSERT INTO chat_messages SELECT * FROM s29_saved_reference_messages`;
+      });
+    } finally {
+      await snapshotSql.end({ timeout: 5 });
+      snapshotSql = null;
+    }
+  });
+
   it('AC-1 [PRIMARY]: after reset the live zero-cache returns the reference conversation with zero chat_messages', () => {
     // Seed a message so the post-reset zero read proving 0 is material (not vacuous).
     // (Best-effort; if seeding is unavailable, the 0-count assertion still holds.)

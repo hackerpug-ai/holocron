@@ -283,6 +283,20 @@ let suitePitrTarget = '';
 let suiteSeedNote = '';
 /** True when seedPitrSentinelWindow succeeded on the live primary this suite run. */
 let seedOk = false;
+/** Source cluster archive command restored after this suite's real backup cycle. */
+let originalArchiveCommand: string | null = null;
+
+function psqlPrimary(sql: string): string {
+  const result = spawnSync('psql', [DATABASE_URL, '-v', 'ON_ERROR_STOP=1', '-tAc', sql], {
+    encoding: 'utf8',
+    env: process.env,
+    timeout: 30_000,
+  });
+  if (result.status !== 0) {
+    throw new Error(`PITR primary SQL failed: ${result.stderr || result.stdout}`);
+  }
+  return (result.stdout ?? '').trim();
+}
 
 /**
  * Prefer forced/env target. Optionally use the suite seed window when
@@ -304,6 +318,7 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
     expect(existsSync(RESTORE_TS), `restore.ts missing: ${RESTORE_TS}`).toBe(true);
     secretsPath = resolveSecretsPath();
     scratchRoot = mkdtempSync(join(tmpdir(), 'redhat-fix-c3-pitr-'));
+    originalArchiveCommand = psqlPrimary('SHOW archive_command');
 
     const database = new URL(DATABASE_URL);
     const backupEnv: NodeJS.ProcessEnv = {
@@ -416,6 +431,11 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       } catch {
         // leave for debug
       }
+    }
+    if (originalArchiveCommand !== null) {
+      const escaped = originalArchiveCommand.replaceAll("'", "''");
+      psqlPrimary(`ALTER SYSTEM SET archive_command TO '${escaped}'`);
+      psqlPrimary('SELECT pg_reload_conf()');
     }
   });
 

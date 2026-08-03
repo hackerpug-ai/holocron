@@ -22,13 +22,6 @@ const PROVENANCE = join(OUT_DIR, 'build-provenance.json');
 const APP_PATH = join(OUT_DIR, 'holocron.app');
 const DIAGNOSIS = join(OUT_DIR, 'crash-diagnosis.md');
 const EVIDENCE_DIR = join(REPO, '.tmp/GATE-FIX-G1');
-const D03_SEED = join(REPO, '.worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app');
-const D03_PROV = join(REPO, '.worktrees/D03-02/.tmp/e2e/expo-dev-client/build-provenance.json');
-// When worktree path differs, also accept monorepo absolute seed.
-const D03_SEED_ABS =
-  '/Users/inference1/Projects/holocron/.worktrees/D03-02/.tmp/e2e/expo-dev-client/holocron.app';
-const D03_PROV_ABS =
-  '/Users/inference1/Projects/holocron/.worktrees/D03-02/.tmp/e2e/expo-dev-client/build-provenance.json';
 
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || 'iPhone 17';
 
@@ -69,13 +62,6 @@ function parseJsonLoose(text: string): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-function seedPaths(): { app: string; prov: string } {
-  if (existsSync(D03_SEED) && existsSync(D03_PROV)) {
-    return { app: D03_SEED, prov: D03_PROV };
-  }
-  return { app: D03_SEED_ABS, prov: D03_PROV_ABS };
 }
 
 describe('Sprint 20 GATE-FIX-G1 Expo dev-client rebuild', () => {
@@ -160,7 +146,16 @@ describe('Sprint 20 GATE-FIX-G1 Expo dev-client rebuild', () => {
 
   describe('AC-4: reject crashing seed as rebuild + crash-diagnosis', () => {
     it('rejects method=reuse-existing as rebuild success and writes crash-diagnosis.md', () => {
-      const { app, prov } = seedPaths();
+      const fixtureRoot = join(EVIDENCE_DIR, 'ac4-crashing-seed');
+      const app = join(fixtureRoot, 'holocron.app');
+      const prov = join(fixtureRoot, 'build-provenance.json');
+      mkdirSync(app, { recursive: true });
+      writeFileSync(join(app, 'Info.plist'), '<?xml version="1.0"?><plist version="1.0"/>', 'utf8');
+      writeFileSync(
+        prov,
+        JSON.stringify({ method: 'reuse-existing', app_path: app }, null, 2),
+        'utf8'
+      );
       expect(existsSync(app), `crashing seed missing at ${app}`).toBe(true);
       expect(existsSync(prov), `seed provenance missing at ${prov}`).toBe(true);
 

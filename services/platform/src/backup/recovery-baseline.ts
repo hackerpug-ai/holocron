@@ -715,19 +715,47 @@ export function computeBlobManifestSha256(blobRoot: string): string {
   return sha256Utf8(body);
 }
 
+/**
+ * R2 prefix for recovery-baseline objects.
+ *
+ * Production keeps the standing `recovery-baselines/` namespace. The isolated
+ * go/no-go lane must remain inside its minted `integration/...` capability, so
+ * baseline objects are nested under that lane's pgBackRest prefix.
+ */
+export function recoveryBaselineObjectPrefix(
+  config?: Pick<BackupConfig, 'pgbackrestPrefix'>,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  if (env.HOLO_GO_NO_GO_ISOLATED !== '1') return RECOVERY_BASELINE_PREFIX;
+  const isolatedRoot = config?.pgbackrestPrefix?.trim().replace(/^\/+|\/+$/g, '') ?? '';
+  if (!isolatedRoot.startsWith('integration/')) {
+    throw new Error(
+      'isolated recovery baseline requires config.pgbackrestPrefix under integration/'
+    );
+  }
+  return `${isolatedRoot}/${RECOVERY_BASELINE_PREFIX}`;
+}
+
 /** Content-addressed R2 key for a baseline_id. */
-export function contentAddressedBaselineKey(baselineId: string): string {
+export function contentAddressedBaselineKey(
+  baselineId: string,
+  objectPrefix: string = RECOVERY_BASELINE_PREFIX
+): string {
   const id = formatSha256Digest(baselineId);
-  return `${RECOVERY_BASELINE_PREFIX}/sha256/${id}/${RECOVERY_BASELINE_OBJECT_NAME}`;
+  return `${objectPrefix.replace(/^\/+|\/+$/g, '')}/sha256/${id}/${RECOVERY_BASELINE_OBJECT_NAME}`;
 }
 
 /** Lookup key bound to concrete backup label + restic snapshot. */
-export function lookupBaselineKey(pgbackrestLabel: string, resticSnapshotId: string): string {
+export function lookupBaselineKey(
+  pgbackrestLabel: string,
+  resticSnapshotId: string,
+  objectPrefix: string = RECOVERY_BASELINE_PREFIX
+): string {
   const label = pgbackrestLabel.trim();
   const snap = resticSnapshotId.trim();
   if (label.length < 8) throw new Error(`pgbackrest_backup_label too short: ${label}`);
   if (snap.length < 8) throw new Error(`restic_snapshot_id too short: ${snap}`);
-  return `${RECOVERY_BASELINE_PREFIX}/by-backup/${encodeURIComponent(label)}/${encodeURIComponent(snap)}/${RECOVERY_BASELINE_OBJECT_NAME}`;
+  return `${objectPrefix.replace(/^\/+|\/+$/g, '')}/by-backup/${encodeURIComponent(label)}/${encodeURIComponent(snap)}/${RECOVERY_BASELINE_OBJECT_NAME}`;
 }
 
 /**
@@ -1446,10 +1474,12 @@ export function uploadRecoveryBaseline(options: {
     };
   }
   const baseline = validated.baseline;
-  const contentKey = contentAddressedBaselineKey(baseline.baseline_id);
+  const objectPrefix = recoveryBaselineObjectPrefix(cfg, env);
+  const contentKey = contentAddressedBaselineKey(baseline.baseline_id, objectPrefix);
   const lookupKey = lookupBaselineKey(
     baseline.pgbackrest_backup_label,
-    baseline.restic_snapshot_id
+    baseline.restic_snapshot_id,
+    objectPrefix
   );
   const body = `${JSON.stringify(baseline, null, 2)}\n`;
 
@@ -2105,16 +2135,21 @@ export function loadRecoveryBaselineFromR2(options: LoadRecoveryBaselineOptions 
   }
 
   let key = options.key?.replace(/^\//, '') ?? null;
+  const objectPrefix = recoveryBaselineObjectPrefix(cfg, env);
   if (!key && options.baselineId) {
     try {
-      key = contentAddressedBaselineKey(options.baselineId);
+      key = contentAddressedBaselineKey(options.baselineId, objectPrefix);
     } catch (e) {
       errors.push(e instanceof Error ? e.message : String(e));
     }
   }
   if (!key && options.pgbackrestBackupLabel && options.resticSnapshotId) {
     try {
-      key = lookupBaselineKey(options.pgbackrestBackupLabel, options.resticSnapshotId);
+      key = lookupBaselineKey(
+        options.pgbackrestBackupLabel,
+        options.resticSnapshotId,
+        objectPrefix
+      );
     } catch (e) {
       errors.push(e instanceof Error ? e.message : String(e));
     }
@@ -2746,13 +2781,14 @@ export function listRecoveryBaselines(options?: {
 }): { count: number; raw: string; keys: string[] } {
   const env = options?.env ?? process.env;
   const cfg = options?.config ?? loadBackupConfig({ env });
+  const objectPrefix = recoveryBaselineObjectPrefix(cfg, env);
   const listed = listRepoPrefix({
     accessKeyId: cfg.accessKeyId,
     secretAccessKey: cfg.secretAccessKey,
     sessionToken: cfg.sessionToken,
     endpoint: cfg.endpoint,
     bucketName: cfg.bucketName,
-    prefix: RECOVERY_BASELINE_PREFIX,
+    prefix: objectPrefix,
     env,
   });
   const keys: string[] = [];

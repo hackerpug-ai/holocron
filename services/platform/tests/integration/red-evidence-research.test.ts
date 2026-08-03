@@ -11,7 +11,9 @@
  *
  * Seeded data probe (TC-3): psql $DATABASE_URL -c "SELECT template_key FROM mission_templates"
  */
+import { resolve } from 'node:path';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ensureSystemMissionTemplates } from '../../src/mission/templates/ensure-system';
 import { ensureRedTestEnvironment } from './mission-red.helpers';
 import {
   captureHoloArtifact,
@@ -26,6 +28,8 @@ import {
   writePipes4Artifact,
 } from './pipes-4-red.helpers';
 
+const CLAIMS_FIXTURE = resolve(import.meta.dirname, '../fixtures/research/claims-4.json');
+
 describe.sequential('pipes-4 AC-1 RED — evidence-research template', () => {
   beforeAll(async () => {
     ensurePipes4EvidenceDirs();
@@ -38,6 +42,7 @@ describe.sequential('pipes-4 AC-1 RED — evidence-research template', () => {
 
   beforeEach(async () => {
     await resetMissionState();
+    await ensureSystemMissionTemplates({ databaseUrl: DATABASE_URL });
   }, 30_000);
 
   it('RED missing template: empty registry has no evidence-research; research run fails', async () => {
@@ -76,6 +81,9 @@ describe.sequential('pipes-4 AC-1 RED — evidence-research template', () => {
       '1',
       '--goal',
       'test',
+      '--claims',
+      CLAIMS_FIXTURE,
+      '--fresh',
       '--idempotency-key',
       `pipes4-ac1-${Date.now()}`,
       '--json',

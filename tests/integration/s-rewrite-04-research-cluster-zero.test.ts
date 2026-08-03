@@ -86,9 +86,13 @@ describe('S-REWRITE-04 research cluster Zero seam', () => {
     }
     expect(src).not.toMatch(/defineQuery|defineQueries/);
     // toolbelt list must not be an unfiltered documents dump
-    expect(src).toMatch(
-      /toolbeltDocumentsByOwner[\s\S]*?where\(\s*['"]category['"]\s*,\s*['"]IN['"]/
-    );
+    const toolbelt = src.match(
+      /toolbeltDocumentsByOwner[\s\S]*?\.orderBy\(\s*['"]created_at['"]/
+    )?.[0];
+    expect(toolbelt).toBeTruthy();
+    expect(toolbelt).toMatch(/\.where\(\(\{\s*cmp\s*,\s*or\s*\}\)\s*=>/);
+    expect(toolbelt?.match(/cmp\(\s*['"]category['"]\s*,\s*['"]=['"]/g)).toHaveLength(6);
+    expect(toolbelt).toMatch(/\bor\(/);
   });
 
   it('AC-6: components/notifications has zero convex/react imports', () => {

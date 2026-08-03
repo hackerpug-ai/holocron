@@ -2,7 +2,7 @@
  * REDHAT-FIX-S27-10 / F-10 — Install and verify launchd alert-sweep schedule.
  *
  * AC-1: --install-schedule loads holocron-backup-alert-sweep (real launchctl)
- * AC-2: installed plist wires non-empty ALERT_WEBHOOK_URL
+ * AC-2: installed plist resolves ALERT_WEBHOOK_URL at process start without persisting it
  * AC-3: gate-plan enforces install-schedule + launchctl proof
  * AC-4: missing ALERT_WEBHOOK_URL fails closed (ok=false)
  *
@@ -15,7 +15,15 @@
  *     pnpm vitest run services/platform/tests/integration/sprint27-alert-sweep-launchd.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -102,7 +110,7 @@ describe('REDHAT-FIX-S27-10 launchd alert-sweep schedule', () => {
     expect(text).not.toMatch(/https:\/\/[^\s@"]+\/services\//);
   });
 
-  it('renderAlertSweepPlist wires ALERT_WEBHOOK_URL + interval ≤300', () => {
+  it('renderAlertSweepPlist omits ALERT_WEBHOOK_URL by default + interval ≤300', () => {
     const webhook = 'https://hooks.example.invalid/services/T00/B00/SECRET_TOKEN_XYZ';
     const body = renderAlertSweepPlist({
       home: '/Users/test',
@@ -112,8 +120,8 @@ describe('REDHAT-FIX-S27-10 launchd alert-sweep schedule', () => {
       alertWebhookUrl: webhook,
       intervalSeconds: 300,
     });
-    expect(body).toMatch(/<key>ALERT_WEBHOOK_URL<\/key>/);
-    expect(body).toContain(webhook);
+    expect(body).not.toMatch(/<key>ALERT_WEBHOOK_URL<\/key>/);
+    expect(body).not.toContain(webhook);
     expect(body).toMatch(/backup:alert-sweep/);
     expect(body).toMatch(/<integer>300<\/integer>/);
     expect(body).toMatch(new RegExp(`<string>${ALERT_SWEEP_LAUNCHD_LABEL}</string>`));
@@ -147,7 +155,7 @@ describe('REDHAT-FIX-S27-10 launchd alert-sweep schedule', () => {
     expect(existsSync(result.plistPath)).toBe(false);
   });
 
-  it('install without bootstrap writes absolute plist with webhook + DATABASE_URL (no log leak)', () => {
+  it('install without bootstrap writes a secure plist and resolves webhook at process start', () => {
     const dir = mkdtempSync(resolve(tmpdir(), 's27-10-plist-'));
     tempDirs.push(dir);
     const webhook = 'http://127.0.0.1:9876/s27-10-hook?token=SUPER_SECRET_TOKEN';
@@ -178,12 +186,14 @@ describe('REDHAT-FIX-S27-10 launchd alert-sweep schedule', () => {
     expect(existsSync(result.plistPath)).toBe(true);
 
     const plist = readFileSync(result.plistPath, 'utf8');
-    expect(plist).toMatch(/ALERT_WEBHOOK_URL/);
-    expect(plist).toContain(webhook);
+    expect(plist).not.toMatch(/<key>ALERT_WEBHOOK_URL<\/key>/);
+    expect(plist).not.toContain(webhook);
     expect(plist).toMatch(/DATABASE_URL/);
     expect(plist).toMatch(/backup:alert-sweep/);
     expect(plist).toMatch(/--json/);
     expect(plist).toMatch(/<integer>300<\/integer>/);
+    expect(statSync(result.plistPath).mode & 0o777).toBe(0o600);
+    expect(result.messages.join(' ')).toMatch(/secrets-at-process-start|omitted/i);
 
     // stdout formatter must not embed the secret token
     const text = formatAlertLaunchdInstallText(result);
@@ -198,7 +208,7 @@ describe('REDHAT-FIX-S27-10 launchd alert-sweep schedule', () => {
   });
 
   itLive(
-    'AC-1/AC-2: CLI --install-schedule loads job + wires ALERT_WEBHOOK_URL (real launchctl)',
+    'AC-1/AC-2: CLI --install-schedule loads job without exposing ALERT_WEBHOOK_URL (real launchctl)',
     () => {
       ensureEvidenceDir();
       const webhook =
@@ -254,10 +264,10 @@ describe('REDHAT-FIX-S27-10 launchd alert-sweep schedule', () => {
       expect(lint.status).toBe(0);
       const dump = spawnSync('/usr/bin/plutil', ['-p', plistPath], { encoding: 'utf8' });
       writeEvidence('plist-dump.txt', dump.stdout || '');
-      expect(dump.stdout).toMatch(/ALERT_WEBHOOK_URL/);
+      expect(dump.stdout).not.toMatch(/ALERT_WEBHOOK_URL/);
+      expect(dump.stdout).not.toContain(webhook);
       expect(dump.stdout).toMatch(/backup:alert-sweep/);
-      // plutil -p shows the value; ensure non-empty key present
-      expect(dump.stdout).toMatch(/"ALERT_WEBHOOK_URL"\s*=>\s*"[^"]{8,}"/);
+      expect(statSync(plistPath).mode & 0o777).toBe(0o600);
     }
   );
 });

@@ -259,6 +259,7 @@ function runOneGate(spec: GateSpec, options: { cwd: string; env: NodeJS.ProcessE
 }
 
 const ISOLATED_DATABASE_URL_ENV = 'HOLO_GO_NO_GO_DATABASE_URL';
+const ISOLATED_DATABASE_OWNER_URL_ENV = 'HOLO_GO_NO_GO_DATABASE_URL_OWNER';
 const ISOLATED_CONVEX_DEPLOYMENT_ENV = 'HOLO_GO_NO_GO_CONVEX_DEPLOYMENT';
 const ISOLATED_CONVEX_URL_ENV = 'HOLO_GO_NO_GO_CONVEX_URL';
 const ISOLATED_CONVEX_SITE_URL_ENV = 'HOLO_GO_NO_GO_CONVEX_SITE_URL';
@@ -321,6 +322,7 @@ const ISOLATED_SOURCE_SECRET_KEYS = [
 
 type IsolatedIntegrationEnv = {
   env: NodeJS.ProcessEnv;
+  prepareRuntime: () => void;
   cleanup: () => void;
 };
 
@@ -461,6 +463,19 @@ function createIsolatedIntegrationEnv(
   if (!database.port || database.port === '5432') {
     throw new Error(`${ISOLATED_DATABASE_URL_ENV} must use an explicit non-default Postgres port`);
   }
+  const ownerDatabaseUrl = baseEnv[ISOLATED_DATABASE_OWNER_URL_ENV]?.trim() || databaseUrl;
+  const ownerDatabase = assertLoopbackUrl(ownerDatabaseUrl, ISOLATED_DATABASE_OWNER_URL_ENV);
+  if (ownerDatabase.protocol !== 'postgres:' && ownerDatabase.protocol !== 'postgresql:') {
+    throw new Error(`${ISOLATED_DATABASE_OWNER_URL_ENV} must use postgres:// or postgresql://`);
+  }
+  if (ownerDatabase.pathname.replace(/^\//, '') !== 'holocron_nonprod') {
+    throw new Error(`${ISOLATED_DATABASE_OWNER_URL_ENV} must target the holocron_nonprod database`);
+  }
+  if (databaseEndpoint(ownerDatabase) !== databaseEndpoint(database)) {
+    throw new Error(
+      `${ISOLATED_DATABASE_OWNER_URL_ENV} must target the same isolated server as ${ISOLATED_DATABASE_URL_ENV}`
+    );
+  }
   const operatorDatabaseRaw = baseEnv.DATABASE_URL ?? sourceSecrets.DATABASE_URL;
   if (operatorDatabaseRaw) {
     const operatorDatabase = new URL(operatorDatabaseRaw);
@@ -549,7 +564,7 @@ function createIsolatedIntegrationEnv(
     HOLO_KEY_RN: `rn-go-no-go-${localKeySuffix}`,
     MASTRA_API_KEY: `mastra-go-no-go-${localKeySuffix}`,
   };
-  const previousArchiveCommand = readableArchiveCommand(database, baseEnv);
+  const previousArchiveCommand = readableArchiveCommand(ownerDatabase, baseEnv);
   try {
     const isolatedSourceSecrets: Record<string, string> = {};
     for (const key of ISOLATED_SOURCE_SECRET_KEYS) {
@@ -678,7 +693,7 @@ function createIsolatedIntegrationEnv(
       CONVEX_DEPLOYMENT: convexDeployment,
       CONVEX_URL: convexUrl,
       DATABASE_URL: databaseUrl,
-      DATABASE_URL_OWNER: databaseUrl,
+      DATABASE_URL_OWNER: ownerDatabaseUrl,
       EXPO_PUBLIC_CONVEX_SITE_URL: convexSiteUrl,
       EXPO_PUBLIC_CONVEX_URL: convexUrl,
       FLEET_URL: fleetUrl,
@@ -711,9 +726,30 @@ function createIsolatedIntegrationEnv(
 
     return {
       env: isolatedEnv,
+      prepareRuntime: () => {
+        // The durable never-cloud guard intentionally fails closed when this
+        // row is absent. Namespace reset produces a clean database, so establish
+        // the explicit normal state immediately before a production lane. This
+        // hook is not run for tests that inject synthetic gate subprocesses.
+        const degradedModeSeed = runIsolatedPsql(
+          ownerDatabase,
+          baseEnv,
+          [
+            'INSERT INTO degraded_mode (id, degraded_state, resume_state, mission_mode, extraction_state)',
+            "VALUES ('global', 'normal', 'normal', 'full', 'running')",
+            'ON CONFLICT (id) DO UPDATE SET',
+            "degraded_state = 'normal', resume_state = 'normal', message = NULL, role = NULL,",
+            "endpoint = NULL, degradation_action = NULL, mission_mode = 'full',",
+            "extraction_state = 'running', updated_at = now()",
+          ].join(' ')
+        );
+        if (degradedModeSeed.status !== 0) {
+          throw new Error('cannot seed isolated degraded_mode control row');
+        }
+      },
       cleanup: () => {
         cleanupIsolatedArchiveCommand({
-          database,
+          database: ownerDatabase,
           baseEnv,
           pgbackrestConfig,
           previousArchiveCommand,
@@ -787,6 +823,9 @@ export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
     for (const spec of specs) {
       const gateEnv =
         spec.name === 'integration' || spec.name === 'live' ? (isolated?.env ?? env) : env;
+      if (options.gates === undefined && (spec.name === 'integration' || spec.name === 'live')) {
+        isolated?.prepareRuntime();
+      }
       gates.push(runOneGate(spec, { cwd, env: gateEnv }));
     }
   } finally {

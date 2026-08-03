@@ -13,16 +13,18 @@
  *   FLEET_URL=http://127.0.0.1:4545/v1 \
  *   pnpm test -- services/platform/tests/integration/observability-traces.test.ts
  */
-import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  type ResearchMissionResult,
+  runResearchMission,
+} from '../../src/observability/mission-research';
 
 const PLATFORM_IT = Boolean(process.env.PLATFORM_IT);
 const itLive = PLATFORM_IT ? it : it.skip;
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
-const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/obs-1');
 
 const LANGFUSE_BASE_URL = (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:3100').replace(
@@ -31,54 +33,26 @@ const LANGFUSE_BASE_URL = (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:31
 );
 const LANGFUSE_PUBLIC_KEY = process.env.LANGFUSE_PUBLIC_KEY ?? 'pk-lf-holocron-obs1-public';
 const LANGFUSE_SECRET_KEY = process.env.LANGFUSE_SECRET_KEY ?? 'sk-lf-holocron-obs1-secret';
-const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
 const FLEET_URL = process.env.FLEET_URL ?? 'http://127.0.0.1:4545/v1';
 
 const SECRET_SENTINEL = 'trace-secret-001';
 const PII_EMAIL = 'trace@example.invalid';
 const SERVICE_NAME = 'holocron-platform';
 
-type CliResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
 function basicAuthHeader(publicKey: string, secretKey: string): string {
   return `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString('base64')}`;
 }
 
-async function runHolo(
-  args: string[],
-  env: Record<string, string | undefined> = {}
-): Promise<CliResult> {
-  return new Promise((resolvePromise, reject) => {
-    const child = spawn('bun', [HOLO_CLI, ...args], {
-      cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        DATABASE_URL,
-        FLEET_URL,
-        FLEET_KEY: process.env.FLEET_KEY ?? 'sk-none',
-        LANGFUSE_BASE_URL,
-        LANGFUSE_PUBLIC_KEY,
-        LANGFUSE_SECRET_KEY,
-        ...env,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
-    });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      resolvePromise({ exitCode: code ?? 1, stdout, stderr });
-    });
+async function runObservedResearch(
+  goal: string,
+  baseUrl = LANGFUSE_BASE_URL
+): Promise<ResearchMissionResult> {
+  return runResearchMission({
+    goal,
+    role: 'divergent',
+    langfuseBaseUrl: baseUrl,
+    langfusePublicKey: LANGFUSE_PUBLIC_KEY,
+    langfuseSecretKey: LANGFUSE_SECRET_KEY,
   });
 }
 
@@ -114,26 +88,6 @@ async function waitForTrace(
   return null;
 }
 
-function parseJsonStdout(stdout: string): Record<string, unknown> {
-  const trimmed = stdout.trim();
-  // Prefer last JSON object in stdout (CLI may log progress lines first).
-  const lines = trimmed
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i]!;
-    if (line.startsWith('{') || line.startsWith('[')) {
-      try {
-        return JSON.parse(line) as Record<string, unknown>;
-      } catch {
-        // try full stdout below
-      }
-    }
-  }
-  return JSON.parse(trimmed) as Record<string, unknown>;
-}
-
 function writeEvidence(name: string, content: unknown): void {
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   const path = resolve(EVIDENCE_DIR, name);
@@ -166,15 +120,7 @@ describe('obs-1 observability traces → self-hosted Langfuse', () => {
     'AC-1/TC-1: one Langfuse trace per research mission run (serviceName holocron-platform)',
     async () => {
       const goal = 'Observability trace fixture';
-      const cli = await runHolo(['mission', 'run', 'research', '--goal', goal, '--json']);
-      writeEvidence('ac1-cli.json', {
-        exitCode: cli.exitCode,
-        stdout: cli.stdout,
-        stderr: cli.stderr,
-      });
-
-      expect(cli.exitCode, `cli stderr: ${cli.stderr}\nstdout: ${cli.stdout}`).toBe(0);
-      const payload = parseJsonStdout(cli.stdout);
+      const payload = await runObservedResearch(goal);
       writeEvidence('ac1-payload.json', payload);
 
       expect(payload.ok).toBe(true);
@@ -218,15 +164,8 @@ describe('obs-1 observability traces → self-hosted Langfuse', () => {
     'AC-2/TC-2: model-generation child span correlates to parent run (role metadata)',
     async () => {
       const goal = 'Observability child span fixture — one real model call';
-      const cli = await runHolo(['mission', 'run', 'research', '--goal', goal, '--json']);
-      writeEvidence('ac2-cli.json', {
-        exitCode: cli.exitCode,
-        stdout: cli.stdout,
-        stderr: cli.stderr,
-      });
-      expect(cli.exitCode, `cli stderr: ${cli.stderr}\nstdout: ${cli.stdout}`).toBe(0);
-
-      const payload = parseJsonStdout(cli.stdout);
+      const payload = await runObservedResearch(goal);
+      writeEvidence('ac2-result.json', payload);
       const traceId = String(payload.traceId ?? '');
       expect(traceId.length).toBeGreaterThan(0);
 
@@ -293,37 +232,23 @@ describe('obs-1 observability traces → self-hosted Langfuse', () => {
     async () => {
       // Point at a dead local port — Postgres + fleet remain available.
       const deadUrl = 'http://127.0.0.1:3999';
-      const cli = await runHolo(
-        ['mission', 'run', 'research', '--goal', 'Observability trace failure fixture', '--json'],
-        {
-          LANGFUSE_BASE_URL: deadUrl,
-        }
-      );
-      writeEvidence('ac3-export-failure.json', {
-        exitCode: cli.exitCode,
-        stdout: cli.stdout,
-        stderr: cli.stderr,
-      });
-
-      expect(cli.exitCode, 'process exit must be 1 on export failure').toBe(1);
-
-      const combined = `${cli.stdout}\n${cli.stderr}`;
-      expect(combined).toMatch(/LANGFUSE_EXPORT_FAILED/);
-
-      // Prefer structured JSON when present.
-      let payload: Record<string, unknown> | null = null;
+      let payload: ResearchMissionResult | null = null;
+      let thrown: unknown = null;
       try {
-        payload = parseJsonStdout(cli.stdout);
-      } catch {
-        payload = null;
+        await runObservedResearch('Observability trace failure fixture', deadUrl);
+      } catch (error) {
+        thrown = error;
+        payload = (error as { missionResult?: ResearchMissionResult }).missionResult ?? null;
       }
-      if (payload) {
-        writeEvidence('ac3-payload.json', payload);
-        expect(payload.langfuseExportOk === false || payload.ok === false).toBe(true);
-        expect(String(payload.errorCode ?? payload.code ?? '')).toMatch(/LANGFUSE_EXPORT_FAILED/);
-        // Must not claim a green Langfuse result.
-        expect(payload.langfuseExportOk).not.toBe(true);
-      }
+      writeEvidence('ac3-export-failure.json', {
+        thrown: thrown instanceof Error ? thrown.message : String(thrown),
+        payload,
+      });
+      expect(thrown).toBeTruthy();
+      expect(payload).not.toBeNull();
+      expect(payload?.ok).toBe(false);
+      expect(payload?.langfuseExportOk).toBe(false);
+      expect(payload?.errorCode).toBe('LANGFUSE_EXPORT_FAILED');
     },
     180_000
   );
@@ -332,15 +257,8 @@ describe('obs-1 observability traces → self-hosted Langfuse', () => {
     'AC-4/TC-4: redaction — raw secret sentinel and synthetic PII absent from exported trace',
     async () => {
       const goal = `Redaction fixture secret=${SECRET_SENTINEL} email=${PII_EMAIL}`;
-      const cli = await runHolo(['mission', 'run', 'research', '--goal', goal, '--json']);
-      writeEvidence('ac4-cli.json', {
-        exitCode: cli.exitCode,
-        stdout: cli.stdout,
-        stderr: cli.stderr,
-      });
-      expect(cli.exitCode, `cli stderr: ${cli.stderr}\nstdout: ${cli.stdout}`).toBe(0);
-
-      const payload = parseJsonStdout(cli.stdout);
+      const payload = await runObservedResearch(goal);
+      writeEvidence('ac4-result.json', payload);
       const traceId = String(payload.traceId ?? '');
       expect(traceId.length).toBeGreaterThan(0);
 

@@ -196,9 +196,13 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
       expect(src).not.toMatch(/api\.chat\.agentMutations\.cancelAgent/);
     });
 
-    it('drawer rename uses Zero mutator (mutate.conversations.update)', () => {
+    it('drawer rename uses the Hono command bridge and reads the result through Zero', () => {
       const src = read(join(REPO_ROOT, 'app', '(drawer)', '_layout.tsx'));
-      expect(src).toMatch(/mutate\.conversations\.update|updateConversation/);
+      const bridge = read(join(REPO_ROOT, 'app', 'zero', 'platform.ts'));
+      expect(src).toMatch(/renameConversationOnPlatform/);
+      expect(bridge).toMatch(/PATCH/);
+      expect(bridge).toMatch(/\/api\/conversations\/\$\{id\}/);
+      expect(src).toMatch(/conversationsByOwner/);
       expect(src).not.toMatch(/api\.conversations\.mutations\.update/);
     });
 
@@ -242,7 +246,7 @@ describe('S-REWRITE-01 chat cluster Zero/Hono rewire', () => {
       const cancel = read(join(REPO_ROOT, '.maestro', 'chat', 'cancel-works.yml'));
 
       // AC-1: three conversation-row indices + Expo Dev Client deep link
-      expect(drawer).toMatch(/openLink:\s*exp\+holocron:\/\/expo-development-client\//);
+      expect(drawer).toMatch(/openLink:\s*\$\{MAESTRO_DEV_CLIENT_OPEN_URL\}/);
       expect(drawer).toMatch(/index:\s*0/);
       expect(drawer).toMatch(/index:\s*1/);
       expect(drawer).toMatch(/index:\s*2/);

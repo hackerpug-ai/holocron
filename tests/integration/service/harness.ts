@@ -197,12 +197,13 @@ export async function httpJson(
   baseUrl: string,
   method: string,
   path: string,
-  options?: { key?: string; body?: string }
+  options?: { key?: string; body?: string; headers?: Record<string, string> }
 ): Promise<{ status: number; body: unknown; text: string }> {
   const headers: Record<string, string> = {
     accept: 'application/json',
     'content-type': 'application/json',
     ...(options?.key ? bearer(options.key) : {}),
+    ...options?.headers,
   };
   const res = await fetch(`${baseUrl}${path}`, {
     method,

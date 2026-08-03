@@ -12,6 +12,7 @@
  *   PLATFORM_IT=1 pnpm vitest run tests/integration/service/RED/immutability-dml-rejection.RED.test.ts
  */
 import { beforeAll, describe, expect } from 'vitest';
+import { toAppRoleDatabaseUrl } from '../../../../services/platform/src/db/evidence/index';
 import {
   DEFAULT_DATABASE_URL,
   ensureMigrated,
@@ -23,6 +24,18 @@ import {
   writeRedArtifact,
 } from './red-harness';
 
+async function insertOpenBeliefAsOwner(options: {
+  statement: string;
+}): Promise<{ id: string; claimId: string }> {
+  const { createSql } = await import('../../../../services/platform/src/db/client');
+  const ownerSql = createSql(DEFAULT_DATABASE_URL);
+  try {
+    return await insertOpenBelief(ownerSql, options);
+  } finally {
+    await ownerSql.end({ timeout: 5 });
+  }
+}
+
 describe('AC-1 / TC-1: direct DML on beliefs raises 42501', () => {
   beforeAll(() => {
     if (!process.env.PLATFORM_IT) return;
@@ -33,10 +46,10 @@ describe('AC-1 / TC-1: direct DML on beliefs raises 42501', () => {
     await withEvidenceLock(async () => {
       await truncateEvidenceTables();
       const { createSql } = await import('../../../../services/platform/src/db/client');
-      const sql = createSql(DEFAULT_DATABASE_URL);
+      const sql = createSql(toAppRoleDatabaseUrl(DEFAULT_DATABASE_URL));
 
       try {
-        const b = await insertOpenBelief(sql, { statement: 'immutable-original' });
+        const b = await insertOpenBeliefAsOwner({ statement: 'immutable-original' });
 
         let updateCode: string | null = null;
         let updateMessage = '';
@@ -101,10 +114,10 @@ describe('AC-1 / TC-1: direct DML on beliefs raises 42501', () => {
     await withEvidenceLock(async () => {
       await truncateEvidenceTables();
       const { createSql } = await import('../../../../services/platform/src/db/client');
-      const sql = createSql(DEFAULT_DATABASE_URL);
+      const sql = createSql(toAppRoleDatabaseUrl(DEFAULT_DATABASE_URL));
 
       try {
-        const b = await insertOpenBelief(sql, { statement: 'delete-me-not' });
+        const b = await insertOpenBeliefAsOwner({ statement: 'delete-me-not' });
 
         let deleteCode: string | null = null;
         let deleteMessage = '';
@@ -153,7 +166,7 @@ describe('AC-1 / TC-1: direct DML on beliefs raises 42501', () => {
 
   itLive('has_table_privilege reports app role lacks UPDATE and DELETE on beliefs', async () => {
     const { createSql } = await import('../../../../services/platform/src/db/client');
-    const sql = createSql(DEFAULT_DATABASE_URL);
+    const sql = createSql(toAppRoleDatabaseUrl(DEFAULT_DATABASE_URL));
     try {
       const priv = await sql<{ can_update: boolean; can_delete: boolean; role: string }[]>`
         SELECT

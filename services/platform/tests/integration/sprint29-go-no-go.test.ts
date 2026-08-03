@@ -429,6 +429,7 @@ describe('D06-02 cutover:go-no-go', () => {
         HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
         HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
         HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
+        HOLO_GO_NO_GO_DATABASE_URL_OWNER: 'postgres://owner@127.0.0.1:65433/holocron_nonprod',
         HOLO_GO_NO_GO_FLEET_URL: 'http://127.0.0.1:4545/v1',
         HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: pg1Path,
         HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-boundary-test',
@@ -456,7 +457,7 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(report.overall.ok).toBe(true);
     const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as Record<string, unknown>;
     expect(snapshot.databaseUrl).toBe(databaseUrl);
-    expect(snapshot.ownerUrl).toBe(databaseUrl);
+    expect(snapshot.ownerUrl).toBe('postgres://owner@127.0.0.1:65433/holocron_nonprod');
     expect(snapshot.convexDeployment).toBe('local:boundary-test');
     expect(snapshot.convexUrl).toBe('http://127.0.0.1:3210');
     expect(snapshot.convexSiteUrl).toBe('http://127.0.0.1:3211');
