@@ -262,8 +262,10 @@ export function killRealPgbackrestProcess(options?: {
 
 /**
  * Prefer the explicit connection URL so ambient PG* cannot target another cluster.
- * libpq accepts a connection URI through PGDATABASE; keeping it there prevents
- * credentials embedded in DATABASE_URL from appearing in the psql process argv.
+ * Keep credentials out of psql argv and translate the URL into libpq's discrete
+ * environment variables. PGDATABASE itself is only a database name; treating a
+ * URL as its value makes some psql/libpq versions request a database literally
+ * named `postgres://...`.
  */
 export function psqlConnectionArgs(env: NodeJS.ProcessEnv): string[] {
   const databaseUrl = env.DATABASE_URL?.trim();
@@ -274,7 +276,28 @@ export function psqlConnectionArgs(env: NodeJS.ProcessEnv): string[] {
 
 export function psqlConnectionEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const databaseUrl = env.DATABASE_URL?.trim();
-  return databaseUrl ? { ...env, PGDATABASE: databaseUrl } : env;
+  if (!databaseUrl) return env;
+
+  const parsed = new URL(databaseUrl);
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error('DATABASE_URL must use postgres:// or postgresql://');
+  }
+  const database = decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+  if (!parsed.hostname || !database) {
+    throw new Error('DATABASE_URL must include a host and database name');
+  }
+
+  const connectionEnv: NodeJS.ProcessEnv = {
+    ...env,
+    PGHOST: parsed.hostname.replace(/^\[|\]$/g, ''),
+    PGPORT: parsed.port || '5432',
+    PGDATABASE: database,
+  };
+  if (parsed.username) connectionEnv.PGUSER = decodeURIComponent(parsed.username);
+  else delete connectionEnv.PGUSER;
+  if (parsed.password) connectionEnv.PGPASSWORD = decodeURIComponent(parsed.password);
+  else delete connectionEnv.PGPASSWORD;
+  return connectionEnv;
 }
 
 function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {

@@ -153,7 +153,13 @@ describe('GATE-FIX-QA1 pure helpers (always)', () => {
       'DATABASE_URL and its password must never be present on psql argv'
     ).toEqual([]);
     expect(psqlConnectionArgs(env).join(' ')).not.toContain('wal-secret-canary');
-    expect(psqlConnectionEnv(env).PGDATABASE).toBe(databaseUrl);
+    expect(psqlConnectionEnv(env)).toMatchObject({
+      PGHOST: '127.0.0.1',
+      PGPORT: '56594',
+      PGDATABASE: 'holocron_nonprod',
+      PGUSER: 'wal-user',
+      PGPASSWORD: 'wal-secret-canary',
+    });
     expect(psqlConnectionArgs({ PGDATABASE: 'fallback_db' })).toEqual(['-d', 'fallback_db']);
   });
 
