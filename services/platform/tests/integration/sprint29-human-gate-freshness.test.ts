@@ -472,7 +472,16 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       const step5 = String(steps.find((s) => s.n === 5)?.literal_cmd ?? '');
       expect(step5).toMatch(/HOLO_ARTICLE_SHARE_TOKEN/);
       expect(step5).toMatch(/convex dev --once/);
-      expect(step5).toMatch(/convex function-spec/);
+      expect(step5).toMatch(/wait-convex-function-spec\.sh/);
+      const functionSpecWaiter = readFileSync(
+        resolve(REPO_ROOT, 'scripts/wait-convex-function-spec.sh'),
+        'utf8'
+      );
+      expect(functionSpecWaiter).toMatch(/pnpm exec convex function-spec/);
+      expect(functionSpecWaiter).toMatch(/while true/);
+      expect(functionSpecWaiter).toMatch(/missing_identifier/);
+      expect(functionSpecWaiter).toMatch(/<<<"\$function_spec"/);
+      expect(functionSpecWaiter).not.toMatch(/printf[^;]*\$function_spec[^;]*\|\s*grep/);
       expect(step5).toMatch(/migrationFence\/audit\.js:migrationReadOnlyStatus/);
       expect(step5).toMatch(/migrationFence\/audit\.js:recordFenceArmed/);
       expect(step5).toMatch(/migrationFence\/audit\.js:recordWriteAttempt/);
@@ -486,9 +495,11 @@ describe('REDHAT-FIX-S29-R2-H01 / R3-C01 sprint29 human-gate freshness', () => {
       expect(step5).toMatch(/grep -F[\s\S]*<<<"\$convex_function_spec"/);
       expect(step5).not.toMatch(/printf[^;]*\$convex_function_spec[^;]*\|\s*grep/);
       expect(step5.indexOf('convex dev --once')).toBeLessThan(
-        step5.indexOf('convex function-spec')
+        step5.indexOf('wait-convex-function-spec.sh')
       );
-      expect(step5.indexOf('convex function-spec')).toBeLessThan(step5.indexOf('cutover:freeze'));
+      expect(step5.indexOf('wait-convex-function-spec.sh')).toBeLessThan(
+        step5.indexOf('cutover:freeze')
+      );
       expect(step5).toMatch(/rm -f \.tmp\/D06-03\/article-baseline\.json/);
       expect(step5).toMatch(/capturedAtMs\s*>\s*\$freeze\[0\]\.fence_armed_at/);
       expect(step5).toMatch(/\.phase\s*==\s*"d06-03-post-arm"/);
