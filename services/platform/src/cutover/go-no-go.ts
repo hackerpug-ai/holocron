@@ -282,6 +282,14 @@ function assertLoopbackUrl(raw: string, name: string): URL {
   return parsed;
 }
 
+function loopbackOrigin(raw: string, name: string): string {
+  const parsed = assertLoopbackUrl(raw, name);
+  if (parsed.pathname !== '/' || parsed.search || parsed.hash) {
+    throw new Error(`${name} must be a loopback service origin without a path, query, or hash`);
+  }
+  return parsed.origin;
+}
+
 function canonicalHostname(hostname: string): string {
   return hostname.replace(/^\[|\]$/g, '').toLocaleLowerCase();
 }
@@ -315,6 +323,122 @@ type IsolatedIntegrationEnv = {
   env: NodeJS.ProcessEnv;
   cleanup: () => void;
 };
+
+type R2CredentialTuple = {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+};
+
+type PsqlResult = {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+function optionalR2CredentialTuple(
+  env: NodeJS.ProcessEnv,
+  names: readonly [string, string, string],
+  label: string
+): R2CredentialTuple | null {
+  const [accessKeyId = '', secretAccessKey = '', sessionToken = ''] = names.map(
+    (name) => env[name]?.trim() ?? ''
+  );
+  const values = [accessKeyId, secretAccessKey, sessionToken];
+  if (values.every((value) => value.length === 0)) return null;
+  if (values.some((value) => value.length === 0)) {
+    throw new Error(`${label} must be a complete access key, secret key, and session token tuple`);
+  }
+  return {
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
+  };
+}
+
+function isolatedPsqlEnv(database: URL, baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    LANG: baseEnv.LANG ?? 'C',
+    LC_ALL: baseEnv.LC_ALL ?? 'C',
+    PATH: baseEnv.PATH,
+    PGDATABASE: database.pathname.replace(/^\//, ''),
+    PGHOST: canonicalHostname(database.hostname),
+    PGPORT: database.port || '5432',
+    PGUSER: decodeURIComponent(database.username),
+  };
+  if (database.password) env.PGPASSWORD = decodeURIComponent(database.password);
+  return env;
+}
+
+function runIsolatedPsql(
+  database: URL,
+  baseEnv: NodeJS.ProcessEnv,
+  sql: string,
+  scalar = false
+): PsqlResult {
+  const result = spawnSync(
+    'psql',
+    ['-X', ...(scalar ? ['-At'] : []), '-v', 'ON_ERROR_STOP=1', '-c', sql],
+    {
+      encoding: 'utf8',
+      env: isolatedPsqlEnv(database, baseEnv),
+      timeout: 30_000,
+    }
+  );
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+}
+
+function readableArchiveCommand(database: URL, baseEnv: NodeJS.ProcessEnv): string | null {
+  const result = runIsolatedPsql(database, baseEnv, 'SHOW archive_command', true);
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function reusableArchiveCommand(command: string | null): string | null {
+  if (!command || command.includes('holocron-go-no-go-')) return null;
+  return command;
+}
+
+/**
+ * PostgreSQL owns archive_command independently from the child process that
+ * created the referenced config. Detach the command before deleting that
+ * credential-bearing temporary config, otherwise the archiver loops forever
+ * against a dangling path and contaminates the next isolated gate run.
+ */
+function cleanupIsolatedArchiveCommand(options: {
+  database: URL;
+  baseEnv: NodeJS.ProcessEnv;
+  pgbackrestConfig: string;
+  previousArchiveCommand: string | null;
+}): void {
+  if (!existsSync(options.pgbackrestConfig)) return;
+
+  const current = runIsolatedPsql(options.database, options.baseEnv, 'SHOW archive_command', true);
+  if (current.status !== 0) {
+    throw new Error('cannot inspect isolated PostgreSQL archive_command during gate cleanup');
+  }
+  if (!current.stdout.trim().includes(options.pgbackrestConfig)) return;
+
+  const previous = reusableArchiveCommand(options.previousArchiveCommand);
+  const mutationSql = previous
+    ? `ALTER SYSTEM SET archive_command = '${previous.replace(/'/g, "''")}'`
+    : 'ALTER SYSTEM RESET archive_command';
+  const mutation = runIsolatedPsql(options.database, options.baseEnv, mutationSql);
+  if (mutation.status !== 0) {
+    throw new Error('cannot restore isolated PostgreSQL archive_command during gate cleanup');
+  }
+  const reload = runIsolatedPsql(options.database, options.baseEnv, 'SELECT pg_reload_conf()');
+  if (reload.status !== 0) {
+    throw new Error('cannot reload isolated PostgreSQL archive_command during gate cleanup');
+  }
+  const verified = runIsolatedPsql(options.database, options.baseEnv, 'SHOW archive_command', true);
+  if (verified.status !== 0 || verified.stdout.trim().includes(options.pgbackrestConfig)) {
+    throw new Error('isolated PostgreSQL still references temporary pgBackRest config');
+  }
+}
 
 /**
  * Build the integration lane's documented real-service environment without
@@ -351,14 +475,14 @@ function createIsolatedIntegrationEnv(
   if (!convexDeployment.startsWith('local:')) {
     throw new Error(`${ISOLATED_CONVEX_DEPLOYMENT_ENV} must name a local Convex deployment`);
   }
-  const convexUrl = assertLoopbackUrl(
+  const convexUrl = loopbackOrigin(
     requiredIsolationValue(baseEnv, ISOLATED_CONVEX_URL_ENV),
     ISOLATED_CONVEX_URL_ENV
-  ).toString();
-  const convexSiteUrl = assertLoopbackUrl(
+  );
+  const convexSiteUrl = loopbackOrigin(
     requiredIsolationValue(baseEnv, ISOLATED_CONVEX_SITE_URL_ENV),
     ISOLATED_CONVEX_SITE_URL_ENV
-  ).toString();
+  );
   const fleetUrl = assertLoopbackUrl(
     requiredIsolationValue(baseEnv, ISOLATED_FLEET_URL_ENV),
     ISOLATED_FLEET_URL_ENV
@@ -382,7 +506,12 @@ function createIsolatedIntegrationEnv(
   if (!existsSync(requestedPg1Path)) {
     throw new Error(`${ISOLATED_PG1_PATH_ENV} does not exist`);
   }
-  const pg1Path = realpathSync(requestedPg1Path);
+  // Keep the operator-supplied spelling for pgBackRest: on macOS PostgreSQL
+  // can report /tmp while realpath resolves it to /private/tmp, and pgBackRest
+  // correctly rejects that textual cluster-path mismatch. Use the canonical
+  // path only for the security boundary comparison below.
+  const pg1Path = requestedPg1Path;
+  const canonicalPg1Path = realpathSync(requestedPg1Path);
   const operatorPg1Path =
     baseEnv.PGBACKREST_PG1_PATH ?? baseEnv.PGDATA ?? sourceSecrets.PGBACKREST_PG1_PATH;
   if (operatorPg1Path) {
@@ -390,7 +519,7 @@ function createIsolatedIntegrationEnv(
     const canonicalOperatorPath = existsSync(resolvedOperatorPath)
       ? realpathSync(resolvedOperatorPath)
       : resolvedOperatorPath;
-    if (pg1Path === canonicalOperatorPath) {
+    if (canonicalPg1Path === canonicalOperatorPath) {
       throw new Error(`${ISOLATED_PG1_PATH_ENV} must differ from the operator Postgres data path`);
     }
   }
@@ -420,11 +549,40 @@ function createIsolatedIntegrationEnv(
     HOLO_KEY_RN: `rn-go-no-go-${localKeySuffix}`,
     MASTRA_API_KEY: `mastra-go-no-go-${localKeySuffix}`,
   };
+  const previousArchiveCommand = readableArchiveCommand(database, baseEnv);
   try {
     const isolatedSourceSecrets: Record<string, string> = {};
     for (const key of ISOLATED_SOURCE_SECRET_KEYS) {
       const value = baseEnv[key] ?? sourceSecrets[key];
       if (value) isolatedSourceSecrets[key] = value;
+    }
+    const integrationWriter = optionalR2CredentialTuple(
+      baseEnv,
+      [
+        'R2_INTEGRATION_ACCESS_KEY_ID',
+        'R2_INTEGRATION_SECRET_ACCESS_KEY',
+        'R2_INTEGRATION_SESSION_TOKEN',
+      ],
+      'isolated integration R2 writer'
+    );
+    const integrationRestore = optionalR2CredentialTuple(
+      baseEnv,
+      [
+        'R2_INTEGRATION_RESTORE_ACCESS_KEY_ID',
+        'R2_INTEGRATION_RESTORE_SECRET_ACCESS_KEY',
+        'R2_INTEGRATION_RESTORE_SESSION_TOKEN',
+      ],
+      'isolated integration R2 restore reader'
+    );
+    if (integrationWriter) {
+      isolatedSourceSecrets.R2_ACCESS_KEY_ID = integrationWriter.accessKeyId;
+      isolatedSourceSecrets.R2_SECRET_ACCESS_KEY = integrationWriter.secretAccessKey;
+      isolatedSourceSecrets.R2_SESSION_TOKEN = integrationWriter.sessionToken;
+    }
+    if (integrationRestore) {
+      isolatedSourceSecrets.R2_RESTORE_ACCESS_KEY_ID = integrationRestore.accessKeyId;
+      isolatedSourceSecrets.R2_RESTORE_SECRET_ACCESS_KEY = integrationRestore.secretAccessKey;
+      isolatedSourceSecrets.R2_RESTORE_SESSION_TOKEN = integrationRestore.sessionToken;
     }
     upsertSecretsFile(secretsPath, {
       ...isolatedSourceSecrets,
@@ -448,10 +606,9 @@ function createIsolatedIntegrationEnv(
     const isolatedEnv: NodeJS.ProcessEnv = { ...baseEnv };
     // Remove credentials that could retarget the lane at an operator service or
     // expose broad backup administration through the child ambient environment.
-    // Real-provider API keys intentionally remain because PLATFORM_IT is the
-    // real-provider lane. Backup runtime credentials are available only through
-    // the 0600 isolated secrets file, while the temporary prefix-scoped
-    // R2_RESTORE_* proof tuple remains available to the live read-only probes.
+    // This remains a real-provider PLATFORM_IT lane, but all backup runtime and
+    // temporary prefix-scoped credentials cross the child boundary only through
+    // the generated 0600 isolated secrets file.
     for (const key of [
       'BACKUP_R2_ACCESS_KEY_ID',
       'BACKUP_R2_SECRET_ACCESS_API_TOKEN',
@@ -463,6 +620,7 @@ function createIsolatedIntegrationEnv(
       'HOLO_KEY_MCP',
       'HOLO_KEY_RN',
       'MASTRA_API_KEY',
+      'MINT_R2_PREFIX_RESTORE',
       'AWS_ACCESS_KEY_ID',
       'AWS_CONFIG_FILE',
       'AWS_DEFAULT_PROFILE',
@@ -493,7 +651,18 @@ function createIsolatedIntegrationEnv(
       'R2_PARENT_ACCESS_KEY_ID',
       'R2_PARENT_SECRET_ACCESS_KEY',
       'R2_PARENT_SESSION_TOKEN',
+      'R2_FIRE_DRILL_DATA_ACCESS_KEY_ID',
+      'R2_FIRE_DRILL_DATA_SECRET_ACCESS_KEY',
+      'R2_FIRE_DRILL_DATA_SESSION_TOKEN',
+      'R2_INTEGRATION_ACCESS_KEY_ID',
+      'R2_INTEGRATION_SECRET_ACCESS_KEY',
+      'R2_INTEGRATION_SESSION_TOKEN',
+      'R2_INTEGRATION_RESTORE_ACCESS_KEY_ID',
+      'R2_INTEGRATION_RESTORE_SECRET_ACCESS_KEY',
+      'R2_INTEGRATION_RESTORE_SESSION_TOKEN',
+      'R2_PGBACKREST_PREFIX',
       'R2_REPO_CIPHER_PASS',
+      'R2_RESTORE_OBJECT_PREFIX',
       'R2_SCOPE_PROBE_IN_KEY',
       'R2_SCOPE_PROBE_OUT_KEY',
       'R2_SECRET_ACCESS_KEY',
@@ -527,8 +696,6 @@ function createIsolatedIntegrationEnv(
       PGHOST: canonicalHostname(database.hostname),
       PGPORT: database.port || '5432',
       PGUSER: decodeURIComponent(database.username),
-      R2_PGBACKREST_PREFIX: r2Prefix,
-      R2_RESTORE_OBJECT_PREFIX: r2Prefix,
       R2_RESTIC_PREFIX: resticPrefix,
       RESTIC_REPOSITORY: resticRepository,
       RESTIC_CACHE_DIR: resticCache,
@@ -544,7 +711,15 @@ function createIsolatedIntegrationEnv(
 
     return {
       env: isolatedEnv,
-      cleanup: () => rmSync(tempRoot, { recursive: true, force: true }),
+      cleanup: () => {
+        cleanupIsolatedArchiveCommand({
+          database,
+          baseEnv,
+          pgbackrestConfig,
+          previousArchiveCommand,
+        });
+        rmSync(tempRoot, { recursive: true, force: true });
+      },
     };
   } catch (error) {
     rmSync(tempRoot, { recursive: true, force: true });

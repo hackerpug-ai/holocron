@@ -38,6 +38,9 @@ const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const DB = process.env.DATABASE_URL ?? '';
 const HAS_NONPROD = DB.includes('holocron_nonprod');
 const GREEN_DIR = join(REPO_ROOT, '.tmp', 'sprint20-capstone-verdict-green');
+const FAILED_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="capstone-negative-control" tests="1" failures="1"><testcase name="intentional-failure"><failure message="negative control"/></testcase></testsuite></testsuites>
+`;
 
 const skip = !PLATFORM_IT || !HAS_NONPROD;
 
@@ -165,18 +168,12 @@ describe.skipIf(skip)('REDHAT-FIX-H1 — capstone verifier', () => {
    * durable evidence must never flip green over junit failures.
    */
   it('GATE-FIX-G5 AC-1: refuses green when junit_failures>0 despite healthy PG/Zero', () => {
-    const failJunit = join(
-      REPO_ROOT,
-      '.tmp',
-      'maestro-reference-flow',
-      'failed-this-cycle',
-      'junit.xml'
-    );
-    expect(existsSync(failJunit), 'this-cycle failures junit missing').toBe(true);
-
-    // Stage failures=1 junit + non-empty media (screenshot + video) from real fixtures.
+    // Stage a clearly labeled failures=1 negative-control JUnit alongside the
+    // real current-cycle media. A successful harness legitimately clears old
+    // failed-cycle quarantine, so this oracle must not depend on stale failure
+    // artifacts from a prior run.
     stageGreenDir();
-    copyFileSync(failJunit, join(GREEN_DIR, 'junit.xml'));
+    writeFileSync(join(GREEN_DIR, 'junit.xml'), FAILED_JUNIT);
 
     let exitCode = 0;
     let stdout = '';

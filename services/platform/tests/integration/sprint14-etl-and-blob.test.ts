@@ -1184,6 +1184,12 @@ describe('Sprint 14 ETL + blob verify', () => {
       // Isolate the production-anchor proof from the Sprint 14 fixture's
       // deliberately privileged UNIQUE_PAST_8K_MARKER document.
       await truncateSprint14Tables(db);
+      const load = runHolo(['etl:run', '--export', EXPORT_FIXTURE, '--catalog', CATALOG, '--json']);
+      expect(load.status, `${load.stdout}\n${load.stderr}`).toBe(0);
+      // etl:vectors intentionally requires provenance from a real successful
+      // ETL run. Keep that run and remove only its document corpus before
+      // inserting the production-shaped punctuation anchor.
+      await db.unsafe('TRUNCATE TABLE documents RESTART IDENTITY CASCADE');
       const documentId = deterministicUuidV7(
         Date.UTC(2000, 0, 1),
         's29-production-punctuation-retrieval'

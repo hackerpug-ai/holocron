@@ -431,6 +431,24 @@ export function ensureContinuousWalArchiving(options?: {
   });
   writePgbackrestConfig(cfg.pgbackrestConfigPath, conf);
 
+  // An isolated gate uses a fresh exact R2 prefix. archive-push cannot create
+  // the stanza metadata it requires, so bootstrap it idempotently before
+  // pointing PostgreSQL at this temporary repository. Existing production
+  // stanzas are a no-op here; a new prefix gets archive.info/backup.info.
+  const stanzaCreate = run(
+    pgbackrestBin,
+    [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'stanza-create'],
+    { env, timeoutMs: 180_000 }
+  );
+  if (stanzaCreate.status !== 0) {
+    const output = (stanzaCreate.stderr || stanzaCreate.stdout).trim();
+    const detail =
+      output.length <= 1_200
+        ? output
+        : `${output.slice(0, 400)}\n...[${output.length - 1_200} chars truncated]...\n${output.slice(-800)}`;
+    throw new Error(`pgBackRest stanza-create failed: ${detail || 'unknown error'}`);
+  }
+
   const archiveCommand = `${pgbackrestBin} --config=${cfg.pgbackrestConfigPath} --stanza=${cfg.stanza} archive-push %p`;
   // Refuse no-ops at the API boundary.
   if (

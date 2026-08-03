@@ -20,7 +20,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -342,6 +341,7 @@ describe('D06-02 cutover:go-no-go', () => {
         '  r2Cipher: process.env.R2_REPO_CIPHER_PASS ?? null,',
         '  resticPassword: process.env.RESTIC_PASSWORD ?? null,',
         '  expoToken: process.env.EXPO_TOKEN ?? null,',
+        '  r2Prefix: process.env.R2_PGBACKREST_PREFIX ?? null,',
         '};',
         'const applied = applyConsolidatedSecretsToEnv();',
         'const resticPrefix = ensureResticPrefixSecret();',
@@ -372,6 +372,8 @@ describe('D06-02 cutover:go-no-go', () => {
         "  secretsHasNonprod: secrets.includes('/holocron_nonprod'),",
         "  secretsHasOperatorDatabase: secrets.includes('/holocron\\n'),",
         "  secretsHasOperatorFleetKey: secrets.includes('operator-fleet-key-must-not-cross-boundary'),",
+        "  integrationWriterMapped: process.env.R2_ACCESS_KEY_ID === 'integration-writer-id',",
+        "  integrationRestoreMapped: process.env.R2_RESTORE_ACCESS_KEY_ID === 'integration-reader-id',",
         '  inheritedProductionConvex: process.env.CONVEX_DEPLOY_KEY ?? null,',
         '  inheritedProductionBase: process.env.HOLO_PRODUCTION_BASE_URL ?? null,',
         '  inheritedCloudflareAdmin: process.env.CLOUDFLARE_API_TOKEN ?? null,',
@@ -388,6 +390,9 @@ describe('D06-02 cutover:go-no-go', () => {
         '  inheritedR2Cipher: ambient.r2Cipher,',
         '  inheritedResticPassword: ambient.resticPassword,',
         '  inheritedExpoToken: ambient.expoToken,',
+        '  inheritedR2Prefix: ambient.r2Prefix,',
+        '  inheritedMintRequest: process.env.MINT_R2_PREFIX_RESTORE ?? null,',
+        '  inheritedIntegrationWriter: process.env.R2_INTEGRATION_ACCESS_KEY_ID ?? null,',
         '  resticSecretsPath: resticPrefix.secretsPath,',
         '}));',
         "console.log('Test Files  1 passed (1)');",
@@ -438,6 +443,13 @@ describe('D06-02 cutover:go-no-go', () => {
         R2_REPO_CIPHER_PASS: 'operator-r2-cipher-must-not-cross-boundary',
         R2_SECRET_ACCESS_KEY: 'operator-r2-secret-must-not-cross-boundary',
         RESTIC_PASSWORD: 'operator-restic-password-must-not-cross-boundary',
+        MINT_R2_PREFIX_RESTORE: '1',
+        R2_INTEGRATION_ACCESS_KEY_ID: 'integration-writer-id',
+        R2_INTEGRATION_SECRET_ACCESS_KEY: 'integration-writer-secret',
+        R2_INTEGRATION_SESSION_TOKEN: 'integration-writer-session',
+        R2_INTEGRATION_RESTORE_ACCESS_KEY_ID: 'integration-reader-id',
+        R2_INTEGRATION_RESTORE_SECRET_ACCESS_KEY: 'integration-reader-secret',
+        R2_INTEGRATION_RESTORE_SESSION_TOKEN: 'integration-reader-session',
       }),
     });
 
@@ -446,8 +458,8 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.databaseUrl).toBe(databaseUrl);
     expect(snapshot.ownerUrl).toBe(databaseUrl);
     expect(snapshot.convexDeployment).toBe('local:boundary-test');
-    expect(snapshot.convexUrl).toBe('http://127.0.0.1:3210/');
-    expect(snapshot.convexSiteUrl).toBe('http://127.0.0.1:3211/');
+    expect(snapshot.convexUrl).toBe('http://127.0.0.1:3210');
+    expect(snapshot.convexSiteUrl).toBe('http://127.0.0.1:3211');
     expect(snapshot.fleetUrl).toBe('http://127.0.0.1:4545/v1');
     expect(snapshot.fleetKey).toBe('sk-none');
     expect(snapshot.appliedSecretsPath).toBe(snapshot.secretsPath);
@@ -458,14 +470,18 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.pgHost).toBe('127.0.0.1');
     expect(snapshot.pgPort).toBe('65433');
     expect(snapshot.pgDatabase).toBe('holocron_nonprod');
-    expect(snapshot.pgdata).toBe(realpathSync(pg1Path));
-    expect(snapshot.pg1Path).toBe(realpathSync(pg1Path));
+    // Preserve the server-visible path spelling for pgBackRest (/tmp and
+    // /private/tmp are the same inode on macOS but not the same cluster path).
+    expect(snapshot.pgdata).toBe(resolve(pg1Path));
+    expect(snapshot.pg1Path).toBe(resolve(pg1Path));
     expect(String(snapshot.pgbackrestConfig)).toMatch(/holocron-go-no-go-.*pgbackrest\.conf$/);
     expect(snapshot.secretsExists).toBe(true);
     expect(snapshot.secretsMode).toBe(0o600);
     expect(snapshot.secretsHasNonprod).toBe(true);
     expect(snapshot.secretsHasOperatorDatabase).toBe(false);
     expect(snapshot.secretsHasOperatorFleetKey).toBe(false);
+    expect(snapshot.integrationWriterMapped).toBe(true);
+    expect(snapshot.integrationRestoreMapped).toBe(true);
     expect(snapshot.inheritedProductionConvex).toBeNull();
     expect(snapshot.inheritedProductionBase).toBeNull();
     expect(snapshot.inheritedCloudflareAdmin).toBeNull();
@@ -482,6 +498,9 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.inheritedR2Cipher).toBeNull();
     expect(snapshot.inheritedResticPassword).toBeNull();
     expect(snapshot.inheritedExpoToken).toBeNull();
+    expect(snapshot.inheritedR2Prefix).toBeNull();
+    expect(snapshot.inheritedMintRequest).toBeNull();
+    expect(snapshot.inheritedIntegrationWriter).toBeNull();
     expect(snapshot.resticSecretsPath).toBe(snapshot.secretsPath);
     expect(existsSync(String(snapshot.secretsPath))).toBe(false);
     expect(readFileSync(durableSecrets, 'utf8')).toBe(durableBefore);
@@ -663,6 +682,78 @@ describe('D06-02 cutover:go-no-go', () => {
       expect(target.stdout.trim()).toBe(`holocron_nonprod:${port}`);
     },
     360_000
+  );
+
+  itIsolatedGoNoGo(
+    'isolated gate cleanup removes its temporary pgBackRest archive_command before deleting config',
+    () => {
+      const databaseUrl = process.env.DATABASE_URL;
+      const pgdata = process.env.PGBACKREST_PG1_PATH;
+      expect(databaseUrl).toBeTruthy();
+      expect(pgdata).toBeTruthy();
+
+      const root = mkdtempSync(resolve(tmpdir(), 's29-archive-cleanup-boundary-'));
+      transientRoots.push(root);
+      const childPath = resolve(root, 'set-temporary-archive-command.ts');
+      const snapshotPath = resolve(root, 'temporary-config-path.txt');
+      writeFileSync(
+        childPath,
+        [
+          "import { spawnSync } from 'node:child_process';",
+          "import { writeFileSync } from 'node:fs';",
+          "const configPath = process.env.PGBACKREST_CONFIG ?? '';",
+          "const snapshotPath = process.env.S29_ARCHIVE_CLEANUP_SNAPSHOT ?? '';",
+          "writeFileSync(configPath, '# test-owned temporary pgBackRest config\\n', { mode: 0o600 });",
+          "writeFileSync(snapshotPath, configPath, 'utf8');",
+          'const command = `/opt/homebrew/bin/pgbackrest --config=${configPath} --stanza=main archive-push %p`;',
+          "const sql = `ALTER SYSTEM SET archive_command = '${command.replaceAll(\"'\", \"''\")}'`;",
+          "const set = spawnSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-c', sql], { encoding: 'utf8', env: process.env });",
+          "if (set.status !== 0) throw new Error(`${set.stdout ?? ''}\\n${set.stderr ?? ''}`);",
+          "const reload = spawnSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-c', 'SELECT pg_reload_conf()'], { encoding: 'utf8', env: process.env });",
+          "if (reload.status !== 0) throw new Error(`${reload.stdout ?? ''}\\n${reload.stderr ?? ''}`);",
+          "console.log('Test Files  1 passed (1)');",
+          "console.log('Tests  1 passed (1)');",
+          '',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const report = runGoNoGo({
+        repoRoot: REPO_ROOT,
+        cwd: REPO_ROOT,
+        skipWrite: true,
+        gates: [
+          {
+            name: 'integration',
+            command: 'bun set-temporary-archive-command.ts',
+            argv: [BUN_BIN, childPath],
+            kind: 'vitest',
+          },
+        ],
+        env: isolatedLaneEnv({
+          DATABASE_URL: undefined,
+          HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
+          HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: pgdata,
+          HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-archive-cleanup-boundary',
+          PGBACKREST_PG1_PATH: undefined,
+          PGDATA: undefined,
+          S29_ARCHIVE_CLEANUP_SNAPSHOT: snapshotPath,
+        }),
+      });
+
+      expect(report.overall.ok).toBe(true);
+      const temporaryConfigPath = readFileSync(snapshotPath, 'utf8');
+      expect(existsSync(temporaryConfigPath)).toBe(false);
+      const show = spawnSync('psql', ['-X', '-Atc', 'SHOW archive_command'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: process.env,
+        timeout: 30_000,
+      });
+      expect(show.status, `${show.stdout ?? ''}\n${show.stderr ?? ''}`).toBe(0);
+      expect(show.stdout).not.toContain(temporaryConfigPath);
+    },
+    120_000
   );
 
   it('integration isolation refuses the operator database endpoint', () => {

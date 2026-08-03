@@ -305,6 +305,39 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
     secretsPath = resolveSecretsPath();
     scratchRoot = mkdtempSync(join(tmpdir(), 'redhat-fix-c3-pitr-'));
 
+    const database = new URL(DATABASE_URL);
+    const backupEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      HOLO_SECRETS_PATH: secretsPath,
+      DATABASE_URL,
+      DATABASE_URL_OWNER: DATABASE_URL,
+      PGHOST: database.hostname,
+      PGPORT: database.port || '5432',
+      PGDATABASE: database.pathname.replace(/^\//, ''),
+      PGUSER: decodeURIComponent(database.username),
+    };
+    if (database.password) backupEnv.PGPASSWORD = decodeURIComponent(database.password);
+    else delete backupEnv.PGPASSWORD;
+
+    // The official isolated lane uses a fresh exact R2 prefix. Establish a
+    // real base backup before T0 so the seeded TT lies inside a restorable WAL
+    // window; stanza metadata + WAL alone cannot satisfy PITR.
+    const base = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:base', '--type', 'full', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: backupEnv,
+      timeout: 180_000,
+    });
+    writeEvidence('seed-base-backup.json', {
+      status: base.status,
+      stdout: (base.stdout ?? '').slice(0, 4000),
+      stderr: (base.stderr ?? '').slice(0, 2000),
+    });
+    expect(
+      base.status,
+      `PITR base backup must succeed before sentinel T0: ${(base.stdout ?? '').slice(-1500)} ${(base.stderr ?? '').slice(-500)}`
+    ).toBe(0);
+
     // One seed attempt for the suite (sentinel window scaffolding).
     // REDHAT-FIX-S28R2-H4: seed must establish sentinels or fail setup (no soft-skip).
     if (FORCED_PITR_TS) {
@@ -333,23 +366,10 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       }
       seededTt = seed.tt;
       spawnSync('sleep', ['2'], { encoding: 'utf8' });
-      const database = new URL(DATABASE_URL);
-      const walEnv: NodeJS.ProcessEnv = {
-        ...process.env,
-        HOLO_SECRETS_PATH: secretsPath,
-        DATABASE_URL,
-        DATABASE_URL_OWNER: DATABASE_URL,
-        PGHOST: database.hostname,
-        PGPORT: database.port || '5432',
-        PGDATABASE: database.pathname.replace(/^\//, ''),
-        PGUSER: decodeURIComponent(database.username),
-      };
-      if (database.password) walEnv.PGPASSWORD = decodeURIComponent(database.password);
-      else delete walEnv.PGPASSWORD;
       const wal = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:wal', '--json'], {
         cwd: REPO_ROOT,
         encoding: 'utf8',
-        env: walEnv,
+        env: backupEnv,
         timeout: 180_000,
       });
       writeEvidence('seed-wal-archive.json', {

@@ -30,7 +30,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const ARTIFACT_DIR = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow');
-const FAILED_CYCLE = join(ARTIFACT_DIR, 'failed-this-cycle');
 const VERIFIER = join(REPO_ROOT, 'scripts', 'e2e', 'capstone-verdict.sh');
 const REGENERATOR = join(REPO_ROOT, 'scripts', 'e2e', 'regenerate-sprint-gate.sh');
 const SPRINT_DIR = resolve(
@@ -48,6 +47,9 @@ const STAGE_DIR = join(REPO_ROOT, '.tmp', 'GATE-FIX-G2', 'honesty-stage');
 const OFFICIAL11_SUCCESS_SHA = 'a9eb6f7adb5771585d6d4efae16a7f5123bd6f6c2694923e9ef7269ece15738d';
 const HISTORICAL_SUCCESS_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
 <testsuites><testsuite name="historical-negative-control" tests="1" failures="0" time="1.0"><testcase name="historical-pass" status="SUCCESS"/></testsuite></testsuites>
+`;
+const FAILED_CYCLE_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="this-cycle-negative-control" tests="1" failures="1"><testcase name="intentional-failure"><failure message="negative control"/></testcase></testsuite></testsuites>
 `;
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
@@ -165,20 +167,15 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
   });
 
   it('AC-3: reject historical official11 SUCCESS as this-cycle green', () => {
-    expect(existsSync(join(FAILED_CYCLE, 'junit.xml')), 'failed-this-cycle junit missing').toBe(
-      true
-    );
-
-    const failedJunit = join(FAILED_CYCLE, 'junit.xml');
-    expect(parseFailuresAttr(readFileSync(failedJunit, 'utf8'))).toBe(1);
-
     // Attack stage: deterministic historical SUCCESS in the live dir while a
-    // real failed-this-cycle JUnit remains red. The rejected hash is additive
-    // to the production-known official11 hash and cannot authorize a PASS.
+    // labeled failed-cycle negative control remains red. The rejected hash is
+    // additive to the production-known official11 hash and cannot authorize a
+    // PASS. This intentionally does not depend on stale failed harness output.
     rmSync(STAGE_DIR, { recursive: true, force: true });
     mkdirSync(join(STAGE_DIR, 'failed-this-cycle'), { recursive: true });
     writeFileSync(join(STAGE_DIR, 'junit.xml'), HISTORICAL_SUCCESS_JUNIT);
-    copyFileSync(failedJunit, join(STAGE_DIR, 'failed-this-cycle', 'junit.xml'));
+    const failedJunit = join(STAGE_DIR, 'failed-this-cycle', 'junit.xml');
+    writeFileSync(failedJunit, FAILED_CYCLE_JUNIT);
     // Fresh real media lets capstone evaluate JUnit honesty, not media absence.
     if (existsSync(join(ARTIFACT_DIR, 'final.png'))) {
       copyFileSync(join(ARTIFACT_DIR, 'final.png'), join(STAGE_DIR, 'final.png'));

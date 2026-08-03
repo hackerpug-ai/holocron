@@ -33,6 +33,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { applyConsolidatedSecretsToEnv, getSecretValue } from '../../src/config/secrets';
 import { createSql, type Sql } from '../../src/db/client';
 import { resolveDatabaseUrl } from '../../src/db/connection';
+import { resetProcessDegradedFlag } from '../../src/inference/degraded-process-flag';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const FLEET_TIMEOUT_MS = 300_000;
@@ -437,7 +438,7 @@ function assertNoSecretsInRow(row: TelemetryRow): void {
 }
 
 describe('obs-2 inference telemetry', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!PLATFORM_IT) return;
     mkdirSync(EVIDENCE_DIR, { recursive: true });
     const mig = runHolo(['db:migrate', '--json']);
@@ -450,6 +451,26 @@ describe('obs-2 inference telemetry', () => {
       // RED phase: migration 0013 may not exist yet — tests still assert fail-closed.
       // After GREEN, migrate must succeed.
       console.warn(`db:migrate exit=${mig.status} (expected during RED before 0013 exists)`);
+    }
+
+    // This suite proves the normal-mode escape path. Other integration files
+    // deliberately persist the global degraded row; normalize both durable and
+    // process-local state so serial full-suite order cannot turn AC-3 into a
+    // false never-cloud refusal.
+    resetProcessDegradedFlag();
+    delete process.env.HOLO_PROCESS_DEGRADED_STATE;
+    const sql = createSql(DATABASE_URL);
+    try {
+      await sql`
+        INSERT INTO degraded_mode (id, degraded_state, resume_state, updated_at)
+        VALUES ('global', 'normal', 'normal', now())
+        ON CONFLICT (id) DO UPDATE SET
+          degraded_state = 'normal',
+          resume_state = 'normal',
+          updated_at = now()
+      `;
+    } finally {
+      await sql.end({ timeout: 5 });
     }
   });
 

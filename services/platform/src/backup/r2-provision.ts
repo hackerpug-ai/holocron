@@ -1287,6 +1287,9 @@ export function listRepoPrefix(creds: {
       ],
       creds
     );
+    if (res.status !== 0) {
+      throw new Error(`R2 list-prefix failed through trusted aws (exit ${res.status})`);
+    }
     const lines = (res.stdout || '')
       .split('\n')
       .map((l) => l.trim())
@@ -1311,6 +1314,12 @@ export function listRepoPrefix(creds: {
     ],
     creds
   );
+  if (res.status === 3 && /^LIST_EMPTY\b/m.test(res.stdout || '')) {
+    return { count: 0, raw: res.stdout || '' };
+  }
+  if (res.status !== 0) {
+    throw new Error(`R2 list-prefix failed through trusted provider (exit ${res.status})`);
+  }
   const lines = (res.stdout || '')
     .split('\n')
     .map((l) => l.trim())

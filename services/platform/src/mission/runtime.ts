@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { isMigrationReadOnly, migrationReadOnlyMissionError } from '../cutover/soak-fence.ts';
@@ -1601,7 +1601,14 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         components: args.components ?? 2,
         databaseUrl: context.databaseUrl,
       }));
-    const childKey = `subwf:${context.run.id}:${EVIDENCE_RESEARCH_TEMPLATE_KEY}`;
+    // Align idempotency with the WIP-one subject key (template + goal). A
+    // parent-run-scoped key leaves an honest suspended research child behind,
+    // then a second digest for the same topic collides with the active-subject
+    // unique index before it can reuse that child.
+    const childSubjectHash = createHash('sha256')
+      .update(canonicalJsonString({ topic, components: args.components ?? 2 }))
+      .digest('hex');
+    const childKey = `subwf:subscriptions:${childSubjectHash}`;
     // Nested mission run — template reference, with its own checkpoint commits.
     const child = await runMissionTemplate(
       {

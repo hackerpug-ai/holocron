@@ -144,6 +144,17 @@ function composePrefix(record: DeploymentRecord): string[] {
   return ['compose', '-p', record.project, '-f', record.composePath, '-f', record.overridePath];
 }
 
+/** Drain and refresh long-lived Postgres consumers without a reconnect stampede. */
+export function postgresDependencyRecoveryArgs(prefix: readonly string[]): string[][] {
+  return [
+    [...prefix, 'stop', 'mastra', 'scheduler', 'zero-cache'],
+    [...prefix, 'start', 'postgres'],
+    [...prefix, 'up', '-d', '--wait', '--wait-timeout', '240', 'postgres'],
+    [...prefix, 'start', 'mastra', 'zero-cache'],
+    [...prefix, 'up', '-d', '--wait', '--wait-timeout', '240'],
+  ];
+}
+
 function runOrFail(
   runner: DeploymentRunner,
   cwd: string,
@@ -242,15 +253,9 @@ async function dependencyNegativeControl(options: {
       );
     }
   } finally {
-    runOrFail(options.runner, options.cwd, options.env, 'docker', [...prefix, 'start', 'postgres']);
-    runOrFail(options.runner, options.cwd, options.env, 'docker', [
-      ...prefix,
-      'up',
-      '-d',
-      '--wait',
-      '--wait-timeout',
-      '240',
-    ]);
+    for (const args of postgresDependencyRecoveryArgs(prefix)) {
+      runOrFail(options.runner, options.cwd, options.env, 'docker', args);
+    }
   }
   await waitForExternalHealth({ record: options.record, fetchImpl: options.fetchImpl });
   return {

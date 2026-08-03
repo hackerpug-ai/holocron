@@ -146,6 +146,7 @@ function pgbackrestEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.Proces
 function renderTestConf(options: {
   stanza: string;
   pg1Path: string;
+  pg1Port: string;
   bucketName: string;
   endpointHost: string;
   repoPath: string;
@@ -182,7 +183,7 @@ log-level-file=off
 
 [${options.stanza}]
 pg1-path=${options.pg1Path}
-pg1-port=5432
+pg1-port=${options.pg1Port}
 `;
 }
 
@@ -215,6 +216,7 @@ export function seedRealPgbackrestHealthyChain(options: {
         .toLowerCase() || 'eed'
     }`;
   const pg1Path = options.pg1Path ?? options.cfg.pg1Path;
+  const pg1Port = new URL(options.databaseUrl).port || '5432';
   const prodConf = options.productionConfigPath;
   const workDir = mkdtempSync(join(tmpdir(), 'd05-01-pgbr-seed-'));
   const logPath = join(workDir, 'log');
@@ -226,6 +228,7 @@ export function seedRealPgbackrestHealthyChain(options: {
   const confBody = renderTestConf({
     stanza,
     pg1Path,
+    pg1Port,
     bucketName: options.cfg.bucketName,
     endpointHost: endpointHost(options.cfg.endpoint),
     repoPath: options.prefix,

@@ -63,6 +63,8 @@ const DATABASE_URL =
   process.env.DATABASE_URL ??
   process.env.DATABASE_URL_OWNER ??
   'postgres://127.0.0.1:5432/holocron';
+const SOURCE_DATABASE =
+  decodeURIComponent(new URL(DATABASE_URL).pathname.replace(/^\/+/, '')) || 'postgres';
 
 const RUN_ID = `d05-01-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -575,8 +577,10 @@ function psqlOnScratch(
 ): { status: number | null; stdout: string; stderr: string } {
   // Prefer TCP port written by holo restore (macOS socket paths under long scratch
   // dirs exceed sockaddr_un 103 bytes — restore uses /tmp/holo-restore-<port>).
-  // pitr_test lives in holocron (seeder DATABASE_URL); SELECT 1 uses postgres.
-  const databases = database === 'postgres' ? ['postgres'] : [database, 'postgres'];
+  // Domain probes must stay on the database named by the caller. Falling back
+  // to postgres can turn a missing/wrong source database into a false success
+  // when a same-named table happens to exist there.
+  const databases = [database];
   const attempts: Array<string[]> = [];
   try {
     const portPath = join(scratchDir, 'holo-restore.port');
@@ -973,10 +977,11 @@ describe.sequential('Sprint 28 D05-01 RED — restore fails closed on empty/corr
       });
 
       const select1 = restore.status === 0 ? psqlOnScratch(scratchDir, 'SELECT 1') : null;
-      // pitr_test is seeded into the holocron DB (DATABASE_URL), not the postgres maintenance DB.
+      // pitr_test is seeded into the database named by DATABASE_URL, not the
+      // postgres maintenance DB (the isolated lane uses holocron_nonprod).
       const pitrCount =
         restore.status === 0
-          ? psqlOnScratch(scratchDir, 'SELECT COUNT(*) FROM pitr_test', 'holocron')
+          ? psqlOnScratch(scratchDir, 'SELECT COUNT(*) FROM pitr_test', SOURCE_DATABASE)
           : null;
       const pitrRows =
         pitrCount && pitrCount.status === 0 ? Number(String(pitrCount.stdout).trim()) : 0;

@@ -17,7 +17,10 @@ import {
   renderDeploymentOverride,
 } from '../../src/deploy/production-deploy.ts';
 import type { ReleaseLock } from '../../src/deploy/production-release.ts';
-import { verifyProductionDeployment } from '../../src/deploy/verify-production.ts';
+import {
+  postgresDependencyRecoveryArgs,
+  verifyProductionDeployment,
+} from '../../src/deploy/verify-production.ts';
 import {
   assertExternalBaseUrl,
   verifyExternalDeploymentIdentity,
@@ -86,6 +89,17 @@ const expected = {
 };
 
 describe('D06-07 inference1 deployment contract', () => {
+  it('restarts every long-lived Postgres consumer after the database endpoint returns', () => {
+    const prefix = ['compose', '-p', 'holocron-test', '-f', 'compose.yaml'];
+    expect(postgresDependencyRecoveryArgs(prefix)).toEqual([
+      [...prefix, 'stop', 'mastra', 'scheduler', 'zero-cache'],
+      [...prefix, 'start', 'postgres'],
+      [...prefix, 'up', '-d', '--wait', '--wait-timeout', '240', 'postgres'],
+      [...prefix, 'start', 'mastra', 'zero-cache'],
+      [...prefix, 'up', '-d', '--wait', '--wait-timeout', '240'],
+    ]);
+  });
+
   it('rejects loopback identity', async () => {
     expect(() => assertExternalBaseUrl('http://127.0.0.1:4111')).toThrowError(/LOOPBACK_REJECTED/);
     expect(() => assertExternalBaseUrl('http://[::ffff:127.0.0.1]:4111')).toThrowError(

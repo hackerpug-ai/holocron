@@ -15,7 +15,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -23,7 +23,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const REGENERATOR = join(REPO_ROOT, 'scripts', 'e2e', 'regenerate-sprint-gate.sh');
-const FAILED_CYCLE = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow', 'failed-this-cycle');
 const SPRINT_DIR = resolve(
   REPO_ROOT,
   '.spec',
@@ -37,6 +36,9 @@ const STAGE_DIR = join(REPO_ROOT, '.tmp', 'GATE-FIX-G5', 'provenance-stage');
 
 const HISTORICAL_SUCCESS_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
 <testsuites><testsuite name="historical-negative-control" tests="1" failures="0" time="1.0"><testcase name="historical-pass" status="SUCCESS"/></testsuite></testsuites>
+`;
+const FAILED_CYCLE_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites><testsuite name="this-cycle-negative-control" tests="1" failures="1"><testcase name="intentional-failure"><failure message="negative control"/></testcase></testsuite></testsuites>
 `;
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
@@ -82,9 +84,6 @@ function runRegenerator(
 describe.skipIf(skip)('GATE-FIX-G5 — gate regenerator provenance', () => {
   beforeEach(() => {
     expect(existsSync(REGENERATOR), 'regenerate-sprint-gate.sh missing').toBe(true);
-    expect(existsSync(join(FAILED_CYCLE, 'junit.xml')), 'failed-this-cycle junit missing').toBe(
-      true
-    );
     expect(existsSync(GATE_RESULTS), 'gate-results.json missing').toBe(true);
 
     // Snapshot real gate-results so we never leave a substituted PASS on disk.
@@ -92,6 +91,7 @@ describe.skipIf(skip)('GATE-FIX-G5 — gate regenerator provenance', () => {
 
     rmSync(STAGE_DIR, { recursive: true, force: true });
     mkdirSync(join(STAGE_DIR, 'failed-this-cycle'), { recursive: true });
+    writeFileSync(join(STAGE_DIR, 'failed-this-cycle', 'junit.xml'), FAILED_CYCLE_JUNIT);
   });
 
   afterEach(() => {
@@ -103,16 +103,15 @@ describe.skipIf(skip)('GATE-FIX-G5 — gate regenerator provenance', () => {
   });
 
   it('GATE-FIX-G5 AC-2: reject historical SUCCESS junit substitution for this-cycle Step-1 PASS', () => {
-    const failedJunit = join(FAILED_CYCLE, 'junit.xml');
+    const failedJunit = join(STAGE_DIR, 'failed-this-cycle', 'junit.xml');
 
-    // Prove fixture identities: deterministic historical SUCCESS vs a real
-    // this-cycle failure preserved by the native harness run.
+    // Prove fixture identities: deterministic historical SUCCESS vs an
+    // explicitly labeled this-cycle negative control.
     expect(parseFailuresAttr(HISTORICAL_SUCCESS_JUNIT)).toBe(0);
     expect(parseFailuresAttr(readFileSync(failedJunit, 'utf8'))).toBe(1);
 
     // Attack: stage historical SUCCESS while retaining failed-this-cycle.
     writeFileSync(join(STAGE_DIR, 'junit.xml'), HISTORICAL_SUCCESS_JUNIT);
-    copyFileSync(failedJunit, join(STAGE_DIR, 'failed-this-cycle', 'junit.xml'));
 
     const historicalSha = sha256File(join(STAGE_DIR, 'junit.xml'));
     expect(historicalSha).toMatch(/^[0-9a-f]{64}$/);

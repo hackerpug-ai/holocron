@@ -88,6 +88,9 @@ export const projects: TestProjectConfiguration[] = [
     extends: true,
     test: {
       name: 'integration',
+      // Real provider/process boundaries routinely exceed Vitest's 5s unit-test default.
+      // Individual subprocesses retain their own fail-closed timeout caps.
+      testTimeout: 180_000,
       include: [
         'tests/integration/**/*.{test,spec}.{js,ts,tsx}',
         'services/platform/tests/integration/**/*.{test,spec}.{js,ts,tsx}',
