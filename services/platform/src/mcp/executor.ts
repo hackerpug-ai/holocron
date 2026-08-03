@@ -25,6 +25,94 @@ const SHOP_RETAILERS: Record<string, { domain: string; trustTier: number; verifi
   bestbuy: { domain: 'bestbuy.com', trustTier: 1, verified: true },
 };
 
+type JinaSearchItem = {
+  title: string;
+  url: string;
+  description: string;
+  content: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asJinaSearchItem(value: unknown): JinaSearchItem | null {
+  if (!isRecord(value)) return null;
+  const title = typeof value.title === 'string' ? value.title : '';
+  const url = typeof value.url === 'string' ? value.url : '';
+  if (!title || !url) return null;
+  return {
+    title,
+    url,
+    description: typeof value.description === 'string' ? value.description : '',
+    content: typeof value.content === 'string' ? value.content : '',
+  };
+}
+
+function belongsToRetailer(url: string, domain: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+  } catch {
+    return false;
+  }
+}
+
+function retailerSearchUrl(retailer: string, query: string): string {
+  const encoded = encodeURIComponent(query);
+  switch (retailer) {
+    case 'amazon':
+      return `https://www.amazon.com/s?k=${encoded}`;
+    case 'ebay':
+      return `https://www.ebay.com/sch/i.html?_nkw=${encoded}`;
+    case 'newegg':
+      return `https://www.newegg.com/p/pl?d=${encoded}`;
+    case 'bestbuy':
+      return `https://www.bestbuy.com/site/searchpage.jsp?st=${encoded}`;
+    default:
+      throw new Error(`unsupported retailer: ${retailer}`);
+  }
+}
+
+async function fetchJinaSearchItems(
+  query: string,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<JinaSearchItem[]> {
+  const response = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(query)}`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+    signal,
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload: unknown = await response.json();
+  const data = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
+  return data.map(asJinaSearchItem).filter((item): item is JinaSearchItem => item !== null);
+}
+
+async function fetchRetailerPage(
+  retailer: string,
+  query: string,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<JinaSearchItem[]> {
+  const targetUrl = retailerSearchUrl(retailer, query);
+  const response = await fetch(`https://r.jina.ai/${targetUrl}`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+    signal,
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload: unknown = await response.json();
+  const data = isRecord(payload) && isRecord(payload.data) ? payload.data : null;
+  if (!data) throw new Error('response omitted data');
+  const item = asJinaSearchItem({
+    title: data.title,
+    url: typeof data.url === 'string' ? data.url : targetUrl,
+    description: data.description,
+    content: data.content,
+  });
+  return item ? [item] : [];
+}
+
 function parseShopPrice(text: string): number | null {
   const match = text.match(/(?:[$€£])\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
   const matchedPrice = match?.[1];
@@ -85,50 +173,55 @@ async function runLiveShopSearch(
   const started = Date.now();
   const listings: ShopSearchResult[] = [];
   const errors: string[] = [];
+  let searchItems: JinaSearchItem[] = [];
+  try {
+    // Jina's site-scoped search currently returns upstream 500s. Search once,
+    // then bind results to the requested retailer by URL before extracting them.
+    searchItems = await fetchJinaSearchItems(query, apiKey, signal);
+  } catch (error) {
+    errors.push(`search: ${error instanceof Error ? error.message : String(error)}`);
+  }
   for (const retailerKey of retailers) {
     const retailer = SHOP_RETAILERS[retailerKey];
     if (!retailer) continue;
     if (signal?.aborted) throw new Error('MCP request cancelled');
-    const response = await fetch(
-      `https://s.jina.ai/?q=${encodeURIComponent(`${query} site:${retailer.domain}`)}`,
-      { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }, signal }
-    );
-    if (!response.ok) {
-      errors.push(`${retailerKey}: HTTP ${response.status}`);
-      continue;
-    }
-    const payload = (await response.json()) as { data?: Array<Record<string, unknown>> };
-    for (const item of payload.data ?? []) {
-      const url = typeof item.url === 'string' ? item.url : '';
-      const title = typeof item.title === 'string' ? item.title : '';
-      const text = [title, item.description, item.content]
-        .filter((part) => typeof part === 'string')
-        .join(' ');
-      const price = parseShopPrice(text);
-      if (
-        !url ||
-        !title ||
-        price == null ||
-        (priceMin != null && price < priceMin) ||
-        (priceMax != null && price > priceMax)
-      )
-        continue;
-      if (condition !== 'any' && !text.toLowerCase().includes(condition)) continue;
-      if (verifiedOnly && !retailer.verified) continue;
-      const trustLabel = retailer.verified ? 'Authorized' : 'Unverified';
-      listings.push({
-        title,
-        price,
-        priceFormatted: `$${price.toFixed(2)}`,
-        retailer: retailerKey,
-        condition: condition === 'any' ? 'new' : condition,
-        url,
-        dealScore: retailer.verified ? 0.75 : 0.5,
-        trustTier: retailer.trustTier,
-        sellerTrustScore: retailer.verified ? 95 : 70,
-        isVerifiedSeller: retailer.verified,
-        trustLabel,
-      });
+    const beforeRetailer = listings.length;
+    const collect = (items: JinaSearchItem[]) => {
+      for (const item of items) {
+        const text = [item.title, item.description, item.content].join(' ');
+        const price = parseShopPrice(text);
+        if (
+          price == null ||
+          (priceMin != null && price < priceMin) ||
+          (priceMax != null && price > priceMax)
+        )
+          continue;
+        if (condition !== 'any' && !text.toLowerCase().includes(condition)) continue;
+        if (verifiedOnly && !retailer.verified) continue;
+        const trustLabel = retailer.verified ? 'Authorized' : 'Unverified';
+        listings.push({
+          title: item.title,
+          price,
+          priceFormatted: `$${price.toFixed(2)}`,
+          retailer: retailerKey,
+          condition: condition === 'any' ? 'new' : condition,
+          url: item.url,
+          dealScore: retailer.verified ? 0.75 : 0.5,
+          trustTier: retailer.trustTier,
+          sellerTrustScore: retailer.verified ? 95 : 70,
+          isVerifiedSeller: retailer.verified,
+          trustLabel,
+        });
+      }
+    };
+
+    collect(searchItems.filter((item) => belongsToRetailer(item.url, retailer.domain)));
+    if (listings.length === beforeRetailer) {
+      try {
+        collect(await fetchRetailerPage(retailerKey, query, apiKey, signal));
+      } catch (error) {
+        errors.push(`${retailerKey}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
   if (errors.length > 0 && listings.length === 0)

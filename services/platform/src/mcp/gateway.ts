@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { z } from 'zod';
 import { listTools } from '../tools/registry.ts';
 import { executePostgresMcpTool } from './executor.ts';
 
@@ -18,6 +19,7 @@ export function createMcpServer(): McpServer {
       {
         description: tool.description,
         inputSchema: tool.inputSchema,
+        ...(tool.outputSchema instanceof z.ZodObject ? { outputSchema: tool.outputSchema } : {}),
       },
       async (input, extra) => {
         try {

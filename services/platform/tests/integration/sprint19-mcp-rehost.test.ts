@@ -243,9 +243,21 @@ describe('Sprint 19 MCP rehost gateway', () => {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       let buffer = '';
-      const nextMessage = () =>
+      let stderr = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      const nextMessage = (requestLabel: string) =>
         new Promise<Record<string, unknown>>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('stdio MCP response timeout')), 15_000);
+          const timeout = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `stdio MCP response timeout for ${requestLabel}${stderr ? `: ${stderr.slice(-2_000)}` : ''}`
+                )
+              ),
+            15_000
+          );
           const consume = () => {
             const newline = buffer.indexOf('\n');
             if (newline < 0) return false;
@@ -283,7 +295,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             },
           })}\n`
         );
-        const initialized = await nextMessage();
+        const initialized = await nextMessage('initialize');
         expect((initialized.result as { serverInfo: { name: string } }).serverInfo.name).toBe(
           'holocron-postgres'
         );
@@ -298,7 +310,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             params: {},
           })}\n`
         );
-        const listed = await nextMessage();
+        const listed = await nextMessage('tools/list');
         expect((listed.result as { tools: unknown[] }).tools).toHaveLength(44);
         child.stdin.write(
           `${JSON.stringify({
@@ -308,7 +320,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             params: { name: 'list_documents', arguments: { limit: 1 } },
           })}\n`
         );
-        const called = await nextMessage();
+        const called = await nextMessage('list_documents');
         expect(called.result).toBeDefined();
         expect((called.result as { isError?: boolean }).isError).not.toBe(true);
         const stdioFailures: string[] = [];
@@ -323,7 +335,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
               params: { name: id, arguments: sampleToolInput(inputSchema, id) },
             })}\n`
           );
-          const response = await nextMessage();
+          const response = await nextMessage(id);
           if (response.error || !response.result) stdioFailures.push(id);
         }
         expect(stdioFailures).toEqual([]);
