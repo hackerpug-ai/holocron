@@ -15,7 +15,14 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { BUN_BIN, DEFAULT_DATABASE_URL, HOLO_CLI, PLATFORM_IT, REPO_ROOT } from './harness';
+import {
+  BUN_BIN,
+  DEFAULT_DATABASE_URL,
+  HOLO_CLI,
+  PLATFORM_IT,
+  REPO_ROOT,
+  seedNormalEscapeState,
+} from './harness';
 import { installNetworkCapture } from './infer-network-capture';
 import { loadResolveModel } from './infer-resolve-loader';
 
@@ -92,12 +99,13 @@ async function withBudgetLock<T>(fn: () => Promise<T>): Promise<T> {
 describe('AC-2: checkBudget pre-check blocks over-budget before Anthropic', () => {
   const prevBudget = process.env.HOLO_ESCAPE_BUDGET_USD;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!PLATFORM_IT) return;
     const mig = runHolo(['db:migrate', '--json']);
     if (mig.status !== 0) {
       throw new Error(`db:migrate failed:\n${mig.stdout}\n${mig.stderr}`);
     }
+    await seedNormalEscapeState();
   });
 
   afterEach(() => {

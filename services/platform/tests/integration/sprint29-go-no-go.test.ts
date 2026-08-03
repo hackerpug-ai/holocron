@@ -393,6 +393,14 @@ describe('D06-02 cutover:go-no-go', () => {
         '  inheritedR2Prefix: ambient.r2Prefix,',
         '  inheritedMintRequest: process.env.MINT_R2_PREFIX_RESTORE ?? null,',
         '  inheritedIntegrationWriter: process.env.R2_INTEGRATION_ACCESS_KEY_ID ?? null,',
+        '  inheritedGoNoGoDatabase: process.env.HOLO_GO_NO_GO_DATABASE_URL ?? null,',
+        '  inheritedGoNoGoDatabaseOwner: process.env.HOLO_GO_NO_GO_DATABASE_URL_OWNER ?? null,',
+        '  inheritedGoNoGoConvexDeployment: process.env.HOLO_GO_NO_GO_CONVEX_DEPLOYMENT ?? null,',
+        '  inheritedGoNoGoConvexUrl: process.env.HOLO_GO_NO_GO_CONVEX_URL ?? null,',
+        '  inheritedGoNoGoConvexSiteUrl: process.env.HOLO_GO_NO_GO_CONVEX_SITE_URL ?? null,',
+        '  inheritedGoNoGoFleetUrl: process.env.HOLO_GO_NO_GO_FLEET_URL ?? null,',
+        '  inheritedGoNoGoR2Prefix: process.env.HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX ?? null,',
+        '  inheritedGoNoGoPg1Path: process.env.HOLO_GO_NO_GO_PGBACKREST_PG1_PATH ?? null,',
         '  resticSecretsPath: resticPrefix.secretsPath,',
         '}));',
         "console.log('Test Files  1 passed (1)');",
@@ -502,6 +510,14 @@ describe('D06-02 cutover:go-no-go', () => {
     expect(snapshot.inheritedR2Prefix).toBeNull();
     expect(snapshot.inheritedMintRequest).toBeNull();
     expect(snapshot.inheritedIntegrationWriter).toBeNull();
+    expect(snapshot.inheritedGoNoGoDatabase).toBeNull();
+    expect(snapshot.inheritedGoNoGoDatabaseOwner).toBeNull();
+    expect(snapshot.inheritedGoNoGoConvexDeployment).toBeNull();
+    expect(snapshot.inheritedGoNoGoConvexUrl).toBeNull();
+    expect(snapshot.inheritedGoNoGoConvexSiteUrl).toBeNull();
+    expect(snapshot.inheritedGoNoGoFleetUrl).toBeNull();
+    expect(snapshot.inheritedGoNoGoR2Prefix).toBeNull();
+    expect(snapshot.inheritedGoNoGoPg1Path).toBeNull();
     expect(snapshot.resticSecretsPath).toBe(snapshot.secretsPath);
     expect(existsSync(String(snapshot.secretsPath))).toBe(false);
     expect(readFileSync(durableSecrets, 'utf8')).toBe(durableBefore);

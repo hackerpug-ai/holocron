@@ -240,6 +240,30 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     sql = createSql(DATABASE_URL);
     await truncateEtlTables(sql);
 
+    // Production is an additive target. Reconciliation must measure only rows
+    // mapped from this export, not valid mappings retained from an earlier run.
+    const historicalDocumentId = '00000000-0000-7000-8000-000000000029';
+    await sql`
+      INSERT INTO documents (id, legacy_convex_id, title, content, status)
+      VALUES (
+        ${historicalDocumentId}::uuid,
+        's29_historical_document_not_in_current_export',
+        'Historical additive document',
+        'Must not contribute to current-export reconciliation',
+        'published'
+      )
+    `;
+    await sql`
+      INSERT INTO convex_id_map (id, legacy_convex_id, old_id, new_id, table_name)
+      VALUES (
+        '00000000-0000-7000-8000-000000000129'::uuid,
+        's29_historical_document_not_in_current_export',
+        's29_historical_document_not_in_current_export',
+        ${historicalDocumentId},
+        'documents'
+      )
+    `;
+
     // AC-1 exports the live disposable Convex deployment. Make its non-empty
     // precondition self-contained instead of depending on another test file's
     // seed/order. This is real Convex state (not an injected export fixture).
@@ -507,6 +531,14 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     expect(report.unexplainedVariance).toBe(0);
     expect(report.reconcile?.ok).toBe(true);
     expect(report.fkAudit?.ok).toBe(true);
+    const reconciledDocuments = report.reconcile?.tables.find((row) => row.table === 'documents');
+    expect(reconciledDocuments?.loadedCount).toBe(reconciledDocuments?.sourceCount);
+    const historicalRows = await sql<{ n: string }[]>`
+      SELECT count(*)::text AS n
+      FROM documents
+      WHERE id = '00000000-0000-7000-8000-000000000029'::uuid
+    `;
+    expect(Number(historicalRows[0]?.n ?? 0)).toBe(1);
 
     // loaded counts non-zero (blocks empty-export false green)
     expect(report.loadedByTable.documents).toBeGreaterThan(0);

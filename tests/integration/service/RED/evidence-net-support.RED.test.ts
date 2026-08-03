@@ -156,7 +156,7 @@ describe('AC-5 / TC-5: net-support from validity-windowed supports/contradicts',
     });
   });
 
-  itLive('as-of 2024-08-01 net-support = +1 (R2 -1, R3 +1; R1 expired)', async () => {
+  itLive('as-of 2024-08-01 net-support = +1 (R1/R2 expired; R3 +1)', async () => {
     await withEvidenceLock(async () => {
       await truncateEvidenceTables();
       const { createSql } = await import('../../../../services/platform/src/db/client');
@@ -178,7 +178,7 @@ describe('AC-5 / TC-5: net-support from validity-windowed supports/contradicts',
             ('supports', 'p1', ${objectId},
               '2024-01-01T00:00:00Z'::timestamptz, '2024-06-01T00:00:00Z'::timestamptz, now(), NULL),
             ('contradicts', 'p2', ${objectId},
-              '2024-03-01T00:00:00Z'::timestamptz, '2024-12-01T00:00:00Z'::timestamptz, now(), NULL),
+              '2024-03-01T00:00:00Z'::timestamptz, '2024-07-15T00:00:00Z'::timestamptz, now(), NULL),
             ('supports', 'p3', ${objectId},
               '2024-07-01T00:00:00Z'::timestamptz, '2024-12-01T00:00:00Z'::timestamptz, now(), NULL)
         `;

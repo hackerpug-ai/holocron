@@ -142,15 +142,17 @@ export async function runEtlReconcile(options?: {
       );
 
       let loadedCount = 0;
-      if (entry.target) {
+      if (entry.target && sourceRows.length > 0) {
+        const sourceLegacyIds = sourceRows.map((row) => row.legacyId);
         const result = await sql.unsafe<Array<{ count: string }>>(
           `
             SELECT count(*)::text AS count
             FROM "${entry.target.replace(/"/g, '""')}" t
             JOIN convex_id_map m ON t.id::text = m.new_id
             WHERE m.table_name = $1
+              AND m.old_id = ANY($2::text[])
           `,
-          [table]
+          [table, sourceLegacyIds]
         );
         loadedCount = Number(result[0]?.count ?? 0);
       }

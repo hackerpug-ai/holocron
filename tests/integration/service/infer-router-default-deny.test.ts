@@ -11,7 +11,7 @@
  *     pnpm vitest run tests/integration/service/infer-router-default-deny.test.ts
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PLATFORM_IT } from './harness';
+import { PLATFORM_IT, seedNormalEscapeState } from './harness';
 import { installNetworkCapture, writeInferArtifact } from './infer-network-capture';
 import { loadResolveModel } from './infer-resolve-loader';
 
@@ -20,7 +20,8 @@ const itLive = PLATFORM_IT ? it : it.skip;
 describe('AC-3: default-deny DeepSeek escape (allowEscape)', () => {
   const prevBudget = process.env.HOLO_ESCAPE_BUDGET_USD;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await seedNormalEscapeState();
     // Sufficient budget for escape path tests (infer-2 will replace with ledger)
     process.env.HOLO_ESCAPE_BUDGET_USD = process.env.HOLO_ESCAPE_BUDGET_USD || '10';
   });
