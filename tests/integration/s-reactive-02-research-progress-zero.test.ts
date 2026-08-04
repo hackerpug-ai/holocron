@@ -115,12 +115,33 @@ describe('S-REACTIVE-02 research progress Zero seam', () => {
 
     if (!before) {
       if (process.env.PLATFORM_IT === '1') {
-        throw new Error(
-          `seeded-research-session missing: ${E2E_ACTIVE_SESSION_ID} — run holo seed:e2e --reset`
-        );
+        // Self-seed: earlier namespace-reset suites truncate research_sessions.
+        // Insert the deterministic e2e active session so this test is order-independent.
+        try {
+          psqlExec(
+            `INSERT INTO research_sessions (id, status, current_iteration, max_iterations, created_at, updated_at)
+             VALUES ('${E2E_ACTIVE_SESSION_ID}'::uuid, 'running', 0, 5, now(), now())
+             ON CONFLICT (id) DO UPDATE SET
+               status = 'running', current_iteration = 0, max_iterations = 5, updated_at = now()`
+          );
+          before = psqlJson(
+            `SELECT json_build_object('current_iteration', current_iteration, 'max_iterations', max_iterations)
+             FROM research_sessions WHERE id = '${E2E_ACTIVE_SESSION_ID}'`
+          ) as { current_iteration: number | null; max_iterations: number | null } | null;
+        } catch (seedErr) {
+          throw new Error(
+            `seeded-research-session missing: ${E2E_ACTIVE_SESSION_ID} — run holo seed:e2e --reset; self-seed failed: ${String(seedErr)}`
+          );
+        }
+        if (!before) {
+          throw new Error(
+            `seeded-research-session missing after self-seed: ${E2E_ACTIVE_SESSION_ID}`
+          );
+        }
+      } else {
+        console.warn('skip: e2e research session not seeded');
+        return;
       }
-      console.warn('skip: e2e research session not seeded');
-      return;
     }
 
     psqlExec(

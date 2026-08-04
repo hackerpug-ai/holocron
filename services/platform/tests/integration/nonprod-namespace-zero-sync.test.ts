@@ -136,7 +136,6 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
 
   it('AC-1 [PRIMARY]: after reset the live zero-cache returns the reference conversation with zero chat_messages', () => {
     // Seed a message so the post-reset zero read proving 0 is material (not vacuous).
-    // (Best-effort; if seeding is unavailable, the 0-count assertion still holds.)
     try {
       const rnKey = process.env.HOLO_KEY_RN || process.env.EXPO_PUBLIC_RN_API_KEY || '';
       const platformUrl =
@@ -172,9 +171,44 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
     expect(reset.ok, `reset failed: ${JSON.stringify(reset.errors ?? reset.messages)}`).toBe(true);
     expect(psqlCount(CONV_ID), 'Postgres must show 0 chat_messages right after reset').toBe(0);
 
-    // Read the LIVE zero-cache. Zero replicates via WAL so the truncation may lag.
+    // Destructive namespace resets leave Zero's in-memory replica stale. Restart
+    // zero-cache so the next read observes the post-reset Postgres state.
+    const zeroPort = new URL(ZERO_URL).port || '4848';
+    const zeroRestart = spawnSync(
+      'bash',
+      [
+        '-lc',
+        [
+          // Kill by PID list (avoid pkill -f self-match on this shell wrapper).
+          `pgrep -f 'node_modules/@rocicorp/zero' | while read p; do kill "$p" 2>/dev/null || true; done`,
+          'sleep 1',
+          `export ZERO_ADMIN_PASSWORD=${JSON.stringify(process.env.ZERO_ADMIN_PASSWORD || 'local-zero-admin')}`,
+          `export DATABASE_URL=${JSON.stringify(DB)}`,
+          `export ZERO_PORT=${JSON.stringify(zeroPort)}`,
+          'mkdir -p .tmp',
+          'nohup bash scripts/run-zero-cache.sh >.tmp/zero-resync-h7.log 2>&1 &',
+          `for i in $(seq 1 40); do code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 ${JSON.stringify(ZERO_URL)} || true); if [ -n "$code" ] && [ "$code" != "000" ]; then exit 0; fi; sleep 1; done; exit 1`,
+        ].join('\n'),
+      ],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, DATABASE_URL: DB, ZERO_CACHE_URL: ZERO_URL },
+        timeout: 90_000,
+      }
+    );
+    expect(
+      zeroRestart.status,
+      `zero resync after namespace reset failed: ${zeroRestart.stderr}\n${zeroRestart.stdout}`
+    ).toBe(0);
+
+    // Read the LIVE zero-cache after forced resync.
     let read = readZero();
-    for (let i = 0; i < 10 && !(read.ok && read.rowCount === 0); i += 1) {
+    for (
+      let i = 0;
+      i < 15 && !(read.ok && read.rowCount === 0 && read.conversationPresent);
+      i += 1
+    ) {
       spawnSync('sleep', ['2']);
       read = readZero();
     }
@@ -190,7 +224,7 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
       read.conversationTitle,
       'reference conversation title must be the seeded Sprint 20 title'
     ).toBe('Sprint 20 reference conversation');
-  }, 120_000);
+  }, 180_000);
 
   it('AC-2: two consecutive resets emit an identical seed fingerprint', () => {
     const r1 = holoJson(['namespace', 'reset', '--json']);

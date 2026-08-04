@@ -90,9 +90,16 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
   }> {
     const fleetSpy = vi.fn(async () => buildMockAgentBundle(tokens));
     vi.resetModules();
-    vi.doMock('../../src/compat/cells/agent.ts', () => ({
+    // Absolute + relative mock ids: residual/fleet-retailer phases import the
+    // real agent module first (mission/pipeline suites), so a single relative
+    // doMock can miss the cached specifier and leave the spy uncalled.
+    const agentSpec = '../../src/compat/cells/agent.ts';
+    const agentAbs = require.resolve(agentSpec, { paths: [import.meta.dirname] });
+    vi.doMock(agentSpec, () => ({
       createFleetAgentWithResolved: fleetSpy,
-      // Re-export the other names chat-runs may pull in transitively.
+    }));
+    vi.doMock(agentAbs, () => ({
+      createFleetAgentWithResolved: fleetSpy,
     }));
     const { createHonoApp } = await import('../../src/http/hono-app');
     return { createHonoApp, fleetSpy };
@@ -257,7 +264,13 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
         'FLEET_DEFAULT_PROBE_B ',
       ]);
       try {
-        const result = await postChatRunAndWait(createHonoApp, 'AC-6 default-nonprod probe', {});
+        // Explicitly clear deterministic/e2e markers so ambient go/no-go env
+        // cannot force the canned stream path (mask is gone post-F1).
+        const result = await postChatRunAndWait(createHonoApp, 'AC-6 default-nonprod probe', {
+          HOLO_CHAT_DETERMINISTIC_STREAM: '',
+          HOLO_E2E: '',
+          HOLO_CHAT_FLEET_ONLY: '',
+        });
 
         expect(result.row?.status).toBe('completed');
         // AFTER the F1 flip: real fleet path runs (mock called).

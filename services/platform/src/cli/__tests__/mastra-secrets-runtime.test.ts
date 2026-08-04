@@ -164,6 +164,9 @@ describe('RH-1: consolidated secrets applied at service:up (real process + curl)
           TMPDIR: process.env.TMPDIR ?? '/tmp',
           LANG: process.env.LANG ?? 'en_US.UTF-8',
           HOLO_ROOT: REPO_ROOT,
+          // Explicit secrets path: worktrees must load the real consolidated file
+          // (not ambient launchd/operator env keys). Clean env still omits HOLO_KEY_*.
+          HOLO_SECRETS_PATH: SECRETS_PATH,
           DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron',
           PORT: String(port),
           FLEET_URL: 'http://127.0.0.1:4545/v1',

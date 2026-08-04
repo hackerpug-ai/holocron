@@ -430,6 +430,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
     'runs shop_products through a real retailer search and persists its result',
     async () => {
       const app = createHonoApp({ keys: KEYS });
+      // Unique query avoids replaying a prior empty completed session; multi-retailer
+      // keeps the path real while surviving a single retailer SERP omission.
+      const query = `USB-C hub s19-${Date.now().toString(36)}`;
       const response = await app.request('/mcp', {
         method: 'POST',
         headers: {
@@ -443,7 +446,10 @@ describe('Sprint 19 MCP rehost gateway', () => {
           method: 'tools/call',
           params: {
             name: 'shop_products',
-            arguments: { query: 'USB-C hub', retailers: ['amazon'] },
+            arguments: {
+              query,
+              retailers: ['amazon', 'ebay', 'newegg', 'bestbuy'],
+            },
           },
         }),
       });
@@ -478,7 +484,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
       const sessionContent = requiredStructuredContent(requiredMcpResult(sessionBody));
       expect(sessionContent.session?.status).toBe('completed');
     },
-    60_000
+    120_000
   );
 
   itLive(

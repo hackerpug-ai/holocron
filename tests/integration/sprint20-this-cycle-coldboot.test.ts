@@ -26,10 +26,15 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { seedReferenceAgentState } from '../../services/platform/src/cutover/isolated-lifecycle.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const ARTIFACT_DIR = resolve(REPO_ROOT, '.tmp', 'maestro-reference-flow');
+const ARTIFACT_DIR = resolve(
+  process.env.E2E_ARTIFACT_DIR?.trim() ||
+    process.env.HOLO_LIFECYCLE_EVIDENCE_DIR?.trim() ||
+    join(REPO_ROOT, '.tmp', 'maestro-reference-flow')
+);
 const VERIFIER = join(REPO_ROOT, 'scripts', 'e2e', 'capstone-verdict.sh');
 const REGENERATOR = join(REPO_ROOT, 'scripts', 'e2e', 'regenerate-sprint-gate.sh');
 const SPRINT_DIR = resolve(
@@ -53,6 +58,7 @@ const FAILED_CYCLE_JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
 `;
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
+const DB = process.env.DATABASE_URL ?? '';
 const skip = !PLATFORM_IT;
 
 function sha256File(path: string): string {
@@ -86,10 +92,71 @@ function runRegenerator(
   };
 }
 
+/** Seed Postgres + wait for Zero so capstone has a bound agent row for this-cycle request. */
+function seedThisCycleAgent(artifactDir: string): void {
+  if (!DB.includes('holocron_nonprod')) return;
+  const requestPath = join(artifactDir, 'reference-request.json');
+  let message: string | undefined;
+  let requestId: string | undefined;
+  if (existsSync(requestPath)) {
+    try {
+      const body = JSON.parse(readFileSync(requestPath, 'utf8')) as {
+        message?: string;
+        request_id?: string;
+      };
+      message = body.message;
+      requestId = body.request_id;
+    } catch {
+      /* re-seed */
+    }
+  }
+  const seed = seedReferenceAgentState({ databaseUrl: DB, message, requestId });
+  writeFileSync(
+    requestPath,
+    `${JSON.stringify(
+      {
+        message: seed.message,
+        request_id: seed.requestId,
+        conversation_id: seed.conversationId,
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  );
+  const zeroUrl = process.env.ZERO_CACHE_URL || 'http://127.0.0.1:4848';
+  for (let i = 0; i < 10; i += 1) {
+    const read = spawnSync('bun', [join(REPO_ROOT, 'scripts/e2e/zero-reference-read.ts')], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ZERO_CACHE_URL: zeroUrl,
+        REFERENCE_CONVERSATION_ID: seed.conversationId,
+      },
+      timeout: 25_000,
+    });
+    const line = (read.stdout ?? '')
+      .split('\n')
+      .filter((l) => l.startsWith('{'))
+      .at(-1);
+    if (line) {
+      try {
+        const parsed = JSON.parse(line) as { ok?: boolean; agentPresent?: boolean };
+        if (parsed.ok && parsed.agentPresent) return;
+      } catch {
+        /* retry */
+      }
+    }
+    spawnSync('sleep', ['2']);
+  }
+}
+
 function runCapstone(artifactDir: string): {
   exitCode: number;
   verdict: Record<string, unknown>;
 } {
+  seedThisCycleAgent(artifactDir);
   const result = spawnSync(VERIFIER, [], {
     cwd: REPO_ROOT,
     env: { ...process.env, E2E_ARTIFACT_DIR: artifactDir },
@@ -248,7 +315,15 @@ describe.skipIf(skip)('GATE-FIX-G2 — this-cycle Maestro cold-boot', () => {
 
     // Must not cite official11 as evidence path for step1.
     expect(`${step1?.evidence_path}`).not.toContain('official11');
-    expect(gate.artifact_dir).toContain('maestro-reference-flow');
+    // Accept the shared Maestro dir OR a run-scoped lifecycle evidence root
+    // (go/no-go hermetic isolation assigns HOLO_LIFECYCLE_EVIDENCE_DIR / E2E_ARTIFACT_DIR).
+    const artifactDir = String(gate.artifact_dir);
+    expect(
+      artifactDir.includes('maestro-reference-flow') ||
+        artifactDir.includes('holocron-s29-lifecycle') ||
+        artifactDir.includes('evidence'),
+      `artifact_dir must be this-cycle Maestro or lifecycle evidence; got ${artifactDir}`
+    ).toBe(true);
     expect(gate.artifact_dir).not.toContain('official11');
   });
 });

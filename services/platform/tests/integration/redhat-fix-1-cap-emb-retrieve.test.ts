@@ -297,43 +297,68 @@ describe.sequential('REDHAT-FIX-1 PATH-A — research-retrieve → rrfHybridSear
   itLive(
     'AC-2: empty corpus unseeded research fails closed (no fabricated evidence)',
     async () => {
+      // Use a run-scoped isolated corpus: snapshot + TRUNCATE passages so the
+      // retrieval path cannot hit residual shared-table embeddings from prior
+      // suites. Restore after the assertion (self-contained, order-independent).
       const sql = createSql(DATABASE_URL);
+      const emptyTopic = `zzqxq_redhat_fix1_empty_topic_${Date.now()}_${process.pid}`;
       try {
-        // Ensure no MCP seeds and use a unique topic with zero corpus hits.
         await deleteMcpSeeds(sql);
+        await sql.unsafe(`
+          CREATE TEMP TABLE IF NOT EXISTS s29_passages_snapshot AS
+          SELECT * FROM passages WHERE false
+        `);
+        await sql.unsafe(`DROP TABLE IF EXISTS s29_passages_snapshot`);
+        await sql.unsafe(`CREATE TEMP TABLE s29_passages_snapshot AS SELECT * FROM passages`);
+        await sql.unsafe(`TRUNCATE TABLE passages RESTART IDENTITY CASCADE`);
         await sql`
           DELETE FROM passages
-          WHERE text ILIKE '%zzqxq_redhat_fix1_empty_topic%'
+          WHERE text ILIKE ${'%' + emptyTopic + '%'}
         `;
       } finally {
-        await sql.end({ timeout: 5 });
+        // keep connection for restore after CLI
       }
 
-      const emptyTopic = 'zzqxq_redhat_fix1_empty_topic_no_corpus_match';
-      const cli = runHolo(
-        'redhat-fix1-ac2-empty-corpus',
-        ['mission', 'run', 'research', '--topic', emptyTopic, '--components', '1', '--json'],
-        { timeoutMs: 180_000 }
-      );
-      captureHoloArtifact('AC-2-empty-corpus-fail-closed', cli);
-      writeArtifact('AC-2-empty-corpus.json', {
-        status: cli.status,
-        parsed: cli.parsed,
-        combined: cli.combined.slice(0, 8000),
-      });
+      try {
+        const cli = runHolo(
+          'redhat-fix1-ac2-empty-corpus',
+          ['mission', 'run', 'research', '--topic', emptyTopic, '--components', '1', '--json'],
+          { timeoutMs: 180_000 }
+        );
+        captureHoloArtifact('AC-2-empty-corpus-fail-closed', cli);
+        writeArtifact('AC-2-empty-corpus.json', {
+          status: cli.status,
+          parsed: cli.parsed,
+          combined: cli.combined.slice(0, 8000),
+          isolated_corpus: true,
+          emptyTopic,
+        });
 
-      const payload = asRecord(cli.parsed);
-      const status = typeof payload.status === 'string' ? payload.status : '';
-      const blob = `${cli.combined}\n${JSON.stringify(payload)}`.toLowerCase();
+        const payload = asRecord(cli.parsed);
+        const status = typeof payload.status === 'string' ? payload.status : '';
+        const blob = `${cli.combined}\n${JSON.stringify(payload)}`.toLowerCase();
 
-      const failedClosed = cli.status !== 0 || status === 'failed' || status === 'blocked';
-      expect(failedClosed, `expected fail-closed; status=${status} exit=${cli.status}`).toBe(true);
-      expect(status).not.toBe('completed');
+        const failedClosed = cli.status !== 0 || status === 'failed' || status === 'blocked';
+        expect(failedClosed, `expected fail-closed; status=${status} exit=${cli.status}`).toBe(
+          true
+        );
+        expect(status).not.toBe('completed');
 
-      expect(blob).toMatch(/retrieval|search|embed|empty|mission_retrieval|mission_retrieve/);
+        expect(blob).toMatch(/retrieval|search|embed|empty|mission_retrieval|mission_retrieve/);
 
-      // No fabricated high-grade entailment bundle greenwash.
-      expect(blob).not.toMatch(/"grade"\s*:\s*4.*"entailment"\s*:\s*0\.9/s);
+        // No fabricated high-grade entailment bundle greenwash.
+        expect(blob).not.toMatch(/"grade"\s*:\s*4.*"entailment"\s*:\s*0\.9/s);
+      } finally {
+        try {
+          await sql.unsafe(`TRUNCATE TABLE passages RESTART IDENTITY CASCADE`);
+          await sql.unsafe(`INSERT INTO passages SELECT * FROM s29_passages_snapshot`);
+        } catch (restoreErr) {
+          writeArtifact('AC-2-empty-corpus-restore-error.json', {
+            error: String(restoreErr),
+          });
+        }
+        await sql.end({ timeout: 5 });
+      }
     },
     180_000
   );

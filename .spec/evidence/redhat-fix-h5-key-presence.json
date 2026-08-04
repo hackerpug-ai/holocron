@@ -1,5 +1,5 @@
 {
-  "hasAnthropicKey": false,
+  "hasDeepSeekKey": true,
   "allowSkipAnthropic": false,
   "platformIt": true
 }

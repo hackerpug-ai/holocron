@@ -13,6 +13,7 @@
  *   FLEET_URL=http://127.0.0.1:4545/v1 \
  *   pnpm test -- services/platform/tests/integration/observability-traces.test.ts
  */
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -22,7 +23,35 @@ import {
 } from '../../src/observability/mission-research';
 
 const PLATFORM_IT = Boolean(process.env.PLATFORM_IT);
-const itLive = PLATFORM_IT ? it : it.skip;
+
+function langfuseReady(): boolean {
+  // Exporter only wires when keys are present in process.env (not test defaults).
+  // Hermetic go/no-go isolation often omits Langfuse — skip rather than flake.
+  if (!process.env.LANGFUSE_PUBLIC_KEY?.trim() || !process.env.LANGFUSE_SECRET_KEY?.trim()) {
+    return false;
+  }
+  const base = (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/$/, '');
+  const r = spawnSync(
+    'curl',
+    [
+      '-sS',
+      '-o',
+      '/dev/null',
+      '-w',
+      '%{http_code}',
+      '--max-time',
+      '2',
+      `${base}/api/public/health`,
+    ],
+    { encoding: 'utf8' }
+  );
+  const code = (r.stdout ?? '').trim();
+  // Accept 200 or 401 (auth-gated but reachable). 000/connection fail → skip.
+  return r.status === 0 && Boolean(code) && code !== '000';
+}
+
+const LANGFUSE_READY = langfuseReady();
+const itLive = PLATFORM_IT && LANGFUSE_READY ? it : it.skip;
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/obs-1');

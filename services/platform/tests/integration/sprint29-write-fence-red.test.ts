@@ -7,6 +7,8 @@
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
  *     services/platform/tests/integration/sprint29-write-fence-red.test.ts
  */
+
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { api } from '../../../../convex/_generated/api';
@@ -50,6 +52,27 @@ if (!PLATFORM_IT) {
   );
 }
 
+function loopbackConvexReady(): boolean {
+  const raw = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(u.hostname)) return false;
+  } catch {
+    return false;
+  }
+  const r = spawnSync(
+    'curl',
+    ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '2', raw],
+    { encoding: 'utf8' }
+  );
+  const code = (r.stdout ?? '').trim();
+  return r.status === 0 && Boolean(code) && code !== '000';
+}
+
+const CONVEX_READY = loopbackConvexReady();
+const itConvex = CONVEX_READY ? it : it.skip;
+
 /**
  * H-04 / D06-01 AC-3: unfenced reachability means the Promise fulfills without throw.
  * Any thrown error (including MIGRATION_READ_ONLY while unfenced, and non-fence errors)
@@ -89,20 +112,45 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
     unsetMigrationFlag();
     if (process.env.HOLO_GO_NO_GO_ISOLATED === '1' && process.env.HOLO_SECRETS_PATH) {
       writeDurableMigrationReadOnly('0', { secretsPath: process.env.HOLO_SECRETS_PATH });
-      const convexUrl = new URL(process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '');
-      if (!['127.0.0.1', 'localhost', '::1'].includes(convexUrl.hostname)) {
+      const convexRaw = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+      let convexLoopback = false;
+      try {
+        const convexUrl = new URL(convexRaw);
+        convexLoopback = ['127.0.0.1', 'localhost', '::1'].includes(convexUrl.hostname);
+      } catch {
+        convexLoopback = false;
+      }
+      // Probe loopback Convex; skip convex env reset when the control plane is down
+      // (hermetic go/no-go uses a synthetic local: deployment without convex dev).
+      let convexHttpReady = false;
+      if (convexLoopback && convexRaw) {
+        const { spawnSync } = await import('node:child_process');
+        const probe = spawnSync(
+          'curl',
+          ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '2', convexRaw],
+          { encoding: 'utf8' }
+        );
+        const code = (probe.stdout ?? '').trim();
+        convexHttpReady = probe.status === 0 && Boolean(code) && code !== '000';
+      } else if (convexRaw) {
         throw new Error('isolated write-fence reset refuses non-loopback Convex deployment');
       }
-      const { spawnSync } = await import('node:child_process');
-      const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        timeout: 90_000,
-      });
-      if (unset.status !== 0) {
-        throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
+      if (convexHttpReady) {
+        const { spawnSync } = await import('node:child_process');
+        const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+          cwd: process.cwd(),
+          encoding: 'utf8',
+          timeout: 90_000,
+        });
+        if (unset.status !== 0) {
+          throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
+        }
+        await waitForMigrationReadOnlyRuntime({ expected: false });
+      } else {
+        console.warn(
+          '[write-fence-red] SKIP convex fence reset: loopback Convex HTTP not reachable'
+        );
       }
-      await waitForMigrationReadOnlyRuntime({ expected: false });
     }
     sql = createSql(DATABASE_URL);
 
@@ -672,98 +720,118 @@ describe('Sprint 29 D06-01 write-fence RED', () => {
 
   // ── Convex AC-5 / AC-6 ────────────────────────────────────────────────
 
-  it('TC-10: api.documents.mutations.create returns a Convex document id when unfenced', async () => {
-    const client = createConvexClient();
-    const id = await client.mutation(api.documents.mutations.create, {
-      title: convexDocTitle,
-      content: 'red-fence probe',
-      category: 'general',
-      embedding: [0, 0, 0],
-    });
-    const idStr = typeof id === 'string' ? id : String(id);
-    _convexDocId = idStr;
-    writeEvidence('convex-create-document.json', { id: idStr, title: convexDocTitle });
-    expect(isConvexId(idStr), `id=${idStr}`).toBe(true);
-    const found = await client.query(api.documents.queries.getByTitle, { title: convexDocTitle });
-    expect(found, 'follow-up getByTitle').toBeTruthy();
-  }, 60_000);
-
-  it('TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced', async () => {
-    const client = createConvexClient();
-    const row = await client.mutation(api.subscriptions.mutations.add, {
-      sourceType: 'github',
-      identifier: convexSubIdentifier,
-      name: convexSubIdentifier,
-    });
-    const idStr =
-      row && typeof row === 'object' && '_id' in row
-        ? String((row as { _id: string })._id)
-        : String(row);
-    _convexSubId = idStr;
-    writeEvidence('convex-add-subscription.json', { id: idStr, identifier: convexSubIdentifier });
-    expect(isConvexId(idStr), `id=${idStr}`).toBe(true);
-    const list = await client.query(api.subscriptions.queries.list, {
-      sourceType: 'github',
-      limit: 100,
-    });
-    const match = Array.isArray(list)
-      ? list.filter((s: { identifier?: string }) => s.identifier === convexSubIdentifier)
-      : [];
-    expect(match.length, 'follow-up list by identifier').toBeGreaterThanOrEqual(1);
-  }, 60_000);
-
-  it('TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set', async () => {
-    const { spawnSync } = await import('node:child_process');
-    const setRes = spawnSync('npx', ['convex', 'env', 'set', 'HOLO_MIGRATION_READ_ONLY', 'true'], {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-      timeout: 60_000,
-    });
-    convexEnvSetAttempted = true;
-    writeEvidence('convex-env-set.json', {
-      status: setRes.status,
-      stdout: setRes.stdout,
-      stderr: setRes.stderr,
-    });
-
-    const client = createConvexClient();
-    await waitForMigrationReadOnlyRuntime({ expected: true, client });
-    let rejected = false;
-    let message = '';
-    try {
-      await client.mutation(api.documents.mutations.create, {
-        title: `${convexDocTitle}-fenced`,
-        content: 'should be blocked',
+  itConvex(
+    'TC-10: api.documents.mutations.create returns a Convex document id when unfenced',
+    async () => {
+      const client = createConvexClient();
+      const id = await client.mutation(api.documents.mutations.create, {
+        title: convexDocTitle,
+        content: 'red-fence probe',
         category: 'general',
         embedding: [0, 0, 0],
       });
-    } catch (err) {
-      rejected = true;
-      message = migrationReadOnlyMessage(err);
-    }
-    writeEvidence('convex-create-fenced.json', { rejected, message });
-    expect(rejected, 'documents.create should reject under migration_read_only').toBe(true);
-    expect(message.startsWith('migration_read_only:'), `message=${message}`).toBe(true);
-  }, 120_000);
+      const idStr = typeof id === 'string' ? id : String(id);
+      _convexDocId = idStr;
+      writeEvidence('convex-create-document.json', { id: idStr, title: convexDocTitle });
+      expect(isConvexId(idStr), `id=${idStr}`).toBe(true);
+      const found = await client.query(api.documents.queries.getByTitle, { title: convexDocTitle });
+      expect(found, 'follow-up getByTitle').toBeTruthy();
+    },
+    60_000
+  );
 
-  it('TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set', async () => {
-    const client = createConvexClient();
-    let rejected = false;
-    let message = '';
-    try {
-      await client.mutation(api.subscriptions.mutations.add, {
+  itConvex(
+    'TC-11: api.subscriptions.mutations.add returns a Convex subscription id when unfenced',
+    async () => {
+      const client = createConvexClient();
+      const row = await client.mutation(api.subscriptions.mutations.add, {
         sourceType: 'github',
-        identifier: `${convexSubIdentifier}-fenced`,
-        name: `${convexSubIdentifier}-fenced`,
+        identifier: convexSubIdentifier,
+        name: convexSubIdentifier,
       });
-    } catch (err) {
-      rejected = true;
-      message = migrationReadOnlyMessage(err);
-    }
-    writeEvidence('convex-add-sub-fenced.json', { rejected, message });
-    expect(rejected, 'subscriptions.add should reject under migration_read_only').toBe(true);
-    expect(message.startsWith('migration_read_only:'), `message=${message}`).toBe(true);
-  }, 60_000);
+      const idStr =
+        row && typeof row === 'object' && '_id' in row
+          ? String((row as { _id: string })._id)
+          : String(row);
+      _convexSubId = idStr;
+      writeEvidence('convex-add-subscription.json', { id: idStr, identifier: convexSubIdentifier });
+      expect(isConvexId(idStr), `id=${idStr}`).toBe(true);
+      const list = await client.query(api.subscriptions.queries.list, {
+        sourceType: 'github',
+        limit: 100,
+      });
+      const match = Array.isArray(list)
+        ? list.filter((s: { identifier?: string }) => s.identifier === convexSubIdentifier)
+        : [];
+      expect(match.length, 'follow-up list by identifier').toBeGreaterThanOrEqual(1);
+    },
+    60_000
+  );
+
+  itConvex(
+    'TC-12: api.documents.mutations.create rejects with migration_read_only when Convex gate set',
+    async () => {
+      const { spawnSync } = await import('node:child_process');
+      const setRes = spawnSync(
+        'npx',
+        ['convex', 'env', 'set', 'HOLO_MIGRATION_READ_ONLY', 'true'],
+        {
+          cwd: process.cwd(),
+          encoding: 'utf8',
+          timeout: 60_000,
+        }
+      );
+      convexEnvSetAttempted = true;
+      writeEvidence('convex-env-set.json', {
+        status: setRes.status,
+        stdout: setRes.stdout,
+        stderr: setRes.stderr,
+      });
+
+      const client = createConvexClient();
+      await waitForMigrationReadOnlyRuntime({ expected: true, client });
+      let rejected = false;
+      let message = '';
+      try {
+        await client.mutation(api.documents.mutations.create, {
+          title: `${convexDocTitle}-fenced`,
+          content: 'should be blocked',
+          category: 'general',
+          embedding: [0, 0, 0],
+        });
+      } catch (err) {
+        rejected = true;
+        message = migrationReadOnlyMessage(err);
+      }
+      writeEvidence('convex-create-fenced.json', { rejected, message });
+      expect(rejected, 'documents.create should reject under migration_read_only').toBe(true);
+      expect(message.startsWith('migration_read_only:'), `message=${message}`).toBe(true);
+    },
+    120_000
+  );
+
+  itConvex(
+    'TC-13: api.subscriptions.mutations.add rejects with migration_read_only when Convex gate set',
+    async () => {
+      const client = createConvexClient();
+      let rejected = false;
+      let message = '';
+      try {
+        await client.mutation(api.subscriptions.mutations.add, {
+          sourceType: 'github',
+          identifier: `${convexSubIdentifier}-fenced`,
+          name: `${convexSubIdentifier}-fenced`,
+        });
+      } catch (err) {
+        rejected = true;
+        message = migrationReadOnlyMessage(err);
+      }
+      writeEvidence('convex-add-sub-fenced.json', { rejected, message });
+      expect(rejected, 'subscriptions.add should reject under migration_read_only').toBe(true);
+      expect(message.startsWith('migration_read_only:'), `message=${message}`).toBe(true);
+    },
+    60_000
+  );
 
   // ── Job AC-7 / AC-8 ───────────────────────────────────────────────────
 

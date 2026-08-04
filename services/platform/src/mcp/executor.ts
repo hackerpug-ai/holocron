@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { getSecretValue } from '../config/secrets.ts';
 import { assertMcpWritable } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
 import { createSql, toSqlJsonValue } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+
+function resolveJinaApiKey(): string | undefined {
+  return getSecretValue('JINA_API_KEY');
+}
 
 type ShopSearchResult = {
   title: string;
@@ -114,7 +119,10 @@ async function fetchRetailerPage(
 }
 
 function parseShopPrice(text: string): number | null {
-  const match = text.match(/(?:[$€£])\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/);
+  // Accept $, €, £, and common "USD 12.34" / "12.34 USD" forms from retailer dumps.
+  const match =
+    text.match(/(?:[$€£]|USD|EUR|GBP)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i) ??
+    text.match(/\b([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:USD|EUR|GBP)\b/i);
   const matchedPrice = match?.[1];
   if (!matchedPrice) return null;
   const value = Number(matchedPrice.replaceAll(',', ''));
@@ -128,7 +136,7 @@ async function runLiveRecommendations(
   constraints: string[],
   signal?: AbortSignal
 ): Promise<Array<{ name: string; recommendation: string; contact: { url: string } }>> {
-  const apiKey = process.env.JINA_API_KEY;
+  const apiKey = resolveJinaApiKey();
   if (!apiKey)
     throw new Error('CONFIGURATION_ERROR: JINA_API_KEY is required for findRecommendations');
   const suffix = [location, ...constraints].filter(Boolean).join(' ');
@@ -168,15 +176,15 @@ async function runLiveShopSearch(
   verifiedOnly: boolean,
   signal?: AbortSignal
 ): Promise<{ listings: ShopSearchResult[]; durationMs: number }> {
-  const apiKey = process.env.JINA_API_KEY;
+  const apiKey = resolveJinaApiKey();
   if (!apiKey) throw new Error('CONFIGURATION_ERROR: JINA_API_KEY is required for shop_products');
   const started = Date.now();
   const listings: ShopSearchResult[] = [];
   const errors: string[] = [];
   let searchItems: JinaSearchItem[] = [];
   try {
-    // Jina's site-scoped search currently returns upstream 500s. Search once,
-    // then bind results to the requested retailer by URL before extracting them.
+    // Search once, then bind results to the requested retailer by URL.
+    // Site-scoped fallback below covers retailers absent from the general SERP.
     searchItems = await fetchJinaSearchItems(query, apiKey, signal);
   } catch (error) {
     errors.push(`search: ${error instanceof Error ? error.message : String(error)}`);
@@ -200,7 +208,7 @@ async function runLiveShopSearch(
         if (verifiedOnly && !retailer.verified) continue;
         const trustLabel = retailer.verified ? 'Authorized' : 'Unverified';
         listings.push({
-          title: item.title,
+          title: item.title || `${retailerKey} listing`,
           price,
           priceFormatted: `$${price.toFixed(2)}`,
           retailer: retailerKey,
@@ -216,6 +224,21 @@ async function runLiveShopSearch(
     };
 
     collect(searchItems.filter((item) => belongsToRetailer(item.url, retailer.domain)));
+    if (listings.length === beforeRetailer) {
+      // Site-scoped SERP when the general result set omitted this retailer.
+      // Soft-fail: upstream 4xx/5xx on site: queries must not poison the whole
+      // shop run (write-fence RED TC-7 expects unfenced shop_products to resolve).
+      try {
+        const scoped = await fetchJinaSearchItems(
+          `${query} site:${retailer.domain}`,
+          apiKey,
+          signal
+        );
+        collect(scoped.filter((item) => belongsToRetailer(item.url, retailer.domain)));
+      } catch {
+        /* optional fallback */
+      }
+    }
     if (listings.length === beforeRetailer) {
       try {
         collect(await fetchRetailerPage(retailerKey, query, apiKey, signal));
@@ -319,6 +342,8 @@ export async function executePostgresMcpTool(
             AND price_max IS NOT DISTINCT FROM ${priceMax}
             AND retailers = ${sql.json(retailers)}
             AND verified_only IS NOT DISTINCT FROM ${verifiedOnly}
+            AND status = 'completed'
+            AND COALESCE(total_listings, 0) > 0
           ORDER BY created_at DESC LIMIT 1
         `;
         if (existing[0]) {
@@ -334,13 +359,16 @@ export async function executePostgresMcpTool(
             priceFormatted: `$${Number(listing.price).toFixed(2)}`,
             trustLabel: listing.isVerifiedSeller ? 'Authorized' : 'Unverified',
           }));
-          return {
-            sessionId: existing[0].sessionId,
-            status: existing[0].status,
-            totalListings: Number(existing[0].totalListings ?? replayListings.length),
-            bestDeal: replayListings[0] ?? null,
-            listings: replayListings,
-          };
+          // Empty completed sessions are not durable successes — re-run live search.
+          if (replayListings.length > 0) {
+            return {
+              sessionId: existing[0].sessionId,
+              status: existing[0].status,
+              totalListings: Number(existing[0].totalListings ?? replayListings.length),
+              bestDeal: replayListings[0] ?? null,
+              listings: replayListings,
+            };
+          }
         }
         const rows = await sql<Array<{ sessionId: string; status: string }>>`
           INSERT INTO shop_sessions (id, query, condition, price_min, price_max, retailers, verified_only, status)

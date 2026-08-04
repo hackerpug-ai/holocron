@@ -22,6 +22,12 @@ import {
   resolveSecretsPathFromEnv,
   upsertSecretsFile,
 } from '../config/secrets.ts';
+import { phasedIntegrationCommand, runPhasedIntegration } from './integration-phases.ts';
+import {
+  createIsolatedLifecycle,
+  type IsolatedLifecycleHandle,
+  seedReferenceAgentState,
+} from './isolated-lifecycle.ts';
 
 export const GO_NO_GO_GATE_NAMES = [
   'lint',
@@ -81,9 +87,11 @@ export const DEFAULT_GATE_SPECS: readonly GateSpec[] = [
     kind: 'plain',
   },
   {
+    // Serial workers: stack supervisor + service:up RH-1 tests share launchd/Mastra
+    // and race under default file parallelism (false reds: connection terminated).
     name: 'unit',
-    command: 'pnpm vitest run --project unit',
-    argv: ['pnpm', 'vitest', 'run', '--project', 'unit'],
+    command: 'pnpm vitest run --project unit --no-file-parallelism --maxWorkers=1',
+    argv: ['pnpm', 'vitest', 'run', '--project', 'unit', '--no-file-parallelism', '--maxWorkers=1'],
     kind: 'vitest',
   },
   {
@@ -306,17 +314,11 @@ function databaseEndpoint(url: URL): string {
 
 const ISOLATED_SOURCE_SECRET_KEYS = [
   'PGBACKREST_STANZA',
-  'R2_ACCESS_KEY_ID',
   'R2_ACCOUNT_ID',
   'R2_BUCKET_NAME',
   'R2_CREDENTIAL_POLICY',
   'R2_ENDPOINT',
   'R2_REPO_CIPHER_PASS',
-  'R2_RESTORE_ACCESS_KEY_ID',
-  'R2_RESTORE_SECRET_ACCESS_KEY',
-  'R2_RESTORE_SESSION_TOKEN',
-  'R2_SECRET_ACCESS_KEY',
-  'R2_SESSION_TOKEN',
   'RESTIC_PASSWORD',
 ] as const;
 
@@ -324,6 +326,10 @@ type IsolatedIntegrationEnv = {
   env: NodeJS.ProcessEnv;
   prepareRuntime: () => void;
   cleanup: () => void;
+  /** Present when the hermetic lifecycle owns child processes. */
+  lifecycle?: IsolatedLifecycleHandle;
+  /** Teardown verification result (set during cleanup). */
+  teardown?: { ok: boolean; orphans: string[]; messages: string[] };
 };
 
 type R2CredentialTuple = {
@@ -346,10 +352,14 @@ function optionalR2CredentialTuple(
   const [accessKeyId = '', secretAccessKey = '', sessionToken = ''] = names.map(
     (name) => env[name]?.trim() ?? ''
   );
-  const values = [accessKeyId, secretAccessKey, sessionToken];
-  if (values.every((value) => value.length === 0)) return null;
-  if (values.some((value) => value.length === 0)) {
-    throw new Error(`${label} must be a complete access key, secret key, and session token tuple`);
+  // Access + secret are required together. Session token is optional so static
+  // long-lived integration keys can cross the isolated boundary without a STS
+  // mint (minted temporary tuples still supply a real session token when present).
+  if (!accessKeyId && !secretAccessKey && !sessionToken) return null;
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      `${label} must include both access key and secret key (session token optional for static keys)`
+    );
   }
   return {
     accessKeyId,
@@ -592,12 +602,27 @@ function createIsolatedIntegrationEnv(
     if (integrationWriter) {
       isolatedSourceSecrets.R2_ACCESS_KEY_ID = integrationWriter.accessKeyId;
       isolatedSourceSecrets.R2_SECRET_ACCESS_KEY = integrationWriter.secretAccessKey;
-      isolatedSourceSecrets.R2_SESSION_TOKEN = integrationWriter.sessionToken;
+      if (integrationWriter.sessionToken) {
+        isolatedSourceSecrets.R2_SESSION_TOKEN = integrationWriter.sessionToken;
+      }
+    } else {
+      // Fall back to source-file writer keys when no temporary integration tuple
+      // was minted. Prefix isolation (integration/*) still scopes the object path.
+      const srcAccess = baseEnv.R2_ACCESS_KEY_ID ?? sourceSecrets.R2_ACCESS_KEY_ID;
+      const srcSecret = baseEnv.R2_SECRET_ACCESS_KEY ?? sourceSecrets.R2_SECRET_ACCESS_KEY;
+      if (srcAccess && srcSecret) {
+        isolatedSourceSecrets.R2_ACCESS_KEY_ID = srcAccess;
+        isolatedSourceSecrets.R2_SECRET_ACCESS_KEY = srcSecret;
+        const srcSession = baseEnv.R2_SESSION_TOKEN ?? sourceSecrets.R2_SESSION_TOKEN;
+        if (srcSession) isolatedSourceSecrets.R2_SESSION_TOKEN = srcSession;
+      }
     }
     if (integrationRestore) {
       isolatedSourceSecrets.R2_RESTORE_ACCESS_KEY_ID = integrationRestore.accessKeyId;
       isolatedSourceSecrets.R2_RESTORE_SECRET_ACCESS_KEY = integrationRestore.secretAccessKey;
-      isolatedSourceSecrets.R2_RESTORE_SESSION_TOKEN = integrationRestore.sessionToken;
+      if (integrationRestore.sessionToken) {
+        isolatedSourceSecrets.R2_RESTORE_SESSION_TOKEN = integrationRestore.sessionToken;
+      }
     }
     upsertSecretsFile(secretsPath, {
       ...isolatedSourceSecrets,
@@ -685,7 +710,10 @@ function createIsolatedIntegrationEnv(
       'R2_INTEGRATION_RESTORE_SESSION_TOKEN',
       'R2_PGBACKREST_PREFIX',
       'R2_REPO_CIPHER_PASS',
+      'R2_RESTORE_ACCESS_KEY_ID',
       'R2_RESTORE_OBJECT_PREFIX',
+      'R2_RESTORE_SECRET_ACCESS_KEY',
+      'R2_RESTORE_SESSION_TOKEN',
       'R2_SCOPE_PROBE_IN_KEY',
       'R2_SCOPE_PROBE_OUT_KEY',
       'R2_SECRET_ACCESS_KEY',
@@ -732,9 +760,66 @@ function createIsolatedIntegrationEnv(
       delete isolatedEnv.PGPASSWORD;
     }
 
+    // Hermetic lifecycle: ready-wait, reference seed, Zero child tracking.
+    // Pass original baseEnv so HOLO_GO_NO_GO_* targets remain visible (isolatedEnv
+    // strips those selector keys after materialising DATABASE_URL).
+    let lifecycle: IsolatedLifecycleHandle | undefined;
+    let teardownResult: IsolatedIntegrationEnv['teardown'];
+    try {
+      lifecycle = createIsolatedLifecycle({
+        repoRoot,
+        baseEnv: {
+          ...baseEnv,
+          // Prefer the validated isolated targets from this builder.
+          HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
+          HOLO_GO_NO_GO_DATABASE_URL_OWNER: ownerDatabaseUrl,
+          HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: pg1Path,
+          HOLO_GO_NO_GO_CONVEX_URL: convexUrl,
+          HOLO_GO_NO_GO_CONVEX_SITE_URL: convexSiteUrl,
+          HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: convexDeployment,
+          HOLO_GO_NO_GO_FLEET_URL: fleetUrl,
+          ZERO_CACHE_URL: baseEnv.ZERO_CACHE_URL ?? 'http://127.0.0.1:4848',
+        },
+        // Only autostart when the operator opts in — shared IT clusters stay bound.
+        autostart: baseEnv.HOLO_GO_NO_GO_AUTOSTART === '1',
+      });
+      Object.assign(isolatedEnv, {
+        ZERO_CACHE_URL: lifecycle.zeroUrl,
+        ZERO_ADMIN_PASSWORD: lifecycle.env.ZERO_ADMIN_PASSWORD,
+        HOLO_LIFECYCLE_ROOT: lifecycle.root,
+        HOLO_LIFECYCLE_EVIDENCE_DIR: lifecycle.evidenceDir,
+        E2E_ARTIFACT_DIR: baseEnv.E2E_ARTIFACT_DIR ?? lifecycle.evidenceDir,
+      });
+    } catch (lifecycleError) {
+      rmSync(tempRoot, { recursive: true, force: true });
+      throw lifecycleError;
+    }
+
     return {
       env: isolatedEnv,
+      lifecycle,
       prepareRuntime: () => {
+        lifecycle?.waitReady(90_000);
+        lifecycle?.ensurePublication();
+        const seed = seedReferenceAgentState({ databaseUrl });
+        if (lifecycle) {
+          writeFileSync(
+            resolve(lifecycle.evidenceDir, 'reference-request.json'),
+            `${JSON.stringify(
+              {
+                message: seed.message,
+                request_id: seed.requestId,
+                conversation_id: seed.conversationId,
+              },
+              null,
+              2
+            )}\n`,
+            'utf8'
+          );
+          isolatedEnv.HOLO_LIFECYCLE_SEED_REQUEST_ID = seed.requestId;
+          isolatedEnv.HOLO_LIFECYCLE_SEED_MESSAGE = seed.message;
+          isolatedEnv.HOLO_LIFECYCLE_SEED_RUN_ID = seed.runId;
+        }
         // The durable never-cloud guard intentionally fails closed when this
         // row is absent. Namespace reset produces a clean database, so establish
         // the explicit normal state immediately before a production lane. This
@@ -762,7 +847,17 @@ function createIsolatedIntegrationEnv(
           pgbackrestConfig,
           previousArchiveCommand,
         });
+        if (lifecycle) {
+          lifecycle.stopAll();
+          teardownResult = lifecycle.verifyTeardown();
+          if (!teardownResult.ok) {
+            isolatedEnv.HOLO_LIFECYCLE_TEARDOWN_ORPHANS = teardownResult.orphans.join(',');
+          }
+        }
         rmSync(tempRoot, { recursive: true, force: true });
+      },
+      get teardown() {
+        return teardownResult;
       },
     };
   } catch (error) {
@@ -814,6 +909,10 @@ export function resolveGateSpecs(
 /**
  * Sequential real-subprocess gate runner. Produces one unified report.
  * overall.ok = AND(every gate.pass).
+ *
+ * Integration runs in explicit serial phases (filesystem → postgres → zero →
+ * fleet/retailer → maestro) unless HOLO_GO_NO_GO_PHASED=0. Teardown is verified
+ * before the durable report is written.
  */
 export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
   const repoRoot = options.repoRoot ?? resolveRepoRoot();
@@ -821,12 +920,17 @@ export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
   const env = { ...process.env, ...(options.env ?? {}) };
   const specs = resolveGateSpecs(options.gates, env);
   const reportPath = resolve(options.reportPath ?? defaultGoNoGoReportPath(cwd));
+  const phased = (env.HOLO_GO_NO_GO_PHASED ?? '1') !== '0';
 
   const gates: GateResult[] = [];
   const needsIntegrationEnv = specs.some(
     (spec) => spec.name === 'integration' || spec.name === 'live'
   );
+  // Boundary/shape tests inject synthetic gates with HOLO_GO_NO_GO_* and still
+  // need the credential-boundary path; production uses the unbound DEFAULT specs.
   const isolated = needsIntegrationEnv ? createIsolatedIntegrationEnv(repoRoot, env) : null;
+  let teardownVerified = true;
+  let teardownOrphans: string[] = [];
   try {
     for (const spec of specs) {
       const gateEnv =
@@ -834,13 +938,50 @@ export function runGoNoGo(options: RunGoNoGoOptions = {}): GoNoGoReport {
       if (options.gates === undefined && (spec.name === 'integration' || spec.name === 'live')) {
         isolated?.prepareRuntime();
       }
+
+      if (options.gates === undefined && spec.name === 'integration' && phased && isolated) {
+        const started = Date.now();
+        const phasedResult = runPhasedIntegration({ cwd, env: gateEnv });
+        const duration_ms = Math.max(1, Date.now() - started);
+        const collectedTests = phasedResult.phases.reduce((n, p) => n + p.collectedTests, 0);
+        gates.push({
+          name: 'integration',
+          command: phasedIntegrationCommand(),
+          exit_code: phasedResult.pass ? 0 : 1,
+          duration_ms,
+          pass: phasedResult.pass && collectedTests > 0,
+          collectedTests,
+          stdout_tail: summarizeOutput(phasedResult.stdout),
+          stderr_tail: summarizeOutput(phasedResult.stderr),
+        });
+        continue;
+      }
+
       gates.push(runOneGate(spec, { cwd, env: gateEnv }));
     }
   } finally {
     isolated?.cleanup();
+    const t = isolated?.teardown;
+    if (t) {
+      teardownVerified = t.ok;
+      teardownOrphans = t.orphans;
+    }
   }
 
-  const overallOk = gates.length > 0 && gates.every((g) => g.pass);
+  // Fail closed if hermetic teardown left orphans (Zero workers, etc.) without
+  // inventing a 9th gate (oracle requires gates.length === 8).
+  if (!teardownVerified) {
+    const integration = gates.find((g) => g.name === 'integration');
+    if (integration) {
+      integration.pass = false;
+      integration.exit_code = integration.exit_code === 0 ? 1 : integration.exit_code;
+      integration.stderr_tail = summarizeOutput(
+        `${integration.stderr_tail}\nhermetic teardown incomplete: ${teardownOrphans.join(', ')}`
+      );
+    }
+  }
+
+  const overallOk = gates.length > 0 && gates.every((g) => g.pass) && teardownVerified;
   const report: GoNoGoReport = {
     ok: overallOk,
     overall: { ok: overallOk },

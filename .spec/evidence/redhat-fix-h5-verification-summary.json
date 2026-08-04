@@ -3,7 +3,7 @@
   "phase": "green",
   "title": "Hard budget pre-check: reject zero estimate, transactional reserve, consistent ceiling, fail-closed ledger",
   "ac": {
-    "AC-1": "PASS — estimatedCostUsd<=0 → BUDGET_INVALID_ESTIMATE; anthropicHits:0; CLI --cost 0 refused",
+    "AC-1": "PASS — estimatedCostUsd<=0 → BUDGET_INVALID_ESTIMATE; deepseekHits:0; CLI --cost 0 refused",
     "AC-2": "PASS — concurrent reserve:true estimates serialize under SELECT FOR UPDATE; success_count===1",
     "AC-3": "PASS — getBudgetStatus.effectiveCeiling === checkBudget.ceilingUsd; ceilingSource env|db",
     "AC-4": "PASS — live generateText + injected logEscape failure → BudgetLedgerWriteError (fail-closed)",
@@ -12,7 +12,7 @@
   },
   "tests": {
     "command": "PLATFORM_IT=1 pnpm vitest run tests/integration/service/infer-budget-hard-precheck.test.ts --pool=forks --maxWorkers=1",
-    "hasAnthropicKey": false,
+    "hasDeepSeekKey": true,
     "allowSkipAnthropic": false,
     "ac4_live": true,
     "ac5_live": true

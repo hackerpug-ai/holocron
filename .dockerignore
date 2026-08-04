@@ -16,3 +16,11 @@
 !.spec/prds/mk6-migration/
 !.spec/prds/mk6-migration/10-technical-requirements/
 !.spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml
+
+# Explicit deny: never ship operator credentials even if a parent whitelist re-includes them.
+# Must appear AFTER all `!…` whitelist rules so these patterns win the last-match rule.
+services/platform/config/secrets.yaml
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

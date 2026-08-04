@@ -334,6 +334,33 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
     if (database.password) backupEnv.PGPASSWORD = decodeURIComponent(database.password);
     else delete backupEnv.PGPASSWORD;
 
+    // Ensure pgBackRest log dir exists (archive-push / backup warn-and-continue
+    // without it, but missing prior-segment archive still fails the base backup).
+    try {
+      mkdirSync('/tmp/pgbackrest-logs', { recursive: true });
+    } catch {
+      /* best-effort */
+    }
+
+    // Re-assert continuous WAL archiving before base backup. Residual fire-drill
+    // suites can leave archive_command=/bin/true on a shared isolated Postgres;
+    // backup:wal rebinds archive_command → pgbackrest archive-push and proves it.
+    const walPre = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:wal', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: backupEnv,
+      timeout: 180_000,
+    });
+    writeEvidence('seed-wal-preflight.json', {
+      status: walPre.status,
+      stdout: (walPre.stdout ?? '').slice(0, 4000),
+      stderr: (walPre.stderr ?? '').slice(0, 2000),
+    });
+    expect(
+      walPre.status,
+      `PITR WAL preflight (backup:wal) must succeed before base backup: ${(walPre.stdout ?? '').slice(-1500)} ${(walPre.stderr ?? '').slice(-500)}`
+    ).toBe(0);
+
     // The official isolated lane uses a fresh exact R2 prefix. Establish a
     // real base backup before T0 so the seeded TT lies inside a restorable WAL
     // window; stanza metadata + WAL alone cannot satisfy PITR.
@@ -341,7 +368,7 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       cwd: REPO_ROOT,
       encoding: 'utf8',
       env: backupEnv,
-      timeout: 180_000,
+      timeout: 240_000,
     });
     writeEvidence('seed-base-backup.json', {
       status: base.status,

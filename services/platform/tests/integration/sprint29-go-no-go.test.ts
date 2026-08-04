@@ -76,12 +76,6 @@ afterEach(() => {
   }
 });
 
-const AMBIENT_RESTORE_KEYS = [
-  'R2_RESTORE_ACCESS_KEY_ID',
-  'R2_RESTORE_SECRET_ACCESS_KEY',
-  'R2_RESTORE_SESSION_TOKEN',
-] as const;
-
 function isolatedLaneEnv(
   overrides: NodeJS.ProcessEnv = {},
   ambientEnv: NodeJS.ProcessEnv = process.env
@@ -95,10 +89,8 @@ function isolatedLaneEnv(
     'utf8'
   );
   const env = { ...ambientEnv };
-  // A full operator environment may contain the restore-reader tuple. It is
-  // not an integration-lane input: only the explicit R2_INTEGRATION_RESTORE_*
-  // tuple below may cross this test boundary.
-  for (const key of AMBIENT_RESTORE_KEYS) delete env[key];
+  // Preserve a full operator environment here so the production isolation
+  // boundary—not the test helper—must remove broad restore credentials.
   return {
     ...env,
     HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:test-s29',

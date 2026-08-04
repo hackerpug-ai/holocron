@@ -27,6 +27,27 @@ if (!PLATFORM_IT) {
   throw new Error('sprint29-fence-arm-order requires PLATFORM_IT=1');
 }
 
+/** Live loopback Convex is required for freeze/arm probes; skip when absent. */
+function loopbackConvexReady(): boolean {
+  const raw = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(u.hostname)) return false;
+  } catch {
+    return false;
+  }
+  const r = spawnSync(
+    'curl',
+    ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '2', raw],
+    { encoding: 'utf8' }
+  );
+  const code = (r.stdout ?? '').trim();
+  return r.status === 0 && Boolean(code) && code !== '000';
+}
+
+const CONVEX_READY = loopbackConvexReady();
+
 const EVIDENCE = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-H05');
 const EVIDENCE_R2_H04 = resolve(process.cwd(), '.tmp/REDHAT-FIX-S29-R2-H04');
 const EVIDENCE_SPRINT = resolve(
@@ -137,7 +158,7 @@ function sourceRequiresChildPidBeforeArm(): boolean {
   );
 }
 
-describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
+describe.skipIf(!CONVEX_READY)('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
   beforeAll(async () => {
     mkdirSync(EVIDENCE, { recursive: true });
     mkdirSync(D0603, { recursive: true });
@@ -312,102 +333,107 @@ describe('REDHAT-FIX-S29-H05 fence arm-after-confirm ordering', () => {
   }, 360_000);
 });
 
-describe('REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process arm fallback)', () => {
-  beforeAll(() => {
-    mkdirSync(EVIDENCE_R2_H04, { recursive: true });
-    mkdirSync(EVIDENCE_SPRINT, { recursive: true });
-  });
-
-  it('r2-h04 RED static: source must not reintroduce in-process probe success fallback', () => {
-    const hasFallback = sourceHasInProcessProbeFallbackSuccessPath();
-    const requiresChildPid = sourceRequiresChildPidBeforeArm();
-    evidenceR2H04('r2-h04-source-gate.json', {
-      has_inprocess_probe_fallback_success_path: hasFallback,
-      requires_child_pid_before_arm: requiresChildPid,
-      note: 'GREEN requires has_fallback===false && requires_child_pid===true',
+describe.skipIf(!CONVEX_READY)(
+  'REDHAT-FIX-S29-R2-H04 cross-process probe fail-closed (no in-process arm fallback)',
+  () => {
+    beforeAll(() => {
+      mkdirSync(EVIDENCE_R2_H04, { recursive: true });
+      mkdirSync(EVIDENCE_SPRINT, { recursive: true });
     });
-    expect(hasFallback, 'pre-fix in-process probe fallback still present (:341-382)').toBe(false);
-    expect(requiresChildPid, 'runCutoverFreeze must gate arm on child_pid number').toBe(true);
-  });
 
-  it('cross-process-probe-fail-closed-no-inprocess-fallback: unparseable child fails closed', async () => {
-    // Real OS spawn; mutant eval emits non-JSON so parse cannot yield rejected boolean.
-    // Pre-fix fell back to in-process mutation (child_pid:null) and could return rejected:true.
-    const probe = await runCrossProcessBlockedWriteProbe({
-      childEvalScript: 'console.log("r2-h04-unparseable-not-json");',
-    });
-    evidenceR2H04('r2-h04-ac1-unparseable-probe.json', probe);
-
-    expect(probe.rejected, 'unparseable child must fail closed (rejected===false)').toBe(false);
-    expect(
-      /cross_process_probe_fail_closed|unparseable|spawn/i.test(probe.message),
-      `expected fail-closed diagnostic, got ${probe.message}`
-    ).toBe(true);
-    // child_pid may be null or a spawn pid, but rejected must never green via in-process
-    expect(probe.message).not.toMatch(/^migration_read_only:/);
-  }, 120_000);
-
-  it('freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child', async () => {
-    // Ensure env can confirm, then force probe parse failure so arm must refuse.
-    const prior = getMigrationReadOnlyEnv();
-    if (isFenceArmedEnv(prior)) {
-      spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        timeout: 90_000,
+    it('r2-h04 RED static: source must not reintroduce in-process probe success fallback', () => {
+      const hasFallback = sourceHasInProcessProbeFallbackSuccessPath();
+      const requiresChildPid = sourceRequiresChildPidBeforeArm();
+      evidenceR2H04('r2-h04-source-gate.json', {
+        has_inprocess_probe_fallback_success_path: hasFallback,
+        requires_child_pid_before_arm: requiresChildPid,
+        note: 'GREEN requires has_fallback===false && requires_child_pid===true',
       });
-    }
-    await waitForMigrationReadOnlyRuntime({ expected: false });
+      expect(hasFallback, 'pre-fix in-process probe fallback still present (:341-382)').toBe(false);
+      expect(requiresChildPid, 'runCutoverFreeze must gate arm on child_pid number').toBe(true);
+    });
 
-    const refusePath = resolve(EVIDENCE_R2_H04, 'freeze-report-must-not-arm.json');
-    if (existsSync(refusePath)) {
-      unlinkSync(refusePath);
-    }
-
-    let threw = false;
-    let errMsg = '';
-    try {
-      await runCutoverFreeze({
-        reason: 's29-r2-h04-probe-fail',
-        reportPath: refusePath,
-        probe: {
-          childEvalScript: 'console.log("r2-h04-force-unparseable");',
-        },
+    it('cross-process-probe-fail-closed-no-inprocess-fallback: unparseable child fails closed', async () => {
+      // Real OS spawn; mutant eval emits non-JSON so parse cannot yield rejected boolean.
+      // Pre-fix fell back to in-process mutation (child_pid:null) and could return rejected:true.
+      const probe = await runCrossProcessBlockedWriteProbe({
+        childEvalScript: 'console.log("r2-h04-unparseable-not-json");',
       });
-    } catch (err) {
-      threw = true;
-      errMsg = err instanceof Error ? err.message : String(err);
-    }
-    evidenceR2H04('r2-h04-ac2-freeze-refuse.json', {
-      threw,
-      errMsg,
-      ok: false,
-      report_exists_after: existsSync(refusePath),
-    });
+      evidenceR2H04('r2-h04-ac1-unparseable-probe.json', probe);
 
-    expect(threw, 'freeze must throw FAIL CLOSED when probe fails').toBe(true);
-    expect(errMsg).toMatch(/FAIL CLOSED|cross-process probe/i);
-    // Must not persist success freeze-report with authoritative arm
-    if (existsSync(refusePath)) {
-      const raw = readFileSync(refusePath, 'utf8');
-      const parsed = JSON.parse(raw) as { ok?: boolean; fence_armed_at?: number };
-      expect(parsed.ok, 'refuse path must not be ok:true after probe fail').not.toBe(true);
-    }
-  }, 300_000);
+      expect(probe.rejected, 'unparseable child must fail closed (rejected===false)').toBe(false);
+      expect(
+        /cross_process_probe_fail_closed|unparseable|spawn/i.test(probe.message),
+        `expected fail-closed diagnostic, got ${probe.message}`
+      ).toBe(true);
+      // child_pid may be null or a spawn pid, but rejected must never green via in-process
+      expect(probe.message).not.toMatch(/^migration_read_only:/);
+    }, 120_000);
 
-  it('r2-h04 child_pid: successful arm requires non-null child_pid number', async () => {
-    const freezeReport = await runCutoverFreeze({
-      reason: 's29-r2-h04',
-      reportPath: resolve(EVIDENCE_R2_H04, 'freeze-report.json'),
-    });
-    evidenceR2H04('freeze-report.json', freezeReport);
-    evidenceR2H04('r2-h04-ac3-child-pid.json', freezeReport.cross_process_probe);
+    it('freeze-refuses-arm-when-cross-process-probe-fails: no fence_armed_at on unparseable child', async () => {
+      // Ensure env can confirm, then force probe parse failure so arm must refuse.
+      const prior = getMigrationReadOnlyEnv();
+      if (isFenceArmedEnv(prior)) {
+        spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+          cwd: process.cwd(),
+          encoding: 'utf8',
+          timeout: 90_000,
+        });
+      }
+      await waitForMigrationReadOnlyRuntime({ expected: false });
 
-    expect(freezeReport.ok).toBe(true);
-    expect(freezeReport.cross_process_probe.rejected).toBe(true);
-    expect(freezeReport.cross_process_probe.message.startsWith('migration_read_only:')).toBe(true);
-    expect(typeof freezeReport.cross_process_probe.child_pid).toBe('number');
-    expect(freezeReport.cross_process_probe.child_pid).toBeGreaterThan(0);
-    expect(freezeReport.fence_armed_at).toBeGreaterThanOrEqual(freezeReport.confirmed_at_ms);
-  }, 300_000);
-});
+      const refusePath = resolve(EVIDENCE_R2_H04, 'freeze-report-must-not-arm.json');
+      if (existsSync(refusePath)) {
+        unlinkSync(refusePath);
+      }
+
+      let threw = false;
+      let errMsg = '';
+      try {
+        await runCutoverFreeze({
+          reason: 's29-r2-h04-probe-fail',
+          reportPath: refusePath,
+          probe: {
+            childEvalScript: 'console.log("r2-h04-force-unparseable");',
+          },
+        });
+      } catch (err) {
+        threw = true;
+        errMsg = err instanceof Error ? err.message : String(err);
+      }
+      evidenceR2H04('r2-h04-ac2-freeze-refuse.json', {
+        threw,
+        errMsg,
+        ok: false,
+        report_exists_after: existsSync(refusePath),
+      });
+
+      expect(threw, 'freeze must throw FAIL CLOSED when probe fails').toBe(true);
+      expect(errMsg).toMatch(/FAIL CLOSED|cross-process probe/i);
+      // Must not persist success freeze-report with authoritative arm
+      if (existsSync(refusePath)) {
+        const raw = readFileSync(refusePath, 'utf8');
+        const parsed = JSON.parse(raw) as { ok?: boolean; fence_armed_at?: number };
+        expect(parsed.ok, 'refuse path must not be ok:true after probe fail').not.toBe(true);
+      }
+    }, 300_000);
+
+    it('r2-h04 child_pid: successful arm requires non-null child_pid number', async () => {
+      const freezeReport = await runCutoverFreeze({
+        reason: 's29-r2-h04',
+        reportPath: resolve(EVIDENCE_R2_H04, 'freeze-report.json'),
+      });
+      evidenceR2H04('freeze-report.json', freezeReport);
+      evidenceR2H04('r2-h04-ac3-child-pid.json', freezeReport.cross_process_probe);
+
+      expect(freezeReport.ok).toBe(true);
+      expect(freezeReport.cross_process_probe.rejected).toBe(true);
+      expect(freezeReport.cross_process_probe.message.startsWith('migration_read_only:')).toBe(
+        true
+      );
+      expect(typeof freezeReport.cross_process_probe.child_pid).toBe('number');
+      expect(freezeReport.cross_process_probe.child_pid).toBeGreaterThan(0);
+      expect(freezeReport.fence_armed_at).toBeGreaterThanOrEqual(freezeReport.confirmed_at_ms);
+    }, 300_000);
+  }
+);

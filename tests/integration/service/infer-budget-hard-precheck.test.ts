@@ -21,7 +21,14 @@ import {
   applyConsolidatedSecretsToEnv,
   getSecretValue,
 } from '../../../services/platform/src/config/secrets';
-import { BUN_BIN, DEFAULT_DATABASE_URL, HOLO_CLI, PLATFORM_IT, REPO_ROOT } from './harness';
+import {
+  BUN_BIN,
+  DEFAULT_DATABASE_URL,
+  HOLO_CLI,
+  PLATFORM_IT,
+  REPO_ROOT,
+  seedNormalEscapeState,
+} from './harness';
 import { installNetworkCapture } from './infer-network-capture';
 
 const itLive = PLATFORM_IT ? it : it.skip;
@@ -184,6 +191,11 @@ async function withBudgetLock<T>(fn: () => Promise<T>): Promise<T> {
   try {
     // Share lock with other budget suites so parallel vitest files cannot TRUNCATE mid-case.
     await sql`SELECT pg_advisory_lock(hashtext('infer-2-budget-ledger'))`;
+    // Residual/phase order can leave durable degraded_mode non-normal or the
+    // process flag set. Budget ACs exercise escape metering, not never-cloud —
+    // restore the production "normal" precondition so assertEscapeNotDegraded
+    // does not short-circuit before checkBudget.
+    await seedNormalEscapeState(DEFAULT_DATABASE_URL);
     return await fn();
   } finally {
     try {

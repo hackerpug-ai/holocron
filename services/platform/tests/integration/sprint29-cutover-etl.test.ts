@@ -65,6 +65,29 @@ const USE_FIXTURE_EXPORT =
   process.env.HOLO_CUTOVER_FIXTURE_EXPORT === '1' || process.env.HOLO_CUTOVER_LIVE_EXPORT === '0';
 const LIVE_EXPORT = !USE_FIXTURE_EXPORT;
 
+/** True when a loopback Convex HTTP endpoint answers (needed for freeze/fence). */
+function loopbackConvexReady(): boolean {
+  const raw = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(u.hostname)) return false;
+  } catch {
+    return false;
+  }
+  const r = spawnSync(
+    'curl',
+    ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '2', raw],
+    { encoding: 'utf8' }
+  );
+  const code = (r.stdout ?? '').trim();
+  return r.status === 0 && Boolean(code) && code !== '000';
+}
+
+const CONVEX_READY = loopbackConvexReady();
+// Freeze/fence still requires a live Convex control plane even for fixture exports.
+const CAN_RUN_CUTOVER_ETL = PLATFORM_IT && CONVEX_READY;
+
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod',
   context: 'sprint29-cutover-etl test',
@@ -229,7 +252,7 @@ async function truncateEtlTables(sql: Sql): Promise<void> {
   `);
 }
 
-describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
+describe.skipIf(!CAN_RUN_CUTOVER_ETL)('Sprint 29 D06-04 cutover ETL orchestration', () => {
   let sql: Sql;
   let firstReport: CutoverEtlReport | null = null;
   let firstExportDir: string | null = null;
@@ -268,28 +291,36 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     // AC-1 exports the live disposable Convex deployment. Make its non-empty
     // precondition self-contained instead of depending on another test file's
     // seed/order. This is real Convex state (not an injected export fixture).
-    const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
-    const parsedConvexUrl = new URL(convexUrl);
-    if (!['127.0.0.1', 'localhost', '::1'].includes(parsedConvexUrl.hostname)) {
-      throw new Error('sprint29-cutover-etl live seed refuses non-loopback Convex deployment');
-    }
-    const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      timeout: 90_000,
-      env: process.env,
-    });
-    if (unset.status !== 0) {
-      throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
-    }
-    const convex = new ConvexHttpClient(convexUrl);
-    await waitForMigrationReadOnlyRuntime({ expected: false, client: convex });
-    const conversationCount = await convex.query(api.conversations.queries.count, {});
-    if (conversationCount === 0) {
-      await convex.mutation(api.conversations.mutations.create, {
-        title: `sprint29 live export seed ${RUN}`,
-        lastMessagePreview: 'live Convex export non-empty oracle',
+    // Fixture mode (HOLO_CUTOVER_FIXTURE_EXPORT=1) skips live Convex entirely.
+    if (LIVE_EXPORT) {
+      const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+      if (!convexUrl) {
+        throw new Error(
+          'LIVE_EXPORT requires EXPO_PUBLIC_CONVEX_URL or CONVEX_URL (loopback Convex)'
+        );
+      }
+      const parsedConvexUrl = new URL(convexUrl);
+      if (!['127.0.0.1', 'localhost', '::1'].includes(parsedConvexUrl.hostname)) {
+        throw new Error('sprint29-cutover-etl live seed refuses non-loopback Convex deployment');
+      }
+      const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 90_000,
+        env: process.env,
       });
+      if (unset.status !== 0) {
+        throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
+      }
+      const convex = new ConvexHttpClient(convexUrl);
+      await waitForMigrationReadOnlyRuntime({ expected: false, client: convex });
+      const conversationCount = await convex.query(api.conversations.queries.count, {});
+      if (conversationCount === 0) {
+        await convex.mutation(api.conversations.mutations.create, {
+          title: `sprint29 live export seed ${RUN}`,
+          lastMessagePreview: 'live Convex export non-empty oracle',
+        });
+      }
     }
     quietCheckPath = seedQuietCheck(true);
     evidence('export-mode.json', {

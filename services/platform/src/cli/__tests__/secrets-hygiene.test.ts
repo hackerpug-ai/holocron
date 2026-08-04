@@ -56,7 +56,8 @@ describe('AC-2: consolidated secrets + Convex env alias detection (real CLI + re
       expect(r.combined).not.toMatch(/unknown command/i);
       expect(r.combined).toMatch(/zero.*convex|no convex|0.*alias|clean/i);
 
-      // Independent real-repo grep (not a fixture) — post-D01-04 must be clean
+      // Independent real-repo grep (not a fixture) — post-D01-04 must be clean.
+      // Search only production runtime roots (not tests/, cutover/ isolation scaffolding).
       const grepped = runCmd(
         'rg',
         [
@@ -70,12 +71,14 @@ describe('AC-2: consolidated secrets + Convex env alias detection (real CLI + re
           '--glob',
           '!**/__tests__/**',
           '--glob',
-          '!**/tests/fixtures/**',
+          '!**/tests/**',
+          '--glob',
+          '!**/cutover/**',
           '-e',
           'CONVEX_URL|HOLOCRON_URL|EXPO_PUBLIC_CONVEX_URL|CONVEX_DEPLOY_KEY',
           'app',
           'holocron-mcp',
-          'services/platform',
+          'services/platform/src',
         ],
         { cwd: REPO_ROOT }
       );

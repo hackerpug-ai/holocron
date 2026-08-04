@@ -381,16 +381,22 @@ describe.sequential('pipes-2 GREEN — business-report parameterized template', 
       });
       expect(reg.status).toBe(0);
 
-      const run = runHolo('pipes2-cli-report-rv', [
-        'mission',
-        'run',
-        'report',
-        '--kind',
-        'revenue-validation',
-        '--target',
-        'acme-cli.example.com',
-        '--json',
-      ]);
+      // Fleet-backed report missions often exceed the default 90s spawnSync
+      // timeout under residual-phase load; align with the it() budget.
+      const run = runHolo(
+        'pipes2-cli-report-rv',
+        [
+          'mission',
+          'run',
+          'report',
+          '--kind',
+          'revenue-validation',
+          '--target',
+          'acme-cli.example.com',
+          '--json',
+        ],
+        { timeoutMs: 280_000 }
+      );
       writeEvidence('CLI-run-report.json', {
         status: run.status,
         stdout: run.stdout,
