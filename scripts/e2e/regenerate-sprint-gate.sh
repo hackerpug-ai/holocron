@@ -49,6 +49,11 @@ fi
 # still reports failures>0. A genuine this-cycle green junit (different sha)
 # MAY PASS even if failed-this-cycle retains prior crash quarantine evidence.
 OFFICIAL11_SUCCESS_SHA="a9eb6f7adb5771585d6d4efae16a7f5123bd6f6c2694923e9ef7269ece15738d"
+rejected_historical_sha="${REJECTED_HISTORICAL_JUNIT_SHA:-}"
+if [[ -n "$rejected_historical_sha" && ! "$rejected_historical_sha" =~ ^[0-9a-fA-F]{64}$ ]]; then
+  echo "regenerate-sprint-gate: REJECTED_HISTORICAL_JUNIT_SHA must be a 64-character hex SHA" >&2
+  exit 2
+fi
 failed_cycle_junit="$artifact_dir/failed-this-cycle/junit.xml"
 failed_cycle_failures=-1
 if [[ -s "$failed_cycle_junit" ]]; then
@@ -62,9 +67,11 @@ fi
 # identity AND failed-this-cycle still reports failures>0 (substitution attack).
 # Genuine this-cycle green (failures=0, sha != official11) PASSes.
 s1="FAIL"; s1ev="$junit"
-if [[ "$junit_failures" -eq 0 && -n "$junit_sha" && "$junit_sha" == "$OFFICIAL11_SUCCESS_SHA" && "$failed_cycle_failures" -gt 0 ]]; then
+if [[ "$junit_failures" -eq 0 && -n "$junit_sha" && "$failed_cycle_failures" -gt 0 ]] \
+  && { [[ "$junit_sha" == "$OFFICIAL11_SUCCESS_SHA" ]] \
+    || [[ -n "$rejected_historical_sha" && "$junit_sha" == "$rejected_historical_sha" ]]; }; then
   s1="FAIL"
-  s1ev="$failed_cycle_junit failures=${failed_cycle_failures} (historical official11 SUCCESS substitution rejected; this-cycle fail overrides)"
+  s1ev="$failed_cycle_junit failures=${failed_cycle_failures} (historical SUCCESS substitution rejected; this-cycle fail overrides)"
 elif [[ "$junit_failures" -eq 0 ]]; then
   s1="PASS"
   s1ev="$junit"

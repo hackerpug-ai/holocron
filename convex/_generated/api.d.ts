@@ -116,6 +116,7 @@ import type * as lib_react from "../lib/react.js";
 import type * as lib_reportFormat from "../lib/reportFormat.js";
 import type * as lib_reportTemplates from "../lib/reportTemplates.js";
 import type * as lib_strings from "../lib/strings.js";
+import type * as lib_unknown from "../lib/unknown.js";
 import type * as migrationFence_audit from "../migrationFence/audit.js";
 import type * as migrationFence_drain from "../migrationFence/drain.js";
 import type * as migrations_backfill_chat_titles from "../migrations/backfill_chat_titles.js";
@@ -358,6 +359,7 @@ declare const fullApi: ApiFromModules<{
   "lib/reportFormat": typeof lib_reportFormat;
   "lib/reportTemplates": typeof lib_reportTemplates;
   "lib/strings": typeof lib_strings;
+  "lib/unknown": typeof lib_unknown;
   "migrationFence/audit": typeof migrationFence_audit;
   "migrationFence/drain": typeof migrationFence_drain;
   "migrations/backfill_chat_titles": typeof migrations_backfill_chat_titles;

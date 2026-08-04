@@ -217,8 +217,8 @@ describe.sequential('REDHAT-FIX-2 — deterministic CLI mission idempotency defa
       const b = payloadFields(second.parsed);
 
       writeEvidence('AC-1-double-invoke.json', {
-        first: { status: first.status, ...a, combined: first.combined.slice(0, 2000) },
-        second: { status: second.status, ...b, combined: second.combined.slice(0, 2000) },
+        first: { exitStatus: first.status, ...a, combined: first.combined.slice(0, 2000) },
+        second: { exitStatus: second.status, ...b, combined: second.combined.slice(0, 2000) },
       });
 
       expect(first.status, first.combined).toBe(0);
@@ -274,12 +274,12 @@ describe.sequential('REDHAT-FIX-2 — deterministic CLI mission idempotency defa
 
       writeEvidence('AC-2-override-and-fresh.json', {
         override: {
-          first: { status: o1.status, ...oa },
-          second: { status: o2.status, ...ob },
+          first: { exitStatus: o1.status, ...oa },
+          second: { exitStatus: o2.status, ...ob },
         },
         fresh: {
-          first: { status: f1.status, ...fa },
-          second: { status: f2.status, ...fb },
+          first: { exitStatus: f1.status, ...fa },
+          second: { exitStatus: f2.status, ...fb },
         },
       });
 

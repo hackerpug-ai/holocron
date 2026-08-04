@@ -10,6 +10,7 @@
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint28-recovery-baseline.test.ts
  */
+import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,6 +39,7 @@ import {
   queryTargetLsn,
   RECOVERY_BASELINE_SCHEMA,
   type RecoveryBaseline,
+  recoveryBaselineObjectPrefix,
   validateRecoveryBaseline,
 } from '../../src/backup/recovery-baseline.ts';
 import { defaultBlobRoot } from '../../src/blob/store.ts';
@@ -84,6 +86,23 @@ function sha256Utf8(s: string): string {
   return createHash('sha256').update(s, 'utf8').digest('hex');
 }
 
+function psql(sql: string): string {
+  const result = spawnSync('psql', [DATABASE_URL, '-v', 'ON_ERROR_STOP=1', '-tAc', sql], {
+    encoding: 'utf8',
+    env: process.env,
+    timeout: 30_000,
+  });
+  if (result.status !== 0) {
+    throw new Error(`recovery-baseline fixture SQL failed: ${result.stderr || result.stdout}`);
+  }
+  return (
+    (result.stdout ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .find(Boolean) ?? ''
+  );
+}
+
 /** Synthetic but length-valid bindings when a full backup cycle is not run in-suite. */
 function syntheticBindings() {
   // pgBackRest-style label + restic-like short id (both >= 8)
@@ -108,6 +127,7 @@ describe('REDHAT-FIX-C5 recovery baseline (PLATFORM_IT)', () => {
   } | null = null;
 
   let secretsPath = '';
+  let baselineClaimId: string | null = null;
 
   beforeAll(() => {
     mkdirSync(EVIDENCE_DIR, { recursive: true });
@@ -122,16 +142,29 @@ describe('REDHAT-FIX-C5 recovery baseline (PLATFORM_IT)', () => {
     mkdirSync(objDir, { recursive: true });
     writeFileSync(join(objDir, digest), `payload-${RUN_ID}\n`, 'utf8');
     blobRoot = tempBlobRoot;
+    // The baseline contract deliberately refuses a zero-domain snapshot. Seed
+    // one run-scoped domain row so this file does not depend on another test's
+    // ordering or leftovers, and remove it after all parity checks complete.
+    baselineClaimId = psql(`
+      INSERT INTO claims (legacy_convex_id, claim_text, claim_category, confidence, metadata_json)
+      VALUES ('${RUN_ID}', 'Recovery baseline fixture ${RUN_ID}', 'test', 1, '{"fixture":"sprint28-recovery-baseline"}'::jsonb)
+      RETURNING id
+    `);
+    expect(baselineClaimId).toMatch(/^[0-9a-f-]{36}$/i);
     writeEvidence('setup.json', {
       run_id: RUN_ID,
       bucket: cfg.bucketName,
       endpoint: cfg.endpoint,
       blobRoot,
       secrets: secretsPath,
+      baseline_claim_id: baselineClaimId,
     });
   });
 
   afterAll(() => {
+    if (baselineClaimId && /^[0-9a-f-]{36}$/i.test(baselineClaimId)) {
+      psql(`DELETE FROM claims WHERE id = '${baselineClaimId}'::uuid`);
+    }
     if (tempBlobRoot && existsSync(tempBlobRoot)) {
       rmSync(tempBlobRoot, { recursive: true, force: true });
     }
@@ -222,9 +255,10 @@ describe('REDHAT-FIX-C5 recovery baseline (PLATFORM_IT)', () => {
       expect(normalizeSha256Digest(b.blob_manifest_sha256)).toMatch(/^[0-9a-f]{64}$/);
       expect(isMd5OnlyDigest(b.ledger_sha256)).toBe(false);
       expect(b.algorithm).toBe('sha256');
-      expect(result.contentKey).toBe(contentAddressedBaselineKey(b.baseline_id));
+      const objectPrefix = recoveryBaselineObjectPrefix(cfg, process.env);
+      expect(result.contentKey).toBe(contentAddressedBaselineKey(b.baseline_id, objectPrefix));
       expect(result.lookupKey).toBe(
-        lookupBaselineKey(b.pgbackrest_backup_label, b.restic_snapshot_id)
+        lookupBaselineKey(b.pgbackrest_backup_label, b.restic_snapshot_id, objectPrefix)
       );
 
       // Round-trip get from R2 (no mini)

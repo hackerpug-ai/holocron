@@ -141,6 +141,15 @@ function run(
   };
 }
 
+/** Preserve both the command preamble and the actionable terminal error. */
+function boundedDiagnostic(output: string, maxLength = 1_200): string {
+  const trimmed = output.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  const headLength = Math.floor(maxLength / 3);
+  const tailLength = maxLength - headLength;
+  return `${trimmed.slice(0, headLength)}\n...[${trimmed.length - maxLength} chars truncated]...\n${trimmed.slice(-tailLength)}`;
+}
+
 function pgbackrestEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   // GATE-FIX-S28R3-QA23: minimal fixed PATH — no ambient/Homebrew while credentials ambient.
   const out: NodeJS.ProcessEnv = {
@@ -520,7 +529,7 @@ export async function runBaseBackupJob(options?: {
       );
     } else {
       errors.push(
-        `pgbackrest backup exit ${backup.status}: ${(backup.stderr || backup.stdout).slice(0, 400)}`
+        `pgbackrest backup exit ${backup.status}: ${boundedDiagnostic(backup.stderr || backup.stdout)}`
       );
     }
   } else if (credentialInduce) {

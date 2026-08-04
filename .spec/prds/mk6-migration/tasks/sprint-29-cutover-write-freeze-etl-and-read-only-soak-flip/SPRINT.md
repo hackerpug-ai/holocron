@@ -14,8 +14,8 @@ capability_coverage: [CAP-DEP-01, CAP-CUT-01, CAP-MIG-01]
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: 5/7 base tasks completed · D06-06 and D06-07 added by the 2026-08-02 deployment-boundary delta replan
-> Status-Note: IMPLEMENTATION_COMPLETE @ 79287567 — R3 C01–C03/H01–H03 consolidated on main; H02/H03 verify harness fixed; honest partial gate 3/6 HEAD-bound local-process (not GATE-GOAL; awaiting independent red-hat + full human-gate QA)
+> Progress: 6/7 base tasks completed (D06-02 cutover:go-no-go green) · D06-06 and D06-07 added by the 2026-08-02 deployment-boundary delta replan
+> Status-Note: D06-02 GREEN @ 48866650 — hermetic phased cutover:go-no-go overall.ok=true failed_count=0 (8/8 gates, SHA-bound). Human-gate re-run 20260804T180223Z HEAD-bound deployed-http partial 4/8 (steps 2–4+8 pass; step1 needed isolation env defaults — now in re-run script; step5 needs HOLO_ARTICLE_SHARE_TOKEN; not landing_eligible until 8/8)
 **Proposed by:** devops-engineer + mastra-planner + mcp-planner + convex-planner + react-native-ui-planner + frontend-designer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`

@@ -115,8 +115,9 @@ function parseSecretFile(path: string): SecretValues {
     const match = yaml ?? dotenv;
     if (!match) continue;
     const key = match[1];
-    if (!SECRET_KEYS.has(key)) continue;
-    values[key] = stripQuotes(match[2]);
+    const rawValue = match[2];
+    if (!key || rawValue === undefined || !SECRET_KEYS.has(key)) continue;
+    values[key] = stripQuotes(rawValue);
   }
   return values;
 }
@@ -351,31 +352,34 @@ function inspectTrustedBunCandidate(
     const parts = candidate.split('/').filter(Boolean);
     let current = '/';
     const root = lstat(current);
+    if (!root) return { path: null, reason: 'root trust-chain stat failed' };
+    const rootMode = typeof root.mode === 'bigint' ? Number(root.mode) : root.mode;
     if (root.isSymbolicLink())
       return { path: null, reason: 'root trust-chain component is a symlink' };
     if (root.uid !== 0)
       return { path: null, reason: 'root trust-chain component is not root-owned' };
-    if ((root.mode & 0o022) !== 0)
+    if ((rootMode & 0o022) !== 0)
       return { path: null, reason: 'root trust-chain component is group/world-writable' };
 
     for (const [index, part] of parts.entries()) {
       current = current === '/' ? `/${part}` : `${current}/${part}`;
       const stat = lstat(current);
+      if (!stat) return { path: null, reason: `trust-chain stat failed: ${current}` };
+      const mode = typeof stat.mode === 'bigint' ? Number(stat.mode) : stat.mode;
       if (stat.isSymbolicLink())
         return { path: null, reason: `trust-chain component is a symlink: ${current}` };
       if (stat.uid !== 0)
         return { path: null, reason: `trust-chain component is not root-owned: ${current}` };
-      if ((stat.mode & 0o022) !== 0)
+      if ((mode & 0o022) !== 0)
         return { path: null, reason: `trust-chain component is group/world-writable: ${current}` };
       if (index < parts.length - 1) {
         if (!stat.isDirectory())
           return { path: null, reason: `trust-chain component is not a directory: ${current}` };
-        if ((stat.mode & 0o111) === 0)
+        if ((mode & 0o111) === 0)
           return { path: null, reason: `trust-chain directory is not searchable: ${current}` };
       } else {
         if (!stat.isFile()) return { path: null, reason: 'executable is not a regular file' };
-        if ((stat.mode & 0o111) === 0)
-          return { path: null, reason: 'executable is not executable' };
+        if ((mode & 0o111) === 0) return { path: null, reason: 'executable is not executable' };
       }
     }
     return { path: candidate, reason: 'trusted' };
@@ -455,7 +459,9 @@ function queryPitrWindowAtCandidate(
     timeout: 120_000,
   });
   try {
-    const report = JSON.parse(result.stdout ?? '') as PitrWindow;
+    const stdout =
+      typeof result.stdout === 'string' ? result.stdout : (result.stdout?.toString('utf8') ?? '');
+    const report = JSON.parse(stdout) as PitrWindow;
     return result.status === 0 ? report : { ...report, ok: false };
   } catch {
     return {
@@ -739,6 +745,9 @@ describe('GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real res
         task: string;
         positive_control_executed: boolean;
         provider_or_docker_invoked: boolean;
+        reviewed_sha: string;
+        execution_head: string;
+        generated_at: string;
       };
       expect(evidence.status).toBe('blocked');
       expect(evidence.task).toBe(TASK_ID);
@@ -1039,11 +1048,11 @@ describe('GATE-FIX-S28R3-QA33 configured-positive failure and SHA-bound real res
     expect(evidenceText).not.toMatch(
       /R2_(?:RESTORE_)?(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)\s*[=:]\s*[^\s[]+/i
     );
-    expect(provision.status, summarizeResult(provision, configuredSecrets)).toBe(0);
+    expect(provision.status, JSON.stringify(summarizeResult(provision, configuredSecrets))).toBe(0);
     expect(provision.prefixVariablesInitiallyUnset).toBe(true);
     expect(provision.explicitPrefixTuple).toBe(true);
     expect(boundRestoreEnv).toBe(true);
-    expect(fireDrill.status, summarizeResult(fireDrill, configuredSecrets)).toBe(0);
+    expect(fireDrill.status, JSON.stringify(summarizeResult(fireDrill, configuredSecrets))).toBe(0);
     expect(fireDrill.prefixVariablesInitiallyUnset).toBe(true);
     expect(fireDrill.explicitPrefixTuple).toBe(true);
     expect(attestationBody.ok).toBe(true);

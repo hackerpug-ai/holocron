@@ -7,6 +7,23 @@
  */
 import { v } from 'convex/values';
 import { mutation, query } from '../_generated/server';
+import { isMigrationReadOnly, MIGRATION_READ_ONLY_ENV } from '../lib/migrationFence';
+
+/**
+ * Read-only runtime propagation oracle for operator sequencing.
+ *
+ * `convex env get` confirms the durable control-plane value, but a serving
+ * generation can briefly continue observing the previous value. Cutover waits
+ * on this query before issuing its single blocked-write probe so propagation
+ * lag can never become an accepted probe write.
+ */
+export const migrationReadOnlyStatus = query({
+  args: {},
+  handler: async () => ({
+    readOnly: isMigrationReadOnly(),
+    envValue: process.env[MIGRATION_READ_ONLY_ENV] ?? null,
+  }),
+});
 
 /** Record fence arm moment (epoch-ms) — called by holo cutover:freeze. */
 export const recordFenceArmed = mutation({

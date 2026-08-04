@@ -506,9 +506,10 @@ export async function executeParallelFanOut(
   ]);
 
   // Step 8: Create iteration record
+  const firstKeyFinding = synthesis.keyFindings[0];
   const summary =
-    synthesis.keyFindings.length > 0
-      ? synthesis.keyFindings[0].slice(0, 50) // Use first key finding as summary
+    firstKeyFinding !== undefined
+      ? firstKeyFinding.slice(0, 50) // Use first key finding as summary
       : `Fan-out search across ${subQuestions.length} domains`;
 
   await ctx.runMutation(api.research.mutations.createDeepResearchIteration, {

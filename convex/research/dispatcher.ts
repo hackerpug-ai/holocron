@@ -529,6 +529,9 @@ export const executePlanBasedResearch = internalAction({
       }
       // Convert rejected promise into a failed TrackWorkerResult
       const config = tracks[index];
+      if (!config) {
+        throw new Error(`Missing track configuration for settled result ${index}`);
+      }
       const errorMessage =
         result.reason instanceof Error ? result.reason.message : String(result.reason);
       console.error(`[executePlanBasedResearch] Track ${config.track} rejected: ${errorMessage}`);

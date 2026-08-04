@@ -129,10 +129,9 @@ describe('S-COLDBOOT-02 Zero builder-query contract', () => {
       }
       const xml = readFileSync(COLDBOOT_JUNIT, 'utf8');
       const failures = extractFailures(xml);
-      expect(
-        Number.isFinite(failures),
-        `could not parse failures= from ${COLDBOOT_JUNIT}`
-      ).toBe(true);
+      expect(Number.isFinite(failures), `could not parse failures= from ${COLDBOOT_JUNIT}`).toBe(
+        true
+      );
       expect(
         failures,
         `expected failures=0 in ${COLDBOOT_JUNIT} but got failures=${failures}`

@@ -75,7 +75,7 @@ function normalizeFileObjectMetadata(
 }
 
 export async function upsertFileObject(
-  sql: Sql,
+  sql: Pick<Sql, 'unsafe' | 'json'>,
   input: UpsertFileObjectInput
 ): Promise<UpsertFileObjectResult> {
   const metadata = normalizeFileObjectMetadata(input.metadata, input.legacyConvexId ?? null);
@@ -164,7 +164,11 @@ export async function upsertFileObject(
       input.byteSize ?? null,
       input.storagePath ?? null,
       input.originalName ?? null,
-      metadata,
+      // postgres.js already serializes its json() wrapper. Passing a
+      // JSON.stringify() string through an unsafe $n::jsonb parameter stores a
+      // JSON string scalar; later jsonb `||` merges then produce arrays instead
+      // of one metadata object.
+      sql.json(metadata as never),
     ]
   );
 

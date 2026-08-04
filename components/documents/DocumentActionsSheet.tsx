@@ -89,9 +89,7 @@ export function DocumentActionsSheet({
                 {isNarrationActive ? 'Stop Listening' : 'Listen'}
               </Text>
               <Text className="text-muted-foreground text-sm">
-                {isNarrationActive
-                  ? 'Exit audio narration mode'
-                  : 'Have this document read aloud'}
+                {isNarrationActive ? 'Exit audio narration mode' : 'Have this document read aloud'}
               </Text>
             </View>
           </Pressable>
@@ -122,9 +120,7 @@ export function DocumentActionsSheet({
             accessibilityLabel={isPublic ? 'Shared' : 'Share'}
           >
             <View
-              className={
-                isPublic ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'
-              }
+              className={isPublic ? 'rounded-full bg-primary/15 p-2' : 'rounded-full bg-muted p-2'}
             >
               {isPublic ? (
                 <Globe size={20} className="text-primary" />

@@ -27,7 +27,9 @@ import { resolveDatabaseUrl } from '../../src/db/connection';
 import { applyMigrations } from '../../src/db/migrate';
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
-const FLEET_TIMEOUT_MS = 300_000;
+// Residual go/no-go runs fleet-backed judges under concurrent load; 5m is too
+// tight for deliberately-bad samples when the fleet is saturated.
+const FLEET_TIMEOUT_MS = 600_000;
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/obs-3');
 const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
@@ -53,13 +55,27 @@ function writeArtifact(name: string, body: unknown): string {
 }
 
 function runHolo(args: string[]): { status: number | null; stdout: string; stderr: string } {
-  const result = spawnSync(BUN_BIN, [HOLO_CLI, ...args], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    env: { ...process.env, DATABASE_URL },
-    timeout: FLEET_TIMEOUT_MS,
-  });
-  return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+  let last: { status: number | null; stdout: string; stderr: string } = {
+    status: null,
+    stdout: '',
+    stderr: '',
+  };
+  // One retry on spawnSync timeout (status null) — residual fleet load is bursty.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = spawnSync(BUN_BIN, [HOLO_CLI, ...args], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, DATABASE_URL },
+      timeout: FLEET_TIMEOUT_MS,
+    });
+    last = {
+      status: result.status,
+      stdout: result.stdout ?? '',
+      stderr: result.stderr ?? '',
+    };
+    if (last.status !== null) return last;
+  }
+  return last;
 }
 
 type EvalScoreRow = {
@@ -159,6 +175,7 @@ describe('obs-3 evals versioning (local judge + Postgres)', () => {
       const rows = await listScoresByRun(sql, payload.runId);
       expect(rows.length).toBeGreaterThanOrEqual(1);
       const row = rows.find((r) => r.sample_id === 'known-good') ?? rows[0];
+      if (!row) throw new Error('known-good score row was not persisted');
       expect(Number(row.score)).toBeGreaterThanOrEqual(0.8);
       expect(Number(row.baseline_threshold)).toBe(0.8);
       expect(row.dataset_version).toBe('research_v1');
@@ -197,6 +214,7 @@ describe('obs-3 evals versioning (local judge + Postgres)', () => {
       const rows = await listScoresByRun(sql, payload.runId);
       expect(rows.length).toBeGreaterThanOrEqual(1);
       const row = rows.find((r) => r.sample_id === 'deliberately-bad') ?? rows[0];
+      if (!row) throw new Error('deliberately-bad score row was not persisted');
       expect(Number(row.score)).toBeLessThan(0.8);
       expect(row.tag).toBe('adversarial');
       writeArtifact('ac2-db-row.json', row);

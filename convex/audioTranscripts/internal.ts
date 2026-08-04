@@ -2,6 +2,7 @@
 
 import type { ActionCtx } from '../_generated/server';
 import { JinaError, jinaReader } from '../lib/jina';
+import { asRecord } from '../lib/unknown';
 
 /**
  * Platform detection from URL
@@ -106,7 +107,7 @@ export async function downloadAndStoreAudio(
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const storageId = await ctx.storage.store(arrayBuffer as any); // Type assertion for Convex storage
+  const storageId = await ctx.storage.store(new Blob([arrayBuffer]));
   const sizeBytes = arrayBuffer.byteLength;
 
   return { storageId, sizeBytes };
@@ -145,32 +146,55 @@ export async function transcribeWithDeepgram(
     throw new Error(`Deepgram API error: ${response.statusText} - ${errorText}`);
   }
 
-  const result = await response.json();
+  const result = asRecord(await response.json());
+  if (!result) {
+    throw new Error('Deepgram API returned an invalid response');
+  }
+  const results = asRecord(result.results);
+  const rawChannels = Array.isArray(results?.channels) ? results.channels : [];
+  const firstChannel = asRecord(rawChannels[0]);
+  const rawAlternatives = Array.isArray(firstChannel?.alternatives)
+    ? firstChannel.alternatives
+    : [];
+  const firstAlternative = asRecord(rawAlternatives[0]);
+  const language =
+    typeof firstChannel?.detected_language === 'string' ? firstChannel.detected_language : 'en';
+  const metadata = asRecord(result.metadata);
+  const duration = typeof metadata?.duration === 'number' ? metadata.duration : 0;
+  const utterances = Array.isArray(results?.utterances)
+    ? results.utterances.map(asRecord).filter((utterance) => utterance !== undefined)
+    : [];
 
   // Check if we have utterances (speaker diarization)
-  if (result.results?.utterances && Array.isArray(result.results.utterances)) {
+  if (utterances.length > 0) {
     // Combine utterances into full transcript with speaker labels
-    const transcript = result.results.utterances
-      .map((u: any) => `[Speaker ${u.speaker}]: ${u.transcript}`)
+    const transcript = utterances
+      .map(
+        (utterance) =>
+          `[Speaker ${String(utterance.speaker ?? '')}]: ${
+            typeof utterance.transcript === 'string' ? utterance.transcript : ''
+          }`
+      )
       .join('\n\n');
 
-    const uniqueSpeakers = new Set(result.results.utterances.map((u: any) => u.speaker));
+    const uniqueSpeakers = new Set(utterances.map((utterance) => utterance.speaker));
 
     return {
       text: transcript,
-      language: result.results.channels?.[0]?.detected_language || 'en',
-      duration: result.metadata?.duration || 0,
+      language,
+      duration,
       speakers: uniqueSpeakers.size,
     };
   }
 
   // Fallback: no utterances, use the full transcript
-  const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+  const transcript =
+    typeof firstAlternative?.transcript === 'string' ? firstAlternative.transcript : '';
 
   return {
     text: transcript,
-    language: result.results?.channels?.[0]?.detected_language || 'en',
-    duration: result.metadata?.duration || 0,
+    language,
+    duration,
     speakers: 1,
   };
 }

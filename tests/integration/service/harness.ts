@@ -40,6 +40,33 @@ function buildNonprodRuntimeEnv(overrides?: Record<string, string>) {
 /** Gate: live platform integration tests require PLATFORM_IT=1. */
 export const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 
+/**
+ * Establish the explicit durable normal-state precondition for integration
+ * tests that exercise cloud escape. Namespace-reset suites may remove the
+ * singleton row; production code correctly treats that absence as degraded.
+ */
+export async function seedNormalEscapeState(databaseUrl = DEFAULT_DATABASE_URL): Promise<void> {
+  const [{ createSql }, degradedFlag] = await Promise.all([
+    import('../../../services/platform/src/db/client'),
+    import('../../../services/platform/src/inference/degraded-process-flag'),
+  ]);
+  degradedFlag.resetProcessDegradedFlag();
+  delete process.env.HOLO_PROCESS_DEGRADED_STATE;
+  const sql = createSql(databaseUrl);
+  try {
+    await sql`
+      INSERT INTO degraded_mode (id, degraded_state, resume_state, updated_at)
+      VALUES ('global', 'normal', 'normal', now())
+      ON CONFLICT (id) DO UPDATE SET
+        degraded_state = 'normal',
+        resume_state = 'normal',
+        updated_at = now()
+    `;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 export type LiveService = {
   baseUrl: string;
   port: number;
@@ -197,12 +224,13 @@ export async function httpJson(
   baseUrl: string,
   method: string,
   path: string,
-  options?: { key?: string; body?: string }
+  options?: { key?: string; body?: string; headers?: Record<string, string> }
 ): Promise<{ status: number; body: unknown; text: string }> {
   const headers: Record<string, string> = {
     accept: 'application/json',
     'content-type': 'application/json',
     ...(options?.key ? bearer(options.key) : {}),
+    ...options?.headers,
   };
   const res = await fetch(`${baseUrl}${path}`, {
     method,

@@ -3,7 +3,7 @@
  * Named *WithConvex historically; no longer imports the Convex React client.
  */
 
-import { useQuery as useZeroQuery, useZero } from '@rocicorp/zero/react';
+import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { ActivityIndicator, View } from 'react-native';
 import { agentPlanById, agentPlanStepsByPlan } from '@/app/zero/queries';
 import { Text } from '@/components/ui/text';

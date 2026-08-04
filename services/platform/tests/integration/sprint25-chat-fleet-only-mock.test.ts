@@ -58,7 +58,8 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
       await sql`DELETE FROM chat_runs WHERE request_id = ${requestId}`;
     }
     for (const conversationId of conversationIds) {
-      await sql`DELETE FROM chat_messages WHERE conversation_id = ${conversationId}::uuid`;
+      // chat_messages.conversation_id remains text while conversations.id is uuid.
+      await sql`DELETE FROM chat_messages WHERE conversation_id = ${conversationId}`;
       await sql`DELETE FROM conversations WHERE id = ${conversationId}::uuid`;
     }
     await sql.end({ timeout: 5 });
@@ -89,9 +90,16 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
   }> {
     const fleetSpy = vi.fn(async () => buildMockAgentBundle(tokens));
     vi.resetModules();
-    vi.doMock('../../src/compat/cells/agent.ts', () => ({
+    // Absolute + relative mock ids: residual/fleet-retailer phases import the
+    // real agent module first (mission/pipeline suites), so a single relative
+    // doMock can miss the cached specifier and leave the spy uncalled.
+    const agentSpec = '../../src/compat/cells/agent.ts';
+    const agentAbs = require.resolve(agentSpec, { paths: [import.meta.dirname] });
+    vi.doMock(agentSpec, () => ({
       createFleetAgentWithResolved: fleetSpy,
-      // Re-export the other names chat-runs may pull in transitively.
+    }));
+    vi.doMock(agentAbs, () => ({
+      createFleetAgentWithResolved: fleetSpy,
     }));
     const { createHonoApp } = await import('../../src/http/hono-app');
     return { createHonoApp, fleetSpy };
@@ -115,10 +123,12 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
     row: {
       status: string;
       final_text?: string | null;
-      error?: string | null;
+      error_message?: string | null;
       error_code?: string | null;
     } | null;
   }> {
+    if (!sql) throw new Error('Postgres is required');
+    const activeSql = sql;
     const requestId = `s25-f1-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     requestIds.push(requestId);
     const savedEnv: Record<string, string | undefined> = {};
@@ -139,25 +149,33 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
       expect(create.status).toBe(200);
       const body = (await create.json()) as { runId?: string; conversationId?: string };
       expect(body.runId).toMatch(/[0-9a-f-]{36}/);
+      if (!body.runId) throw new Error('chat run response omitted runId');
       if (body.conversationId) conversationIds.push(body.conversationId);
 
       const deadline = Date.now() + 30_000;
       let row: {
         status: string;
         final_text?: string | null;
-        error?: string | null;
+        error_message?: string | null;
         error_code?: string | null;
       } | null = null;
       while (Date.now() < deadline) {
-        const rows = await sql!`
-          SELECT status, final_text, error, error_code
+        const rows = await activeSql<
+          Array<{
+            status: string;
+            final_text: string | null;
+            error_message: string | null;
+            error_code: string | null;
+          }>
+        >`
+          SELECT status, final_text, error_message, error_code
           FROM chat_runs WHERE id = ${body.runId}::uuid
         `;
         row = rows[0] ?? null;
         if (row && ['completed', 'failed', 'blocked'].includes(row.status)) break;
         await new Promise((r) => setTimeout(r, 50));
       }
-      return { runId: body.runId!, row };
+      return { runId: body.runId, row };
     } finally {
       for (const [k, v] of Object.entries(savedEnv)) {
         if (v === undefined) delete process.env[k];
@@ -169,9 +187,9 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
   /** Read every token event for a run — what the client SSE wire would observe. */
   async function readTokenEvents(runId: string): Promise<string> {
     const rows = await sql!`
-      SELECT (payload::jsonb ->> 'token') AS token
+      SELECT (data_json ->> 'token') AS token
       FROM chat_run_events
-      WHERE run_id = ${runId}::uuid AND event = 'token'
+      WHERE run_id = ${runId}::uuid AND event_type = 'token'
       ORDER BY seq ASC
     `;
     return rows.map((r: { token?: string }) => r.token ?? '').join('');
@@ -206,7 +224,7 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
 
   // ── AC-5: empty stream + FLEET_ONLY=1 → fail-closed envelope ──
   itLive(
-    'AC-5: empty fleet stream under HOLO_CHAT_FLEET_ONLY=1 -> status=failed with regex envelope',
+    'AC-5: empty fleet stream under HOLO_CHAT_FLEET_ONLY=1 -> canonical fail-closed degradation envelope',
     async () => {
       if (!sql) throw new Error('Postgres required for AC-5 fail-closed proof');
 
@@ -219,11 +237,9 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
         expect(result.row?.status).toBe('failed');
         // Sanity: the mock WAS called (path-entry), then empty-stream fired.
         expect(fleetSpy).toHaveBeenCalled();
-        const envelope = `${result.row?.error ?? ''} ${result.row?.final_text ?? ''} ${result.row?.error_code ?? ''}`;
-        // use-resumable-sse-stream.ts:204 client regex.
-        expect(envelope).toMatch(
-          /empty stream under HOLO_CHAT_FLEET_ONLY|fleet role ['"]?[\w-]+['"]? unreachable/i
-        );
+        expect(result.row?.error_code).toBe('ROLE_UNAVAILABLE');
+        expect(result.row?.error_message).toBe('Local fleet unavailable — running in reduced mode');
+        expect(result.row?.final_text).toBe('Local fleet unavailable — running in reduced mode');
       } finally {
         await teardownFleetMock();
       }
@@ -248,7 +264,13 @@ describe('AC-4/5/6: chat-runs fleet-only + mask-is-default (mock fleet)', () => 
         'FLEET_DEFAULT_PROBE_B ',
       ]);
       try {
-        const result = await postChatRunAndWait(createHonoApp, 'AC-6 default-nonprod probe', {});
+        // Explicitly clear deterministic/e2e markers so ambient go/no-go env
+        // cannot force the canned stream path (mask is gone post-F1).
+        const result = await postChatRunAndWait(createHonoApp, 'AC-6 default-nonprod probe', {
+          HOLO_CHAT_DETERMINISTIC_STREAM: '',
+          HOLO_E2E: '',
+          HOLO_CHAT_FLEET_ONLY: '',
+        });
 
         expect(result.row?.status).toBe('completed');
         // AFTER the F1 flip: real fleet path runs (mock called).

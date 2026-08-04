@@ -790,7 +790,7 @@ export async function seedE2eDatabase(options?: {
           String(iteration.coverage),
           iteration.summary,
           JSON.stringify(iteration.summary),
-          JSON.stringify(iteration.sources ?? []),
+          JSON.stringify('sources' in iteration ? iteration.sources : []),
         ]
       );
     }

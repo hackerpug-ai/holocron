@@ -332,7 +332,7 @@ const CALL_TIMEOUT_MS = 45_000;
  */
 function stripMarkdownFences(text: string): string {
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return fenceMatch ? fenceMatch[1].trim() : text;
+  return fenceMatch?.[1]?.trim() ?? text;
 }
 
 /**

@@ -308,7 +308,9 @@ export function markdownToHtml(md: string): string {
     let inBody = false;
 
     for (let i = 0; i < rows.length; i++) {
-      if (isSeparator(rows[i])) {
+      const row = rows[i];
+      if (row === undefined) continue;
+      if (isSeparator(row)) {
         if (!headerDone) {
           html += '</tr></thead>\n<tbody>\n';
           headerDone = true;
@@ -316,7 +318,7 @@ export function markdownToHtml(md: string): string {
         }
         continue;
       }
-      const cells = parseRow(rows[i]);
+      const cells = parseRow(row);
       if (!headerDone && i === 0) {
         html += '<thead>\n<tr>';
         cells.forEach((c) => {
@@ -386,6 +388,7 @@ export function markdownToHtml(md: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
     const trimmed = line.trim();
 
     // Blank line: flush current context
@@ -398,7 +401,7 @@ export function markdownToHtml(md: string): string {
     if (codePlaceholderTest.test(trimmed)) {
       flushAll();
       const idx = parseInt(trimmed.replace(codePlaceholderCapture, '$1'), 10);
-      output.push(codeBlocks[idx]);
+      output.push(codeBlocks[idx] ?? trimmed);
       continue;
     }
 
@@ -413,8 +416,14 @@ export function markdownToHtml(md: string): string {
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       flushAll();
-      const level = headingMatch[1].length;
-      const headingText = headingMatch[2].trim();
+      const headingMarker = headingMatch[1];
+      const rawHeadingText = headingMatch[2];
+      if (!headingMarker || !rawHeadingText) {
+        paragraphLines.push(trimmed);
+        continue;
+      }
+      const level = headingMarker.length;
+      const headingText = rawHeadingText.trim();
       const slug = slugifyText(headingText);
       output.push(`<h${level} id="${slug}">${inlineMarkdown(headingText)}</h${level}>`);
       continue;
@@ -446,7 +455,7 @@ export function markdownToHtml(md: string): string {
       flushBlockquote();
       if (listType === 'ol') flushList();
       listType = 'ul';
-      listItems.push(ulMatch[1]);
+      listItems.push(ulMatch[1] ?? '');
       continue;
     }
 
@@ -457,7 +466,7 @@ export function markdownToHtml(md: string): string {
       flushBlockquote();
       if (listType === 'ul') flushList();
       listType = 'ol';
-      listItems.push(olMatch[1]);
+      listItems.push(olMatch[1] ?? '');
       continue;
     }
 
@@ -477,7 +486,10 @@ export function markdownToHtml(md: string): string {
 
   // Restore any remaining code block placeholders (e.g. inline in paragraphs)
   const codePlaceholderGlobal = new RegExp(`${NUL}CODE(\\d+)${NUL}`, 'g');
-  result = result.replace(codePlaceholderGlobal, (_m, idx) => codeBlocks[parseInt(idx, 10)]);
+  result = result.replace(
+    codePlaceholderGlobal,
+    (match, idx) => codeBlocks[parseInt(idx, 10)] ?? match
+  );
 
   return result;
 }
@@ -513,7 +525,7 @@ function inlineMarkdown(text: string): string {
   // Restore inline codes
   const SOH = '\x01';
   const icPlaceholderGlobal = new RegExp(`${SOH}IC(\\d+)${SOH}`, 'g');
-  text = text.replace(icPlaceholderGlobal, (_m, idx) => inlineCodes[parseInt(idx, 10)]);
+  text = text.replace(icPlaceholderGlobal, (match, idx) => inlineCodes[parseInt(idx, 10)] ?? match);
 
   return text;
 }
@@ -548,13 +560,16 @@ function stripLeadingTitle(content: string, title: string): string {
 
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+    const line = lines[i];
+    if (line === undefined) continue;
+    const trimmed = line.trim();
     if (trimmed === '') continue; // skip leading blank lines
     const headingMatch = trimmed.match(/^#{1,2}\s+(.+)$/);
-    if (headingMatch && normalize(headingMatch[1]) === normalizedTitle) {
+    const headingText = headingMatch?.[1];
+    if (headingText && normalize(headingText) === normalizedTitle) {
       // Remove this line and any immediately following blank lines
       lines.splice(i, 1);
-      while (i < lines.length && lines[i].trim() === '') {
+      while (i < lines.length && lines[i]?.trim() === '') {
         lines.splice(i, 1);
       }
       return lines.join('\n');

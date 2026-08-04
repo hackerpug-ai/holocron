@@ -31,6 +31,10 @@ const FLEET_TIMEOUT_MS = 300_000;
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/FIX-obs-5-H1');
 const HOLO_CLI = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
+const CLAIMS_FIXTURE = resolve(
+  REPO_ROOT,
+  'services/platform/tests/fixtures/research/claims-4.json'
+);
 const BUN_BIN = process.env.BUN_BIN ?? 'bun';
 const DATABASE_URL = process.env.DATABASE_URL ?? resolveDatabaseUrl({ preferHolocron: true });
 const FLEET_URL = process.env.FLEET_URL ?? 'http://127.0.0.1:4545/v1';
@@ -182,7 +186,19 @@ describe('FIX-obs-5-H1 mission research → inference_telemetry', () => {
     'AC-2: holo mission run research writes ≥1 inference_telemetry row (tokens/wall-ms/endpoint/role)',
     async () => {
       const goal = 'One-sentence finding on durable inference telemetry for research missions.';
-      const mission = runHolo(['mission', 'run', 'research', '--goal', goal, '--json']);
+      const mission = runHolo([
+        'mission',
+        'run',
+        'research',
+        '--goal',
+        goal,
+        '--components',
+        '2',
+        '--claims',
+        CLAIMS_FIXTURE,
+        '--fresh',
+        '--json',
+      ]);
 
       writeArtifact('mission-run.json', {
         status: mission.status,

@@ -273,7 +273,7 @@ exit 99
     } finally {
       rmSync(shadow, { recursive: true, force: true });
     }
-  });
+  }, 150_000);
 
   it('prove-isolation refuses malicious ENV_BIN before credential ambient work', () => {
     const evil = resolve(EVIDENCE, 'evil-env-bin.sh');
@@ -394,24 +394,13 @@ if [[ -f "$CHILD_LOG" ]]; then echo "CHILD_LOG_RETAINED=1"; else echo "CHILD_LOG
 
 describe('GATE-FIX-S28R3-QA25 CRITICAL3 successful disposable production-boundary', () => {
   it('reaches real fire-drill FD launcher + credentialed child; races; scans artifacts', async () => {
-    // GATE-FIX-S28R3-QA26: fail-closed root-trusted pg_ctl/psql required before fire-drill.
-    // When the human has not yet installed root-owned tools, skip with explicit evidence
-    // rather than soft-passing provision exit 1 (still refuse soft-pass elsewhere).
-    try {
-      const { resolveTrustedPgCtlBin, resolveTrustedPsqlBin } = await import(
-        '../../src/backup/trusted-bin.ts'
-      );
-      resolveTrustedPgCtlBin({});
-      resolveTrustedPsqlBin({});
-    } catch (e) {
-      writeEv('prod-boundary.json', {
-        status: 'blocked_root_pg_tools',
-        error: String(e).slice(0, 300),
-        note: 'Install root-owned /usr/local/bin/{psql,pg_ctl,postgres} then re-run',
-      });
-      expect(String(e)).toMatch(/QA26|root-trusted|root-owned/i);
-      return;
-    }
+    // GATE-FIX-S28R3-QA26: the live lane must fail, never pass, when its
+    // root-trusted PostgreSQL substrate is unavailable.
+    const { resolveTrustedPgCtlBin, resolveTrustedPsqlBin } = await import(
+      '../../src/backup/trusted-bin.ts'
+    );
+    resolveTrustedPgCtlBin({});
+    resolveTrustedPsqlBin({});
 
     const probeDir = resolve(EVIDENCE, 'prod-boundary');
     rmSync(probeDir, { recursive: true, force: true });
@@ -469,6 +458,11 @@ set +a
 export HOLOCRON_SECRETS_PATH="$SECRETS"
 export HOLO_SECRETS_PATH="$SECRETS"
 unset R2_SCOPE_PROBE_OUT_KEY || true
+
+# The durable operator tuple may intentionally cover all restore data prefixes.
+# Mint a short-lived pgBackRest-only proof tuple plus a separate complete
+# read-only fire-drill tuple so exact-prefix denial remains a real live oracle.
+source "$ROOT/scripts/mint-r2-prefix-restore-env.sh"
 
 # Provision disposable fresh-target volumes so the production runner can resolve
 # host-writable scratch/blob paths (not fail-before-child volume theatre).

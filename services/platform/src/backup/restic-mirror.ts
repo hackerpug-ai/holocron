@@ -27,9 +27,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { defaultBlobRoot } from '../blob/store.ts';
 import {
-  defaultSecretsPath,
   getSecretValue,
   resolveRepoRoot,
+  resolveSecretsPathFromEnv,
   type SecretsMap,
 } from '../config/secrets.ts';
 import { createSql, type Sql } from '../db/client.ts';
@@ -307,7 +307,7 @@ export function ensureResticPassword(options?: { secretsPath?: string; env?: Nod
   secretsPath: string;
 } {
   const env = options?.env ?? process.env;
-  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const existing = getSecretValue('RESTIC_PASSWORD', { secretsPath, env });
   if (existing && existing.length >= 16) {
     return { password: existing, generated: false, secretsPath };
@@ -325,7 +325,7 @@ export function ensureResticPrefixSecret(options?: {
   prefix?: string;
 }): { prefix: string; secretsPath: string } {
   const env = options?.env ?? process.env;
-  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const fromEnvOrFile =
     getSecretValue('R2_RESTIC_PREFIX', { secretsPath, env }) ||
     options?.prefix ||
@@ -347,7 +347,7 @@ export function loadResticMirrorConfig(options?: {
   env?: NodeJS.ProcessEnv;
 }): ResticMirrorConfig {
   const env = options?.env ?? process.env;
-  const secretsPath = options?.secretsPath ?? defaultSecretsPath();
+  const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
   const backup = loadBackupConfig({ secretsPath, env });
   const { password } = ensureResticPassword({ secretsPath, env });
   const { prefix } = ensureResticPrefixSecret({ secretsPath, env });

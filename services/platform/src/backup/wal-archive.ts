@@ -177,7 +177,9 @@ export function killRealPgbackrestProcess(options?: {
   }
 
   // Reap child
-  const reaped = spawnSync('kill', ['-0', String(pid ?? -1)], { encoding: 'utf8' });
+  const reaped = spawnSync('kill', ['-0', String(pid ?? -1)], {
+    encoding: 'utf8',
+  });
   processGone = reaped.status !== 0;
 
   // Wait briefly for exit event
@@ -258,8 +260,50 @@ export function killRealPgbackrestProcess(options?: {
   };
 }
 
+/**
+ * Prefer the explicit connection URL so ambient PG* cannot target another cluster.
+ * Keep credentials out of psql argv and translate the URL into libpq's discrete
+ * environment variables. PGDATABASE itself is only a database name; treating a
+ * URL as its value makes some psql/libpq versions request a database literally
+ * named `postgres://...`.
+ */
+export function psqlConnectionArgs(env: NodeJS.ProcessEnv): string[] {
+  const databaseUrl = env.DATABASE_URL?.trim();
+  if (databaseUrl) return [];
+  const database = env.PGDATABASE?.trim() || 'holocron';
+  return ['-d', database];
+}
+
+export function psqlConnectionEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const databaseUrl = env.DATABASE_URL?.trim();
+  if (!databaseUrl) return env;
+
+  const parsed = new URL(databaseUrl);
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error('DATABASE_URL must use postgres:// or postgresql://');
+  }
+  const database = decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+  if (!parsed.hostname || !database) {
+    throw new Error('DATABASE_URL must include a host and database name');
+  }
+
+  const connectionEnv: NodeJS.ProcessEnv = {
+    ...env,
+    PGHOST: parsed.hostname.replace(/^\[|\]$/g, ''),
+    PGPORT: parsed.port || '5432',
+    PGDATABASE: database,
+  };
+  if (parsed.username) connectionEnv.PGUSER = decodeURIComponent(parsed.username);
+  else delete connectionEnv.PGUSER;
+  if (parsed.password) connectionEnv.PGPASSWORD = decodeURIComponent(parsed.password);
+  else delete connectionEnv.PGPASSWORD;
+  return connectionEnv;
+}
+
 function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
-  const r = run('psql', ['-d', 'holocron', '-v', 'ON_ERROR_STOP=1', '-tAc', sql], { env });
+  const r = run('psql', [...psqlConnectionArgs(env), '-v', 'ON_ERROR_STOP=1', '-tAc', sql], {
+    env: psqlConnectionEnv(env),
+  });
   if (r.status !== 0) {
     throw new Error(`psql failed: ${r.stderr || r.stdout}`);
   }
@@ -267,7 +311,9 @@ function psqlScalar(sql: string, env: NodeJS.ProcessEnv): string {
 }
 
 function psqlExec(sql: string, env: NodeJS.ProcessEnv): void {
-  const r = run('psql', ['-d', 'holocron', '-v', 'ON_ERROR_STOP=1', '-c', sql], { env });
+  const r = run('psql', [...psqlConnectionArgs(env), '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+    env: psqlConnectionEnv(env),
+  });
   if (r.status !== 0) {
     throw new Error(`psql exec failed: ${r.stderr || r.stdout}`);
   }
@@ -367,11 +413,14 @@ export function ensureContinuousWalArchiving(options?: {
   const cfg = options?.config ?? loadBackupConfig({ env });
   const pgbackrestBin = whichPgbackrest(env);
   const archiveTimeout = String(options?.archiveTimeoutSeconds ?? 60);
+  const isolatedGoNoGo = walRestartStrategy(env) === 'isolated-pg-ctl';
+  const postgresLogPath = env.PGLOG?.trim() || resolve(cfg.pg1Path, 'postgres.log');
 
   // Keep conf current so Postgres archive_command (no ambient AWS env) works.
   const conf = renderPgbackrestConfig({
     stanza: cfg.stanza,
     pg1Path: cfg.pg1Path,
+    pg1Port: Number.parseInt(env.PGPORT ?? '5432', 10),
     bucketName: cfg.bucketName,
     endpointHost: endpointHost(cfg.endpoint),
     repoPath: cfg.pgbackrestPrefix,
@@ -381,6 +430,24 @@ export function ensureContinuousWalArchiving(options?: {
     s3Token: cfg.sessionToken,
   });
   writePgbackrestConfig(cfg.pgbackrestConfigPath, conf);
+
+  // An isolated gate uses a fresh exact R2 prefix. archive-push cannot create
+  // the stanza metadata it requires, so bootstrap it idempotently before
+  // pointing PostgreSQL at this temporary repository. Existing production
+  // stanzas are a no-op here; a new prefix gets archive.info/backup.info.
+  const stanzaCreate = run(
+    pgbackrestBin,
+    [`--config=${cfg.pgbackrestConfigPath}`, `--stanza=${cfg.stanza}`, 'stanza-create'],
+    { env, timeoutMs: 180_000 }
+  );
+  if (stanzaCreate.status !== 0) {
+    const output = (stanzaCreate.stderr || stanzaCreate.stdout).trim();
+    const detail =
+      output.length <= 1_200
+        ? output
+        : `${output.slice(0, 400)}\n...[${output.length - 1_200} chars truncated]...\n${output.slice(-800)}`;
+    throw new Error(`pgBackRest stanza-create failed: ${detail || 'unknown error'}`);
+  }
 
   const archiveCommand = `${pgbackrestBin} --config=${cfg.pgbackrestConfigPath} --stanza=${cfg.stanza} archive-push %p`;
   // Refuse no-ops at the API boundary.
@@ -402,26 +469,41 @@ export function ensureContinuousWalArchiving(options?: {
   // Contract requires always (not merely on).
   if (currentMode !== 'always') {
     psqlExec(`ALTER SYSTEM SET archive_mode = 'always'`, env);
-    const bounce = run(
-      'launchctl',
-      ['kickstart', '-k', `gui/${process.getuid?.() ?? 501}/holocron-postgres`],
-      { env, timeoutMs: 60_000 }
-    );
-    if (bounce.status !== 0) {
+    let restartError = '';
+    if (isolatedGoNoGo) {
       const pgctl = run(
         '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
-        ['-D', cfg.pg1Path, 'restart', '-m', 'fast'],
+        ['-D', cfg.pg1Path, 'restart', '-m', 'fast', '-l', postgresLogPath],
         { env, timeoutMs: 60_000 }
       );
       if (pgctl.status !== 0) {
-        throw new Error(
-          `postgres restart for archive_mode=always failed: ${(bounce.stderr || pgctl.stderr).slice(0, 400)}`
-        );
+        restartError = pgctl.stderr || pgctl.stdout;
       }
+    } else {
+      const bounce = run(
+        'launchctl',
+        ['kickstart', '-k', `gui/${process.getuid?.() ?? 501}/holocron-postgres`],
+        { env, timeoutMs: 60_000 }
+      );
+      if (bounce.status !== 0) {
+        const pgctl = run(
+          '/opt/homebrew/opt/postgresql@18/bin/pg_ctl',
+          ['-D', cfg.pg1Path, 'restart', '-m', 'fast', '-l', postgresLogPath],
+          { env, timeoutMs: 60_000 }
+        );
+        if (pgctl.status !== 0) restartError = bounce.stderr || pgctl.stderr || pgctl.stdout;
+      }
+    }
+    if (restartError) {
+      throw new Error(
+        `postgres restart for archive_mode=always failed: ${restartError.slice(0, 400)}`
+      );
     }
     restarted = true;
     for (let i = 0; i < 40; i++) {
-      const ready = run('psql', ['-d', 'holocron', '-tAc', 'SELECT 1'], { env });
+      const ready = run('psql', [...psqlConnectionArgs(env), '-tAc', 'SELECT 1'], {
+        env: psqlConnectionEnv(env),
+      });
       if (ready.status === 0 && ready.stdout.trim() === '1') break;
       sleepMs(500);
     }
@@ -452,6 +534,15 @@ export function ensureContinuousWalArchiving(options?: {
     stanza: cfg.stanza,
     pgbackrestBin,
   };
+}
+
+/** Isolated human-gate lanes must never bounce the operator launchd service. */
+export function walRestartStrategy(
+  env: NodeJS.ProcessEnv = process.env
+): 'isolated-pg-ctl' | 'operator-launchd-with-pg-ctl-fallback' {
+  return env.HOLO_GO_NO_GO_ISOLATED === '1'
+    ? 'isolated-pg-ctl'
+    : 'operator-launchd-with-pg-ctl-fallback';
 }
 
 function countR2WalObjects(
@@ -1027,7 +1118,9 @@ export function installWalArchiveLaunchd(options?: {
 
   let bootstrapped = false;
   if (options?.bootstrap !== false) {
-    run('launchctl', ['bootout', `${domain}/${WAL_ARCHIVE_LAUNCHD_LABEL}`], { env });
+    run('launchctl', ['bootout', `${domain}/${WAL_ARCHIVE_LAUNCHD_LABEL}`], {
+      env,
+    });
     const boot = run('launchctl', ['bootstrap', domain, plistPath], { env });
     if (boot.status !== 0) {
       const load = run('launchctl', ['load', '-w', plistPath], { env });
@@ -1080,13 +1173,23 @@ export function formatWalLaunchdInstallText(result: WalLaunchdInstallResult): st
 export function readWalArchiveSchedule(options?: {
   launchAgentsDir?: string;
   env?: NodeJS.ProcessEnv;
-}): { installed: boolean; plistPath: string; intervalSeconds: number | null; loaded: boolean } {
+}): {
+  installed: boolean;
+  plistPath: string;
+  intervalSeconds: number | null;
+  loaded: boolean;
+} {
   const env = options?.env ?? process.env;
   const home = env.HOME ?? homedir();
   const dir = options?.launchAgentsDir ?? resolve(home, 'Library/LaunchAgents');
   const plistPath = resolve(dir, `${WAL_ARCHIVE_LAUNCHD_LABEL}.plist`);
   if (!existsSync(plistPath)) {
-    return { installed: false, plistPath, intervalSeconds: null, loaded: false };
+    return {
+      installed: false,
+      plistPath,
+      intervalSeconds: null,
+      loaded: false,
+    };
   }
   const text = readFileSync(plistPath, 'utf8');
   const m = text.match(/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/);

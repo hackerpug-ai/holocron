@@ -27,6 +27,10 @@ export type PassageChunk = {
   ordinal: number;
   /** Estimated token count of `text` (must be ≤ maxTokens). */
   tokenCount: number;
+  /** Inclusive character offset in the original document. */
+  startOffset: number;
+  /** Exclusive character offset in the original document. */
+  endOffset: number;
   /**
    * Self-locating header so a chunk can stand alone at retrieve time.
    * Always non-empty when a passage is returned; includes title when provided.
@@ -90,7 +94,7 @@ export function chunkDocument(text: string, opts: ChunkDocumentOptions = {}): Pa
   const stride = Math.max(1, maxChars - overlapChars);
 
   // First pass: collect raw text windows.
-  const windows: string[] = [];
+  const windows: Array<{ text: string; startOffset: number }> = [];
   let start = 0;
   while (start < text.length) {
     const end = Math.min(start + maxChars, text.length);
@@ -110,7 +114,7 @@ export function chunkDocument(text: string, opts: ChunkDocumentOptions = {}): Pa
     }
     const slice = text.slice(start, sliceEnd);
     if (slice.length > 0) {
-      windows.push(slice);
+      windows.push({ text: slice, startOffset: start });
     }
     if (sliceEnd >= text.length) break;
     // Advance with overlap: next start rewinds by overlapChars from sliceEnd.
@@ -121,14 +125,17 @@ export function chunkDocument(text: string, opts: ChunkDocumentOptions = {}): Pa
   // Safety: if soft-break logic produced nothing, fall back to hard windows.
   if (windows.length === 0) {
     for (let i = 0; i < text.length; i += stride) {
-      windows.push(text.slice(i, Math.min(i + maxChars, text.length)));
+      windows.push({
+        text: text.slice(i, Math.min(i + maxChars, text.length)),
+        startOffset: i,
+      });
     }
   }
 
   const total = windows.length;
-  const passages: PassageChunk[] = windows.map((windowText, ordinal) => {
+  const passages: PassageChunk[] = windows.map((window, ordinal) => {
     // Clamp to maxTokens if soft break still overshot (shouldn't, but belt-and-suspenders).
-    let body = windowText;
+    let body = window.text;
     let tokenCount = estimateTokenCount(body);
     if (tokenCount > maxTokens) {
       body = body.slice(0, maxChars);
@@ -143,6 +150,8 @@ export function chunkDocument(text: string, opts: ChunkDocumentOptions = {}): Pa
       text: body,
       ordinal,
       tokenCount: Math.min(tokenCount, maxTokens),
+      startOffset: window.startOffset,
+      endOffset: window.startOffset + body.length,
       situatingHeader: buildSituatingHeader({ title: opts.title, ordinal, total }),
     };
   });

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { isMigrationReadOnly, migrationReadOnlyMissionError } from '../cutover/soak-fence.ts';
@@ -486,7 +486,10 @@ function captureResearchProcessProof(): ResearchProcessProof {
       .split('\n')
       .flatMap((line) => {
         const match = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
-        return match ? [{ pid: Number(match[1]), ppid: Number(match[2]), command: match[3] }] : [];
+        const pid = match?.[1];
+        const ppid = match?.[2];
+        const command = match?.[3];
+        return pid && ppid && command ? [{ pid: Number(pid), ppid: Number(ppid), command }] : [];
       });
     const executableOf = (command: string): string | undefined => {
       const tokens = command.trim().split(/\s+/).filter(Boolean);
@@ -700,7 +703,8 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       'toolbelt.commit.input'
     );
     const args = MissionGoalArgsSchema.parse(context.run.args_json);
-    if (!args.title || !args.description || !args.category || !args.sourceUrl || !args.sourceType) {
+    const { title, description, category, sourceUrl, sourceType } = args;
+    if (!title || !description || !category || !sourceUrl || !sourceType) {
       throw new MissionRuntimeError(
         'MISSION_TOOLBELT_FIELDS_REQUIRED',
         'toolbelt requires title, description, category, sourceUrl, and sourceType'
@@ -708,9 +712,9 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     }
     const content = JSON.stringify(
       {
-        description: args.description,
-        sourceUrl: args.sourceUrl,
-        sourceType: args.sourceType,
+        description,
+        sourceUrl,
+        sourceType,
         language: args.language,
         tags:
           args.toolTags
@@ -731,16 +735,16 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       const published = await sql.begin(async (tx) => {
         const doc = await publishDocumentForRun(tx, {
           sourceRunId: context.run.id,
-          title: args.title,
+          title,
           content,
-          category: args.category,
-          filePath: args.sourceUrl,
-          fileType: args.sourceType,
+          category,
+          filePath: sourceUrl,
+          fileType: sourceType,
           // Toolbelt reads are backed by published source documents.  A successful
           // capture must therefore be visible immediately, matching this
           // template's durable "publish" contract and its success confirmation.
           status: 'published',
-          idempotencyKey: `toolbelt:${args.sourceUrl}`,
+          idempotencyKey: `toolbelt:${sourceUrl}`,
         });
         await tx`
           UPDATE mission_runs
@@ -751,8 +755,8 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       });
       return canonicalJsonValue({
         documentId: published.documentId,
-        title: args.title,
-        category: args.category,
+        title,
+        category,
         sourceUrl: args.sourceUrl,
         sourceType: args.sourceType,
         isNew: published.created,
@@ -840,7 +844,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     });
   },
   'builtin.research-plan@1': async (input, context) =>
-    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+    assertRegisteredExecutorRuntime('builtin.fleet-probe@1')(input, context),
   'builtin.research-retrieve@1': async (input, context) => {
     const probe = parseMissionSchemaValue(
       { schemaRef: 'mission.probe.result', schemaVersion: 1 },
@@ -1057,7 +1061,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
   },
   // Backward-compat alias for compiled plans still referencing the Sprint 17 name.
   'builtin.research-gate@1': async (input, context) =>
-    STAGE_EXECUTORS['evidence-gate'](input, context),
+    assertRegisteredExecutorRuntime('evidence-gate')(input, context),
   'builtin.research-commit@1': async (input) => {
     return canonicalJsonValue(
       parseMissionSchemaValue(
@@ -1068,7 +1072,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     );
   },
   'builtin.business-plan@1': async (input, context) =>
-    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+    assertRegisteredExecutorRuntime('builtin.fleet-probe@1')(input, context),
   'builtin.business-component-validate@1': async (input, context) => {
     const probe = parseMissionSchemaValue(
       { schemaRef: 'mission.probe.result', schemaVersion: 1 },
@@ -1288,7 +1292,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
 
   // ── pipes-3 whatsnew ────────────────────────────────────────────────────
   'builtin.whatsnew-plan@1': async (input, context) =>
-    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+    assertRegisteredExecutorRuntime('builtin.fleet-probe@1')(input, context),
   'builtin.whatsnew-gather@1': async (input, context) => {
     const probe = parseMissionSchemaValue(
       { schemaRef: 'mission.probe.result', schemaVersion: 1 },
@@ -1382,7 +1386,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
 
   // ── pipes-3 assimilate ──────────────────────────────────────────────────
   'builtin.assimilate-plan@1': async (input, context) =>
-    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+    assertRegisteredExecutorRuntime('builtin.fleet-probe@1')(input, context),
   'builtin.assimilate-gather@1': async (input, context) => {
     const probe = parseMissionSchemaValue(
       { schemaRef: 'mission.probe.result', schemaVersion: 1 },
@@ -1478,7 +1482,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
 
   // ── pipes-3 shop ────────────────────────────────────────────────────────
   'builtin.shop-plan@1': async (input, context) =>
-    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+    assertRegisteredExecutorRuntime('builtin.fleet-probe@1')(input, context),
   'builtin.shop-gather@1': async (input, context) => {
     const probe = parseMissionSchemaValue(
       { schemaRef: 'mission.probe.result', schemaVersion: 1 },
@@ -1567,7 +1571,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
 
   // ── pipes-3 subscriptions ───────────────────────────────────────────────
   'builtin.subscriptions-plan@1': async (input, context) =>
-    STAGE_EXECUTORS['builtin.fleet-probe@1'](input, context),
+    assertRegisteredExecutorRuntime('builtin.fleet-probe@1')(input, context),
   /**
    * Sub-workflow: invoke shared evidence-research template by template reference
    * (not by chaining research stage executors directly on this run).
@@ -1597,7 +1601,14 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         components: args.components ?? 2,
         databaseUrl: context.databaseUrl,
       }));
-    const childKey = `subwf:${context.run.id}:${EVIDENCE_RESEARCH_TEMPLATE_KEY}`;
+    // Align idempotency with the WIP-one subject key (template + goal). A
+    // parent-run-scoped key leaves an honest suspended research child behind,
+    // then a second digest for the same topic collides with the active-subject
+    // unique index before it can reuse that child.
+    const childSubjectHash = createHash('sha256')
+      .update(canonicalJsonString({ topic, components: args.components ?? 2 }))
+      .digest('hex');
+    const childKey = `subwf:subscriptions:${childSubjectHash}`;
     // Nested mission run — template reference, with its own checkpoint commits.
     const child = await runMissionTemplate(
       {
@@ -3259,7 +3270,14 @@ async function finalizeMissionRun(
     } else if (options.output != null) {
       // FAILED/blocked may still carry typed terminal output (e.g. fire-drill parity report).
       typedOutput = options.output;
+    }
 
+    // Persist the terminal output and provenance in the same transaction as the
+    // run status and terminal event. This block used to be nested under the
+    // FAILED/blocked `options.output` branch, so successful and budget-exceeded
+    // runs skipped mission_commits entirely and the named crash boundaries were
+    // unreachable.
+    if (typedOutput != null) {
       if (crashBoundary === 'before_commit_insert') {
         await emitMissionCommitCrashReadiness(crashBoundary, {
           runId,

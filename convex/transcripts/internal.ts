@@ -156,9 +156,16 @@ export const fetchYouTubeTranscript = internalAction({
       }
 
       const captionsData = await captionsResponse.json();
+      const captionItems: unknown[] =
+        typeof captionsData === 'object' &&
+        captionsData !== null &&
+        'items' in captionsData &&
+        Array.isArray(captionsData.items)
+          ? captionsData.items
+          : [];
 
       // Check if captions are available
-      if (!captionsData.items || captionsData.items.length === 0) {
+      if (captionItems.length === 0) {
         return {
           hasCaptions: false,
           transcript: null,
@@ -173,7 +180,18 @@ export const fetchYouTubeTranscript = internalAction({
         // Silently ignore OAuth2 errors
       }
 
-      const captionTrack = captionsData.items[0];
+      const captionTrack = captionItems[0];
+      if (
+        typeof captionTrack !== 'object' ||
+        captionTrack === null ||
+        !('id' in captionTrack) ||
+        typeof captionTrack.id !== 'string'
+      ) {
+        return {
+          hasCaptions: false,
+          error: 'YouTube captions response is missing a valid caption track ID',
+        };
+      }
       let transcriptText: string | null = null;
       let transcriptSource = 'youtube_api_oauth2';
 

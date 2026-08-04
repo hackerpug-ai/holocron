@@ -1,7 +1,7 @@
 /**
  * MCP Manifest Loader — parses the 14-mcp-compatibility-manifest.yaml into a typed model.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
@@ -39,6 +39,8 @@ export interface McpManifest {
 }
 
 export function defaultManifestPath(cwd = process.cwd()): string {
+  const runtimeContract = resolve(cwd, 'runtime-contracts/mcp-compatibility-manifest.yaml');
+  if (existsSync(runtimeContract)) return runtimeContract;
   return resolve(
     cwd,
     '.spec/prds/mk6-migration/10-technical-requirements/14-mcp-compatibility-manifest.yaml'

@@ -2,7 +2,7 @@
 import { documentStatusValues, lifecycleStatusValues, workStatusValues } from '../db/enums.ts';
 import type { ColumnInfo } from './metadata.ts';
 
-const STATUS_VOCAB = new Set([
+const STATUS_VOCAB: ReadonlySet<string> = new Set<string>([
   ...documentStatusValues,
   ...lifecycleStatusValues,
   ...workStatusValues,

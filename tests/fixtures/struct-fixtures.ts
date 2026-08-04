@@ -280,5 +280,8 @@ export function createMalformedJson(base: unknown): string {
     () => str.slice(0, -5), // Truncate
   ];
   const randomError = errors[Math.floor(Math.random() * errors.length)];
+  if (!randomError) {
+    throw new Error('Malformed JSON mutation list is unexpectedly empty');
+  }
   return randomError();
 }

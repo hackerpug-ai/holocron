@@ -501,7 +501,8 @@ describe('GATE-FIX-S28R3-QA21 discriminating success/error canary oracle', () =>
     assertNoCanaries('prove-ok', okC);
     const pm = /wrote RO proof attestation: (\S+)/.exec(okC);
     expect(pm, 'proof path required on success').toBeTruthy();
-    const proofPath = pm![1];
+    const proofPath = pm?.[1];
+    if (!proofPath) throw new Error('successful prove output omitted the proof path');
     expect(existsSync(proofPath)).toBe(true);
     const proofRaw = readFileSync(proofPath, 'utf8');
     writeFileSync(resolve(tree, 'proof-raw.json'), proofRaw);
@@ -574,6 +575,7 @@ describe('GATE-FIX-S28R3-QA21 discriminating success/error canary oracle', () =>
         env: {
           ...polluted,
           R2_RESTORE_SECRET_ACCESS_KEY: 'sk_restore_qa21',
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         },

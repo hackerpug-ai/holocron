@@ -11,8 +11,8 @@
 
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import { Zap } from '@/components/ui/icons';
 import { Card } from '@/components/ui/card';
+import { Zap } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { CATEGORY_COLORS } from './categoryColors';
 import { SkeletonCard } from './SkeletonCard';

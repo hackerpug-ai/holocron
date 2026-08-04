@@ -29,7 +29,7 @@ export const backfillDocumentCounters = mutation({
 
       // Count documents without embeddings
       if (!doc.embedding) {
-        counts.withoutEmbeddings++;
+        counts.withoutEmbeddings = (counts.withoutEmbeddings ?? 0) + 1;
       }
     }
 

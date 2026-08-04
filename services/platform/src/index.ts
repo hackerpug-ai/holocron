@@ -10,7 +10,14 @@
  *   bun services/platform/src/cli/holo.ts service:up
  */
 
+// Must remain the first service dependency: ESM dependencies such as Mastra,
+// queue, and HTTP configuration may capture environment values at evaluation.
+import './config/bootstrap-secrets.ts';
+
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Mastra } from '@mastra/core/mastra';
+import { serve } from 'bun';
 import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
@@ -40,7 +47,7 @@ process.on('unhandledRejection', (reason) => {
 export type ServiceHandle = {
   mastra: Mastra;
   port: number;
-  server: ReturnType<typeof Bun.serve>;
+  server: ReturnType<typeof serve>;
   stop: () => Promise<void>;
 };
 
@@ -95,9 +102,8 @@ export async function startService(options?: {
     console.log(`Starting Mastra service on :${port}`);
   }
 
-  // Postgres-backed queue (pg-boss preferred) — probeQueue() measures live state.
-  serviceQueue.startSync();
-  // Await full backend start so /health queue.ready is honest on first probe.
+  // Postgres-backed queue (pg-boss preferred) — await the single backend start
+  // so /health is honest and stop() owns the same instance it must shut down.
   await serviceQueue.start();
 
   const mastra = createMastra();
@@ -107,7 +113,7 @@ export async function startService(options?: {
   // listAgents() is a real 1.x API (not a stub); empty registry is expected here.
   void mastra.listAgents();
 
-  const server = Bun.serve({
+  const server = serve({
     port,
     hostname,
     fetch: app.fetch,
@@ -124,20 +130,25 @@ export async function startService(options?: {
   }
 
   const stop = async () => {
-    await serviceQueue.stop();
     server.stop(true);
+    const results = await Promise.allSettled([serviceQueue.stop(), mastra.shutdown()]);
+    const failure = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    if (failure) throw failure.reason;
   };
 
   return { mastra, port, server, stop };
 }
 
 // Composition-root entry: `bun run services/platform/src/index.ts`
+const argvEntry = process.argv[1];
 const isMain =
-  typeof Bun !== 'undefined' &&
-  (import.meta.path === Bun.main ||
-    process.argv[1]?.endsWith('/services/platform/src/index.ts') ||
-    process.argv[1]?.endsWith('services/platform/src/index.ts') ||
-    process.argv[1]?.endsWith('/index.ts'));
+  argvEntry !== undefined &&
+  (resolve(argvEntry) === fileURLToPath(import.meta.url) ||
+    argvEntry.endsWith('/services/platform/src/index.ts') ||
+    argvEntry.endsWith('services/platform/src/index.ts') ||
+    argvEntry.endsWith('/index.ts'));
 
 if (isMain) {
   startService().catch((err) => {

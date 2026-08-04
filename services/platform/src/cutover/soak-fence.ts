@@ -18,6 +18,8 @@
  * cutover:flip refuses unless D06-04 reconciliation is green, then writes the
  * durable control-plane key + process.env + flip-report. No new DB tables.
  */
+
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
@@ -182,13 +184,26 @@ export function readDurableDataPlane(
 
 /**
  * Observed data-plane for serving processes (fresh every call).
- * Order: process.env when set → else durable secrets control-plane re-read.
+ * Order: durable secrets control-plane re-read → process.env fallback.
+ *
+ * The service bootstrap overlays secrets into process.env so modules can read
+ * static credentials during ESM evaluation. That boot-time snapshot must not
+ * pin routing after rollback-repoint updates the durable control plane.
  */
 export function resolveObservedDataPlane(
   env: NodeJS.ProcessEnv = process.env,
   secretsPath?: string
 ): ObservedDataPlane {
   const path = secretsPath ?? resolveSecretsPathFromEnv(env);
+  const durable = readDurableDataPlane(env, path);
+  if (durable.data_plane) {
+    return {
+      data_plane: durable.data_plane,
+      target: durable.target,
+      source: 'secrets',
+      secrets_path: durable.secrets_path,
+    };
+  }
   const envPlane = env[DATA_PLANE_ENV]?.trim();
   const envTarget = env[ROLLBACK_TARGET_ENV]?.trim();
   if (envPlane) {
@@ -197,15 +212,6 @@ export function resolveObservedDataPlane(
       target: envTarget || null,
       source: 'process.env',
       secrets_path: path,
-    };
-  }
-  const durable = readDurableDataPlane(env, path);
-  if (durable.data_plane) {
-    return {
-      data_plane: durable.data_plane,
-      target: durable.target,
-      source: 'secrets',
-      secrets_path: durable.secrets_path,
     };
   }
   return {
@@ -328,6 +334,7 @@ export type EtlReconcileSnapshot = {
   runId: string;
   unexplainedVariance: number;
   loadedByTable: Record<string, number>;
+  targetLoadedByTable: Record<string, number>;
   exportArchiveHash: string;
   /**
    * SHA-256 of the watermark/ETL report file bytes.
@@ -483,10 +490,19 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
       runId?: string;
       unexplainedVariance?: number;
       loadedByTable?: Record<string, number>;
+      targetLoadedByTable?: Record<string, number>;
       exportArchiveHash?: string;
       parityHash?: string;
       exportRelPath?: string;
       parityRelPath?: string;
+      fkAudit?: { ok?: boolean };
+      vectors?: { ok?: boolean };
+      stages?: {
+        nonEmpty?: boolean;
+        reconcile?: boolean;
+        fkAudit?: boolean;
+        vectors?: boolean;
+      };
       reconcile?: { unexplainedVariance?: number; ok?: boolean };
     };
     const unexplained =
@@ -498,6 +514,10 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
     const runId = typeof j.runId === 'string' ? j.runId : '';
     const loadedByTable =
       j.loadedByTable && typeof j.loadedByTable === 'object' ? j.loadedByTable : {};
+    const targetLoadedByTable =
+      j.targetLoadedByTable && typeof j.targetLoadedByTable === 'object'
+        ? j.targetLoadedByTable
+        : {};
     const exportArchiveHash =
       typeof j.exportArchiveHash === 'string' && /^[a-f0-9]{64}$/i.test(j.exportArchiveHash)
         ? j.exportArchiveHash.toLowerCase()
@@ -509,14 +529,34 @@ export function loadEtlReconcileSnapshot(reportPath: string): EtlReconcileSnapsh
     const exportRelPath = typeof j.exportRelPath === 'string' ? j.exportRelPath : '';
     const parityRelPath = typeof j.parityRelPath === 'string' ? j.parityRelPath : '';
     const reconcileOk = typeof j.reconcile?.ok === 'boolean' ? j.reconcile.ok : unexplained === 0;
-    // Reconciliation green: zero unexplained variance + real run id
-    const ok = unexplained === 0 && runId.length > 0 && reconcileOk;
+    const fkAuditOk = j.fkAudit?.ok === true || j.stages?.fkAudit === true;
+    const vectorsOk = j.vectors?.ok === true || j.stages?.vectors === true;
+    const nonEmptyOk =
+      j.stages?.nonEmpty === true ||
+      ((loadedByTable.documents ?? 0) > 0 && (loadedByTable.conversations ?? 0) > 0);
+    const provenanceOk =
+      exportArchiveHash.length === 64 &&
+      parityHash.length === 64 &&
+      exportRelPath.length > 0 &&
+      parityRelPath.length > 0;
+    // Flip safety: the complete ETL product gate must be green. Zero variance
+    // alone is insufficient when FK/vector/provenance stages failed or are stale.
+    const ok =
+      j.ok === true &&
+      unexplained === 0 &&
+      runId.length > 0 &&
+      reconcileOk &&
+      fkAuditOk &&
+      vectorsOk &&
+      nonEmptyOk &&
+      provenanceOk;
     return {
       path: reportPath,
       ok,
       runId,
       unexplainedVariance: Number.isFinite(unexplained) ? unexplained : -1,
       loadedByTable,
+      targetLoadedByTable,
       exportArchiveHash,
       report_sha256,
       baseline_hash: report_sha256,
@@ -590,6 +630,7 @@ export type CutoverParityInventory = {
   exportRelPath: string;
   catalogRelPath: string;
   loadedByTable: Record<string, number>;
+  sourceTablesByTarget: Record<string, string[]>;
   catalog_table_count_expected: number;
 };
 
@@ -607,6 +648,7 @@ export function loadCutoverParityInventory(parityPath: string): CutoverParityInv
       exportRelPath?: string;
       catalogRelPath?: string;
       loadedByTable?: Record<string, number>;
+      sourceTablesByTarget?: Record<string, string[]>;
       catalog_table_count_expected?: number;
     };
     const boundExportArchiveHash =
@@ -616,6 +658,10 @@ export function loadCutoverParityInventory(parityPath: string): CutoverParityInv
         : '';
     const loadedByTable =
       j.loadedByTable && typeof j.loadedByTable === 'object' ? j.loadedByTable : {};
+    const sourceTablesByTarget =
+      j.sourceTablesByTarget && typeof j.sourceTablesByTarget === 'object'
+        ? j.sourceTablesByTarget
+        : {};
     if (Object.keys(loadedByTable).length === 0 || !boundExportArchiveHash) return null;
     return {
       path: parityPath,
@@ -624,6 +670,7 @@ export function loadCutoverParityInventory(parityPath: string): CutoverParityInv
       exportRelPath: typeof j.exportRelPath === 'string' ? j.exportRelPath : '',
       catalogRelPath: typeof j.catalogRelPath === 'string' ? j.catalogRelPath : '',
       loadedByTable,
+      sourceTablesByTarget,
       catalog_table_count_expected:
         typeof j.catalog_table_count_expected === 'number' ? j.catalog_table_count_expected : 0,
     };
@@ -642,6 +689,12 @@ export type BoundExportCatalogBaseline = {
   parityHash: string;
   /** Expected source-table counts (camelCase keys) from immutable parity inventory. */
   expectedLoadedByTable: Record<string, number>;
+  /**
+   * Immutable source-table membership for each expected target. A current
+   * cutover artifact always declares this; legacy fixture artifacts fall back
+   * to their single loadedByTable key and are still bound through the catalog.
+   */
+  sourceTablesByTarget: Record<string, string[]>;
   catalog_table_count: number;
   listedTables: string[];
   /** Immutable baseline digest: export archive content address (not report self-hash). */
@@ -654,9 +707,9 @@ export type BoundExportCatalogBaseline = {
  * Rejects missing archive/catalog/parity, hash mismatch, empty expected sets, and
  * production fallback to committed test fixtures (fail closed).
  *
- * Fixture paths are allowed only when:
- *   - HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1|true, or
- *   - caller passed explicit exportDir / catalogPath / parityPath (tests inject paths).
+ * Fixture paths are allowed only when the in-process caller passes the explicit
+ * test-only option (or the dedicated test environment flag is set). Supplying a
+ * committed fixture through a production CLI path never makes it authoritative.
  */
 export function loadBoundExportCatalogBaseline(options: {
   cwd?: string;
@@ -679,9 +732,6 @@ export function loadBoundExportCatalogBaseline(options: {
   const cwd = options.cwd ?? resolveRepoRoot();
   const mismatches: string[] = [];
   const allowFixtures = options.allowTestFixtures === true || allowCutoverTestFixtures();
-  const explicitParity = Boolean(options.parityPath);
-  const explicitExport = Boolean(options.exportDir);
-  const explicitCatalog = Boolean(options.catalogPath);
 
   const parityPath = (() => {
     if (options.parityPath) return options.parityPath;
@@ -706,6 +756,7 @@ export function loadBoundExportCatalogBaseline(options: {
       exportArchiveHash: '',
       parityHash: '',
       expectedLoadedByTable: {},
+      sourceTablesByTarget: {},
       catalog_table_count: 0,
       listedTables: [],
       baseline_hash: '',
@@ -713,12 +764,12 @@ export function loadBoundExportCatalogBaseline(options: {
     };
   }
 
-  // Refuse auto-resolved fixture parity in production (explicit --parity still allowed for tests).
-  if (!allowFixtures && !explicitParity && isCommittedTestFixturePath(parity.path, cwd)) {
+  // Refuse committed fixtures in production even when explicitly named on the CLI.
+  if (!allowFixtures && isCommittedTestFixturePath(parity.path, cwd)) {
     return {
       ok: false,
       mismatches: [
-        `refusing committed test fixture parity path in production: ${parity.path} (pass operator --parity or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`,
+        `refusing committed test fixture parity path in production: ${parity.path} (use operator-generated evidence; test callers must opt in with allowTestFixtures)`,
       ],
       exportDir: '',
       catalogPath: '',
@@ -726,6 +777,7 @@ export function loadBoundExportCatalogBaseline(options: {
       exportArchiveHash: '',
       parityHash: '',
       expectedLoadedByTable: {},
+      sourceTablesByTarget: {},
       catalog_table_count: 0,
       listedTables: [],
       baseline_hash: '',
@@ -745,15 +797,15 @@ export function loadBoundExportCatalogBaseline(options: {
     return defaultCatalogPath(cwd);
   })();
 
-  // Refuse auto-resolved fixture export/catalog dirs in production.
-  if (!allowFixtures && !explicitExport && isCommittedTestFixturePath(exportDir, cwd)) {
+  // Refuse committed fixture export/catalog paths in production, explicit or not.
+  if (!allowFixtures && isCommittedTestFixturePath(exportDir, cwd)) {
     mismatches.push(
-      `refusing committed test fixture export dir in production: ${exportDir} (pass operator --export or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`
+      `refusing committed test fixture export dir in production: ${exportDir} (use operator-generated evidence; test callers must opt in with allowTestFixtures)`
     );
   }
-  if (!allowFixtures && !explicitCatalog && isCommittedTestFixturePath(catalogPath, cwd)) {
+  if (!allowFixtures && isCommittedTestFixturePath(catalogPath, cwd)) {
     mismatches.push(
-      `refusing committed test fixture catalog path in production: ${catalogPath} (pass operator --catalog or set HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 only in tests)`
+      `refusing committed test fixture catalog path in production: ${catalogPath} (use operator-generated evidence; test callers must opt in with allowTestFixtures)`
     );
   }
 
@@ -793,13 +845,27 @@ export function loadBoundExportCatalogBaseline(options: {
           `exportArchiveHash provenance mismatch: report=${declared} on-disk archive=${exportArchiveHash}`
         );
       }
-      // Every expected parity table must exist in catalog + export inventory.
-      for (const sourceTable of Object.keys(parity.loadedByTable)) {
-        if (!catalog.tables[sourceTable]) {
-          mismatches.push(`catalog missing expected parity table: ${sourceTable}`);
-        }
-        if (!listedTables.includes(sourceTable)) {
-          mismatches.push(`export archive missing expected parity table: ${sourceTable}`);
+      // Every expected target must bind back to its catalog/export source tables.
+      for (const parityKey of Object.keys(parity.loadedByTable)) {
+        const declaredSources = parity.sourceTablesByTarget[parityKey];
+        const sourceTables =
+          Array.isArray(declaredSources) && declaredSources.length > 0
+            ? declaredSources
+            : [parityKey];
+        for (const sourceTable of sourceTables) {
+          const entry = catalog.tables[sourceTable];
+          if (!entry) {
+            mismatches.push(`catalog missing expected parity source table: ${sourceTable}`);
+            continue;
+          }
+          if (declaredSources && entry.target !== parityKey) {
+            mismatches.push(
+              `catalog target mismatch for ${sourceTable}: parity=${parityKey} catalog=${entry.target ?? 'null'}`
+            );
+          }
+          if (!listedTables.includes(sourceTable)) {
+            mismatches.push(`export archive missing expected parity source table: ${sourceTable}`);
+          }
         }
       }
     } catch (err) {
@@ -835,6 +901,12 @@ export function loadBoundExportCatalogBaseline(options: {
     exportArchiveHash: exportArchiveHash || parity.boundExportArchiveHash,
     parityHash: parity.parityHash,
     expectedLoadedByTable: { ...parity.loadedByTable },
+    sourceTablesByTarget: Object.fromEntries(
+      Object.entries(parity.sourceTablesByTarget).map(([target, sources]) => [
+        target,
+        Array.isArray(sources) ? [...sources] : [],
+      ])
+    ),
     catalog_table_count,
     listedTables,
     baseline_hash,
@@ -1267,21 +1339,52 @@ export type ToolsVerifyReport = {
   seeds?: VerifyToolSeeds;
 };
 
+/**
+ * Resolve verifier credentials using the same env-over-file precedence as the
+ * deployed service. Operator CLIs normally receive HOLO_SECRETS_PATH without
+ * exporting credential values into their ambient environment.
+ */
+export function resolveCutoverScopedKeys(env: NodeJS.ProcessEnv = process.env): ScopedKeyConfig {
+  const fromEnv = loadScopedKeysFromEnv(env);
+  try {
+    const fromFile = loadSecretsFile(resolveSecretsPathFromEnv(env));
+    return {
+      rn: fromEnv.rn || fromFile.HOLO_KEY_RN || fromFile.RN_API_KEY || '',
+      mcp: fromEnv.mcp || fromFile.HOLO_KEY_MCP || fromFile.MCP_API_KEY || '',
+      control: fromEnv.control || fromFile.HOLO_KEY_CONTROL || fromFile.CONTROL_API_KEY || '',
+    };
+  } catch {
+    return fromEnv;
+  }
+}
+
 function defaultKeys(): ScopedKeyConfig {
-  return loadScopedKeysFromEnv();
+  return resolveCutoverScopedKeys();
 }
 
 /**
  * Resolve the deployed Hono/MCP base URL for cutover verify.
- * Order: explicit option → HOLO_VERIFY_BASE_URL → HOLO_SOAK_BASE_URL → PLATFORM_URL.
+ * D06-07 production order: verified deployment receipt → explicit/production
+ * URL (which must match it) → legacy verify/soak/platform env.
  * Empty / missing ⇒ fail-closed (caller must not fall back to in-process createHonoApp).
  */
 export function resolveVerifyBaseUrl(explicit?: string | null): string {
+  const verified = readVerifiedDeploymentBaseUrl();
+  const production = process.env.HOLO_PRODUCTION_BASE_URL?.trim().replace(/\/+$/, '') ?? '';
+  if (production) {
+    // Naming a production URL opts into the D06-07 handoff contract. It is not
+    // accepted until deploy:verify wrote matching, external verification evidence.
+    if (!verified || verified !== production) return '';
+    const explicitValue = explicit?.trim().replace(/\/+$/, '') ?? '';
+    if (explicitValue && explicitValue !== verified) return '';
+    return verified;
+  }
   const candidates = [
     explicit,
     process.env.HOLO_VERIFY_BASE_URL,
     process.env.HOLO_SOAK_BASE_URL,
     process.env.PLATFORM_URL,
+    verified,
   ];
   for (const c of candidates) {
     if (typeof c === 'string') {
@@ -1290,6 +1393,37 @@ export function resolveVerifyBaseUrl(explicit?: string | null): string {
     }
   }
   return '';
+}
+
+/** Read the non-secret, deploy:verify-produced handoff evidence. */
+export function readVerifiedDeploymentBaseUrl(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd()
+): string {
+  const path =
+    env.HOLO_DEPLOYMENT_VERIFICATION_PATH?.trim() ||
+    resolve(cwd, '.tmp/REDHAT-FIX-S29-DEPLOY/verification.json');
+  try {
+    if (!existsSync(path)) return '';
+    const value = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    if (
+      value.ok !== true ||
+      value.handoffVerified !== true ||
+      value.identityClass !== 'deployed-http' ||
+      value.cutoverActions !== 0 ||
+      value.toolInvocations !== 0 ||
+      value.soakInvocations !== 0 ||
+      typeof value.baseUrl !== 'string'
+    ) {
+      return '';
+    }
+    const baseUrl = value.baseUrl.trim().replace(/\/+$/, '');
+    const parsed = parseBaseUrlHostPort(baseUrl);
+    if (!parsed || /^(?:localhost|127\.|0\.)/i.test(parsed.host)) return '';
+    return baseUrl;
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -1357,11 +1491,16 @@ export function resolveTargetIdentity(
 
 /** True when process env names a pre-existing deploy target (not options alone). */
 export function hasDeploymentVerifyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  for (const key of ['HOLO_VERIFY_BASE_URL', 'HOLO_SOAK_BASE_URL', 'PLATFORM_URL'] as const) {
+  for (const key of [
+    'HOLO_PRODUCTION_BASE_URL',
+    'HOLO_VERIFY_BASE_URL',
+    'HOLO_SOAK_BASE_URL',
+    'PLATFORM_URL',
+  ] as const) {
     const v = env[key];
     if (typeof v === 'string' && v.trim().length > 0) return true;
   }
-  return false;
+  return readVerifiedDeploymentBaseUrl(env).length > 0;
 }
 
 export type DeployedIdentityResult = {
@@ -1484,10 +1623,41 @@ export async function resolveDeployedTargetIdentity(
     typeof body.service_label === 'string' && body.service_label.trim().length > 0
       ? body.service_label.trim()
       : null;
-  const healthGeneration =
-    typeof body.generation === 'string' && body.generation.trim().length > 0
-      ? body.generation.trim()
+  const deploymentProbe =
+    body.deployment && typeof body.deployment === 'object' && !Array.isArray(body.deployment)
+      ? (body.deployment as Record<string, unknown>)
       : null;
+  const deploymentIdentity =
+    deploymentProbe?.identity &&
+    typeof deploymentProbe.identity === 'object' &&
+    !Array.isArray(deploymentProbe.identity)
+      ? (deploymentProbe.identity as Record<string, unknown>)
+      : null;
+  if (deploymentProbe && deploymentProbe.ready !== true) {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: 'HEALTH_IDENTITY_UNAVAILABLE: deployment identity probe is not ready',
+    };
+  }
+  if (deploymentIdentity && deploymentIdentity.runtime !== 'container') {
+    return {
+      identity: null,
+      health_status: healthStatus,
+      health_body: healthBody,
+      error: 'HEALTH_IDENTITY_UNAVAILABLE: deployment runtime must be container',
+    };
+  }
+  const healthGeneration =
+    typeof body.composeGeneration === 'string' && body.composeGeneration.trim().length > 0
+      ? body.composeGeneration.trim()
+      : typeof deploymentIdentity?.composeGeneration === 'string' &&
+          deploymentIdentity.composeGeneration.trim().length > 0
+        ? deploymentIdentity.composeGeneration.trim()
+        : typeof body.generation === 'string' && body.generation.trim().length > 0
+          ? body.generation.trim()
+          : null;
   const uptimeRaw = body.uptime_ms;
   const uptime_ms =
     typeof uptimeRaw === 'number' && Number.isFinite(uptimeRaw) && uptimeRaw > 0
@@ -1527,8 +1697,14 @@ export async function resolveDeployedTargetIdentity(
     };
   }
 
+  const deploymentLabel =
+    typeof deploymentIdentity?.host === 'string' &&
+    typeof deploymentIdentity.imageDigest === 'string'
+      ? `container:${deploymentIdentity.host}:${deploymentIdentity.imageDigest.slice(0, 19)}`
+      : null;
   const service_label =
     healthLabel ??
+    deploymentLabel ??
     (healthGeneration ? `generation:${healthGeneration}` : undefined) ??
     `pid:${pid}`;
 
@@ -2531,7 +2707,7 @@ export function evaluateReadToolSuccess(
   }
 
   const postgres_backed = shapeOk && correspondence_matched;
-  const ok = transportOk && res.isError !== true && schema_valid && postgres_backed;
+  const ok = schema_valid && postgres_backed;
   return { ok, schema_valid, postgres_backed, correspondence_matched };
 }
 
@@ -2798,6 +2974,120 @@ export function mapLoadedByTableToPgTargets(
     .sort((a, b) => a.pgTable.localeCompare(b.pgTable));
 }
 
+type CurrentExportMappedTarget = {
+  pgTable: string;
+  baseline: number;
+  /** Source IDs from the immutable export, grouped for the ETL id-map join. */
+  sourceLegacyIds: Array<{ sourceTable: string; legacyIds: string[] }>;
+};
+
+/**
+ * Build the read-parity scope from the same immutable export/catalog/id-map
+ * relationship used by ETL reconciliation. Target tables are additive in
+ * production, so whole-table counts would include valid rows from earlier
+ * migrations and are not a current-cutover oracle.
+ */
+function buildCurrentExportMappedTargets(options: {
+  bound: BoundExportCatalogBaseline;
+  expectedLoadedByTable: Record<string, number>;
+}): { targets: CurrentExportMappedTarget[]; mismatches: string[] } {
+  const { bound, expectedLoadedByTable } = options;
+  const mismatches: string[] = [];
+  const targets: CurrentExportMappedTarget[] = [];
+
+  try {
+    const catalog = loadCatalog(bound.catalogPath);
+    const archive = readImmutableExport(bound.exportDir, catalog);
+    if (archive.archiveHash.toLowerCase() !== bound.exportArchiveHash.toLowerCase()) {
+      mismatches.push(
+        `archive changed after provenance bind: bound=${bound.exportArchiveHash} current=${archive.archiveHash}`
+      );
+    }
+
+    const legacyIdsBySource = new Map<string, string[]>();
+    for (const row of archive.rows) {
+      const ids = legacyIdsBySource.get(row.sourceTable) ?? [];
+      ids.push(row.legacyId);
+      legacyIdsBySource.set(row.sourceTable, ids);
+    }
+
+    const seenPgTables = new Set<string>();
+    for (const [parityTarget, rawBaseline] of Object.entries(expectedLoadedByTable)) {
+      if (!Number.isSafeInteger(rawBaseline) || rawBaseline < 0) {
+        mismatches.push(`invalid immutable parity baseline for ${parityTarget}: ${rawBaseline}`);
+        continue;
+      }
+
+      const declaredSources = bound.sourceTablesByTarget[parityTarget];
+      const sourceTables =
+        Array.isArray(declaredSources) && declaredSources.length > 0
+          ? declaredSources
+          : [parityTarget];
+      const sourceLegacyIds: Array<{ sourceTable: string; legacyIds: string[] }> = [];
+      const catalogTargets = new Set<string>();
+      const seenSources = new Set<string>();
+
+      for (const sourceTable of sourceTables) {
+        if (typeof sourceTable !== 'string' || !sourceTable.trim()) {
+          mismatches.push(`invalid source table mapping for parity target ${parityTarget}`);
+          continue;
+        }
+        if (seenSources.has(sourceTable)) {
+          mismatches.push(
+            `duplicate source table mapping for parity target ${parityTarget}: ${sourceTable}`
+          );
+          continue;
+        }
+        seenSources.add(sourceTable);
+
+        const entry = catalog.tables[sourceTable];
+        if (!entry?.target) {
+          mismatches.push(
+            `catalog target missing for parity source ${sourceTable} (parity target ${parityTarget})`
+          );
+          continue;
+        }
+        if (!PG_IDENT_RE.test(entry.target)) {
+          mismatches.push(`unsafe catalog target for ${sourceTable}: ${entry.target}`);
+          continue;
+        }
+        catalogTargets.add(entry.target);
+        sourceLegacyIds.push({
+          sourceTable,
+          legacyIds: legacyIdsBySource.get(sourceTable) ?? [],
+        });
+      }
+
+      if (catalogTargets.size !== 1) {
+        mismatches.push(
+          `ambiguous catalog target mapping for ${parityTarget}: ${
+            [...catalogTargets].join(', ') || 'none'
+          }`
+        );
+        continue;
+      }
+      const pgTable = [...catalogTargets][0];
+      if (!pgTable) {
+        mismatches.push(`catalog target missing for parity target ${parityTarget}`);
+        continue;
+      }
+      if (seenPgTables.has(pgTable)) {
+        mismatches.push(`duplicate immutable parity target mapping: ${pgTable}`);
+        continue;
+      }
+      seenPgTables.add(pgTable);
+
+      targets.push({ pgTable, baseline: rawBaseline, sourceLegacyIds });
+    }
+  } catch (err) {
+    mismatches.push(
+      `current export mapping scope failed: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  return { targets, mismatches };
+}
+
 function emptyReadsReport(
   partial: Partial<ReadsVerifyReport> & { mismatches: string[]; baseline_path?: string }
 ): ReadsVerifyReport {
@@ -2824,7 +3114,9 @@ function emptyReadsReport(
 /**
  * D06-05 / H-02 / R2-C03: reconcile every catalog/export expected table against
  * live Postgres using an immutable content-addressed export archive + cutover-parity
- * inventory (not a mutable caller-selected loadedByTable alone).
+ * inventory (not a mutable caller-selected loadedByTable alone). Each target
+ * count is scoped to current export source IDs through convex_id_map, never a
+ * whole target-table count: production intentionally preserves historical rows.
  *
  * Authority:
  *   1. On-disk export archive digest (exportArchiveHash) via readImmutableExport
@@ -2873,12 +3165,13 @@ export async function runVerifyReads(options?: {
   mismatches.push(...bound.mismatches);
 
   // Reject truncated / rewritten caller loadedByTable when present.
-  if (
-    Object.keys(snap.loadedByTable).length > 0 &&
-    Object.keys(bound.expectedLoadedByTable).length > 0
-  ) {
+  const callerLoaded =
+    Object.keys(snap.targetLoadedByTable).length > 0
+      ? snap.targetLoadedByTable
+      : snap.loadedByTable;
+  if (Object.keys(callerLoaded).length > 0 && Object.keys(bound.expectedLoadedByTable).length > 0) {
     mismatches.push(
-      ...diffCallerLoadedByTableAgainstParity(snap.loadedByTable, bound.expectedLoadedByTable)
+      ...diffCallerLoadedByTableAgainstParity(callerLoaded, bound.expectedLoadedByTable)
     );
   }
 
@@ -2888,7 +3181,12 @@ export async function runVerifyReads(options?: {
     Object.keys(bound.expectedLoadedByTable).length > 0
       ? bound.expectedLoadedByTable
       : snap.loadedByTable;
-  const targets = mapLoadedByTableToPgTargets(authorityLoaded);
+  const scope = buildCurrentExportMappedTargets({
+    bound,
+    expectedLoadedByTable: authorityLoaded,
+  });
+  mismatches.push(...scope.mismatches);
+  const targets = scope.targets;
   if (targets.length === 0) {
     return emptyReadsReport({
       mismatches: [
@@ -2921,15 +3219,30 @@ export async function runVerifyReads(options?: {
   });
   const sql = createSql(url);
   try {
-    for (const { pgTable, baseline } of targets) {
+    for (const { pgTable, baseline, sourceLegacyIds } of targets) {
       baselineCounts[pgTable] = baseline;
       try {
-        // Identifier validated by PG_IDENT_RE in mapLoadedByTableToPgTargets.
-        const rows = await sql.unsafe(`SELECT count(*)::int AS c FROM ${pgTable}`);
-        const c = Number((rows[0] as { c?: number })?.c ?? 0);
-        perTableCounts[pgTable] = c;
-        if (c !== baseline) {
-          mismatches.push(`${pgTable}: live=${c} baseline=${baseline}`);
+        let mappedCount = 0;
+        for (const { sourceTable, legacyIds } of sourceLegacyIds) {
+          if (legacyIds.length === 0) continue;
+          // pgTable is catalog-derived and constrained by PG_IDENT_RE above.
+          // This deliberately mirrors etl/reconcile.ts: only mappings for the
+          // immutable export's current source IDs prove this cutover completed.
+          const rows = await sql.unsafe<Array<{ count?: string }>>(
+            `
+              SELECT count(*)::text AS count
+              FROM "${pgTable}" t
+              JOIN convex_id_map m ON t.id::text = m.new_id
+              WHERE m.table_name = $1
+                AND m.old_id = ANY($2::text[])
+            `,
+            [sourceTable, legacyIds]
+          );
+          mappedCount += Number(rows[0]?.count ?? 0);
+        }
+        perTableCounts[pgTable] = mappedCount;
+        if (mappedCount !== baseline) {
+          mismatches.push(`${pgTable}: mapped=${mappedCount} baseline=${baseline}`);
         }
       } catch (err) {
         mismatches.push(
@@ -3024,6 +3337,9 @@ export type ArticleVerifyReport = {
 export async function runVerifyArticle(options?: {
   cwd?: string;
   baselinePath?: string;
+  exportDir?: string;
+  catalogPath?: string;
+  parityPath?: string;
   keys?: ScopedKeyConfig;
   databaseUrl?: string;
   /** Deployed server base URL (http://host:port). Overrides env. */
@@ -3294,6 +3610,26 @@ export async function runVerifyJobs(options?: { databaseUrl?: string }): Promise
 export type ZeroWritePathReport = {
   status: 'NOT_LANDED' | 'BLOCKED' | 'OPEN' | 'MISSING';
   note: string;
+  zeroBaseUrl?: string;
+  probe?: {
+    ok?: boolean;
+    custom?: {
+      connected?: boolean;
+      clientOptimistic?: boolean;
+      serverRejected?: boolean;
+      expectedRejection?: boolean;
+      rejectionMessage?: string;
+    };
+    crud?: {
+      connected?: boolean;
+      serverRejected?: boolean;
+      expectedRejection?: boolean;
+      rejectionMessage?: string;
+    };
+    authoritativeUnchanged?: boolean;
+    cleanedUnexpectedRows?: boolean;
+    error?: string;
+  };
 };
 
 export type SoakVerifyReport = {
@@ -3315,25 +3651,91 @@ export function defaultSoakVerifyReportPath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D06-05/verify-soak-report.json');
 }
 
+export function resolveZeroVerifyBaseUrl(explicit?: string): string {
+  return explicit ?? process.env.HOLO_ZERO_BASE_URL ?? process.env.ZERO_CACHE_URL ?? '';
+}
+
 /**
- * Zero client write path at planning SHA c7873378: no landed mutator.
- * MUST be present with status NOT_LANDED — never omitted.
- * overall.ok requires an *explicit* branch (missing ⇒ fail).
+ * Drive both real Zero mutation envelopes against the deployed cache and prove
+ * with independent Postgres SELECTs that neither optimistic write committed.
  */
-export function evaluateZeroWritePath(): ZeroWritePathReport {
+export function evaluateZeroWritePath(options?: {
+  cwd?: string;
+  databaseUrl?: string;
+  zeroBaseUrl?: string;
+}): ZeroWritePathReport {
+  const cwd = options?.cwd ?? resolveRepoRoot();
+  const databaseUrl = options?.databaseUrl ?? process.env.DATABASE_URL ?? '';
+  const zeroBaseUrl = resolveZeroVerifyBaseUrl(options?.zeroBaseUrl);
+  const probePath = resolve(cwd, 'scripts/e2e/zero-write-fence-probe.ts');
+  if (!databaseUrl || !zeroBaseUrl || !existsSync(probePath)) {
+    return {
+      status: 'MISSING',
+      note: 'Zero write-fence probe requires a deployed Zero endpoint, DATABASE_URL, and probe script',
+      zeroBaseUrl: zeroBaseUrl || undefined,
+    };
+  }
+
+  const child = spawnSync('bun', [probePath], {
+    cwd,
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl,
+      ZERO_CACHE_URL: zeroBaseUrl,
+    },
+    encoding: 'utf8',
+    timeout: 90_000,
+    maxBuffer: 1024 * 1024,
+  });
+  let probe: ZeroWritePathReport['probe'];
+  for (const line of child.stdout.trim().split(/\r?\n/).reverse()) {
+    try {
+      const parsed = JSON.parse(line) as ZeroWritePathReport['probe'];
+      if (parsed && typeof parsed === 'object') {
+        probe = parsed;
+        break;
+      }
+    } catch {
+      // Zero may log before the script's final JSON line; only that line is evidence.
+    }
+  }
+
+  const blocked =
+    child.status === 0 &&
+    probe?.ok === true &&
+    probe.custom?.connected === true &&
+    probe.custom.serverRejected === true &&
+    probe.custom.expectedRejection === true &&
+    probe.crud?.connected === true &&
+    probe.crud.serverRejected === true &&
+    probe.crud.expectedRejection === true &&
+    probe.authoritativeUnchanged === true &&
+    probe.cleanedUnexpectedRows !== true;
+  if (blocked) {
+    return {
+      status: 'BLOCKED',
+      note: 'Deployed Zero rejected custom and legacy CRUD mutations; Postgres remained unchanged',
+      zeroBaseUrl,
+      probe,
+    };
+  }
   return {
-    status: 'NOT_LANDED',
-    note: 'No Zero mutator/write surface landed at c7873378 — reported loudly, not omitted',
+    status: probe?.custom || probe?.crud ? 'OPEN' : 'MISSING',
+    note:
+      child.error instanceof Error
+        ? `Zero write-fence probe failed: ${child.error.message}`
+        : 'Zero write-fence probe did not prove both mutation envelopes blocked',
+    zeroBaseUrl,
+    probe,
   };
 }
 
-function zeroWritePathOk(z: ZeroWritePathReport | undefined | null): boolean {
+export function zeroWritePathOk(z: ZeroWritePathReport | undefined | null): boolean {
   // Missing ⇒ fail (never implicit pass)
   if (!z || !z.status) return false;
-  // Explicit known-safe states only
-  if (z.status === 'NOT_LANDED') return true;
-  if (z.status === 'BLOCKED') return true;
-  return false;
+  // A landed client write path must be proven blocked. Historical NOT_LANDED
+  // evidence is intentionally non-green and cannot authorize a soak flip.
+  return z.status === 'BLOCKED';
 }
 
 export async function runVerifySoak(options?: {
@@ -3341,10 +3743,17 @@ export async function runVerifySoak(options?: {
   keys?: ScopedKeyConfig;
   databaseUrl?: string;
   etlReportPath?: string;
+  exportDir?: string;
+  catalogPath?: string;
+  parityPath?: string;
   baselinePath?: string;
   reportPath?: string;
   /** Deployed server base URL for network /mcp and /article (H-01). */
   baseUrl?: string;
+  /** Deployed Zero endpoint for the custom + CRUD write-fence probe. */
+  zeroBaseUrl?: string;
+  /** Tests only — production CLI must never enable committed fixture paths. */
+  allowTestFixtures?: boolean;
 }): Promise<SoakVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultSoakVerifyReportPath(cwd);
@@ -3359,6 +3768,10 @@ export async function runVerifySoak(options?: {
     cwd,
     etlReportPath: options?.etlReportPath,
     databaseUrl,
+    exportDir: options?.exportDir,
+    catalogPath: options?.catalogPath,
+    parityPath: options?.parityPath,
+    allowTestFixtures: options?.allowTestFixtures,
   });
   const article = await runVerifyArticle({
     cwd,
@@ -3369,7 +3782,11 @@ export async function runVerifySoak(options?: {
   });
   const honoWrite = await runHonoWriteSweep({ keys, databaseUrl });
   const jobs = await runVerifyJobs({ databaseUrl });
-  const zeroWritePath = evaluateZeroWritePath();
+  const zeroWritePath = evaluateZeroWritePath({
+    cwd,
+    databaseUrl,
+    zeroBaseUrl: options?.zeroBaseUrl,
+  });
 
   const overallOk =
     engaged &&

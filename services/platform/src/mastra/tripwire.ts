@@ -21,7 +21,7 @@ export interface TripwireInfo {
 
 /** Minimal shape of an agent.generate() result needed for tripwire checks. */
 export interface GenerateResultLike {
-  tripwire?: TripwireInfo | null;
+  tripwire?: (Omit<TripwireInfo, 'processorId'> & { processorId?: string }) | null;
   finishReason?: string;
   text?: string;
 }
@@ -46,13 +46,19 @@ export type StreamChunkAction =
   | { action: 'continue' }
   | { action: 'tripwire'; tripwire: TripwireInfo };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * Extract streamed text across the current AI SDK shape and the older
  * Mastra payload shape retained by legacy fixtures.
  */
-export function getTextDelta(chunk: StreamChunkLike): string | undefined {
+export function getTextDelta(chunk: unknown): string | undefined {
+  if (!isRecord(chunk)) return undefined;
   if (typeof chunk.textDelta === 'string') return chunk.textDelta;
-  return typeof chunk.payload?.text === 'string' ? chunk.payload.text : undefined;
+  const payload = chunk.payload;
+  return isRecord(payload) && typeof payload.text === 'string' ? payload.text : undefined;
 }
 
 /**
@@ -69,12 +75,14 @@ export class TripwireError extends Error {
   }
 }
 
-function normalizeTripwire(raw: TripwireInfo): TripwireInfo {
+function normalizeTripwire(
+  raw: Omit<TripwireInfo, 'processorId'> & { processorId?: string }
+): TripwireInfo {
   return {
     reason: raw.reason,
     retry: raw.retry,
     metadata: raw.metadata,
-    processorId: raw.processorId,
+    processorId: raw.processorId ?? 'unknown',
   };
 }
 
@@ -117,9 +125,9 @@ export function assertNoTripwire<T extends GenerateResultLike>(result: T): T {
  * }
  * ```
  */
-export function handleStreamChunk(chunk: StreamChunkLike): StreamChunkAction {
-  if (chunk.type === 'tripwire') {
-    const payload = chunk.payload ?? {};
+export function handleStreamChunk(chunk: unknown): StreamChunkAction {
+  if (isRecord(chunk) && chunk.type === 'tripwire') {
+    const payload = isRecord(chunk.payload) ? chunk.payload : {};
     return {
       action: 'tripwire',
       tripwire: {
@@ -143,9 +151,7 @@ export function handleStreamChunk(chunk: StreamChunkLike): StreamChunkAction {
  * Consume an agent `fullStream`, failing closed on the first tripwire chunk.
  * Throws {@link TripwireError} if any chunk has `type === 'tripwire'`.
  */
-export async function assertNoTripwireInStream(
-  fullStream: AsyncIterable<StreamChunkLike>
-): Promise<void> {
+export async function assertNoTripwireInStream(fullStream: AsyncIterable<unknown>): Promise<void> {
   for await (const chunk of fullStream) {
     const handled = handleStreamChunk(chunk);
     if (handled.action === 'tripwire') {

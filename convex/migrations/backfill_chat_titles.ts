@@ -92,6 +92,7 @@ export const backfill = action({
 
     for (let i = 0; i < Math.min(batchSize, allConversations.length); i++) {
       const conversation = allConversations[i];
+      if (!conversation) continue;
 
       try {
         if (dryRun) {

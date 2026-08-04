@@ -1,4 +1,9 @@
-import { MastraStorageExporter, Observability, SensitiveDataFilter } from '@mastra/observability';
+import {
+  MastraStorageExporter,
+  Observability,
+  SamplingStrategyType,
+  SensitiveDataFilter,
+} from '@mastra/observability';
 import { PostgresStore } from '@mastra/pg';
 import {
   createLangfuseExporterFromEnv,
@@ -42,7 +47,7 @@ export function createObservability(options?: {
     configs: {
       default: {
         serviceName: HOLOCRON_SERVICE_NAME,
-        sampling: { type: 'always' as const },
+        sampling: { type: SamplingStrategyType.ALWAYS },
         exporters: [new MastraStorageExporter(), langfuseExporter],
         spanOutputProcessors: [
           new SensitiveDataFilter({

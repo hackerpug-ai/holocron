@@ -55,6 +55,8 @@ fi
 [[ -n "${EXPO_PUBLIC_PLATFORM_URL:-${PLATFORM_URL:-}}" ]] || fail "platform URL is required"
 [[ -n "${EXPO_PUBLIC_RN_API_KEY:-}" ]] || fail "EXPO_PUBLIC_RN_API_KEY is required for the Hono chat command"
 [[ "${EXPO_PUBLIC_REFERENCE_FLOW:-true}" == "true" ]] || fail "EXPO_PUBLIC_REFERENCE_FLOW must be true for the reference build"
+[[ -n "${EXPO_PUBLIC_REFERENCE_CONVERSATION_ID:-}" ]] \
+  || fail "EXPO_PUBLIC_REFERENCE_CONVERSATION_ID is required for the seeded reference conversation"
 [[ -n "${ZERO_ADMIN_PASSWORD:-}" ]] || fail "ZERO_ADMIN_PASSWORD is required for the real zero-cache"
 command -v maestro >/dev/null 2>&1 || fail "maestro CLI is not installed"
 command -v xcrun >/dev/null 2>&1 || fail "xcrun is not installed"
@@ -138,7 +140,10 @@ zero_startup_timeout_seconds="${ZERO_STARTUP_TIMEOUT_SECONDS:-180}"
 # real Holocron Zero command/cwd and reject any unrelated listener.
 process_cwd() {
   local process_pid="$1"
-  lsof -a -p "$process_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1
+  # The orphan scan is a PID snapshot. A parent kill can reap later entries
+  # before their cwd is inspected; under pipefail, lsof then returns 1. Treat
+  # that race as an empty cwd and continue evaluating the remaining targets.
+  lsof -a -p "$process_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1 || true
 }
 
 is_holocron_zero_process() {
@@ -188,6 +193,10 @@ cleanup_orphaned_zero_processes() {
       fi
     done < <(lsof -nP -iTCP:"$zero_internal_port" -sTCP:LISTEN -t 2>/dev/null || true)
   done
+
+  # An empty `while read` leaves status 1. Under `set -e`, propagating that
+  # status aborts every clean run immediately after the orphan scan.
+  return 0
 }
 
 cleanup_orphaned_zero_processes
@@ -199,6 +208,14 @@ fi
 
 # The reset is intentionally before boot/flow execution and fails closed.
 bun "$repo_root/services/platform/src/cli/holo.ts" namespace reset --json >"$artifact_dir/namespace-reset.json"
+
+# zero-cache denies every row when the upstream permissions document is absent.
+# Deploy the checked-in schema after reset so this cold-boot run proves the
+# same permissioned data path the native client consumes.
+NODE_ENV=production pnpm exec zero-deploy-permissions \
+  --schema-path "$repo_root/app/zero/schema.ts" \
+  --upstream-db "$DATABASE_URL" \
+  >"$artifact_dir/zero-permissions.log" 2>&1
 
 NODE_ENV=production pnpm exec zero-cache \
   --upstream-db "$DATABASE_URL" \

@@ -13,6 +13,44 @@ const itLive = PLATFORM_IT ? it : it.skip;
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
 const KEYS = { rn: 's19-rn', mcp: 's19-mcp', control: 's19-control' };
 
+type McpStructuredContent = {
+  status?: string;
+  error?: unknown;
+  totalListings?: number;
+  listings?: unknown[];
+  sessionId?: string;
+  videosFound?: number;
+  session?: { status?: string };
+};
+
+type McpToolResult = {
+  isError?: boolean;
+  structuredContent?: McpStructuredContent;
+  content?: Array<{ text?: string }>;
+};
+
+type McpEnvelope = {
+  result?: McpToolResult;
+  error?: unknown;
+};
+
+function mcpEnvelope(value: unknown): McpEnvelope {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('MCP response was not a JSON object');
+  }
+  return value as McpEnvelope;
+}
+
+function requiredMcpResult(body: McpEnvelope): McpToolResult {
+  if (!body.result) throw new Error('MCP response omitted result');
+  return body.result;
+}
+
+function requiredStructuredContent(result: McpToolResult): McpStructuredContent {
+  if (!result.structuredContent) throw new Error('MCP result omitted structuredContent');
+  return result.structuredContent;
+}
+
 function sampleToolInput(schema: unknown, key: string): unknown {
   const def = (schema as { def?: Record<string, unknown> }).def ?? {};
   const type = def.type;
@@ -85,17 +123,24 @@ describe('Sprint 19 MCP rehost gateway', () => {
       }),
     });
     expect(initialize.status).toBe(200);
-    expect((await initialize.json()).result.serverInfo.name).toBe('holocron-postgres');
+    const initialized = (await initialize.json()) as {
+      result?: { serverInfo?: { name?: string } };
+    };
+    expect(initialized.result?.serverInfo?.name).toBe('holocron-postgres');
 
     const list = await app.request('/mcp', {
       method: 'POST',
       headers,
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     });
-    const listed = await list.json();
+    const listed = (await list.json()) as {
+      result?: { tools?: Array<{ name: string }> };
+    };
     expect(list.status).toBe(200);
-    expect(listed.result.tools).toHaveLength(44);
-    expect(new Set(listed.result.tools.map((tool: { name: string }) => tool.name))).toEqual(
+    expect(listed.result?.tools).toHaveLength(44);
+    const listedTools = listed.result?.tools;
+    if (!listedTools) throw new Error('tools/list response omitted tools');
+    expect(new Set(listedTools.map((tool) => tool.name))).toEqual(
       new Set(Object.keys(toolsAsRecord()))
     );
     expect(loadManifest(defaultManifestPath()).tools).toHaveLength(44);
@@ -133,7 +178,8 @@ describe('Sprint 19 MCP rehost gateway', () => {
         params: {},
       }),
     });
-    expect((await sampling.json()).error).toBeDefined();
+    const samplingBody = mcpEnvelope(await sampling.json());
+    expect(samplingBody.error).toBeDefined();
   });
 
   it('validates every frozen success fixture against the shared output schema', () => {
@@ -197,9 +243,21 @@ describe('Sprint 19 MCP rehost gateway', () => {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       let buffer = '';
-      const nextMessage = () =>
+      let stderr = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      const nextMessage = (requestLabel: string) =>
         new Promise<Record<string, unknown>>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('stdio MCP response timeout')), 15_000);
+          const timeout = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `stdio MCP response timeout for ${requestLabel}${stderr ? `: ${stderr.slice(-2_000)}` : ''}`
+                )
+              ),
+            15_000
+          );
           const consume = () => {
             const newline = buffer.indexOf('\n');
             if (newline < 0) return false;
@@ -237,7 +295,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             },
           })}\n`
         );
-        const initialized = await nextMessage();
+        const initialized = await nextMessage('initialize');
         expect((initialized.result as { serverInfo: { name: string } }).serverInfo.name).toBe(
           'holocron-postgres'
         );
@@ -252,7 +310,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             params: {},
           })}\n`
         );
-        const listed = await nextMessage();
+        const listed = await nextMessage('tools/list');
         expect((listed.result as { tools: unknown[] }).tools).toHaveLength(44);
         child.stdin.write(
           `${JSON.stringify({
@@ -262,7 +320,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             params: { name: 'list_documents', arguments: { limit: 1 } },
           })}\n`
         );
-        const called = await nextMessage();
+        const called = await nextMessage('list_documents');
         expect(called.result).toBeDefined();
         expect((called.result as { isError?: boolean }).isError).not.toBe(true);
         const stdioFailures: string[] = [];
@@ -277,7 +335,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
               params: { name: id, arguments: sampleToolInput(inputSchema, id) },
             })}\n`
           );
-          const response = await nextMessage();
+          const response = await nextMessage(id);
           if (response.error || !response.result) stdioFailures.push(id);
         }
         expect(stdioFailures).toEqual([]);
@@ -345,7 +403,7 @@ describe('Sprint 19 MCP rehost gateway', () => {
             params: { name: id, arguments: schemaSample(inputSchema, id) },
           }),
         });
-        const body = await response.json();
+        const body = mcpEnvelope(await response.json());
         if (response.status !== 200 || (!body.result && !body.error)) {
           failures.push({ id, status: response.status, body });
           continue;
@@ -372,6 +430,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
     'runs shop_products through a real retailer search and persists its result',
     async () => {
       const app = createHonoApp({ keys: KEYS });
+      // Unique query avoids replaying a prior empty completed session; multi-retailer
+      // keeps the path real while surviving a single retailer SERP omission.
+      const query = `USB-C hub s19-${Date.now().toString(36)}`;
       const response = await app.request('/mcp', {
         method: 'POST',
         headers: {
@@ -385,17 +446,23 @@ describe('Sprint 19 MCP rehost gateway', () => {
           method: 'tools/call',
           params: {
             name: 'shop_products',
-            arguments: { query: 'USB-C hub', retailers: ['amazon'] },
+            arguments: {
+              query,
+              retailers: ['amazon', 'ebay', 'newegg', 'bestbuy'],
+            },
           },
         }),
       });
-      const body = await response.json();
+      const body = mcpEnvelope(await response.json());
+      const result = requiredMcpResult(body);
+      const structuredContent = requiredStructuredContent(result);
       expect(response.status).toBe(200);
-      expect(body.result.isError).not.toBe(true);
-      expect(body.result.structuredContent.status).toBe('completed');
-      expect(body.result.structuredContent.error).toBeUndefined();
-      expect(body.result.structuredContent.totalListings).toBeGreaterThan(0);
-      expect(body.result.structuredContent.listings.length).toBeGreaterThan(0);
+      expect(result.isError).not.toBe(true);
+      expect(structuredContent.status).toBe('completed');
+      expect(structuredContent.error).toBeUndefined();
+      expect(structuredContent.totalListings).toBeGreaterThan(0);
+      expect(structuredContent.listings?.length).toBeGreaterThan(0);
+      if (!structuredContent.sessionId) throw new Error('shop result omitted sessionId');
       const session = await app.request('/mcp', {
         method: 'POST',
         headers: {
@@ -409,14 +476,15 @@ describe('Sprint 19 MCP rehost gateway', () => {
           method: 'tools/call',
           params: {
             name: 'get_shop_session',
-            arguments: { sessionId: body.result.structuredContent.sessionId },
+            arguments: { sessionId: structuredContent.sessionId },
           },
         }),
       });
-      const sessionBody = await session.json();
-      expect(sessionBody.result.structuredContent.session.status).toBe('completed');
+      const sessionBody = mcpEnvelope(await session.json());
+      const sessionContent = requiredStructuredContent(requiredMcpResult(sessionBody));
+      expect(sessionContent.session?.status).toBe('completed');
     },
-    60_000
+    120_000
   );
 
   itLive(
@@ -440,11 +508,16 @@ describe('Sprint 19 MCP rehost gateway', () => {
           },
         }),
       });
-      const body = await response.json();
+      const body = mcpEnvelope(await response.json());
+      const result = requiredMcpResult(body);
       expect(response.status).toBe(200);
-      expect(body.result.isError).not.toBe(true);
-      const recommendations = JSON.parse(body.result.content[0].text);
+      expect(result.isError).not.toBe(true);
+      const recommendationText = result.content?.[0]?.text;
+      if (!recommendationText) throw new Error('recommendations result omitted text content');
+      const recommendations = JSON.parse(recommendationText) as unknown;
       expect(recommendations).toBeInstanceOf(Array);
+      if (!Array.isArray(recommendations))
+        throw new Error('recommendations result was not an array');
       expect(recommendations.length).toBeGreaterThan(0);
     },
     60_000
@@ -477,11 +550,13 @@ describe('Sprint 19 MCP rehost gateway', () => {
         params: { name: 'assimilate_creator', arguments: { profileId } },
       }),
     });
-    const body = await response.json();
+    const body = mcpEnvelope(await response.json());
+    const result = requiredMcpResult(body);
+    const structuredContent = requiredStructuredContent(result);
     expect(response.status).toBe(200);
-    expect(body.result.isError).not.toBe(true);
-    expect(body.result.structuredContent.status).toBe('queued');
-    expect(body.result.structuredContent.videosFound).toBe(1);
+    expect(result.isError).not.toBe(true);
+    expect(structuredContent.status).toBe('queued');
+    expect(structuredContent.videosFound).toBe(1);
     const job = await sql`SELECT status FROM transcript_jobs WHERE content_id = ${contentId}`;
     expect(job[0]?.status).toBe('pending');
   });
@@ -508,10 +583,11 @@ describe('Sprint 19 MCP rehost gateway', () => {
           },
         }),
       });
-      const result = await call.json();
+      const resultBody = mcpEnvelope(await call.json());
+      const result = requiredMcpResult(resultBody);
       expect(call.status).toBe(200);
-      expect(result.result.isError).not.toBe(true);
-      expect(JSON.stringify(result)).toContain('s19-mcp-real');
+      expect(result.isError).not.toBe(true);
+      expect(JSON.stringify(resultBody)).toContain('s19-mcp-real');
       const search = await app.request('/mcp', {
         method: 'POST',
         headers,
@@ -548,9 +624,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
         headers,
         body: JSON.stringify({ ...addBody, id: 6 }),
       });
-      const addResult = await add.json();
-      const addAgainResult = await addAgain.json();
-      expect(addResult.result).toEqual(addAgainResult.result);
+      const addResult = requiredMcpResult(mcpEnvelope(await add.json()));
+      const addAgainResult = requiredMcpResult(mcpEnvelope(await addAgain.json()));
+      expect(addResult).toEqual(addAgainResult);
 
       const shopBody = {
         jsonrpc: '2.0',
@@ -571,9 +647,11 @@ describe('Sprint 19 MCP rehost gateway', () => {
         headers,
         body: JSON.stringify({ ...shopBody, id: 8 }),
       });
-      const firstShop = await shop.json();
-      const replayShop = await shopAgain.json();
-      expect(firstShop.result.structuredContent).toEqual(replayShop.result.structuredContent);
+      const firstShop = requiredMcpResult(mcpEnvelope(await shop.json()));
+      const replayShop = requiredMcpResult(mcpEnvelope(await shopAgain.json()));
+      const firstShopContent = requiredStructuredContent(firstShop);
+      const replayShopContent = requiredStructuredContent(replayShop);
+      expect(firstShopContent).toEqual(replayShopContent);
       const conflicting = await app.request('/mcp', {
         method: 'POST',
         headers,
@@ -591,10 +669,10 @@ describe('Sprint 19 MCP rehost gateway', () => {
           },
         }),
       });
-      const conflictingBody = await conflicting.json();
-      expect(conflictingBody.result.structuredContent.sessionId).not.toBe(
-        firstShop.result.structuredContent.sessionId
+      const conflictingBody = requiredStructuredContent(
+        requiredMcpResult(mcpEnvelope(await conflicting.json()))
       );
+      expect(conflictingBody.sessionId).not.toBe(firstShopContent.sessionId);
 
       const invalidApprove = await app.request('/mcp', {
         method: 'POST',
@@ -609,9 +687,12 @@ describe('Sprint 19 MCP rehost gateway', () => {
           },
         }),
       });
-      const invalidBody = await invalidApprove.json();
-      expect(invalidBody.result.isError).toBe(true);
-      expect(JSON.parse(invalidBody.result.content[0].text).code).toBe('INVALID_STATE');
+      const invalidBody = requiredMcpResult(mcpEnvelope(await invalidApprove.json()));
+      expect(invalidBody.isError).toBe(true);
+      const invalidText = invalidBody.content?.[0]?.text;
+      if (!invalidText) throw new Error('invalid-state result omitted text content');
+      const invalidError = JSON.parse(invalidText) as { code?: string };
+      expect(invalidError.code).toBe('INVALID_STATE');
     },
     60_000
   );

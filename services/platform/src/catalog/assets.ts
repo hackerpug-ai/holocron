@@ -54,6 +54,9 @@ export function collectStorageLegacyIdsByRef(
   const idsByRef: Record<string, string[]> = {};
   for (const ref of Object.keys(catalog.storage_refs)) {
     const [table, field] = ref.split('.');
+    if (!table || !field) {
+      throw new Error(`invalid catalog storage ref: ${ref}`);
+    }
     const exportTable = exp.tables[table];
     idsByRef[ref] = [...new Set(exportTable?.storageIdsByField[field] ?? [])].sort();
   }

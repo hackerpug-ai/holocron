@@ -5,7 +5,7 @@
  * tool.execute(inputData, context), and asserts the return is
  * runtime-validated against the schema.
  */
-import { createTool } from '@mastra/core/tools';
+import { createTool, noopObserve } from '@mastra/core/tools';
 import { z } from 'zod';
 
 const inputSchema = z.object({
@@ -43,11 +43,11 @@ export interface ToolCellResult {
 export async function runToolCell(): Promise<ToolCellResult> {
   try {
     // Real execute call — inputData as first positional arg
-    const result = await compatEchoTool.execute(
-      { value: 'compatibility-spike' },
-      // context (2nd positional arg) — empty but real
-      {}
-    );
+    const execute = compatEchoTool.execute;
+    if (!execute) {
+      throw new Error('compat echo tool has no execute function');
+    }
+    const result = await execute({ value: 'compatibility-spike' }, { observe: noopObserve });
 
     // Runtime validation: outputSchema.parse must succeed
     const validated = outputSchema.parse(result);

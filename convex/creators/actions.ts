@@ -4,6 +4,7 @@
 
 import { api, internal } from '../_generated/api';
 import { fencedAction as action } from '../lib/migrationFence';
+import { asRecord } from '../lib/unknown';
 import {
   assimilateCreatorValidator,
   discoverCreatorValidator,
@@ -371,21 +372,27 @@ export const assimilateCreator = action({
           throw new Error(`YouTube API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = asRecord(await response.json());
 
-        if (data.items) {
-          for (const item of data.items) {
-            if (item.id.kind === 'youtube#video') {
-              videos.push({
-                videoId: item.id.videoId,
-                title: item.snippet.title,
-                url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-              });
-            }
+        const items = Array.isArray(data?.items) ? data.items : [];
+        for (const rawItem of items) {
+          const item = asRecord(rawItem);
+          const id = asRecord(item?.id);
+          const snippet = asRecord(item?.snippet);
+          if (
+            id?.kind === 'youtube#video' &&
+            typeof id.videoId === 'string' &&
+            typeof snippet?.title === 'string'
+          ) {
+            videos.push({
+              videoId: id.videoId,
+              title: snippet.title,
+              url: `https://www.youtube.com/watch?v=${id.videoId}`,
+            });
           }
         }
 
-        nextPageToken = data.nextPageToken;
+        nextPageToken = typeof data?.nextPageToken === 'string' ? data.nextPageToken : undefined;
       } while (nextPageToken);
 
       // Create transcript jobs for each video

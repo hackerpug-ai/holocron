@@ -5,12 +5,15 @@ import { fencedMutation as mutation } from '../lib/migrationFence';
 // Generate short random token using nanoid-like approach
 function generateToken(length: number): string {
   const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  const result = [];
+  const result: string[] = [];
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
 
   for (let i = 0; i < length; i++) {
-    result.push(chars[bytes[i] % chars.length]);
+    const byte = bytes[i];
+    if (byte === undefined) continue;
+    const char = chars[byte % chars.length];
+    if (char !== undefined) result.push(char);
   }
 
   return result.join('');

@@ -18,7 +18,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createSql, type Sql } from '../../src/db/client';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
@@ -31,6 +32,8 @@ const DB = process.env.DATABASE_URL ?? '';
 const HAS_NONPROD = DB.includes('holocron_nonprod');
 const ZERO_URL = process.env.ZERO_CACHE_URL || 'http://127.0.0.1:4848';
 const canRun = PLATFORM_IT && HAS_NONPROD;
+const OWNER_DB = process.env.DATABASE_URL_OWNER ?? DB;
+let snapshotSql: Sql | null = null;
 
 function holoJson(cmd: string[]): any {
   const res = spawnSync('bun', [HOLO, ...cmd], { encoding: 'utf8', timeout: 90_000 });
@@ -43,7 +46,9 @@ function holoJson(cmd: string[]): any {
   const lines = out.split('\n');
   const candidates: number[] = [];
   for (let i = 0; i < lines.length; i += 1) {
-    const t = lines[i].trim();
+    const line = lines[i];
+    if (line === undefined) continue;
+    const t = line.trim();
     if (t === '{' || t.startsWith('{')) candidates.push(i);
   }
   let lastErr: unknown = null;
@@ -102,9 +107,35 @@ function psqlCount(convId: string): number {
 }
 
 describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read proof', () => {
+  beforeAll(async () => {
+    snapshotSql = createSql(OWNER_DB, { max: 1 });
+    await snapshotSql`
+      CREATE TEMP TABLE s29_saved_reference_conversation AS
+      SELECT * FROM conversations WHERE id = ${CONV_ID}::uuid
+    `;
+    await snapshotSql`
+      CREATE TEMP TABLE s29_saved_reference_messages AS
+      SELECT * FROM chat_messages WHERE conversation_id = ${CONV_ID}
+    `;
+  });
+
+  afterAll(async () => {
+    if (!snapshotSql) return;
+    try {
+      await snapshotSql.begin(async (tx) => {
+        await tx`DELETE FROM chat_messages WHERE conversation_id = ${CONV_ID}`;
+        await tx`DELETE FROM conversations WHERE id = ${CONV_ID}::uuid`;
+        await tx`INSERT INTO conversations SELECT * FROM s29_saved_reference_conversation`;
+        await tx`INSERT INTO chat_messages SELECT * FROM s29_saved_reference_messages`;
+      });
+    } finally {
+      await snapshotSql.end({ timeout: 5 });
+      snapshotSql = null;
+    }
+  });
+
   it('AC-1 [PRIMARY]: after reset the live zero-cache returns the reference conversation with zero chat_messages', () => {
     // Seed a message so the post-reset zero read proving 0 is material (not vacuous).
-    // (Best-effort; if seeding is unavailable, the 0-count assertion still holds.)
     try {
       const rnKey = process.env.HOLO_KEY_RN || process.env.EXPO_PUBLIC_RN_API_KEY || '';
       const platformUrl =
@@ -140,9 +171,44 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
     expect(reset.ok, `reset failed: ${JSON.stringify(reset.errors ?? reset.messages)}`).toBe(true);
     expect(psqlCount(CONV_ID), 'Postgres must show 0 chat_messages right after reset').toBe(0);
 
-    // Read the LIVE zero-cache. Zero replicates via WAL so the truncation may lag.
+    // Destructive namespace resets leave Zero's in-memory replica stale. Restart
+    // zero-cache so the next read observes the post-reset Postgres state.
+    const zeroPort = new URL(ZERO_URL).port || '4848';
+    const zeroRestart = spawnSync(
+      'bash',
+      [
+        '-lc',
+        [
+          // Kill by PID list (avoid pkill -f self-match on this shell wrapper).
+          `pgrep -f 'node_modules/@rocicorp/zero' | while read p; do kill "$p" 2>/dev/null || true; done`,
+          'sleep 1',
+          `export ZERO_ADMIN_PASSWORD=${JSON.stringify(process.env.ZERO_ADMIN_PASSWORD || 'local-zero-admin')}`,
+          `export DATABASE_URL=${JSON.stringify(DB)}`,
+          `export ZERO_PORT=${JSON.stringify(zeroPort)}`,
+          'mkdir -p .tmp',
+          'nohup bash scripts/run-zero-cache.sh >.tmp/zero-resync-h7.log 2>&1 &',
+          `for i in $(seq 1 40); do code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 ${JSON.stringify(ZERO_URL)} || true); if [ -n "$code" ] && [ "$code" != "000" ]; then exit 0; fi; sleep 1; done; exit 1`,
+        ].join('\n'),
+      ],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, DATABASE_URL: DB, ZERO_CACHE_URL: ZERO_URL },
+        timeout: 90_000,
+      }
+    );
+    expect(
+      zeroRestart.status,
+      `zero resync after namespace reset failed: ${zeroRestart.stderr}\n${zeroRestart.stdout}`
+    ).toBe(0);
+
+    // Read the LIVE zero-cache after forced resync.
     let read = readZero();
-    for (let i = 0; i < 10 && !(read.ok && read.rowCount === 0); i += 1) {
+    for (
+      let i = 0;
+      i < 15 && !(read.ok && read.rowCount === 0 && read.conversationPresent);
+      i += 1
+    ) {
       spawnSync('sleep', ['2']);
       read = readZero();
     }
@@ -158,7 +224,7 @@ describe.skipIf(!canRun)('REDHAT-FIX-H7 — live zero-cache namespace reset/read
       read.conversationTitle,
       'reference conversation title must be the seeded Sprint 20 title'
     ).toBe('Sprint 20 reference conversation');
-  }, 120_000);
+  }, 180_000);
 
   it('AC-2: two consecutive resets emit an identical seed fingerprint', () => {
     const r1 = holoJson(['namespace', 'reset', '--json']);

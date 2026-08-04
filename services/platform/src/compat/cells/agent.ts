@@ -53,11 +53,11 @@ export type FleetAgentBundle = {
  * Network assertion: count outbound requests to known cloud providers.
  * We monkey-patch globalThis.fetch for the duration of the generate() call.
  */
-function withCloudRequestTracking<T>(fn: () => Promise<T>): {
+function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
   result: T;
   cloudRequests: number;
   fleetRequests: number;
-} {
+}> {
   const cloudHosts = ['api.openai.com', 'api.anthropic.com', 'api.deepseek.com'];
   let cloudRequests = 0;
   let fleetRequests = 0;
@@ -67,14 +67,14 @@ function withCloudRequestTracking<T>(fn: () => Promise<T>): {
     input: Parameters<typeof origFetch>[0],
     init?: Parameters<typeof origFetch>[1]
   ) => {
-    const url = typeof input === 'string' ? input : ((input as URL).url ?? String(input));
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     if (cloudHosts.some((h) => url.includes(h))) {
       cloudRequests++;
     }
     if (url.includes('127.0.0.1:4545') || url.includes('localhost:4545')) {
       fleetRequests++;
     }
-    return origFetch(input as RequestInfo, init as RequestInit);
+    return origFetch(input, init);
   }) as typeof globalThis.fetch;
 
   return fn().then(

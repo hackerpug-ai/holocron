@@ -25,6 +25,9 @@ function parseSlashCommand(content: string): ParsedCommand {
     return { isCommand: false };
   }
   const [command, ...argParts] = trimmed.slice(1).split(' ');
+  if (!command) {
+    return { isCommand: false };
+  }
   return {
     isCommand: true,
     command: command.toLowerCase(),
@@ -577,12 +580,13 @@ export const generateChatTitle = action({
 
     if (attempt < TITLE_RETRY_DELAYS_MS.length) {
       const delay = TITLE_RETRY_DELAYS_MS[attempt];
-
-      ctx.scheduler.runAfter(delay, api.chat.index.generateChatTitle, {
-        conversationId,
-        attempt: attempt + 1,
-      });
-      return { success: false, error: errorMsg, willRetry: true };
+      if (delay !== undefined) {
+        ctx.scheduler.runAfter(delay, api.chat.index.generateChatTitle, {
+          conversationId,
+          attempt: attempt + 1,
+        });
+        return { success: false, error: errorMsg, willRetry: true };
+      }
     }
 
     // 6. All retries exhausted — use fallback title from first user message
@@ -746,7 +750,6 @@ export const send = action({
           | 'creator'
           | 'github';
         const identifier = parts[1];
-        const name = parts.slice(2).join(' ') || identifier;
 
         const validTypes = [
           'youtube',
@@ -770,6 +773,7 @@ export const send = action({
             messageType: 'text',
           };
         } else {
+          const name = parts.slice(2).join(' ') || identifier;
           try {
             const result: { _id: string; url?: string } | null = await ctx.runMutation(
               api.subscriptions.mutations.add,

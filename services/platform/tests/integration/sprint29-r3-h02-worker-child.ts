@@ -19,23 +19,28 @@ if (!phase || !key || !jobName || !databaseUrl) {
   process.exit(2);
 }
 
+const workerPhase = phase;
+const workerKey = key;
+const workerJobName = jobName;
+const workerDatabaseUrl = databaseUrl;
+
 async function main(): Promise<void> {
-  if (phase === 'begin') {
+  if (workerPhase === 'begin') {
     const result = await beginEffect({
-      key,
-      name: jobName,
+      key: workerKey,
+      name: workerJobName,
       payload: { child: true, phase: 'begin' },
-      databaseUrl,
+      databaseUrl: workerDatabaseUrl,
     });
     process.stdout.write(`${JSON.stringify(result)}\n`);
     return;
   }
 
-  if (phase === 'dispatch') {
+  if (workerPhase === 'dispatch') {
     const result = await applyIrreversibleJobEffect({
-      key,
-      jobName,
-      databaseUrl,
+      key: workerKey,
+      jobName: workerJobName,
+      databaseUrl: workerDatabaseUrl,
     });
     const blocked =
       result.ok === false && String(result.error ?? '').startsWith('migration_read_only:');

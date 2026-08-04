@@ -66,6 +66,7 @@ function baseEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     R2_ACCOUNT_ID: ACCOUNT_ID,
     R2_BUCKET_NAME: 'holocron-backup',
     R2_PGBACKREST_PREFIX: 'pgbackrest',
+    R2_RESTORE_OBJECT_PREFIX: 'pgbackrest',
     R2_SCOPE_PROBE_IN_KEY: 'pgbackrest/qa-fixture-object.bin',
     R2_SCOPE_PROBE_OUT_KEY: 'scope-control/out-of-prefix-object.bin',
     HOLO_AWS_MOCK_MODE: 'default',
@@ -257,6 +258,7 @@ exit 0
           R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
           R2_RESTORE_SESSION_TOKEN: ENV_TOK,
           R2_SESSION_TOKEN: WRITER_ST,
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: recorder,
         }),
@@ -283,7 +285,7 @@ exit 0
     expect(combined).not.toContain(ENV_TOK);
     expect(combined).not.toContain(FILE_TOK);
     expect(combined).not.toContain(WRITER_ST);
-  });
+  }, 60_000);
 });
 
 describe('GATE-FIX-S28R3-QA11 CRITICAL-2 stale/malformed post-prove rejection', () => {

@@ -40,7 +40,10 @@ const GOLDEN_TITLE = 'Local Re-embedding & RRF Design';
 const CONTENT_HASH = 'search-4-golden-past-8k-v1';
 /** T-DATA-010 recall@10 baseline — at least the golden doc must rank in top-10. */
 const RECALL_BASELINE = 1;
-const RECALL_QUERY = 'ZZZ_RELEVANT_SPAN_AT_8400_ZZZ reciprocal rank fusion past 8K span';
+// websearch_to_tsquery treats underscores as phrase operators. The leading
+// marker touches the synthetic A-prefix, so use its unique numeric token plus
+// the neighboring retrieval terms; the result oracle still requires MARKER.
+const RECALL_QUERY = '8400 reciprocal rank fusion';
 
 function writeArtifact(name: string, body: unknown): string {
   mkdirSync(EVIDENCE_DIR, { recursive: true });

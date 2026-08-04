@@ -114,8 +114,9 @@ export const DEFAULT_DIMENSION_SEQUENCE: AssimilationDimension[] = [
 /** Resolve a profile string to termination criteria */
 export function resolveProfile(profile: string): AssimilationTerminationCriteria {
   const key = profile as AssimilationProfile;
-  if (key in PROFILE_CRITERIA) {
-    return { ...PROFILE_CRITERIA[key] };
+  const criteria = PROFILE_CRITERIA[key];
+  if (criteria) {
+    return { ...criteria };
   }
   return { ...PROFILE_CRITERIA.standard };
 }
@@ -128,7 +129,7 @@ export function isValidGitHubUrl(url: string): boolean {
 /** Extract repo name from GitHub URL */
 export function extractRepoName(url: string): string {
   const match = url.match(/github\.com\/([^/]+\/[^/]+)/);
-  return match ? match[1] : url;
+  return match?.[1] ?? url;
 }
 
 /** Calculate weighted average of dimension scores */

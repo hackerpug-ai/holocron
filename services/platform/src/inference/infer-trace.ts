@@ -55,7 +55,11 @@ export type InferTraceResult = InferTraceSuccess | InferTraceFailure;
  */
 function databaseUrl(url?: string): string {
   return resolveHolocronNonprodDatabaseUrl({
-    databaseUrl: url,
+    // `infer:trace` is read-only. Isolated gates intentionally remove
+    // DATABASE_URL while retaining the exact nonprod tuple for administrative
+    // setup in DATABASE_URL_OWNER. The resolver below still validates that this
+    // fallback names holocron_nonprod, so a production owner URL fails closed.
+    databaseUrl: url ?? process.env.DATABASE_URL ?? process.env.DATABASE_URL_OWNER,
     context: 'holo infer:trace',
   });
 }

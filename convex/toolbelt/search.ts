@@ -53,7 +53,7 @@ export const hybridSearch = action({
 
     // Score vector results (equal weight for semantic similarity - 0.5)
     // Normalize scores to 0-1 range based on the actual similarity scores
-    const maxVectorScore = vectorResults.length > 0 ? vectorResults[0].score : 1;
+    const maxVectorScore = vectorResults[0]?.score ?? 1;
 
     for (const tool of vectorResults) {
       const id = tool._id.toString();

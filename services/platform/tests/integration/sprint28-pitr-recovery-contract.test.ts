@@ -48,9 +48,11 @@ const DATABASE_URL =
   process.env.DATABASE_URL ??
   process.env.DATABASE_URL_OWNER ??
   'postgres://127.0.0.1:5432/holocron_nonprod';
+const RESTORED_DATABASE = new URL(DATABASE_URL).pathname.replace(/^\//, '') || 'postgres';
 
 /** Optional override for an already-seeded WAL window target. */
 const FORCED_PITR_TS = process.env.REDHAT_FIX_C3_PITR_TS?.trim() || null;
+const FORCED_SENTINEL_NOTE = process.env.REDHAT_FIX_C3_SENTINEL_NOTE?.trim() || null;
 
 type HoloRestoreRun = {
   status: number | null;
@@ -196,7 +198,7 @@ function psqlOnScratch(
         '-p',
         String(p),
         '-d',
-        'postgres',
+        RESTORED_DATABASE,
         '-v',
         'ON_ERROR_STOP=1',
         '-tAc',
@@ -211,7 +213,7 @@ function psqlOnScratch(
         '-p',
         String(p),
         '-d',
-        'postgres',
+        RESTORED_DATABASE,
         '-v',
         'ON_ERROR_STOP=1',
         '-tAc',
@@ -221,7 +223,7 @@ function psqlOnScratch(
   }
   attempts.push({
     host: scratchDir,
-    args: ['-h', scratchDir, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
+    args: ['-h', scratchDir, '-d', RESTORED_DATABASE, '-v', 'ON_ERROR_STOP=1', '-tAc', sql],
   });
 
   let last = { status: 1 as number | null, stdout: '', stderr: 'no attempt' };
@@ -277,8 +279,24 @@ let scratchRoot = '';
 let seededTt: string | null = null;
 /** Fixed suite-wide PITR target (stable across pause/promote/repeatable). */
 let suitePitrTarget = '';
+/** Scope sentinel assertions to this run; historical rows must not affect the cut. */
+let suiteSeedNote = '';
 /** True when seedPitrSentinelWindow succeeded on the live primary this suite run. */
 let seedOk = false;
+/** Source cluster archive command restored after this suite's real backup cycle. */
+let originalArchiveCommand: string | null = null;
+
+function psqlPrimary(sql: string): string {
+  const result = spawnSync('psql', [DATABASE_URL, '-v', 'ON_ERROR_STOP=1', '-tAc', sql], {
+    encoding: 'utf8',
+    env: process.env,
+    timeout: 30_000,
+  });
+  if (result.status !== 0) {
+    throw new Error(`PITR primary SQL failed: ${result.stderr || result.stdout}`);
+  }
+  return (result.stdout ?? '').trim();
+}
 
 /**
  * Prefer forced/env target. Optionally use the suite seed window when
@@ -300,17 +318,85 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
     expect(existsSync(RESTORE_TS), `restore.ts missing: ${RESTORE_TS}`).toBe(true);
     secretsPath = resolveSecretsPath();
     scratchRoot = mkdtempSync(join(tmpdir(), 'redhat-fix-c3-pitr-'));
+    originalArchiveCommand = psqlPrimary('SHOW archive_command');
+
+    const database = new URL(DATABASE_URL);
+    const backupEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      HOLO_SECRETS_PATH: secretsPath,
+      DATABASE_URL,
+      DATABASE_URL_OWNER: DATABASE_URL,
+      PGHOST: database.hostname,
+      PGPORT: database.port || '5432',
+      PGDATABASE: database.pathname.replace(/^\//, ''),
+      PGUSER: decodeURIComponent(database.username),
+    };
+    if (database.password) backupEnv.PGPASSWORD = decodeURIComponent(database.password);
+    else delete backupEnv.PGPASSWORD;
+
+    // Ensure pgBackRest log dir exists (archive-push / backup warn-and-continue
+    // without it, but missing prior-segment archive still fails the base backup).
+    try {
+      mkdirSync('/tmp/pgbackrest-logs', { recursive: true });
+    } catch {
+      /* best-effort */
+    }
+
+    // Re-assert continuous WAL archiving before base backup. Residual fire-drill
+    // suites can leave archive_command=/bin/true on a shared isolated Postgres;
+    // backup:wal rebinds archive_command → pgbackrest archive-push and proves it.
+    const walPre = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:wal', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: backupEnv,
+      timeout: 180_000,
+    });
+    writeEvidence('seed-wal-preflight.json', {
+      status: walPre.status,
+      stdout: (walPre.stdout ?? '').slice(0, 4000),
+      stderr: (walPre.stderr ?? '').slice(0, 2000),
+    });
+    expect(
+      walPre.status,
+      `PITR WAL preflight (backup:wal) must succeed before base backup: ${(walPre.stdout ?? '').slice(-1500)} ${(walPre.stderr ?? '').slice(-500)}`
+    ).toBe(0);
+
+    // The official isolated lane uses a fresh exact R2 prefix. Establish a
+    // real base backup before T0 so the seeded TT lies inside a restorable WAL
+    // window; stanza metadata + WAL alone cannot satisfy PITR.
+    const base = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:base', '--type', 'full', '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: backupEnv,
+      timeout: 240_000,
+    });
+    writeEvidence('seed-base-backup.json', {
+      status: base.status,
+      stdout: (base.stdout ?? '').slice(0, 4000),
+      stderr: (base.stderr ?? '').slice(0, 2000),
+    });
+    expect(
+      base.status,
+      `PITR base backup must succeed before sentinel T0: ${(base.stdout ?? '').slice(-1500)} ${(base.stderr ?? '').slice(-500)}`
+    ).toBe(0);
 
     // One seed attempt for the suite (sentinel window scaffolding).
     // REDHAT-FIX-S28R2-H4: seed must establish sentinels or fail setup (no soft-skip).
     if (FORCED_PITR_TS) {
+      if (!FORCED_SENTINEL_NOTE) {
+        throw new Error(
+          'REDHAT_FIX_C3_PITR_TS requires REDHAT_FIX_C3_SENTINEL_NOTE so sentinel assertions remain run-scoped'
+        );
+      }
       seededTt = FORCED_PITR_TS;
       seedOk = true;
       suitePitrTarget = FORCED_PITR_TS;
+      suiteSeedNote = FORCED_SENTINEL_NOTE;
     } else {
+      suiteSeedNote = `c3-suite-${Date.now()}`;
       const seed = seedPitrSentinelWindow({
         databaseUrl: DATABASE_URL,
-        note: `c3-suite-${Date.now()}`,
+        note: suiteSeedNote,
         gapMs: 3000,
       });
       writeEvidence('seed-suite.json', seed);
@@ -325,7 +411,7 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       const wal = spawnSync(BUN_BIN, [HOLO_CLI, 'backup:wal', '--json'], {
         cwd: REPO_ROOT,
         encoding: 'utf8',
-        env: { ...process.env, HOLO_SECRETS_PATH: secretsPath, DATABASE_URL },
+        env: backupEnv,
         timeout: 180_000,
       });
       writeEvidence('seed-wal-archive.json', {
@@ -333,6 +419,10 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
         stdout: (wal.stdout ?? '').slice(0, 2000),
         stderr: (wal.stderr ?? '').slice(0, 2000),
       });
+      expect(
+        wal.status,
+        `PITR sentinel WAL archive must succeed before selecting seeded target: ${(wal.stdout ?? '').slice(-1500)} ${(wal.stderr ?? '').slice(-500)}`
+      ).toBe(0);
       // Prefer the seeded cut so before-target is visible and after-target is not.
       // Override only when REDHAT_FIX_C3_USE_SEED_TT=0 (explicit opt-out).
       suitePitrTarget =
@@ -348,6 +438,7 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       forcedPitrTs: FORCED_PITR_TS,
       seededTt,
       seedOk,
+      suiteSeedNote,
       suitePitrTarget,
       d05_02: D05_02,
     });
@@ -367,6 +458,11 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       } catch {
         // leave for debug
       }
+    }
+    if (originalArchiveCommand !== null) {
+      const escaped = originalArchiveCommand.replaceAll("'", "''");
+      psqlPrimary(`ALTER SYSTEM SET archive_command TO '${escaped}'`);
+      psqlPrimary('SELECT pg_reload_conf()');
     }
   });
 
@@ -429,8 +525,10 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
 
   itLive('contract: H4 suite has no sentinel pending soft-pass', () => {
     const self = readFileSync(resolve(HERE, 'sprint28-pitr-recovery-contract.test.ts'), 'utf8');
-    expect(self).not.toMatch(/sentinels-pending/);
-    expect(self).not.toMatch(/sentinel table not in restored cut yet/);
+    // Construct forbidden phrases so this source-oracle does not match its own
+    // assertions and fail every clean checkout vacuously.
+    expect(self).not.toMatch(new RegExp(['sentinels', 'pending'].join('-')));
+    expect(self).not.toMatch(new RegExp(['sentinel table not in restored', 'cut yet'].join(' ')));
     expect(self).toMatch(/before-target sentinels must be/);
     expect(self).toMatch(/seed failed closed|seed must establish|PITR sentinel seed failed/i);
     writeEvidence('h4-no-soft-pass.txt', 'OK — mandatory sentinel cut; seed fail-closed');
@@ -487,11 +585,11 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
 
       const before = psqlOnScratch(
         scratchDir,
-        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}'`
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}' AND note='${suiteSeedNote.replace(/'/g, "''")}'`
       );
       const after = psqlOnScratch(
         scratchDir,
-        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}'`
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}' AND note='${suiteSeedNote.replace(/'/g, "''")}'`
       );
       writeEvidence('ac1-pause-sentinels.json', { before, after });
       expect(before.status).toBe(0);
@@ -559,11 +657,11 @@ describe.sequential('REDHAT-FIX-C3 — PITR recovery/promotion/LSN contract', ()
       ).toBe(true);
       const before = psqlOnScratch(
         scratchDir,
-        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}'`
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_BEFORE}' AND note='${suiteSeedNote.replace(/'/g, "''")}'`
       );
       const after = psqlOnScratch(
         scratchDir,
-        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}'`
+        `SELECT COUNT(*)::text FROM pitr_sentinel WHERE label='${LABEL_AFTER}' AND note='${suiteSeedNote.replace(/'/g, "''")}'`
       );
       writeEvidence('ac2-promote-sentinels.json', { before, after });
       expect(Number(before.stdout)).toBeGreaterThanOrEqual(1);

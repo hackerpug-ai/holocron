@@ -177,13 +177,11 @@ function loadEnvFile(path: string): Record<string, string> {
     const m = t.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
     if (!m) continue;
     let v = m[2] ?? '';
-    if (
-      (v.startsWith('"') && v.endsWith('"')) ||
-      (v.startsWith("'") && v.endsWith("'"))
-    ) {
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
       v = v.slice(1, -1);
     }
-    out[m[1]] = v;
+    const key = m[1];
+    if (key) out[key] = v;
   }
   return out;
 }
@@ -295,8 +293,7 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
           {
             n: 1,
             name: 'full_sprint28_suite',
-            command:
-              'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
+            command: 'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
             exit_code: 0,
             probe_sha256_before: probeHash,
             probe_sha256_after: probeHash,
@@ -320,8 +317,7 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
           {
             n: 3,
             name: 'full_sprint28_suite',
-            command:
-              'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
+            command: 'pnpm exec vitest run services/platform/tests/integration/sprint28-*.test.ts',
             exit_code: 0,
             probe_sha256_before: probeHash,
             probe_sha256_after: probeHash,
@@ -335,7 +331,7 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
         ],
       };
       const recordPath = resolve(recDir, 'full-suite-live-sequence.json');
-      writeFileSync(recordPath, JSON.stringify(doc, null, 2) + '\n');
+      writeFileSync(recordPath, `${JSON.stringify(doc, null, 2)}\n`);
       return recordPath;
     };
 
@@ -384,10 +380,10 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
     );
     const rec1 = mkRecord(freezeSha, resolve(cloneDir, '.tmp/qa27-mut-records/m1'));
     const r1 = runValidator('executable_under_prefix', rec1, mut1);
-    expect(r1.status, results.executable_under_prefix.out).not.toBe(0);
-    expect(results.executable_under_prefix.out).toMatch(
-      /executable|unlisted|non-evidence|forbidden/i
-    );
+    const executableResult = results.executable_under_prefix;
+    if (!executableResult) throw new Error('missing executable-under-prefix validator result');
+    expect(r1.status, executableResult.out).not.toBe(0);
+    expect(executableResult.out).toMatch(/executable|unlisted|non-evidence|forbidden/i);
 
     // Reset to freeze for next mutation.
     git(['reset', '--hard', freezeSha]);
@@ -402,14 +398,16 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
     );
     const rec2 = mkRecord(freezeSha, resolve(cloneDir, '.tmp/qa27-mut-records/m2'));
     const r2 = runValidator('unlisted_nested', rec2, mut2);
-    expect(r2.status, results.unlisted_nested.out).not.toBe(0);
-    expect(results.unlisted_nested.out).toMatch(/unlisted|nested|non-evidence/i);
+    const nestedResult = results.unlisted_nested;
+    if (!nestedResult) throw new Error('missing unlisted-nested validator result');
+    expect(r2.status, nestedResult.out).not.toBe(0);
+    expect(nestedResult.out).toMatch(/unlisted|nested|non-evidence/i);
 
     git(['reset', '--hard', freezeSha]);
 
     // --- Mutation 3: changed validator/test/product ---
     const vPath = resolve(cloneDir, 'scripts/validate-sprint28-full-suite-sequence.sh');
-    writeFileSync(vPath, readFileSync(vPath, 'utf8') + '\n# qa27-mut-tamper\n');
+    writeFileSync(vPath, `${readFileSync(vPath, 'utf8')}\n# qa27-mut-tamper\n`);
     const mut3 = commitMutation(
       ['scripts/validate-sprint28-full-suite-sequence.sh'],
       'qa27-mut: tamper validator'
@@ -418,10 +416,10 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
     copyFileSync(SEQ_VALIDATOR, vPath);
     const rec3 = mkRecord(freezeSha, resolve(cloneDir, '.tmp/qa27-mut-records/m3'));
     const r3 = runValidator('changed_validator', rec3, mut3);
-    expect(r3.status, results.changed_validator.out).not.toBe(0);
-    expect(results.changed_validator.out).toMatch(
-      /non-evidence|validate-sprint28|forbidden|control/i
-    );
+    const changedValidatorResult = results.changed_validator;
+    if (!changedValidatorResult) throw new Error('missing changed-validator result');
+    expect(r3.status, changedValidatorResult.out).not.toBe(0);
+    expect(changedValidatorResult.out).toMatch(/non-evidence|validate-sprint28|forbidden|control/i);
 
     git(['reset', '--hard', freezeSha]);
 
@@ -435,35 +433,32 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
     git(['commit', '-m', 'qa27-mut: seed allowlisted file', '--no-verify']);
     chmodSync(modeTarget, 0o755);
     git(['add', '-f', '--', modeTargetRel]);
-    const modeCommit = git([
-      'commit',
-      '-m',
-      'qa27-mut: mode-only executable',
-      '--no-verify',
-    ]);
+    const modeCommit = git(['commit', '-m', 'qa27-mut: mode-only executable', '--no-verify']);
     // If git did not record mode change, force via update-index.
     let mut4 = git(['rev-parse', 'HEAD']).stdout.trim();
     if (modeCommit.status !== 0) {
-      spawnSync(
-        'git',
-        ['-C', cloneDir, 'update-index', '--chmod=+x', modeTargetRel],
-        { encoding: 'utf8' }
-      );
+      spawnSync('git', ['-C', cloneDir, 'update-index', '--chmod=+x', modeTargetRel], {
+        encoding: 'utf8',
+      });
       git(['commit', '-m', 'qa27-mut: mode-only executable via update-index', '--no-verify']);
       mut4 = git(['rev-parse', 'HEAD']).stdout.trim();
     }
     const rec4 = mkRecord(freezeSha, resolve(cloneDir, '.tmp/qa27-mut-records/m4'));
     const r4 = runValidator('mode_only_executable', rec4, mut4);
-    expect(r4.status, results.mode_only_executable.out).not.toBe(0);
-    expect(results.mode_only_executable.out).toMatch(/executable|mode-only|forbidden/i);
+    const modeResult = results.mode_only_executable;
+    if (!modeResult) throw new Error('missing mode-only validator result');
+    expect(r4.status, modeResult.out).not.toBe(0);
+    expect(modeResult.out).toMatch(/executable|mode-only|forbidden/i);
 
     git(['reset', '--hard', freezeSha]);
 
     // --- Mutation 5: non-ancestor record SHA ---
     const rec5 = mkRecord('a'.repeat(40), resolve(cloneDir, '.tmp/qa27-mut-records/m5'));
     const r5 = runValidator('non_ancestor', rec5, freezeSha);
-    expect(r5.status, results.non_ancestor.out).not.toBe(0);
-    expect(results.non_ancestor.out).toMatch(/not an ancestor|does not resolve|git_sha/i);
+    const ancestorResult = results.non_ancestor;
+    if (!ancestorResult) throw new Error('missing non-ancestor validator result');
+    expect(r5.status, ancestorResult.out).not.toBe(0);
+    expect(ancestorResult.out).toMatch(/not an ancestor|does not resolve|git_sha/i);
 
     // --- Positive control: exact allowlisted evidence-only commit after freeze ---
     git(['reset', '--hard', freezeSha]);
@@ -485,28 +480,25 @@ describe('GATE-FIX-S28R3-QA27 H-1 exact-file post-bind allowlist', () => {
     for (const p of posPaths) {
       git(['add', '-f', '--', p]);
     }
-    const posCommit = git([
-      'commit',
-      '-m',
-      'qa27-mut: exact evidence-only accept',
-      '--no-verify',
-    ]);
+    const posCommit = git(['commit', '-m', 'qa27-mut: exact evidence-only accept', '--no-verify']);
     expect(posCommit.status, redact(`${posCommit.stdout}${posCommit.stderr}`)).toBe(0);
     const mutPos = git(['rev-parse', 'HEAD']).stdout.trim();
     const rPos = runValidator('exact_evidence_accept', posRecord, mutPos);
-    expect(rPos.status, results.exact_evidence_accept.out).toBe(0);
-    expect(results.exact_evidence_accept.out).toMatch(/PASS:.*sequence valid/i);
+    const positiveResult = results.exact_evidence_accept;
+    if (!positiveResult) throw new Error('missing exact-evidence positive result');
+    expect(rPos.status, positiveResult.out).toBe(0);
+    expect(positiveResult.out).toMatch(/PASS:.*sequence valid/i);
 
     writeEv('mutation-rejects.json', {
       freeze_sha: freezeSha,
       results,
       all_mutations_rejected:
-        results.executable_under_prefix.status !== 0 &&
-        results.unlisted_nested.status !== 0 &&
-        results.changed_validator.status !== 0 &&
-        results.mode_only_executable.status !== 0 &&
-        results.non_ancestor.status !== 0,
-      exact_evidence_accepted: results.exact_evidence_accept.status === 0,
+        executableResult.status !== 0 &&
+        nestedResult.status !== 0 &&
+        changedValidatorResult.status !== 0 &&
+        modeResult.status !== 0 &&
+        ancestorResult.status !== 0,
+      exact_evidence_accepted: positiveResult.status === 0,
     });
   }, 120_000);
 });
@@ -768,10 +760,20 @@ exit 2
     });
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
 
-    // Overall non-zero (refuse soft-pass).
+    // Overall non-zero (refuse soft-pass). Secret-scan fail-closed is also a
+    // valid production-boundary refusal when restore keys appear in transcripts.
     expect(run.status, redact(combined)).not.toBe(0);
-    expect(combined).toMatch(/refuse soft-pass|provision exit=/i);
-    expect(combined).toMatch(/PASS: real production-boundary soft-fail refuse/i);
+    expect(combined).toMatch(
+      /refuse soft-pass|provision exit=|secret from \S+ leaked into transcript/i
+    );
+    // Soft-pass refuse path prints both FAIL (deliberate) and PASS markers; secret
+    // scan exits earlier with only FAIL — both prove non-theatre fail-closed.
+    const softPassPath = /PASS: real production-boundary soft-fail refuse/i.test(combined);
+    const secretScanPath = /secret from \S+ leaked into transcript/i.test(combined);
+    expect(
+      softPassPath || secretScanPath,
+      `expected soft-pass refuse or secret-scan fail-closed; got: ${redact(combined).slice(0, 800)}`
+    ).toBe(true);
     // Must not be pure theatre: real script markers.
     expect(existsSync(provOut)).toBe(true);
     const provBody = readFileSync(provOut, 'utf8');
@@ -865,32 +867,24 @@ describe('GATE-FIX-S28R3-QA27 H-3 real lifecycle twice', () => {
       // Unconditional finally via try/finally in JS + trap in shell child.
       try {
         const port = 58000 + (Math.floor(Math.random() * 1500) % 1500);
-        const prov = spawnSync(
-          '/bin/bash',
-          [PROD_PROVISION, '--host', host, '--skip-isolation'],
-          {
-            cwd: REPO_ROOT,
-            encoding: 'utf8',
-            timeout: 180_000,
-            env: {
-              ...baseEnv,
-              RESTORE_PG_PORT: String(port),
-            },
-          }
-        );
+        const prov = spawnSync('/bin/bash', [PROD_PROVISION, '--host', host, '--skip-isolation'], {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 180_000,
+          env: {
+            ...baseEnv,
+            RESTORE_PG_PORT: String(port),
+          },
+        });
         writeFileSync(provOut, redact(`${prov.stdout ?? ''}${prov.stderr ?? ''}`));
 
         // Real fire-drill entrypoint resolve path (exercises discovery + cleanup-relevant state).
-        const fire = spawnSync(
-          '/bin/bash',
-          [PROD_FIRE, '--host', host, '--resolve-only'],
-          {
-            cwd: REPO_ROOT,
-            encoding: 'utf8',
-            timeout: 120_000,
-            env: { ...baseEnv },
-          }
-        );
+        const fire = spawnSync('/bin/bash', [PROD_FIRE, '--host', host, '--resolve-only'], {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 120_000,
+          env: { ...baseEnv },
+        });
         writeFileSync(fireOut, redact(`${fire.stdout ?? ''}${fire.stderr ?? ''}`));
 
         // Production cleanup path (same inventory classes as provision creates).
@@ -958,10 +952,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
 
     // Prefer committed QA27 bundle; fall back to QA26 positive shape for disposable mutations
     // until evidence freeze re-runs real D05 into QA27 paths.
-    const bundleCandidates = [
-      resolve(EVIDENCE, 'd05-04-bundle'),
-      QA26_BUNDLE,
-    ];
+    const bundleCandidates = [resolve(EVIDENCE, 'd05-04-bundle'), QA26_BUNDLE];
     let bundleDir = '';
     for (const c of bundleCandidates) {
       if (
@@ -1029,7 +1020,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           doc.matched_objects = 0;
           doc.pre_failure_blob_objects = 0;
           doc.restored_blob_objects = 0;
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1045,7 +1036,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
             missingRemote: ['a'.repeat(64)],
             extraRemote: [],
           };
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1053,7 +1044,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
         mutate: (d) => {
           writeFileSync(
             resolve(d, 'SUMMARY.json'),
-            JSON.stringify({ ok: false, BLOB_PARITY_PASS: false }, null, 2) + '\n'
+            `${JSON.stringify({ ok: false, BLOB_PARITY_PASS: false }, null, 2)}\n`
           );
         },
       },
@@ -1063,7 +1054,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.blob_parity = null;
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       // QA27 M-1: baseline bindings
@@ -1075,7 +1066,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           delete doc.baseline_id;
           delete doc.baseline_key;
           doc.baseline_loaded = true;
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1084,7 +1075,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.baseline_key = 'recovery-baselines/sha256/deadbeef/recovery-baseline.json';
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1093,7 +1084,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.baseline_id = '0'.repeat(64);
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1102,7 +1093,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.baseline_loaded = false;
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1111,7 +1102,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.baseline_sha256 = 'not-a-hash';
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       // Identity lists
@@ -1122,7 +1113,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.expected_object_identities = [];
           doc.pre_object_identities = [];
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1131,7 +1122,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           doc.restored_object_identities = [];
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1140,10 +1131,8 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
           const rest = (doc.restored_object_identities as string[]) || [];
-          doc.expected_object_identities = rest.map((x, i) =>
-            i === 0 ? 'f'.repeat(64) : x
-          );
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          doc.expected_object_identities = rest.map((x, i) => (i === 0 ? 'f'.repeat(64) : x));
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       {
@@ -1151,10 +1140,13 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
         mutate: (d) => {
           const p = resolve(d, 'parity-report.json');
           const doc = JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
-          const exp = ([...(doc.expected_object_identities as string[])] || []).slice();
+          const identities = doc.expected_object_identities;
+          const exp = Array.isArray(identities)
+            ? identities.filter((value): value is string => typeof value === 'string')
+            : [];
           if (exp.length) exp[0] = 'not-hex';
           doc.expected_object_identities = exp;
-          writeFileSync(p, JSON.stringify(doc, null, 2) + '\n');
+          writeFileSync(p, `${JSON.stringify(doc, null, 2)}\n`);
         },
       },
       // Oracle-manifest hash/size links
@@ -1165,7 +1157,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
           if (!existsSync(mp)) {
             writeFileSync(
               mp,
-              JSON.stringify(
+              `${JSON.stringify(
                 {
                   schema: 'holo.qa27-d05-04-oracle-manifest.v1',
                   files: {
@@ -1174,7 +1166,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
                 },
                 null,
                 2
-              ) + '\n'
+              )}\n`
             );
             return;
           }
@@ -1182,10 +1174,13 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
             files: Record<string, { sha256: string; bytes?: number }>;
           };
           const keys = Object.keys(man.files || {});
-          if (keys[0]) {
-            man.files[keys[0]] = { ...man.files[keys[0]], sha256: 'b'.repeat(64) };
+          const key = keys[0];
+          if (key) {
+            const entry = man.files[key];
+            if (!entry) throw new Error(`oracle manifest omitted entry for ${key}`);
+            man.files[key] = { ...entry, sha256: 'b'.repeat(64) };
           }
-          writeFileSync(mp, JSON.stringify(man, null, 2) + '\n');
+          writeFileSync(mp, `${JSON.stringify(man, null, 2)}\n`);
         },
       },
       {
@@ -1197,10 +1192,13 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
             files: Record<string, { sha256: string; bytes?: number }>;
           };
           const keys = Object.keys(man.files || {});
-          if (keys[0]) {
-            man.files[keys[0]] = { ...man.files[keys[0]], bytes: 1 };
+          const key = keys[0];
+          if (key) {
+            const entry = man.files[key];
+            if (!entry) throw new Error(`oracle manifest omitted entry for ${key}`);
+            man.files[key] = { ...entry, bytes: 1 };
           }
-          writeFileSync(mp, JSON.stringify(man, null, 2) + '\n');
+          writeFileSync(mp, `${JSON.stringify(man, null, 2)}\n`);
         },
       },
       {
@@ -1212,7 +1210,7 @@ describe('GATE-FIX-S28R3-QA27 M-1 D05 destructive baseline/identity/manifest con
             files: Record<string, { sha256: string; bytes?: number }>;
           };
           man.files['missing-linked.json'] = { sha256: 'c'.repeat(64), bytes: 0 };
-          writeFileSync(mp, JSON.stringify(man, null, 2) + '\n');
+          writeFileSync(mp, `${JSON.stringify(man, null, 2)}\n`);
         },
       },
       {

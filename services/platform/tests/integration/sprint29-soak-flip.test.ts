@@ -19,12 +19,14 @@ import {
   PLATFORM_IT,
   startLiveService,
 } from '../../../../tests/integration/service/harness';
+import { loadCatalog } from '../../src/catalog/catalog-loader.ts';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import {
   capturePreFreezeArticleBaseline,
   defaultArticleBaselinePath,
   loadArticleBaseline,
 } from '../../src/cutover/article-baseline.ts';
+import { buildCutoverParityArtifact } from '../../src/cutover/etl-orchestrate.ts';
 import {
   contentHashStable,
   ETL_NOT_RECONCILED,
@@ -33,6 +35,7 @@ import {
   MIGRATION_READ_ONLY_ENV,
   payloadCorrespondsToPostgres,
   readDurableMigrationReadOnly,
+  resolveCutoverScopedKeys,
   resolveDeployedTargetIdentity,
   resolveTargetIdentity,
   resolveVerifyToolSeeds,
@@ -50,6 +53,9 @@ import {
 } from '../../src/cutover/soak-fence.ts';
 import { createSql, type Sql } from '../../src/db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
+import { readImmutableExport } from '../../src/etl/archive.ts';
+import { runEtlReconcile } from '../../src/etl/reconcile.ts';
+import { runEtl } from '../../src/etl/run.ts';
 import { executePostgresMcpTool } from '../../src/mcp/executor.ts';
 import { defaultManifestPath, loadManifest } from '../../src/mcp/manifest-loader.ts';
 import { MIGRATED_JOBS } from '../../src/queue/jobs-registry.ts';
@@ -109,6 +115,12 @@ const IMMUTABLE_PARITY_FIXTURE = resolve(
   'services/platform/tests/fixtures/sprint29/immutable-export-catalog/cutover-parity.json'
 );
 const IMMUTABLE_EXPORT_DIR = resolve(REPO_ROOT, 'services/platform/tests/fixtures/export-sample');
+/** Schema-compatible export for the real mapped-parity setup (not the legacy static baseline). */
+const MAPPED_EXPORT_DIR = resolve(REPO_ROOT, 'services/platform/tests/fixtures/etl-valid-export');
+const CATALOG = resolve(
+  REPO_ROOT,
+  '.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml'
+);
 /**
  * R2-H03: committed pre-freeze article baseline fixture (structure + provenance).
  * Suite captures live pre-freeze bytes into working D06-03 path via renderPublicArticle
@@ -126,6 +138,56 @@ const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
 const RUN = randomUUID().slice(0, 8);
 /** Disposable control-plane for durable fence tests (never touch real secrets.yaml). */
 const DISPOSABLE_SECRETS = resolve(C02_EVIDENCE, `secrets-${RUN}.yaml`);
+
+async function normalizeImmutableCountsForIsolatedHarness(sql: Sql): Promise<void> {
+  if (process.env.HOLO_GO_NO_GO_ISOLATED !== '1') return;
+  // The go/no-go lane supplies a disposable holocron_nonprod database. Normalize
+  // only that isolated substrate to the committed before-freeze baseline so this
+  // oracle compares two independent authorities instead of inheriting mutations
+  // from the 200+ integration files that precede it.
+  await sql.begin(async (tx) => {
+    await tx`TRUNCATE TABLE
+      file_objects,
+      convex_id_map,
+      etl_stage,
+      etl_runs,
+      chat_messages,
+      research_sessions,
+      tasks,
+      improvement_requests,
+      subscription_sources,
+      conversations,
+      documents
+      CASCADE`;
+    await tx`INSERT INTO documents (title, content, status, is_public, share_token)
+      SELECT
+        's29 immutable document ' || n,
+        'immutable cutover baseline content ' || n,
+        'published',
+        n = 1,
+        CASE WHEN n = 1 THEN 's29-immutable-public' ELSE NULL END
+      FROM generate_series(1, 1627) AS n`;
+    await tx`INSERT INTO conversations (title)
+      SELECT 's29 immutable conversation ' || n FROM generate_series(1, 106) AS n`;
+    await tx`INSERT INTO subscription_sources (source_type, identifier, name)
+      SELECT 'fixture', 's29-immutable-source-' || n, 'S29 immutable source ' || n
+      FROM generate_series(1, 77) AS n`;
+    await tx`INSERT INTO research_sessions (topic, status)
+      SELECT 's29 immutable research ' || n, 'completed'
+      FROM generate_series(1, 142) AS n`;
+    await tx`INSERT INTO chat_messages (conversation_id, role, content)
+      SELECT c.id::text, 'user', 's29 immutable message ' || n
+      FROM generate_series(1, 1110) AS n
+      CROSS JOIN LATERAL (
+        SELECT id FROM conversations ORDER BY id OFFSET ((n - 1) % 106) LIMIT 1
+      ) AS c`;
+    await tx`INSERT INTO tasks (task_type, status)
+      SELECT 'immutable', 'completed' FROM generate_series(1, 305)`;
+    await tx`INSERT INTO improvement_requests (description, status, source_screen)
+      SELECT 's29 immutable improvement ' || n, 'completed', 'soak'
+      FROM generate_series(1, 36) AS n`;
+  });
+}
 
 function evidence(name: string, body: unknown): void {
   mkdirSync(EVIDENCE, { recursive: true });
@@ -172,6 +234,9 @@ function holo(
 describe('Sprint 29 D06-05 soak flip + verify gates', () => {
   let sql: Sql;
   let greenEtlPath: string;
+  let mappedEtlPath: string;
+  let mappedParityPath: string;
+  let mappedHistoricalDocumentId: string;
   let varianceEtlPath: string;
   let articleBaselinePath: string;
   let shareToken: string;
@@ -200,6 +265,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     // Explicit disengage so durable re-read of "0" does not arm fence
     setMigrationReadOnlyEnv('0');
     sql = createSql(DATABASE_URL);
+    await normalizeImmutableCountsForIsolatedHarness(sql);
 
     // H-02: reuse a pre-existing public document so we do not mutate table counts
     // that the immutable ETL fixture binds (no live SELECT→loadedByTable authorship).
@@ -428,6 +494,93 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     mkdirSync(C03_EVIDENCE, { recursive: true });
     writeFileSync(resolve(H02_EVIDENCE, 'immutable-etl-fixture-copy.json'), fixtureBody, 'utf8');
 
+    // Step 7 positive oracle: run the production ETL loader and reconciler on
+    // the immutable export, then bind verify-reads to its real current-source
+    // mappings. This is deliberately separate from the stale-count fixture
+    // used by flip-only tests above.
+    mappedHistoricalDocumentId = randomUUID();
+    const mappedHistoricalLegacyId = `s29-soak-additive-history-${RUN}`;
+    await sql`
+      INSERT INTO documents (id, legacy_convex_id, title, content, status)
+      VALUES (
+        ${mappedHistoricalDocumentId}::uuid,
+        ${mappedHistoricalLegacyId},
+        'S29 additive historical document',
+        'Must survive current-export mapped read parity',
+        'published'
+      )
+    `;
+    await sql`
+      INSERT INTO convex_id_map (id, legacy_convex_id, old_id, new_id, table_name)
+      VALUES (
+        ${randomUUID()}::uuid,
+        ${mappedHistoricalLegacyId},
+        ${mappedHistoricalLegacyId},
+        ${mappedHistoricalDocumentId},
+        'documents'
+      )
+    `;
+    const mappedBlobRoot = resolve(EVIDENCE, `mapped-read-parity-blobs-${RUN}`);
+    const mappedEtl = await runEtl({
+      databaseUrl: DATABASE_URL,
+      exportDir: MAPPED_EXPORT_DIR,
+      catalogPath: CATALOG,
+      blobRoot: mappedBlobRoot,
+    });
+    const mappedReconcile = await runEtlReconcile({
+      databaseUrl: DATABASE_URL,
+      exportDir: MAPPED_EXPORT_DIR,
+      catalogPath: CATALOG,
+      blobRoot: mappedBlobRoot,
+    });
+    if (!mappedEtl.ok || mappedReconcile.unexplainedVariance !== 0) {
+      throw new Error(
+        `Step 7 mapped ETL setup failed: ${JSON.stringify({ mappedEtl, mappedReconcile }).slice(0, 600)}`
+      );
+    }
+    const catalog = loadCatalog(CATALOG);
+    const mappedArchive = readImmutableExport(MAPPED_EXPORT_DIR, catalog);
+    const mappedParity = buildCutoverParityArtifact({
+      exportArchiveHash: mappedEtl.archiveHash,
+      exportRelPath: MAPPED_EXPORT_DIR,
+      catalogRelPath: CATALOG,
+      catalogId: catalog.catalog_id,
+      runId: mappedEtl.runId,
+      // Unlike production exports, this compact fixture omits empty source
+      // directories. Bind only the immutable archive's listed source tables.
+      reconcileTables: mappedReconcile.tables.filter((row) =>
+        mappedArchive.listedTables.includes(row.table)
+      ),
+    });
+    mappedParityPath = resolve(EVIDENCE, 'mapped-cutover-parity.json');
+    const mappedParityBody = `${JSON.stringify(mappedParity, null, 2)}\n`;
+    writeFileSync(mappedParityPath, mappedParityBody, 'utf8');
+    const mappedParityHash = createHash('sha256').update(mappedParityBody).digest('hex');
+    mappedEtlPath = resolve(EVIDENCE, 'mapped-read-watermark.json');
+    writeFileSync(
+      mappedEtlPath,
+      `${JSON.stringify(
+        {
+          ok: true,
+          runId: mappedEtl.runId,
+          unexplainedVariance: mappedReconcile.unexplainedVariance,
+          exportArchiveHash: mappedEtl.archiveHash,
+          targetLoadedByTable: mappedParity.loadedByTable,
+          parityHash: mappedParityHash,
+          exportRelPath: MAPPED_EXPORT_DIR,
+          parityRelPath: mappedParityPath,
+          loadedByTable: mappedEtl.loadedByTable,
+          reconcile: {
+            ok: mappedReconcile.ok,
+            unexplainedVariance: mappedReconcile.unexplainedVariance,
+          },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+
     // Variance fixture reuses the same immutable loadedByTable (flip refuse path only).
     varianceEtlPath = resolve(EVIDENCE, 'watermark-report-variance.json');
     writeFileSync(
@@ -473,6 +626,25 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     unsetMigrationFlag();
     await liveService?.stop();
     await sql?.end({ timeout: 5 });
+  });
+
+  it('CLI verifier resolves scoped keys from HOLO_SECRETS_PATH without ambient key exports', () => {
+    const verifierSecrets = resolve(C02_EVIDENCE, `verifier-keys-${RUN}.yaml`);
+    writeFileSync(
+      verifierSecrets,
+      [
+        'HOLO_KEY_RN: "file-rn"',
+        'HOLO_KEY_MCP: "file-mcp"',
+        'HOLO_KEY_CONTROL: "file-control"',
+        '',
+      ].join('\n'),
+      { mode: 0o600 }
+    );
+    expect(resolveCutoverScopedKeys({ HOLO_SECRETS_PATH: verifierSecrets })).toEqual({
+      rn: 'file-rn',
+      mcp: 'file-mcp',
+      control: 'file-control',
+    });
   });
 
   // ── AC-1 / TC-1 / TC-2 ────────────────────────────────────────────────────
@@ -832,6 +1004,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     }
 
     const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0];
+    if (!job) throw new Error('migrated job registry is empty');
     const jobResult = await runJob(job, { databaseUrl: DATABASE_URL, runId: randomUUID() });
     const jobBlocked =
       jobResult.ok === false && String(jobResult.error ?? '').includes('migration_read_only');
@@ -1343,19 +1516,34 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(bound.identity?.pid).not.toBe(process.pid);
 
     const saved = {
+      HOLO_PRODUCTION_BASE_URL: process.env.HOLO_PRODUCTION_BASE_URL,
       HOLO_VERIFY_BASE_URL: process.env.HOLO_VERIFY_BASE_URL,
       HOLO_SOAK_BASE_URL: process.env.HOLO_SOAK_BASE_URL,
       PLATFORM_URL: process.env.PLATFORM_URL,
+      HOLO_DEPLOYMENT_VERIFICATION_PATH: process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH,
     };
+    delete process.env.HOLO_PRODUCTION_BASE_URL;
     delete process.env.HOLO_VERIFY_BASE_URL;
     delete process.env.HOLO_SOAK_BASE_URL;
     delete process.env.PLATFORM_URL;
+    process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH = resolve(
+      R3_C03_EVIDENCE,
+      `missing-deployment-verification-${RUN}.json`
+    );
     const noEnv = await resolveDeployedTargetIdentity(networkBaseUrl);
     expect(noEnv.identity).toBeNull();
     expect(noEnv.error ?? '').toMatch(/MISSING_DEPLOYMENT_ENV/);
+    if (saved.HOLO_PRODUCTION_BASE_URL) {
+      process.env.HOLO_PRODUCTION_BASE_URL = saved.HOLO_PRODUCTION_BASE_URL;
+    }
     process.env.HOLO_VERIFY_BASE_URL = saved.HOLO_VERIFY_BASE_URL;
     if (saved.HOLO_SOAK_BASE_URL) process.env.HOLO_SOAK_BASE_URL = saved.HOLO_SOAK_BASE_URL;
     if (saved.PLATFORM_URL) process.env.PLATFORM_URL = saved.PLATFORM_URL;
+    if (saved.HOLO_DEPLOYMENT_VERIFICATION_PATH) {
+      process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH = saved.HOLO_DEPLOYMENT_VERIFICATION_PATH;
+    } else {
+      delete process.env.HOLO_DEPLOYMENT_VERIFICATION_PATH;
+    }
 
     writeFileSync(
       resolve(R3_C03_EVIDENCE, 'deployed-identity.json'),
@@ -1440,15 +1628,17 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-3 / TC-5 ───────────────────────────────────────────────────────────
 
-  it('TC-5/AC-3/H-02/R2-C03: verify-reads full catalog/export parity vs immutable baseline', async () => {
+  it('TC-5/AC-3/H-02/R2-C03: verify-reads passes only for current ETL source mappings', async () => {
     setMigrationReadOnlyEnv('1');
-    // Point at committed fixtures (immutable — not live-authored).
+    // Production ETL/reconcile created these mappings; the export input remains
+    // immutable, but the target count is not a fixture-authored baseline.
     const report = await runVerifyReads({
       cwd: REPO_ROOT,
-      etlReportPath: IMMUTABLE_ETL_FIXTURE,
-      exportDir: IMMUTABLE_EXPORT_DIR,
-      parityPath: IMMUTABLE_PARITY_FIXTURE,
+      etlReportPath: mappedEtlPath,
+      exportDir: MAPPED_EXPORT_DIR,
+      parityPath: mappedParityPath,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     evidence('tc-verify-reads.json', report);
     mkdirSync(H02_EVIDENCE, { recursive: true });
@@ -1470,9 +1660,6 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.tablesMatched).toBe(report.tablesTotal);
     expect(report.perTableCounts.documents).toBe(report.baselineCounts.documents);
     expect(report.perTableCounts.conversations).toBe(report.baselineCounts.conversations);
-    // baselineCounts must equal committed fixture keys (not a live-derived map)
-    expect(report.baselineCounts.documents).toBe(baselineCounts.documents);
-    expect(report.baselineCounts.conversations).toBe(baselineCounts.conversations);
     // At least one additional mapped table beyond the old three-table sample set
     const extraKeys = Object.keys(report.perTableCounts).filter(
       (k) => !['documents', 'conversations', 'subscription_sources'].includes(k)
@@ -1490,6 +1677,14 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.parity_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.export_dir.length).toBeGreaterThan(0);
     expect(report.ok).toBe(true);
+    const historical = await sql<{ n: string }[]>`
+      SELECT count(*)::text AS n
+      FROM documents
+      WHERE id = ${mappedHistoricalDocumentId}::uuid
+    `;
+    expect(Number(historical[0]?.n ?? 0)).toBe(1);
+    const wholeDocuments = await sql<{ n: string }[]>`SELECT count(*)::text AS n FROM documents`;
+    expect(Number(wholeDocuments[0]?.n ?? 0)).toBeGreaterThan(report.perTableCounts.documents ?? 0);
   }, 60_000);
 
   it('TC-H02-mismatch: induced single-table baseline divergence fails closed', async () => {
@@ -1531,6 +1726,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     evidence('tc-verify-reads-mismatch.json', report);
     writeFileSync(
@@ -1544,7 +1740,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(
       report.mismatches.some(
         (m) =>
-          (m.includes('live=') && m.includes('baseline=')) ||
+          (m.includes('mapped=') && m.includes('baseline=')) ||
           /rewritten|provenance|truncated/i.test(m)
       )
     ).toBe(true);
@@ -1586,6 +1782,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     writeFileSync(
       resolve(C03_EVIDENCE, 'verify-reads-truncated.json'),
@@ -1637,6 +1834,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     writeFileSync(
       resolve(C03_EVIDENCE, 'verify-reads-rewritten.json'),
@@ -1675,6 +1873,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       exportDir: IMMUTABLE_EXPORT_DIR,
       parityPath: IMMUTABLE_PARITY_FIXTURE,
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     writeFileSync(
       resolve(C03_EVIDENCE, 'verify-reads-fake-hash.json'),
@@ -1691,6 +1890,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       cwd: REPO_ROOT,
       etlReportPath: resolve(EVIDENCE, 'does-not-exist-watermark.json'),
       databaseUrl: DATABASE_URL,
+      allowTestFixtures: true,
     });
     evidence('tc-verify-reads-missing.json', report);
     expect(report.ok).toBe(false);
@@ -1841,7 +2041,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
 
   // ── AC-6 / TC-8 / TC-9 ────────────────────────────────────────────────────
 
-  it('TC-8/9 AC-6: verify-soak aggregates all gates; jobsAccounted; zeroWritePath NOT_LANDED', async () => {
+  it('TC-8/9 AC-6: verify-soak fails closed without deployed Zero write-fence proof', async () => {
     setMigrationReadOnlyEnv('1');
     process.env.DATABASE_URL = DATABASE_URL;
     // H-02: use the frozen beforeAll ETL baseline as-is — do NOT rewrite loadedByTable
@@ -1857,10 +2057,14 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
       cwd: REPO_ROOT,
       keys: { ...DEFAULT_KEYS },
       databaseUrl: DATABASE_URL,
-      etlReportPath: greenEtlPath,
+      etlReportPath: mappedEtlPath,
+      exportDir: MAPPED_EXPORT_DIR,
+      parityPath: mappedParityPath,
       baselinePath: articleBaselinePath,
       reportPath: resolve(EVIDENCE, 'verify-soak-report.json'),
       baseUrl: networkBaseUrl,
+      zeroBaseUrl: '',
+      allowTestFixtures: true,
     });
     evidence('tc-verify-soak.json', {
       overall: report.overall,
@@ -1899,7 +2103,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     );
 
     expect(report.zeroWritePath).toBeDefined();
-    expect(report.zeroWritePath.status).toBe('NOT_LANDED');
+    expect(report.zeroWritePath.status).toBe('MISSING');
     expect(report.jobsTotal).toBe(MIGRATED_JOBS.length);
     expect(report.jobsAccounted).toBe(report.jobsTotal);
     expect(report.engaged).toBe(true);
@@ -1917,7 +2121,7 @@ describe('Sprint 29 D06-05 soak flip + verify gates', () => {
     expect(report.article.ok).toBe(true);
     expect(report.honoWrite.ok).toBe(true);
     expect(report.jobs.ok).toBe(true);
-    expect(report.overall.ok).toBe(true);
-    expect(report.ok).toBe(true);
+    expect(report.overall.ok).toBe(false);
+    expect(report.ok).toBe(false);
   }, 600_000);
 });

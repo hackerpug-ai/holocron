@@ -102,6 +102,7 @@ function validHarnessCheckEnv(
     EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
     EXPO_PUBLIC_RN_API_KEY: 'test-rn-api-key',
     EXPO_PUBLIC_REFERENCE_FLOW: 'true',
+    EXPO_PUBLIC_REFERENCE_CONVERSATION_ID: '00000000-0000-0000-0000-000000000020',
     ZERO_ADMIN_PASSWORD: 'test-zero-admin',
     ZERO_LITESTREAM_EXECUTABLE: CHECK_FIXTURE_EXECUTABLE,
     ZERO_LITESTREAM_BACKUP_URL: `file://${CHECK_FIXTURE_BACKUP_DIR}`,
@@ -420,6 +421,9 @@ if [[ "$1" == "exec" && "$2" == "zero-cache" ]]; then
   printf '%s\\n' "$$" >"$FAKE_ZERO_PID_FILE"
   exec sleep 60
 fi
+if [[ "$1" == "exec" && "$2" == "zero-deploy-permissions" ]]; then
+  exit 0
+fi
 exit 64
 `
       );
@@ -460,7 +464,10 @@ fi
         });
 
         expect(result.status, `expected readiness timeout; stderr=${result.stderr}`).not.toBe(0);
-        expect(result.stderr).toContain('zero-cache did not become ready within 1 seconds');
+        expect(
+          result.stderr,
+          `status=${result.status} signal=${result.signal} error=${String(result.error)} stdout=${result.stdout}`
+        ).toContain('zero-cache did not become ready within 1 seconds');
         fakePid = Number(readFileSync(pidFile, 'utf8').trim());
         expect(Number.isInteger(fakePid)).toBe(true);
         expect(() => process.kill(fakePid as number, 0)).toThrow();

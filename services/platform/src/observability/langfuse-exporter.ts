@@ -26,7 +26,7 @@ export class LangfuseExportError extends Error {
   readonly code = LANGFUSE_EXPORT_FAILED;
   constructor(
     message: string,
-    readonly cause?: unknown
+    override readonly cause?: unknown
   ) {
     super(message);
     this.name = 'LangfuseExportError';
@@ -222,7 +222,7 @@ export class HolocronLangfuseExporter extends BaseExporter {
     }
   }
 
-  init(options: InitExporterOptions): void {
+  override init(options: InitExporterOptions): void {
     this.#serviceNameFromInit = options.config?.serviceName;
   }
 
@@ -337,7 +337,7 @@ export class HolocronLangfuseExporter extends BaseExporter {
   /**
    * POST buffered events to Langfuse. On failure sets exportFailed and optionally throws.
    */
-  async flush(): Promise<void> {
+  override async flush(): Promise<void> {
     if (this.isDisabled) {
       this.#exportFailed = true;
       this.#lastError =
@@ -420,7 +420,7 @@ export class HolocronLangfuseExporter extends BaseExporter {
     }
   }
 
-  async shutdown(): Promise<void> {
+  override async shutdown(): Promise<void> {
     try {
       await this.flush();
     } catch {

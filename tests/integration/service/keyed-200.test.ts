@@ -89,12 +89,27 @@ describe('AC-3: keyed requests reach real handlers (real booted service)', () =>
     }
   );
 
-  itLive('MCP key POST /mcp → 200', async () => {
+  itLive('MCP key POST /mcp initialize → 200', async () => {
     const res = await httpJson(requireService(svc).baseUrl, 'POST', '/mcp', {
       key: DEFAULT_KEYS.mcp,
+      headers: { accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: { name: 'keyed-200-test', version: '1' },
+        },
+      }),
     });
     expect(res.status, `body=${res.text}`).toBe(200);
-    expect(res.body).toMatchObject({ ok: true, scope: 'mcp' });
+    expect(res.body).toMatchObject({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { serverInfo: { name: 'holocron-postgres' } },
+    });
   });
 
   itLive(

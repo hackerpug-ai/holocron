@@ -130,6 +130,7 @@ export function seedPitrSentinelWindow(options: {
     };
   }
   const [t0Raw, beforeLsn] = before.stdout.split('|');
+  if (!t0Raw) throw new Error('before-target timestamp missing from psql output');
   const t0 = toIsoUtc(t0Raw);
 
   // Force WAL segment boundary after before-target so restore can stop between rows.
@@ -174,6 +175,7 @@ export function seedPitrSentinelWindow(options: {
     };
   }
   const [t1Raw, afterLsn] = after.stdout.split('|');
+  if (!t1Raw) throw new Error('after-target timestamp missing from psql output');
   const t1 = toIsoUtc(t1Raw);
   runPsql(options.databaseUrl, `SELECT pg_switch_wal()`);
 

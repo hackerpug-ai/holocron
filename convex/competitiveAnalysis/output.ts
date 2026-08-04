@@ -98,7 +98,7 @@ function formatCompetitiveMap(competitors: CompetitiveAnalysisCompetitor[]): str
     c.name,
     c.focus ?? '—',
     c.funding ?? '—',
-    c.strengths && c.strengths.length > 0 ? c.strengths[0] : '—',
+    c.strengths?.[0] ?? '—',
   ]);
 
   lines.push(formatTable(headers, rows, 25));

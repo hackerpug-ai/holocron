@@ -84,9 +84,13 @@ export function evaluateTermination(
 
   // Priority 3: Missing dimensions (score = 0)
   const missingDims = ALL_DIMENSIONS.filter((d) => metrics.dimensionScores[d] === 0);
-  if (missingDims.length > 0) {
-    const target = missingDims[0];
-    return continueWith('needs_dimension', target, `Dimension "${target}" not yet analyzed`);
+  const missingTarget = missingDims[0];
+  if (missingTarget) {
+    return continueWith(
+      'needs_dimension',
+      missingTarget,
+      `Dimension "${missingTarget}" not yet analyzed`
+    );
   }
 
   // Priority 4: Shallow dimensions (below target coverage)
@@ -97,8 +101,8 @@ export function evaluateTermination(
       (d) => !metrics.saturatedDimensions.includes(d)
     ).sort((a, b) => metrics.dimensionScores[a] - metrics.dimensionScores[b]);
 
-    if (improvableDims.length > 0) {
-      const target = improvableDims[0];
+    const target = improvableDims[0];
+    if (target) {
       return {
         continue: true,
         reason: `Overall coverage ${overallCoverage.toFixed(0)}% < ${criteria.minOverallCoverage}%. Deepening "${target}" (score: ${metrics.dimensionScores[target]})`,

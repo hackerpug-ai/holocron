@@ -38,7 +38,7 @@ export type HonoWriteRoute = {
 export type RouteRequest = {
   path: string;
   method: string;
-  body: BodyInit | undefined;
+  body: string | Uint8Array | undefined;
   headers: Record<string, string>;
 };
 
@@ -452,7 +452,14 @@ export function isConvexId(value: unknown): value is string {
  * so callers that assert startsWith('migration_read_only:') need the inner line.
  */
 export function migrationReadOnlyMessage(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err);
+  const data =
+    err && typeof err === 'object' && 'data' in err ? (err as { data?: unknown }).data : undefined;
+  const raw = [
+    err instanceof Error ? err.message : String(err),
+    typeof data === 'string' ? data : data == null ? '' : JSON.stringify(data),
+  ]
+    .filter(Boolean)
+    .join('\n');
   const m = raw.match(/(migration_read_only:\s*[^\n]*)/i);
   if (m?.[1]) return m[1].trim();
   const m2 = raw.match(/(MIGRATION_READ_ONLY:\s*[^\n]*)/);

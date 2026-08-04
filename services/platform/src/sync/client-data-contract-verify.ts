@@ -108,11 +108,15 @@ const REQUIRED_IDENTIFIER_FIELDS = [
   'idempotency_key',
 ] as const;
 
-const VALID_TARGET_KINDS: ReadonlySet<TargetKind> = new Set<TargetKind>([
+const VALID_TARGET_KINDS: ReadonlySet<string> = new Set<string>([
   'zero_query',
   'zero_mutator',
   'hono_command',
 ]);
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 /**
  * The five T-SYNC-019 offline/replay/conflict behaviors that AC-4 requires
@@ -258,7 +262,7 @@ export function verifySchema(contractPath: string, inventoryPath: string): Verif
     }
   };
 
-  for (const entry of contract.entries as Array<Record<string, unknown>>) {
+  for (const entry of contract.entries) {
     const id = String(entry.call_site_id ?? '<missing>');
     if (seenIds.has(id)) {
       pushViolation(id, 'duplicate call_site_id');
@@ -275,7 +279,7 @@ export function verifySchema(contractPath: string, inventoryPath: string): Verif
     }
     for (const f of REQUIRED_NESTED_FIELDS) {
       const block = entry[f];
-      if (!block || typeof block !== 'object') {
+      if (!isUnknownRecord(block)) {
         switch (f) {
           case 'target':
             result.missing_target += 1;
@@ -308,7 +312,7 @@ export function verifySchema(contractPath: string, inventoryPath: string): Verif
         pushViolation(id, `missing required nested field: ${f}`);
         continue;
       }
-      const blockObj = block as Record<string, unknown>;
+      const blockObj = block;
       switch (f) {
         case 'target': {
           for (const sf of REQUIRED_TARGET_FIELDS) {
@@ -318,10 +322,7 @@ export function verifySchema(contractPath: string, inventoryPath: string): Verif
             }
           }
           // `kind` must be one of the valid kinds.
-          if (
-            typeof blockObj.kind === 'string' &&
-            !VALID_TARGET_KINDS.has(blockObj.kind as TargetKind)
-          ) {
+          if (typeof blockObj.kind === 'string' && !VALID_TARGET_KINDS.has(blockObj.kind)) {
             result.missing_target_fields += 1;
             pushViolation(id, `target.kind invalid: ${blockObj.kind}`);
           }

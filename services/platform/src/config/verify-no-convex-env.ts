@@ -2,7 +2,7 @@
  * Build gate (T-PLAT-017): grep real repo surfaces for banned Convex env aliases.
  *
  * Scans: app/, holocron-mcp/, services/platform/
- * Excludes: .git, node_modules, .spec, __tests__, tests/fixtures
+ * Excludes: .git, node_modules, .spec, tests, and the temporary cutover adapter.
  * (matches RED suite independent rg so doctor/test literals do not false-positive)
  *
  * Pattern tokens are assembled at runtime so this source file does not itself
@@ -38,7 +38,11 @@ const RG_GLOBS = [
   '!**/node_modules/**',
   '!**/.spec/**',
   '!**/__tests__/**',
-  '!**/tests/fixtures/**',
+  '!**/tests/**',
+  // Sprint 29 must still address the frozen Convex control plane for
+  // freeze/export/rollback. This bounded adapter is not a serving data-plane
+  // dependency and is removed only after Sprint 30 rollback closure.
+  '!services/platform/src/cutover/**',
 ] as const;
 
 const SCAN_ROOTS = ['app', 'holocron-mcp', 'services/platform'] as const;
@@ -114,11 +118,18 @@ export function verifyNoConvexEnv(options?: {
         hits.push({ file: line, line: 0, match: identifyToken(line, patterns), text: line });
         continue;
       }
+      const file = m[1];
+      const lineNumber = m[2];
+      const text = m[3];
+      if (!file || !lineNumber || text === undefined) {
+        hits.push({ file: line, line: 0, match: identifyToken(line, patterns), text: line });
+        continue;
+      }
       hits.push({
-        file: m[1],
-        line: Number(m[2]),
-        match: identifyToken(m[3], patterns),
-        text: m[3],
+        file,
+        line: Number(lineNumber),
+        match: identifyToken(text, patterns),
+        text,
       });
     }
   }

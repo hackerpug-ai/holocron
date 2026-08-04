@@ -13,13 +13,14 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import {
   buildRestoreCredentialPolicy,
   defaultBucketName,
   defaultPgbackrestPrefix,
 } from '../../src/backup/config.ts';
+import { baseHarnessEnv, type HarnessPaths, makeHarness } from './fixtures/qa13-harness.ts';
 
 const itLive = PLATFORM_IT ? it : it.skip;
 
@@ -38,6 +39,11 @@ const PROVISION = resolve(REPO_ROOT, 'scripts/provision-fresh-restore-target.sh'
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA5');
 
 const dockerCleanup: Array<{ host: string; volumes?: string[] }> = [];
+let H: HarnessPaths;
+
+beforeAll(() => {
+  H = makeHarness(REPO_ROOT, EVIDENCE_DIR);
+});
 
 afterEach(() => {
   while (dockerCleanup.length > 0) {
@@ -94,6 +100,8 @@ const WRITER_AK = 'qa5-writer-akid-deliberate-identity';
 const WRITER_SK = 'qa5-writer-sk-deliberate-identity-value';
 const RESTORE_AK = 'qa5-restore-akid-deliberate-identity';
 const RESTORE_SK = 'qa5-restore-sk-deliberate-identity-value';
+const TEST_ACCOUNT_ID = '0123456789abcdef0123456789abcdef';
+const TEST_ENDPOINT = `https://${TEST_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 function isolationBaseEnv(policy: string): NodeJS.ProcessEnv {
   const bucket = defaultBucketName();
@@ -119,6 +127,7 @@ function isolationBaseEnv(policy: string): NodeJS.ProcessEnv {
     R2_CREDENTIAL_KIND: 'object-read-only',
     R2_BUCKET_NAME: bucket,
     R2_PGBACKREST_PREFIX: prefix,
+    R2_RESTORE_OBJECT_PREFIX: prefix,
     R2_ENDPOINT: '',
     REQUIRE_LIVE_R2_RO: '0',
     R2_CREDENTIAL_POLICY: policy,
@@ -512,7 +521,7 @@ describe('GATE-FIX-S28R3-QA5 H-2 / M-1 live seams (PLATFORM_IT)', () => {
       const pgPort = String(64400 + (Date.now() % 700));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -562,7 +571,7 @@ PY
       const run = spawnSync(
         'bash',
         [
-          RUNNER,
+          H.runner,
           '--host',
           host,
           '--target-timestamp',
@@ -573,20 +582,24 @@ PY
           reportPath,
         ],
         {
-          cwd: REPO_ROOT,
+          cwd: H.root,
           encoding: 'utf8',
           timeout: 120_000,
-          env: {
-            ...process.env,
+          env: baseHarnessEnv(REPO_ROOT, {
             STAGING_ROOT: staging,
             R2_ACCESS_KEY_ID: WRITER_AK,
             R2_SECRET_ACCESS_KEY: WRITER_SK,
             R2_RESTORE_ACCESS_KEY_ID: RESTORE_AK,
             R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
-            R2_ENDPOINT: 'https://example.invalid',
+            R2_ENDPOINT: TEST_ENDPOINT,
+            R2_ACCOUNT_ID: TEST_ACCOUNT_ID,
+            R2_BUCKET_NAME: 'holocron-backup',
+            R2_PGBACKREST_PREFIX: 'pgbackrest',
+            R2_RESTORE_OBJECT_PREFIX: 'pgbackrest',
+            HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
             HOLO_CLI: recorder,
             HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
-          },
+          }),
         }
       );
       const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
@@ -617,7 +630,7 @@ PY
       const pgPort = String(64500 + (Date.now() % 700));
       const provision = spawnSync(
         'bash',
-        [PROVISION(), '--host', host, '--skip-isolation', '--pg-port', pgPort],
+        [PROVISION, '--host', host, '--skip-isolation', '--pg-port', pgPort],
         {
           cwd: REPO_ROOT,
           encoding: 'utf8',
@@ -662,7 +675,7 @@ PY
       const run = spawnSync(
         'bash',
         [
-          RUNNER,
+          H.runner,
           '--host',
           host,
           '--target-timestamp',
@@ -673,20 +686,24 @@ PY
           reportPath,
         ],
         {
-          cwd: REPO_ROOT,
+          cwd: H.root,
           encoding: 'utf8',
           timeout: 120_000,
-          env: {
-            ...process.env,
+          env: baseHarnessEnv(REPO_ROOT, {
             STAGING_ROOT: staging,
             R2_ACCESS_KEY_ID: WRITER_AK,
             R2_SECRET_ACCESS_KEY: WRITER_SK,
             R2_RESTORE_ACCESS_KEY_ID: RESTORE_AK,
             R2_RESTORE_SECRET_ACCESS_KEY: RESTORE_SK,
-            R2_ENDPOINT: 'https://example.invalid',
+            R2_ENDPOINT: TEST_ENDPOINT,
+            R2_ACCOUNT_ID: TEST_ACCOUNT_ID,
+            R2_BUCKET_NAME: 'holocron-backup',
+            R2_PGBACKREST_PREFIX: 'pgbackrest',
+            R2_RESTORE_OBJECT_PREFIX: 'pgbackrest',
+            HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
             HOLO_CLI: recorder,
             HOLO_SECRETS_PATH: resolve(EVIDENCE_DIR, 'empty-secrets-missing.yaml'),
-          },
+          }),
         }
       );
       const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
@@ -696,7 +713,16 @@ PY
         report_exists: existsSync(reportPath),
       });
       expect(run.status, combined.slice(0, 1200)).not.toBe(0);
-      expect(combined).toMatch(/report contract|BLOB_PARITY_PASS|baseline_id|parity report/i);
+      expect(existsSync(reportPath), 'negative recorder must reach and write its report').toBe(
+        true
+      );
+      const incomplete = JSON.parse(readFileSync(reportPath, 'utf8')) as Record<string, unknown>;
+      expect(incomplete.BLOB_PARITY_PASS).not.toBe(true);
+      expect(incomplete.baseline_id).toBeUndefined();
+      if (existsSync(att)) {
+        const attestation = JSON.parse(readFileSync(att, 'utf8')) as Record<string, unknown>;
+        expect(attestation.ok).not.toBe(true);
+      }
     },
     300_000
   );

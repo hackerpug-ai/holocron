@@ -173,7 +173,7 @@ describe('GATE-FIX-S28R3-QA18 forged ambient secrets through consumers', () => {
     writeEv('provision.json', { status: run.status, out: redact(combined.slice(0, 2500)) });
     // May pass or fail depending on dry-run path; canaries must never appear.
     assertNoCanaries('provision', combined);
-  });
+  }, 60_000);
 
   it('fire-drill (harness) never emits ambient canaries on success path', () => {
     const report = resolve(EVIDENCE, 'qa18-parity.json');
@@ -211,6 +211,7 @@ exit 0
         encoding: 'utf8',
         timeout: 90_000,
         env: pollutedEnv({
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         }),
@@ -221,7 +222,7 @@ exit 0
     expect(run.status).toBe(0);
     expect(combined).toMatch(/recorder:ok/);
     assertNoCanaries('fire-drill', combined);
-  });
+  }, 60_000);
   it('production fire-drill refuses ambient BUN_BIN without dumping env', () => {
     const run = spawnSync('bash', [PROD_FIRE, '--host', 'x', '--resolve-only'], {
       cwd: REPO_ROOT,

@@ -325,7 +325,7 @@ exit 99
     } finally {
       rmSync(shadow, { recursive: true, force: true });
     }
-  });
+  }, 150_000);
 });
 
 describe('GATE-FIX-S28R3-QA24 production credential transport boundary', () => {

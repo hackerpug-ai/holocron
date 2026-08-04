@@ -348,6 +348,7 @@ exit 0
         encoding: 'utf8',
         timeout: 90_000,
         env: env({
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: recorder,
           HOLO_AWS_MOCK_CANARY: CANARY_AWS,

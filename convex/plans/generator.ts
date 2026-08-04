@@ -424,7 +424,11 @@ function parseRepositoryUrl(url: string): { name: string; owner?: string } {
     // Handle GitHub URLs
     const githubMatch = url.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (githubMatch) {
-      return { name: githubMatch[2], owner: githubMatch[1] };
+      const owner = githubMatch[1];
+      const name = githubMatch[2];
+      if (owner && name) {
+        return { name, owner };
+      }
     }
 
     // Extract name from path

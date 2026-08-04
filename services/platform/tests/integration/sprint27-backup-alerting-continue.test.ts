@@ -184,7 +184,23 @@ async function seedTwoFailedJobs(): Promise<void> {
 
 async function seedAllHealthy(): Promise<void> {
   const { runHealthyBackupJob } = await import('../../src/backup/alerting.ts');
-  await runHealthyBackupJob('s27-15-healthy');
+  const { ensureBackupHeartbeatTable } = await import('../../src/backup/heartbeat.ts');
+  const { createSql } = await import('../../src/db/client.ts');
+  const sql = createSql();
+  try {
+    await ensureBackupHeartbeatTable(sql);
+    await sql`
+      UPDATE backup_heartbeat
+      SET status = 'success', last_success_at = now(), updated_at = now()
+    `;
+    await runHealthyBackupJob('s27-15-healthy');
+    await sql`
+      UPDATE backup_heartbeat
+      SET status = 'success', last_success_at = now(), updated_at = now()
+    `;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
 }
 
 /**

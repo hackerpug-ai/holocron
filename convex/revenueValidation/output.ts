@@ -70,8 +70,9 @@ function countContradicted(evidence: Evidence[]): number {
 function parsePriceFromStr(pricing: string | undefined | null): number | undefined {
   if (!pricing) return undefined;
   const match = pricing.match(/\$?([\d,]+)/);
-  if (!match) return undefined;
-  return parseFloat(match[1].replace(',', ''));
+  const amount = match?.[1];
+  if (!amount) return undefined;
+  return parseFloat(amount.replace(',', ''));
 }
 
 function medianPrice(competitors: Competitor[]): string {
@@ -81,7 +82,13 @@ function medianPrice(competitors: Competitor[]): string {
     .sort((a, b) => a - b);
   if (prices.length === 0) return '—';
   const mid = Math.floor(prices.length / 2);
-  const median = prices.length % 2 === 0 ? (prices[mid - 1] + prices[mid]) / 2 : prices[mid];
+  const lower = prices[mid - 1];
+  const upper = prices[mid];
+  const median =
+    prices.length % 2 === 0 && lower !== undefined && upper !== undefined
+      ? (lower + upper) / 2
+      : upper;
+  if (median === undefined) return '—';
   return median.toFixed(0);
 }
 
@@ -151,7 +158,7 @@ function formatSummaryBlock(
   // Top risk and next step
   const topRiskText = topRisk(evidence);
   const nextStep = session.executiveSummary
-    ? session.executiveSummary.split(/[.!]/)[0].trim()
+    ? (session.executiveSummary.split(/[.!]/)[0]?.trim() ?? '')
     : 'Complete validation analysis';
 
   // DVF box inner lines — fixed-width to fit the box borders

@@ -397,7 +397,7 @@ function isStandingLivePgdata(env: NodeJS.ProcessEnv, scratch: string): boolean 
  * Inspect R2 listing + object bodies for empty / corrupt backup chain signals.
  * Uses real aws s3 (no mocks). Returns named fail-closed errors when detected.
  */
-function inspectRepoChain(
+export function inspectRepoChain(
   cfg: BackupConfig,
   env: NodeJS.ProcessEnv
 ): {
@@ -553,7 +553,6 @@ export function extractBackupTimeWindow(infoJson: string): {
         const row = b as {
           label?: string;
           timestamp?: { start?: number; stop?: number };
-          timestamp?: { start?: number; stop?: number };
           time?: string;
         };
         if (row.label) labels.push(row.label);
@@ -583,12 +582,15 @@ export function extractBackupTimeWindow(infoJson: string): {
     const m = infoJson.matchAll(/\b(\d{8})-(\d{6})[FDI]/g);
     for (const match of m) {
       labels.push(match[0]);
-      const y = match[1].slice(0, 4);
-      const mo = match[1].slice(4, 6);
-      const d = match[1].slice(6, 8);
-      const hh = match[2].slice(0, 2);
-      const mm = match[2].slice(2, 4);
-      const ss = match[2].slice(4, 6);
+      const date = match[1];
+      const time = match[2];
+      if (!date || !time) continue;
+      const y = date.slice(0, 4);
+      const mo = date.slice(4, 6);
+      const d = date.slice(6, 8);
+      const hh = time.slice(0, 2);
+      const mm = time.slice(2, 4);
+      const ss = time.slice(4, 6);
       const dt = new Date(`${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`);
       if (!Number.isNaN(dt.getTime())) {
         if (!earliest || dt < earliest) earliest = dt;
@@ -791,7 +793,7 @@ function mapPgbackrestFailure(combined: string): string[] {
   return [...new Set(named)];
 }
 
-function writeRestoreConfig(cfg: BackupConfig, scratchPgdata: string): string {
+export function writeRestoreConfig(cfg: BackupConfig, scratchPgdata: string): string {
   // Sibling conf dir (not inside PGDATA): pgBackRest requires empty --pg1-path,
   // and dual-scratch restores must not stomp a shared /tmp conf (AC-3).
   const confDir = `${scratchPgdata}.holo-pgbackrest`;
@@ -895,7 +897,11 @@ function resolvePgCtlBin(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 function pgCtlEnv(pgdata: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return pgToolEnv(env, { PGDATA: pgdata });
+  // archive-get is launched by the restored postmaster and inherits this env.
+  // An operator commonly has PGBACKREST_PG1_PATH pointed at the standing
+  // primary; if that ambient value wins over the restore-scoped config,
+  // pgBackRest refuses WAL retrieval because its working directory is scratch.
+  return pgToolEnv(env, { PGDATA: pgdata, PGBACKREST_PG1_PATH: pgdata });
 }
 
 function tryStopPostgres(pgdata: string, env: NodeJS.ProcessEnv): void {
@@ -924,7 +930,7 @@ function probeRecoveryState(
   port: number,
   env: NodeJS.ProcessEnv,
   socketDir?: string
-): { reachable: boolean; inRecovery: boolean | null } {
+): { reachable: boolean; inRecovery: boolean | null; replayPaused: boolean | null } {
   // Prefer TCP — socket dir is a short /tmp path (not pgdata) to avoid AF_UNIX length limits.
   const attempts: Array<{ args: string[]; host: string }> = [
     {
@@ -939,7 +945,11 @@ function probeRecoveryState(
         '-v',
         'ON_ERROR_STOP=1',
         '-tAc',
-        'SELECT pg_is_in_recovery()::text',
+        `SELECT format(
+          '%s|%s',
+          pg_is_in_recovery()::text,
+          CASE WHEN pg_is_in_recovery() THEN pg_is_wal_replay_paused()::text ELSE 'f' END
+        )`,
       ],
     },
   ];
@@ -959,7 +969,11 @@ function probeRecoveryState(
         '-v',
         'ON_ERROR_STOP=1',
         '-tAc',
-        'SELECT pg_is_in_recovery()::text',
+        `SELECT format(
+          '%s|%s',
+          pg_is_in_recovery()::text,
+          CASE WHEN pg_is_in_recovery() THEN pg_is_wal_replay_paused()::text ELSE 'f' END
+        )`,
       ],
     });
   }
@@ -970,11 +984,14 @@ function probeRecoveryState(
       timeoutMs: 10_000,
     });
     if (probe.status !== 0) continue;
-    const v = probe.stdout.trim().toLowerCase();
-    if (v === 't' || v === 'true') return { reachable: true, inRecovery: true };
-    if (v === 'f' || v === 'false') return { reachable: true, inRecovery: false };
+    const [recoveryRaw, pausedRaw] = probe.stdout.trim().toLowerCase().split('|');
+    const inRecovery = recoveryRaw === 't' || recoveryRaw === 'true';
+    const outOfRecovery = recoveryRaw === 'f' || recoveryRaw === 'false';
+    const replayPaused = pausedRaw === 't' || pausedRaw === 'true';
+    if (inRecovery) return { reachable: true, inRecovery: true, replayPaused };
+    if (outOfRecovery) return { reachable: true, inRecovery: false, replayPaused: false };
   }
-  return { reachable: false, inRecovery: null };
+  return { reachable: false, inRecovery: null, replayPaused: null };
 }
 
 /**
@@ -1028,6 +1045,33 @@ export function mapPostgresStartFailureNamedErrors(log: string): string[] {
   ];
 }
 
+const RECOVERY_MINIMUM_SETTING_NAMES = new Set([
+  'max_connections',
+  'max_locks_per_transaction',
+  'max_prepared_transactions',
+  'max_wal_senders',
+  'max_worker_processes',
+]);
+
+/**
+ * PostgreSQL refuses recovery when a recovery-sensitive setting is lower than
+ * the value recorded by the primary. The primary value is emitted in the
+ * startup DETAIL line, so a fresh restore can safely retry without reaching
+ * back to the source server or guessing deployment-specific settings.
+ */
+export function parseRequiredRecoverySettings(log: string): Record<string, string> {
+  const required: Record<string, string> = {};
+  const pattern =
+    /\b([a-z_]+)\s*=\s*\d+\s+is a lower setting than on the primary server,\s*where its value was\s*(\d+)/gi;
+  for (const match of log.matchAll(pattern)) {
+    const name = match[1]?.toLowerCase();
+    const value = match[2];
+    if (!name || !value || !RECOVERY_MINIMUM_SETTING_NAMES.has(name)) continue;
+    required[name] = value;
+  }
+  return required;
+}
+
 function tryStartPostgres(
   pgdata: string,
   env: NodeJS.ProcessEnv,
@@ -1061,23 +1105,46 @@ function tryStartPostgres(
   // before we enter the longer promote poll loop.
   const initialWaitSecs = 120;
   const pgCtl = resolvePgCtlBin(env);
-  const started = run(
-    pgCtl,
-    [
-      'start',
-      '-D',
-      pgdata,
-      '-l',
-      logFile,
-      // Short -k path required on macOS; also listen on localhost for TCP probes.
-      '-o',
-      `-p ${port} -k ${socketDir} -h 127.0.0.1`,
-      '-w',
-      '-t',
-      String(initialWaitSecs),
-    ],
-    { env: pgCtlEnv(pgdata, env), timeoutMs: (initialWaitSecs + 45) * 1000 }
-  );
+  const recoverySettings: Record<string, string> = {};
+  const startOnce = () => {
+    const settingArgs = Object.entries(recoverySettings)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, value]) => ` -c ${name}=${value}`)
+      .join('');
+    return run(
+      pgCtl,
+      [
+        'start',
+        '-D',
+        pgdata,
+        '-l',
+        logFile,
+        // Short -k path required on macOS; also listen on localhost for TCP probes.
+        '-o',
+        `-p ${port} -k ${socketDir} -h 127.0.0.1${settingArgs}`,
+        '-w',
+        '-t',
+        String(initialWaitSecs),
+      ],
+      { env: pgCtlEnv(pgdata, env), timeoutMs: (initialWaitSecs + 45) * 1000 }
+    );
+  };
+
+  let started = startOnce();
+  // PostgreSQL reports one incompatible recovery setting per startup. Retry
+  // only with numeric values parsed for a strict allowlist, bounded so malformed
+  // logs or an unrelated startup failure can never loop indefinitely.
+  for (let attempt = 0; started.status !== 0 && attempt < 5; attempt += 1) {
+    const parsed = parseRequiredRecoverySettings(readStartLog(pgdata));
+    let added = false;
+    for (const [name, value] of Object.entries(parsed)) {
+      if (recoverySettings[name] === value) continue;
+      recoverySettings[name] = value;
+      added = true;
+    }
+    if (!added) break;
+    started = startOnce();
+  }
   // Brief settle (same as fire-drill) so promote can complete after pg_ctl -w returns.
   run('sleep', ['3'], { env, timeoutMs: 10_000 });
 
@@ -1088,9 +1155,14 @@ function tryStartPostgres(
   const deadline = Date.now() + pollBudgetSecs * 1000;
   let log = readStartLog(pgdata);
   let up = false;
-  let lastProbe: { reachable: boolean; inRecovery: boolean | null } = {
+  let lastProbe: {
+    reachable: boolean;
+    inRecovery: boolean | null;
+    replayPaused: boolean | null;
+  } = {
     reachable: false,
     inRecovery: null,
+    replayPaused: null,
   };
 
   while (Date.now() < deadline) {
@@ -1136,7 +1208,7 @@ function tryStartPostgres(
 
     if (action === 'pause') {
       // Pause proof requires still-in-recovery (natural recovery_target_action=pause).
-      if (lastProbe.inRecovery === true) {
+      if (lastProbe.inRecovery === true && lastProbe.replayPaused === true) {
         up = true;
         break;
       }
@@ -1160,7 +1232,7 @@ function tryStartPostgres(
   if (!up) {
     lastProbe = probeRecoveryState(pgdata, port, env, socketDir);
     if (action === 'pause') {
-      if (lastProbe.reachable && lastProbe.inRecovery === true) {
+      if (lastProbe.reachable && lastProbe.inRecovery === true && lastProbe.replayPaused === true) {
         up = true;
       }
     } else if (lastProbe.reachable && lastProbe.inRecovery === false) {
@@ -1176,7 +1248,7 @@ function tryStartPostgres(
       // best-effort discovery files
     }
   }
-  const probeNote = `probe reachable=${lastProbe.reachable} in_recovery=${String(lastProbe.inRecovery)} action=${action} budget_s=${pollBudgetSecs}`;
+  const probeNote = `probe reachable=${lastProbe.reachable} in_recovery=${String(lastProbe.inRecovery)} replay_paused=${String(lastProbe.replayPaused)} action=${action} budget_s=${pollBudgetSecs}`;
   const failNamed = up ? [] : classifyPostgresStartFailure(log);
   return {
     started: up,

@@ -1,8 +1,8 @@
 {
   "phase": "green",
   "BUDGET_INVALID_ESTIMATE": "estimatedCostUsd<=0 refused for real escapes",
-  "anthropicCount": 0,
-  "anthropicHits": 0,
+  "deepseekCount": 0,
+  "deepseekHits": 0,
   "zero_estimate_case": "AC-1 checkBudget/runBudgetedEscape/CLI --cost 0",
   "transactional_reserve": "AC-2 SELECT FOR UPDATE + reserve rows",
   "consistent_ceiling": "AC-3 effectiveCeiling/ceilingSource on status + gate",

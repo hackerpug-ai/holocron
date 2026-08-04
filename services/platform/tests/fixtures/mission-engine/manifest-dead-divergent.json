@@ -11,7 +11,12 @@
       "concurrency": 4,
       "timeoutMs": 120000,
       "structuredOutput": true,
-      "healthProbe": { "path": "/v1/models", "method": "GET", "timeoutMs": 1000, "expectStatus": 200 },
+      "healthProbe": {
+        "path": "/v1/models",
+        "method": "GET",
+        "timeoutMs": 1000,
+        "expectStatus": 200
+      },
       "degradationAction": "surface-unavailable"
     },
     "convergent": {
@@ -23,7 +28,12 @@
       "concurrency": 2,
       "timeoutMs": 180000,
       "structuredOutput": true,
-      "healthProbe": { "path": "/v1/models", "method": "GET", "timeoutMs": 3000, "expectStatus": 200 },
+      "healthProbe": {
+        "path": "/v1/models",
+        "method": "GET",
+        "timeoutMs": 3000,
+        "expectStatus": 200
+      },
       "degradationAction": "surface-unavailable"
     },
     "judge": {
@@ -35,7 +45,12 @@
       "concurrency": 2,
       "timeoutMs": 180000,
       "structuredOutput": true,
-      "healthProbe": { "path": "/v1/models", "method": "GET", "timeoutMs": 3000, "expectStatus": 200 },
+      "healthProbe": {
+        "path": "/v1/models",
+        "method": "GET",
+        "timeoutMs": 3000,
+        "expectStatus": 200
+      },
       "degradationAction": "surface-unavailable"
     },
     "embed": {
@@ -47,7 +62,12 @@
       "concurrency": 8,
       "timeoutMs": 30000,
       "structuredOutput": false,
-      "healthProbe": { "path": "/v1/models", "method": "GET", "timeoutMs": 3000, "expectStatus": 200 },
+      "healthProbe": {
+        "path": "/v1/models",
+        "method": "GET",
+        "timeoutMs": 3000,
+        "expectStatus": 200
+      },
       "degradationAction": "fail-closed",
       "embed": {
         "embeddingDimension": 1024,
@@ -63,7 +83,12 @@
       "concurrency": 4,
       "timeoutMs": 30000,
       "structuredOutput": false,
-      "healthProbe": { "path": "/v1/models", "method": "GET", "timeoutMs": 3000, "expectStatus": 200 },
+      "healthProbe": {
+        "path": "/v1/models",
+        "method": "GET",
+        "timeoutMs": 3000,
+        "expectStatus": 200
+      },
       "degradationAction": "fail-closed"
     }
   }

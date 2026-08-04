@@ -25,7 +25,7 @@ describe('GATE-FIX-S28R3-QA33 configured-positive failure semantics', () => {
       { mode: 0o600 }
     );
 
-    const env = { ...process.env, HOLO_QA31_SECRETS_PATH: secrets };
+    const env: NodeJS.ProcessEnv = { ...process.env, HOLO_QA31_SECRETS_PATH: secrets };
     for (const key of Object.keys(env)) {
       if (
         key.startsWith('R2_') ||

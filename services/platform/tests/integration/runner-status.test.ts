@@ -1,10 +1,11 @@
 /**
  * D02-03 runner status fail-closed tests (bun:test).
  */
-import { describe, expect, test } from 'bun:test';
+
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { describe, expect, test } from 'vitest';
 import { checkRunnerStatus, REQUIRED_RUNNER_LABELS } from '../../src/ci/runner-status.ts';
 
 describe('D02-03 runner-status', () => {
@@ -54,7 +55,7 @@ describe('D02-03 runner-status', () => {
     expect(r.matching_runners.length).toBe(1);
   });
 
-  test("AC-5 fail-closed without required labels", async () => {
+  test('AC-5 fail-closed without required labels', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'runner-status-'));
     const file = join(dir, 'missing-labels.json');
     writeFileSync(

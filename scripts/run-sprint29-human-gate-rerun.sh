@@ -1,28 +1,30 @@
 #!/usr/bin/env bash
-# REDHAT-FIX-S29-R2-H01 + REDHAT-FIX-S29-R3-C01 — Re-run all six Sprint 29 human-gate steps.
+# D06-07 + REDHAT-FIX-S29-R2-H01/R3-C01 — Re-run all eight Sprint 29 gate steps.
 #
-# Executes gate-plan.json literal_cmd for steps 1–6 via real cutover CLI
+# Executes gate-plan.json literal_cmd for steps 1–8 via real deployment/cutover CLI
 # (bun services/platform/src/cli/holo.ts). Writes:
-#   - .gate-evidence/{run_id}/step{1..6}.log  (real command transcripts)
+#   - .gate-evidence/{run_id}/step{1..8}.log  (real command transcripts)
 #   - .gate-evidence/{run_id}/meta.json
-#   - gate-results.json + GATE-RESULTS.md (honest pass/fail; never forge 6/6)
+#   - gate-results.json + GATE-RESULTS.md (honest pass/fail; never forge 8/8)
 #
 # R3-C01 binding rules:
 #   - source_sha/git_sha MUST equal `git rev-parse HEAD` of this worktree (refuse unknown).
 #   - Prefer independently deployed HTTP identity (HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL /
 #     PLATFORM_URL / HOLO_SERVICE_IDENTITY). If only local-process:// is available, record it
 #     honestly and set landing_eligible=false (non-landing; never claim cutover approval).
-#   - landing_eligible=true only when verdict==pass AND 6/6 AND identity is not local-process://
+#   - landing_eligible=true only when verdict==pass AND 8/8 AND identity is not local-process://
 #     AND git_sha == HEAD.
 #
 # NEVER accepts historical run_id 20260802T004525Z as pass for the remediated SHA.
 # NEVER rewrites historical .gate-evidence/20260802T004525Z/**.
-# Full 6/6 may remain blocked — record honest fail/partial; never forge.
+# Full 8/8 may remain blocked — record honest fail/partial; never forge.
 #
 # Usage:
 #   export HOLO_SECRETS_PATH=...   # optional; defaults may resolve secrets
 #   export GATE_RUN_ID=20260802TxxxxxxZ   # optional; auto-generated if unset
 #   export HOLO_VERIFY_BASE_URL=https://...  # preferred deployed identity for landing
+#   export HOLO_ARTICLE_SHARE_TOKEN=...  # existing public Convex article sampled before ETL
+#   export MINT_R2_PREFIX_RESTORE=1  # mint temporary scoped RO proof/data tuples after .env
 #   bash scripts/run-sprint29-human-gate-rerun.sh
 #   WRITE_GATE_RESULTS=0 bash scripts/run-sprint29-human-gate-rerun.sh  # evidence only
 set -euo pipefail
@@ -42,9 +44,11 @@ WRITE_GATE_RESULTS="${WRITE_GATE_RESULTS:-1}"
 QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"
 # Per-step wall-clock caps (seconds). Honest fail on timeout — never hang forever.
 STEP_TIMEOUT_DEFAULT="${STEP_TIMEOUT_DEFAULT:-180}"
-STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-240}"   # go-no-go (8 gates)
-STEP_TIMEOUT_4="${STEP_TIMEOUT_4:-300}"   # run-etl / convex export
-STEP_TIMEOUT_5="${STEP_TIMEOUT_5:-240}"   # flip + verify-soak
+STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-10800}" # go/no-go includes serial live backup/PITR suites
+STEP_TIMEOUT_2="${STEP_TIMEOUT_2:-600}"   # build/pull/cold-recreate deployment
+STEP_TIMEOUT_3="${STEP_TIMEOUT_3:-600}"   # dependency + SIGKILL + durability + MCP
+STEP_TIMEOUT_6="${STEP_TIMEOUT_6:-1800}"  # run-etl / convex export / real embeddings
+STEP_TIMEOUT_7="${STEP_TIMEOUT_7:-300}"   # flip + verify-soak
 
 if [[ ! -f "$PLAN" ]]; then
   echo "error: gate-plan missing: $PLAN" >&2
@@ -69,6 +73,11 @@ fi
 
 export GATE_RUN_ID
 export QUIET_WINDOW_SECONDS
+GATE_RUN_NONCE="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export GATE_RUN_NONCE
+GATE_RUN_NONCE_SHA256="$(printf '%s' "$GATE_RUN_NONCE" | python3 -c 'import hashlib, sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
+RUNNER_PID="$$"
+RUN_FINALIZED=0
 
 # R3-C01: require real HEAD (never "unknown" theatre).
 SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
@@ -81,12 +90,12 @@ STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # Prefer deployed identity when the operator supplies one; else honest local-process (non-landing).
 IDENTITY_CLASS="deployed-http"
 NON_LANDING_REASON=""
-DEPLOYED_BASE_URL="${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}"
+DEPLOYED_BASE_URL="${HOLO_PRODUCTION_BASE_URL:-${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}}"
 if [[ -z "$DEPLOYED_BASE_URL" ]]; then
   # Honest local identity — do not claim remote deployment (R2-H02 / R3-C01).
   DEPLOYED_BASE_URL="local-process://holo-cli"
   IDENTITY_CLASS="local-process"
-  NON_LANDING_REASON="no HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing"
+    NON_LANDING_REASON="no HOLO_PRODUCTION_BASE_URL/HOLO_VERIFY_BASE_URL/HOLO_SOAK_BASE_URL/PLATFORM_URL; local-process:// is non-landing"
 fi
 SERVICE_IDENTITY="${HOLO_SERVICE_IDENTITY:-${DEPLOYED_BASE_URL}}"
 if [[ "$SERVICE_IDENTITY" == local-process://* ]] || [[ "$DEPLOYED_BASE_URL" == local-process://* ]]; then
@@ -95,7 +104,10 @@ if [[ "$SERVICE_IDENTITY" == local-process://* ]] || [[ "$DEPLOYED_BASE_URL" == 
     NON_LANDING_REASON="service_identity is local-process:// (self-minted CLI theatre; non-landing)"
   fi
 fi
-# Landing eligibility is finalized after the run (needs 6/6). Default false until then.
+if [[ "$DEPLOYED_BASE_URL" != local-process://* ]]; then
+  export HOLO_PRODUCTION_BASE_URL="$DEPLOYED_BASE_URL"
+fi
+# Landing eligibility is finalized after the run (needs 8/8). Default false until then.
 LANDING_ELIGIBLE=false
 
 EVID_DIR="$SPRINT_DIR/.gate-evidence/$GATE_RUN_ID"
@@ -125,13 +137,62 @@ elif [[ -f "${HOME}/Projects/holocron/.env" ]]; then
   set +a
 fi
 
+# The operator .env can name a cloud/dev deployment, but an explicitly
+# configured self-hosted Convex endpoint must use the self-hosted CLI mode.
+# Convex refuses to run when CONVEX_DEPLOYMENT is present alongside both
+# self-hosted credentials, so clear only that conflicting selector after the
+# .env load. The isolated go/no-go lane receives its own local deployment via
+# HOLO_GO_NO_GO_CONVEX_DEPLOYMENT.
+if [[ -n "${CONVEX_SELF_HOSTED_URL:-}" && -n "${CONVEX_SELF_HOSTED_ADMIN_KEY:-}" ]]; then
+  unset CONVEX_DEPLOYMENT
+fi
+
+# A caller may request fresh temporary restore tuples for the exact-scope R2
+# and fire-drill gates. This must run after .env is loaded so durable operator
+# values cannot overwrite the minted tuples. The helper never logs values.
+if [[ "${MINT_R2_PREFIX_RESTORE:-0}" == "1" ]]; then
+  # shellcheck source=scripts/mint-r2-prefix-restore-env.sh
+  source "$ROOT/scripts/mint-r2-prefix-restore-env.sh"
+fi
+
+# D06-02 hermetic cutover:go-no-go isolation defaults (step 1).
+# Integration/live lanes refuse ambient operator DATABASE_URL; they require an
+# explicit HOLO_GO_NO_GO_* tuple (or a pre-provisioned isolated cluster). When
+# the operator already has the standard s29-it Postgres on :56594, bind to it.
+export PLATFORM_IT="${PLATFORM_IT:-1}"
+export HOLO_GO_NO_GO_PHASED="${HOLO_GO_NO_GO_PHASED:-1}"
+export ZERO_CACHE_URL="${ZERO_CACHE_URL:-http://127.0.0.1:4848}"
+export ZERO_ADMIN_PASSWORD="${ZERO_ADMIN_PASSWORD:-local-zero-admin}"
+if [[ -z "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -h 127.0.0.1 -p 56594 >/dev/null 2>&1; then
+    export HOLO_GO_NO_GO_DATABASE_URL="postgres://127.0.0.1:56594/holocron_nonprod"
+  fi
+fi
+if [[ -n "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
+  export HOLO_GO_NO_GO_DATABASE_URL_OWNER="${HOLO_GO_NO_GO_DATABASE_URL_OWNER:-$HOLO_GO_NO_GO_DATABASE_URL}"
+  export HOLO_GO_NO_GO_CONVEX_URL="${HOLO_GO_NO_GO_CONVEX_URL:-http://127.0.0.1:3210}"
+  export HOLO_GO_NO_GO_CONVEX_SITE_URL="${HOLO_GO_NO_GO_CONVEX_SITE_URL:-http://127.0.0.1:3211}"
+  export HOLO_GO_NO_GO_CONVEX_DEPLOYMENT="${HOLO_GO_NO_GO_CONVEX_DEPLOYMENT:-local:s29-gate}"
+  export HOLO_GO_NO_GO_FLEET_URL="${HOLO_GO_NO_GO_FLEET_URL:-${FLEET_URL:-http://127.0.0.1:4545/v1}}"
+  export HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX="${HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX:-integration/s29-gate-completion}"
+  export HOLO_GO_NO_GO_AUTOSTART="${HOLO_GO_NO_GO_AUTOSTART:-0}"
+  if [[ -z "${HOLO_GO_NO_GO_PGBACKREST_PG1_PATH:-}" ]]; then
+    for _pg1 in /tmp/holocron-s29-it-pg.*/data; do
+      if [[ -d "$_pg1" ]]; then
+        export HOLO_GO_NO_GO_PGBACKREST_PG1_PATH="$_pg1"
+        break
+      fi
+    done
+  fi
+fi
+
 echo "R3-C01 / R2-H01 human-gate re-run"
 echo "  GATE_RUN_ID=$GATE_RUN_ID"
 echo "  source_sha=$SOURCE_SHA  (git rev-parse HEAD)"
 echo "  deployed_base_url=$DEPLOYED_BASE_URL"
 echo "  service_identity=$SERVICE_IDENTITY"
 echo "  identity_class=$IDENTITY_CLASS"
-echo "  landing_eligible(pre-run)=$LANDING_ELIGIBLE  (true only after 6/6 + deployed identity + HEAD)"
+echo "  landing_eligible(pre-run)=$LANDING_ELIGIBLE  (true only after 8/8 + deployed identity + HEAD)"
 echo "  evidence=$EVID_DIR"
 echo "  started_at=$STARTED_AT"
 if [[ -n "$NON_LANDING_REASON" ]]; then
@@ -140,15 +201,18 @@ fi
 
 python3 - "$PLAN" "$EVID_DIR/meta.json" "$GATE_RUN_ID" "$SOURCE_SHA" "$DEPLOYED_BASE_URL" \
   "$SERVICE_IDENTITY" "$STARTED_AT" "$HISTORICAL_STALE_RUN_ID" "$IDENTITY_CLASS" \
-  "$NON_LANDING_REASON" <<'PY'
+  "$NON_LANDING_REASON" "$RUNNER_PID" "$GATE_RUN_NONCE_SHA256" <<'PY'
 import json, sys
 from pathlib import Path
 plan_path, meta_path = Path(sys.argv[1]), Path(sys.argv[2])
-run_id, sha, base, ident, started, stale, identity_class, non_landing = sys.argv[3:11]
+(
+    run_id, sha, base, ident, started, stale, identity_class, non_landing,
+    runner_pid, runner_nonce_sha256,
+) = sys.argv[3:13]
 assert len(sha) == 40 and all(c in "0123456789abcdef" for c in sha), f"HEAD sha invalid: {sha}"
 plan = json.loads(plan_path.read_text())
 steps = plan.get("steps") or []
-assert [s["n"] for s in steps] == [1, 2, 3, 4, 5, 6], "gate-plan must have steps 1..6"
+assert [s["n"] for s in steps] == [1, 2, 3, 4, 5, 6, 7, 8], "gate-plan must have steps 1..8"
 for s in steps:
     cmd = s.get("literal_cmd") or ""
     assert "bun services/platform/src/cli/holo.ts" in cmd, f"step {s['n']} missing dispatcher"
@@ -160,6 +224,10 @@ meta = {
     "source_sha": sha,
     "git_sha": sha,
     "head_bound": True,
+    "status": "in_progress",
+    "runner_pid": int(runner_pid),
+    "runner_nonce_sha256": runner_nonce_sha256,
+    "active_step": 0,
     "deployed_base_url": base,
     "service_identity": ident,
     "identity_class": identity_class,
@@ -185,12 +253,36 @@ meta = {
         "Honest re-run under current gate-plan predicates (H03 + C01 + R3-C01 HEAD bind).",
         "Never reuses 20260802T004525Z as pass evidence for remediated SHA.",
         "git_sha == git rev-parse HEAD required; local-process:// is non-landing.",
-        "Full 6/6 may remain blocked until sibling remediations land — never forge.",
+        "Full 8/8 may remain blocked until sibling remediations land — never forge.",
     ],
 }
 meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 print(f"wrote {meta_path}")
 PY
+
+finalize_aborted_run() {
+  local rc=$?
+  if [[ "${RUN_FINALIZED:-0}" != "1" && -f "$EVID_DIR/meta.json" ]]; then
+    python3 - "$EVID_DIR/meta.json" "$rc" <<'PY'
+import datetime, json, sys
+from pathlib import Path
+
+meta_path = Path(sys.argv[1])
+meta = json.loads(meta_path.read_text())
+if meta.get("status") == "in_progress":
+    meta.update(
+        {
+            "status": "aborted",
+            "finished_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "abort_exit_code": int(sys.argv[2]),
+            "landing_eligible": False,
+        }
+    )
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+PY
+  fi
+}
+trap finalize_aborted_run EXIT
 
 # Extract step N literal_cmd from plan
 step_cmd() {
@@ -294,8 +386,7 @@ run_step() {
 : >"$TMP_ROOT/step-results.tsv"
 
 # Carry freeze engagement into subsequent steps when freeze report proves env_value=1.
-# cutover:freeze arms Convex + process env in its own process; operator re-runs
-# continue with HOLO_MIGRATION_READ_ONLY=1 (see gate-plan step5 explicit export).
+# cutover:freeze arms durable control-plane state in gate-plan step 5.
 propagate_fence_env() {
   local freeze_report="$ROOT/.tmp/D06-03/freeze-report.json"
   local flip_report="$ROOT/.tmp/D06-05/flip-report.json"
@@ -316,22 +407,94 @@ propagate_fence_env() {
   fi
 }
 
-echo "Executing 6 gate-plan steps (real-cli)..."
-for n in 1 2 3 4 5 6; do
+# Steps 6–7 must operate on the exact Postgres data plane served by the deployed
+# four-service Compose generation. The generated deployment override publishes
+# that database on loopback at app-port+1; credentials remain in the private
+# 0600 runtime store and are captured into the child environment without logs.
+activate_deployed_database() {
+  local runtime_path
+  runtime_path="${HOLO_RUNTIME_SECRETS_PATH:-${HOME}/.config/holocron/runtime/inference1.json}"
+  if [[ ! -f "$runtime_path" ]]; then
+    echo "error: deployed runtime secret store missing" >&2
+    return 2
+  fi
+  DATABASE_URL="$(
+    HOLO_GATE_RUNTIME_PATH="$runtime_path" HOLO_GATE_BASE_URL="$DEPLOYED_BASE_URL" bun -e '
+      import { readFileSync } from "node:fs";
+      import { statSync } from "node:fs";
+      if ((statSync(process.env.HOLO_GATE_RUNTIME_PATH).mode & 0o777) !== 0o600) process.exit(2);
+      const runtime = JSON.parse(readFileSync(process.env.HOLO_GATE_RUNTIME_PATH, "utf8"));
+      const internal = new URL(runtime.DATABASE_URL);
+      const deployed = new URL(process.env.HOLO_GATE_BASE_URL);
+      const appPort = Number(deployed.port || (deployed.protocol === "https:" ? 443 : 80));
+      if (!Number.isInteger(appPort) || appPort < 1 || appPort >= 65535) process.exit(2);
+      internal.hostname = "127.0.0.1";
+      internal.port = String(appPort + 1);
+      process.stdout.write(internal.toString());
+    '
+  )"
+  if [[ -z "$DATABASE_URL" ]]; then
+    echo "error: failed to resolve deployed Postgres operator connection" >&2
+    return 2
+  fi
+  export DATABASE_URL
+  export HOLO_DANGEROUS_ALLOW_PROD_DB=1
+  HOLO_ZERO_BASE_URL="$(
+    HOLO_GATE_BASE_URL="$DEPLOYED_BASE_URL" bun -e '
+      const deployed = new URL(process.env.HOLO_GATE_BASE_URL);
+      const appPort = Number(deployed.port || (deployed.protocol === "https:" ? 443 : 80));
+      if (!Number.isInteger(appPort) || appPort < 1 || appPort > 65533) process.exit(2);
+      process.stdout.write(`http://127.0.0.1:${appPort + 2}`);
+    '
+  )"
+  if [[ -z "$HOLO_ZERO_BASE_URL" ]]; then
+    echo "error: failed to resolve deployed Zero operator endpoint" >&2
+    return 2
+  fi
+  export HOLO_ZERO_BASE_URL
+}
+
+mark_active_step() {
+  local n="$1"
+  local tmo_var="STEP_TIMEOUT_${n}"
+  local tmo="${!tmo_var:-$STEP_TIMEOUT_DEFAULT}"
+  local deadline_epoch=$(( $(date +%s) + tmo + 60 ))
+  python3 - "$EVID_DIR/meta.json" "$n" "$deadline_epoch" <<'PY'
+import datetime, json, sys
+from pathlib import Path
+
+meta_path = Path(sys.argv[1])
+meta = json.loads(meta_path.read_text())
+if meta.get("status") != "in_progress":
+    raise SystemExit("refuse: gate metadata is not in progress")
+meta.update(
+    {
+        "active_step": int(sys.argv[2]),
+        "active_step_started_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "active_step_deadline_epoch": int(sys.argv[3]),
+    }
+)
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+PY
+}
+
+echo "Executing 8 gate-plan steps (real-cli)..."
+for n in 1 2 3 4 5 6 7 8; do
   echo "=== Step $n: $(step_text "$n") ==="
-  # After step 2 (freeze), carry fence into later steps so ETL/flip/write probe see engagement.
-  # Also re-export after step 2 itself completes (n>=3) so quiet-check/ETL share fence.
-  if [[ "$n" -ge 3 ]]; then
+  mark_active_step "$n"
+  # After combined freeze/drain step 5, carry fence into later CLI processes.
+  if [[ "$n" -ge 6 ]]; then
     propagate_fence_env
+    activate_deployed_database
   fi
   run_step "$n" || true
 done
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# Determine overall verdict — pass ONLY when all 6 pass (never forge).
+# Determine overall verdict — pass ONLY when all 8 pass (never forge).
 VERDICT="fail"
-if [[ "$steps_passed" -eq 6 && "$steps_executed" -eq 6 && "$steps_failed" -eq 0 ]]; then
+if [[ "$steps_passed" -eq 8 && "$steps_executed" -eq 8 && "$steps_failed" -eq 0 ]]; then
   VERDICT="pass"
 elif [[ "$steps_passed" -gt 0 ]]; then
   VERDICT="partial"
@@ -344,10 +507,10 @@ if [[ "$GATE_RUN_ID" == "$HISTORICAL_STALE_RUN_ID" ]]; then
   VERDICT="fail"
 fi
 
-# R3-C01 landing eligibility: 6/6 + HEAD-bound + non-local-process deployed identity.
+# R3-C01 landing eligibility: 8/8 + HEAD-bound + non-local-process deployed identity.
 LANDING_ELIGIBLE=false
 if [[ "$VERDICT" == "pass" \
-   && "$steps_passed" -eq 6 \
+   && "$steps_passed" -eq 8 \
    && "$IDENTITY_CLASS" != "local-process" \
    && "$DEPLOYED_BASE_URL" != local-process://* \
    && "$SERVICE_IDENTITY" != local-process://* \
@@ -357,8 +520,8 @@ if [[ "$VERDICT" == "pass" \
 else
   if [[ "$IDENTITY_CLASS" == "local-process" || "$DEPLOYED_BASE_URL" == local-process://* ]]; then
     NON_LANDING_REASON="${NON_LANDING_REASON:-local-process:// identity is non-landing for cutover approval (R3-C01)}"
-  elif [[ "$VERDICT" != "pass" || "$steps_passed" -ne 6 ]]; then
-    NON_LANDING_REASON="${NON_LANDING_REASON:-human-gate not 6/6 under current oracles (honest partial/fail)}"
+  elif [[ "$VERDICT" != "pass" || "$steps_passed" -ne 8 ]]; then
+    NON_LANDING_REASON="${NON_LANDING_REASON:-human-gate not 8/8 under current oracles (honest partial/fail)}"
   fi
 fi
 
@@ -436,9 +599,9 @@ for s in steps:
     except Exception:
         s["log"] = str(lp)
 
-# Fail-closed: pass only when all six green under current oracles
+# Fail-closed: pass only when all eight green under current oracles
 if verdict == "pass":
-    assert steps_passed == 6 and steps_executed == 6 and steps_failed == 0
+    assert steps_passed == 8 and steps_executed == 8 and steps_failed == 0
     assert run_id != stale_id
     assert all(s["result"] == "pass" and s["executed"] for s in steps)
 
@@ -454,9 +617,9 @@ if identity_class == "local-process" or str(deployed_base_url).startswith("local
             "local-process:// identity is non-landing for cutover approval (R3-C01)"
         )
 if landing_eligible and not (
-    verdict == "pass" and steps_passed == 6 and identity_class != "local-process"
+    verdict == "pass" and steps_passed == 8 and identity_class != "local-process"
 ):
-    raise SystemExit("refuse: landing_eligible=true without 6/6 deployed identity")
+    raise SystemExit("refuse: landing_eligible=true without 8/8 deployed identity")
 
 payload = {
     "sprint": "sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip",
@@ -466,7 +629,7 @@ payload = {
     },
     "run_id": run_id,
     "verdict": verdict,
-    "steps_total": 6,
+    "steps_total": 8,
     "steps_executed": steps_executed,
     "steps_passed": steps_passed,
     "steps_failed": steps_failed,
@@ -495,7 +658,7 @@ payload = {
         "non_landing_reason": non_landing_reason or None,
         "historical_stale_run_id_preserved": stale_id,
         "gate_plan_predicates": "REDHAT-FIX-S29-H03 + REDHAT-FIX-S29-C01 + R3-C01 HEAD bind",
-        "sibling_blockers_for_full_6_of_6": [
+        "sibling_blockers_for_full_8_of_8": [
             "REDHAT-FIX-S29-R2-C01",
             "REDHAT-FIX-S29-R2-C02",
             "REDHAT-FIX-S29-R2-C03",
@@ -509,8 +672,8 @@ payload = {
         "honest_note": (
             "Verdict is honest per-step under current gate-plan oracles. "
             "git_sha equals git rev-parse HEAD. "
-            "local-process:// is non-landing; 6/6 against deployed HTTP identity required for landing. "
-            "Full 6/6 is not claimed unless all six current oracles actually pass."
+            "local-process:// is non-landing; 8/8 against deployed HTTP identity required for landing. "
+            "Full 8/8 is not claimed unless all eight current oracles actually pass."
         ),
     },
     "steps": steps,
@@ -524,6 +687,29 @@ r2_tmp = Path(".tmp/REDHAT-FIX-S29-R2-H01")
 r2_tmp.mkdir(parents=True, exist_ok=True)
 (r2_tmp / "gate-results.json").write_text(json.dumps(payload, indent=2) + "\n")
 
+# Close the runner-owned provisional state before publishing canonical final
+# results. A crash between these writes fails closed: completed metadata without
+# final results cannot use the step-1 in-progress freshness path.
+meta_path = Path(evid_dir) / "meta.json"
+meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+meta.update(
+    {
+        "status": "complete",
+        "finished_at": finished_at,
+        "verdict": verdict,
+        "steps_executed": steps_executed,
+        "steps_passed": steps_passed,
+        "steps_failed": steps_failed,
+        "landing_eligible": landing_eligible,
+        "identity_class": identity_class,
+        "non_landing_reason": non_landing_reason or None,
+        "git_sha": source_sha,
+        "source_sha": source_sha,
+        "head_bound": True,
+    }
+)
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+
 if write:
     Path(results_path).write_text(json.dumps(payload, indent=2) + "\n")
 
@@ -532,13 +718,13 @@ rows = "\n".join(
     f"| {s['n']} | {s['text'][:60]} | {s['result']} |" for s in steps
 )
 if verdict == "pass" and landing_eligible:
-    header = "## ✅ VERIFIED — human-test assert exit 0; 6/6 steps ran & passed (deployed identity; landing-eligible)"
+    header = "## ✅ VERIFIED — human-test assert exit 0; 8/8 steps ran & passed (deployed identity; landing-eligible)"
 elif verdict == "pass" and not landing_eligible:
-    header = "## ⚠️ PASS (non-landing) — 6/6 under local-process or non-deployed identity (R3-C01 refuses landing)"
+    header = "## ⚠️ PASS (non-landing) — 8/8 under local-process or non-deployed identity (R3-C01 refuses landing)"
 elif verdict == "partial":
-    header = f"## ⚠️ PARTIAL — {steps_passed}/6 steps passed under current oracles (honest fail on rest; non-landing)"
+    header = f"## ⚠️ PARTIAL — {steps_passed}/8 steps passed under current oracles (honest fail on rest; non-landing)"
 else:
-    header = f"## ❌ FAIL — {steps_passed}/6 steps passed; re-run under remediated gate-plan (R3-C01 / R2-H01)"
+    header = f"## ❌ FAIL — {steps_passed}/8 steps passed; re-run under remediated gate-plan (D06-07 / R3-C01 / R2-H01)"
 
 landing_line = (
     f"**Landing eligible:** `{str(landing_eligible).lower()}` "
@@ -565,11 +751,11 @@ md = f"""# Gate Results: sprint-29-cutover-write-freeze-etl-and-read-only-soak-f
 |---|------|--------|
 {rows}
 
-**Evidence:** `.gate-evidence/{run_id}/step{{1..6}}.log`
+**Evidence:** `.gate-evidence/{run_id}/step{{1..8}}.log`
 
-**Predicates:** current `gate-plan.json` (REDHAT-FIX-S29-H03 + C01 + R3-C01) — step1 requires `overall.ok && failed_count==0`; step5 requires non-null `toolsPassed==toolsTotal`; evidence `git_sha` must equal worktree HEAD.
+**Predicates:** current eight-step `gate-plan.json` (D06-07 + H03 + C01 + R3-C01) — steps 2–4 require exact external deployment/restart/identity; step7 requires non-null `toolsPassed==toolsTotal`; evidence `git_sha` must equal worktree HEAD.
 
-**Sibling dependency (full 6/6):** R2-C01..C04, R2-H02..H04, R3-C02/C03 may still block end-to-end green; this re-run records honest per-step fail rather than reusing `{stale_id}` theatre or ancestor SHAs.
+**Sibling dependency (full 8/8):** cutover remediations may still block end-to-end green; this re-run records honest per-step failure rather than reusing `{stale_id}` theatre or ancestor SHAs.
 
 **Gate:** freeze → drain → ETL → flip → every write returns `migration_read_only`.
 """
@@ -579,26 +765,6 @@ md_tmp.write_text(md)
 (r2_tmp / "GATE-RESULTS.md").write_text(md)
 if write:
     Path(results_md_path).write_text(md)
-
-# Update meta with finish
-meta_path = Path(evid_dir) / "meta.json"
-meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-meta.update(
-    {
-        "finished_at": finished_at,
-        "verdict": verdict,
-        "steps_executed": steps_executed,
-        "steps_passed": steps_passed,
-        "steps_failed": steps_failed,
-        "landing_eligible": landing_eligible,
-        "identity_class": identity_class,
-        "non_landing_reason": non_landing_reason or None,
-        "git_sha": source_sha,
-        "source_sha": source_sha,
-        "head_bound": True,
-    }
-)
-meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 
 summary = {
     "run_id": run_id,
@@ -618,7 +784,9 @@ print(json.dumps(summary, indent=2))
 (Path(tmp_root) / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 PY
 
-echo "Done. verdict=$VERDICT steps_passed=$steps_passed/6 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA landing_eligible=$LANDING_ELIGIBLE identity_class=$IDENTITY_CLASS"
+RUN_FINALIZED=1
+
+echo "Done. verdict=$VERDICT steps_passed=$steps_passed/8 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA landing_eligible=$LANDING_ELIGIBLE identity_class=$IDENTITY_CLASS"
 # Exit non-zero only if harness itself failed to run (always exit 0 after honest record
 # so CI can inspect gate-results; operator can check verdict).
 exit 0

@@ -79,7 +79,8 @@ type BackupAlertingModule = {
    * When absent, the suite falls back to holo CLI + heartbeat SQL/CLI surface.
    */
   runHealthyBackupJob?: (
-    jobId: string
+    jobId: string,
+    options?: { env?: NodeJS.ProcessEnv }
   ) => Promise<{ status: string } | undefined> | { status: string };
   induceBackupFailure?: (
     mode: 'kill_wal_behind' | 'credential_expired' | 'config_removed',
@@ -776,8 +777,9 @@ describe.sequential('Sprint 27 D04-01 RED — backup failure alerting two-sided 
       if (!inducedEmpty) {
         try {
           const raw = JSON.parse(readFileSync(inducedPath, 'utf8')) as unknown;
-          inducedEmpty =
-            raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0;
+          inducedEmpty = Boolean(
+            raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0
+          );
         } catch {
           inducedEmpty = false;
         }

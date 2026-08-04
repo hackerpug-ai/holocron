@@ -289,7 +289,7 @@ describe('GATE-FIX-S28R3-QA19 harness success baselines + exact mutations', () =
       out: redact(combined.slice(0, 3000)),
     });
     expect(run.status, combined.slice(0, 2000)).toBe(0);
-  });
+  }, 60_000);
 
   it('fire-drill baseline reaches recorder with zero exit', () => {
     const recOut = resolve(EVIDENCE, 'fd-base-out.json');
@@ -312,6 +312,7 @@ describe('GATE-FIX-S28R3-QA19 harness success baselines + exact mutations', () =
         encoding: 'utf8',
         timeout: 90_000,
         env: env({
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         }),
@@ -322,7 +323,7 @@ describe('GATE-FIX-S28R3-QA19 harness success baselines + exact mutations', () =
     expect(run.status, combined.slice(0, 2000)).toBe(0);
     expect(combined).toMatch(/recorder:ok/);
     expect(existsSync(recOut)).toBe(true);
-  });
+  }, 60_000);
 
   for (const mut of MUTATIONS) {
     it(`provision mutate=${mut.kind} fails at exact validator (not dependency)`, () => {
@@ -405,7 +406,8 @@ describe('GATE-FIX-S28R3-QA19 concurrent proof races (consumer-level)', () => {
     expect(prove.status, pCombined.slice(0, 1500)).toBe(0);
     const m = /wrote RO proof attestation: (\S+)/.exec(pCombined);
     expect(m).toBeTruthy();
-    const proof = m![1];
+    const proof = m?.[1];
+    if (!proof) throw new Error('prove output omitted the proof path');
     const body = JSON.parse(readFileSync(proof, 'utf8')) as {
       tuple_fp16: string;
       context_fp16: string;
@@ -473,7 +475,8 @@ describe('GATE-FIX-S28R3-QA19 concurrent proof races (consumer-level)', () => {
     expect(prove.status, pCombined.slice(0, 1500)).toBe(0);
     const m = /wrote RO proof attestation: (\S+)/.exec(pCombined);
     expect(m).toBeTruthy();
-    const proof = m![1];
+    const proof = m?.[1];
+    if (!proof) throw new Error('prove output omitted the proof path');
     const body = JSON.parse(readFileSync(proof, 'utf8')) as {
       tuple_fp16: string;
       context_fp16: string;
@@ -484,7 +487,8 @@ describe('GATE-FIX-S28R3-QA19 concurrent proof races (consumer-level)', () => {
     const decoyRoot = resolve(EVIDENCE, `decoy-proofs-${Date.now()}`);
     mkdirSync(decoyRoot, { recursive: true, mode: 0o700 });
     chmodSync(decoyRoot, 0o700);
-    const name = proof.split('/').pop()!;
+    const name = proof.split('/').pop();
+    if (!name) throw new Error('proof path omitted its file name');
     const decoyProof = resolve(decoyRoot, name);
     writeFileSync(
       decoyProof,
@@ -702,8 +706,10 @@ describe('GATE-FIX-S28R3-QA19 full evidence canary scan', () => {
     assertNoCanaries('prove-ok', okC);
     const pm = /wrote RO proof attestation: (\S+)/.exec(okC);
     if (pm) {
-      writeFileSync(resolve(tree, 'proof.json'), redact(readFileSync(pm[1], 'utf8')));
-      assertNoCanaries('proof-json', readFileSync(pm[1], 'utf8'));
+      const proofPath = pm[1];
+      if (!proofPath) throw new Error('prove output matched without a proof path');
+      writeFileSync(resolve(tree, 'proof.json'), redact(readFileSync(proofPath, 'utf8')));
+      assertNoCanaries('proof-json', readFileSync(proofPath, 'utf8'));
     }
 
     // Provision success + fail

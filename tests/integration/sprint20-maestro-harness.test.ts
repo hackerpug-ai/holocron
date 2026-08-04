@@ -23,6 +23,7 @@ function validHarnessEnv(overrides: Record<string, string | undefined> = {}): No
     EXPO_PUBLIC_PLATFORM_URL: 'http://127.0.0.1:4111',
     EXPO_PUBLIC_RN_API_KEY: 'test-rn-api-key',
     EXPO_PUBLIC_REFERENCE_FLOW: 'true',
+    EXPO_PUBLIC_REFERENCE_CONVERSATION_ID: '00000000-0000-0000-0000-000000000020',
     ZERO_ADMIN_PASSWORD: 'test-zero-admin',
     // Non-empty path that is not under test; individual cases override/clear.
     EXPO_DEV_BUILD_PATH: '/tmp/holocron-e2e-placeholder.app',

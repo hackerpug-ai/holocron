@@ -78,8 +78,7 @@ export const createPlan = internalMutation({
     await ctx.db.patch(planId, { messageId });
 
     // Insert all step records using secureSteps (requiresApproval already overridden)
-    for (let i = 0; i < secureSteps.length; i++) {
-      const step = secureSteps[i];
+    for (const [i, step] of secureSteps.entries()) {
       await ctx.db.insert('agentPlanSteps', {
         planId,
         stepIndex: i,

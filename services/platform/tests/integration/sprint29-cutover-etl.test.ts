@@ -25,11 +25,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { ConvexHttpClient } from 'convex/browser';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { api } from '../../../../convex/_generated/api';
 import {
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
   runCutoverFreeze,
+  waitForMigrationReadOnlyRuntime,
 } from '../../src/cutover/convex-fence-client.ts';
 import {
   type CutoverEtlReport,
@@ -38,6 +41,7 @@ import {
   QUIET_CHECK_REQUIRED,
   runCutoverEtl,
 } from '../../src/cutover/etl-orchestrate.ts';
+import { runVerifyReads } from '../../src/cutover/soak-fence.ts';
 import { createSql, type Sql } from '../../src/db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
 
@@ -60,6 +64,29 @@ const BLOB_ROOT = resolve(EVIDENCE, 'blob-store');
 const USE_FIXTURE_EXPORT =
   process.env.HOLO_CUTOVER_FIXTURE_EXPORT === '1' || process.env.HOLO_CUTOVER_LIVE_EXPORT === '0';
 const LIVE_EXPORT = !USE_FIXTURE_EXPORT;
+
+/** True when a loopback Convex HTTP endpoint answers (needed for freeze/fence). */
+function loopbackConvexReady(): boolean {
+  const raw = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(u.hostname)) return false;
+  } catch {
+    return false;
+  }
+  const r = spawnSync(
+    'curl',
+    ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '2', raw],
+    { encoding: 'utf8' }
+  );
+  const code = (r.stdout ?? '').trim();
+  return r.status === 0 && Boolean(code) && code !== '000';
+}
+
+const CONVEX_READY = loopbackConvexReady();
+// Freeze/fence still requires a live Convex control plane even for fixture exports.
+const CAN_RUN_CUTOVER_ETL = PLATFORM_IT && CONVEX_READY;
 
 const DATABASE_URL = resolveHolocronNonprodDatabaseUrl({
   databaseUrl: process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod',
@@ -225,7 +252,7 @@ async function truncateEtlTables(sql: Sql): Promise<void> {
   `);
 }
 
-describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
+describe.skipIf(!CAN_RUN_CUTOVER_ETL)('Sprint 29 D06-04 cutover ETL orchestration', () => {
   let sql: Sql;
   let firstReport: CutoverEtlReport | null = null;
   let firstExportDir: string | null = null;
@@ -236,6 +263,65 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     mkdirSync(BLOB_ROOT, { recursive: true });
     sql = createSql(DATABASE_URL);
     await truncateEtlTables(sql);
+
+    // Production is an additive target. Reconciliation must measure only rows
+    // mapped from this export, not valid mappings retained from an earlier run.
+    const historicalDocumentId = '00000000-0000-7000-8000-000000000029';
+    await sql`
+      INSERT INTO documents (id, legacy_convex_id, title, content, status)
+      VALUES (
+        ${historicalDocumentId}::uuid,
+        's29_historical_document_not_in_current_export',
+        'Historical additive document',
+        'Must not contribute to current-export reconciliation',
+        'published'
+      )
+    `;
+    await sql`
+      INSERT INTO convex_id_map (id, legacy_convex_id, old_id, new_id, table_name)
+      VALUES (
+        '00000000-0000-7000-8000-000000000129'::uuid,
+        's29_historical_document_not_in_current_export',
+        's29_historical_document_not_in_current_export',
+        ${historicalDocumentId},
+        'documents'
+      )
+    `;
+
+    // AC-1 exports the live disposable Convex deployment. Make its non-empty
+    // precondition self-contained instead of depending on another test file's
+    // seed/order. This is real Convex state (not an injected export fixture).
+    // Fixture mode (HOLO_CUTOVER_FIXTURE_EXPORT=1) skips live Convex entirely.
+    if (LIVE_EXPORT) {
+      const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? '';
+      if (!convexUrl) {
+        throw new Error(
+          'LIVE_EXPORT requires EXPO_PUBLIC_CONVEX_URL or CONVEX_URL (loopback Convex)'
+        );
+      }
+      const parsedConvexUrl = new URL(convexUrl);
+      if (!['127.0.0.1', 'localhost', '::1'].includes(parsedConvexUrl.hostname)) {
+        throw new Error('sprint29-cutover-etl live seed refuses non-loopback Convex deployment');
+      }
+      const unset = spawnSync('npx', ['convex', 'env', 'unset', 'HOLO_MIGRATION_READ_ONLY'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 90_000,
+        env: process.env,
+      });
+      if (unset.status !== 0) {
+        throw new Error(`failed to reset local Convex fence: ${unset.stderr || unset.stdout}`);
+      }
+      const convex = new ConvexHttpClient(convexUrl);
+      await waitForMigrationReadOnlyRuntime({ expected: false, client: convex });
+      const conversationCount = await convex.query(api.conversations.queries.count, {});
+      if (conversationCount === 0) {
+        await convex.mutation(api.conversations.mutations.create, {
+          title: `sprint29 live export seed ${RUN}`,
+          lastMessagePreview: 'live Convex export non-empty oracle',
+        });
+      }
+    }
     quietCheckPath = seedQuietCheck(true);
     evidence('export-mode.json', {
       LIVE_EXPORT,
@@ -477,6 +563,94 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     expect(report.unexplainedVariance).toBe(0);
     expect(report.reconcile?.ok).toBe(true);
     expect(report.fkAudit?.ok).toBe(true);
+    const reconciledDocuments = report.reconcile?.tables.find((row) => row.table === 'documents');
+    expect(reconciledDocuments?.loadedCount).toBe(reconciledDocuments?.sourceCount);
+    const historicalRows = await sql<{ n: string }[]>`
+      SELECT count(*)::text AS n
+      FROM documents
+      WHERE id = '00000000-0000-7000-8000-000000000029'::uuid
+    `;
+    expect(Number(historicalRows[0]?.n ?? 0)).toBe(1);
+
+    // Step 7 uses the same current-export source-ID mapping as ETL
+    // reconciliation. The whole table is deliberately one larger because the
+    // retained historical document is valid additive production state.
+    const readParity = await runVerifyReads({
+      cwd: REPO_ROOT,
+      etlReportPath: resolve(EVIDENCE, 'watermark-report.json'),
+      exportDir: report.exportDir,
+      catalogPath: CATALOG,
+      parityPath: resolve(REPO_ROOT, report.parityRelPath),
+      databaseUrl: DATABASE_URL,
+    });
+    evidence('ac3-current-source-mapping-read-parity.json', readParity);
+    expect(readParity.ok).toBe(true);
+    expect(readParity.mismatches).toEqual([]);
+    expect(readParity.baselineCounts.documents).toBe(reconciledDocuments?.sourceCount);
+    expect(readParity.perTableCounts.documents).toBe(reconciledDocuments?.sourceCount);
+
+    // Negative control: removing a current export's map must fail even while
+    // the target document and the historical document both remain present.
+    const currentDocumentLegacyId = report.archive.exportData.documents[0];
+    expect(currentDocumentLegacyId).toBeTruthy();
+    if (!currentDocumentLegacyId) {
+      throw new Error('cutover ETL report has no current-export document ID');
+    }
+    const currentDocumentMap = (
+      await sql<
+        {
+          id: string;
+          legacy_convex_id: string;
+          old_id: string;
+          new_id: string;
+          table_name: string;
+        }[]
+      >`
+        SELECT id::text, legacy_convex_id, old_id, new_id, table_name
+        FROM convex_id_map
+        WHERE table_name = 'documents' AND old_id = ${currentDocumentLegacyId}
+      `
+    )[0];
+    expect(currentDocumentMap).toBeDefined();
+    if (!currentDocumentMap) {
+      throw new Error(`missing current-export documents id map: ${currentDocumentLegacyId}`);
+    }
+    await sql`DELETE FROM convex_id_map WHERE id = ${currentDocumentMap.id}::uuid`;
+    try {
+      const missingMap = await runVerifyReads({
+        cwd: REPO_ROOT,
+        etlReportPath: resolve(EVIDENCE, 'watermark-report.json'),
+        exportDir: report.exportDir,
+        catalogPath: CATALOG,
+        parityPath: resolve(REPO_ROOT, report.parityRelPath),
+        databaseUrl: DATABASE_URL,
+      });
+      evidence('ac3-current-source-mapping-negative.json', missingMap);
+      expect(missingMap.ok).toBe(false);
+      expect(missingMap.perTableCounts.documents).toBe(
+        (readParity.baselineCounts.documents ?? 0) - 1
+      );
+      expect(
+        missingMap.mismatches.some((m) =>
+          m.includes(
+            `documents: mapped=${(readParity.baselineCounts.documents ?? 0) - 1} baseline=${
+              readParity.baselineCounts.documents
+            }`
+          )
+        )
+      ).toBe(true);
+    } finally {
+      await sql`
+        INSERT INTO convex_id_map (id, legacy_convex_id, old_id, new_id, table_name)
+        VALUES (
+          ${currentDocumentMap.id}::uuid,
+          ${currentDocumentMap.legacy_convex_id},
+          ${currentDocumentMap.old_id},
+          ${currentDocumentMap.new_id},
+          ${currentDocumentMap.table_name}
+        )
+      `;
+    }
 
     // loaded counts non-zero (blocks empty-export false green)
     expect(report.loadedByTable.documents).toBeGreaterThan(0);
@@ -509,9 +683,11 @@ describe('Sprint 29 D06-04 cutover ETL orchestration', () => {
     `;
     evidence('ac1-docs-count.json', {
       documents: Number(docsCount[0]?.n ?? 0),
+      currentExportMappedDocuments: readParity.perTableCounts.documents,
       loadedByTable: report.loadedByTable,
       LIVE_EXPORT,
     });
+    expect(Number(docsCount[0]?.n ?? 0)).toBe((readParity.perTableCounts.documents ?? 0) + 1);
   }, 900_000);
 
   it('TC-6/AC-4: re-run against same archive resumes without duplicating rows', async () => {

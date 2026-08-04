@@ -101,7 +101,7 @@ export async function dequeue(databaseUrl?: string): Promise<PriorityJob | null>
         AND lease_expires_at < now()
     `;
 
-    const rows = await sql.begin(async (tx) => {
+    const job = await sql.begin(async (tx) => {
       const candidates = await tx<
         {
           id: string;
@@ -119,7 +119,7 @@ export async function dequeue(databaseUrl?: string): Promise<PriorityJob | null>
         LIMIT 1
       `;
       const job = candidates[0];
-      if (!job) return [] as typeof candidates;
+      if (!job) return null;
 
       await tx`
         UPDATE queue_jobs
@@ -131,10 +131,9 @@ export async function dequeue(databaseUrl?: string): Promise<PriorityJob | null>
           updated_at = now()
         WHERE id = ${job.id}::uuid
       `;
-      return candidates;
+      return job;
     });
 
-    const job = rows[0];
     if (!job) return null;
 
     return {

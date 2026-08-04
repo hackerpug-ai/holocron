@@ -2,7 +2,7 @@
  * Real pgBackRest healthy-chain seeder for Sprint 28 / REDHAT-FIX-C1.
  *
  * Seeds a test-scoped R2/repo prefix by running the real `pgbackrest` binary:
- *   stanza-create → INSERT pitr_test → full backup + dual WAL archive-push.
+ *   stanza-create → INSERT pitr_test → full backup + WAL archive-push.
  *
  * NEVER uploads synthetic text manifests or HEALTHY-WAL-PLACEHOLDER.
  * Production archive_command is restored even on failure (finally).
@@ -146,6 +146,7 @@ function pgbackrestEnv(cfg: BackupConfig, env: NodeJS.ProcessEnv): NodeJS.Proces
 function renderTestConf(options: {
   stanza: string;
   pg1Path: string;
+  pg1Port: string;
   bucketName: string;
   endpointHost: string;
   repoPath: string;
@@ -182,7 +183,7 @@ log-level-file=off
 
 [${options.stanza}]
 pg1-path=${options.pg1Path}
-pg1-port=5432
+pg1-port=${options.pg1Port}
 `;
 }
 
@@ -190,15 +191,18 @@ pg1-port=5432
  * Seed a REAL pgBackRest full backup + WAL into `options.prefix` on R2.
  *
  * Uses a unique stanza to avoid lock contention with production `main` restore/backup.
- * Temporarily dual-archives WAL (prod + test) so backup can complete against the
- * test-scoped repo path, then restores the original archive_command.
+ * Temporarily archives WAL to the test-scoped repo path, then restores the
+ * original archive_command. When the source cluster already has archival enabled,
+ * it dual-archives to production first so this helper cannot interrupt the live
+ * chain. A fresh isolated cluster has no production chain and archives only to the
+ * test prefix.
  */
 export function seedRealPgbackrestHealthyChain(options: {
   cfg: BackupConfig;
   prefix: string;
   /** Source DB URL for pitr_test insert (cluster-wide backup covers all DBs). */
   databaseUrl: string;
-  /** Production pgBackRest conf used by the live archive_command (for dual-push). */
+  /** Production pgBackRest conf used when an existing live archive chain is active. */
   productionConfigPath: string;
   runId: string;
   /** Optional stanza name (default d05seed-<short>). */
@@ -215,6 +219,7 @@ export function seedRealPgbackrestHealthyChain(options: {
         .toLowerCase() || 'eed'
     }`;
   const pg1Path = options.pg1Path ?? options.cfg.pg1Path;
+  const pg1Port = new URL(options.databaseUrl).port || '5432';
   const prodConf = options.productionConfigPath;
   const workDir = mkdtempSync(join(tmpdir(), 'd05-01-pgbr-seed-'));
   const logPath = join(workDir, 'log');
@@ -226,6 +231,7 @@ export function seedRealPgbackrestHealthyChain(options: {
   const confBody = renderTestConf({
     stanza,
     pg1Path,
+    pg1Port,
     bucketName: options.cfg.bucketName,
     endpointHost: endpointHost(options.cfg.endpoint),
     repoPath: options.prefix,
@@ -258,9 +264,14 @@ export function seedRealPgbackrestHealthyChain(options: {
   }
   const originalArchive = showArch.stdout.trim();
 
-  const dualCmd =
-    `/bin/bash -c '/opt/homebrew/bin/pgbackrest --config=${prodConf} --stanza=main archive-push "$1" && ` +
-    `/opt/homebrew/bin/pgbackrest --config=${configPath} --stanza=${stanza} --log-path=${logPath} archive-push "$1"' -- %p`;
+  const testArchivePush =
+    `/opt/homebrew/bin/pgbackrest --config=${configPath} --stanza=${stanza} ` +
+    `--log-path=${logPath} archive-push "$1"`;
+  const productionArchivePush =
+    originalArchive.length > 0 && originalArchive !== '(disabled)'
+      ? `/opt/homebrew/bin/pgbackrest --config=${prodConf} --stanza=main archive-push "$1" && `
+      : '';
+  const seedArchiveCommand = `/bin/bash -c '${productionArchivePush}${testArchivePush}' -- %p`;
 
   const restoreArchiveCommand = () => {
     // ALTER SYSTEM cannot share a multi-statement transaction with SELECT — separate calls.
@@ -286,7 +297,8 @@ export function seedRealPgbackrestHealthyChain(options: {
   };
 
   try {
-    // Dual-archive for the seed window (must contain literal "pgbackrest").
+    // Archive to the isolated prefix for the seed window. Preserve the production
+    // chain first only when the source cluster already had archival enabled.
     const setArch = run(
       'psql',
       [
@@ -294,7 +306,7 @@ export function seedRealPgbackrestHealthyChain(options: {
         '-v',
         'ON_ERROR_STOP=1',
         '-c',
-        `ALTER SYSTEM SET archive_command TO '${dualCmd.replace(/'/g, "''")}'`,
+        `ALTER SYSTEM SET archive_command TO '${seedArchiveCommand.replace(/'/g, "''")}'`,
       ],
       { timeoutMs: 15_000 }
     );

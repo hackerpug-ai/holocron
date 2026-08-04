@@ -1,7 +1,3 @@
-/**
- * D02-02 — Dedicated nonprod Postgres namespace helpers.
- */
-import { createHash } from 'node:crypto';
 import postgres from 'postgres';
 import { createSql } from './client';
 import { applyMigrations } from './migrate';
@@ -54,7 +50,11 @@ export type ProvisionResult = {
 export async function provisionNonprodNamespace(options?: {
   ownerUrl?: string;
 }): Promise<ProvisionResult> {
-  const ownerUrl = options?.ownerUrl ?? process.env.DATABASE_URL_OWNER ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+  const ownerUrl =
+    options?.ownerUrl ??
+    process.env.DATABASE_URL_OWNER ??
+    process.env.DATABASE_URL ??
+    'postgres://127.0.0.1:5432/holocron';
   const nonprodUrl = toNonprodUrl(ownerUrl);
   const adminUrl = toAdminUrl(ownerUrl);
   const messages: string[] = [];
@@ -81,7 +81,14 @@ export async function provisionNonprodNamespace(options?: {
   }
 
   if (errors.length) {
-    return { ok: false, database: NONPROD_DB_NAME, created, databaseUrl: nonprodUrl, messages, errors };
+    return {
+      ok: false,
+      database: NONPROD_DB_NAME,
+      created,
+      databaseUrl: nonprodUrl,
+      messages,
+      errors,
+    };
   }
 
   // Apply migrations into nonprod
@@ -125,9 +132,11 @@ export async function countPublicRows(databaseUrl: string): Promise<number> {
       JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public' AND c.relkind = 'r'
     `;
-    let total = 0;
+    const _total = 0;
     for (const t of tables) {
-      const rows = await sql.unsafe(`SELECT count(*)::int AS n FROM ${JSON.stringify(t.relname).replaceAll('"', '')}`);
+      const _rows = await sql.unsafe(
+        `SELECT count(*)::int AS n FROM ${JSON.stringify(t.relname).replaceAll('"', '')}`
+      );
       // safer quoting:
     }
     // Use a single query against pg_stat_user_tables for speed/safety

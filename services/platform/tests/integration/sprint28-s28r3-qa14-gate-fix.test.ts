@@ -311,6 +311,7 @@ exit 0
         encoding: 'utf8',
         timeout: 90_000,
         env: env({
+          HOLO_R2_PROVIDER_MOCK_MODE: 'fire_drill_scope',
           HOLO_FIRE_DRILL_FAKE_VOLUMES: '1',
           HOLO_CLI: rec,
         }),
@@ -321,7 +322,7 @@ exit 0
     expect(run.status, combined.slice(0, 1500)).toBe(0);
     expect(combined).toMatch(/recorder:ok/);
     expect(existsSync(recOut)).toBe(true);
-  });
+  }, 60_000);
 
   for (const mut of mutations) {
     it(`provision refuses mutate=${mut} at proof validation`, () => {
@@ -396,7 +397,8 @@ describe('GATE-FIX-S28R3-QA14 MEDIUM FD no-follow process oracle', () => {
     expect(run.status, `${run.stderr}`).toBe(0);
     const m = /wrote RO proof attestation: (\S+)/.exec(`${run.stdout}\n${run.stderr}`);
     expect(m).toBeTruthy();
-    const proof = m![1];
+    const proof = m?.[1];
+    if (!proof) throw new Error('prove output omitted the proof path');
     const bak = `${proof}.real`;
     const evil = resolve(EVIDENCE_DIR, 'evil-proof.json');
     writeFileSync(evil, JSON.stringify({ schema: 'holo.r2-ro-proof.v1', ok: true }) + '\n');
@@ -451,7 +453,9 @@ describe('GATE-FIX-S28R3-QA14 MEDIUM canaries all-evidence', () => {
     expect(okC).not.toContain(CANARY);
     const m = /wrote RO proof attestation: (\S+)/.exec(okC);
     expect(m).toBeTruthy();
-    const proofBody = readFileSync(m![1], 'utf8');
+    const proofPath = m?.[1];
+    if (!proofPath) throw new Error('successful prove output omitted the proof path');
+    const proofBody = readFileSync(proofPath, 'utf8');
     expect(proofBody).not.toContain(CANARY);
     expect(proofBody).not.toContain(RESTORE_SK);
   });

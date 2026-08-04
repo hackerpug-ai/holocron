@@ -12,11 +12,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
-export const INTEGRATION_RUNNER_LABELS = [
-  'self-hosted',
-  'holocron',
-  'integration',
-] as const;
+export const INTEGRATION_RUNNER_LABELS = ['self-hosted', 'holocron', 'integration'] as const;
 
 /** Default / backward-compat alias for integration lane. */
 export const REQUIRED_RUNNER_LABELS = INTEGRATION_RUNNER_LABELS;
@@ -51,10 +47,7 @@ function labelsForLane(lane: RunnerLane): readonly string[] {
   return lane === 'e2e' ? E2E_RUNNER_LABELS : INTEGRATION_RUNNER_LABELS;
 }
 
-function hasRequiredLabels(
-  labels: string[],
-  required: readonly string[]
-): boolean {
+function hasRequiredLabels(labels: string[], required: readonly string[]): boolean {
   const set = new Set(labels.map((l) => l.toLowerCase()));
   return required.every((l) => set.has(l.toLowerCase()));
 }
@@ -63,9 +56,7 @@ function parseLane(raw: string | null | undefined): RunnerLane {
   const v = (raw ?? 'integration').trim().toLowerCase();
   if (v === 'e2e') return 'e2e';
   if (v === 'integration' || v === '') return 'integration';
-  throw new Error(
-    `invalid --lane "${raw}" (expected integration|e2e)`
-  );
+  throw new Error(`invalid --lane "${raw}" (expected integration|e2e)`);
 }
 
 /**
@@ -189,9 +180,17 @@ function baseResult(
 
 function fromStatusFile(
   path: string,
-  lane: RunnerLane,
+  _lane: RunnerLane,
   required: readonly string[]
-): Omit<RunnerStatusResult, 'lane' | 'required_labels' | 'simulator_present' | 'simulator_name' | 'build_present' | 'build_path'> {
+): Omit<
+  RunnerStatusResult,
+  | 'lane'
+  | 'required_labels'
+  | 'simulator_present'
+  | 'simulator_name'
+  | 'build_present'
+  | 'build_path'
+> {
   const raw = JSON.parse(readFileSync(path, 'utf8')) as {
     online?: boolean;
     runners?: Array<{ name?: string; status?: string; labels?: string[] }>;
@@ -202,18 +201,14 @@ function fromStatusFile(
     labels: (r.labels ?? []).map(String),
   }));
   const matching = runners.filter(
-    (r) =>
-      r.status.toLowerCase() === 'online' &&
-      hasRequiredLabels(r.labels, required)
+    (r) => r.status.toLowerCase() === 'online' && hasRequiredLabels(r.labels, required)
   );
   const online = matching.length > 0 && raw.online !== false;
   const errors: string[] = [];
   if (!online) {
     if (runners.length === 0) errors.push('no runners reported in status file');
     else if (matching.length === 0) {
-      errors.push(
-        `no online runner with required labels: ${required.join(',')}`
-      );
+      errors.push(`no online runner with required labels: ${required.join(',')}`);
     } else errors.push('runner reported offline');
   }
   return {
@@ -226,7 +221,7 @@ function fromStatusFile(
 }
 
 async function fromGitHubApi(
-  lane: RunnerLane,
+  _lane: RunnerLane,
   required: readonly string[]
 ): Promise<
   Omit<
@@ -280,30 +275,22 @@ async function fromGitHubApi(
   const runners: RunnerInfo[] = (body.runners ?? []).map((r) => ({
     name: String(r.name ?? 'unknown'),
     status: String(r.status ?? 'unknown'),
-    labels: (r.labels ?? []).map((l) =>
-      typeof l === 'string' ? l : String(l.name ?? '')
-    ),
+    labels: (r.labels ?? []).map((l) => (typeof l === 'string' ? l : String(l.name ?? ''))),
   }));
   const matching = runners.filter(
-    (r) =>
-      r.status.toLowerCase() === 'online' &&
-      hasRequiredLabels(r.labels, required)
+    (r) => r.status.toLowerCase() === 'online' && hasRequiredLabels(r.labels, required)
   );
   const online = matching.length > 0;
   return {
     ok: online,
     online,
     matching_runners: matching,
-    errors: online
-      ? []
-      : [`no online runner with required labels: ${required.join(',')}`],
+    errors: online ? [] : [`no online runner with required labels: ${required.join(',')}`],
     source: 'github-api',
   };
 }
 
-function applyE2eProbes(
-  base: RunnerStatusResult
-): RunnerStatusResult {
+function applyE2eProbes(base: RunnerStatusResult): RunnerStatusResult {
   const sim = probeSimulator(process.env.MAESTRO_DEVICE);
   const build = probeExpoDevBuild(process.env.EXPO_DEV_BUILD_PATH);
   const errors = [...base.errors];
@@ -334,8 +321,7 @@ export async function checkRunnerStatus(options?: {
   const lane = parseLane(options?.lane ?? process.env.HOLO_RUNNER_LANE ?? null);
   const required = labelsForLane(lane);
 
-  const file =
-    options?.statusFile ?? process.env.HOLO_RUNNER_STATUS_FILE ?? null;
+  const file = options?.statusFile ?? process.env.HOLO_RUNNER_STATUS_FILE ?? null;
 
   let base: RunnerStatusResult;
   if (file && existsSync(resolve(file))) {

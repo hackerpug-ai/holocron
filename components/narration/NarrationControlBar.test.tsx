@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { theme } from '@/lib/theme';
 import type { NarrationState, UseNarrationStateReturn } from './hooks/useNarrationState';
 import { NarrationControlBar } from './NarrationControlBar';
-import { theme } from '@/lib/theme';
 
 vi.mock('react-native-reanimated', () => {
   const { View } = require('react-native');

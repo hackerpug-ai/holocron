@@ -248,6 +248,7 @@ describe.sequential('REDHAT-FIX-S27-14 — webhook fetch timeout bound (F-16)', 
         expect(result.status).toBe(200);
         expect(sink.posts.length, 'must_not_observe: zero captures').toBeGreaterThanOrEqual(1);
         const captured = sink.posts[0];
+        if (!captured) throw new Error('responsive webhook did not capture the alert POST');
         expect(captured.method).toBe('POST');
         expect(captured.json).toBeTruthy();
         expect(captured.json?.job_name).toBe(payload.job_name);

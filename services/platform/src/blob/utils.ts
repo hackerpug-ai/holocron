@@ -54,7 +54,13 @@ export function detectMimeFromBuffer(bytes: Buffer, filename = ''): string {
     return 'audio/mpeg';
   }
   // MP3 streams may begin directly with an MPEG frame rather than an ID3 tag.
-  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
+  const secondByte = bytes[1];
+  if (
+    bytes.length >= 2 &&
+    bytes[0] === 0xff &&
+    secondByte !== undefined &&
+    (secondByte & 0xe0) === 0xe0
+  ) {
     return 'audio/mpeg';
   }
 

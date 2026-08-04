@@ -14,6 +14,7 @@
  */
 
 import { z } from 'zod';
+import { asRecord } from './unknown';
 
 /**
  * Jina Search API response schema (loose validation)
@@ -172,7 +173,12 @@ export async function jinaSearch(
     const rawData = await response.json();
 
     // Handle both array and object responses
-    const resultsArray = Array.isArray(rawData) ? rawData : rawData.data || [];
+    const rawRecord = asRecord(rawData);
+    const resultsArray = Array.isArray(rawData)
+      ? rawData
+      : Array.isArray(rawRecord?.data)
+        ? rawRecord.data
+        : [];
 
     // Validate each result loosely (allow extra fields, make fields optional)
     const validatedResults = resultsArray

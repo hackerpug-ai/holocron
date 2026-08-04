@@ -25,7 +25,10 @@ export function writeEvidenceArtifact(name: string, body: unknown): string {
   return path;
 }
 
-export function runHolo(args: string[]): {
+export function runHolo(
+  args: string[],
+  databaseUrl = DEFAULT_DATABASE_URL
+): {
   status: number | null;
   stdout: string;
   stderr: string;
@@ -33,7 +36,7 @@ export function runHolo(args: string[]): {
   const result = spawnSync(BUN_BIN, [HOLO_CLI, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
-    env: { ...process.env, DATABASE_URL: DEFAULT_DATABASE_URL },
+    env: { ...process.env, DATABASE_URL: databaseUrl },
   });
   return {
     status: result.status,
@@ -51,7 +54,10 @@ export function parseJsonObject(stdout: string): Record<string, unknown> {
 
 /** Ensure domain migrations (including 0003) are applied. */
 export function ensureMigrated(): void {
-  const r = runHolo(['db:migrate', '--json']);
+  const r = runHolo(
+    ['db:migrate', '--json'],
+    process.env.DATABASE_URL_OWNER ?? DEFAULT_DATABASE_URL
+  );
   if (r.status !== 0) {
     throw new Error(`db:migrate failed:\n${r.stdout}\n${r.stderr}`);
   }
@@ -60,7 +66,7 @@ export function ensureMigrated(): void {
 /** Truncate evidence tables for empty-evidence-db start_ref. */
 export async function truncateEvidenceTables(): Promise<void> {
   const { createSql } = await import('../../../services/platform/src/db/client');
-  const sql = createSql(DEFAULT_DATABASE_URL);
+  const sql = createSql(process.env.DATABASE_URL_OWNER ?? DEFAULT_DATABASE_URL);
   try {
     await sql`
       TRUNCATE TABLE

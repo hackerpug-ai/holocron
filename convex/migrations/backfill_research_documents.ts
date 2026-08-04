@@ -73,6 +73,7 @@ export const backfill = action({
 
     for (let i = 0; i < Math.min(batchSize, allSessions.length); i++) {
       const session = allSessions[i];
+      if (!session) continue;
 
       try {
         if (dryRun) {

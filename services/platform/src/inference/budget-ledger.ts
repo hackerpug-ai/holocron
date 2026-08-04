@@ -139,7 +139,7 @@ export class BudgetLedgerWriteError extends Error {
   readonly code = 'BUDGET_LEDGER_WRITE_FAILED' as const;
   constructor(
     message: string,
-    readonly cause?: unknown
+    override readonly cause?: unknown
   ) {
     super(message);
     this.name = 'BudgetLedgerWriteError';

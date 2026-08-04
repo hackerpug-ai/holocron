@@ -21,8 +21,23 @@ interface OAuth2Token {
   access_token: string;
   expires_in: number;
   refresh_token?: string;
-  token_type: string;
-  scope: string;
+  token_type?: string;
+  scope?: string;
+}
+
+function isOAuth2Token(value: unknown): value is OAuth2Token {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'access_token' in value &&
+    typeof value.access_token === 'string' &&
+    'expires_in' in value &&
+    typeof value.expires_in === 'number' &&
+    Number.isFinite(value.expires_in) &&
+    (!('refresh_token' in value) || typeof value.refresh_token === 'string') &&
+    (!('token_type' in value) || typeof value.token_type === 'string') &&
+    (!('scope' in value) || typeof value.scope === 'string')
+  );
 }
 
 /**
@@ -148,7 +163,11 @@ async function getServiceAccountToken(): Promise<string | null> {
       return null;
     }
 
-    const token: OAuth2Token = await response.json();
+    const token = await response.json();
+    if (!isOAuth2Token(token)) {
+      console.error('[ServiceAccount] Token exchange returned an invalid payload');
+      return null;
+    }
 
     // Cache token with expiry buffer (60 seconds early refresh)
     cachedToken = token;
@@ -203,7 +222,11 @@ async function getOAuth2Token(): Promise<string | null> {
       return null;
     }
 
-    const token: OAuth2Token = await response.json();
+    const token = await response.json();
+    if (!isOAuth2Token(token)) {
+      console.error('[OAuth2] Token refresh returned an invalid payload');
+      return null;
+    }
 
     // Cache token with expiry buffer (60 seconds early refresh)
     cachedToken = token;
@@ -362,7 +385,11 @@ export const exchangeCodeForToken = internalAction({
         return null;
       }
 
-      const token: OAuth2Token & { refresh_token?: string } = await response.json();
+      const token = await response.json();
+      if (!isOAuth2Token(token)) {
+        console.error('[OAuth2] Code exchange returned an invalid payload');
+        return null;
+      }
 
       if (!token.refresh_token) {
         console.error('[OAuth2] No refresh token in response');

@@ -15,10 +15,12 @@ import {
   isProcessQueueReady,
   probeQueueBackend,
   type QueueBackendName,
+  type QueueBackendStatus,
   setProcessQueueReady,
   startQueueBackend,
   stopQueueBackend,
 } from '../queue/backend.ts';
+import { type DeploymentIdentityProbe, readDeploymentIdentity } from './deployment-identity.ts';
 
 /** Fleet base as required by AC-2 (no /v1 suffix on the reported endpoint). */
 export const DEFAULT_FLEET_ENDPOINT = 'http://127.0.0.1:4545';
@@ -109,11 +111,25 @@ export type FleetProbeResult = ProbeResult & {
   endpoint: string;
 };
 
+export type EndpointProbeResult = ProbeResult & {
+  endpoint: string | null;
+};
+
 export type HealthBody = {
   status: 'ok' | 'degraded';
   db: ProbeResult;
+  /** Production alias retained alongside db for explicit dependency reporting. */
+  postgres: ProbeResult;
   fleet: FleetProbeResult;
   queue: ProbeResult;
+  zeroCache: EndpointProbeResult;
+  deployment: DeploymentIdentityProbe;
+  failing_dependency: 'postgres' | 'fleet' | 'queue' | 'zero-cache' | 'deployment' | null;
+  host: string | null;
+  runtime: 'container' | null;
+  imageDigest: string | null;
+  sourceRevision: string | null;
+  composeGeneration: string | null;
   /**
    * Observed serving data-plane (UC-SYNC-04 / R2-C04).
    * Fresh control-plane re-read — null when unset.
@@ -122,7 +138,11 @@ export type HealthBody = {
   /** Observed rollback routing target (e.g. convex-frozen). */
   target: string | null;
   /** Nested rollback observation for clients that probe `.rollback.target`. */
-  rollback: { target: string | null; data_plane: string | null; source: string };
+  rollback: {
+    target: string | null;
+    data_plane: string | null;
+    source: string;
+  };
   /**
    * Serving-process identity (REDHAT-FIX-S29-R3-C03).
    * Reported by the already-listening process — not caller-minted by verify CLI.
@@ -177,8 +197,27 @@ export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeRes
 export async function probeFleet(
   endpoint = process.env.FLEET_URL?.replace(/\/v1\/?$/, '') ?? DEFAULT_FLEET_ENDPOINT
 ): Promise<FleetProbeResult> {
-  const base = endpoint.replace(/\/$/, '');
   const start = performance.now();
+  let base: string;
+  try {
+    const parsed = new URL(endpoint);
+    if (parsed.username || parsed.password) {
+      return {
+        ready: false,
+        endpoint: parsed.origin,
+        latency_ms: elapsedMs(start),
+        error: 'fleet endpoint credentials are forbidden',
+      };
+    }
+    base = parsed.origin;
+  } catch {
+    return {
+      ready: false,
+      endpoint: 'invalid',
+      latency_ms: elapsedMs(start),
+      error: 'fleet endpoint is invalid',
+    };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3000);
   try {
@@ -220,8 +259,27 @@ export async function probeQueue(
   databaseUrl?: string
 ): Promise<ProbeResult> {
   const start = performance.now();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    const backend = await probeQueueBackend(databaseUrl ?? DATABASE_URL);
+    // postgres.js can spend substantially longer than the HTTP readiness budget
+    // retrying a disappeared server. Bound the queue probe independently so
+    // production /health can fail closed with a prompt 503 instead of leaving
+    // the request open until the caller aborts it.
+    const timeoutMs = 3_500;
+    const timedOut = new Promise<QueueBackendStatus>((resolveTimeout) => {
+      timeout = setTimeout(
+        () =>
+          resolveTimeout({
+            backend: 'pg-boss',
+            ready: false,
+            placeholder: false,
+            detail: 'queue probe timed out',
+            error: `queue probe exceeded ${timeoutMs}ms`,
+          }),
+        timeoutMs
+      );
+    });
+    const backend = await Promise.race([probeQueueBackend(databaseUrl ?? DATABASE_URL), timedOut]);
     // Process adapter must also be started (composition root startSync).
     const processReady = queue.isReady();
     const ready = backend.ready && processReady;
@@ -242,27 +300,99 @@ export async function probeQueue(
       latency_ms: elapsedMs(start),
       error,
     };
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+/** Probe zero-cache's real keepalive endpoint. */
+export async function probeZeroCache(
+  endpoint = process.env.ZERO_CACHE_URL,
+  required = process.env.HOLO_PRODUCTION_READINESS === '1'
+): Promise<EndpointProbeResult> {
+  const start = performance.now();
+  const raw = endpoint?.trim() ?? '';
+  if (!raw) {
+    return {
+      ready: !required,
+      endpoint: null,
+      latency_ms: elapsedMs(start),
+      ...(required ? { error: 'ZERO_CACHE_URL is required for production readiness' } : {}),
+    };
+  }
+  let base: string;
+  try {
+    base = new URL(raw).origin;
+  } catch {
+    return {
+      ready: false,
+      endpoint: raw,
+      latency_ms: elapsedMs(start),
+      error: 'ZERO_CACHE_URL is invalid',
+    };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3_000);
+  try {
+    const response = await fetch(`${base}/keepalive`, {
+      method: 'GET',
+      headers: { accept: 'application/json, text/plain, */*' },
+      signal: controller.signal,
+    });
+    return {
+      ready: response.ok,
+      endpoint: base,
+      latency_ms: elapsedMs(start),
+      ...(response.ok ? {} : { error: `HTTP ${response.status}` }),
+    };
+  } catch (error) {
+    return {
+      ready: false,
+      endpoint: base,
+      latency_ms: elapsedMs(start),
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 /**
  * Run all readiness probes and map to HTTP status.
- * - 503 when db is not ready (critical)
- * - 200 with status "ok" when all ready
- * - 200 with status "degraded" when db ready but fleet/queue not
+ * Production mode (HOLO_PRODUCTION_READINESS=1) is fail-closed: every required
+ * dependency and deployment identity must be ready or the endpoint returns 503.
+ * Non-production mode retains the historical db-only HTTP status behavior.
  */
 export async function runHealthCheck(options?: {
   databaseUrl?: string;
   fleetEndpoint?: string;
   queue?: QueueLike;
+  zeroCacheEndpoint?: string;
+  strictReadiness?: boolean;
+  deploymentEnv?: NodeJS.ProcessEnv;
+  processFacts?: { pid?: number; uptimeMs?: number };
 }): Promise<HealthResponse> {
-  const [db, fleet, queue] = await Promise.all([
+  const strictReadiness = options?.strictReadiness ?? process.env.HOLO_PRODUCTION_READINESS === '1';
+  const deployment = readDeploymentIdentity(options?.deploymentEnv, options?.processFacts);
+  const [db, fleet, queue, zeroCache] = await Promise.all([
     probeDb(options?.databaseUrl),
     probeFleet(options?.fleetEndpoint),
     probeQueue(options?.queue, options?.databaseUrl),
+    probeZeroCache(options?.zeroCacheEndpoint, strictReadiness),
   ]);
 
-  const allReady = db.ready && fleet.ready && queue.ready;
+  const allReady = db.ready && fleet.ready && queue.ready && zeroCache.ready && deployment.ready;
+  const failingDependency = !db.ready
+    ? 'postgres'
+    : !fleet.ready
+      ? 'fleet'
+      : !queue.ready
+        ? 'queue'
+        : !zeroCache.ready
+          ? 'zero-cache'
+          : !deployment.ready
+            ? 'deployment'
+            : null;
   // Fresh control-plane re-read every health request (R2-C04 live ack surface)
   const observed = resolveObservedDataPlane();
   const serviceLabelRaw =
@@ -277,7 +407,16 @@ export async function runHealthCheck(options?: {
     '';
   const body: HealthBody = {
     status: allReady ? 'ok' : 'degraded',
-    db: { ready: db.ready, latency_ms: db.latency_ms, ...(db.error ? { error: db.error } : {}) },
+    db: {
+      ready: db.ready,
+      latency_ms: db.latency_ms,
+      ...(db.error ? { error: db.error } : {}),
+    },
+    postgres: {
+      ready: db.ready,
+      latency_ms: db.latency_ms,
+      ...(db.error ? { error: db.error } : {}),
+    },
     fleet: {
       ready: fleet.ready,
       endpoint: fleet.endpoint,
@@ -290,6 +429,19 @@ export async function runHealthCheck(options?: {
       ...(queue.backend ? { backend: queue.backend } : {}),
       ...(queue.error ? { error: queue.error } : {}),
     },
+    zeroCache: {
+      ready: zeroCache.ready,
+      endpoint: zeroCache.endpoint,
+      latency_ms: zeroCache.latency_ms,
+      ...(zeroCache.error ? { error: zeroCache.error } : {}),
+    },
+    deployment,
+    failing_dependency: failingDependency,
+    host: deployment.identity?.host ?? null,
+    runtime: deployment.identity?.runtime ?? null,
+    imageDigest: deployment.identity?.imageDigest ?? null,
+    sourceRevision: deployment.identity?.sourceRevision ?? null,
+    composeGeneration: deployment.identity?.composeGeneration ?? null,
     data_plane: observed.data_plane,
     target: observed.target,
     rollback: {
@@ -298,13 +450,13 @@ export async function runHealthCheck(options?: {
       source: observed.source,
     },
     // R3-C03: identity bound to this already-listening process (never caller-minted).
-    pid: process.pid,
+    pid: options?.processFacts?.pid ?? process.pid,
     service_label: serviceLabelRaw.trim().length > 0 ? serviceLabelRaw.trim() : null,
     generation: generationRaw.trim().length > 0 ? generationRaw.trim() : null,
-    uptime_ms: Math.max(1, Math.ceil(process.uptime() * 1000)),
+    uptime_ms: Math.max(1, Math.ceil(options?.processFacts?.uptimeMs ?? process.uptime() * 1000)),
   };
 
-  if (!db.ready) {
+  if (!db.ready || (strictReadiness && !allReady)) {
     return { statusCode: 503, body };
   }
   return { statusCode: 200, body };

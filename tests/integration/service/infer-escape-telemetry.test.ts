@@ -18,7 +18,14 @@ import {
   applyConsolidatedSecretsToEnv,
   getSecretValue,
 } from '../../../services/platform/src/config/secrets';
-import { BUN_BIN, DEFAULT_DATABASE_URL, HOLO_CLI, PLATFORM_IT, REPO_ROOT } from './harness';
+import {
+  BUN_BIN,
+  DEFAULT_DATABASE_URL,
+  HOLO_CLI,
+  PLATFORM_IT,
+  REPO_ROOT,
+  seedNormalEscapeState,
+} from './harness';
 import { installNetworkCapture } from './infer-network-capture';
 
 function ensureDeepSeekKeyFromSecrets(): boolean {
@@ -105,12 +112,13 @@ async function withBudgetLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 describe('AC-3: logEscape after real Anthropic escape', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!PLATFORM_IT) return;
     const mig = runHolo(['db:migrate', '--json']);
     if (mig.status !== 0) {
       throw new Error(`db:migrate failed:\n${mig.stdout}\n${mig.stderr}`);
     }
+    await seedNormalEscapeState();
   });
 
   itLive(

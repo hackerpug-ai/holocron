@@ -133,10 +133,10 @@ export function formatTable(headers: string[], rows: string[][], maxColWidth = 3
 
   const pad = (s: string, width: number) => truncate(s, width).padEnd(width);
 
-  const headerLine = `| ${headers.map((h, i) => pad(h, colWidths[i])).join(' | ')} |`;
+  const headerLine = `| ${headers.map((h, i) => pad(h, colWidths[i] ?? maxColWidth)).join(' | ')} |`;
   const separatorLine = `|${colWidths.map((w) => '-'.repeat(w + 2)).join('|')}|`;
   const dataLines = rows.map(
-    (row) => `| ${row.map((cell, i) => pad(cell || '', colWidths[i])).join(' | ')} |`
+    (row) => `| ${row.map((cell, i) => pad(cell || '', colWidths[i] ?? maxColWidth)).join(' | ')} |`
   );
 
   return [headerLine, separatorLine, ...dataLines].join('\n');
@@ -162,5 +162,5 @@ export function formatSources(
  * Format today's date as YYYY-MM-DD
  */
 export function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().slice(0, 10);
 }

@@ -52,7 +52,7 @@ function extractHtmlMetadata(html: string): {
 } {
   const pick = (regex: RegExp): string => {
     const m = html.match(regex);
-    return m ? m[1].trim() : '';
+    return m?.[1]?.trim() ?? '';
   };
 
   // Prefer og: tags, fall back to standard tags

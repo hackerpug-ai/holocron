@@ -6,6 +6,7 @@ import { type ImmutableExport, readImmutableExport } from './archive.ts';
 
 export interface LatestRunContext {
   sql: Sql;
+  databaseUrl: string;
   catalog: SourceCatalog;
   archive: ImmutableExport;
   runId: string;
@@ -47,6 +48,7 @@ export async function loadLatestRunContext(options?: {
     const archive = readImmutableExport(exportDir, catalog);
     return {
       sql,
+      databaseUrl,
       catalog,
       archive,
       runId: latest.id,
