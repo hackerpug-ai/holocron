@@ -155,6 +155,37 @@ if [[ "${MINT_R2_PREFIX_RESTORE:-0}" == "1" ]]; then
   source "$ROOT/scripts/mint-r2-prefix-restore-env.sh"
 fi
 
+# D06-02 hermetic cutover:go-no-go isolation defaults (step 1).
+# Integration/live lanes refuse ambient operator DATABASE_URL; they require an
+# explicit HOLO_GO_NO_GO_* tuple (or a pre-provisioned isolated cluster). When
+# the operator already has the standard s29-it Postgres on :56594, bind to it.
+export PLATFORM_IT="${PLATFORM_IT:-1}"
+export HOLO_GO_NO_GO_PHASED="${HOLO_GO_NO_GO_PHASED:-1}"
+export ZERO_CACHE_URL="${ZERO_CACHE_URL:-http://127.0.0.1:4848}"
+export ZERO_ADMIN_PASSWORD="${ZERO_ADMIN_PASSWORD:-local-zero-admin}"
+if [[ -z "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -h 127.0.0.1 -p 56594 >/dev/null 2>&1; then
+    export HOLO_GO_NO_GO_DATABASE_URL="postgres://127.0.0.1:56594/holocron_nonprod"
+  fi
+fi
+if [[ -n "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
+  export HOLO_GO_NO_GO_DATABASE_URL_OWNER="${HOLO_GO_NO_GO_DATABASE_URL_OWNER:-$HOLO_GO_NO_GO_DATABASE_URL}"
+  export HOLO_GO_NO_GO_CONVEX_URL="${HOLO_GO_NO_GO_CONVEX_URL:-http://127.0.0.1:3210}"
+  export HOLO_GO_NO_GO_CONVEX_SITE_URL="${HOLO_GO_NO_GO_CONVEX_SITE_URL:-http://127.0.0.1:3211}"
+  export HOLO_GO_NO_GO_CONVEX_DEPLOYMENT="${HOLO_GO_NO_GO_CONVEX_DEPLOYMENT:-local:s29-gate}"
+  export HOLO_GO_NO_GO_FLEET_URL="${HOLO_GO_NO_GO_FLEET_URL:-${FLEET_URL:-http://127.0.0.1:4545/v1}}"
+  export HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX="${HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX:-integration/s29-gate-completion}"
+  export HOLO_GO_NO_GO_AUTOSTART="${HOLO_GO_NO_GO_AUTOSTART:-0}"
+  if [[ -z "${HOLO_GO_NO_GO_PGBACKREST_PG1_PATH:-}" ]]; then
+    for _pg1 in /tmp/holocron-s29-it-pg.*/data; do
+      if [[ -d "$_pg1" ]]; then
+        export HOLO_GO_NO_GO_PGBACKREST_PG1_PATH="$_pg1"
+        break
+      fi
+    done
+  fi
+fi
+
 echo "R3-C01 / R2-H01 human-gate re-run"
 echo "  GATE_RUN_ID=$GATE_RUN_ID"
 echo "  source_sha=$SOURCE_SHA  (git rev-parse HEAD)"
