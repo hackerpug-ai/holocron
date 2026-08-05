@@ -694,6 +694,9 @@ describe('Sprint 19 MCP rehost gateway', () => {
       const invalidError = JSON.parse(invalidText) as { code?: string };
       expect(invalidError.code).toBe('INVALID_STATE');
     },
-    60_000
+    // Real store_document + hybrid_search + dual shop_products (amazon/bestbuy)
+    // regularly exceeds 60s under serial go-no-go load (sibling shop-only case
+    // already measured ~58s). Keep the live retailer oracle; raise the wall.
+    180_000
   );
 });
