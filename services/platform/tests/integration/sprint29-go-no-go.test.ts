@@ -91,19 +91,35 @@ function isolatedLaneEnv(
   const env = { ...ambientEnv };
   // Preserve a full operator environment here so the production isolation
   // boundary—not the test helper—must remove broad restore credentials.
-  return {
+  const databaseUrl =
+    'postgres://integration:integration@127.0.0.1:65432/holocron_nonprod';
+  const merged: NodeJS.ProcessEnv = {
     ...env,
     HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:test-s29',
     HOLO_GO_NO_GO_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
     HOLO_GO_NO_GO_CONVEX_URL: 'http://127.0.0.1:3210',
-    HOLO_GO_NO_GO_DATABASE_URL:
-      'postgres://integration:integration@127.0.0.1:65432/holocron_nonprod',
+    HOLO_GO_NO_GO_DATABASE_URL: databaseUrl,
+    // Keep owner endpoint aligned with the test DB URL. Ambient human-gate env
+    // may inject HOLO_GO_NO_GO_DATABASE_URL_OWNER for :56594; mismatched owner
+    // fails createIsolatedIntegrationEnv before shape/boundary gates run.
+    HOLO_GO_NO_GO_DATABASE_URL_OWNER: databaseUrl,
     HOLO_GO_NO_GO_PGBACKREST_PG1_PATH: root,
     HOLO_GO_NO_GO_FLEET_URL: 'http://127.0.0.1:4545/v1',
     HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX: 'integration/s29-go-no-go-test',
+    // Nested shape/boundary suites do not need a live Zero; production go-no-go
+    // still starts Zero via HOLO_GO_NO_GO_START_ZERO when :4848 is down.
+    HOLO_GO_NO_GO_START_ZERO: '0',
     HOLO_SECRETS_PATH: secretsPath,
     ...overrides,
   };
+  // If a caller overrides only DATABASE_URL, keep OWNER on the same endpoint.
+  if (
+    overrides.HOLO_GO_NO_GO_DATABASE_URL &&
+    overrides.HOLO_GO_NO_GO_DATABASE_URL_OWNER === undefined
+  ) {
+    merged.HOLO_GO_NO_GO_DATABASE_URL_OWNER = overrides.HOLO_GO_NO_GO_DATABASE_URL;
+  }
+  return merged;
 }
 
 function runHolo(
