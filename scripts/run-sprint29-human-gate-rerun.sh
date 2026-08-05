@@ -166,6 +166,20 @@ export PLATFORM_IT="${PLATFORM_IT:-1}"
 export HOLO_GO_NO_GO_PHASED="${HOLO_GO_NO_GO_PHASED:-1}"
 export ZERO_CACHE_URL="${ZERO_CACHE_URL:-http://127.0.0.1:4848}"
 export ZERO_ADMIN_PASSWORD="${ZERO_ADMIN_PASSWORD:-local-zero-admin}"
+# Compose contract IT evidence requires a non-empty test image when PLATFORM_IT=1.
+# Prefer operator override, then the active release lock image, then local registry.
+if [[ -z "${HOLO_PLATFORM_TEST_IMAGE:-}" ]]; then
+  if [[ -n "${HOLO_RELEASE_PATH:-}" && -f "${HOLO_RELEASE_PATH}" ]]; then
+    HOLO_PLATFORM_TEST_IMAGE="$(jq -r '.image // empty' "$HOLO_RELEASE_PATH" 2>/dev/null || true)"
+  fi
+  if [[ -z "${HOLO_PLATFORM_TEST_IMAGE:-}" && -f /tmp/holocron-s29-release-09319ead/image-lock.json ]]; then
+    HOLO_PLATFORM_TEST_IMAGE="$(jq -r '.image // empty' /tmp/holocron-s29-release-09319ead/image-lock.json 2>/dev/null || true)"
+  fi
+  if [[ -z "${HOLO_PLATFORM_TEST_IMAGE:-}" ]]; then
+    HOLO_PLATFORM_TEST_IMAGE="127.0.0.1:5000/holocron-platform:latest"
+  fi
+  export HOLO_PLATFORM_TEST_IMAGE
+fi
 if [[ -z "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
   if command -v pg_isready >/dev/null 2>&1 && pg_isready -h 127.0.0.1 -p 56594 >/dev/null 2>&1; then
     export HOLO_GO_NO_GO_DATABASE_URL="postgres://127.0.0.1:56594/holocron_nonprod"
