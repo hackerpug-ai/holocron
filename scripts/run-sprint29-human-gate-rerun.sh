@@ -47,11 +47,11 @@ STEP_TIMEOUT_DEFAULT="${STEP_TIMEOUT_DEFAULT:-180}"
 STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-10800}" # go/no-go includes serial live backup/PITR suites
 STEP_TIMEOUT_2="${STEP_TIMEOUT_2:-600}"   # build/pull/cold-recreate deployment
 STEP_TIMEOUT_3="${STEP_TIMEOUT_3:-600}"   # dependency + SIGKILL + durability + MCP
-STEP_TIMEOUT_5="${STEP_TIMEOUT_5:-900}"   # convex deploy + fence arm + article baseline + quiet
+STEP_TIMEOUT_5="${STEP_TIMEOUT_5:-1200}"  # convex deploy + catalog wait + fence + article + quiet
 STEP_TIMEOUT_6="${STEP_TIMEOUT_6:-1800}"  # run-etl / convex export / real embeddings
 STEP_TIMEOUT_7="${STEP_TIMEOUT_7:-300}"   # flip + verify-soak
-# function-spec catalogs can be large; allow longer post-deploy wait for migrationFence/*
-export CONVEX_FUNCTION_SPEC_TIMEOUT_SECONDS="${CONVEX_FUNCTION_SPEC_TIMEOUT_SECONDS:-300}"
+# function-spec catalogs can stay partial for several minutes after large deploys
+export CONVEX_FUNCTION_SPEC_TIMEOUT_SECONDS="${CONVEX_FUNCTION_SPEC_TIMEOUT_SECONDS:-600}"
 
 if [[ ! -f "$PLAN" ]]; then
   echo "error: gate-plan missing: $PLAN" >&2
@@ -179,6 +179,17 @@ if [[ -z "${HOLO_PLATFORM_TEST_IMAGE:-}" ]]; then
     HOLO_PLATFORM_TEST_IMAGE="127.0.0.1:5000/holocron-platform:latest"
   fi
   export HOLO_PLATFORM_TEST_IMAGE
+fi
+# Maestro this-cycle cold-boot oracles (GATE-FIX-G2) require real junit/png/mov.
+# Hermetic go-no-go would otherwise bind E2E_ARTIFACT_DIR to an empty lifecycle
+# evidence root. Prefer the operator's this-cycle Maestro dir when present so
+# createIsolatedIntegrationEnv preserves it (E2E_ARTIFACT_DIR wins over lifecycle).
+if [[ -z "${E2E_ARTIFACT_DIR:-}" ]]; then
+  if [[ -f "$ROOT/.tmp/maestro-reference-flow/junit.xml" \
+     && -f "$ROOT/.tmp/maestro-reference-flow/final.png" \
+     && -f "$ROOT/.tmp/maestro-reference-flow/reference-flow.mov" ]]; then
+    export E2E_ARTIFACT_DIR="$ROOT/.tmp/maestro-reference-flow"
+  fi
 fi
 if [[ -z "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
   if command -v pg_isready >/dev/null 2>&1 && pg_isready -h 127.0.0.1 -p 56594 >/dev/null 2>&1; then
