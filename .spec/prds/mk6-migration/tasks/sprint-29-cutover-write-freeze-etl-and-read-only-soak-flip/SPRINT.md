@@ -1,7 +1,7 @@
 ---
 sequence: 29
 timeline: Phase 7 — Cutover and Decommission
-status: In Progress
+status: Complete
 planned_from_roadmap_sha: 74a7aa730d3539e59b37cd0191f79c99549d4690624411e5d5525d48aacee161
 planned_from_source_sha: 82342b50d6fce525c1fa1f732253f7b8cf2e463228960a3f9021a66f6f0065cd
 source_kind: local-prd-sha256
@@ -13,9 +13,9 @@ capability_coverage: [CAP-DEP-01, CAP-CUT-01, CAP-MIG-01]
 
 **Sequence:** 29
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
-> Progress: 6/7 base tasks completed (D06-02 cutover:go-no-go green) · D06-06 and D06-07 added by the 2026-08-02 deployment-boundary delta replan
-> Status-Note: D06-02 GREEN @ 48866650 — hermetic phased cutover:go-no-go overall.ok=true failed_count=0 (8/8 gates, SHA-bound). Human-gate re-run 20260804T180223Z HEAD-bound deployed-http partial 4/8 (steps 2–4+8 pass; step1 needed isolation env defaults — now in re-run script; step5 needs HOLO_ARTICLE_SHARE_TOKEN; not landing_eligible until 8/8)
+**Status:** Complete
+> Progress: 7/7 base tasks completed · human-gate 8/8 `landing_eligible=true`
+> Status-Note: Human-gate re-run **20260805T185338Z** @ `a688bb17` — deployed-http `http://192.168.1.160:44111`, cutover:go-no-go overall.ok failed_count=0, steps 1–8 pass, landing_eligible=true. Gate fixes: Bun dotenv isolation, Maestro E2E_ARTIFACT_DIR bind, function-spec file-based catalog (no bash truncation), hermetic Zero START_ZERO + fresh ZERO_REPLICA_FILE, HOLO_ARTICLE_SHARE_TOKEN from operator .env
 **Proposed by:** devops-engineer + mastra-planner + mcp-planner + convex-planner + react-native-ui-planner + frontend-designer
 **Milestone:** — (`sprint-29`)
 **Branch:** `mk6-cutover`
