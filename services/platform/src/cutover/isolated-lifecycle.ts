@@ -256,27 +256,36 @@ function startZeroCache(options: {
   port: number;
   adminPassword: string;
   logPath: string;
+  /** Unique SQLite replica path so hermetic runs do not inherit a litestream-backed zero.db. */
+  replicaFile: string;
 }): { pid: number; process: ChildProcess; url: string } {
   const script = resolve(options.repoRoot, 'scripts/run-zero-cache.sh');
   if (!existsSync(script)) {
     throw new Error(`run-zero-cache.sh missing at ${script}`);
   }
   const logFd = openSync(options.logPath, 'a');
+  // Drop litestream keys entirely (empty string still trips Zero 1.8 restore paths).
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of [
+    'ZERO_LITESTREAM_EXECUTABLE',
+    'ZERO_LITESTREAM_BACKUP_URL',
+    'ZERO_LITESTREAM_CONFIG',
+  ]) {
+    delete env[key];
+  }
   const child = spawn('/bin/bash', [script], {
     cwd: options.repoRoot,
     detached: true,
     stdio: ['ignore', logFd, logFd],
     env: {
-      ...process.env,
+      ...env,
       DATABASE_URL: options.databaseUrl,
       ZERO_UPSTREAM_DB: options.databaseUrl,
       ZERO_ADMIN_PASSWORD: options.adminPassword,
       ZERO_PORT: String(options.port),
       ZERO_PUBLICATION: 'zero_pub',
-      // Prefer in-process storage for hermetic runs (no litestream coupling).
-      ZERO_LITESTREAM_EXECUTABLE: '',
-      ZERO_LITESTREAM_BACKUP_URL: '',
-      ZERO_LITESTREAM_CONFIG: '',
+      // Hermetic fresh replica — never reuse repo-root/tmp zero.db litestream state.
+      ZERO_REPLICA_FILE: options.replicaFile,
     },
   });
   child.unref();
@@ -487,16 +496,24 @@ export function createIsolatedLifecycle(options: {
   const zeroPort = Number(baseEnv.ZERO_PORT || new URL(zeroUrl).port || 4848);
   const zeroHealthy = waitHttpOk(zeroUrl, 1500);
   if (!zeroHealthy && (wantAutostart || baseEnv.HOLO_GO_NO_GO_START_ZERO === '1')) {
+    const replicaFile = resolve(root, `zero-replica-${zeroPort}.db`);
     const z = startZeroCache({
       repoRoot,
       databaseUrl,
       port: zeroPort,
       adminPassword: zeroAdmin,
       logPath: resolve(root, 'zero-cache.log'),
+      replicaFile,
     });
     children.push({ name: 'zero-cache', pid: z.pid, process: z.process, processGroup: true });
     started.zero = true;
     zeroUrl = z.url;
+    // Zero 1.8 needs several seconds to open the replica + publications.
+    if (!waitHttpOk(zeroUrl, 45_000)) {
+      throw new Error(
+        `HOLO_GO_NO_GO_START_ZERO=1 but zero-cache failed to become ready at ${zeroUrl} (see ${resolve(root, 'zero-cache.log')})`
+      );
+    }
   }
 
   const env: NodeJS.ProcessEnv = {
@@ -580,6 +597,7 @@ export function createIsolatedLifecycle(options: {
         port: zeroPort,
         adminPassword: zeroAdmin,
         logPath: resolve(root, 'zero-cache-restart.log'),
+        replicaFile: resolve(root, `zero-replica-restart-${zeroPort}.db`),
       });
       children.push({
         name: 'zero-cache-restart',
