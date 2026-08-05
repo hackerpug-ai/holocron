@@ -223,19 +223,45 @@ export function defaultGoNoGoReportPath(cwd = process.cwd()): string {
   return resolve(cwd, 'go-no-go-report.json');
 }
 
+/**
+ * Bun auto-loads repo-root `.env` into every child unless an explicit env file
+ * is supplied. That re-injects operator R2 restore/admin tuples into hermetic
+ * go-no-go children after createIsolatedIntegrationEnv strips them from the
+ * spawn env bag. Force an empty env file whenever the isolated lane is active.
+ */
+function argvForIsolatedSpawn(
+  bin: string,
+  args: readonly string[],
+  env: NodeJS.ProcessEnv
+): { bin: string; args: string[] } {
+  if (env.HOLO_GO_NO_GO_ISOLATED !== '1') {
+    return { bin, args: [...args] };
+  }
+  if (bin === 'bun' || bin.endsWith('/bun')) {
+    // bun --env-file=/dev/null disables dotenv; later args are the script.
+    if (args[0] === '--env-file' || args[0]?.startsWith('--env-file=')) {
+      return { bin, args: [...args] };
+    }
+    return { bin, args: ['--env-file=/dev/null', ...args] };
+  }
+  return { bin, args: [...args] };
+}
+
 function runOneGate(spec: GateSpec, options: { cwd: string; env: NodeJS.ProcessEnv }): GateResult {
   const started = Date.now();
-  const [bin, ...args] = spec.argv;
-  const result = spawnSync(bin, args, {
+  const [bin, ...rawArgs] = spec.argv;
+  const gateEnv =
+    spec.name === 'integration' || spec.name === 'live'
+      ? { ...options.env, PLATFORM_IT: '1' }
+      : options.env;
+  const { bin: spawnBin, args } = argvForIsolatedSpawn(bin, rawArgs, gateEnv);
+  const result = spawnSync(spawnBin, args, {
     cwd: options.cwd,
     encoding: 'utf8',
     // Fail-closed integration/live suites require their explicit real-service
     // switch. Keep it off the unit lane so live-only unit fixtures do not run
     // under the wrong project merely because go/no-go is the parent process.
-    env:
-      spec.name === 'integration' || spec.name === 'live'
-        ? { ...options.env, PLATFORM_IT: '1' }
-        : options.env,
+    env: gateEnv,
     maxBuffer: MAX_BUFFER,
     // No timeout: full harness suites can run for many minutes.
   });

@@ -165,8 +165,7 @@ function assertGitShaBoundToHead(
     return { head, mode: 'evidence-only-delta' };
   }
 
-  const landing =
-    results?.landing_eligible ?? results?.meta?.landing_eligible ?? null;
+  const landing = results?.landing_eligible ?? results?.meta?.landing_eligible ?? null;
   const claimingPass =
     results?.verdict === 'pass' ||
     landing === true ||

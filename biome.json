@@ -25,7 +25,8 @@
       "!holocron-mcp",
       "!scripts",
       "!**/*.stories.tsx",
-      "!metro.config.cjs"
+      "!metro.config.cjs",
+      "!.opencode"
     ]
   },
   "formatter": {

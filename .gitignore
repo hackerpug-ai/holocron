@@ -100,3 +100,6 @@ actions-runner/
 **/.credentials
 **/.credentials_rsaparams
 zero.db
+
+# opencode local state (biome noise; never commit sessions/goals runtime)
+.opencode/

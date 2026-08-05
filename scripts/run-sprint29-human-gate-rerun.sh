@@ -47,8 +47,11 @@ STEP_TIMEOUT_DEFAULT="${STEP_TIMEOUT_DEFAULT:-180}"
 STEP_TIMEOUT_1="${STEP_TIMEOUT_1:-10800}" # go/no-go includes serial live backup/PITR suites
 STEP_TIMEOUT_2="${STEP_TIMEOUT_2:-600}"   # build/pull/cold-recreate deployment
 STEP_TIMEOUT_3="${STEP_TIMEOUT_3:-600}"   # dependency + SIGKILL + durability + MCP
+STEP_TIMEOUT_5="${STEP_TIMEOUT_5:-900}"   # convex deploy + fence arm + article baseline + quiet
 STEP_TIMEOUT_6="${STEP_TIMEOUT_6:-1800}"  # run-etl / convex export / real embeddings
 STEP_TIMEOUT_7="${STEP_TIMEOUT_7:-300}"   # flip + verify-soak
+# function-spec catalogs can be large; allow longer post-deploy wait for migrationFence/*
+export CONVEX_FUNCTION_SPEC_TIMEOUT_SECONDS="${CONVEX_FUNCTION_SPEC_TIMEOUT_SECONDS:-300}"
 
 if [[ ! -f "$PLAN" ]]; then
   echo "error: gate-plan missing: $PLAN" >&2
@@ -173,7 +176,11 @@ if [[ -n "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
   export HOLO_GO_NO_GO_CONVEX_URL="${HOLO_GO_NO_GO_CONVEX_URL:-http://127.0.0.1:3210}"
   export HOLO_GO_NO_GO_CONVEX_SITE_URL="${HOLO_GO_NO_GO_CONVEX_SITE_URL:-http://127.0.0.1:3211}"
   export HOLO_GO_NO_GO_CONVEX_DEPLOYMENT="${HOLO_GO_NO_GO_CONVEX_DEPLOYMENT:-local:s29-gate}"
-  export HOLO_GO_NO_GO_FLEET_URL="${HOLO_GO_NO_GO_FLEET_URL:-${FLEET_URL:-http://127.0.0.1:4545/v1}}"
+  # Isolation fleet must be loopback — never inherit host.docker.internal from
+  # production FLEET_URL (go-no-go asserts loopback-only HOLO_GO_NO_GO_FLEET_URL).
+  if [[ -z "${HOLO_GO_NO_GO_FLEET_URL:-}" || "${HOLO_GO_NO_GO_FLEET_URL}" == *host.docker.internal* ]]; then
+    export HOLO_GO_NO_GO_FLEET_URL="http://127.0.0.1:4545/v1"
+  fi
   export HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX="${HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX:-integration/s29-gate-completion}"
   export HOLO_GO_NO_GO_AUTOSTART="${HOLO_GO_NO_GO_AUTOSTART:-0}"
   if [[ -z "${HOLO_GO_NO_GO_PGBACKREST_PG1_PATH:-}" ]]; then
