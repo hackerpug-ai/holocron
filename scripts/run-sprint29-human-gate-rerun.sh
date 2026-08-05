@@ -208,6 +208,9 @@ if [[ -n "${HOLO_GO_NO_GO_DATABASE_URL:-}" ]]; then
   fi
   export HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX="${HOLO_GO_NO_GO_R2_PGBACKREST_PREFIX:-integration/s29-gate-completion}"
   export HOLO_GO_NO_GO_AUTOSTART="${HOLO_GO_NO_GO_AUTOSTART:-0}"
+  # Start Zero against the bound nonprod DB when nothing is listening on
+  # ZERO_CACHE_URL (default :4848). Full AUTOSTART stays off so we reuse :56594.
+  export HOLO_GO_NO_GO_START_ZERO="${HOLO_GO_NO_GO_START_ZERO:-1}"
   if [[ -z "${HOLO_GO_NO_GO_PGBACKREST_PG1_PATH:-}" ]]; then
     for _pg1 in /tmp/holocron-s29-it-pg.*/data; do
       if [[ -d "$_pg1" ]]; then
