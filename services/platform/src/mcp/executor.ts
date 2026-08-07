@@ -958,12 +958,18 @@ export async function executePostgresMcpTool(
         `;
         const stored = rows[0] as { documentId?: string; title?: string } | undefined;
         // REDHAT-FIX-RH-S30-03: production-bound write audit when export watermark active.
+        // Fail closed: do not return success if the audit ledger write fails.
         if (stored?.documentId && isExportWatermarkActive()) {
-          await recordPostExportAcceptedWrite({
+          const audit = await recordPostExportAcceptedWrite({
             surface: 'mcp.store_document',
             writeRowId: stored.documentId,
             committedAtMs: Date.now(),
           });
+          if (audit.ok !== true) {
+            throw new Error(
+              `POST_EXPORT_WRITE_AUDIT_FAILED: ${audit.code}: ${audit.message} (documentId=${stored.documentId})`
+            );
+          }
         }
         return { ...stored, embeddingStatus: 'pending' };
       }
