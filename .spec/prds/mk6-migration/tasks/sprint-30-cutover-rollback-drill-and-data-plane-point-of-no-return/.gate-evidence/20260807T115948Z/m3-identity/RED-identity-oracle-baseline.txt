@@ -1,0 +1,45 @@
+=== M-3 RED identity oracle baseline (production-path mutation) ===
+command: vitest run --project integration services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts
+vitest_bin=/Users/inference1/Projects/holocron/node_modules/.bin/vitest
+cwd: /Users/inference1/Projects/holocron
+exit_code=1
+expected_exit_code=1
+timestamp=2026-08-07T11:59:16Z
+mutation: independentHttp201Id := reselectProbeId after runEnableWrites reselect_miss path
+oracle: expect(independentHttp201Id).not.toBe(reselectProbeId)  # production test
+production_test: services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts
+injectFirstWriteFailure_oracle: reselect_miss_self_correlation
+--- vitest raw transcript (validated before this header) ---
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+ ❯ |integration| services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts (6 tests | 1 failed) 49642ms
+     ✓ RH-S30-03 AC-1: real POST /api/documents after watermark increments Postgres ledger  4065ms
+     ✓ RH-S30-03 AC-2/3: absent/missing file does not zero oracle; ledger fail-closed 55ms
+     ✓ RH-S30-05: crash-window recovery re-arms fence + production audit refuses rollback  10218ms
+     ✓ RH-S30-19 M-3: non-201 accepted-id re-arms fence and refuses rollback  10090ms
+     ✓ RH-S30-19 M-3: transport failure re-arms fence and refuses rollback  16791ms
+     × RH-S30-19 M-3: reselect miss re-arms fence and refuses rollback 8421ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts > REDHAT-FIX-RH-S30 remediations 03 + 05 > RH-S30-19 M-3: reselect miss re-arms fence and refuses rollback
+AssertionError: expected '00000000-0000-4000-8000-eeeeeeeeeeee' not to be '00000000-0000-4000-8000-eeeeeeeeeeee' // Object.is equality
+ ❯ services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts:453:40
+    451|       /* RH-S30-34-MUTATION: self-correlate independentHttp201Id to fo…
+    452|       independentHttp201Id = reselectProbeId;
+    453|       expect(independentHttp201Id).not.toBe(reselectProbeId);
+       |                                        ^
+    454|       expect(report.write_row_id).toBe(independentHttp201Id);
+    455|
+ ❯ withCutoverSharedLock services/platform/tests/integration/sprint30-cutover-harness.ts:95:12
+ ❯ services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts:396:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  05:58:25
+   Duration  50.49s (transform 250ms, setup 107ms, import 636ms, tests 49.64s, environment 0ms)
+

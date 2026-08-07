@@ -1,0 +1,24 @@
+{
+  "fence": "1",
+  "ledger": {
+    "audit": {
+      "export_watermark_ms": 1786184434320,
+      "accepted_writes": [
+        {
+          "committed_at_ms": 1786098043551,
+          "surface": "hono.POST /api/documents",
+          "id": "24cea1a5-b8f2-4306-91c2-a0675a7630ba"
+        },
+        {
+          "committed_at_ms": 1786184434321,
+          "surface": "hono.POST /api/documents",
+          "id": "24cea1a5-b8f2-4306-91c2-a0675a7630ba"
+        }
+      ],
+      "source": "postgres"
+    },
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+    "source": "postgres"
+  },
+  "independentHttp201Id": "24cea1a5-b8f2-4306-91c2-a0675a7630ba"
+}
