@@ -373,10 +373,12 @@ echo "$ASSERT_RC" >"$EVID_DIR/assert-human-test-verdict.exit"
 cp "$ASSERT_OUT" ".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.json"
 echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
 
-# ── C-3 / RH-S30-18: safe role-provenance probe (app-role + SQLSTATE) ───────
-# Gate-owned production-role SQLSTATE under holocron_app (or residual SET ROLE).
-# Artifacts: .gate-evidence/<run>/ponr-role-provenance/ + .tmp/REDHAT-FIX-RH-S30-18/
+# ── C-3 / RH-S30-18+21: success-path probe + forced-marker-miss preservation ─
+# Success path: holocron_app SQLSTATE under always-rolled-back transaction.
+# Forced miss: gate-owned PROBE_FORCE_MARKER_MISS against PONR-holding DB
+# (before_count>=1 required; empty table fails closed).
 PROBE_RC=0
+MARKER_MISS_RC=0
 if [[ -n "${DATABASE_URL:-}" ]]; then
   set +e
   bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-provenance" \
@@ -387,6 +389,21 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   mkdir -p .tmp/REDHAT-FIX-RH-S30-18
   cp -R "$EVID_DIR/ponr-role-provenance/." .tmp/REDHAT-FIX-RH-S30-18/ 2>/dev/null || true
   cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-transcript.log 2>/dev/null || true
+
+  # RH-S30-21: forced marker-miss on same DB after success-path probe (PONR may exist).
+  # Prefer disposable URL when set; else require current DATABASE_URL already holds PONR.
+  MARKER_DB="${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-$DATABASE_URL}"
+  set +e
+  DATABASE_URL="$MARKER_DB" HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-1}" \
+    bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
+    "$EVID_DIR/ponr-role-provenance-marker-miss" \
+    >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
+    2>"$EVID_DIR/ponr-role-provenance-marker-miss.stderr"
+  MARKER_MISS_RC=$?
+  set -e
+  echo "$MARKER_MISS_RC" >"$EVID_DIR/ponr-role-provenance-marker-miss.exit"
+  mkdir -p .tmp/REDHAT-FIX-RH-S30-21
+  cp -R "$EVID_DIR/ponr-role-provenance-marker-miss/." .tmp/REDHAT-FIX-RH-S30-21/ 2>/dev/null || true
 fi
 
 # ── RH-S30-15: finalize meta.json to durable terminal status ───────────────
@@ -401,26 +418,39 @@ verdict = "$VERDICT"
 verify_rc = int("$VERIFY_RC")
 assert_rc = int("$ASSERT_RC")
 probe_rc = int("$PROBE_RC")
+marker_miss_rc = int("$MARKER_MISS_RC")
 if verdict == "pass" and verify_rc == 0 and assert_rc == 0:
     status = "completed"
 else:
     status = "failed"
-# RH-S30-18: H-3 closed only when production_sqlstate_claim artifacts exist
+# RH-S30-18: success-path SQLSTATE claim
+# RH-S30-21: forced marker-miss preservation (nonzero exit, before_count>=1)
 h3_closed = False
+c3_marker_miss_ok = False
 prov = Path("$EVID_DIR/ponr-role-provenance")
 ac1 = prov / "ac1-prod-role-disable-trigger.json"
 ac2 = prov / "ac2-prod-role-dml-truncate.json"
+miss_report = Path("$EVID_DIR/ponr-role-provenance-marker-miss/negative-marker-report.json")
 if ac1.exists() and ac2.exists() and probe_rc == 0:
     try:
         a1 = json.loads(ac1.read_text())
         a2 = json.loads(ac2.read_text())
-        h3_closed = bool(
+        h3_success = bool(
             a1.get("production_sqlstate_claim")
             and a2.get("production_sqlstate_claim")
             and a1.get("rows_preserved")
         )
     except Exception:
-        h3_closed = False
+        h3_success = False
+else:
+    h3_success = False
+if miss_report.exists() and marker_miss_rc == 0:
+    try:
+        mr = json.loads(miss_report.read_text())
+        c3_marker_miss_ok = bool(mr.get("ok") is True and mr.get("before_count", 0) >= 1)
+    except Exception:
+        c3_marker_miss_ok = False
+h3_closed = bool(h3_success and c3_marker_miss_ok)
 meta.update({
     "status": status,
     "verdict": verdict,
@@ -430,6 +460,8 @@ meta.update({
     "verify_rc": verify_rc,
     "assert_human_test_verdict_rc": assert_rc,
     "ponr_role_probe_rc": probe_rc,
+    "ponr_marker_miss_rc": marker_miss_rc,
+    "c3_marker_miss_ok": c3_marker_miss_ok,
     "h3_role_provenance_closed": h3_closed,
 })
 if meta.get("status") == "running":

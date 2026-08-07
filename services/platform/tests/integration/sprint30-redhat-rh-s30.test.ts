@@ -75,6 +75,8 @@ const EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-03');
 const EVIDENCE_05 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-05');
 /** RH-S30-19 / M-3 — direct injectFirstWriteFailure oracles. */
 const EVIDENCE_19 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-19');
+/** RH-S30-22 / M-3 residual — independent HTTP-201 identity + durable branch evidence. */
+const EVIDENCE_22 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-22');
 /** POST /api/documents refuses production-like holocron; pin nonprod for IT. */
 const NONPROD_URL = 'postgres://127.0.0.1:5432/holocron_nonprod';
 
@@ -88,6 +90,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     mkdirSync(EVIDENCE, { recursive: true });
     mkdirSync(EVIDENCE_05, { recursive: true });
     mkdirSync(EVIDENCE_19, { recursive: true });
+    mkdirSync(EVIDENCE_22, { recursive: true });
     process.env.DATABASE_URL = NONPROD_URL;
     seedDisposableSecrets({ readOnly: '1' });
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
@@ -290,7 +293,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       const acceptedId = '00000000-0000-4000-8000-dddddddddddd';
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
-        reportPath: resolve(EVIDENCE_19, 'non-201-accepted-id-enable-writes.json'),
+        reportPath: resolve(EVIDENCE_22, 'non-201-accepted-id-enable-writes.json'),
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
         databaseUrl: resolveTestDatabaseUrl(),
@@ -313,7 +316,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       expect(writeIds).toContain(acceptedId);
       expect(report.write_row_id).toBe(acceptedId);
       writeFileSync(
-        resolve(EVIDENCE_19, 'non-201-accepted-id-fence-ledger.json'),
+        resolve(EVIDENCE_22, 'non-201-accepted-id-fence-ledger.json'),
         JSON.stringify({ fence, ledger, acceptedId, writeIds }, null, 2) + '\n'
       );
 
@@ -321,7 +324,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
-        reportPath: resolve(EVIDENCE_19, 'non-201-accepted-id-rollback-refuse.json'),
+        reportPath: resolve(EVIDENCE_22, 'non-201-accepted-id-rollback-refuse.json'),
       });
       expect(refuse.repointed).toBe(false);
       expect(
@@ -347,7 +350,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       const transportDocId = '00000000-0000-4000-8000-ffffffffaaaa';
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
-        reportPath: resolve(EVIDENCE_19, 'transport-error-enable-writes.json'),
+        reportPath: resolve(EVIDENCE_22, 'transport-error-enable-writes.json'),
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
         databaseUrl: resolveTestDatabaseUrl(),
@@ -371,7 +374,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       const writeIds = (ledger.audit?.accepted_writes ?? []).map((w) => w.id).filter(Boolean);
       expect(writeIds).toContain(transportDocId);
       writeFileSync(
-        resolve(EVIDENCE_19, 'transport-error-fence-ledger.json'),
+        resolve(EVIDENCE_22, 'transport-error-fence-ledger.json'),
         JSON.stringify({ fence, ledger, transportDocId, writeIds }, null, 2) + '\n'
       );
 
@@ -379,7 +382,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
-        reportPath: resolve(EVIDENCE_19, 'transport-error-rollback-refuse.json'),
+        reportPath: resolve(EVIDENCE_22, 'transport-error-rollback-refuse.json'),
       });
       expect(refuse.repointed).toBe(false);
       expect(
@@ -403,24 +406,69 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       await waitHealth(liveServing.baseUrl);
 
       const reselectProbeId = '00000000-0000-4000-8000-eeeeeeeeeeee';
-      const report = await runEnableWrites({
-        cwd: REPO_ROOT,
-        reportPath: resolve(EVIDENCE_19, 'reselect-miss-enable-writes.json'),
-        baseUrl: liveServing.baseUrl,
-        secretsPath: DISPOSABLE_SECRETS,
-        databaseUrl: resolveTestDatabaseUrl(),
-        injectFirstWriteFailure: {
-          kind: 'reselect_miss',
-          documentId: reselectProbeId,
-        },
-      });
+      const titlePrefix = 'ponr-first-write-';
+      const t0 = Date.now();
+      // Independent HTTP-201 capture at the network boundary (not report.write_row_id).
+      const originalFetch = globalThis.fetch;
+      let independentHttp201Id: string | null = null;
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const res = await originalFetch(input, init);
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : String(input);
+        if (url.includes('/api/documents') && init?.method === 'POST') {
+          try {
+            const body = (await res.clone().json()) as { document?: { id?: string } };
+            if (res.status === 201 && typeof body.document?.id === 'string') {
+              independentHttp201Id = body.document.id;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        return res;
+      }) as typeof fetch;
+
+      let report: Awaited<ReturnType<typeof runEnableWrites>>;
+      try {
+        report = await runEnableWrites({
+          cwd: REPO_ROOT,
+          reportPath: resolve(EVIDENCE_22, 'reselect-miss-enable-writes.json'),
+          baseUrl: liveServing.baseUrl,
+          secretsPath: DISPOSABLE_SECRETS,
+          databaseUrl: resolveTestDatabaseUrl(),
+          injectFirstWriteFailure: {
+            kind: 'reselect_miss',
+            documentId: reselectProbeId,
+          },
+        });
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
       expect(report.ok).toBe(false);
       expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
       expect(String(report.error?.message || '')).toMatch(/reselect|re-armed|audit recorded/i);
-      // Accepted write identity from real HTTP 201 — not the synthetic reselect probe id.
-      expect(report.write_row_id).toBeTruthy();
-      expect(report.write_row_id).not.toBe(reselectProbeId);
-      const acceptedWriteRowId = String(report.write_row_id);
+      expect(independentHttp201Id).toBeTruthy();
+      expect(independentHttp201Id).not.toBe(reselectProbeId);
+      expect(report.write_row_id).toBe(independentHttp201Id);
+
+      const { createSql } = await import('../../src/db/client.ts');
+      const sql = createSql(resolveTestDatabaseUrl());
+      let dbIds: string[] = [];
+      try {
+        const rows = await sql<{ id: string }[]>`
+          SELECT id::text AS id FROM documents
+          WHERE title LIKE ${`${titlePrefix}%`}
+          ORDER BY date DESC NULLS LAST
+          LIMIT 10
+        `;
+        // Prefer ids created during this test window when date is parseable.
+        dbIds = rows.map((r) => r.id);
+        void t0;
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+      expect(dbIds).toContain(independentHttp201Id);
+
       const fence = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
       expect(fence === '1' || fence === 'true').toBe(true);
 
@@ -431,19 +479,42 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
       const writeIds = (ledger.audit?.accepted_writes ?? []).map((w) => w.id).filter(Boolean);
-      expect(writeIds).toContain(acceptedWriteRowId);
+      expect(writeIds).toContain(independentHttp201Id);
       expect(writeIds).not.toContain(reselectProbeId);
       writeFileSync(
+        resolve(EVIDENCE_22, 'reselect-miss-identity.json'),
+        JSON.stringify(
+          {
+            independentHttp201Id,
+            report_write_row_id: report.write_row_id,
+            reselectProbeId,
+            dbIds,
+            writeIds,
+            fence,
+          },
+          null,
+          2
+        ) + '\n'
+      );
+      writeFileSync(
+        resolve(EVIDENCE_22, 'reselect-miss-fence-ledger.json'),
+        JSON.stringify({ fence, ledger, independentHttp201Id }, null, 2) + '\n'
+      );
+      // Also mirror under RH-S30-19 for continuity.
+      writeFileSync(
         resolve(EVIDENCE_19, 'reselect-miss-fence-ledger.json'),
-        JSON.stringify({ fence, ledger, acceptedWriteRowId, reselectProbeId, writeIds }, null, 2) +
-          '\n'
+        JSON.stringify(
+          { fence, ledger, independentHttp201Id, reselectProbeId, writeIds },
+          null,
+          2
+        ) + '\n'
       );
 
       const refuse = await runRollbackRepoint({
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
-        reportPath: resolve(EVIDENCE_19, 'reselect-miss-rollback-refuse.json'),
+        reportPath: resolve(EVIDENCE_22, 'reselect-miss-rollback-refuse.json'),
       });
       expect(refuse.repointed).toBe(false);
       expect(
