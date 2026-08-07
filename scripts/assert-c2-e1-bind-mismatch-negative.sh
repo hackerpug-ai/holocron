@@ -1,83 +1,110 @@
 #!/usr/bin/env bash
-# RH-S30-20 TC-3 — negative control: E1-versus-bind (path exists, blob differs).
-#
-# Reconstructs the v3 false-green: claim package_commit of a historical evidence
-# tree while submitting a different bind-tip results body. Assert must exit ≠ 0
-# with an explicit blob OID identity error.
+# C-2 v5 negative: valid package→attestation→lock, then mutate submitted results only.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
-OUT="${1:-.tmp/REDHAT-FIX-RH-S30-20}"
-mkdir -p "$OUT"
+OUT="$(cd "$ROOT" && mkdir -p "${1:-.tmp/REDHAT-FIX-RH-S30-20-v5-negative}" && cd "${1:-.tmp/REDHAT-FIX-RH-S30-20-v5-negative}" && pwd)"
+FIX="$OUT/fixture"
+rm -rf "$FIX"
+mkdir -p "$FIX"
+cd "$FIX"
+git init -q
+git config user.email "c2-neg@test"
+git config user.name "c2-neg"
 
-# Prefer known historical package with E1 pre-bind vs bind tip mismatch if present
-E1="33f004d1524452b264dcc1a41b91d0c43fa8e6e9"
-RUN="20260807T095843Z"
-REL=".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/${RUN}/gate-results.json"
+RUN="20260807TNEG0001Z"
+REL=".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/${RUN}"
+mkdir -p "$REL"
 
-if ! git cat-file -e "${E1}:${REL}" 2>/dev/null; then
-  echo "skip: historical E1 $E1 not in this clone" >&2
-  exit 0
-fi
+# Initial commit for source tip
+echo source > README && git add README && git commit -qm "source tip"
+SOURCE=$(git rev-parse HEAD)
 
-# Submitted body = bind tip HEAD of that run if available, else rewrite fields on E1 blob
-BIND_CANDIDATES=("511213184e31b20dd09d0318a7da8cb3d6b0a0f5" "f4c60617ace5a5cf42e27984f5afc6f49c030567")
-SUBMITTED=""
-for b in "${BIND_CANDIDATES[@]}"; do
-  if git cat-file -e "${b}:${REL}" 2>/dev/null; then
-    e1_oid="$(git rev-parse "${E1}:${REL}")"
-    b_oid="$(git rev-parse "${b}:${REL}")"
-    if [[ "$e1_oid" != "$b_oid" ]]; then
-      git show "${b}:${REL}" >"$OUT/submitted-bind-results.json"
-      SUBMITTED="$OUT/submitted-bind-results.json"
-      # Forge attestation that names E1 but claims bind content OID mismatch
-      python3 - <<PY
-import json, subprocess
+python3 - <<PY
+import json
 from pathlib import Path
-e1="$E1"
-rel="$REL"
-att={
-  "protocol": "C-2-atomic-v4-blob-oid-identity",
-  "source_sha_at_run": "324ce9045c0ced0ee39686cbec603afcf1116551",
-  "package_commit": e1,
-  "run_id": "$RUN",
-  "artifacts": {
-    "gate-results.json": {
-      "path": rel,
-      "blob_oid": subprocess.check_output(["git","rev-parse", f"{e1}:{rel}"], text=True).strip(),
-    }
-  },
+rel=Path("$REL")
+results={
+  "verdict":"pass","run_id":"$RUN",
+  "steps_total":5,"steps_executed":5,"steps_passed":5,
+  "git_sha":"$SOURCE","source_sha_at_run":"$SOURCE",
+  "steps":[{"n":i,"executed":True,"result":"pass","log":f"see step{i}.log"} for i in range(1,6)],
+  "evidence_package_protocol":"C-2-atomic-v5-git-bound-attestation",
 }
-# Place attestation next to submitted so checker finds it
-Path("$OUT/evidence-attestation.json").write_text(json.dumps(att, indent=2)+"\n")
-# Also copy submitted as if it were the results path next to attestation
-Path("$OUT/gate-results.json").write_bytes(Path("$SUBMITTED").read_bytes())
-print("forged", e1[:12], "vs", "$b"[:12])
+for i in range(1,6):
+  (rel/f"step{i}.log").write_text(f"step {i} ok\n")
+(rel/"gate-results.json").write_text(json.dumps(results, indent=2)+"\n")
 PY
-      break
-    fi
-  fi
-done
+git add -A && git commit -qm "P1 package"
+P1=$(git rev-parse HEAD)
+BLOB=$(git rev-parse "HEAD:$REL/gate-results.json")
 
-if [[ -z "$SUBMITTED" ]]; then
-  echo "skip: no E1/bind OID mismatch pair found" >&2
-  exit 0
-fi
+python3 - <<PY
+import json
+from pathlib import Path
+att={
+  "protocol":"C-2-atomic-v5-git-bound-attestation",
+  "source_sha_at_run":"$SOURCE","package_commit":"$P1","run_id":"$RUN",
+  "artifacts":{"gate-results.json":{"path":"$REL/gate-results.json","blob_oid":"$BLOB"}},
+}
+Path("$REL/evidence-attestation.json").write_text(json.dumps(att, indent=2)+"\n")
+PY
+git add -A && git commit -qm "A1 attestation"
+A1=$(git rev-parse HEAD)
+ATT_BLOB=$(git rev-parse "HEAD:$REL/evidence-attestation.json")
+
+python3 - <<PY
+import json
+from pathlib import Path
+lock={
+  "protocol":"C-2-atomic-v5-git-bound-attestation","run_id":"$RUN",
+  "source_sha_at_run":"$SOURCE","package_commit":"$P1",
+  "attestation_commit":"$A1","attestation_path":"$REL/evidence-attestation.json",
+  "attestation_blob_oid":"$ATT_BLOB",
+}
+Path("$REL/evidence-attestation.lock.json").write_text(json.dumps(lock, indent=2)+"\n")
+PY
+git add -A && git commit -qm "L1 lock"
+
+export GIT_DIR="$FIX/.git"
+export GIT_WORK_TREE="$FIX"
+export ASSERT_PACKAGE_HEAD=1
+unset ASSERT_LOCK_COMMIT || true
 
 set +e
-ASSERT_PACKAGE_HEAD=0 \
-  bash scripts/assert-gate-evidence-containment.sh "$OUT/gate-results.json" \
-  >"$OUT/ac3-e1-bind-mismatch-stdout.json" 2>"$OUT/ac3-e1-bind-mismatch-stderr.txt"
-RC=$?
+bash "$ROOT/scripts/assert-gate-evidence-containment.sh" "$FIX/$REL/gate-results.json" \
+  >"$OUT/positive.json" 2>"$OUT/positive.err"
+POS_RC=$?
 set -e
-echo "assert_rc=$RC" | tee "$OUT/ac3-e1-bind-mismatch-rc.txt"
-if [[ "$RC" -eq 0 ]]; then
-  echo "FAIL: expected non-zero assert for E1-versus-bind mismatch" >&2
+echo "positive_rc=$POS_RC" | tee "$OUT/positive_rc.txt"
+if [[ "$POS_RC" -ne 0 ]]; then
+  echo "FAIL: positive fixture" >&2
+  cat "$OUT/positive.err" >&2
+  cat "$OUT/positive.json" >&2
   exit 2
 fi
-if ! grep -qiE 'blob OID identity|blob identity|hist_oid' "$OUT/ac3-e1-bind-mismatch-stderr.txt" \
-  "$OUT/ac3-e1-bind-mismatch-stdout.json"; then
-  echo "FAIL: expected explicit blob identity wording in assert output" >&2
+
+# Mutate only submitted results
+python3 - <<PY
+import json
+from pathlib import Path
+p=Path("$FIX/$REL/gate-results.json")
+d=json.loads(p.read_text())
+d["notes"]="MUTATED_SUBMITTED_ONLY"
+p.write_text(json.dumps(d, indent=2)+"\n")
+PY
+set +e
+bash "$ROOT/scripts/assert-gate-evidence-containment.sh" "$FIX/$REL/gate-results.json" \
+  >"$OUT/negative.json" 2>"$OUT/negative.err"
+NEG_RC=$?
+set -e
+echo "negative_rc=$NEG_RC" | tee "$OUT/negative_rc.txt"
+if [[ "$NEG_RC" -eq 0 ]]; then
+  echo "FAIL: expected hist_oid!=sub_oid failure" >&2
   exit 2
 fi
-echo "E1-versus-bind negative control PASS (assert rejected mismatched blobs)"
+if ! grep -qiE 'hist_oid|blob OID identity|sub_oid' "$OUT/negative.err" "$OUT/negative.json"; then
+  echo "FAIL: missing OID mismatch wording" >&2
+  cat "$OUT/negative.err" >&2
+  exit 2
+fi
+echo "C-2 v5 OID-mismatch negative PASS"
