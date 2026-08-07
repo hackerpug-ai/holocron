@@ -21,6 +21,9 @@
 #
 # Usage:
 #   export HOLO_VERIFY_BASE_URL=http://127.0.0.1:44111   # required for tip bind
+#   # Recommended preflight (default on): dual-reset Postgres+file audit ledger
+#   # so step2 accepted_count=0 and step5 keeps real POST_PONR_INELIGIBLE oracle.
+#   export HOLO_GATE_RESET_LEDGER=1   # default 1; set 0 to skip
 #   bash scripts/run-sprint30-human-gate.sh
 set -euo pipefail
 
@@ -80,6 +83,22 @@ fi
 if [[ -z "${HOLO_CUTOVER_OPERATOR_SECRET:-}" || ${#HOLO_CUTOVER_OPERATOR_SECRET} -lt 8 ]]; then
   echo "error: HOLO_CUTOVER_OPERATOR_SECRET missing/short — required for enable-writes/rollback-repoint (RH-S30-12)" >&2
   exit 2
+fi
+
+# ── Dual-reset post-export ledger (Postgres + file) ─────────────────────────
+# 20260807T112826Z: emptying only .tmp/D06-05/post-export-write-audit.json left
+# stale Postgres post_export_write_audit rows → step2 accepted_count=2, drill
+# lost_accepted_writes=2, step5 polluted. Authoritative source is Postgres.
+# Default ON for this gate runner; set HOLO_GATE_RESET_LEDGER=0 to skip.
+# Real step5 oracle unchanged: after step4 enable-writes records PONR, step5
+# must still exit 2 with POST_PONR_INELIGIBLE (not a weakened accept).
+if [[ "${HOLO_GATE_RESET_LEDGER:-1}" == "1" ]]; then
+  echo "preflight: dual-reset post_export_write_audit (Postgres + file) + clear PONR for clean enable-writes"
+  HOLO_GATE_LEDGER_RESET=1 HOLO_GATE_CLEAR_PONR="${HOLO_GATE_CLEAR_PONR:-1}" \
+    bash "$ROOT/scripts/reset-sprint30-gate-ledger.sh" --authorize --clear-ponr \
+    | tee "$EVID_DIR/preflight-ledger-reset.json"
+else
+  echo "preflight: HOLO_GATE_RESET_LEDGER=0 — skipping ledger dual-reset (operator owns residue)"
 fi
 
 # ── RH-S30-07: require live sourceRevision == HEAD ──────────────────────────
