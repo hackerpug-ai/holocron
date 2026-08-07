@@ -494,8 +494,7 @@ export async function selectPonrRow(): Promise<{
         r.convex_rejected_writes_since_watermark != null
           ? Number(r.convex_rejected_writes_since_watermark)
           : null,
-      export_watermark_ms:
-        r.export_watermark_ms != null ? Number(r.export_watermark_ms) : null,
+      export_watermark_ms: r.export_watermark_ms != null ? Number(r.export_watermark_ms) : null,
     };
   } finally {
     await sql.end({ timeout: 5 });

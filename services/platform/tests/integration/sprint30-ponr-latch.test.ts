@@ -9,13 +9,13 @@
  *     services/platform/tests/integration/sprint30-ponr-latch.test.ts
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { anyApi, type FunctionReference } from 'convex/server';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import { createCutoverConvexClient } from '../../src/cutover/convex-fence-client.ts';
 import {
-  computeDocumentRowDigest,
   CONVEX_ESCAPE_HATCH_DIVERGED,
+  computeDocumentRowDigest,
   PONR_LEDGER_UNREADABLE,
 } from '../../src/cutover/ponr.ts';
 import {
@@ -25,8 +25,8 @@ import {
   writePostExportWriteAudit,
 } from '../../src/cutover/rollback-repoint.ts';
 import {
-  allocateClosedLocalPort,
   AUDIT_PATH,
+  allocateClosedLocalPort,
   cleanupDefaultCutoverArtifacts,
   countDataPlanePonr,
   countDocuments,
@@ -360,9 +360,7 @@ describe('D07-01 RED: PONR latch closes rollback path (T-SYNC-014)', () => {
       expect(refuse.error?.code).not.toBe('LIVE_ACK_MISSING');
       expect(refuse.error?.message ?? '').toContain(hostPort);
       expect(secretsHasConvexPlane(DISPOSABLE_SECRETS)).toBe(false);
-      expect(loadSecretsFile(DISPOSABLE_SECRETS).HOLO_ROLLBACK_TARGET).not.toBe(
-        'convex-frozen'
-      );
+      expect(loadSecretsFile(DISPOSABLE_SECRETS).HOLO_ROLLBACK_TARGET).not.toBe('convex-frozen');
     });
   }, 120_000);
 
