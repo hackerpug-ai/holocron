@@ -125,25 +125,37 @@ if evid_dir is not None and os.environ.get("ASSERT_C3_PREDICATES", _c3_default) 
             c3_errors.append("C-3 marker-miss before_count < 1")
         if mr.get("effective_non_owner") is not True:
             c3_errors.append("C-3 marker-miss effective_non_owner not true")
-        if int(mr.get("before_required_triggers_enabled_count") or 0) < 1:
-            c3_errors.append("C-3 required triggers not enabled")
-    # M-3 package-bound identity evidence (when present under package)
-    m3 = evid_dir / "m3-branch-identity"
-    m3_ok = None
-    if m3.is_dir():
-        need = [
-            "non-201-accepted-id-enable-writes.json",
-            "transport-error-enable-writes.json",
-            "reselect-miss-identity.json",
-            "suite-vitest.log",
-        ]
-        missing = [n for n in need if not (m3 / n).is_file()]
-        if missing:
-            c3_errors.append(f"M-3 package-bound identity missing: {missing}")
-            m3_ok = False
-        else:
-            m3_ok = True
-    c3 = {"ok": len(c3_errors) == 0, "errors": c3_errors, "m3_package_bound": m3_ok}
+        if mr.get("exact_required_triggers_enabled_before") is not True:
+            c3_errors.append("C-3 exact_required_triggers_enabled_before not true")
+        if mr.get("exact_required_triggers_enabled_after") is not True:
+            c3_errors.append("C-3 exact_required_triggers_enabled_after not true")
+        if int(mr.get("before_required_triggers_enabled_count") or 0) != 2:
+            c3_errors.append("C-3 before_required_triggers_enabled_count != 2")
+        if mr.get("urls_distinct") is not True:
+            c3_errors.append("C-3 marker DB not distinct from gate URL")
+        if mr.get("production_untouched") is not True:
+            c3_errors.append("C-3 production_untouched not true")
+    # M-3 fail-closed identity tree (required at package time)
+    m3_r = subprocess.run(
+        ["bash", "scripts/assert-m3-identity-evidence.sh", str(evid_dir)],
+        capture_output=True,
+        text=True,
+    )
+    try:
+        m3_j = json.loads(m3_r.stdout) if m3_r.stdout.strip() else {}
+    except Exception:
+        m3_j = {"ok": False, "raw": m3_r.stdout}
+    if m3_r.returncode != 0:
+        c3_errors.append(
+            "M-3 fail-closed identity assertion failed: "
+            + (m3_r.stderr or m3_r.stdout)[:400]
+        )
+    c3 = {
+        "ok": len(c3_errors) == 0,
+        "errors": c3_errors,
+        "m3_package_bound": m3_j.get("ok"),
+        "m3": m3_j,
+    }
     errors.extend(c3_errors)
 
 out = {

@@ -374,9 +374,18 @@ cp "$ASSERT_OUT" ".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.json"
 echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
 
 # ── C-3 / RH-S30-18+21: MANDATORY success-path + forced-marker-miss ─────────
-# DATABASE_URL is required. Probes bind gate status, process exit, and package.
+# DATABASE_URL = gate/cutover (success-path probe; never seeded by marker-miss).
+# HOLO_PROBE_MARKER_MISS_DATABASE_URL = distinct disposable DB (required).
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "error: DATABASE_URL required for C-3 PONR role provenance + forced-marker-miss" >&2
+  echo "error: DATABASE_URL required for C-3 success-path probe" >&2
+  exit 2
+fi
+if [[ -z "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-}" ]]; then
+  # Default disposable nonprod for local gates; refuse if it equals DATABASE_URL.
+  export HOLO_PROBE_MARKER_MISS_DATABASE_URL="${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-postgres://127.0.0.1:5432/holocron_nonprod}"
+fi
+if [[ "$HOLO_PROBE_MARKER_MISS_DATABASE_URL" == "$DATABASE_URL" ]]; then
+  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL must be distinct from DATABASE_URL" >&2
   exit 2
 fi
 
@@ -390,9 +399,11 @@ mkdir -p .tmp/REDHAT-FIX-RH-S30-18
 cp -R "$EVID_DIR/ponr-role-provenance/." .tmp/REDHAT-FIX-RH-S30-18/ 2>/dev/null || true
 cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-transcript.log 2>/dev/null || true
 
-MARKER_DB="${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-$DATABASE_URL}"
+# Marker-miss: seed only on disposable URL (HOLO_PROBE_SEED_PONR default 1 for disposable).
 set +e
-DATABASE_URL="$MARKER_DB" HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-1}" \
+DATABASE_URL="$DATABASE_URL" \
+  HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" \
+  HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-1}" \
   bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
   "$EVID_DIR/ponr-role-provenance-marker-miss" \
   >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
@@ -403,8 +414,11 @@ echo "$MARKER_MISS_RC" >"$EVID_DIR/ponr-role-provenance-marker-miss.exit"
 mkdir -p .tmp/REDHAT-FIX-RH-S30-21
 cp -R "$EVID_DIR/ponr-role-provenance-marker-miss/." .tmp/REDHAT-FIX-RH-S30-21/ 2>/dev/null || true
 
-# Stage package-bound M-3 identity evidence when present (RH-S30-22)
+# Stage package-bound M-3 identity tree (fail-closed later if incomplete)
 if [[ -d .tmp/REDHAT-FIX-RH-S30-22 ]]; then
+  mkdir -p "$EVID_DIR/m3-identity"
+  cp -R .tmp/REDHAT-FIX-RH-S30-22/. "$EVID_DIR/m3-identity/" 2>/dev/null || true
+  # legacy alias
   mkdir -p "$EVID_DIR/m3-branch-identity"
   cp -R .tmp/REDHAT-FIX-RH-S30-22/. "$EVID_DIR/m3-branch-identity/" 2>/dev/null || true
 fi
@@ -449,7 +463,12 @@ if miss_report.exists() and marker_miss_rc == 0:
             mr.get("ok") is True
             and int(mr.get("before_count") or 0) >= 1
             and mr.get("effective_non_owner") is True
-            and int(mr.get("before_required_triggers_enabled_count") or 0) >= 1
+            and mr.get("exact_required_triggers_enabled_before") is True
+            and mr.get("exact_required_triggers_enabled_after") is True
+            and mr.get("urls_distinct") is True
+            and mr.get("production_untouched") is True
+            and int(mr.get("before_required_triggers_enabled_count") or 0) == 2
+            and int(mr.get("after_required_triggers_enabled_count") or 0) == 2
         )
     except Exception:
         c3_marker_miss_ok = False

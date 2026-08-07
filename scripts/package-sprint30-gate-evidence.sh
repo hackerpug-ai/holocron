@@ -49,12 +49,35 @@ fi
 
 export PATH="${ROOT}/node_modules/.bin:${PATH:-}"
 
-# Optional: stage package-bound M-3 identity evidence if present
+# Stage package-bound M-3 identity tree (fail-closed at assert if incomplete)
 M3_SRC=".tmp/REDHAT-FIX-RH-S30-22"
-M3_DST="$EVID_DIR/m3-branch-identity"
-if [[ -d "$M3_SRC" ]]; then
-  mkdir -p "$M3_DST"
-  cp -R "$M3_SRC/." "$M3_DST/" 2>/dev/null || true
+for dst in m3-identity m3-branch-identity; do
+  if [[ -d "$M3_SRC" ]]; then
+    mkdir -p "$EVID_DIR/$dst"
+    cp -R "$M3_SRC/." "$EVID_DIR/$dst/" 2>/dev/null || true
+  fi
+done
+# Generate manifest if missing
+if [[ -d "$EVID_DIR/m3-identity" ]]; then
+  python3 - "$EVID_DIR/m3-identity" <<'PY'
+import json, hashlib
+from pathlib import Path
+root = Path(__import__("sys").argv[1])
+files = sorted(p for p in root.rglob("*") if p.is_file())
+manifest = {
+  "tree": "m3-identity",
+  "files": [
+    {
+      "path": str(p.relative_to(root)),
+      "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+      "bytes": p.stat().st_size,
+    }
+    for p in files
+  ],
+}
+(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+print(json.dumps({"m3_manifest_files": len(files)}))
+PY
 fi
 
 python3 - "$RESULTS" "$EVID_DIR" "$SOURCE_SHA" "$RUN_ID" "$PROTOCOL" <<'PY'
@@ -110,42 +133,68 @@ if [[ "$BLOB_OID" != "$SUB_OID" ]]; then
   exit 2
 fi
 
-# C-3 package predicates: require marker-miss + success-path artifacts in the package
-python3 - "$EVID_DIR" <<'PY'
-import json, sys
+# C-3 package predicates from PACKAGE_COMMIT Git objects (not mutable worktree alone)
+python3 - "$PACKAGE_COMMIT" "$RUN_ID" <<'PY'
+import json, subprocess, sys
 from pathlib import Path
-evid = Path(sys.argv[1])
+
+package, run_id = sys.argv[1:3]
+base = (
+    ".spec/prds/mk6-migration/tasks/"
+    "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
+    f".gate-evidence/{run_id}/"
+)
 errors = []
-ac1 = evid / "ponr-role-provenance" / "ac1-prod-role-disable-trigger.json"
-ac2 = evid / "ponr-role-provenance" / "ac2-prod-role-dml-truncate.json"
-miss = evid / "ponr-role-provenance-marker-miss" / "negative-marker-report.json"
-if not ac1.is_file() or not ac2.is_file():
-    errors.append("missing success-path ponr-role-provenance ac1/ac2")
-else:
-    a1 = json.loads(ac1.read_text())
-    a2 = json.loads(ac2.read_text())
-    if not (a1.get("production_sqlstate_claim") and a2.get("production_sqlstate_claim")):
-        errors.append("success-path production_sqlstate_claim not true")
-    if a1.get("probe_current_user") != "holocron_app" and a1.get("role") != "holocron_app":
-        # residual SET ROLE still records probe_current_user
-        if a1.get("probe_current_user") != "holocron_app":
-            errors.append(f"success-path probe_current_user not holocron_app: {a1.get('probe_current_user')}")
-if not miss.is_file():
-    errors.append("missing forced-marker-miss negative-marker-report.json")
-else:
-    mr = json.loads(miss.read_text())
-    if mr.get("ok") is not True:
-        errors.append("marker-miss report ok!=true")
-    if int(mr.get("before_count") or 0) < 1:
-        errors.append("marker-miss before_count < 1")
-    if not mr.get("effective_non_owner"):
-        errors.append("marker-miss effective_non_owner not true")
-    if int(mr.get("before_required_triggers_enabled_count") or 0) < 1:
-        errors.append("marker-miss required triggers not present/enabled")
+c3_oids = {}
+
+def show(rel):
+    r = subprocess.run(["git", "cat-file", "-e", f"{package}:{rel}"], capture_output=True)
+    if r.returncode != 0:
+        return None, None
+    oid = subprocess.check_output(["git", "rev-parse", f"{package}:{rel}"], text=True).strip()
+    raw = subprocess.check_output(["git", "show", f"{package}:{rel}"])
+    return oid, raw
+
+for name, rel in [
+    ("ac1", base + "ponr-role-provenance/ac1-prod-role-disable-trigger.json"),
+    ("ac2", base + "ponr-role-provenance/ac2-prod-role-dml-truncate.json"),
+    ("marker_miss", base + "ponr-role-provenance-marker-miss/negative-marker-report.json"),
+]:
+    oid, raw = show(rel)
+    if oid is None:
+        errors.append(f"missing in package_commit: {rel}")
+        continue
+    c3_oids[name] = {"path": rel, "blob_oid": oid}
+    data = json.loads(raw)
+    if name == "ac1":
+        if not data.get("production_sqlstate_claim"):
+            errors.append("ac1 production_sqlstate_claim false")
+        if data.get("probe_current_user") != "holocron_app":
+            errors.append(f"ac1 probe_current_user not holocron_app: {data.get('probe_current_user')}")
+    if name == "ac2" and not data.get("production_sqlstate_claim"):
+        errors.append("ac2 production_sqlstate_claim false")
+    if name == "marker_miss":
+        if data.get("ok") is not True:
+            errors.append("marker_miss ok!=true")
+        if int(data.get("before_count") or 0) < 1:
+            errors.append("marker_miss before_count < 1")
+        if data.get("effective_non_owner") is not True:
+            errors.append("marker_miss effective_non_owner false")
+        if data.get("exact_required_triggers_enabled_before") is not True:
+            errors.append("marker_miss exact triggers before false")
+        if data.get("exact_required_triggers_enabled_after") is not True:
+            errors.append("marker_miss exact triggers after false")
+        if int(data.get("before_required_triggers_enabled_count") or 0) != 2:
+            errors.append("marker_miss before trigger count != 2")
+        if data.get("urls_distinct") is not True:
+            errors.append("marker_miss urls not distinct")
+        if data.get("production_untouched") is not True:
+            errors.append("marker_miss production_untouched false")
 if errors:
     print("C-3 package predicate FAIL:", *errors, sep="\n  ", file=sys.stderr)
     sys.exit(2)
-print(json.dumps({"c3_package_predicates_ok": True}))
+Path("/tmp/s30-c3-oids.json").write_text(json.dumps(c3_oids, indent=2) + "\n")
+print(json.dumps({"c3_package_predicates_ok": True, "c3_oids": c3_oids}))
 PY
 
 VER_OID=""
@@ -164,6 +213,11 @@ if ver_oid:
         "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-verification.json",
         "blob_oid": ver_oid,
     }
+c3_path = Path("/tmp/s30-c3-oids.json")
+if c3_path.exists():
+    c3 = json.loads(c3_path.read_text())
+    for k, v in c3.items():
+        artifacts[f"c3-{k}"] = v
 att = {
     "protocol": protocol,
     "source_sha_at_run": source,
@@ -171,14 +225,13 @@ att = {
     "run_id": run_id,
     "artifacts": artifacts,
     "notes": (
-        "Git-bound via evidence-attestation.lock.json which names this attestation "
-        "commit and blob OID. Do not trust worktree sidecars without lock verification."
+        "Git-bound via evidence-attestation.lock.json. C-3 report blob OIDs are "
+        "bound under artifacts.c3-* and must match package_commit objects."
     ),
 }
 Path(path).write_text(json.dumps(att, indent=2) + "\n")
-print(json.dumps({"attestation_written": True, "package_commit": package}))
+print(json.dumps({"attestation_written": True, "package_commit": package, "c3_bound": True}))
 PY
-
 git add "$ATTEST"
 LEFTHOOK_EXCLUDE=root-test git commit -m "chore(sprint-30): evidence-attestation ${RUN_ID} (C-2-atomic-v5)"
 ATTEST_COMMIT="$(git rev-parse HEAD)"
@@ -221,10 +274,14 @@ echo "package_commit=$PACKAGE_COMMIT attestation_commit=$ATTEST_COMMIT lock_comm
 export ASSERT_EVIDENCE_CONTAINMENT=1
 export ASSERT_PACKAGE_HEAD=1
 export ASSERT_C3_PREDICATES=1
+# Never inherit a stale ASSERT_LOCK_COMMIT into package verification
+unset ASSERT_LOCK_COMMIT || true
 bash "$ROOT/scripts/assert-human-test-verdict.sh" "$RESULTS" "$EVID_DIR" \
   | tee "$EVID_DIR/assert-human-test-verdict.post-package.json"
 bash "$ROOT/scripts/assert-gate-evidence-containment.sh" "$RESULTS" \
   | tee "$EVID_DIR/assert-gate-evidence-containment.post-package.json"
+bash "$ROOT/scripts/assert-m3-identity-evidence.sh" "$EVID_DIR" \
+  | tee "$EVID_DIR/assert-m3-identity.post-package.json"
 VERIFY_SCRIPT="${VERIFY_GATE_EVIDENCE:-$HOME/Projects/brain/skills/kb-run-human-tests/references/verify-gate-evidence.sh}"
 bash "$VERIFY_SCRIPT" "$RESULTS" "$SPRINT_DIR/gate-plan.json" "$EVID_DIR" \
   | tee "$EVID_DIR/verify-stdout.post-package.json"
