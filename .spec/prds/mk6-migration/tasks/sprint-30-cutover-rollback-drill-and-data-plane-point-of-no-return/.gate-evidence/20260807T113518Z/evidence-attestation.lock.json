@@ -1,0 +1,9 @@
+{
+  "protocol": "C-2-atomic-v5-git-bound-attestation",
+  "run_id": "20260807T113518Z",
+  "source_sha_at_run": "74c3846c3f0ca335ec4bd8ebdf8691f4d0517bc8",
+  "package_commit": "47dffa317f1490a1850f1750d5f02f04f47f9217",
+  "attestation_commit": "3ab45b0b513dbe3cd6698ad3f841c2d01f7a8b1c",
+  "attestation_path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113518Z/evidence-attestation.json",
+  "attestation_blob_oid": "72edefd204a1f6756afd047c1a76bb721055e2bd"
+}
