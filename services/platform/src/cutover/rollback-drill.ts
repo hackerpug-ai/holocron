@@ -10,6 +10,7 @@
  * NEVER mutates operator production secrets/audit — callers MUST point
  * HOLO_SECRETS_PATH (and fixture audit/watermark paths) at disposable paths.
  */
+import { loadPostExportWriteAuditAsync } from './post-export-write-audit.ts';
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -707,7 +708,25 @@ export async function runRollbackDrill(options?: {
   }
 
   // ── (4) Independent raw-file recompute (never trust child ok alone) ──────
-  const raw = recomputeAcceptedPostExportWritesFromRawFile(auditPath);
+  // REDHAT-FIX-RH-S30-03: independent recompute from Postgres ledger (fail-closed), not .tmp file.
+  const ledger = await loadPostExportWriteAuditAsync({ allowFileFallback: false });
+  const raw =
+    ledger.audit != null && ledger.error == null
+      ? {
+          acceptedCount: (ledger.audit.accepted_writes ?? []).filter((w) => {
+            const tExport = ledger.audit!.export_watermark_ms ?? 0;
+            return typeof w.committed_at_ms === 'number' && w.committed_at_ms > tExport;
+          }).length,
+          rawFileByteCount: 0,
+          auditFileExists: true,
+          parseError: null as string | null,
+        }
+      : {
+          acceptedCount: -1,
+          rawFileByteCount: 0,
+          auditFileExists: false,
+          parseError: ledger.error?.code ?? 'POST_EXPORT_WRITE_LEDGER_MISSING',
+        };
   const reportValue =
     typeof repoint.parsed?.precondition?.accepted_post_export_writes === 'number'
       ? repoint.parsed.precondition.accepted_post_export_writes
@@ -862,7 +881,7 @@ export async function runRollbackDrill(options?: {
     error = {
       code: DRILL_AUDIT_FILE_MISSING,
       message:
-        `post-export audit file missing at ${auditPath} — zero-loss cannot be proven ` +
+        `post-export write ledger unreadable (${raw.parseError}) — zero-loss cannot be proven — zero-loss cannot be proven ` +
         `(absence must not collapse into acceptedCount=0)`,
     };
   } else if (acceptedRecomputed !== 0 || !matchesReport) {
