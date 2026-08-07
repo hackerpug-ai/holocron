@@ -14,8 +14,8 @@ capability_coverage: [CAP-CUT-01]
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: RH-S30-20..22 **landed** — C-2-atomic-v4 blob OID identity + attestation; C-3 gate-owned forced-marker-miss (before_count≥1); M-3 independent HTTP-201 identity · gate `20260807T102120Z` **5/5 verified:true** package=`b9b30e91` source=`a6fbfc3f` blob_identity_ok · **not release-approved** · updated 2026-08-07T10:25:00Z
-> Status-Note: Independent final closeout `20260807T101142Z` NEEDS REVISION findings addressed. Sprint stays **In Progress** until dual-lens + QA. No complete/release claim.
+> Progress: Closeout HIGH blockers **fixed** — C-2-atomic-v5 Git-bound attestation lock; C-3 mandatory gate status/exit/package predicates; M-3 package-bound RED/GREEN identity · gate `20260807T103459Z` **5/5 verified:true** package=`dd45328e` · **not release-approved** · updated 2026-08-07T10:40:00Z
+> Status-Note: Independent final closeout `20260807T102743Z` HIGH findings addressed. Sprint stays **In Progress** until dual-lens + QA. No complete/release claim.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
