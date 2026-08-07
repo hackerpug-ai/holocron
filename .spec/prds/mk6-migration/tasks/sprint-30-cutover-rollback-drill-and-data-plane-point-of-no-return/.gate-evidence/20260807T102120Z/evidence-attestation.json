@@ -1,0 +1,17 @@
+{
+  "protocol": "C-2-atomic-v4-blob-oid-identity",
+  "source_sha_at_run": "a6fbfc3f6b953053abfd84b7b17ac2572db08819",
+  "package_commit": "b9b30e91e2c0485ac3f7ee93620e95884d4cfb52",
+  "run_id": "20260807T102120Z",
+  "artifacts": {
+    "gate-results.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T102120Z/gate-results.json",
+      "blob_oid": "e2cbe0624ea037af060ed0166e9348ab9d48b50d"
+    },
+    "gate-verification.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-verification.json",
+      "blob_oid": "e47ce1aceb58967fae25ec71abcf9738c94f10e7"
+    }
+  },
+  "notes": "Non-self-referential: package_commit names the commit whose gate-results blob OID equals git hash-object of the submitted results. git_sha in gate-results names the source tip that ran, not a pre-bind ancestor."
+}
