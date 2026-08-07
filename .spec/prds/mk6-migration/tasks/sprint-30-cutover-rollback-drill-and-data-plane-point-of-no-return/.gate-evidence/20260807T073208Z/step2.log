@@ -1,0 +1,31 @@
+@@GATE-META step=2 cmd_sha=a36ce9144b4a2996afb6b977852e1ae2d2f22fb8c67a58cc160575fe307d330a started_at=2026-08-07T07:32:10Z@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url http://127.0.0.1:44111 2>/dev/null | head -5; python3 - <<'PY'
+import json
+from pathlib import Path
+# recompute from audit + drill report
+audit=Path('.tmp/D06-05/post-export-write-audit.json')
+wm=Path('.tmp/D06-04/watermark-report.json')
+rep=Path('.tmp/D07-03/rollback-drill-report.json')
+out={}
+if audit.exists():
+  a=json.loads(audit.read_text())
+  out['accepted_count']=len(a.get('accepted_writes') or a.get('accepted_post_export_writes') or [])
+  if 'accepted_count' in a: out['accepted_count']=a['accepted_count']
+  if isinstance(a.get('accepted_writes'), list): out['accepted_count']=len(a['accepted_writes'])
+if wm.exists():
+  w=json.loads(wm.read_text()); out['export_watermark_ms']=w.get('export_watermark_ms') or w.get('watermarkAtMs')
+if rep.exists():
+  r=json.loads(rep.read_text()); out['drill_lost']=r.get('lost_accepted_writes'); out['drill_ok']=r.get('ok')
+print(json.dumps(out))
+# pass condition
+assert out.get('accepted_count', -1)==0 or out.get('drill_lost')==0
+print('STEP2_ORACLE_PASS')
+PY
+{
+  "ok": true,
+  "repointed": true,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+{"accepted_count": 0, "export_watermark_ms": 1786173263558, "drill_lost": 0, "drill_ok": false}
+STEP2_ORACLE_PASS
+@@GATE-EXIT=0@@

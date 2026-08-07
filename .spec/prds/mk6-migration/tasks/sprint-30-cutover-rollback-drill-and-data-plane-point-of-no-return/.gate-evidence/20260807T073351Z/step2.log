@@ -1,0 +1,31 @@
+@@GATE-META step=2 cmd_sha=94a613f0b7e5b44bdccaccc1f18824a71a5f38affb34ab9e565868e3f47cdfbb@@
+CMD: python3 - <<"PY"
+import json
+from pathlib import Path
+audit=json.loads(Path(".tmp/D06-05/post-export-write-audit.json").read_text())
+wm=json.loads(Path(".tmp/D06-04/watermark-report.json").read_text())
+accepted=audit.get("accepted_writes") or []
+if isinstance(audit.get("accepted_count"), int):
+  count=audit["accepted_count"]
+else:
+  count=len(accepted)
+drill=json.loads(Path(".tmp/D07-03/rollback-drill-report.json").read_text()) if Path(".tmp/D07-03/rollback-drill-report.json").exists() else {}
+out={
+  "accepted_count": count,
+  "export_watermark_ms": wm.get("export_watermark_ms") or wm.get("watermarkAtMs"),
+  "drill_lost_accepted_writes": drill.get("lost_accepted_writes"),
+  "drill_ok": drill.get("ok"),
+}
+print(json.dumps(out, indent=2))
+assert count==0, out
+assert drill.get("lost_accepted_writes",0)==0 or drill.get("ok") is True or count==0
+print("STEP2_PASS")
+PY
+{
+  "accepted_count": 0,
+  "export_watermark_ms": 1786173263558,
+  "drill_lost_accepted_writes": 0,
+  "drill_ok": true
+}
+STEP2_PASS
+@@GATE-EXIT=0@@

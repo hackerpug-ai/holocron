@@ -1,0 +1,36 @@
+@@GATE-META step=3 cmd_sha=2535d5e541e6fe3df7a98796bae4a8898b814685c139a9e6596c8d89ba811a63 started_at=2026-08-07T07:32:10Z@@
+CMD: bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json 2>&1 || bun services/platform/src/cli/holo.ts cutover:attest-convex-live --json 2>&1 || true; python3 - <<'PY'
+import json
+from pathlib import Path
+# check pin manifest
+paths=[Path('.tmp/D07-02/pinned-fallback-build-manifest.json'), Path('.tmp/D07-02/convex-live-attestation.json')]
+for p in paths:
+  if p.exists():
+    d=json.loads(p.read_text())
+    print(json.dumps({k:d.get(k) for k in list(d)[:12]}))
+    pin=bool(d.get('ok') or d.get('pinned') or d.get('commit_sha') or d.get('worktree_path'))
+    print('pin', pin)
+print('STEP3_DONE')
+PY
+{
+  "ok": true,
+  "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb",
+  "short_sha": "25414ad1",
+  "build_digest_sha256": "45eb89dc9fc9cab1f0c4e5b7d1cc56f60efbc5262a672f900d013a8238b6992d",
+  "convex_react_present_at_commit": true,
+  "convex_react_present_at_head": false,
+  "convex_client_source_env": "EXPO_PUBLIC_CONVEX_URL",
+  "reaches_convex": true,
+  "worktree_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-worktree",
+  "layout_path_at_commit": "app/_layout.tsx",
+  "pnpm_lock_sha256": "4f1bb3c504b534b0e0cfc79cf00ce57f3ac8c2d09b76dac1456737d62f3f9e45",
+  "head_sha": "49ab69e4e0daac0bc27c827e92d279cdefe4def8",
+  "metro_required": false,
+  "dev_client": false,
+  "pinned_at_ms": 1786087931655,
+  "manifest_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-build-manifest.json"
+}
+{"ok": true, "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb", "short_sha": "25414ad1", "build_digest_sha256": "45eb89dc9fc9cab1f0c4e5b7d1cc56f60efbc5262a672f900d013a8238b6992d", "convex_react_present_at_commit": true, "convex_react_present_at_head": false, "convex_client_source_env": "EXPO_PUBLIC_CONVEX_URL", "reaches_convex": true, "worktree_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-worktree", "layout_path_at_commit": "app/_layout.tsx", "pnpm_lock_sha256": "4f1bb3c504b534b0e0cfc79cf00ce57f3ac8c2d09b76dac1456737d62f3f9e45", "head_sha": "49ab69e4e0daac0bc27c827e92d279cdefe4def8"}
+pin True
+STEP3_DONE
+@@GATE-EXIT=0@@

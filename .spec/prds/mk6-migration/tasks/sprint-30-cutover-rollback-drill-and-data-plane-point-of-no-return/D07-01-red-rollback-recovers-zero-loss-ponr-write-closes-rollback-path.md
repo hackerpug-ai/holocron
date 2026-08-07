@@ -1,4 +1,8 @@
 # D07-01: RED: rollback recovers zero-loss, PONR write closes rollback path
+> Status: ✅ Completed
+> Commit: 5338229d32d974536d466ce1680ca80dab51f03f
+> Reviewer: product-manager+test-quality-reviewer
+> Completed: 2026-08-07T07:35:58Z
 
 > **Task ID:** D07-01
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)
@@ -408,7 +412,8 @@
 - AC-2 is expected to PASS at the planning SHA. That is deliberate: it is the harness-reality anchor proving the tests reach real Postgres, a real serving process, and the real CLI. A run where AC-2 also fails means the environment is broken, not that the sprint is RED.
 - Sprint 29 is Blocked (1 CRITICAL, 4 HIGH at 6de957d3). These oracles stand up their OWN disposable soak (disposable secrets path, own serving child, own watermark report) rather than assuming a healthy production soak, and must never fixture-substitute the production soak to go green.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",

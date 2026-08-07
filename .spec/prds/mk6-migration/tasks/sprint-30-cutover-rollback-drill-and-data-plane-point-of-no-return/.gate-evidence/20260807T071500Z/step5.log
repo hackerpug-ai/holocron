@@ -1,0 +1,35 @@
+@@GATE-META step=5@@
+{
+  "ok": true,
+  "repointed": true,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "2026-08-07T07:13:21.552Z",
+  "engaged_at_ms": 1786086801552,
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "precondition": {
+    "ok": true,
+    "accepted_post_export_writes": 0,
+    "export_watermark_ms": 1785959546465,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "98ed19ad0e04ef3fdca6ebe276bacc2e45c6eeebb83f8683caa1dd407f40a107",
+    "prior_target": "convex-frozen"
+  },
+  "acknowledgements": [
+    {
+      "unit": "network-serving-health",
+      "kind": "network_health",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-07T07:13:21.774Z",
+      "source": "http://127.0.0.1:44111/health",
+      "preexisting": true
+    }
+  ],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/rollback-repoint-report.json"
+}
+@@GATE-EXIT=0@@

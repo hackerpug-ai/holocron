@@ -1,0 +1,24 @@
+@@GATE-META step=4 cmd_sha=5bdc550ff24ceace6c279794337ab0a915bdd4254a2a52370f119a756c41ce46@@
+CMD: HOLO_VERIFY_BASE_URL=http://127.0.0.1:44111 bun services/platform/src/cli/holo.ts cutover:enable-writes --json
+{
+  "ok": false,
+  "already_recorded": false,
+  "ponr_id": null,
+  "write_row_id": null,
+  "write_row_digest_sha256": null,
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": null,
+  "write_committed_at": null,
+  "base_url": "",
+  "export_watermark_ms": null,
+  "convex_fence_audit_id": null,
+  "convex_documents_total": null,
+  "convex_accepted_writes_since_watermark": null,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-04/enable-writes-report.json",
+  "error": {
+    "code": "PONR_LEDGER_UNREADABLE",
+    "message": "cutover:enable-writes refuses: data_plane_ponr unreadable: relation \"data_plane_ponr\" does not exist"
+  }
+}
+@@GATE-EXIT=2@@
