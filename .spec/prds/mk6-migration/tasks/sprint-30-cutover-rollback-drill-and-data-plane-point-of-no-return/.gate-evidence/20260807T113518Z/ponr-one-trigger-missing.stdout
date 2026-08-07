@@ -1,0 +1,37 @@
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+{
+  "ok": true,
+  "tool": "scripts/probe-ponr-one-trigger-missing-negative.sh",
+  "gate_url_canonical": "postgresql://127.0.0.1:5432/holocron",
+  "marker_url_canonical": "postgresql://127.0.0.1:5432/holocron_nonprod",
+  "urls_distinct": true,
+  "uri_alias_same_target_refused": true,
+  "uri_alias_probe_rc": 2,
+  "one_trigger_missing_cases": [
+    {
+      "disabled_trigger": "data_plane_ponr_reject_mutation",
+      "probe_rc": 2,
+      "ok_field": "missing",
+      "refused": true
+    },
+    {
+      "disabled_trigger": "data_plane_ponr_reject_truncate",
+      "probe_rc": 2,
+      "ok_field": "missing",
+      "refused": true
+    }
+  ],
+  "required_triggers": [
+    "data_plane_ponr_reject_mutation",
+    "data_plane_ponr_reject_truncate"
+  ],
+  "notes": "Each required trigger disabled alone on disposable marker DB must make probe-ponr-role-immutability-negative-marker.sh exit non-zero. URI alias of gate as marker target must refuse."
+}
+one-trigger-missing + URI-alias negative PASS

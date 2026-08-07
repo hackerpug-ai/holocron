@@ -1,0 +1,16 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron
+
+ ✓ |integration| services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts (6 tests) 46722ms
+     ✓ RH-S30-03 AC-1: real POST /api/documents after watermark increments Postgres ledger  6709ms
+     ✓ RH-S30-05: crash-window recovery re-arms fence + production audit refuses rollback  9184ms
+     ✓ RH-S30-19 M-3: non-201 accepted-id re-arms fence and refuses rollback  9308ms
+     ✓ RH-S30-19 M-3: transport failure re-arms fence and refuses rollback  9181ms
+     ✓ RH-S30-19 M-3: reselect miss re-arms fence and refuses rollback  12288ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  04:19:57
+   Duration  47.55s (transform 251ms, setup 103ms, import 634ms, tests 46.72s, environment 0ms)
+
+PLATFORM_IT 6/6 green 2026-08-07T10:20:56Z

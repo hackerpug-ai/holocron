@@ -1,0 +1,3 @@
+equal
+postgresql://127.0.0.1:5432/holocron
+postgresql://127.0.0.1:5432/holocron
