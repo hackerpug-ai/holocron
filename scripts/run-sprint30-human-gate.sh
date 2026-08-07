@@ -57,15 +57,17 @@ if [[ -z "$DEPLOYED_BASE_URL" ]]; then
 fi
 
 # ── RH-S30-07: require live sourceRevision == HEAD ──────────────────────────
+# Pipe HEALTH_JSON into python — do NOT use a heredoc for the program body here
+# (heredoc steals stdin and leaves SOURCE_REV empty → always DEPLOY_REVISION_MISMATCH).
 HEALTH_JSON="$(curl -fsS --max-time 10 "$DEPLOYED_BASE_URL/health" || true)"
-SOURCE_REV="$(python3 - <<PY
+SOURCE_REV="$(printf '%s' "$HEALTH_JSON" | python3 -c '
 import json, sys
 raw = sys.stdin.read()
 try:
     j = json.loads(raw)
 except Exception:
     print("")
-    sys.exit(0)
+    raise SystemExit(0)
 rev = None
 dep = j.get("deployment") or {}
 ident = dep.get("identity") if isinstance(dep, dict) else None
@@ -74,8 +76,7 @@ if isinstance(ident, dict):
 if not rev:
     rev = j.get("sourceRevision")
 print(rev or "")
-PY
-<<<"$HEALTH_JSON")"
+')"
 
 if [[ -z "$SOURCE_REV" ]]; then
   echo "error: DEPLOY_REVISION_MISMATCH — /health missing deployment.identity.sourceRevision" >&2
@@ -144,14 +145,21 @@ Path("$EVID_DIR/meta.json").write_text(json.dumps(meta, indent=2) + "\n")
 PY
 
 # ── Execute steps from gate-plan.json ───────────────────────────────────────
-mapfile -t STEPS < <(python3 - <<'PY'
+# Portable load: pass plan path as argv[1] (python3 - "$PLAN" <<'PY'); avoid
+# mapfile (bash 4+) and avoid putting the path after a heredoc (never reaches Python).
+# NUL-delimit records so multi-line literal_cmd values stay intact.
+STEPS=()
+while IFS= read -r -d '' entry; do
+  STEPS+=("$entry")
+done < <(python3 - "$PLAN" <<'PY'
 import json, sys
 from pathlib import Path
 plan = json.loads(Path(sys.argv[1]).read_text())
 for s in plan["steps"]:
-    print(f"{s['n']}\t{s['literal_cmd']}")
+    # n + TAB + literal_cmd + NUL (cmd may contain newlines)
+    sys.stdout.write(f"{s['n']}\t{s['literal_cmd']}\0")
 PY
-"$PLAN")
+)
 
 steps_passed=0
 steps_failed=0
