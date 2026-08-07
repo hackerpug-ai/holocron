@@ -73,6 +73,8 @@ function ensureCutoverEnvFromDotenv(): void {
 
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-03');
 const EVIDENCE_05 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-05');
+/** RH-S30-19 / M-3 — direct injectFirstWriteFailure oracles. */
+const EVIDENCE_19 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-19');
 /** POST /api/documents refuses production-like holocron; pin nonprod for IT. */
 const NONPROD_URL = 'postgres://127.0.0.1:5432/holocron_nonprod';
 
@@ -85,6 +87,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     ensureCutoverEnvFromDotenv();
     mkdirSync(EVIDENCE, { recursive: true });
     mkdirSync(EVIDENCE_05, { recursive: true });
+    mkdirSync(EVIDENCE_19, { recursive: true });
     process.env.DATABASE_URL = NONPROD_URL;
     seedDisposableSecrets({ readOnly: '1' });
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
@@ -270,7 +273,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     });
   }, 240_000);
 
-  it('RH-S30-09 M-3: non-201 accepted-id re-arms fence and refuses rollback', async () => {
+  it('RH-S30-19 M-3: non-201 accepted-id re-arms fence and refuses rollback', async () => {
     await withCutoverSharedLock(async () => {
       ensureCutoverEnvFromDotenv();
       await truncateDataPlanePonr();
@@ -287,16 +290,12 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       const acceptedId = '00000000-0000-4000-8000-dddddddddddd';
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
-        reportPath: resolve(EVIDENCE_05, 'm3-non-201-accepted.json'),
+        reportPath: resolve(EVIDENCE_19, 'non-201-accepted-id-enable-writes.json'),
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
         databaseUrl: resolveTestDatabaseUrl(),
         injectFirstWriteFailure: { kind: 'non_201_accepted_id', documentId: acceptedId },
       });
-      writeFileSync(
-        resolve(EVIDENCE_05, 'm3-non-201-result.json'),
-        JSON.stringify(report, null, 2) + '\n'
-      );
       expect(report.ok).toBe(false);
       expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
       expect(String(report.error?.message || '')).toMatch(/non-201|accepted documentId|re-armed/i);
@@ -309,16 +308,17 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         allowFileFallback: false,
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+      writeFileSync(
+        resolve(EVIDENCE_19, 'non-201-accepted-id-fence-ledger.json'),
+        JSON.stringify({ fence, ledger, acceptedId }, null, 2) + '\n'
+      );
 
       const refuse = await runRollbackRepoint({
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
+        reportPath: resolve(EVIDENCE_19, 'non-201-accepted-id-rollback-refuse.json'),
       });
-      writeFileSync(
-        resolve(EVIDENCE_05, 'm3-non-201-refuse.json'),
-        JSON.stringify(refuse, null, 2) + '\n'
-      );
       expect(refuse.repointed).toBe(false);
       expect(
         refuse.error?.code === POST_EXPORT_WRITE_ACCEPTED ||
@@ -327,7 +327,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     });
   }, 240_000);
 
-  it('RH-S30-09 M-3: transport failure re-arms fence and refuses rollback', async () => {
+  it('RH-S30-19 M-3: transport failure re-arms fence and refuses rollback', async () => {
     await withCutoverSharedLock(async () => {
       ensureCutoverEnvFromDotenv();
       await truncateDataPlanePonr();
@@ -342,7 +342,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
 
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
-        reportPath: resolve(EVIDENCE_05, 'm3-transport-fail.json'),
+        reportPath: resolve(EVIDENCE_19, 'transport-error-enable-writes.json'),
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
         databaseUrl: resolveTestDatabaseUrl(),
@@ -351,10 +351,6 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
           documentId: '00000000-0000-4000-8000-ffffffffaaaa',
         },
       });
-      writeFileSync(
-        resolve(EVIDENCE_05, 'm3-transport-result.json'),
-        JSON.stringify(report, null, 2) + '\n'
-      );
       expect(report.ok).toBe(false);
       expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
       expect(String(report.error?.message || '')).toMatch(/transport|re-armed|audit recorded/i);
@@ -367,16 +363,17 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         allowFileFallback: false,
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+      writeFileSync(
+        resolve(EVIDENCE_19, 'transport-error-fence-ledger.json'),
+        JSON.stringify({ fence, ledger }, null, 2) + '\n'
+      );
 
       const refuse = await runRollbackRepoint({
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
+        reportPath: resolve(EVIDENCE_19, 'transport-error-rollback-refuse.json'),
       });
-      writeFileSync(
-        resolve(EVIDENCE_05, 'm3-transport-refuse.json'),
-        JSON.stringify(refuse, null, 2) + '\n'
-      );
       expect(refuse.repointed).toBe(false);
       expect(
         refuse.error?.code === POST_EXPORT_WRITE_ACCEPTED ||
@@ -385,7 +382,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     });
   }, 240_000);
 
-  it('RH-S30-09 M-3: reselect miss re-arms fence and refuses rollback', async () => {
+  it('RH-S30-19 M-3: reselect miss re-arms fence and refuses rollback', async () => {
     await withCutoverSharedLock(async () => {
       ensureCutoverEnvFromDotenv();
       await truncateDataPlanePonr();
@@ -400,7 +397,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
 
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
-        reportPath: resolve(EVIDENCE_05, 'm3-reselect-miss.json'),
+        reportPath: resolve(EVIDENCE_19, 'reselect-miss-enable-writes.json'),
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
         databaseUrl: resolveTestDatabaseUrl(),
@@ -409,10 +406,6 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
           documentId: '00000000-0000-4000-8000-eeeeeeeeeeee',
         },
       });
-      writeFileSync(
-        resolve(EVIDENCE_05, 'm3-reselect-result.json'),
-        JSON.stringify(report, null, 2) + '\n'
-      );
       expect(report.ok).toBe(false);
       expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
       expect(String(report.error?.message || '')).toMatch(/reselect|re-armed|audit recorded/i);
@@ -425,16 +418,17 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         allowFileFallback: false,
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+      writeFileSync(
+        resolve(EVIDENCE_19, 'reselect-miss-fence-ledger.json'),
+        JSON.stringify({ fence, ledger }, null, 2) + '\n'
+      );
 
       const refuse = await runRollbackRepoint({
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
+        reportPath: resolve(EVIDENCE_19, 'reselect-miss-rollback-refuse.json'),
       });
-      writeFileSync(
-        resolve(EVIDENCE_05, 'm3-reselect-refuse.json'),
-        JSON.stringify(refuse, null, 2) + '\n'
-      );
       expect(refuse.repointed).toBe(false);
       expect(
         refuse.error?.code === POST_EXPORT_WRITE_ACCEPTED ||
