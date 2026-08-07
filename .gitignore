@@ -100,6 +100,18 @@ actions-runner/
 **/.credentials
 **/.credentials_rsaparams
 zero.db
+zero.db-shm
+zero.db-wal
+zero.db-wal2
+
+# Local git worktrees created by kb-orchestrate remediation cycles
+.git-worktrees/
+
+# Python bytecode cache
+__pycache__/
+
+# D07-02 pinned-fallback-build boot screenshot (machine-local verification artifact)
+fallback-convex-boot.png
 
 # opencode local state (biome noise; never commit sessions/goals runtime)
 .opencode/
