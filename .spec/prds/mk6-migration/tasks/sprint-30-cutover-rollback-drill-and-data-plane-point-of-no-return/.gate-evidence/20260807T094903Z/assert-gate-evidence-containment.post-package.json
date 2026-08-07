@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-gate-evidence-containment.sh",
+  "git_sha": "4524a254c0cf87305b82571f01b5b56d5a7788cc",
+  "source_sha_at_run": "c5cba696c6c8dfc4bbea802d7cb1bae5ca7e3a94",
+  "run_id": "20260807T094903Z",
+  "evidence_rel": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T094903Z/gate-results.json",
+  "errors": []
+}
