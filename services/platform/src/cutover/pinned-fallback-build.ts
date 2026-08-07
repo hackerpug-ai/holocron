@@ -554,6 +554,7 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
   const artifactCandidates = [
     resolve(cwd, '.tmp/D07-02/pinned-fallback.app'),
     resolve(cwd, '.tmp/D07-02/build/Build/Products/Release-iphonesimulator/Holocron.app'),
+    resolve(cwd, '.tmp/D07-02/build/Build/Products/Release-iphonesimulator/holocron.app'),
     resolve(cwd, '.tmp/D07-02/pinned-fallback.ipa'),
   ];
   const appArtifact = artifactCandidates.find((p) => existsSync(p));
@@ -570,17 +571,60 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
     );
   }
 
-  // Attempt real Maestro cold-boot against the gate flow.
-  // A missing maestro binary or failed run fails closed — never invents a session log.
+  // Refuse a dev-client artifact (EXDevLauncher) — that would load Metro JS from HEAD.
+  const devLauncherMarker = resolve(appArtifact, 'EXDevLauncher.bundle');
+  if (existsSync(devLauncherMarker)) {
+    return fail(
+      BOOT_UNVERIFIED,
+      `artifact at ${appArtifact} looks like an Expo dev client (EXDevLauncher.bundle present); ` +
+        'Release standalone with embedded JS is required (metro_required=false)',
+      {
+        commit_sha: manifest.commit_sha,
+        build_digest_sha256: manifest.build_digest_sha256,
+        simulator_udid: udid,
+        boot_evidence: { artifact_type: null, session_log_path: null },
+      }
+    );
+  }
+
+  const appId =
+    env.MAESTRO_APP_ID?.trim() ||
+    env.IOS_BUNDLE_ID?.trim() ||
+    'com.holocron.app';
+
+  // Install the pinned Release artifact onto the booted simulator so Maestro
+  // cannot silently drive a different (HEAD / dev-client) binary.
+  if (appArtifact.endsWith('.app')) {
+    const install = spawnSync('xcrun', ['simctl', 'install', udid, appArtifact], {
+      encoding: 'utf8',
+      timeout: 120_000,
+    });
+    if (install.status !== 0 || install.error) {
+      return fail(
+        BOOT_UNVERIFIED,
+        `simctl install failed for ${appArtifact}: ${
+          install.stderr?.trim() || install.error?.message || `status=${String(install.status)}`
+        }`,
+        {
+          commit_sha: manifest.commit_sha,
+          build_digest_sha256: manifest.build_digest_sha256,
+          simulator_udid: udid,
+          boot_evidence: { artifact_type: null, session_log_path: null },
+        }
+      );
+    }
+  }
+
+  // Prefer the Release cutover flow (no Metro). Never prefer the gate dev-client flow.
   const flowCandidates = [
-    resolve(cwd, '.e2e/maestro/gate/step-1-cold-boot.yaml'),
     resolve(cwd, '.maestro/cutover/fallback-convex-boot.yml'),
+    resolve(cwd, '.e2e/maestro/cutover/fallback-convex-boot.yml'),
   ];
   const flow = flowCandidates.find((p) => existsSync(p));
   if (!flow) {
     return fail(
       BOOT_UNVERIFIED,
-      'no Maestro cold-boot flow found (.e2e/maestro/gate/step-1-cold-boot.yaml)',
+      'no Release Maestro cold-boot flow found (.maestro/cutover/fallback-convex-boot.yml)',
       {
         commit_sha: manifest.commit_sha,
         build_digest_sha256: manifest.build_digest_sha256,
@@ -603,10 +647,11 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
   const maestro = spawnSync('maestro', ['--udid', udid, 'test', flow], {
     cwd,
     encoding: 'utf8',
-    timeout: 120_000,
+    timeout: 180_000,
     env: {
       ...env,
       MAESTRO_SIMULATOR_UDID: udid,
+      MAESTRO_APP_ID: appId,
     },
   });
 
@@ -615,6 +660,8 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
     `commit_sha=${manifest.commit_sha}`,
     `build_digest_sha256=${manifest.build_digest_sha256}`,
     `simulator_udid=${udid}`,
+    `app_artifact=${appArtifact}`,
+    `app_id=${appId}`,
     `flow=${flow}`,
     `status=${String(maestro.status)}`,
     `at_ms=${Date.now()}`,
