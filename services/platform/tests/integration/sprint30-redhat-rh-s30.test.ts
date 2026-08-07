@@ -308,9 +308,13 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         allowFileFallback: false,
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+      // M-3 closeout: assert accepted write-row *identity*, not merely audit count.
+      const writeIds = (ledger.audit?.accepted_writes ?? []).map((w) => w.id).filter(Boolean);
+      expect(writeIds).toContain(acceptedId);
+      expect(report.write_row_id).toBe(acceptedId);
       writeFileSync(
         resolve(EVIDENCE_19, 'non-201-accepted-id-fence-ledger.json'),
-        JSON.stringify({ fence, ledger, acceptedId }, null, 2) + '\n'
+        JSON.stringify({ fence, ledger, acceptedId, writeIds }, null, 2) + '\n'
       );
 
       const refuse = await runRollbackRepoint({
@@ -340,6 +344,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
       await waitHealth(liveServing.baseUrl);
 
+      const transportDocId = '00000000-0000-4000-8000-ffffffffaaaa';
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
         reportPath: resolve(EVIDENCE_19, 'transport-error-enable-writes.json'),
@@ -348,7 +353,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         databaseUrl: resolveTestDatabaseUrl(),
         injectFirstWriteFailure: {
           kind: 'transport_error',
-          documentId: '00000000-0000-4000-8000-ffffffffaaaa',
+          documentId: transportDocId,
         },
       });
       expect(report.ok).toBe(false);
@@ -363,9 +368,11 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         allowFileFallback: false,
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+      const writeIds = (ledger.audit?.accepted_writes ?? []).map((w) => w.id).filter(Boolean);
+      expect(writeIds).toContain(transportDocId);
       writeFileSync(
         resolve(EVIDENCE_19, 'transport-error-fence-ledger.json'),
-        JSON.stringify({ fence, ledger }, null, 2) + '\n'
+        JSON.stringify({ fence, ledger, transportDocId, writeIds }, null, 2) + '\n'
       );
 
       const refuse = await runRollbackRepoint({
@@ -395,6 +402,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
       await waitHealth(liveServing.baseUrl);
 
+      const reselectProbeId = '00000000-0000-4000-8000-eeeeeeeeeeee';
       const report = await runEnableWrites({
         cwd: REPO_ROOT,
         reportPath: resolve(EVIDENCE_19, 'reselect-miss-enable-writes.json'),
@@ -403,12 +411,16 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         databaseUrl: resolveTestDatabaseUrl(),
         injectFirstWriteFailure: {
           kind: 'reselect_miss',
-          documentId: '00000000-0000-4000-8000-eeeeeeeeeeee',
+          documentId: reselectProbeId,
         },
       });
       expect(report.ok).toBe(false);
       expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
       expect(String(report.error?.message || '')).toMatch(/reselect|re-armed|audit recorded/i);
+      // Accepted write identity from real HTTP 201 — not the synthetic reselect probe id.
+      expect(report.write_row_id).toBeTruthy();
+      expect(report.write_row_id).not.toBe(reselectProbeId);
+      const acceptedWriteRowId = String(report.write_row_id);
       const fence = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
       expect(fence === '1' || fence === 'true').toBe(true);
 
@@ -418,9 +430,13 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
         allowFileFallback: false,
       });
       expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+      const writeIds = (ledger.audit?.accepted_writes ?? []).map((w) => w.id).filter(Boolean);
+      expect(writeIds).toContain(acceptedWriteRowId);
+      expect(writeIds).not.toContain(reselectProbeId);
       writeFileSync(
         resolve(EVIDENCE_19, 'reselect-miss-fence-ledger.json'),
-        JSON.stringify({ fence, ledger }, null, 2) + '\n'
+        JSON.stringify({ fence, ledger, acceptedWriteRowId, reselectProbeId, writeIds }, null, 2) +
+          '\n'
       );
 
       const refuse = await runRollbackRepoint({

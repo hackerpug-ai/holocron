@@ -86,10 +86,14 @@ for s in steps:
     if found is None and candidates:
         errors.append(f"step {n}: missing/empty log (tried {candidates})")
 
-# C-2: git_sha must contain the evidence tree (enforced after package protocol).
+# C-2: after package protocol, require path + immutable blob attestation.
 # During live gate run, set ASSERT_EVIDENCE_CONTAINMENT=0; packaging re-runs with =1.
 require_containment = os.environ.get("ASSERT_EVIDENCE_CONTAINMENT", "1") == "1"
+attested = str(data.get("gate_results_blob_sha256") or "")
+named_blob_sha256 = None
 if require_containment and re.fullmatch(r"[0-9a-f]{40}", git_sha) and run_id:
+    import hashlib
+
     rel = (
         ".spec/prds/mk6-migration/tasks/"
         "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
@@ -106,6 +110,18 @@ if require_containment and re.fullmatch(r"[0-9a-f]{40}", git_sha) and run_id:
             f"(package protocol requires evidence-containing git_sha)"
         )
     else:
+        raw = subprocess.check_output(["git", "show", f"{git_sha}:{rel}"])
+        named_blob_sha256 = hashlib.sha256(raw).hexdigest()
+        if not re.fullmatch(r"[0-9a-f]{64}", attested):
+            errors.append(
+                "C-2 attestation missing: gate_results_blob_sha256 required "
+                "(C-2-atomic-v3; path-only containment is a false green)"
+            )
+        elif named_blob_sha256 != attested:
+            errors.append(
+                f"C-2 blob attestation FAIL: sha256(named gate-results)={named_blob_sha256} "
+                f"!= gate_results_blob_sha256={attested}"
+            )
         if re.fullmatch(r"[0-9a-f]{40}", source_at_run) and source_at_run != git_sha:
             a = subprocess.run(
                 ["git", "merge-base", "--is-ancestor", source_at_run, git_sha],
@@ -115,8 +131,19 @@ if require_containment and re.fullmatch(r"[0-9a-f]{40}", git_sha) and run_id:
                 errors.append(
                     f"source_sha_at_run={source_at_run[:12]} is not an ancestor of git_sha={git_sha[:12]}"
                 )
+        # Optional: bind tip (HEAD) must carry the claimed binding fields byte-identical
+        if os.environ.get("ASSERT_PACKAGE_HEAD", "0") == "1":
+            head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+            try:
+                head_blob = subprocess.check_output(["git", "show", f"{head}:{rel}"])
+            except subprocess.CalledProcessError:
+                errors.append(f"ASSERT_PACKAGE_HEAD: HEAD missing {rel}")
+            else:
+                if head_blob != results_path.read_bytes():
+                    errors.append(
+                        "ASSERT_PACKAGE_HEAD: HEAD gate-results not byte-identical to on-disk"
+                    )
 elif not require_containment:
-    # still record that containment was deferred to packaging
     pass
 
 out = {
@@ -129,6 +156,8 @@ out = {
     "steps_passed": steps_passed,
     "git_sha": git_sha,
     "source_sha_at_run": source_at_run or None,
+    "gate_results_blob_sha256": attested or None,
+    "named_blob_sha256": named_blob_sha256,
     "errors": errors,
 }
 print(json.dumps(out, indent=2))
