@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-gate-evidence-containment.sh",
+  "protocol": "C-2-atomic-v5-git-bound-attestation",
+  "lock_commit": "1256397b1c8087795ff3d4a374aa7df6db067e33",
+  "lock_oid": "184a917454fce804682f0ea28486a5a766fa7746",
+  "attestation_commit": "5abe46fce2467e3af45ae3fb88fcd50142bf0fc7",
+  "attestation_blob_oid": "a8bdfd57ef95534399acc9d641302cfaa45f8818",
+  "package_commit": "f033bc8659b4039cc23c618975e6de513cbca874",
+  "hist_oid": "b577ff2e1085b76f55de52a6ab553c84410ccdf9",
+  "sub_oid": "b577ff2e1085b76f55de52a6ab553c84410ccdf9",
+  "blob_identity_ok": true,
+  "attestation_git_bound": true,
+  "run_id": "20260807T105804Z",
+  "errors": []
+}
