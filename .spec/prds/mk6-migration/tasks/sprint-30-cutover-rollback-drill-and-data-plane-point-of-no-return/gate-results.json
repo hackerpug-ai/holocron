@@ -12,7 +12,7 @@
   "steps_failed": 0,
   "ui_driver": "none",
   "runner": "scripts/run-sprint30-human-gate.sh",
-  "git_sha": "324ce9045c0ced0ee39686cbec603afcf1116551",
+  "git_sha": "33f004d1524452b264dcc1a41b91d0c43fa8e6e9",
   "source_sha": "324ce9045c0ced0ee39686cbec603afcf1116551",
   "deployed_base_url": "http://127.0.0.1:44121",
   "sourceRevision": "324ce9045c0ced0ee39686cbec603afcf1116551",
@@ -20,7 +20,7 @@
   "started_at": "2026-08-07T09:58:43Z",
   "finished_at": "2026-08-07T09:59:16Z",
   "written_at": "2026-08-07T09:59:16Z",
-  "notes": "RH-S30-07 tip-bound: git_sha==HEAD and sourceRevision match. RH-S30-06 step3 requires verify-fallback-boot. RH-S30-08 verification via verify-gate-evidence.sh (json + raw same stdout).",
+  "notes": "RH-S30-07 tip-bound: git_sha==HEAD and sourceRevision match. RH-S30-06 step3 requires verify-fallback-boot. RH-S30-08 verification via verify-gate-evidence.sh (json + raw same stdout). C-2-atomic-v3: source_sha_at_run=324ce9045c0c git_sha/evidence=33f004d15244 gate_results_blob_sha256=b84649d3832f0e54 contains .gate-evidence/20260807T095843Z.",
   "steps": [
     {
       "n": 1,
@@ -62,5 +62,9 @@
       "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T095843Z/step5.log",
       "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T095843Z/step5.log"
     }
-  ]
+  ],
+  "source_sha_at_run": "324ce9045c0ced0ee39686cbec603afcf1116551",
+  "package_sha": "33f004d1524452b264dcc1a41b91d0c43fa8e6e9",
+  "gate_results_blob_sha256": "b84649d3832f0e54382c88543c12e756d19bb6cf156a2696a7d3407ab1a006c4",
+  "evidence_package_protocol": "C-2-atomic-v3-blob-attestation"
 }
