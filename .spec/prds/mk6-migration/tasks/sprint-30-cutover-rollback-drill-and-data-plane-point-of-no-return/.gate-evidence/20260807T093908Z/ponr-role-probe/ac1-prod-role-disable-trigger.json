@@ -1,0 +1,15 @@
+{
+  "role": "holocron",
+  "is_superuser": true,
+  "table_owner": "holocron",
+  "is_table_owner": true,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true,
+  "disable_denied": false,
+  "disable_trigger_exit": 0,
+  "disable_trigger_stderr": "",
+  "ponr_row_count_after": 1,
+  "triggers_enabled_after": true,
+  "rows_preserved": true,
+  "triggers_restored": true
+}

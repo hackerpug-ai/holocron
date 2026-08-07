@@ -1,0 +1,48 @@
+{
+  "ac1": {
+    "role": "holocron",
+    "is_superuser": true,
+    "table_owner": "holocron",
+    "is_table_owner": true,
+    "ponr_row_count_before": 1,
+    "triggers_enabled_before": true,
+    "disable_denied": false,
+    "disable_trigger_exit": 0,
+    "disable_trigger_stderr": "",
+    "ponr_row_count_after": 1,
+    "triggers_enabled_after": true,
+    "rows_preserved": true,
+    "triggers_restored": true
+  },
+  "ac2": {
+    "role": "holocron",
+    "is_superuser": true,
+    "table_owner": "holocron",
+    "is_table_owner": true,
+    "ponr_row_count_before": 1,
+    "triggers_enabled_before": true,
+    "truncate_fail_closed": false,
+    "update_fail_closed": false,
+    "truncate_exit": 0,
+    "update_exit": 0,
+    "truncate_stderr": "",
+    "update_stderr": "",
+    "rows_preserved": true
+  },
+  "preflight": {
+    "role": "holocron",
+    "is_superuser": true,
+    "table_owner": "holocron",
+    "is_table_owner": true,
+    "ponr_row_count_before": 1,
+    "triggers_enabled_before": true
+  },
+  "postflight": {
+    "role": "holocron",
+    "is_superuser": true,
+    "table_owner": "holocron",
+    "is_table_owner": true,
+    "ponr_row_count_before": 1,
+    "triggers_enabled_before": true
+  }
+}
