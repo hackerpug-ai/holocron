@@ -1,0 +1,22 @@
+{
+  "independentHttp201Id": "24cea1a5-b8f2-4306-91c2-a0675a7630ba",
+  "report_write_row_id": "24cea1a5-b8f2-4306-91c2-a0675a7630ba",
+  "reselectProbeId": "00000000-0000-4000-8000-eeeeeeeeeeee",
+  "dbIds": [
+    "24cea1a5-b8f2-4306-91c2-a0675a7630ba",
+    "5c262d0b-cbd3-4b5b-824d-63a5dc85e16a",
+    "b6073a62-ed4d-4b6a-b405-8f5ae098f10c",
+    "ab683c38-af35-4129-8b7b-0eed0f635947",
+    "f27631e3-c626-4404-96c1-5ff2d636ec97",
+    "4ae95cfa-5edd-437c-bc20-8b5da70475c3",
+    "77a9c3c3-0e8a-40b2-89a1-3545955dd5e9",
+    "225da7d1-ee49-4d53-b508-ff18fead5f8a",
+    "493dd083-889e-4fed-ad58-34bf523022e8",
+    "c962b90a-32c2-4173-9957-5a8980fbb9ff"
+  ],
+  "writeIds": [
+    "24cea1a5-b8f2-4306-91c2-a0675a7630ba",
+    "24cea1a5-b8f2-4306-91c2-a0675a7630ba"
+  ],
+  "fence": "1"
+}

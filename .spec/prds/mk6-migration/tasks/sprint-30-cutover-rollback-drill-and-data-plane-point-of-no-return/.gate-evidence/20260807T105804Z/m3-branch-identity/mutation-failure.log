@@ -1,0 +1,3 @@
+MUTATION PROBE (RH-S30-22): if independentHttp201Id capture is removed and test only
+uses report.write_row_id, the reselect oracle becomes self-correlated and must RED.
+Documented residual from 20260807T101142Z; GREEN after fetch interceptor + DB cross-check.

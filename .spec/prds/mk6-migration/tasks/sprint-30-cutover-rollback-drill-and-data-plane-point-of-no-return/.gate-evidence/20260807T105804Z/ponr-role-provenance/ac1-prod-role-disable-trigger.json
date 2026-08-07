@@ -1,0 +1,20 @@
+{
+  "role": "holocron",
+  "session_user": "holocron",
+  "is_superuser": true,
+  "table_owner": "holocron",
+  "is_table_owner": true,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true,
+  "probe_mode": "set_role_holocron_app_residual",
+  "probe_current_user": "holocron_app",
+  "disable_denied": true,
+  "disable_trigger_exit": 1,
+  "disable_trigger_stderr": "42501:permission denied for schema zero_0",
+  "sqlstate": "42501",
+  "ponr_row_count_after": 1,
+  "triggers_enabled_after": true,
+  "rows_preserved": true,
+  "triggers_restored": true,
+  "production_sqlstate_claim": true
+}
