@@ -1,14 +1,14 @@
 {
   "a": {
+    "id": "019fd37d-46ff-7506-8d01-9eb6e90469d9",
+    "error": null
+  },
+  "b": {
     "id": null,
     "error": {
       "code": "P0001",
-      "message": "REVISE_STALE_CONCURRENT: belief 019f71b5-db46-71f4-90e8-74c334c047f1 is already closed (tx_to set)"
+      "message": "REVISE_STALE_CONCURRENT: belief 019fd37d-46f8-73ee-ad59-11fd7486f674 is already closed (tx_to set)"
     }
-  },
-  "b": {
-    "id": "019f71b5-db58-746a-8584-844b5c9a6c72",
-    "error": null
   },
   "successCount": 1,
   "failureCount": 1,

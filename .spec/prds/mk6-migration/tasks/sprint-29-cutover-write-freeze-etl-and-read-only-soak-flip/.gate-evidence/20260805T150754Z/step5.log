@@ -1,0 +1,132 @@
+@@GATE-META step=5 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T150754Z source_sha=20f8769d0ea0afaa273189b9b9fc63931cdb8554 git_sha=20f8769d0ea0afaa273189b9b9fc63931cdb8554 started_at=2026-08-05T15:11:45Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; : "${HOLO_ARTICLE_SHARE_TOKEN:?HOLO_ARTICLE_SHARE_TOKEN is required}"; mkdir -p .tmp/D06-03 .tmp/REDHAT-FIX-S29-H03; pnpm exec convex dev --once --typecheck disable --codegen disable --tail-logs disable | tee .tmp/REDHAT-FIX-S29-H03/step5-convex-deploy.log; convex_function_spec="$(bash scripts/wait-convex-function-spec.sh migrationFence/audit.js:migrationReadOnlyStatus migrationFence/audit.js:recordFenceArmed migrationFence/audit.js:recordWriteAttempt migrationFence/audit.js:latestFenceArmed migrationFence/audit.js:countAttemptsInWindow migrationFence/drain.js:disableAndDrain migrationFence/drain.js:seedInFlightForDrainTest migrationFence/drain.js:scheduleDisableStatus migrationFence/drain.js:probeScheduleConsumer migrationFence/drain.js:latestDrain)"; for convex_function in migrationFence/audit.js:migrationReadOnlyStatus migrationFence/audit.js:recordFenceArmed migrationFence/audit.js:recordWriteAttempt migrationFence/audit.js:latestFenceArmed migrationFence/audit.js:countAttemptsInWindow migrationFence/drain.js:disableAndDrain migrationFence/drain.js:seedInFlightForDrainTest migrationFence/drain.js:scheduleDisableStatus migrationFence/drain.js:probeScheduleConsumer migrationFence/drain.js:latestDrain; do grep -F "\"identifier\": \"$convex_function\"" <<<"$convex_function_spec" >/dev/null; printf 'verified function-spec %s\n' "$convex_function"; done; unset convex_function_spec; rm -f .tmp/D06-03/article-baseline.json; bun services/platform/src/cli/holo.ts cutover:freeze --json --output .tmp/D06-03/freeze-report.json --reason "sprint-29-human-gate" | tee .tmp/REDHAT-FIX-S29-H03/step5-freeze.json; jq -e '.ok == true and .env_value == "1" and .fence_armed_at > 0' .tmp/D06-03/freeze-report.json; bun services/platform/src/cli/holo.ts cutover:capture-article-baseline --token "$HOLO_ARTICLE_SHARE_TOKEN" --output .tmp/D06-03/article-baseline.json --json | tee .tmp/REDHAT-FIX-S29-H03/step5-article-baseline.json; jq -e --slurpfile freeze .tmp/D06-03/freeze-report.json '.ok == true and .status == 200 and (.sha256 | test("^[a-f0-9]{64}$")) and .byteLength > 0 and .shareToken == env.HOLO_ARTICLE_SHARE_TOKEN and .phase == "d06-03-post-arm" and .capturedAtMs > $freeze[0].fence_armed_at' .tmp/D06-03/article-baseline.json; QUIET_WINDOW_SECONDS="${QUIET_WINDOW_SECONDS:-30}"; bun services/platform/src/cli/holo.ts cutover:quiet-check --json --window-seconds "$QUIET_WINDOW_SECONDS" --output .tmp/D06-03/quiet-check-report.json | tee .tmp/REDHAT-FIX-S29-H03/step5-quiet-check.json; jq -e --argjson minWindow "$QUIET_WINDOW_SECONDS" '.ok == true and .acceptedWriteCount == 0 and .rejectedWriteCount > 0 and .windowSeconds >= $minWindow' .tmp/D06-03/quiet-check-report.json
+---
+- Preparing Convex functions...
+
+[36mA minor update is available for Convex[39m [2m(1.33.0 → 1.43.0)[22m
+[2mChangelog:[22m [4mhttps://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog[24m
+✔ 09:11:51 Convex functions ready! (4.41s)
+verified function-spec migrationFence/audit.js:migrationReadOnlyStatus
+verified function-spec migrationFence/audit.js:recordFenceArmed
+verified function-spec migrationFence/audit.js:recordWriteAttempt
+verified function-spec migrationFence/audit.js:latestFenceArmed
+verified function-spec migrationFence/audit.js:countAttemptsInWindow
+verified function-spec migrationFence/drain.js:disableAndDrain
+verified function-spec migrationFence/drain.js:seedInFlightForDrainTest
+verified function-spec migrationFence/drain.js:scheduleDisableStatus
+verified function-spec migrationFence/drain.js:probeScheduleConsumer
+verified function-spec migrationFence/drain.js:latestDrain
+{
+  "ok": true,
+  "fence_armed_at": 1785942717495,
+  "confirmed_at_ms": 1785942716891,
+  "cross_process_probe": {
+    "rejected": true,
+    "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set",
+    "surface": "documents.mutations.create",
+    "documentsBefore": 1623,
+    "documentsAfter": 1623,
+    "child_pid": 64885
+  },
+  "env": "HOLO_MIGRATION_READ_ONLY",
+  "env_value": "1",
+  "reason": "sprint-29-human-gate",
+  "audit_id": "vn70brq2sjvbzgehfkn42g9ss98bxg2f",
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-03/freeze-report.json"
+}
+true
+{
+  "ok": true,
+  "sha256": "5da5f33d5f042a947d1495bc16a286e89fcd68d3b2acafad42de6d42f6d61834",
+  "byteLength": 4044,
+  "capturedAtMs": 1785942719247,
+  "fence_armed_at": 1785942717495,
+  "shareToken": "9cf8cd35-42e0-4f2a-9b32-1316f3081521",
+  "url": "https://acrobatic-echidna-253.convex.site/article/9cf8cd35-42e0-4f2a-9b32-1316f3081521",
+  "status": 200,
+  "path": "/Users/inference1/Projects/holocron/.tmp/D06-03/article-baseline.json",
+  "phase": "d06-03-post-arm",
+  "provenance": {
+    "kind": "immutable-pre-freeze-article-baseline",
+    "source": "network-GET-after-fence-arm",
+    "note": "D06-03 operator capture; immutable for later cutover:verify-article (do not re-author from SUT)"
+  }
+}
+true
+{
+  "ok": true,
+  "acceptedWriteCount": 0,
+  "rejectedWriteCount": 2,
+  "windowSeconds": 30,
+  "sinceMs": 1785942723981,
+  "untilMs": 1785942753983,
+  "quietSinceMs": 1785942723981,
+  "quietUntilMs": 1785942753983,
+  "elapsedMs": 30002,
+  "drainCompletedAtMs": 1785942723124,
+  "drain": {
+    "ok": true,
+    "surfaces": [
+      "tasks",
+      "subscriptionContent"
+    ],
+    "completedAtMs": 1785942723124,
+    "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+    "disabledEnvValue": "1",
+    "convexDrainOk": true,
+    "consumersHonored": true,
+    "samples": {
+      "activeTasks": 0,
+      "afterActiveTasks": 0,
+      "afterQueuedSubscriptionContent": 0,
+      "afterRunningTasks": 0,
+      "batchesProcessed": 1,
+      "contentSkipped": 0,
+      "drainBatches": 1,
+      "measuredSurfaces": [
+        "tasks",
+        "subscriptionContent"
+      ],
+      "queuedSubscriptionContent": 0,
+      "runningTasks": 0,
+      "surfaceResiduals": {
+        "subscriptionContent": {
+          "after": 0,
+          "before": 0
+        },
+        "tasks": {
+          "after": 0,
+          "before": 0,
+          "runningAfter": 0,
+          "runningBefore": 0
+        }
+      },
+      "tasksCancelled": 0,
+      "unknownSurfaces": []
+    },
+    "probe": {
+      "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+      "honored": true,
+      "reason": "schedules_disabled: cutover:quiet-check skipped while HOLO_CUTOVER_SCHEDULES_DISABLED is set",
+      "skipped": true,
+      "surface": "cutover:quiet-check"
+    }
+  },
+  "probes": [
+    {
+      "surface": "documents.mutations.create",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    },
+    {
+      "surface": "subscriptions.mutations.add",
+      "rejected": true,
+      "message": "migration_read_only: mutation blocked while HOLO_MIGRATION_READ_ONLY is set"
+    }
+  ],
+  "oracle": "mixed",
+  "auditAcceptedWriteCount": 0,
+  "auditRejectedWriteCount": 2,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-03/quiet-check-report.json"
+}
+true

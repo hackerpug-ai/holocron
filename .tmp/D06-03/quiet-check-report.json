@@ -3,21 +3,19 @@
   "acceptedWriteCount": 0,
   "rejectedWriteCount": 2,
   "windowSeconds": 30,
-  "sinceMs": 1785636780701,
-  "untilMs": 1785636810703,
-  "quietSinceMs": 1785636780701,
-  "quietUntilMs": 1785636810703,
+  "sinceMs": 1785959999729,
+  "untilMs": 1785960029731,
+  "quietSinceMs": 1785959999729,
+  "quietUntilMs": 1785960029731,
   "elapsedMs": 30002,
-  "drainCompletedAtMs": 1785636779853,
+  "drainCompletedAtMs": 1785959998856,
   "drain": {
     "ok": true,
     "surfaces": [
-      "crons",
-      "queues",
-      "outbox",
-      "scheduled_jobs"
+      "tasks",
+      "subscriptionContent"
     ],
-    "completedAtMs": 1785636779853,
+    "completedAtMs": 1785959998856,
     "disabledEnv": "HOLO_CUTOVER_SCHEDULES_DISABLED",
     "disabledEnvValue": "1",
     "convexDrainOk": true,
@@ -27,10 +25,29 @@
       "afterActiveTasks": 0,
       "afterQueuedSubscriptionContent": 0,
       "afterRunningTasks": 0,
+      "batchesProcessed": 1,
       "contentSkipped": 0,
+      "drainBatches": 1,
+      "measuredSurfaces": [
+        "tasks",
+        "subscriptionContent"
+      ],
       "queuedSubscriptionContent": 0,
       "runningTasks": 0,
-      "tasksCancelled": 0
+      "surfaceResiduals": {
+        "subscriptionContent": {
+          "after": 0,
+          "before": 0
+        },
+        "tasks": {
+          "after": 0,
+          "before": 0,
+          "runningAfter": 0,
+          "runningBefore": 0
+        }
+      },
+      "tasksCancelled": 0,
+      "unknownSurfaces": []
     },
     "probe": {
       "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
@@ -55,5 +72,5 @@
   "oracle": "mixed",
   "auditAcceptedWriteCount": 0,
   "auditRejectedWriteCount": 2,
-  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-C03/.tmp/D06-03/quiet-check-report.json"
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-03/quiet-check-report.json"
 }

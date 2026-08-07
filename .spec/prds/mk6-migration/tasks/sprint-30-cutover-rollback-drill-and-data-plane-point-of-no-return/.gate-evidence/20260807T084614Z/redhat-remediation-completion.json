@@ -1,0 +1,54 @@
+{
+  "kind": "redhat-remediation-run-completion",
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+  "scope": "REDHAT-FIX-RH-S30-01..08",
+  "written_at": "2026-08-07T08:52:00Z",
+  "git_sha": "2ff0e6c40e9ec49bcae821b45c1d7eff19a29925",
+  "gate": {
+    "run_id": "20260807T084614Z",
+    "verdict": "pass",
+    "steps_passed": 5,
+    "steps_total": 5,
+    "sourceRevision": "2ff0e6c40e9ec49bcae821b45c1d7eff19a29925",
+    "head_bound": true,
+    "results_path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-results.json",
+    "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T084614Z"
+  },
+  "verification": {
+    "verified": true,
+    "recomputed_verdict": "pass",
+    "discrepancies": [],
+    "json_path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-verification.json",
+    "raw_path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-verification.json.raw"
+  },
+  "acceptance_criteria": {
+    "all_open_ac_boxes": 0,
+    "tasks": [
+      "REDHAT-FIX-RH-S30-01",
+      "REDHAT-FIX-RH-S30-02",
+      "REDHAT-FIX-RH-S30-03",
+      "REDHAT-FIX-RH-S30-04",
+      "REDHAT-FIX-RH-S30-05",
+      "REDHAT-FIX-RH-S30-06",
+      "REDHAT-FIX-RH-S30-07",
+      "REDHAT-FIX-RH-S30-08"
+    ],
+    "status": "satisfied_on_main"
+  },
+  "landing": {
+    "trunk": "main",
+    "tip_commits": [
+      "1e942386 fix(REDHAT-FIX-RH-S30-06): Release Maestro boot path for pinned fallback",
+      "cd87bf03 fix(REDHAT-FIX-RH-S30-06): stop gate step3 false-positive on BOOT_UNVERIFIED",
+      "2ff0e6c4 fix(REDHAT-FIX-RH-S30-06): drop step3 expect_not_log_regex self-match"
+    ]
+  },
+  "release_approval": {
+    "claimed": false,
+    "reason": "Independent dual-lens review and a subsequent fresh QA cycle are still required before Sprint 30 may be release-approved or marked Completed."
+  },
+  "remaining_blocker_for_sprint_complete": {
+    "id": "INDEPENDENT_REVIEW_AND_QA",
+    "summary": "Independent dual-lens review of REDHAT-FIX-RH-S30-01..08 (not self-review), then fresh tip-bound QA if review lands further changes."
+  }
+}

@@ -2,14 +2,52 @@
   "status": 200,
   "body": {
     "status": "ok",
+    "db": {
+      "ready": true,
+      "latency_ms": 6
+    },
+    "postgres": {
+      "ready": true,
+      "latency_ms": 6
+    },
+    "fleet": {
+      "ready": true,
+      "endpoint": "http://127.0.0.1:4545",
+      "latency_ms": 1
+    },
+    "queue": {
+      "ready": true,
+      "latency_ms": 225,
+      "backend": "pg-boss"
+    },
+    "zeroCache": {
+      "ready": true,
+      "endpoint": "http://127.0.0.1:4848",
+      "latency_ms": 1
+    },
+    "deployment": {
+      "ready": true,
+      "required": false,
+      "identity": null
+    },
+    "failing_dependency": null,
+    "host": null,
+    "runtime": null,
+    "imageDigest": null,
+    "sourceRevision": null,
+    "composeGeneration": null,
     "data_plane": "convex",
     "target": "convex-frozen",
     "rollback": {
       "target": "convex-frozen",
       "data_plane": "convex",
       "source": "secrets"
-    }
+    },
+    "pid": 24046,
+    "service_label": "s29-rollback-preexisting-platform",
+    "generation": null,
+    "uptime_ms": 1765
   },
-  "baseUrl": "http://127.0.0.1:51443",
-  "pid": 32023
+  "baseUrl": "http://127.0.0.1:64221",
+  "pid": 24046
 }

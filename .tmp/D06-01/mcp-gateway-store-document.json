@@ -5,14 +5,10 @@
       "content": [
         {
           "type": "text",
-          "text": "{\"documentId\":\"5a737dfe-91ef-40c2-bcb3-9772dc545527\",\"title\":\"s29-d0601-7221d1d0-aa14-4a8e-a26a-9f183b3bc2a5-mcp-gateway-doc\",\"embeddingStatus\":\"pending\"}"
+          "text": "{\"code\":\"MIGRATION_READ_ONLY\",\"message\":\"MIGRATION_READ_ONLY: store_document blocked while HOLO_MIGRATION_READ_ONLY is set\"}"
         }
       ],
-      "structuredContent": {
-        "documentId": "5a737dfe-91ef-40c2-bcb3-9772dc545527",
-        "title": "s29-d0601-7221d1d0-aa14-4a8e-a26a-9f183b3bc2a5-mcp-gateway-doc",
-        "embeddingStatus": "pending"
-      }
+      "isError": true
     },
     "jsonrpc": "2.0",
     "id": 2

@@ -1,12 +1,17 @@
 {
   "task": "REDHAT-FIX-H3",
   "phase": "GREEN",
-  "production_createFleetChatModel_callers": 3,
+  "production_createFleetChatModel_callers": 5,
   "call_sites": [
     {
       "file": "services/platform/src/compat/cells/agent.ts",
       "line": 106,
       "text": "const fleetModel = createFleetChatModel(resolved, {"
+    },
+    {
+      "file": "services/platform/src/evals/scorers.ts",
+      "line": 84,
+      "text": "const model = createFleetChatModel(resolved, {"
     },
     {
       "file": "services/platform/src/inference/extract-structured.ts",
@@ -17,15 +22,20 @@
       "file": "services/platform/src/inference/probe-capability.ts",
       "line": 93,
       "text": "const fleetModel = createFleetChatModel(resolved, {"
+    },
+    {
+      "file": "services/platform/src/inference/telemetry.ts",
+      "line": 435,
+      "text": "const fleetModel = createFleetChatModel(resolved);"
     }
   ],
   "agent_path_calls": 1,
-  "anthropicCount": 0,
+  "deepseekCount": 0,
   "fleetHits": 2,
   "structural": true,
   "must_observe_green": {
     "production_createFleetChatModel_callers >= 1": true,
-    "anthropicCount:0": true,
+    "deepseekCount:0": true,
     "fleetHits >= 1 when generate captured": true
   }
 }

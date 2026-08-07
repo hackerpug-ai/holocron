@@ -1,9 +1,9 @@
 {
   "status": 0,
-  "stdout": "{\n  \"ok\": true,\n  \"claimId\": \"claim-asof-now-1\",\n  \"asOf\": \"now\",\n  \"asOfResolved\": \"2026-07-17T20:12:50.055Z\",\n  \"beliefId\": \"019f71b5-d5af-712c-b18a-e5e36f3d0927\",\n  \"id\": \"019f71b5-d5af-712c-b18a-e5e36f3d0927\",\n  \"statement\": \"current-open\",\n  \"confidence\": 0.95,\n  \"netSupport\": 0,\n  \"net_support\": 0,\n  \"sessionRole\": \"holocron_app\",\n  \"current_user\": \"holocron_app\",\n  \"belief\": {\n    \"id\": \"019f71b5-d5af-712c-b18a-e5e36f3d0927\",\n    \"claimId\": \"claim-asof-now-1\",\n    \"statement\": \"current-open\",\n    \"confidence\": 0.95,\n    \"supersedesId\": \"019f71b5-d5ad-791e-abd8-33f4b52e0974\",\n    \"validFrom\": null,\n    \"validTo\": null,\n    \"txFrom\": \"2024-02-29 17:00:00-07\",\n    \"txTo\": null,\n    \"actor\": null,\n    \"runId\": null,\n    \"idempotencyKey\": null\n  },\n  \"messages\": [\n    \"current_user: holocron_app\",\n    \"belief_as_of(sql-fn)\",\n    \"belief_net_support(sql-fn)\",\n    \"beliefId: 019f71b5-d5af-712c-b18a-e5e36f3d0927\",\n    \"statement: current-open\",\n    \"netSupport: 0\"\n  ],\n  \"errors\": []\n}\n",
+  "stdout": "{\n  \"ok\": true,\n  \"claimId\": \"claim-asof-now-1\",\n  \"asOf\": \"now\",\n  \"asOfResolved\": \"2026-08-05T19:53:37.241Z\",\n  \"beliefId\": \"019fd37d-126f-7aff-8469-3d33a81ac300\",\n  \"id\": \"019fd37d-126f-7aff-8469-3d33a81ac300\",\n  \"statement\": \"current-open\",\n  \"confidence\": 0.95,\n  \"netSupport\": 0,\n  \"net_support\": 0,\n  \"sessionRole\": \"holocron_app\",\n  \"current_user\": \"holocron_app\",\n  \"belief\": {\n    \"id\": \"019fd37d-126f-7aff-8469-3d33a81ac300\",\n    \"claimId\": \"claim-asof-now-1\",\n    \"statement\": \"current-open\",\n    \"confidence\": 0.95,\n    \"supersedesId\": \"019fd37d-126f-70a1-85bc-863b3813e694\",\n    \"validFrom\": null,\n    \"validTo\": null,\n    \"txFrom\": \"2024-02-29 17:00:00-07\",\n    \"txTo\": null,\n    \"actor\": null,\n    \"runId\": null,\n    \"idempotencyKey\": null\n  },\n  \"messages\": [\n    \"current_user: holocron_app\",\n    \"belief_as_of(sql-fn)\",\n    \"belief_net_support(sql-fn)\",\n    \"beliefId: 019fd37d-126f-7aff-8469-3d33a81ac300\",\n    \"statement: current-open\",\n    \"netSupport: 0\"\n  ],\n  \"errors\": []\n}\n",
   "stderr": "",
-  "beliefId": "019f71b5-d5af-712c-b18a-e5e36f3d0927",
+  "beliefId": "019fd37d-126f-7aff-8469-3d33a81ac300",
   "statement": "current-open",
-  "b1Id": "019f71b5-d5ad-791e-abd8-33f4b52e0974",
-  "b2Id": "019f71b5-d5af-712c-b18a-e5e36f3d0927"
+  "b1Id": "019fd37d-126f-70a1-85bc-863b3813e694",
+  "b2Id": "019fd37d-126f-7aff-8469-3d33a81ac300"
 }

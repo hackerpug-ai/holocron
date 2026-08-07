@@ -1,0 +1,33 @@
+@@GATE-META step=5 cmd_sha=657ddd3ec6b8eb29d8fe7bf165a0a9e139eeda98c7fbec9fcf1ad1853c2b199a run_id=20260807T112331Z git_sha=a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502 source_sha=a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502 started_at=2026-08-07T11:24:18Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "precondition": {
+    "ok": false,
+    "accepted_post_export_writes": 1,
+    "export_watermark_ms": 1786100161180,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+    "ponr_recorded": false,
+    "ponr_id": null,
+    "ponr_recorded_at": null
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": "convex-frozen"
+  },
+  "acknowledgements": [],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/rollback-repoint-report.json",
+  "error": {
+    "code": "POST_EXPORT_WRITE_ACCEPTED",
+    "message": "cutover:rollback-repoint refuses: 1 accepted post-export production write(s) (point of no return / UC-SYNC-04). Convex re-point is ineligible; recover from Postgres/blob backups."
+  }
+}
+@@GATE-EXIT=2@@

@@ -1,37 +1,19 @@
 {
-  "failures": [
-    "POST /api/chat-runs status=200 body={\"ok\":true,\"replay\":true,\"runId\":\"1e226002-6480-4873-8a03-af1f0f7b5f94\",\"conversationId\":\"9d2f4047-34a0-46a9-b3f1-2ce1ad8256d3\",\"durableMessageId\":\"019fbf91-68ec-7b80-b5a3-d184a90f1f09\",\"requestId\":\"s",
-    "POST /api/chat-runs/:id/cancel status=404 body={\"error\":\"not_found\",\"message\":\"chat run not found\"}",
-    "PATCH /api/conversations/:id status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
-    "DELETE /api/conversations/:id status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
-    "POST /api/documents status=201 body={\"document\":{\"id\":\"91e43b79-674f-447d-bafc-6c48fb5ae51f\",\"title\":\"s29-d0601-13320670-b4f8-460d-801c-8523f8b93cd3-hono-doc\",\"content\":\"red-fence probe\",\"category\":\"general\"}}",
-    "POST /api/documents/:id/narration status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
-    "POST /api/voice-sessions status=404 body={\"error\":\"not_found\",\"message\":\"conversation not found\"}",
-    "POST /api/voice-sessions/:id/end status=404 body={\"error\":\"not_found\",\"message\":\"voice session not found\"}",
-    "POST /api/improvements status=201 body={\"improvement\":{\"id\":\"49937219-014e-4d67-914e-9fb15f4fdee7\"}}",
-    "PATCH /api/improvements/:id status=404 body={\"error\":\"not_found\",\"message\":\"improvement not found\"}",
-    "DELETE /api/improvements/:id status=404 body={\"error\":\"not_found\",\"message\":\"improvement not found\"}",
-    "PATCH /api/subscriptions/:id status=404 body={\"error\":\"not_found\",\"message\":\"subscription not found\"}",
-    "POST /api/feed-items/:id/feedback status=404 body={\"error\":\"not_found\",\"message\":\"feed item not found\"}",
-    "PATCH /api/assimilations/:id status=409 body={\"error\":\"invalid_assimilation_state\",\"message\":\"session is not awaiting a reviewer decision\"}",
-    "DELETE /api/subscriptions/:id status=404 body={\"error\":\"not_found\",\"message\":\"subscription not found\"}",
-    "POST /api/documents/:id/import status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
-    "POST /api/documents/:id/publish status=404 body={\"error\":\"not_found\",\"message\":\"document not found\"}",
-    "POST /api/uploads status=404 body={\"error\":\"upload_error\",\"message\":\"upload target not found: improvement_image:cf5c1422-4c11-4728-bbe3-3bf282b6fb87\"}",
-    "PUT /api/uploads/:id status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: 39d0a738-0b22-4557-9082-79a1c7da346e\"}",
-    "POST /api/uploads/:id/finalize status=404 body={\"error\":\"upload_error\",\"message\":\"unknown upload id: 39d0a738-0b22-4557-9082-79a1c7da346e\"}",
-    "POST /api/missions status=200 body={\"attemptCount\":1,\"checkpointStageIndex\":0,\"code\":\"MISSION_WHATSNEW_DATE_REQUIRED\",\"error\":\"whatsnew requires --date YYYY-MM-DD\",\"errorCode\":\"MISSION_WHATSNEW_DATE_REQUIRED\",\"goal\":\"s29-d0601-13320670",
-    "POST /api/missions/:id/verdicts status=422 body={\"ok\":false,\"error\":\"(root): Unrecognized keys: \\\"note\\\", \\\"idempotencyKey\\\"\",\"code\":\"INVALID_REQUEST\",\"errorCode\":\"INVALID_REQUEST\"}",
-    "POST /api/missions/:id/steer status=422 body={\"ok\":false,\"error\":\"(root): Unrecognized key: \\\"idempotencyKey\\\"\",\"code\":\"INVALID_REQUEST\",\"errorCode\":\"INVALID_REQUEST\"}"
-  ],
+  "failures": [],
   "postAc1Counts": {
-    "documents": 27,
-    "subscription_sources": 6,
-    "improvement_requests": 11
+    "documents": 11,
+    "subscription_sources": 0,
+    "improvement_requests": 2
+  },
+  "before": {
+    "documents": 12,
+    "subscription_sources": 2,
+    "improvement_requests": 3
   },
   "after": {
-    "documents": 29,
-    "subscription_sources": 8,
-    "improvement_requests": 13
-  }
+    "documents": 12,
+    "subscription_sources": 2,
+    "improvement_requests": 3
+  },
+  "countsEqual": true
 }

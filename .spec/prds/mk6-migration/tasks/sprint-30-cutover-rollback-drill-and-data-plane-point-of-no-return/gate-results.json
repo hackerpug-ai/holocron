@@ -4,70 +4,115 @@
     "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
     "sprint_slug": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return"
   },
-  "run_id": "20260807T115948Z",
-  "verdict": "pass",
+  "run_id": "20260807T121410Z",
+  "verdict": "blocked",
+  "blocked_reason": "deployment-revision-mismatch",
   "steps_total": 5,
-  "steps_executed": 5,
-  "steps_passed": 5,
+  "steps_executed": 0,
+  "steps_passed": 0,
   "steps_failed": 0,
   "ui_driver": "none",
-  "runner": "scripts/run-sprint30-human-gate.sh",
-  "git_sha": "c084ed31a44467dd4178230553175d5d0bb956c8",
-  "source_sha": "c084ed31a44467dd4178230553175d5d0bb956c8",
-  "deployed_base_url": "http://127.0.0.1:44121",
-  "sourceRevision": "c084ed31a44467dd4178230553175d5d0bb956c8",
-  "head_bound": true,
-  "started_at": "2026-08-07T11:59:48Z",
-  "finished_at": "2026-08-07T12:00:36Z",
-  "written_at": "2026-08-07T12:00:36Z",
-  "notes": "RH-S30-07 tip-bound: git_sha==HEAD and sourceRevision match. RH-S30-06 step3 requires verify-fallback-boot. RH-S30-08 verification via verify-gate-evidence.sh (json + raw same stdout). C-2-atomic-v5-git-bound-attestation: source=c084ed31a444; exact gate-results blob bound via Git-authenticated attestation lock for .gate-evidence/20260807T115948Z.",
+  "runner": "surface:56 (BC010F56-09B0-4BA0-B318-3D2B4252E505)",
+  "exec_surface": "surface:56 (BC010F56-09B0-4BA0-B318-3D2B4252E505)",
+  "qa_surface_id": "70FB0F01-6436-4FF9-A743-9D2133D1DE02",
+  "qa_session_id": null,
+  "qa_session_provenance": {
+    "qa_surface_id": "70FB0F01-6436-4FF9-A743-9D2133D1DE02",
+    "qa_session_id": null,
+    "session_derivation": "CMUX_SESSION_ID was unset; recorded null rather than inventing an identifier"
+  },
+  "git_sha": "14aacf307dd84b33288099f6278f183d1d35bf17",
+  "source_sha": "14aacf307dd84b33288099f6278f183d1d35bf17",
+  "source_sha_at_run": "14aacf307dd84b33288099f6278f183d1d35bf17",
+  "package_commit": "39c08627159897a2f8b3f5e196f82ddbc7e2a960",
+  "required_live_source_revision": "14aacf307dd84b33288099f6278f183d1d35bf17",
+  "observed_live_source_revision": "c084ed31a44467dd4178230553175d5d0bb956c8",
+  "started_at": "2026-08-07T12:16:05Z",
+  "finished_at": "2026-08-07T12:16:05Z",
+  "written_at": "2026-08-07T12:16:05Z",
+  "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z",
   "steps": [
     {
       "n": 1,
       "text": "Trigger Sev-1 gate failure / rollback drill",
-      "executed": true,
-      "result": "pass",
-      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step1.log",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step1.log"
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "not run: immutable deployment binding failed before this action",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log",
+      "failure": {
+        "expected": "live /health sourceRevision must equal reviewed HEAD 14aacf307dd84b33288099f6278f183d1d35bf17",
+        "actual": "live /health sourceRevision=c084ed31a44467dd4178230553175d5d0bb956c8; official gate runner exited 2 before Human Test Deliverable step execution",
+        "evidence_pointer": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log"
+      }
     },
     {
       "n": 2,
       "text": "Count accepted post-export production writes = 0 (Postgres ledger)",
-      "executed": true,
-      "result": "pass",
-      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step2.log",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step2.log"
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "not run: immutable deployment binding failed before this action",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log",
+      "failure": {
+        "expected": "live /health sourceRevision must equal reviewed HEAD 14aacf307dd84b33288099f6278f183d1d35bf17",
+        "actual": "live /health sourceRevision=c084ed31a44467dd4178230553175d5d0bb956c8; official gate runner exited 2 before Human Test Deliverable step execution",
+        "evidence_pointer": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log"
+      }
     },
     {
       "n": 3,
       "text": "Pinned Convex-pointing app build + boot verify",
-      "executed": true,
-      "result": "pass",
-      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step3.log",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step3.log"
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "not run: immutable deployment binding failed before this action",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log",
+      "failure": {
+        "expected": "live /health sourceRevision must equal reviewed HEAD 14aacf307dd84b33288099f6278f183d1d35bf17",
+        "actual": "live /health sourceRevision=c084ed31a44467dd4178230553175d5d0bb956c8; official gate runner exited 2 before Human Test Deliverable step execution",
+        "evidence_pointer": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log"
+      }
     },
     {
       "n": 4,
       "text": "Enable first Postgres production write (PONR)",
-      "executed": true,
-      "result": "pass",
-      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step4.log",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step4.log"
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "not run: immutable deployment binding failed before this action",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log",
+      "failure": {
+        "expected": "live /health sourceRevision must equal reviewed HEAD 14aacf307dd84b33288099f6278f183d1d35bf17",
+        "actual": "live /health sourceRevision=c084ed31a44467dd4178230553175d5d0bb956c8; official gate runner exited 2 before Human Test Deliverable step execution",
+        "evidence_pointer": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log"
+      }
     },
     {
       "n": 5,
       "text": "Config rollback after PONR rejected",
-      "executed": true,
-      "result": "pass",
-      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step5.log",
-      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/step5.log"
+      "type": "terminal",
+      "method": "real-cli",
+      "executed": false,
+      "result": "wiring_gap",
+      "evidence": "not run: immutable deployment binding failed before this action",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log",
+      "failure": {
+        "expected": "live /health sourceRevision must equal reviewed HEAD 14aacf307dd84b33288099f6278f183d1d35bf17",
+        "actual": "live /health sourceRevision=c084ed31a44467dd4178230553175d5d0bb956c8; official gate runner exited 2 before Human Test Deliverable step execution",
+        "evidence_pointer": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/preflight.log"
+      }
     }
   ],
-  "c3_marker_miss_ok": true,
-  "c3_one_trigger_missing_ok": true,
-  "c3_success_path_ok": true,
-  "h3_role_provenance_closed": true,
-  "source_sha_at_run": "c084ed31a44467dd4178230553175d5d0bb956c8",
-  "package_sha": "c084ed31a44467dd4178230553175d5d0bb956c8",
-  "evidence_package_protocol": "C-2-atomic-v5-git-bound-attestation"
+  "verified": true,
+  "verification": {
+    "claimed_verdict": "blocked",
+    "recomputed_verdict": "blocked",
+    "discrepancies": [],
+    "proof": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T121410Z/gate-verification.json"
+  }
 }
