@@ -1,23 +1,23 @@
 {
   "ac": "AC-3",
   "tc": "TC-3",
-  "b1Id": "019f71b5-d712-78bb-b08a-5f0a4979cbcc",
-  "t1Id": "019f71b5-d718-78ee-a0b9-f709d017200e",
+  "b1Id": "019fd37d-46d3-78ce-9b92-f1726ffa9bae",
+  "t1Id": "019fd37d-46d5-7867-a09b-ed9f282522fe",
   "t1Error": null,
   "t2Id": null,
   "t2Error": {
     "code": "P0001",
-    "message": "REVISE_STALE_CONCURRENT: belief 019f71b5-d712-78bb-b08a-5f0a4979cbcc is already closed (tx_to set)"
+    "message": "REVISE_STALE_CONCURRENT: belief 019fd37d-46d3-78ce-9b92-f1726ffa9bae is already closed (tx_to set)"
   },
   "openBeliefs": [
     {
-      "id": "019f71b5-d718-78ee-a0b9-f709d017200e",
-      "supersedes_id": "019f71b5-d712-78bb-b08a-5f0a4979cbcc",
+      "id": "019fd37d-46d5-7867-a09b-ed9f282522fe",
+      "supersedes_id": "019fd37d-46d3-78ce-9b92-f1726ffa9bae",
       "statement": "statement-from-t1"
     }
   ],
   "successorCount": 1,
-  "predecessorTxTo": "2026-07-17 14:12:50.326614-06",
+  "predecessorTxTo": "2026-08-05 13:53:50.54913-06",
   "must_observe": {
     "T1 succeeds": true,
     "T2 raises exception": true,

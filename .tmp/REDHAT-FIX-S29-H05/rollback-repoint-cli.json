@@ -4,18 +4,41 @@
   "target": "convex-frozen",
   "target_kind": "convex",
   "data_plane": "convex",
-  "engaged_at": "2026-08-02T01:46:38.974Z",
-  "engaged_at_ms": 1785635198974,
+  "engaged_at": "2026-08-05T19:53:21.666Z",
+  "engaged_at_ms": 1785959601666,
+  "configured_target": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-S29-R2-C04/disposable-secrets.yaml",
   "precondition": {
     "ok": true,
     "accepted_post_export_writes": 0,
-    "export_watermark_ms": 1785635138833,
-    "audit_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/post-export-write-audit.json"
+    "export_watermark_ms": 1785959538936,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
   },
   "config": {
-    "path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/data-plane-config.json",
-    "digest_sha256": "a5576600e9d93c1b8c08522792e89d9d138a2f79df6cd28b524a39fdb2e7bc07",
-    "prior_target": "convex-frozen"
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "5afdf118b6eba5d2bd438d8aa339bc95873fcd03ac980b5f5480e2760db067bd",
+    "prior_target": "postgres-soak"
   },
-  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/REDHAT-FIX-S29-H05/rollback-repoint-cli.json"
+  "acknowledgements": [
+    {
+      "unit": "network-serving-health",
+      "kind": "network_health",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-05T19:53:21.893Z",
+      "source": "http://127.0.0.1:64182/health",
+      "pid": 23989,
+      "preexisting": true
+    },
+    {
+      "unit": "verify-pid:23989",
+      "kind": "process_generation",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-05T19:53:21.893Z",
+      "source": "HOLO_VERIFY_PID+network_health",
+      "pid": 23989,
+      "preexisting": true
+    }
+  ],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-S29-H05/rollback-repoint-cli.json"
 }

@@ -7,7 +7,7 @@
   "effect_count": 1,
   "outbox_count": 1,
   "inbox_dedupe_count": 1,
-  "fencing_token": "fence-029dc994-378f-4616-a809-eb59c25b1703",
+  "fencing_token": "fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c",
   "audit": {
     "effect_count": 0,
     "outbox_count": 0,
@@ -33,7 +33,7 @@
   },
   "cliAudit": {
     "status": 0,
-    "stdout": "{\n  \"key\": \"red-kill9-1\",\n  \"effect_count\": 1,\n  \"outbox_count\": 1,\n  \"inbox_dedupe_count\": 1,\n  \"fencing_token\": \"fence-029dc994-378f-4616-a809-eb59c25b1703\",\n  \"outbox\": {\n    \"status\": \"acked\",\n    \"fenceToken\": \"fence-f7173f04-302b-437e-b52f-611e34484b21\",\n    \"effectId\": \"019f71c6-adf1-7da9-a598-0c7d72df753d\"\n  },\n  \"effect\": {\n    \"id\": \"019f71c6-adf1-7da9-a598-0c7d72df753d\",\n    \"fenceToken\": \"fence-029dc994-378f-4616-a809-eb59c25b1703\"\n  },\n  \"inbox\": {\n    \"outcome\": \"applied\",\n    \"fenceToken\": \"fence-029dc994-378f-4616-a809-eb59c25b1703\"\n  },\n  \"counts\": {\n    \"outbox\": 1,\n    \"effects\": 1,\n    \"inbox\": 1\n  },\n  \"fenceToken\": \"fence-029dc994-378f-4616-a809-eb59c25b1703\"\n}\n",
+    "stdout": "{\n  \"key\": \"red-kill9-1\",\n  \"effect_count\": 1,\n  \"outbox_count\": 1,\n  \"inbox_dedupe_count\": 1,\n  \"fencing_token\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\",\n  \"outbox\": {\n    \"status\": \"acked\",\n    \"fenceToken\": \"fence-6c790637-3ffd-4508-8813-08fe1d3a68b2\",\n    \"effectId\": \"019fd37b-e54f-7659-bbe4-4ad8dee8051d\"\n  },\n  \"effect\": {\n    \"id\": \"019fd37b-e54f-7659-bbe4-4ad8dee8051d\",\n    \"fenceToken\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\"\n  },\n  \"inbox\": {\n    \"outcome\": \"applied\",\n    \"fenceToken\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\"\n  },\n  \"counts\": {\n    \"outbox\": 1,\n    \"effects\": 1,\n    \"inbox\": 1\n  },\n  \"fenceToken\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\"\n}\n",
     "stderr": ""
   },
   "must_observe": {

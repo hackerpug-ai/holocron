@@ -4,5 +4,5 @@
   "provision_has_explicit_prefix": true,
   "missing_restore_keys_fail_closed": true,
   "placeholder_fallback_absent": true,
-  "literal_cmd_sha256": "7a6a985a7145becf4471092a5ee1b208f314abf91aec57d07e33c450b9da099b"
+  "literal_cmd_sha256": "b7a938b2ab20b4a6fb0196e22e4bc82c33a0e62296a25460f2d37c5b0a2d0e5b"
 }

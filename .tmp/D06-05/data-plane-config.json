@@ -3,9 +3,10 @@
   "target": "convex-frozen",
   "target_kind": "convex",
   "convex_deployment_deleted": false,
-  "repointed_at": "2026-08-02T01:47:14.354Z",
-  "repointed_at_ms": 1785635234354,
-  "export_watermark_ms": 1000,
+  "repointed_at": "2026-08-07T11:59:54.852Z",
+  "repointed_at_ms": 1786103994852,
+  "export_watermark_ms": 1786190348757,
   "accepted_post_export_writes": 0,
-  "note": "UC-SYNC-04 rollback re-point: data plane → frozen Convex under read-only soak"
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "note": "UC-SYNC-04 rollback re-point audit mirror; authoritative plane is HOLO_DATA_PLANE in secrets"
 }

@@ -6,6 +6,6 @@
   "assertThrew": true,
   "resolveRefused": true,
   "escapeRefused": true,
-  "resolveMsg": "fleet role 'divergent' unreachable at https://api.anthropic.com (degradation=fail-closed): degraded mode active — Claude escape refused (never-cloud; local fleet only)",
-  "escapeMsg": "degraded mode active — Claude escape refused (never-cloud; local fleet only)"
+  "resolveMsg": "fleet role 'divergent' unreachable at https://api.deepseek.com (degradation=fail-closed): degraded mode active — escape refused (never-cloud; local fleet only)",
+  "escapeMsg": "degraded mode active — escape refused (never-cloud; local fleet only)"
 }

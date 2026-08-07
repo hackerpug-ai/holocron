@@ -1,0 +1,11 @@
+@@GATE-META step=1 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T144416Z source_sha=09319ead2651f336423b34667c14bbd3c6a6b8e0 git_sha=09319ead2651f336423b34667c14bbd3c6a6b8e0 started_at=2026-08-05T14:44:16Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-02 .tmp/REDHAT-FIX-S29-H03; bun services/platform/src/cli/holo.ts cutover:go-no-go --json --output go-no-go-report.json | tee .tmp/REDHAT-FIX-S29-H03/step1-go-no-go.json; jq -e '.overall.ok == true and .failed_count == 0 and (.gates | length) == 8 and all(.gates[] | select(.collectedTests != null); .collectedTests > 0)' go-no-go-report.json
+---
+{
+  "ok": false,
+  "error": "HOLO_GO_NO_GO_FLEET_URL must target a loopback-only integration service"
+}
+---
+@@GATE-EXIT=1@@
+@@GATE-ENDED=2026-08-05T14:44:17Z@@
+@@GATE-TIMEOUT-CAP=10800s@@

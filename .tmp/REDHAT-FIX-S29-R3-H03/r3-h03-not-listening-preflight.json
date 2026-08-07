@@ -4,24 +4,24 @@
   "target": "convex-frozen",
   "target_kind": "convex",
   "data_plane": "convex",
-  "engaged_at": "2026-08-02T03:49:05.936Z",
-  "engaged_at_ms": 1785642545936,
-  "configured_target": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/REDHAT-FIX-S29-R2-C04/disposable-secrets.yaml",
+  "engaged_at": "2026-08-05T19:53:26.466Z",
+  "engaged_at_ms": 1785959606466,
+  "configured_target": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-S29-R2-C04/disposable-secrets.yaml",
   "precondition": {
     "ok": true,
     "accepted_post_export_writes": 0,
-    "export_watermark_ms": 1785642485936,
-    "audit_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/D06-05/post-export-write-audit.json"
+    "export_watermark_ms": 1785959546465,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
   },
   "config": {
-    "path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/D06-05/data-plane-config.json",
-    "digest_sha256": "6416bf0518704ab41a50d7c3ea4d0f6cbe8924fe3ae3ec4e2f8a641ec592cbaf",
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "e08f02c55812c4fb16101511c8c79ac5ec9aa0556b8dff5f7f6ccbceffc885d8",
     "prior_target": "postgres-soak"
   },
   "acknowledgements": [],
-  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/REDHAT-FIX-S29-R3-H03/not-listening-preflight.json",
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-S29-R3-H03/not-listening-preflight.json",
   "error": {
     "code": "LIVE_ACK_MISSING",
-    "message": "cutover:rollback-repoint wrote control-plane at /Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-R3-H03/.tmp/REDHAT-FIX-S29-R2-C04/disposable-secrets.yaml but no pre-existing serving unit acknowledged data_plane=convex / target=convex-frozen. base URL http://127.0.0.1:51462 was not listening before control-plane write (not a pre-existing serving process). Self-created createHonoApp / same-command children do not authorize repointed:true (R3-H03). repointed remains false."
+    "message": "cutover:rollback-repoint wrote control-plane at /Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-S29-R2-C04/disposable-secrets.yaml but no pre-existing serving unit acknowledged data_plane=convex / target=convex-frozen. base URL http://127.0.0.1:64278 was not listening before control-plane write (not a pre-existing serving process). Self-created createHonoApp / same-command children do not authorize repointed:true (R3-H03). repointed remains false."
   }
 }

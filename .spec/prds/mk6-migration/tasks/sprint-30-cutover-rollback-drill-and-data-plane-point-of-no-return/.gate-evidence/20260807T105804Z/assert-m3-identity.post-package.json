@@ -1,0 +1,6 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-m3-identity-evidence.sh",
+  "root": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T105804Z/m3-identity",
+  "errors": []
+}

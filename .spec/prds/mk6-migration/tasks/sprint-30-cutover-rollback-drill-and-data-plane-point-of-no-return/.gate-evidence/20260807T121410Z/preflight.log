@@ -1,0 +1,30 @@
+@@GATE-META step=preflight cmd_sha=3dfa4edc2735b541311d13bf6d7f418f4d37924e689b8c891ec87bf9493792f8@@
++ GATE_RUN_ID=20260807T121410Z HOLO_VERIFY_BASE_URL=http://127.0.0.1:44121 bash scripts/run-sprint30-human-gate.sh
+preflight: dual-reset post_export_write_audit (Postgres + file) + clear PONR for clean enable-writes
+target_ok host=127.0.0.1 port=5432 database=holocron (credentials redacted)
+{"postgres_ledger_cleared":true}
+{"file_ledger_cleared": true, "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json", "export_watermark_ms": 1786190348757}
+NOTICE:  Emitted zero_0 ddlStart for ALTER TABLE 
+NOTICE:  zero_0 ignoring noop ALTER TABLE {"objid":"976698","object_type":"table","object_identity":"public.data_plane_ponr"}
+NOTICE:  Emitted zero_0 ddlStart for ALTER TABLE 
+NOTICE:  zero_0 ignoring noop ALTER TABLE {"objid":"976698","object_type":"table","object_identity":"public.data_plane_ponr"}
+NOTICE:  Emitted zero_0 ddlStart for ALTER TABLE 
+NOTICE:  zero_0 ignoring noop ALTER TABLE {"objid":"976698","object_type":"table","object_identity":"public.data_plane_ponr"}
+NOTICE:  Emitted zero_0 ddlStart for ALTER TABLE 
+NOTICE:  zero_0 ignoring noop ALTER TABLE {"objid":"976698","object_type":"table","object_identity":"public.data_plane_ponr"}
+DO
+{"ponr_cleared": true}
+{
+  "ok": true,
+  "tool": "scripts/reset-sprint30-gate-ledger.sh",
+  "before_table_count": 1,
+  "before_file_count": 1,
+  "after_table_count": 0,
+  "after_file_count": 0,
+  "ponr_count": 0,
+  "clear_ponr": true,
+  "oracle_note": "Step5 must still fail closed with POST_PONR_INELIGIBLE after a real step4 enable-writes PONR \u2014 this reset only clears pre-gate residue so step1/2 see accepted_count=0 and step5 is not polluted by stale POST_EXPORT_WRITE_ACCEPTED from leftover ledger rows."
+}
+error: DEPLOY_REVISION_MISMATCH — live sourceRevision=c084ed31a44467dd4178230553175d5d0bb956c8 head=14aacf307dd84b33288099f6278f183d1d35bf17
+  Production must be redeployed to tip before QA green (RH-S30-07).
+@@GATE-EXIT=2@@

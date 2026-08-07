@@ -1,19 +1,18 @@
-# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-07-26T05:27:25.683Z
-repo ✓ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts (5 tests) 3692ms
-     ✓ AC-2-production-mutation: correct exit 0; production-assembly-reset exits non-zero  1242ms
-     ✓ AC-2-site-A-mutation: single-site-A wiped killed; single-site-B + dual-site still killed  2261ms
-
- Test Files  1 passed (1)
-      Tests  5 passed (5)
-   Start at  23:27:24
-   Duration  3.93s (transform 78ms, setup 101ms, import 51ms, tests 3.69s, environment 0ms)
-
-uration  337ms (transform 76ms, setup 101ms, import 46ms, tests 98ms, environment 0ms)
+# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-08-05T19:53:28.117Z
+repo_root=/Users/inference1/Projects/holocron
+base_head=a688bb1782370877f406a0e45aff2923171ebd3a
+correct site=A mode=unmutated exit=0 failures=0 exit_ok=true
+single-site-A mode=assemblyRef-reset-siteA-only suite=AC-1-site-A exit=1 failures=1 exit_nonzero=true
+single-site-A KILLED (suite exit non-zero under site-A-only wipe; failures>=1)
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  13:53:28
+   Duration  338ms (transform 82ms, setup 106ms, import 44ms, tests 99ms, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
- FAIL  tests/integration/redhat-fix-04-production-hook-reconnect.test.ts > REDHAT-FIX-04 production-hook SSE reconnect > AC-1-site-A: XHR onError reconnect without setOnline sends Last-Event-ID=3 and unique assembly
+ FAIL  |integration| tests/integration/redhat-fix-04-production-hook-reconnect.test.ts > REDHAT-FIX-04 production-hook SSE reconnect > AC-1-site-A: XHR onError reconnect without setOnline sends Last-Event-ID=3 and unique assembly
 AssertionError: expected null to be '3' // Object.is equality
 
 - Expected:
@@ -22,15 +21,15 @@ AssertionError: expected null to be '3' // Object.is equality
 + Received:
 null
 
- ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:634:43
-    632|
-    633|       // Header observed on REAL site-A onError reconnect request
-    634|       expect(result.reconnectLastEventId).toBe('3');
-       |                                           ^
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:637:43
     635|
-    636|       const snap = result.snapshot;
- ❯ withSseStub tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:244:5
- ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:621:5
+    636|       // Header observed on REAL site-A onError reconnect request
+    637|       expect(result.reconnectLastEventId).toBe('3');
+       |                                           ^
+    638|
+    639|       const snap = result.snapshot;
+ ❯ withSseStub tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:247:5
+ ❯ tests/integration/redhat-fix-04-production-hook-reconnect.test.ts:624:5
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 

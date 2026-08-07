@@ -3,7 +3,7 @@
   "greenPath": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-H4/green-durable-refuse-anthropic-zero.json",
   "redExists": true,
   "greenExists": true,
-  "anthropicCount": 0,
+  "deepseekCount": 0,
   "processFlag": false,
   "dbDegraded": true
 }

@@ -22,7 +22,7 @@
     "stanza": "",
     "repoPrefix": "",
     "errors": [
-      "backup config missing secrets: backup config missing secrets: R2_ACCOUNT_ID, R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_REPO_CIPHER_PASS"
+      "backup config missing secrets: backup config missing secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_REPO_CIPHER_PASS"
     ]
   },
   "requested_target_timestamp": false,
@@ -30,7 +30,7 @@
   "positive_control_executed": false,
   "no_key_control_executed": false,
   "provider_or_docker_invoked": false,
-  "generated_at": "2026-08-01T05:46:39.085Z",
-  "reviewed_sha": "0ea3fce3df0b9ebf0efd5468a76ba8077ab30e0f",
-  "execution_head": "0ea3fce3df0b9ebf0efd5468a76ba8077ab30e0f"
+  "generated_at": "2026-08-05T19:52:10.014Z",
+  "reviewed_sha": "a688bb1782370877f406a0e45aff2923171ebd3a",
+  "execution_head": "a688bb1782370877f406a0e45aff2923171ebd3a"
 }

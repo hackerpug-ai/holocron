@@ -1,14 +1,14 @@
 {
-  "runId": "d05-01-ms5ih76q-ig972k",
+  "runId": "d05-01-msghq1ro-8cgyev",
   "holoCli": "/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts",
   "restoreModuleExists": true,
-  "secretsPath": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "secretsPath": "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/holocron-go-no-go-BTuH8E/secrets.yaml",
   "bucket": "holocron-backup",
   "stanza": "main",
-  "healthyStanza": "d05sh76qig972k",
-  "healthyBackupLabel": "20260728-211448F",
-  "healthyPitrTimestamp": "2026-07-29T03:14:59Z",
-  "healthyObjectCount": 23,
-  "scratchRoot": "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-fioX5j",
+  "healthyStanza": "d05sq1ro8cgyev",
+  "healthyBackupLabel": "20260805-133911F",
+  "healthyPitrTimestamp": "2026-08-05T19:39:20Z",
+  "healthyObjectCount": 21,
+  "scratchRoot": "/var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-67l6e4",
   "note": "Healthy fixture is a REAL pgBackRest chain (REDHAT-FIX-C1). Suite stays RED until D05-02 restore lands against that chain."
 }

@@ -1,1 +1,10 @@
-{"path":"A","agent":"mastra-implementer"}
+{
+  "path": "A",
+  "agent": "mastra-implementer",
+  "productionCallSites": [
+    "/Users/inference1/Projects/holocron/services/platform/src/mission/cycle.ts:613:    const progress = await advanceResearchSessionIteration({",
+    "/Users/inference1/Projects/holocron/services/platform/src/research/progress.ts:186:    const result = await advanceResearchSessionIteration({",
+    "/Users/inference1/Projects/holocron/services/platform/src/cli/holo.ts:5854:          const result = await advanceResearchSessionIteration({ sessionId });",
+    "/Users/inference1/Projects/holocron/services/platform/src/observability/mission-research.ts:459:          const advanced = await advanceResearchSessionIteration({"
+  ]
+}

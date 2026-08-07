@@ -42,8 +42,7 @@
     },
     {
       "toolId": "shop_products",
-      "ok": true,
-      "error": "RETAILER_ERROR: amazon: HTTP 500"
+      "ok": true
     },
     {
       "toolId": "start_assimilation",
@@ -87,6 +86,10 @@
     }
   ],
   "failures": [],
-  "seedDocumentId": "5bbb54e6-09c4-4c14-a1a4-086284459af3",
-  "docRows": 2
+  "seedDocumentId": "42e40e62-f412-430e-9ed2-2c3867920d9f",
+  "docRows": 2,
+  "h04": {
+    "okTrueOnlyOnResolve": true,
+    "nonFenceErrorsAreFailures": true
+  }
 }

@@ -1,0 +1,23 @@
+@@GATE-META step=6 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T144416Z source_sha=09319ead2651f336423b34667c14bbd3c6a6b8e0 git_sha=09319ead2651f336423b34667c14bbd3c6a6b8e0 started_at=2026-08-05T14:46:45Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; mkdir -p .tmp/D06-04 .tmp/REDHAT-FIX-S29-H03; etl_report=".tmp/D06-04/watermark-report-${GATE_RUN_ID}.json"; parity=".tmp/D06-04/cutover-parity-${GATE_RUN_ID}.json"; blob_root=".tmp/D06-04/deployed-blobs"; mkdir -p "$blob_root"; export HOLO_BLOB_ROOT="$blob_root"; rm -f "$etl_report" "$parity"; bun services/platform/src/cli/holo.ts cutover:run-etl --json --output "$etl_report" --parity "$parity" | tee .tmp/REDHAT-FIX-S29-H03/step6-run-etl.json; jq -e '.ok == true and .unexplainedVariance == 0 and .stages.nonEmpty == true and ((.loadedByTable.documents // 0) > 0 or ((.archive.exportData.rowCounts.documents // 0) > 0)) and (.fkAudit.ok == true) and (.vectors.ok == true) and (.parityHash | test("^[a-f0-9]{64}$")) and (.parityRelPath | length > 0) and (.exportRelPath | length > 0)' "$etl_report"; bun scripts/sync-cutover-blobs.ts --source "$blob_root" --record .tmp/REDHAT-FIX-S29-DEPLOY/deployment-record.json --output .tmp/D06-04/blob-sync-${GATE_RUN_ID}.json | tee .tmp/REDHAT-FIX-S29-H03/step6-blob-sync.json; jq -e '.ok == true and .localFiles > 0 and .matchedFiles == .localFiles and (.inventoryHash | test("^[a-f0-9]{64}$")) and .additive == true' .tmp/D06-04/blob-sync-${GATE_RUN_ID}.json
+---
+{
+  "ok": false,
+  "error": {
+    "code": "QUIET_CHECK_REQUIRED",
+    "message": "Quiet-check drain surfaces dishonest/unmeasured (surfaces=[\"crons\",\"queues\",\"outbox\",\"scheduled_jobs\"]). R3-H01 requires surfaces[] only for residual-re-sampled inventory (tasks, subscriptionContent)."
+  },
+  "watermarkAt": "2026-08-05T14:46:47.877Z",
+  "watermarkAtMs": 1785941207877,
+  "lastWriteAuditCount": 0,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-04/watermark-report-20260805T144416Z.json",
+  "stages": {
+    "fence": true,
+    "watermark": true,
+    "export": false
+  }
+}
+---
+@@GATE-EXIT=1@@
+@@GATE-ENDED=2026-08-05T14:46:49Z@@
+@@GATE-TIMEOUT-CAP=1800s@@
