@@ -25,7 +25,7 @@
       "text": "Trigger Sev-1 gate failure / rollback drill",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url http://127.0.0.1:44111",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
@@ -75,7 +75,7 @@
       "text": "Enable first Postgres production write (PONR)",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-url http://127.0.0.1:44111",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
@@ -91,7 +91,7 @@
       "text": "Config rollback after PONR rejected",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url http://127.0.0.1:44111",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 2,
