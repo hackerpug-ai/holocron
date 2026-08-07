@@ -261,7 +261,28 @@ m = re.search(
     r"edis=(.*?) etrc=(.*?) eupd=(.*?) edel=(.*?)\n",
     combined,
 )
-if _os.environ.get("PROBE_FORCE_MARKER_MISS") == "1":
+# Capture session evidence even when force-miss discards the marker for hard-fail path.
+_force_miss = _os.environ.get("PROBE_FORCE_MARKER_MISS") == "1"
+_session_user = None
+if m:
+    _session_user = m.group(1)
+if _force_miss:
+    (out_dir / "ac-force-miss-session.json").write_text(
+        json.dumps(
+            {
+                "force_miss": True,
+                "probe_current_user": _session_user,
+                "effective_non_owner": _session_user == HOLOCRON_APP,
+                "marker_was_emitted": m is not None,
+                "note": (
+                    "PROBE_FORCE_MARKER_MISS discards marker for hard-fail control; "
+                    "session user is recorded from the rolled-back DO block when present."
+                ),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     m = None
 # RH-S30-18 / final closeout C-3: NEVER fall back to bare TRUNCATE/UPDATE/DELETE.
 # Marker parse failure is a hard failure before any additional DDL/DML.
@@ -271,6 +292,8 @@ if not m:
             {
                 "ok": False,
                 "error": "PROBE_ROLLBACK_MARKER_MISSING",
+                "probe_current_user": _session_user,
+                "force_miss": _force_miss,
                 "note": (
                     "Hard-fail: no destructive fallback. Pre-C-3 scripts issued bare "
                     "TRUNCATE/UPDATE on parse failure — that path is deleted."

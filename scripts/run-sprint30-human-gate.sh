@@ -373,37 +373,40 @@ echo "$ASSERT_RC" >"$EVID_DIR/assert-human-test-verdict.exit"
 cp "$ASSERT_OUT" ".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.json"
 echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
 
-# ── C-3 / RH-S30-18+21: success-path probe + forced-marker-miss preservation ─
-# Success path: holocron_app SQLSTATE under always-rolled-back transaction.
-# Forced miss: gate-owned PROBE_FORCE_MARKER_MISS against PONR-holding DB
-# (before_count>=1 required; empty table fails closed).
-PROBE_RC=0
-MARKER_MISS_RC=0
-if [[ -n "${DATABASE_URL:-}" ]]; then
-  set +e
-  bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-provenance" \
-    >"$EVID_DIR/ponr-role-provenance.stdout" 2>"$EVID_DIR/ponr-role-provenance.stderr"
-  PROBE_RC=$?
-  set -e
-  echo "$PROBE_RC" >"$EVID_DIR/ponr-role-provenance.exit"
-  mkdir -p .tmp/REDHAT-FIX-RH-S30-18
-  cp -R "$EVID_DIR/ponr-role-provenance/." .tmp/REDHAT-FIX-RH-S30-18/ 2>/dev/null || true
-  cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-transcript.log 2>/dev/null || true
+# ── C-3 / RH-S30-18+21: MANDATORY success-path + forced-marker-miss ─────────
+# DATABASE_URL is required. Probes bind gate status, process exit, and package.
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  echo "error: DATABASE_URL required for C-3 PONR role provenance + forced-marker-miss" >&2
+  exit 2
+fi
 
-  # RH-S30-21: forced marker-miss on same DB after success-path probe (PONR may exist).
-  # Prefer disposable URL when set; else require current DATABASE_URL already holds PONR.
-  MARKER_DB="${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-$DATABASE_URL}"
-  set +e
-  DATABASE_URL="$MARKER_DB" HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-1}" \
-    bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
-    "$EVID_DIR/ponr-role-provenance-marker-miss" \
-    >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
-    2>"$EVID_DIR/ponr-role-provenance-marker-miss.stderr"
-  MARKER_MISS_RC=$?
-  set -e
-  echo "$MARKER_MISS_RC" >"$EVID_DIR/ponr-role-provenance-marker-miss.exit"
-  mkdir -p .tmp/REDHAT-FIX-RH-S30-21
-  cp -R "$EVID_DIR/ponr-role-provenance-marker-miss/." .tmp/REDHAT-FIX-RH-S30-21/ 2>/dev/null || true
+set +e
+bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-provenance" \
+  >"$EVID_DIR/ponr-role-provenance.stdout" 2>"$EVID_DIR/ponr-role-provenance.stderr"
+PROBE_RC=$?
+set -e
+echo "$PROBE_RC" >"$EVID_DIR/ponr-role-provenance.exit"
+mkdir -p .tmp/REDHAT-FIX-RH-S30-18
+cp -R "$EVID_DIR/ponr-role-provenance/." .tmp/REDHAT-FIX-RH-S30-18/ 2>/dev/null || true
+cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-transcript.log 2>/dev/null || true
+
+MARKER_DB="${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-$DATABASE_URL}"
+set +e
+DATABASE_URL="$MARKER_DB" HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-1}" \
+  bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
+  "$EVID_DIR/ponr-role-provenance-marker-miss" \
+  >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
+  2>"$EVID_DIR/ponr-role-provenance-marker-miss.stderr"
+MARKER_MISS_RC=$?
+set -e
+echo "$MARKER_MISS_RC" >"$EVID_DIR/ponr-role-provenance-marker-miss.exit"
+mkdir -p .tmp/REDHAT-FIX-RH-S30-21
+cp -R "$EVID_DIR/ponr-role-provenance-marker-miss/." .tmp/REDHAT-FIX-RH-S30-21/ 2>/dev/null || true
+
+# Stage package-bound M-3 identity evidence when present (RH-S30-22)
+if [[ -d .tmp/REDHAT-FIX-RH-S30-22 ]]; then
+  mkdir -p "$EVID_DIR/m3-branch-identity"
+  cp -R .tmp/REDHAT-FIX-RH-S30-22/. "$EVID_DIR/m3-branch-identity/" 2>/dev/null || true
 fi
 
 # ── RH-S30-15: finalize meta.json to durable terminal status ───────────────
@@ -419,13 +422,9 @@ verify_rc = int("$VERIFY_RC")
 assert_rc = int("$ASSERT_RC")
 probe_rc = int("$PROBE_RC")
 marker_miss_rc = int("$MARKER_MISS_RC")
-if verdict == "pass" and verify_rc == 0 and assert_rc == 0:
-    status = "completed"
-else:
-    status = "failed"
-# RH-S30-18: success-path SQLSTATE claim
-# RH-S30-21: forced marker-miss preservation (nonzero exit, before_count>=1)
-h3_closed = False
+
+# C-3 mandatory predicates (not metadata-only)
+h3_success = False
 c3_marker_miss_ok = False
 prov = Path("$EVID_DIR/ponr-role-provenance")
 ac1 = prov / "ac1-prod-role-disable-trigger.json"
@@ -439,21 +438,37 @@ if ac1.exists() and ac2.exists() and probe_rc == 0:
             a1.get("production_sqlstate_claim")
             and a2.get("production_sqlstate_claim")
             and a1.get("rows_preserved")
+            and a1.get("probe_current_user") == "holocron_app"
         )
     except Exception:
         h3_success = False
-else:
-    h3_success = False
 if miss_report.exists() and marker_miss_rc == 0:
     try:
         mr = json.loads(miss_report.read_text())
-        c3_marker_miss_ok = bool(mr.get("ok") is True and mr.get("before_count", 0) >= 1)
+        c3_marker_miss_ok = bool(
+            mr.get("ok") is True
+            and int(mr.get("before_count") or 0) >= 1
+            and mr.get("effective_non_owner") is True
+            and int(mr.get("before_required_triggers_enabled_count") or 0) >= 1
+        )
     except Exception:
         c3_marker_miss_ok = False
 h3_closed = bool(h3_success and c3_marker_miss_ok)
+
+# Terminal status requires plan pass + verifier + assert + C-3
+if (
+    verdict == "pass"
+    and verify_rc == 0
+    and assert_rc == 0
+    and h3_closed
+):
+    status = "completed"
+else:
+    status = "failed"
+
 meta.update({
     "status": status,
-    "verdict": verdict,
+    "verdict": verdict if h3_closed else "fail",
     "finished_at": finished,
     "steps_passed": int("$steps_passed"),
     "steps_failed": int("$steps_failed"),
@@ -462,23 +477,45 @@ meta.update({
     "ponr_role_probe_rc": probe_rc,
     "ponr_marker_miss_rc": marker_miss_rc,
     "c3_marker_miss_ok": c3_marker_miss_ok,
+    "c3_success_path_ok": h3_success,
     "h3_role_provenance_closed": h3_closed,
 })
+# Surface C-3 into gate-results for package assertion
+results_path = Path("$RESULTS")
+if results_path.exists():
+    results = json.loads(results_path.read_text())
+    results["c3_marker_miss_ok"] = c3_marker_miss_ok
+    results["c3_success_path_ok"] = h3_success
+    results["h3_role_provenance_closed"] = h3_closed
+    if not h3_closed and results.get("verdict") == "pass":
+        results["verdict"] = "fail"
+        results["notes"] = (
+            (results.get("notes") or "")
+            + " C-3 mandatory predicates failed (success-path and/or forced-marker-miss)."
+        ).strip()
+    results_path.write_text(json.dumps(results, indent=2) + "\n")
+    evid_results = Path("$EVID_DIR/gate-results.json")
+    if evid_results.exists():
+        evid_results.write_text(json.dumps(results, indent=2) + "\n")
+
 if meta.get("status") == "running":
     raise SystemExit("error: meta.status still running after finalization (RH-S30-15)")
-if verdict == "pass" and status == "running":
-    raise SystemExit("error: results claim pass but meta is running (RH-S30-15 AC-4)")
 meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 Path(".tmp/REDHAT-FIX-RH-S30-15/ac1-meta-after-pass.json").write_text(
     json.dumps(meta, indent=2) + "\n"
 )
 print(json.dumps({
     "meta_status": status,
-    "verdict": verdict,
+    "verdict": meta.get("verdict"),
     "assert_rc": assert_rc,
     "probe_rc": probe_rc,
+    "marker_miss_rc": marker_miss_rc,
+    "c3_marker_miss_ok": c3_marker_miss_ok,
+    "c3_success_path_ok": h3_success,
     "h3_role_provenance_closed": h3_closed,
 }, indent=2))
+if not h3_closed:
+    raise SystemExit("error: C-3 mandatory predicates failed (see ponr-role-provenance*)")
 PY
 
 if [[ "$ASSERT_RC" -ne 0 ]]; then
@@ -486,5 +523,14 @@ if [[ "$ASSERT_RC" -ne 0 ]]; then
   exit 1
 fi
 
-echo "Done. verdict=$VERDICT steps_passed=$steps_passed/5 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA sourceRevision=$SOURCE_REV verify_rc=$VERIFY_RC assert_rc=$ASSERT_RC"
+if [[ "$PROBE_RC" -ne 0 ]]; then
+  echo "error: C-3 success-path probe exit=$PROBE_RC" >&2
+  exit 1
+fi
+if [[ "$MARKER_MISS_RC" -ne 0 ]]; then
+  echo "error: C-3 forced-marker-miss exit=$MARKER_MISS_RC" >&2
+  exit 1
+fi
+
+echo "Done. verdict=$VERDICT steps_passed=$steps_passed/5 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA sourceRevision=$SOURCE_REV verify_rc=$VERIFY_RC assert_rc=$ASSERT_RC probe_rc=$PROBE_RC marker_miss_rc=$MARKER_MISS_RC"
 exit 0
