@@ -1,0 +1,62 @@
+{
+  "kind": "redhat-remediation-round2-finalization",
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+  "scope": "REDHAT-FIX-RH-S30-09..16",
+  "findings_closed_in_code": [
+    "C-1",
+    "C-2",
+    "H-1",
+    "H-2",
+    "H-3",
+    "H-4",
+    "M-1",
+    "M-2",
+    "L-1"
+  ],
+  "written_at": "2026-08-07T09:18:55Z",
+  "source_sha": "09aae0dd2f5293b617a476fc8df585272f37b04a",
+  "evidence_sha": "5433b6a532f42311fb931885d9935e526773d064",
+  "gate": {
+    "run_id": "20260807T091354Z",
+    "verdict": "pass",
+    "steps_passed": 5,
+    "steps_total": 5,
+    "git_sha": "09aae0dd2f5293b617a476fc8df585272f37b04a",
+    "sourceRevision": "09aae0dd2f5293b617a476fc8df585272f37b04a",
+    "head_bound": true,
+    "results_path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-results.json",
+    "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T091354Z"
+  },
+  "verification": {
+    "verified": true,
+    "recomputed_verdict": "pass",
+    "discrepancies": [],
+    "meta_status": "completed",
+    "assert_human_test_verdict_rc": 0
+  },
+  "landing": {
+    "source_commit_message": "fix(REDHAT-FIX-RH-S30-09..16): second-round remediation for C-1/C-2/H-1..4/M-1/L-1",
+    "evidence_commit_message": "chore(sprint-30): tip-bound gate evidence 20260807T091354Z for RH-S30-09..16",
+    "source_is_ancestor_of_evidence": true
+  },
+  "tasks": [
+    "REDHAT-FIX-RH-S30-09",
+    "REDHAT-FIX-RH-S30-10",
+    "REDHAT-FIX-RH-S30-11",
+    "REDHAT-FIX-RH-S30-12",
+    "REDHAT-FIX-RH-S30-13",
+    "REDHAT-FIX-RH-S30-14",
+    "REDHAT-FIX-RH-S30-15",
+    "REDHAT-FIX-RH-S30-16"
+  ],
+  "sprint_lifecycle": {
+    "status": "In Progress",
+    "remediation_run_complete": true,
+    "release_approval": false,
+    "reason": "Tip-bound second-round gate PASS; independent dual-lens review and fresh QA still required before Completed / release approval."
+  },
+  "remaining_blocker": {
+    "id": "INDEPENDENT_REVIEW_AND_QA",
+    "summary": "Independent dual-lens review of RH-S30-09..16, then fresh QA (re-bind tip if review lands code)."
+  }
+}
