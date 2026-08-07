@@ -361,7 +361,7 @@ PY
 # ── RH-S30-14: assert-human-test-verdict (provenance shape) ─────────────────
 # Containment (C-2) is enforced after scripts/package-sprint30-gate-evidence.sh
 # rewrites git_sha to the package commit. Live run uses ASSERT_EVIDENCE_CONTAINMENT=0.
-mkdir -p .tmp/REDHAT-FIX-RH-S30-14 .tmp/REDHAT-FIX-RH-S30-15 .tmp/REDHAT-FIX-RH-S30-13
+mkdir -p .tmp/REDHAT-FIX-RH-S30-14 .tmp/REDHAT-FIX-RH-S30-15 .tmp/REDHAT-FIX-RH-S30-18
 ASSERT_SCRIPT="${ASSERT_HUMAN_TEST_VERDICT:-$ROOT/scripts/assert-human-test-verdict.sh}"
 ASSERT_OUT="$EVID_DIR/assert-human-test-verdict.json"
 export ASSERT_EVIDENCE_CONTAINMENT="${ASSERT_EVIDENCE_CONTAINMENT:-0}"
@@ -373,16 +373,20 @@ echo "$ASSERT_RC" >"$EVID_DIR/assert-human-test-verdict.exit"
 cp "$ASSERT_OUT" ".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.json"
 echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
 
-# ── C-3 / RH-S30-13: safe role-provenance probe (transactional / preflight) ─
+# ── C-3 / RH-S30-18: safe role-provenance probe (app-role + SQLSTATE) ───────
+# Gate-owned production-role SQLSTATE under holocron_app (or residual SET ROLE).
+# Artifacts: .gate-evidence/<run>/ponr-role-provenance/ + .tmp/REDHAT-FIX-RH-S30-18/
+PROBE_RC=0
 if [[ -n "${DATABASE_URL:-}" ]]; then
   set +e
-  bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-probe" \
-    >"$EVID_DIR/ponr-role-probe.stdout" 2>"$EVID_DIR/ponr-role-probe.stderr"
+  bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-provenance" \
+    >"$EVID_DIR/ponr-role-provenance.stdout" 2>"$EVID_DIR/ponr-role-provenance.stderr"
   PROBE_RC=$?
   set -e
-  echo "$PROBE_RC" >"$EVID_DIR/ponr-role-probe.exit"
-  mkdir -p .tmp/REDHAT-FIX-RH-S30-13
-  cp -R "$EVID_DIR/ponr-role-probe/." .tmp/REDHAT-FIX-RH-S30-13/ 2>/dev/null || true
+  echo "$PROBE_RC" >"$EVID_DIR/ponr-role-provenance.exit"
+  mkdir -p .tmp/REDHAT-FIX-RH-S30-18
+  cp -R "$EVID_DIR/ponr-role-provenance/." .tmp/REDHAT-FIX-RH-S30-18/ 2>/dev/null || true
+  cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-transcript.log 2>/dev/null || true
 fi
 
 # ── RH-S30-15: finalize meta.json to durable terminal status ───────────────
@@ -396,10 +400,27 @@ finished = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 verdict = "$VERDICT"
 verify_rc = int("$VERIFY_RC")
 assert_rc = int("$ASSERT_RC")
+probe_rc = int("$PROBE_RC")
 if verdict == "pass" and verify_rc == 0 and assert_rc == 0:
     status = "completed"
 else:
     status = "failed"
+# RH-S30-18: H-3 closed only when production_sqlstate_claim artifacts exist
+h3_closed = False
+prov = Path("$EVID_DIR/ponr-role-provenance")
+ac1 = prov / "ac1-prod-role-disable-trigger.json"
+ac2 = prov / "ac2-prod-role-dml-truncate.json"
+if ac1.exists() and ac2.exists() and probe_rc == 0:
+    try:
+        a1 = json.loads(ac1.read_text())
+        a2 = json.loads(ac2.read_text())
+        h3_closed = bool(
+            a1.get("production_sqlstate_claim")
+            and a2.get("production_sqlstate_claim")
+            and a1.get("rows_preserved")
+        )
+    except Exception:
+        h3_closed = False
 meta.update({
     "status": status,
     "verdict": verdict,
@@ -408,6 +429,8 @@ meta.update({
     "steps_failed": int("$steps_failed"),
     "verify_rc": verify_rc,
     "assert_human_test_verdict_rc": assert_rc,
+    "ponr_role_probe_rc": probe_rc,
+    "h3_role_provenance_closed": h3_closed,
 })
 if meta.get("status") == "running":
     raise SystemExit("error: meta.status still running after finalization (RH-S30-15)")
@@ -417,7 +440,13 @@ meta_path.write_text(json.dumps(meta, indent=2) + "\n")
 Path(".tmp/REDHAT-FIX-RH-S30-15/ac1-meta-after-pass.json").write_text(
     json.dumps(meta, indent=2) + "\n"
 )
-print(json.dumps({"meta_status": status, "verdict": verdict, "assert_rc": assert_rc}, indent=2))
+print(json.dumps({
+    "meta_status": status,
+    "verdict": verdict,
+    "assert_rc": assert_rc,
+    "probe_rc": probe_rc,
+    "h3_role_provenance_closed": h3_closed,
+}, indent=2))
 PY
 
 if [[ "$ASSERT_RC" -ne 0 ]]; then
