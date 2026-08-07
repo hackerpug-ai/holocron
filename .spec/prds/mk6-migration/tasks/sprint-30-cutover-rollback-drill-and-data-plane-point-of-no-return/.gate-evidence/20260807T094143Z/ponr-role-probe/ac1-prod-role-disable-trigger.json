@@ -1,0 +1,15 @@
+{
+  "role": "holocron",
+  "is_superuser": true,
+  "table_owner": "holocron",
+  "is_table_owner": true,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true,
+  "disable_denied": true,
+  "disable_trigger_exit": 1,
+  "disable_trigger_stderr": "42501:permission denied for schema zero_0",
+  "ponr_row_count_after": 1,
+  "triggers_enabled_after": true,
+  "rows_preserved": true,
+  "triggers_restored": true
+}
