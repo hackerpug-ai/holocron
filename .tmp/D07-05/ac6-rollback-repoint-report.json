@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "repointed": true,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "2026-08-07T07:06:22.445Z",
+  "engaged_at_ms": 1786086382445,
+  "configured_target": "/private/tmp/holocron-s30-D07-05/.tmp/D07-01/secrets.yaml",
+  "precondition": {
+    "ok": true,
+    "accepted_post_export_writes": 0,
+    "export_watermark_ms": 1786172777576,
+    "audit_path": "/private/tmp/holocron-s30-D07-05/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "config": {
+    "path": "/private/tmp/holocron-s30-D07-05/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "b420e396c0cc2d25ecf8e528421a9a41aa170fc285d6983a33f12107a5b9f9ce",
+    "prior_target": "postgres-soak"
+  },
+  "acknowledgements": [
+    {
+      "unit": "network-serving-health",
+      "kind": "network_health",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-07T07:06:23.585Z",
+      "source": "http://127.0.0.1:51226/health",
+      "pid": 16723,
+      "preexisting": true
+    },
+    {
+      "unit": "verify-pid:16723",
+      "kind": "process_generation",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-07T07:06:23.585Z",
+      "source": "HOLO_VERIFY_PID+network_health",
+      "pid": 16723,
+      "preexisting": true
+    }
+  ],
+  "report_path": "/private/tmp/holocron-s30-D07-05/.tmp/D07-05/ac6-rollback-repoint-report.json"
+}
