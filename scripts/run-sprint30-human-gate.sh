@@ -172,8 +172,13 @@ for entry in "${STEPS[@]}"; do
   log="$EVID_DIR/step${n}.log"
   exit_file="$EVID_DIR/step${n}.exit"
   started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  # Expand ${HOLO_VERIFY_BASE_URL} etc. for plan fidelity after expansion
-  expanded_cmd="$(eval "printf %s \"$cmd\"")"
+  # Expand only ${HOLO_VERIFY_BASE_URL} (do not eval whole command — python literals break eval)
+  expanded_cmd="${cmd//\$\{HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL\}/${HOLO_VERIFY_BASE_URL}}"
+  expanded_cmd="${expanded_cmd//\$\{HOLO_VERIFY_BASE_URL\}/${HOLO_VERIFY_BASE_URL}}"
+  if [[ -z "${HOLO_VERIFY_BASE_URL:-}" ]]; then
+    echo "error: HOLO_VERIFY_BASE_URL required" >&2
+    exit 2
+  fi
   cmd_sha="$(printf '%s' "$expanded_cmd" | shasum -a 256 | awk '{print $1}')"
   {
     echo "@@GATE-META step=${n} cmd_sha=${cmd_sha} run_id=${GATE_RUN_ID} git_sha=${SOURCE_SHA} source_sha=${SOURCE_SHA} started_at=${started} deployed_base_url=${DEPLOYED_BASE_URL} sourceRevision=${SOURCE_REV}@@"
