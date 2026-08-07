@@ -19,6 +19,7 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs';
+import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import {
   DEFAULT_DATABASE_URL,
@@ -161,7 +162,9 @@ export function seedExportWatermark(exportMs?: number): {
   exportMs: number;
 } {
   ensureD07Dirs();
-  const ms = exportMs ?? Date.now() - 60_000;
+  // Default: far-future watermark so undiverged Convex freeze still satisfies
+  // newest_document_creation_time <= export_watermark_ms for first-write paths.
+  const ms = exportMs ?? Date.now() + 86_400_000;
   writeFileSync(
     WATERMARK_PATH,
     `${JSON.stringify(
@@ -170,7 +173,7 @@ export function seedExportWatermark(exportMs?: number): {
         watermarkAt: new Date(ms).toISOString(),
         watermarkAtMs: ms,
         lastWriteAuditCount: 0,
-        fence_armed_at: ms - 10_000,
+        fence_armed_at: Math.min(ms - 10_000, Date.now()),
         fence_env: '1',
         quiet_check_path: null,
         quiet_ok: true,
@@ -183,6 +186,14 @@ export function seedExportWatermark(exportMs?: number): {
     'utf8'
   );
   return { watermarkPath: WATERMARK_PATH, exportMs: ms };
+}
+
+/** Diverged fixture: watermark in the distant past so any live Convex doc is newer. */
+export function seedDivergedExportWatermark(): {
+  watermarkPath: string;
+  exportMs: number;
+} {
+  return seedExportWatermark(1_000);
 }
 
 export function seedEmptyPostExportAudit(exportMs: number): string {
@@ -406,28 +417,160 @@ export async function countDataPlanePonr(): Promise<number> {
 
 export async function selectPonrRow(): Promise<{
   id: string;
+  write_table: string | null;
+  write_row_id: string | null;
   write_row_digest_sha256: string | null;
+  write_surface: string | null;
+  write_committed_at: string | null;
+  fence_lifted_at: string | null;
   convex_fence_audit_id: string | null;
+  convex_fence_env_value: string | null;
+  convex_documents_total: number | null;
+  convex_newest_document_creation_time: number | null;
+  convex_accepted_writes_since_watermark: number | null;
+  convex_rejected_writes_since_watermark: number | null;
+  export_watermark_ms: number | null;
 } | null> {
   const sql = createSql(resolveTestDatabaseUrl());
   try {
     const rows = await sql<
       {
         id: string;
+        write_table: string | null;
+        write_row_id: string | null;
         write_row_digest_sha256: string | null;
+        write_surface: string | null;
+        write_committed_at: string | null;
+        fence_lifted_at: string | null;
         convex_fence_audit_id: string | null;
+        convex_fence_env_value: string | null;
+        convex_documents_total: string | null;
+        convex_newest_document_creation_time: string | null;
+        convex_accepted_writes_since_watermark: string | null;
+        convex_rejected_writes_since_watermark: string | null;
+        export_watermark_ms: string | null;
       }[]
     >`
       SELECT id::text AS id,
+             write_table::text AS write_table,
+             write_row_id::text AS write_row_id,
              write_row_digest_sha256::text AS write_row_digest_sha256,
-             convex_fence_audit_id::text AS convex_fence_audit_id
+             write_surface::text AS write_surface,
+             write_committed_at::text AS write_committed_at,
+             fence_lifted_at::text AS fence_lifted_at,
+             convex_fence_audit_id::text AS convex_fence_audit_id,
+             convex_fence_env_value::text AS convex_fence_env_value,
+             convex_documents_total::text AS convex_documents_total,
+             convex_newest_document_creation_time::text AS convex_newest_document_creation_time,
+             convex_accepted_writes_since_watermark::text AS convex_accepted_writes_since_watermark,
+             convex_rejected_writes_since_watermark::text AS convex_rejected_writes_since_watermark,
+             export_watermark_ms::text AS export_watermark_ms
       FROM data_plane_ponr
+      LIMIT 1
+    `;
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      id: r.id,
+      write_table: r.write_table,
+      write_row_id: r.write_row_id,
+      write_row_digest_sha256: r.write_row_digest_sha256,
+      write_surface: r.write_surface,
+      write_committed_at: r.write_committed_at,
+      fence_lifted_at: r.fence_lifted_at,
+      convex_fence_audit_id: r.convex_fence_audit_id,
+      convex_fence_env_value: r.convex_fence_env_value,
+      convex_documents_total:
+        r.convex_documents_total != null ? Number(r.convex_documents_total) : null,
+      convex_newest_document_creation_time:
+        r.convex_newest_document_creation_time != null
+          ? Number(r.convex_newest_document_creation_time)
+          : null,
+      convex_accepted_writes_since_watermark:
+        r.convex_accepted_writes_since_watermark != null
+          ? Number(r.convex_accepted_writes_since_watermark)
+          : null,
+      convex_rejected_writes_since_watermark:
+        r.convex_rejected_writes_since_watermark != null
+          ? Number(r.convex_rejected_writes_since_watermark)
+          : null,
+      export_watermark_ms:
+        r.export_watermark_ms != null ? Number(r.export_watermark_ms) : null,
+    };
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+/**
+ * Owner TRUNCATE — the immutability trigger is BEFORE UPDATE OR DELETE only,
+ * so tests can isolate the empty-ledger start state for first-write / TC-11.
+ */
+export async function truncateDataPlanePonr(): Promise<void> {
+  const sql = createSql(resolveTestDatabaseUrl());
+  try {
+    await sql`TRUNCATE TABLE data_plane_ponr`;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+/** SELECT a committed documents row for independent digest recompute (AC-1). */
+export async function selectDocumentRow(id: string): Promise<{
+  id: string;
+  title: string | null;
+  content: string | null;
+  category: string | null;
+  status: string | null;
+  date: string | null;
+} | null> {
+  const sql = createSql(resolveTestDatabaseUrl());
+  try {
+    const rows = await sql<
+      {
+        id: string;
+        title: string | null;
+        content: string | null;
+        category: string | null;
+        status: string | null;
+        date: string | null;
+      }[]
+    >`
+      SELECT id::text AS id,
+             title::text AS title,
+             content::text AS content,
+             category::text AS category,
+             status::text AS status,
+             date::text AS date
+      FROM documents
+      WHERE id = ${id}::uuid
       LIMIT 1
     `;
     return rows[0] ?? null;
   } finally {
     await sql.end({ timeout: 5 });
   }
+}
+
+/** Allocate a free 127.0.0.1 port then release it (ECONNREFUSED when dialed). */
+export async function allocateClosedLocalPort(): Promise<number> {
+  return new Promise((resolvePromise, reject) => {
+    const server = createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') {
+        server.close();
+        reject(new Error('failed to allocate closed local port'));
+        return;
+      }
+      const port = addr.port;
+      server.close((err) => {
+        if (err) reject(err);
+        else resolvePromise(port);
+      });
+    });
+  });
 }
 
 /** Delete every .tmp cutover artifact the fail-open audit path depends on. */

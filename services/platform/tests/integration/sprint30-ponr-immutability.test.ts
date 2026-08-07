@@ -56,7 +56,7 @@ describe('D07-01 RED: data_plane_ponr immutability (DB SQLSTATE)', () => {
     else delete process.env.HOLO_SECRETS_PATH;
   });
 
-  it('AC-4: app-role 42501 and owner P0001 PONR_IMMUTABLE; row remains 1', async () => {
+  it('AC-2: app-role 42501 and owner P0001 PONR_IMMUTABLE; second INSERT 23505', async () => {
     await withCutoverSharedLock(async () => {
       seedDisposableSecrets({ readOnly: '1' });
       const { exportMs } = seedExportWatermark();
@@ -66,7 +66,7 @@ describe('D07-01 RED: data_plane_ponr immutability (DB SQLSTATE)', () => {
       await waitHealth(liveServing.baseUrl);
       const env = holoEnv(liveServing.baseUrl, liveServing.pid);
 
-      // Record PONR via cutover:enable-writes (RED: unknown verb until D07-04)
+      // Record PONR via cutover:enable-writes (idempotent if already present)
       const enable = holo(
         ['cutover:enable-writes', '--json', '--output', ENABLE_WRITES_REPORT_PATH],
         env
@@ -83,7 +83,6 @@ describe('D07-01 RED: data_plane_ponr immutability (DB SQLSTATE)', () => {
       let beforeId = '';
       let beforeDigest: string | null = null;
       try {
-        // RED at planning SHA: relation "data_plane_ponr" does not exist
         const before = await selectPonrRow();
         expect(enable.status).toBe(0);
         expect(before).not.toBeNull();
@@ -183,7 +182,7 @@ describe('D07-01 RED: data_plane_ponr immutability (DB SQLSTATE)', () => {
           afterDigest,
         });
 
-        // GREEN assertions (RED fails earlier on missing relation / enable-writes)
+        // GREEN assertions
         expect(appUpdateCode).toBe('42501');
         expect(appDeleteCode).toBe('42501');
         expect(ownerUpdateCode).toBe('P0001');
@@ -200,6 +199,65 @@ describe('D07-01 RED: data_plane_ponr immutability (DB SQLSTATE)', () => {
         // Must not be an app-code throw with null SQLSTATE
         expect(appUpdateCode).not.toBeNull();
         expect(ownerUpdateCode).not.toBeNull();
+
+        // TC-8: second INSERT → unique-violation SQLSTATE 23505 (singleton)
+        let secondInsertCode: string | null = null;
+        let secondInsertMessage = '';
+        try {
+          await ownerSql`
+            INSERT INTO data_plane_ponr (
+              fence_lifted_at,
+              write_surface,
+              write_table,
+              write_row_id,
+              write_row_digest_sha256,
+              write_committed_at,
+              base_url,
+              operator,
+              run_id,
+              idempotency_key,
+              export_watermark_ms,
+              convex_fence_audit_id,
+              convex_fence_env_value,
+              convex_documents_total,
+              convex_newest_document_creation_time,
+              convex_accepted_writes_since_watermark,
+              convex_rejected_writes_since_watermark
+            ) VALUES (
+              now(),
+              'hono.POST /api/documents',
+              'documents',
+              '00000000-0000-4000-8000-000000000099',
+              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+              now(),
+              'http://127.0.0.1:9',
+              'tc8-singleton',
+              'tc8-second-insert',
+              'tc8-distinct-idempotency-key',
+              1,
+              'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+              '1',
+              1,
+              0,
+              0,
+              0
+            )
+          `;
+        } catch (err) {
+          const e = err as { code?: string; message?: string };
+          secondInsertCode = e.code ?? null;
+          secondInsertMessage = e.message ?? String(err);
+        }
+        const countAfterSecond = await ownerSql<{ c: string }[]>`
+          SELECT count(*)::text AS c FROM data_plane_ponr
+        `;
+        writeEvidence('tc8-singleton-insert.json', {
+          secondInsertCode,
+          secondInsertMessage,
+          countAfterSecond: Number(countAfterSecond[0]?.c ?? -1),
+        });
+        expect(secondInsertCode).toBe('23505');
+        expect(Number(countAfterSecond[0]?.c ?? 0)).toBe(1);
       } finally {
         await ownerSql.end({ timeout: 5 });
       }
