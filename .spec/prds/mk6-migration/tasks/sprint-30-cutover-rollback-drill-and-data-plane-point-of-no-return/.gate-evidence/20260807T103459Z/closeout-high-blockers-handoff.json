@@ -1,0 +1,21 @@
+{
+  "status": "In Progress",
+  "release_claim": false,
+  "closeout_review": "red-hat-sprint-30-20260807T102743Z-independent-final-closeout.md",
+  "findings": [
+    "C-2 attestation Git-bound",
+    "C-3 mandatory gate predicates",
+    "M-3 package-bound RED/GREEN"
+  ],
+  "gate_run_id": "20260807T103459Z",
+  "source_sha_at_run": "ed18edf7936145dc3d6b2a842193abc11f78bc60",
+  "package_commit": "dd45328e6fc147a19295fcd2b798205306438c72",
+  "protocol": "C-2-atomic-v5-git-bound-attestation",
+  "attestation_git_bound": true,
+  "blob_identity_ok": true,
+  "h3_role_provenance_closed": true,
+  "verdict": "pass",
+  "steps": "5/5",
+  "verified": true,
+  "updated_at": "2026-08-07T10:36:10Z"
+}
