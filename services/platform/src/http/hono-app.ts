@@ -425,12 +425,24 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
         `;
         const document = rows[0];
         // REDHAT-FIX-RH-S30-03: production-bound write audit when export watermark active.
+        // Fail closed: refuse 201 if the audit ledger write fails (silent audit loss).
         if (document?.id && isExportWatermarkActive()) {
-          await recordPostExportAcceptedWrite({
+          const audit = await recordPostExportAcceptedWrite({
             surface: 'hono.POST /api/documents',
             writeRowId: document.id,
             committedAtMs: Date.now(),
           });
+          if (audit.ok !== true) {
+            return c.json(
+              {
+                error: 'post_export_write_audit_failed',
+                code: audit.code,
+                message: audit.message,
+                documentId: document.id,
+              },
+              500
+            );
+          }
         }
         return c.json({ document }, 201);
       } finally {
