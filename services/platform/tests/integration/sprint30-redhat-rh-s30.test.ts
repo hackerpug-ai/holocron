@@ -5,10 +5,14 @@
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
  *     services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts
  */
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { recoverEnableWritesCrashWindow, runEnableWrites } from '../../src/cutover/ponr.ts';
+import {
+  FIRST_WRITE_FAILED,
+  recoverEnableWritesCrashWindow,
+  runEnableWrites,
+} from '../../src/cutover/ponr.ts';
 import {
   clearPostExportWriteAuditLedger,
   countAcceptedPostExportWrites,
@@ -45,6 +49,28 @@ if (!PLATFORM_IT) {
   throw new Error('sprint30-redhat-rh-s30 requires PLATFORM_IT=1');
 }
 
+/** Load Convex URL + operator secret from repo .env when vitest inherits a clean env. */
+function ensureCutoverEnvFromDotenv(): void {
+  const envPath = resolve(REPO_ROOT, '.env');
+  if (!existsSync(envPath)) return;
+  const text = readFileSync(envPath, 'utf8');
+  for (const line of text.split('\n')) {
+    const m = line.match(
+      /^(EXPO_PUBLIC_CONVEX_URL|CONVEX_URL|HOLO_CUTOVER_OPERATOR_SECRET|EXPO_PUBLIC_CONVEX_SITE_URL)=(.*)$/
+    );
+    if (!m) continue;
+    const key = m[1];
+    let val = m[2].trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[key]?.trim()) process.env[key] = val;
+  }
+  if (!process.env.CONVEX_URL?.trim() && process.env.EXPO_PUBLIC_CONVEX_URL?.trim()) {
+    process.env.CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL;
+  }
+}
+
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-03');
 const EVIDENCE_05 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-05');
 /** POST /api/documents refuses production-like holocron; pin nonprod for IT. */
@@ -56,6 +82,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
   let liveServing: PreexistingServing | undefined;
 
   beforeEach(() => {
+    ensureCutoverEnvFromDotenv();
     mkdirSync(EVIDENCE, { recursive: true });
     mkdirSync(EVIDENCE_05, { recursive: true });
     process.env.DATABASE_URL = NONPROD_URL;
@@ -233,6 +260,179 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       });
       writeFileSync(
         resolve(EVIDENCE_05, 'rollback-refuse.json'),
+        JSON.stringify(refuse, null, 2) + '\n'
+      );
+      expect(refuse.repointed).toBe(false);
+      expect(
+        refuse.error?.code === POST_EXPORT_WRITE_ACCEPTED ||
+          refuse.error?.code === POST_PONR_INELIGIBLE
+      ).toBe(true);
+    });
+  }, 240_000);
+
+  it('RH-S30-09 M-3: non-201 accepted-id re-arms fence and refuses rollback', async () => {
+    await withCutoverSharedLock(async () => {
+      ensureCutoverEnvFromDotenv();
+      await truncateDataPlanePonr();
+      // Far-future watermark so live Convex docs do not trip divergence preflight.
+      const { exportMs } = seedExportWatermark();
+      await seedEmptyPostExportAuditAsync(exportMs);
+      await clearPostExportWriteAuditLedger({ databaseUrl: resolveTestDatabaseUrl() });
+      seedDisposableSecrets({ readOnly: '1' });
+      process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+
+      liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
+      await waitHealth(liveServing.baseUrl);
+
+      const acceptedId = '00000000-0000-4000-8000-dddddddddddd';
+      const report = await runEnableWrites({
+        cwd: REPO_ROOT,
+        reportPath: resolve(EVIDENCE_05, 'm3-non-201-accepted.json'),
+        baseUrl: liveServing.baseUrl,
+        secretsPath: DISPOSABLE_SECRETS,
+        databaseUrl: resolveTestDatabaseUrl(),
+        injectFirstWriteFailure: { kind: 'non_201_accepted_id', documentId: acceptedId },
+      });
+      writeFileSync(
+        resolve(EVIDENCE_05, 'm3-non-201-result.json'),
+        JSON.stringify(report, null, 2) + '\n'
+      );
+      expect(report.ok).toBe(false);
+      expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
+      expect(String(report.error?.message || '')).toMatch(/non-201|accepted documentId|re-armed/i);
+      const fence = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
+      expect(fence === '1' || fence === 'true').toBe(true);
+
+      const ledger = await loadPostExportWriteAuditAsync({
+        cwd: REPO_ROOT,
+        databaseUrl: resolveTestDatabaseUrl(),
+        allowFileFallback: false,
+      });
+      expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+
+      const refuse = await runRollbackRepoint({
+        cwd: REPO_ROOT,
+        baseUrl: liveServing.baseUrl,
+        secretsPath: DISPOSABLE_SECRETS,
+      });
+      writeFileSync(
+        resolve(EVIDENCE_05, 'm3-non-201-refuse.json'),
+        JSON.stringify(refuse, null, 2) + '\n'
+      );
+      expect(refuse.repointed).toBe(false);
+      expect(
+        refuse.error?.code === POST_EXPORT_WRITE_ACCEPTED ||
+          refuse.error?.code === POST_PONR_INELIGIBLE
+      ).toBe(true);
+    });
+  }, 240_000);
+
+  it('RH-S30-09 M-3: transport failure re-arms fence and refuses rollback', async () => {
+    await withCutoverSharedLock(async () => {
+      ensureCutoverEnvFromDotenv();
+      await truncateDataPlanePonr();
+      const { exportMs } = seedExportWatermark();
+      await seedEmptyPostExportAuditAsync(exportMs);
+      await clearPostExportWriteAuditLedger({ databaseUrl: resolveTestDatabaseUrl() });
+      seedDisposableSecrets({ readOnly: '1' });
+      process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+
+      liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
+      await waitHealth(liveServing.baseUrl);
+
+      const report = await runEnableWrites({
+        cwd: REPO_ROOT,
+        reportPath: resolve(EVIDENCE_05, 'm3-transport-fail.json'),
+        baseUrl: liveServing.baseUrl,
+        secretsPath: DISPOSABLE_SECRETS,
+        databaseUrl: resolveTestDatabaseUrl(),
+        injectFirstWriteFailure: {
+          kind: 'transport_error',
+          documentId: '00000000-0000-4000-8000-ffffffffaaaa',
+        },
+      });
+      writeFileSync(
+        resolve(EVIDENCE_05, 'm3-transport-result.json'),
+        JSON.stringify(report, null, 2) + '\n'
+      );
+      expect(report.ok).toBe(false);
+      expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
+      expect(String(report.error?.message || '')).toMatch(/transport|re-armed|audit recorded/i);
+      const fence = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
+      expect(fence === '1' || fence === 'true').toBe(true);
+
+      const ledger = await loadPostExportWriteAuditAsync({
+        cwd: REPO_ROOT,
+        databaseUrl: resolveTestDatabaseUrl(),
+        allowFileFallback: false,
+      });
+      expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+
+      const refuse = await runRollbackRepoint({
+        cwd: REPO_ROOT,
+        baseUrl: liveServing.baseUrl,
+        secretsPath: DISPOSABLE_SECRETS,
+      });
+      writeFileSync(
+        resolve(EVIDENCE_05, 'm3-transport-refuse.json'),
+        JSON.stringify(refuse, null, 2) + '\n'
+      );
+      expect(refuse.repointed).toBe(false);
+      expect(
+        refuse.error?.code === POST_EXPORT_WRITE_ACCEPTED ||
+          refuse.error?.code === POST_PONR_INELIGIBLE
+      ).toBe(true);
+    });
+  }, 240_000);
+
+  it('RH-S30-09 M-3: reselect miss re-arms fence and refuses rollback', async () => {
+    await withCutoverSharedLock(async () => {
+      ensureCutoverEnvFromDotenv();
+      await truncateDataPlanePonr();
+      const { exportMs } = seedExportWatermark();
+      await seedEmptyPostExportAuditAsync(exportMs);
+      await clearPostExportWriteAuditLedger({ databaseUrl: resolveTestDatabaseUrl() });
+      seedDisposableSecrets({ readOnly: '1' });
+      process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+
+      liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
+      await waitHealth(liveServing.baseUrl);
+
+      const report = await runEnableWrites({
+        cwd: REPO_ROOT,
+        reportPath: resolve(EVIDENCE_05, 'm3-reselect-miss.json'),
+        baseUrl: liveServing.baseUrl,
+        secretsPath: DISPOSABLE_SECRETS,
+        databaseUrl: resolveTestDatabaseUrl(),
+        injectFirstWriteFailure: {
+          kind: 'reselect_miss',
+          documentId: '00000000-0000-4000-8000-eeeeeeeeeeee',
+        },
+      });
+      writeFileSync(
+        resolve(EVIDENCE_05, 'm3-reselect-result.json'),
+        JSON.stringify(report, null, 2) + '\n'
+      );
+      expect(report.ok).toBe(false);
+      expect(report.error?.code).toBe(FIRST_WRITE_FAILED);
+      expect(String(report.error?.message || '')).toMatch(/reselect|re-armed|audit recorded/i);
+      const fence = readDurableMigrationReadOnly(process.env, DISPOSABLE_SECRETS);
+      expect(fence === '1' || fence === 'true').toBe(true);
+
+      const ledger = await loadPostExportWriteAuditAsync({
+        cwd: REPO_ROOT,
+        databaseUrl: resolveTestDatabaseUrl(),
+        allowFileFallback: false,
+      });
+      expect(countAcceptedPostExportWrites(ledger.audit!)).toBeGreaterThanOrEqual(1);
+
+      const refuse = await runRollbackRepoint({
+        cwd: REPO_ROOT,
+        baseUrl: liveServing.baseUrl,
+        secretsPath: DISPOSABLE_SECRETS,
+      });
+      writeFileSync(
+        resolve(EVIDENCE_05, 'm3-reselect-refuse.json'),
         JSON.stringify(refuse, null, 2) + '\n'
       );
       expect(refuse.repointed).toBe(false);
