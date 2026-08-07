@@ -22,6 +22,7 @@ import {
 import {
   AUDIT_PATH,
   cleanupDefaultCutoverArtifacts,
+  countDataPlanePonr,
   countDocumentsByIds,
   DISPOSABLE_SECRETS,
   holo,
@@ -36,6 +37,7 @@ import {
   seedExportWatermark,
   seedThreeRealPostExportWrites,
   startPreexistingServing,
+  truncateDataPlanePonr,
   WATERMARK_PATH,
   waitHealth,
   withCutoverSharedLock,
@@ -173,8 +175,14 @@ describe('D07-01 RED: rollback zero-loss + post-export anchor (UC-SYNC-04)', () 
 
   it('AC-2: three accepted post-export writes refuse cutover:rollback-repoint', async () => {
     await withCutoverSharedLock(async () => {
+      // TC-11 / AC-3 Case 1 isolation: empty PONR so POST_EXPORT_WRITE_ACCEPTED
+      // is the active latch (not the stronger POST_PONR_INELIGIBLE).
+      await truncateDataPlanePonr();
+      expect(await countDataPlanePonr()).toBe(0);
+
       seedDisposableSecrets({ readOnly: '1' });
-      const wm = seedExportWatermark();
+      // Past watermark so seeded document commit timestamps are strictly after T_export.
+      const wm = seedExportWatermark(Date.now() - 60_000);
       exportMs = wm.exportMs;
       seedEmptyPostExportAudit(exportMs);
 
@@ -228,8 +236,10 @@ describe('D07-01 RED: rollback zero-loss + post-export anchor (UC-SYNC-04)', () 
       expect(report.ok).toBe(false);
       expect(report.repointed).toBe(false);
       expect(report.error?.code).toBe(POST_EXPORT_WRITE_ACCEPTED);
+      expect(report.error?.code).not.toBe('POST_PONR_INELIGIBLE');
       expect(report.precondition.accepted_post_export_writes).toBe(3);
       expect(report.error?.code).not.toBe('EXPORT_WATERMARK_MISSING');
+      expect(await countDataPlanePonr()).toBe(0);
 
       // Disposable durable secrets must NOT contain HOLO_DATA_PLANE: convex
       expect(secretsHasConvexPlane(DISPOSABLE_SECRETS)).toBe(false);
