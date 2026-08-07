@@ -1,0 +1,30 @@
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "configured_target": "/private/tmp/holocron-s30-D07-05/.tmp/D07-01/secrets.yaml",
+  "precondition": {
+    "ok": false,
+    "accepted_post_export_writes": 0,
+    "export_watermark_ms": 1786172790703,
+    "audit_path": null,
+    "ponr_recorded": true,
+    "ponr_id": "1080eb6b-094e-45a1-b49b-d8863e3f72e0",
+    "ponr_recorded_at": "2026-08-07 01:06:39.210616-06"
+  },
+  "config": {
+    "path": "/private/tmp/holocron-s30-D07-05/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": null
+  },
+  "acknowledgements": [],
+  "report_path": "/private/tmp/holocron-s30-D07-05/.tmp/D07-05/ac9-run1-rollback.json",
+  "error": {
+    "code": "POST_PONR_INELIGIBLE",
+    "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=1080eb6b-094e-45a1-b49b-d8863e3f72e0, write_row_id=d2f9458c-b13b-4ac5-8a3c-8c50dab9f5df). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+  }
+}
