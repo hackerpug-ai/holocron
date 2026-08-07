@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-human-test-verdict.sh",
+  "results_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-results.json",
+  "verdict": "pass",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 5,
+  "git_sha": "a2db5b9dd5fb9dc0aa5b5f1baa283cff1ae9f50b",
+  "source_sha_at_run": "a2db5b9dd5fb9dc0aa5b5f1baa283cff1ae9f50b",
+  "errors": []
+}

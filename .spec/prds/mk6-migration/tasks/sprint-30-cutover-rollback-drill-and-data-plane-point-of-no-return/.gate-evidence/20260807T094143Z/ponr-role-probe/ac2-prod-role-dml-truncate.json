@@ -1,0 +1,15 @@
+{
+  "role": "holocron",
+  "is_superuser": true,
+  "table_owner": "holocron",
+  "is_table_owner": true,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true,
+  "truncate_fail_closed": true,
+  "update_fail_closed": true,
+  "truncate_exit": 1,
+  "update_exit": 1,
+  "truncate_stderr": "42501:permission denied for table data_plane_ponr",
+  "update_stderr": "42501:permission denied for table data_plane_ponr",
+  "rows_preserved": true
+}
