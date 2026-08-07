@@ -17,7 +17,11 @@
 import { v } from 'convex/values';
 import type { MutationCtx } from '../_generated/server';
 import { mutation, query } from '../_generated/server';
-import { CUTOVER_SCHEDULES_DISABLED_ENV, isCutoverSchedulesDisabled } from '../lib/migrationFence';
+import {
+  assertCutoverOperatorAuthorized,
+  CUTOVER_SCHEDULES_DISABLED_ENV,
+  isCutoverSchedulesDisabled,
+} from '../lib/migrationFence';
 
 /**
  * Honest drain inventory (REDHAT-FIX-S29-R3-H01).
@@ -219,8 +223,16 @@ export const disableAndDrain = mutation({
     maxPasses: v.optional(v.number()),
     /** Test-only fault injection for fail-closed proofs (AC-3). */
     injectFault: v.optional(v.union(v.literal('sample'), v.literal('patch'))),
+    /**
+     * Required when HOLO_MIGRATION_READ_ONLY is armed (REDHAT-FIX-RH-S30-04).
+     * Must match Convex env HOLO_CUTOVER_OPERATOR_SECRET.
+     */
+    operatorSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Fail closed BEFORE any side effects when fence armed without operator secret.
+    assertCutoverOperatorAuthorized('migrationFence.drain.disableAndDrain', args.operatorSecret);
+
     const atMs = args.atMs ?? Date.now();
     const maxPasses =
       typeof args.maxPasses === 'number' && args.maxPasses > 0
@@ -454,16 +466,24 @@ export const disableAndDrain = mutation({
 
 /**
  * PLATFORM_IT seed helper for C-02 residual-zero multi-batch proofs.
- * Intentionally unfenced (like disableAndDrain) so seeds work under HOLO_MIGRATION_READ_ONLY.
- * Creates active tasks + queued subscriptionContent rows for multi-batch drain.
+ * REDHAT-FIX-RH-S30-04: under armed HOLO_MIGRATION_READ_ONLY requires operatorSecret
+ * (matches HOLO_CUTOVER_OPERATOR_SECRET). Unauthenticated public calls reject with
+ * no side effects.
  */
 export const seedInFlightForDrainTest = mutation({
   args: {
     activeTasks: v.number(),
     queuedSubscriptionContent: v.number(),
     tag: v.optional(v.string()),
+    /** Required when HOLO_MIGRATION_READ_ONLY is armed. */
+    operatorSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertCutoverOperatorAuthorized(
+      'migrationFence.drain.seedInFlightForDrainTest',
+      args.operatorSecret
+    );
+
     const nTasks = Math.max(0, Math.min(Math.floor(args.activeTasks), 500));
     const nContent = Math.max(0, Math.min(Math.floor(args.queuedSubscriptionContent), 500));
     const tag = args.tag ?? `c02-drain-seed-${Date.now()}`;

@@ -16,6 +16,23 @@ import { resolveRepoRoot } from '../config/secrets.ts';
 export const MIGRATION_READ_ONLY_ENV = 'HOLO_MIGRATION_READ_ONLY';
 /** Non-destructive schedule-disable flag set during quiet-check drain (C-03). */
 export const CUTOVER_SCHEDULES_DISABLED_ENV = 'HOLO_CUTOVER_SCHEDULES_DISABLED';
+/**
+ * Operator secret for authorized cutover mutations under an armed fence
+ * (REDHAT-FIX-RH-S30-04). Must match Convex deployment env of the same name.
+ * Set via secrets.yaml / process.env; passed as mutation arg operatorSecret.
+ */
+export const CUTOVER_OPERATOR_SECRET_ENV = 'HOLO_CUTOVER_OPERATOR_SECRET';
+
+/**
+ * Resolve the cutover operator secret from process env (overlay from secrets
+ * bootstrap). Empty when unset — Convex will fail closed under armed fence.
+ */
+export function resolveCutoverOperatorSecret(
+  env: NodeJS.ProcessEnv = process.env
+): string | undefined {
+  const v = env[CUTOVER_OPERATOR_SECRET_ENV]?.trim();
+  return v && v.length > 0 ? v : undefined;
+}
 
 /**
  * Honest drain inventory (REDHAT-FIX-S29-R3-H01).
@@ -868,6 +885,8 @@ export async function runScheduleDrain(options?: {
       surfaces,
       reason: options?.reason ?? 'cutover:quiet-check schedule disable/drain',
       atMs: completedAtMs,
+      // REDHAT-FIX-RH-S30-04: authorized operator path under armed fence.
+      operatorSecret: resolveCutoverOperatorSecret(),
     })) as {
       ok?: boolean;
       drainCompletedAtMs?: number;
@@ -971,13 +990,14 @@ export async function runScheduleDrain(options?: {
 
 /**
  * Seed >DRAIN_BATCH in-flight rows for C-02 multi-batch residual proofs (PLATFORM_IT).
- * Unfenced Convex mutation — works under HOLO_MIGRATION_READ_ONLY.
+ * Under armed fence requires HOLO_CUTOVER_OPERATOR_SECRET (REDHAT-FIX-RH-S30-04).
  */
 export async function seedInFlightForDrainTest(options?: {
   client?: ConvexHttpClient;
   activeTasks?: number;
   queuedSubscriptionContent?: number;
   tag?: string;
+  operatorSecret?: string;
 }): Promise<{
   ok: boolean;
   activeTasks: number;
@@ -991,6 +1011,7 @@ export async function seedInFlightForDrainTest(options?: {
     activeTasks: options?.activeTasks ?? 101,
     queuedSubscriptionContent: options?.queuedSubscriptionContent ?? 101,
     tag: options?.tag,
+    operatorSecret: options?.operatorSecret ?? resolveCutoverOperatorSecret(),
   })) as {
     ok?: boolean;
     activeTasks?: number;
@@ -1056,6 +1077,7 @@ export async function callDisableAndDrain(options?: {
     atMs: Date.now(),
     maxPasses: options?.maxPasses,
     injectFault: options?.injectFault,
+    operatorSecret: resolveCutoverOperatorSecret(),
   })) as {
     ok?: boolean;
     drainCompletedAtMs?: number;
@@ -1239,6 +1261,8 @@ export async function runQuietCheck(options: {
         surface: p.surface,
         reason: p.message.slice(0, 200),
         atMs: Date.now(),
+        // REDHAT-FIX-RH-S30-04: authorized operator path under armed fence.
+        operatorSecret: resolveCutoverOperatorSecret(),
       });
     } catch {
       // audit module optional if deploy lags

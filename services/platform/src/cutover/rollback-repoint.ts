@@ -25,6 +25,18 @@ import { resolve } from 'node:path';
 import { resolveRepoRoot, resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 import {
+  countAcceptedPostExportWrites,
+  defaultPostExportWriteAuditPath,
+  loadExportWatermarkMs,
+  loadPostExportWriteAuditAsync,
+  loadPostExportWriteAudit as loadPostExportWriteAuditSync,
+  POST_EXPORT_WRITE_LEDGER_MISSING,
+  POST_EXPORT_WRITE_LEDGER_UNREADABLE,
+  type PostExportWriteAudit,
+  type PostExportWriteRecord,
+  writePostExportWriteAudit,
+} from './post-export-write-audit.ts';
+import {
   captureProcessGenerations,
   DATA_PLANE_ENV,
   defaultSoakStatePath,
@@ -45,25 +57,13 @@ export const CONTROL_PLANE_WRITE_FAILED = 'CONTROL_PLANE_WRITE_FAILED';
 export const POST_PONR_INELIGIBLE = 'POST_PONR_INELIGIBLE';
 /** D07-04: data_plane_ponr ledger unreadable — fail closed (never open the hatch). */
 export const PONR_LEDGER_UNREADABLE = 'PONR_LEDGER_UNREADABLE';
+/** REDHAT-FIX-RH-S30-03: production write ledger missing/unreadable — refuse. */
+export { POST_EXPORT_WRITE_LEDGER_MISSING, POST_EXPORT_WRITE_LEDGER_UNREADABLE };
 
 /** Frozen Convex data-plane target identity (UC-SYNC-04). */
 export const TARGET_CONVEX_FROZEN = 'convex-frozen';
 
-export type PostExportWriteRecord = {
-  /** Epoch-ms when the write was accepted/committed. */
-  committed_at_ms: number;
-  /** Surface that accepted the write (e.g. hono.POST /api/documents). */
-  surface: string;
-  /** Optional row/id for audit. */
-  id?: string;
-};
-
-export type PostExportWriteAudit = {
-  /** Export watermark epoch-ms (T_export). */
-  export_watermark_ms: number;
-  /** Accepted production writes after the watermark. */
-  accepted_writes: PostExportWriteRecord[];
-};
+export type { PostExportWriteAudit, PostExportWriteRecord };
 
 /**
  * Live unit that observed the post-repoint data-plane target.
@@ -134,10 +134,8 @@ export function defaultDataPlaneConfigPath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D06-05/data-plane-config.json');
 }
 
-/** Operator/fixture ledger of accepted post-export production writes. */
-export function defaultPostExportWriteAuditPath(cwd = process.cwd()): string {
-  return resolve(cwd, '.tmp/D06-05/post-export-write-audit.json');
-}
+/** Operator/fixture file-mirror path (non-authoritative; Postgres is the oracle). */
+export { defaultPostExportWriteAuditPath, loadExportWatermarkMs, writePostExportWriteAudit };
 
 function ensureParent(path: string): void {
   mkdirSync(resolve(path, '..'), { recursive: true });
@@ -152,89 +150,24 @@ function emptyAcks(): RollbackAcknowledgement[] {
 }
 
 /**
- * Load export watermark epoch-ms from D06-04 watermark report (or ETL report
- * that embeds watermark fields).
- */
-export function loadExportWatermarkMs(options?: {
-  cwd?: string;
-  watermarkPath?: string;
-}): number | null {
-  const cwd = options?.cwd ?? resolveRepoRoot();
-  const path = options?.watermarkPath ?? defaultWatermarkReportPath(cwd);
-  if (!existsSync(path)) return null;
-  try {
-    const j = JSON.parse(readFileSync(path, 'utf8')) as {
-      watermarkAtMs?: number;
-      watermark?: { watermarkAtMs?: number };
-      export_watermark_ms?: number;
-    };
-    if (typeof j.watermarkAtMs === 'number' && j.watermarkAtMs > 0) return j.watermarkAtMs;
-    if (typeof j.export_watermark_ms === 'number' && j.export_watermark_ms > 0) {
-      return j.export_watermark_ms;
-    }
-    if (typeof j.watermark?.watermarkAtMs === 'number' && j.watermark.watermarkAtMs > 0) {
-      return j.watermark.watermarkAtMs;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Load (or synthesize empty) post-export write audit.
- * When the audit file is missing, treat as zero accepted writes but still
- * require an export watermark for a successful re-point.
+ * Load post-export write audit — fail-closed (REDHAT-FIX-RH-S30-03).
+ * Sync path reads the optional file mirror only; does NOT synthesize empty success
+ * when the file is missing. Production cutover uses loadPostExportWriteAuditAsync.
  */
 export function loadPostExportWriteAudit(options?: {
   cwd?: string;
   auditPath?: string;
   watermarkPath?: string;
+  /** @deprecated fail-open synthesis removed; always fail-closed unless explicitly false. */
+  failClosed?: boolean;
 }): { audit: PostExportWriteAudit | null; path: string | null } {
-  const cwd = options?.cwd ?? resolveRepoRoot();
-  const path = options?.auditPath ?? defaultPostExportWriteAuditPath(cwd);
-  if (existsSync(path)) {
-    try {
-      const j = JSON.parse(readFileSync(path, 'utf8')) as PostExportWriteAudit;
-      const accepted = Array.isArray(j.accepted_writes) ? j.accepted_writes : [];
-      return {
-        audit: {
-          export_watermark_ms:
-            typeof j.export_watermark_ms === 'number' ? j.export_watermark_ms : 0,
-          accepted_writes: accepted,
-        },
-        path,
-      };
-    } catch {
-      return { audit: null, path };
-    }
-  }
-  // No audit file: synthesize from watermark with zero accepted writes
-  const wm = loadExportWatermarkMs({ cwd, watermarkPath: options?.watermarkPath });
-  if (wm == null) return { audit: null, path: null };
-  return {
-    audit: { export_watermark_ms: wm, accepted_writes: [] },
-    path: null,
-  };
+  return loadPostExportWriteAuditSync({
+    ...options,
+    failClosed: options?.failClosed !== false,
+  });
 }
 
-/**
- * Count accepted production writes strictly after export watermark.
- */
-export function countAcceptedPostExportWrites(audit: PostExportWriteAudit): number {
-  const tExport = audit.export_watermark_ms;
-  return audit.accepted_writes.filter(
-    (w) => typeof w.committed_at_ms === 'number' && w.committed_at_ms > tExport
-  ).length;
-}
-
-/**
- * Seed/update the post-export write audit ledger (tests + operator tooling).
- */
-export function writePostExportWriteAudit(audit: PostExportWriteAudit, path: string): void {
-  ensureParent(path);
-  writeFileSync(path, `${JSON.stringify(audit, null, 2)}\n`, 'utf8');
-}
+export { countAcceptedPostExportWrites, loadPostExportWriteAuditAsync };
 
 function matchesExpectedPlane(
   dataPlane: string | null | undefined,
@@ -593,13 +526,19 @@ export async function runRollbackRepoint(options?: {
     return fail;
   }
 
-  // Load audit after PONR check so POST_PONR_INELIGIBLE can still report
-  // accepted_post_export_writes (independent of the write-audit latch).
-  const { audit, path: resolvedAuditPath } = loadPostExportWriteAudit({
+  // Load production write ledger AFTER PONR check so POST_PONR_INELIGIBLE can
+  // still report accepted_post_export_writes. REDHAT-FIX-RH-S30-03: Postgres is
+  // authoritative; fail closed when ledger missing/unreadable (no empty synthesis).
+  const ledger = await loadPostExportWriteAuditAsync({
     cwd,
     auditPath,
     watermarkPath,
+    // Postgres is the sole oracle (REDHAT-FIX-RH-S30-03). Never authorize from .tmp file.
+    allowFileFallback: false,
   });
+  const audit = ledger.audit;
+  const resolvedAuditPath =
+    ledger.path ?? (ledger.source === 'postgres' ? 'postgres:post_export_write_audit' : null);
 
   const exportWm =
     audit?.export_watermark_ms && audit.export_watermark_ms > 0
@@ -660,13 +599,57 @@ export async function runRollbackRepoint(options?: {
     return fail;
   }
 
-  const effectiveAudit: PostExportWriteAudit = audit ?? {
-    export_watermark_ms: exportWm,
-    accepted_writes: [],
-  };
-  if (!effectiveAudit.export_watermark_ms) {
-    effectiveAudit.export_watermark_ms = exportWm;
+  // Fail closed when the production ledger is missing/unreadable (RH-S30-03).
+  // Empty Postgres table with known watermark is valid (zero accepted writes).
+  if (!audit || ledger.error?.code === POST_EXPORT_WRITE_LEDGER_MISSING) {
+    const fail = baseFail({
+      precondition: {
+        ok: false,
+        accepted_post_export_writes: -1,
+        export_watermark_ms: exportWm,
+        audit_path: resolvedAuditPath,
+        ponr_recorded: false,
+        ponr_id: null,
+        ponr_recorded_at: null,
+      },
+      error: {
+        code: ledger.error?.code ?? POST_EXPORT_WRITE_LEDGER_MISSING,
+        message:
+          ledger.error?.message ??
+          `cutover:rollback-repoint refuses: post_export_write_audit ledger missing/unreadable. ` +
+            `Refuse empty-file synthesis (REDHAT-FIX-RH-S30-03).`,
+      },
+    });
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
   }
+  if (ledger.error?.code === POST_EXPORT_WRITE_LEDGER_UNREADABLE) {
+    const fail = baseFail({
+      precondition: {
+        ok: false,
+        accepted_post_export_writes: -1,
+        export_watermark_ms: exportWm,
+        audit_path: resolvedAuditPath,
+        ponr_recorded: false,
+        ponr_id: null,
+        ponr_recorded_at: null,
+      },
+      error: {
+        code: POST_EXPORT_WRITE_LEDGER_UNREADABLE,
+        message: ledger.error.message,
+      },
+    });
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
+  }
+
+  const effectiveAudit: PostExportWriteAudit = {
+    export_watermark_ms: audit.export_watermark_ms > 0 ? audit.export_watermark_ms : exportWm,
+    accepted_writes: audit.accepted_writes,
+    source: audit.source,
+  };
 
   const accepted = countAcceptedPostExportWrites(effectiveAudit);
   if (accepted > 0) {
