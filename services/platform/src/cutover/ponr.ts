@@ -26,6 +26,7 @@ import {
   createCutoverConvexClient,
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,
+  resolveCutoverOperatorSecret,
 } from './convex-fence-client.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 import { recordPostExportAcceptedWrite } from './post-export-write-audit.ts';
@@ -46,6 +47,8 @@ export const FENCE_LIFT_FAILED = 'FENCE_LIFT_FAILED';
 export const FIRST_WRITE_FAILED = 'FIRST_WRITE_FAILED';
 export const PONR_INSERT_FAILED = 'PONR_INSERT_FAILED';
 export const PONR_LEDGER_UNREADABLE = 'PONR_LEDGER_UNREADABLE';
+/** REDHAT-FIX-RH-S30-12 — cutover operator credential missing/invalid. */
+export const OPERATOR_UNAUTHORIZED = 'OPERATOR_UNAUTHORIZED';
 
 /** Fixed surface identity for the first production write (AC-1). */
 export const PONR_WRITE_SURFACE = 'hono.POST /api/documents';
@@ -441,6 +444,8 @@ export async function recoverEnableWritesCrashWindow(input: {
   databaseUrl?: string;
   cwd?: string;
   watermarkPath?: string;
+  /** When false, only re-arm the fence (no accepted-write audit). Default true. */
+  recordAudit?: boolean;
 }): Promise<{ rearmOk: boolean; auditOk: boolean }> {
   let rearmOk = false;
   try {
@@ -453,6 +458,9 @@ export async function recoverEnableWritesCrashWindow(input: {
   }
 
   let auditOk = false;
+  if (input.recordAudit === false || !input.writeRowId) {
+    return { rearmOk, auditOk: false };
+  }
   try {
     const auditRes = await recordPostExportAcceptedWrite({
       surface: PONR_WRITE_SURFACE,
@@ -482,6 +490,8 @@ export async function runEnableWrites(options?: {
   secretsPath?: string;
   databaseUrl?: string;
   watermarkPath?: string;
+  /** Override operator secret for tests; default process env. */
+  operatorSecret?: string | null;
   /**
    * Test-only: force PONR insert failure after HTTP 201 so the crash-window
    * remediation (re-arm fence + record production audit) can be proven
@@ -521,6 +531,23 @@ export async function runEnableWrites(options?: {
       report_path: reportPath,
       ...partial,
     });
+
+  // ── 0. REDHAT-FIX-RH-S30-12: refuse without cutover operator credential ──
+  const providedSecret =
+    options?.operatorSecret !== undefined
+      ? options.operatorSecret?.trim() || ''
+      : resolveCutoverOperatorSecret() || '';
+  const expectedSecret = resolveCutoverOperatorSecret() || '';
+  if (!expectedSecret || !providedSecret || providedSecret !== expectedSecret) {
+    return baseFail({
+      error: {
+        code: OPERATOR_UNAUTHORIZED,
+        message:
+          'cutover:enable-writes refuses: HOLO_CUTOVER_OPERATOR_SECRET missing or invalid ' +
+          '(REDHAT-FIX-RH-S30-12). Irreversible data-plane CLI requires operator credential.',
+      },
+    });
+  }
 
   // ── 1. Existing PONR → idempotent already_recorded ───────────────────────
   let existing: DataPlanePonrRecord | null;
@@ -694,19 +721,41 @@ export async function runEnableWrites(options?: {
     });
     const body = (await res.json().catch(() => ({}))) as {
       document?: { id?: string };
+      documentId?: string;
       error?: string;
       message?: string;
     };
+    // Hono may return 500 with accepted documentId after INSERT+audit-fail (RH-S30-09).
+    const claimedId =
+      (typeof body.document?.id === 'string' && body.document.id) ||
+      (typeof body.documentId === 'string' && body.documentId) ||
+      '';
     if (res.status !== 201 || !body.document?.id) {
+      // REDHAT-FIX-RH-S30-09: never leave fence lifted after post-lift first-write failure.
+      const acceptedId = claimedId || '';
+      const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
+        secretsPath,
+        writeRowId: acceptedId || `unknown-first-write-${runId}`,
+        writeCommittedAtMs: Date.now(),
+        exportWatermarkMs: exportWm,
+        databaseUrl,
+        cwd,
+        watermarkPath: options?.watermarkPath,
+        // Record audit whenever a document may have been accepted (id present) or we cannot disprove it.
+        recordAudit: true,
+      });
       return baseFail({
         base_url: baseUrl,
         export_watermark_ms: exportWm,
         fence_lifted_at: fenceLiftedAt.toISOString(),
+        write_row_id: acceptedId || null,
         error: {
           code: FIRST_WRITE_FAILED,
           message:
             `cutover:enable-writes refuses: POST ${baseUrl}/api/documents returned ` +
-            `HTTP ${res.status} body=${JSON.stringify(body)} (PONR requires HTTP 201).`,
+            `HTTP ${res.status} body=${JSON.stringify(body)} (PONR requires HTTP 201). ` +
+            `Fence re-armed=${rearmOk}; post_export_write_audit recorded=${auditOk} ` +
+            `(REDHAT-FIX-RH-S30-09 full post-lift failure window).`,
         },
       });
     }
@@ -738,6 +787,15 @@ export async function runEnableWrites(options?: {
       `;
       const row = rows[0];
       if (!row) {
+        const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
+          secretsPath,
+          writeRowId,
+          writeCommittedAtMs: Date.now(),
+          exportWatermarkMs: exportWm,
+          databaseUrl,
+          cwd,
+          watermarkPath: options?.watermarkPath,
+        });
         return baseFail({
           base_url: baseUrl,
           export_watermark_ms: exportWm,
@@ -747,7 +805,8 @@ export async function runEnableWrites(options?: {
             code: FIRST_WRITE_FAILED,
             message:
               `cutover:enable-writes refuses: documents row ${writeRowId} missing after HTTP 201 ` +
-              `(cannot bind PONR to a fabricated id).`,
+              `(cannot bind PONR to a fabricated id). Fence re-armed=${rearmOk}; ` +
+              `audit recorded=${auditOk} (REDHAT-FIX-RH-S30-09).`,
           },
         });
       }
@@ -764,13 +823,27 @@ export async function runEnableWrites(options?: {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // REDHAT-FIX-RH-S30-09: transport/parse failures after fence lift also re-arm.
+    const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
+      secretsPath,
+      writeRowId: writeRowId || `unknown-first-write-${runId}`,
+      writeCommittedAtMs: Date.now(),
+      exportWatermarkMs: exportWm,
+      databaseUrl,
+      cwd,
+      watermarkPath: options?.watermarkPath,
+      recordAudit: true,
+    });
     return baseFail({
       base_url: baseUrl,
       export_watermark_ms: exportWm,
       fence_lifted_at: fenceLiftedAt.toISOString(),
+      write_row_id: writeRowId || null,
       error: {
         code: FIRST_WRITE_FAILED,
-        message: `cutover:enable-writes failed driving POST /api/documents: ${msg}`,
+        message:
+          `cutover:enable-writes failed driving POST /api/documents: ${msg}. ` +
+          `Fence re-armed=${rearmOk}; audit recorded=${auditOk} (REDHAT-FIX-RH-S30-09).`,
       },
     });
   }

@@ -23,6 +23,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveRepoRoot, resolveSecretsPathFromEnv } from '../config/secrets.ts';
+import { resolveCutoverOperatorSecret } from './convex-fence-client.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 import {
   countAcceptedPostExportWrites,
@@ -55,6 +56,8 @@ export const LIVE_ACK_MISSING = 'LIVE_ACK_MISSING';
 export const CONTROL_PLANE_WRITE_FAILED = 'CONTROL_PLANE_WRITE_FAILED';
 /** D07-04: data-plane PONR recorded — rollback re-point permanently refused. */
 export const POST_PONR_INELIGIBLE = 'POST_PONR_INELIGIBLE';
+/** REDHAT-FIX-RH-S30-12 — cutover operator credential missing/invalid. */
+export const OPERATOR_UNAUTHORIZED = 'OPERATOR_UNAUTHORIZED';
 /** D07-04: data_plane_ponr ledger unreadable — fail closed (never open the hatch). */
 export const PONR_LEDGER_UNREADABLE = 'PONR_LEDGER_UNREADABLE';
 /** REDHAT-FIX-RH-S30-03: production write ledger missing/unreadable — refuse. */
@@ -430,6 +433,8 @@ export async function runRollbackRepoint(options?: {
    * armed; only data-plane target re-points (H-05 / UC-SYNC-04).
    */
   clearSoakFence?: boolean;
+  /** Override operator secret for tests; default process env. */
+  operatorSecret?: string | null;
 }): Promise<RollbackRepointReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultRollbackRepointReportPath(cwd);
@@ -439,6 +444,44 @@ export async function runRollbackRepoint(options?: {
   const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(process.env, cwd);
   const target = options?.target?.trim() || TARGET_CONVEX_FROZEN;
   const baseUrl = resolveRollbackBaseUrl(options?.baseUrl);
+
+  // REDHAT-FIX-RH-S30-12: refuse without cutover operator credential before any CP write.
+  const expectedSecret = resolveCutoverOperatorSecret() || '';
+  const providedSecret =
+    options?.operatorSecret !== undefined ? options.operatorSecret?.trim() || '' : expectedSecret;
+  if (!expectedSecret || !providedSecret || providedSecret !== expectedSecret) {
+    const fail: RollbackRepointReport = {
+      ok: false,
+      repointed: false,
+      target,
+      target_kind: 'convex',
+      data_plane: 'convex',
+      engaged_at: '',
+      engaged_at_ms: 0,
+      configured_target: secretsPath,
+      precondition: {
+        ok: false,
+        accepted_post_export_writes: -1,
+        export_watermark_ms: null,
+        audit_path: null,
+        ponr_recorded: false,
+        ponr_id: null,
+        ponr_recorded_at: null,
+      },
+      config: { path: configPath, digest_sha256: '', prior_target: null },
+      acknowledgements: [],
+      report_path: reportPath,
+      error: {
+        code: OPERATOR_UNAUTHORIZED,
+        message:
+          'cutover:rollback-repoint refuses: HOLO_CUTOVER_OPERATOR_SECRET missing or invalid ' +
+          '(REDHAT-FIX-RH-S30-12). Irreversible data-plane CLI requires operator credential.',
+      },
+    };
+    mkdirSync(resolve(reportPath, '..'), { recursive: true });
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
+  }
 
   // R3-H03: snapshot pre-existing serving generations BEFORE control-plane write
   const preexistingUnits = capturePreexistingServingUnits(cwd);

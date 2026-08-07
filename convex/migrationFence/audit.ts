@@ -32,13 +32,34 @@ export const migrationReadOnlyStatus = query({
   }),
 });
 
-/** Record fence arm moment (epoch-ms) — called by holo cutover:freeze. */
+/**
+ * Record fence arm moment (epoch-ms) — called by holo cutover:freeze.
+ * REDHAT-FIX-RH-S30-11: always requires operatorSecret (not only when fence
+ * already armed) so unauthenticated callers cannot forge the PONR prerequisite.
+ */
 export const recordFenceArmed = mutation({
   args: {
     fenceArmedAtMs: v.number(),
     reason: v.optional(v.string()),
+    /** Required (always). Must match HOLO_CUTOVER_OPERATOR_SECRET. */
+    operatorSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Always authorize — forging fence_armed enables enable-writes even when
+    // soak fence env is not yet visible on the deployment.
+    const expected = process.env.HOLO_CUTOVER_OPERATOR_SECRET ?? '';
+    if (!expected || expected.length < 8) {
+      throw new Error(
+        'migration_fence: recordFenceArmed refused — HOLO_CUTOVER_OPERATOR_SECRET not configured ' +
+          '(REDHAT-FIX-RH-S30-11)'
+      );
+    }
+    if (typeof args.operatorSecret !== 'string' || args.operatorSecret !== expected) {
+      throw new Error(
+        'migration_fence: recordFenceArmed refused — unauthenticated/public call without valid ' +
+          'operatorSecret (REDHAT-FIX-RH-S30-11)'
+      );
+    }
     const id = await ctx.db.insert('migrationFenceAudit', {
       kind: 'fence_armed',
       fenceArmedAtMs: args.fenceArmedAtMs,
