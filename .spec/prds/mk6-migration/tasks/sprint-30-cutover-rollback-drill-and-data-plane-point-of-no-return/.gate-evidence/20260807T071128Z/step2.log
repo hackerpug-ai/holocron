@@ -1,0 +1,4 @@
+@@GATE-META step=2 cmd_sha=2be8c855c7528c339b027c0fcae8c6361dcb53ce4cc2233ce1fdfa4989951103@@
+CMD: python3 -c "import json; a=json.load(open(\".tmp/D06-05/post-export-write-audit.json\")); print(json.dumps({\"accepted_count\":len(a.get(\"accepted_writes\",[])),\"export_watermark_ms\":a.get(\"export_watermark_ms\")}))"
+{"accepted_count": 0, "export_watermark_ms": 1785959546465}
+@@GATE-EXIT=0@@

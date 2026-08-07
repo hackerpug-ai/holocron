@@ -1,0 +1,33 @@
+@@GATE-META step=5 cmd_sha=822c8cfefaf52405e1fc7208816a655a1603831ec081b9bd84bd81ca6da7aa8f@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url http://127.0.0.1:44111
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "configured_target": "/Users/inference1/Projects/holocron/.tmp/D07-01/secrets.yaml",
+  "precondition": {
+    "ok": false,
+    "accepted_post_export_writes": -1,
+    "export_watermark_ms": null,
+    "audit_path": null,
+    "ponr_recorded": false,
+    "ponr_id": null,
+    "ponr_recorded_at": null
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": null
+  },
+  "acknowledgements": [],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/rollback-repoint-report.json",
+  "error": {
+    "code": "PONR_LEDGER_UNREADABLE",
+    "message": "cutover:rollback-repoint refuses: data_plane_ponr ledger unreadable: relation \"data_plane_ponr\" does not exist. Escape hatch stays closed."
+  }
+}
+@@GATE-EXIT=2@@

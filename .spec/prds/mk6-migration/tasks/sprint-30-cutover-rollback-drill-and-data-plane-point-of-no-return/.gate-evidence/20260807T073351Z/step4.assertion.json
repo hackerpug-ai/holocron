@@ -1,0 +1,9 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "require_all_regex": [
+    "\"ok\":\\s*true",
+    "\"ponr_id\":",
+    "\"write_row_id\":"
+  ]
+}

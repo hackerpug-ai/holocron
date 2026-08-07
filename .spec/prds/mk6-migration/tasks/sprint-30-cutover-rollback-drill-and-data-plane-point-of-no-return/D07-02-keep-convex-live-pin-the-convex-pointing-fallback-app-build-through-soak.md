@@ -1,4 +1,8 @@
 # D07-02: Keep Convex live + pin the Convex-pointing fallback app build through soak
+> Status: ✅ Completed
+> Commit: a55a799b3bb17db2c601fbca34a6aa3e515b11da
+> Reviewer: dual-lens
+> Completed: 2026-08-07T07:36:00Z
 
 > **Task ID:** D07-02
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)
@@ -394,7 +398,8 @@
 - PIN CORRECTED DURING PLANNING: an earlier draft of this task pinned fe78fe5a6620a2e0bc7324064e13e53664eca2c1 (last commit with convex/react imports) as the fallback build. react-native-ui-planner flagged that this commit is downstream of 9b8d1596 (D01-04, 'Convex env alias removal'), which repointed app/_layout.tsx's ConvexReactClient construction from EXPO_PUBLIC_CONVEX_URL to EXPO_PUBLIC_PLATFORM_URL — so a build from fe78fe5a imports the Convex SDK but actually talks to Hono, not frozen Convex, which would have made AC-4's boot proof vacuous (the exact empty-shell failure mode AC-4 was designed to catch). Independently re-verified via `git show <sha>:app/_layout.tsx` at 25414ad1b34720c11de12323cc6609309c1023cb (= 9b8d1596^), 9b8d1596, and fe78fe5a6620a2e0bc7324064e13e53664eca2c1 before correcting: 25414ad1 is the last commit where the client is genuinely built from EXPO_PUBLIC_CONVEX_URL. The corrected pin is 25414ad1b34720c11de12323cc6609309c1023cb; fe78fe5a is retained ONLY as the required negative-control fixture (platform_pointing_convex_react_commit) proving AC-3's discriminator would have caught this exact mistake.
 - AC-4 (boot) is the deliberately fail-closed AC called out in the dispatch: a full native simulator build of a pre-rewrite revision is expensive and may break against now-incompatible toolchain/dependency versions. The task must attempt the real Maestro cold-boot flow honestly and report BOOT_UNVERIFIED rather than fabricate a pass when it cannot complete — this is a plan-time-acknowledged gap, not an oversight.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",

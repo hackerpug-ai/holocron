@@ -1,4 +1,8 @@
 # D07-05: Security review: rollback config switch + PONR immutability
+> Status: ✅ Completed
+> Commit: d4039439e7c2a9f6fc9dfd9e70ee455788093c9e
+> Reviewer: dual-lens
+> Completed: 2026-08-07T07:36:03Z
 
 > **Task ID:** D07-05
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)
@@ -480,7 +484,8 @@
 - Every scenario in this task was hand-verified against the literal source of brain/tools/validate-scenario/validate_scenario.py because the authoring agent has no Bash/execution tool available to actually run the validator. The orchestrator ran the real validator before merge.
 - The authoring agent's toolset (Read/Grep/Glob/WebFetch/WebSearch/SendMessage/Task*) has no Write/Edit/Bash tool, so this result was delivered inline and transcribed verbatim by the orchestrator — same as convex-planner's transcription in the same scratchpad directory.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
