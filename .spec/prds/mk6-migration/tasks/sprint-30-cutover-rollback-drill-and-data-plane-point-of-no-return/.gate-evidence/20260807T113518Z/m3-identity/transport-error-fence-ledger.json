@@ -1,0 +1,22 @@
+{
+  "fence": "1",
+  "ledger": {
+    "audit": {
+      "export_watermark_ms": 1786184424477,
+      "accepted_writes": [
+        {
+          "committed_at_ms": 1786184424478,
+          "surface": "hono.POST /api/documents",
+          "id": "00000000-0000-4000-8000-ffffffffaaaa"
+        }
+      ],
+      "source": "postgres"
+    },
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+    "source": "postgres"
+  },
+  "transportDocId": "00000000-0000-4000-8000-ffffffffaaaa",
+  "writeIds": [
+    "00000000-0000-4000-8000-ffffffffaaaa"
+  ]
+}
