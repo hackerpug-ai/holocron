@@ -27,6 +27,21 @@ Evidence root:
 Ad-hoc `re.sub` re-arm left `HOLO_MIGRATION_READ_ONLY: "1""` (YAML `Unexpected double-quoted-scalar`), blocking tip boot.  
 **Durable fix:** `scripts/rearm-sprint30-cutover-control-plane.sh` + `scripts/lib/rearm-sprint30-cutover-control-plane.ts` — surgical repair of that one key if corrupt, then `writeDurableMigrationReadOnly` / `writeDurableDataPlane` (upsertSecretsFile). Never regex-rewrite secrets values. Pre/post YAML parse checks; never prints secret values.
 
+### Ledger dual-reset (Postgres + file) — 20260807T112826Z
+
+Emptying only `.tmp/D06-05/post-export-write-audit.json` left stale rows in authoritative
+Postgres `post_export_write_audit` → step2 `accepted_count=2`, drill `lost_accepted_writes=2`,
+and step5 could see residue instead of a clean pre-gate ledger.
+
+**Durable fix:** `scripts/reset-sprint30-gate-ledger.sh` (loopback + allowed DB names only;
+`--authorize` / `HOLO_GATE_LEDGER_RESET=1`). Clears **both** table and file; optional
+`--clear-ponr` for clean step4 enable-writes. Wired into `run-sprint30-human-gate.sh`
+(`HOLO_GATE_RESET_LEDGER` default `1`).
+
+**Oracle intact:** step5 still requires exit 2 + `POST_PONR_INELIGIBLE` after a **real**
+step4 PONR — reset only removes pre-gate residue so step1/2 start at zero and step5 is
+not polluted by stale `POST_EXPORT_WRITE_ACCEPTED` from leftover rows alone.
+
 ## Blockers closed
 
 ### C-3 CRITICAL — operator-supplied disposable DB + canonical alias reject + seed opt-in false
