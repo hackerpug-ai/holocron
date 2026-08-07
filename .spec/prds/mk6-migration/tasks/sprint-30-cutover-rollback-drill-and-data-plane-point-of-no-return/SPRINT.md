@@ -1,7 +1,7 @@
 ---
 sequence: 30
 timeline: Phase 7 — Cutover and Decommission
-status: Completed
+status: In Progress
 planned_from_roadmap_sha: 6eb1ae5b1a12963afe1792b500d67de962768d5581e79f2739cedb5e35c40465
 planned_from_source_sha: 6de957d39d03577912f5aa5e4d35bf6049118b8f
 source_kind: git-head
@@ -13,9 +13,9 @@ capability_coverage: [CAP-CUT-01]
 
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** Completed
-> Progress: 5/5 tasks completed · updated 2026-08-07T07:35:48Z
-> Status-Note: human gate 5/5 pass + GATE-FIX-fence-lift
+**Status:** In Progress
+> Progress: REDHAT-FIX-RH-S30-09..16 second remediation cycle planned · tip-bound gate 20260807T084614Z not land-auditable · updated 2026-08-07T09:02:29Z
+> Status-Note: In Progress — second independent red-hat (2ff0e6c4) found 2 CRITICAL, 4 HIGH, 2 MEDIUM, 1 LOW; task plans 09–16 authored; QA deferred until dual-lens APPROVED + landed evidence.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
@@ -89,6 +89,29 @@ An operator triggering rollback during the read-only soak gets the data plane re
 | D07-03 | Run the rollback drill — Sev-1 trigger, config re-point, zero-loss verification | devops-engineer | 120 min |
 | D07-04 | Record the data-plane point of no return (first accepted Postgres write) | devops-engineer | 90 min |
 | D07-05 | Security review: rollback config switch + PONR immutability | security-reviewer | 60 min |
+
+## Independent Red-Hat Remediation (RH-S30)
+
+First independent review: `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` → cycle **REDHAT-FIX-RH-S30-01..08** (implemented on main; second review found residual defects).
+
+### Second Red-Hat Remediation Cycle (plan only — do not treat as fixed until dual-lens APPROVED + landed)
+
+**Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (reviewed SHA `2ff0e6c4`, verdict **NEEDS REVISION**).
+
+| ID | Finding | Required remediation | Severity |
+|----|---------|----------------------|----------|
+| REDHAT-FIX-RH-S30-09 | C-1 | Close every pre-PONR post-fence-lift failure window (accepted-document/non-201, lost/invalid responses); re-arm fence + durable refuse/audit. | CRITICAL |
+| REDHAT-FIX-RH-S30-10 | C-2 | Commit gate results, raw verifier output, evidence, remediation status, and source changes atomically so the reviewed SHA contains the evidence it claims. | CRITICAL |
+| REDHAT-FIX-RH-S30-11 | H-1 | Add authorization to `recordFenceArmed`; prevent forged fence prerequisites from enabling writes. | HIGH |
+| REDHAT-FIX-RH-S30-12 | H-2 | Add authorization boundaries to irreversible enable-writes and rollback-repoint CLI paths. | HIGH |
+| REDHAT-FIX-RH-S30-13 | H-3 | Close or explicitly audit the owner-DDL trigger-disable escape; prove PONR protection under the real operator role model. | HIGH |
+| REDHAT-FIX-RH-S30-14 | H-4 | Implement and invoke `assert-human-test-verdict` in the gate; capture exit/stdout; bind to raw verifier result. | HIGH |
+| REDHAT-FIX-RH-S30-15 | M-1 | Finalize gate `meta.json` to a durable completed/pass (or failed) state after execution. | MEDIUM |
+| REDHAT-FIX-RH-S30-16 | M-2 + L-1 | Preserve pinned fallback commit identity in step-3 summary; document verifier scope vs external-state attestation. | MEDIUM/LOW |
+
+Task plan files (durable ACs + evidence requirements; **no implementation in this plan commit**):
+
+- `REDHAT-FIX-RH-S30-09.md` … `REDHAT-FIX-RH-S30-16.md`
 
 ## Source Coverage
 
