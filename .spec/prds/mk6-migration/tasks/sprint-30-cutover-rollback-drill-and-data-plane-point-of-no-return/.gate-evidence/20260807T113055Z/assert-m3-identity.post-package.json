@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-m3-identity-evidence.sh",
+  "root": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity",
+  "legacy_fallback_accepted": false,
+  "package_commit": "52ed2d0280ee7d14e2bf2d913c15596448f39c4f",
+  "oid_map": {
+    "RED-identity-oracle-baseline.txt": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/RED-identity-oracle-baseline.txt",
+      "blob_oid": "684572a7394db715b228c88da8a9fd53faeba96a",
+      "local_oid": "684572a7394db715b228c88da8a9fd53faeba96a"
+    },
+    "suite-vitest.log": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/suite-vitest.log",
+      "blob_oid": "4abacecf77758713d4a775fe796035e9ca6ecb97",
+      "local_oid": "4abacecf77758713d4a775fe796035e9ca6ecb97"
+    },
+    "branch-oracle-map.md": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/branch-oracle-map.md",
+      "blob_oid": "ba2b81b9d3f622f28c295e5cc74595109ac71e4d",
+      "local_oid": "ba2b81b9d3f622f28c295e5cc74595109ac71e4d"
+    },
+    "manifest.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/manifest.json",
+      "blob_oid": "85401b9fc7c573748803782db33670ff0ead3b5a",
+      "local_oid": "85401b9fc7c573748803782db33670ff0ead3b5a"
+    },
+    "non-201-accepted-id-enable-writes.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/non-201-accepted-id-enable-writes.json",
+      "blob_oid": "266c0c5118b3b62f42ee395b5277cd85e6edb149",
+      "local_oid": "266c0c5118b3b62f42ee395b5277cd85e6edb149"
+    },
+    "non-201-accepted-id-fence-ledger.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/non-201-accepted-id-fence-ledger.json",
+      "blob_oid": "fe196384b11978a1ec21328b16e26899193ce98e",
+      "local_oid": "fe196384b11978a1ec21328b16e26899193ce98e"
+    },
+    "non-201-accepted-id-rollback-refuse.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/non-201-accepted-id-rollback-refuse.json",
+      "blob_oid": "61ec4c6a6e83a988e909fe1a7811e765761058a5",
+      "local_oid": "61ec4c6a6e83a988e909fe1a7811e765761058a5"
+    },
+    "transport-error-enable-writes.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/transport-error-enable-writes.json",
+      "blob_oid": "f3f9f5c0dc9f9c757c7bd4d705d44f3c8cd9e0bb",
+      "local_oid": "f3f9f5c0dc9f9c757c7bd4d705d44f3c8cd9e0bb"
+    },
+    "transport-error-fence-ledger.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/transport-error-fence-ledger.json",
+      "blob_oid": "fc9616ee7a57ef275e406508d7a3164d689d6389",
+      "local_oid": "fc9616ee7a57ef275e406508d7a3164d689d6389"
+    },
+    "transport-error-rollback-refuse.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/transport-error-rollback-refuse.json",
+      "blob_oid": "86d214f0f589539260c36c4d108d4235e86e987b",
+      "local_oid": "86d214f0f589539260c36c4d108d4235e86e987b"
+    },
+    "reselect-miss-enable-writes.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/reselect-miss-enable-writes.json",
+      "blob_oid": "cee73b7a05aa9c93f70d2f1963e89f2d0b9cd90b",
+      "local_oid": "cee73b7a05aa9c93f70d2f1963e89f2d0b9cd90b"
+    },
+    "reselect-miss-fence-ledger.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/reselect-miss-fence-ledger.json",
+      "blob_oid": "1b0317dadbf74311b1b32888b4e938ded910d8cf",
+      "local_oid": "1b0317dadbf74311b1b32888b4e938ded910d8cf"
+    },
+    "reselect-miss-identity.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/reselect-miss-identity.json",
+      "blob_oid": "ef8200a439e270f0da9d31f8f3e3a2eed4c548fc",
+      "local_oid": "ef8200a439e270f0da9d31f8f3e3a2eed4c548fc"
+    },
+    "reselect-miss-rollback-refuse.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/reselect-miss-rollback-refuse.json",
+      "blob_oid": "0756f7d4fc2a2aee6e0a6448f7a428572a963481",
+      "local_oid": "0756f7d4fc2a2aee6e0a6448f7a428572a963481"
+    },
+    "mutation-failure.log": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity/mutation-failure.log",
+      "blob_oid": "684572a7394db715b228c88da8a9fd53faeba96a",
+      "local_oid": "684572a7394db715b228c88da8a9fd53faeba96a"
+    }
+  },
+  "errors": []
+}
