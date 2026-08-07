@@ -56,18 +56,17 @@ def preflight():
 pf = preflight()
 (out_dir / "ac0-preflight.json").write_text(json.dumps(pf, indent=2) + "\n")
 
-# Prefer non-owner app role when current connection is privileged.
-probe_url = url
+# Prefer non-owner app role. Privileged connections MUST NOT run bare owner DDL:
+# either SET ROLE holocron_app inside a rolled-back tx, or refuse and label residual.
+set_role_app = False
 probe_role_note = "using DATABASE_URL as-is"
 if pf["is_superuser"] or pf["is_table_owner"]:
-    # Try SET ROLE holocron_app inside a probe connection via options
     rc_role, has_app, _ = psql(
         "SELECT 1 FROM pg_roles WHERE rolname='holocron_app'", on_error_stop=False
     )
     if rc_role == 0 and has_app == "1":
-        # Use SET ROLE for subsequent session via PGOPTIONS is awkward; use
-        # single-session transactional probe with SET LOCAL ROLE when possible.
-        probe_role_note = "will SET ROLE holocron_app inside transaction"
+        set_role_app = True
+        probe_role_note = "SET ROLE holocron_app inside rolled-back transaction (C-3)"
     else:
         ac1 = {
             **pf,
@@ -88,7 +87,7 @@ if pf["is_superuser"] or pf["is_table_owner"]:
             "truncate_exit": None,
             "update_exit": None,
             "preflight_blocked_destructive": True,
-            "note": "Destructive TRUNCATE/UPDATE not attempted under owner/superuser without transactional app-role SET.",
+            "note": "Destructive TRUNCATE/UPDATE not attempted under owner/superuser.",
         }
         (out_dir / "ac1-prod-role-disable-trigger.json").write_text(
             json.dumps(ac1, indent=2) + "\n"
@@ -108,8 +107,7 @@ if pf["is_superuser"] or pf["is_table_owner"]:
         (out_dir / "ac3-disposition.md").write_text(
             "# RH-S30-13 disposition\n\n"
             + json.dumps(disposition, indent=2)
-            + "\n\nDestructive ops were **not** executed outside a rolled-back transaction "
-            "on a privileged role.\n"
+            + "\n\nDestructive ops were **not** executed as owner/superuser (closeout C-3).\n"
         )
         (out_dir / "ac4-role-map.md").write_text(
             f"# Role map\n\n- probe_role: `{pf['role']}` superuser={pf['is_superuser']} "
@@ -118,13 +116,13 @@ if pf["is_superuser"] or pf["is_table_owner"]:
             f"- production app role: holocron_app (SELECT/INSERT, not owner)\n"
         )
         print(json.dumps({"ac1": ac1, "ac2": ac2, "preflight": pf}, indent=2))
-        # Not a product regression — privileged residual is documented.
         sys.exit(0)
 
-# Non-owner path: attempt DML/DDL inside a transaction that ALWAYS rolls back.
-# Capture SQLSTATE via DO blocks where needed.
-tx = r"""
+# Non-owner (or SET ROLE app) path: DDL/DML only inside a transaction that ALWAYS rolls back.
+set_role_sql = "SET LOCAL ROLE holocron_app;" if set_role_app else ""
+tx = f"""
 BEGIN;
+{set_role_sql}
 DO $$
 DECLARE
   v_dis INT := 0;
@@ -158,7 +156,6 @@ BEGIN
 END $$;
 ROLLBACK;
 """
-# Run via psql without ON_ERROR_STOP so ROLLBACK runs; use a single -c with multiple statements
 r = subprocess.run(
     ["psql", url, "-v", "ON_ERROR_STOP=0", "-c", tx],
     capture_output=True,
