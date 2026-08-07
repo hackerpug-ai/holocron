@@ -754,15 +754,15 @@ export async function runRollbackDrill(options?: {
 
     // REDHAT-FIX-RH-S30-02: real content-read path (not /health echo alone).
     try {
-      const keys = {
-        rn:
-          process.env.HOLO_KEY_RN ||
-          process.env.RN_API_KEY ||
-          process.env.HOLO_KEY_CONTROL ||
-          'rn-test',
-      };
+      const scoped = resolveCutoverScopedKeys(process.env);
+      const rnKey =
+        scoped.rn ||
+        process.env.HOLO_KEY_RN ||
+        process.env.RN_API_KEY ||
+        process.env.HOLO_KEY_CONTROL ||
+        'rn-test';
       const contentRes = await fetch(`${liveBaseUrl}/api/content-probe`, {
-        headers: { authorization: `Bearer ${keys.rn}` },
+        headers: { authorization: `Bearer ${rnKey}` },
         signal: AbortSignal.timeout(15_000),
       });
       const contentBody = (await contentRes.json().catch(() => ({}))) as {
