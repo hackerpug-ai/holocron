@@ -549,6 +549,27 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
     );
   }
 
+  // Require a Release-configuration standalone artifact under .tmp/D07-02.
+  // A Metro/dev-client boot of HEAD would not prove the pinned SHA (fakeable).
+  const artifactCandidates = [
+    resolve(cwd, '.tmp/D07-02/pinned-fallback.app'),
+    resolve(cwd, '.tmp/D07-02/build/Build/Products/Release-iphonesimulator/Holocron.app'),
+    resolve(cwd, '.tmp/D07-02/pinned-fallback.ipa'),
+  ];
+  const appArtifact = artifactCandidates.find((p) => existsSync(p));
+  if (!appArtifact) {
+    return fail(
+      BOOT_UNVERIFIED,
+      'no pinned Release app artifact under .tmp/D07-02 (build 25414ad1 with expo prebuild + run:ios --configuration Release first)',
+      {
+        commit_sha: manifest.commit_sha,
+        build_digest_sha256: manifest.build_digest_sha256,
+        simulator_udid: udid,
+        boot_evidence: { artifact_type: null, session_log_path: null },
+      }
+    );
+  }
+
   // Attempt real Maestro cold-boot against the gate flow.
   // A missing maestro binary or failed run fails closed — never invents a session log.
   const flowCandidates = [
@@ -569,10 +590,20 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
     );
   }
 
+  const maestroWhich = spawnSync('which', ['maestro'], { encoding: 'utf8' });
+  if (maestroWhich.status !== 0 || !(maestroWhich.stdout ?? '').trim()) {
+    return fail(BOOT_UNVERIFIED, 'maestro binary not found on PATH', {
+      commit_sha: manifest.commit_sha,
+      build_digest_sha256: manifest.build_digest_sha256,
+      simulator_udid: udid,
+      boot_evidence: { artifact_type: null, session_log_path: null },
+    });
+  }
+
   const maestro = spawnSync('maestro', ['--udid', udid, 'test', flow], {
     cwd,
     encoding: 'utf8',
-    timeout: 180_000,
+    timeout: 120_000,
     env: {
       ...env,
       MAESTRO_SIMULATOR_UDID: udid,
