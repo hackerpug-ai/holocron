@@ -1,0 +1,38 @@
+appId: ${MAESTRO_APP_ID}
+---
+# D07-02 / REDHAT-FIX-RH-S30-06 — Release cold boot of Convex-pointing pin (25414ad1).
+# Metro is NOT used. JS is embedded in the Release binary (main.jsbundle).
+# At pin, index redirects to /chat/new which lands on chat-screen when Convex is reachable.
+
+- launchApp:
+    clearState: true
+
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Close"
+    optional: true
+- tapOn:
+    text: "OK"
+    optional: true
+
+# Dev-client chooser must never appear for a Release proof
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - assertVisible:
+          text: "__RELEASE_BOOT_MUST_NOT_SHOW_DEVELOPMENT_SERVERS__"
+
+# Pin-revision chat shell (app/(drawer)/chat/[conversationId].tsx testID=chat-screen)
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 120000
+- assertVisible:
+    id: "chat-screen"
+- takeScreenshot: fallback-convex-boot
