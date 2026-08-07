@@ -5,19 +5,27 @@
 
 ## Fresh package (independent review target)
 
+**Supersedes** partial retry `20260807T112331Z` (2/5, verifier fail) that followed a secrets re-arm quote corruption, and prior green `20260807T113055Z`.
+
 | Field | Value |
 |---|---|
-| run_id | `20260807T113055Z` |
-| source_sha_at_run / sourceRevision | `a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502` |
-| package_commit (P1) | `52ed2d0280ee7d14e2bf2d913c15596448f39c4f` |
-| attestation_commit (A1) | `b9a7f91193b1dd3d11288186625b126e3cf9f713` |
-| lock_commit / post-package tip | `62d72dff36a3a00e9f3fdb64c8ed0c034941ba0e` (HEAD at package complete) |
+| run_id | `20260807T113518Z` |
+| source_sha_at_run / sourceRevision | `74c3846c3f0ca335ec4bd8ebdf8691f4d0517bc8` |
+| package_commit (P1) | `47dffa317f1490a1850f1750d5f02f04f47f9217` |
+| attestation_commit (A1) | `3ab45b0b513dbe3cd6698ad3f841c2d01f7a8b1c` |
+| lock_commit | `ec0d354c9b5c106bddb7eae9773425e7c4572cd2` |
+| post-package tip | `7d6ac3b0d850333bb72ceb3392f52ff6a6029956` |
 | protocol | C-2-atomic-v5-git-bound-attestation |
-| gate verdict | pass 5/5; C-3 marker-miss + one-trigger-missing + success-path closed |
+| gate verdict | pass 5/5; verifier verified:true; C-3 marker-miss + one-trigger-missing + success-path closed |
 | M-3 | package-bound `m3-identity/` only; real RED/mutation vitest FAIL signatures; manifest no self-hash; `assert-m3-identity.post-package.json` committed |
 
 Evidence root:  
-`.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/`
+`.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113518Z/`
+
+### Secrets re-arm quote bug (fixed)
+
+Ad-hoc `re.sub` re-arm left `HOLO_MIGRATION_READ_ONLY: "1""` (YAML `Unexpected double-quoted-scalar`), blocking tip boot.  
+**Durable fix:** `scripts/rearm-sprint30-cutover-control-plane.sh` + `scripts/lib/rearm-sprint30-cutover-control-plane.ts` — surgical repair of that one key if corrupt, then `writeDurableMigrationReadOnly` / `writeDurableDataPlane` (upsertSecretsFile). Never regex-rewrite secrets values. Pre/post YAML parse checks; never prints secret values.
 
 ## Blockers closed
 
