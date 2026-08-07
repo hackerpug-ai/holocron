@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# RH-S30-20 / C-2-atomic-v4 — exact blob OID identity via immutable attestation.
+# RH-S30-20 residual / C-2-atomic-v5 — Git-bound attestation lock + exact blob OID.
 #
 # Usage:
 #   bash scripts/assert-gate-evidence-containment.sh <gate-results.json>
 #
-# Requires evidence-attestation.json beside the results (same evidence dir or
-# under .gate-evidence/<run_id>/). Compares:
-#   hist_oid = git rev-parse <package_commit>:<path>
-#   sub_oid  = git hash-object -t blob <submitted>
-# and requires hist_oid == sub_oid. Also verifies source_sha_at_run fields.
+# 1. Resolve evidence-attestation.lock.json from Git (HEAD by default).
+# 2. Verify lock blob OID matches git hash-object of worktree lock (if present).
+# 3. Load attestation bytes ONLY via git show <attestation_commit>:<path>.
+# 4. Verify attestation_blob_oid matches that object.
+# 5. Require protocol/run_id/source/package_commit/artifacts present.
+# 6. hist_oid == sub_oid for package_commit gate-results vs submitted file.
 set -euo pipefail
 
 RESULTS="${1:-}"
@@ -30,152 +31,195 @@ data = json.loads(on_disk)
 run_id = str(data.get("run_id") or "")
 source = str(data.get("source_sha_at_run") or data.get("source_sha") or "")
 errors = []
+HEX40 = re.compile(r"^[0-9a-f]{40}$")
+REQUIRED_PROTOCOL = "C-2-atomic-v5-git-bound-attestation"
 
-# Locate attestation sidecar
-candidates = [
-    results_path.parent / "evidence-attestation.json",
-    results_path.parent / f".gate-evidence/{run_id}/evidence-attestation.json",
-    Path(
-        ".spec/prds/mk6-migration/tasks/"
-        "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
-        f".gate-evidence/{run_id}/evidence-attestation.json"
-    ),
-]
-att_path = next((p for p in candidates if p.is_file()), None)
-if att_path is None:
-    errors.append(
-        "C-2 attestation missing: evidence-attestation.json required "
-        "(C-2-atomic-v4-blob-oid-identity)"
-    )
-    att = {}
-else:
-    att = json.loads(att_path.read_text())
-
-protocol = str(att.get("protocol") or data.get("evidence_package_protocol") or "")
-package_commit = str(att.get("package_commit") or "")
-att_source = str(att.get("source_sha_at_run") or "")
-artifacts = att.get("artifacts") or {}
-gr = artifacts.get("gate-results.json") or {}
-rel = str(
-    gr.get("path")
-    or (
-        ".spec/prds/mk6-migration/tasks/"
-        "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
-        f".gate-evidence/{run_id}/gate-results.json"
-    )
+rel_lock = (
+    ".spec/prds/mk6-migration/tasks/"
+    "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
+    f".gate-evidence/{run_id}/evidence-attestation.lock.json"
 )
-attested_oid = str(gr.get("blob_oid") or "")
+rel_results = (
+    ".spec/prds/mk6-migration/tasks/"
+    "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
+    f".gate-evidence/{run_id}/gate-results.json"
+)
 
-if not re.fullmatch(r"[0-9a-f]{40}", package_commit):
-    errors.append(f"attestation.package_commit not 40-hex: {package_commit!r}")
-if not re.fullmatch(r"[0-9a-f]{40}", att_source):
-    errors.append(f"attestation.source_sha_at_run not 40-hex: {att_source!r}")
-if not re.fullmatch(r"[0-9a-f]{40}", attested_oid):
-    errors.append(f"attestation gate-results blob_oid not 40-hex: {attested_oid!r}")
 if not run_id:
     errors.append("run_id missing from submitted results")
-if att.get("run_id") and str(att.get("run_id")) != run_id:
-    errors.append(
-        f"attestation.run_id={att.get('run_id')!r} != results.run_id={run_id!r}"
-    )
-if att_source and source and att_source != source:
-    errors.append(
-        f"attestation.source_sha_at_run={att_source[:12]} != "
-        f"results.source_sha_at_run={source[:12]}"
-    )
+if not HEX40.fullmatch(source):
+    errors.append(f"results.source_sha_at_run not 40-hex: {source!r}")
 
-sub_oid = None
+head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+lock_commit = os.environ.get("ASSERT_LOCK_COMMIT", head).strip()
+
+lock = None
+lock_oid = None
+att = None
+att_oid = None
 hist_oid = None
-if re.fullmatch(r"[0-9a-f]{40}", package_commit) and rel:
-    r = subprocess.run(
-        ["git", "cat-file", "-e", f"{package_commit}:{rel}"],
-        capture_output=True,
-    )
+sub_oid = None
+
+if not errors:
+    r = subprocess.run(["git", "cat-file", "-e", f"{lock_commit}:{rel_lock}"], capture_output=True)
     if r.returncode != 0:
         errors.append(
-            f"C-2 containment FAIL: package_commit={package_commit[:12]} "
-            f"does not contain {rel}"
+            f"C-2 lock missing in Git: {lock_commit[:12]}:{rel_lock} "
+            f"(attestation must be Git-object-bound via evidence-attestation.lock.json)"
         )
     else:
-        hist_oid = subprocess.check_output(
-            ["git", "rev-parse", f"{package_commit}:{rel}"], text=True
+        lock_bytes = subprocess.check_output(["git", "show", f"{lock_commit}:{rel_lock}"])
+        lock_oid = subprocess.check_output(
+            ["git", "rev-parse", f"{lock_commit}:{rel_lock}"], text=True
         ).strip()
-        sub_oid = subprocess.check_output(
-            ["git", "hash-object", "-t", "blob", str(results_path)], text=True
-        ).strip()
-        if hist_oid != sub_oid:
-            errors.append(
-                f"C-2 blob OID identity FAIL: hist_oid(git rev-parse "
-                f"{package_commit[:12]}:{rel})={hist_oid} != "
-                f"sub_oid(git hash-object submitted)={sub_oid} "
-                f"(E1-versus-bind / historical-versus-submitted mismatch)"
-            )
-        if re.fullmatch(r"[0-9a-f]{40}", attested_oid) and hist_oid != attested_oid:
-            errors.append(
-                f"C-2 attestation OID FAIL: package blob {hist_oid} != "
-                f"attestation.blob_oid {attested_oid}"
-            )
-        # Field identity: historical package blob must equal submitted bytes
-        hist_bytes = subprocess.check_output(["git", "show", f"{package_commit}:{rel}"])
-        if hist_bytes != on_disk:
-            errors.append(
-                "C-2 field/byte identity FAIL: named package_commit gate-results "
-                "bytes differ from submitted results"
-            )
+        # Worktree lock, if present, must match Git bytes (no silent substitution)
+        wt_lock = results_path.parent / "evidence-attestation.lock.json"
+        if not wt_lock.is_file():
+            wt_lock = Path(rel_lock)
+        if wt_lock.is_file():
+            wt_oid = subprocess.check_output(
+                ["git", "hash-object", "-t", "blob", str(wt_lock)], text=True
+            ).strip()
+            if wt_oid != lock_oid:
+                errors.append(
+                    f"C-2 lock worktree/Git mismatch: worktree_oid={wt_oid} git_oid={lock_oid}"
+                )
+        try:
+            lock = json.loads(lock_bytes.decode())
+        except Exception as e:
+            errors.append(f"lock JSON unparseable from Git: {e}")
+            lock = None
+
+if lock is not None:
+    for field in (
+        "protocol",
+        "run_id",
+        "source_sha_at_run",
+        "package_commit",
+        "attestation_commit",
+        "attestation_path",
+        "attestation_blob_oid",
+    ):
+        if not lock.get(field):
+            errors.append(f"lock missing required field {field}")
+    if lock.get("protocol") != REQUIRED_PROTOCOL and not str(lock.get("protocol") or "").startswith(
+        "C-2-atomic-v5"
+    ):
+        errors.append(f"lock.protocol unsupported: {lock.get('protocol')!r}")
+    if str(lock.get("run_id") or "") != run_id:
+        errors.append(f"lock.run_id={lock.get('run_id')!r} != results.run_id={run_id!r}")
+    if str(lock.get("source_sha_at_run") or "") != source:
+        errors.append("lock.source_sha_at_run != results.source_sha_at_run")
+
+    att_commit = str(lock.get("attestation_commit") or "")
+    att_path = str(lock.get("attestation_path") or "")
+    att_blob = str(lock.get("attestation_blob_oid") or "")
+    if HEX40.fullmatch(att_commit) and att_path:
+        r = subprocess.run(["git", "cat-file", "-e", f"{att_commit}:{att_path}"], capture_output=True)
+        if r.returncode != 0:
+            errors.append(f"attestation missing at {att_commit[:12]}:{att_path}")
         else:
-            hist_j = json.loads(hist_bytes)
-            for field in ("run_id", "verdict", "source_sha_at_run", "git_sha"):
-                # source may be under source_sha
-                def val(d, f):
-                    if f == "source_sha_at_run":
-                        return str(d.get("source_sha_at_run") or d.get("source_sha") or "")
-                    return str(d.get(f) or "")
+            att_bytes = subprocess.check_output(["git", "show", f"{att_commit}:{att_path}"])
+            att_oid = subprocess.check_output(
+                ["git", "rev-parse", f"{att_commit}:{att_path}"], text=True
+            ).strip()
+            if att_oid != att_blob:
+                errors.append(
+                    f"C-2 attestation OID FAIL: git {att_oid} != lock.attestation_blob_oid {att_blob}"
+                )
+            try:
+                att = json.loads(att_bytes.decode())
+            except Exception as e:
+                errors.append(f"attestation JSON unparseable from Git: {e}")
+                att = None
+    else:
+        errors.append("lock.attestation_commit/path invalid")
 
-                if val(hist_j, field) != val(data, field):
-                    errors.append(
-                        f"C-2 field identity FAIL: {field} hist={val(hist_j, field)!r} "
-                        f"submitted={val(data, field)!r}"
-                    )
+if att is not None:
+    for field in ("protocol", "run_id", "source_sha_at_run", "package_commit", "artifacts"):
+        if field not in att or att.get(field) in (None, "", {}):
+            errors.append(f"attestation missing required field {field}")
+    if str(att.get("run_id") or "") != run_id:
+        errors.append("attestation.run_id mismatch")
+    if str(att.get("source_sha_at_run") or "") != source:
+        errors.append("attestation.source_sha_at_run mismatch vs results")
+    if str(att.get("package_commit") or "") != str(lock.get("package_commit") or ""):
+        errors.append("attestation.package_commit != lock.package_commit")
+    package_commit = str(att.get("package_commit") or "")
+    gr = (att.get("artifacts") or {}).get("gate-results.json") or {}
+    rel = str(gr.get("path") or rel_results)
+    attested_oid = str(gr.get("blob_oid") or "")
+    if not HEX40.fullmatch(package_commit):
+        errors.append(f"attestation.package_commit not 40-hex: {package_commit!r}")
+    if not HEX40.fullmatch(attested_oid):
+        errors.append(f"attestation gate-results blob_oid not 40-hex: {attested_oid!r}")
+    if HEX40.fullmatch(package_commit) and rel:
+        r = subprocess.run(["git", "cat-file", "-e", f"{package_commit}:{rel}"], capture_output=True)
+        if r.returncode != 0:
+            errors.append(f"package_commit missing {rel}")
+        else:
+            hist_oid = subprocess.check_output(
+                ["git", "rev-parse", f"{package_commit}:{rel}"], text=True
+            ).strip()
+            sub_oid = subprocess.check_output(
+                ["git", "hash-object", "-t", "blob", str(results_path)], text=True
+            ).strip()
+            if hist_oid != sub_oid:
+                errors.append(
+                    f"C-2 blob OID identity FAIL: hist_oid={hist_oid} sub_oid={sub_oid}"
+                )
+            if hist_oid != attested_oid:
+                errors.append(
+                    f"C-2 attested OID FAIL: hist_oid={hist_oid} != attestation {attested_oid}"
+                )
+            hist_bytes = subprocess.check_output(["git", "show", f"{package_commit}:{rel}"])
+            if hist_bytes != on_disk:
+                errors.append("C-2 byte identity FAIL: package gate-results != submitted")
+            else:
+                hist_j = json.loads(hist_bytes)
+                for field in ("run_id", "verdict", "git_sha"):
+                    if str(hist_j.get(field) or "") != str(data.get(field) or ""):
+                        errors.append(f"field mismatch {field}")
+                hs = str(hist_j.get("source_sha_at_run") or hist_j.get("source_sha") or "")
+                if hs != source:
+                    errors.append("field mismatch source_sha_at_run")
+            # source ancestor of package
+            if HEX40.fullmatch(source) and source != package_commit:
+                a = subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", source, package_commit],
+                    capture_output=True,
+                )
+                if a.returncode != 0:
+                    errors.append("source_sha_at_run not ancestor of package_commit")
 
-if re.fullmatch(r"[0-9a-f]{40}", att_source) and re.fullmatch(r"[0-9a-f]{40}", package_commit):
-    if att_source != package_commit:
-        a = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", att_source, package_commit],
-            capture_output=True,
-        )
-        if a.returncode != 0:
-            errors.append(
-                f"source_sha_at_run={att_source[:12]} is not an ancestor of "
-                f"package_commit={package_commit[:12]}"
-            )
-
-# Optional: HEAD must still carry the same gate-results blob (package tip may add attestation)
-if os.environ.get("ASSERT_PACKAGE_HEAD", "1") == "1" and rel and hist_oid:
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    r = subprocess.run(["git", "cat-file", "-e", f"{head}:{rel}"], capture_output=True)
+# Optional HEAD: lock + results still present with same OIDs
+if os.environ.get("ASSERT_PACKAGE_HEAD", "1") == "1" and not errors and hist_oid:
+    r = subprocess.run(["git", "cat-file", "-e", f"{head}:{rel_results}"], capture_output=True)
     if r.returncode != 0:
-        errors.append(f"ASSERT_PACKAGE_HEAD: HEAD missing {rel}")
+        errors.append("ASSERT_PACKAGE_HEAD: HEAD missing gate-results")
     else:
         head_oid = subprocess.check_output(
-            ["git", "rev-parse", f"{head}:{rel}"], text=True
+            ["git", "rev-parse", f"{head}:{rel_results}"], text=True
         ).strip()
         if head_oid != hist_oid:
-            errors.append(
-                f"ASSERT_PACKAGE_HEAD: HEAD gate-results oid {head_oid} != "
-                f"package blob oid {hist_oid}"
-            )
+            errors.append("ASSERT_PACKAGE_HEAD: HEAD gate-results oid drift")
+    r = subprocess.run(["git", "cat-file", "-e", f"{head}:{rel_lock}"], capture_output=True)
+    if r.returncode != 0:
+        errors.append("ASSERT_PACKAGE_HEAD: HEAD missing attestation lock")
 
 out = {
     "ok": len(errors) == 0,
     "tool": "scripts/assert-gate-evidence-containment.sh",
-    "protocol": protocol or None,
-    "package_commit": package_commit or None,
-    "source_sha_at_run": att_source or source or None,
+    "protocol": REQUIRED_PROTOCOL,
+    "lock_commit": lock_commit,
+    "lock_oid": lock_oid,
+    "attestation_commit": (lock or {}).get("attestation_commit") if lock else None,
+    "attestation_blob_oid": att_oid,
+    "package_commit": (att or {}).get("package_commit") if att else None,
     "hist_oid": hist_oid,
     "sub_oid": sub_oid,
-    "attested_blob_oid": attested_oid or None,
     "blob_identity_ok": bool(hist_oid and sub_oid and hist_oid == sub_oid and not errors),
-    "attestation_path": str(att_path) if att_path else None,
+    "attestation_git_bound": bool(att is not None and lock is not None and not errors),
     "run_id": run_id,
     "errors": errors,
 }

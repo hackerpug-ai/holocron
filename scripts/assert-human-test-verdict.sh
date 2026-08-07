@@ -79,7 +79,6 @@ for s in steps:
 require_containment = os.environ.get("ASSERT_EVIDENCE_CONTAINMENT", "1") == "1"
 blob_identity = None
 if require_containment:
-    # Delegate exact blob OID identity to the dedicated checker (C-2-atomic-v4).
     r = subprocess.run(
         ["bash", "scripts/assert-gate-evidence-containment.sh", str(results_path)],
         capture_output=True,
@@ -91,9 +90,61 @@ if require_containment:
         blob_identity = {"raw": r.stdout, "stderr": r.stderr}
     if r.returncode != 0:
         errors.append(
-            "C-2 blob identity / attestation failed via assert-gate-evidence-containment "
-            f"(exit={r.returncode}): {(r.stderr or r.stdout)[:500]}"
+            "C-2 blob identity / Git-bound attestation failed via "
+            f"assert-gate-evidence-containment (exit={r.returncode}): "
+            f"{(r.stderr or r.stdout)[:500]}"
         )
+
+# C-3 mandatory predicates at package time (after probes). Live gate assert runs
+# before C-3 probes, so default off unless ASSERT_EVIDENCE_CONTAINMENT=1 or explicit.
+c3 = None
+_c3_default = "1" if require_containment else "0"
+if evid_dir is not None and os.environ.get("ASSERT_C3_PREDICATES", _c3_default) == "1":
+    c3_errors = []
+    ac1 = evid_dir / "ponr-role-provenance" / "ac1-prod-role-disable-trigger.json"
+    ac2 = evid_dir / "ponr-role-provenance" / "ac2-prod-role-dml-truncate.json"
+    miss = evid_dir / "ponr-role-provenance-marker-miss" / "negative-marker-report.json"
+    if not ac1.is_file() or not ac2.is_file():
+        c3_errors.append("missing C-3 success-path ac1/ac2")
+    else:
+        a1 = json.loads(ac1.read_text())
+        a2 = json.loads(ac2.read_text())
+        if not a1.get("production_sqlstate_claim") or not a2.get("production_sqlstate_claim"):
+            c3_errors.append("C-3 success-path production_sqlstate_claim false")
+        if a1.get("probe_current_user") != "holocron_app":
+            c3_errors.append(
+                f"C-3 probe_current_user not holocron_app: {a1.get('probe_current_user')!r}"
+            )
+    if not miss.is_file():
+        c3_errors.append("missing C-3 forced-marker-miss report")
+    else:
+        mr = json.loads(miss.read_text())
+        if mr.get("ok") is not True:
+            c3_errors.append("C-3 marker-miss ok!=true")
+        if int(mr.get("before_count") or 0) < 1:
+            c3_errors.append("C-3 marker-miss before_count < 1")
+        if mr.get("effective_non_owner") is not True:
+            c3_errors.append("C-3 marker-miss effective_non_owner not true")
+        if int(mr.get("before_required_triggers_enabled_count") or 0) < 1:
+            c3_errors.append("C-3 required triggers not enabled")
+    # M-3 package-bound identity evidence (when present under package)
+    m3 = evid_dir / "m3-branch-identity"
+    m3_ok = None
+    if m3.is_dir():
+        need = [
+            "non-201-accepted-id-enable-writes.json",
+            "transport-error-enable-writes.json",
+            "reselect-miss-identity.json",
+            "suite-vitest.log",
+        ]
+        missing = [n for n in need if not (m3 / n).is_file()]
+        if missing:
+            c3_errors.append(f"M-3 package-bound identity missing: {missing}")
+            m3_ok = False
+        else:
+            m3_ok = True
+    c3 = {"ok": len(c3_errors) == 0, "errors": c3_errors, "m3_package_bound": m3_ok}
+    errors.extend(c3_errors)
 
 out = {
     "ok": len(errors) == 0,
@@ -106,6 +157,7 @@ out = {
     "git_sha": git_sha,
     "source_sha_at_run": source_at_run or None,
     "blob_identity": blob_identity,
+    "c3": c3,
     "errors": errors,
 }
 print(json.dumps(out, indent=2))
