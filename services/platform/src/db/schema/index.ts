@@ -4,6 +4,7 @@
 
 export * from './analysis';
 export * from './chat';
+export * from './cutover';
 export * from './documents';
 export * from './etl';
 export * from './evals';
@@ -20,6 +21,7 @@ export * from './zero-pub';
 
 import * as analysis from './analysis';
 import * as chat from './chat';
+import * as cutover from './cutover';
 import * as documents from './documents';
 import * as etl from './etl';
 import * as evals from './evals';
@@ -49,6 +51,7 @@ export const schema = {
   ...queue,
   ...inference,
   ...evals,
+  ...cutover,
 };
 
 /** Ordered list of expected physical table names (≥55). */

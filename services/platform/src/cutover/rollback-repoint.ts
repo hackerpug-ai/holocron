@@ -41,6 +41,10 @@ export const ROLLBACK_INELIGIBLE = 'ROLLBACK_INELIGIBLE';
 export const EXPORT_WATERMARK_MISSING = 'EXPORT_WATERMARK_MISSING';
 export const LIVE_ACK_MISSING = 'LIVE_ACK_MISSING';
 export const CONTROL_PLANE_WRITE_FAILED = 'CONTROL_PLANE_WRITE_FAILED';
+/** D07-04: data-plane PONR recorded — rollback re-point permanently refused. */
+export const POST_PONR_INELIGIBLE = 'POST_PONR_INELIGIBLE';
+/** D07-04: data_plane_ponr ledger unreadable — fail closed (never open the hatch). */
+export const PONR_LEDGER_UNREADABLE = 'PONR_LEDGER_UNREADABLE';
 
 /** Frozen Convex data-plane target identity (UC-SYNC-04). */
 export const TARGET_CONVEX_FROZEN = 'convex-frozen';
@@ -100,6 +104,10 @@ export type RollbackRepointReport = {
     accepted_post_export_writes: number;
     export_watermark_ms: number | null;
     audit_path: string | null;
+    /** D07-04: true when data_plane_ponr has a row (Postgres-only latch). */
+    ponr_recorded?: boolean;
+    ponr_id?: string | null;
+    ponr_recorded_at?: string | null;
   };
   config: {
     /** Audit mirror path (.tmp) — NOT the success oracle. */
@@ -524,6 +532,9 @@ export async function runRollbackRepoint(options?: {
       accepted_post_export_writes: -1,
       export_watermark_ms: null,
       audit_path: null,
+      ponr_recorded: false,
+      ponr_id: null,
+      ponr_recorded_at: null,
     },
     config: { path: configPath, digest_sha256: '', prior_target: null },
     acknowledgements: emptyAcks(),
@@ -531,6 +542,59 @@ export async function runRollbackRepoint(options?: {
     ...partial,
   });
 
+  // ── D07-04: Postgres PONR latch FIRST (stronger than fail-open file audit) ─
+  // Sole source of truth is SELECT data_plane_ponr. Never consult filesystem/env/secrets
+  // for "has the PONR passed". Query failure → PONR_LEDGER_UNREADABLE (fail closed).
+  let ponrRow: {
+    id: string;
+    recorded_at: string;
+    write_row_id: string;
+  } | null = null;
+  try {
+    const { readDataPlanePonr } = await import('./ponr.ts');
+    const row = await readDataPlanePonr();
+    if (row) {
+      ponrRow = {
+        id: row.id,
+        recorded_at: row.recorded_at,
+        write_row_id: row.write_row_id,
+      };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Surface host:port when DATABASE_URL is unreachable so operators can match AC-5.
+    const dbUrl = process.env.DATABASE_URL ?? '';
+    const hostHint = dbUrl.includes('://')
+      ? dbUrl
+          .replace(/^[^:]+:\/\//, '')
+          .replace(/\/.*$/, '')
+          .replace(/:.*@/, '')
+      : '';
+    const fail = baseFail({
+      precondition: {
+        ok: false,
+        accepted_post_export_writes: -1,
+        export_watermark_ms: null,
+        audit_path: null,
+        ponr_recorded: false,
+        ponr_id: null,
+        ponr_recorded_at: null,
+      },
+      error: {
+        code: PONR_LEDGER_UNREADABLE,
+        message:
+          `cutover:rollback-repoint refuses: data_plane_ponr ledger unreadable` +
+          (hostHint ? ` (${hostHint})` : '') +
+          `: ${msg}. Escape hatch stays closed.`,
+      },
+    });
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
+  }
+
+  // Load audit after PONR check so POST_PONR_INELIGIBLE can still report
+  // accepted_post_export_writes (independent of the write-audit latch).
   const { audit, path: resolvedAuditPath } = loadPostExportWriteAudit({
     cwd,
     auditPath,
@@ -542,6 +606,37 @@ export async function runRollbackRepoint(options?: {
       ? audit.export_watermark_ms
       : loadExportWatermarkMs({ cwd, watermarkPath });
 
+  if (ponrRow) {
+    const acceptedForReport = audit != null ? countAcceptedPostExportWrites(audit) : 0;
+    const fail = baseFail({
+      precondition: {
+        ok: false,
+        accepted_post_export_writes: acceptedForReport,
+        export_watermark_ms: exportWm,
+        audit_path: resolvedAuditPath,
+        ponr_recorded: true,
+        ponr_id: ponrRow.id,
+        ponr_recorded_at: ponrRow.recorded_at,
+      },
+      config: {
+        path: configPath,
+        digest_sha256: '',
+        prior_target: readPriorTarget(configPath),
+      },
+      error: {
+        code: POST_PONR_INELIGIBLE,
+        message:
+          `cutover:rollback-repoint refuses: data-plane point of no return already recorded ` +
+          `(ponr_id=${ponrRow.id}, write_row_id=${ponrRow.write_row_id}). ` +
+          `Convex re-point is permanently ineligible; restore from Postgres/blob backups ` +
+          `(UC-SYNC-04 / UC-SYNC-05).`,
+      },
+    });
+    ensureParent(reportPath);
+    writeFileSync(reportPath, `${JSON.stringify(fail, null, 2)}\n`, 'utf8');
+    return fail;
+  }
+
   if (exportWm == null || exportWm <= 0) {
     const fail = baseFail({
       precondition: {
@@ -549,6 +644,9 @@ export async function runRollbackRepoint(options?: {
         accepted_post_export_writes: -1,
         export_watermark_ms: null,
         audit_path: resolvedAuditPath,
+        ponr_recorded: false,
+        ponr_id: null,
+        ponr_recorded_at: null,
       },
       error: {
         code: EXPORT_WATERMARK_MISSING,
@@ -578,6 +676,9 @@ export async function runRollbackRepoint(options?: {
         accepted_post_export_writes: accepted,
         export_watermark_ms: exportWm,
         audit_path: resolvedAuditPath ?? auditPath,
+        ponr_recorded: false,
+        ponr_id: null,
+        ponr_recorded_at: null,
       },
       config: {
         path: configPath,
