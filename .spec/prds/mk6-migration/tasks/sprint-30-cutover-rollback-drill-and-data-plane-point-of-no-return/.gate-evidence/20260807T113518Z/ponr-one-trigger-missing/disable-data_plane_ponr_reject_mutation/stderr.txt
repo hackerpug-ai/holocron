@@ -1,0 +1,2 @@
+error: both required PONR triggers must exist and be tgenabled=O before probe
+got: [{"tgname":"data_plane_ponr_reject_mutation","tgenabled":"D"}, {"tgname":"data_plane_ponr_reject_truncate","tgenabled":"O"}]
