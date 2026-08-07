@@ -172,20 +172,21 @@ for entry in "${STEPS[@]}"; do
   log="$EVID_DIR/step${n}.log"
   exit_file="$EVID_DIR/step${n}.exit"
   started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # Expand ${HOLO_VERIFY_BASE_URL} etc. for plan fidelity after expansion
+  expanded_cmd="$(eval "printf %s \"$cmd\"")"
+  cmd_sha="$(printf '%s' "$expanded_cmd" | shasum -a 256 | awk '{print $1}')"
   {
-    echo "@@GATE-META step=${n} run_id=${GATE_RUN_ID} git_sha=${SOURCE_SHA} source_sha=${SOURCE_SHA} started_at=${started} deployed_base_url=${DEPLOYED_BASE_URL} sourceRevision=${SOURCE_REV}@@"
-    echo "@@GATE-CMD@@"
-    echo "$cmd"
-    echo "@@GATE-CMD-END@@"
+    echo "@@GATE-META step=${n} cmd_sha=${cmd_sha} run_id=${GATE_RUN_ID} git_sha=${SOURCE_SHA} source_sha=${SOURCE_SHA} started_at=${started} deployed_base_url=${DEPLOYED_BASE_URL} sourceRevision=${SOURCE_REV}@@"
+    echo "CMD: ${expanded_cmd}"
   } >"$log"
 
   set +e
   # shellcheck disable=SC2086
-  bash -c "$cmd" >>"$log" 2>&1
+  bash -c "$expanded_cmd" >>"$log" 2>&1
   rc=$?
   set -e
   echo "$rc" >"$exit_file"
-  echo "@@GATE-EXIT@@ ${rc}" >>"$log"
+  echo "@@GATE-EXIT=${rc}@@" >>"$log"
   steps_executed=$((steps_executed + 1))
 
   # Evaluate assertion via python against plan
