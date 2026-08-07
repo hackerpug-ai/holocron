@@ -1,7 +1,23 @@
 # REDHAT-FIX-RH-S30-32 — Eighth independent closeout residuals (C-3 + M-3)
 
 **Source review:** `.spec/reviews/red-hat-sprint-30-20260807T110711Z-independent-final-closeout.md`  
-**Status:** Implemented (scripts); Sprint remains **In Progress** (no complete/release).
+**Status:** Implemented + fresh gate/package ready for independent re-review. Sprint remains **In Progress** (no complete/release).
+
+## Fresh package (independent review target)
+
+| Field | Value |
+|---|---|
+| run_id | `20260807T113055Z` |
+| source_sha_at_run / sourceRevision | `a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502` |
+| package_commit (P1) | `52ed2d0280ee7d14e2bf2d913c15596448f39c4f` |
+| attestation_commit (A1) | `b9a7f91193b1dd3d11288186625b126e3cf9f713` |
+| lock_commit / post-package tip | `62d72dff36a3a00e9f3fdb64c8ed0c034941ba0e` (HEAD at package complete) |
+| protocol | C-2-atomic-v5-git-bound-attestation |
+| gate verdict | pass 5/5; C-3 marker-miss + one-trigger-missing + success-path closed |
+| M-3 | package-bound `m3-identity/` only; real RED/mutation vitest FAIL signatures; manifest no self-hash; `assert-m3-identity.post-package.json` committed |
+
+Evidence root:  
+`.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/`
 
 ## Blockers closed
 
