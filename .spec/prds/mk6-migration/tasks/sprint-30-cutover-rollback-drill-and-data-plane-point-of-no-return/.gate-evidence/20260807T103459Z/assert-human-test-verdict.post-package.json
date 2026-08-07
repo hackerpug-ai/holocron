@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-human-test-verdict.sh",
+  "results_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-results.json",
+  "verdict": "pass",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 5,
+  "git_sha": "ed18edf7936145dc3d6b2a842193abc11f78bc60",
+  "source_sha_at_run": "ed18edf7936145dc3d6b2a842193abc11f78bc60",
+  "blob_identity": {
+    "ok": true,
+    "tool": "scripts/assert-gate-evidence-containment.sh",
+    "protocol": "C-2-atomic-v5-git-bound-attestation",
+    "lock_commit": "848f87cb68fc2c6ef589407e58f52f24594cb7e4",
+    "lock_oid": "de3d26d6389c32b620e1b42a99d078b3b49fe173",
+    "attestation_commit": "8d1e9cdbb911dddc54ad375f763f043eec6a43c4",
+    "attestation_blob_oid": "3adbbb7b5e2d61686a51469892723dc26e30d820",
+    "package_commit": "dd45328e6fc147a19295fcd2b798205306438c72",
+    "hist_oid": "73d816a26b15b51856ab469acc081a8bdb41c278",
+    "sub_oid": "73d816a26b15b51856ab469acc081a8bdb41c278",
+    "blob_identity_ok": true,
+    "attestation_git_bound": true,
+    "run_id": "20260807T103459Z",
+    "errors": []
+  },
+  "c3": {
+    "ok": true,
+    "errors": [],
+    "m3_package_bound": true
+  },
+  "errors": []
+}
