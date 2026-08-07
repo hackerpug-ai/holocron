@@ -1,0 +1,30 @@
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "configured_target": "/Users/inference1/Projects/holocron/.tmp/D07-01/secrets.yaml",
+  "precondition": {
+    "ok": false,
+    "accepted_post_export_writes": 1,
+    "export_watermark_ms": 1786184415292,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+    "ponr_recorded": false,
+    "ponr_id": null,
+    "ponr_recorded_at": null
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": "convex-frozen"
+  },
+  "acknowledgements": [],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-RH-S30-22/non-201-accepted-id-rollback-refuse.json",
+  "error": {
+    "code": "POST_EXPORT_WRITE_ACCEPTED",
+    "message": "cutover:rollback-repoint refuses: 1 accepted post-export production write(s) (point of no return / UC-SYNC-04). Convex re-point is ineligible; recover from Postgres/blob backups."
+  }
+}
