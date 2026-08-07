@@ -1,0 +1,8 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "require_all_regex": [
+    "\"accepted_count\":\\s*0",
+    "STEP2_PASS"
+  ]
+}

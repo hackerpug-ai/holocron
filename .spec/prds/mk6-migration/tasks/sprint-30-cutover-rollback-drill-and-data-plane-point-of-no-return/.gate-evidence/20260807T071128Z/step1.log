@@ -1,0 +1,125 @@
+@@GATE-META step=1 cmd_sha=1e51abb7b4c13daa43dbe1cb0928a7ce41824e02cba45df11fad30a0371a6ff7@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url http://127.0.0.1:44111
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "lost_accepted_writes": 0,
+  "accepted_post_export_writes_recomputed": 0,
+  "acknowledgements": [],
+  "precondition": {
+    "accepted_post_export_writes": 0
+  },
+  "sevOneTrigger": {
+    "gate": "verify-tools",
+    "declared": true,
+    "report": {
+      "ok": false,
+      "toolsPassed": 0,
+      "toolsTotal": 44,
+      "toolsStubbed": 0,
+      "base_url": "http://127.0.0.1:51541",
+      "error": "UNREACHABLE_BASE_URL: http://127.0.0.1:51541 (Unable to connect. Is the computer able to access the url?)",
+      "transport": "network"
+    },
+    "triggerBaseUrl": "http://127.0.0.1:51541"
+  },
+  "probes": {
+    "app": {
+      "status": 401,
+      "body": {
+        "error": "unauthorized",
+        "message": "unknown API key"
+      },
+      "executed": true
+    },
+    "mcp": {
+      "rejected": true,
+      "status": 401,
+      "message": "{\"error\":\"unauthorized\",\"message\":\"unknown API key\"}",
+      "executed": true
+    },
+    "upload": {
+      "status": 401,
+      "body": {
+        "error": "unauthorized",
+        "message": "unknown API key"
+      },
+      "executed": true
+    },
+    "job": {
+      "ok": false,
+      "error": "migration_read_only: task-timeout-worker blocked while HOLO_MIGRATION_READ_ONLY is set",
+      "executed": true
+    },
+    "mission": {
+      "rejected": true,
+      "message": "migration_read_only: mission publish blocked while HOLO_MIGRATION_READ_ONLY is set",
+      "executed": true
+    }
+  },
+  "repoint": {
+    "exitCode": 2,
+    "parsed": {
+      "ok": false,
+      "repointed": false,
+      "target": "convex-frozen",
+      "target_kind": "convex",
+      "data_plane": "convex",
+      "engaged_at": "",
+      "engaged_at_ms": 0,
+      "configured_target": "/Users/inference1/Projects/holocron/.tmp/D07-01/secrets.yaml",
+      "precondition": {
+        "ok": false,
+        "accepted_post_export_writes": 0,
+        "export_watermark_ms": 1785959546465,
+        "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+        "ponr_recorded": true,
+        "ponr_id": "1080eb6b-094e-45a1-b49b-d8863e3f72e0",
+        "ponr_recorded_at": "2026-08-07 01:06:39.210616-06"
+      },
+      "config": {
+        "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+        "digest_sha256": "",
+        "prior_target": "convex-frozen"
+      },
+      "acknowledgements": [],
+      "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json",
+      "error": {
+        "code": "POST_PONR_INELIGIBLE",
+        "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=1080eb6b-094e-45a1-b49b-d8863e3f72e0, write_row_id=d2f9458c-b13b-4ac5-8a3c-8c50dab9f5df). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+      }
+    },
+    "stdout": "{\n  \"ok\": false,\n  \"repointed\": false,\n  \"target\": \"convex-frozen\",\n  \"target_kind\": \"convex\",\n  \"data_plane\": \"convex\",\n  \"engaged_at\": \"\",\n  \"engaged_at_ms\": 0,\n  \"configured_target\": \"/Users/inference1/Projects/holocron/.tmp/D07-01/secrets.yaml\",\n  \"precondition\": {\n    \"ok\": false,\n    \"accepted_post_export_writes\": 0,\n    \"export_watermark_ms\": 1785959546465,\n    \"audit_path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json\",\n    \"ponr_recorded\": true,\n    \"ponr_id\": \"1080eb6b-094e-45a1-b49b-d8863e3f72e0\",\n    \"ponr_recorded_at\": \"2026-08-07 01:06:39.210616-06\"\n  },\n  \"config\": {\n    \"path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json\",\n    \"digest_sha256\": \"\",\n    \"prior_target\": \"convex-frozen\"\n  },\n  \"acknowledgements\": [],\n  \"report_path\": \"/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json\",\n  \"error\": {\n    \"code\": \"POST_PONR_INELIGIBLE\",\n    \"message\": \"cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=1080eb6b-094e-45a1-b49b-d8863e3f72e0, write_row_id=d2f9458c-b13b-4ac5-8a3c-8c50dab9f5df). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05).\"\n  }\n}\n",
+    "stderr": "",
+    "argv": [
+      "bun",
+      "services/platform/src/cli/holo.ts",
+      "cutover:rollback-repoint",
+      "--json",
+      "--output",
+      "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json"
+    ]
+  },
+  "independentRecompute": {
+    "acceptedCount": 0,
+    "matchesReport": true,
+    "rawFileByteCount": 68,
+    "auditFileExists": true,
+    "reportValue": 0,
+    "auditPath": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "liveAcks": {
+    "authorizingCount": 0,
+    "allPreexisting": false,
+    "acks": []
+  },
+  "postRepointHealthProbe": null,
+  "drillProcessPid": 25606,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-drill-report.json",
+  "error": {
+    "code": "DRILL_WRITE_SURFACES_NOT_BLOCKED",
+    "message": "Not all five write surfaces blocked under soak fence (fence_armed=true; app.status=401 mcp.rejected=true upload.status=401 job.ok=false mission.rejected=true)"
+  }
+}
+@@GATE-EXIT=2@@

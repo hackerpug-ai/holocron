@@ -1,0 +1,23 @@
+@@GATE-META step=4@@
+{
+  "ok": false,
+  "already_recorded": false,
+  "ponr_id": null,
+  "write_row_id": null,
+  "write_row_digest_sha256": null,
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": null,
+  "write_committed_at": null,
+  "base_url": "",
+  "export_watermark_ms": 1785959546465,
+  "convex_fence_audit_id": "vn750swtvq28332gb4xm67qgc98bxkst",
+  "convex_documents_total": 1623,
+  "convex_accepted_writes_since_watermark": 4,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-04/enable-writes-report.json",
+  "error": {
+    "code": "CONVEX_ESCAPE_HATCH_DIVERGED",
+    "message": "cutover:enable-writes refuses: Convex escape hatch diverged past the export watermark. convex_accepted_writes_since_watermark=4 convex_newest_document_creation_time=1785719329047 export_watermark_ms=1785959546465. Fence is left armed; no PONR row recorded."
+  }
+}
+@@GATE-EXIT=2@@

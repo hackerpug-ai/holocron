@@ -1,0 +1,9 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 0,
+  "require_all_regex": [
+    "\"ok\":\\s*true",
+    "\"lost_accepted_writes\":\\s*0",
+    "\"repointed\":\\s*true"
+  ]
+}

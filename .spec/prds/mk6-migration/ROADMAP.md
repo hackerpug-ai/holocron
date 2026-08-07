@@ -1734,7 +1734,7 @@ Planner-flagged estimate discrepancies (not applied — see SPRINT.md): D06-03 2
 
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
+**Status:** Completed
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`

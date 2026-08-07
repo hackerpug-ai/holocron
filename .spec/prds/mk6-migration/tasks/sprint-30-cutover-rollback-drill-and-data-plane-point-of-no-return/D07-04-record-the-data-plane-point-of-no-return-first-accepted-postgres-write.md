@@ -1,4 +1,8 @@
 # D07-04: Record the data-plane point of no return (first accepted Postgres write)
+> Status: ✅ Completed
+> Commit: c40ccf821e18f30962c5040b21bc7f14155414f4
+> Reviewer: dual-lens
+> Completed: 2026-08-07T07:36:01Z
 
 > **Task ID:** D07-04
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)
@@ -547,7 +551,8 @@
 - The CLI default: branch at services/platform/src/cli/holo.ts:7036 has a broken template literal (unknown command: $args.command with no braces), so it prints the literal text. Since this task touches the same switch, fixing it is trivial and worth doing, but it must not be used as a substitute for any AC.
 - Sprint 29 is Blocked at the planning SHA (1 CRITICAL, 4 HIGH). Every AC stands up its own disposable control plane (.tmp/D07-04/secrets.yaml) and its own serving child process rather than assuming a healthy production soak. Do NOT make any AC pass by pointing at production soak artifacts.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
