@@ -1,0 +1,9 @@
+{
+  "role": "holocron",
+  "session_user": "holocron",
+  "is_superuser": true,
+  "table_owner": "holocron",
+  "is_table_owner": true,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true
+}
