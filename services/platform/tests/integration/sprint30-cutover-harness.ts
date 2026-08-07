@@ -146,6 +146,10 @@ export function writeEvidence(name: string, body: unknown, dir = D07_RED): void 
 export function seedDisposableSecrets(opts?: { readOnly?: '0' | '1' }): string {
   ensureD07Dirs();
   const readOnly = opts?.readOnly ?? '1';
+  // REDHAT-FIX-RH-S30-12: irreversible CLIs require a real cutover operator secret.
+  const cutoverSecret =
+    process.env.HOLO_CUTOVER_OPERATOR_SECRET?.trim() || 's30-cutover-operator-secret';
+  process.env.HOLO_CUTOVER_OPERATOR_SECRET = cutoverSecret;
   writeFileSync(
     DISPOSABLE_SECRETS,
     [
@@ -153,6 +157,7 @@ export function seedDisposableSecrets(opts?: { readOnly?: '0' | '1' }): string {
       `HOLO_MIGRATION_READ_ONLY: "${readOnly}"`,
       'HOLO_DATA_PLANE: "postgres"',
       'HOLO_ROLLBACK_TARGET: "postgres-soak"',
+      `HOLO_CUTOVER_OPERATOR_SECRET: "${cutoverSecret}"`,
       '',
     ].join('\n'),
     { mode: 0o600 }

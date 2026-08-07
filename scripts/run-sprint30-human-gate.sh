@@ -14,6 +14,11 @@
 #     (or gate fails DEPLOY_REVISION_MISMATCH). Production must be redeployed
 #     to tip before QA can go green.
 #
+# REDHAT-FIX-RH-S30-16 (M-2): verify-gate-evidence proves log/plan consistency
+# (cmd_sha, exit codes, regex oracles) — NOT an independent re-execution of
+# Postgres rows, Convex content bodies, Release artifacts, or deployed runtime.
+# Do not treat verified:true alone as production-state attestation.
+#
 # Usage:
 #   export HOLO_VERIFY_BASE_URL=http://127.0.0.1:44111   # required for tip bind
 #   bash scripts/run-sprint30-human-gate.sh
@@ -53,6 +58,27 @@ mkdir -p "$EVID_DIR" .tmp/REDHAT-FIX-RH-S30-06 .tmp/REDHAT-FIX-RH-S30-07 .tmp/RE
 DEPLOYED_BASE_URL="${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}"
 if [[ -z "$DEPLOYED_BASE_URL" ]]; then
   echo "error: HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL / PLATFORM_URL required for tip-bound gate" >&2
+  exit 2
+fi
+
+# REDHAT-FIX-RH-S30-12: irreversible CLIs require cutover operator secret.
+# Load from secrets.yaml when not already in env (never print value).
+if [[ -z "${HOLO_CUTOVER_OPERATOR_SECRET:-}" ]]; then
+  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+  if [[ -f "$SECRETS_PATH" ]]; then
+    export HOLO_CUTOVER_OPERATOR_SECRET="$(
+      python3 - "$SECRETS_PATH" <<'PY'
+import re, sys
+from pathlib import Path
+t = Path(sys.argv[1]).read_text()
+m = re.search(r'(?m)^HOLO_CUTOVER_OPERATOR_SECRET:\s*["\']?([^"\'\n]+)', t)
+print(m.group(1).strip() if m else "")
+PY
+    )"
+  fi
+fi
+if [[ -z "${HOLO_CUTOVER_OPERATOR_SECRET:-}" || ${#HOLO_CUTOVER_OPERATOR_SECRET} -lt 8 ]]; then
+  echo "error: HOLO_CUTOVER_OPERATOR_SECRET missing/short — required for enable-writes/rollback-repoint (RH-S30-12)" >&2
   exit 2
 fi
 
@@ -332,5 +358,57 @@ if int("$VERIFY_RC") != 0:
     sys.exit(1)
 PY
 
-echo "Done. verdict=$VERDICT steps_passed=$steps_passed/5 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA sourceRevision=$SOURCE_REV verify_rc=$VERIFY_RC"
+# ── RH-S30-14: assert-human-test-verdict (provenance shape) ─────────────────
+mkdir -p .tmp/REDHAT-FIX-RH-S30-14 .tmp/REDHAT-FIX-RH-S30-15
+ASSERT_SCRIPT="${ASSERT_HUMAN_TEST_VERDICT:-$ROOT/scripts/assert-human-test-verdict.sh}"
+ASSERT_OUT="$EVID_DIR/assert-human-test-verdict.json"
+set +e
+bash "$ASSERT_SCRIPT" "$RESULTS" "$EVID_DIR" >"$ASSERT_OUT" 2>"$EVID_DIR/assert-human-test-verdict.stderr"
+ASSERT_RC=$?
+set -e
+echo "$ASSERT_RC" >"$EVID_DIR/assert-human-test-verdict.exit"
+cp "$ASSERT_OUT" ".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.json"
+echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
+
+# ── RH-S30-15: finalize meta.json to durable terminal status ───────────────
+python3 - <<PY
+import json
+from pathlib import Path
+from datetime import datetime, timezone
+meta_path = Path("$EVID_DIR/meta.json")
+meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+finished = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+verdict = "$VERDICT"
+verify_rc = int("$VERIFY_RC")
+assert_rc = int("$ASSERT_RC")
+if verdict == "pass" and verify_rc == 0 and assert_rc == 0:
+    status = "completed"
+else:
+    status = "failed"
+meta.update({
+    "status": status,
+    "verdict": verdict,
+    "finished_at": finished,
+    "steps_passed": int("$steps_passed"),
+    "steps_failed": int("$steps_failed"),
+    "verify_rc": verify_rc,
+    "assert_human_test_verdict_rc": assert_rc,
+})
+if meta.get("status") == "running":
+    raise SystemExit("error: meta.status still running after finalization (RH-S30-15)")
+if verdict == "pass" and status == "running":
+    raise SystemExit("error: results claim pass but meta is running (RH-S30-15 AC-4)")
+meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+Path(".tmp/REDHAT-FIX-RH-S30-15/ac1-meta-after-pass.json").write_text(
+    json.dumps(meta, indent=2) + "\n"
+)
+print(json.dumps({"meta_status": status, "verdict": verdict, "assert_rc": assert_rc}, indent=2))
+PY
+
+if [[ "$ASSERT_RC" -ne 0 ]]; then
+  echo "error: assert-human-test-verdict exit=$ASSERT_RC (see $ASSERT_OUT)" >&2
+  exit 1
+fi
+
+echo "Done. verdict=$VERDICT steps_passed=$steps_passed/5 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA sourceRevision=$SOURCE_REV verify_rc=$VERIFY_RC assert_rc=$ASSERT_RC"
 exit 0

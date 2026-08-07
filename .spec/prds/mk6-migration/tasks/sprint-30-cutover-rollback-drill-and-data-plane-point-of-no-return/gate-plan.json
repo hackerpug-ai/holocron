@@ -59,7 +59,7 @@
       "text": "Pinned Convex-pointing app build + boot verify",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "set -euo pipefail; bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json | tee .tmp/D07-02/pin-fallback-stdout.json; bun services/platform/src/cli/holo.ts cutover:verify-fallback-boot --json | tee .tmp/D07-02/verify-fallback-boot.json; python3 - <<\"PY\"\nimport json, sys\nfrom pathlib import Path\nboot_path = Path('.tmp/D07-02/verify-fallback-boot.json')\n# CLI may print JSON on stdout that was teed; also accept last JSON object\nraw = boot_path.read_text() if boot_path.exists() else ''\n# Prefer last complete JSON object in the file\nobj = None\nfor line in raw.splitlines():\n    line=line.strip()\n    if line.startswith('{'):\n        try:\n            obj = json.loads(line)\n        except Exception:\n            pass\nif obj is None and raw.strip().startswith('{'):\n    try:\n        obj = json.loads(raw)\n    except Exception:\n        obj = {}\nif not isinstance(obj, dict):\n    obj = {}\nprint(json.dumps({\"ok\": obj.get(\"ok\"), \"error\": obj.get(\"error\"), \"short_sha\": obj.get(\"short_sha\") or obj.get(\"commit\"), \"boot\": True}, indent=2))\nif obj.get('ok') is not True:\n    code = (obj.get('error') or {}).get('code') if isinstance(obj.get('error'), dict) else None\n    if code == 'BOOT_UNVERIFIED' or obj.get('ok') is False:\n        print('BOOT_UNVERIFIED_OR_FAIL', file=sys.stderr)\n        sys.exit(2)\n    print('STEP3_BOOT_NOT_OK', file=sys.stderr)\n    sys.exit(2)\nprint('STEP3_PASS')\nPY",
+      "literal_cmd": "set -euo pipefail; bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json | tee .tmp/D07-02/pin-fallback-stdout.json; bun services/platform/src/cli/holo.ts cutover:verify-fallback-boot --json | tee .tmp/D07-02/verify-fallback-boot.json; python3 - <<\"PY\"\nimport json, sys\nfrom pathlib import Path\nboot_path = Path('.tmp/D07-02/verify-fallback-boot.json')\n# CLI may print JSON on stdout that was teed; also accept last JSON object\nraw = boot_path.read_text() if boot_path.exists() else ''\n# Prefer last complete JSON object in the file\nobj = None\nfor line in raw.splitlines():\n    line=line.strip()\n    if line.startswith('{'):\n        try:\n            obj = json.loads(line)\n        except Exception:\n            pass\nif obj is None and raw.strip().startswith('{'):\n    try:\n        obj = json.loads(raw)\n    except Exception:\n        obj = {}\nif not isinstance(obj, dict):\n    obj = {}\ncs=obj.get(\"commit_sha\") or obj.get(\"commit\") or \"\"\nss=obj.get(\"short_sha\") or (cs[:8] if isinstance(cs,str) and len(cs)>=8 else None)\nprint(json.dumps({\"ok\": obj.get(\"ok\"), \"error\": obj.get(\"error\"), \"commit_sha\": cs or None, \"short_sha\": ss, \"boot\": True}, indent=2))\nif obj.get('ok') is not True:\n    code = (obj.get('error') or {}).get('code') if isinstance(obj.get('error'), dict) else None\n    if code == 'BOOT_UNVERIFIED' or obj.get('ok') is False:\n        print('BOOT_UNVERIFIED_OR_FAIL', file=sys.stderr)\n        sys.exit(2)\n    print('STEP3_BOOT_NOT_OK', file=sys.stderr)\n    sys.exit(2)\nprint('STEP3_PASS')\nPY",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
@@ -67,7 +67,9 @@
           "\"ok\":\\s*true",
           "STEP3_PASS",
           "\"ok\"\\s*:\\s*true",
-          "\"boot\"\\s*:\\s*true"
+          "\"boot\"\\s*:\\s*true",
+          "\"commit_sha\":\\s*\"",
+          "\"short_sha\":\\s*\"[0-9a-f]{7,}\""
         ]
       }
     },

@@ -3620,6 +3620,7 @@ async function main(): Promise<void> {
         FIRST_WRITE_FAILED,
         PONR_INSERT_FAILED,
         PONR_LEDGER_UNREADABLE,
+        OPERATOR_UNAUTHORIZED,
       } = await import('../cutover/ponr.ts');
       try {
         if (args.help) {
@@ -3659,7 +3660,8 @@ async function main(): Promise<void> {
             code === FENCE_LIFT_FAILED ||
             code === FIRST_WRITE_FAILED ||
             code === PONR_INSERT_FAILED ||
-            code === PONR_LEDGER_UNREADABLE;
+            code === PONR_LEDGER_UNREADABLE ||
+            code === OPERATOR_UNAUTHORIZED;
           process.exit(exit2 ? 2 : 1);
         }
         process.exit(0);
@@ -3690,6 +3692,7 @@ async function main(): Promise<void> {
         EXPORT_WATERMARK_MISSING,
         LIVE_ACK_MISSING,
         CONTROL_PLANE_WRITE_FAILED,
+        OPERATOR_UNAUTHORIZED,
       } = await import('../cutover/rollback-repoint.ts');
       try {
         const reportPath = args.output
@@ -3714,7 +3717,8 @@ async function main(): Promise<void> {
               code === ROLLBACK_INELIGIBLE ||
               code === EXPORT_WATERMARK_MISSING ||
               code === LIVE_ACK_MISSING ||
-              code === CONTROL_PLANE_WRITE_FAILED
+              code === CONTROL_PLANE_WRITE_FAILED ||
+              code === OPERATOR_UNAUTHORIZED
               ? 2
               : 1
           );

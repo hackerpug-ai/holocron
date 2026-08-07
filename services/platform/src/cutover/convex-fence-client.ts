@@ -605,6 +605,8 @@ export async function runCutoverFreeze(options: {
     const res = (await client.mutation(auditApi.recordFenceArmed, {
       fenceArmedAtMs: fence_armed_at,
       reason: reason ?? undefined,
+      // REDHAT-FIX-RH-S30-11: always pass operator secret
+      operatorSecret: resolveCutoverOperatorSecret(),
     })) as { id?: string; fenceArmedAtMs?: number };
     audit_id = res?.id != null ? String(res.id) : null;
   } catch (err) {
