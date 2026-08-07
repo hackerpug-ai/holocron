@@ -1,0 +1,6 @@
+{
+  "ok": false,
+  "error": "PROBE_ROLLBACK_MARKER_MISSING",
+  "note": "Hard-fail: no destructive fallback. Pre-C-3 scripts issued bare TRUNCATE/UPDATE on parse failure \u2014 that path is deleted.",
+  "stdout_stderr_head": "BEGIN\nSET\n\nERROR:  PROBE_ROLLBACK_MARKER cur=holocron_app dis=1 trc=1 upd=1 del=1 edis=42501:permission denied for schema zero_0 etrc=42501:permission denied for table data_plane_ponr eupd=42501:permission denied for table data_plane_ponr edel=42501:permission denied for table data_plane_ponr\nCONTEXT:  PL/pgSQL function inline_code_block line 38 at RAISE\n"
+}

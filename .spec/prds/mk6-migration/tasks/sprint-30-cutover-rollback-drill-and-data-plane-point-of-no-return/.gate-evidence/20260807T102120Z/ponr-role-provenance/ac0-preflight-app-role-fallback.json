@@ -1,0 +1,12 @@
+{
+  "role": "holocron",
+  "session_user": "holocron",
+  "is_superuser": true,
+  "table_owner": "holocron",
+  "is_table_owner": true,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true,
+  "probe_mode": "set_role_holocron_app_residual",
+  "app_url_connect_error": "Password for user holocron_app: \npsql: error: connection to server at \"127.0.0.1\", port 44112 failed: fe_sendauth: no password supplied",
+  "app_url_attempted": "127.0.0.1:44112/holocron"
+}
