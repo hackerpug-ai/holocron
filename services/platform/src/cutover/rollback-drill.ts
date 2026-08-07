@@ -149,6 +149,20 @@ export type DrillReport = {
     body: Record<string, unknown>;
     baseUrl: string;
   } | null;
+  /**
+   * REDHAT-FIX-RH-S30-02: post-repoint content probe against real data plane.
+   * Health-label echo alone is insufficient — must prove Convex-backed content
+   * when data_plane=='convex' (status 200 + source convex + document identity).
+   */
+  content_probe: {
+    status: number;
+    source: string | null;
+    data_plane: string | null;
+    document_id: string | null;
+    document_title: string | null;
+    baseUrl: string;
+    ok: boolean;
+  } | null;
   drillProcessPid: number;
   report_path: string;
   error?: { code: string; message: string };
@@ -729,6 +743,7 @@ export async function runRollbackDrill(options?: {
 
   // Post-repoint /health against the same live base URL (pre-existing process)
   let postRepointHealthProbe: DrillReport['postRepointHealthProbe'] = null;
+  let content_probe: DrillReport['content_probe'] = null;
   if (liveBaseUrl && repoint.parsed?.repointed === true) {
     const health = await probeHealth(liveBaseUrl);
     postRepointHealthProbe = {
@@ -736,6 +751,67 @@ export async function runRollbackDrill(options?: {
       body: health.body,
       baseUrl: liveBaseUrl,
     };
+
+    // REDHAT-FIX-RH-S30-02: real content-read path (not /health echo alone).
+    try {
+      const keys = {
+        rn:
+          process.env.HOLO_KEY_RN ||
+          process.env.RN_API_KEY ||
+          process.env.HOLO_KEY_CONTROL ||
+          'rn-test',
+      };
+      const contentRes = await fetch(`${liveBaseUrl}/api/content-probe`, {
+        headers: { authorization: `Bearer ${keys.rn}` },
+        signal: AbortSignal.timeout(15_000),
+      });
+      const contentBody = (await contentRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        source?: string;
+        data_plane?: string;
+        document?: { id?: string; title?: string | null; content?: string | null };
+        error?: string;
+      };
+      const source = typeof contentBody.source === 'string' ? contentBody.source : null;
+      const data_plane = typeof contentBody.data_plane === 'string' ? contentBody.data_plane : null;
+      const document_id =
+        typeof contentBody.document?.id === 'string' ? contentBody.document.id : null;
+      const document_title =
+        typeof contentBody.document?.title === 'string' ? contentBody.document.title : null;
+      // Post-repoint to convex requires Convex-backed content identity.
+      const expectsConvex =
+        (repoint.parsed?.data_plane === 'convex' ||
+          repoint.parsed?.target === TARGET_CONVEX_FROZEN ||
+          data_plane === 'convex') === true;
+      const ok =
+        contentRes.status === 200 &&
+        contentBody.ok === true &&
+        document_id != null &&
+        document_id.length > 0 &&
+        (!expectsConvex || source === 'convex');
+      content_probe = {
+        status: contentRes.status,
+        source,
+        data_plane,
+        document_id,
+        document_title,
+        baseUrl: liveBaseUrl,
+        ok,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      content_probe = {
+        status: 0,
+        source: null,
+        data_plane: null,
+        document_id: null,
+        document_title: null,
+        baseUrl: liveBaseUrl,
+        ok: false,
+      };
+      // Surface in later error composition if overall ok would otherwise be true
+      void msg;
+    }
   }
 
   const acceptedRecomputed = raw.auditFileExists && raw.parseError == null ? raw.acceptedCount : -1;
@@ -803,6 +879,17 @@ export async function runRollbackDrill(options?: {
       code: DRILL_LIVE_ACK_MISSING,
       message: 'no authorizing pre-existing acknowledgements in repoint report',
     };
+  } else if (repointed && content_probe != null && !content_probe.ok) {
+    // REDHAT-FIX-RH-S30-02: health-only is insufficient after convex repoint.
+    ok = false;
+    error = {
+      code: 'DRILL_CONTENT_PROBE_FAILED',
+      message:
+        `post-repoint content_probe failed: status=${content_probe.status} ` +
+        `source=${content_probe.source} data_plane=${content_probe.data_plane} ` +
+        `document_id=${content_probe.document_id} ` +
+        `(require Convex-backed content read when data_plane==convex; /health echo alone is insufficient)`,
+    };
   }
 
   // Sanity: authorizing acks must not be this drill process
@@ -842,6 +929,7 @@ export async function runRollbackDrill(options?: {
     independentRecompute,
     liveAcks,
     postRepointHealthProbe,
+    content_probe,
     drillProcessPid,
     report_path: reportPath,
     ...(error ? { error } : {}),

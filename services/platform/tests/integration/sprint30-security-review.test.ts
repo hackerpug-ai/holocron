@@ -271,109 +271,104 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
     writeSecurityReviewMarkdown();
   });
 
-  it('AC-1 seedInFlightForDrainTest unauthenticated', async () => {
+  it('AC-1 seedInFlightForDrainTest unauthenticated rejects under fence (RH-S30-04)', async () => {
     const fenceEnv = getMigrationReadOnlyEnv();
     expect(isFenceArmedEnv(fenceEnv), `fence must be armed, got env=${fenceEnv}`).toBe(true);
 
-    // No auth token / API key / Convex identity — bare ConvexHttpClient(url)
+    // No auth token / API key / Convex identity / operatorSecret — bare ConvexHttpClient(url)
     const client = createCutoverConvexClient();
-    const response = (await client.mutation(drainApi.seedInFlightForDrainTest, {
-      activeTasks: 5,
-      queuedSubscriptionContent: 0,
-      tag: PROBE_TAG,
-    })) as {
-      ok?: boolean;
-      taskIds?: string[];
-      activeTasks?: number;
-      tag?: string;
-    };
+    let rejected = false;
+    let errorMessage = '';
+    let response: unknown = null;
+    try {
+      response = await client.mutation(drainApi.seedInFlightForDrainTest, {
+        activeTasks: 5,
+        queuedSubscriptionContent: 0,
+        tag: PROBE_TAG,
+        // intentionally omit operatorSecret
+      });
+    } catch (err) {
+      rejected = true;
+      errorMessage = err instanceof Error ? err.message : String(err);
+    }
 
     const fenceAfter = getMigrationReadOnlyEnv();
 
     recordFinding({
       id: 'unauth-seedInFlightForDrainTest',
       ac: 'AC-1',
-      severity: 'CRITICAL',
-      title:
-        'seedInFlightForDrainTest succeeds unauthenticated under armed HOLO_MIGRATION_READ_ONLY',
-      classification:
-        'T-SYNC-012 claim that ALL production writes are blocked is FALSE (severity CRITICAL)',
+      severity: rejected ? 'INFO' : 'CRITICAL',
+      title: rejected
+        ? 'seedInFlightForDrainTest rejects unauthenticated under armed fence (RH-S30-04)'
+        : 'seedInFlightForDrainTest still succeeds unauthenticated under armed fence',
+      classification: rejected
+        ? 'REDHAT-FIX-RH-S30-04: unauthenticated seed refused without side effects'
+        : 'T-SYNC-012 claim that ALL production writes are blocked is FALSE',
       observed: {
         fence_env_before: fenceEnv,
         fence_env_after: fenceAfter,
+        rejected,
+        errorMessage,
         response,
         auth_supplied: false,
-        api_key_supplied: false,
-        convex_identity_supplied: false,
+        operatorSecret_supplied: false,
       },
     });
 
-    expect(response.ok).toBe(true);
-    expect(Array.isArray(response.taskIds)).toBe(true);
-    expect(response.taskIds?.length).toBe(5);
-    expect(response.activeTasks).toBe(5);
+    expect(rejected).toBe(true);
+    expect(errorMessage.toLowerCase()).toMatch(/migration_fence|operator|refused|unauthorized/);
     expect(isFenceArmedEnv(fenceAfter)).toBe(true);
-
-    // Cleanup: cancel seeded tasks via disableAndDrain (also proves AC-2 surface)
-    try {
-      await client.mutation(drainApi.disableAndDrain, {
-        surfaces: ['tasks', 'subscriptionContent'],
-        reason: 's30-sec-probe-drain-cleanup-ac1',
-      });
-    } catch {
-      // best-effort cleanup; AC-2 re-probes the surface
-    }
   }, 120_000);
 
-  it('AC-2 disableAndDrain unauthenticated', async () => {
+  it('AC-2 disableAndDrain unauthenticated rejects under fence (RH-S30-04)', async () => {
     const client = createCutoverConvexClient();
     const status = (await client.query(drainApi.scheduleDisableStatus, {})) as {
       disabled?: boolean;
       envValue?: string | null;
     };
-    expect(status.disabled).toBe(true);
+    // schedules may or may not be disabled; fence arm is the gate under test
+    void status;
 
-    // Seed a few tagged tasks so the mass-patch has real work (blast radius ≤5)
-    await client.mutation(drainApi.seedInFlightForDrainTest, {
-      activeTasks: 3,
-      queuedSubscriptionContent: 0,
-      tag: PROBE_TAG,
-    });
-
-    const response = (await client.mutation(drainApi.disableAndDrain, {
-      surfaces: ['tasks', 'subscriptionContent'],
-      reason: 's30-sec-probe-drain',
-    })) as {
-      ok?: boolean;
-      consumersHonored?: boolean;
-      samples?: { tasksCancelled?: number };
-      error?: string;
-    };
+    let rejected = false;
+    let errorMessage = '';
+    let response: unknown = null;
+    try {
+      response = await client.mutation(drainApi.disableAndDrain, {
+        surfaces: ['tasks', 'subscriptionContent'],
+        reason: 's30-sec-probe-drain',
+        // intentionally omit operatorSecret
+      });
+    } catch (err) {
+      rejected = true;
+      errorMessage = err instanceof Error ? err.message : String(err);
+    }
 
     recordFinding({
       id: 'unauth-disableAndDrain',
       ac: 'AC-2',
-      severity: 'CRITICAL',
-      title:
-        'disableAndDrain mass-patches production rows with no authorization check; isCutoverSchedulesDisabled is availability-only',
-      classification:
-        'isCutoverSchedulesDisabled() (convex/lib/migrationFence.ts:49-52) is an AVAILABILITY guard, not an authorization guard',
+      severity: rejected ? 'INFO' : 'CRITICAL',
+      title: rejected
+        ? 'disableAndDrain rejects unauthenticated under armed fence (RH-S30-04)'
+        : 'disableAndDrain still mass-patches without authorization under fence',
+      classification: rejected
+        ? 'REDHAT-FIX-RH-S30-04: unauthenticated disableAndDrain refused without side effects'
+        : 'isCutoverSchedulesDisabled is availability-only; no auth gate',
       observed: {
         schedule_disable_status: status,
+        rejected,
+        errorMessage,
         response,
         auth_supplied: false,
-        note: 'HOLO_CUTOVER_SCHEDULES_DISABLED armed → any unauthenticated caller can drive mass cancel/skip',
+        operatorSecret_supplied: false,
       },
     });
 
-    expect(response.ok).toBe(true);
-    expect(response.consumersHonored).toBe(true);
-    expect(typeof response.samples?.tasksCancelled).toBe('number');
-    expect((response.samples?.tasksCancelled ?? -1) >= 0).toBe(true);
+    expect(rejected).toBe(true);
+    expect(errorMessage.toLowerCase()).toMatch(/migration_fence|operator|refused|unauthorized/);
   }, 120_000);
 
-  it('AC-3 recordWriteAttempt forgery', async () => {
-    // Past watermark so W+1000 ≤ now and countAttemptsInWindow includes the forge
+  it('AC-3 recordWriteAttempt forgery rejected under fence (RH-S30-04)', async () => {
+    // Past watermark so W+1000 ≤ now and countAttemptsInWindow would include a forge
     const W = Date.now() - 120_000;
     seedExportWatermark(W);
     const loaded = loadExportWatermarkMs({ cwd: REPO_ROOT, watermarkPath: WATERMARK_PATH });
@@ -384,12 +379,21 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
       sinceMs: W,
     })) as { acceptedWriteCount: number; rejectedWriteCount: number };
 
-    const forge = (await client.mutation(auditApi.recordWriteAttempt, {
-      outcome: 'accepted',
-      surface: PROBE_SURFACE,
-      reason: 's30-sec-probe forged accepted write for oracle poisoning',
-      atMs: W + 1000,
-    })) as { id?: string; atMs?: number; outcome?: string };
+    let rejected = false;
+    let errorMessage = '';
+    let forge: { id?: string; atMs?: number; outcome?: string } | null = null;
+    try {
+      forge = (await client.mutation(auditApi.recordWriteAttempt, {
+        outcome: 'accepted',
+        surface: PROBE_SURFACE,
+        reason: 's30-sec-probe forged accepted write for oracle poisoning',
+        atMs: W + 1000,
+        // intentionally omit operatorSecret
+      })) as { id?: string; atMs?: number; outcome?: string };
+    } catch (err) {
+      rejected = true;
+      errorMessage = err instanceof Error ? err.message : String(err);
+    }
 
     const after = (await client.query(auditApi.countAttemptsInWindow, {
       sinceMs: W,
@@ -398,25 +402,30 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
     recordFinding({
       id: 'audit-oracle-forgery-recordWriteAttempt',
       ac: 'AC-3',
-      severity: 'CRITICAL',
-      title:
-        'Unauthenticated recordWriteAttempt forges acceptedWriteCount; poisons T-SYNC-013 zero-loss / runQuietCheck writeOraclesOk',
-      classification:
-        'Same formula (acceptedWriteCount === 0 && rejectedWriteCount > 0) gates runQuietCheck writeOraclesOk at convex-fence-client.ts (writeOraclesOk)',
+      severity:
+        rejected && after.acceptedWriteCount === baseline.acceptedWriteCount ? 'INFO' : 'CRITICAL',
+      title: rejected
+        ? 'Unauthenticated recordWriteAttempt rejected under fence; oracle not poisoned (RH-S30-04)'
+        : 'Unauthenticated recordWriteAttempt still forges acceptedWriteCount',
+      classification: rejected
+        ? 'REDHAT-FIX-RH-S30-04: forged write_attempt refused without side effects'
+        : 'Same formula gates runQuietCheck writeOraclesOk — forge still possible',
       observed: {
         export_watermark_ms: W,
         baseline_acceptedWriteCount: baseline.acceptedWriteCount,
         after_acceptedWriteCount: after.acceptedWriteCount,
         delta: after.acceptedWriteCount - baseline.acceptedWriteCount,
+        rejected,
+        errorMessage,
         forge_response: forge,
-        forged_surface: PROBE_SURFACE,
-        forged_outcome: forge.outcome,
         auth_supplied: false,
+        operatorSecret_supplied: false,
       },
     });
 
-    expect(after.acceptedWriteCount).toBe(baseline.acceptedWriteCount + 1);
-    expect(forge.outcome).toBe('accepted');
+    expect(rejected).toBe(true);
+    expect(after.acceptedWriteCount).toBe(baseline.acceptedWriteCount);
+    expect(errorMessage.toLowerCase()).toMatch(/migration_fence|operator|refused|unauthorized/);
   }, 120_000);
 
   it('AC-4 fence coverage blind spot', async () => {
@@ -868,6 +877,7 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
         await ownerSql.end({ timeout: 5 });
       }
 
+      // REDHAT-FIX-RH-S30-01: BEFORE TRUNCATE trigger must reject.
       const severity = truncateSucceeded ? 'CRITICAL' : 'INFO';
       const truncateResult = truncateSucceeded ? 'none' : (truncateCode ?? 'unknown');
 
@@ -876,8 +886,8 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
         ac: 'AC-8',
         severity,
         title: truncateSucceeded
-          ? 'TRUNCATE TABLE data_plane_ponr succeeds — row-level PONR_IMMUTABLE trigger does not fire on TRUNCATE'
-          : 'TRUNCATE TABLE data_plane_ponr rejected — stronger protection than migration 0030 claims',
+          ? 'TRUNCATE TABLE data_plane_ponr still succeeds — RH-S30-01 truncate guard missing'
+          : 'TRUNCATE TABLE data_plane_ponr rejected by BEFORE TRUNCATE trigger (RH-S30-01)',
         truncate_succeeded: truncateSucceeded,
         ponr_truncate_probe: { result: truncateResult },
         observed: {
@@ -895,7 +905,7 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
           truncate_message: truncateMessage,
           post_truncate_count: postTruncateCount,
           pre_truncate_count: 1,
-          migration_0030_trigger: 'BEFORE UPDATE OR DELETE FOR EACH ROW only',
+          migration_0031_trigger: 'BEFORE TRUNCATE FOR EACH STATEMENT',
         },
       });
 
@@ -906,15 +916,11 @@ describe('D07-05 Security review: rollback switch + PONR immutability', () => {
       expect(ownerDeleteCode).toBe('P0001');
       expect(ownerUpdateMessage).toContain('PONR_IMMUTABLE');
       expect(ownerDeleteMessage).toContain('PONR_IMMUTABLE');
-      expect(postTruncateCount === 0 || postTruncateCount === 1).toBe(true);
-      // severity coupling
-      if (truncateSucceeded) {
-        expect(severity).toBe('CRITICAL');
-        expect(postTruncateCount).toBe(0);
-      } else {
-        expect(severity).toBe('INFO');
-        expect(postTruncateCount).toBe(1);
-      }
+      // RH-S30-01: TRUNCATE must fail closed; row remains
+      expect(truncateSucceeded).toBe(false);
+      expect(truncateMessage).toContain('PONR_IMMUTABLE');
+      expect(postTruncateCount).toBe(1);
+      expect(severity).toBe('INFO');
     });
   }, 240_000);
 

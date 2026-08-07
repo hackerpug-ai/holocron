@@ -116,11 +116,11 @@ function holo(
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
-function seedEligibleFixture(opts?: { withAcceptedWrite?: boolean }): {
+async function seedEligibleFixture(opts?: { withAcceptedWrite?: boolean }): Promise<{
   watermarkPath: string;
   auditPath: string;
   exportMs: number;
-} {
+}> {
   mkdirSync(D0604, { recursive: true });
   mkdirSync(D0605, { recursive: true });
   const exportMs = Date.now() - 60_000;
@@ -147,21 +147,43 @@ function seedEligibleFixture(opts?: { withAcceptedWrite?: boolean }): {
   );
 
   const auditPath = defaultPostExportWriteAuditPath(REPO_ROOT);
+  const accepted = opts?.withAcceptedWrite
+    ? [
+        {
+          committed_at_ms: exportMs + 5_000,
+          surface: 'hono.POST /api/documents',
+          id: 'fixture-post-export-write',
+        },
+      ]
+    : [];
   writePostExportWriteAudit(
     {
       export_watermark_ms: exportMs,
-      accepted_writes: opts?.withAcceptedWrite
-        ? [
-            {
-              committed_at_ms: exportMs + 5_000,
-              surface: 'hono.POST /api/documents',
-              id: 'fixture-post-export-write',
-            },
-          ]
-        : [],
+      accepted_writes: accepted,
     },
     auditPath
   );
+  // REDHAT-FIX-RH-S30-03: also seed Postgres ledger (authoritative oracle).
+  try {
+    const { clearPostExportWriteAuditLedger, recordPostExportAcceptedWrite } = await import(
+      '../../src/cutover/post-export-write-audit.ts'
+    );
+    const { resolveDatabaseUrl } = await import('../../src/db/connection.ts');
+    const databaseUrl = resolveDatabaseUrl({ preferHolocron: true });
+    await clearPostExportWriteAuditLedger({ databaseUrl });
+    for (const w of accepted) {
+      await recordPostExportAcceptedWrite({
+        surface: w.surface,
+        writeRowId: w.id,
+        committedAtMs: w.committed_at_ms,
+        exportWatermarkMs: exportMs,
+        databaseUrl,
+        mirrorToFile: false,
+      });
+    }
+  } catch {
+    // migrate may not have 0032 yet in some paths
+  }
 
   return { watermarkPath, auditPath, exportMs };
 }
@@ -252,7 +274,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   }, 60_000);
 
   it('AC-3 executable-repoint: re-points to convex-frozen with auditable config evidence', async () => {
-    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: false });
     const reportPath = resolve(D0605, 'rollback-repoint-report.json');
     const configPath = defaultDataPlaneConfigPath(REPO_ROOT);
 
@@ -351,7 +373,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   }, 120_000);
 
   it('AC-4 no-accepted-post-export-write-precondition: refuses when writes accepted after export', async () => {
-    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: true });
+    const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: true });
     const configPath = defaultDataPlaneConfigPath(REPO_ROOT);
     writeFileSync(
       configPath,
@@ -408,7 +430,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   }, 60_000);
 
   it('R2-C04 / R3-H03 live-ack: pre-existing serving /health observes data_plane convex', async () => {
-    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: false });
     liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
     if (liveServing.pid) process.env.HOLO_VERIFY_PID = String(liveServing.pid);
 
@@ -494,7 +516,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   }, 120_000);
 
   it('R2-C04: .tmp data-plane-config alone is not the configured_target success oracle', async () => {
-    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: false });
     liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
     const report = await runRollbackRepoint({
       reportPath: resolve(R2_EVIDENCE, 'oracle-report.json'),
@@ -513,7 +535,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   }, 120_000);
 
   it('R3-H03 negative: self-created createHonoApp / no pre-existing URL ⇒ repointed:false', async () => {
-    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: false });
     // Explicitly no base URL / no live serving — createHonoApp in-process must not greenwash.
     delete process.env.HOLO_VERIFY_BASE_URL;
     delete process.env.HOLO_SOAK_BASE_URL;
@@ -557,7 +579,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   }, 120_000);
 
   it('R3-H03 negative: base URL started after would-be write is not pre-existing', async () => {
-    const { watermarkPath, auditPath } = seedEligibleFixture({ withAcceptedWrite: false });
+    const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: false });
     // Point at a port that is not listening yet → preflight fails → repointed:false
     const deadPort = await freePort();
     const deadUrl = `http://127.0.0.1:${deadPort}`;
