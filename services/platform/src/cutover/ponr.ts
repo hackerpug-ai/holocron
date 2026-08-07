@@ -498,6 +498,15 @@ export async function runEnableWrites(options?: {
    * (REDHAT-FIX-RH-S30-05).
    */
   injectPonrInsertFailure?: boolean | (() => never);
+  /**
+   * Test-only (RH-S30-09 / M-3 closeout): inject post-fence-lift first-write
+   * failure branches without relying on Hono/network timing alone.
+   */
+  injectFirstWriteFailure?: {
+    kind: 'non_201_accepted_id' | 'transport_error' | 'reselect_miss';
+    /** For non_201_accepted_id / reselect_miss — claimed document id. */
+    documentId?: string;
+  };
 }): Promise<EnableWritesReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultEnableWritesReportPath(cwd);
@@ -702,8 +711,44 @@ export async function runEnableWrites(options?: {
   let writeRowId = '';
   let writeCommittedAt = new Date();
   let writeRowDigest = '';
+  const injectFw = options?.injectFirstWriteFailure;
 
   try {
+    // RH-S30-09 / M-3: transport/parse inject before fetch
+    if (injectFw?.kind === 'transport_error') {
+      throw new Error('injected transport failure after fence lift (RH-S30-09 M-3)');
+    }
+
+    // RH-S30-09 / M-3: non-201 with accepted documentId (Hono audit-fail shape)
+    if (injectFw?.kind === 'non_201_accepted_id') {
+      const acceptedId = injectFw.documentId?.trim() || '00000000-0000-4000-8000-bbbbbbbbbbbb';
+      // committed_at must be strictly after export watermark so ledger count > 0
+      // (countAcceptedPostExportWrites filters committed_at_ms > export_watermark_ms).
+      const committedAtMs = Math.max(Date.now(), exportWm + 1);
+      const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
+        secretsPath,
+        writeRowId: acceptedId,
+        writeCommittedAtMs: committedAtMs,
+        exportWatermarkMs: exportWm,
+        databaseUrl,
+        cwd,
+        watermarkPath: options?.watermarkPath,
+        recordAudit: true,
+      });
+      return baseFail({
+        base_url: baseUrl,
+        export_watermark_ms: exportWm,
+        fence_lifted_at: fenceLiftedAt.toISOString(),
+        write_row_id: acceptedId,
+        error: {
+          code: FIRST_WRITE_FAILED,
+          message:
+            `cutover:enable-writes refuses: injected non-201 with accepted documentId=${acceptedId} ` +
+            `(RH-S30-09 M-3). Fence re-armed=${rearmOk}; post_export_write_audit recorded=${auditOk}.`,
+        },
+      });
+    }
+
     const title = `ponr-first-write-${runId}`;
     const content = `D07-04 first accepted Postgres production write (${runId})`;
     const res = await fetch(`${baseUrl}/api/documents`, {
@@ -762,6 +807,35 @@ export async function runEnableWrites(options?: {
     writeRowId = body.document.id;
 
     // ── 7. Re-SELECT committed row + digest ────────────────────────────────
+    // RH-S30-09 / M-3: reselect_miss inject — force empty reselect path
+    if (injectFw?.kind === 'reselect_miss') {
+      writeRowId =
+        injectFw.documentId?.trim() || writeRowId || '00000000-0000-4000-8000-cccccccccccc';
+      const committedAtMs = Math.max(Date.now(), exportWm + 1);
+      const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
+        secretsPath,
+        writeRowId,
+        writeCommittedAtMs: committedAtMs,
+        exportWatermarkMs: exportWm,
+        databaseUrl,
+        cwd,
+        watermarkPath: options?.watermarkPath,
+        recordAudit: true,
+      });
+      return baseFail({
+        base_url: baseUrl,
+        export_watermark_ms: exportWm,
+        fence_lifted_at: fenceLiftedAt.toISOString(),
+        write_row_id: writeRowId,
+        error: {
+          code: FIRST_WRITE_FAILED,
+          message:
+            `cutover:enable-writes refuses: injected reselect miss for ${writeRowId} ` +
+            `(RH-S30-09 M-3). Fence re-armed=${rearmOk}; audit recorded=${auditOk}.`,
+        },
+      });
+    }
+
     const sql = createSql(databaseUrl);
     try {
       const rows = await sql<
@@ -824,10 +898,19 @@ export async function runEnableWrites(options?: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // REDHAT-FIX-RH-S30-09: transport/parse failures after fence lift also re-arm.
+    // Prefer a UUID-shaped placeholder so the production audit ledger always accepts the row.
+    const auditWriteId =
+      writeRowId ||
+      (injectFw?.documentId?.trim() ? injectFw.documentId.trim() : '') ||
+      `00000000-0000-4000-8000-${runId
+        .replace(/[^0-9a-f]/gi, '0')
+        .slice(0, 12)
+        .padEnd(12, '0')}`;
+    const committedAtMs = Math.max(Date.now(), exportWm + 1);
     const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
       secretsPath,
-      writeRowId: writeRowId || `unknown-first-write-${runId}`,
-      writeCommittedAtMs: Date.now(),
+      writeRowId: auditWriteId,
+      writeCommittedAtMs: committedAtMs,
       exportWatermarkMs: exportWm,
       databaseUrl,
       cwd,
