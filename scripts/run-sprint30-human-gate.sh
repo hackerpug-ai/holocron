@@ -359,9 +359,12 @@ if int("$VERIFY_RC") != 0:
 PY
 
 # ── RH-S30-14: assert-human-test-verdict (provenance shape) ─────────────────
-mkdir -p .tmp/REDHAT-FIX-RH-S30-14 .tmp/REDHAT-FIX-RH-S30-15
+# Containment (C-2) is enforced after scripts/package-sprint30-gate-evidence.sh
+# rewrites git_sha to the package commit. Live run uses ASSERT_EVIDENCE_CONTAINMENT=0.
+mkdir -p .tmp/REDHAT-FIX-RH-S30-14 .tmp/REDHAT-FIX-RH-S30-15 .tmp/REDHAT-FIX-RH-S30-13
 ASSERT_SCRIPT="${ASSERT_HUMAN_TEST_VERDICT:-$ROOT/scripts/assert-human-test-verdict.sh}"
 ASSERT_OUT="$EVID_DIR/assert-human-test-verdict.json"
+export ASSERT_EVIDENCE_CONTAINMENT="${ASSERT_EVIDENCE_CONTAINMENT:-0}"
 set +e
 bash "$ASSERT_SCRIPT" "$RESULTS" "$EVID_DIR" >"$ASSERT_OUT" 2>"$EVID_DIR/assert-human-test-verdict.stderr"
 ASSERT_RC=$?
@@ -369,6 +372,18 @@ set -e
 echo "$ASSERT_RC" >"$EVID_DIR/assert-human-test-verdict.exit"
 cp "$ASSERT_OUT" ".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.json"
 echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
+
+# ── C-3 / RH-S30-13: safe role-provenance probe (transactional / preflight) ─
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  set +e
+  bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-probe" \
+    >"$EVID_DIR/ponr-role-probe.stdout" 2>"$EVID_DIR/ponr-role-probe.stderr"
+  PROBE_RC=$?
+  set -e
+  echo "$PROBE_RC" >"$EVID_DIR/ponr-role-probe.exit"
+  mkdir -p .tmp/REDHAT-FIX-RH-S30-13
+  cp -R "$EVID_DIR/ponr-role-probe/." .tmp/REDHAT-FIX-RH-S30-13/ 2>/dev/null || true
+fi
 
 # ── RH-S30-15: finalize meta.json to durable terminal status ───────────────
 python3 - <<PY
