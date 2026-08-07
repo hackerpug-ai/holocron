@@ -49,23 +49,31 @@ fi
 
 export PATH="${ROOT}/node_modules/.bin:${PATH:-}"
 
-# Stage package-bound M-3 identity tree (fail-closed at assert if incomplete)
+# Stage package-bound M-3 identity tree — mandatory, no legacy fallback, no || true
 M3_SRC=".tmp/REDHAT-FIX-RH-S30-22"
-for dst in m3-identity m3-branch-identity; do
-  if [[ -d "$M3_SRC" ]]; then
-    mkdir -p "$EVID_DIR/$dst"
-    cp -R "$M3_SRC/." "$EVID_DIR/$dst/" 2>/dev/null || true
+if [[ ! -d "$EVID_DIR/m3-identity" ]]; then
+  if [[ ! -d "$M3_SRC" ]]; then
+    echo "error: missing m3-identity in evidence and $M3_SRC (required; no legacy fallback)" >&2
+    exit 2
   fi
-done
-# Generate manifest if missing
-if [[ -d "$EVID_DIR/m3-identity" ]]; then
-  python3 - "$EVID_DIR/m3-identity" <<'PY'
+  mkdir -p "$EVID_DIR/m3-identity"
+  cp -R "$M3_SRC/." "$EVID_DIR/m3-identity/"
+fi
+# Remove any legacy tree so package cannot claim dual-path green
+rm -rf "$EVID_DIR/m3-branch-identity"
+# Generate manifest WITHOUT self-entry (stable digests only)
+python3 - "$EVID_DIR/m3-identity" <<'PY'
 import json, hashlib
 from pathlib import Path
 root = Path(__import__("sys").argv[1])
+# Drop stale self-referential manifest before hashing
+man_path = root / "manifest.json"
+if man_path.exists():
+    man_path.unlink()
 files = sorted(p for p in root.rglob("*") if p.is_file())
 manifest = {
   "tree": "m3-identity",
+  "protocol": "M-3-package-bound-no-self-hash",
   "files": [
     {
       "path": str(p.relative_to(root)),
@@ -75,9 +83,16 @@ manifest = {
     for p in files
   ],
 }
-(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(json.dumps({"m3_manifest_files": len(files)}))
+man_path.write_text(json.dumps(manifest, indent=2) + "\n")
+print(json.dumps({"m3_manifest_files": len(files), "self_hash": False}))
 PY
+if [[ ! -f "$EVID_DIR/m3-identity/RED-identity-oracle-baseline.txt" ]]; then
+  echo "error: m3-identity missing RED-identity-oracle-baseline.txt" >&2
+  exit 2
+fi
+if [[ ! -f "$EVID_DIR/m3-identity/mutation-failure.log" ]]; then
+  echo "error: m3-identity missing mutation-failure.log" >&2
+  exit 2
 fi
 
 python3 - "$RESULTS" "$EVID_DIR" "$SOURCE_SHA" "$RUN_ID" "$PROTOCOL" <<'PY'
@@ -159,6 +174,7 @@ for name, rel in [
     ("ac1", base + "ponr-role-provenance/ac1-prod-role-disable-trigger.json"),
     ("ac2", base + "ponr-role-provenance/ac2-prod-role-dml-truncate.json"),
     ("marker_miss", base + "ponr-role-provenance-marker-miss/negative-marker-report.json"),
+    ("one_trigger_missing", base + "ponr-one-trigger-missing/one-trigger-missing-report.json"),
 ]:
     oid, raw = show(rel)
     if oid is None:
@@ -190,11 +206,39 @@ for name, rel in [
             errors.append("marker_miss urls not distinct")
         if data.get("production_untouched") is not True:
             errors.append("marker_miss production_untouched false")
+    if name == "one_trigger_missing":
+        if data.get("ok") is not True:
+            errors.append("one_trigger_missing ok!=true")
+        if data.get("uri_alias_same_target_refused") is not True:
+            errors.append("one_trigger_missing uri_alias not refused")
+        cases = data.get("one_trigger_missing_cases") or []
+        if len(cases) != 2:
+            errors.append(f"one_trigger_missing cases len={len(cases)} != 2")
+        if not all(c.get("refused") and int(c.get("probe_rc") or 0) != 0 for c in cases):
+            errors.append("one_trigger_missing case not refused")
+# M-3 mandatory tree objects in package
+m3_base = base + "m3-identity/"
+m3_oids = {}
+for name in [
+    "RED-identity-oracle-baseline.txt",
+    "mutation-failure.log",
+    "suite-vitest.log",
+    "manifest.json",
+    "reselect-miss-identity.json",
+    "branch-oracle-map.md",
+]:
+    rel = m3_base + name
+    oid, raw = show(rel)
+    if oid is None:
+        errors.append(f"missing m3-identity in package_commit: {rel}")
+        continue
+    m3_oids[name] = {"path": rel, "blob_oid": oid}
 if errors:
-    print("C-3 package predicate FAIL:", *errors, sep="\n  ", file=sys.stderr)
+    print("C-3/M-3 package predicate FAIL:", *errors, sep="\n  ", file=sys.stderr)
     sys.exit(2)
 Path("/tmp/s30-c3-oids.json").write_text(json.dumps(c3_oids, indent=2) + "\n")
-print(json.dumps({"c3_package_predicates_ok": True, "c3_oids": c3_oids}))
+Path("/tmp/s30-m3-oids.json").write_text(json.dumps(m3_oids, indent=2) + "\n")
+print(json.dumps({"c3_package_predicates_ok": True, "c3_oids": c3_oids, "m3_oids": m3_oids}))
 PY
 
 VER_OID=""
@@ -218,6 +262,11 @@ if c3_path.exists():
     c3 = json.loads(c3_path.read_text())
     for k, v in c3.items():
         artifacts[f"c3-{k}"] = v
+m3_path = Path("/tmp/s30-m3-oids.json")
+if m3_path.exists():
+    m3 = json.loads(m3_path.read_text())
+    for k, v in m3.items():
+        artifacts[f"m3-{k}"] = v
 att = {
     "protocol": protocol,
     "source_sha_at_run": source,
@@ -226,11 +275,12 @@ att = {
     "artifacts": artifacts,
     "notes": (
         "Git-bound via evidence-attestation.lock.json. C-3 report blob OIDs are "
-        "bound under artifacts.c3-* and must match package_commit objects."
+        "bound under artifacts.c3-* and M-3 under artifacts.m3-*; both must match "
+        "package_commit objects. No legacy m3-branch-identity."
     ),
 }
 Path(path).write_text(json.dumps(att, indent=2) + "\n")
-print(json.dumps({"attestation_written": True, "package_commit": package, "c3_bound": True}))
+print(json.dumps({"attestation_written": True, "package_commit": package, "c3_bound": True, "m3_bound": True}))
 PY
 git add "$ATTEST"
 LEFTHOOK_EXCLUDE=root-test git commit -m "chore(sprint-30): evidence-attestation ${RUN_ID} (C-2-atomic-v5)"
@@ -280,18 +330,22 @@ bash "$ROOT/scripts/assert-human-test-verdict.sh" "$RESULTS" "$EVID_DIR" \
   | tee "$EVID_DIR/assert-human-test-verdict.post-package.json"
 bash "$ROOT/scripts/assert-gate-evidence-containment.sh" "$RESULTS" \
   | tee "$EVID_DIR/assert-gate-evidence-containment.post-package.json"
+export ASSERT_PACKAGE_COMMIT="$PACKAGE_COMMIT"
+export ASSERT_M3_RUN_ID="$RUN_ID"
 bash "$ROOT/scripts/assert-m3-identity-evidence.sh" "$EVID_DIR" \
   | tee "$EVID_DIR/assert-m3-identity.post-package.json"
 VERIFY_SCRIPT="${VERIFY_GATE_EVIDENCE:-$HOME/Projects/brain/skills/kb-run-human-tests/references/verify-gate-evidence.sh}"
 bash "$VERIFY_SCRIPT" "$RESULTS" "$SPRINT_DIR/gate-plan.json" "$EVID_DIR" \
   | tee "$EVID_DIR/verify-stdout.post-package.json"
 
+# Package-bind every post-package assertion (including M-3) — required, not optional
 git add \
   "$EVID_DIR/assert-human-test-verdict.post-package.json" \
   "$EVID_DIR/assert-gate-evidence-containment.post-package.json" \
-  "$EVID_DIR/verify-stdout.post-package.json" 2>/dev/null || true
+  "$EVID_DIR/assert-m3-identity.post-package.json" \
+  "$EVID_DIR/verify-stdout.post-package.json"
 if ! git diff --cached --quiet 2>/dev/null; then
-  LEFTHOOK_EXCLUDE=root-test git commit -m "chore(sprint-30): post-package assert+verify for ${RUN_ID}"
+  LEFTHOOK_EXCLUDE=root-test git commit -m "chore(sprint-30): post-package assert+verify+m3 for ${RUN_ID}"
 fi
 
 echo "package protocol complete: package_commit=$PACKAGE_COMMIT head=$(git rev-parse HEAD) protocol=$PROTOCOL lock_blob=$LOCK_BLOB_OID"
