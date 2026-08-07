@@ -1,21 +1,11 @@
 #!/usr/bin/env bash
-# REDHAT-FIX-RH-S30-14 / closeout C-2 — assert a gate-results.json is a real
-# tip-bound human-test pass with evidence-tree containment.
+# REDHAT-FIX-RH-S30-14 / RH-S30-20 C-2 — tip-bound pass + blob OID identity.
 #
 # Usage:
 #   bash scripts/assert-human-test-verdict.sh <gate-results.json> [evidence-dir]
 #
-# Exit 0 only when:
-#   - results file exists and parses
-#   - verdict == pass
-#   - steps_executed == steps_total == steps_passed
-#   - every step executed:true and result:pass
-#   - referenced step logs exist and are non-empty
-#   - git_sha is 40-hex AND names a commit that CONTAINS the evidence tree
-#     (git cat-file -e <git_sha>:<evidence-relative-path>/gate-results.json)
-#   - if source_sha_at_run / source_sha is set, it must be an ancestor of git_sha
-#
-# This is provenance / shape + Git containment — not external-state re-execution.
+# With ASSERT_EVIDENCE_CONTAINMENT=1, also requires C-2-atomic-v4 attestation
+# and hist_oid == sub_oid for the package_commit gate-results blob.
 set -euo pipefail
 
 RESULTS="${1:-}"
@@ -86,65 +76,24 @@ for s in steps:
     if found is None and candidates:
         errors.append(f"step {n}: missing/empty log (tried {candidates})")
 
-# C-2: after package protocol, require path + immutable blob attestation.
-# During live gate run, set ASSERT_EVIDENCE_CONTAINMENT=0; packaging re-runs with =1.
 require_containment = os.environ.get("ASSERT_EVIDENCE_CONTAINMENT", "1") == "1"
-attested = str(data.get("gate_results_blob_sha256") or "")
-named_blob_sha256 = None
-if require_containment and re.fullmatch(r"[0-9a-f]{40}", git_sha) and run_id:
-    import hashlib
-
-    rel = (
-        ".spec/prds/mk6-migration/tasks/"
-        "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
-        f".gate-evidence/{run_id}/gate-results.json"
-    )
+blob_identity = None
+if require_containment:
+    # Delegate exact blob OID identity to the dedicated checker (C-2-atomic-v4).
     r = subprocess.run(
-        ["git", "cat-file", "-e", f"{git_sha}:{rel}"],
+        ["bash", "scripts/assert-gate-evidence-containment.sh", str(results_path)],
         capture_output=True,
         text=True,
     )
+    try:
+        blob_identity = json.loads(r.stdout) if r.stdout.strip() else None
+    except Exception:
+        blob_identity = {"raw": r.stdout, "stderr": r.stderr}
     if r.returncode != 0:
         errors.append(
-            f"C-2 containment: git_sha={git_sha[:12]} does not contain {rel} "
-            f"(package protocol requires evidence-containing git_sha)"
+            "C-2 blob identity / attestation failed via assert-gate-evidence-containment "
+            f"(exit={r.returncode}): {(r.stderr or r.stdout)[:500]}"
         )
-    else:
-        raw = subprocess.check_output(["git", "show", f"{git_sha}:{rel}"])
-        named_blob_sha256 = hashlib.sha256(raw).hexdigest()
-        if not re.fullmatch(r"[0-9a-f]{64}", attested):
-            errors.append(
-                "C-2 attestation missing: gate_results_blob_sha256 required "
-                "(C-2-atomic-v3; path-only containment is a false green)"
-            )
-        elif named_blob_sha256 != attested:
-            errors.append(
-                f"C-2 blob attestation FAIL: sha256(named gate-results)={named_blob_sha256} "
-                f"!= gate_results_blob_sha256={attested}"
-            )
-        if re.fullmatch(r"[0-9a-f]{40}", source_at_run) and source_at_run != git_sha:
-            a = subprocess.run(
-                ["git", "merge-base", "--is-ancestor", source_at_run, git_sha],
-                capture_output=True,
-            )
-            if a.returncode != 0:
-                errors.append(
-                    f"source_sha_at_run={source_at_run[:12]} is not an ancestor of git_sha={git_sha[:12]}"
-                )
-        # Optional: bind tip (HEAD) must carry the claimed binding fields byte-identical
-        if os.environ.get("ASSERT_PACKAGE_HEAD", "0") == "1":
-            head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-            try:
-                head_blob = subprocess.check_output(["git", "show", f"{head}:{rel}"])
-            except subprocess.CalledProcessError:
-                errors.append(f"ASSERT_PACKAGE_HEAD: HEAD missing {rel}")
-            else:
-                if head_blob != results_path.read_bytes():
-                    errors.append(
-                        "ASSERT_PACKAGE_HEAD: HEAD gate-results not byte-identical to on-disk"
-                    )
-elif not require_containment:
-    pass
 
 out = {
     "ok": len(errors) == 0,
@@ -156,8 +105,7 @@ out = {
     "steps_passed": steps_passed,
     "git_sha": git_sha,
     "source_sha_at_run": source_at_run or None,
-    "gate_results_blob_sha256": attested or None,
-    "named_blob_sha256": named_blob_sha256,
+    "blob_identity": blob_identity,
     "errors": errors,
 }
 print(json.dumps(out, indent=2))
