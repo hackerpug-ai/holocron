@@ -1,17 +1,26 @@
 #!/usr/bin/env bash
-# Closeout C-2 / RH-S30-10 — package Sprint 30 gate evidence so git_sha names a
-# commit that CONTAINS the evidence tree (atomic protocol).
+# RH-S30-17 / C-2-atomic-v2 — package Sprint 30 gate evidence so git_sha names a
+# commit that CONTAINS the evidence tree (fail-closed atomic protocol).
 #
-# Protocol (two-commit; avoids self-referential content-hash deadlock):
-#   1. Source tip S0 is deployed; gate runs with git_sha=S0 (code that ran).
+# Protocol C-2-atomic-v2 (two-commit; avoids self-referential content-hash deadlock):
+#   1. Source tip S0 is deployed; gate runs with temporary git_sha=S0 (code that ran).
 #   2. This script commits results + .gate-evidence/<runId>/ → containing tip C1.
 #      C1 is the first commit that carries the full evidence tree.
 #   3. Rewrites gate-results (and copies) so:
-#        source_sha_at_run / source_sha = S0  (code that ran)
-#        git_sha    = C1   (commit that contains this evidence tree)
+#        source_sha_at_run / source_sha / sourceRevision = S0  (code that ran)
+#        git_sha    = C1   (commit that CONTAINS this evidence tree)
 #        package_sha = C1
+#        evidence_package_protocol = C-2-atomic-v2-two-commit
 #   4. Second commit C2 records the rewritten binding (git_sha still = C1).
-#   5. assert-human-test-verdict verifies git cat-file C1:<evidence path> succeeds.
+#      C2 also contains the evidence path (tree includes .gate-evidence/<runId>/).
+#   5. assert-human-test-verdict + assert-gate-evidence-containment verify
+#      git cat-file -e C1:<evidence path> (and reject non-containing binds e.g. 09aae0dd).
+#
+# Fixed-point rule (RH-S30-17 AC-3): git_sha MUST equal a commit for which
+# containment holds. We intentionally do NOT rewrite git_sha to a later amend
+# SHA (pre-amend PACKAGE_SHA != post-amend HEAD anti-pattern). git_sha stays
+# pinned to C1 (containing tree). HEAD may advance to C2/C3 for bind/verifier
+# artifacts; both remain descendants that still carry the evidence path.
 #
 # Usage (from repo root, after a successful run-sprint30-human-gate.sh):
 #   bash scripts/package-sprint30-gate-evidence.sh <run_id>
@@ -148,17 +157,39 @@ bind = "$BIND_SHA"
 print("containment_ok", sha[:12], "source_at_run", src[:12], "bind_head", bind[:12])
 PY
 
-# Re-run assertion with containment required (C-2)
+# Re-run assertion + dedicated containment checker (C-2 / RH-S30-17)
 export ASSERT_EVIDENCE_CONTAINMENT=1
 bash "$ROOT/scripts/assert-human-test-verdict.sh" "$RESULTS" "$EVID_DIR" \
   | tee "$EVID_DIR/assert-human-test-verdict.post-package.json"
+bash "$ROOT/scripts/assert-gate-evidence-containment.sh" "$RESULTS" \
+  | tee "$EVID_DIR/assert-gate-evidence-containment.post-package.json"
 VERIFY_SCRIPT="${VERIFY_GATE_EVIDENCE:-$HOME/Projects/brain/skills/kb-run-human-tests/references/verify-gate-evidence.sh}"
 bash "$VERIFY_SCRIPT" "$RESULTS" "$SPRINT_DIR/gate-plan.json" "$EVID_DIR" \
   | tee "$EVID_DIR/verify-stdout.post-package.json"
 
+# Fixed-point proof: on-disk git_sha still equals CONTAINING_SHA and HEAD carries path
+python3 - <<PY
+import json, subprocess
+from pathlib import Path
+g = json.loads(Path("$RESULTS").read_text())
+assert g["git_sha"] == "$CONTAINING_SHA", (g["git_sha"], "$CONTAINING_SHA")
+head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+rel = "$REL_RESULTS"
+subprocess.check_call(["git", "cat-file", "-e", f"{g['git_sha']}:{rel}"])
+subprocess.check_call(["git", "cat-file", "-e", f"{head}:{rel}"])
+print(json.dumps({
+  "fixed_point_git_sha": g["git_sha"],
+  "containing_equals_git_sha": True,
+  "head": head,
+  "head_also_contains_evidence": True,
+  "protocol": "C-2-atomic-v2-two-commit",
+}, indent=2))
+PY
+
 # Stage post-package verifier outputs into a third optional commit if present
 git add \
   "$EVID_DIR/assert-human-test-verdict.post-package.json" \
+  "$EVID_DIR/assert-gate-evidence-containment.post-package.json" \
   "$EVID_DIR/verify-stdout.post-package.json" 2>/dev/null || true
 if ! git diff --cached --quiet 2>/dev/null; then
   LEFTHOOK_EXCLUDE=root-test git commit -m "chore(sprint-30): post-package assert+verify for ${RUN_ID}"
