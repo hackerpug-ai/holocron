@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "tool": "scripts/probe-ponr-one-trigger-missing-negative.sh",
+  "gate_url_canonical": "postgresql://127.0.0.1:5432/holocron",
+  "marker_url_canonical": "postgresql://127.0.0.1:5432/holocron_nonprod",
+  "urls_distinct": true,
+  "uri_alias_same_target_refused": true,
+  "uri_alias_probe_rc": 2,
+  "one_trigger_missing_cases": [
+    {
+      "disabled_trigger": "data_plane_ponr_reject_mutation",
+      "probe_rc": 2,
+      "ok_field": "missing",
+      "refused": true,
+      "disabled_tgenabled": "D",
+      "other_tgenabled": "O",
+      "complementary_do": {
+        "disabled_tgenabled": "D",
+        "other_tgenabled": "O",
+        "other_trigger": "data_plane_ponr_reject_truncate",
+        "states": {
+          "data_plane_ponr_reject_mutation": "D",
+          "data_plane_ponr_reject_truncate": "O"
+        }
+      },
+      "raw_exit_code_path": "disable-data_plane_ponr_reject_mutation/exit.code"
+    },
+    {
+      "disabled_trigger": "data_plane_ponr_reject_truncate",
+      "probe_rc": 2,
+      "ok_field": "missing",
+      "refused": true,
+      "disabled_tgenabled": "D",
+      "other_tgenabled": "O",
+      "complementary_do": {
+        "disabled_tgenabled": "D",
+        "other_tgenabled": "O",
+        "other_trigger": "data_plane_ponr_reject_mutation",
+        "states": {
+          "data_plane_ponr_reject_mutation": "O",
+          "data_plane_ponr_reject_truncate": "D"
+        }
+      },
+      "raw_exit_code_path": "disable-data_plane_ponr_reject_truncate/exit.code"
+    }
+  ],
+  "required_triggers": [
+    "data_plane_ponr_reject_mutation",
+    "data_plane_ponr_reject_truncate"
+  ],
+  "notes": "Each required trigger disabled alone on disposable marker DB must make probe-ponr-role-immutability-negative-marker.sh exit non-zero. Exact set {mutation,truncate} with no duplicates; raw exit.code + D/O bind. URI alias of gate as marker target must refuse.",
+  "exact_trigger_set": {
+    "ok": true,
+    "errors": [],
+    "required": [
+      "data_plane_ponr_reject_mutation",
+      "data_plane_ponr_reject_truncate"
+    ],
+    "observed": [
+      "data_plane_ponr_reject_mutation",
+      "data_plane_ponr_reject_truncate"
+    ],
+    "unique": [
+      "data_plane_ponr_reject_mutation",
+      "data_plane_ponr_reject_truncate"
+    ],
+    "len_cases": 2,
+    "tool": "scripts/lib/c3-exact-trigger-set.py"
+  }
+}

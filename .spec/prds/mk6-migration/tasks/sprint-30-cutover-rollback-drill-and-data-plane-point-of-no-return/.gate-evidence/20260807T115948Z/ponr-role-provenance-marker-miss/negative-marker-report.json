@@ -1,0 +1,45 @@
+{
+  "probe_rc": 2,
+  "before_count": 1,
+  "after_count": 1,
+  "gate_db_count_before": 1,
+  "gate_db_count_after": 1,
+  "gate_url_normalized": "postgresql://127.0.0.1:5432/holocron",
+  "marker_url_normalized": "postgresql://127.0.0.1:5432/holocron_nonprod",
+  "urls_distinct": true,
+  "before_triggers": [
+    {
+      "tgname": "data_plane_ponr_reject_mutation",
+      "tgenabled": "O"
+    },
+    {
+      "tgname": "data_plane_ponr_reject_truncate",
+      "tgenabled": "O"
+    }
+  ],
+  "after_triggers": [
+    {
+      "tgname": "data_plane_ponr_reject_mutation",
+      "tgenabled": "O"
+    },
+    {
+      "tgname": "data_plane_ponr_reject_truncate",
+      "tgenabled": "O"
+    }
+  ],
+  "required_trigger_names": [
+    "data_plane_ponr_reject_mutation",
+    "data_plane_ponr_reject_truncate"
+  ],
+  "exact_required_triggers_enabled_before": true,
+  "exact_required_triggers_enabled_after": true,
+  "before_required_triggers_enabled_count": 2,
+  "after_required_triggers_enabled_count": 2,
+  "probe_current_user": "holocron_app",
+  "effective_non_owner": true,
+  "production_untouched": true,
+  "rows_preserved": true,
+  "triggers_preserved": true,
+  "seeded_ponr_holding": true,
+  "ok": true
+}
