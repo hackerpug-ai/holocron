@@ -1,37 +1,63 @@
 #!/usr/bin/env bash
-# RH-S30-21 / C-3 — forced marker-miss on a PONR-holding DB (gate/IT owned).
+# RH-S30-21 residual — forced marker-miss on an EXPLICIT disposable DB only.
 #
-# Fail closed unless:
-#   - before_count >= 1
-#   - required non-internal triggers exist and are enabled (named, count>=1)
-#   - PROBE_FORCE_MARKER_MISS → probe exit != 0
-#   - after_count == before_count; triggers still enabled
-#   - effective current_user == holocron_app from rolled-back DO (ac-force-miss-session.json)
+# NEVER seeds against the gate/cutover DATABASE_URL.
+# Requires HOLO_PROBE_MARKER_MISS_DATABASE_URL distinct from DATABASE_URL / production.
+# Seeding is opt-in (HOLO_PROBE_SEED_PONR=1) and only on the disposable URL.
+#
+# Exact required triggers (both must exist and tgenabled='O'):
+#   data_plane_ponr_reject_mutation
+#   data_plane_ponr_reject_truncate
 #
 # Usage:
-#   DATABASE_URL=... bash scripts/probe-ponr-role-immutability-negative-marker.sh [out_dir]
-# Optional: HOLO_PROBE_SEED_PONR=1 seeds one disposable row when empty.
+#   DATABASE_URL=<gate> \
+#   HOLO_PROBE_MARKER_MISS_DATABASE_URL=<disposable distinct> \
+#   HOLO_PROBE_SEED_PONR=1 \
+#   bash scripts/probe-ponr-role-immutability-negative-marker.sh [out_dir]
 set -euo pipefail
-: "${DATABASE_URL:?DATABASE_URL required}"
+: "${DATABASE_URL:?DATABASE_URL required (gate/cutover URL — never the seed target)}"
+: "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:?HOLO_PROBE_MARKER_MISS_DATABASE_URL required (distinct disposable DB)}"
+
+GATE_URL="$DATABASE_URL"
+MARKER_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL"
 OUT_DIR="${1:-.tmp/REDHAT-FIX-RH-S30-21}"
 mkdir -p "$OUT_DIR"
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-REQUIRED_TRIGGERS="data_plane_ponr_reject_mutation data_plane_ponr_reject_truncate"
+normalize_url() {
+  python3 -c "from urllib.parse import urlparse; u=urlparse('''$1'''); print(f'{u.scheme}://{u.hostname}:{u.port or \"\"}{u.path}')" 2>/dev/null \
+    || echo "$1"
+}
+
+GATE_NORM="$(normalize_url "$GATE_URL")"
+MARKER_NORM="$(normalize_url "$MARKER_URL")"
+if [[ "$MARKER_NORM" == "$GATE_NORM" ]]; then
+  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL must be DISTINCT from DATABASE_URL (refuse production seed)" >&2
+  exit 2
+fi
+# Production-like ports / hostnames used by cutover soak (conservative reject)
+if echo "$MARKER_URL" | grep -Eqi '(:44112/|/holocron$|holocron:.*@.*:44112)'; then
+  if [[ "${HOLO_PROBE_ALLOW_PROD_LIKE_MARKER_DB:-0}" != "1" ]]; then
+    echo "error: marker DB looks production-like (port 44112 / holocron prod). Use disposable nonprod URL." >&2
+    exit 2
+  fi
+fi
+
+REQUIRED_TRIGGERS=(data_plane_ponr_reject_mutation data_plane_ponr_reject_truncate)
 
 seed_ponr_if_empty() {
   local count
-  count="$(psql "$DATABASE_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr')"
+  count="$(psql "$MARKER_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr')"
   if [[ "${count:-0}" -ge 1 ]]; then
     return 0
   fi
   if [[ "${HOLO_PROBE_SEED_PONR:-0}" != "1" ]]; then
-    echo "error: data_plane_ponr is empty; set HOLO_PROBE_SEED_PONR=1 to seed disposable row" >&2
+    echo "error: disposable marker DB data_plane_ponr empty; set HOLO_PROBE_SEED_PONR=1 (disposable only)" >&2
     return 2
   fi
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+  # Seed ONLY on MARKER_URL (never GATE_URL).
+  psql "$MARKER_URL" -v ON_ERROR_STOP=1 <<'SQL'
 DO $seed$
 BEGIN
   ALTER TABLE data_plane_ponr DISABLE TRIGGER data_plane_ponr_reject_mutation;
@@ -62,59 +88,60 @@ $seed$;
 SQL
 }
 
-trig_report() {
-  psql "$DATABASE_URL" -tAc "
-    SELECT coalesce(json_agg(row_to_json(t)), '[]'::json)::text FROM (
-      SELECT tgname, tgenabled
+trig_json() {
+  psql "$MARKER_URL" -tAc "
+    SELECT coalesce(json_agg(row_to_json(t) ORDER BY tgname), '[]'::json)::text FROM (
+      SELECT tgname, tgenabled::text AS tgenabled
       FROM pg_trigger
       WHERE tgrelid = 'public.data_plane_ponr'::regclass
         AND NOT tgisinternal
         AND tgname IN ('data_plane_ponr_reject_mutation','data_plane_ponr_reject_truncate')
-      ORDER BY tgname
     ) t;
   "
 }
 
+exact_triggers_ok() {
+  # Returns 0 only when BOTH required names exist and tgenabled='O'
+  python3 -c "
+import json,sys
+req={'data_plane_ponr_reject_mutation','data_plane_ponr_reject_truncate'}
+rows=json.loads(sys.argv[1] or '[]')
+enabled={r['tgname'] for r in rows if r.get('tgenabled')=='O'}
+sys.exit(0 if req <= enabled else 1)
+" "$1"
+}
+
 seed_ponr_if_empty
 
-BEFORE_COUNT="$(psql "$DATABASE_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr')"
-BEFORE_TRIG_JSON="$(trig_report)"
-BEFORE_TRIG_N="$(psql "$DATABASE_URL" -tAc "
-  SELECT count(*)::text FROM pg_trigger
-  WHERE tgrelid = 'public.data_plane_ponr'::regclass
-    AND NOT tgisinternal
-    AND tgenabled = 'O'
-    AND tgname IN ('data_plane_ponr_reject_mutation','data_plane_ponr_reject_truncate');
-")"
+BEFORE_COUNT="$(psql "$MARKER_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr')"
+BEFORE_TRIG_JSON="$(trig_json)"
+GATE_COUNT_BEFORE="$(psql "$GATE_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr' 2>/dev/null || echo -1)"
 
 if [[ "${BEFORE_COUNT:-0}" -lt 1 ]]; then
-  echo "error: before_count must be >= 1 (empty table cannot prove PONR preservation)" >&2
+  echo "error: marker DB before_count must be >= 1" >&2
   exit 2
 fi
-if [[ "${BEFORE_TRIG_N:-0}" -lt 1 ]]; then
-  echo "error: required PONR immutability triggers missing or not enabled (tgenabled=O)" >&2
+if ! exact_triggers_ok "$BEFORE_TRIG_JSON"; then
+  echo "error: both required PONR triggers must exist and be tgenabled=O before probe" >&2
+  echo "got: $BEFORE_TRIG_JSON" >&2
   exit 2
 fi
 
 set +e
-PROBE_FORCE_MARKER_MISS=1 \
+DATABASE_URL="$MARKER_URL" PROBE_FORCE_MARKER_MISS=1 \
   bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$OUT_DIR/probe-out" \
   >"$OUT_DIR/stdout.txt" 2>"$OUT_DIR/stderr.txt"
 PROBE_RC=$?
 set -e
 
-AFTER_COUNT="$(psql "$DATABASE_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr')"
-AFTER_TRIG_JSON="$(trig_report)"
-AFTER_TRIG_N="$(psql "$DATABASE_URL" -tAc "
-  SELECT count(*)::text FROM pg_trigger
-  WHERE tgrelid = 'public.data_plane_ponr'::regclass
-    AND NOT tgisinternal
-    AND tgenabled = 'O'
-    AND tgname IN ('data_plane_ponr_reject_mutation','data_plane_ponr_reject_truncate');
-")"
+AFTER_COUNT="$(psql "$MARKER_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr')"
+AFTER_TRIG_JSON="$(trig_json)"
+GATE_COUNT_AFTER="$(psql "$GATE_URL" -tAc 'SELECT count(*)::text FROM data_plane_ponr' 2>/dev/null || echo -1)"
 
 python3 - "$OUT_DIR" "$PROBE_RC" "$BEFORE_COUNT" "$AFTER_COUNT" \
-  "$BEFORE_TRIG_N" "$AFTER_TRIG_N" "$BEFORE_TRIG_JSON" "$AFTER_TRIG_JSON" <<'PY'
+  "$BEFORE_TRIG_JSON" "$AFTER_TRIG_JSON" \
+  "$GATE_COUNT_BEFORE" "$GATE_COUNT_AFTER" \
+  "$GATE_NORM" "$MARKER_NORM" <<'PY'
 import json, sys
 from pathlib import Path
 
@@ -122,57 +149,71 @@ out = Path(sys.argv[1])
 probe_rc = int(sys.argv[2])
 before_count = int(sys.argv[3] or "0")
 after_count = int(sys.argv[4] or "0")
-before_trig_n = int(sys.argv[5] or "0")
-after_trig_n = int(sys.argv[6] or "0")
-before_trig_json = json.loads(sys.argv[7] or "[]")
-after_trig_json = json.loads(sys.argv[8] or "[]")
+before_trig = json.loads(sys.argv[5] or "[]")
+after_trig = json.loads(sys.argv[6] or "[]")
+gate_before = int(sys.argv[7] or "-1")
+gate_after = int(sys.argv[8] or "-1")
+gate_norm = sys.argv[9]
+marker_norm = sys.argv[10]
+
+req = {"data_plane_ponr_reject_mutation", "data_plane_ponr_reject_truncate"}
+
+def enabled_set(rows):
+    return {r["tgname"] for r in rows if r.get("tgenabled") == "O"}
+
+before_en = enabled_set(before_trig)
+after_en = enabled_set(after_trig)
+exact_before = req <= before_en and len(before_en & req) == 2
+exact_after = req <= after_en and len(after_en & req) == 2
 
 session = {}
 sess_path = out / "probe-out" / "ac-force-miss-session.json"
 if sess_path.exists():
     session = json.loads(sess_path.read_text())
 effective = session.get("probe_current_user")
-effective_non_owner = session.get("effective_non_owner") is True or effective == "holocron_app"
+effective_non_owner = effective == "holocron_app"
 
 report = {
     "probe_rc": probe_rc,
     "before_count": before_count,
     "after_count": after_count,
-    "before_required_triggers_enabled_count": before_trig_n,
-    "after_required_triggers_enabled_count": after_trig_n,
-    "before_triggers": before_trig_json,
-    "after_triggers": after_trig_json,
-    "required_trigger_names": [
-        "data_plane_ponr_reject_mutation",
-        "data_plane_ponr_reject_truncate",
-    ],
+    "gate_db_count_before": gate_before,
+    "gate_db_count_after": gate_after,
+    "gate_url_normalized": gate_norm,
+    "marker_url_normalized": marker_norm,
+    "urls_distinct": gate_norm != marker_norm,
+    "before_triggers": before_trig,
+    "after_triggers": after_trig,
+    "required_trigger_names": sorted(req),
+    "exact_required_triggers_enabled_before": exact_before,
+    "exact_required_triggers_enabled_after": exact_after,
+    "before_required_triggers_enabled_count": len(before_en & req),
+    "after_required_triggers_enabled_count": len(after_en & req),
     "probe_current_user": effective,
     "effective_non_owner": effective_non_owner,
-    "expect_probe_nonzero": True,
-    "expect_before_count_ge_1": True,
-    "expect_required_triggers": True,
-    "expect_effective_holocron_app": True,
+    "production_untouched": gate_before == gate_after,
 }
-report["rows_preserved"] = report["before_count"] == report["after_count"]
-report["triggers_preserved"] = (
-    after_trig_n >= 1 and after_trig_n >= before_trig_n and before_trig_n >= 1
-)
+report["rows_preserved"] = before_count == after_count
+report["triggers_preserved"] = exact_before and exact_after
 report["seeded_ponr_holding"] = before_count >= 1
 report["ok"] = (
     probe_rc != 0
+    and report["urls_distinct"]
     and report["seeded_ponr_holding"]
     and report["rows_preserved"]
     and report["triggers_preserved"]
     and effective_non_owner
+    and report["production_untouched"]
 )
 (out / "negative-marker-report.json").write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps(report, indent=2))
 if not report["ok"]:
     raise SystemExit(2)
-(out / "ac-empty-table-must-fail.md").write_text(
-    "# Empty-table wrapper must fail\n\n"
-    "Exits 2 when before_count < 1 (unless HOLO_PROBE_SEED_PONR=1 seeds a row).\n"
+(out / "ac-disposable-only.md").write_text(
+    "# Disposable-only marker DB\n\n"
+    "HOLO_PROBE_MARKER_MISS_DATABASE_URL must be distinct from DATABASE_URL.\n"
+    "Seeding never targets the gate/cutover URL. Production count must be unchanged.\n"
 )
 PY
 
-echo "negative-marker control PASS (forced miss; PONR preserved; holocron_app session; triggers enabled)"
+echo "negative-marker control PASS (disposable-only; exact triggers; holocron_app; production untouched)"

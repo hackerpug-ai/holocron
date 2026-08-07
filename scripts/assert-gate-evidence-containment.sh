@@ -19,7 +19,10 @@ if [[ -z "$RESULTS" || ! -f "$RESULTS" ]]; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
+# Allow fixture repos via GIT_DIR/GIT_WORK_TREE (v5 negative control).
+if [[ -z "${GIT_DIR:-}" ]]; then
+  cd "$ROOT"
+fi
 
 python3 - "$RESULTS" <<'PY'
 import json, os, re, subprocess, sys
@@ -51,7 +54,15 @@ if not HEX40.fullmatch(source):
     errors.append(f"results.source_sha_at_run not 40-hex: {source!r}")
 
 head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+require_head = os.environ.get("ASSERT_PACKAGE_HEAD", "1") == "1"
+# Test-only fixture may set ASSERT_LOCK_COMMIT; production/package path requires HEAD.
 lock_commit = os.environ.get("ASSERT_LOCK_COMMIT", head).strip()
+if require_head and lock_commit != head:
+    errors.append(
+        f"ASSERT_PACKAGE_HEAD requires lock_commit==HEAD; got lock_commit={lock_commit[:12]} "
+        f"HEAD={head[:12]} (refuse non-HEAD lock selection)"
+    )
+    lock_commit = head
 
 lock = None
 lock_oid = None
@@ -192,20 +203,50 @@ if att is not None:
                 if a.returncode != 0:
                     errors.append("source_sha_at_run not ancestor of package_commit")
 
-# Optional HEAD: lock + results still present with same OIDs
-if os.environ.get("ASSERT_PACKAGE_HEAD", "1") == "1" and not errors and hist_oid:
-    r = subprocess.run(["git", "cat-file", "-e", f"{head}:{rel_results}"], capture_output=True)
-    if r.returncode != 0:
-        errors.append("ASSERT_PACKAGE_HEAD: HEAD missing gate-results")
-    else:
-        head_oid = subprocess.check_output(
-            ["git", "rev-parse", f"{head}:{rel_results}"], text=True
-        ).strip()
-        if head_oid != hist_oid:
-            errors.append("ASSERT_PACKAGE_HEAD: HEAD gate-results oid drift")
+# ASSERT_PACKAGE_HEAD: lock loaded must be HEAD's lock blob (not a foreign commit)
+if require_head and not errors and lock_oid:
     r = subprocess.run(["git", "cat-file", "-e", f"{head}:{rel_lock}"], capture_output=True)
     if r.returncode != 0:
         errors.append("ASSERT_PACKAGE_HEAD: HEAD missing attestation lock")
+    else:
+        head_lock_oid = subprocess.check_output(
+            ["git", "rev-parse", f"{head}:{rel_lock}"], text=True
+        ).strip()
+        if head_lock_oid != lock_oid:
+            errors.append(
+                f"ASSERT_PACKAGE_HEAD: HEAD lock oid {head_lock_oid} != loaded lock_oid {lock_oid}"
+            )
+    if hist_oid:
+        r = subprocess.run(["git", "cat-file", "-e", f"{head}:{rel_results}"], capture_output=True)
+        if r.returncode != 0:
+            errors.append("ASSERT_PACKAGE_HEAD: HEAD missing gate-results")
+        else:
+            head_oid = subprocess.check_output(
+                ["git", "rev-parse", f"{head}:{rel_results}"], text=True
+            ).strip()
+            if head_oid != hist_oid:
+                errors.append("ASSERT_PACKAGE_HEAD: HEAD gate-results oid drift")
+
+# C-3 artifact OIDs bound in attestation (when present)
+if att is not None and not errors:
+    package_commit = str(att.get("package_commit") or "")
+    for key, meta in (att.get("artifacts") or {}).items():
+        if not str(key).startswith("c3-"):
+            continue
+        rel = str(meta.get("path") or "")
+        want = str(meta.get("blob_oid") or "")
+        if not rel or not HEX40.fullmatch(want):
+            errors.append(f"C-3 artifact {key} missing path/blob_oid")
+            continue
+        r = subprocess.run(["git", "cat-file", "-e", f"{package_commit}:{rel}"], capture_output=True)
+        if r.returncode != 0:
+            errors.append(f"C-3 artifact missing in package: {rel}")
+            continue
+        got = subprocess.check_output(
+            ["git", "rev-parse", f"{package_commit}:{rel}"], text=True
+        ).strip()
+        if got != want:
+            errors.append(f"C-3 artifact OID mismatch {key}: package={got} att={want}")
 
 out = {
     "ok": len(errors) == 0,
