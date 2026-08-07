@@ -1,0 +1,57 @@
+{
+  "protocol": "C-2-atomic-v5-git-bound-attestation",
+  "source_sha_at_run": "c084ed31a44467dd4178230553175d5d0bb956c8",
+  "package_commit": "39c08627159897a2f8b3f5e196f82ddbc7e2a960",
+  "run_id": "20260807T115948Z",
+  "artifacts": {
+    "gate-results.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/gate-results.json",
+      "blob_oid": "1c73d08d8b7743ea64e0ecb9cc9fd2cff51ecf5e"
+    },
+    "gate-verification.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-verification.json",
+      "blob_oid": "8c2c97730a4a90d5fe0395de192a8a030984798a"
+    },
+    "c3-ac1": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/ponr-role-provenance/ac1-prod-role-disable-trigger.json",
+      "blob_oid": "39c7e5bdbec299dac906b31333aa4f5657ec9a2d"
+    },
+    "c3-ac2": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/ponr-role-provenance/ac2-prod-role-dml-truncate.json",
+      "blob_oid": "407dc1c8e26c7e78868bee6e1416fdf6fc097756"
+    },
+    "c3-marker_miss": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/ponr-role-provenance-marker-miss/negative-marker-report.json",
+      "blob_oid": "6b77ee57d96c9c48fe5bbfa6562b2b673bc3c630"
+    },
+    "c3-one_trigger_missing": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/ponr-one-trigger-missing/one-trigger-missing-report.json",
+      "blob_oid": "a9a5d34669e77b40bd8c7a81c657f6940842b028"
+    },
+    "m3-RED-identity-oracle-baseline.txt": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity/RED-identity-oracle-baseline.txt",
+      "blob_oid": "d6a507d2e2957b46d41f00363cfcfd265d193383"
+    },
+    "m3-mutation-failure.log": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity/mutation-failure.log",
+      "blob_oid": "d6a507d2e2957b46d41f00363cfcfd265d193383"
+    },
+    "m3-suite-vitest.log": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity/suite-vitest.log",
+      "blob_oid": "4abacecf77758713d4a775fe796035e9ca6ecb97"
+    },
+    "m3-manifest.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity/manifest.json",
+      "blob_oid": "964c908cbc9ba03d1f248eda22f389964d84f60b"
+    },
+    "m3-reselect-miss-identity.json": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity/reselect-miss-identity.json",
+      "blob_oid": "ef8200a439e270f0da9d31f8f3e3a2eed4c548fc"
+    },
+    "m3-branch-oracle-map.md": {
+      "path": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity/branch-oracle-map.md",
+      "blob_oid": "ba2b81b9d3f622f28c295e5cc74595109ac71e4d"
+    }
+  },
+  "notes": "Git-bound via evidence-attestation.lock.json. C-3 report blob OIDs are bound under artifacts.c3-* and M-3 under artifacts.m3-*; both must match package_commit objects. No legacy m3-branch-identity."
+}
