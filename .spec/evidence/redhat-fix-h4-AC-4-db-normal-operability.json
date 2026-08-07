@@ -4,7 +4,7 @@
   "dbState": "normal",
   "degradedRefuse": false,
   "degradedMsg": "",
-  "ledgerId": "019f6941-1a42-77bb-824e-6b428f057f89",
-  "anthropicHostContacted": true,
-  "tokens": 21
+  "ledgerId": "019fd37d-a3d9-72bf-a95c-c8e25d892f0f",
+  "escapeHostContacted": true,
+  "tokens": 15
 }

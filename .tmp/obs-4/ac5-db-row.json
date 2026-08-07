@@ -1,8 +1,8 @@
 {
-  "id": "019f732d-a695-7ef7-b3b9-b9c1aa862a62",
-  "run_id": "ci-22b649a9-8826-43af-95df-889d3247abcf",
+  "id": "019fd361-d79a-7752-90cd-48dcd304f01b",
+  "run_id": "ci-21ed3de6-9327-46ed-869f-8efbfc225fb4",
   "sample_id": "known-good",
-  "score": 0.95,
+  "score": 0.9,
   "baseline_threshold": 0.8,
   "dataset_version": "research_v1",
   "judge_model_version": "judge_v1",

@@ -2,10 +2,16 @@
   "ok": true,
   "sha256": "5da5f33d5f042a947d1495bc16a286e89fcd68d3b2acafad42de6d42f6d61834",
   "byteLength": 4044,
-  "capturedAtMs": 1785627175929,
-  "fence_armed_at": 1785627172065,
+  "capturedAtMs": 1785959994588,
+  "fence_armed_at": 1785959992585,
   "shareToken": "9cf8cd35-42e0-4f2a-9b32-1316f3081521",
   "url": "https://acrobatic-echidna-253.convex.site/article/9cf8cd35-42e0-4f2a-9b32-1316f3081521",
   "status": 200,
-  "path": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D06-03/.tmp/D06-03/article-baseline.json"
+  "path": "/Users/inference1/Projects/holocron/.tmp/D06-03/article-baseline.json",
+  "phase": "d06-03-post-arm",
+  "provenance": {
+    "kind": "immutable-pre-freeze-article-baseline",
+    "source": "network-GET-after-fence-arm",
+    "note": "D06-03 operator capture; immutable for later cutover:verify-article (do not re-author from SUT)"
+  }
 }

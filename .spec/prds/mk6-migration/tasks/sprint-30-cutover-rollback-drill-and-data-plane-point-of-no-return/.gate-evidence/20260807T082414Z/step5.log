@@ -1,0 +1,35 @@
+@@GATE-META step=5 run_id=20260807T082414Z git_sha=222a36503b71a2f7a95a58bca7e88b31b9346609 source_sha=222a36503b71a2f7a95a58bca7e88b31b9346609 started_at=2026-08-07T08:24:21Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=222a36503b71a2f7a95a58bca7e88b31b9346609@@
+@@GATE-CMD@@
+bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url http://127.0.0.1:44111
+@@GATE-CMD-END@@
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "target_kind": "convex",
+  "data_plane": "convex",
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "precondition": {
+    "ok": false,
+    "accepted_post_export_writes": 0,
+    "export_watermark_ms": 1786173263558,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+    "ponr_recorded": true,
+    "ponr_id": "e872fc5d-239d-4372-b90e-4a53c993d8a5",
+    "ponr_recorded_at": "2026-08-07 08:24:21.356286+00"
+  },
+  "config": {
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": "convex-frozen"
+  },
+  "acknowledgements": [],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/rollback-repoint-report.json",
+  "error": {
+    "code": "POST_PONR_INELIGIBLE",
+    "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=e872fc5d-239d-4372-b90e-4a53c993d8a5, write_row_id=c09f1c0f-db4f-45af-af55-8e5f8558bb66). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+  }
+}
+@@GATE-EXIT@@ 2

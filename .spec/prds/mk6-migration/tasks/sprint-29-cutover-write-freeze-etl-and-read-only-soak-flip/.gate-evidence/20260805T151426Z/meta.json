@@ -1,0 +1,43 @@
+{
+  "task_id": "REDHAT-FIX-S29-R3-C01",
+  "lineage_task_id": "REDHAT-FIX-S29-R2-H01",
+  "run_id": "20260805T151426Z",
+  "source_sha": "4455732d85592bbddc9eba3637c1eab198b18f0d",
+  "git_sha": "4455732d85592bbddc9eba3637c1eab198b18f0d",
+  "head_bound": true,
+  "status": "aborted",
+  "runner_pid": 68669,
+  "runner_nonce_sha256": "508fdc58a06bffc559a67e9d4230a4e5e266739cf43e09759a640c7df71e18d4",
+  "active_step": 5,
+  "deployed_base_url": "http://192.168.1.160:44111",
+  "service_identity": "http://192.168.1.160:44111",
+  "identity_class": "deployed-http",
+  "landing_eligible": false,
+  "non_landing_reason": null,
+  "started_at": "2026-08-05T15:14:26Z",
+  "historical_stale_run_id": "20260802T004525Z",
+  "historical_preserved": true,
+  "gate_plan_remediation": "REDHAT-FIX-S29-H03",
+  "gate_plan_remediated_at": "20260802T020000Z",
+  "sibling_blockers_for_full_6_of_6": [
+    "REDHAT-FIX-S29-R2-C01",
+    "REDHAT-FIX-S29-R2-C02",
+    "REDHAT-FIX-S29-R2-C03",
+    "REDHAT-FIX-S29-R2-C04",
+    "REDHAT-FIX-S29-R2-H02",
+    "REDHAT-FIX-S29-R2-H03",
+    "REDHAT-FIX-S29-R2-H04",
+    "REDHAT-FIX-S29-R3-C02",
+    "REDHAT-FIX-S29-R3-C03"
+  ],
+  "notes": [
+    "Honest re-run under current gate-plan predicates (H03 + C01 + R3-C01 HEAD bind).",
+    "Never reuses 20260802T004525Z as pass evidence for remediated SHA.",
+    "git_sha == git rev-parse HEAD required; local-process:// is non-landing.",
+    "Full 8/8 may remain blocked until sibling remediations land \u2014 never forge."
+  ],
+  "active_step_started_at": "2026-08-05T15:43:21Z",
+  "active_step_deadline_epoch": 1785945561,
+  "finished_at": "2026-08-05T15:47:21Z",
+  "abort_exit_code": 0
+}

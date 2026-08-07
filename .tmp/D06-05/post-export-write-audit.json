@@ -1,4 +1,5 @@
 {
-  "export_watermark_ms": 1000,
-  "accepted_writes": []
+  "export_watermark_ms": 1786190348757,
+  "accepted_writes": [],
+  "note": "reset-sprint30-gate-ledger: dual-reset (postgres+file); empty pre-gate"
 }

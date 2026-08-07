@@ -1,4 +1,4 @@
-holo budget:status — Claude escape budget ledger
+holo budget:status — DeepSeek escape budget ledger
   spent:             15
   ceiling:           10
   effectiveCeiling:  10

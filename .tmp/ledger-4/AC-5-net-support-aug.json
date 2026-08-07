@@ -1,6 +1,6 @@
 {
-  "objectId": "019f71b5-d7b7-791f-852c-d9a9ce2c1834",
+  "objectId": "019fd37d-44c5-7950-9fe9-c1e1d8441911",
   "asOf": "2024-08-01T00:00:00Z",
-  "netSupport": 0,
+  "netSupport": 1,
   "path": "sql:belief_net_support"
 }

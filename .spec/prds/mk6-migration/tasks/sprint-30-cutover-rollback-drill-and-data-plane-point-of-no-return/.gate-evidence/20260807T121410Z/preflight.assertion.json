@@ -1,0 +1,9 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 2,
+  "require_all_regex": [
+    "DEPLOY_REVISION_MISMATCH",
+    "c084ed31",
+    "14aacf30"
+  ]
+}

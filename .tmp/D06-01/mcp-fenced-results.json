@@ -2,111 +2,109 @@
   "results": [
     {
       "toolId": "store_document",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: store_document blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "update_document",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: update_document blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "share_document",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: share_document blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "add_subscription",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: add_subscription blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "remove_subscription",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: remove_subscription blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "check_subscriptions",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: check_subscriptions blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "set_subscription_filter",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: set_subscription_filter blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "store_tool",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: store_tool blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "update_tool",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: update_tool blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "remove_tool",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: remove_tool blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "shop_products",
-      "rejected": false,
-      "message": "RETAILER_ERROR: amazon: HTTP 500"
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: shop_products blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "start_assimilation",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: start_assimilation blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "approve_assimilation_plan",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: approve_assimilation_plan blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "reject_assimilation_plan",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: reject_assimilation_plan blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "cancel_assimilation",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: cancel_assimilation blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "steer_assimilation",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: steer_assimilation blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "assimilate_creator",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: assimilate_creator blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "regenerate_transcript",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: regenerate_transcript blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "add_improvement",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: add_improvement blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "close_improvement",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: close_improvement blocked while HOLO_MIGRATION_READ_ONLY is set"
     },
     {
       "toolId": "set_improvement_status",
-      "rejected": false
+      "rejected": true,
+      "message": "MIGRATION_READ_ONLY: set_improvement_status blocked while HOLO_MIGRATION_READ_ONLY is set"
     }
   ],
-  "failures": [
-    "store_document: resolved successfully (fence missing)",
-    "update_document: resolved successfully (fence missing)",
-    "share_document: resolved successfully (fence missing)",
-    "add_subscription: resolved successfully (fence missing)",
-    "remove_subscription: resolved successfully (fence missing)",
-    "check_subscriptions: resolved successfully (fence missing)",
-    "set_subscription_filter: resolved successfully (fence missing)",
-    "store_tool: resolved successfully (fence missing)",
-    "update_tool: resolved successfully (fence missing)",
-    "remove_tool: resolved successfully (fence missing)",
-    "shop_products: rejected without MIGRATION_READ_ONLY prefix: RETAILER_ERROR: amazon: HTTP 500",
-    "start_assimilation: resolved successfully (fence missing)",
-    "approve_assimilation_plan: resolved successfully (fence missing)",
-    "reject_assimilation_plan: resolved successfully (fence missing)",
-    "cancel_assimilation: resolved successfully (fence missing)",
-    "steer_assimilation: resolved successfully (fence missing)",
-    "assimilate_creator: resolved successfully (fence missing)",
-    "regenerate_transcript: resolved successfully (fence missing)",
-    "add_improvement: resolved successfully (fence missing)",
-    "close_improvement: resolved successfully (fence missing)",
-    "set_improvement_status: resolved successfully (fence missing)"
-  ]
+  "failures": []
 }

@@ -4,7 +4,7 @@
   "dbDegraded": true,
   "dbState": "surface-unavailable",
   "refused": true,
-  "errorMessage": "degraded mode active — Claude escape refused (never-cloud; local fleet only)",
-  "anthropicCount": 0,
-  "anthropicHits": 0
+  "errorMessage": "degraded mode active — escape refused (never-cloud; local fleet only)",
+  "deepseekCount": 0,
+  "deepseekHits": 0
 }

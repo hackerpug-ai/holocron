@@ -1,14 +1,14 @@
 {
   "result": {
     "name": "task-timeout-worker",
-    "run_key": "job:task-timeout-worker:e33da03e-6af0-4517-a146-113127e8eab6",
+    "run_key": "job:task-timeout-worker:65cff216-89a3-4923-9741-259c2acb62f3",
     "category": "janitor",
     "lane": "interactive",
-    "effect_id": "019fbf92-29bb-7d97-8b6f-c5ea774691ee",
-    "fence_token": "fence-afea0ce7-9aed-42cc-be80-44c271a2492c",
+    "effect_id": "019fd37c-c533-7688-9741-9b73aae44ea9",
+    "fence_token": "fence-d2b1bcda-b320-4371-aa02-def96089531a",
     "ok": true,
     "error": null
   },
-  "before": 35,
-  "after": 36
+  "before": 1,
+  "after": 2
 }

@@ -1,0 +1,57 @@
+{
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+    "sprint_slug": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return"
+  },
+  "run_id": "20260807T071500Z",
+  "verdict": "fail",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 3,
+  "ui_driver": "none",
+  "runner": "orchestrator-shell",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Trigger Sev-1 gate failure / rollback drill",
+      "executed": true,
+      "result": "pass",
+      "evidence": "declared=True; drill_ok=True; err=None",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T071500Z/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "Count accepted post-export production writes = 0",
+      "executed": true,
+      "result": "pass",
+      "evidence": "{\"accepted_count\": 0, \"export_watermark_ms\": 1785959546465}",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T071500Z/step2.log"
+    },
+    {
+      "n": 3,
+      "text": "Pinned Convex-pointing app build + boot verify",
+      "executed": true,
+      "result": "pass",
+      "evidence": "pin=True; boot_err=BOOT_UNVERIFIED",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T071500Z/step3.log"
+    },
+    {
+      "n": 4,
+      "text": "Enable first Postgres production write (PONR)",
+      "executed": true,
+      "result": "fail",
+      "evidence": "ok=False; already_recorded=False; err={'code': 'CONVEX_ESCAPE_HATCH_DIVERGED', 'message': 'cutover:enable-writes refuses: Convex escape hatch diverged past the export watermark. convex_accepted_writes_since_watermark=4 convex_newest_document_creation_time=1785719329047 export_watermark_ms=1785959546465. Fence is left armed; no PONR row recorded.'}",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T071500Z/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "Config rollback after PONR rejected",
+      "executed": true,
+      "result": "fail",
+      "evidence": "code=None; repointed=True",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T071500Z/step5.log"
+    }
+  ],
+  "written_at": "2026-08-07T07:13:24.396339+00:00"
+}

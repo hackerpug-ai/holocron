@@ -1,4 +1,4 @@
-=== STEP 5 @ 22:01:21 ===
+=== STEP 5 @ 19:30:46 ===
 CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic 'AI agents' --json
 {
   "attemptCount": 1,
@@ -7,13 +7,13 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
   "idempotencyKey": "subscriptions:AI agents",
   "ok": true,
   "output": {
-    "documentId": "47e16d7a-d7b0-478f-976c-b4c92e9c7918",
+    "documentId": "9bad198b-a49d-4836-b90f-4f56706b6ac2",
     "fleetManifestVersion": "1.0.0",
     "goal": "AI agents",
-    "publishedAt": "2026-07-21T22:01:21.561Z",
+    "publishedAt": "2026-08-05T19:30:46.366Z",
     "researchAdmitted": false,
-    "researchRunId": "019f86b2-980a-7df3-8dc4-41fcd2a9a162",
-    "sourceRunId": "019f86b2-96c7-7707-a6e4-f6c227cc0d31",
+    "researchRunId": "019fd368-1e0b-7257-b91d-e329c7004088",
+    "sourceRunId": "019fd368-1d50-7867-96e9-dac4c13980c9",
     "subworkflowCalls": [
       "evidence-research"
     ],
@@ -28,7 +28,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
       "wallMs": 360000
     },
     "compilerVersion": "mission-compiler@1.0.0",
-    "definitionHash": "58798837f57e4f0fefa357f0e48e1ab09654a18e72efb921fddc9e626636d58c",
+    "definitionHash": "6dc99e7f5d36432d5a317609df2d7d532d141b0055fd00d20a3c213d914533ce",
     "executorRef": "builtin.subscriptions-commit@1",
     "fleetManifest": {
       "defaultEndpoint": "http://127.0.0.1:4545",
@@ -137,7 +137,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "noCloudFallback": true,
     "outputSchemaRef": "mission.subscriptions.output",
     "outputSchemaVersion": 1,
-    "registrySnapshotHash": "8c6d2948e239c3cb5c92a03217aaf0a22382993700b8a025c327abb2bee51d86",
+    "registrySnapshotHash": "2506c9d9f04d620744d837c3f642099c51af840a0edf4d92744f7cb35826e4fb",
     "roleResolution": {
       "plan": {
         "allowEscape": false,
@@ -153,15 +153,15 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "schemaRef": "mission.subscriptions.output",
     "schemaVersion": 1,
     "templateKey": "subscriptions",
-    "templateVersion": "1.0.0",
-    "traceId": "mission:5b119fad-f0db-4d87-9700-3ea9cfce55c4"
+    "templateVersion": "1.0.3",
+    "traceId": "mission:189ba03c-c657-40fe-b59e-a354d8815a47"
   },
   "replay": false,
-  "runId": "019f86b2-96c7-7707-a6e4-f6c227cc0d31",
+  "runId": "019fd368-1d50-7867-96e9-dac4c13980c9",
   "status": "completed",
   "templateKey": "subscriptions",
-  "templateVersion": "1.0.0",
-  "traceId": "mission:5b119fad-f0db-4d87-9700-3ea9cfce55c4",
+  "templateVersion": "1.0.3",
+  "traceId": "mission:189ba03c-c657-40fe-b59e-a354d8815a47",
   "usage": {
     "budget": {
       "cost": 0,
@@ -173,7 +173,7 @@ CMD: bun run services/platform/src/cli/holo.ts mission run subscriptions --topic
     "maxSteps": 24,
     "stepsUsed": 5,
     "tokens": 0,
-    "wallMs": 2742
+    "wallMs": 2685
   }
 }
 

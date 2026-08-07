@@ -1,0 +1,15 @@
+@@GATE-META step=8 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T181751Z source_sha=2425a2900e9e41783473439b198552d7b81d9bc1 git_sha=2425a2900e9e41783473439b198552d7b81d9bc1 started_at=2026-08-05T18:29:31Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; : "${HOLO_PRODUCTION_BASE_URL:?HOLO_PRODUCTION_BASE_URL is required}"; mkdir -p .tmp/D06-05 .tmp/REDHAT-FIX-S29-H03; test -f .tmp/D06-05/flip-report.json; jq -e '.ok == true and .env_value == "1"' .tmp/D06-05/flip-report.json >/dev/null; bun services/platform/src/cli/holo.ts --help 2>&1 | tee .tmp/REDHAT-FIX-S29-H03/step8-dispatcher-help.txt | rg -q 'cutover:(flip|verify-soak)'; HOLO_RN_KEY="$(bun -e 'import { getSecretValue, resolveSecretsPathFromEnv } from "./services/platform/src/config/secrets.ts"; const v=getSecretValue("HOLO_KEY_RN",{secretsPath:resolveSecretsPathFromEnv()}); if(!v) process.exit(2); process.stdout.write(v)')"; HTTP_STATUS="$(curl -sS -o .tmp/REDHAT-FIX-S29-H03/step8-write-body.json -w '%{http_code}' -X POST "$HOLO_PRODUCTION_BASE_URL/api/documents" -H "Authorization: Bearer $HOLO_RN_KEY" -H 'Content-Type: application/json' --data '{"title":"sprint29-gate","content":"write-must-be-rejected"}')"; unset HOLO_RN_KEY; jq -n --argjson status "$HTTP_STATUS" --slurpfile body .tmp/REDHAT-FIX-S29-H03/step8-write-body.json '{status:$status,body:$body[0]}' | tee .tmp/REDHAT-FIX-S29-H03/step8-write-probe.json; jq -e '.status == 423 and ((.body.error == "migration_read_only") or (.body.code == "migration_read_only"))' .tmp/REDHAT-FIX-S29-H03/step8-write-probe.json
+---
+{
+  "status": 423,
+  "body": {
+    "error": "migration_read_only",
+    "code": "migration_read_only"
+  }
+}
+true
+---
+@@GATE-EXIT=0@@
+@@GATE-ENDED=2026-08-05T18:29:32Z@@
+@@GATE-TIMEOUT-CAP=180s@@
