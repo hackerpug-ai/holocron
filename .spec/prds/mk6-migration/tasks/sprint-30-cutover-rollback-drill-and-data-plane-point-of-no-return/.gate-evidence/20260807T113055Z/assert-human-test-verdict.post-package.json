@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-human-test-verdict.sh",
+  "results_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-results.json",
+  "verdict": "pass",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 5,
+  "git_sha": "a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502",
+  "source_sha_at_run": "a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502",
+  "blob_identity": {
+    "ok": true,
+    "tool": "scripts/assert-gate-evidence-containment.sh",
+    "protocol": "C-2-atomic-v5-git-bound-attestation",
+    "lock_commit": "439631d217a93ecada8bef246f56782788733043",
+    "lock_oid": "b0f7782bdef1b0b604607817687816e55d845fd2",
+    "attestation_commit": "b9a7f91193b1dd3d11288186625b126e3cf9f713",
+    "attestation_blob_oid": "9fff4ba03da581c038ff13d55137f92bf5c29d74",
+    "package_commit": "52ed2d0280ee7d14e2bf2d913c15596448f39c4f",
+    "hist_oid": "f45ad08b8780634accd66fe4db6f2438bf790a31",
+    "sub_oid": "f45ad08b8780634accd66fe4db6f2438bf790a31",
+    "blob_identity_ok": true,
+    "attestation_git_bound": true,
+    "run_id": "20260807T113055Z",
+    "errors": []
+  },
+  "c3": {
+    "ok": true,
+    "errors": [],
+    "m3_package_bound": true,
+    "m3": {
+      "ok": true,
+      "tool": "scripts/assert-m3-identity-evidence.sh",
+      "root": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T113055Z/m3-identity",
+      "legacy_fallback_accepted": false,
+      "package_commit": null,
+      "oid_map": {},
+      "errors": []
+    }
+  },
+  "errors": []
+}
