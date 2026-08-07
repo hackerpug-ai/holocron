@@ -1,0 +1,80 @@
+{
+  "tree": "m3-identity",
+  "files": [
+    {
+      "path": "RED-identity-oracle-baseline.txt",
+      "sha256": "f1c320ecba00652b6081a40ecb610c82848fadcad97b1a7dd7baa94f4e791fed",
+      "bytes": 259
+    },
+    {
+      "path": "branch-oracle-map.md",
+      "sha256": "cd95d3e99176e1677e2733d1217156e3dbcc076c81c3e487796d1b02cfd8a5bb",
+      "bytes": 562
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "edb76c514b097ba452e40f87cf0aaa928313ce41a92d309c7d4ada0b2cb726d3",
+      "bytes": 2354
+    },
+    {
+      "path": "mutation-failure.log",
+      "sha256": "c94d1795dc2471983d9569fac52b08890d3ef288b2a323d70e01aa8b45363afa",
+      "bytes": 260
+    },
+    {
+      "path": "non-201-accepted-id-enable-writes.json",
+      "sha256": "95f2bb827c0169d6c8d90fab2d72120fa98709cbb7395c272753827dfda6e638",
+      "bytes": 889
+    },
+    {
+      "path": "non-201-accepted-id-fence-ledger.json",
+      "sha256": "41c43f086c3f8cda25276ed7a81bb0c0e82299bf969fe944ea71e2747096aedf",
+      "bytes": 572
+    },
+    {
+      "path": "non-201-accepted-id-rollback-refuse.json",
+      "sha256": "d250779ddfd4a4841870560b181a1f3131873aa5257b803813d2a9ce3c1e0ec5",
+      "bytes": 1120
+    },
+    {
+      "path": "reselect-miss-enable-writes.json",
+      "sha256": "5ba97b762db9c57ff4a6a2c6031531c5424b01310c5c708a69f8b4c8f7e455e0",
+      "bytes": 926
+    },
+    {
+      "path": "reselect-miss-fence-ledger.json",
+      "sha256": "7b23a640a52a452bfd242901dfb4601698682edf837b37765ff25f3e2f9356c8",
+      "bytes": 687
+    },
+    {
+      "path": "reselect-miss-identity.json",
+      "sha256": "faaa9d6a5aaf6911e7d0ba74a13b299c38e5d190b382202eef9f419e5eb72f2a",
+      "bytes": 776
+    },
+    {
+      "path": "reselect-miss-rollback-refuse.json",
+      "sha256": "b34cc1057f65d4b85e2025929fc8f2661b27e3db6747f1b835f753f78216d21e",
+      "bytes": 1114
+    },
+    {
+      "path": "suite-vitest.log",
+      "sha256": "51704fe365f1fab4c3c46269121875356521e0bf34f01b7e3ec85e4735153214",
+      "bytes": 825
+    },
+    {
+      "path": "transport-error-enable-writes.json",
+      "sha256": "c21b60e9e241b8fb314edf9f9c28c10053c9c1d8440c071f2e19a02406cdb9f8",
+      "bytes": 848
+    },
+    {
+      "path": "transport-error-fence-ledger.json",
+      "sha256": "ce154348dd3e4acd9bc2c5f49f2088a2691884107bd2efce2c4c977223d31957",
+      "bytes": 576
+    },
+    {
+      "path": "transport-error-rollback-refuse.json",
+      "sha256": "53b7c1444a2f837ce0a6b55a2a526f08f6e67ef079d8c7532fc7b8b92a62e474",
+      "bytes": 1116
+    }
+  ]
+}
