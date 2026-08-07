@@ -91,8 +91,7 @@ function isolatedLaneEnv(
   const env = { ...ambientEnv };
   // Preserve a full operator environment here so the production isolation
   // boundary—not the test helper—must remove broad restore credentials.
-  const databaseUrl =
-    'postgres://integration:integration@127.0.0.1:65432/holocron_nonprod';
+  const databaseUrl = 'postgres://integration:integration@127.0.0.1:65432/holocron_nonprod';
   const merged: NodeJS.ProcessEnv = {
     ...env,
     HOLO_GO_NO_GO_CONVEX_DEPLOYMENT: 'local:test-s29',
