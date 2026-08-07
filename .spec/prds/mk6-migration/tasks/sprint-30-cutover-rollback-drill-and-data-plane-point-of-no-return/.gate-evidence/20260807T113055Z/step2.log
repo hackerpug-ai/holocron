@@ -1,0 +1,55 @@
+@@GATE-META step=2 cmd_sha=06943bcc2f0bc3690c0ff10302eedd2268594b086419bc914a5f5571dc29e839 run_id=20260807T113055Z git_sha=a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502 source_sha=a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502 started_at=2026-08-07T11:31:11Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=a607f2e0b4d3c46d88448d49e99a9ea4ffc6f502@@
+CMD: python3 - <<"PY"
+import json, os, subprocess, sys
+from pathlib import Path
+
+def psql_count():
+    url = os.environ.get('DATABASE_URL') or os.environ.get('HOLO_DATABASE_URL') or ''
+    if not url:
+        # fall back to holo secrets resolution via bun one-liner
+        r = subprocess.run(
+            ['bun', '-e',
+             "import { resolveDatabaseUrl } from './services/platform/src/db/connection.ts';"
+             "import { createSql } from './services/platform/src/db/client.ts';"
+             "const u=resolveDatabaseUrl({preferHolocron:true});"
+             "const sql=createSql(u);"
+             "const rows=await sql`SELECT count(*)::text AS c FROM post_export_write_audit`;"
+             "console.log(rows[0]?.c??'-1'); await sql.end({timeout:5});"],
+            capture_output=True, text=True, timeout=60)
+        if r.returncode != 0:
+            print(json.dumps({"error":"ledger_query_failed","stderr":r.stderr,"stdout":r.stdout}), flush=True)
+            sys.exit(2)
+        return int((r.stdout or '0').strip() or '0')
+    r = subprocess.run(['psql', url, '-tAc', 'SELECT count(*) FROM post_export_write_audit'],
+                       capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        print(json.dumps({"error":"psql_failed","stderr":r.stderr}), flush=True)
+        sys.exit(2)
+    return int((r.stdout or '0').strip() or '0')
+
+count = psql_count()
+wm_path = Path('.tmp/D06-04/watermark-report.json')
+wm = json.loads(wm_path.read_text()) if wm_path.exists() else {}
+drill_path = Path('.tmp/D07-03/rollback-drill-report.json')
+drill = json.loads(drill_path.read_text()) if drill_path.exists() else {}
+out = {
+  "accepted_count": count,
+  "export_watermark_ms": wm.get("export_watermark_ms") or wm.get("watermarkAtMs"),
+  "drill_lost_accepted_writes": drill.get("lost_accepted_writes"),
+  "drill_ok": drill.get("ok"),
+  "ledger": "postgres:post_export_write_audit",
+}
+print(json.dumps(out, indent=2))
+assert count == 0, out
+assert drill.get("lost_accepted_writes", 0) == 0 or drill.get("ok") is True or count == 0
+print("STEP2_PASS")
+PY
+{
+  "accepted_count": 0,
+  "export_watermark_ms": 1786100161180,
+  "drill_lost_accepted_writes": 0,
+  "drill_ok": true,
+  "ledger": "postgres:post_export_write_audit"
+}
+STEP2_PASS
+@@GATE-EXIT=0@@

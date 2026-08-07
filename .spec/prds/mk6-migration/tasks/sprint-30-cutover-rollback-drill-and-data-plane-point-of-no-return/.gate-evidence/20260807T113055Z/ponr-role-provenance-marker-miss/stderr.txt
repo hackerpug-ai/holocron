@@ -1,0 +1,6 @@
+FATAL: missing PROBE_ROLLBACK_MARKER — hard-fail, no DDL/DML fallback (C-3)
+BEGIN
+
+ERROR:  PROBE_ROLLBACK_MARKER cur=holocron_app dis=1 trc=1 upd=1 del=1 edis=42501:permission denied for schema zero_0 etrc=42501:permission denied for table data_plane_ponr eupd=42501:permission denied for table data_plane_ponr edel=42501:permission denied for table data_plane_ponr
+CONTEXT:  PL/pgSQL function inline_code_block line 38 at RAISE
+

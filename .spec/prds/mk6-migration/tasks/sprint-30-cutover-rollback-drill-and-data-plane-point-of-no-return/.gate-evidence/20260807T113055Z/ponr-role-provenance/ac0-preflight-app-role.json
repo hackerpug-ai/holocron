@@ -1,0 +1,9 @@
+{
+  "role": "holocron_app",
+  "session_user": "holocron_app",
+  "is_superuser": false,
+  "table_owner": "inference1",
+  "is_table_owner": false,
+  "ponr_row_count_before": 1,
+  "triggers_enabled_before": true
+}
