@@ -14,7 +14,7 @@ capability_coverage: [CAP-CUT-01]
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: 0/5 tasks completed · updated 2026-08-07T05:24:03Z
+> Progress: 0/5 tasks completed · updated 2026-08-07T05:45:54Z
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
