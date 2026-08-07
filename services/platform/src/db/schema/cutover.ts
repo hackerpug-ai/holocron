@@ -3,7 +3,11 @@
  *
  * Append-only singleton row binding the first accepted Postgres production write
  * to a live Convex escape-hatch snapshot. Immutability is enforced in migration
- * 0030 (grants + BEFORE UPDATE/DELETE trigger), not in application code.
+ * 0030 (grants + BEFORE UPDATE/DELETE trigger) and 0031 (BEFORE TRUNCATE),
+ * not in application code.
+ *
+ * post_export_write_audit (0032 / REDHAT-FIX-RH-S30-03) is the production-bound
+ * accepted-write oracle consulted by rollback-repoint.
  */
 import { sql } from 'drizzle-orm';
 import { bigint, check, pgTable, text, uuid } from 'drizzle-orm/pg-core';
@@ -46,3 +50,16 @@ export const dataPlanePonr = pgTable(
 
 export type DataPlanePonrRow = typeof dataPlanePonr.$inferSelect;
 export type DataPlanePonrInsert = typeof dataPlanePonr.$inferInsert;
+
+/** REDHAT-FIX-RH-S30-03 — production-bound post-export accepted-write oracle. */
+export const postExportWriteAudit = pgTable('post_export_write_audit', {
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  committedAtMs: bigint('committed_at_ms', { mode: 'number' }).notNull(),
+  surface: text('surface').notNull(),
+  writeRowId: text('write_row_id'),
+  exportWatermarkMs: bigint('export_watermark_ms', { mode: 'number' }).notNull(),
+  recordedAt: timestamptz('recorded_at').default(sql`now()`).notNull(),
+});
+
+export type PostExportWriteAuditRow = typeof postExportWriteAudit.$inferSelect;
+export type PostExportWriteAuditInsert = typeof postExportWriteAudit.$inferInsert;

@@ -57,31 +57,51 @@ function sha256File(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-/** Fixture post_export_writes_n3 via real writePostExportWriteAudit entrypoint. */
-function seedPostExportWritesN3(exportMs: number): void {
+/** Fixture post_export_writes_n3 via file mirror + Postgres ledger (RH-S30-03). */
+async function seedPostExportWritesN3(exportMs: number): Promise<void> {
+  const writes = [
+    {
+      committed_at_ms: exportMs + 5_000,
+      surface: 'hono.POST /api/documents',
+      id: 'n3-doc-1',
+    },
+    {
+      committed_at_ms: exportMs + 10_000,
+      surface: 'mcp.store_document',
+      id: 'n3-mcp-2',
+    },
+    {
+      committed_at_ms: exportMs + 15_000,
+      surface: 'mission.publish',
+      id: 'n3-mission-3',
+    },
+  ];
   writePostExportWriteAudit(
     {
       export_watermark_ms: exportMs,
-      accepted_writes: [
-        {
-          committed_at_ms: exportMs + 5_000,
-          surface: 'hono.POST /api/documents',
-          id: 'n3-doc-1',
-        },
-        {
-          committed_at_ms: exportMs + 10_000,
-          surface: 'mcp.store_document',
-          id: 'n3-mcp-2',
-        },
-        {
-          committed_at_ms: exportMs + 15_000,
-          surface: 'mission.publish',
-          id: 'n3-mission-3',
-        },
-      ],
+      accepted_writes: writes,
     },
     AUDIT_PATH
   );
+  const { recordPostExportAcceptedWrite, clearPostExportWriteAuditLedger } = await import(
+    '../../src/cutover/post-export-write-audit.ts'
+  );
+  const { resolveTestDatabaseUrl } = await import('./sprint30-cutover-harness.ts');
+  try {
+    await clearPostExportWriteAuditLedger({ databaseUrl: resolveTestDatabaseUrl() });
+  } catch {
+    /* table may be fresh */
+  }
+  for (const w of writes) {
+    await recordPostExportAcceptedWrite({
+      surface: w.surface,
+      writeRowId: w.id,
+      committedAtMs: w.committed_at_ms,
+      exportWatermarkMs: exportMs,
+      databaseUrl: resolveTestDatabaseUrl(),
+      mirrorToFile: false,
+    });
+  }
 }
 
 function parseDrill(stdout: string): DrillReport {
@@ -309,7 +329,7 @@ describe('D07-03 rollback drill (UC-SYNC-04 / T-SYNC-013)', () => {
       seedDisposableSecrets({ readOnly: '1' });
       const wm = seedExportWatermark();
       exportMs = wm.exportMs;
-      seedPostExportWritesN3(exportMs);
+      await seedPostExportWritesN3(exportMs);
 
       const secretsBefore = sha256File(DISPOSABLE_SECRETS);
       const rawBefore = recomputeAcceptedPostExportWritesFromRawFile(AUDIT_PATH);

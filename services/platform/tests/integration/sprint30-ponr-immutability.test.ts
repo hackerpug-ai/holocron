@@ -14,6 +14,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSql } from '../../src/db/client.ts';
 import { HOLOCRON_APP_ROLE, toAppRoleDatabaseUrl } from '../../src/db/evidence/roles.ts';
 import {
+  attemptBareTruncateDataPlanePonr,
+  countDataPlanePonr,
   DISPOSABLE_SECRETS,
   ENABLE_WRITES_REPORT_PATH,
   holo,
@@ -261,6 +263,54 @@ describe('D07-01 RED: data_plane_ponr immutability (DB SQLSTATE)', () => {
       } finally {
         await ownerSql.end({ timeout: 5 });
       }
+    });
+  }, 180_000);
+
+  it('RH-S30-01: TRUNCATE fails closed with PONR_IMMUTABLE; row remains; rollback POST_PONR_INELIGIBLE', async () => {
+    await withCutoverSharedLock(async () => {
+      seedDisposableSecrets({ readOnly: '1' });
+      const { exportMs } = seedExportWatermark();
+      seedEmptyPostExportAudit(exportMs);
+
+      liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
+      await waitHealth(liveServing.baseUrl);
+      const env = holoEnv(liveServing.baseUrl, liveServing.pid);
+
+      const enable = holo(
+        ['cutover:enable-writes', '--json', '--output', ENABLE_WRITES_REPORT_PATH],
+        env
+      );
+      writeEvidence('rh-s30-01-enable-writes.json', {
+        status: enable.status,
+        stdout: enable.stdout,
+        stderr: enable.stderr,
+      });
+      expect(enable.status).toBe(0);
+
+      const before = await selectPonrRow();
+      expect(before).not.toBeNull();
+      const countBefore = await countDataPlanePonr();
+      expect(countBefore).toBe(1);
+
+      const trunc = await attemptBareTruncateDataPlanePonr();
+      writeEvidence('rh-s30-01-truncate.json', trunc);
+      expect(trunc.succeeded).toBe(false);
+      expect(trunc.message).toContain('PONR_IMMUTABLE');
+
+      const countAfter = await countDataPlanePonr();
+      expect(countAfter).toBe(1);
+      const after = await selectPonrRow();
+      expect(after?.id).toBe(before!.id);
+      expect(after?.write_row_digest_sha256).toBe(before!.write_row_digest_sha256);
+
+      const refuse = holo(['cutover:rollback-repoint', '--json'], env);
+      writeEvidence('rh-s30-01-rollback-refuse.json', {
+        status: refuse.status,
+        stdout: refuse.stdout,
+        stderr: refuse.stderr,
+      });
+      expect(refuse.status).toBe(2);
+      expect(refuse.stdout + refuse.stderr).toContain('POST_PONR_INELIGIBLE');
     });
   }, 180_000);
 });

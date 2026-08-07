@@ -1,13 +1,20 @@
 /**
  * D06-03 — migration fence audit + operator probe surfaces.
  *
- * INTENTIONALLY UNFENCED (raw _generated/server imports). The env var remains
- * the sole enforcement mechanism; this module is observability + freeze bookkeeping
- * so quiet-check can record rejected write probes while HOLO_MIGRATION_READ_ONLY=1.
+ * INTENTIONALLY UNFENCED from the generic write fence (raw _generated/server).
+ * REDHAT-FIX-RH-S30-04: when HOLO_MIGRATION_READ_ONLY is armed, recordWriteAttempt
+ * requires operatorSecret matching HOLO_CUTOVER_OPERATOR_SECRET so unauthenticated
+ * public callers cannot forge the accepted-write oracle.
+ *
+ * Operator tooling (holo cutover:quiet-check) passes operatorSecret from env/secrets.
  */
 import { v } from 'convex/values';
 import { mutation, query } from '../_generated/server';
-import { isMigrationReadOnly, MIGRATION_READ_ONLY_ENV } from '../lib/migrationFence';
+import {
+  assertCutoverOperatorAuthorized,
+  isMigrationReadOnly,
+  MIGRATION_READ_ONLY_ENV,
+} from '../lib/migrationFence';
 
 /**
  * Read-only runtime propagation oracle for operator sequencing.
@@ -42,15 +49,21 @@ export const recordFenceArmed = mutation({
   },
 });
 
-/** Record a single accepted/rejected write attempt for quiet-check oracle. */
+/**
+ * Record a single accepted/rejected write attempt for quiet-check oracle.
+ * Under armed fence: requires operatorSecret (REDHAT-FIX-RH-S30-04).
+ */
 export const recordWriteAttempt = mutation({
   args: {
     outcome: v.union(v.literal('accepted'), v.literal('rejected')),
     surface: v.string(),
     reason: v.optional(v.string()),
     atMs: v.optional(v.number()),
+    /** Required when HOLO_MIGRATION_READ_ONLY is armed. */
+    operatorSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertCutoverOperatorAuthorized('migrationFence.audit.recordWriteAttempt', args.operatorSecret);
     const atMs = args.atMs ?? Date.now();
     const id = await ctx.db.insert('migrationFenceAudit', {
       kind: 'write_attempt',
