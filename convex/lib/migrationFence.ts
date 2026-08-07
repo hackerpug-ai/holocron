@@ -34,12 +34,57 @@ export const MIGRATION_READ_ONLY_ENV = 'HOLO_MIGRATION_READ_ONLY';
 export const CUTOVER_SCHEDULES_DISABLED_ENV = 'HOLO_CUTOVER_SCHEDULES_DISABLED';
 
 /**
+ * Operator secret for legitimate cutover tooling under an armed fence
+ * (REDHAT-FIX-RH-S30-04).
+ *
+ * Set on the Convex deployment:
+ *   npx convex env set HOLO_CUTOVER_OPERATOR_SECRET '<value>'
+ *
+ * Platform cutover CLI / quiet-check / freeze pass the same value via
+ * mutation arg `operatorSecret` (sourced from process.env or secrets.yaml).
+ * Unauthenticated public calls without the secret are rejected while the
+ * fence is armed — no side effects.
+ */
+export const CUTOVER_OPERATOR_SECRET_ENV = 'HOLO_CUTOVER_OPERATOR_SECRET';
+
+/**
  * True when the durable fence is armed.
  * Primary contract value is the literal '1'; 'true' accepted for D06-01 parity.
  */
 export function isMigrationReadOnly(): boolean {
   const v = process.env[MIGRATION_READ_ONLY_ENV];
   return v === '1' || v === 'true';
+}
+
+/**
+ * Fail-closed gate for intentionally-unfenced migrationFence mutations that
+ * still mutate production state (seed/drain/audit write attempts).
+ *
+ * When HOLO_MIGRATION_READ_ONLY is armed, requires args.operatorSecret to match
+ * the deployment env HOLO_CUTOVER_OPERATOR_SECRET (non-empty). Throws on mismatch
+ * WITHOUT performing any DB side effects.
+ *
+ * When the fence is not armed, returns without error (legacy test helpers).
+ */
+export function assertCutoverOperatorAuthorized(
+  surface: string,
+  operatorSecret: string | undefined | null
+): void {
+  if (!isMigrationReadOnly()) return;
+  const expected = process.env[CUTOVER_OPERATOR_SECRET_ENV] ?? '';
+  if (!expected || expected.length < 8) {
+    throw new Error(
+      `migration_fence: ${surface} refused under ${MIGRATION_READ_ONLY_ENV} — ` +
+        `${CUTOVER_OPERATOR_SECRET_ENV} not configured on Convex deployment ` +
+        `(REDHAT-FIX-RH-S30-04). Operator tooling must set the secret and pass operatorSecret.`
+    );
+  }
+  if (typeof operatorSecret !== 'string' || operatorSecret !== expected) {
+    throw new Error(
+      `migration_fence: ${surface} refused under ${MIGRATION_READ_ONLY_ENV} — ` +
+        `unauthenticated/public call without valid operatorSecret (REDHAT-FIX-RH-S30-04)`
+    );
+  }
 }
 
 /**

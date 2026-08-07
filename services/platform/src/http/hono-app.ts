@@ -13,6 +13,14 @@ import { streamSSE } from 'hono/streaming';
 import { upsertFileObject } from '../blob/file-objects.ts';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
 import { isSha256Hex } from '../blob/utils.ts';
+import {
+  probeContentFromObservedPlane,
+  readDocumentFromObservedPlane,
+} from '../cutover/data-plane-content.ts';
+import {
+  isExportWatermarkActive,
+  recordPostExportAcceptedWrite,
+} from '../cutover/post-export-write-audit.ts';
 import { createSoakFenceMiddleware } from '../cutover/soak-fence.ts';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -346,6 +354,54 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
     }
   });
 
+  /**
+   * Content-plane probe (REDHAT-FIX-RH-S30-02).
+   * Returns one real document from the observed data plane (Convex when
+   * HOLO_DATA_PLANE=convex). Health-label echo alone is insufficient for
+   * rollback-drill post-repoint oracle.
+   */
+  app.get('/api/content-probe', async (c) => {
+    const result = await probeContentFromObservedPlane();
+    return c.json(
+      {
+        ok: result.ok,
+        data_plane: result.data_plane,
+        source: result.source,
+        document: result.document,
+        ...(result.error ? { error: result.error } : {}),
+      },
+      result.status as 200 | 404 | 500 | 502
+    );
+  });
+
+  /**
+   * Document GET routed by resolveObservedDataPlane (REDHAT-FIX-RH-S30-02).
+   * When data_plane=='convex', returns Convex document fields; else Postgres.
+   */
+  app.get('/api/documents/:id', async (c) => {
+    const documentId = c.req.param('id');
+    const result = await readDocumentFromObservedPlane(documentId);
+    if (!result.ok || !result.document) {
+      return c.json(
+        {
+          error: result.error ?? 'not_found',
+          message: result.error ?? 'document not found',
+          data_plane: result.data_plane,
+          source: result.source,
+        },
+        result.status as 404 | 500 | 502
+      );
+    }
+    return c.json(
+      {
+        document: result.document,
+        data_plane: result.data_plane,
+        source: result.source,
+      },
+      200
+    );
+  });
+
   /** Durable Markdown article creation for the native import modal. */
   app.post('/api/documents', async (c) => {
     try {
@@ -367,7 +423,16 @@ export function createHonoApp(options?: CreateHonoAppOptions): HonoApp {
           VALUES (${crypto.randomUUID()}::uuid, ${title}, ${content}, ${category}, 'draft', ${new Date().toISOString()})
           RETURNING id::text AS id, title, content, category
         `;
-        return c.json({ document: rows[0] }, 201);
+        const document = rows[0];
+        // REDHAT-FIX-RH-S30-03: production-bound write audit when export watermark active.
+        if (document?.id && isExportWatermarkActive()) {
+          await recordPostExportAcceptedWrite({
+            surface: 'hono.POST /api/documents',
+            writeRowId: document.id,
+            committedAtMs: Date.now(),
+          });
+        }
+        return c.json({ document }, 201);
       } finally {
         await sql.end({ timeout: 5 });
       }

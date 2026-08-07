@@ -1,5 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getSecretValue } from '../config/secrets.ts';
+import { readDocumentFromObservedPlane } from '../cutover/data-plane-content.ts';
+import {
+  isExportWatermarkActive,
+  recordPostExportAcceptedWrite,
+} from '../cutover/post-export-write-audit.ts';
 import { assertMcpWritable } from '../cutover/soak-fence.ts';
 import type { Sql } from '../db/client.ts';
 import { createSql, toSqlJsonValue } from '../db/client.ts';
@@ -911,12 +916,29 @@ export async function executePostgresMcpTool(
         return { toolId, updated: true, embeddingStatus: 'pending' };
       }
       case 'get_document': {
+        // REDHAT-FIX-RH-S30-02: route content reads via observed data plane.
+        const planeRead = await readDocumentFromObservedPlane(String(input.documentId));
+        if (planeRead.source === 'convex' && planeRead.document) {
+          return {
+            documentId: planeRead.document.id,
+            title: planeRead.document.title,
+            content: planeRead.document.content,
+            status: planeRead.document.status ?? null,
+            data_plane: planeRead.data_plane,
+            source: planeRead.source,
+          };
+        }
+        if (planeRead.source === 'convex' && !planeRead.document) {
+          return null;
+        }
         const rows = await sql`
           SELECT id::text AS "documentId", title, content, status, is_public AS "isPublic",
                  share_token AS "shareToken", date, created_at AS "createdAt"
           FROM documents WHERE id = ${String(input.documentId)}::uuid LIMIT 1
         `;
-        return rows[0] ?? null;
+        const row = rows[0] as Record<string, unknown> | undefined;
+        if (!row) return null;
+        return { ...row, data_plane: planeRead.data_plane ?? 'postgres', source: 'postgres' };
       }
       case 'list_documents': {
         const limit = Math.min(Number(input.limit ?? 50), 100);
@@ -934,7 +956,16 @@ export async function executePostgresMcpTool(
           VALUES (${randomUUID()}::uuid, ${String(input.title)}, ${String(input.content)}, 'draft', false)
           RETURNING id::text AS "documentId", title
         `;
-        return { ...rows[0], embeddingStatus: 'pending' };
+        const stored = rows[0] as { documentId?: string; title?: string } | undefined;
+        // REDHAT-FIX-RH-S30-03: production-bound write audit when export watermark active.
+        if (stored?.documentId && isExportWatermarkActive()) {
+          await recordPostExportAcceptedWrite({
+            surface: 'mcp.store_document',
+            writeRowId: stored.documentId,
+            committedAtMs: Date.now(),
+          });
+        }
+        return { ...stored, embeddingStatus: 'pending' };
       }
       case 'update_document': {
         const documentId = String(input.documentId);
