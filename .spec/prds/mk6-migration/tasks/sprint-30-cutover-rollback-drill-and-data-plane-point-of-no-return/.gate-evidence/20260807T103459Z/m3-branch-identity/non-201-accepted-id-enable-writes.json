@@ -1,0 +1,21 @@
+{
+  "ok": false,
+  "already_recorded": false,
+  "ponr_id": null,
+  "write_row_id": "00000000-0000-4000-8000-dddddddddddd",
+  "write_row_digest_sha256": null,
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": "2026-08-07T10:20:22.102Z",
+  "write_committed_at": null,
+  "base_url": "http://127.0.0.1:54791",
+  "export_watermark_ms": 1786184415292,
+  "convex_fence_audit_id": null,
+  "convex_documents_total": null,
+  "convex_accepted_writes_since_watermark": null,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-RH-S30-22/non-201-accepted-id-enable-writes.json",
+  "error": {
+    "code": "FIRST_WRITE_FAILED",
+    "message": "cutover:enable-writes refuses: injected non-201 with accepted documentId=00000000-0000-4000-8000-dddddddddddd (RH-S30-09 M-3). Fence re-armed=true; post_export_write_audit recorded=true."
+  }
+}
