@@ -1,0 +1,3 @@
+error: HOLO_PROBE_MARKER_MISS_DATABASE_URL canonically equals DATABASE_URL (refuse production/gate seed)
+  gate_canon=postgresql://127.0.0.1:5432/holocron
+  marker_canon=postgresql://127.0.0.1:5432/holocron

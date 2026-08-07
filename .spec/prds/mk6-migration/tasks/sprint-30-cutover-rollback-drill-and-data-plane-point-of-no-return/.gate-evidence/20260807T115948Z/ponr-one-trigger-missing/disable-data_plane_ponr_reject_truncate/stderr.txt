@@ -1,0 +1,5 @@
+complementary_do_snapshot:
+data_plane_ponr_reject_mutation|O
+data_plane_ponr_reject_truncate|D
+error: both required PONR triggers must exist and be tgenabled=O before probe
+got: [{"tgname":"data_plane_ponr_reject_mutation","tgenabled":"O"}, {"tgname":"data_plane_ponr_reject_truncate","tgenabled":"D"}]
