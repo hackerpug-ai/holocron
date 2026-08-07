@@ -15,7 +15,7 @@ capability_coverage: [CAP-CUT-01]
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
 > Progress: Seventh closeout blockers **fixed** — disposable-only C-3 DB + exact dual triggers + package-bound C-3 OIDs; C-2 HEAD lock bind + v5 OID-mismatch negative; M-3 fail-closed identity tree · gate `20260807T105804Z` **5/5 verified:true** package=`f033bc86` · **not release-approved** · updated 2026-08-07T11:00:00Z
-> Status-Note: Eighth residuals (RH-S30-32) implemented. Fresh tip-bound package `20260807T113055Z` (source `a607f2e0`, package `52ed2d02`, lock tip `62d72dff`) ready for independent final closeout re-review. Sprint stays **In Progress**. No complete/release claim.
+> Status-Note: Eighth residuals (RH-S30-32) + secrets re-arm quote repair. Fresh tip-bound package `20260807T113518Z` (source `74c3846c`, package `47dffa31`, lock `ec0d354c`, post-package tip `7d6ac3b0`) supersedes partial `20260807T112331Z`. Sprint stays **In Progress**. No complete/release claim.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
