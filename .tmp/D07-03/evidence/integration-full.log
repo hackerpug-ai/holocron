@@ -1,0 +1,16 @@
+
+ RUN  v4.1.0 /private/tmp/holocron-s30-D07-03
+
+ ✓ |integration| services/platform/tests/integration/sprint30-rollback-drill.test.ts (6 tests) 45556ms
+     ✓ AC-1: Sev-1 trigger from real failing verify-tools against unreachable base URL  660ms
+     ✓ AC-2: five write surfaces blocked with migration_read_only while fenced  4131ms
+     ✓ AC-2-negative: same five write probes succeed when fence is disarmed  10395ms
+     ✓ AC-3: real rollback-repoint CLI exit 0 + independent recompute matches zero  12147ms
+     ✓ AC-4: N=3 accepted writes refuse rollback; recompute === 3; secrets unchanged  7133ms
+     ✓ AC-5: pre-existing serving ack + post-repoint /health data_plane=convex  11088ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  00:51:00
+   Duration  46.37s (transform 239ms, setup 102ms, import 624ms, tests 45.56s, environment 0ms)
+
