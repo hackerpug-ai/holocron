@@ -120,6 +120,20 @@
       "when": 1784106000000,
       "tag": "0030_data_plane_ponr",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784107000000,
+      "tag": "0031_data_plane_ponr_truncate_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784108000000,
+      "tag": "0032_post_export_write_audit",
+      "breakpoints": true
     }
   ]
 }

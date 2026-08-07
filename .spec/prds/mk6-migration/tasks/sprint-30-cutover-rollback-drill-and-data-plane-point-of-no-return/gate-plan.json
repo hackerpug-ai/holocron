@@ -5,14 +5,20 @@
     "sprint_slug": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return"
   },
   "capability": "CAP-CUT-01",
-  "planned_at": "20260807T073351Z",
+  "planned_at": "20260807T080000Z",
   "planned_steps": 5,
   "dispatcher": "bun services/platform/src/cli/holo.ts",
   "notes": [
     "Human Testing Gate UC-SYNC-04: rollback during soak then PONR closes path",
     "GATE-FIX-fence-lift: durable HOLO_MIGRATION_READ_ONLY=0 disarms sticky env",
-    "Step 5 expected_exit=2 with POST_PONR_INELIGIBLE is the pass oracle (refuse after PONR)"
+    "Step 5 expected_exit=2 with POST_PONR_INELIGIBLE is the pass oracle (refuse after PONR)",
+    "REDHAT-FIX-RH-S30-06: step 3 requires cutover:verify-fallback-boot --json with ok:true (fail closed BOOT_UNVERIFIED)",
+    "REDHAT-FIX-RH-S30-07: gate-results.git_sha must equal git rev-parse HEAD; live /health sourceRevision must match HEAD or DEPLOY_REVISION_MISMATCH",
+    "REDHAT-FIX-RH-S30-08: always run verify-gate-evidence.sh; gate-verification.json and .raw from SAME stdout",
+    "REDHAT-FIX-RH-S30-03: step 2 recomputes accepted writes from Postgres post_export_write_audit ledger"
   ],
+  "require_git_sha_equals_head": true,
+  "require_deploy_source_revision_equals_head": true,
   "steps": [
     {
       "n": 1,
@@ -26,21 +32,24 @@
         "require_all_regex": [
           "\"ok\":\\s*true",
           "\"lost_accepted_writes\":\\s*0",
-          "\"repointed\":\\s*true"
+          "\"repointed\":\\s*true",
+          "\"content_probe\"",
+          "\"source\":\\s*\"convex\""
         ]
       }
     },
     {
       "n": 2,
-      "text": "Count accepted post-export production writes = 0",
+      "text": "Count accepted post-export production writes = 0 (Postgres ledger)",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "python3 - <<\"PY\"\nimport json\nfrom pathlib import Path\naudit=json.loads(Path(\".tmp/D06-05/post-export-write-audit.json\").read_text())\nwm=json.loads(Path(\".tmp/D06-04/watermark-report.json\").read_text())\naccepted=audit.get(\"accepted_writes\") or []\nif isinstance(audit.get(\"accepted_count\"), int):\n  count=audit[\"accepted_count\"]\nelse:\n  count=len(accepted)\ndrill=json.loads(Path(\".tmp/D07-03/rollback-drill-report.json\").read_text()) if Path(\".tmp/D07-03/rollback-drill-report.json\").exists() else {}\nout={\n  \"accepted_count\": count,\n  \"export_watermark_ms\": wm.get(\"export_watermark_ms\") or wm.get(\"watermarkAtMs\"),\n  \"drill_lost_accepted_writes\": drill.get(\"lost_accepted_writes\"),\n  \"drill_ok\": drill.get(\"ok\"),\n}\nprint(json.dumps(out, indent=2))\nassert count==0, out\nassert drill.get(\"lost_accepted_writes\",0)==0 or drill.get(\"ok\") is True or count==0\nprint(\"STEP2_PASS\")\nPY",
+      "literal_cmd": "python3 - <<\"PY\"\nimport json, os, subprocess, sys\nfrom pathlib import Path\n\ndef psql_count():\n    url = os.environ.get('DATABASE_URL') or os.environ.get('HOLO_DATABASE_URL') or ''\n    if not url:\n        # fall back to holo secrets resolution via bun one-liner\n        r = subprocess.run(\n            ['bun', '-e',\n             \"import { resolveDatabaseUrl } from './services/platform/src/db/connection.ts';\"\n             \"import { createSql } from './services/platform/src/db/client.ts';\"\n             \"const u=resolveDatabaseUrl({preferHolocron:true});\"\n             \"const sql=createSql(u);\"\n             \"const rows=await sql`SELECT count(*)::text AS c FROM post_export_write_audit`;\"\n             \"console.log(rows[0]?.c??'-1'); await sql.end({timeout:5});\"],\n            capture_output=True, text=True, timeout=60)\n        if r.returncode != 0:\n            print(json.dumps({\"error\":\"ledger_query_failed\",\"stderr\":r.stderr,\"stdout\":r.stdout}), flush=True)\n            sys.exit(2)\n        return int((r.stdout or '0').strip() or '0')\n    r = subprocess.run(['psql', url, '-tAc', 'SELECT count(*) FROM post_export_write_audit'],\n                       capture_output=True, text=True, timeout=30)\n    if r.returncode != 0:\n        print(json.dumps({\"error\":\"psql_failed\",\"stderr\":r.stderr}), flush=True)\n        sys.exit(2)\n    return int((r.stdout or '0').strip() or '0')\n\ncount = psql_count()\nwm_path = Path('.tmp/D06-04/watermark-report.json')\nwm = json.loads(wm_path.read_text()) if wm_path.exists() else {}\ndrill_path = Path('.tmp/D07-03/rollback-drill-report.json')\ndrill = json.loads(drill_path.read_text()) if drill_path.exists() else {}\nout = {\n  \"accepted_count\": count,\n  \"export_watermark_ms\": wm.get(\"export_watermark_ms\") or wm.get(\"watermarkAtMs\"),\n  \"drill_lost_accepted_writes\": drill.get(\"lost_accepted_writes\"),\n  \"drill_ok\": drill.get(\"ok\"),\n  \"ledger\": \"postgres:post_export_write_audit\",\n}\nprint(json.dumps(out, indent=2))\nassert count == 0, out\nassert drill.get(\"lost_accepted_writes\", 0) == 0 or drill.get(\"ok\") is True or count == 0\nprint(\"STEP2_PASS\")\nPY",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "require_all_regex": [
           "\"accepted_count\":\\s*0",
+          "postgres:post_export_write_audit",
           "STEP2_PASS"
         ]
       }
@@ -50,14 +59,15 @@
       "text": "Pinned Convex-pointing app build + boot verify",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json; python3 - <<\"PY\"\nimport json\nfrom pathlib import Path\np=Path(\".tmp/D07-02/pinned-fallback-build-manifest.json\")\nd=json.loads(p.read_text())\nprint(json.dumps({\"ok\": d.get(\"ok\"), \"short_sha\": d.get(\"short_sha\"), \"worktree_path\": d.get(\"worktree_path\"), \"reaches_convex\": d.get(\"reaches_convex\")}, indent=2))\nassert d.get(\"ok\") is True or d.get(\"worktree_path\")\nprint(\"STEP3_PASS\")\nPY",
+      "literal_cmd": "set -euo pipefail; bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json | tee .tmp/D07-02/pin-fallback-stdout.json; bun services/platform/src/cli/holo.ts cutover:verify-fallback-boot --json | tee .tmp/D07-02/verify-fallback-boot.json; python3 - <<\"PY\"\nimport json, sys\nfrom pathlib import Path\nboot_path = Path('.tmp/D07-02/verify-fallback-boot.json')\n# CLI may print JSON on stdout that was teed; also accept last JSON object\nraw = boot_path.read_text() if boot_path.exists() else ''\n# Prefer last complete JSON object in the file\nobj = None\nfor line in raw.splitlines():\n    line=line.strip()\n    if line.startswith('{'):\n        try:\n            obj = json.loads(line)\n        except Exception:\n            pass\nif obj is None and raw.strip().startswith('{'):\n    try:\n        obj = json.loads(raw)\n    except Exception:\n        obj = {}\nif not isinstance(obj, dict):\n    obj = {}\nprint(json.dumps({\"ok\": obj.get(\"ok\"), \"error\": obj.get(\"error\"), \"short_sha\": obj.get(\"short_sha\") or obj.get(\"commit\"), \"boot\": True}, indent=2))\nif obj.get('ok') is not True:\n    code = (obj.get('error') or {}).get('code') if isinstance(obj.get('error'), dict) else None\n    if code == 'BOOT_UNVERIFIED' or obj.get('ok') is False:\n        print('BOOT_UNVERIFIED_OR_FAIL', file=sys.stderr)\n        sys.exit(2)\n    print('STEP3_BOOT_NOT_OK', file=sys.stderr)\n    sys.exit(2)\nprint('STEP3_PASS')\nPY",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "require_all_regex": [
           "\"ok\":\\s*true",
           "STEP3_PASS"
-        ]
+        ],
+        "expect_not_log_regex": "BOOT_UNVERIFIED"
       }
     },
     {

@@ -28,6 +28,7 @@ import {
   isFenceArmedEnv,
 } from './convex-fence-client.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
+import { recordPostExportAcceptedWrite } from './post-export-write-audit.ts';
 import { loadExportWatermarkMs } from './rollback-repoint.ts';
 import {
   readDurableMigrationReadOnly,
@@ -428,6 +429,48 @@ async function insertPonrRow(input: {
 }
 
 /**
+ * REDHAT-FIX-RH-S30-05 crash-window recovery after an accepted production write
+ * when PONR insert fails: re-arm the durable fence and record the write into
+ * the production post_export_write_audit ledger so rollback-repoint refuses.
+ */
+export async function recoverEnableWritesCrashWindow(input: {
+  secretsPath: string;
+  writeRowId: string;
+  writeCommittedAtMs: number;
+  exportWatermarkMs: number;
+  databaseUrl?: string;
+  cwd?: string;
+  watermarkPath?: string;
+}): Promise<{ rearmOk: boolean; auditOk: boolean }> {
+  let rearmOk = false;
+  try {
+    writeDurableMigrationReadOnly('1', { secretsPath: input.secretsPath });
+    const confirm = readDurableMigrationReadOnly(process.env, input.secretsPath);
+    rearmOk = confirm === '1' || confirm === 'true';
+    process.env.HOLO_MIGRATION_READ_ONLY = '1';
+  } catch {
+    rearmOk = false;
+  }
+
+  let auditOk = false;
+  try {
+    const auditRes = await recordPostExportAcceptedWrite({
+      surface: PONR_WRITE_SURFACE,
+      writeRowId: input.writeRowId,
+      committedAtMs: input.writeCommittedAtMs,
+      exportWatermarkMs: input.exportWatermarkMs,
+      databaseUrl: input.databaseUrl,
+      cwd: input.cwd,
+      watermarkPath: input.watermarkPath,
+    });
+    auditOk = auditRes.ok === true;
+  } catch {
+    auditOk = false;
+  }
+  return { rearmOk, auditOk };
+}
+
+/**
  * cutover:enable-writes — lift the soak fence, drive the first real production
  * write, and record the data-plane PONR with a live Convex escape-hatch snapshot.
  */
@@ -439,6 +482,12 @@ export async function runEnableWrites(options?: {
   secretsPath?: string;
   databaseUrl?: string;
   watermarkPath?: string;
+  /**
+   * Test-only: force PONR insert failure after HTTP 201 so the crash-window
+   * remediation (re-arm fence + record production audit) can be proven
+   * (REDHAT-FIX-RH-S30-05).
+   */
+  injectPonrInsertFailure?: boolean | (() => never);
 }): Promise<EnableWritesReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultEnableWritesReportPath(cwd);
@@ -727,8 +776,18 @@ export async function runEnableWrites(options?: {
   }
 
   // ── 8. INSERT PONR row ───────────────────────────────────────────────────
+  // REDHAT-FIX-RH-S30-05: on any failure after accepted write, re-arm the
+  // durable fence and record the accepted write in the production audit ledger
+  // so rollback-repoint refuses (POST_EXPORT_WRITE_ACCEPTED or POST_PONR_INELIGIBLE).
+  // Never leave writes open without a latch.
   let ponrId = '';
   try {
+    if (options?.injectPonrInsertFailure) {
+      if (typeof options.injectPonrInsertFailure === 'function') {
+        options.injectPonrInsertFailure();
+      }
+      throw new Error('injected PONR insert failure (REDHAT-FIX-RH-S30-05)');
+    }
     const inserted = await insertPonrRow({
       databaseUrl,
       fenceLiftedAt,
@@ -767,9 +826,21 @@ export async function runEnableWrites(options?: {
           });
         }
       } catch {
-        // fall through
+        // fall through to crash-window recovery
       }
     }
+
+    // Crash window recovery: re-arm fence + durable production audit (fail-closed)
+    const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
+      secretsPath,
+      writeRowId,
+      writeCommittedAtMs: writeCommittedAt.getTime(),
+      exportWatermarkMs: exportWm,
+      databaseUrl,
+      cwd,
+      watermarkPath,
+    });
+
     const msg = err instanceof Error ? err.message : String(err);
     return baseFail({
       base_url: baseUrl,
@@ -781,7 +852,10 @@ export async function runEnableWrites(options?: {
       convex_fence_audit_id: snapshot.convex_fence_audit_id,
       error: {
         code: PONR_INSERT_FAILED,
-        message: `cutover:enable-writes failed inserting data_plane_ponr: ${msg}`,
+        message:
+          `cutover:enable-writes failed inserting data_plane_ponr: ${msg}. ` +
+          `Fence re-armed=${rearmOk}; post_export_write_audit recorded=${auditOk}. ` +
+          `Writes are NOT left open without a latch (REDHAT-FIX-RH-S30-05).`,
       },
     });
   }

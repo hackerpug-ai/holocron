@@ -30,10 +30,13 @@ import {
   startLiveService,
 } from '../../../../tests/integration/service/harness';
 import {
+  clearPostExportWriteAuditLedger,
+  writePostExportWriteAudit,
+} from '../../src/cutover/post-export-write-audit.ts';
+import {
   defaultDataPlaneConfigPath,
   defaultPostExportWriteAuditPath,
   defaultRollbackRepointReportPath,
-  writePostExportWriteAudit,
 } from '../../src/cutover/rollback-repoint.ts';
 import { writeDurableMigrationReadOnly } from '../../src/cutover/soak-fence.ts';
 import { createSql } from '../../src/db/client.ts';
@@ -196,6 +199,10 @@ export function seedDivergedExportWatermark(): {
   return seedExportWatermark(1_000);
 }
 
+/**
+ * Seed empty post-export audit (file mirror + clear Postgres ledger).
+ * REDHAT-FIX-RH-S30-03: Postgres is authoritative; file is optional report.
+ */
 export function seedEmptyPostExportAudit(exportMs: number): string {
   writePostExportWriteAudit(
     {
@@ -204,6 +211,28 @@ export function seedEmptyPostExportAudit(exportMs: number): string {
     },
     AUDIT_PATH
   );
+  // Best-effort clear of Postgres ledger (async helper fired without await for
+  // sync call sites; callers that need a guarantee should await clearPostExportWriteAuditLedger).
+  void clearPostExportWriteAuditLedger({ databaseUrl: resolveTestDatabaseUrl() }).catch(() => {
+    // migration may not be applied yet in some unit-only paths
+  });
+  return AUDIT_PATH;
+}
+
+/** Async empty-ledger seed for tests that need a guaranteed zero Postgres oracle. */
+export async function seedEmptyPostExportAuditAsync(exportMs: number): Promise<string> {
+  writePostExportWriteAudit(
+    {
+      export_watermark_ms: exportMs,
+      accepted_writes: [],
+    },
+    AUDIT_PATH
+  );
+  try {
+    await clearPostExportWriteAuditLedger({ databaseUrl: resolveTestDatabaseUrl() });
+  } catch {
+    // table may not exist until migrate
+  }
   return AUDIT_PATH;
 }
 
@@ -502,13 +531,58 @@ export async function selectPonrRow(): Promise<{
 }
 
 /**
- * Owner TRUNCATE — the immutability trigger is BEFORE UPDATE OR DELETE only,
- * so tests can isolate the empty-ledger start state for first-write / TC-11.
+ * Test-only reset of data_plane_ponr.
+ * REDHAT-FIX-RH-S30-01: production TRUNCATE is blocked by BEFORE TRUNCATE trigger.
+ * Owner cleanup must DISABLE the immutability triggers first, then TRUNCATE, then re-ENABLE.
+ * Production app role cannot do this.
  */
 export async function truncateDataPlanePonr(): Promise<void> {
   const sql = createSql(resolveTestDatabaseUrl());
   try {
+    await sql.unsafe(`
+      DO $reset$
+      BEGIN
+        ALTER TABLE data_plane_ponr DISABLE TRIGGER data_plane_ponr_reject_mutation;
+        BEGIN
+          ALTER TABLE data_plane_ponr DISABLE TRIGGER data_plane_ponr_reject_truncate;
+        EXCEPTION WHEN undefined_object THEN
+          NULL; -- 0031 not applied yet
+        END;
+        TRUNCATE TABLE data_plane_ponr;
+        ALTER TABLE data_plane_ponr ENABLE TRIGGER data_plane_ponr_reject_mutation;
+        BEGIN
+          ALTER TABLE data_plane_ponr ENABLE TRIGGER data_plane_ponr_reject_truncate;
+        EXCEPTION WHEN undefined_object THEN
+          NULL;
+        END;
+      END
+      $reset$;
+    `);
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+/**
+ * Attempt bare TRUNCATE without disabling triggers — used by RH-S30-01 proof.
+ * Must fail with PONR_IMMUTABLE when migration 0031 is applied.
+ */
+export async function attemptBareTruncateDataPlanePonr(): Promise<{
+  succeeded: boolean;
+  code: string | null;
+  message: string;
+}> {
+  const sql = createSql(resolveTestDatabaseUrl());
+  try {
     await sql`TRUNCATE TABLE data_plane_ponr`;
+    return { succeeded: true, code: null, message: 'TRUNCATE succeeded (no error)' };
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
+    return {
+      succeeded: false,
+      code: e.code ?? null,
+      message: e.message ?? String(err),
+    };
   } finally {
     await sql.end({ timeout: 5 });
   }
