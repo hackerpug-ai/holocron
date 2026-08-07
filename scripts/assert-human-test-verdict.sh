@@ -135,11 +135,29 @@ if evid_dir is not None and os.environ.get("ASSERT_C3_PREDICATES", _c3_default) 
             c3_errors.append("C-3 marker DB not distinct from gate URL")
         if mr.get("production_untouched") is not True:
             c3_errors.append("C-3 production_untouched not true")
-    # M-3 fail-closed identity tree (required at package time)
+    one_trig = evid_dir / "ponr-one-trigger-missing" / "one-trigger-missing-report.json"
+    if not one_trig.is_file():
+        c3_errors.append("missing C-3 one-trigger-missing report")
+    else:
+        ot = json.loads(one_trig.read_text())
+        if ot.get("ok") is not True:
+            c3_errors.append("C-3 one-trigger-missing ok!=true")
+        if ot.get("uri_alias_same_target_refused") is not True:
+            c3_errors.append("C-3 URI-alias same-target not refused")
+        cases = ot.get("one_trigger_missing_cases") or []
+        if len(cases) != 2:
+            c3_errors.append(f"C-3 one-trigger-missing cases len={len(cases)} != 2")
+        elif not all(
+            c.get("refused") and int(c.get("probe_rc") or 0) != 0 for c in cases
+        ):
+            c3_errors.append("C-3 one-trigger-missing case not refused")
+    # M-3 fail-closed identity tree (required at package time; no legacy fallback)
+    m3_env = os.environ.copy()
     m3_r = subprocess.run(
         ["bash", "scripts/assert-m3-identity-evidence.sh", str(evid_dir)],
         capture_output=True,
         text=True,
+        env=m3_env,
     )
     try:
         m3_j = json.loads(m3_r.stdout) if m3_r.stdout.strip() else {}

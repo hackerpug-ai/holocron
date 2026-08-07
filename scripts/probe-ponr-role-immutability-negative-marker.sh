@@ -2,8 +2,9 @@
 # RH-S30-21 residual — forced marker-miss on an EXPLICIT disposable DB only.
 #
 # NEVER seeds against the gate/cutover DATABASE_URL.
-# Requires HOLO_PROBE_MARKER_MISS_DATABASE_URL distinct from DATABASE_URL / production.
-# Seeding is opt-in (HOLO_PROBE_SEED_PONR=1) and only on the disposable URL.
+# Requires operator-supplied HOLO_PROBE_MARKER_MISS_DATABASE_URL (no silent default).
+# Target identity uses canonical PG URL equality (scheme + default port aliases).
+# Seeding is opt-in only (HOLO_PROBE_SEED_PONR=1); default is OFF (0).
 #
 # Exact required triggers (both must exist and tgenabled='O'):
 #   data_plane_ponr_reject_mutation
@@ -16,7 +17,7 @@
 #   bash scripts/probe-ponr-role-immutability-negative-marker.sh [out_dir]
 set -euo pipefail
 : "${DATABASE_URL:?DATABASE_URL required (gate/cutover URL — never the seed target)}"
-: "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:?HOLO_PROBE_MARKER_MISS_DATABASE_URL required (distinct disposable DB)}"
+: "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:?HOLO_PROBE_MARKER_MISS_DATABASE_URL required (operator-supplied distinct disposable DB; no default)}"
 
 GATE_URL="$DATABASE_URL"
 MARKER_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL"
@@ -24,24 +25,27 @@ OUT_DIR="${1:-.tmp/REDHAT-FIX-RH-S30-21}"
 mkdir -p "$OUT_DIR"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+CANON="$ROOT/scripts/lib/canonical-pg-url.py"
 
-normalize_url() {
-  python3 -c "from urllib.parse import urlparse; u=urlparse('''$1'''); print(f'{u.scheme}://{u.hostname}:{u.port or \"\"}{u.path}')" 2>/dev/null \
-    || echo "$1"
-}
-
-GATE_NORM="$(normalize_url "$GATE_URL")"
-MARKER_NORM="$(normalize_url "$MARKER_URL")"
+GATE_NORM="$(python3 "$CANON" "$GATE_URL")"
+MARKER_NORM="$(python3 "$CANON" "$MARKER_URL")"
 if [[ "$MARKER_NORM" == "$GATE_NORM" ]]; then
-  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL must be DISTINCT from DATABASE_URL (refuse production seed)" >&2
+  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL canonically equals DATABASE_URL (refuse production/gate seed)" >&2
+  echo "  gate_canon=$GATE_NORM" >&2
+  echo "  marker_canon=$MARKER_NORM" >&2
   exit 2
 fi
-# Production-like ports / hostnames used by cutover soak (conservative reject)
+# Production-like ports / hostnames used by cutover soak (conservative reject; no override for gate path)
 if echo "$MARKER_URL" | grep -Eqi '(:44112/|/holocron$|holocron:.*@.*:44112)'; then
   if [[ "${HOLO_PROBE_ALLOW_PROD_LIKE_MARKER_DB:-0}" != "1" ]]; then
     echo "error: marker DB looks production-like (port 44112 / holocron prod). Use disposable nonprod URL." >&2
     exit 2
   fi
+fi
+# Canonical path ending in /holocron (prod-like DB name) also refuse unless explicit allow
+if [[ "$MARKER_NORM" == *"/holocron" ]] && [[ "${HOLO_PROBE_ALLOW_PROD_LIKE_MARKER_DB:-0}" != "1" ]]; then
+  echo "error: marker canonical path ends with /holocron (prod-like). Use disposable nonprod URL." >&2
+  exit 2
 fi
 
 REQUIRED_TRIGGERS=(data_plane_ponr_reject_mutation data_plane_ponr_reject_truncate)

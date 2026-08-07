@@ -375,19 +375,28 @@ echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
 
 # ── C-3 / RH-S30-18+21: MANDATORY success-path + forced-marker-miss ─────────
 # DATABASE_URL = gate/cutover (success-path probe; never seeded by marker-miss).
-# HOLO_PROBE_MARKER_MISS_DATABASE_URL = distinct disposable DB (required).
+# HOLO_PROBE_MARKER_MISS_DATABASE_URL = operator-supplied distinct disposable DB (REQUIRED; no default).
+# HOLO_PROBE_SEED_PONR defaults to 0 (opt-in seed only on disposable).
 if [[ -z "${DATABASE_URL:-}" ]]; then
   echo "error: DATABASE_URL required for C-3 success-path probe" >&2
   exit 2
 fi
 if [[ -z "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-}" ]]; then
-  # Default disposable nonprod for local gates; refuse if it equals DATABASE_URL.
-  export HOLO_PROBE_MARKER_MISS_DATABASE_URL="${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-postgres://127.0.0.1:5432/holocron_nonprod}"
-fi
-if [[ "$HOLO_PROBE_MARKER_MISS_DATABASE_URL" == "$DATABASE_URL" ]]; then
-  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL must be distinct from DATABASE_URL" >&2
+  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL must be operator-supplied (no silent default)" >&2
+  echo "  export a disposable DB distinct from DATABASE_URL (canonical equality rejects aliases)" >&2
   exit 2
 fi
+CANON="$ROOT/scripts/lib/canonical-pg-url.py"
+GATE_CANON="$(python3 "$CANON" "$DATABASE_URL")"
+MARKER_CANON="$(python3 "$CANON" "$HOLO_PROBE_MARKER_MISS_DATABASE_URL")"
+if [[ "$MARKER_CANON" == "$GATE_CANON" ]]; then
+  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL canonically equals DATABASE_URL" >&2
+  echo "  gate_canon=$GATE_CANON" >&2
+  echo "  marker_canon=$MARKER_CANON" >&2
+  exit 2
+fi
+# Seed opt-in default OFF — operator must set HOLO_PROBE_SEED_PONR=1 explicitly.
+export HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-0}"
 
 set +e
 bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-provenance" \
@@ -399,11 +408,11 @@ mkdir -p .tmp/REDHAT-FIX-RH-S30-18
 cp -R "$EVID_DIR/ponr-role-provenance/." .tmp/REDHAT-FIX-RH-S30-18/ 2>/dev/null || true
 cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-transcript.log 2>/dev/null || true
 
-# Marker-miss: seed only on disposable URL (HOLO_PROBE_SEED_PONR default 1 for disposable).
+# Marker-miss: seed only when HOLO_PROBE_SEED_PONR=1 (default 0).
 set +e
 DATABASE_URL="$DATABASE_URL" \
   HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" \
-  HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-1}" \
+  HOLO_PROBE_SEED_PONR="$HOLO_PROBE_SEED_PONR" \
   bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
   "$EVID_DIR/ponr-role-provenance-marker-miss" \
   >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
@@ -414,13 +423,26 @@ echo "$MARKER_MISS_RC" >"$EVID_DIR/ponr-role-provenance-marker-miss.exit"
 mkdir -p .tmp/REDHAT-FIX-RH-S30-21
 cp -R "$EVID_DIR/ponr-role-provenance-marker-miss/." .tmp/REDHAT-FIX-RH-S30-21/ 2>/dev/null || true
 
-# Stage package-bound M-3 identity tree (fail-closed later if incomplete)
+# One-trigger-missing + URI-alias same-target negative (retained, package-bound)
+set +e
+DATABASE_URL="$DATABASE_URL" \
+  HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" \
+  HOLO_PROBE_SEED_PONR=0 \
+  bash "$ROOT/scripts/probe-ponr-one-trigger-missing-negative.sh" \
+  "$EVID_DIR/ponr-one-trigger-missing" \
+  >"$EVID_DIR/ponr-one-trigger-missing.stdout" \
+  2>"$EVID_DIR/ponr-one-trigger-missing.stderr"
+ONE_TRIG_RC=$?
+set -e
+echo "$ONE_TRIG_RC" >"$EVID_DIR/ponr-one-trigger-missing.exit"
+mkdir -p .tmp/REDHAT-FIX-RH-S30-30
+cp -R "$EVID_DIR/ponr-one-trigger-missing/." .tmp/REDHAT-FIX-RH-S30-30/ 2>/dev/null || true
+
+# Stage package-bound M-3 identity tree only (no legacy m3-branch-identity fallback).
+# Fail closed at package/assert if incomplete — do not || true swallow missing trees.
 if [[ -d .tmp/REDHAT-FIX-RH-S30-22 ]]; then
   mkdir -p "$EVID_DIR/m3-identity"
-  cp -R .tmp/REDHAT-FIX-RH-S30-22/. "$EVID_DIR/m3-identity/" 2>/dev/null || true
-  # legacy alias
-  mkdir -p "$EVID_DIR/m3-branch-identity"
-  cp -R .tmp/REDHAT-FIX-RH-S30-22/. "$EVID_DIR/m3-branch-identity/" 2>/dev/null || true
+  cp -R .tmp/REDHAT-FIX-RH-S30-22/. "$EVID_DIR/m3-identity/"
 fi
 
 # ── RH-S30-15: finalize meta.json to durable terminal status ───────────────
@@ -436,14 +458,17 @@ verify_rc = int("$VERIFY_RC")
 assert_rc = int("$ASSERT_RC")
 probe_rc = int("$PROBE_RC")
 marker_miss_rc = int("$MARKER_MISS_RC")
+one_trig_rc = int("$ONE_TRIG_RC")
 
 # C-3 mandatory predicates (not metadata-only)
 h3_success = False
 c3_marker_miss_ok = False
+c3_one_trigger_missing_ok = False
 prov = Path("$EVID_DIR/ponr-role-provenance")
 ac1 = prov / "ac1-prod-role-disable-trigger.json"
 ac2 = prov / "ac2-prod-role-dml-truncate.json"
 miss_report = Path("$EVID_DIR/ponr-role-provenance-marker-miss/negative-marker-report.json")
+one_trig_report = Path("$EVID_DIR/ponr-one-trigger-missing/one-trigger-missing-report.json")
 if ac1.exists() and ac2.exists() and probe_rc == 0:
     try:
         a1 = json.loads(ac1.read_text())
@@ -472,7 +497,22 @@ if miss_report.exists() and marker_miss_rc == 0:
         )
     except Exception:
         c3_marker_miss_ok = False
-h3_closed = bool(h3_success and c3_marker_miss_ok)
+if one_trig_report.exists() and one_trig_rc == 0:
+    try:
+        ot = json.loads(one_trig_report.read_text())
+        c3_one_trigger_missing_ok = bool(
+            ot.get("ok") is True
+            and ot.get("uri_alias_same_target_refused") is True
+            and ot.get("urls_distinct") is True
+            and len(ot.get("one_trigger_missing_cases") or []) == 2
+            and all(
+                c.get("refused") and int(c.get("probe_rc") or 0) != 0
+                for c in (ot.get("one_trigger_missing_cases") or [])
+            )
+        )
+    except Exception:
+        c3_one_trigger_missing_ok = False
+h3_closed = bool(h3_success and c3_marker_miss_ok and c3_one_trigger_missing_ok)
 
 # Terminal status requires plan pass + verifier + assert + C-3
 if (
@@ -495,7 +535,9 @@ meta.update({
     "assert_human_test_verdict_rc": assert_rc,
     "ponr_role_probe_rc": probe_rc,
     "ponr_marker_miss_rc": marker_miss_rc,
+    "ponr_one_trigger_missing_rc": one_trig_rc,
     "c3_marker_miss_ok": c3_marker_miss_ok,
+    "c3_one_trigger_missing_ok": c3_one_trigger_missing_ok,
     "c3_success_path_ok": h3_success,
     "h3_role_provenance_closed": h3_closed,
 })
@@ -504,13 +546,14 @@ results_path = Path("$RESULTS")
 if results_path.exists():
     results = json.loads(results_path.read_text())
     results["c3_marker_miss_ok"] = c3_marker_miss_ok
+    results["c3_one_trigger_missing_ok"] = c3_one_trigger_missing_ok
     results["c3_success_path_ok"] = h3_success
     results["h3_role_provenance_closed"] = h3_closed
     if not h3_closed and results.get("verdict") == "pass":
         results["verdict"] = "fail"
         results["notes"] = (
             (results.get("notes") or "")
-            + " C-3 mandatory predicates failed (success-path and/or forced-marker-miss)."
+            + " C-3 mandatory predicates failed (success-path / marker-miss / one-trigger-missing)."
         ).strip()
     results_path.write_text(json.dumps(results, indent=2) + "\n")
     evid_results = Path("$EVID_DIR/gate-results.json")
@@ -529,7 +572,9 @@ print(json.dumps({
     "assert_rc": assert_rc,
     "probe_rc": probe_rc,
     "marker_miss_rc": marker_miss_rc,
+    "one_trig_rc": one_trig_rc,
     "c3_marker_miss_ok": c3_marker_miss_ok,
+    "c3_one_trigger_missing_ok": c3_one_trigger_missing_ok,
     "c3_success_path_ok": h3_success,
     "h3_role_provenance_closed": h3_closed,
 }, indent=2))
@@ -550,6 +595,10 @@ if [[ "$MARKER_MISS_RC" -ne 0 ]]; then
   echo "error: C-3 forced-marker-miss exit=$MARKER_MISS_RC" >&2
   exit 1
 fi
+if [[ "$ONE_TRIG_RC" -ne 0 ]]; then
+  echo "error: C-3 one-trigger-missing negative exit=$ONE_TRIG_RC" >&2
+  exit 1
+fi
 
-echo "Done. verdict=$VERDICT steps_passed=$steps_passed/5 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA sourceRevision=$SOURCE_REV verify_rc=$VERIFY_RC assert_rc=$ASSERT_RC probe_rc=$PROBE_RC marker_miss_rc=$MARKER_MISS_RC"
+echo "Done. verdict=$VERDICT steps_passed=$steps_passed/5 run_id=$GATE_RUN_ID git_sha=$SOURCE_SHA sourceRevision=$SOURCE_REV verify_rc=$VERIFY_RC assert_rc=$ASSERT_RC probe_rc=$PROBE_RC marker_miss_rc=$MARKER_MISS_RC one_trig_rc=$ONE_TRIG_RC"
 exit 0
