@@ -1,0 +1,66 @@
+{
+  "id": "unauth-disableAndDrain",
+  "ac": "AC-2",
+  "severity": "CRITICAL",
+  "title": "disableAndDrain mass-patches production rows with no authorization check; isCutoverSchedulesDisabled is availability-only",
+  "classification": "isCutoverSchedulesDisabled() (convex/lib/migrationFence.ts:49-52) is an AVAILABILITY guard, not an authorization guard",
+  "observed": {
+    "schedule_disable_status": {
+      "consumers": {
+        "fencedInternalBuilders": true,
+        "taskCrons": true
+      },
+      "disabled": true,
+      "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+      "envValue": "1"
+    },
+    "response": {
+      "consumers": {
+        "env": "HOLO_CUTOVER_SCHEDULES_DISABLED",
+        "envValue": "1",
+        "fencedInternalBuilders": true,
+        "isCutoverSchedulesDisabled": true,
+        "taskCrons": true
+      },
+      "consumersHonored": true,
+      "drainCompletedAtMs": 1786086376861,
+      "id": "vn79418r52e5t97zcvkkrn10858c0v2s",
+      "ok": true,
+      "samples": {
+        "activeTasks": 3,
+        "afterActiveTasks": 0,
+        "afterQueuedSubscriptionContent": 0,
+        "afterRunningTasks": 0,
+        "batchesProcessed": 1,
+        "contentSkipped": 0,
+        "drainBatches": 1,
+        "measuredSurfaces": [
+          "tasks",
+          "subscriptionContent"
+        ],
+        "queuedSubscriptionContent": 0,
+        "runningTasks": 0,
+        "surfaceResiduals": {
+          "subscriptionContent": {
+            "after": 0,
+            "before": 0
+          },
+          "tasks": {
+            "after": 0,
+            "before": 3,
+            "runningAfter": 0,
+            "runningBefore": 0
+          }
+        },
+        "tasksCancelled": 3,
+        "unknownSurfaces": []
+      },
+      "surfaces": [
+        "tasks",
+        "subscriptionContent"
+      ]
+    },
+    "auth_supplied": false,
+    "note": "HOLO_CUTOVER_SCHEDULES_DISABLED armed → any unauthenticated caller can drive mass cancel/skip"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "unauth-seedInFlightForDrainTest",
+  "ac": "AC-1",
+  "severity": "CRITICAL",
+  "title": "seedInFlightForDrainTest succeeds unauthenticated under armed HOLO_MIGRATION_READ_ONLY",
+  "classification": "T-SYNC-012 claim that ALL production writes are blocked is FALSE (severity CRITICAL)",
+  "observed": {
+    "fence_env_before": "1",
+    "fence_env_after": "1",
+    "response": {
+      "activeTasks": 5,
+      "contentIds": [],
+      "ok": true,
+      "queuedSubscriptionContent": 0,
+      "sourceId": null,
+      "tag": "s30-sec-probe",
+      "taskIds": [
+        "k577cvrqfkjn34sby4mkfnc75x8c0fzt",
+        "k5795c7hzjdy23egb701mt5z018c1p93",
+        "k579f6ts8vdnqrwftcf9j749p58c0m0p",
+        "k57bxn4he43qhtq1eqkny2446x8c0mz0",
+        "k57bw27sm48esjskm3xfwejyad8c1n3d"
+      ]
+    },
+    "auth_supplied": false,
+    "api_key_supplied": false,
+    "convex_identity_supplied": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "fencedHttpAction-GET-bypass-standing-constraint",
+  "ac": "AC-5",
+  "severity": "MEDIUM",
+  "title": "fencedHttpAction passes GET/HEAD/OPTIONS without assertMigrationWritable; article GET is read-only today",
+  "standing_constraint": "any future GET/HEAD/OPTIONS httpAction must not call ctx.runMutation",
+  "observed": {
+    "url": "https://acrobatic-echidna-253.convex.site/article/9cf8cd35-42e0-4f2a-9b32-1316f3081521",
+    "http_status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body_snippet": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  <title>s29-d0603-article-f22362af</title>\n  <meta name=\"de",
+    "runMutation_count_in_article_route": 0,
+    "bypass_condition_present": true,
+    "bypass_literal": "method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'",
+    "standing_constraint": "any future GET/HEAD/OPTIONS httpAction must not call ctx.runMutation"
+  }
+}

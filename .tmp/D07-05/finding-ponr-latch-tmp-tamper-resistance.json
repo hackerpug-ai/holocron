@@ -1,0 +1,25 @@
+{
+  "id": "ponr-latch-tmp-tamper-resistance",
+  "ac": "AC-9",
+  "severity": "INFO",
+  "title": "PONR latch refuses rollback-repoint with POST_PONR_INELIGIBLE despite tmp deletion + fabricated convex data-plane-config",
+  "classification": "Asymmetry: loadPostExportWriteAudit is fail-open on missing .tmp audit; POST_PONR_INELIGIBLE is DB SELECT-backed and survives filesystem tampering",
+  "observed": {
+    "deleted_artifacts": [
+      "/private/tmp/holocron-s30-D07-05/.tmp/D06-05/post-export-write-audit.json",
+      "/private/tmp/holocron-s30-D07-05/.tmp/D06-05/data-plane-config.json",
+      "/private/tmp/holocron-s30-D07-05/.tmp/D07-01/enable-writes-report.json",
+      "/private/tmp/holocron-s30-D07-05/.tmp/D07-04/enable-writes-report.json"
+    ],
+    "fabricated_config": "/private/tmp/holocron-s30-D07-05/.tmp/D06-05/data-plane-config.json",
+    "run1_status": 2,
+    "run1_error_code": "POST_PONR_INELIGIBLE",
+    "run1_repointed": false,
+    "run2_status": 2,
+    "run2_error_code": "POST_PONR_INELIGIBLE",
+    "run2_repointed": false,
+    "ponr_count_after": 1,
+    "durable_HOLO_DATA_PLANE_after": "postgres",
+    "contrast": "Pre-PONR fail-open: deleting post-export-write-audit.json reports zero accepted writes. Post-PONR: DELETE of all .tmp artifacts still yields POST_PONR_INELIGIBLE from Postgres SELECT."
+  }
+}
