@@ -14,8 +14,8 @@ capability_coverage: [CAP-CUT-01]
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: Closeout HIGH blockers **fixed** — C-2-atomic-v5 Git-bound attestation lock; C-3 mandatory gate status/exit/package predicates; M-3 package-bound RED/GREEN identity · gate `20260807T103459Z` **5/5 verified:true** package=`dd45328e` · **not release-approved** · updated 2026-08-07T10:40:00Z
-> Status-Note: Independent final closeout `20260807T102743Z` HIGH findings addressed. Sprint stays **In Progress** until dual-lens + QA. No complete/release claim.
+> Progress: Seventh closeout blockers **fixed** — disposable-only C-3 DB + exact dual triggers + package-bound C-3 OIDs; C-2 HEAD lock bind + v5 OID-mismatch negative; M-3 fail-closed identity tree · gate `20260807T105804Z` **5/5 verified:true** package=`f033bc86` · **not release-approved** · updated 2026-08-07T11:00:00Z
+> Status-Note: Independent final closeout `20260807T105114Z` CRITICAL/HIGH findings addressed. Sprint stays **In Progress** until dual-lens + QA. No complete/release claim.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
@@ -196,6 +196,56 @@ Dispatched specialist set (wave-sequenced, `--max-agents 4`): `devops-engineer`,
 **Quality:** remediation FIX tasks with GWT ACs, TCs, anti-stub, evidence dirs, REQUIREMENT-CONTRACT v1 blocks. **Fakeability floor:** behavioral ACs require real git oracles (C-2), real disposable Postgres (C-3/M-3), and identity equality (M-3) — count-only / path-only / success-path-only evidence rejected.
 
 **Topological order:** RH-S30-21 ∥ RH-S30-22 → RH-S30-20 (fresh gate package last so tip includes probe + IT fixes).
+
+### Fifth Red-Hat Remediation Cycle (plan only — do not treat as fixed until dual-lens APPROVED + landed)
+
+**Source:** `.spec/reviews/red-hat-sprint-30-20260807T101142Z-independent-final-closeout.md` (reviewed SHA `fe79d37`, verdict **NEEDS REVISION** — residual after RH-S30-20..22 implementation path).
+
+| ID | Finding | Required remediation | Severity | Proposed by |
+|----|---------|----------------------|----------|-------------|
+| REDHAT-FIX-RH-S30-23 | C-2 residual | Reject E1-vs-bind-tip; immutable commit+blob-OID attestation (C-2-atomic-v4) | CRITICAL | `devops-engineer` |
+| REDHAT-FIX-RH-S30-24 | C-3 residual | Gate-owned seeded forced-marker-miss; reject empty-table false-green | CRITICAL | `security-auditor` |
+| REDHAT-FIX-RH-S30-25 | M-3 residual | Independent HTTP-201 ID capture + durable per-branch identity evidence | MEDIUM | `mastra-planner` |
+
+Task plan files:
+
+- `REDHAT-FIX-RH-S30-23.md`
+- `REDHAT-FIX-RH-S30-24.md`
+- `REDHAT-FIX-RH-S30-25.md`
+
+**Specialist set:** `devops-engineer` (C-2), `security-auditor` (C-3), `mastra-planner` (M-3). Orchestrator consolidated; it authored no task content.
+
+**Note:** Implementation path through package `20260807T102120Z` closed the narrow blob-identity / seed-required / independent-capture classes. Independent final closeout `20260807T102743Z` found **new residual** classes tracked in the sixth cycle below.
+
+### Sixth Red-Hat Remediation Cycle (plan only — do not treat as fixed until dual-lens APPROVED + landed)
+
+**Source:** `.spec/reviews/red-hat-sprint-30-20260807T102743Z-independent-final-closeout.md` (reviewed SHA `5b86e4e`, package `20260807T102120Z` / `b9b30e91`, verdict **NEEDS REVISION** — 2 HIGH + 1 MEDIUM).
+
+| ID | Finding | Required remediation | Severity | Proposed by |
+|----|---------|----------------------|----------|-------------|
+| REDHAT-FIX-RH-S30-26 | C-2 residual | Git-object-bound attestation sidecar; required protocol/run_id/source; fail closed (C-2-atomic-v5) | HIGH | `devops-engineer` |
+| REDHAT-FIX-RH-S30-27 | C-3 residual | Bind forced-marker-miss + non-owner + named triggers to gate status/exit/package assert; mandatory disposable DB | HIGH | `security-auditor` |
+| REDHAT-FIX-RH-S30-28 | M-3 residual | Package-bound durable RED/GREEN per-branch identity evidence (not `.tmp`-only) | MEDIUM | `mastra-planner` |
+
+Task plan files (durable ACs + evidence requirements; **no implementation in this plan commit**):
+
+- `REDHAT-FIX-RH-S30-26.md` — `devops-engineer` · C-2 residual (attestation Git-bound / C-2-atomic-v5) · HIGH
+- `REDHAT-FIX-RH-S30-27.md` — `security-auditor` → implementer `devops-engineer` · C-3 residual (status/exit/assert binding) · HIGH
+- `REDHAT-FIX-RH-S30-28.md` — `mastra-planner` → implementer `mastra-implementer` · M-3 residual (package-bound evidence) · MEDIUM
+
+**Specialist set (this cycle):** `devops-engineer` (C-2), `security-auditor` (C-3), `mastra-planner` (M-3). Dispatched in a single wave (`--max-agents 4`). Orchestrator consolidated; it authored no task content.
+
+**Quality:** remediation FIX tasks with GWT ACs, TCs, anti-stub, evidence dirs, REQUIREMENT-CONTRACT v1 blocks. **Fakeability floor:** real git oracles (C-2), real disposable Postgres (C-3), real PLATFORM_IT suite emission + package bind (M-3) — worktree-sidecar / metadata-only C-3 / `.tmp`-only evidence rejected.
+
+**Topological order:** RH-S30-27 ∥ RH-S30-28 → RH-S30-26 (fresh gate package last so tip includes C-3 predicates + M-3 identity tree under corrected attestation lock).
+
+### Sixth-round remediation task detail files
+
+Generated by `/kb-sprint-tasks-plan` remediation cycle on 2026-08-07T10:50:00Z from independent final closeout `red-hat-sprint-30-20260807T102743Z-independent-final-closeout.md` (reviewed SHA `5b86e4e`, NEEDS REVISION — 2 HIGH + 1 MEDIUM).
+
+- `REDHAT-FIX-RH-S30-26.md` — `devops-engineer` · C-2 residual (Git-bound attestation / C-2-atomic-v5) · HIGH · 7 AC / 12 TC · `red_first`
+- `REDHAT-FIX-RH-S30-27.md` — `security-auditor` → `devops-engineer` · C-3 residual (status/exit/assert binding) · HIGH · 6 AC / 14 TC · `red_first`
+- `REDHAT-FIX-RH-S30-28.md` — `mastra-planner` → `mastra-implementer` · M-3 residual (package-bound durable evidence) · MEDIUM · 7 AC / 16 TC · `red_first`
 
 - `D07-01-red-rollback-recovers-zero-loss-ponr-write-closes-rollback-path.md` — `mastra-planner` · 7 AC / 19 TC · `red_first`
 - `D07-02-keep-convex-live-pin-the-convex-pointing-fallback-app-build-through-soak.md` — `devops-engineer` · 4 AC / 10 TC · `red_first`
