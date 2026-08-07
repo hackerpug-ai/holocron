@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-gate-evidence-containment.sh",
+  "git_sha": "33f004d1524452b264dcc1a41b91d0c43fa8e6e9",
+  "source_sha_at_run": "324ce9045c0ced0ee39686cbec603afcf1116551",
+  "gate_results_blob_sha256": "b84649d3832f0e54382c88543c12e756d19bb6cf156a2696a7d3407ab1a006c4",
+  "named_blob_sha256": "b84649d3832f0e54382c88543c12e756d19bb6cf156a2696a7d3407ab1a006c4",
+  "head_blob_sha256": "b269a4a41c56594bdb920ccabb7204177c320f1132da70eaf2b1087bf073e2fc",
+  "run_id": "20260807T095843Z",
+  "evidence_rel": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T095843Z/gate-results.json",
+  "protocol": "C-2-atomic-v3-blob-attestation",
+  "assert_package_head": true,
+  "errors": []
+}
