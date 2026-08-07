@@ -8,7 +8,7 @@
 > **Severity:** CRITICAL
 > **Source finding:** C-1 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -25,11 +25,11 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** After fence lift, any POST `/api/documents` outcome that is not a verified happy path (non-201 **or** 201 without a bound reselected row **or** fetch/JSON/timeout failure **or** body missing `document.id`) invokes the same crash-window recovery as PONR-insert failure: durable `HOLO_MIGRATION_READ_ONLY` is re-armed to `1`/`true`, and a durable post-export accepted-write / refusal audit record exists when a document was accepted or when acceptance cannot be disproved.
-- [ ] **AC-2** PLATFORM_IT (or equivalent real Postgres + secrets path): inject/simulate the Hono path where the document INSERT succeeds but the audit write fails (HTTP 500 with accepted `documentId`). `runEnableWrites` returns fail-closed (`ok:false`); durable fence is re-armed; subsequent `cutover:rollback-repoint --json` exits non-zero with `POST_EXPORT_WRITE_ACCEPTED` or `POST_PONR_INELIGIBLE` (not a clean re-open).
-- [ ] **AC-3** PLATFORM_IT: inject lost/invalid response after fence lift (network throw, non-JSON body, or reselect miss for a claimed id). Fence is re-armed; no half-open write window remains (`readDurableMigrationReadOnly` observes armed).
-- [ ] **AC-4** Existing happy-path enable-writes still records PONR and remains idempotent; RH-S30-05 PONR-insert recovery remains green.
-- [ ] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-09/` includes: failing RED log (or citation of pre-fix failure), GREEN run logs for AC-1..AC-3, and a one-line map of which `ponr.ts` branches call recovery.
+- [x] **AC-1** After fence lift, any POST `/api/documents` outcome that is not a verified happy path (non-201 **or** 201 without a bound reselected row **or** fetch/JSON/timeout failure **or** body missing `document.id`) invokes the same crash-window recovery as PONR-insert failure: durable `HOLO_MIGRATION_READ_ONLY` is re-armed to `1`/`true`, and a durable post-export accepted-write / refusal audit record exists when a document was accepted or when acceptance cannot be disproved.
+- [x] **AC-2** PLATFORM_IT (or equivalent real Postgres + secrets path): inject/simulate the Hono path where the document INSERT succeeds but the audit write fails (HTTP 500 with accepted `documentId`). `runEnableWrites` returns fail-closed (`ok:false`); durable fence is re-armed; subsequent `cutover:rollback-repoint --json` exits non-zero with `POST_EXPORT_WRITE_ACCEPTED` or `POST_PONR_INELIGIBLE` (not a clean re-open).
+- [x] **AC-3** PLATFORM_IT: inject lost/invalid response after fence lift (network throw, non-JSON body, or reselect miss for a claimed id). Fence is re-armed; no half-open write window remains (`readDurableMigrationReadOnly` observes armed).
+- [x] **AC-4** Existing happy-path enable-writes still records PONR and remains idempotent; RH-S30-05 PONR-insert recovery remains green.
+- [x] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-09/` includes: failing RED log (or citation of pre-fix failure), GREEN run logs for AC-1..AC-3, and a one-line map of which `ponr.ts` branches call recovery.
 
 ## Anti-stub
 

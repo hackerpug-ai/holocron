@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** HIGH
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ gate runner, gate-verification.json, gate-verification.json.raw
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** After gate run, jq -e '.verified==true' gate-verification.json and identical recomputed in .raw
-- [ ] **AC-2** assert-human-test-verdict + verify-gate-evidence both exit 0 against tip
+- [x] **AC-1** After gate run, jq -e '.verified==true' gate-verification.json and identical recomputed in .raw
+- [x] **AC-2** assert-human-test-verdict + verify-gate-evidence both exit 0 against tip
 
 ## Anti-stub
 

@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** CRITICAL
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ services/platform/src/cutover/ponr.ts, tests
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** Injected PONR insert failure after 201 => HOLO_MIGRATION_READ_ONLY re-armed AND rollback-repoint refuses (POST_PONR_INELIGIBLE or POST_EXPORT_WRITE_ACCEPTED)
-- [ ] **AC-2** Happy path still records PONR and idempotent re-run
+- [x] **AC-1** Injected PONR insert failure after 201 => HOLO_MIGRATION_READ_ONLY re-armed AND rollback-repoint refuses (POST_PONR_INELIGIBLE or POST_EXPORT_WRITE_ACCEPTED)
+- [x] **AC-2** Happy path still records PONR and idempotent re-run
 
 ## Anti-stub
 

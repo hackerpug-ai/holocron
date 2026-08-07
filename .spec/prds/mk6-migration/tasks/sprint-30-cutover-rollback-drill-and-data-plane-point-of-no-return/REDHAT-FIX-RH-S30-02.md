@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** CRITICAL
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ services/platform/src/http/**, soak-fence or document handlers, rollback-drill.t
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** With HOLO_DATA_PLANE=convex, a content GET returns Convex document payload (identity-bound)
-- [ ] **AC-2** Drill report includes content_probe with source convex and matching body field; health-only is insufficient
+- [x] **AC-1** With HOLO_DATA_PLANE=convex, a content GET returns Convex document payload (identity-bound)
+- [x] **AC-2** Drill report includes content_probe with source convex and matching body field; health-only is insufficient
 
 ## Anti-stub
 

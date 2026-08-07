@@ -8,7 +8,7 @@
 > **Severity:** MEDIUM / LOW
 > **Source findings:** M-2, L-1 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Findings
 
@@ -29,10 +29,10 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-1 (L-1)** After a successful step 3 (`cutover:verify-fallback-boot` with `ok:true`), the step summary / gate-consumed fields preserve the pinned fallback commit identity: non-null `commit_sha` **or** non-null `short_sha` derived from it (not `null` when the boot report contained `commit_sha`).
-- [ ] **AC-2 (L-1)** Raw `step3.log` and any JSON summary agree on the pin identity (same full SHA or unambiguous short form).
-- [ ] **AC-3 (M-2)** Durable documentation (in the gate runner header, verify-gate-evidence usage note, or sprint gate plan comment) states explicitly that `verify-gate-evidence` proves **log/plan consistency** (cmd_sha, exit, regex) and is **not** an independent re-execution of Postgres/Convex/Release external state. Reviewers must not treat `verified:true` alone as production-state attestation.
-- [ ] **AC-4** Evidence under `.tmp/REDHAT-FIX-RH-S30-16/` includes a step3 summary snippet with non-null pin identity and a citation to the verifier-scope documentation location.
+- [x] **AC-1 (L-1)** After a successful step 3 (`cutover:verify-fallback-boot` with `ok:true`), the step summary / gate-consumed fields preserve the pinned fallback commit identity: non-null `commit_sha` **or** non-null `short_sha` derived from it (not `null` when the boot report contained `commit_sha`).
+- [x] **AC-2 (L-1)** Raw `step3.log` and any JSON summary agree on the pin identity (same full SHA or unambiguous short form).
+- [x] **AC-3 (M-2)** Durable documentation (in the gate runner header, verify-gate-evidence usage note, or sprint gate plan comment) states explicitly that `verify-gate-evidence` proves **log/plan consistency** (cmd_sha, exit, regex) and is **not** an independent re-execution of Postgres/Convex/Release external state. Reviewers must not treat `verified:true` alone as production-state attestation.
+- [x] **AC-4** Evidence under `.tmp/REDHAT-FIX-RH-S30-16/` includes a step3 summary snippet with non-null pin identity and a citation to the verifier-scope documentation location.
 
 ## Anti-stub
 
