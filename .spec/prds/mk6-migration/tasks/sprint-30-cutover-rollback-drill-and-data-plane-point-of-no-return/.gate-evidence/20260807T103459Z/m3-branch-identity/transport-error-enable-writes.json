@@ -1,0 +1,21 @@
+{
+  "ok": false,
+  "already_recorded": false,
+  "ponr_id": null,
+  "write_row_id": null,
+  "write_row_digest_sha256": null,
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": "2026-08-07T10:20:31.219Z",
+  "write_committed_at": null,
+  "base_url": "http://127.0.0.1:54837",
+  "export_watermark_ms": 1786184424477,
+  "convex_fence_audit_id": null,
+  "convex_documents_total": null,
+  "convex_accepted_writes_since_watermark": null,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-RH-S30-22/transport-error-enable-writes.json",
+  "error": {
+    "code": "FIRST_WRITE_FAILED",
+    "message": "cutover:enable-writes failed driving POST /api/documents: injected transport failure after fence lift (RH-S30-09 M-3). Fence re-armed=true; audit recorded=true (REDHAT-FIX-RH-S30-09)."
+  }
+}
