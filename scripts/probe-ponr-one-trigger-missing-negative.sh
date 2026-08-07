@@ -102,6 +102,21 @@ for disable_one in "${REQUIRED[@]}"; do
   psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
     "ALTER TABLE data_plane_ponr DISABLE TRIGGER ${disable_one};"
 
+  # Snapshot exact tgenabled states for complementary D/O bind (RH-S30-33)
+  TRIG_SNAP="$(
+    psql "$MARKER_URL" -tAc "
+      SELECT coalesce(string_agg(tgname || '|' || tgenabled::text, E'\n' ORDER BY tgname), '')
+      FROM pg_trigger
+      WHERE tgrelid = 'public.data_plane_ponr'::regclass
+        AND NOT tgisinternal
+        AND tgname IN ('data_plane_ponr_reject_mutation','data_plane_ponr_reject_truncate');
+    "
+  )"
+  {
+    echo "complementary_do_snapshot:"
+    echo "$TRIG_SNAP"
+  } >>"$case_dir/stderr.txt"
+
   set +e
   # Precheck-only path: marker script must exit non-zero when exact set incomplete
   DATABASE_URL="$GATE_URL" \
@@ -109,10 +124,33 @@ for disable_one in "${REQUIRED[@]}"; do
     HOLO_PROBE_SEED_PONR=0 \
     bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
     "$case_dir/probe" \
-    >"$case_dir/stdout.txt" 2>"$case_dir/stderr.txt"
+    >"$case_dir/stdout.txt" 2>>"$case_dir/stderr.txt"
   case_rc=$?
   set -e
   echo "$case_rc" >"$case_dir/exit.code"
+
+  # Parse D/O from snapshot for case record
+  DO_JSON="$(
+    python3 -c "
+snap='''$TRIG_SNAP'''
+disabled='''$disable_one'''
+req={'data_plane_ponr_reject_mutation','data_plane_ponr_reject_truncate'}
+states={}
+for line in snap.splitlines():
+  line=line.strip()
+  if '|' not in line: continue
+  n,s=line.split('|',1)
+  states[n]=s.upper()
+other=next(iter(req-{disabled}), '')
+import json
+print(json.dumps({
+  'disabled_tgenabled': states.get(disabled),
+  'other_tgenabled': states.get(other),
+  'other_trigger': other,
+  'states': states,
+}))
+"
+  )"
 
   # Re-enable before next case
   psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
@@ -137,11 +175,16 @@ for disable_one in "${REQUIRED[@]}"; do
     python3 -c "
 import json
 cases=json.loads('''$cases_json''')
+do=json.loads('''$DO_JSON''')
 cases.append({
   'disabled_trigger': '''$disable_one''',
   'probe_rc': $case_rc,
   'ok_field': '''$ok_field''',
   'refused': True,
+  'disabled_tgenabled': do.get('disabled_tgenabled'),
+  'other_tgenabled': do.get('other_tgenabled'),
+  'complementary_do': do,
+  'raw_exit_code_path': f'disable-{'''$disable_one'''}/exit.code',
 })
 print(json.dumps(cases))
 "
@@ -151,8 +194,8 @@ done
 restore_triggers
 trap - EXIT
 
-python3 - "$OUT_DIR" "$GATE_CANON" "$MARKER_CANON" "$ALIAS_PROBE_RC" "$cases_json" <<'PY'
-import json, sys
+python3 - "$OUT_DIR" "$GATE_CANON" "$MARKER_CANON" "$ALIAS_PROBE_RC" "$cases_json" "$ROOT" <<'PY'
+import json, sys, subprocess
 from pathlib import Path
 
 out = Path(sys.argv[1])
@@ -160,6 +203,7 @@ gate_canon = sys.argv[2]
 marker_canon = sys.argv[3]
 alias_rc = int(sys.argv[4])
 cases = json.loads(sys.argv[5])
+root = Path(sys.argv[6])
 report = {
     "ok": True,
     "tool": "scripts/probe-ponr-one-trigger-missing-negative.sh",
@@ -176,14 +220,30 @@ report = {
     "notes": (
         "Each required trigger disabled alone on disposable marker DB must make "
         "probe-ponr-role-immutability-negative-marker.sh exit non-zero. "
+        "Exact set {mutation,truncate} with no duplicates; raw exit.code + D/O bind. "
         "URI alias of gate as marker target must refuse."
     ),
 }
-if not cases or len(cases) != 2:
+# RH-S30-33 exact-set oracle (producer fail-closed)
+r = subprocess.run(
+    [
+        "python3",
+        str(root / "scripts/lib/c3-exact-trigger-set.py"),
+        "--json-cases",
+        json.dumps(cases),
+        str(out),
+    ],
+    capture_output=True,
+    text=True,
+)
+try:
+    exact = json.loads(r.stdout) if r.stdout.strip() else {"ok": False, "errors": ["no oracle output"]}
+except Exception as e:
+    exact = {"ok": False, "errors": [f"oracle parse: {e}", r.stdout[:200]]}
+report["exact_trigger_set"] = exact
+if not exact.get("ok"):
     report["ok"] = False
-    report["error"] = "expected 2 one-trigger-missing cases"
-if not all(c.get("refused") and c.get("probe_rc", 0) != 0 for c in cases):
-    report["ok"] = False
+    report["error"] = "exact_trigger_set_oracle_failed"
 if not report["uri_alias_same_target_refused"] or not report["urls_distinct"]:
     report["ok"] = False
 (out / "one-trigger-missing-report.json").write_text(json.dumps(report, indent=2) + "\n")

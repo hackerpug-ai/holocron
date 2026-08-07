@@ -144,13 +144,26 @@ if evid_dir is not None and os.environ.get("ASSERT_C3_PREDICATES", _c3_default) 
             c3_errors.append("C-3 one-trigger-missing ok!=true")
         if ot.get("uri_alias_same_target_refused") is not True:
             c3_errors.append("C-3 URI-alias same-target not refused")
-        cases = ot.get("one_trigger_missing_cases") or []
-        if len(cases) != 2:
-            c3_errors.append(f"C-3 one-trigger-missing cases len={len(cases)} != 2")
-        elif not all(
-            c.get("refused") and int(c.get("probe_rc") or 0) != 0 for c in cases
-        ):
-            c3_errors.append("C-3 one-trigger-missing case not refused")
+        # RH-S30-33: exact REQUIRED set + raw exit.code + complementary D/O
+        ex = subprocess.run(
+            [
+                "python3",
+                "scripts/lib/c3-exact-trigger-set.py",
+                str(one_trig),
+                str(one_trig.parent),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        try:
+            exact = json.loads(ex.stdout) if ex.stdout.strip() else {}
+        except Exception:
+            exact = {"ok": False, "errors": ["oracle parse fail"]}
+        if ex.returncode != 0 or exact.get("ok") is not True:
+            c3_errors.append(
+                "C-3 exact-trigger-set oracle failed: "
+                + "; ".join(exact.get("errors") or [ex.stderr[:200] or "nonzero exit"])
+            )
     # M-3 fail-closed identity tree (required at package time; no legacy fallback)
     m3_env = os.environ.copy()
     m3_r = subprocess.run(
