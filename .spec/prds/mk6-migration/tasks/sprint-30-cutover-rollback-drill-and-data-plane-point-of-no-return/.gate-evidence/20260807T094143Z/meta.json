@@ -1,6 +1,6 @@
 {
   "run_id": "20260807T094143Z",
-  "git_sha": "a2db5b9dd5fb9dc0aa5b5f1baa283cff1ae9f50b",
+  "git_sha": "52889af3b07a147d9686abbe90489252dc245853",
   "source_sha": "a2db5b9dd5fb9dc0aa5b5f1baa283cff1ae9f50b",
   "head_bound": true,
   "deployed_base_url": "http://127.0.0.1:44121",
@@ -13,5 +13,8 @@
   "steps_passed": 5,
   "steps_failed": 0,
   "verify_rc": 0,
-  "assert_human_test_verdict_rc": 0
+  "assert_human_test_verdict_rc": 0,
+  "package_sha": "52889af3b07a147d9686abbe90489252dc245853",
+  "source_sha_at_run": "a2db5b9dd5fb9dc0aa5b5f1baa283cff1ae9f50b",
+  "evidence_package_protocol": "C-2-atomic-v2-two-commit"
 }
