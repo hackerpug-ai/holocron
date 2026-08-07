@@ -1,0 +1,17 @@
+{
+  "probe_rc": 2,
+  "before_count": 1,
+  "after_count": 1,
+  "before_triggers_enabled": true,
+  "after_triggers_enabled": true,
+  "effective_user_hint": null,
+  "expect_probe_nonzero": true,
+  "expect_before_count_ge_1": true,
+  "expect_rows_preserved": true,
+  "expect_triggers_enabled": true,
+  "rows_preserved": true,
+  "triggers_preserved": true,
+  "seeded_ponr_holding": true,
+  "ok": true
+}
+negative-marker control PASS (forced miss hard-fail; PONR rows+triggers preserved; before_count>=1)
