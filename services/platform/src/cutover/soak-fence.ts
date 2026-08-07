@@ -5,10 +5,13 @@
  *   HOLO_MIGRATION_READ_ONLY === '1' | 'true'
  * read FRESH at every write chokepoint (never cached at process start).
  *
- * Resolution (every call of isMigrationReadOnly) — R2-C01 durable overrides env:
- *   1. process.env truthy ('1'/'true') → engage
- *   2. durable control-plane secrets.yaml truthy → engage (wins over boot-time env '0')
- *   3. otherwise → disengage
+ * Resolution (every call of isMigrationReadOnly) — durable control-plane is
+ * authoritative for both arm and disarm:
+ *   1. durable secrets.yaml explicit '0'/'false' → disengage (wins over sticky
+ *      process.env '1' from boot / applyConsolidatedSecretsToEnv; enable-writes / PONR)
+ *   2. process.env truthy ('1'/'true') → engage
+ *   3. durable secrets.yaml truthy → engage (R2-C01 wins over boot-time env '0')
+ *   4. otherwise → disengage
  *
  * Surfaces:
  *   - Hono: HTTP 423 { error, code: 'migration_read_only' } on non-GET /api/*
@@ -92,22 +95,26 @@ function isTruthyFenceValue(v: string | undefined): boolean {
  * Primary contract value is the literal '1'; 'true' accepted for D06-01 parity.
  * MUST re-resolve on every call — never cache at process start.
  *
- * Order (REDHAT-FIX-S29-R2-C01 authoritative durable override):
- *   1. process.env truthy ('1'/'true') → armed (process can force engage)
- *   2. durable control-plane secrets.yaml truthy (fresh file read every call) → armed
- *      even when process.env still holds boot-time '0'/'false' from
- *      applyConsolidatedSecretsToEnv (secrets.ts sticky skip)
- *   3. otherwise → disarmed
+ * Order (durable authoritative for arm + lift; GATE-FIX-fence-lift + R2-C01):
+ *   1. durable control-plane secrets.yaml explicit '0'/'false' (fresh file read) →
+ *      disarmed, even when process.env still holds sticky boot-time '1'/'true'
+ *      (cutover:enable-writes / UC-SYNC-04 PONR — serving process never reloads env)
+ *   2. process.env truthy ('1'/'true') → armed
+ *   3. durable control-plane secrets.yaml truthy → armed even when process.env
+ *      still holds boot-time '0'/'false' from applyConsolidatedSecretsToEnv
+ *      (secrets.ts sticky skip) — REDHAT-FIX-S29-R2-C01
+ *   4. otherwise → disarmed
  *
  * Boot-time process.env '0' MUST NOT permanently disarm a post-flip durable '1'.
+ * Sticky process.env '1' MUST NOT re-arm after durable explicit lift to '0'.
  * Path A: durable re-read every call; no second fence mechanism.
  */
 export function isMigrationReadOnly(env: NodeJS.ProcessEnv = process.env): boolean {
-  const v = env[MIGRATION_READ_ONLY_ENV];
-  if (isTruthyFenceValue(v)) return true;
-  // Always consult durable control-plane — even when env is explicit '0'/'false'.
-  // R2-C01: durable '1' overrides boot-pinned process.env '0'.
-  if (isTruthyFenceValue(readDurableMigrationReadOnly(env))) return true;
+  const durable = readDurableMigrationReadOnly(env);
+  // Explicit durable lift wins over sticky process.env (enable-writes / PONR).
+  if (durable === '0' || durable === 'false') return false;
+  if (isTruthyFenceValue(env[MIGRATION_READ_ONLY_ENV])) return true;
+  if (isTruthyFenceValue(durable)) return true;
   return false;
 }
 
