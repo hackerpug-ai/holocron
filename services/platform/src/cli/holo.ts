@@ -289,6 +289,12 @@ interface CliArgs {
   negativeControls: boolean;
   /** deploy:verify — registration-only initialize + tools/list. */
   mcpDiscovery: boolean;
+  /** cutover:attest-convex-live --ticks N */
+  ticks: string | null;
+  /** cutover:attest-convex-live --interval-ms MS */
+  intervalMs: string | null;
+  /** cutover:pin-fallback-build --commit <sha> */
+  commit: string | null;
 }
 
 function printHelp(): void {
@@ -384,6 +390,18 @@ Usage:
                             Requires operator export+catalog+parity (fail closed; no test-fixture default).
                             Tests only: HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 or explicit fixture paths.
   cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json] [--base-url URL]
+  cutover:attest-convex-live
+                            D07-02 multi-tick Convex reachability + write-block attestation
+                            [--ticks N] [--interval-ms MS] [--json] [--output <report.json>]
+                            Fail-closed: CONVEX_UNREACHABLE | WRITES_NOT_BLOCKED (any tick)
+  cutover:pin-fallback-build
+                            D07-02 pin Convex-pointing fallback app build identity
+                            [--commit <sha>] [--json] [--output <manifest.json>]
+                            Fail-closed: PIN_DOES_NOT_REACH_CONVEX (platform-pointing decoy)
+  cutover:verify-fallback-boot
+                            D07-02 Maestro cold-boot proof of pinned fallback build
+                            [--json] [--output <boot-report.json>]
+                            Fail-closed: BOOT_UNVERIFIED when no simulator/device
   verify:convex-fence-coverage
                             D06-03 scan convex/ for unfenced mutation/action/httpAction imports [--json]
   verify-no-convex-env      T-PLAT-017 build gate: fail if Convex env aliases remain
@@ -694,6 +712,9 @@ function parseArgs(argv: string[]): CliArgs {
     restartProbe: false,
     negativeControls: false,
     mcpDiscovery: false,
+    ticks: null,
+    intervalMs: null,
+    commit: null,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -1094,6 +1115,18 @@ function parseArgs(argv: string[]): CliArgs {
       args.windowSeconds = argv[++i] ?? null;
     } else if (a.startsWith('--window-seconds=')) {
       args.windowSeconds = a.slice('--window-seconds='.length);
+    } else if (a === '--ticks') {
+      args.ticks = argv[++i] ?? null;
+    } else if (a.startsWith('--ticks=')) {
+      args.ticks = a.slice('--ticks='.length);
+    } else if (a === '--interval-ms') {
+      args.intervalMs = argv[++i] ?? null;
+    } else if (a.startsWith('--interval-ms=')) {
+      args.intervalMs = a.slice('--interval-ms='.length);
+    } else if (a === '--commit') {
+      args.commit = argv[++i] ?? null;
+    } else if (a.startsWith('--commit=')) {
+      args.commit = a.slice('--commit='.length);
     } else if (a === '--token') {
       args.token = argv[++i] ?? null;
     } else if (a.startsWith('--token=')) {
@@ -3724,6 +3757,138 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:verify-soak failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:attest-convex-live': {
+      // D07-02 / UC-SYNC-04: multi-tick Convex reachability + write-block attestation
+      const {
+        runAttestConvexLive,
+        formatAttestConvexLiveText,
+        defaultAttestationReportPath,
+        CONVEX_UNREACHABLE,
+        WRITES_NOT_BLOCKED,
+        WRITE_PROBE_TARGET_MISSING,
+      } = await import('../cutover/convex-live-attestation.ts');
+      try {
+        const ticks = args.ticks ? Number.parseInt(args.ticks, 10) : 3;
+        const intervalMs = args.intervalMs ? Number.parseInt(args.intervalMs, 10) : 1500;
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultAttestationReportPath(process.cwd());
+        const report = await runAttestConvexLive({
+          ticks: Number.isFinite(ticks) ? ticks : 3,
+          intervalMs: Number.isFinite(intervalMs) ? intervalMs : 1500,
+          baseUrl: args.baseUrl ?? undefined,
+          reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatAttestConvexLiveText(report));
+        }
+        if (!report.ok) {
+          const code = report.error?.code ?? '';
+          process.exit(
+            code === CONVEX_UNREACHABLE ||
+              code === WRITES_NOT_BLOCKED ||
+              code === WRITE_PROBE_TARGET_MISSING
+              ? 2
+              : 1
+          );
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:attest-convex-live failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:pin-fallback-build': {
+      // D07-02 / UC-SYNC-04: pin Convex-pointing fallback app build identity
+      const {
+        runPinFallbackBuild,
+        formatPinFallbackBuildText,
+        defaultPinnedManifestPath,
+        PIN_DOES_NOT_REACH_CONVEX,
+        PIN_COMMIT_MISSING,
+        PINNED_FALLBACK_COMMIT_SHA,
+      } = await import('../cutover/pinned-fallback-build.ts');
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultPinnedManifestPath(process.cwd());
+        const manifest = runPinFallbackBuild({
+          commit: args.commit ?? PINNED_FALLBACK_COMMIT_SHA,
+          outputPath: reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(manifest, null, 2));
+        } else {
+          console.log(formatPinFallbackBuildText(manifest));
+        }
+        if (!manifest.ok) {
+          const code = manifest.error?.code ?? '';
+          process.exit(code === PIN_DOES_NOT_REACH_CONVEX || code === PIN_COMMIT_MISSING ? 2 : 1);
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:pin-fallback-build failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:verify-fallback-boot': {
+      // D07-02 / UC-SYNC-04: Maestro cold-boot of pinned fallback or BOOT_UNVERIFIED
+      const {
+        runVerifyFallbackBoot,
+        formatVerifyFallbackBootText,
+        defaultFallbackBootReportPath,
+        BOOT_UNVERIFIED,
+        PIN_MANIFEST_MISSING,
+        PIN_DOES_NOT_REACH_CONVEX,
+      } = await import('../cutover/pinned-fallback-build.ts');
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultFallbackBootReportPath(process.cwd());
+        const report = runVerifyFallbackBoot({
+          outputPath: reportPath,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatVerifyFallbackBootText(report));
+        }
+        if (!report.ok) {
+          const code = report.error?.code ?? '';
+          process.exit(
+            code === BOOT_UNVERIFIED ||
+              code === PIN_MANIFEST_MISSING ||
+              code === PIN_DOES_NOT_REACH_CONVEX
+              ? 2
+              : 1
+          );
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:verify-fallback-boot failed: ${msg}`);
         }
         process.exit(1);
       }
