@@ -14,8 +14,8 @@ capability_coverage: [CAP-CUT-01]
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: RH-S30-17..19 **implemented** — C-2-atomic-v2 packaging + fail-closed containment; C-3 holocron_app SQLSTATE probe (gate-owned `ponr-role-provenance`); M-3 PLATFORM_IT oracles (6/6) · fresh gate `20260807T094903Z` **5/5 verified:true** source=`c5cba696` containing=`4524a254` · **not release-approved** until independent dual-lens + QA · updated 2026-08-07T09:52:00Z
-> Status-Note: Third-cycle plans RH-S30-17..19 landed on main with packaged evidence. Sprint stays **In Progress** — no complete/release claim until fresh independent review and QA pass.
+> Progress: Final closeout C-2/C-3/M-3 **fixed** — C-2-atomic-v3 blob attestation; C-3 marker hard-fail + negative control; M-3 write-row identity oracles · gate `20260807T095843Z` **5/5 verified:true** source=`324ce904` evidence=`33f004d1` attestation pinned · **not release-approved** · updated 2026-08-07T10:00:00Z
+> Status-Note: Independent final closeout `20260807T094841Z` NEEDS REVISION findings addressed. Sprint stays **In Progress** until independent dual-lens + QA pass. No complete/release claim.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
