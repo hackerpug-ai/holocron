@@ -252,13 +252,39 @@ r = subprocess.run(
     text=True,
 )
 combined = (r.stdout or "") + "\n" + (r.stderr or "")
+# Negative control (C-3): PROBE_FORCE_MARKER_MISS=1 pretends the marker never arrived
+# so we prove hard-fail without destructive fallback against a PONR-holding DB.
+import os as _os
+
 m = re.search(
     r"PROBE_ROLLBACK_MARKER cur=(\S+) dis=(\d+) trc=(\d+) upd=(\d+) del=(\d+) "
     r"edis=(.*?) etrc=(.*?) eupd=(.*?) edel=(.*?)\n",
     combined,
 )
+if _os.environ.get("PROBE_FORCE_MARKER_MISS") == "1":
+    m = None
+# RH-S30-18 / final closeout C-3: NEVER fall back to bare TRUNCATE/UPDATE/DELETE.
+# Marker parse failure is a hard failure before any additional DDL/DML.
 if not m:
-    print("FATAL: missing PROBE_ROLLBACK_MARKER; refusing silent success", file=sys.stderr)
+    (out_dir / "ac-marker-parse-failure.json").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "error": "PROBE_ROLLBACK_MARKER_MISSING",
+                "note": (
+                    "Hard-fail: no destructive fallback. Pre-C-3 scripts issued bare "
+                    "TRUNCATE/UPDATE on parse failure — that path is deleted."
+                ),
+                "stdout_stderr_head": combined[:2000],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    print(
+        "FATAL: missing PROBE_ROLLBACK_MARKER — hard-fail, no DDL/DML fallback (C-3)",
+        file=sys.stderr,
+    )
     print(combined[:2000], file=sys.stderr)
     sys.exit(2)
 
