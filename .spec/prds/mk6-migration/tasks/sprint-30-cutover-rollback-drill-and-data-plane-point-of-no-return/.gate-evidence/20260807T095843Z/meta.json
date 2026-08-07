@@ -1,6 +1,6 @@
 {
   "run_id": "20260807T095843Z",
-  "git_sha": "324ce9045c0ced0ee39686cbec603afcf1116551",
+  "git_sha": "33f004d1524452b264dcc1a41b91d0c43fa8e6e9",
   "source_sha": "324ce9045c0ced0ee39686cbec603afcf1116551",
   "head_bound": true,
   "deployed_base_url": "http://127.0.0.1:44121",
@@ -15,5 +15,9 @@
   "verify_rc": 0,
   "assert_human_test_verdict_rc": 0,
   "ponr_role_probe_rc": 0,
-  "h3_role_provenance_closed": true
+  "h3_role_provenance_closed": true,
+  "source_sha_at_run": "324ce9045c0ced0ee39686cbec603afcf1116551",
+  "package_sha": "33f004d1524452b264dcc1a41b91d0c43fa8e6e9",
+  "gate_results_blob_sha256": "b84649d3832f0e54382c88543c12e756d19bb6cf156a2696a7d3407ab1a006c4",
+  "evidence_package_protocol": "C-2-atomic-v3-blob-attestation"
 }
