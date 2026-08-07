@@ -1,0 +1,24 @@
+{
+  "id": "convex-deploy-key-disarm-no-tamper-record",
+  "ac": "AC-7",
+  "severity": "HIGH",
+  "title": "CONVEX_DEPLOY_KEY can disarm HOLO_MIGRATION_READ_ONLY with no Convex-side tamper record",
+  "credentials": [
+    "CONVEX_DEPLOY_KEY"
+  ],
+  "observed": {
+    "isMigrationReadOnly_reads_process_env_per_call": true,
+    "module_level_fence_cache_present": false,
+    "audit_ts_ctx_db_insert_count": 2,
+    "convexEnv_wrapper_sites": [
+      "256:export function convexEnv(",
+      "268:  const r = spawnSync('npx', args, {"
+    ],
+    "verify_no_convex_env_literal_CONVEX_DEPLOY_KEY_grep": 0,
+    "verify_no_convex_env_assembles_DEPLOY_KEY_at_runtime": true,
+    "assembled_credential": "CONVEX_DEPLOY_KEY",
+    "unset_path_invokes_audit_mutations": false,
+    "never_executed": "npx convex env unset HOLO_MIGRATION_READ_ONLY",
+    "note": "isMigrationReadOnly is a fresh process.env read; convexEnv is sole npx convex env wrapper; audit.ts has exactly 2 insert sites neither on env-disarm path"
+  }
+}
