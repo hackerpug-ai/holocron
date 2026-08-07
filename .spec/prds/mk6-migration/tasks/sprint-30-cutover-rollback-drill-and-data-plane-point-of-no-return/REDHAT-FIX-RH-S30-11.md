@@ -8,7 +8,7 @@
 > **Severity:** HIGH
 > **Source finding:** H-1 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -26,10 +26,10 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** Unauthenticated `recordFenceArmed` (no `operatorSecret` / wrong secret) rejects with the same operator-auth failure mode as `recordWriteAttempt` under an armed fence; **no** `migrationFenceAudit` row of kind `fence_armed` is inserted.
-- [ ] **AC-2** Authorized operator path (matching `HOLO_CUTOVER_OPERATOR_SECRET` / established cutover operator contract) still records `fence_armed` and remains usable from `cutover:freeze` / fence-arm tooling.
-- [ ] **AC-3** `cutover:enable-writes` must not treat a forged unauthenticated fence_armed row as a valid prerequisite — either because AC-1 makes forgery impossible, or because enable-writes independently verifies operator-bound arm provenance (documented which).
-- [ ] **AC-4** Evidence under `.tmp/REDHAT-FIX-RH-S30-11/` includes unauth reject transcript + authorized success transcript against real Convex (or documented integration lane).
+- [x] **AC-1** Unauthenticated `recordFenceArmed` (no `operatorSecret` / wrong secret) rejects with the same operator-auth failure mode as `recordWriteAttempt` under an armed fence; **no** `migrationFenceAudit` row of kind `fence_armed` is inserted.
+- [x] **AC-2** Authorized operator path (matching `HOLO_CUTOVER_OPERATOR_SECRET` / established cutover operator contract) still records `fence_armed` and remains usable from `cutover:freeze` / fence-arm tooling.
+- [x] **AC-3** `cutover:enable-writes` must not treat a forged unauthenticated fence_armed row as a valid prerequisite — either because AC-1 makes forgery impossible, or because enable-writes independently verifies operator-bound arm provenance (documented which).
+- [x] **AC-4** Evidence under `.tmp/REDHAT-FIX-RH-S30-11/` includes unauth reject transcript + authorized success transcript against real Convex (or documented integration lane).
 
 ## Anti-stub
 

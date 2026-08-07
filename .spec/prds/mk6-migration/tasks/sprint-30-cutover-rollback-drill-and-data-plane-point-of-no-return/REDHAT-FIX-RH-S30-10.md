@@ -8,7 +8,7 @@
 > **Severity:** CRITICAL
 > **Source finding:** C-2 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -28,11 +28,11 @@ At review of `2ff0e6c4`, `gate-results.json`, both root verifier files, RH-S30 r
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** After a tip-bound Sprint 30 human gate that is claimed as remediation proof, a single git commit (or an atomic merge result on the base branch) contains **all** of: source changes under review, `gate-results.json` for that run, `gate-verification.json` + `gate-verification.json.raw` (byte-identical verified stdout), and `.gate-evidence/<runId>/` step logs + meta for that same `runId`.
-- [ ] **AC-2** `git ls-tree -r HEAD --name-only` includes the claimed evidence run directory and the root gate files; an independent reviewer can `git show HEAD:…/gate-results.json` and recompute `verify-gate-evidence.sh` to exit 0 without needing the working tree dirty files.
-- [ ] **AC-3** `gate-results.json.git_sha` (or equivalent binding field) equals the commit that contains those artifacts (or a documented parent SHA that is an ancestor of the landed tip and still carries the same evidence tree). Fail closed if results claim a SHA that does not contain the evidence files.
-- [ ] **AC-4** REDHAT-FIX task status updates that assert "gate-verified" for RH-S30-09..16 are only checked after the evidence commit exists on the base branch — never only as dirty working-tree edits.
-- [ ] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-10/` includes a `git ls-tree` / `git show` transcript proving AC-1..AC-3 for the remediation SHA.
+- [x] **AC-1** After a tip-bound Sprint 30 human gate that is claimed as remediation proof, a single git commit (or an atomic merge result on the base branch) contains **all** of: source changes under review, `gate-results.json` for that run, `gate-verification.json` + `gate-verification.json.raw` (byte-identical verified stdout), and `.gate-evidence/<runId>/` step logs + meta for that same `runId`.
+- [x] **AC-2** `git ls-tree -r HEAD --name-only` includes the claimed evidence run directory and the root gate files; an independent reviewer can `git show HEAD:…/gate-results.json` and recompute `verify-gate-evidence.sh` to exit 0 without needing the working tree dirty files.
+- [x] **AC-3** `gate-results.json.git_sha` (or equivalent binding field) equals the commit that contains those artifacts (or a documented parent SHA that is an ancestor of the landed tip and still carries the same evidence tree). Fail closed if results claim a SHA that does not contain the evidence files.
+- [x] **AC-4** REDHAT-FIX task status updates that assert "gate-verified" for RH-S30-09..16 are only checked after the evidence commit exists on the base branch — never only as dirty working-tree edits.
+- [x] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-10/` includes a `git ls-tree` / `git show` transcript proving AC-1..AC-3 for the remediation SHA.
 
 ## Anti-stub
 

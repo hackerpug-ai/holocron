@@ -1,0 +1,17 @@
+{
+  "run_id": "20260807T091354Z",
+  "git_sha": "09aae0dd2f5293b617a476fc8df585272f37b04a",
+  "source_sha": "09aae0dd2f5293b617a476fc8df585272f37b04a",
+  "head_bound": true,
+  "deployed_base_url": "http://127.0.0.1:44121",
+  "sourceRevision": "09aae0dd2f5293b617a476fc8df585272f37b04a",
+  "started_at": "2026-08-07T09:13:54Z",
+  "status": "completed",
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+  "verdict": "pass",
+  "finished_at": "2026-08-07T09:14:31Z",
+  "steps_passed": 5,
+  "steps_failed": 0,
+  "verify_rc": 0,
+  "assert_human_test_verdict_rc": 0
+}

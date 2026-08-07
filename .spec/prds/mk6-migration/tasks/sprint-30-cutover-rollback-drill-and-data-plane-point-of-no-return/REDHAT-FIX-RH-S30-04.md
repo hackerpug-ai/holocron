@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** CRITICAL
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ convex/migrationFence/drain.ts, audit.ts, related clients, sprint30-security-rev
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** With fence armed, unauthenticated seedInFlightForDrainTest / disableAndDrain / recordWriteAttempt reject without side effects
-- [ ] **AC-2** Authorized cutover operator path for legitimate drain still works when explicitly invoked from cutover:quiet-check/freeze tooling
+- [x] **AC-1** With fence armed, unauthenticated seedInFlightForDrainTest / disableAndDrain / recordWriteAttempt reject without side effects
+- [x] **AC-2** Authorized cutover operator path for legitimate drain still works when explicitly invoked from cutover:quiet-check/freeze tooling
 
 ## Anti-stub
 
