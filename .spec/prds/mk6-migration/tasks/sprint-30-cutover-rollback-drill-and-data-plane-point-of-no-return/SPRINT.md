@@ -14,8 +14,8 @@ capability_coverage: [CAP-CUT-01]
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: REDHAT-FIX-RH-S30-09..16 implemented · tip-bound gate 20260807T091354Z 5/5 pass verified:true @ 09aae0dd · **not release-approved** · updated 2026-08-07T09:15:55Z
-> Status-Note: Second-round remediation closed with atomic evidence packaging (RH-S30-10). Sprint remains In Progress until independent dual-lens review and fresh QA are clean.
+> Progress: Second-round remediation **finalized** — RH-S30-09..16 ACs on main · tip-bound gate `20260807T091354Z` 5/5 pass · verified:true · head_bound · source `09aae0dd` · evidence `5433b6a5` · **not release-approved** · updated 2026-08-07T09:18:55Z
+> Status-Note: Remediation status/evidence finalized for independent handoff. Sprint remains **In Progress** until independent dual-lens review and fresh QA are clean. Do not treat this gate pass as release approval.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`

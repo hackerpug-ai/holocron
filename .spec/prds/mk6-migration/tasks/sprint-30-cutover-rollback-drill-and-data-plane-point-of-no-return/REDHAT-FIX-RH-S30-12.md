@@ -8,7 +8,7 @@
 > **Severity:** HIGH
 > **Source finding:** H-2 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
+> Status: Finalized on main with tip-bound gate 20260807T091354Z (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
