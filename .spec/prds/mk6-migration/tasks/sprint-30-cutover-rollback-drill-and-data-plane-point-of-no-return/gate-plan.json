@@ -67,7 +67,7 @@
           "\"ok\":\\s*true",
           "STEP3_PASS"
         ],
-        "expect_not_log_regex": "BOOT_UNVERIFIED"
+        "expect_not_log_regex": "BOOT_UNVERIFIED_OR_FAIL|STEP3_BOOT_NOT_OK"
       }
     },
     {
