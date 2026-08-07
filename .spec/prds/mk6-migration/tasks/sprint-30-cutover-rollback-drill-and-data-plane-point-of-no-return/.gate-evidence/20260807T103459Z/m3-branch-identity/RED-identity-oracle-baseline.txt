@@ -1,0 +1,3 @@
+RED (pre-fix residual 20260807T101142Z): reselect asserted only report.write_row_id /
+audit count without independent HTTP-201 capture. No package-bound per-branch identity.
+Expected after GREEN: fetch-boundary independentHttp201Id == report == ledger == DB.

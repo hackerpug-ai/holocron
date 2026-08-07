@@ -1,0 +1,41 @@
+{
+  "probe_rc": 2,
+  "before_count": 1,
+  "after_count": 1,
+  "before_required_triggers_enabled_count": 2,
+  "after_required_triggers_enabled_count": 2,
+  "before_triggers": [
+    {
+      "tgname": "data_plane_ponr_reject_mutation",
+      "tgenabled": "O"
+    },
+    {
+      "tgname": "data_plane_ponr_reject_truncate",
+      "tgenabled": "O"
+    }
+  ],
+  "after_triggers": [
+    {
+      "tgname": "data_plane_ponr_reject_mutation",
+      "tgenabled": "O"
+    },
+    {
+      "tgname": "data_plane_ponr_reject_truncate",
+      "tgenabled": "O"
+    }
+  ],
+  "required_trigger_names": [
+    "data_plane_ponr_reject_mutation",
+    "data_plane_ponr_reject_truncate"
+  ],
+  "probe_current_user": "holocron_app",
+  "effective_non_owner": true,
+  "expect_probe_nonzero": true,
+  "expect_before_count_ge_1": true,
+  "expect_required_triggers": true,
+  "expect_effective_holocron_app": true,
+  "rows_preserved": true,
+  "triggers_preserved": true,
+  "seeded_ponr_holding": true,
+  "ok": true
+}
