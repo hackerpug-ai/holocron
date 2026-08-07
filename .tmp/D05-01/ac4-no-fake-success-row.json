@@ -1,15 +1,36 @@
 {
   "must_observe": [
     "exit code != 0 for both failed restores",
-    "ZERO backup_heartbeat rows with status 'success'/'OK' for restore jobs",
-    "ZERO parity tracking restore-completed rows"
+    "ZERO backup_heartbeat rows with status 'success'/'OK' for restore jobs (after real query_ok)",
+    "ZERO parity tracking restore-completed rows",
+    "db_probe_ok=true before zero asserts"
   ],
-  "emptyStatus": 2,
-  "corruptStatus": 2,
+  "emptyStatus": 1,
+  "corruptStatus": 1,
+  "emptyRestore": {
+    "status": 1,
+    "failure_class": "restore_path",
+    "combined": "holo restore --pitr — pgBackRest point-in-time restore\n  ok:                    false\n  exit_code:             1\n  target_timestamp:      2024-01-01T00:00:00Z\n  actual_stop_timestamp: (none)\n  pgdata:                /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-67l6e4/fake-success-empty\n  target_action:         promote\n  restored_wal_count:    (unknown)\n  errors:\n    - no base backup available — backup chain missing (empty R2 repo prefix / no backup sets)\n  overall:               FAILED\n\nno base backup available — backup chain missing (empty R2 repo prefix / no backup sets)\n"
+  },
+  "corruptRestore": {
+    "status": 1,
+    "failure_class": "restore_path",
+    "combined": "holo restore --pitr — pgBackRest point-in-time restore\n  ok:                    false\n  exit_code:             1\n  target_timestamp:      2024-01-01T00:00:00Z\n  actual_stop_timestamp: (none)\n  pgdata:                /var/folders/hw/7cchdvms7dd_1bbm9yvkctx80000gn/T/d05-01-restore-scratch-67l6e4/fake-success-corrupt\n  target_action:         promote\n  restored_wal_count:    (unknown)\n  errors:\n    - manifest checksum mismatch — WAL segment corrupted — backup chain integrity check failed\n    - manifest checksum mismatch — backup chain integrity check failed (corrupted backup.manifest)\n    - WAL segment corrupted — backup chain integrity check failed\n  overall:               FAILED\n\nmanifest checksum mismatch — WAL segment corrupted — backup chain integrity check failed\nmanifest checksum mismatch — backup chain integrity check failed (corrupted backup.manifest)\nWAL segment corrupted — backup chain integrity check failed\n"
+  },
+  "db_probe_ok": true,
+  "table_present": true,
+  "success_count_query_status": 0,
+  "successRows": 0,
+  "okRows": 0,
+  "restoreParityRows": 0,
   "heartbeats": {
     "successRows": 0,
     "okRows": 0,
     "restoreParityRows": 0,
+    "db_probe_ok": true,
+    "table_present": true,
+    "success_count_query_status": 0,
+    "ok_count_query_status": 0,
     "raw": {
       "success": {
         "status": 0,
@@ -21,7 +42,14 @@
         "stdout": "0",
         "stderr": ""
       },
-      "parityNames": []
+      "parityNames": [],
+      "ping": {
+        "status": 0,
+        "stdout": "1",
+        "stderr": ""
+      }
     }
-  }
+  },
+  "restore_path_proven": true,
+  "note": "At least one failure classified as restore_path"
 }

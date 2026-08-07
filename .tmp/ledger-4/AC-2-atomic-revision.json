@@ -1,8 +1,8 @@
 {
   "ac": "AC-2",
   "tc": "TC-2",
-  "b1Id": "019f71b5-d6a9-739a-9cc7-48ad058edcb7",
-  "successorId": "019f71b5-d6b0-7415-99d4-25e873e0d254",
+  "b1Id": "019fd37d-491d-7311-be75-52b1535954be",
+  "successorId": "019fd37d-491e-7f76-bf24-b711a2feac6f",
   "reviseError": null,
   "must_observe": {
     "revise_belief succeeds (no error)": true,

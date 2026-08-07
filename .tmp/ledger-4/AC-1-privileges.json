@@ -1,5 +1,5 @@
 {
-  "can_update": true,
-  "can_delete": true,
-  "role": "inference1"
+  "can_update": false,
+  "can_delete": false,
+  "role": "holocron_app"
 }

@@ -1,13 +1,11 @@
-# REDHAT-FIX-09 concurrency mutation probe 2026-07-26T05:27:13.348Z
-repo_root=/Users/inf ✓ services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts (11 tests | 7 skipped) 3317ms
-       ✓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite  3147ms
-
- Test Files  1 passed (1)
-      Tests  4 passed | 7 skipped (11)
-   Start at  23:27:12
-   Duration  3.79s (transform 129ms, setup 101ms, import 280ms, tests 3.32s, environment 0ms)
-
-moved mode=mutant-d-guard-removed exit=1 failures=1 exit_nonzero=true
+# REDHAT-FIX-09 concurrency mutation probe 2026-08-05T19:32:06.560Z
+repo_root=/Users/inference1/Projects/holocron
+base_head=a688bb1782370877f406a0e45aff2923171ebd3a
+mutant_edit_path=services/platform/src/research/progress.ts
+correct mode=unmutated exit=0 failures=0 exit_ok=true
+mutant-d applied: removed AND COALESCE(current_iteration, 0) = ${previousIteration}
+mutant_edit_path=services/platform/src/research/progress.ts
+mutant-d-guard-removed mode=mutant-d-guard-removed exit=1 failures=1 exit_nonzero=true
 mutant-d-guard-removed KILLED (suite exit non-zero under COALESCE guard removal)
        ↓ advances seeded session 1→2→3 via production module (not advance-server.py)
        ↓ advances 1→2→3 via production CLI research:advance-iteration (not advance-server.py)
@@ -16,20 +14,20 @@ mutant-d-guard-removed KILLED (suite exit non-zero under COALESCE guard removal)
        ↓ PATH-A production write site count >= 1 for current_iteration
        ↓ unknown session yields structured error (ok:false)
        ↓ over-max iteration yields bounds/iteration error
-       × concurrent dual advance: exactly one winner N→N+1; loser RESEARCH_SESSION_UPDATE_FAILED 1602ms
+       × concurrent dual advance: exactly one winner N→N+1; loser RESEARCH_SESSION_UPDATE_FAILED 544ms
        ↓ concurrent dual advance with two independent sql connections: still single winner + restore
        ↓ AC-2 Mutant D COALESCE guard removed is KILLED by concurrency suite
        ↓ path.json records A + mastra-implementer for REDHAT-FIX-09
 
  Test Files  1 failed (1)
       Tests  1 failed | 10 skipped (11)
-   Start at  23:27:14
-   Duration  2.09s (transform 126ms, setup 100ms, import 279ms, tests 1.62s, environment 0ms)
+   Start at  13:32:07
+   Duration  1.02s (transform 125ms, setup 108ms, import 273ms, tests 551ms, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
 
- FAIL  services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts > REDHAT-FIX-02 research_sessions.current_iteration production writer > REDHAT-FIX-09 / AC-concurrency > concurrent dual advance: exactly one winner N→N+1; loser RESEARCH_SESSION_UPDATE_FAILED
+ FAIL  |integration| services/platform/tests/integration/redhat-fix-02-research-iteration-writer.test.ts > REDHAT-FIX-02 research_sessions.current_iteration production writer > REDHAT-FIX-09 / AC-concurrency > concurrent dual advance: exactly one winner N→N+1; loser RESEARCH_SESSION_UPDATE_FAILED
 AssertionError: expected exactly one ok:true winner after 25 attempts; got winners=[{"ok":true,"sessionId":"00000000-0000-4000-8000-e00000000033","previousIteration":1,"currentIteration":2,"maxIterations":5},{"ok":true,"sessionId":"00000000-0000-4000-8000-e00000000033","previousIteration":1,"currentIteration":2,"maxIterations":5}] losers=[] after={"current_iteration":2,"max_iterations":5,"status":"running"}: expected 2 to be 1 // Object.is equality
 
 - Expected

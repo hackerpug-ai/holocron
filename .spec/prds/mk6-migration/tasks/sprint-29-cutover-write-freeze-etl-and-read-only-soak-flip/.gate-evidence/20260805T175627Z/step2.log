@@ -1,0 +1,47 @@
+@@GATE-META step=2 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T175627Z source_sha=e93d1d4847614ec0e56189e185fe1fd044d58129 git_sha=e93d1d4847614ec0e56189e185fe1fd044d58129 started_at=2026-08-05T18:11:49Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; : "${HOLO_RELEASE_PATH:?HOLO_RELEASE_PATH is required}"; : "${HOLO_PRODUCTION_BASE_URL:?HOLO_PRODUCTION_BASE_URL is required}"; mkdir -p .tmp/REDHAT-FIX-S29-DEPLOY; bun services/platform/src/cli/holo.ts --help >/dev/null; bash scripts/deploy-inference1.sh --authorize --release "$HOLO_RELEASE_PATH" --base-url "$HOLO_PRODUCTION_BASE_URL" | tee .tmp/REDHAT-FIX-S29-DEPLOY/step2-deploy.json; jq -e --slurpfile lock "$HOLO_RELEASE_PATH" '.authorized == true and .host == "inference1" and .runtime == "container" and (.services == ["postgres","mastra","scheduler","zero-cache"]) and .image == $lock[0].image and .imageDigest == $lock[0].digest and .sourceRevision == $lock[0].sourceRevision and .composeSha256 == $lock[0].composeSha256 and .cutoverActions == 0 and .volumeDeletions == 0 and .baseUrl == env.HOLO_PRODUCTION_BASE_URL' .tmp/REDHAT-FIX-S29-DEPLOY/deployment-record.json
+---
+{
+  "schemaVersion": 1,
+  "authorized": true,
+  "authorizationScope": "inference1:sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+  "host": "inference1",
+  "runtime": "container",
+  "baseUrl": "http://192.168.1.160:44111",
+  "project": "holocron-production",
+  "image": "127.0.0.1:5000/holocron-platform@sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+  "imageDigest": "sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+  "sourceRevision": "09319ead2651f336423b34667c14bbd3c6a6b8e0",
+  "composeSha256": "f1787175b4931f88c9ed4188a0ecc5358e09867464f8cc7769c3af36ec8a13ee",
+  "composeGeneration": "inference1-8bcdb29d4cde4b62e6a1db2a",
+  "deployedAt": "2026-08-05T17:52:21.133Z",
+  "services": [
+    "postgres",
+    "mastra",
+    "scheduler",
+    "zero-cache"
+  ],
+  "containers": {
+    "postgres": "d84168e50af0d4075a52a99dcdad66e2792e4c8e0eef94988ee8c6c1e9033196",
+    "mastra": "545aca7ab151dda5934bac20d500e4f71bb0c727aaaba1b8ace526971548b7e3",
+    "scheduler": "b19f6f1a215a0c805d53a27e5212d4aa9dd0b4161934ca2e2b3778b9a099a051",
+    "zero-cache": "4be41bfbe1b6ef13f817637ea079e03f9f2b29511073e1b1e2170901a093912e"
+  },
+  "previousImage": "127.0.0.1:5000/holocron-platform@sha256:20bff5990fafb8ddb981a35b6b2ceadd42cccf017ee9ac97eff5cf901dd52634",
+  "previousDigest": "sha256:20bff5990fafb8ddb981a35b6b2ceadd42cccf017ee9ac97eff5cf901dd52634",
+  "durableVolumes": [
+    "holocron-postgres",
+    "holocron-blobs"
+  ],
+  "coldRecreate": true,
+  "cutoverActions": 0,
+  "volumeDeletions": 0,
+  "releasePath": "/tmp/holocron-s29-release-09319ead/image-lock.json",
+  "composePath": "/Users/inference1/Projects/holocron/services/platform/deploy/compose/compose.yaml",
+  "overridePath": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-S29-DEPLOY/compose.inference1.generated.yaml"
+}
+true
+---
+@@GATE-EXIT=0@@
+@@GATE-ENDED=2026-08-05T18:11:50Z@@
+@@GATE-TIMEOUT-CAP=600s@@

@@ -1,21 +1,30 @@
 {
-  "ok": true,
-  "repointed": true,
+  "ok": false,
+  "repointed": false,
   "target": "convex-frozen",
   "target_kind": "convex",
   "data_plane": "convex",
-  "engaged_at": "2026-08-02T01:47:14.354Z",
-  "engaged_at_ms": 1785635234354,
+  "engaged_at": "",
+  "engaged_at_ms": 0,
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
   "precondition": {
-    "ok": true,
+    "ok": false,
     "accepted_post_export_writes": 0,
-    "export_watermark_ms": 1000,
-    "audit_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/post-export-write-audit.json"
+    "export_watermark_ms": 1786190348757,
+    "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+    "ponr_recorded": true,
+    "ponr_id": "5f09cc6e-d353-4a45-b0f1-229e852283f2",
+    "ponr_recorded_at": "2026-08-07 06:00:34.253802-06"
   },
   "config": {
-    "path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/data-plane-config.json",
-    "digest_sha256": "75b7868393ecb7d5e1f6e0a65ca6faf5432a8316d89b2a278019c7256e3d4bef",
-    "prior_target": "postgres-soak"
+    "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+    "digest_sha256": "",
+    "prior_target": "convex-frozen"
   },
-  "report_path": "/Users/inference1/Projects/holocron/.worktrees/sprint-29-cutover-write-freeze-etl-and-read-only-soak-flip/REDHAT-FIX-S29-H05/.tmp/D06-05/rollback-repoint-report.json"
+  "acknowledgements": [],
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/rollback-repoint-report.json",
+  "error": {
+    "code": "POST_PONR_INELIGIBLE",
+    "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=5f09cc6e-d353-4a45-b0f1-229e852283f2, write_row_id=e37f2f5c-e978-40c4-86c9-880346698fe7). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+  }
 }

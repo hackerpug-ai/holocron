@@ -1,0 +1,66 @@
+{
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+    "sprint_slug": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return"
+  },
+  "run_id": "20260807T082710Z",
+  "verdict": "partial",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 4,
+  "steps_failed": 1,
+  "ui_driver": "none",
+  "runner": "scripts/run-sprint30-human-gate.sh",
+  "git_sha": "439c15ad57c0b0b28b205c220937596d8a0834f2",
+  "source_sha": "439c15ad57c0b0b28b205c220937596d8a0834f2",
+  "deployed_base_url": "http://127.0.0.1:44121",
+  "sourceRevision": "439c15ad57c0b0b28b205c220937596d8a0834f2",
+  "head_bound": true,
+  "started_at": "2026-08-07T08:27:10Z",
+  "finished_at": "2026-08-07T08:27:16Z",
+  "written_at": "2026-08-07T08:27:16Z",
+  "notes": "RH-S30-07 tip-bound: git_sha==HEAD and sourceRevision match. RH-S30-06 step3 requires verify-fallback-boot. RH-S30-08 verification via verify-gate-evidence.sh (json + raw same stdout).",
+  "steps": [
+    {
+      "n": 1,
+      "text": "Trigger Sev-1 gate failure / rollback drill",
+      "executed": true,
+      "result": "pass",
+      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step1.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step1.log"
+    },
+    {
+      "n": 2,
+      "text": "Count accepted post-export production writes = 0 (Postgres ledger)",
+      "executed": true,
+      "result": "pass",
+      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step2.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step2.log"
+    },
+    {
+      "n": 3,
+      "text": "Pinned Convex-pointing app build + boot verify",
+      "executed": true,
+      "result": "fail",
+      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step3.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step3.log"
+    },
+    {
+      "n": 4,
+      "text": "Enable first Postgres production write (PONR)",
+      "executed": true,
+      "result": "pass",
+      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step4.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step4.log"
+    },
+    {
+      "n": 5,
+      "text": "Config rollback after PONR rejected",
+      "executed": true,
+      "result": "pass",
+      "evidence": "see .spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step5.log",
+      "log": ".spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T082710Z/step5.log"
+    }
+  ]
+}

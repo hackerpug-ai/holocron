@@ -14,8 +14,5 @@
     "untrusted:/opt/homebrew/bin/restic owner=inference1"
   ],
   "d05_04_real_restore_possible": true,
-  "operational_blocker": null,
-  "possible": true,
-  "commit_sha": "f7002fb4ae318050acaf2dc1213d0247fb6d026a",
-  "checked_at": "2026-07-30T04:29:24.032Z"
+  "operational_blocker": null
 }

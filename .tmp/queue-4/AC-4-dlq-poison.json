@@ -3,8 +3,12 @@
   "tc": "TC-4",
   "key": "red-poison-1",
   "max_attempts": 3,
-  "loadError": "runUntilTerminal: job key=red-poison-1 not found",
-  "runResult": null,
+  "loadError": null,
+  "runResult": {
+    "status": "dead_letter",
+    "attempts": 3,
+    "dlq_count": 1
+  },
   "dbState": {
     "dlq_count": 0,
     "job_status": null,
@@ -24,15 +28,15 @@
       "pgboss.job: column \"status\" does not exist"
     ]
   },
-  "dlq_count": 0,
-  "job_status": null,
+  "dlq_count": 1,
+  "job_status": "dead_letter",
   "must_observe": {
-    "DLQ API loads": false,
-    "dlq_count === 1": false,
-    "job.status === \"dead_letter\"": false
+    "DLQ API loads": true,
+    "dlq_count === 1": true,
+    "job.status === \"dead_letter\"": true
   },
   "must_not_observe": {
-    "silent drop (dlq_count === 0)": true,
-    "unbounded retry (no terminal status)": true
+    "silent drop (dlq_count === 0)": false,
+    "unbounded retry (no terminal status)": false
   }
 }

@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "databaseUrl": "postgres://inference1@127.0.0.1:5432/holocron",
+  "databaseUrl": "postgres://127.0.0.1:56594/holocron_nonprod",
   "migrationsApplied": [],
   "alreadyApplied": [
     "0000_groovy_stellaris.sql",
@@ -17,10 +17,26 @@
     "0011_outbox_inbox.sql",
     "0012_job_runs.sql",
     "0013_inference_telemetry.sql",
-    "0014_evals.sql"
+    "0014_evals.sql",
+    "0015_sprint14_etl_uploads.sql",
+    "0016_sprint14_etl_uploads_hardening.sql",
+    "0017_mission_contracts.sql",
+    "0018_mission_run_status_suspended.sql",
+    "0019_mission_http_control_auth_idempotency.sql",
+    "0020_public_article_assets.sql",
+    "0021_chat_runs_sse.sql",
+    "0022_assimilation_manifest_statuses.sql",
+    "0023_mission_evidence_research.sql",
+    "0024_mission_pipeline_publish.sql",
+    "0025_deterministic_human_gate.sql",
+    "0026_mission_verdict_rejections.sql",
+    "0027_mission_human_gate_crash_boundary.sql",
+    "0028_escape_provider_deepseek.sql",
+    "0029_backup_heartbeat.sql",
+    "0030_zero_pub_file_objects.sql"
   ],
-  "tableCount": 106,
-  "domainTablesPresent": 57,
+  "tableCount": 128,
+  "domainTablesPresent": 68,
   "missingTables": [],
   "errors": [],
   "messages": [
@@ -41,6 +57,22 @@
     "skip (already applied): 0011_outbox_inbox.sql",
     "skip (already applied): 0012_job_runs.sql",
     "skip (already applied): 0013_inference_telemetry.sql",
-    "skip (already applied): 0014_evals.sql"
+    "skip (already applied): 0014_evals.sql",
+    "skip (already applied): 0015_sprint14_etl_uploads.sql",
+    "skip (already applied): 0016_sprint14_etl_uploads_hardening.sql",
+    "skip (already applied): 0017_mission_contracts.sql",
+    "skip (already applied): 0018_mission_run_status_suspended.sql",
+    "skip (already applied): 0019_mission_http_control_auth_idempotency.sql",
+    "skip (already applied): 0020_public_article_assets.sql",
+    "skip (already applied): 0021_chat_runs_sse.sql",
+    "skip (already applied): 0022_assimilation_manifest_statuses.sql",
+    "skip (already applied): 0023_mission_evidence_research.sql",
+    "skip (already applied): 0024_mission_pipeline_publish.sql",
+    "skip (already applied): 0025_deterministic_human_gate.sql",
+    "skip (already applied): 0026_mission_verdict_rejections.sql",
+    "skip (already applied): 0027_mission_human_gate_crash_boundary.sql",
+    "skip (already applied): 0028_escape_provider_deepseek.sql",
+    "skip (already applied): 0029_backup_heartbeat.sql",
+    "skip (already applied): 0030_zero_pub_file_objects.sql"
   ]
 }

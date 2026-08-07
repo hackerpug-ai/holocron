@@ -17,10 +17,10 @@
     "estimatedCostUsd": 1,
     "ceilingSource": "env"
   },
-  "anthropicCount": 0,
+  "deepseekCount": 0,
   "rows": [],
   "cli": {
     "status": 1,
-    "out": "\n{\n  \"ok\": false,\n  \"mode\": \"runBudgetedEscape\",\n  \"error\": \"BUDGET_EXCEEDED\",\n  \"role\": \"divergent\",\n  \"allowEscape\": true,\n  \"message\": \"escape blocked: BUDGET_EXCEEDED (ceiling=10 spent=9 estimated=999)\",\n  \"networkCapture\": {\n    \"anthropicCount\": 0,\n    \"fleetCount\": 0,\n    \"rows\": []\n  }\n}\n"
+    "out": "\n{\n  \"ok\": false,\n  \"mode\": \"runBudgetedEscape\",\n  \"error\": \"BUDGET_EXCEEDED\",\n  \"role\": \"divergent\",\n  \"allowEscape\": true,\n  \"message\": \"escape blocked: BUDGET_EXCEEDED (ceiling=10 spent=9 estimated=999)\",\n  \"networkCapture\": {\n    \"deepseekCount\": 0,\n    \"fleetCount\": 0,\n    \"rows\": []\n  }\n}\n"
   }
 }

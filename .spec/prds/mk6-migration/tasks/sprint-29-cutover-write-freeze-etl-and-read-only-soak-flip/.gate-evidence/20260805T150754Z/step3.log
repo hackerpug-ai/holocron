@@ -1,0 +1,129 @@
+@@GATE-META step=3 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T150754Z source_sha=20f8769d0ea0afaa273189b9b9fc63931cdb8554 git_sha=20f8769d0ea0afaa273189b9b9fc63931cdb8554 started_at=2026-08-05T15:10:56Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; : "${HOLO_RELEASE_PATH:?HOLO_RELEASE_PATH is required}"; : "${HOLO_PRODUCTION_BASE_URL:?HOLO_PRODUCTION_BASE_URL is required}"; export HOLO_VERIFY_BASE_URL="$HOLO_PRODUCTION_BASE_URL"; bun services/platform/src/cli/holo.ts deploy:verify --release "$HOLO_RELEASE_PATH" --base-url "$HOLO_PRODUCTION_BASE_URL" --restart-probe --json | tee .tmp/REDHAT-FIX-S29-DEPLOY/step3-verify-restart.json; jq -e '.ok == true and .baseUrl == env.HOLO_PRODUCTION_BASE_URL and .dependency.status == 503 and .dependency.failingDependency == "postgres" and .restart.signal == "SIGKILL" and (.restart.newPid != .restart.oldPid) and .restart.postgresRows == 1 and .restart.blobObjects == 1 and .mcp.initialize == true and .mcp.toolsListCount == 44 and .mcp.toolInvocations == 0' .tmp/REDHAT-FIX-S29-DEPLOY/step3-verify-restart.json
+---
+{
+  "ok": true,
+  "verifiedAt": "2026-08-05T15:11:42.812Z",
+  "baseUrl": "http://192.168.1.160:44111",
+  "identityClass": "deployed-http",
+  "handoffVerified": true,
+  "release": {
+    "host": "inference1",
+    "runtime": "container",
+    "imageDigest": "sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+    "sourceRevision": "09319ead2651f336423b34667c14bbd3c6a6b8e0",
+    "composeGeneration": "inference1-7915127217bb3686c7b8c565"
+  },
+  "readiness": {
+    "status": "ok",
+    "db": {
+      "ready": true,
+      "latency_ms": 8
+    },
+    "postgres": {
+      "ready": true,
+      "latency_ms": 8
+    },
+    "fleet": {
+      "ready": true,
+      "endpoint": "http://host.docker.internal:4545",
+      "latency_ms": 1
+    },
+    "queue": {
+      "ready": true,
+      "latency_ms": 193,
+      "backend": "pg-boss"
+    },
+    "zeroCache": {
+      "ready": true,
+      "endpoint": "http://zero-cache:4848",
+      "latency_ms": 1
+    },
+    "deployment": {
+      "ready": true,
+      "required": true,
+      "identity": {
+        "host": "inference1",
+        "runtime": "container",
+        "imageDigest": "sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+        "sourceRevision": "09319ead2651f336423b34667c14bbd3c6a6b8e0",
+        "composeGeneration": "inference1-7915127217bb3686c7b8c565",
+        "composeSha256": "f1787175b4931f88c9ed4188a0ecc5358e09867464f8cc7769c3af36ec8a13ee",
+        "deployedAt": "2026-08-05T14:44:17.685Z",
+        "pid": 1,
+        "uptimeMs": 1019822
+      }
+    },
+    "failing_dependency": null,
+    "host": "inference1",
+    "runtime": "container",
+    "imageDigest": "sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+    "sourceRevision": "09319ead2651f336423b34667c14bbd3c6a6b8e0",
+    "composeGeneration": "inference1-7915127217bb3686c7b8c565",
+    "data_plane": null,
+    "target": null,
+    "rollback": {
+      "target": null,
+      "data_plane": null,
+      "source": "unset"
+    },
+    "pid": 1,
+    "service_label": null,
+    "generation": null,
+    "uptime_ms": 1020016
+  },
+  "dependency": {
+    "ok": true,
+    "removed": "postgres",
+    "status": 503,
+    "failingDependency": "postgres",
+    "restored": true
+  },
+  "identityNegatives": {
+    "ok": true,
+    "rejected": [
+      "loopback",
+      "in-process",
+      "stale",
+      "mismatched",
+      "missing",
+      "verifier-supplied"
+    ],
+    "exit": 1,
+    "landingEligible": false
+  },
+  "restart": {
+    "ok": true,
+    "signal": "SIGKILL",
+    "containerId": "402fbe3144d764882e65cc05e6f99ffe1322e8e952cbfbcc37d28534ae5f61eb",
+    "oldPid": 27691,
+    "newPid": 29552,
+    "restartCountBefore": 0,
+    "restartCount": 1,
+    "image": "127.0.0.1:5000/holocron-platform@sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+    "imageDigest": "sha256:336933ee41ae781c0b16a1506c1116dc8e4c9b897f6c2679dd020331c99c9bcd",
+    "health": "healthy",
+    "sentinel": "s29-deploy-sentinel",
+    "postgresRows": 1,
+    "blobObjects": 1,
+    "postgresHash": "d401888a8febb55258ae088928be02553d08512ff049d37462a03e73077c8a40",
+    "blobHash": "d401888a8febb55258ae088928be02553d08512ff049d37462a03e73077c8a40",
+    "deletedVolumes": 0
+  },
+  "mcp": {
+    "ok": true,
+    "baseUrl": "http://192.168.1.160:44111",
+    "initialize": true,
+    "toolsListCount": 44,
+    "toolInvocations": 0,
+    "soakInvocations": 0
+  },
+  "cutoverActions": 0,
+  "toolInvocations": 0,
+  "soakInvocations": 0
+}
+true
+---
+@@GATE-EXIT=0@@
+@@GATE-ENDED=2026-08-05T15:11:42Z@@
+@@GATE-TIMEOUT-CAP=600s@@

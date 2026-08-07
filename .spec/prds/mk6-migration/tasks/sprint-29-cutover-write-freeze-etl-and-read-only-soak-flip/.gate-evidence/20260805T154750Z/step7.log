@@ -1,0 +1,828 @@
+@@GATE-META step=7 task=REDHAT-FIX-S29-R3-C01 run_id=20260805T154750Z source_sha=c4dea85986914d044815142c4326603ffdecc1a3 git_sha=c4dea85986914d044815142c4326603ffdecc1a3 started_at=2026-08-05T16:28:15Z deployed_base_url=http://192.168.1.160:44111 identity_class=deployed-http@@
+CMD: set -euo pipefail; : "${HOLO_PRODUCTION_BASE_URL:?HOLO_PRODUCTION_BASE_URL is required}"; : "${HOLO_ZERO_BASE_URL:?HOLO_ZERO_BASE_URL is required}"; export HOLO_VERIFY_BASE_URL="$HOLO_PRODUCTION_BASE_URL"; mkdir -p .tmp/D06-05 .tmp/REDHAT-FIX-S29-H03; etl_report=".tmp/D06-04/watermark-report-${GATE_RUN_ID}.json"; test -s "$etl_report"; jq -e '.ok == true and .reconcile.ok == true and .fkAudit.ok == true and .vectors.ok == true and (.parityHash | test("^[a-f0-9]{64}$"))' "$etl_report"; export_dir="$(jq -er '.exportRelPath' "$etl_report")"; catalog="$(jq -er '.catalogRelPath' "$etl_report")"; parity="$(jq -er '.parityRelPath' "$etl_report")"; bun services/platform/src/cli/holo.ts cutover:flip --json --etl-report "$etl_report" --output .tmp/D06-05/flip-report.json | tee .tmp/REDHAT-FIX-S29-H03/step7-flip.json; jq -e '.ok == true and .env_value == "1"' .tmp/D06-05/flip-report.json; bun services/platform/src/cli/holo.ts cutover:verify-soak --json --base-url "$HOLO_PRODUCTION_BASE_URL" --zero-base-url "$HOLO_ZERO_BASE_URL" --etl-report "$etl_report" --export "$export_dir" --catalog "$catalog" --parity "$parity" --output .tmp/D06-05/verify-soak-report.json | tee .tmp/REDHAT-FIX-S29-H03/step7-verify-soak.json; jq -e --arg base "$HOLO_PRODUCTION_BASE_URL" '(.overall.ok == true) and (.tools.base_url == $base) and (.article.base_url == $base) and ((.tools.toolsPassed // .toolsPassed) | type == "number") and ((.tools.toolsTotal // .toolsTotal) | type == "number") and ((.tools.toolsTotal // .toolsTotal) > 0) and ((.tools.toolsPassed // .toolsPassed) == (.tools.toolsTotal // .toolsTotal)) and ((.jobsAccounted // .jobs.jobsAccounted) == (.jobsTotal // .jobs.jobsTotal)) and (.article.ok == true) and (.honoWrite.ok == true) and (.reads.ok == true) and (.zeroWritePath.status == "BLOCKED") and (.zeroWritePath.probe.authoritativeUnchanged == true)' .tmp/D06-05/verify-soak-report.json
+---
+true
+{
+  "ok": true,
+  "engaged_at": "2026-08-05T16:28:16.090Z",
+  "engaged_at_ms": 1785947296090,
+  "env": "HOLO_MIGRATION_READ_ONLY",
+  "env_value": "1",
+  "durable_value": "1",
+  "etl_run_id": "019fd2bf-08d0-72e3-aa13-49e01d29dcf3",
+  "etl_report_path": "/Users/inference1/Projects/holocron/.tmp/D06-04/watermark-report-20260805T154750Z.json",
+  "unexplainedVariance": 0,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/flip-report.json",
+  "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "durable_reread": true,
+  "lookup_mode": "durable_overrides_env",
+  "process_generations": {
+    "before": [
+      {
+        "id": "cutover-cli",
+        "pid": 68929,
+        "label": "holo-cutover"
+      },
+      {
+        "id": "hono-mcp-worker",
+        "label": "durable-reread-observers"
+      }
+    ],
+    "after": [
+      {
+        "id": "cutover-cli",
+        "pid": 68929,
+        "label": "holo-cutover"
+      },
+      {
+        "id": "hono-mcp-worker",
+        "label": "durable-reread-observers"
+      }
+    ]
+  }
+}
+true
+{
+  "ok": false,
+  "overall": {
+    "ok": false
+  },
+  "tools": {
+    "ok": true,
+    "toolsTotal": 44,
+    "toolsPassed": 44,
+    "toolsStubbed": 0,
+    "tools": [
+      {
+        "tool_id": "get_research_session",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "search_research",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "search_fts",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "search_vector",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "hybrid_search",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "store_document",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: store_document blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "update_document",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: update_document blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "share_document",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: share_document blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "get_document",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "list_documents",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "add_subscription",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: add_subscription blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "remove_subscription",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: remove_subscription blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "list_subscriptions",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "check_subscriptions",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: check_subscriptions blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "get_subscription_content",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "set_subscription_filter",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: set_subscription_filter blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "get_subscription_filters",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "store_tool",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: store_tool blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "search_tools",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "get_tool",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "list_tools",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "update_tool",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: update_tool blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "remove_tool",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: remove_tool blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "shop_products",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: shop_products blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "get_shop_session",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "get_shop_listings",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "get_whats_new_report",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "list_whats_new_reports",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "start_assimilation",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: start_assimilation blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "approve_assimilation_plan",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: approve_assimilation_plan blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "reject_assimilation_plan",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: reject_assimilation_plan blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "get_assimilation_status",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "cancel_assimilation",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: cancel_assimilation blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "steer_assimilation",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: steer_assimilation blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "assimilate_creator",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: assimilate_creator blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "get_creator_transcripts",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "regenerate_transcript",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: regenerate_transcript blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "search_improvements",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "get_improvement",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "list_improvements",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      },
+      {
+        "tool_id": "add_improvement",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: add_improvement blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "close_improvement",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: close_improvement blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "set_improvement_status",
+        "is_mutation": true,
+        "invoked": true,
+        "ok": true,
+        "isError": true,
+        "code": "MIGRATION_READ_ONLY",
+        "message": "MIGRATION_READ_ONLY: set_improvement_status blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "status": 200
+      },
+      {
+        "tool_id": "findRecommendations",
+        "is_mutation": false,
+        "invoked": true,
+        "ok": true,
+        "isError": false,
+        "status": 200,
+        "schema_valid": true,
+        "postgres_backed": true,
+        "correspondence_matched": true
+      }
+    ],
+    "transport": "network",
+    "base_url": "http://192.168.1.160:44111",
+    "target_identity": {
+      "host": "192.168.1.160",
+      "port": 44111,
+      "service_label": "container:inference1:sha256:336933ee41ae",
+      "pid": 1,
+      "identity_source": "health",
+      "observed_at_ms": 1785947296620,
+      "generation": "inference1-7915127217bb3686c7b8c565",
+      "uptime_ms": 506250
+    },
+    "seeds": {
+      "documentId": "019fc9f3-c70c-72c7-98c2-3c3588193abd",
+      "subscriptionId": "019fcd93-a106-7e2c-b47f-4fe3cac5bcaf",
+      "researchSessionId": "019f5582-fc16-7f81-99ea-8d81035b2972",
+      "improvementId": "019f851d-4390-770c-8b1e-425da8b4fe41",
+      "assimilationSessionId": "019e84de-f75d-7569-baa9-80406b0a2b32",
+      "toolId": "019e8fd2-d9d4-7c3e-951a-6db20fb767f8",
+      "shopSessionId": "019f81bd-19be-76a7-9fc8-1a3715f39cf2",
+      "profileId": "019d2b53-e68b-7ec5-b1a0-1df34fc59cb9",
+      "runId": "vt-msgawpei"
+    }
+  },
+  "reads": {
+    "ok": true,
+    "perTableCounts": {
+      "agent_plan_steps": 0,
+      "agent_plans": 0,
+      "agent_telemetry": 0,
+      "analysis_evidence": 0,
+      "analysis_items": 0,
+      "analysis_sessions": 0,
+      "assimilation_iterations": 1,
+      "assimilation_metadata": 0,
+      "assimilation_sessions": 1,
+      "audio_jobs": 40,
+      "audio_segments": 1056,
+      "audio_transcript_jobs": 0,
+      "audio_transcripts": 0,
+      "chat_messages": 1100,
+      "citations": 115,
+      "conversations": 101,
+      "creator_profiles": 1,
+      "documents": 1623,
+      "execution_plans": 0,
+      "feed_items": 469,
+      "feed_sessions": 0,
+      "feed_settings": 0,
+      "imports": 0,
+      "improvement_images": 0,
+      "improvement_requests": 34,
+      "notifications": 698,
+      "plan_approvals": 0,
+      "rate_limit_tracking": 0,
+      "rate_limits": 0,
+      "research_findings": 49,
+      "research_iterations": 259,
+      "research_sessions": 139,
+      "shop_listings": 459,
+      "shop_sessions": 57,
+      "subscription_content": 2914,
+      "subscription_filters": 0,
+      "subscription_links": 0,
+      "subscription_sources": 112,
+      "tasks": 3758,
+      "tool_calls": 150,
+      "toolbelt_tools": 7,
+      "transcript_jobs": 103,
+      "user_preferences": 1,
+      "video_transcripts": 91,
+      "voice_commands": 0,
+      "voice_sessions": 211,
+      "whats_new_reports": 136,
+      "whats_new_workflows": 116
+    },
+    "baselineCounts": {
+      "agent_plan_steps": 0,
+      "agent_plans": 0,
+      "agent_telemetry": 0,
+      "analysis_evidence": 0,
+      "analysis_items": 0,
+      "analysis_sessions": 0,
+      "assimilation_iterations": 1,
+      "assimilation_metadata": 0,
+      "assimilation_sessions": 1,
+      "audio_jobs": 40,
+      "audio_segments": 1056,
+      "audio_transcript_jobs": 0,
+      "audio_transcripts": 0,
+      "chat_messages": 1100,
+      "citations": 115,
+      "conversations": 101,
+      "creator_profiles": 1,
+      "documents": 1623,
+      "execution_plans": 0,
+      "feed_items": 469,
+      "feed_sessions": 0,
+      "feed_settings": 0,
+      "imports": 0,
+      "improvement_images": 0,
+      "improvement_requests": 34,
+      "notifications": 698,
+      "plan_approvals": 0,
+      "rate_limit_tracking": 0,
+      "rate_limits": 0,
+      "research_findings": 49,
+      "research_iterations": 259,
+      "research_sessions": 139,
+      "shop_listings": 459,
+      "shop_sessions": 57,
+      "subscription_content": 2914,
+      "subscription_filters": 0,
+      "subscription_links": 0,
+      "subscription_sources": 112,
+      "tasks": 3758,
+      "tool_calls": 150,
+      "toolbelt_tools": 7,
+      "transcript_jobs": 103,
+      "user_preferences": 1,
+      "video_transcripts": 91,
+      "voice_commands": 0,
+      "voice_sessions": 211,
+      "whats_new_reports": 136,
+      "whats_new_workflows": 116
+    },
+    "mismatches": [],
+    "etl_run_id": "019fd2bf-08d0-72e3-aa13-49e01d29dcf3",
+    "tablesTotal": 48,
+    "tablesMatched": 48,
+    "baseline_hash": "8819cf87ef431d15ea60f00a7606925ccfc253e0bce96eb33bade07a94678f88",
+    "baseline_path": "/Users/inference1/Projects/holocron/.tmp/D06-04/cutover-parity-20260805T154750Z.json",
+    "exportArchiveHash": "8819cf87ef431d15ea60f00a7606925ccfc253e0bce96eb33bade07a94678f88",
+    "baseline_source": "export-catalog:/Users/inference1/Projects/holocron/.tmp/D06-04/exports/1785947159955-scoped/export#8819cf87ef43+parity:/Users/inference1/Projects/holocron/.tmp/D06-04/cutover-parity-20260805T154750Z.json#975adcb09e34",
+    "catalog_table_count": 48,
+    "parity_hash": "975adcb09e3484c5affb8162c60d2dd5383ce446c61a2552341dcac5fd205361",
+    "export_dir": "/Users/inference1/Projects/holocron/.tmp/D06-04/exports/1785947159955-scoped/export",
+    "catalog_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
+    "report_sha256": "b4399d8a7f2f1aa4fcc7b03ece4df23f638e972ee8fb1110cb7c7b84a55ebf0c"
+  },
+  "article": {
+    "ok": false,
+    "status": 404,
+    "sha256": "6bedbcf36ad5d8d576ae26cf6f3e24dbdabe589f25d86d7ee65496c1da8c3212",
+    "byteLength": 766,
+    "baselineSha256": "6fe31d56bb1cf406c67b24f044c65aa60054f1fbfb5050970b6646c117cf20b0",
+    "baselineByteLength": 3922,
+    "shareToken": "s29-immutable-public",
+    "match": false,
+    "transport": "network",
+    "base_url": "http://192.168.1.160:44111",
+    "target_identity": {
+      "host": "192.168.1.160",
+      "port": 44111,
+      "service_label": "container:inference1:sha256:336933ee41ae",
+      "pid": 1,
+      "identity_source": "health",
+      "observed_at_ms": 1785947321126,
+      "generation": "inference1-7915127217bb3686c7b8c565",
+      "uptime_ms": 530756
+    }
+  },
+  "honoWrite": {
+    "ok": true,
+    "status": 423,
+    "body": {
+      "error": "migration_read_only",
+      "code": "migration_read_only"
+    },
+    "documentsBefore": 1671,
+    "documentsAfter": 1671,
+    "rowCountUnchanged": true
+  },
+  "jobs": {
+    "ok": true,
+    "jobsTotal": 16,
+    "jobsAccounted": 16,
+    "jobs": [
+      {
+        "name": "task-timeout-worker",
+        "ok": false,
+        "error": "migration_read_only: task-timeout-worker blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "audio-stuck-segment-cleanup",
+        "ok": false,
+        "error": "migration_read_only: audio-stuck-segment-cleanup blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "toolcall-timeout",
+        "ok": false,
+        "error": "migration_read_only: toolcall-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "assimilation-timeout",
+        "ok": false,
+        "error": "migration_read_only: assimilation-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "agent-plan-timeout",
+        "ok": false,
+        "error": "migration_read_only: agent-plan-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "voice-session-timeout",
+        "ok": false,
+        "error": "migration_read_only: voice-session-timeout blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "cleanup-agent-telemetry",
+        "ok": false,
+        "error": "migration_read_only: cleanup-agent-telemetry blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "subscription-monitor",
+        "ok": false,
+        "error": "migration_read_only: subscription-monitor blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "subscription-auto-research",
+        "ok": false,
+        "error": "migration_read_only: subscription-auto-research blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "feed-builder",
+        "ok": false,
+        "error": "migration_read_only: feed-builder blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "whats-new-daily",
+        "ok": false,
+        "error": "migration_read_only: whats-new-daily blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "audio-transcript-job-processor",
+        "ok": false,
+        "error": "migration_read_only: audio-transcript-job-processor blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "document-embedding-backfill",
+        "ok": false,
+        "error": "migration_read_only: document-embedding-backfill blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "research-embedding-backfill",
+        "ok": false,
+        "error": "migration_read_only: research-embedding-backfill blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "improvements-embedding-backfill",
+        "ok": false,
+        "error": "migration_read_only: improvements-embedding-backfill blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      },
+      {
+        "name": "morning-digest",
+        "ok": false,
+        "error": "migration_read_only: morning-digest blocked while HOLO_MIGRATION_READ_ONLY is set",
+        "writeBlocked": true
+      }
+    ]
+  },
+  "jobsTotal": 16,
+  "jobsAccounted": 16,
+  "zeroWritePath": {
+    "status": "BLOCKED",
+    "note": "Deployed Zero rejected custom and legacy CRUD mutations; Postgres remained unchanged",
+    "zeroBaseUrl": "http://127.0.0.1:44113",
+    "probe": {
+      "ok": true,
+      "zeroBaseUrl": "http://127.0.0.1:44113",
+      "custom": {
+        "connected": true,
+        "clientOptimistic": true,
+        "serverRejected": true,
+        "expectedRejection": true,
+        "rejectionMessage": "A ZERO_MUTATE_URL must be set in order to process custom mutations."
+      },
+      "crud": {
+        "connected": true,
+        "serverRejected": true,
+        "expectedRejection": true,
+        "rejectionMessage": "Support for legacy CRUD mutations is disabled"
+      },
+      "authoritativeUnchanged": true,
+      "cleanedUnexpectedRows": false
+    }
+  },
+  "engaged": true,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/verify-soak-report.json"
+}
+---
+@@GATE-EXIT=1@@
+@@GATE-ENDED=2026-08-05T16:29:12Z@@
+@@GATE-TIMEOUT-CAP=300s@@
