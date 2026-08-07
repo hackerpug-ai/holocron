@@ -227,6 +227,95 @@ if require_head and not errors and lock_oid:
             if head_oid != hist_oid:
                 errors.append("ASSERT_PACKAGE_HEAD: HEAD gate-results oid drift")
 
+# RH-S30-35: executable-HEAD / post-source runtime coverage (fail-closed allowlist)
+# Ancestor-only source ⊆ package is necessary but NOT sufficient when HEAD has
+# non-evidence runtime changes after source_sha_at_run.
+require_source_head = os.environ.get("ASSERT_SOURCE_HEAD", "").strip()
+if require_source_head == "":
+    # Default ON with PACKAGE_HEAD; package forces both.
+    require_source_head = "1" if require_head else "0"
+source_head_coverage_ok = None
+if require_source_head == "1" and HEX40.fullmatch(source) and not errors:
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    if source == head:
+        source_head_coverage_ok = True
+    else:
+        # Paths changed after gate source (source..HEAD exclusive of source)
+        diff = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--diff-filter=ACMRTUXB",
+                f"{source}..{head}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        changed = [ln.strip() for ln in (diff.stdout or "").splitlines() if ln.strip()]
+        sprint_ev = (
+            ".spec/prds/mk6-migration/tasks/"
+            "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/"
+        )
+        allow_prefixes = (
+            sprint_ev + ".gate-evidence/",
+            sprint_ev + "gate-results.json",
+            sprint_ev + "gate-verification.json",
+            sprint_ev + "gate-verification.json.raw",
+            sprint_ev + "SPRINT.md",  # status notes only; optional
+            sprint_ev + "REDHAT-FIX-",  # remediation plan docs
+            ".spec/reviews/",  # review-only artifacts
+            ".spec/evidence/",  # unrelated evidence fixtures may appear
+        )
+        # NEVER allow product/runtime trees
+        deny_prefixes = (
+            "scripts/",
+            "services/",
+            "convex/",
+            "apps/",
+            "packages/",
+            "src/",
+            "tests/",
+        )
+
+        def allowed(path: str) -> bool:
+            if any(path.startswith(d) for d in deny_prefixes):
+                return False
+            # Evidence/meta under sprint only (strict for gate-results at sprint root)
+            if path.startswith(sprint_ev + ".gate-evidence/"):
+                return True
+            if path in (
+                sprint_ev + "gate-results.json",
+                sprint_ev + "gate-verification.json",
+                sprint_ev + "gate-verification.json.raw",
+            ):
+                return True
+            if path.startswith(sprint_ev) and (
+                path.endswith(".md") or "/REDHAT-FIX-" in path or path.endswith("SPRINT.md")
+            ):
+                return True
+            if path.startswith(".spec/reviews/"):
+                return True
+            # Disallow other .spec changes that aren't review/evidence notes
+            if path.startswith(".spec/"):
+                return path.startswith(sprint_ev)
+            return False
+
+        bad = [p for p in changed if not allowed(p)]
+        if bad:
+            source_head_coverage_ok = False
+            sample = ", ".join(bad[:8])
+            more = f" (+{len(bad)-8} more)" if len(bad) > 8 else ""
+            errors.append(
+                "C-2 executable-HEAD / post-source runtime drift: "
+                f"source_sha_at_run={source[:12]}.. HEAD has non-allowlisted paths "
+                f"after gate source (not evidence/meta-only): {sample}{more}. "
+                "Historical package object integrity alone does not certify current tip; "
+                "re-run gate so git_sha/source_sha_at_run/sourceRevision match gated source."
+            )
+        else:
+            source_head_coverage_ok = True
+
 # C-3 artifact OIDs bound in attestation (when present)
 if att is not None and not errors:
     package_commit = str(att.get("package_commit") or "")
@@ -261,6 +350,8 @@ out = {
     "sub_oid": sub_oid,
     "blob_identity_ok": bool(hist_oid and sub_oid and hist_oid == sub_oid and not errors),
     "attestation_git_bound": bool(att is not None and lock is not None and not errors),
+    "source_head_coverage_ok": source_head_coverage_ok,
+    "source_sha_at_run": source,
     "run_id": run_id,
     "errors": errors,
 }

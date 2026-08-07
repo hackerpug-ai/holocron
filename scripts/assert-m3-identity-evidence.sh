@@ -74,17 +74,31 @@ def text(name: str) -> str:
     return p.read_text(errors="replace") if p.is_file() else ""
 
 
-# ── Real RED signatures (not narrative prose) ──────────────────────────────
+# ── Real RED signatures (not narrative prose / not exit-127 theatre) ───────
 red = text("RED-identity-oracle-baseline.txt")
+mut = text("mutation-failure.log")
+
+def reject_theatre(label: str, body: str) -> None:
+    # RH-S30-34: command-not-found / exit 127 is NOT RED even with FAIL labels
+    if re.search(r"(?i)exit_code\s*=\s*127\b|exit[_\s-]?code[=:\s]+127\b", body):
+        errors.append(f"{label}: exit_code=127 theatre rejected (vitest never ran)")
+    if re.search(
+        r"(?i)command not found|not found:\s*vitest|Cannot find module ['\"]vitest",
+        body,
+    ):
+        errors.append(f"{label}: command-not-found / missing vitest theatre rejected")
+
+reject_theatre("RED-identity-oracle-baseline.txt", red)
+reject_theatre("mutation-failure.log", mut)
+
 red_sigs = [
     r"(?i)\bFAIL\b",
     r"(?i)AssertionError|expect\(|toBe\(|toEqual\(|toBeTruthy\(",
     r"(?i)Test Files\s+\d+\s+failed|Tests\s+\d+\s+failed|FAIL\s+\|",
-    r"(?i)exit[_\s-]?code[=:\s]+[1-9]|exit status [1-9]|Exit code: [1-9]",
-    r"(?i)vitest|PLATFORM_IT",
+    r"(?i)exit[_\s-]?code[=:\s]+1\b|exit status 1|Exit code: 1",
+    r"(?i)vitest|PLATFORM_IT|runEnableWrites|independentHttp201Id",
 ]
 red_hits = [p for p in red_sigs if re.search(p, red)]
-# Require at least: a failure marker AND (assertion or vitest suite header)
 has_fail = any(re.search(p, red) for p in red_sigs[:3])
 has_tooling = any(re.search(p, red) for p in red_sigs[3:])
 if not has_fail or not has_tooling:
@@ -94,17 +108,18 @@ if not has_fail or not has_tooling:
     )
 if len(red.strip()) < 80:
     errors.append("RED-identity-oracle-baseline.txt too short for a real transcript")
-# Narrative-only guard: pure claim without command/output shape
 if re.search(r"(?i)expected after GREEN|documented residual", red) and not re.search(
     r"(?i)FAIL|AssertionError|Tests\s+\d+\s+failed", red
 ):
     errors.append("RED file looks narrative-only (no failure transcript)")
 
 # ── Real mutation signatures ───────────────────────────────────────────────
-mut = text("mutation-failure.log")
 mut_sigs_ok = (
     re.search(r"(?i)\bFAIL\b|AssertionError|expect\(|Tests\s+\d+\s+failed", mut)
-    and re.search(r"(?i)vitest|exit[_\s-]?code|mutation|PLATFORM_IT|injectFirstWriteFailure", mut)
+    and re.search(
+        r"(?i)vitest|exit[_\s-]?code|mutation|PLATFORM_IT|injectFirstWriteFailure|runEnableWrites|independentHttp201Id",
+        mut,
+    )
 )
 if not mut_sigs_ok:
     errors.append(

@@ -519,15 +519,29 @@ if miss_report.exists() and marker_miss_rc == 0:
 if one_trig_report.exists() and one_trig_rc == 0:
     try:
         ot = json.loads(one_trig_report.read_text())
+        # RH-S30-33: exact set + raw D/O (not len==2 alone)
+        import subprocess as _sp
+        _ex = _sp.run(
+            [
+                "python3",
+                "scripts/lib/c3-exact-trigger-set.py",
+                str(one_trig_report),
+                str(one_trig_report.parent),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(Path("$ROOT")),
+        )
+        try:
+            _exact = json.loads(_ex.stdout) if _ex.stdout.strip() else {}
+        except Exception:
+            _exact = {"ok": False}
         c3_one_trigger_missing_ok = bool(
             ot.get("ok") is True
             and ot.get("uri_alias_same_target_refused") is True
             and ot.get("urls_distinct") is True
-            and len(ot.get("one_trigger_missing_cases") or []) == 2
-            and all(
-                c.get("refused") and int(c.get("probe_rc") or 0) != 0
-                for c in (ot.get("one_trigger_missing_cases") or [])
-            )
+            and _ex.returncode == 0
+            and _exact.get("ok") is True
         )
     except Exception:
         c3_one_trigger_missing_ok = False

@@ -211,11 +211,55 @@ for name, rel in [
             errors.append("one_trigger_missing ok!=true")
         if data.get("uri_alias_same_target_refused") is not True:
             errors.append("one_trigger_missing uri_alias not refused")
-        cases = data.get("one_trigger_missing_cases") or []
-        if len(cases) != 2:
-            errors.append(f"one_trigger_missing cases len={len(cases)} != 2")
-        if not all(c.get("refused") and int(c.get("probe_rc") or 0) != 0 for c in cases):
-            errors.append("one_trigger_missing case not refused")
+        # RH-S30-33: exact REQUIRED set (not len==2 alone) + raw exit.code + D/O from package blobs
+        r = subprocess.run(
+            [
+                "python3",
+                "scripts/lib/c3-exact-trigger-set.py",
+                "--json-cases",
+                json.dumps(data.get("one_trigger_missing_cases") or []),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        try:
+            exact = json.loads(r.stdout) if r.stdout.strip() else {"ok": False}
+        except Exception:
+            exact = {"ok": False, "errors": ["oracle parse fail"]}
+        if not exact.get("ok"):
+            errors.append(
+                "one_trigger_missing exact-set oracle failed: "
+                + "; ".join(exact.get("errors") or ["nonzero"])
+            )
+        for tg in (
+            "data_plane_ponr_reject_mutation",
+            "data_plane_ponr_reject_truncate",
+        ):
+            rel_exit = base + f"ponr-one-trigger-missing/disable-{tg}/exit.code"
+            oid, raw_exit = show(rel_exit)
+            if oid is None:
+                errors.append(f"one_trigger_missing missing raw exit.code: {rel_exit}")
+            else:
+                try:
+                    if int((raw_exit or b"0").decode().strip() or "0") == 0:
+                        errors.append(f"one_trigger_missing raw exit.code==0 for {tg}")
+                except Exception:
+                    errors.append(f"one_trigger_missing raw exit.code unparseable for {tg}")
+            rel_err = base + f"ponr-one-trigger-missing/disable-{tg}/stderr.txt"
+            _oid2, raw_err = show(rel_err)
+            if raw_err is None:
+                errors.append(f"one_trigger_missing missing stderr: {rel_err}")
+            else:
+                text = raw_err.decode(errors="replace")
+                if f"{tg}|D" not in text:
+                    errors.append(f"one_trigger_missing missing complementary {tg}|D in stderr")
+                other = (
+                    "data_plane_ponr_reject_truncate"
+                    if tg == "data_plane_ponr_reject_mutation"
+                    else "data_plane_ponr_reject_mutation"
+                )
+                if f"{other}|O" not in text:
+                    errors.append(f"one_trigger_missing missing complementary {other}|O in stderr")
 # M-3 mandatory tree objects in package
 m3_base = base + "m3-identity/"
 m3_oids = {}
@@ -323,9 +367,12 @@ echo "package_commit=$PACKAGE_COMMIT attestation_commit=$ATTEST_COMMIT lock_comm
 
 export ASSERT_EVIDENCE_CONTAINMENT=1
 export ASSERT_PACKAGE_HEAD=1
+export ASSERT_SOURCE_HEAD=1
 export ASSERT_C3_PREDICATES=1
 # Never inherit a stale ASSERT_LOCK_COMMIT into package verification
 unset ASSERT_LOCK_COMMIT || true
+# Package path forces executable-HEAD coverage ON (RH-S30-35); never silent-disable
+echo "package forces ASSERT_PACKAGE_HEAD=1 ASSERT_SOURCE_HEAD=1"
 bash "$ROOT/scripts/assert-human-test-verdict.sh" "$RESULTS" "$EVID_DIR" \
   | tee "$EVID_DIR/assert-human-test-verdict.post-package.json"
 bash "$ROOT/scripts/assert-gate-evidence-containment.sh" "$RESULTS" \
