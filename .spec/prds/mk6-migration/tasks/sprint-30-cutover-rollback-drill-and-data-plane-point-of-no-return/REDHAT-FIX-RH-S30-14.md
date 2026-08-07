@@ -8,7 +8,7 @@
 > **Severity:** HIGH
 > **Source finding:** H-4 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -26,11 +26,11 @@ RH-S30-08 AC-2 requires `assert-human-test-verdict` + `verify-gate-evidence` bot
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** A real executable entrypoint `assert-human-test-verdict` exists in-repo (or as a pinned brain/tools path invoked by the gate runner with a stable absolute/relative reference checked into the sprint runner). `rg` / path lookup no longer returns zero hits for the command the gate claims to run.
-- [ ] **AC-2** `run-sprint30-human-gate.sh` (or the active Sprint 30 human-gate runner) invokes that entrypoint against the gate plan + evidence for the run; captures stdout and exit code into the evidence directory; fails the gate if assertion exit ≠ 0.
-- [ ] **AC-3** A successful tip-bound gate stores both: (a) verifier raw/json with `verified:true`, and (b) assertion capture with exit 0. Independent recompute: re-run assertion + verifier on stored artifacts → both exit 0.
-- [ ] **AC-4** RH-S30-08 task status may only claim AC-2 checked when AC-1..AC-3 hold on a landed SHA (coordinate with REDHAT-FIX-RH-S30-10).
-- [ ] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-14/` includes the entrypoint path, sample assertion stdout, and runner snippet showing invocation order (assertion relative to verifier).
+- [x] **AC-1** A real executable entrypoint `assert-human-test-verdict` exists in-repo (or as a pinned brain/tools path invoked by the gate runner with a stable absolute/relative reference checked into the sprint runner). `rg` / path lookup no longer returns zero hits for the command the gate claims to run.
+- [x] **AC-2** `run-sprint30-human-gate.sh` (or the active Sprint 30 human-gate runner) invokes that entrypoint against the gate plan + evidence for the run; captures stdout and exit code into the evidence directory; fails the gate if assertion exit ≠ 0.
+- [x] **AC-3** A successful tip-bound gate stores both: (a) verifier raw/json with `verified:true`, and (b) assertion capture with exit 0. Independent recompute: re-run assertion + verifier on stored artifacts → both exit 0.
+- [x] **AC-4** RH-S30-08 task status may only claim AC-2 checked when AC-1..AC-3 hold on a landed SHA (coordinate with REDHAT-FIX-RH-S30-10).
+- [x] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-14/` includes the entrypoint path, sample assertion stdout, and runner snippet showing invocation order (assertion relative to verifier).
 
 ## Anti-stub
 

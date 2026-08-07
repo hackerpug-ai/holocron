@@ -8,7 +8,7 @@
 > **Severity:** HIGH
 > **Source finding:** H-2 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -27,11 +27,11 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** `cutover:enable-writes` without a valid cutover operator credential (`HOLO_CUTOVER_OPERATOR_SECRET` or the project's established equivalent) refuses before lifting the fence or issuing the first production write; exit non-zero / `ok:false` with a stable auth error code (e.g. `OPERATOR_UNAUTHORIZED` — name locked in implementation, cited in evidence).
-- [ ] **AC-2** `cutover:rollback-repoint` without a valid cutover operator credential refuses before writing durable `HOLO_DATA_PLANE` / control-plane state; no secrets-file mutation occurs.
-- [ ] **AC-3** With a valid operator credential, both CLIs remain operable for legitimate drill/PONR flows (happy-path enable-writes and pre-PONR rollback-repoint still succeed under their other preconditions).
-- [ ] **AC-4** D07-05 / security-review tests that previously only *documented* missing auth now **assert** refusal without credential and success with credential (no longer a permanent known-gap waiver).
-- [ ] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-12/` includes unauth refuse + auth success transcripts for both verbs.
+- [x] **AC-1** `cutover:enable-writes` without a valid cutover operator credential (`HOLO_CUTOVER_OPERATOR_SECRET` or the project's established equivalent) refuses before lifting the fence or issuing the first production write; exit non-zero / `ok:false` with a stable auth error code (e.g. `OPERATOR_UNAUTHORIZED` — name locked in implementation, cited in evidence).
+- [x] **AC-2** `cutover:rollback-repoint` without a valid cutover operator credential refuses before writing durable `HOLO_DATA_PLANE` / control-plane state; no secrets-file mutation occurs.
+- [x] **AC-3** With a valid operator credential, both CLIs remain operable for legitimate drill/PONR flows (happy-path enable-writes and pre-PONR rollback-repoint still succeed under their other preconditions).
+- [x] **AC-4** D07-05 / security-review tests that previously only *documented* missing auth now **assert** refusal without credential and success with credential (no longer a permanent known-gap waiver).
+- [x] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-12/` includes unauth refuse + auth success transcripts for both verbs.
 
 ## Anti-stub
 

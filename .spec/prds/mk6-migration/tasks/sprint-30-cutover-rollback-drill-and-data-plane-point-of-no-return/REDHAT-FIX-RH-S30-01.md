@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** CRITICAL
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ services/platform/src/db/migrations/0031_data_plane_ponr_truncate_guard.sql (or 
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** PLATFORM_IT=1: TRUNCATE data_plane_ponr raises PONR_IMMUTABLE / fails closed
-- [ ] **AC-2** After failed truncate, SELECT count=1 and cutover:rollback-repoint --json exits 2 with POST_PONR_INELIGIBLE
+- [x] **AC-1** PLATFORM_IT=1: TRUNCATE data_plane_ponr raises PONR_IMMUTABLE / fails closed
+- [x] **AC-2** After failed truncate, SELECT count=1 and cutover:rollback-repoint --json exits 2 with POST_PONR_INELIGIBLE
 
 ## Anti-stub
 

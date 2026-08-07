@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** CRITICAL
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,9 +19,9 @@ migration for ledger table optional, soak-fence write hooks, rollback-repoint.ts
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** Real POST /api/documents after watermark increments ledger accepted count
-- [ ] **AC-2** Absent ledger => rollback-repoint refuse (not empty success)
-- [ ] **AC-3** Deleting .tmp file does not zero the oracle if DB-backed
+- [x] **AC-1** Real POST /api/documents after watermark increments ledger accepted count
+- [x] **AC-2** Absent ledger => rollback-repoint refuse (not empty success)
+- [x] **AC-3** Deleting .tmp file does not zero the oracle if DB-backed
 
 ## Anti-stub
 

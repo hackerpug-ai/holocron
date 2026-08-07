@@ -8,7 +8,7 @@
 > **Severity:** MEDIUM
 > **Source finding:** M-1 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -25,11 +25,11 @@ The runner writes `.gate-evidence/<runId>/meta.json` with `status:"running"` at 
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** On successful gate completion (all steps pass + verifier pass), `meta.json` is rewritten with a durable terminal status of `completed` or `pass` (exact enum locked in implementation and cited in evidence) — never left as `running`.
-- [ ] **AC-2** On failed/aborted gate, `meta.json` is rewritten to a durable terminal failure status (`failed` / `aborted` / equivalent) including enough context to distinguish from success (exit code or failed step id).
-- [ ] **AC-3** Interrupted runs that die before finalization may remain `running`; that is the only legitimate `running` state. Evidence documents this and shows a completed run is not in that state.
-- [ ] **AC-4** A post-run check (runner self-check or test) fails if root results claim pass while meta still says `running`.
-- [ ] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-15/` includes before/after meta.json for a real completed run.
+- [x] **AC-1** On successful gate completion (all steps pass + verifier pass), `meta.json` is rewritten with a durable terminal status of `completed` or `pass` (exact enum locked in implementation and cited in evidence) — never left as `running`.
+- [x] **AC-2** On failed/aborted gate, `meta.json` is rewritten to a durable terminal failure status (`failed` / `aborted` / equivalent) including enough context to distinguish from success (exit code or failed step id).
+- [x] **AC-3** Interrupted runs that die before finalization may remain `running`; that is the only legitimate `running` state. Evidence documents this and shows a completed run is not in that state.
+- [x] **AC-4** A post-run check (runner self-check or test) fails if root results claim pass while meta still says `running`.
+- [x] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-15/` includes before/after meta.json for a real completed run.
 
 ## Anti-stub
 
