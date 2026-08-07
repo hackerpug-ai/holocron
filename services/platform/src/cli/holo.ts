@@ -388,6 +388,10 @@ Usage:
                             Writes durable control-plane (secrets.yaml via HOLO_SECRETS_PATH)
   cutover:rollback-repoint  UC-SYNC-04 re-point data plane to frozen Convex [--json]
                             [--output <rollback-report.json>] [--target <convex-label>]
+  cutover:rollback-drill    D07-03 UC-SYNC-04 Sev-1 + five write surfaces + real repoint CLI
+                            + independent zero-loss recompute [--json]
+                            [--base-url URL] [--etl-report <watermark>] [--output <drill-report.json>]
+                            Fail-closed: POST_EXPORT_WRITE_ACCEPTED | DRILL_* codes
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over real /mcp [--json]
   cutover:verify-tools      D06-05 invoke all manifest MCP tools over network /mcp [--json] [--base-url URL]
   cutover:verify-reads      D06-05 Postgres counts vs export/catalog parity baseline [--json]
@@ -3722,6 +3726,61 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:rollback-repoint failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:rollback-drill': {
+      // D07-03 / UC-SYNC-04: Sev-1 trigger + five write surfaces + real repoint
+      // CLI child + independent raw-audit zero-loss recompute.
+      const {
+        runRollbackDrill,
+        formatRollbackDrillText,
+        defaultRollbackDrillReportPath,
+        POST_EXPORT_WRITE_ACCEPTED: DRILL_POST_EXPORT,
+        DRILL_SEV1_TRIGGER_MISSING,
+        DRILL_WRITE_SURFACES_NOT_BLOCKED,
+        DRILL_INDEPENDENT_RECOMPUTE_MISMATCH,
+        DRILL_AUDIT_FILE_MISSING,
+        DRILL_LIVE_ACK_MISSING,
+        DRILL_REPOINT_FAILED,
+      } = await import('../cutover/rollback-drill.ts');
+      try {
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultRollbackDrillReportPath(process.cwd());
+        const report = await runRollbackDrill({
+          reportPath,
+          baseUrl: args.baseUrl ?? undefined,
+          watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatRollbackDrillText(report));
+        }
+        if (!report.ok) {
+          const code = report.error?.code ?? DRILL_REPOINT_FAILED;
+          process.exit(
+            code === DRILL_POST_EXPORT ||
+              code === DRILL_SEV1_TRIGGER_MISSING ||
+              code === DRILL_WRITE_SURFACES_NOT_BLOCKED ||
+              code === DRILL_INDEPENDENT_RECOMPUTE_MISMATCH ||
+              code === DRILL_AUDIT_FILE_MISSING ||
+              code === DRILL_LIVE_ACK_MISSING ||
+              code === DRILL_REPOINT_FAILED
+              ? 2
+              : 1
+          );
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:rollback-drill failed: ${msg}`);
         }
         process.exit(1);
       }
