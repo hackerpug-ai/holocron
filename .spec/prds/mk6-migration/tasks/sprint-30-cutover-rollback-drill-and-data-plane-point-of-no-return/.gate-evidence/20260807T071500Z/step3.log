@@ -1,0 +1,38 @@
+@@GATE-META step=3@@
+{
+  "ok": true,
+  "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb",
+  "short_sha": "25414ad1",
+  "build_digest_sha256": "45eb89dc9fc9cab1f0c4e5b7d1cc56f60efbc5262a672f900d013a8238b6992d",
+  "convex_react_present_at_commit": true,
+  "convex_react_present_at_head": false,
+  "convex_client_source_env": "EXPO_PUBLIC_CONVEX_URL",
+  "reaches_convex": true,
+  "worktree_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-worktree",
+  "layout_path_at_commit": "app/_layout.tsx",
+  "pnpm_lock_sha256": "4f1bb3c504b534b0e0cfc79cf00ce57f3ac8c2d09b76dac1456737d62f3f9e45",
+  "head_sha": "a90876be2a4c78267b7371675d75e901dd5dfc8a",
+  "metro_required": false,
+  "dev_client": false,
+  "pinned_at_ms": 1786086802585,
+  "manifest_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-build-manifest.json"
+}
+{
+  "ok": false,
+  "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb",
+  "build_digest_sha256": "45eb89dc9fc9cab1f0c4e5b7d1cc56f60efbc5262a672f900d013a8238b6992d",
+  "simulator_udid": "D70558B9-3E26-43F6-8D52-311A0D86E50D",
+  "boot_evidence": {
+    "artifact_type": null,
+    "session_log_path": null
+  },
+  "metro_required": false,
+  "dev_client": false,
+  "at_ms": 1786086802849,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/fallback-boot-report.json",
+  "error": {
+    "code": "BOOT_UNVERIFIED",
+    "message": "no pinned Release app artifact under .tmp/D07-02 (build 25414ad1 with expo prebuild + run:ios --configuration Release first)"
+  }
+}
+@@GATE-EXIT=2@@

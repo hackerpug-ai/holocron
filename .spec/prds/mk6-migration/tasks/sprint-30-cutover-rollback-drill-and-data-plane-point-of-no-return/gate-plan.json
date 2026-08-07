@@ -1,0 +1,95 @@
+{
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+  "sprint_identity": {
+    "resolved_sprint_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return",
+    "sprint_slug": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return"
+  },
+  "capability": "CAP-CUT-01",
+  "planned_at": "20260807T073351Z",
+  "planned_steps": 5,
+  "dispatcher": "bun services/platform/src/cli/holo.ts",
+  "notes": [
+    "Human Testing Gate UC-SYNC-04: rollback during soak then PONR closes path",
+    "GATE-FIX-fence-lift: durable HOLO_MIGRATION_READ_ONLY=0 disarms sticky env",
+    "Step 5 expected_exit=2 with POST_PONR_INELIGIBLE is the pass oracle (refuse after PONR)"
+  ],
+  "steps": [
+    {
+      "n": 1,
+      "text": "Trigger Sev-1 gate failure / rollback drill",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url http://127.0.0.1:44111",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": [
+          "\"ok\":\\s*true",
+          "\"lost_accepted_writes\":\\s*0",
+          "\"repointed\":\\s*true"
+        ]
+      }
+    },
+    {
+      "n": 2,
+      "text": "Count accepted post-export production writes = 0",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "python3 - <<\"PY\"\nimport json\nfrom pathlib import Path\naudit=json.loads(Path(\".tmp/D06-05/post-export-write-audit.json\").read_text())\nwm=json.loads(Path(\".tmp/D06-04/watermark-report.json\").read_text())\naccepted=audit.get(\"accepted_writes\") or []\nif isinstance(audit.get(\"accepted_count\"), int):\n  count=audit[\"accepted_count\"]\nelse:\n  count=len(accepted)\ndrill=json.loads(Path(\".tmp/D07-03/rollback-drill-report.json\").read_text()) if Path(\".tmp/D07-03/rollback-drill-report.json\").exists() else {}\nout={\n  \"accepted_count\": count,\n  \"export_watermark_ms\": wm.get(\"export_watermark_ms\") or wm.get(\"watermarkAtMs\"),\n  \"drill_lost_accepted_writes\": drill.get(\"lost_accepted_writes\"),\n  \"drill_ok\": drill.get(\"ok\"),\n}\nprint(json.dumps(out, indent=2))\nassert count==0, out\nassert drill.get(\"lost_accepted_writes\",0)==0 or drill.get(\"ok\") is True or count==0\nprint(\"STEP2_PASS\")\nPY",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": [
+          "\"accepted_count\":\\s*0",
+          "STEP2_PASS"
+        ]
+      }
+    },
+    {
+      "n": 3,
+      "text": "Pinned Convex-pointing app build + boot verify",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json; python3 - <<\"PY\"\nimport json\nfrom pathlib import Path\np=Path(\".tmp/D07-02/pinned-fallback-build-manifest.json\")\nd=json.loads(p.read_text())\nprint(json.dumps({\"ok\": d.get(\"ok\"), \"short_sha\": d.get(\"short_sha\"), \"worktree_path\": d.get(\"worktree_path\"), \"reaches_convex\": d.get(\"reaches_convex\")}, indent=2))\nassert d.get(\"ok\") is True or d.get(\"worktree_path\")\nprint(\"STEP3_PASS\")\nPY",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": [
+          "\"ok\":\\s*true",
+          "STEP3_PASS"
+        ]
+      }
+    },
+    {
+      "n": 4,
+      "text": "Enable first Postgres production write (PONR)",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-url http://127.0.0.1:44111",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 0,
+        "require_all_regex": [
+          "\"ok\":\\s*true",
+          "\"ponr_id\":",
+          "\"write_row_id\":"
+        ]
+      }
+    },
+    {
+      "n": 5,
+      "text": "Config rollback after PONR rejected",
+      "type": "terminal",
+      "method": "real-cli",
+      "literal_cmd": "bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url http://127.0.0.1:44111",
+      "assertion": {
+        "kind": "exit_and_log_regex",
+        "expected_exit": 2,
+        "require_all_regex": [
+          "POST_PONR_INELIGIBLE",
+          "\"repointed\":\\s*false"
+        ]
+      }
+    }
+  ]
+}

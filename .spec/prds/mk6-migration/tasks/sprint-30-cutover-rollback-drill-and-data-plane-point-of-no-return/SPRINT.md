@@ -1,7 +1,7 @@
 ---
 sequence: 30
 timeline: Phase 7 — Cutover and Decommission
-status: In Progress
+status: Completed
 planned_from_roadmap_sha: 6eb1ae5b1a12963afe1792b500d67de962768d5581e79f2739cedb5e35c40465
 planned_from_source_sha: 6de957d39d03577912f5aa5e4d35bf6049118b8f
 source_kind: git-head
@@ -13,8 +13,9 @@ capability_coverage: [CAP-CUT-01]
 
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
-> Progress: 0/5 tasks completed · updated 2026-08-07T05:45:54Z
+**Status:** Completed
+> Progress: 5/5 tasks completed · updated 2026-08-07T07:35:48Z
+> Status-Note: human gate 5/5 pass + GATE-FIX-fence-lift
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`

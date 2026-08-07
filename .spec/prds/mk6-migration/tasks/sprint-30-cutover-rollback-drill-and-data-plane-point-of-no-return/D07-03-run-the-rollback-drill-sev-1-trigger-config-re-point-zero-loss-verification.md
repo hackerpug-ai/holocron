@@ -1,4 +1,8 @@
 # D07-03: Run the rollback drill — Sev-1 trigger, config re-point, zero-loss verification
+> Status: ✅ Completed
+> Commit: 4da1d84de535b3303c396ad218739b5f868e5aad
+> Reviewer: dual-lens
+> Completed: 2026-08-07T07:36:00Z
 
 > **Task ID:** D07-03
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)
@@ -359,7 +363,8 @@
 - The Sev-1 trigger design deliberately reuses runVerifyTools() pointed at a dead port instead of inventing a new fault-injection surface — this keeps the 'real, declared trigger' requirement grounded in code that already exists and is already exercised by cutover:verify-soak.
 - D07-04 (PONR) is expected to add a NEW, stronger precondition to rollback-repoint.ts/the CLI case beyond accepted_post_export_writes>0 — today's mechanism has no PONR awareness at all. This task's AC-3/AC-4 only prove today's accepted-writes precondition; once D07-04 lands, this drill should be re-run/extended to prove a distinct post-PONR refusal (see enrichment for D07-04).
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",

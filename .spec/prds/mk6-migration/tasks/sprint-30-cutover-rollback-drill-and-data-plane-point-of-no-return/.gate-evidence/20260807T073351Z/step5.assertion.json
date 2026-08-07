@@ -1,0 +1,8 @@
+{
+  "kind": "exit_and_log_regex",
+  "expected_exit": 2,
+  "require_all_regex": [
+    "POST_PONR_INELIGIBLE",
+    "\"repointed\":\\s*false"
+  ]
+}
