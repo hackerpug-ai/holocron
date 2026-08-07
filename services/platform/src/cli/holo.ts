@@ -376,9 +376,15 @@ Usage:
   cutover:flip              D06-05 engage HOLO_MIGRATION_READ_ONLY=1 after green ETL [--json]
                             [--etl-report <watermark-report.json>] [--output <flip-report.json>]
                             Fail-closed: ETL_NOT_RECONCILED when unexplainedVariance>0
+  cutover:enable-writes     D07-04 / UC-SYNC-04: lift fence, first Postgres write, record PONR
+                            [--json] [--output <enable-writes-report.json>] [--base-url URL]
+                            [--operator <name>] [--etl-report <watermark>]
+                            Fail-closed: CONVEX_ESCAPE_HATCH_DIVERGED | FIRST_WRITE_FAILED
+                            Idempotent: re-run exits 0 with already_recorded:true
   cutover:rollback-repoint  H-05 / UC-SYNC-04: re-point data plane to frozen Convex [--json]
                             [--output <rollback-repoint-report.json>] [--etl-report <watermark>]
-                            Fail-closed: POST_EXPORT_WRITE_ACCEPTED | ROLLBACK_INELIGIBLE
+                            Fail-closed: POST_PONR_INELIGIBLE | POST_EXPORT_WRITE_ACCEPTED |
+                            PONR_LEDGER_UNREADABLE | ROLLBACK_INELIGIBLE
                             Writes durable control-plane (secrets.yaml via HOLO_SECRETS_PATH)
   cutover:rollback-repoint  UC-SYNC-04 re-point data plane to frozen Convex [--json]
                             [--output <rollback-report.json>] [--target <convex-label>]
@@ -3595,6 +3601,75 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'cutover:enable-writes': {
+      // D07-04 / UC-SYNC-04 / T-SYNC-014: first Postgres write + data-plane PONR
+      const {
+        runEnableWrites,
+        formatEnableWritesText,
+        defaultEnableWritesReportPath,
+        CONVEX_ESCAPE_HATCH_DIVERGED,
+        CONVEX_SNAPSHOT_UNAVAILABLE,
+        EXPORT_WATERMARK_MISSING,
+        SERVING_BASE_URL_MISSING,
+        SERVING_HEALTH_FAILED,
+        FENCE_LIFT_FAILED,
+        FIRST_WRITE_FAILED,
+        PONR_INSERT_FAILED,
+        PONR_LEDGER_UNREADABLE,
+      } = await import('../cutover/ponr.ts');
+      try {
+        if (args.help) {
+          console.log(
+            'holo cutover:enable-writes — lift HOLO_MIGRATION_READ_ONLY, drive first ' +
+              'POST /api/documents, record data_plane_ponr (UC-SYNC-04)\n' +
+              '  --json                machine-readable report on stdout\n' +
+              '  --output <path>       write report JSON (default under D07-04 evidence dir)\n' +
+              '  --base-url <url>      pre-existing serving base URL (or HOLO_VERIFY_BASE_URL)\n' +
+              '  --etl-report <path>   export watermark report (default .tmp/D06-04/watermark-report.json)\n' +
+              '  --reason <operator>   operator identity recorded on the PONR row'
+          );
+          process.exit(0);
+        }
+        const reportPath = args.output
+          ? resolve(args.output)
+          : defaultEnableWritesReportPath(process.cwd());
+        const report = await runEnableWrites({
+          reportPath,
+          baseUrl: args.baseUrl ?? undefined,
+          operator: args.reason ?? undefined,
+          watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatEnableWritesText(report));
+        }
+        if (!report.ok) {
+          const code = report.error?.code ?? 'ENABLE_WRITES_FAILED';
+          const exit2 =
+            code === CONVEX_ESCAPE_HATCH_DIVERGED ||
+            code === CONVEX_SNAPSHOT_UNAVAILABLE ||
+            code === EXPORT_WATERMARK_MISSING ||
+            code === SERVING_BASE_URL_MISSING ||
+            code === SERVING_HEALTH_FAILED ||
+            code === FENCE_LIFT_FAILED ||
+            code === FIRST_WRITE_FAILED ||
+            code === PONR_INSERT_FAILED ||
+            code === PONR_LEDGER_UNREADABLE;
+          process.exit(exit2 ? 2 : 1);
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:enable-writes failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
     case 'cutover:rollback-repoint': {
       // H-05 / R2-C04 / UC-SYNC-04: serving control-plane re-point + live acks.
       // Authoritative path is rollback-repoint.ts (writes HOLO_DATA_PLANE to
@@ -3605,6 +3680,8 @@ async function main(): Promise<void> {
         formatRollbackRepointText,
         defaultRollbackRepointReportPath,
         POST_EXPORT_WRITE_ACCEPTED,
+        POST_PONR_INELIGIBLE,
+        PONR_LEDGER_UNREADABLE,
         ROLLBACK_INELIGIBLE,
         EXPORT_WATERMARK_MISSING,
         LIVE_ACK_MISSING,
@@ -3628,6 +3705,8 @@ async function main(): Promise<void> {
           const code = report.error?.code ?? ROLLBACK_INELIGIBLE;
           process.exit(
             code === POST_EXPORT_WRITE_ACCEPTED ||
+              code === POST_PONR_INELIGIBLE ||
+              code === PONR_LEDGER_UNREADABLE ||
               code === ROLLBACK_INELIGIBLE ||
               code === EXPORT_WATERMARK_MISSING ||
               code === LIVE_ACK_MISSING ||
