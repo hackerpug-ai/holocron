@@ -807,14 +807,16 @@ export async function runEnableWrites(options?: {
     writeRowId = body.document.id;
 
     // ── 7. Re-SELECT committed row + digest ────────────────────────────────
-    // RH-S30-09 / M-3: reselect_miss inject — force empty reselect path
+    // RH-S30-09 / M-3: reselect_miss inject — real HTTP 201 accepted id is kept for
+    // audit/recovery; reselect is forced to miss (synthetic probe id is not audited).
     if (injectFw?.kind === 'reselect_miss') {
-      writeRowId =
-        injectFw.documentId?.trim() || writeRowId || '00000000-0000-4000-8000-cccccccccccc';
+      const acceptedWriteRowId = writeRowId;
+      const reselectProbeId = injectFw.documentId?.trim() || '00000000-0000-4000-8000-cccccccccccc';
       const committedAtMs = Math.max(Date.now(), exportWm + 1);
+      // Durable latch must name the *accepted* write, not the missing reselect probe id.
       const { rearmOk, auditOk } = await recoverEnableWritesCrashWindow({
         secretsPath,
-        writeRowId,
+        writeRowId: acceptedWriteRowId,
         writeCommittedAtMs: committedAtMs,
         exportWatermarkMs: exportWm,
         databaseUrl,
@@ -826,11 +828,12 @@ export async function runEnableWrites(options?: {
         base_url: baseUrl,
         export_watermark_ms: exportWm,
         fence_lifted_at: fenceLiftedAt.toISOString(),
-        write_row_id: writeRowId,
+        write_row_id: acceptedWriteRowId,
         error: {
           code: FIRST_WRITE_FAILED,
           message:
-            `cutover:enable-writes refuses: injected reselect miss for ${writeRowId} ` +
+            `cutover:enable-writes refuses: injected reselect miss ` +
+            `(accepted_write_row_id=${acceptedWriteRowId}; reselect_probe_id=${reselectProbeId}) ` +
             `(RH-S30-09 M-3). Fence re-armed=${rearmOk}; audit recorded=${auditOk}.`,
         },
       });
