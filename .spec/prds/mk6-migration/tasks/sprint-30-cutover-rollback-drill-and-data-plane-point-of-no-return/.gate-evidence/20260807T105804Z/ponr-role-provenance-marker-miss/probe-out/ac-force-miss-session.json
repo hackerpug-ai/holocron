@@ -1,0 +1,7 @@
+{
+  "force_miss": true,
+  "probe_current_user": "holocron_app",
+  "effective_non_owner": true,
+  "marker_was_emitted": true,
+  "note": "PROBE_FORCE_MARKER_MISS discards marker for hard-fail control; session user is recorded from the rolled-back DO block when present."
+}
