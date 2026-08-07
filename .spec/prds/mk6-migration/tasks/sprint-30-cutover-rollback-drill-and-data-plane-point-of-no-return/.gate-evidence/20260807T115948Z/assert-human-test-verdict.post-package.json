@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-human-test-verdict.sh",
+  "results_path": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/gate-results.json",
+  "verdict": "pass",
+  "steps_total": 5,
+  "steps_executed": 5,
+  "steps_passed": 5,
+  "git_sha": "c084ed31a44467dd4178230553175d5d0bb956c8",
+  "source_sha_at_run": "c084ed31a44467dd4178230553175d5d0bb956c8",
+  "blob_identity": {
+    "ok": true,
+    "tool": "scripts/assert-gate-evidence-containment.sh",
+    "protocol": "C-2-atomic-v5-git-bound-attestation",
+    "lock_commit": "7af35a0319481b776d2029be6ac5232bef396f80",
+    "lock_oid": "32babc6caab9cc5531ae623d1479f1eb97a133de",
+    "attestation_commit": "b56a56a7d10e8dcd941504fd970b66623c957c46",
+    "attestation_blob_oid": "9faec2bd4a4572f0f1f9710cd90a8f3c1f97eebd",
+    "package_commit": "39c08627159897a2f8b3f5e196f82ddbc7e2a960",
+    "hist_oid": "1c73d08d8b7743ea64e0ecb9cc9fd2cff51ecf5e",
+    "sub_oid": "1c73d08d8b7743ea64e0ecb9cc9fd2cff51ecf5e",
+    "blob_identity_ok": true,
+    "attestation_git_bound": true,
+    "source_head_coverage_ok": true,
+    "source_sha_at_run": "c084ed31a44467dd4178230553175d5d0bb956c8",
+    "run_id": "20260807T115948Z",
+    "errors": []
+  },
+  "c3": {
+    "ok": true,
+    "errors": [],
+    "m3_package_bound": true,
+    "m3": {
+      "ok": true,
+      "tool": "scripts/assert-m3-identity-evidence.sh",
+      "root": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence/20260807T115948Z/m3-identity",
+      "legacy_fallback_accepted": false,
+      "package_commit": null,
+      "oid_map": {},
+      "errors": []
+    }
+  },
+  "errors": []
+}
