@@ -1,0 +1,21 @@
+{
+  "ok": false,
+  "already_recorded": false,
+  "ponr_id": null,
+  "write_row_id": "24cea1a5-b8f2-4306-91c2-a0675a7630ba",
+  "write_row_digest_sha256": null,
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": "2026-08-07T10:20:43.533Z",
+  "write_committed_at": null,
+  "base_url": "http://127.0.0.1:54896",
+  "export_watermark_ms": 1786184434320,
+  "convex_fence_audit_id": null,
+  "convex_documents_total": null,
+  "convex_accepted_writes_since_watermark": null,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/REDHAT-FIX-RH-S30-22/reselect-miss-enable-writes.json",
+  "error": {
+    "code": "FIRST_WRITE_FAILED",
+    "message": "cutover:enable-writes refuses: injected reselect miss (accepted_write_row_id=24cea1a5-b8f2-4306-91c2-a0675a7630ba; reselect_probe_id=00000000-0000-4000-8000-eeeeeeeeeeee) (RH-S30-09 M-3). Fence re-armed=true; audit recorded=true."
+  }
+}
