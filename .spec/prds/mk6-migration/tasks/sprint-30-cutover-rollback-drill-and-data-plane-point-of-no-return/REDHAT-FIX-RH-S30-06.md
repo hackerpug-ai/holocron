@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** HIGH
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ gate-plan.json, human gate runner, pinned-fallback-build.ts if needed
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** gate-plan step3 literal_cmd includes cutover:verify-fallback-boot
-- [ ] **AC-2** assertion requires "ok": true and rejects BOOT_UNVERIFIED
+- [x] **AC-1** gate-plan step3 literal_cmd includes cutover:verify-fallback-boot
+- [x] **AC-2** assertion requires "ok": true and rejects BOOT_UNVERIFIED
 
 ## Anti-stub
 

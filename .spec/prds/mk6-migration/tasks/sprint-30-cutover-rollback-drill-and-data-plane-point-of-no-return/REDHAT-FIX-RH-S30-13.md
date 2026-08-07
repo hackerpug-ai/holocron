@@ -8,7 +8,7 @@
 > **Severity:** HIGH
 > **Source finding:** H-3 (independent remediation red-hat)
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T085706Z-independent-remediation.md` (independent red-hat @ 2ff0e6c4)
-> Status: Planned — not implemented
+> Status: Implemented on main (awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -27,11 +27,11 @@ Normal app-role DML and bare owner TRUNCATE are defended by grants/triggers (`00
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** Under the **application / non-superuser role** used by production platform connections, `ALTER TABLE data_plane_ponr DISABLE TRIGGER ALL` (or equivalent) is denied **or** is impossible because the role lacks ownership; evidence shows the exact role name and SQLSTATE/error.
-- [ ] **AC-2** Under that same production role, `TRUNCATE data_plane_ponr` and `UPDATE`/`DELETE` continue to fail closed (`PONR_IMMUTABLE` or privilege failure) after RH-S30-01.
-- [ ] **AC-3** If any operator-facing role can still disable triggers, the task must either (a) remove that capability from the operator role model, or (b) install an explicit audit/alert path that records disable/truncate attempts with role+timestamp, and document residual risk as accepted only with that audit proven live — not silent.
-- [ ] **AC-4** Test harness may still use a privileged cleanup path, but must not be conflated with the production role claim; evidence labels the two roles distinctly.
-- [ ] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-13/` includes role-provenance probe transcripts (production role + optional owner role) and the chosen disposition (closed vs audited residual).
+- [x] **AC-1** Under the **application / non-superuser role** used by production platform connections, `ALTER TABLE data_plane_ponr DISABLE TRIGGER ALL` (or equivalent) is denied **or** is impossible because the role lacks ownership; evidence shows the exact role name and SQLSTATE/error.
+- [x] **AC-2** Under that same production role, `TRUNCATE data_plane_ponr` and `UPDATE`/`DELETE` continue to fail closed (`PONR_IMMUTABLE` or privilege failure) after RH-S30-01.
+- [x] **AC-3** If any operator-facing role can still disable triggers, the task must either (a) remove that capability from the operator role model, or (b) install an explicit audit/alert path that records disable/truncate attempts with role+timestamp, and document residual risk as accepted only with that audit proven live — not silent.
+- [x] **AC-4** Test harness may still use a privileged cleanup path, but must not be conflated with the production role claim; evidence labels the two roles distinctly.
+- [x] **AC-5** Evidence under `.tmp/REDHAT-FIX-RH-S30-13/` includes role-provenance probe transcripts (production role + optional owner role) and the chosen disposition (closed vs audited residual).
 
 ## Anti-stub
 

@@ -7,7 +7,7 @@
 > **Type:** FIX
 > **Severity:** HIGH
 > **Source:** `.spec/reviews/red-hat-sprint-30-20260807T074619Z-independent.md` (independent red-hat @ 0411fd27)
-> Status: Backlog
+> Status: Gate-verified on main (remediation complete; awaiting independent dual-lens + fresh QA — not release-approved)
 
 ## Finding
 
@@ -19,8 +19,8 @@ gate-plan.json, gate runner scripts, step logs meta
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** gate-results includes git_sha == git rev-parse HEAD
-- [ ] **AC-2** step logs include sourceRevision equal to HEAD or gate fails with DEPLOY_REVISION_MISMATCH
+- [x] **AC-1** gate-results includes git_sha == git rev-parse HEAD
+- [x] **AC-2** step logs include sourceRevision equal to HEAD or gate fails with DEPLOY_REVISION_MISMATCH
 
 ## Anti-stub
 
