@@ -11,6 +11,9 @@
   "notes": [
     "Human Testing Gate UC-SYNC-04: rollback during soak then PONR closes path",
     "GATE-FIX-fence-lift: durable HOLO_MIGRATION_READ_ONLY=0 disarms sticky env",
+    "GATE-FIX-gate-preflight-fence-rearm: preflight re-arms durable fence + live 423 before step1",
+    "GATE-FIX-drill-fence-precondition: product DRILL_FENCE_NOT_ARMED refuses probes when disarmed",
+    "GATE-FIX-zero-loss-t-sync-013: step2 identity-bound zero-loss; step5 POST_PONR binds this-run step4 ids",
     "Step 5 expected_exit=2 with POST_PONR_INELIGIBLE is the pass oracle (refuse after PONR)",
     "REDHAT-FIX-RH-S30-06: step 3 requires cutover:verify-fallback-boot --json with ok:true (fail closed BOOT_UNVERIFIED)",
     "REDHAT-FIX-RH-S30-07: gate-results.git_sha must equal git rev-parse HEAD; live /health sourceRevision must match HEAD or DEPLOY_REVISION_MISMATCH",
@@ -33,6 +36,7 @@
           "\"ok\":\\s*true",
           "\"lost_accepted_writes\":\\s*0",
           "\"repointed\":\\s*true",
+          "\"fence_armed\":\\s*true",
           "\"content_probe\"",
           "\"source\":\\s*\"convex\""
         ]
@@ -40,17 +44,20 @@
     },
     {
       "n": 2,
-      "text": "Count accepted post-export production writes = 0 (Postgres ledger)",
+      "text": "T-SYNC-013 zero-loss identity oracle (Postgres ledger + empty identity set)",
       "type": "terminal",
       "method": "real-cli",
-      "literal_cmd": "python3 - <<\"PY\"\nimport json, os, subprocess, sys\nfrom pathlib import Path\n\ndef psql_count():\n    url = os.environ.get('DATABASE_URL') or os.environ.get('HOLO_DATABASE_URL') or ''\n    if not url:\n        # fall back to holo secrets resolution via bun one-liner\n        r = subprocess.run(\n            ['bun', '-e',\n             \"import { resolveDatabaseUrl } from './services/platform/src/db/connection.ts';\"\n             \"import { createSql } from './services/platform/src/db/client.ts';\"\n             \"const u=resolveDatabaseUrl({preferHolocron:true});\"\n             \"const sql=createSql(u);\"\n             \"const rows=await sql`SELECT count(*)::text AS c FROM post_export_write_audit`;\"\n             \"console.log(rows[0]?.c??'-1'); await sql.end({timeout:5});\"],\n            capture_output=True, text=True, timeout=60)\n        if r.returncode != 0:\n            print(json.dumps({\"error\":\"ledger_query_failed\",\"stderr\":r.stderr,\"stdout\":r.stdout}), flush=True)\n            sys.exit(2)\n        return int((r.stdout or '0').strip() or '0')\n    r = subprocess.run(['psql', url, '-tAc', 'SELECT count(*) FROM post_export_write_audit'],\n                       capture_output=True, text=True, timeout=30)\n    if r.returncode != 0:\n        print(json.dumps({\"error\":\"psql_failed\",\"stderr\":r.stderr}), flush=True)\n        sys.exit(2)\n    return int((r.stdout or '0').strip() or '0')\n\ncount = psql_count()\nwm_path = Path('.tmp/D06-04/watermark-report.json')\nwm = json.loads(wm_path.read_text()) if wm_path.exists() else {}\ndrill_path = Path('.tmp/D07-03/rollback-drill-report.json')\ndrill = json.loads(drill_path.read_text()) if drill_path.exists() else {}\nout = {\n  \"accepted_count\": count,\n  \"export_watermark_ms\": wm.get(\"export_watermark_ms\") or wm.get(\"watermarkAtMs\"),\n  \"drill_lost_accepted_writes\": drill.get(\"lost_accepted_writes\"),\n  \"drill_ok\": drill.get(\"ok\"),\n  \"ledger\": \"postgres:post_export_write_audit\",\n}\nprint(json.dumps(out, indent=2))\nassert count == 0, out\nassert drill.get(\"lost_accepted_writes\", 0) == 0 or drill.get(\"ok\") is True or count == 0\nprint(\"STEP2_PASS\")\nPY",
+      "literal_cmd": "bash scripts/assert-zero-loss-identity-oracle.sh --report .tmp/D07-03/rollback-drill-report.json --out .tmp/GATE-FIX-zero-loss-t-sync-013/step2-zero-loss-identity.json && python3 - <<'PY'\nimport json\nfrom pathlib import Path\np = Path('.tmp/GATE-FIX-zero-loss-t-sync-013/step2-zero-loss-identity.json')\nj = json.loads(p.read_text())\nassert j.get('ok') is True, j\nassert j.get('accepted_count') == 0, j\nassert j.get('identity_count') == 0, j\nassert j.get('accepted_write_identities') == [], j\nassert j.get('ledger') == 'postgres:post_export_write_audit', j\nprint(json.dumps(j, indent=2))\nprint('STEP2_PASS')\nprint('ZERO_LOSS_IDENTITY_EMPTY')\nPY",
       "assertion": {
         "kind": "exit_and_log_regex",
         "expected_exit": 0,
         "require_all_regex": [
           "\"accepted_count\":\\s*0",
+          "\"identity_count\":\\s*0",
+          "\"accepted_write_identities\":\\s*\\[\\]",
           "postgres:post_export_write_audit",
-          "STEP2_PASS"
+          "STEP2_PASS",
+          "ZERO_LOSS_IDENTITY_EMPTY"
         ]
       }
     },
@@ -101,7 +108,8 @@
         "require_all_regex": [
           "POST_PONR_INELIGIBLE",
           "\"repointed\":\\s*false"
-        ]
+        ],
+        "notes": "GATE-FIX-zero-loss-t-sync-013: runner also binds step5 ponr_id/write_row_id to this-run step4 (reject residual aaaa)"
       }
     }
   ]
