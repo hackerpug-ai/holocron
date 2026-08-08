@@ -12,7 +12,21 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 identity_json() {
-  DATABASE_URL="$1" bun --eval 'import { parseDatabaseTargetIdentity } from "./services/platform/src/db/connection.ts"; const x=parseDatabaseTargetIdentity(process.env.DATABASE_URL!); process.stdout.write(JSON.stringify({host:x.host,effective_port:x.effective_port,database:x.database,fingerprint:x.fingerprint}));'
+  DATABASE_URL="$1" bun --eval '
+    try {
+      const { parseDatabaseTargetIdentity } = await import("./services/platform/src/db/connection.ts");
+      const x = parseDatabaseTargetIdentity(process.env.DATABASE_URL!);
+      process.stdout.write(JSON.stringify({
+        host: x.host,
+        effective_port: x.effective_port,
+        database: x.database,
+        fingerprint: x.fingerprint,
+      }));
+    } catch {
+      process.stderr.write("error: DATABASE_TARGET_IDENTITY_FAILED\n");
+      process.exit(2);
+    }
+  '
 }
 GATE_NORM="$(identity_json "$GATE_URL")"
 MARKER_NORM="$(identity_json "$MARKER_URL")"
@@ -32,15 +46,27 @@ if [[ ("$MARKER_DB_PORT" == holocron:* || "$MARKER_DB_PORT" == *:44112) && "${HO
 fi
 if [[ "${HOLO_PROBE_SEED_PONR:-0}" == "1" ]]; then
   DATABASE_URL="$GATE_URL" HOLO_PROBE_MARKER_MISS_DATABASE_URL="$MARKER_URL" \
-    bun --eval 'import { seedExactPonrMarker } from "./services/platform/src/cutover/ponr-marker.ts"; await seedExactPonrMarker({ gateDatabaseUrl: process.env.DATABASE_URL!, markerDatabaseUrl: process.env.HOLO_PROBE_MARKER_MISS_DATABASE_URL! });'
+    bun --eval '
+      try {
+        const { seedExactPonrMarker } = await import("./services/platform/src/cutover/ponr-marker.ts");
+        await seedExactPonrMarker({
+          gateDatabaseUrl: process.env.DATABASE_URL!,
+          markerDatabaseUrl: process.env.HOLO_PROBE_MARKER_MISS_DATABASE_URL!,
+        });
+      } catch {
+        process.stderr.write("error: PONR_MARKER_SEED_FAILED\n");
+        process.exit(2);
+      }
+    '
 fi
 
 database_state_json() {
   DATABASE_URL="$1" bun --eval '
-    import { createSql } from "./services/platform/src/db/client.ts";
-    import { REQUIRED_PONR_TRIGGER_NAMES } from "./services/platform/src/cutover/ponr-marker.ts";
-    const sql = createSql(process.env.DATABASE_URL!);
+    let sql: any = null;
     try {
+      const { createSql } = await import("./services/platform/src/db/client.ts");
+      const { REQUIRED_PONR_TRIGGER_NAMES } = await import("./services/platform/src/cutover/ponr-marker.ts");
+      sql = createSql(process.env.DATABASE_URL!);
       const rows = await sql<Array<{ count: string }>>`SELECT count(*)::text AS count FROM public.data_plane_ponr`;
       const triggers = await sql<Array<{ tgname: string; tgenabled: string }>>`
         SELECT tgname, tgenabled::text AS tgenabled
@@ -54,8 +80,11 @@ database_state_json() {
         ORDER BY tgname
       `;
       process.stdout.write(JSON.stringify({ count: Number(rows[0]?.count ?? 0), triggers }));
+    } catch {
+      process.stderr.write("error: PONR_MARKER_DATABASE_STATE_FAILED\n");
+      process.exitCode = 2;
     } finally {
-      await sql.end({ timeout: 5 });
+      await sql?.end({ timeout: 5 }).catch(() => {});
     }
   '
 }

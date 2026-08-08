@@ -246,10 +246,10 @@ export async function probePreexistingServingListening(
     });
     clearTimeout(timer);
     return { listening: true, status: res.status };
-  } catch (err) {
+  } catch {
     return {
       listening: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: 'network health request failed',
     };
   }
 }
@@ -545,8 +545,7 @@ export async function runRollbackRepoint(options: {
         write_row_id: row.write_row_id,
       };
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  } catch {
     // Surface host:port when DATABASE_URL is unreachable so operators can match AC-5.
     const hostHint = `${database_target.host}:${database_target.effective_port}`;
     const fail = baseFail({
@@ -564,7 +563,7 @@ export async function runRollbackRepoint(options: {
         message:
           `cutover:rollback-repoint refuses: data_plane_ponr ledger unreadable` +
           (hostHint ? ` (${hostHint})` : '') +
-          `: ${msg}. Escape hatch stays closed.`,
+          `. Escape hatch stays closed.`,
       },
     });
     ensureParent(reportPath);
@@ -662,9 +661,8 @@ export async function runRollbackRepoint(options: {
       error: {
         code: ledger.error?.code ?? POST_EXPORT_WRITE_LEDGER_MISSING,
         message:
-          ledger.error?.message ??
           `cutover:rollback-repoint refuses: post_export_write_audit ledger missing/unreadable. ` +
-            `Refuse empty-file synthesis (REDHAT-FIX-RH-S30-03).`,
+          `Refuse empty-file synthesis (REDHAT-FIX-RH-S30-03).`,
       },
     });
     ensureParent(reportPath);
@@ -684,7 +682,9 @@ export async function runRollbackRepoint(options: {
       },
       error: {
         code: POST_EXPORT_WRITE_LEDGER_UNREADABLE,
-        message: ledger.error.message,
+        message:
+          'cutover:rollback-repoint refuses: post_export_write_audit ledger unreadable. ' +
+          'Escape hatch stays closed.',
       },
     });
     ensureParent(reportPath);
@@ -738,7 +738,7 @@ export async function runRollbackRepoint(options: {
       engagedAt: engaged_at,
     });
     durablePath = durable.secretsPath;
-  } catch (err) {
+  } catch {
     const fail = baseFail({
       engaged_at,
       engaged_at_ms,
@@ -751,9 +751,7 @@ export async function runRollbackRepoint(options: {
       config: { path: configPath, digest_sha256: '', prior_target },
       error: {
         code: CONTROL_PLANE_WRITE_FAILED,
-        message:
-          `cutover:rollback-repoint failed writing durable control-plane at ${secretsPath}: ` +
-          (err instanceof Error ? err.message : String(err)),
+        message: 'cutover:rollback-repoint failed writing durable control-plane.',
       },
     });
     ensureParent(reportPath);

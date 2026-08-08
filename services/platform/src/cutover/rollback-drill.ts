@@ -137,6 +137,8 @@ export type DrillReport = {
   repointed: boolean;
   target: string;
   database_target: DatabaseTargetIdentity;
+  /** Credential-free identity reported by the already-serving /health endpoint. */
+  serving_database_target: DatabaseTargetIdentity | null;
   /** Independently recomputed lost accepted writes (never copied from child ok). */
   lost_accepted_writes: number;
   /** Same as independent recompute — D07-01 oracle field. */
@@ -291,12 +293,12 @@ export function recomputeAcceptedPostExportWritesFromRawFile(auditPath: string):
       auditFileExists: true,
       parseError: null,
     };
-  } catch (err) {
+  } catch {
     return {
       acceptedCount: -1,
       rawFileByteCount,
       auditFileExists: true,
-      parseError: err instanceof Error ? err.message : String(err),
+      parseError: 'AUDIT_FILE_INVALID',
     };
   }
 }
@@ -343,10 +345,40 @@ export function extractAcceptedWriteIdentities(
     probes.mcp.status >= 200 &&
     probes.mcp.status < 300
   ) {
-    const m = probes.mcp.message.match(UUID_RE);
-    if (m) out.push({ surface: 'mcp', id: m[0]!, status: probes.mcp.status });
+    const id = probes.mcp.message.match(UUID_RE)?.[0];
+    if (id) out.push({ surface: 'mcp', id, status: probes.mcp.status });
   }
   return out;
+}
+
+/** Retain only the fields needed by the write-surface oracle, never server text. */
+function sanitizeWriteSurfaceBody(
+  body: WriteSurfaceProbeApp['body'] | WriteSurfaceProbeUpload['body']
+): WriteSurfaceProbeApp['body'] {
+  const safe: WriteSurfaceProbeApp['body'] = {};
+  if (typeof body.code === 'string' && /^[a-z][a-z0-9_:-]{1,79}$/i.test(body.code)) {
+    safe.code = body.code;
+  }
+  if (typeof body.error === 'string') {
+    safe.error = 'write surface rejected';
+  }
+  for (const key of ['id', 'documentId'] as const) {
+    const candidate = body[key];
+    if (typeof candidate === 'string' && UUID_RE.test(candidate)) {
+      safe[key] = candidate;
+    }
+  }
+  const document = body.document;
+  if (
+    document &&
+    typeof document === 'object' &&
+    'id' in document &&
+    typeof document.id === 'string' &&
+    UUID_RE.test(document.id)
+  ) {
+    safe.document = { id: document.id };
+  }
+  return safe;
 }
 
 async function mcpStoreDocumentNetwork(
@@ -414,12 +446,19 @@ async function mcpStoreDocumentNetwork(
     }
     const rejected =
       isError || /MIGRATION_READ_ONLY|migration_read_only/i.test(message) || call.status === 423;
-    return { status: call.status, rejected, message };
-  } catch (err) {
+    const acceptedId = message.match(UUID_RE)?.[0] ?? null;
+    return {
+      status: call.status,
+      rejected,
+      message: rejected
+        ? 'migration_read_only: MCP write surface rejected'
+        : (acceptedId ?? 'MCP write surface response received'),
+    };
+  } catch {
     return {
       status: 0,
       rejected: true,
-      message: err instanceof Error ? err.message : String(err),
+      message: 'MCP write surface request failed',
     };
   }
 }
@@ -438,6 +477,7 @@ export async function probeFiveWriteSurfaces(options: {
   const base = options.baseUrl.replace(/\/+$/, '');
   const probes = emptyProbes();
   const runTag = `drill-${Date.now().toString(36)}`;
+  const databaseUrl = options.databaseUrl ?? resolveHolocronNonprodDatabaseUrl();
 
   // 1. App mutation — POST /api/documents
   try {
@@ -455,11 +495,11 @@ export async function probeFiveWriteSurfaces(options: {
       signal: AbortSignal.timeout(15_000),
     });
     const body = (await res.json().catch(() => ({}))) as WriteSurfaceProbeApp['body'];
-    probes.app = { status: res.status, body, executed: true };
-  } catch (err) {
+    probes.app = { status: res.status, body: sanitizeWriteSurfaceBody(body), executed: true };
+  } catch {
     probes.app = {
       status: 0,
-      body: { error: err instanceof Error ? err.message : String(err) },
+      body: { error: 'app write surface request failed' },
       executed: true,
     };
   }
@@ -494,37 +534,49 @@ export async function probeFiveWriteSurfaces(options: {
       signal: AbortSignal.timeout(15_000),
     });
     const body = (await res.json().catch(() => ({}))) as WriteSurfaceProbeUpload['body'];
-    probes.upload = { status: res.status, body, executed: true };
-  } catch (err) {
+    probes.upload = { status: res.status, body: sanitizeWriteSurfaceBody(body), executed: true };
+  } catch {
     probes.upload = {
       status: 0,
-      body: { error: err instanceof Error ? err.message : String(err) },
+      body: { error: 'upload write surface request failed' },
       executed: true,
     };
   }
 
   // 4. Scheduled job — runJob('task-timeout-worker')
-  const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0]!;
-  try {
-    const result = await runJob(job, {
-      databaseUrl: options.databaseUrl ?? resolveHolocronNonprodDatabaseUrl(),
-      runId: randomUUID(),
-    });
-    probes.job = {
-      ok: result.ok,
-      error: result.error,
-      executed: true,
-    };
-  } catch (err) {
+  const job = MIGRATED_JOBS.find((j) => j.name === 'task-timeout-worker') ?? MIGRATED_JOBS[0];
+  if (!job) {
     probes.job = {
       ok: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: 'job write surface is not registered',
       executed: true,
     };
+  } else {
+    try {
+      const result = await runJob(job, {
+        databaseUrl,
+        runId: randomUUID(),
+      });
+      probes.job = {
+        ok: result.ok,
+        error:
+          result.error == null
+            ? null
+            : /migration_read_only/i.test(result.error)
+              ? 'migration_read_only: job write surface rejected'
+              : 'job write surface rejected',
+        executed: true,
+      };
+    } catch {
+      probes.job = {
+        ok: false,
+        error: 'job write surface request failed',
+        executed: true,
+      };
+    }
   }
 
   // 5. Mission commit — publishDocumentForRun()
-  const databaseUrl = options.databaseUrl ?? resolveHolocronNonprodDatabaseUrl();
   const sql = createSql(databaseUrl);
   try {
     await publishDocumentForRun(sql, {
@@ -539,7 +591,9 @@ export async function probeFiveWriteSurfaces(options: {
     const message = err instanceof Error ? err.message : String(err);
     probes.mission = {
       rejected: true,
-      message,
+      message: /migration_read_only/i.test(message)
+        ? 'migration_read_only: mission write surface rejected'
+        : 'mission write surface rejected',
       executed: true,
     };
   } finally {
@@ -588,6 +642,41 @@ function parseRepointStdout(stdout: string): RollbackRepointReport | null {
 }
 
 /**
+ * Child process output and serving responses are untrusted diagnostics.  They
+ * can contain a driver-rendered DATABASE_URL, its credentials, or query
+ * values.  Keep only a redacted report contract; never persist raw streams.
+ */
+function redactDatabaseDiagnosticText(value: string, databaseUrl: string): string {
+  return value
+    .replaceAll(databaseUrl, '[REDACTED_DATABASE_URL]')
+    .replace(/postgres(?:ql)?:\/\/[^\s'"`]+/gi, '[REDACTED_DATABASE_URL]');
+}
+
+function redactDatabaseDiagnostics<T>(value: T, databaseUrl: string): T {
+  if (typeof value === 'string') {
+    return redactDatabaseDiagnosticText(value, databaseUrl) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => redactDatabaseDiagnostics(item, databaseUrl)) as T;
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        redactDatabaseDiagnostics(item, databaseUrl),
+      ])
+    ) as T;
+  }
+  return value;
+}
+
+function stableRollbackChildCode(code: unknown): string {
+  return typeof code === 'string' && /^[A-Z][A-Z0-9_]{2,79}$/.test(code)
+    ? code
+    : DRILL_REPOINT_FAILED;
+}
+
+/**
  * Drive the real registered `cutover:rollback-repoint --json` CLI as a child
  * process (never only in-process runRollbackRepoint).
  */
@@ -622,14 +711,16 @@ export function spawnRollbackRepointCli(options: {
     // Ambient values compose first; the explicit parent target wins last.
     env: { ...(options.env ?? process.env), DATABASE_URL: options.databaseUrl },
   });
-  const stdout = r.stdout ?? '';
-  const stderr = r.stderr ?? '';
+  const rawStdout = r.stdout ?? '';
+  // Parse the raw stream only in memory.  It is intentionally not returned or
+  // written into the parent drill report; CLI stderr may contain driver text.
+  const parsed = parseRepointStdout(rawStdout);
   return {
     exitCode: r.status,
-    stdout,
-    stderr,
+    stdout: '',
+    stderr: '',
     argv: ['bun', ...argv],
-    parsed: parseRepointStdout(stdout),
+    parsed: parsed ? redactDatabaseDiagnostics(parsed, options.databaseUrl) : null,
   };
 }
 
@@ -642,12 +733,91 @@ async function probeHealth(
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return { status: res.status, body };
-  } catch (err) {
+  } catch {
     return {
       status: 0,
-      body: { error: err instanceof Error ? err.message : String(err) },
+      body: { error: 'health request failed' },
     };
   }
+}
+
+function databaseTargetFromHealth(body: Record<string, unknown>): DatabaseTargetIdentity | null {
+  const target = body.database_target;
+  if (!target || typeof target !== 'object') return null;
+  const candidate = target as Record<string, unknown>;
+  return typeof candidate.host === 'string' &&
+    typeof candidate.effective_port === 'number' &&
+    Number.isFinite(candidate.effective_port) &&
+    typeof candidate.database === 'string' &&
+    typeof candidate.fingerprint === 'string'
+    ? {
+        host: candidate.host,
+        effective_port: candidate.effective_port,
+        database: candidate.database,
+        fingerprint: candidate.fingerprint,
+      }
+    : null;
+}
+
+function targetMismatchReport(options: {
+  reportPath: string;
+  auditPath: string;
+  databaseTarget: DatabaseTargetIdentity;
+  healthTarget: DatabaseTargetIdentity | null;
+  target?: string;
+  drillProcessPid: number;
+}): DrillReport {
+  const report: DrillReport = {
+    ok: false,
+    repointed: false,
+    target: options.target?.trim() || TARGET_CONVEX_FROZEN,
+    database_target: options.databaseTarget,
+    serving_database_target: options.healthTarget,
+    lost_accepted_writes: -1,
+    accepted_post_export_writes_recomputed: -1,
+    acknowledgements: [],
+    precondition: { accepted_post_export_writes: -1 },
+    sevOneTrigger: {
+      gate: 'verify-tools',
+      declared: false,
+      report: {
+        ok: false,
+        toolsPassed: 0,
+        toolsTotal: 0,
+        toolsStubbed: 0,
+        base_url: '',
+        error: 'not run: serving database target mismatch',
+        transport: 'network',
+      },
+      triggerBaseUrl: '',
+    },
+    probes: emptyProbes(),
+    repoint: { exitCode: null, parsed: null, stdout: '', stderr: '', argv: [] },
+    independentRecompute: {
+      acceptedCount: -1,
+      matchesReport: false,
+      rawFileByteCount: 0,
+      auditFileExists: false,
+      reportValue: null,
+      auditPath: options.auditPath,
+    },
+    liveAcks: { authorizingCount: 0, allPreexisting: false, acks: [] },
+    postRepointHealthProbe: null,
+    content_probe: null,
+    fence_armed: false,
+    accepted_write_identities: [],
+    drillProcessPid: options.drillProcessPid,
+    report_path: options.reportPath,
+    error: {
+      code: DATABASE_TARGET_MISMATCH,
+      message:
+        `rollback drill serving database target mismatch: parent=${formatTargetIdentity(options.databaseTarget)} ` +
+        `health=${formatTargetIdentity(options.healthTarget)}`,
+    },
+  };
+  ensureParent(options.reportPath);
+  writeFileSync(options.reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  return report;
 }
 
 function ensureParent(path: string): void {
@@ -692,9 +862,26 @@ export async function runRollbackDrill(options: {
   const reportPath = options?.reportPath ?? defaultRollbackDrillReportPath(cwd);
   const auditPath = options?.auditPath ?? defaultPostExportWriteAuditPath(cwd);
   const liveBaseUrl = resolveVerifyBaseUrl(options?.baseUrl) || '';
-  const keys = resolveCutoverScopedKeys();
   const databaseUrl = options.databaseUrl;
   const drillProcessPid = process.pid;
+
+  // RR-9: bind the real serving process to the explicit drill target before
+  // running any verifier, child process, ledger read, or write-surface probe.
+  // A missing health identity is a mismatch — no later signal may mask it.
+  const health = liveBaseUrl ? await probeHealth(liveBaseUrl) : { status: 0, body: {} };
+  const healthDatabaseTarget = databaseTargetFromHealth(health.body);
+  if (!databaseTargetIdentitiesEqual(database_target, healthDatabaseTarget)) {
+    return targetMismatchReport({
+      reportPath,
+      auditPath,
+      databaseTarget: database_target,
+      healthTarget: healthDatabaseTarget,
+      target: options?.target,
+      drillProcessPid,
+    });
+  }
+
+  const keys = resolveCutoverScopedKeys();
 
   // ── (1) Sev-1 trigger from REAL failing runVerifyTools ───────────────────
   const triggerBaseUrl = options?.triggerBaseUrl ?? (await allocateDeadBaseUrl());
@@ -730,7 +917,7 @@ export async function runRollbackDrill(options: {
       toolsTotal: toolsReport.toolsTotal,
       toolsStubbed: toolsReport.toolsStubbed,
       base_url: toolsReport.base_url,
-      error: toolsReport.error,
+      ...(toolsReport.error ? { error: 'verify-tools reported a transport failure' } : {}),
       transport: toolsReport.transport,
     },
     triggerBaseUrl,
@@ -830,7 +1017,7 @@ export async function runRollbackDrill(options: {
     ledger.audit != null && ledger.error == null
       ? {
           acceptedCount: (ledger.audit.accepted_writes ?? []).filter((w) => {
-            const tExport = ledger.audit!.export_watermark_ms ?? 0;
+            const tExport = ledger.audit?.export_watermark_ms ?? 0;
             return typeof w.committed_at_ms === 'number' && w.committed_at_ms > tExport;
           }).length,
           rawFileByteCount: 0,
@@ -1002,17 +1189,16 @@ export async function runRollbackDrill(options: {
     ok = false;
     error = {
       code: POST_EXPORT_WRITE_ACCEPTED,
-      message:
-        repoint.parsed.error.message ||
-        `rollback refused: ${acceptedRecomputed} accepted post-export write(s)`,
+      message: `rollback refused: ${acceptedRecomputed} accepted post-export write(s)`,
     };
   } else if (!options?.skipRepoint && !repointed) {
     ok = false;
+    const childCode = stableRollbackChildCode(repoint.parsed?.error?.code);
     error = {
-      code: repoint.parsed?.error?.code ?? DRILL_REPOINT_FAILED,
+      code: childCode,
       message:
-        repoint.parsed?.error?.message ||
-        `cutover:rollback-repoint CLI exit=${repoint.exitCode} repointed!=true`,
+        `cutover:rollback-repoint CLI failed (code=${childCode}; ` +
+        `exit=${repoint.exitCode ?? 'signal'}; repointed=false)`,
     };
   } else if (!raw.auditFileExists) {
     ok = false;
@@ -1074,6 +1260,7 @@ export async function runRollbackDrill(options: {
     repointed: ok && repointed,
     target,
     database_target,
+    serving_database_target: healthDatabaseTarget,
     lost_accepted_writes: acceptedRecomputed >= 0 ? acceptedRecomputed : -1,
     accepted_post_export_writes_recomputed: acceptedRecomputed,
     acknowledgements: authorizing,
@@ -1081,18 +1268,18 @@ export async function runRollbackDrill(options: {
       accepted_post_export_writes:
         reportValue ?? (acceptedRecomputed >= 0 ? acceptedRecomputed : -1),
     },
-    sevOneTrigger,
-    probes,
-    repoint,
+    sevOneTrigger: redactDatabaseDiagnostics(sevOneTrigger, databaseUrl),
+    probes: redactDatabaseDiagnostics(probes, databaseUrl),
+    repoint: redactDatabaseDiagnostics(repoint, databaseUrl),
     independentRecompute,
     liveAcks,
-    postRepointHealthProbe,
-    content_probe,
+    postRepointHealthProbe: redactDatabaseDiagnostics(postRepointHealthProbe, databaseUrl),
+    content_probe: redactDatabaseDiagnostics(content_probe, databaseUrl),
     fence_armed: fenceArmed,
     accepted_write_identities: acceptedWriteIdentities,
     drillProcessPid,
     report_path: reportPath,
-    ...(error ? { error } : {}),
+    ...(error ? { error: redactDatabaseDiagnostics(error, databaseUrl) } : {}),
   };
 
   ensureParent(reportPath);
