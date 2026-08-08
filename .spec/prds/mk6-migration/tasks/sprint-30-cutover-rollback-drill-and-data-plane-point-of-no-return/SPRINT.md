@@ -391,3 +391,23 @@ Additionally, `security-auditor` found a gap in **this sprint's own D07-04 desig
 Sprint 29 is **Blocked** (`status: Blocked`, 1 CRITICAL + 4 HIGH at the final red-hat). Sprint 30's drill runs *inside* the Sprint 29 soak, so several ACs here are written to **fail closed** against that state and cannot reach GREEN until the Sprint 29 fence/drain/rollback remediations land.
 
 Estimates for D07-02 (90 min) and D07-03 (120 min) were flagged by `devops-engineer` as tight versus Sprint 29 precedent (comparable tasks ran 120–150 min). Left at the roadmap values per the stub-preservation rule rather than silently revised.
+
+### Eleventh remediation cycle (plan only — explicit PONR database binding after stale nonprod marker handoff)
+
+**Source:** `HANDOFF-20260808T0300Z-stale-nonprod-ponr.md` at planning HEAD `826e2ac9`; latest gate `20260808T024946Z` is **partial 3/5**. Production PONR preflight was empty, while step 1 reported the stale synthetic `probe.seed` marker stored in `holocron_nonprod`. The handoff records the database split but explicitly leaves the propagation path unproven.
+
+| ID | Required remediation | Severity | Proposed by |
+|---|---|---|---|
+| GATE-FIX-explicit-ponr-database-binding | required explicit DB through repoint/drill/child/PONR/audit/recompute; credential-free target identity + `DATABASE_TARGET_MISMATCH`; exact marker cleanup with full identity, audit digest preservation, two-trigger finally restoration; early gate validation + pre-C3/EXIT cleanup; real two-DB tests | CRITICAL | `mastra-planner` |
+
+Task plan file (durable ACs + evidence requirements; **no implementation in this plan commit**):
+
+- `GATE-FIX-explicit-ponr-database-binding.md` — `mastra-planner` → implementer `mastra-implementer` (coordinate gate-shell review with `devops-engineer`) · CRITICAL · 11 AC / 20 TC · `red_first`
+
+**Safety floor:** never broad-reset `holocron_nonprod`/marker DB; preserve legitimate audit rows by count **and** digest; delete only the single full-identity synthetic marker; reject foreign rows/equal targets; disable and restore only `data_plane_ponr_reject_mutation` + `data_plane_ponr_reject_truncate`; no database URL CLI flags or credential-bearing output.
+
+**Fakeability floor:** two simultaneous real migrated PostgreSQL databases with contradictory PONR/audit state; real registered child CLI; production-path mismatch mutation proof; real delete-failure trigger restoration; invalid/equal gate targets proven pre-mutation with canaries. One DB, mocks, report-only fixtures, source grep, count-only preservation, or a partial/unverified gate do not close the task.
+
+**Non-implementer orchestration gates:** before dispatch, capture the planning-parent causal before/cleanup/after experiment and a sanitized disposition; if exact-marker removal does not change the stale target path and the actual source remains unknown, re-plan rather than dispatch. After the implementation commit independently passes `mastra-reviewer`, `security-reviewer`, and `test-quality-reviewer` with zero CRITICAL/HIGH, the orchestrator lands the approved commit, builds/launches that exact SHA on `:44121`, verifies `/health.sourceRevision` equals final HEAD, and runs a fresh gate with `HOLO_PROBE_SEED_PONR=1`. Closeout requires 5/5, `verdict:'pass'`, `verified:true`, recomputed `pass`, complete C-3 success/negative evidence, and marker absence with audit count+digest plus both trigger states preserved afterward. These pre-dispatch/post-review gates are not implementer ACs and do not make task approval circular.
+
+**Closeout order:** orchestrator causal RED/disposition → implementation task DB binding + identity + exact marker lifecycle/gate trap → targeted/full GREEN at task commit → fresh independent review with zero CRITICAL/HIGH → orchestrator landing → final reviewed SHA on `:44121` → fresh 5/5 `verified:true` / recomputed `pass` gate with marker absent afterward. Sprint remains **In Progress**; no release claim.
