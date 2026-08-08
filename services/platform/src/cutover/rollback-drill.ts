@@ -10,7 +10,7 @@
  * NEVER mutates operator production secrets/audit — callers MUST point
  * HOLO_SECRETS_PATH (and fixture audit/watermark paths) at disposable paths.
  */
-import { loadPostExportWriteAuditAsync } from './post-export-write-audit.ts';
+
 import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,6 +22,7 @@ import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { publishDocumentForRun } from '../mission/document-publish.ts';
 import { MIGRATED_JOBS } from '../queue/jobs-registry.ts';
 import { runJob } from '../queue/jobs-runner.ts';
+import { loadPostExportWriteAuditAsync } from './post-export-write-audit.ts';
 import {
   defaultPostExportWriteAuditPath,
   filterAuthorizingRollbackAcks,
@@ -267,8 +268,7 @@ function emptyProbes(): FiveWriteSurfaceProbes {
   };
 }
 
-const UUID_RE =
-  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /**
  * Extract accepted write identities from probe responses for T-SYNC-013
@@ -294,7 +294,12 @@ export function extractAcceptedWriteIdentities(
     if (id) out.push({ surface: 'app', id, status: probes.app.status });
   }
   // MCP accepted store_document — not rejected, status 2xx, id in message body
-  if (probes.mcp.executed && !probes.mcp.rejected && probes.mcp.status >= 200 && probes.mcp.status < 300) {
+  if (
+    probes.mcp.executed &&
+    !probes.mcp.rejected &&
+    probes.mcp.status >= 200 &&
+    probes.mcp.status < 300
+  ) {
     const m = probes.mcp.message.match(UUID_RE);
     if (m) out.push({ surface: 'mcp', id: m[0]!, status: probes.mcp.status });
   }
