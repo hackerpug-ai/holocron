@@ -191,6 +191,7 @@ Every path not listed below is write-prohibited for this implementation task:
 - `services/platform/src/cutover/rollback-drill.ts` — required DB, child propagation, explicit recompute, mismatch failure/report identity
 - `services/platform/src/cutover/soak-fence.ts` — remove `runVerifyTools` ambient DB mutation; explicit local DB flow
 - `services/platform/src/cli/holo.ts` — resolve/validate at the two CLI boundaries; no URL flag
+- `services/platform/src/http/health.ts` — expose the serving process's credential-free database target so the drill can bind network probes before side effects
 - `services/platform/src/cutover/ponr-marker.ts` (new) — shared exact marker operation
 - `scripts/cleanup-sprint30-ponr-marker.sh` (new) — env-only gate wrapper
 - `scripts/probe-ponr-role-immutability-negative-marker.sh` — shared seed identity/use, no residual marker
@@ -209,7 +210,7 @@ Before editing, run the direct-caller `rg` commands in the verification section 
 
 ## Reviewer-remediation oracle addendum
 
-The first immutable review returned NEEDS_FIXES: test reality found **4 CRITICAL / 1 HIGH**, security found **0 CRITICAL / 2 HIGH**, and platform review found **0 CRITICAL / 4 HIGH**. All findings remain blocking and none is waivable until a remediated immutable commit passes fresh independent review. Review approval requires runnable evidence for every bullet below; source grep, a compile-only failure, or a happy-path-only assertion is insufficient.
+The first immutable review returned NEEDS_FIXES: test reality found **4 CRITICAL / 1 HIGH**, security found **0 CRITICAL / 2 HIGH**, platform review found **0 CRITICAL / 4 HIGH**, and product review found **2 CRITICAL / 3 HIGH**. All findings remain blocking and none is waivable until a remediated immutable commit passes fresh independent review. Review approval requires runnable evidence for every bullet below; source grep, a compile-only failure, or a happy-path-only assertion is insufficient.
 
 - **RR-1 — runnable type contract.** Compile omission fixtures against the actual exported `runRollbackRepoint`, `runRollbackDrill`, and `spawnRollbackRepointCli` signatures. Each fixture must fail specifically because `databaseUrl` is omitted, and the GREEN run must prove the supplied value reaches the production path.
 - **RR-2 — concurrent healthy two-database verify.** Keep two distinct migrated PostgreSQL databases A and B reachable at the same time, run overlapping production `runVerifyTools` calls against A and B with an ambient sentinel target, and assert each result's target identity/state belongs to its explicit database while the ambient environment remains unchanged. Invalid URLs or serial calls do not satisfy this oracle.
@@ -219,6 +220,7 @@ The first immutable review returned NEEDS_FIXES: test reality found **4 CRITICAL
 - **RR-6 — accepted-field predicate-removal mutant.** Run a mutation that removes each fixed identity predicate, including one accepted marker field, from the cleanup match. The corresponding real-DB test must fail and the evidence must record a nonzero mutant result; matching only an ID or a subset of fields is rejected.
 - **RR-7 — failure credential canaries.** Inject username, password, query, and fragment canaries into forced cleanup, foreign-row, malformed-target, and child-failure paths. Assert that none appears in argv, stdout, stderr, reports, or evidence, including when the underlying connection/libpq operation fails; success-only redaction checks do not satisfy this oracle.
 - **RR-8 — RED and quality evidence.** Preserve a behavioral RED artifact captured before production edits with command, exit code, source SHA, and credential-free A/B identities, plus seeded-value and watched-RED records. GREEN must include real two-DB integration, shell/process lifecycle, `bash -n`, TypeScript, Biome/lint, full tests, `git diff --check`, and normal hook output; generate verification summaries only through the prescribed harvest script.
+- **RR-9 — serving-target bind before network side effects.** `/health` must report the already-listening process's credential-free database target. Before `runVerifyTools`, the rollback child, or any five-surface network probe, the drill compares that complete identity to its explicit target. Missing or unequal identity returns `DATABASE_TARGET_MISMATCH`, executes no probes/repoint, and cannot be masked by a fence or other later failure.
 
 ## Acceptance Criteria
 
