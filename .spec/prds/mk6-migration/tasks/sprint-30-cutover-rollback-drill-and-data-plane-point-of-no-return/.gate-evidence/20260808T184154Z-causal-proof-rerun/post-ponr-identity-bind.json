@@ -1,0 +1,20 @@
+{
+  "ok": false,
+  "tool": "zero-loss-identity-oracle.post_ponr_bind",
+  "step4_ponr_id": null,
+  "step4_write_row_id": null,
+  "step5_error_code": "POST_EXPORT_WRITE_ACCEPTED",
+  "step5_ponr_id": null,
+  "step5_write_row_id": null,
+  "step5_repointed": false,
+  "sentinel_aaaa": "00000000-0000-4000-8000-aaaaaaaaaaaa",
+  "reasons": [
+    "error.code='POST_EXPORT_WRITE_ACCEPTED'",
+    "step4_missing_ponr_identity"
+  ],
+  "t_sync_014": "FAIL",
+  "error": {
+    "code": "POST_PONR_IDENTITY_BIND_FAILED",
+    "message": "step5 not bound to this-run step4: [\"error.code='POST_EXPORT_WRITE_ACCEPTED'\", 'step4_missing_ponr_identity']"
+  }
+}
