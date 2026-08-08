@@ -23,7 +23,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, unquote, unquote_plus, urlsplit
 
 raw_url = os.environ.get("DATABASE_URL", "")
 out_dir = Path(sys.argv[1])
@@ -127,8 +127,12 @@ for raw_pair in _parsed_for_redaction.query.split("&"):
     if not raw_pair:
         continue
     encoded_key, separator, encoded_value = raw_pair.partition("=")
-    decoded_key = unquote(encoded_key)
-    decoded_value = unquote(encoded_value)
+    # Query parameters use application/x-www-form-urlencoded semantics in
+    # parse_qs: '+' is a space, while %2B is a literal plus. Keep both the
+    # exact raw spelling and every unquote_plus value in the redaction set so
+    # libpq pre-connect diagnostics cannot echo either representation.
+    decoded_key = unquote_plus(encoded_key)
+    decoded_value = unquote_plus(encoded_value)
     for candidate in {
         raw_pair,
         f"{decoded_key}{separator}{decoded_value}",
@@ -137,6 +141,13 @@ for raw_pair in _parsed_for_redaction.query.split("&"):
     }:
         if candidate:
             SENSITIVE_VALUES.append((candidate, "[REDACTED_DB_QUERY]"))
+for decoded_key, decoded_values in parse_qs(
+    _parsed_for_redaction.query, keep_blank_values=True
+).items():
+    for decoded_value in decoded_values:
+        for candidate in (decoded_key, decoded_value):
+            if candidate:
+                SENSITIVE_VALUES.append((candidate, "[REDACTED_DB_QUERY]"))
 
 
 def sanitize(text: object) -> str:

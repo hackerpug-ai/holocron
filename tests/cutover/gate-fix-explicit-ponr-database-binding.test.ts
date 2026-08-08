@@ -117,6 +117,17 @@ const C3_CANARIES = [
   's30_c3_fragment_canary',
 ] as const;
 
+const LIBPQ_PRECONNECT_CANARIES = [
+  { encoded: 's30+libpq+plus', decoded: 's30 libpq plus' },
+  { encoded: 's30%20libpq%20space', decoded: 's30 libpq space' },
+  { encoded: 's30%2Blibpq%2Bencoded-plus', decoded: 's30+libpq+encoded-plus' },
+] as const;
+
+const ALL_SENSITIVE_CANARIES = [
+  ...C3_CANARIES,
+  ...LIBPQ_PRECONNECT_CANARIES.flatMap(({ encoded, decoded }) => [encoded, decoded]),
+] as const;
+
 function credentialCanaryUrl(base: string): string {
   const parsed = new URL(base);
   parsed.username = C3_CANARIES[0];
@@ -130,6 +141,17 @@ function queryFragmentCanaryUrl(base: string): string {
   const parsed = new URL(base);
   parsed.search = `?application_name=${C3_CANARIES[2]}`;
   parsed.hash = C3_CANARIES[3];
+  return parsed.toString();
+}
+
+function libpqPreconnectCanaryUrl(
+  base: string,
+  encodedValue: (typeof LIBPQ_PRECONNECT_CANARIES)[number]['encoded']
+): string {
+  const parsed = new URL(credentialCanaryUrl(base));
+  // libpq parses this through parse_qs(), so +, %20, and %2B each exercise a
+  // distinct raw-vs-decoded diagnostic. A missing CA file fails before any SQL.
+  parsed.search = `?sslmode=verify-ca&sslrootcert=/tmp/${encodedValue}`;
   return parsed.toString();
 }
 
@@ -201,10 +223,22 @@ function scanTextFiles(dir: string): { files: number; canaryHits: number; rawUrl
     }
     files += 1;
     const text = readFileSync(path, 'utf8');
-    if (C3_CANARIES.some((canary) => text.includes(canary))) canaryHits += 1;
+    if (ALL_SENSITIVE_CANARIES.some((canary) => text.includes(canary))) canaryHits += 1;
     if (/postgres(?:ql)?:\/\//i.test(text)) rawUrlHits += 1;
   }
   return { files, canaryHits, rawUrlHits };
+}
+
+function evidenceContains(dir: string, pattern: RegExp): boolean {
+  for (const entry of readdirSync(dir)) {
+    const path = `${dir}/${entry}`;
+    if (statSync(path).isDirectory()) {
+      if (evidenceContains(path, pattern)) return true;
+      continue;
+    }
+    if (pattern.test(readFileSync(path, 'utf8'))) return true;
+  }
+  return false;
 }
 
 function readProcessRecords(path: string): Array<{
@@ -518,7 +552,7 @@ async function dropDeleteBomb(url: string): Promise<void> {
 
 function scanSensitiveText(text: string): { canaryHit: boolean; rawUrlHit: boolean } {
   return {
-    canaryHit: C3_CANARIES.some((canary) => text.includes(canary)),
+    canaryHit: ALL_SENSITIVE_CANARIES.some((canary) => text.includes(canary)),
     rawUrlHit: /postgres(?:ql)?:\/\//i.test(text),
   };
 }
@@ -542,6 +576,84 @@ function scanTextFilesIfPresent(dir: string): {
     return { files: 0, canaryHits: 0, rawUrlHits: 0 };
   }
   return scanTextFiles(dir);
+}
+
+type LibpqPreconnectRun = {
+  encoded: string;
+  decoded: string;
+  result: ReturnType<typeof spawnSync>;
+  outputCanaryHit: boolean;
+  outputRawUrlHit: boolean;
+  preconnectFailureObserved: boolean;
+  pgEnvRecordCount: number;
+  pgEnvAllMatched: boolean;
+  evidence: { files: number; canaryHits: number; rawUrlHits: number };
+};
+
+function runLibpqPreconnectProbe(
+  evidenceRoot: string,
+  baseUrl: string,
+  canary: (typeof LIBPQ_PRECONNECT_CANARIES)[number],
+  caseIndex: number
+): LibpqPreconnectRun {
+  const evidenceDir = `${evidenceRoot}/case-${caseIndex}`;
+  mkdirSync(evidenceDir, { recursive: true });
+  const recorderDir = `${evidenceDir}/psql-wrapper`;
+  const envRecordPath = `${recorderDir}/pg-env-summary.jsonl`;
+  mkdirSync(recorderDir, { recursive: true });
+  writeFileSync(
+    `${recorderDir}/psql`,
+    `#!/usr/bin/env bash
+set -euo pipefail
+root_ok=0
+mode_ok=0
+[[ "\${PGSSLROOTCERT:-}" == "\${S30_EXPECTED_ROOTCERT:-}" ]] && root_ok=1
+[[ "\${PGSSLMODE:-}" == "verify-ca" ]] && mode_ok=1
+printf '{"rootcert_match":%s,"sslmode_match":%s}\n' "$root_ok" "$mode_ok" >> "$S30_PRECONNECT_RECORD"
+exec "$S30_REAL_PSQL" "$@"
+`,
+    'utf8'
+  );
+  chmodSync(`${recorderDir}/psql`, 0o755);
+  // This intentionally uses the real psql PATH. The probe translates the
+  // URL's parse_qs/unquote_plus value into PGSSLROOTCERT, so libpq fails during
+  // pre-connect on the nonexistent path before any SQL can run.
+  const result = spawnSync('bash', ['scripts/probe-ponr-role-immutability.sh', evidenceDir], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${recorderDir}:${process.env.PATH ?? ''}`,
+      S30_EXPECTED_ROOTCERT: `/tmp/${canary.decoded}`,
+      S30_PRECONNECT_RECORD: envRecordPath,
+      S30_REAL_PSQL: execFileSync('which', ['psql'], { encoding: 'utf8' }).trim(),
+      DATABASE_URL: libpqPreconnectCanaryUrl(baseUrl, canary.encoded),
+    },
+  });
+  const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+  const outputScan = scanSensitiveText(output);
+  const pgEnvRecords = readFileSync(envRecordPath, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { rootcert_match: number; sslmode_match: number });
+  const evidenceHasPreconnectFailure = evidenceContains(
+    evidenceDir,
+    /(?:server does not support SSL|root certificate|certificate file|sslrootcert)/i
+  );
+  return {
+    encoded: canary.encoded,
+    decoded: canary.decoded,
+    result,
+    outputCanaryHit: outputScan.canaryHit,
+    outputRawUrlHit: outputScan.rawUrlHit,
+    preconnectFailureObserved: evidenceHasPreconnectFailure,
+    pgEnvRecordCount: pgEnvRecords.length,
+    pgEnvAllMatched:
+      pgEnvRecords.length > 0 &&
+      pgEnvRecords.every((record) => record.rootcert_match === 1 && record.sslmode_match === 1),
+    evidence: scanTextFiles(evidenceDir),
+  };
 }
 
 type CleanupWrapperRun = {
@@ -675,6 +787,18 @@ function expectMarkerLifecycle(
     { name: 'data_plane_ponr_reject_mutation', enabled: 'O' },
     { name: 'data_plane_ponr_reject_truncate', enabled: 'O' },
   ]);
+}
+
+function expectPersistedCleanupPreservation(
+  report: Record<string, unknown> | null,
+  before: MarkerState,
+  expectedTriggers: PonrTriggerState[] = before.requiredTriggers
+): void {
+  const expectedAudit = { count: before.auditCount, digest: before.auditDigest };
+  expect(report?.audit_before).toEqual(expectedAudit);
+  expect(report?.audit_after).toEqual(expectedAudit);
+  expect(report?.trigger_before).toEqual(expectedTriggers);
+  expect(report?.trigger_after).toEqual(expectedTriggers);
 }
 
 async function mutateMarkerSurface(url: string): Promise<void> {
@@ -843,132 +967,6 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
   );
 
   itReal(
-    'TC-17: real C-3 EXIT cleanup preserves forced RC 37 and removes exact marker',
-    async () => {
-      await seedExactPonrMarker({ gateDatabaseUrl: gateUrl, markerDatabaseUrl: markerUrl });
-      const beforeGate = await gateCount(gateUrl);
-      const beforeMarker = await markerState(markerUrl);
-      const result = spawnSync('bash', ['scripts/run-sprint30-human-gate.sh'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          DATABASE_URL: gateUrl,
-          HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerUrl,
-          HOLO_GATE_TEST_MODE: '1',
-          HOLO_GATE_TEST_FORCE_RC: '37',
-          VERIFY_GATE_EVIDENCE: '/usr/bin/true',
-          HOLO_CUTOVER_OPERATOR_SECRET: 's30-red-test-secret',
-          GATE_RUN_ID: `red-exit-cleanup-${Date.now()}`,
-        },
-      });
-      const afterMarker = await markerState(markerUrl);
-      expect(result.status).toBe(37);
-      expectMarkerLifecycle(beforeMarker, afterMarker, 0);
-      expect(await gateCount(gateUrl)).toEqual(beforeGate);
-    },
-    180_000
-  );
-
-  itReal(
-    'TC-17: real C-3 normal success returns 0 and removes exact marker',
-    async () => {
-      await seedExactPonrMarker({ gateDatabaseUrl: gateUrl, markerDatabaseUrl: markerUrl });
-      const beforeGate = await gateCount(gateUrl);
-      const beforeMarker = await markerState(markerUrl);
-      const result = spawnSync('bash', ['scripts/run-sprint30-human-gate.sh'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          DATABASE_URL: gateUrl,
-          HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerUrl,
-          HOLO_GATE_TEST_MODE: '1',
-          HOLO_GATE_TEST_FORCE_RC: '0',
-          VERIFY_GATE_EVIDENCE: '/usr/bin/true',
-          HOLO_CUTOVER_OPERATOR_SECRET: 's30-red-test-secret',
-          GATE_RUN_ID: `red-exit-cleanup-success-${Date.now()}`,
-        },
-      });
-      const afterMarker = await markerState(markerUrl);
-      expect(result.status).toBe(0);
-      expectMarkerLifecycle(beforeMarker, afterMarker, 0);
-      expect(await gateCount(gateUrl)).toEqual(beforeGate);
-    },
-    180_000
-  );
-
-  itReal(
-    'TC-17: cleanup failure promotes main RC 0 to nonzero and preserves marker/audit/triggers',
-    async () => {
-      await seedExactPonrMarker({ gateDatabaseUrl: gateUrl, markerDatabaseUrl: markerUrl });
-      const beforeGate = await gateCount(gateUrl);
-      const beforeMarker = await markerState(markerUrl);
-      const result = spawnSync('bash', ['scripts/run-sprint30-human-gate.sh'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          DATABASE_URL: gateUrl,
-          HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerUrl,
-          HOLO_GATE_TEST_MODE: '1',
-          HOLO_GATE_TEST_CLEANUP_FAILURE: '1',
-          VERIFY_GATE_EVIDENCE: '/usr/bin/true',
-          HOLO_CUTOVER_OPERATOR_SECRET: 's30-red-test-secret',
-          GATE_RUN_ID: `red-exit-cleanup-promotion-${Date.now()}`,
-        },
-      });
-      const afterMarker = await markerState(markerUrl);
-      expect(result.status).toBe(1);
-      expectMarkerLifecycle(beforeMarker, afterMarker, 1);
-      expect(await gateCount(gateUrl)).toEqual(beforeGate);
-    },
-    180_000
-  );
-
-  itReal(
-    'TC-17: real C-3 pre-cleanup failure preserves a nonzero RC and foreign marker',
-    async () => {
-      await seedExactPonrMarker({ gateDatabaseUrl: gateUrl, markerDatabaseUrl: markerUrl });
-      const beforeMarker = await markerState(markerUrl);
-      await mutateMarkerSurface(markerUrl);
-      const result = spawnSync('bash', ['scripts/run-sprint30-human-gate.sh'], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          DATABASE_URL: gateUrl,
-          HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerUrl,
-          HOLO_GATE_TEST_MODE: '1',
-          HOLO_GATE_TEST_FORCE_RC: '37',
-          VERIFY_GATE_EVIDENCE: '/usr/bin/true',
-          HOLO_CUTOVER_OPERATOR_SECRET: 's30-red-test-secret',
-          GATE_RUN_ID: `red-exit-cleanup-failure-${Date.now()}`,
-        },
-      });
-      const afterMarker = await markerState(markerUrl);
-      expect(result.status).toBe(1);
-      expectMarkerLifecycle(beforeMarker, afterMarker, 1);
-      const sql = createSql(markerUrl, { max: 1 });
-      try {
-        await sql.unsafe(
-          'ALTER TABLE public.data_plane_ponr DISABLE TRIGGER data_plane_ponr_reject_mutation'
-        );
-        await sql`UPDATE public.data_plane_ponr SET write_surface = ${EXACT_PONR_MARKER.write_surface}`;
-      } finally {
-        await sql.unsafe(
-          'ALTER TABLE public.data_plane_ponr ENABLE TRIGGER data_plane_ponr_reject_mutation'
-        );
-        await sql.unsafe(
-          'ALTER TABLE public.data_plane_ponr ENABLE TRIGGER data_plane_ponr_reject_truncate'
-        );
-        await sql.end({ timeout: 5 });
-      }
-    },
-    180_000
-  );
-
-  itReal(
     'RR-4: ordinary C-3 path cleans before C-3 and EXIT-cleans forced RC 37 and success RC 0',
     async () => {
       const sandboxRoot = new URL(
@@ -1050,7 +1048,15 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         forced_seeded_marker_count: forced.seeded.count,
         forced_pre_c3_marker_before: forced.preCleanup?.marker_before_count,
         forced_pre_c3_marker_after: forced.preCleanup?.marker_after_count,
+        forced_pre_c3_audit_before: forced.preCleanup?.audit_before,
+        forced_pre_c3_audit_after: forced.preCleanup?.audit_after,
+        forced_pre_c3_trigger_before: forced.preCleanup?.trigger_before,
+        forced_pre_c3_trigger_after: forced.preCleanup?.trigger_after,
         forced_exit_marker_after: forced.exitCleanup?.marker_after_count,
+        forced_exit_audit_before: forced.exitCleanup?.audit_before,
+        forced_exit_audit_after: forced.exitCleanup?.audit_after,
+        forced_exit_trigger_before: forced.exitCleanup?.trigger_before,
+        forced_exit_trigger_after: forced.exitCleanup?.trigger_after,
         forced_post_marker_count: forced.after.count,
         forced_post_audit_count: forced.after.auditCount,
         forced_post_audit_digest: forced.after.auditDigest,
@@ -1060,7 +1066,15 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         normal_seeded_marker_count: normal.seeded.count,
         normal_pre_c3_marker_before: normal.preCleanup?.marker_before_count,
         normal_pre_c3_marker_after: normal.preCleanup?.marker_after_count,
+        normal_pre_c3_audit_before: normal.preCleanup?.audit_before,
+        normal_pre_c3_audit_after: normal.preCleanup?.audit_after,
+        normal_pre_c3_trigger_before: normal.preCleanup?.trigger_before,
+        normal_pre_c3_trigger_after: normal.preCleanup?.trigger_after,
         normal_exit_marker_after: normal.exitCleanup?.marker_after_count,
+        normal_exit_audit_before: normal.exitCleanup?.audit_before,
+        normal_exit_audit_after: normal.exitCleanup?.audit_after,
+        normal_exit_trigger_before: normal.exitCleanup?.trigger_before,
+        normal_exit_trigger_after: normal.exitCleanup?.trigger_after,
         normal_post_marker_count: normal.after.count,
         normal_post_audit_count: normal.after.auditCount,
         normal_post_audit_digest: normal.after.auditDigest,
@@ -1085,10 +1099,10 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(forced.seeded.count).toBe(1);
       expect(forced.preCleanup?.marker_before_count).toBe(1);
       expect(forced.preCleanup?.marker_after_count).toBe(0);
-      expect(forced.preCleanup?.audit_before).toEqual(forced.preCleanup?.audit_after);
-      expect(forced.preCleanup?.audit_before?.count).toBe(2);
       expect(forced.exitCleanup?.marker_after_count).toBe(0);
       expect(forced.result.status).toBe(37);
+      expectPersistedCleanupPreservation(forced.preCleanup, forced.seeded);
+      expectPersistedCleanupPreservation(forced.exitCleanup, forced.seeded);
       expect(forced.after).toEqual({
         count: 0,
         auditCount: 2,
@@ -1098,10 +1112,10 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(normal.seeded.count).toBe(1);
       expect(normal.preCleanup?.marker_before_count).toBe(1);
       expect(normal.preCleanup?.marker_after_count).toBe(0);
-      expect(normal.preCleanup?.audit_before).toEqual(normal.preCleanup?.audit_after);
-      expect(normal.preCleanup?.audit_before?.count).toBe(2);
       expect(normal.exitCleanup?.marker_after_count).toBe(0);
       expect(normal.result.status).toBe(0);
+      expectPersistedCleanupPreservation(normal.preCleanup, normal.seeded);
+      expectPersistedCleanupPreservation(normal.exitCleanup, normal.seeded);
       expect(normal.after).toEqual({
         count: 0,
         auditCount: 2,
@@ -1128,6 +1142,38 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
     expect(result.status).toBe(2);
     expect(combined).toContain('URLs are environment-only');
     expect(combined).not.toContain('redacted-target');
+  });
+
+  it('TC-17 guard: HOLO_GATE_TEST_* flags cannot bypass normal gate validation', () => {
+    const source = readFileSync(`${REPO_ROOT}/scripts/run-sprint30-human-gate.sh`, 'utf8');
+    expect(source).not.toContain('HOLO_GATE_TEST_');
+    const runId = `red-test-flag-guard-${Date.now()}-${process.pid}`;
+    const taskEvidence =
+      `${REPO_ROOT}/.spec/prds/mk6-migration/tasks/` +
+      'sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/.gate-evidence';
+    const runDir = `${taskEvidence}/${runId}`;
+    try {
+      const result = spawnSync('bash', ['scripts/run-sprint30-human-gate.sh'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          DATABASE_URL: 'postgres://127.0.0.1:5432/s30_guard_gate',
+          HOLO_PROBE_MARKER_MISS_DATABASE_URL: 'postgres://127.0.0.1:5432/s30_guard_marker',
+          GATE_RUN_ID: runId,
+          HOLO_GATE_TEST_MODE: '1',
+          HOLO_GATE_TEST_FORCE_RC: '37',
+          HOLO_GATE_TEST_CLEANUP_FAILURE: '1',
+        },
+      });
+      const combined = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+      expect(result.status).toBe(2);
+      expect(combined).toContain('HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL / PLATFORM_URL');
+      expect(combined).not.toContain('test-forced-main-rc');
+      expect(combined).not.toContain('marker-cleanup-pre-c3');
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
   });
 
   it('TC-16: human gate rejects a missing gate target before any gate work', () => {
@@ -1279,6 +1325,14 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(report?.ok).toBe(false);
       expect(report?.match_disposition).toBe('exact_one');
       expect(report?.delete_count).toBe(0);
+      // The persisted cleanup report intentionally tracks the two required
+      // PONR triggers only; the independent snapshot proves the unexpected
+      // delete-bomb trigger was never disabled and remained enabled.
+      expectPersistedCleanupPreservation(report, before);
+      expect(report?.disabled_triggers).toEqual([
+        'data_plane_ponr_reject_mutation',
+        'data_plane_ponr_reject_truncate',
+      ]);
       expect(evidence.canaryHits).toBe(0);
       expect(evidence.rawUrlHits).toBe(0);
       expect(duringFailure).toEqual([
@@ -1376,6 +1430,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect((foreignReport?.error as { code?: unknown } | undefined)?.code).toBe(
         'PONR_MARKER_FOREIGN_OR_MULTIPLE'
       );
+      expectPersistedCleanupPreservation(foreignReport, before);
       expect(evidence.canaryHits).toBe(0);
       expect(evidence.rawUrlHits).toBe(0);
       expectMarkerLifecycle(before, after, 1);
@@ -1428,8 +1483,14 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
           },
         }
       );
+      const preconnectRoot = `${evidenceRoot}/libpq-preconnect`;
+      const preconnectRuns = LIBPQ_PRECONNECT_CANARIES.map((canary, caseIndex) =>
+        runLibpqPreconnectProbe(preconnectRoot, gateUrl, canary, caseIndex)
+      );
       const directOutput = `${direct.stdout ?? ''}\n${direct.stderr ?? ''}`;
       const negativeOutput = `${negative.stdout ?? ''}\n${negative.stderr ?? ''}`;
+      const directOutputScan = scanSensitiveText(directOutput);
+      const negativeOutputScan = scanSensitiveText(negativeOutput);
       const records = readProcessRecords(recordPath);
       const recordedPrograms = new Set(
         records
@@ -1451,14 +1512,25 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         recorded_programs: [...recordedPrograms].sort(),
         process_raw_canary_seen_count: records.filter((record) => record.raw_canary_seen !== 0)
           .length,
-        direct_output_canary_hit: C3_CANARIES.some((canary) => directOutput.includes(canary)),
-        negative_output_canary_hit: C3_CANARIES.some((canary) => negativeOutput.includes(canary)),
+        direct_output_canary_hit: directOutputScan.canaryHit,
+        direct_output_raw_url_hit: directOutputScan.rawUrlHit,
+        negative_output_canary_hit: negativeOutputScan.canaryHit,
+        negative_output_raw_url_hit: negativeOutputScan.rawUrlHit,
         direct_evidence_files: directFiles.files,
         direct_evidence_canary_hit_files: directFiles.canaryHits,
         direct_evidence_raw_url_hit_files: directFiles.rawUrlHits,
         negative_evidence_files: negativeFiles.files,
         negative_evidence_canary_hit_files: negativeFiles.canaryHits,
         negative_evidence_raw_url_hit_files: negativeFiles.rawUrlHits,
+        preconnect_run_count: preconnectRuns.length,
+        preconnect_exit_codes: preconnectRuns.map((run) => run.result.status),
+        preconnect_failure_observed: preconnectRuns.map((run) => run.preconnectFailureObserved),
+        preconnect_pg_env_record_counts: preconnectRuns.map((run) => run.pgEnvRecordCount),
+        preconnect_pg_env_all_matched: preconnectRuns.map((run) => run.pgEnvAllMatched),
+        preconnect_output_canary_hits: preconnectRuns.map((run) => run.outputCanaryHit),
+        preconnect_output_raw_url_hits: preconnectRuns.map((run) => run.outputRawUrlHit),
+        preconnect_evidence_canary_hit_files: preconnectRuns.map((run) => run.evidence.canaryHits),
+        preconnect_evidence_raw_url_hit_files: preconnectRuns.map((run) => run.evidence.rawUrlHits),
       };
       writeFileSync(
         `${evidenceRoot}/sanitized-summary.json`,
@@ -1474,11 +1546,22 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(negative.status).not.toBe(0);
       expect(evidenceSummary.process_raw_canary_seen_count).toBe(0);
       expect(evidenceSummary.direct_output_canary_hit).toBe(false);
+      expect(evidenceSummary.direct_output_raw_url_hit).toBe(false);
       expect(evidenceSummary.negative_output_canary_hit).toBe(false);
+      expect(evidenceSummary.negative_output_raw_url_hit).toBe(false);
       expect(evidenceSummary.direct_evidence_canary_hit_files).toBe(0);
       expect(evidenceSummary.negative_evidence_canary_hit_files).toBe(0);
       expect(evidenceSummary.direct_evidence_raw_url_hit_files).toBe(0);
       expect(evidenceSummary.negative_evidence_raw_url_hit_files).toBe(0);
+      expect(preconnectRuns).toHaveLength(LIBPQ_PRECONNECT_CANARIES.length);
+      expect(preconnectRuns.every((run) => run.result.status !== null)).toBe(true);
+      expect(preconnectRuns.every((run) => run.preconnectFailureObserved)).toBe(true);
+      expect(preconnectRuns.every((run) => run.pgEnvRecordCount > 0)).toBe(true);
+      expect(preconnectRuns.every((run) => run.pgEnvAllMatched)).toBe(true);
+      expect(preconnectRuns.every((run) => !run.outputCanaryHit)).toBe(true);
+      expect(preconnectRuns.every((run) => !run.outputRawUrlHit)).toBe(true);
+      expect(preconnectRuns.every((run) => run.evidence.canaryHits === 0)).toBe(true);
+      expect(preconnectRuns.every((run) => run.evidence.rawUrlHits === 0)).toBe(true);
     },
     180_000
   );
