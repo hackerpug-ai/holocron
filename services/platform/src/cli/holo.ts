@@ -44,6 +44,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { resolveSecretsPathFromEnv } from '../config/secrets.ts';
+import { resolveRequiredDatabaseTarget } from '../db/connection.ts';
 import {
   applyProductionDeployment,
   defaultDeploymentRecordPath,
@@ -3695,10 +3696,12 @@ async function main(): Promise<void> {
         OPERATOR_UNAUTHORIZED,
       } = await import('../cutover/rollback-repoint.ts');
       try {
+        const { databaseUrl } = resolveRequiredDatabaseTarget();
         const reportPath = args.output
           ? resolve(args.output)
           : defaultRollbackRepointReportPath(process.cwd());
         const report = await runRollbackRepoint({
+          databaseUrl,
           reportPath,
           watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
           target: args.target ?? undefined,
@@ -3751,10 +3754,12 @@ async function main(): Promise<void> {
         DRILL_REPOINT_FAILED,
       } = await import('../cutover/rollback-drill.ts');
       try {
+        const { databaseUrl } = resolveRequiredDatabaseTarget();
         const reportPath = args.output
           ? resolve(args.output)
           : defaultRollbackDrillReportPath(process.cwd());
         const report = await runRollbackDrill({
+          databaseUrl,
           reportPath,
           baseUrl: args.baseUrl ?? undefined,
           watermarkPath: args.etlReport ? resolve(args.etlReport) : undefined,
