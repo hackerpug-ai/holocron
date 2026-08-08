@@ -12,15 +12,20 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   type DrillReport,
+  DRILL_FENCE_NOT_ARMED,
   POST_EXPORT_WRITE_ACCEPTED,
   probeFiveWriteSurfaces,
   recomputeAcceptedPostExportWritesFromRawFile,
+  runRollbackDrill,
 } from '../../src/cutover/rollback-drill.ts';
 import {
   TARGET_CONVEX_FROZEN,
   writePostExportWriteAudit,
 } from '../../src/cutover/rollback-repoint.ts';
-import { writeDurableMigrationReadOnly } from '../../src/cutover/soak-fence.ts';
+import {
+  isMigrationReadOnly,
+  writeDurableMigrationReadOnly,
+} from '../../src/cutover/soak-fence.ts';
 import {
   AUDIT_PATH,
   cleanupDefaultCutoverArtifacts,
@@ -424,6 +429,124 @@ describe('D07-03 rollback drill (UC-SYNC-04 / T-SYNC-013)', () => {
       if (report.postRepointHealthProbe) {
         expect(report.postRepointHealthProbe.body.data_plane).toBe('convex');
       }
+    });
+  }, 180_000);
+
+  it('GATE-FIX-drill-fence-precondition AC-1: disarmed fence → DRILL_FENCE_NOT_ARMED before probes; no mint', async () => {
+    await withCutoverSharedLock(async () => {
+      seedDisposableSecrets({ readOnly: '0' });
+      const wm = seedExportWatermark();
+      exportMs = wm.exportMs;
+      seedEmptyPostExportAudit(exportMs);
+
+      writeDurableMigrationReadOnly('0', { secretsPath: DISPOSABLE_SECRETS });
+      process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+      process.env.HOLO_MIGRATION_READ_ONLY = '0';
+      expect(isMigrationReadOnly()).toBe(false);
+
+      // Live server under disarmed fence — must NOT be probed by runRollbackDrill
+      liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
+      await waitHealth(liveServing.baseUrl);
+      process.env.HOLO_VERIFY_BASE_URL = liveServing.baseUrl;
+
+      const { resolveTestDatabaseUrl } = await import('./sprint30-cutover-harness.ts');
+      const { clearPostExportWriteAuditLedger, loadPostExportWriteAuditAsync } = await import(
+        '../../src/cutover/post-export-write-audit.ts'
+      );
+      const dbUrl = resolveTestDatabaseUrl();
+      try {
+        await clearPostExportWriteAuditLedger({ databaseUrl: dbUrl });
+      } catch {
+        /* fresh */
+      }
+
+      const beforeLedger = await loadPostExportWriteAuditAsync({
+        allowFileFallback: false,
+        databaseUrl: dbUrl,
+      });
+      const beforeCount = (beforeLedger.audit?.accepted_writes ?? []).length;
+
+      const reportPath = resolve(D07_03, 'gate-fix-disarmed-precondition-report.json');
+      const report = await runRollbackDrill({
+        cwd: REPO_ROOT,
+        baseUrl: liveServing.baseUrl,
+        reportPath,
+        watermarkPath: WATERMARK_PATH,
+        auditPath: AUDIT_PATH,
+        skipRepoint: true, // isolate probe precondition (repoint is sibling residual)
+        databaseUrl: dbUrl,
+      });
+
+      writeEvidence('ac1-disarmed-precondition-fail.json', report);
+
+      expect(report.ok).toBe(false);
+      expect(report.error?.code).toBe(DRILL_FENCE_NOT_ARMED);
+      expect(report.fence_armed).toBe(false);
+      expect(report.probes.app.executed).toBe(false);
+      expect(report.probes.mcp.executed).toBe(false);
+      expect(report.probes.upload.executed).toBe(false);
+      expect(report.probes.job.executed).toBe(false);
+      expect(report.probes.mission.executed).toBe(false);
+      expect(report.accepted_write_identities).toEqual([]);
+      // Must NOT be the post-mint residual class from 20260808T011038Z
+      expect(report.error?.code).not.toBe('DRILL_WRITE_SURFACES_NOT_BLOCKED');
+      expect(report.probes.app.status).not.toBe(201);
+
+      const afterLedger = await loadPostExportWriteAuditAsync({
+        allowFileFallback: false,
+        databaseUrl: dbUrl,
+      });
+      const afterCount = (afterLedger.audit?.accepted_writes ?? []).length;
+      expect(afterCount).toBe(beforeCount);
+
+      writeEvidence('ac1-no-minted-writes.json', {
+        beforeCount,
+        afterCount,
+        fence_armed: report.fence_armed,
+        error: report.error,
+        probes_executed: {
+          app: report.probes.app.executed,
+          mcp: report.probes.mcp.executed,
+          upload: report.probes.upload.executed,
+          job: report.probes.job.executed,
+          mission: report.probes.mission.executed,
+        },
+      });
+    });
+  }, 180_000);
+
+  it('GATE-FIX-drill-fence-precondition AC-2: after durable re-arm, live POST /api/documents returns 423+code', async () => {
+    await withCutoverSharedLock(async () => {
+      seedDisposableSecrets({ readOnly: '0' });
+      liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
+      await waitHealth(liveServing.baseUrl);
+
+      // Durable re-arm (no regex rewrite) — serving process re-reads per request
+      writeDurableMigrationReadOnly('1', { secretsPath: DISPOSABLE_SECRETS });
+      process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
+      expect(isMigrationReadOnly()).toBe(true);
+
+      const res = await fetch(`${liveServing.baseUrl}/api/documents`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${DEFAULT_KEYS.rn}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: 'gate-fix-live-423-proof',
+          content: 'must be blocked',
+          category: 'general',
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const body = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
+      writeEvidence('ac2-live-serving-423.json', {
+        status: res.status,
+        body,
+        baseUrl: liveServing.baseUrl,
+      });
+      expect(res.status).toBe(423);
+      expect(body.code).toBe('migration_read_only');
     });
   }, 180_000);
 });
