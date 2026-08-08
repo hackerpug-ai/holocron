@@ -43,6 +43,8 @@ import {
 
 export const DRILL_SEV1_TRIGGER_MISSING = 'DRILL_SEV1_TRIGGER_MISSING';
 export const DRILL_WRITE_SURFACES_NOT_BLOCKED = 'DRILL_WRITE_SURFACES_NOT_BLOCKED';
+/** GATE-FIX-drill-fence-precondition: fence disarmed — refuse probes before minting writes. */
+export const DRILL_FENCE_NOT_ARMED = 'DRILL_FENCE_NOT_ARMED';
 export const DRILL_INDEPENDENT_RECOMPUTE_MISMATCH = 'DRILL_INDEPENDENT_RECOMPUTE_MISMATCH';
 export const DRILL_AUDIT_FILE_MISSING = 'DRILL_AUDIT_FILE_MISSING';
 export const DRILL_LIVE_ACK_MISSING = 'DRILL_LIVE_ACK_MISSING';
@@ -164,6 +166,21 @@ export type DrillReport = {
     baseUrl: string;
     ok: boolean;
   } | null;
+  /**
+   * GATE-FIX-drill-fence-precondition / GATE-FIX-zero-loss-t-sync-013:
+   * Whether isMigrationReadOnly() was true when the five-surface phase was
+   * considered. false + probes.*.executed=false means fail-closed before mint.
+   */
+  fence_armed: boolean;
+  /**
+   * Accepted write identities extracted from probe responses (document ids etc).
+   * Empty when zero-loss holds or probes never executed.
+   */
+  accepted_write_identities: Array<{
+    surface: string;
+    id: string;
+    status?: number;
+  }>;
   drillProcessPid: number;
   report_path: string;
   error?: { code: string; message: string };
@@ -248,6 +265,40 @@ function emptyProbes(): FiveWriteSurfaceProbes {
     job: { ok: true, error: null, executed: false },
     mission: { rejected: false, message: '', executed: false },
   };
+}
+
+const UUID_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Extract accepted write identities from probe responses for T-SYNC-013
+ * identity-bound zero-loss oracles (GATE-FIX-zero-loss-t-sync-013).
+ * Only surfaces that actually accepted a production write contribute ids.
+ */
+export function extractAcceptedWriteIdentities(
+  probes: FiveWriteSurfaceProbes
+): Array<{ surface: string; id: string; status?: number }> {
+  const out: Array<{ surface: string; id: string; status?: number }> = [];
+  // App HTTP 2xx create — body.id or body.document.id
+  if (probes.app.executed && probes.app.status >= 200 && probes.app.status < 300) {
+    const body = probes.app.body as {
+      id?: unknown;
+      document?: { id?: unknown };
+      documentId?: unknown;
+    };
+    const id =
+      (typeof body.id === 'string' && body.id) ||
+      (typeof body.documentId === 'string' && body.documentId) ||
+      (typeof body.document?.id === 'string' && body.document.id) ||
+      null;
+    if (id) out.push({ surface: 'app', id, status: probes.app.status });
+  }
+  // MCP accepted store_document — not rejected, status 2xx, id in message body
+  if (probes.mcp.executed && !probes.mcp.rejected && probes.mcp.status >= 200 && probes.mcp.status < 300) {
+    const m = probes.mcp.message.match(UUID_RE);
+    if (m) out.push({ surface: 'mcp', id: m[0]!, status: probes.mcp.status });
+  }
+  return out;
 }
 
 async function mcpStoreDocumentNetwork(
@@ -697,14 +748,25 @@ export async function runRollbackDrill(options?: {
   }
 
   // ── (3) Five write-surface probes against live fenced server ─────────────
+  // GATE-FIX-drill-fence-precondition: NEVER call probeFiveWriteSurfaces when
+  // the soak fence is disarmed. Probing under fence_armed=false mints real
+  // production writes (HTTP 201 / MCP accept) and poisons T-SYNC-013 zero-loss
+  // (human-gate 20260808T011038Z: DRILL_WRITE_SURFACES_NOT_BLOCKED after mint).
   let probes = emptyProbes();
+  const fenceArmed = isMigrationReadOnly();
+  let fencePreconditionFailed = false;
   if (!options?.skipProbes && liveBaseUrl) {
-    probes = await probeFiveWriteSurfaces({
-      baseUrl: liveBaseUrl,
-      rnKey: keys.rn || process.env.HOLO_KEY_RN || 'rn-test',
-      mcpKey: keys.mcp || process.env.HOLO_KEY_MCP || 'mcp-test',
-      databaseUrl,
-    });
+    if (!fenceArmed) {
+      fencePreconditionFailed = true;
+      // probes remain emptyProbes() — all executed:false; zero network mint
+    } else {
+      probes = await probeFiveWriteSurfaces({
+        baseUrl: liveBaseUrl,
+        rnKey: keys.rn || process.env.HOLO_KEY_RN || 'rn-test',
+        mcpKey: keys.mcp || process.env.HOLO_KEY_MCP || 'mcp-test',
+        databaseUrl,
+      });
+    }
   }
 
   // ── (4) Independent raw-file recompute (never trust child ok alone) ──────
@@ -841,6 +903,8 @@ export async function runRollbackDrill(options?: {
   let error: DrillReport['error'];
   let ok = true;
 
+  const acceptedWriteIdentities = extractAcceptedWriteIdentities(probes);
+
   if (!sevOneTrigger.declared) {
     ok = false;
     error = {
@@ -850,15 +914,30 @@ export async function runRollbackDrill(options?: {
         `ok:false with toolsPassed=0 and toolsTotal>0 ` +
         `(got ok=${toolsReport.ok} passed=${toolsReport.toolsPassed} total=${toolsReport.toolsTotal})`,
     };
+  } else if (fencePreconditionFailed) {
+    // GATE-FIX-drill-fence-precondition: fail closed BEFORE probes mint writes.
+    ok = false;
+    error = {
+      code: DRILL_FENCE_NOT_ARMED,
+      message:
+        `Soak fence not armed (HOLO_MIGRATION_READ_ONLY disarmed); refused five-surface ` +
+        `probes to prevent zero-loss poison (fence_armed=false; ` +
+        `probes.app.executed=false probes.mcp.executed=false probes.upload.executed=false ` +
+        `probes.job.executed=false probes.mission.executed=false)`,
+    };
   } else if (!options?.skipProbes && liveBaseUrl && !allFiveBlocked(probes)) {
     ok = false;
     error = {
       code: DRILL_WRITE_SURFACES_NOT_BLOCKED,
       message:
         `Not all five write surfaces blocked under soak fence ` +
-        `(fence_armed=${isMigrationReadOnly()}; app.status=${probes.app.status} ` +
+        `(fence_armed=${fenceArmed}; app.status=${probes.app.status} ` +
         `mcp.rejected=${probes.mcp.rejected} upload.status=${probes.upload.status} ` +
-        `job.ok=${probes.job.ok} mission.rejected=${probes.mission.rejected})`,
+        `job.ok=${probes.job.ok} mission.rejected=${probes.mission.rejected}` +
+        (acceptedWriteIdentities.length > 0
+          ? `; accepted_write_identities=${acceptedWriteIdentities.map((w) => w.id).join(',')}`
+          : '') +
+        `)`,
     };
   } else if (!options?.skipRepoint && repoint.parsed?.error?.code === POST_EXPORT_WRITE_ACCEPTED) {
     ok = false;
@@ -949,6 +1028,8 @@ export async function runRollbackDrill(options?: {
     liveAcks,
     postRepointHealthProbe,
     content_probe,
+    fence_armed: fenceArmed,
+    accepted_write_identities: acceptedWriteIdentities,
     drillProcessPid,
     report_path: reportPath,
     ...(error ? { error } : {}),
