@@ -1,0 +1,1 @@
+{"verified":false,"claimed_verdict":"partial","recomputed_verdict":"fail","steps_planned":5,"steps_recomputed":5,"discrepancies":[{"kind":"verdict-mismatch","claimed_verdict":"partial","recomputed_verdict":"fail"}],"method":"verify-gate-evidence.sh:recompute-strong@febb48afeaa2","written_at":"2026-08-08T01:11:32Z"}

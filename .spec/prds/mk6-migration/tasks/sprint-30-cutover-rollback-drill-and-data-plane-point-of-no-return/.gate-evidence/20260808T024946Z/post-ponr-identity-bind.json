@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "tool": "zero-loss-identity-oracle.post_ponr_bind",
+  "step4_ponr_id": "91915644-4d32-40b3-82a5-f9f936ea7291",
+  "step4_write_row_id": "12ece018-80ac-489e-9331-e6473e87a5e4",
+  "step5_error_code": "POST_PONR_INELIGIBLE",
+  "step5_ponr_id": "91915644-4d32-40b3-82a5-f9f936ea7291",
+  "step5_write_row_id": "12ece018-80ac-489e-9331-e6473e87a5e4",
+  "step5_repointed": false,
+  "sentinel_aaaa": "00000000-0000-4000-8000-aaaaaaaaaaaa",
+  "reasons": [],
+  "t_sync_014": "PASS"
+}
