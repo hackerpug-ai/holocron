@@ -6,7 +6,7 @@
  * Run: pnpm vitest run --project unit tests/cutover/gate-fix-zero-loss-t-sync-013.test.ts
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 

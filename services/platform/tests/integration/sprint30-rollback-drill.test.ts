@@ -11,8 +11,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  type DrillReport,
   DRILL_FENCE_NOT_ARMED,
+  type DrillReport,
   POST_EXPORT_WRITE_ACCEPTED,
   probeFiveWriteSurfaces,
   recomputeAcceptedPostExportWritesFromRawFile,
