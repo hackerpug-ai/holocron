@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "tool": "scripts/prove-sprint30-fence-armed-live.sh",
+  "base_url": "http://127.0.0.1:44121",
+  "health_ok": true,
+  "post_attempted": true,
+  "fence_precheck": {
+    "durable_raw": "1",
+    "is_migration_read_only": true,
+    "fence_precheck": "armed"
+  },
+  "probe_title": "fence-prove-1786157391",
+  "write_probe": {
+    "method": "POST",
+    "path": "/api/documents",
+    "status": 423,
+    "body": {
+      "error": "migration_read_only",
+      "code": "migration_read_only"
+    },
+    "expect": {
+      "status": 423,
+      "code": "migration_read_only"
+    }
+  },
+  "ledger": {
+    "accepted_count_before": 0,
+    "accepted_count_after": 0,
+    "delta": 0,
+    "measured": true
+  }
+}

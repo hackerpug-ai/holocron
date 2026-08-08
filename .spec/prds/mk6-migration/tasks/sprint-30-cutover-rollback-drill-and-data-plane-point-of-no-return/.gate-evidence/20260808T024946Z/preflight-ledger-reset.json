@@ -1,0 +1,16 @@
+target_ok host=127.0.0.1 port=5432 database=holocron (credentials redacted)
+{"postgres_ledger_cleared":true}
+{"file_ledger_cleared": true, "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json", "export_watermark_ms": 1786190348757}
+DO
+{"ponr_cleared": true}
+{
+  "ok": true,
+  "tool": "scripts/reset-sprint30-gate-ledger.sh",
+  "before_table_count": 8,
+  "before_file_count": 8,
+  "after_table_count": 0,
+  "after_file_count": 0,
+  "ponr_count": 0,
+  "clear_ponr": true,
+  "oracle_note": "Step5 must still fail closed with POST_PONR_INELIGIBLE after a real step4 enable-writes PONR \u2014 this reset only clears pre-gate residue so step1/2 see accepted_count=0 and step5 is not polluted by stale POST_EXPORT_WRITE_ACCEPTED from leftover ledger rows."
+}

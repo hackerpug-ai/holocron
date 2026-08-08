@@ -1,0 +1,20 @@
+@@GATE-META step=4 cmd_sha=866ce03286bc80c45523d3470be8a087663de8a6389af57327ad0484a5b83cba run_id=20260808T024946Z git_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 source_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 started_at=2026-08-08T02:50:27Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=216b1ad7e97a244be65c933f609c2e96fbbc5a15@@
+CMD: bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+{
+  "ok": true,
+  "already_recorded": false,
+  "ponr_id": "91915644-4d32-40b3-82a5-f9f936ea7291",
+  "write_row_id": "12ece018-80ac-489e-9331-e6473e87a5e4",
+  "write_row_digest_sha256": "ef7e02ee1ea9cdaad0fd527ab2434d388463e475177d9fbb6f9b35575ebd30eb",
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": "2026-08-08T02:50:31.923Z",
+  "write_committed_at": "2026-08-08T02:50:31.956Z",
+  "base_url": "http://127.0.0.1:44121",
+  "export_watermark_ms": 1786190348757,
+  "convex_fence_audit_id": "vn750swtvq28332gb4xm67qgc98bxkst",
+  "convex_documents_total": 1623,
+  "convex_accepted_writes_since_watermark": 0,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-04/enable-writes-report.json"
+}
+@@GATE-EXIT=0@@
