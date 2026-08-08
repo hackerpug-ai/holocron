@@ -1,0 +1,128 @@
+@@GATE-META step=1 cmd_sha=215cfd4435e83c33b87d810748f1afe61abf594fdfddc6cd9f5dce462a0f7e28 run_id=20260808T024946Z git_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 source_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 started_at=2026-08-08T02:49:52Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=216b1ad7e97a244be65c933f609c2e96fbbc5a15@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "lost_accepted_writes": 1,
+  "accepted_post_export_writes_recomputed": 1,
+  "acknowledgements": [],
+  "precondition": {
+    "accepted_post_export_writes": 1
+  },
+  "sevOneTrigger": {
+    "gate": "verify-tools",
+    "declared": true,
+    "report": {
+      "ok": false,
+      "toolsPassed": 0,
+      "toolsTotal": 44,
+      "toolsStubbed": 0,
+      "base_url": "http://127.0.0.1:59940",
+      "error": "UNREACHABLE_BASE_URL: http://127.0.0.1:59940 (Unable to connect. Is the computer able to access the url?)",
+      "transport": "network"
+    },
+    "triggerBaseUrl": "http://127.0.0.1:59940"
+  },
+  "probes": {
+    "app": {
+      "status": 423,
+      "body": {
+        "error": "migration_read_only",
+        "code": "migration_read_only"
+      },
+      "executed": true
+    },
+    "mcp": {
+      "rejected": true,
+      "status": 200,
+      "message": "{\"code\":\"MIGRATION_READ_ONLY\",\"message\":\"MIGRATION_READ_ONLY: store_document blocked while HOLO_MIGRATION_READ_ONLY is set\"}",
+      "executed": true
+    },
+    "upload": {
+      "status": 423,
+      "body": {
+        "error": "migration_read_only",
+        "code": "migration_read_only"
+      },
+      "executed": true
+    },
+    "job": {
+      "ok": false,
+      "error": "migration_read_only: task-timeout-worker blocked while HOLO_MIGRATION_READ_ONLY is set",
+      "executed": true
+    },
+    "mission": {
+      "rejected": true,
+      "message": "migration_read_only: mission publish blocked while HOLO_MIGRATION_READ_ONLY is set",
+      "executed": true
+    }
+  },
+  "repoint": {
+    "exitCode": 2,
+    "parsed": {
+      "ok": false,
+      "repointed": false,
+      "target": "convex-frozen",
+      "target_kind": "convex",
+      "data_plane": "convex",
+      "engaged_at": "",
+      "engaged_at_ms": 0,
+      "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+      "precondition": {
+        "ok": false,
+        "accepted_post_export_writes": 1,
+        "export_watermark_ms": 1786190348757,
+        "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+        "ponr_recorded": true,
+        "ponr_id": "585ecd45-65ed-43b3-875d-eed092697bbb",
+        "ponr_recorded_at": "2026-08-07 06:00:38.012304-06"
+      },
+      "config": {
+        "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+        "digest_sha256": "",
+        "prior_target": "convex-frozen"
+      },
+      "acknowledgements": [],
+      "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json",
+      "error": {
+        "code": "POST_PONR_INELIGIBLE",
+        "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=585ecd45-65ed-43b3-875d-eed092697bbb, write_row_id=00000000-0000-4000-8000-aaaaaaaaaaaa). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+      }
+    },
+    "stdout": "{\n  \"ok\": false,\n  \"repointed\": false,\n  \"target\": \"convex-frozen\",\n  \"target_kind\": \"convex\",\n  \"data_plane\": \"convex\",\n  \"engaged_at\": \"\",\n  \"engaged_at_ms\": 0,\n  \"configured_target\": \"/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml\",\n  \"precondition\": {\n    \"ok\": false,\n    \"accepted_post_export_writes\": 1,\n    \"export_watermark_ms\": 1786190348757,\n    \"audit_path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json\",\n    \"ponr_recorded\": true,\n    \"ponr_id\": \"585ecd45-65ed-43b3-875d-eed092697bbb\",\n    \"ponr_recorded_at\": \"2026-08-07 06:00:38.012304-06\"\n  },\n  \"config\": {\n    \"path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json\",\n    \"digest_sha256\": \"\",\n    \"prior_target\": \"convex-frozen\"\n  },\n  \"acknowledgements\": [],\n  \"report_path\": \"/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json\",\n  \"error\": {\n    \"code\": \"POST_PONR_INELIGIBLE\",\n    \"message\": \"cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=585ecd45-65ed-43b3-875d-eed092697bbb, write_row_id=00000000-0000-4000-8000-aaaaaaaaaaaa). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05).\"\n  }\n}\n",
+    "stderr": "",
+    "argv": [
+      "bun",
+      "services/platform/src/cli/holo.ts",
+      "cutover:rollback-repoint",
+      "--json",
+      "--output",
+      "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json"
+    ]
+  },
+  "independentRecompute": {
+    "acceptedCount": 1,
+    "matchesReport": true,
+    "rawFileByteCount": 0,
+    "auditFileExists": true,
+    "reportValue": 1,
+    "auditPath": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "liveAcks": {
+    "authorizingCount": 0,
+    "allPreexisting": false,
+    "acks": []
+  },
+  "postRepointHealthProbe": null,
+  "content_probe": null,
+  "fence_armed": true,
+  "accepted_write_identities": [],
+  "drillProcessPid": 52081,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-drill-report.json",
+  "error": {
+    "code": "POST_PONR_INELIGIBLE",
+    "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=585ecd45-65ed-43b3-875d-eed092697bbb, write_row_id=00000000-0000-4000-8000-aaaaaaaaaaaa). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+  }
+}
+@@GATE-EXIT=1@@

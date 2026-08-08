@@ -1,0 +1,130 @@
+@@GATE-META step=1 cmd_sha=215cfd4435e83c33b87d810748f1afe61abf594fdfddc6cd9f5dce462a0f7e28 run_id=20260808T011038Z git_sha=54299bfc76fec6fc52468dae451ca293a6f104c4 source_sha=54299bfc76fec6fc52468dae451ca293a6f104c4 started_at=2026-08-08T01:10:42Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=54299bfc76fec6fc52468dae451ca293a6f104c4@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+{
+  "ok": false,
+  "repointed": false,
+  "target": "convex-frozen",
+  "lost_accepted_writes": 1,
+  "accepted_post_export_writes_recomputed": 1,
+  "acknowledgements": [],
+  "precondition": {
+    "accepted_post_export_writes": 1
+  },
+  "sevOneTrigger": {
+    "gate": "verify-tools",
+    "declared": true,
+    "report": {
+      "ok": false,
+      "toolsPassed": 0,
+      "toolsTotal": 44,
+      "toolsStubbed": 0,
+      "base_url": "http://127.0.0.1:55148",
+      "error": "UNREACHABLE_BASE_URL: http://127.0.0.1:55148 (Unable to connect. Is the computer able to access the url?)",
+      "transport": "network"
+    },
+    "triggerBaseUrl": "http://127.0.0.1:55148"
+  },
+  "probes": {
+    "app": {
+      "status": 201,
+      "body": {
+        "document": {
+          "id": "145f82e5-567d-4fd6-b97d-ff9a9ab998e2",
+          "title": "rollback-drill-app-drill-msjogbzr",
+          "content": "five-surface app probe",
+          "category": "general"
+        }
+      },
+      "executed": true
+    },
+    "mcp": {
+      "rejected": false,
+      "status": 200,
+      "message": "{\"documentId\":\"5ef15d4b-2f27-451f-9a03-efee7d8d4b7a\",\"title\":\"rollback-drill-mcp-drill-msjogbzr\",\"embeddingStatus\":\"pending\"}",
+      "executed": true
+    },
+    "upload": {
+      "status": 404,
+      "body": {
+        "error": "upload_error",
+        "message": "upload target not found: improvement_image:505fb68d-39d6-4517-9adf-59c638893c15"
+      },
+      "executed": true
+    },
+    "job": {
+      "ok": true,
+      "error": null,
+      "executed": true
+    },
+    "mission": {
+      "rejected": false,
+      "message": "",
+      "executed": true
+    }
+  },
+  "repoint": {
+    "exitCode": 2,
+    "parsed": {
+      "ok": false,
+      "repointed": false,
+      "target": "convex-frozen",
+      "target_kind": "convex",
+      "data_plane": "convex",
+      "engaged_at": "",
+      "engaged_at_ms": 0,
+      "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+      "precondition": {
+        "ok": false,
+        "accepted_post_export_writes": 1,
+        "export_watermark_ms": 1786190348757,
+        "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json",
+        "ponr_recorded": true,
+        "ponr_id": "585ecd45-65ed-43b3-875d-eed092697bbb",
+        "ponr_recorded_at": "2026-08-07 06:00:38.012304-06"
+      },
+      "config": {
+        "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+        "digest_sha256": "",
+        "prior_target": "convex-frozen"
+      },
+      "acknowledgements": [],
+      "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json",
+      "error": {
+        "code": "POST_PONR_INELIGIBLE",
+        "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=585ecd45-65ed-43b3-875d-eed092697bbb, write_row_id=00000000-0000-4000-8000-aaaaaaaaaaaa). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
+      }
+    },
+    "stdout": "{\n  \"ok\": false,\n  \"repointed\": false,\n  \"target\": \"convex-frozen\",\n  \"target_kind\": \"convex\",\n  \"data_plane\": \"convex\",\n  \"engaged_at\": \"\",\n  \"engaged_at_ms\": 0,\n  \"configured_target\": \"/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml\",\n  \"precondition\": {\n    \"ok\": false,\n    \"accepted_post_export_writes\": 1,\n    \"export_watermark_ms\": 1786190348757,\n    \"audit_path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json\",\n    \"ponr_recorded\": true,\n    \"ponr_id\": \"585ecd45-65ed-43b3-875d-eed092697bbb\",\n    \"ponr_recorded_at\": \"2026-08-07 06:00:38.012304-06\"\n  },\n  \"config\": {\n    \"path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json\",\n    \"digest_sha256\": \"\",\n    \"prior_target\": \"convex-frozen\"\n  },\n  \"acknowledgements\": [],\n  \"report_path\": \"/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json\",\n  \"error\": {\n    \"code\": \"POST_PONR_INELIGIBLE\",\n    \"message\": \"cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=585ecd45-65ed-43b3-875d-eed092697bbb, write_row_id=00000000-0000-4000-8000-aaaaaaaaaaaa). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05).\"\n  }\n}\n",
+    "stderr": "",
+    "argv": [
+      "bun",
+      "services/platform/src/cli/holo.ts",
+      "cutover:rollback-repoint",
+      "--json",
+      "--output",
+      "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json"
+    ]
+  },
+  "independentRecompute": {
+    "acceptedCount": 1,
+    "matchesReport": true,
+    "rawFileByteCount": 0,
+    "auditFileExists": true,
+    "reportValue": 1,
+    "auditPath": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "liveAcks": {
+    "authorizingCount": 0,
+    "allPreexisting": false,
+    "acks": []
+  },
+  "postRepointHealthProbe": null,
+  "content_probe": null,
+  "drillProcessPid": 6782,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-drill-report.json",
+  "error": {
+    "code": "DRILL_WRITE_SURFACES_NOT_BLOCKED",
+    "message": "Not all five write surfaces blocked under soak fence (fence_armed=false; app.status=201 mcp.rejected=false upload.status=404 job.ok=true mission.rejected=false)"
+  }
+}
+@@GATE-EXIT=2@@

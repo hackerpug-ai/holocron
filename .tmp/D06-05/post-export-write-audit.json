@@ -1,5 +1,10 @@
 {
   "export_watermark_ms": 1786190348757,
-  "accepted_writes": [],
-  "note": "reset-sprint30-gate-ledger: dual-reset (postgres+file); empty pre-gate"
+  "accepted_writes": [
+    {
+      "committed_at_ms": 1786157431996,
+      "surface": "hono.POST /api/documents",
+      "id": "12ece018-80ac-489e-9331-e6473e87a5e4"
+    }
+  ]
 }
