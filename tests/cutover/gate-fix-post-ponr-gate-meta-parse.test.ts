@@ -182,11 +182,8 @@ function seedFixtures(): void {
   // Parent compact fixtures (semantic lanes)
   writeFileSync(
     resolve(PARENT_FIX, 'residual-aaaa-ponr/step4.json'),
-    JSON.stringify(
-      { ok: true, ponr_id: THIS_RUN_PONR, write_row_id: THIS_RUN_WRITE },
-      null,
-      2
-    ) + '\n'
+    JSON.stringify({ ok: true, ponr_id: THIS_RUN_PONR, write_row_id: THIS_RUN_WRITE }, null, 2) +
+      '\n'
   );
   writeFileSync(
     resolve(PARENT_FIX, 'residual-aaaa-ponr/step5-this-run.json'),
