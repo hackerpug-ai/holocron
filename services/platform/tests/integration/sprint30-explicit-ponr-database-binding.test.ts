@@ -232,14 +232,85 @@ async function databaseName(url: string): Promise<string> {
 type VerifyTargetFixture = {
   database: string;
   documentTitle: string;
+  documentContent: string;
   seeds: VerifyToolSeeds;
 };
+
+type NetworkDocumentRead = {
+  status: number;
+  isError: boolean;
+  payload: unknown;
+};
+
+/** Invoke the same deployed get_document path with a real MCP request. */
+async function readDocumentFromService(
+  baseUrl: string,
+  documentId: string
+): Promise<NetworkDocumentRead> {
+  const headers = {
+    authorization: `Bearer ${DEFAULT_KEYS.mcp}`,
+    'content-type': 'application/json',
+    accept: 'application/json, text/event-stream',
+  };
+  const mcpUrl = `${baseUrl.replace(/\/+$/, '')}/mcp`;
+  await fetch(mcpUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        capabilities: {},
+        clientInfo: { name: 's30-rr2-document-oracle', version: '1' },
+      },
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const response = await fetch(mcpUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'get_document', arguments: { documentId } },
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+  const body = (await response.json()) as {
+    result?: {
+      isError?: boolean;
+      content?: Array<{ text?: string }>;
+      structuredContent?: unknown;
+    };
+  };
+  const result = body.result;
+  const contentText = result?.content?.[0]?.text;
+  let payload: unknown;
+  if (result && 'structuredContent' in result && result.structuredContent !== undefined) {
+    payload = result.structuredContent;
+  } else if (typeof contentText === 'string') {
+    try {
+      payload = JSON.parse(contentText);
+    } catch {
+      payload = contentText;
+    }
+  }
+  return {
+    status: response.status,
+    isError: result?.isError === true,
+    payload,
+  };
+}
 
 /** Seed one target-specific document and subscription for the RR-2 oracle. */
 async function seedVerifyTarget(url: string, tag: 'a' | 'b'): Promise<VerifyTargetFixture> {
   const documentId = randomUUID();
   const subscriptionId = randomUUID();
   const documentTitle = `s30-r2-target-${tag}-${randomUUID().slice(0, 8)}`;
+  const documentContent = `s30-r2-distinctive-content-${tag}`;
   const subscriptionName = `s30-r2-subscription-${tag}-${randomUUID().slice(0, 8)}`;
   const sql = createSql(url, { max: 1 });
   try {
@@ -248,7 +319,7 @@ async function seedVerifyTarget(url: string, tag: 'a' | 'b'): Promise<VerifyTarg
       VALUES (
         ${documentId}::uuid,
         ${documentTitle},
-        ${`s30-r2-distinctive-content-${tag}`},
+        ${documentContent},
         'draft',
         false
       )
@@ -265,6 +336,7 @@ async function seedVerifyTarget(url: string, tag: 'a' | 'b'): Promise<VerifyTarg
     return {
       database: await databaseName(url),
       documentTitle,
+      documentContent,
       seeds: {
         documentId,
         subscriptionId,
@@ -904,6 +976,10 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
       let startedB = 0;
       let endedA = 0;
       let endedB = 0;
+      let observedDocumentA: NetworkDocumentRead | undefined;
+      let observedDocumentB: NetworkDocumentRead | undefined;
+      let wrongTargetReadA: NetworkDocumentRead | undefined;
+      let wrongTargetReadB: NetworkDocumentRead | undefined;
       let observedReadA:
         | {
             tool_id: string;
@@ -978,35 +1054,46 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
 
         const runA = (async () => {
           startedA = performance.now();
-          const report = await runVerifyTools({
-            cwd: REPO_ROOT,
-            databaseUrl: targets.gate,
-            baseUrl: serviceA.baseUrl,
-            keys: DEFAULT_KEYS,
-            seeds: fixtureA.seeds,
-            serviceLabel: 's30-rr2-service-a',
-            pid: serviceA.pid,
-            allowMissingDeploymentEnv: true,
-          });
+          const [report, documentRead] = await Promise.all([
+            runVerifyTools({
+              cwd: REPO_ROOT,
+              databaseUrl: targets.gate,
+              baseUrl: serviceA.baseUrl,
+              keys: DEFAULT_KEYS,
+              seeds: fixtureA.seeds,
+              serviceLabel: 's30-rr2-service-a',
+              pid: serviceA.pid,
+              allowMissingDeploymentEnv: true,
+            }),
+            readDocumentFromService(serviceA.baseUrl, fixtureA.seeds.documentId),
+          ]);
+          observedDocumentA = documentRead;
           endedA = performance.now();
-          return report;
+          return { report, documentRead };
         })();
         const runB = (async () => {
           startedB = performance.now();
-          const report = await runVerifyTools({
-            cwd: REPO_ROOT,
-            databaseUrl: targets.marker,
-            baseUrl: serviceB.baseUrl,
-            keys: DEFAULT_KEYS,
-            seeds: fixtureB.seeds,
-            serviceLabel: 's30-rr2-service-b',
-            pid: serviceB.pid,
-            allowMissingDeploymentEnv: true,
-          });
+          const [report, documentRead] = await Promise.all([
+            runVerifyTools({
+              cwd: REPO_ROOT,
+              databaseUrl: targets.marker,
+              baseUrl: serviceB.baseUrl,
+              keys: DEFAULT_KEYS,
+              seeds: fixtureB.seeds,
+              serviceLabel: 's30-rr2-service-b',
+              pid: serviceB.pid,
+              allowMissingDeploymentEnv: true,
+            }),
+            readDocumentFromService(serviceB.baseUrl, fixtureB.seeds.documentId),
+          ]);
+          observedDocumentB = documentRead;
           endedB = performance.now();
-          return report;
+          return { report, documentRead };
         })();
-        const [reportA, reportB] = await Promise.all([runA, runB]);
+        const [
+          { report: reportA, documentRead: documentA },
+          { report: reportB, documentRead: documentB },
+        ] = await Promise.all([runA, runB]);
 
         const readA = reportA.tools.find((tool) => tool.tool_id === 'get_document');
         const readB = reportB.tools.find((tool) => tool.tool_id === 'get_document');
@@ -1055,8 +1142,59 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         expect(reportA.seeds).toEqual(fixtureA.seeds);
         expect(reportB.seeds).toEqual(fixtureB.seeds);
         expect(reportA.seeds?.documentId).not.toBe(reportB.seeds?.documentId);
+        expect(readA).toMatchObject({
+          tool_id: 'get_document',
+          ok: true,
+          postgres_backed: true,
+          correspondence_matched: true,
+        });
+        expect(readB).toMatchObject({
+          tool_id: 'get_document',
+          ok: true,
+          postgres_backed: true,
+          correspondence_matched: true,
+        });
         expect(successfulReadA).toBeDefined();
         expect(successfulReadB).toBeDefined();
+        expect(documentA).toMatchObject({
+          status: 200,
+          isError: false,
+          payload: {
+            documentId: fixtureA.seeds.documentId,
+            title: fixtureA.documentTitle,
+            content: fixtureA.documentContent,
+            data_plane: 'postgres',
+            source: 'postgres',
+          },
+        });
+        expect(documentB).toMatchObject({
+          status: 200,
+          isError: false,
+          payload: {
+            documentId: fixtureB.seeds.documentId,
+            title: fixtureB.documentTitle,
+            content: fixtureB.documentContent,
+            data_plane: 'postgres',
+            source: 'postgres',
+          },
+        });
+
+        [wrongTargetReadA, wrongTargetReadB] = await Promise.all([
+          readDocumentFromService(serviceA.baseUrl, fixtureB.seeds.documentId),
+          readDocumentFromService(serviceB.baseUrl, fixtureA.seeds.documentId),
+        ]);
+        expect(wrongTargetReadA.isError || wrongTargetReadA.payload === null).toBe(true);
+        expect(wrongTargetReadB.isError || wrongTargetReadB.payload === null).toBe(true);
+        expect(wrongTargetReadA.payload).not.toMatchObject({
+          documentId: fixtureB.seeds.documentId,
+          title: fixtureB.documentTitle,
+          content: fixtureB.documentContent,
+        });
+        expect(wrongTargetReadB.payload).not.toMatchObject({
+          documentId: fixtureA.seeds.documentId,
+          title: fixtureA.documentTitle,
+          content: fixtureA.documentContent,
+        });
 
         const executionOverlap = startedA < endedB && startedB < endedA;
         expect(startedA).toBeGreaterThan(0);
@@ -1091,6 +1229,16 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
             postgres_backed: readB?.postgres_backed,
             correspondence_matched: readB?.correspondence_matched,
           },
+          report_a_exact_document: documentA.payload,
+          report_b_exact_document: documentB.payload,
+          wrong_target_read_a: {
+            is_error: wrongTargetReadA.isError,
+            payload_is_null: wrongTargetReadA.payload === null,
+          },
+          wrong_target_read_b: {
+            is_error: wrongTargetReadB.isError,
+            payload_is_null: wrongTargetReadB.payload === null,
+          },
           report_a_successful_read: observedReadA,
           report_b_successful_read: observedReadB,
         });
@@ -1105,6 +1253,10 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
           failure_kind: error instanceof Error ? error.constructor.name : typeof error,
           report_a_read: observedReadA,
           report_b_read: observedReadB,
+          report_a_exact_document: observedDocumentA,
+          report_b_exact_document: observedDocumentB,
+          wrong_target_read_a: wrongTargetReadA,
+          wrong_target_read_b: wrongTargetReadB,
           execution_overlap:
             startedA > 0 && startedB > 0 && endedA > 0 && endedB > 0
               ? startedA < endedB && startedB < endedA
@@ -1633,161 +1785,181 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
   );
 
   itReal(
-    'RR-6: accepted-write foreign marker is refused and kills predicate-removal mutant',
+    'RR-6: every fixed marker predicate rejects foreign rows and kills its removal mutant',
     async () => {
       const acceptedConstraint = 'data_plane_ponr_accepted_zero_check';
-      let constraintDropped = false;
-      let mutationExitCode: number | null = null;
-      let mutationOutput = '';
-      await clearPonr(targets.marker);
-      await clearAudit(targets.marker);
-      const constraintSql = createSql(targets.marker, { max: 1 });
-      try {
-        const constraints = await constraintSql<{ conname: string }[]>`
-          SELECT conname::text AS conname
-          FROM pg_constraint
-          WHERE conrelid = 'public.data_plane_ponr'::regclass
-            AND conname = ${acceptedConstraint}
-        `;
-        expect(constraints).toHaveLength(1);
-        await constraintSql.unsafe(
-          `ALTER TABLE public.data_plane_ponr DROP CONSTRAINT ${acceptedConstraint}`
-        );
-        constraintDropped = true;
-      } finally {
-        await constraintSql.end({ timeout: 5 });
-      }
+      const requiredTriggers = REQUIRED_PONR_TRIGGER_NAMES.map((name) => ({
+        name,
+        enabled: 'O',
+      }));
+      const fields = Object.keys(EXACT_PONR_MARKER) as MarkerField[];
+      const results: Array<Record<string, unknown>> = [];
+      const readPredicate =
+        'return (Object.keys(EXACT_PONR_MARKER) as Array<keyof typeof EXACT_PONR_MARKER>).every((key) => {';
 
-      try {
-        await seedAcceptedForeignMarker(targets.marker);
-        await seedContradictoryAudit(targets.marker);
-        const before = await markerState(targets.marker);
-        const expectedAudit = { count: 2, digest: before.audit_digest };
-        const acceptedSql = createSql(targets.marker, { max: 1 });
-        try {
-          const rows = await acceptedSql<
-            Array<{ accepted: string }>
-          >`SELECT convex_accepted_writes_since_watermark::text AS accepted FROM public.data_plane_ponr`;
-          expect(rows).toHaveLength(1);
-          expect(rows[0]?.accepted).toBe('1');
-        } finally {
-          await acceptedSql.end({ timeout: 5 });
-        }
-        expect(before.marker_count).toBe(1);
-        expect(before.audit_count).toBe(expectedAudit.count);
-
-        const production = await cleanupExactPonrMarker({
-          gateDatabaseUrl: targets.gate,
-          markerDatabaseUrl: targets.marker,
-        });
-        const afterProduction = await markerState(targets.marker);
-        const requiredTriggers = REQUIRED_PONR_TRIGGER_NAMES.map((name) => ({
-          name,
-          enabled: 'O',
-        }));
-        const productionRequiredTriggers = afterProduction.triggers.filter((trigger) =>
-          REQUIRED_PONR_TRIGGER_NAMES.includes(
-            trigger.name as (typeof REQUIRED_PONR_TRIGGER_NAMES)[number]
-          )
-        );
-        expect(production.ok).toBe(false);
-        expect(production.match_disposition).toBe('foreign_or_multiple');
-        expect(production.delete_count).toBe(0);
-        expect(afterProduction.marker_count).toBe(1);
-        expect(production.audit_before).toEqual(expectedAudit);
-        expect(production.audit_after).toEqual(expectedAudit);
-        expect(afterProduction.audit_count).toBe(expectedAudit.count);
-        expect(afterProduction.audit_digest).toBe(expectedAudit.digest);
-        expect(productionRequiredTriggers).toEqual(requiredTriggers);
-
-        const mutationRoot = childRuntimeCwd();
-        const markerSourcePath = resolve(
-          mutationRoot,
-          'services/platform/src/cutover/ponr-marker.ts'
-        );
-        const markerSource = readFileSync(markerSourcePath, 'utf8');
-        const acceptedReadPredicate =
-          'return (Object.keys(EXACT_PONR_MARKER) as Array<keyof typeof EXACT_PONR_MARKER>).every((key) => {';
-        const acceptedReadMutant =
-          "return (Object.keys(EXACT_PONR_MARKER) as Array<keyof typeof EXACT_PONR_MARKER>)\n    .filter((key) => key !== 'convex_accepted_writes_since_watermark')\n    .every((key) => {";
-        const acceptedDeletePredicate =
-          '          AND convex_accepted_writes_since_watermark = ${EXACT_PONR_MARKER.' +
-          'convex_accepted_writes_since_watermark}\n';
-        expect(markerSource.split(acceptedReadPredicate).length - 1).toBe(1);
-        expect(markerSource.split(acceptedDeletePredicate).length - 1).toBe(1);
-        const markerMutant = markerSource
-          .replace(acceptedReadPredicate, acceptedReadMutant)
-          .replace(acceptedDeletePredicate, '');
-        writeFileSync(markerSourcePath, markerMutant, 'utf8');
-
-        const mutationScript = `
-          import { cleanupExactPonrMarker } from ${JSON.stringify(markerSourcePath)};
-          const report = await cleanupExactPonrMarker(${JSON.stringify({
-            gateDatabaseUrl: targets.gate,
-            markerDatabaseUrl: targets.marker,
-          })});
-          const expectedAudit = ${JSON.stringify(expectedAudit)};
-          const requiredTriggers = ${JSON.stringify(requiredTriggers)};
-          const requiredAfter = report.trigger_after
-            .filter((trigger) => requiredTriggers.some((required) => required.name === trigger.name));
-          if (
-            report.ok ||
-            report.match_disposition !== 'foreign_or_multiple' ||
-            report.delete_count !== 0 ||
-            report.marker_after_count !== 1 ||
-            JSON.stringify(report.audit_before) !== JSON.stringify(expectedAudit) ||
-            JSON.stringify(report.audit_after) !== JSON.stringify(expectedAudit) ||
-            JSON.stringify(requiredAfter) !== JSON.stringify(requiredTriggers)
-          ) {
-            console.error('RR6_MUTATION_SURVIVED');
-            process.exit(1);
-          }
-        `;
-        const mutation = spawnSync('bun', ['--eval', mutationScript], {
-          cwd: mutationRoot,
-          encoding: 'utf8',
-          timeout: 120_000,
-          env: { ...process.env },
-        });
-        mutationExitCode = mutation.status;
-        mutationOutput = `${mutation.stdout ?? ''}\n${mutation.stderr ?? ''}`;
-        expect(mutation.status).not.toBe(0);
-        expect(mutationOutput).toContain('RR6_MUTATION_SURVIVED');
-        const afterMutation = await markerState(targets.marker);
-        expect(afterMutation.marker_count).toBe(0);
-        expect(afterMutation.audit_count).toBe(expectedAudit.count);
-        expect(afterMutation.audit_digest).toBe(expectedAudit.digest);
-        evidence('rr6-accepted-field-predicate-mutant', {
-          source_sha: SOURCE_SHA,
-          command:
-            'cleanupExactPonrMarker(gate, marker) + source mutant removing accepted-write exact-match predicates',
-          constraint_dropped: constraintDropped,
-          accepted_foreign_value: 1,
-          production_error_code: production.error?.code ?? null,
-          production_match_disposition: production.match_disposition,
-          production_delete_count: production.delete_count,
-          production_marker_preserved: afterProduction.marker_count === 1,
-          production_audit_count: afterProduction.audit_count,
-          production_required_triggers_restored: productionRequiredTriggers,
-          mutation_exit_code: mutationExitCode,
-          mutation_deleted_marker: afterMutation.marker_count === 0,
-          mutation_killed_by_harness: mutationOutput.includes('RR6_MUTATION_SURVIVED'),
-          audit_count_preserved_after_mutant: afterMutation.audit_count === expectedAudit.count,
-        });
-      } finally {
+      for (const field of fields) {
+        let constraintDropped = false;
+        let mutationExitCode: number | null = null;
+        let mutationOutput = '';
         await clearPonr(targets.marker);
         await clearAudit(targets.marker);
-        if (constraintDropped) {
-          const restoreSql = createSql(targets.marker, { max: 1 });
-          try {
-            await restoreSql.unsafe(
-              `ALTER TABLE public.data_plane_ponr ADD CONSTRAINT ${acceptedConstraint} CHECK (convex_accepted_writes_since_watermark = 0)`
-            );
-          } finally {
-            await restoreSql.end({ timeout: 5 });
+        try {
+          if (field === 'convex_accepted_writes_since_watermark') {
+            const constraintSql = createSql(targets.marker, { max: 1 });
+            try {
+              const constraints = await constraintSql<{ conname: string }[]>`
+                SELECT conname::text AS conname
+                FROM pg_constraint
+                WHERE conrelid = 'public.data_plane_ponr'::regclass
+                  AND conname = ${acceptedConstraint}
+              `;
+              expect(constraints).toHaveLength(1);
+              await constraintSql.unsafe(
+                `ALTER TABLE public.data_plane_ponr DROP CONSTRAINT ${acceptedConstraint}`
+              );
+              constraintDropped = true;
+            } finally {
+              await constraintSql.end({ timeout: 5 });
+            }
+            await seedAcceptedForeignMarker(targets.marker);
+          } else {
+            await seedExactPonrMarker({
+              gateDatabaseUrl: targets.gate,
+              markerDatabaseUrl: targets.marker,
+            });
+            await mutateMarkerField(targets.marker, field);
+          }
+          await seedContradictoryAudit(targets.marker);
+          const before = await markerState(targets.marker);
+          const expectedAudit = { count: 2, digest: before.audit_digest };
+          expect(before.marker_count).toBe(1);
+          expect(before.audit_count).toBe(expectedAudit.count);
+
+          const production = await cleanupExactPonrMarker({
+            gateDatabaseUrl: targets.gate,
+            markerDatabaseUrl: targets.marker,
+          });
+          const afterProduction = await markerState(targets.marker);
+          const productionRequiredTriggers = afterProduction.triggers.filter((trigger) =>
+            REQUIRED_PONR_TRIGGER_NAMES.includes(
+              trigger.name as (typeof REQUIRED_PONR_TRIGGER_NAMES)[number]
+            )
+          );
+          expect(production.ok, field).toBe(false);
+          expect(production.match_disposition, field).toBe('foreign_or_multiple');
+          expect(production.delete_count, field).toBe(0);
+          expect(production.marker_before_count, field).toBe(1);
+          expect(production.marker_after_count, field).toBe(1);
+          expect(production.audit_before, field).toEqual(expectedAudit);
+          expect(production.audit_after, field).toEqual(expectedAudit);
+          expect(production.trigger_before, field).toEqual(requiredTriggers);
+          expect(production.trigger_after, field).toEqual(requiredTriggers);
+          expect(afterProduction.marker_count, field).toBe(1);
+          expect(afterProduction.audit_count, field).toBe(expectedAudit.count);
+          expect(afterProduction.audit_digest, field).toBe(expectedAudit.digest);
+          expect(productionRequiredTriggers, field).toEqual(requiredTriggers);
+
+          const mutationRoot = childRuntimeCwd();
+          const markerSourcePath = resolve(
+            mutationRoot,
+            'services/platform/src/cutover/ponr-marker.ts'
+          );
+          const markerSource = readFileSync(markerSourcePath, 'utf8');
+          const readMutant =
+            "return (Object.keys(EXACT_PONR_MARKER) as Array<keyof typeof EXACT_PONR_MARKER>)\n    .filter((key) => key !== '" +
+            field +
+            "')\n    .every((key) => {";
+          const deletePredicate = `          AND ${field} = \${EXACT_PONR_MARKER.${field}}\n`;
+          expect(markerSource.split(readPredicate).length - 1, field).toBe(1);
+          expect(markerSource.split(deletePredicate).length - 1, field).toBe(1);
+          const markerMutant = markerSource
+            .replace(readPredicate, readMutant)
+            .replace(deletePredicate, '');
+          writeFileSync(markerSourcePath, markerMutant, 'utf8');
+
+          const mutationScript = `
+            import { cleanupExactPonrMarker } from ${JSON.stringify(markerSourcePath)};
+            const report = await cleanupExactPonrMarker(${JSON.stringify({
+              gateDatabaseUrl: targets.gate,
+              markerDatabaseUrl: targets.marker,
+            })});
+            const expectedAudit = ${JSON.stringify(expectedAudit)};
+            const requiredTriggers = ${JSON.stringify(requiredTriggers)};
+            const requiredBefore = report.trigger_before
+              .filter((trigger) => requiredTriggers.some((required) => required.name === trigger.name));
+            const requiredAfter = report.trigger_after
+              .filter((trigger) => requiredTriggers.some((required) => required.name === trigger.name));
+            if (
+              report.ok ||
+              report.match_disposition !== 'foreign_or_multiple' ||
+              report.delete_count !== 0 ||
+              report.marker_before_count !== 1 ||
+              report.marker_after_count !== 1 ||
+              JSON.stringify(report.audit_before) !== JSON.stringify(expectedAudit) ||
+              JSON.stringify(report.audit_after) !== JSON.stringify(expectedAudit) ||
+              JSON.stringify(requiredBefore) !== JSON.stringify(requiredTriggers) ||
+              JSON.stringify(requiredAfter) !== JSON.stringify(requiredTriggers)
+            ) {
+              console.error('RR6_MUTATION_SURVIVED_${field}');
+              process.exit(1);
+            }
+          `;
+          const mutation = spawnSync('bun', ['--eval', mutationScript], {
+            cwd: mutationRoot,
+            encoding: 'utf8',
+            timeout: 120_000,
+            env: { ...process.env },
+          });
+          mutationExitCode = mutation.status;
+          mutationOutput = `${mutation.stdout ?? ''}\n${mutation.stderr ?? ''}`;
+          expect(mutation.status, field).not.toBe(0);
+          expect(mutationOutput, field).toContain(`RR6_MUTATION_SURVIVED_${field}`);
+          const afterMutation = await markerState(targets.marker);
+          expect(afterMutation.marker_count, field).toBe(0);
+          expect(afterMutation.audit_count, field).toBe(expectedAudit.count);
+          expect(afterMutation.audit_digest, field).toBe(expectedAudit.digest);
+          expect(
+            afterMutation.triggers.filter((trigger) =>
+              REQUIRED_PONR_TRIGGER_NAMES.includes(
+                trigger.name as (typeof REQUIRED_PONR_TRIGGER_NAMES)[number]
+              )
+            ),
+            field
+          ).toEqual(requiredTriggers);
+          results.push({
+            field,
+            production_rejected: production.match_disposition,
+            production_marker_preserved: afterProduction.marker_count === 1,
+            production_audit_preserved: afterProduction.audit_digest === expectedAudit.digest,
+            production_trigger_states: production.trigger_after,
+            mutation_exit_code: mutationExitCode,
+            mutation_deleted_marker: afterMutation.marker_count === 0,
+            mutation_killed_by_harness: mutationOutput.includes(`RR6_MUTATION_SURVIVED_${field}`),
+          });
+        } finally {
+          await clearPonr(targets.marker);
+          await clearAudit(targets.marker);
+          if (constraintDropped) {
+            const restoreSql = createSql(targets.marker, { max: 1 });
+            try {
+              await restoreSql.unsafe(
+                `ALTER TABLE public.data_plane_ponr ADD CONSTRAINT ${acceptedConstraint} CHECK (convex_accepted_writes_since_watermark = 0)`
+              );
+            } finally {
+              await restoreSql.end({ timeout: 5 });
+            }
           }
         }
       }
+      evidence('rr6-all-fixed-field-predicate-mutants', {
+        source_sha: SOURCE_SHA,
+        command:
+          'real marker DB cleanup + one source predicate-removal mutant per fixed marker field',
+        fields,
+        results,
+        accepted_constraint_field: 'convex_accepted_writes_since_watermark',
+        required_trigger_states: requiredTriggers,
+      });
     },
     180_000
   );
