@@ -15,7 +15,7 @@ capability_coverage: [CAP-CUT-01]
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
 > Progress: Seventh closeout blockers **fixed** — disposable-only C-3 DB + exact dual triggers + package-bound C-3 OIDs; C-2 HEAD lock bind + v5 OID-mismatch negative; M-3 fail-closed identity tree · gate `20260807T105804Z` **5/5 verified:true** package=`f033bc86` · **not release-approved** · updated 2026-08-07T11:00:00Z
-> Status-Note: Ninth residuals RH-S30-33/34/35 implemented. Fresh package `20260807T115948Z` historical. Tip-bound human gate `20260808T011038Z` @ `54299bfc` (deployed sourceRevision match) verdict **partial 3/5** — step1/2 failed (`fence_armed=false`, zero-loss poison). GATE-FIX cycle planned (drill precondition + gate re-arm + T-SYNC-013 identity oracles). Sprint stays **In Progress**. No complete/release claim.
+> Status-Note: Tenth GATE-FIX remediation cycle planned (plan-only). Independent review `red-hat-sprint-30-20260808T014319Z-gate-fix-review.md` @ HEAD `3ba6ab5c` verdict **NEEDS_REVISION** — C-1 post-PONR GATE-META parse false step5 fail (CRITICAL); H-1 prove script mints on disarmed fence (HIGH). Prior GATE-FIX lands (drill precondition + preflight rearm + T-SYNC-013 oracles) hold product/preflight claims; consumer parse + prove fail-path still open. Sprint stays **In Progress**. No complete/release claim.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
@@ -217,6 +217,30 @@ Task plan files (durable ACs + evidence requirements; **no implementation in thi
 **Topological order (advisory):** `GATE-FIX-gate-preflight-fence-rearm` ∥ `GATE-FIX-drill-fence-precondition` → `GATE-FIX-zero-loss-t-sync-013` (oracles consume armed fence + no-mint drill). Fresh tip-bound human gate after all three land; step1 zero-loss + step2 empty identity + step5 this-run POST_PONR required for 5/5.
 
 **Branch / merge:** implementer task branches; unreviewed work NEVER merges; on dual-lens APPROVED, orchestrator merges via `kb-orchestrate` `references/merge-to-main.sh` (flock-serialized).
+
+### Tenth remediation cycle (plan only — GATE-FIX after independent review NEEDS_REVISION @ 3ba6ab5c)
+
+**Source:** independent red-hat gate-fix review `.spec/reviews/red-hat-sprint-30-20260808T014319Z-gate-fix-review.md` against reviewed HEAD `3ba6ab5c4189a3091e804b345342e9502604724f` (four landed GATE-FIX commits: fence precondition, preflight rearm, T-SYNC-013/014 identity oracles, biome format). Verdict **NEEDS_REVISION** — 1 CRITICAL, 1 HIGH. RED residual run still `20260808T011038Z` (partial 3/5) for human-gate context; C-1/H-1 are post-land consumer/oracle defects on tip.
+
+| ID | Finding | Required remediation | Severity | Proposed by |
+|----|---------|----------------------|----------|-------------|
+| GATE-FIX-post-ponr-gate-meta-parse | Post-PONR bind cannot parse real `@@GATE-META` step4.log; forces false step5 fail (`step4_missing_ponr_identity`) | Robust JSON extract (`JSONDecoder.raw_decode` or equivalent); **verbatim** GATE-META unit fixture from `20260808T011038Z` (bare JSON alone false-greens); residual aaaa still fail-closed | CRITICAL | `devops-engineer` |
+| GATE-FIX-prove-fence-no-mint-disarmed | `prove-sprint30-fence-armed-live.sh` POSTs `/api/documents` even when disarmed → HTTP 201 mint poisons zero-loss ledger | Check durable/CLI `isMigrationReadOnly()` **before** POST; fail closed without write; ledger before/after on **real** disarmed serving process; keep live 423 as sole armed PASS; optional 201 dual-reset | HIGH | `devops-engineer` |
+
+Task plan files (durable ACs + evidence requirements; **no implementation in this plan commit**):
+
+- `GATE-FIX-post-ponr-gate-meta-parse.md` — `devops-engineer` · C-1 GATE-META post-PONR parse · CRITICAL · 6 AC / 10 TC · `red_first`
+- `GATE-FIX-prove-fence-no-mint-disarmed.md` — `devops-engineer` · H-1 prove no-mint when disarmed · HIGH · 6 AC / 10 TC · `red_first`
+
+**Specialist set (this cycle):** `devops-engineer` (both findings are gate scripts/oracles). Dispatched in a single wave. Orchestrator consolidated; it authored no task content beyond SPRINT index + sibling cross-links.
+
+**Quality:** GATE-FIX remediation tasks with GWT ACs, TCs, anti-stub, evidence dirs, REQUIREMENT-CONTRACT v1 blocks, branch discipline. **Fakeability floor:** RC=0 on verbatim `@@GATE-META` step4/step5 (not bare-JSON-only unit green); real disarmed serving process + ledger count before/after for no-mint prove (not mocked curl); residual aaaa still named-fail after parse works; live 423 still sole armed prove PASS.
+
+**Topological order (advisory):** `GATE-FIX-post-ponr-gate-meta-parse` ∥ `GATE-FIX-prove-fence-no-mint-disarmed` (independent; both block treating tip as gate-fix complete). Fresh tip-bound human gate after both land; step5 this-run POST_PONR bind must PASS on real GATE-META logs without flip-to-fail; prove under disarmed must not mint.
+
+**Branch / merge:** implementer task branches; unreviewed work NEVER merges; on dual-lens APPROVED, orchestrator merges via `kb-orchestrate` `references/merge-to-main.sh` (flock-serialized).
+
+**What prior GATE-FIX lands hold (do not regress):** product `DRILL_FENCE_NOT_ARMED` before five-surface probes; durable rearm via `writeDurableMigrationReadOnly`; step2 identity zero-loss; residual-aaaa rejection **when inputs are parseable**; tip-bind + operator-secret preflight.
 
 ## Source Coverage
 
