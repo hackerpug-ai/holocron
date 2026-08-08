@@ -196,6 +196,8 @@ Every path not listed below is write-prohibited for this implementation task:
 - `scripts/cleanup-sprint30-ponr-marker.sh` (new) — env-only gate wrapper
 - `scripts/probe-ponr-role-immutability-negative-marker.sh` — shared seed identity/use, no residual marker
 - `scripts/probe-ponr-role-immutability.sh` — existing probe may be changed only for env-only libpq binding, raw-URL-free argv/output, and credential-safe failure redaction
+- `scripts/reset-sprint30-gate-ledger.sh` — gate-reachable reset helper may be changed only to replace raw database-URL Python/`psql` argv with env-only libpq binding and credential-safe errors
+- `scripts/probe-ponr-one-trigger-missing-negative.sh` — gate-reachable negative helper may be changed only to replace raw gate/marker database-URL Python/`psql` argv with env-only libpq binding and credential-safe errors
 - `scripts/run-sprint30-human-gate.sh` — early validation, pre-C3 cleanup, EXIT trap
 - `services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts` (new) — real two-DB production-path tests
 - `tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts` (new) — shell/order/credential-output contracts where behavioral process execution is appropriate
@@ -221,6 +223,7 @@ The first immutable review returned NEEDS_FIXES: test reality found **4 CRITICAL
 - **RR-7 — failure credential canaries.** Inject username, password, query, and fragment canaries into forced cleanup, foreign-row, malformed-target, and child-failure paths. Assert that none appears in argv, stdout, stderr, reports, or evidence, including when the underlying connection/libpq operation fails; success-only redaction checks do not satisfy this oracle.
 - **RR-8 — RED and quality evidence.** Preserve a behavioral RED artifact captured before production edits with command, exit code, source SHA, and credential-free A/B identities, plus seeded-value and watched-RED records. GREEN must include real two-DB integration, shell/process lifecycle, `bash -n`, TypeScript, Biome/lint, full tests, `git diff --check`, and normal hook output; generate verification summaries only through the prescribed harvest script.
 - **RR-9 — serving-target bind before network side effects.** `/health` must report the already-listening process's credential-free database target. Before `runVerifyTools`, the rollback child, or any five-surface network probe, the drill compares that complete identity to its explicit target. Missing or unequal identity returns `DATABASE_TARGET_MISMATCH`, executes no probes/repoint, and cannot be masked by a fence or other later failure.
+- **RR-10 — complete gate-helper argv boundary.** The normal human-gate call chain, including the authorized ledger reset and one-trigger-missing negative control, must pass database targets through environment-derived libpq variables only. An executed recorder/canary must observe Python and `psql` children across both helpers while proving username, password, raw URL, query, fragment, and decoded query values never appear on argv or in persisted output.
 
 ## Acceptance Criteria
 
