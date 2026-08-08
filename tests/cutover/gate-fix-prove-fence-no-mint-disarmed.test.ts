@@ -123,9 +123,7 @@ describe('GATE-FIX-prove-fence-no-mint-disarmed (H-1)', () => {
     expect(src).toContain('require HTTP 423');
   });
 
-  it(
-    'TC-2/TC-6/AC-1 live: disarmed server → fail without POST; ledger delta 0',
-    () => {
+  it('TC-2/TC-6/AC-1 live: disarmed server → fail without POST; ledger delta 0', () => {
     mkdirSync(EVID, { recursive: true });
     if (!healthOk()) {
       writeFileSync(
@@ -181,9 +179,7 @@ describe('GATE-FIX-prove-fence-no-mint-disarmed (H-1)', () => {
       expect(after - before).toBe(0);
       expect(j.ledger?.delta).toBe(0);
     }
-    },
-    30_000
-  );
+  }, 30_000);
 
   it('TC-1 RED pointer present or reconstructable', () => {
     mkdirSync(EVID, { recursive: true });
