@@ -3695,8 +3695,13 @@ async function main(): Promise<void> {
         CONTROL_PLANE_WRITE_FAILED,
         OPERATOR_UNAUTHORIZED,
       } = await import('../cutover/rollback-repoint.ts');
+      let databaseTarget:
+        | ReturnType<typeof resolveRequiredDatabaseTarget>['databaseTarget']
+        | null = null;
       try {
-        const { databaseUrl } = resolveRequiredDatabaseTarget();
+        const resolvedTarget = resolveRequiredDatabaseTarget();
+        databaseTarget = resolvedTarget.databaseTarget;
+        const { databaseUrl } = resolvedTarget;
         const reportPath = args.output
           ? resolve(args.output)
           : defaultRollbackRepointReportPath(process.cwd());
@@ -3727,12 +3732,17 @@ async function main(): Promise<void> {
           );
         }
         process.exit(0);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+      } catch {
+        const failure = {
+          ok: false,
+          code: ROLLBACK_INELIGIBLE,
+          error: 'cutover:rollback-repoint failed before a report could be generated',
+          database_target: databaseTarget,
+        };
         if (args.json) {
-          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+          console.error(JSON.stringify(failure, null, 2));
         } else {
-          console.error(`holo cutover:rollback-repoint failed: ${msg}`);
+          console.error(`holo cutover:rollback-repoint failed: ${failure.error}`);
         }
         process.exit(1);
       }
@@ -3753,8 +3763,13 @@ async function main(): Promise<void> {
         DRILL_LIVE_ACK_MISSING,
         DRILL_REPOINT_FAILED,
       } = await import('../cutover/rollback-drill.ts');
+      let databaseTarget:
+        | ReturnType<typeof resolveRequiredDatabaseTarget>['databaseTarget']
+        | null = null;
       try {
-        const { databaseUrl } = resolveRequiredDatabaseTarget();
+        const resolvedTarget = resolveRequiredDatabaseTarget();
+        databaseTarget = resolvedTarget.databaseTarget;
+        const { databaseUrl } = resolvedTarget;
         const reportPath = args.output
           ? resolve(args.output)
           : defaultRollbackDrillReportPath(process.cwd());
@@ -3784,12 +3799,17 @@ async function main(): Promise<void> {
           );
         }
         process.exit(0);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+      } catch {
+        const failure = {
+          ok: false,
+          code: DRILL_REPOINT_FAILED,
+          error: 'cutover:rollback-drill failed before a report could be generated',
+          database_target: databaseTarget,
+        };
         if (args.json) {
-          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+          console.error(JSON.stringify(failure, null, 2));
         } else {
-          console.error(`holo cutover:rollback-drill failed: ${msg}`);
+          console.error(`holo cutover:rollback-drill failed: ${failure.error}`);
         }
         process.exit(1);
       }
