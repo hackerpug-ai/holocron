@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "fence_line": "HOLO_MIGRATION_READ_ONLY: \"1\"",
+  "fence_value_shape": "\"1\"",
+  "doubled_quote_corruption": false,
+  "data_plane_line": "HOLO_DATA_PLANE: \"postgres\"",
+  "rollback_target_line": "HOLO_ROLLBACK_TARGET: \"postgres-soak\""
+}

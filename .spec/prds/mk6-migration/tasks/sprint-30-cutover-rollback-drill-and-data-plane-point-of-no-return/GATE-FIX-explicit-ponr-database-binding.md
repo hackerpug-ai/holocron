@@ -1,4 +1,6 @@
 # GATE-FIX-explicit-ponr-database-binding — Bind rollback/PONR oracles to one database and lifecycle the exact C-3 marker
+> Status: 🟡 In Progress
+> Updated: 2026-08-08T18:49:07Z
 
 > **Task ID:** GATE-FIX-explicit-ponr-database-binding
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)

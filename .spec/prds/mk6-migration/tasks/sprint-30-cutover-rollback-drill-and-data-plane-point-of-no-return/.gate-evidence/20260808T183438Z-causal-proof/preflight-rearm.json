@@ -1,0 +1,18 @@
+{
+  "fence": "1",
+  "secretsPath": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+  "fence_keys": [
+    "HOLO_MIGRATION_READ_ONLY"
+  ],
+  "doubled_quote_repaired": false,
+  "plane": "postgres",
+  "target": "postgres-soak",
+  "plane_keys": [
+    "HOLO_DATA_PLANE",
+    "HOLO_ROLLBACK_TARGET",
+    "HOLO_ROLLBACK_ENGAGED_AT"
+  ],
+  "post_parse_ok": true,
+  "fence_value_shape": "quoted"
+}
+rearm ok fence=1 plane=postgres target=postgres-soak
