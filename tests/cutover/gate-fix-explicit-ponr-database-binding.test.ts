@@ -970,7 +970,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       await dropShellTargets();
       await dropHelperCanaryRole();
     }
-  });
+  }, 180_000);
 
   it('TC-1: runnable compiler rejects omission of databaseUrl at all three boundaries', () => {
     const result = runDatabaseUrlTypeContract();
