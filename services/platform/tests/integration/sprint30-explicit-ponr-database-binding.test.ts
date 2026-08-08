@@ -10,7 +10,11 @@ import { cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } f
 import { resolve } from 'node:path';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type LiveService, startLiveService } from '../../../../tests/integration/service/harness';
+import {
+  DEFAULT_KEYS,
+  type LiveService,
+  startLiveService,
+} from '../../../../tests/integration/service/harness';
 import {
   cleanupExactPonrMarker,
   EXACT_PONR_MARKER,
@@ -23,7 +27,8 @@ import {
   runRollbackDrill,
   spawnRollbackRepointCli,
 } from '../../src/cutover/rollback-drill.ts';
-import { runRollbackRepoint } from '../../src/cutover/rollback-repoint.ts';
+import { PONR_LEDGER_UNREADABLE, runRollbackRepoint } from '../../src/cutover/rollback-repoint.ts';
+import { runVerifyTools, type VerifyToolSeeds } from '../../src/cutover/soak-fence.ts';
 import { createSql } from '../../src/db/client.ts';
 import {
   databaseTargetIdentitiesEqual,
@@ -224,6 +229,72 @@ async function databaseName(url: string): Promise<string> {
   }
 }
 
+type VerifyTargetFixture = {
+  database: string;
+  documentTitle: string;
+  seeds: VerifyToolSeeds;
+};
+
+/** Seed one target-specific document and subscription for the RR-2 oracle. */
+async function seedVerifyTarget(url: string, tag: 'a' | 'b'): Promise<VerifyTargetFixture> {
+  const documentId = randomUUID();
+  const subscriptionId = randomUUID();
+  const documentTitle = `s30-r2-target-${tag}-${randomUUID().slice(0, 8)}`;
+  const subscriptionName = `s30-r2-subscription-${tag}-${randomUUID().slice(0, 8)}`;
+  const sql = createSql(url, { max: 1 });
+  try {
+    await sql`
+      INSERT INTO public.documents (id, title, content, status, is_public)
+      VALUES (
+        ${documentId}::uuid,
+        ${documentTitle},
+        ${`s30-r2-distinctive-content-${tag}`},
+        'draft',
+        false
+      )
+    `;
+    await sql`
+      INSERT INTO public.subscription_sources (id, source_type, identifier, name)
+      VALUES (
+        ${subscriptionId}::uuid,
+        'github',
+        ${`s30-r2-distinctive-identifier-${tag}`},
+        ${subscriptionName}
+      )
+    `;
+    return {
+      database: await databaseName(url),
+      documentTitle,
+      seeds: {
+        documentId,
+        subscriptionId,
+        researchSessionId: '',
+        improvementId: '',
+        assimilationSessionId: '',
+        toolId: '',
+        shopSessionId: '',
+        profileId: '',
+        runId: `s30-r2-${tag}-${randomUUID().slice(0, 8)}`,
+      },
+    };
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+async function removeVerifyTarget(url: string, fixture: VerifyTargetFixture): Promise<void> {
+  const sql = createSql(url, { max: 1 });
+  try {
+    await sql`DELETE FROM public.documents WHERE id = ${fixture.seeds.documentId}::uuid`;
+    await sql`
+      DELETE FROM public.subscription_sources
+      WHERE id = ${fixture.seeds.subscriptionId}::uuid
+    `;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 type MarkerField = keyof typeof EXACT_PONR_MARKER;
 type MarkerState = {
   marker_count: number;
@@ -329,6 +400,34 @@ async function mutateMarkerField(url: string, field: MarkerField): Promise<void>
     await sql.unsafe(
       'ALTER TABLE public.data_plane_ponr ENABLE TRIGGER data_plane_ponr_reject_truncate'
     );
+    await sql.end({ timeout: 5 });
+  }
+}
+
+/** Seed an otherwise-exact marker whose schema-fixed accepted count is foreign. */
+async function seedAcceptedForeignMarker(url: string): Promise<void> {
+  const sql = createSql(url, { max: 1 });
+  try {
+    await sql`
+      INSERT INTO public.data_plane_ponr (
+        fence_lifted_at, write_surface, write_table, write_row_id,
+        write_row_digest_sha256, write_committed_at, base_url, operator,
+        run_id, idempotency_key, export_watermark_ms, convex_fence_audit_id,
+        convex_fence_env_value, convex_documents_total,
+        convex_newest_document_creation_time,
+        convex_accepted_writes_since_watermark,
+        convex_rejected_writes_since_watermark
+      ) VALUES (
+        now(), ${EXACT_PONR_MARKER.write_surface}, ${EXACT_PONR_MARKER.write_table},
+        ${EXACT_PONR_MARKER.write_row_id}, ${EXACT_PONR_MARKER.write_row_digest_sha256}, now(),
+        ${EXACT_PONR_MARKER.base_url}, ${EXACT_PONR_MARKER.operator}, ${EXACT_PONR_MARKER.run_id},
+        ${EXACT_PONR_MARKER.idempotency_key}, 1, ${EXACT_PONR_MARKER.convex_fence_audit_id},
+        ${EXACT_PONR_MARKER.convex_fence_env_value}, ${EXACT_PONR_MARKER.convex_documents_total},
+        ${EXACT_PONR_MARKER.convex_newest_document_creation_time}, 1,
+        ${EXACT_PONR_MARKER.convex_rejected_writes_since_watermark}
+      )
+    `;
+  } finally {
     await sql.end({ timeout: 5 });
   }
 }
@@ -727,11 +826,35 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
       await clearAudit(targets.gate);
       await seedContradictoryAudit(targets.marker);
       const priorDatabaseUrl = process.env.DATABASE_URL;
+      const priorSecretsPath = process.env.HOLO_SECRETS_PATH;
+      const priorHolocronSecretsPath = process.env.HOLOCRON_SECRETS_PATH;
+      const priorDangerousOverride = process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+      const servingSecrets = fixtureServingSecrets('red-audit-recompute-serving');
+      let serviceA: LiveService | undefined;
       process.env.DATABASE_URL = targets.marker;
+      process.env.HOLO_SECRETS_PATH = servingSecrets;
+      process.env.HOLOCRON_SECRETS_PATH = servingSecrets;
+      process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = '1';
       try {
+        serviceA = await startLiveService({
+          databaseUrl: targets.gate,
+          readyTimeoutMs: 30_000,
+          extraEnv: {
+            HOLO_SECRETS_PATH: servingSecrets,
+            HOLOCRON_SECRETS_PATH: servingSecrets,
+            HOLO_MIGRATION_READ_ONLY: '1',
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+            HOLO_SERVICE_LABEL: 's30-red4-service-a',
+          },
+        });
+        const health = await fetch(`${serviceA.baseUrl}/health`, {
+          signal: AbortSignal.timeout(15_000),
+        });
+        expect(health.status).toBe(200);
         const report = await runRollbackDrill({
           databaseUrl: targets.gate,
           cwd: REPO_ROOT,
+          baseUrl: serviceA.baseUrl,
           triggerBaseUrl: 'http://127.0.0.1:9',
           reportPath: resolve(EVIDENCE_DIR, 'red-audit-recompute-report.json'),
           watermarkPath: fixtureWatermark('red-audit-recompute'),
@@ -741,10 +864,11 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         evidence('red-audit-recompute-shape', {
           source_sha: SOURCE_SHA,
           command:
-            'runRollbackDrill({ databaseUrl: explicit_gate, skipProbes:true, skipRepoint:true })',
+            'runRollbackDrill({ databaseUrl: explicit_gate, baseUrl: serving_gate, skipProbes:true, skipRepoint:true })',
           exit_code: null,
           assertion: 'explicit audit recompute must not redirect ambient process state',
           ambient_database_unchanged: process.env.DATABASE_URL === targets.marker,
+          serving_database: await databaseName(targets.gate),
           recomputed: report.independentRecompute.acceptedCount,
           target_database: report.database_target.database,
         });
@@ -752,11 +876,628 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         expect(report.database_target.database).toBe(new URL(targets.gate).pathname.slice(1));
         expect(report.independentRecompute.acceptedCount).toBe(0);
       } finally {
+        if (serviceA) await serviceA.stop();
+        if (priorDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+        else process.env.DATABASE_URL = priorDatabaseUrl;
+        if (priorSecretsPath === undefined) delete process.env.HOLO_SECRETS_PATH;
+        else process.env.HOLO_SECRETS_PATH = priorSecretsPath;
+        if (priorHolocronSecretsPath === undefined) delete process.env.HOLOCRON_SECRETS_PATH;
+        else process.env.HOLOCRON_SECRETS_PATH = priorHolocronSecretsPath;
+        if (priorDangerousOverride === undefined) delete process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+        else process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = priorDangerousOverride;
+      }
+    },
+    180_000
+  );
+
+  itReal(
+    'RR-2: concurrent healthy A/B verify-tools calls keep explicit seed and DB isolation',
+    async () => {
+      const priorDatabaseUrl = process.env.DATABASE_URL;
+      const ambientCanary =
+        'postgres://ambient-user-canary:ambient-password-canary@127.0.0.1:9/ambient-unreachable?ambient-query-canary=1#ambient-fragment-canary';
+      let fixtureA: VerifyTargetFixture | undefined;
+      let fixtureB: VerifyTargetFixture | undefined;
+      let serviceA: LiveService | undefined;
+      let serviceB: LiveService | undefined;
+      let startedA = 0;
+      let startedB = 0;
+      let endedA = 0;
+      let endedB = 0;
+      let observedReadA:
+        | {
+            tool_id: string;
+            ok?: boolean;
+            postgres_backed?: boolean;
+            correspondence_matched?: boolean;
+          }
+        | undefined;
+      let observedReadB:
+        | {
+            tool_id: string;
+            ok?: boolean;
+            postgres_backed?: boolean;
+            correspondence_matched?: boolean;
+          }
+        | undefined;
+      const command =
+        'PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts';
+      process.env.DATABASE_URL = ambientCanary;
+      try {
+        fixtureA = await seedVerifyTarget(targets.gate, 'a');
+        fixtureB = await seedVerifyTarget(targets.marker, 'b');
+        const serviceSecretsA = fixtureServingSecrets('rr2-service-a');
+        const serviceSecretsB = fixtureServingSecrets('rr2-service-b');
+        serviceA = await startLiveService({
+          databaseUrl: targets.gate,
+          readyTimeoutMs: 30_000,
+          extraEnv: {
+            HOLO_SECRETS_PATH: serviceSecretsA,
+            HOLOCRON_SECRETS_PATH: serviceSecretsA,
+            HOLO_MIGRATION_READ_ONLY: '1',
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+            HOLO_SERVICE_LABEL: 's30-rr2-service-a',
+          },
+        });
+        serviceB = await startLiveService({
+          databaseUrl: targets.marker,
+          readyTimeoutMs: 30_000,
+          extraEnv: {
+            HOLO_SECRETS_PATH: serviceSecretsB,
+            HOLOCRON_SECRETS_PATH: serviceSecretsB,
+            HOLO_MIGRATION_READ_ONLY: '1',
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+            HOLO_SERVICE_LABEL: 's30-rr2-service-b',
+          },
+        });
+
+        const health = await Promise.all(
+          [serviceA, serviceB].map(async (service) => {
+            const response = await fetch(`${service.baseUrl}/health`, {
+              signal: AbortSignal.timeout(15_000),
+            });
+            return {
+              status: response.status,
+              body: (await response.json()) as {
+                db?: { ready?: boolean };
+                postgres?: { ready?: boolean };
+                pid?: number;
+              },
+            };
+          })
+        );
+        expect(health).toHaveLength(2);
+        expect(health[0]?.status).toBe(200);
+        expect(health[1]?.status).toBe(200);
+        expect(health[0]?.body.db?.ready).toBe(true);
+        expect(health[0]?.body.postgres?.ready).toBe(true);
+        expect(health[1]?.body.db?.ready).toBe(true);
+        expect(health[1]?.body.postgres?.ready).toBe(true);
+        expect(health[0]?.body.pid).toBe(serviceA.pid);
+        expect(health[1]?.body.pid).toBe(serviceB.pid);
+
+        const runA = (async () => {
+          startedA = performance.now();
+          const report = await runVerifyTools({
+            cwd: REPO_ROOT,
+            databaseUrl: targets.gate,
+            baseUrl: serviceA.baseUrl,
+            keys: DEFAULT_KEYS,
+            seeds: fixtureA.seeds,
+            serviceLabel: 's30-rr2-service-a',
+            pid: serviceA.pid,
+            allowMissingDeploymentEnv: true,
+          });
+          endedA = performance.now();
+          return report;
+        })();
+        const runB = (async () => {
+          startedB = performance.now();
+          const report = await runVerifyTools({
+            cwd: REPO_ROOT,
+            databaseUrl: targets.marker,
+            baseUrl: serviceB.baseUrl,
+            keys: DEFAULT_KEYS,
+            seeds: fixtureB.seeds,
+            serviceLabel: 's30-rr2-service-b',
+            pid: serviceB.pid,
+            allowMissingDeploymentEnv: true,
+          });
+          endedB = performance.now();
+          return report;
+        })();
+        const [reportA, reportB] = await Promise.all([runA, runB]);
+
+        const readA = reportA.tools.find((tool) => tool.tool_id === 'get_document');
+        const readB = reportB.tools.find((tool) => tool.tool_id === 'get_document');
+        const successfulReadA = reportA.tools.find(
+          (tool) =>
+            !tool.is_mutation &&
+            tool.postgres_backed === true &&
+            tool.correspondence_matched === true
+        );
+        const successfulReadB = reportB.tools.find(
+          (tool) =>
+            !tool.is_mutation &&
+            tool.postgres_backed === true &&
+            tool.correspondence_matched === true
+        );
+        observedReadA = successfulReadA
+          ? {
+              tool_id: successfulReadA.tool_id,
+              ok: successfulReadA.ok,
+              postgres_backed: successfulReadA.postgres_backed,
+              correspondence_matched: successfulReadA.correspondence_matched,
+            }
+          : readA
+            ? {
+                tool_id: readA.tool_id,
+                ok: readA.ok,
+                postgres_backed: readA.postgres_backed,
+                correspondence_matched: readA.correspondence_matched,
+              }
+            : undefined;
+        observedReadB = successfulReadB
+          ? {
+              tool_id: successfulReadB.tool_id,
+              ok: successfulReadB.ok,
+              postgres_backed: successfulReadB.postgres_backed,
+              correspondence_matched: successfulReadB.correspondence_matched,
+            }
+          : readB
+            ? {
+                tool_id: readB.tool_id,
+                ok: readB.ok,
+                postgres_backed: readB.postgres_backed,
+                correspondence_matched: readB.correspondence_matched,
+              }
+            : undefined;
+        expect(reportA.seeds).toEqual(fixtureA.seeds);
+        expect(reportB.seeds).toEqual(fixtureB.seeds);
+        expect(reportA.seeds?.documentId).not.toBe(reportB.seeds?.documentId);
+        expect(successfulReadA).toBeDefined();
+        expect(successfulReadB).toBeDefined();
+
+        const executionOverlap = startedA < endedB && startedB < endedA;
+        expect(startedA).toBeGreaterThan(0);
+        expect(startedB).toBeGreaterThan(0);
+        expect(endedA).toBeGreaterThan(startedA);
+        expect(endedB).toBeGreaterThan(startedB);
+        expect(executionOverlap).toBe(true);
+        expect(process.env.DATABASE_URL).toBe(ambientCanary);
+
+        evidence('rr2-concurrent-verify-tools', {
+          source_sha: SOURCE_SHA,
+          command,
+          exit_code: 0,
+          gate_database: fixtureA.database,
+          marker_database: fixtureB.database,
+          ambient_target: 'unreachable-sentinel-c',
+          ambient_unchanged: process.env.DATABASE_URL === ambientCanary,
+          execution_overlap: executionOverlap,
+          started_a_ms: startedA,
+          ended_a_ms: endedA,
+          started_b_ms: startedB,
+          ended_b_ms: endedB,
+          report_a_seed_document: reportA.seeds?.documentId,
+          report_b_seed_document: reportB.seeds?.documentId,
+          report_a_get_document: {
+            ok: readA?.ok,
+            postgres_backed: readA?.postgres_backed,
+            correspondence_matched: readA?.correspondence_matched,
+          },
+          report_b_get_document: {
+            ok: readB?.ok,
+            postgres_backed: readB?.postgres_backed,
+            correspondence_matched: readB?.correspondence_matched,
+          },
+          report_a_successful_read: observedReadA,
+          report_b_successful_read: observedReadB,
+        });
+      } catch (error) {
+        evidence('rr2-concurrent-verify-tools-failure', {
+          source_sha: SOURCE_SHA,
+          command,
+          exit_code: null,
+          gate_database: fixtureA?.database ?? 'unprovisioned',
+          marker_database: fixtureB?.database ?? 'unprovisioned',
+          ambient_target: 'unreachable-sentinel-c',
+          failure_kind: error instanceof Error ? error.constructor.name : typeof error,
+          report_a_read: observedReadA,
+          report_b_read: observedReadB,
+          execution_overlap:
+            startedA > 0 && startedB > 0 && endedA > 0 && endedB > 0
+              ? startedA < endedB && startedB < endedA
+              : false,
+        });
+        throw error;
+      } finally {
+        if (serviceA) await serviceA.stop();
+        if (serviceB) await serviceB.stop();
+        if (fixtureA) await removeVerifyTarget(targets.gate, fixtureA);
+        if (fixtureB) await removeVerifyTarget(targets.marker, fixtureB);
         if (priorDatabaseUrl === undefined) delete process.env.DATABASE_URL;
         else process.env.DATABASE_URL = priorDatabaseUrl;
       }
     },
     180_000
+  );
+
+  itReal(
+    'RR-9: serving target mismatch fails before verify, child, recompute, or probes',
+    async () => {
+      const priorDatabaseUrl = process.env.DATABASE_URL;
+      const priorSecretsPath = process.env.HOLO_SECRETS_PATH;
+      const priorHolocronSecretsPath = process.env.HOLOCRON_SECRETS_PATH;
+      const priorDangerousOverride = process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+      const ambientCanary =
+        'postgres://rr9-ambient-user:rr9-ambient-password@127.0.0.1:9/rr9-ambient-unreachable?rr9-query-canary=1#rr9-fragment-canary';
+      const triggerCanary = 'http://rr9-trigger-output-canary.invalid:9';
+      const command =
+        'PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts --testNamePattern=RR-9';
+      let serviceA: LiveService | undefined;
+      let serviceB: LiveService | undefined;
+      let mismatchReport: Awaited<ReturnType<typeof runRollbackDrill>> | undefined;
+      let matchingReport: Awaited<ReturnType<typeof runRollbackDrill>> | undefined;
+      let mismatchAssertionError: unknown;
+      process.env.DATABASE_URL = ambientCanary;
+      process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = '1';
+      const servingSecrets = fixtureServingSecrets('rr9-serving-target-mismatch');
+      process.env.HOLO_SECRETS_PATH = servingSecrets;
+      process.env.HOLOCRON_SECRETS_PATH = servingSecrets;
+      try {
+        serviceA = await startLiveService({
+          databaseUrl: targets.gate,
+          readyTimeoutMs: 30_000,
+          extraEnv: {
+            HOLO_SECRETS_PATH: servingSecrets,
+            HOLOCRON_SECRETS_PATH: servingSecrets,
+            HOLO_MIGRATION_READ_ONLY: '1',
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+            HOLO_SERVICE_LABEL: 's30-rr9-service-a',
+          },
+        });
+        serviceB = await startLiveService({
+          databaseUrl: targets.marker,
+          readyTimeoutMs: 30_000,
+          extraEnv: {
+            HOLO_SECRETS_PATH: servingSecrets,
+            HOLOCRON_SECRETS_PATH: servingSecrets,
+            HOLO_MIGRATION_READ_ONLY: '1',
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+            HOLO_SERVICE_LABEL: 's30-rr9-service-b',
+          },
+        });
+
+        const healthResults = await Promise.all(
+          [serviceA, serviceB].map(async (service) => {
+            const response = await fetch(`${service.baseUrl}/health`, {
+              signal: AbortSignal.timeout(15_000),
+            });
+            return { status: response.status };
+          })
+        );
+        const healthA = healthResults[0];
+        const healthB = healthResults[1];
+        if (!healthA || !healthB) throw new Error('RR9 health probes returned incomplete results');
+        expect(healthA.status).toBe(200);
+        expect(healthB.status).toBe(200);
+
+        mismatchReport = await runRollbackDrill({
+          databaseUrl: targets.gate,
+          cwd: REPO_ROOT,
+          baseUrl: serviceB.baseUrl,
+          triggerBaseUrl: triggerCanary,
+          reportPath: resolve(EVIDENCE_DIR, 'rr9-serving-target-mismatch-report.json'),
+          repointOutputPath: resolve(EVIDENCE_DIR, 'rr9-serving-target-mismatch-output.json'),
+          watermarkPath: fixtureWatermark('rr9-serving-target-mismatch'),
+          auditPath: resolve(EVIDENCE_DIR, 'rr9-serving-target-mismatch-audit.json'),
+        });
+
+        // RR-9 requires a production-path serving identity comparison before
+        // any verifier, child CLI, independent ledger read, or write probe.
+        // Capture an unmet RED assertion but continue to the matching-target
+        // control below, so one failing branch cannot mask the control.
+        try {
+          expect(mismatchReport.ok).toBe(false);
+          expect(mismatchReport.repointed).toBe(false);
+          expect(mismatchReport.error?.code).toBe(DATABASE_TARGET_MISMATCH);
+          expect(mismatchReport.sevOneTrigger.report.toolsTotal).toBe(0);
+          expect(mismatchReport.repoint.exitCode).toBeNull();
+          expect(mismatchReport.repoint.parsed).toBeNull();
+          expect(mismatchReport.repoint.argv).toEqual([]);
+          expect(mismatchReport.repoint.stdout).toBe('');
+          expect(mismatchReport.repoint.stderr).toBe('');
+          expect(mismatchReport.independentRecompute.acceptedCount).toBe(-1);
+          expect(mismatchReport.independentRecompute.auditFileExists).toBe(false);
+          expect(mismatchReport.independentRecompute.matchesReport).toBe(false);
+          expect(
+            Object.values(mismatchReport.probes).every((probe) => probe.executed === false)
+          ).toBe(true);
+          expect(mismatchReport.accepted_write_identities).toEqual([]);
+          expect(mismatchReport.postRepointHealthProbe).toBeNull();
+          expect(mismatchReport.content_probe).toBeNull();
+          expect(JSON.stringify(mismatchReport)).not.toContain('rr9-trigger-output-canary');
+        } catch (error) {
+          mismatchAssertionError = error;
+        }
+
+        // Matching serving/database identities must pass this preflight. The
+        // remainder is intentionally allowed to fail for incomplete drill
+        // prerequisites; it must not be misclassified as target mismatch.
+        matchingReport = await runRollbackDrill({
+          databaseUrl: targets.gate,
+          cwd: REPO_ROOT,
+          baseUrl: serviceA.baseUrl,
+          triggerBaseUrl: 'http://127.0.0.1:9',
+          reportPath: resolve(EVIDENCE_DIR, 'rr9-serving-target-match-report.json'),
+          repointOutputPath: resolve(EVIDENCE_DIR, 'rr9-serving-target-match-output.json'),
+          watermarkPath: fixtureWatermark('rr9-serving-target-match'),
+          auditPath: resolve(EVIDENCE_DIR, 'rr9-serving-target-match-audit.json'),
+          skipProbes: true,
+        });
+        expect(matchingReport.error?.code).not.toBe(DATABASE_TARGET_MISMATCH);
+        expect(matchingReport.sevOneTrigger.report.toolsTotal).toBeGreaterThan(0);
+        expect(matchingReport.repoint.argv.length).toBeGreaterThan(0);
+        if (mismatchAssertionError) throw mismatchAssertionError;
+
+        evidence('rr9-serving-target-mismatch', {
+          source_sha: SOURCE_SHA,
+          command,
+          exit_code: 0,
+          gate_database: await databaseName(targets.gate),
+          serving_database: await databaseName(targets.marker),
+          ambient_target: 'rr9-unreachable-sentinel',
+          mismatch_error_code: mismatchReport.error?.code,
+          mismatch_repoint_argv_count: mismatchReport.repoint.argv.length,
+          mismatch_probe_executed: Object.values(mismatchReport.probes).some(
+            (probe) => probe.executed
+          ),
+          mismatch_recompute_count: mismatchReport.independentRecompute.acceptedCount,
+          matching_error_code: matchingReport.error?.code ?? null,
+          matching_verify_tools_total: matchingReport.sevOneTrigger.report.toolsTotal,
+          matching_child_argv_count: matchingReport.repoint.argv.length,
+        });
+      } catch (error) {
+        evidence('rr9-serving-target-mismatch-red', {
+          source_sha: SOURCE_SHA,
+          command,
+          exit_code: 1,
+          gate_database: await databaseName(targets.gate),
+          serving_database: await databaseName(targets.marker),
+          ambient_target: 'rr9-unreachable-sentinel',
+          failure_kind: error instanceof Error ? error.constructor.name : typeof error,
+          observed_mismatch_error_code: mismatchReport?.error?.code ?? null,
+          observed_mismatch_verify_tools_total:
+            mismatchReport?.sevOneTrigger.report.toolsTotal ?? null,
+          observed_mismatch_repoint_argv_count: mismatchReport?.repoint.argv.length ?? null,
+          observed_mismatch_probe_executed:
+            mismatchReport === undefined
+              ? null
+              : Object.values(mismatchReport.probes).some((probe) => probe.executed),
+          observed_mismatch_recompute_count:
+            mismatchReport?.independentRecompute.acceptedCount ?? null,
+          observed_matching_error_code: matchingReport?.error?.code ?? null,
+        });
+        throw error;
+      } finally {
+        if (serviceA) await serviceA.stop();
+        if (serviceB) await serviceB.stop();
+        if (priorDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+        else process.env.DATABASE_URL = priorDatabaseUrl;
+        if (priorSecretsPath === undefined) delete process.env.HOLO_SECRETS_PATH;
+        else process.env.HOLO_SECRETS_PATH = priorSecretsPath;
+        if (priorHolocronSecretsPath === undefined) delete process.env.HOLOCRON_SECRETS_PATH;
+        else process.env.HOLOCRON_SECRETS_PATH = priorHolocronSecretsPath;
+        if (priorDangerousOverride === undefined) delete process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+        else process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = priorDangerousOverride;
+      }
+    },
+    180_000
+  );
+
+  itReal(
+    'RR-3: production drill rejects a genuine successful child B report under parent A',
+    async () => {
+      const priorDatabaseUrl = process.env.DATABASE_URL;
+      const priorSecretsPath = process.env.HOLO_SECRETS_PATH;
+      const priorHolocronSecretsPath = process.env.HOLOCRON_SECRETS_PATH;
+      const priorDangerousOverride = process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+      const priorOperatorSecret = process.env.HOLO_CUTOVER_OPERATOR_SECRET;
+      const operatorSecret = 'rr3-operator-secret-canary';
+      const command =
+        'PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts --testNamePattern=RR-3';
+      let serviceA: LiveService | undefined;
+      let productionReport: Awaited<ReturnType<typeof runRollbackDrill>> | undefined;
+      let mutationExitCode: number | null = null;
+      let mutationOutput = '';
+      process.env.DATABASE_URL = targets.marker;
+      process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = '1';
+      process.env.HOLO_CUTOVER_OPERATOR_SECRET = operatorSecret;
+      const servingSecrets = fixtureServingSecrets('rr3-child-mismatch');
+      process.env.HOLO_SECRETS_PATH = servingSecrets;
+      process.env.HOLOCRON_SECRETS_PATH = servingSecrets;
+      const childRoot = childRuntimeCwd();
+      const childDrillSourcePath = resolve(
+        childRoot,
+        'services/platform/src/cutover/rollback-drill.ts'
+      );
+      const explicitDatabaseBinding =
+        'env: { ...(options.env ?? process.env), DATABASE_URL: options.databaseUrl },';
+      const ambientDatabaseBinding =
+        'env: { ...(options.env ?? process.env), DATABASE_URL: options.env?.DATABASE_URL ?? options.databaseUrl },';
+      const childDrillSource = readFileSync(childDrillSourcePath, 'utf8');
+      expect(childDrillSource.split(explicitDatabaseBinding).length - 1).toBe(1);
+      writeFileSync(
+        childDrillSourcePath,
+        childDrillSource.replace(explicitDatabaseBinding, ambientDatabaseBinding),
+        'utf8'
+      );
+      try {
+        serviceA = await startLiveService({
+          databaseUrl: targets.gate,
+          readyTimeoutMs: 30_000,
+          extraEnv: {
+            HOLO_SECRETS_PATH: servingSecrets,
+            HOLOCRON_SECRETS_PATH: servingSecrets,
+            HOLO_MIGRATION_READ_ONLY: '1',
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+            HOLO_SERVICE_LABEL: 's30-rr3-service-a',
+          },
+        });
+        const health = await fetch(`${serviceA.baseUrl}/health`, {
+          signal: AbortSignal.timeout(15_000),
+        });
+        expect(health.status).toBe(200);
+
+        const productionDrillOptions = {
+          databaseUrl: targets.gate,
+          cwd: childRoot,
+          baseUrl: serviceA.baseUrl,
+          triggerBaseUrl: 'http://127.0.0.1:9',
+          reportPath: resolve(EVIDENCE_DIR, 'rr3-parent-a-child-b-report.json'),
+          repointOutputPath: resolve(EVIDENCE_DIR, 'rr3-parent-a-child-b-repoint.json'),
+          watermarkPath: fixtureWatermark('rr3-parent-a-child-b'),
+          auditPath: resolve(EVIDENCE_DIR, 'rr3-parent-a-child-b-audit.json'),
+        } as const;
+        const sandboxDrillModule = await import(/* @vite-ignore */ childDrillSourcePath);
+        const sandboxRunRollbackDrill =
+          sandboxDrillModule.runRollbackDrill as typeof runRollbackDrill;
+        productionReport = await sandboxRunRollbackDrill(productionDrillOptions);
+
+        // The child really ran the registered CLI from the source sandbox,
+        // but the only sandbox mutation redirected its DATABASE_URL to B.
+        expect(productionReport.repoint.exitCode).toBe(0);
+        expect(productionReport.repoint.parsed).not.toBeNull();
+        expect(productionReport.repoint.parsed?.ok).toBe(true);
+        expect(productionReport.repoint.parsed?.repointed).toBe(true);
+        expect(productionReport.repoint.parsed?.database_target.database).toBe(
+          new URL(targets.marker).pathname.slice(1)
+        );
+        expect(productionReport.repoint.parsed?.precondition.accepted_post_export_writes).toBe(0);
+        expect(productionReport.repoint.parsed?.acknowledgements.length ?? 0).toBeGreaterThan(0);
+        expect(productionReport.error?.code).toBe(DATABASE_TARGET_MISMATCH);
+        expect(productionReport.ok).toBe(false);
+        expect(productionReport.repointed).toBe(false);
+        expect(productionReport.database_target.database).toBe(
+          new URL(targets.gate).pathname.slice(1)
+        );
+        expect(JSON.stringify(productionReport)).not.toContain(operatorSecret);
+
+        // Remove only the production mismatch acceptance branch in a second
+        // source sandbox. The same real child-B harness must fail its oracle;
+        // a passing mutation would prove the branch is not tested.
+        const mutationRoot = childRuntimeCwd();
+        const mutationDrillPath = resolve(
+          mutationRoot,
+          'services/platform/src/cutover/rollback-drill.ts'
+        );
+        const mutationChildSource = readFileSync(mutationDrillPath, 'utf8');
+        expect(mutationChildSource.split(explicitDatabaseBinding).length - 1).toBe(1);
+        const mutationChildBound = mutationChildSource.replace(
+          explicitDatabaseBinding,
+          ambientDatabaseBinding
+        );
+        const mismatchBranch = `  } else if (!options?.skipRepoint && !childTargetValidation.ok) {
+    ok = false;
+    error = childTargetValidation.error;
+  }`;
+        const removedMismatchBranch = `  } else if (false) {
+    // RR-3 source mutant: production child-target mismatch acceptance removed.
+  }`;
+        expect(mutationChildBound.split(mismatchBranch).length - 1).toBe(1);
+        writeFileSync(
+          mutationDrillPath,
+          mutationChildBound.replace(mismatchBranch, removedMismatchBranch),
+          'utf8'
+        );
+        const mutationScript = `
+          import { runRollbackDrill } from ${JSON.stringify(mutationDrillPath)};
+          const report = await runRollbackDrill(${JSON.stringify({
+            ...productionDrillOptions,
+            cwd: mutationRoot,
+            reportPath: resolve(EVIDENCE_DIR, 'rr3-mutant-report.json'),
+            repointOutputPath: resolve(EVIDENCE_DIR, 'rr3-mutant-repoint.json'),
+            watermarkPath: fixtureWatermark('rr3-mutant'),
+            auditPath: resolve(EVIDENCE_DIR, 'rr3-mutant-audit.json'),
+          })});
+          if (report.error?.code !== 'DATABASE_TARGET_MISMATCH' || report.ok !== false || report.repointed !== false) {
+            console.error('RR3_MUTATION_SURVIVED');
+            process.exit(1);
+          }
+        `;
+        const mutation = spawnSync('bun', ['--eval', mutationScript], {
+          cwd: mutationRoot,
+          encoding: 'utf8',
+          timeout: 120_000,
+          env: {
+            ...process.env,
+            DATABASE_URL: targets.marker,
+            HOLO_SECRETS_PATH: servingSecrets,
+            HOLOCRON_SECRETS_PATH: servingSecrets,
+            HOLO_CUTOVER_OPERATOR_SECRET: operatorSecret,
+            HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+          },
+        });
+        mutationExitCode = mutation.status;
+        mutationOutput = `${mutation.stdout ?? ''}\n${mutation.stderr ?? ''}`;
+        expect(mutation.status).not.toBe(0);
+        expect(mutationOutput).toContain('RR3_MUTATION_SURVIVED');
+
+        evidence('rr3-drill-child-target-mismatch', {
+          source_sha: SOURCE_SHA,
+          command,
+          exit_code: 0,
+          gate_database: await databaseName(targets.gate),
+          child_database: await databaseName(targets.marker),
+          child_binding_mutated_in_sandbox: true,
+          child_exit_code: productionReport.repoint.exitCode,
+          child_report_ok: productionReport.repoint.parsed?.ok,
+          child_report_repointed: productionReport.repoint.parsed?.repointed,
+          child_report_database: productionReport.repoint.parsed?.database_target.database,
+          parent_report_database: productionReport.database_target.database,
+          parent_error_code: productionReport.error?.code,
+          parent_ok: productionReport.ok,
+          parent_repointed: productionReport.repointed,
+          mutation_exit_code: mutationExitCode,
+          mutation_killed_by_harness: mutationOutput.includes('RR3_MUTATION_SURVIVED'),
+        });
+      } catch (error) {
+        evidence('rr3-drill-child-target-mismatch-red', {
+          source_sha: SOURCE_SHA,
+          command,
+          exit_code: 1,
+          gate_database: await databaseName(targets.gate),
+          child_database: await databaseName(targets.marker),
+          child_binding_mutated_in_sandbox: true,
+          failure_kind: error instanceof Error ? error.constructor.name : typeof error,
+          observed_child_exit_code: productionReport?.repoint.exitCode ?? null,
+          observed_child_report_ok: productionReport?.repoint.parsed?.ok ?? null,
+          observed_child_report_database:
+            productionReport?.repoint.parsed?.database_target.database ?? null,
+          observed_parent_error_code: productionReport?.error?.code ?? null,
+          observed_parent_ok: productionReport?.ok ?? null,
+          observed_parent_repointed: productionReport?.repointed ?? null,
+          mutation_exit_code: mutationExitCode,
+          mutation_killed_by_harness: mutationOutput.includes('RR3_MUTATION_SURVIVED'),
+        });
+        throw error;
+      } finally {
+        if (serviceA) await serviceA.stop();
+        fixtureServingSecrets('rr3-child-mismatch');
+        if (priorDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+        else process.env.DATABASE_URL = priorDatabaseUrl;
+        if (priorSecretsPath === undefined) delete process.env.HOLO_SECRETS_PATH;
+        else process.env.HOLO_SECRETS_PATH = priorSecretsPath;
+        if (priorHolocronSecretsPath === undefined) delete process.env.HOLOCRON_SECRETS_PATH;
+        else process.env.HOLOCRON_SECRETS_PATH = priorHolocronSecretsPath;
+        if (priorDangerousOverride === undefined) delete process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+        else process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = priorDangerousOverride;
+        if (priorOperatorSecret === undefined) delete process.env.HOLO_CUTOVER_OPERATOR_SECRET;
+        else process.env.HOLO_CUTOVER_OPERATOR_SECRET = priorOperatorSecret;
+      }
+    },
+    300_000
   );
 
   itReal(
@@ -767,7 +1508,17 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         gateDatabaseUrl: targets.gate,
         markerDatabaseUrl: targets.marker,
       });
+      // Seed the complete legitimate audit table immediately before this
+      // cleanup. The expected snapshot is read independently of the
+      // production cleanup report so a report that merely claims preservation
+      // cannot satisfy this oracle.
+      await seedContradictoryAudit(targets.marker);
       const before = await markerState(targets.marker);
+      const expectedAudit = {
+        count: 2,
+        digest: before.audit_digest,
+      };
+      expect(before.audit_count).toBe(expectedAudit.count);
       const cleaned = await cleanupExactPonrMarker({
         gateDatabaseUrl: targets.gate,
         markerDatabaseUrl: targets.marker,
@@ -784,8 +1535,10 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         REQUIRED_PONR_TRIGGER_NAMES.map((name) => ({ name, enabled: 'O' }))
       );
       expect(after.marker_count).toBe(0);
-      expect(after.audit_count).toBe(before.audit_count);
-      expect(after.audit_digest).toBe(before.audit_digest);
+      expect(cleaned.audit_before).toEqual(expectedAudit);
+      expect(cleaned.audit_after).toEqual(expectedAudit);
+      expect(after.audit_count).toBe(expectedAudit.count);
+      expect(after.audit_digest).toBe(expectedAudit.digest);
 
       const idempotent = await cleanupExactPonrMarker({
         gateDatabaseUrl: targets.gate,
@@ -795,14 +1548,17 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
       expect(idempotent.match_disposition).toBe('zero_rows');
       expect(idempotent.delete_count).toBe(0);
       expect(idempotent.disabled_triggers).toEqual([]);
+      expect(idempotent.audit_before).toEqual(expectedAudit);
+      expect(idempotent.audit_after).toEqual(expectedAudit);
       evidence('marker-cleanup-exact-idempotent', {
         source_sha: SOURCE_SHA,
         command: 'cleanupExactPonrMarker(gate, marker) twice',
         marker_database: after.marker_count === 0 ? 'disposable_marker' : 'unexpected',
-        audit_count_before: before.audit_count,
-        audit_digest_before: before.audit_digest,
-        audit_count_after: after.audit_count,
-        audit_digest_after: after.audit_digest,
+        audit_snapshot: expectedAudit,
+        first_report_audit_before: cleaned.audit_before,
+        first_report_audit_after: cleaned.audit_after,
+        second_report_audit_before: idempotent.audit_before,
+        second_report_audit_after: idempotent.audit_after,
         first_delete_count: cleaned.delete_count,
         second_delete_count: idempotent.delete_count,
         disabled_triggers: cleaned.disabled_triggers,
@@ -877,6 +1633,284 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
   );
 
   itReal(
+    'RR-6: accepted-write foreign marker is refused and kills predicate-removal mutant',
+    async () => {
+      const acceptedConstraint = 'data_plane_ponr_accepted_zero_check';
+      let constraintDropped = false;
+      let mutationExitCode: number | null = null;
+      let mutationOutput = '';
+      await clearPonr(targets.marker);
+      await clearAudit(targets.marker);
+      const constraintSql = createSql(targets.marker, { max: 1 });
+      try {
+        const constraints = await constraintSql<{ conname: string }[]>`
+          SELECT conname::text AS conname
+          FROM pg_constraint
+          WHERE conrelid = 'public.data_plane_ponr'::regclass
+            AND conname = ${acceptedConstraint}
+        `;
+        expect(constraints).toHaveLength(1);
+        await constraintSql.unsafe(
+          `ALTER TABLE public.data_plane_ponr DROP CONSTRAINT ${acceptedConstraint}`
+        );
+        constraintDropped = true;
+      } finally {
+        await constraintSql.end({ timeout: 5 });
+      }
+
+      try {
+        await seedAcceptedForeignMarker(targets.marker);
+        await seedContradictoryAudit(targets.marker);
+        const before = await markerState(targets.marker);
+        const expectedAudit = { count: 2, digest: before.audit_digest };
+        const acceptedSql = createSql(targets.marker, { max: 1 });
+        try {
+          const rows = await acceptedSql<
+            Array<{ accepted: string }>
+          >`SELECT convex_accepted_writes_since_watermark::text AS accepted FROM public.data_plane_ponr`;
+          expect(rows).toHaveLength(1);
+          expect(rows[0]?.accepted).toBe('1');
+        } finally {
+          await acceptedSql.end({ timeout: 5 });
+        }
+        expect(before.marker_count).toBe(1);
+        expect(before.audit_count).toBe(expectedAudit.count);
+
+        const production = await cleanupExactPonrMarker({
+          gateDatabaseUrl: targets.gate,
+          markerDatabaseUrl: targets.marker,
+        });
+        const afterProduction = await markerState(targets.marker);
+        const requiredTriggers = REQUIRED_PONR_TRIGGER_NAMES.map((name) => ({
+          name,
+          enabled: 'O',
+        }));
+        const productionRequiredTriggers = afterProduction.triggers.filter((trigger) =>
+          REQUIRED_PONR_TRIGGER_NAMES.includes(
+            trigger.name as (typeof REQUIRED_PONR_TRIGGER_NAMES)[number]
+          )
+        );
+        expect(production.ok).toBe(false);
+        expect(production.match_disposition).toBe('foreign_or_multiple');
+        expect(production.delete_count).toBe(0);
+        expect(afterProduction.marker_count).toBe(1);
+        expect(production.audit_before).toEqual(expectedAudit);
+        expect(production.audit_after).toEqual(expectedAudit);
+        expect(afterProduction.audit_count).toBe(expectedAudit.count);
+        expect(afterProduction.audit_digest).toBe(expectedAudit.digest);
+        expect(productionRequiredTriggers).toEqual(requiredTriggers);
+
+        const mutationRoot = childRuntimeCwd();
+        const markerSourcePath = resolve(
+          mutationRoot,
+          'services/platform/src/cutover/ponr-marker.ts'
+        );
+        const markerSource = readFileSync(markerSourcePath, 'utf8');
+        const acceptedReadPredicate =
+          'return (Object.keys(EXACT_PONR_MARKER) as Array<keyof typeof EXACT_PONR_MARKER>).every((key) => {';
+        const acceptedReadMutant =
+          "return (Object.keys(EXACT_PONR_MARKER) as Array<keyof typeof EXACT_PONR_MARKER>)\n    .filter((key) => key !== 'convex_accepted_writes_since_watermark')\n    .every((key) => {";
+        const acceptedDeletePredicate =
+          '          AND convex_accepted_writes_since_watermark = ${EXACT_PONR_MARKER.' +
+          'convex_accepted_writes_since_watermark}\n';
+        expect(markerSource.split(acceptedReadPredicate).length - 1).toBe(1);
+        expect(markerSource.split(acceptedDeletePredicate).length - 1).toBe(1);
+        const markerMutant = markerSource
+          .replace(acceptedReadPredicate, acceptedReadMutant)
+          .replace(acceptedDeletePredicate, '');
+        writeFileSync(markerSourcePath, markerMutant, 'utf8');
+
+        const mutationScript = `
+          import { cleanupExactPonrMarker } from ${JSON.stringify(markerSourcePath)};
+          const report = await cleanupExactPonrMarker(${JSON.stringify({
+            gateDatabaseUrl: targets.gate,
+            markerDatabaseUrl: targets.marker,
+          })});
+          const expectedAudit = ${JSON.stringify(expectedAudit)};
+          const requiredTriggers = ${JSON.stringify(requiredTriggers)};
+          const requiredAfter = report.trigger_after
+            .filter((trigger) => requiredTriggers.some((required) => required.name === trigger.name));
+          if (
+            report.ok ||
+            report.match_disposition !== 'foreign_or_multiple' ||
+            report.delete_count !== 0 ||
+            report.marker_after_count !== 1 ||
+            JSON.stringify(report.audit_before) !== JSON.stringify(expectedAudit) ||
+            JSON.stringify(report.audit_after) !== JSON.stringify(expectedAudit) ||
+            JSON.stringify(requiredAfter) !== JSON.stringify(requiredTriggers)
+          ) {
+            console.error('RR6_MUTATION_SURVIVED');
+            process.exit(1);
+          }
+        `;
+        const mutation = spawnSync('bun', ['--eval', mutationScript], {
+          cwd: mutationRoot,
+          encoding: 'utf8',
+          timeout: 120_000,
+          env: { ...process.env },
+        });
+        mutationExitCode = mutation.status;
+        mutationOutput = `${mutation.stdout ?? ''}\n${mutation.stderr ?? ''}`;
+        expect(mutation.status).not.toBe(0);
+        expect(mutationOutput).toContain('RR6_MUTATION_SURVIVED');
+        const afterMutation = await markerState(targets.marker);
+        expect(afterMutation.marker_count).toBe(0);
+        expect(afterMutation.audit_count).toBe(expectedAudit.count);
+        expect(afterMutation.audit_digest).toBe(expectedAudit.digest);
+        evidence('rr6-accepted-field-predicate-mutant', {
+          source_sha: SOURCE_SHA,
+          command:
+            'cleanupExactPonrMarker(gate, marker) + source mutant removing accepted-write exact-match predicates',
+          constraint_dropped: constraintDropped,
+          accepted_foreign_value: 1,
+          production_error_code: production.error?.code ?? null,
+          production_match_disposition: production.match_disposition,
+          production_delete_count: production.delete_count,
+          production_marker_preserved: afterProduction.marker_count === 1,
+          production_audit_count: afterProduction.audit_count,
+          production_required_triggers_restored: productionRequiredTriggers,
+          mutation_exit_code: mutationExitCode,
+          mutation_deleted_marker: afterMutation.marker_count === 0,
+          mutation_killed_by_harness: mutationOutput.includes('RR6_MUTATION_SURVIVED'),
+          audit_count_preserved_after_mutant: afterMutation.audit_count === expectedAudit.count,
+        });
+      } finally {
+        await clearPonr(targets.marker);
+        await clearAudit(targets.marker);
+        if (constraintDropped) {
+          const restoreSql = createSql(targets.marker, { max: 1 });
+          try {
+            await restoreSql.unsafe(
+              `ALTER TABLE public.data_plane_ponr ADD CONSTRAINT ${acceptedConstraint} CHECK (convex_accepted_writes_since_watermark = 0)`
+            );
+          } finally {
+            await restoreSql.end({ timeout: 5 });
+          }
+        }
+      }
+    },
+    180_000
+  );
+
+  itReal(
+    'RR-7: unreachable credential-canary rollback child fails closed without raw streams',
+    () => {
+      const usernameCanary = `rr7-user-${'u'.repeat(64)}`;
+      const passwordCanary = `rr7-password-${'p'.repeat(64)}`;
+      const queryCanary = `rr7-query-${'q'.repeat(64)}`;
+      const fragmentCanary = `rr7-fragment-${'f'.repeat(64)}`;
+      const failingTarget =
+        `postgres://${encodeURIComponent(usernameCanary)}:${encodeURIComponent(passwordCanary)}` +
+        `@127.0.0.1:9/rr7-unreachable?${queryCanary}=1#${fragmentCanary}`;
+      const canaries = [failingTarget, usernameCanary, passwordCanary, queryCanary, fragmentCanary];
+      const expectedTarget = parseDatabaseTargetIdentity(failingTarget);
+      const watermarkPath = fixtureWatermark('rr7-unreachable-rollback');
+      const secretsPath = fixtureSecrets('rr7-unreachable-rollback');
+      const registeredOutputPath = resolve(
+        EVIDENCE_DIR,
+        'rr7-registered-rollback-repoint-report.json'
+      );
+      const helperOutputPath = resolve(EVIDENCE_DIR, 'rr7-helper-rollback-repoint-report.json');
+      const childEnv = {
+        ...process.env,
+        DATABASE_URL: failingTarget,
+        HOLO_CUTOVER_OPERATOR_SECRET: 'rr7-operator-secret',
+        HOLO_SECRETS_PATH: secretsPath,
+        HOLOCRON_SECRETS_PATH: secretsPath,
+      };
+      const assertSanitized = (value: unknown): void => {
+        const serialized = typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
+        for (const canary of canaries) expect(serialized).not.toContain(canary);
+      };
+
+      const registered = spawnSync(
+        'bun',
+        [
+          'services/platform/src/cli/holo.ts',
+          'cutover:rollback-repoint',
+          '--json',
+          '--output',
+          registeredOutputPath,
+          '--etl-report',
+          watermarkPath,
+        ],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 120_000,
+          env: childEnv,
+        }
+      );
+      expect(registered.status).not.toBe(0);
+      const registeredStdout = registered.stdout ?? '';
+      const registeredStderr = registered.stderr ?? '';
+      assertSanitized(registeredStdout);
+      assertSanitized(registeredStderr);
+      const registeredParsed = JSON.parse(registeredStdout) as {
+        ok?: boolean;
+        error?: { code?: string };
+        database_target?: typeof expectedTarget;
+      };
+      const registeredPersisted = readFileSync(registeredOutputPath, 'utf8');
+      const registeredPersistedParsed = JSON.parse(registeredPersisted) as typeof registeredParsed;
+      assertSanitized(registeredParsed);
+      assertSanitized(registeredPersisted);
+      assertSanitized(registeredPersistedParsed);
+      expect(registeredParsed.ok).toBe(false);
+      expect(registeredParsed.error?.code).toBe(PONR_LEDGER_UNREADABLE);
+      expect(registeredParsed.database_target).toEqual(expectedTarget);
+      expect(registeredPersistedParsed.error?.code).toBe(PONR_LEDGER_UNREADABLE);
+      expect(registeredPersistedParsed.database_target).toEqual(expectedTarget);
+
+      const helper = spawnRollbackRepointCli({
+        cwd: REPO_ROOT,
+        databaseUrl: failingTarget,
+        watermarkPath,
+        outputPath: helperOutputPath,
+        env: childEnv,
+      });
+      expect(helper.exitCode).not.toBe(0);
+      expect(helper.stdout).toBe('');
+      expect(helper.stderr).toBe('');
+      expect(helper.parsed).not.toBeNull();
+      expect(helper.parsed?.ok).toBe(false);
+      expect(helper.parsed?.error?.code).toBe(PONR_LEDGER_UNREADABLE);
+      expect(helper.parsed?.database_target).toEqual(expectedTarget);
+      const helperPersisted = readFileSync(helperOutputPath, 'utf8');
+      const helperPersistedParsed = JSON.parse(helperPersisted) as typeof registeredParsed;
+      assertSanitized(helper.argv);
+      assertSanitized(helper.stdout);
+      assertSanitized(helper.stderr);
+      assertSanitized(helper.parsed);
+      assertSanitized(helperPersisted);
+      assertSanitized(helperPersistedParsed);
+      expect(helperPersistedParsed.ok).toBe(false);
+      expect(helperPersistedParsed.error?.code).toBe(PONR_LEDGER_UNREADABLE);
+      expect(helperPersistedParsed.database_target).toEqual(expectedTarget);
+
+      const evidencePayload = {
+        source_sha: SOURCE_SHA,
+        command:
+          'registered rollback-repoint CLI + spawnRollbackRepointCli against unreachable target',
+        database_target: expectedTarget,
+        registered_exit_code: registered.status,
+        registered_error_code: registeredParsed.error?.code ?? null,
+        registered_streams_sanitized: true,
+        registered_persisted_sanitized: true,
+        helper_exit_code: helper.exitCode,
+        helper_error_code: helper.parsed?.error?.code ?? null,
+        helper_returned_stdout_empty: helper.stdout === '',
+        helper_returned_stderr_empty: helper.stderr === '',
+        helper_argv_sanitized: true,
+        helper_persisted_sanitized: true,
+      };
+      assertSanitized(evidencePayload);
+      evidence('rr7-unreachable-rollback-canary', evidencePayload);
+    },
+    180_000
+  );
+
+  itReal(
     'TC-12: singleton index rejects multiplicity and equal targets fail closed',
     async () => {
       await clearPonr(targets.marker);
@@ -931,12 +1965,21 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
     'TC-14/15: delete bomb restores exact required triggers and preserves marker/audit',
     async () => {
       await clearPonr(targets.marker);
+      await dropDeleteBomb(targets.marker);
+      await createDeleteBomb(targets.marker);
       await seedExactPonrMarker({
         gateDatabaseUrl: targets.gate,
         markerDatabaseUrl: targets.marker,
       });
-      await createDeleteBomb(targets.marker);
+      // Refresh the audit table for this failure path as well; exactly two
+      // distinctive rows are the independent preservation oracle.
+      await seedContradictoryAudit(targets.marker);
       const before = await markerState(targets.marker);
+      const expectedAudit = {
+        count: 2,
+        digest: before.audit_digest,
+      };
+      expect(before.audit_count).toBe(expectedAudit.count);
       const failed = await cleanupExactPonrMarker({
         gateDatabaseUrl: targets.gate,
         markerDatabaseUrl: targets.marker,
@@ -953,8 +1996,10 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
       expect(failed.disabled_triggers).toEqual([...REQUIRED_PONR_TRIGGER_NAMES]);
       expect(failed.error?.code).toBe('PONR_MARKER_CLEANUP_FAILED');
       expect(after.marker_count).toBe(1);
-      expect(after.audit_count).toBe(before.audit_count);
-      expect(after.audit_digest).toBe(before.audit_digest);
+      expect(failed.audit_before).toEqual(expectedAudit);
+      expect(failed.audit_after).toEqual(expectedAudit);
+      expect(after.audit_count).toBe(expectedAudit.count);
+      expect(after.audit_digest).toBe(expectedAudit.digest);
       expect(requiredAfter).toEqual(
         REQUIRED_PONR_TRIGGER_NAMES.map((name) => ({ name, enabled: 'O' }))
       );
@@ -972,10 +2017,9 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         disabled_triggers: failed.disabled_triggers,
         required_triggers_restored: requiredAfter,
         third_trigger_restored: bombAfter,
-        audit_count_before: before.audit_count,
-        audit_digest_before: before.audit_digest,
-        audit_count_after_failure: after.audit_count,
-        audit_digest_after_failure: after.audit_digest,
+        audit_snapshot: expectedAudit,
+        report_audit_before: failed.audit_before,
+        report_audit_after: failed.audit_after,
       });
     },
     180_000

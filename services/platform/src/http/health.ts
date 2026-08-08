@@ -10,6 +10,7 @@
 
 import postgres from 'postgres';
 import { resolveObservedDataPlane } from '../cutover/soak-fence.ts';
+import { type DatabaseTargetIdentity, parseDatabaseTargetIdentity } from '../db/connection.ts';
 import { DATABASE_URL } from '../mastra.ts';
 import {
   isProcessQueueReady,
@@ -69,8 +70,8 @@ export class PostgresQueue {
   startSync(): void {
     this.#started = true;
     setProcessQueueReady(true);
-    void this.start().catch((err) => {
-      console.error('[queue] start failed:', err instanceof Error ? err.message : String(err));
+    void this.start().catch(() => {
+      console.error('[queue] start failed: database queue startup failed');
       this.#started = false;
       setProcessQueueReady(false);
     });
@@ -117,6 +118,8 @@ export type EndpointProbeResult = ProbeResult & {
 
 export type HealthBody = {
   status: 'ok' | 'degraded';
+  /** Credential-free identity of the exact serving database target probed. */
+  database_target: DatabaseTargetIdentity | null;
   db: ProbeResult;
   /** Production alias retained alongside db for explicit dependency reporting. */
   postgres: ProbeResult;
@@ -172,21 +175,25 @@ function elapsedMs(start: number): number {
  */
 export async function probeDb(connectionString = DATABASE_URL): Promise<ProbeResult> {
   const start = performance.now();
-  const sql = postgres(connectionString, {
-    max: 1,
-    connect_timeout: 3,
-    idle_timeout: 1,
-    prepare: false,
-    onnotice: () => {},
-  });
+  let sql: ReturnType<typeof postgres> | null = null;
   try {
+    sql = postgres(connectionString, {
+      max: 1,
+      connect_timeout: 3,
+      idle_timeout: 1,
+      prepare: false,
+      onnotice: () => {},
+    });
     await sql`SELECT 1 AS ok`;
     return { ready: true, latency_ms: elapsedMs(start) };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    return { ready: false, latency_ms: elapsedMs(start), error };
+  } catch {
+    return {
+      ready: false,
+      latency_ms: elapsedMs(start),
+      error: 'database probe failed',
+    };
   } finally {
-    await sql.end({ timeout: 2 }).catch(() => {});
+    await sql?.end({ timeout: 2 }).catch(() => {});
   }
 }
 
@@ -290,15 +297,18 @@ export async function probeQueue(
       ...(ready
         ? {}
         : {
-            error: backend.error ?? (processReady ? backend.detail : 'queue not started'),
+            error: backend.error
+              ? 'queue probe failed'
+              : processReady
+                ? backend.detail
+                : 'queue not started',
           }),
     };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
+  } catch {
     return {
       ready: false,
       latency_ms: elapsedMs(start),
-      error,
+      error: 'queue probe failed',
     };
   } finally {
     if (timeout) clearTimeout(timeout);
@@ -373,11 +383,19 @@ export async function runHealthCheck(options?: {
   processFacts?: { pid?: number; uptimeMs?: number };
 }): Promise<HealthResponse> {
   const strictReadiness = options?.strictReadiness ?? process.env.HOLO_PRODUCTION_READINESS === '1';
+  const databaseUrl = options?.databaseUrl ?? DATABASE_URL;
+  let database_target: DatabaseTargetIdentity | null = null;
+  try {
+    database_target = parseDatabaseTargetIdentity(databaseUrl);
+  } catch {
+    // A malformed serving URL must not make /health echo the URL or parser detail.
+    database_target = null;
+  }
   const deployment = readDeploymentIdentity(options?.deploymentEnv, options?.processFacts);
   const [db, fleet, queue, zeroCache] = await Promise.all([
-    probeDb(options?.databaseUrl),
+    probeDb(databaseUrl),
     probeFleet(options?.fleetEndpoint),
-    probeQueue(options?.queue, options?.databaseUrl),
+    probeQueue(options?.queue, databaseUrl),
     probeZeroCache(options?.zeroCacheEndpoint, strictReadiness),
   ]);
 
@@ -436,6 +454,7 @@ export async function runHealthCheck(options?: {
       ...(zeroCache.error ? { error: zeroCache.error } : {}),
     },
     deployment,
+    database_target,
     failing_dependency: failingDependency,
     host: deployment.identity?.host ?? null,
     runtime: deployment.identity?.runtime ?? null,
