@@ -1,0 +1,76 @@
+@@GATE-META step=3 cmd_sha=665aed4e031e79294b630e2cb992f1d85c177372fe14da852dd9d3f27f497c1e run_id=20260808T024946Z git_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 source_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 started_at=2026-08-08T02:49:56Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=216b1ad7e97a244be65c933f609c2e96fbbc5a15@@
+CMD: set -euo pipefail; bun services/platform/src/cli/holo.ts cutover:pin-fallback-build --json | tee .tmp/D07-02/pin-fallback-stdout.json; bun services/platform/src/cli/holo.ts cutover:verify-fallback-boot --json | tee .tmp/D07-02/verify-fallback-boot.json; python3 - <<"PY"
+import json, sys
+from pathlib import Path
+boot_path = Path('.tmp/D07-02/verify-fallback-boot.json')
+# CLI may print JSON on stdout that was teed; also accept last JSON object
+raw = boot_path.read_text() if boot_path.exists() else ''
+# Prefer last complete JSON object in the file
+obj = None
+for line in raw.splitlines():
+    line=line.strip()
+    if line.startswith('{'):
+        try:
+            obj = json.loads(line)
+        except Exception:
+            pass
+if obj is None and raw.strip().startswith('{'):
+    try:
+        obj = json.loads(raw)
+    except Exception:
+        obj = {}
+if not isinstance(obj, dict):
+    obj = {}
+cs=obj.get("commit_sha") or obj.get("commit") or ""
+ss=obj.get("short_sha") or (cs[:8] if isinstance(cs,str) and len(cs)>=8 else None)
+print(json.dumps({"ok": obj.get("ok"), "error": obj.get("error"), "commit_sha": cs or None, "short_sha": ss, "boot": True}, indent=2))
+if obj.get('ok') is not True:
+    code = (obj.get('error') or {}).get('code') if isinstance(obj.get('error'), dict) else None
+    if code == 'BOOT_UNVERIFIED' or obj.get('ok') is False:
+        print('BOOT_UNVERIFIED_OR_FAIL', file=sys.stderr)
+        sys.exit(2)
+    print('STEP3_BOOT_NOT_OK', file=sys.stderr)
+    sys.exit(2)
+print('STEP3_PASS')
+PY
+{
+  "ok": true,
+  "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb",
+  "short_sha": "25414ad1",
+  "build_digest_sha256": "45eb89dc9fc9cab1f0c4e5b7d1cc56f60efbc5262a672f900d013a8238b6992d",
+  "convex_react_present_at_commit": true,
+  "convex_react_present_at_head": false,
+  "convex_client_source_env": "EXPO_PUBLIC_CONVEX_URL",
+  "reaches_convex": true,
+  "worktree_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-worktree",
+  "layout_path_at_commit": "app/_layout.tsx",
+  "pnpm_lock_sha256": "4f1bb3c504b534b0e0cfc79cf00ce57f3ac8c2d09b76dac1456737d62f3f9e45",
+  "head_sha": "216b1ad7e97a244be65c933f609c2e96fbbc5a15",
+  "metro_required": false,
+  "dev_client": false,
+  "pinned_at_ms": 1786157397577,
+  "manifest_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/pinned-fallback-build-manifest.json"
+}
+{
+  "ok": true,
+  "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb",
+  "build_digest_sha256": "45eb89dc9fc9cab1f0c4e5b7d1cc56f60efbc5262a672f900d013a8238b6992d",
+  "simulator_udid": "D70558B9-3E26-43F6-8D52-311A0D86E50D",
+  "boot_evidence": {
+    "artifact_type": "maestro_session_log",
+    "session_log_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/maestro-fallback-boot-session.log"
+  },
+  "metro_required": false,
+  "dev_client": false,
+  "at_ms": 1786157426978,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-02/fallback-boot-report.json"
+}
+{
+  "ok": true,
+  "error": null,
+  "commit_sha": "25414ad1b34720c11de12323cc6609309c1023cb",
+  "short_sha": "25414ad1",
+  "boot": true
+}
+STEP3_PASS
+@@GATE-EXIT=0@@

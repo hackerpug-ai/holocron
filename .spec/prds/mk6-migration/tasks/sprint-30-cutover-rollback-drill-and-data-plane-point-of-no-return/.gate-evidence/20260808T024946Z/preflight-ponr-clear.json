@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "tool": "scripts/assert-sprint30-prep-ponr-clear.sh",
+  "platform_path": "readDataPlanePonr+resolveDatabaseUrl({preferHolocron:true})",
+  "ponr_row": null,
+  "platform_count": 0,
+  "scraped_count": null,
+  "dual_path_mismatch": false
+}

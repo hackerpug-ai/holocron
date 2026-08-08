@@ -1,0 +1,13 @@
+{
+  "ok": false,
+  "t_sync_013_release_pass": false,
+  "partial_4_5_green_1_2_red_is_not_release": true,
+  "steps": {
+    "1": "fail",
+    "2": "fail",
+    "3": "pass",
+    "4": "pass",
+    "5": "pass"
+  },
+  "note": "T-SYNC-013 zero-loss is release-blocking. Partial green on steps 4\u20135 (PONR latch) while steps 1\u20132 red is NOT UC-SYNC-04 AC-2 certification."
+}

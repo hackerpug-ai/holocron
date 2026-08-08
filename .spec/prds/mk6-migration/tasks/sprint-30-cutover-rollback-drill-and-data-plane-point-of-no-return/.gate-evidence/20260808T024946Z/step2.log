@@ -1,0 +1,39 @@
+@@GATE-META step=2 cmd_sha=38dbcf64cadba5df585ffda125b3b242e6c33bf780f57bd6506a4c4cbe0e0219 run_id=20260808T024946Z git_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 source_sha=216b1ad7e97a244be65c933f609c2e96fbbc5a15 started_at=2026-08-08T02:49:56Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=216b1ad7e97a244be65c933f609c2e96fbbc5a15@@
+CMD: bash scripts/assert-zero-loss-identity-oracle.sh --report .tmp/D07-03/rollback-drill-report.json --out .tmp/GATE-FIX-zero-loss-t-sync-013/step2-zero-loss-identity.json && python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path('.tmp/GATE-FIX-zero-loss-t-sync-013/step2-zero-loss-identity.json')
+j = json.loads(p.read_text())
+assert j.get('ok') is True, j
+assert j.get('accepted_count') == 0, j
+assert j.get('identity_count') == 0, j
+assert j.get('accepted_write_identities') == [], j
+assert j.get('ledger') == 'postgres:post_export_write_audit', j
+print(json.dumps(j, indent=2))
+print('STEP2_PASS')
+print('ZERO_LOSS_IDENTITY_EMPTY')
+PY
+{
+  "ok": false,
+  "tool": "scripts/lib/zero-loss-identity-oracle.py",
+  "ledger": "postgres:post_export_write_audit",
+  "accepted_count": 0,
+  "accepted_write_identities": [],
+  "identity_count": 0,
+  "drill_ok": false,
+  "drill_lost_accepted_writes": 1,
+  "independent_recompute_acceptedCount": 1,
+  "independent_recompute_matchesReport": true,
+  "fence_armed": true,
+  "require_live_ledger": true,
+  "reasons": [
+    "recompute_acceptedCount=1",
+    "lost_accepted_writes=1"
+  ],
+  "t_sync_013": "FAIL",
+  "error": {
+    "code": "ZERO_LOSS_IDENTITY_ORACLE_FAILED",
+    "message": "T-SYNC-013 zero-loss failed: accepted_count=0 identity_count=0 reasons=['recompute_acceptedCount=1', 'lost_accepted_writes=1']; identities=[]"
+  }
+}
+@@GATE-EXIT=2@@
