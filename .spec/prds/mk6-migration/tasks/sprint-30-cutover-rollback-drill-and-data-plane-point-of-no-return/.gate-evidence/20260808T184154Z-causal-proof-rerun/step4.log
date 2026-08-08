@@ -1,0 +1,24 @@
+@@GATE-META step=4 cmd_sha=866ce03286bc80c45523d3470be8a087663de8a6389af57327ad0484a5b83cba run_id=20260808T184154Z-causal-proof-rerun git_sha=826e2ac9609138dff7341b7b95470568578a1abc source_sha=826e2ac9609138dff7341b7b95470568578a1abc started_at=2026-08-08T18:42:34Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=826e2ac9609138dff7341b7b95470568578a1abc@@
+CMD: bun services/platform/src/cli/holo.ts cutover:enable-writes --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+{
+  "ok": false,
+  "already_recorded": false,
+  "ponr_id": null,
+  "write_row_id": null,
+  "write_row_digest_sha256": null,
+  "write_surface": "hono.POST /api/documents",
+  "write_table": "documents",
+  "fence_lifted_at": "2026-08-08T18:42:37.789Z",
+  "write_committed_at": null,
+  "base_url": "http://127.0.0.1:44121",
+  "export_watermark_ms": 1786190348757,
+  "convex_fence_audit_id": null,
+  "convex_documents_total": null,
+  "convex_accepted_writes_since_watermark": null,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-04/enable-writes-report.json",
+  "error": {
+    "code": "FIRST_WRITE_FAILED",
+    "message": "cutover:enable-writes refuses: POST http://127.0.0.1:44121/api/documents returned HTTP 422 body={\"error\":\"document_create_error\",\"message\":\"document create refuses production-like database 'holocron' — expected holocron_nonprod; set HOLO_DANGEROUS_ALLOW_PROD_DB=1 to override (dangerous)\"} (PONR requires HTTP 201). Fence re-armed=true; post_export_write_audit recorded=true (REDHAT-FIX-RH-S30-09 full post-lift failure window)."
+  }
+}
+@@GATE-EXIT=2@@
