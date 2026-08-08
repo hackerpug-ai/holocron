@@ -105,9 +105,8 @@ PY
 }
 trap cleanup_marker_on_exit EXIT
 
-# Shared C-3 marker operations. Normal and explicitly test-gated paths invoke
-# these same env-only wrapper/probe commands; the test path only skips the
-# unrelated deployment/reset work before exercising their lifecycle.
+# Shared C-3 marker operations. Every invocation, including test sandboxes,
+# reaches these env-only wrapper/probe commands through the normal gate path.
 run_marker_pre_c3_cleanup() {
   local prefix="$1"
   bash "$ROOT/scripts/cleanup-sprint30-ponr-marker.sh" \
@@ -126,44 +125,6 @@ run_marker_miss_probe() {
     >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
     2>"$EVID_DIR/ponr-role-provenance-marker-miss.stderr"
 }
-
-# Fast, test-only C-3 lifecycle path. It is deliberately after target
-# validation and EXIT-trap registration, and deliberately before all other
-# gate work, so shell tests can prove cleanup/RC semantics without a live
-# deployment. No production run enters this branch.
-if [[ "${HOLO_GATE_TEST_MODE:-0}" == "1" && ( -n "${HOLO_GATE_TEST_FORCE_RC:-}" || "${HOLO_GATE_TEST_CLEANUP_FAILURE:-0}" == "1" ) ]]; then
-  export HOLO_PROBE_SEED_PONR=1
-  set +e
-  run_marker_pre_c3_cleanup "test-marker-cleanup-pre-c3"
-  test_pre_c3_rc=$?
-  set -e
-  if [[ "$test_pre_c3_rc" -ne 0 ]]; then
-    exit 1
-  fi
-
-  mkdir -p "$EVID_DIR/ponr-role-provenance-marker-miss"
-  set +e
-  run_marker_miss_probe "$EVID_DIR/ponr-role-provenance-marker-miss"
-  test_marker_miss_rc=$?
-  set -e
-  printf '%s\n' "$test_marker_miss_rc" >"$EVID_DIR/test-marker-miss.exit"
-  if [[ "$test_marker_miss_rc" -ne 0 ]]; then
-    exit 1
-  fi
-
-  if [[ -n "${HOLO_GATE_TEST_FORCE_RC:-}" ]]; then
-    if [[ ! "$HOLO_GATE_TEST_FORCE_RC" =~ ^[0-9]+$ ]]; then
-      exit 2
-    fi
-    printf '%s\n' "$HOLO_GATE_TEST_FORCE_RC" >"$EVID_DIR/test-forced-main-rc"
-    exit "$HOLO_GATE_TEST_FORCE_RC"
-  fi
-
-  HOLO_PROBE_MARKER_MISS_DATABASE_URL='not-a-postgres-target'
-  export HOLO_PROBE_MARKER_MISS_DATABASE_URL
-  printf '%s\n' 'main_rc=0 cleanup_target=invalid-for-test' >"$EVID_DIR/test-cleanup-failure-seam"
-  exit 0
-fi
 
 DEPLOYED_BASE_URL="${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}"
 if [[ -z "$DEPLOYED_BASE_URL" ]]; then
