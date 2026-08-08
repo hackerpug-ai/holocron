@@ -85,9 +85,93 @@ def load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text())
+        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def extract_json_objects(text: str) -> list[dict[str, Any]]:
+    """Scan text with JSONDecoder.raw_decode; return all dict objects found.
+
+    Handles human-gate logs that prefix @@GATE-META / CMD: and pretty multi-line
+    JSON bodies ending with @@GATE-EXIT=…@@ — never requires whole-file
+    startswith('{') or single-line JSON.
+    """
+    decoder = json.JSONDecoder()
+    objs: list[dict[str, Any]] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        j = text.find("{", i)
+        if j < 0:
+            break
+        try:
+            obj, end = decoder.raw_decode(text, j)
+            if isinstance(obj, dict):
+                objs.append(obj)
+            i = end
+        except json.JSONDecodeError:
+            i = j + 1
+    return objs
+
+
+def _has_ponr_identity(obj: dict[str, Any]) -> bool:
+    if obj.get("ponr_id"):
+        return True
+    ponr = obj.get("ponr")
+    if isinstance(ponr, dict) and (ponr.get("id") or ponr.get("ponr_id")):
+        return True
+    result = obj.get("result")
+    if isinstance(result, dict) and result.get("ponr_id"):
+        return True
+    return False
+
+
+def _is_step5_shaped(obj: dict[str, Any]) -> bool:
+    if "repointed" in obj or "precondition" in obj:
+        return True
+    err = obj.get("error")
+    if isinstance(err, dict) and err.get("code"):
+        return True
+    return False
+
+
+def load_step_payload(path: Path, *, prefer: str = "ponr") -> dict[str, Any]:
+    """Load JSON from bare file or GATE-META-wrapped human-gate step log.
+
+    prefer:
+      - 'ponr': last object containing ponr_id / nested ponr (step4)
+      - 'step5': last object with error/precondition/repointed (step5)
+      - 'any': last dict object
+    """
+    if not path.exists():
+        return {}
+    text = path.read_text(errors="replace")
+    # 1) whole-file JSON
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+    # 2) raw_decode walk over GATE-META / pretty multi-line logs
+    objs = extract_json_objects(text)
+    if not objs:
+        return {}
+    if prefer == "ponr":
+        for obj in reversed(objs):
+            if _has_ponr_identity(obj):
+                return obj
+        # fall through: maybe step4 without identity (negative fixture)
+        for obj in reversed(objs):
+            if "ok" in obj or "write_surface" in obj or "already_recorded" in obj:
+                return obj
+    elif prefer == "step5":
+        for obj in reversed(objs):
+            if _is_step5_shaped(obj):
+                return obj
+    return objs[-1]
 
 
 def identities_from_drill(drill: dict[str, Any]) -> list[dict[str, Any]]:
@@ -241,19 +325,15 @@ def evaluate_post_ponr_bind(
     """AC-3: step5 POST_PONR_INELIGIBLE must bind this-run step4 ponr_id/write_row_id."""
     if isinstance(step5, str):
         text = step5
-        try:
-            # last JSON object in log
-            objs = []
-            for line in text.splitlines():
-                line = line.strip()
-                if line.startswith("{"):
-                    try:
-                        objs.append(json.loads(line))
-                    except Exception:
-                        pass
-            step5_obj = objs[-1] if objs else {}
-        except Exception:
-            step5_obj = {}
+        # Prefer raw_decode over line-by-line (GATE-META + pretty multi-line JSON)
+        objs = extract_json_objects(text)
+        step5_obj: dict[str, Any] = {}
+        for obj in reversed(objs):
+            if _is_step5_shaped(obj):
+                step5_obj = obj
+                break
+        if not step5_obj and objs:
+            step5_obj = objs[-1]
     else:
         step5_obj = step5
         text = json.dumps(step5)
@@ -270,7 +350,13 @@ def evaluate_post_ponr_bind(
     if code is None and "POST_PONR_INELIGIBLE" in text:
         code = "POST_PONR_INELIGIBLE"
     pre = step5_obj.get("precondition") or {}
-    s5_ponr = pre.get("ponr_id") or err.get("ponr_id") if isinstance(err, dict) else None
+    if not isinstance(pre, dict):
+        pre = {}
+    s5_ponr = None
+    if isinstance(err, dict):
+        s5_ponr = pre.get("ponr_id") or err.get("ponr_id")
+    else:
+        s5_ponr = pre.get("ponr_id")
     s5_write = (
         pre.get("write_row_id")
         or (err.get("write_row_id") if isinstance(err, dict) else None)
@@ -390,27 +476,8 @@ def main() -> int:
             rc = 2
 
     if args.mode in ("post-ponr", "both"):
-        step4 = load_json(Path(args.step4)) if args.step4 else {}
-        if args.step4 and not step4:
-            step4_text = Path(args.step4).read_text(errors="replace") if Path(args.step4).exists() else ""
-            # parse last JSON with ponr_id
-            for line in step4_text.splitlines():
-                line = line.strip()
-                if "ponr_id" in line and line.startswith("{"):
-                    try:
-                        step4 = json.loads(line)
-                    except Exception:
-                        pass
-            if not step4 and step4_text.strip().startswith("{"):
-                try:
-                    step4 = json.loads(step4_text)
-                except Exception:
-                    # multi-json file — take last complete object containing ponr
-                    for m in re.finditer(r"\{[^{}]*ponr_id[^{}]*\}", step4_text):
-                        try:
-                            step4 = json.loads(m.group(0))
-                        except Exception:
-                            pass
+        # Robust extract: bare JSON or @@GATE-META-prefixed pretty multi-line logs
+        step4 = load_step_payload(Path(args.step4), prefer="ponr") if args.step4 else {}
         step5_src: Any
         if args.step5:
             p = Path(args.step5)
