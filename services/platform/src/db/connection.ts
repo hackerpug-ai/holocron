@@ -1,6 +1,7 @@
 /**
  * Connection defaults (split from index so schema modules don't cycle).
  */
+import { createHash } from 'node:crypto';
 
 /** Default admin URL (matches mastra.ts fallback host/port). Override via env. */
 export const DEFAULT_DATABASE_URL = 'postgres://127.0.0.1:5432/postgres';
@@ -16,6 +17,87 @@ export const DANGEROUS_PROD_DB_OVERRIDE_ENV = 'HOLO_DANGEROUS_ALLOW_PROD_DB';
 
 const HOLOCRON_NONPROD_DB_NAME = 'holocron_nonprod';
 const PROD_LIKE_DATABASE_NAMES = new Set(['holocron', 'postgres']);
+
+/** Credential-free identity for a PostgreSQL target used by cutover evidence. */
+export type DatabaseTargetIdentity = {
+  host: string;
+  effective_port: number;
+  database: string;
+  fingerprint: string;
+};
+
+const DATABASE_TARGET_FINGERPRINT_VERSION = 'database-target-v1';
+
+/**
+ * Parse and normalize a PostgreSQL URL without returning any credential-bearing
+ * component. Scheme aliases, host case, and omitted/default port normalize to
+ * one target; query strings and fragments are intentionally ignored.
+ */
+export function parseDatabaseTargetIdentity(databaseUrl: string): DatabaseTargetIdentity {
+  const raw = databaseUrl.trim();
+  if (!raw) throw new Error('DATABASE_TARGET_INVALID: database URL is empty');
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('DATABASE_TARGET_INVALID: database URL is malformed');
+  }
+  if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
+    throw new Error('DATABASE_TARGET_INVALID: database URL must use postgres or postgresql');
+  }
+  const host = parsed.hostname.trim().toLowerCase();
+  if (!host) throw new Error('DATABASE_TARGET_INVALID: database URL host is missing');
+
+  let effective_port = 5432;
+  try {
+    effective_port = parsed.port ? Number(parsed.port) : 5432;
+  } catch {
+    throw new Error('DATABASE_TARGET_INVALID: database URL port is invalid');
+  }
+  if (!Number.isInteger(effective_port) || effective_port < 1 || effective_port > 65535) {
+    throw new Error('DATABASE_TARGET_INVALID: database URL port is invalid');
+  }
+
+  let database: string;
+  try {
+    database = decodeURIComponent(parsed.pathname.replace(/^\/+/, '')).trim();
+  } catch {
+    throw new Error('DATABASE_TARGET_INVALID: database name is malformed');
+  }
+  if (!database || database.includes('\0')) {
+    throw new Error('DATABASE_TARGET_INVALID: database name is missing');
+  }
+  const tuple = [DATABASE_TARGET_FINGERPRINT_VERSION, host, String(effective_port), database].join(
+    '\0'
+  );
+  const fingerprint = createHash('sha256').update(tuple).digest('hex');
+  return { host, effective_port, database, fingerprint };
+}
+
+export function databaseTargetIdentitiesEqual(
+  left: DatabaseTargetIdentity | null | undefined,
+  right: DatabaseTargetIdentity | null | undefined
+): boolean {
+  return Boolean(
+    left &&
+      right &&
+      left.host === right.host &&
+      left.effective_port === right.effective_port &&
+      left.database === right.database &&
+      left.fingerprint === right.fingerprint
+  );
+}
+
+/** Resolve and validate a required CLI database target exactly once. */
+export function resolveRequiredDatabaseTarget(env: NodeJS.ProcessEnv = process.env): {
+  databaseUrl: string;
+  databaseTarget: DatabaseTargetIdentity;
+} {
+  const databaseUrl = env.DATABASE_URL?.trim();
+  if (!databaseUrl) throw new Error('DATABASE_TARGET_INVALID: DATABASE_URL is required');
+  return { databaseUrl, databaseTarget: parseDatabaseTargetIdentity(databaseUrl) };
+}
 
 export function databaseNameFromUrl(url: string): string {
   try {

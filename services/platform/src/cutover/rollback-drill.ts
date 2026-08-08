@@ -18,7 +18,12 @@ import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
 import { createSql } from '../db/client.ts';
-import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import {
+  type DatabaseTargetIdentity,
+  databaseTargetIdentitiesEqual,
+  parseDatabaseTargetIdentity,
+  resolveHolocronNonprodDatabaseUrl,
+} from '../db/connection.ts';
 import { publishDocumentForRun } from '../mission/document-publish.ts';
 import { MIGRATED_JOBS } from '../queue/jobs-registry.ts';
 import { runJob } from '../queue/jobs-runner.ts';
@@ -50,6 +55,17 @@ export const DRILL_INDEPENDENT_RECOMPUTE_MISMATCH = 'DRILL_INDEPENDENT_RECOMPUTE
 export const DRILL_AUDIT_FILE_MISSING = 'DRILL_AUDIT_FILE_MISSING';
 export const DRILL_LIVE_ACK_MISSING = 'DRILL_LIVE_ACK_MISSING';
 export const DRILL_REPOINT_FAILED = 'DRILL_REPOINT_FAILED';
+export const DATABASE_TARGET_MISMATCH = 'DATABASE_TARGET_MISMATCH';
+
+export type RollbackChildTargetValidation =
+  | { ok: true }
+  | {
+      ok: false;
+      error: {
+        code: typeof DATABASE_TARGET_MISMATCH;
+        message: string;
+      };
+    };
 
 export type WriteSurfaceProbeApp = {
   status: number;
@@ -120,6 +136,7 @@ export type DrillReport = {
   /** Mirrors successful zero-loss repoint; false when refused or failed. */
   repointed: boolean;
   target: string;
+  database_target: DatabaseTargetIdentity;
   /** Independently recomputed lost accepted writes (never copied from child ok). */
   lost_accepted_writes: number;
   /** Same as independent recompute — D07-01 oracle field. */
@@ -186,6 +203,32 @@ export type DrillReport = {
   report_path: string;
   error?: { code: string; message: string };
 };
+
+function formatTargetIdentity(target: DatabaseTargetIdentity | null | undefined): string {
+  if (!target) return 'missing';
+  return `${target.host}:${target.effective_port}/${target.database} fingerprint=${target.fingerprint}`;
+}
+
+/**
+ * Production acceptance seam for the child rollback report. A successful
+ * child must prove the same complete credential-free target identity as the
+ * parent before any child success or zero-loss result can be accepted.
+ */
+export function evaluateRollbackChildTarget(
+  parent: DatabaseTargetIdentity,
+  child: DatabaseTargetIdentity | null | undefined
+): RollbackChildTargetValidation {
+  if (databaseTargetIdentitiesEqual(parent, child)) return { ok: true };
+  return {
+    ok: false,
+    error: {
+      code: DATABASE_TARGET_MISMATCH,
+      message:
+        `rollback child database target mismatch: parent=${formatTargetIdentity(parent)} ` +
+        `child=${formatTargetIdentity(child)}`,
+    },
+  };
+}
 
 export function defaultRollbackDrillReportPath(cwd = process.cwd()): string {
   return resolve(cwd, '.tmp/D07-03/rollback-drill-report.json');
@@ -550,6 +593,7 @@ function parseRepointStdout(stdout: string): RollbackRepointReport | null {
  */
 export function spawnRollbackRepointCli(options: {
   cwd: string;
+  databaseUrl: string;
   watermarkPath?: string;
   outputPath?: string;
   target?: string;
@@ -575,7 +619,8 @@ export function spawnRollbackRepointCli(options: {
     cwd: options.cwd,
     encoding: 'utf8',
     timeout: 120_000,
-    env: options.env ?? process.env,
+    // Ambient values compose first; the explicit parent target wins last.
+    env: { ...(options.env ?? process.env), DATABASE_URL: options.databaseUrl },
   });
   const stdout = r.stdout ?? '';
   const stderr = r.stderr ?? '';
@@ -622,7 +667,8 @@ function ensureParent(path: string): void {
  * With N>0 accepted writes the drill reports ok:false, repointed:false,
  * error.code=POST_EXPORT_WRITE_ACCEPTED, and independent acceptedCount===N.
  */
-export async function runRollbackDrill(options?: {
+export async function runRollbackDrill(options: {
+  databaseUrl: string;
   cwd?: string;
   /** Live serving base URL for write probes + repoint acks (env fallback). */
   baseUrl?: string;
@@ -636,19 +682,18 @@ export async function runRollbackDrill(options?: {
   auditPath?: string;
   repointOutputPath?: string;
   target?: string;
-  databaseUrl?: string;
   /** Skip live write probes (tests that only assert Sev-1). Default false. */
   skipProbes?: boolean;
   /** Skip shelling repoint (tests that only assert trigger/probes). Default false. */
   skipRepoint?: boolean;
 }): Promise<DrillReport> {
+  const database_target = parseDatabaseTargetIdentity(options.databaseUrl);
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultRollbackDrillReportPath(cwd);
   const auditPath = options?.auditPath ?? defaultPostExportWriteAuditPath(cwd);
   const liveBaseUrl = resolveVerifyBaseUrl(options?.baseUrl) || '';
   const keys = resolveCutoverScopedKeys();
-  const databaseUrl =
-    options?.databaseUrl ?? process.env.DATABASE_URL ?? resolveHolocronNonprodDatabaseUrl();
+  const databaseUrl = options.databaseUrl;
   const drillProcessPid = process.pid;
 
   // ── (1) Sev-1 trigger from REAL failing runVerifyTools ───────────────────
@@ -738,6 +783,7 @@ export async function runRollbackDrill(options?: {
     };
     const child = spawnRollbackRepointCli({
       cwd,
+      databaseUrl,
       watermarkPath: options?.watermarkPath,
       outputPath: repointOutput,
       target: options?.target,
@@ -776,7 +822,10 @@ export async function runRollbackDrill(options?: {
 
   // ── (4) Independent raw-file recompute (never trust child ok alone) ──────
   // REDHAT-FIX-RH-S30-03: independent recompute from Postgres ledger (fail-closed), not .tmp file.
-  const ledger = await loadPostExportWriteAuditAsync({ allowFileFallback: false });
+  const ledger = await loadPostExportWriteAuditAsync({
+    databaseUrl,
+    allowFileFallback: false,
+  });
   const raw =
     ledger.audit != null && ledger.error == null
       ? {
@@ -903,6 +952,8 @@ export async function runRollbackDrill(options?: {
   const acceptedRecomputed = raw.auditFileExists && raw.parseError == null ? raw.acceptedCount : -1;
   const repointed = repoint.parsed?.repointed === true;
   const target = repoint.parsed?.target ?? options?.target ?? TARGET_CONVEX_FROZEN;
+  const childDatabaseTarget = repoint.parsed?.database_target;
+  const childTargetValidation = evaluateRollbackChildTarget(database_target, childDatabaseTarget);
 
   // Compose ok:true
   let error: DrillReport['error'];
@@ -930,6 +981,9 @@ export async function runRollbackDrill(options?: {
         `probes.app.executed=false probes.mcp.executed=false probes.upload.executed=false ` +
         `probes.job.executed=false probes.mission.executed=false)`,
     };
+  } else if (!options?.skipRepoint && !childTargetValidation.ok) {
+    ok = false;
+    error = childTargetValidation.error;
   } else if (!options?.skipProbes && liveBaseUrl && !allFiveBlocked(probes)) {
     ok = false;
     error = {
@@ -1019,6 +1073,7 @@ export async function runRollbackDrill(options?: {
     ok,
     repointed: ok && repointed,
     target,
+    database_target,
     lost_accepted_writes: acceptedRecomputed >= 0 ? acceptedRecomputed : -1,
     accepted_post_export_writes_recomputed: acceptedRecomputed,
     acknowledgements: authorizing,
@@ -1052,6 +1107,7 @@ export function formatRollbackDrillText(r: DrillReport): string {
       `  error.code:    ${r.error?.code ?? 'DRILL_FAILED'}`,
       `  error.message: ${r.error?.message ?? ''}`,
       `  repointed:     ${r.repointed}`,
+      `  database_target: ${r.database_target.host}:${r.database_target.effective_port}/${r.database_target.database} fingerprint=${r.database_target.fingerprint}`,
       `  sevOne.declared: ${r.sevOneTrigger.declared}`,
       `  independent.acceptedCount: ${r.independentRecompute.acceptedCount}`,
       `  liveAcks.authorizingCount: ${r.liveAcks.authorizingCount}`,
@@ -1063,6 +1119,7 @@ export function formatRollbackDrillText(r: DrillReport): string {
     `  ok:                 ${r.ok}`,
     `  repointed:          ${r.repointed}`,
     `  target:             ${r.target}`,
+    `  database_target:    ${r.database_target.host}:${r.database_target.effective_port}/${r.database_target.database} fingerprint=${r.database_target.fingerprint}`,
     `  lost_accepted:      ${r.lost_accepted_writes}`,
     `  independent.match:  ${r.independentRecompute.matchesReport}`,
     `  authorizing_acks:   ${r.liveAcks.authorizingCount}`,
