@@ -33,6 +33,7 @@ const itReal = REAL_IT ? it : it.skip;
 let gateUrl = '';
 let markerUrl = '';
 let disposableNames: string[] = [];
+let helperCanaryRoleCreated = false;
 
 function runDatabaseUrlTypeContract(): {
   status: number | null;
@@ -84,16 +85,12 @@ void omittedChild;
     )}\n`,
     'utf8'
   );
-  const result = spawnSync(
-    'pnpm',
-    ['exec', 'tsc', '--noEmit', '--pretty', 'false', '-p', tsconfigPath],
-    {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      env: process.env,
-      timeout: 120_000,
-    }
-  );
+  const result = spawnSync('tsc', ['--noEmit', '--pretty', 'false', '-p', tsconfigPath], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env: process.env,
+    timeout: 120_000,
+  });
   return {
     status: result.status,
     stdout: result.stdout ?? '',
@@ -133,6 +130,16 @@ function credentialCanaryUrl(base: string): string {
   parsed.username = C3_CANARIES[0];
   parsed.password = C3_CANARIES[1];
   parsed.search = `?${C3_CANARIES[2]}=1`;
+  parsed.hash = C3_CANARIES[3];
+  return parsed.toString();
+}
+
+function helperChainCanaryUrl(base: string, encodedApplicationName: string): string {
+  const parsed = new URL(credentialCanaryUrl(base));
+  // application_name is recognized by both libpq and the postgres client;
+  // retaining the query canary inside it exercises query redaction without
+  // introducing an unsupported driver option.
+  parsed.search = `?application_name=${encodedApplicationName}-${C3_CANARIES[2]}`;
   parsed.hash = C3_CANARIES[3];
   return parsed.toString();
 }
@@ -208,6 +215,59 @@ exec "$S30_REAL_BUN" "$@"
   return recordPath;
 }
 
+/**
+ * Records the complete reset + one-trigger helper chain without persisting a
+ * credential value. The wrappers execute the real binaries after capturing
+ * boolean-only observations about their argv and libpq environment.
+ */
+function writeHelperChainRecorder(dir: string): string {
+  const recorderDir = `${dir}/helper-chain-recorder`;
+  mkdirSync(recorderDir, { recursive: true });
+  const recordPath = `${recorderDir}/argv-summary.jsonl`;
+  const scan = `
+contains_canary=0
+for value in "$@"; do
+  for token in "$S30_C3_USER_CANARY" "$S30_C3_PASSWORD_CANARY" "$S30_C3_QUERY_CANARY" "$S30_C3_FRAGMENT_CANARY" "$S30_TEST_ENCODED_QUERY" "$S30_TEST_DECODED_QUERY"; do
+    case "$value" in *"$token"*) contains_canary=1 ;; esac
+  done
+done
+url_env_seen=0
+for name in DATABASE_URL HOLO_PROBE_MARKER_MISS_DATABASE_URL S30_TARGET_URL; do
+  if [[ -n "\${!name:-}" ]]; then url_env_seen=1; fi
+done
+`;
+  writeFileSync(
+    `${recorderDir}/python3`,
+    `#!/usr/bin/env bash
+set -euo pipefail
+${scan}
+printf '{"program":"python3","argv_canary_seen":%s,"url_env_seen":%s}\\n' "$contains_canary" "$url_env_seen" >> "$S30_PROCESS_RECORD"
+exec "$S30_REAL_PYTHON" "$@"
+`,
+    'utf8'
+  );
+  writeFileSync(
+    `${recorderDir}/psql`,
+    `#!/usr/bin/env bash
+set -euo pipefail
+${scan}
+pg_user_match=0
+pg_password_match=0
+pg_appname_match=0
+[[ "\${PGUSER:-}" == "\${S30_EXPECTED_PGUSER:-}" ]] && pg_user_match=1
+[[ "\${PGPASSWORD:-}" == "\${S30_EXPECTED_PGPASSWORD:-}" ]] && pg_password_match=1
+[[ "\${PGAPPNAME:-}" == "\${S30_EXPECTED_PGAPPNAME:-}" ]] && pg_appname_match=1
+printf '{"program":"psql","argv_canary_seen":%s,"url_env_seen":%s,"pg_user_match":%s,"pg_password_match":%s,"pg_appname_match":%s}\\n' "$contains_canary" "$url_env_seen" "$pg_user_match" "$pg_password_match" "$pg_appname_match" >> "$S30_PROCESS_RECORD"
+exec "$S30_REAL_PSQL" "$@"
+`,
+    'utf8'
+  );
+  chmodSync(`${recorderDir}/python3`, 0o755);
+  chmodSync(`${recorderDir}/psql`, 0o755);
+  writeFileSync(recordPath, '', 'utf8');
+  return recordPath;
+}
+
 function scanTextFiles(dir: string): { files: number; canaryHits: number; rawUrlHits: number } {
   let files = 0;
   let canaryHits = 0;
@@ -227,6 +287,22 @@ function scanTextFiles(dir: string): { files: number; canaryHits: number; rawUrl
     if (/postgres(?:ql)?:\/\//i.test(text)) rawUrlHits += 1;
   }
   return { files, canaryHits, rawUrlHits };
+}
+
+function countSensitiveNeedles(dir: string, needles: readonly string[]): number {
+  let hits = 0;
+  for (const entry of readdirSync(dir)) {
+    const path = `${dir}/${entry}`;
+    if (statSync(path).isDirectory()) {
+      hits += countSensitiveNeedles(path, needles);
+      continue;
+    }
+    const text = readFileSync(path, 'utf8');
+    for (const needle of needles) {
+      if (text.includes(needle)) hits += 1;
+    }
+  }
+  return hits;
 }
 
 function evidenceContains(dir: string, pattern: RegExp): boolean {
@@ -262,6 +338,10 @@ function credentialFreeTranscript(text: string): string {
   return text
     .replace(/postgres(?:ql)?:\/\/[^\s'"\\]+/gi, '[database-target-redacted]')
     .slice(-2_000);
+}
+
+function stableErrorCodes(text: string): string[] {
+  return [...text.matchAll(/error:\s*([A-Z][A-Z0-9_]+)/g)].map((match) => match[1] ?? '');
 }
 
 function libpqEnv(url: string): NodeJS.ProcessEnv {
@@ -351,12 +431,48 @@ async function provisionShellTargets(): Promise<void> {
   }
 }
 
+async function provisionHelperCanaryRole(): Promise<void> {
+  const admin = postgres(ADMIN_URL, { max: 1, prepare: false });
+  try {
+    const existing = await admin<{ exists: boolean }[]>`
+      SELECT true AS exists FROM pg_roles WHERE rolname = ${C3_CANARIES[0]}
+    `;
+    if (existing.length === 0) {
+      const owner = await admin<{ name: string }[]>`SELECT current_user::text AS name`;
+      const ownerName = owner[0]?.name;
+      if (!ownerName || !/^[A-Za-z_][A-Za-z0-9_$]*$/.test(ownerName)) {
+        throw new Error('fixture owner role is not a safe SQL identifier');
+      }
+      // This role exists only for the disposable PLATFORM_IT fixture. It makes
+      // the URL user/password fields real connection inputs instead of a
+      // mocked parser exercise; teardown removes it when this test created it.
+      await admin.unsafe(
+        `CREATE ROLE "${C3_CANARIES[0]}" LOGIN PASSWORD '${C3_CANARIES[1]}' IN ROLE "${ownerName}"`
+      );
+      await admin.unsafe(`ALTER ROLE "${C3_CANARIES[0]}" SET ROLE TO "${ownerName}"`);
+      helperCanaryRoleCreated = true;
+    }
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+}
+
 async function dropShellTargets(): Promise<void> {
   if (disposableNames.length === 0) return;
   const admin = postgres(ADMIN_URL, { max: 1, prepare: false });
   try {
     for (const name of disposableNames)
       await admin.unsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+}
+
+async function dropHelperCanaryRole(): Promise<void> {
+  if (!helperCanaryRoleCreated) return;
+  const admin = postgres(ADMIN_URL, { max: 1, prepare: false });
+  try {
+    await admin.unsafe(`DROP ROLE IF EXISTS "${C3_CANARIES[0]}"`);
   } finally {
     await admin.end({ timeout: 5 });
   }
@@ -844,12 +960,16 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         new URL('../../.tmp/GATE-FIX-explicit-ponr-database-binding/red', import.meta.url).pathname,
         { recursive: true }
       );
+      await provisionHelperCanaryRole();
       await provisionShellTargets();
     }
   }, 180_000);
 
   afterAll(async () => {
-    if (REAL_IT) await dropShellTargets();
+    if (REAL_IT) {
+      await dropShellTargets();
+      await dropHelperCanaryRole();
+    }
   });
 
   it('TC-1: runnable compiler rejects omission of databaseUrl at all three boundaries', () => {
@@ -866,7 +986,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
             cwd: REPO_ROOT,
             encoding: 'utf8',
           }).stdout.trim(),
-          command: 'pnpm exec tsc --noEmit --pretty false -p <temporary platform-derived tsconfig>',
+          command: 'tsc --noEmit --pretty false -p <temporary platform-derived tsconfig>',
           exit_code: result.status,
           fixture: 'credential-free temporary omission fixture',
           omitted_database_url_assertions: 3,
@@ -1611,5 +1731,212 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(output.after, 'ambient DATABASE_URL changed during explicit call').toBe(output.before);
       expect(output.result_count).toBe(2);
     }
+  );
+
+  itReal(
+    'RED-8: reset and one-trigger helper chains keep credential URLs off child argv and evidence',
+    async () => {
+      const evidenceRoot = new URL(
+        `../../.tmp/GATE-FIX-explicit-ponr-database-binding/red/helper-chain-canary-${Date.now()}-${process.pid}`,
+        import.meta.url
+      ).pathname;
+      mkdirSync(evidenceRoot, { recursive: true });
+      const recordPath = writeHelperChainRecorder(evidenceRoot);
+      const recorderDir = `${evidenceRoot}/helper-chain-recorder`;
+      const realPython = execFileSync('which', ['python3'], { encoding: 'utf8' }).trim();
+      const realPsql = execFileSync('which', ['psql'], { encoding: 'utf8' }).trim();
+      const runs: Array<{
+        encoded: string;
+        decoded: string;
+        resetExit: number | null;
+        oneTriggerExit: number | null;
+        outputSensitive: boolean;
+        resetErrorCodes: string[];
+        oneTriggerErrorCodes: string[];
+      }> = [];
+
+      for (const canary of LIBPQ_PRECONNECT_CANARIES) {
+        await clearShellPonr(gateUrl);
+        await clearShellAudit(gateUrl);
+        await clearShellPonr(markerUrl);
+        await clearShellAudit(markerUrl);
+        await seedExactPonrMarker({ gateDatabaseUrl: gateUrl, markerDatabaseUrl: markerUrl });
+
+        const gateTarget = helperChainCanaryUrl(gateUrl, canary.encoded);
+        const markerTarget = helperChainCanaryUrl(markerUrl, canary.encoded);
+        const caseDir = `${evidenceRoot}/${canary.encoded.replaceAll('%', 'pct').replaceAll('+', 'plus')}`;
+        const commandEnv = {
+          ...process.env,
+          PATH: `${recorderDir}:${process.env.PATH ?? ''}`,
+          S30_PROCESS_RECORD: recordPath,
+          S30_REAL_PYTHON: realPython,
+          S30_REAL_PSQL: realPsql,
+          S30_C3_USER_CANARY: C3_CANARIES[0],
+          S30_C3_PASSWORD_CANARY: C3_CANARIES[1],
+          S30_C3_QUERY_CANARY: C3_CANARIES[2],
+          S30_C3_FRAGMENT_CANARY: C3_CANARIES[3],
+          S30_TEST_ENCODED_QUERY: canary.encoded,
+          S30_TEST_DECODED_QUERY: canary.decoded,
+          S30_EXPECTED_PGUSER: C3_CANARIES[0],
+          S30_EXPECTED_PGPASSWORD: C3_CANARIES[1],
+          S30_EXPECTED_PGAPPNAME: `${canary.decoded}-${C3_CANARIES[2]}`,
+        };
+        const reset = spawnSync(
+          'bash',
+          [
+            'scripts/reset-sprint30-gate-ledger.sh',
+            '--authorize',
+            '--clear-ponr',
+            '--audit-file',
+            `${caseDir}/ledger.json`,
+          ],
+          {
+            cwd: REPO_ROOT,
+            encoding: 'utf8',
+            env: {
+              ...commandEnv,
+              DATABASE_URL: gateTarget,
+              HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerTarget,
+              HOLO_GATE_LEDGER_ALLOW_DB_NAME: disposableNames[0],
+            },
+          }
+        );
+        // The reset helper executes all three parse_qs/unquote_plus spellings.
+        // Execute the slower trigger-negative chain once with %2B, which is
+        // the representation most likely to regress into a literal/space mix.
+        const oneTrigger =
+          canary.encoded === LIBPQ_PRECONNECT_CANARIES[2].encoded
+            ? spawnSync(
+                'bash',
+                ['scripts/probe-ponr-one-trigger-missing-negative.sh', `${caseDir}/one-trigger`],
+                {
+                  cwd: REPO_ROOT,
+                  encoding: 'utf8',
+                  env: {
+                    ...commandEnv,
+                    DATABASE_URL: gateTarget,
+                    HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerTarget,
+                  },
+                }
+              )
+            : null;
+        const output = `${reset.stdout ?? ''}\n${reset.stderr ?? ''}\n${oneTrigger?.stdout ?? ''}\n${oneTrigger?.stderr ?? ''}`;
+        const sensitiveNeedles = [
+          gateTarget,
+          markerTarget,
+          ...C3_CANARIES,
+          canary.encoded,
+          canary.decoded,
+        ];
+        runs.push({
+          encoded: canary.encoded,
+          decoded: canary.decoded,
+          resetExit: reset.status,
+          oneTriggerExit: oneTrigger?.status ?? null,
+          outputSensitive: sensitiveNeedles.some((needle) => output.includes(needle)),
+          resetErrorCodes: stableErrorCodes(`${reset.stdout ?? ''}\n${reset.stderr ?? ''}`),
+          oneTriggerErrorCodes: stableErrorCodes(
+            `${oneTrigger?.stdout ?? ''}\n${oneTrigger?.stderr ?? ''}`
+          ),
+        });
+      }
+
+      const records = readFileSync(recordPath, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map(
+          (line) =>
+            JSON.parse(line) as {
+              program: 'python3' | 'psql';
+              argv_canary_seen: number;
+              url_env_seen: number;
+              pg_user_match?: number;
+              pg_password_match?: number;
+              pg_appname_match?: number;
+            }
+        );
+      const psqlRecords = records.filter((record) => record.program === 'psql');
+      const pythonRecords = records.filter((record) => record.program === 'python3');
+      const allRawTargets = LIBPQ_PRECONNECT_CANARIES.flatMap((canary) => [
+        helperChainCanaryUrl(gateUrl, canary.encoded),
+        helperChainCanaryUrl(markerUrl, canary.encoded),
+      ]);
+      const allSensitiveNeedles = [
+        ...allRawTargets,
+        ...C3_CANARIES,
+        ...LIBPQ_PRECONNECT_CANARIES.flatMap(({ encoded, decoded }) => [encoded, decoded]),
+      ];
+      const persistedSensitiveHits = countSensitiveNeedles(evidenceRoot, allSensitiveNeedles);
+      const summary = {
+        source_sha: spawnSync('git', ['rev-parse', 'HEAD'], {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+        }).stdout.trim(),
+        helper_chains: runs.map(
+          ({
+            encoded,
+            decoded,
+            resetExit,
+            oneTriggerExit,
+            outputSensitive,
+            resetErrorCodes,
+            oneTriggerErrorCodes,
+          }) => ({
+            encoded,
+            decoded,
+            reset_exit: resetExit,
+            one_trigger_exit: oneTriggerExit,
+            output_sensitive: outputSensitive,
+            reset_error_codes: resetErrorCodes,
+            one_trigger_error_codes: oneTriggerErrorCodes,
+          })
+        ),
+        python_observed: pythonRecords.length > 0,
+        python_raw_url_env_observed: pythonRecords.some((record) => record.url_env_seen === 1),
+        psql_observed: psqlRecords.length > 0,
+        psql_argv_canary_seen_count: psqlRecords.filter((record) => record.argv_canary_seen !== 0)
+          .length,
+        psql_raw_url_env_seen_count: psqlRecords.filter((record) => record.url_env_seen !== 0)
+          .length,
+        psql_pg_values_all_matched:
+          psqlRecords.length > 0 &&
+          psqlRecords.every(
+            (record) =>
+              record.pg_user_match === 1 &&
+              record.pg_password_match === 1 &&
+              record.pg_appname_match === 1
+          ),
+        persisted_sensitive_hits: persistedSensitiveHits,
+        holocron_nonprod_touched: false,
+      };
+      writeFileSync(
+        `${evidenceRoot}/sanitized-summary.json`,
+        `${JSON.stringify(summary, null, 2)}\n`,
+        'utf8'
+      );
+
+      expect(disposableNames).toHaveLength(2);
+      expect(disposableNames).not.toContain('holocron_nonprod');
+      expect(runs.every((run) => run.resetExit === 0)).toBe(true);
+      expect(runs.filter((run) => run.oneTriggerExit !== null)).toHaveLength(1);
+      expect(runs.find((run) => run.oneTriggerExit !== null)?.oneTriggerExit).toBe(0);
+      expect(runs.every((run) => !run.outputSensitive)).toBe(true);
+      expect(pythonRecords.length).toBeGreaterThan(0);
+      expect(pythonRecords.some((record) => record.url_env_seen === 1)).toBe(true);
+      expect(records.every((record) => record.argv_canary_seen === 0)).toBe(true);
+      expect(psqlRecords.length).toBeGreaterThan(0);
+      expect(psqlRecords.every((record) => record.url_env_seen === 0)).toBe(true);
+      expect(
+        psqlRecords.every(
+          (record) =>
+            record.pg_user_match === 1 &&
+            record.pg_password_match === 1 &&
+            record.pg_appname_match === 1
+        )
+      ).toBe(true);
+      expect(persistedSensitiveHits).toBe(0);
+    },
+    300_000
   );
 });
