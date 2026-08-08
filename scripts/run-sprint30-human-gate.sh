@@ -24,6 +24,10 @@
 #   # Recommended preflight (default on): dual-reset Postgres+file audit ledger
 #   # so step2 accepted_count=0 and step5 keeps real POST_PONR_INELIGIBLE oracle.
 #   export HOLO_GATE_RESET_LEDGER=1   # default 1; set 0 to skip
+#   # GATE-FIX-gate-preflight-fence-rearm (default on): re-arm durable soak fence
+#   # + prove live HTTP 423 migration_read_only before step1 (prevents zero-loss poison).
+#   export HOLO_GATE_REARM_FENCE=1            # default 1; set 0 to skip
+#   export HOLO_GATE_RESTORE_SOAK_PLANE=1     # default 1; rearm --plane postgres --target postgres-soak
 #   bash scripts/run-sprint30-human-gate.sh
 set -euo pipefail
 
@@ -99,6 +103,76 @@ if [[ "${HOLO_GATE_RESET_LEDGER:-1}" == "1" ]]; then
     | tee "$EVID_DIR/preflight-ledger-reset.json"
 else
   echo "preflight: HOLO_GATE_RESET_LEDGER=0 — skipping ledger dual-reset (operator owns residue)"
+fi
+
+# ── GATE-FIX-gate-preflight-fence-rearm: dual-path PONR clear proof ──────────
+# Residual sentinel PONR (write_row_id …aaaaaaaaaaaa) can survive psql-only clear
+# when scraped DATABASE_URL ≠ platform resolveDatabaseUrl({preferHolocron:true}).
+# Prove empty on the SAME path as cutover:rollback-repoint / readDataPlanePonr.
+if [[ "${HOLO_GATE_RESET_LEDGER:-1}" == "1" && "${HOLO_GATE_CLEAR_PONR:-1}" == "1" ]]; then
+  echo "preflight: assert data_plane_ponr empty via platform readDataPlanePonr path"
+  bash "$ROOT/scripts/assert-sprint30-prep-ponr-clear.sh" \
+    --out "$EVID_DIR/preflight-ponr-clear.json" \
+    | tee "$EVID_DIR/preflight-ponr-clear.stdout"
+  cp "$EVID_DIR/preflight-ponr-clear.json" .tmp/GATE-FIX-gate-preflight-fence-rearm/ac4-ponr-dual-path-clear.json 2>/dev/null || true
+fi
+
+# ── GATE-FIX-gate-preflight-fence-rearm: durable fence re-arm + live 423 ─────
+# 20260808T011038Z: prior enable-writes left HOLO_MIGRATION_READ_ONLY="0";
+# preflight never re-armed → step1 fence_armed=false → DRILL_WRITE_SURFACES_NOT_BLOCKED
+# after real accepted writes (accepted_count=2). Default ON; opt-out =0.
+# NEVER ad-hoc sed/regex rewrite of secrets.yaml — use rearm worker only.
+mkdir -p .tmp/GATE-FIX-gate-preflight-fence-rearm
+if [[ "${HOLO_GATE_REARM_FENCE:-1}" == "1" ]]; then
+  echo "preflight: re-arm durable soak fence via rearm-sprint30-cutover-control-plane.sh"
+  REARM_ARGS=(--fence 1)
+  if [[ "${HOLO_GATE_RESTORE_SOAK_PLANE:-1}" == "1" ]]; then
+    REARM_ARGS+=(--plane postgres --target postgres-soak)
+    echo "preflight: also restore soak plane labels (postgres / postgres-soak)"
+  fi
+  bash "$ROOT/scripts/rearm-sprint30-cutover-control-plane.sh" "${REARM_ARGS[@]}" \
+    | tee "$EVID_DIR/preflight-rearm.json"
+  cp "$EVID_DIR/preflight-rearm.json" .tmp/GATE-FIX-gate-preflight-fence-rearm/ac1-preflight-rearm-wired.json 2>/dev/null || true
+
+  # Durable fence line shape (quoted "1", never "1"")
+  SECRETS_PATH="${HOLO_SECRETS_PATH:-$ROOT/services/platform/config/secrets.yaml}"
+  python3 - "$SECRETS_PATH" "$EVID_DIR/preflight-durable-fence-shape.json" <<'PY'
+import json, re, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+outp = Path(sys.argv[2])
+text = path.read_text() if path.exists() else ""
+line = next((l for l in text.splitlines() if re.match(r"^HOLO_MIGRATION_READ_ONLY\s*:", l)), "")
+m = re.match(r"^HOLO_MIGRATION_READ_ONLY:\s*(.*)$", line)
+shape = (m.group(1).strip() if m else "")
+plane_line = next((l for l in text.splitlines() if re.match(r"^HOLO_DATA_PLANE\s*:", l)), "")
+target_line = next((l for l in text.splitlines() if re.match(r"^HOLO_ROLLBACK_TARGET\s*:", l)), "")
+ok = shape in ('"1"', "1", "'1'") and '"1""' not in line and "'1''" not in line
+payload = {
+  "ok": ok,
+  "fence_line": line,
+  "fence_value_shape": shape,
+  "doubled_quote_corruption": '"1""' in line or '"0""' in line,
+  "data_plane_line": plane_line,
+  "rollback_target_line": target_line,
+}
+outp.write_text(json.dumps(payload, indent=2) + "\n")
+print(json.dumps(payload, indent=2))
+if not ok:
+    raise SystemExit(2)
+PY
+  cp "$EVID_DIR/preflight-durable-fence-shape.json" \
+    .tmp/GATE-FIX-gate-preflight-fence-rearm/ac1-durable-fence-shape.json 2>/dev/null || true
+
+  # Live serving oracle — CLI isMigrationReadOnly alone is NOT closed
+  echo "preflight: prove live serving process returns HTTP 423 migration_read_only"
+  bash "$ROOT/scripts/prove-sprint30-fence-armed-live.sh" \
+    --base-url "$DEPLOYED_BASE_URL" \
+    --out "$EVID_DIR/preflight-live-423.json" \
+    | tee "$EVID_DIR/preflight-live-423.stdout"
+  cp "$EVID_DIR/preflight-live-423.json" .tmp/GATE-FIX-gate-preflight-fence-rearm/ac2-live-423-body.json 2>/dev/null || true
+else
+  echo "preflight: HOLO_GATE_REARM_FENCE=0 — skipping durable fence re-arm (operator owns residue; product DRILL_FENCE_NOT_ARMED is the safety net)"
 fi
 
 # ── RH-S30-07: require live sourceRevision == HEAD ──────────────────────────
@@ -276,6 +350,77 @@ PY
     STEP_RESULTS+=("$n|fail")
   fi
 done
+
+# ── GATE-FIX-zero-loss-t-sync-013: step4→step5 this-run PONR identity bind ──
+# Regex-only POST_PONR_INELIGIBLE is NOT closed: residual aaaa sentinel or a
+# foreign ponr_id can satisfy the string without matching this-run step4.
+mkdir -p .tmp/GATE-FIX-zero-loss-t-sync-013
+if [[ -f "$EVID_DIR/step4.log" && -f "$EVID_DIR/step5.log" ]]; then
+  echo "post-steps: T-SYNC-014 identity bind step4 ponr_id/write_row_id → step5"
+  set +e
+  bash "$ROOT/scripts/assert-post-ponr-identity-bind.sh" \
+    --step4 "$EVID_DIR/step4.log" \
+    --step5 "$EVID_DIR/step5.log" \
+    --out "$EVID_DIR/post-ponr-identity-bind.json"
+  BIND_RC=$?
+  set -e
+  cp "$EVID_DIR/post-ponr-identity-bind.json" \
+    .tmp/GATE-FIX-zero-loss-t-sync-013/ac3-post-ponr-identity-bind.json 2>/dev/null || true
+  if [[ "$BIND_RC" -ne 0 ]]; then
+    echo "error: POST_PONR_IDENTITY_BIND_FAILED — step5 not bound to this-run step4" >&2
+    cat "$EVID_DIR/post-ponr-identity-bind.json" >&2 || true
+    # Force step5 fail if it had regex-passed on residual PONR alone
+    NEW_RESULTS=()
+    flipped=0
+    for pair in "${STEP_RESULTS[@]}"; do
+      if [[ "$pair" == "5|pass" ]]; then
+        NEW_RESULTS+=("5|fail")
+        flipped=1
+      else
+        NEW_RESULTS+=("$pair")
+      fi
+    done
+    STEP_RESULTS=("${NEW_RESULTS[@]}")
+    if [[ "$flipped" -eq 1 ]]; then
+      steps_passed=$((steps_passed - 1))
+      steps_failed=$((steps_failed + 1))
+    fi
+  fi
+fi
+
+# Partial 3/5 (steps 4–5 green, 1–2 red) is NOT a T-SYNC-013 release pass.
+# Document explicitly in evidence (assert-human-test-verdict still requires 5/5).
+python3 - <<PY
+import json
+from pathlib import Path
+pairs = """${STEP_RESULTS[*]}""".split()
+by = {}
+for p in pairs:
+    if "|" in p:
+        n, r = p.split("|", 1)
+        by[int(n)] = r
+s1 = by.get(1) == "pass"
+s2 = by.get(2) == "pass"
+s4 = by.get(4) == "pass"
+s5 = by.get(5) == "pass"
+t_sync_013_release = s1 and s2
+partial_not_release = (s4 and s5) and not (s1 and s2)
+payload = {
+  "ok": t_sync_013_release,
+  "t_sync_013_release_pass": t_sync_013_release,
+  "partial_4_5_green_1_2_red_is_not_release": partial_not_release,
+  "steps": by,
+  "note": (
+    "T-SYNC-013 zero-loss is release-blocking. Partial green on steps 4–5 "
+    "(PONR latch) while steps 1–2 red is NOT UC-SYNC-04 AC-2 certification."
+  ),
+}
+Path("$EVID_DIR/t-sync-013-release-verdict.json").write_text(json.dumps(payload, indent=2) + "\n")
+Path(".tmp/GATE-FIX-zero-loss-t-sync-013/ac5-partial-not-release.json").write_text(
+    json.dumps(payload, indent=2) + "\n"
+)
+print(json.dumps(payload, indent=2))
+PY
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 VERDICT="fail"
