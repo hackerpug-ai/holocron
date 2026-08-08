@@ -5,7 +5,7 @@
  *
  * Run: pnpm vitest run --project unit tests/cutover/gate-fix-gate-preflight-fence-rearm.test.ts
  */
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -86,9 +86,13 @@ describe('GATE-FIX-gate-preflight-fence-rearm (unit)', () => {
       git_sha: '54299bfc76fec6fc52468dae451ca293a6f104c4',
       step1: 'DRILL_WRITE_SURFACES_NOT_BLOCKED fence_armed=false',
       step2: 'accepted_count=2',
-      root_cause: 'preflight never re-armed durable HOLO_MIGRATION_READ_ONLY after enable-writes left 0',
+      root_cause:
+        'preflight never re-armed durable HOLO_MIGRATION_READ_ONLY after enable-writes left 0',
     };
-    writeFileSync(resolve(EVID, 'red-20260808T011038Z-summary.json'), JSON.stringify(red, null, 2) + '\n');
+    writeFileSync(
+      resolve(EVID, 'red-20260808T011038Z-summary.json'),
+      JSON.stringify(red, null, 2) + '\n'
+    );
     expect(existsSync(resolve(EVID, 'red-20260808T011038Z-summary.json'))).toBe(true);
   });
 });
