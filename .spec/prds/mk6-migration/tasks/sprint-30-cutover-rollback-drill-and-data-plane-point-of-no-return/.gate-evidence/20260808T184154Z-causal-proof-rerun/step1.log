@@ -1,0 +1,212 @@
+@@GATE-META step=1 cmd_sha=215cfd4435e83c33b87d810748f1afe61abf594fdfddc6cd9f5dce462a0f7e28 run_id=20260808T184154Z-causal-proof-rerun git_sha=826e2ac9609138dff7341b7b95470568578a1abc source_sha=826e2ac9609138dff7341b7b95470568578a1abc started_at=2026-08-08T18:41:58Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=826e2ac9609138dff7341b7b95470568578a1abc@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-drill --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
+{
+  "ok": true,
+  "repointed": true,
+  "target": "convex-frozen",
+  "lost_accepted_writes": 0,
+  "accepted_post_export_writes_recomputed": 0,
+  "acknowledgements": [
+    {
+      "unit": "network-serving-health",
+      "kind": "network_health",
+      "observed_data_plane": "convex",
+      "observed_target": "convex-frozen",
+      "observed_at": "2026-08-08T18:42:02.266Z",
+      "source": "http://127.0.0.1:44121/health",
+      "preexisting": true
+    }
+  ],
+  "precondition": {
+    "accepted_post_export_writes": 0
+  },
+  "sevOneTrigger": {
+    "gate": "verify-tools",
+    "declared": true,
+    "report": {
+      "ok": false,
+      "toolsPassed": 0,
+      "toolsTotal": 44,
+      "toolsStubbed": 0,
+      "base_url": "http://127.0.0.1:65174",
+      "error": "UNREACHABLE_BASE_URL: http://127.0.0.1:65174 (Unable to connect. Is the computer able to access the url?)",
+      "transport": "network"
+    },
+    "triggerBaseUrl": "http://127.0.0.1:65174"
+  },
+  "probes": {
+    "app": {
+      "status": 423,
+      "body": {
+        "error": "migration_read_only",
+        "code": "migration_read_only"
+      },
+      "executed": true
+    },
+    "mcp": {
+      "rejected": true,
+      "status": 200,
+      "message": "{\"code\":\"MIGRATION_READ_ONLY\",\"message\":\"MIGRATION_READ_ONLY: store_document blocked while HOLO_MIGRATION_READ_ONLY is set\"}",
+      "executed": true
+    },
+    "upload": {
+      "status": 423,
+      "body": {
+        "error": "migration_read_only",
+        "code": "migration_read_only"
+      },
+      "executed": true
+    },
+    "job": {
+      "ok": false,
+      "error": "migration_read_only: task-timeout-worker blocked while HOLO_MIGRATION_READ_ONLY is set",
+      "executed": true
+    },
+    "mission": {
+      "rejected": true,
+      "message": "migration_read_only: mission publish blocked while HOLO_MIGRATION_READ_ONLY is set",
+      "executed": true
+    }
+  },
+  "repoint": {
+    "exitCode": 0,
+    "parsed": {
+      "ok": true,
+      "repointed": true,
+      "target": "convex-frozen",
+      "target_kind": "convex",
+      "data_plane": "convex",
+      "engaged_at": "2026-08-08T18:42:01.313Z",
+      "engaged_at_ms": 1786214521313,
+      "configured_target": "/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml",
+      "precondition": {
+        "ok": true,
+        "accepted_post_export_writes": 0,
+        "export_watermark_ms": 1786190348757,
+        "audit_path": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
+      },
+      "config": {
+        "path": "/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json",
+        "digest_sha256": "165840ca5cce2204208783156dcd12c517df917ce8605d6bec397cb3a70a3595",
+        "prior_target": "postgres-soak"
+      },
+      "acknowledgements": [
+        {
+          "unit": "network-serving-health",
+          "kind": "network_health",
+          "observed_data_plane": "convex",
+          "observed_target": "convex-frozen",
+          "observed_at": "2026-08-08T18:42:02.266Z",
+          "source": "http://127.0.0.1:44121/health",
+          "preexisting": true
+        }
+      ],
+      "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json"
+    },
+    "stdout": "{\n  \"ok\": true,\n  \"repointed\": true,\n  \"target\": \"convex-frozen\",\n  \"target_kind\": \"convex\",\n  \"data_plane\": \"convex\",\n  \"engaged_at\": \"2026-08-08T18:42:01.313Z\",\n  \"engaged_at_ms\": 1786214521313,\n  \"configured_target\": \"/Users/inference1/Projects/holocron/services/platform/config/secrets.yaml\",\n  \"precondition\": {\n    \"ok\": true,\n    \"accepted_post_export_writes\": 0,\n    \"export_watermark_ms\": 1786190348757,\n    \"audit_path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json\"\n  },\n  \"config\": {\n    \"path\": \"/Users/inference1/Projects/holocron/.tmp/D06-05/data-plane-config.json\",\n    \"digest_sha256\": \"165840ca5cce2204208783156dcd12c517df917ce8605d6bec397cb3a70a3595\",\n    \"prior_target\": \"postgres-soak\"\n  },\n  \"acknowledgements\": [\n    {\n      \"unit\": \"network-serving-health\",\n      \"kind\": \"network_health\",\n      \"observed_data_plane\": \"convex\",\n      \"observed_target\": \"convex-frozen\",\n      \"observed_at\": \"2026-08-08T18:42:02.266Z\",\n      \"source\": \"http://127.0.0.1:44121/health\",\n      \"preexisting\": true\n    }\n  ],\n  \"report_path\": \"/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json\"\n}\n",
+    "stderr": "",
+    "argv": [
+      "bun",
+      "services/platform/src/cli/holo.ts",
+      "cutover:rollback-repoint",
+      "--json",
+      "--output",
+      "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-repoint-from-drill.json"
+    ]
+  },
+  "independentRecompute": {
+    "acceptedCount": 0,
+    "matchesReport": true,
+    "rawFileByteCount": 0,
+    "auditFileExists": true,
+    "reportValue": 0,
+    "auditPath": "/Users/inference1/Projects/holocron/.tmp/D06-05/post-export-write-audit.json"
+  },
+  "liveAcks": {
+    "authorizingCount": 1,
+    "allPreexisting": true,
+    "acks": [
+      {
+        "kind": "network_health",
+        "preexisting": true,
+        "unit": "network-serving-health"
+      }
+    ]
+  },
+  "postRepointHealthProbe": {
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "db": {
+        "ready": true,
+        "latency_ms": 13
+      },
+      "postgres": {
+        "ready": true,
+        "latency_ms": 13
+      },
+      "fleet": {
+        "ready": true,
+        "endpoint": "http://127.0.0.1:4545",
+        "latency_ms": 1
+      },
+      "queue": {
+        "ready": true,
+        "latency_ms": 858,
+        "backend": "pg-boss"
+      },
+      "zeroCache": {
+        "ready": true,
+        "endpoint": "http://127.0.0.1:4848",
+        "latency_ms": 1
+      },
+      "deployment": {
+        "ready": true,
+        "required": true,
+        "identity": {
+          "host": "inference1",
+          "runtime": "container",
+          "imageDigest": "sha256:7d0fa63379315ed852edb0187cabab7bd2fabb5b45368a06cf6ceb22688a2858",
+          "sourceRevision": "826e2ac9609138dff7341b7b95470568578a1abc",
+          "composeGeneration": "inference1-s30-826e2ac96091",
+          "composeSha256": "57f5a4529fd1acc31ff2dc58dd35835b67dee6043ea7a2412e57211ac600f2dd",
+          "deployedAt": "2026-08-08T18:38:22.009Z",
+          "pid": 62549,
+          "uptimeMs": 220310
+        }
+      },
+      "failing_dependency": null,
+      "host": "inference1",
+      "runtime": "container",
+      "imageDigest": "sha256:7d0fa63379315ed852edb0187cabab7bd2fabb5b45368a06cf6ceb22688a2858",
+      "sourceRevision": "826e2ac9609138dff7341b7b95470568578a1abc",
+      "composeGeneration": "inference1-s30-826e2ac96091",
+      "data_plane": "convex",
+      "target": "convex-frozen",
+      "rollback": {
+        "target": "convex-frozen",
+        "data_plane": "convex",
+        "source": "secrets"
+      },
+      "pid": 62549,
+      "service_label": null,
+      "generation": null,
+      "uptime_ms": 221170
+    },
+    "baseUrl": "http://127.0.0.1:44121"
+  },
+  "content_probe": {
+    "status": 200,
+    "source": "convex",
+    "data_plane": "convex",
+    "document_id": "js70bp30w6yjpzszkqbn7hqpa98bs284",
+    "document_title": "s29-h05-baseline-1785719328978",
+    "baseUrl": "http://127.0.0.1:44121",
+    "ok": true
+  },
+  "fence_armed": true,
+  "accepted_write_identities": [],
+  "drillProcessPid": 64695,
+  "report_path": "/Users/inference1/Projects/holocron/.tmp/D07-03/rollback-drill-report.json"
+}
+@@GATE-EXIT=0@@

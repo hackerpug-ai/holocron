@@ -1,0 +1,11 @@
+{
+  "ok": false,
+  "tool": "scripts/prove-sprint30-fence-armed-live.sh",
+  "base_url": "http://127.0.0.1:44121",
+  "health_ok": false,
+  "post_attempted": false,
+  "error": {
+    "code": "FENCE_LIVE_ORACLE_FAILED",
+    "message": "/health not reachable at http://127.0.0.1:44121"
+  }
+}

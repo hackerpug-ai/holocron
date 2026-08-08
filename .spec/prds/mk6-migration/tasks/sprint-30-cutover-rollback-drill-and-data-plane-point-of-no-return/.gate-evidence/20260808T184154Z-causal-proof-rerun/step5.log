@@ -1,3 +1,5 @@
+@@GATE-META step=5 cmd_sha=657ddd3ec6b8eb29d8fe7bf165a0a9e139eeda98c7fbec9fcf1ad1853c2b199a run_id=20260808T184154Z-causal-proof-rerun git_sha=826e2ac9609138dff7341b7b95470568578a1abc source_sha=826e2ac9609138dff7341b7b95470568578a1abc started_at=2026-08-08T18:42:37Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=826e2ac9609138dff7341b7b95470568578a1abc@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
 {
   "ok": false,
   "repointed": false,
@@ -28,3 +30,4 @@
     "message": "cutover:rollback-repoint refuses: 1 accepted post-export production write(s) (point of no return / UC-SYNC-04). Convex re-point is ineligible; recover from Postgres/blob backups."
   }
 }
+@@GATE-EXIT=2@@
