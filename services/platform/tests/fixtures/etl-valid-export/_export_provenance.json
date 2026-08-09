@@ -1,0 +1,10 @@
+{
+  "schema": "holocron.export_provenance.v1",
+  "deployment": "fixture:etl-valid-export",
+  "exportedAt": "2026-07-18T00:00:00.000Z",
+  "exportStartedAtMs": 1721260800000,
+  "exportFinishedAtMs": 1721260801000,
+  "includeFileStorage": true,
+  "source": "fixture",
+  "notes": "Sprint 14 / S31 fixture archive — not a live Convex export"
+}

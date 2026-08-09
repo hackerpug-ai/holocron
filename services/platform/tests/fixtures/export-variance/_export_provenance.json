@@ -1,0 +1,7 @@
+{
+  "schema": "holocron.export_provenance.v1",
+  "deployment": "fixture:fixtures/export-variance",
+  "exportedAt": "2026-07-18T00:00:00.000Z",
+  "source": "fixture",
+  "notes": "S31-CX-02 fixture provenance sidecar"
+}

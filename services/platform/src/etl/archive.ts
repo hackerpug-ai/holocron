@@ -1,6 +1,6 @@
 /** Immutable Convex export reader + validator for Sprint 14 ETL. */
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import {
   buildAssetInventory,
@@ -9,6 +9,40 @@ import {
 } from '../catalog/assets.ts';
 import type { SourceCatalog } from '../catalog/catalog-loader.ts';
 import { type ConvexExport, readExport } from '../catalog/export-reader.ts';
+
+/**
+ * S31-CX-02 / R21 — required provenance sidecar binding an export archive to a
+ * deployment + export invocation. Self-hash alone is insufficient: a constructed
+ * directory can pass content checks without any live-export witness.
+ *
+ * Filename lives at the export root. It is validated on read but **excluded**
+ * from `archiveHash` so content digests remain stable when the sidecar is added
+ * to a retained Sprint 29 archive (AC-3 hash compare against etl_runs.export_hash).
+ */
+export const EXPORT_PROVENANCE_SIDECAR = '_export_provenance.json';
+export const EXPORT_PROVENANCE_SCHEMA = 'holocron.export_provenance.v1' as const;
+
+export type ExportProvenanceSource =
+  | 'convex-export'
+  | 'fixture'
+  | 'scoped-copy'
+  | 'operator-attested'
+  | 'materialized-copy';
+
+export interface ExportProvenance {
+  schema: typeof EXPORT_PROVENANCE_SCHEMA;
+  /** Convex deployment name or URL the export was taken from. */
+  deployment: string;
+  /** ISO-8601 timestamp of the export invocation. */
+  exportedAt: string;
+  exportStartedAtMs?: number;
+  exportFinishedAtMs?: number;
+  includeFileStorage?: boolean;
+  /** sha256 of the zip (when the export was produced as a zip). */
+  exportZipHash?: string;
+  source?: ExportProvenanceSource;
+  notes?: string;
+}
 
 export interface ParsedExportRow {
   sourceTable: string;
@@ -26,6 +60,8 @@ export interface ImmutableExport {
   assetInventory: ReturnType<typeof buildAssetInventory>;
   listedTables: string[];
   fileManifest: Array<{ path: string; sha256: string; bytes: number }>;
+  /** Required provenance sidecar (R21 / S31-CX-02). */
+  provenance: ExportProvenance;
 }
 
 interface BlobManifestEntry {
@@ -59,6 +95,126 @@ function listAllFiles(root: string): string[] {
   };
   walk(root);
   return out.sort();
+}
+
+/** Absolute path of the provenance sidecar for an export root. */
+export function exportProvenancePath(exportDir: string): string {
+  return join(resolve(exportDir), EXPORT_PROVENANCE_SIDECAR);
+}
+
+/**
+ * Fail-closed provenance read (S31-CX-02 AC-2).
+ * Throws with a message containing `provenance` when the sidecar is absent or invalid.
+ */
+export function requireExportProvenance(exportDir: string): ExportProvenance {
+  const root = resolve(exportDir);
+  const path = exportProvenancePath(root);
+  if (!existsSync(path) || !statSync(path).isFile()) {
+    throw new Error(
+      `etl export missing required provenance sidecar (${EXPORT_PROVENANCE_SIDECAR}): ${path}`
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`etl export provenance sidecar is not valid JSON at ${path}: ${msg}`);
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`etl export provenance sidecar must be a JSON object: ${path}`);
+  }
+  const obj = parsed as Record<string, unknown>;
+  if (obj.schema !== EXPORT_PROVENANCE_SCHEMA) {
+    throw new Error(
+      `etl export provenance sidecar schema mismatch at ${path}: expected ${EXPORT_PROVENANCE_SCHEMA}, got ${JSON.stringify(obj.schema)}`
+    );
+  }
+  const deployment = typeof obj.deployment === 'string' ? obj.deployment.trim() : '';
+  if (!deployment) {
+    throw new Error(`etl export provenance sidecar missing deployment binding: ${path}`);
+  }
+  const exportedAt = typeof obj.exportedAt === 'string' ? obj.exportedAt.trim() : '';
+  if (!exportedAt) {
+    throw new Error(`etl export provenance sidecar missing exportedAt: ${path}`);
+  }
+  const provenance: ExportProvenance = {
+    schema: EXPORT_PROVENANCE_SCHEMA,
+    deployment,
+    exportedAt,
+  };
+  if (typeof obj.exportStartedAtMs === 'number' && Number.isFinite(obj.exportStartedAtMs)) {
+    provenance.exportStartedAtMs = obj.exportStartedAtMs;
+  }
+  if (typeof obj.exportFinishedAtMs === 'number' && Number.isFinite(obj.exportFinishedAtMs)) {
+    provenance.exportFinishedAtMs = obj.exportFinishedAtMs;
+  }
+  if (typeof obj.includeFileStorage === 'boolean') {
+    provenance.includeFileStorage = obj.includeFileStorage;
+  }
+  if (typeof obj.exportZipHash === 'string' && obj.exportZipHash.trim()) {
+    provenance.exportZipHash = obj.exportZipHash.trim();
+  }
+  if (typeof obj.source === 'string' && obj.source.trim()) {
+    provenance.source = obj.source.trim() as ExportProvenanceSource;
+  }
+  if (typeof obj.notes === 'string' && obj.notes.trim()) {
+    provenance.notes = obj.notes.trim();
+  }
+  return provenance;
+}
+
+/** Write a provenance sidecar (does not alter archiveHash — file is excluded from the hash). */
+export function writeExportProvenance(
+  exportDir: string,
+  fields: Omit<ExportProvenance, 'schema'> & { schema?: typeof EXPORT_PROVENANCE_SCHEMA }
+): string {
+  const path = exportProvenancePath(exportDir);
+  const body: ExportProvenance = {
+    schema: EXPORT_PROVENANCE_SCHEMA,
+    deployment: fields.deployment,
+    exportedAt: fields.exportedAt,
+    ...(fields.exportStartedAtMs != null ? { exportStartedAtMs: fields.exportStartedAtMs } : {}),
+    ...(fields.exportFinishedAtMs != null ? { exportFinishedAtMs: fields.exportFinishedAtMs } : {}),
+    ...(fields.includeFileStorage != null ? { includeFileStorage: fields.includeFileStorage } : {}),
+    ...(fields.exportZipHash ? { exportZipHash: fields.exportZipHash } : {}),
+    ...(fields.source ? { source: fields.source } : {}),
+    ...(fields.notes ? { notes: fields.notes } : {}),
+  };
+  if (!body.deployment?.trim()) {
+    throw new Error('writeExportProvenance requires a non-empty deployment binding');
+  }
+  if (!body.exportedAt?.trim()) {
+    throw new Error('writeExportProvenance requires a non-empty exportedAt');
+  }
+  writeFileSync(path, `${JSON.stringify(body, null, 2)}\n`, 'utf8');
+  return path;
+}
+
+/**
+ * Compute the content-only archive hash for an export directory.
+ * Excludes the provenance sidecar so AC-3 can compare against etl_runs.export_hash
+ * after the sidecar is attached to a retained archive.
+ */
+export function computeArchiveHash(exportDir: string): {
+  archiveHash: string;
+  fileManifest: Array<{ path: string; sha256: string; bytes: number }>;
+} {
+  const root = resolve(exportDir);
+  const fileManifest = listAllFiles(root)
+    .filter((file) => relative(root, file) !== EXPORT_PROVENANCE_SIDECAR)
+    .map((file) => {
+      const bytes = readFileSync(file);
+      return {
+        path: relative(root, file),
+        sha256: sha256Bytes(bytes),
+        bytes: bytes.length,
+      };
+    });
+  const archiveHash = sha256Text(
+    fileManifest.map((entry) => `${entry.path}\0${entry.sha256}\0${entry.bytes}`).join('\n')
+  );
+  return { archiveHash, fileManifest };
 }
 
 function readTableList(root: string): string[] {
@@ -271,6 +427,9 @@ export function readImmutableExport(exportDir: string, catalog: SourceCatalog): 
     throw new Error(`etl export directory does not exist: ${root}`);
   }
 
+  // S31-CX-02 AC-2: refuse sidecar-less / unprovenanced archives before any staging.
+  const provenance = requireExportProvenance(root);
+
   const listedTables = readTableList(root);
   validateTableSurface(root, listedTables);
 
@@ -279,17 +438,7 @@ export function readImmutableExport(exportDir: string, catalog: SourceCatalog): 
 
   const rows = listedTables.flatMap((table) => parseTableRows(root, table));
   const assetInventory = buildAssetInventory(catalog, exportData);
-  const fileManifest = listAllFiles(root).map((file) => {
-    const bytes = readFileSync(file);
-    return {
-      path: relative(root, file),
-      sha256: sha256Bytes(bytes),
-      bytes: bytes.length,
-    };
-  });
-  const archiveHash = sha256Text(
-    fileManifest.map((entry) => `${entry.path}\0${entry.sha256}\0${entry.bytes}`).join('\n')
-  );
+  const { archiveHash, fileManifest } = computeArchiveHash(root);
 
   return {
     root,
@@ -299,5 +448,6 @@ export function readImmutableExport(exportDir: string, catalog: SourceCatalog): 
     assetInventory,
     listedTables,
     fileManifest,
+    provenance,
   };
 }

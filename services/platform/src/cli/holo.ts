@@ -193,6 +193,8 @@ interface CliArgs {
   contract: string | null;
   /** verify:etl-provenance --gate <path> (repeatable via comma-separated list) */
   gatePath: string | null;
+  /** cutover:verify-archive-provenance --expected-hash <64-hex> */
+  expectedHash: string | null;
   /** verify:client-contract --schema | --targets | --e2e-links */
   verifySchema: boolean;
   verifyTargets: boolean;
@@ -422,6 +424,12 @@ Usage:
                             [--parity <cutover-parity.json>]
                             Requires operator export+catalog+parity (fail closed; no test-fixture default).
                             Tests only: HOLO_CUTOVER_ALLOW_TEST_FIXTURES=1 or explicit fixture paths.
+  cutover:verify-archive-provenance
+                            S31-CX-02: validate retained export + provenance sidecar + archiveHash
+                            [--export <dir>] [--catalog <yaml>] [--expected-hash <64-hex>] [--json]
+                            Fail-closed without sidecar (message contains "provenance").
+                            Optional etl_runs.export_hash compare when DATABASE_URL set.
+                            Does NOT invoke live convex export (AC-1 is operator-only).
   cutover:verify-soak       D06-05 aggregate tools+reads+article+hono+jobs+zeroWritePath [--json] [--base-url URL]
   cutover:attest-convex-live
                             D07-02 multi-tick Convex reachability + write-block attestation
@@ -649,6 +657,7 @@ function parseArgs(argv: string[]): CliArgs {
     exportDir: process.env.CONVEX_EXPORT_DIR ?? null,
     catalogPath: defaultCatalogPath(),
     manifestPath: defaultManifestPath(),
+    expectedHash: null,
     fixturesDir: null,
     protocol: false,
     json: false,
@@ -1044,6 +1053,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.manifestPath = resolve(argv[++i] ?? args.manifestPath);
     } else if (a === '--fixtures-dir') {
       args.fixturesDir = resolve(argv[++i] ?? '');
+    } else if (a === '--expected-hash') {
+      args.expectedHash = argv[++i] ?? null;
+    } else if (a.startsWith('--expected-hash=')) {
+      args.expectedHash = a.slice('--expected-hash='.length);
     } else if (a.startsWith('--export=')) {
       args.exportDir = a.slice('--export='.length);
     } else if (a.startsWith('--catalog=')) {
@@ -4155,6 +4168,38 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:verify-reads failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:verify-archive-provenance':
+    case 'verify-archive-provenance': {
+      // S31-CX-02: retained export + provenance sidecar + optional etl_runs.export_hash
+      const { verifyArchiveProvenance, formatArchiveProvenanceText } = await import(
+        '../etl/archive-provenance.ts'
+      );
+      try {
+        const exportDir = requireExport(args.exportDir);
+        const report = await verifyArchiveProvenance({
+          exportDir,
+          catalogPath: args.catalogPath,
+          expectedExportHash: args.expectedHash,
+          queryEtlRuns: !args.expectedHash,
+          databaseUrl: process.env.DATABASE_URL ?? null,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatArchiveProvenanceText(report));
+        }
+        process.exit(report.ok ? 0 : 1);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo cutover:verify-archive-provenance failed: ${msg}`);
         }
         process.exit(1);
       }
