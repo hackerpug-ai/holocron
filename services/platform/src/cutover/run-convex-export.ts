@@ -17,6 +17,7 @@ import {
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
+import { writeExportProvenance } from '../etl/archive.ts';
 import { defaultExportRoot } from './export-watermark.ts';
 
 export type ConvexExportResult = {
@@ -193,6 +194,19 @@ export function runConvexExport(options?: {
           // already extracted into runDir — use directRoot
         }
         const hash = hashExportDirectory(directRoot);
+        const finishedAt = Date.now();
+        writeExportProvenance(directRoot, {
+          deployment:
+            process.env.CONVEX_DEPLOYMENT?.trim() ||
+            process.env.CONVEX_URL?.trim() ||
+            'convex-export-unknown-deployment',
+          exportedAt: new Date(finishedAt).toISOString(),
+          exportStartedAtMs,
+          exportFinishedAtMs: finishedAt,
+          includeFileStorage,
+          exportZipHash: hash,
+          source: 'convex-export',
+        });
         writeFileSync(
           join(runDir, 'export-meta.json'),
           `${JSON.stringify({ exportDir: directRoot, exportZipHash: hash }, null, 2)}\n`
@@ -202,7 +216,7 @@ export function runConvexExport(options?: {
           exportDir: directRoot,
           zipPath: resolvedZip,
           exportStartedAtMs,
-          exportFinishedAtMs: Date.now(),
+          exportFinishedAtMs: finishedAt,
           exportZipHash: hash,
           includeFileStorage,
         };
@@ -221,6 +235,18 @@ export function runConvexExport(options?: {
     unzipTo(resolvedZip, extractDir);
     const exportDir = resolveExportDataRoot(extractDir);
     const exportZipHash = sha256File(resolvedZip);
+    writeExportProvenance(exportDir, {
+      deployment:
+        process.env.CONVEX_DEPLOYMENT?.trim() ||
+        process.env.CONVEX_URL?.trim() ||
+        'convex-export-unknown-deployment',
+      exportedAt: new Date(exportFinishedAtMs).toISOString(),
+      exportStartedAtMs,
+      exportFinishedAtMs,
+      includeFileStorage,
+      exportZipHash,
+      source: 'convex-export',
+    });
     writeFileSync(
       join(runDir, 'export-meta.json'),
       `${JSON.stringify(
@@ -277,7 +303,17 @@ export function materializeFreshExportCopy(options: { sourceDir: string; exportR
   if ((r.status ?? 1) !== 0) {
     throw new Error(`cp fixture failed: ${r.stderr || r.stdout}`);
   }
-  return { exportDir, exportStartedAtMs, exportFinishedAtMs: Date.now() };
+  const exportFinishedAtMs = Date.now();
+  // Ensure sidecar exists even when the source fixture pre-dates R21.
+  writeExportProvenance(exportDir, {
+    deployment: 'fixture-materialized-copy',
+    exportedAt: new Date(exportFinishedAtMs).toISOString(),
+    exportStartedAtMs,
+    exportFinishedAtMs,
+    source: 'materialized-copy',
+    notes: `copied from ${options.sourceDir}`,
+  });
+  return { exportDir, exportStartedAtMs, exportFinishedAtMs };
 }
 
 /** Remove an export run directory tree (best-effort cleanup). */

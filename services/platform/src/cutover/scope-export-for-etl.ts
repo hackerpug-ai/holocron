@@ -24,6 +24,12 @@ import { collectCatalogStorageLegacyIds } from '../catalog/assets.ts';
 import type { SourceCatalog } from '../catalog/catalog-loader.ts';
 import { readExport } from '../catalog/export-reader.ts';
 import { documentStatusValues, lifecycleStatusValues, workStatusValues } from '../db/enums.ts';
+import {
+  EXPORT_PROVENANCE_SIDECAR,
+  type ExportProvenance,
+  requireExportProvenance,
+  writeExportProvenance,
+} from '../etl/archive.ts';
 import { normalizeStatus } from '../etl/transform.ts';
 
 /** Union used by Sprint 14 coerceForColumn status gate. */
@@ -387,6 +393,29 @@ export function scopeExportForEtl(options: {
       2
     )}\n`
   );
+
+  // S31-CX-02: scoped copy must carry a provenance sidecar (copy parent or mint).
+  let parentProvenance: ExportProvenance | null = null;
+  try {
+    if (existsSync(join(source, EXPORT_PROVENANCE_SIDECAR))) {
+      parentProvenance = requireExportProvenance(source);
+    }
+  } catch {
+    parentProvenance = null;
+  }
+  const now = Date.now();
+  writeExportProvenance(dest, {
+    deployment: parentProvenance?.deployment ?? 'scoped-export-unknown-deployment',
+    exportedAt: parentProvenance?.exportedAt ?? new Date(now).toISOString(),
+    exportStartedAtMs: parentProvenance?.exportStartedAtMs ?? now,
+    exportFinishedAtMs: parentProvenance?.exportFinishedAtMs ?? now,
+    includeFileStorage: parentProvenance?.includeFileStorage,
+    exportZipHash: parentProvenance?.exportZipHash,
+    source: 'scoped-copy',
+    notes: parentProvenance
+      ? `scoped from ${source} (parent source=${parentProvenance.source ?? 'unknown'})`
+      : `scoped from ${source} (no parent provenance)`,
+  });
 
   return {
     exportDir: dest,
