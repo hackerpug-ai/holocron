@@ -2,7 +2,11 @@
 
 import { upsertFileObject } from '../blob/file-objects.ts';
 import { BlobStore, defaultBlobRoot } from '../blob/store.ts';
-import { type CatalogTableEntry, loadCatalog } from '../catalog/catalog-loader.ts';
+import {
+  type CatalogTableEntry,
+  defaultCatalogPath,
+  loadCatalog,
+} from '../catalog/catalog-loader.ts';
 import { buildVerifyReport } from '../catalog/verify.ts';
 import { createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -14,6 +18,7 @@ import {
   resolveTargetColumnName,
   type TableColumns,
 } from './metadata.ts';
+import { buildTopologicalLoadOrder, extractReferentialEdges } from './referential-edges.ts';
 import { coerceForColumn } from './transform.ts';
 
 export interface EtlRunOptions {
@@ -33,7 +38,11 @@ export interface EtlRunResult {
   loadedByTable: Record<string, number>;
 }
 
-const LOAD_ORDER = [
+/**
+ * @deprecated S31-CX-04 — retained only for negative-control comparison in tests.
+ * Production load order is derived topologically from convex-referential-edges.
+ */
+export const LOAD_ORDER = [
   'conversations',
   'documents',
   'tasks',
@@ -372,11 +381,37 @@ async function importAssets(
   return map;
 }
 
-function buildTableOrder(rows: ParsedExportRow[]): string[] {
+/**
+ * S31-CX-04: derive load order topologically from the schema edge set.
+ * Falls back only when edge extraction fails (should not happen in production).
+ * Never appends unknown tables via alphabetical remainder.
+ */
+export function buildTableOrder(
+  rows: ParsedExportRow[],
+  options?: { catalogPath?: string; repoRoot?: string }
+): string[] {
   const present = new Set(rows.map((row) => row.sourceTable));
-  const ordered = LOAD_ORDER.filter((table) => present.has(table));
-  const remainder = [...present].filter((table) => !ordered.includes(table as never)).sort();
-  return [...ordered, ...remainder];
+  try {
+    const report = extractReferentialEdges({
+      catalogPath: options?.catalogPath,
+      repoRoot: options?.repoRoot,
+    });
+    // Full catalog table set so order covers every source table; filter to present.
+    const catalog = loadCatalog(
+      options?.catalogPath ?? defaultCatalogPath(options?.repoRoot ?? process.cwd())
+    );
+    const allTables = Object.keys(catalog.tables);
+    const topo = buildTopologicalLoadOrder({ edges: report.edges, tables: allTables });
+    const ordered = topo.order.filter((table) => present.has(table));
+    // Any present table missing from catalog (should be none) — append in first-seen order.
+    for (const table of present) {
+      if (!ordered.includes(table)) ordered.push(table);
+    }
+    return ordered;
+  } catch {
+    // Last-resort: present tables in encounter order (not alphabetical sort).
+    return [...present];
+  }
 }
 
 async function getColumnsCached(

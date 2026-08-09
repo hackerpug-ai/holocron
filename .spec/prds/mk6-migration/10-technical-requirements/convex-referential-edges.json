@@ -1,0 +1,651 @@
+{
+  "version": 1,
+  "source": "convex/schema.ts",
+  "derivedFromSchema": true,
+  "edgeCount": 80,
+  "edges": [
+    {
+      "sourceTable": "agentTelemetry",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": false,
+      "array": false,
+      "target": "agent_telemetry.conversation_id"
+    },
+    {
+      "sourceTable": "agentTelemetry",
+      "sourceField": "messageId",
+      "referencedTable": "chatMessages",
+      "optional": false,
+      "array": false,
+      "target": "agent_telemetry.message_id"
+    },
+    {
+      "sourceTable": "chatMessages",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": false,
+      "array": false,
+      "target": "chat_messages.conversation_id"
+    },
+    {
+      "sourceTable": "chatMessages",
+      "sourceField": "sessionId",
+      "referencedTable": "researchSessions",
+      "optional": true,
+      "array": false,
+      "target": "chat_messages.session_id"
+    },
+    {
+      "sourceTable": "chatMessages",
+      "sourceField": "voiceSessionId",
+      "referencedTable": "voiceSessions",
+      "optional": true,
+      "array": false,
+      "target": "chat_messages.voice_session_id"
+    },
+    {
+      "sourceTable": "chatMessages",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "chat_messages.document_id"
+    },
+    {
+      "sourceTable": "researchSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "research_sessions.document_id"
+    },
+    {
+      "sourceTable": "researchIterations",
+      "sourceField": "sessionId",
+      "referencedTable": "researchSessions",
+      "optional": false,
+      "array": false,
+      "target": "research_iterations.session_id"
+    },
+    {
+      "sourceTable": "deepResearchSessions",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": false,
+      "array": false,
+      "target": "research_sessions.conversation_id"
+    },
+    {
+      "sourceTable": "deepResearchSessions",
+      "sourceField": "taskId",
+      "referencedTable": "tasks",
+      "optional": true,
+      "array": false,
+      "target": "research_sessions.task_id"
+    },
+    {
+      "sourceTable": "deepResearchSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "research_sessions.document_id"
+    },
+    {
+      "sourceTable": "deepResearchIterations",
+      "sourceField": "sessionId",
+      "referencedTable": "deepResearchSessions",
+      "optional": false,
+      "array": false,
+      "target": "research_iterations.session_id"
+    },
+    {
+      "sourceTable": "researchFindings",
+      "sourceField": "sessionId",
+      "referencedTable": "deepResearchSessions",
+      "optional": false,
+      "array": false,
+      "target": "research_findings.session_id"
+    },
+    {
+      "sourceTable": "researchFindings",
+      "sourceField": "iterationId",
+      "referencedTable": "deepResearchIterations",
+      "optional": false,
+      "array": false,
+      "target": "research_findings.iteration_id"
+    },
+    {
+      "sourceTable": "researchFindings",
+      "sourceField": "citationIds",
+      "referencedTable": "citations",
+      "optional": false,
+      "array": true,
+      "target": "research_findings.citation_ids"
+    },
+    {
+      "sourceTable": "tasks",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": true,
+      "array": false,
+      "target": "tasks.conversation_id"
+    },
+    {
+      "sourceTable": "citations",
+      "sourceField": "sessionId",
+      "referencedTable": "researchSessions",
+      "optional": true,
+      "array": false,
+      "target": "citations.session_id"
+    },
+    {
+      "sourceTable": "citations",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "citations.document_id"
+    },
+    {
+      "sourceTable": "citations",
+      "sourceField": "deepResearchSessionId",
+      "referencedTable": "deepResearchSessions",
+      "optional": true,
+      "array": false,
+      "target": "citations.deep_research_session_id"
+    },
+    {
+      "sourceTable": "subscriptionSources",
+      "sourceField": "creatorProfileId",
+      "referencedTable": "creatorProfiles",
+      "optional": true,
+      "array": false,
+      "target": "subscription_sources.creator_profile_id"
+    },
+    {
+      "sourceTable": "subscriptionContent",
+      "sourceField": "sourceId",
+      "referencedTable": "subscriptionSources",
+      "optional": false,
+      "array": false,
+      "target": "subscription_content.source_id"
+    },
+    {
+      "sourceTable": "subscriptionContent",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "subscription_content.document_id"
+    },
+    {
+      "sourceTable": "subscriptionContent",
+      "sourceField": "feedItemId",
+      "referencedTable": "feedItems",
+      "optional": true,
+      "array": false,
+      "target": "subscription_content.feed_item_id"
+    },
+    {
+      "sourceTable": "subscriptionFilters",
+      "sourceField": "sourceId",
+      "referencedTable": "subscriptionSources",
+      "optional": true,
+      "array": false,
+      "target": "subscription_filters.source_id"
+    },
+    {
+      "sourceTable": "whatsNewReports",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "whats_new_reports.document_id"
+    },
+    {
+      "sourceTable": "whatsNewWorkflows",
+      "sourceField": "reportId",
+      "referencedTable": "whatsNewReports",
+      "optional": true,
+      "array": false,
+      "target": "whats_new_workflows.report_id"
+    },
+    {
+      "sourceTable": "shopSessions",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": true,
+      "array": false,
+      "target": "shop_sessions.conversation_id"
+    },
+    {
+      "sourceTable": "shopSessions",
+      "sourceField": "planId",
+      "referencedTable": "executionPlans",
+      "optional": true,
+      "array": false,
+      "target": "shop_sessions.plan_id"
+    },
+    {
+      "sourceTable": "shopSessions",
+      "sourceField": "bestDealId",
+      "referencedTable": "shopListings",
+      "optional": true,
+      "array": false,
+      "target": "shop_sessions.best_deal_id"
+    },
+    {
+      "sourceTable": "shopListings",
+      "sourceField": "sessionId",
+      "referencedTable": "shopSessions",
+      "optional": false,
+      "array": false,
+      "target": "shop_listings.session_id"
+    },
+    {
+      "sourceTable": "toolCalls",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": false,
+      "array": false,
+      "target": "tool_calls.conversation_id"
+    },
+    {
+      "sourceTable": "toolCalls",
+      "sourceField": "messageId",
+      "referencedTable": "chatMessages",
+      "optional": false,
+      "array": false,
+      "target": "tool_calls.message_id"
+    },
+    {
+      "sourceTable": "toolCalls",
+      "sourceField": "resultMessageId",
+      "referencedTable": "chatMessages",
+      "optional": true,
+      "array": false,
+      "target": "tool_calls.result_message_id"
+    },
+    {
+      "sourceTable": "agentPlans",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": false,
+      "array": false,
+      "target": "agent_plans.conversation_id"
+    },
+    {
+      "sourceTable": "agentPlans",
+      "sourceField": "messageId",
+      "referencedTable": "chatMessages",
+      "optional": true,
+      "array": false,
+      "target": "agent_plans.message_id"
+    },
+    {
+      "sourceTable": "agentPlanSteps",
+      "sourceField": "planId",
+      "referencedTable": "agentPlans",
+      "optional": false,
+      "array": false,
+      "target": "agent_plan_steps.plan_id"
+    },
+    {
+      "sourceTable": "agentPlanSteps",
+      "sourceField": "toolCallId",
+      "referencedTable": "toolCalls",
+      "optional": true,
+      "array": false,
+      "target": "agent_plan_steps.tool_call_id"
+    },
+    {
+      "sourceTable": "assimilationMetadata",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": false,
+      "array": false,
+      "target": "assimilation_metadata.document_id"
+    },
+    {
+      "sourceTable": "assimilationSessions",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": true,
+      "array": false,
+      "target": "assimilation_sessions.conversation_id"
+    },
+    {
+      "sourceTable": "assimilationSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "assimilation_sessions.document_id"
+    },
+    {
+      "sourceTable": "assimilationSessions",
+      "sourceField": "metadataId",
+      "referencedTable": "assimilationMetadata",
+      "optional": true,
+      "array": false,
+      "target": "assimilation_sessions.metadata_id"
+    },
+    {
+      "sourceTable": "assimilationIterations",
+      "sourceField": "sessionId",
+      "referencedTable": "assimilationSessions",
+      "optional": false,
+      "array": false,
+      "target": "assimilation_iterations.session_id"
+    },
+    {
+      "sourceTable": "audioSegments",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": false,
+      "array": false,
+      "target": "audio_segments.document_id"
+    },
+    {
+      "sourceTable": "audioSegments",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "optional": true,
+      "array": false,
+      "target": "audio_segments.blob_id"
+    },
+    {
+      "sourceTable": "audioSegments",
+      "sourceField": "jobId",
+      "referencedTable": "audioJobs",
+      "optional": true,
+      "array": false,
+      "target": "audio_segments.job_id"
+    },
+    {
+      "sourceTable": "audioJobs",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": false,
+      "array": false,
+      "target": "audio_jobs.document_id"
+    },
+    {
+      "sourceTable": "videoTranscripts",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "optional": false,
+      "array": false,
+      "target": "video_transcripts.blob_id"
+    },
+    {
+      "sourceTable": "transcriptJobs",
+      "sourceField": "transcriptId",
+      "referencedTable": "videoTranscripts",
+      "optional": true,
+      "array": false,
+      "target": "transcript_jobs.transcript_id"
+    },
+    {
+      "sourceTable": "audioTranscripts",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "optional": false,
+      "array": false,
+      "target": "audio_transcripts.blob_id"
+    },
+    {
+      "sourceTable": "audioTranscriptJobs",
+      "sourceField": "transcriptId",
+      "referencedTable": "audioTranscripts",
+      "optional": true,
+      "array": false,
+      "target": "audio_transcript_jobs.transcript_id"
+    },
+    {
+      "sourceTable": "audioTranscriptJobs",
+      "sourceField": "audioStorageId",
+      "referencedTable": "_storage",
+      "optional": true,
+      "array": false,
+      "target": "audio_transcript_jobs.audio_storage_id"
+    },
+    {
+      "sourceTable": "notifications",
+      "sourceField": "feedItemIds",
+      "referencedTable": "feedItems",
+      "optional": true,
+      "array": true,
+      "target": "notifications.feed_item_ids"
+    },
+    {
+      "sourceTable": "subscriptionLinks",
+      "sourceField": "creatorProfileId",
+      "referencedTable": "creatorProfiles",
+      "optional": true,
+      "array": false,
+      "target": "subscription_links.creator_profile_id"
+    },
+    {
+      "sourceTable": "feedItems",
+      "sourceField": "itemIds",
+      "referencedTable": "subscriptionContent",
+      "optional": false,
+      "array": true,
+      "target": "feed_items.item_ids"
+    },
+    {
+      "sourceTable": "feedItems",
+      "sourceField": "creatorProfileId",
+      "referencedTable": "creatorProfiles",
+      "optional": true,
+      "array": false,
+      "target": "feed_items.creator_profile_id"
+    },
+    {
+      "sourceTable": "feedItems",
+      "sourceField": "subscriptionIds",
+      "referencedTable": "subscriptionSources",
+      "optional": true,
+      "array": true,
+      "target": "feed_items.subscription_ids"
+    },
+    {
+      "sourceTable": "planApprovals",
+      "sourceField": "planId",
+      "referencedTable": "executionPlans",
+      "optional": false,
+      "array": false,
+      "target": "plan_approvals.plan_id"
+    },
+    {
+      "sourceTable": "improvementRequests",
+      "sourceField": "mergeTargetId",
+      "referencedTable": "improvementRequests",
+      "optional": true,
+      "array": false,
+      "target": "improvement_requests.agent_decision"
+    },
+    {
+      "sourceTable": "improvementRequests",
+      "sourceField": "id",
+      "referencedTable": "improvementRequests",
+      "optional": false,
+      "array": false,
+      "target": "improvement_requests.agent_decision"
+    },
+    {
+      "sourceTable": "improvementRequests",
+      "sourceField": "mergedIntoId",
+      "referencedTable": "improvementRequests",
+      "optional": true,
+      "array": false,
+      "target": "improvement_requests.merged_into_id"
+    },
+    {
+      "sourceTable": "improvementRequests",
+      "sourceField": "mergedFromIds",
+      "referencedTable": "improvementRequests",
+      "optional": true,
+      "array": true,
+      "target": "improvement_requests.merged_from_ids"
+    },
+    {
+      "sourceTable": "improvementImages",
+      "sourceField": "requestId",
+      "referencedTable": "improvementRequests",
+      "optional": false,
+      "array": false,
+      "target": "improvement_images.request_id"
+    },
+    {
+      "sourceTable": "improvementImages",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "optional": false,
+      "array": false,
+      "target": "improvement_images.blob_id"
+    },
+    {
+      "sourceTable": "voiceSessions",
+      "sourceField": "conversationId",
+      "referencedTable": "conversations",
+      "optional": false,
+      "array": false,
+      "target": "voice_sessions.conversation_id"
+    },
+    {
+      "sourceTable": "voiceSessions",
+      "sourceField": "audioStorageId",
+      "referencedTable": "_storage",
+      "optional": true,
+      "array": false,
+      "target": "voice_sessions.blob_id"
+    },
+    {
+      "sourceTable": "voiceCommands",
+      "sourceField": "sessionId",
+      "referencedTable": "voiceSessions",
+      "optional": false,
+      "array": false,
+      "target": "voice_commands.session_id"
+    },
+    {
+      "sourceTable": "revenueValidationSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "analysis_sessions.document_id"
+    },
+    {
+      "sourceTable": "revenueValidationEvidence",
+      "sourceField": "sessionId",
+      "referencedTable": "revenueValidationSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_evidence.session_id"
+    },
+    {
+      "sourceTable": "revenueValidationCompetitors",
+      "sourceField": "sessionId",
+      "referencedTable": "revenueValidationSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_items.session_id"
+    },
+    {
+      "sourceTable": "competitiveAnalysisSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "analysis_sessions.document_id"
+    },
+    {
+      "sourceTable": "competitiveAnalysisCompetitors",
+      "sourceField": "sessionId",
+      "referencedTable": "competitiveAnalysisSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_items.session_id"
+    },
+    {
+      "sourceTable": "competitiveAnalysisFeatures",
+      "sourceField": "sessionId",
+      "referencedTable": "competitiveAnalysisSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_items.session_id"
+    },
+    {
+      "sourceTable": "aiRoiSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "analysis_sessions.document_id"
+    },
+    {
+      "sourceTable": "aiRoiOpportunities",
+      "sourceField": "sessionId",
+      "referencedTable": "aiRoiSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_items.session_id"
+    },
+    {
+      "sourceTable": "aiRoiEvidence",
+      "sourceField": "sessionId",
+      "referencedTable": "aiRoiSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_evidence.session_id"
+    },
+    {
+      "sourceTable": "aiRoiEvidence",
+      "sourceField": "opportunityId",
+      "referencedTable": "aiRoiOpportunities",
+      "optional": true,
+      "array": false,
+      "target": "analysis_evidence.opportunity_id"
+    },
+    {
+      "sourceTable": "flightsSessions",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": true,
+      "array": false,
+      "target": "analysis_sessions.document_id"
+    },
+    {
+      "sourceTable": "flightsRoutes",
+      "sourceField": "sessionId",
+      "referencedTable": "flightsSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_items.session_id"
+    },
+    {
+      "sourceTable": "flightsPriceCalendar",
+      "sourceField": "sessionId",
+      "referencedTable": "flightsSessions",
+      "optional": false,
+      "array": false,
+      "target": "analysis_items.session_id"
+    },
+    {
+      "sourceTable": "imports",
+      "sourceField": "documentId",
+      "referencedTable": "documents",
+      "optional": false,
+      "array": false,
+      "target": "imports.document_id"
+    }
+  ],
+  "generatedAt": "2026-08-09T06:15:48.127Z",
+  "schemaPath": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-04/convex/schema.ts",
+  "catalogPath": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-04/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml"
+}
