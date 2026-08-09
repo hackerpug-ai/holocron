@@ -56,24 +56,17 @@ describe('S31-FE-05 client Convex residue cleanup', () => {
       expect(existsSync(join(REPO_ROOT, rel)), `orphan must be deleted: ${rel}`).toBe(false);
     }
 
-    // Filename / path residue that blocked UC-SYNC-05 AC-1
-    const orphanName = rg(['-ni', 'ResearchProgressWithConvex', 'components']);
+    // PRIMARY: UC-SYNC-05 AC-1 — honest zero hits under components/ (imports, names, comments)
+    const fullTree = spawnSync('grep', ['-ri', 'convex', 'components/'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
     expect(
-      orphanName.stdout.trim(),
-      `ResearchProgressWithConvex still present under components/:\n${orphanName.stdout}`
+      (fullTree.stdout ?? '').trim(),
+      `grep -ri convex components/ still has hits:\n${fullTree.stdout}`
     ).toBe('');
-    expect([1, null]).toContain(orphanName.status); // rg: 1 = no match
-
-    // Type-only generated imports under components must be gone (import paths only)
-    const generatedInComponents = rg([
-      '-n',
-      String.raw`from ['"]@?/convex/_generated|from ['"]\.\.?/.*convex/_generated`,
-      'components',
-    ]);
-    expect(
-      generatedInComponents.stdout.trim(),
-      `convex/_generated imports still under components/:\n${generatedInComponents.stdout}`
-    ).toBe('');
+    // grep: exit 1 when no matches
+    expect(fullTree.status, `expected no-match exit 1, got ${fullTree.status}`).toBe(1);
 
     const verify = runHolo(['verify:no-convex-client']);
     expect(verify.status, `${verify.stdout}\n${verify.stderr}`).toBe(0);
@@ -82,7 +75,7 @@ describe('S31-FE-05 client Convex residue cleanup', () => {
     // ls-style filename probe: no *convex* file names under components/
     const convexFilenames = spawnSync(
       'bash',
-      ['-lc', 'ls components 2>/dev/null | rg -i convex || true'],
+      ['-lc', 'find components -iname "*convex*" 2>/dev/null | head'],
       { cwd: REPO_ROOT, encoding: 'utf8' }
     );
     expect(

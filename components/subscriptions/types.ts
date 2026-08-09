@@ -1,5 +1,5 @@
 /**
- * Subscription UI types — concrete field shapes (no generated Convex dataModel imports).
+ * Subscription UI types — concrete field shapes (no generated data-model imports).
  * Zero/Postgres rows use snake_case at the data plane; this UI boundary keeps
  * the historical camelCase field names used by CreatorGroupCard / SubscriptionCard.
  */

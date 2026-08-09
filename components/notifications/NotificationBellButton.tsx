@@ -39,7 +39,7 @@ export function NotificationBellButton({ onPress, testID }: NotificationBellButt
   const dotScale = useSharedValue(0);
 
   // When hasNew changes, manage dot visibility and 10-min auto-clear timer.
-  // Dot is local UI state (replaces Convex lastSeen); list marks-read owns persistence.
+  // Dot is local UI state (last-seen is list marks-read ownership); list marks-read owns persistence.
   React.useEffect(() => {
     if (hasNew) {
       setShowDot(true);

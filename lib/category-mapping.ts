@@ -1,6 +1,6 @@
 /**
  * Category mapping utilities for the app layer.
- * Re-exports shared category constants from convex/lib/categories.ts
+ * Re-exports shared category constants from lib/document-categories.ts
  */
 
 import type { CategoryType } from '@/components/CategoryBadge';
@@ -9,7 +9,7 @@ import {
   type DocumentCategory,
   isValidCategory,
   mapToCategory,
-} from '@/convex/lib/categories';
+} from '@/lib/document-categories';
 
 // Re-export for backward compatibility
 export const VALID_CATEGORIES: CategoryType[] = [...DOCUMENT_CATEGORIES];
