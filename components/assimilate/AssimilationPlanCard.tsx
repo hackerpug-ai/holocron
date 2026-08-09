@@ -259,10 +259,7 @@ export type AssimilationPlanCardBoundProps = Omit<
  * AssimilationPlanCardBound wires the AssimilationPlanCard to Zero mutators.
  * Approving starts the analysis; rejecting with feedback re-plans.
  */
-export function AssimilationPlanCardBound({
-  sessionId,
-  ...props
-}: AssimilationPlanCardBoundProps) {
+export function AssimilationPlanCardBound({ sessionId, ...props }: AssimilationPlanCardBoundProps) {
   const zero = useZero();
 
   return (
