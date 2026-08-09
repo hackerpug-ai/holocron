@@ -2,22 +2,77 @@
   "sprint": 14,
   "source_head": "5f52896757017256d38ec242dc59a80194a6ce8c",
   "archive_hash": "a329459d32fd62734567faaad1e0e88e80f0a3869255340aed3a17a2d8b4f548",
-  "verdict": "pass",
+  "verdict": "pass_fixture_scope",
+  "scope": "fixture-scope mechanism",
+  "restatement": {
+    "task_id": "S31-CX-06",
+    "restated_at": "2026-08-09",
+    "stageRowCount": 104,
+    "idMapCount": 104,
+    "fileObjectCount": 1,
+    "scope": "fixture-scope mechanism proof — not a production full-corpus load",
+    "primary_artifacts_retained": false,
+    "primary_artifacts_note": "convex-prod-export.zip and .tmp/sprint-14-human-gate-20260718/* were ephemeral operator paths and are absent from the repo; three differing archive digests remain across gate-plan / gate-results / gate-verification.",
+    "full_corpus_primary": {
+      "proven_by_sprint": 29,
+      "cited_row_count": 13801,
+      "evidence_pointer": "../sprint-31-migration-integrity-remediation/uc-data-05-ac1-primary-evidence.json"
+    },
+    "honesty": "Sprint 14 proved the ETL pipeline mechanism on a 104-row fixture-scope export (4 tables populated in the constructed archive). It did not prove a production full-corpus load. UC-DATA-05 AC-1 full-corpus evidence is Sprint 29 cutover ETL (13,801 rows)."
+  },
   "steps": [
-    {"id":"S14-H1","status":"pass","summary":"Native Convex export loaded: stageRowCount=104, idMapCount=104, fileObjectCount=1."},
-    {"id":"S14-H2","status":"pass","summary":"Reconciliation zero variance: tables, storage refs, FK, and blob parity all clean."},
-    {"id":"S14-H3","status":"pass","summary":"FK audit: 0 orphans; 5 enforced foreign keys."},
-    {"id":"S14-H4","status":"pass","summary":"Real fleet probe passed at dimension 1024 and unit norm; production export was explicitly empty-corpus and passed vacuously; non-empty marker retrieval is covered by the live fixture lane."},
-    {"id":"S14-H5","status":"pass","summary":"Retained blob parity passed; Range probe returned 206 with exact bytes."},
-    {"id":"S14-H6","status":"pass","summary":"Rerun preserved archive hash, stage/map/file-object counts, and produced no duplicates."},
-    {"id":"S14-H7","status":"pass","summary":"Image upload init/streamed put/finalize succeeded with hash verification and attachment; live suite covers voice, replay, conflicts, fences, and no-orphan failures."}
+    {
+      "id": "S14-H1",
+      "status": "pass",
+      "summary": "Fixture-scope mechanism proof: stageRowCount=104, idMapCount=104, fileObjectCount=1. Not a full-corpus production export."
+    },
+    {
+      "id": "S14-H2",
+      "status": "pass",
+      "summary": "Reconciliation zero variance on the 104-row fixture-scope corpus (mechanism path only)."
+    },
+    {
+      "id": "S14-H3",
+      "status": "pass",
+      "summary": "FK audit: 0 orphans on the fixture-scope load; 5 enforced foreign keys exercised."
+    },
+    {
+      "id": "S14-H4",
+      "status": "pass",
+      "summary": "Real fleet probe passed at dimension 1024 and unit norm; fixture-scope export vectors path exercised (empty-corpus vacuous lane + live fixture marker)."
+    },
+    {
+      "id": "S14-H5",
+      "status": "pass",
+      "summary": "Retained blob parity and Range 206 mechanism proof on the single fixture file object."
+    },
+    {
+      "id": "S14-H6",
+      "status": "pass",
+      "summary": "Idempotent rerun preserved fixture-scope stageRowCount=104 / map / file-object counts with no duplicates."
+    },
+    {
+      "id": "S14-H7",
+      "status": "pass",
+      "summary": "Image upload init/streamed put/finalize succeeded with hash verification (upload lifecycle mechanism)."
+    }
   ],
-  "evidence": [
-    ".tmp/sprint-14-human-gate-20260718/prod-native",
-    ".tmp/sprint-14-human-gate-20260718/upload",
-    ".tmp/sprint-14-impl/etl-green-gates.json",
-    ".tmp/sprint-14-impl/upload-image-green.json",
-    ".tmp/sprint-14-impl/upload-voice-green.json",
-    ".tmp/sprint-14-impl/upload-negative-red.json"
-  ]
+  "evidence": {
+    "ephemeral_not_retained": [
+      ".tmp/sprint-14-human-gate-20260718/prod-native",
+      ".tmp/sprint-14-human-gate-20260718/upload",
+      ".tmp/sprint-14-human-gate-20260718/convex-prod-export.zip",
+      ".tmp/sprint-14-impl/etl-green-gates.json",
+      ".tmp/sprint-14-impl/upload-image-green.json",
+      ".tmp/sprint-14-impl/upload-voice-green.json",
+      ".tmp/sprint-14-impl/upload-negative-red.json"
+    ],
+    "surviving_committed": [
+      "gate-plan.json",
+      "gate-results.json",
+      "GATE-RESULTS.md",
+      "gate-verification.json"
+    ],
+    "required_surviving_artifacts": []
+  }
 }
