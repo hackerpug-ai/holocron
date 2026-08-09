@@ -15,18 +15,12 @@
  *     services/platform/tests/integration/sprint31-verifier-teeth.test.ts
  */
 import { spawnSync } from 'node:child_process';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createSql } from '../../src/db/client.ts';
+import { applyMigrations } from '../../src/db/migrate.ts';
 import {
   buildGateRegistryReport,
   GATE_REGISTRY,
@@ -43,8 +37,46 @@ const HOLO = resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts');
 const FIXTURES = resolve(REPO_ROOT, 'services/platform/tests/fixtures/verifier-teeth');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/S31-08');
 const REAL_EXECUTOR = resolve(REPO_ROOT, 'services/platform/src/mcp/executor.ts');
+const FK_ZERO_FIXTURE = resolve(FIXTURES, 'fk_audit_zero_constraints');
+const ETL_VALID_EXPORT = resolve(REPO_ROOT, 'services/platform/tests/fixtures/etl-valid-export');
+const CATALOG_PATH = resolve(
+  REPO_ROOT,
+  '.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml'
+);
 
+/** Ambient nonprod URL (registry / other verifiers). FK-audit plant uses a disposable DB. */
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
+
+/** Domain tables the zero-constraint plant must find after migrate. */
+const DOMAIN_TABLES_REQUIRED = [
+  'chat_messages',
+  'conversations',
+  'documents',
+  'research_sessions',
+  'agent_telemetry',
+] as const;
+
+type ZeroConstraintPlant = {
+  databaseUrl: string;
+  databaseName: string;
+  droppedCount: number;
+  domainTablesPresent: string[];
+  enforcedForeignKeysAfterPlant: number;
+  env: Record<string, string>;
+  restore: () => Promise<void>;
+};
+
+function adminUrlFrom(url: string): string {
+  const u = new URL(url);
+  u.pathname = '/postgres';
+  return u.toString();
+}
+
+function dbUrlForName(baseUrl: string, name: string): string {
+  const u = new URL(baseUrl);
+  u.pathname = `/${name}`;
+  return u.toString();
+}
 
 /** Registry id → the integration test that covers it (AC-5 mapping). */
 const REGISTRY_TEST_COVERAGE: Record<string, string> = {
@@ -91,6 +123,150 @@ function loadSeed(fixtureId: string): Record<string, unknown> {
   const seedPath = join(FIXTURES, fixtureId, 'seed.json');
   expect(existsSync(seedPath), `seed must exist: ${seedPath}`).toBe(true);
   return JSON.parse(readFileSync(seedPath, 'utf8')) as Record<string, unknown>;
+}
+
+/**
+ * Plant a real zero-constraint namespace for etl:fk-audit (not ambient nonprod).
+ *
+ * Creates a disposable database, applies migrations (domain tables present),
+ * drops every public FOREIGN KEY, seeds etl:run, and returns a DATABASE_URL
+ * that the verifier CLI runs against. Cleanup drops the database.
+ */
+async function plantZeroConstraintNamespace(): Promise<ZeroConstraintPlant> {
+  expect(
+    existsSync(join(FK_ZERO_FIXTURE, 'plant.sql')),
+    'fk_audit_zero_constraints plant.sql must be committed'
+  ).toBe(true);
+  expect(existsSync(ETL_VALID_EXPORT), `etl-valid-export must exist: ${ETL_VALID_EXPORT}`).toBe(
+    true
+  );
+  expect(existsSync(CATALOG_PATH), `catalog must exist: ${CATALOG_PATH}`).toBe(true);
+
+  const databaseName = `holocron_s31_08_fk_zero_${process.pid}_${Date.now().toString(36)}`;
+  // Name must stay non-production-like; dangerous override allows non-nonprod names.
+  expect(databaseName.startsWith('holocron_s31_08_fk_zero_')).toBe(true);
+
+  const ownerBase = process.env.DATABASE_URL_OWNER ?? DATABASE_URL;
+  const adminUrl = adminUrlFrom(ownerBase);
+  const databaseUrl = dbUrlForName(ownerBase, databaseName);
+
+  const admin = createSql(adminUrl);
+  try {
+    await admin.unsafe(`DROP DATABASE IF EXISTS "${databaseName.replace(/"/g, '""')}"`);
+    await admin.unsafe(`CREATE DATABASE "${databaseName.replace(/"/g, '""')}"`);
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+
+  let droppedCount = 0;
+  const domainTablesPresent: string[] = [];
+
+  try {
+    const migrate = await applyMigrations({ databaseUrl });
+    expect(migrate.ok, `plant migrate failed: ${migrate.errors?.join('; ')}`).toBe(true);
+
+    const sql = createSql(databaseUrl);
+    try {
+      for (const table of DOMAIN_TABLES_REQUIRED) {
+        const rows = await sql.unsafe<Array<{ reg: string | null }>>(
+          `SELECT to_regclass($1)::text AS reg`,
+          [`public.${table}`]
+        );
+        expect(rows[0]?.reg, `domain table missing after migrate: ${table}`).toBeTruthy();
+        domainTablesPresent.push(table);
+      }
+
+      const existing = await sql<Array<{ table_name: string; constraint_name: string }>>`
+        SELECT rel.relname AS table_name, c.conname AS constraint_name
+        FROM pg_constraint c
+        JOIN pg_class rel ON rel.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = rel.relnamespace
+        WHERE c.contype = 'f' AND n.nspname = 'public'
+        ORDER BY rel.relname, c.conname
+      `;
+      for (const fk of existing) {
+        await sql.unsafe(
+          `ALTER TABLE "${fk.table_name.replace(/"/g, '""')}" DROP CONSTRAINT "${fk.constraint_name.replace(/"/g, '""')}"`
+        );
+        droppedCount += 1;
+      }
+
+      const remaining = await sql<Array<{ count: string }>>`
+        SELECT count(*)::text AS count
+        FROM information_schema.table_constraints
+        WHERE constraint_schema = 'public' AND constraint_type = 'FOREIGN KEY'
+      `;
+      const enforcedForeignKeysAfterPlant = Number(remaining[0]?.count ?? -1);
+      expect(
+        enforcedForeignKeysAfterPlant,
+        'plant must leave zero public FOREIGN KEY constraints'
+      ).toBe(0);
+      expect(droppedCount, 'migrate must have produced FKs to drop (plant teeth)').toBeGreaterThan(
+        0
+      );
+
+      // Seed a succeeded etl_runs row pointing at committed fixtures (no full ETL load).
+      // fk-audit gates on unenforced edges; relationship orphans can be empty.
+      await sql`
+        INSERT INTO etl_runs (
+          export_root,
+          export_hash,
+          catalog_path,
+          catalog_version,
+          checkpoint,
+          status,
+          completed_at
+        ) VALUES (
+          ${ETL_VALID_EXPORT},
+          ${`s31-08-fk-zero-plant-${databaseName}`},
+          ${CATALOG_PATH},
+          ${'s31-08-plant'},
+          ${'completed'},
+          ${'succeeded'},
+          now()
+        )
+      `;
+
+      return {
+        databaseUrl,
+        databaseName,
+        droppedCount,
+        domainTablesPresent,
+        enforcedForeignKeysAfterPlant,
+        env: {
+          DATABASE_URL: databaseUrl,
+          HOLO_DANGEROUS_ALLOW_PROD_DB: '1',
+        },
+        restore: async () => {
+          const dropAdmin = createSql(adminUrl);
+          try {
+            await dropAdmin.unsafe(
+              `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName.replace(/'/g, "''")}' AND pid <> pg_backend_pid()`
+            );
+            await dropAdmin.unsafe(`DROP DATABASE IF EXISTS "${databaseName.replace(/"/g, '""')}"`);
+          } finally {
+            await dropAdmin.end({ timeout: 5 });
+          }
+        },
+      };
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  } catch (err) {
+    // Best-effort drop of the disposable plant DB on failure.
+    const dropAdmin = createSql(adminUrl);
+    try {
+      await dropAdmin.unsafe(
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName.replace(/'/g, "''")}' AND pid <> pg_backend_pid()`
+      );
+      await dropAdmin.unsafe(`DROP DATABASE IF EXISTS "${databaseName.replace(/"/g, '""')}"`);
+    } catch {
+      // ignore cleanup errors
+    } finally {
+      await dropAdmin.end({ timeout: 5 });
+    }
+    throw err;
+  }
 }
 
 function materializeThrowOnlyExecutor(toolId: string): string {
@@ -327,77 +503,87 @@ describe('S31-08 verifier teeth — fail closed on seeded violations', () => {
     expect(result.combined).toMatch(/whatsnew|shell|residual|SHELL_RESIDUE/i);
   });
 
-  function ensureEtlRunContext(): void {
-    // fk-audit requires a succeeded etl_runs row + readable export. Seed from
-    // the committed export-sample when the nonprod DB is empty (isolated runs).
-    const probe = runHolo(['etl:fk-audit', '--json']);
-    if (probe.status !== 0 && /no successful etl_runs/i.test(probe.combined)) {
-      const exportSample = resolve(REPO_ROOT, 'services/platform/tests/fixtures/export-sample');
-      const seedRun = runHolo(['etl:run', '--export', exportSample, '--json']);
-      expect(seedRun.status, `etl:run seed for fk-audit must succeed:\n${seedRun.combined}`).toBe(
-        0
-      );
-    }
-  }
-
-  it('etlFkAuditRefusesUnenforcedEdges', () => {
-    // Fixture seed documents the violation class; the live nonprod DB is the
-    // runtime surface (domain tables without full FK enforcement for schema edges).
-    const seed = loadSeed('fk_audit_zero_constraints');
-    expect(seed.violation_class).toBe('UNENFORCED_EDGES');
-
-    ensureEtlRunContext();
-    const result = runHolo(['etl:fk-audit', '--json']);
-    writeEvidence('ac1-etl-fk-audit-unenforced.json', {
-      status: result.status,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    });
-
-    expect(
-      result.status,
-      `etl:fk-audit must refuse unenforced edges:\n${result.combined}`
-    ).not.toBe(0);
-
-    // May be structured JSON on stdout or error JSON on stderr.
-    const text = result.combined;
-    let payload: {
-      ok?: boolean;
-      unenforcedEdges?: unknown[];
-      enforcedForeignKeys?: number;
-      violation_class?: string;
-      error?: string;
-    } | null = null;
-    for (const chunk of [result.stdout, result.stderr]) {
+  function parseFkAuditPayload(
+    stdout: string,
+    stderr: string
+  ): {
+    ok?: boolean;
+    unenforcedEdges?: unknown[];
+    enforcedForeignKeys?: number;
+    violation_class?: string;
+    error?: string;
+  } | null {
+    for (const chunk of [stdout, stderr]) {
       const start = chunk.indexOf('{');
       if (start < 0) continue;
       try {
-        payload = JSON.parse(chunk.slice(start)) as typeof payload;
-        break;
+        return JSON.parse(chunk.slice(start)) as {
+          ok?: boolean;
+          unenforcedEdges?: unknown[];
+          enforcedForeignKeys?: number;
+          violation_class?: string;
+          error?: string;
+        };
       } catch {
         // try next
       }
     }
-    expect(payload, 'fk-audit must emit JSON').not.toBeNull();
-    expect(payload?.ok === true).toBe(false);
-    expect(text).toMatch(/unenforced|UNENFORCED_EDGES|FOREIGN KEY|edge/i);
-    if (Array.isArray(payload?.unenforcedEdges)) {
+    return null;
+  }
+
+  it('etlFkAuditRefusesUnenforcedEdges', async () => {
+    // Disposable zero-constraint NS (not ambient holocron_nonprod).
+    const seed = loadSeed('fk_audit_zero_constraints');
+    expect(seed.violation_class).toBe('UNENFORCED_EDGES');
+    expect(existsSync(join(FK_ZERO_FIXTURE, 'plant.sql'))).toBe(true);
+
+    const plant = await plantZeroConstraintNamespace();
+    try {
+      const result = runHolo(['etl:fk-audit', '--json'], { env: plant.env });
+      const payload = parseFkAuditPayload(result.stdout, result.stderr);
+
+      writeEvidence('ac1-etl-fk-audit-unenforced.json', {
+        status: result.status,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        plant: {
+          seeded: true,
+          method: 'disposable_db_migrate_drop_all_fks',
+          databaseName: plant.databaseName,
+          droppedCount: plant.droppedCount,
+          domainTablesPresent: plant.domainTablesPresent,
+          enforcedForeignKeysAfterPlant: plant.enforcedForeignKeysAfterPlant,
+        },
+      });
+
+      expect(
+        result.status,
+        `etl:fk-audit must refuse unenforced edges:\n${result.combined}`
+      ).not.toBe(0);
+
+      expect(payload, 'fk-audit must emit JSON').not.toBeNull();
+      expect(payload?.ok === true).toBe(false);
+      expect(payload?.enforcedForeignKeys, 'planted zero-constraint NS').toBe(0);
+      expect(result.combined).toMatch(/unenforced|UNENFORCED_EDGES|FOREIGN KEY|edge/i);
+      expect(Array.isArray(payload?.unenforcedEdges)).toBe(true);
       expect(payload!.unenforcedEdges!.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      await plant.restore();
     }
   });
 
-  it('fiveToothlessVerifiersRefuseSeededViolations', () => {
+  it('fiveToothlessVerifiersRefuseSeededViolations', async () => {
     /**
      * AC-1 PRIMARY — one seeded violation per registered verifier; all refuse.
      * Spawns real `bun src/cli/holo.ts …` children (never mocked).
      */
     const cases: Array<{
       id: string;
-      run: () => { status: number | null; combined: string; reasonToken: string };
+      run: () => Promise<{ status: number | null; combined: string; reasonToken: string }>;
     }> = [
       {
         id: 'catalog-assets',
-        run: () => {
+        run: async () => {
           const seed = loadSeed('assets_missing_blob');
           const exportDir = resolve(
             FIXTURES,
@@ -414,7 +600,7 @@ describe('S31-08 verifier teeth — fail closed on seeded violations', () => {
       },
       {
         id: 'mcp-verify-rehost',
-        run: () => {
+        run: async () => {
           const seed = loadSeed('rehost_throw_only');
           const toolId = String(seed.tool_id ?? 'throw_only_seed_tool');
           const executorPath = materializeThrowOnlyExecutor(toolId);
@@ -429,7 +615,7 @@ describe('S31-08 verifier teeth — fail closed on seeded violations', () => {
       },
       {
         id: 'catalog-reconcile',
-        run: () => {
+        run: async () => {
           const seed = loadSeed('reconcile_planted_variance');
           const exportDir = resolve(
             FIXTURES,
@@ -446,7 +632,7 @@ describe('S31-08 verifier teeth — fail closed on seeded violations', () => {
       },
       {
         id: 'verify-no-shells',
-        run: () => {
+        run: async () => {
           const seed = loadSeed('no_shells_residue');
           const repoRoot = resolve(
             FIXTURES,
@@ -463,14 +649,21 @@ describe('S31-08 verifier teeth — fail closed on seeded violations', () => {
       },
       {
         id: 'etl-fk-audit',
-        run: () => {
-          ensureEtlRunContext();
-          const r = runHolo(['etl:fk-audit', '--json']);
-          return {
-            status: r.status,
-            combined: r.combined,
-            reasonToken: 'unenforced|UNENFORCED_EDGES|FOREIGN KEY|edge',
-          };
+        run: async () => {
+          const plant = await plantZeroConstraintNamespace();
+          try {
+            const r = runHolo(['etl:fk-audit', '--json'], { env: plant.env });
+            const payload = parseFkAuditPayload(r.stdout, r.stderr);
+            // Planted zero-constraint NS must surface as zero enforced FKs.
+            expect(payload?.enforcedForeignKeys).toBe(0);
+            return {
+              status: r.status,
+              combined: r.combined,
+              reasonToken: 'unenforced|UNENFORCED_EDGES|FOREIGN KEY|edge',
+            };
+          } finally {
+            await plant.restore();
+          }
         },
       },
     ];
@@ -486,7 +679,7 @@ describe('S31-08 verifier teeth — fail closed on seeded violations', () => {
     }> = [];
 
     for (const c of cases) {
-      const { status, combined, reasonToken } = c.run();
+      const { status, combined, reasonToken } = await c.run();
       const reasonHit = new RegExp(reasonToken, 'i').test(combined);
       outcomes.push({
         id: c.id,
