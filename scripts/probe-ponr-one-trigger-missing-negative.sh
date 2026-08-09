@@ -24,7 +24,8 @@ MARKER_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL"
 # URL material is supplied to Python only through S30_TARGET_URL. Evidence
 # retains only the shared four-field target identity, never a URL-shaped value.
 database_identity() {
-  S30_TARGET_URL="$1" bun --eval '
+  env -u DATABASE_URL -u HOLO_PROBE_MARKER_MISS_DATABASE_URL \
+    S30_IDENTITY_CHILD=1 S30_TARGET_URL="$1" bun --eval '
     try {
       const { parseDatabaseTargetIdentity } = await import("./services/platform/src/db/connection.ts");
       process.stdout.write(JSON.stringify(parseDatabaseTargetIdentity(process.env.S30_TARGET_URL!)));
