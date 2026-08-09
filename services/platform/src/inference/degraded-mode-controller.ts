@@ -9,8 +9,9 @@
  * NEVER falls back to cloud. Health-probe polling (real probeRoleHealth)
  * detects endpoint return and auto-resumes to normal.
  *
- * State is persisted in Postgres (degraded_mode, research_mission, retry_queue)
+ * State is persisted in Postgres (degraded_mode, mission_degraded_state, retry_queue)
  * for cross-request consistency when PLATFORM_IT / production DB is available.
+ * Schema is migrate-owned (0034_degraded_mode_retry_queue) — no runtime schema bootstrap (S31-01).
  */
 import postgres, { type Sql } from 'postgres';
 import type { DegradationAction } from '../fleet/manifest.schema.ts';
@@ -103,61 +104,33 @@ export type DegradedModeControllerOptions = {
 
 const GLOBAL_ROW_ID = 'global';
 
-/** Serialize ensureSchema across concurrent controller instances (parallel vitest). */
-let schemaInitChain: Promise<void> = Promise.resolve();
+/** Named error when the migrate-seeded global row is missing (S31-01 AC-4). */
+export const DEGRADED_MODE_ROW_MISSING = 'DEGRADED_MODE_ROW_MISSING' as const;
+
+export class DegradedModeRowMissingError extends Error {
+  readonly code = DEGRADED_MODE_ROW_MISSING;
+  constructor(message = 'degraded_mode global row missing — run holo db:migrate (0034)') {
+    super(message);
+    this.name = 'DegradedModeRowMissingError';
+  }
+}
 
 function setProcessDegraded(state: DegradedStateValue): void {
   setProcessDegradedState(state);
 }
 
-async function runEnsureSchema(sql: Sql): Promise<void> {
-  // Advisory lock avoids CREATE TABLE races on pg_type under parallel tests
-  await sql`SELECT pg_advisory_lock(8723145601)`;
-  try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS degraded_mode (
-        id TEXT PRIMARY KEY DEFAULT 'global',
-        degraded_state TEXT NOT NULL DEFAULT 'normal',
-        resume_state TEXT NOT NULL DEFAULT 'normal',
-        message TEXT,
-        role TEXT,
-        endpoint TEXT,
-        degradation_action TEXT,
-        mission_mode TEXT NOT NULL DEFAULT 'full',
-        extraction_state TEXT NOT NULL DEFAULT 'running',
-        last_probe_at TIMESTAMPTZ,
-        last_probe_ok BOOLEAN,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS research_mission (
-        mission_id TEXT PRIMARY KEY,
-        mode TEXT NOT NULL DEFAULT 'full',
-        extraction_state TEXT NOT NULL DEFAULT 'running',
-        degraded_state TEXT NOT NULL DEFAULT 'normal',
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS retry_queue (
-        id SERIAL PRIMARY KEY,
-        mission_id TEXT NOT NULL,
-        step_type TEXT NOT NULL,
-        role TEXT,
-        endpoint TEXT,
-        reason TEXT,
-        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `;
-    await sql`
-      INSERT INTO degraded_mode (id)
-      VALUES (${GLOBAL_ROW_ID})
-      ON CONFLICT (id) DO NOTHING
-    `;
-  } finally {
-    await sql`SELECT pg_advisory_unlock(8723145601)`;
+/**
+ * Fail-closed assert: degraded_mode must already exist via `holo db:migrate`.
+ * Never issues DDL (S31-01).
+ */
+async function assertDegradedModeSchema(sql: Sql): Promise<void> {
+  const rows = await sql<{ exists: boolean }[]>`
+    SELECT to_regclass('public.degraded_mode') IS NOT NULL AS exists
+  `;
+  if (!rows[0]?.exists) {
+    throw new Error(
+      'degraded_mode table is missing — run `holo db:migrate` (migration 0034_degraded_mode_retry_queue); schema is migrate-owned only'
+    );
   }
 }
 
@@ -231,20 +204,13 @@ export class DegradedModeController {
   }
 
   async init(): Promise<void> {
-    await this.ensureSchema();
+    await assertDegradedModeSchema(this.sql);
     await this.loadGlobalState();
     this.initialized = true;
   }
 
   private async ensureInit(): Promise<void> {
     if (!this.initialized) await this.init();
-  }
-
-  private async ensureSchema(): Promise<void> {
-    const next = schemaInitChain.then(() => runEnsureSchema(this.sql));
-    // Keep chain alive even if one init fails so subsequent tests can retry
-    schemaInitChain = next.catch(() => undefined);
-    await next;
   }
 
   private async loadGlobalState(): Promise<void> {
@@ -269,7 +235,12 @@ export class DegradedModeController {
       WHERE id = ${GLOBAL_ROW_ID}
     `;
     const row = rows[0];
-    if (!row) return;
+    if (!row) {
+      // Missing seeded row is a loud named error (never silent refuse/allow).
+      throw new DegradedModeRowMissingError(
+        'degraded_mode global row missing — schema requires migrate-seeded singleton'
+      );
+    }
     this.snapshot = {
       'degraded-state': row.degraded_state as DegradedStateValue,
       'resume-state': row.resume_state as DegradedStateValue,
@@ -287,7 +258,7 @@ export class DegradedModeController {
 
   private async persistGlobal(): Promise<void> {
     const s = this.snapshot;
-    await this.sql`
+    const updated = await this.sql`
       UPDATE degraded_mode SET
         degraded_state = ${s['degraded-state']},
         resume_state = ${s['resume-state']},
@@ -301,7 +272,13 @@ export class DegradedModeController {
         last_probe_ok = ${s.lastProbeOk},
         updated_at = now()
       WHERE id = ${GLOBAL_ROW_ID}
+      RETURNING id
     `;
+    if (updated.length === 0) {
+      throw new DegradedModeRowMissingError(
+        'degraded_mode global row missing on UPDATE — cannot persist degraded state'
+      );
+    }
   }
 
   private emit(): void {
@@ -592,7 +569,7 @@ export class DegradedModeController {
   }> {
     await this.ensureInit();
     await this.sql`
-      INSERT INTO research_mission (mission_id, mode, extraction_state, degraded_state)
+      INSERT INTO mission_degraded_state (mission_id, mode, extraction_state, degraded_state)
       VALUES (${missionId}, 'full', 'running', 'normal')
       ON CONFLICT (mission_id) DO UPDATE SET
         mode = 'full',
@@ -643,7 +620,7 @@ export class DegradedModeController {
 
     // Mission → sense-only; extraction keeps running (SENSE can continue)
     await this.sql`
-      INSERT INTO research_mission (mission_id, mode, extraction_state, degraded_state)
+      INSERT INTO mission_degraded_state (mission_id, mode, extraction_state, degraded_state)
       VALUES (${missionId}, 'sense-only', 'running', 'surface-unavailable')
       ON CONFLICT (mission_id) DO UPDATE SET
         mode = 'sense-only',
@@ -675,7 +652,7 @@ export class DegradedModeController {
       { mode: string; extraction_state: string; degraded_state: string }[]
     >`
       SELECT mode, extraction_state, degraded_state
-      FROM research_mission
+      FROM mission_degraded_state
       WHERE mission_id = ${missionId}
     `;
     const row = rows[0];

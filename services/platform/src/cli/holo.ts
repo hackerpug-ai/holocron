@@ -1892,7 +1892,8 @@ async function main(): Promise<void> {
         }
         console.log(result.ok ? '  status: OK' : '  status: FAIL');
       }
-      process.exit(result.ok ? 0 : 1);
+      // S31-01: ordinal gate failures exit 2 (fail-closed before apply).
+      process.exit(result.exitCode ?? (result.ok ? 0 : 1));
       break;
     }
     case 'db:probe': {

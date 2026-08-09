@@ -51,48 +51,19 @@ export type DurableEffectResult = {
   status?: string;
 };
 
-const ENSURE_SQL = `
-CREATE TABLE IF NOT EXISTS queue_outbox (
-  id uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
-  key text NOT NULL,
-  name text NOT NULL,
-  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  status text NOT NULL DEFAULT 'pending',
-  fence_token text,
-  effect_id uuid,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  dispatched_at timestamptz,
-  acked_at timestamptz,
-  CONSTRAINT queue_outbox_status_check CHECK (status IN ('pending','dispatched','acked'))
-);
-CREATE UNIQUE INDEX IF NOT EXISTS queue_outbox_key_uidx ON queue_outbox (key);
-CREATE INDEX IF NOT EXISTS queue_outbox_status_idx ON queue_outbox (status) WHERE status <> 'acked';
-
-CREATE TABLE IF NOT EXISTS queue_effects (
-  id uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
-  key text NOT NULL,
-  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  fence_token text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE UNIQUE INDEX IF NOT EXISTS queue_effects_key_uidx ON queue_effects (key);
-
-CREATE TABLE IF NOT EXISTS queue_inbox (
-  id uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
-  key text NOT NULL,
-  outbox_id uuid REFERENCES queue_outbox (id) ON DELETE CASCADE,
-  effect_id uuid REFERENCES queue_effects (id) ON DELETE CASCADE,
-  fence_token text NOT NULL,
-  outcome text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT queue_inbox_outcome_check CHECK (outcome IN ('applied','deduped'))
-);
-CREATE UNIQUE INDEX IF NOT EXISTS queue_inbox_key_uidx ON queue_inbox (key);
-CREATE INDEX IF NOT EXISTS queue_inbox_outcome_idx ON queue_inbox (outcome);
-`;
-
+/**
+ * Fail-closed assert: outbox/inbox/effects must already exist via `holo db:migrate`
+ * (0011_outbox_inbox). Runtime table bootstrap is prohibited (S31-01).
+ */
 async function ensureOutboxSchema(sql: Sql): Promise<void> {
-  await sql.unsafe(ENSURE_SQL);
+  const rows = await sql<{ exists: boolean }[]>`
+    SELECT to_regclass('public.queue_outbox') IS NOT NULL AS exists
+  `;
+  if (!rows[0]?.exists) {
+    throw new Error(
+      'queue_outbox table is missing — run `holo db:migrate` (migration 0011_outbox_inbox) before durable effects; schema is migrate-owned only'
+    );
+  }
 }
 
 export { ensureOutboxSchema };

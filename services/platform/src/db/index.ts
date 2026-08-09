@@ -28,7 +28,19 @@ export {
   FTS_SEARCH_VECTOR_TARGETS,
   HNSW_INDEXES,
 } from './indexes';
-export { applyMigrations, countPublicTables, MIGRATIONS_DIR } from './migrate';
+export type {
+  MigrateResult,
+  MigrationGateCode,
+  MigrationGateError,
+  OrdinalGateResult,
+} from './migrate';
+export {
+  applyMigrations,
+  checkMigrationOrdinals,
+  countPublicTables,
+  MIGRATIONS_DIR,
+  parseMigrationOrdinal,
+} from './migrate';
 export { probeJsonbCardData, probeStatusCheck } from './probe';
 export { formatReplStatusText, getReplStatus } from './repl-status';
 export {

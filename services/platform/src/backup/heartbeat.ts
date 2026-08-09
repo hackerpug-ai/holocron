@@ -38,8 +38,8 @@ export type UpsertHeartbeatInput = {
 
 /**
  * Fail-closed assert: backup_heartbeat must already exist via `holo db:migrate`
- * (0029_backup_heartbeat). Runtime CREATE TABLE is prohibited — divergent
- * CHECK-less schemas previously raced with CREATE TABLE IF NOT EXISTS.
+ * (0029_backup_heartbeat). Runtime table bootstrap is prohibited — divergent
+ * CHECK-less schemas previously raced with idempotent bootstrap helpers.
  */
 export async function ensureBackupHeartbeatTable(sql?: Sql): Promise<void> {
   const client = sql ?? createSql();
