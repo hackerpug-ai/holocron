@@ -950,15 +950,27 @@ describe('Sprint 14 ETL + blob verify', () => {
       expect(droppedStorageRef?.variance).toBe(0);
 
       const fkAudit = runHolo(['etl:fk-audit', '--json']);
-      expect(fkAudit.status, `${fkAudit.stdout}\n${fkAudit.stderr}`).toBe(0);
+      // S31-CX-04: ok requires schema-derived edges to have matching DB FK
+      // constraints. Domain tables still lack those constraints, so the gate
+      // fails closed (exit 1) while orphan integrity remains zero.
       const fkReport = JSON.parse(fkAudit.stdout) as {
         ok: boolean;
         orphans: number;
         checkedRelationships: number;
+        unenforcedEdges?: Array<{ target: string }>;
+        enforcedForeignKeys?: number;
       };
-      expect(fkReport.ok).toBe(true);
       expect(fkReport.orphans).toBe(0);
       expect(fkReport.checkedRelationships).toBeGreaterThan(0);
+      expect(Array.isArray(fkReport.unenforcedEdges)).toBe(true);
+      expect((fkReport.unenforcedEdges?.length ?? 0) >= 1 || fkReport.ok === true).toBe(true);
+      if ((fkReport.unenforcedEdges?.length ?? 0) > 0) {
+        expect(fkAudit.status, `${fkAudit.stdout}\n${fkAudit.stderr}`).not.toBe(0);
+        expect(fkReport.ok).toBe(false);
+      } else {
+        expect(fkAudit.status, `${fkAudit.stdout}\n${fkAudit.stderr}`).toBe(0);
+        expect(fkReport.ok).toBe(true);
+      }
 
       const vectors = runHolo(['etl:vectors', '--json']);
       expect(vectors.status, `${vectors.stdout}\n${vectors.stderr}`).toBe(0);

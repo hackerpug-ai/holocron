@@ -488,7 +488,8 @@ Usage:
   prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
   etl:run                  Immutable export → stage → stable id-map → FK-ordered load → blobs
   etl:reconcile            Catalog-derived target-vs-source reconciliation from latest ETL run
-  etl:fk-audit             Audit migrated legacy-id relationships for zero orphans
+  etl:fk-audit             Audit migrated legacy-id relationships + referential edge constraints
+  etl:referential-edges    Derive convex-referential-edges.json from convex/schema.ts
   etl:vectors              Chunk documents, insert canonical passages, and re-embed via fleet
   blob:verify              Verify retained-object parity + representative Range read
   upload:init              Create/replay an authoritative upload intent
@@ -1499,6 +1500,62 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'etl:referential-edges': {
+      const {
+        DEFAULT_REFERENTIAL_EDGES_ARTIFACT,
+        extractReferentialEdges,
+        writeReferentialEdgesArtifact,
+        buildTopologicalLoadOrder,
+      } = await import('../etl/referential-edges.ts');
+      const { defaultCatalogPath, loadCatalog } = await import('../catalog/catalog-loader.ts');
+      try {
+        const report = extractReferentialEdges({
+          catalogPath: args.catalogPath,
+        });
+        const outPath =
+          typeof args.output === 'string' && args.output.length > 0
+            ? args.output
+            : DEFAULT_REFERENTIAL_EDGES_ARTIFACT;
+        const written = writeReferentialEdgesArtifact(outPath, report);
+        const catalog = loadCatalog(args.catalogPath ?? defaultCatalogPath());
+        const loadOrder = buildTopologicalLoadOrder({
+          edges: report.edges,
+          tables: Object.keys(catalog.tables),
+        });
+        if (args.json) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: true,
+                edgeCount: report.edgeCount,
+                artifactPath: written,
+                loadOrder: loadOrder.order,
+                alphabeticalFallbackCount: loadOrder.alphabeticalFallbackCount,
+                violations: loadOrder.violations,
+              },
+              null,
+              2
+            )
+          );
+        } else {
+          console.log('holo etl:referential-edges — schema-derived edge set');
+          console.log(`  edgeCount: ${report.edgeCount}`);
+          console.log(`  artifact:  ${written}`);
+          console.log(`  loadOrder: ${loadOrder.order.length} tables`);
+          console.log(`  violations:${loadOrder.violations}`);
+        }
+        process.exit(0);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
+        } else {
+          console.error(`holo etl:referential-edges failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
     case 'etl:fk-audit': {
       const { runFkAudit } = await import('../etl/fk-audit.ts');
       try {
@@ -1512,6 +1569,8 @@ async function main(): Promise<void> {
           console.log('holo etl:fk-audit — migrated relationship audit');
           console.log(`  checkedRelationships: ${result.checkedRelationships}`);
           console.log(`  enforcedForeignKeys:  ${result.enforcedForeignKeys}`);
+          console.log(`  edgeCount:            ${result.edgeCount}`);
+          console.log(`  unenforcedEdges:      ${result.unenforcedEdges.length}`);
           console.log(`  orphans:              ${result.orphans}`);
           console.log(result.ok ? '  status: OK' : '  status: FAIL');
         }
