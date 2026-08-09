@@ -14,6 +14,7 @@ import {
   assertHarnessPgbackrestConfWritable,
   assertHarnessPgdataAllowed,
   assertHarnessSecretsPathAllowed,
+  isStrictHarnessSecretsMode,
 } from './harness-isolation.ts';
 
 /** Secrets keys used by the backup/R2 stack (distinct from DATABASE_URL / Fleet). */
@@ -219,7 +220,7 @@ export function loadBackupConfig(options?: {
   // GATE-FIX-S28R3-QA25: honor HOLO_SECRETS_PATH / HOLOCRON_SECRETS_PATH / SECRETS_PATH.
   // S31-OPS-03: when HOLO_HARNESS=1, resolveSecretsPathFromEnv refuses production secrets.
   const secretsPath = options?.secretsPath ?? resolveSecretsPathFromEnv(env);
-  if (env.HOLO_HARNESS === '1') {
+  if (isStrictHarnessSecretsMode(env)) {
     assertHarnessSecretsPathAllowed(secretsPath, env, resolveRepoRoot());
   }
   const get = (key: string) => getSecretValue(key, { secretsPath, env });
@@ -237,12 +238,15 @@ export function loadBackupConfig(options?: {
   // S31-OPS-03: HOLO_PGBACKREST_CONF overrides PGBACKREST_CONFIG for harness probes.
   const pgbackrestConfigPath =
     env.HOLO_PGBACKREST_CONF?.trim() || get('PGBACKREST_CONFIG') || defaultPgbackrestConfigPath();
-  if (env.HOLO_HARNESS === '1') {
+  // Strict HOLO_HARNESS only: load may resolve production conf under PLATFORM_IT for
+  // dual-archive seed *reads*. Actual writes are guarded in writePgbackrestConfig
+  // via isHarnessMode (HOLO_HARNESS|PLATFORM_IT).
+  if (isStrictHarnessSecretsMode(env)) {
     assertHarnessPgbackrestConfWritable(pgbackrestConfigPath, env);
   }
   const stanza = get('PGBACKREST_STANZA') || defaultStanza();
   const pg1Path = get('PGBACKREST_PG1_PATH') || defaultPg1Path();
-  if (env.HOLO_HARNESS === '1') {
+  if (isStrictHarnessSecretsMode(env)) {
     assertHarnessPgdataAllowed(pg1Path, env);
   }
 
