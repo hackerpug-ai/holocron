@@ -26,8 +26,17 @@ import {
 } from './schedule-parser.ts';
 
 const databaseUrl = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
-const POLL_MS = Number(process.env.HOLO_SCHEDULER_POLL_MS ?? 1_000);
-const CADENCE_MS = Number(process.env.HOLO_SCHEDULER_CADENCE_MS ?? 15_000);
+
+/** Parse ms env values; strip underscores so '120_000' works (Number('120_000') is NaN). */
+function envMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw == null || raw.trim() === '') return fallback;
+  const n = Number(raw.replace(/_/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+const POLL_MS = envMs('HOLO_SCHEDULER_POLL_MS', 1_000);
+const CADENCE_MS = envMs('HOLO_SCHEDULER_CADENCE_MS', 15_000);
 
 type BoundSchedule = {
   name: string;

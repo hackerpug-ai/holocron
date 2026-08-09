@@ -1,7 +1,9 @@
 /**
- * Port of convex/subscriptions/internal processQueuedContent (side-effect core).
- * Marks up to 5 queued subscription_content rows as research-completed placeholders
- * so the queue progresses without inventing document content (live Jina deferred).
+ * Port of convex/subscriptions/internal processQueuedContent.
+ *
+ * Does NOT mark research_status=completed without producing a document.
+ * When queued work exists but content extraction is unavailable, leaves rows
+ * queued and fails closed with RESEARCH_DEFERRED_NO_DOCUMENT.
  */
 import { createSql } from '../../db/client.ts';
 import type { JobHandler, JobHandlerResult } from './types.ts';
@@ -9,44 +11,38 @@ import type { JobHandler, JobHandlerResult } from './types.ts';
 const BATCH = 5;
 
 export const subscriptionAutoResearch: JobHandler = async (ctx): Promise<JobHandlerResult> => {
-  const now = ctx.now ?? new Date();
   const sql = createSql(ctx.databaseUrl);
 
   try {
-    const queued = await sql<{ id: string }[]>`
-      SELECT id::text AS id
+    const queued = await sql<{ id: string; url: string | null; title: string | null }[]>`
+      SELECT id::text AS id, url, title
       FROM subscription_content
-      WHERE research_status IN ('queued', 'pending')
-         OR research_status IS NULL
+      WHERE research_status = 'queued'
       ORDER BY COALESCE(discovered_at, created_at) ASC
       LIMIT ${BATCH}
       FOR UPDATE SKIP LOCKED
     `;
 
-    // Only claim rows that are explicitly queued — null status stays untouched
-    // so a fresh unfiltered catalog is not silently "researched".
-    const claimed = await sql<{ id: string }[]>`
-      UPDATE subscription_content
-      SET
-        research_status = 'completed',
-        researched_at = ${now.toISOString()}::timestamptz
-      WHERE id IN (
-        SELECT id FROM subscription_content
-        WHERE research_status = 'queued'
-        ORDER BY COALESCE(discovered_at, created_at) ASC
-        LIMIT ${BATCH}
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING id::text AS id
-    `;
+    if (queued.length === 0) {
+      return {
+        ok: true,
+        detail: { processed: 0, documents_created: 0, deferred: 0, queued: 0 },
+      };
+    }
 
+    // Live Jina/content extraction is deferred in scope — do not invent documents
+    // and do not advance research_status to completed. Leave queued for a real
+    // extraction worker; surface a named non-success so jobs:run-all cannot greenwash.
     return {
-      ok: true,
+      ok: false,
       detail: {
-        processed: claimed.length,
-        scanned: queued.length,
-        note: 'content extraction deferred; queued rows advanced to completed',
+        processed: 0,
+        documents_created: 0,
+        deferred: queued.length,
+        queued: queued.length,
+        sample_ids: queued.map((r) => r.id).slice(0, 5),
       },
+      error: 'RESEARCH_DEFERRED_NO_DOCUMENT',
     };
   } catch (err) {
     return { ok: false, detail: {}, error: err instanceof Error ? err.message : String(err) };

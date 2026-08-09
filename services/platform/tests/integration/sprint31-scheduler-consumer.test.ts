@@ -109,7 +109,7 @@ describe('S31-02 AC-3: schedulerConsumesLeasedQueue', () => {
           ...process.env,
           DATABASE_URL,
           HOLO_SCHEDULER_POLL_MS: '200',
-          HOLO_SCHEDULER_CADENCE_MS: '60_000',
+          HOLO_SCHEDULER_CADENCE_MS: '60000',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -220,7 +220,7 @@ describe('S31-02 AC-3: schedulerConsumesLeasedQueue', () => {
           ...process.env,
           DATABASE_URL,
           HOLO_SCHEDULER_POLL_MS: '500',
-          HOLO_SCHEDULER_CADENCE_MS: '120_000',
+          HOLO_SCHEDULER_CADENCE_MS: '120000',
         },
         stdio: 'ignore',
       });

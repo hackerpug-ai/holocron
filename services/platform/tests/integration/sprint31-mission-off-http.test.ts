@@ -81,7 +81,7 @@ describe('S31-02 AC-4: missionExecutionLeavesTheRequestThread', () => {
           ...process.env,
           DATABASE_URL,
           HOLO_SCHEDULER_POLL_MS: '200',
-          HOLO_SCHEDULER_CADENCE_MS: '120_000',
+          HOLO_SCHEDULER_CADENCE_MS: '120000',
         },
         stdio: 'ignore',
       });
