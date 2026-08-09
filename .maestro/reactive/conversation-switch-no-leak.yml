@@ -1,0 +1,184 @@
+appId: ${MAESTRO_APP_ID}
+---
+# S31-FE-04 AC-4 / AC-6 — conversation switch must not leak module turn state.
+# A marker sent in conversation A must never appear in conversation B.
+# Mid-stream remount rehydrates via hook ModuleStreamHandoff only.
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+# ── AC-4: send in A, navigate to B, assert no leak ──────────────────────────
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+      - waitForAnimationToEnd
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+
+- tapOn:
+    id: "chat-input-field"
+    optional: true
+- tapOn:
+    id: "chat-input"
+    optional: true
+
+- inputText: "ZZTOPMARKER conversation A probe"
+
+- tapOn:
+    id: "chat-input-send-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 90000
+
+- takeScreenshot: S31-FE-04-AC-4-after-send-A
+
+# Navigate to conversation B
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e2
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+# B seeded content must render; A marker must not
+- extendedWaitUntil:
+    visible: "User seed message for E2E Conversation Beta"
+    timeout: 60000
+
+- assertVisible: "User seed message for E2E Conversation Beta"
+
+- assertNotVisible: "ZZTOPMARKER conversation A probe"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 30000
+
+- assertNotVisible:
+    id: "chat-loading-inline"
+
+- takeScreenshot: S31-FE-04-AC-4-conversation-B-no-leak
+
+# ── AC-6: remount mid-run rehydrates through hook snapshot ──────────────────
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+
+- tapOn:
+    id: "chat-input-field"
+    optional: true
+- tapOn:
+    id: "chat-input"
+    optional: true
+
+- inputText: "RRPROBE remount check"
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# While busy, leave A then return immediately
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-true"
+    timeout: 30000
+    optional: true
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e2
+- waitForAnimationToEnd
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible: "RRPROBE remount check"
+    timeout: 90000
+
+- assertVisible: "RRPROBE remount check"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 90000
+
+# Beta seed text must not appear inside A after remount
+- assertNotVisible: "User seed message for E2E Conversation Beta"
+
+- takeScreenshot: S31-FE-04-AC-6-remount-rehydrate

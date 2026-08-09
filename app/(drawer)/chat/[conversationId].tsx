@@ -24,8 +24,8 @@ import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay'
 import { useChatHistory } from '@/hooks/use-chat-history';
 import {
   fetchWithChatDeadline,
-  getModuleStreamHandoff,
   isFleetUnavailableFailure,
+  type PendingUserOverlay,
   useResumableSSEStream,
 } from '@/hooks/use-resumable-sse-stream';
 import { useVoiceSession } from '@/hooks/use-voice-session';
@@ -77,33 +77,6 @@ let pendingStreamHandoff: PendingStreamHandoff | null = null;
  * send, even when deterministic SSE completes in one XHR tick.
  */
 let globalStopHoldUntilMs = 0;
-
-/**
- * GATE-FIX-01 product: optimistic live-turn user bubble. Survives remount so
- * airplane restore never leaves an empty yellow user bubble while Zero lags.
- */
-type PendingUserMessage = {
-  conversationId: string;
-  content: string;
-  createdAt: number;
-  localId: string;
-};
-let modulePendingUser: PendingUserMessage | null = null;
-
-/**
- * GATE-FIX-01 product: local turn snapshot so painted MessageBubbles do not
- * depend solely on Zero lag after airplane. Merged into the thread until Zero
- * durable rows carry the same non-empty content.
- */
-type LocalTurnSnapshot = {
-  conversationId: string;
-  userContent: string;
-  agentContent: string;
-  agentId: string | null;
-  userLocalId: string;
-  updatedAt: number;
-};
-let moduleLocalTurn: LocalTurnSnapshot | null = null;
 
 /**
  * Chat screen for a specific conversation.
@@ -232,213 +205,40 @@ export default function ChatScreen() {
         }
       : null;
 
+  // Component-scoped optimistic user (never a module singleton — S31-FE-04).
+  const [pendingUser, setPendingUser] = useState<PendingUserOverlay | null>(null);
+
+  // Drop optimistic entry when navigating to another conversation (no cross-leak).
+  useEffect(() => {
+    setPendingUser(null);
+  }, [conversationId]);
+
   const chatHistoryId = isNewConversation ? null : (conversationId ?? null);
   const {
-    messages: historyMessages = [],
+    messages = [],
     durableMessages = [],
     isLoading: isLoadingMessages = false,
     error: messagesError = null,
-  } = useChatHistory(chatHistoryId, undefined, streamOverlay) ?? {
+  } = useChatHistory(chatHistoryId, undefined, streamOverlay, pendingUser) ?? {
     messages: [],
     durableMessages: [],
     isLoading: false,
     error: null,
   };
 
-  // Force re-render when module pending user is set/cleared across remounts.
-  const [, setPendingUserTick] = useState(0);
-  const pendingUser =
-    modulePendingUser && conversationId && modulePendingUser.conversationId === conversationId
-      ? modulePendingUser
-      : null;
-
-  // Drop optimistic user once Zero durable has the same non-empty content.
+  // Clear optimistic user once Zero durable has landed the same content.
   useEffect(() => {
-    if (!modulePendingUser || !conversationId) return;
-    const pendingUserForConversation =
-      modulePendingUser.conversationId === conversationId ? modulePendingUser : null;
-    if (!pendingUserForConversation) return;
+    if (!pendingUser) return;
     const landed = durableMessages.some(
       (m) =>
         m.role === 'user' &&
         typeof m.content === 'string' &&
-        m.content.trim() === pendingUserForConversation.content.trim()
+        m.content.trim() === pendingUser.content.trim()
     );
     if (landed) {
-      modulePendingUser = null;
-      setPendingUserTick((n) => n + 1);
+      setPendingUser(null);
     }
-  }, [durableMessages, conversationId]);
-
-  // Keep local-turn agent text in sync with SSE / hydrate / module handoff.
-  useEffect(() => {
-    const handoff = getModuleStreamHandoff();
-    const scopedHandoff = handoff?.conversationId === conversationId ? handoff : null;
-    const agentText =
-      effectiveStreamedText.trim().length > 0
-        ? effectiveStreamedText
-        : (scopedHandoff?.text ?? '').trim();
-    const agentId = durableMessageId ?? scopedHandoff?.durableMessageId ?? null;
-    if (!conversationId || conversationId === 'new') return;
-    if (!agentText && !modulePendingUser) return;
-
-    const userContent =
-      modulePendingUser && modulePendingUser.conversationId === conversationId
-        ? modulePendingUser.content
-        : moduleLocalTurn?.conversationId === conversationId
-          ? moduleLocalTurn.userContent
-          : (lastMessageRef.current ?? '');
-
-    if (!userContent && !agentText) return;
-
-    const prev = moduleLocalTurn;
-    const prevForConversation = prev?.conversationId === conversationId ? prev : null;
-    const nextAgent = agentText || prevForConversation?.agentContent || '';
-    const nextAgentId = agentId ?? prevForConversation?.agentId ?? null;
-    if (
-      prevForConversation &&
-      prevForConversation.userContent === userContent &&
-      prevForConversation.agentContent === nextAgent &&
-      prevForConversation.agentId === nextAgentId
-    ) {
-      return;
-    }
-    moduleLocalTurn = {
-      conversationId,
-      userContent: userContent || prevForConversation?.userContent || '',
-      agentContent: nextAgent,
-      agentId: nextAgentId,
-      userLocalId:
-        prevForConversation?.userLocalId ||
-        modulePendingUser?.localId ||
-        `pending-user-${Date.now()}`,
-      updatedAt: Date.now(),
-    };
-    setPendingUserTick((n) => n + 1);
-  }, [conversationId, effectiveStreamedText, durableMessageId]);
-
-  // Clear local turn once Zero has both the user prompt and agent final text.
-  useEffect(() => {
-    if (!moduleLocalTurn || !conversationId) return;
-    const localTurnForConversation =
-      moduleLocalTurn.conversationId === conversationId ? moduleLocalTurn : null;
-    if (!localTurnForConversation) return;
-    const userOk =
-      !localTurnForConversation.userContent ||
-      durableMessages.some(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.trim() === localTurnForConversation.userContent.trim()
-      );
-    const agentOk =
-      !localTurnForConversation.agentContent ||
-      durableMessages.some(
-        (m) =>
-          (m.role === 'agent' || (m.role as string) === 'assistant') &&
-          typeof m.content === 'string' &&
-          m.content.trim().length > 0 &&
-          (localTurnForConversation.agentId
-            ? m.id === localTurnForConversation.agentId
-            : m.content.includes(localTurnForConversation.agentContent.slice(0, 24)))
-      );
-    if (userOk && agentOk && localTurnForConversation.agentContent.trim().length > 0) {
-      moduleLocalTurn = null;
-      modulePendingUser = null;
-      setPendingUserTick((n) => n + 1);
-    }
-  }, [durableMessages, conversationId]);
-
-  // GATE-FIX-01: merge local-turn user+agent so painted bubbles never depend only
-  // on Zero lag / empty placeholders after airplane restore.
-  const messages = (() => {
-    let next = historyMessages;
-    const turn =
-      moduleLocalTurn && conversationId && moduleLocalTurn.conversationId === conversationId
-        ? moduleLocalTurn
-        : null;
-    const userContent = turn?.userContent || pendingUser?.content || '';
-    if (userContent) {
-      const hasMatchingUser = next.some(
-        (m) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.trim() === userContent.trim()
-      );
-      if (!hasMatchingUser) {
-        const emptyUserIdx = [...next]
-          .map((m, i) => ({ m, i }))
-          .reverse()
-          .find(
-            ({ m }) =>
-              m.role === 'user' && (typeof m.content !== 'string' || m.content.trim().length === 0)
-          )?.i;
-        if (emptyUserIdx != null) {
-          next = next.slice();
-          const emptyUser = next[emptyUserIdx];
-          if (!emptyUser) return next;
-          next[emptyUserIdx] = {
-            ...emptyUser,
-            content: userContent,
-          };
-        } else {
-          next = [
-            ...next,
-            {
-              id: turn?.userLocalId ?? pendingUser?.localId ?? `pending-user-${Date.now()}`,
-              role: 'user' as const,
-              content: userContent,
-              message_type: 'text' as const,
-              createdAt: new Date(turn?.updatedAt ?? Date.now()),
-            },
-          ];
-        }
-      }
-    }
-
-    const agentContent = turn?.agentContent?.trim() || effectiveStreamedText.trim();
-    const agentId =
-      turn?.agentId || durableMessageId || (streamRunId ? `stream-preview-${streamRunId}` : null);
-    if (agentContent && agentId) {
-      const idx = next.findIndex((m) => m.id === agentId);
-      if (idx >= 0) {
-        const existing = next[idx];
-        if (!existing) return next;
-        if (
-          typeof existing.content !== 'string' ||
-          existing.content.trim().length === 0 ||
-          existing.content.length < agentContent.length
-        ) {
-          next = next.slice();
-          next[idx] = {
-            ...existing,
-            role: (existing.role as string) === 'assistant' ? 'agent' : existing.role,
-            content: agentContent,
-          };
-        }
-      } else {
-        const hasSameText = next.some(
-          (m) =>
-            (m.role === 'agent' || (m.role as string) === 'assistant') &&
-            typeof m.content === 'string' &&
-            m.content.trim() === agentContent
-        );
-        if (!hasSameText) {
-          next = [
-            ...next,
-            {
-              id: agentId,
-              role: 'agent' as const,
-              content: agentContent,
-              message_type: 'text' as const,
-              createdAt: new Date(turn?.updatedAt ?? Date.now()),
-            },
-          ];
-        }
-      }
-    }
-    return next;
-  })();
+  }, [durableMessages, pendingUser]);
 
   // Local send state
   const [isSending, setIsSending] = useState(false);
@@ -606,23 +406,10 @@ export default function ChatScreen() {
       // GATE-FIX-01: never greenwash token oracles from a prior Maestro run.
       resetChatThreadStreamPeaks();
 
-      // GATE-FIX-01: paint the live-turn user prompt immediately (non-empty bubble).
+      // Optimistic user bubble — collision-safe client id, component-scoped only.
+      const optimisticClientId = `pending-user-${newRequestId('cli')}`;
       if (conversationId && conversationId !== 'new') {
-        modulePendingUser = {
-          conversationId,
-          content: trimmed,
-          createdAt: Date.now(),
-          localId: `pending-user-${Date.now()}`,
-        };
-        moduleLocalTurn = {
-          conversationId,
-          userContent: trimmed,
-          agentContent: '',
-          agentId: null,
-          userLocalId: modulePendingUser.localId,
-          updatedAt: Date.now(),
-        };
-        setPendingUserTick((n) => n + 1);
+        setPendingUser({ clientId: optimisticClientId, content: trimmed });
       }
 
       try {
@@ -679,14 +466,9 @@ export default function ChatScreen() {
         }
         if (body.runId && body.durableMessageId) {
           if (isNewConversation && body.conversationId) {
-            // Bind optimistic user to the real conversation id before remount.
-            modulePendingUser = {
-              conversationId: body.conversationId,
-              content: trimmed,
-              createdAt: Date.now(),
-              localId: `pending-user-${Date.now()}`,
-            };
-            // Defer connect until after /chat/new → /chat/:id remount
+            // Defer connect until after /chat/new → /chat/:id remount.
+            // Optimistic user is component-scoped and does not survive remount;
+            // Zero durable + ModuleStreamHandoff rehydrate the turn.
             pendingStreamHandoff = {
               runId: body.runId,
               durableMessageId: body.durableMessageId,
@@ -702,12 +484,6 @@ export default function ChatScreen() {
             });
           }
         } else if (isNewConversation && body.conversationId) {
-          modulePendingUser = {
-            conversationId: body.conversationId,
-            content: trimmed,
-            createdAt: Date.now(),
-            localId: `pending-user-${Date.now()}`,
-          };
           router.replace(`/chat/${body.conversationId}`);
         } else {
           // Create returned without a streamable run — drop local busy latch.
@@ -749,6 +525,7 @@ export default function ChatScreen() {
       connectStream,
       resetStream,
       enterDegradedFromEnvelope,
+      setPendingUser,
     ]
   );
 
@@ -923,23 +700,8 @@ export default function ChatScreen() {
               void softDeleteMessage(messageId);
             }}
             streamingMessageId={streamingMessageId}
-            preferredLatestAgentId={
-              durableMessageId ??
-              (moduleLocalTurn &&
-              conversationId &&
-              moduleLocalTurn.conversationId === conversationId
-                ? moduleLocalTurn.agentId
-                : null)
-            }
-            streamedText={
-              effectiveStreamedText.trim().length > 0
-                ? effectiveStreamedText
-                : moduleLocalTurn &&
-                    conversationId &&
-                    moduleLocalTurn.conversationId === conversationId
-                  ? moduleLocalTurn.agentContent
-                  : ''
-            }
+            preferredLatestAgentId={durableMessageId}
+            streamedText={effectiveStreamedText}
             streamPhase={streamPhase}
             streamLastSeq={streamLastSeq}
             streamTokenCount={streamTokenCount}

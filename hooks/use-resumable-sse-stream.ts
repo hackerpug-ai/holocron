@@ -382,6 +382,12 @@ export type StreamOverlay = {
   phase: ChatStreamPhase;
 };
 
+/** Optimistic live-turn user bubble — keyed by client id, never content identity. */
+export type PendingUserOverlay = {
+  clientId: string;
+  content: string;
+};
+
 export type FleetFailureEnvelope = {
   error?: string | null;
   message?: string | null;
@@ -568,9 +574,11 @@ export function buildSseResumeHeaders(args: {
 }
 
 /**
- * Merge Zero durable messages with an optional in-flight SSE preview so the
- * thread always shows exactly one assistant bubble for the active run.
+ * Merge Zero durable messages with an optional in-flight SSE preview and an
+ * optional optimistic user entry so the thread always shows exactly one bubble
+ * per identity (client id / durable id / SSE durableMessageId).
  *
+ * - Optimistic user: inject while Zero lags; collapse into durable same content
  * - While streaming and durable not yet synced: inject one preview row
  * - When durable row exists with content: Zero is authoritative (no second bubble)
  * - GATE-FIX-01: empty durable placeholders must NOT clobber overlay tokens —
@@ -578,26 +586,60 @@ export function buildSseResumeHeaders(args: {
  *   visible after airplane restore while Zero lags
  * - GATE-FIX-01: never inject an empty terminal preview (steals latest with a
  *   zero-height invisible bubble)
+ *
+ * Pure: no module reads, no side effects, no Date.now() for identity.
  */
 export function reconcileThreadMessages(
   durable: ChatMessage[],
-  overlay: StreamOverlay | null | undefined
+  overlay: StreamOverlay | null | undefined,
+  pendingUser?: PendingUserOverlay | null
 ): ChatMessage[] {
-  if (!overlay?.durableMessageId) return durable;
-  if (overlay.phase === 'idle') return durable;
+  let base = durable;
+
+  // Optimistic live-turn user — keyed by clientId; collapses when durable lands.
+  if (
+    pendingUser &&
+    typeof pendingUser.clientId === 'string' &&
+    pendingUser.clientId.length > 0 &&
+    typeof pendingUser.content === 'string' &&
+    pendingUser.content.trim().length > 0
+  ) {
+    const pendingContent = pendingUser.content;
+    const durableMatch = base.some(
+      (m) =>
+        m.role === 'user' &&
+        typeof m.content === 'string' &&
+        m.content.trim() === pendingContent.trim()
+    );
+    if (!durableMatch && !base.some((m) => m.id === pendingUser.clientId)) {
+      base = [
+        ...base,
+        {
+          id: pendingUser.clientId,
+          role: 'user',
+          content: pendingContent,
+          message_type: 'text',
+          createdAt: new Date(),
+        },
+      ];
+    }
+  }
+
+  if (!overlay?.durableMessageId) return base;
+  if (overlay.phase === 'idle') return base;
 
   const overlayHasContent =
     typeof overlay.content === 'string' && overlay.content.trim().length > 0;
-  const existingIdx = durable.findIndex((m) => m.id === overlay.durableMessageId);
+  const existingIdx = base.findIndex((m) => m.id === overlay.durableMessageId);
 
   if (existingIdx >= 0) {
-    const existing = durable[existingIdx];
-    if (!existing) return durable;
+    const existing = base[existingIdx];
+    if (!existing) return base;
     const durableEmpty =
       typeof existing.content !== 'string' || existing.content.trim().length === 0;
     // Prefer overlay text when durable is empty/short (Zero lag / empty land).
     if (overlayHasContent && (durableEmpty || existing.content.length < overlay.content.length)) {
-      const merged = durable.slice();
+      const merged = base.slice();
       merged[existingIdx] = {
         ...existing,
         // Normalize seed-style assistant → agent so latest selection matches.
@@ -607,7 +649,7 @@ export function reconcileThreadMessages(
       return merged;
     }
     // Durable row won — never inject a second bubble with the same id.
-    return durable;
+    return base;
   }
 
   // Preview only while we have content (or are waiting for first token).
@@ -623,7 +665,7 @@ export function reconcileThreadMessages(
     // with an invisible bubble (MarkdownText returns null for empty content).
     // Still inject empty while live so StreamingCursor can attach to the row.
     if (!isLive && !overlayHasContent) {
-      return durable;
+      return base;
     }
     const preview: ChatMessage = {
       id: overlay.durableMessageId,
@@ -632,10 +674,10 @@ export function reconcileThreadMessages(
       message_type: 'text',
       createdAt: new Date(),
     };
-    return [...durable, preview];
+    return [...base, preview];
   }
 
-  return durable;
+  return base;
 }
 
 function parseSeq(raw: string | null | undefined): number {
