@@ -10,6 +10,7 @@
 
 import { useQuery as useZeroQuery } from '@rocicorp/zero/react';
 import { researchSessionById } from '@/app/zero/queries';
+import { useZeroRowWatchdog } from '@/hooks/use-zero-row-watchdog';
 
 export type ResearchProgressStatus =
   | 'pending'
@@ -60,6 +61,8 @@ export function useResearchProgress(sessionId: string | null): UseResearchProgre
     enabled,
   });
 
+  const error = useZeroRowWatchdog(row === undefined ? undefined : row, enabled);
+
   const session =
     row === undefined || row === null ? null : (row as unknown as ResearchProgressSessionRow);
 
@@ -85,8 +88,8 @@ export function useResearchProgress(sessionId: string | null): UseResearchProgre
     label,
     status: (session?.status as ResearchProgressStatus | undefined) ?? null,
     queryLabel: session?.query ?? session?.topic ?? '',
-    isLoading: enabled && row === undefined,
-    error: null,
+    isLoading: enabled && row === undefined && error === null,
+    error,
   };
 }
 
