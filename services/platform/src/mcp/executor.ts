@@ -614,39 +614,71 @@ export async function executePostgresMcpTool(
         return rows[0] ?? null;
       }
       case 'approve_assimilation_plan': {
+        const sessionId = String(input.sessionId);
+        const current = await sql`
+          SELECT status FROM assimilation_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+        `;
+        if (!current[0]) throw new Error('NOT_FOUND: assimilation session does not exist');
+        // Idempotent by sessionId — already-approved (running) is a safe no-op.
+        if (current[0].status === 'running' || current[0].status === 'in_progress') {
+          return { approved: true, sessionId };
+        }
         const rows = await sql`
           UPDATE assimilation_sessions SET status = 'running', updated_at = now()
-          WHERE id = ${String(input.sessionId)}::uuid AND status IN ('pending_approval', 'planning')
+          WHERE id = ${sessionId}::uuid AND status IN ('pending_approval', 'planning')
           RETURNING id
         `;
         if (!rows[0])
           throw new Error('INVALID_STATE: assimilation session is not awaiting approval');
-        return { approved: true, sessionId: String(input.sessionId) };
+        return { approved: true, sessionId };
       }
       case 'reject_assimilation_plan': {
+        const sessionId = String(input.sessionId);
         const feedback = typeof input.feedback === 'string' ? input.feedback : null;
+        const current = await sql`
+          SELECT status, plan_feedback AS "planFeedback"
+          FROM assimilation_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+        `;
+        if (!current[0]) throw new Error('NOT_FOUND: assimilation session does not exist');
+        const targetStatus = feedback ? 'planning' : 'rejected';
+        // Idempotent by (sessionId, feedback) — same reject/replan is a safe no-op.
+        if (
+          current[0].status === targetStatus &&
+          (feedback == null || current[0].planFeedback === feedback)
+        ) {
+          return { rejected: true, sessionId, replanning: Boolean(feedback) };
+        }
         const rows = await sql`
           UPDATE assimilation_sessions
-          SET status = ${feedback ? 'planning' : 'rejected'}, plan_feedback = ${feedback}, updated_at = now()
-          WHERE id = ${String(input.sessionId)}::uuid AND status IN ('pending_approval', 'planning')
+          SET status = ${targetStatus}, plan_feedback = ${feedback}, updated_at = now()
+          WHERE id = ${sessionId}::uuid AND status IN ('pending_approval', 'planning')
           RETURNING id
         `;
         if (!rows[0])
           throw new Error('INVALID_STATE: assimilation session is not awaiting approval');
         return {
           rejected: true,
-          sessionId: String(input.sessionId),
+          sessionId,
           replanning: Boolean(feedback),
         };
       }
       case 'cancel_assimilation': {
+        const sessionId = String(input.sessionId);
+        const current = await sql`
+          SELECT status FROM assimilation_sessions WHERE id = ${sessionId}::uuid LIMIT 1
+        `;
+        if (!current[0]) throw new Error('NOT_FOUND: assimilation session does not exist');
+        // Idempotent by sessionId — already-cancelled is a safe no-op.
+        if (current[0].status === 'cancelled' || current[0].status === 'canceled') {
+          return { cancelled: true, sessionId };
+        }
         const rows = await sql`
           UPDATE assimilation_sessions SET status = 'cancelled', updated_at = now(), completed_at = now()
-          WHERE id = ${String(input.sessionId)}::uuid AND status NOT IN ('completed', 'cancelled', 'canceled')
+          WHERE id = ${sessionId}::uuid AND status NOT IN ('completed', 'cancelled', 'canceled')
           RETURNING id
         `;
         if (!rows[0]) throw new Error('NOT_FOUND: assimilation session is not cancellable');
-        return { cancelled: true, sessionId: String(input.sessionId) };
+        return { cancelled: true, sessionId };
       }
       case 'steer_assimilation': {
         const rows = await sql`
@@ -744,13 +776,54 @@ export async function executePostgresMcpTool(
         return { content: rows };
       }
       case 'set_subscription_filter': {
+        // Idempotent by (sourceId|sourceType, ruleName) — return existing row on replay.
+        const sourceId = typeof input.sourceId === 'string' ? input.sourceId : null;
+        const sourceType = typeof input.sourceType === 'string' ? input.sourceType : null;
+        const ruleName = String(input.ruleName);
         const ruleValue =
           typeof input.ruleValue === 'string' ? input.ruleValue : JSON.stringify(input.ruleValue);
+        const weight = typeof input.weight === 'number' ? input.weight : null;
+        if (!sourceId && !sourceType) {
+          throw new Error('VALIDATION_ERROR: Neither sourceId nor sourceType provided');
+        }
+        const existing = await sql`
+          SELECT id::text AS "filterId", rule_name AS "ruleName", rule_type AS "ruleType",
+                 rule_value AS "ruleValue", weight
+          FROM subscription_filters
+          WHERE rule_name = ${ruleName}
+            AND (
+              (${sourceId}::text IS NOT NULL AND source_id = ${sourceId})
+              OR (
+                ${sourceId}::text IS NULL
+                AND ${sourceType}::text IS NOT NULL
+                AND source_type = ${sourceType}
+              )
+            )
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        if (existing[0]) {
+          await sql`
+            UPDATE subscription_filters
+            SET rule_type = ${String(input.ruleType)},
+                rule_value = ${ruleValue},
+                weight = ${weight},
+                source_id = COALESCE(${sourceId}, source_id),
+                source_type = COALESCE(${sourceType}, source_type)
+            WHERE id = ${String(existing[0].filterId)}::uuid
+          `;
+          return {
+            filterId: existing[0].filterId,
+            ruleName,
+            ruleType: String(input.ruleType),
+            ruleValue,
+            weight,
+          };
+        }
         const rows = await sql`
           INSERT INTO subscription_filters (id, source_id, source_type, rule_name, rule_type, rule_value, weight)
-          VALUES (${randomUUID()}::uuid, ${typeof input.sourceId === 'string' ? input.sourceId : null},
-                  ${typeof input.sourceType === 'string' ? input.sourceType : null}, ${String(input.ruleName)},
-                  ${String(input.ruleType)}, ${ruleValue}, ${typeof input.weight === 'number' ? input.weight : null})
+          VALUES (${randomUUID()}::uuid, ${sourceId}, ${sourceType}, ${ruleName},
+                  ${String(input.ruleType)}, ${ruleValue}, ${weight})
           RETURNING id::text AS "filterId", rule_name AS "ruleName", rule_type AS "ruleType", rule_value AS "ruleValue", weight
         `;
         return rows[0];
@@ -984,14 +1057,23 @@ export async function executePostgresMcpTool(
         return { documentId, updated: true, embeddingStatus: 'pending' };
       }
       case 'share_document': {
+        const documentId = String(input.documentId);
         const isPublic = Boolean(input.isPublic);
+        // Idempotent by (documentId, isPublic) — already at target visibility is a no-op.
+        const existing = await sql`
+          SELECT id::text AS "documentId", is_public AS "isPublic", share_token AS "shareToken"
+          FROM documents WHERE id = ${documentId}::uuid LIMIT 1
+        `;
+        if (existing[0] && Boolean(existing[0].isPublic) === isPublic) {
+          return existing[0];
+        }
         const shareToken = isPublic ? `mcp-${randomUUID()}` : null;
         const rows = await sql`
           UPDATE documents SET is_public = ${isPublic}, share_token = ${shareToken}
-          WHERE id = ${String(input.documentId)}::uuid
+          WHERE id = ${documentId}::uuid
           RETURNING id::text AS "documentId", is_public AS "isPublic", share_token AS "shareToken"
         `;
-        return rows[0] ?? { documentId: String(input.documentId), isPublic };
+        return rows[0] ?? { documentId, isPublic };
       }
       default:
         throw new Error(`MCP tool '${id}' has no Postgres executor yet`);
