@@ -7,7 +7,7 @@
  * Never hardcodes a pass list: every claim is opened and checked on the filesystem.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { resolveRepoRoot } from '../config/secrets.ts';
 
 export type EtlProvenanceViolation = {
@@ -45,10 +45,34 @@ function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-/** Resolve a gate-relative or repo-relative path against the repo root. */
-export function resolveEvidencePath(repoRoot: string, raw: string): string {
+/**
+ * Resolve an evidence path for existence checks.
+ *
+ * Order:
+ * 1. Absolute paths as-is
+ * 2. Relative to the gate file directory (gate-relative pointers like `../sibling/...`)
+ * 3. Relative to the repo root (repo-relative paths like `.spec/...` or `.tmp/...`)
+ *
+ * Prefer the first candidate that exists so gate-relative restatements resolve
+ * correctly while repo-root claims keep working. When nothing exists, return the
+ * gate-relative candidate (when a gate dir is known) so violation messages show
+ * the natural resolution context; otherwise the repo-root candidate.
+ */
+export function resolveEvidencePath(repoRoot: string, raw: string, gateDir?: string): string {
   if (isAbsolute(raw)) return raw;
-  return resolve(repoRoot, raw);
+
+  const fromRepo = resolve(repoRoot, raw);
+  if (!gateDir) return fromRepo;
+
+  const fromGate = resolve(gateDir, raw);
+  if (existsSync(fromGate)) return fromGate;
+  if (existsSync(fromRepo)) return fromRepo;
+  // Fail-closed: prefer gate-relative candidate for the missing-path report when
+  // the pointer uses `..` or otherwise looks gate-scoped; otherwise report repo path.
+  if (raw.startsWith('.') || raw.includes('/../') || raw.startsWith('../')) {
+    return fromGate;
+  }
+  return fromRepo;
 }
 
 /**
@@ -184,13 +208,15 @@ export function inspectGateRecord(options: {
   const stageRowCount = extractClaimedStageRowCount(parsed);
   const missing: string[] = [];
   const violations: EtlProvenanceViolation[] = [];
+  const gateDir = dirname(gatePath);
 
   for (const raw of claimed) {
     // Relative basenames without a path separator refer to sibling gate docs — resolve next to gate.
+    // Paths with separators: try gate directory first, then repo root (gate-relative restatements).
     const abs =
       !raw.includes('/') && !raw.includes('\\')
-        ? resolve(gatePath, '..', raw)
-        : resolveEvidencePath(repoRoot, raw);
+        ? resolve(gateDir, raw)
+        : resolveEvidencePath(repoRoot, raw, gateDir);
 
     if (!existsSync(abs)) {
       missing.push(raw);
