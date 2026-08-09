@@ -634,6 +634,11 @@ export type ResumableSseControllerSnapshot = {
   degradedMessage: string | null;
   resumeTransport: ResumeTransport;
   isActive: boolean;
+  /**
+   * S31-FE-01: how many deadline/transport-stall reductions fired this turn.
+   * Healthy streams must complete with 0; stall/hard-down paths increment.
+   */
+  deadlineFireCount: number;
 };
 
 /**
@@ -765,6 +770,8 @@ export function createResumableSseController(
   let pollCancelled = true;
   /** SSE open attempts for the active turn (initial + reconnects). */
   let connectionAttempts = 0;
+  /** Deadline / transport-stall firings this turn (AC-1: healthy = 0). */
+  let deadlineFireCount = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
 
@@ -776,6 +783,7 @@ export function createResumableSseController(
   };
 
   const enterDegradedFromDeadline = (reason: string) => {
+    deadlineFireCount += 1;
     clearReconnectTimer();
     closeSource(true);
     stopPoll();
@@ -1203,6 +1211,7 @@ export function createResumableSseController(
     degradedMessage = null;
     resumeTransport = 'none';
     connectionAttempts = 0;
+    deadlineFireCount = 0;
     runId = nextRunId;
     durableMessageId = nextDurable;
     applyAssembly({ lastSeq: 0, text: '', tokenCount: 0 });
@@ -1326,6 +1335,7 @@ export function createResumableSseController(
     degradedMessage = null;
     resumeTransport = 'none';
     connectionAttempts = 0;
+    deadlineFireCount = 0;
     clearModuleStreamHandoff();
     setPhaseBoth('idle');
   };
@@ -1349,6 +1359,7 @@ export function createResumableSseController(
         phase === 'degraded' ? (degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE) : null,
       resumeTransport,
       isActive,
+      deadlineFireCount,
     };
   };
 
