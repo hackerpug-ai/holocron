@@ -3,7 +3,7 @@ sprint: 31
 title: Migration Integrity Remediation
 sequence: 31
 timeline: Phase 7 — Cutover and Decommission
-status: Planned
+status: In Progress
 planned_from_roadmap_sha: ad8ab6125eac1b1f82c068f5e2df90795d0c2473f9450f514bb0e94e67345e73
 planned_from_source_sha: 54299bfc76fec6fc52468dae451ca293a6f104c4
 planned_from_source_kind: git-head
@@ -14,7 +14,8 @@ planned_at: 2026-08-08T01:09:02Z
 
 **Sequence:** 31
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** Planned
+**Status:** In Progress
+> Progress: 0/20 tasks completed · updated 2026-08-09T03:06:33Z
 
 > **Planning note.** Expanded via `--sprint-folder` bypass while Sprint 30 is actively in flight, so `ROADMAP.md` was deliberately not mutated and Sprint 31 remains 🔵 Planned. Unrelated pre-existing conflict to reconcile when Sprint 30 closes: its ROADMAP **section** reads `Completed` while its table row reads `🟠 In flight` and its own `SPRINT.md` reads `In Progress` — two of three say in-progress, and the audit found the positive `rollback-repoint` artifact missing with only negative controls surviving.
 
