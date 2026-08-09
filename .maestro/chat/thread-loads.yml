@@ -1,35 +1,107 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-3 / TC-3 — Chat thread loads messages via Zero query
-# Prerequisite: seeded conversation with >=3 messages.
-# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
+# AC-3 / TC-3 + S31-FE-02 AC-6 — Chat thread loads messages via Zero query
+# Prerequisite: seeded conversation with >=2 messages + healthy zero-cache.
+# Connection pattern mirrors FE-05 / S31 session-loads (LAN Metro + Open dialog).
 
 - launchApp:
-    clearState: false
+    clearState: true
+
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
 
 - extendedWaitUntil:
-    visible:
-      id: "chat-screen"
-    timeout: 60000
-
-- extendedWaitUntil:
-    visible:
-      id: "chat-thread"
-    timeout: 30000
-
-- assertNotVisible:
-    text: "No messages"
+    visible: "Open"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Open"
     optional: true
 
-# Oracle: >=3 message bubbles rendered (seeded thread)
-- assertVisible:
-    id: "message-bubble"
-    index: 0
-- assertVisible:
-    id: "message-bubble"
-    index: 1
-- assertVisible:
-    id: "message-bubble"
-    index: 2
+- extendedWaitUntil:
+    visible: "Enter URL manually"
+    timeout: 20000
+    optional: true
 
-- takeScreenshot: S-REWRITE-01-AC-3-thread-loads
+- runFlow:
+    when:
+      visible: "Enter URL manually"
+    commands:
+      - tapOn:
+          point: "50%,28%"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "http://192.168.1.160:8081"
+    commands:
+      - tapOn: "http://192.168.1.160:8081"
+
+- runFlow:
+    when:
+      visible: "http://127.0.0.1:8081"
+    commands:
+      - tapOn: "http://127.0.0.1:8081"
+
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- swipe:
+    start: "92%,12%"
+    end: "92%,75%"
+    duration: 500
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Type a message.*|.*New Chat.*|.*Holocron.*"
+    timeout: 120000
+    optional: true
+
+# Deep-link into the seeded conversation
+- openLink: ${MAESTRO_CHAT_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 6000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+# Prefer durable seed copy over ScreenLayout testIDs (XCTest often misses View testIDs)
+- extendedWaitUntil:
+    visible:
+      text: ".*Hello from E2E Conversation Alpha.*|.*E2E Conversation Alpha.*"
+    timeout: 90000
+
+- assertVisible:
+    text: ".*Hello from E2E Conversation Alpha.*|.*E2E Conversation Alpha.*"
+
+# S31-FE-02 AC-6 happy path — healthy Zero must not surface terminal/degraded error chrome.
+- assertNotVisible:
+    id: "chat-degraded-banner"
+
+- assertNotVisible:
+    text: "Live data sync unavailable"
+    optional: true
+
+- takeScreenshot: S31-FE-02-AC-6-thread-loads

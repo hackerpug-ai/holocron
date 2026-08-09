@@ -1,0 +1,14 @@
+
+> holocron@1.0.0 test:integration /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02
+> vitest run --project integration "tests/integration/s31-fe-02-zero-error-representable.test.ts"
+
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02
+
+ ✓ |integration| tests/integration/s31-fe-02-zero-error-representable.test.ts (4 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  01:39:41
+   Duration  201ms (transform 60ms, setup 100ms, import 7ms, tests 4ms, environment 0ms)
+
