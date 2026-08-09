@@ -37,6 +37,7 @@
     "validate": "npx tsx scripts/validate-migration.ts",
     "verify:no-convex-env": "bun services/platform/src/cli/holo.ts verify-no-convex-env",
     "verify:no-convex-client": "bun services/platform/src/cli/holo.ts verify:no-convex-client",
+    "verify:decommission-inventory": "bun services/platform/src/cli/holo.ts verify:decommission-inventory",
     "seed:e2e": "bun services/platform/src/cli/holo.ts seed:e2e --reset",
     "start:storybook": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --clear",
     "start:storybook:ios": "STORYBOOK_ENABLED=true EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --dev-client --ios --clear",
