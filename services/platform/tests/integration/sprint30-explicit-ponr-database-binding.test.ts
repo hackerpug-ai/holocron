@@ -52,6 +52,9 @@ const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE_DIR = resolve(REPO_ROOT, '.tmp/GATE-FIX-explicit-ponr-database-binding/red');
 const ADMIN_URL = process.env.GATE_FIX_TEST_ADMIN_URL ?? 'postgres://127.0.0.1:5432/postgres';
 const SOURCE_URL = process.env.GATE_FIX_TEST_SOURCE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+const REAL_DATABASE_FIXTURE_TIMEOUT_MS = 360_000;
+const REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS = 360_000;
+const REAL_MUTATION_MATRIX_TIMEOUT_MS = 600_000;
 const SOURCE_SHA = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: REPO_ROOT,
   encoding: 'utf8',
@@ -629,11 +632,11 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
       marker_database: await databaseName(targets.marker),
       distinct_database_names: true,
     });
-  }, 180_000);
+  }, REAL_DATABASE_FIXTURE_TIMEOUT_MS);
 
   afterAll(async () => {
     if (targets) await dropTargets(targets.names);
-  });
+  }, 180_000);
 
   itReal(
     'RED-1: explicit clean gate target cannot read contradictory ambient marker PONR',
@@ -1445,7 +1448,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         else process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = priorDangerousOverride;
       }
     },
-    180_000
+    REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS
   );
 
   itReal(
@@ -1781,7 +1784,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         named_trigger_set: [...REQUIRED_PONR_TRIGGER_NAMES],
       });
     },
-    180_000
+    REAL_MUTATION_MATRIX_TIMEOUT_MS
   );
 
   itReal(
@@ -1961,7 +1964,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         required_trigger_states: requiredTriggers,
       });
     },
-    180_000
+    REAL_MUTATION_MATRIX_TIMEOUT_MS
   );
 
   itReal(

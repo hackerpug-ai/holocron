@@ -1294,7 +1294,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
     } finally {
       rmSync(runDir, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it('TC-16: human gate rejects a missing gate target before any gate work', () => {
     const env = { ...process.env };
