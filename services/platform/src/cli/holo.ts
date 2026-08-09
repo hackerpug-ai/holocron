@@ -2795,12 +2795,15 @@ async function main(): Promise<void> {
           archiveOk = true;
         }
         const health = await queryBackupJobHealth({});
-        const healthOk = health.every((j) => j.flag === 'OK');
+        // S31-OPS-02: empty heartbeat table is not healthy (Array#every on [] is true).
+        const zeroRowFloor = health.length === 0;
+        const healthOk = !zeroRowFloor && health.every((j) => j.flag === 'OK');
         const baseSchedule = readBaseBackupSchedule({});
         const walSchedule = readWalArchiveSchedule({});
         const alertSchedule = readAlertSweepSchedule({});
         const payload = {
           ok: archiveOk && healthOk,
+          ...(zeroRowFloor ? { reason: 'ZERO_ROW_FLOOR' as const } : {}),
           archiveMode: snap?.archiveMode ?? null,
           archiveCommand: snap
             ? snap.archiveCommand.includes('archive-push')
@@ -3565,6 +3568,7 @@ async function main(): Promise<void> {
                 overdueMs: result.overdueMs,
                 jobs: result.jobs,
                 overdueOrFailed: result.overdueOrFailed,
+                ...(result.reason ? { reason: result.reason } : {}),
               },
               null,
               2

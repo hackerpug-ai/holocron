@@ -56,6 +56,12 @@ export const DEFAULT_WEBHOOK_TIMEOUT_MS = 10_000;
 export const ALERT_SWEEP_DEFAULT_INTERVAL_SECONDS = 300;
 export const ALERT_SWEEP_LAUNCHD_LABEL = 'holocron-backup-alert-sweep';
 
+/**
+ * S31-OPS-02 / R24 — empty backup_heartbeat must never report healthy.
+ * An empty table hides real backup silence (no jobs ever wrote a heartbeat).
+ */
+export const ZERO_ROW_FLOOR = 'ZERO_ROW_FLOOR';
+
 export type AlertReason = 'overdue' | 'failed';
 
 export type InduceFailureMode = 'kill_wal_behind' | 'credential_expired' | 'config_removed';
@@ -531,11 +537,30 @@ export type AlertSweepResult = {
   webhookUrl: string;
   overdueMs: number;
   errors: string[];
+  /** Present when the sweep fails closed on an empty heartbeat table. */
+  reason?: string;
 };
+
+/**
+ * S31-OPS-02 — thrown when backup_heartbeat has zero rows (cannot be healthy).
+ */
+export class BackupAlertSweepZeroRowFloorError extends Error {
+  readonly code = ZERO_ROW_FLOOR;
+  readonly result: AlertSweepResult;
+
+  constructor(result: AlertSweepResult) {
+    super(
+      `${ZERO_ROW_FLOOR}: backup_heartbeat has 0 rows — empty heartbeat table cannot be healthy (alert-sweep fail-closed)`
+    );
+    this.name = 'BackupAlertSweepZeroRowFloorError';
+    this.result = result;
+  }
+}
 
 /**
  * One alert sweep: real backup_heartbeat query → POST each overdue/failed job.
  * Healthy runs return alerted=0 (silence proof).
+ * S31-OPS-02: total===0 throws ZERO_ROW_FLOOR (never silent-healthy on empty table).
  */
 export async function runBackupAlertSweep(options?: {
   sql?: Sql;
@@ -563,6 +588,21 @@ export async function runBackupAlertSweep(options?: {
     total = jobs.length;
     const bad = jobs.filter((j) => j.is_overdue || j.is_failed);
     healthy = jobs.length - bad.length;
+
+    // S31-OPS-02 / R24: zero rows must fail closed — empty table is not all-healthy.
+    if (total === 0) {
+      const emptyResult: AlertSweepResult = {
+        alerted: 0,
+        posts: [],
+        healthy: 0,
+        total: 0,
+        webhookUrl: safeWebhookUrl,
+        overdueMs,
+        errors: [`${ZERO_ROW_FLOOR}: empty backup_heartbeat`],
+        reason: ZERO_ROW_FLOOR,
+      };
+      throw new BackupAlertSweepZeroRowFloorError(emptyResult);
+    }
 
     if (bad.length === 0) {
       return {
@@ -1253,15 +1293,28 @@ export type VerifyBackupResult = {
   jobs: JobHealth[];
   overdueOrFailed: JobHealth[];
   overdueMs: number;
+  /** ZERO_ROW_FLOOR when the heartbeat table is empty. */
+  reason?: string;
 };
 
-/** CI gate: exit 1 if any heartbeat is overdue or failed. */
+/** CI gate: exit 1 if any heartbeat is overdue or failed, or if the table is empty. */
 export async function verifyBackupHealth(options?: {
   sql?: Sql;
   overdueMs?: number;
 }): Promise<VerifyBackupResult> {
   const overdueMs = resolveOverdueMs(options?.overdueMs);
   const jobs = await queryBackupJobHealth({ sql: options?.sql, overdueMs });
+  // S31-OPS-02: zero rows cannot be healthy (Array#every on [] is true otherwise).
+  if (jobs.length === 0) {
+    return {
+      ok: false,
+      exitCode: 1,
+      jobs: [],
+      overdueOrFailed: [],
+      overdueMs,
+      reason: ZERO_ROW_FLOOR,
+    };
+  }
   const overdueOrFailed = jobs.filter((j) => j.is_overdue || j.is_failed);
   const ok = overdueOrFailed.length === 0;
   return {
@@ -1276,7 +1329,9 @@ export async function verifyBackupHealth(options?: {
 export function formatBackupStatusText(jobs: JobHealth[]): string {
   const lines = ['holo backup:status — heartbeat health'];
   if (jobs.length === 0) {
-    lines.push('  (no backup_heartbeat rows)');
+    lines.push(`  (no backup_heartbeat rows) ${ZERO_ROW_FLOOR}`);
+    lines.push(`  overall: FAILED (${ZERO_ROW_FLOOR}: empty heartbeat table)`);
+    return lines.join('\n');
   }
   for (const j of jobs) {
     lines.push(
@@ -1296,6 +1351,9 @@ export function formatVerifyBackupText(result: VerifyBackupResult): string {
     `  jobs:       ${result.jobs.length}`,
     `  bad:        ${result.overdueOrFailed.length}`,
   ];
+  if (result.reason) {
+    lines.push(`  reason:     ${result.reason}`);
+  }
   for (const j of result.jobs) {
     lines.push(
       `  ${j.job_name}: last_success_at=${j.last_success_at ?? 'null'} status=${j.status ?? 'null'} ${j.flag}`
