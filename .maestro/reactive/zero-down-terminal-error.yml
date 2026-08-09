@@ -1,0 +1,89 @@
+appId: ${MAESTRO_APP_ID}
+---
+# S31-FE-02 AC-1 / AC-2 — Terminal error when zero-cache is down.
+# Prerequisite: holocron-zerocache stopped (port 4848 keepalive fails);
+# Postgres + Mastra up; seeded research session + chat conversation.
+# Runner: .maestro/reactive/run-zero-down-terminal-error.sh
+
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Metro has encountered an error"
+    commands:
+      - tapOn:
+          text: "Reload"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# ── AC-1: research detail terminal error ──────────────────────────────────
+- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+# ZERO_ROW_WATCHDOG_DEADLINE_MS (30000) + 10000 buffer
+- extendedWaitUntil:
+    visible:
+      id: "research-detail-error"
+    timeout: 40000
+
+- assertVisible:
+    id: "research-detail-error"
+
+- assertVisible:
+    text: "Research session not found"
+
+- assertVisible:
+    id: "research-detail-go-back"
+
+- assertNotVisible:
+    id: "research-detail-loading"
+    optional: true
+
+- assertNotVisible:
+    text: "Loading research session..."
+    optional: true
+
+- takeScreenshot: S31-FE-02-AC-1-research-detail-error
+
+# ── AC-2: chat thread terminal error (degraded banner, no inline spinner) ─
+- openLink: ${MAESTRO_CHAT_URL}
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-degraded-banner"
+    timeout: 40000
+
+- assertVisible:
+    id: "chat-degraded-banner"
+
+- assertVisible:
+    id: "chat-degraded-message"
+
+- assertNotVisible:
+    id: "chat-loading-inline"
+    optional: true
+
+- takeScreenshot: S31-FE-02-AC-2-chat-zero-down-error

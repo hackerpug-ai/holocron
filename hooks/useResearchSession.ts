@@ -4,6 +4,7 @@ import {
   researchIterationsBySession,
   researchSessionById,
 } from '@/app/zero/queries';
+import { useZeroRowWatchdog } from '@/hooks/use-zero-row-watchdog';
 import type { DeepResearchSessionWithIterations } from '@/lib/types/deep-research';
 
 type ResearchSessionRow = {
@@ -95,13 +96,16 @@ function mapSession(row: ResearchSessionRow | undefined | null) {
  * Replaces Convex useQuery(api.researchSessions.queries.get).
  */
 export function useResearchSession(sessionId: string | null) {
+  const enabled = !!sessionId;
   const [sessionRow] = useZeroQuery(sessionId ? researchSessionById(sessionId) : undefined, {
-    enabled: !!sessionId,
+    enabled,
   });
   const [iterationRows] = useZeroQuery(
     sessionId ? researchIterationsBySession(sessionId) : undefined,
-    { enabled: !!sessionId }
+    { enabled }
   );
+
+  const error = useZeroRowWatchdog(sessionRow === undefined ? undefined : sessionRow, enabled);
 
   const session = mapSession(sessionRow as ResearchSessionRow | undefined);
   const iterations = ((iterationRows ?? []) as ResearchIterationRow[]).map((iter) => ({
@@ -127,8 +131,8 @@ export function useResearchSession(sessionId: string | null) {
 
   return {
     session: withIterations,
-    isLoading: sessionId != null && sessionRow === undefined,
-    error: null as Error | null,
+    isLoading: sessionId != null && sessionRow === undefined && error === null,
+    error,
   };
 }
 
@@ -137,13 +141,16 @@ export function useResearchSession(sessionId: string | null) {
  * (api.research.queries.getDeepResearchSession → deepResearchSessionById).
  */
 export function useDeepResearchSession(sessionId: string | null) {
+  const enabled = !!sessionId;
   const [sessionRow] = useZeroQuery(sessionId ? deepResearchSessionById(sessionId) : undefined, {
-    enabled: !!sessionId,
+    enabled,
   });
   const [iterationRows] = useZeroQuery(
     sessionId ? researchIterationsBySession(sessionId) : undefined,
-    { enabled: !!sessionId }
+    { enabled }
   );
+
+  const error = useZeroRowWatchdog(sessionRow === undefined ? undefined : sessionRow, enabled);
 
   const base = mapSession(sessionRow as ResearchSessionRow | undefined);
   const iterations = ((iterationRows ?? []) as ResearchIterationRow[]).map((iter) => ({
@@ -218,8 +225,8 @@ export function useDeepResearchSession(sessionId: string | null) {
 
   return {
     session,
-    isLoading: sessionId != null && sessionRow === undefined,
-    error: null as Error | null,
+    isLoading: sessionId != null && sessionRow === undefined && error === null,
+    error,
   };
 }
 

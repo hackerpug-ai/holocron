@@ -18,6 +18,7 @@ import {
   reconcileThreadMessages,
   type StreamOverlay,
 } from '@/hooks/use-resumable-sse-stream';
+import { useZeroRowWatchdog } from '@/hooks/use-zero-row-watchdog';
 
 interface UseChatHistoryReturn {
   messages: ChatMessage[];
@@ -57,11 +58,19 @@ export function useChatHistory(
   limit?: number,
   streamOverlay?: ChatHistoryStreamOverlay | null
 ): UseChatHistoryReturn {
+  const enabled = conversationId !== null;
   const [rawRows, details] = useQuery(
     conversationId ? chatMessagesByConversation(conversationId) : undefined
   );
 
   const rows = (rawRows ?? []) as unknown as ZeroChatMessageRow[];
+
+  // Pending only while Zero has not produced a definitive result yet.
+  // Empty `[]` after a complete sync is a defined row (no watchdog).
+  const stillPending =
+    enabled && details.type === 'unknown' && (rawRows === undefined || rows.length === 0);
+  const rowForWatchdog = stillPending ? undefined : (rawRows ?? rows);
+  const error = useZeroRowWatchdog(rowForWatchdog, enabled);
 
   const filtered = rows.filter((msg) => msg.deleted !== true);
   const limited = typeof limit === 'number' ? filtered.slice(-limit) : filtered;
@@ -88,12 +97,12 @@ export function useChatHistory(
 
   const messages = reconcileThreadMessages(durableMessages, overlay);
 
-  const isLoading = conversationId !== null && details.type === 'unknown' && rows.length === 0;
+  const isLoading = stillPending && error === null;
 
   return {
     messages,
     durableMessages,
     isLoading,
-    error: null,
+    error,
   };
 }
