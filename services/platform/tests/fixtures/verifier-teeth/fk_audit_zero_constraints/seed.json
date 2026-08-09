@@ -1,0 +1,23 @@
+{
+  "violation_class": "UNENFORCED_EDGES",
+  "description": "Disposable zero-constraint namespace: migrate domain tables, drop all public FOREIGN KEYs, seed etl:run, run etl:fk-audit",
+  "plant": {
+    "method": "disposable_db_migrate_drop_all_fks",
+    "database_name_prefix": "holocron_s31_08_fk_zero_",
+    "schema": "public",
+    "require_domain_tables": [
+      "chat_messages",
+      "conversations",
+      "documents",
+      "research_sessions",
+      "agent_telemetry"
+    ],
+    "assert_after_plant": {
+      "enforced_foreign_keys": 0,
+      "dropped_count_gt": 0
+    },
+    "seed_etl_runs": "INSERT succeeded etl_runs row pointing at fixtures/etl-valid-export + catalog",
+    "cleanup": "DROP DATABASE"
+  },
+  "plant_sql": "plant.sql"
+}

@@ -1,7 +1,11 @@
 /**
  * Per-object asset inventory for retained Convex storage blobs.
  * SHA-256 / byte length / MIME computed from on-disk bytes.
+ *
+ * Fail-closed: never hardcode ok:true when a catalog-retained blob is missing
+ * from the export _storage tree or its on-disk path is gone (S31-08).
  */
+import { existsSync } from 'node:fs';
 import type { SourceCatalog } from './catalog-loader';
 import type { ConvexExport, ExportBlob } from './export-reader';
 
@@ -22,6 +26,11 @@ export interface AssetInventory {
   retained_count: number;
   dropped_storage_refs: string[];
   ok: boolean;
+  /** Catalog-retained legacy ids with no readable blob on disk. */
+  missing_blobs: string[];
+  /** Named violation class when ok is false (stable token for gates). */
+  violation_class?: 'MISSING_BLOB';
+  issues: string[];
 }
 
 export interface CatalogStorageLegacyId {
@@ -137,6 +146,8 @@ export function buildAssetInventory(catalog: SourceCatalog, exp: ConvexExport): 
   const droppedIds = collectDroppedStorageLegacyIds(catalog, exp);
 
   const objects: AssetRow[] = [];
+  const missing_blobs: string[] = [];
+  const issues: string[] = [];
   const blobById = new Map<string, ExportBlob>();
   for (const blob of exp.storageBlobs) blobById.set(blob.legacyId, blob);
 
@@ -145,9 +156,19 @@ export function buildAssetInventory(catalog: SourceCatalog, exp: ConvexExport): 
   for (const [legacyId, sourceRef] of retainedIds) {
     const blob = blobById.get(legacyId);
     if (!blob) {
-      throw new Error(
-        `catalog retained storage ref ${sourceRef} is missing required blob ${legacyId} in export _storage`
+      if (!missing_blobs.includes(legacyId)) missing_blobs.push(legacyId);
+      issues.push(
+        `MISSING_BLOB: catalog retained storage ref ${sourceRef} is missing required blob ${legacyId} in export _storage`
       );
+      continue;
+    }
+    // On-disk path must still be readable — refuse phantom inventory rows.
+    if (!blob.path || !existsSync(blob.path)) {
+      if (!missing_blobs.includes(legacyId)) missing_blobs.push(legacyId);
+      issues.push(
+        `MISSING_BLOB: catalog retained blob ${legacyId} path missing on disk (${blob.path || 'no path'})`
+      );
+      continue;
     }
     if (seen.has(legacyId)) continue;
     seen.add(legacyId);
@@ -168,23 +189,32 @@ export function buildAssetInventory(catalog: SourceCatalog, exp: ConvexExport): 
   for (const blob of exp.storageBlobs) {
     const accounted = accountedIds.get(blob.legacyId);
     if (!accounted) {
-      throw new Error(
+      issues.push(
         `catalog storage blob ${blob.legacyId} is not represented by an approved retained or dropped storage ref`
       );
-    }
-    if (seen.has(blob.legacyId) || droppedIds.has(blob.legacyId)) {
       continue;
     }
-    throw new Error(
+    if (
+      seen.has(blob.legacyId) ||
+      droppedIds.has(blob.legacyId) ||
+      missing_blobs.includes(blob.legacyId)
+    ) {
+      continue;
+    }
+    issues.push(
       `catalog retained storage blob ${blob.legacyId} was not emitted for ${accounted.sourceRef}`
     );
   }
 
+  const ok = missing_blobs.length === 0 && issues.length === 0;
   return {
     objects: objects.sort((a, b) => a.legacy_id.localeCompare(b.legacy_id)),
     retained_count: objects.length,
     dropped_storage_refs: dropped,
-    ok: true,
+    ok,
+    missing_blobs: missing_blobs.sort(),
+    violation_class: missing_blobs.length > 0 ? 'MISSING_BLOB' : undefined,
+    issues,
   };
 }
 
@@ -193,8 +223,15 @@ export function formatAssetsText(inv: AssetInventory): string {
     '# catalog:assets',
     `retained_objects: ${inv.retained_count}`,
     `dropped_storage_refs: ${inv.dropped_storage_refs.join(', ') || '(none)'}`,
+    inv.ok ? 'status: OK' : `status: FAIL violation_class=${inv.violation_class ?? 'ASSETS_FAIL'}`,
     '',
   ];
+  if (inv.missing_blobs.length > 0) {
+    lines.push(`missing_blobs: ${inv.missing_blobs.join(', ')}`);
+  }
+  for (const issue of inv.issues) {
+    lines.push(`issue: ${issue}`);
+  }
   for (const object of inv.objects) {
     lines.push(
       `${object.legacy_id} sha256=${object.sha256} bytes=${object.bytes} mime=${object.mime} target=${object.target} disposition=${object.disposition} ref=${object.source_ref ?? 'unknown'}`

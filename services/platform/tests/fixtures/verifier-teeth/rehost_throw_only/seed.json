@@ -1,0 +1,5 @@
+{
+  "violation_class": "THROW_ONLY_CASE",
+  "tool_id": "throw_only_seed_tool",
+  "description": "Executor case body is only throw new Error(...) with no real Postgres work"
+}
