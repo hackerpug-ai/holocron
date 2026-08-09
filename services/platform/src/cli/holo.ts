@@ -2282,24 +2282,89 @@ async function main(): Promise<void> {
         console.error('Usage: holo secrets doctor');
         process.exit(2);
       }
-      const { runSecretsDoctor, formatDoctorTextWithBackup } = await import('../config/secrets.ts');
+      const { runSecretsDoctor, formatDoctorTextWithBackup, resolveSecret } = await import(
+        '../config/secrets.ts'
+      );
       const report = runSecretsDoctor();
+      // S31-07: Langfuse keys are local-first observability secrets — report presence.
+      const langfuseKeys = ['LANGFUSE_BASE_URL', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY'];
+      const langfuseResolutions = langfuseKeys.map((key) => {
+        const r = resolveSecret(key);
+        return {
+          key,
+          status: r.status,
+          source: r.source,
+          present: r.present,
+        };
+      });
+      const langfuseMissing = langfuseResolutions
+        .filter((r) => r.status === 'missing')
+        .map((r) => r.key);
+      const enriched = {
+        ...report,
+        langfuse: {
+          resolutions: langfuseResolutions,
+          missing: langfuseMissing,
+          ok: langfuseMissing.length === 0,
+        },
+      };
       if (args.json) {
-        console.log(JSON.stringify(report, null, 2));
+        console.log(JSON.stringify(enriched, null, 2));
       } else {
         console.log(formatDoctorTextWithBackup(report));
+        console.log('langfuse (S31-07 local-first):');
+        for (const r of langfuseResolutions) {
+          console.log(`  ${r.key}: ${r.status}${r.source ? ` (${r.source})` : ''}`);
+        }
+        if (langfuseMissing.length === 0) {
+          console.log('  langfuse keys: 0 missing');
+        } else {
+          console.log(`  langfuse keys missing: ${langfuseMissing.join(', ')}`);
+        }
       }
       process.exit(report.ok ? 0 : 1);
       break;
     }
     case 'secrets:doctor': {
       // Colon form alias for operators used to catalog:verify style commands
-      const { runSecretsDoctor, formatDoctorTextWithBackup } = await import('../config/secrets.ts');
+      const { runSecretsDoctor, formatDoctorTextWithBackup, resolveSecret } = await import(
+        '../config/secrets.ts'
+      );
       const report = runSecretsDoctor();
+      const langfuseKeys = ['LANGFUSE_BASE_URL', 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY'];
+      const langfuseResolutions = langfuseKeys.map((key) => {
+        const r = resolveSecret(key);
+        return {
+          key,
+          status: r.status,
+          source: r.source,
+          present: r.present,
+        };
+      });
+      const langfuseMissing = langfuseResolutions
+        .filter((r) => r.status === 'missing')
+        .map((r) => r.key);
+      const enriched = {
+        ...report,
+        langfuse: {
+          resolutions: langfuseResolutions,
+          missing: langfuseMissing,
+          ok: langfuseMissing.length === 0,
+        },
+      };
       if (args.json) {
-        console.log(JSON.stringify(report, null, 2));
+        console.log(JSON.stringify(enriched, null, 2));
       } else {
         console.log(formatDoctorTextWithBackup(report));
+        console.log('langfuse (S31-07 local-first):');
+        for (const r of langfuseResolutions) {
+          console.log(`  ${r.key}: ${r.status}${r.source ? ` (${r.source})` : ''}`);
+        }
+        if (langfuseMissing.length === 0) {
+          console.log('  langfuse keys: 0 missing');
+        } else {
+          console.log(`  langfuse keys missing: ${langfuseMissing.join(', ')}`);
+        }
       }
       process.exit(report.ok ? 0 : 1);
       break;

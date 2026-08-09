@@ -9,6 +9,11 @@ import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manife
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
 import { runFleetModelCall } from '../inference/telemetry.ts';
+import {
+  createLangfuseExporterFromEnv,
+  type HolocronLangfuseExporter,
+} from '../observability/langfuse-exporter.ts';
+import { createMissionObservability } from '../observability/mission-research.ts';
 import { type EvidenceGateInput, evaluateEvidenceGate } from '../research/evidence-gate.ts';
 import { type RrfSearchResultItem, rrfHybridSearch } from '../search/index.ts';
 import {
@@ -3560,6 +3565,35 @@ async function recordResearchProcessProof(
   return proof;
 }
 
+/**
+ * Attach self-hosted Langfuse observability to a live mission run (S31-07 / R29).
+ * Production path — never test-only. Exporter is flushed when the run reaches terminal.
+ */
+function attachMissionObservability(run: MissionRunRow): {
+  observability: ReturnType<typeof createMissionObservability>['observability'];
+  langfuseExporter: HolocronLangfuseExporter;
+} {
+  const langfuseExporter = createLangfuseExporterFromEnv({
+    failOnExportError: false,
+  });
+  const { observability } = createMissionObservability({ langfuse: langfuseExporter });
+  // Stamp run identity so operators can correlate Langfuse traces with mission_runs.
+  void run.trace_id;
+  void observability;
+  return { observability, langfuseExporter };
+}
+
+async function flushMissionLangfuse(
+  exporter: HolocronLangfuseExporter | null | undefined
+): Promise<void> {
+  if (!exporter) return;
+  try {
+    await exporter.flush();
+  } catch {
+    // Mission terminal status is authoritative; Langfuse flush failure is operator-visible via exporter status.
+  }
+}
+
 async function executeRunWithLease(
   sql: Sql,
   runId: string,
@@ -3573,6 +3607,25 @@ async function executeRunWithLease(
     throw new MissionRuntimeError('MISSION_NOT_FOUND', `mission run not found: ${runId}`);
   }
 
+  // S31-07: re-attach Langfuse exporter on the live mission path (was orphaned after c480051d).
+  const { langfuseExporter } = attachMissionObservability(run);
+
+  try {
+    return await executeRunWithLeaseInner(sql, runId, lease, databaseUrl, run, langfuseExporter);
+  } finally {
+    await flushMissionLangfuse(langfuseExporter);
+  }
+}
+
+async function executeRunWithLeaseInner(
+  sql: Sql,
+  runId: string,
+  lease: MissionLease,
+  databaseUrl: string,
+  run: MissionRunRow,
+  langfuseExporter: HolocronLangfuseExporter
+): Promise<MissionRunRow> {
+  void langfuseExporter;
   const runtime = parsePersistedRuntime(run);
   await recordResearchProcessProof(sql, run, lease);
 

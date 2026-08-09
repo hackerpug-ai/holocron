@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  holocron-langfuse — self-hosted Langfuse via in-repo compose (S31-07)
+
+  One-shot docker compose up for deploy/compose/langfuse.compose.yaml.
+  Keys resolve from operator env / secrets (LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY).
+  Install: scripts/install-launchd.sh (or holo stack:up materialize).
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>holocron-langfuse</string>
+	<key>Disabled</key>
+	<false/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/env</string>
+		<string>docker</string>
+		<string>compose</string>
+		<string>-f</string>
+		<string>@HOLO_ROOT@/services/platform/deploy/compose/langfuse.compose.yaml</string>
+		<string>--project-name</string>
+		<string>holocron-langfuse</string>
+		<string>up</string>
+		<string>-d</string>
+		<string>--remove-orphans</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>@HOLO_ROOT@</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>@HOME@</string>
+		<key>PATH</key>
+		<string>@BUN_DIR@:@PG_BIN@:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOLO_ROOT</key>
+		<string>@HOLO_ROOT@</string>
+		<key>DATABASE_URL</key>
+		<string>@DATABASE_URL@</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>StandardOutPath</key>
+	<string>@HOME@/Library/Logs/holocron/langfuse.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/Library/Logs/holocron/langfuse.err.log</string>
+</dict>
+</plist>

@@ -7,14 +7,11 @@
  * Anti-pattern: 0.x Metric classes, constant scores, fixture-label-derived scores.
  */
 
+import { randomUUID } from 'node:crypto';
 import { createScorer, runEvals } from '@mastra/core/evals';
 import { z } from 'zod';
-import {
-  createFleetChatModel,
-  type ResolvedModel,
-  RoleUnavailableError,
-  resolveModel,
-} from '../inference/resolve-model';
+import { type ResolvedModel, RoleUnavailableError, resolveModel } from '../inference/resolve-model';
+import { createFleetAgentModelBundle, runFleetModelCall } from '../inference/telemetry';
 import type { Baseline, DatasetSample, Rubric } from './datasets';
 import { loadRubric } from './datasets';
 
@@ -56,7 +53,8 @@ export type JudgeAnalysis = z.infer<typeof JudgeAnalysisSchema>;
 
 export type ResolvedJudge = {
   resolved: ResolvedModel;
-  model: ReturnType<typeof createFleetChatModel>;
+  /** Model handle for createScorer.judge — constructed only via the instrumented client. */
+  model: Awaited<ReturnType<typeof createFleetAgentModelBundle>>['model'];
   judgeModelVersion: string;
   litellmModelId: string;
   endpoint: string;
@@ -64,16 +62,21 @@ export type ResolvedJudge = {
 
 /**
  * Resolve the local judge role. Fail closed — never falls back to cloud.
+ * Model construction goes through createFleetAgentModelBundle (telemetry.ts).
  */
 export async function resolveLocalJudge(options?: {
   endpointOverride?: string;
   skipHealth?: boolean;
 }): Promise<ResolvedJudge> {
   try {
-    const resolved = await resolveModel('judge', {
-      endpointOverride: options?.endpointOverride,
-      skipHealth: options?.skipHealth,
-      allowEscape: false,
+    const { model, resolved } = await createFleetAgentModelBundle({
+      role: 'judge',
+      resolveOptions: {
+        endpointOverride: options?.endpointOverride,
+        skipHealth: options?.skipHealth,
+        allowEscape: false,
+      },
+      apiKey: process.env.FLEET_KEY ?? 'sk-none',
     });
     if (resolved.provider !== 'fleet') {
       throw new JudgeUnavailableError(
@@ -81,9 +84,6 @@ export async function resolveLocalJudge(options?: {
         `judge resolved to non-fleet provider '${resolved.provider}' — cloud fallback refused`
       );
     }
-    const model = createFleetChatModel(resolved, {
-      apiKey: process.env.FLEET_KEY ?? 'sk-none',
-    });
     return {
       resolved,
       model,
@@ -247,7 +247,10 @@ export type ScoreFixtureResult = {
 
 /**
  * Score a single fixture sample with the local judge + deterministic invariants.
- * Uses scorer.run() (Mastra 1.x primitive). Does NOT fabricate on failure.
+ *
+ * S31-07: the judge LLM call goes through runFleetModelCall (callKind object)
+ * so evals/scorers always writes a durable inference_telemetry row. Deterministic
+ * invariants still use createScorer without a model.
  */
 export async function scoreFixture(options: {
   sample: DatasetSample;
@@ -257,40 +260,108 @@ export async function scoreFixture(options: {
 }): Promise<ScoreFixtureResult> {
   const rubric =
     options.rubric ?? loadRubric(options.baseline?.rubricVersion ?? 'research-quality_v1');
-  const judge = await resolveLocalJudge({
-    endpointOverride: options.judgeEndpointOverride,
-  });
 
-  const qualityScorer = createResearchQualityScorer({ judge, rubric });
+  // Resolve judge metadata (endpoint/model id) without a separate uninstrumented call.
+  let judgeMeta: {
+    judgeModelVersion: string;
+    endpoint: string;
+    litellmModelId: string;
+  };
+  try {
+    const resolved = await resolveModel('judge', {
+      endpointOverride: options.judgeEndpointOverride,
+      allowEscape: false,
+    });
+    if (resolved.provider !== 'fleet') {
+      throw new JudgeUnavailableError(
+        resolved.endpoint,
+        `judge resolved to non-fleet provider '${resolved.provider}' — cloud fallback refused`
+      );
+    }
+    judgeMeta = {
+      judgeModelVersion: JUDGE_MODEL_VERSION,
+      endpoint: resolved.endpoint,
+      litellmModelId: resolved.litellmModelId,
+    };
+  } catch (err) {
+    if (err instanceof JudgeUnavailableError) throw err;
+    if (err instanceof RoleUnavailableError) {
+      throw new JudgeUnavailableError(err.endpoint, err.causeMessage);
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new JudgeUnavailableError(options.judgeEndpointOverride ?? 'judge', msg);
+  }
+
+  const analyzePrompt = buildJudgePrompt(rubric, options.sample.input, options.sample.output);
+
+  // Prefer object path; fall back to chat + JSON parse with response_format stripped
+  // (local reasoning models often emit content=null under json_schema).
+  let analysis: JudgeAnalysis;
+  try {
+    const call = await runFleetModelCall({
+      role: 'judge',
+      prompt: analyzePrompt,
+      runId: randomUUID(),
+      stepId: 'evals/scorers',
+      callSite: 'evals/scorers',
+      callKind: 'object',
+      schema: JudgeAnalysisSchema,
+      modelOptions: { apiKey: process.env.FLEET_KEY ?? 'sk-none' },
+      resolveOptions: {
+        endpointOverride: options.judgeEndpointOverride,
+        allowEscape: false,
+      },
+      maxOutputTokens: 1024,
+      stripResponseFormat: true,
+      repairText: async ({ text }) => text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, ''),
+      exportToLangfuse: false,
+    });
+    analysis = call.object as JudgeAnalysis;
+  } catch {
+    const call = await runFleetModelCall({
+      role: 'judge',
+      prompt: analyzePrompt,
+      runId: randomUUID(),
+      stepId: 'evals/scorers',
+      callSite: 'evals/scorers',
+      callKind: 'chat',
+      modelOptions: { apiKey: process.env.FLEET_KEY ?? 'sk-none' },
+      resolveOptions: {
+        endpointOverride: options.judgeEndpointOverride,
+        allowEscape: false,
+      },
+      maxOutputTokens: 1024,
+      exportToLangfuse: false,
+    });
+    const raw = call.text
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new JudgeInvalidScoreError(`judge returned non-JSON: ${raw.slice(0, 200)}`);
+    }
+    analysis = JudgeAnalysisSchema.parse(JSON.parse(jsonMatch[0]));
+  }
+  const score = finalizeJudgeScore(analysis);
+
   const invariantScorer = createResearchInvariantScorer();
-
-  const qualityRun = await qualityScorer.run({
-    input: options.sample.input,
-    output: options.sample.output,
-  });
-
   const invariantRun = await invariantScorer.run({
     input: options.sample.input,
     output: options.sample.output,
   });
 
-  const analysis = qualityRun.analyzeStepResult as JudgeAnalysis | undefined;
-  const score = qualityRun.score;
-  if (typeof score !== 'number' || Number.isNaN(score)) {
-    throw new JudgeInvalidScoreError('quality scorer returned empty score');
-  }
-
   return {
     score,
-    reason: qualityRun.reason ?? analysis?.reasoning,
+    reason: analysis?.reasoning,
     analysis: analysis ?? undefined,
     scorerId: SCORER_ID_RESEARCH_QUALITY,
     scorerVersion: rubric.scorerVersion,
-    judgeModelVersion: judge.judgeModelVersion,
-    judgeEndpoint: judge.endpoint,
-    judgeModelId: judge.litellmModelId,
+    judgeModelVersion: judgeMeta.judgeModelVersion,
+    judgeEndpoint: judgeMeta.endpoint,
+    judgeModelId: judgeMeta.litellmModelId,
     invariantScore: invariantRun.score,
-    analyzePrompt: qualityRun.analyzePrompt,
+    analyzePrompt,
   };
 }
 

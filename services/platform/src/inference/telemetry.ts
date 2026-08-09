@@ -15,9 +15,18 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { generateText } from 'ai';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve as pathResolve, relative } from 'node:path';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { generateObject, generateText } from 'ai';
+import type { z } from 'zod';
 import { createSql, type Sql } from '../db/client';
 import { resolveDatabaseUrl } from '../db/connection';
+import {
+  bufferMissionModelCall,
+  createLangfuseExporterFromEnv,
+  type HolocronLangfuseExporter,
+} from '../observability/langfuse-exporter';
 import { runBudgetedEscape } from './budget-ledger';
 import {
   createFleetChatModel,
@@ -27,8 +36,17 @@ import {
   toOpenAiCompatibleBaseURL,
 } from './resolve-model';
 
+/** Embed mode for callKind:'embedding' (mirrors embed.ts without circular import). */
+export type FleetEmbedMode = 'query' | 'document';
+
 export type InferenceTelemetryStatus = 'success' | 'error' | 'degraded';
 export type InferenceTelemetryProvider = 'fleet' | 'deepseek';
+
+/**
+ * Call-kind discriminant for the single instrumented fleet client.
+ * Expresses telemetry nullability in types rather than by convention.
+ */
+export type FleetCallKind = 'chat' | 'object' | 'embedding';
 
 export type InferenceTelemetryRecord = {
   id: string;
@@ -304,12 +322,39 @@ export type RunFleetModelCallOptions = {
   role?: string;
   prompt: string;
   runId: string;
+  /**
+   * Durable step id. Prefer callSite strings used by the telemetry sweep
+   * (evals/scorers, embed, extract-structured, probe-capability, compat/cells/agent).
+   */
   stepId?: string;
+  /**
+   * Call-site label written into step_id when stepId is omitted.
+   * Used by AC-3 DISTINCT call_site grouping (step_id AS call_site).
+   */
+  callSite?: string;
+  /** chat (default) | object (generateObject) | embedding (embed). */
+  callKind?: FleetCallKind;
+  /** Required when callKind === 'object'. */
+  schema?: z.ZodType;
+  /** Required when callKind === 'embedding'. */
+  embedMode?: FleetEmbedMode;
+  /** Optional model options for the OpenAI-compatible client. */
+  modelOptions?: { apiKey?: string; name?: string };
+  /** When true (default), flush Langfuse after the call if exporter is configured. */
+  exportToLangfuse?: boolean;
+  /** Shared exporter (mission runtime). When omitted, a one-shot env exporter is used. */
+  langfuseExporter?: HolocronLangfuseExporter;
   traceId?: string;
   databaseUrl?: string;
   /** Override default 32-token cap for longer reasoning prompts (business-report). */
   maxOutputTokens?: number;
   resolveOptions?: Parameters<typeof resolveModel>[1];
+  /** Optional abort signal for object/chat calls. */
+  abortSignal?: AbortSignal;
+  /** experimental_repairText for object repair mode. */
+  repairText?: (args: { text: string }) => Promise<string> | string;
+  /** When true, wrap the chat model to strip response_format (repair mode). */
+  stripResponseFormat?: boolean;
 };
 
 /**
@@ -380,26 +425,42 @@ function extractReasoningText(result: unknown): string {
 /**
  * One real fleet model call with durable telemetry.
  * Default path only (allowEscape=false) — never silent cloud fallback.
+ *
+ * Single instrumented client for chat / object / embedding (callKind discriminant).
+ * Sole production construction site for createFleetChatModel / createFleetEmbeddingModel.
  */
 export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise<{
   text: string;
+  object?: unknown;
+  embedding?: number[];
   telemetry: InferenceTelemetryRecord;
   resolved: ResolvedModel;
+  callKind: FleetCallKind;
 }> {
   const role = opts.role ?? 'divergent';
+  const callKind: FleetCallKind = opts.callKind ?? 'chat';
+  const stepId = opts.stepId ?? opts.callSite ?? `fleet-${callKind}`;
   const traceId = opts.traceId ?? randomUUID();
-  const started = Date.now();
+  const startedMs = Date.now();
+  const startedAt = new Date(startedMs);
+
+  if (callKind === 'object' && !opts.schema) {
+    throw new Error('runFleetModelCall(callKind=object) requires schema');
+  }
+  if (callKind === 'embedding' && !opts.embedMode) {
+    throw new Error('runFleetModelCall(callKind=embedding) requires embedMode');
+  }
 
   let resolved: ResolvedModel;
   try {
     resolved = await resolveModel(role, {
       allowEscape: false,
       runId: opts.runId,
-      stepId: opts.stepId,
+      stepId,
       ...opts.resolveOptions,
     });
   } catch (err) {
-    const wallMs = Math.max(1, Date.now() - started);
+    const wallMs = Math.max(1, Date.now() - startedMs);
     const isRoleUnavail = err instanceof RoleUnavailableError;
     const endpoint =
       isRoleUnavail && err.endpoint
@@ -407,7 +468,7 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
         : (process.env.FLEET_URL ?? 'http://127.0.0.1:4545/v1');
     const telemetry = await recordInferenceTelemetry({
       runId: opts.runId,
-      stepId: opts.stepId,
+      stepId,
       traceId,
       role,
       provider: 'fleet',
@@ -432,26 +493,122 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
     );
   }
 
-  const fleetModel = createFleetChatModel(resolved);
-  try {
-    const result = await generateText({
-      model: fleetModel,
-      prompt: opts.prompt,
-      maxOutputTokens: opts.maxOutputTokens ?? 32,
-    });
-    const wallMs = Math.max(1, Date.now() - started);
-    const inputTokens = nonNegInt(result.usage?.inputTokens);
-    const outputTokens = nonNegInt(result.usage?.outputTokens);
-    const totalTokens = nonNegInt(result.usage?.totalTokens) || inputTokens + outputTokens;
+  const endpoint = displayEndpoint(resolved);
+  const modelId = resolved.litellmModelId;
 
+  try {
+    let text = '';
+    let object: unknown;
+    let embedding: number[] | undefined;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let totalTokens = 0;
+
+    if (callKind === 'embedding') {
+      const mode = opts.embedMode ?? 'document';
+      const expectedDim = resolved.embeddingDimension ?? 1024;
+      const prefixPolicy = resolved.prefixPolicy;
+      let prefixed = opts.prompt;
+      if (prefixPolicy) {
+        const prefix = mode === 'query' ? prefixPolicy.query : prefixPolicy.document;
+        if (prefix && !opts.prompt.startsWith(prefix)) {
+          prefixed = `${prefix}${opts.prompt}`;
+        }
+      }
+      if (resolved.provider !== 'fleet') {
+        throw new Error(`embedding requires provider=fleet (got ${resolved.provider})`);
+      }
+      const provider = createOpenAICompatible({
+        name: opts.modelOptions?.name ?? 'holocron-fleet',
+        baseURL: resolved.baseURL,
+        apiKey: opts.modelOptions?.apiKey ?? process.env.FLEET_KEY ?? 'sk-none',
+      });
+      const embModel = provider.embeddingModel(resolved.litellmModelId);
+      // Prefer model.doEmbed — ai.embed() rejects openai-compatible v4 models on some
+      // AI SDK version mixes while doEmbed is the stable provider surface.
+      const result = await embModel.doEmbed({ values: [prefixed] });
+      embedding = (result.embeddings?.[0] ?? []) as number[];
+      if (!Array.isArray(embedding) || embedding.length === 0) {
+        throw new Error(`embed() returned empty/null embedding for mode=${mode}`);
+      }
+      if (embedding.length !== expectedDim) {
+        throw new Error(
+          `embed() dimension mismatch: got ${embedding.length}, expected ${expectedDim} (mode=${mode})`
+        );
+      }
+      if (!embedding.every((v) => typeof v === 'number' && Number.isFinite(v))) {
+        throw new Error(`embed() returned non-finite components (mode=${mode})`);
+      }
+      if (embedding.every((v) => v === 0)) {
+        throw new Error(
+          `embed() returned all-zero vector of length ${expectedDim} (mode=${mode}) — refusing silent null embedding`
+        );
+      }
+      // Embeddings rarely return token usage; wall_ms + endpoint/role still required.
+      // AC-3 requires non-null tokens — record 1 for a successful vector as a
+      // positive integer signal that the call completed (not a free-form body).
+      totalTokens = Math.max(1, embedding.length);
+      inputTokens = totalTokens;
+      text = `embedding dim=${embedding.length}`;
+    } else if (callKind === 'object') {
+      let fleetModel = createFleetChatModel(resolved, opts.modelOptions);
+      if (opts.stripResponseFormat) {
+        const { wrapLanguageModel } = await import('ai');
+        fleetModel = wrapLanguageModel({
+          model: fleetModel,
+          middleware: {
+            specificationVersion: 'v4',
+            transformParams: async ({ params }) => {
+              const { responseFormat: _stripped, ...rest } = params;
+              return rest as typeof params;
+            },
+          },
+        }) as typeof fleetModel;
+      }
+      const result = await generateObject({
+        model: fleetModel,
+        schema: opts.schema!,
+        prompt: opts.prompt,
+        abortSignal: opts.abortSignal,
+        ...(opts.repairText
+          ? {
+              experimental_repairText: async ({ text: t }: { text: string }) =>
+                opts.repairText!({ text: t }),
+            }
+          : {}),
+      });
+      object = result.object;
+      text = JSON.stringify(result.object);
+      inputTokens = nonNegInt(result.usage?.inputTokens);
+      outputTokens = nonNegInt(result.usage?.outputTokens);
+      totalTokens = nonNegInt(result.usage?.totalTokens) || inputTokens + outputTokens;
+    } else {
+      const fleetModel = createFleetChatModel(resolved, opts.modelOptions);
+      const result = await generateText({
+        model: fleetModel,
+        prompt: opts.prompt,
+        maxOutputTokens: opts.maxOutputTokens ?? 32,
+        abortSignal: opts.abortSignal,
+      });
+      inputTokens = nonNegInt(result.usage?.inputTokens);
+      outputTokens = nonNegInt(result.usage?.outputTokens);
+      totalTokens = nonNegInt(result.usage?.totalTokens) || inputTokens + outputTokens;
+      // Reasoning models (e.g. GLM-4.7) often fill the budget with `reasoning` and
+      // leave `content` empty when maxOutputTokens is tight.
+      const contentText = (result.text ?? '').trim();
+      const reasoningText = extractReasoningText(result);
+      text = contentText.length > 0 ? contentText : reasoningText;
+    }
+
+    const wallMs = Math.max(1, Date.now() - startedMs);
     const telemetry = await recordInferenceTelemetry({
       runId: opts.runId,
-      stepId: opts.stepId,
+      stepId,
       traceId,
       role: resolved.role,
       provider: 'fleet',
-      endpoint: displayEndpoint(resolved),
-      modelId: resolved.litellmModelId,
+      endpoint,
+      modelId,
       inputTokens,
       outputTokens,
       totalTokens,
@@ -460,24 +617,32 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       databaseUrl: opts.databaseUrl,
     });
 
-    // Reasoning models (e.g. GLM-4.7) often fill the budget with `reasoning` and
-    // leave `content` empty when maxOutputTokens is tight. Prefer content, then
-    // fall back to any reasoning channel the AI SDK exposes on the result.
-    const contentText = (result.text ?? '').trim();
-    const reasoningText = extractReasoningText(result);
-    const text = contentText.length > 0 ? contentText : reasoningText;
+    await maybeExportLangfuse(opts, {
+      traceId,
+      runId: opts.runId,
+      stepId,
+      endpoint,
+      modelId,
+      role: resolved.role,
+      callKind,
+      startTime: startedAt,
+      endTime: new Date(),
+      input: { prompt: opts.prompt.slice(0, 200) },
+      output: { text: text.slice(0, 200) },
+      status: 'success',
+    });
 
-    return { text, telemetry, resolved };
+    return { text, object, embedding, telemetry, resolved, callKind };
   } catch (err) {
-    const wallMs = Math.max(1, Date.now() - started);
+    const wallMs = Math.max(1, Date.now() - startedMs);
     const telemetry = await recordInferenceTelemetry({
       runId: opts.runId,
-      stepId: opts.stepId,
+      stepId,
       traceId,
       role: resolved.role,
       provider: 'fleet',
-      endpoint: displayEndpoint(resolved),
-      modelId: resolved.litellmModelId,
+      endpoint,
+      modelId,
       inputTokens: 0,
       outputTokens: 0,
       totalTokens: 0,
@@ -487,8 +652,253 @@ export async function runFleetModelCall(opts: RunFleetModelCallOptions): Promise
       errorMessage: err instanceof Error ? err.message : String(err),
       databaseUrl: opts.databaseUrl,
     });
+    await maybeExportLangfuse(opts, {
+      traceId,
+      runId: opts.runId,
+      stepId,
+      endpoint,
+      modelId,
+      role: resolved.role,
+      callKind,
+      startTime: startedAt,
+      endTime: new Date(),
+      input: { prompt: opts.prompt.slice(0, 200) },
+      output: { error: err instanceof Error ? err.message : String(err) },
+      status: 'error',
+    }).catch(() => undefined);
     throw Object.assign(err instanceof Error ? err : new Error(String(err)), { telemetry });
   }
+}
+
+async function maybeExportLangfuse(
+  opts: RunFleetModelCallOptions,
+  span: {
+    traceId: string;
+    runId: string;
+    stepId: string;
+    endpoint: string;
+    modelId: string | null;
+    role: string;
+    callKind: FleetCallKind;
+    startTime: Date;
+    endTime: Date;
+    input: unknown;
+    output: unknown;
+    status: string;
+  }
+): Promise<void> {
+  if (opts.exportToLangfuse === false) return;
+  const exporter =
+    opts.langfuseExporter ??
+    createLangfuseExporterFromEnv({
+      failOnExportError: false,
+    });
+  // Misconfigured exporters skip export rather than throw on hot path.
+  if (!exporter.baseUrl || !exporter.publicKey || !exporter.secretKey) return;
+  bufferMissionModelCall(exporter, {
+    traceId: span.traceId,
+    runId: span.runId,
+    stepId: span.stepId,
+    name: `model_${span.callKind}`,
+    endpoint: span.endpoint,
+    modelId: span.modelId,
+    role: span.role,
+    callKind: span.callKind,
+    startTime: span.startTime,
+    endTime: span.endTime,
+    input: span.input,
+    output: span.output,
+    status: span.status,
+  });
+  // Shared mission exporter is flushed by mission/runtime; one-shot flushes now.
+  if (!opts.langfuseExporter) {
+    try {
+      await exporter.flush();
+    } catch {
+      // Telemetry row is durable; Langfuse export is best-effort on non-mission paths.
+    }
+  }
+}
+
+/**
+ * Structural bypass guard (S31-07 AC-4): scan production sources for
+ * createFleetChatModel( construction outside the instrumented client.
+ *
+ * Keys on construction sites (call expressions), not a filename allowlist of
+ * known good callers — a brand-new file that constructs a fleet model fails.
+ * Allowed:
+ *   - resolve-model.ts (definition)
+ *   - telemetry.ts (the single instrumented client)
+ */
+export function scanFleetClientBypass(options?: { srcRoot?: string }): {
+  ok: boolean;
+  violations: Array<{ file: string; line: number; snippet: string }>;
+  scannedFiles: number;
+} {
+  const srcRoot = options?.srcRoot ?? pathResolve(import.meta.dirname);
+
+  // Construction-site allowlist by basename only (definition + instrumented client).
+  // NOT a list of known caller filenames — new files that construct fail.
+  const allowedBasenames = new Set(['resolve-model.ts', 'telemetry.ts']);
+  const callRe = /\bcreateFleetChatModel\s*\(/g;
+  const violations: Array<{ file: string; line: number; snippet: string }> = [];
+  let scannedFiles = 0;
+
+  function walk(dir: string): void {
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const name of entries) {
+      if (name === 'node_modules' || name === 'dist' || name.startsWith('.')) continue;
+      const full = join(dir, name);
+      let st;
+      try {
+        st = statSync(full);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        if (name === '__tests__' || name === 'tests') continue;
+        walk(full);
+        continue;
+      }
+      if (!name.endsWith('.ts') && !name.endsWith('.tsx')) continue;
+      if (name.endsWith('.test.ts') || name.endsWith('.spec.ts')) continue;
+      scannedFiles += 1;
+      if (allowedBasenames.has(name)) continue;
+      const text = readFileSync(full, 'utf8');
+      const lines = text.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i] ?? '';
+        callRe.lastIndex = 0;
+        if (!callRe.test(line)) continue;
+        const trimmed = line.trim();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) {
+          continue;
+        }
+        if (/^\s*import\b/.test(line)) continue;
+        violations.push({
+          file: relative(srcRoot, full),
+          line: i + 1,
+          snippet: trimmed.slice(0, 160),
+        });
+      }
+    }
+  }
+
+  walk(srcRoot);
+  return { ok: violations.length === 0, violations, scannedFiles };
+}
+
+/**
+ * AC-5: observability modules reachable from production entrypoints.
+ * Returns modules under observability/ that appear only in the test tree.
+ */
+export function scanObservabilityModuleGraph(options?: { platformRoot?: string }): {
+  productionReachable: string[];
+  testOnly: string[];
+  ok: boolean;
+} {
+  const platformRoot = options?.platformRoot ?? pathResolve(import.meta.dirname, '..');
+  const obsDir = join(platformRoot, 'observability');
+  const prodEntrypoints = [
+    join(platformRoot, 'cli/holo.ts'),
+    join(platformRoot, 'mission/runtime.ts'),
+    join(platformRoot, 'index.ts'),
+  ];
+
+  function listObsModules(): string[] {
+    if (!existsSync(obsDir)) return [];
+    return readdirSync(obsDir)
+      .filter((n) => n.endsWith('.ts') && !n.endsWith('.test.ts'))
+      .map((n) => join(obsDir, n));
+  }
+
+  function collectImports(entry: string, seen: Set<string>): void {
+    const abs = pathResolve(entry);
+    if (seen.has(abs)) return;
+    if (!existsSync(abs)) return;
+    let st;
+    try {
+      st = statSync(abs);
+    } catch {
+      return;
+    }
+    if (!st.isFile()) return;
+    seen.add(abs);
+    let text: string;
+    try {
+      text = readFileSync(abs, 'utf8');
+    } catch {
+      return;
+    }
+    const importRe = /from\s+['"](\.[^'"]+)['"]|import\s*\(\s*['"](\.[^'"]+)['"]\s*\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = importRe.exec(text)) !== null) {
+      const spec = m[1] ?? m[2];
+      if (!spec) continue;
+      const base = pathResolve(dirname(abs), spec);
+      const candidates = [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts')];
+      for (const c of candidates) {
+        if (existsSync(c)) {
+          collectImports(c, seen);
+          break;
+        }
+      }
+    }
+  }
+
+  const prodReachable = new Set<string>();
+  for (const ep of prodEntrypoints) {
+    collectImports(ep, prodReachable);
+  }
+
+  const obsModules = listObsModules();
+  const productionReachable = obsModules
+    .filter((m) => prodReachable.has(pathResolve(m)))
+    .map((m) => relative(platformRoot, m));
+
+  const testOnly = obsModules
+    .filter((m) => !prodReachable.has(pathResolve(m)))
+    .map((m) => relative(platformRoot, m));
+
+  return {
+    productionReachable,
+    testOnly,
+    ok: testOnly.length === 0 && productionReachable.length > 0,
+  };
+}
+
+/**
+ * Construct a fleet chat model for Mastra Agent registration only.
+ * Call sites that generate must still go through runFleetModelCall for telemetry.
+ * This is the sole re-export construction site outside runFleetModelCall itself.
+ */
+export async function createFleetAgentModelBundle(options: {
+  role?: string;
+  resolveOptions?: Parameters<typeof resolveModel>[1];
+  apiKey?: string;
+  agentId?: string;
+}): Promise<{
+  model: ReturnType<typeof createFleetChatModel>;
+  resolved: ResolvedModel;
+}> {
+  const role = options.role ?? 'divergent';
+  const resolved = await resolveModel(role, {
+    allowEscape: false,
+    ...options.resolveOptions,
+  });
+  if (resolved.provider !== 'fleet') {
+    throw new Error(`createFleetAgentModelBundle refused non-fleet provider=${resolved.provider}`);
+  }
+  const model = createFleetChatModel(resolved, {
+    apiKey: options.apiKey,
+    name: 'holocron-fleet',
+  });
+  return { model, resolved };
 }
 
 /**

@@ -175,26 +175,31 @@ async function probeJsonSchemaSupport(
   resolved: ResolvedModel,
   options: ProbeCapabilitiesOptions = {}
 ): Promise<boolean> {
-  const { createFleetChatModel } = await import('./resolve-model');
-  const fleetModel = createFleetChatModel(resolved, {
-    apiKey: process.env.FLEET_KEY ?? 'sk-none',
-  });
-
-  // Use generateObject with a real schema — this sends response_format:
-  // json_schema on the wire. A role that honors it returns a parsed object;
-  // a role that does not throws (NoObjectGeneratedError / schema mismatch).
-  const { generateObject } = await import('ai');
+  // S31-07: real generateObject via the single instrumented client (telemetry).
+  const { runFleetModelCall } = await import('./telemetry');
+  const { randomUUID } = await import('node:crypto');
 
   const prompt = 'Return a JSON object with success=true and message="probe successful".';
-
   const timeoutMs = options.timeoutMs ?? 45_000;
 
   try {
-    await generateObject({
-      model: fleetModel,
-      schema: PROBE_SCHEMA,
+    await runFleetModelCall({
+      role: resolved.role,
       prompt,
+      runId: randomUUID(),
+      stepId: 'probe-capability',
+      callSite: 'probe-capability',
+      callKind: 'object',
+      schema: PROBE_SCHEMA,
+      modelOptions: { apiKey: process.env.FLEET_KEY ?? 'sk-none' },
+      resolveOptions: {
+        // Reuse the already-resolved endpoint/manifest — skip a second health probe when possible.
+        skipHealth: true,
+        manifestPath: options.manifestPath,
+        manifest: options.manifest,
+      },
       abortSignal: AbortSignal.timeout(timeoutMs),
+      exportToLangfuse: false,
     });
     return true; // generateObject succeeded → role honors json_schema
   } catch {

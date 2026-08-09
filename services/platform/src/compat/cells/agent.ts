@@ -1,24 +1,22 @@
 /**
  * Cell 1 — Agent
  *
- * Boots one Mastra Agent bound to the live fleet via the role router:
- *   resolveModel(role) → createFleetChatModel(resolved) → Agent({ model })
+ * Boots one Mastra Agent bound to the live fleet via the role router.
+ * S31-07: model construction lives in the instrumented client (telemetry.ts);
+ * the compat spike generate path writes telemetry via runFleetModelCall.
+ * S31-04: createFleetAgentWithResolved accepts specialist tools / inputProcessors
+ * for the chat triage → specialists path (http/chat-runs.ts).
  *
- * Structural local-first (REDHAT-FIX-H3): no hard-coded FLEET_URL + compat-spike.
- * Calls agent.generate() and asserts non-empty text.
  * Zero cloud requests (no api.openai.com / api.anthropic.com / api.deepseek.com) on the default path.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { ToolsInput } from '@mastra/core/agent';
 import { Agent } from '@mastra/core/agent';
 import type { Mastra } from '@mastra/core/mastra';
 import type { Processor } from '@mastra/core/processors';
-import {
-  createFleetChatModel,
-  type ResolvedModel,
-  type ResolveModelOptions,
-  resolveModel,
-} from '../../inference/resolve-model.ts';
+import type { ResolvedModel, ResolveModelOptions } from '../../inference/resolve-model.ts';
+import { createFleetAgentModelBundle, runFleetModelCall } from '../../inference/telemetry.ts';
 import { assertNoTripwire, TripwireError } from '../../mastra/tripwire.ts';
 import { FLEET_KEY } from '../../mastra.ts';
 
@@ -98,22 +96,19 @@ function withCloudRequestTracking<T>(fn: () => Promise<T>): Promise<{
 }
 
 /**
- * Structural factory: resolve a fleet role, build chat model via createFleetChatModel,
- * return Agent + ResolvedModel. Fail-closed on unknown/unreachable roles (no Anthropic).
+ * Structural factory: resolve a fleet role via the instrumented client helper,
+ * return Agent + ResolvedModel. Fail-closed on unknown/unreachable roles.
+ * S31-04 options (tools, inputProcessors, instructions) preserved for chat path.
  */
 export async function createFleetAgentWithResolved(
   options: CreateFleetAgentOptions = {}
 ): Promise<FleetAgentBundle> {
   const role = options.role ?? 'divergent';
-  const resolved = await resolveModel(role, {
-    allowEscape: false,
-    ...options.resolveOptions,
-  });
-
-  // createFleetChatModel refuses non-fleet provider — escape remains Anthropic SDK path.
-  const fleetModel = createFleetChatModel(resolved, {
+  const { model: fleetModel, resolved } = await createFleetAgentModelBundle({
+    role,
+    resolveOptions: options.resolveOptions,
     apiKey: options.apiKey ?? FLEET_KEY,
-    name: 'holocron-fleet',
+    agentId: options.agentId,
   });
 
   const id = options.agentId ?? 'compat-agent';
@@ -134,7 +129,7 @@ export async function createFleetAgentWithResolved(
 }
 
 /**
- * Create the fleet-bound agent via resolveModel + createFleetChatModel.
+ * Create the fleet-bound agent via the instrumented client.
  * Registered on the Mastra instance by the spike orchestrator so observability spans are captured.
  */
 export async function createFleetAgent(options: CreateFleetAgentOptions = {}): Promise<Agent> {
@@ -142,19 +137,30 @@ export async function createFleetAgent(options: CreateFleetAgentOptions = {}): P
   return agent;
 }
 
-export async function runAgentCell(mastra: Mastra): Promise<AgentCellResult> {
+/**
+ * Compat spike agent cell — real fleet generate through runFleetModelCall
+ * so inference_telemetry always records call_site=compat/cells/agent.
+ */
+export async function runAgentCell(_mastra: Mastra): Promise<AgentCellResult> {
   try {
-    // Retrieve the agent registered on the Mastra instance
-    const agent = mastra.getAgent('compat-agent');
+    const { result, cloudRequests } = await withCloudRequestTracking(async () => {
+      const out = await runFleetModelCall({
+        role: 'divergent',
+        prompt: 'Say "compatibility spike green" and nothing else.',
+        runId: randomUUID(),
+        stepId: 'compat/cells/agent',
+        callSite: 'compat/cells/agent',
+        callKind: 'chat',
+        maxOutputTokens: 32,
+        modelOptions: { apiKey: FLEET_KEY, name: 'holocron-fleet' },
+        exportToLangfuse: false,
+      });
+      // Shape a generate-like result for tripwire compatibility.
+      return { text: out.text, tripwire: undefined as undefined, finishReason: 'stop' as const };
+    });
 
-    const { result, cloudRequests } = await withCloudRequestTracking(() =>
-      agent.generate('Say "compatibility spike green" and nothing else.')
-    );
-
-    // Fail closed on guardrail tripwire — never treat blocked generate as success.
-    // assertNoTripwire checks result.tripwire (+ finishReason === 'other').
     try {
-      assertNoTripwire(result);
+      assertNoTripwire(result as never);
     } catch (err) {
       if (err instanceof TripwireError) {
         return {

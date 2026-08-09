@@ -36,7 +36,8 @@ import {
   ensureBootCapabilityMap,
   type RoleCapability,
 } from './probe-capability';
-import { createFleetChatModel, type ResolvedModel, resolveModel } from './resolve-model';
+import { type ResolvedModel, resolveModel } from './resolve-model';
+import { runFleetModelCall } from './telemetry';
 
 /**
  * Robust ZodError detection. `instanceof z.ZodError` can miss an error thrown by a
@@ -454,31 +455,13 @@ async function buildSchemaGuidedPrompt(input: string, schema: z.ZodType): Promis
  * was removed in AI SDK v5+): prompt-level JSON instruction without requiring
  * backend json_schema support.
  */
-async function createStructuredModel(
-  fleetModel: ReturnType<typeof createFleetChatModel>,
-  mode: 'constrained' | 'repair'
-): Promise<ReturnType<typeof createFleetChatModel>> {
-  if (mode === 'constrained') {
-    return fleetModel;
-  }
-  const { wrapLanguageModel } = await import('ai');
-  return wrapLanguageModel({
-    model: fleetModel,
-    middleware: {
-      specificationVersion: 'v4',
-      // Strip responseFormat so reasoning models emit `content` (not reasoning-only).
-      transformParams: async ({ params }) => {
-        const { responseFormat: _stripped, ...rest } = params;
-        return rest as typeof params;
-      },
-    },
-  });
-}
-
 /**
  * Inner extraction pipeline (excludes status tracking, which is handled by the
  * `extractStructured` wrapper). Separated so the status try/catch does not
  * interleave with the repair-loop's own try/catch.
+ *
+ * S31-07: model calls go through runFleetModelCall (callKind object) — the
+ * single instrumented client — so every attempt writes inference_telemetry.
  */
 async function runExtraction<T extends z.ZodType>(
   schema: T,
@@ -505,10 +488,11 @@ async function runExtraction<T extends z.ZodType>(
     );
   }
 
-  // Resolve the fleet role (never bypass resolveModel)
+  // Resolve the fleet role (never bypass resolveModel) — used for mode metadata.
   const resolved: ResolvedModel = await resolveModel(role, {
     manifestPath: options.manifestPath,
   });
+  void resolved;
 
   // S31-06: INITIAL mode comes from the boot capability probe map — not from
   // resolved.structuredOutput alone. The probe made a real generateObject call
@@ -521,44 +505,33 @@ async function runExtraction<T extends z.ZodType>(
   modeMeta.mode = currentMode;
   modeMeta.modeSource = modeSource;
 
-  // Create the fleet chat model using the proper AI SDK integration
-  const fleetModel = createFleetChatModel(resolved, {
-    apiKey: process.env.FLEET_KEY ?? 'sk-none',
-  });
-
   const schemaErrors: Array<{ attempt: number; error: z.ZodError }> = [];
 
   // Bounded repair loop
   for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS; attempt++) {
     try {
-      // REDHAT-FIX-H1 (round 2): use generateObject (the structured-output API,
-      // NOT the legacy plain-text path) so the SDK sends response_format:
-      // json_schema on the wire for constrained decoding. generateObject parses
-      // + (internally) validates the response; Zod is STILL re-run below as the
-      // source of truth (belt-and-suspenders).
-      const { generateObject } = await import('ai');
-
-      // Mode-aware model: constrained → raw (json_schema on the wire);
-      // repair → wrapped to strip response_format (prompt-level JSON), because
-      // local reasoning models emit via the reasoning channel when
-      // response_format is set. experimental_repairText handles markdown fences.
-      const structuredModel = await createStructuredModel(fleetModel, currentMode);
-
-      const { object } = await generateObject({
-        model: structuredModel,
-        schema,
-        // Constrained: the schema travels on the wire (response_format json_schema),
-        // so the raw input prompt suffices. Repair: response_format is stripped, so
-        // the prompt must convey the expected JSON shape (buildSchemaGuidedPrompt).
+      // Mode-aware: constrained → json_schema on the wire; repair → strip
+      // response_format + schema-guided prompt + fence repair.
+      const call = await runFleetModelCall({
+        role,
         prompt: currentMode === 'repair' ? await buildSchemaGuidedPrompt(input, schema) : input,
+        runId: extractionId,
+        stepId: 'extract-structured',
+        callSite: 'extract-structured',
+        callKind: 'object',
+        schema,
+        modelOptions: { apiKey: process.env.FLEET_KEY ?? 'sk-none' },
+        resolveOptions: { manifestPath: options.manifestPath },
         abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-        ...(currentMode === 'repair'
-          ? {
-              experimental_repairText: async ({ text }: { text: string }) =>
-                stripMarkdownFences(text),
-            }
-          : {}),
+        stripResponseFormat: currentMode === 'repair',
+        repairText:
+          currentMode === 'repair'
+            ? async ({ text }: { text: string }) => stripMarkdownFences(text)
+            : undefined,
+        exportToLangfuse: false,
       });
+
+      const object = call.object as z.infer<T>;
 
       // REDHAT-FIX-H3: OUTPUT-side tripwire — scan model-GENERATED content
       // (not just input) before acceptance. A model can synthesize sensitive
