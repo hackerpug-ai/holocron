@@ -522,10 +522,9 @@ describe.sequential('S31-10 real retrieval for whatsNew / assimilate / shop', ()
 
       for (const [name, result] of cases) {
         expect(result.status, `${name} scaffold-only must exit != 0`).not.toBe(0);
-        expect(
-          result.combined,
-          `${name} must name scaffold or empty retrieval`
-        ).toMatch(/scaffold|empty retrieval|SCAFFOLD|deterministic-scaffolding|MISSION_.*SCAFFOLD|MISSION_.*EMPTY/i);
+        expect(result.combined, `${name} must name scaffold or empty retrieval`).toMatch(
+          /scaffold|empty retrieval|SCAFFOLD|deterministic-scaffolding|MISSION_.*SCAFFOLD|MISSION_.*EMPTY/i
+        );
       }
     },
     420_000

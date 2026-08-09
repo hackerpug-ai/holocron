@@ -686,10 +686,7 @@ export async function retrieveAssimilateFromRepository(
   // package.json when present in listing
   if (listingNames.includes('package.json')) {
     try {
-      const pkg = await fetchJson(
-        `${apiBase}/repos/${repo}/contents/package.json`,
-        fetchImpl
-      );
+      const pkg = await fetchJson(`${apiBase}/repos/${repo}/contents/package.json`, fetchImpl);
       const decoded = decodeGithubFileContent(pkg);
       if (decoded) files.push(decoded);
     } catch {
@@ -704,13 +701,10 @@ export async function retrieveAssimilateFromRepository(
   }
 
   if (files.length === 0 || files.every((f) => f.text.trim().length === 0)) {
-    throw new Error(
-      `assimilate empty retrieval: no file/text payload for ${repo} (fail-closed)`
-    );
+    throw new Error(`assimilate empty retrieval: no file/text payload for ${repo} (fail-closed)`);
   }
 
-  const readmeText =
-    files.find((f) => /readme/i.test(f.path))?.text ?? files[0]?.text ?? '';
+  const readmeText = files.find((f) => /readme/i.test(f.path))?.text ?? files[0]?.text ?? '';
   const dirs = listingNames.filter((n) =>
     /^(src|lib|packages|apps|docs|test|tests|__tests__|pkg|cmd|internal)$/i.test(n)
   );
@@ -853,9 +847,7 @@ export async function retrieveShopProducts(
     LIMIT 20
   `;
 
-  let products = rows
-    .map(mapListingRow)
-    .filter((p): p is ShopProduct => p !== null);
+  let products = rows.map(mapListingRow).filter((p): p is ShopProduct => p !== null);
 
   let provenance = `shop_listings Postgres retrieval for query=${q}`;
 
@@ -866,9 +858,7 @@ export async function retrieveShopProducts(
   }
 
   if (products.length === 0) {
-    throw new Error(
-      `shop empty retrieval: no non-scaffold products for query=${q} (fail-closed)`
-    );
+    throw new Error(`shop empty retrieval: no non-scaffold products for query=${q} (fail-closed)`);
   }
 
   return {
