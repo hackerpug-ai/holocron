@@ -1,7 +1,7 @@
 # S31-FE-02 E2E Remediation Evidence
 
 **Date**: 2026-08-09  
-**Land tip (rebased onto main)**:   
+**Land tip (rebased onto main)**: branch `kb-run-sprint/sprint-31-migration-integrity-remediation/S31-FE-02` (post-rebase onto main; see `git rev-parse HEAD`)
 **Pre-rebase dual-APPROVED tip**: `ed06517f746f3b93494a64dc90e3b3e69e9391e6`  
 **Evidence commit (pre-rebase)**: `82c6475fa1f7de9156838e023f2fd1072a258b0b`  
 **Base implementation (pre-rebase)**: `e0d8c1315897c91a4514729754eca21ca0b90ea1`
