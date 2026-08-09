@@ -262,8 +262,27 @@ exec "$S30_REAL_PSQL" "$@"
 `,
     'utf8'
   );
+  writeFileSync(
+    `${recorderDir}/bun`,
+    `#!/usr/bin/env bash
+set -euo pipefail
+${scan}
+identity_child=0
+inherited_url_env_seen=0
+s30_target_url_seen=0
+[[ "\${S30_IDENTITY_CHILD:-}" == "1" ]] && identity_child=1
+if [[ -n "\${DATABASE_URL:-}" || -n "\${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-}" ]]; then
+  inherited_url_env_seen=1
+fi
+[[ -n "\${S30_TARGET_URL:-}" ]] && s30_target_url_seen=1
+printf '{"program":"bun","identity_child":%s,"argv_canary_seen":%s,"url_env_seen":%s,"inherited_url_env_seen":%s,"s30_target_url_seen":%s}\\n' "$identity_child" "$contains_canary" "$url_env_seen" "$inherited_url_env_seen" "$s30_target_url_seen" >> "$S30_PROCESS_RECORD"
+exec "$S30_REAL_BUN" "$@"
+`,
+    'utf8'
+  );
   chmodSync(`${recorderDir}/python3`, 0o755);
   chmodSync(`${recorderDir}/psql`, 0o755);
+  chmodSync(`${recorderDir}/bun`, 0o755);
   writeFileSync(recordPath, '', 'utf8');
   return recordPath;
 }
@@ -1810,6 +1829,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       const recorderDir = `${evidenceRoot}/helper-chain-recorder`;
       const realPython = execFileSync('which', ['python3'], { encoding: 'utf8' }).trim();
       const realPsql = execFileSync('which', ['psql'], { encoding: 'utf8' }).trim();
+      const realBun = execFileSync('which', ['bun'], { encoding: 'utf8' }).trim();
       const runs: Array<{
         encoded: string;
         decoded: string;
@@ -1837,6 +1857,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
           S30_PROCESS_RECORD: recordPath,
           S30_REAL_PYTHON: realPython,
           S30_REAL_PSQL: realPsql,
+          S30_REAL_BUN: realBun,
           S30_C3_USER_CANARY: C3_CANARIES[0],
           S30_C3_PASSWORD_CANARY: C3_CANARIES[1],
           S30_C3_QUERY_CANARY: C3_CANARIES[2],
@@ -1915,9 +1936,12 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         .map(
           (line) =>
             JSON.parse(line) as {
-              program: 'python3' | 'psql';
+              program: 'bun' | 'python3' | 'psql';
               argv_canary_seen: number;
               url_env_seen: number;
+              identity_child?: number;
+              inherited_url_env_seen?: number;
+              s30_target_url_seen?: number;
               pg_user_match?: number;
               pg_password_match?: number;
               pg_appname_match?: number;
@@ -1925,6 +1949,9 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         );
       const psqlRecords = records.filter((record) => record.program === 'psql');
       const pythonRecords = records.filter((record) => record.program === 'python3');
+      const identityBunRecords = records.filter(
+        (record) => record.program === 'bun' && record.identity_child === 1
+      );
       const allRawTargets = LIBPQ_PRECONNECT_CANARIES.flatMap((canary) => [
         helperChainCanaryUrl(gateUrl, canary.encoded),
         helperChainCanaryUrl(markerUrl, canary.encoded),
@@ -1964,6 +1991,13 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         ),
         python_observed: pythonRecords.length > 0,
         python_raw_url_env_observed: pythonRecords.some((record) => record.url_env_seen === 1),
+        identity_bun_observed: identityBunRecords.length > 0,
+        identity_bun_inherited_url_env_seen_count: identityBunRecords.filter(
+          (record) => record.inherited_url_env_seen !== 0
+        ).length,
+        identity_bun_s30_target_url_all_seen:
+          identityBunRecords.length > 0 &&
+          identityBunRecords.every((record) => record.s30_target_url_seen === 1),
         psql_observed: psqlRecords.length > 0,
         psql_argv_canary_seen_count: psqlRecords.filter((record) => record.argv_canary_seen !== 0)
           .length,
@@ -1997,6 +2031,9 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(pythonRecords.length).toBeGreaterThan(0);
       expect(pythonRecords.some((record) => record.url_env_seen === 1)).toBe(true);
       expect(records.every((record) => record.argv_canary_seen === 0)).toBe(true);
+      expect(identityBunRecords.length).toBeGreaterThan(0);
+      expect(identityBunRecords.every((record) => record.inherited_url_env_seen === 0)).toBe(true);
+      expect(identityBunRecords.every((record) => record.s30_target_url_seen === 1)).toBe(true);
       expect(psqlRecords.length).toBeGreaterThan(0);
       expect(psqlRecords.every((record) => record.url_env_seen === 0)).toBe(true);
       expect(
