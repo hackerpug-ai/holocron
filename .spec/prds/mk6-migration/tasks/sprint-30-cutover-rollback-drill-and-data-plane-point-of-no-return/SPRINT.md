@@ -1,7 +1,7 @@
 ---
 sequence: 30
 timeline: Phase 7 — Cutover and Decommission
-status: In Progress
+status: Completed
 planned_from_roadmap_sha: 6eb1ae5b1a12963afe1792b500d67de962768d5581e79f2739cedb5e35c40465
 planned_from_source_sha: 6de957d39d03577912f5aa5e4d35bf6049118b8f
 source_kind: git-head
@@ -13,9 +13,9 @@ capability_coverage: [CAP-CUT-01]
 
 **Sequence:** 30
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
-> Progress: Seventh closeout blockers **fixed** — disposable-only C-3 DB + exact dual triggers + package-bound C-3 OIDs; C-2 HEAD lock bind + v5 OID-mismatch negative; M-3 fail-closed identity tree · gate `20260807T105804Z` **5/5 verified:true** package=`f033bc86` · **not release-approved** · updated 2026-08-07T11:00:00Z
-> Status-Note: Tenth GATE-FIX remediation cycle planned (plan-only). Independent review `red-hat-sprint-30-20260808T014319Z-gate-fix-review.md` @ HEAD `3ba6ab5c` verdict **NEEDS_REVISION** — C-1 post-PONR GATE-META parse false step5 fail (CRITICAL); H-1 prove script mints on disarmed fence (HIGH). Prior GATE-FIX lands (drill precondition + preflight rearm + T-SYNC-013 oracles) hold product/preflight claims; consumer parse + prove fail-path still open. Sprint stays **In Progress**. No complete/release claim.
+**Status:** Completed
+> Progress: 5/5 tasks completed · updated 2026-08-09T01:31:45Z
+> Status-Note: Explicit database binding landed; independent review approved; final human gate 5/5 verified.
 **Proposed by:** devops-engineer
 **Milestone:** — (`sprint-30`)
 **Branch:** `mk6-rollback`
