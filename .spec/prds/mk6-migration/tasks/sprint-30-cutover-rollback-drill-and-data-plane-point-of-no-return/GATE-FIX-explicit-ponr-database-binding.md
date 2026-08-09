@@ -310,7 +310,7 @@ MARKER_DATABASE_URL="$MARKER_DATABASE_URL" \
 pnpm vitest run --project integration \
   services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts
 
-pnpm vitest run tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts
+PLATFORM_IT=1 pnpm vitest run tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts
 bash -n scripts/cleanup-sprint30-ponr-marker.sh \
   scripts/probe-ponr-role-immutability-negative-marker.sh \
   scripts/run-sprint30-human-gate.sh
