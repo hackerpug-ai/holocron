@@ -7108,11 +7108,19 @@ async function main(): Promise<void> {
           else printMissionRuntimeResult(result as Record<string, unknown>, `mission run ${kind}`);
           process.exit(result.ok ? 0 : 1);
         } catch (error) {
+          // Preserve MissionRuntimeError codes (e.g. ASSAY_CHALLENGE_COLLISION).
+          const runtimeCode =
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            typeof (error as { code: unknown }).code === 'string'
+              ? (error as { code: string }).code
+              : 'MISSION_RESEARCH_FAILED';
           const payload = {
             ok: false,
             error: error instanceof Error ? error.message : String(error),
-            code: 'MISSION_RESEARCH_FAILED',
-            errorCode: 'MISSION_RESEARCH_FAILED',
+            code: runtimeCode,
+            errorCode: runtimeCode,
           };
           if (args.json) console.log(JSON.stringify(payload, null, 2));
           else console.error(payload.error);

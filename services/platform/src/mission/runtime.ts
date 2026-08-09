@@ -969,20 +969,42 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'MISSION_TRACE_ID_MISSING',
         `missing trace for ${context.run.id}`
       );
-    const result = await runFleetModelCall({
-      role: pinnedRole.role,
-      prompt: `ASSAY research goal: ${retrieved.goal}. Return a concise candidate finding.`,
-      runId: context.run.id,
-      stepId: context.stageRunId,
-      traceId,
-      databaseUrl: context.databaseUrl,
-    });
+    let result: Awaited<ReturnType<typeof runFleetModelCall>>;
+    try {
+      result = await runFleetModelCall({
+        role: pinnedRole.role,
+        prompt: `ASSAY research goal: ${retrieved.goal}. Return a concise candidate finding.`,
+        runId: context.run.id,
+        stepId: context.stageRunId,
+        traceId,
+        databaseUrl: context.databaseUrl,
+        maxOutputTokens: 512,
+      });
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_CALL_FAILED',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+    // Fail-closed: never invent ASSAY prose when fleet returns empty/whitespace.
+    const assayRaw = result.text.trim();
+    if (assayRaw.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        `fleet ASSAY returned empty content for role=${pinnedRole.role} stage=${context.stage.stageKey} run=${context.run.id}`
+      );
+    }
+    const text = clipFleetText(assayRaw);
+    const instanceId = mintResearchFleetInstanceId(
+      result.resolved.litellmModelId,
+      result.resolved.modelRevision ?? pinnedRole.modelRevision
+    );
     return canonicalJsonValue({
       goal: retrieved.goal,
       evidence: retrieved.evidence,
-      instanceId: `${pinnedRole.modelRevision}:assay:${context.run.id}`,
-      modelRevision: pinnedRole.modelRevision,
-      text: result.text,
+      instanceId,
+      modelRevision: result.resolved.modelRevision ?? pinnedRole.modelRevision,
+      text,
     });
   },
   'builtin.research-challenge@1': async (input, context) => {
@@ -990,7 +1012,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       { schemaRef: 'mission.research.assay.output', schemaVersion: 1 },
       input,
       'mission.research.assay.output'
-    ) as { goal: string; evidence: unknown; instanceId: string; text: string };
+    ) as { goal: string; evidence: EvidenceGateInput; instanceId: string; text: string };
     const pinnedRole = context.runtime.roleResolution[context.stage.stageKey];
     if (!pinnedRole) {
       throw new MissionRuntimeError(
@@ -1004,21 +1026,58 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'MISSION_TRACE_ID_MISSING',
         `missing trace for ${context.run.id}`
       );
-    const result = await runFleetModelCall({
-      role: pinnedRole.role,
-      prompt: `CHALLENGE research goal: ${assay.goal}. Refute or qualify this candidate finding: ${assay.text}`,
-      runId: context.run.id,
-      stepId: context.stageRunId,
-      traceId,
-      databaseUrl: context.databaseUrl,
-    });
+    let result: Awaited<ReturnType<typeof runFleetModelCall>>;
+    try {
+      result = await runFleetModelCall({
+        role: pinnedRole.role,
+        prompt: `CHALLENGE research goal: ${assay.goal}. Refute or qualify this candidate finding: ${assay.text}`,
+        runId: context.run.id,
+        stepId: context.stageRunId,
+        traceId,
+        databaseUrl: context.databaseUrl,
+        maxOutputTokens: 512,
+      });
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_CALL_FAILED',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+    const challengeRaw = result.text.trim();
+    if (challengeRaw.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        `fleet CHALLENGE returned empty content for role=${pinnedRole.role} stage=${context.stage.stageKey} run=${context.run.id}`
+      );
+    }
+    const challengeText = clipFleetText(challengeRaw);
+    const assayText = (assay.text ?? '').trim();
+    if (!assayText) {
+      throw new MissionRuntimeError(
+        'MISSION_FLEET_EMPTY_OUTPUT',
+        `missing ASSAY text for challenge enrichment run=${context.run.id}`
+      );
+    }
+
+    // S31-09: concrete fleet instance id (or forced collision for fail-closed IT).
+    let challengeInstanceId = mintResearchFleetInstanceId(
+      result.resolved.litellmModelId,
+      result.resolved.modelRevision ?? pinnedRole.modelRevision
+    );
+    if (process.env[HOLO_TEST_FORCE_ASSAY_CHALLENGE_COLLISION_ENV] === '1') {
+      challengeInstanceId = assay.instanceId;
+    }
+    assertAssayChallengeDistinct(assay.instanceId, challengeInstanceId);
+
+    const evidence = enrichEvidenceWithFleetModelText(assay.evidence, assayText, challengeText);
+
     return canonicalJsonValue({
       goal: assay.goal,
       assayInstanceId: assay.instanceId,
-      challengeInstanceId: `${pinnedRole.modelRevision}:challenge:${context.run.id}`,
-      evidence: assay.evidence,
-      assayText: assay.text,
-      challengeText: result.text,
+      challengeInstanceId,
+      evidence,
+      assayText,
+      challengeText,
     });
   },
   'evidence-gate': async (input, context) => {
@@ -1031,7 +1090,11 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       assayInstanceId: string;
       challengeInstanceId: string;
       evidence: EvidenceGateInput;
+      assayText?: string;
+      challengeText?: string;
     };
+    // Defense in depth: never admit under ASSAY=CHALLENGE collision.
+    assertAssayChallengeDistinct(challenge.assayInstanceId, challenge.challengeInstanceId);
     const args = MissionGoalArgsSchema.safeParse(context.run.args_json);
     const gate = challenge.evidence
       ? evaluateEvidenceGate(challenge.evidence)
@@ -1836,6 +1899,117 @@ function extractDateFromGoal(goal: string | undefined): string | null {
 function clipFleetText(text: string, maxChars = 2000): string {
   if (text.length <= maxChars) return text;
   return `${text.slice(0, maxChars)}…`;
+}
+
+/**
+ * S31-09 test seam: force ASSAY and CHALLENGE to share one instance id so the
+ * fail-closed collision path can be exercised. Outside this env the path is inert.
+ */
+export const HOLO_TEST_FORCE_ASSAY_CHALLENGE_COLLISION_ENV =
+  'HOLO_TEST_FORCE_ASSAY_CHALLENGE_COLLISION';
+
+/**
+ * Concrete fleet instance id for ASSAY/CHALLENGE stages.
+ * Never encodes role placeholder tokens (`assay` / `challenge`) — distinctness
+ * comes from a per-call UUID, not from role-name suffixes.
+ */
+function mintResearchFleetInstanceId(
+  modelId: string | null | undefined,
+  modelRevision?: string | null
+): string {
+  const raw = modelId?.trim() || modelRevision?.trim() || 'fleet-model';
+  const model = raw.replace(/[^a-zA-Z0-9._-]+/g, '-');
+  return `fleet:model:${model}:inst-${randomUUID()}`;
+}
+
+/**
+ * Merge fleet ASSAY + CHALLENGE prose into the deterministic gate input so
+ * evidence quotes/sourceText derive from real model output (CAP-INF-01).
+ * Does not invent admission-quality grades — preserves retrieve/fixture floors.
+ */
+function enrichEvidenceWithFleetModelText(
+  evidence: EvidenceGateInput,
+  assayText: string,
+  challengeText: string
+): EvidenceGateInput {
+  const assay = assayText.trim();
+  const challenge = challengeText.trim();
+  if (!assay || !challenge) {
+    throw new MissionRuntimeError(
+      'MISSION_FLEET_EMPTY_OUTPUT',
+      'fleet ASSAY/CHALLENGE text required before evidence-gate enrichment'
+    );
+  }
+  const modelSourceText = `ASSAY fleet output:\n${assay}\n\nCHALLENGE fleet output:\n${challenge}`;
+  const quoteFromModel = clipFleetText(assay, 160).replace(/…$/, '').trim() || assay;
+
+  const rows = (evidence.evidence ?? []).map((item, index) => {
+    if (index === 0) {
+      return {
+        ...item,
+        quote: quoteFromModel,
+        sourceText: modelSourceText,
+      };
+    }
+    // Preserve original quote ⊆ original sourceText; append model context.
+    return {
+      ...item,
+      sourceText: `${item.sourceText}\n\n---\n${modelSourceText}`,
+    };
+  });
+
+  // Empty retrieve: still feed at least one model-derived row so the gate sees
+  // real fleet text (admission still depends on components/floors).
+  if (rows.length === 0) {
+    const component = evidence.requiredComponents?.[0] ?? 'durable-evidence';
+    rows.push({
+      id: 'e-fleet-model-1',
+      claimId: 'claim-fleet-model-1',
+      component,
+      sourceId: 'fleet-model-src-1',
+      independenceGroup: 'fleet-model-src-1',
+      quote: quoteFromModel,
+      sourceText: modelSourceText,
+      grade: 1,
+      entailment: 0.1,
+      disconfirmationResolved: false,
+      direction: 'supporting',
+    });
+  }
+
+  const claimIds = new Set((evidence.claims ?? []).map((c) => c.id));
+  const claims = [...(evidence.claims ?? [])];
+  for (const row of rows) {
+    if (!claimIds.has(row.claimId)) {
+      claimIds.add(row.claimId);
+      claims.push({
+        id: row.claimId,
+        text: clipFleetText(assay, 120),
+        component: row.component,
+      });
+    }
+  }
+
+  return {
+    ...evidence,
+    claims,
+    evidence: rows,
+  };
+}
+
+function assertAssayChallengeDistinct(assayInstanceId: string, challengeInstanceId: string): void {
+  if (!assayInstanceId || !challengeInstanceId) {
+    throw new MissionRuntimeError(
+      'MISSION_INSTANCE_ID_MISSING',
+      'ASSAY and CHALLENGE instance ids must both be non-empty'
+    );
+  }
+  if (assayInstanceId === challengeInstanceId) {
+    throw new MissionRuntimeError(
+      'MISSION_ASSAY_CHALLENGE_COLLISION',
+      'ASSAY_CHALLENGE_COLLISION: ASSAY and CHALLENGE instance ids must differ (ASSAY≠CHALLENGE)'
+    );
+  }
 }
 
 function assembleBusinessReport(ctx: BusinessReportContext): BusinessReportOutput {
