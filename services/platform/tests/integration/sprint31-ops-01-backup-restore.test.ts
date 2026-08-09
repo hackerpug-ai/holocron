@@ -281,4 +281,25 @@ describe('S31-OPS-01 backup restore (PLATFORM_IT agent-safe)', () => {
     // Empty is allowed as "unconfigured"; sweep throws when bad jobs exist
     expect(typeof resolved).toBe('string');
   });
+
+
+  it('documents deferred-revocation exception without claiming old-key AC passed', () => {
+    const body = readFileSync(RUNBOOK_PATH, 'utf8');
+    expect(body).toMatch(/TEMPORARY EXCEPTION/i);
+    expect(body).toMatch(/deferred.?revocation|retain the old R2/i);
+    expect(body).toMatch(/DO NOT REVOKE|Do not revoke/i);
+    expect(body).toMatch(/NOT_PASSED|must not be marked passed/i);
+    // Must NOT claim old-key negative control is complete under exception
+    expect(body).not.toMatch(/old key negative control:\s*PASS/i);
+    const path = writeEvidence('ac1-deferred-revocation-exception.json', {
+      ac: 'AC-1',
+      exception: 'operator_approved_temporary_retain_old_r2_key',
+      revoke_old_key: 'DEFERRED',
+      old_key_negative_control: 'NOT_PASSED',
+      new_key_local_validation: 'CONTINUE',
+      runbook: RUNBOOK_PATH,
+    });
+    expect(existsSync(path)).toBe(true);
+  });
+
 });
