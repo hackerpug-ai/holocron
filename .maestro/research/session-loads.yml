@@ -1,14 +1,17 @@
-# S-REWRITE-04 AC-1 / TC-1 + S31-FE-05 AC-5 — Research session loads via Zero query
+# S-REWRITE-04 AC-1 / TC-1 + S31-FE-05 AC-5 + S31-FE-02 AC-3 (R39)
+# Research session loads via Zero query
 # Prerequisite: seed:e2e + Metro (worktree tip, --clear) + Zero :4848 + platform + Expo dev-client
 # Deep-link into seeded research session; observe detail bound to Zero useQuery.
 # S31-FE-05 AC-5 oracles: research-detail-view, topic >=10 chars, research-progress-bar,
 # zero module-resolution / red-screen failures.
+# S31-FE-02 AC-3 / R39 control: with healthy zero-cache and cold clearState,
+# research-detail-error MUST NOT appear.
 appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
 
-# Connect Expo Dev Client to worktree Metro
+# Connect Expo Dev Client to worktree Metro (FE-05 proven pattern)
 - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
 
 - extendedWaitUntil:
@@ -95,6 +98,10 @@ appId: ${MAESTRO_APP_ID}
     text: "Unable to resolve module"
     optional: true
 
+- assertNotVisible:
+    text: "Welcome to Expo"
+    optional: true
+
 # Deep-link research after shell is up
 - openLink: ${MAESTRO_RESEARCH_SESSION_URL}
 
@@ -122,6 +129,7 @@ appId: ${MAESTRO_APP_ID}
           optional: true
 
 # Loading may show first while Zero syncs — wait through it
+# FE-05 AC-5: research-detail-view is the primary load oracle
 - extendedWaitUntil:
     visible:
       id: "research-detail-view"
@@ -130,12 +138,14 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "research-detail-view"
 
+# FE-05 AC-5: topic text >=10 chars (seeded session title)
 - extendedWaitUntil:
     visible: "E2E Active Research: Native resilience"
     timeout: 30000
 
 - assertVisible: "E2E Active Research: Native resilience"
 
+# FE-05 AC-5: progress bar bound from Zero
 - extendedWaitUntil:
     visible:
       id: "research-progress-bar"
@@ -144,12 +154,21 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     id: "research-progress-bar"
 
+# S31-FE-02 AC-3 / R39 control — healthy cold sync must never open the error branch.
+# Non-optional: a false-positive watchdog is a worse regression than a spinner.
+- assertNotVisible:
+    text: "Research session not found"
+
 - assertNotVisible:
     text: "Session not found"
+    optional: true
+
+- assertNotVisible:
+    id: "research-detail-error"
     optional: true
 
 - assertNotVisible:
     text: "Unable to resolve module"
     optional: true
 
-- takeScreenshot: S31-FE-05-AC-5-session-loads
+- takeScreenshot: S31-FE-02-AC-3-session-loads-r39

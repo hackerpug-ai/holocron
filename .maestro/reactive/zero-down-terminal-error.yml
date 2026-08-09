@@ -1,0 +1,179 @@
+appId: ${MAESTRO_APP_ID}
+---
+# S31-FE-02 AC-1 / AC-2 — Terminal error when zero-cache is down.
+# Prerequisite: holocron-zerocache stopped (port 4848 keepalive fails);
+# Postgres + Mastra up; seeded research session + chat conversation.
+# Runner: .maestro/reactive/run-zero-down-terminal-error.sh
+#
+# Dev Client connect pattern mirrors FE-05 session-loads (LAN Metro + Open dialog).
+
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# Connect Expo Dev Client to worktree Metro
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+# Tap the development server row if the launcher is still visible
+- extendedWaitUntil:
+    visible: "Enter URL manually"
+    timeout: 20000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Enter URL manually"
+    commands:
+      # First DEVELOPMENT SERVERS card (~25% from top on iPhone 17)
+      - tapOn:
+          point: "50%,28%"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "http://192.168.1.160:8081"
+    commands:
+      - tapOn: "http://192.168.1.160:8081"
+
+- runFlow:
+    when:
+      visible: "http://127.0.0.1:8081"
+    commands:
+      - tapOn: "http://127.0.0.1:8081"
+
+- runFlow:
+    when:
+      visible: ${MAESTRO_METRO_URL}
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- swipe:
+    start: "92%,12%"
+    end: "92%,75%"
+    duration: 500
+    optional: true
+
+# Wait for JS app shell (Zero will fail to connect — shell still mounts)
+- extendedWaitUntil:
+    visible:
+      text: ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*"
+    timeout: 120000
+    optional: true
+
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
+# ── AC-1: research detail terminal error ──────────────────────────────────
+- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 6000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+          optional: true
+
+# Prefer observing the loading branch first (proves we are on the detail route).
+- extendedWaitUntil:
+    visible:
+      text: "Loading research session..."
+    timeout: 30000
+    optional: true
+
+# ZERO_ROW_WATCHDOG_DEADLINE_MS (30000) + buffer for cold shell + remount churn.
+# Primary oracle: the existing error copy (ScreenLayout testID may not surface to XCTest).
+- extendedWaitUntil:
+    visible:
+      text: "Research session not found"
+    timeout: 90000
+
+- assertVisible:
+    text: "Research session not found"
+
+- assertVisible:
+    id: "research-detail-go-back"
+
+# Non-optional: terminal error must displace the loading branch (AC-1 MUST_NOT_OBSERVE).
+- assertNotVisible:
+    text: "Loading research session..."
+
+- assertNotVisible:
+    id: "research-detail-loading"
+    optional: true
+
+- takeScreenshot: S31-FE-02-AC-1-research-detail-error
+
+# ── AC-2: chat thread terminal error (degraded banner, no inline spinner) ─
+- openLink: ${MAESTRO_CHAT_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 6000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-degraded-banner"
+    timeout: 50000
+
+- assertVisible:
+    id: "chat-degraded-banner"
+
+- assertVisible:
+    id: "chat-degraded-message"
+
+# Non-optional: error branch must displace the indefinite inline spinner (AC-2).
+- assertNotVisible:
+    id: "chat-loading-inline"
+
+# AC-4 e2e support: a single degraded banner node is visible (sole owner after screen delete).
+- assertVisible:
+    id: "chat-degraded-banner"
+    index: 0
+
+- takeScreenshot: S31-FE-02-AC-2-chat-zero-down-error

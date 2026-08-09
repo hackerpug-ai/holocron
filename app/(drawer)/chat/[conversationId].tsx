@@ -3,7 +3,6 @@ import { useQuery, useZero } from '@rocicorp/zero/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -27,7 +26,6 @@ import {
   fetchWithChatDeadline,
   getModuleStreamHandoff,
   isFleetUnavailableFailure,
-  SURFACE_UNAVAILABLE_MESSAGE,
   useResumableSSEStream,
 } from '@/hooks/use-resumable-sse-stream';
 import { useVoiceSession } from '@/hooks/use-voice-session';
@@ -844,39 +842,17 @@ export default function ChatScreen() {
     }
   }, [conversationId, conversation, isNewConversation, conversations, conversationRows, router]);
 
-  const isLoading = conversationRows === undefined;
-
+  // S31-FE-02: do not full-screen-gate on conversationRows. When zero-cache is
+  // down the list query stays undefined forever; ChatThread owns loading
+  // (chat-loading-inline) and terminal error (chat-degraded-banner) via the
+  // shared useZeroRowWatchdog in useChatHistory.
   const conversationExists =
     isNewConversation ||
     conversations.some((c) => c.id === conversationId) ||
     Boolean(conversationRow);
 
-  if (isLoading && !isNewConversation) {
-    return (
-      <View
-        style={styles.centerContainer}
-        className="bg-background p-6"
-        testID="chat-loading-screen"
-      >
-        <ActivityIndicator size="large" testID="loading-spinner" />
-        <Text className="text-muted-foreground mt-4 text-sm">Loading conversation...</Text>
-      </View>
-    );
-  }
-
-  if (messagesError) {
-    return (
-      <View style={styles.centerContainer} className="bg-background p-6" testID="chat-error-screen">
-        <Text className="text-destructive text-center text-lg">Failed to load conversation</Text>
-        <Text className="text-muted-foreground text-center text-sm mt-2">
-          {messagesError.message}
-        </Text>
-        <Button onPress={() => router.push('/')} testID="go-home-button" className="mt-4">
-          <Text>Go to Home</Text>
-        </Button>
-      </View>
-    );
-  }
+  // S31-FE-02: history error is owned by ChatThread (degraded-banner presentation).
+  // Do not full-screen replace the thread — that would hide chat-degraded-banner.
 
   if (
     !conversationExists &&
@@ -937,6 +913,7 @@ export default function ChatScreen() {
             durableMessages={durableMessages}
             showTypingIndicator={!isDegraded && (isSending || (agentBusy && !streamingMessageId))}
             isLoading={isLoadingMessages}
+            error={messagesError}
             safeAreaTop={contentTopPadding}
             testID="chat-thread"
             onFinalResultPress={handleFinalResultPress}
@@ -981,19 +958,6 @@ export default function ChatScreen() {
           testID="voice-assistant-overlay"
         />
         <View style={{ paddingBottom: insets.bottom }}>
-          {isDegraded ? (
-            <View
-              className="bg-warning/10 border-t border-warning/30 px-4 py-2"
-              testID="chat-degraded-banner"
-              accessibilityRole="alert"
-              accessibilityLabel={degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE}
-              accessible
-            >
-              <Text className="text-foreground" testID="chat-degraded-message">
-                {degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE}
-              </Text>
-            </View>
-          ) : null}
           {sendError && !isDegraded && (
             <View
               className="bg-destructive/10 px-4 py-2 flex-row items-center justify-between"

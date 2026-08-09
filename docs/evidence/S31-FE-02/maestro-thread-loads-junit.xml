@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="iPhone 17 - iOS 26.5 - C79BF38C-D353-46A2-A1ED-CCA6D68E1B04" tests="1" failures="0" time="48.0">
+    <testcase id="thread-loads" name="thread-loads" classname="thread-loads" file=".maestro/chat/thread-loads.yml" time="48.0" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

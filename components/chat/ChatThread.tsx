@@ -8,6 +8,7 @@ import {
   type ChatStreamPhase,
   SURFACE_UNAVAILABLE_MESSAGE,
 } from '@/hooks/use-resumable-sse-stream';
+import { ZERO_ROW_WATCHDOG_MESSAGE } from '@/hooks/use-zero-row-watchdog';
 import type { MessageRole, MessageType } from '@/lib/types/conversations';
 import { AgentActivityIndicator } from './AgentActivityIndicator';
 import {
@@ -64,6 +65,12 @@ export interface ChatThreadProps {
   showTypingIndicator?: boolean;
   /** Initial loading state - shows subtle inline loader */
   isLoading?: boolean;
+  /**
+   * Terminal Zero-row / history load failure (S31-FE-02).
+   * When set with an empty thread, renders the existing degraded-banner presentation
+   * instead of an indefinite chat-loading-inline spinner.
+   */
+  error?: Error | null;
   /** Safe area top inset to apply as padding */
   safeAreaTop?: number;
   testID?: string;
@@ -123,6 +130,7 @@ export function ChatThread({
   durableMessages = [],
   showTypingIndicator = false,
   isLoading = false,
+  error = null,
   safeAreaTop = 0,
   testID = 'chat-thread',
   onFinalResultPress,
@@ -378,6 +386,31 @@ export function ChatThread({
   };
 
   const renderEmptyState = () => {
+    // S31-FE-02: terminal Zero-row error — reuse degraded banner presentation
+    // (no new error component; chat-loading-inline must not spin forever).
+    // When streamPhase is already degraded, ListHeader owns the single banner.
+    if (error && streamPhase !== 'degraded') {
+      const errorText = error.message?.trim() ? error.message : ZERO_ROW_WATCHDOG_MESSAGE;
+      return (
+        <View
+          className="flex-1 items-center justify-center p-6"
+          style={{ transform: [{ scaleY: -1 }] }}
+        >
+          <View
+            className="self-stretch rounded-lg border border-warning/40 bg-warning/10 px-3 py-2"
+            testID="chat-degraded-banner"
+            accessibilityRole="alert"
+            accessibilityLabel={errorText}
+            accessible
+          >
+            <Text variant="small" className="text-foreground" testID="chat-degraded-message">
+              {errorText}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     // While loading, show nothing (seamless UI) - or a very subtle indicator
     if (isLoading) {
       return (
