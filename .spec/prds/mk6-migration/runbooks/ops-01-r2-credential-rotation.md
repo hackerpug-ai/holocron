@@ -10,6 +10,40 @@
 > by a human on the mini. Agents may only verify that this checklist exists and
 > that repo LaunchAgent plists / conf examples are non-stub.
 
+
+
+---
+
+## TEMPORARY EXCEPTION (operator-approved) — deferred old-key revoke
+
+**Status:** ACTIVE as of 2026-08-09  
+**Approved by:** operator (human)  
+**Scope:** S31-OPS-01 only
+
+The operator has approved a **temporary exception** to **retain the old R2 access key**.
+
+| Rule | Required behavior |
+|------|-------------------|
+| Revoke old key (runbook step 5) | **DO NOT REVOKE** while this exception is active |
+| Negative control — prove old key fails (runbook step 6 / AC-1 old-key probe) | **DO NOT RUN** as a pass criterion; **MUST NOT** be marked passed |
+| New-key / local backup validation (steps 2–4) | **CONTINUE** — secrets use new key; prove `holo backup:base` / `backup:status` (and optional mirror) with the **new** key |
+| AC-1 PRIMARY (full) | **Remains incomplete** until exception is lifted and steps 5–6 pass |
+| Agent automation | Agents must never revoke R2 keys or claim the old-key negative control green under this exception |
+
+### Close-out of this exception (later operator action)
+
+1. Operator revokes the old R2 key in Cloudflare UI.
+2. Operator proves old key auth fails (AccessDenied or equivalent).
+3. Record revoke UTC + sign-off in evidence (no secret values).
+4. Only then may AC-1 old-key negative control be marked passed.
+
+### Evidence labels under this exception
+
+- `new_key_local_validation`: may be PASS | FAIL | INCOMPLETE  
+- `old_key_negative_control`: **NOT_PASSED** (exception active) — never greenwash  
+- `revoke_old_key`: **DEFERRED**
+
+
 Related:
 
 - LaunchAgents: `services/platform/deploy/launchd/holocron-{base-backup,wal-archive,restic-blob-mirror,backup-alert-sweep}.plist`
@@ -155,7 +189,9 @@ Re-install from repo templates if needed:
 
 ### 5) Revoke the **old** R2 access key
 
-Back in the Cloudflare console (human only):
+> **If the TEMPORARY EXCEPTION (deferred-revocation) is active: skip this step.** Do not revoke. Do not mark this step complete.
+
+Back in the Cloudflare console (human only), **only after the exception is lifted**:
 
 1. Disable / delete the **previous** API token or access key that was replaced in step 2.
 2. Do **not** revoke the new key.
@@ -166,7 +202,9 @@ Back in the Cloudflare console (human only):
 
 ### 6) Negative control — prove old key fails
 
-With the **old** key material only (local env override; do not write old keys back into secrets):
+> **If the TEMPORARY EXCEPTION is active: do not execute this control as a pass gate.** Leave evidence status `NOT_PASSED` / `DEFERRED`.
+
+With the **old** key material only **(only after revoke when exception is lifted)** (local env override; do not write old keys back into secrets):
 
 ```bash
 # Example shape only — paste values from your password manager, not from git
@@ -216,7 +254,7 @@ operator steps above — it does **not** perform rotation.
 | Update secrets + conf | Operator (local mini) | Runtime uses new key |
 | `holo backup:base` / `backup:status` | Operator | Fresh success after `ROTATION_TS` |
 | Optional `backup:mirror` / webhook | Operator | Heartbeat + alert path green |
-| Revoke old key | Operator (Cloudflare UI) | Old key unusable |
-| Prove old key fails | Operator | AccessDenied (or equivalent) |
+| Revoke old key | Operator (Cloudflare UI) | Old key unusable — **DEFERRED under temporary exception** |
+| Prove old key fails | Operator | AccessDenied (or equivalent) — **NOT_PASSED under temporary exception** |
 | Sign-off | Operator | Evidence without raw secrets |
 | Checklist artifact present | Agent tests | This file + rotation steps |
