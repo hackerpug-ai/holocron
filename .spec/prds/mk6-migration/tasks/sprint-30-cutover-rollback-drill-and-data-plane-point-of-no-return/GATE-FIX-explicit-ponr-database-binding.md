@@ -1,6 +1,9 @@
 # GATE-FIX-explicit-ponr-database-binding — Bind rollback/PONR oracles to one database and lifecycle the exact C-3 marker
-> Status: 🟡 In Progress
-> Updated: 2026-08-08T18:49:07Z
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: a26b11f3d7dcb64e10c25bebea864b199d38e59a
+> Reviewer: mastra-reviewer+security-reviewer+test-quality-reviewer
+> Completed: 2026-08-09T01:31:38Z
 
 > **Task ID:** GATE-FIX-explicit-ponr-database-binding
 > **Sprint:** [Sprint 30 — Cutover Rollback Drill and Data-Plane PONR](./SPRINT.md)
@@ -227,27 +230,27 @@ The first immutable review returned NEEDS_FIXES: test reality found **4 CRITICAL
 
 ## Acceptance Criteria
 
-- [ ] **AC-1 — required internal database dependency [PRIMARY].** GIVEN TypeScript callers of `runRollbackRepoint`, `runRollbackDrill`, and `spawnRollbackRepointCli` WHEN `databaseUrl` is omitted THEN typecheck fails. GIVEN a supplied value WHEN the functions run THEN none resolves/falls back to ambient `DATABASE_URL`; both CLI cases resolve/validate once and pass it. No DB URL CLI flag exists.
+- [x] **AC-1 — required internal database dependency [PRIMARY].** GIVEN TypeScript callers of `runRollbackRepoint`, `runRollbackDrill`, and `spawnRollbackRepointCli` WHEN `databaseUrl` is omitted THEN typecheck fails. GIVEN a supplied value WHEN the functions run THEN none resolves/falls back to ambient `DATABASE_URL`; both CLI cases resolve/validate once and pass it. No DB URL CLI flag exists.
 
-- [ ] **AC-2 — consistent PONR/audit target.** GIVEN ambient `DATABASE_URL` points to a marker DB with a PONR row and explicit rollback DB points to a clean gate DB WHEN `runRollbackRepoint` runs THEN `readDataPlanePonr`, authoritative audit load, and report identity all use the clean gate DB; the marker cannot cause `POST_PONR_INELIGIBLE`. GIVEN the explicit gate DB contains a real PONR WHEN the same call runs THEN it fails `POST_PONR_INELIGIBLE` bound to that gate row even if ambient DB is clean.
+- [x] **AC-2 — consistent PONR/audit target.** GIVEN ambient `DATABASE_URL` points to a marker DB with a PONR row and explicit rollback DB points to a clean gate DB WHEN `runRollbackRepoint` runs THEN `readDataPlanePonr`, authoritative audit load, and report identity all use the clean gate DB; the marker cannot cause `POST_PONR_INELIGIBLE`. GIVEN the explicit gate DB contains a real PONR WHEN the same call runs THEN it fails `POST_PONR_INELIGIBLE` bound to that gate row even if ambient DB is clean.
 
-- [ ] **AC-3 — child and recompute binding.** GIVEN `runRollbackDrill({databaseUrl: gate})` and an ambient/supplied child env naming marker WHEN the real child CLI is spawned THEN child `DATABASE_URL` is gate, child report identity equals parent, five-surface DB work and independent `loadPostExportWriteAuditAsync` recompute use gate, and ambient env is unchanged after the call. `runVerifyTools` must not mutate `process.env.DATABASE_URL`.
+- [x] **AC-3 — child and recompute binding.** GIVEN `runRollbackDrill({databaseUrl: gate})` and an ambient/supplied child env naming marker WHEN the real child CLI is spawned THEN child `DATABASE_URL` is gate, child report identity equals parent, five-surface DB work and independent `loadPostExportWriteAuditAsync` recompute use gate, and ambient env is unchanged after the call. `runVerifyTools` must not mutate `process.env.DATABASE_URL`.
 
-- [ ] **AC-4 — mismatch fails closed.** GIVEN a genuine real child report from database B whose other prerequisites pass is evaluated by a drill bound to database A WHEN the production acceptance seam runs THEN drill acceptance fails first with `DATABASE_TARGET_MISMATCH`, `ok:false`, and `repointed:false`. Missing/malformed identity is the same failure class. A mutation removing or inverting the production target comparison must make the test fail.
+- [x] **AC-4 — mismatch fails closed.** GIVEN a genuine real child report from database B whose other prerequisites pass is evaluated by a drill bound to database A WHEN the production acceptance seam runs THEN drill acceptance fails first with `DATABASE_TARGET_MISMATCH`, `ok:false`, and `repointed:false`. Missing/malformed identity is the same failure class. A mutation removing or inverting the production target comparison must make the test fail.
 
-- [ ] **AC-5 — credential-free identity.** GIVEN URLs that differ only by scheme alias, userinfo/password, host case, or omitted/default port WHEN identity is derived THEN host/effective port/database/fingerprint are stable and equal. GIVEN distinct host, effective port, or database THEN identity is unequal. Reports, logs, argv, and evidence contain none of the secret canaries, username/password, raw URL, query, or fragment.
+- [x] **AC-5 — credential-free identity.** GIVEN URLs that differ only by scheme alias, userinfo/password, host case, or omitted/default port WHEN identity is derived THEN host/effective port/database/fingerprint are stable and equal. GIVEN distinct host, effective port, or database THEN identity is unequal. Reports, logs, argv, and evidence contain none of the secret canaries, username/password, raw URL, query, or fragment.
 
-- [ ] **AC-6 — exact marker deletion only.** GIVEN zero marker rows WHEN cleanup runs THEN it succeeds idempotently without disabling triggers. GIVEN exactly one full-identity synthetic row WHEN cleanup runs THEN exactly that row is deleted. GIVEN one field differs, a foreign row exists, or multiplicity is unexpected THEN cleanup exits nonzero and preserves every PONR row.
+- [x] **AC-6 — exact marker deletion only.** GIVEN zero marker rows WHEN cleanup runs THEN it succeeds idempotently without disabling triggers. GIVEN exactly one full-identity synthetic row WHEN cleanup runs THEN exactly that row is deleted. GIVEN one field differs, a foreign row exists, or multiplicity is unexpected THEN cleanup exits nonzero and preserves every PONR row.
 
-- [ ] **AC-7 — trigger and audit preservation.** GIVEN two legitimate marker-DB `post_export_write_audit` rows and both named PONR triggers `O` WHEN cleanup succeeds or a real third-trigger delete bomb forces failure after disable THEN audit count+whole-table digest are identical before/after, both named triggers finish `O`, the unrelated trigger is untouched, and no trigger other than the two named ones was disabled. Failure restoration is verified, not inferred from source text.
+- [x] **AC-7 — trigger and audit preservation.** GIVEN two legitimate marker-DB `post_export_write_audit` rows and both named PONR triggers `O` WHEN cleanup succeeds or a real third-trigger delete bomb forces failure after disable THEN audit count+whole-table digest are identical before/after, both named triggers finish `O`, the unrelated trigger is untouched, and no trigger other than the two named ones was disabled. Failure restoration is verified, not inferred from source text.
 
-- [ ] **AC-8 — early gate validation and complete lifecycle.** GIVEN a missing/malformed/equal gate/marker URL WHEN the human gate starts THEN it exits before any DB/control-plane/step mutation. GIVEN valid distinct targets WHEN C-3 runs with seeding enabled THEN pre-C3 cleanup proves a clean marker start and the EXIT trap proves marker count 0 plus audit/trigger preservation on normal success and forced C-3 failure. The original nonzero gate RC is preserved; cleanup failure turns an otherwise-zero run nonzero.
+- [x] **AC-8 — early gate validation and complete lifecycle.** GIVEN a missing/malformed/equal gate/marker URL WHEN the human gate starts THEN it exits before any DB/control-plane/step mutation. GIVEN valid distinct targets WHEN C-3 runs with seeding enabled THEN pre-C3 cleanup proves a clean marker start and the EXIT trap proves marker count 0 plus audit/trigger preservation on normal success and forced C-3 failure. The original nonzero gate RC is preserved; cleanup failure turns an otherwise-zero run nonzero.
 
-- [ ] **AC-9 — real two-database regression.** Tests use two simultaneously reachable, migrated PostgreSQL databases with distinct database names (not schemas, files, mocks, fake SQL clients, or sequentially swapped single DB). They seed contradictory PONR/audit state and prove explicit-target behavior, child propagation, mismatch refusal, marker cleanup, foreign-row refusal, equality refusal, and failure restoration.
+- [x] **AC-9 — real two-database regression.** Tests use two simultaneously reachable, migrated PostgreSQL databases with distinct database names (not schemas, files, mocks, fake SQL clients, or sequentially swapped single DB). They seed contradictory PONR/audit state and prove explicit-target behavior, child propagation, mismatch refusal, marker cleanup, foreign-row refusal, equality refusal, and failure restoration.
 
-- [ ] **AC-10 — legitimate nonprod preservation.** No implementation or verification command invokes the broad Sprint 30 ledger reset against `holocron_nonprod`/marker target. Task-commit evidence records the legitimate marker audit count and digest and proves the exact same values after every cleanup test. Any unexpected marker row blocks; it is never reclassified or deleted manually.
+- [x] **AC-10 — legitimate nonprod preservation.** No implementation or verification command invokes the broad Sprint 30 ledger reset against `holocron_nonprod`/marker target. Task-commit evidence records the legitimate marker audit count and digest and proves the exact same values after every cleanup test. Any unexpected marker row blocks; it is never reclassified or deleted manually.
 
-- [ ] **AC-11 — quality and task commit.** Targeted tests, shell syntax checks, TypeScript, formatting/lint, and all repository pre-commit hooks pass without bypass. The conventional implementation commit contains only WRITE-ALLOWED paths and no secrets/evidence credentials. Do not push, release, land to `main`, or touch Sprint 31; landing and final runtime/gate proof are orchestrator-owned closeout steps.
+- [x] **AC-11 — quality and task commit.** Targeted tests, shell syntax checks, TypeScript, formatting/lint, and all repository pre-commit hooks pass without bypass. The conventional implementation commit contains only WRITE-ALLOWED paths and no secrets/evidence credentials. Do not push, release, land to `main`, or touch Sprint 31; landing and final runtime/gate proof are orchestrator-owned closeout steps.
 
 ## RED-first scenario contracts
 
@@ -388,7 +391,8 @@ AGENT: implementer=mastra-implementer | proposed_by=mastra-planner | technical-r
 planned_at: 2026-08-08T00:00:00-06:00
 finding_ids: [stale-nonprod-ponr, DATABASE_TARGET_MISMATCH, T-SYNC-013, T-SYNC-014, CAP-CUT-01, 20260808T024946Z]
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
