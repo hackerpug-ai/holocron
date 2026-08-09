@@ -1,0 +1,28 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-01
+
+ ❯ |integration| services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts (3 tests | 1 failed) 4040ms
+     × contentCorruptionWithMatchingCountsMustFailReconcile 1028ms
+     ✓ fkAuditMustNotPassWithZeroConstraints  420ms
+     ✓ redEvidenceArtifactPresent 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts > S31-CX-01 RED: content-blind reconcile + non-gating FK audit > contentCorruptionWithMatchingCountsMustFailReconcile
+AssertionError: desired: exit code != 0 when a field is corrupted with matching counts: expected +0 not to be +0 // Object.is equality
+ ❯ services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts:277:11
+    275|       reconcile.status,
+    276|       'desired: exit code != 0 when a field is corrupted with matching…
+    277|     ).not.toBe(0);
+       |           ^
+    278|     expect(report?.ok, 'desired: ok == false under content corruption'…
+    279|     expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  02:14:01
+   Duration  4.63s (transform 130ms, setup 152ms, import 327ms, tests 4.04s, environment 0ms)
+

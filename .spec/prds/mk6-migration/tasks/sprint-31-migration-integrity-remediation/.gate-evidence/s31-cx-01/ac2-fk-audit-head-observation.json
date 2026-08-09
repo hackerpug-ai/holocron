@@ -1,0 +1,22 @@
+{
+  "status": 1,
+  "ok": false,
+  "enforcedForeignKeys": 17,
+  "unenforcedEdgesLength": 56,
+  "edgeCount": 80,
+  "orphans": 0,
+  "domainForeignKeyCount": 0,
+  "domainTables": [
+    "documents",
+    "chat_messages",
+    "conversations",
+    "tasks",
+    "tool_calls",
+    "research_sessions",
+    "agent_plans",
+    "agent_plan_steps"
+  ],
+  "stdout_head": "{\n  \"ok\": false,\n  \"orphans\": 0,\n  \"checkedRelationships\": 50,\n  \"enforcedForeignKeys\": 17,\n  \"unenforcedEdges\": [\n    {\n      \"sourceTable\": \"agentTelemetry\",\n      \"sourceField\": \"conversationId\",\n      \"referencedTable\": \"conversations\",\n      \"target\": \"agent_telemetry.conversation_id\"\n    },\n    {\n      \"sourceTable\": \"agentTelemetry\",\n      \"sourceField\": \"messageId\",\n      \"referencedTable\": \"chatMessages\",\n      \"target\": \"agent_telemetry.message_id\"\n    },\n    {\n      \"sourceTable\": \"chatMessages\",\n      \"sourceField\": \"conversationId\",\n      \"referencedTable\": \"conversations\",\n      \"target\": \"chat_messages.conversation_id\"\n    },\n    {\n      \"sourceTable\": \"chatMessages\",\n      \"sourceField\": \"sessionId\",\n      \"referencedTable\": \"researchSessions\",\n      \"target\": \"chat_messages.session_id\"\n    },\n    {\n      \"sourceTable\": \"chatMessages\",\n      \"sourceField\": \"voiceSessionId\",\n      \"referencedTable\": \"voiceSessions\",\n      \"target\": \"chat_messages.voice_session_id\"\n    },\n    {\n      \"sourceTable\": \"chatMessages\",\n      \"sourceField\": \"documentId\",\n      \"referencedTable\": \"documents\",\n      \"target\": \"chat_messages.document_id\"\n    },\n    {\n      \"sourceTable\": \"researchSessions\",\n      \"sourceField\": \"documentId\",\n      \"referencedTable\": \"documents\",\n      \"target\": \"research_sessions.document_id\"\n    },\n    {\n      \"sourceTable\": \"researchIterations\",\n      \"sourceField\": \"sessionId\",\n      \"referencedTable\": \"researchSessions\",\n      \"target\": \"research_iterations.session_id\"\n    },\n    {\n      \"sourceTable\": \"deepResearchSessions\",\n      \"sourceField\": \"conversationId\",\n      \"referencedTable\": \"conversations\",\n      \"target\": \"research_sessions.conversation_id\"\n    },\n    {\n      \"sourceTable\": \"deepResearchSessions\",\n      \"sourceField\": \"taskId\",\n      \"referencedTable\": \"tasks\",\n      \"target\": \"research_sessions.task_id\"\n    },\n    {\n      \"sourceTable\": \"researchFindings\",\n      \"sourceField\": \"sessionId\",\n      \"referencedTable\": \"deepRese",
+  "stderr_head": "",
+  "note": "Desired: ok must not be true when eligible domain edges exist without DB FK enforcement. S31-CX-04 makes this green; pre-fix HEAD could ok:true from issues.length alone."
+}

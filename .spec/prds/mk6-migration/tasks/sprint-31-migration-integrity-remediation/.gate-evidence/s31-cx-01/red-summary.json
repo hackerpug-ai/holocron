@@ -1,0 +1,59 @@
+{
+  "task_id": "S31-CX-01",
+  "captured_at": "2026-08-09T02:12:48Z",
+  "command": "PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm exec vitest run --project integration services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts",
+  "exit_code": 1,
+  "suite_result": {
+    "test_files_failed": 1,
+    "tests_failed": 1,
+    "tests_passed": 2,
+    "tests_total": 3
+  },
+  "assertion_names": [
+    "contentCorruptionWithMatchingCountsMustFailReconcile",
+    "fkAuditMustNotPassWithZeroConstraints",
+    "redEvidenceArtifactPresent"
+  ],
+  "ac_results": {
+    "AC-1": {
+      "test": "contentCorruptionWithMatchingCountsMustFailReconcile",
+      "status": "RED",
+      "failed_assertion": "desired: exit code != 0 when a field is corrupted with matching counts",
+      "head_observation": {
+        "reconcile_status": 0,
+        "ok": true,
+        "unexplainedVariance": 0,
+        "fieldDigestMismatches": null,
+        "documents_sourceCount": 2,
+        "documents_loadedCount": 2,
+        "documents_variance": 0,
+        "planted_corruption": "documents.title for doc_legacy_1 -> S31-CX-01-CORRUPTED-TITLE"
+      },
+      "note": "Count-only reconcile accepts matching row counts despite field corruption. GREEN is S31-CX-03 (fieldDigestMismatches)."
+    },
+    "AC-2": {
+      "test": "fkAuditMustNotPassWithZeroConstraints",
+      "status": "GREEN_ALREADY",
+      "domain_foreign_keys": 0,
+      "enforcedForeignKeys": 17,
+      "unenforcedEdges": 56,
+      "edgeCount": 80,
+      "ok": false,
+      "note": "S31-CX-04 already fail-closes on unenforced eligible edges; desired contract holds on HEAD."
+    },
+    "AC-3": {
+      "test": "redEvidenceArtifactPresent",
+      "status": "PASS",
+      "evidence_dir": ".spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/.gate-evidence/s31-cx-01"
+    }
+  },
+  "artifacts": [
+    "red-run.log",
+    "red-summary.json",
+    "setup-corrupt-content.json",
+    "ac1-reconcile-head-observation.json",
+    "ac2-fk-audit-head-observation.json",
+    "ac2-desired-contract.json",
+    "ac3-evidence-index.json"
+  ]
+}

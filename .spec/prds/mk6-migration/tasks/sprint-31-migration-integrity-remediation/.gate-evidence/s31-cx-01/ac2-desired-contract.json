@@ -1,0 +1,16 @@
+{
+  "assertions": [
+    "domain FK count == 0",
+    "enforcedForeignKeys reported",
+    "ok == false OR unenforcedEdges cover eligible edges",
+    "unenforcedEdges.length > 0",
+    "not (ok:true with enforcedForeignKeys==0 and eligible edges>0)"
+  ],
+  "domainForeignKeyCount": 0,
+  "report": {
+    "ok": false,
+    "enforcedForeignKeys": 17,
+    "unenforcedEdgesLength": 56,
+    "edgeCount": 80
+  }
+}
