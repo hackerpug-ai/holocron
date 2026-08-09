@@ -439,6 +439,8 @@ Usage:
   infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
   verify:no-shells          Prove per-domain pipeline shells are gone (whatsnew/assimilate/shop/subscriptions)
+  verify:decommission-inventory
+                            S31-CX-05: classify every convex/ file; refuse sole-implementation / unclassified
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
   budget:set                Set escape budget ceiling (--ceiling <usd>)
   telemetry:tail            Tail durable inference_telemetry rows (--run-id, --json)
@@ -4869,6 +4871,25 @@ async function main(): Promise<void> {
         }
       }
       process.exit(result.ok ? 0 : 1);
+      break;
+    }
+
+    case 'verify:decommission-inventory': {
+      // S31-CX-05 — whole convex/ decommission-blocker inventory (fail closed).
+      const { resolve } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const { buildDecommissionInventory, formatDecommissionInventoryText } = await import(
+        '../mission/verify-decommission-inventory.ts'
+      );
+      const here = fileURLToPath(new URL('.', import.meta.url));
+      const repoRoot = args.root ? resolve(args.root) : resolve(here, '../../../..');
+      const report = buildDecommissionInventory(repoRoot);
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatDecommissionInventoryText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
       break;
     }
 
