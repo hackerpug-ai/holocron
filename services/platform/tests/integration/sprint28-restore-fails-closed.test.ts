@@ -324,12 +324,14 @@ function seedFixtures(
   ).toBeGreaterThanOrEqual(1);
 
   // healthy: REAL pgBackRest backup + WAL into test-scoped prefix (REDHAT-FIX-C1).
+  // S31-OPS-03 / R24: never hardcode a primary-checkout absolute conf path — resolve
+  // from this worktree (or operator-supplied PGBACKREST_CONFIG / cfg).
   const productionConfigPath = existsSync(cfg.pgbackrestConfigPath)
     ? cfg.pgbackrestConfigPath
-    : '/Users/inference1/Projects/holocron/services/platform/config/pgbackrest/pgbackrest.conf';
+    : resolve(REPO_ROOT, 'services/platform/config/pgbackrest/pgbackrest.conf');
   expect(
     existsSync(productionConfigPath),
-    `production pgBackRest conf required for dual-archive seed: ${productionConfigPath}`
+    `pgBackRest conf required for dual-archive seed: ${productionConfigPath} (set PGBACKREST_CONFIG or run holo backup:provision)`
   ).toBe(true);
 
   const healthySeed = seedRealPgbackrestHealthyChain({

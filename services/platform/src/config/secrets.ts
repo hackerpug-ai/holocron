@@ -78,6 +78,11 @@ export function defaultSecretsPath(repoRoot = resolveRepoRoot()): string {
 /**
  * Resolve secrets.yaml path from env (GATE-FIX-S28R3-QA25).
  * Precedence: HOLO_SECRETS_PATH → HOLOCRON_SECRETS_PATH → SECRETS_PATH → defaultSecretsPath().
+ *
+ * S31-OPS-03 / R24: when HOLO_HARNESS=1, refuse production secrets.yaml (and any
+ * non-ephemeral path under the same rules as harness-isolation). Harnesses must
+ * set HOLO_SECRETS_PATH under .tmp/ or deploy/nonprod/. Inline check (no import
+ * of backup/harness-isolation) to avoid secrets↔backup module cycles.
  */
 export function resolveSecretsPathFromEnv(
   env: NodeJS.ProcessEnv = process.env,
@@ -88,7 +93,26 @@ export function resolveSecretsPathFromEnv(
     env.HOLOCRON_SECRETS_PATH?.trim() ||
     env.SECRETS_PATH?.trim() ||
     '';
-  return fromEnv || defaultSecretsPath(repoRoot);
+  const path = fromEnv || defaultSecretsPath(repoRoot);
+  if (env.HOLO_HARNESS === '1') {
+    const abs = resolve(path);
+    const prod = defaultSecretsPath(repoRoot);
+    const tmpRoot = resolve(repoRoot, '.tmp');
+    const nonprodRoot = resolve(repoRoot, 'services/platform/deploy/nonprod');
+    const isProd = abs === prod || abs.endsWith('/services/platform/config/secrets.yaml');
+    const isEphemeral =
+      abs === tmpRoot ||
+      abs.startsWith(`${tmpRoot}/`) ||
+      abs === nonprodRoot ||
+      abs.startsWith(`${nonprodRoot}/`) ||
+      abs.includes('/.tmp/');
+    if (isProd || !isEphemeral) {
+      throw new Error(
+        `HARNESS_PRODUCTION_PATH_REFUSED: harness secrets path must be under .tmp/ or deploy/nonprod/; got ${abs}`
+      );
+    }
+  }
+  return path;
 }
 
 export function defaultSecretsExamplePath(repoRoot = resolveRepoRoot()): string {
