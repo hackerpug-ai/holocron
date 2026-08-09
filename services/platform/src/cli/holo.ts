@@ -1571,6 +1571,7 @@ async function main(): Promise<void> {
           console.log(`  enforcedForeignKeys:  ${result.enforcedForeignKeys}`);
           console.log(`  edgeCount:            ${result.edgeCount}`);
           console.log(`  unenforcedEdges:      ${result.unenforcedEdges.length}`);
+          console.log(`  excludedFromEnforcement: ${result.excludedFromEnforcement?.length ?? 0}`);
           console.log(`  orphans:              ${result.orphans}`);
           console.log(result.ok ? '  status: OK' : '  status: FAIL');
         }
