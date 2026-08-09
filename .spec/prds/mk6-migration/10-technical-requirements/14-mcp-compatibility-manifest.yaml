@@ -1,8 +1,9 @@
-# MCP Compatibility Manifest — Holocron MCP Server
-# Sprint-03 / mcp-manifest-01: Header + 44-tool skeleton
-# Per-tool schemas, defaults, errors, pagination, fixtures, etc. are populated by mcp-manifest-02.
+# MCP Compatibility Manifest — Holocron Postgres MCP Gateway
+# Frozen dual-transport contract for the 44 registered tools (stdio + streamable-http).
+# Tool IDs / schemas track services/platform/src/tools/registry.ts and executePostgresMcpTool.
+# Success/error/replay fixtures resolve by filename convention only:
+#   {toolId}_{success|error|replay}.json under services/platform/tests/fixtures/mcp-manifest/
 #
-# Source of truth for tool IDs: holocron-mcp/src/mastra/stdio.ts (createTool calls, lines 139-789)
 
 protocol: "2025-11-25"
 
@@ -15,23 +16,24 @@ no_server_sampling: true
 
 auth_policy:
   stdio:
-    trust_boundary: "Local process — credentials injected via environment variables (CONVEX_URL, CONVEX_DEPLOYMENT, API keys). No additional auth layer."
+    trust_boundary: "Local process — credentials injected via environment variables (DATABASE_URL, API keys). No additional auth layer."
   streamable_http:
     type: "api-key"
     header: "Authorization"
     scheme: "bearer"
     origin_validation: true
-    allowed_origins: null  # mcp-manifest-02 to populate
-    rate_limit: null       # mcp-manifest-02 to populate
+    # Same-origin only: gateway derives allowedOrigins from request.url (gateway.ts)
+    allowed_origins: same-origin
+    rate_limit: not_applicable  # 01-scope.md (2026-08-07) — MCP transport rate limiting excluded under auth-hardening
 
 cancellation_policy:
   posture: "cooperative"
   description: >
     Clients may send cancellation notifications per MCP 2025-11-25.
-    The server aborts in-flight tool execution when a cancellation is received.
-    Long-running operations (assimilation sessions, transcript jobs) are dispatched
-    to Convex and are not directly cancellable via the MCP transport — the client
-    must use the cancel_assimilation tool for those workflows.
+    The gateway threads AbortSignal via extra.signal into executePostgresMcpTool
+    (gateway.ts), which aborts in-flight Postgres executor work cooperatively.
+    Long-running retailer/search work honours the abort signal; session-level
+    assimilation workflows are cancelled via cancel_assimilation against Postgres.
   supported: true
 
 tools:
@@ -59,13 +61,12 @@ tools:
       - code: NOT_FOUND
         description: "Session does not exist — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: search_research
     input_schema:
@@ -96,13 +97,12 @@ tools:
       limit: 10
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Search ────────────────────────────────────────────────────
   - id: search_fts
@@ -133,13 +133,12 @@ tools:
       limit: 20
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex FTS5 query failed"
+        description: "Postgres FTS query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: search_vector
     input_schema:
@@ -171,13 +170,12 @@ tools:
       - code: VALIDATION_ERROR
         description: "Embedding dimension mismatch"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex vector search failed"
+        description: "Postgres vector search failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: hybrid_search
     input_schema:
@@ -216,7 +214,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Documents ─────────────────────────────────────────────────
   - id: store_document
@@ -252,15 +249,14 @@ tools:
       - code: EMBEDDING_FAILED
         description: "OpenAI embedding generation failed"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex createWithEmbedding mutation failed"
+        description: "Postgres store_document insert failed"
     pagination: null
-    side_effects: "INSERTS documents row + generates embedding via OpenAI (documents/storage:createWithEmbedding action)"
+    side_effects: "INSERTS documents row via executePostgresMcpTool store_document (documents table; embeddingStatus pending)"
     idempotency: "Not natively idempotent — duplicate (title + content) creates a new row. De-dup must be caller-side."
     replay:
       idempotency_key: [title, content]
       stored_result: documentId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: update_document
     input_schema:
@@ -298,15 +294,14 @@ tools:
       - code: EMBEDDING_FAILED
         description: "Re-embedding generation failed"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex updateWithEmbedding mutation failed"
+        description: "Postgres update_document failed"
     pagination: null
-    side_effects: "UPDATES documents row + regenerates embedding if title/content changed (documents/storage:updateWithEmbedding action)"
+    side_effects: "UPDATES documents row via executePostgresMcpTool update_document (documents table; embeddingStatus pending)"
     idempotency: "Idempotent by documentId — repeating the same update with identical fields yields the same result."
     replay:
       idempotency_key: [documentId]
       stored_result: documentId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: share_document
     input_schema:
@@ -330,15 +325,14 @@ tools:
       - code: NOT_FOUND
         description: "Document ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex publishDocument/unpublishDocument mutation failed"
+        description: "Postgres share_document update failed"
     pagination: null
-    side_effects: "UPDATES documents row (isPublic flag) + creates or removes shareToken (documents/mutations:publishDocument or :unpublishDocument)"
+    side_effects: "UPDATES documents is_public/share_token via executePostgresMcpTool share_document (documents table)"
     idempotency: "Idempotent by (documentId, isPublic) — publishing an already-published doc or unpublishing an already-private doc is a safe no-op."
     replay:
       idempotency_key: [documentId, isPublic]
       stored_result: shareToken
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_document
     input_schema:
@@ -351,19 +345,18 @@ tools:
     output_schema:
       type: object
       nullable: true
-      description: "Document or null. If documentId contains ':', queries by Convex ID; otherwise by title."
+      description: "Document or null. Lookup by documentId (UUID) against the observed Postgres data plane."
     defaults: {}
     errors:
       - code: NOT_FOUND
         description: "Document does not exist — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: list_documents
     input_schema:
@@ -390,7 +383,7 @@ tools:
       limit: 50
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination:
       type: cursor
       limit_default: 50
@@ -404,7 +397,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Subscriptions ─────────────────────────────────────────────
   - id: add_subscription
@@ -442,15 +434,14 @@ tools:
       - code: DUPLICATE_SUBSCRIPTION
         description: "Subscription with same sourceType + identifier already exists"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex add mutation failed"
+        description: "Postgres add_subscription insert failed"
     pagination: null
-    side_effects: "INSERTS subscriptions row (subscriptions/mutations:add)"
-    idempotency: "Semi-idempotent by (sourceType, identifier) — Convex backend deduplicates existing subscriptions with the same key."
+    side_effects: "INSERTS subscription_sources row via executePostgresMcpTool add_subscription (Postgres UPSERT by sourceType+identifier)"
+    idempotency: "Semi-idempotent by (sourceType, identifier) — Postgres executor returns the existing subscription_sources row when the key matches."
     replay:
       idempotency_key: [sourceType, identifier]
       stored_result: subscriptionId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: remove_subscription
     input_schema:
@@ -476,15 +467,14 @@ tools:
       - code: NOT_FOUND
         description: "Subscription ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex remove mutation failed"
+        description: "Postgres remove_subscription delete failed"
     pagination: null
-    side_effects: "DELETES subscriptions row (subscriptions/mutations:remove)"
+    side_effects: "DELETES subscription_sources row via executePostgresMcpTool remove_subscription"
     idempotency: "Idempotent by subscriptionId — deleting an already-deleted subscription returns NOT_FOUND."
     replay:
       idempotency_key: [subscriptionId]
       stored_result: deleted
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: list_subscriptions
     input_schema:
@@ -518,7 +508,7 @@ tools:
       limit: 100
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination:
       type: limit-only
       limit_default: 100
@@ -532,7 +522,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: check_subscriptions
     input_schema:
@@ -559,17 +548,16 @@ tools:
       sourceType: null
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex check action failed"
+        description: "Postgres check_subscriptions query failed"
       - code: FETCH_ERROR
         description: "One or more source feeds failed to fetch (partial — errors array in response)"
     pagination: null
-    side_effects: "READS external source feeds, INSERTS subscriptionContent rows, QUEUES discovered items for research (subscriptions/actions:check)"
+    side_effects: "READS subscription_sources count via executePostgresMcpTool check_subscriptions (Postgres executor path)"
     idempotency: "Not idempotent — re-running may create duplicate subscriptionContent rows for items that changed since last check."
     replay:
       idempotency_key: [sourceType]
       stored_result: totalQueued
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_subscription_content
     input_schema:
@@ -608,13 +596,12 @@ tools:
       - code: NOT_FOUND
         description: "Subscription ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: set_subscription_filter
     input_schema:
@@ -644,15 +631,14 @@ tools:
       - code: VALIDATION_ERROR
         description: "Neither sourceId nor sourceType provided"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex setFilter mutation failed"
+        description: "Postgres set_subscription_filter insert failed"
     pagination: null
-    side_effects: "UPSERTS subscriptionFilters row (subscriptions/mutations:setFilter)"
+    side_effects: "INSERTS subscription_filters row via executePostgresMcpTool set_subscription_filter"
     idempotency: "Idempotent by (sourceId|sourceType, ruleName) — same filter rule upserts the existing row."
     replay:
       idempotency_key: [sourceId, ruleName]
       stored_result: filterId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_subscription_filters
     input_schema:
@@ -679,13 +665,12 @@ tools:
     defaults: {}
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Toolbelt ──────────────────────────────────────────────────
   - id: store_tool
@@ -744,15 +729,14 @@ tools:
       - code: EMBEDDING_FAILED
         description: "Embedding generation failed"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex createWithEmbedding action failed"
+        description: "Postgres store_tool insert failed"
     pagination: null
-    side_effects: "INSERTS tools row + generates embedding (toolbelt/storage:createWithEmbedding action)"
+    side_effects: "INSERTS toolbelt_tools row via executePostgresMcpTool store_tool (embeddingStatus pending)"
     idempotency: "Not natively idempotent — duplicate (title, sourceType) creates a new row."
     replay:
       idempotency_key: [title, sourceType, category]
       stored_result: toolId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: search_tools
     input_schema:
@@ -795,13 +779,12 @@ tools:
       category: null
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex hybridSearch action failed"
+        description: "Postgres hybrid_search FTS query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_tool
     input_schema:
@@ -820,13 +803,12 @@ tools:
       - code: NOT_FOUND
         description: "Tool does not exist — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: list_tools
     input_schema:
@@ -862,7 +844,7 @@ tools:
       sourceType: null
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination:
       type: limit-only
       limit_default: 50
@@ -876,7 +858,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: update_tool
     input_schema:
@@ -937,15 +918,14 @@ tools:
       - code: EMBEDDING_FAILED
         description: "Re-embedding generation failed"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex updateWithEmbedding action failed"
+        description: "Postgres update_tool failed"
     pagination: null
-    side_effects: "UPDATES tools row + regenerates embedding if title/content/description changed (toolbelt/storage:updateWithEmbedding action)"
+    side_effects: "UPDATES toolbelt_tools row via executePostgresMcpTool update_tool (embeddingStatus pending)"
     idempotency: "Idempotent by toolId — repeating the same update yields the same result."
     replay:
       idempotency_key: [toolId]
       stored_result: toolId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: remove_tool
     input_schema:
@@ -965,15 +945,14 @@ tools:
       - code: NOT_FOUND
         description: "Tool ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex remove mutation failed"
+        description: "Postgres remove_subscription delete failed"
     pagination: null
-    side_effects: "DELETES tools row (toolbelt/mutations:remove)"
+    side_effects: "DELETES toolbelt_tools row via executePostgresMcpTool remove_tool"
     idempotency: "Idempotent by toolId — deleting an already-deleted tool returns NOT_FOUND."
     replay:
       idempotency_key: [toolId]
       stored_result: deleted
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Shop ──────────────────────────────────────────────────────
   - id: shop_products
@@ -1035,17 +1014,16 @@ tools:
       verifiedOnly: null
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex startShopSearch action failed"
+        description: "Postgres shop_products session/search failed"
       - code: TIMEOUT
         description: "Retailer search timed out (partial results may be returned)"
     pagination: null
-    side_effects: "CREATES shopSessions row + INSERTS shopListings rows from retailer API calls (shop/index:startShopSearch action)"
+    side_effects: "CREATES shop_sessions + INSERTS shop_listings via executePostgresMcpTool shop_products (live retailer search)"
     idempotency: "Idempotent replay by full effective search input; identical filters replay the stored session, while retailer or verifiedOnly changes create a new session."
     replay:
       idempotency_key: [query, retailers, condition, priceMin, priceMax, verifiedOnly]
       stored_result: sessionId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_shop_session
     input_schema:
@@ -1073,13 +1051,12 @@ tools:
       - code: NOT_FOUND
         description: "Session does not exist — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_shop_listings
     input_schema:
@@ -1121,13 +1098,12 @@ tools:
       - code: NOT_FOUND
         description: "Session does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── What's New ────────────────────────────────────────────────
   - id: get_whats_new_report
@@ -1166,13 +1142,12 @@ tools:
       - code: NOT_FOUND
         description: "No report available — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query or generation failed"
+        description: "Postgres query or generation failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: list_whats_new_reports
     input_schema:
@@ -1198,7 +1173,7 @@ tools:
       limit: 10
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination:
       type: limit-only
       limit_default: 10
@@ -1212,7 +1187,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Assimilation ──────────────────────────────────────────────
   - id: start_assimilation
@@ -1244,15 +1218,14 @@ tools:
       - code: VALIDATION_ERROR
         description: "Invalid repository URL"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex startAssimilation mutation failed"
+        description: "Postgres start_assimilation insert failed"
     pagination: null
-    side_effects: "CREATES assimilationSessions row + dispatches planning phase (assimilate/mutations:startAssimilation)"
-    idempotency: "Semi-idempotent by repositoryUrl — Convex backend returns existing session if one is already in progress for the same repo."
+    side_effects: "INSERTS assimilation_sessions row via executePostgresMcpTool start_assimilation (status planning)"
+    idempotency: "Semi-idempotent by repositoryUrl — Postgres executor returns the existing assimilation_sessions row when one is already in progress for the same repo."
     replay:
       idempotency_key: [repositoryUrl]
       stored_result: sessionId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: approve_assimilation_plan
     input_schema:
@@ -1275,15 +1248,14 @@ tools:
       - code: INVALID_STATE
         description: "Session is not in pending_approval status"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex approveAssimilationPlan mutation failed"
+        description: "Postgres approve_assimilation_plan update failed"
     pagination: null
-    side_effects: "UPDATES assimilationSessions status pending_approval → running (assimilate/mutations:approveAssimilationPlan)"
+    side_effects: "UPDATES assimilation_sessions status → running via executePostgresMcpTool approve_assimilation_plan"
     idempotency: "Idempotent by sessionId — approving an already-approved session is a safe no-op or returns INVALID_STATE."
     replay:
       idempotency_key: [sessionId]
       stored_result: approved
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: reject_assimilation_plan
     input_schema:
@@ -1311,15 +1283,14 @@ tools:
       - code: INVALID_STATE
         description: "Session is not in pending_approval status"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex rejectAssimilationPlan mutation failed"
+        description: "Postgres reject_assimilation_plan update failed"
     pagination: null
-    side_effects: "UPDATES assimilationSessions status pending_approval → rejected (no feedback) or → planning (with feedback for re-plan) (assimilate/mutations:rejectAssimilationPlan)"
+    side_effects: "UPDATES assimilation_sessions status → rejected|planning via executePostgresMcpTool reject_assimilation_plan"
     idempotency: "Idempotent by (sessionId, feedback) — rejecting with same feedback is a safe no-op."
     replay:
       idempotency_key: [sessionId, feedback]
       stored_result: rejected
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_assimilation_status
     input_schema:
@@ -1356,13 +1327,12 @@ tools:
       - code: NOT_FOUND
         description: "Session does not exist — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: cancel_assimilation
     input_schema:
@@ -1385,15 +1355,14 @@ tools:
       - code: INVALID_STATE
         description: "Session is already completed, failed, cancelled, or rejected"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex cancelAssimilation mutation failed"
+        description: "Postgres cancel_assimilation update failed"
     pagination: null
-    side_effects: "UPDATES assimilationSessions status → cancelled (assimilate/mutations:cancelAssimilation)"
+    side_effects: "UPDATES assimilation_sessions status → cancelled via executePostgresMcpTool cancel_assimilation"
     idempotency: "Idempotent by sessionId — cancelling an already-cancelled session returns INVALID_STATE."
     replay:
       idempotency_key: [sessionId]
       stored_result: cancelled
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: steer_assimilation
     input_schema:
@@ -1420,15 +1389,14 @@ tools:
       - code: INVALID_STATE
         description: "Session is not in an active state"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex steerAssimilation mutation failed"
+        description: "Postgres steer_assimilation update failed"
     pagination: null
-    side_effects: "APPENDS steering note to assimilationSessions steeringNotes array (assimilate/mutations:steerAssimilation)"
+    side_effects: "UPDATES assimilation_sessions steering_note via executePostgresMcpTool steer_assimilation"
     idempotency: "Not idempotent — each call appends a new steering note. Replay dedup by (sessionId, note, timestamp)."
     replay:
       idempotency_key: [sessionId, note]
       stored_result: steered
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Creator Management ────────────────────────────────────────
   - id: assimilate_creator
@@ -1438,7 +1406,7 @@ tools:
         profileId:
           type: string
           minLength: 1
-          description: "Creator profile ID (Convex ID)"
+          description: "Creator profile ID (Postgres UUID)"
         forceRegenerate:
           type: boolean
           description: "Re-transcribe videos that already have transcripts"
@@ -1459,15 +1427,14 @@ tools:
       - code: NOT_FOUND
         description: "Creator profile does not exist (returned as success:false, not thrown)"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex assimilateCreator action failed (returned as success:false, not thrown)"
+        description: "Postgres assimilate_creator failed (returned as success:false, not thrown)"
     pagination: null
-    side_effects: "READS creator YouTube channel, CREATES videoTranscripts rows + transcript jobs (creators/actions:assimilateCreator)"
+    side_effects: "INSERTS transcript_jobs rows via executePostgresMcpTool assimilate_creator (Postgres creator path)"
     idempotency: "Idempotent by profileId when forceRegenerate=false — existing transcripts are skipped. With forceRegenerate=true, re-creates all transcript jobs."
     replay:
       idempotency_key: [profileId, forceRegenerate]
       stored_result: transcriptsCreated
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_creator_transcripts
     input_schema:
@@ -1476,7 +1443,7 @@ tools:
         profileId:
           type: string
           minLength: 1
-          description: "Creator profile ID (Convex ID)"
+          description: "Creator profile ID (Postgres UUID)"
         limit:
           type: integer
           minimum: 1
@@ -1516,7 +1483,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: regenerate_transcript
     input_schema:
@@ -1553,15 +1519,14 @@ tools:
       priority: 5
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex createTranscriptJob mutation failed (returned as success:false)"
+        description: "Postgres regenerate_transcript insert failed (returned as success:false)"
     pagination: null
-    side_effects: "CREATES transcriptJobs row (transcripts/mutations:createTranscriptJob)"
+    side_effects: "INSERTS transcript_jobs row via executePostgresMcpTool regenerate_transcript"
     idempotency: "Idempotent by contentId — returns created:false if a job already exists for the same contentId."
     replay:
       idempotency_key: [contentId]
       stored_result: jobId
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Improvement Requests ──────────────────────────────────────
   - id: search_improvements
@@ -1591,13 +1556,12 @@ tools:
       limit: 5
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex findSimilar action failed"
+        description: "Postgres findSimilar/search path failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: get_improvement
     input_schema:
@@ -1624,13 +1588,12 @@ tools:
       - code: NOT_FOUND
         description: "Improvement does not exist — returns null"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: list_improvements
     input_schema:
@@ -1660,7 +1623,7 @@ tools:
       status: null
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex query failed"
+        description: "Postgres query failed"
     pagination:
       type: limit-only
       limit_default: 20
@@ -1674,7 +1637,6 @@ tools:
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: add_improvement
     input_schema:
@@ -1709,15 +1671,14 @@ tools:
       - code: VALIDATION_ERROR
         description: "items array is empty or missing description"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex submit mutation failed"
+        description: "Postgres add_improvement insert failed"
     pagination: null
-    side_effects: "INSERTS improvements rows (improvements/mutations:submit) — one per item"
+    side_effects: "INSERTS improvement_requests rows via executePostgresMcpTool add_improvement — one per item"
     idempotency: "Not natively idempotent — duplicate submissions create new rows. No content-based dedup."
     replay:
       idempotency_key: [items]
       stored_result: ids
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: close_improvement
     input_schema:
@@ -1747,15 +1708,14 @@ tools:
       - code: NOT_FOUND
         description: "Improvement ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex setStatus mutation failed"
+        description: "Postgres improvement status update failed"
     pagination: null
-    side_effects: "UPDATES improvements row: status → closed + sets closedReason, evidence, closedAt (improvements/mutations:setStatus)"
+    side_effects: "UPDATES improvement_requests status → completed via executePostgresMcpTool close_improvement"
     idempotency: "Idempotent by id — closing an already-closed improvement is a safe no-op."
     replay:
       idempotency_key: [id]
       stored_result: status
     transports: [stdio, streamable-http]
-    fixtures: null
 
   - id: set_improvement_status
     input_schema:
@@ -1789,15 +1749,14 @@ tools:
       - code: NOT_FOUND
         description: "Improvement ID does not exist"
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex setStatus mutation failed"
+        description: "Postgres improvement status update failed"
     pagination: null
-    side_effects: "UPDATES improvements row: status → open|closed. When reopening, clears closure metadata (reason, evidence, closedAt) (improvements/mutations:setStatus)"
+    side_effects: "UPDATES improvement_requests status open|closed via executePostgresMcpTool set_improvement_status"
     idempotency: "Idempotent by (id, status) — setting the same status is a safe no-op."
     replay:
       idempotency_key: [id, status]
       stored_result: status
     transports: [stdio, streamable-http]
-    fixtures: null
 
   # ── Recommendations ───────────────────────────────────────────
   - id: findRecommendations
@@ -1836,10 +1795,9 @@ tools:
       constraints: null
     errors:
       - code: INTERNAL_SERVER_ERROR
-        description: "Convex findRecommendations action failed"
+        description: "Postgres findRecommendations path failed"
     pagination: null
     side_effects: null
     idempotency: null
     replay: null
     transports: [stdio, streamable-http]
-    fixtures: null

@@ -10,7 +10,7 @@ export interface ReplayContract {
   stored_result: string;
 }
 
-export interface ManifestTool {
+export type ManifestTool = {
   id: string;
   input_schema: unknown;
   output_schema: unknown;
@@ -21,8 +21,7 @@ export interface ManifestTool {
   idempotency: string | null;
   replay: ReplayContract | null;
   transports: string[];
-  fixtures: unknown;
-}
+};
 
 export interface ManifestHeader {
   protocol: string;
@@ -66,7 +65,6 @@ export function loadManifest(path: string): McpManifest {
     idempotency: (t.idempotency as string | null) ?? null,
     replay: (t.replay as ReplayContract | null) ?? null,
     transports: (t.transports as string[]) ?? [],
-    fixtures: t.fixtures ?? null,
   }));
 
   return {

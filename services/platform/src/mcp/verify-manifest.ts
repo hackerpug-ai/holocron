@@ -203,7 +203,7 @@ export function buildVerifyReport(
   };
 }
 
-export interface ProtocolReport {
+export type ProtocolReport = {
   protocol: string;
   transports: string[];
   stateless: boolean;
@@ -211,12 +211,67 @@ export interface ProtocolReport {
   auth_summary: string;
   cancellation_summary: string;
   ok: boolean;
+  issues: string[];
+};
+
+export type ConvexProseViolation = {
+  field: string;
+  message: string;
+};
+
+export type ConvexProseReport = {
+  ok: boolean;
+  matchCount: number;
+  violations: ConvexProseViolation[];
+};
+
+/**
+ * Gate: the compatibility manifest must not name Convex — the Postgres gateway is
+ * the sole executor. Reintroducing cancellation/dispatch claims fails this check.
+ */
+export function assertNoConvexProse(rawManifestYaml: string): ConvexProseReport {
+  const matches = rawManifestYaml.match(/convex/gi) ?? [];
+  const matchCount = matches.length;
+  if (matchCount === 0) {
+    return { ok: true, matchCount: 0, violations: [] };
+  }
+
+  const violations: ConvexProseViolation[] = [];
+  const cancelBlock = rawManifestYaml.match(/cancellation_policy:[\s\S]*?(?=\n[a-z_]|\ntools:|Z)/i);
+  if (cancelBlock && /convex/i.test(cancelBlock[0])) {
+    violations.push({
+      field: 'cancellation_policy',
+      message:
+        'cancellation_policy description still names Convex — must describe the signal-threaded Postgres executor',
+    });
+  }
+
+  if (/auth_policy:[\s\S]*?stdio:[\s\S]*?trust_boundary:[\s\S]*?convex/i.test(rawManifestYaml)) {
+    violations.push({
+      field: 'auth_policy.stdio.trust_boundary',
+      message: 'stdio trust_boundary still names Convex credentials',
+    });
+  }
+
+  if (violations.length === 0) {
+    violations.push({
+      field: 'manifest',
+      message: `manifest contains ${matchCount} case-insensitive 'convex' match(es)`,
+    });
+  }
+
+  return { ok: false, matchCount, violations };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function buildProtocolReport(manifest: McpManifest): ProtocolReport {
   const h = manifest.header;
   const authKeys = Object.keys(h.auth_policy);
   const cancelKeys = Object.keys(h.cancellation_policy);
+  const issues: string[] = [];
 
   const authSummary = authKeys.length > 0 ? `${authKeys.join(', ')} configured` : 'MISSING';
 
@@ -225,12 +280,25 @@ export function buildProtocolReport(manifest: McpManifest): ProtocolReport {
       ? `posture=${String(h.cancellation_policy.posture ?? '?')}, supported=${String(h.cancellation_policy.supported ?? '?')}`
       : 'MISSING';
 
+  const streamable = isRecord(h.auth_policy.streamable_http)
+    ? h.auth_policy.streamable_http
+    : undefined;
+  if (streamable?.origin_validation === true) {
+    const allowed = streamable.allowed_origins;
+    if (allowed == null || allowed === '') {
+      issues.push(
+        'allowed_origins must be non-null when origin_validation is true (same-origin policy required)'
+      );
+    }
+  }
+
   const ok =
     h.protocol.length > 0 &&
     h.transports.includes('stdio') &&
     h.transports.includes('streamable-http') &&
     authKeys.length > 0 &&
-    cancelKeys.length > 0;
+    cancelKeys.length > 0 &&
+    issues.length === 0;
 
   return {
     protocol: h.protocol,
@@ -240,6 +308,7 @@ export function buildProtocolReport(manifest: McpManifest): ProtocolReport {
     auth_summary: authSummary,
     cancellation_summary: cancelSummary,
     ok,
+    issues,
   };
 }
 
@@ -266,5 +335,11 @@ export function formatProtocolText(report: ProtocolReport): string {
   lines.push(`No server sampling: ${report.no_server_sampling}`);
   lines.push(`Auth policy: ${report.auth_summary}`);
   lines.push(`Cancellation policy: ${report.cancellation_summary}`);
+  if (report.issues.length > 0) {
+    lines.push('Issues:');
+    for (const issue of report.issues) {
+      lines.push(`  - ${issue}`);
+    }
+  }
   return lines.join('\n');
 }
