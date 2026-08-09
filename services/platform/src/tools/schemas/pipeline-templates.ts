@@ -4,6 +4,34 @@
  */
 import { z } from 'zod';
 
+// ── shared retrieval provenance (S31-10) ───────────────────────────────────
+
+export const PipelineRetrievalSourceSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1).optional(),
+    url: z.string().min(1).optional(),
+    kind: z.string().min(1).optional(),
+  })
+  .strict();
+export type PipelineRetrievalSource = z.infer<typeof PipelineRetrievalSourceSchema>;
+
+export const AssimilateRetrievalFileSchema = z
+  .object({
+    path: z.string().min(1),
+    text: z.string().min(1),
+  })
+  .strict();
+
+export const AssimilateRetrievalPayloadSchema = z
+  .object({
+    repositoryUrl: z.string().min(1),
+    files: z.array(AssimilateRetrievalFileSchema).min(1),
+    fetchedAt: z.string().min(1).optional(),
+  })
+  .strict();
+export type AssimilateRetrievalPayload = z.infer<typeof AssimilateRetrievalPayloadSchema>;
+
 // ── whatsNew / daily-briefing ──────────────────────────────────────────────
 
 export const WhatsNewHeadlineSchema = z
@@ -37,8 +65,11 @@ export const WhatsNewOutputSchema = z
     templateKey: z.literal('whatsnew'),
     goal: z.string().min(1),
     fleetManifestVersion: z.string().min(1).optional(),
-    /** Honest gather provenance (scaffolding label). */
+    /** Honest gather provenance (scaffolding label or real-subscription retrieval). */
     gatherProvenance: z.string().min(1).optional(),
+    /** Real subscription source/content ids used by gather (S31-10). */
+    retrievalSources: z.array(PipelineRetrievalSourceSchema).optional(),
+    realSourceCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 
@@ -58,6 +89,8 @@ export const WhatsNewContextSchema = z
     links: z.array(z.string().min(1)).optional(),
     assayText: z.string().optional(),
     gatherProvenance: z.string().min(1).optional(),
+    retrievalSources: z.array(PipelineRetrievalSourceSchema).optional(),
+    realSourceCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 
@@ -113,6 +146,8 @@ export const AssimilateOutputSchema = z
     goal: z.string().min(1),
     fleetManifestVersion: z.string().min(1).optional(),
     gatherProvenance: z.string().min(1).optional(),
+    /** Non-empty repository file/text payload bound to repoUrl (S31-10). */
+    retrievalPayload: AssimilateRetrievalPayloadSchema.optional(),
   })
   .strict();
 
@@ -132,6 +167,7 @@ export const AssimilateContextSchema = z
     evaluation: AssimilateEvaluationSchema.optional(),
     assayText: z.string().optional(),
     gatherProvenance: z.string().min(1).optional(),
+    retrievalPayload: AssimilateRetrievalPayloadSchema.optional(),
   })
   .strict();
 
@@ -162,6 +198,8 @@ export const ShopOutputSchema = z
     goal: z.string().min(1),
     fleetManifestVersion: z.string().min(1).optional(),
     gatherProvenance: z.string().min(1).optional(),
+    /** Count of products not labeled deterministic-scaffolding:* (S31-10). */
+    realProductCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 
@@ -179,6 +217,7 @@ export const ShopContextSchema = z
     products: z.array(ShopProductSchema).optional(),
     assayText: z.string().optional(),
     gatherProvenance: z.string().min(1).optional(),
+    realProductCount: z.number().int().nonnegative().optional(),
   })
   .strict();
 

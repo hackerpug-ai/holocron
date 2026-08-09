@@ -60,8 +60,17 @@ import {
   gatherAssimilateReport,
   gatherShopProducts,
   gatherWhatsNewBriefing,
+  HOLO_TEST_FORCE_PIPELINE_SCAFFOLD_ENV,
+  isForcePipelineScaffold,
+  isScaffoldProvenance,
+  isScaffoldRetailer,
+  retrieveAssimilateFromRepository,
+  retrieveShopProducts,
+  retrieveWhatsNewFromSubscriptions,
 } from './templates/pipeline-components.ts';
 import { resolveWhatsNewTemplateKey } from './templates/whatsnew.ts';
+
+export { HOLO_TEST_FORCE_PIPELINE_SCAFFOLD_ENV };
 
 /** Fleet assay/challenge stages can exceed 60s wall; keep lease alive for mission runtime. */
 const LEASE_TTL_SECONDS = 300;
@@ -1382,8 +1391,30 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'whatsnew requires --date YYYY-MM-DD'
       );
     }
-    const gathered = gatherWhatsNewBriefing(date);
-    if (gathered.headlines.length === 0 || gathered.summaries.length === 0) {
+
+    if (isForcePipelineScaffold()) {
+      // Test seam: exercise scaffold builder then fail closed before fleet assay.
+      gatherWhatsNewBriefing(date);
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_SCAFFOLD_ONLY',
+        'whatsnew gather refused: scaffold or empty retrieval (HOLO_TEST_FORCE_PIPELINE_SCAFFOLD)'
+      );
+    }
+
+    const sql = createSql(context.databaseUrl);
+    let gathered: Awaited<ReturnType<typeof retrieveWhatsNewFromSubscriptions>>;
+    try {
+      gathered = await retrieveWhatsNewFromSubscriptions(sql, date);
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_EMPTY_RETRIEVAL',
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    if (!gathered.headlines.length || !gathered.summaries.length) {
       throw new MissionRuntimeError(
         'MISSION_WHATSNEW_EMPTY',
         'whatsnew gather produced empty headlines/summaries (fail-closed)'
@@ -1401,6 +1432,8 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       summaries: gathered.summaries,
       links: gathered.links,
       gatherProvenance: gathered.provenance,
+      retrievalSources: gathered.retrievalSources,
+      realSourceCount: gathered.realSourceCount,
     };
     return canonicalJsonValue(ctx);
   },
@@ -1437,6 +1470,20 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'whatsnew commit requires non-empty fleet assayText (scaffold alone is not success)'
       );
     }
+    // S31-10: scaffold-only / empty retrieval cannot commit.
+    const realCount = ctx.realSourceCount ?? ctx.retrievalSources?.length ?? 0;
+    if (realCount < 1 || !ctx.retrievalSources?.length) {
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_SCAFFOLD_ONLY',
+        'whatsnew commit refused: scaffold or empty retrieval (need ≥1 real subscription source id)'
+      );
+    }
+    if (isScaffoldProvenance(ctx.gatherProvenance) && realCount < 1) {
+      throw new MissionRuntimeError(
+        'MISSION_WHATSNEW_SCAFFOLD_ONLY',
+        'whatsnew commit refused: scaffold provenance without real retrieval sources'
+      );
+    }
     const out: WhatsNewOutput = {
       documentType: 'daily-briefing',
       date: ctx.date,
@@ -1448,6 +1495,8 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       goal: ctx.goal,
       fleetManifestVersion: ctx.fleetManifestVersion,
       gatherProvenance: ctx.gatherProvenance,
+      retrievalSources: ctx.retrievalSources,
+      realSourceCount: realCount,
     };
     return canonicalJsonValue(out);
   },
@@ -1476,7 +1525,25 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'assimilate requires --target <owner/repo>'
       );
     }
-    const gathered = gatherAssimilateReport(repoUrl);
+
+    if (isForcePipelineScaffold()) {
+      gatherAssimilateReport(repoUrl);
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_SCAFFOLD_ONLY',
+        'assimilate gather refused: scaffold or empty retrieval (HOLO_TEST_FORCE_PIPELINE_SCAFFOLD)'
+      );
+    }
+
+    let gathered: Awaited<ReturnType<typeof retrieveAssimilateFromRepository>>;
+    try {
+      gathered = await retrieveAssimilateFromRepository(repoUrl);
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_EMPTY_RETRIEVAL',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+
     if (
       !gathered.architecture?.components?.length ||
       !gathered.patterns?.length ||
@@ -1499,6 +1566,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       patterns: gathered.patterns,
       evaluation: gathered.evaluation,
       gatherProvenance: gathered.provenance,
+      retrievalPayload: gathered.retrievalPayload,
     };
     return canonicalJsonValue(ctx);
   },
@@ -1534,6 +1602,20 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'assimilate commit requires non-empty fleet assayText (scaffold alone is not success)'
       );
     }
+    // S31-10: require non-empty repository file/text payload bound to the URL.
+    const files = ctx.retrievalPayload?.files ?? [];
+    if (files.length === 0 || files.every((f) => !String(f.text ?? '').trim())) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_SCAFFOLD_ONLY',
+        'assimilate commit refused: scaffold or empty retrieval (need non-empty repository content payload)'
+      );
+    }
+    if (isScaffoldProvenance(ctx.gatherProvenance) && files.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_ASSIMILATE_SCAFFOLD_ONLY',
+        'assimilate commit refused: scaffold provenance without real retrieval payload'
+      );
+    }
     const out: AssimilateOutput = {
       repoUrl: ctx.repoUrl,
       architecture: ctx.architecture,
@@ -1544,6 +1626,7 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       goal: ctx.goal,
       fleetManifestVersion: ctx.fleetManifestVersion,
       gatherProvenance: ctx.gatherProvenance,
+      retrievalPayload: ctx.retrievalPayload,
     };
     return canonicalJsonValue(out);
   },
@@ -1569,8 +1652,73 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
     if (!query) {
       throw new MissionRuntimeError('MISSION_SHOP_QUERY_REQUIRED', 'shop requires --query <term>');
     }
-    const products = gatherShopProducts(query);
-    if (products.length === 0) {
+
+    if (isForcePipelineScaffold()) {
+      gatherShopProducts(query);
+      throw new MissionRuntimeError(
+        'MISSION_SHOP_SCAFFOLD_ONLY',
+        'shop gather refused: scaffold or empty retrieval (HOLO_TEST_FORCE_PIPELINE_SCAFFOLD)'
+      );
+    }
+
+    const sql = createSql(context.databaseUrl);
+    let gathered: Awaited<ReturnType<typeof retrieveShopProducts>>;
+    try {
+      // Prefer durable Postgres listings; bridge to MCP shop_products only when empty.
+      gathered = await retrieveShopProducts(sql, query, {
+        liveSearch: async (q) => {
+          try {
+            const { executePostgresMcpTool } = await import('../mcp/executor.ts');
+            const result = (await executePostgresMcpTool(
+              'shop_products',
+              { query: q, condition: 'any' },
+              { databaseUrl: context.databaseUrl }
+            )) as {
+              listings?: Array<{
+                title?: string;
+                price?: number;
+                retailer?: string;
+                url?: string;
+                condition?: string;
+                dealScore?: number;
+              }>;
+            };
+            const listings = Array.isArray(result?.listings) ? result.listings : [];
+            return listings
+              .map((item) => {
+                const title = String(item.title ?? '').trim();
+                const url = String(item.url ?? '').trim();
+                const price = Number(item.price);
+                if (!title || !url || !Number.isFinite(price)) return null;
+                const deal = Number(item.dealScore);
+                return {
+                  title,
+                  price,
+                  currency: 'USD',
+                  rating: Number.isFinite(deal)
+                    ? Math.min(5, Math.max(0, Math.round(deal * 50) / 10))
+                    : 4,
+                  url,
+                  retailer: String(item.retailer ?? 'marketplace'),
+                  condition: String(item.condition ?? 'new'),
+                };
+              })
+              .filter((p): p is NonNullable<typeof p> => p !== null);
+          } catch {
+            return [];
+          }
+        },
+      });
+    } catch (error) {
+      throw new MissionRuntimeError(
+        'MISSION_SHOP_EMPTY_RETRIEVAL',
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+
+    if (!gathered.products.length) {
       throw new MissionRuntimeError(
         'MISSION_SHOP_EMPTY',
         `shop gather produced zero products for query=${query}`
@@ -1584,9 +1732,9 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
       litellmModelId: probe.litellmModelId,
       modelRevision: probe.modelRevision,
       fleetManifestVersion: probe.fleetManifestVersion,
-      products,
-      gatherProvenance:
-        'Deterministic scaffolding (stable catalog/hash slots; not live marketplace fetch)',
+      products: gathered.products,
+      gatherProvenance: gathered.provenance,
+      realProductCount: gathered.realProductCount,
     };
     return canonicalJsonValue(ctx);
   },
@@ -1625,14 +1773,29 @@ const STAGE_EXECUTORS: Record<string, StageExecutor> = {
         'shop commit requires non-empty fleet assayText (scaffold alone is not success)'
       );
     }
+    // S31-10: refuse commit when every product is a scaffold retailer.
+    const realProducts = ctx.products.filter((p) => !isScaffoldRetailer(p.retailer));
+    if (realProducts.length === 0 || (ctx.realProductCount ?? realProducts.length) < 1) {
+      throw new MissionRuntimeError(
+        'MISSION_SHOP_SCAFFOLD_ONLY',
+        'shop commit refused: scaffold or empty retrieval (need ≥1 non-deterministic-scaffolding product)'
+      );
+    }
+    if (isScaffoldProvenance(ctx.gatherProvenance) && realProducts.length === 0) {
+      throw new MissionRuntimeError(
+        'MISSION_SHOP_SCAFFOLD_ONLY',
+        'shop commit refused: scaffold provenance without real products'
+      );
+    }
     const out: ShopOutput = {
       query: ctx.query,
-      products: ctx.products,
+      products: realProducts,
       assayText,
       templateKey: 'shop',
       goal: ctx.goal,
       fleetManifestVersion: ctx.fleetManifestVersion,
       gatherProvenance: ctx.gatherProvenance,
+      realProductCount: realProducts.length,
     };
     return canonicalJsonValue(out);
   },
