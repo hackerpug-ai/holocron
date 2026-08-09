@@ -1,18 +1,29 @@
-import type { IterationFinding, ResearchSession } from "../convex/types.ts";
-
 /**
- * Format research session progress for stderr streaming
+ * Format research progress for stderr-only diagnostics (stdio must stay JSON-RPC clean).
  */
+
+export type ResearchSession = {
+  currentIteration: number;
+  maxIterations: number;
+  status: string;
+  confidenceStats: { high: number; medium: number; low: number };
+  findings: unknown[];
+};
+
+export type IterationFinding = {
+  topic: string;
+  confidence: string;
+  summary: string;
+  sources: unknown[];
+};
+
 export function formatProgress(session: ResearchSession): string {
   const { currentIteration, maxIterations, status } = session;
-  const percentage = Math.round((currentIteration / maxIterations) * 100);
-
+  const percentage =
+    maxIterations > 0 ? Math.round((currentIteration / maxIterations) * 100) : 0;
   return `[Research Progress] ${currentIteration}/${maxIterations} iterations (${percentage}%) - Status: ${status}`;
 }
 
-/**
- * Format individual iteration finding
- */
 export function formatIteration(iteration: IterationFinding): string {
   return `
   [Iteration Finding]
@@ -23,9 +34,6 @@ export function formatIteration(iteration: IterationFinding): string {
   `;
 }
 
-/**
- * Format final research results summary
- */
 export function formatFinalResults(session: ResearchSession): string {
   const { confidenceStats, findings } = session;
   return `
@@ -37,12 +45,7 @@ export function formatFinalResults(session: ResearchSession): string {
   `;
 }
 
-/**
- * Format error messages for stderr
- */
 export function formatError(error: unknown): string {
-  if (error instanceof Error) {
-    return `[ERROR] ${error.message}`;
-  }
-  return `[ERROR] ${String(error)}`;
+  if (error instanceof Error) return error.message;
+  return String(error);
 }

@@ -1,90 +1,18 @@
 /**
- * Holocron MCP Server - Mastra/Bun implementation
- * Unified MCP server with Convex realtime streaming
+ * Holocron MCP Server — stdio transport.
+ * Tools execute via the platform Streamable HTTP /mcp gateway (S31-05).
+ * Never write application logs to stdout — it is the JSON-RPC framing channel.
  */
 
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createTool } from "@mastra/core/tools";
 import { MCPServer } from "@mastra/mcp";
-import { holocronClient } from "../convex/client.ts";
+import { z } from "zod";
+import { env } from "../config/env.ts";
+import { getPlatformClient } from "../platform/mcp-client.ts";
 import { formatError } from "../streaming/formatter.ts";
 import { subscriptionManager } from "../streaming/subscription-manager.ts";
-
-// Setup file logging
-const LOG_FILE = resolve("/tmp/holocron-mcp.log");
-const SHOULD_LOG_TO_STDERR =
-  process.env.HOLOCRON_MCP_DEBUG === "1" || process.env.LOG_LEVEL === "debug";
-
-function log(message: string) {
-  const timestamp = new Date().toISOString();
-  const logLine = `[${timestamp}] ${message}\n`;
-  try {
-    appendFileSync(LOG_FILE, logLine);
-  } catch (e) {
-    console.error("Failed to write to log file:", e);
-  }
-  if (SHOULD_LOG_TO_STDERR) {
-    console.error(message);
-  }
-}
-
-log("=== Holocron MCP Server Starting ===");
-log(`Node version: ${process.version}`);
-log(`Process argv: ${JSON.stringify(process.argv)}`);
-log(`Working directory: ${process.cwd()}`);
-log(`Environment variables:`);
-log(`  PLATFORM_URL: ${process.env.PLATFORM_URL || "NOT SET"}`);
-log(
-  `  HOLO_DEPLOY_KEY: ${process.env.HOLO_DEPLOY_KEY ? `SET (length: ${process.env.HOLO_DEPLOY_KEY.length})` : "NOT SET"}`
-);
-log(
-  `  HOLOCRON_OPENAI_API_KEY: ${process.env.HOLOCRON_OPENAI_API_KEY ? `SET (length: ${process.env.HOLOCRON_OPENAI_API_KEY.length})` : "NOT SET"}`
-);
-
-import { z } from "zod";
-// Validation schemas
-import {
-  AddImprovementSchema,
-  AddSubscriptionSchema,
-  AssimilateCreatorSchema,
-  AssimilationSessionIdSchema,
-  CheckSubscriptionsSchema,
-  CloseImprovementSchema,
-  DocumentIdSchema,
-  FindRecommendationsSchema,
-  GetCreatorTranscriptsSchema,
-  GetImprovementSchema,
-  GetShopListingsSchema,
-  GetShopSessionSchema,
-  GetSubscriptionContentSchema,
-  GetSubscriptionFiltersSchema,
-  GetToolSchema,
-  GetWhatsNewSchema,
-  ListImprovementsSchema_Improvements,
-  ListSubscriptionsSchema,
-  ListToolsSchema,
-  ListWhatsNewReportsSchema,
-  RegenerateTranscriptSchema,
-  RejectAssimilationPlanSchema,
-  RemoveSubscriptionSchema,
-  RemoveToolSchema,
-  SearchImprovementsSchema,
-  SearchSchema,
-  SearchToolsSchema,
-  SearchVectorSchema,
-  SessionIdSchema,
-  SetImprovementStatusSchema,
-  SetSubscriptionFilterSchema,
-  ShareDocumentSchema,
-  ShopProductsSchema,
-  StartAssimilationSchema,
-  SteerAssimilationSchema,
-  StoreDocumentSchema,
-  StoreToolSchema,
-  UpdateDocumentSchema,
-  UpdateToolSchema,
-} from "../config/validation.ts";
 import {
   approveAssimilationPlan,
   cancelAssimilation,
@@ -107,7 +35,6 @@ import {
   searchImprovements,
   setImprovementStatus,
 } from "../tools/improvements.ts";
-// Tool implementations
 import { getDocument, listDocuments } from "../tools/retrieval.ts";
 import { searchFts, searchVector } from "../tools/search.ts";
 import { getResearchSession, searchResearch } from "../tools/session.ts";
@@ -132,731 +59,555 @@ import {
 } from "../tools/toolbelt.ts";
 import { getWhatsNewReport, listWhatsNewReports } from "../tools/whats-new.ts";
 
-/**
- * Create Mastra MCP tools from existing implementations
- */
+const LOG_FILE = resolve("/tmp/holocron-mcp.log");
+const SHOULD_LOG_TO_STDERR =
+  process.env.HOLOCRON_MCP_DEBUG === "1" || process.env.LOG_LEVEL === "debug";
 
-const getResearchSessionTool = createTool({
-  id: "get_research_session",
-  description: "Retrieve a research session by ID with full findings and confidence stats",
-  inputSchema: SessionIdSchema,
-  execute: async (input) => {
+function log(message: string) {
+  const timestamp = new Date().toISOString();
+  const logLine = `[${timestamp}] ${message}\n`;
+  try {
+    appendFileSync(LOG_FILE, logLine);
+  } catch (e) {
+    console.error("Failed to write to log file:", e);
+  }
+  if (SHOULD_LOG_TO_STDERR) {
+    console.error(message);
+  }
+}
+
+/** Loose object schema — platform gateway owns canonical Zod validation. */
+const AnyObject = z.object({}).passthrough();
+
+const platformClient = getPlatformClient();
+
+log("=== Holocron MCP Server Starting (platform HTTP delegate) ===");
+log(`Platform URL: ${env.PLATFORM_URL}`);
+log(`HOLO_KEY_MCP: ${process.env.HOLO_KEY_MCP || process.env.MCP_API_KEY ? "SET" : "NOT SET"}`);
+
+function wrapExecute<TIn extends Record<string, unknown>>(
+  name: string,
+  fn: (input: TIn) => Promise<unknown>
+) {
+  return async (input: TIn) => {
     try {
-      return await getResearchSession(holocronClient, input);
+      return await fn(input);
     } catch (error) {
       console.error(formatError(error));
       throw error;
     }
-  },
+  };
+}
+
+const getResearchSessionTool = createTool({
+  id: "get_research_session",
+  description: "Retrieve a research session by ID with full findings and confidence stats",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_research_session", (input) =>
+    getResearchSession(platformClient, input as { sessionId: string })
+  ),
 });
 
 const searchResearchTool = createTool({
   id: "search_research",
   description: "Search across all research sessions and findings",
-  inputSchema: SearchSchema,
-  execute: async (input) => {
-    try {
-      return await searchResearch(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("search_research", (input) =>
+    searchResearch(platformClient, input as { query: string; limit?: number })
+  ),
 });
 
 const searchFtsTool = createTool({
   id: "search_fts",
-  description: "Full-text keyword search using SQLite FTS5",
-  inputSchema: SearchSchema,
-  execute: async (input) => {
-    try {
-      return await searchFts(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Full-text keyword search",
+  inputSchema: AnyObject,
+  execute: wrapExecute("search_fts", (input) =>
+    searchFts(platformClient, input as { query: string; limit?: number })
+  ),
 });
 
 const searchVectorTool = createTool({
   id: "search_vector",
   description: "Semantic vector search using embeddings",
-  inputSchema: SearchVectorSchema,
-  execute: async (input) => {
-    try {
-      return await searchVector(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("search_vector", (input) =>
+    searchVector(platformClient, input as { embedding?: number[]; query?: string; limit?: number })
+  ),
 });
 
 const storeDocumentTool = createTool({
   id: "store_document",
   description: "Store a new document with automatic embedding generation",
-  inputSchema: StoreDocumentSchema,
-  execute: async (input) => {
-    try {
-      return await storeDocument(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("store_document", (input) =>
+    storeDocument(
+      platformClient,
+      input as { title: string; content: string; metadata?: Record<string, unknown> }
+    )
+  ),
 });
 
 const updateDocumentTool = createTool({
   id: "update_document",
   description: "Update an existing document with re-embedding",
-  inputSchema: UpdateDocumentSchema,
-  execute: async (input) => {
-    try {
-      return await updateDocument(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("update_document", (input) =>
+    updateDocument(
+      platformClient,
+      input as {
+        documentId: string;
+        title?: string;
+        content?: string;
+        metadata?: Record<string, unknown>;
+      }
+    )
+  ),
 });
 
 const shareDocumentTool = createTool({
   id: "share_document",
-  description:
-    "Publish or unpublish a document for public sharing via URL. Set isPublic=true to publish and get a shareable link, isPublic=false to retract.",
-  inputSchema: ShareDocumentSchema,
-  execute: async (input) => {
-    try {
-      return await shareDocument(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Publish or unpublish a document for public sharing via URL",
+  inputSchema: AnyObject,
+  execute: wrapExecute("share_document", (input) =>
+    shareDocument(platformClient, input as { documentId: string; isPublic: boolean })
+  ),
 });
 
 const getDocumentTool = createTool({
   id: "get_document",
   description: "Retrieve a specific document by ID",
-  inputSchema: DocumentIdSchema,
-  execute: async (input) => {
-    try {
-      return await getDocument(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_document", (input) =>
+    getDocument(platformClient, input as { documentId: string })
+  ),
 });
 
 const listDocumentsTool = createTool({
   id: "list_documents",
   description: "List documents with pagination",
-  inputSchema: z.object({
-    limit: z.number().int().positive().optional(),
-    cursor: z.string().optional(),
-  }),
-  execute: async (input) => {
-    try {
-      return await listDocuments(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("list_documents", (input) =>
+    listDocuments(platformClient, input as { limit?: number; cursor?: string })
+  ),
 });
 
 const hybridSearchTool = createTool({
   id: "hybrid_search",
   description: "Intelligent hybrid search combining keyword and semantic search",
-  inputSchema: SearchSchema,
-  execute: async (input) => {
-    try {
-      return await hybridSearch(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("hybrid_search", (input) =>
+    hybridSearch(platformClient, input as { query: string; limit?: number; category?: string })
+  ),
 });
 
 const addSubscriptionTool = createTool({
   id: "add_subscription",
-  description:
-    "Add a new subscription source (youtube, newsletter, changelog, reddit, ebay, whats-new, github)",
-  inputSchema: AddSubscriptionSchema,
-  execute: async (input) => {
-    try {
-      return await addSubscription(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Add a new subscription source",
+  inputSchema: AnyObject,
+  execute: wrapExecute("add_subscription", (input) =>
+    addSubscription(
+      platformClient,
+      input as {
+        sourceType: string;
+        identifier: string;
+        name?: string;
+        url?: string;
+        feedUrl?: string;
+        configJson?: Record<string, unknown>;
+      }
+    )
+  ),
 });
 
 const removeSubscriptionTool = createTool({
   id: "remove_subscription",
   description: "Remove a subscription source by ID",
-  inputSchema: RemoveSubscriptionSchema,
-  execute: async (input) => {
-    try {
-      return await removeSubscription(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("remove_subscription", (input) =>
+    removeSubscription(platformClient, input as { subscriptionId: string })
+  ),
 });
 
 const listSubscriptionsTool = createTool({
   id: "list_subscriptions",
-  description: "List subscription sources with optional filtering by type and auto-research status",
-  inputSchema: ListSubscriptionsSchema,
-  execute: async (input) => {
-    try {
-      return await listSubscriptions(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "List subscription sources with optional filtering",
+  inputSchema: AnyObject,
+  execute: wrapExecute("list_subscriptions", (input) =>
+    listSubscriptions(
+      platformClient,
+      input as { sourceType?: string; autoResearchOnly?: boolean }
+    )
+  ),
 });
 
 const checkSubscriptionsTool = createTool({
   id: "check_subscriptions",
-  description:
-    "Check subscriptions for new content (fetches from sources and queues content for research)",
-  inputSchema: CheckSubscriptionsSchema,
-  execute: async (input) => {
-    try {
-      return await checkSubscriptions(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Check subscriptions for new content",
+  inputSchema: AnyObject,
+  execute: wrapExecute("check_subscriptions", (input) =>
+    checkSubscriptions(platformClient, input as { subscriptionId?: string })
+  ),
 });
 
 const getSubscriptionContentTool = createTool({
   id: "get_subscription_content",
-  description:
-    "Get content items for a subscription source with optional research status filtering",
-  inputSchema: GetSubscriptionContentSchema,
-  execute: async (input) => {
-    try {
-      return await getSubscriptionContent(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Get content items for a subscription source",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_subscription_content", (input) =>
+    getSubscriptionContent(
+      platformClient,
+      input as { subscriptionId: string; limit?: number; status?: string }
+    )
+  ),
 });
 
 const setSubscriptionFilterTool = createTool({
   id: "set_subscription_filter",
-  description:
-    "Set a filter rule for a subscription (keyword whitelist/blacklist, min score, max age, etc.)",
-  inputSchema: SetSubscriptionFilterSchema,
-  execute: async (input) => {
-    try {
-      return await setSubscriptionFilter(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Set a filter rule for a subscription",
+  inputSchema: AnyObject,
+  execute: wrapExecute("set_subscription_filter", (input) =>
+    setSubscriptionFilter(
+      platformClient,
+      input as { subscriptionId: string; filterType: string; value: unknown }
+    )
+  ),
 });
 
 const getSubscriptionFiltersTool = createTool({
   id: "get_subscription_filters",
-  description: "Get filter rules for subscriptions (by subscription ID or source type)",
-  inputSchema: GetSubscriptionFiltersSchema,
-  execute: async (input) => {
-    try {
-      return await getSubscriptionFilters(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Get filter rules for subscriptions",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_subscription_filters", (input) =>
+    getSubscriptionFilters(
+      platformClient,
+      input as { subscriptionId?: string; sourceType?: string }
+    )
+  ),
 });
 
-// Toolbelt tools
 const storeToolTool = createTool({
   id: "store_tool",
   description: "Store a new tool with auto-embedding",
-  inputSchema: StoreToolSchema,
-  execute: async (input) => {
-    try {
-      return await storeTool(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("store_tool", (input) =>
+    storeTool(platformClient, input as { title: string })
+  ),
 });
 
 const searchToolsTool = createTool({
   id: "search_tools",
-  description: "Search tools using hybrid search (vector + full-text)",
-  inputSchema: SearchToolsSchema,
-  execute: async (input) => {
-    try {
-      return await searchTools(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Search tools using hybrid search",
+  inputSchema: AnyObject,
+  execute: wrapExecute("search_tools", (input) =>
+    searchTools(platformClient, input as { query: string; limit?: number; category?: string })
+  ),
 });
 
 const getToolTool = createTool({
   id: "get_tool",
   description: "Get a tool by ID",
-  inputSchema: GetToolSchema,
-  execute: async (input) => {
-    try {
-      return await getTool(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_tool", (input) =>
+    getTool(platformClient, input as { toolId: string })
+  ),
 });
 
 const listToolsTool = createTool({
   id: "list_tools",
   description: "List tools with optional filters",
-  inputSchema: ListToolsSchema,
-  execute: async (input) => {
-    try {
-      return await listTools(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("list_tools", (input) =>
+    listTools(platformClient, input as { limit?: number; category?: string; status?: string })
+  ),
 });
 
 const updateToolTool = createTool({
   id: "update_tool",
   description: "Update a tool with auto-embedding regeneration",
-  inputSchema: UpdateToolSchema,
-  execute: async (input) => {
-    try {
-      return await updateTool(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("update_tool", (input) =>
+    updateTool(platformClient, input as { toolId: string })
+  ),
 });
 
 const removeToolTool = createTool({
   id: "remove_tool",
   description: "Remove a tool by ID",
-  inputSchema: RemoveToolSchema,
-  execute: async (input) => {
-    try {
-      return await removeTool(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("remove_tool", (input) =>
+    removeTool(platformClient, input as { toolId: string })
+  ),
 });
 
-// Shop tools
 const shopProductsTool = createTool({
   id: "shop_products",
-  description:
-    "Search for products across multiple retailers (Amazon, eBay, Newegg, Best Buy). Returns listings with prices, deal scores, and links.",
-  inputSchema: ShopProductsSchema,
-  execute: async (input) => {
-    try {
-      return await shopProducts(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Search for products across multiple retailers",
+  inputSchema: AnyObject,
+  execute: wrapExecute("shop_products", (input) =>
+    shopProducts(platformClient, input as { query: string; retailers?: string[] })
+  ),
 });
 
 const getShopSessionTool = createTool({
   id: "get_shop_session",
   description: "Retrieve a shop session by ID",
-  inputSchema: GetShopSessionSchema,
-  execute: async (input) => {
-    try {
-      return await getShopSession(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_shop_session", (input) =>
+    getShopSession(platformClient, input as { sessionId: string })
+  ),
 });
 
 const getShopListingsTool = createTool({
   id: "get_shop_listings",
-  description: "Get product listings for a shop session with sorting and filtering options",
-  inputSchema: GetShopListingsSchema,
-  execute: async (input) => {
-    try {
-      return await getShopListings(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Get product listings for a shop session",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_shop_listings", (input) =>
+    getShopListings(platformClient, input as { sessionId: string; limit?: number })
+  ),
 });
 
-// What's New tools
 const getWhatsNewReportTool = createTool({
   id: "get_whats_new_report",
-  description:
-    "Get the latest AI software engineering news briefing. Returns cached daily report with findings from Reddit, Hacker News, GitHub, Dev.to, and Lobsters.",
-  inputSchema: GetWhatsNewSchema,
-  execute: async (input) => {
-    try {
-      return await getWhatsNewReport(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Get the latest AI software engineering news briefing",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_whats_new_report", (input) =>
+    getWhatsNewReport(platformClient, input as { forceRefresh?: boolean })
+  ),
 });
 
 const listWhatsNewReportsTool = createTool({
   id: "list_whats_new_reports",
   description: "List recent What's New reports with metadata",
-  inputSchema: ListWhatsNewReportsSchema,
-  execute: async (input) => {
-    try {
-      return await listWhatsNewReports(holocronClient, input.limit);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  inputSchema: AnyObject,
+  execute: wrapExecute("list_whats_new_reports", async (input) => {
+    const limit =
+      input && typeof input === "object" && "limit" in input
+        ? Number((input as { limit?: number }).limit)
+        : undefined;
+    return listWhatsNewReports(platformClient, Number.isFinite(limit) ? limit : undefined);
+  }),
 });
 
-// Assimilation tools
 const startAssimilationTool = createTool({
   id: "start_assimilation",
-  description:
-    "Start a new assimilation session to analyze a GitHub repository. Creates a planning phase, then waits for approval before running the full analysis loop.",
-  inputSchema: StartAssimilationSchema,
-  execute: async (input) => {
-    try {
-      return await startAssimilation(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Start a new assimilation session to analyze a GitHub repository",
+  inputSchema: AnyObject,
+  execute: wrapExecute("start_assimilation", (input) =>
+    startAssimilation(platformClient, input as { repositoryUrl: string })
+  ),
 });
 
 const approveAssimilationPlanTool = createTool({
   id: "approve_assimilation_plan",
-  description:
-    "Approve the generated assimilation plan and start the full analysis loop. Session must be in pending_approval status.",
-  inputSchema: AssimilationSessionIdSchema,
-  execute: async (input) => {
-    try {
-      await approveAssimilationPlan(holocronClient, input);
-      return { approved: true, sessionId: input.sessionId };
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Approve the generated assimilation plan and start analysis",
+  inputSchema: AnyObject,
+  execute: wrapExecute("approve_assimilation_plan", async (input) => {
+    await approveAssimilationPlan(platformClient, input as { sessionId: string });
+    return { approved: true, sessionId: (input as { sessionId: string }).sessionId };
+  }),
 });
 
 const rejectAssimilationPlanTool = createTool({
   id: "reject_assimilation_plan",
-  description:
-    "Reject the assimilation plan. Provide feedback to trigger a re-plan, or omit feedback to cancel the session entirely.",
-  inputSchema: RejectAssimilationPlanSchema,
-  execute: async (input) => {
-    try {
-      await rejectAssimilationPlan(holocronClient, input);
-      return { rejected: true, sessionId: input.sessionId, replanning: !!input.feedback };
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Reject the assimilation plan",
+  inputSchema: AnyObject,
+  execute: wrapExecute("reject_assimilation_plan", async (input) => {
+    const typed = input as { sessionId: string; feedback?: string };
+    await rejectAssimilationPlan(platformClient, typed);
+    return { rejected: true, sessionId: typed.sessionId, replanning: !!typed.feedback };
+  }),
 });
 
 const getAssimilationStatusTool = createTool({
   id: "get_assimilation_status",
-  description:
-    "Get the current status and progress of an assimilation session. Use this to poll for completion or check the plan before approving.",
-  inputSchema: AssimilationSessionIdSchema,
-  execute: async (input) => {
-    try {
-      return await getAssimilationStatus(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Get the current status and progress of an assimilation session",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_assimilation_status", (input) =>
+    getAssimilationStatus(platformClient, input as { sessionId: string })
+  ),
 });
 
 const cancelAssimilationTool = createTool({
   id: "cancel_assimilation",
-  description:
-    "Cancel an active assimilation session. Cannot cancel sessions that are already completed, failed, cancelled, or rejected.",
-  inputSchema: AssimilationSessionIdSchema,
-  execute: async (input) => {
-    try {
-      await cancelAssimilation(holocronClient, input);
-      return { cancelled: true, sessionId: input.sessionId };
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Cancel an active assimilation session",
+  inputSchema: AnyObject,
+  execute: wrapExecute("cancel_assimilation", async (input) => {
+    await cancelAssimilation(platformClient, input as { sessionId: string });
+    return { cancelled: true, sessionId: (input as { sessionId: string }).sessionId };
+  }),
 });
 
 const steerAssimilationTool = createTool({
   id: "steer_assimilation",
-  description:
-    "Inject a human steering note into an in-progress assimilation session. The note will be picked up by the next iteration to guide analysis direction.",
-  inputSchema: SteerAssimilationSchema,
-  execute: async (input) => {
-    try {
-      await steerAssimilation(holocronClient, input);
-      return { steered: true, sessionId: input.sessionId };
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Inject a human steering note into an in-progress assimilation session",
+  inputSchema: AnyObject,
+  execute: wrapExecute("steer_assimilation", async (input) => {
+    await steerAssimilation(platformClient, input as { sessionId: string; note: string });
+    return { steered: true, sessionId: (input as { sessionId: string }).sessionId };
+  }),
 });
 
-// Creator management tools
 const assimilateCreatorTool = createTool({
   id: "assimilate_creator",
-  description:
-    "Assimilate a creator by extracting transcripts from all their videos. Fetches all videos from the creator's YouTube channel and creates transcript jobs for them.",
-  inputSchema: AssimilateCreatorSchema,
-  execute: async (input) => {
-    try {
-      return await assimilateCreator(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Assimilate a creator by extracting transcripts from their videos",
+  inputSchema: AnyObject,
+  execute: wrapExecute("assimilate_creator", (input) =>
+    assimilateCreator(platformClient, input as { profileId: string })
+  ),
 });
 
 const getCreatorTranscriptsTool = createTool({
   id: "get_creator_transcripts",
-  description:
-    "Retrieve all transcripts for a creator profile. Returns transcript metadata including preview text, word count, and source.",
-  inputSchema: GetCreatorTranscriptsSchema,
-  execute: async (input) => {
-    try {
-      return await getCreatorTranscripts(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Retrieve all transcripts for a creator profile",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_creator_transcripts", (input) =>
+    getCreatorTranscripts(platformClient, input as { profileId: string; limit?: number })
+  ),
 });
 
 const regenerateTranscriptTool = createTool({
   id: "regenerate_transcript",
-  description:
-    "Force re-transcription of a video. Creates a new transcript job that will re-fetch the transcript using YouTube API or Jina Reader fallback.",
-  inputSchema: RegenerateTranscriptSchema,
-  execute: async (input) => {
-    try {
-      return await regenerateTranscript(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Force re-transcription of a video",
+  inputSchema: AnyObject,
+  execute: wrapExecute("regenerate_transcript", (input) =>
+    regenerateTranscript(platformClient, input as { videoId: string; profileId?: string })
+  ),
 });
 
-// Improvement request tools
 const searchImprovementsTool = createTool({
   id: "search_improvements",
-  description:
-    "Search existing improvement requests using hybrid similarity search. Returns similar improvements ranked by relevance.",
-  inputSchema: SearchImprovementsSchema,
-  execute: async (input) => {
-    try {
-      return await searchImprovements(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Search existing improvement requests using hybrid similarity search",
+  inputSchema: AnyObject,
+  execute: wrapExecute("search_improvements", (input) =>
+    searchImprovements(platformClient, input as { query: string; limit?: number })
+  ),
 });
 
 const getImprovementTool = createTool({
   id: "get_improvement",
-  description: "Retrieve a specific improvement request by ID.",
-  inputSchema: GetImprovementSchema,
-  execute: async (input) => {
-    try {
-      return await getImprovement(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Retrieve a specific improvement request by ID",
+  inputSchema: AnyObject,
+  execute: wrapExecute("get_improvement", (input) =>
+    getImprovement(platformClient, input as { id: string })
+  ),
 });
 
 const listImprovementsTool = createTool({
   id: "list_improvements",
-  description:
-    "List improvement requests with optional status filter. Statuses: open, closed. Omit status to list all non-merged items.",
-  inputSchema: ListImprovementsSchema_Improvements,
-  execute: async (input) => {
-    try {
-      return await listImprovements(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "List improvement requests with optional status filter",
+  inputSchema: AnyObject,
+  execute: wrapExecute("list_improvements", (input) =>
+    listImprovements(platformClient, input as { status?: string; limit?: number })
+  ),
 });
 
 const addImprovementTool = createTool({
   id: "add_improvement",
-  description:
-    "Submit one or more improvement requests. Each item needs a description and optional sourceScreen.",
-  inputSchema: AddImprovementSchema,
-  execute: async (input) => {
-    try {
-      return await addImprovement(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Submit one or more improvement requests",
+  inputSchema: AnyObject,
+  execute: wrapExecute("add_improvement", (input) =>
+    addImprovement(
+      platformClient,
+      input as { items: Array<{ description: string; sourceScreen?: string }> }
+    )
+  ),
 });
 
 const closeImprovementTool = createTool({
   id: "close_improvement",
-  description:
-    "Close an improvement request. Records optional reason and evidence (file paths, PR links, commits) proving the improvement was shipped. Use this when auditing the improvements list against the codebase.",
-  inputSchema: CloseImprovementSchema,
-  execute: async (input) => {
-    try {
-      return await closeImprovement(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Close an improvement request",
+  inputSchema: AnyObject,
+  execute: wrapExecute("close_improvement", (input) =>
+    closeImprovement(
+      platformClient,
+      input as { id: string; reason?: string; evidence?: string[] }
+    )
+  ),
 });
 
 const setImprovementStatusTool = createTool({
   id: "set_improvement_status",
-  description:
-    "Set an improvement request's status to 'open' or 'closed'. Reopening a closed item clears its closure metadata.",
-  inputSchema: SetImprovementStatusSchema,
-  execute: async (input) => {
-    try {
-      return await setImprovementStatus(holocronClient, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Set an improvement request's status to open or closed",
+  inputSchema: AnyObject,
+  execute: wrapExecute("set_improvement_status", (input) =>
+    setImprovementStatus(platformClient, input as { id: string; status: string })
+  ),
 });
 
-// Recommendation tool
 const findRecommendationsTool = createTool({
   id: "findRecommendations",
-  description:
-    "Find specific recommendations with contact details — inline response, no document created.",
-  inputSchema: FindRecommendationsSchema,
-  execute: async (input) => {
-    try {
-      return await holocronClient.action("research/actions:findRecommendations" as any, input);
-    } catch (error) {
-      console.error(formatError(error));
-      throw error;
-    }
-  },
+  description: "Find specific recommendations with contact details",
+  inputSchema: AnyObject,
+  execute: wrapExecute("findRecommendations", (input) =>
+    platformClient.callTool("findRecommendations", input as Record<string, unknown>)
+  ),
 });
 
-/**
- * Initialize Mastra MCP server
- */
+// Keys MUST be the MCP tool ids — Mastra MCPServer uses object keys as tools/list names
+// and as tools/call lookup keys (overwriting createTool id with the key).
 const server = new MCPServer({
   name: "holocron",
   version: "1.0.0",
-  description: "Unified Holocron MCP server with Bun + Mastra + Convex streaming",
+  description: "Unified Holocron MCP server (platform Postgres via Streamable HTTP)",
   tools: {
-    getResearchSessionTool,
-    searchResearchTool,
-    searchFtsTool,
-    searchVectorTool,
-    storeDocumentTool,
-    updateDocumentTool,
-    shareDocumentTool,
-    getDocumentTool,
-    listDocumentsTool,
-    hybridSearchTool,
-    addSubscriptionTool,
-    removeSubscriptionTool,
-    listSubscriptionsTool,
-    checkSubscriptionsTool,
-    getSubscriptionContentTool,
-    setSubscriptionFilterTool,
-    getSubscriptionFiltersTool,
-    storeToolTool,
-    searchToolsTool,
-    getToolTool,
-    listToolsTool,
-    updateToolTool,
-    removeToolTool,
-    shopProductsTool,
-    getShopSessionTool,
-    getShopListingsTool,
-    getWhatsNewReportTool,
-    listWhatsNewReportsTool,
-    startAssimilationTool,
-    approveAssimilationPlanTool,
-    rejectAssimilationPlanTool,
-    getAssimilationStatusTool,
-    cancelAssimilationTool,
-    steerAssimilationTool,
-    assimilateCreatorTool,
-    getCreatorTranscriptsTool,
-    regenerateTranscriptTool,
-    searchImprovementsTool,
-    getImprovementTool,
-    listImprovementsTool,
-    addImprovementTool,
-    closeImprovementTool,
-    setImprovementStatusTool,
-    findRecommendationsTool,
+    get_research_session: getResearchSessionTool,
+    search_research: searchResearchTool,
+    search_fts: searchFtsTool,
+    search_vector: searchVectorTool,
+    store_document: storeDocumentTool,
+    update_document: updateDocumentTool,
+    share_document: shareDocumentTool,
+    get_document: getDocumentTool,
+    list_documents: listDocumentsTool,
+    hybrid_search: hybridSearchTool,
+    add_subscription: addSubscriptionTool,
+    remove_subscription: removeSubscriptionTool,
+    list_subscriptions: listSubscriptionsTool,
+    check_subscriptions: checkSubscriptionsTool,
+    get_subscription_content: getSubscriptionContentTool,
+    set_subscription_filter: setSubscriptionFilterTool,
+    get_subscription_filters: getSubscriptionFiltersTool,
+    store_tool: storeToolTool,
+    search_tools: searchToolsTool,
+    get_tool: getToolTool,
+    list_tools: listToolsTool,
+    update_tool: updateToolTool,
+    remove_tool: removeToolTool,
+    shop_products: shopProductsTool,
+    get_shop_session: getShopSessionTool,
+    get_shop_listings: getShopListingsTool,
+    get_whats_new_report: getWhatsNewReportTool,
+    list_whats_new_reports: listWhatsNewReportsTool,
+    start_assimilation: startAssimilationTool,
+    approve_assimilation_plan: approveAssimilationPlanTool,
+    reject_assimilation_plan: rejectAssimilationPlanTool,
+    get_assimilation_status: getAssimilationStatusTool,
+    cancel_assimilation: cancelAssimilationTool,
+    steer_assimilation: steerAssimilationTool,
+    assimilate_creator: assimilateCreatorTool,
+    get_creator_transcripts: getCreatorTranscriptsTool,
+    regenerate_transcript: regenerateTranscriptTool,
+    search_improvements: searchImprovementsTool,
+    get_improvement: getImprovementTool,
+    list_improvements: listImprovementsTool,
+    add_improvement: addImprovementTool,
+    close_improvement: closeImprovementTool,
+    set_improvement_status: setImprovementStatusTool,
+    findRecommendations: findRecommendationsTool,
   },
 });
 
-/**
- * Graceful shutdown handler
- */
 process.on("SIGINT", () => {
-  log("[Shutdown] SIGINT received - cleaning up subscriptions...");
+  log("[Shutdown] SIGINT received");
   subscriptionManager.cleanup();
-  holocronClient.close();
+  platformClient.close();
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  log("[Shutdown] SIGTERM received - cleaning up subscriptions...");
+  log("[Shutdown] SIGTERM received");
   subscriptionManager.cleanup();
-  holocronClient.close();
+  platformClient.close();
   process.exit(0);
 });
 
@@ -872,15 +623,9 @@ process.on("unhandledRejection", (reason, promise) => {
   process.exit(1);
 });
 
-/**
- * Start MCP server on stdio
- */
-log("[Holocron MCP] Starting server...");
-log(`[Holocron MCP] Tools registered: 43`);
-log(`[Holocron MCP] Platform URL: ${process.env.PLATFORM_URL || "NOT SET"}`);
+log("[Holocron MCP] Starting stdio server (platform delegate)...");
 
 try {
-  log("Attempting to start stdio transport...");
   await server.startStdio();
   log("Server started successfully!");
 } catch (error) {

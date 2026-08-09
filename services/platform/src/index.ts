@@ -22,6 +22,7 @@ import { applyConsolidatedSecretsToEnv } from './config/secrets.ts';
 import { serviceQueue } from './http/health.ts';
 import { createHonoApp } from './http/hono-app.ts';
 import { createObservability, createStorage, DATABASE_URL } from './mastra.ts';
+import { toolsAsRecord } from './tools/registry.ts';
 
 export const DEFAULT_PORT = 4111;
 
@@ -63,8 +64,8 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
 
 /**
  * Create the single Mastra instance for this process.
- * Agents/workflows/tools are registered by later sprint tasks; storage +
- * observability are wired now so /health and durable runtime share one root.
+ * Tools come from the shared registry (S31-05); agents/workflows land in later
+ * sprint tasks. Storage + observability share one durable root with /health.
  */
 export function createMastra(): Mastra {
   const storage = createStorage();
@@ -72,9 +73,9 @@ export function createMastra(): Mastra {
   return new Mastra({
     storage,
     observability,
-    // Empty registries for service-1; service-2+ register tools/agents.
     agents: {},
     workflows: {},
+    tools: toolsAsRecord(),
   });
 }
 
@@ -126,7 +127,9 @@ export async function startService(options?: {
     console.log(`  health:  http://127.0.0.1:${port}/health`);
     console.log(`  storage: PostgresStore → ${DATABASE_URL}`);
     console.log(`  queue:   backend=${serviceQueue.getBackend()} (Postgres leased queue)`);
-    console.log(`  mastra:  single composition root (agents/workflows deferred to later tasks)`);
+    console.log(
+      `  mastra:  single composition root (44 shared-registry tools; agents/workflows later)`
+    );
   }
 
   const stop = async () => {

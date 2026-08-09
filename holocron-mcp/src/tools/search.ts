@@ -1,79 +1,36 @@
 /**
- * Search tools for Holocron MCP
- * Implements search_fts (full-text) and search_vector (semantic)
+ * Search tools — delegated to platform MCP (S31-05).
  */
+import type { PlatformMcpClient } from "../platform/mcp-client.ts";
 
-import type { HolocronConvexClient } from "../convex/client.ts";
-import type { SearchResult } from "../convex/types.ts";
-
-/**
- * Full-text search using FTS5
- */
 export interface SearchFtsInput {
   query: string;
   limit?: number;
 }
 
-export interface SearchFtsOutput {
-  results: SearchResult[];
-  totalResults: number;
-}
-
-export async function searchFts(
-  client: HolocronConvexClient,
-  input: SearchFtsInput
-): Promise<SearchFtsOutput> {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference and result type
-  const rawResults = await client.query<any[]>("documents/queries:fullTextSearch" as any, {
-    query: input.query,
-    limit: input.limit ?? 20,
-  });
-
-  // Transform the raw results to match expected output format
-  return {
-    results: rawResults.map((r) => ({
-      _id: r._id,
-      title: r.title,
-      score: r.score,
-      content: r.content,
-    })),
-    totalResults: rawResults.length,
-  };
-}
-
-/**
- * Vector semantic search using embeddings
- * Note: This requires an embedding vector, not a query string.
- * Use hybridSearch for text-based semantic search.
- */
 export interface SearchVectorInput {
-  embedding: number[];
+  embedding?: number[];
+  query?: string;
   limit?: number;
 }
 
-export interface SearchVectorOutput {
-  results: SearchResult[];
-  totalResults: number;
+export async function searchFts(
+  client: PlatformMcpClient,
+  input: SearchFtsInput
+): Promise<unknown> {
+  return client.callTool("search_fts", {
+    query: input.query,
+    ...(input.limit !== undefined && { limit: input.limit }),
+  });
 }
 
 export async function searchVector(
-  client: HolocronConvexClient,
+  client: PlatformMcpClient,
   input: SearchVectorInput
-): Promise<SearchVectorOutput> {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference and result type
-  const rawResults = await client.query<any[]>("documents/queries:vectorSearch" as any, {
-    embedding: input.embedding,
-    limit: input.limit ?? 20,
+): Promise<unknown> {
+  return client.callTool("search_vector", {
+    ...(input.embedding !== undefined && { embedding: input.embedding }),
+    ...(input.query !== undefined && { query: input.query }),
+    ...(input.limit !== undefined && { limit: input.limit }),
   });
-
-  // Transform the raw results to match expected output format
-  return {
-    results: rawResults.map((r) => ({
-      _id: r._id,
-      title: r.title,
-      score: r.score,
-      content: r.content,
-    })),
-    totalResults: rawResults.length,
-  };
 }

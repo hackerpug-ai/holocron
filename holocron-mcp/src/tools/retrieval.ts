@@ -1,62 +1,36 @@
 /**
- * Document retrieval tools for Holocron MCP
- * Implements get_document and list_documents
+ * Document retrieval tools — delegated to platform MCP (S31-05).
  */
+import type { PlatformMcpClient } from "../platform/mcp-client.ts";
 
-import type { HolocronConvexClient } from "../convex/client.ts";
-import type { Document } from "../convex/types.ts";
-
-/**
- * Get a document by ID
- */
 export interface GetDocumentInput {
   documentId: string;
 }
 
-export async function getDocument(
-  client: HolocronConvexClient,
-  input: GetDocumentInput
-): Promise<Document | null> {
-  // Check if the input looks like a Convex ID (format: "documents:...")
-  // If not, try to look up by title instead
-  const isConvexId = input.documentId.includes(":");
-
-  if (isConvexId) {
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-    return await client.query<Document | null>("documents/queries:get" as any, {
-      id: input.documentId,
-    });
-  } else {
-    // Try to find by title (for cases where title/slug is passed instead of ID)
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-    return await client.query<Document | null>("documents/queries:getByTitle" as any, {
-      title: input.documentId,
-    });
-  }
-}
-
-/**
- * List documents with pagination
- */
 export interface ListDocumentsInput {
   limit?: number;
   cursor?: string;
 }
 
 export interface ListDocumentsOutput {
-  documents: Document[];
+  documents: Array<Record<string, unknown>>;
   nextCursor: string | null;
   hasMore: boolean;
 }
 
+export async function getDocument(
+  client: PlatformMcpClient,
+  input: GetDocumentInput
+): Promise<unknown> {
+  return client.callTool("get_document", { documentId: input.documentId });
+}
+
 export async function listDocuments(
-  client: HolocronConvexClient,
+  client: PlatformMcpClient,
   input: ListDocumentsInput
 ): Promise<ListDocumentsOutput> {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic Convex function reference
-  const result = await client.query<ListDocumentsOutput>("documents/queries:list" as any, {
-    limit: input.limit ?? 50,
+  return client.callTool<ListDocumentsOutput>("list_documents", {
+    ...(input.limit !== undefined && { limit: input.limit }),
+    ...(input.cursor !== undefined && { cursor: input.cursor }),
   });
-
-  return result;
 }

@@ -3,11 +3,12 @@ import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
 
 /**
- * MCP env — reads PLATFORM_URL (and related) from process env / .env files.
- * Do not reintroduce legacy Convex deployment env aliases (T-PLAT-017).
+ * MCP env — PLATFORM_URL + HOLO_KEY_MCP for the platform Streamable HTTP /mcp delegate.
+ * Diagnostics on stderr only (stdio is JSON-RPC framing).
  */
 const EnvSchema = z.object({
   PLATFORM_URL: z.string().url(),
+  HOLO_KEY_MCP: z.string().min(1).optional(),
   HOLO_DEPLOY_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
@@ -27,13 +28,15 @@ function normalizeEnvValue(value: string | undefined): string | undefined {
 
 export function loadEnv(): Env {
   const KEYS_TO_MERGE = [
-    "PLATFORM_URL", // Platform / MCP backend base URL (consolidated secrets)
-    "PLATFORM_SITE_URL", // Public site URL for HTTP share links
-    "HOLO_DEPLOY_KEY", // Optional deploy/admin key
-    "HOLOCRON_OPENAI_API_KEY", // OpenAI API key (holocron-namespaced)
-    "OPENAI_API_KEY", // OpenAI API key (standard name)
-    "EXPO_PUBLIC_OPENAI_API_KEY", // Holocron app env fallback
-    "EXPO_PUBLIC_PLATFORM_URL", // App-public platform URL fallback
+    "PLATFORM_URL",
+    "PLATFORM_SITE_URL",
+    "HOLO_KEY_MCP",
+    "MCP_API_KEY",
+    "HOLO_DEPLOY_KEY",
+    "HOLOCRON_OPENAI_API_KEY",
+    "OPENAI_API_KEY",
+    "EXPO_PUBLIC_OPENAI_API_KEY",
+    "EXPO_PUBLIC_PLATFORM_URL",
     "LOG_LEVEL",
   ] as const;
 
@@ -80,7 +83,6 @@ export function loadEnv(): Env {
     }
   };
 
-  // Merge launcher-provided environment first, then fall back to local env files.
   for (const key of KEYS_TO_MERGE) {
     const value = normalizeEnvValue(Bun.env[key]);
     if (value !== undefined && normalizeEnvValue(process.env[key]) === undefined) {
@@ -93,7 +95,6 @@ export function loadEnv(): Env {
   loadEnvFile(envPath);
   loadEnvFile(envLocalPath);
 
-  // Also try consolidated secrets.yaml (flat KEY: value) if present
   const secretsCandidates = [
     join(projectRoot, "services/platform/config/secrets.yaml"),
     resolve(projectRoot, "../services/platform/config/secrets.yaml"),
@@ -108,8 +109,7 @@ export function loadEnv(): Env {
       const separatorIndex = line.indexOf(":");
       if (separatorIndex === -1) continue;
       const key = line.slice(0, separatorIndex).trim();
-      if (!KEYS_TO_MERGE.includes(key as (typeof KEYS_TO_MERGE)[number]) && key !== "PLATFORM_URL")
-        continue;
+      if (!KEYS_TO_MERGE.includes(key as (typeof KEYS_TO_MERGE)[number])) continue;
       if (process.env[key] !== undefined) continue;
       let value = line.slice(separatorIndex + 1).trim();
       if (
@@ -126,9 +126,18 @@ export function loadEnv(): Env {
     break;
   }
 
+  // Normalize MCP key aliases
+  if (!process.env.HOLO_KEY_MCP && process.env.MCP_API_KEY) {
+    process.env.HOLO_KEY_MCP = process.env.MCP_API_KEY;
+  }
+
   const envWithFallback = {
     ...process.env,
     HOLO_DEPLOY_KEY: normalizeEnvValue(process.env.HOLO_DEPLOY_KEY) || "",
+    HOLO_KEY_MCP:
+      normalizeEnvValue(process.env.HOLO_KEY_MCP) ||
+      normalizeEnvValue(process.env.MCP_API_KEY) ||
+      "",
     OPENAI_API_KEY:
       normalizeEnvValue(process.env.HOLOCRON_OPENAI_API_KEY) ||
       normalizeEnvValue(process.env.OPENAI_API_KEY) ||
