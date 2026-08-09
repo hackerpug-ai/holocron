@@ -56,6 +56,21 @@ const TOOL_ID_ALIASES: Record<string, string> = {
   search: 'hybrid_search',
   searchTool: 'search_tools',
   searchtool: 'search_tools',
+  // Chat specialist grants (S31-04) — convex-facing ids → Postgres registry ids
+  search_knowledge_base: 'hybrid_search',
+  browse_category: 'list_documents',
+  knowledge_base_stats: 'list_documents',
+  shop_search: 'shop_products',
+  quick_research: 'search_research',
+  deep_research: 'get_research_session',
+  answer_question: 'search_research',
+  find_recommendations: 'findRecommendations',
+  subscribe: 'add_subscription',
+  unsubscribe: 'remove_subscription',
+  whats_new: 'get_whats_new_report',
+  save_document: 'store_document',
+  assimilate: 'start_assimilation',
+  create_plan: 'list_tools',
 };
 
 export function resolveToolId(toolId: string): string {
