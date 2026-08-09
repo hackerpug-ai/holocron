@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="iPhone 17 Pro - iOS 26.5 - D70558B9-3E26-43F6-8D52-311A0D86E50D" tests="1" failures="0" time="50.0">
+    <testcase id="session-loads" name="session-loads" classname="session-loads" file=".maestro/research/session-loads.yml" time="50.0" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

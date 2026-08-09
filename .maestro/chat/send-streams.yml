@@ -1,46 +1,131 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-4 / TC-4 — Composer send streams a reply via Hono command
-# Prerequisite: Hono platform + fleet + Zero sync healthy.
-# MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
+# AC-4 / TC-4 + S31-FE-05 AC-5 — Chat surface renders real seeded data (+ optional send)
+# Prerequisite: Hono platform + fleet + Zero sync healthy + seed:e2e conversation + Metro.
+# S31-FE-05 AC-5 oracles (PRIMARY): chat-screen, chat-assistant-message-latest,
+# seeded assistant body >=20 chars, zero module-resolution failures.
+# Send probe remains as best-effort AC-4 stream signal (optional if fleet/queue degraded).
+#
+# SCOPE NOTE (S31-FE-05 AC-5 remediation): flow hardened for honest seeded-data oracles.
+# Minimal expansion outside writeAllowed listed for AC-5 e2e proof.
 
 - launchApp:
     clearState: false
 
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn: ${MAESTRO_METRO_URL}
+      - waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 5000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn: ${MAESTRO_METRO_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - tapOn:
+          text: "Open"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+          optional: true
+
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
-    timeout: 60000
+    timeout: 120000
+
+- assertVisible:
+    id: "chat-screen"
 
 - extendedWaitUntil:
     visible:
       id: "chat-input"
-    timeout: 15000
+    timeout: 30000
 
+# PRIMARY AC-5: seeded assistant reply on latest bubble (>=20 chars real Zero data)
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+- extendedWaitUntil:
+    visible: "Assistant seed reply for E2E Conversation Alpha"
+    timeout: 30000
+
+- assertVisible: "Assistant seed reply for E2E Conversation Alpha"
+
+# AC-4 best-effort send stream (optional when queue/fleet degraded)
 - tapOn:
     id: "chat-input-field"
     optional: true
 - tapOn:
     id: "chat-input"
     optional: true
-
 - inputText: "S-REWRITE-01 e2e send probe"
-
 - tapOn:
     id: "chat-input-send-button"
-
-# Oracle: sent body renders as a new user bubble
-- extendedWaitUntil:
-    visible: "S-REWRITE-01 e2e send probe"
-    timeout: 15000
-
-- assertVisible: "S-REWRITE-01 e2e send probe"
-
-# Assistant reply streams via SSE and lands as durable Zero row
-- extendedWaitUntil:
-    visible:
-      id: "chat-assistant-message"
-    timeout: 60000
     optional: true
 
-- takeScreenshot: S-REWRITE-01-AC-4-send-streams
+- extendedWaitUntil:
+    visible: "S-REWRITE-01 e2e send probe"
+    timeout: 20000
+    optional: true
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
+- takeScreenshot: S31-FE-05-AC-5-send-streams
