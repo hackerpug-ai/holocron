@@ -376,3 +376,18 @@ describe('S31-CX-02 AC-1 operator surface (not green without live proof)', () =>
     expect(text.toLowerCase()).not.toMatch(/agent already proved ac-1|ac-1 is green/);
   });
 });
+
+
+describe('S31-CX-02 temporary exception documentation', () => {
+  it('documents Convex-retain deferral without claiming AC-1 passed', () => {
+    const runbook = resolve(
+      REPO_ROOT,
+      '.spec/prds/mk6-migration/runbooks/cx-02-live-convex-export-archive-proof.md'
+    );
+    const body = readFileSync(runbook, 'utf8');
+    expect(body).toMatch(/TEMPORARY EXCEPTION/i);
+    expect(body).toMatch(/Convex retained|keeping Convex|defer/i);
+    expect(body).toMatch(/NOT_PASSED|do not mark AC-1 passed|DEFERRED/i);
+    expect(body).not.toMatch(/ac1_live_export_fidelity:\s*PASS/i);
+  });
+});

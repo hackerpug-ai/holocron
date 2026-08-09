@@ -6,6 +6,40 @@
 **Agent boundary:** Agents implement fail-closed provenance (AC-2) + hash compare tooling (AC-3) only.  
 **Agents MUST NOT** invoke `npx convex export` against the live deployment for this task, and MUST NOT mark AC-1 green without this operator evidence.
 
+
+
+---
+
+## TEMPORARY EXCEPTION (operator-approved) — Convex retained; live export AC deferred
+
+**Status:** ACTIVE as of 2026-08-09  
+**Approved by:** operator (human)  
+**Scope:** S31-CX-02 AC-1 only (live export / archive-fidelity against live Convex)
+
+The operator has approved **keeping Convex up for now**. Therefore:
+
+| Rule | Required behavior |
+|------|-------------------|
+| Fresh live `convex export` + fidelity compare (AC-1 PRIMARY) | **DEFERRED** — do not block agent tooling work, but **do not mark AC-1 passed** |
+| Fabricated / mocked live-export evidence | **FORBIDDEN** |
+| AC-2 fail-closed provenance sidecar | **CONTINUE** (agent-safe; may pass on fixtures) |
+| AC-3 hash tooling / `cutover:verify-archive-provenance` | **CONTINUE** (agent-safe tooling status only) |
+| Sprint goal `met` | Remains **false** unless the sprint contract is explicitly amended and real evidence completes |
+
+### Evidence labels under this exception
+
+- `ac1_live_export_fidelity`: **DEFERRED / NOT_PASSED**
+- `ac2_sidecar_fail_closed`: may be PASS on fixtures/tooling
+- `ac3_hash_tooling`: may be PASS on fixtures/tooling
+- `convex_deployment`: **retained (operator exception)** — not deleted for this wave
+
+### Close-out of this exception (later operator action)
+
+1. Operator runs AC-1 steps below (fresh read-only export + compare).
+2. File redacted evidence (no secrets).
+3. Only then may AC-1 be marked passed.
+
+
 ## Why
 
 Sprint 32 deletes the Convex deployment. The retained Sprint 29 immutable export is the only remaining full-corpus witness. Self-hash of a directory proves self-consistency only (R21) — a constructed tree can match its own digest. AC-1 requires a **fresh read-only export** from the live deployment compared to the retained archive.
