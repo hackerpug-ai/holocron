@@ -24,6 +24,7 @@ import { Text } from '@/components/ui/text';
 import { VoiceAssistantOverlay } from '@/components/voice/VoiceAssistantOverlay';
 import { useChatHistory } from '@/hooks/use-chat-history';
 import {
+  fetchWithChatDeadline,
   getModuleStreamHandoff,
   isFleetUnavailableFailure,
   SURFACE_UNAVAILABLE_MESSAGE,
@@ -195,16 +196,19 @@ export default function ChatScreen() {
     let cancelled = false;
     const hydrate = async () => {
       try {
-        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${streamRunId}`, {
-          headers: { Authorization: `Bearer ${rnApiKey}` },
-        });
+        const res = await fetchWithChatDeadline(
+          `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${streamRunId}`,
+          {
+            headers: { Authorization: `Bearer ${rnApiKey}` },
+          }
+        );
         if (!res.ok || cancelled) return;
         const body = (await res.json()) as { finalText?: string };
         if (!cancelled && typeof body.finalText === 'string' && body.finalText.trim().length > 0) {
           setHydratedFinalText(body.finalText);
         }
       } catch {
-        /* ignore */
+        /* ignore hydrate errors / chat-path deadline aborts */
       }
     };
     void hydrate();
@@ -627,7 +631,7 @@ export default function ChatScreen() {
         const targetConversationId =
           isNewConversation || !conversationId ? undefined : conversationId;
 
-        const response = await fetch(`${platformUrl}/api/chat-runs`, {
+        const response = await fetchWithChatDeadline(`${platformUrl}/api/chat-runs`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${rnApiKey}`,
@@ -713,11 +717,20 @@ export default function ChatScreen() {
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
-        // Failure-envelope path for network/thrown RoleUnavailable-shaped errors
-        if (
-          isFleetUnavailableFailure({ error: error.message, message: error.message }) &&
-          enterDegradedFromEnvelope({ error: error.message, message: error.message })
-        ) {
+        // Failure-envelope path: fleet-unavailable + S31-FE-01 chat-path deadline /
+        // hard-down create (ChatNetworkDeadlineError carries CHAT_NETWORK_DEADLINE;
+        // raw ECONNREFUSED / RN "Network request failed" also match).
+        const errCode =
+          err && typeof err === 'object' && 'code' in err
+            ? String((err as { code?: unknown }).code ?? '')
+            : '';
+        const envelope = {
+          error: error.message,
+          message: error.message,
+          code: errCode || undefined,
+        };
+        if (isFleetUnavailableFailure(envelope) && enterDegradedFromEnvelope(envelope)) {
+          // Same terminal as stall: degraded banner + composer re-enable.
           setRunBusy(false);
           globalStopHoldUntilMs = 0;
           setSendError(null);

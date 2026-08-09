@@ -58,8 +58,140 @@ function parseSseBlock(block: string): { event: string; data: string; id: string
 }
 
 /**
+ * S31-FE-01 — single constants block for every chat-path deadline.
+ * Tests may override members in place (e.g. httpRequestDeadlineMs = 800).
+ * Call sites MUST read from this object — never numeric timeout literals.
+ */
+export const CHAT_NETWORK_DEADLINES = {
+  /** Max wait for the first SSE body byte after the socket accepts. */
+  sseFirstByteDeadlineMs: 15_000,
+  /** Max quiet gap between any SSE bytes (including `: keepalive` comments). */
+  sseIdleDeadlineMs: 30_000,
+  /** Max wait for chat-path HTTP fetch (create / hydrate / poll / cancel). */
+  httpRequestDeadlineMs: 15_000,
+  /** Max SSE open attempts (initial + reconnects) before terminal `degraded`. */
+  reconnectMaxAttempts: 5,
+};
+
+/** Envelope code routed through applyFleetFailureEnvelope on deadline expiry. */
+export const CHAT_NETWORK_DEADLINE_CODE = 'CHAT_NETWORK_DEADLINE';
+
+/**
+ * Error thrown by fetchWithChatDeadline when the shared HTTP deadline fires
+ * or the origin is hard-down at connect (ECONNREFUSED / RN Network request failed).
+ * Message includes CHAT_NETWORK_DEADLINE_CODE so isFleetUnavailableFailure matches.
+ */
+export class ChatNetworkDeadlineError extends Error {
+  readonly code = CHAT_NETWORK_DEADLINE_CODE;
+  readonly deadlineMs: number;
+  constructor(deadlineMs: number, detail?: string) {
+    const suffix = detail && detail.length > 0 ? ` (${detail})` : '';
+    super(`${CHAT_NETWORK_DEADLINE_CODE}: chat-path request exceeded ${deadlineMs}ms${suffix}`);
+    this.name = 'ChatNetworkDeadlineError';
+    this.deadlineMs = deadlineMs;
+  }
+}
+
+/**
+ * True when a thrown fetch/XHR error is a hard-down / connect-fail signature
+ * that must terminate in the same degraded path as a stall deadline.
+ * Covers Node ECONNREFUSED, RN "Network request failed", and WhatWG "fetch failed".
+ */
+export function isChatNetworkHardDownFailure(err: unknown): boolean {
+  if (err == null) return false;
+  if (err instanceof ChatNetworkDeadlineError) return true;
+  const name = err instanceof Error ? err.name : '';
+  const msg = err instanceof Error ? err.message : String(err);
+  const code =
+    err && typeof err === 'object' && 'code' in err
+      ? String((err as { code?: unknown }).code ?? '')
+      : '';
+  const cause =
+    err instanceof Error && 'cause' in err && (err as { cause?: unknown }).cause != null
+      ? String(
+          (err as { cause?: unknown }).cause instanceof Error
+            ? ((err as { cause: Error }).cause.message ?? (err as { cause: Error }).cause)
+            : (err as { cause?: unknown }).cause
+        )
+      : '';
+  const blob = `${name} ${msg} ${code} ${cause}`;
+  if (!blob.trim()) return false;
+  return (
+    name === 'AbortError' ||
+    name === 'ChatNetworkDeadlineError' ||
+    /CHAT_NETWORK_DEADLINE/i.test(blob) ||
+    /abort|timeout/i.test(blob) ||
+    /ECONNREFUSED/i.test(blob) ||
+    /ENOTFOUND|EHOSTUNREACH|ENETUNREACH|ECONNRESET/i.test(blob) ||
+    /Network request failed/i.test(blob) ||
+    /Failed to fetch/i.test(blob) ||
+    /fetch failed/i.test(blob) ||
+    (name === 'TypeError' && /fetch|network/i.test(msg))
+  );
+}
+
+/**
+ * Shared chat-path fetch helper (Rule of 2) — one AbortController wiring for
+ * all six call sites. Never copy timer/abort boilerplate into call sites.
+ *
+ * Hard-down connect failures (ECONNREFUSED, RN Network request failed) are
+ * normalized to ChatNetworkDeadlineError so production create POST catch
+ * reduces through enterDegradedFromEnvelope without call-site special cases.
+ */
+export async function fetchWithChatDeadline(
+  input: RequestInfo | URL,
+  init?: RequestInit & { deadlineMs?: number }
+): Promise<Response> {
+  const deadlineMs = init?.deadlineMs ?? CHAT_NETWORK_DEADLINES.httpRequestDeadlineMs;
+  const {
+    deadlineMs: _omit,
+    signal: userSignal,
+    ...rest
+  } = (init ?? {}) as RequestInit & {
+    deadlineMs?: number;
+  };
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, deadlineMs);
+
+  const onUserAbort = () => {
+    controller.abort();
+  };
+  if (userSignal) {
+    if (userSignal.aborted) {
+      controller.abort();
+    } else {
+      userSignal.addEventListener('abort', onUserAbort, { once: true });
+    }
+  }
+
+  try {
+    const response = await fetch(input, {
+      ...rest,
+      signal: controller.signal,
+    });
+    return response;
+  } catch (err) {
+    if (isChatNetworkHardDownFailure(err)) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new ChatNetworkDeadlineError(deadlineMs, detail.slice(0, 120));
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    if (userSignal) {
+      userSignal.removeEventListener('abort', onUserAbort);
+    }
+  }
+}
+
+/**
  * Open a real progressive SSE connection via XHR (works on iOS RN simulators).
  * Emits the same event types as GET /api/chat-runs/:id/events over EventSource.
+ *
+ * S31-FE-01: first-byte + idle watchdogs rearm on ANY byte delivery inside flush()
+ * (before parseSseBlock) so SSE comment keepalives keep a healthy quiet stream alive.
  */
 function openProgressiveSse(
   url: string,
@@ -68,6 +200,12 @@ function openProgressiveSse(
     onEvent: (ev: { event: string; data: string; id: string }) => void;
     onOpen?: () => void;
     onError?: (err: Error) => void;
+    /** First-byte / idle / transport (ontimeout | status-0) deadline — terminal path. */
+    onDeadline?: (kind: 'first-byte' | 'idle' | 'transport') => void;
+  },
+  deadlines?: {
+    firstByteMs?: number;
+    idleMs?: number;
   }
 ): LiveSseHandle {
   const xhr = new XMLHttpRequest();
@@ -75,10 +213,68 @@ function openProgressiveSse(
   let buffer = '';
   let opened = false;
   let closed = false;
+  let sawByte = false;
+  let firstByteTimer: ReturnType<typeof setTimeout> | null = null;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const firstByteMs = deadlines?.firstByteMs ?? CHAT_NETWORK_DEADLINES.sseFirstByteDeadlineMs;
+  const idleMs = deadlines?.idleMs ?? CHAT_NETWORK_DEADLINES.sseIdleDeadlineMs;
+
+  const clearWatchdogs = () => {
+    if (firstByteTimer != null) {
+      clearTimeout(firstByteTimer);
+      firstByteTimer = null;
+    }
+    if (idleTimer != null) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+  };
+
+  const fireDeadline = (kind: 'first-byte' | 'idle' | 'transport') => {
+    if (closed) return;
+    closed = true;
+    clearWatchdogs();
+    handlers.onDeadline?.(kind);
+    try {
+      xhr.abort();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const armIdleWatchdog = () => {
+    if (idleTimer != null) {
+      clearTimeout(idleTimer);
+    }
+    idleTimer = setTimeout(() => {
+      fireDeadline('idle');
+    }, idleMs);
+  };
+
+  const armFirstByteWatchdog = () => {
+    if (firstByteTimer != null) {
+      clearTimeout(firstByteTimer);
+    }
+    firstByteTimer = setTimeout(() => {
+      if (!sawByte) {
+        fireDeadline('first-byte');
+      }
+    }, firstByteMs);
+  };
 
   const flush = () => {
     const text = xhr.responseText ?? '';
     if (text.length <= offset) return;
+    // ANY body growth (incl. `: keepalive` comments) rearms before parseSseBlock.
+    if (!sawByte) {
+      sawByte = true;
+      if (firstByteTimer != null) {
+        clearTimeout(firstByteTimer);
+        firstByteTimer = null;
+      }
+    }
+    armIdleWatchdog();
     buffer += text.slice(offset);
     offset = text.length;
     // SSE events are separated by a blank line
@@ -93,6 +289,8 @@ function openProgressiveSse(
   };
 
   xhr.open('GET', url, true);
+  // Watchdogs own stall termination; leave XHR transport timeout disabled so a
+  // healthy long stream is not killed by a single xhr.timeout budget.
   xhr.timeout = 0;
   for (const [key, value] of Object.entries(headers)) {
     try {
@@ -105,6 +303,7 @@ function openProgressiveSse(
   xhr.onreadystatechange = () => {
     if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !opened) {
       opened = true;
+      armFirstByteWatchdog();
       handlers.onOpen?.();
     }
     if (xhr.readyState === XMLHttpRequest.LOADING || xhr.readyState === XMLHttpRequest.DONE) {
@@ -114,25 +313,44 @@ function openProgressiveSse(
   xhr.onprogress = () => flush();
   xhr.onload = () => {
     flush();
-    // Server closed the stream after terminal — not a network error.
+    // Incomplete close (no client abort): surface as transport error so the
+    // controller can reconnect-or-cap rather than hanging in streaming forever.
+    if (!closed) {
+      clearWatchdogs();
+      handlers.onError?.(new Error('SSE stream ended'));
+    }
+  };
+  // iOS ontimeout + Android onerror(status===0) → one transport-deadline handler.
+  xhr.ontimeout = () => {
+    if (closed) return;
+    fireDeadline('transport');
   };
   xhr.onerror = () => {
     if (closed) return;
+    // status === 0 is the Android stall / hard-down signature; converge with ontimeout.
+    if (xhr.status === 0) {
+      fireDeadline('transport');
+      return;
+    }
+    clearWatchdogs();
     handlers.onError?.(new Error('SSE network error'));
   };
   xhr.onabort = () => {
-    /* intentional close */
+    clearWatchdogs();
+    /* intentional close or deadline abort */
   };
 
   try {
     xhr.send();
   } catch (err) {
+    clearWatchdogs();
     handlers.onError?.(err instanceof Error ? err : new Error(String(err)));
   }
 
   return {
     close: () => {
       closed = true;
+      clearWatchdogs();
       try {
         xhr.abort();
       } catch {
@@ -201,7 +419,14 @@ export function isFleetUnavailableFailure(envelope: FleetFailureEnvelope): boole
     /degradation\s*=\s*surface-unavailable/i.test(blob) ||
     /ECONNREFUSED.*:4545|:4545.*ECONNREFUSED/i.test(blob) ||
     /unreachable at https?:\/\/[^ ]*4545/i.test(blob) ||
-    /empty stream under HOLO_CHAT_FLEET_ONLY/i.test(blob)
+    /empty stream under HOLO_CHAT_FLEET_ONLY/i.test(blob) ||
+    // S31-FE-01: chat-path deadline / transport stall / hard-down create → degraded
+    /CHAT_NETWORK_DEADLINE/i.test(blob) ||
+    /ECONNREFUSED/i.test(blob) ||
+    /ENOTFOUND|EHOSTUNREACH|ENETUNREACH|ECONNRESET/i.test(blob) ||
+    /Network request failed/i.test(blob) ||
+    /Failed to fetch/i.test(blob) ||
+    /fetch failed/i.test(blob)
   );
 }
 
@@ -237,6 +462,26 @@ export function applyFleetFailureEnvelope(args: {
     message: null,
     isDegraded: false,
   };
+}
+
+/**
+ * Pure reduction for deadline / transport-stall expiry → existing `degraded` phase.
+ * iOS ontimeout-shaped and Android status-0-shaped inputs MUST converge here
+ * (no platform branch in phase logic).
+ */
+export function applyChatNetworkDeadlineFailure(args: {
+  phase: ChatStreamPhase;
+  /** Optional diagnostic; never shown — SURFACE_UNAVAILABLE_MESSAGE owns copy. */
+  reason?: string | null;
+}): FleetFailureTransition {
+  return applyFleetFailureEnvelope({
+    phase: args.phase,
+    code: CHAT_NETWORK_DEADLINE_CODE,
+    error: args.reason ?? CHAT_NETWORK_DEADLINE_CODE,
+    message: SURFACE_UNAVAILABLE_MESSAGE,
+    status: 'failed',
+    text: SURFACE_UNAVAILABLE_MESSAGE,
+  });
 }
 
 export type UseResumableSSEStreamOptions = {
@@ -433,6 +678,11 @@ export type ResumableSseControllerSnapshot = {
   degradedMessage: string | null;
   resumeTransport: ResumeTransport;
   isActive: boolean;
+  /**
+   * S31-FE-01: how many deadline/transport-stall reductions fired this turn.
+   * Healthy streams must complete with 0; stall/hard-down paths increment.
+   */
+  deadlineFireCount: number;
 };
 
 /**
@@ -562,7 +812,32 @@ export function createResumableSseController(
   let intentionalClose = false;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let pollCancelled = true;
+  /** SSE open attempts for the active turn (initial + reconnects). */
+  let connectionAttempts = 0;
+  /** Deadline / transport-stall firings this turn (AC-1: healthy = 0). */
+  let deadlineFireCount = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer != null) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  };
+
+  const enterDegradedFromDeadline = (reason: string) => {
+    deadlineFireCount += 1;
+    clearReconnectTimer();
+    closeSource(true);
+    stopPoll();
+    const fleet = applyChatNetworkDeadlineFailure({ phase, reason });
+    if (fleet.isDegraded) {
+      error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
+      degradedMessage = SURFACE_UNAVAILABLE_MESSAGE;
+      setPhaseBoth('degraded');
+    }
+  };
 
   const emit = () => {
     for (const listener of listeners) {
@@ -638,9 +913,12 @@ export function createResumableSseController(
     const activeRunId = runId;
     const poll = async () => {
       try {
-        const res = await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${activeRunId}`, {
-          headers: { Authorization: `Bearer ${apiKey}` },
-        });
+        const res = await fetchWithChatDeadline(
+          `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${activeRunId}`,
+          {
+            headers: { Authorization: `Bearer ${apiKey}` },
+          }
+        );
         if (!res.ok || pollCancelled) return;
         const body = (await res.json()) as {
           status?: string;
@@ -710,6 +988,13 @@ export function createResumableSseController(
       return;
     }
 
+    // Refuse further opens once the reconnect cap is exhausted (AC-4).
+    if (connectionAttempts >= CHAT_NETWORK_DEADLINES.reconnectMaxAttempts) {
+      enterDegradedFromDeadline('reconnect-cap');
+      return;
+    }
+    connectionAttempts += 1;
+
     closeSource(true);
 
     const url = `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${targetRunId}/events`;
@@ -746,7 +1031,7 @@ export function createResumableSseController(
         const hydrateRunId = runId;
         void (async () => {
           try {
-            const res = await fetch(
+            const res = await fetchWithChatDeadline(
               `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${hydrateRunId}`,
               { headers: { Authorization: `Bearer ${apiKey}` } }
             );
@@ -763,7 +1048,7 @@ export function createResumableSseController(
               });
             }
           } catch {
-            /* ignore hydrate errors */
+            /* ignore hydrate errors / deadline aborts */
           }
         })();
       }
@@ -883,35 +1168,56 @@ export function createResumableSseController(
     };
 
     // Progressive XHR SSE against the real platform EventSource endpoint.
-    const es = openProgressiveSse(url, headers, {
-      onOpen: () => {
-        if (phase === 'reconnecting') {
-          setPhaseBoth('streaming');
-          stopPoll();
-        }
-      },
-      onEvent: ({ event, data, id }) => {
-        handleNamedEvent(event, data, id);
-      },
-      onError: () => {
-        if (intentionalClose) return;
-        if (phase === 'streaming' || phase === 'reconnecting') {
-          setPhaseBoth('reconnecting');
-          closeSource(true);
-          startPollIfNeeded();
-          const resumeRunId = runId;
-          if (resumeRunId) {
-            setTimeout(() => {
-              if (runId === resumeRunId && (phase === 'reconnecting' || phase === 'streaming')) {
-                // Production reconnect site A (XHR onError retry) — assemblyRef.lastSeq
-                // is the Last-Event-ID source. REDHAT-FIX-04 mutant inserts wipe HERE.
-                openEventSource(resumeRunId, assemblyRef.current.lastSeq);
-              }
-            }, reconnectDelayMs);
+    const es = openProgressiveSse(
+      url,
+      headers,
+      {
+        onOpen: () => {
+          if (phase === 'reconnecting') {
+            setPhaseBoth('streaming');
+            stopPoll();
           }
-        }
+        },
+        onEvent: ({ event, data, id }) => {
+          handleNamedEvent(event, data, id);
+        },
+        onDeadline: (kind) => {
+          // First-byte / idle / transport stall → terminal degraded (no reconnect).
+          intentionalClose = true;
+          enterDegradedFromDeadline(`sse-${kind}`);
+        },
+        onError: () => {
+          if (intentionalClose) return;
+          if (phase === 'streaming' || phase === 'reconnecting') {
+            // Cap open attempts so drop-after-headers cannot recurse forever.
+            if (connectionAttempts >= CHAT_NETWORK_DEADLINES.reconnectMaxAttempts) {
+              intentionalClose = true;
+              enterDegradedFromDeadline('reconnect-cap');
+              return;
+            }
+            setPhaseBoth('reconnecting');
+            closeSource(true);
+            startPollIfNeeded();
+            const resumeRunId = runId;
+            if (resumeRunId) {
+              clearReconnectTimer();
+              reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                if (runId === resumeRunId && (phase === 'reconnecting' || phase === 'streaming')) {
+                  // Production reconnect site A (XHR onError retry) — assemblyRef.lastSeq
+                  // is the Last-Event-ID source. REDHAT-FIX-04 mutant inserts wipe HERE.
+                  openEventSource(resumeRunId, assemblyRef.current.lastSeq);
+                }
+              }, reconnectDelayMs);
+            }
+          }
+        },
       },
-    });
+      {
+        firstByteMs: CHAT_NETWORK_DEADLINES.sseFirstByteDeadlineMs,
+        idleMs: CHAT_NETWORK_DEADLINES.sseIdleDeadlineMs,
+      }
+    );
 
     esHandle = es;
   };
@@ -944,9 +1250,12 @@ export function createResumableSseController(
 
     // New turn — drop any prior remount snapshot first.
     clearModuleStreamHandoff();
+    clearReconnectTimer();
     error = null;
     degradedMessage = null;
     resumeTransport = 'none';
+    connectionAttempts = 0;
+    deadlineFireCount = 0;
     runId = nextRunId;
     durableMessageId = nextDurable;
     applyAssembly({ lastSeq: 0, text: '', tokenCount: 0 });
@@ -990,7 +1299,7 @@ export function createResumableSseController(
       const hydrateRunId = handoff.runId;
       void (async () => {
         try {
-          const res = await fetch(
+          const res = await fetchWithChatDeadline(
             `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${hydrateRunId}`,
             { headers: { Authorization: `Bearer ${apiKey}` } }
           );
@@ -1007,7 +1316,7 @@ export function createResumableSseController(
             });
           }
         } catch {
-          /* ignore */
+          /* ignore hydrate errors / deadline aborts */
         }
       })();
     }
@@ -1019,6 +1328,7 @@ export function createResumableSseController(
       ...envelope,
     });
     if (!fleet.isDegraded) return false;
+    clearReconnectTimer();
     closeSource(true);
     stopPoll();
     error = new Error(SURFACE_UNAVAILABLE_MESSAGE);
@@ -1029,20 +1339,25 @@ export function createResumableSseController(
 
   const cancel = async () => {
     const id = runId;
+    clearReconnectTimer();
     closeSource(true);
     stopPoll();
 
     if (id && platformUrl && apiKey) {
       try {
-        await fetch(`${platformUrl.replace(/\/$/, '')}/api/chat-runs/${id}/cancel`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        });
+        await fetchWithChatDeadline(
+          `${platformUrl.replace(/\/$/, '')}/api/chat-runs/${id}/cancel`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          }
+        );
       } catch (err) {
+        // Deadline abort on cancel still finalizes local cancelled state below.
         error = err instanceof Error ? err : new Error('cancel failed');
       }
     }
@@ -1051,6 +1366,7 @@ export function createResumableSseController(
   };
 
   const reset = () => {
+    clearReconnectTimer();
     closeSource(true);
     stopPoll();
     runId = null;
@@ -1062,6 +1378,8 @@ export function createResumableSseController(
     error = null;
     degradedMessage = null;
     resumeTransport = 'none';
+    connectionAttempts = 0;
+    deadlineFireCount = 0;
     clearModuleStreamHandoff();
     setPhaseBoth('idle');
   };
@@ -1085,6 +1403,7 @@ export function createResumableSseController(
         phase === 'degraded' ? (degradedMessage ?? SURFACE_UNAVAILABLE_MESSAGE) : null,
       resumeTransport,
       isActive,
+      deadlineFireCount,
     };
   };
 
@@ -1100,6 +1419,7 @@ export function createResumableSseController(
     dispose: () => {
       // Persist before close so a remounting ChatScreen can restore overlay text.
       persistHandoff();
+      clearReconnectTimer();
       closeSource(true);
       stopPoll();
       listeners.clear();
