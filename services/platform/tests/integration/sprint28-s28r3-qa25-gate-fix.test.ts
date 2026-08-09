@@ -454,7 +454,7 @@ cleanup_disposable_host() {
     if [[ -x "$candidate" ]]; then docker_bin="$candidate"; break; fi
   done
   if [[ -n "$docker_bin" ]]; then
-    "$docker_bin" rm -f "$ORIGINAL_HOST" "\${ORIGINAL_HOST}-retry" >/dev/null 2>&1 || true
+    "$docker_bin" rm -f -v "$ORIGINAL_HOST" "\${ORIGINAL_HOST}-retry" >/dev/null 2>&1 || true
     "$docker_bin" volume rm -f \
       "\${ORIGINAL_HOST}-pgdata" "\${ORIGINAL_HOST}-blobs" \
       "\${ORIGINAL_HOST}-retry-pgdata" "\${ORIGINAL_HOST}-retry-blobs" \

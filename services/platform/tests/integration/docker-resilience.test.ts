@@ -92,10 +92,15 @@ describe('Docker disk resilience contracts', () => {
     expect(plist).toMatch(/<key>StartInterval<\/key>\s*<integer>300<\/integer>/);
 
     const guard = readFileSync(guardPath, 'utf8');
+    const lifecycle = readRepoFile(
+      'services/platform/tests/integration/helpers/docker-lifecycle.ts'
+    );
     expect(guard).toMatch(/builder prune/);
     expect(guard).toContain('io.holocron.lifecycle=ephemeral');
     expect(guard).toContain('io.holocron.owner-pid');
     expect(guard).toContain('.Config.Labels');
+    expect(guard).toMatch(/container rm -f -v/);
+    expect(lifecycle).toMatch(/\['rm', '-f', '-v'/);
     expect(guard).not.toMatch(/docker\s+volume\s+prune/);
     expect(installer).toContain('daemon-resilience.json');
     expect(installer).toContain('holocron-docker-disk-guard.plist');

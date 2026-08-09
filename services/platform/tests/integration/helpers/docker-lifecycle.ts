@@ -42,7 +42,7 @@ export const cleanupDisposableDockerHost = (repoRoot: string, host: string): voi
   assertDockerResourceName(retryHost);
   const docker = dockerBin();
 
-  spawnSync(docker, ['rm', '-f', host, retryHost], {
+  spawnSync(docker, ['rm', '-f', '-v', host, retryHost], {
     encoding: 'utf8',
     timeout: 30_000,
   });

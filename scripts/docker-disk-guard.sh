@@ -141,7 +141,7 @@ sweep_expired_ephemeral() {
       )"
       if [[ "$running" != "true" || "$owner_alive" -eq 0 ]]; then
         [[ "$HOLO_DOCKER_GUARD_CHECK_ONLY" == "1" ]] \
-          || "$DOCKER_BIN" container rm -f "$resource_id" >/dev/null 2>&1 \
+          || "$DOCKER_BIN" container rm -f -v "$resource_id" >/dev/null 2>&1 \
           || true
       fi
     fi

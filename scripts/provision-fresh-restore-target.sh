@@ -684,7 +684,7 @@ elif docker_available; then
     exit 75
   fi
   log "docker available — bringing up ${HOST_NAME}"
-  "$DOCKER_BIN" rm -f "$HOST_NAME" >/dev/null 2>&1 || true
+  "$DOCKER_BIN" rm -f -v "$HOST_NAME" >/dev/null 2>&1 || true
   "$DOCKER_BIN" volume rm -f "$VOLUME_PGDATA" "$VOLUME_BLOB" >/dev/null 2>&1 || true
   (
     cd "$TARGET_DIR"
