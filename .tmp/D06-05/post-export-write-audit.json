@@ -2,9 +2,9 @@
   "export_watermark_ms": 1786190348757,
   "accepted_writes": [
     {
-      "committed_at_ms": 1786214557797,
+      "committed_at_ms": 1786238787838,
       "surface": "hono.POST /api/documents",
-      "id": "unknown-first-write-enable-writes-9b340a37-1fb8-4427-92c6-cee371302057"
+      "id": "de107cdf-b33f-4152-b1ab-0b86e05a5f32"
     }
   ]
 }

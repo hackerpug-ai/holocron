@@ -1,0 +1,89 @@
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+{
+  "ok": true,
+  "tool": "scripts/probe-ponr-one-trigger-missing-negative.sh",
+  "gate_database_target": {
+    "host": "127.0.0.1",
+    "effective_port": 5432,
+    "database": "holocron",
+    "fingerprint": "b452e37f4a20cb39eef4d644ff2c627447154fc6d5d58b4e2aa17aa5fdb6eef6"
+  },
+  "marker_database_target": {
+    "host": "127.0.0.1",
+    "effective_port": 5432,
+    "database": "holocron_nonprod",
+    "fingerprint": "6b5184642b4a735935387ebb563313737991866965d8e2ab7700da9a54b5d380"
+  },
+  "urls_distinct": true,
+  "uri_alias_same_target_refused": true,
+  "uri_alias_probe_rc": 2,
+  "one_trigger_missing_cases": [
+    {
+      "disabled_trigger": "data_plane_ponr_reject_mutation",
+      "probe_rc": 2,
+      "ok_field": "missing",
+      "refused": true,
+      "disabled_tgenabled": "D",
+      "other_tgenabled": "O",
+      "complementary_do": {
+        "disabled_tgenabled": "D",
+        "other_tgenabled": "O",
+        "other_trigger": "data_plane_ponr_reject_truncate",
+        "states": {
+          "data_plane_ponr_reject_mutation": "D",
+          "data_plane_ponr_reject_truncate": "O"
+        }
+      },
+      "raw_exit_code_path": "disable-data_plane_ponr_reject_mutation/exit.code"
+    },
+    {
+      "disabled_trigger": "data_plane_ponr_reject_truncate",
+      "probe_rc": 2,
+      "ok_field": "missing",
+      "refused": true,
+      "disabled_tgenabled": "D",
+      "other_tgenabled": "O",
+      "complementary_do": {
+        "disabled_tgenabled": "D",
+        "other_tgenabled": "O",
+        "other_trigger": "data_plane_ponr_reject_mutation",
+        "states": {
+          "data_plane_ponr_reject_mutation": "O",
+          "data_plane_ponr_reject_truncate": "D"
+        }
+      },
+      "raw_exit_code_path": "disable-data_plane_ponr_reject_truncate/exit.code"
+    }
+  ],
+  "required_triggers": [
+    "data_plane_ponr_reject_mutation",
+    "data_plane_ponr_reject_truncate"
+  ],
+  "notes": "Each required trigger disabled alone on disposable marker DB must make probe-ponr-role-immutability-negative-marker.sh exit non-zero. Exact set {mutation,truncate} with no duplicates; raw exit.code + D/O bind. URI alias of gate as marker target must refuse.",
+  "exact_trigger_set": {
+    "ok": true,
+    "errors": [],
+    "required": [
+      "data_plane_ponr_reject_mutation",
+      "data_plane_ponr_reject_truncate"
+    ],
+    "observed": [
+      "data_plane_ponr_reject_mutation",
+      "data_plane_ponr_reject_truncate"
+    ],
+    "unique": [
+      "data_plane_ponr_reject_mutation",
+      "data_plane_ponr_reject_truncate"
+    ],
+    "len_cases": 2,
+    "tool": "scripts/lib/c3-exact-trigger-set.py"
+  }
+}
+one-trigger-missing + URI-alias negative PASS

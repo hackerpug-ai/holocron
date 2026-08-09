@@ -1,0 +1,4 @@
+complementary_do_snapshot:
+data_plane_ponr_reject_mutation|O
+data_plane_ponr_reject_truncate|D
+error: marker seed/triggers precondition failed
