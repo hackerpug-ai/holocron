@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { View } from 'react-native'
 import { CategoryBadge, type CategoryType } from './CategoryBadge'
-import { DOCUMENT_CATEGORIES } from '@/convex/lib/categories'
+import { DOCUMENT_CATEGORIES } from '@/lib/document-categories'
 
 const meta: Meta<typeof CategoryBadge> = {
   title: 'Components/CategoryBadge',

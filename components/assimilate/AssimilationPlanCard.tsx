@@ -248,22 +248,18 @@ export function AssimilationPlanCard({
   );
 }
 
-// ── Convex-wired wrapper ───────────────────────────────────────────────────────
+// ── Zero-bound wrapper ────────────────────────────────────────────────────────
 
-export type AssimilationPlanCardWithConvexProps = Omit<
+export type AssimilationPlanCardBoundProps = Omit<
   AssimilationPlanCardProps,
   'onApprove' | 'onReject'
 >;
 
 /**
- * AssimilationPlanCardWithConvex wires the AssimilationPlanCard to Zero
- * mutators (name retained for import stability). Approving starts the analysis;
- * rejecting with feedback re-plans.
+ * AssimilationPlanCardBound wires the AssimilationPlanCard to Zero mutators.
+ * Approving starts the analysis; rejecting with feedback re-plans.
  */
-export function AssimilationPlanCardWithConvex({
-  sessionId,
-  ...props
-}: AssimilationPlanCardWithConvexProps) {
+export function AssimilationPlanCardBound({ sessionId, ...props }: AssimilationPlanCardBoundProps) {
   const zero = useZero();
 
   return (

@@ -23,7 +23,7 @@ export interface NewsCardProps {
   testID?: string;
   url?: string;
   onPress?: () => void;
-  // Feedback props - uses 'up'/'down' to match Convex schema
+  // Feedback props - uses 'up'/'down' to match feed_items schema
   feedback?: 'up' | 'down' | null;
   onFeedback?: (type: 'up' | 'down' | null) => void;
 }

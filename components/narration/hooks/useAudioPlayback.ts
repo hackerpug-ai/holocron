@@ -38,14 +38,14 @@ function releasePlayer(player: AudioPlayer | null): void {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * useAudioPlayback bridges Convex audio segments with the narration state
+ * useAudioPlayback bridges audio segments with the narration state
  * machine. It owns the expo-audio AudioPlayer lifecycle: loading, playback,
  * rate changes, auto-advance on segment completion, and cleanup.
  *
  * Supports background playback, lock screen controls, and CarPlay via
  * expo-audio's setActiveForLockScreen API.
  *
- * @param segments - Convex audio segment records for the current article
+ * @param segments - Audio segment records for the current article
  * @param narration - The UseNarrationStateReturn from useNarrationState
  * @param metadata - Optional metadata for lock screen / CarPlay display
  */
@@ -117,7 +117,7 @@ export function useAudioPlayback(
 
     // Segment not yet generated or URL not available — stop any currently
     // playing audio so the old segment doesn't keep playing while the
-    // highlight has moved. The reactive Convex subscription will re-trigger
+    // highlight has moved. The reactive Zero subscription will re-trigger
     // this effect when the segment completes.
     if (!segment?.audioUrl) {
       // Stop and release the old player so stale audio doesn't continue

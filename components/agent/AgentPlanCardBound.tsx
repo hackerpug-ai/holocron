@@ -1,6 +1,6 @@
 /**
  * Agent plan card data via Zero (S-REWRITE-INTEGRATE).
- * Named *WithConvex historically; no longer imports the Convex React client.
+ * Bound wrapper: loads plan + steps through Zero queries.
  */
 
 import { useZero, useQuery as useZeroQuery } from '@rocicorp/zero/react';
@@ -12,7 +12,7 @@ import type { PlanStepStatus } from './PlanStepRow';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface AgentPlanCardWithConvexProps {
+export interface AgentPlanCardBoundProps {
   planId: string;
 }
 
@@ -63,7 +63,7 @@ function mapPlanStatus(status: string): PlanStatus {
 
 // ── Main component ──────────────────────────────────────────────────────────
 
-export function AgentPlanCardWithConvex({ planId }: AgentPlanCardWithConvexProps) {
+export function AgentPlanCardBound({ planId }: AgentPlanCardBoundProps) {
   const zero = useZero();
   const [planRaw, planDetails] = useZeroQuery(agentPlanById(planId));
   const [stepsRaw] = useZeroQuery(agentPlanStepsByPlan(planId));

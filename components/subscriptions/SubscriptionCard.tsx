@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Trash2 } from '@/components/ui/icons';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import type { Doc } from '@/convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
 import { PlatformBadge, type PlatformType } from './PlatformBadge';
+import type { SubscriptionSource } from './types';
 
-export type SubscriptionSource = Doc<'subscriptionSources'>;
+export type { SubscriptionSource };
 
 export interface SubscriptionCardProps {
   subscription: SubscriptionSource;

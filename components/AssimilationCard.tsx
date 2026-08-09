@@ -2,8 +2,10 @@ import { Pressable, View, type ViewProps } from 'react-native';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ChevronRight, GitFork, Star, Zap } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import type { Id } from '@/convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
+
+/** Zero/Postgres document primary key (uuid string). */
+export type DocumentId = string;
 
 export interface AssimilationMetadata {
   repositoryName: string;
@@ -21,8 +23,8 @@ export interface AssimilationMetadata {
 }
 
 interface AssimilationCardProps extends Omit<ViewProps, 'children'> {
-  /** Document ID in Convex */
-  documentId: Id<'documents'>;
+  /** Document ID (uuid string from Zero/Postgres) */
+  documentId: DocumentId;
   /** Assimilation metadata */
   metadata: AssimilationMetadata;
   /** Brief description or snippet */

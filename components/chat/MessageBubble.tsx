@@ -3,9 +3,9 @@ import { useRouter } from 'expo-router';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
 import { deepResearchSessionById, toolCallById } from '@/app/zero/queries';
 import { AssimilationCard } from '@/components/AssimilationCard';
-import { AgentPlanCardWithConvex } from '@/components/agent/AgentPlanCardWithConvex';
-import { ToolApprovalCardWithConvex } from '@/components/agent/ToolApprovalCard';
-import { AssimilationPlanCardWithConvex } from '@/components/assimilate/AssimilationPlanCard';
+import { AgentPlanCardBound } from '@/components/agent/AgentPlanCardBound';
+import { ToolApprovalCardBound } from '@/components/agent/ToolApprovalCard';
+import { AssimilationPlanCardBound } from '@/components/assimilate/AssimilationPlanCard';
 import { AssimilationProgressCard } from '@/components/assimilate/AssimilationProgressCard';
 import { StreamingCursor } from '@/components/chat/StreamingCursor';
 import { DeepResearchLoadingCard } from '@/components/deep-research/DeepResearchLoadingCard';
@@ -121,7 +121,7 @@ export function MessageBubble({
   if (message_type === 'agent_plan' && card_data?.plan_id) {
     return (
       <View className={cn('my-1 px-4')} testID="agent-plan-bubble">
-        <AgentPlanCardWithConvex planId={card_data.plan_id as string} />
+        <AgentPlanCardBound planId={card_data.plan_id as string} />
         {showTimestamp && createdAt && (
           <Text
             variant="small"
@@ -279,7 +279,7 @@ type ZeroResearchSessionRow = {
 };
 
 /**
- * Wrapper that queries live toolCall status via Zero and renders ToolApprovalCardWithConvex.
+ * Wrapper that queries live toolCall status via Zero and renders ToolApprovalCardBound.
  */
 function ToolApprovalBubble({
   toolCallId,
@@ -294,7 +294,7 @@ function ToolApprovalBubble({
   if (!row) return null;
 
   return (
-    <ToolApprovalCardWithConvex
+    <ToolApprovalCardBound
       approvalId={toolCallId}
       toolName={row.tool_name}
       toolDisplayName={row.tool_display_name ?? row.tool_name}
@@ -784,10 +784,10 @@ function renderResultCard(
     }
   }
 
-  // Handle assimilation plan card - display plan overview with Convex live data
+  // Handle assimilation plan card - display plan overview with live Zero data
   if (cardType === 'assimilation_plan') {
     return (
-      <AssimilationPlanCardWithConvex
+      <AssimilationPlanCardBound
         sessionId={card_data.session_id as string}
         repositoryName={card_data.repository_name as string}
         repositoryUrl={card_data.repository_url as string}
@@ -953,7 +953,7 @@ function handleCardPress(
   card_data: Record<string, unknown>,
   onCardPress?: (documentId: string) => void
 ) {
-  // Extract document_id from card_data (string type - Convex ID)
+  // Extract document_id from card_data (uuid string)
   const documentId = card_data.document_id as string | undefined;
   if (documentId !== undefined && onCardPress) {
     onCardPress(documentId);
