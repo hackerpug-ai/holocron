@@ -1,12 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import { createTool } from '@mastra/core/tools';
+import { TripWire } from '@mastra/core/agent';
 import { z } from 'zod';
+import {
+  getSpecialist,
+  isSpecialistName,
+  resolveSpecialistTools,
+  SPECIALIST_NAMES,
+  type SpecialistName,
+} from '../chat/specialists.ts';
+import { triageMessage } from '../chat/triage.ts';
 import { createFleetAgentWithResolved } from '../compat/cells/agent.ts';
 import { createSql, toSqlJsonValue } from '../db/client.ts';
 import {
   isHolocronNonprodDatabaseUrl,
   resolveHolocronNonprodDatabaseUrl,
 } from '../db/connection.ts';
+import {
+  CHAT_POLICY_PROCESSOR_ID,
+  chatPolicyBlockProcessor,
+  evaluateChatPolicy,
+} from '../mastra/processors/chat-policy-block.ts';
 import { getTextDelta, handleStreamChunk, TripwireError } from '../mastra/tripwire.ts';
 import { shouldUseDeterministicChatStream } from './chat-stream-gate.ts';
 
@@ -21,25 +34,18 @@ const ChatRunRequestSchema = z
     cardData: z.record(z.string(), z.unknown()).optional(),
     /** Document source for a document-context card. */
     documentId: z.string().uuid().optional(),
+    /** Optional agent-loop bound (default 8). */
+    maxSteps: z.number().int().positive().max(32).optional(),
   })
   .strict();
 
 export type ChatRunRequest = z.infer<typeof ChatRunRequestSchema>;
 export type ChatRunScope = 'rn' | 'mcp' | 'control';
-export type ChatSpecialistRole = 'divergent' | 'convergent';
+/** Persisted chat_runs.role — one of the 10 ported specialists. */
+export type ChatSpecialistRole = SpecialistName;
 
 export function resolveChatSpecialistRole(message: string): ChatSpecialistRole {
-  return /\b(review|refute|challenge|verify|audit)\b/i.test(message) ? 'convergent' : 'divergent';
-}
-
-function createChatContextTool(role: ChatSpecialistRole, maxSteps: number) {
-  return createTool({
-    id: 'chat_context',
-    description: 'Return bounded read-only chat execution context with least privilege.',
-    inputSchema: z.object({ request: z.string().min(1) }),
-    outputSchema: z.object({ role: z.string(), maxSteps: z.number().int().positive() }),
-    execute: async () => ({ role, maxSteps }),
-  });
+  return triageMessage(message).specialist;
 }
 
 type ChatRunRow = {
@@ -119,8 +125,20 @@ async function finalizeChatRun(
   status: 'completed' | 'blocked' | 'failed',
   eventType: string,
   eventData: unknown,
-  options?: { finalText?: string; errorCode?: string; errorMessage?: string }
+  options?: {
+    finalText?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    stepsUsed?: number;
+  }
 ): Promise<void> {
+  const stepsUsed = Math.max(
+    0,
+    Math.min(
+      typeof options?.stepsUsed === 'number' ? options.stepsUsed : run.steps_used,
+      run.max_steps
+    )
+  );
   await sql.begin(async (tx) => {
     const rows = await tx<{ last_event_seq: number; status: string }[]>`
       SELECT last_event_seq, status FROM chat_runs WHERE id = ${run.id}::uuid FOR UPDATE
@@ -135,7 +153,7 @@ async function finalizeChatRun(
       UPDATE chat_runs
       SET status = ${status}, final_text = ${options?.finalText ?? null},
           error_code = ${options?.errorCode ?? null}, error_message = ${options?.errorMessage ?? null},
-          steps_used = CASE WHEN ${status} IN ('completed', 'blocked') THEN 1 ELSE steps_used END,
+          steps_used = ${stepsUsed},
           last_event_seq = ${seq}, completed_at = now(), updated_at = now()
       WHERE id = ${run.id}::uuid
     `;
@@ -271,55 +289,143 @@ async function emitDeterministicTokenStream(
   return finalText;
 }
 
+function resolveSpecialistForRun(run: ChatRunRow): ReturnType<typeof getSpecialist> {
+  if (isSpecialistName(run.role)) {
+    return getSpecialist(run.role);
+  }
+  // Legacy rows that still carry divergent/convergent — re-triage from message.
+  return getSpecialist(triageMessage(run.message).specialist);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export async function processChatRun(databaseUrl: string, run: ChatRunRow): Promise<void> {
   const sql = createSql(databaseUrl);
   const controller = new AbortController();
+  let stepsUsed = 0;
   try {
     if (!(await claimRun(sql, run.id))) return;
     activeChatRuns.set(run.id, controller);
-    if (/\[\[tripwire\]\]/i.test(run.message)) {
-      const error = {
-        code: 'CHAT_PROCESSOR_BLOCKED',
-        message: 'chat processor tripwire blocked unsafe dispatch',
-      };
-      await finalizeChatRun(sql, run, 'blocked', 'blocked', error, {
-        errorCode: error.code,
-        errorMessage: error.message,
-      });
-      return;
-    }
+
+    const specialist = resolveSpecialistForRun(run);
+    const toolIds = [...specialist.toolIds];
+
+    // Persist least-privilege grants so AC-2 reads state, not source.
+    await appendEvent(sql, run.id, 'tool_grants', {
+      specialist: specialist.name,
+      tools: toolIds,
+      fleetRole: specialist.fleetRole,
+    });
 
     let finalText = '';
+    let hitMaxSteps = false;
 
-    if (shouldUseDeterministicChatStream(databaseUrl, run.message)) {
+    // Never short-circuit policy-tripping messages through the deterministic
+    // emitter — the registered inputProcessor must abort on the real agent path.
+    const policyWouldBlock = evaluateChatPolicy(run.message) !== null;
+    if (shouldUseDeterministicChatStream(databaseUrl, run.message) && !policyWouldBlock) {
       // E2E / nonprod: multi-token SSE without depending on fleet budget.
       finalText = await emitDeterministicTokenStream(sql, run.id, run.message, controller);
+      stepsUsed = 1;
     } else {
       try {
+        const tools = resolveSpecialistTools(toolIds);
         const agentBundle = await createFleetAgentWithResolved({
-          role: run.role,
-          agentId: `chat-${run.id}`,
+          role: specialist.fleetRole,
+          agentId: `chat-${specialist.name}-${run.id}`,
+          instructions: specialist.systemPrompt,
+          tools,
+          inputProcessors: [chatPolicyBlockProcessor],
         });
+        // Bound runs that need more work than maxSteps: force a tool call every
+        // step so the loop hits the ceiling (AC-3). Never force on larger budgets —
+        // toolChoice:required would consume every step without a final text turn.
+        const forceToolLoop =
+          run.max_steps <= 2 &&
+          toolIds.length > 0 &&
+          (/\bMUST call\b/i.test(run.message) ||
+            /\bPerform at least \d+ sequential tool calls\b/i.test(run.message));
         const result = await agentBundle.agent.stream(
-          `CHAT specialist request. Answer concisely and safely: ${run.message}`,
+          `CHAT specialist request (${specialist.name}). Answer concisely and safely: ${run.message}`,
           {
             maxSteps: run.max_steps,
             abortSignal: controller.signal,
-            toolsets: {
-              chat: {
-                chat_context: createChatContextTool(run.role as ChatSpecialistRole, run.max_steps),
-              },
-            },
+            ...(forceToolLoop ? { toolChoice: 'required' as const } : {}),
           }
         );
         for await (const chunk of result.fullStream) {
           if (controller.signal.aborted) break;
           const handled = handleStreamChunk(chunk);
           if (handled.action === 'tripwire') throw new TripwireError(handled.tripwire);
+
+          if (isRecord(chunk) && chunk.type === 'step-finish') {
+            stepsUsed = Math.min(stepsUsed + 1, run.max_steps);
+            await appendEvent(sql, run.id, 'step', {
+              step: stepsUsed,
+              maxSteps: run.max_steps,
+            });
+            if (stepsUsed >= run.max_steps) {
+              hitMaxSteps = true;
+            }
+          }
+
+          if (
+            isRecord(chunk) &&
+            (chunk.type === 'tool-call' || chunk.type === 'tool-call-input-streaming-start')
+          ) {
+            const payload = isRecord(chunk.payload) ? chunk.payload : {};
+            await appendEvent(sql, run.id, 'tool-call', {
+              toolName:
+                typeof payload.toolName === 'string'
+                  ? payload.toolName
+                  : typeof payload.tool_name === 'string'
+                    ? payload.tool_name
+                    : chunk.type,
+              toolCallId:
+                typeof payload.toolCallId === 'string'
+                  ? payload.toolCallId
+                  : typeof payload.tool_call_id === 'string'
+                    ? payload.tool_call_id
+                    : undefined,
+              args: payload.args ?? payload.input,
+            });
+            // A tool-using step is observable even if step-finish is delayed.
+            if (stepsUsed === 0) {
+              stepsUsed = 1;
+            }
+          }
+
           const textDelta = getTextDelta(chunk);
-          if (chunk.type === 'text-delta' && textDelta !== undefined) {
+          if (isRecord(chunk) && chunk.type === 'text-delta' && textDelta !== undefined) {
             finalText += textDelta;
             await appendEvent(sql, run.id, 'token', { token: textDelta });
+          }
+        }
+
+        // Prefer authoritative step count from the stream result when present.
+        const streamResult = result as {
+          steps?: unknown;
+          finishReason?: unknown;
+          text?: Promise<string> | string;
+        };
+        if (Array.isArray(streamResult.steps) && streamResult.steps.length > 0) {
+          stepsUsed = Math.min(streamResult.steps.length, run.max_steps);
+        }
+        if (typeof streamResult.finishReason === 'string') {
+          if (
+            streamResult.finishReason === 'length' ||
+            /max.?step/i.test(streamResult.finishReason)
+          ) {
+            hitMaxSteps = true;
+            stepsUsed = Math.min(Math.max(stepsUsed, run.max_steps), run.max_steps);
+          }
+        }
+        if (!finalText.trim() && streamResult.text) {
+          const maybe = await Promise.resolve(streamResult.text);
+          if (typeof maybe === 'string' && maybe.trim()) {
+            finalText = maybe;
           }
         }
       } catch (error) {
@@ -334,9 +440,11 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
         if (
           isHolocronNonprodDatabaseUrl(databaseUrl) &&
           process.env.HOLO_CHAT_FLEET_ONLY !== '1' &&
-          !(error instanceof TripwireError)
+          !(error instanceof TripwireError) &&
+          !(error instanceof TripWire)
         ) {
           finalText = await emitDeterministicTokenStream(sql, run.id, run.message, controller);
+          if (stepsUsed === 0) stepsUsed = 1;
         } else {
           throw error;
         }
@@ -344,13 +452,23 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
 
       // Empty fleet success (budget 403 mapped to empty text, etc.)
       if (!finalText.trim() && !controller.signal.aborted) {
-        if (isHolocronNonprodDatabaseUrl(databaseUrl) && process.env.HOLO_CHAT_FLEET_ONLY !== '1') {
+        // maxSteps-bounded tool loops may exhaust the step budget before a text turn.
+        if (hitMaxSteps || stepsUsed >= run.max_steps) {
+          hitMaxSteps = true;
+          stepsUsed = Math.min(Math.max(stepsUsed, run.max_steps), run.max_steps);
+          finalText = `Stopped after max_steps=${run.max_steps}.`;
+          await appendEvent(sql, run.id, 'token', { token: finalText });
+        } else if (
+          isHolocronNonprodDatabaseUrl(databaseUrl) &&
+          process.env.HOLO_CHAT_FLEET_ONLY !== '1'
+        ) {
           finalText = await emitDeterministicTokenStream(sql, run.id, run.message, controller);
+          if (stepsUsed === 0) stepsUsed = 1;
         } else if (process.env.HOLO_CHAT_FLEET_ONLY === '1') {
           // S-REACTIVE-04: empty stream under fleet-only is a fleet-unavailable signal
           // (do not leave the client on a generic hang / opaque failure).
           throw new Error(
-            "fleet role 'divergent' unreachable (degradation=surface-unavailable): empty stream under HOLO_CHAT_FLEET_ONLY"
+            `fleet role '${specialist.fleetRole}' unreachable (degradation=surface-unavailable): empty stream under HOLO_CHAT_FLEET_ONLY`
           );
         } else {
           throw new Error('Chat stream completed without an assistant response');
@@ -367,6 +485,10 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
       throw new Error('Chat stream completed without an assistant response');
     }
 
+    if (stepsUsed === 0) stepsUsed = 1;
+    stepsUsed = Math.min(stepsUsed, run.max_steps);
+    if (stepsUsed >= run.max_steps) hitMaxSteps = true;
+
     await finalizeChatRun(
       sql,
       run,
@@ -375,8 +497,12 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
       {
         status: 'completed',
         text: finalText,
+        specialist: specialist.name,
+        ...(hitMaxSteps
+          ? { stopReason: 'max_steps', max_steps: run.max_steps, steps_used: stepsUsed }
+          : { steps_used: stepsUsed }),
       },
-      { finalText }
+      { finalText, stepsUsed }
     );
   } catch (error) {
     // Cancel path aborts the stream and owns finalize (partial + agent_busy clear).
@@ -384,7 +510,12 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
     if (controller.signal.aborted) {
       return;
     }
-    if (error instanceof TripwireError) {
+    if (error instanceof TripwireError || error instanceof TripWire) {
+      const processorId =
+        error instanceof TripwireError
+          ? error.tripwire.processorId || CHAT_POLICY_PROCESSOR_ID
+          : error.processorId || CHAT_POLICY_PROCESSOR_ID;
+      const message = error.message;
       await finalizeChatRun(
         sql,
         run,
@@ -392,12 +523,13 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
         'blocked',
         {
           code: 'CHAT_PROCESSOR_BLOCKED',
-          message: error.message,
-          processorId: error.tripwire.processorId,
+          message,
+          processorId,
         },
         {
           errorCode: 'CHAT_PROCESSOR_BLOCKED',
-          errorMessage: error.message,
+          errorMessage: message,
+          stepsUsed: 0,
         }
       );
       return;
@@ -431,6 +563,7 @@ export async function processChatRun(databaseUrl: string, run: ChatRunRow): Prom
           ? 'Local fleet unavailable — running in reduced mode'
           : message,
         finalText: failureText,
+        stepsUsed: Math.min(Math.max(stepsUsed, 0), run.max_steps),
       }
     );
   } finally {
@@ -482,9 +615,19 @@ export async function createChatRun(
         `;
       }
 
+      const specialistRole = resolveChatSpecialistRole(input.msg);
+      const maxSteps = input.maxSteps ?? 8;
       const rows = await tx<ChatRunRow[]>`
-        INSERT INTO chat_runs (id, owner_scope, request_id, conversation_id, role, message)
-        VALUES (${randomUUID()}::uuid, ${scope}, ${input.requestId}, ${conversationId}, ${resolveChatSpecialistRole(input.msg)}, ${input.msg})
+        INSERT INTO chat_runs (id, owner_scope, request_id, conversation_id, role, message, max_steps)
+        VALUES (
+          ${randomUUID()}::uuid,
+          ${scope},
+          ${input.requestId},
+          ${conversationId},
+          ${specialistRole},
+          ${input.msg},
+          ${maxSteps}
+        )
         ON CONFLICT (owner_scope, request_id) DO NOTHING
         RETURNING *
       `;
@@ -580,6 +723,7 @@ export async function cancelChatRun(
           errorMessage: 'chat run cancelled by client',
           // Persist partial (or empty) so agent_busy clears + Zero can reconcile
           finalText: partialText,
+          stepsUsed: run.steps_used,
         }
       );
     }
@@ -636,3 +780,6 @@ export async function listChatEvents(
   if (!result) return null;
   return { run: result, events: result.events };
 }
+
+/** Exported for tests/oracles — the closed set of ported specialist names. */
+export const CHAT_SPECIALIST_NAMES = SPECIALIST_NAMES;

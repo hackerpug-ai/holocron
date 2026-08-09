@@ -9,8 +9,10 @@
  * Zero cloud requests (no api.openai.com / api.anthropic.com / api.deepseek.com) on the default path.
  */
 
+import type { ToolsInput } from '@mastra/core/agent';
 import { Agent } from '@mastra/core/agent';
 import type { Mastra } from '@mastra/core/mastra';
+import type { Processor } from '@mastra/core/processors';
 import {
   createFleetChatModel,
   type ResolvedModel,
@@ -42,6 +44,12 @@ export type CreateFleetAgentOptions = {
   agentId?: string;
   /** Fleet API key for OpenAI-compatible client. */
   apiKey?: string;
+  /** Specialist / domain system instructions. */
+  instructions?: string;
+  /** Least-privilege tool set resolved from the shared registry. */
+  tools?: ToolsInput;
+  /** Mastra 1.x input processors (e.g. chat policy block). */
+  inputProcessors?: Processor[];
 };
 
 export type FleetAgentBundle = {
@@ -114,7 +122,12 @@ export async function createFleetAgentWithResolved(
     name: id,
     model: fleetModel,
     instructions:
+      options.instructions ??
       'You are a compatibility test agent. Respond concisely. Always reply with at least one word.',
+    ...(options.tools ? { tools: options.tools } : {}),
+    ...(options.inputProcessors && options.inputProcessors.length > 0
+      ? { inputProcessors: options.inputProcessors }
+      : {}),
   });
 
   return { agent, resolved };
