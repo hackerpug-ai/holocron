@@ -1,0 +1,57 @@
+WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/jansi-2.4.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running on iPhone 17 Pro - iOS 26.5 - D70558B9-3E26-43F6-8D52-311A0D86E50D
+ > Flow send-streams
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
+WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+Launch app "${MAESTRO_APP_ID}"... COMPLETED
+Wait for animation to end... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that (Optional) "DEVELOPMENT SERVERS" is visible... WARNED
+
+
+ Warning: Assertion is false: "DEVELOPMENT SERVERS" is visible
+Run flow when "DEVELOPMENT SERVERS" is visible...
+Run flow when "DEVELOPMENT SERVERS" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Assert that (Optional) "Downloading" is not visible... COMPLETED
+Assert that (Optional) "Loading from Metro" is not visible... COMPLETED
+Open holocron://chat/00000000-0000-4000-8000-0000000000e1... COMPLETED
+Wait for animation to end... COMPLETED
+Run flow when id: chat-screen is not visible...
+Run flow when id: chat-screen is not visible... SKIPPED
+Open holocron://chat/00000000-0000-4000-8000-0000000000e1... COMPLETED
+Wait for animation to end... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-screen is visible... COMPLETED
+Assert that id: chat-input is visible... COMPLETED
+Assert that "E2E Conversation Alpha" is visible... COMPLETED
+Scrolling UP until id: message-00000000-0000-4000-8000-a0000000000d is visible with speed 40, visibility percentage 20%, timeout 90000 ms, with centering enabled... COMPLETED
+Assert that id: message-00000000-0000-4000-8000-a0000000000d is visible... COMPLETED
+Scrolling UP until id: message-00000000-0000-4000-8000-a0000000000e is visible with speed 40, visibility percentage 20%, timeout 60000 ms, with centering disabled... COMPLETED
+Assert that id: message-00000000-0000-4000-8000-a0000000000e is visible... COMPLETED
+Assert that "User message Summarise the quarterly report for Q1" is visible... COMPLETED
+Assert that "User message Summarise the quarterly report for Q2" is visible... COMPLETED
+Tap on (Optional) id: chat-input-field... COMPLETED
+Tap on (Optional) id: chat-input... COMPLETED
+Input text QQPROBE single bubble check... COMPLETED
+Tap on id: chat-input-send-button... COMPLETED
+Assert that id: chat-agent-busy-false is visible... COMPLETED
+Assert that "User message QQPROBE single bubble check" is visible... COMPLETED
+Assert that "User message QQPROBE single bubble check" is visible... COMPLETED
+Assert that id: chat-assistant-message-latest is visible... COMPLETED
+Assert that id: chat-assistant-message-latest is visible... COMPLETED
+Scrolling UP until id: message-00000000-0000-4000-8000-a0000000000d is visible with speed 40, visibility percentage 10%, timeout 60000 ms, with centering disabled... COMPLETED
+Assert that id: message-00000000-0000-4000-8000-a0000000000d is visible... COMPLETED
+Assert that id: message-00000000-0000-4000-8000-a0000000000e is visible... COMPLETED
+Take screenshot S31-FE-04-AC-5-send-streams-prefix-collision... COMPLETED
