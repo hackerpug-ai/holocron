@@ -160,6 +160,13 @@ interface CliArgs {
   lane: string | null;
   /** queue:effect --boundary <before-commit|after-commit-before-enqueue|after-dispatch-before-ack> */
   boundary: string | null;
+  /**
+   * queue:effect --pause-at <before-commit|after-commit-before-dispatch|after-dispatch-before-ack>
+   * Real SIGKILL harness seam (S31-03): child emits marker and blocks.
+   */
+  pauseAt: string | null;
+  /** Optional --key for queue:effect / queue:audit / queue:reset */
+  key: string | null;
   /** queue:poison --max-attempts <n> */
   maxAttempts: string | null;
   /** mission run research --goal <text> */
@@ -665,6 +672,8 @@ function parseArgs(argv: string[]): CliArgs {
     limit: null,
     lane: null,
     boundary: null,
+    pauseAt: null,
+    key: null,
     maxAttempts: null,
     goal: null,
     sample: null,
@@ -807,6 +816,14 @@ function parseArgs(argv: string[]): CliArgs {
       args.boundary = argv[++i] ?? null;
     } else if (a.startsWith('--boundary=')) {
       args.boundary = a.slice('--boundary='.length);
+    } else if (a === '--pause-at') {
+      args.pauseAt = argv[++i] ?? null;
+    } else if (a.startsWith('--pause-at=')) {
+      args.pauseAt = a.slice('--pause-at='.length);
+    } else if (a === '--key') {
+      args.key = argv[++i] ?? null;
+    } else if (a.startsWith('--key=')) {
+      args.key = a.slice('--key='.length);
     } else if (a === '--max-attempts') {
       args.maxAttempts = argv[++i] ?? null;
     } else if (a.startsWith('--max-attempts=')) {
@@ -5755,47 +5772,80 @@ async function main(): Promise<void> {
       break;
     }
     case 'queue:effect': {
-      // queue-2 operator gate: durable-effect kill-9 boundary + recovery re-run,
-      // then print the auditable exactly-once trail. Real production invocation.
-      //   holo queue:effect <key> --boundary before-commit
+      // Durable-effect lifecycle (S31-03):
+      //   holo queue:effect <key> --json
+      //   holo queue:effect --key <key> --json
+      //   holo queue:effect --key <key> --pause-at before-commit
+      //     → child emits boundary marker and blocks for real SIGKILL harness
       //   holo queue:effect <key> --boundary after-commit-before-enqueue
-      //   holo queue:effect <key> --boundary after-dispatch-before-ack
-      const key = args.positional[1];
+      //     → legacy partial+recovery path (queue-4 RED harness / operator gate)
+      const key = args.key ?? args.positional[1];
       if (!key) {
-        console.error('error: queue:effect requires <key>');
+        console.error('error: queue:effect requires <key> (positional or --key)');
         process.exit(2);
       }
-      const boundary = (args.boundary ?? 'before-commit') as
-        | 'before-commit'
-        | 'after-commit-before-enqueue'
-        | 'after-dispatch-before-ack';
-      const { runDurableEffectBoundary, resetDurable, auditEffect } = await import(
-        '../queue/durable-effect.ts'
-      );
-      await resetDurable({ key });
-      // Pass 1: kill at the boundary (real Postgres tx rollback = SIGKILL).
-      await runDurableEffectBoundary({
-        key,
-        payload: { n: 1 },
-        boundary,
-      });
-      // Pass 2: recovery re-run of the SAME key, no kill — must not double-apply.
-      await runDurableEffectBoundary({
-        key,
-        payload: { n: 1 },
-        boundary: 'none',
-      });
+      const {
+        runDurableEffectBoundary,
+        runDurableEffectLifecycle,
+        resetDurable,
+        auditEffect,
+        HOLO_QUEUE_PAUSE_AT_ENV,
+        EFFECT_PAUSE_BOUNDARIES,
+      } = await import('../queue/durable-effect.ts');
+
+      const pauseAt = args.pauseAt;
+      if (pauseAt) {
+        if (!(EFFECT_PAUSE_BOUNDARIES as readonly string[]).includes(pauseAt)) {
+          console.error(
+            `error: --pause-at must be one of ${EFFECT_PAUSE_BOUNDARIES.join('|')} (got ${pauseAt})`
+          );
+          process.exit(2);
+        }
+        process.env[HOLO_QUEUE_PAUSE_AT_ENV] = pauseAt;
+        await resetDurable({ key });
+        // Blocks forever at the requested boundary after emitting a marker.
+        await runDurableEffectLifecycle({ key, payload: { n: 1 } });
+        // Unreachable unless pause env mismatched.
+        process.exit(1);
+      }
+
+      // Legacy --boundary partial+recovery path (queue-4 RED).
+      if (args.boundary) {
+        const boundary = args.boundary as
+          | 'before-commit'
+          | 'after-commit-before-enqueue'
+          | 'after-dispatch-before-ack';
+        await resetDurable({ key });
+        await runDurableEffectBoundary({
+          key,
+          payload: { n: 1 },
+          boundary,
+        });
+        await runDurableEffectBoundary({
+          key,
+          payload: { n: 1 },
+          boundary: 'none',
+        });
+      } else {
+        // Full lifecycle (reset + begin + dispatch) — operator happy path.
+        await resetDurable({ key });
+        await runDurableEffectLifecycle({ key, payload: { n: 1 } });
+      }
+
       const audit = await auditEffect({ key });
       if (args.json) {
         console.log(
           JSON.stringify(
             {
               key,
-              boundary,
+              boundary: args.boundary ?? null,
               effect_count: audit.counts.effects,
               outbox_count: audit.counts.outbox,
               inbox_dedupe_count: audit.counts.inbox,
               fencing_token: audit.fenceToken,
+              outbox: audit.outbox,
+              effect: audit.effect,
+              inbox: audit.inbox,
               outbox_status: audit.outbox.status,
               inbox_outcome: audit.inbox.outcome,
               exactly_once: audit.counts.effects === 1,
@@ -5805,19 +5855,24 @@ async function main(): Promise<void> {
           )
         );
       } else {
-        console.log(`holo queue:effect — kill-9 boundary ${boundary} + recovery`);
+        console.log(`holo queue:effect — durable lifecycle`);
         console.log(`  key=${key}`);
         console.log(`  effect_count: ${audit.counts.effects}`);
         console.log(`  outbox_count: ${audit.counts.outbox}`);
         console.log(`  inbox_dedupe_count: ${audit.counts.inbox}`);
         console.log(`  fencing_token: ${audit.fenceToken ?? '—'}`);
+        console.log(`  outbox.fenceToken: ${audit.outbox.fenceToken ?? '—'}`);
+        console.log(`  effect.fenceToken: ${audit.effect.fenceToken ?? '—'}`);
+        console.log(`  inbox.fenceToken: ${audit.inbox.fenceToken ?? '—'}`);
         console.log(`  outbox_status: ${audit.outbox.status ?? '—'}`);
         console.log(`  inbox_outcome: ${audit.inbox.outcome ?? '—'}`);
         const ok =
           audit.counts.effects === 1 &&
           audit.counts.outbox === 1 &&
           audit.counts.inbox === 1 &&
-          Boolean(audit.fenceToken);
+          Boolean(audit.fenceToken) &&
+          audit.outbox.fenceToken === audit.effect.fenceToken &&
+          audit.effect.fenceToken === audit.inbox.fenceToken;
         console.log(ok ? '  exactly_once: true' : '  exactly_once: false');
         console.log(ok ? '  status: OK' : '  status: FAIL');
       }
@@ -5825,9 +5880,48 @@ async function main(): Promise<void> {
         audit.counts.effects === 1 &&
           audit.counts.outbox === 1 &&
           audit.counts.inbox === 1 &&
-          audit.fenceToken
+          audit.fenceToken &&
+          audit.outbox.fenceToken === audit.effect.fenceToken &&
+          audit.effect.fenceToken === audit.inbox.fenceToken
           ? 0
           : 1
+      );
+      break;
+    }
+    case 'queue:reset': {
+      // S31-03: clear outbox/effects/inbox for one idempotency key.
+      //   holo queue:reset <key> --json
+      const key = args.key ?? args.positional[1];
+      if (!key) {
+        console.error('error: queue:reset requires <key> (positional or --key)');
+        process.exit(2);
+      }
+      const { resetDurable, auditEffect } = await import('../queue/durable-effect.ts');
+      await resetDurable({ key });
+      const audit = await auditEffect({ key });
+      if (args.json) {
+        console.log(
+          JSON.stringify(
+            {
+              key,
+              reset: true,
+              effect_count: audit.counts.effects,
+              outbox_count: audit.counts.outbox,
+              inbox_dedupe_count: audit.counts.inbox,
+            },
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(`holo queue:reset — cleared key=${key}`);
+        console.log(
+          `  remaining: outbox=${audit.counts.outbox} effects=${audit.counts.effects} inbox=${audit.counts.inbox}`
+        );
+        console.log('  status: OK');
+      }
+      process.exit(
+        audit.counts.effects === 0 && audit.counts.outbox === 0 && audit.counts.inbox === 0 ? 0 : 1
       );
       break;
     }

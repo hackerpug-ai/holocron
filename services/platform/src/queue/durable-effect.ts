@@ -1,39 +1,61 @@
 /**
- * queue-2 / AC-1 / AC-2 — transactional outbox/inbox + fenced consumer
+ * queue-2 / S31-03 — transactional outbox/inbox + fenced consumer
  * (exactly-once observable effects).
  *
  * Two API surfaces:
  *
- *  1. Low-level (used by queue-exactly-once.test.ts):
- *     - beginEffect(): transactional outbox intent (the producer "commit").
- *     - dispatchAndAck(): fenced consumer — writes the observable effect AND
- *       the inbox dedupe row in ONE transaction, both UNIQUE on the key.
+ *  1. Low-level:
+ *     - beginEffect(): allocates a monotonic fence token INSIDE the outbox
+ *       insert transaction and persists it on the outbox row.
+ *     - dispatchAndAck(): READs the outbox token (never mints a second one),
+ *       writes effect + inbox in ONE transaction, rejects stale holders with
+ *       STALE_FENCE_TOKEN.
  *     - auditEffect() / resetDurable().
  *
- *  2. High-level (used by the queue-4 RED harness loadDurableEffectApi):
+ *  2. High-level (queue-4 RED harness + CLI):
  *     - runDurableEffectBoundary({ key, payload, boundary }): one lifecycle
- *       pass with a kill-9 boundary injected; returns the audit counts.
+ *       pass; non-'none' boundaries leave partial progress for recovery.
  *     - auditDurableEffect(key): same shape as `holo queue:audit`.
  *
  * CRITICAL CONSTRAINT (task queue-2): the effect and the dedupe row are written
- * in the SAME transaction — NEVER split across transactions. Treating lease
- * acquisition as exactly-once is the named anti-pattern.
+ * in the SAME transaction — NEVER split across transactions.
  *
- * Crash injection (crashAt / boundary) throws inside sql.begin → the real
- * Postgres transaction rolls back, identical to what SIGKILL does to
- * uncommitted work. NOT a stub: assertions read real row counts from Postgres.
+ * Fence tokens (S31-03):
+ *   - Type: decimal string of a strictly-increasing bigint (microseconds of
+ *     clock_timestamp under pg_advisory_xact_lock). Ordered by BigInt compare.
+ *   - Allocated inside the persisting transaction; dispatchAndAck READs it.
+ *   - Distinct from lease fence tokens on queue_jobs (priority.ts) — those
+ *     guard lease ownership; these guard durable-effect application.
+ *
+ * Real SIGKILL (S31-03): set HOLO_QUEUE_PAUSE_AT=<boundary> (or CLI
+ * --pause-at). The child emits a boundary marker then blocks forever; the
+ * harness SIGKILLs after observing the marker. No in-process CRASH throws.
  */
-import { randomUUID } from 'node:crypto';
+import { writeSync } from 'node:fs';
 import { isMigrationReadOnly, migrationReadOnlyJobError } from '../cutover/soak-fence.ts';
-import { createSql, type Sql } from '../db/client.ts';
+import { createSql, type Sql, type TransactionSql } from '../db/client.ts';
 
-export type CrashBoundary =
+/**
+ * Decimal string of a strictly-increasing bigint.
+ * Ordering: BigInt(a) < BigInt(b). Never a randomUUID `fence-…` shape.
+ */
+export type FenceToken = string;
+
+/** Pause / kill boundaries for the real child-process SIGKILL harness. */
+export type EffectPauseBoundary =
   | 'before-commit'
   | 'after-commit-before-dispatch'
-  | 'after-dispatch-before-ack'
-  | null;
+  | 'after-dispatch-before-ack';
 
-/** Boundary names used by the queue-4 RED harness (queue-red-harness KillBoundary). */
+export const EFFECT_PAUSE_BOUNDARIES: readonly EffectPauseBoundary[] = [
+  'before-commit',
+  'after-commit-before-dispatch',
+  'after-dispatch-before-ack',
+] as const;
+
+export const HOLO_QUEUE_PAUSE_AT_ENV = 'HOLO_QUEUE_PAUSE_AT';
+
+/** Boundary names used by the queue-4 RED harness (KillBoundary). */
 export type DurableBoundary =
   | 'before-commit'
   | 'after-commit-before-enqueue'
@@ -41,6 +63,9 @@ export type DurableBoundary =
   | 'none';
 
 const DEFAULT_URL = () => process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+
+/** Fixed advisory-lock key for serializing fence-token allocation. */
+const FENCE_ALLOC_LOCK = 872_014_031;
 
 export type DurableEffectResult = {
   effect_count: number;
@@ -50,6 +75,99 @@ export type DurableEffectResult = {
   idempotency_key: string;
   status?: string;
 };
+
+/**
+ * Typed stale-holder refusal. A consumer presenting a superseded token must
+ * not apply a second effect for the same idempotency key.
+ */
+export class StaleFenceTokenError extends Error {
+  readonly code = 'STALE_FENCE_TOKEN' as const;
+  readonly presentedToken: FenceToken;
+  readonly currentToken: FenceToken;
+
+  constructor(opts: { presentedToken: FenceToken; currentToken: FenceToken }) {
+    super(`STALE_FENCE_TOKEN: presented=${opts.presentedToken} current=${opts.currentToken}`);
+    this.name = 'StaleFenceTokenError';
+    this.presentedToken = opts.presentedToken;
+    this.currentToken = opts.currentToken;
+  }
+}
+
+export function isStaleFenceTokenError(err: unknown): err is StaleFenceTokenError {
+  return (
+    err instanceof StaleFenceTokenError ||
+    (typeof err === 'object' &&
+      err !== null &&
+      (err as { code?: string }).code === 'STALE_FENCE_TOKEN')
+  );
+}
+
+export function effectPauseMarker(boundary: EffectPauseBoundary): string {
+  return `queue-effect/${boundary}`;
+}
+
+/**
+ * If HOLO_QUEUE_PAUSE_AT matches `boundary`, emit a readiness marker then
+ * block forever so an external harness can SIGKILL the process.
+ */
+export async function maybePauseAtEffectBoundary(
+  boundary: EffectPauseBoundary,
+  context: Record<string, unknown> = {}
+): Promise<void> {
+  const requested = process.env[HOLO_QUEUE_PAUSE_AT_ENV];
+  if (!requested || requested !== boundary) return;
+
+  const marker = effectPauseMarker(boundary);
+  const payload = {
+    ok: false,
+    pauseHook: true,
+    readiness: true,
+    env: HOLO_QUEUE_PAUSE_AT_ENV,
+    marker,
+    boundary,
+    ts: new Date().toISOString(),
+    context,
+  };
+  // writeSync so the harness observes the marker before the process blocks
+  // (stdio pipes are block-buffered under spawn).
+  const line = `${JSON.stringify(payload)}\n`;
+  writeSync(1, line);
+  writeSync(2, line);
+
+  // Keep the event loop alive after DB connections close. A bare
+  // `new Promise(() => {})` is not a ref'd handle — Node/Bun exit 0 with an
+  // empty loop, which would make SIGKILL impossible (signal=null).
+  setInterval(() => {}, 1 << 30);
+  return await new Promise<void>(() => {
+    // Intentionally never resolves; SIGKILL proves the boundary.
+  });
+}
+
+/**
+ * Allocate the next monotonic fence token inside an open transaction.
+ * Uses pg_advisory_xact_lock + clock_timestamp microseconds so the value
+ * survives row deletes (resetDurable) and is strictly ordered.
+ */
+async function allocateFenceToken(tx: TransactionSql): Promise<FenceToken> {
+  await tx`SELECT pg_advisory_xact_lock(${FENCE_ALLOC_LOCK})`;
+  const rows = await tx<{ tok: string }[]>`
+    SELECT (EXTRACT(EPOCH FROM clock_timestamp()) * 1000000)::bigint::text AS tok
+  `;
+  const tok = rows[0]?.tok;
+  if (!tok) {
+    throw new Error('allocateFenceToken: clock_timestamp returned no value');
+  }
+  return tok;
+}
+
+/** Numeric compare for FenceToken decimal strings. */
+export function compareFenceTokens(a: FenceToken, b: FenceToken): number {
+  const ba = BigInt(a);
+  const bb = BigInt(b);
+  if (ba < bb) return -1;
+  if (ba > bb) return 1;
+  return 0;
+}
 
 /**
  * Fail-closed assert: outbox/inbox/effects must already exist via `holo db:migrate`
@@ -74,8 +192,7 @@ export { ensureOutboxSchema };
 
 export type BeginEffectResult = {
   committed: boolean;
-  fenceToken: string | null;
-  crashBoundary: CrashBoundary;
+  fenceToken: FenceToken | null;
 };
 
 export async function beginEffect(opts: {
@@ -83,38 +200,39 @@ export async function beginEffect(opts: {
   name: string;
   payload?: Record<string, unknown>;
   databaseUrl?: string;
-  crashAt?: CrashBoundary;
 }): Promise<BeginEffectResult> {
-  // REDHAT-FIX-S29-R3-H02: re-check durable fence at irreversible outbox write —
-  // not only at runJob admission (covers already-running / mid-flight workers).
+  // REDHAT-FIX-S29-R3-H02: re-check durable fence at irreversible outbox write.
   if (isMigrationReadOnly()) {
     throw new Error(migrationReadOnlyJobError(opts.name));
   }
   const url = opts.databaseUrl ?? DEFAULT_URL();
-  const fence = `fence-${randomUUID()}`;
   const payload = opts.payload ?? {};
-  const crash = opts.crashAt ?? null;
   const sql = createSql(url);
   try {
     await ensureOutboxSchema(sql);
-    try {
-      await sql.begin(async (tx) => {
-        await tx`
-          INSERT INTO queue_outbox (key, name, payload, status, fence_token)
-          VALUES (${opts.key}, ${opts.name}, ${tx.json(payload as never)}, 'pending', ${fence})
-          ON CONFLICT (key) DO NOTHING
-        `;
-        if (crash === 'before-commit') {
-          throw new Error('CRASH:before-commit');
-        }
-      });
-    } catch (err) {
-      if (err instanceof Error && err.message.startsWith('CRASH:')) {
-        return { committed: false, fenceToken: null, crashBoundary: crash };
+    const fenceToken = await sql.begin(async (tx) => {
+      const fence = await allocateFenceToken(tx);
+      const inserted = await tx<{ fence_token: string }[]>`
+        INSERT INTO queue_outbox (key, name, payload, status, fence_token)
+        VALUES (${opts.key}, ${opts.name}, ${tx.json(payload as never)}, 'pending', ${fence})
+        ON CONFLICT (key) DO NOTHING
+        RETURNING fence_token
+      `;
+      if (inserted.length > 0) {
+        // Pause AFTER the insert so a kill rolls back uncommitted outbox work.
+        await maybePauseAtEffectBoundary('before-commit', {
+          key: opts.key,
+          phase: 'post-insert-pre-commit',
+          fenceToken: fence,
+        });
+        return fence;
       }
-      throw err;
-    }
-    return { committed: true, fenceToken: fence, crashBoundary: crash };
+      const existing = await tx<{ fence_token: string | null }[]>`
+        SELECT fence_token FROM queue_outbox WHERE key = ${opts.key} LIMIT 1
+      `;
+      return existing[0]?.fence_token ?? null;
+    });
+    return { committed: true, fenceToken };
   } finally {
     await sql.end({ timeout: 5 });
   }
@@ -124,36 +242,54 @@ export type DispatchAckResult = {
   applied: boolean;
   deduped: boolean;
   effectId: string | null;
-  fenceToken: string | null;
-  crashed: boolean;
+  fenceToken: FenceToken | null;
 };
 
 export async function dispatchAndAck(opts: {
   key: string;
   databaseUrl?: string;
-  crashAt?: CrashBoundary;
   /** Optional job name for migration_read_only diagnostics (defaults to key). */
   name?: string;
+  /**
+   * Token the caller believes it holds. Defaults to the outbox row's token.
+   * When a higher (or different) token is already persisted on the effect,
+   * raises StaleFenceTokenError.
+   */
+  presentedFenceToken?: FenceToken;
 }): Promise<DispatchAckResult> {
-  // REDHAT-FIX-S29-R3-H02: re-check at irreversible effect application. A worker
-  // that already committed an outbox intent (or held a lease) before the soak
-  // fence armed must still fail closed here — never write queue_effects.
+  // REDHAT-FIX-S29-R3-H02: re-check at irreversible effect application.
   if (isMigrationReadOnly()) {
     throw new Error(migrationReadOnlyJobError(opts.name ?? opts.key));
   }
   const url = opts.databaseUrl ?? DEFAULT_URL();
-  const fence = `fence-${randomUUID()}`;
-  const crash = opts.crashAt ?? null;
   const sql = createSql(url);
   try {
     await ensureOutboxSchema(sql);
 
-    const outboxRows = await sql<{ id: string; payload: unknown; name: string }[]>`
-      SELECT id::text AS id, payload, name FROM queue_outbox WHERE key = ${opts.key}
+    const outboxRows = await sql<
+      { id: string; payload: unknown; name: string; fence_token: string | null }[]
+    >`
+      SELECT id::text AS id, payload, name, fence_token
+      FROM queue_outbox WHERE key = ${opts.key}
     `;
     const outbox = outboxRows[0];
     if (!outbox) {
       throw new Error(`dispatchAndAck: no outbox row for key=${opts.key}`);
+    }
+
+    const outboxToken = outbox.fence_token;
+    if (!outboxToken) {
+      throw new Error(`dispatchAndAck: outbox row for key=${opts.key} has null fence_token`);
+    }
+
+    const presented = opts.presentedFenceToken ?? outboxToken;
+
+    // Superseded holder: outbox itself advanced past what the consumer holds.
+    if (presented !== outboxToken) {
+      throw new StaleFenceTokenError({
+        presentedToken: presented,
+        currentToken: outboxToken,
+      });
     }
 
     // Fresh re-check immediately before the effect transaction (TOCTOU close).
@@ -161,61 +297,73 @@ export async function dispatchAndAck(opts: {
       throw new Error(migrationReadOnlyJobError(opts.name ?? outbox.name ?? opts.key));
     }
 
-    try {
-      const ackResult = await sql.begin(async (tx) => {
-        await tx`
-          UPDATE queue_outbox
-          SET status = 'dispatched', dispatched_at = COALESCE(dispatched_at, now())
-          WHERE key = ${opts.key}
-        `;
-        const inserted = await tx<{ id: string }[]>`
-          INSERT INTO queue_effects (key, payload, fence_token)
-          VALUES (${opts.key}, ${tx.json(outbox.payload as never)}, ${fence})
-          ON CONFLICT (key) DO NOTHING
-          RETURNING id::text AS id
-        `;
-        const applied = inserted.length > 0;
-        const effectRow = applied
-          ? { id: inserted[0]!.id }
-          : (
-              await tx<{ id: string }[]>`
-              SELECT id::text AS id FROM queue_effects WHERE key = ${opts.key} LIMIT 1
-            `
-            )[0]!;
-        await tx`
-          INSERT INTO queue_inbox (key, outbox_id, effect_id, fence_token, outcome)
-          VALUES (
-            ${opts.key},
-            ${outbox.id}::uuid,
-            ${effectRow.id}::uuid,
-            ${fence},
-            ${applied ? 'applied' : 'deduped'}
-          )
-          ON CONFLICT (key) DO NOTHING
-        `;
-        if (crash === 'after-dispatch-before-ack') {
-          throw new Error('CRASH:after-dispatch-before-ack');
-        }
-        await tx`
-          UPDATE queue_outbox
-          SET status = 'acked', effect_id = ${effectRow.id}::uuid, acked_at = now()
-          WHERE key = ${opts.key}
-        `;
-        return { applied, effectId: effectRow.id };
-      });
-      return {
-        applied: ackResult.applied,
-        deduped: !ackResult.applied,
-        effectId: ackResult.effectId,
-        fenceToken: fence,
-        crashed: false,
-      };
-    } catch (err) {
-      if (err instanceof Error && err.message.startsWith('CRASH:')) {
-        return { applied: false, deduped: false, effectId: null, fenceToken: null, crashed: true };
+    const ackResult = await sql.begin(async (tx) => {
+      // Existing effect with a different token → stale (do not silent-dedupe).
+      const existingEffect = await tx<{ id: string; fence_token: string }[]>`
+        SELECT id::text AS id, fence_token FROM queue_effects WHERE key = ${opts.key} LIMIT 1
+      `;
+      if (existingEffect[0] && existingEffect[0].fence_token !== presented) {
+        throw new StaleFenceTokenError({
+          presentedToken: presented,
+          currentToken: existingEffect[0].fence_token,
+        });
       }
-      throw err;
-    }
+
+      await tx`
+        UPDATE queue_outbox
+        SET status = 'dispatched', dispatched_at = COALESCE(dispatched_at, now())
+        WHERE key = ${opts.key}
+      `;
+      const inserted = await tx<{ id: string }[]>`
+        INSERT INTO queue_effects (key, payload, fence_token)
+        VALUES (${opts.key}, ${tx.json(outbox.payload as never)}, ${presented})
+        ON CONFLICT (key) DO NOTHING
+        RETURNING id::text AS id
+      `;
+      const applied = inserted.length > 0;
+      let effectId: string | null = inserted[0]?.id ?? null;
+      if (!effectId) {
+        const existing = await tx<{ id: string }[]>`
+          SELECT id::text AS id FROM queue_effects WHERE key = ${opts.key} LIMIT 1
+        `;
+        effectId = existing[0]?.id ?? null;
+      }
+      if (!effectId) {
+        throw new Error(`dispatchAndAck: no effect row for key=${opts.key}`);
+      }
+      const effectRow = { id: effectId };
+      await tx`
+        INSERT INTO queue_inbox (key, outbox_id, effect_id, fence_token, outcome)
+        VALUES (
+          ${opts.key},
+          ${outbox.id}::uuid,
+          ${effectRow.id}::uuid,
+          ${presented},
+          ${applied ? 'applied' : 'deduped'}
+        )
+        ON CONFLICT (key) DO NOTHING
+      `;
+
+      await maybePauseAtEffectBoundary('after-dispatch-before-ack', {
+        key: opts.key,
+        fenceToken: presented,
+        effectId: effectRow.id,
+      });
+
+      await tx`
+        UPDATE queue_outbox
+        SET status = 'acked', effect_id = ${effectRow.id}::uuid, acked_at = now()
+        WHERE key = ${opts.key}
+      `;
+      return { applied, effectId: effectRow.id, fenceToken: presented };
+    });
+
+    return {
+      applied: ackResult.applied,
+      deduped: !ackResult.applied,
+      effectId: ackResult.effectId,
+      fenceToken: ackResult.fenceToken,
+    };
   } finally {
     await sql.end({ timeout: 5 });
   }
@@ -223,11 +371,12 @@ export async function dispatchAndAck(opts: {
 
 export type EffectAudit = {
   key: string;
-  outbox: { status: string | null; fenceToken: string | null; effectId: string | null };
-  effect: { id: string | null; fenceToken: string | null };
-  inbox: { outcome: string | null; fenceToken: string | null };
+  outbox: { status: string | null; fenceToken: FenceToken | null; effectId: string | null };
+  effect: { id: string | null; fenceToken: FenceToken | null };
+  inbox: { outcome: string | null; fenceToken: FenceToken | null };
   counts: { outbox: number; effects: number; inbox: number };
-  fenceToken: string | null;
+  /** Convenience: effect token, else outbox, else inbox — prefer the three fields. */
+  fenceToken: FenceToken | null;
 };
 
 export async function auditEffect(opts: {
@@ -271,6 +420,8 @@ export async function auditEffect(opts: {
         effects: Number(c?.e ?? 0),
         inbox: Number(c?.i ?? 0),
       },
+      // Prefer effect, then outbox, then inbox — but audit consumers should
+      // compare the three nested fields separately (S31-03).
       fenceToken: effect[0]?.fence_token ?? outbox[0]?.fence_token ?? inbox[0]?.fence_token ?? null,
     };
   } finally {
@@ -292,15 +443,50 @@ export async function resetDurable(opts: { key: string; databaseUrl?: string }):
 }
 
 // ---------------------------------------------------------------------------
-// High-level API (queue-4 RED harness contract)
+// High-level API (queue-4 RED harness contract + full lifecycle)
 // ---------------------------------------------------------------------------
 
 /**
- * Run ONE lifecycle pass for `key` with a kill-9 boundary injected.
- * The RED harness calls this twice: once with the boundary (crash), once with
- * 'none' (recovery). The crash is a real Postgres transaction rollback.
+ * Run ONE complete durable-effect lifecycle (begin + dispatch) for `key`.
+ * Honors HOLO_QUEUE_PAUSE_AT if set (blocks at the matching boundary).
+ */
+export async function runDurableEffectLifecycle(opts: {
+  key: string;
+  payload?: Record<string, unknown>;
+  databaseUrl?: string;
+  name?: string;
+}): Promise<DurableEffectResult> {
+  const url = opts.databaseUrl ?? DEFAULT_URL();
+  const payload = { ...(opts.payload ?? { n: 1 }) };
+  const name = opts.name ?? 'durable-effect';
+
+  await beginEffect({ key: opts.key, name, payload, databaseUrl: url });
+
+  await maybePauseAtEffectBoundary('after-commit-before-dispatch', {
+    key: opts.key,
+    phase: 'post-commit-pre-dispatch',
+  });
+
+  await dispatchAndAck({ key: opts.key, name, databaseUrl: url });
+
+  const audit = await auditEffect({ key: opts.key, databaseUrl: url });
+  return {
+    effect_count: audit.counts.effects,
+    outbox_count: audit.counts.outbox,
+    inbox_dedupe_count: audit.counts.inbox,
+    fencing_token: audit.fenceToken,
+    idempotency_key: opts.key,
+    status: audit.outbox.status ?? undefined,
+  };
+}
+
+/**
+ * Run ONE lifecycle pass for `key` with an optional partial-progress boundary
+ * (queue-4 RED harness). Non-'none' boundaries leave the key mid-pipeline so a
+ * subsequent 'none' recovery pass completes exactly once.
  *
- * On a non-'none' boundary the key is reset first so each boundary is isolated.
+ * Real SIGKILL proof lives in sprint31-fence-kill9.test.ts via HOLO_QUEUE_PAUSE_AT
+ * + child process kill — not via in-process throws.
  */
 export async function runDurableEffectBoundary(opts: {
   key: string;
@@ -310,32 +496,24 @@ export async function runDurableEffectBoundary(opts: {
 }): Promise<DurableEffectResult> {
   const url = opts.databaseUrl ?? DEFAULT_URL();
   const payload = { ...opts.payload };
-  // Reset on the crash pass so each boundary starts from a clean slate.
+  // Reset on the crash/partial pass so each boundary is isolated.
   if (opts.boundary !== 'none') {
     await resetDurable({ key: opts.key, databaseUrl: url });
   }
 
   if (opts.boundary === 'before-commit') {
-    await beginEffect({
-      key: opts.key,
-      name: 'durable-effect',
-      payload,
-      databaseUrl: url,
-      crashAt: 'before-commit',
-    });
-  } else {
-    // Enqueue commits.
+    // Partial: no durable write — recovery will begin+dispatch cleanly.
+  } else if (opts.boundary === 'after-commit-before-enqueue') {
+    // Outbox committed; dispatch never runs.
     await beginEffect({ key: opts.key, name: 'durable-effect', payload, databaseUrl: url });
-    if (opts.boundary === 'after-dispatch-before-ack') {
-      await dispatchAndAck({
-        key: opts.key,
-        databaseUrl: url,
-        crashAt: 'after-dispatch-before-ack',
-      });
-    } else if (opts.boundary === 'none') {
-      await dispatchAndAck({ key: opts.key, databaseUrl: url });
-    }
-    // 'after-commit-before-enqueue': dispatch never happens (kill before enqueue).
+  } else if (opts.boundary === 'after-dispatch-before-ack') {
+    // Outbox committed; dispatch not completed (same recoverable residual as
+    // after-commit-before-enqueue under single-tx effect+ack).
+    await beginEffect({ key: opts.key, name: 'durable-effect', payload, databaseUrl: url });
+  } else {
+    // 'none' — full recovery / complete lifecycle.
+    await beginEffect({ key: opts.key, name: 'durable-effect', payload, databaseUrl: url });
+    await dispatchAndAck({ key: opts.key, databaseUrl: url });
   }
 
   const audit = await auditEffect({ key: opts.key, databaseUrl: url });
