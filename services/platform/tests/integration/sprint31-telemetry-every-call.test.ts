@@ -1,8 +1,8 @@
 /**
  * S31-07 AC-3 — every fleet call site writes telemetry through the instrumented client.
  *
- * Exercises 5 real CLI entrypoints; asserts inference_telemetry rows with
- * step_id (call_site) labels and non-null endpoint/role/wall_ms.
+ * Exercises 5 real CLI entrypoints as child processes (no bun -e force imports):
+ *   holo evals:run, holo embed:run, holo extract, holo probe:capabilities, holo compat:spike
  *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint31-telemetry-every-call.test.ts
@@ -31,6 +31,15 @@ const CALL_SITES = [
   'extract-structured',
   'probe-capability',
   'compat/cells/agent',
+] as const;
+
+/** The five production CLI entrypoints that must each exit 0. */
+const CLI_KEYS = [
+  'evals:run',
+  'embed:run',
+  'extract',
+  'probe:capabilities',
+  'compat:spike',
 ] as const;
 
 const itLive = (
@@ -82,7 +91,6 @@ describe('S31-07 AC-3 everyFleetCallSiteWritesTelemetry', () => {
 
   itLive('everyFleetCallSiteWritesTelemetry', async () => {
     const windowStart = new Date();
-    // Marker so we can scope the case window tightly
     const caseMarker = `s31-07-ac3-${Date.now()}`;
 
     const sql = createSql(DATABASE_URL);
@@ -93,79 +101,65 @@ describe('S31-07 AC-3 everyFleetCallSiteWritesTelemetry', () => {
         WHERE created_at >= ${windowStart}
       `;
       writeEvidence('ac3-before-count.json', { windowStart, before, caseMarker });
-      // Soft: window may have concurrent rows; we assert by call_site presence after.
+
+      // Seed one passage with NULL embedding so `holo embed:run` processes >= 1
+      // through the production CLI path (not bun -e). Clean residual nulls first.
+      await sql`UPDATE passages SET embedding = NULL WHERE embedding IS NULL`;
+      const sourceRows = await sql<{ id: string }[]>`
+        INSERT INTO sources (source_kind, title, content_hash)
+        VALUES (
+          'other',
+          ${`S31-07 AC-3 seed ${caseMarker}`},
+          ${`s31-07-ac3-${caseMarker}`}
+        )
+        ON CONFLICT (content_hash) DO UPDATE SET title = EXCLUDED.title
+        RETURNING id::text AS id
+      `;
+      const sourceId = sourceRows[0]?.id;
+      expect(sourceId, 'seed source id').toBeTruthy();
+      await sql`
+        INSERT INTO passages (source_id, document_id, ordinal, text, embedding)
+        VALUES (
+          ${sourceId}::uuid,
+          ${`s31-07-ac3-doc-${caseMarker}`},
+          0,
+          ${`S31-07 AC-3 document passage for embed:run telemetry (${caseMarker}).`},
+          NULL
+        )
+      `;
+      const nullCount = await sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM passages WHERE embedding IS NULL
+      `;
+      writeEvidence('ac3-embed-seed.json', { sourceId, nullCount, caseMarker });
+      expect(
+        nullCount[0]?.n ?? 0,
+        'at least 1 NULL embedding before embed:run'
+      ).toBeGreaterThanOrEqual(1);
 
       const results: Record<string, { status: number | null; combined: string }> = {};
 
       // 1) evals:run → evals/scorers
       results['evals:run'] = runHolo(['evals:run', '--sample', 'known-good', '--json'], 180_000);
 
-      // 2) embed:run → embed (document mode re-embed; may no-op if no NULL rows)
-      // Prefer a direct one-shot via holo if available; also call through a tiny bun inline.
-      // embed:run is the production entrypoint — it will call embed() for NULL vectors.
+      // 2) embed:run → embed (seeded NULL passage above)
       results['embed:run'] = runHolo(['embed:run', '--json'], 180_000);
 
-      // Force at least one embed telemetry row via a small production-path script that only
-      // uses the public embed() helper (which routes through runFleetModelCall).
-      const embedForce = spawnSync(
-        BUN_BIN,
-        [
-          '-e',
-          `
-          import { embed } from './src/inference/embed.ts';
-          const v = await embed('S31-07 AC-3 telemetry sweep ${caseMarker}', 'query', {
-            runId: ${JSON.stringify(caseMarker)},
-          });
-          console.log(JSON.stringify({ ok: true, dim: v.length }));
-          `,
-        ],
-        {
-          cwd: resolve(REPO_ROOT, 'services/platform'),
-          encoding: 'utf8',
-          env: {
-            ...process.env,
-            DATABASE_URL,
-            FLEET_URL,
-            FLEET_KEY: process.env.FLEET_KEY ?? 'sk-none',
-          },
-          timeout: 120_000,
-        }
-      );
-      results['embed:force'] = {
-        status: embedForce.status,
-        combined: `${embedForce.stdout ?? ''}\n${embedForce.stderr ?? ''}`,
-      };
-
-      // 3) extract — simple schema
-      const extractSchema = resolve(EVIDENCE_DIR, 'ac3-extract-schema.json');
-      mkdirSync(EVIDENCE_DIR, { recursive: true });
-      writeFileSync(
-        extractSchema,
-        JSON.stringify({
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-          },
-          required: ['success', 'message'],
-        }),
-        'utf8'
-      );
-      // holo extract expects a named schema label — use built-in if any, else skip to probe path.
-      // Fall back: call extractStructured via production CLI if available.
+      // 3) extract --schema simple --input … → extract-structured
       results['extract'] = runHolo(
         [
           'extract',
+          '--schema',
+          'simple',
           '--role',
           'divergent',
           '--input',
-          'Return JSON with success=true and message="s31-07-ac3"',
+          'Title is Demo, count is 3, tags are alpha beta gamma. Return JSON with title, count, and tags.',
           '--json',
         ],
         180_000
       );
 
-      // 4) probe:capabilities
+      // 4) probe:capabilities → probe-capability
       results['probe:capabilities'] = runHolo(
         ['probe:capabilities', '--json', '--timeout', '45000'],
         300_000
@@ -176,63 +170,23 @@ describe('S31-07 AC-3 everyFleetCallSiteWritesTelemetry', () => {
 
       writeEvidence('ac3-cli-results.json', results);
 
-      // Core production entrypoints must succeed.
-      expect(results['evals:run']?.status, results['evals:run']?.combined).toBe(0);
-      expect(results['embed:force']?.status, results['embed:force']?.combined).toBe(0);
-      expect(results['probe:capabilities']?.status, results['probe:capabilities']?.combined).toBe(
-        0
-      );
-      // compat:spike may be red on OTel/storage cells; agent cell still writes telemetry.
-      // Accept exit 0 or exit 1 as long as agent call site telemetry lands.
-
-      // If extract CLI failed (missing schema label), force via extractStructured production path.
-      if (results['extract']?.status !== 0) {
-        const extractForce = spawnSync(
-          BUN_BIN,
-          [
-            '-e',
-            `
-            import { z } from 'zod';
-            import { randomUUID } from 'node:crypto';
-            import { extractStructured } from './src/inference/extract-structured.ts';
-            const schema = z.object({ success: z.boolean(), message: z.string() });
-            try {
-              const out = await extractStructured(
-                schema,
-                'Return a JSON object with success=true and message="s31-07-ac3".',
-                'divergent',
-                randomUUID()
-              );
-              console.log(JSON.stringify({ ok: true, object: out }));
-            } catch (err) {
-              // Telemetry is still written on model attempts; surface for evidence.
-              console.log(JSON.stringify({
-                ok: false,
-                error: err instanceof Error ? err.message : String(err),
-              }));
-              process.exit(0);
-            }
-            `,
-          ],
-          {
-            cwd: resolve(REPO_ROOT, 'services/platform'),
-            encoding: 'utf8',
-            env: {
-              ...process.env,
-              DATABASE_URL,
-              FLEET_URL,
-              FLEET_KEY: process.env.FLEET_KEY ?? 'sk-none',
-            },
-            timeout: 180_000,
-          }
-        );
-        results['extract:force'] = {
-          status: extractForce.status,
-          combined: `${extractForce.stdout ?? ''}\n${extractForce.stderr ?? ''}`,
-        };
-        writeEvidence('ac3-extract-force.json', results['extract:force']);
-        expect(extractForce.status, results['extract:force'].combined).toBe(0);
+      // All 5 real CLI children must exit 0 (no bun -e force paths).
+      for (const key of CLI_KEYS) {
+        expect(results[key]?.status, `${key} must exit 0:\n${results[key]?.combined}`).toBe(0);
       }
+
+      // embed:run must have processed at least one passage
+      let embedPayload: Record<string, unknown> = {};
+      try {
+        embedPayload = JSON.parse(results['embed:run']?.stdout ?? '{}') as Record<string, unknown>;
+      } catch {
+        // ignore
+      }
+      writeEvidence('ac3-embed-run-payload.json', embedPayload);
+      expect(
+        Number(embedPayload.processed ?? 0),
+        `embed:run processed>=1: ${results['embed:run']?.combined}`
+      ).toBeGreaterThanOrEqual(1);
 
       const rows = await sql<
         {

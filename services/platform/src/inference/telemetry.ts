@@ -14,6 +14,7 @@
  * Anti-pattern: invent success rows, buffer-only memory, repurpose agent_telemetry.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve as pathResolve, relative } from 'node:path';
@@ -35,6 +36,25 @@ import {
   resolveModel,
   toOpenAiCompatibleBaseURL,
 } from './resolve-model';
+
+/**
+ * Mission-scoped Langfuse exporter (S31-07).
+ * executeRunWithLease runs stages inside this ALS so every runFleetModelCall
+ * buffers spans on the same exporter that flushMissionLangfuse flushes.
+ */
+const missionLangfuseAls = new AsyncLocalStorage<HolocronLangfuseExporter>();
+
+/** Run `fn` with a shared HolocronLangfuseExporter bound for nested fleet calls. */
+export function runWithMissionLangfuseExporter<T>(
+  exporter: HolocronLangfuseExporter,
+  fn: () => Promise<T>
+): Promise<T> {
+  return missionLangfuseAls.run(exporter, fn);
+}
+
+export function getMissionLangfuseExporter(): HolocronLangfuseExporter | undefined {
+  return missionLangfuseAls.getStore();
+}
 
 /** Embed mode for callKind:'embedding' (mirrors embed.ts without circular import). */
 export type FleetEmbedMode = 'query' | 'document';
@@ -688,8 +708,10 @@ async function maybeExportLangfuse(
   }
 ): Promise<void> {
   if (opts.exportToLangfuse === false) return;
+  // Prefer explicit option → mission ALS (shared flush) → one-shot env exporter.
+  const shared = opts.langfuseExporter ?? getMissionLangfuseExporter();
   const exporter =
-    opts.langfuseExporter ??
+    shared ??
     createLangfuseExporterFromEnv({
       failOnExportError: false,
     });
@@ -710,8 +732,9 @@ async function maybeExportLangfuse(
     output: span.output,
     status: span.status,
   });
-  // Shared mission exporter is flushed by mission/runtime; one-shot flushes now.
-  if (!opts.langfuseExporter) {
+  // Shared mission exporter (explicit or ALS) is flushed by mission/runtime;
+  // one-shot env exporters flush immediately.
+  if (!shared) {
     try {
       await exporter.flush();
     } catch {

@@ -8,7 +8,7 @@ import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
 import { type FleetRoleManifest, FleetRoleManifestSchema } from '../fleet/manifest.schema.ts';
 import { getRoleEntry } from '../fleet/manifest.ts';
 import { probeRoleHealth } from '../inference/resolve-model.ts';
-import { runFleetModelCall } from '../inference/telemetry.ts';
+import { runFleetModelCall, runWithMissionLangfuseExporter } from '../inference/telemetry.ts';
 import {
   createLangfuseExporterFromEnv,
   type HolocronLangfuseExporter,
@@ -3611,7 +3611,11 @@ async function executeRunWithLease(
   const { langfuseExporter } = attachMissionObservability(run);
 
   try {
-    return await executeRunWithLeaseInner(sql, runId, lease, databaseUrl, run, langfuseExporter);
+    // Thread exporter into every nested runFleetModelCall via ALS so spans
+    // share one buffer and flushMissionLangfuse actually exports them.
+    return await runWithMissionLangfuseExporter(langfuseExporter, () =>
+      executeRunWithLeaseInner(sql, runId, lease, databaseUrl, run, langfuseExporter)
+    );
   } finally {
     await flushMissionLangfuse(langfuseExporter);
   }
@@ -3625,7 +3629,10 @@ async function executeRunWithLeaseInner(
   run: MissionRunRow,
   langfuseExporter: HolocronLangfuseExporter
 ): Promise<MissionRunRow> {
-  void langfuseExporter;
+  // Exporter is also bound via ALS; keep the param so the call graph documents ownership.
+  if (!langfuseExporter) {
+    throw new MissionRuntimeError('MISSION_LANGFUSE_MISSING', 'mission Langfuse exporter required');
+  }
   const runtime = parsePersistedRuntime(run);
   await recordResearchProcessProof(sql, run, lease);
 
