@@ -9,10 +9,17 @@
 
 name: holocron-langfuse
 
+x-holocron-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   langfuse-worker:
     image: docker.io/langfuse/langfuse-worker@sha256:61e9f83f5f1e5b6f8745215db193f5d201b4cba9ed543e539104552c1b3dc106
     restart: unless-stopped
+    logging: *bounded-logging
     depends_on: &langfuse-depends-on
       postgres:
         condition: service_healthy
@@ -59,6 +66,7 @@ services:
   langfuse-web:
     image: docker.io/langfuse/langfuse@sha256:cff59a366f9773f9e1d7060655cc63441b1e4ad27e8ad40ebdaebe2151a014cb
     restart: unless-stopped
+    logging: *bounded-logging
     depends_on: *langfuse-depends-on
     ports:
       - 127.0.0.1:3100:3000
@@ -90,6 +98,7 @@ services:
   clickhouse:
     image: docker.io/clickhouse/clickhouse-server@sha256:8a790dd3468db22b1d4e7b18a176f378ff5ff6053b9c48dd4ea1fa71a24c5ba6
     restart: unless-stopped
+    logging: *bounded-logging
     user: "101:101"
     environment:
       CLICKHOUSE_DB: default
@@ -111,6 +120,7 @@ services:
   minio:
     image: cgr.dev/chainguard/minio@sha256:5f2b82fe2edccafed7902f423f171ae5e6b8b363fae72441c0e0e4289dc45555
     restart: unless-stopped
+    logging: *bounded-logging
     entrypoint: sh
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:
@@ -131,6 +141,7 @@ services:
   redis:
     image: docker.io/redis@sha256:595cc6f2bb3af6e03347b90deb6123c6aa2c81dea05ce08128de8a174b6ac67b
     restart: unless-stopped
+    logging: *bounded-logging
     command: >
       --requirepass myredissecret
       --maxmemory-policy noeviction
@@ -147,6 +158,7 @@ services:
   postgres:
     image: docker.io/postgres@sha256:a426e44bac0b759c95894d68e1a0ac03ecc20b619f498a91aae373bf06d8508d
     restart: unless-stopped
+    logging: *bounded-logging
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 3s

@@ -20,7 +20,11 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  acquireDisposableDockerLock,
+  cleanupDisposableDockerHost,
+} from './helpers/docker-lifecycle.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA25');
@@ -58,6 +62,15 @@ const SOURCE_BACKUP = {
   r2: resolve(REPO_ROOT, 'services/platform/src/backup/r2-provision.ts'),
   baseline: resolve(REPO_ROOT, 'services/platform/src/backup/recovery-baseline.ts'),
 };
+
+const qa25Hosts: string[] = [];
+
+afterEach(() => {
+  while (qa25Hosts.length > 0) {
+    const host = qa25Hosts.pop();
+    if (host) cleanupDisposableDockerHost(REPO_ROOT, host);
+  }
+});
 
 function writeEv(name: string, body: unknown): void {
   mkdirSync(EVIDENCE, { recursive: true });
@@ -420,6 +433,7 @@ describe('GATE-FIX-S28R3-QA25 CRITICAL3 successful disposable production-boundar
     const provisionOut = resolve(probeDir, 'provision.out');
     const report = resolve(probeDir, 'parity-report.json');
     const host = `s28r3-qa25-disposable-${Date.now()}`;
+    qa25Hosts.push(host);
 
     const script = `#!/bin/bash
 set -euo pipefail
@@ -432,6 +446,26 @@ REPORT=${JSON.stringify(report)}
 HOST=${JSON.stringify(host)}
 ENV_FILE=${JSON.stringify(envPath)}
 SECRETS=${JSON.stringify(secretsPath)}
+ORIGINAL_HOST="$HOST"
+
+cleanup_disposable_host() {
+  local docker_bin=""
+  for candidate in /usr/local/bin/docker /opt/homebrew/bin/docker /usr/bin/docker; do
+    if [[ -x "$candidate" ]]; then docker_bin="$candidate"; break; fi
+  done
+  if [[ -n "$docker_bin" ]]; then
+    "$docker_bin" rm -f "$ORIGINAL_HOST" "\${ORIGINAL_HOST}-retry" >/dev/null 2>&1 || true
+    "$docker_bin" volume rm -f \
+      "\${ORIGINAL_HOST}-pgdata" "\${ORIGINAL_HOST}-blobs" \
+      "\${ORIGINAL_HOST}-retry-pgdata" "\${ORIGINAL_HOST}-retry-blobs" \
+      >/dev/null 2>&1 || true
+    "$docker_bin" network rm "\${ORIGINAL_HOST}-net" "\${ORIGINAL_HOST}-retry-net" \
+      >/dev/null 2>&1 || true
+  fi
+  /bin/rm -rf -- "$ROOT/.tmp/fresh-restore/$ORIGINAL_HOST" \
+    "$ROOT/.tmp/fresh-restore/\${ORIGINAL_HOST}-retry"
+}
+trap cleanup_disposable_host EXIT INT TERM
 
 # GATE-FIX-S28R3-QA25: wipe any prior contaminated boundary-argv (zeros+unlink, never read).
 if [[ -f "$ARGV_LOG" ]]; then
@@ -761,19 +795,31 @@ echo "fire_rc=$fire_rc"
     const probe = resolve(probeDir, 'prod-boundary.sh');
     writeFileSync(probe, script);
     chmodSync(probe, 0o755);
-    const run = spawnSync('/bin/bash', [probe], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      timeout: 420_000,
-      env: {
-        // docker CLI may live under Homebrew; provision validates absolute docker path.
-        PATH: '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin',
-        HOME: process.env.HOME,
-        LC_ALL: 'C',
-        USER: process.env.USER,
-        TMPDIR: process.env.TMPDIR ?? '/tmp',
-      },
-    });
+    const lock = acquireDisposableDockerLock(
+      resolve(REPO_ROOT, '.tmp/docker-live-restore.lockdir')
+    );
+    const run = (() => {
+      try {
+        return spawnSync('/bin/bash', [probe], {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          timeout: 420_000,
+          env: {
+            // docker CLI may live under Homebrew; provision validates absolute docker path.
+            PATH: '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin',
+            HOME: process.env.HOME,
+            LC_ALL: 'C',
+            USER: process.env.USER,
+            TMPDIR: process.env.TMPDIR ?? '/tmp',
+          },
+        });
+      } finally {
+        cleanupDisposableDockerHost(REPO_ROOT, host);
+        lock.release();
+        const hostIndex = qa25Hosts.indexOf(host);
+        if (hostIndex >= 0) qa25Hosts.splice(hostIndex, 1);
+      }
+    })();
     const combined = `${run.stdout ?? ''}\n${run.stderr ?? ''}`;
     let fireRc: number | null = null;
     const m = combined.match(/fire_rc=(\d+)/);

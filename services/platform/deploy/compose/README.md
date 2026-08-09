@@ -59,3 +59,7 @@ That command only validates Docker manifest/config identity and rendered Compose
 it never runs `docker compose up`, `docker compose down`, or any volume command.
 D06-07 consumes the resulting lock. This task never performs a cutover action
 or deletes a durable volume.
+
+Every production and Langfuse service uses Docker's `local` log driver with a
+10 MB × 3-file cap. Keep that contract on new services; daemon-wide defaults
+are installed separately by `scripts/install-docker-resilience.sh`.

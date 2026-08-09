@@ -44,6 +44,8 @@ SKIP_ISOLATION=0
 POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:18-alpine}"
 RESTORE_PG_PORT="${RESTORE_PG_PORT:-55432}"
 STAGING_ROOT="${STAGING_ROOT:-$ROOT/.tmp/fresh-restore}"
+HOLO_DOCKER_MIN_FREE_GIB="${HOLO_DOCKER_MIN_FREE_GIB:-25}"
+HOLO_DOCKER_EPHEMERAL_TTL_SECONDS="${HOLO_DOCKER_EPHEMERAL_TTL_SECONDS:-21600}"
 CONTAINER_PGDATA="/var/lib/postgresql/restore"
 CONTAINER_BLOB="/var/lib/holocron/blob-restore"
 R2_BUCKET_NAME="${R2_BUCKET_NAME:-holocron-backup}"
@@ -124,6 +126,24 @@ if [[ -n "${GATE_RUN_ID:-}" ]]; then
     exit 2
   fi
 fi
+
+if [[ ! "$HOLO_DOCKER_MIN_FREE_GIB" =~ ^[0-9]+$ ]] || [[ "$HOLO_DOCKER_MIN_FREE_GIB" -lt 1 ]]; then
+  echo "error: HOLO_DOCKER_MIN_FREE_GIB must be a positive integer" >&2
+  exit 2
+fi
+if [[ ! "$HOLO_DOCKER_EPHEMERAL_TTL_SECONDS" =~ ^[0-9]+$ ]] \
+  || [[ "$HOLO_DOCKER_EPHEMERAL_TTL_SECONDS" -lt 300 ]]; then
+  echo "error: HOLO_DOCKER_EPHEMERAL_TTL_SECONDS must be an integer >= 300" >&2
+  exit 2
+fi
+
+EPHEMERAL_RUN_ID="${GATE_RUN_ID:-$HOST_NAME}"
+EPHEMERAL_OWNER_PID="${HOLO_DOCKER_OWNER_PID:-$PPID}"
+if [[ ! "$EPHEMERAL_OWNER_PID" =~ ^[0-9]+$ ]] || [[ "$EPHEMERAL_OWNER_PID" -lt 1 ]]; then
+  echo "error: HOLO_DOCKER_OWNER_PID must be a positive integer when set" >&2
+  exit 2
+fi
+EPHEMERAL_EXPIRES_AT="$(( $(/bin/date +%s) + HOLO_DOCKER_EPHEMERAL_TTL_SECONDS ))"
 
 case "$HOST_NAME" in
   *mini*pgdata*|*mini*blob*)
@@ -537,6 +557,16 @@ services:
     image: ${POSTGRES_IMAGE}
     container_name: ${HOST_NAME}
     restart: "no"
+    labels:
+      io.holocron.lifecycle: ephemeral
+      io.holocron.run-id: "${EPHEMERAL_RUN_ID}"
+      io.holocron.owner-pid: "${EPHEMERAL_OWNER_PID}"
+      io.holocron.expires-at: "${EPHEMERAL_EXPIRES_AT}"
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     env_file:
       - restore-target.env
     environment:
@@ -583,6 +613,11 @@ networks:
   restore_net:
     name: ${NETWORK_NAME}
     driver: bridge
+    labels:
+      io.holocron.lifecycle: ephemeral
+      io.holocron.run-id: "${EPHEMERAL_RUN_ID}"
+      io.holocron.owner-pid: "${EPHEMERAL_OWNER_PID}"
+      io.holocron.expires-at: "${EPHEMERAL_EXPIRES_AT}"
 
 # GATE-FIX-S28R3-QA1: bind-backed local volumes so host Bun can write the same
 # bytes the container mounts (Colima/Desktop Mountpoints under /var/lib/docker
@@ -591,6 +626,11 @@ volumes:
   ${VOLUME_PGDATA}:
     name: ${VOLUME_PGDATA}
     driver: local
+    labels:
+      io.holocron.lifecycle: ephemeral
+      io.holocron.run-id: "${EPHEMERAL_RUN_ID}"
+      io.holocron.owner-pid: "${EPHEMERAL_OWNER_PID}"
+      io.holocron.expires-at: "${EPHEMERAL_EXPIRES_AT}"
     driver_opts:
       type: none
       o: bind
@@ -598,6 +638,11 @@ volumes:
   ${VOLUME_BLOB}:
     name: ${VOLUME_BLOB}
     driver: local
+    labels:
+      io.holocron.lifecycle: ephemeral
+      io.holocron.run-id: "${EPHEMERAL_RUN_ID}"
+      io.holocron.owner-pid: "${EPHEMERAL_OWNER_PID}"
+      io.holocron.expires-at: "${EPHEMERAL_EXPIRES_AT}"
     driver_opts:
       type: none
       o: bind
@@ -631,6 +676,13 @@ CONTAINER_STARTED=0
 if [[ "$DRY_RUN" -eq 1 ]]; then
   log "dry-run: skip docker start (compose + env ready under $TARGET_DIR)"
 elif docker_available; then
+  available_kib="$(/bin/df -Pk "$STAGING_ROOT" | /usr/bin/awk 'END {print $4}')"
+  required_kib="$(( HOLO_DOCKER_MIN_FREE_GIB * 1024 * 1024 ))"
+  if [[ ! "$available_kib" =~ ^[0-9]+$ ]] || [[ "$available_kib" -lt "$required_kib" ]]; then
+    echo "error: refusing Docker restore target with less than ${HOLO_DOCKER_MIN_FREE_GIB} GiB free" >&2
+    echo "  free_kib=${available_kib:-unknown} required_kib=${required_kib}" >&2
+    exit 75
+  fi
   log "docker available — bringing up ${HOST_NAME}"
   "$DOCKER_BIN" rm -f "$HOST_NAME" >/dev/null 2>&1 || true
   "$DOCKER_BIN" volume rm -f "$VOLUME_PGDATA" "$VOLUME_BLOB" >/dev/null 2>&1 || true

@@ -14,6 +14,7 @@ import {
   preflightRollback,
   selectRollbackDigest,
 } from '../../src/deploy/production-release.ts';
+import { cleanupDockerVolumes } from './helpers/docker-lifecycle.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const COMPOSE_PATH = resolve(REPO_ROOT, 'services/platform/deploy/compose/compose.yaml');
@@ -661,11 +662,12 @@ describe(`Docker-backed D06-06 evidence (${DOCKER_READY ? 'available' : 'SKIPPED
           )
         ).toBe('unhealthy');
       } finally {
-        // Deliberately no `-v`: the test never deletes durable volumes.
+        // Do not use broad `down -v`; delete only this test's unique volumes.
         docker(
           ['compose', '--project-name', project, '-f', COMPOSE_PATH, 'down', '--remove-orphans'],
           env
         );
+        cleanupDockerVolumes([`${project}-postgres`, `${project}-blobs`]);
       }
     },
     SCHEDULER_HEALTH_TIMEOUT_MS + 30_000

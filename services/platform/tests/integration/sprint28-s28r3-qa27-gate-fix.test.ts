@@ -26,6 +26,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { cleanupDisposableDockerHost, dockerBin } from './helpers/docker-lifecycle.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const EVIDENCE = resolve(REPO_ROOT, '.tmp/GATE-FIX-S28R3-QA27');
@@ -81,53 +82,6 @@ function discoverSecretsPath(): string | null {
     if (existsSync(p)) return p;
   }
   return null;
-}
-
-function dockerBin(): string {
-  return (
-    ['/usr/local/bin/docker', '/opt/homebrew/bin/docker', '/usr/bin/docker'].find((p) =>
-      existsSync(p)
-    ) ?? 'docker'
-  );
-}
-
-function dockerCleanupHost(host: string): void {
-  const docker = dockerBin();
-  spawnSync(docker, ['rm', '-f', host], { encoding: 'utf8', timeout: 30_000 });
-  // Retry containers often use `${host}-retry` suffix from boundary harnesses.
-  spawnSync(docker, ['rm', '-f', `${host}-retry`], { encoding: 'utf8', timeout: 30_000 });
-  spawnSync(docker, ['volume', 'rm', '-f', `${host}-pgdata`, `${host}-blobs`], {
-    encoding: 'utf8',
-    timeout: 30_000,
-  });
-  spawnSync(docker, ['volume', 'rm', '-f', `${host}-retry-pgdata`, `${host}-retry-blobs`], {
-    encoding: 'utf8',
-    timeout: 30_000,
-  });
-  spawnSync(docker, ['network', 'rm', `${host}-net`], { encoding: 'utf8', timeout: 30_000 });
-  spawnSync(docker, ['network', 'rm', `${host}-retry-net`], { encoding: 'utf8', timeout: 30_000 });
-  for (const staging of [
-    resolve(REPO_ROOT, `.tmp/fresh-restore/${host}`),
-    resolve(REPO_ROOT, `.tmp/fresh-restore/${host}-retry`),
-  ]) {
-    rmSync(staging, { recursive: true, force: true });
-  }
-  // Fire-drill host lock (if held by this namespace).
-  const lockdir = resolve(REPO_ROOT, '.tmp/fire-drill-host.lockdir');
-  if (existsSync(resolve(lockdir, 'pid'))) {
-    try {
-      const pid = Number(readFileSync(resolve(lockdir, 'pid'), 'utf8').trim());
-      if (pid && !Number.isNaN(pid)) {
-        try {
-          process.kill(pid, 0);
-        } catch {
-          rmSync(lockdir, { recursive: true, force: true });
-        }
-      }
-    } catch {
-      // best-effort
-    }
-  }
 }
 
 function listQa27DockerResources(): string[] {
@@ -191,7 +145,7 @@ afterEach(() => {
     const h = qa27Hosts.pop();
     if (!h) break;
     try {
-      dockerCleanupHost(h);
+      cleanupDisposableDockerHost(REPO_ROOT, h);
     } catch {
       // best-effort
     }
@@ -888,9 +842,9 @@ describe('GATE-FIX-S28R3-QA27 H-3 real lifecycle twice', () => {
         writeFileSync(fireOut, redact(`${fire.stdout ?? ''}${fire.stderr ?? ''}`));
 
         // Production cleanup path (same inventory classes as provision creates).
-        dockerCleanupHost(host);
+        cleanupDisposableDockerHost(REPO_ROOT, host);
         // Second cleanup proves idempotent (trap-safe).
-        dockerCleanupHost(host);
+        cleanupDisposableDockerHost(REPO_ROOT, host);
 
         const leftovers = listQa27DockerResources().filter(
           (x) => x.includes(host) || x.includes(`${host}-retry`)
@@ -899,7 +853,7 @@ describe('GATE-FIX-S28R3-QA27 H-3 real lifecycle twice', () => {
         return { host, leftovers, staging };
       } finally {
         try {
-          dockerCleanupHost(host);
+          cleanupDisposableDockerHost(REPO_ROOT, host);
         } catch {
           // unconditional
         }

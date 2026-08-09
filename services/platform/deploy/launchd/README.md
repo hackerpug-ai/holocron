@@ -10,6 +10,7 @@ Four LaunchAgent definitions for the MK-VI headless stack:
 | `holocron-zerocache` | Zero-cache / `zero_pub` consumer | **no** (opt-in: `HOLO_ENABLE_ZERO_CACHE=1`) | false |
 | `holocron-restic-blob-mirror` | D04-04 restic blob mirror + SHA-256 parity (`holo backup:mirror`) | **no** (Disabled until operator enables) | false (StartInterval 6h) |
 | `holocron-backup-alert-sweep` | D04-05 overdue/failed heartbeat → `ALERT_WEBHOOK_URL` (`holo backup:alert-sweep`) | operator install via `holo backup:alert-sweep --install-schedule` | false (StartInterval 5m) |
+| `holocron-docker-disk-guard` | Docker free-space/build-cache/ephemeral-resource guard | installed by `install-docker-resilience.sh` | false (StartInterval 5m) |
 
 Templates live in this directory with `@PLACEHOLDER@` tokens. Installed agents
 go to `~/Library/LaunchAgents/holocron-*.plist` with absolute paths only
@@ -52,6 +53,32 @@ launchctl list | grep holocron
 # Tear down
 launchctl bootout "gui/${UID_NUM}/holocron-postgres"
 launchctl bootout "gui/${UID_NUM}/holocron-mastra"
+```
+
+## Docker disk resilience
+
+Install the bounded daemon defaults and the independent five-minute guard from
+the main clone:
+
+```bash
+./scripts/install-docker-resilience.sh --restart-docker
+```
+
+This sets the default log driver to `local` with 10 MB × 3 rotation, retains at
+most 5 GB of builder cache, and installs `holocron-docker-disk-guard`. The guard
+warns below 40 GiB free, treats 25 GiB as critical, and removes only expired
+resources carrying `io.holocron.lifecycle=ephemeral`; it never performs a broad
+volume prune. Once a resource's six-hour TTL expires, a still-running container
+is removed only when its recorded host owner PID is gone. Existing containers
+adopt the log policy when next recreated.
+
+Useful read-only checks:
+
+```bash
+HOLO_DOCKER_GUARD_CHECK_ONLY=1 ./scripts/docker-disk-guard.sh
+launchctl print "gui/$(id -u)/holocron-docker-disk-guard"
+docker info --format 'logging={{.LoggingDriver}}'
+docker system df
 ```
 
 ## Honest slots
