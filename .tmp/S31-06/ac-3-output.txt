@@ -1,0 +1,11 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-06
+
+ ✓ |integration| services/platform/tests/integration/sprint31-manifest-fail-closed.test.ts (3 tests | 2 skipped) 8954ms
+     ✓ manifestMatchesLiveFleet  8953ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 2 skipped (3)
+   Start at  21:54:49
+   Duration  9.50s (transform 155ms, setup 119ms, import 339ms, tests 8.95s, environment 0ms)
+

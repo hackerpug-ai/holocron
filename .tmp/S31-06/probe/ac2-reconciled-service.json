@@ -1,0 +1,6 @@
+{
+  "exitCode": null,
+  "health200Count": 1,
+  "stderr": "holocron-langfuse-exporter disabled: Missing Langfuse config (publicKey/secretKey/baseUrl). Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL.\n",
+  "stdout": "Starting Mastra service on :54560\nListening on :54560\n"
+}

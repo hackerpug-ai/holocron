@@ -1,0 +1,12 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-06
+
+ ✓ |integration| services/platform/tests/integration/sprint31-probe-driven-extraction.test.ts (3 tests) 132646ms
+     ✓ extractionConsumesTheBootProbe  35667ms
+     ✓ repairModeStillFailsExplicitly  96977ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  21:26:17
+   Duration  133.94s (transform 336ms, setup 728ms, import 68ms, tests 132.65s, environment 0ms)
+

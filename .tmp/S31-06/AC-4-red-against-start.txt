@@ -1,0 +1,4 @@
+S31-06 AC-4 negative control:
+- always-malformed must not report status=success or committed=true
+- attempts must not be 0 or 1 (cap is MAX_REPAIR_ATTEMPTS=3)
+- stub repair loop / mock fleet / static success would invalidate the case

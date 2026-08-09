@@ -61,7 +61,7 @@
       "contextLimit": 8192,
       "concurrency": 8,
       "timeoutMs": 30000,
-      "structuredOutput": false,
+      "structuredOutput": true,
       "healthProbe": {
         "path": "/v1/models",
         "method": "GET",

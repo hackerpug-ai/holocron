@@ -1,0 +1,4 @@
+
+> holocron@1.0.0 typecheck /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-06
+> tsgo --noEmit
+

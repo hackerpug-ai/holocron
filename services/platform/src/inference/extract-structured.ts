@@ -13,8 +13,10 @@
  * REDHAT-FIX-H1: file-based extraction status tracking (.tmp/extractions/<id>.json)
  * so `holo extract:status <id>` can report extraction_failed / blocked / success
  * with a `committed` flag (human gate step 5).
- * REDHAT-FIX-H2: consume the Fleet Role Manifest structuredOutput flag (carried on
- * the resolved model) to select constrained-decode vs repair mode.
+ * S31-06: initial mode is selected from the boot capability probe map
+ * (probe-capability), not from resolved.structuredOutput alone. Adaptive
+ * in-loop downgrade is still available but is logged distinctly from a
+ * probe-selected mode.
  * REDHAT-FIX-H1 (redhat round 2): use generateObject (the structured-output API,
  * NOT plain-text generation) so the SDK sends response_format: json_schema on
  * the wire for constrained decode. Zod is still re-run as the source of truth.
@@ -29,6 +31,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
+import {
+  bootCapabilityMap,
+  ensureBootCapabilityMap,
+  type RoleCapability,
+} from './probe-capability';
 import { createFleetChatModel, type ResolvedModel, resolveModel } from './resolve-model';
 
 /**
@@ -98,6 +105,9 @@ export class BlockedError extends Error {
  * - `extraction_failed` — repairs exhausted or resolve failed (NO committed row).
  * - `blocked`           — tripwire fired (NO committed row).
  */
+export type ExtractionMode = 'constrained' | 'repair';
+export type ExtractionModeSource = 'boot-probe' | 'adaptive-downgrade';
+
 export type ExtractionStatus = {
   id: string;
   status: 'pending' | 'success' | 'extraction_failed' | 'blocked';
@@ -115,6 +125,18 @@ export type ExtractionStatus = {
    * under `error.attempts` on the failure path. REDHAT-FIX-C2-H3.
    */
   attempts?: number;
+  /**
+   * Mode selected from the boot capability probe at the start of extraction
+   * (S31-06). Distinct from a later adaptive-downgrade terminal mode.
+   */
+  initialMode?: ExtractionMode;
+  /** Mode in force when the extraction terminated. */
+  mode?: ExtractionMode;
+  /**
+   * Whether the terminal mode came from the boot probe or an in-loop adaptive
+   * downgrade after constrained decode failed (S31-06 — never indistinguishable).
+   */
+  modeSource?: ExtractionModeSource;
   /** Present when status === 'extraction_failed'. */
   error?: {
     code: string;
@@ -122,10 +144,26 @@ export type ExtractionStatus = {
     attempts?: number;
     lastParseError?: string;
   };
+  /**
+   * Per-attempt schema / generateObject errors (failure path). Length equals
+   * MAX_REPAIR_ATTEMPTS when the bounded loop is exhausted (AC-4).
+   */
+  schemaErrors?: Array<{ attempt: number; error: string }>;
   /** Present when status === 'blocked'. */
   blockedReason?: string;
   /** Present when status === 'blocked'. */
   processorId?: string;
+};
+
+/** Options for extractStructured — pass an explicit probe map when available. */
+export type ExtractStructuredOptions = {
+  /**
+   * Boot capability map (role → RoleCapability). When omitted, uses the
+   * process-scoped bootCapabilityMap accessor (populated by ensureBootCapabilityMap).
+   */
+  capabilityMap?: Record<string, RoleCapability>;
+  /** Override manifest path for resolveModel / probe ensure. */
+  manifestPath?: string;
 };
 
 /**
@@ -177,17 +215,20 @@ export async function getExtractionStatus(id: string): Promise<ExtractionStatus 
  * @param input - Input prompt for the model
  * @param role - Fleet role to use (e.g., 'divergent', 'convergent')
  * @param extractionId - Optional extraction id for status tracking
+ * @param options - Optional capability map / manifest path (S31-06)
  * @returns Validated structured output matching the schema
  * @throws ExtractionFailedError when repairs are exhausted
  * @throws BlockedError when a tripwire is triggered
  * @throws UnknownFleetRoleError when role is not in manifest
  * @throws RoleUnavailableError when fleet health probe fails
+ * @throws ManifestCapabilityUnconfirmedError when the boot probe rejects the manifest
  */
 export async function extractStructured<T extends z.ZodType>(
   schema: T,
   input: string,
   role: string,
-  extractionId?: string
+  extractionId?: string,
+  options: ExtractStructuredOptions = {}
 ): Promise<z.infer<T>> {
   // REDHAT-FIX-H1: write pending status so `holo extract:status <id>` can report
   // extraction_failed with committed=false even if the process crashes mid-flight.
@@ -195,8 +236,15 @@ export async function extractStructured<T extends z.ZodType>(
   const startedAt = new Date().toISOString();
   await writeExtractionStatus({ id, status: 'pending', role, startedAt, committed: false });
 
+  // Capture mode metadata written by runExtraction for terminal failure status.
+  const modeMeta: {
+    initialMode?: ExtractionMode;
+    mode?: ExtractionMode;
+    modeSource?: ExtractionModeSource;
+  } = {};
+
   try {
-    const result = await runExtraction(schema, input, role, id, startedAt);
+    const result = await runExtraction(schema, input, role, id, startedAt, options, modeMeta);
     return result;
   } catch (err) {
     // Record terminal status for operator visibility before re-throwing.
@@ -210,6 +258,7 @@ export async function extractStructured<T extends z.ZodType>(
         committed: false,
         blockedReason: err.reason,
         processorId: err.processorId,
+        ...modeMeta,
       });
     } else if (err instanceof ExtractionFailedError) {
       await writeExtractionStatus({
@@ -219,12 +268,18 @@ export async function extractStructured<T extends z.ZodType>(
         startedAt,
         endedAt: new Date().toISOString(),
         committed: false,
+        attempts: err.attempts,
+        schemaErrors: err.schemaErrors.map((e) => ({
+          attempt: e.attempt,
+          error: e.error.message,
+        })),
         error: {
           code: err.code,
           message: err.message,
           attempts: err.attempts,
           lastParseError: err.lastParseError.message,
         },
+        ...modeMeta,
       });
     } else {
       // UnknownFleetRoleError, RoleUnavailableError, or any other non-retryable error
@@ -244,10 +299,40 @@ export async function extractStructured<T extends z.ZodType>(
           code,
           message: err instanceof Error ? err.message : String(err),
         },
+        ...modeMeta,
       });
     }
     throw err;
   }
+}
+
+/**
+ * Resolve the probe-selected mode for a role. Prefers an explicit capabilityMap
+ * parameter, then the process-scoped boot map, and finally ensures a boot probe
+ * runs once for this process (CLI extract path without a prior service boot).
+ */
+async function resolveProbeMode(
+  role: string,
+  options: ExtractStructuredOptions
+): Promise<{ mode: ExtractionMode; capability: RoleCapability }> {
+  const fromOptions = options.capabilityMap?.[role];
+  if (fromOptions) {
+    return { mode: fromOptions.mode, capability: fromOptions };
+  }
+  if (bootCapabilityMap.isReady()) {
+    const capability = bootCapabilityMap.requireRole(role);
+    return { mode: capability.mode, capability };
+  }
+  // First extraction in this process — run the boot probe once (not per call after).
+  const map = await ensureBootCapabilityMap({
+    manifestPath: options.manifestPath,
+    failClosedOnUnconfirmed: true,
+  });
+  const capability = map[role];
+  if (!capability) {
+    throw new Error(`boot capability map has no entry for role '${role}'`);
+  }
+  return { mode: capability.mode, capability };
 }
 
 /**
@@ -400,7 +485,13 @@ async function runExtraction<T extends z.ZodType>(
   input: string,
   role: string,
   extractionId: string,
-  startedAt: string
+  startedAt: string,
+  options: ExtractStructuredOptions = {},
+  modeMeta: {
+    initialMode?: ExtractionMode;
+    mode?: ExtractionMode;
+    modeSource?: ExtractionModeSource;
+  } = {}
 ): Promise<z.infer<T>> {
   // INPUT-side tripwire (defense in depth): check for sensitive content BEFORE
   // calling the model. AC-3: "tripwire during extraction surfaces BlockedError".
@@ -415,22 +506,20 @@ async function runExtraction<T extends z.ZodType>(
   }
 
   // Resolve the fleet role (never bypass resolveModel)
-  const resolved: ResolvedModel = await resolveModel(role);
+  const resolved: ResolvedModel = await resolveModel(role, {
+    manifestPath: options.manifestPath,
+  });
 
-  // REDHAT-FIX-H2: Consume the Fleet Role Manifest structuredOutput flag to
-  // select the INITIAL constrained-decode vs repair mode. `resolved.structuredOutput`
-  // is read directly from the FleetRoleSchema.structuredOutput boolean by
-  // resolveModel (see resolve-model.ts → ResolvedModel.structuredOutput), which
-  // itself reads it from the Fleet Role Manifest entry.
-  //   structuredOutput=true  → start 'constrained' (role advertises json_schema support)
-  //   structuredOutput=false → start 'repair' (prompt-only instruction + Zod re-validation)
-  //
-  // G-ORACLE: the manifest flag is only the INITIAL guess — the LIVE generateObject
-  // behavior is truth. If constrained mode throws NoObjectGeneratedError (common
-  // for local reasoning models like GLM-4.7 that emit content=null whenever
-  // response_format is set), the loop ADAPTIVELY falls back to repair mode
-  // (manifest may over-advertise capability; the live probe is authoritative).
-  let currentMode: 'constrained' | 'repair' = resolved.structuredOutput ? 'constrained' : 'repair';
+  // S31-06: INITIAL mode comes from the boot capability probe map — not from
+  // resolved.structuredOutput alone. The probe made a real generateObject call
+  // on the wire at boot; extraction must consume that result.
+  const { mode: probeMode } = await resolveProbeMode(role, options);
+  let currentMode: ExtractionMode = probeMode;
+  let modeSource: ExtractionModeSource = 'boot-probe';
+  const initialMode: ExtractionMode = probeMode;
+  modeMeta.initialMode = initialMode;
+  modeMeta.mode = currentMode;
+  modeMeta.modeSource = modeSource;
 
   // Create the fleet chat model using the proper AI SDK integration
   const fleetModel = createFleetChatModel(resolved, {
@@ -513,6 +602,9 @@ async function runExtraction<T extends z.ZodType>(
       // REDHAT-FIX-H1: record success status with the validated result.
       // REDHAT-FIX-C2-H3: include attempts so callers can prove the repair loop
       // was entered (malformed-once → attempts >= 2) rather than first-try luck.
+      // S31-06: record probe-selected initialMode + terminal modeSource.
+      modeMeta.mode = currentMode;
+      modeMeta.modeSource = modeSource;
       await writeExtractionStatus({
         id: extractionId,
         status: 'success',
@@ -522,6 +614,9 @@ async function runExtraction<T extends z.ZodType>(
         committed: true,
         attempts: attempt,
         result: validated,
+        initialMode,
+        mode: currentMode,
+        modeSource,
       });
       return validated;
     } catch (err) {
@@ -557,14 +652,20 @@ async function runExtraction<T extends z.ZodType>(
           ]),
         });
 
-        // G-ORACLE adaptive fallback: if constrained mode (json_schema on the
-        // wire) produced no object, the live model does not honor
-        // response_format — switch to repair mode for subsequent attempts. The
-        // manifest flag may over-advertise capability; live behavior is truth.
-        // This is exactly what the boot-time probe detects, applied inline so
-        // extraction is self-healing without requiring a separate probe call.
+        // Adaptive in-loop fallback (distinct from probe-selected mode): if
+        // constrained still failed despite a probe-selected constrained mode
+        // (fleet flaked after boot), downgrade and log so the two sources are
+        // never indistinguishable. This does NOT replace the boot probe.
         if (currentMode === 'constrained') {
+          console.error(
+            `[extract-structured] adaptive-downgrade: role=${role} attempt=${attempt} ` +
+              `probe-selected mode=constrained failed NoObjectGenerated — switching to repair ` +
+              `(distinct from boot-probe mode selection)`
+          );
           currentMode = 'repair';
+          modeSource = 'adaptive-downgrade';
+          modeMeta.mode = currentMode;
+          modeMeta.modeSource = modeSource;
         }
         continue;
       }
