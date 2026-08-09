@@ -1,0 +1,4 @@
+{
+  "violation_class": "UNENFORCED_EDGES",
+  "description": "Domain tables present without matching FOREIGN KEY constraints for schema-derived edges; etl:fk-audit must refuse"
+}

@@ -1,0 +1,6 @@
+{
+  "violation_class": "MISSING_BLOB",
+  "legacy_id": "storage_audioSegments_storageId",
+  "export_subdir": "export",
+  "description": "Catalog-retained storage blob deleted from export _storage"
+}

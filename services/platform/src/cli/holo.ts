@@ -181,8 +181,10 @@ interface CliArgs {
   dataset: string | null;
   /** evals:run --judge-endpoint (fail-closed probe override) */
   judgeEndpoint: string | null;
-  /** prd:consistency --root / inventory:convex-callsites --root */
+  /** prd:consistency --root / inventory:convex-callsites --root / verify:no-shells --root */
   root: string | null;
+  /** mcp:verify-rehost --executor <path> (throw-only negative-control seeds) */
+  executorPath: string | null;
   /** inventory:convex-callsites --output <path> | client-contract:author --inventory <path> */
   output: string | null;
   /** client-contract:author --inventory <path> */
@@ -320,7 +322,8 @@ Usage:
   catalog:reconcile     Per-table source vs expected-target; unexplained variance
   catalog:assets        Per-object retained storage inventory (sha256/bytes/mime)
   mcp:verify-manifest   44/44 tool completeness gate (manifest ↔ live registry cross-check)
-  mcp:verify-rehost     Verify Postgres MCP registry parity and zero Convex gateway imports
+  mcp:verify-rehost     Verify Postgres MCP registry parity, zero throw-only cases, zero Convex imports
+                            [--executor <path>] [--json]
   mcp:stdio              Start the MCP gateway over stdio
   mcp:manifest-schema   Print a tool's input/output schema + defaults from the manifest
   mcp:manifest-replay   Print a tool's idempotency key + stored result from the manifest
@@ -441,6 +444,8 @@ Usage:
   infer:degraded            Show / poll degraded-mode state (fleet-down reduced mode)
   verify:no-provider-refs   Audit platform src for banned claudeFlash/Pro/Ultra factories
   verify:no-shells          Prove per-domain pipeline shells are gone (whatsnew/assimilate/shop/subscriptions)
+                            [--root <repo>]
+  verify:gate-registry      S31-08: list cutover verifiers + negative_control fixtures (--json)
   verify:decommission-inventory
                             S31-CX-05: classify every convex/ file; refuse sole-implementation / unclassified
   budget:status             Show escape budget spent / remaining / ceiling (real Postgres)
@@ -686,6 +691,7 @@ function parseArgs(argv: string[]): CliArgs {
     dataset: null,
     judgeEndpoint: null,
     root: null,
+    executorPath: null,
     output: null,
     inventory: null,
     contract: null,
@@ -1046,6 +1052,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.root = resolve(argv[++i] ?? '');
     } else if (a.startsWith('--root=')) {
       args.root = resolve(a.slice('--root='.length));
+    } else if (a === '--executor') {
+      args.executorPath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--executor=')) {
+      args.executorPath = resolve(a.slice('--executor='.length));
     } else if (a === '--output') {
       args.output = argv[++i] ?? null;
     } else if (a.startsWith('--output=')) {
@@ -1436,6 +1446,14 @@ async function main(): Promise<void> {
       } else {
         console.log(formatAssetsText(inv));
       }
+      if (!inv.ok) {
+        for (const issue of inv.issues) {
+          console.error(issue);
+        }
+        if (inv.missing_blobs.length > 0) {
+          console.error(`MISSING_BLOB: missing retained blobs: ${inv.missing_blobs.join(', ')}`);
+        }
+      }
       process.exit(inv.ok ? 0 : 1);
       break;
     }
@@ -1770,13 +1788,23 @@ async function main(): Promise<void> {
     }
     case 'mcp:verify-rehost': {
       const { verifyMcpRehost } = await import('../mcp/verify-rehost.ts');
-      const report = verifyMcpRehost();
+      const report = verifyMcpRehost({
+        executorPath: args.executorPath ?? undefined,
+      });
       if (args.json) console.log(JSON.stringify(report, null, 2));
       else {
         console.log(`mcp:verify-rehost — ${report.registeredTools}/${report.manifestTools} tools`);
-        console.log(
-          report.ok ? '  status: OK' : `  status: FAIL\\n  ${report.issues.join('\\n  ')}`
-        );
+        if (report.ok) {
+          console.log('  status: OK');
+        } else {
+          console.log('  status: FAIL');
+          if (report.violation_class) {
+            console.log(`  violation_class: ${report.violation_class}`);
+          }
+          for (const issue of report.issues) {
+            console.log(`  ${issue}`);
+          }
+        }
       }
       process.exit(report.ok ? 0 : 1);
       break;
@@ -5013,19 +5041,59 @@ async function main(): Promise<void> {
       const { fileURLToPath } = await import('node:url');
       const { scanPerDomainShells } = await import('../mission/verify-no-shells.ts');
       // repo root: services/platform/src/cli/holo.ts → ../../../../
+      // --root overrides for negative-control fixture trees (S31-08).
       const here = fileURLToPath(new URL('.', import.meta.url));
-      const repoRoot = resolve(here, '../../../..');
+      const repoRoot = args.root ? resolve(args.root) : resolve(here, '../../../..');
       const result = scanPerDomainShells(repoRoot);
       if (args.json) {
         const { ok, ...details } = result;
-        console.log(JSON.stringify({ ok, ...details }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              ok,
+              ...details,
+              violation_class: ok ? undefined : 'SHELL_RESIDUE',
+            },
+            null,
+            2
+          )
+        );
       } else {
         console.log(`holo verify:no-shells — ${result.message}`);
         if (result.found.length > 0) {
           for (const f of result.found) console.log(`  - ${f}`);
+          console.log('  violation_class: SHELL_RESIDUE');
         }
       }
       process.exit(result.ok ? 0 : 1);
+      break;
+    }
+
+    case 'verify:gate-registry': {
+      const { resolve } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const { buildGateRegistryReport } = await import('../verify/gate-registry.ts');
+      const here = fileURLToPath(new URL('.', import.meta.url));
+      const repoRoot = args.root ? resolve(args.root) : resolve(here, '../../../..');
+      const report = buildGateRegistryReport({ repoRoot });
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(`holo verify:gate-registry — ${report.entries.length} verifiers`);
+        for (const entry of report.entries) {
+          const mark = entry.fixture_exists ? 'ok' : 'MISSING';
+          console.log(
+            `  [${mark}] ${entry.id}  ${entry.command}  violation=${entry.violation_class}`
+          );
+          console.log(`         fixture: ${entry.negative_control}`);
+        }
+        if (report.issues.length > 0) {
+          console.log('issues:');
+          for (const issue of report.issues) console.log(`  - ${issue}`);
+        }
+        console.log(report.ok ? '  status: OK' : '  status: FAIL');
+      }
+      process.exit(report.ok ? 0 : 1);
       break;
     }
 

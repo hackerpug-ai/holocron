@@ -1,0 +1,6 @@
+{
+  "violation_class": "UNEXPLAINED_VARIANCE",
+  "table": "orphanExportTable",
+  "export_subdir": "export",
+  "description": "Unmapped export table plants unexplained variance"
+}
