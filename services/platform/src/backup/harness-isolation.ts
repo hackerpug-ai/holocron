@@ -1,11 +1,15 @@
 /**
  * S31-OPS-03 / R24 — Harness isolation from production config paths.
  *
- * When HOLO_HARNESS=1, integration and human-gate processes must never read or
- * write production pgbackrest.conf, production secrets.yaml, or live mini PGDATA.
- * Fail closed with HARNESS_PRODUCTION_PATH_REFUSED before any mutation.
+ * When HOLO_HARNESS=1 or PLATFORM_IT=1, integration and human-gate processes must
+ * never write production pgbackrest.conf or live mini PGDATA. Fail closed with
+ * HARNESS_PRODUCTION_PATH_REFUSED before any mutation.
  *
- * Operator tools (backup:provision without HOLO_HARNESS) are unaffected.
+ * Secrets isolation (AC-2) is stricter: only when HOLO_HARNESS=1 must secrets
+ * resolve under .tmp/ or deploy/nonprod/. PLATFORM_IT alone may still read the
+ * operator secrets store for live R2 gates that already isolate conf under workDir.
+ *
+ * Operator tools (backup:provision without HOLO_HARNESS/PLATFORM_IT) are unaffected.
  */
 import { resolve } from 'node:path';
 import { defaultSecretsPath, resolveRepoRoot } from '../config/secrets.ts';
@@ -28,7 +32,19 @@ export const PRODUCTION_PGBACKREST_CONF_SUFFIX =
 /** Relative suffix that identifies the production operator secrets store. */
 export const PRODUCTION_SECRETS_SUFFIX = 'services/platform/config/secrets.yaml';
 
+/**
+ * True for integration/gate processes that must not mutate production conf/PGDATA.
+ * HOLO_HARNESS=1 (explicit) or PLATFORM_IT=1 (backup IT / integration lane).
+ */
 export function isHarnessMode(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.HOLO_HARNESS === '1' || env.PLATFORM_IT === '1';
+}
+
+/**
+ * Strict secrets isolation — AC-2 only. PLATFORM_IT alone does not refuse
+ * operator secrets.yaml (live backup gates still load it for R2 credentials).
+ */
+export function isStrictHarnessSecretsMode(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.HOLO_HARNESS === '1';
 }
 
@@ -136,13 +152,14 @@ export function assertHarnessPgbackrestConfWritable(
 /**
  * When HOLO_HARNESS=1, refuse reading/writing production secrets.yaml.
  * Secrets path must resolve under .tmp/ or deploy/nonprod/.
+ * PLATFORM_IT alone does not trigger this (see isStrictHarnessSecretsMode).
  */
 export function assertHarnessSecretsPathAllowed(
   path: string,
   env: NodeJS.ProcessEnv = process.env,
   repoRoot = resolveRepoRoot()
 ): void {
-  if (!isHarnessMode(env)) return;
+  if (!isStrictHarnessSecretsMode(env)) return;
   const abs = normalizeAbs(path);
   if (isProductionSecretsPath(abs, repoRoot)) {
     refuse(`harness refuses production secrets.yaml: ${abs}`);
@@ -187,7 +204,8 @@ export function resolveHarnessSecretsPath(
 
 /**
  * Combined preflight for harness backup/PITR entry points.
- * Call before any conf write or secrets load when HOLO_HARNESS may be set.
+ * Call before any conf write or secrets load when HOLO_HARNESS / PLATFORM_IT may be set.
+ * Conf + PGDATA: isHarnessMode (HOLO_HARNESS|PLATFORM_IT). Secrets: HOLO_HARNESS only.
  */
 export function assertHarnessBackupPaths(
   options: {
@@ -203,16 +221,13 @@ export function assertHarnessBackupPaths(
   const repoRoot = options.repoRoot ?? resolveRepoRoot();
   const conf = options.pgbackrestConf?.trim() || resolveHarnessPgbackrestConfPath(env, repoRoot);
   assertHarnessPgbackrestConfWritable(conf, env, repoRoot);
-  if (options.secretsPath) {
-    assertHarnessSecretsPathAllowed(options.secretsPath, env, repoRoot);
-  } else if (
-    env.HOLO_SECRETS_PATH ||
-    env.HOLOCRON_SECRETS_PATH ||
-    env.SECRETS_PATH ||
-    isHarnessMode(env)
-  ) {
-    // Always validate the resolved secrets target in harness mode (default = production).
-    resolveHarnessSecretsPath(env, repoRoot);
+  // Secrets isolation is HOLO_HARNESS-only (AC-2); skip under PLATFORM_IT alone.
+  if (isStrictHarnessSecretsMode(env)) {
+    if (options.secretsPath) {
+      assertHarnessSecretsPathAllowed(options.secretsPath, env, repoRoot);
+    } else {
+      resolveHarnessSecretsPath(env, repoRoot);
+    }
   }
   if (options.pg1Path) {
     assertHarnessPgdataAllowed(options.pg1Path, env);
