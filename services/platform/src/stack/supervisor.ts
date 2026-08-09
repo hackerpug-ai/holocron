@@ -69,6 +69,8 @@ export type StackStatusReport = {
   zero_cache: ServiceState;
   /** Fleet embed-route health (CAP-EMB-01 ops visibility) — real HTTP probe. */
   embed: ServiceState;
+  /** Self-hosted Langfuse (S31-07) — real HTTP health probe. */
+  langfuse: ServiceState;
   /** Postgres leased-queue readiness (pg-boss preferred). */
   queue: QueueStatus;
   /** Nested form for operators / tooling. */
@@ -78,6 +80,7 @@ export type StackStatusReport = {
     scheduler: ServiceState;
     zerocache: ServiceState;
     embed: ServiceState;
+    langfuse: ServiceState;
     queue: QueueStatus;
   };
   mode: 'launchd' | 'direct';
@@ -87,11 +90,13 @@ export type StackStatusReport = {
     postgres: string;
     mastra: string;
     embed: string;
+    langfuse?: string;
     queue?: string;
     scheduler?: string;
     launchd_postgres?: string;
     launchd_mastra?: string;
     launchd_scheduler?: string;
+    launchd_langfuse?: string;
   };
 };
 
@@ -158,6 +163,120 @@ function makeSchedulerStatus(cfg: StackConfig): SchedulerStatus {
   return status;
 }
 
+const LANGFUSE_LABEL = 'holocron-langfuse';
+
+function langfuseBaseUrl(): string {
+  return (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/+$/, '');
+}
+
+function probeLangfuseHealth(): { ok: boolean; detail: string; state: ServiceState } {
+  const base = langfuseBaseUrl();
+  const url = `${base}/api/public/health`;
+  try {
+    const r = spawnSync(
+      'curl',
+      ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '2', url],
+      { encoding: 'utf8' }
+    );
+    const code = (r.stdout ?? '').trim();
+    if (r.status === 0 && (code === '200' || code === '401')) {
+      return { ok: true, detail: `langfuse health HTTP ${code} at ${url}`, state: 'healthy' };
+    }
+    return {
+      ok: false,
+      detail: `langfuse health failed at ${url} (http=${code || '000'} status=${r.status})`,
+      state: 'unhealthy',
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      detail: `langfuse probe error: ${err instanceof Error ? err.message : String(err)}`,
+      state: 'unhealthy',
+    };
+  }
+}
+
+function langfuseComposePath(cfg: StackConfig): string {
+  return resolve(cfg.repoRoot, 'services/platform/deploy/compose/langfuse.compose.yaml');
+}
+
+/** Bring up self-hosted Langfuse from in-repo compose (S31-07). */
+function ensureLangfuseUp(cfg: StackConfig): { ok: boolean; detail: string } {
+  const existing = probeLangfuseHealth();
+  if (existing.ok) {
+    return { ok: true, detail: `langfuse already healthy — ${existing.detail}` };
+  }
+
+  const compose = langfuseComposePath(cfg);
+  if (!existsSync(compose)) {
+    return {
+      ok: false,
+      detail: `langfuse compose missing: ${compose} (expected in-repo artifact)`,
+    };
+  }
+
+  // Materialize LaunchAgent template so git-tracked plist is installed for operators.
+  try {
+    const template = resolve(cfg.templateDir, `${LANGFUSE_LABEL}.plist`);
+    if (existsSync(template)) {
+      mkdirSync(cfg.launchAgentsDir, { recursive: true });
+      mkdirSync(cfg.logDir, { recursive: true });
+      const bunDir = resolve(cfg.bunBin, '..');
+      const body = readFileSync(template, 'utf8')
+        .replaceAll('@HOME@', cfg.home)
+        .replaceAll('@HOLO_ROOT@', cfg.holoRoot)
+        .replaceAll('@BUN_BIN@', cfg.bunBin)
+        .replaceAll('@BUN_DIR@', bunDir)
+        .replaceAll('@PG_BIN@', cfg.pgBin)
+        .replaceAll('@PGDATA@', cfg.pgData)
+        .replaceAll('@DATABASE_URL@', cfg.databaseUrl);
+      writeFileSync(resolve(cfg.launchAgentsDir, `${LANGFUSE_LABEL}.plist`), body, 'utf8');
+    }
+  } catch {
+    // Non-fatal — compose up is the source of truth for health.
+  }
+
+  const r = spawnSync(
+    'docker',
+    [
+      'compose',
+      '-f',
+      compose,
+      '--project-name',
+      'holocron-langfuse',
+      'up',
+      '-d',
+      '--remove-orphans',
+    ],
+    {
+      encoding: 'utf8',
+      timeout: 180_000,
+      env: process.env,
+      cwd: cfg.repoRoot,
+    }
+  );
+  if (r.status !== 0) {
+    return {
+      ok: false,
+      detail: `docker compose langfuse up failed (status=${r.status}): ${(r.stderr ?? r.stdout ?? '').slice(0, 400)}`,
+    };
+  }
+
+  // Poll health for up to 90s
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    const health = probeLangfuseHealth();
+    if (health.ok) {
+      return { ok: true, detail: `langfuse started — ${health.detail}` };
+    }
+    sleepSync(2000);
+  }
+  return {
+    ok: false,
+    detail: 'langfuse compose up completed but health probe never returned 200/401 within 90s',
+  };
+}
+
 function buildStatus(
   cfg: StackConfig,
   mode: 'launchd' | 'direct',
@@ -166,6 +285,7 @@ function buildStatus(
   const pg = probePostgres(cfg);
   const mastra = probeMastra(cfg);
   const embed = probeEmbed(cfg);
+  const langfuse = probeLangfuseHealth();
   const scheduler = makeSchedulerStatus(cfg);
   const zeroCache = probeZeroCacheState(cfg);
   const queueProbe = probeQueueDetail(cfg);
@@ -173,6 +293,7 @@ function buildStatus(
   const postgresState: ServiceState = pg.ok ? 'healthy' : 'unhealthy';
   const mastraState: ServiceState = mastra.ok ? 'healthy' : 'unhealthy';
   const embedState: ServiceState = embed.ok ? 'healthy' : 'unhealthy';
+  const langfuseState: ServiceState = langfuse.state;
   const queue: QueueStatus = {
     backend: queueProbe.backend,
     ready: queueProbe.ready,
@@ -180,13 +301,14 @@ function buildStatus(
   };
 
   const report: StackStatusReport = {
-    // stack up still gates on postgres+mastra only; embed/queue are ops-visibility
+    // stack up still gates on postgres+mastra only; embed/queue/langfuse are ops-visibility
     ok: postgresState === 'healthy' && mastraState === 'healthy',
     postgres: postgresState,
     mastra: mastraState,
     scheduler,
     zero_cache: zeroCache,
     embed: embedState,
+    langfuse: langfuseState,
     queue,
     services: {
       postgres: postgresState,
@@ -194,6 +316,7 @@ function buildStatus(
       scheduler: scheduler.state,
       zerocache: zeroCache,
       embed: embedState,
+      langfuse: langfuseState,
       queue,
     },
     mode,
@@ -202,6 +325,7 @@ function buildStatus(
       postgres: pg.detail,
       mastra: mastra.detail,
       embed: embed.detail,
+      langfuse: langfuse.detail,
       queue: queueProbe.detail,
       scheduler: `placeholder=${scheduler.placeholder} program=${scheduler.program} state=${scheduler.state}`,
     },
@@ -226,6 +350,7 @@ export function formatStatusText(report: StackStatusReport): string {
   );
   lines.push(`  zero_cache:  ${report.zero_cache}`);
   lines.push(`  embed:       ${report.embed}`);
+  lines.push(`  langfuse:    ${report.langfuse}`);
   lines.push(`  queue:       backend=${report.queue.backend} ready=${report.queue.ready}`);
   lines.push(`  mode:        ${report.mode}`);
   if (report.elapsed_ms !== undefined) {
@@ -484,6 +609,10 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
         'zero_cache: disabled (set HOLO_ENABLE_ZERO_CACHE=1 + ZERO_ADMIN_PASSWORD to boot; docs/ops/zero-cache-enable.md)'
       );
     }
+
+    // S31-07: self-hosted Langfuse from in-repo compose artifacts
+    const lf = ensureLangfuseUp(cfg);
+    messages.push(`langfuse: ${lf.detail}`);
   } else {
     const pids = readDirectPids(cfg);
     const pg = startDirectPostgres(cfg);
@@ -522,6 +651,10 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
         'zero_cache: disabled (set HOLO_ENABLE_ZERO_CACHE=1 + ZERO_ADMIN_PASSWORD to boot; docs/ops/zero-cache-enable.md)'
       );
     }
+
+    // S31-07: self-hosted Langfuse from in-repo compose artifacts (direct mode)
+    const lf = ensureLangfuseUp(cfg);
+    messages.push(`langfuse: ${lf.detail}`);
   }
 
   const remaining = Math.max(1000, timeoutMs - (Date.now() - started));

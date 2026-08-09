@@ -427,6 +427,21 @@ export class HolocronLangfuseExporter extends BaseExporter {
       // shutdown still completes; status retained on exporter
     }
   }
+
+  /**
+   * Enqueue pre-built ingestion events (mission runtime / instrumented client).
+   * Does not auto-flush — caller must flush().
+   */
+  enqueueEvents(events: IngestionEvent[]): void {
+    if (events.length === 0) return;
+    this.#buffer.push(...events);
+    for (const ev of events) {
+      if (ev.type === 'trace-create') {
+        const id = String((ev.body as { id?: string }).id ?? '');
+        if (id) this.#seenTraceIds.add(id);
+      }
+    }
+  }
 }
 
 export type LangfuseConfigFromEnv = {
@@ -458,6 +473,100 @@ export function createLangfuseExporterFromEnv(
     logger: overrides.logger,
     logLevel: overrides.logLevel,
   });
+}
+
+/**
+ * Buffer a mission root span + model-generation span for a real fleet call.
+ * Used by runFleetModelCall so production mission/runtime paths export without
+ * requiring Mastra Agent tracing infrastructure.
+ */
+export function bufferMissionModelCall(
+  exporter: HolocronLangfuseExporter,
+  args: {
+    traceId: string;
+    runId: string;
+    stepId?: string | null;
+    name?: string;
+    endpoint: string;
+    modelId?: string | null;
+    role?: string;
+    callKind?: string;
+    startTime: Date;
+    endTime: Date;
+    input?: unknown;
+    output?: unknown;
+    status?: string;
+  }
+): void {
+  const spanId = randomUUID();
+  const rootId = `root-${args.traceId}`.slice(0, 64);
+  const now = new Date().toISOString();
+  const metadata = redactForExport({
+    serviceName: exporter.resolvedServiceName,
+    spanType: 'model_generation',
+    endpoint: args.endpoint,
+    model: args.modelId ?? undefined,
+    role: args.role,
+    runId: args.runId,
+    stepId: args.stepId ?? undefined,
+    callKind: args.callKind,
+    status: args.status,
+  }) as Record<string, unknown>;
+
+  const events: IngestionEvent[] = [];
+  // Always emit a root span so multi-call missions accumulate ≥2 observations.
+  events.push({
+    id: randomUUID(),
+    type: 'span-create',
+    timestamp: now,
+    body: {
+      id: rootId,
+      traceId: args.traceId,
+      name: 'research-mission',
+      startTime: iso(args.startTime),
+      endTime: iso(args.endTime),
+      metadata: redactForExport({
+        serviceName: exporter.resolvedServiceName,
+        runId: args.runId,
+        isRootSpan: true,
+      }),
+    },
+  });
+  events.push({
+    id: randomUUID(),
+    type: 'trace-create',
+    timestamp: now,
+    body: {
+      id: args.traceId,
+      name: 'research-mission',
+      metadata: redactForExport({
+        serviceName: exporter.resolvedServiceName,
+        runId: args.runId,
+        role: args.role,
+      }),
+      tags: ['research-mission', exporter.resolvedServiceName],
+      timestamp: iso(args.startTime),
+    },
+  });
+  events.push({
+    id: randomUUID(),
+    type: 'generation-create',
+    timestamp: now,
+    body: {
+      id: spanId,
+      traceId: args.traceId,
+      name: args.name ?? 'model_generation',
+      startTime: iso(args.startTime),
+      endTime: iso(args.endTime),
+      metadata,
+      input: redactForExport(args.input),
+      output: redactForExport(args.output),
+      model: args.modelId ?? undefined,
+      parentObservationId: rootId,
+    },
+  });
+
+  exporter.enqueueEvents(events);
 }
 
 /** Query a trace from self-hosted Langfuse (operator/tests). */
