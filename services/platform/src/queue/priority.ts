@@ -79,7 +79,13 @@ export async function enqueue(job: EnqueueInput): Promise<PriorityJob> {
 
 /**
  * Dequeue next job honoring interactive-before-background (priority DESC).
- * Uses FOR UPDATE SKIP LOCKED for multi-worker safety. Mints a fence_token.
+ * Uses FOR UPDATE SKIP LOCKED for multi-worker safety. Mints a lease fence_token.
+ *
+ * Lease fence tokens (this module) are distinct from durable-effect fence tokens
+ * in durable-effect.ts:
+ *   - lease fence_token: opaque lease-ownership marker on queue_jobs (UUID shape)
+ *   - effect fence_token: monotonic bigint decimal string on outbox/effects/inbox
+ * They are intentionally NOT unified — each guards a different concern (S31-03).
  */
 export async function dequeue(databaseUrl?: string): Promise<PriorityJob | null> {
   const owner = `worker-${process.pid}-${randomUUID().slice(0, 8)}`;
