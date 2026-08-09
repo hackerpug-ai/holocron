@@ -1,8 +1,18 @@
 # S31-FE-02 E2E Remediation Evidence
 
 **Date**: 2026-08-09  
-**Commit SHA**: `82c6475fa1f7de9156838e023f2fd1072a258b0b`  
-**Base implementation**: `e0d8c1315897c91a4514729754eca21ca0b90ea1`
+**Land tip (rebased onto main)**:   
+**Pre-rebase dual-APPROVED tip**: `ed06517f746f3b93494a64dc90e3b3e69e9391e6`  
+**Evidence commit (pre-rebase)**: `82c6475fa1f7de9156838e023f2fd1072a258b0b`  
+**Base implementation (pre-rebase)**: `e0d8c1315897c91a4514729754eca21ca0b90ea1`
+
+## Land conflict resolution
+Rebased onto `main` (includes S31-FE-05). Conflict in `.maestro/research/session-loads.yml`
+resolved by preserving **both**:
+- **FE-05 AC-5**: `research-detail-view`, topic `E2E Active Research: Native resilience`, `research-progress-bar`
+- **FE-02 AC-3 R39**: non-optional `Research session not found` absent; `research-detail-error` must not appear on healthy path
+
+Post-rebase session-loads smoke: **PASS** (52s, stack available).
 
 ## Stack
 - Metro :8081 (S31-FE-02 worktree, `--dev-client --clear`)
