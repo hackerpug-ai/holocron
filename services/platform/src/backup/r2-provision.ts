@@ -39,6 +39,10 @@ import {
   r2EndpointForAccount,
 } from './config.ts';
 import {
+  assertHarnessBackupPaths,
+  assertHarnessPgbackrestConfWritable,
+} from './harness-isolation.ts';
+import {
   resolveTrustedPgCtlBin,
   resolveTrustedPsqlBin,
   validateRootOwnedBin as validateRootOwnedBinShared,
@@ -1026,6 +1030,8 @@ pg1-port=${pg1Port}
 }
 
 export function writePgbackrestConfig(path: string, contents: string): void {
+  // S31-OPS-03 / R24: harness processes (HOLO_HARNESS=1) never mutate production conf.
+  assertHarnessPgbackrestConfWritable(path, process.env, resolveRepoRoot());
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, contents, { mode: 0o600 });
   // Ensure gitignore covers this directory
@@ -1401,7 +1407,17 @@ export async function provisionBackupRepo(
   const pg1Path = options.pg1Path || defaultPg1Path();
   const pgbackrestPrefix = options.pgbackrestPrefix || defaultPgbackrestPrefix();
   const pgbackrestConfigPath =
-    options.pgbackrestConfigPath || defaultPgbackrestConfigPath(resolveRepoRoot());
+    options.pgbackrestConfigPath ||
+    env.HOLO_PGBACKREST_CONF?.trim() ||
+    defaultPgbackrestConfigPath(resolveRepoRoot());
+
+  // S31-OPS-03 / R24: fail closed before any production conf/secrets mutation.
+  assertHarnessBackupPaths({
+    pgbackrestConf: pgbackrestConfigPath,
+    secretsPath,
+    pg1Path,
+    env,
+  });
 
   const admin = resolveAdminInputs(options);
   const adminCreds = {

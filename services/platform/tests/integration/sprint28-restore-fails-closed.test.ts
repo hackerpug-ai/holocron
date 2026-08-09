@@ -36,6 +36,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import type { BackupConfig } from '../../src/backup/config.ts';
 import { loadBackupConfig } from '../../src/backup/config.ts';
+import { productionPgbackrestConfPath } from '../../src/backup/harness-isolation.ts';
 import { listRepoPrefix } from '../../src/backup/r2-provision.ts';
 import {
   cleanupPgbackrestSeedWorkDir,
@@ -324,12 +325,15 @@ function seedFixtures(
   ).toBeGreaterThanOrEqual(1);
 
   // healthy: REAL pgBackRest backup + WAL into test-scoped prefix (REDHAT-FIX-C1).
+  // S31-OPS-03 / R24: dual-archive seed *reads* the operator conf path via the shared
+  // productionPgbackrestConfPath helper (never a hardcoded absolute, never a write).
+  // Prefer cfg.pgbackrestConfigPath / PGBACKREST_CONFIG when already set.
   const productionConfigPath = existsSync(cfg.pgbackrestConfigPath)
     ? cfg.pgbackrestConfigPath
-    : '/Users/inference1/Projects/holocron/services/platform/config/pgbackrest/pgbackrest.conf';
+    : productionPgbackrestConfPath(REPO_ROOT);
   expect(
     existsSync(productionConfigPath),
-    `production pgBackRest conf required for dual-archive seed: ${productionConfigPath}`
+    `pgBackRest conf required for dual-archive seed: ${productionConfigPath} (set PGBACKREST_CONFIG or run holo backup:provision)`
   ).toBe(true);
 
   const healthySeed = seedRealPgbackrestHealthyChain({

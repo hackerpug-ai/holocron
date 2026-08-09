@@ -20,6 +20,25 @@ export {
 
 export { type BackupConfig, loadBackupConfig } from './config.ts';
 export {
+  assertHarnessBackupPaths,
+  assertHarnessPgbackrestConfWritable,
+  assertHarnessPgdataAllowed,
+  assertHarnessSecretsPathAllowed,
+  HARNESS_FORBIDDEN_PGDATA,
+  HARNESS_PRODUCTION_PATH_REFUSED,
+  isEphemeralHarnessPath,
+  isHarnessMode,
+  isProductionPgbackrestConfPath,
+  isProductionSecretsPath,
+  isStrictHarnessSecretsMode,
+  PRODUCTION_PGBACKREST_CONF_SUFFIX,
+  PRODUCTION_SECRETS_SUFFIX,
+  productionPgbackrestConfPath,
+  productionSecretsPath,
+  resolveHarnessPgbackrestConfPath,
+  resolveHarnessSecretsPath,
+} from './harness-isolation.ts';
+export {
   assertParity,
   compareHashSets,
   hashDirectoryTree,
