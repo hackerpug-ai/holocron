@@ -1,0 +1,135 @@
+appId: ${MAESTRO_APP_ID}
+---
+# S31-FE-01 AC-2 — Accept-then-stall origin → existing degraded banner + composer re-enables.
+# Requires run-deadline-stall-terminates.sh: stall-sse-server.py on :4599 and the
+# app platformUrl pointed at that origin (or platform proxying to it).
+# Terminal presentation is the EXISTING chat-degraded-banner — no new testIDs.
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+      - waitForAnimationToEnd
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+- openLink: ${MAESTRO_CHAT_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-field"
+    timeout: 45000
+
+- tapOn:
+    id: "chat-input-field"
+- eraseText
+
+- inputText: "Ping a stalled origin"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input-send-button"
+    timeout: 10000
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# First-byte deadline + slack (CHAT_NETWORK_DEADLINES.sseFirstByteDeadlineMs + 5000)
+- extendedWaitUntil:
+    visible: "Local fleet unavailable — running in reduced mode"
+    timeout: 20000
+
+- assertVisible: "Local fleet unavailable — running in reduced mode"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-degraded-banner"
+    timeout: 5000
+
+- assertVisible:
+    id: "chat-degraded-banner"
+
+# Composer re-enabled / agent busy cleared
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 10000
+
+- assertVisible:
+    id: "chat-agent-busy-false"
+
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-reconnecting-indicator"
+    timeout: 5000
+    optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      id: "stop-generating-button"
+    timeout: 5000
+    optional: true
+
+- takeScreenshot: S31-FE-01-AC-2-deadline-stall-terminates
