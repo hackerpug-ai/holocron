@@ -1,7 +1,8 @@
 # S31-FE-02 E2E Remediation Evidence
 
 **Date**: 2026-08-09  
-**Worktree tip (pre-commit)**: e0d8c131 + harness/watchdog remediations
+**Commit SHA**: `82c6475fa1f7de9156838e023f2fd1072a258b0b`  
+**Base implementation**: `e0d8c1315897c91a4514729754eca21ca0b90ea1`
 
 ## Stack
 - Metro :8081 (S31-FE-02 worktree, `--dev-client --clear`)
