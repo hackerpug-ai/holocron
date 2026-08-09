@@ -5,7 +5,12 @@
   Runs: bun holo.ts mission run fire-drill-monthly ...
   Cadence: monthly (StartCalendarInterval Day=1 Hour=4). NEVER more frequent.
   Placeholders: @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @DATABASE_URL@
-  Operator must also supply HOLO_FIRE_DRILL_* env (scratch/blob/report) for this host.
+  Scratch defaults under @HOLO_ROOT@/.tmp/fire-drill-monthly/ (path isolation —
+  legal on the real mini; live PGDATA / HOLO_BLOB_ROOT are refused by the CLI).
+  Disabled key: omitted (unit eligible after bootstrap). Do NOT replace ProgramArguments
+  with /usr/bin/true. To pause: launchctl bootout gui/$(id -u)/holocron-fire-drill-monthly
+  Operator may also supply HOLO_FIRE_DRILL_TARGET_TIMESTAMP / R2 restore env for this host.
+  Install: see .spec/prds/mk6-migration/runbooks/fire-drill-monthly.md §C
 -->
 <plist version="1.0">
 <dict>

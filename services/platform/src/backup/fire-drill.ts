@@ -128,12 +128,53 @@ export type FireDrillResult = {
   errors: string[];
 };
 
-const FORBIDDEN_PGDATA = [
+/**
+ * Known live mini PGDATA mountpoints. Scratch targets must never resolve to these.
+ * Path-only isolation — CAP-BAK-01 monthly drill may run ON the mini when using
+ * empty `.tmp` scratch dirs (no second physical host required).
+ */
+export const FORBIDDEN_PGDATA = [
   '/opt/homebrew/var/postgresql@18',
   '/usr/local/var/postgres',
   '/usr/local/var/postgresql@18',
   '/var/lib/postgresql/data',
-];
+] as const;
+
+/** Canonical refuse message for live mini PGDATA scratch (AC-2). */
+export const LIVE_MINI_PGDATA_REFUSED =
+  'refusing fire-drill into live mini PGDATA — pass a distinct empty --scratch directory';
+
+/** Canonical refuse message for live mini blob mounts. */
+export const LIVE_MINI_BLOB_REFUSED =
+  'refusing fire-drill into live mini blob storage — pass a distinct empty --blob-dir';
+
+export type FireDrillPathIsolationInput = {
+  scratch: string;
+  blobDir: string;
+  /**
+   * Hostname is attestation-only. Isolation MUST NOT reject the real mini host
+   * when scratch/blob are empty distinct `.tmp` dirs (S31-OPS-04 AC-3).
+   */
+  hostname?: string;
+  env?: NodeJS.ProcessEnv;
+  /** Live/source blob root; blobDir must not equal this (non-fresh drills). */
+  sourceBlobRoot?: string;
+  isFreshTarget?: boolean;
+};
+
+export type FireDrillPathIsolationResult = {
+  allowed: boolean;
+  errors: string[];
+  scratchForbidden: boolean;
+  blobForbidden: boolean;
+  /**
+   * Host identity is never a hard reject for path isolation.
+   * Monthly fire-drill on the mini with empty `.tmp` scratch is valid.
+   */
+  hostCheck: 'not_required';
+  /** Resolved absolute paths used for the decision. */
+  resolved: { scratch: string; blobDir: string };
+};
 
 type LoadedBaseline = {
   baseline: RecoveryBaseline;
@@ -358,22 +399,117 @@ function run(
   };
 }
 
+/**
+ * Collect absolute paths that must never be used as fire-drill --scratch.
+ * Standing live mounts are always forbidden. PGBACKREST_PG1_PATH is only
+ * treated as forbidden when it names a standing/live path (not a scratch override).
+ */
+function forbiddenScratchPaths(env: NodeJS.ProcessEnv): string[] {
+  const live = env.HOLO_LIVE_PGDATA?.trim() || '';
+  const standing = env.HOLO_STANDING_PG1_PATH?.trim() || '';
+  const pg1 = env.PGBACKREST_PG1_PATH?.trim() || '';
+
+  const standingSet = new Set<string>();
+  for (const c of FORBIDDEN_PGDATA) {
+    standingSet.add(resolve(c));
+  }
+  if (live) standingSet.add(resolve(live));
+  if (standing) standingSet.add(resolve(standing));
+
+  // PGBACKREST_PG1_PATH may be overridden to scratch during restore tests —
+  // only treat it as forbidden when it coincides with a standing/live path.
+  if (pg1) {
+    const pg1Abs = resolve(pg1);
+    if (
+      standingSet.has(pg1Abs) ||
+      FORBIDDEN_PGDATA.some((c) => resolve(c) === pg1Abs) ||
+      (live && resolve(live) === pg1Abs) ||
+      (standing && resolve(standing) === pg1Abs)
+    ) {
+      standingSet.add(pg1Abs);
+    }
+  }
+
+  return [...standingSet];
+}
+
 function isForbiddenPath(path: string, env: NodeJS.ProcessEnv): boolean {
   const abs = resolve(path);
-  const candidates = [
-    ...FORBIDDEN_PGDATA,
-    env.HOLO_LIVE_PGDATA?.trim(),
-    env.HOLO_STANDING_PG1_PATH?.trim(),
-    env.PGBACKREST_PG1_PATH?.trim(),
-  ].filter((p): p is string => typeof p === 'string' && p.length > 0);
-  // PGBACKREST_PG1_PATH may be overridden to scratch during restore tests — only
-  // treat it as forbidden when it is a known standing path, not when it equals scratch.
-  return (
-    FORBIDDEN_PGDATA.some((c) => resolve(c) === abs) ||
-    candidates
-      .filter((c) => FORBIDDEN_PGDATA.includes(c) || c === env.HOLO_LIVE_PGDATA?.trim())
-      .some((c) => resolve(c) === abs)
-  );
+  return forbiddenScratchPaths(env).some((c) => c === abs);
+}
+
+/**
+ * Path isolation for fire-drill scratch + blob targets.
+ *
+ * Rules:
+ * - Refuse live mini PGDATA / HOLO_LIVE_PGDATA / HOLO_STANDING_PG1_PATH as --scratch
+ * - Refuse live mini blob storage / HOLO_BLOB_ROOT / HOLO_LIVE_BLOB_ROOT as --blob-dir
+ * - NEVER reject based on hostname (mini host + empty `.tmp` scratch is allowed)
+ * - NEVER require a second physical machine for path-isolated drills
+ */
+export function evaluateFireDrillPathIsolation(
+  input: FireDrillPathIsolationInput
+): FireDrillPathIsolationResult {
+  const env = input.env ?? process.env;
+  const scratch = resolve(input.scratch);
+  const blobDir = resolve(input.blobDir);
+  const errors: string[] = [];
+
+  // Host identity is intentionally ignored — AC-3: mini host is legal.
+  void input.hostname;
+
+  const scratchForbidden = isForbiddenPath(scratch, env);
+  if (scratchForbidden) {
+    errors.push(LIVE_MINI_PGDATA_REFUSED);
+  }
+
+  let blobForbidden = false;
+  const liveBlob = env.HOLO_LIVE_BLOB_ROOT?.trim() || '';
+  if (liveBlob && resolve(liveBlob) === blobDir) {
+    blobForbidden = true;
+    errors.push(LIVE_MINI_BLOB_REFUSED);
+  }
+
+  // Standing HOLO_BLOB_ROOT is also a live mini mount when set.
+  const holoBlob = env.HOLO_BLOB_ROOT?.trim() || '';
+  if (holoBlob && resolve(holoBlob) === blobDir) {
+    if (!blobForbidden) {
+      blobForbidden = true;
+      errors.push(LIVE_MINI_BLOB_REFUSED);
+    }
+  }
+
+  const isFreshTarget = Boolean(input.isFreshTarget);
+  const sourceBlobRoot = input.sourceBlobRoot?.trim()
+    ? resolve(input.sourceBlobRoot.trim())
+    : holoBlob
+      ? resolve(holoBlob)
+      : '';
+  if (!isFreshTarget && sourceBlobRoot && sourceBlobRoot === blobDir) {
+    if (!blobForbidden) {
+      blobForbidden = true;
+      errors.push(
+        'refusing fire-drill --blob-dir equal to source blob root — restore into a distinct empty directory'
+      );
+    }
+  }
+
+  return {
+    allowed: errors.length === 0,
+    errors,
+    scratchForbidden,
+    blobForbidden,
+    hostCheck: 'not_required',
+    resolved: { scratch, blobDir },
+  };
+}
+
+/** Convenience: true when --scratch is a forbidden live mini PGDATA path. */
+export function isForbiddenFireDrillScratch(
+  path: string,
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return isForbiddenPath(path, env);
 }
 
 function isEmptyDir(dir: string): boolean {
@@ -779,22 +915,18 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
         options.sourceBlobRoot ?? env.HOLO_BLOB_ROOT?.trim() ?? defaultBlobRoot(resolveRepoRoot())
       );
 
-  // ── Guard: never use live mini mounts ──────────────────────────────────
-  if (isForbiddenPath(scratch, env)) {
-    errors.push(
-      'refusing fire-drill into live mini PGDATA — pass a distinct empty --scratch directory'
-    );
-  }
-  if (env.HOLO_LIVE_BLOB_ROOT?.trim() && resolve(env.HOLO_LIVE_BLOB_ROOT.trim()) === blobDir) {
-    errors.push(
-      'refusing fire-drill into live mini blob storage — pass a distinct empty --blob-dir'
-    );
-  }
-  // Also refuse if blobDir resolves to the standing source blob root (non-fresh only).
-  if (!isFreshTarget && resolve(sourceBlobRoot) === blobDir) {
-    errors.push(
-      'refusing fire-drill --blob-dir equal to source blob root — restore into a distinct empty directory'
-    );
+  // ── Guard: never use live mini mounts (path isolation; mini host OK) ───
+  // S31-OPS-04: path-only isolation — empty `.tmp` on the real mini is allowed.
+  // Host identity is never a refuse axis here (no second machine required).
+  const isolation = evaluateFireDrillPathIsolation({
+    scratch,
+    blobDir,
+    env,
+    sourceBlobRoot: isFreshTarget ? undefined : sourceBlobRoot,
+    isFreshTarget,
+  });
+  if (!isolation.allowed) {
+    errors.push(...isolation.errors);
   }
 
   if (errors.length > 0) {

@@ -104,21 +104,48 @@ Mission DSL is **on-demand only**. Monthly cadence is a version-controlled launc
 (same pattern as `holocron-base-backup.plist`). Cadence is **monthly** via
 `StartCalendarInterval` (day 1, 04:00 local) — **not** a sub-monthly `StartInterval`.
 
+**Disabled key:** the unit has **no** `Disabled=true` key — once bootstrapped it is eligible
+to run on the calendar interval. Operators who want a dry install without activation should
+`bootout` after install (or add `Disabled=true` locally; never commit a no-op ProgramArguments
+such as `/usr/bin/true`).
+
 ```bash
 # Version-controlled template:
 #   services/platform/deploy/launchd/holocron-fire-drill-monthly.plist
 #
-# Install (example — substitute HOME / HOLO_ROOT / BUN_BIN / DATABASE_URL):
+# ProgramArguments (real command — never /usr/bin/true):
+#   @BUN_BIN@ @HOLO_ROOT@/services/platform/src/cli/holo.ts mission run fire-drill-monthly …
+#
+# Install with placeholder substitution (HOME / HOLO_ROOT / BUN_BIN / DATABASE_URL):
+set -euo pipefail
+HOLO_ROOT="${HOLO_ROOT:-$HOME/Projects/holocron}"
+BUN_BIN="${BUN_BIN:-$HOME/.bun/bin/bun}"
+BUN_DIR="$(dirname "$BUN_BIN")"
+DATABASE_URL="${DATABASE_URL:-postgres://127.0.0.1:5432/holocron}"
+SRC="$HOLO_ROOT/services/platform/deploy/launchd/holocron-fire-drill-monthly.plist"
 PLIST="$HOME/Library/LaunchAgents/holocron-fire-drill-monthly.plist"
-cp services/platform/deploy/launchd/holocron-fire-drill-monthly.plist "$PLIST"
-# Edit placeholders, then:
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/holocron" \
+  "$HOLO_ROOT/.tmp/fire-drill-monthly/scratch-pgdata" \
+  "$HOLO_ROOT/.tmp/fire-drill-monthly/scratch-blobs"
+sed \
+  -e "s|@HOME@|${HOME}|g" \
+  -e "s|@HOLO_ROOT@|${HOLO_ROOT}|g" \
+  -e "s|@BUN_BIN@|${BUN_BIN}|g" \
+  -e "s|@BUN_DIR@|${BUN_DIR}|g" \
+  -e "s|@DATABASE_URL@|${DATABASE_URL}|g" \
+  "$SRC" >"$PLIST"
+plutil -lint "$PLIST"
+# Ensure scratch dirs stay empty and distinct from live mini PGDATA / HOLO_BLOB_ROOT
+# (path isolation — running ON the mini is allowed; live mounts are not).
 launchctl bootout "gui/$(id -u)/holocron-fire-drill-monthly" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-launchctl print "gui/$(id -u)/holocron-fire-drill-monthly" | head
+launchctl print "gui/$(id -u)/holocron-fire-drill-monthly" | head -40
+# Expect ProgramArguments to include holo.ts + mission run fire-drill-monthly
 ```
 
 The scheduled job invokes path A (`holo mission run fire-drill-monthly`) with **env-provided**
-timestamps and scratch dirs (never hardcode credentials or fixed PITR timestamps in the template).
+timestamps and scratch dirs under `$HOLO_ROOT/.tmp/fire-drill-monthly/…` (never hardcode
+credentials or fixed PITR timestamps in the template; never point scratch at live PGDATA).
 
 ---
 
@@ -198,8 +225,15 @@ Ensure `ALERT_WEBHOOK_URL` is set in the mission runtime env (launchd plist / sh
 
 ### `refusing fire-drill into live mini PGDATA / blob storage`
 
-- Cause: `--scratch` or `--blob-dir` resolved to a live mini mount.
-- Fix: use empty dirs under `.tmp/fire-drill-monthly/…` (or a dedicated restore host). Never point at production PGDATA or `HOLO_BLOB_ROOT`.
+- Cause: `--scratch` or `--blob-dir` resolved to a live mini mount
+  (`FORBIDDEN_PGDATA`, `HOLO_LIVE_PGDATA`, `HOLO_STANDING_PG1_PATH`, `HOLO_BLOB_ROOT`,
+  or `HOLO_LIVE_BLOB_ROOT`).
+- Fix: use empty dirs under `.tmp/fire-drill-monthly/…` (or a dedicated restore host).
+  Never point at production PGDATA or `HOLO_BLOB_ROOT`.
+- **Not a host check:** path isolation does **not** reject the real mini hostname.
+  CAP-BAK-01 monthly drill may run on the mini when scratch/blob are empty distinct
+  `.tmp` directories — a second physical machine is **not** required for path-isolated drills.
+  Multi-axis `prove-isolation.sh` (fresh-target / D05-03) is a separate, stricter axis.
 
 ### `scratch PGDATA must be empty before fire-drill restore`
 
