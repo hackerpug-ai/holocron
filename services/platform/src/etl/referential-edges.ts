@@ -280,12 +280,79 @@ export function writeReferentialEdgesArtifact(
   return abs;
 }
 
+/**
+ * Load a durable referential-edges artifact with fail-closed integrity checks.
+ *
+ * Rejects empty stubs, edgeCount mismatches, and non-schema-derived payloads so
+ * a planted edges=[] file cannot pass the FK audit gate as ok:true.
+ */
 export function loadReferentialEdgesArtifact(artifactPath: string): ReferentialEdgesReport {
-  const raw = JSON.parse(readFileSync(resolve(artifactPath), 'utf8')) as ReferentialEdgesReport;
+  const abs = resolve(artifactPath);
+  const raw = JSON.parse(readFileSync(abs, 'utf8')) as Partial<ReferentialEdgesReport>;
   if (!raw || !Array.isArray(raw.edges) || typeof raw.edgeCount !== 'number') {
     throw new Error(`referential-edges: invalid artifact at ${artifactPath}`);
   }
-  return raw;
+  if (raw.derivedFromSchema !== true) {
+    throw new Error(
+      `referential-edges: artifact integrity failed at ${artifactPath}: derivedFromSchema must be true`
+    );
+  }
+  if (raw.edges.length === 0) {
+    throw new Error(
+      `referential-edges: artifact integrity failed at ${artifactPath}: empty edges (zero edges)`
+    );
+  }
+  if (raw.edges.length !== raw.edgeCount) {
+    throw new Error(
+      `referential-edges: artifact integrity failed at ${artifactPath}: edgeCount mismatch ` +
+        `(edgeCount=${raw.edgeCount} !== edges.length=${raw.edges.length})`
+    );
+  }
+  for (const edge of raw.edges) {
+    if (!edge || typeof edge !== 'object') {
+      throw new Error(
+        `referential-edges: artifact integrity failed at ${artifactPath}: malformed edge entry`
+      );
+    }
+    if (typeof edge.target !== 'string' || !edge.target.includes('.')) {
+      throw new Error(
+        `referential-edges: artifact integrity failed at ${artifactPath}: edge missing target ` +
+          `(${String(edge.sourceTable)}.${String(edge.sourceField)})`
+      );
+    }
+  }
+  return raw as ReferentialEdgesReport;
+}
+
+/** Why an edge cannot receive an ordinary Postgres FOREIGN KEY constraint. */
+export type EdgeConstraintExclusionReason = 'storage_ref' | 'nested_jsonb' | 'array_ids';
+
+/**
+ * Classify whether an edge is eligible for ordinary column-level FK enforcement.
+ *
+ * Nested JSONB paths, Convex `_storage` refs, and array-of-id columns cannot
+ * host a standard REFERENCES constraint; the FK audit excludes them from
+ * unenforcedEdges so the gate stays honest without being permanently impossible.
+ */
+export function classifyEdgeConstraintEligibility(edge: ReferentialEdge): {
+  eligible: boolean;
+  reason: EdgeConstraintExclusionReason | null;
+} {
+  if (edge.array) {
+    return { eligible: false, reason: 'array_ids' };
+  }
+  if (
+    edge.referencedTable === '_storage' ||
+    edge.target.endsWith('.blob_id') ||
+    /(?:^|\.)(?:audio_)?storage_id$/.test(edge.target)
+  ) {
+    return { eligible: false, reason: 'storage_ref' };
+  }
+  // Nested v.id inside JSONB (e.g. agent_decision.mergeTargetId / similarRequests.id)
+  if (edge.target.endsWith('.agent_decision') || edge.sourceField === 'mergeTargetId') {
+    return { eligible: false, reason: 'nested_jsonb' };
+  }
+  return { eligible: true, reason: null };
 }
 
 type OrderEdge = Pick<ReferentialEdge, 'sourceTable' | 'referencedTable' | 'optional' | 'array'>;
@@ -403,9 +470,13 @@ export function buildTopologicalLoadOrder(options: {
   }
 
   // Residual (should be empty when cycle breakers work) — catalog order, not alpha.
+  let residualPlacementCount = 0;
   if (order.length < tables.length) {
     for (const t of tables) {
-      if (!order.includes(t)) order.push(t);
+      if (!order.includes(t)) {
+        order.push(t);
+        residualPlacementCount += 1;
+      }
     }
   }
 
@@ -422,8 +493,9 @@ export function buildTopologicalLoadOrder(options: {
 
   return {
     order,
-    // Alphabetical fallback is intentionally never used.
-    alphabeticalFallbackCount: 0,
+    // Residual remainder placements (catalog order). Alphabetical sort is never used.
+    // AC-3 requires 0 when the graph is fully ordered by required edges.
+    alphabeticalFallbackCount: residualPlacementCount,
     violations,
   };
 }

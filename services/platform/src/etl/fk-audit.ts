@@ -6,7 +6,9 @@ import type { Sql } from '../db/client.ts';
 import { loadLatestRunContext } from './latest-run.ts';
 import { loadTableColumns, resolveTargetColumnName, type TableColumns } from './metadata.ts';
 import {
+  classifyEdgeConstraintEligibility,
   DEFAULT_REFERENTIAL_EDGES_ARTIFACT,
+  type EdgeConstraintExclusionReason,
   extractReferentialEdges,
   loadReferentialEdgesArtifact,
   type ReferentialEdge,
@@ -29,13 +31,23 @@ export type UnenforcedEdge = {
   target: string;
 };
 
+/** Schema edges that cannot host ordinary Postgres FK constraints. */
+export type ExcludedEdge = UnenforcedEdge & {
+  reason: EdgeConstraintExclusionReason;
+};
+
 export interface FkAuditReport {
   ok: boolean;
   orphans: number;
   checkedRelationships: number;
   enforcedForeignKeys: number;
-  /** Edges derived from convex/schema.ts that lack a matching DB FK constraint. */
+  /** Constraint-eligible edges lacking a matching DB FK constraint. */
   unenforcedEdges: UnenforcedEdge[];
+  /**
+   * Edges excluded from FK enforcement (storage refs, nested JSONB, array ids)
+   * with an explicit reason so the gate stays honest without being impossible.
+   */
+  excludedFromEnforcement: ExcludedEdge[];
   edgeCount: number;
   issues: FkAuditIssue[];
 }
@@ -86,21 +98,61 @@ function loadEdgeSet(options?: {
   repoRoot?: string;
 }): ReferentialEdgesReport {
   const repoRoot = resolve(options?.repoRoot ?? process.cwd());
+  const schemaPath = resolve(repoRoot, 'convex/schema.ts');
   const artifactPath = resolve(
     options?.edgesArtifactPath ?? resolve(repoRoot, DEFAULT_REFERENTIAL_EDGES_ARTIFACT)
   );
-  // Prefer a committed/generated artifact when present; always allow live re-extract.
-  if (existsSync(artifactPath)) {
+
+  // Prefer live schema extract when convex/schema.ts is present so a planted
+  // empty/stub artifact cannot collapse the gate to edgeCount:0 / ok:true.
+  if (existsSync(schemaPath)) {
     try {
-      return loadReferentialEdgesArtifact(artifactPath);
+      return extractReferentialEdges({
+        catalogPath: options?.catalogPath,
+        repoRoot,
+        schemaPath,
+      });
     } catch {
-      // fall through to live extract
+      // fall through to durable artifact (post-decommission / schema unreadable)
     }
   }
+
+  if (existsSync(artifactPath)) {
+    // Integrity checks throw on empty/mismatched/non-derived artifacts (fail-closed).
+    return loadReferentialEdgesArtifact(artifactPath);
+  }
+
   return extractReferentialEdges({
     catalogPath: options?.catalogPath,
     repoRoot,
   });
+}
+
+function partitionEdgesForEnforcement(edges: readonly ReferentialEdge[]): {
+  eligible: ReferentialEdge[];
+  excluded: ExcludedEdge[];
+} {
+  const eligible: ReferentialEdge[] = [];
+  const excluded: ExcludedEdge[] = [];
+  const seenExcluded = new Set<string>();
+  for (const edge of edges) {
+    const classification = classifyEdgeConstraintEligibility(edge);
+    if (classification.eligible) {
+      eligible.push(edge);
+      continue;
+    }
+    const key = `${edge.target}:${classification.reason}`;
+    if (seenExcluded.has(key)) continue;
+    seenExcluded.add(key);
+    excluded.push({
+      sourceTable: edge.sourceTable,
+      sourceField: edge.sourceField,
+      referencedTable: edge.referencedTable,
+      target: edge.target,
+      reason: classification.reason ?? 'nested_jsonb',
+    });
+  }
+  return { eligible, excluded };
 }
 
 function computeUnenforcedEdges(
@@ -241,8 +293,12 @@ export async function runFkAudit(options?: {
       edgesArtifactPath: options?.edgesArtifactPath,
       repoRoot: options?.repoRoot,
     });
+    if (edgeReport.edgeCount === 0 || edgeReport.edges.length === 0) {
+      throw new Error('fk-audit: referential edge set is empty — refuse closed');
+    }
     const enforcedColumns = await loadEnforcedFkColumns(sql);
-    const unenforcedEdges = computeUnenforcedEdges(edgeReport.edges, enforcedColumns);
+    const { eligible, excluded } = partitionEdgesForEnforcement(edgeReport.edges);
+    const unenforcedEdges = computeUnenforcedEdges(eligible, enforcedColumns);
 
     return {
       ok: issues.length === 0 && unenforcedEdges.length === 0,
@@ -250,6 +306,7 @@ export async function runFkAudit(options?: {
       checkedRelationships,
       enforcedForeignKeys,
       unenforcedEdges,
+      excludedFromEnforcement: excluded,
       edgeCount: edgeReport.edgeCount,
       issues,
     };

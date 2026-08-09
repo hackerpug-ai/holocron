@@ -12,10 +12,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaultCatalogPath, loadCatalog } from '../../src/catalog/catalog-loader.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../../src/db/connection.ts';
+import { runFkAudit } from '../../src/etl/fk-audit.ts';
 import {
   buildTopologicalLoadOrder,
   DEFAULT_REFERENTIAL_EDGES_ARTIFACT,
   extractReferentialEdges,
+  loadReferentialEdgesArtifact,
   writeReferentialEdgesArtifact,
 } from '../../src/etl/referential-edges.ts';
 
@@ -201,6 +203,90 @@ describe('S31-CX-04 referential edges from convex/schema.ts', () => {
 
     // Decorative counter alone must not pass the gate.
     expect(payload.ok === true && payload.enforcedForeignKeys === 0).toBe(false);
+  });
+
+  it('NEG: empty/stub referential-edges artifact is rejected (fail-closed)', async () => {
+    const emptyPath = resolve(EVIDENCE_DIR, 'empty-stub-edges.json');
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(
+      emptyPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          source: 'convex/schema.ts',
+          derivedFromSchema: true,
+          edgeCount: 0,
+          edges: [],
+          generatedAt: new Date().toISOString(),
+          schemaPath: SCHEMA_PATH,
+          catalogPath: CATALOG_PATH,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+
+    // Direct loader must refuse empty / zero-count artifacts.
+    expect(() => loadReferentialEdgesArtifact(emptyPath)).toThrow(
+      /empty|zero|edgeCount|integrity/i
+    );
+
+    // Mismatched edgeCount vs edges[] must also refuse.
+    const mismatchPath = resolve(EVIDENCE_DIR, 'mismatch-edges.json');
+    writeFileSync(
+      mismatchPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          source: 'convex/schema.ts',
+          derivedFromSchema: true,
+          edgeCount: 80,
+          edges: [
+            {
+              sourceTable: 'chatMessages',
+              sourceField: 'conversationId',
+              referencedTable: 'conversations',
+              optional: false,
+              array: false,
+              target: 'chat_messages.conversation_id',
+            },
+          ],
+          generatedAt: new Date().toISOString(),
+          schemaPath: SCHEMA_PATH,
+          catalogPath: CATALOG_PATH,
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    expect(() => loadReferentialEdgesArtifact(mismatchPath)).toThrow(
+      /edgeCount|mismatch|integrity|length/i
+    );
+
+    // fk-audit must not report ok:true when pointed at an empty stub artifact.
+    // Prefer live schema extract when available; never trust empty edges.
+    const audit = await runFkAudit({
+      databaseUrl: DATABASE_URL,
+      edgesArtifactPath: emptyPath,
+      repoRoot: REPO_ROOT,
+      catalogPath: CATALOG_PATH,
+    });
+    writeEvidence('neg-empty-artifact-fk-audit.json', audit);
+
+    expect(audit.ok, 'empty artifact must not yield ok:true').toBe(false);
+    expect(audit.edgeCount, 'edge set must not collapse to zero').toBeGreaterThan(0);
+    expect(audit.unenforcedEdges.length).toBeGreaterThanOrEqual(1);
+
+    // Nested JSONB / storage / array-id edges are classified, not silently counted
+    // as ordinary unenforced FKs (keeps the gate honest without being impossible).
+    expect(Array.isArray(audit.excludedFromEnforcement)).toBe(true);
+    expect(audit.excludedFromEnforcement.length).toBeGreaterThanOrEqual(1);
+    for (const entry of audit.excludedFromEnforcement) {
+      expect(['storage_ref', 'nested_jsonb', 'array_ids']).toContain(entry.reason);
+      expect(entry.target).toMatch(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/);
+    }
   });
 
   it('AC-3: load order is topological over all 60 source tables with zero alphabetical fallback', () => {
