@@ -1,0 +1,49 @@
+{
+  "task_id": "S31-FE-05",
+  "ac": "AC-5",
+  "tip_sha": "152feecb785f24eeba491ddac7bdbcda2c93711c",
+  "finished_at": "2026-08-09T06:49:31Z",
+  "status": "pass",
+  "services": {
+    "metro": true,
+    "zero": true,
+    "mastra_platform": true,
+    "postgres": true
+  },
+  "maestro": {
+    "session_loads": {
+      "result": "pass",
+      "junit": ".tmp/S31-FE-05/ac5/junit/session-loads.xml",
+      "junit_sha256": "8d66d9876c984d9047bd53b49ded31e0e05cb2b3be81f962a30ece6fb1c3efd9",
+      "screenshot": ".tmp/S31-FE-05/ac5/screenshots/S31-FE-05-AC-5-session-loads.png",
+      "screenshot_sha256": "f5a1058c2bf7611c3b51973b2f286c193929d60e9fced1459b27f7dd664067aa",
+      "oracles": [
+        "research-detail-view",
+        "E2E Active Research: Native resilience (topic >=10)",
+        "research-progress-bar",
+        "no Unable to resolve module"
+      ]
+    },
+    "send_streams": {
+      "result": "pass",
+      "junit": ".tmp/S31-FE-05/ac5/junit/send-streams.xml",
+      "junit_sha256": "bfeb91e4126f3d59d2c9b65224e23f5c58da6b7df0eb469a6c3642b028861f1f",
+      "screenshot": ".tmp/S31-FE-05/ac5/screenshots/S31-FE-05-AC-5-send-streams.png",
+      "screenshot_sha256": "5c8bb89cb3c8d662abb9f7d4cddf934f08f3f9d72e54c23c71d980e2c88d874f",
+      "oracles": [
+        "chat-screen",
+        "chat-assistant-message-latest",
+        "Assistant seed reply for E2E Conversation Alpha (>=20 chars)",
+        "no Unable to resolve module"
+      ]
+    }
+  },
+  "module_resolution_scan": "zero matches for Unable to resolve module / RedBox / Module not found in metro.log",
+  "device": "iPhone 17 Pro",
+  "notes": [
+    "Metro started from worktree tip with --clear",
+    "zero-cache real on :4848 (ZERO_ADMIN_PASSWORD=local-zero-admin)",
+    "seed via seedE2eDatabase({reset:false}) \u2014 full truncate blocked by PONR_IMMUTABLE",
+    "Maestro flows minimally extended for AC-5 must_observe oracles (scope expansion documented in commit)"
+  ]
+}

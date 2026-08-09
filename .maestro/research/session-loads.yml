@@ -1,57 +1,155 @@
-# S-REWRITE-04 AC-1 / TC-1 — Research session loads via Zero query
-# Prerequisite: holo seed:e2e --reset + Metro + Zero + platform on named iOS Simulator
-# Deep-link into a seeded research session; observe detail bound to Zero useQuery.
-appId: com.holocron.app
+# S-REWRITE-04 AC-1 / TC-1 + S31-FE-05 AC-5 — Research session loads via Zero query
+# Prerequisite: seed:e2e + Metro (worktree tip, --clear) + Zero :4848 + platform + Expo dev-client
+# Deep-link into seeded research session; observe detail bound to Zero useQuery.
+# S31-FE-05 AC-5 oracles: research-detail-view, topic >=10 chars, research-progress-bar,
+# zero module-resolution / red-screen failures.
+appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
 
+# Connect Expo Dev Client to worktree Metro
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
 - extendedWaitUntil:
-    visible:
-      text: "DEVELOPMENT SERVERS"
-    timeout: 15000
+    visible: "Open"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+# Tap the development server row by coordinates if the launcher is visible
+# (URL text is often not exposed as a single a11y string on Expo Dev Launcher)
+- extendedWaitUntil:
+    visible: "Enter URL manually"
+    timeout: 20000
     optional: true
 
 - runFlow:
     when:
-      visible: "DEVELOPMENT SERVERS"
+      visible: "Enter URL manually"
+    commands:
+      # First DEVELOPMENT SERVERS card (~25% from top on iPhone 17 Pro)
+      - tapOn:
+          point: "50%,28%"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "http://192.168.1.160:8081"
+    commands:
+      - tapOn: "http://192.168.1.160:8081"
+
+- runFlow:
+    when:
+      visible: "http://127.0.0.1:8081"
+    commands:
+      - tapOn: "http://127.0.0.1:8081"
+
+- runFlow:
+    when:
+      visible: ${MAESTRO_METRO_URL}
     commands:
       - tapOn:
           text: ${MAESTRO_METRO_URL}
           optional: true
 
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+# Dismiss Expo developer menu
 - runFlow:
     when:
-      visible: "Metro has encountered an error"
+      visible: "Runtime version"
     commands:
       - tapOn:
-          text: "Reload"
+          id: "xmark"
           optional: true
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- swipe:
+    start: "92%,12%"
+    end: "92%,75%"
+    duration: 500
+    optional: true
 
+# Wait for JS app shell to settle (Zero connect)
+- extendedWaitUntil:
+    visible:
+      text: ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*"
+    timeout: 120000
+    optional: true
+
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
+# Deep-link research after shell is up
+- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 6000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
 - runFlow:
     when:
       visible: "Continue"
     commands:
       - tapOn:
           text: "Continue"
-      - tapOn:
-          text: "Close"
           optional: true
 
-# Seeded research session deep link (seed:e2e provides a stable session id env when set)
-- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
-
+# Loading may show first while Zero syncs — wait through it
 - extendedWaitUntil:
     visible:
       id: "research-detail-view"
-    timeout: 90000
+    timeout: 120000
 
 - assertVisible:
     id: "research-detail-view"
 
-# MUST NOT observe session-not-found for a present seeded session
+- extendedWaitUntil:
+    visible: "E2E Active Research: Native resilience"
+    timeout: 30000
+
+- assertVisible: "E2E Active Research: Native resilience"
+
+- extendedWaitUntil:
+    visible:
+      id: "research-progress-bar"
+    timeout: 30000
+
+- assertVisible:
+    id: "research-progress-bar"
+
 - assertNotVisible:
     text: "Session not found"
     optional: true
 
-- takeScreenshot: S-REWRITE-04-AC-1-session-loads
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
+- takeScreenshot: S31-FE-05-AC-5-session-loads

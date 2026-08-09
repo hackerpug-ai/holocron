@@ -1,0 +1,14 @@
+tip_sha=152feecb785f24eeba491ddac7bdbcda2c93711c
+finished=2026-08-09T06:49:31Z
+metro=packager-status:running
+zero=OK
+platform=200
+postgres=127.0.0.1:5432 - accepting connections
+
+session_loads_exit=0
+send_streams_exit=0
+device=iPhone 17 Pro ()
+maestro_metro_url=http://192.168.1.160:8081
+research_session=00000000-0000-4000-8000-e00000000033
+chat_conversation=00000000-0000-4000-8000-0000000000e1
+seed_mode=seedE2eDatabase({reset:false}) — holo seed:e2e --reset blocked by PONR_IMMUTABLE on data_plane_ponr
