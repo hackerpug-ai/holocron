@@ -1,13 +1,13 @@
 /**
  * Chat history via Zero reactive query (S-REWRITE-01) + SSE overlay
- * reconciliation (S-REACTIVE-01).
+ * reconciliation (S-REACTIVE-01 / S31-FE-04).
  *
  * Reads `chat_messages` through `chatMessagesByConversation` (client-data-contract).
  * Soft-deleted rows (`deleted === true`) are excluded client-side.
  *
  * When a resumable SSE stream is active, `reconcileThreadMessages` merges a
- * single in-progress assistant preview with durable Zero rows so the thread
- * never shows duplicate bubbles for one run.
+ * single in-progress assistant preview (and optional optimistic user entry)
+ * with durable Zero rows so the thread never shows duplicate bubbles for one run.
  */
 
 import { useQuery } from '@rocicorp/zero/react';
@@ -15,6 +15,7 @@ import { chatMessagesByConversation } from '@/app/zero/queries';
 import type { ChatMessage } from '@/components/chat/ChatThread';
 import {
   type ChatStreamPhase,
+  type PendingUserOverlay,
   reconcileThreadMessages,
   type StreamOverlay,
 } from '@/hooks/use-resumable-sse-stream';
@@ -51,11 +52,13 @@ export type ChatHistoryStreamOverlay = {
  * @param conversationId - ID of the conversation (null skips the query)
  * @param limit - Optional limit for number of messages (applied client-side)
  * @param streamOverlay - Optional live SSE preview reconciled to durable rows
+ * @param pendingUser - Optional optimistic user bubble (component-scoped client id)
  */
 export function useChatHistory(
   conversationId: string | null,
   limit?: number,
-  streamOverlay?: ChatHistoryStreamOverlay | null
+  streamOverlay?: ChatHistoryStreamOverlay | null,
+  pendingUser?: PendingUserOverlay | null
 ): UseChatHistoryReturn {
   const [rawRows, details] = useQuery(
     conversationId ? chatMessagesByConversation(conversationId) : undefined
@@ -86,7 +89,7 @@ export function useChatHistory(
       }
     : null;
 
-  const messages = reconcileThreadMessages(durableMessages, overlay);
+  const messages = reconcileThreadMessages(durableMessages, overlay, pendingUser ?? null);
 
   const isLoading = conversationId !== null && details.type === 'unknown' && rows.length === 0;
 
