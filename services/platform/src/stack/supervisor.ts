@@ -25,6 +25,7 @@ import {
   killResidualStackProcesses,
 } from './launchd.ts';
 import {
+  launchctlListLine,
   probeEmbed,
   probeLaunchdRunning,
   probeMastra,
@@ -37,13 +38,15 @@ import {
   type ServiceState,
 } from './probes.ts';
 
-/** Scheduler slot as structured object (AC-3: placeholder / program). */
+/** Scheduler slot as structured object (AC-3: placeholder / program / pid). */
 export type SchedulerStatus = {
-  /** Launchd / process state string (healthy|pending|…). */
-  state: ServiceState;
+  /** Launchd / process state string (healthy|pending|running|…). */
+  state: ServiceState | 'running';
   /** false once real worker is wired (never /usr/bin/true). */
   placeholder: boolean;
   program: string;
+  /** Numeric PID when launchd reports the unit loaded; null when not running. */
+  pid: number | null;
   /** Stringify-friendly alias so legacy `String(scheduler)` tests still see state. */
   toString(): string;
 };
@@ -138,12 +141,18 @@ function pidAlive(pid: number | undefined): boolean {
 
 function makeSchedulerStatus(cfg: StackConfig): SchedulerStatus {
   const detail = probeSchedulerDetail(cfg);
+  const listed = launchctlListLine(LAUNCHD_LABELS.scheduler);
+  const pid = listed.pid && listed.pid > 0 ? listed.pid : null;
+  // AC-3 oracle expects state "running" with a numeric PID when the consumer is live.
+  const state: SchedulerStatus['state'] =
+    pid != null ? 'running' : detail.state === 'healthy' ? 'running' : detail.state;
   const status: SchedulerStatus = {
-    state: detail.state,
+    state,
     placeholder: detail.placeholder,
     program: detail.program,
+    pid,
     toString() {
-      return detail.state;
+      return state;
     },
   };
   return status;
@@ -452,14 +461,12 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
       messages.push(ens.detail);
     }
 
-    // Scheduler unit ships Disabled=true but ProgramArguments is the real worker
-    // (scheduler-worker.ts) — never /usr/bin/true. Queue readiness is measured
-    // from live Postgres (pg-boss preferred) independent of launchd PID.
-    bootoutLabel(cfg, LAUNCHD_LABELS.scheduler);
+    // S31-02: scheduler is the leased-queue consumer. Enable (do not boot out)
+    // and load the real worker (scheduler-worker.ts) — never /usr/bin/true.
+    const schedEns = ensureServiceLoaded(cfg, LAUNCHD_LABELS.scheduler);
+    messages.push(schedEns.detail);
     const q = probeQueueDetail(cfg);
-    messages.push(
-      `scheduler: program wired (placeholder=false); launchd Disabled until operator enables`
-    );
+    messages.push(`scheduler: enabled (placeholder=false); consume loop active`);
     messages.push(`queue: backend=${q.backend} ready=${q.ready}`);
 
     // zero_cache boot path (Sprint 24) — opt-in only; never claim healthy without probe
