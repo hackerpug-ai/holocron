@@ -1,0 +1,5 @@
+{
+  "source": "degraded_mode",
+  "degraded_state": "normal",
+  "allowed": true
+}

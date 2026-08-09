@@ -1,0 +1,7 @@
+[
+  "queue_jobs_attempts_nonneg",
+  "queue_jobs_lane_check",
+  "queue_jobs_max_attempts_pos",
+  "queue_jobs_priority_nonneg",
+  "queue_jobs_status_check"
+]

@@ -1,0 +1,136 @@
+{
+  "jobs_fired": 16,
+  "jobs_total": 16,
+  "side_effect_rows": 16,
+  "run_id": "4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+  "runs": [
+    {
+      "name": "task-timeout-worker",
+      "run_key": "job:task-timeout-worker:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "audio-stuck-segment-cleanup",
+      "run_key": "job:audio-stuck-segment-cleanup:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "toolcall-timeout",
+      "run_key": "job:toolcall-timeout:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "assimilation-timeout",
+      "run_key": "job:assimilation-timeout:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "agent-plan-timeout",
+      "run_key": "job:agent-plan-timeout:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "voice-session-timeout",
+      "run_key": "job:voice-session-timeout:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "cleanup-agent-telemetry",
+      "run_key": "job:cleanup-agent-telemetry:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "janitor",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "subscription-monitor",
+      "run_key": "job:subscription-monitor:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "subscription-auto-research",
+      "run_key": "job:subscription-auto-research:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "feed-builder",
+      "run_key": "job:feed-builder:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "whats-new-daily",
+      "run_key": "job:whats-new-daily:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "workflow",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "audio-transcript-job-processor",
+      "run_key": "job:audio-transcript-job-processor:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "consumer",
+      "lane": "interactive",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "document-embedding-backfill",
+      "run_key": "job:document-embedding-backfill:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "research-embedding-backfill",
+      "run_key": "job:research-embedding-backfill:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "improvements-embedding-backfill",
+      "run_key": "job:improvements-embedding-backfill:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "backfill",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    },
+    {
+      "name": "morning-digest",
+      "run_key": "job:morning-digest:4a09952f-84d3-41f5-a0bf-db66bf8181e6",
+      "category": "digest",
+      "lane": "background",
+      "ok": true,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+# AC-3 GREEN — platform operates without CREATE privilege; 0 DDL in six files
+# CLI: queue:effect, jobs:run-all, backup:status, infer:degraded — no 42501
+# research_* count remains 3 (no research_mission bootstrap)
+[
+  {
+    "cmd": "queue:effect",
+    "status": 0,
+    "stderr": "",
+    "stdout": "{\n  \"key\": \"ddl-probe-1\",\n  \"boundary\": \"before-commit\",\n  \"effect_count\": 1,\n  \"outbox_count\": 1,\n  \"inbox_dedupe_count\": 1,\n  \"fencing_token\": \"fence-23822ed5-c95b-42dd-957f-0a17062d887f\",\n  \"outbox_status\": \"acked\",\n  \"inbox_outcome\": \"applied\",\n  \"exactly_once\": true\n}\n"
+  },
+  {
+    "cmd": "jobs:run-all",
+    "status": 0,
+    "stderr": "",
+    "stdout": "{\n  \"jobs_fired\": 16,\n  \"jobs_total\": 16,\n  \"side_effect_rows\": 16,\n  \"run_id\": \"4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n  \"runs\": [\n    {\n      \"name\": \"task-timeout-worker\",\n      \"run_key\": \"job:task-timeout-worker:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"interactive\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"audio-stuck-segment-cleanup\",\n      \"run_key\": \"job:audio-stuck-segment-cleanup:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"toolcall-timeout\",\n      \"run_key\": \"job:toolcall-timeout:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"interactive\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"assimilation-timeout\",\n      \"run_key\": \"job:assimilation-timeout:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"agent-plan-timeout\",\n      \"run_key\": \"job:agent-plan-timeout:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"interactive\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"voice-session-timeout\",\n      \"run_key\": \"job:voice-session-timeout:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"interactive\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"cleanup-agent-telemetry\",\n      \"run_key\": \"job:cleanup-agent-telemetry:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"janitor\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"subscription-monitor\",\n      \"run_key\": \"job:subscription-monitor:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"workflow\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"subscription-auto-research\",\n      \"run_key\": \"job:subscription-auto-research:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"workflow\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"feed-builder\",\n      \"run_key\": \"job:feed-builder:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"workflow\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"whats-new-daily\",\n      \"run_key\": \"job:whats-new-daily:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"workflow\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"audio-transcript-job-processor\",\n      \"run_key\": \"job:audio-transcript-job-processor:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"consumer\",\n      \"lane\": \"interactive\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"document-embedding-backfill\",\n      \"run_key\": \"job:document-embedding-backfill:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"backfill\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"research-embedding-backfill\",\n      \"run_key\": \"job:research-embedding-backfill:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"backfill\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"improvements-embedding-backfill\",\n      \"run_key\": \"job:improvements-embedding-backfill:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"backfill\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    },\n    {\n      \"name\": \"morning-digest\",\n      \"run_key\": \"job:morning-digest:4928a4e7-bdd3-4ae4-8231-72a32b763aaf\",\n      \"category\": \"digest\",\n      \"lane\": \"background\",\n      \"ok\": true,\n      \"error\": null\n    }\n  ]\n}\n"
+  },
+  {
+    "cmd": "backup:status",
+    "status": 0,
+    "stderr": "",
+    "stdout": "{\n  \"ok\": true,\n  \"archiveMode\": null,\n  \"archiveCommand\": null,\n  \"archiver\": null,\n  \"r2WalObjects\": null,\n  \"r2BackupObjects\": null,\n  \"heartbeats\": [],\n  \"schedule\": {\n    \"installed\": true,\n    \"plistPath\": \"/Users/inference1/Library/LaunchAgents/holocron-base-backup.plist\",\n    \"intervalSeconds\": 21600,\n    \"loaded\": true\n  },\n  \"walSchedule\": {\n    \"installed\": true,\n    \"plistPath\": \"/Users/inference1/Library/LaunchAgents/holocron-wal-archive.plist\",\n    \"intervalSeconds\": 300,\n    \"loaded\": true\n  },\n  \"alertSchedule\": {\n    \"installed\": true,\n    \"plistPath\": \"/Users/inference1/Library/LaunchAgents/holocron-backup-alert-sweep.plist\",\n    \"intervalSeconds\": 300,\n    \"loaded\": true\n  }\n}\n"
+  },
+  {
+    "cmd": "infer:degraded",
+    "status": 0,
+    "stderr": "",
+    "stdout": "{\n  \"ok\": true,\n  \"degraded-state\": \"normal\",\n  \"resume-state\": \"normal\",\n  \"message\": null,\n  \"degradationAction\": null,\n  \"role\": \"divergent\",\n  \"endpoint\": null,\n  \"missionMode\": \"full\",\n  \"extractionState\": \"running\",\n  \"lastProbeAt\": null,\n  \"lastProbeOk\": null,\n  \"poll\": null\n}\n"
+  }
+]
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
+
+ ✓ |integration| services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts (1 test) 4244ms
+     ✓ platformOperatesWithoutCreatePrivilege (AC-3)  3209ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  21:30:18
+   Duration  4.73s (transform 128ms, setup 103ms, import 292ms, tests 4.24s, environment 0ms)
+

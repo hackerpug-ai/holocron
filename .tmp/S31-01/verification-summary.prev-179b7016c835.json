@@ -1,0 +1,87 @@
+{
+  "task_id": "S31-01",
+  "timestamp": "2026-08-09T03:30:30Z",
+  "commit_sha": "88a3ae645b51736059e1708ee5f72a74381f0a94",
+  "typecheck": {
+    "exit_code": 0
+  },
+  "lint": {
+    "exit_code": 1,
+    "warnings": 1
+  },
+  "pre_existing_issues": false,
+  "requirement_results": [
+    {
+      "id": "AC-1",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-migration-truth.test.ts -t freshNamespaceMigratesToCompleteSchema",
+      "exit_code": 0,
+      "output_file": ".tmp/S31-01/ac-1-output.txt"
+    },
+    {
+      "id": "AC-2",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-migration-truth.test.ts -t ordinalGateRefusesCollisionAndGap",
+      "exit_code": 0,
+      "output_file": ".tmp/S31-01/ac-2-output.txt"
+    },
+    {
+      "id": "AC-3",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts -t platformOperatesWithoutCreatePrivilege",
+      "exit_code": 0,
+      "output_file": ".tmp/S31-01/ac-3-output.txt"
+    },
+    {
+      "id": "AC-4",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-escape-guard-row.test.ts -t escapeGuardFailsLoudlyWithoutRow",
+      "exit_code": 0,
+      "output_file": ".tmp/S31-01/ac-4-output.txt"
+    },
+    {
+      "id": "AC-5",
+      "verify": "PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-queue-schema-reconciled.test.ts -t queueSchemaMatchesMigration0010",
+      "exit_code": 0,
+      "output_file": ".tmp/S31-01/ac-5-output.txt"
+    }
+  ],
+  "red_evidence": {
+    "required": false
+  },
+  "generator": {
+    "tool": "harvest-evidence.sh",
+    "version": "1.0",
+    "generated_at": "2026-08-09T03:30:30Z",
+    "inputs": [
+      {
+        "path": "typecheck-output.txt",
+        "sha256": "4b53b45369e11f99e8a5208ca003dc0d9868eded718dbe0083d2e00e5b55c58c"
+      },
+      {
+        "path": "lint-output.txt",
+        "sha256": "50034e285249658bfd101e6b1347df0fea1e6a262a9a88e44e6ad41d1ef2c548"
+      },
+      {
+        "path": "test-output.txt",
+        "sha256": "ddacfd50e28e465b762e00363820e70c9b9bd44193621650e3018dc5208fcd9b"
+      },
+      {
+        "path": "ac-1-output.txt",
+        "sha256": "fbfdc7eabc12de908bec22731e2f682fc2df287c7a621a861d187d099ba2f49d"
+      },
+      {
+        "path": "ac-2-output.txt",
+        "sha256": "882f9adb4f0fd063836435bdf5ce9571a94a9669f85209fb552c185d6fe588af"
+      },
+      {
+        "path": "ac-3-output.txt",
+        "sha256": "5b3c5f310e841cb813b9429195b5d43714e2ef914140440f141600797548797c"
+      },
+      {
+        "path": "ac-4-output.txt",
+        "sha256": "4ad18d4ab27464014cc2ca8b549c2876b15b75e59022bdbf4406069e519e0f02"
+      },
+      {
+        "path": "ac-5-output.txt",
+        "sha256": "c58f3bf67c39defa52311ec3f08cf97802ffc6855e8c21a64dab1ba8ea197ba9"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+# AC-5 RED-against-start — runtime ENSURE_SQL shape would omit 0010 constraints
+# Negative control: queue_jobs CHECK set size 2 (lane+status only) would fail AC
+# queue/schema.ts CREATE TABLE occurrences must be 0 after ENSURE_SQL removal:
+{
+  "createCount": 0
+}

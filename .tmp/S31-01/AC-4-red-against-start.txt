@@ -1,0 +1,13 @@
+# AC-4 RED-against-start — missing degraded_mode row fails loudly
+# Setup: DELETE FROM degraded_mode; count=0
+# MUST_OBSERVE: DEGRADED_MODE_ROW_MISSING; 0 budget-ledger escape rows
+# MUST_NOT_OBSERVE: silent false / allow without error
+{
+  "name": "DegradedModeRowMissingError",
+  "code": "DEGRADED_MODE_ROW_MISSING",
+  "message": "degraded_mode global row missing — cannot evaluate budgeted escape"
+}
+{
+  "before": "0",
+  "after": "0"
+}

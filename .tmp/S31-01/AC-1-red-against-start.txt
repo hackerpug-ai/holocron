@@ -1,0 +1,10 @@
+# AC-1 RED-against-start (negative control)
+# Would fail if: empty database | stub migration runner | mock postgres | static table list
+# Pre-migrate assertion from sprint31-migration-truth.test.ts:freshNamespaceMigratesToCompleteSchema
+# Observed before migrate on disposable namespace holocron_s31_01_fresh:
+#   SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' => 0
+# Negative control: without real migrate, drizzle_migrations stays empty and degraded_mode/retry_queue absent.
+# Seeded artifact references (post-GREEN capture; RED is the 0-table precondition):
+{
+  "onDisk": 37
+}
