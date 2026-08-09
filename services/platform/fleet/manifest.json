@@ -10,7 +10,7 @@
       "contextLimit": 32768,
       "concurrency": 4,
       "timeoutMs": 120000,
-      "structuredOutput": true,
+      "structuredOutput": false,
       "healthProbe": {
         "path": "/v1/models",
         "method": "GET",
@@ -27,7 +27,7 @@
       "contextLimit": 262144,
       "concurrency": 2,
       "timeoutMs": 180000,
-      "structuredOutput": true,
+      "structuredOutput": false,
       "healthProbe": {
         "path": "/v1/models",
         "method": "GET",
@@ -44,7 +44,7 @@
       "contextLimit": 262144,
       "concurrency": 2,
       "timeoutMs": 180000,
-      "structuredOutput": true,
+      "structuredOutput": false,
       "healthProbe": {
         "path": "/v1/models",
         "method": "GET",

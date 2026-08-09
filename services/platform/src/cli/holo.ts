@@ -2012,6 +2012,30 @@ async function main(): Promise<void> {
       break;
     }
     case 'service:up': {
+      // S31-06: boot capability probe must pass before the service becomes
+      // health-ready. A declared-but-unconfirmable capability exits non-zero
+      // with MANIFEST_CAPABILITY_UNCONFIRMED (UC-INFER-01 AC-4).
+      const { assertManifestCapabilities, ManifestCapabilityUnconfirmedError } = await import(
+        '../inference/probe-capability.ts'
+      );
+      try {
+        await assertManifestCapabilities({
+          manifestPath: process.env.FLEET_MANIFEST_PATH,
+          failClosedOnUnconfirmed: true,
+        });
+      } catch (err) {
+        if (err instanceof ManifestCapabilityUnconfirmedError) {
+          console.error(
+            `MANIFEST_CAPABILITY_UNCONFIRMED: role=${err.role} declaredCapability=${err.declaredCapability} probedValue=${err.probedValue}`
+          );
+          console.error(err.message);
+          process.exit(1);
+        }
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`holo service:up boot capability probe failed: ${msg}`);
+        process.exit(1);
+      }
+
       const { startService, resolvePort, DEFAULT_PORT } = await import('../index.ts');
       const port = resolvePort();
       // AC-3: exact banner string uses :4111 default; include resolved port when overridden.
@@ -5074,7 +5098,19 @@ async function main(): Promise<void> {
         schemaLabel = schemaName;
       }
 
+      // S31-06: ensure the boot capability map is populated once before extract
+      // so strategy selection comes from a real on-the-wire probe, not the
+      // raw manifest flag.
+      const { ensureBootCapabilityMap, ManifestCapabilityUnconfirmedError } = await import(
+        '../inference/probe-capability.ts'
+      );
+
       try {
+        await ensureBootCapabilityMap({
+          manifestPath: process.env.FLEET_MANIFEST_PATH,
+          failClosedOnUnconfirmed: true,
+        });
+
         // REDHAT-FIX-H1: generate an extraction ID for status tracking.
         const { randomUUID } = await import('node:crypto');
         const extractionId = randomUUID();
@@ -5100,11 +5136,13 @@ async function main(): Promise<void> {
             ? err.code
             : err instanceof BlockedError
               ? err.code
-              : err instanceof Error && 'code' in err && err.code === 'UNKNOWN_FLEET_ROLE'
-                ? 'UNKNOWN_FLEET_ROLE'
-                : err instanceof Error && 'code' in err && err.code === 'ROLE_UNAVAILABLE'
-                  ? 'ROLE_UNAVAILABLE'
-                  : 'EXTRACTION_FAILED';
+              : err instanceof ManifestCapabilityUnconfirmedError
+                ? err.code
+                : err instanceof Error && 'code' in err && err.code === 'UNKNOWN_FLEET_ROLE'
+                  ? 'UNKNOWN_FLEET_ROLE'
+                  : err instanceof Error && 'code' in err && err.code === 'ROLE_UNAVAILABLE'
+                    ? 'ROLE_UNAVAILABLE'
+                    : 'EXTRACTION_FAILED';
 
         if (args.json) {
           console.error(
@@ -5126,6 +5164,11 @@ async function main(): Promise<void> {
                 reason: err.reason,
                 processorId: err.processorId,
                 tripwirePayload: err.tripwirePayload,
+              }),
+              ...(err instanceof ManifestCapabilityUnconfirmedError && {
+                role: err.role,
+                declaredCapability: err.declaredCapability,
+                probedValue: err.probedValue,
               }),
             })
           );
@@ -5205,6 +5248,8 @@ async function main(): Promise<void> {
     }
     case 'probe:capabilities': {
       // Sprint 09 struct-2: probe all fleet roles for json_schema support
+      // S31-06: diagnostic path uses failClosedOnUnconfirmed=false so overclaims
+      // are reported in the map rather than aborting the CLI mid-probe.
       const { probeCapabilities } = await import('../inference/probe-capability.ts');
 
       // Optional role filter (positional arg or --role)
@@ -5223,6 +5268,7 @@ async function main(): Promise<void> {
       try {
         const capabilities = await probeCapabilities(roleFilter ?? undefined, {
           timeoutMs,
+          failClosedOnUnconfirmed: false,
         });
 
         if (args.json) {
