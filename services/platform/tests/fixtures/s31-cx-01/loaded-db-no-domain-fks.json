@@ -1,0 +1,21 @@
+{
+  "fixture_id": "loaded_db_no_domain_fks",
+  "task_id": "S31-CX-01",
+  "seed_method": "migration_fixture",
+  "domain_tables": [
+    "documents",
+    "chat_messages",
+    "conversations",
+    "tasks",
+    "tool_calls",
+    "research_sessions",
+    "agent_plans",
+    "agent_plan_steps"
+  ],
+  "expected_domain_foreign_keys": 0,
+  "notes": [
+    "After loading the Sprint 14 etl-valid-export fixture, public-schema domain tables have no FOREIGN KEY constraints.",
+    "Control-plane FKs (etl_stage, mission_*, queue_*, passages→sources) may exist and must not greenwash domain edge enforcement.",
+    "Desired FK audit contract (S31-CX-04): ok:false when unenforced eligible edges remain."
+  ]
+}

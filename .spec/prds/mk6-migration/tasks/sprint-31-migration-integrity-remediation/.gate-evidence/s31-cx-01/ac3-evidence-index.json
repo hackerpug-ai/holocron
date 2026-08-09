@@ -1,0 +1,13 @@
+{
+  "task_id": "S31-CX-01",
+  "evidence_dir": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-01/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/.gate-evidence/s31-cx-01",
+  "live_required": [
+    "setup-corrupt-content.json",
+    "ac1-reconcile-head-observation.json",
+    "ac2-fk-audit-head-observation.json"
+  ],
+  "durable_summary": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-01/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/.gate-evidence/s31-cx-01/red-summary.json",
+  "run_log_present": true,
+  "summary_present": true,
+  "captured_at": "2026-08-09T08:14:06.367Z"
+}

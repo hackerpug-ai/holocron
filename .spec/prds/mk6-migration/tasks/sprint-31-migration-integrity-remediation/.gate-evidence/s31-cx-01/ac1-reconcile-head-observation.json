@@ -1,0 +1,16 @@
+{
+  "status": 0,
+  "ok": true,
+  "unexplainedVariance": 0,
+  "fieldDigestMismatches": null,
+  "hasFieldDigestMismatchesKey": false,
+  "documents": {
+    "sourceCount": 2,
+    "loadedCount": 2,
+    "variance": 0,
+    "unexplained": false
+  },
+  "stdout_head": "{\n  \"ok\": true,\n  \"unexplainedVariance\": 0,\n  \"tableUnexplainedVariance\": 0,\n  \"storageRefUnexplainedVariance\": 0,\n  \"tables\": [\n    {\n      \"table\": \"agentPlans\",\n      \"targetTable\": \"agent_plans\",\n      \"sourceCount\": 1,\n      \"sourceChecksum\": \"bb02ecea2430ca1347efce94483a0fcaa622a790aa56945154a9f5169273bd5d\",\n      \"sourceSampleLegacyIds\": [\n        \"agent_plan_legacy_1\"\n      ],\n      \"loadedCount\": 1,\n      \"expectedTarget\": 1,\n      \"expectedTargetFormula\": \"count(source)\",\n      \"variance\": 0,\n      \"disposition\": \"preserve\",\n      \"approvalId\": \"APR-MIG-2026-S02-001\",\n      \"approvedException\": false,\n      \"approvedExceptionId\": null,\n      \"catalogChecksumOrSample\": \"sample-rows:agentPlans\",\n      \"unexplained\": false\n    },\n    {\n      \"table\": \"agentPlanSteps\",\n      \"targetTable\": \"agent_plan_steps\",\n      \"sourceCount\": 1,\n      \"sourceChecksum\": \"1f4a1293a10abbb747a9420221d1a8429ca557f90b47870702e1cee567185f6e\",\n      \"sourceSampleLegacyIds\": [\n        \"agent_plan_step_legacy_1\"\n      ],\n      \"loadedCount\": 1,\n      \"expectedTarget\": 1,\n      \"expectedTargetFormula\": \"count(source)\",\n      \"variance\": 0,\n      \"disposition\": \"preserve\",\n      \"approvalId\": \"APR-MIG-2026-S02-001\",\n      \"approvedException\": false,\n      \"approvedExceptionId\": null,\n      \"catalogChecksumOrSample\": \"sample-rows:agentPlanSteps\",\n      \"unexplained\": false\n    },\n    {\n      \"table\": \"agentTelemetry\",\n      \"targetTable\": \"agent_telemetry\",\n      \"sourceCount\": 1,\n      \"sourceChecksum\": \"33978c5c8ecbbd22b5c23eaf538315def1ed8954ec769c118b9188759430f23d\",\n      \"sourceSampleLegacyIds\": [\n        \"agent_telemetry_legacy_1\"\n      ],\n      \"loadedCount\": 1,\n      \"expectedTarget\": 1,\n      \"expectedTargetFormula\": \"count(source)\",\n      \"variance\": 0,\n      \"disposition\": \"preserve\",\n      \"approvalId\": \"APR-MIG-2026-S02-001\",\n      \"approvedException\": false,\n      \"approvedExceptionId\": null,\n      \"catalogChecksumOrSample\": \"sample-rows:agentTelemetry\",\n      \"unexplain",
+  "stderr_head": "",
+  "note": "HEAD before S31-CX-03 is content-blind: matching counts can yield ok:true despite corrupted title. Desired contract below must fail-closed."
+}
