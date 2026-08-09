@@ -121,6 +121,33 @@ describe('S31-CX-06 AC-1: restate Sprint 14 + re-point UC-DATA-05 AC-1 to Sprint
 });
 
 describe('S31-CX-06 AC-2: holo verify:etl-provenance fails closed on absent artifacts', () => {
+  it('exits 0 when restated Sprint 14 gate cites gate-relative evidence_pointer that exists', () => {
+    // Regression: evidence_pointer is gate-relative
+    // (`../sprint-31-.../uc-data-05-ac1-primary-evidence.json`). Verifier must
+    // resolve against the gate file directory first, not only repo root.
+    expect(existsSync(S14_GATE_RESULTS)).toBe(true);
+    expect(existsSync(UC_DATA_05_PRIMARY)).toBe(true);
+
+    const r = runHolo(['verify:etl-provenance', '--json', '--gate', S14_GATE_RESULTS], {
+      env: { HOLO_REPO_ROOT: REPO_ROOT },
+      timeoutMs: 60_000,
+    });
+
+    expect(r.status, `must pass when gate-relative pointer exists:\n${r.combined}`).toBe(0);
+
+    const body = r.stdout.includes('{') ? r.stdout.slice(r.stdout.indexOf('{')) : r.stdout;
+    const report = JSON.parse(body) as {
+      ok?: boolean;
+      records_inspected?: number;
+      violations?: Array<{ path?: string; reason?: string }>;
+      message?: string;
+    };
+    expect(report.ok).toBe(true);
+    expect(report.records_inspected ?? 0).toBeGreaterThanOrEqual(1);
+    expect(report.violations ?? []).toEqual([]);
+    expect(report.message ?? '').toMatch(/OK/i);
+  });
+
   it('exits 1 naming the missing artifact path when a gate record cites an absent file', () => {
     const dir = mkdtempSync(join(tmpdir(), 's31-cx-06-provenance-'));
     tmpDirs.push(dir);
