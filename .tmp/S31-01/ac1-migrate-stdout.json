@@ -39,7 +39,8 @@
     "0033_zero_pub_file_objects.sql",
     "0034_degraded_mode_retry_queue.sql",
     "0035_backup_wal_burst.sql",
-    "0036_queue_schema_reconcile.sql"
+    "0036_queue_schema_reconcile.sql",
+    "0037_queue_durable_app_dml_grants.sql"
   ],
   "alreadyApplied": [],
   "tableCount": 92,
@@ -49,7 +50,7 @@
   "errorDetails": [],
   "messages": [
     "migrations_dir: /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01/services/platform/src/db/migrations",
-    "ordinal_gate: ok (37 files)",
+    "ordinal_gate: ok (38 files)",
     "current_user: inference1",
     "role_mode: owner/admin",
     "extension vector: ok",
@@ -89,6 +90,7 @@
     "applied: 0033_zero_pub_file_objects.sql",
     "applied: 0034_degraded_mode_retry_queue.sql",
     "applied: 0035_backup_wal_burst.sql",
-    "applied: 0036_queue_schema_reconcile.sql"
+    "applied: 0036_queue_schema_reconcile.sql",
+    "applied: 0037_queue_durable_app_dml_grants.sql"
   ]
 }

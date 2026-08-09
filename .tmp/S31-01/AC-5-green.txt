@@ -1,4 +1,18 @@
-# AC-5 GREEN — migrated queue matches 0010 (checks, indexes, holocron_app grants)
+# AC-5 GREEN — migration-only grants
+{
+  "role": "holocron_app",
+  "note": "holocron_app ensured at cluster level before applyMigrations; test issues no GRANT"
+}
+{
+  "grantee": "holocron_app",
+  "privileges": [
+    "INSERT",
+    "SELECT",
+    "UPDATE",
+    "DELETE"
+  ],
+  "source": "migration-only (no test GRANT)"
+}
 [
   "queue_jobs_attempts_nonneg",
   "queue_jobs_lane_check",
@@ -6,31 +20,3 @@
   "queue_jobs_priority_nonneg",
   "queue_jobs_status_check"
 ]
-[
-  "queue_dlq_created_at_idx",
-  "queue_dlq_job_id_idx",
-  "queue_dlq_key_idx",
-  "queue_dlq_pkey",
-  "queue_jobs_dequeue_idx",
-  "queue_jobs_key_uidx",
-  "queue_jobs_lane_status_idx",
-  "queue_jobs_lease_expires_idx",
-  "queue_jobs_pkey"
-]
-[
-  "INSERT",
-  "SELECT",
-  "UPDATE",
-  "DELETE"
-]
-
- RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
-
- ✓ |integration| services/platform/tests/integration/sprint31-queue-schema-reconciled.test.ts (1 test) 2185ms
-     ✓ queueSchemaMatchesMigration0010 (AC-5)  1026ms
-
- Test Files  1 passed (1)
-      Tests  1 passed (1)
-   Start at  21:30:27
-   Duration  2.70s (transform 133ms, setup 113ms, import 298ms, tests 2.18s, environment 0ms)
-

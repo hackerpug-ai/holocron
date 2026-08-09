@@ -1,22 +1,20 @@
-# AC-4 GREEN — seeded degraded_mode row yields real decision + ledger write
-# MUST_OBSERVE: decision source=degraded_mode state=normal; 1 budget-ledger row with reason
+# AC-4 GREEN — real controller/guard outcomes
 {
-  "source": "degraded_mode",
-  "degraded_state": "normal",
-  "allowed": true
+  "degraded_mode_row_id": "global",
+  "controller": {
+    "degraded-state": "normal",
+    "resume-state": "normal",
+    "message": null,
+    "degradationAction": null,
+    "missionMode": "full"
+  },
+  "guard": {
+    "isDurableDegradedMode": false,
+    "isEscapeBlockedByDegraded": false,
+    "assertEscapeNotDegraded": "resolved"
+  }
 }
 {
   "n": "1",
   "reason": "BUDGET_OK: s31-01-escape-guard-positive"
 }
-
- RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
-
- ✓ |integration| services/platform/tests/integration/sprint31-escape-guard-row.test.ts (1 test) 2056ms
-     ✓ escapeGuardFailsLoudlyWithoutRow (AC-4)  1033ms
-
- Test Files  1 passed (1)
-      Tests  1 passed (1)
-   Start at  21:30:24
-   Duration  2.66s (transform 152ms, setup 108ms, import 404ms, tests 2.06s, environment 0ms)
-

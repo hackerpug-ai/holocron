@@ -1,0 +1,4 @@
+{
+  "role": "holocron_app",
+  "note": "holocron_app ensured at cluster level before applyMigrations; test issues no GRANT"
+}

@@ -1,6 +1,8 @@
 /**
  * S31-01 AC-5 — migrated queue schema matches migration 0010 (no runtime ENSURE_SQL).
  *
+ * holocron_app exists BEFORE migrate so GRANT blocks in 0010/0036 fire; test never re-GRANTs.
+ *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint31-queue-schema-reconciled.test.ts
  */
@@ -9,6 +11,7 @@ import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql } from '../../src/db/client.ts';
+import { HOLOCRON_APP_ROLE } from '../../src/db/evidence/roles.ts';
 import { applyMigrations } from '../../src/db/migrate.ts';
 
 const itLive = PLATFORM_IT ? it : it.skip;
@@ -45,6 +48,24 @@ function writeEvidence(name: string, body: unknown): void {
   );
 }
 
+/** Cluster-level app role BEFORE migrate — migration GRANT blocks require it. */
+async function ensureHolocronAppRole(): Promise<void> {
+  const admin = createSql(adminUrlFrom(OWNER_URL));
+  try {
+    await admin.unsafe(`
+      DO $role$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'holocron_app') THEN
+          CREATE ROLE holocron_app LOGIN;
+        END IF;
+      END
+      $role$;
+    `);
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+}
+
 async function dropAndCreateDb(name: string): Promise<void> {
   const admin = createSql(adminUrlFrom(OWNER_URL));
   try {
@@ -79,29 +100,22 @@ describe('S31-01 queue schema reconciled (real Postgres)', () => {
   itLive(
     'queueSchemaMatchesMigration0010 (AC-5)',
     async () => {
+      await ensureHolocronAppRole();
       await dropAndCreateDb(DB_NAME);
       const url = dbUrl(DB_NAME);
+
+      // Role exists first so 0010 / 0036 DO $grants$ blocks actually GRANT to holocron_app.
+      writeEvidence('ac5-role-before-migrate.json', {
+        role: HOLOCRON_APP_ROLE,
+        note: 'holocron_app ensured at cluster level before applyMigrations; test issues no GRANT',
+      });
+
       const mig = await applyMigrations({ databaseUrl: url });
       expect(mig.ok, mig.errors.join('; ')).toBe(true);
 
       const sql = createSql(url);
       try {
-        // Ensure holocron_app role exists so grant inventory is queryable.
-        await sql.unsafe(`
-          DO $role$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'holocron_app') THEN
-              CREATE ROLE holocron_app LOGIN;
-            END IF;
-          END
-          $role$;
-        `);
-        // Re-apply grants from 0010/0036 style in case role was created after migrate.
-        await sql.unsafe(`
-          GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE queue_jobs TO holocron_app;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE queue_dlq TO holocron_app;
-          GRANT SELECT, INSERT, UPDATE ON TABLE queue_backend_meta TO holocron_app;
-        `);
+        // NO post-migrate GRANT — inventory must come from migrations alone.
 
         const checks = await sql<{ conname: string }[]>`
           SELECT conname
@@ -114,7 +128,6 @@ describe('S31-01 queue schema reconciled (real Postgres)', () => {
         expect(connames.has('queue_jobs_priority_nonneg')).toBe(true);
         expect(connames.has('queue_jobs_attempts_nonneg')).toBe(true);
         expect(connames.has('queue_jobs_max_attempts_pos')).toBe(true);
-        // Must not be the runtime shape of only 2 CHECKs.
         expect(connames.size).toBeGreaterThanOrEqual(5);
 
         const indexes = await sql<{ indexname: string }[]>`
@@ -132,12 +145,18 @@ describe('S31-01 queue schema reconciled (real Postgres)', () => {
         const grants = await sql<{ privilege_type: string }[]>`
           SELECT privilege_type
           FROM information_schema.role_table_grants
-          WHERE grantee = 'holocron_app' AND table_schema = 'public' AND table_name = 'queue_jobs'
+          WHERE grantee = ${HOLOCRON_APP_ROLE}
+            AND table_schema = 'public'
+            AND table_name = 'queue_jobs'
         `;
         const privs = new Set(grants.map((g) => g.privilege_type));
-        writeEvidence('ac5-queue-grants.json', [...privs]);
+        writeEvidence('ac5-queue-grants.json', {
+          grantee: HOLOCRON_APP_ROLE,
+          privileges: [...privs],
+          source: 'migration-only (no test GRANT)',
+        });
         for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
-          expect(privs.has(p)).toBe(true);
+          expect(privs.has(p), `missing ${p} for holocron_app from migrations`).toBe(true);
         }
 
         const schemaSrc = readFileSync(QUEUE_SCHEMA, 'utf8');

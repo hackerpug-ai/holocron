@@ -1,19 +1,19 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
 
- ✓ |integration| services/platform/tests/integration/sprint31-escape-guard-row.test.ts (1 test) 4674ms
-     ✓ escapeGuardFailsLoudlyWithoutRow (AC-4)  2351ms
- ✓ |integration| services/platform/tests/integration/sprint31-queue-schema-reconciled.test.ts (1 test) 4774ms
-     ✓ queueSchemaMatchesMigration0010 (AC-5)  2362ms
- ✓ |integration| services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts (1 test) 6528ms
-     ✓ platformOperatesWithoutCreatePrivilege (AC-3)  4578ms
- ✓ |integration| services/platform/tests/integration/sprint31-migration-truth.test.ts (2 tests) 8209ms
-     ✓ freshNamespaceMigratesToCompleteSchema (AC-1)  2484ms
-     ✓ ordinalGateRefusesCollisionAndGap (AC-2)  3443ms
+ ✓ |integration| services/platform/tests/integration/sprint31-queue-schema-reconciled.test.ts (1 test) 3476ms
+     ✓ queueSchemaMatchesMigration0010 (AC-5)  1611ms
+ ✓ |integration| services/platform/tests/integration/sprint31-escape-guard-row.test.ts (1 test) 3390ms
+     ✓ escapeGuardFailsLoudlyWithoutRow (AC-4)  1775ms
+ ✓ |integration| services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts (1 test) 5444ms
+     ✓ platformOperatesWithoutCreatePrivilege (AC-3)  4677ms
+ ✓ |integration| services/platform/tests/integration/sprint31-migration-truth.test.ts (2 tests) 6238ms
+     ✓ freshNamespaceMigratesToCompleteSchema (AC-1)  1976ms
+     ✓ ordinalGateRefusesCollisionAndGap (AC-2)  3042ms
 
  Test Files  4 passed (4)
       Tests  5 passed (5)
-   Start at  21:31:24
-   Duration  8.76s (transform 599ms, setup 459ms, import 1.44s, tests 24.18s, environment 0ms)
+   Start at  22:07:33
+   Duration  6.76s (transform 547ms, setup 447ms, import 1.37s, tests 18.55s, environment 0ms)
 
 EXIT_CODE:0

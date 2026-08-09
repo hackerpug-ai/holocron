@@ -1,7 +1,11 @@
-# AC-3 RED-against-start — would fail if runtime DDL required CREATE privilege
-# Setup: REVOKE CREATE ON SCHEMA public FROM holocron_app after migrate
-# Negative control: any remaining CREATE TABLE in the six modules would raise SQLSTATE 42501
-# Six-file DDL scan result (must be 0 occurrences):
+# AC-3 RED-against-start
+# Fixture: REVOKE CREATE ON SCHEMA public FROM holocron_app after migrate.
+# CLIs run as DATABASE_URL rewritten to holocron_app (toAppRoleDatabaseUrl).
+# Would fail with SQLSTATE 42501 if runtime DDL or missing migration GRANTs.
+# App session probe + DDL scan:
+{
+  "current_user": "holocron_app"
+}
 {
   "total": 0,
   "hits": []

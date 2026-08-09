@@ -1,6 +1,8 @@
 /**
  * S31-01 AC-4 — missing degraded_mode row fails loudly (DEGRADED_MODE_ROW_MISSING).
  *
+ * Positive path records real guard/controller fields (no fabricated decision object).
+ *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint31-escape-guard-row.test.ts
  */
@@ -15,8 +17,11 @@ import { DegradedModeController } from '../../src/inference/degraded-mode-contro
 import { resetProcessDegradedFlag } from '../../src/inference/degraded-process-flag.ts';
 import {
   assertEscapeNotDegraded,
+  DEGRADED_MODE_GLOBAL_ID,
   DEGRADED_MODE_ROW_MISSING,
   DegradedModeRowMissingError,
+  isDurableDegradedMode,
+  isEscapeBlockedByDegraded,
 } from '../../src/inference/escape-degraded-guard.ts';
 
 const itLive = PLATFORM_IT ? it : it.skip;
@@ -139,35 +144,51 @@ describe('S31-01 escape guard row (real Postgres)', () => {
           after: afterLedger[0]?.n,
         });
 
-        // --- Positive: re-seed via migration shape, forceNormal via controller ---
+        // --- Positive: re-seed row; capture REAL controller + guard outcomes ---
         await sql`
           INSERT INTO degraded_mode (id, degraded_state, resume_state)
-          VALUES ('global', 'normal', 'normal')
+          VALUES (${DEGRADED_MODE_GLOBAL_ID}, 'normal', 'normal')
         `;
         const one = await sql<{ n: string }[]>`SELECT count(*)::text AS n FROM degraded_mode`;
         expect(Number(one[0]?.n ?? 0)).toBe(1);
 
         const controller = new DegradedModeController({ databaseUrl: url });
+        let controllerState: ReturnType<DegradedModeController['getState']>;
         try {
           await controller.init();
           await controller.forceNormal();
-          const state = controller.getState();
-          expect(state['degraded-state']).toBe('normal');
+          controllerState = controller.getState();
         } finally {
           await controller.close({ resetToNormal: true });
         }
 
-        // Guard allows when durable state is normal.
+        // Real durable read — false means state is 'normal' (not degraded).
+        const durableDegraded = await isDurableDegradedMode({ databaseUrl: url });
+        const escapeBlocked = await isEscapeBlockedByDegraded({ databaseUrl: url });
+        // assertEscapeNotDegraded resolves only when escape is allowed.
         await assertEscapeNotDegraded('divergent', { databaseUrl: url });
 
+        // Persist only real fields from guard/controller (no fabricated decision object).
         const decision = {
-          source: 'degraded_mode',
-          degraded_state: 'normal' as const,
-          allowed: true,
+          degraded_mode_row_id: DEGRADED_MODE_GLOBAL_ID,
+          controller: {
+            'degraded-state': controllerState['degraded-state'],
+            'resume-state': controllerState['resume-state'],
+            message: controllerState.message,
+            degradationAction: controllerState.degradationAction,
+            missionMode: controllerState.missionMode,
+          },
+          guard: {
+            isDurableDegradedMode: durableDegraded,
+            isEscapeBlockedByDegraded: escapeBlocked,
+            assertEscapeNotDegraded: 'resolved',
+          },
         };
         writeEvidence('ac4-decision.json', decision);
-        expect(decision.source).toBe('degraded_mode');
-        expect(decision.degraded_state).toBe('normal');
+
+        expect(controllerState['degraded-state']).toBe('normal');
+        expect(durableDegraded).toBe(false);
+        expect(escapeBlocked).toBe(false);
 
         // Real budget path writes exactly one audit/pre-check ledger row with reason.
         const runId = `s31-01-escape-${Date.now()}`;

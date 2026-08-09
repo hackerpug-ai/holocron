@@ -60,5 +60,5 @@ services/platform/src/queue/durable-effect.ts:180:13 lint/style/noNonNullAsserti
     186 │           INSERT INTO queue_inbox (key, outbox_id, effect_id, fence_token, outcome)
   
 
-Checked 13 files in 12ms. No fixes applied.
+Checked 13 files in 13ms. No fixes applied.
 Found 4 warnings.

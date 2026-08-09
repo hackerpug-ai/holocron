@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
 
- ✓ |integration| services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts (1 test) 8497ms
-     ✓ platformOperatesWithoutCreatePrivilege (AC-3)  8008ms
+ ✓ |integration| services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts (1 test) 3764ms
+     ✓ platformOperatesWithoutCreatePrivilege (AC-3)  3066ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  21:31:42
-   Duration  9.09s (transform 220ms, setup 107ms, import 394ms, tests 8.50s, environment 0ms)
+   Start at  22:07:49
+   Duration  4.24s (transform 122ms, setup 103ms, import 278ms, tests 3.76s, environment 0ms)
 

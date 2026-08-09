@@ -8,11 +8,11 @@ harvest-evidence: task=S31-01 manifest=.tmp/S31-01/verify-manifest.json
   [AC-3] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts -t platformOperatesWithoutCreatePrivilege
   [AC-4] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-escape-guard-row.test.ts -t escapeGuardFailsLoudlyWithoutRow
   [AC-5] PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-queue-schema-reconciled.test.ts -t queueSchemaMatchesMigration0010
-  archived prior summary → verification-summary.prev-179b7016c835.json
+  archived prior summary → verification-summary.prev-dc7185591af0.json
 
 harvest-evidence: done
   task:       S31-01
-  commit:     88a3ae64
+  commit:     3e24c999
   typecheck:  exit=0
   lint:       exit=0 warnings=1
   evidence:   5 pass, 0 fail (of 5 requirements)

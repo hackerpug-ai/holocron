@@ -1,6 +1,8 @@
 /**
  * S31-01 AC-3 — platform operates with CREATE revoked from holocron_app.
  *
+ * CLIs run as holocron_app (not owner). Heartbeat is written via backup:healthy.
+ *
  * Run:
  *   PLATFORM_IT=1 pnpm vitest run services/platform/tests/integration/sprint31-no-runtime-ddl.test.ts
  */
@@ -10,6 +12,7 @@ import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql } from '../../src/db/client.ts';
+import { HOLOCRON_APP_ROLE, toAppRoleDatabaseUrl } from '../../src/db/evidence/roles.ts';
 import { applyMigrations } from '../../src/db/migrate.ts';
 
 const itLive = PLATFORM_IT ? it : it.skip;
@@ -54,6 +57,24 @@ function writeEvidence(name: string, body: unknown): void {
   );
 }
 
+/** Cluster-level app role must exist BEFORE migrate so migration GRANT blocks fire. */
+async function ensureHolocronAppRole(): Promise<void> {
+  const admin = createSql(adminUrlFrom(OWNER_URL));
+  try {
+    await admin.unsafe(`
+      DO $role$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'holocron_app') THEN
+          CREATE ROLE holocron_app LOGIN;
+        END IF;
+      END
+      $role$;
+    `);
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+}
+
 async function dropAndCreateDb(name: string): Promise<void> {
   const admin = createSql(adminUrlFrom(OWNER_URL));
   try {
@@ -62,19 +83,24 @@ async function dropAndCreateDb(name: string): Promise<void> {
     );
     await admin.unsafe(`DROP DATABASE IF EXISTS ${name}`);
     await admin.unsafe(`CREATE DATABASE ${name}`);
+    // CONNECT so app-role product paths can open a session after migrate.
+    await admin.unsafe(`GRANT CONNECT ON DATABASE ${name} TO holocron_app`);
   } finally {
     await admin.end({ timeout: 5 });
   }
 }
 
-function runHolo(args: string[], databaseUrl: string) {
+/** Product CLIs as holocron_app — DATABASE_URL is app; owner left for admin only. */
+function runHoloAsApp(args: string[], ownerUrl: string) {
+  const appUrl = toAppRoleDatabaseUrl(ownerUrl);
   return spawnSync('bun', [HOLO, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: {
       ...process.env,
-      DATABASE_URL: databaseUrl,
-      DATABASE_URL_OWNER: databaseUrl,
+      DATABASE_URL: appUrl,
+      // Keep owner separate so migrate/admin rewrites stay owner-scoped if invoked.
+      DATABASE_URL_OWNER: ownerUrl,
     },
     timeout: 180_000,
   });
@@ -114,29 +140,46 @@ describe('S31-01 no runtime DDL (real Postgres)', () => {
   itLive(
     'platformOperatesWithoutCreatePrivilege (AC-3)',
     async () => {
+      await ensureHolocronAppRole();
       await dropAndCreateDb(DB_NAME);
-      const url = dbUrl(DB_NAME);
-      const mig = await applyMigrations({ databaseUrl: url });
+      const ownerUrl = dbUrl(DB_NAME);
+      const appUrl = toAppRoleDatabaseUrl(ownerUrl);
+
+      // Migrate as owner so schema + migration GRANT blocks install for holocron_app.
+      const mig = await applyMigrations({ databaseUrl: ownerUrl });
       expect(mig.ok, mig.errors.join('; ')).toBe(true);
 
-      const owner = createSql(url);
+      const owner = createSql(ownerUrl);
+      let caseWindowStart = '';
       try {
-        // Ensure holocron_app can connect: grant CONNECT + DML already from migrations.
-        await owner.unsafe(`
-          DO $role$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'holocron_app') THEN
-              CREATE ROLE holocron_app LOGIN;
-            END IF;
-          END
-          $role$;
-        `);
-        await owner.unsafe(`GRANT CONNECT ON DATABASE ${DB_NAME} TO holocron_app`);
         await owner.unsafe(`GRANT USAGE ON SCHEMA public TO holocron_app`);
+        // Fail-closed app-role fixture: CREATE revoked for the product session.
         await owner.unsafe(`REVOKE CREATE ON SCHEMA public FROM holocron_app`);
         await owner.unsafe(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`);
+
+        const whoApp = await owner<{ current_user: string; session: string }[]>`
+          SELECT current_user::text, current_setting('role', true) AS session
+        `;
+        writeEvidence('ac3-owner-session.json', {
+          owner_current_user: whoApp[0]?.current_user,
+          app_url: appUrl.replace(/:[^:@/]+@/, ':***@'),
+          app_role: HOLOCRON_APP_ROLE,
+        });
+
+        const startRows = await owner<{ ts: string }[]>`SELECT now()::text AS ts`;
+        caseWindowStart = startRows[0]?.ts ?? new Date(0).toISOString();
       } finally {
         await owner.end({ timeout: 5 });
+      }
+
+      // Prove product connection is holocron_app before CLI fan-out.
+      const appProbe = createSql(appUrl);
+      try {
+        const who = await appProbe<{ u: string }[]>`SELECT current_user::text AS u`;
+        expect(who[0]?.u).toBe(HOLOCRON_APP_ROLE);
+        writeEvidence('ac3-app-session.json', { current_user: who[0]?.u });
+      } finally {
+        await appProbe.end({ timeout: 5 });
       }
 
       const cliResults: Array<{
@@ -144,38 +187,53 @@ describe('S31-01 no runtime DDL (real Postgres)', () => {
         status: number | null;
         stderr: string;
         stdout: string;
+        as_role: string;
       }> = [];
 
-      const effect = runHolo(['queue:effect', 'ddl-probe-1', '--json'], url);
+      const effect = runHoloAsApp(['queue:effect', 'ddl-probe-1', '--json'], ownerUrl);
       cliResults.push({
         cmd: 'queue:effect',
         status: effect.status,
         stderr: effect.stderr,
         stdout: effect.stdout,
+        as_role: HOLOCRON_APP_ROLE,
       });
 
-      const jobs = runHolo(['jobs:run-all', '--json'], url);
+      const jobs = runHoloAsApp(['jobs:run-all', '--json'], ownerUrl);
       cliResults.push({
         cmd: 'jobs:run-all',
         status: jobs.status,
         stderr: jobs.stderr,
         stdout: jobs.stdout,
+        as_role: HOLOCRON_APP_ROLE,
       });
 
-      const backup = runHolo(['backup:status', '--json'], url);
+      // backup:healthy upserts backup_heartbeat (status path is read-only).
+      const healthy = runHoloAsApp(['backup:healthy', '--all', '--json'], ownerUrl);
+      cliResults.push({
+        cmd: 'backup:healthy --all',
+        status: healthy.status,
+        stderr: healthy.stderr,
+        stdout: healthy.stdout,
+        as_role: HOLOCRON_APP_ROLE,
+      });
+
+      const backup = runHoloAsApp(['backup:status', '--json'], ownerUrl);
       cliResults.push({
         cmd: 'backup:status',
         status: backup.status,
         stderr: backup.stderr,
         stdout: backup.stdout,
+        as_role: HOLOCRON_APP_ROLE,
       });
 
-      const degraded = runHolo(['infer:degraded', '--json'], url);
+      const degraded = runHoloAsApp(['infer:degraded', '--json'], ownerUrl);
       cliResults.push({
         cmd: 'infer:degraded',
         status: degraded.status,
         stderr: degraded.stderr,
         stdout: degraded.stdout,
+        as_role: HOLOCRON_APP_ROLE,
       });
 
       writeEvidence('ac3-cli-results.json', cliResults);
@@ -185,12 +243,13 @@ describe('S31-01 no runtime DDL (real Postgres)', () => {
         expect(blob, `${r.cmd} raised 42501`).not.toMatch(/42501|permission denied for/i);
       }
 
-      // queue:effect + jobs:run-all must succeed for the schema probes.
       expect(effect.status, effect.stderr || effect.stdout).toBe(0);
       expect(jobs.status, jobs.stderr || jobs.stdout).toBe(0);
+      expect(healthy.status, healthy.stderr || healthy.stdout).toBe(0);
       expect(degraded.status, degraded.stderr || degraded.stdout).toBe(0);
 
-      const sql = createSql(url);
+      // Observe as owner (read-only inventory) after app-role writes.
+      const sql = createSql(ownerUrl);
       try {
         const effects = await sql<{ n: string }[]>`
           SELECT count(*)::text AS n FROM queue_effects WHERE key = 'ddl-probe-1'
@@ -203,9 +262,19 @@ describe('S31-01 no runtime DDL (real Postgres)', () => {
           const jobRows = await sql<{ n: string }[]>`
             SELECT count(*)::text AS n FROM job_runs WHERE run_key LIKE ${`%${jobsParsed.run_id}%`}
           `;
-          // 16 migrated jobs each write one job_runs row
           expect(Number(jobRows[0]?.n ?? 0)).toBe(16);
         }
+
+        const heartbeat = await sql<{ n: string; max_updated: string | null }[]>`
+          SELECT count(*)::text AS n, max(updated_at)::text AS max_updated
+          FROM backup_heartbeat
+          WHERE updated_at >= ${caseWindowStart}::timestamptz
+        `;
+        writeEvidence('ac3-backup-heartbeat.json', {
+          caseWindowStart,
+          ...heartbeat[0],
+        });
+        expect(Number(heartbeat[0]?.n ?? 0)).toBeGreaterThanOrEqual(1);
 
         const degradedCount = await sql<{ n: string; updated: string }[]>`
           SELECT count(*)::text AS n, max(updated_at)::text AS updated FROM degraded_mode

@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
 
- ✓ |integration| services/platform/tests/integration/sprint31-migration-truth.test.ts (2 tests | 1 skipped) 1854ms
-     ✓ freshNamespaceMigratesToCompleteSchema (AC-1)  1097ms
+ ✓ |integration| services/platform/tests/integration/sprint31-migration-truth.test.ts (2 tests | 1 skipped) 2446ms
+     ✓ freshNamespaceMigratesToCompleteSchema (AC-1)  1239ms
 
  Test Files  1 passed (1)
       Tests  1 passed | 1 skipped (2)
-   Start at  21:31:34
-   Duration  2.34s (transform 126ms, setup 105ms, import 290ms, tests 1.85s, environment 0ms)
+   Start at  22:07:41
+   Duration  2.92s (transform 121ms, setup 102ms, import 278ms, tests 2.45s, environment 0ms)
 

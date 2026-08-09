@@ -1,11 +1,11 @@
 
  RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01
 
- ✓ |integration| services/platform/tests/integration/sprint31-migration-truth.test.ts (2 tests | 1 skipped) 4193ms
-     ✓ ordinalGateRefusesCollisionAndGap (AC-2)  1344ms
+ ✓ |integration| services/platform/tests/integration/sprint31-migration-truth.test.ts (2 tests | 1 skipped) 3124ms
+     ✓ ordinalGateRefusesCollisionAndGap (AC-2)  1278ms
 
  Test Files  1 passed (1)
       Tests  1 passed | 1 skipped (2)
-   Start at  21:31:37
-   Duration  4.69s (transform 127ms, setup 107ms, import 295ms, tests 4.19s, environment 0ms)
+   Start at  22:07:45
+   Duration  3.60s (transform 124ms, setup 104ms, import 282ms, tests 3.12s, environment 0ms)
 
