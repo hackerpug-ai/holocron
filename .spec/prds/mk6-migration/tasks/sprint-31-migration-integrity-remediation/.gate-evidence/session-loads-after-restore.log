@@ -1,0 +1,71 @@
+WARNING: Final field parent in class maestro.cli.command.TestCommand has been mutated reflectively by class picocli.CommandLine$Model$FieldBinding in unnamed module @58326051 (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/picocli-4.6.3.jar)
+WARNING: Use --enable-final-field-mutation=ALL-UNNAMED to avoid a warning
+WARNING: Mutating final fields will be blocked in a future release unless final field mutation is enabled
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/jansi-2.4.1.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+Running on iPhone 17 Pro - iOS 26.5 - D70558B9-3E26-43F6-8D52-311A0D86E50D
+ > Flow session-loads
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.oracle.truffle.api.dsl.InlineSupport$UnsafeField (file:/opt/homebrew/Cellar/maestro/2.6.1/libexec/lib/truffle-api-24.2.0.jar)
+WARNING: Please consider reporting this to the maintainers of class com.oracle.truffle.api.dsl.InlineSupport$UnsafeField
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+Launch app "${MAESTRO_APP_ID}" with clear state... COMPLETED
+Open ${MAESTRO_DEV_CLIENT_OPEN_URL}... COMPLETED
+Assert that (Optional) "Open" is visible... WARNED
+
+
+ Warning: Assertion is false: "Open" is visible
+Tap on (Optional) "Open"... WARNED
+
+
+ Warning: Element not found: Text matching regex: Open
+Assert that (Optional) "Enter URL manually" is visible... WARNED
+
+
+ Warning: Assertion is false: "Enter URL manually" is visible
+Run flow when "Enter URL manually" is visible...
+Run flow when "Enter URL manually" is visible... SKIPPED
+Run flow when "http://192.168.1.160:8081" is visible...
+Run flow when "http://192.168.1.160:8081" is visible... SKIPPED
+Run flow when "http://127.0.0.1:8081" is visible...
+Run flow when "http://127.0.0.1:8081" is visible... SKIPPED
+Run flow when "${MAESTRO_METRO_URL}" is visible...
+Run flow when "http://192.168.1.160:8081" is visible... SKIPPED
+Assert that (Optional) "Continue" is visible... COMPLETED
+Tap on (Optional) "Continue"... COMPLETED
+Run flow when "Runtime version" is visible...
+Run flow when "Runtime version" is visible... SKIPPED
+Run flow when "Go home" is visible...
+  Tap on (Optional) id: xmark... COMPLETED
+Run flow when "Go home" is visible... COMPLETED
+Swipe from (92%,12%) to (92%,75%) in 500 ms... COMPLETED
+Assert that (Optional) ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*" is visible... COMPLETED
+Assert that (Optional) "Unable to resolve module" is not visible... COMPLETED
+Assert that (Optional) "Welcome to Expo" is not visible... COMPLETED
+Open ${MAESTRO_RESEARCH_SESSION_URL}... COMPLETED
+Assert that (Optional) "Open" is visible... WARNED
+
+
+ Warning: Assertion is false: "Open" is visible
+Tap on (Optional) "Open"... WARNED
+
+
+ Warning: Element not found: Text matching regex: Open
+Run flow when "Runtime version" is visible...
+Run flow when "Runtime version" is visible... SKIPPED
+Run flow when "Continue" is visible...
+Run flow when "Continue" is visible... SKIPPED
+Assert that id: research-detail-view is visible... COMPLETED
+Assert that id: research-detail-view is visible... COMPLETED
+Assert that "E2E Active Research: Native resilience" is visible... COMPLETED
+Assert that "E2E Active Research: Native resilience" is visible... COMPLETED
+Assert that id: research-progress-bar is visible... COMPLETED
+Assert that id: research-progress-bar is visible... COMPLETED
+Assert that "Research session not found" is not visible... COMPLETED
+Assert that (Optional) "Session not found" is not visible... COMPLETED
+Assert that (Optional) id: research-detail-error is not visible... COMPLETED
+Assert that (Optional) "Unable to resolve module" is not visible... COMPLETED
+Take screenshot S31-FE-02-AC-3-session-loads-r39... COMPLETED

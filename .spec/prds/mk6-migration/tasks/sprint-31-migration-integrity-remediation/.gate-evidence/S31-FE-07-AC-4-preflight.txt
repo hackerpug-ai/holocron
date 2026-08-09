@@ -1,0 +1,5 @@
+[run-offline-contract-airplane-reads] WATCHDOG_MS=30000 MAESTRO_RESEARCH_ERROR_TIMEOUT_MS=40000
+[run-offline-contract-airplane-reads] MAESTRO_METRO_URL=http://192.168.1.160:8081
+[run-offline-contract-airplane-reads] EVIDENCE_DIR=/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-07/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/.gate-evidence
+[run-offline-contract-airplane-reads] FAIL-CLOSED: segment-1 preflight refused: zero-cache still answering on port 4848 (keepalive ok) — boot out holocron-zerocache before airplane-mode reads; 0 Maestro invocations
+AC4_RC=1

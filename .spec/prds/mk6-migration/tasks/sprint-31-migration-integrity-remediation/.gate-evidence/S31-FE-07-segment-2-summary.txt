@@ -1,0 +1,1 @@
+segment-2 exit=0 banner=chat-degraded-banner cardinality=1
