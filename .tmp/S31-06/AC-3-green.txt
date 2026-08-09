@@ -1,0 +1,4 @@
+S31-06 AC-3 GREEN:
+- Live probe vs committed manifest: drift list length 0 across 5 roles
+- Non-placeholder endpoint + litellmModelId for each role
+- Deliberate divergent flag flip → drift length exactly 1 naming divergent

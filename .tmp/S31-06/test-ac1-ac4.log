@@ -1,0 +1,23 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-06
+
+ ❯ |integration| services/platform/tests/integration/sprint31-probe-driven-extraction.test.ts (3 tests | 1 failed) 37069ms
+     ✓ extractionConsumesTheBootProbe  37063ms
+     × repairModeStillFailsExplicitly 4ms
+     ✓ PLATFORM_IT gate is required for live fleet assertions 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |integration| services/platform/tests/integration/sprint31-probe-driven-extraction.test.ts > S31-06 AC-4: repair-mode roles still fail explicitly past the cap > repairModeStillFailsExplicitly
+TypeError: fetch failed
+Caused by: Error: read ECONNRESET
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -54, code: 'ECONNRESET', syscall: 'read' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  21:25:15
+   Duration  37.36s (transform 100ms, setup 160ms, import 15ms, tests 37.07s, environment 0ms)
+

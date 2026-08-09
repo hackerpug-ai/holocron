@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "capabilities": {
+    "divergent": {
+      "role": "divergent",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "implementer"
+    },
+    "convergent": {
+      "role": "convergent",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "reviewer"
+    },
+    "judge": {
+      "role": "judge",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "reviewer"
+    },
+    "embed": {
+      "role": "embed",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "qwen3-embedding"
+    },
+    "rerank": {
+      "role": "rerank",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "qwen3-reranker"
+    }
+  }
+}

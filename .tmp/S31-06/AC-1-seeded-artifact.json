@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "id": "141d3d91-5792-498e-9c73-51b7d4f8c46e",
+  "status": "success",
+  "role": "divergent",
+  "startedAt": "2026-08-09T03:34:27.202Z",
+  "endedAt": "2026-08-09T03:34:42.152Z",
+  "committed": true,
+  "attempts": 1,
+  "result": {
+    "title": "The Quick Brown Fox",
+    "count": 3,
+    "tags": [
+      "jump",
+      "lazy",
+      "dog"
+    ]
+  },
+  "initialMode": "repair",
+  "mode": "repair",
+  "modeSource": "boot-probe"
+}

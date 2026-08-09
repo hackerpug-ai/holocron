@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "extractionId": "6aca55c7-5e74-436f-8705-2a82cf2b9cee",
+  "result": {
+    "title": "The Quick Brown Fox",
+    "count": 3,
+    "tags": [
+      "jump",
+      "lazy",
+      "dog"
+    ]
+  },
+  "schema": "good",
+  "role": "divergent"
+}

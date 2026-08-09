@@ -1,0 +1,4 @@
+S31-06 AC-2 GREEN:
+- Overclaim manifest → exit non-zero, stderr contains MANIFEST_CAPABILITY_UNCONFIRMED naming embed
+- health200Count=0 during overclaim boot
+- Reconciled committed manifest → GET /health 200, 0 MANIFEST_CAPABILITY_UNCONFIRMED

@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "capabilities": {
+    "divergent": {
+      "role": "divergent",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "implementer",
+      "liveSupportsJsonSchema": false,
+      "declaredStructuredOutput": false
+    },
+    "convergent": {
+      "role": "convergent",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "reviewer",
+      "liveSupportsJsonSchema": false,
+      "declaredStructuredOutput": false
+    },
+    "judge": {
+      "role": "judge",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "reviewer",
+      "liveSupportsJsonSchema": false,
+      "declaredStructuredOutput": false
+    },
+    "embed": {
+      "role": "embed",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "qwen3-embedding",
+      "liveSupportsJsonSchema": false,
+      "declaredStructuredOutput": false
+    },
+    "rerank": {
+      "role": "rerank",
+      "supportsJsonSchema": false,
+      "mode": "repair",
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "qwen3-reranker",
+      "liveSupportsJsonSchema": false,
+      "declaredStructuredOutput": false
+    }
+  }
+}

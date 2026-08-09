@@ -1,0 +1,60 @@
+{
+  "capturedAt": "2026-08-09T03:14:48.432376Z",
+  "fleet": "http://127.0.0.1:4545",
+  "conclusion": "All 5 roles fail live json_schema generateObject (content=null / reasoning-channel). Manifest structuredOutput true for divergent/convergent/judge must flip to false. declared-true/probed-false becomes MANIFEST_CAPABILITY_UNCONFIRMED after invert.",
+  "roles": {
+    "divergent": {
+      "mode": "repair",
+      "supportsJsonSchema": false,
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "implementer"
+    },
+    "convergent": {
+      "mode": "repair",
+      "supportsJsonSchema": false,
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "reviewer"
+    },
+    "judge": {
+      "mode": "repair",
+      "supportsJsonSchema": false,
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "reviewer"
+    },
+    "embed": {
+      "mode": "repair",
+      "supportsJsonSchema": false,
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "qwen3-embedding"
+    },
+    "rerank": {
+      "mode": "repair",
+      "supportsJsonSchema": false,
+      "endpoint": "http://127.0.0.1:4545",
+      "litellmModelId": "qwen3-reranker"
+    }
+  },
+  "manifestFlips": [
+    {
+      "role": "divergent",
+      "structuredOutput": {
+        "from": true,
+        "to": false
+      }
+    },
+    {
+      "role": "convergent",
+      "structuredOutput": {
+        "from": true,
+        "to": false
+      }
+    },
+    {
+      "role": "judge",
+      "structuredOutput": {
+        "from": true,
+        "to": false
+      }
+    }
+  ]
+}

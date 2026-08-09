@@ -1,0 +1,13 @@
+{
+  "flippedRole": "divergent",
+  "original": false,
+  "flippedTo": true,
+  "drift": [
+    {
+      "role": "divergent",
+      "declared": true,
+      "probed": false,
+      "probedMode": "repair"
+    }
+  ]
+}
