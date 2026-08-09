@@ -1,21 +1,112 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# AC-4 / TC-4 — Composer send streams a reply via Hono command
-# Prerequisite: Hono platform + fleet + Zero sync healthy.
+# S31-FE-04 AC-5 — live send yields one user bubble + one assistant bubble
+# and prefix-colliding seeded pair (Q1/Q2) stays two distinct bubbles.
+# Prerequisite: Hono platform + fleet + Zero sync healthy; seed:e2e applied.
 # MAESTRO_APP_ID must be com.holocron.app (see app.config.cjs bundleIdentifier).
 
 - launchApp:
     clearState: false
 
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 5000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Downloading"
+    timeout: 60000
+    optional: true
+
+- extendedWaitUntil:
+    notVisible: "Loading from Metro"
+    timeout: 120000
+    optional: true
+
+# Conversation Alpha holds prefix-colliding pair (seed-e2e v10+)
+# msgId(1,3)=a...00d Q1, msgId(1,4)=a...00e Q2
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+      - waitForAnimationToEnd
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
 - extendedWaitUntil:
     visible:
       id: "chat-screen"
-    timeout: 60000
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
 
 - extendedWaitUntil:
     visible:
       id: "chat-input"
-    timeout: 15000
+    timeout: 30000
+
+- extendedWaitUntil:
+    visible: "E2E Conversation Alpha"
+    timeout: 60000
+
+# Prefix-colliding seeded rows (msgId 1,3 / 1,4) — may be above the fold on a long thread
+- scrollUntilVisible:
+    element:
+      id: "message-00000000-0000-4000-8000-a0000000000d"
+    direction: UP
+    timeout: 90000
+    visibilityPercentage: 20
+    centerElement: true
+
+- assertVisible:
+    id: "message-00000000-0000-4000-8000-a0000000000d"
+
+- scrollUntilVisible:
+    element:
+      id: "message-00000000-0000-4000-8000-a0000000000e"
+    direction: UP
+    timeout: 60000
+    visibilityPercentage: 20
+
+- assertVisible:
+    id: "message-00000000-0000-4000-8000-a0000000000e"
+
+# Accessibility labels carry full content for Q1/Q2
+- assertVisible: "User message Summarise the quarterly report for Q1"
+- assertVisible: "User message Summarise the quarterly report for Q2"
 
 - tapOn:
     id: "chat-input-field"
@@ -24,23 +115,45 @@ appId: ${MAESTRO_APP_ID}
     id: "chat-input"
     optional: true
 
-- inputText: "S-REWRITE-01 e2e send probe"
+- inputText: "QQPROBE single bubble check"
 
 - tapOn:
     id: "chat-input-send-button"
 
-# Oracle: sent body renders as a new user bubble
-- extendedWaitUntil:
-    visible: "S-REWRITE-01 e2e send probe"
-    timeout: 15000
-
-- assertVisible: "S-REWRITE-01 e2e send probe"
-
-# Assistant reply streams via SSE and lands as durable Zero row
+# Wait for run to settle (primary send oracle)
 - extendedWaitUntil:
     visible:
-      id: "chat-assistant-message"
+      id: "chat-agent-busy-false"
+    timeout: 90000
+
+# Accessibility label for the sent user bubble
+- extendedWaitUntil:
+    visible: "User message QQPROBE single bubble check"
     timeout: 60000
+
+- assertVisible: "User message QQPROBE single bubble check"
+
+# Assistant reply streams via SSE and owns latest testID
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+# Prefix pair still present as distinct durable rows after reconcile
+- scrollUntilVisible:
+    element:
+      id: "message-00000000-0000-4000-8000-a0000000000d"
+    direction: UP
+    timeout: 60000
+    visibilityPercentage: 10
     optional: true
 
-- takeScreenshot: S-REWRITE-01-AC-4-send-streams
+- assertVisible:
+    id: "message-00000000-0000-4000-8000-a0000000000d"
+- assertVisible:
+    id: "message-00000000-0000-4000-8000-a0000000000e"
+
+- takeScreenshot: S31-FE-04-AC-5-send-streams-prefix-collision
