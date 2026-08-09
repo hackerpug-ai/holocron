@@ -68,17 +68,22 @@ describe('S-REACTIVE-01 resumable SSE client contracts', () => {
   });
 
   describe('AC-1 / AC-2 / AC-4 — real SSE socket + Last-Event-ID', () => {
-    it('hook uses EventSource (not a mock stub) and opens /api/chat-runs/:id/events', () => {
+    it('resumable sse transport uses openProgressiveSse/XMLHttpRequest (not a mock stub)', () => {
       const src = read(HOOK_PATH);
-      expect(src).toMatch(/EventSource/);
-      expect(src).toMatch(/eventsource-rn-polyfill|EventTarget/);
+      // Live transport is progressive XHR SSE (RN fetch lacks getReader) — pin to code, not prose.
+      expect(src).toMatch(/function openProgressiveSse/);
+      expect(src).toMatch(/new XMLHttpRequest\s*\(/);
+      expect(src).toMatch(/openProgressiveSse\s*\(/);
+      expect(src).toMatch(/eventsource-rn-polyfill\.js/);
       expect(src).toMatch(/\/api\/chat-runs\/.+\/events|chat-runs\/\$\{.*\}\/events/);
-      // RN progressive XHR SSE so token events land live (fetch lacks getReader)
-      expect(src).toMatch(/openProgressiveSse|XMLHttpRequest/);
       expect(src).toMatch(/Last-Event-ID/);
-      // Must not mock EventSource for tests
+      // Unused WhatWG eventsource import must not remain after S31-FE-05
+      expect(src).not.toMatch(/from\s+['"]eventsource['"]/);
+      expect(src).not.toMatch(/WhatWgEventSource/);
+      // Must not mock EventSource for tests (3 mock-rejection assertions retained)
       expect(src).not.toMatch(/vi\.mock\(['"]eventsource['"]\)|jest\.mock\(['"]eventsource['"]\)/);
       expect(src).not.toMatch(/mockEventSource|FakeEventSource|stubEventSource/);
+      expect(existsSync(join(REPO_ROOT, 'lib', 'eventsource-rn-polyfill.js'))).toBe(true);
       expect(existsSync(join(REPO_ROOT, 'lib', 'eventsource-rn-polyfill.ts'))).toBe(true);
     });
 
