@@ -775,7 +775,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         else process.env.HOLO_CUTOVER_OPERATOR_SECRET = priorSecret;
       }
     },
-    180_000
+    REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS
   );
 
   itReal(
@@ -890,7 +890,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         else process.env.HOLO_CUTOVER_OPERATOR_SECRET = priorSecret;
       }
     },
-    180_000
+    REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS
   );
 
   itReal(
@@ -962,7 +962,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         else process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = priorDangerousOverride;
       }
     },
-    180_000
+    REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS
   );
 
   itReal(
@@ -1275,7 +1275,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         else process.env.DATABASE_URL = priorDatabaseUrl;
       }
     },
-    180_000
+    REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS
   );
 
   itReal(
@@ -1652,7 +1652,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
         else process.env.HOLO_CUTOVER_OPERATOR_SECRET = priorOperatorSecret;
       }
     },
-    300_000
+    REAL_MULTIPROCESS_ORACLE_TIMEOUT_MS
   );
 
   itReal(
