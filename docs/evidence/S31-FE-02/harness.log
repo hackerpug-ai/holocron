@@ -1,0 +1,55 @@
+[run-zero-down-terminal-error] holo=/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02/bin/holo
+[run-zero-down-terminal-error] seed:e2e (zero-cache up; --reset preferred, PONR-safe upsert fallback)
+[run-zero-down-terminal-error] seed:e2e --reset blocked by PONR_IMMUTABLE — seeding with reset:false upserts
+[run-zero-down-terminal-error] MAESTRO_RESEARCH_SESSION_URL=holocron://research/00000000-0000-4000-8000-e00000000034
+[run-zero-down-terminal-error] MAESTRO_CHAT_URL=holocron://chat/00000000-0000-4000-8000-0000000000e1
+[run-zero-down-terminal-error] booting out holocron-zerocache (zero-cache down for Maestro)
+[run-zero-down-terminal-error] preflight ok: zero-cache down (keepalive fails); platform+metro up
+[run-zero-down-terminal-error] maestro test zero-down-terminal-error.yml
+[run-zero-down-terminal-error] restoring holocron-zerocache after Maestro (best-effort)
+[run-zero-down-terminal-error] holo=/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02/bin/holo
+[run-zero-down-terminal-error] seed:e2e (zero-cache up; --reset preferred, PONR-safe upsert fallback)
+[run-zero-down-terminal-error] seed:e2e --reset blocked by PONR_IMMUTABLE — seeding with reset:false upserts
+[run-zero-down-terminal-error] MAESTRO_RESEARCH_SESSION_URL=holocron://research/00000000-0000-4000-8000-e00000000033
+[run-zero-down-terminal-error] MAESTRO_CHAT_URL=holocron://chat/00000000-0000-4000-8000-0000000000e1
+[run-zero-down-terminal-error] booting out holocron-zerocache (zero-cache down for Maestro)
+[run-zero-down-terminal-error] preflight ok: zero-cache down (keepalive fails); platform+metro up
+[run-zero-down-terminal-error] maestro test zero-down-terminal-error.yml
+[run-zero-down-terminal-error] restoring zero-cache after Maestro (best-effort)
+[run-zero-down-terminal-error] zero-cache restored on :4848
+[run-zero-down-terminal-error] copied maestro debug from /Users/inference1/.maestro/tests/2026-08-09_010921
+[run-zero-down-terminal-error] holo=/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02/bin/holo
+[run-zero-down-terminal-error] seed:e2e (zero-cache up; --reset preferred, PONR-safe upsert fallback)
+[run-zero-down-terminal-error] seed:e2e --reset blocked by PONR_IMMUTABLE — seeding with reset:false upserts
+[run-zero-down-terminal-error] MAESTRO_RESEARCH_SESSION_URL=holocron://research/00000000-0000-4000-8000-e00000000033
+[run-zero-down-terminal-error] MAESTRO_CHAT_URL=holocron://chat/00000000-0000-4000-8000-0000000000e1
+[run-zero-down-terminal-error] booting out holocron-zerocache (zero-cache down for Maestro)
+[run-zero-down-terminal-error] preflight ok: zero-cache down (keepalive fails); platform+metro up
+[run-zero-down-terminal-error] maestro test zero-down-terminal-error.yml
+[run-zero-down-terminal-error] restoring zero-cache after Maestro (best-effort)
+[run-zero-down-terminal-error] copied maestro debug from /Users/inference1/.maestro/tests/2026-08-09_011144
+[run-zero-down-terminal-error] holo=/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02/bin/holo
+[run-zero-down-terminal-error] seed:e2e (zero-cache up; --reset preferred, PONR-safe upsert fallback)
+[run-zero-down-terminal-error] seed:e2e --reset blocked by PONR_IMMUTABLE — seeding with reset:false upserts
+[run-zero-down-terminal-error] MAESTRO_RESEARCH_SESSION_URL=holocron://research/00000000-0000-4000-8000-e00000000033
+[run-zero-down-terminal-error] MAESTRO_CHAT_URL=holocron://chat/00000000-0000-4000-8000-0000000000e1
+[run-zero-down-terminal-error] booting out holocron-zerocache (zero-cache down for Maestro)
+[run-zero-down-terminal-error] wiped simulator Zero SQLite under /Users/inference1/Library/Developer/CoreSimulator/Devices/C79BF38C-D353-46A2-A1ED-CCA6D68E1B04/data/Containers/Data/Application/D9A1C783-0E9C-4726-A9F9-BCBC48D259F3
+[run-zero-down-terminal-error] preflight ok: zero-cache down (keepalive fails); platform+metro up
+[run-zero-down-terminal-error] maestro test zero-down-terminal-error.yml
+[run-zero-down-terminal-error] restoring zero-cache after Maestro (best-effort)
+[run-zero-down-terminal-error] copied maestro debug from /Users/inference1/.maestro/tests/2026-08-09_011813
+[run-zero-down-terminal-error] zero-cache not answering — attempting scripts/run-zero-cache.sh
+[run-zero-down-terminal-error] holo=/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02/bin/holo
+[run-zero-down-terminal-error] MAESTRO_METRO_URL=http://192.168.1.160:8081
+[run-zero-down-terminal-error] seed:e2e (zero-cache up; --reset preferred, PONR-safe upsert fallback)
+[run-zero-down-terminal-error] seed:e2e --reset blocked by PONR_IMMUTABLE — seeding with reset:false upserts
+[run-zero-down-terminal-error] MAESTRO_RESEARCH_SESSION_URL=holocron://research/00000000-0000-4000-8000-e00000000033
+[run-zero-down-terminal-error] MAESTRO_CHAT_URL=holocron://chat/00000000-0000-4000-8000-0000000000e1
+[run-zero-down-terminal-error] booting out holocron-zerocache (zero-cache down for Maestro)
+[run-zero-down-terminal-error] wiped simulator Zero SQLite under /Users/inference1/Library/Developer/CoreSimulator/Devices/C79BF38C-D353-46A2-A1ED-CCA6D68E1B04/data/Containers/Data/Application/9BC80AFC-F28B-4D7E-818F-6B14CD08F0A1
+[run-zero-down-terminal-error] preflight ok: zero-cache down (keepalive fails; port-holder pid=38144); platform+metro up
+[run-zero-down-terminal-error] maestro test zero-down-terminal-error.yml
+[run-zero-down-terminal-error] restoring zero-cache after Maestro (best-effort)
+[run-zero-down-terminal-error] zero-cache restored on :4848
+[run-zero-down-terminal-error] copied maestro debug from /Users/inference1/.maestro/tests/2026-08-09_012632

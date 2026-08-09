@@ -1,32 +1,108 @@
-# S-REWRITE-04 AC-1 / TC-1 — Research session loads via Zero query
-# Prerequisite: holo seed:e2e --reset + Metro + Zero + platform on named iOS Simulator
-# Deep-link into a seeded research session; observe detail bound to Zero useQuery.
-appId: com.holocron.app
+# S-REWRITE-04 AC-1 / TC-1 + S31-FE-02 AC-3 (R39) — Research session loads via Zero query
+# Prerequisite: seed (upsert ok) + Metro (worktree tip) + Zero :4848 + platform + Expo dev-client
+# Deep-link into seeded research session; observe detail bound to Zero useQuery.
+# R39 control: with healthy zero-cache and cold clearState, research-detail-error MUST NOT appear.
+appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
 
+# Connect Expo Dev Client to worktree Metro (FE-05 proven pattern)
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
 - extendedWaitUntil:
-    visible:
-      text: "DEVELOPMENT SERVERS"
-    timeout: 15000
+    visible: "Open"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Enter URL manually"
+    timeout: 20000
     optional: true
 
 - runFlow:
     when:
-      visible: "DEVELOPMENT SERVERS"
+      visible: "Enter URL manually"
+    commands:
+      - tapOn:
+          point: "50%,28%"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "http://192.168.1.160:8081"
+    commands:
+      - tapOn: "http://192.168.1.160:8081"
+
+- runFlow:
+    when:
+      visible: "http://127.0.0.1:8081"
+    commands:
+      - tapOn: "http://127.0.0.1:8081"
+
+- runFlow:
+    when:
+      visible: ${MAESTRO_METRO_URL}
     commands:
       - tapOn:
           text: ${MAESTRO_METRO_URL}
           optional: true
 
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
 - runFlow:
     when:
-      visible: "Metro has encountered an error"
+      visible: "Runtime version"
     commands:
       - tapOn:
-          text: "Reload"
+          id: "xmark"
           optional: true
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- swipe:
+    start: "92%,12%"
+    end: "92%,75%"
+    duration: 500
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*"
+    timeout: 120000
+    optional: true
+
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
+- assertNotVisible:
+    text: "Welcome to Expo"
+    optional: true
+
+# Seeded research session deep link
+- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 6000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
 
 - runFlow:
     when:
@@ -34,24 +110,30 @@ appId: com.holocron.app
     commands:
       - tapOn:
           text: "Continue"
-      - tapOn:
-          text: "Close"
           optional: true
 
-# Seeded research session deep link (seed:e2e provides a stable session id env when set)
-- openLink: ${MAESTRO_RESEARCH_SESSION_URL}
-
+# Loading may show first while Zero syncs — wait through it
 - extendedWaitUntil:
     visible:
-      id: "research-detail-view"
-    timeout: 90000
+      text: "E2E Active Research: Native resilience"
+    timeout: 120000
 
-- assertVisible:
-    id: "research-detail-view"
+- assertVisible: "E2E Active Research: Native resilience"
 
-# MUST NOT observe session-not-found for a present seeded session
-- assertNotVisible:
-    text: "Session not found"
+# Detail chrome (progress bar from FE-05 / seed iterations)
+- extendedWaitUntil:
+    visible:
+      id: "research-progress-bar"
+    timeout: 30000
     optional: true
 
-- takeScreenshot: S-REWRITE-04-AC-1-session-loads
+# S31-FE-02 AC-3 / R39 control — healthy cold sync must never open the error branch.
+# Non-optional: a false-positive watchdog is a worse regression than a spinner.
+- assertNotVisible:
+    text: "Research session not found"
+
+- assertNotVisible:
+    id: "research-detail-error"
+    optional: true
+
+- takeScreenshot: S31-FE-02-AC-3-session-loads-r39

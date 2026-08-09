@@ -10,7 +10,7 @@
  * - the row becomes defined before the deadline
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Cold-sync floor. Must stay >= 15000 so a healthy slow first paint (R39)
@@ -33,18 +33,32 @@ export const ZERO_ROW_WATCHDOG_MESSAGE = 'Live data sync unavailable — could n
 export function useZeroRowWatchdog(row: unknown, enabled: boolean): Error | null {
   const [error, setError] = useState<Error | null>(null);
   const pending = enabled && row === undefined;
+  // Survive effect re-runs (Strict Mode / Zero reconnect churn) without resetting
+  // the deadline while still pending. Full unmount still resets via ref identity.
+  const pendingSinceRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Clear any prior terminal error when inputs change (row arrived, disabled, etc.).
-    setError(null);
-
     if (!pending) {
+      pendingSinceRef.current = null;
+      setError(null);
+      return;
+    }
+
+    if (pendingSinceRef.current == null) {
+      pendingSinceRef.current = Date.now();
+    }
+
+    const elapsed = Date.now() - pendingSinceRef.current;
+    const remaining = Math.max(0, ZERO_ROW_WATCHDOG_DEADLINE_MS - elapsed);
+
+    if (remaining === 0) {
+      setError(new Error(ZERO_ROW_WATCHDOG_MESSAGE));
       return;
     }
 
     const timer = setTimeout(() => {
       setError(new Error(ZERO_ROW_WATCHDOG_MESSAGE));
-    }, ZERO_ROW_WATCHDOG_DEADLINE_MS);
+    }, remaining);
 
     return () => {
       clearTimeout(timer);
