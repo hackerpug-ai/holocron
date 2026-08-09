@@ -21,7 +21,7 @@ import {
 } from './nonprod';
 import { assertSeedTargetAllowed } from './seed';
 
-export const E2E_SEED_VERSION = 9;
+export const E2E_SEED_VERSION = 10;
 
 /** Deterministic UUIDs (uuid v4-shaped) so Maestro / Zero can target stable ids. */
 export const E2E_CONVERSATION_IDS = [
@@ -532,6 +532,28 @@ export async function seedE2eDatabase(options?: {
           [mid, id, role, content]
         );
         messageCount += 1;
+      }
+
+      // S31-FE-04: prefix-colliding pair on Conversation Alpha (shared 24-char prefix).
+      // m1/m2 stay distinct by durable id; never content-prefix identity.
+      if (i === 0) {
+        const prefixPair: Array<[number, string]> = [
+          [3, 'Summarise the quarterly report for Q1'],
+          [4, 'Summarise the quarterly report for Q2'],
+        ];
+        for (const [j, content] of prefixPair) {
+          const mid = msgId(i + 1, j);
+          await sql.unsafe(
+            `INSERT INTO chat_messages (id, conversation_id, role, content, message_type, created_at)
+             VALUES ($1::uuid, $2, 'user', $3, 'text', now())
+             ON CONFLICT (id) DO UPDATE SET
+               content = EXCLUDED.content,
+               role = EXCLUDED.role`,
+            [mid, id, content]
+          );
+          messageCount += 1;
+        }
+        messages_log.push('seeded prefix-colliding message pair on Alpha (24-char shared prefix)');
       }
     }
     messages_log.push(

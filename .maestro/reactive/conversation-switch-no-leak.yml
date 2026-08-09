@@ -1,0 +1,258 @@
+appId: ${MAESTRO_APP_ID}
+---
+# S31-FE-04 AC-4 / AC-6 — conversation switch must not leak module turn state.
+# A marker sent in conversation A must never appear in conversation B.
+# Mid-stream remount rehydrates via hook ModuleStreamHandoff only.
+
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+- waitForAnimationToEnd
+
+# Give XCTest / dev-client a beat after deep-link before hierarchy walks
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 8000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "DEVELOPMENT SERVERS"
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn:
+          text: "Continue"
+      - tapOn:
+          text: "Close"
+          optional: true
+
+# Bundle download + Metro HMR can stick at "Downloading 100%" briefly
+- extendedWaitUntil:
+    notVisible: "Downloading"
+    timeout: 180000
+    optional: true
+
+- extendedWaitUntil:
+    notVisible: "Loading from Metro"
+    timeout: 180000
+    optional: true
+
+- waitForAnimationToEnd
+
+# ── AC-4: send in A, navigate to B, assert no leak ──────────────────────────
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+      - waitForAnimationToEnd
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+
+# Title proves Zero conversation row; long prior runs may virtualize seed off-screen
+- extendedWaitUntil:
+    visible: "E2E Conversation Alpha"
+    timeout: 90000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 30000
+
+- tapOn:
+    id: "chat-input-field"
+    optional: true
+- tapOn:
+    id: "chat-input"
+    optional: true
+
+- inputText: "ZZTOPMARKER conversation A probe"
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# Prefer busy-false as the durable send oracle (text match can miss under keyboard)
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 90000
+
+- extendedWaitUntil:
+    visible: "ZZTOPMARKER"
+    timeout: 60000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 90000
+
+- takeScreenshot: S31-FE-04-AC-4-after-send-A
+
+# Navigate to conversation B (re-open after Zero settles)
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e2
+- waitForAnimationToEnd
+
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen"
+    commands:
+      - waitForAnimationToEnd
+      - openLink: holocron://chat/00000000-0000-4000-8000-0000000000e2
+      - waitForAnimationToEnd
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e2
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+# B title + deterministic seed message ids (msgId(2,1)=a...015, msgId(2,2)=a...016)
+- extendedWaitUntil:
+    visible:
+      id: "chat-header-title"
+    timeout: 60000
+
+- assertVisible: "E2E Conversation Beta"
+
+# User seed uses message-{id}; assistant seed owns chat-assistant-message-latest
+# when it is the only agent row (see ChatThread resolveAgentRowTestId).
+- extendedWaitUntil:
+    visible:
+      id: "message-00000000-0000-4000-8000-a00000000015"
+    timeout: 90000
+
+- assertVisible:
+    id: "message-00000000-0000-4000-8000-a00000000015"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 60000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+- assertVisible: "Assistant seed reply for E2E Conversation Beta"
+
+# PRIMARY oracle: A's marker must not leak into B
+- assertNotVisible: "ZZTOPMARKER"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 30000
+
+- assertNotVisible:
+    id: "chat-loading-inline"
+
+- takeScreenshot: S31-FE-04-AC-4-conversation-B-no-leak
+
+# ── AC-6: remount mid-run rehydrates through hook snapshot ──────────────────
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+
+- tapOn:
+    id: "chat-input-field"
+    optional: true
+- tapOn:
+    id: "chat-input"
+    optional: true
+
+- inputText: "RRPROBE remount check"
+
+- tapOn:
+    id: "chat-input-send-button"
+
+# Navigate away immediately (mid-run or post-send) then return — ModuleStreamHandoff
+# / Zero durable must restore the turn; screen globals must not.
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e2
+- waitForAnimationToEnd
+
+- openLink: holocron://chat/00000000-0000-4000-8000-0000000000e1
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 60000
+
+- assertVisible: "E2E Conversation Alpha"
+
+# Pressable accessibilityLabel is "User message RRPROBE remount check" (leaf Text
+# may not mount for virtualized rows). Match the accessibility string and the
+# assistant markdown leaf which always carries the streamed body.
+- extendedWaitUntil:
+    visible: "User message RRPROBE remount check"
+    timeout: 90000
+
+- assertVisible: "User message RRPROBE remount check"
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest"
+    timeout: 90000
+
+- assertVisible:
+    id: "chat-assistant-message-latest"
+
+# Markdown leaf (when mounted) or settle via busy-false after durable land
+- extendedWaitUntil:
+    visible:
+      id: "chat-assistant-message-latest-markdown-0"
+    timeout: 90000
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-agent-busy-false"
+    timeout: 90000
+
+# Beta seed text must not appear inside A after remount
+- assertNotVisible: "E2E Conversation Beta"
+- assertNotVisible: "Assistant seed reply for E2E Conversation Beta"
+
+- takeScreenshot: S31-FE-04-AC-6-remount-rehydrate
