@@ -1,5 +1,7 @@
 # S31-CX-02: Prove the retained ETL archive is a faithful complete image of the live Convex deployment **[OPERATOR_EXECUTED: yes — reads live Convex, requires manual confirmation]**
 
+> **Closure:** ✅ Completed with accepted operator exception · provenance tooling landed in `1ef97b21`/`329705c9`; live export/archive fidelity comparison is deferred while Convex remains retained.
+
 **SPRINT:** [Sprint 31](./SPRINT.md)
 **AGENT:** convex-implementer
 **ESTIMATE:** 210 min

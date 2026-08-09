@@ -1,5 +1,7 @@
 # S31-OPS-02: Restore alert-sweep truth — repoint to production, purge fixture rows, add the zero-row floor **[OPERATOR_EXECUTED: yes — production heartbeat DELETE]**
 
+> **Closure:** ✅ Completed with verification exception · implementation landed in `279afaf5`; production purge completed 2026-08-09 after dump. Five fixture rows were deleted, zero fixture-like rows remain, and six real jobs were preserved. Healthy-chain verification remains not passed because those real jobs are overdue and `ALERT_WEBHOOK_URL` is unset.
+
 > **Task ID:** S31-OPS-02
 > **Sprint:** [Sprint 31 — Migration Integrity Remediation](./SPRINT.md)
 > **Type:** OPS · **Priority:** P0 · **Effort:** S · **Estimate:** 90 min

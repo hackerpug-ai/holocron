@@ -3,7 +3,7 @@ sprint: 31
 title: Migration Integrity Remediation
 sequence: 31
 timeline: Phase 7 — Cutover and Decommission
-status: In Progress
+status: Completed with accepted exceptions
 planned_from_roadmap_sha: ad8ab6125eac1b1f82c068f5e2df90795d0c2473f9450f514bb0e94e67345e73
 planned_from_source_sha: 54299bfc76fec6fc52468dae451ca293a6f104c4
 planned_from_source_kind: git-head
@@ -14,10 +14,10 @@ planned_at: 2026-08-08T01:09:02Z
 
 **Sequence:** 31
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
-> Progress: 0/20 tasks completed · updated 2026-08-09T03:06:33Z
+**Status:** Completed — accepted exceptions
+> Progress: implementation tasks landed; operator closeout accepted with exceptions · updated 2026-08-09T22:10:00Z
 
-> **Planning note.** Expanded via `--sprint-folder` bypass while Sprint 30 is actively in flight, so `ROADMAP.md` was deliberately not mutated and Sprint 31 remains 🔵 Planned. Unrelated pre-existing conflict to reconcile when Sprint 30 closes: its ROADMAP **section** reads `Completed` while its table row reads `🟠 In flight` and its own `SPRINT.md` reads `In Progress` — two of three say in-progress, and the audit found the positive `rollback-repoint` artifact missing with only negative controls surviving.
+> **Closure note.** Sprint 31 is closed administratively with accepted operator exceptions. The live gate state remains `met:false`; see the closure register below and `.tmp/sprint-31-migration-integrity-remediation/sprint-goal-state.json` for the fail-closed evidence.
 
 ---
 
@@ -83,6 +83,20 @@ An operator can revoke Convex credentials on the mini and confirm the platform s
 | S31-OPS-06 | Reconcile the freeze-state config split-brain across secrets, env and live Convex | devops-engineer | 45 min |
 
 **Operator-executed / irreversible (never agent-automated):** S31-CX-02 (fresh export against the live deployment), S31-OPS-01 (R2 credential rotation), S31-OPS-02 (production heartbeat DELETE).
+
+### Task closure register — 2026-08-09
+
+All implementation task tips are landed on `main` and their task specifications remain the authoritative acceptance-criteria record.
+
+**Closed / landed:** S31-01, S31-02, S31-03, S31-04, S31-05, S31-06, S31-07, S31-08, S31-09, S31-10, S31-MCP-01, S31-MCP-02, S31-MCP-03, S31-MCP-04, S31-CX-01, S31-CX-03, S31-CX-04, S31-CX-05, S31-CX-06, S31-FE-01, S31-FE-02, S31-FE-04, S31-FE-05, S31-FE-06, S31-FE-07, S31-OPS-03, S31-OPS-04, S31-OPS-05, S31-OPS-06.
+
+**Closed with accepted operator exception:**
+
+- **S31-CX-02:** tooling and provenance gates landed; live export/archive fidelity comparison deferred while Convex is retained.
+- **S31-OPS-01:** backup execution docs and agent-safe tests landed; R2 old-key revocation and negative control deferred.
+- **S31-OPS-02:** zero-row floor and alert-sweep runbook landed; production purge completed after dump. Healthy-chain verification is not passed because the six retained real jobs are overdue and no webhook is configured.
+
+This register records administrative closure, not a claim that the deferred primary gates passed. The durable goal sentinel intentionally remains `GATE-GOAL: BLOCKED met:false`.
 
 ---
 

@@ -1,5 +1,7 @@
 # S31-OPS-01: Restore backup execution — plists, pgbackrest.conf, R2 token rotation, restic mirror, webhook **[OPERATOR_EXECUTED: yes — R2 credential rotation is irreversible/operator-only]**
 
+> **Closure:** ✅ Completed with accepted operator exception · implementation landed in `44777d57`; old-key revocation and its negative control remain deferred by operator approval.
+
 > **Task ID:** S31-OPS-01
 > **Sprint:** [Sprint 31 — Migration Integrity Remediation](./SPRINT.md)
 > **Type:** OPS · **Priority:** P0 · **Effort:** M · **Estimate:** 195 min
