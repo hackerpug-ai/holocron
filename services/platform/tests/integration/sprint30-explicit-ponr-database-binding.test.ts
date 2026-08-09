@@ -27,7 +27,11 @@ import {
   runRollbackDrill,
   spawnRollbackRepointCli,
 } from '../../src/cutover/rollback-drill.ts';
-import { PONR_LEDGER_UNREADABLE, runRollbackRepoint } from '../../src/cutover/rollback-repoint.ts';
+import {
+  PONR_LEDGER_UNREADABLE,
+  probePreexistingServingListening,
+  runRollbackRepoint,
+} from '../../src/cutover/rollback-repoint.ts';
 import { runVerifyTools, type VerifyToolSeeds } from '../../src/cutover/soak-fence.ts';
 import { createSql } from '../../src/db/client.ts';
 import {
@@ -788,6 +792,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
       process.env.DATABASE_URL = ambientCanary;
       process.env.HOLO_CUTOVER_OPERATOR_SECRET = 's30-red-test-secret';
       let servingB: LiveService | undefined;
+      let preflightAttempts = 0;
       try {
         await clearPonr(targets.marker);
         await clearAudit(targets.marker);
@@ -803,6 +808,17 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
             HOLO_SERVICE_LABEL: 's30-explicit-target-mismatch-b',
           },
         });
+        const preflightDeadline = Date.now() + 180_000;
+        for (;;) {
+          preflightAttempts += 1;
+          const startedAt = Date.now();
+          const preflight = await probePreexistingServingListening(servingB.baseUrl, 15_000);
+          if (preflight.listening && Date.now() - startedAt < 2_000) break;
+          if (Date.now() >= preflightDeadline) {
+            throw new Error('TC-7/8 serving health did not warm below the child preflight budget');
+          }
+          await new Promise((resolvePromise) => setTimeout(resolvePromise, 500));
+        }
         const child = spawnRollbackRepointCli({
           cwd: childRuntimeCwd(),
           databaseUrl: targets.marker,
@@ -874,6 +890,7 @@ describe('GATE-FIX explicit rollback/PONR database binding', () => {
           parent_database: parentA.database,
           child_database: childB.database,
           child_exit_code: child.exitCode,
+          preflight_attempts: preflightAttempts,
           production_error_code: validation.error.code,
           mutation_exit_code: mutation.status,
           mutation_transcript: mutationOutput.includes('MUTATION_SURVIVED')
