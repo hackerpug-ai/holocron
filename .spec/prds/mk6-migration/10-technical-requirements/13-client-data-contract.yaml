@@ -1,6 +1,43 @@
 contract_version: 1
 task_id: S-CONTRACT-02
 sprint: sprint-21-client-data-contract
+status: FROZEN_HISTORICAL
+frozen_at: S31-FE-06
+coordinates_valid_as_of: e9f1e0a087493f174f4a26f00b19a4ebf068ae09
+superseded_by: holo verify:no-convex-client
+freeze_notice: >
+  Line coordinates are historical and MUST NOT be trusted as current.
+  The 105 source_path:line coordinates describe the RN client as of the
+  authoring commit above. Post-migration source has moved; re-baselining is
+  Out of Scope (01-scope.md:75). Convex residue for the RN client is proven
+  only by `holo verify:no-convex-client` (01-scope.md:76).
+tombstone: >
+  Honest freeze-time figures (recomputed, not copied):
+
+  From 13-client-callsite-inventory.json observed_counts.files_in_file_count_breakdown:
+  43 production + 2 mentions-only + 2 test = 47 files. The 2 mentions-only
+  files are app/(drawer)/chat/reference.tsx and app/zero/queries.ts — both
+  were already Zero (Zero import alias / JSDoc prose), never live Convex call
+  sites under the call_sites counting rule.
+
+  From Sprint 21 SPRINT.md line 31 (planning discrepancy, preserved):
+  46 importing files and 152 lexical hook lines versus the roadmap's
+  normalized 47 files / 105 calls. Both headline figures are recorded here
+  so the discrepancy is never silently reconciled.
+
+  inventory:convex-callsites false positives at freeze (file_count 33 /
+  call_site_count 9; all nine resolve to @rocicorp/zero/react, confirmed by
+  import resolution — NOT convex/react):
+  - app/(drawer)/_layout.tsx:76
+  - app/(drawer)/_layout.tsx:81
+  - app/(drawer)/_layout.tsx:316
+  - app/(drawer)/chat/[conversationId].tsx:128
+  - app/(drawer)/chat/[conversationId].tsx:132
+  - components/chat/ChatPickerSheet.tsx:60
+  - components/chat/MessageBubble.tsx:291
+  - components/chat/MessageBubble.tsx:331
+  - hooks/use-chat-history.ts:60
+  That scanner is RETIRED; use verify:no-convex-client.
 description: Maps every legacy Convex hook/action call site to one published Zero query, Zero mutator, or authoritative Hono command. Declares projection, response/error shape, ordering/cursor, optimistic/conflict/rejection behavior, offline policy, identifier compatibility, and linked T-SYNC criterion for every entry.
 generated_from:
   inventory: .spec/prds/mk6-migration/10-technical-requirements/13-client-callsite-inventory.json
