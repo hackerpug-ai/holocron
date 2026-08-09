@@ -149,12 +149,20 @@ describe('S31-CX-05 holo verify:decommission-inventory', () => {
       typecheck_blockers: report.typecheck_blockers,
     });
 
-    // Scanner must always report a finite count that matches the blockers array.
-    // S31-FE-05 removed residual RN dataModel Doc/Id imports, so the inventory may
-    // honestly report 0 — do not hard-code a stale residual of 3.
+    // Scanner must always report a finite count that matches the blockers array
+    // (even when the RN tree is clean). S31-FE-05 removed residual RN dataModel
+    // Doc/Id imports, so the inventory may honestly report 0 — do not hard-code
+    // a stale residual of 3.
     expect(typeof report.typecheck_blocker_count).toBe('number');
     expect(report.typecheck_blockers).toBeDefined();
+    expect(Array.isArray(report.typecheck_blockers)).toBe(true);
     expect(report.typecheck_blockers!.length).toBe(report.typecheck_blocker_count);
+
+    // Historical S31-CX-05 fixture expected subscriptions/types among 3 blockers;
+    // that surface is now concrete string types (no dataModel imports). Inventory
+    // must reflect current tree truth — not invent residual Doc/Id imports.
+    const files = report.typecheck_blockers!.map((b) => b.file);
+    expect(files).not.toContain('components/subscriptions/types.ts');
 
     for (const b of report.typecheck_blockers!) {
       expect(['Doc', 'Id']).toContain(b.imported_symbol);
