@@ -307,6 +307,13 @@ interface CliArgs {
   intervalMs: string | null;
   /** cutover:pin-fallback-build --commit <sha> */
   commit: string | null;
+  /**
+   * cutover:fence-status --allow-convex-unreachable
+   * Exit 0 when secrets+env agree but Convex env is unreadable (still labels convex_unreachable).
+   */
+  allowConvexUnreachable: boolean;
+  /** cutover:fence-status --offline — skip live Convex env get (label unreachable). */
+  fenceOffline: boolean;
 }
 
 function printHelp(): void {
@@ -375,6 +382,9 @@ Usage:
   verify:backup             D04-05 CI gate: exit 1 if any heartbeat overdue/failed
   cutover:go-no-go          D06-02 pre-cutover harness suite (8 real gates) [--json] [--output <path>]
   cutover:freeze            D06-03 arm HOLO_MIGRATION_READ_ONLY=1 + fence_armed_at [--reason] [--json] [--output]
+  cutover:fence-status      S31-OPS-06 reconcile freeze state secrets/env/Convex [--json]
+                            Fail-closed FENCE_SPLIT_BRAIN; convex_unreachable never silent-aligned
+                            [--allow-convex-unreachable] [--offline]
   cutover:quiet-check       D06-03 quiet interval oracle [--window-seconds N] [--json] [--output]
   cutover:capture-article-baseline
                             D06-03 post-freeze article sha256 baseline --token <t> [--json] [--output]
@@ -748,6 +758,8 @@ function parseArgs(argv: string[]): CliArgs {
     ticks: null,
     intervalMs: null,
     commit: null,
+    allowConvexUnreachable: false,
+    fenceOffline: false,
   };
   // Pre-scan argv for the command token (first non-flag positional) so
   // context-aware flags like --schema can branch on the command. The
@@ -1176,6 +1188,12 @@ function parseArgs(argv: string[]): CliArgs {
       args.commit = argv[++i] ?? null;
     } else if (a.startsWith('--commit=')) {
       args.commit = a.slice('--commit='.length);
+    } else if (a === '--allow-convex-unreachable') {
+      // cutover:fence-status — exit 0 when secrets+env agree but Convex unreadable
+      args.allowConvexUnreachable = true;
+    } else if (a === '--offline') {
+      // cutover:fence-status — skip live Convex env get (still labels convex_unreachable)
+      args.fenceOffline = true;
     } else if (a === '--token') {
       args.token = argv[++i] ?? null;
     } else if (a.startsWith('--token=')) {
@@ -3619,6 +3637,43 @@ async function main(): Promise<void> {
           console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
         } else {
           console.error(`holo cutover:freeze failed: ${msg}`);
+        }
+        process.exit(1);
+      }
+      break;
+    }
+    case 'cutover:fence-status': {
+      // S31-OPS-06: reconcile HOLO_MIGRATION_READ_ONLY across secrets / env / Convex
+      const { collectFenceStatus, fenceStatusExitCode, formatFenceStatusText, FENCE_SPLIT_BRAIN } =
+        await import('../cutover/fence-status.ts');
+      try {
+        const report = collectFenceStatus({
+          offline: args.fenceOffline,
+          allowConvexUnreachable: args.allowConvexUnreachable,
+        });
+        if (args.json) {
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          console.log(formatFenceStatusText(report));
+          if (report.code === FENCE_SPLIT_BRAIN) {
+            console.error(
+              `FENCE_SPLIT_BRAIN: ${report.mismatches.join('; ') || 'source disagreement'}`
+            );
+          }
+        }
+        process.exit(
+          fenceStatusExitCode(report, {
+            allowConvexUnreachable: args.allowConvexUnreachable,
+          })
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (args.json) {
+          console.error(
+            JSON.stringify({ ok: false, error: msg, code: 'FENCE_STATUS_FAILED' }, null, 2)
+          );
+        } else {
+          console.error(`holo cutover:fence-status failed: ${msg}`);
         }
         process.exit(1);
       }
