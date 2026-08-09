@@ -493,10 +493,9 @@ Usage:
   verify:blob --last        Verify exactly one latest CAS blob and its SHA-256
   verify:blob --orphans     Verify no non-finalized upload intents remain
    inventory:convex-callsites
-                           Scan app/ components/ hooks/ screens/ for legacy Convex
-                           useQuery/useMutation/useAction/useConvex/ConvexProvider/
-                           ConvexReactClient call sites and emit a deterministic JSON
-                           inventory (--root, --json, --output <path>)
+                           RETIRED (S31-FE-06). Exits non-zero and names
+                           verify:no-convex-client as the Convex-residue authority.
+                           Writes no inventory artifacts.
    client-contract:author
                            S-CONTRACT-02 — author 13-client-data-contract.yaml from
                            the S-CONTRACT-01 inventory + live zero_pub + Hono route
@@ -7553,43 +7552,34 @@ async function main(): Promise<void> {
     }
 
     case 'inventory:convex-callsites': {
-      const { scanCallSites } = await import('../sync/client-callsite-inventory.ts');
-      const root = args.root ?? resolve('.');
-      let inventory: ReturnType<typeof scanCallSites>;
-      try {
-        inventory = scanCallSites({ root });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (args.json) {
-          console.error(JSON.stringify({ ok: false, error: msg }, null, 2));
-        } else {
-          console.error(`holo inventory:convex-callsites failed: ${msg}`);
-        }
-        process.exit(1);
-      }
-      const jsonStr = `${JSON.stringify(inventory, null, 2)}\n`;
-      if (args.output) {
-        const { mkdirSync, writeFileSync } = await import('node:fs');
-        const { dirname, resolve: resolvePath } = await import('node:path');
-        const outAbs = resolvePath(args.output);
-        mkdirSync(dirname(outAbs), { recursive: true });
-        writeFileSync(outAbs, jsonStr, 'utf8');
-      }
+      // S31-FE-06: retired. Post-migration the scanner's hook-name regex reports
+      // Zero useQuery call sites as Convex residue (false positives). The single
+      // Convex-residue authority for the RN client is verify:no-convex-client.
+      // NEVER re-enable the scan; NEVER emit a file_count/call_site_count report.
+      const retiredMsg =
+        'holo inventory:convex-callsites is RETIRED (S31-FE-06).\n' +
+        '  reason:   post-migration false positives (Zero hooks matched as Convex)\n' +
+        '  use:      holo verify:no-convex-client\n' +
+        '  contract: 13-client-data-contract.yaml is FROZEN_HISTORICAL\n' +
+        '  artifacts: none written';
       if (args.json) {
-        // When --json is requested, emit the full artifact on stdout.
-        // If --output was also passed the file copy is identical.
-        process.stdout.write(jsonStr);
+        console.error(
+          JSON.stringify(
+            {
+              ok: false,
+              retired: true,
+              command: 'inventory:convex-callsites',
+              successor: 'verify:no-convex-client',
+              error: retiredMsg,
+            },
+            null,
+            2
+          )
+        );
       } else {
-        console.log('holo inventory:convex-callsites — legacy RN Convex call sites');
-        console.log(`  source_roots:        ${inventory.source_roots.join(', ')}`);
-        console.log(`  file_count:          ${inventory.summary.file_count}`);
-        console.log(`  call_site_count:     ${inventory.summary.call_site_count}`);
-        console.log(`  schema_version:      ${inventory.schema_version}`);
-        if (args.output) {
-          console.log(`  artifact:            ${args.output}`);
-        }
+        console.error(retiredMsg);
       }
-      process.exit(0);
+      process.exit(2);
       break;
     }
 

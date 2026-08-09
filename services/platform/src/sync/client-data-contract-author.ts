@@ -52,12 +52,16 @@ export interface HonoRoute {
 }
 
 /**
- * Live Hono route surface — mirrored from createHonoApp().
+ * FROZEN_SEED — freeze-time historical Hono route surface for
+ * `verify:client-contract --targets` only (S31-FE-06).
  *
- * S-CONTRACT-02 used these route literals as the AC-3 resolver seed. Any
- * target whose `target.route` is not present here is rejected by the
- * resolver. Adding a route to hono-app.ts requires appending it here so
- * contract entries can reference it.
+ * This is NOT a live re-author path. The 22 entries below are the Sprint 21
+ * AC-3 resolver seed as of coordinates_valid_as_of; createHonoApp() now
+ * mounts more routes. Do NOT extend this list to re-baseline the frozen
+ * client data contract. Re-authoring against HONO_ROUTES is retired.
+ *
+ * Retained solely so client-data-contract-verify.ts can still prove internal
+ * consistency of the FROZEN_HISTORICAL yaml against its freeze-time seed.
  */
 export const HONO_ROUTES: readonly HonoRoute[] = [
   {
