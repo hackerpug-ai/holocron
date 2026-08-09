@@ -1,0 +1,6 @@
+AC-5 restore verification
+4848 keepalive: ok
+4111 health: ok
+session-loads.yml exit=0
+send-streams.yml exit=0
+chat-assistant-message-latest visible after live send

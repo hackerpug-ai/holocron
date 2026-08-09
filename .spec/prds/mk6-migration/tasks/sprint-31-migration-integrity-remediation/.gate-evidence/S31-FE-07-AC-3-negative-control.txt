@@ -1,0 +1,114 @@
+AC-3 regressed run exit=1 (expect non-zero — spinner forever)
+AC-3 restored run exit=0 (expect 0)
+Scratch: temporary early-return in useDeepResearchSession forcing isLoading true
+(extends pure watchdog-null which still surfaces error via !viewData on this stack)
+Metro project root: /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-FE-02
+Harness: OFFLINE_CONTRACT_NEGATIVE_CONTROL=1 bash .maestro/reactive/run-offline-contract-airplane-reads.sh
+--- red log ---
+51:03:01:50.865 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Define variables COMPLETED
+53:03:01:51.212 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+86:03:01:52.753 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Launch app "${MAESTRO_APP_ID}" with clear state and clear keychain COMPLETED
+91:03:01:54.175 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Open ${MAESTRO_DEV_CLIENT_OPEN_URL} COMPLETED
+92:03:01:54.175 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Open" is visible RUNNING
+93:03:02:02.596 [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandWarned: Assertion is false: "Open" is visible
+94:03:02:02.597 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$11: Assert that (Optional) "Open" is visible WARNED
+98:03:02:02.873 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Enter URL manually" is visible RUNNING
+99:03:02:14.596 [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandWarned: Assertion is false: "Enter URL manually" is visible
+100:03:02:14.596 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$11: Assert that (Optional) "Enter URL manually" is visible WARNED
+101:03:02:14.596 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "Enter URL manually" is visible RUNNING
+103:03:02:14.865 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "Enter URL manually" is visible SKIPPED
+104:03:02:14.865 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "http://192.168.1.160:8081" is visible RUNNING
+106:03:02:15.137 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "http://192.168.1.160:8081" is visible SKIPPED
+107:03:02:15.138 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "http://127.0.0.1:8081" is visible RUNNING
+109:03:02:15.404 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "http://127.0.0.1:8081" is visible SKIPPED
+110:03:02:15.405 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "${MAESTRO_METRO_URL}" is visible RUNNING
+112:03:02:15.678 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "${MAESTRO_METRO_URL}" is visible SKIPPED
+113:03:02:15.679 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Continue" is visible RUNNING
+114:03:02:15.823 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Continue" is visible COMPLETED
+124:03:02:17.219 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on (Optional) "Continue" COMPLETED
+125:03:02:17.219 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "Runtime version" is visible RUNNING
+127:03:02:24.428 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "Runtime version" is visible SKIPPED
+128:03:02:24.429 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "Go home" is visible RUNNING
+138:03:02:26.890 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on (Optional) id: xmark COMPLETED
+139:03:02:26.890 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Run flow when "Go home" is visible COMPLETED
+143:03:02:28.533 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Swipe from (92%,12%) to (92%,75%) in 500 ms COMPLETED
+144:03:02:28.533 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*" is visible RUNNING
+145:03:02:28.712 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*" is visible COMPLETED
+146:03:02:28.713 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Unable to resolve module" is not visible RUNNING
+147:03:02:29.514 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Unable to resolve module" is not visible COMPLETED
+153:03:02:29.745 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Open ${MAESTRO_RESEARCH_SESSION_URL} COMPLETED
+154:03:02:29.746 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Open" is visible RUNNING
+155:03:02:36.107 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandWarned: Assertion is false: "Open" is visible
+156:03:02:36.108 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$11: Assert that (Optional) "Open" is visible WARNED
+160:03:02:36.988 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "Continue" is visible RUNNING
+162:03:02:37.257 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "Continue" is visible SKIPPED
+163:03:02:37.257 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Loading research session..." is visible RUNNING
+164:03:02:37.379 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Loading research session..." is visible COMPLETED
+165:03:02:37.379 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Research session not found" is visible RUNNING
+
+03:02:29.616 [ INFO] device.IOSDevice.invoke-F9mIFpk: Waiting for animation to end with timeout 3000
+03:02:29.745 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Open ${MAESTRO_RESEARCH_SESSION_URL} COMPLETED
+03:02:29.746 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Open" is visible RUNNING
+03:02:36.107 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandWarned: Assertion is false: "Open" is visible
+03:02:36.108 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$11: Assert that (Optional) "Open" is visible WARNED
+03:02:36.108 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Tap on (Optional) "Open" RUNNING
+03:02:36.988 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandWarned: Element not found: Text matching regex: Open
+03:02:36.988 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$11: Tap on (Optional) "Open" WARNED
+03:02:36.988 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when "Continue" is visible RUNNING
+03:02:37.256 [ INFO] maestro.orchestra.Orchestra.executeSubflowCommands: [Command execution subflow] CommandSkipped: null
+03:02:37.257 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when "Continue" is visible SKIPPED
+03:02:37.257 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Loading research session..." is visible RUNNING
+03:02:37.379 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Loading research session..." is visible COMPLETED
+03:02:37.379 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Research session not found" is visible RUNNING
+03:03:10.057 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$9: Assert that "Research session not found" is visible FAILED
+03:03:10.058 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+03:03:10.059 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+03:03:10.122 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Assertion is false: "Research session not found" is visible
+03:03:10.122 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$9: Run flow when ${MAESTRO_OFFLINE_SEGMENT == '1'} is true FAILED
+03:03:10.259 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /Users/inference1/.maestro/tests
+--- green log ---
+55:03:03:34.174 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Define variables COMPLETED
+57:03:03:34.973 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Apply configuration COMPLETED
+90:03:03:40.556 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Launch app "${MAESTRO_APP_ID}" with clear state and clear keychain COMPLETED
+95:03:03:41.995 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Open ${MAESTRO_DEV_CLIENT_OPEN_URL} COMPLETED
+118:03:04:04.154 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Continue" is visible COMPLETED
+128:03:04:05.709 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on (Optional) "Continue" COMPLETED
+142:03:04:15.321 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Tap on (Optional) id: xmark COMPLETED
+143:03:04:15.321 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Run flow when "Go home" is visible COMPLETED
+147:03:04:17.054 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Swipe from (92%,12%) to (92%,75%) in 500 ms COMPLETED
+149:03:04:17.253 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*" is visible COMPLETED
+151:03:04:18.078 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Unable to resolve module" is not visible COMPLETED
+157:03:04:18.583 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Open ${MAESTRO_RESEARCH_SESSION_URL} COMPLETED
+167:03:04:25.980 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that (Optional) "Loading research session..." is visible RUNNING
+168:03:04:26.107 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that (Optional) "Loading research session..." is visible COMPLETED
+169:03:04:26.107 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Research session not found" is visible RUNNING
+170:03:04:48.726 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "Research session not found" is visible COMPLETED
+171:03:04:48.726 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Research session not found" is visible RUNNING
+172:03:04:48.854 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "Research session not found" is visible COMPLETED
+173:03:04:48.854 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: research-detail-error is visible RUNNING
+174:03:04:48.981 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: research-detail-error is visible COMPLETED
+175:03:04:48.981 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: research-detail-go-back is visible RUNNING
+176:03:04:49.104 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: research-detail-go-back is visible COMPLETED
+177:03:04:49.104 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Loading research session..." is not visible RUNNING
+178:03:04:49.855 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "Loading research session..." is not visible COMPLETED
+179:03:04:49.855 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: research-detail-loading is not visible RUNNING
+180:03:04:50.592 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: research-detail-loading is not visible COMPLETED
+181:03:04:50.592 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Take screenshot S31-FE-07-segment-1-research-detail-error RUNNING
+184:03:04:50.660 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Take screenshot S31-FE-07-segment-1-research-detail-error COMPLETED
+185:03:04:50.661 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Run flow when ${MAESTRO_OFFLINE_SEGMENT == '1'} is true COMPLETED
+
+03:04:48.981 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: research-detail-go-back is visible RUNNING
+03:04:49.104 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: research-detail-go-back is visible COMPLETED
+03:04:49.104 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that "Loading research session..." is not visible RUNNING
+03:04:49.855 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that "Loading research session..." is not visible COMPLETED
+03:04:49.855 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Assert that id: research-detail-loading is not visible RUNNING
+03:04:50.592 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Assert that id: research-detail-loading is not visible COMPLETED
+03:04:50.592 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Take screenshot S31-FE-07-segment-1-research-detail-error RUNNING
+03:04:50.592 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+03:04:50.593 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+03:04:50.660 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Take screenshot S31-FE-07-segment-1-research-detail-error COMPLETED
+03:04:50.661 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$7: Run flow when ${MAESTRO_OFFLINE_SEGMENT == '1'} is true COMPLETED
+03:04:50.661 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$5: Run flow when ${MAESTRO_OFFLINE_SEGMENT == '2'} is true RUNNING
+03:04:50.662 [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandSkipped: null
+03:04:50.662 [ INFO] maestro.cli.runner.TestSuiteInteractor.runFlow$lambda$17$lambda$13: Run flow when ${MAESTRO_OFFLINE_SEGMENT == '2'} is true SKIPPED
+03:04:50.788 [ INFO] maestro.cli.report.TestDebugReporter.deleteOldFiles: Performing purge of logs older than 14 days from /Users/inference1/.maestro/tests

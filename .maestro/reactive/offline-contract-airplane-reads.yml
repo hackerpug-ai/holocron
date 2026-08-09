@@ -1,0 +1,277 @@
+appId: ${MAESTRO_APP_ID}
+---
+# S31-FE-07 — Offline contract: airplane-mode reads (two segments).
+#
+# Segment 1 (MAESTRO_OFFLINE_SEGMENT=1): zero-cache down → research-detail-error
+#   AND research-detail-loading absent (load-bearing negative assertion).
+# Segment 2 (MAESTRO_OFFLINE_SEGMENT=2): Mastra/:4111 down, zero up → exactly one
+#   chat-degraded-banner after send (SURFACE_UNAVAILABLE_MESSAGE).
+#
+# Timeouts: MAESTRO_RESEARCH_ERROR_TIMEOUT_MS = ZERO_ROW_WATCHDOG_DEADLINE_MS + 10000
+# (default 40000 = 30000 + 10000). Do not invent independent deadline literals.
+#
+# Runner: .maestro/reactive/run-offline-contract-airplane-reads.sh
+# Assert only pre-existing testIDs: research-detail-error, research-detail-loading,
+# research-detail-go-back, chat-degraded-banner, chat-input-field, chat-input-send-button,
+# chat-agent-busy-false, chat-loading-inline, chat-screen.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# ── Sprint 20 / FE-02 cold-boot Dev Client preamble ────────────────────────
+- openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+
+- extendedWaitUntil:
+    visible: "Open"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Open"
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Enter URL manually"
+    timeout: 20000
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Enter URL manually"
+    commands:
+      - tapOn:
+          point: "50%,28%"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "http://192.168.1.160:8081"
+    commands:
+      - tapOn: "http://192.168.1.160:8081"
+
+- runFlow:
+    when:
+      visible: "http://127.0.0.1:8081"
+    commands:
+      - tapOn: "http://127.0.0.1:8081"
+
+- runFlow:
+    when:
+      visible: ${MAESTRO_METRO_URL}
+    commands:
+      - tapOn:
+          text: ${MAESTRO_METRO_URL}
+          optional: true
+
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 30000
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "Runtime version"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- runFlow:
+    when:
+      visible: "Go home"
+    commands:
+      - tapOn:
+          id: "xmark"
+          optional: true
+- swipe:
+    start: "92%,12%"
+    end: "92%,75%"
+    duration: 500
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Type a message.*|.*New Chat.*|.*Holocron.*|.*chat-screen.*"
+    timeout: 120000
+    optional: true
+
+- assertNotVisible:
+    text: "Unable to resolve module"
+    optional: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SEGMENT 1 — airplane-mode research read (zero-cache down)
+# ═══════════════════════════════════════════════════════════════════════════
+- runFlow:
+    when:
+      true: ${MAESTRO_OFFLINE_SEGMENT == '1'}
+    commands:
+      - openLink: ${MAESTRO_RESEARCH_SESSION_URL}
+
+      - extendedWaitUntil:
+          visible: "Open"
+          timeout: 6000
+          optional: true
+      - tapOn:
+          text: "Open"
+          optional: true
+
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn:
+                text: "Continue"
+                optional: true
+
+      # Optional: observe loading branch first (proves we hit the detail route).
+      - extendedWaitUntil:
+          visible:
+            text: "Loading research session..."
+          timeout: 30000
+          optional: true
+
+      # PRIMARY: terminal error within ZERO_ROW_WATCHDOG_DEADLINE_MS + margin.
+      - extendedWaitUntil:
+          visible:
+            text: "Research session not found"
+          timeout: ${MAESTRO_RESEARCH_ERROR_TIMEOUT_MS}
+
+      - assertVisible:
+          text: "Research session not found"
+
+      # Non-optional: terminal error surface must resolve (load-bearing with spinner absent).
+      - assertVisible:
+          id: "research-detail-error"
+
+      - assertVisible:
+          id: "research-detail-go-back"
+
+      # LOAD-BEARING negative assertion (same point as positive): spinner gone.
+      - assertNotVisible:
+          text: "Loading research session..."
+
+      - assertNotVisible:
+          id: "research-detail-loading"
+
+      - takeScreenshot: S31-FE-07-segment-1-research-detail-error
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SEGMENT 2 — chat degraded banner cardinality (Mastra/:4111 down, zero up)
+# ═══════════════════════════════════════════════════════════════════════════
+- runFlow:
+    when:
+      true: ${MAESTRO_OFFLINE_SEGMENT == '2'}
+    commands:
+      # openLink retry ladder (mirrors degraded-no-hang) — Zero cold sync can lag.
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+      - extendedWaitUntil:
+          visible: "Open"
+          timeout: 6000
+          optional: true
+      - tapOn:
+          text: "Open"
+          optional: true
+
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn:
+                text: "Continue"
+                optional: true
+
+      - runFlow:
+          when:
+            notVisible:
+              id: "chat-screen"
+          commands:
+            - waitForAnimationToEnd
+            - openLink: ${MAESTRO_CHAT_URL}
+            - waitForAnimationToEnd
+
+      - runFlow:
+          when:
+            notVisible:
+              id: "chat-screen"
+          commands:
+            - waitForAnimationToEnd
+            - openLink: ${MAESTRO_DEV_CLIENT_OPEN_URL}
+            - waitForAnimationToEnd
+            - openLink: ${MAESTRO_CHAT_URL}
+            - waitForAnimationToEnd
+
+      - openLink: ${MAESTRO_CHAT_URL}
+      - waitForAnimationToEnd
+
+      # Allow Zero catch-up after clearState cold launch (conversation must resolve).
+      - extendedWaitUntil:
+          visible:
+            id: "chat-screen"
+          timeout: 120000
+
+      - assertVisible:
+          id: "chat-screen"
+
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input-field"
+          timeout: 45000
+
+      - tapOn:
+          id: "chat-input-field"
+      - eraseText
+      - inputText: "Offline contract probe"
+
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input-send-button"
+          timeout: 10000
+
+      - tapOn:
+          id: "chat-input-send-button"
+
+      # SURFACE_UNAVAILABLE_MESSAGE — exact fleet/platform hard-down copy.
+      - extendedWaitUntil:
+          visible: "Local fleet unavailable — running in reduced mode"
+          timeout: 20000
+
+      - assertVisible: "Local fleet unavailable — running in reduced mode"
+
+      - extendedWaitUntil:
+          visible:
+            id: "chat-degraded-banner"
+          timeout: 5000
+
+      # Cardinality: index 0 exists AND index 1 must not (exactly one node).
+      # Maestro default matcher does not fail on multiple matches — both checks required.
+      - assertVisible:
+          id: "chat-degraded-banner"
+          index: 0
+
+      - assertNotVisible:
+          id: "chat-degraded-banner"
+          index: 1
+
+      # Copy also appears once (paired with sole testID owner after S31-FE-02).
+      - assertVisible:
+          text: "Local fleet unavailable — running in reduced mode"
+          index: 0
+
+      - extendedWaitUntil:
+          visible:
+            id: "chat-agent-busy-false"
+          timeout: 10000
+
+      - assertVisible:
+          id: "chat-agent-busy-false"
+
+      - assertNotVisible:
+          id: "chat-loading-inline"
+          optional: true
+
+      - takeScreenshot: S31-FE-07-segment-2-chat-degraded-banner
