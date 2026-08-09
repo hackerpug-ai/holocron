@@ -182,6 +182,8 @@ interface CliArgs {
   inventory: string | null;
   /** verify:client-contract --contract <path> */
   contract: string | null;
+  /** verify:etl-provenance --gate <path> (repeatable via comma-separated list) */
+  gatePath: string | null;
   /** verify:client-contract --schema | --targets | --e2e-links */
   verifySchema: boolean;
   verifyTargets: boolean;
@@ -471,6 +473,8 @@ Usage:
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
   seed:e2e --reset         Sprint 24 e2e seed: conversations, docs, feed, subscriptions (refuse prod)
   verify:no-convex-client  CAP-CUT-01: fail if convex/react imports remain in app roots
+  verify:etl-provenance    S31-CX-06: fail closed if a gate record cites absent ETL artifacts
+                           [--gate <path>] [--json]
                            [--roots a,b] [--print-roots]
   prd:consistency          T-PLAT-020 PRD consistency build gate (derived counts)
   etl:run                  Immutable export → stage → stable id-map → FK-ordered load → blobs
@@ -674,6 +678,7 @@ function parseArgs(argv: string[]): CliArgs {
     output: null,
     inventory: null,
     contract: null,
+    gatePath: null,
     verifySchema: false,
     verifyTargets: false,
     verifyE2ELinks: false,
@@ -1054,6 +1059,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.contract = argv[++i] ?? null;
     } else if (a.startsWith('--contract=')) {
       args.contract = a.slice('--contract='.length);
+    } else if (a === '--gate') {
+      args.gatePath = argv[++i] ?? null;
+    } else if (a.startsWith('--gate=')) {
+      args.gatePath = a.slice('--gate='.length);
     } else if (a === '--last' || a === '--orphans') {
       // verify:blob modes are documented as flags but consumed as positionals.
       positional.push(a);
@@ -4121,6 +4130,28 @@ async function main(): Promise<void> {
         console.log(JSON.stringify(report, null, 2));
       } else {
         console.log(formatVerifyNoConvexClientText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'verify:etl-provenance':
+    case 'verify-etl-provenance': {
+      const { verifyEtlProvenance, formatEtlProvenanceText } = await import(
+        '../etl/etl-provenance.ts'
+      );
+      let gatePaths = (args.gatePath ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const positionalGate = args.positional[1];
+      if (gatePaths.length === 0 && positionalGate) {
+        gatePaths = [positionalGate];
+      }
+      const report = verifyEtlProvenance({ gatePaths });
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatEtlProvenanceText(report));
       }
       process.exit(report.ok ? 0 : 1);
       break;
