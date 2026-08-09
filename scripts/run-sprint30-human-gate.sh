@@ -62,6 +62,70 @@ STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 EVID_DIR="$SPRINT_DIR/.gate-evidence/$GATE_RUN_ID"
 mkdir -p "$EVID_DIR" .tmp/REDHAT-FIX-RH-S30-06 .tmp/REDHAT-FIX-RH-S30-07 .tmp/REDHAT-FIX-RH-S30-08
 
+# GATE-FIX-explicit-ponr-database-binding: validate both PostgreSQL targets
+# before any ledger reset, PONR clear, fence re-arm, live proof, or gate step.
+: "${DATABASE_URL:?DATABASE_URL required (gate target)}"
+: "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:?HOLO_PROBE_MARKER_MISS_DATABASE_URL required (marker target)}"
+TARGET_JSON="$(DATABASE_URL="$DATABASE_URL" HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" bun --eval '
+  import { databaseTargetIdentitiesEqual, parseDatabaseTargetIdentity } from "./services/platform/src/db/connection.ts";
+  const gate = parseDatabaseTargetIdentity(process.env.DATABASE_URL!);
+  const marker = parseDatabaseTargetIdentity(process.env.HOLO_PROBE_MARKER_MISS_DATABASE_URL!);
+  if (gate.database.toLowerCase() === "holocron_nonprod") {
+    throw new Error("DATABASE_TARGET_INVALID: shared holocron_nonprod cannot be the gate reset target");
+  }
+  if (databaseTargetIdentitiesEqual(gate, marker)) throw new Error("DATABASE_TARGET_EQUAL");
+  process.stdout.write(JSON.stringify({ gate_database_target: gate, marker_database_target: marker, distinct: true }));
+')"
+printf '%s\n' "$TARGET_JSON" >"$EVID_DIR/database-target-validation.json"
+
+# Keep the EXIT cleanup armed through every C-3 success/failure path. Preserve
+# the main RC; cleanup failure is fatal only when main work otherwise succeeded.
+cleanup_marker_on_exit() {
+  local main_rc=$?
+  trap - EXIT
+  local final_rc="$main_rc"
+  set +e
+  bash "$ROOT/scripts/cleanup-sprint30-ponr-marker.sh" \
+    --out "$EVID_DIR/marker-cleanup-exit.json" \
+    >"$EVID_DIR/marker-cleanup-exit.stdout" \
+    2>"$EVID_DIR/marker-cleanup-exit.stderr"
+  local cleanup_rc=$?
+  set -e
+  if [[ "$main_rc" -eq 0 && "$cleanup_rc" -ne 0 ]]; then
+    final_rc=1
+  fi
+  set +e
+  python3 - "$EVID_DIR/marker-cleanup-exit-status.json" "$main_rc" "$cleanup_rc" <<'PY'
+import json, sys
+from pathlib import Path
+Path(sys.argv[1]).write_text(json.dumps({"main_rc": int(sys.argv[2]), "cleanup_rc": int(sys.argv[3]), "final_rc": int(sys.argv[2]) if int(sys.argv[2]) != 0 else (0 if int(sys.argv[3]) == 0 else 1)}, indent=2) + "\n")
+PY
+  set -e
+  exit "$final_rc"
+}
+trap cleanup_marker_on_exit EXIT
+
+# Shared C-3 marker operations. Every invocation, including test sandboxes,
+# reaches these env-only wrapper/probe commands through the normal gate path.
+run_marker_pre_c3_cleanup() {
+  local prefix="$1"
+  bash "$ROOT/scripts/cleanup-sprint30-ponr-marker.sh" \
+    --out "$EVID_DIR/${prefix}.json" \
+    >"$EVID_DIR/${prefix}.stdout" \
+    2>"$EVID_DIR/${prefix}.stderr"
+}
+
+run_marker_miss_probe() {
+  local out_dir="$1"
+  DATABASE_URL="$DATABASE_URL" \
+    HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" \
+    HOLO_PROBE_SEED_PONR="$HOLO_PROBE_SEED_PONR" \
+    bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
+    "$out_dir" \
+    >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
+    2>"$EVID_DIR/ponr-role-provenance-marker-miss.stderr"
+}
+
 DEPLOYED_BASE_URL="${HOLO_VERIFY_BASE_URL:-${HOLO_SOAK_BASE_URL:-${PLATFORM_URL:-}}}"
 if [[ -z "$DEPLOYED_BASE_URL" ]]; then
   echo "error: HOLO_VERIFY_BASE_URL / HOLO_SOAK_BASE_URL / PLATFORM_URL required for tip-bound gate" >&2
@@ -97,6 +161,19 @@ fi
 # Real step5 oracle unchanged: after step4 enable-writes records PONR, step5
 # must still exit 2 with POST_PONR_INELIGIBLE (not a weakened accept).
 if [[ "${HOLO_GATE_RESET_LEDGER:-1}" == "1" ]]; then
+  RESET_TARGET_JSON="$(DATABASE_URL="$DATABASE_URL" bun --eval 'import { parseDatabaseTargetIdentity } from "./services/platform/src/db/connection.ts"; const x=parseDatabaseTargetIdentity(process.env.DATABASE_URL!); process.stdout.write(JSON.stringify(x));')"
+  RESET_TARGET_OK="$(python3 - "$TARGET_JSON" "$RESET_TARGET_JSON" <<'PY'
+import json, sys
+gate = json.loads(sys.argv[1]).get('gate_database_target')
+reset = json.loads(sys.argv[2])
+marker = json.loads(sys.argv[1]).get('marker_database_target')
+print('yes' if gate == reset and gate != marker else 'no')
+PY
+)"
+  if [[ "$RESET_TARGET_OK" != "yes" ]]; then
+    echo 'error: gate reset target identity changed or equals marker after validation' >&2
+    exit 2
+  fi
   echo "preflight: dual-reset post_export_write_audit (Postgres + file) + clear PONR for clean enable-writes"
   HOLO_GATE_LEDGER_RESET=1 HOLO_GATE_CLEAR_PONR="${HOLO_GATE_CLEAR_PONR:-1}" \
     bash "$ROOT/scripts/reset-sprint30-gate-ledger.sh" --authorize --clear-ponr \
@@ -541,26 +618,19 @@ echo "$ASSERT_RC" >".tmp/REDHAT-FIX-RH-S30-14/assert-human-test-verdict.exit"
 # DATABASE_URL = gate/cutover (success-path probe; never seeded by marker-miss).
 # HOLO_PROBE_MARKER_MISS_DATABASE_URL = operator-supplied distinct disposable DB (REQUIRED; no default).
 # HOLO_PROBE_SEED_PONR defaults to 0 (opt-in seed only on disposable).
-if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "error: DATABASE_URL required for C-3 success-path probe" >&2
-  exit 2
-fi
-if [[ -z "${HOLO_PROBE_MARKER_MISS_DATABASE_URL:-}" ]]; then
-  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL must be operator-supplied (no silent default)" >&2
-  echo "  export a disposable DB distinct from DATABASE_URL (canonical equality rejects aliases)" >&2
-  exit 2
-fi
-CANON="$ROOT/scripts/lib/canonical-pg-url.py"
-GATE_CANON="$(python3 "$CANON" "$DATABASE_URL")"
-MARKER_CANON="$(python3 "$CANON" "$HOLO_PROBE_MARKER_MISS_DATABASE_URL")"
-if [[ "$MARKER_CANON" == "$GATE_CANON" ]]; then
-  echo "error: HOLO_PROBE_MARKER_MISS_DATABASE_URL canonically equals DATABASE_URL" >&2
-  echo "  gate_canon=$GATE_CANON" >&2
-  echo "  marker_canon=$MARKER_CANON" >&2
-  exit 2
-fi
 # Seed opt-in default OFF — operator must set HOLO_PROBE_SEED_PONR=1 explicitly.
 export HOLO_PROBE_SEED_PONR="${HOLO_PROBE_SEED_PONR:-0}"
+
+# Exact marker must start C-3 clean. The EXIT trap remains armed and performs
+# the same idempotent cleanup after both normal and forced-failure paths.
+set +e
+run_marker_pre_c3_cleanup "marker-cleanup-pre-c3"
+PRE_C3_CLEANUP_RC=$?
+set -e
+if [[ "$PRE_C3_CLEANUP_RC" -ne 0 ]]; then
+  echo "error: exact marker pre-C3 cleanup failed" >&2
+  exit 1
+fi
 
 set +e
 bash "$ROOT/scripts/probe-ponr-role-immutability.sh" "$EVID_DIR/ponr-role-provenance" \
@@ -574,13 +644,7 @@ cp "$EVID_DIR/ponr-role-provenance.stdout" .tmp/REDHAT-FIX-RH-S30-18/gate-or-it-
 
 # Marker-miss: seed only when HOLO_PROBE_SEED_PONR=1 (default 0).
 set +e
-DATABASE_URL="$DATABASE_URL" \
-  HOLO_PROBE_MARKER_MISS_DATABASE_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL" \
-  HOLO_PROBE_SEED_PONR="$HOLO_PROBE_SEED_PONR" \
-  bash "$ROOT/scripts/probe-ponr-role-immutability-negative-marker.sh" \
-  "$EVID_DIR/ponr-role-provenance-marker-miss" \
-  >"$EVID_DIR/ponr-role-provenance-marker-miss.stdout" \
-  2>"$EVID_DIR/ponr-role-provenance-marker-miss.stderr"
+run_marker_miss_probe "$EVID_DIR/ponr-role-provenance-marker-miss"
 MARKER_MISS_RC=$?
 set -e
 echo "$MARKER_MISS_RC" >"$EVID_DIR/ponr-role-provenance-marker-miss.exit"

@@ -23,6 +23,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveRepoRoot, resolveSecretsPathFromEnv } from '../config/secrets.ts';
+import { type DatabaseTargetIdentity, parseDatabaseTargetIdentity } from '../db/connection.ts';
 import { resolveCutoverOperatorSecret } from './convex-fence-client.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 import {
@@ -121,6 +122,7 @@ export type RollbackRepointReport = {
   /** Live serving-unit acknowledgements; required length >= 1 for repointed:true. */
   acknowledgements: RollbackAcknowledgement[];
   report_path: string;
+  database_target: DatabaseTargetIdentity;
   error?: { code: string; message: string };
 };
 
@@ -244,10 +246,10 @@ export async function probePreexistingServingListening(
     });
     clearTimeout(timer);
     return { listening: true, status: res.status };
-  } catch (err) {
+  } catch {
     return {
       listening: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: 'network health request failed',
     };
   }
 }
@@ -414,7 +416,8 @@ export async function collectLiveDataPlaneAcknowledgements(options: {
  * (R3-H03: network_health on already-listening base URL and/or pre-existing
  * worker generation — never self-created createHonoApp).
  */
-export async function runRollbackRepoint(options?: {
+export async function runRollbackRepoint(options: {
+  databaseUrl: string;
   cwd?: string;
   reportPath?: string;
   /** Audit mirror path only — not the serving control-plane. */
@@ -436,6 +439,7 @@ export async function runRollbackRepoint(options?: {
   /** Override operator secret for tests; default process env. */
   operatorSecret?: string | null;
 }): Promise<RollbackRepointReport> {
+  const database_target = parseDatabaseTargetIdentity(options.databaseUrl);
   const cwd = options?.cwd ?? resolveRepoRoot();
   const reportPath = options?.reportPath ?? defaultRollbackRepointReportPath(cwd);
   const configPath = options?.configPath ?? defaultDataPlaneConfigPath(cwd);
@@ -471,6 +475,7 @@ export async function runRollbackRepoint(options?: {
       config: { path: configPath, digest_sha256: '', prior_target: null },
       acknowledgements: [],
       report_path: reportPath,
+      database_target,
       error: {
         code: OPERATOR_UNAUTHORIZED,
         message:
@@ -503,6 +508,13 @@ export async function runRollbackRepoint(options?: {
     engaged_at: '',
     engaged_at_ms: 0,
     configured_target: secretsPath,
+    config: { path: configPath, digest_sha256: '', prior_target: null },
+    acknowledgements: emptyAcks(),
+    report_path: reportPath,
+    database_target,
+    ...partial,
+    // Keep the PONR fields present even when a later audit/control-plane/ack
+    // failure supplies only the audit portion of the precondition object.
     precondition: {
       ok: false,
       accepted_post_export_writes: -1,
@@ -511,11 +523,8 @@ export async function runRollbackRepoint(options?: {
       ponr_recorded: false,
       ponr_id: null,
       ponr_recorded_at: null,
+      ...(partial.precondition ?? {}),
     },
-    config: { path: configPath, digest_sha256: '', prior_target: null },
-    acknowledgements: emptyAcks(),
-    report_path: reportPath,
-    ...partial,
   });
 
   // ── D07-04: Postgres PONR latch FIRST (stronger than fail-open file audit) ─
@@ -528,7 +537,7 @@ export async function runRollbackRepoint(options?: {
   } | null = null;
   try {
     const { readDataPlanePonr } = await import('./ponr.ts');
-    const row = await readDataPlanePonr();
+    const row = await readDataPlanePonr({ databaseUrl: options.databaseUrl });
     if (row) {
       ponrRow = {
         id: row.id,
@@ -536,16 +545,9 @@ export async function runRollbackRepoint(options?: {
         write_row_id: row.write_row_id,
       };
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  } catch {
     // Surface host:port when DATABASE_URL is unreachable so operators can match AC-5.
-    const dbUrl = process.env.DATABASE_URL ?? '';
-    const hostHint = dbUrl.includes('://')
-      ? dbUrl
-          .replace(/^[^:]+:\/\//, '')
-          .replace(/\/.*$/, '')
-          .replace(/:.*@/, '')
-      : '';
+    const hostHint = `${database_target.host}:${database_target.effective_port}`;
     const fail = baseFail({
       precondition: {
         ok: false,
@@ -561,7 +563,7 @@ export async function runRollbackRepoint(options?: {
         message:
           `cutover:rollback-repoint refuses: data_plane_ponr ledger unreadable` +
           (hostHint ? ` (${hostHint})` : '') +
-          `: ${msg}. Escape hatch stays closed.`,
+          `. Escape hatch stays closed.`,
       },
     });
     ensureParent(reportPath);
@@ -576,6 +578,7 @@ export async function runRollbackRepoint(options?: {
     cwd,
     auditPath,
     watermarkPath,
+    databaseUrl: options.databaseUrl,
     // Postgres is the sole oracle (REDHAT-FIX-RH-S30-03). Never authorize from .tmp file.
     allowFileFallback: false,
   });
@@ -658,9 +661,8 @@ export async function runRollbackRepoint(options?: {
       error: {
         code: ledger.error?.code ?? POST_EXPORT_WRITE_LEDGER_MISSING,
         message:
-          ledger.error?.message ??
           `cutover:rollback-repoint refuses: post_export_write_audit ledger missing/unreadable. ` +
-            `Refuse empty-file synthesis (REDHAT-FIX-RH-S30-03).`,
+          `Refuse empty-file synthesis (REDHAT-FIX-RH-S30-03).`,
       },
     });
     ensureParent(reportPath);
@@ -680,7 +682,9 @@ export async function runRollbackRepoint(options?: {
       },
       error: {
         code: POST_EXPORT_WRITE_LEDGER_UNREADABLE,
-        message: ledger.error.message,
+        message:
+          'cutover:rollback-repoint refuses: post_export_write_audit ledger unreadable. ' +
+          'Escape hatch stays closed.',
       },
     });
     ensureParent(reportPath);
@@ -734,7 +738,7 @@ export async function runRollbackRepoint(options?: {
       engagedAt: engaged_at,
     });
     durablePath = durable.secretsPath;
-  } catch (err) {
+  } catch {
     const fail = baseFail({
       engaged_at,
       engaged_at_ms,
@@ -747,9 +751,7 @@ export async function runRollbackRepoint(options?: {
       config: { path: configPath, digest_sha256: '', prior_target },
       error: {
         code: CONTROL_PLANE_WRITE_FAILED,
-        message:
-          `cutover:rollback-repoint failed writing durable control-plane at ${secretsPath}: ` +
-          (err instanceof Error ? err.message : String(err)),
+        message: 'cutover:rollback-repoint failed writing durable control-plane.',
       },
     });
     ensureParent(reportPath);
@@ -900,6 +902,9 @@ export async function runRollbackRepoint(options?: {
       accepted_post_export_writes: 0,
       export_watermark_ms: exportWm,
       audit_path: resolvedAuditPath,
+      ponr_recorded: false,
+      ponr_id: null,
+      ponr_recorded_at: null,
     },
     config: {
       path: configPath,
@@ -909,6 +914,7 @@ export async function runRollbackRepoint(options?: {
     // Report only authorizing pre-existing acks (never self-created theatre).
     acknowledgements: authorizingAcks,
     report_path: reportPath,
+    database_target,
   };
 
   ensureParent(reportPath);
@@ -933,6 +939,7 @@ export function formatRollbackRepointText(r: RollbackRepointReport): string {
       `  error.code:    ${r.error?.code ?? ROLLBACK_INELIGIBLE}`,
       `  error.message: ${r.error?.message ?? ''}`,
       `  repointed:     ${r.repointed}`,
+      `  database_target: ${r.database_target.host}:${r.database_target.effective_port}/${r.database_target.database} fingerprint=${r.database_target.fingerprint}`,
       `  accepted_post_export_writes: ${r.precondition.accepted_post_export_writes}`,
       `  acknowledgements: ${r.acknowledgements.length}`,
       `  report:        ${r.report_path}`,
@@ -943,6 +950,7 @@ export function formatRollbackRepointText(r: RollbackRepointReport): string {
     `  ok:                 ${r.ok}`,
     `  repointed:          ${r.repointed}`,
     `  target:             ${r.target}`,
+    `  database_target:    ${r.database_target.host}:${r.database_target.effective_port}/${r.database_target.database} fingerprint=${r.database_target.fingerprint}`,
     `  data_plane:         ${r.data_plane}`,
     `  engaged_at:         ${r.engaged_at}`,
     `  configured_target:  ${r.configured_target}`,

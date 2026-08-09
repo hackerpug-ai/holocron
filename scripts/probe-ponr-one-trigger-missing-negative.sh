@@ -17,14 +17,88 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 OUT_DIR="${1:-.tmp/REDHAT-FIX-RH-S30-30-one-trigger-missing}"
 mkdir -p "$OUT_DIR"
-CANON="$ROOT/scripts/lib/canonical-pg-url.py"
 
 GATE_URL="$DATABASE_URL"
 MARKER_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL"
 
-GATE_CANON="$(python3 "$CANON" "$GATE_URL")"
-MARKER_CANON="$(python3 "$CANON" "$MARKER_URL")"
-if [[ "$GATE_CANON" == "$MARKER_CANON" ]]; then
+# URL material is supplied to Python only through S30_TARGET_URL. Evidence
+# retains only the shared four-field target identity, never a URL-shaped value.
+database_identity() {
+  env -u DATABASE_URL -u HOLO_PROBE_MARKER_MISS_DATABASE_URL \
+    S30_IDENTITY_CHILD=1 S30_TARGET_URL="$1" bun --eval '
+    try {
+      const { parseDatabaseTargetIdentity } = await import("./services/platform/src/db/connection.ts");
+      process.stdout.write(JSON.stringify(parseDatabaseTargetIdentity(process.env.S30_TARGET_URL!)));
+    } catch {
+      process.stderr.write("error: DATABASE_TARGET_IDENTITY_FAILED\n");
+      process.exit(2);
+    }
+  '
+}
+
+# The psql process receives only libpq PG* values. This wrapper absorbs raw
+# libpq stderr and reports a stable error so neither argv nor transcript can
+# disclose a URL, userinfo, query values, or fragments.
+psql_on_target() {
+  local target_url="$1"
+  shift
+  S30_TARGET_URL="$target_url" python3 -c '
+import os
+import subprocess
+import sys
+from urllib.parse import parse_qs, unquote, urlsplit
+
+raw = (os.environ.get("S30_TARGET_URL") or "").strip()
+try:
+    parsed = urlsplit(raw)
+    host = parsed.hostname
+    port = parsed.port or 5432
+    database = unquote(parsed.path.lstrip("/"))
+except ValueError:
+    print("error: DATABASE_TARGET_INVALID", file=sys.stderr)
+    raise SystemExit(2)
+if parsed.scheme not in {"postgres", "postgresql"} or not host or not database:
+    print("error: DATABASE_TARGET_INVALID", file=sys.stderr)
+    raise SystemExit(2)
+
+env = os.environ.copy()
+for key in list(env):
+    if key == "DATABASE_URL" or key.endswith("_DATABASE_URL") or key == "S30_TARGET_URL":
+        env.pop(key, None)
+for key in (
+    "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD",
+    "PGSERVICE", "PGSERVICEFILE", "PGSSLMODE", "PGSSLROOTCERT", "PGSSLCERT",
+    "PGSSLKEY", "PGCONNECT_TIMEOUT", "PGAPPNAME", "PGOPTIONS",
+    "PGTARGETSESSIONATTRS", "PGGSSENCMODE", "PGCHANNELBINDING",
+):
+    env.pop(key, None)
+env.update({"PGHOST": host, "PGPORT": str(port), "PGDATABASE": database})
+if parsed.username:
+    env["PGUSER"] = unquote(parsed.username)
+if parsed.password is not None:
+    env["PGPASSWORD"] = unquote(parsed.password)
+query = parse_qs(parsed.query, keep_blank_values=True)
+for parameter, env_key in {
+    "sslmode": "PGSSLMODE", "sslrootcert": "PGSSLROOTCERT",
+    "sslcert": "PGSSLCERT", "sslkey": "PGSSLKEY",
+    "connect_timeout": "PGCONNECT_TIMEOUT", "application_name": "PGAPPNAME",
+    "options": "PGOPTIONS", "target_session_attrs": "PGTARGETSESSIONATTRS",
+    "gssencmode": "PGGSSENCMODE", "channel_binding": "PGCHANNELBINDING",
+}.items():
+    if query.get(parameter):
+        env[env_key] = query[parameter][-1]
+
+result = subprocess.run(["psql", *sys.argv[1:]], env=env, stdin=sys.stdin, capture_output=True, text=True)
+if result.returncode:
+    print("error: POSTGRES_OPERATION_FAILED", file=sys.stderr)
+    raise SystemExit(result.returncode or 2)
+sys.stdout.write(result.stdout)
+' "$@"
+}
+
+GATE_IDENTITY="$(database_identity "$GATE_URL")"
+MARKER_IDENTITY="$(database_identity "$MARKER_URL")"
+if [[ "$GATE_IDENTITY" == "$MARKER_IDENTITY" ]]; then
   echo "error: marker URL canonically equals gate URL — refuse" >&2
   exit 2
 fi
@@ -32,10 +106,10 @@ fi
 # ── URI-alias same-target negative (must reject) ───────────────────────────
 # Build an alias of GATE that differs only by scheme/default-port spelling.
 ALIAS_SAME="$(
-  python3 - "$GATE_URL" <<'PY'
-import sys
+  DATABASE_URL="$GATE_URL" python3 - <<'PY'
+import os
 from urllib.parse import urlparse, urlunparse
-u = urlparse(sys.argv[1])
+u = urlparse(os.environ.get("DATABASE_URL", ""))
 # Flip scheme between postgres/postgresql and drop explicit :5432 if present
 scheme = "postgres" if (u.scheme or "").lower().startswith("postgresql") else "postgresql"
 host = u.hostname or "127.0.0.1"
@@ -55,9 +129,17 @@ netloc = f"{userinfo}{netloc_host}"
 print(urlunparse((scheme, netloc, u.path, "", "", "")))
 PY
 )"
+ALIAS_IDENTITY="$(database_identity "$ALIAS_SAME")"
 set +e
-python3 "$CANON" equal "$GATE_URL" "$ALIAS_SAME" >"$OUT_DIR/uri-alias-equal.stdout" 2>"$OUT_DIR/uri-alias-equal.stderr"
-ALIAS_EQ_RC=$?
+if [[ "$ALIAS_IDENTITY" == "$GATE_IDENTITY" ]]; then
+  printf 'equal\n' >"$OUT_DIR/uri-alias-equal.stdout"
+  : >"$OUT_DIR/uri-alias-equal.stderr"
+  ALIAS_EQ_RC=1
+else
+  printf 'distinct\n' >"$OUT_DIR/uri-alias-equal.stdout"
+  : >"$OUT_DIR/uri-alias-equal.stderr"
+  ALIAS_EQ_RC=0
+fi
 set -e
 # equal → exit 1 from helper; we need them equal for the negative fixture
 if [[ "$ALIAS_EQ_RC" -ne 1 ]]; then
@@ -86,7 +168,7 @@ REQUIRED=(data_plane_ponr_reject_mutation data_plane_ponr_reject_truncate)
 
 restore_triggers() {
   for t in "${REQUIRED[@]}"; do
-    psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
+    psql_on_target "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
       "ALTER TABLE data_plane_ponr ENABLE TRIGGER ${t};" 2>/dev/null || true
   done
 }
@@ -99,12 +181,12 @@ cases_json='[]'
 for disable_one in "${REQUIRED[@]}"; do
   case_dir="$OUT_DIR/disable-${disable_one}"
   mkdir -p "$case_dir"
-  psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
+  psql_on_target "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
     "ALTER TABLE data_plane_ponr DISABLE TRIGGER ${disable_one};"
 
   # Snapshot exact tgenabled states for complementary D/O bind (RH-S30-33)
   TRIG_SNAP="$(
-    psql "$MARKER_URL" -tAc "
+    psql_on_target "$MARKER_URL" -tAc "
       SELECT coalesce(string_agg(tgname || '|' || tgenabled::text, E'\n' ORDER BY tgname), '')
       FROM pg_trigger
       WHERE tgrelid = 'public.data_plane_ponr'::regclass
@@ -153,7 +235,7 @@ print(json.dumps({
   )"
 
   # Re-enable before next case
-  psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
+  psql_on_target "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
     "ALTER TABLE data_plane_ponr ENABLE TRIGGER ${disable_one};"
 
   if [[ "$case_rc" -eq 0 ]]; then
@@ -194,22 +276,22 @@ done
 restore_triggers
 trap - EXIT
 
-python3 - "$OUT_DIR" "$GATE_CANON" "$MARKER_CANON" "$ALIAS_PROBE_RC" "$cases_json" "$ROOT" <<'PY'
+python3 - "$OUT_DIR" "$GATE_IDENTITY" "$MARKER_IDENTITY" "$ALIAS_PROBE_RC" "$cases_json" "$ROOT" <<'PY'
 import json, sys, subprocess
 from pathlib import Path
 
 out = Path(sys.argv[1])
-gate_canon = sys.argv[2]
-marker_canon = sys.argv[3]
+gate_identity = json.loads(sys.argv[2])
+marker_identity = json.loads(sys.argv[3])
 alias_rc = int(sys.argv[4])
 cases = json.loads(sys.argv[5])
 root = Path(sys.argv[6])
 report = {
     "ok": True,
     "tool": "scripts/probe-ponr-one-trigger-missing-negative.sh",
-    "gate_url_canonical": gate_canon,
-    "marker_url_canonical": marker_canon,
-    "urls_distinct": gate_canon != marker_canon,
+    "gate_database_target": gate_identity,
+    "marker_database_target": marker_identity,
+    "urls_distinct": gate_identity != marker_identity,
     "uri_alias_same_target_refused": alias_rc != 0,
     "uri_alias_probe_rc": alias_rc,
     "one_trigger_missing_cases": cases,

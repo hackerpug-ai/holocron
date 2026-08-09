@@ -2747,10 +2747,9 @@ export async function runVerifyTools(options?: {
 }): Promise<ToolsVerifyReport> {
   const cwd = options?.cwd ?? resolveRepoRoot();
   const keys = options?.keys ?? defaultKeys();
-  // Ensure DATABASE_URL is visible to any local side-paths (not the network oracle)
-  if (options?.databaseUrl) {
-    process.env.DATABASE_URL = options.databaseUrl;
-  }
+  // Keep the selected target local. Mutating process.env here races overlapping
+  // verify calls and can redirect an unrelated oracle to the wrong database.
+  const databaseUrl = options?.databaseUrl ?? process.env.DATABASE_URL;
 
   const manifest = loadManifest(defaultManifestPath(cwd));
   const mutationIds = mcpMutationToolIds(cwd);
@@ -2821,7 +2820,7 @@ export async function runVerifyTools(options?: {
     seeds = options.seeds;
   } else {
     const seedResult = await resolveVerifyToolSeeds({
-      databaseUrl: options?.databaseUrl ?? process.env.DATABASE_URL,
+      databaseUrl,
       runId,
     });
     if (!seedResult.ok) {
@@ -2857,7 +2856,7 @@ export async function runVerifyTools(options?: {
       } else {
         // Read path (R3-C03): Zod schema_valid + independent SELECT correspondence
         const oracleResult = await selectPostgresOracleForTool(tool.id, seeds, {
-          databaseUrl: options?.databaseUrl ?? process.env.DATABASE_URL,
+          databaseUrl,
         });
         const read = evaluateReadToolSuccess(tool.id, res, {
           oracle: oracleResult.ok ? oracleResult.oracle : undefined,

@@ -35,6 +35,7 @@ import {
   ROLLBACK_TARGET_ENV,
   resolveObservedDataPlane,
 } from '../../src/cutover/soak-fence.ts';
+import { DEFAULT_DATABASE_URL } from '../../src/db/connection.ts';
 import { createHonoApp } from '../../src/http/hono-app.ts';
 
 if (!PLATFORM_IT) {
@@ -53,6 +54,7 @@ const SPRINT_EVIDENCE = resolve(
 const D0605 = resolve(REPO_ROOT, '.tmp/D06-05');
 const D0604 = resolve(REPO_ROOT, '.tmp/D06-04');
 const DISPOSABLE_SECRETS = resolve(R2_EVIDENCE, 'disposable-secrets.yaml');
+const TEST_OPERATOR_SECRET = 's29-disposable-operator-secret';
 
 type PreexistingServing = Pick<LiveService, 'baseUrl' | 'port' | 'pid' | 'stop'>;
 
@@ -85,6 +87,7 @@ async function startPreexistingServing(secretsPath: string): Promise<Preexisting
     extraEnv: {
       HOLO_SECRETS_PATH: secretsPath,
       HOLOCRON_SECRETS_PATH: secretsPath,
+      HOLO_CUTOVER_OPERATOR_SECRET: TEST_OPERATOR_SECRET,
       HOLO_DATA_PLANE: 'postgres',
       HOLO_ROLLBACK_TARGET: 'boot-time-postgres',
       HOLO_SERVICE_LABEL: 's29-rollback-preexisting-platform',
@@ -194,6 +197,7 @@ function seedDisposableSecrets(): void {
     DISPOSABLE_SECRETS,
     [
       '# disposable R2-C04 secrets — never production',
+      `HOLO_CUTOVER_OPERATOR_SECRET: "${TEST_OPERATOR_SECRET}"`,
       'HOLO_MIGRATION_READ_ONLY: "1"',
       'HOLO_DATA_PLANE: "postgres"',
       'HOLO_ROLLBACK_TARGET: "postgres-soak"',
@@ -211,6 +215,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
   const priorSoak = process.env.HOLO_SOAK_BASE_URL;
   const priorPlatform = process.env.PLATFORM_URL;
   const priorVerifyPid = process.env.HOLO_VERIFY_PID;
+  const priorOperatorSecret = process.env.HOLO_CUTOVER_OPERATOR_SECRET;
   let liveServing: PreexistingServing | undefined;
 
   beforeEach(() => {
@@ -220,6 +225,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     mkdirSync(SPRINT_EVIDENCE, { recursive: true });
     mkdirSync(D0605, { recursive: true });
     seedDisposableSecrets();
+    process.env.HOLO_CUTOVER_OPERATOR_SECRET = TEST_OPERATOR_SECRET;
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
     delete process.env[DATA_PLANE_ENV];
     delete process.env[ROLLBACK_TARGET_ENV];
@@ -255,6 +261,9 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     else delete process.env.PLATFORM_URL;
     if (priorVerifyPid !== undefined) process.env.HOLO_VERIFY_PID = priorVerifyPid;
     else delete process.env.HOLO_VERIFY_PID;
+    if (priorOperatorSecret !== undefined)
+      process.env.HOLO_CUTOVER_OPERATOR_SECRET = priorOperatorSecret;
+    else delete process.env.HOLO_CUTOVER_OPERATOR_SECRET;
   });
 
   it('TC-3: cutover:rollback-repoint is a registered executable command', () => {
@@ -284,6 +293,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     if (liveServing.pid) process.env.HOLO_VERIFY_PID = String(liveServing.pid);
 
     const report = await runRollbackRepoint({
+      databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
       reportPath,
       configPath,
       auditPath,
@@ -385,6 +395,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     const priorSecretsBody = readFileSync(DISPOSABLE_SECRETS, 'utf8');
 
     const report = await runRollbackRepoint({
+      databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
       reportPath: resolve(D0605, 'rollback-repoint-report-ineligible.json'),
       configPath,
       auditPath,
@@ -435,6 +446,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     if (liveServing.pid) process.env.HOLO_VERIFY_PID = String(liveServing.pid);
 
     const report = await runRollbackRepoint({
+      databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
       reportPath: resolve(R2_EVIDENCE, 'live-ack-report.json'),
       auditPath,
       watermarkPath,
@@ -519,6 +531,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     const { watermarkPath, auditPath } = await seedEligibleFixture({ withAcceptedWrite: false });
     liveServing = await startPreexistingServing(DISPOSABLE_SECRETS);
     const report = await runRollbackRepoint({
+      databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
       reportPath: resolve(R2_EVIDENCE, 'oracle-report.json'),
       auditPath,
       watermarkPath,
@@ -542,6 +555,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     delete process.env.PLATFORM_URL;
 
     const report = await runRollbackRepoint({
+      databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
       reportPath: resolve(R3_H03_EVIDENCE, 'self-created-ack-refused.json'),
       auditPath,
       watermarkPath,
@@ -585,6 +599,7 @@ describe('REDHAT-FIX-S29-H05 / R2-C04 / R3-H03 rollback re-point (UC-SYNC-04)', 
     const deadUrl = `http://127.0.0.1:${deadPort}`;
 
     const report = await runRollbackRepoint({
+      databaseUrl: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
       reportPath: resolve(R3_H03_EVIDENCE, 'not-listening-preflight.json'),
       auditPath,
       watermarkPath,

@@ -191,9 +191,13 @@ Every path not listed below is write-prohibited for this implementation task:
 - `services/platform/src/cutover/rollback-drill.ts` — required DB, child propagation, explicit recompute, mismatch failure/report identity
 - `services/platform/src/cutover/soak-fence.ts` — remove `runVerifyTools` ambient DB mutation; explicit local DB flow
 - `services/platform/src/cli/holo.ts` — resolve/validate at the two CLI boundaries; no URL flag
+- `services/platform/src/http/health.ts` — expose the serving process's credential-free database target so the drill can bind network probes before side effects
 - `services/platform/src/cutover/ponr-marker.ts` (new) — shared exact marker operation
 - `scripts/cleanup-sprint30-ponr-marker.sh` (new) — env-only gate wrapper
 - `scripts/probe-ponr-role-immutability-negative-marker.sh` — shared seed identity/use, no residual marker
+- `scripts/probe-ponr-role-immutability.sh` — existing probe may be changed only for env-only libpq binding, raw-URL-free argv/output, and credential-safe failure redaction
+- `scripts/reset-sprint30-gate-ledger.sh` — gate-reachable reset helper may be changed only to replace raw database-URL Python/`psql` argv with env-only libpq binding and credential-safe errors
+- `scripts/probe-ponr-one-trigger-missing-negative.sh` — gate-reachable negative helper may be changed only to replace raw gate/marker database-URL Python/`psql` argv with env-only libpq binding and credential-safe errors
 - `scripts/run-sprint30-human-gate.sh` — early validation, pre-C3 cleanup, EXIT trap
 - `services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts` (new) — real two-DB production-path tests
 - `tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts` (new) — shell/order/credential-output contracts where behavioral process execution is appropriate
@@ -205,6 +209,21 @@ Every path not listed below is write-prohibited for this implementation task:
 - `.tmp/GATE-FIX-explicit-ponr-database-binding/**` — RED/GREEN/runtime evidence only (do not commit secrets)
 
 Before editing, run the direct-caller `rg` commands in the verification section and record the results. If they reveal a required consumer outside this list, stop and obtain a task-scope amendment before editing that file. Do not touch the untracked Sprint 31 directory or unrelated source.
+
+## Reviewer-remediation oracle addendum
+
+The first immutable review returned NEEDS_FIXES: test reality found **4 CRITICAL / 1 HIGH**, security found **0 CRITICAL / 2 HIGH**, platform review found **0 CRITICAL / 4 HIGH**, and product review found **2 CRITICAL / 3 HIGH**. All findings remain blocking and none is waivable until a remediated immutable commit passes fresh independent review. Review approval requires runnable evidence for every bullet below; source grep, a compile-only failure, or a happy-path-only assertion is insufficient.
+
+- **RR-1 — runnable type contract.** Compile omission fixtures against the actual exported `runRollbackRepoint`, `runRollbackDrill`, and `spawnRollbackRepointCli` signatures. Each fixture must fail specifically because `databaseUrl` is omitted, and the GREEN run must prove the supplied value reaches the production path.
+- **RR-2 — concurrent healthy two-database verify.** Keep two distinct migrated PostgreSQL databases A and B reachable at the same time, run overlapping production `runVerifyTools` calls against A and B with an ambient sentinel target, and assert each result's target identity/state belongs to its explicit database while the ambient environment remains unchanged. Invalid URLs or serial calls do not satisfy this oracle.
+- **RR-3 — direct drill mismatch branch with real child B.** Spawn the registered child process against real database B, obtain its successful report, and pass that unmodified report through the production drill acceptance branch bound to A. Require `DATABASE_TARGET_MISMATCH`, `ok:false`, and `repointed:false`; a test-only report rewrite or shim is not evidence.
+- **RR-4 — normal C-3 block.** Exercise the ordinary C-3 human-gate path with valid distinct disposable targets and marker seeding, not only a test-mode fast path. Prove pre-C3 cleanup and the armed EXIT trap remove the exact marker on both normal completion and a forced C-3 failure, preserving the two-row audit snapshot and both named trigger states.
+- **RR-5 — exact two-row audit report snapshots.** Capture independently read before/after reports for every cleanup outcome. Each report must include exact audit count `2`, the stable whole-table digest, marker count, and both required trigger states; a database query or count-only assertion is insufficient.
+- **RR-6 — accepted-field predicate-removal mutant.** Run a mutation that removes each fixed identity predicate, including one accepted marker field, from the cleanup match. The corresponding real-DB test must fail and the evidence must record a nonzero mutant result; matching only an ID or a subset of fields is rejected.
+- **RR-7 — failure credential canaries.** Inject username, password, query, and fragment canaries into forced cleanup, foreign-row, malformed-target, and child-failure paths. Assert that none appears in argv, stdout, stderr, reports, or evidence, including when the underlying connection/libpq operation fails; success-only redaction checks do not satisfy this oracle.
+- **RR-8 — RED and quality evidence.** Preserve a behavioral RED artifact captured before production edits with command, exit code, source SHA, and credential-free A/B identities, plus seeded-value and watched-RED records. GREEN must include real two-DB integration, shell/process lifecycle, `bash -n`, TypeScript, Biome/lint, full tests, `git diff --check`, and normal hook output; generate verification summaries only through the prescribed harvest script.
+- **RR-9 — serving-target bind before network side effects.** `/health` must report the already-listening process's credential-free database target. Before `runVerifyTools`, the rollback child, or any five-surface network probe, the drill compares that complete identity to its explicit target. Missing or unequal identity returns `DATABASE_TARGET_MISMATCH`, executes no probes/repoint, and cannot be masked by a fence or other later failure.
+- **RR-10 — complete gate-helper argv boundary.** The normal human-gate call chain, including the authorized ledger reset and one-trigger-missing negative control, must pass database targets through environment-derived libpq variables only. An executed recorder/canary must observe Python and `psql` children across both helpers while proving username, password, raw URL, query, fragment, and decoded query values never appear on argv or in persisted output.
 
 ## Acceptance Criteria
 
@@ -291,7 +310,7 @@ MARKER_DATABASE_URL="$MARKER_DATABASE_URL" \
 pnpm vitest run --project integration \
   services/platform/tests/integration/sprint30-explicit-ponr-database-binding.test.ts
 
-pnpm vitest run tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts
+PLATFORM_IT=1 pnpm vitest run tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts
 bash -n scripts/cleanup-sprint30-ponr-marker.sh \
   scripts/probe-ponr-role-immutability-negative-marker.sh \
   scripts/run-sprint30-human-gate.sh

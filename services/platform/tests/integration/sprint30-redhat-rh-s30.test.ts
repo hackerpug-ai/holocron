@@ -5,9 +5,12 @@
  *   PLATFORM_IT=1 pnpm vitest run --project integration \
  *     services/platform/tests/integration/sprint30-redhat-rh-s30.test.ts
  */
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import postgres from 'postgres';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   FIRST_WRITE_FAILED,
   recoverEnableWritesCrashWindow,
@@ -60,7 +63,9 @@ function ensureCutoverEnvFromDotenv(): void {
     );
     if (!m) continue;
     const key = m[1];
-    let val = m[2].trim();
+    const rawValue = m[2];
+    if (!key || rawValue === undefined) continue;
+    let val = rawValue.trim();
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
     }
@@ -77,13 +82,102 @@ const EVIDENCE_05 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-05');
 const EVIDENCE_19 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-19');
 /** RH-S30-22 / M-3 residual — independent HTTP-201 identity + durable branch evidence. */
 const EVIDENCE_22 = resolve(REPO_ROOT, '.tmp/REDHAT-FIX-RH-S30-22');
-/** POST /api/documents refuses production-like holocron; pin nonprod for IT. */
-const NONPROD_URL = 'postgres://127.0.0.1:5432/holocron_nonprod';
+const ADMIN_URL = process.env.GATE_FIX_TEST_ADMIN_URL ?? 'postgres://127.0.0.1:5432/postgres';
+const SOURCE_URL = process.env.GATE_FIX_TEST_SOURCE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+
+const FORBIDDEN_DATABASE_NAMES = new Set(['holocron', 'holocron_nonprod', 'postgres']);
+
+function databaseName(url: string): string {
+  const parsed = new URL(url);
+  return decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+}
+
+function assertDisposableDatabase(url: string): void {
+  const name = databaseName(url);
+  const normalized = name.toLowerCase();
+  if (FORBIDDEN_DATABASE_NAMES.has(normalized) || !/^s30_rh_[a-f0-9]{16}$/.test(normalized)) {
+    throw new Error(`refusing non-disposable Sprint 30 RH database target: ${name || '<missing>'}`);
+  }
+}
+
+function databaseUrl(base: string, name: string): string {
+  const parsed = new URL(base);
+  parsed.pathname = `/${name}`;
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString();
+}
+
+function libpqEnv(url: string): NodeJS.ProcessEnv {
+  const parsed = new URL(url);
+  return {
+    ...process.env,
+    PGHOST: parsed.hostname,
+    PGPORT: parsed.port || '5432',
+    PGUSER: decodeURIComponent(parsed.username),
+    PGPASSWORD: decodeURIComponent(parsed.password),
+    PGDATABASE: decodeURIComponent(parsed.pathname.replace(/^\/+/, '')),
+  };
+}
+
+async function provisionDisposableDatabase(): Promise<{ name: string; url: string }> {
+  const name = `s30_rh_${randomUUID().replaceAll('-', '').slice(0, 16)}`;
+  const url = databaseUrl(ADMIN_URL, name);
+  assertDisposableDatabase(url);
+  let created = false;
+  const admin = postgres(ADMIN_URL, { max: 1, prepare: false });
+  try {
+    await admin.unsafe(`CREATE DATABASE "${name}" TEMPLATE template0`);
+    created = true;
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+
+  try {
+    const dump = execFileSync('pg_dump', ['--no-owner', '--no-privileges'], {
+      cwd: REPO_ROOT,
+      env: libpqEnv(SOURCE_URL),
+      maxBuffer: 256 * 1024 * 1024,
+    });
+    execFileSync('psql', ['--quiet'], {
+      cwd: REPO_ROOT,
+      input: dump,
+      stdio: ['pipe', 'ignore', 'ignore'],
+      env: libpqEnv(url),
+    });
+    return { name, url };
+  } catch (error) {
+    if (created) await dropDisposableDatabase(name);
+    throw error;
+  }
+}
+
+async function dropDisposableDatabase(name: string): Promise<void> {
+  const normalized = name.toLowerCase();
+  if (FORBIDDEN_DATABASE_NAMES.has(normalized) || !/^s30_rh_[a-f0-9]{16}$/.test(normalized)) {
+    throw new Error(
+      `refusing to drop non-disposable Sprint 30 RH database: ${name || '<missing>'}`
+    );
+  }
+  const admin = postgres(ADMIN_URL, { max: 1, prepare: false });
+  try {
+    await admin.unsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+}
 
 describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
   const priorSecrets = process.env.HOLO_SECRETS_PATH;
   const priorDb = process.env.DATABASE_URL;
+  const priorDangerousDbOverride = process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+  let disposableDatabase: { name: string; url: string } | undefined;
   let liveServing: PreexistingServing | undefined;
+
+  beforeAll(async () => {
+    disposableDatabase = await provisionDisposableDatabase();
+    assertDisposableDatabase(disposableDatabase.url);
+  }, 180_000);
 
   beforeEach(() => {
     ensureCutoverEnvFromDotenv();
@@ -91,7 +185,14 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     mkdirSync(EVIDENCE_05, { recursive: true });
     mkdirSync(EVIDENCE_19, { recursive: true });
     mkdirSync(EVIDENCE_22, { recursive: true });
-    process.env.DATABASE_URL = NONPROD_URL;
+    if (!disposableDatabase)
+      throw new Error('disposable Sprint 30 RH database was not provisioned');
+    assertDisposableDatabase(disposableDatabase.url);
+    process.env.DATABASE_URL = disposableDatabase.url;
+    // The runtime's nonprod resolver is intentionally fail-closed. This narrow
+    // fixture-only override is required for the generated disposable name and
+    // is restored after every test; shared holocron databases are never used.
+    process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = '1';
     seedDisposableSecrets({ readOnly: '1' });
     process.env.HOLO_SECRETS_PATH = DISPOSABLE_SECRETS;
     liveServing = undefined;
@@ -106,6 +207,16 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
     else delete process.env.HOLO_SECRETS_PATH;
     if (priorDb !== undefined) process.env.DATABASE_URL = priorDb;
     else delete process.env.DATABASE_URL;
+    if (priorDangerousDbOverride !== undefined) {
+      process.env.HOLO_DANGEROUS_ALLOW_PROD_DB = priorDangerousDbOverride;
+    } else {
+      delete process.env.HOLO_DANGEROUS_ALLOW_PROD_DB;
+    }
+  });
+
+  afterAll(async () => {
+    if (disposableDatabase) await dropDisposableDatabase(disposableDatabase.name);
+    disposableDatabase = undefined;
   });
 
   it('RH-S30-03 AC-1: real POST /api/documents after watermark increments Postgres ledger', async () => {
@@ -260,6 +371,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       expect(report.ok).toBe(false);
 
       const refuse = await runRollbackRepoint({
+        databaseUrl: resolveTestDatabaseUrl(),
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
@@ -321,6 +433,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       );
 
       const refuse = await runRollbackRepoint({
+        databaseUrl: resolveTestDatabaseUrl(),
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
@@ -379,6 +492,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       );
 
       const refuse = await runRollbackRepoint({
+        databaseUrl: resolveTestDatabaseUrl(),
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
@@ -411,7 +525,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       // Independent HTTP-201 capture at the network boundary (not report.write_row_id).
       const originalFetch = globalThis.fetch;
       let independentHttp201Id: string | null = null;
-      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      globalThis.fetch = (async (input: Request | string | URL, init?: RequestInit) => {
         const res = await originalFetch(input, init);
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.href : String(input);
@@ -511,6 +625,7 @@ describe('REDHAT-FIX-RH-S30 remediations 03 + 05', () => {
       );
 
       const refuse = await runRollbackRepoint({
+        databaseUrl: resolveTestDatabaseUrl(),
         cwd: REPO_ROOT,
         baseUrl: liveServing.baseUrl,
         secretsPath: DISPOSABLE_SECRETS,
