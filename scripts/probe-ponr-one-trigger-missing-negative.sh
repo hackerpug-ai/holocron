@@ -21,11 +21,12 @@ mkdir -p "$OUT_DIR"
 GATE_URL="$DATABASE_URL"
 MARKER_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL"
 
-# URL material is supplied to Python only through S30_TARGET_URL. The
-# canonical identity intentionally excludes credentials, query, and fragment
-# values so it is safe to retain in evidence.
+# URL material is supplied to Python only through S30_TARGET_URL. Evidence
+# retains only the shared four-field target identity, never a URL-shaped value.
 database_identity() {
   S30_TARGET_URL="$1" python3 - <<'PY'
+import hashlib
+import json
 import os
 import sys
 from urllib.parse import unquote, urlsplit
@@ -42,7 +43,14 @@ database = unquote((parsed.path or "").lstrip("/")) if host else ""
 if parsed.scheme.lower() not in {"postgres", "postgresql"} or not host or not database:
     print("error: DATABASE_TARGET_INVALID", file=sys.stderr)
     raise SystemExit(2)
-print(f"postgresql://{host}:{port}/{database}")
+fingerprint_tuple = "\0".join(("database-target-v1", host, str(port), database))
+identity = {
+    "host": host,
+    "effective_port": port,
+    "database": database,
+    "fingerprint": hashlib.sha256(fingerprint_tuple.encode()).hexdigest(),
+}
+print(json.dumps(identity, separators=(",", ":"), sort_keys=True))
 PY
 }
 
@@ -106,9 +114,9 @@ sys.stdout.write(result.stdout)
 ' "$@"
 }
 
-GATE_CANON="$(database_identity "$GATE_URL")"
-MARKER_CANON="$(database_identity "$MARKER_URL")"
-if [[ "$GATE_CANON" == "$MARKER_CANON" ]]; then
+GATE_IDENTITY="$(database_identity "$GATE_URL")"
+MARKER_IDENTITY="$(database_identity "$MARKER_URL")"
+if [[ "$GATE_IDENTITY" == "$MARKER_IDENTITY" ]]; then
   echo "error: marker URL canonically equals gate URL — refuse" >&2
   exit 2
 fi
@@ -139,14 +147,14 @@ netloc = f"{userinfo}{netloc_host}"
 print(urlunparse((scheme, netloc, u.path, "", "", "")))
 PY
 )"
-ALIAS_CANON="$(database_identity "$ALIAS_SAME")"
+ALIAS_IDENTITY="$(database_identity "$ALIAS_SAME")"
 set +e
-if [[ "$ALIAS_CANON" == "$GATE_CANON" ]]; then
-  printf 'equal\n%s\n%s\n' "$GATE_CANON" "$ALIAS_CANON" >"$OUT_DIR/uri-alias-equal.stdout"
+if [[ "$ALIAS_IDENTITY" == "$GATE_IDENTITY" ]]; then
+  printf 'equal\n' >"$OUT_DIR/uri-alias-equal.stdout"
   : >"$OUT_DIR/uri-alias-equal.stderr"
   ALIAS_EQ_RC=1
 else
-  printf 'distinct\n%s\n%s\n' "$GATE_CANON" "$ALIAS_CANON" >"$OUT_DIR/uri-alias-equal.stdout"
+  printf 'distinct\n' >"$OUT_DIR/uri-alias-equal.stdout"
   : >"$OUT_DIR/uri-alias-equal.stderr"
   ALIAS_EQ_RC=0
 fi
@@ -286,22 +294,22 @@ done
 restore_triggers
 trap - EXIT
 
-python3 - "$OUT_DIR" "$GATE_CANON" "$MARKER_CANON" "$ALIAS_PROBE_RC" "$cases_json" "$ROOT" <<'PY'
+python3 - "$OUT_DIR" "$GATE_IDENTITY" "$MARKER_IDENTITY" "$ALIAS_PROBE_RC" "$cases_json" "$ROOT" <<'PY'
 import json, sys, subprocess
 from pathlib import Path
 
 out = Path(sys.argv[1])
-gate_canon = sys.argv[2]
-marker_canon = sys.argv[3]
+gate_identity = json.loads(sys.argv[2])
+marker_identity = json.loads(sys.argv[3])
 alias_rc = int(sys.argv[4])
 cases = json.loads(sys.argv[5])
 root = Path(sys.argv[6])
 report = {
     "ok": True,
     "tool": "scripts/probe-ponr-one-trigger-missing-negative.sh",
-    "gate_url_canonical": gate_canon,
-    "marker_url_canonical": marker_canon,
-    "urls_distinct": gate_canon != marker_canon,
+    "gate_database_target": gate_identity,
+    "marker_database_target": marker_identity,
+    "urls_distinct": gate_identity != marker_identity,
     "uri_alias_same_target_refused": alias_rc != 0,
     "uri_alias_probe_rc": alias_rc,
     "one_trigger_missing_cases": cases,

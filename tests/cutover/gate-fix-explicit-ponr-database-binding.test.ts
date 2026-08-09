@@ -1296,6 +1296,18 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
     }
   }, 30_000);
 
+  it('TC-19 guard: the documented shell gate enables real database cases', () => {
+    const task = readFileSync(
+      `${REPO_ROOT}/.spec/prds/mk6-migration/tasks/` +
+        'sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return/' +
+        'GATE-FIX-explicit-ponr-database-binding.md',
+      'utf8'
+    );
+    expect(task).toContain(
+      'PLATFORM_IT=1 pnpm vitest run tests/cutover/gate-fix-explicit-ponr-database-binding.test.ts'
+    );
+  });
+
   it('TC-16: human gate rejects a missing gate target before any gate work', () => {
     const env = { ...process.env };
     delete env.DATABASE_URL;
@@ -1751,6 +1763,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         resetExit: number | null;
         oneTriggerExit: number | null;
         outputSensitive: boolean;
+        outputRawUrl: boolean;
         resetErrorCodes: string[];
         oneTriggerErrorCodes: string[];
       }> = [];
@@ -1834,6 +1847,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
           resetExit: reset.status,
           oneTriggerExit: oneTrigger?.status ?? null,
           outputSensitive: sensitiveNeedles.some((needle) => output.includes(needle)),
+          outputRawUrl: /postgres(?:ql)?:\/\//i.test(output),
           resetErrorCodes: stableErrorCodes(`${reset.stdout ?? ''}\n${reset.stderr ?? ''}`),
           oneTriggerErrorCodes: stableErrorCodes(
             `${oneTrigger?.stdout ?? ''}\n${oneTrigger?.stderr ?? ''}`
@@ -1868,6 +1882,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         ...LIBPQ_PRECONNECT_CANARIES.flatMap(({ encoded, decoded }) => [encoded, decoded]),
       ];
       const persistedSensitiveHits = countSensitiveNeedles(evidenceRoot, allSensitiveNeedles);
+      const persistedRawUrlHits = scanTextFiles(evidenceRoot).rawUrlHits;
       const summary = {
         source_sha: spawnSync('git', ['rev-parse', 'HEAD'], {
           cwd: REPO_ROOT,
@@ -1880,6 +1895,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
             resetExit,
             oneTriggerExit,
             outputSensitive,
+            outputRawUrl,
             resetErrorCodes,
             oneTriggerErrorCodes,
           }) => ({
@@ -1888,6 +1904,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
             reset_exit: resetExit,
             one_trigger_exit: oneTriggerExit,
             output_sensitive: outputSensitive,
+            output_raw_url: outputRawUrl,
             reset_error_codes: resetErrorCodes,
             one_trigger_error_codes: oneTriggerErrorCodes,
           })
@@ -1908,6 +1925,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
               record.pg_appname_match === 1
           ),
         persisted_sensitive_hits: persistedSensitiveHits,
+        persisted_raw_url_hits: persistedRawUrlHits,
         holocron_nonprod_touched: false,
       };
       writeFileSync(
@@ -1922,6 +1940,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
       expect(runs.filter((run) => run.oneTriggerExit !== null)).toHaveLength(1);
       expect(runs.find((run) => run.oneTriggerExit !== null)?.oneTriggerExit).toBe(0);
       expect(runs.every((run) => !run.outputSensitive)).toBe(true);
+      expect(runs.every((run) => !run.outputRawUrl)).toBe(true);
       expect(pythonRecords.length).toBeGreaterThan(0);
       expect(pythonRecords.some((record) => record.url_env_seen === 1)).toBe(true);
       expect(records.every((record) => record.argv_canary_seen === 0)).toBe(true);
@@ -1936,6 +1955,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
         )
       ).toBe(true);
       expect(persistedSensitiveHits).toBe(0);
+      expect(persistedRawUrlHits).toBe(0);
     },
     300_000
   );
