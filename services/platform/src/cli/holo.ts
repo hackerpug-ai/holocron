@@ -1498,10 +1498,16 @@ async function main(): Promise<void> {
         if (args.json) {
           console.log(JSON.stringify(result, null, 2));
         } else {
-          console.log('holo etl:reconcile — target vs source counts');
+          console.log('holo etl:reconcile — target vs source counts + content digests');
           console.log(`  unexplainedVariance:         ${result.unexplainedVariance}`);
           console.log(`  tableUnexplainedVariance:    ${result.tableUnexplainedVariance}`);
           console.log(`  storageRefUnexplainedVariance: ${result.storageRefUnexplainedVariance}`);
+          console.log(`  fieldDigestMismatches:       ${result.fieldDigestMismatches}`);
+          console.log(`  defaulted_column:            ${result.defaulted_column.length}`);
+          console.log(`  emptySourceTables:           ${result.emptySourceTables.length}`);
+          for (const empty of result.emptySourceTables) {
+            console.log(`    EMPTY_SOURCE_TABLE ${empty.table} (disposition=${empty.disposition})`);
+          }
           console.log(`  fkOrphans:                   ${result.fkAudit.orphans}`);
           console.log(`  blobParityFailures:          ${result.blobVerify.parityFailures}`);
           console.log(result.ok ? '  status: OK' : '  status: FAIL');

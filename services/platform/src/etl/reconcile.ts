@@ -1,9 +1,17 @@
-/** Sprint 14 reconciliation report: source counts vs loaded target counts + FK/blob summaries. */
+/** Sprint 14 reconciliation report: source counts vs loaded target counts + FK/blob summaries.
+ * S31-CX-03: field-level content digests + empty retained source fail-closed (R22).
+ */
 
 import { createHash } from 'node:crypto';
 import { runBlobVerify } from '../blob/verify.ts';
 import { collectStorageLegacyIdsByRef } from '../catalog/assets.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
+import {
+  computeFieldDigestReport,
+  type DefaultedColumnEntry,
+  type EmptySourceTableEntry,
+  type FieldDigestMismatch,
+} from './field-digests.ts';
 import { runFkAudit } from './fk-audit.ts';
 import { loadLatestRunContext } from './latest-run.ts';
 
@@ -48,6 +56,13 @@ export interface EtlReconcileReport {
   unexplainedVariance: number;
   tableUnexplainedVariance: number;
   storageRefUnexplainedVariance: number;
+  /** Number of (table, field) pairs whose content digests diverge (S31-CX-03). */
+  fieldDigestMismatches: number;
+  fieldDigestMismatchDetails: FieldDigestMismatch[];
+  /** Columns where DB defaults substituted for null/missing source (inventory; does not alone fail ok). */
+  defaulted_column: DefaultedColumnEntry[];
+  /** Retained catalog tables with 0 archive rows that are not approved-empty. */
+  emptySourceTables: EmptySourceTableEntry[];
   tables: EtlReconcileTableRow[];
   storageRefs: EtlReconcileStorageRefRow[];
   fkAudit: {
@@ -261,6 +276,13 @@ export async function runEtlReconcile(options?: {
       });
     }
 
+    const fieldDigests = await computeFieldDigestReport({
+      sql,
+      catalogTables: catalog.tables,
+      archiveRowsByTable,
+      listedArchiveTables: archive.listedTables,
+    });
+
     const fkAudit = await runFkAudit({
       databaseUrl,
       exportDir: options?.exportDir,
@@ -273,15 +295,23 @@ export async function runEtlReconcile(options?: {
       blobRoot: options?.blobRoot,
     });
 
+    const ok =
+      tableUnexplainedVariance === 0 &&
+      storageRefUnexplainedVariance === 0 &&
+      fieldDigests.fieldDigestMismatches === 0 &&
+      fieldDigests.emptySourceTables.length === 0 &&
+      fkAudit.orphans === 0 &&
+      blobVerify.parityFailures === 0;
+
     return {
-      ok:
-        tableUnexplainedVariance === 0 &&
-        storageRefUnexplainedVariance === 0 &&
-        fkAudit.orphans === 0 &&
-        blobVerify.parityFailures === 0,
+      ok,
       unexplainedVariance: tableUnexplainedVariance + storageRefUnexplainedVariance,
       tableUnexplainedVariance,
       storageRefUnexplainedVariance,
+      fieldDigestMismatches: fieldDigests.fieldDigestMismatches,
+      fieldDigestMismatchDetails: fieldDigests.fieldDigestMismatchDetails,
+      defaulted_column: fieldDigests.defaulted_column,
+      emptySourceTables: fieldDigests.emptySourceTables,
       tables: tableRows.sort((a, b) => a.table.localeCompare(b.table)),
       storageRefs: storageRefRows.sort((a, b) => a.storageRef.localeCompare(b.storageRef)),
       fkAudit: {

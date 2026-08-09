@@ -1,0 +1,9 @@
+{
+  "assertions": [
+    "exit != 0",
+    "ok == false",
+    "fieldDigestMismatches >= 1",
+    "documents sourceCount == loadedCount (corruption not count variance)"
+  ],
+  "status": "green_after_S31-CX-03"
+}

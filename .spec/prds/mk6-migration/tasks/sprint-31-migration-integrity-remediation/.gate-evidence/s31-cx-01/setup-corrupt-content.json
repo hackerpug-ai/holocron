@@ -4,7 +4,7 @@
   "field": "title",
   "archive_title": "Long ETL document",
   "corrupted_title": "S31-CX-01-CORRUPTED-TITLE",
-  "export_root": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-01/services/platform/tests/fixtures/etl-valid-export",
-  "catalog": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-01/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
-  "planted_at": "2026-08-09T08:14:04.916Z"
+  "export_root": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-03/services/platform/tests/fixtures/etl-valid-export",
+  "catalog": "/Users/inference1/Projects/holocron/.git-worktrees/s31/S31-CX-03/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml",
+  "planted_at": "2026-08-09T09:15:28.174Z"
 }
