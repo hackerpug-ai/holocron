@@ -238,47 +238,9 @@ async function seedReplayCorpus(ctx: ToolCallContext, sql: Sql): Promise<ReplayS
     )
   `;
 
-  // Pre-seed a completed shop session so shop_products can replay without live Jina.
+  // shop_products cold path: no completed pre-seed. First tools/call creates the
+  // session (live Jina search); second call must replay that single row (H2).
   const shopQuery = `${RUN_SUFFIX} usb-c hub`;
-  const shopSessionId = randomUUID();
-  const retailers = ['amazon', 'ebay'];
-  await sql`
-    INSERT INTO shop_sessions (
-      id, query, condition, price_min, price_max, retailers, verified_only,
-      status, total_listings, completed_at
-    ) VALUES (
-      ${shopSessionId}::uuid,
-      ${shopQuery},
-      'any',
-      NULL,
-      NULL,
-      ${sql.json(retailers)},
-      false,
-      'completed',
-      1,
-      now()
-    )
-  `;
-  await sql`
-    INSERT INTO shop_listings (
-      id, session_id, title, price, currency, condition, retailer, url,
-      deal_score, trust_tier, seller_trust_score, is_verified_seller, is_duplicate
-    ) VALUES (
-      ${randomUUID()}::uuid,
-      ${shopSessionId},
-      ${`${RUN_SUFFIX} listing`},
-      19.99,
-      'USD',
-      'new',
-      'amazon',
-      'https://example.com/listing',
-      0.9,
-      ${'2'},
-      0.8,
-      false,
-      false
-    )
-  `;
 
   const closeIds = impClose.payload.ids;
   const statusIds = impStatus.payload.ids;
@@ -454,15 +416,18 @@ function buildToolCases(): ToolCase[] {
         condition: 'any',
         verifiedOnly: false,
       }),
+      // H1: count ALL sessions matching the idempotency key — not only status=completed.
+      // A broken cold path that inserts pending/failed duplicates must fail this suite.
       countRows: async (sql, seed) => {
         const retailers = ['amazon', 'ebay'];
         const rows = await sql`
           SELECT count(*)::int AS n FROM shop_sessions
           WHERE query = ${seed.shopQuery}
             AND condition = 'any'
+            AND price_min IS NULL
+            AND price_max IS NULL
             AND verified_only IS NOT DISTINCT FROM false
             AND retailers = ${sql.json(retailers)}
-            AND status = 'completed'
         `;
         return Number(rows[0]?.n ?? 0);
       },
