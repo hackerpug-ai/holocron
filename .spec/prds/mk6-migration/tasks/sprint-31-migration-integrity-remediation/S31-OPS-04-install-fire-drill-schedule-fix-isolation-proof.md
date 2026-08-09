@@ -187,62 +187,184 @@ OUT OF SCOPE
     "repo_fire_drill_artifacts": {
       "description": "In-repo fire-drill plist and template",
       "seed_method": "public_api",
-      "records": ["holocron-fire-drill-monthly.plist present"]
+      "records": [
+        "holocron-fire-drill-monthly.plist present"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Fire-drill LaunchAgent installs with real command",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-04-fire-drill-schedule.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "filesystem",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["/usr/bin/true", "missing plist", "empty args"]
+        "would_fail_if": [
+          "/usr/bin/true",
+          "missing plist",
+          "empty args"
+        ]
       },
-      "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+      "evidence": {
+        "artifact_type": "file_artifact",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "repo_fire_drill_artifacts",
           "action": {
             "actor": "cli_user",
-            "steps": ["parse plist ProgramArguments"]
+            "steps": [
+              "parse plist ProgramArguments"
+            ]
           },
           "end_state": {
             "must_observe": [
               "ProgramArguments contain holo",
               "ProgramArguments contain fire-drill or fire-drill-monthly"
             ],
-            "must_not_observe": ["sole program /usr/bin/true"]
+            "must_not_observe": [
+              "sole program /usr/bin/true"
+            ]
           }
         }
       ]
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Live PGDATA scratch refused",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-04-fire-drill-schedule.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["live PGDATA accepted", "exit 0"]
+        "would_fail_if": [
+          "live PGDATA accepted",
+          "exit 0"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "repo_fire_drill_artifacts",
           "action": {
             "actor": "cli_user",
-            "steps": ["run restore:fire-drill with --scratch set to FORBIDDEN_PGDATA entry"]
+            "steps": [
+              "run restore:fire-drill with --scratch set to FORBIDDEN_PGDATA entry"
+            ]
           },
           "end_state": {
             "must_observe": [
               "exit code != 0",
               "output contains refusing fire-drill into live mini PGDATA"
             ],
-            "must_not_observe": ["exit 0", "restore started into live PGDATA"]
+            "must_not_observe": [
+              "exit 0",
+              "restore started into live PGDATA"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Mini host with empty .tmp scratch is not false-rejected",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-04-fire-drill-schedule.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "repo_fire_drill_artifacts",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: Mini host with empty .tmp scratch is not false-rejected"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Mini host with empty .tmp scratch is not false-rejected"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "fire-drill-monthly template registered",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-04-fire-drill-schedule.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "repo_fire_drill_artifacts",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: fire-drill-monthly template registered"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "fire-drill-monthly template registered"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

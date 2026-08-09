@@ -223,15 +223,26 @@ OUT OF SCOPE
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "whatsNew uses real subscription/source retrieval",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "mission-cli+postgres",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["scaffold-only success", "empty retrieval", "mock mission runtime"]
+        "would_fail_if": [
+          "scaffold-only success",
+          "empty retrieval",
+          "mock mission runtime"
+        ]
       },
-      "evidence": { "artifact_type": "api_response", "required_capture": true },
+      "evidence": {
+        "artifact_type": "api_response",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "pipeline_seed_corpus",
@@ -259,26 +270,179 @@ OUT OF SCOPE
       ]
     },
     {
-      "id": "AC-4",
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "assimilate retrieves repository content",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts",
       "tier": "visible",
       "test_tier": "integration",
-      "verification_service": "mission-cli",
+      "verification_service": "cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["scaffold-only exit 0", "empty retrieval ignored"]
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "pipeline_seed_corpus",
           "action": {
             "actor": "cli_user",
-            "steps": ["force scaffold-only retrieval", "run whatsNew, assimilate, and shop commits"]
+            "steps": [
+              "Execute verify command for AC-2",
+              "Assert prose AC: assimilate retrieves repository content"
+            ]
           },
           "end_state": {
-            "must_observe": ["3 of 3 templates exit != 0", "output names scaffold or empty retrieval"],
-            "must_not_observe": ["any template exit 0 on scaffold-only input"]
+            "must_observe": [
+              "assimilate retrieves repository content"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "shop returns non-scaffold products for known queries",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "pipeline_seed_corpus",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: shop returns non-scaffold products for known queries"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "shop returns non-scaffold products for known queries"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Scaffold-only runs fail closed for all three templates",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "mission-cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "scaffold-only exit 0",
+          "empty retrieval ignored"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "pipeline_seed_corpus",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "force scaffold-only retrieval",
+              "run whatsNew, assimilate, and shop commits"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "3 of 3 templates exit != 0",
+              "output names scaffold or empty retrieval"
+            ],
+            "must_not_observe": [
+              "any template exit 0 on scaffold-only input"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Scaffold helpers remain explicitly labeled",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-pipeline-real-retrieval.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "pipeline_seed_corpus",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-5",
+              "Assert prose AC: Scaffold helpers remain explicitly labeled"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Scaffold helpers remain explicitly labeled"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

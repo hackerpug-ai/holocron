@@ -207,27 +207,44 @@ OUT OF SCOPE
     "empty_heartbeat_nonprod": {
       "description": "Nonprod DB with zero backup_heartbeat rows",
       "seed_method": "migration_fixture",
-      "records": ["backup_heartbeat count 0"]
+      "records": [
+        "backup_heartbeat count 0"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Production fixture heartbeat rows purged",
+      "verify": "OPERATOR: production fixture heartbeat purge to 0 rows (dump retained); PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-02-alert-sweep.test.ts",
       "tier": "visible",
       "test_tier": "e2e",
       "verification_service": "operator-postgres",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["fixtures remain", "full table truncate", "no dump"]
+        "would_fail_if": [
+          "fixtures remain",
+          "full table truncate",
+          "no dump"
+        ]
       },
-      "evidence": { "artifact_type": "db_query", "required_capture": true },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "empty_heartbeat_nonprod",
           "action": {
             "actor": "operator",
-            "steps": ["dump production heartbeat", "DELETE fixture rows only", "recount"]
+            "steps": [
+              "dump production heartbeat",
+              "DELETE fixture rows only",
+              "recount"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -245,25 +262,134 @@ OUT OF SCOPE
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Zero-row floor fails closed",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-02-alert-sweep.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "postgres+cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["exit 0 on empty", "silent healthy"]
+        "would_fail_if": [
+          "exit 0 on empty",
+          "silent healthy"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "empty_heartbeat_nonprod",
           "action": {
             "actor": "cli_user",
-            "steps": ["ensure 0 heartbeat rows", "run backup:healthy --json"]
+            "steps": [
+              "ensure 0 heartbeat rows",
+              "run backup:healthy --json"
+            ]
           },
           "end_state": {
-            "must_observe": ["exit code != 0", "reason names empty or ZERO_ROW_FLOOR"],
-            "must_not_observe": ["exit 0", "ok:true with 0 rows"]
+            "must_observe": [
+              "exit code != 0",
+              "reason names empty or ZERO_ROW_FLOOR"
+            ],
+            "must_not_observe": [
+              "exit 0",
+              "ok:true with 0 rows"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Alert-sweep config repointed off harness capture",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-02-alert-sweep.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "empty_heartbeat_nonprod",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: Alert-sweep config repointed off harness capture"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Alert-sweep config repointed off harness capture"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Real failure still alerts",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-02-alert-sweep.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "empty_heartbeat_nonprod",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: Real failure still alerts"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Real failure still alerts"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

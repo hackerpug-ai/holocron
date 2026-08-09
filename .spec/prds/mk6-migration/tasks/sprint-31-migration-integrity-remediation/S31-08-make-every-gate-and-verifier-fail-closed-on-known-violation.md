@@ -244,15 +244,27 @@ OUT OF SCOPE
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Five toothless verifiers refuse seeded violations",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-verifier-teeth.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "cli",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["stub exit 0", "empty fixture", "mock CLI", "hardcod pass"]
+        "would_fail_if": [
+          "stub exit 0",
+          "empty fixture",
+          "mock CLI",
+          "hardcod pass"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "seeded_verifier_violations",
@@ -281,21 +293,35 @@ OUT OF SCOPE
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Gate registry enumerates every cutover verifier with a fixture path",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-verifier-teeth.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["empty registry", "missing fixture path", "hardcoded empty list"]
+        "would_fail_if": [
+          "empty registry",
+          "missing fixture path",
+          "hardcoded empty list"
+        ]
       },
-      "evidence": { "artifact_type": "api_response", "required_capture": true },
+      "evidence": {
+        "artifact_type": "api_response",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "seeded_verifier_violations",
           "action": {
             "actor": "cli_user",
-            "steps": ["run holo verify:gate-registry --json", "stat each negative_control path"]
+            "steps": [
+              "run holo verify:gate-registry --json",
+              "stat each negative_control path"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -314,25 +340,137 @@ OUT OF SCOPE
     },
     {
       "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "catalog:assets fails when a retained blob is missing on disk",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-verifier-teeth.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "filesystem",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["ok:true hardcoded", "missing blob skipped with continue", "empty inventory"]
+        "would_fail_if": [
+          "ok:true hardcoded",
+          "missing blob skipped with continue",
+          "empty inventory"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "seeded_verifier_violations",
           "action": {
             "actor": "cli_user",
-            "steps": ["delete one retained blob file", "run holo catalog:assets --export <dir> --json"]
+            "steps": [
+              "delete one retained blob file",
+              "run holo catalog:assets --export <dir> --json"
+            ]
           },
           "end_state": {
-            "must_observe": ["exit code != 0", "ok == false", "missing legacy_id named in output"],
-            "must_not_observe": ["ok:true", "exit 0", "silent omit of the missing blob"]
+            "must_observe": [
+              "exit code != 0",
+              "ok == false",
+              "missing legacy_id named in output"
+            ],
+            "must_not_observe": [
+              "ok:true",
+              "exit 0",
+              "silent omit of the missing blob"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "mcp:verify-rehost fails on throw-only dispatch cases",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-verifier-teeth.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_verifier_violations",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: mcp:verify-rehost fails on throw-only dispatch cases"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "mcp:verify-rehost fails on throw-only dispatch cases"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Integration suite maps 1:1 to registry entries",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-verifier-teeth.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "seeded_verifier_violations",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-5",
+              "Assert prose AC: Integration suite maps 1:1 to registry entries"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Integration suite maps 1:1 to registry entries"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

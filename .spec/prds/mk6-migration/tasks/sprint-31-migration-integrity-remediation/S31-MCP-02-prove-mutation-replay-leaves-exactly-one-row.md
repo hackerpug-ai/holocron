@@ -198,21 +198,36 @@ OUT OF SCOPE
     "mcp_mutation_seed": {
       "description": "Nonprod DB ready for MCP mutation double-calls",
       "seed_method": "public_api",
-      "records": ["PLATFORM_IT=1", "unique key suffix per run"]
+      "records": [
+        "PLATFORM_IT=1",
+        "unique key suffix per run"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Declared-idempotent mutations do not duplicate rows",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "mcp-http+postgres",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["second insert", "mock gateway", "skip tool", "count only first call"]
+        "would_fail_if": [
+          "second insert",
+          "mock gateway",
+          "skip tool",
+          "count only first call"
+        ]
       },
-      "evidence": { "artifact_type": "db_query", "required_capture": true },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "mcp_mutation_seed",
@@ -233,6 +248,141 @@ OUT OF SCOPE
               "row count 2 for any key",
               "declared-idempotent tool skipped",
               "fixture-only proof without DB read"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Semi-idempotent tools return existing row",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "mcp_mutation_seed",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-2",
+              "Assert prose AC: Semi-idempotent tools return existing row"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Semi-idempotent tools return existing row"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Non-idempotent tools are explicitly excluded",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "mcp_mutation_seed",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: Non-idempotent tools are explicitly excluded"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Non-idempotent tools are explicitly excluded"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "list-mutations cardinality matches suite",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "mcp_mutation_seed",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: list-mutations cardinality matches suite"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "list-mutations cardinality matches suite"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
             ]
           }
         }

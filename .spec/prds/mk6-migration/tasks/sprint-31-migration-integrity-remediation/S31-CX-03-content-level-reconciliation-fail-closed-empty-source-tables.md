@@ -200,32 +200,52 @@ OUT OF SCOPE
     "corrupt_content_matching_counts": {
       "description": "Matching counts with corrupted field",
       "seed_method": "migration_fixture",
-      "records": ["documents counts match", "one field corrupted"]
+      "records": [
+        "documents counts match",
+        "one field corrupted"
+      ]
     },
     "empty_retained_source_table": {
       "description": "Archive retained table with 0 rows",
       "seed_method": "migration_fixture",
-      "records": ["table file present", "row count 0", "catalog disposition retain/migrate"]
+      "records": [
+        "table file present",
+        "row count 0",
+        "catalog disposition retain/migrate"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Field digest mismatch fails reconcile",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "postgres+filesystem",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["count-only ok", "digest not computed", "mock archive"]
+        "would_fail_if": [
+          "count-only ok",
+          "digest not computed",
+          "mock archive"
+        ]
       },
-      "evidence": { "artifact_type": "api_response", "required_capture": true },
+      "evidence": {
+        "artifact_type": "api_response",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "corrupt_content_matching_counts",
           "action": {
             "actor": "cli_user",
-            "steps": ["run reconcile --json against corrupted pair"]
+            "steps": [
+              "run reconcile --json against corrupted pair"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -244,25 +264,133 @@ OUT OF SCOPE
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Empty retained source table fails closed",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "filesystem+cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["empty table treated as success", "silent skip"]
+        "would_fail_if": [
+          "empty table treated as success",
+          "silent skip"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "empty_retained_source_table",
           "action": {
             "actor": "cli_user",
-            "steps": ["run reconcile against empty retained source table fixture"]
+            "steps": [
+              "run reconcile against empty retained source table fixture"
+            ]
           },
           "end_state": {
-            "must_observe": ["exit code != 0", "output names the empty table"],
-            "must_not_observe": ["ok:true", "empty table omitted from report"]
+            "must_observe": [
+              "exit code != 0",
+              "output names the empty table"
+            ],
+            "must_not_observe": [
+              "ok:true",
+              "empty table omitted from report"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Clean archive has zero field digest mismatches",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "corrupt_content_matching_counts",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: Clean archive has zero field digest mismatches"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Clean archive has zero field digest mismatches"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Defaulted columns are reported",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-03-content-reconcile.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "corrupt_content_matching_counts",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: Defaulted columns are reported"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Defaulted columns are reported"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

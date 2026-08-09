@@ -195,27 +195,42 @@ OUT OF SCOPE
     "fence_config_readable": {
       "description": "Ephemeral secrets and env for fence-status",
       "seed_method": "migration_fixture",
-      "records": ["HOLO_MIGRATION_READ_ONLY readable from secrets and env"]
+      "records": [
+        "HOLO_MIGRATION_READ_ONLY readable from secrets and env"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "fence-status reports per-source freeze state",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "cli",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["hardcoded aligned true", "empty report", "mock always-ok"]
+        "would_fail_if": [
+          "hardcoded aligned true",
+          "empty report",
+          "mock always-ok"
+        ]
       },
-      "evidence": { "artifact_type": "api_response", "required_capture": true },
+      "evidence": {
+        "artifact_type": "api_response",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "fence_config_readable",
           "action": {
             "actor": "cli_user",
-            "steps": ["run holo cutover:fence-status --json"]
+            "steps": [
+              "run holo cutover:fence-status --json"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -232,15 +247,25 @@ OUT OF SCOPE
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Split-brain fails closed",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["split-brain exit 0", "disagreement ignored"]
+        "would_fail_if": [
+          "split-brain exit 0",
+          "disagreement ignored"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "fence_config_readable",
@@ -253,8 +278,104 @@ OUT OF SCOPE
             ]
           },
           "end_state": {
-            "must_observe": ["exit code != 0", "output contains FENCE_SPLIT_BRAIN"],
-            "must_not_observe": ["exit 0", "aligned true"]
+            "must_observe": [
+              "exit code != 0",
+              "output contains FENCE_SPLIT_BRAIN"
+            ],
+            "must_not_observe": [
+              "exit 0",
+              "aligned true"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Example secrets document freeze keys",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "fence_config_readable",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: Example secrets document freeze keys"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Example secrets document freeze keys"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Convex source included when credentials exist",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-06-fence-status.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "fence_config_readable",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: Convex source included when credentials exist"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Convex source included when credentials exist"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

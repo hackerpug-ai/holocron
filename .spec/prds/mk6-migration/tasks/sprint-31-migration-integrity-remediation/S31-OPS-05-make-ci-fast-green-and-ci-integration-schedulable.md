@@ -190,27 +190,45 @@ OUT OF SCOPE
     "repo_head": {
       "description": "Task branch worktree with workflows",
       "seed_method": "public_api",
-      "records": ["ci-fast.yml present", "ci-integration.yml present"]
+      "records": [
+        "ci-fast.yml present",
+        "ci-integration.yml present"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Local ci-fast commands green",
+      "verify": "pnpm typecheck && pnpm lint && pnpm test:unit",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "cli",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["typecheck error ignored", "lint skipped", "unit crash ignored"]
+        "would_fail_if": [
+          "typecheck error ignored",
+          "lint skipped",
+          "unit crash ignored"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "repo_head",
           "action": {
             "actor": "cli_user",
-            "steps": ["run pnpm typecheck", "run pnpm lint", "run pnpm test:unit"]
+            "steps": [
+              "run pnpm typecheck",
+              "run pnpm lint",
+              "run pnpm test:unit"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -228,22 +246,80 @@ OUT OF SCOPE
       ]
     },
     {
-      "id": "AC-3",
-      "tier": "visible",
-      "test_tier": "unit",
-      "verification_service": "filesystem",
-      "topology": "single-node",
+      "id": "AC-2",
+      "type": "acceptance_criterion",
       "primary": false,
+      "maps_to_ac": null,
+      "description": "ci-fast workflow invokes the three commands",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-05-ci-lanes.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
       "negative_control": {
-        "would_fail_if": ["no workflow_dispatch", "no schedule", "pull_request only"]
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
       },
-      "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "repo_head",
           "action": {
             "actor": "cli_user",
-            "steps": ["parse ci-integration.yml on: triggers"]
+            "steps": [
+              "Execute verify command for AC-2",
+              "Assert prose AC: ci-fast workflow invokes the three commands"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "ci-fast workflow invokes the three commands"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "ci-integration is schedulable",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-05-ci-lanes.test.ts",
+      "tier": "visible",
+      "test_tier": "unit",
+      "verification_service": "filesystem",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "no workflow_dispatch",
+          "no schedule",
+          "pull_request only"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "file_artifact",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "repo_head",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "parse ci-integration.yml on: triggers"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -253,6 +329,51 @@ OUT OF SCOPE
             "must_not_observe": [
               "fork PRs allowed on self-hosted without check",
               "only pull_request with no dispatch/schedule"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Fork safety remains fail-closed",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-05-ci-lanes.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "repo_head",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: Fork safety remains fail-closed"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Fork safety remains fail-closed"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
             ]
           }
         }

@@ -219,21 +219,36 @@ OUT OF SCOPE
     "mini_backup_production": {
       "description": "Mini host production backup chain for operator rotation",
       "seed_method": "operator",
-      "records": ["launchd present", "secrets path present", "R2 admin for rotation"]
+      "records": [
+        "launchd present",
+        "secrets path present",
+        "R2 admin for rotation"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Operator R2 rotation + fresh backup success",
+      "verify": "OPERATOR: R2 keys rotated+revoked; holo backup:status --json shows fresh WAL+base+mirror success; PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-01-backup-restore.test.ts",
       "tier": "visible",
       "test_tier": "e2e",
       "verification_service": "operator-mini+r2",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["old key still works", "no heartbeat", "stub backup"]
+        "would_fail_if": [
+          "old key still works",
+          "no heartbeat",
+          "stub backup"
+        ]
       },
-      "evidence": { "artifact_type": "api_response", "required_capture": true },
+      "evidence": {
+        "artifact_type": "api_response",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "mini_backup_production",
@@ -263,25 +278,178 @@ OUT OF SCOPE
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "LaunchAgents carry real backup commands",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-01-backup-restore.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "filesystem",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["ProgramArguments /usr/bin/true", "missing plist"]
+        "would_fail_if": [
+          "ProgramArguments /usr/bin/true",
+          "missing plist"
+        ]
       },
-      "evidence": { "artifact_type": "file_artifact", "required_capture": true },
+      "evidence": {
+        "artifact_type": "file_artifact",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "mini_backup_production",
           "action": {
             "actor": "cli_user",
-            "steps": ["parse base/wal/mirror plists for ProgramArguments"]
+            "steps": [
+              "parse base/wal/mirror plists for ProgramArguments"
+            ]
           },
           "end_state": {
-            "must_observe": ["each plist invokes holo backup: verb", "3 of 3 plists non-stub"],
-            "must_not_observe": ["/usr/bin/true as sole program", "empty ProgramArguments"]
+            "must_observe": [
+              "each plist invokes holo backup: verb",
+              "3 of 3 plists non-stub"
+            ],
+            "must_not_observe": [
+              "/usr/bin/true as sole program",
+              "empty ProgramArguments"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "pgbackrest.conf validates",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-01-backup-restore.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "mini_backup_production",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: pgbackrest.conf validates"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "pgbackrest.conf validates"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "restic mirror records heartbeat",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-01-backup-restore.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "mini_backup_production",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: restic mirror records heartbeat"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "restic mirror records heartbeat"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Webhook env present on alert-sweep plist",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-01-backup-restore.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "mini_backup_production",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-5",
+              "Assert prose AC: Webhook env present on alert-sweep plist"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Webhook env present on alert-sweep plist"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

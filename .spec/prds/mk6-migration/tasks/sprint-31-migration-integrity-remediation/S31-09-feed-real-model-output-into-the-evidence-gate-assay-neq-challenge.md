@@ -226,15 +226,27 @@ OUT OF SCOPE
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Live research cycle uses distinct ASSAY and CHALLENGE instances",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-evidence-gate-real-model.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "mission-cli+fleet",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["same instance id", "empty ids", "mock fleet", "skip under PLATFORM_IT"]
+        "would_fail_if": [
+          "same instance id",
+          "empty ids",
+          "mock fleet",
+          "skip under PLATFORM_IT"
+        ]
       },
-      "evidence": { "artifact_type": "api_response", "required_capture": true },
+      "evidence": {
+        "artifact_type": "api_response",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "live_fleet_research_ready",
@@ -261,26 +273,136 @@ OUT OF SCOPE
       ]
     },
     {
-      "id": "AC-3",
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Evidence gate input is derived from real model output",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-evidence-gate-real-model.test.ts",
       "tier": "visible",
       "test_tier": "integration",
-      "verification_service": "mission-cli",
+      "verification_service": "cli",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["collision ignored", "exit 0 on identical ids", "silent continue"]
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "live_fleet_research_ready",
           "action": {
             "actor": "cli_user",
-            "steps": ["force identical ASSAY/CHALLENGE instance ids", "run research cycle"]
+            "steps": [
+              "Execute verify command for AC-2",
+              "Assert prose AC: Evidence gate input is derived from real model output"
+            ]
           },
           "end_state": {
-            "must_observe": ["exit code != 0", "output contains ASSAY_CHALLENGE_COLLISION"],
-            "must_not_observe": ["exit 0", "gate admitted under collision"]
+            "must_observe": [
+              "Evidence gate input is derived from real model output"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Identical resolved roles fail closed",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-evidence-gate-real-model.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "mission-cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "collision ignored",
+          "exit 0 on identical ids",
+          "silent continue"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "live_fleet_research_ready",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "force identical ASSAY/CHALLENGE instance ids",
+              "run research cycle"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "exit code != 0",
+              "output contains ASSAY_CHALLENGE_COLLISION"
+            ],
+            "must_not_observe": [
+              "exit 0",
+              "gate admitted under collision"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "research:inspect reports assayChallengeDistinct",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-evidence-gate-real-model.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "live_fleet_research_ready",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-4",
+              "Assert prose AC: research:inspect reports assayChallengeDistinct"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "research:inspect reports assayChallengeDistinct"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]

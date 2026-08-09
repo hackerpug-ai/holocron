@@ -220,15 +220,26 @@ OUT OF SCOPE
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Content corruption with matching counts is rejected by the desired contract",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "postgres+filesystem",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["empty archive", "mock reconcile", "count-only assertion"]
+        "would_fail_if": [
+          "empty archive",
+          "mock reconcile",
+          "count-only assertion"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "corrupt_content_matching_counts",
@@ -256,21 +267,36 @@ OUT OF SCOPE
     },
     {
       "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "FK audit must not ok:true with zero enforced domain FKs",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "postgres",
       "topology": "single-node",
-      "primary": false,
       "negative_control": {
-        "would_fail_if": ["stub ok", "empty edge set", "issues.length-only gate"]
+        "would_fail_if": [
+          "stub ok",
+          "empty edge set",
+          "issues.length-only gate"
+        ]
       },
-      "evidence": { "artifact_type": "db_query", "required_capture": true },
+      "evidence": {
+        "artifact_type": "db_query",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "loaded_db_no_domain_fks",
           "action": {
             "actor": "cli_user",
-            "steps": ["confirm 0 domain FKs", "run fk-audit", "assert desired fail-closed ok"]
+            "steps": [
+              "confirm 0 domain FKs",
+              "run fk-audit",
+              "assert desired fail-closed ok"
+            ]
           },
           "end_state": {
             "must_observe": [
@@ -279,6 +305,51 @@ OUT OF SCOPE
             ],
             "must_not_observe": [
               "desired: ok:true with enforcedForeignKeys == 0 and eligible edges > 0"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "RED evidence artifact is durable",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-cx-01-red-reconcile-fk.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "corrupt_content_matching_counts",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: RED evidence artifact is durable"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "RED evidence artifact is durable"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
             ]
           }
         }

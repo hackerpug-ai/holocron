@@ -175,21 +175,35 @@ OUT OF SCOPE
     "harness_env": {
       "description": "HOLO_HARNESS=1 with disposable .tmp roots",
       "seed_method": "migration_fixture",
-      "records": ["HOLO_HARNESS=1", ".tmp/s31-ops-03 present"]
+      "records": [
+        "HOLO_HARNESS=1",
+        ".tmp/s31-ops-03 present"
+      ]
     }
   },
   "requirements": [
     {
       "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "maps_to_ac": null,
+      "description": "Production path mutation refused",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-03-harness-isolation.test.ts",
       "tier": "visible",
       "test_tier": "integration",
       "verification_service": "filesystem+cli",
       "topology": "single-node",
-      "primary": true,
       "negative_control": {
-        "would_fail_if": ["write succeeds", "mtime changes", "exit 0"]
+        "would_fail_if": [
+          "write succeeds",
+          "mtime changes",
+          "exit 0"
+        ]
       },
-      "evidence": { "artifact_type": "stdout", "required_capture": true },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
       "cases": [
         {
           "start_ref": "harness_env",
@@ -207,7 +221,100 @@ OUT OF SCOPE
               "output contains HARNESS_PRODUCTION_PATH_REFUSED",
               "mtime unchanged"
             ],
-            "must_not_observe": ["exit 0", "file content changed"]
+            "must_not_observe": [
+              "exit 0",
+              "file content changed"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Harness secrets stay ephemeral",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-03-harness-isolation.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "harness_env",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-2",
+              "Assert prose AC: Harness secrets stay ephemeral"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Harness secrets stay ephemeral"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "primary": false,
+      "maps_to_ac": null,
+      "description": "Backup integration tests use isolated roots",
+      "verify": "PLATFORM_IT=1 pnpm test:integration services/platform/tests/integration/sprint31-ops-03-harness-isolation.test.ts",
+      "tier": "visible",
+      "test_tier": "integration",
+      "verification_service": "cli",
+      "topology": "single-node",
+      "negative_control": {
+        "would_fail_if": [
+          "empty fixture",
+          "mock-only harness",
+          "hardcoded pass",
+          "skip under PLATFORM_IT=1"
+        ]
+      },
+      "evidence": {
+        "artifact_type": "stdout",
+        "required_capture": true
+      },
+      "cases": [
+        {
+          "start_ref": "harness_env",
+          "action": {
+            "actor": "cli_user",
+            "steps": [
+              "Execute verify command for AC-3",
+              "Assert prose AC: Backup integration tests use isolated roots"
+            ]
+          },
+          "end_state": {
+            "must_observe": [
+              "Backup integration tests use isolated roots"
+            ],
+            "must_not_observe": [
+              "verify command skipped",
+              "PRIMARY without real dependency"
+            ]
           }
         }
       ]
