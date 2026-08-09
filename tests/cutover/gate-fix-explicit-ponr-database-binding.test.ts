@@ -1308,6 +1308,59 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
     );
   });
 
+  it('TC-20 guard: helper identity parsing matches shared target normalization', () => {
+    const evidenceRoot =
+      `${REPO_ROOT}/.tmp/GATE-FIX-explicit-ponr-database-binding/red/` +
+      `identity-parity-${Date.now()}-${process.pid}`;
+    const run = (gateTarget: string, markerTarget: string, label: string) =>
+      spawnSync(
+        'bash',
+        ['scripts/probe-ponr-one-trigger-missing-negative.sh', `${evidenceRoot}/${label}`],
+        {
+          cwd: REPO_ROOT,
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            DATABASE_URL: gateTarget,
+            HOLO_PROBE_MARKER_MISS_DATABASE_URL: markerTarget,
+          },
+        }
+      );
+    try {
+      const whitespaceAlias = run(
+        'postgres://LOCALHOST/%20db%20',
+        'postgresql://localhost:5432/db',
+        'whitespace-alias'
+      );
+      const invalidPort = run(
+        'postgres://localhost:0/gate',
+        'postgres://localhost:5432/marker',
+        'invalid-port'
+      );
+      const nulDatabase = run(
+        'postgres://localhost/%00',
+        'postgres://localhost:5432/marker',
+        'nul-database'
+      );
+      const whitespaceOutput = `${whitespaceAlias.stdout ?? ''}\n${whitespaceAlias.stderr ?? ''}`;
+      const invalidPortOutput = `${invalidPort.stdout ?? ''}\n${invalidPort.stderr ?? ''}`;
+      const nulOutput = `${nulDatabase.stdout ?? ''}\n${nulDatabase.stderr ?? ''}`;
+
+      expect(whitespaceAlias.status).toBe(2);
+      expect(whitespaceOutput).toContain('canonically equals');
+      expect(invalidPort.status).toBe(2);
+      expect(invalidPortOutput).toContain('DATABASE_TARGET_IDENTITY_FAILED');
+      expect(nulDatabase.status).toBe(2);
+      expect(nulOutput).toContain('DATABASE_TARGET_IDENTITY_FAILED');
+      expect(`${whitespaceOutput}\n${invalidPortOutput}\n${nulOutput}`).not.toMatch(
+        /postgres(?:ql)?:\/\//i
+      );
+      expect(scanTextFilesIfPresent(evidenceRoot).rawUrlHits).toBe(0);
+    } finally {
+      rmSync(evidenceRoot, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it('TC-16: human gate rejects a missing gate target before any gate work', () => {
     const env = { ...process.env };
     delete env.DATABASE_URL;
