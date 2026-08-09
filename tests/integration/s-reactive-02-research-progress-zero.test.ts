@@ -81,14 +81,13 @@ describe('S-REACTIVE-02 research progress Zero seam', () => {
   });
 
   it('AC-3: progress surface has research-progress-bar testID + SafeAreaView', () => {
-    const surfaces = [
-      'components/ResearchProgressWithConvex.tsx',
-      'components/deep-research/DeepResearchDetailView.tsx',
-    ].map((p) => read(p));
-    const joined = surfaces.join('\n');
-    expect(joined).toMatch(/research-progress-bar/);
-    expect(joined).toMatch(/SafeAreaView/);
-    expect(joined).toMatch(/useResearchProgress/);
+    // Live surface only — deleted orphans are not valid coverage.
+    const liveSurface = 'components/deep-research/DeepResearchDetailView.tsx';
+    expect(existsSync(join(REPO_ROOT, liveSurface)), `${liveSurface} must exist`).toBe(true);
+    const src = read(liveSurface);
+    expect(src).toMatch(/research-progress-bar/);
+    expect(src).toMatch(/SafeAreaView/);
+    expect(src).toMatch(/useResearchProgress/);
   });
 
   it('Maestro flow exists for live 1/5 → 3/5 advances', () => {

@@ -20,19 +20,14 @@
 // Use require so Metro cannot hoist ESM imports above the install.
 require('../lib/eventsource-rn-polyfill.js');
 
-// Keep WhatWG EventSource import so the real package stays a runtime dependency
-// (contracts assert EventSource + eventsource package). Live transport below uses
-// XHR progressive SSE because RN fetch bodies often lack getReader().
-import { EventSource as WhatWgEventSource } from 'eventsource';
+// Live transport uses XHR progressive SSE (openProgressiveSse) because RN fetch
+// bodies often lack getReader(). WhatWG eventsource is not imported here.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/components/chat/ChatThread';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 /** Minimal closable handle for the live SSE socket (EventSource-compatible). */
 type LiveSseHandle = { close: () => void };
-
-// Touch the constructor so tree-shaking cannot drop the eventsource dependency.
-void WhatWgEventSource;
 
 /**
  * Parse one SSE event block (lines joined by \n, terminated by blank line).

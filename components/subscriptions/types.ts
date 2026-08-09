@@ -1,14 +1,55 @@
-import type { Doc } from '@/convex/_generated/dataModel';
+/**
+ * Subscription UI types — concrete field shapes (no generated Convex dataModel imports).
+ * Zero/Postgres rows use snake_case at the data plane; this UI boundary keeps
+ * the historical camelCase field names used by CreatorGroupCard / SubscriptionCard.
+ */
 
-export type SubscriptionSource = Doc<'subscriptionSources'>;
-export type SubscriptionContent = Doc<'subscriptionContent'>;
-export type Document = Doc<'documents'>;
+export type SubscriptionSource = {
+  _id: string;
+  sourceType: string;
+  identifier: string;
+  name?: string;
+  url?: string;
+  feedUrl?: string;
+  fetchMethod?: string;
+  /** Opaque source config (e.g. { platform: 'youtube' }) */
+  configJson?: { platform?: string; [key: string]: unknown };
+  autoResearch?: boolean;
+  creatorProfileId?: string;
+  lastChecked?: number;
+  createdAt: number;
+  updatedAt?: number;
+};
+
+export type SubscriptionContent = {
+  _id: string;
+  sourceId?: string;
+  contentId?: string;
+  title?: string;
+  url?: string;
+  researchStatus?: string;
+  documentId?: string;
+  feedItemId?: string;
+  inFeed?: boolean;
+  thumbnailUrl?: string;
+  discoveredAt?: number;
+  researchedAt?: number;
+  createdAt: number;
+};
+
+export type Document = {
+  _id: string;
+  title?: string;
+  content?: string;
+  category?: string;
+  status?: string;
+  filePath?: string;
+  createdAt: number;
+};
 
 /**
  * CreatorGroup represents a grouped set of subscriptions that belong to the same creator.
  * Groups are formed either by a shared creatorProfileId or by identifier for standalone subscriptions.
- *
- * Note: creatorProfileId is returned as string from Convex queries (not Id type) due to serialization.
  */
 export interface CreatorGroup {
   /** Creator profile ID if exists, otherwise this is a standalone subscription group */
