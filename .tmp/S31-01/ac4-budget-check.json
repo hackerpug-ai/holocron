@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "ceilingUsd": 10,
+  "spentUsd": 0,
+  "remainingUsd": 10,
+  "estimatedCostUsd": 0.01,
+  "ceilingSource": "env"
+}

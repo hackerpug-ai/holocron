@@ -14,9 +14,16 @@
 
 import { createSql, type Sql } from '../db/client.ts';
 import { resolveDatabaseUrl } from '../db/connection.ts';
+import {
+  DEGRADED_MODE_ROW_MISSING,
+  DegradedModeRowMissingError,
+} from './degraded-mode-controller.ts';
 import { isProcessInDegradedMode } from './degraded-process-flag.ts';
 
 export const ESCAPE_DEGRADED_REFUSED_CODE = 'ESCAPE_DEGRADED_REFUSED' as const;
+
+/** Re-export loud missing-row code (S31-01 AC-4). */
+export { DEGRADED_MODE_ROW_MISSING, DegradedModeRowMissingError };
 
 /** Message literal matched by never-cloud ACs / CLI refuse checks. */
 export const ESCAPE_NEVER_CLOUD_MESSAGE =
@@ -65,8 +72,10 @@ export function isProcessEscapeBlocked(): boolean {
 
 /**
  * SELECT degraded_mode.degraded_state for the global row.
- * Fail closed on connection/query errors (escape must refuse, not allow).
- * @returns true when durable state is non-normal OR unreadable
+ * Missing row → loud DEGRADED_MODE_ROW_MISSING (never silent allow or refuse).
+ * Connection/query errors (other than missing row) still refuse escape.
+ * @returns true when durable state is non-normal
+ * @throws DegradedModeRowMissingError when the global row is absent
  */
 export async function isDurableDegradedMode(
   options: EscapeDegradedGuardOptions = {}
@@ -88,11 +97,23 @@ export async function isDurableDegradedMode(
       WHERE id = ${DEGRADED_MODE_GLOBAL_ID}
     `;
     const state = rows[0]?.degraded_state;
-    // Missing row: cannot prove normal → fail closed for escape
-    if (state == null || state === '') return true;
+    // Missing row is a loud named error — not silent refuse/allow (S31-01 AC-4).
+    if (state == null || state === '') {
+      throw new DegradedModeRowMissingError(
+        'degraded_mode global row missing — cannot evaluate budgeted escape'
+      );
+    }
     return state !== 'normal';
-  } catch {
-    // Prefer refuse escape over allow-on-DB-error
+  } catch (err) {
+    if (err instanceof DegradedModeRowMissingError) throw err;
+    // Prefer refuse escape over allow-on-DB-error (table missing / connection).
+    // If the relation itself is missing, surface the same named code.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/degraded_mode/i.test(msg) && /does not exist|undefined_table/i.test(msg)) {
+      throw new DegradedModeRowMissingError(
+        'degraded_mode table/row missing — run holo db:migrate (0034)'
+      );
+    }
     return true;
   } finally {
     if (ownsSql && sql) {

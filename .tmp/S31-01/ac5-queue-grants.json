@@ -1,0 +1,10 @@
+{
+  "grantee": "holocron_app",
+  "privileges": [
+    "INSERT",
+    "SELECT",
+    "UPDATE",
+    "DELETE"
+  ],
+  "source": "migration-only (no test GRANT)"
+}

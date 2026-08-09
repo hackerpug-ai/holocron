@@ -1,0 +1,111 @@
+# AC-2 RED-against-start — colliding ordinal tree refuses apply
+# Fixture: .tmp/S31-01/migrations-collide/ with 0033_alpha_probe + 0033_beta_probe + 0035_gap_probe (gap 0034)
+# MUST_OBSERVE: exit 2, ORDINAL_COLLISION, ORDINAL_GAP, drizzle_migrations count 0
+{
+  "ok": false,
+  "exitCode": 2,
+  "databaseUrl": "postgres://inference1@127.0.0.1:5432/holocron_s31_01_collide",
+  "migrationsApplied": [],
+  "alreadyApplied": [],
+  "tableCount": 0,
+  "domainTablesPresent": 0,
+  "missingTables": [
+    "conversations",
+    "chat_messages",
+    "tool_calls",
+    "agent_plans",
+    "agent_plan_steps",
+    "agent_telemetry",
+    "documents",
+    "document_assets",
+    "imports",
+    "citations",
+    "research_sessions",
+    "research_iterations",
+    "research_findings",
+    "analysis_sessions",
+    "analysis_items",
+    "analysis_evidence",
+    "creator_profiles",
+    "subscription_sources",
+    "subscription_content",
+    "subscription_filters",
+    "subscription_links",
+    "feed_items",
+    "feed_sessions",
+    "file_objects",
+    "audio_jobs",
+    "audio_segments",
+    "video_transcripts",
+    "transcript_jobs",
+    "audio_transcripts",
+    "audio_transcript_jobs",
+    "sources",
+    "passages",
+    "claims",
+    "entities",
+    "relations",
+    "beliefs",
+    "mission_templates",
+    "mission_template_versions",
+    "mission_runs",
+    "mission_run_tags",
+    "mission_stage_runs",
+    "mission_checkpoints",
+    "mission_commits",
+    "mission_events",
+    "mission_steering",
+    "mission_verdicts",
+    "whats_new_reports",
+    "whats_new_workflows",
+    "toolbelt_tools",
+    "shop_sessions",
+    "shop_listings",
+    "assimilation_metadata",
+    "assimilation_sessions",
+    "assimilation_iterations",
+    "tasks",
+    "execution_plans",
+    "plan_approvals",
+    "improvement_requests",
+    "improvement_images",
+    "voice_sessions",
+    "voice_commands",
+    "notifications",
+    "user_preferences",
+    "feed_settings",
+    "app_settings",
+    "rate_limit_tracking",
+    "rate_limits",
+    "convex_id_map"
+  ],
+  "errors": [
+    "ORDINAL_COLLISION: ordinal 0033 claimed by 0033_alpha_probe.sql, 0033_beta_probe.sql",
+    "ORDINAL_GAP: missing ordinal 0034"
+  ],
+  "errorDetails": [
+    {
+      "code": "ORDINAL_COLLISION",
+      "message": "ORDINAL_COLLISION: ordinal 0033 claimed by 0033_alpha_probe.sql, 0033_beta_probe.sql",
+      "files": [
+        "0033_alpha_probe.sql",
+        "0033_beta_probe.sql"
+      ],
+      "ordinal": "0033"
+    },
+    {
+      "code": "ORDINAL_GAP",
+      "message": "ORDINAL_GAP: missing ordinal 0034",
+      "ordinal": "0034"
+    }
+  ],
+  "messages": [
+    "migrations_dir: /Users/inference1/Projects/holocron/.git-worktrees/s31/S31-01/.tmp/S31-01/migrations-collide",
+    "ordinal_gate: FAIL (36 files)",
+    "drizzle_migrations rows (pre-apply refuse): 0"
+  ]
+}
+
+{
+  "n": "0"
+}

@@ -590,15 +590,13 @@ export function generateWalWriteBurst(options?: { env?: NodeJS.ProcessEnv; rows?
   const env = options?.env ?? process.env;
   const rows = options?.rows ?? 5000;
   const n = Math.max(1, Math.trunc(rows));
-  // psql -c is one statement per call
-  psqlExec(
-    `CREATE TABLE IF NOT EXISTS backup_wal_burst (
-      id bigserial PRIMARY KEY,
-      payload text NOT NULL,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )`,
-    env
-  );
+  // Table is migrate-owned (0035_backup_wal_burst). Fail closed if missing — no runtime DDL.
+  const exists = psqlScalar(`SELECT to_regclass('public.backup_wal_burst') IS NOT NULL`, env);
+  if (exists !== 't' && exists !== 'true') {
+    throw new Error(
+      'backup_wal_burst table is missing — run `holo db:migrate` (migration 0035_backup_wal_burst) before WAL write bursts; schema is migrate-owned only'
+    );
+  }
   psqlExec(
     `INSERT INTO backup_wal_burst (payload)
      SELECT repeat(md5(g::text), 8)

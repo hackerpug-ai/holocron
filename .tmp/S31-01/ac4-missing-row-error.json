@@ -1,0 +1,5 @@
+{
+  "name": "DegradedModeRowMissingError",
+  "code": "DEGRADED_MODE_ROW_MISSING",
+  "message": "degraded_mode global row missing — cannot evaluate budgeted escape"
+}

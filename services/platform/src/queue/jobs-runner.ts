@@ -22,27 +22,20 @@ import { enqueue } from './priority.ts';
 
 const DEFAULT_URL = () => process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
 
-const JOB_RUNS_SQL = `
-CREATE TABLE IF NOT EXISTS job_runs (
-  id uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
-  job_name text NOT NULL,
-  run_key text NOT NULL,
-  category text NOT NULL,
-  lane text NOT NULL,
-  effect_id uuid,
-  fence_token text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT job_runs_lane_check CHECK (lane IN ('interactive','background')),
-  CONSTRAINT job_runs_category_check CHECK (category IN ('janitor','workflow','consumer','backfill','digest'))
-);
-CREATE UNIQUE INDEX IF NOT EXISTS job_runs_run_key_uidx ON job_runs (run_key);
-CREATE INDEX IF NOT EXISTS job_runs_job_name_idx ON job_runs (job_name);
-CREATE INDEX IF NOT EXISTS job_runs_created_at_idx ON job_runs (created_at);
-`;
-
+/**
+ * Fail-closed assert: job_runs + outbox must already exist via `holo db:migrate`
+ * (0011 + 0012). Runtime table bootstrap is prohibited (S31-01).
+ */
 async function ensureJobRunsSchema(sql: Sql): Promise<void> {
   await ensureOutboxSchema(sql);
-  await sql.unsafe(JOB_RUNS_SQL);
+  const rows = await sql<{ exists: boolean }[]>`
+    SELECT to_regclass('public.job_runs') IS NOT NULL AS exists
+  `;
+  if (!rows[0]?.exists) {
+    throw new Error(
+      'job_runs table is missing — run `holo db:migrate` (migration 0012_job_runs) before jobs:run-all; schema is migrate-owned only'
+    );
+  }
 }
 
 export type JobRunResult = {
