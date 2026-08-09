@@ -4,13 +4,14 @@
  * ONE registration per tool. Agents, workflows, and the MCP gateway all
  * consume the same Zod instances via getToolSchema / getSchemaFor{Agent,Workflow,Mcp}.
  *
- * Tool `execute` bodies are honestly deferred — they throw, never fake success.
+ * Execute bodies dispatch to the shared Postgres MCP executor (S31-05).
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createTool } from '@mastra/core/tools';
+import { createTool, type ToolExecutionContext } from '@mastra/core/tools';
 import type { z } from 'zod';
+import { executePostgresMcpTool } from '../mcp/executor.ts';
 import * as S from './schemas/index.ts';
 
 // ── types ────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ export interface RegisteredTool {
   description: string;
   inputSchema: ZodSchema;
   outputSchema: ZodSchema;
-  /** Mastra createTool instance (execute deferred). */
+  /** Mastra createTool instance (execute → Postgres executor). */
   tool: ReturnType<typeof createTool>;
 }
 
@@ -61,13 +62,20 @@ export function resolveToolId(toolId: string): string {
   return TOOL_ID_ALIASES[toolId] ?? TOOL_ID_ALIASES[toolId.toLowerCase()] ?? toolId;
 }
 
-// ── deferred execute (honest — never fake success) ───────────────────
+// ── execute → shared Postgres MCP executor ───────────────────────────
 
-function deferredExecute(toolId: string) {
-  return async (): Promise<never> => {
-    throw new Error(
-      `not implemented: tool '${toolId}' execute is deferred to a later sprint (schema registry only)`
-    );
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function createPostgresExecute(toolId: string) {
+  return async (inputData: unknown, context?: ToolExecutionContext): Promise<unknown> => {
+    if (!isRecord(inputData)) {
+      throw new Error(`INVALID_ARGUMENT: tool '${toolId}' input must be an object`);
+    }
+    return executePostgresMcpTool(toolId, inputData, {
+      signal: context?.abortSignal,
+    });
   };
 }
 
@@ -93,7 +101,7 @@ function register(
     description,
     inputSchema,
     outputSchema,
-    execute: deferredExecute(id),
+    execute: createPostgresExecute(id),
   });
   return { id, description, inputSchema, outputSchema, tool };
 }

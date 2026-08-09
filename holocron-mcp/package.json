@@ -1,7 +1,7 @@
 {
   "name": "@holocron/mcp-unified",
   "version": "1.0.0",
-  "description": "Unified Holocron MCP server with Bun + Mastra + Convex streaming",
+  "description": "Unified Holocron MCP server with Bun + Mastra (platform Postgres delegate)",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -24,15 +24,13 @@
     "mcp",
     "research",
     "holocron",
-    "mastra",
-    "convex"
+    "mastra"
   ],
   "author": "Justin Rich",
   "license": "MIT",
   "dependencies": {
     "@mastra/mcp": "^1.1.0",
     "@mastra/core": "^1.10.0",
-    "convex": "^1.32.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
