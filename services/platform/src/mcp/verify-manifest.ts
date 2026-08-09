@@ -26,6 +26,7 @@ export interface ManifestIssue {
     | 'errors_empty_mutation'
     | 'replay_null_mutation'
     | 'error_fixture_missing'
+    | 'replay_fixture_missing'
     | 'replay_fixture_mismatch';
   message: string;
 }
@@ -116,7 +117,13 @@ export function buildVerifyReport(
         });
       }
       const replayFixturePath = resolve(opts.fixturesDir, `${toolId}_replay.json`);
-      if (entry.replay && existsSync(replayFixturePath)) {
+      if (entry.replay && !existsSync(replayFixturePath)) {
+        issues.push({
+          tool_id: toolId,
+          kind: 'replay_fixture_missing',
+          message: `Tool ${toolId}: replay fixture file missing`,
+        });
+      } else if (entry.replay && existsSync(replayFixturePath)) {
         try {
           const replayFixture = JSON.parse(readFileSync(replayFixturePath, 'utf8')) as {
             idempotency_key?: unknown[];
@@ -180,6 +187,10 @@ export function buildVerifyReport(
     if (isMutation) {
       const errorFixturePath = resolve(opts.fixturesDir, `${id}_error.json`);
       if (!existsSync(errorFixturePath)) return false;
+      if (entry.replay != null) {
+        const replayFixturePath = resolve(opts.fixturesDir, `${id}_replay.json`);
+        if (!existsSync(replayFixturePath)) return false;
+      }
     }
     return true;
   }).length;

@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { auditNoDupValidation, toolsAsRecord } from '../tools/registry.ts';
 import { defaultManifestPath, loadManifest } from './manifest-loader.ts';
 
@@ -15,6 +15,19 @@ type VerifyRehostResult = {
   issues: string[];
 };
 
+/**
+ * Relative paths under the served source root that may legitimately import Convex
+ * (cutover rollback / fence tooling). Never expand this to a whole package root.
+ */
+export const CONVEX_RESIDUE_ALLOWLIST = [
+  'cutover/convex-fence-client.ts',
+  'cutover/convex-live-attestation.ts',
+  'cutover/data-plane-content.ts',
+  'cutover/ponr.ts',
+] as const;
+
+const ALLOWLIST_SET: ReadonlySet<string> = new Set(CONVEX_RESIDUE_ALLOWLIST);
+
 function walk(root: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(root)) {
@@ -27,7 +40,16 @@ function walk(root: string): string[] {
   return out;
 }
 
-export function verifyMcpRehost(options?: { cwd?: string }): VerifyRehostResult {
+function isAllowlistedResidue(sourceRoot: string, absolutePath: string): boolean {
+  const rel = relative(sourceRoot, absolutePath).replace(/\\/g, '/');
+  return ALLOWLIST_SET.has(rel);
+}
+
+export function verifyMcpRehost(options?: {
+  cwd?: string;
+  /** Override scan root (defaults to services/platform/src under cwd). */
+  sourceRoot?: string;
+}): VerifyRehostResult {
   const cwd = options?.cwd ?? process.cwd();
   const manifest = loadManifest(defaultManifestPath(cwd));
   const manifestIds = new Set(manifest.tools.map((tool) => tool.id));
@@ -40,8 +62,10 @@ export function verifyMcpRehost(options?: { cwd?: string }): VerifyRehostResult 
     [...executorText.matchAll(/case ['"]([^'"]+)['"]/g)].map((match) => match[1])
   );
   const missingExecutors = [...manifestIds].filter((id) => !executorIds.has(id)).sort();
-  const sourceRoot = resolve(cwd, 'services/platform/src/mcp');
+  // Widened past src/mcp so Convex imports anywhere under the served source are visible.
+  const sourceRoot = options?.sourceRoot ?? resolve(cwd, 'services/platform/src');
   const convexRefs = walk(sourceRoot).flatMap((path) => {
+    if (isAllowlistedResidue(sourceRoot, path)) return [];
     const text = readFileSync(path, 'utf8');
     return /convex\/(browser|server)|from ['"]convex['"]/.test(text) ? [path] : [];
   });
