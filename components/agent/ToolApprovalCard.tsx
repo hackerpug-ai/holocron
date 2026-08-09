@@ -224,14 +224,14 @@ export function ToolApprovalCard({
 
 // ── Hono-wired wrapper (S-REWRITE-01) ─────────────────────────────────────────
 
-export type ToolApprovalCardWithConvexProps = Omit<ToolApprovalCardProps, 'onCancel'>;
+export type ToolApprovalCardBoundProps = Omit<ToolApprovalCardProps, 'onCancel'>;
 
 /**
- * ToolApprovalCardWithConvex wires the ToolApprovalCard to the Hono cancel command.
+ * ToolApprovalCardBound wires the ToolApprovalCard to the Hono cancel command.
  * Contract: api.chat.agent.cancelTool → POST /api/chat-runs/:id/cancel
  * `approvalId` is treated as the chat-run id for cancel.
  */
-export function ToolApprovalCardWithConvex(props: ToolApprovalCardWithConvexProps) {
+export function ToolApprovalCardBound(props: ToolApprovalCardBoundProps) {
   const handleCancel = () => {
     if (!platformUrl || !rnApiKey || !props.approvalId) return;
     void fetch(`${platformUrl}/api/chat-runs/${props.approvalId}/cancel`, {

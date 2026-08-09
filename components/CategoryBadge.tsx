@@ -1,9 +1,9 @@
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
-import type { DocumentCategory } from '@/convex/lib/categories';
+import type { DocumentCategory } from '@/lib/document-categories';
 import { cn } from '@/lib/utils';
 
-// Re-export for backward compatibility
+// Re-export for app-layer category mapping
 export type CategoryType = DocumentCategory;
 
 interface CategoryBadgeProps extends Omit<BadgeProps, 'variant'> {

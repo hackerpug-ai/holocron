@@ -108,11 +108,12 @@ atoms:
     story: components/ResultCard.stories.tsx
     status: verified
     controls: true
+  # ResearchProgress atom deleted in S31-FE-05 (orphan; live surface is DeepResearchDetailView)
   - name: ResearchProgress
     file: components/ResearchProgress.tsx
-    story: components/ResearchProgress.stories.tsx
-    status: verified
-    controls: true
+    story: null
+    status: deleted
+    controls: false
   # Navigation atoms
   - name: ConversationRow
     file: components/ConversationRow.tsx
@@ -152,11 +153,12 @@ screens:
     story: screens/ResearchResultScreen.stories.tsx
     status: verified
     atoms: [ArticleCard, SectionHeader, IterationCard, CategoryBadge]
+  # ChatScreen prototype deleted in S31-FE-05; production chat is app/(drawer)/chat/[conversationId].tsx
   - name: ChatScreen
     file: screens/ChatScreen.tsx
-    story: screens/ChatScreen.stories.tsx
-    status: verified
-    atoms: [ChatBubble, ChatInput, TypingIndicator, SlashCommandMenu, CommandBadge, ResultCard, ResearchProgress]
+    story: null
+    status: deleted
+    atoms: [ChatBubble, ChatInput, TypingIndicator, SlashCommandMenu, CommandBadge, ResultCard]
   - name: DrawerContent
     file: screens/DrawerContent.tsx
     story: screens/DrawerContent.stories.tsx

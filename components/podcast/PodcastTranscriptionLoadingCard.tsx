@@ -14,7 +14,7 @@ interface PodcastTranscriptionLoadingCardProps {
  * PodcastTranscriptionLoadingCard
  *
  * Shows loading state for podcast transcription.
- * Polls platform when configured; never imports the Convex React client so chat can
+ * Polls platform when configured; uses platform HTTP only so chat can
  * cold-boot under ZeroProvider only.
  */
 export function PodcastTranscriptionLoadingCard({

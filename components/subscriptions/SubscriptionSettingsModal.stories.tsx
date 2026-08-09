@@ -9,7 +9,7 @@ const meta: Meta<typeof SubscriptionSettingsModal> = {
     docs: {
       description: {
         component:
-          'Settings modal for feed preferences. Users can configure notifications, display options, and content filters. Settings persist to Convex on change.',
+          'Settings modal for feed preferences. Users can configure notifications, display options, and content filters. Settings persist via platform/Zero on change.',
       },
     },
   },
@@ -57,7 +57,7 @@ export const AllSettingsOn: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Modal with all settings enabled (simulated state - actual settings come from Convex)',
+        story: 'Modal with all settings enabled (simulated state - actual settings come from Zero)',
       },
     },
   },
@@ -72,7 +72,7 @@ export const AllSettingsOff: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Modal with minimal settings (simulated state - actual settings come from Convex)',
+        story: 'Modal with minimal settings (simulated state - actual settings come from Zero)',
       },
     },
   },
@@ -87,7 +87,7 @@ export const WithVideosFilter: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Modal with Videos only filter selected (simulated state - actual settings come from Convex)',
+        story: 'Modal with Videos only filter selected (simulated state - actual settings come from Zero)',
       },
     },
   },
