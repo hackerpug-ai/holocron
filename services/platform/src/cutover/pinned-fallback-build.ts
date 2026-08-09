@@ -587,10 +587,7 @@ export function runVerifyFallbackBoot(options: VerifyFallbackBootOptions = {}): 
     );
   }
 
-  const appId =
-    env.MAESTRO_APP_ID?.trim() ||
-    env.IOS_BUNDLE_ID?.trim() ||
-    'com.holocron.app';
+  const appId = env.MAESTRO_APP_ID?.trim() || env.IOS_BUNDLE_ID?.trim() || 'com.holocron.app';
 
   // Install the pinned Release artifact onto the booted simulator so Maestro
   // cannot silently drive a different (HEAD / dev-client) binary.

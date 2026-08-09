@@ -3,17 +3,126 @@
  * Real Postgres path is exercised by the gate step2 literal; fixtures prove
  * fail-closed identity bind and negative residual aaaa.
  *
+ * Fixtures live under .tmp/ (gitignored) and are seeded in beforeAll so a clean
+ * checkout still has RED/GREEN evidence without relying on operator residue.
+ *
  * Run: pnpm vitest run --project unit tests/cutover/gate-fix-zero-loss-t-sync-013.test.ts
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 const REPO = resolve(import.meta.dirname, '../..');
 const ORACLE = resolve(REPO, 'scripts/lib/zero-loss-identity-oracle.py');
 const FIX = resolve(REPO, '.tmp/GATE-FIX-zero-loss-t-sync-013/fixtures');
 const EVID = resolve(REPO, '.tmp/GATE-FIX-zero-loss-t-sync-013');
+
+const DOC_A = '145f82e5-567d-4fd6-b97d-ff9a9ab998e2';
+const DOC_B = '5ef15d4b-2f27-451f-9a03-efee7d8d4b7a';
+const PONR_THIS = '31b33eb4-3e97-4520-b6a7-745186fc8d51';
+const WRITE_THIS = 'ebd12bd6-f78d-4849-9595-8bc9d4036269';
+const SENTINEL_AAAA = '00000000-0000-4000-8000-aaaaaaaaaaaa';
+
+function writeJson(path: string, body: unknown): void {
+  mkdirSync(resolve(path, '..'), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(body, null, 2)}\n`, 'utf8');
+}
+
+/** Seed gitignored RED fixtures so unit lane is self-contained on clean trees. */
+function seedFixtures(): void {
+  mkdirSync(FIX, { recursive: true });
+  mkdirSync(EVID, { recursive: true });
+
+  writeJson(resolve(FIX, 'disarmed-fence-accepted-probes/drill-report.json'), {
+    ok: false,
+    fence_armed: false,
+    lost_accepted_writes: 2,
+    independentRecompute: { acceptedCount: 2, matchesReport: true },
+    accepted_write_identities: [
+      { id: DOC_A, surface: 'app', status: 201 },
+      { id: DOC_B, surface: 'mcp', status: 200 },
+    ],
+    probes: {
+      app: { status: 201, body: { id: DOC_A }, executed: true },
+      mcp: {
+        rejected: false,
+        status: 200,
+        message: JSON.stringify({ documentId: DOC_B }),
+        executed: true,
+      },
+      upload: { status: 201, body: {}, executed: true },
+      job: { ok: true, error: null, executed: true },
+      mission: { rejected: false, message: '', executed: true },
+    },
+    error: {
+      code: 'DRILL_WRITE_SURFACES_NOT_BLOCKED',
+      message: 'probes accepted under disarmed fence',
+    },
+  });
+  writeJson(resolve(FIX, 'disarmed-fence-accepted-probes/ledger.json'), {
+    accepted_count: 2,
+    rows: [
+      { id: 'ledger-1', surface: 'app', write_row_id: DOC_A },
+      { id: 'ledger-2', surface: 'mcp', write_row_id: DOC_B },
+    ],
+  });
+
+  // Invented zero-loss claim while ledger still has an accepted write identity.
+  writeJson(resolve(FIX, 'invented-zero-loss-json/drill-report.json'), {
+    ok: true,
+    fence_armed: true,
+    lost_accepted_writes: 0,
+    independentRecompute: { acceptedCount: 0, matchesReport: true },
+    accepted_write_identities: [],
+    probes: {
+      app: { status: 423, body: { code: 'migration_read_only' }, executed: true },
+      mcp: { rejected: true, status: 200, message: 'MIGRATION_READ_ONLY', executed: true },
+      upload: { status: 423, body: {}, executed: true },
+      job: { ok: false, error: 'migration_read_only', executed: true },
+      mission: { rejected: true, message: 'migration_read_only', executed: true },
+    },
+  });
+  writeJson(resolve(FIX, 'invented-zero-loss-json/ledger.json'), {
+    accepted_count: 1,
+    rows: [{ id: 'ledger-invented', surface: 'app', write_row_id: DOC_A }],
+  });
+
+  // Count-only ledger (count>0, empty rows) — must fail closed without inventing green.
+  writeJson(resolve(FIX, 'count-only-step2/drill-report.json'), {
+    ok: true,
+    fence_armed: true,
+    lost_accepted_writes: 0,
+    independentRecompute: { acceptedCount: 0, matchesReport: true },
+    accepted_write_identities: [],
+  });
+  writeJson(resolve(FIX, 'count-only-step2/ledger.json'), {
+    accepted_count: 2,
+    rows: [],
+  });
+
+  writeJson(resolve(FIX, 'residual-aaaa-ponr/step4.json'), {
+    ok: true,
+    ponr_id: PONR_THIS,
+    write_row_id: WRITE_THIS,
+  });
+  writeJson(resolve(FIX, 'residual-aaaa-ponr/step5-residual.json'), {
+    repointed: false,
+    error: { code: 'POST_PONR_INELIGIBLE', message: 'post-PONR' },
+    precondition: {
+      ponr_id: '585ecd45-65ed-43b3-875d-eed092697bbb',
+      write_row_id: SENTINEL_AAAA,
+    },
+  });
+  writeJson(resolve(FIX, 'residual-aaaa-ponr/step5-this-run.json'), {
+    repointed: false,
+    error: { code: 'POST_PONR_INELIGIBLE', message: 'post-PONR' },
+    precondition: {
+      ponr_id: PONR_THIS,
+      write_row_id: WRITE_THIS,
+    },
+  });
+}
 
 function runOracle(args: string[]): { rc: number; stdout: string } {
   try {
@@ -30,6 +139,10 @@ function runOracle(args: string[]): { rc: number; stdout: string } {
 }
 
 describe('GATE-FIX-zero-loss-t-sync-013 (unit fixtures)', () => {
+  beforeAll(() => {
+    seedFixtures();
+  });
+
   it('TC-1/AC-6 RED: disarmed-fence accepted probes fail identity oracle', () => {
     const out = resolve(EVID, 'ac2-disarmed-fence-fail-closed.json');
     const r = runOracle([
@@ -49,10 +162,7 @@ describe('GATE-FIX-zero-loss-t-sync-013 (unit fixtures)', () => {
     expect(j.accepted_count).toBe(2);
     expect(j.identity_count).toBeGreaterThan(0);
     expect(j.accepted_write_identities.map((x: { id: string }) => x.id)).toEqual(
-      expect.arrayContaining([
-        '145f82e5-567d-4fd6-b97d-ff9a9ab998e2',
-        '5ef15d4b-2f27-451f-9a03-efee7d8d4b7a',
-      ])
+      expect.arrayContaining([DOC_A, DOC_B])
     );
     // count-only is not enough — identities must be present on fail
     expect(j.error?.message).toMatch(/145f82e5|identity/i);
@@ -124,8 +234,8 @@ describe('GATE-FIX-zero-loss-t-sync-013 (unit fixtures)', () => {
     expect(r.rc).toBe(0);
     const j = JSON.parse(r.stdout);
     expect(j.ok).toBe(true);
-    expect(j.step4_ponr_id).toBe('31b33eb4-3e97-4520-b6a7-745186fc8d51');
-    expect(j.step4_write_row_id).toBe('ebd12bd6-f78d-4849-9595-8bc9d4036269');
+    expect(j.step4_ponr_id).toBe(PONR_THIS);
+    expect(j.step4_write_row_id).toBe(WRITE_THIS);
   });
 
   it('AC-1 empty identity PASS path (fixture)', () => {

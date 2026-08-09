@@ -1,7 +1,13 @@
 # D02-05 — Integration lane: pre-merge real Postgres + fleet on self-hosted labels
+# S31-OPS-05: also schedulable via workflow_dispatch + nightly schedule so Sprint 31
+# gates have a fail-closed lane that can run without waiting on a PR.
 name: ci-integration
 
 on:
+  workflow_dispatch:
+  schedule:
+    # Nightly UTC — operator can re-run via workflow_dispatch anytime.
+    - cron: "17 6 * * *"
   pull_request:
     paths:
       - "services/platform/**"
@@ -22,9 +28,11 @@ concurrency:
 
 jobs:
   # Never execute untrusted fork code on the persistent self-hosted runner.
+  # Restrict to pull_request so schedule/workflow_dispatch do not false-fail
+  # (pull_request head context is empty on non-PR events).
   fork-safety:
     name: reject fork integration execution
-    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
     runs-on: ubuntu-latest
     steps:
       - name: Fail closed for fork PR
@@ -34,7 +42,8 @@ jobs:
 
   integration:
     name: real-service integration (fail-closed)
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # Same-repo PRs, plus trusted dispatch/schedule (never forks).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, holocron, integration]
     timeout-minutes: 45
     steps:
