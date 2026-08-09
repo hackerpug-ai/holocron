@@ -1,0 +1,17 @@
+{
+  "note": "Historical RED observation captured before S31-CX-03 field digests. Count-only reconcile reported ok:true with matching counts despite planted title corruption.",
+  "task_id": "S31-CX-01",
+  "status": 0,
+  "ok": true,
+  "unexplainedVariance": 0,
+  "fieldDigestMismatches": null,
+  "hasFieldDigestMismatchesKey": false,
+  "documents": {
+    "sourceCount": 2,
+    "loadedCount": 2,
+    "variance": 0,
+    "unexplained": false
+  },
+  "planted_corruption": "documents.title for doc_legacy_1 -> S31-CX-01-CORRUPTED-TITLE",
+  "source": "red-summary.json AC-1 head_observation + ac1-reconcile-head-observation.json from RED commit 1b5b001e"
+}

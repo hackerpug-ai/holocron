@@ -1,0 +1,30 @@
+{
+  "status": 1,
+  "ok": false,
+  "emptySourceTables": [
+    {
+      "table": "documents",
+      "reason": "EMPTY_SOURCE_TABLE",
+      "disposition": "preserve"
+    }
+  ],
+  "documents": {
+    "table": "documents",
+    "targetTable": "documents",
+    "sourceCount": 0,
+    "sourceChecksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceSampleLegacyIds": [],
+    "loadedCount": 0,
+    "expectedTarget": 0,
+    "expectedTargetFormula": "count(source)",
+    "variance": 0,
+    "disposition": "preserve",
+    "approvalId": "APR-MIG-2026-S02-001",
+    "approvedException": false,
+    "approvedExceptionId": null,
+    "catalogChecksumOrSample": "sample-rows:documents",
+    "unexplained": false
+  },
+  "stdout_head": "{\n  \"ok\": false,\n  \"unexplainedVariance\": 0,\n  \"tableUnexplainedVariance\": 0,\n  \"storageRefUnexplainedVariance\": 0,\n  \"fieldDigestMismatches\": 0,\n  \"fieldDigestMismatchDetails\": [],\n  \"defaulted_column\": [],\n  \"emptySourceTables\": [\n    {\n      \"table\": \"documents\",\n      \"reason\": \"EMPTY_SOURCE_TABLE\",\n      \"disposition\": \"preserve\"\n    }\n  ],\n  \"tables\": [\n    {\n      \"table\": \"agentPlans\",\n      \"targetTable\": \"agent_plans\",\n      \"sourceCount\": 1,\n      \"sourceChecksum\": \"bb02ecea2430ca1347efce94483a0fcaa622a790aa56945154a9f5169273bd5d\",\n      \"sourceSampleLegacyIds\": [\n        \"agent_plan_legacy_1\"\n      ],\n      \"loadedCount\": 1,\n      \"expectedTarget\": 1,\n      \"expectedTargetFormula\": \"count(source)\",\n      \"variance\": 0,\n      \"disposition\": \"preserve\",\n      \"approvalId\": \"APR-MIG-2026-S02-001\",\n      \"approvedException\": false,\n      \"approvedExceptionId\": null,\n      \"catalogChecksumOrSample\": \"sample-rows:agentPlans\",\n      \"unexplained\": false\n    },\n    {\n      \"table\": \"agentPlanSteps\",\n      \"targetTable\": \"agent_plan_steps\",\n      \"sourceCount\": 1,\n      \"sourceChecksum\": \"1f4a1293a10abbb747a9420221d1a8429ca557f90b47870702e1cee567185f6e\",\n      \"sourceSampleLegacyIds\": [\n        \"agent_plan_step_legacy_1\"\n      ],\n      \"loadedCount\": 1,\n      \"expectedTarget\": 1,\n      \"expectedTargetFormula\": \"count(source)\",\n      \"variance\": 0,\n      \"disposition\": \"preserve\",\n      \"approvalId\": \"APR-MIG-2026-S02-001\",\n      \"approvedException\": false,\n      \"approvedExceptionId\": null,\n      \"catalogChecksumOrSample\": \"sample-rows:agentPlanSteps\",\n      \"unexplained\": false\n    },\n    {\n      \"table\": \"agentTelemetry\",\n      \"targetTable\": \"agent_telemetry\",\n      \"sourceCount\": 1,\n      \"sourceChecksum\": \"33978c5c8ecbbd22b5c23eaf538315def1ed8954ec769c118b9188759430f23d\",\n      \"sourceSampleLegacyIds\": [\n        \"agent_telemetry_legacy_1\"\n      ],\n      \"loadedCount\": 1,\n      \"expectedTarget\": 1,\n      \"expectedTargetFormula\": \"count(source)\",\n      \"varian",
+  "stderr_head": ""
+}
