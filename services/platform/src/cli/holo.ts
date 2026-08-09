@@ -5696,19 +5696,27 @@ async function main(): Promise<void> {
       break;
     }
     case 'jobs:list': {
-      // queue-3 AC-2: migrated cron inventory (7/4/1/3→1/1 split).
+      // queue-3 AC-2 + S31-02: inventory with concrete next_fire_at per schedule.
       const { MIGRATED_JOBS, MIGRATED_JOB_COUNT, CATEGORY_SPLIT } = await import(
         '../queue/jobs-registry.ts'
       );
-      const payload = {
-        count: MIGRATED_JOB_COUNT,
-        split: CATEGORY_SPLIT,
-        jobs: MIGRATED_JOBS.map((j) => ({
+      const { nextFireAt, parseSchedule } = await import('../queue/schedule-parser.ts');
+      const from = new Date();
+      const jobs = MIGRATED_JOBS.map((j) => {
+        const parsed = parseSchedule(j.schedule, j.name);
+        return {
           name: j.name,
           category: j.category,
           lane: j.lane,
           schedule: j.schedule,
-        })),
+          next_fire_at: nextFireAt(parsed, from).toISOString(),
+          has_handler: typeof j.handler === 'function',
+        };
+      });
+      const payload = {
+        count: MIGRATED_JOB_COUNT,
+        split: CATEGORY_SPLIT,
+        jobs,
       };
       if (args.json) {
         console.log(JSON.stringify(payload, null, 2));
@@ -5718,9 +5726,9 @@ async function main(): Promise<void> {
           `  split: janitor=${CATEGORY_SPLIT.janitor} workflow=${CATEGORY_SPLIT.workflow} consumer=${CATEGORY_SPLIT.consumer} backfill=${CATEGORY_SPLIT.backfill} digest=${CATEGORY_SPLIT.digest}`
         );
         console.log(`  total: ${MIGRATED_JOB_COUNT}`);
-        for (const j of MIGRATED_JOBS) {
+        for (const j of jobs) {
           console.log(
-            `  ${j.category.padEnd(9)} ${j.lane.padEnd(12)} ${j.schedule.padEnd(16)} ${j.name}`
+            `  ${j.category.padEnd(9)} ${j.lane.padEnd(12)} ${j.schedule.padEnd(16)} ${j.name} next=${j.next_fire_at}`
           );
         }
         console.log('  status: OK');

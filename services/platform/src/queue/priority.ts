@@ -154,6 +154,63 @@ export async function dequeue(databaseUrl?: string): Promise<PriorityJob | null>
 }
 
 /**
+ * Mark a leased job completed under its fence/owner. No-op if the lease was
+ * reclaimed (fence mismatch) — fail closed rather than completing foreign work.
+ */
+export async function completeLeasedJob(
+  job: { id: string; fence_token?: string | null },
+  opts: { databaseUrl?: string; leaseOwner?: string } = {}
+): Promise<boolean> {
+  return withQueueSql(opts.databaseUrl, async (sql) => {
+    const rows = await sql<{ id: string }[]>`
+      UPDATE queue_jobs
+      SET
+        status = 'completed',
+        completed_at = now(),
+        updated_at = now(),
+        lease_expires_at = NULL
+      WHERE id = ${job.id}::uuid
+        AND status = 'leased'
+        AND (
+          ${job.fence_token ?? null}::text IS NULL
+          OR fence_token = ${job.fence_token ?? null}
+        )
+      RETURNING id::text AS id
+    `;
+    return rows.length > 0;
+  });
+}
+
+/**
+ * Mark a leased job failed (handler error). Retains lease_owner for audit.
+ */
+export async function failLeasedJob(
+  job: { id: string; fence_token?: string | null },
+  error: string,
+  opts: { databaseUrl?: string } = {}
+): Promise<boolean> {
+  return withQueueSql(opts.databaseUrl, async (sql) => {
+    const rows = await sql<{ id: string }[]>`
+      UPDATE queue_jobs
+      SET
+        status = 'failed',
+        last_error = ${error},
+        completed_at = now(),
+        updated_at = now(),
+        lease_expires_at = NULL
+      WHERE id = ${job.id}::uuid
+        AND status = 'leased'
+        AND (
+          ${job.fence_token ?? null}::text IS NULL
+          OR fence_token = ${job.fence_token ?? null}
+        )
+      RETURNING id::text AS id
+    `;
+    return rows.length > 0;
+  });
+}
+
+/**
  * Clear priority-suite seed rows (and any leased/pending jobs) for RED isolation.
  */
 export async function resetPriorityLanes(databaseUrl?: string): Promise<void> {

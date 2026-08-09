@@ -4,7 +4,7 @@
   holocron-scheduler — Postgres leased-queue worker (Sprint 11 queue-1)
 
   Real ProgramArguments (bun scheduler-worker.ts), not a placeholder.
-  Disabled=true until operators bootstrap the unit (install-launchd sanity).
+  Enabled (Disabled=false) — S31-02 makes the scheduler the leased-queue consumer.
   Queue readiness is still measured live from Postgres (pg-boss preferred).
   Install: scripts/install-launchd.sh
 -->
@@ -13,7 +13,7 @@
 	<key>Label</key>
 	<string>holocron-scheduler</string>
 	<key>Disabled</key>
-	<true/>
+	<false/>
 	<key>ProgramArguments</key>
 	<array>
 		<string>@BUN_BIN@</string>
@@ -33,9 +33,9 @@
 		<string>@DATABASE_URL@</string>
 	</dict>
 	<key>RunAtLoad</key>
-	<false/>
+	<true/>
 	<key>KeepAlive</key>
-	<false/>
+	<true/>
 	<key>ThrottleInterval</key>
 	<integer>5</integer>
 	<key>ProcessType</key>

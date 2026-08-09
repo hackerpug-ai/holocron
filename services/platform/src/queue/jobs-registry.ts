@@ -7,8 +7,12 @@
  * Each job carries a priority lane (interactive | background) so the leased
  * queue (queue-1) dequeues latency-sensitive work before background missions.
  * Schedules mirror the legacy Convex definitions (convex/crons.ts).
+ *
+ * S31-02: each job binds a real handler by reference so an unbound handler is
+ * a compile-time-visible hole (and a runtime HANDLER_UNBOUND).
  */
 import type { JobLane } from './backend.ts';
+import { JOB_HANDLERS, type JobHandler } from './jobs-handlers/index.ts';
 
 export type JobCategory = 'janitor' | 'workflow' | 'consumer' | 'backfill' | 'digest';
 
@@ -19,7 +23,20 @@ export type MigratedJob = {
   /** Legacy schedule expression (human-readable; mirrors convex/crons.ts). */
   schedule: string;
   description: string;
+  /**
+   * Executable handler ported from Convex. Optional only so AC-6 can construct
+   * a handlerless override; production MIGRATED_JOBS always bind a handler.
+   */
+  handler?: JobHandler;
 };
+
+function bind(name: keyof typeof JOB_HANDLERS): JobHandler {
+  const h = JOB_HANDLERS[name];
+  if (!h) {
+    throw new Error(`HANDLER_UNBOUND: registry bootstrap missing handler for ${name}`);
+  }
+  return h;
+}
 
 /**
  * The 16 migrated jobs. Order is stable (registry order = inventory order).
@@ -34,6 +51,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'interactive',
     schedule: 'interval 1h',
     description: 'Mark stuck tasks (running > 60m) as errored.',
+    handler: bind('task-timeout-worker'),
   },
   {
     name: 'audio-stuck-segment-cleanup',
@@ -41,6 +59,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 5m',
     description: 'Fail audio segments stuck generating > 3m and jobs stuck > 10m.',
+    handler: bind('audio-stuck-segment-cleanup'),
   },
   {
     name: 'toolcall-timeout',
@@ -48,6 +67,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'interactive',
     schedule: 'interval 2m',
     description: 'Expire toolCalls stuck approved > 5m; reset agentBusy.',
+    handler: bind('toolcall-timeout'),
   },
   {
     name: 'assimilation-timeout',
@@ -55,6 +75,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 15m',
     description: 'Fail assimilation sessions stuck in-progress.',
+    handler: bind('assimilation-timeout'),
   },
   {
     name: 'agent-plan-timeout',
@@ -62,6 +83,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'interactive',
     schedule: 'interval 5m',
     description: 'Fail agent plans stuck executing/awaiting > 30m.',
+    handler: bind('agent-plan-timeout'),
   },
   {
     name: 'voice-session-timeout',
@@ -69,6 +91,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'interactive',
     schedule: 'interval 2m',
     description: 'Complete orphaned voice sessions (> 2m, no completedAt).',
+    handler: bind('voice-session-timeout'),
   },
   {
     name: 'cleanup-agent-telemetry',
@@ -76,6 +99,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'daily 07:00 UTC',
     description: 'Delete agentTelemetry older than 90 days (batched TTL).',
+    handler: bind('cleanup-agent-telemetry'),
   },
   // ── 4 workflows ───────────────────────────────────────────────────────────
   {
@@ -84,6 +108,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 1h',
     description: 'Fetch new content from active subscriptions; queue for research.',
+    handler: bind('subscription-monitor'),
   },
   {
     name: 'subscription-auto-research',
@@ -91,6 +116,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 2h',
     description: 'Process queued subscription content into holocron documents.',
+    handler: bind('subscription-auto-research'),
   },
   {
     name: 'feed-builder',
@@ -98,6 +124,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 2h',
     description: 'Build feed items from recent subscription content, grouped by creator.',
+    handler: bind('feed-builder'),
   },
   {
     name: 'whats-new-daily',
@@ -105,6 +132,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'daily 13:00 UTC',
     description: 'Generate the daily AI software-engineering news briefing (3-phase workflow).',
+    handler: bind('whats-new-daily'),
   },
   // ── 1 consumer ────────────────────────────────────────────────────────────
   {
@@ -113,6 +141,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'interactive',
     schedule: 'interval 2m',
     description: 'Process pending audio transcript jobs (Deepgram Nova-3).',
+    handler: bind('audio-transcript-job-processor'),
   },
   // ── 3 backfill ────────────────────────────────────────────────────────────
   {
@@ -121,6 +150,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 1h',
     description: 'Backfill embeddings for documents created without them.',
+    handler: bind('document-embedding-backfill'),
   },
   {
     name: 'research-embedding-backfill',
@@ -128,6 +158,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 2h',
     description: 'Backfill embeddings for research findings/iterations.',
+    handler: bind('research-embedding-backfill'),
   },
   {
     name: 'improvements-embedding-backfill',
@@ -135,6 +166,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'interval 2h',
     description: 'Backfill embeddings for improvement requests.',
+    handler: bind('improvements-embedding-backfill'),
   },
   // ── 1 digest ──────────────────────────────────────────────────────────────
   {
@@ -143,6 +175,7 @@ export const MIGRATED_JOBS: readonly MigratedJob[] = [
     lane: 'background',
     schedule: 'daily 16:00 UTC',
     description: 'Create the daily morning digest notification (24h of unviewed feed).',
+    handler: bind('morning-digest'),
   },
 ];
 
@@ -158,4 +191,22 @@ export const CATEGORY_SPLIT: Record<JobCategory, number> = MIGRATED_JOBS.reduce(
 
 export function getJob(name: string): MigratedJob | undefined {
   return MIGRATED_JOBS.find((j) => j.name === name);
+}
+
+/**
+ * Resolve the active job list. Tests may override via HOLO_JOBS_UNBIND env
+ * (comma-separated job names) to exercise AC-6 HANDLER_UNBOUND without
+ * mutating the module-level registry.
+ */
+export function resolveJobsForRun(): MigratedJob[] {
+  const unbind = (process.env.HOLO_JOBS_UNBIND ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (unbind.length === 0) {
+    return [...MIGRATED_JOBS];
+  }
+  return MIGRATED_JOBS.map((j) =>
+    unbind.includes(j.name) ? { ...j, handler: undefined } : { ...j }
+  );
 }

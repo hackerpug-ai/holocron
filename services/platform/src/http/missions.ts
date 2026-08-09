@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createSql, type Sql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
@@ -9,9 +10,19 @@ import {
   type MissionRunOwnerScope,
   MissionRuntimeError,
   type MissionStatusPayload,
+  resumeMissionRun,
   runMissionTemplate,
 } from '../mission/runtime.ts';
+import { enqueue } from '../queue/priority.ts';
 import type { Scope } from './middleware/scoped-key.ts';
+
+/**
+ * When true, POST /api/missions runs the mission inline on the request thread
+ * (legacy behaviour). Default is off-HTTP: admit + background queue_jobs row.
+ */
+function missionInlineOnRequest(): boolean {
+  return process.env.HOLO_MISSION_INLINE === '1';
+}
 
 const MissionCreateBodySchema = z
   .object({
@@ -507,6 +518,249 @@ async function loadMissionStatusOrThrow(
   return run;
 }
 
+type MissionTemplateVersionRow = {
+  template_key: string;
+  version: string;
+  definition_hash: string;
+  compiler_version: string;
+  registry_snapshot_hash: string;
+  output_schema_ref: string;
+  output_schema_version: number;
+  executor_ref: string;
+  schema_ref: string;
+  schema_version: number;
+  compiled_plan_json: unknown;
+  budget_policy_json: unknown;
+  no_cloud_fallback: boolean;
+  fleet_manifest_version: string;
+  fleet_manifest_path: string;
+  fleet_manifest_hash: string;
+  fleet_manifest_json: unknown;
+  role_resolution_json: unknown;
+  model_revisions_json: unknown;
+};
+
+/**
+ * Admit a mission run (status=pending) without executing stages — S31-02 AC-4.
+ * Execution is driven by the scheduler consumer via resumeMissionRun.
+ */
+async function admitMissionRunPending(
+  body: z.infer<typeof MissionCreateBodySchema>,
+  operator: string,
+  options?: { databaseUrl?: string; scope?: Scope }
+): Promise<MissionStatusPayload> {
+  const databaseUrl = resolveHolocronNonprodDatabaseUrl({
+    databaseUrl: options?.databaseUrl,
+    context: 'mission admit http',
+  });
+  const ownerScope = missionCreateOwnerScope();
+  const sql = createSql(databaseUrl);
+  const args = canonicalJsonValue({
+    goal: body.goal,
+    operator,
+    title: body.args?.title,
+    description: body.args?.description,
+    category: body.args?.category,
+    sourceUrl: body.args?.sourceUrl,
+    sourceType: body.args?.sourceType,
+    language: body.args?.language,
+    toolTags: body.args?.tags,
+    useCases: body.args?.useCases,
+  });
+
+  try {
+    // Idempotent replay: return existing run for the same template+key.
+    const existing = await sql<
+      { id: string; status: string; trace_id: string | null; template_version: string }[]
+    >`
+      SELECT id::text AS id, status, trace_id, template_version
+      FROM mission_runs
+      WHERE template_key = ${body.templateKey}
+        AND idempotency_key = ${body.idempotencyKey}
+      LIMIT 1
+    `;
+    if (existing[0]) {
+      const row = existing[0];
+      // Enqueue again only if still non-terminal (consumer may have crashed).
+      if (!['completed', 'failed', 'blocked', 'cancelled', 'canceled'].includes(row.status)) {
+        await enqueue({
+          name: 'mission:execute',
+          lane: 'background',
+          key: `mission-exec:${row.id}`,
+          payload: { runId: row.id, templateKey: body.templateKey },
+          databaseUrl,
+        }).catch(() => {});
+      }
+      return {
+        ok: true,
+        runId: row.id,
+        templateKey: body.templateKey,
+        templateVersion: row.template_version,
+        idempotencyKey: body.idempotencyKey,
+        traceId: row.trace_id,
+        status: row.status as MissionStatusPayload['status'],
+        replay: true,
+        goal: body.goal,
+      };
+    }
+
+    const templates = await sql<MissionTemplateVersionRow[]>`
+      SELECT
+        template_key,
+        version,
+        definition_hash,
+        compiler_version,
+        registry_snapshot_hash,
+        output_schema_ref,
+        output_schema_version,
+        executor_ref,
+        schema_ref,
+        schema_version,
+        compiled_plan_json,
+        budget_policy_json,
+        no_cloud_fallback,
+        fleet_manifest_version,
+        fleet_manifest_path,
+        fleet_manifest_hash,
+        fleet_manifest_json,
+        role_resolution_json,
+        model_revisions_json
+      FROM mission_template_versions
+      WHERE template_key = ${body.templateKey}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    const tv = templates[0];
+    if (!tv) {
+      throw new MissionRuntimeError(
+        'MISSION_TEMPLATE_NOT_FOUND',
+        `mission template not found: ${body.templateKey}`
+      );
+    }
+
+    const traceId = `mission:${randomUUID()}`;
+    const inserted = await sql<
+      { id: string; status: string; trace_id: string | null; template_version: string }[]
+    >`
+      INSERT INTO mission_runs (
+        template_key,
+        template_version,
+        idempotency_key,
+        owner_scope,
+        goal,
+        args_json,
+        status,
+        attempt_count,
+        trace_id,
+        definition_hash,
+        compiler_version,
+        registry_snapshot_hash,
+        output_schema_ref,
+        output_schema_version,
+        executor_ref,
+        schema_ref,
+        schema_version,
+        compiled_plan_json,
+        budget_policy_json,
+        usage_json,
+        no_cloud_fallback,
+        fleet_manifest_version,
+        fleet_manifest_path,
+        fleet_manifest_hash,
+        fleet_manifest_json,
+        role_resolution_json,
+        model_revisions_json,
+        executor_version
+      )
+      VALUES (
+        ${tv.template_key},
+        ${tv.version},
+        ${body.idempotencyKey},
+        ${ownerScope},
+        ${body.goal},
+        ${sql.json(args as never)},
+        'pending',
+        0,
+        ${traceId},
+        ${tv.definition_hash},
+        ${tv.compiler_version},
+        ${tv.registry_snapshot_hash},
+        ${tv.output_schema_ref},
+        ${tv.output_schema_version},
+        ${tv.executor_ref},
+        ${tv.schema_ref},
+        ${tv.schema_version},
+        ${sql.json(tv.compiled_plan_json as never)},
+        ${sql.json(tv.budget_policy_json as never)},
+        ${sql.json({} as never)},
+        ${tv.no_cloud_fallback},
+        ${tv.fleet_manifest_version},
+        ${tv.fleet_manifest_path},
+        ${tv.fleet_manifest_hash},
+        ${sql.json(tv.fleet_manifest_json as never)},
+        ${sql.json(tv.role_resolution_json as never)},
+        ${sql.json(tv.model_revisions_json as never)},
+        ${tv.version}
+      )
+      ON CONFLICT (template_key, idempotency_key) DO NOTHING
+      RETURNING id::text AS id, status, trace_id, template_version
+    `;
+
+    const run = inserted[0];
+    if (!run) {
+      // Concurrent insert — re-read.
+      const again = await sql<
+        { id: string; status: string; trace_id: string | null; template_version: string }[]
+      >`
+        SELECT id::text AS id, status, trace_id, template_version
+        FROM mission_runs
+        WHERE template_key = ${body.templateKey}
+          AND idempotency_key = ${body.idempotencyKey}
+        LIMIT 1
+      `;
+      if (!again[0]) {
+        throw new MissionRuntimeError(
+          'MISSION_RUN_CREATE_FAILED',
+          `failed to admit mission run for ${body.templateKey}`
+        );
+      }
+      return {
+        ok: true,
+        runId: again[0].id,
+        templateKey: body.templateKey,
+        templateVersion: again[0].template_version,
+        idempotencyKey: body.idempotencyKey,
+        traceId: again[0].trace_id,
+        status: again[0].status as MissionStatusPayload['status'],
+        replay: true,
+        goal: body.goal,
+      };
+    }
+
+    await enqueue({
+      name: 'mission:execute',
+      lane: 'background',
+      key: `mission-exec:${run.id}`,
+      payload: { runId: run.id, templateKey: body.templateKey },
+      databaseUrl,
+    });
+
+    return {
+      ok: true,
+      runId: run.id,
+      templateKey: body.templateKey,
+      templateVersion: run.template_version,
+      idempotencyKey: body.idempotencyKey,
+      traceId: run.trace_id,
+      status: 'pending',
+      replay: false,
+      goal: body.goal,
+    };
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 export async function createMissionRunFromHttp(
   raw: unknown,
   options?: { databaseUrl?: string; scope?: Scope }
@@ -518,6 +772,11 @@ export async function createMissionRunFromHttp(
       : `hono:${options?.scope ?? 'rn'}`;
 
   try {
+    // S31-02 AC-4: default path leaves the request thread; execution is queued.
+    if (!missionInlineOnRequest()) {
+      return await admitMissionRunPending(body, operator, options);
+    }
+
     return await runMissionTemplate(
       {
         templateKey: body.templateKey,
@@ -565,6 +824,14 @@ export async function createMissionRunFromHttp(
     }
     throw error;
   }
+}
+
+/** Execute a previously admitted mission run (scheduler consumer entrypoint). */
+export async function executeQueuedMissionRun(
+  runId: string,
+  options?: { databaseUrl?: string }
+): Promise<MissionStatusPayload> {
+  return resumeMissionRun(runId, { databaseUrl: options?.databaseUrl });
 }
 
 export async function getMissionStatusFromHttp(

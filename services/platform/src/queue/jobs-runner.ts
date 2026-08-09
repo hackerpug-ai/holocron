@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { isMigrationReadOnly, migrationReadOnlyJobError } from '../cutover/soak-fence.ts';
 import { createSql, type Sql } from '../db/client.ts';
 import { beginEffect, dispatchAndAck, ensureOutboxSchema } from './durable-effect.ts';
-import { MIGRATED_JOBS, type MigratedJob } from './jobs-registry.ts';
+import { type MigratedJob, resolveJobsForRun } from './jobs-registry.ts';
 import { enqueue } from './priority.ts';
 
 const DEFAULT_URL = () => process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
@@ -84,6 +84,20 @@ export async function runJob(
   const runKey = `job:${job.name}:${runId}`;
   const payload = { job: job.name, category: job.category, lane: job.lane, runId };
 
+  // AC-6: unbound handler fails closed with no job_runs row and no outbox write.
+  if (!job.handler) {
+    return {
+      name: job.name,
+      run_key: runKey,
+      category: job.category,
+      lane: job.lane,
+      effect_id: null,
+      fence_token: null,
+      ok: false,
+      error: `HANDLER_UNBOUND: no handler bound for job "${job.name}"`,
+    };
+  }
+
   // D06-05 / D06-01: soak fence — return ok:false (never throw) before beginEffect
   if (isMigrationReadOnly()) {
     return migrationBlockedResult(job, runKey);
@@ -114,12 +128,31 @@ export async function runJob(
 
     const ack = await dispatchAndAck({ key: runKey, name: job.name, databaseUrl: url });
 
+    // ── S31-02: invoke the real business handler between ack and job_runs ──
+    if (isMigrationReadOnly()) {
+      return migrationBlockedResult(job, runKey);
+    }
+
+    const handlerResult = await job.handler({ databaseUrl: url });
+    if (!handlerResult.ok) {
+      return {
+        name: job.name,
+        run_key: runKey,
+        category: job.category,
+        lane: job.lane,
+        effect_id: ack.effectId ?? null,
+        fence_token: ack.fenceToken,
+        ok: false,
+        error: handlerResult.error ?? `handler returned ok:false for ${job.name}`,
+      };
+    }
+
     // Enqueue into the leased priority queue so the lane is observable there too.
     // Best-effort observability only — never a second irreversible business write.
     await enqueue({
       name: job.name,
       lane: job.lane,
-      payload,
+      payload: { ...payload, handler: handlerResult.detail },
       databaseUrl: url,
       key: `leased:${runKey}`,
     }).catch(() => {
@@ -127,8 +160,7 @@ export async function runJob(
       // the source of truth (do not fail the run on a duplicate leased key).
     });
 
-    // Observable side-effect row (the former Convex cron side effect).
-    // Recorded only after a successful irreversible effect application.
+    // Observable side-effect row — only after a successful handler.
     const rows = await sql<{ id: string }[]>`
       INSERT INTO job_runs (job_name, run_key, category, lane, effect_id, fence_token)
       VALUES (
@@ -319,7 +351,8 @@ export async function runAllJobs(opts: { databaseUrl?: string } = {}): Promise<R
   const url = opts.databaseUrl ?? DEFAULT_URL();
   const runId = randomUUID();
   const runs: JobRunResult[] = [];
-  for (const job of MIGRATED_JOBS) {
+  const jobs = resolveJobsForRun();
+  for (const job of jobs) {
     runs.push(await runJob(job, { databaseUrl: url, runId }));
   }
   const jobs_fired = runs.filter((r) => r.ok).length;
@@ -345,7 +378,7 @@ export async function runAllJobs(opts: { databaseUrl?: string } = {}): Promise<R
 
   return {
     jobs_fired,
-    jobs_total: MIGRATED_JOBS.length,
+    jobs_total: jobs.length,
     side_effect_rows,
     run_id: runId,
     runs,
