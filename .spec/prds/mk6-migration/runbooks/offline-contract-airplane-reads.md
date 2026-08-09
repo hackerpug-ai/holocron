@@ -147,20 +147,28 @@ OFFLINE_CONTRACT_AC4_PROBE=1 bash .maestro/reactive/run-offline-contract-airplan
 
 ---
 
-## Negative control — watchdog disabled (AC-3)
+## Negative control — spinner forced (AC-3)
 
 Proves the negative loading assertion is load-bearing (not a vanity positive-only check).
 
-1. Scratch-edit `hooks/use-zero-row-watchdog.ts` so `useZeroRowWatchdog` always returns `null`.
-2. Reload Metro (`expo start --dev-client --clear` or equivalent) so the simulator receives the regressed bundle.
-3. With zero-cache stopped, run segment 1 only. **Expected: Maestro FAILS** (never sees `Research session not found` / `research-detail-error` within the deadline, or still sees loading).
-4. `git checkout -- hooks/use-zero-row-watchdog.ts`, rebuild/reload, re-run segment 1 — **Expected: exit 0**.
-5. **Never commit** the scratch edit.
+**Proven scratch (this stack):** temporary early-return in `hooks/useResearchSession.ts` `useDeepResearchSession` that forces `{ session: undefined, isLoading: true, error: null }` when a sessionId is present. Segment 1 then stays on `research-detail-loading` / `Loading research session...` and never reaches `Research session not found`.
+
+**Why not pure `useZeroRowWatchdog → null`:** on this stack, disabling the watchdog alone does **not** force RED. Zero can settle the row to `null` (query completed, no match) rather than leave it `undefined`; the research screen then takes the `error || !viewData` branch and still shows `research-detail-error`. The spinner scratch is the load-bearing regression for AC-3.
+
+Operator steps (or use the harness helper below):
+
+1. Identify the project root Metro is serving (cwd of the process listening on `:8081`). The scratch **must** land there; editing a sibling worktree while Metro serves another is a silent no-op and produces a false pass.
+2. Scratch-edit `<metro-root>/hooks/useResearchSession.ts` — at the top of `useDeepResearchSession`, force `isLoading: true` (marker `S31_FE_07_SCRATCH_SPINNER`). The harness resolves this path automatically via `lsof` on `:8081`.
+3. Allow Metro Fast Refresh / re-bundle to deliver the regressed hook (the harness warms `index.bundle` after apply).
+4. With zero-cache stopped, run segment 1 only. **Expected: Maestro FAILS** (never sees `Research session not found` / `research-detail-error` within the deadline; loading remains visible).
+5. `git checkout -- hooks/useResearchSession.ts` in the Metro project root, wait for refresh, re-run segment 1 — **Expected: exit 0**.
+6. **Never commit** the scratch edit.
 
 Harness helper:
 
 ```bash
 OFFLINE_CONTRACT_NEGATIVE_CONTROL=1 bash .maestro/reactive/run-offline-contract-airplane-reads.sh
+# Writes .gate-evidence/S31-FE-07-AC-3-negative-control.txt with RED exit + GREEN exit + log tails
 ```
 
 ---
