@@ -1,0 +1,51 @@
+{
+  "probe_rc": 2,
+  "before_count": 1,
+  "after_count": 1,
+  "gate_db_count_before": 1,
+  "gate_db_count_after": 1,
+  "gate_database_target": {
+    "host": "127.0.0.1",
+    "effective_port": 5432,
+    "database": "holocron",
+    "fingerprint": "b452e37f4a20cb39eef4d644ff2c627447154fc6d5d58b4e2aa17aa5fdb6eef6"
+  },
+  "marker_database_target": {
+    "host": "127.0.0.1",
+    "effective_port": 5432,
+    "database": "holocron_nonprod",
+    "fingerprint": "6b5184642b4a735935387ebb563313737991866965d8e2ab7700da9a54b5d380"
+  },
+  "urls_distinct": true,
+  "before_triggers": [
+    {
+      "tgname": "data_plane_ponr_reject_mutation",
+      "tgenabled": "O"
+    },
+    {
+      "tgname": "data_plane_ponr_reject_truncate",
+      "tgenabled": "O"
+    }
+  ],
+  "after_triggers": [
+    {
+      "tgname": "data_plane_ponr_reject_mutation",
+      "tgenabled": "O"
+    },
+    {
+      "tgname": "data_plane_ponr_reject_truncate",
+      "tgenabled": "O"
+    }
+  ],
+  "exact_required_triggers_enabled_before": true,
+  "exact_required_triggers_enabled_after": true,
+  "before_required_triggers_enabled_count": 2,
+  "after_required_triggers_enabled_count": 2,
+  "rows_preserved": true,
+  "triggers_preserved": true,
+  "seeded_ponr_holding": true,
+  "probe_current_user": "holocron_app",
+  "effective_non_owner": true,
+  "production_untouched": true,
+  "ok": true
+}

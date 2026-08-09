@@ -1,3 +1,5 @@
+@@GATE-META step=5 cmd_sha=657ddd3ec6b8eb29d8fe7bf165a0a9e139eeda98c7fbec9fcf1ad1853c2b199a run_id=20260809T012542Z-final-r2-dd0ea4c1 git_sha=dd0ea4c1e8a512ea2634952d6d8fff933705f7f3 source_sha=dd0ea4c1e8a512ea2634952d6d8fff933705f7f3 started_at=2026-08-09T01:26:27Z deployed_base_url=http://127.0.0.1:44121 sourceRevision=dd0ea4c1e8a512ea2634952d6d8fff933705f7f3@@
+CMD: bun services/platform/src/cli/holo.ts cutover:rollback-repoint --json --base-url ${HOLO_VERIFY_BASE_URL:?set HOLO_VERIFY_BASE_URL}
 {
   "ok": false,
   "repointed": false,
@@ -34,3 +36,4 @@
     "message": "cutover:rollback-repoint refuses: data-plane point of no return already recorded (ponr_id=195877f6-a78e-40f1-ab9c-b1642bafa8e9, write_row_id=de107cdf-b33f-4152-b1ab-0b86e05a5f32). Convex re-point is permanently ineligible; restore from Postgres/blob backups (UC-SYNC-04 / UC-SYNC-05)."
   }
 }
+@@GATE-EXIT=2@@
