@@ -11,8 +11,12 @@
 #   default                         full two-segment proof + restore
 #   OFFLINE_CONTRACT_AC4_PROBE=1    leave zero up; expect non-zero before Maestro
 #   OFFLINE_CONTRACT_NEGATIVE_CONTROL=1
-#                                   scratch-disable watchdog; segment 1 must FAIL,
-#                                   then revert and re-run green (AC-3)
+#                                   scratch-force spinner (isLoading:true in
+#                                   useDeepResearchSession); segment 1 must FAIL,
+#                                   then revert and re-run green (AC-3).
+#                                   Pure useZeroRowWatchdog→null is NOT sufficient
+#                                   on this stack (Zero can settle null → !viewData
+#                                   still reaches research-detail-error).
 #   OFFLINE_CONTRACT_SEGMENT=1|2    run a single segment (services must already match)
 #
 # Timeouts derive from ZERO_ROW_WATCHDOG_DEADLINE_MS (hooks/use-zero-row-watchdog.ts)
@@ -309,29 +313,151 @@ stop_video() {
   fi
 }
 
+# AC-3 proven spinner scratch: force useDeepResearchSession into permanent loading.
+# Pure useZeroRowWatchdog→null does NOT force RED here — when Zero settles the
+# row to null (not undefined), the screen still takes error || !viewData and
+# shows research-detail-error. Forcing isLoading:true keeps the spinner path
+# and makes the load-bearing negative assertion fail the flow.
+#
+# Critical: the scratch MUST land in the project root Metro is serving (cwd of
+# the :8081 listener). Editing only this worktree while Metro serves a sibling
+# is a silent no-op and produces a false GREEN (vanity) negative control.
+SCRATCH_REL="hooks/useResearchSession.ts"
+SCRATCH_ABS=""
+METRO_PROJECT_ROOT=""
+SCRATCH_GIT_ROOT=""
+
+resolve_metro_project_root() {
+  local pid
+  pid=$(lsof -nP -iTCP:8081 -sTCP:LISTEN -t 2>/dev/null | head -1 || true)
+  if [[ -z "$pid" ]]; then
+    echo ""
+    return 1
+  fi
+  lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | awk '/^n/{print substr($0,2); exit}'
+}
+
+resolve_scratch_target() {
+  METRO_PROJECT_ROOT="$(resolve_metro_project_root || true)"
+  if [[ -z "${METRO_PROJECT_ROOT:-}" ]]; then
+    fail_closed "AC-3: no Metro listener on :8081 — start expo --dev-client first"
+  fi
+  SCRATCH_ABS="${METRO_PROJECT_ROOT}/${SCRATCH_REL}"
+  if [[ ! -f "$SCRATCH_ABS" ]]; then
+    fail_closed "AC-3: Metro root $METRO_PROJECT_ROOT lacks $SCRATCH_REL"
+  fi
+  SCRATCH_GIT_ROOT=$(git -C "$METRO_PROJECT_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$METRO_PROJECT_ROOT")
+  log "AC-3 Metro project root: $METRO_PROJECT_ROOT (harness worktree: $ROOT)"
+  if [[ "$METRO_PROJECT_ROOT" != "$ROOT" ]]; then
+    log "AC-3 NOTE: Metro serves a sibling tree — scratch applies there so the live bundle regressed"
+  fi
+}
+
 apply_watchdog_scratch() {
-  log "AC-3: scratch-disable useZeroRowWatchdog (always return null)"
-  python3 - <<'PY'
+  resolve_scratch_target
+  log "AC-3: scratch-force spinner via isLoading:true in $SCRATCH_ABS"
+  python3 - "$SCRATCH_ABS" <<'PY'
 from pathlib import Path
-p = Path("hooks/use-zero-row-watchdog.ts")
+import sys
+p = Path(sys.argv[1])
 text = p.read_text()
-if "S31_FE_07_SCRATCH_DISABLED" in text:
+if "S31_FE_07_SCRATCH_SPINNER" in text:
     raise SystemExit(0)
-# Prepend early return after function signature body start.
-needle = "export function useZeroRowWatchdog(row: unknown, enabled: boolean): Error | null {\n"
-insert = needle + "  // S31_FE_07_SCRATCH_DISABLED — temporary AC-3 negative control; never commit\n  return null;\n"
+needle = "export function useDeepResearchSession(sessionId: string | null) {\n"
+insert = (
+    needle
+    + "  // S31_FE_07_SCRATCH_SPINNER — temporary AC-3 negative control; never commit\n"
+    + "  // Proven RED path: permanent loading so research-detail-error never appears.\n"
+    + "  // (Pure useZeroRowWatchdog→null is insufficient — Zero null settles to !viewData error.)\n"
+    + "  if (sessionId != null) {\n"
+    + "    return { session: undefined, isLoading: true, error: null };\n"
+    + "  }\n"
+)
 if needle not in text:
-    raise SystemExit("watchdog function signature not found")
+    raise SystemExit(f"useDeepResearchSession signature not found in {p}")
 p.write_text(text.replace(needle, insert, 1))
+print(f"scratch applied: {p}")
 PY
   SCRATCH_APPLIED=1
+  touch "$SCRATCH_ABS"
+  if ! grep -q 'S31_FE_07_SCRATCH_SPINNER' "$SCRATCH_ABS"; then
+    fail_closed "AC-3: scratch marker missing from $SCRATCH_ABS after apply"
+  fi
+  # Fail-closed: warmed iOS bundle MUST contain the marker. Without this check,
+  # a stale Metro transform produces a vanity "negative control" that still passes.
+  # Metro can serve a stale transform for a beat after the file write — retry.
+  local bundle_out="$TMP_DIR/ac3-regressed-bundle.js"
+  local attempt marker_ok=0
+  for attempt in 1 2 3 4 5 6; do
+    local bust
+    bust="$(date +%s)-${attempt}"
+    set +e
+    curl -sf --max-time 120 \
+      "http://127.0.0.1:8081/index.bundle?platform=ios&dev=true&minify=false&modulesOnly=false&runModule=true&_=${bust}" \
+      -o "$bundle_out"
+    local curl_rc=$?
+    set +e
+    if [[ $curl_rc -eq 0 && -s "$bundle_out" ]] && grep -q 'S31_FE_07_SCRATCH_SPINNER' "$bundle_out"; then
+      marker_ok=1
+      break
+    fi
+    log "AC-3: bundle warm attempt $attempt missing scratch marker (curl_rc=$curl_rc size=$(wc -c <"$bundle_out" 2>/dev/null || echo 0)) — retry"
+    sleep 2
+  done
+  if [[ "$marker_ok" != "1" ]]; then
+    fail_closed "AC-3: warmed bundle lacks S31_FE_07_SCRATCH_SPINNER after retries — Metro did not retransform $SCRATCH_ABS"
+  fi
+  log "AC-3: scratch marker present on disk AND in warmed iOS bundle ($SCRATCH_ABS)"
+  sleep 1
 }
 
 revert_watchdog_scratch() {
-  if [[ "$SCRATCH_APPLIED" == "1" ]]; then
-    log "AC-3: git checkout hooks/use-zero-row-watchdog.ts"
-    git checkout -- hooks/use-zero-row-watchdog.ts
+  if [[ "$SCRATCH_APPLIED" != "1" ]]; then
+    return 0
+  fi
+  local target="${SCRATCH_ABS:-}"
+  if [[ -z "$target" ]]; then
     SCRATCH_APPLIED=0
+    return 0
+  fi
+  log "AC-3: revert scratch at $target (git root=${SCRATCH_GIT_ROOT:-$ROOT})"
+  if [[ -n "${SCRATCH_GIT_ROOT:-}" ]] && [[ -d "${SCRATCH_GIT_ROOT}/.git" || -f "${SCRATCH_GIT_ROOT}/.git" ]]; then
+    git -C "$SCRATCH_GIT_ROOT" checkout -- "$SCRATCH_REL" 2>/dev/null \
+      || git -C "$SCRATCH_GIT_ROOT" restore --source=HEAD -- "$SCRATCH_REL" 2>/dev/null \
+      || true
+  fi
+  # Absolute last resort: strip the scratch block if git could not restore.
+  if grep -q 'S31_FE_07_SCRATCH_SPINNER' "$target" 2>/dev/null; then
+    python3 - "$target" <<'PY'
+from pathlib import Path
+import re, sys
+p = Path(sys.argv[1])
+text = p.read_text()
+# Remove the early-return block inserted after the function signature.
+text2 = re.sub(
+    r"(export function useDeepResearchSession\(sessionId: string \| null\) \{\n)"
+    r"  // S31_FE_07_SCRATCH_SPINNER[\s\S]*?"
+    r"  if \(sessionId != null\) \{\n"
+    r"    return \{ session: undefined, isLoading: true, error: null \};\n"
+    r"  \}\n",
+    r"\1",
+    text,
+    count=1,
+)
+p.write_text(text2)
+print(f"scratch stripped: {p}")
+PY
+  fi
+  SCRATCH_APPLIED=0
+  touch "$target"
+  curl -sf --max-time 60 \
+    "http://127.0.0.1:8081/index.bundle?platform=ios&dev=true&minify=false" \
+    >/dev/null 2>&1 || true
+  sleep 4
+  if grep -q 'S31_FE_07_SCRATCH_SPINNER' "$target" 2>/dev/null; then
+    log "WARN: scratch marker still present after revert at $target"
+  else
+    log "AC-3: scratch fully reverted at $target"
   fi
 }
 
@@ -407,7 +533,7 @@ run_maestro_segment() {
   set +e
   maestro "${args[@]}" 2>&1 | tee "$log_out"
   local rc=${PIPESTATUS[0]}
-  set -e
+  set +e
 
   # Promote screenshots
   for shot in S31-FE-07-segment-*.png; do
@@ -421,6 +547,8 @@ run_maestro_segment() {
     mkdir -p "$TMP_DIR/maestro-debug-segment-${segment}"
     cp -R "$latest/." "$TMP_DIR/maestro-debug-segment-${segment}/" 2>/dev/null || true
   fi
+  # Do not re-enable set -e before return — a non-zero return under set -e can
+  # abort the caller mid AC-3 (RED evidence never written). Callers capture $? .
   return "$rc"
 }
 
@@ -510,32 +638,72 @@ if [[ "${OFFLINE_CONTRACT_NEGATIVE_CONTROL:-0}" == "1" ]]; then
     fail_closed "segment-1 preflight refused: zero-cache still answering on port 4848 after bootout"
   fi
   wipe_sim_zero_sqlite
-  log "AC-3: expecting segment 1 FAIL on watchdog-disabled build"
+  log "AC-3: expecting segment 1 FAIL on spinner-forced (isLoading:true) build"
   set +e
   run_maestro_segment 1
   NEG_RC=$?
-  set -e
+  set +e
   if [[ "$NEG_RC" -eq 0 ]]; then
     revert_watchdog_scratch
-    fail_closed "AC-3 negative control: segment 1 unexpectedly PASSED with watchdog disabled"
+    fail_closed "AC-3 negative control: segment 1 unexpectedly PASSED with spinner scratch (isLoading:true)"
   fi
   log "AC-3 RED evidence: segment 1 failed as expected (rc=$NEG_RC)"
-  printf 'AC-3 regressed run exit=%s\n' "$NEG_RC" | tee "$EVIDENCE_DIR/S31-FE-07-AC-3-negative-control.txt"
+  # Preserve red log before green re-run overwrites maestro-segment-1.log.
+  cp "$TMP_DIR/maestro-segment-1.log" "$TMP_DIR/maestro-segment-1-ac3-red.log" 2>/dev/null || true
+  {
+    printf 'AC-3 regressed run exit=%s (expect non-zero — spinner forever)\n' "$NEG_RC"
+    printf 'Scratch: temporary early-return in useDeepResearchSession forcing isLoading true\n'
+    printf '(extends pure watchdog-null which still surfaces error via !viewData on this stack)\n'
+    printf 'Metro project root: %s\n' "${METRO_PROJECT_ROOT:-unknown}"
+    printf '%s\n' '--- red log ---'
+    tail -80 "$TMP_DIR/maestro-segment-1-ac3-red.log" 2>/dev/null || true
+  } | tee "$EVIDENCE_DIR/S31-FE-07-AC-3-negative-control.txt" | tee "$TMP_DIR/ac3-red-header.txt" >/dev/null
   revert_watchdog_scratch
-  # Restore zero, give Metro a moment, re-stop zero, prove green
+  # Restore zero for seed stability, then re-stop for green segment 1.
+  set +e
   restore_zero_cache
-  sleep 2
+  ZERO_RC=$?
+  set +e
+  if [[ "$ZERO_RC" -ne 0 ]]; then
+    fail_closed "AC-3: zero-cache restore failed before GREEN re-run"
+  fi
+  sleep 3
+  # Warm clean bundle after scratch revert so GREEN is not still spinner-stuck.
+  curl -sf --max-time 90 \
+    "http://127.0.0.1:8081/index.bundle?platform=ios&dev=true&minify=false&_=$(date +%s)" \
+    -o "$TMP_DIR/ac3-restored-bundle.js" 2>/dev/null || true
+  if grep -q 'S31_FE_07_SCRATCH_SPINNER' "$TMP_DIR/ac3-restored-bundle.js" 2>/dev/null; then
+    fail_closed "AC-3: restored bundle still contains spinner scratch marker"
+  fi
   stop_zero_cache
   if curl -sf --max-time 2 http://127.0.0.1:4848/keepalive >/dev/null; then
     fail_closed "segment-1 preflight refused: zero-cache still answering on port 4848"
   fi
   wipe_sim_zero_sqlite
-  log "AC-3: re-run segment 1 after git checkout (expect PASS)"
+  log "AC-3: re-run segment 1 after spinner scratch revert (expect PASS)"
+  set +e
   run_maestro_segment 1
   GREEN_RC=$?
-  printf 'AC-3 restored run exit=%s\n' "$GREEN_RC" | tee -a "$EVIDENCE_DIR/S31-FE-07-AC-3-negative-control.txt"
+  set +e
+  {
+    printf 'AC-3 regressed run exit=%s (expect non-zero — spinner forever)\n' "$NEG_RC"
+    printf 'AC-3 restored run exit=%s (expect 0)\n' "$GREEN_RC"
+    printf 'Scratch: temporary early-return in useDeepResearchSession forcing isLoading true\n'
+    printf '(extends pure watchdog-null which still surfaces error via !viewData on this stack)\n'
+    printf 'Metro project root: %s\n' "${METRO_PROJECT_ROOT:-unknown}"
+    printf '%s\n' '--- red log ---'
+    tail -80 "$TMP_DIR/maestro-segment-1-ac3-red.log" 2>/dev/null || true
+    printf '%s\n' '--- green log ---'
+    tail -50 "$TMP_DIR/maestro-segment-1.log" 2>/dev/null || true
+  } | tee "$EVIDENCE_DIR/S31-FE-07-AC-3-negative-control.txt"
+  set +e
   restore_zero_cache
-  exit "$GREEN_RC"
+  set +e
+  if [[ "$GREEN_RC" -ne 0 ]]; then
+    fail_closed "AC-3 GREEN re-run failed rc=$GREEN_RC after spinner scratch revert"
+  fi
+  log "AC-3 PASS: RED failed (spinner) and GREEN passed (restored)"
+  exit 0
 fi
 
 # ── Segment 1 ─────────────────────────────────────────────────────────────

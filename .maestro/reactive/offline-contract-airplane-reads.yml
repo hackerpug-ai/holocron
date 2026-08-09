@@ -142,9 +142,9 @@ appId: ${MAESTRO_APP_ID}
       - assertVisible:
           text: "Research session not found"
 
+      # Non-optional: terminal error surface must resolve (load-bearing with spinner absent).
       - assertVisible:
           id: "research-detail-error"
-          optional: true
 
       - assertVisible:
           id: "research-detail-go-back"
@@ -247,9 +247,19 @@ appId: ${MAESTRO_APP_ID}
             id: "chat-degraded-banner"
           timeout: 5000
 
-      # Cardinality: index 0 must exist (exactly-one claim; FE-02 sole-owner banner).
+      # Cardinality: index 0 exists AND index 1 must not (exactly one node).
+      # Maestro default matcher does not fail on multiple matches — both checks required.
       - assertVisible:
           id: "chat-degraded-banner"
+          index: 0
+
+      - assertNotVisible:
+          id: "chat-degraded-banner"
+          index: 1
+
+      # Copy also appears once (paired with sole testID owner after S31-FE-02).
+      - assertVisible:
+          text: "Local fleet unavailable — running in reduced mode"
           index: 0
 
       - extendedWaitUntil:

@@ -102,5 +102,25 @@ describe('S31-FE-07 offline contract scope (AC-6)', () => {
     const flow = read(FLOW);
     expect(flow).not.toMatch(/android|emulator|\badb\b/i);
     expect(runbook).not.toMatch(/android|emulator|\badb\b/i);
+
+    // AC-3 harness + runbook must use the proven spinner scratch (isLoading:true),
+    // not pure useZeroRowWatchdog→null which does not force RED on this stack.
+    const harness = read(HARNESS);
+    expect(harness).toMatch(/S31_FE_07_SCRATCH_SPINNER/);
+    expect(harness).toMatch(/isLoading:\s*true/);
+    expect(harness).toMatch(/useDeepResearchSession/);
+    expect(harness).toMatch(/useResearchSession\.ts/);
+    // Must not claim pure watchdog-null as the sole AC-3 scratch.
+    expect(runbook).toMatch(/isLoading:\s*true|isLoading true/i);
+    expect(runbook).toMatch(/useDeepResearchSession|useResearchSession/);
+    expect(runbook).toMatch(/pure.*watchdog|useZeroRowWatchdog/i);
+
+    // research-detail-error is non-optional (load-bearing positive surface).
+    expect(flow).toMatch(/id:\s*["']research-detail-error["']/);
+    expect(flow).not.toMatch(/id:\s*["']research-detail-error["'][\s\S]{0,40}optional:\s*true/);
+
+    // AC-2 banner cardinality: index 0 present AND index 1 absent.
+    expect(flow).toMatch(/chat-degraded-banner[\s\S]{0,80}index:\s*0/);
+    expect(flow).toMatch(/assertNotVisible:[\s\S]{0,60}chat-degraded-banner[\s\S]{0,40}index:\s*1/);
   });
 });
