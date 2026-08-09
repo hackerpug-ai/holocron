@@ -77,22 +77,66 @@ export const CHAT_NETWORK_DEADLINES = {
 export const CHAT_NETWORK_DEADLINE_CODE = 'CHAT_NETWORK_DEADLINE';
 
 /**
- * Error thrown by fetchWithChatDeadline when the shared HTTP deadline fires.
+ * Error thrown by fetchWithChatDeadline when the shared HTTP deadline fires
+ * or the origin is hard-down at connect (ECONNREFUSED / RN Network request failed).
  * Message includes CHAT_NETWORK_DEADLINE_CODE so isFleetUnavailableFailure matches.
  */
 export class ChatNetworkDeadlineError extends Error {
   readonly code = CHAT_NETWORK_DEADLINE_CODE;
   readonly deadlineMs: number;
-  constructor(deadlineMs: number) {
-    super(`${CHAT_NETWORK_DEADLINE_CODE}: chat-path request exceeded ${deadlineMs}ms`);
+  constructor(deadlineMs: number, detail?: string) {
+    const suffix = detail && detail.length > 0 ? ` (${detail})` : '';
+    super(`${CHAT_NETWORK_DEADLINE_CODE}: chat-path request exceeded ${deadlineMs}ms${suffix}`);
     this.name = 'ChatNetworkDeadlineError';
     this.deadlineMs = deadlineMs;
   }
 }
 
 /**
+ * True when a thrown fetch/XHR error is a hard-down / connect-fail signature
+ * that must terminate in the same degraded path as a stall deadline.
+ * Covers Node ECONNREFUSED, RN "Network request failed", and WhatWG "fetch failed".
+ */
+export function isChatNetworkHardDownFailure(err: unknown): boolean {
+  if (err == null) return false;
+  if (err instanceof ChatNetworkDeadlineError) return true;
+  const name = err instanceof Error ? err.name : '';
+  const msg = err instanceof Error ? err.message : String(err);
+  const code =
+    err && typeof err === 'object' && 'code' in err
+      ? String((err as { code?: unknown }).code ?? '')
+      : '';
+  const cause =
+    err instanceof Error && 'cause' in err && (err as { cause?: unknown }).cause != null
+      ? String(
+          (err as { cause?: unknown }).cause instanceof Error
+            ? ((err as { cause: Error }).cause.message ?? (err as { cause: Error }).cause)
+            : (err as { cause?: unknown }).cause
+        )
+      : '';
+  const blob = `${name} ${msg} ${code} ${cause}`;
+  if (!blob.trim()) return false;
+  return (
+    name === 'AbortError' ||
+    name === 'ChatNetworkDeadlineError' ||
+    /CHAT_NETWORK_DEADLINE/i.test(blob) ||
+    /abort|timeout/i.test(blob) ||
+    /ECONNREFUSED/i.test(blob) ||
+    /ENOTFOUND|EHOSTUNREACH|ENETUNREACH|ECONNRESET/i.test(blob) ||
+    /Network request failed/i.test(blob) ||
+    /Failed to fetch/i.test(blob) ||
+    /fetch failed/i.test(blob) ||
+    (name === 'TypeError' && /fetch|network/i.test(msg))
+  );
+}
+
+/**
  * Shared chat-path fetch helper (Rule of 2) — one AbortController wiring for
  * all six call sites. Never copy timer/abort boilerplate into call sites.
+ *
+ * Hard-down connect failures (ECONNREFUSED, RN Network request failed) are
+ * normalized to ChatNetworkDeadlineError so production create POST catch
+ * reduces through enterDegradedFromEnvelope without call-site special cases.
  */
 export async function fetchWithChatDeadline(
   input: RequestInfo | URL,
@@ -129,14 +173,9 @@ export async function fetchWithChatDeadline(
     });
     return response;
   } catch (err) {
-    const name = err instanceof Error ? err.name : '';
-    const msg = err instanceof Error ? err.message : String(err);
-    if (
-      name === 'AbortError' ||
-      name === 'ChatNetworkDeadlineError' ||
-      /abort|timeout/i.test(msg)
-    ) {
-      throw new ChatNetworkDeadlineError(deadlineMs);
+    if (isChatNetworkHardDownFailure(err)) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new ChatNetworkDeadlineError(deadlineMs, detail.slice(0, 120));
     }
     throw err;
   } finally {
@@ -381,8 +420,13 @@ export function isFleetUnavailableFailure(envelope: FleetFailureEnvelope): boole
     /ECONNREFUSED.*:4545|:4545.*ECONNREFUSED/i.test(blob) ||
     /unreachable at https?:\/\/[^ ]*4545/i.test(blob) ||
     /empty stream under HOLO_CHAT_FLEET_ONLY/i.test(blob) ||
-    // S31-FE-01: chat-path deadline / transport stall → same degraded terminal
-    /CHAT_NETWORK_DEADLINE/i.test(blob)
+    // S31-FE-01: chat-path deadline / transport stall / hard-down create → degraded
+    /CHAT_NETWORK_DEADLINE/i.test(blob) ||
+    /ECONNREFUSED/i.test(blob) ||
+    /ENOTFOUND|EHOSTUNREACH|ENETUNREACH|ECONNRESET/i.test(blob) ||
+    /Network request failed/i.test(blob) ||
+    /Failed to fetch/i.test(blob) ||
+    /fetch failed/i.test(blob)
   );
 }
 

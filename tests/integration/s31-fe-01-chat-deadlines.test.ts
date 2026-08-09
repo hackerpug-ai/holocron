@@ -154,9 +154,12 @@ import {
   applyFleetFailureEnvelope,
   CHAT_NETWORK_DEADLINE_CODE,
   CHAT_NETWORK_DEADLINES,
+  ChatNetworkDeadlineError,
   type ChatStreamPhase,
   createResumableSseController,
   fetchWithChatDeadline,
+  isChatNetworkHardDownFailure,
+  isFleetUnavailableFailure,
   SURFACE_UNAVAILABLE_MESSAGE,
 } from '../../hooks/use-resumable-sse-stream';
 
@@ -469,10 +472,11 @@ describe('S31-FE-01 chat-path deadlines', () => {
       'hard-down create POST fails at connect and reduces to degraded envelope',
       async () => {
         const deadPort = await freePort();
+        const deadUrl = `http://127.0.0.1:${deadPort}/api/chat-runs`;
         const t0 = Date.now();
         let threw: Error | null = null;
         try {
-          await fetchWithChatDeadline(`http://127.0.0.1:${deadPort}/api/chat-runs`, {
+          await fetchWithChatDeadline(deadUrl, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${API_KEY}`,
@@ -488,29 +492,104 @@ describe('S31-FE-01 chat-path deadlines', () => {
         const ms = Date.now() - t0;
         expect(threw).not.toBeNull();
         expect(ms).toBeLessThanOrEqual(1300);
-        // Either deadline code or network failure message — both must reduce via fleet envelope.
+        // Production throw shape alone — no force-apply fallback.
+        expect(threw).toBeInstanceOf(ChatNetworkDeadlineError);
+        expect((threw as ChatNetworkDeadlineError).code).toBe(CHAT_NETWORK_DEADLINE_CODE);
+        expect(isChatNetworkHardDownFailure(threw)).toBe(true);
+        expect(
+          isFleetUnavailableFailure({
+            error: threw?.message,
+            message: threw?.message,
+            code: (threw as ChatNetworkDeadlineError).code,
+          })
+        ).toBe(true);
+        // Pure reducer on the production throw shape (same path as chat screen catch).
         const fleet = applyFleetFailureEnvelope({
           phase: 'streaming',
           error: threw?.message,
           message: threw?.message,
-          code:
-            threw && 'code' in threw
-              ? String((threw as { code?: unknown }).code ?? '')
-              : CHAT_NETWORK_DEADLINE_CODE,
+          code: (threw as ChatNetworkDeadlineError).code,
         });
-        // Network refuse may not match fleet patterns; force deadline-shaped reduction when needed.
-        const reduced = fleet.isDegraded
-          ? fleet
-          : applyChatNetworkDeadlineFailure({
-              phase: 'streaming',
-              reason: threw?.message ?? 'hard-down',
-            });
-        expect(reduced.isDegraded).toBe(true);
-        expect(reduced.phase).toBe('degraded');
-        expect(reduced.message).toBe(SURFACE_MSG);
+        expect(fleet.isDegraded).toBe(true);
+        expect(fleet.phase).toBe('degraded');
+        expect(fleet.message).toBe(SURFACE_MSG);
       },
       10_000
     );
+
+    itLive(
+      'hard-down create POST lands controller in degraded without manual reducer injection',
+      async () => {
+        // Production create path: fetchWithChatDeadline → catch → enterDegradedFromEnvelope
+        // (mirrors app/(drawer)/chat/[conversationId].tsx). No applyChatNetworkDeadlineFailure
+        // injection in the test body.
+        const deadPort = await freePort();
+        const controller = createResumableSseController({
+          platformUrl: `http://127.0.0.1:${deadPort}`,
+          apiKey: API_KEY,
+          disableStatusPollFallback: true,
+          reconnectDelayMs: 30,
+        });
+        try {
+          let threw: Error | null = null;
+          try {
+            await fetchWithChatDeadline(`http://127.0.0.1:${deadPort}/api/chat-runs`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ requestId: 's31-fe-01-create-hard-down', msg: 'ping' }),
+              deadlineMs: 800,
+            });
+          } catch (err) {
+            threw = err instanceof Error ? err : new Error(String(err));
+            const errCode =
+              err && typeof err === 'object' && 'code' in err
+                ? String((err as { code?: unknown }).code ?? '')
+                : '';
+            const envelope = {
+              error: threw.message,
+              message: threw.message,
+              code: errCode || undefined,
+            };
+            // Same gate as production chat screen catch.
+            expect(isFleetUnavailableFailure(envelope)).toBe(true);
+            const entered = controller.enterDegradedFromEnvelope(envelope);
+            expect(entered).toBe(true);
+          }
+          expect(threw).toBeInstanceOf(ChatNetworkDeadlineError);
+
+          const snap = controller.getSnapshot();
+          expect(snap.phase).toBe('degraded');
+          expect(snap.degradedMessage).toBe(SURFACE_MSG);
+          // Composer unlock / agentBusy false equivalent.
+          expect(snap.isActive).toBe(false);
+        } finally {
+          controller.dispose();
+        }
+      },
+      10_000
+    );
+
+    it('raw hard-down throw shapes match isFleetUnavailableFailure without deadline wrap', () => {
+      // RN / Node raw signatures must reduce even if a call site bypasses fetchWithChatDeadline.
+      expect(isFleetUnavailableFailure({ error: 'Network request failed' })).toBe(true);
+      expect(isFleetUnavailableFailure({ error: 'fetch failed' })).toBe(true);
+      expect(
+        isFleetUnavailableFailure({
+          error: 'TypeError: Failed to fetch',
+          message: 'Failed to fetch',
+        })
+      ).toBe(true);
+      expect(
+        isFleetUnavailableFailure({
+          error: 'connect ECONNREFUSED 127.0.0.1:59999',
+        })
+      ).toBe(true);
+      expect(isChatNetworkHardDownFailure(new TypeError('Network request failed'))).toBe(true);
+      expect(isChatNetworkHardDownFailure(new Error('fetch failed'))).toBe(true);
+    });
   });
 
   describe('AC-3 — keepalive rearms idle watchdog', () => {

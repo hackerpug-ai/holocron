@@ -717,12 +717,20 @@ export default function ChatScreen() {
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to send message');
-        // Failure-envelope path: fleet-unavailable + S31-FE-01 chat-path deadline
-        // (ChatNetworkDeadlineError message carries CHAT_NETWORK_DEADLINE).
-        if (
-          isFleetUnavailableFailure({ error: error.message, message: error.message }) &&
-          enterDegradedFromEnvelope({ error: error.message, message: error.message })
-        ) {
+        // Failure-envelope path: fleet-unavailable + S31-FE-01 chat-path deadline /
+        // hard-down create (ChatNetworkDeadlineError carries CHAT_NETWORK_DEADLINE;
+        // raw ECONNREFUSED / RN "Network request failed" also match).
+        const errCode =
+          err && typeof err === 'object' && 'code' in err
+            ? String((err as { code?: unknown }).code ?? '')
+            : '';
+        const envelope = {
+          error: error.message,
+          message: error.message,
+          code: errCode || undefined,
+        };
+        if (isFleetUnavailableFailure(envelope) && enterDegradedFromEnvelope(envelope)) {
+          // Same terminal as stall: degraded banner + composer re-enable.
           setRunBusy(false);
           globalStopHoldUntilMs = 0;
           setSendError(null);
