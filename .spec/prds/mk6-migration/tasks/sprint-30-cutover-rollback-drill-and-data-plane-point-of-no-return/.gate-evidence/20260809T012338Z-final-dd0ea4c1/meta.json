@@ -1,0 +1,11 @@
+{
+  "run_id": "20260809T012338Z-final-dd0ea4c1",
+  "git_sha": "dd0ea4c1e8a512ea2634952d6d8fff933705f7f3",
+  "source_sha": "dd0ea4c1e8a512ea2634952d6d8fff933705f7f3",
+  "head_bound": true,
+  "deployed_base_url": "http://127.0.0.1:44121",
+  "sourceRevision": "dd0ea4c1e8a512ea2634952d6d8fff933705f7f3",
+  "started_at": "2026-08-09T01:23:38Z",
+  "status": "running",
+  "sprint": "sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return"
+}
