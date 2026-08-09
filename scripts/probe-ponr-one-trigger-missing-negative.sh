@@ -24,34 +24,15 @@ MARKER_URL="$HOLO_PROBE_MARKER_MISS_DATABASE_URL"
 # URL material is supplied to Python only through S30_TARGET_URL. Evidence
 # retains only the shared four-field target identity, never a URL-shaped value.
 database_identity() {
-  S30_TARGET_URL="$1" python3 - <<'PY'
-import hashlib
-import json
-import os
-import sys
-from urllib.parse import unquote, urlsplit
-
-raw = (os.environ.get("S30_TARGET_URL") or "").strip()
-try:
-    parsed = urlsplit(raw)
-    host = (parsed.hostname or "").lower()
-    port = parsed.port or 5432
-except ValueError:
-    print("error: DATABASE_TARGET_INVALID", file=sys.stderr)
-    raise SystemExit(2)
-database = unquote((parsed.path or "").lstrip("/")) if host else ""
-if parsed.scheme.lower() not in {"postgres", "postgresql"} or not host or not database:
-    print("error: DATABASE_TARGET_INVALID", file=sys.stderr)
-    raise SystemExit(2)
-fingerprint_tuple = "\0".join(("database-target-v1", host, str(port), database))
-identity = {
-    "host": host,
-    "effective_port": port,
-    "database": database,
-    "fingerprint": hashlib.sha256(fingerprint_tuple.encode()).hexdigest(),
-}
-print(json.dumps(identity, separators=(",", ":"), sort_keys=True))
-PY
+  S30_TARGET_URL="$1" bun --eval '
+    try {
+      const { parseDatabaseTargetIdentity } = await import("./services/platform/src/db/connection.ts");
+      process.stdout.write(JSON.stringify(parseDatabaseTargetIdentity(process.env.S30_TARGET_URL!)));
+    } catch {
+      process.stderr.write("error: DATABASE_TARGET_IDENTITY_FAILED\n");
+      process.exit(2);
+    }
+  '
 }
 
 # The psql process receives only libpq PG* values. This wrapper absorbs raw
