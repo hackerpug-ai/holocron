@@ -1,21 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { agentTools } from '@/convex/chat/tools';
 import { TOOL_NAMES } from '@/lib/voice/tool-definitions';
 
-describe('Voice-Text Tool Parity', () => {
-  const chatToolNames = Object.keys(agentTools);
-
-  // Tools intentionally excluded from voice
-  const VOICE_EXCLUSIONS = ['create_plan'];
-
-  // Voice-only tools not in chat
+describe('Voice tool surface', () => {
+  // Voice-only tools that must remain after platform cutover
   const VOICE_ONLY = ['navigate_app'];
 
-  it('voice tools include all chat tools except exclusions', () => {
-    const expectedInVoice = chatToolNames.filter((name) => !VOICE_EXCLUSIONS.includes(name));
-
-    for (const toolName of expectedInVoice) {
-      expect(TOOL_NAMES, `Missing chat tool in voice: ${toolName}`).toContain(toolName);
+  it('voice tool names are non-empty unique strings', () => {
+    expect(TOOL_NAMES.length).toBeGreaterThan(0);
+    expect(new Set(TOOL_NAMES).size).toBe(TOOL_NAMES.length);
+    for (const name of TOOL_NAMES) {
+      expect(typeof name).toBe('string');
+      expect(name.length).toBeGreaterThan(0);
     }
   });
 
@@ -25,16 +20,7 @@ describe('Voice-Text Tool Parity', () => {
     }
   });
 
-  it('excluded tools are not in voice', () => {
-    for (const toolName of VOICE_EXCLUSIONS) {
-      expect(TOOL_NAMES, `Excluded tool should not be in voice: ${toolName}`).not.toContain(
-        toolName
-      );
-    }
-  });
-
-  it('voice tool count matches expected', () => {
-    const expected = chatToolNames.length - VOICE_EXCLUSIONS.length + VOICE_ONLY.length;
-    expect(TOOL_NAMES).toHaveLength(expected);
+  it('create_plan remains excluded from voice', () => {
+    expect(TOOL_NAMES).not.toContain('create_plan');
   });
 });

@@ -1,0 +1,32 @@
+{
+  "task_id": "D08-02",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": false,
+    "requires_seeded_evidence": true,
+    "tdd_lineage_required": false
+  },
+  "project_commands": {
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test:unit"
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "verify": "jq -e '.ok == true and .unclassified_count == 0 and .sole_implementation_count == 0' .tmp/D08-02/decommission-inventory.pre-delete.json && ./bin/holo verify:no-convex --json"
+    },
+    {
+      "id": "AC-2",
+      "verify": "pnpm build:ios -- --no-bundler"
+    },
+    {
+      "id": "AC-3",
+      "verify": "test -s /Users/inference1/Archives/holocron/ratatui-playground-pre-decommission.tar.gz && test ! -e convex && test ! -e python && test ! -e cli && test ! -e ratatui-playground"
+    },
+    {
+      "id": "AC-4",
+      "verify": "./bin/holo verify:no-convex --json"
+    }
+  ]
+}

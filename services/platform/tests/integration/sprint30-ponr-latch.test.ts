@@ -9,7 +9,6 @@
  *     services/platform/tests/integration/sprint30-ponr-latch.test.ts
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { anyApi, type FunctionReference } from 'convex/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadSecretsFile } from '../../src/config/secrets.ts';
 import { createCutoverConvexClient } from '../../src/cutover/convex-fence-client.ts';
@@ -53,6 +52,10 @@ import {
   withCutoverSharedLock,
   writeEvidence,
 } from './sprint30-cutover-harness.ts';
+
+// D08-02: retired cloud SDK package stubs (no install).
+type FunctionReference<_T extends string = string> = { __brand?: _T };
+const anyApi: any = new Proxy({}, { get: () => anyApi });
 
 if (!PLATFORM_IT) {
   throw new Error('sprint30-ponr-latch requires PLATFORM_IT=1');

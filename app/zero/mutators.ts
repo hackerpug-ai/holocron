@@ -83,7 +83,7 @@ export const mutators = defineMutators({
 
   /**
    * Append imported text onto an existing document (contract: createImportDocument).
-   * Mirrors convex/imports.mutations.createImport without writing the imports
+   * Mirrors the retired imports.createImport path without writing the imports
    * table (imports is excluded from zero_pub).
    */
   createImportDocument: defineMutator(

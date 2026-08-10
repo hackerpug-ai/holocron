@@ -25,9 +25,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ConvexHttpClient } from 'convex/browser';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { api } from '../../../../convex/_generated/api';
 import {
   getMigrationReadOnlyEnv,
   isFenceArmedEnv,

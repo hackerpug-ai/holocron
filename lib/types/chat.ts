@@ -31,7 +31,7 @@ export interface ArticleCardData {
   snippet?: string;
   date?: string;
   research_type?: string;
-  document_id: string; // Convex ID is a string
+  document_id: string; // document id is a string
   metadata?: {
     relevance_score?: number;
   };
@@ -417,7 +417,7 @@ export interface ChatMessage {
   message_type: MessageType;
   card_data: CardData | null;
   session_id: string | null;
-  document_id: string | null; // Convex ID is a string
+  document_id: string | null; // document id is a string
   created_at: string;
 }
 
@@ -428,5 +428,5 @@ export interface ChatMessageInsert {
   message_type: MessageType;
   card_data?: CardData | null;
   session_id?: string | null;
-  document_id?: string | null; // Convex ID is a string
+  document_id?: string | null; // document id is a string
 }

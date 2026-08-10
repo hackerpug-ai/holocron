@@ -1,0 +1,16 @@
+
+> @holocron/mcp-unified@1.0.0 build /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-02/holocron-mcp
+> tsup
+
+CLI Building entry: src/mastra/stdio.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Using tsup config: /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-02/holocron-mcp/tsup.config.ts
+CLI Target: esnext
+CLI Cleaning output folder
+ESM Build start
+ESM dist/stdio.js 32.54 KB
+ESM ⚡️ Build success in 9ms
+DTS Build start
+DTS ⚡️ Build success in 1150ms
+DTS dist/stdio.d.ts 13.00 B

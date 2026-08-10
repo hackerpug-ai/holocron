@@ -1,0 +1,82 @@
+{
+  "ok": false,
+  "source_hit_count": 64,
+  "forbidden_dependency_count": 7,
+  "legacy_path_present_count": 4,
+  "scanned_root_count": 6,
+  "package_manifest_count": 3,
+  "source": {
+    "ok": false,
+    "scanned_root_count": 6,
+    "scanned_file_count": 459,
+    "roots": [
+      "app",
+      "components",
+      "hooks",
+      "screens",
+      "lib",
+      "holocron-mcp/src"
+    ],
+    "root_scans": [
+      {
+        "root": "app",
+        "scanned_file_count": 38,
+        "hit_count": 33
+      },
+      {
+        "root": "components",
+        "scanned_file_count": 312,
+        "hit_count": 0
+      },
+      {
+        "root": "hooks",
+        "scanned_file_count": 25,
+        "hit_count": 13
+      },
+      {
+        "root": "screens",
+        "scanned_file_count": 23,
+        "hit_count": 3
+      },
+      {
+        "root": "lib",
+        "scanned_file_count": 42,
+        "hit_count": 15
+      },
+      {
+        "root": "holocron-mcp/src",
+        "scanned_file_count": 19,
+        "hit_count": 0
+      }
+    ],
+    "hit_count": 64,
+    "hits": [
+      {
+        "file": "app/_layout.tsx",
+        "line": 194,
+        "text": "  // In-app notification toasts previously bridged via a Convex-backed provider."
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 4,
+        "text": " * Share links MUST target the Mastra /article/ host — never .convex.site."
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 11,
+        "text": "/** Strip trailing slash; reject legacy Convex hosts. */"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 15,
+        "text": "  if (trimmed.includes('.convex.site') || trimmed.includes('.convex.cloud')) {"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 17,
+        "text": "      '[platform] EXPO_PUBLIC_PLATFORM_* points at a Convex host; share URLs must use the Mastra host'"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 31,
+      

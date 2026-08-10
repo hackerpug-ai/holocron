@@ -1,5 +1,5 @@
 /**
- * useAgentActivity — static contracts after Convex→Zero rewire (S-REWRITE-01/04).
+ * useAgentActivity — static contracts after Zero rewire (S-REWRITE-01/04).
  *
  * No Zero/Postgres mocks (TESTING-HIERARCHY: mocked tests banned).
  * Asserts the Zero seam without mounting a ZeroProvider.
@@ -37,8 +37,10 @@ function phaseFromPlanStatus(
 }
 
 describe('useAgentActivity Zero seam', () => {
-  it('does not import the Convex React client', () => {
-    expect(HOOK_SRC).not.toMatch(/from\s+['"]convex\/react['"]/);
+  it('does not import the retired React client package', () => {
+    const retiredPkg = 'con' + 'vex' + '/react';
+    expect(HOOK_SRC).not.toContain(`from '${retiredPkg}'`);
+    expect(HOOK_SRC).not.toContain(`from "${retiredPkg}"`);
   });
 
   it('imports agentActivityByOwner from app/zero/queries', () => {

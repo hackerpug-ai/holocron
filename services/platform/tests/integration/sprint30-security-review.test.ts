@@ -17,7 +17,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { anyApi, type FunctionReference } from 'convex/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadSecretsFile, upsertSecretsFile } from '../../src/config/secrets.ts';
 import {
@@ -62,6 +61,9 @@ import {
   writeEvidence,
 } from './sprint30-cutover-harness.ts';
 
+// D08-02: retired cloud SDK package stubs (no install).
+type FunctionReference<_T extends string = string> = { __brand?: _T };
+const anyApi: any = new Proxy({}, { get: () => anyApi });
 if (!PLATFORM_IT) {
   throw new Error('sprint30-security-review requires PLATFORM_IT=1');
 }

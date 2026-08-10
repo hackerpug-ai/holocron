@@ -1,7 +1,7 @@
 /**
  * Bridges async tool results to the OpenAI Realtime voice session.
  *
- * CAP-CUT-01 / Sprint 20/24: pure no-op — no Convex client imports so chat
+ * CAP-CUT-01 / Sprint 20/24: pure no-op — no retired client imports so chat
  * cold-boots under ZeroProvider only. Platform voice result streaming will
  * replace this when productized.
  *
@@ -17,5 +17,5 @@ export function useVoiceResultBridge(
   _isActive: boolean,
   _sendEvent: SendEventFn | null
 ): void {
-  // No-op: Convex watchQuery path removed for Zero cold-boot safety.
+  // No-op: retired watchQuery path removed for Zero cold-boot safety.
 }

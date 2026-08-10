@@ -78,7 +78,7 @@ export function getSpokenErrorMessage(errorClass: ErrorClass, context?: string):
 
 export type RouterPush = (path: string) => void;
 
-export type ConvexRunner = {
+export type PlatformRunner = {
   runAction: (path: string, args: Record<string, unknown>) => Promise<unknown>;
   runMutation: (path: string, args: Record<string, unknown>) => Promise<unknown>;
   runQuery: (path: string, args: Record<string, unknown>) => Promise<unknown>;
@@ -87,7 +87,7 @@ export type ConvexRunner = {
 export type SendEvent = (event: Record<string, unknown>) => void;
 
 export type DispatcherDeps = {
-  convex: ConvexRunner;
+  platform: PlatformRunner;
   routerPush: RouterPush;
   sendEvent: SendEvent;
   sessionId: string;
@@ -140,7 +140,7 @@ export async function dispatchFunctionCall(
   } else {
     // ALL other tools → server-side via executeAgentTool
     try {
-      const serverResult = await deps.convex.runAction('voice/executeTool:executeTool', {
+      const serverResult = await deps.platform.runAction('voice/executeTool:executeTool', {
         toolName: fn.name,
         toolArgs: fn.arguments,
         conversationId: deps.conversationId,
@@ -156,7 +156,7 @@ export async function dispatchFunctionCall(
 
       if (errorClass === 'transient') {
         try {
-          const retryResult = await deps.convex.runAction('voice/executeTool:executeTool', {
+          const retryResult = await deps.platform.runAction('voice/executeTool:executeTool', {
             toolName: fn.name,
             toolArgs: fn.arguments,
             conversationId: deps.conversationId,
@@ -193,7 +193,7 @@ export async function dispatchFunctionCall(
   // Skip when sessionId is empty (race: function call arrived before session ID
   // was stored in the ref — common at session creation time).
   if (deps.sessionId) {
-    deps.convex
+    deps.platform
       .runMutation('voice/mutations:recordCommand', {
         sessionId: deps.sessionId,
         transcript: fn.name,

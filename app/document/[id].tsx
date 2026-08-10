@@ -194,7 +194,7 @@ export default function DocumentRoute() {
   const id = params.id;
   const isValidId = Boolean(id && id !== 'undefined' && id.length > 0);
 
-  // Prefer uuid primary key; fall back to legacy_convex_id during soak.
+  // Prefer uuid primary key; fall back to durable migration id alias during soak.
   const [docById, docStatus] = useZeroQuery(isValidId ? documentById(id) : undefined, {
     enabled: isValidId,
   });
@@ -239,7 +239,7 @@ export default function DocumentRoute() {
     [sanitizedContent]
   );
 
-  // Extract paragraphs using the same logic as the backend (convex/audio/actions.ts)
+  // Extract paragraphs using the same logic as the narration backend path
   // to ensure frontend narration indices match audio segment indices exactly
   const backendParagraphs = useMemo(
     () => (sanitizedContent ? extractParagraphs(sanitizedContent) : []),

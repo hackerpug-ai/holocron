@@ -2,7 +2,7 @@
  * US-005: Voice session state machine
  *
  * useReducer-based state machine for managing voice UI states.
- * Client-only — NEVER stored in Convex.
+ * Client-only — NEVER stored on the server session store.
  *
  * Valid transitions:
  *   IDLE → CONNECTING (CONNECT)

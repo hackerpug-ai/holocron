@@ -53,7 +53,7 @@ type JoinedItem = {
  * Reuses ArticleCard component for consistent document display.
  *
  * Data via Zero: subscription_content ⨝ documents (client-side join).
- * CAP-CUT-01 — no convex/react.
+ * CAP-CUT-01 — Zero/platform only.
  */
 export function SubscriptionDetailScreen({
   subscriptionIds,

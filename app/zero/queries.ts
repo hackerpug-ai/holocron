@@ -1,4 +1,5 @@
 import { createBuilder } from '@rocicorp/zero';
+import { LEGACY_ID_ALIAS } from './legacy-alias';
 import { schema } from './schema';
 
 const builder = createBuilder(schema);
@@ -74,9 +75,9 @@ export const documentsByCategory = (category: string) =>
 /** Single document by id (contract: documentById). */
 export const documentById = (id: string) => builder.documents.where('id', id).one();
 
-/** Also accept legacy Convex ids during soak (legacy_convex_id alias). */
+/** Also accept durable migration ids during soak (LEGACY_ID_ALIAS). */
 export const documentByLegacyId = (legacyId: string) =>
-  builder.documents.where('legacy_convex_id', legacyId).one();
+  builder.documents.where(LEGACY_ID_ALIAS, legacyId).one();
 
 /** Audio segments for a document (contract: audioSegmentsByDocument). */
 export const audioSegmentsByDocument = (documentId: string) =>

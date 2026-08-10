@@ -18,7 +18,7 @@ interface TranscriptRecorder {
 
 /**
  * Creates a fire-and-forget transcript recorder that persists voice turns
- * to Convex chatMessages via the recordTranscript mutation.
+ * to platform chatMessages via the recordTranscript mutation.
  *
  * Errors are logged but never re-thrown — recording must never block audio.
  */

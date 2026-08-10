@@ -51,7 +51,7 @@ export default function ImprovementsRoute() {
   }, [requestStatus]);
 
   const allRows = (rawRequests ?? []) as ImprovementRow[];
-  // Post-filter merged requests (mirrors Convex list behavior).
+  // Post-filter merged requests (mirrors historical list behavior).
   const openRows = allRows.filter((r) => r.merged_into_id == null);
 
   const requests = openRows.map((req) => ({

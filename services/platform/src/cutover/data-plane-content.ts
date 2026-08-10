@@ -1,20 +1,11 @@
 /**
  * REDHAT-FIX-RH-S30-02 — real content routing via resolveObservedDataPlane.
  *
- * When HOLO_DATA_PLANE=convex, document content reads must hit the Convex
- * client and return real document fields — not merely /health echoing labels.
+ * D08-02: retired cloud plane is fail-closed. Document content reads use Postgres.
  */
-import { anyApi, type FunctionReference } from 'convex/server';
 import { createSql } from '../db/client.ts';
 import { resolveHolocronNonprodDatabaseUrl } from '../db/connection.ts';
-import { createCutoverConvexClient } from './convex-fence-client.ts';
 import { resolveObservedDataPlane } from './soak-fence.ts';
-
-const docsApi = (anyApi as any).documents.queries as {
-  get: FunctionReference<'query'>;
-  list: FunctionReference<'query'>;
-  getByTitle: FunctionReference<'query'>;
-};
 
 export type ContentDocument = {
   id: string;
@@ -37,7 +28,7 @@ export type ContentReadResult = {
 
 /**
  * Read a single document from the observed data plane.
- * Convex when data_plane=='convex'; otherwise Postgres.
+ * Postgres when data_plane is postgres/unset; retired cloud plane fails closed.
  */
 export async function readDocumentFromObservedPlane(
   documentId: string,
@@ -47,57 +38,16 @@ export async function readDocumentFromObservedPlane(
   const plane = (observed.data_plane ?? '').toLowerCase();
 
   if (plane === 'convex') {
-    try {
-      const client = createCutoverConvexClient();
-      // Convex document ids are opaque strings (not necessarily UUIDs).
-      const doc = (await client.query(docsApi.get, { id: documentId as never })) as {
-        _id?: string;
-        title?: string;
-        content?: string;
-        category?: string;
-        status?: string;
-        date?: string;
-        _creationTime?: number;
-      } | null;
-      if (!doc || !doc._id) {
-        return {
-          ok: false,
-          status: 404,
-          data_plane: observed.data_plane,
-          source: 'convex',
-          document: null,
-          error: 'document_not_found',
-        };
-      }
-      return {
-        ok: true,
-        status: 200,
-        data_plane: observed.data_plane,
-        source: 'convex',
-        document: {
-          id: String(doc._id),
-          title: doc.title ?? null,
-          content: doc.content ?? null,
-          category: doc.category ?? null,
-          status: doc.status ?? null,
-          date: doc.date ?? null,
-          _creationTime: doc._creationTime ?? null,
-        },
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        ok: false,
-        status: 502,
-        data_plane: observed.data_plane,
-        source: 'convex',
-        document: null,
-        error: `convex_document_read_failed: ${msg}`,
-      };
-    }
+    return {
+      ok: false,
+      status: 410,
+      data_plane: observed.data_plane,
+      source: 'convex',
+      document: null,
+      error: 'retired_cloud_plane_removed_d08_02',
+    };
   }
 
-  // Default / postgres plane
   try {
     const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'document get' });
     const sql = createSql(databaseUrl);
@@ -175,62 +125,17 @@ export async function probeContentFromObservedPlane(options?: {
   }
 
   if (plane === 'convex') {
-    try {
-      const client = createCutoverConvexClient();
-      const listed = (await client.query(docsApi.list, { limit: 1 })) as {
-        documents?: Array<{
-          _id?: string;
-          title?: string;
-          content?: string;
-          category?: string;
-          status?: string;
-          date?: string;
-          _creationTime?: number;
-        }>;
-      };
-      const doc = listed?.documents?.[0];
-      if (!doc?._id) {
-        return {
-          ok: false,
-          status: 404,
-          data_plane: observed.data_plane,
-          source: 'convex',
-          document: null,
-          error: 'no_convex_documents',
-          probe: true,
-        };
-      }
-      return {
-        ok: true,
-        status: 200,
-        data_plane: observed.data_plane,
-        source: 'convex',
-        document: {
-          id: String(doc._id),
-          title: doc.title ?? null,
-          content: doc.content ?? null,
-          category: doc.category ?? null,
-          status: doc.status ?? null,
-          date: doc.date ?? null,
-          _creationTime: doc._creationTime ?? null,
-        },
-        probe: true,
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        ok: false,
-        status: 502,
-        data_plane: observed.data_plane,
-        source: 'convex',
-        document: null,
-        error: `convex_content_probe_failed: ${msg}`,
-        probe: true,
-      };
-    }
+    return {
+      ok: false,
+      status: 410,
+      data_plane: observed.data_plane,
+      source: 'convex',
+      document: null,
+      error: 'retired_cloud_plane_removed_d08_02',
+      probe: true,
+    };
   }
 
-  // Postgres sample
   try {
     const databaseUrl = resolveHolocronNonprodDatabaseUrl({ context: 'content probe' });
     const sql = createSql(databaseUrl);

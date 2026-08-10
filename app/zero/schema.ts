@@ -9,6 +9,7 @@ import {
   string,
   table,
 } from '@rocicorp/zero';
+import { LEGACY_ID_ALIAS } from './legacy-alias';
 
 /**
  * Integrated Zero client schema — union of S-REWRITE-01..04 clusters:
@@ -70,11 +71,11 @@ const toolCalls = table('tool_calls')
   })
   .primaryKey('id');
 
-/** S-REWRITE-01/04 — agent activity bar (04 adds legacy_convex_id). */
+/** S-REWRITE-01/04 — agent activity bar (04 adds durable migration id alias). */
 const agentPlans = table('agent_plans')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     conversation_id: string().optional(),
     message_id: string().optional(),
     title: string().optional(),
@@ -91,7 +92,7 @@ const agentPlans = table('agent_plans')
 const agentPlanSteps = table('agent_plan_steps')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     plan_id: string().optional(),
     step_index: number().optional(),
     tool_name: string().optional(),
@@ -113,7 +114,7 @@ const agentPlanSteps = table('agent_plan_steps')
 const researchSessions = table('research_sessions')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     system: string().optional(),
     query: string().optional(),
     topic: string().optional(),
@@ -145,7 +146,7 @@ const researchSessions = table('research_sessions')
 const researchIterations = table('research_iterations')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     system: string().optional(),
     session_id: string().optional(),
     iteration_number: number().optional(),
@@ -169,7 +170,7 @@ const researchIterations = table('research_iterations')
 const documents = table('documents')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     title: string().optional(),
     content: string().optional(),
     category: string().optional(),
@@ -193,7 +194,7 @@ const documents = table('documents')
 const audioJobs = table('audio_jobs')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     document_id: string().optional(),
     voice_id: string().optional(),
     status: string(),
@@ -210,7 +211,7 @@ const audioJobs = table('audio_jobs')
 const audioSegments = table('audio_segments')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     document_id: string().optional(),
     paragraph_index: number().optional(),
     paragraph_hash: string().optional(),
@@ -231,7 +232,7 @@ const audioSegments = table('audio_segments')
 const feedItems = table('feed_items')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     group_key: string().optional(),
     title: string().optional(),
     summary: string().optional(),
@@ -305,7 +306,7 @@ const subscriptionContent = table('subscription_content')
 const whatsNewReports = table('whats_new_reports')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     period_start: number().optional(),
     period_end: number().optional(),
     days: number().optional(),
@@ -339,7 +340,7 @@ const appSettings = table('app_settings')
 const improvementRequests = table('improvement_requests')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     description: string().optional(),
     title: string().optional(),
     summary: string().optional(),
@@ -363,7 +364,7 @@ const improvementRequests = table('improvement_requests')
 const assimilationSessions = table('assimilation_sessions')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     conversation_id: string().optional(),
     repository_url: string().optional(),
     repository_name: string().optional(),
@@ -397,7 +398,7 @@ const assimilationSessions = table('assimilation_sessions')
 const notifications = table('notifications')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     type: string().optional(),
     title: string().optional(),
     body: string().optional(),
@@ -420,7 +421,7 @@ const notifications = table('notifications')
 const fileObjects = table('file_objects')
   .columns({
     id: string(),
-    legacy_convex_id: string().optional(),
+    [LEGACY_ID_ALIAS]: string().optional(),
     content_hash: string(),
     mime_type: string().optional(),
     byte_size: number().optional(),

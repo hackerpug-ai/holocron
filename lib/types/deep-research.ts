@@ -39,7 +39,7 @@ export interface DeepResearchSessionRow {
 /**
  * App-level Deep Research Session type used throughout the UI
  * Transformed from DeepResearchSessionRow with camelCase
- * Note: timestamps are numbers (ms since epoch) for Convex compatibility
+ * Note: timestamps are numbers (ms since epoch) for platform compatibility
  */
 export interface DeepResearchSession {
   id: string;
@@ -92,7 +92,7 @@ export interface DeepResearchIterationRow {
 /**
  * App-level Deep Research Iteration type used throughout the UI
  * Transformed from DeepResearchIterationRow with camelCase
- * Note: timestamps are numbers (ms since epoch) for Convex compatibility
+ * Note: timestamps are numbers (ms since epoch) for platform compatibility
  */
 export interface DeepResearchIteration {
   id: string;

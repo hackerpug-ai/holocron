@@ -1,0 +1,21 @@
+
+> holocron@1.0.0 test:lanes /Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-02
+> npx tsx scripts/check-test-lanes.ts
+
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+vitest lane file-count guard (AC-6 / F3)
+=========================================
+OK    workspace: vitest.workspace.ts defines unit/integration/live + vitest.config.ts wires test.projects
+
+FAIL unit           69 files (expected 80-200)
+        DROPPED — lane collected 69 < 80; a workspace mis-split likely narrowed the include
+FAIL integration   291 files (expected 220-260)
+        OVERCOLLECTED — lane collected 291 > 260; include too broad
+OK   live            2 files (expected 1-10)
+
+bun:test excluded (different runner): 8 files
+total vitest integration files: 291
+
+LANE GUARD FAILED — see above
+ ELIFECYCLE  Command failed with exit code 1.

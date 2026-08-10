@@ -11,7 +11,6 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { api } from '../../../../convex/_generated/api';
 import { waitForMigrationReadOnlyRuntime } from '../../src/cutover/convex-fence-client.ts';
 import { writeDurableMigrationReadOnly } from '../../src/cutover/soak-fence';
 import { createSql, type Sql } from '../../src/db/client';
@@ -45,6 +44,10 @@ import {
   unsetMigrationFlag,
   writeEvidence,
 } from './write-fence-red.helpers';
+
+// D08-02: retired cloud SDK package stubs (no install).
+const anyApi: any = new Proxy({}, { get: () => anyApi });
+const api = anyApi;
 
 if (!PLATFORM_IT) {
   throw new Error(
