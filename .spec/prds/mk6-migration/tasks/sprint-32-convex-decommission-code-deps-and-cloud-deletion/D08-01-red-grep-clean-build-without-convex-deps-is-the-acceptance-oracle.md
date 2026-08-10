@@ -1,10 +1,8 @@
 # D08-01: RED: grep-clean + build-without-Convex-deps is the acceptance oracle
-> Status: 🔴 Needs Fixes
-> Cycle: 4
-> Commit: fad0c3bb09b11e2daa68087aeeb79c043d2a3936
-> Reviewer: product-manager + technical-review automation blocked
-> Fix: SPEC-REPAIR-D08-01: reconcile Expo build command/artifact contract
-> Updated: 2026-08-10T01:24:41Z
+> Status: 🟡 In Progress
+> Cycle: 5
+> Commit: 27a5c81deb5e0f72cf2aaa8208bc088f6198dd5f
+> Updated: 2026-08-10T03:07:52Z
 
 > **Task ID:** D08-01
 > **Sprint:** [Sprint 32 — Convex Decommission — Code, Deps and Cloud Deletion](./SPRINT.md)
@@ -31,7 +29,7 @@ The repository still contains 64 case-insensitive Convex source hits, 8 forbidde
 
 ## How to verify
 
-Run `./bin/holo verify:no-convex --json`. For D08-01 it must exit 1 with the named current residue rather than an unknown-command or harness error. The integration contract separately drives `pnpm build:ios` to a real `holocron.app/Info.plist` and drives `pnpm --dir holocron-mcp build` plus `start` through MCP `initialize` and `tools/list`, observing server name `holocron` and exactly 44 tools.
+Run `./bin/holo verify:no-convex --json`. For D08-01 it must exit 1 with the named current residue rather than an unknown-command or harness error. The integration contract separately drives the repo-native `pnpm build:ios -- --no-bundler` invocation to a real Xcode DerivedData `holocron.app/Info.plist` and drives `pnpm --dir holocron-mcp build` plus `start` through MCP `initialize` and `tools/list`, observing server name `holocron` and exactly 44 tools.
 
 ## Scope
 
@@ -88,7 +86,7 @@ DONE WHEN
 
 - [ ] `./bin/holo verify:no-convex --json` exists and records `ok:false`, 64 source hits, 8 forbidden dependency keys, and 4 legacy paths on the current checkout — AC-1 (PRIMARY).
 - [ ] The repository subgate covers exactly 6 source roots, all 3 current package manifests, and all 4 legacy-path targets without broad source allowlists — AC-2.
-- [ ] The React Native subgate runs `pnpm build:ios` and requires at least one real `holocron.app/Info.plist` artifact — AC-3.
+- [ ] The React Native subgate runs `pnpm build:ios -- --no-bundler` and requires the real `holocron.app/Info.plist` artifact reported by Expo under Xcode DerivedData — AC-3.
 - [ ] The MCP subgate builds and starts `dist/mastra/stdio.js`, initializes `holocron`, and receives exactly 44 tools — AC-4.
 - [ ] The RED failure is captured at `.tmp/D08-01/red-output.txt`; root unit, typecheck, and lint lanes remain GREEN.
 - [ ] Only SCOPE.writeAllowed files and declared generated outputs changed.
@@ -145,8 +143,8 @@ AC-2: Cleanup boundary is complete and non-degenerate
 
 AC-3: React Native proof requires a real app artifact
   GIVEN: the tracked `ios/` project is running on a real Expo/Xcode build host
-  WHEN:  the oracle executes `pnpm build:ios`
-  THEN:  the app subgate accepts only exit 0 plus at least one `holocron.app/Info.plist` artifact
+  WHEN:  the oracle executes `pnpm build:ios -- --no-bundler`
+  THEN:  the app subgate accepts only exit 0 plus the real `holocron.app/Info.plist` artifact reported by Expo under Xcode DerivedData
 
   TEST_TIER:             e2e
   VERIFICATION_SERVICE:  Expo + Xcode
@@ -162,7 +160,7 @@ AC-3: React Native proof requires a real app artifact
     NEGATIVE_CONTROL: would fail if stubbed build | empty artifact directory | disconnected Xcode process | TypeScript-only substitute
     EVIDENCE:         file_artifact (capture required)
     CASE 0:
-      ACTION: run `pnpm build:ios`; inspect `ios/build/**/holocron.app/Info.plist`; record exit code and artifact count
+      ACTION: run `pnpm build:ios -- --no-bundler`; inspect the fresh Xcode DerivedData `holocron.app/Info.plist` path reported by Expo; record exit code and artifact count
       MUST_OBSERVE: `"build_exit_code":0`; `"holocron_app_artifact_count":1`; `"holocron.app/Info.plist"`
       MUST_NOT_OBSERVE: `"holocron_app_artifact_count":0`; `empty build output`
 
@@ -199,7 +197,7 @@ TC-1 → AC-1: The composite CLI report sets `ok:false` against the current 64-h
 TC-2 → AC-2: The cleanup assertion rejects the current 8 forbidden dependency keys.
   VERIFY: PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-2'
 
-TC-3 → AC-3: The app-build assertion accepts a real `holocron.app` artifact from `pnpm build:ios`.
+TC-3 → AC-3: The app-build assertion accepts the real Xcode DerivedData `holocron.app` artifact from `pnpm build:ios -- --no-bundler`.
   VERIFY: PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-3'
 
 TC-4 → AC-4: The MCP-runtime assertion accepts exactly 44 tools from the built stdio server.
@@ -219,7 +217,7 @@ ios_build_host (seed_method: cli)
   A real Expo/Xcode host using the tracked native project.
   - root `package.json` exposes `build:ios` as `expo run:ios`
   - tracked `ios/` project is present
-  - success must materialize `ios/build/**/holocron.app/Info.plist`
+  - success must report and retain a fresh `~/Library/Developer/Xcode/DerivedData/**/holocron.app/Info.plist`
 
 mcp_built_distribution (seed_method: cli)
   The real `holocron-mcp` package exercised through package scripts, never the source-only dev entrypoint.
@@ -236,7 +234,7 @@ writeAllowed:
 - services/platform/src/cli/holo.ts (MODIFY)
 - tests/integration/s32-convex-decommission-oracle.test.ts (NEW)
 - .tmp/D08-01/** (GENERATED, gitignored)
-- ios/build/** and holocron-mcp/dist/** (GENERATED only)
+- holocron-mcp/dist/** (GENERATED only)
 
 writeProhibited:
 - app/**, components/**, hooks/**, screens/**, lib/** — D08-02 cleanup scope
@@ -313,7 +311,7 @@ Gate 2: Scenario-backed integration oracle
 
 Gate 3: React Native enrichment
   Command: PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-3'
-  Expected: the test drives `pnpm build:ios` and records at least 1 `holocron.app/Info.plist`; no TypeScript-only substitute counts.
+  Expected: the test drives `pnpm build:ios -- --no-bundler` and records the real Xcode DerivedData `holocron.app/Info.plist`; no TypeScript-only substitute counts.
 
 Gate 4: MCP enrichment
   Command: PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-4'
@@ -348,7 +346,7 @@ Provides:
 
 Boundary contracts:
 - Repository files/manifests/paths → structured CLI subgate findings and counts.
-- `pnpm build:ios` → actual `holocron.app/Info.plist`, not merely exit 0.
+- `pnpm build:ios -- --no-bundler` → actual Xcode DerivedData `holocron.app/Info.plist`, not merely exit 0.
 - MCP package build output → actual dist stdio initialize and 44-tool response.
 - D08-01 never substitutes for CAP-BAK-01/T-SYNC-018 recovery proof and cannot authorize D08-05.
 
@@ -362,8 +360,8 @@ MCP:
 - Apply bounded timeouts, retain stderr for diagnostics, and kill the child in `finally` without leaking a stdio server.
 
 React Native:
-- Use the repo-native `pnpm build:ios`; do not replace it with `tsgo`, Metro bundle generation, or a source-only import check.
-- Require a concrete `ios/build/**/holocron.app/Info.plist` path and nonzero artifact count in addition to process exit 0.
+- Use the repo-native `pnpm build:ios -- --no-bundler`; do not replace it with `tsgo`, Metro bundle generation, or a source-only import check. `--no-bundler` is Expo's supported finite-build switch and prevents an otherwise-successful build from serving Metro indefinitely.
+- Require the concrete Xcode DerivedData `holocron.app/Info.plist` path reported by Expo and nonzero artifact count in addition to process exit 0.
 - Preserve generated outputs only as evidence; do not edit tracked app, screen, hook, component, or native source in this RED task.
 
 --------------------------------------------------------------------------------
@@ -544,7 +542,7 @@ CONTEXT
       "id": "AC-3",
       "type": "acceptance_criterion",
       "primary": false,
-      "description": "GIVEN a real iOS build host WHEN pnpm build:ios runs THEN exit 0 and a holocron.app artifact are required.",
+      "description": "GIVEN a real iOS build host WHEN pnpm build:ios -- --no-bundler runs THEN exit 0 and the Expo-reported Xcode DerivedData holocron.app artifact are required.",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-3'",
       "maps_to_ac": null,
       "scenario": {
@@ -562,8 +560,8 @@ CONTEXT
             "action": {
               "actor": "cli_user",
               "steps": [
-                "Run pnpm build:ios",
-                "Inspect ios/build for holocron.app/Info.plist"
+                "Run pnpm build:ios -- --no-bundler",
+                "Inspect the Expo-reported Xcode DerivedData path for holocron.app/Info.plist"
               ]
             },
             "end_state": {
@@ -663,7 +661,7 @@ CONTEXT
     {
       "id": "TC-3",
       "type": "test_criterion",
-      "description": "The app-build assertion accepts a real holocron.app artifact from pnpm build:ios.",
+      "description": "The app-build assertion accepts the real Xcode DerivedData holocron.app artifact from pnpm build:ios -- --no-bundler.",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-3'",
       "maps_to_ac": "AC-3"
     },

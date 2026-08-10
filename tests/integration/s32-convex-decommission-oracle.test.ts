@@ -10,15 +10,7 @@
  * suite proves that the verifier is honest while D08-02 performs cleanup.
  */
 import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface, type Interface } from 'node:readline';
@@ -26,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NO_CONVEX_PACKAGE_MANIFESTS,
   NO_CONVEX_SOURCE_ROOTS,
+  parseExpoAppArtifactPath,
   scanNoConvexRepository,
 } from '../../services/platform/src/cli/commands/verify-no-convex.ts';
 
@@ -96,26 +89,6 @@ function parseJson<T>(stdout: string): T {
     throw new Error(`expected JSON object on stdout, got:\n${stdout}`);
   }
   return JSON.parse(stdout.slice(start, end + 1)) as T;
-}
-
-function findAppArtifacts(root: string): string[] {
-  if (!existsSync(root)) return [];
-
-  const artifacts: string[] = [];
-  const visit = (directory: string) => {
-    for (const name of readdirSync(directory)) {
-      const path = join(directory, name);
-      const stats = statSync(path);
-      if (stats.isDirectory()) {
-        visit(path);
-      } else if (name === 'Info.plist' && path.includes('/holocron.app/')) {
-        artifacts.push(path);
-      }
-    }
-  };
-
-  visit(root);
-  return artifacts;
 }
 
 function nextJsonMessage(
@@ -227,14 +200,19 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
   );
 
   itLive(
-    'AC-3: real iOS build produces a holocron.app artifact',
+    'AC-3: real iOS build reports an output-bound holocron.app artifact',
     () => {
-      const result = run('pnpm', ['build:ios'], 900_000);
-      const artifacts = findAppArtifacts(join(REPO_ROOT, 'ios/build'));
+      const result = run('pnpm', ['build:ios', '--', '--no-bundler'], 900_000);
 
       expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-      expect(artifacts).toHaveLength(1);
-      expect(artifacts[0]).toContain('holocron.app/Info.plist');
+      const artifactPath = parseExpoAppArtifactPath(result.stdout);
+      expect(artifactPath).toMatch(/\/DerivedData\//u);
+      expect(artifactPath).toMatch(/\/holocron\.app$/u);
+      expect(artifactPath).toBe(resolve(artifactPath ?? ''));
+      expect(existsSync(artifactPath ?? '')).toBe(true);
+      const infoPlistPath = join(artifactPath ?? '', 'Info.plist');
+      expect(infoPlistPath).toMatch(/\/holocron\.app\/Info\.plist$/u);
+      expect(existsSync(infoPlistPath)).toBe(true);
     },
     900_000
   );

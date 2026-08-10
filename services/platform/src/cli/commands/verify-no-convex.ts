@@ -5,7 +5,7 @@
  * not hide a broken iOS build or a broken built MCP distribution.
  */
 import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { resolveRepoRoot } from '../../config/secrets.ts';
 
@@ -82,6 +82,7 @@ export type AppBuildSubgate = {
   build_exit_code: number | null;
   holocron_app_artifact_count: number;
   artifacts: string[];
+  holocron_app_info_plist: string | null;
   error?: string;
 };
 
@@ -306,49 +307,56 @@ function scanLegacyPaths(repoRoot: string): LegacyPathSubgate {
   };
 }
 
-function findAppArtifacts(root: string): string[] {
-  if (!existsSync(root)) return [];
+/**
+ * Extract the app bundle that Expo says it installed. This intentionally does
+ * not search DerivedData: a previous build's artifact cannot satisfy AC-3.
+ */
+export function parseExpoAppArtifactPath(stdout: string): string | null {
+  for (const rawLine of stdout.split(/\r?\n/u)) {
+    const line = rawLine.trim();
+    const match = line.match(/^(?:›\s*)?Installing\b.*?(\/.*?\/holocron\.app)(?:\s+on\b|\s*$)/u);
+    if (!match?.[1]) continue;
 
-  const artifacts: string[] = [];
-  const visit = (directory: string) => {
-    for (const name of readdirSync(directory)) {
-      const path = join(directory, name);
-      const stats = statSync(path);
-      if (stats.isDirectory()) {
-        visit(path);
-      } else if (name === 'Info.plist' && path.includes('/holocron.app/')) {
-        artifacts.push(relative(resolve(root, '..', '..'), path));
-      }
+    const appPath = resolve(match[1]);
+    if (appPath.includes('/DerivedData/') && appPath.endsWith('/holocron.app')) {
+      return appPath;
     }
-  };
-
-  visit(root);
-  return artifacts;
+  }
+  return null;
 }
 
 function runAppBuild(repoRoot: string): AppBuildSubgate {
-  const command = 'pnpm build:ios';
-  const result = spawnSync('pnpm', ['build:ios'], {
+  const command = 'pnpm build:ios -- --no-bundler';
+  const result = spawnSync('pnpm', ['build:ios', '--', '--no-bundler'], {
     cwd: repoRoot,
     encoding: 'utf8',
     env: { ...process.env },
     timeout: BUILD_TIMEOUT_MS,
     maxBuffer: 4 * 1024 * 1024,
   });
-  const artifacts = findAppArtifacts(resolve(repoRoot, 'ios/build'));
   const buildExitCode = result.status;
+  const appArtifactPath = parseExpoAppArtifactPath(result.stdout ?? '');
+  const infoPlistPath = appArtifactPath ? join(appArtifactPath, 'Info.plist') : null;
+  const infoPlistExists = infoPlistPath !== null && existsSync(infoPlistPath);
+  const artifacts = infoPlistPath ? [infoPlistPath] : [];
+  const error =
+    result.error?.message ??
+    (buildExitCode !== 0
+      ? (result.stderr || result.stdout || 'iOS build failed').trim().slice(-2_000)
+      : !appArtifactPath
+        ? 'Expo stdout did not report an installed Xcode DerivedData holocron.app path'
+        : !infoPlistExists
+          ? `Expo-reported app Info.plist is missing: ${infoPlistPath}`
+          : undefined);
 
   return {
-    ok: buildExitCode === 0 && artifacts.length > 0,
+    ok: buildExitCode === 0 && infoPlistExists,
     command,
     build_exit_code: buildExitCode,
-    holocron_app_artifact_count: artifacts.length,
+    holocron_app_artifact_count: infoPlistExists ? 1 : 0,
     artifacts,
-    ...(result.error
-      ? { error: result.error.message }
-      : buildExitCode !== 0
-        ? { error: (result.stderr || result.stdout || 'iOS build failed').trim().slice(-2_000) }
-        : {}),
+    holocron_app_info_plist: infoPlistPath,
+    ...(error ? { error } : {}),
   };
 }
 
