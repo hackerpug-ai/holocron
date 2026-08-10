@@ -26,6 +26,10 @@ const REPO_ROOT = resolve(import.meta.dirname, '../..');
 const HOLO_BIN = join(REPO_ROOT, 'bin/holo');
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const itLive = PLATFORM_IT ? it : it.skip;
+const MCP_PROBE_ENV = {
+  PLATFORM_URL: 'http://127.0.0.1:4111',
+  HOLO_KEY_MCP: 'd08-local-probe',
+} as const;
 
 type CommandResult = {
   status: number | null;
@@ -226,7 +230,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
 
       const child = spawn('pnpm', ['--dir', 'holocron-mcp', 'start'], {
         cwd: REPO_ROOT,
-        env: { ...process.env, LOG_LEVEL: 'error' },
+        env: { ...process.env, ...MCP_PROBE_ENV, LOG_LEVEL: 'error' },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       const reader = createInterface({ input: child.stdout });

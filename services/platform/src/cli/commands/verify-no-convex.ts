@@ -30,6 +30,10 @@ const BUILD_TIMEOUT_MS = 900_000;
 const MCP_BUILD_TIMEOUT_MS = 180_000;
 const MCP_RESPONSE_TIMEOUT_MS = 30_000;
 const MCP_SHUTDOWN_TIMEOUT_MS = 2_000;
+const MCP_PROBE_ENV = {
+  PLATFORM_URL: 'http://127.0.0.1:4111',
+  HOLO_KEY_MCP: 'd08-local-probe',
+} as const;
 
 export type ConvexSourceHit = {
   file: string;
@@ -481,7 +485,7 @@ async function runMcpProbe(repoRoot: string): Promise<McpRuntimeSubgate> {
 
   const child = spawn('pnpm', ['--dir', 'holocron-mcp', 'start'], {
     cwd: repoRoot,
-    env: { ...process.env, LOG_LEVEL: 'error' },
+    env: { ...process.env, ...MCP_PROBE_ENV, LOG_LEVEL: 'error' },
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
   });
