@@ -232,6 +232,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
       const reader = createInterface({ input: child.stdout });
 
       try {
+        const initializeResponse = nextJsonMessage(reader, child, 30_000);
         child.stdin.write(
           `${JSON.stringify({
             jsonrpc: '2.0',
@@ -244,17 +245,18 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
             },
           })}\n`
         );
-        const initialized = await nextJsonMessage(reader, child, 30_000);
+        const initialized = await initializeResponse;
         expect(initialized.error).toBeUndefined();
         expect(initialized.result?.serverInfo?.name).toBe('holocron');
 
         child.stdin.write(
           `${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`
         );
+        const toolsListResponse = nextJsonMessage(reader, child, 30_000);
         child.stdin.write(
           `${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} })}\n`
         );
-        const listed = await nextJsonMessage(reader, child, 30_000);
+        const listed = await toolsListResponse;
         expect(listed.error).toBeUndefined();
         expect(listed.result?.tools).toHaveLength(44);
       } finally {

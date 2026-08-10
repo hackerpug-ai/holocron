@@ -33,7 +33,7 @@ Run `./bin/holo verify:no-convex --json`. For D08-01 it must exit 1 with the nam
 
 ## Scope
 
-Adds only the composite verifier command and its integration/e2e oracle. D08-02 owns all code, dependency, lockfile, and legacy-directory removal; D08-03 owns the fresh restore; D08-05 alone may delete the cloud deployment.
+Adds only the composite verifier command and its integration/e2e oracle, plus the MCP build configuration repair needed to preserve runtime platform URL reads in the distributable. D08-02 owns all code, dependency, lockfile, and legacy-directory removal; D08-03 owns the fresh restore; D08-05 alone may delete the cloud deployment.
 
 <details>
 <summary>▸ Full agent specification (TASK-TEMPLATE v5.2 — required reading for implementer + reviewer)</summary>
@@ -234,6 +234,7 @@ writeAllowed:
 - services/platform/src/cli/holo.ts (MODIFY)
 - tests/integration/s32-convex-decommission-oracle.test.ts (NEW)
 - holocron-mcp/package.json (MODIFY — approved built-entrypoint repair only)
+- holocron-mcp/tsup.config.ts (MODIFY — approved runtime configuration packaging repair only)
 - .tmp/D08-01/** (GENERATED, gitignored)
 - holocron-mcp/dist/** (GENERATED only)
 

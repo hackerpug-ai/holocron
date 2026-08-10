@@ -405,8 +405,10 @@ async function runMcpRpc(
   buffer: { value: string },
   stderr: { value: string }
 ): Promise<McpMessage | null> {
-  child.stdin.write(`${JSON.stringify(payload)}\n`);
-  if (String(payload.method ?? '').startsWith('notifications/')) return null;
+  if (String(payload.method ?? '').startsWith('notifications/')) {
+    child.stdin.write(`${JSON.stringify(payload)}\n`);
+    return null;
+  }
 
   return new Promise((resolveMessage, reject) => {
     const timeout = setTimeout(() => {
@@ -449,6 +451,7 @@ async function runMcpRpc(
     child.stderr.on('data', (chunk: Buffer) => {
       stderr.value += chunk.toString('utf8');
     });
+    child.stdin.write(`${JSON.stringify(payload)}\n`);
     consume();
   });
 }
