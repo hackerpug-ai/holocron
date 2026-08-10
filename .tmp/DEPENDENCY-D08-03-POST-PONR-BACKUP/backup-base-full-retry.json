@@ -1,0 +1,39 @@
+{
+  "ok": false,
+  "job_name": "base_backup",
+  "status": "failed",
+  "backupType": "full",
+  "exitCode": 82,
+  "lastSnapshotId": "20260728-182755F_20260729-220125I",
+  "r2BackupObjectCount": 153,
+  "manifestPresent": true,
+  "heartbeat": {
+    "job_name": "base_backup",
+    "last_success_at": "2026-08-09 03:50:58.495611-06",
+    "last_wal_segment": null,
+    "last_snapshot_id": "20260728-182755F_20260729-220125I",
+    "object_count": 153,
+    "status": "failed",
+    "trace_id": "eb1852346c164dcd9b6d644a4df4486f",
+    "updated_at": "2026-08-10 12:16:14.486246-06"
+  },
+  "span": {
+    "name": "backup:base_backup",
+    "traceId": "eb1852346c164dcd9b6d644a4df4486f",
+    "spanId": "155fdb9df652425e",
+    "attributes": {
+      "job_name": "base_backup",
+      "status": "failed",
+      "last_snapshot_id": "20260728-182755F_20260729-220125I",
+      "object_count": 153,
+      "detail": "pgbackrest backup exit 82: 2026-08-10 12:15:10.072 P00   INFO: backup command begin 2.59.0: --no-archive-mode-check --config=/Users/inference1/Projects/holocron/services/platform/config/pgbackrest/pgb"
+    },
+    "exportOk": false,
+    "exportError": "langfuse not configured (local span only)",
+    "redacted": true
+  },
+  "errors": [
+    "pgbackrest backup exit 82: 2026-08-10 12:15:10.072 P00   INFO: backup command begin 2.59.0: --no-archive-mode-check --config=/Users/inference1/Projects/holocron/services/platform/config/pgbackrest/pgbackrest.conf --exec-id=24404-10037f70 --log-level-console=info --log-level-file=detail --log-path=/tmp/pgbackrest-logs --pg1-path=/opt/homebrew/var/postgresql@18 --pg1-port=5432 --process-max=2 --repo1-block --repo1-bundle --re\n...[431 chars truncated]...\nkup start: backup begins after the requested immediate checkpoint completes\n2026-08-10 12:15:12.541 P00   INFO: backup start archive = 000000010000004F000000B0, lsn = 4F/B0000180\n2026-08-10 12:15:12.541 P00   INFO: check archive for prior segment 000000010000004F000000AF\n2026-08-10 12:16:12.646 P00  ERROR: [082]: WAL segment 000000010000004F000000AF was not archived before the 60000ms timeout\n                                    HINT: check the archive_command to ensure that all options are correct (especially --stanza).\n                                    HINT: check the PostgreSQL server log for errors.\n                                    HINT: run the 'start' command if the stanza was previously stopped.\n2026-08-10 12:16:12.646 P00   INFO: backup command end: aborted with exception [082]",
+    "R2 did not confirm base backup manifest/objects after pgbackrest backup"
+  ]
+}

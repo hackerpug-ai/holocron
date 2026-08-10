@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "probed_at": "2026-08-10T18:22:46.230Z",
+  "live": {
+    "ponr_count": 1,
+    "ponr_max_recorded": "2026-08-08 19:26:27.871603-06",
+    "ponr_min_recorded": "2026-08-08 19:26:27.871603-06",
+    "audit_count": 2,
+    "audit_max_committed_at_ms": "1786385534977",
+    "audit_min_committed_at_ms": "1786238787804",
+    "documents_count": 19
+  },
+  "data_plane_ponr": [
+    {
+      "id": "195877f6-a78e-40f1-ab9c-b1642bafa8e9",
+      "recorded_at": "2026-08-08 19:26:27.871603-06",
+      "write_surface": "hono.POST /api/documents",
+      "write_row_id": "de107cdf-b33f-4152-b1ab-0b86e05a5f32",
+      "export_watermark_ms": "1786190348757"
+    }
+  ],
+  "post_export_write_audit": [
+    {
+      "id": "74b09fc4-31e3-4084-94e3-15c2d1200cfa",
+      "surface": "hono.POST /api/documents",
+      "write_row_id": "de107cdf-b33f-4152-b1ab-0b86e05a5f32",
+      "committed_at_ms": "1786238787804",
+      "export_watermark_ms": "1786190348757",
+      "recorded_at": "2026-08-10 12:12:14.934845-06"
+    },
+    {
+      "id": "16a0a312-0864-4f88-980b-230780db8b55",
+      "surface": "hono.POST /api/documents",
+      "write_row_id": "f139c5c2-7454-4e37-ad9b-2b008b7a7b2f",
+      "committed_at_ms": "1786385534977",
+      "export_watermark_ms": "1786190348757",
+      "recorded_at": "2026-08-10 12:12:14.988071-06"
+    }
+  ],
+  "assertions": {
+    "ponr_count_ge_1": true,
+    "audit_count_ge_1": true,
+    "ponr_after_2026_08_08": true
+  }
+}

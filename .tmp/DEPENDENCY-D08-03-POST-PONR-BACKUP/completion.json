@@ -1,0 +1,32 @@
+{
+  "task_id": "DEPENDENCY-D08-03-POST-PONR-BACKUP",
+  "completed_at": "2026-08-10T18:23:15Z",
+  "status": "completed",
+  "goal": "New successful pgBackRest full base backup in R2 with restore:window latest past PONR (2026-08-08)",
+  "backup": {
+    "ok": true,
+    "label": "20260810-121923F",
+    "backupType": "full",
+    "exitCode": 0,
+    "r2BackupObjectCount": 444,
+    "manifestPresent": true,
+    "heartbeat_last_success_at": "2026-08-10 12:22:23.013-06"
+  },
+  "restore_window": {
+    "ok": true,
+    "earliest": "2026-07-28T09:57:13Z",
+    "latest": "2026-08-10T18:22:05Z",
+    "recommended_pitr": "2026-08-10T18:22:05Z",
+    "labels_include_new_full": true,
+    "latest_post_ponr": true
+  },
+  "ops_notes": [
+    "Prior backup:base attempts failed exit 82: prior WAL segment not archived within 60000ms",
+    "archive_status had ~1400 .ready backlog; postgres archiver was slowly catching up from 48/49 while current WAL was 4F",
+    "Fixed path: ensure archive_command with full --config/--stanza; mkdir /tmp/pgbackrest-logs; parallel manual archive-push of recent 4E/4F segments so prior/stop WALs present before timeout",
+    "backup label 20260810-121923F full size 10.4GB completed successfully",
+    "recovery baseline emission skipped/failed: restic snapshot config-absent (optional for this dependency)",
+    "post_export_write_audit 2 rows retained (post-export-write-audit-record.json)"
+  ],
+  "product_code_changes": []
+}
