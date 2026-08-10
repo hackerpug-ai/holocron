@@ -42,10 +42,19 @@ export type ManifestFinding = {
   key: string;
 };
 
+export type SourceRootScan = {
+  root: string;
+  scanned_file_count: number;
+  hit_count: number;
+  error?: string;
+};
+
 export type SourceSubgate = {
   ok: boolean;
   scanned_root_count: number;
+  scanned_file_count: number;
   roots: string[];
+  root_scans: SourceRootScan[];
   hit_count: number;
   hits: ConvexSourceHit[];
   errors: string[];
@@ -128,47 +137,96 @@ function parseRgHits(stdout: string, repoRoot: string): ConvexSourceHit[] {
   return hits;
 }
 
-function scanSource(repoRoot: string): SourceSubgate {
-  const roots = [...NO_CONVEX_SOURCE_ROOTS];
-  const result = spawnSync(
-    'rg',
-    [
-      '--ignore-case',
-      '--line-number',
-      '--no-heading',
-      '--color',
-      'never',
-      '--glob',
-      '!**/node_modules/**',
-      '--glob',
-      '!**/dist/**',
-      'convex',
-      ...roots,
-    ],
-    { cwd: repoRoot, encoding: 'utf8' }
-  );
+function scanRootFiles(repoRoot: string, root: string): SourceRootScan {
+  const absoluteRoot = resolve(repoRoot, root);
+  if (!existsSync(absoluteRoot)) {
+    return { root, scanned_file_count: 0, hit_count: 0, error: 'root is missing' };
+  }
 
-  if (result.error) {
+  try {
+    if (!statSync(absoluteRoot).isDirectory()) {
+      return { root, scanned_file_count: 0, hit_count: 0, error: 'root is not a directory' };
+    }
+  } catch (error) {
     return {
-      ok: false,
-      scanned_root_count: roots.length,
-      roots,
+      root,
+      scanned_file_count: 0,
       hit_count: 0,
-      hits: [],
-      errors: [`rg failed to start: ${result.error.message}`],
+      error: `root cannot be inspected: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 
-  const hits = result.status === 0 ? parseRgHits(result.stdout ?? '', repoRoot) : [];
-  const errors =
-    result.status === 2
-      ? [`rg failed: ${(result.stderr || result.stdout || 'unknown rg error').trim()}`]
-      : [];
+  const result = spawnSync(
+    'rg',
+    ['--files', '--color', 'never', '--glob', '!**/node_modules/**', '--glob', '!**/dist/**', root],
+    { cwd: repoRoot, encoding: 'utf8' }
+  );
+
+  if (result.error || result.status === 2) {
+    return {
+      root,
+      scanned_file_count: 0,
+      hit_count: 0,
+      error: `file inventory failed: ${(result.error?.message ?? result.stderr ?? 'unknown rg error').trim()}`,
+    };
+  }
+
+  const scannedFileCount = (result.stdout ?? '').split(/\r?\n/u).filter(Boolean).length;
+  return {
+    root,
+    scanned_file_count: scannedFileCount,
+    hit_count: 0,
+    ...(scannedFileCount === 0 ? { error: 'root contains no files to scan' } : {}),
+  };
+}
+
+function scanSource(repoRoot: string): SourceSubgate {
+  const roots = [...NO_CONVEX_SOURCE_ROOTS];
+  const rootScans = roots.map((root) => scanRootFiles(repoRoot, root));
+  const hits: ConvexSourceHit[] = [];
+  const errors = rootScans
+    .filter((scan) => scan.error)
+    .map((scan) => `${scan.root}: ${scan.error}`);
+
+  for (const rootScan of rootScans) {
+    if (rootScan.error) continue;
+    const result = spawnSync(
+      'rg',
+      [
+        '--ignore-case',
+        '--line-number',
+        '--no-heading',
+        '--color',
+        'never',
+        '--glob',
+        '!**/node_modules/**',
+        '--glob',
+        '!**/dist/**',
+        'convex',
+        rootScan.root,
+      ],
+      { cwd: repoRoot, encoding: 'utf8' }
+    );
+
+    if (result.error || result.status === 2) {
+      errors.push(
+        `${rootScan.root}: rg failed: ${(result.error?.message ?? result.stderr ?? result.stdout ?? 'unknown rg error').trim()}`
+      );
+      continue;
+    }
+    if (result.status === 0) {
+      const rootHits = parseRgHits(result.stdout ?? '', repoRoot);
+      rootScan.hit_count = rootHits.length;
+      hits.push(...rootHits);
+    }
+  }
 
   return {
-    ok: errors.length === 0 && hits.length === 0 && result.status === 1,
+    ok: errors.length === 0 && hits.length === 0,
     scanned_root_count: roots.length,
+    scanned_file_count: rootScans.reduce((total, scan) => total + scan.scanned_file_count, 0),
     roots,
+    root_scans: rootScans,
     hit_count: hits.length,
     hits,
     errors,
@@ -474,9 +532,8 @@ export async function verifyNoConvex(options?: {
   repoRoot?: string;
 }): Promise<VerifyNoConvexReport> {
   const repoRoot = options?.repoRoot ?? resolveRepoRoot();
-  const source = scanSource(repoRoot);
-  const manifests = scanManifests(repoRoot);
-  const paths = scanLegacyPaths(repoRoot);
+  const repository = scanNoConvexRepository(repoRoot);
+  const { source, manifests, paths } = repository;
   const appBuild = runAppBuild(repoRoot);
   const mcpRuntime = await runMcpProbe(repoRoot);
 
@@ -492,6 +549,20 @@ export async function verifyNoConvex(options?: {
     paths,
     app_build: appBuild,
     mcp_runtime: mcpRuntime,
+  };
+}
+
+export type NoConvexRepositoryScan = {
+  source: SourceSubgate;
+  manifests: ManifestSubgate;
+  paths: LegacyPathSubgate;
+};
+
+export function scanNoConvexRepository(repoRoot = resolveRepoRoot()): NoConvexRepositoryScan {
+  return {
+    source: scanSource(repoRoot),
+    manifests: scanManifests(repoRoot),
+    paths: scanLegacyPaths(repoRoot),
   };
 }
 

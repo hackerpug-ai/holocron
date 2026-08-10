@@ -10,10 +10,24 @@
  * suite proves that the verifier is honest while D08-02 performs cleanup.
  */
 import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface, type Interface } from 'node:readline';
 import { describe, expect, it } from 'vitest';
+import {
+  NO_CONVEX_PACKAGE_MANIFESTS,
+  NO_CONVEX_SOURCE_ROOTS,
+  scanNoConvexRepository,
+} from '../../services/platform/src/cli/commands/verify-no-convex.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 const HOLO_BIN = join(REPO_ROOT, 'bin/holo');
@@ -45,6 +59,21 @@ type RpcMessage = {
   };
   error?: unknown;
 };
+
+function makeRepositoryScanFixture(): string {
+  const root = mkdtempSync(join(tmpdir(), 'd08-01-repository-scan-'));
+  for (const sourceRoot of NO_CONVEX_SOURCE_ROOTS) {
+    const directory = join(root, sourceRoot);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'clean.ts'), 'export const clean = true;\n', 'utf8');
+  }
+  for (const manifest of NO_CONVEX_PACKAGE_MANIFESTS) {
+    const path = join(root, manifest);
+    mkdirSync(resolve(path, '..'), { recursive: true });
+    writeFileSync(path, '{}\n', 'utf8');
+  }
+  return root;
+}
 
 function run(command: string, args: string[], timeoutMs: number): CommandResult {
   const result = spawnSync(command, args, {
@@ -171,6 +200,30 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
       expect(report.ok).toBe(false);
     },
     900_000
+  );
+
+  itLive(
+    'AC-2 negative control: empty and missing source roots cannot pass',
+    () => {
+      const fixture = makeRepositoryScanFixture();
+      try {
+        rmSync(join(fixture, 'components'), { recursive: true, force: true });
+        const missingRoot = scanNoConvexRepository(fixture);
+        expect(missingRoot.source.ok).toBe(false);
+        expect(missingRoot.source.scanned_root_count).toBe(6);
+        expect(missingRoot.source.scanned_file_count).toBe(5);
+        expect(missingRoot.source.errors).toContain('components: root is missing');
+
+        mkdirSync(join(fixture, 'components'), { recursive: true });
+        const emptyRoot = scanNoConvexRepository(fixture);
+        expect(emptyRoot.source.ok).toBe(false);
+        expect(emptyRoot.source.scanned_file_count).toBe(5);
+        expect(emptyRoot.source.errors).toContain('components: root contains no files to scan');
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    },
+    30_000
   );
 
   itLive(
