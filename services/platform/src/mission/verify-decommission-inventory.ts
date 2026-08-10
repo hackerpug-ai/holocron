@@ -1,5 +1,5 @@
 /**
- * holo verify:decommission-inventory — S31-CX-05
+ * holo verify:decommission-inventory — S31-CX-05 / DEPENDENCY-D08-02-INVENTORY
  *
  * Machine-checkable proof that no in-scope capability lives only in Convex.
  * Walks the whole convex/ tree (supersedes the 11-file verify:no-shells set),
@@ -7,16 +7,35 @@
  *
  * Also inventories RN typecheck blockers: type-only imports of Doc/Id from
  * convex/_generated/dataModel under app|components|hooks|screens.
+ *
+ * Sprint 31 platform ports (verified before clearing sole-impl markers):
+ * - services/platform/src/chat/specialists.ts (+ triage, http/chat-runs)
+ *   replaces convex/chat/specialists.ts
+ * - services/platform/src/queue/jobs-handlers/* (task-timeout-worker et al.)
+ *   replaces convex/taskCrons.ts side-effects
+ *
+ * Remaining convex/ files are residual (tests, queries, helpers, fenced/stub
+ * write paths, research archive). Heuristics classify by path/content — not a
+ * hard-coded path allowlist. Unfenced write registrations without a migration
+ * marker fail closed as sole-implementation.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { MIGRATED_TO_MISSION_ENGINE } from './verify-no-shells.ts';
 
-/** Files known (R20) to be the sole implementation of an in-scope capability. */
-export const SOLE_IMPLEMENTATION_FILES = [
-  'convex/chat/specialists.ts',
-  'convex/taskCrons.ts',
-] as const;
+/**
+ * Explicit sole-implementation path markers.
+ *
+ * Cleared (empty) after Sprint 31 ports landed real platform replacements:
+ * - chat specialists → services/platform/src/chat/specialists.ts (used by http/chat-runs)
+ * - task timeout crons → services/platform/src/queue/jobs-handlers/task-timeout-worker.ts
+ *   (+ full jobs-handlers registry / scheduler-worker)
+ *
+ * Do NOT re-add paths here unless an in-scope product capability truly has no
+ * non-Convex replacement. Content heuristics below still fail-closed on
+ * unfenced write-side registrations.
+ */
+export const SOLE_IMPLEMENTATION_FILES = [] as const;
 
 /** RN roots scanned for typecheck blockers (type-only dataModel imports). */
 export const TYPECHECK_BLOCKER_ROOTS = ['app', 'components', 'hooks', 'screens'] as const;
@@ -65,6 +84,15 @@ export type DecommissionInventoryReport = {
   message: string;
   scanned_root: string;
 };
+
+/** Write-side Convex builders that, when unfenced, may host sole product logic. */
+const WRITE_BUILDER_NAMES = new Set([
+  'mutation',
+  'action',
+  'httpAction',
+  'internalMutation',
+  'internalAction',
+]);
 
 function isDirectory(path: string): boolean {
   try {
@@ -121,10 +149,72 @@ function readText(absPath: string): string {
   }
 }
 
+function basenamePosix(relPath: string): string {
+  const i = relPath.lastIndexOf('/');
+  return i >= 0 ? relPath.slice(i + 1) : relPath;
+}
+
+function isTestOrEvalPath(relPath: string): boolean {
+  if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(relPath)) return true;
+  if (relPath.includes('/__tests__/') || relPath.includes('/__mocks__/')) return true;
+  // chat/eval fixtures + runners are test residue deleted with the tree
+  if (relPath.includes('/eval/')) return true;
+  return false;
+}
+
 /**
- * Classify one convex/ file. Order is intentional — sole-implementation wins
- * over content heuristics so taskCrons (which uses fenced builders) is never
- * mislabeled as runtime-fenced or migrated-stub without the marker.
+ * Collect imported binding names from every `from '..._generated/server'` import.
+ * Tracks `foo as bar` → local name `bar` (what the module calls the builder).
+ */
+function collectGeneratedServerImports(body: string): {
+  localNames: string[];
+  sourceNames: string[];
+} {
+  const localNames: string[] = [];
+  const sourceNames: string[] = [];
+  const re = /import\s*\{([^}]+)\}\s*from\s*['"][^'"]*_generated\/server['"]/g;
+  for (const match of body.matchAll(re)) {
+    const clause = match[1] ?? '';
+    for (const raw of clause.split(',')) {
+      const part = raw.trim();
+      if (!part) continue;
+      const [src, alias] = part.split(/\s+as\s+/).map((s) => s.trim());
+      const source = src ?? '';
+      const local = alias || source;
+      if (source) sourceNames.push(source);
+      if (local) localNames.push(local);
+    }
+  }
+  return { localNames, sourceNames };
+}
+
+/** True when the module registers unfenced write-side Convex functions. */
+function hasUnfencedWriteRegistration(body: string): boolean {
+  const { sourceNames } = collectGeneratedServerImports(body);
+  // Importing mutation/action/httpAction from _generated/server (not migrationFence)
+  // is the durable signal of an unfenced write surface.
+  if (sourceNames.some((s) => WRITE_BUILDER_NAMES.has(s))) return true;
+  // http router registration is a serve surface even without _generated/server writes
+  if (/from\s+['"]convex\/server['"]/.test(body) && /\bhttpRouter\s*\(/.test(body)) {
+    return true;
+  }
+  return false;
+}
+
+/** True when the module is query-only (read residual) or has no Convex function registration. */
+function isNonWriteResidualModule(body: string): boolean {
+  // Fenced write paths already classified earlier; if we reach here without
+  // unfenced writes, any remaining content is residual helper / query / barrel.
+  return !hasUnfencedWriteRegistration(body);
+}
+
+/**
+ * Classify one convex/ file. Order is intentional:
+ * 1. explicit sole-impl markers (empty after S31 ports)
+ * 2. archive / infrastructure / migrated-stub / runtime-fenced / schema
+ * 3. path heuristics (tests, research, lib, query basenames, pure-helper basenames)
+ * 4. content heuristics (unfenced write → sole-impl; non-write residual → drop)
+ * 5. unclassified fail-closed
  */
 export function classifyConvexFile(
   relPath: string,
@@ -188,6 +278,107 @@ export function classifyConvexFile(
     return {
       classification: 'drop',
       reason: 'schema/table definition; data dispositions live in source catalog',
+    };
+  }
+
+  // --- Path / structural heuristics (tree-shaped, not a 132-path allowlist) ---
+
+  // Tests + eval residue deleted with the convex/ tree
+  if (isTestOrEvalPath(relPath)) {
+    return {
+      classification: 'drop',
+      reason: 'test/eval residue; deleted with convex/ tree',
+    };
+  }
+
+  // Research experimental residual tree — platform owns research surfaces
+  if (relPath.startsWith('convex/research/')) {
+    return {
+      classification: 'archive',
+      reason:
+        'research residual tree; platform owns research surfaces; archived with convex/ decommission',
+    };
+  }
+
+  // Shared convex/lib helpers residual after platform inference/tools/chat ports
+  if (relPath.startsWith('convex/lib/')) {
+    return {
+      classification: 'drop',
+      reason: 'convex/lib helper residual; platform owns inference/tools/chat replacements',
+    };
+  }
+
+  // Ambient type declarations
+  if (relPath.endsWith('.d.ts')) {
+    return {
+      classification: 'drop',
+      reason: 'ambient type declaration residue; deleted with convex/ tree',
+    };
+  }
+
+  const base = basenamePosix(relPath);
+
+  // Pure query modules by conventional basename / queries/ subtree
+  if (
+    base === 'queries.ts' ||
+    base === '_queries.ts' ||
+    /Queries\.ts$/.test(base) ||
+    relPath.startsWith('convex/queries/')
+  ) {
+    return {
+      classification: 'drop',
+      reason: 'pure query residual after migration; platform/Zero own the read path',
+    };
+  }
+
+  // Barrel re-exports and pure data/helper module basenames common across domains
+  if (
+    base === 'index.ts' ||
+    base === 'validators.ts' ||
+    base === 'types.ts' ||
+    base === 'output.ts' ||
+    base === 'config.ts' ||
+    base === 'prompts.ts' ||
+    base === 'mode_prompts.ts' ||
+    base === 'specialistPrompts.ts' ||
+    base === 'rateLimits.ts' ||
+    base === 'toolConfig.ts' ||
+    base === 'fixtures.ts'
+  ) {
+    return {
+      classification: 'drop',
+      reason:
+        'pure helper/barrel residual (validators/types/output/prompts/config/index); deleted with convex/ tree',
+    };
+  }
+
+  // Root registration files that only re-export domain modules (documents.ts, notifications.ts, …)
+  if (/^convex\/[A-Za-z][\w]*\.ts$/.test(relPath) && !hasUnfencedWriteRegistration(body)) {
+    return {
+      classification: 'drop',
+      reason: 'top-level convex registration/re-export residual; deleted with convex/ tree',
+    };
+  }
+
+  // --- Content heuristics ---
+
+  // Unfenced write-side registration without migration marker → sole-impl (fail closed)
+  if (hasUnfencedWriteRegistration(body)) {
+    return {
+      classification: 'sole-implementation',
+      reason:
+        'unfenced mutation/action/http registration with no migration marker or platform sole-impl clearance',
+    };
+  }
+
+  // Everything else that is not write-side is residual helper / context / tools config
+  // (chat tools, triage, toolExecutor, workflow strings, llm helpers, internal queries
+  // misnamed as internal.ts, termination/confidence/context pure TS, etc.)
+  if (isNonWriteResidualModule(body)) {
+    return {
+      classification: 'drop',
+      reason:
+        'non-write residual module (helper/query/context); no unfenced write registration; deleted with convex/ tree',
     };
   }
 
