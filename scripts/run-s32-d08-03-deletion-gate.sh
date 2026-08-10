@@ -463,8 +463,12 @@ EOF
     return 1
   fi
 
+  # Restored stanza DB name is typically `holocron` (production-like). etl runtime
+  # refuses that name unless HOLO_DANGEROUS_ALLOW_PROD_DB=1 — safe here: URL points
+  # only at the isolated restored target (127.0.0.1 ephemeral port), not live prod.
   set +e
   DATABASE_URL="$RESTORED_DATABASE_URL" \
+    HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
     "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" etl:fk-audit \
       --json --export "$export_dir" --catalog "$catalog_path" \
     >"$EVID/fk-audit.json" 2>"$EVID/fk-audit.stderr"
