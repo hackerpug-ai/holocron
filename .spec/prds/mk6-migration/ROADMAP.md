@@ -56,7 +56,7 @@ This roadmap is a **consolidation** of proposals from the project's dispatched p
 | 29 | — | [Sprint 29: Cutover — Write Freeze, ETL and Read-Only Soak Flip](#sprint-29-cutover--write-freeze-etl-and-read-only-soak-flip) | Pinned `inference1` container serves Postgres reads; every write returns `migration_read_only` | 7 | 13, 14, 19, 20, 22, 23, 24, 25, 26, 6 | ✅ Completed | `mk6-cutover` | — |
 | 30 | — | [Sprint 30: Cutover Rollback Drill and Data-Plane Point of No Return](#sprint-30-cutover-rollback-drill-and-data-plane-point-of-no-return) | Rollback during soak re-points to frozen Convex with zero accepted writes lost | 5 | 29 | ✅ Completed | `mk6-rollback` | — |
 | 31 | — | [Sprint 31: Migration Integrity Remediation](#sprint-31-migration-integrity-remediation) | With Convex credentials revoked, decommission-inventory reports every capability resolving to a non-Convex implementation | 32 | 30 | ✅ Completed — accepted exceptions | `mk6-integrity-remediation` | — |
-| 32 | — | [Sprint 32: Convex Decommission — Code, Deps and Cloud Deletion](#sprint-32-convex-decommission--code-deps-and-cloud-deletion) | Convex deleted after fresh restore drill; zero Convex surface reachable | 5 | 28, 30, 31 | 🟠 In Progress | `mk6-decommission` | — |
+| 32 | — | [Sprint 32: Convex Decommission — Code, Deps and Cloud Deletion](#sprint-32-convex-decommission--code-deps-and-cloud-deletion) | Convex deleted after fresh restore drill; zero Convex surface reachable | 5 | 28, 30, 31 | 🟠 In flight | `mk6-decommission` | — |
 
 The `Milestone` cell links to the GitHub Milestone titled `sprint-{NN}`; sprints not yet pushed show `—` and are backfilled after Milestone creation. `Branch` follows the `mk6-{slug}` convention (`~/Projects/brain/docs/PR-SEQUENCING.md`); `PR` is populated when a PR opens and is **required** once Status is ✅ Completed.
 
@@ -1893,7 +1893,7 @@ The sprint evidence remains `met:false` until those exceptions are resolved or t
 
 **Sequence:** 32
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** 🟠 In Progress
+**Status:** Blocked
 **Proposed by:** devops-engineer + integrator
 **Milestone:** — (`sprint-32`)
 **Branch:** `mk6-decommission`

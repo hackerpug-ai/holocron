@@ -1,7 +1,7 @@
 ---
 sequence: 32
 timeline: Phase 7 — Cutover and Decommission
-status: Planned
+status: Blocked
 planned_from_roadmap_sha: 69e4d2e0f3d3b7af03fb646bb706848d575b7b37c0199488beff185534335b0f
 planned_from_source_sha: 13f93dc53c8516efd93368a9f0c0627aeb3af6f6
 source_kind: prd-git
@@ -13,7 +13,9 @@ capability_coverage: [CAP-CUT-01, CAP-BAK-01]
 
 **Sequence:** 32
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** Planned
+**Status:** Blocked
+> Progress: 0/5 tasks completed · updated 2026-08-10T01:24:41Z
+> Status-Note: D08-01 blocked by task_contract_invalid; SPEC-REPAIR-D08-01 requires human contract choice
 **Proposed by:** devops-engineer + integrator
 **Milestone:** — (`sprint-32`)
 **Branch:** `mk6-decommission`

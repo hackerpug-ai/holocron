@@ -1,4 +1,10 @@
 # D08-01: RED: grep-clean + build-without-Convex-deps is the acceptance oracle
+> Status: 🔴 Needs Fixes
+> Cycle: 4
+> Commit: fad0c3bb09b11e2daa68087aeeb79c043d2a3936
+> Reviewer: product-manager + technical-review automation blocked
+> Fix: SPEC-REPAIR-D08-01: reconcile Expo build command/artifact contract
+> Updated: 2026-08-10T01:24:41Z
 
 > **Task ID:** D08-01
 > **Sprint:** [Sprint 32 — Convex Decommission — Code, Deps and Cloud Deletion](./SPRINT.md)
@@ -672,3 +678,13 @@ CONTEXT
 }
 -->
 </details>
+
+## Remediation Trail
+| Cycle | FIX | Failed Reqs | Reviewer | At |
+|-------|-----|-------------|----------|----|
+| 1 | — | — | — | 2026-08-09T22:33:09Z |
+| 2 | D08-01-automation-blocked | — | — | 2026-08-09T22:43:43Z |
+| 2 | D08-01-automation-blocked-wip | — | — | 2026-08-09T22:48:44Z |
+| 3 | D08-01-product-findings-and-evidence | — | — | 2026-08-10T00:58:58Z |
+| 4 | D08-01-evidence-harvest | — | — | 2026-08-10T01:11:29Z |
+| 4 | SPEC-REPAIR-D08-01: reconcile Expo build command/artifact contract | — | product-manager + technical-review automation blocked | 2026-08-10T01:24:41Z |
