@@ -179,14 +179,16 @@ done
 [[ -n "$DOCKER_BIN" ]] || { err "docker daemon not available"; echo "RESIDUAL: needs_hardware docker"; exit 2; }
 
 # ── PITR_TIMESTAMP from live window when unset ───────────────────────────────
+# pgBackRest --type=time selects backup sets with stop *strictly less than*
+# --target. Operators often pass recommended_pitr == exact backup stop (e.g.
+# post-PONR 20260810-121923F stop 2026-08-10T18:22:05Z); equality causes the
+# prior July set to be selected and PONR tables never appear. Nudge +1s when
+# the chosen PITR equals the window latest/recommended stop (mirrors
+# adjustPitrTargetForBackupStop, applied at the gate so provided env is safe).
 resolve_pitr() {
-  if [[ -n "${PITR_TIMESTAMP:-}" ]]; then
-    log "using provided PITR_TIMESTAMP"
-    return 0
-  fi
-  log "resolving PITR_TIMESTAMP via holo restore:window"
+  local window_json provided="${PITR_TIMESTAMP:-}"
+  log "resolving PITR_TIMESTAMP via holo restore:window (provided=${provided:+yes})"
   # Window probe needs R2_ACCESS_* — map restore tuple (RO) for listing only.
-  local window_json
   window_json="$(
     env \
       R2_ACCESS_KEY_ID="${R2_RESTORE_ACCESS_KEY_ID}" \
@@ -197,26 +199,63 @@ resolve_pitr() {
       "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" restore:window --json 2>"$EVID/restore-window.stderr"
   )" || true
   printf '%s\n' "$window_json" >"$EVID/restore-window.json"
-  PITR_TIMESTAMP="$(
-    /usr/bin/python3 -E -s -c '
+  if [[ -z "$provided" ]]; then
+    PITR_TIMESTAMP="$(
+      /usr/bin/python3 -E -s -c '
 import json,sys
 try:
   d=json.load(open(sys.argv[1]))
-except Exception as e:
+except Exception:
   print("", end="")
   sys.exit(0)
 print((d.get("recommended_pitr") or d.get("latest") or "") or "", end="")
 ' "$EVID/restore-window.json"
-  )"
+    )"
+  else
+    PITR_TIMESTAMP="$provided"
+  fi
   if [[ -z "$PITR_TIMESTAMP" ]]; then
     err "failed to resolve PITR_TIMESTAMP from restore:window"
     exit 2
   fi
+  # Nudge when PITR equals latest/recommended stop (exact full-backup stop).
+  PITR_TIMESTAMP="$(
+    /usr/bin/python3 -E -s -c '
+import json,sys
+from datetime import datetime, timezone, timedelta
+pitr = sys.argv[1].strip()
+try:
+  d = json.load(open(sys.argv[2]))
+except Exception:
+  print(pitr, end=""); sys.exit(0)
+latest = (d.get("recommended_pitr") or d.get("latest") or "").strip()
+if not latest:
+  print(pitr, end=""); sys.exit(0)
+def parse(s):
+  s = s.replace("Z", "+00:00")
+  return datetime.fromisoformat(s)
+try:
+  t = parse(pitr); L = parse(latest)
+except Exception:
+  print(pitr, end=""); sys.exit(0)
+# Equal or within 5s before latest stop → +1s past latest (select that backup set).
+delta = (L - t).total_seconds()
+if 0 <= delta <= 5:
+  nudged = (L + timedelta(seconds=1)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+  print(nudged, end="")
+else:
+  print(pitr, end="")
+' "$PITR_TIMESTAMP" "$EVID/restore-window.json"
+  )"
   export PITR_TIMESTAMP
   log "PITR_TIMESTAMP=$PITR_TIMESTAMP"
 }
 resolve_pitr
 export PITR_TIMESTAMP
+
+# Prefer post-PONR recovery baseline when operator/env pins it (or default known id).
+export HOLO_RECOVERY_BASELINE_ID="${HOLO_RECOVERY_BASELINE_ID:-${RECOVERY_BASELINE_ID:-8f7a8ed7f438ba31c447745433d18389050d11fcc4425ac223846d1c97470a7e}}"
+log "HOLO_RECOVERY_BASELINE_ID bound (64-hex; value length=${#HOLO_RECOVERY_BASELINE_ID})"
 
 # ── Cleanup restored postmaster on exit ──────────────────────────────────────
 RESTORED_PGDATA=""
@@ -438,26 +477,34 @@ PY
 EOF
   log "SQL ponr_rows=$ponr_rows post_export_rows=$post_export_rows domain_rows=$domain_rows"
 
-  # FK audit — need export dir. Prefer env, then etl_runs on restored DB, then known export.
+  # FK audit — need export dir with _export_provenance.json sidecar.
+  # Prefer env, then fixture with provenance, then etl_runs path only if sidecar present.
   local export_dir="${CONVEX_EXPORT_DIR:-}"
   local catalog_path="${CATALOG_PATH:-$ROOT/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml}"
-  if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
+  _export_has_provenance() {
+    [[ -n "${1:-}" && -d "$1" && -f "$1/_export_provenance.json" ]]
+  }
+  if ! _export_has_provenance "$export_dir"; then
+    export_dir=""
     set +e
-    export_dir="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc \
+    local etl_root
+    etl_root="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc \
       "SELECT export_root FROM etl_runs WHERE status='succeeded' ORDER BY created_at DESC LIMIT 1" 2>/dev/null)"
     set -e
+    if _export_has_provenance "$etl_root"; then export_dir="$etl_root"; fi
   fi
-  if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
+  if ! _export_has_provenance "$export_dir"; then
     for cand in \
-      "/Users/inference1/Projects/holocron/.tmp/D06-04/exports/1785960119710-scoped/export" \
-      "$ROOT/services/platform/tests/fixtures/etl-valid-export"; do
-      if [[ -d "$cand" ]]; then export_dir="$cand"; break; fi
+      "$ROOT/services/platform/tests/fixtures/etl-valid-export" \
+      "/Users/inference1/Projects/holocron/.tmp/D06-04/exports/1785960119710-scoped/export"; do
+      if _export_has_provenance "$cand"; then export_dir="$cand"; break; fi
     done
   fi
-  if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
-    err "CONVEX_EXPORT_DIR / etl export missing for fk-audit"
+  if ! _export_has_provenance "$export_dir"; then
+    err "CONVEX_EXPORT_DIR / etl export missing provenance sidecar for fk-audit"
     return 1
   fi
+  log "fk-audit export_dir bound (provenance present)"
   if [[ ! -f "$catalog_path" ]]; then
     err "catalog missing: $catalog_path"
     return 1
