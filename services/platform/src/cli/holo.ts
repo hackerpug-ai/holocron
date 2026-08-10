@@ -505,6 +505,7 @@ Usage:
   db:provision-nonprod     Create holocron_nonprod + migrate + zero_pub
   seed:e2e --reset         Sprint 24 e2e seed: conversations, docs, feed, subscriptions (refuse prod)
   verify:no-convex-client  CAP-CUT-01: fail if convex/react imports remain in app roots
+  verify:no-convex          D08-01: composite Convex decommission oracle (repository + iOS + MCP)
   verify:etl-provenance    S31-CX-06: fail closed if a gate record cites absent ETL artifacts
                            [--gate <path>] [--json]
                            [--roots a,b] [--print-roots]
@@ -4436,6 +4437,20 @@ async function main(): Promise<void> {
         console.log(JSON.stringify(report, null, 2));
       } else {
         console.log(formatVerifyNoConvexClientText(report));
+      }
+      process.exit(report.ok ? 0 : 1);
+      break;
+    }
+    case 'verify:no-convex':
+    case 'verify-no-convex': {
+      const { formatVerifyNoConvexText, verifyNoConvex } = await import(
+        './commands/verify-no-convex.ts'
+      );
+      const report = await verifyNoConvex();
+      if (args.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatVerifyNoConvexText(report));
       }
       process.exit(report.ok ? 0 : 1);
       break;
