@@ -28,7 +28,7 @@ export interface UseAgentActivityArgs {
 }
 
 /**
- * Maps agent_plans status → UI phase. Replaces Convex api.db.agentActivity.get
+ * Maps agent_plans status → UI phase. Replaces retired agentActivity.get
  * (contract: agentActivityByOwner on agent_plans).
  */
 function phaseFromPlanStatus(status: string | undefined): AgentPhase {

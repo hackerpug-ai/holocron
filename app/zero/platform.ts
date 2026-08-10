@@ -1,20 +1,22 @@
+import { isRetiredCloudHost } from './legacy-alias';
+
 /**
  * Shared platform URL helpers + Hono command client for Zero/Hono call sites
  * (union of S-REWRITE-02 URL helpers and S-REWRITE-04 hono_command targets).
- * Share links MUST target the Mastra /article/ host — never .convex.site.
+ * Share links MUST target the Mastra /article/ host — never a retired cloud host.
  */
 
 function rawPlatformUrl(): string {
   return process.env.EXPO_PUBLIC_PLATFORM_SITE_URL ?? process.env.EXPO_PUBLIC_PLATFORM_URL ?? '';
 }
 
-/** Strip trailing slash; reject legacy Convex hosts. */
+/** Strip trailing slash; reject retired cloud hosts. */
 export function getMastraHost(): string {
   const trimmed = rawPlatformUrl().replace(/\/+$/, '');
   if (!trimmed) return '';
-  if (trimmed.includes('.convex.site') || trimmed.includes('.convex.cloud')) {
+  if (isRetiredCloudHost(trimmed)) {
     console.warn(
-      '[platform] EXPO_PUBLIC_PLATFORM_* points at a Convex host; share URLs must use the Mastra host'
+      '[platform] EXPO_PUBLIC_PLATFORM_* points at a retired cloud host; share URLs must use the Mastra host'
     );
   }
   return trimmed;
@@ -28,8 +30,8 @@ export function buildArticleShareUrl(shareToken: string): string {
       'Mastra host not configured (EXPO_PUBLIC_PLATFORM_SITE_URL / EXPO_PUBLIC_PLATFORM_URL)'
     );
   }
-  if (host.includes('.convex.site') || host.includes('.convex.cloud')) {
-    throw new Error('Share URL host must not be a Convex domain');
+  if (isRetiredCloudHost(host)) {
+    throw new Error('Share URL host must not be a retired cloud domain');
   }
   return `${host}/article/${shareToken}`;
 }

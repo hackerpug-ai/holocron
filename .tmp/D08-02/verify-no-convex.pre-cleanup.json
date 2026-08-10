@@ -1,0 +1,447 @@
+{
+  "ok": false,
+  "source_hit_count": 64,
+  "forbidden_dependency_count": 7,
+  "legacy_path_present_count": 4,
+  "scanned_root_count": 6,
+  "package_manifest_count": 3,
+  "source": {
+    "ok": false,
+    "scanned_root_count": 6,
+    "scanned_file_count": 459,
+    "roots": [
+      "app",
+      "components",
+      "hooks",
+      "screens",
+      "lib",
+      "holocron-mcp/src"
+    ],
+    "root_scans": [
+      {
+        "root": "app",
+        "scanned_file_count": 38,
+        "hit_count": 33
+      },
+      {
+        "root": "components",
+        "scanned_file_count": 312,
+        "hit_count": 0
+      },
+      {
+        "root": "hooks",
+        "scanned_file_count": 25,
+        "hit_count": 13
+      },
+      {
+        "root": "screens",
+        "scanned_file_count": 23,
+        "hit_count": 3
+      },
+      {
+        "root": "lib",
+        "scanned_file_count": 42,
+        "hit_count": 15
+      },
+      {
+        "root": "holocron-mcp/src",
+        "scanned_file_count": 19,
+        "hit_count": 0
+      }
+    ],
+    "hit_count": 64,
+    "hits": [
+      {
+        "file": "app/_layout.tsx",
+        "line": 194,
+        "text": "  // In-app notification toasts previously bridged via a Convex-backed provider."
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 4,
+        "text": " * Share links MUST target the Mastra /article/ host — never .convex.site."
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 11,
+        "text": "/** Strip trailing slash; reject legacy Convex hosts. */"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 15,
+        "text": "  if (trimmed.includes('.convex.site') || trimmed.includes('.convex.cloud')) {"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 17,
+        "text": "      '[platform] EXPO_PUBLIC_PLATFORM_* points at a Convex host; share URLs must use the Mastra host'"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 31,
+        "text": "  if (host.includes('.convex.site') || host.includes('.convex.cloud')) {"
+      },
+      {
+        "file": "app/zero/platform.ts",
+        "line": 32,
+        "text": "    throw new Error('Share URL host must not be a Convex domain');"
+      },
+      {
+        "file": "app/zero/queries.ts",
+        "line": 77,
+        "text": "/** Also accept legacy Convex ids during soak (legacy_convex_id alias). */"
+      },
+      {
+        "file": "app/zero/queries.ts",
+        "line": 79,
+        "text": "  builder.documents.where('legacy_convex_id', legacyId).one();"
+      },
+      {
+        "file": "app/zero/mutators.ts",
+        "line": 86,
+        "text": "   * Mirrors convex/imports.mutations.createImport without writing the imports"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 73,
+        "text": "/** S-REWRITE-01/04 — agent activity bar (04 adds legacy_convex_id). */"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 77,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 94,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 116,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 148,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 172,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 196,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 213,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 234,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 308,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 342,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 366,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 400,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/zero/schema.ts",
+        "line": 423,
+        "text": "    legacy_convex_id: string().optional(),"
+      },
+      {
+        "file": "app/articles.tsx",
+        "line": 52,
+        "text": "  const convexCategory = mapCategoryTypeToDocumentCategory(selectedCategory);"
+      },
+      {
+        "file": "app/articles.tsx",
+        "line": 56,
+        "text": "    () => (convexCategory ? documentsByCategory(convexCategory) : documentsByOwner()),"
+      },
+      {
+        "file": "app/articles.tsx",
+        "line": 57,
+        "text": "    [convexCategory]"
+      },
+      {
+        "file": "app/articles.tsx",
+        "line": 116,
+        "text": "        const pool = convexCategory"
+      },
+      {
+        "file": "app/articles.tsx",
+        "line": 117,
+        "text": "          ? allDocs.filter((d) => d.category === convexCategory)"
+      },
+      {
+        "file": "app/articles.tsx",
+        "line": 134,
+        "text": "    [allDocs, convexCategory, toArticle]"
+      },
+      {
+        "file": "app/document/[id].tsx",
+        "line": 197,
+        "text": "  // Prefer uuid primary key; fall back to legacy_convex_id during soak."
+      },
+      {
+        "file": "app/document/[id].tsx",
+        "line": 242,
+        "text": "  // Extract paragraphs using the same logic as the backend (convex/audio/actions.ts)"
+      },
+      {
+        "file": "app/(drawer)/improvements.tsx",
+        "line": 54,
+        "text": "  // Post-filter merged requests (mirrors Convex list behavior)."
+      },
+      {
+        "file": "hooks/use-agent-activity.ts",
+        "line": 31,
+        "text": " * Maps agent_plans status → UI phase. Replaces Convex api.db.agentActivity.get"
+      },
+      {
+        "file": "hooks/use-agent-activity.test.ts",
+        "line": 2,
+        "text": " * useAgentActivity — static contracts after Convex→Zero rewire (S-REWRITE-01/04)."
+      },
+      {
+        "file": "hooks/use-agent-activity.test.ts",
+        "line": 40,
+        "text": "  it('does not import the Convex React client', () => {"
+      },
+      {
+        "file": "hooks/use-agent-activity.test.ts",
+        "line": 41,
+        "text": "    expect(HOOK_SRC).not.toMatch(/from\\s+['\"]convex\\/react['\"]/);"
+      },
+      {
+        "file": "hooks/use-voice-session-state.ts",
+        "line": 5,
+        "text": " * Client-only — NEVER stored in Convex."
+      },
+      {
+        "file": "hooks/use-voice-result-bridge.ts",
+        "line": 4,
+        "text": " * CAP-CUT-01 / Sprint 20/24: pure no-op — no Convex client imports so chat"
+      },
+      {
+        "file": "hooks/use-voice-result-bridge.ts",
+        "line": 20,
+        "text": "  // No-op: Convex watchQuery path removed for Zero cold-boot safety."
+      },
+      {
+        "file": "hooks/useResearchSession.ts",
+        "line": 74,
+        "text": "    // Convex-era aliases used by existing UI"
+      },
+      {
+        "file": "hooks/useResearchSession.ts",
+        "line": 96,
+        "text": " * Replaces Convex useQuery(api.researchSessions.queries.get)."
+      },
+      {
+        "file": "hooks/use-voice-session.ts",
+        "line": 395,
+        "text": "      // Warm re-activation — reuse existing WebRTC connection, create new Convex session"
+      },
+      {
+        "file": "hooks/use-voice-session.ts",
+        "line": 512,
+        "text": "                convex: {"
+      },
+      {
+        "file": "hooks/use-voice-session.ts",
+        "line": 654,
+        "text": "          // End any Convex session that may have been created"
+      },
+      {
+        "file": "hooks/use-voice-session.ts",
+        "line": 689,
+        "text": "        // End the Convex session since WebRTC failed after token was generated"
+      },
+      {
+        "file": "screens/settings-screen.tsx",
+        "line": 90,
+        "text": " * Voice language uses Zero `app_settings` (CAP-CUT-01 — no convex/react)."
+      },
+      {
+        "file": "screens/toolbelt-screen.tsx",
+        "line": 23,
+        "text": "// Types based on Convex schema"
+      },
+      {
+        "file": "screens/subscription-detail-screen.tsx",
+        "line": 56,
+        "text": " * CAP-CUT-01 — no convex/react."
+      },
+      {
+        "file": "lib/voice/transcript-recorder.ts",
+        "line": 21,
+        "text": " * to Convex chatMessages via the recordTranscript mutation."
+      },
+      {
+        "file": "lib/extractParagraphs.ts",
+        "line": 3,
+        "text": " * (convex/audio/actions.ts) for narration index alignment."
+      },
+      {
+        "file": "lib/extractParagraphs.ts",
+        "line": 61,
+        "text": " * extractParagraphs logic in convex/audio/actions.ts."
+      },
+      {
+        "file": "lib/types/deep-research.ts",
+        "line": 42,
+        "text": " * Note: timestamps are numbers (ms since epoch) for Convex compatibility"
+      },
+      {
+        "file": "lib/types/deep-research.ts",
+        "line": 95,
+        "text": " * Note: timestamps are numbers (ms since epoch) for Convex compatibility"
+      },
+      {
+        "file": "lib/voice/retry-manager.ts",
+        "line": 8,
+        "text": " * Also supports single-retry for Convex function calls on network failure."
+      },
+      {
+        "file": "lib/voice/retry-manager.ts",
+        "line": 87,
+        "text": "   * Executes a Convex function call and retries exactly once on network failure."
+      },
+      {
+        "file": "lib/voice/function-dispatcher.ts",
+        "line": 81,
+        "text": "export type ConvexRunner = {"
+      },
+      {
+        "file": "lib/voice/function-dispatcher.ts",
+        "line": 90,
+        "text": "  convex: ConvexRunner;"
+      },
+      {
+        "file": "lib/voice/function-dispatcher.ts",
+        "line": 143,
+        "text": "      const serverResult = await deps.convex.runAction('voice/executeTool:executeTool', {"
+      },
+      {
+        "file": "lib/voice/function-dispatcher.ts",
+        "line": 159,
+        "text": "          const retryResult = await deps.convex.runAction('voice/executeTool:executeTool', {"
+      },
+      {
+        "file": "lib/voice/function-dispatcher.ts",
+        "line": 196,
+        "text": "    deps.convex"
+      },
+      {
+        "file": "lib/types/chat.ts",
+        "line": 34,
+        "text": "  document_id: string; // Convex ID is a string"
+      },
+      {
+        "file": "lib/types/chat.ts",
+        "line": 420,
+        "text": "  document_id: string | null; // Convex ID is a string"
+      },
+      {
+        "file": "lib/types/chat.ts",
+        "line": 431,
+        "text": "  document_id?: string | null; // Convex ID is a string"
+      }
+    ],
+    "errors": []
+  },
+  "manifests": {
+    "ok": false,
+    "package_manifest_count": 3,
+    "manifests": [
+      "package.json",
+      "services/platform/package.json",
+      "holocron-mcp/package.json"
+    ],
+    "forbidden_dependency_count": 7,
+    "findings": [
+      {
+        "manifest": "package.json",
+        "key": "scripts.server:dev"
+      },
+      {
+        "manifest": "package.json",
+        "key": "dependencies.@convex-dev/workflow"
+      },
+      {
+        "manifest": "package.json",
+        "key": "dependencies.@convex-dev/workpool"
+      },
+      {
+        "manifest": "package.json",
+        "key": "dependencies.convex"
+      },
+      {
+        "manifest": "package.json",
+        "key": "dependencies.convex-helpers"
+      },
+      {
+        "manifest": "package.json",
+        "key": "devDependencies.convex-test"
+      },
+      {
+        "manifest": "services/platform/package.json",
+        "key": "dependencies.convex"
+      }
+    ],
+    "errors": []
+  },
+  "paths": {
+    "ok": false,
+    "expected_count": 4,
+    "present_count": 4,
+    "present_paths": [
+      "convex",
+      "python",
+      "cli",
+      "ratatui-playground"
+    ]
+  },
+  "app_build": {
+    "ok": false,
+    "command": "pnpm build:ios -- --no-bundler",
+    "build_exit_code": 1,
+    "holocron_app_artifact_count": 0,
+    "artifacts": [],
+    "holocron_app_info_plist": null,
+    "error": "sh: expo: command not found"
+  },
+  "mcp_runtime": {
+    "ok": false,
+    "build_command": "pnpm --dir holocron-mcp build",
+    "start_command": "pnpm --dir holocron-mcp start",
+    "build_exit_code": 1,
+    "server_name": null,
+    "tool_count": null,
+    "error": "sh: tsup: command not found"
+  }
+}

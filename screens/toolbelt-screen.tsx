@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
-// Types based on Convex schema
+// Types based on platform schema
 export interface Tool {
   _id: string;
   title: string;

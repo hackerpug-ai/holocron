@@ -87,7 +87,7 @@ type SettingsScreenProps = {};
  * Features live theme preview cards and smooth theme transitions.
  * Built with semantic tokens for full theme awareness.
  *
- * Voice language uses Zero `app_settings` (CAP-CUT-01 — no convex/react).
+ * Voice language uses Zero `app_settings` (CAP-CUT-01 — Zero only).
  */
 export function SettingsScreen(_props: SettingsScreenProps) {
   const { colorScheme, setColorScheme } = useColorScheme();

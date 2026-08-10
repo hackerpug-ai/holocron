@@ -1,7 +1,7 @@
 /**
  * US-011: TranscriptRecorder tests
  *
- * Tests verify that transcript events are recorded to Convex via
+ * Tests verify that transcript events are recorded to the platform via
  * fire-and-forget mutation calls, errors are swallowed, and order is preserved.
  */
 
@@ -72,7 +72,7 @@ describe('createTranscriptRecorder', () => {
   describe('AC-3: transcript error handling', () => {
     it('logs error when recordTranscript rejects but does not throw', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockRecordTranscript.mockRejectedValueOnce(new Error('Convex connection failed'));
+      mockRecordTranscript.mockRejectedValueOnce(new Error('Platform connection failed'));
 
       // Should not throw
       expect(() => recorder.onUserTranscript('failing message')).not.toThrow();
@@ -90,7 +90,7 @@ describe('createTranscriptRecorder', () => {
 
     it('continues processing after a failed recording', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockRecordTranscript.mockRejectedValueOnce(new Error('Convex error'));
+      mockRecordTranscript.mockRejectedValueOnce(new Error('Platform error'));
 
       recorder.onUserTranscript('first message');
 

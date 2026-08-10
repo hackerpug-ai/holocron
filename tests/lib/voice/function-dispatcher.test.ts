@@ -9,7 +9,7 @@ import type { ParsedFunctionCall } from '@/lib/voice/types';
 
 function makeDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
   return {
-    convex: {
+    platform: {
       runAction: vi
         .fn()
         .mockResolvedValue({ success: true, content: '[]', skipContinuation: false }),
@@ -58,7 +58,7 @@ describe('server-side tool dispatch', () => {
       skipContinuation: false,
     };
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockResolvedValue(mockResult),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -69,7 +69,7 @@ describe('server-side tool dispatch', () => {
     await dispatchFunctionCall(fn, deps);
 
     // Must call executeTool action with correct args
-    expect(deps.convex.runAction).toHaveBeenCalledWith('voice/executeTool:executeTool', {
+    expect(deps.platform.runAction).toHaveBeenCalledWith('voice/executeTool:executeTool', {
       toolName: 'search_knowledge',
       toolArgs: { query: 'test query' },
       conversationId: 'conv123',
@@ -110,7 +110,7 @@ describe('server-side tool dispatch', () => {
       skipContinuation: false,
     };
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockResolvedValue(mockResult),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue(null),
@@ -124,7 +124,7 @@ describe('server-side tool dispatch', () => {
     );
     await dispatchFunctionCall(fn, deps);
 
-    expect(deps.convex.runAction).toHaveBeenCalledWith('voice/executeTool:executeTool', {
+    expect(deps.platform.runAction).toHaveBeenCalledWith('voice/executeTool:executeTool', {
       toolName: 'create_note',
       toolArgs: { title: 'Test Note', content: 'Content here' },
       conversationId: 'conv123',
@@ -143,7 +143,7 @@ describe('server-side tool dispatch', () => {
 
     // Wait for fire-and-forget recordCommand
     await new Promise((resolve) => setTimeout(resolve, 10));
-    const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
+    const recordCalls = (deps.platform.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
       (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
     );
     expect(recordCalls.length).toBeGreaterThan(0);
@@ -165,7 +165,7 @@ describe('dispatch navigate_app', () => {
     expect(deps.routerPush).toHaveBeenCalledWith('/settings');
 
     // Should NOT call executeTool for navigate_app
-    expect(deps.convex.runAction).not.toHaveBeenCalled();
+    expect(deps.platform.runAction).not.toHaveBeenCalled();
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     const item = itemCreate?.item as Record<string, unknown>;
@@ -204,8 +204,8 @@ describe('dispatch navigate_app', () => {
 describe('dispatch error handling', () => {
   it('returns error result via conversation.item.create when server action throws permanent error', async () => {
     const deps = makeDeps({
-      convex: {
-        runAction: vi.fn().mockRejectedValue(new Error('Convex search failed')),
+      platform: {
+        runAction: vi.fn().mockRejectedValue(new Error('Platform search failed')),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue(null),
       },
@@ -222,7 +222,7 @@ describe('dispatch error handling', () => {
     const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean; error: string };
     expect(output.success).toBe(false);
-    expect(output.error).not.toContain('Convex search failed');
+    expect(output.error).not.toContain('Platform search failed');
     expect(output.error).toBeTruthy();
 
     // Must still send response.create
@@ -231,7 +231,7 @@ describe('dispatch error handling', () => {
 
     // Must record voiceCommand with success=false
     await new Promise((resolve) => setTimeout(resolve, 10));
-    const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
+    const recordCalls = (deps.platform.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
       (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
     );
     expect(recordCalls.length).toBeGreaterThan(0);
@@ -246,7 +246,7 @@ describe('transient retry', () => {
   it('retries once on transient error; succeeds on retry', async () => {
     let callCount = 0;
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockImplementation(() => {
           callCount++;
           if (callCount === 1) return Promise.reject(new Error('network timeout'));
@@ -261,7 +261,7 @@ describe('transient retry', () => {
     await dispatchFunctionCall(fn, deps);
 
     // Should have called the action twice (initial + retry)
-    expect(deps.convex.runAction).toHaveBeenCalledTimes(2);
+    expect(deps.platform.runAction).toHaveBeenCalledTimes(2);
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     const item = itemCreate?.item as Record<string, unknown>;
     const output = JSON.parse(item.output as string) as { success: boolean };
@@ -271,7 +271,7 @@ describe('transient retry', () => {
   it('speaks user-friendly message after transient error retry also fails', async () => {
     const transientError = new Error('network timeout');
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockRejectedValue(transientError),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -282,7 +282,7 @@ describe('transient retry', () => {
     await dispatchFunctionCall(fn, deps);
 
     // Should have attempted twice (initial + retry)
-    expect(deps.convex.runAction).toHaveBeenCalledTimes(2);
+    expect(deps.platform.runAction).toHaveBeenCalledTimes(2);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     const item = itemCreate?.item as Record<string, unknown>;
@@ -299,7 +299,7 @@ describe('permanent error', () => {
   it('does not retry on permanent error and speaks user-friendly message', async () => {
     const permanentError = new Error('404 not found');
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockRejectedValue(permanentError),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -310,7 +310,7 @@ describe('permanent error', () => {
     await dispatchFunctionCall(fn, deps);
 
     // Should only attempt once — no retry for permanent errors
-    expect(deps.convex.runAction).toHaveBeenCalledTimes(1);
+    expect(deps.platform.runAction).toHaveBeenCalledTimes(1);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     const item = itemCreate?.item as Record<string, unknown>;
@@ -322,7 +322,7 @@ describe('permanent error', () => {
 
   it('session continues after permanent error (does not throw)', async () => {
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockRejectedValue(new Error('403 permission denied')),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -346,7 +346,7 @@ describe('rate limit', () => {
   it('speaks "Too many requests" message on 429 error without retrying', async () => {
     const rateLimitError = new Error('429 rate limit exceeded');
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockRejectedValue(rateLimitError),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -357,7 +357,7 @@ describe('rate limit', () => {
     await dispatchFunctionCall(fn, deps);
 
     // Must NOT retry for rate limit
-    expect(deps.convex.runAction).toHaveBeenCalledTimes(1);
+    expect(deps.platform.runAction).toHaveBeenCalledTimes(1);
 
     const itemCreate = getItemCreateCall(deps.sendEvent as ReturnType<typeof vi.fn>);
     const item = itemCreate?.item as Record<string, unknown>;
@@ -372,7 +372,7 @@ describe('rate limit', () => {
 describe('error logged', () => {
   it('records voiceCommand with success=false on execution failure', async () => {
     const deps = makeDeps({
-      convex: {
+      platform: {
         runAction: vi.fn().mockRejectedValue(new Error('500 internal server error')),
         runMutation: vi.fn().mockResolvedValue('cmd-id'),
         runQuery: vi.fn().mockResolvedValue([]),
@@ -385,7 +385,7 @@ describe('error logged', () => {
     // Wait for fire-and-forget recordCommand
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const recordCalls = (deps.convex.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
+    const recordCalls = (deps.platform.runMutation as ReturnType<typeof vi.fn>).mock.calls.filter(
       (args: unknown[]) => args[0] === 'voice/mutations:recordCommand'
     );
     expect(recordCalls.length).toBeGreaterThan(0);

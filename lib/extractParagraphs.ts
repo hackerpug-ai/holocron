@@ -1,6 +1,6 @@
 /**
  * Frontend port of the backend's extractParagraphs logic
- * (convex/audio/actions.ts) for narration index alignment.
+ * (platform narration path) for narration index alignment.
  *
  * This MUST stay in sync with the backend extraction — any change
  * to how the backend splits markdown into TTS segments must be
@@ -58,7 +58,7 @@ export function extractParagraphs(markdown: string): FrontendParagraph[] {
 
 /**
  * Count narration segments from markdown, matching the backend's
- * extractParagraphs logic in convex/audio/actions.ts.
+ * extractParagraphs logic in the platform narration path.
  */
 export function extractParagraphCount(markdown: string): number {
   return extractParagraphs(markdown).length;

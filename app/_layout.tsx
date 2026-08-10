@@ -191,7 +191,7 @@ export default function RootLayout() {
     return <StorybookUI />;
   }
 
-  // In-app notification toasts previously bridged via a Convex-backed provider.
+  // In-app notification toasts (platform-backed provider path).
   // That bridge is deferred until remaining data-plane call sites migrate (UC-SYNC).
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

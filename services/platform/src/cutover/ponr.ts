@@ -18,16 +18,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { anyApi, type FunctionReference } from 'convex/server';
 import { resolveRepoRoot, resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { createSql } from '../db/client.ts';
 import { resolveDatabaseUrl } from '../db/connection.ts';
-import {
-  createCutoverConvexClient,
-  getMigrationReadOnlyEnv,
-  isFenceArmedEnv,
-  resolveCutoverOperatorSecret,
-} from './convex-fence-client.ts';
+import { resolveCutoverOperatorSecret } from './convex-fence-client.ts';
 import { defaultWatermarkReportPath } from './export-watermark.ts';
 import { recordPostExportAcceptedWrite } from './post-export-write-audit.ts';
 import { loadExportWatermarkMs } from './rollback-repoint.ts';
@@ -55,17 +49,6 @@ export const PONR_WRITE_SURFACE = 'hono.POST /api/documents';
 export const PONR_WRITE_TABLE = 'documents';
 /** Singleton idempotency key — safe re-run; unique index backstop. */
 export const PONR_IDEMPOTENCY_KEY = 'uc-sync-04-data-plane-ponr';
-
-// anyApi is an open proxy; cast the whole chain through unknown for strict TS.
-const auditApi = (anyApi as any).migrationFence.audit as {
-  latestFenceArmed: FunctionReference<'query'>;
-  countAttemptsInWindow: FunctionReference<'query'>;
-};
-
-const docsApi = (anyApi as any).documents.queries as {
-  count: FunctionReference<'query'>;
-  list: FunctionReference<'query'>;
-};
 
 export type DataPlanePonrRecord = {
   id: string;
@@ -244,8 +227,9 @@ export async function readDataPlanePonr(options?: {
 }
 
 /**
- * Capture a live Convex escape-hatch snapshot at PONR time.
- * Fail closed if any required surface is unreachable or returns incomplete data.
+ * Capture a live cloud escape-hatch snapshot at PONR time.
+ * D08-02: fail closed — retired cloud SDK and source tree are gone.
+ * Postgres PONR latch remains readable via readDataPlanePonr.
  */
 export async function captureConvexEscapeHatchSnapshot(options: {
   exportWatermarkMs: number;
@@ -253,113 +237,14 @@ export async function captureConvexEscapeHatchSnapshot(options: {
 }): Promise<
   { ok: true; snapshot: ConvexEscapeHatchSnapshot } | { ok: false; code: string; message: string }
 > {
-  const export_watermark_ms = options.exportWatermarkMs;
-  let convex_deployment_url = '';
-  try {
-    convex_deployment_url =
-      process.env.EXPO_PUBLIC_CONVEX_URL ??
-      process.env.VITE_CONVEX_HTTP_URL ??
-      process.env.CONVEX_URL ??
-      '';
-    if (!convex_deployment_url) {
-      return {
-        ok: false,
-        code: CONVEX_SNAPSHOT_UNAVAILABLE,
-        message:
-          'cutover:enable-writes refuses: Convex deployment URL missing ' +
-          '(EXPO_PUBLIC_CONVEX_URL / CONVEX_URL). Cannot capture escape-hatch snapshot.',
-      };
-    }
-
-    const client = createCutoverConvexClient();
-    const fenceEnv = getMigrationReadOnlyEnv(options.cwd);
-    // Prefer live deployment env; fall back to durable secrets process env when CLI
-    // cannot reach `npx convex env get` but the deployment is still queryable.
-    const convex_fence_env_value =
-      fenceEnv && fenceEnv.length > 0
-        ? fenceEnv
-        : process.env.HOLO_MIGRATION_READ_ONLY?.trim() || '';
-
-    const armed = (await client.query(auditApi.latestFenceArmed, {})) as {
-      _id?: string;
-      fenceArmedAtMs?: number;
-    } | null;
-
-    if (!armed || typeof armed._id !== 'string' || armed._id.length === 0) {
-      return {
-        ok: false,
-        code: CONVEX_SNAPSHOT_UNAVAILABLE,
-        message:
-          'cutover:enable-writes refuses: api.migrationFence.audit.latestFenceArmed returned no row. ' +
-          'Arm the fence (cutover:freeze) before enable-writes so the escape hatch is snapshottable.',
-      };
-    }
-
-    const counts = (await client.query(auditApi.countAttemptsInWindow, {
-      sinceMs: export_watermark_ms,
-    })) as { acceptedWriteCount?: number; rejectedWriteCount?: number };
-
-    const documents_total = (await client.query(docsApi.count, {})) as number;
-    const listed = (await client.query(docsApi.list, { limit: 1 })) as {
-      documents?: Array<{ _creationTime?: number; _id?: string }>;
-      metadata?: { totalCount?: number };
-    };
-
-    const newest = listed?.documents?.[0];
-    // Convex `_creationTime` is a float (sub-ms); store as integer epoch-ms.
-    const newest_creation_raw =
-      newest && typeof newest._creationTime === 'number' ? newest._creationTime : 0;
-    const newest_creation = Math.floor(newest_creation_raw);
-
-    const accepted =
-      typeof counts?.acceptedWriteCount === 'number' ? counts.acceptedWriteCount : -1;
-    const rejected =
-      typeof counts?.rejectedWriteCount === 'number' ? counts.rejectedWriteCount : -1;
-
-    if (accepted < 0 || rejected < 0) {
-      return {
-        ok: false,
-        code: CONVEX_SNAPSHOT_UNAVAILABLE,
-        message:
-          'cutover:enable-writes refuses: api.migrationFence.audit.countAttemptsInWindow ' +
-          'returned incomplete counts (fail closed).',
-      };
-    }
-
-    if (typeof documents_total !== 'number' || !Number.isFinite(documents_total)) {
-      return {
-        ok: false,
-        code: CONVEX_SNAPSHOT_UNAVAILABLE,
-        message:
-          'cutover:enable-writes refuses: api.documents.queries.count returned a non-number.',
-      };
-    }
-
-    const snapshot: ConvexEscapeHatchSnapshot = {
-      convex_fence_audit_id: armed._id,
-      convex_fence_env_value:
-        convex_fence_env_value.length > 0
-          ? convex_fence_env_value
-          : isFenceArmedEnv(process.env.HOLO_MIGRATION_READ_ONLY ?? '')
-            ? '1'
-            : '1', // audit row proves armed; durable Postgres fence still '1' pre-lift
-      convex_documents_total: Math.floor(documents_total),
-      convex_newest_document_creation_time: newest_creation,
-      convex_accepted_writes_since_watermark: Math.floor(accepted),
-      convex_rejected_writes_since_watermark: Math.floor(rejected),
-      export_watermark_ms: Math.floor(export_watermark_ms),
-      convex_deployment_url,
-    };
-
-    return { ok: true, snapshot };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      ok: false,
-      code: CONVEX_SNAPSHOT_UNAVAILABLE,
-      message: `cutover:enable-writes refuses: Convex escape-hatch snapshot failed: ${msg}`,
-    };
-  }
+  void options;
+  return {
+    ok: false,
+    code: CONVEX_SNAPSHOT_UNAVAILABLE,
+    message:
+      'cutover:enable-writes refuses: retired cloud escape-hatch snapshot unavailable after D08-02 ' +
+      'source decommission (SDK + convex/ tree removed).',
+  };
 }
 
 function isDiverged(snapshot: ConvexEscapeHatchSnapshot): boolean {

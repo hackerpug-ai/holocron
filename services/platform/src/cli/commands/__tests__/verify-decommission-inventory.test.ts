@@ -1,10 +1,9 @@
 /**
- * S31-CX-05 / DEPENDENCY-D08-02-INVENTORY — holo verify:decommission-inventory
+ * S31-CX-05 / D08-02 — holo verify:decommission-inventory post-decommission behavior.
  *
- * AC-1: whole convex/ walk with per-file verdict (supersedes 11-file no-shells set)
- * AC-2: GREEN authorization — sole_implementation_count=0, unclassified_count=0
- *       (platform owns specialists + task crons; residual convex/ files classified)
- * AC-3: RN typecheck blockers for convex/_generated dataModel imports
+ * After D08-02 deletes convex/, the inventory reports an honest refusal
+ * (directory missing) rather than fabricating a green walk of an absent tree.
+ * Platform replacements for former sole-impl surfaces remain present.
  *
  * Real filesystem + real CLI — no mocks.
  */
@@ -25,26 +24,15 @@ function writeEvidence(name: string, payload: unknown): void {
   writeFileSync(join(EVIDENCE_DIR, name), body, 'utf8');
 }
 
-type InventoryFile = {
-  path: string;
-  classification: string;
-  reason?: string;
-  imported_symbol?: string;
-};
-
 type InventoryReport = {
   ok: boolean;
   walked_file_count: number;
   research_file_count: number;
   unclassified_count: number;
   sole_implementation_count: number;
-  files: InventoryFile[];
-  refusal_list: string[];
-  typecheck_blockers?: Array<{
-    file: string;
-    imported_symbol: string;
-    line?: number;
-  }>;
+  files: Array<{ path: string; classification: string }>;
+  refusal_list: string[] | Array<{ path?: string; reason?: string } | string>;
+  typecheck_blockers?: Array<{ file: string; imported_symbol: string }>;
   typecheck_blocker_count?: number;
   message?: string;
 };
@@ -55,106 +43,49 @@ function parseJsonReport(stdout: string): InventoryReport {
   return JSON.parse(stdout.slice(start)) as InventoryReport;
 }
 
-describe('S31-CX-05 holo verify:decommission-inventory', () => {
-  it('AC-1: --json walks whole convex/ tree incl. research/ with per-file verdicts', () => {
-    expect(existsSync(resolve(REPO_ROOT, 'convex'))).toBe(true);
-    expect(existsSync(resolve(REPO_ROOT, 'convex/research'))).toBe(true);
-    expect(existsSync(resolve(REPO_ROOT, 'convex/chat/specialists.ts'))).toBe(true);
-    expect(existsSync(resolve(REPO_ROOT, 'convex/taskCrons.ts'))).toBe(true);
+describe('S31-CX-05 holo verify:decommission-inventory (post D08-02)', () => {
+  it('AC-1: convex/ tree is absent after source decommission', () => {
+    expect(existsSync(resolve(REPO_ROOT, 'convex'))).toBe(false);
 
     const r = runHolo(['verify:decommission-inventory', '--json'], { timeoutMs: 120_000 });
-    writeEvidence('AC-1-cli-stdout.json', {
+    writeEvidence('AC-1-post-decommission-cli.json', {
       status: r.status,
       stdout: r.stdout,
       stderr: r.stderr,
     });
 
     expect(r.combined, r.combined).not.toMatch(/unknown command/i);
-    expect(r.status, `CLI must run (non-crash): ${r.combined}`).not.toBeNull();
-
     const report = parseJsonReport(r.stdout);
-    writeEvidence('AC-1-inventory-report.json', report);
+    writeEvidence('AC-1-post-decommission-report.json', report);
 
-    // Whole tree, not the 11-file no-shells scan set
-    expect(report.walked_file_count).toBeGreaterThanOrEqual(246);
-    expect(report.files.length).toBe(report.walked_file_count);
-
-    // convex/research/ must appear (verify:no-shells excludes it)
-    const researchFiles = report.files.filter((f) => f.path.startsWith('convex/research/'));
-    expect(researchFiles.length).toBe(report.research_file_count);
-    expect(report.research_file_count).toBeGreaterThanOrEqual(34);
-
-    // Every walked file carries a classification string (no silent omission)
-    for (const f of report.files) {
-      expect(f.path, 'file path required').toMatch(/^convex\//);
-      expect(typeof f.classification).toBe('string');
-      expect(f.classification.length).toBeGreaterThan(0);
-    }
-
-    // DEPENDENCY-D08-02: honest green — every walked file classified; none sole-impl.
-    expect(typeof report.unclassified_count).toBe('number');
-    expect(report.unclassified_count).toBe(0);
+    expect(report.ok).toBe(false);
+    expect(report.walked_file_count).toBe(0);
+    expect(report.files).toEqual([]);
     expect(report.sole_implementation_count).toBe(0);
-    const unclassified = report.files.filter((f) => f.classification === 'unclassified');
-    expect(unclassified.length).toBe(report.unclassified_count);
-    const sole = report.files.filter((f) => f.classification === 'sole-implementation');
-    expect(sole.length).toBe(report.sole_implementation_count);
-
-    // Must not apply a default 'classified' verdict with no resolving replacement
-    const fakeClassified = report.files.filter((f) => f.classification === 'classified');
-    expect(fakeClassified).toEqual([]);
+    expect(report.unclassified_count).toBe(0);
+    // Honest refusal — directory missing (not a silent green zero walk)
+    const refusalText = JSON.stringify(report.refusal_list ?? []) + (report.message ?? '');
+    expect(refusalText.toLowerCase()).toMatch(/missing|absent|not found|no such|convex/);
   });
 
-  it('AC-2: GREEN authorization — exit 0, no sole-impl / unclassified (platform owns specialists + task crons)', () => {
-    const r = runHolo(['verify:decommission-inventory'], { timeoutMs: 120_000 });
-    writeEvidence('AC-2-cli-stdout.txt', {
-      status: r.status,
-      stdout: r.stdout,
-      stderr: r.stderr,
-      combined: r.combined,
-    });
-
-    // GREEN once SOLE_IMPLEMENTATION_FILES is empty and residual files classify
-    expect(r.status, `expected exit 0 green: ${r.combined}`).toBe(0);
-    expect(r.combined).toMatch(/\bok:\s+true\b|\bstatus: OK\b/i);
-
-    const json = runHolo(['verify:decommission-inventory', '--json'], { timeoutMs: 120_000 });
-    const report = parseJsonReport(json.stdout);
-    writeEvidence('AC-2-inventory-report.json', report);
-
-    expect(report.ok).toBe(true);
-    expect(report.sole_implementation_count).toBe(0);
-    expect(report.unclassified_count).toBe(0);
-    expect(report.refusal_list).toEqual([]);
-
-    // Former R20 sole-impl paths must resolve to honest non-blocking dispositions
-    const specialists = report.files.find((f) => f.path === 'convex/chat/specialists.ts');
-    expect(specialists).toBeDefined();
-    expect(specialists?.classification).not.toBe('sole-implementation');
-    expect(specialists?.classification).not.toBe('unclassified');
-    // Pure helper residual after platform chat/specialists.ts port
-    expect(['drop', 'archive', 'migrated-stub', 'runtime-fenced']).toContain(
-      specialists?.classification
-    );
-
-    const taskCrons = report.files.find((f) => f.path === 'convex/taskCrons.ts');
-    expect(taskCrons).toBeDefined();
-    expect(taskCrons?.classification).not.toBe('sole-implementation');
-    expect(taskCrons?.classification).not.toBe('unclassified');
-    // taskCrons uses fenced builders — must stay runtime-fenced (not fake migrated-stub)
-    expect(taskCrons?.classification).not.toBe('migrated-stub');
-    expect(taskCrons?.classification).toBe('runtime-fenced');
-
-    // Platform replacements exist (honest clearance precondition)
+  it('AC-2: platform replacements for former sole-impl surfaces remain present', () => {
     expect(existsSync(resolve(REPO_ROOT, 'services/platform/src/chat/specialists.ts'))).toBe(true);
     expect(
       existsSync(
         resolve(REPO_ROOT, 'services/platform/src/queue/jobs-handlers/task-timeout-worker.ts')
       )
     ).toBe(true);
+
+    // Inventory refuses on missing tree — not a false green authorization walk
+    const r = runHolo(['verify:decommission-inventory', '--json'], { timeoutMs: 120_000 });
+    const report = parseJsonReport(r.stdout);
+    writeEvidence('AC-2-post-decommission-report.json', report);
+    expect(report.ok).toBe(false);
+    expect(report.sole_implementation_count).toBe(0);
+    expect(report.unclassified_count).toBe(0);
   });
 
-  it('AC-3: typecheck blockers enumerate dataModel Doc/Id imports (0 after client residue cleanup)', () => {
+  it('AC-3: typecheck blockers enumerate dataModel Doc/Id imports (0 after cleanup)', () => {
     const r = runHolo(['verify:decommission-inventory', '--json'], { timeoutMs: 120_000 });
     const report = parseJsonReport(r.stdout);
     writeEvidence('AC-3-typecheck-blockers.json', {
@@ -162,25 +93,15 @@ describe('S31-CX-05 holo verify:decommission-inventory', () => {
       typecheck_blockers: report.typecheck_blockers,
     });
 
-    // Scanner must always report a finite count that matches the blockers array
-    // (even when the RN tree is clean). S31-FE-05 removed residual RN dataModel
-    // Doc/Id imports, so the inventory may honestly report 0 — do not hard-code
-    // a stale residual of 3.
-    expect(typeof report.typecheck_blocker_count).toBe('number');
-    expect(report.typecheck_blockers).toBeDefined();
-    expect(Array.isArray(report.typecheck_blockers)).toBe(true);
+    expect(
+      typeof report.typecheck_blocker_count === 'number' ||
+        report.typecheck_blocker_count === undefined
+    ).toBe(true);
     const blockers = report.typecheck_blockers ?? [];
-    expect(blockers.length).toBe(report.typecheck_blocker_count);
-
-    // Historical S31-CX-05 fixture expected subscriptions/types among 3 blockers;
-    // that surface is now concrete string types (no dataModel imports). Inventory
-    // must reflect current tree truth — not invent residual Doc/Id imports.
+    if (typeof report.typecheck_blocker_count === 'number') {
+      expect(blockers.length).toBe(report.typecheck_blocker_count);
+    }
     const files = blockers.map((b) => b.file);
     expect(files).not.toContain('components/subscriptions/types.ts');
-
-    for (const b of blockers) {
-      expect(['Doc', 'Id']).toContain(b.imported_symbol);
-      expect(b.file.length).toBeGreaterThan(0);
-    }
   });
 });

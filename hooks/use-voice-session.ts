@@ -392,7 +392,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
     // US-017: check for warm connection (fast re-activation path, <200ms)
     const warmConn = warmConnectionRef.current.reactivate();
     if (warmConn) {
-      // Warm re-activation — reuse existing WebRTC connection, create new Convex session
+      // Warm re-activation — reuse existing WebRTC connection, create new voice session
       isWarmRef.current = false;
       connectionRef.current = warmConn as WebRTCConnection;
 
@@ -509,7 +509,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
               // session remains healthy while unavailable tools are omitted by
               // the platform's initial session configuration.
               const deps: DispatcherDeps = {
-                convex: {
+                platform: {
                   runAction: async () => {
                     throw new Error(VOICE_TOOLS_UNAVAILABLE);
                   },
@@ -651,7 +651,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
           }
           // Cross-cleanup: destroy conn to release any acquired media
           conn.destroy();
-          // End any Convex session that may have been created
+          // End any voice session that may have been created
           const sid = sessionIdRef.current;
           if (sid) {
             sessionIdRef.current = null;
@@ -686,7 +686,7 @@ export function useVoiceSession(conversationId: string): UseVoiceSessionReturn {
             connectError instanceof Error ? connectError : new Error('Connection failed')
           );
         }
-        // End the Convex session since WebRTC failed after token was generated
+        // End the voice session since WebRTC failed after token was generated
         const sid = sessionIdRef.current;
         if (sid) {
           sessionIdRef.current = null;

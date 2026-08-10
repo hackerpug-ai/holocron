@@ -111,7 +111,6 @@ const liveSet = new Set(liveFiles);
 // EXCLUDING integration roots, the live files, and bun:test files.
 const unitRoots = [
   'tests',
-  'convex',
   'hooks',
   'components',
   'services/platform/src/cli/__tests__',
@@ -134,14 +133,14 @@ const unitSet = [...new Set(unitFiles)].sort();
 
 // --- assert ---
 type Lane = { name: string; files: string[]; min: number; max: number };
-// unit ≈ 100+ files (102 observed → ~978 tests). Band catches a >20-file drop.
-// integration ≈ 231 vitest files after Sprint 28/29 red-hat regression suites.
-// The guard catches material drops/accidental broadening without freezing the
-// pre-remediation 159-file count forever.
+// unit ≈ 70 files after D08-02 removed convex/** and tests/convex/** residue.
+// integration ≈ 290 vitest files after Sprint 28–32 red-hat + decommission suites.
+// The guard catches material drops/accidental broadening without freezing stale
+// pre-decommission counts.
 // live = 2 files (seed-e2e, zero-cache-boot).
 const lanes: Lane[] = [
-  { name: 'unit', files: unitSet, min: 80, max: 200 },
-  { name: 'integration', files: integrationFiles, min: 220, max: 260 },
+  { name: 'unit', files: unitSet, min: 55, max: 120 },
+  { name: 'integration', files: integrationFiles, min: 250, max: 340 },
   { name: 'live', files: liveFiles, min: 1, max: 10 },
 ];
 

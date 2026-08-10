@@ -5,7 +5,7 @@
  * exponential backoff (1s, 2s, 4s). Provides spoken feedback at each
  * retry step and transitions to ERROR state after max retries exhausted.
  *
- * Also supports single-retry for Convex function calls on network failure.
+ * Also supports single-retry for platform function calls on network failure.
  */
 
 export type RetryState = 'connecting' | 'listening' | 'error';
@@ -84,7 +84,7 @@ export class RetryManager {
   }
 
   /**
-   * Executes a Convex function call and retries exactly once on network failure.
+   * Executes a platform function call and retries exactly once on network failure.
    * Returns the result on success, or { error: message } if both attempts fail.
    */
   async retryFunctionCall<T>(fn: () => Promise<T>): Promise<FunctionCallResult<T>> {

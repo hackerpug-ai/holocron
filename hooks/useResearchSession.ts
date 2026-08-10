@@ -71,7 +71,7 @@ function sourcesFromJson(value: unknown): Array<{ title?: string; url?: string }
 function mapSession(row: ResearchSessionRow | undefined | null) {
   if (!row) return null;
   return {
-    // Convex-era aliases used by existing UI
+    // Historical aliases used by existing UI
     _id: row.id,
     id: row.id,
     query: row.query ?? row.topic ?? '',
@@ -93,7 +93,7 @@ function mapSession(row: ResearchSessionRow | undefined | null) {
 
 /**
  * Hook for fetching a research session with its iterations via Zero.
- * Replaces Convex useQuery(api.researchSessions.queries.get).
+ * Replaces retired researchSessions.queries.get useQuery path.
  */
 export function useResearchSession(sessionId: string | null) {
   const enabled = !!sessionId;

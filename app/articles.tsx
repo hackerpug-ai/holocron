@@ -49,12 +49,12 @@ export default function ArticlesRoute() {
   const [isSearching, setIsSearching] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
 
-  const convexCategory = mapCategoryTypeToDocumentCategory(selectedCategory);
+  const documentCategory = mapCategoryTypeToDocumentCategory(selectedCategory);
 
   // Zero reactive list — category filter when selected, else all owned docs
   const listQuery = useMemo(
-    () => (convexCategory ? documentsByCategory(convexCategory) : documentsByOwner()),
-    [convexCategory]
+    () => (documentCategory ? documentsByCategory(documentCategory) : documentsByOwner()),
+    [documentCategory]
   );
   const [rawDocuments, listStatus] = useZeroQuery(listQuery);
   const documents = (rawDocuments ?? []) as unknown as ZeroDocument[];
@@ -113,8 +113,8 @@ export default function ArticlesRoute() {
       setIsSearching(true);
       try {
         const q = query.trim().toLowerCase();
-        const pool = convexCategory
-          ? allDocs.filter((d) => d.category === convexCategory)
+        const pool = documentCategory
+          ? allDocs.filter((d) => d.category === documentCategory)
           : allDocs;
         const matched = pool
           .filter((doc) => {
@@ -131,7 +131,7 @@ export default function ArticlesRoute() {
         setIsSearching(false);
       }
     },
-    [allDocs, convexCategory, toArticle]
+    [allDocs, documentCategory, toArticle]
   );
 
   const debouncedSearch = useDebounce(performSearch, 300);

@@ -17,7 +17,6 @@
     "@mastra/observability": "1.16.0",
     "@mastra/pg": "1.15.1",
     "ai": "7.0.28",
-    "convex": "1.33.1",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.30",

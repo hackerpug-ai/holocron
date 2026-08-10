@@ -1,0 +1,166 @@
+services/platform/tests/integration/sprint29-convex-fence.test.ts:40:3 lint/correctness/noUnreachable ━━━━━━━━━━
+
+  × This code will never be reached ...
+  
+    38 │   type FunctionReference<_T extends string = string> = { __brand?: _T };
+    39 │   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  > 40 │   const anyApi: any = new Proxy(
+       │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 41 │     {},
+        ...
+  > 45 │   );
+  > 46 │   const api = anyApi;
+       │   ^^^^^^^^^^^^^^^^^^^
+    47 │   class ConvexHttpClient {
+    48 │     constructor(_url?: string) {
+  
+  i ... because this statement will throw an exception beforehand
+  
+    34 │ if (!PLATFORM_IT) {
+  > 35 │   throw new Error('sprint29-convex-fence requires PLATFORM_IT=1');
+       │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    36 │ 
+    37 │   // D08-02: retired cloud SDK removed — local structural stubs (no package import).
+  
+
+services/platform/tests/integration/sprint29-convex-fence.test.ts:38:8 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This type alias FunctionReference is unused.
+  
+    37 │   // D08-02: retired cloud SDK removed — local structural stubs (no package import).
+  > 38 │   type FunctionReference<_T extends string = string> = { __brand?: _T };
+       │        ^^^^^^^^^^^^^^^^^
+    39 │   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    40 │   const anyApi: any = new Proxy(
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/sprint29-convex-fence.test.ts:46:9 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
+
+  × This variable api is unused.
+  
+    44 │     }
+    45 │   );
+  > 46 │   const api = anyApi;
+       │         ^^^
+    47 │   class ConvexHttpClient {
+    48 │     constructor(_url?: string) {
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend api with an underscore.
+  
+     44  44 │       }
+     45  45 │     );
+     46     │ - ··const·api·=·anyApi;
+         46 │ + ··const·_api·=·anyApi;
+     47  47 │     class ConvexHttpClient {
+     48  48 │       constructor(_url?: string) {
+  
+
+services/platform/tests/integration/sprint29-convex-fence.test.ts:47:9 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This class ConvexHttpClient is unused.
+  
+    45 │   );
+    46 │   const api = anyApi;
+  > 47 │   class ConvexHttpClient {
+       │         ^^^^^^^^^^^^^^^^
+    48 │     constructor(_url?: string) {
+    49 │       void _url;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/sprint29-cutover-etl.test.ts:49:6 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This type alias FunctionReference is unused.
+  
+    48 │ // D08-02: retired cloud SDK removed — local structural stubs (no package import).
+  > 49 │ type FunctionReference<_T extends string = string> = { __brand?: _T };
+       │      ^^^^^^^^^^^^^^^^^
+    50 │ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    51 │ const anyApi: any = new Proxy(
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts:25:6 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This type alias FunctionReference is unused.
+  
+    24 │ // D08-02: retired cloud SDK removed — local structural stubs (no package import).
+  > 25 │ type FunctionReference<_T extends string = string> = { __brand?: _T };
+       │      ^^^^^^^^^^^^^^^^^
+    26 │ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    27 │ const anyApi: any = new Proxy(
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/sprint29-fence-arm-order.test.ts:34:7 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This class ConvexHttpClient is unused.
+  
+    32 │ );
+    33 │ const api = anyApi;
+  > 34 │ class ConvexHttpClient {
+       │       ^^^^^^^^^^^^^^^^
+    35 │   constructor(_url?: string) {
+    36 │     void _url;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/sprint30-ponr-latch.test.ts:65:7 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This class ConvexHttpClient is unused.
+  
+    63 │   }
+    64 │ );
+  > 65 │ class ConvexHttpClient {
+       │       ^^^^^^^^^^^^^^^^
+    66 │   constructor(_url?: string) {
+    67 │     void _url;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/sprint30-security-review.test.ts:73:7 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This class ConvexHttpClient is unused.
+  
+    71 │   }
+    72 │ );
+  > 73 │ class ConvexHttpClient {
+       │       ^^^^^^^^^^^^^^^^
+    74 │   constructor(_url?: string) {
+    75 │     void _url;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+services/platform/tests/integration/write-fence-red.helpers.ts:26:6 lint/correctness/noUnusedVariables ━━━━━━━━━━
+
+  × This type alias FunctionReference is unused.
+  
+    25 │ // D08-02: retired cloud SDK removed — local structural stubs (no package import).
+  > 26 │ type FunctionReference<_T extends string = string> = { __brand?: _T };
+       │      ^^^^^^^^^^^^^^^^^
+    27 │ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    28 │ const anyApi: any = new Proxy(
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+Skipped 29 suggested fixes.
+If you wish to apply the suggested (unsafe) fixes, use the command biome check --write --unsafe
+
+Checked 42 files in 41ms. No fixes applied.
+Found 10 errors.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while applying fixes.
+  
+

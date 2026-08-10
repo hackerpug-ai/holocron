@@ -8,7 +8,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ConvexHttpClient } from 'convex/browser';
 import {
   DEFAULT_DATABASE_URL,
   DEFAULT_KEYS,
@@ -20,6 +19,19 @@ import { buildMutationsReport } from '../../src/mcp/list-mutations';
 import { defaultManifestPath, loadManifest } from '../../src/mcp/manifest-loader';
 import { MIGRATED_JOBS, type MigratedJob } from '../../src/queue/jobs-registry';
 import { toolsAsRecord } from '../../src/tools/registry';
+
+// D08-02: no cloud SDK package — local client stub for fence helpers.
+class ConvexHttpClient {
+  constructor(_url?: string) {
+    void _url;
+  }
+  query(_ref: unknown, _args?: unknown): Promise<unknown> {
+    throw new Error('ConvexHttpClient retired in D08-02');
+  }
+  mutation(_ref: unknown, _args?: unknown): Promise<unknown> {
+    throw new Error('ConvexHttpClient retired in D08-02');
+  }
+}
 
 export { DEFAULT_DATABASE_URL, DEFAULT_KEYS, PLATFORM_IT };
 

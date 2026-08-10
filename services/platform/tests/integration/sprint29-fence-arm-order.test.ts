@@ -9,9 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { anyApi } from 'convex/server';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { api } from '../../../../convex/_generated/api';
 import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { captureArticleBaseline } from '../../src/cutover/article-baseline.ts';
 import {
@@ -22,6 +20,10 @@ import {
   runCutoverFreeze,
   waitForMigrationReadOnlyRuntime,
 } from '../../src/cutover/convex-fence-client.ts';
+
+// D08-02: retired cloud SDK package stubs (no install).
+const anyApi: any = new Proxy({}, { get: () => anyApi });
+const api = anyApi;
 
 if (!PLATFORM_IT) {
   throw new Error('sprint29-fence-arm-order requires PLATFORM_IT=1');

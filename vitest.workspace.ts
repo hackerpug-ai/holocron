@@ -48,7 +48,6 @@ export const projects: TestProjectConfiguration[] = [
       name: 'unit',
       include: [
         'tests/**/*.{test,spec}.{js,ts,tsx}',
-        'convex/**/*.{test,spec}.{js,ts,tsx}',
         'hooks/**/*.{test,spec}.{js,ts}',
         'components/**/*.{test,spec}.{js,ts,tsx}',
         // Sprint 06 — stack supervisor / secrets / launchd (D01-01+)
