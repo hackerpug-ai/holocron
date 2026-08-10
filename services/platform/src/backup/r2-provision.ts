@@ -214,15 +214,23 @@ function requireNonEmpty(name: string, value: string | undefined | null): string
   return v;
 }
 
+/**
+ * DEPENDENCY-D08-03-R2-MAXBUFFER: Node default maxBuffer is 1 MiB.
+ * Full recursive `pgbackrest/` listings are ~1.5 MiB+ and used to fail with ENOBUFS,
+ * breaking fire-drill `listRepoPrefix` (trusted aws / python provider via `run()`).
+ */
+export const DEFAULT_SPAWN_MAX_BUFFER = 64 * 1024 * 1024;
+
 function run(
   cmd: string,
   args: string[],
-  options?: { env?: NodeJS.ProcessEnv; timeoutMs?: number }
+  options?: { env?: NodeJS.ProcessEnv; timeoutMs?: number; maxBuffer?: number }
 ): { status: number; stdout: string; stderr: string } {
   const res = spawnSync(cmd, args, {
     encoding: 'utf8',
     env: options?.env ?? process.env,
     timeout: options?.timeoutMs ?? 120_000,
+    maxBuffer: options?.maxBuffer ?? DEFAULT_SPAWN_MAX_BUFFER,
   });
   return {
     status: res.status ?? 1,
