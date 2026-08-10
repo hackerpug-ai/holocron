@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "job_name": "base_backup",
+  "status": "success",
+  "backupType": "full",
+  "exitCode": 0,
+  "lastSnapshotId": "20260810-121923F",
+  "r2BackupObjectCount": 444,
+  "manifestPresent": true,
+  "heartbeat": {
+    "job_name": "base_backup",
+    "last_success_at": "2026-08-10 12:22:23.013-06",
+    "last_snapshot_id": "20260810-121923F",
+    "object_count": 444,
+    "status": "success"
+  },
+  "errors": [
+    "recovery-baseline: restic snapshot not found / unlistable for id \"config-absent\" \u2014 refuse baseline bind (no exact/prefix ID match in repo)"
+  ]
+}
