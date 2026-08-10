@@ -153,7 +153,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
       expect(report.source_hit_count ?? report.source?.hit_count).toBe(64);
       expect(
         report.forbidden_dependency_count ?? report.manifests?.forbidden_dependency_count
-      ).toBe(8);
+      ).toBe(7);
       expect(report.legacy_path_present_count ?? report.paths?.present_count).toBe(4);
       expect(result.stdout).not.toMatch(/"ok"\s*:\s*true[\s\S]*0 findings/i);
     },
@@ -172,7 +172,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
       expect(report.source_hit_count ?? report.source?.hit_count).toBe(64);
       expect(
         report.forbidden_dependency_count ?? report.manifests?.forbidden_dependency_count
-      ).toBe(8);
+      ).toBe(7);
       expect(result.stdout).not.toMatch(/"scanned_root_count"\s*:\s*0/);
       expect(report.ok).toBe(false);
     },
@@ -180,7 +180,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
   );
 
   itLive(
-    'AC-2 negative control: empty and missing source roots cannot pass',
+    'AC-2 negative control: empty, missing, and Convex-script fixtures cannot pass',
     () => {
       const fixture = makeRepositoryScanFixture();
       try {
@@ -196,6 +196,19 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
         expect(emptyRoot.source.ok).toBe(false);
         expect(emptyRoot.source.scanned_file_count).toBe(5);
         expect(emptyRoot.source.errors).toContain('components: root contains no files to scan');
+
+        writeFileSync(
+          join(fixture, 'package.json'),
+          JSON.stringify({ scripts: { 'verify:no-convex': 'npx convex dev' } }),
+          'utf8'
+        );
+        const verifierScriptConvex = scanNoConvexRepository(fixture);
+        expect(verifierScriptConvex.manifests.ok).toBe(false);
+        expect(verifierScriptConvex.manifests.forbidden_dependency_count).toBe(1);
+        expect(verifierScriptConvex.manifests.findings).toContainEqual({
+          manifest: 'package.json',
+          key: 'scripts.verify:no-convex',
+        });
       } finally {
         rmSync(fixture, { recursive: true, force: true });
       }
