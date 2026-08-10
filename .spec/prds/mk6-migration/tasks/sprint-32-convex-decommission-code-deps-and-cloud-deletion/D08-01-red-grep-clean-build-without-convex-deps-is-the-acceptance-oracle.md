@@ -87,7 +87,7 @@ DONE WHEN
 - [ ] `./bin/holo verify:no-convex --json` exists and records `ok:false`, 64 source hits, 8 forbidden dependency keys, and 4 legacy paths on the current checkout — AC-1 (PRIMARY).
 - [ ] The repository subgate covers exactly 6 source roots, all 3 current package manifests, and all 4 legacy-path targets without broad source allowlists — AC-2.
 - [ ] The React Native subgate runs `pnpm build:ios -- --no-bundler` and requires the real `holocron.app/Info.plist` artifact reported by Expo under Xcode DerivedData — AC-3.
-- [ ] The MCP subgate builds and starts `dist/mastra/stdio.js`, initializes `holocron`, and receives exactly 44 tools — AC-4.
+- [ ] The MCP subgate builds and starts `dist/stdio.js`, initializes `holocron`, and receives exactly 44 tools — AC-4.
 - [ ] The RED failure is captured at `.tmp/D08-01/red-output.txt`; root unit, typecheck, and lint lanes remain GREEN.
 - [ ] Only SCOPE.writeAllowed files and declared generated outputs changed.
 
@@ -222,7 +222,7 @@ ios_build_host (seed_method: cli)
 mcp_built_distribution (seed_method: cli)
   The real `holocron-mcp` package exercised through package scripts, never the source-only dev entrypoint.
   - `build` runs `tsup`
-  - `start` runs `dist/mastra/stdio.js`
+  - `start` runs `dist/stdio.js`
   - the MCP server contract advertises exactly 44 tools
 
 --------------------------------------------------------------------------------
@@ -233,13 +233,14 @@ writeAllowed:
 - services/platform/src/cli/commands/verify-no-convex.ts (NEW)
 - services/platform/src/cli/holo.ts (MODIFY)
 - tests/integration/s32-convex-decommission-oracle.test.ts (NEW)
+- holocron-mcp/package.json (MODIFY — approved built-entrypoint repair only)
 - .tmp/D08-01/** (GENERATED, gitignored)
 - holocron-mcp/dist/** (GENERATED only)
 
 writeProhibited:
 - app/**, components/**, hooks/**, screens/**, lib/** — D08-02 cleanup scope
 - convex/**, python/**, cli/**, ratatui-playground/** — D08-02 cleanup/archive scope
-- package.json, services/platform/package.json, holocron-mcp/package.json and lockfiles — D08-02 dependency scope
+- package.json, services/platform/package.json, and lockfiles — D08-02 dependency scope
 - lefthook.yml — do not make the intentionally RED integration oracle uncommittable
 - cloud resources, backups, secret stores, and operator credentials
 - Any source file not explicitly listed above
@@ -432,7 +433,7 @@ CONTEXT
       "seed_method": "cli",
       "records": [
         "build runs tsup",
-        "start runs dist/mastra/stdio.js",
+        "start runs dist/stdio.js",
         "server contract contains 44 tools"
       ]
     }

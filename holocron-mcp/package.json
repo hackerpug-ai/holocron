@@ -6,12 +6,12 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "holocron-mcp": "./dist/mastra/stdio.js"
+    "holocron-mcp": "./dist/stdio.js"
   },
   "scripts": {
     "build": "tsup",
     "dev": "bun run src/mastra/stdio.ts",
-    "start": "bun run dist/mastra/stdio.js",
+    "start": "bun run dist/stdio.js",
     "test": "vitest",
     "type-check": "tsgo --noEmit",
     "lint": "biome check .",

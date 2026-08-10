@@ -222,7 +222,7 @@ describe('D08-01 Convex decommission acceptance oracle', () => {
     async () => {
       const build = run('pnpm', ['--dir', 'holocron-mcp', 'build'], 180_000);
       expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0);
-      expect(existsSync(join(REPO_ROOT, 'holocron-mcp/dist/mastra/stdio.js'))).toBe(true);
+      expect(existsSync(join(REPO_ROOT, 'holocron-mcp/dist/stdio.js'))).toBe(true);
 
       const child = spawn('pnpm', ['--dir', 'holocron-mcp', 'start'], {
         cwd: REPO_ROOT,
