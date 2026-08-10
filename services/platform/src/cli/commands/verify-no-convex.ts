@@ -259,12 +259,17 @@ function manifestFindings(manifestPath: string, manifest: JsonObject): ManifestF
     const entries = manifest[section];
     if (!isJsonObject(entries)) continue;
     for (const [key, value] of Object.entries(entries)) {
-      const serialized = `${key} ${JSON.stringify(value)}`;
-      if (!/convex/iu.test(serialized)) continue;
-
-      // These are the verifier's own public script names. The command must
-      // remain allowed to mention Convex while it checks for its removal.
-      if (section === 'scripts' && /no-convex/iu.test(key)) continue;
+      // A verifier script key can name the check itself. Ignore that harmless
+      // key reference, but always inspect the script command for runtime
+      // Convex usage. Dependency-style sections retain key and value checks
+      // because package identifiers are themselves residue.
+      const serialized =
+        section === 'scripts' ? JSON.stringify(value) : `${key} ${JSON.stringify(value)}`;
+      const hasConvexReference =
+        section === 'scripts'
+          ? /(?<!no[-:])\bconvex\b/iu.test(serialized)
+          : /convex/iu.test(serialized);
+      if (!hasConvexReference) continue;
       findings.push({ manifest: manifestPath, key: `${section}.${key}` });
     }
   }

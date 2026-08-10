@@ -25,7 +25,7 @@ Creates the real `holo verify:no-convex` acceptance oracle. It inventories repos
 
 ## Why
 
-The repository still contains 64 case-insensitive Convex source hits, 8 forbidden dependency keys, and 4 legacy paths. The existing `verify:no-convex-client` check is intentionally narrower, while a static grep alone cannot prove that either the app or the MCP server still operates after dependency removal. D08-02 therefore needs an executable RED oracle that fails for the current residue and cannot turn GREEN through an empty scan, mocked process, TypeScript-only check, or source-only MCP launch.
+The repository still contains 64 case-insensitive Convex source hits, 7 forbidden dependency keys, and 4 legacy paths. The existing `verify:no-convex-client` check is intentionally narrower, while a static grep alone cannot prove that either the app or the MCP server still operates after dependency removal. D08-02 therefore needs an executable RED oracle that fails for the current residue and cannot turn GREEN through an empty scan, mocked process, TypeScript-only check, or source-only MCP launch.
 
 ## How to verify
 
@@ -84,7 +84,7 @@ A real composite CLI oracle fails on current Convex residue and can turn GREEN o
 DONE WHEN
 --------------------------------------------------------------------------------
 
-- [ ] `./bin/holo verify:no-convex --json` exists and records `ok:false`, 64 source hits, 8 forbidden dependency keys, and 4 legacy paths on the current checkout — AC-1 (PRIMARY).
+- [ ] `./bin/holo verify:no-convex --json` exists and records `ok:false`, 64 source hits, 7 forbidden dependency keys, and 4 legacy paths on the current checkout — AC-1 (PRIMARY).
 - [ ] The repository subgate covers exactly 6 source roots, all 3 current package manifests, and all 4 legacy-path targets without broad source allowlists — AC-2.
 - [ ] The React Native subgate runs `pnpm build:ios -- --no-bundler` and requires the real `holocron.app/Info.plist` artifact reported by Expo under Xcode DerivedData — AC-3.
 - [ ] The MCP subgate builds and starts `dist/stdio.js`, initializes `holocron`, and receives exactly 44 tools — AC-4.
@@ -96,7 +96,7 @@ ACCEPTANCE CRITERIA (TDD Beads — ordered primary proof first)
 --------------------------------------------------------------------------------
 
 AC-1: Composite oracle bites on current residue [PRIMARY]
-  GIVEN: the tracked pre-D08-02 checkout contains 64 source hits, 8 forbidden dependency keys, and 4 legacy paths
+  GIVEN: the tracked pre-D08-02 checkout contains 64 source hits, 7 forbidden dependency keys, and 4 legacy paths
   WHEN:  `./bin/holo verify:no-convex --json` runs through the real CLI
   THEN:  it exits 1 with `ok:false` because of named residue while reporting every subgate
 
@@ -115,7 +115,7 @@ AC-1: Composite oracle bites on current residue [PRIMARY]
     EVIDENCE:         stdout (capture required)
     CASE 0:
       ACTION: run `./bin/holo verify:no-convex --json` through `bin/holo` and capture exit code plus JSON stdout
-      MUST_OBSERVE: `"ok":false`; `"source_hit_count":64`; `"forbidden_dependency_count":8`; `"legacy_path_present_count":4`
+      MUST_OBSERVE: `"ok":false`; `"source_hit_count":64`; `"forbidden_dependency_count":7`; `"legacy_path_present_count":4`
       MUST_NOT_OBSERVE: `unknown command`; `"ok":true with 0 findings`
 
 AC-2: Cleanup boundary is complete and non-degenerate
@@ -138,7 +138,7 @@ AC-2: Cleanup boundary is complete and non-degenerate
     EVIDENCE:         stdout (capture required)
     CASE 0:
       ACTION: run the repository-state subgate through `./bin/holo verify:no-convex --json`
-      MUST_OBSERVE: `"scanned_root_count":6`; `"package_manifest_count":3`; `"source_hit_count":64`; `"forbidden_dependency_count":8`
+      MUST_OBSERVE: `"scanned_root_count":6`; `"package_manifest_count":3`; `"source_hit_count":64`; `"forbidden_dependency_count":7`
       MUST_NOT_OBSERVE: `"scanned_root_count":0`; `empty findings with "ok":true`
 
 AC-3: React Native proof requires a real app artifact
@@ -194,7 +194,7 @@ TEST CRITERIA (stable TC-N IDs; one-to-one with ACs)
 TC-1 → AC-1: The composite CLI report sets `ok:false` against the current 64-hit repository.
   VERIFY: PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-1'
 
-TC-2 → AC-2: The cleanup assertion rejects the current 8 forbidden dependency keys.
+TC-2 → AC-2: The cleanup assertion rejects the current 7 forbidden dependency keys.
   VERIFY: PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-2'
 
 TC-3 → AC-3: The app-build assertion accepts the real Xcode DerivedData `holocron.app` artifact from `pnpm build:ios -- --no-bundler`.
@@ -210,7 +210,7 @@ FIXTURES (shared seed data — referenced by START_REF)
 current_convex_residue_checkout (seed_method: migration_fixture)
   The tracked pre-D08-02 checkout exercised through the real repository and CLI surfaces.
   - 6 source roots contain 64 case-insensitive Convex hits: app, components, hooks, screens, lib, holocron-mcp/src
-  - 3 package manifests contain 8 forbidden dependency keys
+  - 3 package manifests contain 7 forbidden dependency keys
   - convex/, python/, cli/, and ratatui-playground/ are present
 
 ios_build_host (seed_method: cli)
@@ -304,7 +304,7 @@ EVIDENCE GATES (fast/cheap first; RED is an expected target-state failure)
 
 Gate 1: CLI surface and current RED evidence
   Command: ./bin/holo verify:no-convex --json
-  Expected now: exit 1; `ok:false`; source_hit_count 64; forbidden_dependency_count 8; legacy_path_present_count 4.
+  Expected now: exit 1; `ok:false`; source_hit_count 64; forbidden_dependency_count 7; legacy_path_present_count 4.
   Expected after D08-02: exit 0 only when every subgate is true.
 
 Gate 2: Scenario-backed integration oracle
@@ -394,7 +394,7 @@ CONTEXT
 --------------------------------------------------------------------------------
 
 - The current full-root scan counts are app 33, components 0, hooks 13, screens 3, lib 15, and holocron-mcp/src 0: total 64.
-- Forbidden dependency keys currently total 8: 7 in root `package.json`, 1 in `services/platform/package.json`, and 0 in `holocron-mcp/package.json`.
+- Forbidden dependency keys currently total 7: 6 in root `package.json`, 1 in `services/platform/package.json`, and 0 in `holocron-mcp/package.json`. The `verify:no-convex` script key is a verifier self-reference, not runtime residue, so it is excluded from the count; its script value remains inspected for runtime Convex usage.
 - The existing `verify:no-convex-client` passes because it checks only `convex/react` imports in four client roots; it is a pattern source, not the D08 acceptance oracle.
 - The existing decommission-inventory command is not the final GREEN oracle because it intentionally fails when `convex/` is absent.
 - `lefthook.yml` runs unit tests rather than `tests/integration/**`, allowing honest RED evidence to be committed without weakening pre-commit.
@@ -417,7 +417,7 @@ CONTEXT
       "seed_method": "migration_fixture",
       "records": [
         "6 source roots contain 64 Convex hits",
-        "3 manifests contain 8 forbidden dependency keys",
+        "3 manifests contain 7 forbidden dependency keys",
         "4 legacy paths are present"
       ]
     },
@@ -467,7 +467,7 @@ CONTEXT
               "must_observe": [
                 "\"ok\":false",
                 "\"source_hit_count\":64",
-                "\"forbidden_dependency_count\":8",
+                "\"forbidden_dependency_count\":7",
                 "\"legacy_path_present_count\":4"
               ],
               "must_not_observe": [
@@ -518,7 +518,7 @@ CONTEXT
                 "\"scanned_root_count\":6",
                 "\"package_manifest_count\":3",
                 "\"source_hit_count\":64",
-                "\"forbidden_dependency_count\":8"
+                "\"forbidden_dependency_count\":7"
               ],
               "must_not_observe": [
                 "\"scanned_root_count\":0",
@@ -656,7 +656,7 @@ CONTEXT
     {
       "id": "TC-2",
       "type": "test_criterion",
-      "description": "The cleanup assertion rejects the current 8 forbidden dependency keys.",
+      "description": "The cleanup assertion rejects the current 7 forbidden dependency keys.",
       "verify": "PLATFORM_IT=1 pnpm vitest run --project integration tests/integration/s32-convex-decommission-oracle.test.ts -t 'AC-2'",
       "maps_to_ac": "AC-2"
     },
