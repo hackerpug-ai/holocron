@@ -1,0 +1,21 @@
+RECORD_RESULT {"ok":true,"id":"74b09fc4-31e3-4084-94e3-15c2d1200cfa"}
+SECOND_WRITE {"docId":"f139c5c2-7454-4e37-ad9b-2b008b7a7b2f","title":"post-ponr-ops-write-f139c5c2","audit":{"ok":true,"id":"16a0a312-0864-4f88-980b-230780db8b55"}}
+COUNTS {"ponr":1,"audit":2,"ponr_max":"2026-08-08 19:26:27.871603-06","audit_max_utc":"2026-08-10 18:12:14.977"}
+AUDIT_ROWS [
+  {
+    "id": "74b09fc4-31e3-4084-94e3-15c2d1200cfa",
+    "surface": "hono.POST /api/documents",
+    "write_row_id": "de107cdf-b33f-4152-b1ab-0b86e05a5f32",
+    "committed_at_ms": "1786238787804",
+    "export_watermark_ms": "1786190348757",
+    "recorded_at": "2026-08-10 12:12:14.934845-06"
+  },
+  {
+    "id": "16a0a312-0864-4f88-980b-230780db8b55",
+    "surface": "hono.POST /api/documents",
+    "write_row_id": "f139c5c2-7454-4e37-ad9b-2b008b7a7b2f",
+    "committed_at_ms": "1786385534977",
+    "export_watermark_ms": "1786190348757",
+    "recorded_at": "2026-08-10 12:12:14.988071-06"
+  }
+]
