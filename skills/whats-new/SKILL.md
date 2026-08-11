@@ -1,7 +1,7 @@
 ---
 name: whats-new
 description: "On-demand AI software engineering news briefing. Returns cached daily report (auto-generated at 6AM PST) or runs fresh parallel swarm when --force flag used. Scans Reddit, HN, GitHub, Dev.to, Lobsters for tool releases, trends, and discoveries."
-allowed-tools: WebSearch, Task, Read, Write, Glob, Grep, Bash, AskUserQuestion, mcp__jina__search_web, mcp__jina__read_url, mcp__jina__expand_query, mcp__jina__deduplicate_strings, mcp__plugin_exa-mcp-server_exa__web_search_exa, mcp__plugin_exa-mcp-server_exa__company_research_exa, mcp__holocron__hybrid_search, mcp__holocron__get_document, mcp__holocron__getWhatsNewReportTool, mcp__holocron__listWhatsNewReportsTool
+allowed-tools: WebSearch, Task, Read, Write, Glob, Grep, Bash, AskUserQuestion, mcp__jina__search_web, mcp__jina__read_url, mcp__jina__expand_query, mcp__jina__deduplicate_strings, mcp__plugin_exa-mcp-server_exa__web_search_exa, mcp__plugin_exa-mcp-server_exa__company_research_exa, mcp__holocron__hybridSearchTool, mcp__holocron__getDocumentTool, mcp__holocron__getWhatsNewReportTool, mcp__holocron__listWhatsNewReportsTool
 ---
 
 # /whats-new
