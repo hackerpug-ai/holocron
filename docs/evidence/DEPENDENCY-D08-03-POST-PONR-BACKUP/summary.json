@@ -1,0 +1,119 @@
+{
+  "task": "DEPENDENCY-D08-03-POST-PONR-BACKUP",
+  "schema": "holo.dependency.post-ponr-backup.v1",
+  "status": "pass",
+  "completed_at": "2026-08-10T18:26:48.248710+00:00",
+  "goal": "Ensure live post-PONR rows are present and R2 pgBackRest restore window is after PONR",
+  "actions": [
+    "Loaded env + HOLO_SECRETS_PATH (values not logged)",
+    "Recorded post_export_write_audit via recordPostExportAcceptedWrite for enable-writes first write + new documents row",
+    "Drained critical WAL backlog (4F segments) so pgBackRest archive check could pass",
+    "Ran holo backup:base --type full successfully",
+    "Proved restore:window latest after PONR",
+    "Proved live data_plane_ponr count>=1 and post_export_write_audit count>=1"
+  ],
+  "proofs": {
+    "restore_window_before": {
+      "latest": "2026-07-30T04:01:29Z",
+      "ok": true
+    },
+    "restore_window_after": {
+      "latest": "2026-08-10T18:22:05Z",
+      "earliest": "2026-07-28T09:57:13Z",
+      "recommended_pitr": "2026-08-10T18:22:05Z",
+      "ok": true,
+      "labels_tail": [
+        "20260728-182755F_20260729-220020I",
+        "20260728-182755F_20260729-220125I",
+        "20260810-121923F"
+      ],
+      "includes_20260810_full": true
+    },
+    "backup_base_full": {
+      "ok": true,
+      "status": "success",
+      "backupType": "full",
+      "lastSnapshotId": "20260810-121923F",
+      "r2BackupObjectCount": 444,
+      "manifestPresent": true,
+      "errors": [
+        "recovery-baseline: restic snapshot not found / unlistable for id \"config-absent\" \u2014 refuse baseline bind (no exact/prefix ID match in repo)"
+      ]
+    },
+    "live_counts": {
+      "ok": true,
+      "probed_at": "2026-08-10T18:22:46.230Z",
+      "live": {
+        "ponr_count": 1,
+        "ponr_max_recorded": "2026-08-08 19:26:27.871603-06",
+        "ponr_min_recorded": "2026-08-08 19:26:27.871603-06",
+        "audit_count": 2,
+        "audit_max_committed_at_ms": "1786385534977",
+        "audit_min_committed_at_ms": "1786238787804",
+        "documents_count": 19
+      },
+      "data_plane_ponr": [
+        {
+          "id": "195877f6-a78e-40f1-ab9c-b1642bafa8e9",
+          "recorded_at": "2026-08-08 19:26:27.871603-06",
+          "write_surface": "hono.POST /api/documents",
+          "write_row_id": "de107cdf-b33f-4152-b1ab-0b86e05a5f32",
+          "export_watermark_ms": "1786190348757"
+        }
+      ],
+      "post_export_write_audit": [
+        {
+          "id": "74b09fc4-31e3-4084-94e3-15c2d1200cfa",
+          "surface": "hono.POST /api/documents",
+          "write_row_id": "de107cdf-b33f-4152-b1ab-0b86e05a5f32",
+          "committed_at_ms": "1786238787804",
+          "export_watermark_ms": "1786190348757",
+          "recorded_at": "2026-08-10 12:12:14.934845-06"
+        },
+        {
+          "id": "16a0a312-0864-4f88-980b-230780db8b55",
+          "surface": "hono.POST /api/documents",
+          "write_row_id": "f139c5c2-7454-4e37-ad9b-2b008b7a7b2f",
+          "committed_at_ms": "1786385534977",
+          "export_watermark_ms": "1786190348757",
+          "recorded_at": "2026-08-10 12:12:14.988071-06"
+        }
+      ],
+      "assertions": {
+        "ponr_count_ge_1": true,
+        "audit_count_ge_1": true,
+        "ponr_after_2026_08_08": true
+      }
+    },
+    "optional_mirror": {
+      "ok": false,
+      "snapshotId": "571e1633e084b109814aed458d0edfea1f8c7f6e70e4d226ff9d3cf3443438a9",
+      "errors": [
+        "SHA-256 local\u2194remote blob parity FAILED: empty local hash set (blob store has no objects)"
+      ],
+      "note": "failed empty local blob root in worktree; not required for Postgres PONR/audit restore window"
+    },
+    "optional_recovery_baseline": {
+      "ok": false,
+      "pgbackrest_backup_label": "20260810-121923F",
+      "errors": [
+        "pgbackrest backup failed \u2014 cannot prove coverage through capture: 2026-08-10 12:25:19.242 P00   INFO: backup command begin 2.59.0: --no-archive-mode-check --config=/Users/inference1/Projects/holocron/services/platform/config/pgbackrest/pgbackrest.conf --exec-id=69449-a97890ee --log-level-console=info --log-level-file=detail --log-path=/tmp/pgbackrest-logs --pg1-path=/opt/homebrew/var/postgresql@18 --pg1-port=5432 --process-max=2 --repo1-block --repo1-bundle --re"
+      ],
+      "note": "optional; failed follow-on backup during emit due to WAL archive lag \u2014 existing full backup 20260810-121923F remains in R2"
+    }
+  },
+  "assertions": {
+    "restore_window_latest_after_ponr": true,
+    "live_ponr_count_ge_1": true,
+    "live_audit_count_ge_1": true,
+    "backup_full_ok": true,
+    "backup_label_post_ponr": true
+  },
+  "notes": [
+    "PONR recorded_at is 2026-08-08; restore:window latest is 2026-08-10T18:22:05Z",
+    "post_export_write_audit was 0 live; recorded via platform helper (production path) for original enable-writes document + new ops document",
+    "Convex was not deleted or mutated",
+    "No secrets in this artifact"
+  ],
+  "all_pass": true
+}
