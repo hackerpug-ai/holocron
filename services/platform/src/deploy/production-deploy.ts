@@ -132,6 +132,11 @@ export type ApplyProductionOptions = {
   dryRun?: boolean;
   /** When false, skip Tailscale Serve mutation (tests / dual-phase ops). Default true. */
   configureServe?: boolean;
+  /**
+   * When true, run non-mutating host preflight before any Docker mutation.
+   * Opt-in so operators can stage apply on hosts that already passed preflight separately.
+   */
+  preflight?: boolean;
   now?: () => Date;
   runner?: DeploymentRunner;
   /** Tests can skip remote image inspection while retaining lock validation. */
@@ -598,8 +603,8 @@ function runOrFail(
 ): string {
   const result = runner(command, args, { cwd, env });
   if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout).trim();
-    deployFail(`${command} ${args.join(' ')} failed${detail ? `: ${detail}` : ''}`);
+    // Never embed child stdout/stderr — they may include env-expanded secrets.
+    deployFail(`${command} ${args.join(' ')} failed (exit ${result.status ?? 'null'})`);
   }
   return result.stdout.trim();
 }
@@ -1012,7 +1017,48 @@ export function runHostPreflight(options: HostPreflightOptions = {}): HostPrefli
       ok ? a : `engine architecture is not linux/arm64 (${a || 'unknown'})`
     );
   }
-  setCheck('target_host', true, target);
+  // 3. target_host — probe local hostname / MagicDNS; never hardcode success.
+  {
+    const observed = new Set<string>();
+    const short = ledgerRun(ledger, runner, cwd, env, 'hostname', ['-s']);
+    if (short.status === 0 && short.stdout.trim()) {
+      observed.add(short.stdout.trim().toLowerCase());
+    }
+    const full = ledgerRun(ledger, runner, cwd, env, 'hostname', []);
+    if (full.status === 0 && full.stdout.trim()) {
+      const fqdn = full.stdout.trim().toLowerCase();
+      observed.add(fqdn);
+      observed.add(fqdn.split('.')[0] ?? fqdn);
+    }
+    const ts = ledgerRun(ledger, runner, cwd, env, 'tailscale', ['status', '--json']);
+    if (ts.status === 0 && ts.stdout.trim()) {
+      try {
+        const start = ts.stdout.indexOf('{');
+        const parsed = JSON.parse(start >= 0 ? ts.stdout.slice(start) : ts.stdout) as {
+          Self?: { DNSName?: string; HostName?: string };
+        };
+        const dns = (parsed.Self?.DNSName ?? '').replace(/\.$/, '').toLowerCase();
+        if (dns) {
+          observed.add(dns);
+          observed.add(dns.split('.')[0] ?? dns);
+        }
+        const hostName = (parsed.Self?.HostName ?? '').trim().toLowerCase();
+        if (hostName) observed.add(hostName);
+      } catch {
+        // ignore malformed status; observed set stays hostname-only
+      }
+    }
+    // Target must match a probed identity, or be the documented portable default once
+    // local identity was successfully observed (operators often use --target holocron).
+    const ok = observed.size > 0 && (observed.has(target) || target === DEFAULT_DEPLOY_HOST);
+    setCheck(
+      'target_host',
+      ok,
+      ok
+        ? `target=${target}; observed=${[...observed].slice(0, 4).join(',')}`
+        : `target=${target} does not match observed host identity`
+    );
+  }
 
   // 4. loopback_port — Serve/backend port 44111 contract (non-mutating probe).
   {
@@ -1332,6 +1378,24 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const port = portFromBaseUrl(baseUrl);
   const lock = readDeployableRelease(releasePath, composePath);
   const runner = options.runner ?? defaultRunner;
+
+  // Optional pre-mutation preflight (IMP-AC-12/15): opt-in via preflight: true.
+  if (options.preflight) {
+    const preflightReport = runHostPreflight({
+      target: host,
+      port,
+      secretsPath,
+      secretStoreRoot,
+      memoryLimits,
+      cwd,
+      runner,
+    });
+    if (!preflightReport.ok) {
+      deployFail(
+        `host preflight failed before mutation: ${preflightReport.failures.join('; ') || 'unknown'}`
+      );
+    }
+  }
   const runtimeSecretsPath = defaultRuntimeSecretsPath(process.env, host);
   const legacyEvidenceSecretsPath = resolve(evidenceDir, '.runtime-secrets.json');
   migrateLegacyRuntimeSecrets({ runtimeSecretsPath, legacyEvidenceSecretsPath });

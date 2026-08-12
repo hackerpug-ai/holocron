@@ -200,10 +200,32 @@ function runOrFail(
 ): string {
   const result: DeploymentProcessResult = runner(command, args, { cwd, env });
   if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout).trim();
-    verifyFail(`${command} ${args.join(' ')} failed${detail ? `: ${detail}` : ''}`);
+    // Never embed child stdout/stderr — they may include env-expanded secrets.
+    verifyFail(`${command} ${args.join(' ')} failed (exit ${result.status ?? 'null'})`);
   }
   return result.stdout.trim();
+}
+
+/** GiB plan value → Docker HostConfig.Memory bytes (Compose `Ng` semantics). */
+function memoryLimitGibToBytes(gib: number): number {
+  return Math.round(gib * 1024 ** 3);
+}
+
+/**
+ * Compare receipt memory plan to live container HostConfig.Memory values.
+ * Returns true when every service's live limit matches the plan (within 1 MiB).
+ */
+function liveMemoryMatchesPlan(
+  liveBytesByService: Readonly<Record<string, number>>,
+  plan: ServiceMemoryLimits
+): boolean {
+  for (const service of REQUIRED_SERVICES) {
+    const live = liveBytesByService[service];
+    if (!Number.isFinite(live) || live <= 0) return false;
+    const expected = memoryLimitGibToBytes(plan[service]);
+    if (Math.abs(live - expected) > 1024 * 1024) return false;
+  }
+  return true;
 }
 
 function expectedIdentity(record: DeploymentRecord): ExpectedDeploymentIdentity {
@@ -778,8 +800,9 @@ export async function verifyPortableDeploymentReceipt(options: {
     `memory_plan=${JSON.stringify(record.memoryLimitsGib ?? null)}`
   );
 
-  // Live Docker service presence (read-only inspect).
+  // Live Docker service presence (read-only inspect). Exactly 4 running required.
   let liveServiceCount = 0;
+  const liveMemoryBytes: Record<string, number> = {};
   for (const service of REQUIRED_SERVICES) {
     const id = record.containers[service];
     if (!id) continue;
@@ -788,21 +811,44 @@ export async function verifyPortableDeploymentReceipt(options: {
       [
         'inspect',
         '--format',
-        '{{.State.Running}}|{{index .Config.Labels "com.docker.compose.service"}}',
+        '{{.State.Running}}|{{index .Config.Labels "com.docker.compose.service"}}|{{.HostConfig.Memory}}',
         id,
       ],
       { cwd, env: process.env }
     );
     if (inspected.status === 0) {
-      const [running, observed] = inspected.stdout.trim().split('|');
-      if (running === 'true' && observed === service) liveServiceCount += 1;
+      const [running, observed, memoryRaw] = inspected.stdout.trim().split('|');
+      if (running === 'true' && observed === service) {
+        liveServiceCount += 1;
+        const memoryBytes = Number(memoryRaw);
+        if (Number.isFinite(memoryBytes) && memoryBytes > 0) {
+          liveMemoryBytes[service] = memoryBytes;
+        }
+      }
     }
   }
+  push('live_services', liveServiceCount === 4, `live_service_count=${liveServiceCount}`);
+
+  // Named durable volumes must exist on the engine (holocron-postgres + holocron-blobs).
+  const requiredVolumes = ['holocron-postgres', 'holocron-blobs'] as const;
+  let liveVolumeCount = 0;
+  for (const volumeName of requiredVolumes) {
+    const vol = runner('docker', ['volume', 'inspect', '--format', '{{.Name}}', volumeName], {
+      cwd,
+      env: process.env,
+    });
+    if (vol.status === 0 && vol.stdout.trim() === volumeName) {
+      liveVolumeCount += 1;
+    }
+  }
+  // Receipt must also list the same two durable names.
+  const receiptVolumeOk =
+    record.durableVolumes.length === 2 &&
+    requiredVolumes.every((name) => record.durableVolumes.includes(name));
   push(
-    'live_services',
-    liveServiceCount === 4 || liveServiceCount === 0,
-    // 0 means containers rotated since receipt — still a dimension observation for local unit paths
-    `live_service_count=${liveServiceCount}`
+    'live_volumes',
+    liveVolumeCount === 2 && receiptVolumeOk,
+    `live_volume_count=${liveVolumeCount}; receipt_named_volume_count=${record.durableVolumes.length}`
   );
 
   // Private Serve status (no Funnel).
@@ -836,28 +882,31 @@ export async function verifyPortableDeploymentReceipt(options: {
   }
   push('serve_health', serveHealthStatus === 200, `serve_health_status=${serveHealthStatus}`);
 
-  // Identity mismatch rejection (negative control).
+  // Identity mismatch rejection (negative control) — fail closed; never soft-pass on down health.
   let identityMismatchRejected = false;
+  const wrongDigest =
+    options.proveIdentityMismatch === false ? record.imageDigest : `sha256:${'0'.repeat(64)}`;
   try {
     await verifyExternalDeploymentIdentity({
       baseUrl: record.baseUrl,
       expected: {
         ...expectedIdentity(record),
-        imageDigest: `sha256:${'0'.repeat(64)}`,
+        imageDigest: wrongDigest,
       },
       fetchImpl,
     });
   } catch (error) {
     if (
-      error instanceof DeploymentIdentityError ||
-      (error instanceof Error && /mismatch|IDENTITY/i.test(error.message))
+      error instanceof DeploymentIdentityError &&
+      (error.code === 'IDENTITY_MISMATCH' || error.code === 'STALE_IDENTITY')
+    ) {
+      identityMismatchRejected = true;
+    } else if (
+      error instanceof Error &&
+      /IDENTITY_MISMATCH|STALE_IDENTITY|differs from the authorized/i.test(error.message)
     ) {
       identityMismatchRejected = true;
     }
-  }
-  // Loopback-only stacks reject before identity compare; still count as closed rejection.
-  if (!identityMismatchRejected && serveHealthStatus !== 200) {
-    identityMismatchRejected = options.proveIdentityMismatch !== false;
   }
   push(
     'identity_mismatch_rejected',
@@ -865,26 +914,36 @@ export async function verifyPortableDeploymentReceipt(options: {
     `identity_mismatch_rejected=${identityMismatchRejected}`
   );
 
-  // Memory drift rejection: altered plan must not equal receipt plan.
-  let memoryDriftRejected = false;
-  try {
-    const drifted: ServiceMemoryLimits = {
-      postgres: (record.memoryLimitsGib?.postgres ?? 16) + 1,
-      mastra: record.memoryLimitsGib?.mastra ?? 16,
-      scheduler: record.memoryLimitsGib?.scheduler ?? 8,
-      'zero-cache': record.memoryLimitsGib?.['zero-cache'] ?? 10,
-    };
-    const normalized = assertMemoryLimitPlan(drifted);
-    const receiptPlan = assertMemoryLimitPlan(record.memoryLimitsGib);
-    memoryDriftRejected =
-      normalized.postgres !== receiptPlan.postgres ||
-      normalized.mastra !== receiptPlan.mastra ||
-      normalized.scheduler !== receiptPlan.scheduler ||
-      normalized['zero-cache'] !== receiptPlan['zero-cache'];
-    if (!memoryDriftRejected) verifyFail('memory drift negative control did not differ');
-  } catch {
-    memoryDriftRejected = true;
+  // Memory contract: receipt plan must match live HostConfig.Memory for each service.
+  // Drift rejection: a deliberately altered plan must NOT match live Docker limits.
+  const receiptPlan = assertMemoryLimitPlan(record.memoryLimitsGib);
+  const liveMemoryComplete = liveServiceCount === 4 && Object.keys(liveMemoryBytes).length === 4;
+  const liveMemoryContractOk =
+    liveMemoryComplete && liveMemoryMatchesPlan(liveMemoryBytes, receiptPlan);
+  push(
+    'live_memory_contract',
+    liveMemoryContractOk,
+    liveMemoryContractOk
+      ? 'live HostConfig.Memory matches receipt.memoryLimitsGib'
+      : `live memory mismatch or incomplete (services_with_memory=${Object.keys(liveMemoryBytes).length})`
+  );
+
+  // Drift within the 50 GiB budget: decrease the largest service by 1 GiB so the
+  // altered plan is valid yet cannot match live HostConfig.Memory.
+  const driftService = (REQUIRED_SERVICES as readonly (keyof ServiceMemoryLimits)[]).reduce(
+    (best, service) => (receiptPlan[service] > receiptPlan[best] ? service : best),
+    REQUIRED_SERVICES[0] as keyof ServiceMemoryLimits
+  );
+  const driftedLimits: ServiceMemoryLimits = { ...receiptPlan };
+  if (receiptPlan[driftService] > 1) {
+    driftedLimits[driftService] = receiptPlan[driftService] - 1;
+  } else {
+    // Tiny non-integer drift when every service is already at the floor.
+    driftedLimits[driftService] = receiptPlan[driftService] + 0.25;
   }
+  const driftedPlan = assertMemoryLimitPlan(driftedLimits);
+  const memoryDriftRejected =
+    liveMemoryComplete && !liveMemoryMatchesPlan(liveMemoryBytes, driftedPlan);
   push(
     'memory_drift_rejected',
     memoryDriftRejected,
@@ -900,6 +959,9 @@ export async function verifyPortableDeploymentReceipt(options: {
 
   const ok =
     dimensions.filter((d) => d.ok).length >= 8 &&
+    liveServiceCount === 4 &&
+    liveVolumeCount === 2 &&
+    liveMemoryContractOk &&
     serveHealthStatus === 200 &&
     identityMismatchRejected &&
     memoryDriftRejected &&

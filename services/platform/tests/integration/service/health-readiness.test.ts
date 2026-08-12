@@ -130,47 +130,32 @@ describe('D06-07 production health readiness', () => {
     const root = mkdtempSync(resolve(tmpdir(), 'holocron-portable-verify-'));
     const recordPath = resolve(root, 'deployment-record.json');
     try {
-      // Prefer live health identity when the host is already serving; fall back to synthetic.
-      let baseUrl = 'http://192.168.1.160:44111';
-      let host = 'inference1';
-      let imageDigest = `sha256:${'a1'.repeat(32)}`;
-      let sourceRevision = 'b2'.repeat(20);
-      let composeGeneration = 'inference1-0123456789abcdef01234567';
-      let composeSha256 = 'c3'.repeat(32);
-      let serveHealthStatus = 0;
-      try {
-        const response = await fetch('http://127.0.0.1:44111/health', {
-          signal: AbortSignal.timeout(3_000),
-          headers: { accept: 'application/json' },
-        });
-        if (response.status === 200) {
-          const body = (await response.json()) as {
-            deployment?: { identity?: Record<string, string> };
-          };
-          const identity = body.deployment?.identity;
-          if (identity?.host && identity.imageDigest) {
-            host = identity.host;
-            imageDigest = identity.imageDigest;
-            sourceRevision = identity.sourceRevision;
-            composeGeneration = identity.composeGeneration;
-            composeSha256 = identity.composeSha256;
-            // Existing production publishes on LAN; use non-loopback for identity verifier.
-            baseUrl = process.env.HOLO_PRODUCTION_BASE_URL?.replace(/\/$/, '') || baseUrl;
-            // Probe LAN health if configured.
-            try {
-              const lan = await fetch(`${baseUrl}/health`, {
-                signal: AbortSignal.timeout(3_000),
-                headers: { accept: 'application/json' },
-              });
-              serveHealthStatus = lan.status;
-            } catch {
-              // Keep synthetic path if LAN is unreachable from this worktree host.
-            }
-          }
-        }
-      } catch {
-        // offline path uses synthetic receipt + mock fetch below
-      }
+      // Deterministic Docker/Tailscale binding — not mock health / LAN alone.
+      // Container IDs + HostConfig.Memory + named volumes are exercised via the
+      // same inspect paths production verify uses (DeploymentRunner).
+      const host = 'holocron';
+      const imageDigest = `sha256:${'a1'.repeat(32)}`;
+      const sourceRevision = 'b2'.repeat(20);
+      const composeGeneration = 'holocron-0123456789abcdef01234567';
+      const composeSha256 = 'c3'.repeat(32);
+      // Non-loopback literal IP skips DNS while remaining external for identity.
+      const baseUrl = 'http://192.0.2.10:44111';
+      const serveUrl = 'https://holocron.tail011a51.ts.net:44111';
+      const containers = {
+        postgres: 'aa'.repeat(32),
+        mastra: 'bb'.repeat(32),
+        scheduler: 'cc'.repeat(32),
+        'zero-cache': 'dd'.repeat(32),
+      } as const;
+      const memoryBytes = {
+        postgres: 16 * 1024 ** 3,
+        mastra: 16 * 1024 ** 3,
+        scheduler: 8 * 1024 ** 3,
+        'zero-cache': 10 * 1024 ** 3,
+      } as const;
+      const idToService = Object.fromEntries(
+        Object.entries(containers).map(([service, id]) => [id, service])
+      ) as Record<string, keyof typeof memoryBytes>;
 
       const receipt = buildPortableDeploymentReceipt({
         authorizationScope: `${host}:${imageDigest}`,
@@ -178,24 +163,17 @@ describe('D06-07 production health readiness', () => {
         baseUrl,
         loopbackPort: 44_111,
         serveHttpsPort: 44_111,
-        serveUrl: baseUrl.startsWith('https:')
-          ? baseUrl
-          : `https://holocron.tail011a51.ts.net:44111`,
+        serveUrl,
         privateServeTarget: 'http://127.0.0.1:44111',
         project: 'holocron-production',
-        image: `127.0.0.1:5000/holocron-platform@${imageDigest}`,
+        image: `registry.local/holocron-platform@${imageDigest}`,
         imageDigest,
         sourceRevision,
         composeSha256,
         composeGeneration,
         deployedAt: '2026-08-05T17:52:21.133Z',
-        containers: {
-          postgres: 'd84168e50af0d4075a52a99dcdad66e2792e4c8e0eef94988ee8c6c1e9033196',
-          mastra: '545aca7ab151dda5934bac20d500e4f71bb0c727aaaba1b8ace526971548b7e3',
-          scheduler: 'b19f6f1a215a0c805d53a27e5212d4aa9dd0b4161934ca2e2b3778b9a099a051',
-          'zero-cache': '4be41bfbe1b6ef13f817637ea079e03f9f2b29511073e1b1e2170901a093912e',
-        },
-        previousImage: `127.0.0.1:5000/holocron-platform@sha256:${'e5'.repeat(32)}`,
+        containers: { ...containers },
+        previousImage: `registry.local/holocron-platform@sha256:${'e5'.repeat(32)}`,
         previousDigest: `sha256:${'e5'.repeat(32)}`,
         memoryLimitsGib: DEFAULT_MEMORY_LIMITS_GIB,
         releasePath: resolve(root, 'release.json'),
@@ -205,7 +183,50 @@ describe('D06-07 production health readiness', () => {
       mkdirSync(root, { recursive: true });
       writeFileSync(recordPath, `${JSON.stringify(receipt, null, 2)}\n`);
 
-      const mockHealth = {
+      let dockerInspectCount = 0;
+      let volumeInspectCount = 0;
+      const runner = (
+        command: string,
+        args: string[],
+        _options: { cwd: string; env: NodeJS.ProcessEnv }
+      ) => {
+        if (command === 'docker' && args[0] === 'inspect') {
+          dockerInspectCount += 1;
+          const id = args.at(-1) ?? '';
+          const service = idToService[id];
+          if (service) {
+            return {
+              status: 0,
+              stdout: `true|${service}|${memoryBytes[service]}\n`,
+              stderr: '',
+            };
+          }
+          return { status: 1, stdout: '', stderr: 'Error: No such object' };
+        }
+        if (command === 'docker' && args[0] === 'volume' && args[1] === 'inspect') {
+          volumeInspectCount += 1;
+          const name = args.at(-1) ?? '';
+          if (name === 'holocron-postgres' || name === 'holocron-blobs') {
+            return { status: 0, stdout: `${name}\n`, stderr: '' };
+          }
+          return { status: 1, stdout: '', stderr: '' };
+        }
+        if (command === 'tailscale' && args[0] === 'serve') {
+          return { status: 0, stdout: '{}\n', stderr: '' };
+        }
+        if (command === 'tailscale' && args[0] === 'status') {
+          return {
+            status: 0,
+            stdout: `${JSON.stringify({
+              Self: { DNSName: 'holocron.tail011a51.ts.net.', HostName: 'holocron' },
+            })}\n`,
+            stderr: '',
+          };
+        }
+        return { status: 1, stdout: '', stderr: 'unexpected command in portable verify fixture' };
+      };
+
+      const healthBody = {
         status: 'ok',
         postgres: { ready: true },
         fleet: { ready: true },
@@ -226,12 +247,11 @@ describe('D06-07 production health readiness', () => {
           },
         },
       };
-
       const fetchImpl: typeof fetch = Object.assign(
         async (input: RequestInfo | URL) => {
           const url = String(input);
           if (url.includes('/health')) {
-            return Response.json(mockHealth, { status: 200 });
+            return Response.json(healthBody, { status: 200 });
           }
           return new Response('missing', { status: 404 });
         },
@@ -241,9 +261,12 @@ describe('D06-07 production health readiness', () => {
       const report = await verifyPortableDeploymentReceipt({
         recordPath,
         cwd: root,
-        fetchImpl: serveHealthStatus === 200 ? fetch : fetchImpl,
+        runner,
+        fetchImpl,
       });
 
+      expect(dockerInspectCount, 'docker inspect binding').toBeGreaterThanOrEqual(4);
+      expect(volumeInspectCount, 'volume inspect binding').toBeGreaterThanOrEqual(2);
       expect(
         report.verification_dimension_count,
         'verification_dimension_count'
@@ -251,11 +274,61 @@ describe('D06-07 production health readiness', () => {
       expect(report.serve_health_status, 'serve_health_status').toBe(200);
       expect(report.identity_mismatch_rejected, 'identity_mismatch_rejected').toBe(true);
       expect(report.memory_drift_rejected, 'memory_drift_rejected').toBe(true);
+      expect(report.dimensions.find((d) => d.name === 'live_services')?.ok, 'live_services').toBe(
+        true
+      );
+      expect(report.dimensions.find((d) => d.name === 'live_volumes')?.ok, 'live_volumes').toBe(
+        true
+      );
+      expect(
+        report.dimensions.find((d) => d.name === 'live_memory_contract')?.ok,
+        'live_memory_contract'
+      ).toBe(true);
       expect(report.receipt.imageDigest).toBeTruthy();
       expect(report.receipt.serviceCount).toBe(4);
       expect(report.receipt.namedVolumeCount).toBe(2);
       expect(report.credential_value_count).toBe(0);
       expect(report.ok).toBe(true);
+
+      // Negative control: zero live services must fail closed (no soft-pass on count=0).
+      const emptyContainersReceipt = buildPortableDeploymentReceipt({
+        authorizationScope: `${host}:${imageDigest}`,
+        host,
+        baseUrl,
+        loopbackPort: 44_111,
+        serveHttpsPort: 44_111,
+        serveUrl,
+        privateServeTarget: 'http://127.0.0.1:44111',
+        project: 'holocron-production',
+        image: `registry.local/holocron-platform@${imageDigest}`,
+        imageDigest,
+        sourceRevision,
+        composeSha256,
+        composeGeneration,
+        deployedAt: '2026-08-05T17:52:21.133Z',
+        containers: {
+          postgres: '11'.repeat(32),
+          mastra: '22'.repeat(32),
+          scheduler: '33'.repeat(32),
+          'zero-cache': '44'.repeat(32),
+        },
+        previousImage: `registry.local/holocron-platform@sha256:${'e5'.repeat(32)}`,
+        previousDigest: `sha256:${'e5'.repeat(32)}`,
+        memoryLimitsGib: DEFAULT_MEMORY_LIMITS_GIB,
+        releasePath: resolve(root, 'release.json'),
+        composePath: resolve(root, 'compose.yaml'),
+        overridePath: resolve(root, 'override.yaml'),
+      });
+      const emptyPath = resolve(root, 'empty-containers-record.json');
+      writeFileSync(emptyPath, `${JSON.stringify(emptyContainersReceipt, null, 2)}\n`);
+      await expect(
+        verifyPortableDeploymentReceipt({
+          recordPath: emptyPath,
+          cwd: root,
+          runner: () => ({ status: 1, stdout: '', stderr: 'No such object' }),
+          fetchImpl,
+        })
+      ).rejects.toThrow(/portable receipt verification failed|live_services/i);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

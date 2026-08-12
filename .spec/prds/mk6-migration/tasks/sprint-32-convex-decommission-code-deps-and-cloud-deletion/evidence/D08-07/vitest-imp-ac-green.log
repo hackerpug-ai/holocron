@@ -1,0 +1,13 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s32/D08-07
+
+ ✓ |integration| services/platform/tests/integration/service/health-readiness.test.ts (5 tests | 1 skipped) 24ms
+ ✓ |integration| services/platform/tests/integration/sprint29-deployment.test.ts (17 tests | 1 skipped) 1076ms
+     ✓ IMP-AC-12 reusable non-mutating host preflight  460ms
+     ✓ IMP-AC-15 authorization and zero-value leakage  472ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed | 2 skipped (22)
+   Start at  10:44:03
+   Duration  2.23s (transform 769ms, setup 224ms, import 1.74s, tests 1.10s, environment 0ms)
+

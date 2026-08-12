@@ -730,15 +730,23 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(text).not.toContain(canary);
     expect(text).not.toMatch(/process\.env/);
 
-    // Live Docker volume contract (read-only) — two durable volume names exist or are creatable namespace.
+    // Receipt must bind the exact two durable volume names (never empty / always-true).
+    expect(receipt.durableVolumes).toEqual(['holocron-postgres', 'holocron-blobs']);
+    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(2);
+    expect(receipt.services).toEqual(['postgres', 'mastra', 'scheduler', 'zero-cache']);
+    expect(receipt.imageDigest, 'empty image digest').toMatch(/^sha256:[a-f0-9]{64}$/);
+
+    // Live Docker volume API is reachable (read-only). When the named volumes exist
+    // on the engine they must both be present; absence is allowed on cold hosts.
     const volumes = spawnSync('docker', ['volume', 'ls', '-q'], { encoding: 'utf8' });
     expect(volumes.status).toBe(0);
     const volumeNames = (volumes.stdout ?? '').split(/\n/).filter(Boolean);
-    // Presence of the holocron named volumes on a host that has run production is preferred evidence.
     const named = ['holocron-postgres', 'holocron-blobs'].filter((name) =>
-      volumeNames.some((v) => v === name || v.endsWith(name))
+      volumeNames.some((v) => v === name || v.endsWith(`_${name}`) || v.endsWith(name))
     );
-    expect(named.length === 2 || volumeNames.length >= 0).toBe(true);
+    if (named.length > 0) {
+      expect(named.length, 'live holocron named volumes must be complete when any exist').toBe(2);
+    }
   });
 
   it('IMP-AC-15 authorization and zero-value leakage', () => {
@@ -822,5 +830,40 @@ describe('D06-07 inference1 deployment contract', () => {
     });
     expect(authorizedReceipt.authorized, 'authorized_deployment').toBe(true);
     expect(countCredentialValueMatches(JSON.stringify(authorizedReceipt), [canary])).toBe(0);
+
+    // runOrFail must not dump unredacted child stderr (secret canary in stderr).
+    const secretStderr = `POSTGRES_PASSWORD=${canary}`;
+    const redactionRunner = (command: string, args: string[]) => {
+      ledger.push({ command, args: [...args] });
+      return { status: 1, stdout: '', stderr: secretStderr };
+    };
+    expect(() =>
+      applyProductionDeployment({
+        authorized: true,
+        releasePath: '/missing/release.json',
+        baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+        secretsPath: '/missing/secrets.yaml',
+        secretStoreRoot: '/missing',
+        target: 'holocron',
+        runner: redactionRunner,
+      })
+    ).toThrow();
+    // Regardless of which gate fails first, no thrown path may echo the canary stderr.
+    try {
+      applyProductionDeployment({
+        authorized: true,
+        releasePath: '/missing/release.json',
+        baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+        secretsPath: '/missing/secrets.yaml',
+        secretStoreRoot: '/missing',
+        target: 'holocron',
+        runner: redactionRunner,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).not.toContain(canary);
+      expect(message).not.toContain(secretStderr);
+      expect(message).not.toMatch(/POSTGRES_PASSWORD=/);
+    }
   });
 });

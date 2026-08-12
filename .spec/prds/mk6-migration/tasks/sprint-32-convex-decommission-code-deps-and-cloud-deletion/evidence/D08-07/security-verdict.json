@@ -1,0 +1,91 @@
+{
+  "lens": "security",
+  "schema_version": 1,
+  "task_id": "D08-07",
+  "commit": "d056f6afef95942bf0698faad50d643f691e109e",
+  "reviewer": "security-reviewer",
+  "verdict": "NEEDS_FIXES",
+  "status": "NEEDS_FIXES",
+  "critical": [
+    {
+      "id": "SEC-C1",
+      "title": "Receipt verification memory-drift check is a semantic stub",
+      "owasp": "A01:2021 Broken Access Control / integrity binding failure",
+      "location": "services/platform/src/deploy/verify-production.ts:868-892",
+      "detail": "memory_drift_rejected never reads live Docker mem_limit/State; it only compares an in-memory drifted plan to the receipt plan and is always true by construction. Deploy identity integrity gate can report success without proving the running stack matches the memory contract."
+    }
+  ],
+  "high": [
+    {
+      "id": "SEC-H1",
+      "title": "Identity mismatch soft-pass when Serve health fails",
+      "location": "services/platform/src/deploy/verify-production.ts:858-861",
+      "detail": "If serve_health_status !== 200, identity_mismatch_rejected is forced true (default proveIdentityMismatch !== false). Fails to prove fail-closed identity rejection against a live endpoint."
+    },
+    {
+      "id": "SEC-H2",
+      "title": "live_services dimension accepts zero live containers",
+      "location": "services/platform/src/deploy/verify-production.ts:801-806",
+      "detail": "liveServiceCount === 0 is treated as ok, so receipt-driven verify can pass dimensions without binding to running containers."
+    },
+    {
+      "id": "SEC-H3",
+      "title": "Unredacted child-process error leakage",
+      "location": "services/platform/src/deploy/production-deploy.ts:601-602; verify-production.ts:203-204",
+      "detail": "runOrFail embeds raw stderr/stdout into thrown Error messages. Docker/Compose failures can echo env-substituted secret values into operator-visible errors, violating the task constraint NEVER log unredacted command errors."
+    },
+    {
+      "id": "SEC-H4",
+      "title": "IMP-AC-14 test theatre / mock private Serve",
+      "location": "services/platform/tests/integration/service/health-readiness.test.ts:134-245",
+      "detail": "Test injects mock /health and defaults baseUrl to LAN 192.168.1.160, so GREEN does not prove private Tailscale Serve HTTPS 44111 or real identity drift rejection."
+    }
+  ],
+  "medium": [
+    {
+      "id": "SEC-M1",
+      "title": "target_host preflight always passes",
+      "location": "services/platform/src/deploy/production-deploy.ts:1015",
+      "detail": "setCheck('target_host', true, target) never validates against hostname/MagicDNS Self; mis-targeted deploy hosts can preflight green."
+    },
+    {
+      "id": "SEC-M2",
+      "title": "Funnel detection is brittle string/regex over JSON",
+      "location": "services/platform/src/deploy/production-deploy.ts:889-903",
+      "detail": "Funnel enablement heuristics may miss alternate status shapes; prefer structured Serve JSON path validation of HTTPS handlers + explicit Funnel object emptiness."
+    },
+    {
+      "id": "SEC-M3",
+      "title": "countCredentialValueMatches incomplete canary set",
+      "location": "services/platform/src/deploy/production-deploy.ts:1184-1203",
+      "detail": "Patterns miss HOLO_KEY_*, RESTIC_PASSWORD, R2 keys, base64url random secrets without key labels. Receipt gate is necessary but not sufficient."
+    },
+    {
+      "id": "SEC-M4",
+      "title": "PrivateServeStatus.raw may retain full Serve status blob",
+      "location": "services/platform/src/deploy/production-deploy.ts:196-204,923",
+      "detail": "If serialized to evidence, peer/topology metadata could leak beyond non-secret receipt policy."
+    }
+  ],
+  "low": [
+    {
+      "id": "SEC-L1",
+      "title": "LOC budget overrun / missing RED evidence",
+      "detail": "~1883 insertions vs 300 LOC budget; tdd_mode red_first has no RED capture artifacts under evidence/D08-07/."
+    }
+  ],
+  "positive_controls": [
+    "deploy:preflight is non-mutating with command ledger; evidence shows zero mutations and real docker/tailscale invocations",
+    "applyPrivateTailscaleServe requires authorized; uses tailscale serve --bg --https=N http://127.0.0.1:N; refuses Funnel",
+    "assertApprovedSecretFile rejects symlink, non-regular, group/world-writable, out-of-store paths",
+    "Unauthorized apply refuses before Docker; runtime secrets under ~/.config/holocron not under evidence/",
+    "Receipt construction scans for credential-shaped values; no secrets.yaml values in committed evidence"
+  ],
+  "quality_gate": {
+    "no_critical_vulnerabilities": false,
+    "input_validation_on_all_functions": false,
+    "authentication_authorization_checks": true,
+    "no_hardcoded_secrets": true
+  },
+  "do_not_merge": true
+}

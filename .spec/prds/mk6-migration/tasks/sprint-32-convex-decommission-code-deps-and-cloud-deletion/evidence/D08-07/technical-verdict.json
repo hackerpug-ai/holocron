@@ -1,0 +1,136 @@
+{
+  "lens": "technical",
+  "schema_version": 1,
+  "task_id": "D08-07",
+  "commit": "d056f6afef95942bf0698faad50d643f691e109e",
+  "reviewer": "security-reviewer",
+  "tdd_mode": "red_first",
+  "verdict": "NEEDS_FIXES",
+  "progress": "2/6 ACs complete",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "maps_to": "IMP-AC-7",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "services/platform/src/deploy/production-deploy.ts:732-814 evaluateMemoryCapacity + real Docker/sysctl observers",
+        ".spec/.../evidence/D08-07/memory-capacity.json real docker_vm_memory_gib=7 rejects 50 GiB plan"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "maps_to": "IMP-AC-10",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "services/platform/deploy/compose/README.md ARM64/digest/secrets/44111/Serve/memory/rollback/verify",
+        "scripts/deploy-inference1.sh no LAN derivation; MagicDNS Serve URL"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "maps_to": "IMP-AC-12",
+      "satisfied": false,
+      "verdict": "PARTIAL",
+      "evidence": [
+        "production-deploy.ts:959-1180 nine PREFLIGHT_CHECK_NAMES; docker_mutation_count from ledger",
+        "evidence/D08-07/preflight.json preflight_check_count=9 docker_mutation_count=0 real docker/tailscale commands",
+        "GAP: target_host always true (line 1015); loopback_port does not prove availability (1017-1030)"
+      ]
+    },
+    {
+      "id": "AC-4",
+      "maps_to": "IMP-AC-13",
+      "satisfied": false,
+      "verdict": "PARTIAL",
+      "evidence": [
+        "applyProductionDeployment receipt schema + credential gate (1486-1523)",
+        "GAP: IMP-AC-13 test uses buildPortableDeploymentReceipt only; volume assert volumeNames.length>=0 always true (sprint29-deployment.test.ts:741)"
+      ]
+    },
+    {
+      "id": "AC-5",
+      "maps_to": "IMP-AC-14",
+      "satisfied": false,
+      "verdict": "FAIL",
+      "evidence": [
+        "STUB: memory_drift_rejected is in-process plan inequality only (verify-production.ts:868-892) — never compares live Docker mem_limit to receipt",
+        "SOFT-PASS: identity_mismatch_rejected defaults true when serve_health_status!=200 (858-861)",
+        "WEAK: live_services ok when liveServiceCount===0 (801-806)",
+        "TEST THEATRE: health-readiness.test.ts IMP-AC-14 uses mock fetch and LAN 192.168.1.160 default"
+      ]
+    },
+    {
+      "id": "AC-6",
+      "maps_to": "IMP-AC-15",
+      "satisfied": false,
+      "verdict": "PARTIAL",
+      "evidence": [
+        "unauthorized apply fails closed before Docker (1306-1308); preflight mutations=0",
+        "GAP: authorized_deployment proven only via builder authorized:true hardcode (test 795-823)",
+        "HIGH: runOrFail embeds unredacted child stderr/stdout (production-deploy.ts:601-602)"
+      ]
+    },
+    { "id": "TC-1", "maps_to_ac": "AC-1", "satisfied": true },
+    { "id": "TC-2", "maps_to_ac": "AC-2", "satisfied": true },
+    { "id": "TC-3", "maps_to_ac": "AC-3", "satisfied": false },
+    { "id": "TC-4", "maps_to_ac": "AC-4", "satisfied": false },
+    { "id": "TC-5", "maps_to_ac": "AC-5", "satisfied": false },
+    { "id": "TC-6", "maps_to_ac": "AC-6", "satisfied": false }
+  ],
+  "stubs": [
+    {
+      "severity": "CRITICAL",
+      "location": "services/platform/src/deploy/verify-production.ts:868-892",
+      "pattern": "semantic_stub",
+      "summary": "memory_drift_rejected does not inspect running deployment memory; always true by construction"
+    },
+    {
+      "severity": "HIGH",
+      "location": "services/platform/src/deploy/verify-production.ts:858-861",
+      "pattern": "half_implementation",
+      "summary": "identity mismatch soft-pass when health fails"
+    },
+    {
+      "severity": "HIGH",
+      "location": "services/platform/src/deploy/verify-production.ts:801-806",
+      "pattern": "half_implementation",
+      "summary": "live_services accepts zero matching containers as ok"
+    },
+    {
+      "severity": "HIGH",
+      "location": "services/platform/tests/integration/service/health-readiness.test.ts:129-245",
+      "pattern": "test_theatre",
+      "summary": "IMP-AC-14 mock health + LAN default instead of private Serve proof"
+    },
+    {
+      "severity": "MEDIUM",
+      "location": "services/platform/tests/integration/sprint29-deployment.test.ts:686-741",
+      "pattern": "test_theatre",
+      "summary": "IMP-AC-13 synthetic receipt; volume assertion always true"
+    }
+  ],
+  "security": {
+    "no_critical_vulns": false,
+    "input_validation": "partial",
+    "authz_before_mutation": true,
+    "hardcoded_secrets": false,
+    "credential_leakage_risks": [
+      "runOrFail unredacted child stderr/stdout in errors (production-deploy.ts:601-602; verify-production.ts:203-204)"
+    ],
+    "tailscale": {
+      "funnel_invoked": false,
+      "serve_backend_loopback_only": true,
+      "serve_apply_requires_authorize": true,
+      "status_json_funnel_check": true
+    },
+    "preflight_non_mutating": true
+  },
+  "red_green": {
+    "red_first_required": true,
+    "red_evidence_present": false,
+    "green_evidence": "evidence/D08-07/vitest-imp-ac.log (IMP-AC-12/14/15 named; incomplete RED trail)"
+  },
+  "do_not_merge": true
+}

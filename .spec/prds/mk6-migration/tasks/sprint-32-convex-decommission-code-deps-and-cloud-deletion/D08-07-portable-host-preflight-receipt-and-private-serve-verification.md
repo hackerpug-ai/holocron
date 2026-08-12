@@ -12,7 +12,7 @@
 > **Verification policy:** tests=true · red=true · seeded=true
 > **Scope:** `/Users/inference1/.config/brain/improvements/imp-plan-holocron-as-a-whole-1786510841.json` (binding strategic option)
 > **LOC budget:** 300 of 1080 aggregate
-> Status: Backlog
+> Status: Review — remediating NEEDS_FIXES (AC-5/redaction/live-bind; pending re-review)
 
 **Capabilities:** CAP-DEP-01
 **Binding requirements:** IMP-AC-7, IMP-AC-10, IMP-AC-12, IMP-AC-13, IMP-AC-14, IMP-AC-15
@@ -42,7 +42,7 @@ TASK: D08-07 - Portable host preflight, receipt, and private Serve verification
 ================================================================================
 
 TASK_TYPE:  FEATURE
-STATUS:     Backlog
+STATUS:     Review — remediating NEEDS_FIXES
 PRIORITY:   P0
 EFFORT:     L
 AGENT:      implementer=devops-engineer | reviewer=security-reviewer
@@ -53,7 +53,7 @@ RUNTIME_COMMANDS:
   typecheck: pnpm tsgo --noEmit
   lint:      pnpm biome check --no-errors-on-unmatched --diagnostic-level=error services/platform/src/deploy/production-deploy.ts services/platform/src/deploy/production-release.ts services/platform/src/deploy/verify-production.ts services/platform/src/http/deployment-identity.ts services/platform/src/cli/holo.ts services/platform/tests/integration/sprint29-deployment.test.ts services/platform/tests/integration/service/health-readiness.test.ts
 
-PROGRESS: 0/6 ACs complete
+PROGRESS: remediating AC-5 FAIL + HIGH redaction/live-bind; AC-1/2 PASS retained
 ```
 
 ## Outcome
@@ -70,15 +70,15 @@ An operator can preflight, authorize, deploy, receipt, privately Serve, and veri
 
 ## Done when
 
-- [ ] The six local ACs are GREEN and trace to the six binding `IMP-AC-*` requirements.
-- [ ] `holo deploy:preflight --target holocron --port 44111 --json` is reusable and non-mutating, reporting all nine named dimensions.
+- [ ] The six local ACs are GREEN and trace to the six binding `IMP-AC-*` requirements. <!-- remediating after d056f6af NEEDS_FIXES; pending security re-review -->
+- [x] `holo deploy:preflight --target holocron --port 44111 --json` is reusable and non-mutating, reporting all nine named dimensions. <!-- PASS: nine checks, docker_mutation_count=0; target_host now probes hostname/MagicDNS -->
 - [ ] Private Serve is applied only after authorization using the supported equivalent of `tailscale serve --bg --https=44111 http://127.0.0.1:44111`; `tailscale serve status --json` proves no Funnel.
-- [ ] The deployment receipt is non-secret and records host, port, Serve URL, digest/revision, four services, two volumes, limits, and generation.
-- [ ] Receipt-driven verification rejects live identity, immutable metadata, service/volume, port/Serve, or memory drift; full tests/typecheck/lint pass.
+- [x] The deployment receipt is non-secret and records host, port, Serve URL, digest/revision, four services, two volumes, limits, and generation. <!-- durableVolumes fixed to holocron-postgres+holocron-blobs; always-true volume assert removed -->
+- [x] Receipt-driven verification rejects live identity, immutable metadata, service/volume, port/Serve, or memory drift; full tests/typecheck/lint pass. <!-- live_services===4 required; HostConfig.Memory vs receipt; no identity soft-pass; volumes inspected; runOrFail redacted; evidence/D08-07/{red-invariants,vitest-imp-ac-green,biome-check} -->
 
 ## Acceptance criteria
 
-### AC-1 — Docker VM allocation and host headroom are separate [PRIMARY]
+### AC-1 — Docker VM allocation and host headroom are separate [PRIMARY] — **PASS**
 
 `SOURCE_REQUIREMENT: IMP-AC-7` — Documentation and preflight separately cover Docker Desktop's macOS Linux-VM memory allocation: it must be sufficient for the selected container-limit sum while preserving host headroom, and smaller hosts use lower configured limits rather than attempting 50 GiB.
 
@@ -91,8 +91,9 @@ GIVEN a 64 GiB Mac, selected container sum 50 GiB, Docker VM 54 GiB, and require
 - TEST_FUNCTION: `IMP-AC-7 Docker VM and host headroom`
 - VERIFY: `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-deployment.test.ts -t 'IMP-AC-7'`
 - SCENARIO: observe sum 50, VM 54, required headroom 8, observed headroom 10, and smaller-host lowering; reject zero/empty memory observations.
+- **REVIEW_VERDICT: PASS** — `evaluateMemoryCapacity` + real `observeDockerVmMemoryGib`/`observeHostPhysicalMemoryGib` (production-deploy.ts:732-814); evidence memory-capacity.json shows real VM=7 fails 50 GiB plan with `smaller_host_lower_limits_required=true`; zero/empty rejected.
 
-### AC-2 — Operator documentation is executable and complete
+### AC-2 — Operator documentation is executable and complete — **PASS**
 
 `SOURCE_REQUIREMENT: IMP-AC-10` — Operator documentation covers ARM64 prerequisites, immutable digest packaging, secret injection, loopback port 44111, private Serve lifecycle, persistence, memory sizing, rollback preflight, and real deployment verification.
 
@@ -105,8 +106,9 @@ GIVEN the portable operator runbook, WHEN every machine-checkable command is exe
 - TEST_FUNCTION: `IMP-AC-10 portable operator runbook contract`
 - VERIFY: `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-deployment.test.ts -t 'IMP-AC-10'`
 - SCENARIO: execute documented commands; reject empty verification, zero service/volume counts, stale LAN exposure, or destructive rollback.
+- **REVIEW_VERDICT: PASS** — compose/README.md documents ARM64, digest, secrets, 44111, Serve (no Funnel), volumes, memory layers, rollback-preflight, verify; rejects LAN derivation in docs/script; CLI entrypoints present.
 
-### AC-3 — Host preflight is comprehensive and non-mutating
+### AC-3 — Host preflight is comprehensive and non-mutating — **PARTIAL**
 
 `SOURCE_REQUIREMENT: IMP-AC-12` — A reusable non-mutating host preflight checks Docker/Compose, linux/arm64 compatibility, target validity, loopback port, Tailscale Serve, secret paths, volumes, container-memory sum, and Docker Desktop VM memory sufficiency/headroom.
 
@@ -119,8 +121,9 @@ GIVEN a candidate host and release, WHEN preflight runs, THEN nine named dimensi
 - TEST_FUNCTION: `IMP-AC-12 reusable non-mutating host preflight`
 - VERIFY: `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-deployment.test.ts -t 'IMP-AC-12'`
 - SCENARIO: observe `preflight_check_count=9`, `docker_mutation_count=0`, validated paths, port 44111; reject empty results or any mutation.
+- **REVIEW_VERDICT: PARTIAL** — Nine named checks + zero mutations proven (preflight.json ledger all mutating=false; real docker/tailscale). Gaps: `target_host` always `ok:true` without host identity probe (production-deploy.ts:1015); `loopback_port` only asserts port===44111, not bind/availability (1017-1030).
 
-### AC-4 — Deployment receipt binds the exact release
+### AC-4 — Deployment receipt binds the exact release — **PARTIAL**
 
 `SOURCE_REQUIREMENT: IMP-AC-13` — The deploy command writes a non-secret receipt recording target host, loopback port, private Serve URL, immutable image identity, exact four services, named volumes, selected memory allocation, and generation.
 
@@ -133,8 +136,9 @@ GIVEN explicit authorization and passing preflight, WHEN deployment completes, T
 - TEST_FUNCTION: `IMP-AC-13 non-secret portable deployment receipt`
 - VERIFY: `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-deployment.test.ts -t 'IMP-AC-13'`
 - SCENARIO: compare receipt to real containers; reject zero counts, empty digest, inherited environment, or credential values.
+- **REVIEW_VERDICT: PARTIAL** — Production `applyProductionDeployment` builds full non-secret receipt with Serve/memory fields and credential gate (1486-1523). Test uses `buildPortableDeploymentReceipt` only; volume assertion `named.length===2 || volumeNames.length>=0` is always true (test theatre); no receipt↔live container bind evidence.
 
-### AC-5 — One command verifies receipt, Serve, and live state
+### AC-5 — One command verifies receipt, Serve, and live state — **REMEDIATED (pending re-review)**
 
 `SOURCE_REQUIREMENT: IMP-AC-14` — One-command verification consumes the receipt, checks the private Serve URL and all readiness dimensions, and fails closed if identity, immutable metadata, or memory contract differs from the running deployment.
 
@@ -147,8 +151,9 @@ GIVEN the authorized receipt, WHEN `deploy:verify` compares the private Serve re
 - TEST_FUNCTION: `IMP-AC-14 receipt-driven private verification`
 - VERIFY: `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/service/health-readiness.test.ts -t 'IMP-AC-14'`
 - SCENARIO: observe ≥8 dimensions, health 200, identity/memory drift rejection; reject empty receipt metadata or disconnected Serve.
+- **REMEDIATION:** `live_services` requires exactly 4 running matching containers; `live_volumes` requires holocron-postgres+holocron-blobs; `live_memory_contract` compares receipt.memoryLimitsGib to live HostConfig.Memory; `memory_drift_rejected` proves a drifted plan does not match live bytes; identity mismatch never soft-passes on down health; IMP-AC-14 uses deterministic Docker/Tailscale runner binding (≥4 inspect + ≥2 volume) plus zero-service negative control.
 
-### AC-6 — Authorization and redaction gate every mutation
+### AC-6 — Authorization and redaction gate every mutation — **REMEDIATED (pending re-review)**
 
 `SOURCE_REQUIREMENT: IMP-AC-15` — Preflight, receipt, and verification retain explicit authorization before mutating Docker state and never print secret values.
 
@@ -161,6 +166,7 @@ GIVEN unauthorized and authorized invocations, WHEN preflight/deploy/verify and 
 - TEST_FUNCTION: `IMP-AC-15 authorization and zero-value leakage`
 - VERIFY: `PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint29-deployment.test.ts -t 'IMP-AC-15'`
 - SCENARIO: scan stdout/stderr/receipt/evidence; reject an unauthorized mutation, inherited environment dump, empty scan, or any credential value.
+- **REMEDIATION:** `runOrFail` in production-deploy/verify-production/production-release emits command+exit only (no child stderr/stdout). IMP-AC-15 asserts secret canary in simulated stderr never appears in thrown messages. Optional `preflight: true` on apply runs non-mutating host preflight before Docker mutation.
 
 ## Test criteria
 
@@ -258,7 +264,7 @@ Must pass: non-mutating preflight; authorization before mutation; private Serve 
 
 Should verify: canonical path checks resist symlink/race escapes; errors are redacted at every child-process boundary; no `process.env` serialization; Tailscale status proves Serve and not Funnel; lower-memory hosts remain supported.
 
-Verdict: `APPROVED | NEEDS_FIXES`
+Prior verdict: `NEEDS_FIXES` — security-reviewer on `d056f6af` (2026-08-12). Remediation applied (live bind, memory contract, identity fail-closed, runOrFail redaction, RED evidence). Pending security re-review.
 
 ## Dependencies
 
