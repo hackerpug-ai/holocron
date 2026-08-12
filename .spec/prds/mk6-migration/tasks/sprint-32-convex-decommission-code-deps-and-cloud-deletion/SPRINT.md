@@ -14,7 +14,7 @@ capability_coverage: [CAP-CUT-01, CAP-BAK-01, CAP-DEP-01]
 **Sequence:** 32
 **Timeline:** Phase 7 — Cutover and Decommission
 **Status:** In Progress
-> Progress: 0/9 tasks completed · updated 2026-08-12T15:27:53Z
+> Progress: 0/9 tasks completed · updated 2026-08-12T16:16:03Z
 **Proposed by:** devops-engineer + integrator
 **Milestone:** — (`sprint-32`)
 **Branch:** `mk6-decommission`
