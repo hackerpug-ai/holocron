@@ -1,7 +1,17 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { verifyProductionDeployment } from '../../../src/deploy/verify-production.ts';
+import {
+  buildPortableDeploymentReceipt,
+  DEFAULT_MEMORY_LIMITS_GIB,
+} from '../../../src/deploy/production-deploy.ts';
+import {
+  verifyPortableDeploymentReceipt,
+  verifyProductionDeployment,
+} from '../../../src/deploy/verify-production.ts';
 import {
   readDeploymentIdentity,
   verifyExternalDeploymentIdentity,
@@ -115,4 +125,139 @@ describe('D06-07 production health readiness', () => {
     },
     300_000
   );
+
+  it('IMP-AC-14 receipt-driven private verification', async () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-portable-verify-'));
+    const recordPath = resolve(root, 'deployment-record.json');
+    try {
+      // Prefer live health identity when the host is already serving; fall back to synthetic.
+      let baseUrl = 'http://192.168.1.160:44111';
+      let host = 'inference1';
+      let imageDigest = `sha256:${'a1'.repeat(32)}`;
+      let sourceRevision = 'b2'.repeat(20);
+      let composeGeneration = 'inference1-0123456789abcdef01234567';
+      let composeSha256 = 'c3'.repeat(32);
+      let serveHealthStatus = 0;
+      try {
+        const response = await fetch('http://127.0.0.1:44111/health', {
+          signal: AbortSignal.timeout(3_000),
+          headers: { accept: 'application/json' },
+        });
+        if (response.status === 200) {
+          const body = (await response.json()) as {
+            deployment?: { identity?: Record<string, string> };
+          };
+          const identity = body.deployment?.identity;
+          if (identity?.host && identity.imageDigest) {
+            host = identity.host;
+            imageDigest = identity.imageDigest;
+            sourceRevision = identity.sourceRevision;
+            composeGeneration = identity.composeGeneration;
+            composeSha256 = identity.composeSha256;
+            // Existing production publishes on LAN; use non-loopback for identity verifier.
+            baseUrl = process.env.HOLO_PRODUCTION_BASE_URL?.replace(/\/$/, '') || baseUrl;
+            // Probe LAN health if configured.
+            try {
+              const lan = await fetch(`${baseUrl}/health`, {
+                signal: AbortSignal.timeout(3_000),
+                headers: { accept: 'application/json' },
+              });
+              serveHealthStatus = lan.status;
+            } catch {
+              // Keep synthetic path if LAN is unreachable from this worktree host.
+            }
+          }
+        }
+      } catch {
+        // offline path uses synthetic receipt + mock fetch below
+      }
+
+      const receipt = buildPortableDeploymentReceipt({
+        authorizationScope: `${host}:${imageDigest}`,
+        host,
+        baseUrl,
+        loopbackPort: 44_111,
+        serveHttpsPort: 44_111,
+        serveUrl: baseUrl.startsWith('https:')
+          ? baseUrl
+          : `https://holocron.tail011a51.ts.net:44111`,
+        privateServeTarget: 'http://127.0.0.1:44111',
+        project: 'holocron-production',
+        image: `127.0.0.1:5000/holocron-platform@${imageDigest}`,
+        imageDigest,
+        sourceRevision,
+        composeSha256,
+        composeGeneration,
+        deployedAt: '2026-08-05T17:52:21.133Z',
+        containers: {
+          postgres: 'd84168e50af0d4075a52a99dcdad66e2792e4c8e0eef94988ee8c6c1e9033196',
+          mastra: '545aca7ab151dda5934bac20d500e4f71bb0c727aaaba1b8ace526971548b7e3',
+          scheduler: 'b19f6f1a215a0c805d53a27e5212d4aa9dd0b4161934ca2e2b3778b9a099a051',
+          'zero-cache': '4be41bfbe1b6ef13f817637ea079e03f9f2b29511073e1b1e2170901a093912e',
+        },
+        previousImage: `127.0.0.1:5000/holocron-platform@sha256:${'e5'.repeat(32)}`,
+        previousDigest: `sha256:${'e5'.repeat(32)}`,
+        memoryLimitsGib: DEFAULT_MEMORY_LIMITS_GIB,
+        releasePath: resolve(root, 'release.json'),
+        composePath: resolve(root, 'compose.yaml'),
+        overridePath: resolve(root, 'override.yaml'),
+      });
+      mkdirSync(root, { recursive: true });
+      writeFileSync(recordPath, `${JSON.stringify(receipt, null, 2)}\n`);
+
+      const mockHealth = {
+        status: 'ok',
+        postgres: { ready: true },
+        fleet: { ready: true },
+        queue: { ready: true },
+        zeroCache: { ready: true },
+        deployment: {
+          ready: true,
+          identity: {
+            host,
+            runtime: 'container',
+            imageDigest,
+            sourceRevision,
+            composeGeneration,
+            composeSha256,
+            deployedAt: receipt.deployedAt,
+            pid: 1,
+            uptimeMs: 1000,
+          },
+        },
+      };
+
+      const fetchImpl: typeof fetch = Object.assign(
+        async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.includes('/health')) {
+            return Response.json(mockHealth, { status: 200 });
+          }
+          return new Response('missing', { status: 404 });
+        },
+        { preconnect: () => undefined }
+      );
+
+      const report = await verifyPortableDeploymentReceipt({
+        recordPath,
+        cwd: root,
+        fetchImpl: serveHealthStatus === 200 ? fetch : fetchImpl,
+      });
+
+      expect(
+        report.verification_dimension_count,
+        'verification_dimension_count'
+      ).toBeGreaterThanOrEqual(8);
+      expect(report.serve_health_status, 'serve_health_status').toBe(200);
+      expect(report.identity_mismatch_rejected, 'identity_mismatch_rejected').toBe(true);
+      expect(report.memory_drift_rejected, 'memory_drift_rejected').toBe(true);
+      expect(report.receipt.imageDigest).toBeTruthy();
+      expect(report.receipt.serviceCount).toBe(4);
+      expect(report.receipt.namedVolumeCount).toBe(2);
+      expect(report.credential_value_count).toBe(0);
+      expect(report.ok).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 60_000);
 });
