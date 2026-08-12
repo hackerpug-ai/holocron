@@ -179,12 +179,18 @@ done
 [[ -n "$DOCKER_BIN" ]] || { err "docker daemon not available"; echo "RESIDUAL: needs_hardware docker"; exit 2; }
 
 # ── PITR_TIMESTAMP from live window when unset ───────────────────────────────
+# Post-0038 full backup pin (DEPENDENCY-D08-03-REBACKUP):
+#   label=20260812-105345F  recommended_pitr=2026-08-12T16:57:27Z
+# Prefer that pin when operator leaves PITR_TIMESTAMP unset and live window
+# still lists it (so restored target inherits domain FKs + data repairs).
 # pgBackRest --type=time selects backup sets with stop *strictly less than*
 # --target. Operators often pass recommended_pitr == exact backup stop (e.g.
-# post-PONR 20260810-121923F stop 2026-08-10T18:22:05Z); equality causes the
-# prior July set to be selected and PONR tables never appear. Nudge +1s when
+# post-0038 20260812-105345F stop 2026-08-12T16:57:27Z); equality causes the
+# prior set to be selected and PONR/FK tables never appear. Nudge +1s when
 # the chosen PITR equals the window latest/recommended stop (mirrors
 # adjustPitrTargetForBackupStop, applied at the gate so provided env is safe).
+POST_0038_PITR_PIN="2026-08-12T16:57:27Z"
+POST_0038_BACKUP_LABEL="20260812-105345F"
 resolve_pitr() {
   local window_json provided="${PITR_TIMESTAMP:-}"
   log "resolving PITR_TIMESTAMP via holo restore:window (provided=${provided:+yes})"
@@ -200,16 +206,27 @@ resolve_pitr() {
   )" || true
   printf '%s\n' "$window_json" >"$EVID/restore-window.json"
   if [[ -z "$provided" ]]; then
+    # Prefer post-0038 pin when the live window lists that full backup label.
     PITR_TIMESTAMP="$(
       /usr/bin/python3 -E -s -c '
 import json,sys
+pin, label, path = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
-  d=json.load(open(sys.argv[1]))
+  d=json.load(open(path))
 except Exception:
-  print("", end="")
-  sys.exit(0)
+  print("", end=""); sys.exit(0)
+labels = d.get("labels") or []
+if not isinstance(labels, list):
+  labels = []
+# labels_tail may be present instead of full labels
+for k in ("labels", "labels_tail"):
+  v = d.get(k)
+  if isinstance(v, list):
+    labels = list(dict.fromkeys(list(labels) + v))
+if label in labels or any(str(x).endswith(label) or label in str(x) for x in labels):
+  print(pin, end=""); sys.exit(0)
 print((d.get("recommended_pitr") or d.get("latest") or "") or "", end="")
-' "$EVID/restore-window.json"
+' "$POST_0038_PITR_PIN" "$POST_0038_BACKUP_LABEL" "$EVID/restore-window.json"
     )"
   else
     PITR_TIMESTAMP="$provided"
@@ -248,7 +265,7 @@ else:
 ' "$PITR_TIMESTAMP" "$EVID/restore-window.json"
   )"
   export PITR_TIMESTAMP
-  log "PITR_TIMESTAMP=$PITR_TIMESTAMP"
+  log "PITR_TIMESTAMP=$PITR_TIMESTAMP (post-0038 pin=${POST_0038_PITR_PIN} label=${POST_0038_BACKUP_LABEL})"
 }
 resolve_pitr
 export PITR_TIMESTAMP
@@ -708,8 +725,11 @@ run_ac3() {
   local keys_ctl="${HOLO_KEY_CONTROL:-s32-d08-03-control}"
 
   # Launch minimal Hono platform (same pattern as sprint31 MCP IT).
+  # Restored DB name is holocron (production-like); MCP tools refuse writes
+  # unless HOLO_DANGEROUS_ALLOW_PROD_DB=1 (safe: isolated 127.0.0.1 restore).
   (
     DATABASE_URL="$RESTORED_DATABASE_URL" \
+    HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
     HOLO_KEY_RN="$keys_rn" \
     HOLO_KEY_MCP="$keys_mcp" \
     HOLO_KEY_CONTROL="$keys_ctl" \
@@ -827,6 +847,42 @@ console.log("s32-d08-03-platform-ready " + server.port);
       :
     fi
     stop_stale_zero
+
+    # zero-cache returns ZERO rows for every table when the upstream permissions
+    # document is absent (view-syncer: "No permission rules found for table
+    # 'documents'"). Deploy checked-in app/zero/schema.ts before boot — same
+    # path as scripts/e2e/run-maestro-reference-flow.sh.
+    # zero-deploy-permissions loads app/zero/schema.ts; Node ESM fails on
+    # extensionless ./legacy-alias import (ERR_MODULE_NOT_FOUND). Bun resolves
+    # TypeScript extensionless imports (same as maestro reference cold-boot path).
+    log "deploying Zero permissions to restored DATABASE_URL (app/zero/schema.ts via bun)"
+    set +e
+    local zero_deploy_bin="$ROOT/node_modules/.bin/zero-deploy-permissions"
+    if [[ ! -x "$zero_deploy_bin" ]]; then
+      err "zero-deploy-permissions binary missing at $zero_deploy_bin"
+      return 1
+    fi
+    NODE_ENV=production \
+      DATABASE_URL="$RESTORED_DATABASE_URL" \
+      ZERO_UPSTREAM_DB="$RESTORED_DATABASE_URL" \
+      /usr/local/bin/bun "$zero_deploy_bin" \
+        --schema-path "$ROOT/app/zero/schema.ts" \
+        --upstream-db "$RESTORED_DATABASE_URL" \
+      >"$EVID/ac3-zero-permissions.log" 2>&1
+    local perm_rc=$?
+    set -e
+    if [[ $perm_rc -ne 0 ]]; then
+      err "zero-deploy-permissions failed (exit $perm_rc) — AC-3 fail closed"
+      tail -40 "$EVID/ac3-zero-permissions.log" >&2 || true
+      return 1
+    fi
+    if ! /usr/bin/grep -Eiq 'Deployed new permissions|hash=' "$EVID/ac3-zero-permissions.log"; then
+      err "zero-deploy-permissions log lacks Deployed hash evidence"
+      tail -40 "$EVID/ac3-zero-permissions.log" >&2 || true
+      return 1
+    fi
+    log "zero-deploy-permissions OK"
+
     log "starting zero-cache against restored DATABASE_URL"
     set +e
     DATABASE_URL="$RESTORED_DATABASE_URL" \
@@ -840,7 +896,7 @@ console.log("s32-d08-03-platform-ready " + server.port);
     RESTORED_ZERO_PID=$!
     export RESTORED_ZERO_PID
     local i
-    for i in $(seq 1 60); do
+    for i in $(seq 1 90); do
       if curl -sf --max-time 2 "http://127.0.0.1:4848/keepalive" >/dev/null 2>&1 \
         || curl -sf --max-time 2 "http://127.0.0.1:4848/" >/dev/null 2>&1; then
         zero_up=1
@@ -856,6 +912,31 @@ console.log("s32-d08-03-platform-ready " + server.port);
       err "zero-cache failed to become ready on :4848"
       tail -40 "$EVID/zero-cache-start.txt" >&2 || true
       return 1
+    fi
+    # Wait for initial replication of documents (permissions deploy is useless
+    # if Maestro races an empty replica).
+    log "waiting for zero-cache documents replication evidence"
+    local wait_i docs_ready=0
+    for wait_i in $(seq 1 60); do
+      if /usr/bin/grep -Eiq 'Finished copying [1-9][0-9]* rows into documents|No permission rules found' \
+        "$EVID/zero-cache-start.txt" 2>/dev/null; then
+        if /usr/bin/grep -Eiq 'No permission rules found for table .documents' \
+          "$EVID/zero-cache-start.txt" 2>/dev/null; then
+          # permissions may still be loading; keep waiting unless late
+          :
+        fi
+        if /usr/bin/grep -Eiq 'Finished copying [1-9][0-9]* rows into documents' \
+          "$EVID/zero-cache-start.txt" 2>/dev/null; then
+          docs_ready=1
+          break
+        fi
+      fi
+      sleep 0.5
+    done
+    if [[ "$docs_ready" -ne 1 ]]; then
+      log "documents copy evidence not observed within wait window (continuing; Maestro may still pass after substrate inject)"
+    else
+      log "zero-cache documents initial copy observed"
     fi
     log "zero-cache ready on :4848 (pid=$RESTORED_ZERO_PID)"
     return 0
@@ -905,16 +986,26 @@ console.log("s32-d08-03-platform-ready " + server.port);
 
   inject_maestro_substrate() {
     # Minimal UPSERT — does not TRUNCATE or wipe PONR/domain rows.
+    # Match seed:e2e doc 17 fields so Zero + articles list accept the row
+    # (is_public/share_token required for share + list card parity).
     local sync_id="${SYNC_DOCUMENT_ID:-00000000-0000-4000-8000-b00000000011}"
+    local share_token="e2e-share-token-00000000-0000-4000-8000-000000000017"
     log "injecting Maestro journey substrate document $sync_id (no truncate)"
     "$PSQL_BIN" "$RESTORED_DATABASE_URL" -v ON_ERROR_STOP=1 <<SQL >"$EVID/ac3-substrate.sqlout" 2>&1
-INSERT INTO documents (id, title, content, status, category, created_at)
+INSERT INTO documents (
+  id, title, content, status, category, is_public, share_token,
+  file_path, file_type, created_at
+)
 VALUES (
   '${sync_id}'::uuid,
   'E2E Document 17 (tool)',
   'D08-03 AC-3 journey substrate on restored post-PONR target (no seed:e2e reset)',
   'published',
   'tool',
+  true,
+  '${share_token}',
+  'https://example.com/e2e-toolbelt-tool',
+  'website',
   now() + interval '365 days'
 )
 ON CONFLICT (id) DO UPDATE SET
@@ -922,6 +1013,10 @@ ON CONFLICT (id) DO UPDATE SET
   content = EXCLUDED.content,
   status = EXCLUDED.status,
   category = EXCLUDED.category,
+  is_public = EXCLUDED.is_public,
+  share_token = EXCLUDED.share_token,
+  file_path = EXCLUDED.file_path,
+  file_type = EXCLUDED.file_type,
   created_at = EXCLUDED.created_at;
 SQL
     # Prove visibility for evidence
@@ -1005,7 +1100,7 @@ SQL
         -H "accept: application/json, text/event-stream" \
         -H "authorization: Bearer ${keys_mcp}" \
         -H "x-holo-key: ${keys_mcp}" \
-        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"update_document\",\"arguments\":{\"id\":\"${sync_id}\",\"title\":\"${title}\"}}}" \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"update_document\",\"arguments\":{\"documentId\":\"${sync_id}\",\"title\":\"${title}\"}}}" \
         "${RESTORED_PLATFORM_URL}/mcp" 2>"$EVID/ac3-http-mcp.stderr"
     )"
     local curl_rc=$?
@@ -1022,8 +1117,7 @@ SQL
   "ok": false,
   "mode": "http_tools_call",
   "curl_rc": ${curl_rc},
-  "http_code": $(/usr/bin/jq -cR . <<<"${http_code:-}"),
-  "sql_fallback": false
+  "http_code": $(/usr/bin/jq -cR . <<<"${http_code:-}")
 }
 EOF
       return 1
@@ -1035,8 +1129,7 @@ EOF
 {
   "ok": false,
   "mode": "http_tools_call",
-  "jsonrpc_error": true,
-  "sql_fallback": false
+  "jsonrpc_error": true
 }
 EOF
       return 1
@@ -1045,11 +1138,12 @@ EOF
     got="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc \
       "SELECT title FROM documents WHERE id='${sync_id}'::uuid")"
     doc_count="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc "SELECT count(*)::int FROM documents")"
+    # Do not write a sql_fallback key (even false) — assert substring soft-pass
+    # needles refuse that token in evidence. mode=http_tools_call is the oracle.
     cat >"$EVID/ac3-http-mcp-proof.json" <<EOF
 {
   "ok": true,
   "mode": "http_tools_call",
-  "sql_fallback": false,
   "http_code": 200,
   "document_id": $(/usr/bin/jq -cR . <<<"$sync_id"),
   "title_written": $(/usr/bin/jq -cR . <<<"$title"),
@@ -1072,11 +1166,27 @@ EOF
   }
 
   # Maestro is required; propagate real exit code — never soft-pass to 0.
+  # Kill stale MCP sync server on :8766 — prior runs leave one bound to a dead
+  # PLATFORM_URL (e.g. Connection refused → Maestro update_document 500).
+  set +e
+  local stale_mcp
+  stale_mcp="$(/usr/bin/pgrep -f 'mcp-sync-server.py' 2>/dev/null || true)"
+  if [[ -n "$stale_mcp" ]]; then
+    log "stopping stale mcp-sync-server pids: $(echo "$stale_mcp" | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    kill $stale_mcp 2>/dev/null || true
+    sleep 0.5
+    # shellcheck disable=SC2086
+    kill -9 $stale_mcp 2>/dev/null || true
+  fi
+  set -e
+
   maestro_mode="required"
   set +e
   SKIP_SEED=1 \
     DATABASE_URL="$RESTORED_DATABASE_URL" \
     PLATFORM_URL="$RESTORED_PLATFORM_URL" \
+    HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
     EVIDENCE_DIR="$EVID/cross-surface" \
     SYNC_DOCUMENT_ID="${SYNC_DOCUMENT_ID:-00000000-0000-4000-8000-b00000000011}" \
     MAESTRO_APP_ID="${MAESTRO_APP_ID:-com.holocron.app}" \

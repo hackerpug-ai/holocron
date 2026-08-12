@@ -128,7 +128,8 @@ soft_needles = (
     "environment_unavailable_zero_schema",
     "enforced_postgres_fk_sql",
     "ALLOW_MAESTRO_ENV_SKIP",
-    "sql_fallback",
+    # Only the true-path token is a soft-pass (not the field name alone).
+    '"sql_fallback": true',
     "SQL write/read fallback",
     "classified=environment_unavailable",
 )

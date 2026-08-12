@@ -1,0 +1,133 @@
+{
+  "schema": "holo.decommission.deletion-gate.v1",
+  "task_id": "D08-03",
+  "status": "pass",
+  "deletion_eligible": true,
+  "convex_deletion_performed": false,
+  "gate_run_id": "s32d0803-20260812T175411Z",
+  "pitr_timestamp": "2026-08-12T16:57:28Z",
+  "host": "s28r3-gate-s32d0803-20260812T170510Z",
+  "captured_at": "2026-08-12T17:55:32Z",
+  "evidence_dir": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z",
+  "checks": [
+    {
+      "id": "AC-1",
+      "name": "fresh_isolated_restore",
+      "status": "pass",
+      "observations": {
+        "host": "s28r3-gate-s32d0803-20260812T170510Z",
+        "pitr_timestamp": "2026-08-12T16:57:28Z",
+        "attestation_ok": true,
+        "POSTGRES_PARITY_PASS": true,
+        "BLOB_PARITY_PASS": true,
+        "matched_objects": 11
+      }
+    },
+    {
+      "id": "AC-2",
+      "name": "post_ponr_integrity",
+      "status": "pass",
+      "observations": {
+        "ponr_rows": 1,
+        "post_export_rows": 2,
+        "domain_rows": 88,
+        "edgeCount": 80,
+        "orphans": 0,
+        "unenforcedEdges": 0,
+        "fk_audit_mode": "etl:fk-audit",
+        "ledger_sha256": "080ee43d85619d523674528c2f8f60c6b9c34e045ae045e28f575b3157aa949f",
+        "matched_objects": 11
+      }
+    },
+    {
+      "id": "AC-3",
+      "name": "real_app_mcp_journeys",
+      "status": "pass",
+      "observations": {
+        "mcp_exit_code": 0,
+        "maestro_exit_code": 0,
+        "maestro_mode": "required",
+        "http_mcp_ok": true,
+        "http_mcp_mode": "http_tools_call",
+        "zero_bound": true
+      }
+    },
+    {
+      "id": "AC-4",
+      "name": "machine_gate_emit",
+      "status": "pass",
+      "observations": {
+        "schema": "holo.decommission.deletion-gate.v1",
+        "manifest_count": 12,
+        "convex_deletion_performed": false
+      }
+    }
+  ],
+  "evidence_manifest": [
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/attestation.json",
+      "sha256": "a8fca396efbd708a636d5185551f5bbd765c2b1cadd3edf7a2ce40357d3ee942",
+      "bytes": 2011
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/parity-report.json",
+      "sha256": "34a114cae5b9b2f4685460c37ad55af0bae984ec5404737170c5567c881e103a",
+      "bytes": 5806
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/fk-audit.json",
+      "sha256": "2059501fb048b2233d0075ad42f55dc0249a921220c9fb35621e82f9b1b67d0a",
+      "bytes": 2669
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac1-summary.json",
+      "sha256": "62a5bff0a0ad2da3c5ef2a556e999fae490fcb8382786a7e5fa48e8cc235ec90",
+      "bytes": 339
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac2-summary.json",
+      "sha256": "46e366ea3ee0622342f1882d424e713d2c6567ed5a7fba48dde9d1370b349676",
+      "bytes": 287
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac2-sql.json",
+      "sha256": "7c8e963df2e05580da401c38565a62e0996bdcfffb0db9102012ec257ce145a3",
+      "bytes": 67
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac2-parity-extract.json",
+      "sha256": "0431f8528bd5fdacca602a8b12022726535e7c5bb18450ff9eec8a83759313b3",
+      "bytes": 489
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac3-summary.json",
+      "sha256": "20dd1bfea4237b4a1ddd7052b54fdface61cc788bcf04f021a2975d000ad28bd",
+      "bytes": 346
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac3-mcp-integration.txt",
+      "sha256": "5f01ef78b3be5f1664e889b54fe2fec73368ca07c6068312222836cc3de01cf7",
+      "bytes": 474
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac3-maestro.txt",
+      "sha256": "db0333a3ec50d9b7b7f7dff574c2c2c09224438c9c42c6d5621d333d6f074f5b",
+      "bytes": 3720
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/ac3-http-mcp-proof.json",
+      "sha256": "2ca30eaf28d18d05d421872feb03898ac4bcc5b94847a0c07ce9f490238ecce3",
+      "bytes": 324
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/restore-window.json",
+      "sha256": "ac7c051b9ef4f24231ebad7d7de581de4d12f84c09e620890e595dedff4fdf1d",
+      "bytes": 931
+    }
+  ],
+  "secret_scan_hits": 0,
+  "notes": [
+    "Pre-deletion eligibility only \u2014 does not delete or deactivate Convex.",
+    "Restore used distinct R2_RESTORE_* tuple with REQUIRE_LIVE_R2_RO=1."
+  ]
+}
