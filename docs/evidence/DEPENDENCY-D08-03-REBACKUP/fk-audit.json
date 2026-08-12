@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "orphans": 0,
+  "checkedRelationships": 50,
+  "enforcedForeignKeys": 73,
+  "unenforcedEdges": [],
+  "excludedFromEnforcement": [
+    {
+      "sourceTable": "researchFindings",
+      "sourceField": "citationIds",
+      "referencedTable": "citations",
+      "target": "research_findings.citation_ids",
+      "reason": "array_ids"
+    },
+    {
+      "sourceTable": "audioSegments",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "target": "audio_segments.blob_id",
+      "reason": "storage_ref"
+    },
+    {
+      "sourceTable": "videoTranscripts",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "target": "video_transcripts.blob_id",
+      "reason": "storage_ref"
+    },
+    {
+      "sourceTable": "audioTranscripts",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "target": "audio_transcripts.blob_id",
+      "reason": "storage_ref"
+    },
+    {
+      "sourceTable": "audioTranscriptJobs",
+      "sourceField": "audioStorageId",
+      "referencedTable": "_storage",
+      "target": "audio_transcript_jobs.audio_storage_id",
+      "reason": "storage_ref"
+    },
+    {
+      "sourceTable": "notifications",
+      "sourceField": "feedItemIds",
+      "referencedTable": "feedItems",
+      "target": "notifications.feed_item_ids",
+      "reason": "array_ids"
+    },
+    {
+      "sourceTable": "feedItems",
+      "sourceField": "itemIds",
+      "referencedTable": "subscriptionContent",
+      "target": "feed_items.item_ids",
+      "reason": "array_ids"
+    },
+    {
+      "sourceTable": "feedItems",
+      "sourceField": "subscriptionIds",
+      "referencedTable": "subscriptionSources",
+      "target": "feed_items.subscription_ids",
+      "reason": "array_ids"
+    },
+    {
+      "sourceTable": "improvementRequests",
+      "sourceField": "mergeTargetId",
+      "referencedTable": "improvementRequests",
+      "target": "improvement_requests.agent_decision",
+      "reason": "nested_jsonb"
+    },
+    {
+      "sourceTable": "improvementRequests",
+      "sourceField": "mergedFromIds",
+      "referencedTable": "improvementRequests",
+      "target": "improvement_requests.merged_from_ids",
+      "reason": "array_ids"
+    },
+    {
+      "sourceTable": "improvementImages",
+      "sourceField": "storageId",
+      "referencedTable": "_storage",
+      "target": "improvement_images.blob_id",
+      "reason": "storage_ref"
+    },
+    {
+      "sourceTable": "voiceSessions",
+      "sourceField": "audioStorageId",
+      "referencedTable": "_storage",
+      "target": "voice_sessions.blob_id",
+      "reason": "storage_ref"
+    }
+  ],
+  "edgeCount": 80,
+  "issues": []
+}

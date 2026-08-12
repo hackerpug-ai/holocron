@@ -1,0 +1,10 @@
+{
+  "probed_at": "2026-08-12T16:58:31.500673",
+  "ponr_count": 1,
+  "audit_count": 2,
+  "ponr_max": "2026-08-08 19:26:27.871603-06",
+  "audit_max": "2026-08-10 12:12:14.988071-06",
+  "documents_count": 19,
+  "fk_constraint_count": 73,
+  "migration_0038_applied_at": "2026-08-12 10:30:12.533819-06"
+}
