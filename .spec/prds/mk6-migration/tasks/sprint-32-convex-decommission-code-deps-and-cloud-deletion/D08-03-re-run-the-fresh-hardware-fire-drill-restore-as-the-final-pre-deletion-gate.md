@@ -10,7 +10,7 @@
 > **Proposed By:** `devops-engineer`
 > **TDD_MODE:** `skipped` · **RED_GREEN_REQUIRED:** no
 > **Verification policy:** tests=false · red=false · seeded=true
-> Status: Backlog
+> Status: Done
 
 **Capabilities:** CAP-CUT-01 · CAP-BAK-01
 **PRD refs:** UC-SYNC-05 · T-SYNC-018 · CAP-CUT-01 · CAP-BAK-01
@@ -38,7 +38,7 @@ WRITE-PROHIBITED: Convex/cloud deletion; source mini PGDATA/blob roots; writer R
 
 TASK: D08-03 — Re-run the fresh-hardware fire-drill restore as the final pre-deletion gate
 TASK_TYPE: INFRA
-STATUS: Backlog
+STATUS: Done
 PRIORITY: P0
 EFFORT: M (90 min)
 AGENT: devops-engineer
@@ -62,13 +62,13 @@ Restore Postgres and blobs on fresh hardware from the immutable R2 baseline; pro
 
 ## Acceptance criteria
 
-AC-1 [PRIMARY] Fresh isolated restore: GIVEN a new GATE_RUN_ID, PITR_TIMESTAMP, immutable baseline, and distinct tuple, WHEN the R2 proof, fresh-target provisioner, and volume-bound fire drill run, THEN the restore exits 0 and emits valid attestation/parity evidence. TEST_TIER=e2e; VERIFICATION_SERVICE=R2+pgBackRest+restic+Postgres+fresh-target; FLOW_REF=T-SYNC-018.
+- [x] AC-1 [PRIMARY] Fresh isolated restore: GIVEN a new GATE_RUN_ID, PITR_TIMESTAMP, immutable baseline, and distinct tuple, WHEN the R2 proof, fresh-target provisioner, and volume-bound fire drill run, THEN the restore exits 0 and emits valid attestation/parity evidence. TEST_TIER=e2e; VERIFICATION_SERVICE=R2+pgBackRest+restic+Postgres+fresh-target; FLOW_REF=T-SYNC-018. **PASS** — attestation `holo.fresh-target.fire-drill-attestation.v1` ok=true host `s28r3-gate-s32d0803-20260812T170510Z`; parity POSTGRES/BLOB pass matched_objects=11; gate_run `s32d0803-20260812T175411Z` (AC-1 bound/resumed from 170510Z live target).
 
-AC-2 Post-PONR integrity: GIVEN AC-1 evidence, WHEN FK, SQL, and parity checks run, THEN PONR/write/domain rows, FK integrity, ledger SHA-256, row parity, and blob parity pass with non-zero values. TEST_TIER=e2e; VERIFICATION_SERVICE=Postgres+FK+baseline+blob-parity; FLOW_REF=T-SYNC-018.
+- [x] AC-2 Post-PONR integrity: GIVEN AC-1 evidence, WHEN FK, SQL, and parity checks run, THEN PONR/write/domain rows, FK integrity, ledger SHA-256, row parity, and blob parity pass with non-zero values. TEST_TIER=e2e; VERIFICATION_SERVICE=Postgres+FK+baseline+blob-parity; FLOW_REF=T-SYNC-018. **PASS** — real `etl:fk-audit` on restored DB: edgeCount=80 orphans=0 unenforcedEdges=0; ponr=1 post_export=2 domain=88; ledger 64-hex; not `enforced_postgres_fk_sql`.
 
-AC-3 Real app/MCP journeys: GIVEN restored platform, Zero, app, HTTP MCP, and stdio MCP surfaces, WHEN the cross-surface flow and Sprint 31 MCP integration run without reset/reseed, THEN real non-empty payload/event evidence is observed. TEST_TIER=e2e; VERIFICATION_SERVICE=Postgres+Zero+Maestro+HTTP-MCP+stdio-MCP; FLOW_REF=T-SYNC-018.
+- [x] AC-3 Real app/MCP journeys: GIVEN restored platform, Zero, app, HTTP MCP, and stdio MCP surfaces, WHEN the cross-surface flow and Sprint 31 MCP integration run without reset/reseed, THEN real non-empty payload/event evidence is observed. TEST_TIER=e2e; VERIFICATION_SERVICE=Postgres+Zero+Maestro+HTTP-MCP+stdio-MCP; FLOW_REF=T-SYNC-018. **PASS** — maestro_mode=required maestro_exit_code=0 (full cross-surface COMPLETED + p95); HTTP MCP `tools/call` update_document http=200 title read-back; stdio MCP integration exit 0.
 
-AC-4 Machine gate: GIVEN AC-1 through AC-3 evidence, WHEN the artifact is validated, THEN all checks pass, evidence is hash-bound, deletion_eligible=true, and convex_deletion_performed=false. TEST_TIER=integration; VERIFICATION_SERVICE=jq+evidence-manifest+operator-gate; FLOW_REF=T-SYNC-018.
+- [x] AC-4 Machine gate: GIVEN AC-1 through AC-3 evidence, WHEN the artifact is validated, THEN all checks pass, evidence is hash-bound, deletion_eligible=true, and convex_deletion_performed=false. TEST_TIER=integration; VERIFICATION_SERVICE=jq+evidence-manifest+operator-gate; FLOW_REF=T-SYNC-018. **PASS** — `deletion-gate.json` schema v1 status=pass deletion_eligible=true convex_deletion_performed=false; 12 manifest digests recompute OK; secret_scan_hits=0; no soft-pass markers; assert script PASS.
 
 ## Scope
 

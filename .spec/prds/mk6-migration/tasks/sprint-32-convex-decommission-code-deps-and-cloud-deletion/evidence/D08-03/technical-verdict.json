@@ -1,0 +1,109 @@
+{
+  "schema": "holo.review.technical-verdict.v1",
+  "lens": "technical+security",
+  "role": "security-reviewer",
+  "task_id": "D08-03",
+  "commit_sha": "0fdecc4e064813f0a2f8379a84a45ee6778c8f0f",
+  "verdict": "APPROVED",
+  "status": "PASS",
+  "deletion_eligible_claim": true,
+  "convex_deletion_performed": false,
+  "gate_run_id": "s32d0803-20260812T175411Z",
+  "do_not_merge": true,
+  "hard_checks": [
+    {
+      "id": "HC-1",
+      "name": "real_etl_fk_audit_restored_db",
+      "verdict": "PASS",
+      "evidence": [
+        ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175411Z/fk-audit.json ok=true edgeCount=80 orphans=0 unenforcedEdges=[] checkedRelationships=50 enforcedForeignKeys=73",
+        "ac2-summary.json fk_audit_mode=etl:fk-audit (not enforced_postgres_fk_sql)",
+        "gate log: AC-2 PASS (resume etl:fk-audit) against RESTORED_DATABASE_URL 127.0.0.1:60686/holocron"
+      ]
+    },
+    {
+      "id": "HC-2",
+      "name": "maestro_real_exit_0_not_soft_pass",
+      "verdict": "PASS",
+      "evidence": [
+        "ac3-summary.json maestro_exit_code=0 maestro_mode=required",
+        "ac3-maestro.txt full cross-surface flow COMPLETED including p95 assert; no fail-closed trailer",
+        "cross-surface/timings.json n=5 p95_ms=1479 slo_ms=5000"
+      ]
+    },
+    {
+      "id": "HC-3",
+      "name": "http_mcp_tools_call_real",
+      "verdict": "PASS",
+      "evidence": [
+        "ac3-http-mcp-proof.json mode=http_tools_call ok=true http_code=200",
+        "ac3-http-mcp.json jsonrpc tools/call update_document updated=true",
+        "title_written==title_read_back D08-03-http-mcp-20260812T175532Z documents_payload_count=20"
+      ]
+    },
+    {
+      "id": "HC-4",
+      "name": "no_secrets_in_gate",
+      "verdict": "PASS",
+      "evidence": [
+        "deletion-gate.json secret_scan_hits=0",
+        "assert-s32-d08-03-deletion-gate.sh PASS (secret pattern refuse)",
+        "no password/AKIA/Bearer/DATABASE_URL credential material in gate or hash-bound evidence"
+      ]
+    },
+    {
+      "id": "HC-5",
+      "name": "no_soft_pass_markers",
+      "verdict": "PASS",
+      "evidence": [
+        "zero hits for environment_unavailable, enforced_postgres_fk_sql, ALLOW_MAESTRO_ENV_SKIP, sql_fallback true, SQL write/read fallback",
+        "blocked-residual.json status=cleared goal:unblocked (prior refuse path cleared after true pass)"
+      ]
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "verdict": "PASS",
+      "note": "Fresh isolated restore attested; gate run resumes AC-1 from s32d0803-20260812T170510Z with live RESTORED_DATABASE_URL and bound attestation/parity (POSTGRES_PARITY_PASS, BLOB_PARITY_PASS, matched_objects=11)."
+    },
+    {
+      "id": "AC-2",
+      "verdict": "PASS",
+      "note": "ponr_rows=1 post_export_rows=2 domain_rows=88; real etl:fk-audit orphans=0 unenforced=0 edgeCount=80; ledger 64-hex; row/blob parity non-zero."
+    },
+    {
+      "id": "AC-3",
+      "verdict": "PASS",
+      "note": "Maestro required rc=0; Sprint 31 stdio MCP integration pass; HTTP MCP tools/call real with Postgres title bind; Zero bound."
+    },
+    {
+      "id": "AC-4",
+      "verdict": "PASS",
+      "note": "Machine gate schema-valid all-pass hash-bound deletion_eligible=true convex_deletion_performed=false; 12/12 manifest digests match; assert re-run exit 0."
+    }
+  ],
+  "security": {
+    "status": "PASS",
+    "critical": [],
+    "high": [],
+    "medium": [
+      "CONVEX_EXPORT_DIR resolved to fixture path under .worktrees/etl-impl/.../etl-valid-export (symlink). Acceptable for catalog/id-map input because audit still queried restored Postgres (checkedRelationships=50, enforcedForeignKeys=73); not the refused enforced_postgres_fk_sql substitute. Prefer binding a restore-local export root when present."
+    ],
+    "low": [
+      "blocked-residual.json remains in evidence tree with historical failed_ac fields while status=cleared — non-blocking after pass gate.",
+      "HOLO_DANGEROUS_ALLOW_PROD_DB=1 used against isolated 127.0.0.1 restore ports only; ensure this never targets live prod DSN."
+    ]
+  },
+  "quality_gate": {
+    "no_critical_vulnerabilities": true,
+    "input_validation_fail_closed": true,
+    "auth_checks_mcp_r2_restore_tuple": true,
+    "no_hardcoded_secrets": true
+  },
+  "notes": [
+    "Pre-deletion eligibility only — does not delete or deactivate Convex.",
+    "Do not merge as a product merge action; this is a security/technical pass on gate honesty.",
+    "Hand deletion-gate.json to D08-04/D08-05 without mutation."
+  ]
+}

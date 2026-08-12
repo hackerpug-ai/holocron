@@ -5,8 +5,8 @@
   "prefix": "pgbackrest",
   "listed_via": "authorized-writer-control-plane",
   "object_created": false,
-  "listed_at": "2026-08-10T18:30:00Z",
-  "in_key": "pgbackrest/archive/main/18-1/0000000100000005/0000000100000005000000E7-d154c6cbb694ea7acbc25ed4b0bf0fdd7b38c5aa.gz",
+  "listed_at": "2026-08-12T17:05:00Z",
+  "in_key": "pgbackrest/backup/main/20260812-105345F/backup.manifest",
   "out_key": "drill-out/qa24-scope-probe-out.txt",
   "oracles": {
     "in_prefix": ["list-prefix", "head-object", "get-object"],
@@ -14,5 +14,5 @@
     "out_of_prefix_require": "AccessDenied",
     "refuse": ["404", "NoSuchKey", "unclassified"]
   },
-  "note": "D08-03: re-listed existing in_key after prior WAL segment (E3) was pruned (404 broke QA19 writer preflight). out_key unchanged under drill-out/ for AccessDenied out-of-prefix oracle. Writer-listed; object_created=false; never 404 oracle."
+  "note": "D08-03 post-0038 rebackup: re-listed durable in_key under 20260812-105345F (prior archive WAL segment 0000000100000005/…E7 was pruned → QA19 404). out_key unchanged under drill-out/ for AccessDenied out-of-prefix oracle. Writer-listed; object_created=false; never 404 oracle."
 }

@@ -68,7 +68,7 @@ const SOFT_PASS_MARKERS = [
   'environment_unavailable_zero_schema',
   'enforced_postgres_fk_sql',
   'ALLOW_MAESTRO_ENV_SKIP',
-  'sql_fallback',
+  '"sql_fallback": true',
   'SQL write/read fallback',
 ] as const;
 

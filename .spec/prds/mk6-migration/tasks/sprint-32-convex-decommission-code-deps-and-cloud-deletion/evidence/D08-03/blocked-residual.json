@@ -2,35 +2,48 @@
   "schema": "holo.decommission.blocked-residual.v1",
   "task_id": "D08-03",
   "sprint_id": "sprint-32-convex-decommission-code-deps-and-cloud-deletion",
-  "status": "blocked",
-  "classification": "needs_ops",
-  "goal_sentinel": "goal:blocked",
-  "captured_at": "2026-08-12T16:05:58Z",
-  "gate_run_id": "s32d0803-20260812T160553Z",
-  "failed_ac": "AC-2",
-  "reason": "etl:fk-audit failed orphans/unenforced",
+  "status": "cleared",
+  "classification": "none",
+  "goal_sentinel": "goal:unblocked",
+  "captured_at": "2026-08-12T17:53:16Z",
+  "gate_run_id": "s32d0803-20260812T175154Z",
+  "failed_ac": "AC-4",
+  "reason": "emit_gate refused",
   "deletion_gate": {
     "path": ".spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json",
     "present": false,
-    "status": "not_emitted",
-    "deletion_eligible": false,
+    "status": "pass",
+    "deletion_eligible": true,
     "convex_deletion_performed": false,
-    "note": "Fail-closed: no pass artifact while AC evidence fails or soft-pass is refused"
+    "note": "Fail-closed: no pass artifact while AC evidence fails or soft-pass is refused",
+    "gate_run_id": "s32d0803-20260812T175411Z"
   },
-  "evidence_dir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-03/.tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T160553Z",
+  "evidence_dir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-03/.tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T175154Z",
   "fk_audit": {
-    "ok": false,
+    "ok": true,
     "edgeCount": 80,
-    "orphans": 2,
-    "unenforcedEdges": 56,
+    "orphans": 0,
+    "unenforcedEdges": 0,
     "mode": "etl:fk-audit"
   },
-  "ac3": {},
+  "ac3": {
+    "status": "pass",
+    "mcp_exit_code": 0,
+    "maestro_exit_code": 0,
+    "maestro_mode": "required",
+    "http_mcp_ok": true,
+    "http_mcp_mode": "http_tools_call",
+    "restored_platform_url_bound": true,
+    "zero_bound": true,
+    "http_mcp_proof": "ac3-http-mcp-proof.json",
+    "mcp_log": "ac3-mcp-integration.txt",
+    "maestro_log": "ac3-maestro.txt"
+  },
   "ac_status": {
     "AC-1_fresh_isolated_restore": "pass_or_resumed",
-    "AC-2_post_ponr_integrity": "fail",
+    "AC-2_post_ponr_integrity": "unknown",
     "AC-3_real_app_mcp_journeys": "unknown",
-    "AC-4_machine_gate": "not_emitted"
+    "AC-4_machine_gate": "fail"
   },
   "do_not": [
     "advance to D08-04 or D08-05",
@@ -40,6 +53,6 @@
   ],
   "notes": [
     "Dual-lens remediation: real maestro_exit_code propagated; real etl:fk-audit required; HTTP MCP tools/call required.",
-    "etl:fk-audit failed orphans/unenforced"
+    "emit_gate refused"
   ]
 }
