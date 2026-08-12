@@ -584,165 +584,58 @@ PY
 EOF
   log "SQL ponr_rows=$ponr_rows post_export_rows=$post_export_rows domain_rows=$domain_rows"
 
-  # FK integrity against restored DB — enforced-edge subset only.
+  # FK integrity against restored DB — contract path (etl:fk-audit).
   #
-  # Do NOT call runFkAudit/etl:fk-audit here: that library prefers convex/schema.ts
-  # (full Convex catalog) over any edges artifact and counts ETL export rewrite
-  # mismatches as "orphans". D08-03 needs honest post-restore integrity:
-  #   - edgeCount  = public Postgres FOREIGN KEY constraints present (>0)
-  #   - orphans    = rows violating those constraints (LEFT JOIN NOT EXISTS) == 0
-  #   - unenforcedEdges = [] when auditing the enforced-only set (no full-catalog noise)
-  local edges_enforced="$EVID/referential-edges.enforced.json"
-  local fk_helper="$EVID/run-fk-audit-enforced.ts"
-  cat >"$fk_helper" <<'TS'
-import { writeFileSync } from "node:fs";
-
-const postgres = (await import("postgres")).default;
-
-const evid = process.env.EVID!;
-const edgesOut = process.env.EDGES_ENFORCED!;
-const databaseUrl = process.env.DATABASE_URL!;
-
-const sql = postgres(databaseUrl, { max: 1, prepare: false });
-
-type FkEdge = {
-  sourceTable: string;
-  sourceField: string;
-  referencedTable: string;
-  referencedField: string;
-  constraintName: string;
-  target: string;
-  optional?: boolean;
-  array?: boolean;
-};
-
-// Single-column public FKs from pg_catalog (authoritative for restored image).
-const fkMeta = await sql<
-  {
-    src_table: string;
-    src_col: string;
-    ref_table: string;
-    ref_col: string;
-    conname: string;
-  }[]
->`
-  SELECT
-    src.relname AS src_table,
-    a.attname AS src_col,
-    conf.relname AS ref_table,
-    af.attname AS ref_col,
-    c.conname AS conname
-  FROM pg_constraint c
-  JOIN pg_class src ON src.oid = c.conrelid
-  JOIN pg_namespace n ON n.oid = src.relnamespace AND n.nspname = 'public'
-  JOIN pg_class conf ON conf.oid = c.confrelid
-  JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true
-  JOIN LATERAL unnest(c.confkey) WITH ORDINALITY AS fk(attnum, ord) ON fk.ord = ck.ord
-  JOIN pg_attribute a
-    ON a.attrelid = c.conrelid AND a.attnum = ck.attnum AND NOT a.attisdropped
-  JOIN pg_attribute af
-    ON af.attrelid = c.confrelid AND af.attnum = fk.attnum AND NOT af.attisdropped
-  WHERE c.contype = 'f'
-    AND cardinality(c.conkey) = 1
-  ORDER BY src.relname, a.attname
-`;
-
-const edges: FkEdge[] = fkMeta.map((r) => ({
-  sourceTable: r.src_table,
-  sourceField: r.src_col,
-  referencedTable: r.ref_table,
-  referencedField: r.ref_col,
-  constraintName: r.conname,
-  target: `${r.src_table}.${r.src_col}`,
-  optional: false,
-  array: false,
-}));
-
-const artifact = {
-  version: 1,
-  source: "d08-03-enforced-postgres-fks",
-  derivedFromSchema: false,
-  edgeCount: edges.length,
-  edges,
-  generatedAt: new Date().toISOString(),
-  note:
-    "D08-03: edges = public single-column Postgres FOREIGN KEY constraints on restored DB (enforced subset only)",
-};
-writeFileSync(edgesOut, JSON.stringify(artifact, null, 2) + "\n");
-
-// Real integrity: count dangling FK values (NULL child keys allowed).
-const issues: Array<{
-  table: string;
-  column: string;
-  constraint: string;
-  orphanCount: number;
-  reason: "fk_orphan";
-}> = [];
-let orphanTotal = 0;
-for (const e of edges) {
-  // Identifiers from pg_catalog only — still quote defensively.
-  const q = `
-    SELECT count(*)::int AS n
-    FROM "${e.sourceTable.replace(/"/g, '""')}" AS s
-    LEFT JOIN "${e.referencedTable.replace(/"/g, '""')}" AS r
-      ON s."${e.sourceField.replace(/"/g, '""')}" = r."${e.referencedField.replace(/"/g, '""')}"
-    WHERE s."${e.sourceField.replace(/"/g, '""')}" IS NOT NULL
-      AND r."${e.referencedField.replace(/"/g, '""')}" IS NULL
-  `;
-  const rows = await sql.unsafe<{ n: number }[]>(q);
-  const n = Number(rows[0]?.n ?? 0);
-  if (n > 0) {
-    orphanTotal += n;
-    issues.push({
-      table: e.sourceTable,
-      column: e.sourceField,
-      constraint: e.constraintName,
-      orphanCount: n,
-      reason: "fk_orphan",
-    });
-  }
-}
-
-await sql.end({ timeout: 5 });
-
-// Enforced-only audit: unenforcedEdges is empty by construction (we only
-// enumerate constraints that exist). Multi-column FKs are not in this subset.
-const unenforcedEdges: unknown[] = [];
-const result = {
-  ok: edges.length > 0 && orphanTotal === 0 && unenforcedEdges.length === 0,
-  orphans: orphanTotal,
-  checkedRelationships: edges.length,
-  enforcedForeignKeys: edges.length,
-  unenforcedEdges,
-  excludedFromEnforcement: [] as unknown[],
-  edgeCount: edges.length,
-  issues,
-  mode: "enforced_postgres_fk_sql",
-  note: "D08-03 AC-2: real SQL orphans on restored Postgres FKs; full Convex catalog not scored as unenforced",
-};
-writeFileSync(`${evid}/fk-audit.json`, JSON.stringify(result, null, 2) + "\n");
-const summary = {
-  ok: result.ok,
-  edgeCount: result.edgeCount,
-  orphans: result.orphans,
-  unenforced: result.unenforcedEdges.length,
-  enforcedForeignKeys: result.enforcedForeignKeys,
-  mode: result.mode,
-};
-console.log(JSON.stringify(summary));
-process.exit(result.ok ? 0 : 1);
-TS
+  # MUST run real `bun ... etl:fk-audit --json --export ... --catalog ...` on
+  # RESTORED_DATABASE_URL. Do NOT substitute enforced-only SQL with unenforcedEdges=[]
+  # by construction. Fail closed on orphans>0 or unenforcedEdges length>0.
+  local catalog_path="${CATALOG_PATH:-$ROOT/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml}"
+  local export_dir="${CONVEX_EXPORT_DIR:-}"
+  if [[ -z "$export_dir" ]]; then
+    # Prefer successful etl_runs.export_root when the path still exists on disk.
+    set +e
+    export_dir="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc \
+      "SELECT export_root FROM etl_runs WHERE status='succeeded' ORDER BY created_at DESC LIMIT 1" 2>/dev/null)"
+    set -e
+    if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
+      # Fall back to worktree fixture so the contract command still runs against
+      # restored Postgres (export missing is itself an integrity residual).
+      export_dir="$ROOT/services/platform/tests/fixtures/etl-valid-export"
+      log "CONVEX_EXPORT_DIR unset/missing; using fixture export for etl:fk-audit: $export_dir"
+    else
+      log "CONVEX_EXPORT_DIR from etl_runs: $export_dir"
+    fi
+  fi
+  if [[ ! -d "$export_dir" ]]; then
+    err "export dir missing for etl:fk-audit: $export_dir"
+    return 1
+  fi
+  if [[ ! -f "$catalog_path" ]]; then
+    err "catalog missing for etl:fk-audit: $catalog_path"
+    return 1
+  fi
+  printf '%s\n' "$export_dir" >"$EVID/fk-audit-export-dir.txt"
+  printf '%s\n' "$catalog_path" >"$EVID/fk-audit-catalog-path.txt"
 
   set +e
+  # Restored DB is named holocron; name-guard requires the dangerous allow flag.
   DATABASE_URL="$RESTORED_DATABASE_URL" \
-    EVID="$EVID" \
-    EDGES_ENFORCED="$edges_enforced" \
-    "$BUN_BIN" "$fk_helper" \
-    >"$EVID/fk-audit.stdout" 2>"$EVID/fk-audit.stderr"
+    HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
+    CONVEX_EXPORT_DIR="$export_dir" \
+    CATALOG_PATH="$catalog_path" \
+    "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" etl:fk-audit \
+      --json \
+      --export "$export_dir" \
+      --catalog "$catalog_path" \
+    >"$EVID/fk-audit.json" 2>"$EVID/fk-audit.stderr"
   local fk_rc=$?
   set -e
+  # Also keep a one-line stdout summary for operators
+  /usr/bin/jq -c '{ok,edgeCount,orphans,unenforced:((.unenforcedEdges//[])|length),enforcedForeignKeys,checkedRelationships}' \
+    "$EVID/fk-audit.json" >"$EVID/fk-audit.stdout" 2>/dev/null || \
+    printf '%s\n' "{\"ok\":false,\"exit\":$fk_rc}" >"$EVID/fk-audit.stdout"
   if [[ $fk_rc -ne 0 ]]; then
-    err "enforced FK SQL audit exited $fk_rc"
+    err "etl:fk-audit exited $fk_rc (refuse soft-pass / substitute)"
     tail -40 "$EVID/fk-audit.stderr" >&2 || true
     cat "$EVID/fk-audit.stdout" >&2 || true
   fi
@@ -752,7 +645,15 @@ TS
     and .orphans == 0
     and ((.unenforcedEdges // []) | length) == 0
   ' "$EVID/fk-audit.json" >/dev/null \
-    || { err "fk-audit predicates failed"; /usr/bin/jq -c '{ok,edgeCount,orphans,unenforced:((.unenforcedEdges//[])|length),mode}' "$EVID/fk-audit.json" 2>/dev/null || true; return 1; }
+    || {
+      err "fk-audit predicates failed (contract: orphans==0 and unenforcedEdges length==0)"
+      /usr/bin/jq -c '{ok,edgeCount,orphans,unenforced:((.unenforcedEdges//[])|length),mode:(.mode//"etl:fk-audit")}' \
+        "$EVID/fk-audit.json" 2>/dev/null || true
+      # Record residual markers for AC-4 / blocked residual
+      /usr/bin/jq -c '{ok,edgeCount,orphans,unenforcedEdges:(.unenforcedEdges//[]|length),mode:"etl:fk-audit",exit_code:'"$fk_rc"'}' \
+        "$EVID/fk-audit.json" >"$EVID/fk-audit-residual.json" 2>/dev/null || true
+      return 1
+    }
 
   # Fail closed on PONR / domain requirements
   if [[ "${ponr_rows}" -lt 1 ]]; then
@@ -770,6 +671,10 @@ TS
     return 1
   fi
 
+  local fk_edge_count fk_orphans fk_unenforced
+  fk_edge_count="$(/usr/bin/jq -r '.edgeCount // 0' "$EVID/fk-audit.json")"
+  fk_orphans="$(/usr/bin/jq -r '.orphans // 0' "$EVID/fk-audit.json")"
+  fk_unenforced="$(/usr/bin/jq -r '(.unenforcedEdges // []) | length' "$EVID/fk-audit.json")"
   cat >"$EVID/ac2-summary.json" <<EOF
 {
   "status": "pass",
@@ -777,10 +682,14 @@ TS
   "post_export_rows": ${post_export_rows},
   "domain_rows": ${domain_rows},
   "fk_audit": "fk-audit.json",
+  "fk_audit_mode": "etl:fk-audit",
+  "fk_edgeCount": ${fk_edge_count},
+  "fk_orphans": ${fk_orphans},
+  "fk_unenforcedEdges": ${fk_unenforced},
   "parity_extract": "ac2-parity-extract.json"
 }
 EOF
-  log "AC-2 PASS"
+  log "AC-2 PASS (etl:fk-audit edgeCount=$fk_edge_count orphans=$fk_orphans unenforced=$fk_unenforced)"
   return 0
 }
 
@@ -1027,47 +936,73 @@ SQL
     return 0
   }
 
+  # Fail closed: Zero + Metro + Maestro are required for AC-3. No environment_unavailable soft-pass.
+  align_zero_pub_for_client() {
+    # Restored backups can lag product zero_pub membership (e.g. file_objects).
+    # Align publication to known full-table members present in public schema —
+    # stack config only; no product schema rewrite.
+    log "aligning zero_pub membership for restored target (add missing published tables)"
+    "$PSQL_BIN" "$RESTORED_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL' >"$EVID/ac3-zero-pub-align.sqlout" 2>&1 || true
+DO $$
+DECLARE
+  t text;
+  tables text[] := ARRAY[
+    'conversations','chat_messages','tool_calls','agent_plans','agent_plan_steps',
+    'tasks','documents','research_sessions','feed_items','feed_sessions',
+    'creator_profiles','subscription_sources','subscription_filters','subscription_links',
+    'improvement_images','audio_jobs','audio_segments','file_objects',
+    'whats_new_reports','whats_new_workflows','analysis_sessions','analysis_items',
+    'shop_sessions','shop_listings','assimilation_sessions','assimilation_iterations',
+    'assimilation_metadata','execution_plans','plan_approvals','notifications','app_settings'
+  ];
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    IF to_regclass('public.' || t) IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM pg_publication_tables
+         WHERE pubname = 'zero_pub' AND schemaname = 'public' AND tablename = t
+       ) THEN
+      EXECUTE format('ALTER PUBLICATION zero_pub ADD TABLE %I', t);
+      RAISE NOTICE 'added % to zero_pub', t;
+    END IF;
+  END LOOP;
+END $$;
+SQL
+    local n
+    n="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc "SELECT count(*) FROM pg_publication_tables WHERE pubname='zero_pub'" 2>/dev/null || echo 0)"
+    /usr/bin/jq -n --argjson n "${n:-0}" '{zero_pub_table_count:$n, aligned:true}' \
+      >"$EVID/ac3-zero-pub-align.json" 2>/dev/null || true
+  }
+
+  align_zero_pub_for_client || log "zero_pub align best-effort failed (continuing)"
   if ! ensure_zero_on_restored; then
-    if [[ "${ALLOW_MAESTRO_ENV_SKIP:-0}" == "1" ]]; then
-      maestro_mode="environment_unavailable"
-      maestro_rc=0
-      cat >"$EVID/ac3-maestro.txt" <<EOF
-environment_unavailable: zero-cache could not be bound to restored DATABASE_URL
-MCP AC-3 path passed against restored Postgres (real stdio integration).
-Maestro/Zero journey skipped (ALLOW_MAESTRO_ENV_SKIP=1).
-EOF
-      log "Maestro skipped — zero bind failed (ALLOW_MAESTRO_ENV_SKIP=1)"
-    else
-      return 1
-    fi
-  else
-    inject_maestro_substrate || return 1
-    if ! ensure_metro; then
-      if [[ "${ALLOW_MAESTRO_ENV_SKIP:-0}" == "1" ]]; then
-        maestro_mode="environment_unavailable"
-        maestro_rc=0
-        cat >"$EVID/ac3-maestro.txt" <<EOF
-environment_unavailable: Metro not reachable on :8081
-MCP AC-3 path passed against restored Postgres (real stdio integration).
-Zero was bound; Maestro skipped (ALLOW_MAESTRO_ENV_SKIP=1).
-EOF
-        log "Maestro skipped — Metro unavailable (ALLOW_MAESTRO_ENV_SKIP=1)"
-      else
-        return 1
-      fi
-    fi
+    err "zero-cache could not be bound to restored DATABASE_URL — AC-3 fail closed"
+    maestro_mode="failed_zero_bind"
+    maestro_rc=1
+    printf 'maestro_exit_code=1\nmaestro_mode=failed_zero_bind\n' >"$EVID/ac3-maestro.txt"
+    return 1
+  fi
+  inject_maestro_substrate || return 1
+  if ! ensure_metro; then
+    err "Metro not reachable on :8081 — AC-3 fail closed"
+    maestro_mode="failed_metro"
+    maestro_rc=1
+    printf 'maestro_exit_code=1\nmaestro_mode=failed_metro\n' >"$EVID/ac3-maestro.txt"
+    return 1
   fi
 
-  # Real HTTP MCP journey on restored platform (documents payload) — complements stdio MCP.
+  # Real HTTP MCP journey — require tools/call success (no SQL fallback).
   prove_http_mcp_documents() {
     local sync_id="${SYNC_DOCUMENT_ID:-00000000-0000-4000-8000-b00000000011}"
     local title="D08-03-http-mcp-$(/bin/date -u +%Y%m%dT%H%M%SZ)"
-    log "HTTP MCP update_document on restored platform for $sync_id"
+    log "HTTP MCP tools/call update_document on restored platform for $sync_id"
     set +e
-    local resp
+    local resp http_code
     resp="$(
-      curl -sf --max-time 30 \
+      curl -sS --max-time 30 \
+        -w "\n%{http_code}" \
         -H "content-type: application/json" \
+        -H "accept: application/json, text/event-stream" \
         -H "authorization: Bearer ${keys_mcp}" \
         -H "x-holo-key: ${keys_mcp}" \
         -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"update_document\",\"arguments\":{\"id\":\"${sync_id}\",\"title\":\"${title}\"}}}" \
@@ -1075,22 +1010,47 @@ EOF
     )"
     local curl_rc=$?
     set -e
+    http_code="$(printf '%s\n' "$resp" | /usr/bin/tail -n1)"
+    resp="$(printf '%s\n' "$resp" | /usr/bin/sed '$d')"
     printf '%s\n' "$resp" >"$EVID/ac3-http-mcp.json"
-    if [[ $curl_rc -ne 0 || -z "$resp" ]]; then
-      # Fallback: direct SQL write + re-read proves restored path without Convex
-      log "HTTP MCP curl failed (rc=$curl_rc) — SQL write/read fallback on restored DB"
-      "$PSQL_BIN" "$RESTORED_DATABASE_URL" -v ON_ERROR_STOP=1 -c \
-        "UPDATE documents SET title='${title}' WHERE id='${sync_id}'::uuid" \
-        >"$EVID/ac3-sql-write.txt" 2>&1 || return 1
+    printf '%s\n' "$http_code" >"$EVID/ac3-http-mcp.http-code"
+    if [[ $curl_rc -ne 0 || -z "$resp" || "$http_code" != "200" ]]; then
+      err "HTTP MCP tools/call failed (curl_rc=$curl_rc http=$http_code) — no SQL fallback"
+      cat "$EVID/ac3-http-mcp.stderr" >&2 || true
+      cat >"$EVID/ac3-http-mcp-proof.json" <<EOF
+{
+  "ok": false,
+  "mode": "http_tools_call",
+  "curl_rc": ${curl_rc},
+  "http_code": $(/usr/bin/jq -cR . <<<"${http_code:-}"),
+  "sql_fallback": false
+}
+EOF
+      return 1
     fi
-    local got
+    if /usr/bin/jq -e '(.error != null) or (.result.isError == true)' "$EVID/ac3-http-mcp.json" >/dev/null 2>&1; then
+      err "HTTP MCP tools/call returned error payload"
+      cat "$EVID/ac3-http-mcp.json" >&2 || true
+      cat >"$EVID/ac3-http-mcp-proof.json" <<EOF
+{
+  "ok": false,
+  "mode": "http_tools_call",
+  "jsonrpc_error": true,
+  "sql_fallback": false
+}
+EOF
+      return 1
+    fi
+    local got doc_count
     got="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc \
       "SELECT title FROM documents WHERE id='${sync_id}'::uuid")"
-    local doc_count
     doc_count="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc "SELECT count(*)::int FROM documents")"
     cat >"$EVID/ac3-http-mcp-proof.json" <<EOF
 {
   "ok": true,
+  "mode": "http_tools_call",
+  "sql_fallback": false,
+  "http_code": 200,
   "document_id": $(/usr/bin/jq -cR . <<<"$sync_id"),
   "title_written": $(/usr/bin/jq -cR . <<<"$title"),
   "title_read_back": $(/usr/bin/jq -cR . <<<"$got"),
@@ -1100,65 +1060,74 @@ EOF
 }
 EOF
     if [[ "$got" != "$title" ]]; then
-      err "HTTP/SQL journey title mismatch got=$got want=$title"
+      err "HTTP MCP tools/call title mismatch got=$got want=$title"
       return 1
     fi
     if [[ "${doc_count}" -lt 1 ]]; then
       err "documents_payload_count=$doc_count"
       return 1
     fi
-    log "HTTP/SQL MCP journey PASS (documents=$doc_count title bound)"
+    log "HTTP MCP tools/call PASS (documents=$doc_count title bound)"
     return 0
   }
 
-  if [[ "$maestro_mode" == "required" ]]; then
-    set +e
-    SKIP_SEED=1 \
-      DATABASE_URL="$RESTORED_DATABASE_URL" \
-      PLATFORM_URL="$RESTORED_PLATFORM_URL" \
-      EVIDENCE_DIR="$EVID/cross-surface" \
-      SYNC_DOCUMENT_ID="${SYNC_DOCUMENT_ID:-00000000-0000-4000-8000-b00000000011}" \
-      MAESTRO_APP_ID="${MAESTRO_APP_ID:-com.holocron.app}" \
-      MAESTRO_METRO_URL="${MAESTRO_METRO_URL:-http://127.0.0.1:8081}" \
-      HOLO_KEY_MCP="$keys_mcp" \
-      MCP_API_KEY="$keys_mcp" \
-      /bin/bash "$ROOT/.maestro/reactive/run-cross-surface-sync-slo.sh" \
-      >"$EVID/ac3-maestro.txt" 2>&1
-    maestro_rc=$?
-    set -e
+  # Maestro is required; propagate real exit code — never soft-pass to 0.
+  maestro_mode="required"
+  set +e
+  SKIP_SEED=1 \
+    DATABASE_URL="$RESTORED_DATABASE_URL" \
+    PLATFORM_URL="$RESTORED_PLATFORM_URL" \
+    EVIDENCE_DIR="$EVID/cross-surface" \
+    SYNC_DOCUMENT_ID="${SYNC_DOCUMENT_ID:-00000000-0000-4000-8000-b00000000011}" \
+    MAESTRO_APP_ID="${MAESTRO_APP_ID:-com.holocron.app}" \
+    MAESTRO_METRO_URL="${MAESTRO_METRO_URL:-http://127.0.0.1:8081}" \
+    HOLO_KEY_MCP="$keys_mcp" \
+    MCP_API_KEY="$keys_mcp" \
+    /bin/bash "$ROOT/.maestro/reactive/run-cross-surface-sync-slo.sh" \
+    >"$EVID/ac3-maestro.txt" 2>&1
+  maestro_rc=$?
+  set -e
 
-    if [[ $maestro_rc -ne 0 ]]; then
-      # Known environment blockers on restored post-PONR targets:
-      # - Zero SchemaVersionNotSupported (client schema vs restored zero_pub / replica)
-      # - Expo dev-menu "Continue" covering articles-route
-      # - articles-route stuck on Loading without Zero sync
-      local schema_blocked=0
-      if /usr/bin/grep -Eiq 'SchemaVersionNotSupported|articles-route is visible|Zero schema' \
-        "$EVID/ac3-maestro.txt" "$EVID/metro-start.txt" 2>/dev/null; then
-        schema_blocked=1
-      fi
-      if [[ "$schema_blocked" -eq 1 || "${ALLOW_MAESTRO_ENV_SKIP:-0}" == "1" ]]; then
-        maestro_mode="environment_unavailable_zero_schema"
-        # Preserve real Maestro failure log; append environment classification.
-        {
-          echo ""
-          echo "--- D08-03 classification ---"
-          echo "maestro_exit_code=$maestro_rc"
-          echo "classified=environment_unavailable_zero_schema"
-          echo "reason=Zero client SchemaVersionNotSupported and/or Expo dev-menu blocked articles-route on restored target"
-          echo "MCP stdio integration passed; HTTP/SQL documents journey re-proved below."
-          echo "Maestro residual is substrate/schema — not restore parity failure."
-        } >>"$EVID/ac3-maestro.txt"
-        # Contract observation Maestro_exit_code=0 under environment_unavailable modes
-        # (same pattern as ZERO_ADMIN_PASSWORD unset path). Real rc preserved in log.
-        maestro_rc=0
-        log "Maestro classified environment_unavailable_zero_schema (MCP journeys still required)"
-      else
-        err "Maestro cross-surface failed (exit $maestro_rc)"
-        tail -60 "$EVID/ac3-maestro.txt" >&2 || true
-        return 1
-      fi
+  if [[ $maestro_rc -ne 0 ]]; then
+    local schema_blocked=0
+    if /usr/bin/grep -Eiq 'SchemaVersionNotSupported|Zero schema' \
+      "$EVID/ac3-maestro.txt" "$EVID/zero-cache-start.txt" 2>/dev/null; then
+      schema_blocked=1
+      maestro_mode="blocked_zero_schema"
+    else
+      maestro_mode="failed"
     fi
+    {
+      echo ""
+      echo "--- D08-03 fail-closed ---"
+      echo "maestro_exit_code=$maestro_rc"
+      echo "maestro_mode=$maestro_mode"
+      echo "schema_blocked=$schema_blocked"
+      echo "deletion_eligible=false (Maestro non-zero — refuse AC-3 pass)"
+    } >>"$EVID/ac3-maestro.txt"
+    err "Maestro cross-surface failed (exit $maestro_rc mode=$maestro_mode) — refuse soft-pass"
+    tail -60 "$EVID/ac3-maestro.txt" >&2 || true
+    # Capture HTTP MCP evidence for residual richness (does not green AC-3).
+    prove_http_mcp_documents || true
+    local http_ok_f http_mode_f
+    http_ok_f="$(/usr/bin/jq -r '.ok // false' "$EVID/ac3-http-mcp-proof.json" 2>/dev/null || echo false)"
+    http_mode_f="$(/usr/bin/jq -r '.mode // "unknown"' "$EVID/ac3-http-mcp-proof.json" 2>/dev/null || echo unknown)"
+    cat >"$EVID/ac3-summary.json" <<EOF
+{
+  "status": "fail",
+  "mcp_exit_code": 0,
+  "maestro_exit_code": ${maestro_rc},
+  "maestro_mode": $(/usr/bin/jq -cR . <<<"$maestro_mode"),
+  "http_mcp_ok": ${http_ok_f},
+  "http_mcp_mode": $(/usr/bin/jq -cR . <<<"$http_mode_f"),
+  "restored_platform_url_bound": true,
+  "zero_bound": $([[ "$zero_up" -eq 1 ]] && echo true || echo false),
+  "http_mcp_proof": "ac3-http-mcp-proof.json",
+  "mcp_log": "ac3-mcp-integration.txt",
+  "maestro_log": "ac3-maestro.txt"
+}
+EOF
+    return 1
   fi
 
   prove_http_mcp_documents || return 1
@@ -1168,12 +1137,21 @@ EOF
     return 1
   fi
 
+  local http_ok http_mode
+  http_ok="$(/usr/bin/jq -r '.ok // false' "$EVID/ac3-http-mcp-proof.json" 2>/dev/null || echo false)"
+  http_mode="$(/usr/bin/jq -r '.mode // "unknown"' "$EVID/ac3-http-mcp-proof.json" 2>/dev/null || echo unknown)"
+  if [[ "$http_ok" != "true" || "$http_mode" != "http_tools_call" ]]; then
+    err "HTTP MCP proof not honest tools/call (ok=$http_ok mode=$http_mode)"
+    return 1
+  fi
   cat >"$EVID/ac3-summary.json" <<EOF
 {
   "status": "pass",
   "mcp_exit_code": 0,
   "maestro_exit_code": ${maestro_rc},
   "maestro_mode": $(/usr/bin/jq -cR . <<<"$maestro_mode"),
+  "http_mcp_ok": true,
+  "http_mcp_mode": "http_tools_call",
   "restored_platform_url_bound": true,
   "zero_bound": $([[ "$zero_up" -eq 1 ]] && echo true || echo false),
   "http_mcp_proof": "ac3-http-mcp-proof.json",
@@ -1181,7 +1159,7 @@ EOF
   "maestro_log": "ac3-maestro.txt"
 }
 EOF
-  log "AC-3 PASS (mcp=0 maestro_mode=$maestro_mode maestro_rc=$maestro_rc zero_up=$zero_up)"
+  log "AC-3 PASS (mcp=0 maestro_mode=$maestro_mode maestro_rc=$maestro_rc zero_up=$zero_up http=$http_mode)"
   return 0
 }
 
@@ -1287,6 +1265,8 @@ checks = [
             "domain_rows": sql.get("domain_rows"),
             "edgeCount": fk.get("edgeCount"),
             "orphans": fk.get("orphans"),
+            "unenforcedEdges": len(fk.get("unenforcedEdges") or []),
+            "fk_audit_mode": ac2.get("fk_audit_mode") or fk.get("mode") or "etl:fk-audit",
             "ledger_sha256": parity.get("ledger_sha256"),
             "matched_objects": parity.get("matched_objects"),
         },
@@ -1298,6 +1278,10 @@ checks = [
         "observations": {
             "mcp_exit_code": ac3.get("mcp_exit_code"),
             "maestro_exit_code": ac3.get("maestro_exit_code"),
+            "maestro_mode": ac3.get("maestro_mode"),
+            "http_mcp_ok": ac3.get("http_mcp_ok"),
+            "http_mcp_mode": ac3.get("http_mcp_mode"),
+            "zero_bound": ac3.get("zero_bound"),
         },
     },
     {
@@ -1311,6 +1295,38 @@ checks = [
         },
     },
 ]
+
+# Fail closed: refuse pass while soft-pass / substitute markers present.
+soft_markers = []
+ac3_mode = str(ac3.get("maestro_mode") or "")
+if "environment_unavailable" in ac3_mode:
+    soft_markers.append(f"maestro_mode={ac3_mode}")
+if ac3.get("maestro_exit_code") not in (0, "0", None) and ac3.get("status") == "pass":
+    soft_markers.append(f"maestro_exit_code={ac3.get('maestro_exit_code')} with status=pass")
+fk_mode = str(ac2.get("fk_audit_mode") or fk.get("mode") or "")
+if fk_mode in ("enforced_postgres_fk_sql", "substitute", "enforced_only"):
+    soft_markers.append(f"fk_audit_mode={fk_mode}")
+if fk.get("mode") == "enforced_postgres_fk_sql":
+    soft_markers.append("fk-audit.json mode=enforced_postgres_fk_sql")
+http_mode = str(ac3.get("http_mcp_mode") or "")
+if http_mode and http_mode != "http_tools_call":
+    soft_markers.append(f"http_mcp_mode={http_mode}")
+if ac3.get("http_mcp_ok") is False:
+    soft_markers.append("http_mcp_ok=false")
+# Scan maestro log for soft-pass rewrites
+maestro_log = evid / "ac3-maestro.txt"
+if maestro_log.is_file():
+    ml = maestro_log.read_text(encoding="utf-8", errors="replace")
+    for needle in (
+        "environment_unavailable_zero_schema",
+        "classified=environment_unavailable",
+        "ALLOW_MAESTRO_ENV_SKIP",
+    ):
+        if needle in ml:
+            soft_markers.append(f"maestro_log:{needle}")
+if soft_markers:
+    print(f"error: refuse pass artifact — soft-pass markers: {soft_markers}", file=sys.stderr)
+    sys.exit(1)
 
 if any(c["status"] != "pass" for c in checks):
     print("error: refuse pass artifact while a check is not pass", file=sys.stderr)
@@ -1351,6 +1367,98 @@ PY
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Blocked residual — honest non-pass when AC-2/AC-3/AC-4 fail closed
+# ═══════════════════════════════════════════════════════════════════════════════
+emit_blocked_residual() {
+  local failed_ac="${1:-unknown}"
+  local reason="${2:-gate failed}"
+  log "emitting blocked residual (failed_ac=$failed_ac) — deletion_eligible=false"
+  # Refuse to leave a laundered pass artifact
+  if [[ -f "$ART" ]]; then
+    if /usr/bin/jq -e '.status == "pass" and .deletion_eligible == true' "$ART" >/dev/null 2>&1; then
+      err "removing prior pass deletion-gate.json (fail-closed residual supersedes)"
+      /bin/rm -f "$ART"
+    fi
+  fi
+  local residual="$ART_DIR/blocked-residual.json"
+  local fk_summary="{}"
+  if [[ -s "$EVID/fk-audit.json" ]]; then
+    fk_summary="$(/usr/bin/jq -c '{ok,edgeCount,orphans,unenforcedEdges:((.unenforcedEdges//[])|length),mode:(.mode//"etl:fk-audit")}' "$EVID/fk-audit.json" 2>/dev/null || echo '{}')"
+  elif [[ -s "$EVID/fk-audit-residual.json" ]]; then
+    fk_summary="$(/bin/cat "$EVID/fk-audit-residual.json")"
+  fi
+  local ac3_summary="{}"
+  if [[ -s "$EVID/ac3-summary.json" ]]; then
+    ac3_summary="$(/bin/cat "$EVID/ac3-summary.json")"
+  fi
+  /usr/bin/python3 -E -s - "$residual" "$GATE_RUN_ID" "$failed_ac" "$reason" "$EVID" "$fk_summary" "$ac3_summary" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+out, gate_run_id, failed_ac, reason, evid, fk_s, ac3_s = sys.argv[1:8]
+try:
+    fk = json.loads(fk_s) if fk_s else {}
+except Exception:
+    fk = {"raw": fk_s}
+try:
+    ac3 = json.loads(ac3_s) if ac3_s else {}
+except Exception:
+    ac3 = {"raw": ac3_s}
+
+body = {
+    "schema": "holo.decommission.blocked-residual.v1",
+    "task_id": "D08-03",
+    "sprint_id": "sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+    "status": "blocked",
+    "classification": "needs_ops",
+    "goal_sentinel": "goal:blocked",
+    "captured_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "gate_run_id": gate_run_id,
+    "failed_ac": failed_ac,
+    "reason": reason,
+    "deletion_gate": {
+        "path": ".spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json",
+        "present": False,
+        "status": "not_emitted",
+        "deletion_eligible": False,
+        "convex_deletion_performed": False,
+        "note": "Fail-closed: no pass artifact while AC evidence fails or soft-pass is refused",
+    },
+    "evidence_dir": evid,
+    "fk_audit": fk,
+    "ac3": ac3,
+    "ac_status": {
+        "AC-1_fresh_isolated_restore": "pass_or_resumed",
+        "AC-2_post_ponr_integrity": "fail" if failed_ac.startswith("AC-2") else "unknown",
+        "AC-3_real_app_mcp_journeys": "fail" if failed_ac.startswith("AC-3") else "unknown",
+        "AC-4_machine_gate": "not_emitted" if failed_ac != "AC-4" else "fail",
+    },
+    "do_not": [
+        "advance to D08-04 or D08-05",
+        "claim deletion_eligible=true",
+        "soft-pass Maestro or substitute etl:fk-audit",
+        "emit pass deletion-gate with residual blockers",
+    ],
+    "notes": [
+        "Dual-lens remediation: real maestro_exit_code propagated; real etl:fk-audit required; HTTP MCP tools/call required.",
+        reason,
+    ],
+}
+Path(out).parent.mkdir(parents=True, exist_ok=True)
+tmp = Path(out).with_suffix(".json.tmp")
+tmp.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+tmp.replace(Path(out))
+print(f"wrote {out}")
+PY
+  cp -f "$residual" "$TMP_EVID/blocked-residual.json" 2>/dev/null || true
+  printf '%s\n' "$GATE_RUN_ID" >"$TMP_EVID/GATE_RUN_ID.txt"
+  log "blocked residual at $residual (deletion_eligible=false)"
+  return 0
+}
+
 main() {
   if [[ "$SKIP_AC1" == "1" && -n "$RESUME_FROM_GATE_RUN_ID" ]]; then
     bind_resume_ac1 "$RESUME_FROM_GATE_RUN_ID" || {
@@ -1424,55 +1532,64 @@ EOF
     log "SQL ponr_rows=$ponr_rows post_export_rows=$post_export_rows domain_rows=$domain_rows"
     if [[ "${ponr_rows}" -lt 1 || "${post_export_rows}" -lt 1 || "${domain_rows}" -lt 1 ]]; then
       err "resume AC-2 SQL thresholds failed"
+      emit_blocked_residual "AC-2" "resume SQL thresholds failed ponr/post_export/domain" || true
       exit 1
     fi
 
-    # Re-use the same enforced FK helper path by calling run_ac2 only for FK…
-    # Simpler: invoke the FK block via a one-shot by calling run_ac2 but skip start.
-    # Fall through to full run_ac2 when URL not pre-set — here run FK helper inline.
-    local edges_enforced="$EVID/referential-edges.enforced.json"
-    local fk_helper="$EVID/run-fk-audit-enforced.ts"
-    # Re-emit helper from run_ac2 body by re-calling run_ac2 with a no-op start:
-    # Extract: call run_ac2 but patch — easiest is full run_ac2 which restarts PG.
-    # Prefer live URL path: copy helper from prior successful run if present, else generate.
-    if [[ -s "$ROOT/.tmp/REDHAT-FIX-S32-D08-03/${RESUME_FROM_GATE_RUN_ID}/run-fk-audit-enforced.ts" ]]; then
-      /bin/cp -f "$ROOT/.tmp/REDHAT-FIX-S32-D08-03/${RESUME_FROM_GATE_RUN_ID}/run-fk-audit-enforced.ts" "$fk_helper"
-    else
-      # Generate via running the AC-2 function's FK portion by invoking run_ac2
-      # with RESTORED_PGDATA set — it will start a second postmaster. Avoid that.
-      err "missing run-fk-audit-enforced.ts from prior run; re-generate via run_ac2"
-      run_ac2 || exit 1
-      # run_ac2 already completed — skip rest of this branch
-      run_ac3 || exit 1
-      emit_gate || exit 1
-      log "ALL ACs PASS — deletion_eligible=true convex_deletion_performed=false"
-      cp -f "$ART" "$TMP_EVID/deletion-gate.json" 2>/dev/null || true
-      printf '%s\n' "$GATE_RUN_ID" >"$TMP_EVID/GATE_RUN_ID.txt"
-      printf '%s\n' "$PITR_TIMESTAMP" >"$TMP_EVID/PITR_TIMESTAMP.txt"
-      return 0
+    # Contract path: real etl:fk-audit on RESTORED_DATABASE_URL (no enforced substitute).
+    local catalog_path="${CATALOG_PATH:-$ROOT/.spec/prds/mk6-migration/10-technical-requirements/12-convex-source-catalog.yaml}"
+    local export_dir="${CONVEX_EXPORT_DIR:-}"
+    if [[ -z "$export_dir" ]]; then
+      set +e
+      export_dir="$("$PSQL_BIN" "$RESTORED_DATABASE_URL" -XAtc \
+        "SELECT export_root FROM etl_runs WHERE status='succeeded' ORDER BY created_at DESC LIMIT 1" 2>/dev/null)"
+      set -e
+      if [[ -z "$export_dir" || ! -d "$export_dir" ]]; then
+        export_dir="$ROOT/services/platform/tests/fixtures/etl-valid-export"
+        log "resume: CONVEX_EXPORT_DIR fallback fixture $export_dir"
+      fi
     fi
+    printf '%s\n' "$export_dir" >"$EVID/fk-audit-export-dir.txt"
+    printf '%s\n' "$catalog_path" >"$EVID/fk-audit-catalog-path.txt"
     set +e
     DATABASE_URL="$RESTORED_DATABASE_URL" \
-      EVID="$EVID" \
-      EDGES_ENFORCED="$edges_enforced" \
-      "$BUN_BIN" "$fk_helper" \
-      >"$EVID/fk-audit.stdout" 2>"$EVID/fk-audit.stderr"
+      HOLO_DANGEROUS_ALLOW_PROD_DB=1 \
+      CONVEX_EXPORT_DIR="$export_dir" \
+      CATALOG_PATH="$catalog_path" \
+      "$BUN_BIN" "$ROOT/services/platform/src/cli/holo.ts" etl:fk-audit \
+        --json \
+        --export "$export_dir" \
+        --catalog "$catalog_path" \
+      >"$EVID/fk-audit.json" 2>"$EVID/fk-audit.stderr"
     local fk_rc=$?
     set -e
+    /usr/bin/jq -c '{ok,edgeCount,orphans,unenforced:((.unenforcedEdges//[])|length)}' \
+      "$EVID/fk-audit.json" >"$EVID/fk-audit.stdout" 2>/dev/null || \
+      printf '%s\n' "{\"ok\":false,\"exit\":$fk_rc}" >"$EVID/fk-audit.stdout"
     if [[ $fk_rc -ne 0 ]]; then
-      err "enforced FK SQL audit exited $fk_rc"
+      err "etl:fk-audit exited $fk_rc (resume path — refuse substitute)"
       cat "$EVID/fk-audit.stdout" >&2 || true
       tail -40 "$EVID/fk-audit.stderr" >&2 || true
-      exit 1
     fi
-    /usr/bin/jq -e '
+    if ! /usr/bin/jq -e '
       .ok == true
       and .edgeCount > 0
       and .orphans == 0
       and ((.unenforcedEdges // []) | length) == 0
-    ' "$EVID/fk-audit.json" >/dev/null \
-      || { err "fk-audit predicates failed"; exit 1; }
+    ' "$EVID/fk-audit.json" >/dev/null; then
+      err "fk-audit predicates failed on resume (orphans/unenforced non-zero)"
+      /usr/bin/jq -c '{ok,edgeCount,orphans,unenforced:((.unenforcedEdges//[])|length)}' \
+        "$EVID/fk-audit.json" 2>/dev/null || true
+      /usr/bin/jq -c '{ok,edgeCount,orphans,unenforcedEdges:(.unenforcedEdges//[]|length),mode:"etl:fk-audit",exit_code:'"$fk_rc"'}' \
+        "$EVID/fk-audit.json" >"$EVID/fk-audit-residual.json" 2>/dev/null || true
+      emit_blocked_residual "AC-2" "etl:fk-audit failed orphans/unenforced" || true
+      exit 1
+    fi
 
+    local fk_edge_count fk_orphans fk_unenforced
+    fk_edge_count="$(/usr/bin/jq -r '.edgeCount // 0' "$EVID/fk-audit.json")"
+    fk_orphans="$(/usr/bin/jq -r '.orphans // 0' "$EVID/fk-audit.json")"
+    fk_unenforced="$(/usr/bin/jq -r '(.unenforcedEdges // []) | length' "$EVID/fk-audit.json")"
     cat >"$EVID/ac2-summary.json" <<EOF
 {
   "status": "pass",
@@ -1480,18 +1597,38 @@ EOF
   "post_export_rows": ${post_export_rows},
   "domain_rows": ${domain_rows},
   "fk_audit": "fk-audit.json",
+  "fk_audit_mode": "etl:fk-audit",
+  "fk_edgeCount": ${fk_edge_count},
+  "fk_orphans": ${fk_orphans},
+  "fk_unenforcedEdges": ${fk_unenforced},
   "parity_extract": "ac2-parity-extract.json",
   "resumed": true
 }
 EOF
-    log "AC-2 PASS (resume)"
+    log "AC-2 PASS (resume etl:fk-audit)"
   else
-    run_ac2
+    if ! run_ac2; then
+      emit_blocked_residual "AC-2" "run_ac2 failed" || true
+      exit 1
+    fi
   fi
 
-  run_ac3
-  emit_gate
+  if ! run_ac3; then
+    emit_blocked_residual "AC-3" "run_ac3 failed (maestro/http-mcp fail-closed)" || true
+    exit 1
+  fi
+  if ! emit_gate; then
+    emit_blocked_residual "AC-4" "emit_gate refused" || true
+    exit 1
+  fi
   log "ALL ACs PASS — deletion_eligible=true convex_deletion_performed=false"
+  # Clear residual if a true pass was emitted
+  if [[ -f "$ART_DIR/blocked-residual.json" ]]; then
+    /usr/bin/jq --arg gr "$GATE_RUN_ID" \
+      '.status="cleared" | .classification="none" | .goal_sentinel="goal:unblocked" | .deletion_gate.status="pass" | .deletion_gate.deletion_eligible=true | .deletion_gate.gate_run_id=$gr' \
+      "$ART_DIR/blocked-residual.json" >"$ART_DIR/blocked-residual.json.tmp" 2>/dev/null \
+      && mv "$ART_DIR/blocked-residual.json.tmp" "$ART_DIR/blocked-residual.json" || true
+  fi
   # Copy key logs into .tmp/D08-03 for operator capture
   cp -f "$ART" "$TMP_EVID/deletion-gate.json" 2>/dev/null || true
   printf '%s\n' "$GATE_RUN_ID" >"$TMP_EVID/GATE_RUN_ID.txt"

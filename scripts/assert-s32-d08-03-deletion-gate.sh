@@ -121,6 +121,142 @@ if isinstance(manifest, list):
 
 req(data.get("convex_deletion_performed") is not True, "convex_deletion_performed must not be true")
 
+# Fail closed on soft-pass / substitute markers in observations, gate body,
+# and hash-bound evidence files referenced by the manifest.
+soft_needles = (
+    "environment_unavailable",
+    "environment_unavailable_zero_schema",
+    "enforced_postgres_fk_sql",
+    "ALLOW_MAESTRO_ENV_SKIP",
+    "sql_fallback",
+    "SQL write/read fallback",
+    "classified=environment_unavailable",
+)
+if data.get("status") == "pass":
+    for needle in soft_needles:
+        if needle in text:
+            errors.append(f"soft-pass marker in pass artifact: {needle!r}")
+
+    # Scan manifest evidence (ac3-maestro, ac3-summary, fk-audit, http proof)
+    if isinstance(manifest, list):
+        for ent in manifest:
+            if not isinstance(ent, dict):
+                continue
+            ep = ent.get("path")
+            if not isinstance(ep, str) or not ep.strip():
+                continue
+            base = os.path.basename(ep)
+            if base not in (
+                "ac3-maestro.txt",
+                "ac3-summary.json",
+                "ac3-http-mcp-proof.json",
+                "fk-audit.json",
+                "ac2-summary.json",
+            ):
+                continue
+            cand = ep if os.path.isabs(ep) else os.path.join(os.getcwd(), ep)
+            if not os.path.isfile(cand):
+                # also try relative to artifact dir
+                art_dir = os.path.dirname(os.path.abspath(path))
+                cand2 = os.path.join(art_dir, ep)
+                cand = cand2 if os.path.isfile(cand2) else cand
+            if not os.path.isfile(cand):
+                continue
+            try:
+                body = open(cand, "r", encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            for needle in soft_needles:
+                if needle in body:
+                    errors.append(f"soft-pass marker in evidence {base}: {needle!r}")
+            if base == "fk-audit.json":
+                try:
+                    fj = json.loads(body)
+                except json.JSONDecodeError:
+                    errors.append("fk-audit.json is not valid JSON")
+                else:
+                    if fj.get("mode") == "enforced_postgres_fk_sql":
+                        errors.append("fk-audit.json mode=enforced_postgres_fk_sql (substitute refused)")
+                    if fj.get("ok") is not True:
+                        errors.append("fk-audit.json ok is not true")
+                    if (fj.get("orphans") or 0) != 0:
+                        errors.append(f"fk-audit.json orphans={fj.get('orphans')}")
+                    if len(fj.get("unenforcedEdges") or []) != 0:
+                        errors.append(
+                            f"fk-audit.json unenforcedEdges length={len(fj.get('unenforcedEdges') or [])}"
+                        )
+            if base == "ac3-summary.json":
+                try:
+                    sj = json.loads(body)
+                except json.JSONDecodeError:
+                    errors.append("ac3-summary.json is not valid JSON")
+                else:
+                    if sj.get("maestro_exit_code") not in (0, "0"):
+                        errors.append(
+                            f"ac3-summary maestro_exit_code={sj.get('maestro_exit_code')} (must be 0)"
+                        )
+                    mm = str(sj.get("maestro_mode") or "")
+                    if "environment_unavailable" in mm:
+                        errors.append(f"ac3-summary maestro_mode soft-pass: {mm!r}")
+                    if sj.get("http_mcp_mode") not in (None, "http_tools_call"):
+                        # require honest mode when field present; prefer required
+                        if sj.get("http_mcp_mode") != "http_tools_call":
+                            errors.append(
+                                f"ac3-summary http_mcp_mode={sj.get('http_mcp_mode')!r}"
+                            )
+            if base == "ac3-http-mcp-proof.json":
+                try:
+                    hj = json.loads(body)
+                except json.JSONDecodeError:
+                    errors.append("ac3-http-mcp-proof.json is not valid JSON")
+                else:
+                    if hj.get("sql_fallback") is True:
+                        errors.append("http mcp used sql_fallback=true")
+                    if hj.get("mode") and hj.get("mode") != "http_tools_call":
+                        errors.append(f"http mcp mode={hj.get('mode')!r}")
+                    if hj.get("ok") is not True:
+                        errors.append("http mcp proof ok is not true")
+            if base == "ac3-maestro.txt":
+                # Real maestro non-zero in log while gate claims pass
+                import re as _re
+                m = _re.search(r"maestro_exit_code=(\d+)", body)
+                if m and int(m.group(1)) != 0:
+                    errors.append(
+                        f"ac3-maestro.txt records maestro_exit_code={m.group(1)} while gate is pass"
+                    )
+
+# Structural soft-pass checks on AC observations
+if isinstance(checks, list) and data.get("status") == "pass":
+    for c in checks:
+        if not isinstance(c, dict):
+            continue
+        obs = c.get("observations") or {}
+        if not isinstance(obs, dict):
+            continue
+        cid = c.get("id")
+        if cid == "AC-3":
+            mrc = obs.get("maestro_exit_code")
+            if mrc not in (0, "0", None):
+                errors.append(f"AC-3 maestro_exit_code must be 0 on pass (got {mrc!r})")
+            mm = str(obs.get("maestro_mode") or "")
+            if "environment_unavailable" in mm:
+                errors.append(f"AC-3 maestro_mode soft-pass: {mm!r}")
+            hm = str(obs.get("http_mcp_mode") or "")
+            if hm and hm != "http_tools_call":
+                errors.append(f"AC-3 http_mcp_mode must be http_tools_call (got {hm!r})")
+            if obs.get("http_mcp_ok") is False:
+                errors.append("AC-3 http_mcp_ok is false")
+        if cid == "AC-2":
+            fm = str(obs.get("fk_audit_mode") or "")
+            if fm in ("enforced_postgres_fk_sql", "substitute", "enforced_only"):
+                errors.append(f"AC-2 fk_audit_mode substitute refused: {fm!r}")
+            un = obs.get("unenforcedEdges")
+            if un is not None and un != 0:
+                errors.append(f"AC-2 unenforcedEdges must be 0 on pass (got {un!r})")
+            orphans = obs.get("orphans")
+            if orphans is not None and orphans != 0:
+                errors.append(f"AC-2 orphans must be 0 on pass (got {orphans!r})")
+
 if errors:
     for e in errors:
         print(f"error: {e}", file=sys.stderr)

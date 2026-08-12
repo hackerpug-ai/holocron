@@ -2,27 +2,44 @@
   "schema": "holo.decommission.blocked-residual.v1",
   "task_id": "D08-03",
   "sprint_id": "sprint-32-convex-decommission-code-deps-and-cloud-deletion",
-  "status": "cleared",
-  "classification": "none",
-  "goal_sentinel": "goal:unblocked",
-  "captured_at": "2026-08-12T15:41:00Z",
-  "supersedes": "prior needs_ops residual (fk orphans / missing deletion-gate)",
+  "status": "blocked",
+  "classification": "needs_ops",
+  "goal_sentinel": "goal:blocked",
+  "captured_at": "2026-08-12T16:05:58Z",
+  "gate_run_id": "s32d0803-20260812T160553Z",
+  "failed_ac": "AC-2",
+  "reason": "etl:fk-audit failed orphans/unenforced",
   "deletion_gate": {
     "path": ".spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json",
-    "present": true,
-    "status": "pass",
-    "deletion_eligible": true,
+    "present": false,
+    "status": "not_emitted",
+    "deletion_eligible": false,
     "convex_deletion_performed": false,
-    "gate_run_id": "s32d0803-20260812T153916Z"
+    "note": "Fail-closed: no pass artifact while AC evidence fails or soft-pass is refused"
   },
+  "evidence_dir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-03/.tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T160553Z",
+  "fk_audit": {
+    "ok": false,
+    "edgeCount": 80,
+    "orphans": 2,
+    "unenforcedEdges": 56,
+    "mode": "etl:fk-audit"
+  },
+  "ac3": {},
   "ac_status": {
-    "AC-1_fresh_isolated_restore": "pass (resume from s32d0803-20260810T192706Z live post-PONR restore 20260810-121923F)",
-    "AC-2_post_ponr_integrity": "pass (ponr_rows=1 post_export_rows=2 domain_rows>=87 enforced_fk orphans=0 edgeCount=17)",
-    "AC-3_real_app_mcp_journeys": "pass (stdio MCP + HTTP/SQL documents journey; Maestro environment_unavailable_zero_schema)",
-    "AC-4_machine_gate": "pass"
+    "AC-1_fresh_isolated_restore": "pass_or_resumed",
+    "AC-2_post_ponr_integrity": "fail",
+    "AC-3_real_app_mcp_journeys": "unknown",
+    "AC-4_machine_gate": "not_emitted"
   },
+  "do_not": [
+    "advance to D08-04 or D08-05",
+    "claim deletion_eligible=true",
+    "soft-pass Maestro or substitute etl:fk-audit",
+    "emit pass deletion-gate with residual blockers"
+  ],
   "notes": [
-    "Maestro articles-route blocked by Zero SchemaVersionNotSupported + Expo dev-menu on restored holocron DB; classified environment_unavailable_zero_schema with real MCP stdio + documents SQL journey evidence.",
-    "No Convex deletion performed. Artifact is pre-deletion eligibility only for D08-04/D08-05."
+    "Dual-lens remediation: real maestro_exit_code propagated; real etl:fk-audit required; HTTP MCP tools/call required.",
+    "etl:fk-audit failed orphans/unenforced"
   ]
 }
