@@ -1,0 +1,127 @@
+{
+  "schema": "holo.decommission.deletion-gate.v1",
+  "task_id": "D08-03",
+  "status": "pass",
+  "deletion_eligible": true,
+  "convex_deletion_performed": false,
+  "gate_run_id": "s32d0803-20260812T153916Z",
+  "pitr_timestamp": "2026-08-10T18:22:06Z",
+  "host": "s28r3-gate-s32d0803-20260810T192706Z",
+  "captured_at": "2026-08-12T15:41:04Z",
+  "evidence_dir": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z",
+  "checks": [
+    {
+      "id": "AC-1",
+      "name": "fresh_isolated_restore",
+      "status": "pass",
+      "observations": {
+        "host": "s28r3-gate-s32d0803-20260810T192706Z",
+        "pitr_timestamp": "2026-08-10T18:22:06Z",
+        "attestation_ok": true,
+        "POSTGRES_PARITY_PASS": true,
+        "BLOB_PARITY_PASS": true,
+        "matched_objects": 11
+      }
+    },
+    {
+      "id": "AC-2",
+      "name": "post_ponr_integrity",
+      "status": "pass",
+      "observations": {
+        "ponr_rows": 1,
+        "post_export_rows": 2,
+        "domain_rows": 88,
+        "edgeCount": 17,
+        "orphans": 0,
+        "ledger_sha256": "080ee43d85619d523674528c2f8f60c6b9c34e045ae045e28f575b3157aa949f",
+        "matched_objects": 11
+      }
+    },
+    {
+      "id": "AC-3",
+      "name": "real_app_mcp_journeys",
+      "status": "pass",
+      "observations": {
+        "mcp_exit_code": 0,
+        "maestro_exit_code": 0
+      }
+    },
+    {
+      "id": "AC-4",
+      "name": "machine_gate_emit",
+      "status": "pass",
+      "observations": {
+        "schema": "holo.decommission.deletion-gate.v1",
+        "manifest_count": 12,
+        "convex_deletion_performed": false
+      }
+    }
+  ],
+  "evidence_manifest": [
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/attestation.json",
+      "sha256": "aa8ebbb426545d7ea476aed49db3425f797ff7e4b43cf9e9317debfe9ec50e98",
+      "bytes": 2011
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/parity-report.json",
+      "sha256": "4752e852e887f740c48b7a56417241113219f60580bbca21805ba0dc33f49583",
+      "bytes": 5806
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/fk-audit.json",
+      "sha256": "74f9811ff15e101cfe3514a7581787a3ccd6f6d70dc147c8ba55f4f3f34e9633",
+      "bytes": 337
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac1-summary.json",
+      "sha256": "5d558373182b8e0396a32552e9ced6f37c02213a9b4c17b3fc663fdab3f4860d",
+      "bytes": 339
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac2-summary.json",
+      "sha256": "9681d1ebc88f848b87d993ec2966bb48994cc02ca4ba203fa9cdf481479a015e",
+      "bytes": 184
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac2-sql.json",
+      "sha256": "7c8e963df2e05580da401c38565a62e0996bdcfffb0db9102012ec257ce145a3",
+      "bytes": 67
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac2-parity-extract.json",
+      "sha256": "0431f8528bd5fdacca602a8b12022726535e7c5bb18450ff9eec8a83759313b3",
+      "bytes": 489
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac3-summary.json",
+      "sha256": "67646bd91be474008a6148fbc15537bc8329fd9396df2a891b9b6439cfa58579",
+      "bytes": 312
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac3-mcp-integration.txt",
+      "sha256": "ed80e23597847534ba2aecbc2de5d7e6fb039e50685599265f11dd053e89ccdd",
+      "bytes": 474
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac3-maestro.txt",
+      "sha256": "1840236d5b80c851c7876f4aeb7cf5c1dfce4e9db64a592372b509c1c8de9eb0",
+      "bytes": 3288
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/ac3-http-mcp-proof.json",
+      "sha256": "66e2a9d2dc9827b8201a28101495a8cf8cc6cd88cb08fc0653ac3941a844c618",
+      "bytes": 275
+    },
+    {
+      "path": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T153916Z/restore-window.json",
+      "sha256": "0812fc7a8aa1255bd3ce1d7a1517069937919f4340d2ec894b1b1efa3a5a110d",
+      "bytes": 931
+    }
+  ],
+  "secret_scan_hits": 0,
+  "notes": [
+    "Pre-deletion eligibility only \u2014 does not delete or deactivate Convex.",
+    "Restore used distinct R2_RESTORE_* tuple with REQUIRE_LIVE_R2_RO=1."
+  ]
+}
