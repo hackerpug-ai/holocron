@@ -1,7 +1,7 @@
 ---
 sequence: 32
 timeline: Phase 7 — Cutover and Decommission
-status: Blocked
+status: In Progress
 planned_from_roadmap_sha: 69e4d2e0f3d3b7af03fb646bb706848d575b7b37c0199488beff185534335b0f
 planned_from_source_sha: 13f93dc53c8516efd93368a9f0c0627aeb3af6f6
 source_kind: prd-git
@@ -13,9 +13,8 @@ capability_coverage: [CAP-CUT-01, CAP-BAK-01, CAP-DEP-01]
 
 **Sequence:** 32
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** Blocked
-> Progress: 0/9 tasks completed · updated 2026-08-12
-> Status-Note: D08-03 needs_ops: post-PONR restore ok; fk-audit orphans=2; no deletion-gate pass. D08-09 additionally needs an authorized second real tailnet device and operator drill window.
+**Status:** In Progress
+> Progress: 0/9 tasks completed · updated 2026-08-12T15:27:53Z
 **Proposed by:** devops-engineer + integrator
 **Milestone:** — (`sprint-32`)
 **Branch:** `mk6-decommission`
