@@ -68,11 +68,11 @@ Two real tailnet devices prove the portable `holocron` release is private, authe
 
 ## Done when
 
-- [ ] An authorized second real device receives health HTTP 200 over private HTTPS port 44111 and the server reports no Funnel.
-- [ ] Exactly four services are healthy; real Postgres removal yields health 503, recovery yields 200, and authenticated MCP discovery returns exactly 44 tools.
-- [ ] Mastra restarts at least once; the second device succeeds before/after; one Postgres and one blob sentinel persist.
-- [ ] Unreachable Serve, wrong deployment identity, and missing dependency each produce exactly one rejection.
-- [ ] Evidence reports `credential_value_count=0`, passes scenario/receipt checks, and blocks D08-05 on any missing/failed/empty result.
+- [ ] **FAIL (live drill)** An authorized second real device receives health HTTP 200 over private HTTPS port 44111 and the server reports no Funnel. — evidence: `cross-tailnet-drill.json` `status=blocked`, `second_device_health_status=0`, Serve :44111 closed from peer (`human_required`). Residual/infra package (runbook + peer-receipt CLI + unit seal tests) delivered; does **not** satisfy this AC.
+- [ ] **FAIL (live drill)** Exactly four services are healthy; real Postgres removal yields health 503, recovery yields 200, and authenticated MCP discovery returns exactly 44 tools. — evidence: `healthy_service_count=0`, `postgres_down_health_status=0`, `recovered_health_status=0`, `mcp_tool_count=0`; no operator window / Node A control.
+- [ ] **FAIL (live drill)** Mastra restarts at least once; the second device succeeds before/after; one Postgres and one blob sentinel persist. — evidence: `mastra_restart_count=0`, sentinels `0`/`0`; restart not authorized.
+- [ ] **FAIL (live drill)** Unreachable Serve, wrong deployment identity, and missing dependency each produce exactly one rejection. — evidence: all three rejection counts `0` in sealed residual (unit tests cover seal-path negatives only).
+- [ ] **PARTIAL (gate text + residual only)** Evidence reports `credential_value_count=0`, passes scenario/receipt checks, and blocks D08-05 on any missing/failed/empty result. — residual has `credential_value_count=0` and D08-05 jq fails on zeros/`status!=metrics`; full scenario/receipt live checks not run. **D08-05 remains closed.**
 
 ## Binding acceptance criteria (verbatim)
 
@@ -106,11 +106,11 @@ Two real tailnet devices prove the portable `holocron` release is private, authe
 
 ## Verification checklist
 
-- [ ] Both real devices are identified by redacted stable hashes and both command entrypoints are recorded.
-- [ ] Private Serve health returns 200 on port 44111 from node B; Funnel count is zero.
-- [ ] Four services, Postgres 503/recovery 200, 44 MCP tools, restart count ≥1, and one+one sentinels are observed.
-- [ ] Three named negative controls each reject exactly once and the recovery cleanup completes.
-- [ ] Credential-value scan is zero and D08-05 dependency/gate text includes D08-09.
+- [ ] **PARTIAL** Both real devices are identified by redacted stable hashes and both command entrypoints are recorded. — hashes present for holocron/inference1 MagicDNS; peer entrypoints documented in runbook; live dual entrypoint outputs not captured as pass evidence.
+- [ ] **FAIL (live)** Private Serve health returns 200 on port 44111 from node B; Funnel count is zero. — health status 0; funnel fields claimed 0 from agent host note only (Node A Serve unread).
+- [ ] **FAIL (live)** Four services, Postgres 503/recovery 200, 44 MCP tools, restart count ≥1, and one+one sentinels are observed.
+- [ ] **FAIL (live)** Three named negative controls each reject exactly once and the recovery cleanup completes.
+- [x] Credential-value scan is zero and D08-05 dependency/gate text includes D08-09. — residual `credential_value_count=0`; D08-05 task hard-depends on D08-09 portable jq gate.
 
 ## Test criteria
 

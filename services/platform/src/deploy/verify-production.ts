@@ -1073,3 +1073,250 @@ export async function verifyProductionDeployment(
   atomicJson(resolve(evidenceDir, 'verification.json'), report);
   return report;
 }
+
+/** Redacted second-device peer receipt (IMP-AC-5/18/19). No credentials, no raw env. */
+export const CROSS_TAILNET_PEER_RECEIPT_SCHEMA = 'holo.deploy.cross-tailnet-peer-receipt.v1';
+export const CROSS_TAILNET_DRILL_SCHEMA = 'holo.deploy.cross-tailnet-drill.v1';
+
+export type CrossTailnetPeerReceipt = {
+  schema: typeof CROSS_TAILNET_PEER_RECEIPT_SCHEMA;
+  peer_identity_hash: string;
+  target_fqdn_hash: string;
+  serve_https_port: number;
+  health_status: number;
+  health_after_restart_status: number;
+  mcp_tool_count: number;
+  mcp_after_restart_tool_count: number;
+  unreachable_serve_rejection_count: number;
+  observed_at: string;
+  compose_generation: string;
+  image_digest: string;
+};
+
+export type CrossTailnetDrillEvidence = {
+  schema: typeof CROSS_TAILNET_DRILL_SCHEMA;
+  status: 'pass' | 'blocked' | 'failed';
+  classification?: 'human_required' | 'needs_ops' | null;
+  target_fqdn_hash: string;
+  peer_identity_hash: string;
+  image_digest: string;
+  source_revision: string;
+  compose_generation: string;
+  started_at: string;
+  completed_at: string;
+  real_device_count: number;
+  serve_https_port: number;
+  second_device_health_status: number;
+  funnel_enabled: boolean;
+  funnel_endpoint_count: number;
+  healthy_service_count: number;
+  postgres_down_health_status: number;
+  recovered_health_status: number;
+  mcp_tool_count: number;
+  mastra_restart_count: number;
+  postgres_sentinel_rows: number;
+  blob_sentinel_objects: number;
+  unreachable_serve_rejection_count: number;
+  wrong_identity_rejection_count: number;
+  missing_dependency_rejection_count: number;
+  credential_value_count: number;
+  raw_environment_present: boolean;
+  blocker_summary?: string;
+  missing?: string[];
+};
+
+/** Stable privacy-preserving identity hash for MagicDNS names / peer IDs. */
+export function hashStableIdentity(value: string): string {
+  return createHash('sha256').update(value.trim().toLowerCase()).digest('hex');
+}
+
+function requireSha256Hex(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/i.test(value)) {
+    verifyFail(`${label} must be a 64-hex sha256 hash`);
+  }
+  return value.toLowerCase();
+}
+
+function requireNonEmptyString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    verifyFail(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+/**
+ * Consume a redacted peer-produced receipt from an authorized second real device.
+ * Rejects mismatched target/generation/digest, wrong port, empty health/MCP, and
+ * any credential-shaped content. Never inherits peer environment variables.
+ */
+export function verifyCrossTailnetPeerReceipt(options: {
+  peerReceiptPath: string;
+  expectedGeneration?: string;
+  expectedDigest?: string;
+  expectedTargetFqdnHash?: string;
+  maxAgeMs?: number;
+}): CrossTailnetPeerReceipt {
+  const path = resolve(options.peerReceiptPath);
+  if (!existsSync(path)) verifyFail(`peer receipt missing: ${path}`);
+  const raw = readFileSync(path, 'utf8');
+  if (countCredentialValueMatches(raw) > 0) {
+    verifyFail('peer receipt contains credential-shaped values');
+  }
+  const body = asObject(JSON.parse(raw), 'peer receipt');
+  if (body.schema !== CROSS_TAILNET_PEER_RECEIPT_SCHEMA) {
+    verifyFail(`peer receipt schema must be ${CROSS_TAILNET_PEER_RECEIPT_SCHEMA}`);
+  }
+  const receipt: CrossTailnetPeerReceipt = {
+    schema: CROSS_TAILNET_PEER_RECEIPT_SCHEMA,
+    peer_identity_hash: requireSha256Hex(body.peer_identity_hash, 'peer_identity_hash'),
+    target_fqdn_hash: requireSha256Hex(body.target_fqdn_hash, 'target_fqdn_hash'),
+    serve_https_port: Number(body.serve_https_port),
+    health_status: Number(body.health_status),
+    health_after_restart_status: Number(body.health_after_restart_status),
+    mcp_tool_count: Number(body.mcp_tool_count),
+    mcp_after_restart_tool_count: Number(body.mcp_after_restart_tool_count),
+    unreachable_serve_rejection_count: Number(body.unreachable_serve_rejection_count),
+    observed_at: requireNonEmptyString(body.observed_at, 'observed_at'),
+    compose_generation: requireNonEmptyString(body.compose_generation, 'compose_generation'),
+    image_digest: requireNonEmptyString(body.image_digest, 'image_digest'),
+  };
+  if (receipt.serve_https_port !== DEFAULT_LOOPBACK_PORT) {
+    verifyFail(`peer serve_https_port must be ${DEFAULT_LOOPBACK_PORT}`);
+  }
+  if (receipt.health_status !== 200 || receipt.health_after_restart_status !== 200) {
+    verifyFail('peer health before/after restart must be HTTP 200');
+  }
+  if (receipt.mcp_tool_count !== 44 || receipt.mcp_after_restart_tool_count !== 44) {
+    verifyFail('peer authenticated MCP tool count must be 44 before and after restart');
+  }
+  if (receipt.unreachable_serve_rejection_count !== 1) {
+    verifyFail('peer unreachable Serve rejection count must be exactly 1');
+  }
+  if (!receipt.image_digest.startsWith('sha256:')) {
+    verifyFail('peer image_digest must be a sha256 digest');
+  }
+  if (options.expectedGeneration && receipt.compose_generation !== options.expectedGeneration) {
+    verifyFail('peer receipt compose_generation does not match the drill target');
+  }
+  if (options.expectedDigest && receipt.image_digest !== options.expectedDigest) {
+    verifyFail('peer receipt image_digest does not match the drill target');
+  }
+  if (
+    options.expectedTargetFqdnHash &&
+    receipt.target_fqdn_hash !== options.expectedTargetFqdnHash.toLowerCase()
+  ) {
+    verifyFail('peer receipt target_fqdn_hash does not match the serving host');
+  }
+  const observedMs = Date.parse(receipt.observed_at);
+  if (!Number.isFinite(observedMs)) verifyFail('peer observed_at is not a valid timestamp');
+  const maxAge = options.maxAgeMs ?? 6 * 60 * 60 * 1000;
+  if (Date.now() - observedMs > maxAge) verifyFail('peer receipt is older than the drill window');
+  if (observedMs > Date.now() + 60_000) verifyFail('peer observed_at is in the future');
+  return receipt;
+}
+
+/**
+ * Seal cross-tailnet drill evidence from server-side probes + a validated peer receipt.
+ * Pass only when both real devices, recovery, sentinels, MCP, Funnel=0, and three
+ * negatives are proven; otherwise write a blocked/failed immutable record.
+ */
+export function sealCrossTailnetDrillEvidence(options: {
+  peer: CrossTailnetPeerReceipt;
+  server: {
+    target_fqdn_hash: string;
+    image_digest: string;
+    source_revision: string;
+    compose_generation: string;
+    healthy_service_count: number;
+    postgres_down_health_status: number;
+    recovered_health_status: number;
+    mastra_restart_count: number;
+    postgres_sentinel_rows: number;
+    blob_sentinel_objects: number;
+    funnel_enabled: boolean;
+    funnel_endpoint_count: number;
+    wrong_identity_rejection_count: number;
+    missing_dependency_rejection_count: number;
+  };
+  startedAt: string;
+  completedAt?: string;
+  cwd?: string;
+  evidencePath?: string;
+}): CrossTailnetDrillEvidence {
+  const completedAt = options.completedAt ?? new Date().toISOString();
+  const peer = options.peer;
+  const server = options.server;
+  if (peer.target_fqdn_hash !== server.target_fqdn_hash) {
+    verifyFail('peer and server target_fqdn_hash must match');
+  }
+  if (peer.compose_generation !== server.compose_generation) {
+    verifyFail('peer and server compose_generation must match');
+  }
+  if (peer.image_digest !== server.image_digest) {
+    verifyFail('peer and server image_digest must match');
+  }
+
+  const pass =
+    server.healthy_service_count === 4 &&
+    server.postgres_down_health_status === 503 &&
+    server.recovered_health_status === 200 &&
+    peer.health_status === 200 &&
+    peer.health_after_restart_status === 200 &&
+    peer.mcp_tool_count === 44 &&
+    peer.mcp_after_restart_tool_count === 44 &&
+    server.mastra_restart_count >= 1 &&
+    server.postgres_sentinel_rows === 1 &&
+    server.blob_sentinel_objects === 1 &&
+    server.funnel_enabled === false &&
+    server.funnel_endpoint_count === 0 &&
+    peer.unreachable_serve_rejection_count === 1 &&
+    server.wrong_identity_rejection_count === 1 &&
+    server.missing_dependency_rejection_count === 1;
+
+  const evidence: CrossTailnetDrillEvidence = {
+    schema: CROSS_TAILNET_DRILL_SCHEMA,
+    status: pass ? 'pass' : 'failed',
+    classification: null,
+    target_fqdn_hash: server.target_fqdn_hash,
+    peer_identity_hash: peer.peer_identity_hash,
+    image_digest: server.image_digest,
+    source_revision: server.source_revision,
+    compose_generation: server.compose_generation,
+    started_at: options.startedAt,
+    completed_at: completedAt,
+    real_device_count: 2,
+    serve_https_port: DEFAULT_LOOPBACK_PORT,
+    second_device_health_status: peer.health_status,
+    funnel_enabled: server.funnel_enabled,
+    funnel_endpoint_count: server.funnel_endpoint_count,
+    healthy_service_count: server.healthy_service_count,
+    postgres_down_health_status: server.postgres_down_health_status,
+    recovered_health_status: server.recovered_health_status,
+    mcp_tool_count: peer.mcp_tool_count,
+    mastra_restart_count: server.mastra_restart_count,
+    postgres_sentinel_rows: server.postgres_sentinel_rows,
+    blob_sentinel_objects: server.blob_sentinel_objects,
+    unreachable_serve_rejection_count: peer.unreachable_serve_rejection_count,
+    wrong_identity_rejection_count: server.wrong_identity_rejection_count,
+    missing_dependency_rejection_count: server.missing_dependency_rejection_count,
+    credential_value_count: 0,
+    raw_environment_present: false,
+  };
+
+  const serialized = JSON.stringify(evidence);
+  const credentialHits = countCredentialValueMatches(serialized);
+  evidence.credential_value_count = credentialHits;
+  if (credentialHits > 0) {
+    evidence.status = 'failed';
+    verifyFail('cross-tailnet evidence contains credential-shaped values');
+  }
+
+  const out =
+    options.evidencePath ??
+    resolve(
+      options.cwd ?? process.cwd(),
+      '.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/cross-tailnet-drill.json'
+    );
+  atomicJson(out, evidence);
+  return evidence;
+}

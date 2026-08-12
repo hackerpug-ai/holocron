@@ -59,6 +59,7 @@ import {
   preflightRollback,
 } from '../deploy/production-release.ts';
 import {
+  verifyCrossTailnetPeerReceipt,
   verifyPortableDeploymentReceipt,
   verifyProductionDeployment,
 } from '../deploy/verify-production.ts';
@@ -313,6 +314,8 @@ interface CliArgs {
   mcpDiscovery: boolean;
   /** deploy:verify — portable receipt-driven private Serve verification. */
   portableVerify: boolean;
+  /** deploy:verify — redacted second-device peer receipt path (IMP-AC-5/18/19). */
+  peerReceiptPath: string | null;
   /** cutover:attest-convex-live --ticks N */
   ticks: string | null;
   /** cutover:attest-convex-live --interval-ms MS */
@@ -630,6 +633,7 @@ Options:
   --negative-controls    (deploy:verify) reject loopback/in-process/stale/mismatched/missing identity
   --mcp-discovery        (deploy:verify) initialize + tools/list only (never tools/call)
   --portable             (deploy:verify) receipt-driven private Serve verification (IMP-AC-14)
+  --peer-receipt <path>  (deploy:verify) redacted second-device peer receipt (IMP-AC-5/18/19)
   -h, --help            Show help
 `);
 }
@@ -781,6 +785,7 @@ function parseArgs(argv: string[]): CliArgs {
     negativeControls: false,
     mcpDiscovery: false,
     portableVerify: false,
+    peerReceiptPath: null,
     ticks: null,
     intervalMs: null,
     commit: null,
@@ -839,6 +844,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.mcpDiscovery = true;
     } else if (a === '--portable') {
       args.portableVerify = true;
+    } else if (a === '--peer-receipt') {
+      args.peerReceiptPath = resolve(argv[++i] ?? '');
+    } else if (a.startsWith('--peer-receipt=')) {
+      args.peerReceiptPath = resolve(a.slice('--peer-receipt='.length));
     } else if (a === '--sample') {
       args.sample = argv[++i] ?? null;
     } else if (a.startsWith('--sample=')) {
@@ -1390,6 +1399,27 @@ async function main(): Promise<void> {
       break;
     }
     case 'deploy:verify': {
+      if (args.peerReceiptPath) {
+        const peer = verifyCrossTailnetPeerReceipt({
+          peerReceiptPath: args.peerReceiptPath,
+        });
+        if (args.json) {
+          process.stdout.write(`${JSON.stringify({ ok: true, peer }, null, 2)}\n`);
+        } else {
+          console.log('holo deploy:verify — cross-tailnet peer receipt accepted');
+          console.log(`  peer hash:          ${peer.peer_identity_hash.slice(0, 16)}…`);
+          console.log(`  target hash:        ${peer.target_fqdn_hash.slice(0, 16)}…`);
+          console.log(
+            `  health:             ${peer.health_status}/${peer.health_after_restart_status}`
+          );
+          console.log(
+            `  mcp tools:          ${peer.mcp_tool_count}/${peer.mcp_after_restart_tool_count}`
+          );
+          console.log(`  unreachable reject: ${peer.unreachable_serve_rejection_count}`);
+        }
+        process.exit(0);
+        break;
+      }
       if (args.portableVerify) {
         const report = await verifyPortableDeploymentReceipt({
           releasePath: args.releasePath ?? undefined,
@@ -1409,7 +1439,9 @@ async function main(): Promise<void> {
         break;
       }
       if (!args.releasePath || !args.baseUrl) {
-        throw new Error('deploy:verify requires --release and --base-url (or --portable)');
+        throw new Error(
+          'deploy:verify requires --release and --base-url (or --portable / --peer-receipt)'
+        );
       }
       const report = await verifyProductionDeployment({
         releasePath: args.releasePath,
