@@ -11,6 +11,7 @@ import {
   integer,
   pgTable,
   text,
+  uuid,
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
@@ -53,9 +54,9 @@ export const chatMessages = pgTable(
     messageType: text('message_type'),
     /** Polymorphic card payload — typed jsonb (AC-2 probe target). */
     cardData: typedJsonb<Record<string, unknown>>('card_data'),
-    sessionId: text('session_id'),
-    voiceSessionId: text('voice_session_id'),
-    documentId: text('document_id'),
+    sessionId: uuidRef('session_id'),
+    voiceSessionId: uuidRef('voice_session_id'),
+    documentId: uuidRef('document_id'),
     deleted: boolean('deleted').default(false),
     toolCallId: text('tool_call_id'),
     reasoning: text('reasoning'),
@@ -73,13 +74,13 @@ export const toolCalls = pgTable(
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
     conversationId: uuidRef('conversation_id'),
-    messageId: text('message_id'),
+    messageId: uuidRef('message_id'),
     toolName: text('tool_name').notNull(),
     toolDisplayName: text('tool_display_name'),
     toolArgs: typedJsonb('tool_args'),
     reasoning: text('reasoning'),
     status: text('status').notNull().default('pending'),
-    resultMessageId: text('result_message_id'),
+    resultMessageId: uuidRef('result_message_id'),
     error: text('error'),
     createdAt: createdAtColumn(),
     resolvedAt: timestamptz('resolved_at'),
@@ -96,7 +97,7 @@ export const agentPlans = pgTable(
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
     conversationId: uuidRef('conversation_id'),
-    messageId: text('message_id'),
+    messageId: uuidRef('message_id'),
     title: text('title'),
     status: text('status').notNull().default('pending'),
     currentStepIndex: integer('current_step_index').default(0),
@@ -124,7 +125,7 @@ export const agentPlanSteps = pgTable(
     description: text('description'),
     requiresApproval: boolean('requires_approval').default(false),
     status: text('status').notNull().default('pending'),
-    toolCallId: text('tool_call_id'),
+    toolCallId: uuidRef('tool_call_id'),
     resultSummary: text('result_summary'),
     errorMessage: text('error_message'),
     startedAt: timestamptz('started_at'),
@@ -146,7 +147,7 @@ export const agentTelemetry = pgTable(
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
     conversationId: uuidRef('conversation_id'),
-    messageId: text('message_id'),
+    messageId: uuidRef('message_id'),
     intent: text('intent'),
     queryShape: typedJsonb('query_shape'),
     confidence: doublePrecision('confidence'),
@@ -165,6 +166,7 @@ export const agentTelemetry = pgTable(
   (t) => [legacyConvexIdIndex('agent_telemetry', t.legacyConvexId)]
 );
 
+/** Domain uuid FK column (constraints applied in 0038_domain_referential_fks). */
 function uuidRef(name: string) {
-  return text(name);
+  return uuid(name);
 }

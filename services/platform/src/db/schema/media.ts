@@ -3,7 +3,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { check, integer, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
@@ -40,7 +40,7 @@ export const audioJobs = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    documentId: text('document_id'),
+    documentId: uuid('document_id'),
     voiceId: text('voice_id'),
     status: text('status').notNull().default('pending'),
     totalSegments: integer('total_segments'),
@@ -61,7 +61,7 @@ export const audioSegments = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    documentId: text('document_id'),
+    documentId: uuid('document_id'),
     paragraphIndex: integer('paragraph_index'),
     paragraphHash: text('paragraph_hash'),
     blobId: text('blob_id'),
@@ -70,7 +70,7 @@ export const audioSegments = pgTable(
     errorMessage: text('error_message'),
     voiceId: text('voice_id'),
     durationMs: integer('duration_ms'),
-    jobId: text('job_id'),
+    jobId: uuid('job_id'),
     retryCount: integer('retry_count').default(0),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -114,7 +114,7 @@ export const transcriptJobs = pgTable(
     priority: integer('priority'),
     retryCount: integer('retry_count').default(0),
     errorMessage: text('error_message'),
-    transcriptId: text('transcript_id'),
+    transcriptId: uuid('transcript_id'),
     startedAt: timestamptz('started_at'),
     completedAt: timestamptz('completed_at'),
     createdAt: createdAtColumn(),
@@ -159,7 +159,7 @@ export const audioTranscriptJobs = pgTable(
     priority: integer('priority'),
     retryCount: integer('retry_count').default(0),
     errorMessage: text('error_message'),
-    transcriptId: text('transcript_id'),
+    transcriptId: uuid('transcript_id'),
     audioStorageId: text('audio_storage_id'),
     startedAt: timestamptz('started_at'),
     completedAt: timestamptz('completed_at'),

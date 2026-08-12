@@ -1,7 +1,7 @@
 /**
  * subscriptions group — sources/content/filters/links, creator_profiles, feed_*
  */
-import { boolean, doublePrecision, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   hnswEmbeddingIndex,
@@ -49,7 +49,7 @@ export const subscriptionSources = pgTable(
     /** Typed jsonb config */
     configJson: typedJsonb<Record<string, unknown>>('config_json'),
     autoResearch: boolean('auto_research').default(false),
-    creatorProfileId: text('creator_profile_id'),
+    creatorProfileId: uuid('creator_profile_id'),
     lastChecked: timestamptz('last_checked'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -62,7 +62,7 @@ export const subscriptionContent = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    sourceId: text('source_id'),
+    sourceId: uuid('source_id'),
     contentId: text('content_id'),
     title: text('title'),
     url: text('url'),
@@ -72,9 +72,9 @@ export const subscriptionContent = pgTable(
     researchStatus: text('research_status'),
     discoveredAt: timestamptz('discovered_at'),
     researchedAt: timestamptz('researched_at'),
-    documentId: text('document_id'),
+    documentId: uuid('document_id'),
     embedding: vector('embedding', { dimensions: 1024 }),
-    feedItemId: text('feed_item_id'),
+    feedItemId: uuid('feed_item_id'),
     inFeed: boolean('in_feed').default(false),
     thumbnailUrl: text('thumbnail_url'),
     duration: integer('duration'),
@@ -100,7 +100,7 @@ export const subscriptionFilters = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    sourceId: text('source_id'),
+    sourceId: uuid('source_id'),
     sourceType: text('source_type'),
     ruleName: text('rule_name'),
     ruleType: text('rule_type'),
@@ -117,7 +117,7 @@ export const subscriptionLinks = pgTable(
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
     token: text('token'),
-    creatorProfileId: text('creator_profile_id'),
+    creatorProfileId: uuid('creator_profile_id'),
     subscriptions: typedJsonb('subscriptions'),
     createdBy: text('created_by'),
     expiresAt: timestamptz('expires_at'),
@@ -138,7 +138,7 @@ export const feedItems = pgTable(
     contentType: text('content_type'),
     itemCount: integer('item_count'),
     itemIds: typedJsonb('item_ids'),
-    creatorProfileId: text('creator_profile_id'),
+    creatorProfileId: uuid('creator_profile_id'),
     subscriptionIds: typedJsonb('subscription_ids'),
     thumbnailUrl: text('thumbnail_url'),
     authorHandle: text('author_handle'),
