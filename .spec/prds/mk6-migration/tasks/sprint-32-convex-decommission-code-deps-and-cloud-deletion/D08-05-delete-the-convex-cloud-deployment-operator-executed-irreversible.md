@@ -17,7 +17,7 @@
 
 ## Operator outcome
 
-An explicitly authorized human operator confirms the exact production Convex account, organization, environment, and deployment fingerprint, verifies D08-01 through D08-04 and the D08-03 deletion-gate artifact, performs the provider's documented irreversible deletion action, and records a redacted immutable receipt. The operator then proves through the authenticated provider control plane that the exact target is absent and that the real platform, app, and MCP surfaces have no Convex references or dependency on that deployment.
+An explicitly authorized human operator confirms the exact production Convex account, organization, environment, and deployment fingerprint, verifies D08-01 through D08-04 plus D08-09 and both pre-deletion gate artifacts, performs the provider's documented irreversible deletion action, and records a redacted immutable receipt. The operator then proves through the authenticated provider control plane that the exact target is absent and that the real platform, app, and MCP surfaces have no Convex references or dependency on that deployment.
 
 This task is planning for the human action only. No provider deletion is performed by the task author, no repository deletion verb is invented, and no automation may bridge eligibility to the irreversible action.
 
@@ -37,8 +37,11 @@ WRITE-PROHIBITED: secrets or raw provider responses in evidence; edits to D08-03
 
     set -euo pipefail
     ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json
+    PORTABLE=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/cross-tailnet-drill.json
     test -s "$ART"
+    test -s "$PORTABLE"
     /usr/bin/jq -e '.schema == "holo.decommission.deletion-gate.v1" and .status == "pass" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == "pass"))' "$ART"
+    /usr/bin/jq -e '.schema == "holo.deploy.cross-tailnet-drill.v1" and .real_device_count == 2 and .healthy_service_count == 4 and .second_device_health_status == 200 and .mcp_tool_count == 44 and .funnel_endpoint_count == 0 and .credential_value_count == 0' "$PORTABLE"
     bun services/platform/src/cli/holo.ts verify:no-convex-client --roots app,components,hooks,screens,lib,holocron-mcp/src --json
     bun services/platform/src/cli/holo.ts verify-no-convex-env
     bun services/platform/src/cli/holo.ts verify:decommission-inventory
@@ -68,7 +71,7 @@ The external provider deployment is deleted only after a human has recorded scop
 
 ## Critical constraints
 
-- D08-01, D08-02, D08-03, and D08-04 are hard prerequisites; the D08-03 artifact must be all-pass, hash-bound, and retain convex_deletion_performed=false before the human hold.
+- D08-01, D08-02, D08-03, D08-04, and D08-09 are hard prerequisites; the D08-03 artifact must be all-pass/hash-bound with convex_deletion_performed=false, and the D08-09 artifact must prove two real devices, four services, health 200, 44 MCP tools, no Funnel, and zero credential values.
 - Pre-delete identity must include provider account, organization, environment, deployment fingerprint, and a production-scope confirmation; a mismatched or unqueried target aborts.
 - The irreversible action is an explicit human authorization and a manual action on the external provider's documented control surface. Do not invent a repository CLI verb, script, or API endpoint.
 - The receipt is immutable, redacted, and secret-scanned. It may contain provider status, operation identifier, target fingerprint, response hash, timestamp, and operator approval reference, never tokens, credentials, cookies, or raw response bodies.
@@ -76,7 +79,7 @@ The external provider deployment is deleted only after a human has recorded scop
 
 ## Acceptance criteria
 
-AC-1 [PRIMARY] Pre-delete hard gate: GIVEN D08-01 through D08-04 and the D08-03 artifact, WHEN the operator verifies identity and readiness, THEN the exact production target is matched, all four upstream gates pass, the provider is reachable for scope confirmation, and app/MCP pre-delete probes are recorded.
+AC-1 [PRIMARY] Pre-delete hard gate: GIVEN D08-01 through D08-04, D08-09, and both gate artifacts, WHEN the operator verifies identity and readiness, THEN the exact production target is matched, all five upstream gates pass, the provider is reachable for scope confirmation, and app/MCP pre-delete probes are recorded.
 
 AC-2 Authorized irreversible action: GIVEN AC-1 passes, WHEN the human operator records explicit authorization and uses the provider's documented manual control surface, THEN only the confirmed production deployment is acted on and a provider operation identifier is captured; no repository automation or implicit approval can pass.
 
@@ -94,7 +97,7 @@ AC-4 Post-delete independence: GIVEN AC-3 receipt evidence, WHEN provider reacha
 
 ## Evidence gates
 
-- The pre-delete authorization artifact contains the four upstream gate references, target identity fields, explicit human authorization, and app/MCP pre-delete observations.
+- The pre-delete authorization artifact contains the five upstream gate references, including the hash of D08-09's sealed cross-tailnet evidence, target identity fields, explicit human authorization, and app/MCP pre-delete observations.
 - The provider receipt has a stable schema, target fingerprint, operation identifier, response hash, immutable timestamp, redacted contents, and convex_deletion_performed=true only after observed provider success.
 - Post-delete evidence contains the provider not-found observation, the exact no-Convex CLI outputs, the Sprint 31 real stdio-MCP integration result, and the real Maestro flow result.
 - Any mismatch, missing evidence, failed probe, mock provider, secret hit, or empty payload is a hard abort and escalation condition.
@@ -109,11 +112,11 @@ Anti-pattern: a script that deletes the provider, an invented repository deletio
 
 ## Dependencies and boundaries
 
-Depends on D08-01, D08-02, D08-03, D08-04, Sprint 28 recovery evidence, and Sprint 31 MCP readiness. D08-05 is the final operator-only boundary and does not authorize changes to those upstream artifacts. Its post-delete proof may read Postgres/Zero and R2-backed recovery evidence but may not mutate or delete those systems.
+Depends on D08-01, D08-02, D08-03, D08-04, D08-09, Sprint 28 recovery evidence, and Sprint 31 MCP readiness. D08-05 is the final operator-only boundary and does not authorize changes to those upstream artifacts. Its post-delete proof may read Postgres/Zero and R2-backed recovery evidence but may not mutate or delete those systems.
 
 ## Test criteria
 
-- TC-1 maps to AC-1: all four upstream gates, exact production identity, provider reachability, and real app/MCP pre-delete observations are recorded.
+- TC-1 maps to AC-1: all five upstream gates, including D08-09's two-device private deployment proof, exact production identity, provider reachability, and real app/MCP pre-delete observations are recorded.
 - TC-2 maps to AC-2: explicit human authorization and manual external-provider action are bound to the confirmed production target with an operation identifier.
 - TC-3 maps to AC-3: the immutable receipt records deleted status, target/operation hashes, and zero secret hits without a raw provider response.
 - TC-4 maps to AC-4: the real provider is not found and Postgres/Zero-backed app and MCP probes pass with zero Convex references and non-empty payload evidence.
@@ -124,7 +127,7 @@ devops-engineer owns the operator handoff and evidence protocol because the task
 
 ## Agent instructions
 
-1. Confirm D08-01, D08-02, D08-03, and D08-04 status and read the D08-03 artifact before requesting authorization.
+1. Confirm D08-01, D08-02, D08-03, D08-04, and D08-09 status and read both D08-03 and D08-09 artifacts before requesting authorization.
 2. Query the real external provider to confirm account, organization, production environment, and deployment fingerprint. Abort on any mismatch or unavailable provider response.
 3. Obtain explicit human authorization recorded in pre-delete-authorization.json. Do not infer approval from a passing gate and do not run an automated deletion path.
 4. Perform the provider's documented console/API deletion action manually. This task does not prescribe or invent a repository command for that action.
@@ -138,7 +141,7 @@ The orchestrator may validate artifacts and readiness, but may not perform the p
 
 AC-1:
 
-    set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json; test -s "$ART"; /usr/bin/jq -e '.status == "pass" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == "pass"))' "$ART"; test -s .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; /usr/bin/jq -e '.operator_authorized == true and .target_environment == "production" and .target_fingerprint_match == true and .provider_api_status == "reachable" and .app_mcp_predelete_event_count > 0' .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json
+    set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json; PORTABLE=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/cross-tailnet-drill.json; test -s "$ART"; test -s "$PORTABLE"; /usr/bin/jq -e '.status == "pass" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == "pass"))' "$ART"; /usr/bin/jq -e '.schema == "holo.deploy.cross-tailnet-drill.v1" and .real_device_count == 2 and .healthy_service_count == 4 and .second_device_health_status == 200 and .mcp_tool_count == 44 and .funnel_endpoint_count == 0 and .credential_value_count == 0' "$PORTABLE"; test -s .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; /usr/bin/jq -e '.operator_authorized == true and .target_environment == "production" and .target_fingerprint_match == true and .provider_api_status == "reachable" and .predelete_gate_count == 5 and .portable_deployment_gate_pass == true and .app_mcp_predelete_event_count > 0' .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json
 
 AC-2:
 
@@ -162,7 +165,7 @@ The reviewer must confirm exact fixed metadata, four GWT ACs and one-to-one TCs,
 
 ## Dependencies, out of scope, and notes
 
-Dependencies: D08-01 through D08-04, Sprint 28 recovery evidence, Sprint 31 MCP readiness, operator access to the provider's documented control surface, and the Postgres/Zero and R2 recovery paths. Out of scope: modifying upstream evidence, deleting Postgres/R2/Zero, changing application or package code, secret rotation, provider actions by automation, and any rollback promise. Notes: the human operator owns the irreversible external action; the task's repository checks only validate the human-produced evidence and post-delete observations.
+Dependencies: D08-01 through D08-04, D08-09, Sprint 28 recovery evidence, Sprint 31 MCP readiness, operator access to the provider's documented control surface, and the Postgres/Zero and R2 recovery paths. Out of scope: modifying upstream evidence, deleting Postgres/R2/Zero, changing application or package code, secret rotation, provider actions by automation, and any rollback promise. Notes: the human operator owns the irreversible external action; the task's repository checks only validate the human-produced evidence and post-delete observations.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
@@ -173,7 +176,7 @@ Dependencies: D08-01 through D08-04, Sprint 28 recovery evidence, Sprint 31 MCP 
   "tdd_mode":"skipped",
   "verification_policy":{"requires_tests":false,"requires_red_evidence":false,"requires_seeded_evidence":true},
   "fixtures":{
-    "chain":{"description":"D08-01 through D08-04 completion chain and D08-03 gate artifact.","seed_method":"recorded_external","records":["four upstream status=pass records","D08-03 deletion_eligible=true","D08-03 convex_deletion_performed=false","evidence manifest SHA-256"]},
+    "chain":{"description":"D08-01 through D08-04 plus D08-09 completion chain and both gate artifacts.","seed_method":"recorded_external","records":["five upstream status=pass records","D08-03 deletion_eligible=true","D08-03 convex_deletion_performed=false","D08-09 real_device_count=2","D08-09 healthy_service_count=4","D08-09 funnel_endpoint_count=0","evidence manifest SHA-256"]},
     "target":{"description":"Live external provider target and connected platform/app/MCP topology.","seed_method":"recorded_external","records":["provider account/org/environment","production deployment fingerprint","provider reachability response","platform Postgres/Zero endpoint","real app and MCP pre-delete observations"]},
     "receipt":{"description":"Immutable redacted provider deletion receipt.","seed_method":"recorded_external","records":["schema holo.decommission.convex-deletion-receipt.v1","provider status","operation identifier","target fingerprint","provider response SHA-256","secret scan count"]},
     "nodes":{"description":"Post-delete external provider, Postgres/Zero, app, HTTP MCP, and stdio MCP observations.","seed_method":"recorded_external","records":["provider not-found response","source/env no-Convex counts","MCP integration exit","Maestro flow payload count"]}
@@ -182,14 +185,14 @@ Dependencies: D08-01 through D08-04, Sprint 28 recovery evidence, Sprint 31 MCP 
     {
       "id":"AC-1","type":"acceptance_criterion","primary":true,
       "description":"All upstream gates, exact production target identity, provider reachability, and real app/MCP pre-delete probes are required.",
-      "verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json; test -s \"$ART\"; /usr/bin/jq -e '.status == \"pass\" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == \"pass\"))' \"$ART\"; test -s .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; /usr/bin/jq -e '.operator_authorized == true and .target_environment == \"production\" and .target_fingerprint_match == true and .provider_api_status == \"reachable\" and .app_mcp_predelete_event_count > 0' .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json",
+      "verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json; PORTABLE=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/cross-tailnet-drill.json; test -s \"$ART\"; test -s \"$PORTABLE\"; /usr/bin/jq -e '.status == \"pass\" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == \"pass\"))' \"$ART\"; /usr/bin/jq -e '.schema == \"holo.deploy.cross-tailnet-drill.v1\" and .real_device_count == 2 and .healthy_service_count == 4 and .second_device_health_status == 200 and .mcp_tool_count == 44 and .funnel_endpoint_count == 0 and .credential_value_count == 0' \"$PORTABLE\"; test -s .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; /usr/bin/jq -e '.operator_authorized == true and .target_environment == \"production\" and .target_fingerprint_match == true and .provider_api_status == \"reachable\" and .predelete_gate_count == 5 and .portable_deployment_gate_pass == true and .app_mcp_predelete_event_count > 0' .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json",
       "maps_to_ac":null,
       "scenario":{
         "id":"AC-1","tier":"visible","test_tier":"integration","topology":"multi-node","verification_service":"jq+provider-scope+platform-app-mcp","flow_ref":"T-SYNC-018","start_ref":"chain",
-        "action":{"actor":"authorized_operator","steps":["read D08-03 deletion-gate artifact","confirm provider account organization environment and production fingerprint on the external provider","observe Postgres/Zero platform and real app/MCP nodes","write pre-delete authorization evidence without secrets"]},
+        "action":{"actor":"authorized_operator","steps":["read D08-03 deletion-gate and D08-09 cross-tailnet artifacts","confirm provider account organization environment and production fingerprint on the external provider","observe Postgres/Zero platform and real app/MCP nodes","write pre-delete authorization evidence without secrets"]},
         "evidence":{"artifact_type":"file_artifact","required_capture":true,"paths":["evidence/D08-05/pre-delete-authorization.json"]},
         "negative_control":{"would_fail_if":["any upstream gate is absent or failed","deletion_eligible is false","convex_deletion_performed is true","provider identity is not queried","app or MCP node is not probed","mock provider is used","empty authorization artifact is accepted"]},
-        "cases":[{"start_ref":"chain","action":{"actor":"authorized_operator","steps":["validate four upstream gate records and the D08-03 manifest","query and compare external provider production identity","probe platform app and MCP surfaces"]},"end_state":{"must_observe":["deletion_eligible='true'","predelete_gate_count=4","provider_api_status='reachable'","mcp_surface_count>=1","target_fingerprint_match='true'"],"must_not_observe":["deletion_eligible='false'","predelete_gate_count<4","provider_api_status='unknown'","mcp_surface_count=0","target_fingerprint_match='false'","empty pre-delete evidence"]}}]
+        "cases":[{"start_ref":"chain","action":{"actor":"authorized_operator","steps":["validate five upstream gate records plus D08-03 and D08-09 manifests","query and compare external provider production identity","probe platform app and MCP surfaces"]},"end_state":{"must_observe":["deletion_eligible='true'","predelete_gate_count=5","portable_deployment_gate_pass='true'","provider_api_status='reachable'","mcp_surface_count>=1","target_fingerprint_match='true'"],"must_not_observe":["deletion_eligible='false'","predelete_gate_count<5","portable_deployment_gate_pass='false'","provider_api_status='unknown'","mcp_surface_count=0","target_fingerprint_match='false'","empty pre-delete evidence"]}}]
       }
     },
     {
@@ -231,7 +234,7 @@ Dependencies: D08-01 through D08-04, Sprint 28 recovery evidence, Sprint 31 MCP 
         "cases":[{"start_ref":"nodes","action":{"actor":"authorized_operator","steps":["observe provider not-found on the external control surface","run all three exact no-Convex repository commands","drive real app and MCP nodes through Postgres/Zero","record redacted outputs and payload counts"]},"end_state":{"must_observe":["provider_lookup='not-found'","source_convex_reference_count=0","env_convex_reference_count=0","mcp_exit_code=0","app_exit_code=0","documents_payload_count>=1"],"must_not_observe":["provider_lookup='reachable'","source_convex_reference_count>=1","env_convex_reference_count>=1","mcp_exit_code=1","app_exit_code=1","documents_payload_count=0","empty post-delete evidence"]}}]
       }
     },
-    {"id":"TC-1","type":"test_criterion","description":"Upstream gates, scope identity, provider reachability, and app/MCP pre-delete evidence pass.","verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json; test -s \"$ART\"; /usr/bin/jq -e '.status == \"pass\" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == \"pass\"))' \"$ART\"; test -s .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; /usr/bin/jq -e '.operator_authorized == true and .target_environment == \"production\" and .target_fingerprint_match == true and .provider_api_status == \"reachable\" and .app_mcp_predelete_event_count > 0' .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json","maps_to_ac":"AC-1"},
+    {"id":"TC-1","type":"test_criterion","description":"Five upstream gates including the portable two-device proof, scope identity, provider reachability, and app/MCP pre-delete evidence pass.","verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json; PORTABLE=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/cross-tailnet-drill.json; test -s \"$ART\"; test -s \"$PORTABLE\"; /usr/bin/jq -e '.status == \"pass\" and .deletion_eligible == true and .convex_deletion_performed == false and ([.checks[]|.status]|all(. == \"pass\"))' \"$ART\"; /usr/bin/jq -e '.schema == \"holo.deploy.cross-tailnet-drill.v1\" and .real_device_count == 2 and .healthy_service_count == 4 and .second_device_health_status == 200 and .mcp_tool_count == 44 and .funnel_endpoint_count == 0 and .credential_value_count == 0' \"$PORTABLE\"; test -s .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; /usr/bin/jq -e '.operator_authorized == true and .target_environment == \"production\" and .target_fingerprint_match == true and .provider_api_status == \"reachable\" and .predelete_gate_count == 5 and .portable_deployment_gate_pass == true and .app_mcp_predelete_event_count > 0' .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json","maps_to_ac":"AC-1"},
     {"id":"TC-2","type":"test_criterion","description":"Human authorization and manual provider action are recorded against production scope.","verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/pre-delete-authorization.json; test -s \"$ART\"; /usr/bin/jq -e '.operator_authorized == true and .provider_action_manual == true and .target_environment == \"production\" and (.provider_operation_id|length) > 0 and .app_mcp_predelete_event_count > 0' \"$ART\"","maps_to_ac":"AC-2"},
     {"id":"TC-3","type":"test_criterion","description":"Receipt records deleted status, hashes, and zero secret hits without a raw response.","verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/deletion-receipt.json; test -s \"$ART\"; /usr/bin/jq -e '.schema == \"holo.decommission.convex-deletion-receipt.v1\" and .provider_status == \"deleted\" and .convex_deletion_performed == true and (.target_fingerprint|length) > 0 and (.provider_operation_id|length) > 0 and (.provider_response_sha256|length) == 64 and .secret_scan_hits == 0 and (.raw_provider_response_present == false)' \"$ART\"","maps_to_ac":"AC-3"},
     {"id":"TC-4","type":"test_criterion","description":"Provider is not found and real app/MCP no-Convex checks pass after deletion.","verify":"set -euo pipefail; ART=.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-05/post-delete-verification.json; test -s \"$ART\"; bun services/platform/src/cli/holo.ts verify:no-convex-client --roots app,components,hooks,screens,lib,holocron-mcp/src --json; bun services/platform/src/cli/holo.ts verify-no-convex-env; bun services/platform/src/cli/holo.ts verify:decommission-inventory; PLATFORM_IT=1 pnpm vitest run --project integration services/platform/tests/integration/sprint31-legacy-mcp-repoint.test.ts -t 'AC-4 legacy package serves Postgres over stdio with no Convex references'; /bin/bash scripts/e2e/run-maestro-reference-flow.sh --run; /usr/bin/jq -e '.provider_lookup == \"not-found\" and .source_convex_reference_count == 0 and .env_convex_reference_count == 0 and .mcp_exit_code == 0 and .app_exit_code == 0 and .documents_payload_count > 0' \"$ART\"","maps_to_ac":"AC-4"}
