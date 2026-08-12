@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "orphans": 0,
+  "edgeCount": 80,
+  "enforcedForeignKeys": 73,
+  "checkedRelationships": 50,
+  "unenforcedEdges": 0,
+  "excludedFromEnforcement": 12
+}

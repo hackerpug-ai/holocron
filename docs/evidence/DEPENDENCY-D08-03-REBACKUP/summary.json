@@ -1,0 +1,92 @@
+{
+  "task": "DEPENDENCY-D08-03-REBACKUP",
+  "schema": "holo.dependency.post-ponr-rebackup.v1",
+  "status": "pass",
+  "completed_at": "2026-08-12T16:59:08.520971+00:00",
+  "goal": "New post-0038 pgBackRest FULL backup so D08-03 fire-drill restore inherits domain FKs + fixed rows",
+  "prior_backup_label": "20260810-121923F",
+  "actions": [
+    "Loaded env + HOLO_SECRETS_PATH (values not logged)",
+    "Confirmed live etl:fk-audit orphans=0 unenforcedEdges=0 edgeCount=80 enforcedForeignKeys=73",
+    "Confirmed post_export_write_audit count>=1 (2 rows; no new write needed)",
+    "Confirmed drizzle_migrations 0038_domain_referential_fks.sql applied 2026-08-12 10:30:12",
+    "Ran holo backup:base --type full successfully",
+    "Proved restore:window latest after PONR (2026-08-08) and after 0038 (2026-08-12)"
+  ],
+  "proofs": {
+    "fk_audit": {
+      "ok": true,
+      "orphans": 0,
+      "unenforcedEdges": 0,
+      "edgeCount": 80,
+      "enforcedForeignKeys": 73,
+      "excludedFromEnforcement": 12,
+      "checkedRelationships": 50
+    },
+    "restore_window_before": {
+      "latest": "2026-08-10T18:22:05Z",
+      "ok": true,
+      "labels_tail": [
+        "20260728-182755F_20260729-220020I",
+        "20260728-182755F_20260729-220125I",
+        "20260810-121923F"
+      ]
+    },
+    "restore_window_after": {
+      "latest": "2026-08-12T16:57:27Z",
+      "earliest": "2026-07-29T00:00:33Z",
+      "recommended_pitr": "2026-08-12T16:57:27Z",
+      "ok": true,
+      "labels_tail": ["20260728-182755F_20260729-220125I", "20260810-121923F", "20260812-105345F"],
+      "includes_20260812_full": true
+    },
+    "backup_base_full": {
+      "ok": true,
+      "status": "success",
+      "backupType": "full",
+      "lastSnapshotId": "20260812-105345F",
+      "r2BackupObjectCount": 736,
+      "manifestPresent": true,
+      "errors": [
+        "recovery-baseline: restic snapshot not found / unlistable for id \"config-absent\" \u2014 refuse baseline bind (no exact/prefix ID match in repo)"
+      ]
+    },
+    "live_counts": {
+      "probed_at": "2026-08-12T16:58:31.500673",
+      "ponr_count": 1,
+      "audit_count": 2,
+      "ponr_max": "2026-08-08 19:26:27.871603-06",
+      "audit_max": "2026-08-10 12:12:14.988071-06",
+      "documents_count": 19,
+      "fk_constraint_count": 73,
+      "migration_0038_applied_at": "2026-08-12 10:30:12.533819-06"
+    },
+    "post_export_write_audit": {
+      "ok": true,
+      "audit_count": 2,
+      "action": "none_needed_existing_rows"
+    }
+  },
+  "assertions": {
+    "fk_audit_orphans_0": true,
+    "fk_audit_unenforced_0": true,
+    "backup_full_ok": true,
+    "backup_label_post_0038": true,
+    "restore_window_latest_after_ponr": true,
+    "restore_window_latest_after_0038_day": true,
+    "labels_include_new_full": true,
+    "migration_0038_present": true,
+    "fk_constraint_count_ge_73": true,
+    "live_ponr_count_ge_1": true,
+    "live_audit_count_ge_1": true
+  },
+  "notes": [
+    "Prior POST-PONR full was 20260810-121923F (pre-0038 FKs)",
+    "0038_domain_referential_fks applied live 2026-08-12T10:30:12-06 with data repairs from DEPENDENCY-D08-03-FK",
+    "New full 20260812-105345F (~14.4GB) so fire-drill restore inherits 73 FKs + fixed rows",
+    "optional recovery-baseline restic bind failed (config-absent) \u2014 same residual as prior POST-PONR; not required for Postgres rebackup",
+    "backup:status overall ok=false due to unrelated overdue wal_archive/mirror heartbeats; base_backup heartbeat OK",
+    "No secrets in this artifact; Convex not deleted or mutated"
+  ],
+  "all_pass": true
+}

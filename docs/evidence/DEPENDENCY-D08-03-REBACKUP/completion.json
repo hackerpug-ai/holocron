@@ -1,0 +1,39 @@
+{
+  "task_id": "DEPENDENCY-D08-03-REBACKUP",
+  "completed_at": "2026-08-12T16:59:08Z",
+  "status": "completed",
+  "goal": "New successful pgBackRest full base backup in R2 after 0038 domain FKs + data repair",
+  "backup": {
+    "ok": true,
+    "label": "20260812-105345F",
+    "backupType": "full",
+    "exitCode": 0,
+    "r2BackupObjectCount": 736,
+    "manifestPresent": true,
+    "heartbeat_last_success_at": "2026-08-12 10:57:57.327-06"
+  },
+  "restore_window": {
+    "ok": true,
+    "earliest": "2026-07-29T00:00:33Z",
+    "latest": "2026-08-12T16:57:27Z",
+    "recommended_pitr": "2026-08-12T16:57:27Z",
+    "labels_include_new_full": true,
+    "latest_post_ponr": true,
+    "latest_post_0038": true
+  },
+  "fk_audit": {
+    "ok": true,
+    "orphans": 0,
+    "unenforcedEdges": 0,
+    "edgeCount": 80,
+    "enforcedForeignKeys": 73
+  },
+  "ops_notes": [
+    "WAL archive ready backlog was 0; no manual archive-push required",
+    "backup label 20260812-105345F full completed successfully",
+    "recovery baseline emission skipped/failed: restic snapshot config-absent (optional)",
+    "post_export_write_audit 2 rows retained (existing post-PONR rows)"
+  ],
+  "product_code_changes": [],
+  "all_pass": true
+}

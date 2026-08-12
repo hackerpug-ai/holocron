@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "status": "success",
+  "backupType": "full",
+  "lastSnapshotId": "20260812-105345F",
+  "r2BackupObjectCount": 736,
+  "manifestPresent": true,
+  "exitCode": 0,
+  "errors": [
+    "recovery-baseline: restic snapshot not found / unlistable for id \"config-absent\" \u2014 refuse baseline bind (no exact/prefix ID match in repo)"
+  ]
+}
