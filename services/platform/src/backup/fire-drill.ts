@@ -1210,7 +1210,13 @@ export async function runFireDrill(options: FireDrillOptions): Promise<FireDrill
       skipStart: true,
       statusPath: join(dirnameSafe(reportPath), 'pitr-restore-status.json'),
       // Large base backups over R2 routinely exceed 5–10 minutes.
-      timeoutMs: options.pitrTimeoutMs ?? 1_200_000,
+      // Post-PONR full backups (~1.5GB repo / ~10GB PGDATA) routinely exceed 20m on R2.
+      // HOLO_FIRE_DRILL_PITR_TIMEOUT_MS lets D08-03 / operators raise without CLI churn.
+      timeoutMs:
+        options.pitrTimeoutMs ??
+        (Number(env.HOLO_FIRE_DRILL_PITR_TIMEOUT_MS) > 0
+          ? Number(env.HOLO_FIRE_DRILL_PITR_TIMEOUT_MS)
+          : 1_200_000),
     });
   } catch (e) {
     errors.push(`runPitrRestore threw: ${e instanceof Error ? e.message : String(e)}`);

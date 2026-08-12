@@ -5,87 +5,41 @@
   "status": "blocked",
   "classification": "needs_ops",
   "goal_sentinel": "goal:blocked",
-  "captured_at": "2026-08-10T20:09:44Z",
-  "main_tip": "f2f94b7efc6661a80aaa050cbdb4264b8f486961",
+  "captured_at": "2026-08-12T16:05:58Z",
+  "gate_run_id": "s32d0803-20260812T160553Z",
+  "failed_ac": "AC-2",
+  "reason": "etl:fk-audit failed orphans/unenforced",
   "deletion_gate": {
     "path": ".spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/deletion-gate.json",
     "present": false,
     "status": "not_emitted",
     "deletion_eligible": false,
     "convex_deletion_performed": false,
-    "note": "Fail-closed: no pass artifact without green AC-1..AC-4"
+    "note": "Fail-closed: no pass artifact while AC evidence fails or soft-pass is refused"
   },
-  "progress_since_prior_block": {
-    "post_ponr_restore": {
-      "gate_run_id": "s32d0803-20260810T192706Z",
-      "ac1": "pass",
-      "pgbackrest_backup_label": "20260810-121923F",
-      "POSTGRES_PARITY_PASS": true,
-      "restored_sql": {
-        "ponr_rows": 1,
-        "post_export_rows": 2,
-        "domain_rows": 87
-      },
-      "note": "Post-PONR full restore now succeeds; prior residual (pre-PONR-only restorable + missing PONR tables) is SUPERSEDED for restorable path"
-    },
-    "ac2_remaining_failure": {
-      "gate_run_id": "s32d0803-20260810T192706Z",
-      "failure": "etl:fk-audit ok=false: orphans=2, unenforcedEdges=56, edgeCount=80",
-      "evidence": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260810T192706Z/fk-audit.json",
-      "contract_requires": "orphans==0 and unenforcedEdges length==0",
-      "holocron_name_guard": "cleared (HOLO_DANGEROUS_ALLOW_PROD_DB=1 in gate script; audit ran)"
-    }
+  "evidence_dir": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-03/.tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260812T160553Z",
+  "fk_audit": {
+    "ok": false,
+    "edgeCount": 80,
+    "orphans": 2,
+    "unenforcedEdges": 56,
+    "mode": "etl:fk-audit"
   },
-  "authoritative_residual": {
-    "summary": "D08-03 needs_ops: post-PONR restore (20260810-121923F) now loads PONR/write-audit rows, but etl:fk-audit reports orphans=2 and unenforcedEdges=56 \u2014 AC-2 not green; no deletion-gate pass.",
-    "live_ponr": {
-      "recorded_at": "2026-08-08T19:26:27.871603-06",
-      "ponr_rows": 1
-    },
-    "r2_successfully_restored_backup": {
-      "label": "20260810-121923F",
-      "relation_to_ponr": "post-PONR (restored successfully on s32d0803-20260810T192706Z)",
-      "gate_runs_ac1_pass": [
-        "s32d0803-20260810T192706Z"
-      ]
-    },
-    "historical_pre_ponr_note": {
-      "label": "20260728-182755F_20260729-220125I",
-      "note": "Earlier successful restores were pre-PONR with ponr_rows=0; superseded by post-PONR AC-1 pass above"
-    },
-    "restored_target_sql_latest": {
-      "ponr_rows": 1,
-      "post_export_rows": 2,
-      "domain_rows": 87,
-      "evidence": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260810T192706Z/ac2-sql.json"
-    },
-    "fk_audit_block": {
-      "orphans": 2,
-      "unenforcedEdges": 56,
-      "edgeCount": 80,
-      "evidence": ".tmp/REDHAT-FIX-S32-D08-03/s32d0803-20260810T192706Z/fk-audit.json"
-    }
-  },
+  "ac3": {},
   "ac_status": {
-    "AC-1_fresh_isolated_restore": "pass",
-    "AC-2_post_ponr_integrity": "fail_fk_orphans",
-    "AC-3_real_app_mcp_journeys": "not_run",
+    "AC-1_fresh_isolated_restore": "pass_or_resumed",
+    "AC-2_post_ponr_integrity": "fail",
+    "AC-3_real_app_mcp_journeys": "unknown",
     "AC-4_machine_gate": "not_emitted"
-  },
-  "task_branch": {
-    "name": "kb-run-sprint/sprint-32-convex-decommission-code-deps-and-cloud-deletion/D08-03",
-    "merge_to_main": "REFUSED \u2014 incomplete needs_ops; no green deletion-gate; not dual-lens approved as done"
   },
   "do_not": [
     "advance to D08-04 or D08-05",
-    "claim sprint complete or GATE-GOAL ACHIEVED",
-    "merge D08-03 as green without deletion-gate.json status=pass",
-    "waive orphans==0 / unenforcedEdges empty requirements without catalog/product authority"
+    "claim deletion_eligible=true",
+    "soft-pass Maestro or substitute etl:fk-audit",
+    "emit pass deletion-gate with residual blockers"
   ],
-  "unblock_ops": [
-    "Remediate the 2 FK orphans (and unenforced edge policy if contract requires zero) on the production/backup image \u2014 clean data or update catalog exclusions with product authority",
-    "Re-backup after data fix if orphans live in source",
-    "Re-run scripts/run-s32-d08-03-deletion-gate.sh",
-    "Emit evidence/D08-03/deletion-gate.json status=pass then dual-lens + land"
+  "notes": [
+    "Dual-lens remediation: real maestro_exit_code propagated; real etl:fk-audit required; HTTP MCP tools/call required.",
+    "etl:fk-audit failed orphans/unenforced"
   ]
 }
