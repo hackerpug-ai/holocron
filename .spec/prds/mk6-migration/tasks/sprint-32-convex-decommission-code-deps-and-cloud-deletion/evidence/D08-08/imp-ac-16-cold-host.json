@@ -1,0 +1,50 @@
+{
+  "host_architecture": "arm64",
+  "docker_architecture": "aarch64",
+  "running_service_count": 4,
+  "running_service_count_source": "docker_compose_ps_health",
+  "healthy_services": [
+    {
+      "service": "mastra",
+      "health": "healthy",
+      "state": "running"
+    },
+    {
+      "service": "postgres",
+      "health": "healthy",
+      "state": "running"
+    },
+    {
+      "service": "scheduler",
+      "health": "healthy",
+      "state": "running"
+    },
+    {
+      "service": "zero-cache",
+      "health": "healthy",
+      "state": "running"
+    }
+  ],
+  "compose_graph_service_count": 4,
+  "client_asset_count": 0,
+  "serve_https_port": 44111,
+  "services": [
+    "postgres",
+    "mastra",
+    "scheduler",
+    "zero-cache"
+  ],
+  "named_volumes_live": [
+    "d08-08-holocron-postgres-25529-ac16",
+    "d08-08-holocron-blobs-25529-ac16"
+  ],
+  "named_volumes_production_contract": [
+    "holocron-postgres",
+    "holocron-blobs"
+  ],
+  "preflight_check_count": 9,
+  "docker_mutation_count": 0,
+  "compose_version": "Docker Compose version 5.3.1",
+  "tailscale_present": true,
+  "negative_control_before_start_healthy_count": 0
+}

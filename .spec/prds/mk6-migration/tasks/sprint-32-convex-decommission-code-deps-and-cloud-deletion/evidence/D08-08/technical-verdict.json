@@ -1,0 +1,228 @@
+{
+  "lens": "technical",
+  "schema_version": 1,
+  "task_id": "D08-08",
+  "commit": "90de9f47bcc6820989964dd104faf872751da7fc",
+  "reviewer": "security-reviewer",
+  "tdd_mode": "skipped",
+  "verdict": "NEEDS_FIXES",
+  "status": "NEEDS_FIXES",
+  "progress": "1/3 ACs PASS (AC-3 only); 2/5 Done-when complete",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "maps_to": "IMP-AC-16",
+      "satisfied": false,
+      "verdict": "FAIL",
+      "evidence": [
+        "PASS (partial): host_architecture arm64 via uname -m; docker arch aarch64; compose version; tailscale present (docker-resilience.test.ts:208-225; .tmp/D08-08/imp-ac-16-cold-host.json)",
+        "PASS (docs): compose/README.md cold-host sequence preflight/apply/serve 44111/verify; operator secret paths; never auto-install Tailscale",
+        "PASS (static): client_asset_count=0 from Dockerfile/dockerignore server-only contract; DEFAULT_LOOPBACK_PORT=44111",
+        "FAIL (CRITICAL stub): running_service_count=4 is Object.keys(composeYaml.services).length — compose graph, not live containers (docker-resilience.test.ts:227-280). Comment admits '(compose graph)'. preflight docker_mutation_count=0; no compose up / deploy:apply / docker ps of four healthy services",
+        "FAIL (negative control hollow): would_fail_if 'the four-service start is omitted' — current test still passes without start",
+        "FAIL (verification checklist): 'Real Docker test observes exactly four healthy services and two named volumes' — not met for live services"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "maps_to": "IMP-AC-17",
+      "satisfied": false,
+      "verdict": "FAIL",
+      "evidence": [
+        "PASS: real Docker pgvector container seeds deployment_sentinels; stop+start; re-observe postgres_sentinel_rows=1 (docker-resilience.test.ts:361-502; imp-ac-17-lifecycle.json)",
+        "PASS: real alpine blob write/read on named volume; blob_sentinel_objects=1 after lifecycle",
+        "PASS: volume_deletion_count=0 during lifecycle ledger; production holocron-postgres/blobs never volume-rm'd; cleanup uses disposable prefixed names only",
+        "PASS (docs): launchd/README.md separates Production Docker path from Legacy native LaunchAgents; orderly stop without -v; Serve restore command documented; rollback-preflight read-only prose",
+        "FAIL: must_observe serve_resumed='true' — evidence serve_resumed='false', serve_apply_blocked=true, reason=tailnet_serve_not_enabled (imp-ac-17-lifecycle.json; imp-ac-17-serve-restore-blocked.json). Honest residual is correct ops practice but does not satisfy AC end_state",
+        "PARTIAL: host_reboot.real_reboot_executed=false; only restart-policy doc + unless-stopped on compose.yaml; task states static simulation cannot satisfy reboot recovery",
+        "PARTIAL: lifecycle harness is 1 disposable postgres + 2 disposable volumes — not Compose four-service (postgres/mastra/scheduler/zero-cache) stop/restart",
+        "PARTIAL: rollback preflight proven only via isMutatingDeployCommand('holo', [...]) classifier (docker-resilience.test.ts:597-603), not executed holo deploy:rollback-preflight against real Docker"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "maps_to": "IMP-AC-20",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "evaluateMemoryCapacity(50,54,64) → container_limit_sum_gib=50, docker_vm_memory_gib=54, host_headroom_required_gib=8, host_headroom_observed_gib=10, ok=true (health-readiness.test.ts:372-382)",
+        "assertMemoryLimitPlan 51 GiB sum throws; evaluateMemoryCapacity(51,...) throws; over_budget_51_gib_rejected='true'",
+        "tight VM (50) and tight host (60) fail closed with smaller_host_lower_limits_required",
+        "Real observeDockerVmMemoryGib=7, observeHostPhysicalMemoryGib=64; real 50-plan ok=false (imp-ac-20-memory.json)",
+        "Docs both READMEs retain 50/54/64/8/10 and 51 rejection (IMP-AC-20 tables)"
+      ]
+    },
+    { "id": "TC-1", "maps_to_ac": "AC-1", "satisfied": false },
+    { "id": "TC-2", "maps_to_ac": "AC-2", "satisfied": false },
+    { "id": "TC-3", "maps_to_ac": "AC-3", "satisfied": true }
+  ],
+  "stubs": [
+    {
+      "severity": "CRITICAL",
+      "pattern": "semantic_stub",
+      "location": "services/platform/tests/integration/docker-resilience.test.ts:227-280",
+      "summary": "running_service_count labeled as live observation but sourced from compose YAML service key count; four-service start omitted; negative control hollow"
+    },
+    {
+      "severity": "HIGH",
+      "pattern": "half_implementation",
+      "location": "services/platform/tests/integration/docker-resilience.test.ts:585-595; .tmp/D08-08/imp-ac-17-lifecycle.json",
+      "summary": "serve_resumed must_observe='true' unmet; test soft-accepts blocked residual instead of failing AC or scheduling authorized Serve-enable drill"
+    },
+    {
+      "severity": "HIGH",
+      "pattern": "half_implementation",
+      "location": "services/platform/tests/integration/docker-resilience.test.ts:323-380",
+      "summary": "IMP-AC-17 proves disposable single-postgres lifecycle, not exact four-service Compose graph with two production-shaped durable volumes under managed restart"
+    },
+    {
+      "severity": "MEDIUM",
+      "pattern": "half_implementation",
+      "location": "services/platform/tests/integration/docker-resilience.test.ts:597-637",
+      "summary": "rollback preflight not executed; host reboot not executed (honest residual) — reboot path is documentation + restart policy only"
+    },
+    {
+      "severity": "LOW",
+      "pattern": "test_theatre",
+      "location": "services/platform/tests/integration/service/health-readiness.test.ts:396-398",
+      "summary": "const overBudgetRejected = true after real throw assertions — cosmetic; rejections themselves are real"
+    }
+  ],
+  "critical": [
+    {
+      "id": "TECH-C1",
+      "title": "IMP-AC-16 running_service_count is compose-graph, not live Docker",
+      "location": "services/platform/tests/integration/docker-resilience.test.ts:227-280",
+      "detail": "Evidence claims running_service_count=4 without starting or inspecting four healthy containers. Preflight is non-mutating by design. AC requires documented bootstrap observation of four services; negative control 'four-service start is omitted' is not enforced."
+    }
+  ],
+  "high": [
+    {
+      "id": "TECH-H1",
+      "title": "IMP-AC-17 serve_resumed='true' not observed",
+      "location": ".tmp/D08-08/imp-ac-17-lifecycle.json; docker-resilience.test.ts:522-595",
+      "detail": "must_observe includes serve_resumed='true'. Evidence records serve_resumed=false with tailnet_serve_not_enabled residual. Honest residual is preferred to mock success, but AC remains unsatisfied until Serve is enabled and restore is proven on real status JSON for HTTPS 44111."
+    },
+    {
+      "id": "TECH-H2",
+      "title": "Lifecycle proof is not four-service Compose",
+      "location": "services/platform/tests/integration/docker-resilience.test.ts:323-517",
+      "detail": "Verification checklist requires exactly four healthy services and two named volumes. Harness uses one disposable pgvector container + alpine blob seeder. Does not exercise mastra/scheduler/zero-cache or compose stop/up of the release graph."
+    }
+  ],
+  "medium": [
+    {
+      "id": "TECH-M1",
+      "title": "Rollback preflight not executed",
+      "location": "docker-resilience.test.ts:597-603",
+      "detail": "Only isMutatingDeployCommand classifier is asserted. Task requires rollback preflight run without mutation; needs real holo deploy:rollback-preflight invocation + ledger proving zero volume ops."
+    },
+    {
+      "id": "TECH-M2",
+      "title": "Host reboot recovery unproven",
+      "location": "imp-ac-17-lifecycle.json host_reboot; launchd/README.md",
+      "detail": "real_reboot_executed=false. Docs correctly require operator scheduling; restart policy proven only as compose.yaml field + single container docker stop/start. Full reboot recovery of Docker Desktop + four services + Serve remains residual."
+    },
+    {
+      "id": "TECH-M3",
+      "title": "LOC budget overrun",
+      "detail": "~902 insertions (4 files) vs task loc_budget 220 of 1080 aggregate."
+    }
+  ],
+  "low": [
+    {
+      "id": "TECH-L1",
+      "title": "IMP-AC-20 overBudgetRejected hardcoded true after real throws",
+      "location": "health-readiness.test.ts:396-398",
+      "detail": "Cosmetic theatre; assertMemoryLimitPlan/evaluateMemoryCapacity throws are real."
+    },
+    {
+      "id": "TECH-L2",
+      "title": "volume_deletion_count self-instrumented in test helper",
+      "location": "docker-resilience.test.ts:334-351",
+      "detail": "Counter increments only on paths going through docker() helper; finally cleanup correctly uses run() so evidence stays 0. Acceptable but not an independent Docker audit log."
+    }
+  ],
+  "positive_controls": [
+    "Scope limited to writeAllowed four paths (2 READMEs + 2 integration tests); no product/Compose/CLI reopening",
+    "Docs forbid down -v / volume rm / prune; shell blocks scanned so recommended commands never are down -v",
+    "Legacy native LaunchAgents clearly labeled NOT portable production path (prevents double-start)",
+    "Real ARM64 host + Docker engine + Tailscale version prerequisites exercised",
+    "Real Postgres/blob sentinel seed and post-restart re-observe on named volumes",
+    "No credential values in evidence JSON; disposable password excluded; mode 0600 evidence files",
+    "No Funnel; serve apply only loopback 127.0.0.1:44111 form",
+    "IMP-AC-20 real Docker VM + host memory observations; small VM fails 50 GiB plan closed",
+    "Honest Serve residual when tailnet policy blocks (no soft-pass mock of resume success in evidence fields)"
+  ],
+  "security": {
+    "no_critical_vulns": true,
+    "input_validation": "adequate_for_docs_and_tests",
+    "authz_before_mutation": true,
+    "hardcoded_secrets": false,
+    "credential_leakage_risks": [],
+    "tailscale": {
+      "funnel_invoked": false,
+      "serve_backend_loopback_only": true,
+      "serve_apply_attempted": true,
+      "serve_apply_blocked_honestly": true,
+      "status_json_funnel_check": true
+    },
+    "preflight_non_mutating": true,
+    "volume_destruction_in_lifecycle_path": false,
+    "notes": "No CRITICAL security vulns in this commit's write set. Blocking issues are evidence-integrity / AC satisfaction stubs, not OWASP exploit classes. Disposable POSTGRES_PASSWORD in test is not written to evidence."
+  },
+  "quality_gate": {
+    "no_critical_vulnerabilities": true,
+    "input_validation_on_all_functions": true,
+    "authentication_authorization_checks": true,
+    "no_hardcoded_secrets": true,
+    "ac_all_pass": false,
+    "no_critical_high_stubs": false
+  },
+  "red_green": {
+    "red_first_required": false,
+    "red_evidence_present": false,
+    "seeded_evidence_required": true,
+    "seeded_evidence_present": true,
+    "seeded_evidence": [
+      ".tmp/D08-08/imp-ac-16-cold-host.json",
+      ".tmp/D08-08/imp-ac-17-lifecycle.json",
+      ".tmp/D08-08/imp-ac-17-serve-restore-blocked.json",
+      ".tmp/D08-08/imp-ac-20-memory.json"
+    ],
+    "seeded_evidence_gaps": [
+      "imp-ac-16 does not prove live running_service_count=4",
+      "imp-ac-17 serve_resumed false; reboot not executed"
+    ]
+  },
+  "required_fixes": [
+    {
+      "id": "FIX-1",
+      "blocks": ["AC-1", "TC-1"],
+      "action": "IMP-AC-16 must observe live Docker: after authorized disposable or production-shaped compose up (or inspect of already-running release), assert exactly 4 healthy services by name (postgres, mastra, scheduler, zero-cache) and 2 named volumes. Do not equate YAML service count with running_service_count. Negative control: omit start → fail."
+    },
+    {
+      "id": "FIX-2",
+      "blocks": ["AC-2", "TC-2"],
+      "action": "Prove serve_resumed='true' via real tailscale serve status --json showing HTTPS 44111 → http://127.0.0.1:44111 after restore. If tailnet Serve is disabled, stop with residual (do not mark AC green) or obtain operator enablement before re-run. Keep residual artifact for the blocked path."
+    },
+    {
+      "id": "FIX-3",
+      "blocks": ["AC-2"],
+      "action": "Exercise Compose four-service lifecycle (stop without -v, up -d / restart policy path) with durable volume names (disposable project prefix OK) retaining one postgres + one blob sentinel; do not substitute single-container-only as full AC-2 graph proof."
+    },
+    {
+      "id": "FIX-4",
+      "blocks": ["AC-2", "Done-when rollback"],
+      "action": "Execute holo deploy:rollback-preflight --lock ... for real; assert non-zero exit only on lock failure, docker_mutation_count/volume ops remain zero, containers/volumes unchanged."
+    },
+    {
+      "id": "FIX-5",
+      "blocks": ["AC-2 reboot residual"],
+      "action": "Either schedule authorized real reboot drill with post-login four-service + Serve recovery evidence, or keep residual but do not claim host_reboot.restart_policy_proven satisfies must_observe for reboot recovery alone — label residual explicitly and leave AC open until drill."
+    }
+  ],
+  "do_not_merge": true,
+  "merge_blocked_by_reviewer_instruction": true,
+  "notes": "Technical/security review of D08-08 tip 90de9f47 only. Docs quality is strong; IMP-AC-20 real. Blocking: AC-1 semantic stub for running services; AC-2 missing serve_resumed=true and incomplete four-service/reboot/rollback execution. Task file AC checkboxes annotated in place. Do not merge."
+}

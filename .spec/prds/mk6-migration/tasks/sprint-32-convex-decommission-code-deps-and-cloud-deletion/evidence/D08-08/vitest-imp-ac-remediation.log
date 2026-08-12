@@ -1,0 +1,13 @@
+
+ RUN  v4.1.0 /Users/inference1/Projects/holocron/.git-worktrees/s32/D08-08
+
+ ✓ |integration| services/platform/tests/integration/service/health-readiness.test.ts (6 tests | 5 skipped) 77ms
+ ✓ |integration| services/platform/tests/integration/docker-resilience.test.ts (9 tests | 7 skipped) 72671ms
+     ✓ IMP-AC-16 documented cold-host bootstrap (ARM64, four services, no client assets, 44111)  17853ms
+     ✓ IMP-AC-17 managed lifecycle: stop/restart, Serve restore, sentinels, zero volume deletions  54817ms
+
+ Test Files  2 passed (2)
+      Tests  3 passed | 12 skipped (15)
+   Start at  11:42:25
+   Duration  72.97s (transform 448ms, setup 253ms, import 1.01s, tests 72.75s, environment 0ms)
+

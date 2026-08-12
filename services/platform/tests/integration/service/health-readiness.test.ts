@@ -383,17 +383,25 @@ describe('D06-07 production health readiness', () => {
     expect(reference.smaller_host_lower_limits_required).toBe(false);
 
     // 51 GiB container plan is rejected by the limit plan and capacity evaluator.
-    expect(() =>
-      assertMemoryLimitPlan({ postgres: 20, mastra: 20, scheduler: 6, 'zero-cache': 5 })
-    ).toThrow(/50|budget|memory/i);
-    expect(() =>
+    let overBudgetRejected = false;
+    try {
+      assertMemoryLimitPlan({ postgres: 20, mastra: 20, scheduler: 6, 'zero-cache': 5 });
+    } catch (error) {
+      expect(String(error)).toMatch(/50|budget|memory/i);
+      overBudgetRejected = true;
+    }
+    expect(overBudgetRejected, 'over_budget_51_gib_rejected from assertMemoryLimitPlan').toBe(true);
+    overBudgetRejected = false;
+    try {
       evaluateMemoryCapacity({
         containerLimitSumGib: 51,
         dockerVmMemoryGib: 54,
         hostPhysicalMemoryGib: 64,
-      })
-    ).toThrow(/50|budget|memory/i);
-    const overBudgetRejected = true;
+      });
+    } catch (error) {
+      expect(String(error)).toMatch(/50|budget|memory/i);
+      overBudgetRejected = true;
+    }
     expect(overBudgetRejected, "over_budget_51_gib_rejected='true'").toBe(true);
 
     // Insufficient VM or host headroom fails closed and requires lower limits.
