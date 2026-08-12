@@ -13,8 +13,103 @@ import { parse as parseYaml } from 'yaml';
 export const REQUIRED_SERVICES = ['postgres', 'mastra', 'scheduler', 'zero-cache'] as const;
 export const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
 export const REVISION_PATTERN = /^[a-f0-9]{40}$/;
+/** Required OCI platform for Apple-silicon / portable M1 deployments. */
+export const REQUIRED_PLATFORM = 'linux/arm64' as const;
 export const PGVECTOR_PG18_IMAGE =
   'pgvector/pgvector@sha256:691673308c99d2161ba298736f3147f1f22d79de2fb7ec93ae9b4afcab870b62';
+
+export type ImagePlatform = { os: string; architecture: string; variant?: string };
+
+/**
+ * Parse `docker buildx imagetools inspect` JSON (or a thin manifests wrapper)
+ * into platform tuples. Accepts multi-arch indexes and single-platform images.
+ */
+export function parseImagePlatforms(inspectStdout: string): ImagePlatform[] {
+  const trimmed = inspectStdout.trim();
+  if (!trimmed) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    // Fall back to plain "linux/arm64" lines from custom --format output.
+    return trimmed
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => /^[a-z0-9]+\/[a-z0-9]+/.test(token))
+      .map((token) => {
+        const [os, architecture, variant] = token.split('/');
+        return {
+          os: os ?? '',
+          architecture: architecture ?? '',
+          ...(variant ? { variant } : {}),
+        };
+      })
+      .filter((p) => p.os && p.architecture);
+  }
+  const platforms: ImagePlatform[] = [];
+  const pushPlatform = (value: unknown) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    const record = value as Record<string, unknown>;
+    const os = typeof record.os === 'string' ? record.os : '';
+    const architecture =
+      typeof record.architecture === 'string'
+        ? record.architecture
+        : typeof record.arch === 'string'
+          ? record.arch
+          : '';
+    if (!os || !architecture) return;
+    const variant = typeof record.variant === 'string' ? record.variant : undefined;
+    platforms.push({ os, architecture, ...(variant ? { variant } : {}) });
+  };
+  const walk = (value: unknown): void => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) {
+      for (const entry of value) walk(entry);
+      return;
+    }
+    const record = value as Record<string, unknown>;
+    if (record.platform) pushPlatform(record.platform);
+    if (record.Platform) pushPlatform(record.Platform);
+    // Single-platform image config often surfaces architecture at the top level.
+    if (typeof record.architecture === 'string' || typeof record.os === 'string') {
+      pushPlatform(record);
+    }
+    if (Array.isArray(record.manifests)) walk(record.manifests);
+    if (record.Manifest && typeof record.Manifest === 'object') walk(record.Manifest);
+    if (Array.isArray((record.Manifest as { Manifests?: unknown })?.Manifests)) {
+      walk((record.Manifest as { Manifests: unknown }).Manifests);
+    }
+    if (record.schemaVersion !== undefined || record.mediaType !== undefined) {
+      // OCI index body
+      if (Array.isArray(record.manifests)) walk(record.manifests);
+    }
+  };
+  walk(parsed);
+  // De-dupe
+  const seen = new Set<string>();
+  return platforms.filter((p) => {
+    const key = `${p.os}/${p.architecture}${p.variant ? `/${p.variant}` : ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Fail closed unless at least one linux/arm64 platform is present. */
+export function assertLinuxArm64Platforms(platforms: ImagePlatform[]): void {
+  if (!Array.isArray(platforms) || platforms.length === 0) {
+    fail('image manifest response is empty; linux/arm64 is required');
+  }
+  const compatible = platforms.filter(
+    (p) => p.os === 'linux' && (p.architecture === 'arm64' || p.architecture === 'aarch64')
+  );
+  if (compatible.length === 0) {
+    const observed = platforms.map((p) => `${p.os}/${p.architecture}`).join(',') || '(none)';
+    fail(
+      `image is incompatible with ${REQUIRED_PLATFORM}; observed platforms: ${observed} (amd64-only candidates are rejected)`
+    );
+  }
+}
 
 export type ReleaseLock = {
   schemaVersion: 1;

@@ -4,21 +4,25 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { loadConsolidatedSecrets } from '../config/secrets.ts';
 import { assertExternalBaseUrl } from '../http/deployment-identity.ts';
 import {
   assertDeployableImage,
+  assertLinuxArm64Platforms,
   assertSourceRevision,
   composeSha256,
   defaultComposePath,
+  parseImagePlatforms,
   REQUIRED_SERVICES,
   type ReleaseLock,
 } from './production-release.ts';
@@ -26,6 +30,15 @@ import {
 export const DEPLOY_PROJECT = 'holocron-production';
 export const DEPLOY_EVIDENCE_DIR = '.tmp/REDHAT-FIX-S29-DEPLOY';
 export const DEPLOYMENT_RECORD_NAME = 'deployment-record.json';
+/** Documented default/example host — not the only accepted target. */
+export const DEFAULT_DEPLOY_HOST = 'holocron';
+export const MAX_MEMORY_LIMIT_SUM_GIB = 50;
+export const DEFAULT_MEMORY_LIMITS_GIB = {
+  postgres: 16,
+  mastra: 16,
+  scheduler: 8,
+  'zero-cache': 10,
+} as const satisfies ServiceMemoryLimits;
 
 export type DeploymentProcessResult = {
   status: number | null;
@@ -39,11 +52,19 @@ export type DeploymentRunner = (
   options: { cwd: string; env: NodeJS.ProcessEnv }
 ) => DeploymentProcessResult;
 
+export type ServiceMemoryLimits = {
+  postgres: number;
+  mastra: number;
+  scheduler: number;
+  'zero-cache': number;
+};
+
 export type DeploymentRecord = {
   schemaVersion: 1;
   authorized: true;
   authorizationScope: string;
-  host: 'inference1';
+  /** Validated portable deploy host (default example: holocron). */
+  host: string;
   runtime: 'container';
   baseUrl: string;
   project: string;
@@ -58,6 +79,7 @@ export type DeploymentRecord = {
   previousImage: string;
   previousDigest: string;
   durableVolumes: readonly ['holocron-postgres', 'holocron-blobs'];
+  memoryLimitsGib: ServiceMemoryLimits;
   coldRecreate: true;
   cutoverActions: 0;
   volumeDeletions: 0;
@@ -76,6 +98,8 @@ export type ApplyProductionOptions = {
   evidenceDir?: string;
   project?: string;
   target?: string;
+  memoryLimits?: ServiceMemoryLimits;
+  secretStoreRoot?: string;
   dryRun?: boolean;
   now?: () => Date;
   runner?: DeploymentRunner;
@@ -105,6 +129,114 @@ function asObject(value: unknown, label: string): Record<string, unknown> {
     deployFail(`${label} must be an object`);
   }
   return value as Record<string, unknown>;
+}
+
+/**
+ * Validate a portable deployment hostname. holocron is the documented default;
+ * any RFC-1123-ish label/FQDN is accepted. Rejects empty, underscores, and
+ * special characters (e.g. bad_host!).
+ */
+export function assertDeployHost(host: string): string {
+  const normalized = host.trim().toLowerCase();
+  if (!normalized) deployFail('deployment host is missing');
+  if (normalized.length > 63) deployFail(`deployment host is invalid: ${host}`);
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/.test(normalized)) {
+    deployFail(`deployment host is invalid: ${host}`);
+  }
+  if (normalized.includes('_') || /[^a-z0-9.-]/.test(normalized)) {
+    deployFail(`deployment host is invalid: ${host}`);
+  }
+  return normalized;
+}
+
+/** Validate per-service memory limits (GiB); sum must be in (0, 50]. */
+export function assertMemoryLimitPlan(
+  limits: Partial<ServiceMemoryLimits> | ServiceMemoryLimits | null | undefined
+): ServiceMemoryLimits {
+  if (!limits || typeof limits !== 'object') {
+    deployFail('memory plan is missing');
+  }
+  const out = {} as ServiceMemoryLimits;
+  let sum = 0;
+  for (const service of REQUIRED_SERVICES) {
+    const raw = (limits as Record<string, unknown>)[service];
+    if (raw === undefined || raw === null) {
+      deployFail(`memory limit for ${service} is missing`);
+    }
+    const value = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(value)) {
+      deployFail(`memory limit for ${service} is malformed`);
+    }
+    if (value <= 0) {
+      deployFail(`memory limit for ${service} must be positive (got ${value})`);
+    }
+    out[service] = value;
+    sum += value;
+  }
+  if (sum > MAX_MEMORY_LIMIT_SUM_GIB) {
+    deployFail(
+      `memory limit sum ${sum} GiB exceeds the ${MAX_MEMORY_LIMIT_SUM_GIB} GiB container budget`
+    );
+  }
+  if (sum <= 0) deployFail('memory plan is empty');
+  return out;
+}
+
+/**
+ * Canonical realpath validation for operator secret files.
+ * Rejects symlinks, non-regular files, paths outside the approved store, and
+ * group/world-writable permissions. Never includes secret file contents.
+ */
+export function assertApprovedSecretFile(
+  candidatePath: string,
+  options: { storeRoot?: string } = {}
+): string {
+  const resolvedCandidate = resolve(candidatePath);
+  let leafStat: ReturnType<typeof lstatSync>;
+  try {
+    leafStat = lstatSync(resolvedCandidate);
+  } catch {
+    deployFail(`secrets file is missing: ${candidatePath}`);
+  }
+  if (leafStat.isSymbolicLink()) {
+    deployFail('secret path must not be a symlink');
+  }
+  if (!leafStat.isFile()) {
+    deployFail('secret path must be a regular file');
+  }
+  const mode = leafStat.mode & 0o777;
+  if ((mode & 0o022) !== 0) {
+    deployFail('secret file must not be group/world-writable');
+  }
+  let realFile: string;
+  let realStore: string;
+  try {
+    realFile = realpathSync(resolvedCandidate);
+    const storeRoot = resolve(options.storeRoot ?? dirname(resolvedCandidate));
+    realStore = realpathSync(storeRoot);
+  } catch {
+    deployFail('secret path realpath resolution failed');
+  }
+  const rel = relative(realStore, realFile);
+  if (!rel || rel.startsWith(`..${sep}`) || rel === '..' || rel.startsWith('..')) {
+    deployFail('secret path is outside the operator-approved secret store');
+  }
+  // Walk each path component and reject intermediate symlinks.
+  const parts = realFile.split(sep).filter(Boolean);
+  let cursor = realFile.startsWith(sep) ? sep : '';
+  for (const part of parts) {
+    cursor = cursor.endsWith(sep) ? `${cursor}${part}` : `${cursor}${sep}${part}`;
+    let st: ReturnType<typeof lstatSync>;
+    try {
+      st = lstatSync(cursor);
+    } catch {
+      deployFail('secret path realpath resolution failed');
+    }
+    if (st.isSymbolicLink()) {
+      deployFail('secret path must not traverse a symlink');
+    }
+  }
+  return realFile;
 }
 
 /** Strict reader for the D06-06 deployable release lock. */
@@ -263,17 +395,25 @@ function runtimeSecrets(options: {
   return values;
 }
 
-function deploymentGeneration(now: Date, digest: string): string {
+function deploymentGeneration(now: Date, digest: string, host: string): string {
   const entropy = randomBytes(8).toString('hex');
   const hash = createHash('sha256')
-    .update(`${now.toISOString()}\0${digest}\0${entropy}`)
+    .update(`${now.toISOString()}\0${digest}\0${entropy}\0${host}`)
     .digest('hex')
     .slice(0, 24);
-  return `inference1-${hash}`;
+  const prefix = host.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'holocron';
+  return `${prefix}-${hash}`;
 }
 
 function yamlString(value: string): string {
   return JSON.stringify(value);
+}
+
+function memLimitYaml(gib: number): string {
+  // Compose accepts integer GiB strings like "16g".
+  if (!Number.isFinite(gib) || gib <= 0) deployFail('memory limit is invalid');
+  const normalized = Number.isInteger(gib) ? String(gib) : String(gib);
+  return `${normalized}g`;
 }
 
 /** Generated-only override: publication, strict identity, secret bind, and boot-cycle break. */
@@ -283,7 +423,11 @@ export function renderDeploymentOverride(options: {
   deployedAt: string;
   port: number;
   secretsPath: string;
+  host?: string;
+  memoryLimits?: ServiceMemoryLimits;
 }): string {
+  const host = assertDeployHost(options.host ?? DEFAULT_DEPLOY_HOST);
+  const memoryLimits = assertMemoryLimitPlan(options.memoryLimits ?? DEFAULT_MEMORY_LIMITS_GIB);
   const postgresPort = options.port + 1;
   const zeroPort = options.port + 2;
   if (zeroPort > 65_535) {
@@ -295,7 +439,7 @@ export function renderDeploymentOverride(options: {
     // The production Compose database is intentionally named `holocron`.
     // Runtime routes otherwise refuse it as an accidental production target.
     '      HOLO_DANGEROUS_ALLOW_PROD_DB: "1"',
-    '      HOLO_DEPLOY_HOST: inference1',
+    `      HOLO_DEPLOY_HOST: ${host}`,
     '      HOLO_DEPLOY_RUNTIME: container',
     `      HOLO_IMAGE_DIGEST: ${options.lock.digest}`,
     `      HOLO_SOURCE_REVISION: ${options.lock.sourceRevision}`,
@@ -304,7 +448,45 @@ export function renderDeploymentOverride(options: {
     `      HOLO_DEPLOYED_AT: ${yamlString(options.deployedAt)}`,
     '      ZERO_CACHE_URL: http://zero-cache:4848',
   ].join('\n');
-  return `# Generated by deploy:apply. Contains no secret values.\nservices:\n  postgres:\n    ports: !override\n      - ${yamlString(`127.0.0.1:${postgresPort}:5432`)}\n  mastra:\n    restart: always\n    ports: !override\n      - ${yamlString(`0.0.0.0:${options.port}:4111`)}\n    environment:\n${identityEnvironment}\n    labels:\n      io.holocron.deploy-host: inference1\n      io.holocron.deploy-runtime: container\n      io.holocron.image-digest: ${options.lock.digest}\n      io.holocron.source-revision: ${options.lock.sourceRevision}\n      io.holocron.compose-generation: ${options.generation}\n    volumes:\n      - ${yamlString(`${options.secretsPath}:/app/services/platform/config/secrets.yaml:ro`)}\n    extra_hosts:\n      - "host.docker.internal:host-gateway"\n  scheduler:\n    labels:\n      io.holocron.image-digest: ${options.lock.digest}\n      io.holocron.source-revision: ${options.lock.sourceRevision}\n      io.holocron.compose-generation: ${options.generation}\n  zero-cache:\n    ports: !override\n      - ${yamlString(`127.0.0.1:${zeroPort}:4848`)}\n    depends_on: !override\n      postgres:\n        condition: service_healthy\n        restart: true\n`;
+  // Mastra is loopback-only on the serving host; Tailscale Serve (D08-07) fronts it.
+  return `# Generated by deploy:apply. Contains no secret values.
+services:
+  postgres:
+    ports: !override
+      - ${yamlString(`127.0.0.1:${postgresPort}:5432`)}
+    mem_limit: ${yamlString(memLimitYaml(memoryLimits.postgres))}
+  mastra:
+    restart: always
+    ports: !override
+      - ${yamlString(`127.0.0.1:${options.port}:4111`)}
+    mem_limit: ${yamlString(memLimitYaml(memoryLimits.mastra))}
+    environment:
+${identityEnvironment}
+    labels:
+      io.holocron.deploy-host: ${host}
+      io.holocron.deploy-runtime: container
+      io.holocron.image-digest: ${options.lock.digest}
+      io.holocron.source-revision: ${options.lock.sourceRevision}
+      io.holocron.compose-generation: ${options.generation}
+    volumes:
+      - ${yamlString(`${options.secretsPath}:/app/services/platform/config/secrets.yaml:ro`)}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  scheduler:
+    mem_limit: ${yamlString(memLimitYaml(memoryLimits.scheduler))}
+    labels:
+      io.holocron.image-digest: ${options.lock.digest}
+      io.holocron.source-revision: ${options.lock.sourceRevision}
+      io.holocron.compose-generation: ${options.generation}
+  zero-cache:
+    ports: !override
+      - ${yamlString(`127.0.0.1:${zeroPort}:4848`)}
+    mem_limit: ${yamlString(memLimitYaml(memoryLimits['zero-cache']))}
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+        restart: true
+`;
 }
 
 function runOrFail(
@@ -333,6 +515,7 @@ function verifyLockedImage(options: {
   image: string;
   digest: string;
   sourceRevision?: string;
+  requireArm64?: boolean;
 }): void {
   // Docker 29 / buildx 0.30 exposes the index digest under Manifest.Digest.
   const remoteDigest = runOrFail(options.runner, options.cwd, options.env, 'docker', [
@@ -345,6 +528,21 @@ function verifyLockedImage(options: {
   ]);
   if (remoteDigest !== options.digest) {
     deployFail(`remote manifest digest differs from lock for ${options.image}`);
+  }
+  if (options.requireArm64 !== false) {
+    const platformJson = runOrFail(options.runner, options.cwd, options.env, 'docker', [
+      'buildx',
+      'imagetools',
+      'inspect',
+      '--format',
+      '{{json .}}',
+      options.image,
+    ]);
+    try {
+      assertLinuxArm64Platforms(parseImagePlatforms(platformJson));
+    } catch (error) {
+      deployFail(error instanceof Error ? error.message : String(error));
+    }
   }
   runOrFail(options.runner, options.cwd, options.env, 'docker', ['pull', options.image]);
   const repoDigestsRaw = runOrFail(options.runner, options.cwd, options.env, 'docker', [
@@ -389,11 +587,14 @@ export function defaultDeploymentRecordPath(cwd = process.cwd()): string {
 }
 
 /** Private operator runtime state. Never place this beneath a gate/evidence directory. */
-export function defaultRuntimeSecretsPath(env: NodeJS.ProcessEnv = process.env): string {
+export function defaultRuntimeSecretsPath(
+  env: NodeJS.ProcessEnv = process.env,
+  host: string = DEFAULT_DEPLOY_HOST
+): string {
   const configured = env.HOLO_RUNTIME_SECRETS_PATH?.trim();
-  return configured
-    ? resolve(configured)
-    : resolve(homedir(), '.config', 'holocron', 'runtime', 'inference1.json');
+  if (configured) return resolve(configured);
+  const safeHost = assertDeployHost(host);
+  return resolve(homedir(), '.config', 'holocron', 'runtime', `${safeHost}.json`);
 }
 
 function reusableDeployment(options: {
@@ -486,18 +687,21 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   }
   if (options.dryRun) deployFail('dry-run cannot produce an authorized deployment receipt');
   const cwd = options.cwd ?? process.cwd();
-  const target = options.target ?? process.env.HOLO_DEPLOY_TARGET ?? '';
-  if (target !== 'inference1') deployFail('HOLO_DEPLOY_TARGET must be exactly inference1');
+  const targetRaw = options.target ?? process.env.HOLO_DEPLOY_TARGET ?? DEFAULT_DEPLOY_HOST;
+  const host = assertDeployHost(targetRaw);
+  const memoryLimits = assertMemoryLimitPlan(options.memoryLimits ?? DEFAULT_MEMORY_LIMITS_GIB);
   const composePath = resolve(options.composePath ?? defaultComposePath(cwd));
   const releasePath = resolve(options.releasePath);
-  const secretsPath = resolve(options.secretsPath);
+  const secretsPath = assertApprovedSecretFile(options.secretsPath, {
+    storeRoot: options.secretStoreRoot,
+  });
   const evidenceDir = resolve(cwd, options.evidenceDir ?? DEPLOY_EVIDENCE_DIR);
   const project = options.project ?? DEPLOY_PROJECT;
   const baseUrl = assertExternalBaseUrl(options.baseUrl);
   const port = portFromBaseUrl(baseUrl);
   const lock = readDeployableRelease(releasePath, composePath);
   const runner = options.runner ?? defaultRunner;
-  const runtimeSecretsPath = defaultRuntimeSecretsPath();
+  const runtimeSecretsPath = defaultRuntimeSecretsPath(process.env, host);
   const legacyEvidenceSecretsPath = resolve(evidenceDir, '.runtime-secrets.json');
   migrateLegacyRuntimeSecrets({ runtimeSecretsPath, legacyEvidenceSecretsPath });
   const existing = reusableDeployment({
@@ -512,8 +716,8 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   if (existing) return existing;
   const now = (options.now ?? (() => new Date()))();
   const deployedAt = now.toISOString();
-  const generation = deploymentGeneration(now, lock.digest);
-  const overridePath = resolve(evidenceDir, 'compose.inference1.generated.yaml');
+  const generation = deploymentGeneration(now, lock.digest, host);
+  const overridePath = resolve(evidenceDir, `compose.${host}.generated.yaml`);
   const runtime = runtimeSecrets({
     secretsPath,
     runtimeSecretsPath,
@@ -522,7 +726,15 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   mkdirSync(evidenceDir, { recursive: true });
   writeFileSync(
     overridePath,
-    renderDeploymentOverride({ lock, generation, deployedAt, port, secretsPath }),
+    renderDeploymentOverride({
+      lock,
+      generation,
+      deployedAt,
+      port,
+      secretsPath,
+      host,
+      memoryLimits,
+    }),
     { mode: 0o644 }
   );
 
@@ -620,8 +832,8 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const record: DeploymentRecord = {
     schemaVersion: 1,
     authorized: true,
-    authorizationScope: `inference1:${lock.digest}`,
-    host: 'inference1',
+    authorizationScope: `${host}:${lock.digest}`,
+    host,
     runtime: 'container',
     baseUrl,
     project,
@@ -636,6 +848,7 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     previousImage: lock.previousImage,
     previousDigest: lock.previousDigest,
     durableVolumes: ['holocron-postgres', 'holocron-blobs'],
+    memoryLimitsGib: memoryLimits,
     coldRecreate: true,
     cutoverActions: 0,
     volumeDeletions: 0,
@@ -653,13 +866,14 @@ export function readDeploymentRecord(path: string): DeploymentRecord {
   if (
     value.schemaVersion !== 1 ||
     value.authorized !== true ||
-    value.host !== 'inference1' ||
+    typeof value.host !== 'string' ||
     value.runtime !== 'container' ||
     value.cutoverActions !== 0 ||
     value.volumeDeletions !== 0
   ) {
     deployFail('deployment record failed invariant checks');
   }
+  assertDeployHost(String(value.host));
   assertExternalBaseUrl(String(value.baseUrl ?? ''));
   return value as DeploymentRecord;
 }
