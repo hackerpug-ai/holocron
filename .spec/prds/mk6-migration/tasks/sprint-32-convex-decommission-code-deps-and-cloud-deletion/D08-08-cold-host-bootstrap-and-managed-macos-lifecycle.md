@@ -204,7 +204,7 @@ Must pass: cold-host reproducibility, exact Docker runtime, persistent private S
 
 Should verify: native launch-agent instructions cannot accidentally double-start production services; reboot prerequisites are honest; lifecycle commands never imply volume recreation; 50 GiB remains optional maximum.
 
-Verdict: `REMEDIATED` — tech NEEDS_FIXES of `90de9f47` addressed: live `running_service_count=4` via docker compose ps health; four-service Compose stop/up with durable volumes + sentinels; real `holo deploy:rollback-preflight` with zero volume mutation; Serve/reboot left as explicit `residual_open` (not AC-green soft-pass). AC-3 still PASS. Re-review required before merge.
+Verdict: `APPROVED` (security re-review of tip `9853124e`) — prior CRITICAL (YAML service count) and HIGH (soft Serve residual / incomplete four-service lifecycle) fixed. Live `running_service_count=4` via docker compose ps health; four-service stop/up + sentinels; real `holo deploy:rollback-preflight` non-mutating; Serve/reboot `residual_open` honest. Do not merge (operator instruction).
 
 ## Dependencies
 
