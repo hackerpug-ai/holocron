@@ -2,9 +2,9 @@
   "error": {
     "name": "EmbedRunError",
     "code": "EMBED_RUN_ERROR",
-    "passageId": "019fd352-7001-7fa1-a091-d31b8208cdf7",
+    "passageId": "019fe631-b941-788d-83ea-d2f5917ca944",
     "completed": 1,
-    "message": "embedRun fleet failure for passage 019fd352-7001-7fa1-a091-d31b8208cdf7: fleet embed endpoint returned 500 (simulated mid-batch failure)"
+    "message": "embedRun fleet failure for passage 019fe631-b941-788d-83ea-d2f5917ca944: fleet embed endpoint returned 500 (simulated mid-batch failure)"
   },
   "afterFail": {
     "count": 3,

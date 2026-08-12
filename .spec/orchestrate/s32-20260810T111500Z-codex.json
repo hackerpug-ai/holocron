@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "run_id": "s32-20260810T111500Z-codex",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+  "project": "/Users/inference1/Projects/holocron",
+  "base_branch": "main",
+  "workspace": "workspace:1",
+  "status": "blocked",
+  "cycle": 0,
+  "max_cycles": 3,
+  "max_recover": 2,
+  "tick": 300,
+  "stall_window": 600,
+  "audit_log": "/Users/inference1/Projects/holocron/.spec/orchestrate/s32-20260810T111500Z-codex-audit.jsonl",
+  "created_at": "2026-08-10T17:01:58Z",
+  "updated_at": "2026-08-10T20:17:41Z",
+  "registry": [
+    {
+      "surface_ref": "surface:1",
+      "surface_id": "87875561-C549-4A5B-91C0-774CC83D10CA",
+      "origin": "adopted",
+      "spawner": null,
+      "driver": "orch-self",
+      "role": "orch-self",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "codex",
+      "model": "unknown",
+      "provider": "openai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-orchestrate"
+      ],
+      "base_prompt_excerpt": "orchestrate Sprint 32",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "orchestrate Sprint 32",
+        "verification": {
+          "kind": "none",
+          "signal": "",
+          "status": "needs-human"
+        }
+      },
+      "active": true,
+      "status": "telemetry",
+      "cycle": 0,
+      "state_label": "orch-self",
+      "last_verdict_artifact": null,
+      "last_observed_ts": "2026-08-10T18:55:57Z",
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "",
+      "verdict_kind": "none",
+      "verdict_grep": "-",
+      "blocked_grep": "a^",
+      "baseline_count": 0,
+      "tty": "ttys003",
+      "pid": "26279",
+      "focused": true
+    },
+    {
+      "surface_ref": "surface:9",
+      "surface_id": "0A10801C-401F-4D57-8F46-F2EC239A1DEB",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "grok",
+      "model": "grok-composer-2.5-fast",
+      "provider": "xai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-run-sprint"
+      ],
+      "base_prompt_excerpt": "unknown",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion until GATE-GOAL: ACHIEVED",
+        "verification": {
+          "kind": "sentinel_grep",
+          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/sprint-goal-state.json",
+          "status": "blocked"
+        }
+      },
+      "active": false,
+      "status": "blocked",
+      "cycle": 0,
+      "state_label": "blocked",
+      "last_verdict_artifact": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-03/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/blocked-residual.json",
+      "last_observed_ts": "2026-08-10T20:17:41Z",
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/sprint-goal-state.json",
+      "verdict_kind": "artifact",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": 0,
+      "focused": false,
+      "land_nudge_count": 5,
+      "registry": null,
+      "tty": "ttys000",
+      "pid": "90779"
+    }
+  ],
+  "surfaces": [
+    {
+      "surface_ref": "surface:1",
+      "surface_id": "87875561-C549-4A5B-91C0-774CC83D10CA",
+      "origin": "adopted",
+      "spawner": null,
+      "driver": "orch-self",
+      "role": "orch-self",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "codex",
+      "model": "unknown",
+      "provider": "openai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-orchestrate"
+      ],
+      "base_prompt_excerpt": "orchestrate Sprint 32",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "orchestrate Sprint 32",
+        "verification": {
+          "kind": "none",
+          "signal": "",
+          "status": "needs-human"
+        }
+      },
+      "active": true,
+      "status": "telemetry",
+      "cycle": 0,
+      "state_label": "orch-self",
+      "last_verdict_artifact": null,
+      "last_observed_ts": "2026-08-10T18:55:57Z",
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "",
+      "verdict_kind": "none",
+      "verdict_grep": "-",
+      "blocked_grep": "a^",
+      "baseline_count": 0,
+      "tty": "ttys003",
+      "pid": "26279",
+      "focused": true
+    },
+    {
+      "surface_ref": "surface:9",
+      "surface_id": "0A10801C-401F-4D57-8F46-F2EC239A1DEB",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "grok",
+      "model": "grok-composer-2.5-fast",
+      "provider": "xai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-run-sprint"
+      ],
+      "base_prompt_excerpt": "unknown",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion until GATE-GOAL: ACHIEVED",
+        "verification": {
+          "kind": "sentinel_grep",
+          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/sprint-goal-state.json",
+          "status": "blocked"
+        }
+      },
+      "active": false,
+      "status": "blocked",
+      "cycle": 0,
+      "state_label": "blocked",
+      "last_verdict_artifact": "/Users/inference1/Projects/holocron/.kb-run-sprint/worktrees/D08-03/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/blocked-residual.json",
+      "last_observed_ts": "2026-08-10T20:17:41Z",
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/sprint-goal-state.json",
+      "verdict_kind": "artifact",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": 0,
+      "focused": false,
+      "land_nudge_count": 5,
+      "registry": null,
+      "tty": "ttys000",
+      "pid": "90779"
+    }
+  ]
+}

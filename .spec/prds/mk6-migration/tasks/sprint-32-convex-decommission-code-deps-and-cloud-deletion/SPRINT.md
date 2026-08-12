@@ -1,7 +1,7 @@
 ---
 sequence: 32
 timeline: Phase 7 — Cutover and Decommission
-status: In Progress
+status: Blocked
 planned_from_roadmap_sha: 69e4d2e0f3d3b7af03fb646bb706848d575b7b37c0199488beff185534335b0f
 planned_from_source_sha: 13f93dc53c8516efd93368a9f0c0627aeb3af6f6
 source_kind: prd-git
@@ -13,8 +13,9 @@ capability_coverage: [CAP-CUT-01, CAP-BAK-01]
 
 **Sequence:** 32
 **Timeline:** Phase 7 — Cutover and Decommission
-**Status:** In Progress
-> Progress: 0/5 tasks completed · updated 2026-08-10T16:56:42Z
+**Status:** Blocked
+> Progress: 0/5 tasks completed · updated 2026-08-10T20:09:44Z
+> Status-Note: D08-03 needs_ops: post-PONR restore ok; fk-audit orphans=2; no deletion-gate pass
 **Proposed by:** devops-engineer + integrator
 **Milestone:** — (`sprint-32`)
 **Branch:** `mk6-decommission`

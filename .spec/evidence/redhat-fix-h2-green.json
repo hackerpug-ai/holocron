@@ -1,7 +1,7 @@
 {
   "task": "REDHAT-FIX-H2",
   "kind": "green_honest_inventory",
-  "capturedAt": "2026-08-05T19:54:39.940Z",
+  "capturedAt": "2026-08-09T11:03:48.933Z",
   "inventory_pass": true,
   "unmapped_steps_count": 0,
   "mapped_steps_count": 7,

@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "run_id": "s31-20260809T030349Z-codex",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+  "project": "/Users/inference1/Projects/holocron",
+  "base_branch": "main",
+  "workspace": "workspace:1",
+  "status": "running",
+  "cycle": 0,
+  "max_cycles": 3,
+  "max_recover": 2,
+  "tick": 300,
+  "stall_window": 600,
+  "audit_log": "/Users/inference1/Projects/holocron/.spec/orchestrate/s31-20260809T030349Z-codex-audit.jsonl",
+  "registry": [
+    {
+      "surface_ref": "surface:75",
+      "surface_id": "D25D3D90-09E2-4173-8B84-F34E214F3EAE",
+      "origin": "adopted",
+      "spawner": null,
+      "driver": "orch-self",
+      "role": "orch-self",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "codex",
+      "model": "unknown",
+      "provider": "openai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-orchestrate"
+      ],
+      "base_prompt_excerpt": "orchestrate sprint 31",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "orchestrate Sprint 31",
+        "verification": {
+          "kind": "none",
+          "signal": "",
+          "status": "needs-human"
+        }
+      },
+      "active": true,
+      "status": "telemetry",
+      "cycle": 0,
+      "state_label": "orch-self",
+      "last_verdict_artifact": null,
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "",
+      "verdict_kind": "none",
+      "verdict_grep": "-",
+      "blocked_grep": "a^",
+      "baseline_count": 0,
+      "focused": true
+    },
+    {
+      "surface_ref": "surface:77",
+      "surface_id": "5658B238-8B1D-42EC-855E-24BCD76987E0",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "grok",
+      "model": "grok-4.5@medium",
+      "provider": "xai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-run-sprint"
+      ],
+      "base_prompt_excerpt": "",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation until GATE-GOAL: ACHIEVED",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/sprint-goal-state.json",
+          "status": "derived"
+        }
+      },
+      "active": true,
+      "status": "running",
+      "cycle": 0,
+      "state_label": "running (FE-07/SPEC-REPAIR next wave active)",
+      "last_verdict_artifact": null,
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/sprint-goal-state.json",
+      "verdict_kind": "grep",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": 0,
+      "focused": false,
+      "land_nudge_count": 0,
+      "block_reason": "prior wave landed; FE-07 and SPEC-REPAIR tasks remain in execution"
+    }
+  ],
+  "surfaces": [
+    {
+      "surface_ref": "surface:75",
+      "surface_id": "D25D3D90-09E2-4173-8B84-F34E214F3EAE",
+      "origin": "adopted",
+      "spawner": null,
+      "driver": "orch-self",
+      "role": "orch-self",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "codex",
+      "model": "unknown",
+      "provider": "openai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-orchestrate"
+      ],
+      "base_prompt_excerpt": "orchestrate sprint 31",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "orchestrate Sprint 31",
+        "verification": {
+          "kind": "none",
+          "signal": "",
+          "status": "needs-human"
+        }
+      },
+      "active": true,
+      "status": "telemetry",
+      "cycle": 0,
+      "state_label": "orch-self",
+      "last_verdict_artifact": null,
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "",
+      "verdict_kind": "none",
+      "verdict_grep": "-",
+      "blocked_grep": "a^",
+      "baseline_count": 0,
+      "focused": true
+    },
+    {
+      "surface_ref": "surface:77",
+      "surface_id": "5658B238-8B1D-42EC-855E-24BCD76987E0",
+      "origin": "spawned",
+      "spawner": "spawn-stage.sh",
+      "driver": "orch",
+      "role": "run",
+      "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "target": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation",
+      "cwd": "/Users/inference1/Projects/holocron",
+      "harness": "grok",
+      "model": "grok-4.5@medium",
+      "provider": "xai",
+      "session_id": "",
+      "commands_or_skills": [
+        "kb-run-sprint"
+      ],
+      "base_prompt_excerpt": "",
+      "base_prompt_sha256": "",
+      "goal": {
+        "text": "Run /kb-run-sprint /Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation until GATE-GOAL: ACHIEVED",
+        "verification": {
+          "kind": "artifact_exists",
+          "signal": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/sprint-goal-state.json",
+          "status": "derived"
+        }
+      },
+      "active": true,
+      "status": "running",
+      "cycle": 0,
+      "state_label": "running (FE-07/SPEC-REPAIR next wave active)",
+      "last_verdict_artifact": null,
+      "nudge_count": 0,
+      "recover_count": 0,
+      "watch_glob": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-31-migration-integrity-remediation/sprint-goal-state.json",
+      "verdict_kind": "grep",
+      "verdict_grep": "goal:complete",
+      "blocked_grep": "goal:blocked",
+      "baseline_count": 0,
+      "focused": false,
+      "land_nudge_count": 0,
+      "block_reason": "prior wave landed; FE-07 and SPEC-REPAIR tasks remain in execution"
+    }
+  ],
+  "block_reason_class": null,
+  "block_reason": null,
+  "resumed_at": "2026-08-09T06:59:13Z",
+  "last_land_audit": {
+    "repo": "/Users/inference1/Projects/holocron",
+    "trunk": "main",
+    "prime": {
+      "is_prime": true,
+      "branch": "main",
+      "on_trunk": true,
+      "gitbutler": false,
+      "dirty_count": 2
+    },
+    "orphan_branches": [
+      {
+        "branch": "kb-run-sprint/sprint-31-migration-integrity-remediation/S31-01",
+        "ahead": 3,
+        "behind": 3,
+        "tip": "3e24c9996d0d95da35eed6acbce51e36e810dad5",
+        "tip_age_seconds": 622,
+        "subject": "S31-01: align verification-summary commit_sha to HEAD (orchestrator metadata repair)"
+      },
+      {
+        "branch": "kb-run-sprint/sprint-31-migration-integrity-remediation/S31-06",
+        "ahead": 2,
+        "behind": 3,
+        "tip": "1dfec71a328d13167fed5d76b75b1e7894e94026",
+        "tip_age_seconds": 22,
+        "subject": "docs(S31-06): harvest-stamped verification evidence bundle"
+      },
+      {
+        "branch": "kb-run-sprint/sprint-31-migration-integrity-remediation/S31-FE-01",
+        "ahead": 1,
+        "behind": 2,
+        "tip": "6388b32f078bf70a2c07944ff19dfd0d0d2bb828",
+        "tip_age_seconds": 613,
+        "subject": "feat(S31-FE-01): bound chat-path requests and SSE streams with deadlines"
+      },
+      {
+        "branch": "kb-run-sprint/sprint-31-migration-integrity-remediation/S31-MCP-03",
+        "ahead": 1,
+        "behind": 3,
+        "tip": "292ac5754c14a050d75b73ef7196f522991cfc3f",
+        "tip_age_seconds": 2606,
+        "subject": "fix(S31-MCP-03): close verify-manifest gate holes with negative controls"
+      }
+    ],
+    "stranded_tasks": [],
+    "goal_state": null,
+    "scanned": 140,
+    "ignored": 36,
+    "ok": false
+  }
+}

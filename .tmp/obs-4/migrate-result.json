@@ -1,6 +1,7 @@
 {
   "ok": true,
-  "databaseUrl": "postgres://127.0.0.1:56594/holocron_nonprod",
+  "exitCode": 0,
+  "databaseUrl": "postgres://127.0.0.1:5432/holocron_nonprod",
   "migrationsApplied": [],
   "alreadyApplied": [
     "0000_groovy_stellaris.sql",
@@ -33,13 +34,23 @@
     "0027_mission_human_gate_crash_boundary.sql",
     "0028_escape_provider_deepseek.sql",
     "0029_backup_heartbeat.sql",
-    "0030_zero_pub_file_objects.sql"
+    "0030_data_plane_ponr.sql",
+    "0031_data_plane_ponr_truncate_guard.sql",
+    "0032_post_export_write_audit.sql",
+    "0033_zero_pub_file_objects.sql",
+    "0034_degraded_mode_retry_queue.sql",
+    "0035_backup_wal_burst.sql",
+    "0036_queue_schema_reconcile.sql",
+    "0037_queue_durable_app_dml_grants.sql"
   ],
-  "tableCount": 128,
+  "tableCount": 131,
   "domainTablesPresent": 68,
   "missingTables": [],
   "errors": [],
+  "errorDetails": [],
   "messages": [
+    "migrations_dir: /Users/inference1/Projects/holocron/services/platform/src/db/migrations",
+    "ordinal_gate: ok (38 files)",
     "current_user: inference1",
     "role_mode: owner/admin",
     "extension vector: ok",
@@ -73,6 +84,13 @@
     "skip (already applied): 0027_mission_human_gate_crash_boundary.sql",
     "skip (already applied): 0028_escape_provider_deepseek.sql",
     "skip (already applied): 0029_backup_heartbeat.sql",
-    "skip (already applied): 0030_zero_pub_file_objects.sql"
+    "skip (already applied): 0030_data_plane_ponr.sql",
+    "skip (already applied): 0031_data_plane_ponr_truncate_guard.sql",
+    "skip (already applied): 0032_post_export_write_audit.sql",
+    "skip (already applied): 0033_zero_pub_file_objects.sql",
+    "skip (already applied): 0034_degraded_mode_retry_queue.sql",
+    "skip (already applied): 0035_backup_wal_burst.sql",
+    "skip (already applied): 0036_queue_schema_reconcile.sql",
+    "skip (already applied): 0037_queue_durable_app_dml_grants.sql"
   ]
 }

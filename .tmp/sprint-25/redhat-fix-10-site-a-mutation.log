@@ -1,13 +1,13 @@
-# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-08-05T19:53:28.117Z
+# REDHAT-FIX-10 site-A / site-B / dual-site mutation probe 2026-08-09T11:03:32.225Z
 repo_root=/Users/inference1/Projects/holocron
-base_head=a688bb1782370877f406a0e45aff2923171ebd3a
+base_head=ed9bc25b282619eb7da85fb1c30490a3e947a207
 correct site=A mode=unmutated exit=0 failures=0 exit_ok=true
 single-site-A mode=assemblyRef-reset-siteA-only suite=AC-1-site-A exit=1 failures=1 exit_nonzero=true
 single-site-A KILLED (suite exit non-zero under site-A-only wipe; failures>=1)
  Test Files  1 failed (1)
       Tests  1 failed | 4 skipped (5)
-   Start at  13:53:28
-   Duration  338ms (transform 82ms, setup 106ms, import 44ms, tests 99ms, environment 0ms)
+   Start at  05:03:33
+   Duration  381ms (transform 94ms, setup 122ms, import 56ms, tests 97ms, environment 0ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯

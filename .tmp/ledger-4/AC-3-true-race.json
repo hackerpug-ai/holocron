@@ -1,13 +1,13 @@
 {
   "a": {
-    "id": "019fd37d-46ff-7506-8d01-9eb6e90469d9",
+    "id": "019fe631-b06e-76db-a963-4955050097f0",
     "error": null
   },
   "b": {
     "id": null,
     "error": {
       "code": "P0001",
-      "message": "REVISE_STALE_CONCURRENT: belief 019fd37d-46f8-73ee-ad59-11fd7486f674 is already closed (tx_to set)"
+      "message": "REVISE_STALE_CONCURRENT: belief 019fe631-b05a-7d0a-b97f-d90c3b3bae8d is already closed (tx_to set)"
     }
   },
   "successCount": 1,

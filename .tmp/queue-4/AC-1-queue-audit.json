@@ -7,28 +7,28 @@
     "effect_count": 1,
     "outbox_count": 1,
     "inbox_dedupe_count": 1,
-    "fencing_token": "fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c",
+    "fencing_token": "1786273446127089",
     "outbox": {
       "status": "acked",
-      "fenceToken": "fence-6c790637-3ffd-4508-8813-08fe1d3a68b2",
-      "effectId": "019fd37b-e54f-7659-bbe4-4ad8dee8051d"
+      "fenceToken": "1786273446127089",
+      "effectId": "019fe631-b929-75eb-a08e-9109acc9487b"
     },
     "effect": {
-      "id": "019fd37b-e54f-7659-bbe4-4ad8dee8051d",
-      "fenceToken": "fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c"
+      "id": "019fe631-b929-75eb-a08e-9109acc9487b",
+      "fenceToken": "1786273446127089"
     },
     "inbox": {
       "outcome": "applied",
-      "fenceToken": "fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c"
+      "fenceToken": "1786273446127089"
     },
     "counts": {
       "outbox": 1,
       "effects": 1,
       "inbox": 1
     },
-    "fenceToken": "fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c"
+    "fenceToken": "1786273446127089"
   },
-  "stdout": "{\n  \"key\": \"red-kill9-1\",\n  \"effect_count\": 1,\n  \"outbox_count\": 1,\n  \"inbox_dedupe_count\": 1,\n  \"fencing_token\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\",\n  \"outbox\": {\n    \"status\": \"acked\",\n    \"fenceToken\": \"fence-6c790637-3ffd-4508-8813-08fe1d3a68b2\",\n    \"effectId\": \"019fd37b-e54f-7659-bbe4-4ad8dee8051d\"\n  },\n  \"effect\": {\n    \"id\": \"019fd37b-e54f-7659-bbe4-4ad8dee8051d\",\n    \"fenceToken\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\"\n  },\n  \"inbox\": {\n    \"outcome\": \"applied\",\n    \"fenceToken\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\"\n  },\n  \"counts\": {\n    \"outbox\": 1,\n    \"effects\": 1,\n    \"inbox\": 1\n  },\n  \"fenceToken\": \"fence-4c095bc5-8c79-430e-8fbd-fb474aa7fe1c\"\n}\n",
+  "stdout": "{\n  \"key\": \"red-kill9-1\",\n  \"effect_count\": 1,\n  \"outbox_count\": 1,\n  \"inbox_dedupe_count\": 1,\n  \"fencing_token\": \"1786273446127089\",\n  \"outbox\": {\n    \"status\": \"acked\",\n    \"fenceToken\": \"1786273446127089\",\n    \"effectId\": \"019fe631-b929-75eb-a08e-9109acc9487b\"\n  },\n  \"effect\": {\n    \"id\": \"019fe631-b929-75eb-a08e-9109acc9487b\",\n    \"fenceToken\": \"1786273446127089\"\n  },\n  \"inbox\": {\n    \"outcome\": \"applied\",\n    \"fenceToken\": \"1786273446127089\"\n  },\n  \"counts\": {\n    \"outbox\": 1,\n    \"effects\": 1,\n    \"inbox\": 1\n  },\n  \"fenceToken\": \"1786273446127089\"\n}\n",
   "stderr": "",
   "must_observe": {
     "CLI exit 0": true,

@@ -4,6 +4,53 @@
 **IRREVERSIBLE:** yes for production row DELETE — dump first  
 **Agent policy:** Agents **never** DELETE production heartbeat rows. This runbook is human-only.
 
+---
+
+## OPERATOR RECORD — AC-1 production purge COMPLETE (2026-08-09T22:07:04Z)
+
+| Field | Value |
+|-------|--------|
+| Status | **COMPLETE** (operator-executed on configured production `DATABASE_URL`) |
+| Pre-purge dump | `/Volumes/Archives/holocron-ops/s31-ops-02/backup_heartbeat-pre-purge-20260809T220704Z.sql` |
+| Deleted rows (5) | `s27-11-healthy`, `s27-11-redact-job`, `s27-15-healthy`, `s27-15-job-a`, `s27-15-job-b` |
+| `remaining_fixture_like` | **0** |
+| Preserved non-fixture (6) | `all-clear`, `base_backup`, `cleanup`, `restic_blob_mirror`, `wal_archive`, `wal_archive-healthy` |
+
+Repo evidence (no secrets): `.tmp/s31-ops-02/ac1-production-purge-status.json`
+
+---
+
+## TEMPORARY EXCEPTION (operator-recorded) — healthy-chain verification NOT_PASSED
+
+**Status:** ACTIVE as of 2026-08-09  
+**Scope:** post-purge alert-sweep / verify:backup **healthy-chain** proof only — does **not** undo AC-1 purge COMPLETE
+
+Documented post-purge verification (truthful):
+
+| Check | Result |
+|-------|--------|
+| alert-sweep plist | **non-stub** (real `backup:alert-sweep`, not `/usr/bin/true`) |
+| `holo backup:alert-sweep` | **exit 1** — all six retained jobs ~738m overdue; `ALERT_WEBHOOK_URL` not configured |
+| `holo verify:backup` | **exit 1** — same overdue real heartbeat rows |
+
+| Rule | Required behavior |
+|------|-------------------|
+| AC-1 fixture purge | **COMPLETE** — may be recorded as such with dump path + exact deleted rows |
+| Healthy-chain / webhook delivery | **NOT_PASSED** — do not invent PASS while jobs are overdue or webhook unset |
+| Fabricated healthy evidence | **FORBIDDEN** |
+| Sprint goal `met` | Remains **false** (CX-02 + OPS-01 exceptions also still active) |
+
+### Close-out of this verification exception
+
+1. Restore freshness on the six standing production heartbeat jobs.
+2. Configure `ALERT_WEBHOOK_URL` in operator secrets (never git).
+3. Re-run `holo backup:alert-sweep --json` and `holo verify:backup --json`.
+4. Only then may healthy-chain verification be marked passed.
+
+Evidence: `.tmp/s31-ops-02/verification-exception.json`
+
+---
+
 ## Why
 
 Sprint 27 gate fixtures left residue in production `backup_heartbeat`. Alert-sweep that only
