@@ -525,10 +525,18 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     );
     expect(() => assertLinuxArm64Platforms(amd64Only)).toThrow(/arm64|incompatible|platform/i);
     expect(() => assertLinuxArm64Platforms([])).toThrow(/arm64|manifest|platform/i);
-    // scenario evidence
-    expect(`required_platform='${REQUIRED_PLATFORM}'`).toContain('linux/arm64');
-    expect(`compatible_manifest_count>=1`).toBeTruthy();
-    expect(`amd64_only_candidate_rejected='true'`).toContain('true');
+    const compatibleManifestCount = arm64Only.filter(
+      (p) => p.os === 'linux' && p.architecture === 'arm64'
+    ).length;
+    expect(REQUIRED_PLATFORM, `required_platform='${REQUIRED_PLATFORM}'`).toBe('linux/arm64');
+    expect(compatibleManifestCount, 'compatible_manifest_count>=1').toBeGreaterThanOrEqual(1);
+    let amd64OnlyRejected = false;
+    try {
+      assertLinuxArm64Platforms(amd64Only);
+    } catch {
+      amd64OnlyRejected = true;
+    }
+    expect(amd64OnlyRejected, "amd64_only_candidate_rejected='true'").toBe(true);
   });
 
   it('IMP-AC-6 configurable 50 GiB memory ceiling', () => {

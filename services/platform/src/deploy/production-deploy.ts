@@ -186,11 +186,15 @@ export function assertMemoryLimitPlan(
  * Canonical realpath validation for operator secret files.
  * Rejects symlinks, non-regular files, paths outside the approved store, and
  * group/world-writable permissions. Never includes secret file contents.
+ * `storeRoot` is required — callers must not default it to the secret's parent.
  */
 export function assertApprovedSecretFile(
   candidatePath: string,
-  options: { storeRoot?: string } = {}
+  options: { storeRoot: string }
 ): string {
+  if (!options.storeRoot || !options.storeRoot.trim()) {
+    deployFail('secretStoreRoot is required for operator-approved secret validation');
+  }
   const resolvedCandidate = resolve(candidatePath);
   let leafStat: ReturnType<typeof lstatSync>;
   try {
@@ -212,7 +216,7 @@ export function assertApprovedSecretFile(
   let realStore: string;
   try {
     realFile = realpathSync(resolvedCandidate);
-    const storeRoot = resolve(options.storeRoot ?? dirname(resolvedCandidate));
+    const storeRoot = resolve(options.storeRoot.trim());
     realStore = realpathSync(storeRoot);
   } catch {
     deployFail('secret path realpath resolution failed');
@@ -692,8 +696,18 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const memoryLimits = assertMemoryLimitPlan(options.memoryLimits ?? DEFAULT_MEMORY_LIMITS_GIB);
   const composePath = resolve(options.composePath ?? defaultComposePath(cwd));
   const releasePath = resolve(options.releasePath);
+  const secretStoreRoot =
+    options.secretStoreRoot?.trim() ||
+    process.env.HOLO_SECRET_STORE_ROOT?.trim() ||
+    process.env.HOLOCRON_SECRET_STORE_ROOT?.trim() ||
+    '';
+  if (!secretStoreRoot) {
+    deployFail(
+      'secretStoreRoot is required for operator-approved secret validation (pass secretStoreRoot or set HOLO_SECRET_STORE_ROOT)'
+    );
+  }
   const secretsPath = assertApprovedSecretFile(options.secretsPath, {
-    storeRoot: options.secretStoreRoot,
+    storeRoot: secretStoreRoot,
   });
   const evidenceDir = resolve(cwd, options.evidenceDir ?? DEPLOY_EVIDENCE_DIR);
   const project = options.project ?? DEPLOY_PROJECT;

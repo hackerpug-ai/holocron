@@ -309,7 +309,7 @@ describe('D06-07 inference1 deployment contract', () => {
     for (const host of accepted) {
       expect(assertDeployHost(host), `accepted_host='${host}'`).toBe(host);
     }
-    expect(() => assertDeployHost(rejected)).toThrow(/host/i);
+    expect(() => assertDeployHost(rejected), `rejected_host='${rejected}'`).toThrow(/host/i);
     expect(() => assertDeployHost('')).toThrow(/host/i);
     // holocron is the documented default, not an inference1-only type literal
     expect(DEFAULT_DEPLOY_HOST).toBe('holocron');
@@ -319,11 +319,6 @@ describe('D06-07 inference1 deployment contract', () => {
     );
     expect(deploySource).not.toMatch(/host:\s*'inference1'/);
     expect(deploySource).not.toMatch(/must be exactly inference1/);
-    for (const host of accepted) {
-      // scenario evidence keys
-      expect(`accepted_host='${host}'`).toContain(host);
-    }
-    expect(`rejected_host='${rejected}'`).toContain(rejected);
   });
 
   it('IMP-AC-4 one loopback server port', () => {
@@ -439,21 +434,29 @@ describe('D06-07 inference1 deployment contract', () => {
         body: '{}',
       });
       expect(unauth.status, 'unauthenticated_mcp_status').toBe(401);
+      // Streamable HTTP MCP requires Accept for both JSON and SSE; valid initialize → 200.
       const auth = await app.request('/mcp', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${keys.mcp}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }),
+        headers: {
+          Authorization: `Bearer ${keys.mcp}`,
+          'content-type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: {},
+            clientInfo: { name: 'd08-06-portable', version: '0' },
+          },
+        }),
       });
-      // Correct MCP scope reaches the handler (200) rather than failing auth (401).
-      expect(
-        [200, 400, 406].includes(auth.status) || auth.status === 200,
-        'authenticated_mcp_status'
-      ).toBe(true);
-      // Prefer exact 200 when the MCP initialize path succeeds.
-      if (auth.status !== 401 && auth.status !== 403) {
-        expect(auth.status === 200 || auth.status < 500).toBe(true);
-      }
-      expect(auth.status).not.toBe(401);
+      expect(auth.status, 'authenticated_mcp_status').toBe(200);
+      expect(() => assertApprovedSecretFile(secretsPath, { storeRoot: '' })).toThrow(
+        /secretStoreRoot|required/i
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
