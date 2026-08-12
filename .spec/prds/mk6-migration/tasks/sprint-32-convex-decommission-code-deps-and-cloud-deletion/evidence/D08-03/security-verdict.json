@@ -1,0 +1,19 @@
+{
+  "schema": "holo.review.security-verdict.v1",
+  "lens": "security",
+  "task_id": "D08-03",
+  "commit_sha": "0fdecc4e064813f0a2f8379a84a45ee6778c8f0f",
+  "verdict": "APPROVED",
+  "status": "PASS",
+  "critical": [],
+  "high": [],
+  "medium": [
+    "CONVEX_EXPORT_DIR resolved to fixture path under .worktrees/etl-impl/.../etl-valid-export (symlink). Acceptable for catalog/id-map input because audit still queried restored Postgres (checkedRelationships=50, enforcedForeignKeys=73); not the refused enforced_postgres_fk_sql substitute. Prefer binding a restore-local export root when present."
+  ],
+  "low": [
+    "blocked-residual.json remains in evidence tree with historical failed_ac fields while status=cleared \u2014 non-blocking after pass gate.",
+    "HOLO_DANGEROUS_ALLOW_PROD_DB=1 used against isolated 127.0.0.1 restore ports only; ensure this never targets live prod DSN."
+  ],
+  "hard_checks_all_pass": true,
+  "do_not_merge": true
+}
