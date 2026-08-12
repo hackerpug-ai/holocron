@@ -5,7 +5,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, doublePrecision, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, doublePrecision, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   idColumn,
@@ -35,7 +35,7 @@ export const analysisSessions = pgTable(
     company: text('company'),
     market: text('market'),
     codebaseUrl: text('codebase_url'),
-    documentId: text('document_id'),
+    documentId: uuid('document_id'),
     desirabilityScore: doublePrecision('desirability_score'),
     viabilityScore: doublePrecision('viability_score'),
     feasibilityScore: doublePrecision('feasibility_score'),
@@ -69,7 +69,7 @@ export const analysisItems = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    sessionId: text('session_id'),
+    sessionId: uuid('session_id'),
     /** kind discriminator */
     kind: text('kind').notNull(),
     name: text('name'),
@@ -94,7 +94,7 @@ export const analysisEvidence = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    sessionId: text('session_id'),
+    sessionId: uuid('session_id'),
     kind: text('kind').notNull(),
     claim: text('claim'),
     tier: text('tier'),
@@ -102,7 +102,7 @@ export const analysisEvidence = pgTable(
     sourceUrl: text('source_url'),
     dimension: text('dimension'),
     challengeStatus: text('challenge_status'),
-    opportunityId: text('opportunity_id'),
+    opportunityId: uuid('opportunity_id'),
     source: text('source'),
     payload: typedJsonb<Record<string, unknown>>('payload'),
     createdAt: createdAtColumn(),

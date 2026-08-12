@@ -169,6 +169,13 @@
       "when": 1784113000000,
       "tag": "0037_queue_durable_app_dml_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784114000000,
+      "tag": "0038_domain_referential_fks",
+      "breakpoints": true
     }
   ]
 }

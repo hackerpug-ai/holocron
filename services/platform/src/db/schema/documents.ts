@@ -81,7 +81,7 @@ export const imports = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    documentId: text('document_id'),
+    documentId: uuid('document_id'),
     source: text('source'),
     text: text('text'),
     importedAt: timestamptz('imported_at'),
@@ -95,9 +95,9 @@ export const citations = pgTable(
   {
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
-    sessionId: text('session_id'),
-    documentId: text('document_id'),
-    deepResearchSessionId: text('deep_research_session_id'),
+    sessionId: uuid('session_id'),
+    documentId: uuid('document_id'),
+    deepResearchSessionId: uuid('deep_research_session_id'),
     sourceUrl: text('source_url'),
     sourceTitle: text('source_title'),
     sourceDomain: text('source_domain'),

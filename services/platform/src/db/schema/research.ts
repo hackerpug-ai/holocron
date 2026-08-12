@@ -5,7 +5,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, doublePrecision, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, doublePrecision, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   hnswEmbeddingIndex,
@@ -45,9 +45,9 @@ export const researchSessions = pgTable(
     findings: typedJsonb('findings'),
     finalConfidenceSummary: typedJsonb('final_confidence_summary'),
     outputConfidenceFilter: typedJsonb('output_confidence_filter'),
-    documentId: text('document_id'),
-    conversationId: text('conversation_id'),
-    taskId: text('task_id'),
+    documentId: uuid('document_id'),
+    conversationId: uuid('conversation_id'),
+    taskId: uuid('task_id'),
     errorText: text('error_text'),
     errorReason: text('error_reason'),
     createdAt: createdAtColumn(),
@@ -73,7 +73,7 @@ export const researchIterations = pgTable(
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
     system: text('system').notNull().default('simple'),
-    sessionId: text('session_id'),
+    sessionId: uuid('session_id'),
     iterationNumber: integer('iteration_number'),
     status: text('status').notNull().default('pending'),
     findingsSummary: text('findings_summary'),
@@ -111,8 +111,8 @@ export const researchFindings = pgTable(
     id: idColumn(),
     legacyConvexId: legacyConvexIdColumn(),
     system: text('system').notNull().default('deep'),
-    sessionId: text('session_id'),
-    iterationId: text('iteration_id'),
+    sessionId: uuid('session_id'),
+    iterationId: uuid('iteration_id'),
     claimText: text('claim_text'),
     claimCategory: text('claim_category'),
     sourceCredibilityScore: doublePrecision('source_credibility_score'),
