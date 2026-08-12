@@ -494,9 +494,8 @@ function runOrFail(
 ): ProcessResult {
   const result = runner(command, args, cwd);
   if (result.status !== 0) {
-    fail(
-      `${command} ${args.join(' ')} failed: ${(result.stderr || result.stdout).trim() || 'no output'}`
-    );
+    // Never embed child stdout/stderr — they may include env-expanded secrets.
+    fail(`${command} ${args.join(' ')} failed (exit ${result.status ?? 'null'})`);
   }
   return result;
 }

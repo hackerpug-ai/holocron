@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Operator entry point for the D06-07 inference1 deployment. No cutover action
-# is present here: this script only cold-recreates the locked Compose services.
+# Compatibility entry point for portable Holocron deployment.
+# Retains the historical filename; target/base URL come from validated portable
+# inputs (env or Tailscale MagicDNS) — never from a derived LAN address.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,6 +11,7 @@ AUTHORIZED=0
 DRY_RUN=0
 RELEASE="${HOLO_RELEASE_PATH:-$ROOT/services/platform/deploy/compose/image-lock.json}"
 BASE_URL="${HOLO_PRODUCTION_BASE_URL:-${HOLO_VERIFY_BASE_URL:-}}"
+TARGET="${HOLO_DEPLOY_TARGET:-holocron}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,8 +31,14 @@ while [[ $# -gt 0 ]]; do
       BASE_URL="${2:?--base-url requires a URL}"
       shift 2
       ;;
+    --target)
+      TARGET="${2:?--target requires a host}"
+      shift 2
+      ;;
     -h|--help)
-      echo "Usage: scripts/deploy-inference1.sh --authorize --release <image-lock.json> [--base-url URL]"
+      echo "Usage: scripts/deploy-inference1.sh --authorize --release <image-lock.json> [--base-url URL] [--target host]"
+      echo "  Base URL defaults to https://\$(tailscale MagicDNS):44111 when unset."
+      echo "  Never derives a LAN address."
       exit 0
       ;;
     *)
@@ -69,20 +77,37 @@ if [[ -z "${HOLO_SECRETS_PATH:-}" ]]; then
   fi
 fi
 
-if [[ -z "$BASE_URL" ]]; then
-  LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
-  if [[ -z "$LAN_IP" ]]; then
-    echo "error: cannot derive a non-loopback inference1 address; set HOLO_PRODUCTION_BASE_URL" >&2
-    exit 2
-  fi
-  BASE_URL="http://${LAN_IP}:44111"
+# Approved secret store root (parent of secrets.yaml unless operator overrides).
+if [[ -z "${HOLO_SECRET_STORE_ROOT:-}" && -n "${HOLO_SECRETS_PATH:-}" ]]; then
+  export HOLO_SECRET_STORE_ROOT="$(cd "$(dirname "$HOLO_SECRETS_PATH")" && pwd)"
 fi
 
-export HOLO_DEPLOY_TARGET=inference1
+if [[ -z "$BASE_URL" ]]; then
+  # Private Serve URL via Tailscale MagicDNS — never LAN/ipconfig.
+  TS_JSON="$(tailscale status --json 2>/dev/null || true)"
+  TS_DNS="$(
+    printf '%s' "$TS_JSON" | python3 -c '
+import json,sys
+raw=sys.stdin.read()
+i=raw.find("{")
+if i<0: raise SystemExit(1)
+d=json.loads(raw[i:])
+name=(d.get("Self") or {}).get("DNSName") or ""
+print(name.rstrip(".").lower())
+' 2>/dev/null || true
+  )"
+  if [[ -z "$TS_DNS" ]]; then
+    echo "error: cannot resolve Tailscale MagicDNS; set HOLO_PRODUCTION_BASE_URL to the private Serve URL" >&2
+    exit 2
+  fi
+  BASE_URL="https://${TS_DNS}:44111"
+fi
+
+export HOLO_DEPLOY_TARGET="$TARGET"
 export HOLO_PRODUCTION_BASE_URL="$BASE_URL"
 export HOLO_VERIFY_BASE_URL="$BASE_URL"
 
-ARGS=(deploy:apply --authorize --release "$RELEASE" --base-url "$BASE_URL" --json)
+ARGS=(deploy:apply --authorize --release "$RELEASE" --base-url "$BASE_URL" --target "$TARGET" --json)
 if [[ "$DRY_RUN" -eq 1 ]]; then
   ARGS+=(--dry-run)
 fi

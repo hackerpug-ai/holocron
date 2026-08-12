@@ -47,7 +47,10 @@ import { resolveSecretsPathFromEnv } from '../config/secrets.ts';
 import { resolveRequiredDatabaseTarget } from '../db/connection.ts';
 import {
   applyProductionDeployment,
+  DEFAULT_DEPLOY_HOST,
+  DEFAULT_LOOPBACK_PORT,
   defaultDeploymentRecordPath,
+  runHostPreflight,
 } from '../deploy/production-deploy.ts';
 import {
   defaultComposePath,
@@ -55,7 +58,10 @@ import {
   packageRelease,
   preflightRollback,
 } from '../deploy/production-release.ts';
-import { verifyProductionDeployment } from '../deploy/verify-production.ts';
+import {
+  verifyPortableDeploymentReceipt,
+  verifyProductionDeployment,
+} from '../deploy/verify-production.ts';
 import { defaultMissionIdempotencyKey } from './mission-idempotency-key.ts';
 
 // Suppress unhandled storage errors only for the explicit PG-down negative control.
@@ -297,12 +303,16 @@ interface CliArgs {
   authorized: boolean;
   /** deploy:apply — explicit no-mutation diagnostic. */
   deployDryRun: boolean;
+  /** deploy:preflight / deploy:apply — loopback/Serve port (default 44111). */
+  deployPort: string | null;
   /** deploy:verify — run SIGKILL and durable sentinel proof. */
   restartProbe: boolean;
   /** deploy:verify — execute identity rejection matrix. */
   negativeControls: boolean;
   /** deploy:verify — registration-only initialize + tools/list. */
   mcpDiscovery: boolean;
+  /** deploy:verify — portable receipt-driven private Serve verification. */
+  portableVerify: boolean;
   /** cutover:attest-convex-live --ticks N */
   ticks: string | null;
   /** cutover:attest-convex-live --interval-ms MS */
@@ -543,7 +553,8 @@ Usage:
   deploy:package            Validate a pushed immutable OCI release and write image-lock.json.
                             Requires --image and --previous-image, both @sha256-qualified.
   deploy:rollback-preflight Verify and select the lock-backed previous image; never starts Compose.
-  deploy:apply              Operator-authorized inference1 cold recreate from a deployable release lock.
+  deploy:preflight          Non-mutating host preflight (Docker/Compose/ARM64/port/Serve/secrets/volumes/memory).
+  deploy:apply              Operator-authorized portable cold recreate from a deployable release lock.
   deploy:verify             Verify external identity/readiness, negatives, and optional SIGKILL recovery.
 
 Options:
@@ -611,11 +622,14 @@ Options:
   --previous-image <ref>(deploy:package) prior registry image with @sha256 digest
   --lock <path>          (deploy:rollback-preflight) release lock path
   --release <path>       (deploy:apply|deploy:verify) deployable release lock path
-  --base-url <url>       (deploy:apply|deploy:verify) one non-loopback production URL
+  --base-url <url>       (deploy:apply|deploy:verify) one non-loopback production/Serve URL
+  --target <host>        (deploy:preflight|deploy:apply) portable deploy host (default holocron)
+  --port <n>             (deploy:preflight) loopback/Serve HTTPS port (default 44111)
   --authorize            (deploy:apply) explicit operator authorization
   --restart-probe        (deploy:verify) SIGKILL PID-1 + durable sentinel proof
   --negative-controls    (deploy:verify) reject loopback/in-process/stale/mismatched/missing identity
   --mcp-discovery        (deploy:verify) initialize + tools/list only (never tools/call)
+  --portable             (deploy:verify) receipt-driven private Serve verification (IMP-AC-14)
   -h, --help            Show help
 `);
 }
@@ -762,9 +776,11 @@ function parseArgs(argv: string[]): CliArgs {
     releasePath: null,
     authorized: false,
     deployDryRun: false,
+    deployPort: null,
     restartProbe: false,
     negativeControls: false,
     mcpDiscovery: false,
+    portableVerify: false,
     ticks: null,
     intervalMs: null,
     commit: null,
@@ -811,12 +827,18 @@ function parseArgs(argv: string[]): CliArgs {
       args.releasePath = resolve(a.slice('--release='.length));
     } else if (a === '--authorize') {
       args.authorized = true;
+    } else if (a === '--port') {
+      args.deployPort = argv[++i] ?? null;
+    } else if (a.startsWith('--port=')) {
+      args.deployPort = a.slice('--port='.length);
     } else if (a === '--restart-probe') {
       args.restartProbe = true;
     } else if (a === '--negative-controls') {
       args.negativeControls = true;
     } else if (a === '--mcp-discovery') {
       args.mcpDiscovery = true;
+    } else if (a === '--portable') {
+      args.portableVerify = true;
     } else if (a === '--sample') {
       args.sample = argv[++i] ?? null;
     } else if (a.startsWith('--sample=')) {
@@ -1310,6 +1332,33 @@ async function main(): Promise<void> {
   const cat = catalog as SourceCatalog;
 
   switch (args.command) {
+    case 'deploy:preflight': {
+      const portRaw = args.deployPort ?? String(DEFAULT_LOOPBACK_PORT);
+      const port = Number(portRaw);
+      if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+        throw new Error('deploy:preflight requires a valid --port');
+      }
+      const report = runHostPreflight({
+        target: args.target ?? process.env.HOLO_DEPLOY_TARGET ?? DEFAULT_DEPLOY_HOST,
+        port,
+        secretsPath: resolveSecretsPathFromEnv(),
+        secretStoreRoot:
+          process.env.HOLO_SECRET_STORE_ROOT ?? process.env.HOLOCRON_SECRET_STORE_ROOT,
+      });
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      } else {
+        console.log(
+          `holo deploy:preflight — ${report.ok ? 'ready' : 'failed'} (${report.preflight_check_count} checks, mutations=${report.docker_mutation_count})`
+        );
+        for (const name of Object.keys(report.checks)) {
+          const check = report.checks[name as keyof typeof report.checks];
+          console.log(`  ${check.ok ? 'ok' : 'FAIL'}  ${check.name}: ${check.summary}`);
+        }
+      }
+      process.exit(report.ok ? 0 : 2);
+      break;
+    }
     case 'deploy:apply': {
       if (!args.releasePath || !args.baseUrl) {
         throw new Error('deploy:apply requires --release and --base-url');
@@ -1319,14 +1368,19 @@ async function main(): Promise<void> {
         releasePath: args.releasePath,
         baseUrl: args.baseUrl,
         secretsPath: resolveSecretsPathFromEnv(),
-        target: process.env.HOLO_DEPLOY_TARGET,
+        target: args.target ?? process.env.HOLO_DEPLOY_TARGET ?? DEFAULT_DEPLOY_HOST,
+        secretStoreRoot:
+          process.env.HOLO_SECRET_STORE_ROOT ?? process.env.HOLOCRON_SECRET_STORE_ROOT,
         dryRun: args.deployDryRun,
       });
       if (args.json) {
         process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
       } else {
-        console.log('holo deploy:apply — inference1 four-service generation deployed');
+        console.log('holo deploy:apply — portable four-service generation deployed');
+        console.log(`  host:               ${record.host}`);
         console.log(`  base URL:           ${record.baseUrl}`);
+        console.log(`  serve URL:          ${record.serveUrl}`);
+        console.log(`  loopback port:      ${record.loopbackPort}`);
         console.log(`  image digest:       ${record.imageDigest}`);
         console.log(`  source revision:    ${record.sourceRevision}`);
         console.log(`  generation:         ${record.composeGeneration}`);
@@ -1336,8 +1390,26 @@ async function main(): Promise<void> {
       break;
     }
     case 'deploy:verify': {
+      if (args.portableVerify) {
+        const report = await verifyPortableDeploymentReceipt({
+          releasePath: args.releasePath ?? undefined,
+          baseUrl: args.baseUrl ?? undefined,
+          recordPath: defaultDeploymentRecordPath(),
+        });
+        if (args.json) {
+          process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+        } else {
+          console.log('holo deploy:verify — portable receipt verification certified');
+          console.log(`  dimensions:         ${report.verification_dimension_count}`);
+          console.log(`  serve health:       ${report.serve_health_status}`);
+          console.log(`  host:               ${report.receipt.host}`);
+          console.log(`  serve URL:          ${report.receipt.serveUrl}`);
+        }
+        process.exit(report.ok ? 0 : 2);
+        break;
+      }
       if (!args.releasePath || !args.baseUrl) {
-        throw new Error('deploy:verify requires --release and --base-url');
+        throw new Error('deploy:verify requires --release and --base-url (or --portable)');
       }
       const report = await verifyProductionDeployment({
         releasePath: args.releasePath,

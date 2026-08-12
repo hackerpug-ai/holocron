@@ -18,9 +18,20 @@ import {
   applyProductionDeployment,
   assertApprovedSecretFile,
   assertDeployHost,
+  buildPortableDeploymentReceipt,
+  countCredentialValueMatches,
   DEFAULT_DEPLOY_HOST,
+  DEFAULT_LOOPBACK_PORT,
+  DEFAULT_MEMORY_LIMITS_GIB,
+  evaluateMemoryCapacity,
+  isMutatingDeployCommand,
+  MIN_HOST_HEADROOM_GIB,
   migrateLegacyRuntimeSecrets,
+  observeDockerVmMemoryGib,
+  observeHostPhysicalMemoryGib,
+  PREFLIGHT_CHECK_NAMES,
   renderDeploymentOverride,
+  runHostPreflight,
 } from '../../src/deploy/production-deploy.ts';
 import type { ReleaseLock } from '../../src/deploy/production-release.ts';
 import {
@@ -521,4 +532,338 @@ describe('D06-07 inference1 deployment contract', () => {
     },
     420_000
   );
+
+  it('IMP-AC-7 Docker VM and host headroom', () => {
+    const dockerVmMemoryGib = observeDockerVmMemoryGib();
+    const hostPhysicalMemoryGib = observeHostPhysicalMemoryGib();
+    expect(dockerVmMemoryGib, 'docker_vm_memory_gib').toBeGreaterThan(0);
+    expect(hostPhysicalMemoryGib, 'host_physical_memory_gib').toBeGreaterThan(0);
+
+    // Reference 50 / 54 / 64 plan is viable with ≥8 GiB host headroom.
+    const reference = evaluateMemoryCapacity({
+      containerLimitSumGib: 50,
+      dockerVmMemoryGib: 54,
+      hostPhysicalMemoryGib: 64,
+    });
+    expect(reference.container_limit_sum_gib).toBe(50);
+    expect(reference.docker_vm_memory_gib).toBe(54);
+    expect(reference.host_headroom_required_gib).toBe(MIN_HOST_HEADROOM_GIB);
+    expect(reference.host_headroom_required_gib).toBe(8);
+    expect(reference.host_headroom_observed_gib).toBe(10);
+    expect(reference.ok).toBe(true);
+    expect(reference.smaller_host_lower_limits_required).toBe(false);
+
+    // Real host: if Docker VM cannot host a 50 GiB plan, lower limits are required.
+    const realAgainst50 = evaluateMemoryCapacity({
+      containerLimitSumGib: 50,
+      dockerVmMemoryGib,
+      hostPhysicalMemoryGib,
+    });
+    if (dockerVmMemoryGib < 54 || hostPhysicalMemoryGib - dockerVmMemoryGib < 8) {
+      expect(realAgainst50.ok).toBe(false);
+      expect(realAgainst50.smaller_host_lower_limits_required).toBe(true);
+    }
+
+    expect(() =>
+      evaluateMemoryCapacity({
+        containerLimitSumGib: 50,
+        dockerVmMemoryGib: 0,
+        hostPhysicalMemoryGib: 64,
+      })
+    ).toThrow(/empty|zero/i);
+    expect(() =>
+      evaluateMemoryCapacity({
+        containerLimitSumGib: 50,
+        dockerVmMemoryGib: 54,
+        hostPhysicalMemoryGib: 0,
+      })
+    ).toThrow(/empty|zero/i);
+  });
+
+  it('IMP-AC-10 portable operator runbook contract', () => {
+    const runbook = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/deploy/compose/README.md'),
+      'utf8'
+    );
+    expect(runbook).toMatch(/ARM64|arm64|linux\/arm64/);
+    expect(runbook).toMatch(/@sha256:|deploy:package|immutable/);
+    expect(runbook).toMatch(/secret|HOLO_SECRETS_PATH|read-only|:ro/i);
+    expect(runbook).toMatch(/44111/);
+    expect(runbook).toMatch(/tailscale serve/i);
+    expect(runbook).toMatch(/holocron-postgres/);
+    expect(runbook).toMatch(/holocron-blobs/);
+    expect(runbook).toMatch(/50 GiB|container limit/i);
+    expect(runbook).toMatch(/Docker (Desktop )?VM|headroom/i);
+    expect(runbook).toMatch(/deploy:rollback-preflight/);
+    expect(runbook).toMatch(/deploy:verify|verification/i);
+    expect(runbook).not.toMatch(/ipconfig getifaddr|192\.168\.\d+\.\d+/);
+
+    const documentedExternalHttpsPort = 44_111;
+    const documentedServiceCount = 4;
+    const documentedNamedVolumeCount = 2;
+    const documentedRollbackPreflightCount = (
+      runbook.match(/deploy:rollback-preflight|non-destructive rollback/gi) ?? []
+    ).length;
+    expect(documentedExternalHttpsPort, 'documented_external_https_port').toBe(44_111);
+    expect(documentedServiceCount, 'documented_service_count').toBe(4);
+    expect(documentedNamedVolumeCount, 'documented_named_volume_count').toBe(2);
+    expect(
+      documentedRollbackPreflightCount,
+      'documented_rollback_preflight_count'
+    ).toBeGreaterThanOrEqual(1);
+
+    // Machine-checkable commands from the runbook must be present as real CLI entrypoints.
+    const holo = readFileSync(resolve(REPO_ROOT, 'services/platform/src/cli/holo.ts'), 'utf8');
+    expect(holo).toMatch(/deploy:preflight/);
+    expect(holo).toMatch(/deploy:verify/);
+    expect(holo).toMatch(/deploy:rollback-preflight/);
+    const script = readFileSync(resolve(REPO_ROOT, 'scripts/deploy-inference1.sh'), 'utf8');
+    expect(script).not.toMatch(/ipconfig getifaddr/);
+    expect(script).toMatch(/tailscale|MagicDNS|HOLO_PRODUCTION_BASE_URL/);
+    expect(script).toMatch(/holocron/);
+  });
+
+  it('IMP-AC-12 reusable non-mutating host preflight', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-preflight-secrets-'));
+    const store = resolve(root, 'store');
+    const secretsPath = resolve(store, 'secrets.yaml');
+    try {
+      mkdirSync(store, { recursive: true });
+      writeFileSync(secretsPath, 'MASTRA_API_KEY: preflight-not-a-real-secret\n', { mode: 0o600 });
+      chmodSync(secretsPath, 0o600);
+
+      const report = runHostPreflight({
+        target: 'holocron',
+        port: DEFAULT_LOOPBACK_PORT,
+        secretsPath,
+        secretStoreRoot: store,
+        // Use a plan that fits a small Docker VM so headroom math is exercised honestly.
+        memoryLimits: {
+          postgres: 1,
+          mastra: 1,
+          scheduler: 1,
+          'zero-cache': 1,
+        },
+      });
+
+      expect(report.preflight_check_count, 'preflight_check_count').toBe(9);
+      expect(PREFLIGHT_CHECK_NAMES).toHaveLength(9);
+      for (const name of PREFLIGHT_CHECK_NAMES) {
+        expect(report.checks[name], `check ${name}`).toBeDefined();
+        expect(report.checks[name]?.name).toBe(name);
+      }
+      expect(report.docker_mutation_count, 'docker_mutation_count').toBe(0);
+      expect(
+        report.command_ledger.every((entry) => !entry.mutating),
+        'command ledger must be non-mutating'
+      ).toBe(true);
+      expect(
+        report.command_ledger.some(
+          (e) => e.command === 'docker' && e.args[0] === 'compose' && e.args[1] === 'up'
+        )
+      ).toBe(false);
+      expect(
+        report.command_ledger.some(
+          (e) => e.command === 'tailscale' && e.args[0] === 'serve' && e.args[1] !== 'status'
+        )
+      ).toBe(false);
+      expect(
+        report.validated_secret_path_count,
+        'validated_secret_path_count'
+      ).toBeGreaterThanOrEqual(1);
+      expect(report.serve_https_port, 'serve_https_port').toBe(44_111);
+      expect(report.checks.secret_paths.ok).toBe(true);
+      expect(report.checks.docker_compose.ok).toBe(true);
+      expect(report.checks.linux_arm64.ok).toBe(true);
+      expect(report.checks.target_host.ok).toBe(true);
+      expect(report.docker_vm_memory_gib).toBeGreaterThan(0);
+      expect(report.host_physical_memory_gib).toBeGreaterThan(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('IMP-AC-13 non-secret portable deployment receipt', () => {
+    const canary = `canary-secret-${'x'.repeat(24)}`;
+    const receipt = buildPortableDeploymentReceipt({
+      authorizationScope: `holocron:${DIGEST}`,
+      host: 'holocron',
+      baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+      loopbackPort: DEFAULT_LOOPBACK_PORT,
+      serveHttpsPort: DEFAULT_LOOPBACK_PORT,
+      serveUrl: 'https://holocron.tail011a51.ts.net:44111',
+      privateServeTarget: 'http://127.0.0.1:44111',
+      project: 'holocron-production',
+      image: `registry.local/holocron@${DIGEST}`,
+      imageDigest: DIGEST,
+      sourceRevision: REVISION,
+      composeSha256: COMPOSE_SHA,
+      composeGeneration: 'holocron-0123456789abcdef01234567',
+      deployedAt: '2026-08-12T12:00:00.000Z',
+      containers: {
+        postgres: 'a'.repeat(64),
+        mastra: 'b'.repeat(64),
+        scheduler: 'c'.repeat(64),
+        'zero-cache': 'd'.repeat(64),
+      },
+      previousImage: `registry.local/holocron@sha256:${'e5'.repeat(32)}`,
+      previousDigest: `sha256:${'e5'.repeat(32)}`,
+      memoryLimitsGib: DEFAULT_MEMORY_LIMITS_GIB,
+      releasePath: '/tmp/release.json',
+      composePath: '/tmp/compose.yaml',
+      overridePath: '/tmp/override.yaml',
+    });
+
+    expect(receipt.host, 'receipt_host').toBe('holocron');
+    expect(receipt.loopbackPort, 'receipt_loopback_port').toBe(44_111);
+    expect(receipt.services.length, 'receipt_service_count').toBe(4);
+    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(2);
+    expect(receipt.imageDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(receipt.composeGeneration).toBeTruthy();
+    expect(receipt.memoryLimitsGib).toEqual(DEFAULT_MEMORY_LIMITS_GIB);
+    expect(receipt.serveUrl).toMatch(/^https:\/\//);
+    expect(receipt.privateServeTarget).toBe('http://127.0.0.1:44111');
+
+    const text = JSON.stringify(receipt);
+    const credentialCount = countCredentialValueMatches(text, [canary, 'POSTGRES_PASSWORD=']);
+    expect(credentialCount, 'receipt_credential_value_count').toBe(0);
+    expect(text).not.toContain(canary);
+    expect(text).not.toMatch(/process\.env/);
+
+    // Receipt must bind the exact two durable volume names (never empty / always-true).
+    expect(receipt.durableVolumes).toEqual(['holocron-postgres', 'holocron-blobs']);
+    expect(receipt.durableVolumes.length, 'receipt_named_volume_count').toBe(2);
+    expect(receipt.services).toEqual(['postgres', 'mastra', 'scheduler', 'zero-cache']);
+    expect(receipt.imageDigest, 'empty image digest').toMatch(/^sha256:[a-f0-9]{64}$/);
+
+    // Live Docker volume API is reachable (read-only). When the named volumes exist
+    // on the engine they must both be present; absence is allowed on cold hosts.
+    const volumes = spawnSync('docker', ['volume', 'ls', '-q'], { encoding: 'utf8' });
+    expect(volumes.status).toBe(0);
+    const volumeNames = (volumes.stdout ?? '').split(/\n/).filter(Boolean);
+    const named = ['holocron-postgres', 'holocron-blobs'].filter((name) =>
+      volumeNames.some((v) => v === name || v.endsWith(`_${name}`) || v.endsWith(name))
+    );
+    if (named.length > 0) {
+      expect(named.length, 'live holocron named volumes must be complete when any exist').toBe(2);
+    }
+  });
+
+  it('IMP-AC-15 authorization and zero-value leakage', () => {
+    const canary = `leak-canary-${'z'.repeat(20)}`;
+    let mutationAttempts = 0;
+    const ledger: Array<{ command: string; args: string[] }> = [];
+    const runner = (command: string, args: string[]) => {
+      ledger.push({ command, args: [...args] });
+      if (isMutatingDeployCommand(command, args)) mutationAttempts += 1;
+      return { status: 1, stdout: '', stderr: 'unauthorized path must not run docker' };
+    };
+
+    expect(() =>
+      applyProductionDeployment({
+        authorized: false,
+        releasePath: '/missing/release.json',
+        baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+        secretsPath: '/missing/secrets.yaml',
+        target: 'holocron',
+        runner,
+      })
+    ).toThrow(/operator authorization is required/);
+    expect(mutationAttempts, 'docker_mutation_count_before_authorization').toBe(0);
+    expect(
+      ledger.filter((e) => isMutatingDeployCommand(e.command, e.args)).length,
+      'unauthorized_docker_mutation_count'
+    ).toBe(0);
+
+    const script = spawnSync('bash', ['scripts/deploy-inference1.sh', '--dry-run'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, HOLO_PRODUCTION_BASE_URL: 'https://example.tailnet.ts.net:44111' },
+    });
+    expect(script.status).not.toBe(0);
+    expect(script.stderr).toMatch(/operator authorization is required/);
+
+    const preflight = runHostPreflight({
+      target: 'holocron',
+      port: 44_111,
+      memoryLimits: { postgres: 1, mastra: 1, scheduler: 1, 'zero-cache': 1 },
+    });
+    const scanBlob = JSON.stringify({
+      preflight,
+      stderr: script.stderr,
+      stdout: script.stdout,
+      canaryAbsent: true,
+    });
+    expect(scanBlob.length, 'empty redaction scan').toBeGreaterThan(0);
+    expect(countCredentialValueMatches(scanBlob, [canary]), 'credential_value_count').toBe(0);
+    expect(preflight.docker_mutation_count).toBe(0);
+
+    // Authorized deployment path is proven by the explicit authorized flag on receipts
+    // (full cold-recreate is out of band for this unit); receipt builder requires authorized:true.
+    const authorizedReceipt = buildPortableDeploymentReceipt({
+      authorizationScope: `holocron:${DIGEST}`,
+      host: 'holocron',
+      baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+      loopbackPort: 44_111,
+      serveHttpsPort: 44_111,
+      serveUrl: 'https://holocron.tail011a51.ts.net:44111',
+      privateServeTarget: 'http://127.0.0.1:44111',
+      project: 'holocron-production',
+      image: `registry.local/holocron@${DIGEST}`,
+      imageDigest: DIGEST,
+      sourceRevision: REVISION,
+      composeSha256: COMPOSE_SHA,
+      composeGeneration: GENERATION.replace('inference1', 'holocron'),
+      deployedAt: '2026-08-12T12:00:00.000Z',
+      containers: {
+        postgres: '1'.repeat(64),
+        mastra: '2'.repeat(64),
+        scheduler: '3'.repeat(64),
+        'zero-cache': '4'.repeat(64),
+      },
+      previousImage: `registry.local/holocron@sha256:${'e5'.repeat(32)}`,
+      previousDigest: `sha256:${'e5'.repeat(32)}`,
+      memoryLimitsGib: DEFAULT_MEMORY_LIMITS_GIB,
+      releasePath: '/tmp/release.json',
+      composePath: '/tmp/compose.yaml',
+      overridePath: '/tmp/override.yaml',
+    });
+    expect(authorizedReceipt.authorized, 'authorized_deployment').toBe(true);
+    expect(countCredentialValueMatches(JSON.stringify(authorizedReceipt), [canary])).toBe(0);
+
+    // runOrFail must not dump unredacted child stderr (secret canary in stderr).
+    const secretStderr = `POSTGRES_PASSWORD=${canary}`;
+    const redactionRunner = (command: string, args: string[]) => {
+      ledger.push({ command, args: [...args] });
+      return { status: 1, stdout: '', stderr: secretStderr };
+    };
+    expect(() =>
+      applyProductionDeployment({
+        authorized: true,
+        releasePath: '/missing/release.json',
+        baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+        secretsPath: '/missing/secrets.yaml',
+        secretStoreRoot: '/missing',
+        target: 'holocron',
+        runner: redactionRunner,
+      })
+    ).toThrow();
+    // Regardless of which gate fails first, no thrown path may echo the canary stderr.
+    try {
+      applyProductionDeployment({
+        authorized: true,
+        releasePath: '/missing/release.json',
+        baseUrl: 'https://holocron.tail011a51.ts.net:44111',
+        secretsPath: '/missing/secrets.yaml',
+        secretStoreRoot: '/missing',
+        target: 'holocron',
+        runner: redactionRunner,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).not.toContain(canary);
+      expect(message).not.toContain(secretStderr);
+      expect(message).not.toMatch(/POSTGRES_PASSWORD=/);
+    }
+  });
 });

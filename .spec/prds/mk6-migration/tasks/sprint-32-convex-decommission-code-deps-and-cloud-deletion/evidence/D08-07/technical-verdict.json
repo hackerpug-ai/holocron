@@ -1,0 +1,159 @@
+{
+  "lens": "technical",
+  "schema_version": 1,
+  "task_id": "D08-07",
+  "commit": "a261e6a05b92dc06c2924af0c26336f499b0cce4",
+  "prior_commit": "d056f6afef95942bf0698faad50d643f691e109e",
+  "reviewer": "security-reviewer",
+  "tdd_mode": "red_first",
+  "verdict": "APPROVED",
+  "progress": "6/6 ACs complete",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "maps_to": "IMP-AC-7",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "services/platform/src/deploy/production-deploy.ts evaluateMemoryCapacity + real Docker/sysctl observers",
+        "IMP-AC-7 integration green under PLATFORM_IT=1"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "maps_to": "IMP-AC-10",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "services/platform/deploy/compose/README.md portable operator path",
+        "scripts/deploy-inference1.sh no LAN derivation"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "maps_to": "IMP-AC-12",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "production-deploy.ts:1020-1060 target_host probes hostname -s, hostname, tailscale status --json Self",
+        "preflight_check_count=9; docker_mutation_count=0; IMP-AC-12 green",
+        "residual_medium: target===DEFAULT_DEPLOY_HOST still accepted when any host identity is observed (not a no-op; observed.size>0 required)"
+      ]
+    },
+    {
+      "id": "AC-4",
+      "maps_to": "IMP-AC-13",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "buildPortableDeploymentReceipt durableVolumes fixed to holocron-postgres+holocron-blobs (production-deploy.ts:1691)",
+        "IMP-AC-13 asserts exact volume names; always-true volumeNames.length>=0 removed",
+        "applyProductionDeployment receipt schema + credential gate retained"
+      ]
+    },
+    {
+      "id": "AC-5",
+      "maps_to": "IMP-AC-14",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "verify-production.ts:830 live_services requires liveServiceCount===4 (soft-pass count=0 removed)",
+        "verify-production.ts:832-852 live_volumes inspects holocron-postgres + holocron-blobs",
+        "verify-production.ts:209-229,917-951 live HostConfig.Memory vs receipt.memoryLimitsGib; drift rejects via live mismatch",
+        "verify-production.ts:885-915 identity_mismatch fail-closed; no soft-pass when health down",
+        "verify-production.ts:960-968 ok hard-gates liveServiceCount===4, liveVolumeCount===2, liveMemoryContractOk",
+        "IMP-AC-14: docker inspect >=4, volume inspect >=2, zero-service negative control rejects"
+      ]
+    },
+    {
+      "id": "AC-6",
+      "maps_to": "IMP-AC-15",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "runOrFail redacts child stderr/stdout in production-deploy.ts:607, verify-production.ts:204, production-release.ts:498",
+        "IMP-AC-15 canary POSTGRES_PASSWORD=leak-canary never appears in thrown messages",
+        "unauthorized apply fails closed before Docker mutation; preflight docker_mutation_count=0"
+      ]
+    },
+    { "id": "TC-1", "maps_to_ac": "AC-1", "satisfied": true },
+    { "id": "TC-2", "maps_to_ac": "AC-2", "satisfied": true },
+    { "id": "TC-3", "maps_to_ac": "AC-3", "satisfied": true },
+    { "id": "TC-4", "maps_to_ac": "AC-4", "satisfied": true },
+    { "id": "TC-5", "maps_to_ac": "AC-5", "satisfied": true },
+    { "id": "TC-6", "maps_to_ac": "AC-6", "satisfied": true }
+  ],
+  "prior_needs_fixes_closure": [
+    {
+      "issue": "live_service_count=0 soft-pass",
+      "status": "FIXED",
+      "evidence": "verify-production.ts:830 push live_services only when count===4; ok requires liveServiceCount===4; IMP-AC-14 empty-containers negative rejects"
+    },
+    {
+      "issue": "memory tautology (in-process plan inequality)",
+      "status": "FIXED",
+      "evidence": "liveMemoryMatchesPlan compares HostConfig.Memory bytes to receipt plan; live_memory_contract + memory_drift_rejected both require liveMemoryComplete"
+    },
+    {
+      "issue": "identity soft-pass when health down",
+      "status": "FIXED",
+      "evidence": "soft-pass branch removed; only IDENTITY_MISMATCH/STALE_IDENTITY (or matching message) count"
+    },
+    {
+      "issue": "mock IMP-AC-14 / LAN default theatre",
+      "status": "FIXED",
+      "evidence": "deterministic DeploymentRunner binds inspect×4 + volume×2 + memory bytes; baseUrl TEST-NET 192.0.2.10; zero-service negative; production path non-stub"
+    },
+    {
+      "issue": "runOrFail unredacted secrets",
+      "status": "FIXED",
+      "evidence": "command+exit only in three deploy modules; IMP-AC-15 canary assertion"
+    },
+    {
+      "issue": "volumes not inspected",
+      "status": "FIXED",
+      "evidence": "live_volumes docker volume inspect holocron-postgres + holocron-blobs; receipt lists same names"
+    }
+  ],
+  "stubs": [],
+  "residual": [
+    {
+      "severity": "MEDIUM",
+      "location": "services/platform/src/deploy/production-deploy.ts:1053",
+      "summary": "target_host accepts DEFAULT_DEPLOY_HOST without requiring observed hostname match; still requires observed.size>0"
+    },
+    {
+      "severity": "MEDIUM",
+      "location": "services/platform/src/deploy/production-deploy.ts:895-899",
+      "summary": "Funnel detection remains brittle string/regex over Serve status JSON"
+    },
+    {
+      "severity": "LOW",
+      "location": "services/platform/tests/integration/sprint29-deployment.test.ts:801-831",
+      "summary": "authorized_deployment still proven via receipt builder authorized:true (full cold-recreate OOB; redaction path covered)"
+    }
+  ],
+  "security": {
+    "no_critical_vulns": true,
+    "input_validation": "adequate",
+    "authz_before_mutation": true,
+    "hardcoded_secrets": false,
+    "credential_leakage_risks": [],
+    "tailscale": {
+      "funnel_invoked": false,
+      "serve_backend_loopback_only": true,
+      "serve_apply_requires_authorize": true,
+      "status_json_funnel_check": true
+    },
+    "preflight_non_mutating": true
+  },
+  "red_green": {
+    "red_first_required": true,
+    "red_evidence_present": true,
+    "red_evidence": "evidence/D08-07/red-invariants.md",
+    "green_evidence": "evidence/D08-07/vitest-imp-ac-green.log; re-run 2026-08-12 PLATFORM_IT=1 IMP-AC-* 9 passed"
+  },
+  "do_not_merge": false,
+  "merge_blocked_by_reviewer_instruction": false,
+  "notes": "Technical re-review of remediation tip only; do not merge per operator request regardless of APPROVED."
+}

@@ -10,6 +10,9 @@ import {
   verifyExternalDeploymentIdentity,
 } from '../http/deployment-identity.ts';
 import {
+  assertMemoryLimitPlan,
+  countCredentialValueMatches,
+  DEFAULT_LOOPBACK_PORT,
   DEPLOY_EVIDENCE_DIR,
   type DeploymentProcessResult,
   type DeploymentRecord,
@@ -18,7 +21,10 @@ import {
   defaultRuntimeSecretsPath,
   readDeployableRelease,
   readDeploymentRecord,
+  readPrivateServeStatus,
+  type ServiceMemoryLimits,
 } from './production-deploy.ts';
+import { REQUIRED_SERVICES } from './production-release.ts';
 
 export type VerifyProductionOptions = {
   releasePath: string;
@@ -30,8 +36,38 @@ export type VerifyProductionOptions = {
   dependencyProbe?: boolean;
   negativeControls?: boolean;
   mcpDiscovery?: boolean;
+  /** Receipt-driven portable verification (IMP-AC-14). Default true when record has serve fields. */
+  portableReceipt?: boolean;
   runner?: DeploymentRunner;
   fetchImpl?: typeof fetch;
+};
+
+export type VerificationDimension = {
+  name: string;
+  ok: boolean;
+  summary: string;
+};
+
+export type PortableVerifyReport = {
+  ok: boolean;
+  verification_dimension_count: number;
+  serve_health_status: number;
+  identity_mismatch_rejected: boolean;
+  memory_drift_rejected: boolean;
+  dimensions: VerificationDimension[];
+  receipt: {
+    host: string;
+    loopbackPort: number;
+    serveUrl: string;
+    imageDigest: string;
+    sourceRevision: string;
+    composeGeneration: string;
+    serviceCount: number;
+    namedVolumeCount: number;
+    memoryLimitsGib: ServiceMemoryLimits;
+  };
+  funnelEnabled: boolean;
+  credential_value_count: number;
 };
 
 export type RestartEvidence = {
@@ -164,10 +200,32 @@ function runOrFail(
 ): string {
   const result: DeploymentProcessResult = runner(command, args, { cwd, env });
   if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout).trim();
-    verifyFail(`${command} ${args.join(' ')} failed${detail ? `: ${detail}` : ''}`);
+    // Never embed child stdout/stderr — they may include env-expanded secrets.
+    verifyFail(`${command} ${args.join(' ')} failed (exit ${result.status ?? 'null'})`);
   }
   return result.stdout.trim();
+}
+
+/** GiB plan value → Docker HostConfig.Memory bytes (Compose `Ng` semantics). */
+function memoryLimitGibToBytes(gib: number): number {
+  return Math.round(gib * 1024 ** 3);
+}
+
+/**
+ * Compare receipt memory plan to live container HostConfig.Memory values.
+ * Returns true when every service's live limit matches the plan (within 1 MiB).
+ */
+function liveMemoryMatchesPlan(
+  liveBytesByService: Readonly<Record<string, number>>,
+  plan: ServiceMemoryLimits
+): boolean {
+  for (const service of REQUIRED_SERVICES) {
+    const live = liveBytesByService[service];
+    if (!Number.isFinite(live) || live <= 0) return false;
+    const expected = memoryLimitGibToBytes(plan[service]);
+    if (Math.abs(live - expected) > 1024 * 1024) return false;
+  }
+  return true;
 }
 
 function expectedIdentity(record: DeploymentRecord): ExpectedDeploymentIdentity {
@@ -669,6 +727,273 @@ async function identityNegativeControls(options: {
     verifyFail(`identity negatives incomplete: ${rejected.join(',')}`);
   }
   return { ok: true, rejected, exit: 1, landingEligible: false };
+}
+
+/**
+ * One-command receipt-driven private verification (IMP-AC-14).
+ * Compares receipt identity/memory/services/volumes/Serve against live state and
+ * fails closed on identity or memory drift.
+ */
+export async function verifyPortableDeploymentReceipt(options: {
+  recordPath?: string;
+  releasePath?: string;
+  baseUrl?: string;
+  cwd?: string;
+  runner?: DeploymentRunner;
+  fetchImpl?: typeof fetch;
+  /** When set, prove identity mismatch is rejected against this alternate digest. */
+  proveIdentityMismatch?: boolean;
+  /** When set, prove memory drift rejection against this alternate plan. */
+  proveMemoryDrift?: boolean;
+}): Promise<PortableVerifyReport> {
+  const cwd = options.cwd ?? process.cwd();
+  const recordPath = resolve(options.recordPath ?? defaultDeploymentRecordPath(cwd));
+  const record = readDeploymentRecord(recordPath);
+  if (!record.imageDigest) verifyFail('empty receipt metadata (image digest)');
+  if (options.releasePath) assertRecordMatchesRelease(record, resolve(options.releasePath));
+  if (options.baseUrl) {
+    const normalized = options.baseUrl.replace(/\/$/, '');
+    if (normalized !== record.baseUrl && normalized !== record.serveUrl) {
+      verifyFail('base URL must equal the authorized receipt baseUrl or serveUrl');
+    }
+  }
+  const runner = options.runner ?? defaultRunner;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const dimensions: VerificationDimension[] = [];
+  const push = (name: string, ok: boolean, summary: string) => {
+    dimensions.push({ name, ok, summary });
+  };
+
+  push(
+    'receipt_host',
+    typeof record.host === 'string' && record.host.length > 0,
+    `host=${record.host}`
+  );
+  push(
+    'receipt_loopback_port',
+    record.loopbackPort === DEFAULT_LOOPBACK_PORT,
+    `loopbackPort=${record.loopbackPort}`
+  );
+  push(
+    'receipt_services',
+    record.services.length === 4 && record.services.join(',') === REQUIRED_SERVICES.join(','),
+    `service_count=${record.services.length}`
+  );
+  push(
+    'receipt_volumes',
+    record.durableVolumes.length === 2,
+    `named_volume_count=${record.durableVolumes.length}`
+  );
+  push(
+    'receipt_image_digest',
+    Boolean(record.imageDigest && record.imageDigest.startsWith('sha256:')),
+    record.imageDigest ? 'digest present' : 'empty image digest'
+  );
+  push(
+    'receipt_generation',
+    Boolean(record.composeGeneration),
+    `generation=${record.composeGeneration || '(empty)'}`
+  );
+  push(
+    'receipt_memory',
+    Boolean(record.memoryLimitsGib),
+    `memory_plan=${JSON.stringify(record.memoryLimitsGib ?? null)}`
+  );
+
+  // Live Docker service presence (read-only inspect). Exactly 4 running required.
+  let liveServiceCount = 0;
+  const liveMemoryBytes: Record<string, number> = {};
+  for (const service of REQUIRED_SERVICES) {
+    const id = record.containers[service];
+    if (!id) continue;
+    const inspected = runner(
+      'docker',
+      [
+        'inspect',
+        '--format',
+        '{{.State.Running}}|{{index .Config.Labels "com.docker.compose.service"}}|{{.HostConfig.Memory}}',
+        id,
+      ],
+      { cwd, env: process.env }
+    );
+    if (inspected.status === 0) {
+      const [running, observed, memoryRaw] = inspected.stdout.trim().split('|');
+      if (running === 'true' && observed === service) {
+        liveServiceCount += 1;
+        const memoryBytes = Number(memoryRaw);
+        if (Number.isFinite(memoryBytes) && memoryBytes > 0) {
+          liveMemoryBytes[service] = memoryBytes;
+        }
+      }
+    }
+  }
+  push('live_services', liveServiceCount === 4, `live_service_count=${liveServiceCount}`);
+
+  // Named durable volumes must exist on the engine (holocron-postgres + holocron-blobs).
+  const requiredVolumes = ['holocron-postgres', 'holocron-blobs'] as const;
+  let liveVolumeCount = 0;
+  for (const volumeName of requiredVolumes) {
+    const vol = runner('docker', ['volume', 'inspect', '--format', '{{.Name}}', volumeName], {
+      cwd,
+      env: process.env,
+    });
+    if (vol.status === 0 && vol.stdout.trim() === volumeName) {
+      liveVolumeCount += 1;
+    }
+  }
+  // Receipt must also list the same two durable names.
+  const receiptVolumeOk =
+    record.durableVolumes.length === 2 &&
+    requiredVolumes.every((name) => record.durableVolumes.includes(name));
+  push(
+    'live_volumes',
+    liveVolumeCount === 2 && receiptVolumeOk,
+    `live_volume_count=${liveVolumeCount}; receipt_named_volume_count=${record.durableVolumes.length}`
+  );
+
+  // Private Serve status (no Funnel).
+  const serveStatus = readPrivateServeStatus({
+    httpsPort: record.serveHttpsPort || DEFAULT_LOOPBACK_PORT,
+    runner,
+    cwd,
+  });
+  push(
+    'serve_no_funnel',
+    !serveStatus.funnelEnabled && serveStatus.funnelEndpointCount === 0,
+    `funnel_endpoint_count=${serveStatus.funnelEndpointCount}`
+  );
+
+  // Health against private Serve URL when possible; fall back to receipt baseUrl.
+  let serveHealthStatus = 0;
+  const healthUrls = [record.serveUrl, record.baseUrl].filter(
+    (value, index, all) => Boolean(value) && all.indexOf(value) === index
+  );
+  for (const url of healthUrls) {
+    try {
+      const response = await fetchImpl(`${url.replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(10_000),
+        headers: { accept: 'application/json' },
+      });
+      serveHealthStatus = response.status;
+      if (response.status === 200) break;
+    } catch {
+      // try next candidate
+    }
+  }
+  push('serve_health', serveHealthStatus === 200, `serve_health_status=${serveHealthStatus}`);
+
+  // Identity mismatch rejection (negative control) — fail closed; never soft-pass on down health.
+  let identityMismatchRejected = false;
+  const wrongDigest =
+    options.proveIdentityMismatch === false ? record.imageDigest : `sha256:${'0'.repeat(64)}`;
+  try {
+    await verifyExternalDeploymentIdentity({
+      baseUrl: record.baseUrl,
+      expected: {
+        ...expectedIdentity(record),
+        imageDigest: wrongDigest,
+      },
+      fetchImpl,
+    });
+  } catch (error) {
+    if (
+      error instanceof DeploymentIdentityError &&
+      (error.code === 'IDENTITY_MISMATCH' || error.code === 'STALE_IDENTITY')
+    ) {
+      identityMismatchRejected = true;
+    } else if (
+      error instanceof Error &&
+      /IDENTITY_MISMATCH|STALE_IDENTITY|differs from the authorized/i.test(error.message)
+    ) {
+      identityMismatchRejected = true;
+    }
+  }
+  push(
+    'identity_mismatch_rejected',
+    identityMismatchRejected,
+    `identity_mismatch_rejected=${identityMismatchRejected}`
+  );
+
+  // Memory contract: receipt plan must match live HostConfig.Memory for each service.
+  // Drift rejection: a deliberately altered plan must NOT match live Docker limits.
+  const receiptPlan = assertMemoryLimitPlan(record.memoryLimitsGib);
+  const liveMemoryComplete = liveServiceCount === 4 && Object.keys(liveMemoryBytes).length === 4;
+  const liveMemoryContractOk =
+    liveMemoryComplete && liveMemoryMatchesPlan(liveMemoryBytes, receiptPlan);
+  push(
+    'live_memory_contract',
+    liveMemoryContractOk,
+    liveMemoryContractOk
+      ? 'live HostConfig.Memory matches receipt.memoryLimitsGib'
+      : `live memory mismatch or incomplete (services_with_memory=${Object.keys(liveMemoryBytes).length})`
+  );
+
+  // Drift within the 50 GiB budget: decrease the largest service by 1 GiB so the
+  // altered plan is valid yet cannot match live HostConfig.Memory.
+  const driftService = (REQUIRED_SERVICES as readonly (keyof ServiceMemoryLimits)[]).reduce(
+    (best, service) => (receiptPlan[service] > receiptPlan[best] ? service : best),
+    REQUIRED_SERVICES[0] as keyof ServiceMemoryLimits
+  );
+  const driftedLimits: ServiceMemoryLimits = { ...receiptPlan };
+  if (receiptPlan[driftService] > 1) {
+    driftedLimits[driftService] = receiptPlan[driftService] - 1;
+  } else {
+    // Tiny non-integer drift when every service is already at the floor.
+    driftedLimits[driftService] = receiptPlan[driftService] + 0.25;
+  }
+  const driftedPlan = assertMemoryLimitPlan(driftedLimits);
+  const memoryDriftRejected =
+    liveMemoryComplete && !liveMemoryMatchesPlan(liveMemoryBytes, driftedPlan);
+  push(
+    'memory_drift_rejected',
+    memoryDriftRejected,
+    `memory_drift_rejected=${memoryDriftRejected}`
+  );
+
+  const credentialValueCount = countCredentialValueMatches(JSON.stringify(record));
+  push(
+    'receipt_no_credentials',
+    credentialValueCount === 0,
+    `credential_value_count=${credentialValueCount}`
+  );
+
+  const ok =
+    dimensions.filter((d) => d.ok).length >= 8 &&
+    liveServiceCount === 4 &&
+    liveVolumeCount === 2 &&
+    liveMemoryContractOk &&
+    serveHealthStatus === 200 &&
+    identityMismatchRejected &&
+    memoryDriftRejected &&
+    credentialValueCount === 0;
+
+  const report: PortableVerifyReport = {
+    ok,
+    verification_dimension_count: dimensions.length,
+    serve_health_status: serveHealthStatus,
+    identity_mismatch_rejected: identityMismatchRejected,
+    memory_drift_rejected: memoryDriftRejected,
+    dimensions,
+    receipt: {
+      host: record.host,
+      loopbackPort: record.loopbackPort,
+      serveUrl: record.serveUrl,
+      imageDigest: record.imageDigest,
+      sourceRevision: record.sourceRevision,
+      composeGeneration: record.composeGeneration,
+      serviceCount: record.services.length,
+      namedVolumeCount: record.durableVolumes.length,
+      memoryLimitsGib: record.memoryLimitsGib,
+    },
+    funnelEnabled: serveStatus.funnelEnabled,
+    credential_value_count: credentialValueCount,
+  };
+  if (!ok) {
+    const failed = dimensions.filter((d) => !d.ok).map((d) => d.name);
+    verifyFail(`portable receipt verification failed: ${failed.join(', ') || 'unknown'}`);
+  }
+  atomicJson(resolve(cwd, DEPLOY_EVIDENCE_DIR, 'portable-verification.json'), report);
+  return report;
 }
 
 export async function verifyProductionDeployment(

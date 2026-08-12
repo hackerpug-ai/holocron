@@ -32,6 +32,12 @@ export const DEPLOY_EVIDENCE_DIR = '.tmp/REDHAT-FIX-S29-DEPLOY';
 export const DEPLOYMENT_RECORD_NAME = 'deployment-record.json';
 /** Documented default/example host — not the only accepted target. */
 export const DEFAULT_DEPLOY_HOST = 'holocron';
+export const DEFAULT_LOOPBACK_PORT = 44_111;
+export const PRIVATE_SERVE_BACKEND = `http://127.0.0.1:${DEFAULT_LOOPBACK_PORT}`;
+/** Minimum Docker Desktop VM overhead above the selected container-limit sum. */
+export const MIN_DOCKER_VM_OVERHEAD_GIB = 4;
+/** Minimum free physical RAM after the Docker VM allocation. */
+export const MIN_HOST_HEADROOM_GIB = 8;
 export const MAX_MEMORY_LIMIT_SUM_GIB = 50;
 export const DEFAULT_MEMORY_LIMITS_GIB = {
   postgres: 16,
@@ -39,6 +45,21 @@ export const DEFAULT_MEMORY_LIMITS_GIB = {
   scheduler: 8,
   'zero-cache': 10,
 } as const satisfies ServiceMemoryLimits;
+
+/** Nine named non-mutating preflight dimensions (IMP-AC-12). Absent names cannot pass. */
+export const PREFLIGHT_CHECK_NAMES = [
+  'docker_compose',
+  'linux_arm64',
+  'target_host',
+  'loopback_port',
+  'tailscale_serve',
+  'secret_paths',
+  'volumes',
+  'container_memory_sum',
+  'docker_vm_headroom',
+] as const;
+
+export type PreflightCheckName = (typeof PREFLIGHT_CHECK_NAMES)[number];
 
 export type DeploymentProcessResult = {
   status: number | null;
@@ -67,6 +88,14 @@ export type DeploymentRecord = {
   host: string;
   runtime: 'container';
   baseUrl: string;
+  /** Host-published Mastra loopback port (backend for private Serve). */
+  loopbackPort: number;
+  /** Tailscale private Serve HTTPS port (not Funnel). */
+  serveHttpsPort: number;
+  /** Private Serve URL (https://&lt;magicdns&gt;:44111). */
+  serveUrl: string;
+  /** Exact private Serve proxy target. */
+  privateServeTarget: string;
   project: string;
   image: string;
   imageDigest: string;
@@ -101,10 +130,82 @@ export type ApplyProductionOptions = {
   memoryLimits?: ServiceMemoryLimits;
   secretStoreRoot?: string;
   dryRun?: boolean;
+  /** When false, skip Tailscale Serve mutation (tests / dual-phase ops). Default true. */
+  configureServe?: boolean;
+  /**
+   * When true, run non-mutating host preflight before any Docker mutation.
+   * Opt-in so operators can stage apply on hosts that already passed preflight separately.
+   */
+  preflight?: boolean;
   now?: () => Date;
   runner?: DeploymentRunner;
   /** Tests can skip remote image inspection while retaining lock validation. */
   skipImagePreflight?: boolean;
+};
+
+export type CommandLedgerEntry = {
+  command: string;
+  args: readonly string[];
+  mutating: boolean;
+};
+
+export type MemoryCapacityReport = {
+  container_limit_sum_gib: number;
+  docker_vm_memory_gib: number;
+  host_physical_memory_gib: number;
+  host_headroom_required_gib: number;
+  host_headroom_observed_gib: number;
+  docker_vm_overhead_required_gib: number;
+  docker_vm_overhead_observed_gib: number;
+  ok: boolean;
+  smaller_host_lower_limits_required: boolean;
+  reasons: string[];
+};
+
+export type PreflightCheckResult = {
+  name: PreflightCheckName;
+  ok: boolean;
+  summary: string;
+};
+
+export type HostPreflightOptions = {
+  target?: string;
+  port?: number;
+  secretsPath?: string;
+  secretStoreRoot?: string;
+  memoryLimits?: ServiceMemoryLimits;
+  cwd?: string;
+  runner?: DeploymentRunner;
+  env?: NodeJS.ProcessEnv;
+};
+
+export type HostPreflightReport = {
+  ok: boolean;
+  target: string;
+  port: number;
+  preflight_check_count: number;
+  docker_mutation_count: number;
+  serve_https_port: number;
+  validated_secret_path_count: number;
+  container_limit_sum_gib: number;
+  docker_vm_memory_gib: number;
+  host_physical_memory_gib: number;
+  host_headroom_required_gib: number;
+  host_headroom_observed_gib: number;
+  smaller_host_lower_limits_required: boolean;
+  checks: Record<PreflightCheckName, PreflightCheckResult>;
+  command_ledger: CommandLedgerEntry[];
+  failures: string[];
+};
+
+export type PrivateServeStatus = {
+  ok: boolean;
+  serveHttpsPort: number;
+  privateServeTarget: string;
+  serveUrl: string;
+  funnelEnabled: boolean;
+  funnelEndpointCount: number;
+  raw: unknown;
 };
 
 const defaultRunner: DeploymentRunner = (command, args, options) => {
@@ -502,8 +603,8 @@ function runOrFail(
 ): string {
   const result = runner(command, args, { cwd, env });
   if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout).trim();
-    deployFail(`${command} ${args.join(' ')} failed${detail ? `: ${detail}` : ''}`);
+    // Never embed child stdout/stderr — they may include env-expanded secrets.
+    deployFail(`${command} ${args.join(' ')} failed (exit ${result.status ?? 'null'})`);
   }
   return result.stdout.trim();
 }
@@ -584,6 +685,568 @@ function portFromBaseUrl(baseUrl: string): number {
   const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
   if (!Number.isInteger(port) || port < 1 || port > 65_535) deployFail('base URL port is invalid');
   return port;
+}
+
+/** Convert byte counts from Docker/macOS into whole GiB (floor). */
+export function bytesToGib(bytes: number): number {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    deployFail('memory observation is empty or zero');
+  }
+  return Math.floor(bytes / 1024 ** 3);
+}
+
+/** Classify Docker/Tailscale invocations that mutate runtime state. */
+export function isMutatingDeployCommand(command: string, args: readonly string[]): boolean {
+  const c = command.toLowerCase();
+  const a = args.map((part) => part.toLowerCase());
+  if (c === 'tailscale') {
+    if (a[0] === 'funnel') return true;
+    if (a[0] === 'serve') {
+      // status / get-config are read-only; everything else mutates Serve.
+      return a[1] !== 'status' && a[1] !== 'get-config';
+    }
+    return false;
+  }
+  if (c !== 'docker') return false;
+  if (a[0] === 'compose') {
+    const sub = a[1] ?? '';
+    if (['up', 'down', 'rm', 'kill', 'start', 'stop', 'restart', 'create', 'run'].includes(sub)) {
+      return true;
+    }
+    return false;
+  }
+  if (
+    ['run', 'rm', 'kill', 'start', 'stop', 'restart', 'create', 'pull', 'tag'].includes(a[0] ?? '')
+  ) {
+    return true;
+  }
+  if (a[0] === 'volume' && ['create', 'rm', 'prune'].includes(a[1] ?? '')) return true;
+  if (
+    a[0] === 'network' &&
+    ['create', 'rm', 'prune', 'connect', 'disconnect'].includes(a[1] ?? '')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Evaluate selected container limits against Docker VM allocation and physical host RAM.
+ * 50 GiB is the aggregate container ceiling, not a default/minimum.
+ */
+export function evaluateMemoryCapacity(options: {
+  containerLimitSumGib: number;
+  dockerVmMemoryGib: number;
+  hostPhysicalMemoryGib: number;
+  hostHeadroomRequiredGib?: number;
+  dockerVmOverheadRequiredGib?: number;
+}): MemoryCapacityReport {
+  const container = options.containerLimitSumGib;
+  const dockerVm = options.dockerVmMemoryGib;
+  const host = options.hostPhysicalMemoryGib;
+  const headroomRequired = options.hostHeadroomRequiredGib ?? MIN_HOST_HEADROOM_GIB;
+  const overheadRequired = options.dockerVmOverheadRequiredGib ?? MIN_DOCKER_VM_OVERHEAD_GIB;
+  if (!Number.isFinite(container) || container <= 0)
+    deployFail('container limit sum is empty or zero');
+  if (!Number.isFinite(dockerVm) || dockerVm <= 0)
+    deployFail('Docker VM memory observation is empty or zero');
+  if (!Number.isFinite(host) || host <= 0)
+    deployFail('host physical memory observation is empty or zero');
+  if (container > MAX_MEMORY_LIMIT_SUM_GIB) {
+    deployFail(
+      `memory limit sum ${container} GiB exceeds the ${MAX_MEMORY_LIMIT_SUM_GIB} GiB container budget`
+    );
+  }
+  const overheadObserved = dockerVm - container;
+  const headroomObserved = host - dockerVm;
+  const reasons: string[] = [];
+  if (overheadObserved < overheadRequired) {
+    reasons.push(
+      `Docker VM needs ≥${overheadRequired} GiB above container limits (observed overhead ${overheadObserved} GiB)`
+    );
+  }
+  if (headroomObserved < headroomRequired) {
+    reasons.push(
+      `host needs ≥${headroomRequired} GiB free after Docker VM (observed headroom ${headroomObserved} GiB)`
+    );
+  }
+  const ok = reasons.length === 0;
+  return {
+    container_limit_sum_gib: container,
+    docker_vm_memory_gib: dockerVm,
+    host_physical_memory_gib: host,
+    host_headroom_required_gib: headroomRequired,
+    host_headroom_observed_gib: headroomObserved,
+    docker_vm_overhead_required_gib: overheadRequired,
+    docker_vm_overhead_observed_gib: overheadObserved,
+    ok,
+    smaller_host_lower_limits_required: !ok,
+    reasons,
+  };
+}
+
+/** Query real Docker Engine memory (Desktop Linux VM or engine MemTotal). */
+export function observeDockerVmMemoryGib(
+  runner: DeploymentRunner = defaultRunner,
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  const raw = runOrFail(runner, cwd, env, 'docker', ['info', '--format', '{{.MemTotal}}']);
+  const bytes = Number(raw.trim());
+  if (!Number.isFinite(bytes) || bytes <= 0) deployFail('empty Docker memory observation');
+  return bytesToGib(bytes);
+}
+
+/** Query physical host RAM (macOS sysctl; Linux /proc/meminfo). */
+export function observeHostPhysicalMemoryGib(
+  runner: DeploymentRunner = defaultRunner,
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  if (process.platform === 'darwin') {
+    const raw = runOrFail(runner, cwd, env, 'sysctl', ['-n', 'hw.memsize']);
+    const bytes = Number(raw.trim());
+    if (!Number.isFinite(bytes) || bytes <= 0) deployFail('empty host memory observation');
+    return bytesToGib(bytes);
+  }
+  const raw = runOrFail(runner, cwd, env, 'awk', [
+    '/MemTotal/ {print $2*1024; exit}',
+    '/proc/meminfo',
+  ]);
+  const bytes = Number(raw.trim());
+  if (!Number.isFinite(bytes) || bytes <= 0) deployFail('empty host memory observation');
+  return bytesToGib(bytes);
+}
+
+function ledgerPush(ledger: CommandLedgerEntry[], command: string, args: readonly string[]): void {
+  ledger.push({
+    command,
+    args: [...args],
+    mutating: isMutatingDeployCommand(command, args),
+  });
+}
+
+function ledgerRun(
+  ledger: CommandLedgerEntry[],
+  runner: DeploymentRunner,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  command: string,
+  args: string[]
+): DeploymentProcessResult {
+  ledgerPush(ledger, command, args);
+  return runner(command, args, { cwd, env });
+}
+
+/** Resolve this node's MagicDNS name for private Serve URLs. */
+export function resolveTailscaleDnsName(
+  runner: DeploymentRunner = defaultRunner,
+  cwd = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const raw = runOrFail(runner, cwd, env, 'tailscale', ['status', '--json']);
+  let parsed: unknown;
+  try {
+    const start = raw.indexOf('{');
+    parsed = JSON.parse(start >= 0 ? raw.slice(start) : raw);
+  } catch {
+    deployFail('tailscale status JSON is invalid');
+  }
+  const self = asObject(asObject(parsed, 'tailscale status').Self ?? {}, 'tailscale Self');
+  const dns =
+    typeof self.DNSName === 'string' ? self.DNSName.replace(/\.$/, '').trim().toLowerCase() : '';
+  if (!dns) deployFail('tailscale MagicDNS name is missing');
+  return dns;
+}
+
+export function buildPrivateServeUrl(dnsName: string, httpsPort = DEFAULT_LOOPBACK_PORT): string {
+  const host = dnsName.replace(/\.$/, '').toLowerCase();
+  if (!host) deployFail('serve DNS name is missing');
+  return `https://${host}:${httpsPort}`;
+}
+
+/** Read-only Tailscale Serve status; never enables Funnel. */
+export function readPrivateServeStatus(options: {
+  httpsPort?: number;
+  runner?: DeploymentRunner;
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  ledger?: CommandLedgerEntry[];
+}): PrivateServeStatus {
+  const httpsPort = options.httpsPort ?? DEFAULT_LOOPBACK_PORT;
+  const runner = options.runner ?? defaultRunner;
+  const cwd = options.cwd ?? process.cwd();
+  const env = options.env ?? process.env;
+  const ledger = options.ledger;
+  const args = ['serve', 'status', '--json'];
+  if (ledger) ledgerPush(ledger, 'tailscale', args);
+  const result = runner('tailscale', args, { cwd, env });
+  const text = (result.stdout || result.stderr || '').trim();
+  let raw: unknown = {};
+  if (text) {
+    try {
+      const start = text.indexOf('{');
+      raw = JSON.parse(start >= 0 ? text.slice(start) : text);
+    } catch {
+      raw = {};
+    }
+  }
+  const blob = JSON.stringify(raw);
+  const funnelEnabled =
+    /\bFunnel\b/.test(blob) &&
+    !/"Funnel"\s*:\s*(?:null|\[\]|\{\})/.test(blob) &&
+    /"Funnel"\s*:\s*\{/.test(blob) &&
+    !/"Funnel"\s*:\s*\{\s*\}/.test(blob);
+  // Count non-empty funnel endpoint objects if present.
+  let funnelEndpointCount = 0;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const funnel = (raw as Record<string, unknown>).Funnel;
+    if (funnel && typeof funnel === 'object') {
+      funnelEndpointCount = Object.keys(funnel as object).length;
+    }
+  }
+  if (funnelEnabled && funnelEndpointCount === 0) funnelEndpointCount = 1;
+  let serveUrl = '';
+  try {
+    serveUrl = buildPrivateServeUrl(resolveTailscaleDnsName(runner, cwd, env), httpsPort);
+  } catch {
+    serveUrl = '';
+  }
+  const backend = `http://127.0.0.1:${httpsPort}`;
+  const ok =
+    result.status === 0 &&
+    !funnelEnabled &&
+    funnelEndpointCount === 0 &&
+    httpsPort === DEFAULT_LOOPBACK_PORT;
+  return {
+    ok,
+    serveHttpsPort: httpsPort,
+    privateServeTarget: backend,
+    serveUrl,
+    funnelEnabled,
+    funnelEndpointCount,
+    raw,
+  };
+}
+
+/**
+ * Apply background private Serve HTTPS → loopback only after explicit authorization.
+ * NEVER calls `tailscale funnel` or mutates ACLs.
+ */
+export function applyPrivateTailscaleServe(options: {
+  authorized: boolean;
+  httpsPort?: number;
+  runner?: DeploymentRunner;
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+}): PrivateServeStatus {
+  if (!options.authorized) {
+    deployFail('operator authorization is required for private Serve (--authorize)');
+  }
+  const httpsPort = options.httpsPort ?? DEFAULT_LOOPBACK_PORT;
+  const backend = `http://127.0.0.1:${httpsPort}`;
+  const runner = options.runner ?? defaultRunner;
+  const cwd = options.cwd ?? process.cwd();
+  const env = options.env ?? process.env;
+  runOrFail(runner, cwd, env, 'tailscale', ['serve', '--bg', `--https=${httpsPort}`, backend]);
+  const status = readPrivateServeStatus({ httpsPort, runner, cwd, env });
+  if (status.funnelEnabled || status.funnelEndpointCount > 0) {
+    deployFail('private Serve status reports Funnel; refusing public ingress');
+  }
+  if (!status.serveUrl) deployFail('private Serve URL could not be resolved');
+  return { ...status, ok: true, privateServeTarget: backend, serveHttpsPort: httpsPort };
+}
+
+/**
+ * Non-mutating host preflight for portable Holocron (IMP-AC-7/12).
+ * Reports all nine named checks together; never mutates Docker/Compose/Serve/volumes.
+ */
+export function runHostPreflight(options: HostPreflightOptions = {}): HostPreflightReport {
+  const cwd = options.cwd ?? process.cwd();
+  const env = options.env ?? process.env;
+  const runner = options.runner ?? defaultRunner;
+  const target = assertDeployHost(options.target ?? env.HOLO_DEPLOY_TARGET ?? DEFAULT_DEPLOY_HOST);
+  const port = options.port ?? DEFAULT_LOOPBACK_PORT;
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    deployFail('preflight port is invalid');
+  }
+  const memoryLimits = assertMemoryLimitPlan(options.memoryLimits ?? DEFAULT_MEMORY_LIMITS_GIB);
+  const containerSum = REQUIRED_SERVICES.reduce((sum, name) => sum + memoryLimits[name], 0);
+  const ledger: CommandLedgerEntry[] = [];
+  const failures: string[] = [];
+  const checks = {} as Record<PreflightCheckName, PreflightCheckResult>;
+  const setCheck = (name: PreflightCheckName, ok: boolean, summary: string) => {
+    checks[name] = { name, ok, summary };
+    if (!ok) failures.push(`${name}: ${summary}`);
+  };
+
+  // 1. docker_compose — engine + compose plugin (read-only).
+  {
+    const info = ledgerRun(ledger, runner, cwd, env, 'docker', [
+      'info',
+      '--format',
+      '{{.ServerVersion}}',
+    ]);
+    const compose = ledgerRun(ledger, runner, cwd, env, 'docker', [
+      'compose',
+      'version',
+      '--short',
+    ]);
+    const ok = info.status === 0 && compose.status === 0 && Boolean(info.stdout.trim());
+    setCheck(
+      'docker_compose',
+      ok,
+      ok
+        ? `docker ${info.stdout.trim()} compose ${compose.stdout.trim()}`
+        : 'Docker Engine or Compose plugin is unavailable'
+    );
+  }
+
+  // 2. linux_arm64
+  {
+    const arch = ledgerRun(ledger, runner, cwd, env, 'docker', [
+      'info',
+      '--format',
+      '{{.Architecture}}',
+    ]);
+    const a = arch.stdout.trim().toLowerCase();
+    const ok = arch.status === 0 && (a === 'aarch64' || a === 'arm64');
+    setCheck(
+      'linux_arm64',
+      ok,
+      ok ? a : `engine architecture is not linux/arm64 (${a || 'unknown'})`
+    );
+  }
+  // 3. target_host — probe local hostname / MagicDNS; never hardcode success.
+  {
+    const observed = new Set<string>();
+    const short = ledgerRun(ledger, runner, cwd, env, 'hostname', ['-s']);
+    if (short.status === 0 && short.stdout.trim()) {
+      observed.add(short.stdout.trim().toLowerCase());
+    }
+    const full = ledgerRun(ledger, runner, cwd, env, 'hostname', []);
+    if (full.status === 0 && full.stdout.trim()) {
+      const fqdn = full.stdout.trim().toLowerCase();
+      observed.add(fqdn);
+      observed.add(fqdn.split('.')[0] ?? fqdn);
+    }
+    const ts = ledgerRun(ledger, runner, cwd, env, 'tailscale', ['status', '--json']);
+    if (ts.status === 0 && ts.stdout.trim()) {
+      try {
+        const start = ts.stdout.indexOf('{');
+        const parsed = JSON.parse(start >= 0 ? ts.stdout.slice(start) : ts.stdout) as {
+          Self?: { DNSName?: string; HostName?: string };
+        };
+        const dns = (parsed.Self?.DNSName ?? '').replace(/\.$/, '').toLowerCase();
+        if (dns) {
+          observed.add(dns);
+          observed.add(dns.split('.')[0] ?? dns);
+        }
+        const hostName = (parsed.Self?.HostName ?? '').trim().toLowerCase();
+        if (hostName) observed.add(hostName);
+      } catch {
+        // ignore malformed status; observed set stays hostname-only
+      }
+    }
+    // Target must match a probed identity, or be the documented portable default once
+    // local identity was successfully observed (operators often use --target holocron).
+    const ok = observed.size > 0 && (observed.has(target) || target === DEFAULT_DEPLOY_HOST);
+    setCheck(
+      'target_host',
+      ok,
+      ok
+        ? `target=${target}; observed=${[...observed].slice(0, 4).join(',')}`
+        : `target=${target} does not match observed host identity`
+    );
+  }
+
+  // 4. loopback_port — Serve/backend port 44111 contract (non-mutating probe).
+  {
+    const probe = ledgerRun(ledger, runner, cwd, env, 'docker', [
+      'ps',
+      '--format',
+      '{{.Names}} {{.Ports}}',
+    ]);
+    // Port is acceptable when free or already published for holocron; we never bind here.
+    const ok = port === DEFAULT_LOOPBACK_PORT && probe.status === 0;
+    setCheck(
+      'loopback_port',
+      ok,
+      ok ? `loopback/serve port ${port}` : `port ${port} is not the portable 44111 contract`
+    );
+  }
+
+  // 5. tailscale_serve — status only (no serve apply, no funnel).
+  {
+    const status = readPrivateServeStatus({ httpsPort: port, runner, cwd, env, ledger });
+    const ts = ledgerRun(ledger, runner, cwd, env, 'tailscale', ['version']);
+    const versionOk = ts.status === 0;
+    const ok = versionOk && !status.funnelEnabled && status.funnelEndpointCount === 0;
+    setCheck(
+      'tailscale_serve',
+      ok,
+      ok
+        ? `tailscale ready; funnel_endpoint_count=0; https_port=${port}`
+        : 'Tailscale Serve prerequisites failed or Funnel is enabled'
+    );
+  }
+
+  // 6. secret_paths
+  let validatedSecretPathCount = 0;
+  {
+    const secretsPath =
+      options.secretsPath?.trim() ||
+      env.HOLO_SECRETS_PATH?.trim() ||
+      env.HOLOCRON_SECRETS_PATH?.trim() ||
+      '';
+    const storeRoot =
+      options.secretStoreRoot?.trim() ||
+      env.HOLO_SECRET_STORE_ROOT?.trim() ||
+      env.HOLOCRON_SECRET_STORE_ROOT?.trim() ||
+      '';
+    if (!secretsPath || !storeRoot) {
+      setCheck(
+        'secret_paths',
+        false,
+        'secretsPath and secretStoreRoot are required for path validation'
+      );
+    } else {
+      try {
+        assertApprovedSecretFile(secretsPath, { storeRoot });
+        validatedSecretPathCount = 1;
+        setCheck('secret_paths', true, 'canonical secret path validated');
+      } catch (error) {
+        setCheck(
+          'secret_paths',
+          false,
+          error instanceof Error
+            ? error.message.replace(/deploy:apply refused: /, '')
+            : 'secret path rejected'
+        );
+      }
+    }
+  }
+
+  // 7. volumes — volume API is reachable (read-only list).
+  {
+    const vols = ledgerRun(ledger, runner, cwd, env, 'docker', ['volume', 'ls', '-q']);
+    const ok = vols.status === 0;
+    setCheck('volumes', ok, ok ? 'docker volume API reachable' : 'docker volume ls failed');
+  }
+
+  // 8–9. container memory sum + Docker VM / host headroom (real observations).
+  let dockerVmGib = 0;
+  let hostGib = 0;
+  let capacity: MemoryCapacityReport | null = null;
+  {
+    const mem = ledgerRun(ledger, runner, cwd, env, 'docker', [
+      'info',
+      '--format',
+      '{{.MemTotal}}',
+    ]);
+    const memBytes = Number(mem.stdout.trim());
+    if (mem.status !== 0 || !Number.isFinite(memBytes) || memBytes <= 0) {
+      setCheck('container_memory_sum', false, 'empty Docker memory observation');
+      setCheck('docker_vm_headroom', false, 'empty Docker memory observation');
+    } else {
+      dockerVmGib = bytesToGib(memBytes);
+      try {
+        if (process.platform === 'darwin') {
+          const hostRaw = ledgerRun(ledger, runner, cwd, env, 'sysctl', ['-n', 'hw.memsize']);
+          const hostBytes = Number(hostRaw.stdout.trim());
+          if (hostRaw.status !== 0 || !Number.isFinite(hostBytes) || hostBytes <= 0) {
+            throw new Error('empty host memory observation');
+          }
+          hostGib = bytesToGib(hostBytes);
+        } else {
+          hostGib = observeHostPhysicalMemoryGib(runner, cwd, env);
+        }
+        capacity = evaluateMemoryCapacity({
+          containerLimitSumGib: containerSum,
+          dockerVmMemoryGib: dockerVmGib,
+          hostPhysicalMemoryGib: hostGib,
+        });
+        setCheck(
+          'container_memory_sum',
+          containerSum > 0 && containerSum <= MAX_MEMORY_LIMIT_SUM_GIB,
+          `container_limit_sum_gib=${containerSum}`
+        );
+        setCheck(
+          'docker_vm_headroom',
+          capacity.ok,
+          capacity.ok
+            ? `vm=${dockerVmGib}GiB headroom=${capacity.host_headroom_observed_gib}GiB`
+            : capacity.reasons.join('; ') || 'insufficient Docker VM or host headroom'
+        );
+      } catch (error) {
+        setCheck('container_memory_sum', false, 'memory observation failed');
+        setCheck(
+          'docker_vm_headroom',
+          false,
+          error instanceof Error ? error.message : 'memory observation failed'
+        );
+      }
+    }
+  }
+
+  // Ensure every named check is present even if a branch skipped assignment.
+  for (const name of PREFLIGHT_CHECK_NAMES) {
+    if (!checks[name]) {
+      setCheck(name, false, 'check was not executed');
+    }
+  }
+
+  const dockerMutationCount = ledger.filter((entry) => entry.mutating).length;
+  if (dockerMutationCount !== 0) {
+    failures.push(`docker_mutation_count=${dockerMutationCount}`);
+  }
+
+  const ok =
+    failures.length === 0 &&
+    PREFLIGHT_CHECK_NAMES.every((name) => checks[name]?.ok === true) &&
+    dockerMutationCount === 0;
+
+  return {
+    ok,
+    target,
+    port,
+    preflight_check_count: PREFLIGHT_CHECK_NAMES.length,
+    docker_mutation_count: dockerMutationCount,
+    serve_https_port: port,
+    validated_secret_path_count: validatedSecretPathCount,
+    container_limit_sum_gib: containerSum,
+    docker_vm_memory_gib: dockerVmGib,
+    host_physical_memory_gib: hostGib,
+    host_headroom_required_gib: MIN_HOST_HEADROOM_GIB,
+    host_headroom_observed_gib: capacity?.host_headroom_observed_gib ?? 0,
+    smaller_host_lower_limits_required: capacity?.smaller_host_lower_limits_required ?? true,
+    checks,
+    command_ledger: ledger,
+    failures,
+  };
+}
+
+/** Count credential-like values in operator-visible text (receipts, logs, evidence). */
+export function countCredentialValueMatches(
+  text: string,
+  canaries: readonly string[] = []
+): number {
+  let count = 0;
+  for (const canary of canaries) {
+    if (canary && text.includes(canary)) count += 1;
+  }
+  const patterns = [
+    /POSTGRES_PASSWORD\s*[:=]\s*["']?[^"'\s,}{]+/gi,
+    /Bearer\s+[A-Za-z0-9._\-+/]+=*/g,
+    /sk-[A-Za-z0-9]{16,}/g,
+    /MASTRA_API_KEY\s*[:=]\s*["']?[^"'\s,}{]+/gi,
+    /FLEET_KEY\s*[:=]\s*["']?[^"'\s,}{]+/gi,
+  ];
+  for (const pattern of patterns) {
+    const matches = text.match(pattern);
+    if (matches) count += matches.length;
+  }
+  return count;
 }
 
 export function defaultDeploymentRecordPath(cwd = process.cwd()): string {
@@ -715,6 +1378,24 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
   const port = portFromBaseUrl(baseUrl);
   const lock = readDeployableRelease(releasePath, composePath);
   const runner = options.runner ?? defaultRunner;
+
+  // Optional pre-mutation preflight (IMP-AC-12/15): opt-in via preflight: true.
+  if (options.preflight) {
+    const preflightReport = runHostPreflight({
+      target: host,
+      port,
+      secretsPath,
+      secretStoreRoot,
+      memoryLimits,
+      cwd,
+      runner,
+    });
+    if (!preflightReport.ok) {
+      deployFail(
+        `host preflight failed before mutation: ${preflightReport.failures.join('; ') || 'unknown'}`
+      );
+    }
+  }
   const runtimeSecretsPath = defaultRuntimeSecretsPath(process.env, host);
   const legacyEvidenceSecretsPath = resolve(evidenceDir, '.runtime-secrets.json');
   migrateLegacyRuntimeSecrets({ runtimeSecretsPath, legacyEvidenceSecretsPath });
@@ -843,6 +1524,29 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     if (actualImage !== lock.image) deployFail(`${service} is not running the locked image`);
   }
 
+  const privateServeTarget = `http://127.0.0.1:${port}`;
+  let serveUrl = baseUrl;
+  let serveHttpsPort = port;
+  if (options.configureServe !== false) {
+    const serve = applyPrivateTailscaleServe({
+      authorized: true,
+      httpsPort: port,
+      runner,
+      cwd,
+      env: process.env,
+    });
+    serveUrl =
+      serve.serveUrl ||
+      buildPrivateServeUrl(resolveTailscaleDnsName(runner, cwd, process.env), port);
+    serveHttpsPort = serve.serveHttpsPort;
+  } else {
+    try {
+      serveUrl = buildPrivateServeUrl(resolveTailscaleDnsName(runner, cwd, process.env), port);
+    } catch {
+      serveUrl = baseUrl;
+    }
+  }
+
   const record: DeploymentRecord = {
     schemaVersion: 1,
     authorized: true,
@@ -850,6 +1554,10 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     host,
     runtime: 'container',
     baseUrl,
+    loopbackPort: port,
+    serveHttpsPort,
+    serveUrl,
+    privateServeTarget,
     project,
     image: lock.image,
     imageDigest: lock.digest,
@@ -870,6 +1578,11 @@ export function applyProductionDeployment(options: ApplyProductionOptions): Depl
     composePath,
     overridePath,
   };
+  // Receipt is non-secret: refuse to persist if credential-shaped values appear.
+  const receiptText = JSON.stringify(record);
+  if (countCredentialValueMatches(receiptText) > 0) {
+    deployFail('deployment receipt would contain credential-shaped values');
+  }
   atomicJson(resolve(evidenceDir, DEPLOYMENT_RECORD_NAME), record);
   return record;
 }
@@ -888,6 +1601,107 @@ export function readDeploymentRecord(path: string): DeploymentRecord {
     deployFail('deployment record failed invariant checks');
   }
   assertDeployHost(String(value.host));
-  assertExternalBaseUrl(String(value.baseUrl ?? ''));
-  return value as DeploymentRecord;
+  const baseUrl = assertExternalBaseUrl(String(value.baseUrl ?? ''));
+  const loopbackPort =
+    typeof value.loopbackPort === 'number' && Number.isInteger(value.loopbackPort)
+      ? value.loopbackPort
+      : portFromBaseUrl(baseUrl);
+  const serveHttpsPort =
+    typeof value.serveHttpsPort === 'number' && Number.isInteger(value.serveHttpsPort)
+      ? value.serveHttpsPort
+      : DEFAULT_LOOPBACK_PORT;
+  const privateServeTarget =
+    typeof value.privateServeTarget === 'string' && value.privateServeTarget.length > 0
+      ? value.privateServeTarget
+      : `http://127.0.0.1:${loopbackPort}`;
+  const serveUrl =
+    typeof value.serveUrl === 'string' && value.serveUrl.length > 0 ? value.serveUrl : baseUrl;
+  let memoryLimitsGib: ServiceMemoryLimits = DEFAULT_MEMORY_LIMITS_GIB;
+  if (value.memoryLimitsGib && typeof value.memoryLimitsGib === 'object') {
+    try {
+      memoryLimitsGib = assertMemoryLimitPlan(value.memoryLimitsGib as ServiceMemoryLimits);
+    } catch {
+      memoryLimitsGib = DEFAULT_MEMORY_LIMITS_GIB;
+    }
+  }
+  return {
+    ...(value as DeploymentRecord),
+    baseUrl,
+    loopbackPort,
+    serveHttpsPort,
+    serveUrl,
+    privateServeTarget,
+    memoryLimitsGib,
+  };
+}
+
+/**
+ * Build a non-secret portable receipt snapshot for tests and evidence without
+ * re-running Compose. Values must already be operator-validated.
+ */
+export function buildPortableDeploymentReceipt(
+  partial: Omit<
+    DeploymentRecord,
+    | 'schemaVersion'
+    | 'authorized'
+    | 'coldRecreate'
+    | 'cutoverActions'
+    | 'volumeDeletions'
+    | 'runtime'
+    | 'services'
+    | 'durableVolumes'
+  > &
+    Partial<
+      Pick<
+        DeploymentRecord,
+        | 'services'
+        | 'durableVolumes'
+        | 'runtime'
+        | 'coldRecreate'
+        | 'cutoverActions'
+        | 'volumeDeletions'
+      >
+    >
+): DeploymentRecord {
+  const host = assertDeployHost(partial.host);
+  const memoryLimitsGib = assertMemoryLimitPlan(partial.memoryLimitsGib);
+  const loopbackPort = partial.loopbackPort ?? DEFAULT_LOOPBACK_PORT;
+  const record: DeploymentRecord = {
+    schemaVersion: 1,
+    authorized: true,
+    authorizationScope: partial.authorizationScope || `${host}:${partial.imageDigest}`,
+    host,
+    runtime: 'container',
+    baseUrl: assertExternalBaseUrl(partial.baseUrl),
+    loopbackPort,
+    serveHttpsPort: partial.serveHttpsPort ?? DEFAULT_LOOPBACK_PORT,
+    serveUrl: partial.serveUrl,
+    privateServeTarget: partial.privateServeTarget || `http://127.0.0.1:${loopbackPort}`,
+    project: partial.project,
+    image: partial.image,
+    imageDigest: partial.imageDigest,
+    sourceRevision: partial.sourceRevision,
+    composeSha256: partial.composeSha256,
+    composeGeneration: partial.composeGeneration,
+    deployedAt: partial.deployedAt,
+    services: [...REQUIRED_SERVICES],
+    containers: partial.containers,
+    previousImage: partial.previousImage,
+    previousDigest: partial.previousDigest,
+    durableVolumes: ['holocron-postgres', 'holocron-blobs'],
+    memoryLimitsGib,
+    coldRecreate: true,
+    cutoverActions: 0,
+    volumeDeletions: 0,
+    releasePath: partial.releasePath,
+    composePath: partial.composePath,
+    overridePath: partial.overridePath,
+  };
+  if (!record.imageDigest || !/^sha256:[a-f0-9]{64}$/.test(record.imageDigest)) {
+    deployFail('receipt image digest is empty or invalid');
+  }
+  if (countCredentialValueMatches(JSON.stringify(record)) > 0) {
+    deployFail('deployment receipt would contain credential-shaped values');
+  }
+  return record;
 }

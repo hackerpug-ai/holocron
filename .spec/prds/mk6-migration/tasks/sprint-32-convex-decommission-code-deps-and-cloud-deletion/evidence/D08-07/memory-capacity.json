@@ -1,0 +1,30 @@
+{
+  "docker_vm_memory_gib": 7,
+  "host_physical_memory_gib": 64,
+  "reference": {
+    "container_limit_sum_gib": 50,
+    "docker_vm_memory_gib": 54,
+    "host_physical_memory_gib": 64,
+    "host_headroom_required_gib": 8,
+    "host_headroom_observed_gib": 10,
+    "docker_vm_overhead_required_gib": 4,
+    "docker_vm_overhead_observed_gib": 4,
+    "ok": true,
+    "smaller_host_lower_limits_required": false,
+    "reasons": []
+  },
+  "real_against_50": {
+    "container_limit_sum_gib": 50,
+    "docker_vm_memory_gib": 7,
+    "host_physical_memory_gib": 64,
+    "host_headroom_required_gib": 8,
+    "host_headroom_observed_gib": 57,
+    "docker_vm_overhead_required_gib": 4,
+    "docker_vm_overhead_observed_gib": -43,
+    "ok": false,
+    "smaller_host_lower_limits_required": true,
+    "reasons": [
+      "Docker VM needs ≥4 GiB above container limits (observed overhead -43 GiB)"
+    ]
+  }
+}
