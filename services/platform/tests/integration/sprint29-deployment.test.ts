@@ -1,11 +1,14 @@
 import { spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,6 +16,9 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applyProductionDeployment,
+  assertApprovedSecretFile,
+  assertDeployHost,
+  DEFAULT_DEPLOY_HOST,
   migrateLegacyRuntimeSecrets,
   renderDeploymentOverride,
 } from '../../src/deploy/production-deploy.ts';
@@ -25,6 +31,8 @@ import {
   assertExternalBaseUrl,
   verifyExternalDeploymentIdentity,
 } from '../../src/http/deployment-identity.ts';
+import { createHonoApp } from '../../src/http/hono-app.ts';
+import { loadScopedKeysFromEnv } from '../../src/http/middleware/scoped-key.ts';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const SPRINT_DIR = resolve(
@@ -281,8 +289,10 @@ describe('D06-07 inference1 deployment contract', () => {
       deployedAt: '2026-08-02T12:00:00.000Z',
       port: 44_111,
       secretsPath: '/operator/secrets.yaml',
+      host: DEFAULT_DEPLOY_HOST,
     });
-    expect(override).toContain('0.0.0.0:44111:4111');
+    expect(override).toContain('127.0.0.1:44111:4111');
+    expect(override).not.toMatch(/0\.0\.0\.0:\d+:4111/);
     expect(override).toContain('127.0.0.1:44112:5432');
     expect(override).toContain('127.0.0.1:44113:4848');
     expect(override).toContain(`HOLO_IMAGE_DIGEST: ${DIGEST}`);
@@ -291,6 +301,165 @@ describe('D06-07 inference1 deployment contract', () => {
     expect(override).toContain('restart: always');
     expect(override).toContain('depends_on: !override');
     expect(override).not.toMatch(/Bearer |HOLO_KEY_MCP:|POSTGRES_PASSWORD:/);
+  });
+
+  it('IMP-AC-2 portable host identity', () => {
+    const accepted = ['holocron', 'edge-m1'] as const;
+    const rejected = 'bad_host!';
+    for (const host of accepted) {
+      expect(assertDeployHost(host), `accepted_host='${host}'`).toBe(host);
+    }
+    expect(() => assertDeployHost(rejected), `rejected_host='${rejected}'`).toThrow(/host/i);
+    expect(() => assertDeployHost('')).toThrow(/host/i);
+    // holocron is the documented default, not an inference1-only type literal
+    expect(DEFAULT_DEPLOY_HOST).toBe('holocron');
+    const deploySource = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/src/deploy/production-deploy.ts'),
+      'utf8'
+    );
+    expect(deploySource).not.toMatch(/host:\s*'inference1'/);
+    expect(deploySource).not.toMatch(/must be exactly inference1/);
+  });
+
+  it('IMP-AC-4 one loopback server port', () => {
+    const lock: ReleaseLock = {
+      schemaVersion: 1,
+      deployable: true,
+      image: `registry.local/holocron@${DIGEST}`,
+      digest: DIGEST,
+      repoDigest: `registry.local/holocron@${DIGEST}`,
+      sourceRevision: REVISION,
+      composeSha256: COMPOSE_SHA,
+      previousImage: `registry.local/holocron@sha256:${'e5'.repeat(32)}`,
+      previousDigest: `sha256:${'e5'.repeat(32)}`,
+      previousRepoDigest: `registry.local/holocron@sha256:${'e5'.repeat(32)}`,
+      generatedAt: '2026-08-02T11:00:00.000Z',
+    };
+    const override = renderDeploymentOverride({
+      lock,
+      generation: GENERATION,
+      deployedAt: '2026-08-02T12:00:00.000Z',
+      port: 44_111,
+      secretsPath: '/operator/secrets.yaml',
+      host: 'holocron',
+    });
+    const mastraPublish = '127.0.0.1:44111:4111';
+    expect(override).toContain(mastraPublish);
+    expect(override).not.toContain('0.0.0.0:44111:4111');
+    const publishedServerPorts = [
+      ...override.matchAll(/["'](?:\d+\.\d+\.\d+\.\d+|\[?::\]?):(\d+):4111["']/g),
+    ];
+    expect(publishedServerPorts.length, 'published_server_port_count').toBe(1);
+    const nonLoopback = [...override.matchAll(/["'](?!127\.0\.0\.1)[^"']+:\d+:\d+["']/g)].filter(
+      (match) => !match[0].includes('127.0.0.1')
+    );
+    // Only mastra/postgres/zero ports — all must be loopback for host publications
+    const hostPublishes = [
+      ...override.matchAll(/ports: !override\s*\n\s*-\s*["']([^"']+)["']/g),
+    ].map((m) => m[1] ?? '');
+    expect(hostPublishes.length).toBeGreaterThan(0);
+    const nonLoopbackPublishCount = hostPublishes.filter((p) => !p.startsWith('127.0.0.1:')).length;
+    expect(nonLoopbackPublishCount, 'non_loopback_publish_count').toBe(0);
+    expect(hostPublishes.some((p) => p === mastraPublish)).toBe(true);
+    void nonLoopback;
+  });
+
+  it('IMP-AC-9 scoped auth and secret-safe mounts', async () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-secret-store-'));
+    const store = resolve(root, 'store');
+    const secretsPath = resolve(store, 'secrets.yaml');
+    try {
+      mkdirSync(store, { recursive: true });
+      writeFileSync(secretsPath, 'MASTRA_API_KEY: test-not-a-real-secret\n', { mode: 0o600 });
+      chmodSync(secretsPath, 0o600);
+      const approved = assertApprovedSecretFile(secretsPath, { storeRoot: store });
+      expect(approved).toBe(realpathSync(secretsPath));
+
+      const symlinkPath = resolve(store, 'secrets.link.yaml');
+      symlinkSync(secretsPath, symlinkPath);
+      expect(() => assertApprovedSecretFile(symlinkPath, { storeRoot: store })).toThrow(
+        /symlink|regular file|secret/i
+      );
+
+      const outside = resolve(root, 'outside.yaml');
+      writeFileSync(outside, 'x: 1\n', { mode: 0o600 });
+      expect(() => assertApprovedSecretFile(outside, { storeRoot: store })).toThrow(
+        /store|approved|secret/i
+      );
+
+      const lock: ReleaseLock = {
+        schemaVersion: 1,
+        deployable: true,
+        image: `registry.local/holocron@${DIGEST}`,
+        digest: DIGEST,
+        repoDigest: `registry.local/holocron@${DIGEST}`,
+        sourceRevision: REVISION,
+        composeSha256: COMPOSE_SHA,
+        previousImage: `registry.local/holocron@sha256:${'e5'.repeat(32)}`,
+        previousDigest: `sha256:${'e5'.repeat(32)}`,
+        previousRepoDigest: `registry.local/holocron@sha256:${'e5'.repeat(32)}`,
+        generatedAt: '2026-08-02T11:00:00.000Z',
+      };
+      const override = renderDeploymentOverride({
+        lock,
+        generation: GENERATION,
+        deployedAt: '2026-08-02T12:00:00.000Z',
+        port: 44_111,
+        secretsPath: approved,
+        host: 'holocron',
+      });
+      const readOnlyMounts = [...override.matchAll(/:\s*["']([^"']+:ro)["']/g)].map((m) => m[1]);
+      const volumeRo = [...override.matchAll(/["']([^"']+:ro)["']/g)].map((m) => m[1] ?? '');
+      const readOnlySecretMountCount = volumeRo.filter(
+        (entry) => entry.includes(approved) && entry.endsWith(':ro')
+      ).length;
+      expect(readOnlySecretMountCount, 'read_only_secret_mount_count').toBeGreaterThanOrEqual(1);
+      const credentialLiteralCount = (
+        override.match(/(?:sk-[A-Za-z0-9_-]{8,}|POSTGRES_PASSWORD:\s*[^$\s"']+|Bearer\s+\S+)/g) ??
+        []
+      ).length;
+      expect(credentialLiteralCount, 'credential_value_literal_count').toBe(0);
+      void readOnlyMounts;
+
+      // Scoped MCP auth remains 401 unauthenticated / non-401 with MCP key (middleware contract).
+      process.env.HOLO_KEY_MCP = process.env.HOLO_KEY_MCP || 'mcp-test-portable-d08-06';
+      process.env.HOLO_KEY_RN = process.env.HOLO_KEY_RN || 'rn-test-portable-d08-06';
+      process.env.HOLO_KEY_CONTROL = process.env.HOLO_KEY_CONTROL || 'ctl-test-portable-d08-06';
+      const keys = loadScopedKeysFromEnv(process.env);
+      expect(keys.mcp.length).toBeGreaterThan(0);
+      const app = createHonoApp();
+      const unauth = await app.request('/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      expect(unauth.status, 'unauthenticated_mcp_status').toBe(401);
+      // Streamable HTTP MCP requires Accept for both JSON and SSE; valid initialize → 200.
+      const auth = await app.request('/mcp', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${keys.mcp}`,
+          'content-type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: {},
+            clientInfo: { name: 'd08-06-portable', version: '0' },
+          },
+        }),
+      });
+      expect(auth.status, 'authenticated_mcp_status').toBe(200);
+      expect(() => assertApprovedSecretFile(secretsPath, { storeRoot: '' })).toThrow(
+        /secretStoreRoot|required/i
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('wires an eight-step plan with deployment at steps 2–4 and one URL handoff', () => {

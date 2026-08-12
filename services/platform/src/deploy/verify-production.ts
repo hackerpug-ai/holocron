@@ -60,7 +60,7 @@ export type VerifyProductionReport = {
   identityClass: 'deployed-http';
   handoffVerified: true;
   release: {
-    host: 'inference1';
+    host: string;
     runtime: 'container';
     imageDigest: string;
     sourceRevision: string;
