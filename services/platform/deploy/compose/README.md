@@ -237,3 +237,131 @@ holo deploy:verify --portable --json
 Every production and Langfuse service uses Docker's `local` log driver with a
 10 MB × 3-file cap. Keep that contract on new services; daemon-wide defaults
 are installed separately by `scripts/install-docker-resilience.sh`.
+
+## Cross-tailnet cold-host recovery drill (two real devices) — IMP-AC-5/11/18/19
+
+Un-fakeable private handoff gate. **Node A** is the serving Mac `holocron`;
+**node B** is one human-selected authorized peer on the same tailnet. Loopback,
+second processes, mocks, injected peer rows, and test-authored HTTP responses
+are forbidden substitutes for node B.
+
+### Prerequisites (operator window — ask before disruptive steps)
+
+1. Explicit human selection of node B (hostname) and an approved drill window.
+2. D08-07/D08-08 receipt/generation is the drill target (`deploy:verify --portable`).
+3. Live scoped MCP credential via operator secret store only (`HOLO_SECRETS_PATH` /
+   `HOLO_KEY_MCP`). Never paste keys into shell history, receipts, or evidence.
+4. Authorization for real Postgres stop/recovery and one Mastra restart on node A.
+5. Fail-safe cleanup traps on node A must restore Postgres, Compose, and private
+   Serve even on script failure (`trap` / `finally`).
+
+If a second real device or live credential is unavailable, stop and record
+`classification=human_required` — do not fabricate peer health/MCP evidence.
+
+### Node A (`holocron`) — serving host
+
+```sh
+# Identity / private Serve (Funnel must stay zero):
+tailscale status --json | jq -e '.Self.Online == true'
+tailscale serve status --json   # expect empty Funnel; HTTPS 44111 → http://127.0.0.1:44111
+# Equivalent private form only (never Funnel):
+#   tailscale serve --bg --https=44111 http://127.0.0.1:44111
+
+# Four healthy services + receipt verify (no volume delete/recreate):
+docker compose -f services/platform/deploy/compose/compose.yaml ps
+holo deploy:verify --portable --json
+
+# Seed / prove sentinels + Postgres 503→200 + Mastra restart (authorized window only):
+# Prefer the integrated probes — they restore in finally paths:
+holo deploy:verify --release path/to/image-lock.json \
+  --base-url "https://$(tailscale status --json | jq -r '.Self.DNSName|sub("\\.$";"")'):44111" \
+  --restart-probe --negative-controls --mcp-discovery --json
+```
+
+Observations required on node A: `healthy_service_count=4`,
+`postgres_down_health_status=503`, `recovered_health_status=200`,
+`mastra_restart_count>=1`, `postgres_sentinel_rows=1`, `blob_sentinel_objects=1`,
+`funnel_endpoint_count=0`, `missing_dependency_rejection_count=1`,
+`wrong_identity_rejection_count=1`.
+
+### Node B (authorized peer) — private HTTPS probes
+
+Run **on the peer device** through its own Tailscale entrypoint. Load the MCP
+key from that device's secure local store / keychain into the environment
+without printing it (`set -a; source …; set +a` or equivalent).
+
+```sh
+export TARGET_FQDN="holocron.tail011a51.ts.net"   # MagicDNS only — never LAN IP / Funnel
+export HOLO_KEY_MCP  # from peer keychain/secret store; never echo
+
+# Positive: private health (before and after node A Mastra restart)
+curl -fsS -o /tmp/d08-09-health.json -w '%{http_code}\n' \
+  "https://${TARGET_FQDN}:44111/health"
+
+# Positive: authenticated MCP discovery (exactly 44 tools; never tools/call)
+# Use Authorization from env — do not put the key on the command line.
+python3 - <<'PY'
+import json, os, urllib.request
+url = "https://%s:44111/mcp" % os.environ["TARGET_FQDN"]
+key = os.environ["HOLO_KEY_MCP"]
+def post(body):
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
+        headers={"authorization": "Bearer " + key,
+                 "accept": "application/json, text/event-stream",
+                 "content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+post({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+    "protocolVersion":"2025-03-26","capabilities":{},
+    "clientInfo":{"name":"d08-09-peer","version":"1.0.0"}}})
+tools = post({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}})
+print("mcp_tool_count", len(tools["result"]["tools"]))
+PY
+
+# Negative: unreachable Serve must fail once (wrong port or dead host)
+curl -fsS --connect-timeout 3 --max-time 5 \
+  "https://${TARGET_FQDN}:44112/health" && exit 1 || echo unreachable_serve_rejection_count=1
+```
+
+Write a **redacted** peer receipt on node B (hashes/counts/status only):
+
+```sh
+holo deploy:verify --peer-receipt /path/to/peer-receipt.json --json
+# Or hand-author JSON matching schema holo.deploy.cross-tailnet-peer-receipt.v1
+# with peer_identity_hash, target_fqdn_hash, serve_https_port=44111,
+# health statuses, mcp_tool_count, unreachable_serve_rejection_count, timestamps.
+```
+
+### Evidence contract (`evidence/D08-09/cross-tailnet-drill.json`)
+
+Schema `holo.deploy.cross-tailnet-drill.v1`. Required fields (non-empty):
+
+| Field | Required |
+|-------|----------|
+| `real_device_count` | `2` |
+| `serve_https_port` | `44111` |
+| `second_device_health_status` | `200` |
+| `funnel_enabled` / `funnel_endpoint_count` | `false` / `0` |
+| `healthy_service_count` | `4` |
+| `postgres_down_health_status` / `recovered_health_status` | `503` / `200` |
+| `mcp_tool_count` | `44` |
+| `mastra_restart_count` | `≥1` |
+| `postgres_sentinel_rows` / `blob_sentinel_objects` | `1` / `1` |
+| `unreachable_serve_rejection_count` | `1` |
+| `wrong_identity_rejection_count` | `1` |
+| `missing_dependency_rejection_count` | `1` |
+| `credential_value_count` | `0` |
+| `raw_environment_present` | `false` |
+
+Also store target/peer identity hashes (sha256 of MagicDNS names), release
+digest/revision/generation, and started/completed timestamps. Reject stale
+receipts, peer count ≠ 2, mismatched generation/digest, or empty health/MCP.
+
+### Redaction and cleanup
+
+- Evidence stores only hashes, counts, status codes, and redacted identifiers.
+- Scan sealed JSON with seeded credential canaries; require
+  `credential_value_count=0` and `raw_environment_present=false`.
+- After any failure: restore Postgres + all four services, re-check private
+  Serve, retain named volumes (`volume_deletion_count=0`), leave D08-05 blocked.
+- Never rewrite a failed drill as pass; retain the immutable failure record.

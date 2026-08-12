@@ -1,0 +1,66 @@
+{
+  "schema": "holo.deploy.cross-tailnet-drill.v1",
+  "status": "blocked",
+  "classification": "human_required",
+  "task_id": "D08-09",
+  "target_fqdn_hash": "d54fa31f4139b78b978426b0cba7ea06f076eb77312f0bc5473e863ad5ffb493",
+  "peer_identity_hash": "dbe6c872c8b657652c8d12e3778e41c497d1a28f1bb577640503e0a21c4f7cf1",
+  "image_digest": "",
+  "source_revision": "",
+  "compose_generation": "",
+  "started_at": "2026-08-12T18:00:25Z",
+  "completed_at": "2026-08-12T18:00:25Z",
+  "real_device_count": 2,
+  "online_device_observation": {
+    "serving_candidate": "holocron",
+    "serving_online": true,
+    "peer_candidate": "inference1",
+    "peer_online": true,
+    "additional_online_peers": [
+      "laptop",
+      "phone"
+    ],
+    "note": "Two real devices exist on the tailnet; drill still blocked on Serve/runtime/control/window"
+  },
+  "serve_https_port": 44111,
+  "second_device_health_status": 0,
+  "second_device_tcp_44111_open": false,
+  "funnel_enabled": false,
+  "funnel_endpoint_count": 0,
+  "funnel_note": "Local agent host has no Funnel config; Node A Serve status not readable without host control",
+  "healthy_service_count": 0,
+  "postgres_down_health_status": 0,
+  "recovered_health_status": 0,
+  "mcp_tool_count": 0,
+  "mastra_restart_count": 0,
+  "postgres_sentinel_rows": 0,
+  "blob_sentinel_objects": 0,
+  "unreachable_serve_rejection_count": 0,
+  "wrong_identity_rejection_count": 0,
+  "missing_dependency_rejection_count": 0,
+  "credential_value_count": 0,
+  "raw_environment_present": false,
+  "blocker_summary": "Node A holocron is online on the tailnet but HTTPS :44111 is closed/unreachable from peer inference1; SSH BatchMode to holocron denied; worktree lacks secrets store; no operator-authorized drill window for Postgres stop/Mastra restart or explicit Node B selection.",
+  "missing": [
+    "operator_drill_window_authorization",
+    "node_a_holocron_private_serve_https_44111",
+    "node_a_four_service_compose_runtime",
+    "node_a_remote_or_local_operator_control",
+    "live_scoped_mcp_credential_in_worktree_secret_store",
+    "explicit_human_selection_of_node_b"
+  ],
+  "probes": {
+    "peer_entry": "curl from inference1 to https://holocron.tail011a51.ts.net:44111/health",
+    "peer_health_http_status": 0,
+    "node_a_ssh_batchmode": "permission_denied",
+    "worktree_secrets_yaml": false,
+    "worktree_dotenv": false
+  },
+  "do_not": [
+    "fabricate second_device_health_status=200",
+    "fabricate mcp_tool_count=44",
+    "substitute localhost or mock peer for node B",
+    "enable Funnel",
+    "advance D08-05 without a pass cross-tailnet-drill.json"
+  ]
+}

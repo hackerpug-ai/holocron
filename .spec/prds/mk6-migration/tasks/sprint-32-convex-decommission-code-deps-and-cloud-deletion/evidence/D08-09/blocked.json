@@ -1,0 +1,59 @@
+{
+  "schema": "holo.deploy.cross-tailnet-blocked.v1",
+  "task_id": "D08-09",
+  "status": "blocked",
+  "classification": "human_required",
+  "captured_at": "2026-08-12T18:00:25Z",
+  "goal_sentinel": "goal:blocked",
+  "binding_ac": [
+    "IMP-AC-5",
+    "IMP-AC-11",
+    "IMP-AC-18",
+    "IMP-AC-19"
+  ],
+  "second_real_device": {
+    "available": true,
+    "candidates": [
+      {
+        "role": "node_a_serving",
+        "name": "holocron",
+        "online": true
+      },
+      {
+        "role": "node_b_peer_candidate",
+        "name": "inference1",
+        "online": true
+      },
+      {
+        "role": "node_b_peer_candidate",
+        "name": "laptop",
+        "online": true
+      }
+    ],
+    "selected_by_human": null
+  },
+  "missing_window": {
+    "operator_drill_window": "not_granted",
+    "postgres_stop_recovery_authorized": false,
+    "mastra_restart_authorized": false
+  },
+  "missing_control": {
+    "node_a_serve_https_44111": "closed_or_unreachable_from_peer",
+    "node_a_ssh_from_agent_host": "permission_denied",
+    "node_a_four_services": "not_observed"
+  },
+  "missing_credentials": {
+    "worktree_HOLO_SECRETS_PATH": false,
+    "worktree_secrets_yaml": false,
+    "note": "Operator secrets exist outside worktree but were not sourced for this gate; live MCP not exercised"
+  },
+  "evidence_path": ".spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/cross-tailnet-drill.json",
+  "d08_05_blocked": true,
+  "next_operator_actions": [
+    "Select authorized node B (inference1 or laptop) and grant a drill window",
+    "On holocron: apply private Serve https:44111 -> http://127.0.0.1:44111 (no Funnel) and run four-service portable deploy",
+    "Provide Node A operator control (local console or authorized remote) for Postgres stop/recovery and Mastra restart",
+    "Source live HOLO_SECRETS_PATH / HOLO_KEY_MCP on both nodes without printing values",
+    "Re-run D08-09 positive + three negative controls; seal pass cross-tailnet-drill.json"
+  ]
+}

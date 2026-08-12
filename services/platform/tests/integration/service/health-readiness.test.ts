@@ -16,6 +16,11 @@ import {
   observeHostPhysicalMemoryGib,
 } from '../../../src/deploy/production-deploy.ts';
 import {
+  CROSS_TAILNET_DRILL_SCHEMA,
+  CROSS_TAILNET_PEER_RECEIPT_SCHEMA,
+  hashStableIdentity,
+  sealCrossTailnetDrillEvidence,
+  verifyCrossTailnetPeerReceipt,
   verifyPortableDeploymentReceipt,
   verifyProductionDeployment,
 } from '../../../src/deploy/verify-production.ts';
@@ -462,5 +467,110 @@ describe('D06-07 production health readiness', () => {
         2
       )}\n`
     );
+  });
+
+  it('IMP-AC-5/18/19 cross-tailnet peer receipt and two-device runbook contract', () => {
+    const composeReadme = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/deploy/compose/README.md'),
+      'utf8'
+    );
+    expect(composeReadme).toMatch(/Cross-tailnet cold-host recovery drill|IMP-AC-5/);
+    expect(composeReadme).toMatch(/Node A|node A/);
+    expect(composeReadme).toMatch(/Node B|node B|authorized peer/i);
+    expect(composeReadme).toMatch(/44111/);
+    expect(composeReadme).toMatch(/mcp_tool_count|44 tools|tools\/list/);
+    expect(composeReadme).toMatch(/unreachable_serve|44112/);
+    expect(composeReadme).toMatch(/funnel_endpoint_count|never Funnel|Funnel must stay zero/i);
+    expect(composeReadme).toMatch(/credential_value_count/);
+    expect(composeReadme).toMatch(/peer-receipt|peer receipt/i);
+    expect(composeReadme).not.toMatch(/Bearer\s+sk-|MASTRA_API_KEY\s*[:=]\s*['"][^'"]+['"]/);
+
+    const root = mkdtempSync(resolve(tmpdir(), 'holocron-cross-tailnet-'));
+    try {
+      const generation = 'holocron-0123456789abcdef01234567';
+      const digest = `sha256:${'a1'.repeat(32)}`;
+      const targetHash = hashStableIdentity('holocron.tail011a51.ts.net');
+      const peerHash = hashStableIdentity('inference1.tail011a51.ts.net');
+      expect(targetHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(peerHash).not.toBe(targetHash);
+
+      const peerPath = resolve(root, 'peer-receipt.json');
+      const peerBody = {
+        schema: CROSS_TAILNET_PEER_RECEIPT_SCHEMA,
+        peer_identity_hash: peerHash,
+        target_fqdn_hash: targetHash,
+        serve_https_port: 44_111,
+        health_status: 200,
+        health_after_restart_status: 200,
+        mcp_tool_count: 44,
+        mcp_after_restart_tool_count: 44,
+        unreachable_serve_rejection_count: 1,
+        observed_at: new Date().toISOString(),
+        compose_generation: generation,
+        image_digest: digest,
+      };
+      writeFileSync(peerPath, `${JSON.stringify(peerBody, null, 2)}\n`);
+
+      const peer = verifyCrossTailnetPeerReceipt({
+        peerReceiptPath: peerPath,
+        expectedGeneration: generation,
+        expectedDigest: digest,
+        expectedTargetFqdnHash: targetHash,
+      });
+      expect(peer.mcp_tool_count).toBe(44);
+      expect(peer.serve_https_port).toBe(44_111);
+
+      // Wrong identity digest must reject.
+      expect(() =>
+        verifyCrossTailnetPeerReceipt({
+          peerReceiptPath: peerPath,
+          expectedDigest: `sha256:${'0'.repeat(64)}`,
+        })
+      ).toThrow(/image_digest|drill target/i);
+
+      // Credential canary must reject.
+      const dirtyPath = resolve(root, 'dirty-peer.json');
+      writeFileSync(
+        dirtyPath,
+        `${JSON.stringify({ ...peerBody, note: 'Bearer sk-abcdefghijklmnopqrstuvwxyz012345' }, null, 2)}\n`
+      );
+      expect(() => verifyCrossTailnetPeerReceipt({ peerReceiptPath: dirtyPath })).toThrow(
+        /credential/i
+      );
+
+      const evidencePath = resolve(root, 'cross-tailnet-drill.json');
+      const sealed = sealCrossTailnetDrillEvidence({
+        peer,
+        server: {
+          target_fqdn_hash: targetHash,
+          image_digest: digest,
+          source_revision: 'b2'.repeat(20),
+          compose_generation: generation,
+          healthy_service_count: 4,
+          postgres_down_health_status: 503,
+          recovered_health_status: 200,
+          mastra_restart_count: 1,
+          postgres_sentinel_rows: 1,
+          blob_sentinel_objects: 1,
+          funnel_enabled: false,
+          funnel_endpoint_count: 0,
+          wrong_identity_rejection_count: 1,
+          missing_dependency_rejection_count: 1,
+        },
+        startedAt: new Date(Date.now() - 60_000).toISOString(),
+        evidencePath,
+      });
+      expect(sealed.schema).toBe(CROSS_TAILNET_DRILL_SCHEMA);
+      expect(sealed.status).toBe('pass');
+      expect(sealed.real_device_count).toBe(2);
+      expect(sealed.second_device_health_status).toBe(200);
+      expect(sealed.mcp_tool_count).toBe(44);
+      expect(sealed.funnel_endpoint_count).toBe(0);
+      expect(sealed.credential_value_count).toBe(0);
+      expect(sealed.raw_environment_present).toBe(false);
+      expect(JSON.parse(readFileSync(evidencePath, 'utf8')).status).toBe('pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
