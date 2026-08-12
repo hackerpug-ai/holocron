@@ -1,0 +1,11 @@
+{
+  "container_limit_sum_gib": 50,
+  "docker_vm_memory_gib": 54,
+  "host_headroom_required_gib": 8,
+  "host_headroom_observed_gib": 10,
+  "over_budget_51_gib_rejected": "true",
+  "real_docker_vm_memory_gib": 7,
+  "real_host_physical_memory_gib": 64,
+  "real_50_plan_ok": false,
+  "smaller_host_lower_limits_required": true
+}

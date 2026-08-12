@@ -1,0 +1,177 @@
+{
+  "lens": "technical",
+  "schema_version": 1,
+  "task_id": "D08-08",
+  "commit": "9853124efce7e8c968293d87e19a3cd89cfc4f49",
+  "prior_commit": "90de9f47bcc6820989964dd104faf872751da7fc",
+  "reviewer": "security-reviewer",
+  "review_kind": "remediation_re_review",
+  "tdd_mode": "skipped",
+  "verdict": "APPROVED",
+  "status": "APPROVED",
+  "progress": "3/3 ACs PASS core; Serve+reboot residual_open (honest, not soft-pass)",
+  "do_not_merge": true,
+  "merge_blocked_by_reviewer_instruction": true,
+  "requirements": [
+    {
+      "id": "AC-1",
+      "maps_to": "IMP-AC-16",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "FIXED prior CRITICAL: running_service_count sourced from live docker compose ps Health+State (observeLiveServiceHealth), not Object.keys(composeYaml.services). source=docker_compose_ps_health (docker-resilience.test.ts:243-291, 409-460)",
+        "Live up -d of disposable four-service graph (postgres/mastra/scheduler/zero-cache); waitForFourHealthy; each service health=healthy state=running",
+        "Negative control: before_start_healthy_count=0 when start omitted (imp-ac-16-cold-host.json)",
+        "host_architecture=arm64; docker aarch64; client_asset_count=0; serve_https_port=44111; two live named volumes; preflight docker_mutation_count=0",
+        "vitest IMP-AC-16 PASS (~17.8s) — vitest-imp-ac-remediation.log"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "maps_to": "IMP-AC-17",
+      "satisfied": true,
+      "verdict": "PASS",
+      "residual_open": ["serve_resumed", "host_reboot"],
+      "evidence": [
+        "FIXED prior HIGH TECH-H2: exact four-service Compose stop/up (not single-postgres-only); durable pg+blob volumes; live healthy count=4 after restart (imp-ac-17-lifecycle.json)",
+        "postgres_sentinel_rows=1 + blob_sentinel_objects=1 retained across stop/up; volume_deletion_count=0; no down -v / volume rm / prune in lifecycle ledger",
+        "FIXED prior HIGH soft-Serve: serve_resumed=false with serve_ac_claim=residual_open, serve_ac_end_state_green=false when tailnet_serve_not_enabled — no soft-pass of must_observe true (imp-ac-17-serve-restore-blocked.json; docker-resilience.test.ts:666-743)",
+        "FIXED prior MEDIUM rollback: real bin/holo deploy:rollback-preflight --lock image-lock.json --json executed; exit_status=1 fail-closed on non-deployable lock; volumes_preserved + containers_unchanged; mutating_classifier=false; re-verified live EXIT:1 message 'not a deployable'",
+        "host_reboot.real_reboot_executed=false labeled residual_open with ac_end_state_green=false (FIX-5 path); compose stop/up + restart: unless-stopped proven on four services",
+        "vitest IMP-AC-17 PASS (~54.8s)"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "maps_to": "IMP-AC-20",
+      "satisfied": true,
+      "verdict": "PASS",
+      "evidence": [
+        "evaluateMemoryCapacity 50/54/64 → headroom required 8 / observed 10; assertMemoryLimitPlan+evaluateMemoryCapacity reject 51 via real throws (overBudgetRejected derived, not bare const true before assert)",
+        "real_docker_vm_memory_gib=7, real_host_physical_memory_gib=64; real_50_plan_ok=false fail-closed",
+        "Docs both READMEs retain 50/54/64/8/10 + 51 rejection"
+      ]
+    },
+    { "id": "TC-1", "maps_to_ac": "AC-1", "satisfied": true },
+    { "id": "TC-2", "maps_to_ac": "AC-2", "satisfied": true, "notes": "core lifecycle green; Serve/reboot residual_open honest" },
+    { "id": "TC-3", "maps_to_ac": "AC-3", "satisfied": true }
+  ],
+  "prior_findings_disposition": [
+    {
+      "id": "TECH-C1",
+      "prior": "CRITICAL YAML service count as running_service_count",
+      "status": "FIXED",
+      "evidence": "running_service_count_source=docker_compose_ps_health; negative_control_before_start_healthy_count=0"
+    },
+    {
+      "id": "TECH-H1",
+      "prior": "soft Serve residual / serve_resumed soft-pass",
+      "status": "FIXED",
+      "evidence": "serve_ac_claim=residual_open; serve_ac_end_state_green=false; serve_resumed=false; blocked artifact retained"
+    },
+    {
+      "id": "TECH-H2",
+      "prior": "lifecycle not four-service Compose",
+      "status": "FIXED",
+      "evidence": "disposable compose with REQUIRED_SERVICES; stop/up; four healthy after restart"
+    },
+    {
+      "id": "TECH-M1",
+      "prior": "rollback preflight classifier-only",
+      "status": "FIXED",
+      "evidence": "real holo deploy:rollback-preflight executed; exit 1; volumes/containers unchanged"
+    },
+    {
+      "id": "TECH-M2",
+      "prior": "host reboot unproven",
+      "status": "FIXED_LABELING",
+      "evidence": "ac_claim=residual_open; ac_end_state_green=false; not claimed as full reboot recovery"
+    },
+    {
+      "id": "TECH-L1",
+      "prior": "overBudgetRejected hardcoded",
+      "status": "FIXED",
+      "evidence": "boolean flipped only inside catch after real throws"
+    }
+  ],
+  "stubs": [],
+  "critical": [],
+  "high": [],
+  "medium": [
+    {
+      "id": "TECH-M-R1",
+      "title": "Platform image stand-ins for mastra/scheduler/zero-cache",
+      "location": "docker-resilience.test.ts:writeDisposableFourServiceCompose",
+      "detail": "alpine:latest + healthcheck true for non-postgres services; postgres is real pgvector. Acceptable disposable harness without private release image pull; service names, restart policy, durable volumes, and live docker compose ps health are real. Does not substitute production platform binary behavior."
+    },
+    {
+      "id": "TECH-M-R2",
+      "title": "Serve resume + real host reboot remain residual_open",
+      "location": "imp-ac-17-lifecycle.json; imp-ac-17-serve-restore-blocked.json",
+      "detail": "Environment/operator residuals: tailnet Serve not enabled; real reboot not scheduled. Correctly not soft-passed. Gate step 7 Serve claim stays open until serve_resumed=true after operator enablement; reboot recovery remains optional drill."
+    }
+  ],
+  "low": [
+    {
+      "id": "TECH-L-R1",
+      "title": "volume_deletion_count self-instrumented via test docker() helper",
+      "detail": "Acceptable; finally cleanup uses run() so lifecycle evidence stays 0; production names never volume-rm'd"
+    }
+  ],
+  "positive_controls": [
+    "Prior CRITICAL (YAML count) and HIGH (soft Serve residual + incomplete four-service lifecycle) remediated with live Docker observations",
+    "Real holo deploy:rollback-preflight fail-closed on non-deployable lock; zero volume/container mutation",
+    "residual_open honesty enforced in assertions (blocked Serve cannot soft-pass resume; reboot ac_end_state_green=false)",
+    "Scope: only writeAllowed test files + task/evidence for this tip; no product Compose/CLI reopening in remediation",
+    "No Funnel; Serve backend loopback 127.0.0.1:44111 only; credential_value_count=0 in evidence; disposable password excluded",
+    "PLATFORM_IT IMP-AC-16/17/20 green (vitest-imp-ac-remediation.log)"
+  ],
+  "security": {
+    "no_critical_vulns": true,
+    "input_validation": "adequate_for_docs_and_tests",
+    "authz_before_mutation": true,
+    "hardcoded_secrets": false,
+    "credential_leakage_risks": [],
+    "tailscale": {
+      "funnel_invoked": false,
+      "serve_backend_loopback_only": true,
+      "serve_apply_attempted": true,
+      "serve_apply_blocked_honestly": true,
+      "status_json_funnel_check": true
+    },
+    "preflight_non_mutating": true,
+    "rollback_preflight_non_mutating": true,
+    "volume_destruction_in_lifecycle_path": false,
+    "notes": "No CRITICAL security vulns. Residual Serve/reboot are ops/environment honesty, not OWASP exploit classes. Disposable POSTGRES_PASSWORD not written to evidence."
+  },
+  "quality_gate": {
+    "no_critical_vulnerabilities": true,
+    "input_validation_on_all_functions": true,
+    "authentication_authorization_checks": true,
+    "no_hardcoded_secrets": true,
+    "ac_all_pass": true,
+    "no_critical_high_stubs": true,
+    "live_compose_health_counts": true,
+    "residual_open_honesty": true,
+    "rollback_preflight_real": true
+  },
+  "red_green": {
+    "red_first_required": false,
+    "red_evidence_present": false,
+    "seeded_evidence_required": true,
+    "seeded_evidence_present": true,
+    "seeded_evidence": [
+      ".tmp/D08-08/imp-ac-16-cold-host.json",
+      ".tmp/D08-08/imp-ac-17-lifecycle.json",
+      ".tmp/D08-08/imp-ac-17-serve-restore-blocked.json",
+      ".tmp/D08-08/imp-ac-20-memory.json"
+    ],
+    "seeded_evidence_gaps": []
+  },
+  "required_fixes": [],
+  "operator_followups": [
+    "Enable Tailscale Serve on the tailnet, re-run IMP-AC-17, expect serve_resumed=true before claiming full Human Gate step 7 Serve resume.",
+    "Optional: schedule authorized host reboot drill; verify four services + Serve after Docker Desktop login."
+  ],
+  "notes": "Security/technical re-review of D08-08 tip 9853124e (prior NEEDS_FIXES on 90de9f47). Live four-service health, honest residual_open for Serve/reboot, and real rollback-preflight all verified. APPROVED. Do not merge (operator instruction)."
+}

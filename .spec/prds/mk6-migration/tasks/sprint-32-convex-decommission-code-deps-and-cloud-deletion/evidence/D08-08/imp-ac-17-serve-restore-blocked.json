@@ -1,0 +1,11 @@
+{
+  "blocked": true,
+  "residual_only": true,
+  "ac_serve_claim": "residual_open",
+  "ac_end_state_green": false,
+  "reason": "tailnet_serve_not_enabled",
+  "serve_resumed": "false",
+  "documented_restore": "tailscale serve --bg --https=44111 http://127.0.0.1:44111",
+  "operator_action": "Enable Tailscale Serve on the tailnet (admin console), then re-run restore; do not mark AC-2 Serve claim green until serve_resumed=true",
+  "funnel_endpoints": 0
+}

@@ -1,0 +1,73 @@
+{
+  "running_service_count_after_restart": 4,
+  "healthy_services_after_restart": [
+    {
+      "service": "mastra",
+      "health": "healthy",
+      "state": "running"
+    },
+    {
+      "service": "postgres",
+      "health": "healthy",
+      "state": "running"
+    },
+    {
+      "service": "scheduler",
+      "health": "healthy",
+      "state": "running"
+    },
+    {
+      "service": "zero-cache",
+      "health": "healthy",
+      "state": "running"
+    }
+  ],
+  "compose_services": [
+    "postgres",
+    "mastra",
+    "scheduler",
+    "zero-cache"
+  ],
+  "postgres_sentinel_rows": 1,
+  "blob_sentinel_objects": 1,
+  "serve_resumed": "false",
+  "serve_ac_claim": "residual_open",
+  "serve_ac_end_state_green": false,
+  "serve_apply_blocked": true,
+  "serve_apply_block_reason": "tailnet_serve_not_enabled",
+  "serve_restore_documented": true,
+  "serve_status_probe_ok": true,
+  "funnel_endpoint_count": 0,
+  "volume_deletion_count": 0,
+  "durable_volumes_present": [
+    "d08-08-holocron-postgres-25529-ac17",
+    "d08-08-holocron-blobs-25529-ac17"
+  ],
+  "restart_policies": {
+    "postgres": "unless-stopped",
+    "mastra": "unless-stopped",
+    "scheduler": "unless-stopped",
+    "zero-cache": "unless-stopped"
+  },
+  "rollback_preflight": {
+    "executed": true,
+    "command": "holo deploy:rollback-preflight",
+    "lock": "services/platform/deploy/compose/image-lock.json",
+    "exit_status": 1,
+    "fail_closed_on_non_deployable_lock": true,
+    "volumes_preserved": true,
+    "containers_unchanged": true,
+    "mutating_classifier": false
+  },
+  "host_reboot": {
+    "real_reboot_executed": false,
+    "ac_claim": "residual_open",
+    "ac_end_state_green": false,
+    "reason": "operator-scheduled real reboot not executed in automated harness; leave reboot recovery AC open until drill",
+    "docker_desktop_dependency_documented": true,
+    "restart_policy_proven_on_compose_graph": true,
+    "four_service_compose_stop_up_proven": true
+  },
+  "ledger_command_count": 11,
+  "credential_value_count": 0
+}

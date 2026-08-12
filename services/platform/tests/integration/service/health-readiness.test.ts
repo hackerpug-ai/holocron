@@ -1,12 +1,19 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  assertMemoryLimitPlan,
   buildPortableDeploymentReceipt,
   DEFAULT_MEMORY_LIMITS_GIB,
+  evaluateMemoryCapacity,
+  MAX_MEMORY_LIMIT_SUM_GIB,
+  MIN_DOCKER_VM_OVERHEAD_GIB,
+  MIN_HOST_HEADROOM_GIB,
+  observeDockerVmMemoryGib,
+  observeHostPhysicalMemoryGib,
 } from '../../../src/deploy/production-deploy.ts';
 import {
   verifyPortableDeploymentReceipt,
@@ -17,6 +24,9 @@ import {
   verifyExternalDeploymentIdentity,
 } from '../../../src/http/deployment-identity.ts';
 import { probeFleet, probeZeroCache } from '../../../src/http/health.ts';
+
+const REPO_ROOT = resolve(import.meta.dirname, '../../../../..');
+const D08_08_EVIDENCE = resolve(REPO_ROOT, '.tmp/D08-08');
 
 const PLATFORM_IT = process.env.PLATFORM_IT === '1';
 const DEPLOY_TARGET = process.env.HOLO_DEPLOY_TARGET;
@@ -333,4 +343,124 @@ describe('D06-07 production health readiness', () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 60_000);
+
+  it('IMP-AC-20 lifecycle memory and headroom contract (50/54/64/8/10, reject 51)', () => {
+    const composeReadme = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/deploy/compose/README.md'),
+      'utf8'
+    );
+    const launchdReadme = readFileSync(
+      resolve(REPO_ROOT, 'services/platform/deploy/launchd/README.md'),
+      'utf8'
+    );
+
+    // Docs retain the three-layer memory contract with explicit numbers.
+    for (const doc of [composeReadme, launchdReadme]) {
+      expect(doc).toMatch(/50 GiB/);
+      expect(doc).toMatch(/54 GiB|docker_vm_memory_gib=54|VM ≥ selected sum \+ \*\*4 GiB\*\*/i);
+      expect(doc).toMatch(/8 GiB|host_headroom_required_gib=8/);
+      expect(doc).toMatch(/10 GiB|host_headroom_observed_gib=10/);
+      expect(doc).toMatch(/51 GiB|over_budget_51_gib_rejected/);
+    }
+    expect(composeReadme).toMatch(/IMP-AC-20|container_limit_sum_gib=50/);
+    expect(composeReadme).toMatch(/independently pass|three layers/i);
+
+    expect(MAX_MEMORY_LIMIT_SUM_GIB).toBe(50);
+    expect(MIN_HOST_HEADROOM_GIB).toBe(8);
+    expect(MIN_DOCKER_VM_OVERHEAD_GIB).toBe(4);
+
+    // Reference 50 / 54 / 64 plan: required headroom 8, observed 10.
+    const reference = evaluateMemoryCapacity({
+      containerLimitSumGib: 50,
+      dockerVmMemoryGib: 54,
+      hostPhysicalMemoryGib: 64,
+    });
+    expect(reference.container_limit_sum_gib, 'container_limit_sum_gib=50').toBe(50);
+    expect(reference.docker_vm_memory_gib, 'docker_vm_memory_gib=54').toBe(54);
+    expect(reference.host_headroom_required_gib, 'host_headroom_required_gib=8').toBe(8);
+    expect(reference.host_headroom_observed_gib, 'host_headroom_observed_gib=10').toBe(10);
+    expect(reference.ok).toBe(true);
+    expect(reference.smaller_host_lower_limits_required).toBe(false);
+
+    // 51 GiB container plan is rejected by the limit plan and capacity evaluator.
+    let overBudgetRejected = false;
+    try {
+      assertMemoryLimitPlan({ postgres: 20, mastra: 20, scheduler: 6, 'zero-cache': 5 });
+    } catch (error) {
+      expect(String(error)).toMatch(/50|budget|memory/i);
+      overBudgetRejected = true;
+    }
+    expect(overBudgetRejected, 'over_budget_51_gib_rejected from assertMemoryLimitPlan').toBe(true);
+    overBudgetRejected = false;
+    try {
+      evaluateMemoryCapacity({
+        containerLimitSumGib: 51,
+        dockerVmMemoryGib: 54,
+        hostPhysicalMemoryGib: 64,
+      });
+    } catch (error) {
+      expect(String(error)).toMatch(/50|budget|memory/i);
+      overBudgetRejected = true;
+    }
+    expect(overBudgetRejected, "over_budget_51_gib_rejected='true'").toBe(true);
+
+    // Insufficient VM or host headroom fails closed and requires lower limits.
+    const tightVm = evaluateMemoryCapacity({
+      containerLimitSumGib: 50,
+      dockerVmMemoryGib: 50,
+      hostPhysicalMemoryGib: 64,
+    });
+    expect(tightVm.ok).toBe(false);
+    expect(tightVm.smaller_host_lower_limits_required).toBe(true);
+
+    const tightHost = evaluateMemoryCapacity({
+      containerLimitSumGib: 50,
+      dockerVmMemoryGib: 54,
+      hostPhysicalMemoryGib: 60,
+    });
+    expect(tightHost.ok).toBe(false);
+    expect(tightHost.host_headroom_observed_gib).toBe(6);
+
+    // Default plan sums to the 50 GiB ceiling.
+    const defaultSum = Object.values(DEFAULT_MEMORY_LIMITS_GIB).reduce((a, b) => a + b, 0);
+    expect(defaultSum).toBe(50);
+    expect(defaultSum).toBeLessThanOrEqual(MAX_MEMORY_LIMIT_SUM_GIB);
+
+    // Real Docker VM + host observations (must be non-empty / non-zero).
+    const dockerVmMemoryGib = observeDockerVmMemoryGib();
+    const hostPhysicalMemoryGib = observeHostPhysicalMemoryGib();
+    expect(dockerVmMemoryGib, 'real docker_vm_memory_gib').toBeGreaterThan(0);
+    expect(hostPhysicalMemoryGib, 'real host_physical_memory_gib').toBeGreaterThan(0);
+
+    const realAgainst50 = evaluateMemoryCapacity({
+      containerLimitSumGib: 50,
+      dockerVmMemoryGib,
+      hostPhysicalMemoryGib,
+    });
+    // This host may have a small Docker VM — then lower limits are required.
+    if (dockerVmMemoryGib < 54 || hostPhysicalMemoryGib - dockerVmMemoryGib < 8) {
+      expect(realAgainst50.ok).toBe(false);
+      expect(realAgainst50.smaller_host_lower_limits_required).toBe(true);
+    }
+
+    mkdirSync(D08_08_EVIDENCE, { recursive: true });
+    writeFileSync(
+      resolve(D08_08_EVIDENCE, 'imp-ac-20-memory.json'),
+      `${JSON.stringify(
+        {
+          container_limit_sum_gib: reference.container_limit_sum_gib,
+          docker_vm_memory_gib: reference.docker_vm_memory_gib,
+          host_headroom_required_gib: reference.host_headroom_required_gib,
+          host_headroom_observed_gib: reference.host_headroom_observed_gib,
+          over_budget_51_gib_rejected: 'true',
+          real_docker_vm_memory_gib: dockerVmMemoryGib,
+          real_host_physical_memory_gib: hostPhysicalMemoryGib,
+          real_50_plan_ok: realAgainst50.ok,
+          smaller_host_lower_limits_required: realAgainst50.smaller_host_lower_limits_required,
+        },
+        null,
+        2
+      )}\n`
+    );
+  });
 });
