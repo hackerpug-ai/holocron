@@ -55,5 +55,9 @@
     "Provide Node A operator control (local console or authorized remote) for Postgres stop/recovery and Mastra restart",
     "Source live HOLO_SECRETS_PATH / HOLO_KEY_MCP on both nodes without printing values",
     "Re-run D08-09 positive + three negative controls; seal pass cross-tailnet-drill.json"
-  ]
+  ],
+  "superseded_by": "cross-tailnet-drill.json",
+  "superseded_at": "2026-08-14T22:07:13.010674Z",
+  "live_status": "pass",
+  "note": "Superseded by live two-node pass 2026-08-14; retained as audit history."
 }
