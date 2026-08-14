@@ -18,7 +18,7 @@ components/
 │   ├── text.tsx          # Base text component
 │   ├── button.tsx        # Button variants
 │   └── ...               # Add more components via CLI
-└── CLAUDE.md             # This file
+└── AGENTS.md             # This file
 ```
 
 ## Adding Components
