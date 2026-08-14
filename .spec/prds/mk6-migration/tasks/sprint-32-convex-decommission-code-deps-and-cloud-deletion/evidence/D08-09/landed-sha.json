@@ -1,10 +1,9 @@
 {
   "schema": "holo.deploy.landed-sha.v1",
   "task_id": "D08-09",
-  "commit": "582db0f51232030cb1371bf5855658295e8ffcea",
-  "short": "582db0f5",
-  "landed_at": "2026-08-14T22:30:32.167129Z",
-  "remediation": "review HIGH-1 peer MagicDNS hash + HIGH-2 historical captures",
+  "remediation_commit": "ac6f60cfd1215a008935497e77f0fa8257343181",
+  "note": "remediation_commit is the evidence package commit; this file may land as follow-up if SHA self-reference would recurse",
+  "landed_at": "2026-08-14T22:30:36.887827Z",
   "d08_05": "pending_not_executed",
   "live_disruption": "none"
 }
