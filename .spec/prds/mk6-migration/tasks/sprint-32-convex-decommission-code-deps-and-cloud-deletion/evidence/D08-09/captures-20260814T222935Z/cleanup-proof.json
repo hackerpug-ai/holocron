@@ -1,0 +1,28 @@
+{
+  "schema": "holo.deploy.cleanup-proof.v1",
+  "post_drill_healthy_service_count": 4,
+  "recovered_health_status": 200,
+  "post_mastra_health": {
+    "tailnet": 200,
+    "loopback": 200,
+    "healthy": 4
+  },
+  "services_ps": {
+    "capture": "captures-20260814T222935Z/node-a-services-ps.json",
+    "healthyCount": 4,
+    "allHealthy": true
+  },
+  "serve_preserved_after_drill": {
+    "capture": "captures-20260814T222935Z/node-a-serve-status-after-drill.json",
+    "funnel_endpoint_count": 0,
+    "web_key": "holocron.tail011a51.ts.net:44111"
+  },
+  "registry_cleanup": {
+    "capture": "captures-20260814T222935Z/node-a-registry-cleanup.json",
+    "remaining": "",
+    "removed": true
+  },
+  "volume_deletion_count": 0,
+  "mastra_restart_count": 1,
+  "completed_at": "2026-08-14T22:10:31.522Z"
+}

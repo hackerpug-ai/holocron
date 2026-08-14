@@ -1,0 +1,55 @@
+{
+  "schema": "holo.deploy.volume-operation-ledger.v1",
+  "volume_deletion_count": 0,
+  "volume_recreate_count": 0,
+  "named_volumes_referenced": [
+    "holocron-postgres",
+    "holocron-blobs"
+  ],
+  "operations_observed_in_captures": [
+    {
+      "op": "blob_write_sentinel",
+      "volume": "holocron-blobs",
+      "path_suffix": "d08-09/d08-09-sentinel-*.txt",
+      "capture": "captures-20260814T222935Z/node-a-blob-sentinel.json",
+      "status": 0,
+      "internal_or_mtime": "2026-08-14T22:10:04.000000Z",
+      "deletes_volume": false
+    },
+    {
+      "op": "postgres_sentinel_insert_and_count",
+      "volume": "holocron-postgres",
+      "capture": "captures-20260814T222935Z/node-a-postgres-sentinel.json",
+      "status": 0,
+      "sentinel_id_hash": "cef72f13be1bc6235966d21f1178fca3f485597a260b40fe4e358add3809ac6b",
+      "row_count_observed": 1,
+      "deletes_volume": false
+    },
+    {
+      "op": "postgres_container_stop",
+      "capture": "captures-20260814T222935Z/node-a-postgres-stop.json",
+      "note": "compose stop postgres only \u2014 volume retained",
+      "deletes_volume": false
+    },
+    {
+      "op": "postgres_container_start_recovery",
+      "capture": "captures-20260814T222935Z/node-a-postgres-recovered-health.json",
+      "note": "compose start + health 200; sentinel still present post-recovery in drill result",
+      "deletes_volume": false
+    }
+  ],
+  "prohibited_ops_absent_from_all_captures": [
+    "docker volume rm",
+    "docker volume create (recreate)",
+    "compose down -v",
+    "volume delete"
+  ],
+  "source_captures_scanned_for_volume_rm": [
+    "captures-20260814T222935Z/node-a-drill-console.log",
+    "captures-20260814T222935Z/node-a-drill-result.json",
+    "captures-20260814T222935Z/node-a-postgres-stop.json",
+    "captures-20260814T222935Z/node-a-blob-sentinel.json"
+  ],
+  "drill_result_cleanup_field": {},
+  "proof": "No capture contains volume delete/recreate; durable sentinels survived recovery; volume_deletion_count=0"
+}

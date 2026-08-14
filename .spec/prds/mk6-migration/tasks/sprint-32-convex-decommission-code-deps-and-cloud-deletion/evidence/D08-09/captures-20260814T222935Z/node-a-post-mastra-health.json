@@ -1,0 +1,5 @@
+{
+  "tailnet": 200,
+  "loopback": 200,
+  "healthy": 4
+}

@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "serveHttpsPort": 44111,
+  "privateServeTarget": "http://127.0.0.1:44111",
+  "funnelEnabled": false,
+  "funnelEndpointCount": 0,
+  "serveUrl": "present",
+  "apply_method": "cli",
+  "domain": "holocron.tail011a51.ts.net",
+  "mastra_restart": false,
+  "text_status_tail": "https://holocron.tail011a51.ts.net:44111 (tailnet only)\n|-- / proxy http://127.0.0.1:44111\n\n",
+  "cli_argv": [
+    "serve",
+    "--yes",
+    "--bg",
+    "--https=44111",
+    "http://127.0.0.1:44111"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "peer": "inference1",
+  "target": "holocron.tail011a51.ts.net",
+  "mcp_error": null,
+  "unreach_code": 0,
+  "credential_value_count": 0,
+  "peer_magicdns": "inference1.tail011a51.ts.net",
+  "peer_identity_hash": "dbe6c872c8b657652c8d12e3778e41c497d1a28f1bb577640503e0a21c4f7cf1",
+  "peer_label_only_was": "inference1"
+}

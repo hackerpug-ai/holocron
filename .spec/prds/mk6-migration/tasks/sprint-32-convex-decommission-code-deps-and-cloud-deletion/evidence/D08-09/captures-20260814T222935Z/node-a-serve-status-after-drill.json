@@ -1,0 +1,17 @@
+{
+  "TCP": {
+    "44111": {
+      "HTTPS": true
+    }
+  },
+  "Web": {
+    "holocron.tail011a51.ts.net:44111": {
+      "Handlers": {
+        "/": {
+          "Proxy": "http://127.0.0.1:44111"
+        }
+      }
+    }
+  },
+  "_sanitized_note": "Funnel key absent or empty; private HTTPS 44111 only"
+}

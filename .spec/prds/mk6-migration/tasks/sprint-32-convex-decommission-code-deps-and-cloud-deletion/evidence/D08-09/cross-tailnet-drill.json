@@ -3,7 +3,7 @@
   "status": "pass",
   "classification": null,
   "target_fqdn_hash": "d54fa31f4139b78b978426b0cba7ea06f076eb77312f0bc5473e863ad5ffb493",
-  "peer_identity_hash": "de31b7c2a8be3ce133f00b3f86206df9b4f62671ad6aa2ce8eb7d1ba0958a3ec",
+  "peer_identity_hash": "dbe6c872c8b657652c8d12e3778e41c497d1a28f1bb577640503e0a21c4f7cf1",
   "image_digest": "sha256:e30a02252436cad92fe28dcb91d1e284bec7b790c3f83e8e2a9173c7352b0f1b",
   "source_revision": "e116f828ea52223eb3bf050a6093fb40832f8a2a",
   "compose_generation": "holocron-137d126eb98c88f89e0186e6",
@@ -25,5 +25,42 @@
   "wrong_identity_rejection_count": 1,
   "missing_dependency_rejection_count": 1,
   "credential_value_count": 0,
-  "raw_environment_present": false
+  "raw_environment_present": false,
+  "volume_deletion_count": 0,
+  "source_captures": {
+    "evidence_manifest": "evidence-manifest.json",
+    "operator_authorization_receipt": "operator-authorization-receipt.json",
+    "peer_before": "captures-20260814T222935Z/node-b-peer-receipt-before.json",
+    "peer_after": "captures-20260814T222935Z/node-b-peer-receipt-after.json",
+    "peer_final": "captures-20260814T222935Z/node-b-peer-receipt-final.json",
+    "node_a_drill_result": "captures-20260814T222935Z/node-a-drill-result.json",
+    "node_a_services_ps": "captures-20260814T222935Z/node-a-services-ps.json",
+    "node_a_serve_before": "captures-20260814T222935Z/node-a-serve-status-before-drill.json",
+    "node_a_serve_after": "captures-20260814T222935Z/node-a-serve-status-after-drill.json",
+    "funnel_proof": "captures-20260814T222935Z/node-a-funnel-proof.json",
+    "postgres_stop": "captures-20260814T222935Z/node-a-postgres-stop.json",
+    "postgres_down_health": "captures-20260814T222935Z/node-a-postgres-down-health.json",
+    "postgres_recovered_health": "captures-20260814T222935Z/node-a-postgres-recovered-health.json",
+    "mastra_restart": "captures-20260814T222935Z/node-a-mastra-restart.json",
+    "postgres_sentinel": "captures-20260814T222935Z/node-a-postgres-sentinel.json",
+    "blob_sentinel": "captures-20260814T222935Z/node-a-blob-sentinel.json",
+    "negative_controls": "captures-20260814T222935Z/negative-controls.json",
+    "registry_cleanup": "captures-20260814T222935Z/node-a-registry-cleanup.json",
+    "volume_operation_ledger": "captures-20260814T222935Z/volume-operation-ledger.json",
+    "cleanup_proof": "captures-20260814T222935Z/cleanup-proof.json"
+  },
+  "cleanup_proof": {
+    "volume_deletion_count": 0,
+    "post_drill_healthy_service_count": 4,
+    "recovered_health_status": 200,
+    "funnel_endpoint_count": 0,
+    "registry_remaining": "",
+    "capture": "captures-20260814T222935Z/cleanup-proof.json"
+  },
+  "peer_identity_binding": {
+    "peer_magicdns": "inference1.tail011a51.ts.net",
+    "peer_identity_hash": "dbe6c872c8b657652c8d12e3778e41c497d1a28f1bb577640503e0a21c4f7cf1",
+    "hash_algorithm": "sha256",
+    "corrected_from_bare_label": true
+  }
 }

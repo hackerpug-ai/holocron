@@ -1,0 +1,6 @@
+{
+  "loopback": 200,
+  "tailnet_https": 200,
+  "domain": "holocron.tail011a51.ts.net",
+  "mastra_restart": false
+}

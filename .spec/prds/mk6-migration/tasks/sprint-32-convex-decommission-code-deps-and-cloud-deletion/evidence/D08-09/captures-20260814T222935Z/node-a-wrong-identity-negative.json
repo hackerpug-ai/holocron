@@ -1,0 +1,7 @@
+{
+  "planted_generation": "wrong-generation-d08-09",
+  "planted_digest": "sha256:deadbeef",
+  "live_generation": "holocron-137d126eb98c88f89e0186e6",
+  "live_digest": "sha256:e30a02252436cad92fe28dcb91d1e284bec7b790c3f83e8e2a9173c7352b0f1b",
+  "rejection_count": 1
+}

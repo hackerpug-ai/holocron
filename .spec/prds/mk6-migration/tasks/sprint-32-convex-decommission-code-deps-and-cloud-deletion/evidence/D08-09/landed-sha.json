@@ -1,0 +1,10 @@
+{
+  "schema": "holo.deploy.landed-sha.v1",
+  "task_id": "D08-09",
+  "commit": "582db0f51232030cb1371bf5855658295e8ffcea",
+  "short": "582db0f5",
+  "landed_at": "2026-08-14T22:30:32.167129Z",
+  "remediation": "review HIGH-1 peer MagicDNS hash + HIGH-2 historical captures",
+  "d08_05": "pending_not_executed",
+  "live_disruption": "none"
+}

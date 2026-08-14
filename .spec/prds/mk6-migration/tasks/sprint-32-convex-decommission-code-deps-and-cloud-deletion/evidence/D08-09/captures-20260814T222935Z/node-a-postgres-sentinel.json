@@ -1,0 +1,6 @@
+{
+  "status": 0,
+  "stdout_tail": "DO\nINSERT 0 1\n1\n",
+  "stderr_tail": "NOTICE:  Emitted zero_0 ddlStart for CREATE TABLE \nNOTICE:  relation \"d08_09_sentinel\" already exists, skipping\nNOTICE:  zero_0 ignoring irrelevant CREATE TABLE {\"objid\":null,\"object_type\":null,\"objec",
+  "sentinel_id_hash": "cef72f13be1bc6235966d21f1178fca3f485597a260b40fe4e358add3809ac6b"
+}

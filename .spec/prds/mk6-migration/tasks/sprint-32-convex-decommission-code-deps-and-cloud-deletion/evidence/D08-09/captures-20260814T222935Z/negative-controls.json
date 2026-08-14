@@ -1,0 +1,31 @@
+{
+  "schema": "holo.deploy.negative-controls.v1",
+  "unreachable_serve": {
+    "rejection_count": 1,
+    "evidence": [
+      "captures-20260814T222935Z/node-b-peer-receipt-before.json",
+      "captures-20260814T222935Z/node-b-peer-receipt-after.json",
+      "captures-20260814T222935Z/node-b-peer-before-console.json",
+      "captures-20260814T222935Z/node-b-peer-after-console.json"
+    ],
+    "note": "Node B curl to https://holocron.tail011a51.ts.net:44112/health failed once per peer receipt"
+  },
+  "wrong_identity": {
+    "rejection_count": 1,
+    "evidence": [
+      "captures-20260814T222935Z/node-a-wrong-identity-negative.json"
+    ],
+    "planted_generation": "wrong-generation-d08-09",
+    "planted_digest": "sha256:deadbeef",
+    "live_generation": "holocron-137d126eb98c88f89e0186e6",
+    "live_digest": "sha256:e30a02252436cad92fe28dcb91d1e284bec7b790c3f83e8e2a9173c7352b0f1b"
+  },
+  "missing_dependency": {
+    "rejection_count": 1,
+    "evidence": [
+      "captures-20260814T222935Z/node-a-postgres-stop.json",
+      "captures-20260814T222935Z/node-a-postgres-down-health.json"
+    ],
+    "postgres_down_health_status": 503
+  }
+}

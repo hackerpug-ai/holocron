@@ -1,0 +1,42 @@
+{
+  "schema": "holo.deploy.operator-authorization-receipt.v1",
+  "task_id": "D08-09",
+  "operator_authorized": true,
+  "authorization_window": "2026-08-14",
+  "authorized_scope": {
+    "node_a_serving": "holocron",
+    "node_a_magicdns": "holocron.tail011a51.ts.net",
+    "node_b_peer": "inference1",
+    "node_b_magicdns": "inference1.tail011a51.ts.net",
+    "temporary_postgres_stop_and_recovery": true,
+    "mastra_restart_count_max": 1,
+    "private_serve_https_port": 44111,
+    "private_serve_target": "http://127.0.0.1:44111",
+    "funnel_forbidden": true,
+    "volume_delete_forbidden": true,
+    "convex_deletion_d08_05": false,
+    "four_service_stack": [
+      "postgres",
+      "mastra",
+      "scheduler",
+      "zero-cache"
+    ],
+    "provisioning_and_registry_temp_only": true
+  },
+  "explicitly_not_authorized": [
+    "D08-05 Convex cloud deletion",
+    "volume deletion or recreation",
+    "Funnel / public ingress",
+    "product source edits for parser workarounds"
+  ],
+  "execution_window_observed": {
+    "drill_started_at": "2026-08-14T22:10:04.352Z",
+    "drill_completed_at": "2026-08-14T22:10:31.522Z",
+    "peer_before_observed_at": "2026-08-14T22:10:02.633Z",
+    "peer_after_observed_at": "2026-08-14T22:10:56.772Z"
+  },
+  "credential_value_count": 0,
+  "raw_environment_present": false,
+  "password_present": false,
+  "source": "operator chat authorization for 2026-08-14 D08-09 live window (Node B=inference1; Postgres stop/recovery; exactly one Mastra restart; deploy/Serve/four-service stack). No secret values embedded."
+}

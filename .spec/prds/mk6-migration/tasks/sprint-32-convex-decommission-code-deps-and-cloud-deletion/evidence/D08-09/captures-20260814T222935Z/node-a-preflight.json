@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "preflight_check_count": 9,
+  "docker_mutation_count": 0,
+  "failures": [],
+  "checks": {
+    "docker_compose": {
+      "name": "docker_compose",
+      "ok": true,
+      "summary": "docker 29.7.2 compose 5.3.1"
+    },
+    "linux_arm64": {
+      "name": "linux_arm64",
+      "ok": true,
+      "summary": "aarch64"
+    },
+    "target_host": {
+      "name": "target_host",
+      "ok": true,
+      "summary": "target=holocron; observed=holocrons-macbook-pro,holocrons-macbook-pro.local,holocron.tail011a51.ts.net,holocron"
+    },
+    "loopback_port": {
+      "name": "loopback_port",
+      "ok": true,
+      "summary": "loopback/serve port 44111"
+    },
+    "tailscale_serve": {
+      "name": "tailscale_serve",
+      "ok": true,
+      "summary": "tailscale ready; funnel_endpoint_count=0; https_port=44111"
+    },
+    "secret_paths": {
+      "name": "secret_paths",
+      "ok": true,
+      "summary": "canonical secret path validated"
+    },
+    "volumes": {
+      "name": "volumes",
+      "ok": true,
+      "summary": "docker volume API reachable"
+    },
+    "container_memory_sum": {
+      "name": "container_memory_sum",
+      "ok": true,
+      "summary": "container_limit_sum_gib=46"
+    },
+    "docker_vm_headroom": {
+      "name": "docker_vm_headroom",
+      "ok": true,
+      "summary": "vm=52GiB headroom=12GiB"
+    }
+  },
+  "container_limit_sum_gib": 46,
+  "docker_vm_memory_gib": 52,
+  "host_physical_memory_gib": 64
+}

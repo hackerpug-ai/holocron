@@ -1,0 +1,20 @@
+{
+  "schema": "holo.deploy.review-remediation.v1",
+  "task_id": "D08-09",
+  "review": ".spec/reviews/d08-09-live-cross-tailnet-review-20260814.md",
+  "addressed": {
+    "HIGH-1": {
+      "peer_identity_hash": "dbe6c872c8b657652c8d12e3778e41c497d1a28f1bb577640503e0a21c4f7cf1",
+      "bound_to": "inference1.tail011a51.ts.net",
+      "not_bare_label": "inference1"
+    },
+    "HIGH-2": {
+      "captures_dir": "captures-20260814T222935Z",
+      "manifest": "evidence-manifest.json",
+      "authorization": "operator-authorization-receipt.json",
+      "volume_deletion_count": 0,
+      "no_live_disruption": true
+    }
+  },
+  "d08_05": "pending_not_executed"
+}

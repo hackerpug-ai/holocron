@@ -1,0 +1,40 @@
+{
+  "required": [
+    "postgres",
+    "mastra",
+    "scheduler",
+    "zero-cache"
+  ],
+  "healthy_rule": "State=running AND Health=healthy (exact; starting/empty/missing = NOT healthy)",
+  "healthyCount": 4,
+  "allHealthy": true,
+  "perService": {
+    "postgres": {
+      "health": "healthy",
+      "state": "running",
+      "ok": true
+    },
+    "mastra": {
+      "health": "healthy",
+      "state": "running",
+      "ok": true
+    },
+    "scheduler": {
+      "health": "healthy",
+      "state": "running",
+      "ok": true
+    },
+    "zero-cache": {
+      "health": "healthy",
+      "state": "running",
+      "ok": true
+    }
+  },
+  "lines": [
+    "mastra=healthy=running",
+    "postgres=healthy=running",
+    "scheduler=healthy=running",
+    "zero-cache=healthy=running"
+  ],
+  "seal_healthy_service_count": 4
+}
