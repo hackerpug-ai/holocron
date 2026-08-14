@@ -2,8 +2,8 @@
 
 Reviewed commit: `26b557688da8e349c38ea72da67ef1a3cf62b49d`
 
-Review date: 2026-08-14  
-Mode: adversarial, read-only, non-disruptive  
+Review date: 2026-08-14
+Mode: adversarial, read-only, non-disruptive
 Overall result: **FAIL** — two HIGH findings prevent approval.
 
 ## Scope and method
