@@ -235,4 +235,4 @@ See [CONVEX-SETUP.md](CONVEX-SETUP.md#troubleshooting) for common issues and sol
 
 ## Contributing
 
-See [RULES.md](../RULES.md) for development standards and coding guidelines.
+See [AGENTS.md](../AGENTS.md) for development standards and coding guidelines.
