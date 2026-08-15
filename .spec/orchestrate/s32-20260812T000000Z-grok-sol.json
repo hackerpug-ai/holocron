@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "run_id": "s32-20260812T000000Z-grok-sol",
+  "sprint": "/Users/inference1/Projects/holocron/.spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion",
+  "project": "/Users/inference1/Projects/holocron",
+  "base_branch": "main",
+  "workspace": "workspace:1",
+  "status": "running",
+  "cycle": 0,
+  "max_cycles": 3,
+  "max_recover": 2,
+  "tick": 300,
+  "stall_window": 600,
+  "audit_log": "/Users/inference1/Projects/holocron/.spec/orchestrate/s32-20260812T000000Z-grok-sol-audit.jsonl",
+  "created_at": "2026-08-12T15:27:00Z",
+  "updated_at": "2026-08-14T23:05:36Z",
+  "surfaces": [],
+  "registry": []
+}
