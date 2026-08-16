@@ -442,179 +442,195 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
       rmSync(directory, { recursive: true, force: true });
   });
 
-  itLive('AC-1: returns seeded Postgres content and literal null for an absent UUID over Streamable HTTP', async () => {
-    if (!sql || !normalGateway) throw new Error('S33-MCP-01 live setup was not initialized');
-    const seeded = await mcpCall(
-      normalGateway.baseUrl,
-      'store_document',
-      { title: TEST_TITLE, content: TEST_CONTENT },
-      330101
-    );
-    const seededPayload = parseToolPayload(seeded.result);
-    if (!seededPayload || typeof seededPayload !== 'object' || Array.isArray(seededPayload)) {
-      throw new Error(
-        `store_document did not return a document payload: ${JSON.stringify(seeded)}`
+  itLive(
+    'AC-1: returns seeded Postgres content and literal null for an absent UUID over Streamable HTTP',
+    async () => {
+      if (!sql || !normalGateway) throw new Error('S33-MCP-01 live setup was not initialized');
+      const seeded = await mcpCall(
+        normalGateway.baseUrl,
+        'store_document',
+        { title: TEST_TITLE, content: TEST_CONTENT },
+        330101
       );
-    }
-    const returnedId = (seededPayload as Record<string, unknown>).documentId;
-    if (typeof returnedId !== 'string') {
-      throw new Error(`store_document omitted documentId: ${JSON.stringify(seededPayload)}`);
-    }
-    seededDocumentId = returnedId;
-    const seededRows =
-      await sql`SELECT count(*)::int AS count FROM documents WHERE id = ${returnedId}::uuid`;
-    const absentId = crypto.randomUUID();
-    const absentRows =
-      await sql`SELECT count(*)::int AS count FROM documents WHERE id = ${absentId}::uuid`;
-    const read = await mcpCall(
-      normalGateway.baseUrl,
-      'get_document',
-      { documentId: returnedId },
-      330102
-    );
-    const absent = await mcpCall(
-      normalGateway.baseUrl,
-      'get_document',
-      { documentId: absentId },
-      330103
-    );
-    writeEvidence('red-ac-1-http.json', {
-      seeded,
-      seededRows,
-      read,
-      absentId,
-      absentRows,
-      absent,
-    });
+      const seededPayload = parseToolPayload(seeded.result);
+      if (!seededPayload || typeof seededPayload !== 'object' || Array.isArray(seededPayload)) {
+        throw new Error(
+          `store_document did not return a document payload: ${JSON.stringify(seeded)}`
+        );
+      }
+      const returnedId = (seededPayload as Record<string, unknown>).documentId;
+      if (typeof returnedId !== 'string') {
+        throw new Error(`store_document omitted documentId: ${JSON.stringify(seededPayload)}`);
+      }
+      seededDocumentId = returnedId;
+      const seededRows =
+        await sql`SELECT count(*)::int AS count FROM documents WHERE id = ${returnedId}::uuid`;
+      const absentId = crypto.randomUUID();
+      const absentRows =
+        await sql`SELECT count(*)::int AS count FROM documents WHERE id = ${absentId}::uuid`;
+      const read = await mcpCall(
+        normalGateway.baseUrl,
+        'get_document',
+        { documentId: returnedId },
+        330102
+      );
+      const absent = await mcpCall(
+        normalGateway.baseUrl,
+        'get_document',
+        { documentId: absentId },
+        330103
+      );
+      writeEvidence('red-ac-1-http.json', {
+        seeded,
+        seededRows,
+        read,
+        absentId,
+        absentRows,
+        absent,
+      });
 
-    expect(seeded.result?.isError).not.toBe(true);
-    expect(seededRows[0]?.count).toBe(1);
-    expect(absentRows[0]?.count).toBe(0);
-    expect(read.error).toBeUndefined();
-    expect(read.result?.isError ?? false).toBe(false);
-    const payload = read.result?.structuredContent;
-    expect(payload).toEqual(
-      expect.objectContaining({
-        documentId: returnedId,
-        title: TEST_TITLE,
-        content: TEST_CONTENT,
-        data_plane: 'postgres',
-        source: 'postgres',
-      })
-    );
-    expect(payload && typeof payload === 'object' ? Object.keys(payload) : []).toEqual(
-      expect.arrayContaining([
-        'documentId',
-        'title',
-        'content',
-        'status',
-        'isPublic',
-        'shareToken',
-        'date',
-        'createdAt',
-        'data_plane',
-        'source',
-      ])
-    );
-    expect(absent.error).toBeUndefined();
-    expect(absent.result?.isError ?? false).toBe(false);
-    expect(absent.result?.content?.[0]?.text).toBe('null');
-    expect(absent.result?.content).toHaveLength(1);
-  }, 60_000);
+      expect(seeded.result?.isError).not.toBe(true);
+      expect(seededRows[0]?.count).toBe(1);
+      expect(absentRows[0]?.count).toBe(0);
+      expect(read.error).toBeUndefined();
+      expect(read.result?.isError ?? false).toBe(false);
+      const payload = read.result?.structuredContent;
+      expect(payload).toEqual(
+        expect.objectContaining({
+          documentId: returnedId,
+          title: TEST_TITLE,
+          content: TEST_CONTENT,
+          data_plane: 'postgres',
+          source: 'postgres',
+        })
+      );
+      expect(payload && typeof payload === 'object' ? Object.keys(payload) : []).toEqual(
+        expect.arrayContaining([
+          'documentId',
+          'title',
+          'content',
+          'status',
+          'isPublic',
+          'shareToken',
+          'date',
+          'createdAt',
+          'data_plane',
+          'source',
+        ])
+      );
+      expect(absent.error).toBeUndefined();
+      expect(absent.result?.isError ?? false).toBe(false);
+      expect(absent.result?.content?.[0]?.text).toBe('null');
+      expect(absent.result?.content).toHaveLength(1);
+    },
+    60_000
+  );
 
-  itLive('AC-2: names the retired cloud plane over MCP and matches the HTTP 410 response', async () => {
-    if (!seededDocumentId) throw new Error('AC-1 did not seed a documentId');
-    const gateway = await startMcpGateway({
-      databaseUrl: DATABASE_URL,
-      secretsPath: retiredSecretsPath,
-    });
-    const httpResponse = await fetch(
-      `${gateway.baseUrl}/api/documents/${encodeURIComponent(seededDocumentId)}`,
-      { headers: { authorization: `Bearer ${KEYS.rn}` } }
-    );
-    const httpBody = (await httpResponse.json()) as unknown;
-    const mcp = await mcpCall(
-      gateway.baseUrl,
-      'get_document',
-      { documentId: seededDocumentId },
-      330201
-    );
-    const mcpError = parseErrorPayload(mcp.result);
-    writeEvidence('red-ac-2-retired-plane.json', {
-      http: { status: httpResponse.status, body: httpBody },
-      mcp,
-      mcpError,
-      secretsPath: retiredSecretsPath,
-    });
-    await gateway.stop();
+  itLive(
+    'AC-2: names the retired cloud plane over MCP and matches the HTTP 410 response',
+    async () => {
+      if (!seededDocumentId) throw new Error('AC-1 did not seed a documentId');
+      const gateway = await startMcpGateway({
+        databaseUrl: DATABASE_URL,
+        secretsPath: retiredSecretsPath,
+      });
+      const httpResponse = await fetch(
+        `${gateway.baseUrl}/api/documents/${encodeURIComponent(seededDocumentId)}`,
+        { headers: { authorization: `Bearer ${KEYS.rn}` } }
+      );
+      const httpBody = (await httpResponse.json()) as unknown;
+      const mcp = await mcpCall(
+        gateway.baseUrl,
+        'get_document',
+        { documentId: seededDocumentId },
+        330201
+      );
+      const mcpError = parseErrorPayload(mcp.result);
+      writeEvidence('red-ac-2-retired-plane.json', {
+        http: { status: httpResponse.status, body: httpBody },
+        mcp,
+        mcpError,
+        secretsPath: retiredSecretsPath,
+      });
+      await gateway.stop();
 
-    expect(httpResponse.status).toBe(410);
-    expect(JSON.stringify(httpBody)).toContain('retired_cloud_plane_removed_d08_02');
-    expect(mcp.error).toBeUndefined();
-    expect(mcp.result?.isError).toBe(true);
-    expect(mcpError.code).toBe('RETIRED_DATA_PLANE');
-    expect(mcpError.message).toContain('retired_cloud_plane_removed_d08_02');
-    expect(mcpError.message).toContain('data_plane=convex');
-    expect(mcp.result?.content?.[0]?.text).not.toBe('null');
-  }, 60_000);
+      expect(httpResponse.status).toBe(410);
+      expect(JSON.stringify(httpBody)).toContain('retired_cloud_plane_removed_d08_02');
+      expect(mcp.error).toBeUndefined();
+      expect(mcp.result?.isError).toBe(true);
+      expect(mcpError.code).toBe('RETIRED_DATA_PLANE');
+      expect(mcpError.message).toContain('retired_cloud_plane_removed_d08_02');
+      expect(mcpError.message).toContain('data_plane=convex');
+      expect(mcp.result?.content?.[0]?.text).not.toBe('null');
+    },
+    60_000
+  );
 
-  itLive('AC-3: keeps stdio byte frames valid and equivalent to HTTP for postgres and retired planes', async () => {
-    if (!seededDocumentId || !normalGateway) throw new Error('AC-1 did not seed a documentId');
-    const http = await mcpCall(
-      normalGateway.baseUrl,
-      'get_document',
-      { documentId: seededDocumentId },
-      330301
-    );
-    const postgresStdio = await runStdio(seededDocumentId, postgresSecretsPath);
-    const retiredStdio = await runStdio(seededDocumentId, retiredSecretsPath);
-    const retiredError = parseErrorPayload(retiredStdio.result);
-    writeEvidence('red-ac-3-stdio.json', {
-      http,
-      postgresStdio,
-      retiredStdio,
-      retiredError,
-    });
+  itLive(
+    'AC-3: keeps stdio byte frames valid and equivalent to HTTP for postgres and retired planes',
+    async () => {
+      if (!seededDocumentId || !normalGateway) throw new Error('AC-1 did not seed a documentId');
+      const http = await mcpCall(
+        normalGateway.baseUrl,
+        'get_document',
+        { documentId: seededDocumentId },
+        330301
+      );
+      const postgresStdio = await runStdio(seededDocumentId, postgresSecretsPath);
+      const retiredStdio = await runStdio(seededDocumentId, retiredSecretsPath);
+      const retiredError = parseErrorPayload(retiredStdio.result);
+      writeEvidence('red-ac-3-stdio.json', {
+        http,
+        postgresStdio,
+        retiredStdio,
+        retiredError,
+      });
 
-    expect(postgresStdio.parseFailures).toEqual([]);
-    expect(retiredStdio.parseFailures).toEqual([]);
-    const frames = [...postgresStdio.frames, ...retiredStdio.frames];
-    expect(frames.length).toBeGreaterThanOrEqual(2);
-    for (const frame of frames) {
-      expect(frame).toEqual(expect.objectContaining({ jsonrpc: '2.0' }));
-    }
-    expect(postgresStdio.result?.isError ?? false).toBe(false);
-    expect(postgresStdio.result?.structuredContent).toEqual(http.result?.structuredContent);
-    expect(retiredStdio.result?.isError).toBe(true);
-    expect(retiredError.code).toBe('RETIRED_DATA_PLANE');
-    expect(retiredError.message).toContain('retired_cloud_plane_removed_d08_02');
-    expect(retiredStdio.result?.content?.[0]?.text).not.toBe('null');
-  }, 120_000);
+      expect(postgresStdio.parseFailures).toEqual([]);
+      expect(retiredStdio.parseFailures).toEqual([]);
+      const frames = [...postgresStdio.frames, ...retiredStdio.frames];
+      expect(frames.length).toBeGreaterThanOrEqual(2);
+      for (const frame of frames) {
+        expect(frame).toEqual(expect.objectContaining({ jsonrpc: '2.0' }));
+      }
+      expect(postgresStdio.result?.isError ?? false).toBe(false);
+      expect(postgresStdio.result?.structuredContent).toEqual(http.result?.structuredContent);
+      expect(retiredStdio.result?.isError).toBe(true);
+      expect(retiredError.code).toBe('RETIRED_DATA_PLANE');
+      expect(retiredError.message).toContain('retired_cloud_plane_removed_d08_02');
+      expect(retiredStdio.result?.content?.[0]?.text).not.toBe('null');
+    },
+    120_000
+  );
 
-  itLive('AC-4: returns DATA_PLANE_READ_FAILED when the Postgres TCP port is really closed', async () => {
-    const closedPort = await verifiedClosedPort();
-    const unreachableGateway = await startMcpGateway({
-      databaseUrl: `postgres://127.0.0.1:${closedPort}/holocron_nonprod`,
-      secretsPath: postgresSecretsPath,
-    });
-    const mcp = await mcpCall(
-      unreachableGateway.baseUrl,
-      'get_document',
-      { documentId: crypto.randomUUID() },
-      330401
-    );
-    const mcpError = parseErrorPayload(mcp.result);
-    writeEvidence('red-ac-4-unreachable-postgres.json', {
-      closedPort,
-      mcp,
-      mcpError,
-    });
-    await unreachableGateway.stop();
+  itLive(
+    'AC-4: returns DATA_PLANE_READ_FAILED when the Postgres TCP port is really closed',
+    async () => {
+      const closedPort = await verifiedClosedPort();
+      const unreachableGateway = await startMcpGateway({
+        databaseUrl: `postgres://127.0.0.1:${closedPort}/holocron_nonprod`,
+        secretsPath: postgresSecretsPath,
+      });
+      const mcp = await mcpCall(
+        unreachableGateway.baseUrl,
+        'get_document',
+        { documentId: crypto.randomUUID() },
+        330401
+      );
+      const mcpError = parseErrorPayload(mcp.result);
+      writeEvidence('red-ac-4-unreachable-postgres.json', {
+        closedPort,
+        mcp,
+        mcpError,
+      });
+      await unreachableGateway.stop();
 
-    expect(mcp.error).toBeUndefined();
-    expect(mcp.result?.isError).toBe(true);
-    expect(mcpError.code).toBe('DATA_PLANE_READ_FAILED');
-    expect(mcpError.message).toContain('postgres_document_read_failed');
-    expect(mcp.result?.content?.[0]?.text).not.toBe('null');
-  }, 60_000);
+      expect(mcp.error).toBeUndefined();
+      expect(mcp.result?.isError).toBe(true);
+      expect(mcpError.code).toBe('DATA_PLANE_READ_FAILED');
+      expect(mcpError.message).toContain('postgres_document_read_failed');
+      expect(mcp.result?.content?.[0]?.text).not.toBe('null');
+    },
+    60_000
+  );
 });
