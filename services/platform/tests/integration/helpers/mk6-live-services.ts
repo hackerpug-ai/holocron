@@ -409,30 +409,75 @@ export async function probeSchedulerHeartbeat(
   databaseUrl: string,
   timeoutMs = timeoutFromEnv('MK6_SCHEDULER_HEARTBEAT_TIMEOUT_MS', 75_000)
 ): Promise<ProbeResult> {
+  const sql = postgres(databaseUrl, {
+    max: 1,
+    connect_timeout: 5,
+    prepare: false,
+    onnotice: () => {},
+  });
   try {
     const before = await queueMeta(databaseUrl);
     if (!before.ready || !before.updatedAt)
       throw new Error('scheduler queue heartbeat is not ready');
-    const beforeMs = Date.parse(before.updatedAt);
+
+    // The scheduler's periodic backend check only re-reads queue_backend_meta
+    // when the process is already ready. Enqueue a disposable unknown job and
+    // require the real scheduler consumer to lease and complete it instead of
+    // treating that static metadata row as a heartbeat.
+    const key = `mk6-live-heartbeat-${randomUUID()}`;
+    const inserted = await sql<{ id: string; created_at: string | Date }[]>`
+      INSERT INTO queue_jobs (name, lane, priority, payload, status, max_attempts, key)
+      VALUES ('mk6:verification-heartbeat', 'interactive', 100, ${sql.json({} as never)}, 'pending', 1, ${key})
+      RETURNING id::text AS id, created_at
+    `;
+    const job = inserted[0];
+    if (!job) throw new Error('scheduler heartbeat job was not inserted');
+
+    const createdAt =
+      job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at;
+    const createdMs = Date.parse(createdAt);
+    if (!Number.isFinite(createdMs)) throw new Error('scheduler heartbeat job timestamp invalid');
     const deadline = Date.now() + timeoutMs;
-    let after = before;
     while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-      after = await queueMeta(databaseUrl);
-      const afterMs = after.updatedAt ? Date.parse(after.updatedAt) : Number.NaN;
-      if (after.ready && Number.isFinite(afterMs) && afterMs > beforeMs) {
+      const statusRows = await sql<
+        { status: string; updated_at: string | Date | null; completed_at: string | Date | null }[]
+      >`
+        SELECT status, updated_at, completed_at
+        FROM queue_jobs
+        WHERE id = ${job.id}::uuid
+      `;
+      const status = statusRows[0];
+      const completedAt = status?.completed_at
+        ? status.completed_at instanceof Date
+          ? status.completed_at.toISOString()
+          : status.completed_at
+        : null;
+      const completedMs = completedAt ? Date.parse(completedAt) : Number.NaN;
+      if (
+        status?.status === 'completed' &&
+        completedAt &&
+        Number.isFinite(completedMs) &&
+        completedMs >= createdMs
+      ) {
         return {
           ready: true,
           dependency: 'scheduler',
           heartbeatAdvanced: true,
           heartbeatBefore: before.updatedAt,
-          heartbeatAfter: after.updatedAt,
+          heartbeatAfter: completedAt,
+          heartbeatJobId: job.id,
+          heartbeatJobStatus: status.status,
+          heartbeatJobCreatedAt: createdAt,
+          heartbeatJobCompletedAt: completedAt,
         };
       }
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
-    throw new Error('scheduler queue heartbeat did not advance');
+    throw new Error(`scheduler heartbeat job did not complete (id=${job.id})`);
   } catch (error) {
     return { ready: false, dependency: 'scheduler', error: redact(error) };
+  } finally {
+    await sql.end({ timeout: 3 }).catch(() => {});
   }
 }
 
