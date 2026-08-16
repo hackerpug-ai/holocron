@@ -2,7 +2,7 @@
 sprint: 33
 slug: fleet-routing-and-deployed-service-restoration
 sequence: 33
-status: Planned
+status: In Progress
 prd: .spec/prds/mk6-migration/README.md
 planned_from_roadmap_sha: ce2f5ade6e8383597dd16317c2276319c78f3207b849212ba74b761d1a38ea8e
 planned_from_source_sha: 4beec5ebbf39fe4dc1ee827a11677eaf110aff0e
@@ -12,7 +12,8 @@ planned_at: 2026-08-16
 
 # Sprint 33: Fleet Routing and Deployed-Service Restoration
 
-**Status:** Planned
+**Status:** In Progress
+> Progress: 0/13 tasks completed · updated 2026-08-16T21:49:01Z
 
 **Sequence:** 33
 **Timeline:** TBD
