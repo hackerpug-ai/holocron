@@ -1,8 +1,8 @@
 # Sprint: imp-mk6-functional-completeness-1786837297
 
-**Status:** Blocked
-> Progress: 0/24 tasks completed · updated 2026-08-16T17:53:58Z
-> Status-Note: Blocked: holocron is online but degraded on fleet, and no authorized SSH or online self-hosted runner can execute Wave 0 on-device. Retained a7c03ccc remains unlanded.
+**Status:** In Progress
+> Progress: 0/24 tasks completed · updated 2026-08-16T18:04:58Z
+> Status-Note: Remote holocron execution channel authorized; W0 real-service verification resumed on the device.
 
 > Learned spec repair: tt-004, remediation cycle 2
 > Immutable objective: Restore all MK-VI scoped functionality to specified operation
