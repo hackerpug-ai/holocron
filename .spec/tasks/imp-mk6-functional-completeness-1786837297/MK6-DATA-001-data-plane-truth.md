@@ -1,8 +1,9 @@
 # MK6-DATA-001: Restore Postgres data-plane truth
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Cycle: 1
+> Updated: 2026-08-16T19:50:14Z
 > Assignee: mastra-implementer
-> Reviewer: mastra-reviewer
 > Priority: P0
 > Type: bugfix
 > Wave: 1

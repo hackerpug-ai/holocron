@@ -1,8 +1,8 @@
 # Sprint: imp-mk6-functional-completeness-1786837297
 
 **Status:** In Progress
-> Progress: 1/24 tasks completed · updated 2026-08-16T19:49:07Z
-> Status-Note: MK6-DEP-001 landed after exact holocron verification and dual-lens approval; Wave 1 unblocked.
+> Progress: 1/24 tasks completed · updated 2026-08-16T19:50:14Z
+> Status-Note: Wave 1 dispatched on holocron: authoritative host topology and Postgres migration truth.
 
 > Learned spec repair: tt-004, remediation cycle 2
 > Immutable objective: Restore all MK-VI scoped functionality to specified operation
