@@ -15,6 +15,7 @@ import { PLATFORM_IT } from '../../../../tests/integration/service/harness';
 import { createSql, type Sql } from '../../src/db/client';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron_nonprod';
+const itLive = PLATFORM_IT ? it : it.skip;
 const REPO_ROOT = resolve(import.meta.dirname, '../../../..');
 const TEST_TMP_ROOT = resolve(REPO_ROOT, '.tmp/S33-MCP-01');
 const TEST_TITLE = 'S33-MCP-01 Postgres Plane Proof';
@@ -441,7 +442,7 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
       rmSync(directory, { recursive: true, force: true });
   });
 
-  it('AC-1: returns seeded Postgres content and literal null for an absent UUID over Streamable HTTP', async () => {
+  itLive('AC-1: returns seeded Postgres content and literal null for an absent UUID over Streamable HTTP', async () => {
     if (!sql || !normalGateway) throw new Error('S33-MCP-01 live setup was not initialized');
     const seeded = await mcpCall(
       normalGateway.baseUrl,
@@ -521,7 +522,7 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
     expect(absent.result?.content).toHaveLength(1);
   }, 60_000);
 
-  it('AC-2: names the retired cloud plane over MCP and matches the HTTP 410 response', async () => {
+  itLive('AC-2: names the retired cloud plane over MCP and matches the HTTP 410 response', async () => {
     if (!seededDocumentId) throw new Error('AC-1 did not seed a documentId');
     const gateway = await startMcpGateway({
       databaseUrl: DATABASE_URL,
@@ -557,7 +558,7 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
     expect(mcp.result?.content?.[0]?.text).not.toBe('null');
   }, 60_000);
 
-  it('AC-3: keeps stdio byte frames valid and equivalent to HTTP for postgres and retired planes', async () => {
+  itLive('AC-3: keeps stdio byte frames valid and equivalent to HTTP for postgres and retired planes', async () => {
     if (!seededDocumentId || !normalGateway) throw new Error('AC-1 did not seed a documentId');
     const http = await mcpCall(
       normalGateway.baseUrl,
@@ -590,7 +591,7 @@ describe('S33-MCP-01 get_document data-plane contract', () => {
     expect(retiredStdio.result?.content?.[0]?.text).not.toBe('null');
   }, 120_000);
 
-  it('AC-4: returns DATA_PLANE_READ_FAILED when the Postgres TCP port is really closed', async () => {
+  itLive('AC-4: returns DATA_PLANE_READ_FAILED when the Postgres TCP port is really closed', async () => {
     const closedPort = await verifiedClosedPort();
     const unreachableGateway = await startMcpGateway({
       databaseUrl: `postgres://127.0.0.1:${closedPort}/holocron_nonprod`,
