@@ -1,7 +1,9 @@
 # S33-MCP-01: get_document surfaces a named retired-plane error and real Postgres content over both MCP transports
 
-> Status: 🟡 In Progress
-> Updated: 2026-08-16T21:51:39Z
+> Status: 🔴 Needs Fixes
+> Commit: dec4218a707cb03f4666f27083a39c1514fa3265
+> Fix: KB-TDD-LINEAGE-TOOLING
+> Updated: 2026-08-16T23:09:30Z
 > Assignee: mcp-implementer
 > Priority: P0
 > Type: FEATURE
@@ -88,6 +90,11 @@ Make the MCP get_document tool tell the truth about the observed data plane over
 | TC-5 | An unreachable Postgres yields code DATA_PLANE_READ_FAILED rather than a null document or a second-connection success | AC-4 | `PLATFORM_IT=1 DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod pnpm test:integration services/platform/tests/integration/sprint33-mcp-01-get-document-data-plane.test.ts` |
 | TC-6 | The MCP compatibility manifest still verifies clean after the additive get_document error entries | AC-2 | `pnpm test:integration tests/integration/mcp-verify-manifest.test.ts` |
 
+
+## Remediation Trail
+| Cycle | FIX | Failed Reqs | Reviewer | At |
+|-------|-----|-------------|----------|----|
+| — | KB-TDD-LINEAGE-TOOLING | — | — | 2026-08-16T23:09:30Z |
 ## Fixtures
 
 **`s33_mcp01_seeded_document`** — One real documents row created through the MCP store_document tool over the real Streamable HTTP gateway (no direct INSERT), so the read path is proven against a row the MCP surface itself wrote. _(seed: public_api)_

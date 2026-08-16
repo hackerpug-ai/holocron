@@ -1,7 +1,9 @@
 # S33-OPS-01: Provision Qwen3.8-27B-8bit onto inference2 and inference1 (disk-headroom-gated) and verify oMLX serves it
 
-> Status: 🟡 In Progress
-> Updated: 2026-08-16T21:51:39Z
+> Status: 🔴 Needs Fixes
+> Commit: a26b428acfbb6ad867d8e8894530fefa7d4bceca
+> Fix: SPEC-REPAIR-S33-OPS-01-VERIFY
+> Updated: 2026-08-16T22:58:56Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
@@ -54,7 +56,7 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 - **GIVEN** inference1 has 42 GiB free disk (live-verified 2026-08-16), below the 44 GiB threshold (28 GB model + 15 GiB safety margin + 1 GiB slack) required to safely fit the model.
 - **WHEN** The provisioning script re-measures live free disk on inference1 immediately before acting via `df -k /`.
 - **THEN** If measured free >= 44 GiB: the copy proceeds, oMLX restarts, and GET :8003/v1/models on inference1 includes 'Qwen3.8-27B-8bit' with >=15 GiB free remaining. If measured free < 44 GiB (the current live state): no copy is attempted, inference1's free-disk bytes are unchanged before/after, its /v1/models list is unchanged (still only Qwen3.6-35B-A3B-MLX-8bit), and a blocker artifact records the measured shortfall in GiB.
-- **Verify:** `ssh inference1 'df -k / | awk "NR==2{print \$4}"' before and after the attempt, plus curl http://inference1.tail011a51.ts.net:8003/v1/models before and after`
+- **Verify:** `blocker=.tmp/S33-OPS-01/S33-OPS-01-inference1-blocker.json; test -f "$blocker" && jq -e '.task_id == "S33-OPS-01" and .status == "blocked_insufficient_headroom" and .reason == "inference1 live free disk is below the 44 GiB provisioning threshold" and .threshold_gib == 44 and .threshold_kb == 46137344 and .measured_free_gib_before < .threshold_gib and .measured_free_gib_after < .threshold_gib and .measured_free_kb_before < .threshold_kb and .measured_free_kb_after < .threshold_kb and .measured_free_kb_after == (.measured_free_kb_before + .disk_free_kb_delta) and .disk_free_kb_delta >= -2048 and .disk_free_kb_delta <= 2048 and .copy_attempted == false and .model_ids_before == ["Qwen3.6-35B-A3B-MLX-8bit"] and .model_ids_after == .model_ids_before and .qwen38_file_count_before == 0 and .qwen38_file_count_after == 0' "$blocker" >/dev/null && live_free_kb=$(ssh inference1 'df -k / | awk "NR==2{print \$4}"') && test "$live_free_kb" -lt 46137344 && ssh inference1 'test ! -e ~/models/mlx-community/Qwen3.8-27B-8bit' && curl -fsS http://inference1.tail011a51.ts.net:8003/v1/models | jq -e '[.data[].id] == ["Qwen3.6-35B-A3B-MLX-8bit"]' >/dev/null`
 - **Tier:** integration · **Service:** oMLX on inference1:8003 + live disk-capacity gate (real Mac mini) · **Flow:** UC-INFER-01
 - **Scenario:** topology `multi-node` · evidence `file_artifact` · negative control: stub, static
 
@@ -65,6 +67,11 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 | TC-1 | inference2 GET /v1/models lists Qwen3.8-27B-8bit after provisioning | AC-1 | `curl -sS http://inference2.tail011a51.ts.net:8003/v1/models | grep -q 'Qwen3.8-27B-8bit'` |
 | TC-2 | inference1 never receives a partial copy when live headroom is below 44 GiB | AC-2 | `ssh inference1 'test ! -d ~/models/mlx-community/Qwen3.8-27B-8bit || find ~/models/mlx-community/Qwen3.8-27B-8bit -type f | wc -l | grep -q ^40$'` |
 
+
+## Remediation Trail
+| Cycle | FIX | Failed Reqs | Reviewer | At |
+|-------|-----|-------------|----------|----|
+| — | SPEC-REPAIR-S33-OPS-01-VERIFY | — | — | 2026-08-16T22:58:56Z |
 ## Fixtures
 
 **`qwen38-27b-8bit-source`** — Real, already-downloaded MLX weight directory on the laptop: 6 safetensors shards (~27.5 GiB), config.json sha256 8f80874ac3ad8fa386d3f6dc0ea85377f703376e009a03dee0360e08e289a25d, 40 files total. _(seed: cli)_
@@ -196,7 +203,7 @@ _Source:_ `~/models/DEVICES.md:60-95`
       "type": "acceptance_criterion",
       "primary": true,
       "description": "GIVEN inference1's live headroom is below the safety threshold WHEN provisioning is attempted THEN it fails closed with a recorded blocker and zero disk delta (or succeeds if headroom is actually sufficient)",
-      "verify": "ssh inference1 'df -k /' before/after diff + curl :8003/v1/models diff",
+      "verify": "blocker=.tmp/S33-OPS-01/S33-OPS-01-inference1-blocker.json; test -f \"$blocker\" && jq -e '.task_id == \"S33-OPS-01\" and .status == \"blocked_insufficient_headroom\" and .reason == \"inference1 live free disk is below the 44 GiB provisioning threshold\" and .threshold_gib == 44 and .threshold_kb == 46137344 and .measured_free_gib_before < .threshold_gib and .measured_free_gib_after < .threshold_gib and .measured_free_kb_before < .threshold_kb and .measured_free_kb_after < .threshold_kb and .measured_free_kb_after == (.measured_free_kb_before + .disk_free_kb_delta) and .disk_free_kb_delta >= -2048 and .disk_free_kb_delta <= 2048 and .copy_attempted == false and .model_ids_before == [\"Qwen3.6-35B-A3B-MLX-8bit\"] and .model_ids_after == .model_ids_before and .qwen38_file_count_before == 0 and .qwen38_file_count_after == 0' \"$blocker\" >/dev/null && live_free_kb=$(ssh inference1 'df -k / | awk \"NR==2{print \\$4}\"') && test \"$live_free_kb\" -lt 46137344 && ssh inference1 'test ! -e ~/models/mlx-community/Qwen3.8-27B-8bit' && curl -fsS http://inference1.tail011a51.ts.net:8003/v1/models | jq -e '[.data[].id] == [\"Qwen3.6-35B-A3B-MLX-8bit\"]' >/dev/null",
       "scenario": {
         "id": "AC-2",
         "primary": true,
