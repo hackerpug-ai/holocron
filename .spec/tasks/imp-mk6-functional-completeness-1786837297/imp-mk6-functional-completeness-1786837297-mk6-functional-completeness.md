@@ -12,6 +12,7 @@
 > Files: services/platform/src/verify/mk6-capability-contract.ts, services/platform/src/verify/mk6-capability-ledger.ts, services/platform/src/verify/gate-registry.ts, services/platform/src/cli/holo.ts, scripts/verify-mk6-promotion-ledger.sh, services/platform/tests/integration/mk6-capability-ledger.test.ts
 > Patterns: minimum-diff-discipline, anti-stub
 > Scope: /Users/justinrich/.config/brain/improvements/imp-mk6-functional-completeness-1786837297.json
+> Depends on: MK6-RELEASE-001 and every transitive H0-H2 product/proof dependency in SPRINT.md
 
 ## Context
 
@@ -32,6 +33,27 @@ For full reproduction evidence, root-cause file:line references, considered
 alternatives, challenger notes, and the binding security review, read the
 ScopeState named on the `> Scope:` line above. That contract is binding. Do not
 touch files outside the `> Files:` list.
+
+## Learned spec-repair unblock route
+
+Review cycle 4 established that this six-file ledger cannot itself implement the
+five semantic controls or repair the H0-H4 product seams. The prerequisite task
+map in `SPRINT.md` is follow-up dependency work, not an expansion of this task's
+write scope and not a regeneration from an amended ScopeState. This task remains
+blocked until MK6-RELEASE-001 supplies one immutable candidate and the following
+commands exist and pass their real positive paths while failing their named
+negative controls:
+
+- `PLATFORM_IT=1 bash scripts/verify-mk6-recovery-evidence.sh --negative-control missing-evidence --json`
+- `PLATFORM_IT=1 bash scripts/verify-mk6-queue-lifecycle.sh --negative-control queue-recreation --json`
+- `PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --negative-control mission-501 --json`
+- `PLATFORM_IT=1 bash scripts/verify-mk6-mcp-executor.sh --negative-control mcp-semantic-no-op --json`
+- `PLATFORM_IT=1 bash scripts/e2e/run-mk6-client-fallback-control.sh --json`
+
+After those prerequisites land, remediation resumes only in the original six
+files: register the executable commands, close AC-2/AC-4 defects, and run the
+full 105-criterion/10-receipt positive and corruption sequence. The remediation
+trail below remains historical evidence and is not rewritten by this repair.
 
 ## Acceptance Criteria
 
