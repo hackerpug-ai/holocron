@@ -42,6 +42,34 @@ services:
       retries: 30
       start_period: 5s
 
+  fleet-proxy:
+    image: ghcr.io/rocicorp/zero@sha256:9be2d9303b076f2aef29cbcc629350dbc40cf0531ead59a7f61572eeb65fef72
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        exec node -e 'const net=require("node:net");
+        const host=process.env.MK6_FLEET_TARGET_HOST;
+        const port=Number(process.env.MK6_FLEET_TARGET_PORT);
+        if(!host||!Number.isInteger(port)||port<1||port>65535)process.exit(2);
+        net.createServer((client)=>{const upstream=net.connect({host,port});
+        client.pipe(upstream);upstream.pipe(client);
+        const close=()=>{client.destroy();upstream.destroy()};
+        client.on("error",close);upstream.on("error",close);
+        client.on("close",()=>upstream.destroy());upstream.on("close",()=>client.destroy())
+        }).listen(4545,"0.0.0.0")'
+    environment:
+      MK6_FLEET_TARGET_HOST: ${MK6_FLEET_TARGET_HOST:?MK6_FLEET_TARGET_HOST is required}
+      MK6_FLEET_TARGET_PORT: ${MK6_FLEET_TARGET_PORT:?MK6_FLEET_TARGET_PORT is required}
+    ports:
+      - "127.0.0.1:${MK6_FLEET_PROXY_PORT:?MK6_FLEET_PROXY_PORT is required}:4545"
+    logging: *mk6-logging
+    healthcheck:
+      test: ["CMD", "node", "-e", "const net=require('node:net');const s=net.createConnection(4545,'127.0.0.1');s.on('connect',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
+
   mastra:
     image: ${MK6_PLATFORM_IMAGE:?MK6_PLATFORM_IMAGE is required}
     environment:
@@ -58,6 +86,7 @@ services:
       HOLO_COMPOSE_SHA256: ${MK6_COMPOSE_SHA256:?MK6_COMPOSE_SHA256 is required}
       HOLO_DEPLOYED_AT: ${MK6_DEPLOYED_AT:?MK6_DEPLOYED_AT is required}
       HOLO_BLOB_ROOT: /tmp/holocron-blobs
+      HOLO_DANGEROUS_ALLOW_PROD_DB: "1"
     volumes:
       - ${MK6_FLEET_MANIFEST:?MK6_FLEET_MANIFEST is required}:/app/fleet/manifest.json:ro
     extra_hosts:
@@ -66,6 +95,8 @@ services:
       - "127.0.0.1:${MK6_MASTRA_PORT:?MK6_MASTRA_PORT is required}:4111"
     depends_on:
       postgres:
+        condition: service_healthy
+      fleet-proxy:
         condition: service_healthy
     logging: *mk6-logging
     command:
@@ -105,10 +136,13 @@ services:
     image: ${MK6_PLATFORM_IMAGE:?MK6_PLATFORM_IMAGE is required}
     environment:
       FLEET_URL: ${MK6_FLEET_CONTAINER_URL:?MK6_FLEET_CONTAINER_URL is required}
+      HOLO_DANGEROUS_ALLOW_PROD_DB: "1"
     depends_on:
       postgres:
         condition: service_healthy
       mastra:
+        condition: service_healthy
+      fleet-proxy:
         condition: service_healthy
     logging: *mk6-logging
     command:

@@ -15,12 +15,24 @@ export const MK6_SENTINEL = 'mk6-dep-sentinel-1';
 
 export type LiveServiceConfig = {
   databaseUrl: string;
+  databaseName: string;
   mastraUrl: string;
   zeroUrl: string;
   fleetUrl: string;
   fleetKey?: string;
   rnKey: string;
   timeoutMs: number;
+  sourceTree: string;
+  expectedIdentity: ExpectedRuntimeIdentity;
+};
+
+export type ExpectedRuntimeIdentity = {
+  host: string;
+  runtime: 'container';
+  imageDigest: string;
+  sourceRevision: string;
+  composeGeneration: string;
+  composeSha256: string;
 };
 
 export type DependencyName = 'postgres' | 'fleet' | 'mastra' | 'scheduler' | 'zero';
@@ -71,6 +83,14 @@ function fleetOrigin(raw: string): string {
   return parsed.origin;
 }
 
+function databaseNameFromUrl(raw: string): string {
+  try {
+    return decodeURIComponent(new URL(raw).pathname.replace(/^\/+/, '')) || '[missing]';
+  } catch {
+    return '[invalid]';
+  }
+}
+
 function headers(key?: string): Record<string, string> {
   return {
     accept: 'application/json',
@@ -97,23 +117,54 @@ async function fetchJson(url: string, init: RequestInit, timeoutMs: number): Pro
 
 export function configFromEnvironment(): LiveServiceConfig {
   const databaseUrl = nonEmpty('MK6_DATABASE_URL');
+  const databaseName = nonEmpty('MK6_DATABASE_NAME');
   const mastraUrl = nonEmpty('MK6_MASTRA_URL');
   const zeroUrl = nonEmpty('MK6_ZERO_URL');
   const fleetUrl = nonEmpty('FLEET_URL', 'http://127.0.0.1:4545');
   const rnKey = nonEmpty('MK6_RN_KEY');
-  if (!databaseUrl || !mastraUrl || !zeroUrl || !rnKey) {
+  const sourceTree = nonEmpty('MK6_EXPECTED_SOURCE_TREE');
+  const host = nonEmpty('MK6_EXPECTED_DEPLOY_HOST');
+  const runtime = nonEmpty('MK6_EXPECTED_RUNTIME');
+  const imageDigest = nonEmpty('MK6_EXPECTED_IMAGE_DIGEST');
+  const sourceRevision = nonEmpty('MK6_EXPECTED_SOURCE_REVISION');
+  const composeGeneration = nonEmpty('MK6_EXPECTED_COMPOSE_GENERATION');
+  const composeSha256 = nonEmpty('MK6_EXPECTED_COMPOSE_SHA256');
+  if (
+    !databaseUrl ||
+    !databaseName ||
+    !mastraUrl ||
+    !zeroUrl ||
+    !rnKey ||
+    !sourceTree ||
+    !host ||
+    runtime !== 'container' ||
+    !imageDigest ||
+    !sourceRevision ||
+    !composeGeneration ||
+    !composeSha256
+  ) {
     throw new Error(
-      'MK6 live probe requires MK6_DATABASE_URL, MK6_MASTRA_URL, MK6_ZERO_URL, and MK6_RN_KEY'
+      'MK6 live probe requires isolated database, endpoint, and expected runtime identity fields'
     );
   }
   return {
     databaseUrl,
+    databaseName,
     mastraUrl: origin(mastraUrl),
     zeroUrl: origin(zeroUrl),
     fleetUrl: fleetOrigin(fleetUrl),
     fleetKey: process.env.FLEET_KEY?.trim() || undefined,
     rnKey,
     timeoutMs: timeoutFromEnv('MK6_LIVE_TIMEOUT_MS', 120_000),
+    sourceTree,
+    expectedIdentity: {
+      host,
+      runtime: 'container',
+      imageDigest,
+      sourceRevision,
+      composeGeneration,
+      composeSha256,
+    },
   };
 }
 
@@ -164,6 +215,7 @@ export async function probePostgresWriteRead(
       ready: true,
       dependency: 'postgres',
       databaseTarget: 'isolated',
+      databaseName: databaseNameFromUrl(databaseUrl),
       writeRead: true,
       seededUserRow: true,
       seededUserMessageId: messageId,
@@ -177,7 +229,9 @@ export async function probePostgresWriteRead(
 
 export async function probeMastraIdentity(
   mastraUrl: string,
-  timeoutMs: number
+  timeoutMs: number,
+  expected: ExpectedRuntimeIdentity,
+  expectedDatabaseName: string
 ): Promise<ProbeResult> {
   try {
     const body = (await fetchJson(
@@ -187,18 +241,48 @@ export async function probeMastraIdentity(
     )) as {
       status?: unknown;
       deployment?: { ready?: unknown; identity?: Record<string, unknown> | null };
+      database_target?: {
+        host?: unknown;
+        effective_port?: unknown;
+        database?: unknown;
+        fingerprint?: unknown;
+      } | null;
     };
     const identity = body.deployment?.identity;
-    const identityFields = ['imageDigest', 'sourceRevision', 'composeGeneration', 'runtime'];
+    const identityFields: Array<keyof ExpectedRuntimeIdentity> = [
+      'host',
+      'runtime',
+      'imageDigest',
+      'sourceRevision',
+      'composeGeneration',
+      'composeSha256',
+    ];
+    const identityMismatches = identityFields.filter(
+      (field) => identity?.[field] !== expected[field]
+    );
+    const databaseTarget = body.database_target;
     if (
       body.status !== 'ok' ||
       body.deployment?.ready !== true ||
       !identity ||
-      identityFields.some((field) => typeof identity[field] !== 'string' || identity[field] === '')
+      identityMismatches.length > 0 ||
+      typeof databaseTarget?.host !== 'string' ||
+      databaseTarget.host !== 'postgres' ||
+      databaseTarget.effective_port !== 5432 ||
+      databaseTarget.database !== expectedDatabaseName ||
+      typeof databaseTarget.fingerprint !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(databaseTarget.fingerprint)
     ) {
-      throw new Error('Mastra health did not return an observed ready release identity');
+      throw new Error(
+        `Mastra health identity mismatch (fields=${identityMismatches.join(',') || 'database_target'})`
+      );
     }
-    return { ready: true, dependency: 'mastra', releaseIdentity: identity };
+    return {
+      ready: true,
+      dependency: 'mastra',
+      releaseIdentity: identity,
+      databaseTarget,
+    };
   } catch (error) {
     return { ready: false, dependency: 'mastra', error: redact(error) };
   }
@@ -254,10 +338,14 @@ export async function probeFleetCompletion(
           ? first.text
           : '';
     if (!content.trim()) throw new Error('fleet completion returned empty content');
+    if (!content.includes(sentinel)) {
+      throw new Error('fleet completion did not echo the live verification sentinel');
+    }
     return {
       ready: true,
       dependency: 'fleet',
       fleetCompletionCount: 1,
+      fleetSentinelEcho: true,
       model: typeof body.model === 'string' ? body.model : model,
       completionId: typeof body.id === 'string' && body.id ? body.id : 'observed-without-id',
       completionTextLength: content.trim().length,
@@ -407,6 +495,8 @@ async function queueMeta(
 
 export async function probeSchedulerHeartbeat(
   databaseUrl: string,
+  conversationId: string,
+  sentinel = MK6_SENTINEL,
   timeoutMs = timeoutFromEnv('MK6_SCHEDULER_HEARTBEAT_TIMEOUT_MS', 75_000)
 ): Promise<ProbeResult> {
   const sql = postgres(databaseUrl, {
@@ -421,17 +511,44 @@ export async function probeSchedulerHeartbeat(
       throw new Error('scheduler queue heartbeat is not ready');
 
     // The scheduler's periodic backend check only re-reads queue_backend_meta
-    // when the process is already ready. Enqueue a disposable unknown job and
-    // require the real scheduler consumer to lease and complete it instead of
-    // treating that static metadata row as a heartbeat.
+    // when the process is already ready. Seed a stale task and enqueue the
+    // registered task-timeout-worker job so the real scheduler invokes its
+    // production handler before completing this durable queue row.
     const key = `mk6-live-heartbeat-${randomUUID()}`;
-    const inserted = await sql<{ id: string; created_at: string | Date }[]>`
-      INSERT INTO queue_jobs (name, lane, priority, payload, status, max_attempts, key)
-      VALUES ('mk6:verification-heartbeat', 'interactive', 100, ${sql.json({} as never)}, 'pending', 1, ${key})
-      RETURNING id::text AS id, created_at
-    `;
-    const job = inserted[0];
-    if (!job) throw new Error('scheduler heartbeat job was not inserted');
+    const taskKey = `mk6-scheduler-${sentinel}-${randomUUID()}`;
+    const payload = { sentinel, conversationId };
+    const seeded = await sql.begin(async (tx) => {
+      const taskRows = await tx<{ id: string }[]>`
+        INSERT INTO tasks (
+          task_type,
+          status,
+          legacy_convex_id,
+          conversation_id,
+          started_at,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          'mk6-scheduler-verification',
+          'running',
+          ${taskKey},
+          ${conversationId},
+          now() - interval '90 minutes',
+          now() - interval '90 minutes',
+          now() - interval '90 minutes'
+        )
+        RETURNING id::text AS id
+      `;
+      const jobRows = await tx<{ id: string; created_at: string | Date }[]>`
+        INSERT INTO queue_jobs (name, lane, priority, payload, status, max_attempts, key)
+        VALUES ('task-timeout-worker', 'interactive', 100, ${sql.json(payload as never)}, 'pending', 1, ${key})
+        RETURNING id::text AS id, created_at
+      `;
+      return { task: taskRows[0], job: jobRows[0] };
+    });
+    const task = seeded.task;
+    const job = seeded.job;
+    if (!task || !job) throw new Error('scheduler verification rows were not inserted');
 
     const createdAt =
       job.created_at instanceof Date ? job.created_at.toISOString() : job.created_at;
@@ -440,13 +557,24 @@ export async function probeSchedulerHeartbeat(
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const statusRows = await sql<
-        { status: string; updated_at: string | Date | null; completed_at: string | Date | null }[]
+        {
+          status: string;
+          payload: { sentinel?: unknown; conversationId?: unknown } | null;
+          updated_at: string | Date | null;
+          completed_at: string | Date | null;
+        }[]
       >`
-        SELECT status, updated_at, completed_at
+        SELECT status, payload, updated_at, completed_at
         FROM queue_jobs
         WHERE id = ${job.id}::uuid
       `;
       const status = statusRows[0];
+      const taskRows = await sql<{ status: string; conversation_id: string | null }[]>`
+        SELECT status, conversation_id
+        FROM tasks
+        WHERE id = ${task.id}::uuid
+      `;
+      const handledTask = taskRows[0];
       const completedAt = status?.completed_at
         ? status.completed_at instanceof Date
           ? status.completed_at.toISOString()
@@ -455,9 +583,13 @@ export async function probeSchedulerHeartbeat(
       const completedMs = completedAt ? Date.parse(completedAt) : Number.NaN;
       if (
         status?.status === 'completed' &&
+        status.payload?.sentinel === sentinel &&
+        status.payload?.conversationId === conversationId &&
         completedAt &&
         Number.isFinite(completedMs) &&
-        completedMs >= createdMs
+        completedMs >= createdMs &&
+        (handledTask?.status === 'failed' || handledTask?.status === 'error') &&
+        handledTask?.conversation_id === conversationId
       ) {
         return {
           ready: true,
@@ -466,9 +598,14 @@ export async function probeSchedulerHeartbeat(
           heartbeatBefore: before.updatedAt,
           heartbeatAfter: completedAt,
           heartbeatJobId: job.id,
+          heartbeatJobName: 'task-timeout-worker',
           heartbeatJobStatus: status.status,
           heartbeatJobCreatedAt: createdAt,
           heartbeatJobCompletedAt: completedAt,
+          queuePayload: status.payload,
+          handlerPath: 'task-timeout-worker',
+          handlerTaskId: task.id,
+          handlerTaskStatus: handledTask.status,
         };
       }
       await new Promise((resolve) => setTimeout(resolve, 1_000));
@@ -531,7 +668,12 @@ export async function verifyLiveStack(
   const conversationId = randomUUID();
   const postgresResult = await probePostgresWriteRead(config.databaseUrl, conversationId, sentinel);
   if (!postgresResult.ready) return postgresResult;
-  const mastraResult = await probeMastraIdentity(config.mastraUrl, config.timeoutMs);
+  const mastraResult = await probeMastraIdentity(
+    config.mastraUrl,
+    config.timeoutMs,
+    config.expectedIdentity,
+    config.databaseName
+  );
   if (!mastraResult.ready) return mastraResult;
   const fleetResult = await probeFleetCompletion(
     config.fleetUrl,
@@ -544,7 +686,11 @@ export async function verifyLiveStack(
   if (!chatResult.ready) return chatResult;
   const sentinelResult = await countSentinelRows(config.databaseUrl, conversationId, sentinel);
   if (!sentinelResult.ready) return sentinelResult;
-  const schedulerResult = await probeSchedulerHeartbeat(config.databaseUrl);
+  const schedulerResult = await probeSchedulerHeartbeat(
+    config.databaseUrl,
+    conversationId,
+    sentinel
+  );
   if (!schedulerResult.ready) return schedulerResult;
   const zeroResult = await probeZeroReplication(
     config.zeroUrl,
@@ -560,6 +706,9 @@ export async function verifyLiveStack(
     sentinel,
     sentinelCount: 1,
     fleetCompletionCount: 1,
+    databaseName: config.databaseName,
+    sourceTree: config.sourceTree,
+    expectedIdentity: config.expectedIdentity,
     releaseIdentity: mastraResult.releaseIdentity,
     postgres: postgresResult,
     mastra: { ...mastraResult, ...chatResult },
@@ -570,29 +719,35 @@ export async function verifyLiveStack(
 }
 
 export async function probeNegative(
-  dependency: DependencyName,
+  dependency: string,
   config = configFromEnvironment()
 ): Promise<ProbeResult> {
-  const deadPort = String(49_000 + Math.floor(Math.random() * 500));
   if (dependency === 'postgres') {
-    return (await probePostgresWriteRead(
-      `postgres://127.0.0.1:${deadPort}/missing`,
-      randomUUID()
-    )) as ProbeResult;
+    return (await probePostgresWriteRead(config.databaseUrl, randomUUID())) as ProbeResult;
   }
   if (dependency === 'fleet') {
-    return await probeFleetCompletion(`http://127.0.0.1:${deadPort}`, undefined, 3_000);
+    return await probeFleetCompletion(config.fleetUrl, config.fleetKey, 3_000);
   }
   if (dependency === 'mastra') {
-    return await probeMastraIdentity(`http://127.0.0.1:${deadPort}`, 3_000);
+    return await probeMastraIdentity(
+      config.mastraUrl,
+      3_000,
+      config.expectedIdentity,
+      config.databaseName
+    );
   }
   if (dependency === 'zero') {
-    return await probeZeroReplication(`http://127.0.0.1:${deadPort}`, randomUUID(), 3_000);
+    return await probeZeroReplication(config.zeroUrl, randomUUID(), 3_000);
   }
-  return await probeSchedulerHeartbeat(
-    config.databaseUrl,
-    timeoutFromEnv('MK6_SCHEDULER_NEGATIVE_TIMEOUT_MS', 5_000)
-  );
+  if (dependency === 'scheduler') {
+    return await probeSchedulerHeartbeat(
+      config.databaseUrl,
+      randomUUID(),
+      MK6_SENTINEL,
+      timeoutFromEnv('MK6_SCHEDULER_NEGATIVE_TIMEOUT_MS', 5_000)
+    );
+  }
+  return { ready: false, error: `unknown negative dependency: ${dependency}` };
 }
 
 async function main(): Promise<void> {
@@ -600,7 +755,7 @@ async function main(): Promise<void> {
   try {
     const result =
       mode === '--negative'
-        ? await probeNegative(nonEmpty('MK6_NEGATIVE_DEPENDENCY') as DependencyName)
+        ? await probeNegative(nonEmpty('MK6_NEGATIVE_DEPENDENCY'))
         : await verifyLiveStack();
     console.log(JSON.stringify(result));
     process.exit(result.ready ? 0 : 1);
