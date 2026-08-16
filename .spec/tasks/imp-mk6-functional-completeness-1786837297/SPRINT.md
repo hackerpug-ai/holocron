@@ -1,7 +1,8 @@
 # Sprint: imp-mk6-functional-completeness-1786837297
 
-**Status:** In Progress
-> Progress: 0/24 tasks completed · updated 2026-08-16T17:08:34Z
+**Status:** Blocked
+> Progress: 0/24 tasks completed · updated 2026-08-16T17:36:53Z
+> Status-Note: Blocked: Docker Desktop engine is unavailable; Wave 0 live dependency proof cannot run. Retained implementation a7c03ccc is unlanded.
 
 > Learned spec repair: tt-004, remediation cycle 2
 > Immutable objective: Restore all MK-VI scoped functionality to specified operation
