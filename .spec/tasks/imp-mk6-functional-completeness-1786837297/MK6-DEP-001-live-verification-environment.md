@@ -1,8 +1,9 @@
 # MK6-DEP-001: Provision the real MK-VI verification environment
 
-> Status: 🟡 In Progress
+> Status: 🔵 In Review
 > Cycle: 1
-> Updated: 2026-08-16T17:09:45Z
+> Commit: 3904751c048f17b755a452824099770ea38bd754
+> Updated: 2026-08-16T19:03:05Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: infrastructure
