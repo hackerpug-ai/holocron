@@ -124,7 +124,7 @@ services:
       - source: mk6-fleet-key
         target: mk6_fleet_key
     healthcheck:
-      test: ["CMD-SHELL", "bun src/queue/probe-cli.ts >/dev/null"]
+      test: ["CMD-SHELL", "export DATABASE_URL=\"$$(cat /run/secrets/mk6_database_url)\"; bun src/queue/probe-cli.ts >/dev/null"]
       interval: 5s
       timeout: 5s
       retries: 12
