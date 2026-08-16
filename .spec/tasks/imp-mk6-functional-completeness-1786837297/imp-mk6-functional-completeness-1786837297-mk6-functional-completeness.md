@@ -1,5 +1,8 @@
 # imp-mk6-functional-completeness-1786837297-mk6-functional-completeness: Restore all MK-VI scoped functionality to specified operation
 
+> Status: 🟡 In Progress
+> Cycle: 1
+> Updated: 2026-08-16T05:59:56Z
 > Assignee: mastra-implementer
 > Priority: P1
 > Type: bugfix
