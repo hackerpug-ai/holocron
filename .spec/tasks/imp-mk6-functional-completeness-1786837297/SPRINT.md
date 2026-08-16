@@ -1,8 +1,8 @@
 # Sprint: imp-mk6-functional-completeness-1786837297
 
 **Status:** In Progress
-> Progress: 1/24 tasks completed · updated 2026-08-16T19:50:14Z
-> Status-Note: Wave 1 dispatched on holocron: authoritative host topology and Postgres migration truth.
+> Progress: 1/24 tasks completed · updated 2026-08-16T20:19:26Z
+> Status-Note: Wave 1 blocked on external real evidence: retained Convex export; second-device Serve receipt; four-transition incident timeline. Implementations retained unmerged.
 
 > Learned spec repair: tt-004, remediation cycle 2
 > Immutable objective: Restore all MK-VI scoped functionality to specified operation
