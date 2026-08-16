@@ -1,7 +1,7 @@
 # SPEC-REPAIR-S33-OPS-01-VERIFY: Replace the S33-OPS-01 AC-2 pseudo verifier and prove the live replacement
 
-> Status: 🟢 Complete
-> Commit: 4cfd8fdb5509ceecee5b4d9c065358b3beedea6c
+> Status: 🟡 In Progress
+> Commit: pending
 > Assignee: planner
 > Priority: P0
 > Type: SPEC-REPAIR
