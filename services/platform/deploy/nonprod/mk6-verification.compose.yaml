@@ -57,6 +57,7 @@ services:
       HOLO_COMPOSE_GENERATION: ${MK6_COMPOSE_GENERATION:?MK6_COMPOSE_GENERATION is required}
       HOLO_COMPOSE_SHA256: ${MK6_COMPOSE_SHA256:?MK6_COMPOSE_SHA256 is required}
       HOLO_DEPLOYED_AT: ${MK6_DEPLOYED_AT:?MK6_DEPLOYED_AT is required}
+      HOLO_BLOB_ROOT: /tmp/holocron-blobs
     volumes:
       - ${MK6_FLEET_MANIFEST:?MK6_FLEET_MANIFEST is required}:/app/fleet/manifest.json:ro
     extra_hosts:
