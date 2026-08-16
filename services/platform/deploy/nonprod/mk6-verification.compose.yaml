@@ -1,0 +1,182 @@
+# MK6-DEP-001 — disposable, real-service verification stack.
+#
+# Every value that identifies the stack is supplied by
+# provision-mk6-verification.sh.  There are deliberately no defaults for the
+# namespace, database, ports, volumes, or application image: accidentally
+# pointing this file at an operator-owned stack must fail closed.
+name: ${MK6_COMPOSE_PROJECT:?MK6_COMPOSE_PROJECT is required}
+
+x-mk6-logging: &mk6-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: pgvector/pgvector@sha256:691673308c99d2161ba298736f3147f1f22d79de2fb7ec93ae9b4afcab870b62
+    environment:
+      POSTGRES_DB: ${MK6_DATABASE_NAME:?MK6_DATABASE_NAME is required}
+      POSTGRES_USER: ${MK6_DATABASE_USER:?MK6_DATABASE_USER is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/mk6_postgres_password
+    secrets:
+      - source: mk6-postgres-password
+        target: mk6_postgres_password
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+    volumes:
+      - mk6-postgres-data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:${MK6_POSTGRES_PORT:?MK6_POSTGRES_PORT is required}:5432"
+    logging: *mk6-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  mastra:
+    image: ${MK6_PLATFORM_IMAGE:?MK6_PLATFORM_IMAGE is required}
+    environment:
+      PORT: "4111"
+      FLEET_URL: ${MK6_FLEET_CONTAINER_URL:?MK6_FLEET_CONTAINER_URL is required}
+      ZERO_CACHE_URL: ""
+      HOLO_CHAT_FLEET_ONLY: "1"
+      HOLO_DEPLOYMENT_REQUIRED: "1"
+      HOLO_DEPLOY_HOST: ${MK6_DEPLOY_HOST:?MK6_DEPLOY_HOST is required}
+      HOLO_DEPLOY_RUNTIME: container
+      HOLO_IMAGE_DIGEST: ${MK6_IMAGE_DIGEST:?MK6_IMAGE_DIGEST is required}
+      HOLO_SOURCE_REVISION: ${MK6_SOURCE_REVISION:?MK6_SOURCE_REVISION is required}
+      HOLO_COMPOSE_GENERATION: ${MK6_COMPOSE_GENERATION:?MK6_COMPOSE_GENERATION is required}
+      HOLO_COMPOSE_SHA256: ${MK6_COMPOSE_SHA256:?MK6_COMPOSE_SHA256 is required}
+      HOLO_DEPLOYED_AT: ${MK6_DEPLOYED_AT:?MK6_DEPLOYED_AT is required}
+    volumes:
+      - ${MK6_FLEET_MANIFEST:?MK6_FLEET_MANIFEST is required}:/app/fleet/manifest.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${MK6_MASTRA_PORT:?MK6_MASTRA_PORT is required}:4111"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *mk6-logging
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        export DATABASE_URL="$$(cat /run/secrets/mk6_database_url)";
+        export DATABASE_URL_OWNER="$$DATABASE_URL";
+        export FLEET_KEY="$$(cat /run/secrets/mk6_fleet_key)";
+        export MASTRA_API_KEY="$$(cat /run/secrets/mk6_mastra_key)";
+        export HOLO_KEY_RN="$$(cat /run/secrets/mk6_rn_key)";
+        export HOLO_KEY_MCP="$$(cat /run/secrets/mk6_mcp_key)";
+        export HOLO_KEY_CONTROL="$$(cat /run/secrets/mk6_control_key)";
+        bun src/cli/holo.ts db:migrate;
+        exec bun src/index.ts
+    secrets:
+      - mk6-database-url
+      - mk6-fleet-key
+      - mk6-mastra-key
+      - mk6-rn-key
+      - mk6-mcp-key
+      - mk6-control-key
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r=await fetch('http://127.0.0.1:4111/health');if(!r.ok)process.exit(1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  scheduler:
+    image: ${MK6_PLATFORM_IMAGE:?MK6_PLATFORM_IMAGE is required}
+    environment:
+      FLEET_URL: ${MK6_FLEET_CONTAINER_URL:?MK6_FLEET_CONTAINER_URL is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mastra:
+        condition: service_healthy
+    logging: *mk6-logging
+    command:
+      - /bin/sh
+      - -ec
+      - >-
+        export DATABASE_URL="$$(cat /run/secrets/mk6_database_url)";
+        export FLEET_KEY="$$(cat /run/secrets/mk6_fleet_key)";
+        exec bun src/queue/scheduler-worker.ts
+    secrets:
+      - mk6-database-url
+      - mk6-fleet-key
+    healthcheck:
+      test: ["CMD-SHELL", "bun src/queue/probe-cli.ts >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  zero-cache:
+    image: ghcr.io/rocicorp/zero@sha256:9be2d9303b076f2aef29cbcc629350dbc40cf0531ead59a7f61572eeb65fef72
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        export ZERO_UPSTREAM_DB="$$(cat /run/secrets/mk6_database_url)";
+        export ZERO_CVR_DB="$$ZERO_UPSTREAM_DB";
+        export ZERO_CHANGE_DB="$$ZERO_UPSTREAM_DB";
+        export ZERO_ADMIN_PASSWORD="$$(cat /run/secrets/mk6_zero_admin_password)";
+        exec zero-cache --app-publications "$$ZERO_PUBLICATION" --port "$$ZERO_PORT" --num-sync-workers "$$ZERO_NUM_SYNC_WORKERS"
+    environment:
+      ZERO_PORT: "4848"
+      ZERO_PUBLICATION: zero_pub
+      ZERO_NUM_SYNC_WORKERS: "2"
+      ZERO_UPSTREAM_MAX_CONNS: "8"
+      ZERO_CVR_MAX_CONNS: "8"
+      ZERO_CHANGE_MAX_CONNS: "8"
+      ZERO_ENABLE_CRUD_MUTATIONS: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${MK6_ZERO_PORT:?MK6_ZERO_PORT is required}:4848"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mastra:
+        condition: service_healthy
+    secrets:
+      - mk6-database-url
+      - mk6-zero-admin-password
+    logging: *mk6-logging
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:4848/keepalive"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+volumes:
+  mk6-postgres-data:
+    name: ${MK6_POSTGRES_VOLUME:?MK6_POSTGRES_VOLUME is required}
+
+secrets:
+  mk6-postgres-password:
+    environment: MK6_DATABASE_PASSWORD
+  mk6-database-url:
+    environment: MK6_DATABASE_URL_CONTAINER
+  mk6-fleet-key:
+    environment: FLEET_KEY
+  mk6-mastra-key:
+    environment: MASTRA_API_KEY
+  mk6-rn-key:
+    environment: MK6_RN_KEY
+  mk6-mcp-key:
+    environment: MK6_MCP_KEY
+  mk6-control-key:
+    environment: MK6_CONTROL_KEY
+  mk6-zero-admin-password:
+    environment: MK6_ZERO_ADMIN_PASSWORD
