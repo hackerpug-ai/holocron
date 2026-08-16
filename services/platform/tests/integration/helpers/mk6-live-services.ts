@@ -276,9 +276,23 @@ export async function submitMastraSentinel(
       }),
       signal: AbortSignal.timeout(config.timeoutMs),
     });
-    const body = (await response.json()) as { runId?: unknown; status?: unknown; error?: unknown };
+    const responseText = await response.text();
+    let body: { runId?: unknown; status?: unknown; error?: unknown; message?: unknown } = {};
+    try {
+      body = responseText ? (JSON.parse(responseText) as typeof body) : {};
+    } catch {
+      // Keep the HTTP status as the authoritative failure; do not echo a raw body.
+    }
     if (!response.ok || typeof body.runId !== 'string') {
-      throw new Error(`Mastra chat sentinel rejected HTTP ${response.status}`);
+      const detail =
+        typeof body.message === 'string'
+          ? redact(body.message)
+          : typeof body.error === 'string'
+            ? redact(body.error)
+            : '';
+      throw new Error(
+        `Mastra chat sentinel rejected HTTP ${response.status}${detail ? `: ${detail}` : ''}`
+      );
     }
     const deadline = Date.now() + config.timeoutMs;
     let last: { status?: string; finalText?: string; error?: string } = {};

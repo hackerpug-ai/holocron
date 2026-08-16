@@ -62,7 +62,7 @@ fi
 
 RUN_ID="mk6-$(date -u +%Y%m%d%H%M%S)-$(openssl rand -hex 4)"
 PROJECT="holocron-${RUN_ID}"
-DB_NAME="mk6_${RUN_ID//-/_}"
+DB_NAME="holocron_nonprod"
 DB_USER="holocron"
 DB_PASSWORD="${MK6_DATABASE_PASSWORD:-$(openssl rand -hex 24)}"
 ZERO_PASSWORD="${MK6_ZERO_ADMIN_PASSWORD:-$(openssl rand -hex 24)}"
