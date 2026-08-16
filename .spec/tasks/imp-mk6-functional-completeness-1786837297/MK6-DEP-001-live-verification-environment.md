@@ -1,8 +1,9 @@
 # MK6-DEP-001: Provision the real MK-VI verification environment
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Cycle: 1
+> Updated: 2026-08-16T17:09:45Z
 > Assignee: devops-engineer
-> Reviewer: mastra-reviewer
 > Priority: P0
 > Type: infrastructure
 > Wave: 0
