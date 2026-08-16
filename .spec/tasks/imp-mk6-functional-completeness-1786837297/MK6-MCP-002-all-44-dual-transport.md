@@ -16,37 +16,680 @@ Actual stdio and stateless Streamable HTTP behaviorally execute all 44 tools aga
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` uses the official `@modelcontextprotocol/sdk`, a real stdio child, stateless HTTP (`sessionIdGenerator: undefined`), and a second authorized tailnet device. The 44-entry oracle manifest drives every `tools/call`; output reports `stdioPassCount=44`, `httpPassCount=44`, `unassertedToolCount=0`, schema/default/order/cursor parity, a non-empty sentinel for every read, durable Postgres/blob/queue delta and readback for every mutation, declared error for every error-only tool, cancellation, idempotency, and equivalent envelopes.
-- [ ] AC-2: Missing MCP credential name produces HTTP 401 and zero durable delta.
-- [ ] AC-3: An unknown credential produces HTTP 401 and zero durable delta.
-- [ ] AC-4: A valid credential with the wrong scope produces HTTP 403 and zero durable delta.
-- [ ] AC-5: A disallowed Origin is rejected before tool execution.
-- [ ] AC-6: A DNS-rebinding Host is rejected before tool execution.
-- [ ] AC-7: Retired-plane input returns exact declared error `retired_cloud_plane_removed_d08_02`.
-- [ ] AC-8: A not-found input returns its declared `isError:true` envelope.
-- [ ] AC-9: Invalid input schema fails before handler execution and changes no state.
-- [ ] AC-10: A real controlled upstream failure returns its declared `isError:true` envelope.
-- [ ] AC-11: Stdio stdout contains JSON-RPC only and credential canaries appear zero times in stdout, stderr, reports, and captures.
+- [ ] AC-1: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` uses the official `@modelcontextprotocol/sdk`, a real stdio child, stateless HTTP (`sessionIdGenerator: undefined`), and a second authorized tailnet device. A same-release semantic receipt manifest records 44 distinct stdio operation IDs plus 44 distinct HTTP operation IDs; every tool is asserted, every read records a non-empty sentinel/readback, every mutation records its durable Postgres/blob/queue delta and readback, every error-only tool records its declared error, and output reports `stdioPassCount=44`, `httpPassCount=44`, and `unassertedToolCount=0` with schema/default/order/cursor parity, cancellation, idempotency, and equivalent envelopes.
+- [ ] AC-2: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json` — Missing MCP credential name produces HTTP 401 and zero durable delta.
+- [ ] AC-3: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` — An unknown credential produces HTTP 401 and zero durable delta.
+- [ ] AC-4: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` — A valid credential with the wrong scope produces HTTP 403 and zero durable delta.
+- [ ] AC-5: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` — A disallowed Origin is rejected before tool execution.
+- [ ] AC-6: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` — A DNS-rebinding Host is rejected before tool execution.
+- [ ] AC-7: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` — Retired-plane input returns exact declared error `retired_cloud_plane_removed_d08_02`.
+- [ ] AC-8: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` — A not-found input returns its declared `isError:true` envelope.
+- [ ] AC-9: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` — Invalid input schema fails before handler execution and changes no state.
+- [ ] AC-10: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` — A real controlled upstream failure returns its declared `isError:true` envelope.
+- [ ] AC-11: `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json` — Stdio stdout contains JSON-RPC only and credential canaries appear zero times in stdout, stderr, reports, and captures.
 
 ## Test Criteria
 
 | ID | Binary statement | Maps | Verify |
 |---|---|---|---|
-| TC-1 | The 44-entry oracle passes all 44 calls on each transport with zero unasserted tools. | AC-1 | `PLATFORM_IT=1 bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-2 | Missing credential is 401 with no side effect. | AC-2 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json` |
-| TC-3 | Unknown credential is 401 with no side effect. | AC-3 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-4 | Valid wrong-scope credential is 403. | AC-4 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-5 | Disallowed Origin is rejected. | AC-5 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-6 | DNS-rebinding Host is rejected. | AC-6 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-7 | Retired plane returns the exact declared error. | AC-7 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-8 | Not-found returns declared error on both transports. | AC-8 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-9 | Invalid schema never reaches a handler. | AC-9 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-10 | Controlled upstream failure returns declared error. | AC-10 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
-| TC-11 | Stdio and retained captures are JSON-RPC-only and secret-free. | AC-11 | `PLATFORM_IT=1 MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json` |
+| TC-1 | The 44-entry oracle passes all 44 calls on each transport with zero unasserted tools. | AC-1 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-2 | Missing credential is 401 with no side effect. | AC-2 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json` |
+| TC-3 | Unknown credential is 401 with no side effect. | AC-3 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-4 | Valid wrong-scope credential is 403. | AC-4 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-5 | Disallowed Origin is rejected. | AC-5 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-6 | DNS-rebinding Host is rejected. | AC-6 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-7 | Retired plane returns the exact declared error. | AC-7 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-8 | Not-found returns declared error on both transports. | AC-8 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-9 | Invalid schema never reaches a handler. | AC-9 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-10 | Controlled upstream failure returns declared error. | AC-10 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json` |
+| TC-11 | Stdio and retained captures are JSON-RPC-only and secret-free. | AC-11 | `PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json` |
 
 `MANUAL-ONLY MCP-M1`: the second authorized tailnet device and value-free credential name `HOLO_KEY_MCP` are supplied by the operator. Static tool count, switch coverage, frozen fixtures, generated schemas, `tools/list`, and credential values in argv are forbidden. The personal-tailnet scoped-key policy is the immutable AP-7 boundary.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
-{"version":"1","task_id":"MK6-MCP-002","tdd_mode":"red_first","verification_policy":{"requires_tests":true,"requires_red_evidence":true,"requires_seeded_evidence":true},"fixtures":{"mcp_release":{"seed_method":"public_api","description":"same non-empty release reached by stdio and a second real tailnet device with a 44-entry oracle","records":["oracleManifestEntryCount: 44","sentinelId: mk6-mcp-sentinel-1"]},"missing_key":{"seed_method":"public_api","description":"real HTTP call without credential","records":["expectedStatus: 401"]},"unknown_key":{"seed_method":"public_api","description":"real HTTP call with unknown credential","records":["expectedStatus: 401"]},"wrong_scope":{"seed_method":"public_api","description":"real HTTP call with valid wrong-scope credential","records":["expectedStatus: 403"]},"bad_origin":{"seed_method":"public_api","description":"real HTTP call with disallowed Origin","records":["expectedRejectCount: 1"]},"bad_host":{"seed_method":"public_api","description":"real HTTP call with DNS-rebinding Host","records":["expectedRejectCount: 1"]},"retired_plane":{"seed_method":"public_api","description":"schema-valid retired-plane tool call","records":["expectedErrorCount: 2"]},"not_found":{"seed_method":"public_api","description":"schema-valid absent target call","records":["expectedErrorCount: 2"]},"invalid_schema":{"seed_method":"public_api","description":"schema-invalid call on both transports","records":["expectedHandlerCallCount: 0"]},"upstream_error":{"seed_method":"public_api","description":"real controlled upstream returning failure","records":["expectedErrorCount: 2"]},"redaction":{"seed_method":"cli","description":"real stdio child with a credential canary supplied outside argv","records":["expectedCanaryOccurrenceCount: 0"]}},"requirements":[{"id":"AC-1","type":"acceptance_criterion","primary":true,"description":"All 44 per-tool oracles pass on stdio and second-device stateless HTTP","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-all-44","test_tier":"e2e","tier":"visible","verification_service":"mcp-stdio-streamable-http-postgres","topology":"multi-node","negative_control":{"would_fail_if":["the second real device is removed or tools/call is replaced by static tools/list"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"mcp_release","action":{"steps":["drive stdio locally and a second real device through private HTTPS using every 44-entry oracle"]},"end_state":{"must_observe":["stdioPassCount: 44","httpPassCount: 44","unassertedToolCount: 0","oracleManifestEntryCount: 44"],"must_not_observe":["stdioPassCount: 0","empty database sentinel"]}}]}},{"id":"AC-2","type":"acceptance_criterion","description":"Missing credential is 401","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json","maps_to_ac":null,"scenario":{"id":"mcp-missing-key","test_tier":"integration","tier":"visible","verification_service":"mcp-streamable-http","negative_control":{"would_fail_if":["authentication is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"missing_key","action":{"steps":["call HTTP MCP without credential"]},"end_state":{"must_observe":["httpStatus: 401","durableDelta: 0"],"must_not_observe":["httpStatus: 200","empty auth failure"]}}]}},{"id":"AC-3","type":"acceptance_criterion","description":"Unknown credential is 401","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-unknown-key","test_tier":"integration","tier":"visible","verification_service":"mcp-streamable-http","negative_control":{"would_fail_if":["authentication lookup is removed and unknown credential is accepted"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"unknown_key","action":{"steps":["call HTTP MCP with unknown credential"]},"end_state":{"must_observe":["httpStatus: 401","durableDelta: 0"],"must_not_observe":["httpStatus: 200","empty auth failure"]}}]}},{"id":"AC-4","type":"acceptance_criterion","description":"Wrong scope is 403","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-wrong-scope","test_tier":"integration","tier":"visible","verification_service":"mcp-streamable-http","negative_control":{"would_fail_if":["scope check is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"wrong_scope","action":{"steps":["call HTTP MCP with valid wrong-scope credential"]},"end_state":{"must_observe":["httpStatus: 403","durableDelta: 0"],"must_not_observe":["httpStatus: 200","empty scope failure"]}}]}},{"id":"AC-5","type":"acceptance_criterion","description":"Disallowed Origin is rejected","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-origin","test_tier":"integration","tier":"visible","verification_service":"mcp-streamable-http","negative_control":{"would_fail_if":["origin validation is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"bad_origin","action":{"steps":["call HTTP MCP with disallowed Origin"]},"end_state":{"must_observe":["requestRejectCount: 1","handlerCallCount: 0"],"must_not_observe":["requestRejectCount: 0","empty rejection class"]}}]}},{"id":"AC-6","type":"acceptance_criterion","description":"DNS-rebinding Host is rejected","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-dns-rebinding","test_tier":"integration","tier":"visible","verification_service":"mcp-streamable-http","negative_control":{"would_fail_if":["host validation is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"bad_host","action":{"steps":["call HTTP MCP with DNS-rebinding Host"]},"end_state":{"must_observe":["requestRejectCount: 1","handlerCallCount: 0"],"must_not_observe":["requestRejectCount: 0","empty rejection class"]}}]}},{"id":"AC-7","type":"acceptance_criterion","description":"Retired plane returns exact declared error","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-retired-plane","test_tier":"integration","tier":"visible","verification_service":"mcp-dual-transport","negative_control":{"would_fail_if":["retired plane error is converted to empty success"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"retired_plane","action":{"steps":["call retired-plane input on both transports"]},"end_state":{"must_observe":["declaredErrorCount: 2","failureClass: retired_cloud_plane_removed_d08_02"],"must_not_observe":["declaredErrorCount: 0","empty result accepted"]}}]}},{"id":"AC-8","type":"acceptance_criterion","description":"Not-found returns declared error","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-not-found","test_tier":"integration","tier":"visible","verification_service":"mcp-dual-transport-postgres","negative_control":{"would_fail_if":["not-found is converted to empty success"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"not_found","action":{"steps":["call absent target on both transports"]},"end_state":{"must_observe":["declaredErrorCount: 2","durableDelta: 0"],"must_not_observe":["declaredErrorCount: 0","empty error code"]}}]}},{"id":"AC-9","type":"acceptance_criterion","description":"Invalid schema does not execute handler","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-invalid-schema","test_tier":"integration","tier":"visible","verification_service":"mcp-dual-transport","negative_control":{"would_fail_if":["schema validation is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"invalid_schema","action":{"steps":["send schema-invalid call on both transports"]},"end_state":{"must_observe":["schemaErrorCount: 2","handlerCallCount: 0"],"must_not_observe":["schemaErrorCount: 0","empty schema error"]}}]}},{"id":"AC-10","type":"acceptance_criterion","description":"Controlled upstream failure returns declared error","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-upstream-error","test_tier":"integration","tier":"visible","verification_service":"mcp-dual-transport-http-upstream","negative_control":{"would_fail_if":["upstream error is replaced by static success"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"upstream_error","action":{"steps":["call tool against failing controlled upstream on both transports"]},"end_state":{"must_observe":["declaredErrorCount: 2","durableDelta: 0"],"must_not_observe":["declaredErrorCount: 0","empty upstream error"]}}]}},{"id":"AC-11","type":"acceptance_criterion","description":"Stdio and captures are JSON-RPC-only and redacted","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json","maps_to_ac":null,"scenario":{"id":"mcp-stdout-redaction","test_tier":"integration","tier":"visible","verification_service":"mcp-stdio-redaction","negative_control":{"would_fail_if":["secret canary redaction is removed or stdout gains non-JSON output"]},"evidence":{"artifact_type":"stdout","required_capture":true},"cases":[{"start_ref":"redaction","action":{"steps":["run real stdio child and scan stdout, stderr, report, and captures for canary"]},"end_state":{"must_observe":["jsonRpcLineCount > 0","nonJsonStdoutLineCount: 0","canaryOccurrenceCount: 0"],"must_not_observe":["jsonRpcLineCount: 0","empty redaction receipt"]}}]}},{"id":"TC-1","type":"test_criterion","description":"All 44 pass both transports","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-1"},{"id":"TC-2","type":"test_criterion","description":"Missing key is 401","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json","maps_to_ac":"AC-2"},{"id":"TC-3","type":"test_criterion","description":"Unknown key is 401","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-3"},{"id":"TC-4","type":"test_criterion","description":"Wrong scope is 403","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-4"},{"id":"TC-5","type":"test_criterion","description":"Origin is rejected","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-5"},{"id":"TC-6","type":"test_criterion","description":"DNS rebinding is rejected","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-6"},{"id":"TC-7","type":"test_criterion","description":"Retired plane errors","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-7"},{"id":"TC-8","type":"test_criterion","description":"Not-found errors","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-8"},{"id":"TC-9","type":"test_criterion","description":"Invalid schema blocks handler","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-9"},{"id":"TC-10","type":"test_criterion","description":"Upstream error is declared","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-10"},{"id":"TC-11","type":"test_criterion","description":"Stdio is clean and redacted","verify":"PLATFORM_IT=1 MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json","maps_to_ac":"AC-11"}]}
+{
+  "version": "1",
+  "task_id": "MK6-MCP-002",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "mcp_release": {
+      "seed_method": "public_api",
+      "description": "same non-empty release reached by stdio and a second real tailnet device with a 44-entry oracle",
+      "records": [
+        "oracleManifestEntryCount: 44",
+        "sentinelId: mk6-mcp-sentinel-1"
+      ]
+    },
+    "missing_key": {
+      "seed_method": "public_api",
+      "description": "real HTTP call without credential",
+      "records": [
+        "expectedStatus: 401"
+      ]
+    },
+    "unknown_key": {
+      "seed_method": "public_api",
+      "description": "real HTTP call with unknown credential",
+      "records": [
+        "expectedStatus: 401"
+      ]
+    },
+    "wrong_scope": {
+      "seed_method": "public_api",
+      "description": "real HTTP call with valid wrong-scope credential",
+      "records": [
+        "expectedStatus: 403"
+      ]
+    },
+    "bad_origin": {
+      "seed_method": "public_api",
+      "description": "real HTTP call with disallowed Origin",
+      "records": [
+        "expectedRejectCount: 1"
+      ]
+    },
+    "bad_host": {
+      "seed_method": "public_api",
+      "description": "real HTTP call with DNS-rebinding Host",
+      "records": [
+        "expectedRejectCount: 1"
+      ]
+    },
+    "retired_plane": {
+      "seed_method": "public_api",
+      "description": "schema-valid retired-plane tool call",
+      "records": [
+        "expectedErrorCount: 2"
+      ]
+    },
+    "not_found": {
+      "seed_method": "public_api",
+      "description": "schema-valid absent target call",
+      "records": [
+        "expectedErrorCount: 2"
+      ]
+    },
+    "invalid_schema": {
+      "seed_method": "public_api",
+      "description": "schema-invalid call on both transports",
+      "records": [
+        "expectedHandlerCallCount: 0"
+      ]
+    },
+    "upstream_error": {
+      "seed_method": "public_api",
+      "description": "real controlled upstream returning failure",
+      "records": [
+        "expectedErrorCount: 2"
+      ]
+    },
+    "redaction": {
+      "seed_method": "cli",
+      "description": "real stdio child with a credential canary supplied outside argv",
+      "records": [
+        "expectedCanaryOccurrenceCount: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "All 44 per-tool oracles pass on stdio and second-device stateless HTTP",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-all-44",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "mcp-stdio-streamable-http-postgres",
+        "topology": "multi-node",
+        "negative_control": {
+          "would_fail_if": [
+            "the second real device is removed or tools/call is replaced by static tools/list"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "mcp_release",
+            "action": {
+              "steps": [
+                "drive stdio locally and a second authorized device through https://<authorized-tailnet-host>:44111/mcp using names-only HOLO_KEY_MCP; retain a same-release per-tool semantic receipt for every operation"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "stdioPassCount: 44",
+                "httpPassCount: 44",
+                "unassertedToolCount: 0",
+                "oracleManifestEntryCount: 44",
+                "stdioDistinctOperationIdCount: 44",
+                "httpDistinctOperationIdCount: 44",
+                "semanticReceiptEntryCount: 88",
+                "assertedToolCount: 44",
+                "readReceiptReadbackCount > 0",
+                "mutationReceiptDurableReadbackCount > 0",
+                "declaredErrorReceiptCount > 0",
+                "sameReleaseIdentityCount: 1"
+              ],
+              "must_not_observe": [
+                "stdioPassCount: 0",
+                "empty database sentinel"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "description": "Missing credential is 401",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-missing-key",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-streamable-http",
+        "negative_control": {
+          "would_fail_if": [
+            "authentication is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "missing_key",
+            "action": {
+              "steps": [
+                "call HTTP MCP without credential"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "httpStatus: 401",
+                "durableDelta: 0"
+              ],
+              "must_not_observe": [
+                "httpStatus: 200",
+                "empty auth failure"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "description": "Unknown credential is 401",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-unknown-key",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-streamable-http",
+        "negative_control": {
+          "would_fail_if": [
+            "authentication lookup is removed and unknown credential is accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "unknown_key",
+            "action": {
+              "steps": [
+                "call HTTP MCP with unknown credential"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "httpStatus: 401",
+                "durableDelta: 0"
+              ],
+              "must_not_observe": [
+                "httpStatus: 200",
+                "empty auth failure"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "description": "Wrong scope is 403",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-wrong-scope",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-streamable-http",
+        "negative_control": {
+          "would_fail_if": [
+            "scope check is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "wrong_scope",
+            "action": {
+              "steps": [
+                "call HTTP MCP with valid wrong-scope credential"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "httpStatus: 403",
+                "durableDelta: 0"
+              ],
+              "must_not_observe": [
+                "httpStatus: 200",
+                "empty scope failure"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "description": "Disallowed Origin is rejected",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-origin",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-streamable-http",
+        "negative_control": {
+          "would_fail_if": [
+            "origin validation is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "bad_origin",
+            "action": {
+              "steps": [
+                "call HTTP MCP with disallowed Origin"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "requestRejectCount: 1",
+                "handlerCallCount: 0"
+              ],
+              "must_not_observe": [
+                "requestRejectCount: 0",
+                "empty rejection class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "description": "DNS-rebinding Host is rejected",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-dns-rebinding",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-streamable-http",
+        "negative_control": {
+          "would_fail_if": [
+            "host validation is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "bad_host",
+            "action": {
+              "steps": [
+                "call HTTP MCP with DNS-rebinding Host"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "requestRejectCount: 1",
+                "handlerCallCount: 0"
+              ],
+              "must_not_observe": [
+                "requestRejectCount: 0",
+                "empty rejection class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-7",
+      "type": "acceptance_criterion",
+      "description": "Retired plane returns exact declared error",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-retired-plane",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-dual-transport",
+        "negative_control": {
+          "would_fail_if": [
+            "retired plane error is converted to empty success"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "retired_plane",
+            "action": {
+              "steps": [
+                "call retired-plane input on both transports"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "declaredErrorCount: 2",
+                "failureClass: retired_cloud_plane_removed_d08_02"
+              ],
+              "must_not_observe": [
+                "declaredErrorCount: 0",
+                "empty result accepted"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-8",
+      "type": "acceptance_criterion",
+      "description": "Not-found returns declared error",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-not-found",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-dual-transport-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "not-found is converted to empty success"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "not_found",
+            "action": {
+              "steps": [
+                "call absent target on both transports"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "declaredErrorCount: 2",
+                "durableDelta: 0"
+              ],
+              "must_not_observe": [
+                "declaredErrorCount: 0",
+                "empty error code"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-9",
+      "type": "acceptance_criterion",
+      "description": "Invalid schema does not execute handler",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-invalid-schema",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-dual-transport",
+        "negative_control": {
+          "would_fail_if": [
+            "schema validation is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "invalid_schema",
+            "action": {
+              "steps": [
+                "send schema-invalid call on both transports"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "schemaErrorCount: 2",
+                "handlerCallCount: 0"
+              ],
+              "must_not_observe": [
+                "schemaErrorCount: 0",
+                "empty schema error"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-10",
+      "type": "acceptance_criterion",
+      "description": "Controlled upstream failure returns declared error",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-upstream-error",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-dual-transport-http-upstream",
+        "negative_control": {
+          "would_fail_if": [
+            "upstream error is replaced by static success"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "api_response",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "upstream_error",
+            "action": {
+              "steps": [
+                "call tool against failing controlled upstream on both transports"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "declaredErrorCount: 2",
+                "durableDelta: 0"
+              ],
+              "must_not_observe": [
+                "declaredErrorCount: 0",
+                "empty upstream error"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-11",
+      "type": "acceptance_criterion",
+      "description": "Stdio and captures are JSON-RPC-only and redacted",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mcp-stdout-redaction",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mcp-stdio-redaction",
+        "negative_control": {
+          "would_fail_if": [
+            "secret canary redaction is removed or stdout gains non-JSON output"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "redaction",
+            "action": {
+              "steps": [
+                "run real stdio child and scan stdout, stderr, report, and captures for canary"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "jsonRpcLineCount > 0",
+                "nonJsonStdoutLineCount: 0",
+                "canaryOccurrenceCount: 0"
+              ],
+              "must_not_observe": [
+                "jsonRpcLineCount: 0",
+                "empty redaction receipt"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "All 44 pass both transports",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Missing key is 401",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=missing-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --json",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Unknown key is 401",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=unknown-key bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Wrong scope is 403",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=wrong-scope bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Origin is rejected",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=origin bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-5"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "DNS rebinding is rejected",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=dns-rebinding bash scripts/verify-mk6-mcp-all-44.sh --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-6"
+    },
+    {
+      "id": "TC-7",
+      "type": "test_criterion",
+      "description": "Retired plane errors",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=retired-plane bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-7"
+    },
+    {
+      "id": "TC-8",
+      "type": "test_criterion",
+      "description": "Not-found errors",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=not-found bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-9",
+      "type": "test_criterion",
+      "description": "Invalid schema blocks handler",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=invalid-schema bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-9"
+    },
+    {
+      "id": "TC-10",
+      "type": "test_criterion",
+      "description": "Upstream error is declared",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=upstream-error bash scripts/verify-mk6-mcp-all-44.sh --stdio --tailnet-http --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-10"
+    },
+    {
+      "id": "TC-11",
+      "type": "test_criterion",
+      "description": "Stdio is clean and redacted",
+      "verify": "PLATFORM_IT=1 MK6_MCP_HTTP_ENDPOINT='https://<authorized-tailnet-host>:44111/mcp' MK6_MCP44_NEGATIVE=stdout-redaction bash scripts/verify-mk6-mcp-all-44.sh --stdio --credential-name HOLO_KEY_MCP --json",
+      "maps_to_ac": "AC-11"
+    }
+  ]
+}
 -->

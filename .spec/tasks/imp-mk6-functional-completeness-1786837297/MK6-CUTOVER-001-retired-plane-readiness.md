@@ -5,9 +5,9 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: verification
-> Wave: 13
+> Wave: 14
 > Proposed by: mastra-planner
-> Files: services/platform/src/config/verify-no-convex-env.ts, services/platform/src/cli/commands/verify-no-convex.ts, services/platform/src/cli/commands/verify-no-convex-client.ts, services/platform/src/sync/client-callsite-inventory.ts, services/platform/src/cutover/convex-live-attestation.ts, services/platform/src/cutover/fence-status.ts, services/platform/tests/integration/s32-d08-01-no-convex-decommission.test.ts, services/platform/tests/integration/sprint32-decommission-runbook.test.ts, scripts/verify-mk6-retired-plane.sh, .gate-evidence/mk6-cutover/**
+> Files: services/platform/src/config/verify-no-convex-env.ts, services/platform/src/cli/commands/verify-no-convex.ts, services/platform/src/cli/commands/verify-no-convex-client.ts, services/platform/src/sync/client-callsite-inventory.ts, services/platform/src/cutover/convex-live-attestation.ts, services/platform/src/cutover/fence-status.ts, services/platform/tests/integration/s32-d08-01-no-convex-decommission.test.ts, services/platform/tests/integration/sprint32-decommission-runbook.test.ts, scripts/verify-mk6-retired-plane.sh, .gate-evidence/mk6-cutover
 > Depends on: MK6-DATA-002, MK6-MCP-002, MK6-CLIENT-003, MK6-RECOVERY-001, MK6-NATIVE-001, MK6-PROVENANCE-001
 
 ## Outcome
@@ -16,23 +16,275 @@ Fresh code, runtime, MCP, native, and two-device evidence proves only Postgres/Z
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --json` proves no Convex runtime/config/callsite, authenticated real MCP initialize, a named native Postgres/Zero read and durable mutation, and a current D08-02 receipt bound to the candidate.
-- [ ] AC-2: Current two-device D08-09 evidence records exact SHA/image/generation, four healthy services, Postgres-down 503/recovery 200, persistent PG/blob sentinels, 44 MCP tools, no Funnel, and capture hashes.
-- [ ] AC-3: A one-device D08-09 receipt fails with `SECOND_DEVICE_MISSING`.
-- [ ] AC-4: A stale or wrong-release D08-09 receipt fails with `D08_09_STALE` or `RELEASE_IDENTITY_MISMATCH`.
+- [ ] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --native --mcp --json` — `PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --json` proves no Convex runtime/config/callsite, authenticated real MCP initialize, a named native Postgres/Zero read and durable mutation, and a current D08-02 receipt bound to the candidate.
+- [ ] AC-2: `PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json` — Current two-device D08-09 evidence records exact SHA/image/generation, four healthy services, Postgres-down 503/recovery 200, persistent PG/blob sentinels, 44 MCP tools, no Funnel, and capture hashes.
+- [ ] AC-3: `PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=one-device bash scripts/verify-mk6-retired-plane.sh --d08-09 --json` — A one-device D08-09 receipt fails with `SECOND_DEVICE_MISSING`.
+- [ ] AC-4: `PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=release-receipt-matrix bash scripts/verify-mk6-retired-plane.sh --d08-09 --json` enumerates stale and wrong-release receipts and rejects both with `D08_09_STALE` or `RELEASE_IDENTITY_MISMATCH`.
 
 ## Test Criteria
 
 | ID | Binary statement | Maps | Verify |
 |---|---|---|---|
 | TC-1 | The current native/MCP candidate uses no Convex plane and persists one mutation. | AC-1 | `PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --native --mcp --json` |
-| TC-2 | A current two-device D08-09 capture is complete. | AC-2 | `MANUAL-ONLY: PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json` |
+| TC-2 | A current two-device D08-09 capture is complete. | AC-2 | `PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json` |
 | TC-3 | A one-device D08-09 capture is rejected. | AC-3 | `PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=one-device bash scripts/verify-mk6-retired-plane.sh --d08-09 --json` |
 | TC-4 | Stale and wrong-release captures are rejected. | AC-4 | `PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=wrong-release bash scripts/verify-mk6-retired-plane.sh --d08-09 --json` |
+| TC-5 | A stale D08-09 capture is rejected. | AC-4 | `PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=stale-release bash scripts/verify-mk6-retired-plane.sh --d08-09 --json` |
 
 `services/platform/src/cli/holo.ts` remains exclusively owned by MK6-PROVENANCE-001; this task adds leaf commands only. `MANUAL-ONLY CUTOVER-M1`: reserve the simulator and second authorized tailnet device. This task must not delete Convex.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
-{"version":"1","task_id":"MK6-CUTOVER-001","tdd_mode":"red_first","verification_policy":{"requires_tests":true,"requires_red_evidence":true,"requires_seeded_evidence":true},"fixtures":{"cutover_candidate":{"seed_method":"ui_flow","description":"exact candidate on named native build plus second real tailnet device","records":["healthyServiceCount: 4","mcpToolCount: 44"]},"d0809_current":{"seed_method":"recorded_external","description":"fresh complete capture from two real devices","records":["authorizedDeviceCount: 2","healthyServiceCount: 4"]},"d0809_one_device":{"seed_method":"recorded_external","description":"disposable one-device copy of current receipt","records":["authorizedDeviceCount: 1"]},"d0809_wrong_release":{"seed_method":"recorded_external","description":"disposable receipt bound to different release","records":["expectedFailureCount: 1"]}},"requirements":[{"id":"AC-1","type":"acceptance_criterion","primary":true,"description":"Exact candidate native and MCP surfaces operate without Convex","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --native --mcp --json","maps_to_ac":null,"scenario":{"id":"cutover-no-convex","test_tier":"e2e","tier":"visible","verification_service":"ios-mcp-tailnet-postgres-zero","topology":"multi-node","negative_control":{"would_fail_if":["the second real device is removed or a Convex callsite remains"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"cutover_candidate","action":{"steps":["drive the named native build and a second real tailnet device against the same candidate"]},"end_state":{"must_observe":["healthyServiceCount: 4","mcpToolCount: 44","durableMutationCount: 1"],"must_not_observe":["healthyServiceCount: 0","empty Postgres sentinel"]}}]}},{"id":"AC-2","type":"acceptance_criterion","description":"Fresh complete two-device D08-09 passes","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json","maps_to_ac":null,"scenario":{"id":"cutover-d08-09-current","test_tier":"e2e","tier":"visible","verification_service":"two-device-tailnet-drill","topology":"multi-node","negative_control":{"would_fail_if":["second real device is removed or capture hashes are absent"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"d0809_current","action":{"steps":["drive device A and second real device B through current drill"]},"end_state":{"must_observe":["authorizedDeviceCount: 2","healthyServiceCount: 4","mcpToolCount: 44"],"must_not_observe":["authorizedDeviceCount: 0","empty capture hash"]}}]}},{"id":"AC-3","type":"acceptance_criterion","description":"One-device D08-09 fails","verify":"PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=one-device bash scripts/verify-mk6-retired-plane.sh --d08-09 --json","maps_to_ac":null,"scenario":{"id":"cutover-d08-09-one-device","test_tier":"integration","tier":"visible","verification_service":"d08-09-receipt-verifier","negative_control":{"would_fail_if":["second-device proof is absent but accepted"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"d0809_one_device","action":{"steps":["verify one-device receipt copy"]},"end_state":{"must_observe":["receiptFailureCount: 1","failureClass: SECOND_DEVICE_MISSING"],"must_not_observe":["receiptFailureCount: 0","empty failure class"]}}]}},{"id":"AC-4","type":"acceptance_criterion","description":"Wrong-release D08-09 fails","verify":"PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=wrong-release bash scripts/verify-mk6-retired-plane.sh --d08-09 --json","maps_to_ac":null,"scenario":{"id":"cutover-d08-09-wrong-release","test_tier":"integration","tier":"visible","verification_service":"d08-09-receipt-verifier","negative_control":{"would_fail_if":["wrong release is accepted as unchanged"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"d0809_wrong_release","action":{"steps":["verify receipt copy bound to other release"]},"end_state":{"must_observe":["receiptFailureCount: 1","failureClass: RELEASE_IDENTITY_MISMATCH"],"must_not_observe":["receiptFailureCount: 0","empty failure class"]}}]}},{"id":"TC-1","type":"test_criterion","description":"Native and MCP operate without Convex","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --native --mcp --json","maps_to_ac":"AC-1"},{"id":"TC-2","type":"test_criterion","description":"Current two-device D08-09 passes","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json","maps_to_ac":"AC-2"},{"id":"TC-3","type":"test_criterion","description":"One-device receipt fails","verify":"PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=one-device bash scripts/verify-mk6-retired-plane.sh --d08-09 --json","maps_to_ac":"AC-3"},{"id":"TC-4","type":"test_criterion","description":"Wrong-release receipt fails","verify":"PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=wrong-release bash scripts/verify-mk6-retired-plane.sh --d08-09 --json","maps_to_ac":"AC-4"}]}
+{
+  "version": "1",
+  "task_id": "MK6-CUTOVER-001",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "cutover_candidate": {
+      "seed_method": "ui_flow",
+      "description": "exact candidate on named native build plus second real tailnet device",
+      "records": [
+        "healthyServiceCount: 4",
+        "mcpToolCount: 44"
+      ]
+    },
+    "d0809_current": {
+      "seed_method": "recorded_external",
+      "description": "fresh complete capture from two real devices",
+      "records": [
+        "authorizedDeviceCount: 2",
+        "healthyServiceCount: 4"
+      ]
+    },
+    "d0809_one_device": {
+      "seed_method": "recorded_external",
+      "description": "disposable one-device copy of current receipt",
+      "records": [
+        "authorizedDeviceCount: 1"
+      ]
+    },
+    "d0809_wrong_release": {
+      "seed_method": "recorded_external",
+      "description": "disposable receipt bound to different release",
+      "records": [
+        "expectedFailureCount: 1"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "Exact candidate native and MCP surfaces operate without Convex",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --native --mcp --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "cutover-no-convex",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "ios-mcp-tailnet-postgres-zero",
+        "topology": "multi-node",
+        "negative_control": {
+          "would_fail_if": [
+            "the second real device is removed or a Convex callsite remains"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "cutover_candidate",
+            "action": {
+              "steps": [
+                "drive the named native build and a second real tailnet device against the same candidate"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "healthyServiceCount: 4",
+                "mcpToolCount: 44",
+                "durableMutationCount: 1"
+              ],
+              "must_not_observe": [
+                "healthyServiceCount: 0",
+                "empty Postgres sentinel"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "description": "Fresh complete two-device D08-09 passes",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "cutover-d08-09-current",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "two-device-tailnet-drill",
+        "topology": "multi-node",
+        "negative_control": {
+          "would_fail_if": [
+            "second real device is removed or capture hashes are absent"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "d0809_current",
+            "action": {
+              "steps": [
+                "drive device A and second real device B through current drill"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "authorizedDeviceCount: 2",
+                "healthyServiceCount: 4",
+                "mcpToolCount: 44"
+              ],
+              "must_not_observe": [
+                "authorizedDeviceCount: 0",
+                "empty capture hash"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "description": "One-device D08-09 fails",
+      "verify": "PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=one-device bash scripts/verify-mk6-retired-plane.sh --d08-09 --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "cutover-d08-09-one-device",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "d08-09-receipt-verifier",
+        "negative_control": {
+          "would_fail_if": [
+            "second-device proof is absent but accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "d0809_one_device",
+            "action": {
+              "steps": [
+                "verify one-device receipt copy"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "receiptFailureCount: 1",
+                "failureClass: SECOND_DEVICE_MISSING"
+              ],
+              "must_not_observe": [
+                "receiptFailureCount: 0",
+                "empty failure class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "description": "Stale and wrong-release D08-09 receipts fail",
+      "verify": "PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=release-receipt-matrix bash scripts/verify-mk6-retired-plane.sh --d08-09 --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "cutover-d08-09-wrong-release",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "d08-09-receipt-verifier",
+        "negative_control": {
+          "would_fail_if": [
+            "wrong release is accepted as unchanged"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "d0809_wrong_release",
+            "action": {
+              "steps": [
+                "enumerate stale-release and wrong-release receipt copies"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "enumeratedVariantCount: 2",
+                "receiptFailureCount: 2"
+              ],
+              "must_not_observe": [
+                "receiptFailureCount: 0",
+                "empty failure class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Native and MCP operate without Convex",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --native --mcp --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Current two-device D08-09 passes",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-retired-plane.sh --d08-09 --two-device --json",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "One-device receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=one-device bash scripts/verify-mk6-retired-plane.sh --d08-09 --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Wrong-release receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=wrong-release bash scripts/verify-mk6-retired-plane.sh --d08-09 --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Stale receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_CUTOVER_NEGATIVE=stale-release bash scripts/verify-mk6-retired-plane.sh --d08-09 --json",
+      "maps_to_ac": "AC-4"
+    }
+  ]
+}
 -->

@@ -5,7 +5,7 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: infrastructure
-> Wave: 14
+> Wave: 15
 > Proposed by: mastra-planner
 > Files: services/platform/src/deploy/production-deploy.ts, services/platform/src/deploy/production-release.ts, services/platform/src/deploy/verify-production.ts, services/platform/deploy/compose/compose.yaml, services/platform/deploy/compose/image-lock.json, services/platform/deploy/compose/production.env.example, scripts/run-mk6-promotion.sh, services/platform/tests/integration/mk6-release-orchestration-live.test.ts
 > Depends on: MK6-CUTOVER-001
@@ -18,11 +18,11 @@ Release orchestration produces one immutable candidate identity, defines every d
 
 - [ ] AC-1: `PLATFORM_IT=1 bash scripts/run-mk6-promotion.sh --candidate-only --json` binds source SHA, image digest, compose generation, host identity, and deployment timestamp, then executes the ten H2-06 producers in order against that same candidate.
 - [ ] AC-2: `bash scripts/run-mk6-promotion.sh --verify-cli-contract --json` proves the task-owned parser documents and accepts `--candidate-only`, `--promote-ledger-manifest`, `--verify-installed`, `--verify-rollback-authority`, and `--json`, rejects unknown flags, and performs no deployment in contract mode.
-- [ ] AC-3: Wrong SHA, image, generation, or host yields four named identity-drift failures before authority changes.
-- [ ] AC-4: An unsigned receipt yields `RECEIPT_SIGNATURE_MISSING` before authority changes.
-- [ ] AC-5: A historical or stale receipt yields `RECEIPT_NOT_CURRENT` before authority changes.
-- [ ] AC-6: Any skipped mandatory lane yields `MANDATORY_LANE_SKIPPED` and no candidate-ready result.
-- [ ] AC-7: An induced rollback failure yields `ROLLBACK_FAILED` while the independently queried authority fingerprint remains unchanged.
+- [ ] AC-3: `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=identity-drift-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json` — Wrong SHA, image, generation, or host yields four named identity-drift failures before authority changes.
+- [ ] AC-4: `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=unsigned-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json` — An unsigned receipt yields `RECEIPT_SIGNATURE_MISSING` before authority changes.
+- [ ] AC-5: `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=stale-evidence-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json` enumerates historical and stale receipts; both yield `RECEIPT_NOT_CURRENT` before authority changes.
+- [ ] AC-6: `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=skip-ios-zero bash scripts/run-mk6-promotion.sh --candidate-only --json` — Any skipped mandatory lane yields `MANDATORY_LANE_SKIPPED` and no candidate-ready result.
+- [ ] AC-7: `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=rollback-failure bash scripts/run-mk6-promotion.sh --verify-rollback-authority --json` — An induced rollback failure yields `ROLLBACK_FAILED` while the independently queried authority fingerprint remains unchanged.
 
 ## Test Criteria
 
@@ -35,10 +35,425 @@ Release orchestration produces one immutable candidate identity, defines every d
 | TC-5 | Historical receipt fails closed. | AC-5 | `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=historical-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json` |
 | TC-6 | Skipped iOS/Zero lane blocks readiness. | AC-6 | `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=skip-ios-zero bash scripts/run-mk6-promotion.sh --candidate-only --json` |
 | TC-7 | Rollback failure leaves authority fingerprint unchanged. | AC-7 | `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=rollback-failure bash scripts/run-mk6-promotion.sh --verify-rollback-authority --json` |
+| TC-8 | A stale receipt fails closed independently of the historical case. | AC-5 | `PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=stale-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json` |
 
 This task produces real receipts but does not decide promotability. The existing ledger consumes the candidate. Promotion later uses the flags produced here and may not invent new ones.
 
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
-{"version":"1","task_id":"MK6-RELEASE-001","tdd_mode":"red_first","verification_policy":{"requires_tests":true,"requires_red_evidence":true,"requires_seeded_evidence":true},"fixtures":{"candidate_release":{"seed_method":"cli","description":"one immutable candidate with all dependency lanes ready","records":["requiredGateSteps: 10"]},"cli_contract":{"seed_method":"cli","description":"task-owned release CLI parser in no-deploy contract mode","records":["requiredFlagCount: 5"]},"identity_drift":{"seed_method":"cli","description":"four disposable candidate manifests with one drifted identity field each","records":["expectedFailureCount: 4"]},"unsigned_receipt":{"seed_method":"cli","description":"disposable unsigned receipt copy","records":["expectedFailureCount: 1"]},"historical_receipt":{"seed_method":"cli","description":"disposable stale historical receipt copy","records":["expectedFailureCount: 1"]},"skipped_lane":{"seed_method":"cli","description":"disposable candidate with iOS and Zero lane omitted","records":["expectedFailureCount: 1"]},"rollback_failure":{"seed_method":"cli","description":"disposable candidate rollback failure with independently captured authority","records":["expectedAuthorityChangeCount: 0"]}},"requirements":[{"id":"AC-1","type":"acceptance_criterion","primary":true,"description":"Ten ordered receipts share one immutable candidate identity","verify":"PLATFORM_IT=1 bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":null,"scenario":{"id":"release-candidate","test_tier":"e2e","tier":"visible","verification_service":"mk6-candidate-stack","negative_control":{"would_fail_if":["one mandatory lane is removed or release identity is hardcoded"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"candidate_release","action":{"steps":["execute all ten H2-06 lane producers against one candidate"]},"end_state":{"must_observe":["orderedReceiptCount: 10","releaseIdentityCount: 1"],"must_not_observe":["orderedReceiptCount: 0","empty release identity"]}}]}},{"id":"AC-2","type":"acceptance_criterion","description":"Task-owned parser defines five downstream flags without deployment","verify":"bash scripts/run-mk6-promotion.sh --verify-cli-contract --json","maps_to_ac":null,"scenario":{"id":"release-cli-contract","test_tier":"integration","tier":"visible","verification_service":"release-cli-parser","negative_control":{"would_fail_if":["one required flag is removed or unknown flag is accepted"]},"evidence":{"artifact_type":"stdout","required_capture":true},"cases":[{"start_ref":"cli_contract","action":{"steps":["exercise each required flag and one unknown flag in no-deploy contract mode"]},"end_state":{"must_observe":["acceptedRequiredFlagCount: 5","unknownFlagRejectCount: 1","deploymentActionCount: 0"],"must_not_observe":["acceptedRequiredFlagCount: 0","empty flag inventory"]}}]}},{"id":"AC-3","type":"acceptance_criterion","description":"Identity-drift matrix fails before authority change","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=identity-drift-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":null,"scenario":{"id":"release-identity-drift","test_tier":"integration","tier":"visible","verification_service":"release-receipt-verifier","negative_control":{"would_fail_if":["wrong identity is accepted as unchanged"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"identity_drift","action":{"steps":["verify wrong SHA, image, generation, and host receipt copies"]},"end_state":{"must_observe":["identityDriftFailureCount: 4","authorityChangeCount: 0"],"must_not_observe":["identityDriftFailureCount: 0","empty failure class"]}}]}},{"id":"AC-4","type":"acceptance_criterion","description":"Unsigned receipt fails","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=unsigned-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":null,"scenario":{"id":"release-unsigned","test_tier":"integration","tier":"visible","verification_service":"release-receipt-verifier","negative_control":{"would_fail_if":["signature requirement is removed"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"unsigned_receipt","action":{"steps":["verify unsigned receipt copy"]},"end_state":{"must_observe":["receiptFailureCount: 1","failureClass: RECEIPT_SIGNATURE_MISSING"],"must_not_observe":["receiptFailureCount: 0","empty signature identity"]}}]}},{"id":"AC-5","type":"acceptance_criterion","description":"Historical receipt fails","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=historical-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":null,"scenario":{"id":"release-historical","test_tier":"integration","tier":"visible","verification_service":"release-receipt-verifier","negative_control":{"would_fail_if":["current retained bytes are absent but historical receipt is accepted"]},"evidence":{"artifact_type":"file_artifact","required_capture":true},"cases":[{"start_ref":"historical_receipt","action":{"steps":["verify stale historical receipt copy"]},"end_state":{"must_observe":["receiptFailureCount: 1","failureClass: RECEIPT_NOT_CURRENT"],"must_not_observe":["receiptFailureCount: 0","empty capture timestamp"]}}]}},{"id":"AC-6","type":"acceptance_criterion","description":"Skipped lane blocks candidate","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=skip-ios-zero bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":null,"scenario":{"id":"release-skipped-lane","test_tier":"integration","tier":"visible","verification_service":"mk6-candidate-stack","negative_control":{"would_fail_if":["mandatory lane is removed from ordering check"]},"evidence":{"artifact_type":"event_log","required_capture":true},"cases":[{"start_ref":"skipped_lane","action":{"steps":["run candidate with iOS and Zero lane omitted"]},"end_state":{"must_observe":["skippedLaneFailureCount: 1","candidateReadyCount: 0"],"must_not_observe":["skippedLaneFailureCount: 0","empty lane identifier"]}}]}},{"id":"AC-7","type":"acceptance_criterion","description":"Rollback failure preserves authority","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=rollback-failure bash scripts/run-mk6-promotion.sh --verify-rollback-authority --json","maps_to_ac":null,"scenario":{"id":"release-rollback-failure","test_tier":"integration","tier":"visible","verification_service":"release-rollback-authority","negative_control":{"would_fail_if":["authority change is ignored or rollback check is removed"]},"evidence":{"artifact_type":"event_log","required_capture":true},"cases":[{"start_ref":"rollback_failure","action":{"steps":["induce disposable rollback failure and independently requery authority"]},"end_state":{"must_observe":["rollbackFailureCount: 1","authorityChangeCount: 0"],"must_not_observe":["rollbackFailureCount: 0","empty authority fingerprint"]}}]}},{"id":"TC-1","type":"test_criterion","description":"Ten receipts bind one candidate","verify":"PLATFORM_IT=1 bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":"AC-1"},{"id":"TC-2","type":"test_criterion","description":"Five flags are defined","verify":"bash scripts/run-mk6-promotion.sh --verify-cli-contract --json","maps_to_ac":"AC-2"},{"id":"TC-3","type":"test_criterion","description":"Identity drift fails","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=identity-drift-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":"AC-3"},{"id":"TC-4","type":"test_criterion","description":"Unsigned receipt fails","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=unsigned-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":"AC-4"},{"id":"TC-5","type":"test_criterion","description":"Historical receipt fails","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=historical-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":"AC-5"},{"id":"TC-6","type":"test_criterion","description":"Skipped lane fails","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=skip-ios-zero bash scripts/run-mk6-promotion.sh --candidate-only --json","maps_to_ac":"AC-6"},{"id":"TC-7","type":"test_criterion","description":"Rollback failure preserves authority","verify":"PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=rollback-failure bash scripts/run-mk6-promotion.sh --verify-rollback-authority --json","maps_to_ac":"AC-7"}]}
+{
+  "version": "1",
+  "task_id": "MK6-RELEASE-001",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "candidate_release": {
+      "seed_method": "cli",
+      "description": "one immutable candidate with all dependency lanes ready",
+      "records": [
+        "requiredGateSteps: 10"
+      ]
+    },
+    "cli_contract": {
+      "seed_method": "cli",
+      "description": "task-owned release CLI parser in no-deploy contract mode",
+      "records": [
+        "requiredFlagCount: 5"
+      ]
+    },
+    "identity_drift": {
+      "seed_method": "cli",
+      "description": "four disposable candidate manifests with one drifted identity field each",
+      "records": [
+        "expectedFailureCount: 4"
+      ]
+    },
+    "unsigned_receipt": {
+      "seed_method": "cli",
+      "description": "disposable unsigned receipt copy",
+      "records": [
+        "expectedFailureCount: 1"
+      ]
+    },
+    "historical_receipt": {
+      "seed_method": "cli",
+      "description": "disposable stale historical receipt copy",
+      "records": [
+        "expectedFailureCount: 1"
+      ]
+    },
+    "skipped_lane": {
+      "seed_method": "cli",
+      "description": "disposable candidate with iOS and Zero lane omitted",
+      "records": [
+        "expectedFailureCount: 1"
+      ]
+    },
+    "rollback_failure": {
+      "seed_method": "cli",
+      "description": "disposable candidate rollback failure with independently captured authority",
+      "records": [
+        "expectedAuthorityChangeCount: 0"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "Ten ordered receipts share one immutable candidate identity",
+      "verify": "PLATFORM_IT=1 bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-candidate",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "mk6-candidate-stack",
+        "negative_control": {
+          "would_fail_if": [
+            "one mandatory lane is removed or release identity is hardcoded"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "candidate_release",
+            "action": {
+              "steps": [
+                "execute all ten H2-06 lane producers against one candidate"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "orderedReceiptCount: 10",
+                "releaseIdentityCount: 1"
+              ],
+              "must_not_observe": [
+                "orderedReceiptCount: 0",
+                "empty release identity"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "description": "Task-owned parser defines five downstream flags without deployment",
+      "verify": "bash scripts/run-mk6-promotion.sh --verify-cli-contract --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-cli-contract",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "release-cli-parser",
+        "negative_control": {
+          "would_fail_if": [
+            "one required flag is removed or unknown flag is accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "stdout",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "cli_contract",
+            "action": {
+              "steps": [
+                "exercise each required flag and one unknown flag in no-deploy contract mode"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "acceptedRequiredFlagCount: 5",
+                "unknownFlagRejectCount: 1",
+                "deploymentActionCount: 0"
+              ],
+              "must_not_observe": [
+                "acceptedRequiredFlagCount: 0",
+                "empty flag inventory"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "description": "Identity-drift matrix fails before authority change",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=identity-drift-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-identity-drift",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "release-receipt-verifier",
+        "negative_control": {
+          "would_fail_if": [
+            "wrong identity is accepted as unchanged"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "identity_drift",
+            "action": {
+              "steps": [
+                "verify wrong SHA, image, generation, and host receipt copies"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "identityDriftFailureCount: 4",
+                "authorityChangeCount: 0"
+              ],
+              "must_not_observe": [
+                "identityDriftFailureCount: 0",
+                "empty failure class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "description": "Unsigned receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=unsigned-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-unsigned",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "release-receipt-verifier",
+        "negative_control": {
+          "would_fail_if": [
+            "signature requirement is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "unsigned_receipt",
+            "action": {
+              "steps": [
+                "verify unsigned receipt copy"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "receiptFailureCount: 1",
+                "failureClass: RECEIPT_SIGNATURE_MISSING"
+              ],
+              "must_not_observe": [
+                "receiptFailureCount: 0",
+                "empty signature identity"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "description": "Historical and stale receipts fail",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=stale-evidence-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-historical",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "release-receipt-verifier",
+        "negative_control": {
+          "would_fail_if": [
+            "current retained bytes are absent but historical receipt is accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "historical_receipt",
+            "action": {
+              "steps": [
+                "enumerate historical and stale receipt copies"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "enumeratedVariantCount: 2",
+                "receiptFailureCount: 2"
+              ],
+              "must_not_observe": [
+                "receiptFailureCount: 0",
+                "empty capture timestamp"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "description": "Skipped lane blocks candidate",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=skip-ios-zero bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-skipped-lane",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mk6-candidate-stack",
+        "negative_control": {
+          "would_fail_if": [
+            "mandatory lane is removed from ordering check"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "event_log",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "skipped_lane",
+            "action": {
+              "steps": [
+                "run candidate with iOS and Zero lane omitted"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "skippedLaneFailureCount: 1",
+                "candidateReadyCount: 0"
+              ],
+              "must_not_observe": [
+                "skippedLaneFailureCount: 0",
+                "empty lane identifier"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-7",
+      "type": "acceptance_criterion",
+      "description": "Rollback failure preserves authority",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=rollback-failure bash scripts/run-mk6-promotion.sh --verify-rollback-authority --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "release-rollback-failure",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "release-rollback-authority",
+        "negative_control": {
+          "would_fail_if": [
+            "authority change is ignored or rollback check is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "event_log",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "rollback_failure",
+            "action": {
+              "steps": [
+                "induce disposable rollback failure and independently requery authority"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "rollbackFailureCount: 1",
+                "authorityChangeCount: 0"
+              ],
+              "must_not_observe": [
+                "rollbackFailureCount: 0",
+                "empty authority fingerprint"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Ten receipts bind one candidate",
+      "verify": "PLATFORM_IT=1 bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Five flags are defined",
+      "verify": "bash scripts/run-mk6-promotion.sh --verify-cli-contract --json",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Identity drift fails",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=identity-drift-matrix bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Unsigned receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=unsigned-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Historical receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=historical-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": "AC-5"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Skipped lane fails",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=skip-ios-zero bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": "AC-6"
+    },
+    {
+      "id": "TC-7",
+      "type": "test_criterion",
+      "description": "Rollback failure preserves authority",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=rollback-failure bash scripts/run-mk6-promotion.sh --verify-rollback-authority --json",
+      "maps_to_ac": "AC-7"
+    },
+    {
+      "id": "TC-8",
+      "type": "test_criterion",
+      "description": "Stale receipt fails",
+      "verify": "PLATFORM_IT=1 MK6_RELEASE_NEGATIVE=stale-receipt bash scripts/run-mk6-promotion.sh --candidate-only --json",
+      "maps_to_ac": "AC-5"
+    }
+  ]
+}
 -->

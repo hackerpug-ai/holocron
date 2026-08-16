@@ -7,7 +7,7 @@
 > Type: feature
 > Wave: 5
 > Proposed by: mastra-planner
-> Files: services/platform/src/index.ts, services/platform/src/http/hono-app.ts, services/platform/src/http/missions.ts, services/platform/src/mission/args.ts, services/platform/src/mission/canonical-json.ts, services/platform/src/mission/checkpoint-barrier.ts, services/platform/src/mission/compiler.ts, services/platform/src/mission/contract.ts, services/platform/src/mission/crash-hooks.ts, services/platform/src/mission/cycle.ts, services/platform/src/mission/document-publish.ts, services/platform/src/mission/index.ts, services/platform/src/mission/registry.ts, services/platform/src/mission/repository.ts, services/platform/src/mission/runtime.ts, services/platform/src/mission/templates/assimilate.ts, services/platform/src/mission/templates/business-report-components.ts, services/platform/src/mission/templates/business-report.ts, services/platform/src/mission/templates/ensure-system.ts, services/platform/src/mission/templates/evidence-research.ts, services/platform/src/mission/templates/fire-drill-monthly.json, services/platform/src/mission/templates/fire-drill-monthly.ts, services/platform/src/mission/templates/pipeline-components.ts, services/platform/src/mission/templates/shop.ts, services/platform/src/mission/templates/subscriptions.ts, services/platform/src/mission/templates/toolbelt.ts, services/platform/src/mission/templates/whatsnew.ts, services/platform/src/mission/verify-decommission-inventory.ts, services/platform/src/mission/verify-no-shells.ts, services/platform/src/db/schema/zero-pub.ts, services/platform/src/db/migrations/0039_zero_pub_mission_runs.sql, services/platform/src/zero/mutate.ts, services/platform/tests/integration/sprint17-mission-template.test.ts, services/platform/tests/integration/sprint31-mission-off-http.test.ts, services/platform/tests/integration/sprint31-mission-trace-live.test.ts, services/platform/tests/integration/mission-list-restart-live.test.ts, services/platform/tests/integration/mission-zero-contract.test.ts, scripts/verify-mk6-mission-lifecycle.sh
+> Files: services/platform/src/index.ts, services/platform/src/http/hono-app.ts, services/platform/src/http/missions.ts, services/platform/src/mission/args.ts, services/platform/src/mission/canonical-json.ts, services/platform/src/mission/checkpoint-barrier.ts, services/platform/src/mission/compiler.ts, services/platform/src/mission/contract.ts, services/platform/src/mission/crash-hooks.ts, services/platform/src/mission/cycle.ts, services/platform/src/mission/document-publish.ts, services/platform/src/mission/index.ts, services/platform/src/mission/registry.ts, services/platform/src/mission/repository.ts, services/platform/src/mission/runtime.ts, services/platform/src/mission/templates/assimilate.ts, services/platform/src/mission/templates/business-report-components.ts, services/platform/src/mission/templates/business-report.ts, services/platform/src/mission/templates/ensure-system.ts, services/platform/src/mission/templates/evidence-research.ts, services/platform/src/mission/templates/fire-drill-monthly.json, services/platform/src/mission/templates/fire-drill-monthly.ts, services/platform/src/mission/templates/pipeline-components.ts, services/platform/src/mission/templates/shop.ts, services/platform/src/mission/templates/subscriptions.ts, services/platform/src/mission/templates/toolbelt.ts, services/platform/src/mission/templates/whatsnew.ts, services/platform/src/mission/verify-decommission-inventory.ts, services/platform/src/mission/verify-no-shells.ts, services/platform/src/db/schema/zero-pub.ts, services/platform/src/db/migrations/0039_zero_pub_mission_runs.sql, services/platform/src/zero/mutate.ts, services/platform/tests/integration/sprint17-mission-template.test.ts, services/platform/tests/integration/sprint31-mission-off-http.test.ts, services/platform/tests/integration/sprint31-mission-trace-live.test.ts, services/platform/tests/integration/mission-list-restart-live.test.ts, services/platform/tests/integration/mission-zero-contract.test.ts, scripts/verify-mk6-mission-lifecycle.sh, .gate-evidence/mk6-mission
 > Depends on: MK6-FLEET-001, MK6-DATA-001, MK6-QUEUE-001, MK6-RUNTIME-001
 
 ## Outcome
@@ -17,14 +17,14 @@ The real Mastra registry exposes typed agents/workflows, mission list/status no 
 ## Acceptance Criteria
 
 - [ ] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --json` creates through external HTTP, lists with cursor pagination and scope, observes `queued -> running -> completed`, a durable side effect and real model trace, restarts the service, and confirms a second real Zero client sees the same terminal run exactly once.
-- [ ] AC-2: The `mission-501` control first passes the real baseline, applies a 501 mutant only in a disposable source copy, and fails with `MISSION_LIST_501`; no production fault hook exists.
-- [ ] AC-3: Invalid scope returns its declared non-success response and writes no mission.
-- [ ] AC-4: Invalid input returns its declared schema response and writes no mission.
-- [ ] AC-5: Missing mission lookup returns declared not-found, never an empty successful object.
-- [ ] AC-6: Duplicate idempotency key returns one stable mission and no duplicate side effect.
-- [ ] AC-7: A task-owned unreachable fleet endpoint produces a truthful terminal failure, never `completed`.
-- [ ] AC-8: A real Zero mutation conflict returns 409, rolls back optimistic state, and preserves the prior Postgres value.
-- [ ] AC-9: A real locked mutation returns 423, rolls back optimistic state, and preserves the prior Postgres value.
+- [ ] AC-2: `PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --negative-control mission-501 --json` — The `mission-501` control first passes the real baseline, applies a 501 mutant only in a disposable source copy, and fails with `MISSION_LIST_501`; no production fault hook exists.
+- [ ] AC-3: `PLATFORM_IT=1 MK6_MISSION_CASE=invalid-scope bash scripts/verify-mk6-mission-lifecycle.sh --json` — Invalid scope returns its declared non-success response and writes no mission.
+- [ ] AC-4: `PLATFORM_IT=1 MK6_MISSION_CASE=invalid-input bash scripts/verify-mk6-mission-lifecycle.sh --json` — Invalid input returns its declared schema response and writes no mission.
+- [ ] AC-5: `PLATFORM_IT=1 MK6_MISSION_CASE=not-found bash scripts/verify-mk6-mission-lifecycle.sh --json` — Missing mission lookup returns declared not-found, never an empty successful object.
+- [ ] AC-6: `PLATFORM_IT=1 MK6_MISSION_CASE=duplicate bash scripts/verify-mk6-mission-lifecycle.sh --json` — Duplicate idempotency key returns one stable mission and no duplicate side effect.
+- [ ] AC-7: `PLATFORM_IT=1 MK6_MISSION_CASE=fleet-down bash scripts/verify-mk6-mission-lifecycle.sh --json` — A task-owned unreachable fleet endpoint produces a truthful terminal failure, never `completed`.
+- [ ] AC-8: `PLATFORM_IT=1 MK6_MISSION_CASE=conflict-409 bash scripts/verify-mk6-mission-lifecycle.sh --json` — A real Zero mutation conflict returns 409, rolls back optimistic state, and preserves the prior Postgres value.
+- [ ] AC-9: `PLATFORM_IT=1 MK6_MISSION_CASE=locked-423 bash scripts/verify-mk6-mission-lifecycle.sh --json` — A real locked mutation returns 423, rolls back optimistic state, and preserves the prior Postgres value.
 
 ## Test Criteria
 
@@ -42,7 +42,576 @@ The real Mastra registry exposes typed agents/workflows, mission list/status no 
 
 In-process Hono invocation, 200-or-501 acceptance, a queued row without terminal work, fixture traces, and fabricated 2xx are non-oracles. Mastra workflows use real schemas, end in `.commit()`, run via `await workflow.createRun()`, narrow the four 1.x statuses, and handle agent tripwires at every call site.
 
+Every scenario retains one task-owned correlated receipt keyed by a single operation ID with `uiScreenshotRef`, `externalServerEventRef`, `zeroObservationRef`, and `directPostgresReadRef`; a screenshot alone cannot pass.
+
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
-{"version":"1","task_id":"MK6-MISSION-001","tdd_mode":"red_first","verification_policy":{"requires_tests":true,"requires_red_evidence":true,"requires_seeded_evidence":true},"fixtures":{"mission_request":{"seed_method":"public_api","description":"real scoped mission request","records":["missionKey: mk6-mission-1"]},"mission_mutant":{"seed_method":"cli","description":"passing real baseline plus 501 mutant in disposable source copy","records":["expectedMutantFailureCount: 1"]},"invalid_scope":{"seed_method":"public_api","description":"real request with unauthorized scope","records":["expectedMissionDelta: 0"]},"invalid_input":{"seed_method":"public_api","description":"real request violating mission schema","records":["expectedMissionDelta: 0"]},"missing_mission":{"seed_method":"public_api","description":"lookup for absent mission identifier","records":["expectedErrorCount: 1"]},"duplicate_request":{"seed_method":"public_api","description":"two requests sharing one idempotency key","records":["expectedMissionCount: 1"]},"fleet_failure":{"seed_method":"cli","description":"mission candidate using task-owned unreachable fleet endpoint","records":["expectedFailedMissionCount: 1"]},"conflict_409":{"seed_method":"ui_flow","description":"real Zero client with stale mutation version","records":["expectedHttpStatus: 409"]},"locked_423":{"seed_method":"ui_flow","description":"real Zero client mutating locked row","records":["expectedHttpStatus: 423"]}},"requirements":[{"id":"AC-1","type":"acceptance_criterion","primary":true,"description":"External mission completes durably across restart and Zero sees it once","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-complete","test_tier":"e2e","tier":"visible","verification_service":"mastra-postgres-zero-fleet","negative_control":{"would_fail_if":["mission list is a 501 stub or model trace is mocked"]},"evidence":{"artifact_type":"event_log","required_capture":true},"cases":[{"start_ref":"mission_request","action":{"steps":["create through external HTTP, restart service, and observe from a second real Zero client"]},"end_state":{"must_observe":["completedMissionCount: 1","modelTraceCount >= 1","zeroTerminalResultCount: 1"],"must_not_observe":["completedMissionCount: 0","empty mission list"]}}]}},{"id":"AC-2","type":"acceptance_criterion","description":"Real baseline kills disposable 501 mutant","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --negative-control mission-501 --json","maps_to_ac":null,"scenario":{"id":"mission-501-mutant","test_tier":"integration","tier":"visible","verification_service":"mastra-postgres-zero-fleet","negative_control":{"would_fail_if":["501 stub mutant is accepted"]},"evidence":{"artifact_type":"event_log","required_capture":true},"cases":[{"start_ref":"mission_mutant","action":{"steps":["pass real baseline then run disposable list-501 mutant"]},"end_state":{"must_observe":["baselinePassCount: 1","mutantFailureCount: 1","failureClass: MISSION_LIST_501"],"must_not_observe":["mutantFailureCount: 0","empty failure class"]}}]}},{"id":"AC-3","type":"acceptance_criterion","description":"Invalid scope is rejected","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=invalid-scope bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-invalid-scope","test_tier":"integration","tier":"visible","verification_service":"mastra-http-postgres","negative_control":{"would_fail_if":["scope validation is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"invalid_scope","action":{"steps":["create mission with invalid scope"]},"end_state":{"must_observe":["nonSuccessCount: 1","missionDelta: 0"],"must_not_observe":["nonSuccessCount: 0","empty error code"]}}]}},{"id":"AC-4","type":"acceptance_criterion","description":"Invalid input is rejected","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=invalid-input bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-invalid-input","test_tier":"integration","tier":"visible","verification_service":"mastra-http-postgres","negative_control":{"would_fail_if":["input validation is removed"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"invalid_input","action":{"steps":["create mission with invalid schema"]},"end_state":{"must_observe":["schemaErrorCount: 1","missionDelta: 0"],"must_not_observe":["schemaErrorCount: 0","empty error code"]}}]}},{"id":"AC-5","type":"acceptance_criterion","description":"Missing mission is not-found","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=not-found bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-not-found","test_tier":"integration","tier":"visible","verification_service":"mastra-http-postgres","negative_control":{"would_fail_if":["not-found is converted to empty success"]},"evidence":{"artifact_type":"api_response","required_capture":true},"cases":[{"start_ref":"missing_mission","action":{"steps":["get absent mission"]},"end_state":{"must_observe":["notFoundCount: 1","missionDelta: 0"],"must_not_observe":["notFoundCount: 0","empty success object"]}}]}},{"id":"AC-6","type":"acceptance_criterion","description":"Duplicate request remains exactly once","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=duplicate bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-duplicate","test_tier":"integration","tier":"visible","verification_service":"mastra-postgres-queue","negative_control":{"would_fail_if":["idempotency is removed"]},"evidence":{"artifact_type":"db_query","required_capture":true},"cases":[{"start_ref":"duplicate_request","action":{"steps":["submit two concurrent requests with one idempotency key"]},"end_state":{"must_observe":["missionCount: 1","sideEffectCount: 1"],"must_not_observe":["missionCount: 0","empty idempotency key"]}}]}},{"id":"AC-7","type":"acceptance_criterion","description":"Scoped fleet failure is terminal failure","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=fleet-down bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-fleet-down","test_tier":"integration","tier":"visible","verification_service":"mastra-postgres-task-fleet","negative_control":{"would_fail_if":["fleet is disconnected but mission is changed to completed"]},"evidence":{"artifact_type":"event_log","required_capture":true},"cases":[{"start_ref":"fleet_failure","action":{"steps":["run mission against task-owned unreachable fleet endpoint"]},"end_state":{"must_observe":["failedMissionCount: 1","completedMissionCount: 0"],"must_not_observe":["failedMissionCount: 0","empty terminal error"]}}]}},{"id":"AC-8","type":"acceptance_criterion","description":"409 conflict rolls back","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=conflict-409 bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-conflict-409","test_tier":"e2e","tier":"visible","verification_service":"zero-ios-postgres","negative_control":{"would_fail_if":["rollback is removed or 409 is accepted"]},"evidence":{"artifact_type":"screenshot","required_capture":true},"cases":[{"start_ref":"conflict_409","action":{"steps":["submit stale mutation from real Zero client"]},"end_state":{"must_observe":["httpStatus: 409","rollbackCount: 1","durableValueChangeCount: 0"],"must_not_observe":["rollbackCount: 0","empty rejection UI"]}}]}},{"id":"AC-9","type":"acceptance_criterion","description":"423 lock rolls back","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=locked-423 bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":null,"scenario":{"id":"mission-locked-423","test_tier":"e2e","tier":"visible","verification_service":"zero-ios-postgres","negative_control":{"would_fail_if":["rollback is removed or 423 is accepted"]},"evidence":{"artifact_type":"screenshot","required_capture":true},"cases":[{"start_ref":"locked_423","action":{"steps":["submit mutation to locked row from real Zero client"]},"end_state":{"must_observe":["httpStatus: 423","rollbackCount: 1","durableValueChangeCount: 0"],"must_not_observe":["rollbackCount: 0","empty rejection UI"]}}]}},{"id":"TC-1","type":"test_criterion","description":"Mission completes across restart","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-1"},{"id":"TC-2","type":"test_criterion","description":"501 mutant fails","verify":"PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --negative-control mission-501 --json","maps_to_ac":"AC-2"},{"id":"TC-3","type":"test_criterion","description":"Invalid scope fails","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=invalid-scope bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-3"},{"id":"TC-4","type":"test_criterion","description":"Invalid input fails","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=invalid-input bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-4"},{"id":"TC-5","type":"test_criterion","description":"Not-found fails","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=not-found bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-5"},{"id":"TC-6","type":"test_criterion","description":"Duplicate is exactly once","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=duplicate bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-6"},{"id":"TC-7","type":"test_criterion","description":"Fleet-down is terminal failure","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=fleet-down bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-7"},{"id":"TC-8","type":"test_criterion","description":"409 rolls back","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=conflict-409 bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-8"},{"id":"TC-9","type":"test_criterion","description":"423 rolls back","verify":"PLATFORM_IT=1 MK6_MISSION_CASE=locked-423 bash scripts/verify-mk6-mission-lifecycle.sh --json","maps_to_ac":"AC-9"}]}
+{
+  "version": "1",
+  "task_id": "MK6-MISSION-001",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "mission_request": {
+      "seed_method": "public_api",
+      "description": "real scoped mission request",
+      "records": [
+        "missionKey: mk6-mission-1"
+      ]
+    },
+    "mission_mutant": {
+      "seed_method": "cli",
+      "description": "passing real baseline plus 501 mutant in disposable source copy",
+      "records": [
+        "expectedMutantFailureCount: 1"
+      ]
+    },
+    "invalid_scope": {
+      "seed_method": "public_api",
+      "description": "real request with unauthorized scope",
+      "records": [
+        "expectedMissionDelta: 0"
+      ]
+    },
+    "invalid_input": {
+      "seed_method": "public_api",
+      "description": "real request violating mission schema",
+      "records": [
+        "expectedMissionDelta: 0"
+      ]
+    },
+    "missing_mission": {
+      "seed_method": "public_api",
+      "description": "lookup for absent mission identifier",
+      "records": [
+        "expectedErrorCount: 1"
+      ]
+    },
+    "duplicate_request": {
+      "seed_method": "public_api",
+      "description": "two requests sharing one idempotency key",
+      "records": [
+        "expectedMissionCount: 1"
+      ]
+    },
+    "fleet_failure": {
+      "seed_method": "cli",
+      "description": "mission candidate using task-owned unreachable fleet endpoint",
+      "records": [
+        "expectedFailedMissionCount: 1"
+      ]
+    },
+    "conflict_409": {
+      "seed_method": "ui_flow",
+      "description": "real Zero client with stale mutation version",
+      "records": [
+        "expectedHttpStatus: 409"
+      ]
+    },
+    "locked_423": {
+      "seed_method": "ui_flow",
+      "description": "real Zero client mutating locked row",
+      "records": [
+        "expectedHttpStatus: 423"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "External mission completes durably across restart and Zero sees it once",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-complete",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "mastra-postgres-zero-fleet",
+        "negative_control": {
+          "would_fail_if": [
+            "mission list is a 501 stub or model trace is mocked"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "mission_request",
+            "action": {
+              "steps": [
+                "create through external HTTP, restart service, and observe from a second real Zero client"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "completedMissionCount: 1",
+                "modelTraceCount >= 1",
+                "zeroTerminalResultCount: 1"
+              ],
+              "must_not_observe": [
+                "completedMissionCount: 0",
+                "empty mission list"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "description": "Real baseline kills disposable 501 mutant",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --negative-control mission-501 --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-501-mutant",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mastra-postgres-zero-fleet",
+        "negative_control": {
+          "would_fail_if": [
+            "501 stub mutant is accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "mission_mutant",
+            "action": {
+              "steps": [
+                "pass real baseline then run disposable list-501 mutant"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "baselinePassCount: 1",
+                "mutantFailureCount: 1",
+                "failureClass: MISSION_LIST_501"
+              ],
+              "must_not_observe": [
+                "mutantFailureCount: 0",
+                "empty failure class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "description": "Invalid scope is rejected",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=invalid-scope bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-invalid-scope",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mastra-http-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "scope validation is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "invalid_scope",
+            "action": {
+              "steps": [
+                "create mission with invalid scope"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "nonSuccessCount: 1",
+                "missionDelta: 0"
+              ],
+              "must_not_observe": [
+                "nonSuccessCount: 0",
+                "empty error code"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "description": "Invalid input is rejected",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=invalid-input bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-invalid-input",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mastra-http-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "input validation is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "invalid_input",
+            "action": {
+              "steps": [
+                "create mission with invalid schema"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "schemaErrorCount: 1",
+                "missionDelta: 0"
+              ],
+              "must_not_observe": [
+                "schemaErrorCount: 0",
+                "empty error code"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-5",
+      "type": "acceptance_criterion",
+      "description": "Missing mission is not-found",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=not-found bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-not-found",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mastra-http-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "not-found is converted to empty success"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "missing_mission",
+            "action": {
+              "steps": [
+                "get absent mission"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "notFoundCount: 1",
+                "missionDelta: 0"
+              ],
+              "must_not_observe": [
+                "notFoundCount: 0",
+                "empty success object"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-6",
+      "type": "acceptance_criterion",
+      "description": "Duplicate request remains exactly once",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=duplicate bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-duplicate",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mastra-postgres-queue",
+        "negative_control": {
+          "would_fail_if": [
+            "idempotency is removed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "duplicate_request",
+            "action": {
+              "steps": [
+                "submit two concurrent requests with one idempotency key"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "missionCount: 1",
+                "sideEffectCount: 1"
+              ],
+              "must_not_observe": [
+                "missionCount: 0",
+                "empty idempotency key"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-7",
+      "type": "acceptance_criterion",
+      "description": "Scoped fleet failure is terminal failure",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=fleet-down bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-fleet-down",
+        "test_tier": "integration",
+        "tier": "visible",
+        "verification_service": "mastra-postgres-task-fleet",
+        "negative_control": {
+          "would_fail_if": [
+            "fleet is disconnected but mission is changed to completed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fleet_failure",
+            "action": {
+              "steps": [
+                "run mission against task-owned unreachable fleet endpoint"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "failedMissionCount: 1",
+                "completedMissionCount: 0"
+              ],
+              "must_not_observe": [
+                "failedMissionCount: 0",
+                "empty terminal error"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-8",
+      "type": "acceptance_criterion",
+      "description": "409 conflict rolls back",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=conflict-409 bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-conflict-409",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "zero-ios-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "rollback is removed or 409 is accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "conflict_409",
+            "action": {
+              "steps": [
+                "submit stale mutation from real Zero client"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "httpStatus: 409",
+                "rollbackCount: 1",
+                "durableValueChangeCount: 0"
+              ],
+              "must_not_observe": [
+                "rollbackCount: 0",
+                "empty rejection UI"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-9",
+      "type": "acceptance_criterion",
+      "description": "423 lock rolls back",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=locked-423 bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "mission-locked-423",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "zero-ios-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "rollback is removed or 423 is accepted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "locked_423",
+            "action": {
+              "steps": [
+                "submit mutation to locked row from real Zero client"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "httpStatus: 423",
+                "rollbackCount: 1",
+                "durableValueChangeCount: 0"
+              ],
+              "must_not_observe": [
+                "rollbackCount: 0",
+                "empty rejection UI"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Mission completes across restart",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "501 mutant fails",
+      "verify": "PLATFORM_IT=1 bash scripts/verify-mk6-mission-lifecycle.sh --negative-control mission-501 --json",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Invalid scope fails",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=invalid-scope bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Invalid input fails",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=invalid-input bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-4"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Not-found fails",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=not-found bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-5"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Duplicate is exactly once",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=duplicate bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-6"
+    },
+    {
+      "id": "TC-7",
+      "type": "test_criterion",
+      "description": "Fleet-down is terminal failure",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=fleet-down bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-7"
+    },
+    {
+      "id": "TC-8",
+      "type": "test_criterion",
+      "description": "409 rolls back",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=conflict-409 bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-8"
+    },
+    {
+      "id": "TC-9",
+      "type": "test_criterion",
+      "description": "423 rolls back",
+      "verify": "PLATFORM_IT=1 MK6_MISSION_CASE=locked-423 bash scripts/verify-mk6-mission-lifecycle.sh --json",
+      "maps_to_ac": "AC-9"
+    }
+  ]
+}
 -->

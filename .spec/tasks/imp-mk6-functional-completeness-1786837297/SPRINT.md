@@ -1,6 +1,6 @@
 # Sprint: imp-mk6-functional-completeness-1786837297
 
-> Learned spec repair: tt-004, remediation cycle 1
+> Learned spec repair: tt-004, remediation cycle 2
 > Immutable objective: Restore all MK-VI scoped functionality to specified operation
 > Requirement source: `.spec/prds/mk6-migration/**` (read-only)
 > Binding ScopeState: `/Users/justinrich/.config/brain/improvements/imp-mk6-functional-completeness-1786837297.json` (read-only)
@@ -28,7 +28,6 @@ Every wave is topological: a task's dependencies are strictly earlier waves.
 | 3 | MK6-BACKUP-001 | Installed backup, alert, heartbeat runtime | devops-engineer | P0 | H0-04 |
 | 3 | MK6-NATIVE-001 | Worktree-local native build isolation | react-native-ui-implementer | P0 | H2-04 |
 | 4 | MK6-RUNTIME-001 | External release-bound readiness | mastra-implementer | P0 | H0 runtime exit |
-| 4 | MK6-RECOVERY-001 | Retained-byte restore verifier | devops-engineer | P0 | H2-01, H4 tooling |
 | 5 | MK6-MISSION-001 | Mastra mission lifecycle and Zero publication | mastra-implementer | P0 | H1-01, H1-06 server |
 | 6 | MK6-MCP-001 | MCP executor semantics and durable mutations | mcp-implementer | P0 | H1-02 |
 | 7 | MK6-MCP-002 | All-44 dual-transport behavioral sweep | mcp-implementer | P0 | H1-03, H2-05 MCP |
@@ -37,12 +36,13 @@ Every wave is topological: a task's dependencies are strictly earlier waves.
 | 10 | MK6-CLIENT-004 | Secondary empty/stale/error/blob/import/research states | react-native-ui-implementer | P1 | H1-05 secondary |
 | 11 | MK6-CLIENT-003 | Chat, scoped service faults, five reconnect cases | react-native-ui-implementer | P1 | H2-05 client |
 | 12 | MK6-DATA-002 | Final PG/HTTP/MCP/Zero sentinel attestation | mastra-implementer | P0 | H0-05 exit |
-| 13 | MK6-CUTOVER-001 | Retired-plane and D08-09 readiness | devops-engineer | P0 | H2-02 |
-| 14 | MK6-RELEASE-001 | Immutable candidate orchestration | devops-engineer | P0 | H2-06 producer |
-| 15 | imp-mk6-functional-completeness-1786837297-mk6-functional-completeness | Existing 105-criterion ledger | mastra-implementer | P1 | H2-06 gate |
-| 16 | MK6-PROMOTION-001 | Land/push/install exact approved digest | integrator | P0 | H3-01 |
-| 17 | MK6-SOAK-001 | 24h/72h semantic and operational soak | observability-engineer | P0 | H3-02 |
-| 18 | MK6-DECOMMISSION-001 | Fresh D08-03/D08-09 and authorized D08-05 | devops-engineer | P0 | H4-01..03 |
+| 13 | MK6-RECOVERY-001 | Retained-byte restore plus restored-app verifier | devops-engineer | P0 | H2-01, H4 tooling |
+| 14 | MK6-CUTOVER-001 | Retired-plane and D08-09 readiness | devops-engineer | P0 | H2-02 |
+| 15 | MK6-RELEASE-001 | Immutable candidate orchestration | devops-engineer | P0 | H2-06 producer |
+| 16 | imp-mk6-functional-completeness-1786837297-mk6-functional-completeness | Existing 105-criterion ledger | mastra-implementer | P1 | H2-06 gate |
+| 17 | MK6-PROMOTION-001 | Land/push/install exact approved digest | integrator | P0 | H3-01 |
+| 18 | MK6-SOAK-001 | 24h/72h semantic and operational soak | observability-engineer | P0 | H3-02 |
+| 19 | MK6-DECOMMISSION-001 | Fresh D08-03/D08-09 and authorized D08-05 | devops-engineer | P0 | H4-01..03 |
 
 ## Exact dependency DAG
 
@@ -55,7 +55,6 @@ W2  HOST -> MK6-FLEET-001, MK6-PROVENANCE-001
 W3  HOST + PROVENANCE -> MK6-BACKUP-001
     DEP + PROVENANCE -> MK6-NATIVE-001
 W4  HOST + FLEET + DATA + QUEUE + BACKUP -> MK6-RUNTIME-001
-    BACKUP -> MK6-RECOVERY-001
 W5  FLEET + DATA + QUEUE + RUNTIME -> MK6-MISSION-001
 W6  DATA + QUEUE + MISSION -> MK6-MCP-001
 W7  FLEET + RUNTIME + MISSION + MCP-001 -> MK6-MCP-002
@@ -64,12 +63,13 @@ W9  CLIENT-001 -> MK6-CLIENT-002
 W10 CLIENT-002 -> MK6-CLIENT-004
 W11 CLIENT-001 + CLIENT-004 + RUNTIME -> MK6-CLIENT-003
 W12 HOST + FLEET + QUEUE + BACKUP + RUNTIME + MCP-002 + CLIENT-003 -> MK6-DATA-002
-W13 DATA-002 + MCP-002 + CLIENT-003 + RECOVERY + NATIVE + PROVENANCE -> MK6-CUTOVER-001
-W14 CUTOVER + all product lanes -> MK6-RELEASE-001
-W15 MK6-RELEASE-001 -> existing ledger
-W16 existing ledger -> MK6-PROMOTION-001
-W17 MK6-PROMOTION-001 -> MK6-SOAK-001
-W18 MK6-SOAK-001 -> MK6-DECOMMISSION-001
+W13 DATA-002 + MCP-002 + CLIENT-003 + NATIVE -> MK6-RECOVERY-001
+W14 DATA-002 + MCP-002 + CLIENT-003 + RECOVERY + NATIVE + PROVENANCE -> MK6-CUTOVER-001
+W15 CUTOVER + all product lanes -> MK6-RELEASE-001
+W16 MK6-RELEASE-001 -> existing ledger
+W17 existing ledger -> MK6-PROMOTION-001
+W18 MK6-PROMOTION-001 -> MK6-SOAK-001
+W19 MK6-SOAK-001 -> MK6-DECOMMISSION-001
 ```
 
 The ledger depends exactly on `MK6-RELEASE-001`; promotion, soak, and decommission remain downstream and incomplete. No semantic cycle exists.

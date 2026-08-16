@@ -7,7 +7,7 @@
 > Type: bugfix
 > Wave: 8
 > Proposed by: mastra-planner
-> Files: app/_layout.tsx, app/zero/platform.ts, app/zero/legacy-alias.ts, app/zero/mutators.ts, tests/integration/client-runtime-config-and-mutation.test.ts, .maestro/reactive/client-runtime-config-and-mutation.yml, scripts/e2e/run-client-runtime-config-and-mutation.sh, .gate-evidence/mk6-client-config/**
+> Files: app/_layout.tsx, app/zero/platform.ts, app/zero/legacy-alias.ts, app/zero/mutators.ts, tests/integration/client-runtime-config-and-mutation.test.ts, .maestro/reactive/client-runtime-config-and-mutation.yml, scripts/e2e/run-client-runtime-config-and-mutation.sh, .gate-evidence/mk6-client-config
 > Depends on: MK6-MISSION-001, MK6-MCP-002
 
 ## Outcome
@@ -16,10 +16,10 @@ A named native build accepts only the correct candidate/plane/sentinel and makes
 
 ## Acceptance Criteria
 
-- [ ] AC-1: The config matrix independently runs absent config, loopback/e2e identity, retired host, wrong plane, wrong release, and correct sentinel/release. Only the correct case starts; every rejected case shows its named terminal error and the captured server access log contains `loopbackRequestCount: 0`.
-- [ ] AC-2: One accepted custom mutation is correlated by operation ID across simulator UI, external Hono response, Zero replication receipt, and direct Postgres readback within `mutationVisibilityMs <= 5000`.
-- [ ] AC-3: Forced 409 and 423 each roll back optimistic state, show the declared rejection, produce no durable Postgres/second-client row, and retain correlated receipts.
-- [ ] AC-4: The isolated `client-fallback` control proves a real baseline, applies a disposable client-only fallback mutant, and fails with `CLIENT_FALLBACK_DETECTED`; no production fault hook is used.
+- [ ] AC-1: `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --all-cases --json` — The config matrix independently runs absent config, loopback/e2e identity, retired host, wrong plane, wrong release, and correct sentinel/release. Only the correct case starts; every rejected case shows its named terminal error and the captured server access log contains `loopbackRequestCount: 0`.
+- [ ] AC-2: `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --distinct-observer-client --slo-ms 5000 --json` — One accepted custom mutation is correlated by one operation ID across simulator UI, external Hono response, direct Postgres row, and a separately instantiated observing Zero client with a distinct client identity within `mutationVisibilityMs <= 5000`.
+- [ ] AC-3: `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection-matrix --json` — Forced 409 and 423 each roll back optimistic state, show the declared rejection, produce no durable Postgres/second-client row, and retain correlated receipts.
+- [ ] AC-4: `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --negative-control client-fallback --json` — The isolated `client-fallback` control proves a real baseline, applies a disposable client-only fallback mutant, and fails with `CLIENT_FALLBACK_DETECTED`; no production fault hook is used.
 
 ## Test Criteria
 
@@ -31,14 +31,322 @@ A named native build accepts only the correct candidate/plane/sentinel and makes
 | TC-4 | Wrong plane fails with a named terminal error. | AC-1 | `PLATFORM_IT=1 MK6_CLIENT_CASE=wrong-plane bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json` |
 | TC-5 | Wrong release fails before data is rendered. | AC-1 | `PLATFORM_IT=1 MK6_CLIENT_CASE=wrong-release bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json` |
 | TC-6 | Correct candidate/sentinel starts and reads one non-empty sentinel. | AC-1 | `PLATFORM_IT=1 MK6_CLIENT_CASE=correct-sentinel-release bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json` |
-| TC-7 | Accepted mutation is visible on four surfaces within 5,000 ms. | AC-2 | `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --slo-ms 5000 --json` |
+| TC-7 | A distinct second Zero client observes the same operation ID and direct Postgres row within 5,000 ms. | AC-2 | `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --distinct-observer-client --slo-ms 5000 --json` |
 | TC-8 | Forced 409 rolls back with zero durable rows. | AC-3 | `PLATFORM_IT=1 MK6_CLIENT_CASE=reject-409 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection --json` |
 | TC-9 | Forced 423 rolls back with zero durable rows. | AC-3 | `PLATFORM_IT=1 MK6_CLIENT_CASE=reject-423 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection --json` |
 | TC-10 | Real baseline passes and disposable client-fallback mutant fails named. | AC-4 | `PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --negative-control client-fallback --json` |
 
 `MANUAL-ONLY CLIENT-M1`: reserve an explicit simulator name/UDID and isolated DerivedData/Metro owner. Never erase/delete/shutdown a shared simulator or disrupt host/device networking.
 
+Every scenario retains one task-owned correlated receipt keyed by a single operation ID with `uiScreenshotRef`, `externalServerEventRef`, `zeroObservationRef`, and `directPostgresReadRef`; a screenshot alone cannot pass.
+
 <!-- REQUIREMENT-CONTRACT v1 -->
 <!--
-{"version":"1","task_id":"MK6-CLIENT-001","tdd_mode":"red_first","verification_policy":{"requires_tests":true,"requires_red_evidence":true,"requires_seeded_evidence":true},"fixtures":{"config_matrix":{"seed_method":"ui_flow","description":"named native build plus six independently launched configuration cases","records":["configCaseCount: 6"]},"accepted_mutation":{"seed_method":"ui_flow","description":"correct candidate and operation-correlated custom mutation","records":["operationId: mk6-client-mutation-1"]},"rejections":{"seed_method":"ui_flow","description":"correct candidate with server-scoped 409 and 423 responses","records":["rejectionCaseCount: 2"]},"fallback_mutant":{"seed_method":"cli","description":"real baseline followed by disposable client-only fallback mutant","records":["baselinePassCount: 1"]}},"requirements":[{"id":"AC-1","type":"acceptance_criterion","primary":true,"description":"GIVEN six independent config cases WHEN the named native build launches THEN only the correct sentinel/release starts and rejected cases make zero loopback requests","verify":"PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --all-cases --json","maps_to_ac":null,"scenario":{"id":"client-config-matrix","test_tier":"e2e","tier":"visible","verification_service":"ios-hono-zero-postgres","negative_control":{"would_fail_if":["terminal config handling is removed or loopback fallback is enabled"]},"evidence":{"artifact_type":"screenshot","required_capture":true},"cases":[{"start_ref":"config_matrix","action":{"steps":["launch absent, loopback/e2e, retired, wrong-plane, wrong-release and correct cases independently"]},"end_state":{"must_observe":["configCaseCount: 6","rejectedCaseCount: 5","correctSentinelCount: 1","loopbackRequestCount: 0"],"must_not_observe":["correctSentinelCount: 0","empty config failure class"]}}]}},{"id":"AC-2","type":"acceptance_criterion","description":"GIVEN correct config WHEN one mutation is submitted THEN UI, Hono, Zero and Postgres correlate it within 5000 ms","verify":"PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --slo-ms 5000 --json","maps_to_ac":null,"scenario":{"id":"client-accepted-mutation","test_tier":"e2e","tier":"visible","verification_service":"ios-hono-zero-postgres","negative_control":{"would_fail_if":["durable persistence is removed or Zero is disconnected"]},"evidence":{"artifact_type":"event_log","required_capture":true},"cases":[{"start_ref":"accepted_mutation","action":{"steps":["submit operation mk6-client-mutation-1 and correlate four surfaces"]},"end_state":{"must_observe":["correlatedSurfaceCount: 4","mutationVisibilityMs <= 5000"],"must_not_observe":["correlatedSurfaceCount: 0","empty operation ID"]}}]}},{"id":"AC-3","type":"acceptance_criterion","description":"GIVEN server-scoped 409 and 423 WHEN mutations submit THEN both roll back visibly with zero durable rows","verify":"PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection-matrix --json","maps_to_ac":null,"scenario":{"id":"client-rejections","test_tier":"e2e","tier":"visible","verification_service":"ios-hono-zero-postgres","negative_control":{"would_fail_if":["rollback is removed or rejected mutations are persisted"]},"evidence":{"artifact_type":"db_query","required_capture":true},"cases":[{"start_ref":"rejections","action":{"steps":["submit one mutation receiving 409 and one receiving 423"]},"end_state":{"must_observe":["visibleRejectionCount: 2","rollbackCount: 2","durableRejectedRowCount: 0"],"must_not_observe":["visibleRejectionCount: 0","empty rejection code"]}}]}},{"id":"AC-4","type":"acceptance_criterion","description":"GIVEN a passing real baseline WHEN the disposable fallback mutant runs THEN CLIENT_FALLBACK_DETECTED fails the control","verify":"PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --negative-control client-fallback --json","maps_to_ac":null,"scenario":{"id":"client-fallback-mutant","test_tier":"e2e","tier":"visible","verification_service":"ios-client-mutant","negative_control":{"would_fail_if":["the client fallback mutant is not detected or baseline is stubbed"]},"evidence":{"artifact_type":"stdout","required_capture":true},"cases":[{"start_ref":"fallback_mutant","action":{"steps":["prove real baseline then run disposable client-only fallback mutant"]},"end_state":{"must_observe":["baselinePassCount: 1","mutantFailureClass: CLIENT_FALLBACK_DETECTED"],"must_not_observe":["baselinePassCount: 0","empty mutant failure class"]}}]}},{"id":"TC-1","type":"test_criterion","description":"Absent config fails","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=absent-config bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json","maps_to_ac":"AC-1"},{"id":"TC-2","type":"test_criterion","description":"Loopback e2e fails","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=loopback-e2e bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json","maps_to_ac":"AC-1"},{"id":"TC-3","type":"test_criterion","description":"Retired host fails","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=retired-host bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json","maps_to_ac":"AC-1"},{"id":"TC-4","type":"test_criterion","description":"Wrong plane fails","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=wrong-plane bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json","maps_to_ac":"AC-1"},{"id":"TC-5","type":"test_criterion","description":"Wrong release fails","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=wrong-release bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json","maps_to_ac":"AC-1"},{"id":"TC-6","type":"test_criterion","description":"Correct sentinel release passes","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=correct-sentinel-release bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json","maps_to_ac":"AC-1"},{"id":"TC-7","type":"test_criterion","description":"Accepted mutation correlates within SLO","verify":"PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --slo-ms 5000 --json","maps_to_ac":"AC-2"},{"id":"TC-8","type":"test_criterion","description":"409 rolls back","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=reject-409 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection --json","maps_to_ac":"AC-3"},{"id":"TC-9","type":"test_criterion","description":"423 rolls back","verify":"PLATFORM_IT=1 MK6_CLIENT_CASE=reject-423 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection --json","maps_to_ac":"AC-3"},{"id":"TC-10","type":"test_criterion","description":"Fallback mutant fails named","verify":"PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --negative-control client-fallback --json","maps_to_ac":"AC-4"}]}
+{
+  "version": "1",
+  "task_id": "MK6-CLIENT-001",
+  "tdd_mode": "red_first",
+  "verification_policy": {
+    "requires_tests": true,
+    "requires_red_evidence": true,
+    "requires_seeded_evidence": true
+  },
+  "fixtures": {
+    "config_matrix": {
+      "seed_method": "ui_flow",
+      "description": "named native build plus six independently launched configuration cases",
+      "records": [
+        "configCaseCount: 6"
+      ]
+    },
+    "accepted_mutation": {
+      "seed_method": "ui_flow",
+      "description": "correct candidate and operation-correlated custom mutation",
+      "records": [
+        "operationId: mk6-client-mutation-1"
+      ]
+    },
+    "rejections": {
+      "seed_method": "ui_flow",
+      "description": "correct candidate with server-scoped 409 and 423 responses",
+      "records": [
+        "rejectionCaseCount: 2"
+      ]
+    },
+    "fallback_mutant": {
+      "seed_method": "cli",
+      "description": "real baseline followed by disposable client-only fallback mutant",
+      "records": [
+        "baselinePassCount: 1"
+      ]
+    }
+  },
+  "requirements": [
+    {
+      "id": "AC-1",
+      "type": "acceptance_criterion",
+      "primary": true,
+      "description": "GIVEN six independent config cases WHEN the named native build launches THEN only the correct sentinel/release starts and rejected cases make zero loopback requests",
+      "verify": "PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --all-cases --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "client-config-matrix",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "ios-hono-zero-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "terminal config handling is removed or loopback fallback is enabled"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "config_matrix",
+            "action": {
+              "steps": [
+                "launch absent, loopback/e2e, retired, wrong-plane, wrong-release and correct cases independently"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "configCaseCount: 6",
+                "rejectedCaseCount: 5",
+                "correctSentinelCount: 1",
+                "loopbackRequestCount: 0"
+              ],
+              "must_not_observe": [
+                "correctSentinelCount: 0",
+                "empty config failure class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-2",
+      "type": "acceptance_criterion",
+      "description": "GIVEN correct config WHEN one mutation is submitted THEN UI, Hono, distinct observing Zero client and Postgres correlate one operation within 5000 ms",
+      "verify": "PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --distinct-observer-client --slo-ms 5000 --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "client-accepted-mutation",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "ios-hono-zero-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "durable persistence is removed or Zero is disconnected"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "accepted_mutation",
+            "action": {
+              "steps": [
+                "submit operation mk6-client-mutation-1, instantiate a distinct observing Zero client, and correlate its event with direct Postgres row"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "correlatedSurfaceCount: 4",
+                "distinctZeroClientIdentityCount: 2",
+                "observerSharedOperationIdCount: 1",
+                "directPostgresOperationRowCount: 1",
+                "mutationVisibilityMs <= 5000"
+              ],
+              "must_not_observe": [
+                "correlatedSurfaceCount: 0",
+                "empty operation ID"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-3",
+      "type": "acceptance_criterion",
+      "description": "GIVEN server-scoped 409 and 423 WHEN mutations submit THEN both roll back visibly with zero durable rows",
+      "verify": "PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection-matrix --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "client-rejections",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "ios-hono-zero-postgres",
+        "negative_control": {
+          "would_fail_if": [
+            "rollback is removed or rejected mutations are persisted"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "rejections",
+            "action": {
+              "steps": [
+                "submit one mutation receiving 409 and one receiving 423"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "visibleRejectionCount: 2",
+                "rollbackCount: 2",
+                "durableRejectedRowCount: 0"
+              ],
+              "must_not_observe": [
+                "visibleRejectionCount: 0",
+                "empty rejection code"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "AC-4",
+      "type": "acceptance_criterion",
+      "description": "GIVEN a passing real baseline WHEN the disposable fallback mutant runs THEN CLIENT_FALLBACK_DETECTED fails the control",
+      "verify": "PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --negative-control client-fallback --json",
+      "maps_to_ac": null,
+      "scenario": {
+        "id": "client-fallback-mutant",
+        "test_tier": "e2e",
+        "tier": "visible",
+        "verification_service": "ios-client-mutant",
+        "negative_control": {
+          "would_fail_if": [
+            "the client fallback mutant is not detected or baseline is stubbed"
+          ]
+        },
+        "evidence": {
+          "artifact_type": "file_artifact",
+          "required_capture": true
+        },
+        "cases": [
+          {
+            "start_ref": "fallback_mutant",
+            "action": {
+              "steps": [
+                "prove real baseline then run disposable client-only fallback mutant"
+              ]
+            },
+            "end_state": {
+              "must_observe": [
+                "operationIdCount: 1",
+                "uiScreenshotRefCount: 1",
+                "externalServerEventRefCount: 1",
+                "zeroObservationRefCount: 1",
+                "directPostgresReadRefCount: 1",
+                "baselinePassCount: 1",
+                "mutantFailureClass: CLIENT_FALLBACK_DETECTED"
+              ],
+              "must_not_observe": [
+                "baselinePassCount: 0",
+                "empty mutant failure class"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-1",
+      "type": "test_criterion",
+      "description": "Absent config fails",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=absent-config bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-2",
+      "type": "test_criterion",
+      "description": "Loopback e2e fails",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=loopback-e2e bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-3",
+      "type": "test_criterion",
+      "description": "Retired host fails",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=retired-host bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-4",
+      "type": "test_criterion",
+      "description": "Wrong plane fails",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=wrong-plane bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-5",
+      "type": "test_criterion",
+      "description": "Wrong release fails",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=wrong-release bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-6",
+      "type": "test_criterion",
+      "description": "Correct sentinel release passes",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=correct-sentinel-release bash scripts/e2e/run-client-runtime-config-and-mutation.sh --config-matrix --json",
+      "maps_to_ac": "AC-1"
+    },
+    {
+      "id": "TC-7",
+      "type": "test_criterion",
+      "description": "Accepted mutation correlates within SLO",
+      "verify": "PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --accepted-mutation --distinct-observer-client --slo-ms 5000 --json",
+      "maps_to_ac": "AC-2"
+    },
+    {
+      "id": "TC-8",
+      "type": "test_criterion",
+      "description": "409 rolls back",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=reject-409 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-9",
+      "type": "test_criterion",
+      "description": "423 rolls back",
+      "verify": "PLATFORM_IT=1 MK6_CLIENT_CASE=reject-423 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --rejection --json",
+      "maps_to_ac": "AC-3"
+    },
+    {
+      "id": "TC-10",
+      "type": "test_criterion",
+      "description": "Fallback mutant fails named",
+      "verify": "PLATFORM_IT=1 bash scripts/e2e/run-client-runtime-config-and-mutation.sh --negative-control client-fallback --json",
+      "maps_to_ac": "AC-4"
+    }
+  ]
+}
 -->
