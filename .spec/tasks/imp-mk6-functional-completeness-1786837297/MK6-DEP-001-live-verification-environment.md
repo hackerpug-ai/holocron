@@ -1,9 +1,10 @@
 # MK6-DEP-001: Provision the real MK-VI verification environment
 
-> Status: 🔵 In Review
+> Status: ✅ Completed
 > Cycle: 1
-> Commit: 3904751c048f17b755a452824099770ea38bd754
-> Updated: 2026-08-16T19:03:05Z
+> Commit: 843462474397a5c00b4ae21602e1b7ab491e19f2
+> Reviewer: product:mk6_dep_001_product_review + technical:mk6_dep_001_technical_review
+> Completed: 2026-08-16T19:48:59Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: infrastructure
@@ -24,8 +25,8 @@ One fail-closed preflight provisions isolated real Postgres, Mastra/Hono, schedu
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-live-dependencies.sh --provision-isolated --json` — `bash scripts/verify-mk6-live-dependencies.sh --provision-isolated --json` exits 0 only after real Postgres accepts a write/read, the real serving Mastra process returns its release identity, scheduler heartbeat advances, Zero replicates one non-empty row, and the configured fleet completes one prompt.
-- [ ] AC-2: `PLATFORM_IT=1 MK6_NEGATIVE_DEPENDENCY=core-matrix bash scripts/verify-mk6-live-dependencies.sh --provision-isolated --json` enumerates Postgres, fleet, Mastra, scheduler, and Zero as five independent unavailable cases; each exits non-zero with its named dependency and none marks the stack ready. Non-generatable R2 restore credentials, simulator reservation, and second authorized tailnet device report `manual_only` rather than fake success.
+- [x] AC-1: `PLATFORM_IT=1 bash scripts/verify-mk6-live-dependencies.sh --provision-isolated --json` — `bash scripts/verify-mk6-live-dependencies.sh --provision-isolated --json` exits 0 only after real Postgres accepts a write/read, the real serving Mastra process returns its release identity, scheduler heartbeat advances, Zero replicates one non-empty row, and the configured fleet completes one prompt.
+- [x] AC-2: `PLATFORM_IT=1 MK6_NEGATIVE_DEPENDENCY=core-matrix bash scripts/verify-mk6-live-dependencies.sh --provision-isolated --json` enumerates Postgres, fleet, Mastra, scheduler, and Zero as five independent unavailable cases; each exits non-zero with its named dependency and none marks the stack ready. Non-generatable R2 restore credentials, simulator reservation, and second authorized tailnet device report `manual_only` rather than fake success.
 
 ## Test Criteria
 
@@ -45,7 +46,8 @@ One fail-closed preflight provisions isolated real Postgres, Mastra/Hono, schedu
 
 Dispatch `devops-engineer`; reviewer = `mastra-reviewer`. Provisioning proves dependencies only and cannot satisfy any downstream product AC.
 
-<!-- REQUIREMENT-CONTRACT v1 -->
+<!-- REQUIREMENT-CONTRACT v1
+-->
 <!--
 {
   "version": "1",
