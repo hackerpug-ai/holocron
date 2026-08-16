@@ -139,6 +139,9 @@ services:
         export ZERO_CVR_DB="$$ZERO_UPSTREAM_DB";
         export ZERO_CHANGE_DB="$$ZERO_UPSTREAM_DB";
         export ZERO_ADMIN_PASSWORD="$$(cat /run/secrets/mk6_zero_admin_password)";
+        export ZERO_SCHEMA_PATH=/app/mk6-zero-schema/schema.ts;
+        export NODE_ENV=production;
+        /opt/app/node_modules/.bin/zero-deploy-permissions;
         exec zero-cache --app-publications "$$ZERO_PUBLICATION" --port "$$ZERO_PORT" --num-sync-workers "$$ZERO_NUM_SYNC_WORKERS"
     environment:
       ZERO_PORT: "4848"
@@ -150,6 +153,8 @@ services:
       ZERO_ENABLE_CRUD_MUTATIONS: "false"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ${MK6_ZERO_SCHEMA_DIR:?MK6_ZERO_SCHEMA_DIR is required}:/app/mk6-zero-schema:ro
     ports:
       - "127.0.0.1:${MK6_ZERO_PORT:?MK6_ZERO_PORT is required}:4848"
     depends_on:

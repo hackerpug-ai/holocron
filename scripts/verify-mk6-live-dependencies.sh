@@ -112,6 +112,23 @@ COMPOSE_SHA256="$(shasum -a 256 "$COMPOSE_FILE" | awk '{print $1}')"
 
 mkdir -p "$EVIDENCE_DIR"
 
+# Zero permissions are derived from the exact checked-in application schema.
+# Stage both modules in this run's no-clobber evidence directory so the
+# extensionless legacy import resolves inside the official Zero CLI image.
+ZERO_SCHEMA_DIR="$EVIDENCE_DIR/${RUN_ID}-zero-schema"
+mkdir "$ZERO_SCHEMA_DIR"
+cp "$ROOT/app/zero/schema.ts" "$ZERO_SCHEMA_DIR/schema.ts"
+cp "$ROOT/app/zero/legacy-alias.ts" "$ZERO_SCHEMA_DIR/legacy-alias.ts"
+ln -s legacy-alias.ts "$ZERO_SCHEMA_DIR/legacy-alias"
+[[ -f "$ZERO_SCHEMA_DIR/schema.ts" && -f "$ZERO_SCHEMA_DIR/legacy-alias.ts" ]] || {
+  json_error 'exact Zero schema staging failed'
+  exit 2
+}
+[[ -L "$ZERO_SCHEMA_DIR/legacy-alias" && "$(readlink "$ZERO_SCHEMA_DIR/legacy-alias")" == 'legacy-alias.ts' ]] || {
+  json_error 'Zero legacy-alias symlink staging failed'
+  exit 2
+}
+
 PLATFORM_IMAGE="${MK6_PLATFORM_IMAGE:-${HOLO_PLATFORM_IMAGE:-}}"
 if [[ -z "$PLATFORM_IMAGE" ]]; then
   PLATFORM_IMAGE="holocron-platform:${RUN_ID}"
@@ -160,6 +177,7 @@ export MK6_CONTROL_KEY="$CONTROL_KEY"
 export MK6_PLATFORM_IMAGE="$PLATFORM_IMAGE"
 export MK6_FLEET_CONTAINER_URL="$FLEET_CONTAINER_URL"
 export MK6_FLEET_MANIFEST="$EVIDENCE_DIR/${RUN_ID}-fleet-manifest.json"
+export MK6_ZERO_SCHEMA_DIR="$ZERO_SCHEMA_DIR"
 export MK6_POSTGRES_PORT="$POSTGRES_PORT"
 export MK6_MASTRA_PORT="$MASTRA_PORT"
 export MK6_ZERO_PORT="$ZERO_PORT"
