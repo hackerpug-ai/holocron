@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: verification
-> Wave: 5
+> Wave: 13
 > Proposed by: mastra-planner
-> Files: services/platform/src/config/verify-no-convex-env.ts, services/platform/src/cli/commands/verify-no-convex.ts, services/platform/src/cli/commands/verify-no-convex-client.ts, services/platform/src/sync/client-callsite-inventory.ts, services/platform/src/cutover/convex-live-attestation.ts, services/platform/src/cutover/fence-status.ts, services/platform/tests/integration/s32-d08-01-no-convex-decommission.test.ts, services/platform/tests/integration/sprint32-decommission-runbook.test.ts, scripts/e2e/run-maestro-native-gate.sh, scripts/e2e/build-expo-dev-client.sh, scripts/verify-mk6-retired-plane.sh, .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-02/**
-> Depends on: MK6-DATA-001, MK6-MCP-002, MK6-CLIENT-003, MK6-RECOVERY-001
+> Files: services/platform/src/config/verify-no-convex-env.ts, services/platform/src/cli/commands/verify-no-convex.ts, services/platform/src/cli/commands/verify-no-convex-client.ts, services/platform/src/sync/client-callsite-inventory.ts, services/platform/src/cutover/convex-live-attestation.ts, services/platform/src/cutover/fence-status.ts, services/platform/tests/integration/s32-d08-01-no-convex-decommission.test.ts, services/platform/tests/integration/sprint32-decommission-runbook.test.ts, scripts/verify-mk6-retired-plane.sh, .gate-evidence/mk6-cutover/**
+> Depends on: MK6-DATA-002, MK6-MCP-002, MK6-CLIENT-003, MK6-RECOVERY-001, MK6-NATIVE-001, MK6-PROVENANCE-001
 
 ## Outcome
 

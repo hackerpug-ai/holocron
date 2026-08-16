@@ -5,10 +5,10 @@
 > Reviewer: mcp-reviewer
 > Priority: P0
 > Type: feature
-> Wave: 3
+> Wave: 7
 > Proposed by: mastra-planner
 > Files: services/platform/src/mcp/gateway.ts, services/platform/src/tools/registry.ts, services/platform/src/tools/schemas/**, services/platform/src/mcp/manifest-loader.ts, services/platform/src/mcp/manifest-replay.ts, services/platform/src/mcp/manifest-schema.ts, services/platform/src/mcp/registry-reader.ts, services/platform/src/mcp/verify-manifest.ts, services/platform/src/mcp/verify-rehost.ts, holocron-mcp/src/mastra/stdio.ts, holocron-mcp/src/platform/mcp-client.ts, services/platform/tests/integration/sprint19-mcp-rehost.test.ts, services/platform/tests/integration/sprint31-mcp-idempotent-replay.test.ts, tests/integration/mcp-dual-transport-live.test.ts, scripts/verify-mk6-mcp-all-44.sh
-> Depends on: MK6-MCP-001, MK6-MISSION-001, MK6-RUNTIME-001
+> Depends on: MK6-FLEET-001, MK6-RUNTIME-001, MK6-MISSION-001, MK6-MCP-001
 
 ## Outcome
 

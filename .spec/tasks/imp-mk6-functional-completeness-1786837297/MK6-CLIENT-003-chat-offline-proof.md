@@ -5,10 +5,10 @@
 > Reviewer: react-native-ui-reviewer
 > Priority: P1
 > Type: verification
-> Wave: 4
+> Wave: 11
 > Proposed by: mastra-planner
 > Files: hooks/use-resumable-sse-stream.ts, app/(drawer)/chat/[conversationId].tsx, components/chat/ChatThread.tsx, tests/integration/s-reactive-04-degraded-chat.test.ts, tests/integration/s-reactive-01-resumable-sse.test.ts, tests/integration/s31-fe-07-offline-contract-scope.test.ts, .maestro/reactive/degraded-no-hang.yml, .maestro/reactive/degraded-recovery.yml, .maestro/reactive/offline-contract-airplane-reads.yml, .maestro/reactive/zero-down-terminal-error.yml, .maestro/reactive/run-degraded-no-hang.sh, .maestro/reactive/run-degraded-recovery.sh, .maestro/reactive/run-offline-contract-airplane-reads.sh, .maestro/reactive/run-zero-down-terminal-error.sh, scripts/e2e/run-mk6-client-fallback-control.sh
-> Depends on: MK6-CLIENT-001, MK6-CLIENT-002, MK6-RUNTIME-001
+> Depends on: MK6-CLIENT-001, MK6-CLIENT-004, MK6-RUNTIME-001
 
 ## Outcome
 

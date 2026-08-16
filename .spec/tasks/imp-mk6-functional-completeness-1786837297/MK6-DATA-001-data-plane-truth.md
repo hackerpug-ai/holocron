@@ -12,7 +12,7 @@
 
 ## Outcome
 
-The retained real Convex export and real Postgres agree on non-empty corpus content, referential integrity, blobs, and one sentinel; the retired plane can never become an empty/null success.
+The retained real Convex export and real Postgres agree on non-empty migration corpus content, referential integrity, blobs, and one sentinel, establishing the foundation consumed by final cross-surface attestation.
 
 ## Acceptance Criteria
 

@@ -5,9 +5,9 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: bugfix
-> Wave: 3
+> Wave: 4
 > Proposed by: mastra-planner
-> Files: scripts/run-s32-d08-03-deletion-gate.sh, scripts/assert-s32-d08-03-deletion-gate.sh, scripts/run-s32-d08-03-resume-ac2.sh, scripts/verify-restore-isolation.sh, scripts/verify-restored-artifacts.sh, scripts/provision-fresh-restore-target.sh, scripts/verify-mk6-recovery-evidence.sh, services/platform/src/backup/fire-drill.ts, services/platform/src/backup/evidence-ledger-verify.ts, services/platform/src/backup/parity-report.ts, services/platform/tests/integration/sprint32-d08-03-deletion-gate.test.ts, tests/integration/s32-convex-decommission-oracle.test.ts
+> Files: scripts/run-s32-d08-03-deletion-gate.sh, scripts/assert-s32-d08-03-deletion-gate.sh, scripts/run-s32-d08-03-resume-ac2.sh, scripts/verify-restore-isolation.sh, scripts/verify-restored-artifacts.sh, scripts/provision-fresh-restore-target.sh, scripts/verify-mk6-recovery-evidence.sh, services/platform/src/backup/fire-drill.ts, services/platform/src/backup/evidence-ledger-verify.ts, services/platform/src/backup/parity-report.ts, services/platform/tests/integration/sprint32-d08-03-deletion-gate.test.ts, tests/integration/s32-convex-decommission-oracle.test.ts, .gate-evidence/mk6-recovery/**
 > Depends on: MK6-BACKUP-001
 
 ## Outcome

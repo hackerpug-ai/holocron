@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: feature
-> Wave: 2
+> Wave: 5
 > Proposed by: mastra-planner
 > Files: services/platform/src/index.ts, services/platform/src/http/hono-app.ts, services/platform/src/http/missions.ts, services/platform/src/mission/**, services/platform/src/db/schema/zero-pub.ts, services/platform/src/db/migrations/0039_zero_pub_mission_runs.sql, services/platform/src/zero/mutate.ts, services/platform/tests/integration/sprint17-mission-template.test.ts, services/platform/tests/integration/sprint31-mission-off-http.test.ts, services/platform/tests/integration/sprint31-mission-trace-live.test.ts, services/platform/tests/integration/mission-list-restart-live.test.ts, services/platform/tests/integration/mission-zero-contract.test.ts, scripts/verify-mk6-mission-lifecycle.sh
-> Depends on: MK6-DATA-001, MK6-QUEUE-001, MK6-RUNTIME-001
+> Depends on: MK6-FLEET-001, MK6-DATA-001, MK6-QUEUE-001, MK6-RUNTIME-001
 
 ## Outcome
 

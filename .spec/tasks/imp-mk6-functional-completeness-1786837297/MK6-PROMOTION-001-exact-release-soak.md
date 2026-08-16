@@ -5,7 +5,7 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: manual verification
-> Wave: 7
+> Wave: 16
 > Proposed by: mastra-planner
 > Files: .gate-evidence/mk6-promotion/**, .gate-evidence/mk6-soak/**
 > Depends on: imp-mk6-functional-completeness-1786837297-mk6-functional-completeness

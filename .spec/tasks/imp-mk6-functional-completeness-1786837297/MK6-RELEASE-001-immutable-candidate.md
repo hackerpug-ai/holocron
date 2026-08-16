@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: infrastructure
-> Wave: 5
+> Wave: 14
 > Proposed by: mastra-planner
 > Files: services/platform/src/deploy/production-deploy.ts, services/platform/src/deploy/production-release.ts, services/platform/src/deploy/verify-production.ts, services/platform/deploy/compose/compose.yaml, services/platform/deploy/compose/image-lock.json, services/platform/deploy/compose/production.env.example, scripts/run-mk6-promotion.sh, services/platform/tests/integration/mk6-release-orchestration-live.test.ts
-> Depends on: MK6-RUNTIME-001, MK6-MCP-002, MK6-CLIENT-003, MK6-RECOVERY-001, MK6-CUTOVER-001
+> Depends on: MK6-CUTOVER-001
 
 ## Outcome
 

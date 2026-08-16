@@ -5,7 +5,7 @@
 > Reviewer: react-native-ui-reviewer
 > Priority: P0
 > Type: bugfix
-> Wave: 4
+> Wave: 9
 > Proposed by: mastra-planner
 > Files: app/(drawer)/_layout.tsx, screens/DrawerContent.tsx, app/(drawer)/missions.tsx, app/zero/queries.ts, app/toolbelt/add.tsx, hooks/use-zero-query-state.ts, hooks/use-whats-new-feed.ts, hooks/use-file-object-by-content-hash.ts, components/deep-research/DeepResearchDetailView.tsx, app/(drawer)/research/[sessionId].tsx, components/articles/ArticleImportModal.tsx, components/improvements/ImprovementSubmitSheet.tsx, tests/integration/drawer-mission-observation.test.ts, tests/integration/client-zero-state-semantics.test.ts, .maestro/reactive/drawer-mission-observation.yml, .maestro/reactive/client-zero-state-semantics.yml, .maestro/reactive/run-drawer-mission-observation.sh, .maestro/reactive/run-client-zero-state-semantics.sh
 > Depends on: MK6-CLIENT-001

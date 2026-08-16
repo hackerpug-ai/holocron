@@ -5,7 +5,7 @@
 > Reviewer: react-native-ui-reviewer
 > Priority: P0
 > Type: bugfix
-> Wave: 3
+> Wave: 8
 > Proposed by: mastra-planner
 > Files: app/_layout.tsx, app/zero/platform.ts, app/zero/legacy-alias.ts, app/zero/mutators.ts, tests/integration/client-runtime-config-and-mutation.test.ts, .maestro/reactive/client-runtime-config-and-mutation.yml, scripts/e2e/run-client-runtime-config-and-mutation.sh
 > Depends on: MK6-MISSION-001, MK6-MCP-002

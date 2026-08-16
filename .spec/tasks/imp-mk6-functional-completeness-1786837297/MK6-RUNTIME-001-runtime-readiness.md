@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: bugfix
-> Wave: 2
+> Wave: 4
 > Proposed by: mastra-planner
 > Files: services/platform/src/http/health.ts, services/platform/src/http/deployment-identity.ts, services/platform/tests/integration/service/health-readiness.test.ts, services/platform/tests/integration/mk6-runtime-health-live.test.ts, scripts/verify-mk6-runtime-health.sh
-> Depends on: MK6-DATA-001, MK6-QUEUE-001, MK6-BACKUP-001
+> Depends on: MK6-HOST-001, MK6-FLEET-001, MK6-DATA-001, MK6-QUEUE-001, MK6-BACKUP-001
 
 ## Outcome
 

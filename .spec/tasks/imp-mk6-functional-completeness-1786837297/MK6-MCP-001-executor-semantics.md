@@ -5,7 +5,7 @@
 > Reviewer: mcp-reviewer
 > Priority: P0
 > Type: bugfix
-> Wave: 2
+> Wave: 6
 > Proposed by: mastra-planner
 > Files: services/platform/src/mcp/executor.ts, services/platform/src/mcp/list-mutations.ts, services/platform/src/db/schema/subscriptions.ts, services/platform/src/db/migrations/0040_mcp_subscription_replay.sql, services/platform/tests/integration/mcp-behavior-live.test.ts, scripts/verify-mk6-mcp-executor.sh
 > Depends on: MK6-DATA-001, MK6-QUEUE-001, MK6-MISSION-001

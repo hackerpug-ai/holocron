@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: manual verification
-> Wave: 8
+> Wave: 18
 > Proposed by: mastra-planner
-> Files: .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-03/**, .spec/prds/mk6-migration/tasks/sprint-32-convex-decommission-code-deps-and-cloud-deletion/evidence/D08-09/**, .gate-evidence/mk6-decommission/**
-> Depends on: MK6-PROMOTION-001
+> Files: scripts/run-mk6-authorized-decommission.sh, services/platform/tests/integration/mk6-authorized-decommission-live.test.ts, .gate-evidence/mk6-decommission/**
+> Depends on: MK6-SOAK-001
 
 ## Outcome
 

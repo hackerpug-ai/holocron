@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: infrastructure
-> Wave: 1
+> Wave: 3
 > Proposed by: mastra-planner
 > Files: services/platform/src/backup/alerting.ts, services/platform/src/backup/base-backup.ts, services/platform/src/backup/config.ts, services/platform/src/backup/heartbeat.ts, services/platform/src/backup/index.ts, services/platform/src/backup/r2-provision.ts, services/platform/src/backup/restic-mirror.ts, services/platform/src/backup/restore.ts, services/platform/src/backup/wal-archive.ts, services/platform/src/backup/trusted-bin.ts, services/platform/src/backup/span.ts, services/platform/src/backup/parity-check.ts, services/platform/src/backup/recovery-baseline.ts, services/platform/src/backup/harness-isolation.ts, services/platform/deploy/launchd/holocron-base-backup.plist, services/platform/deploy/launchd/holocron-wal-archive.plist, services/platform/deploy/launchd/holocron-restic-blob-mirror.plist, services/platform/deploy/launchd/holocron-backup-alert-sweep.plist, services/platform/tests/integration/sprint27-backup-*.test.ts, services/platform/tests/integration/sprint31-ops-01-backup-restore.test.ts, scripts/verify-mk6-backup-runtime.sh
-> Depends on: MK6-DEP-001
+> Depends on: MK6-HOST-001, MK6-PROVENANCE-001
 
 ## Outcome
 

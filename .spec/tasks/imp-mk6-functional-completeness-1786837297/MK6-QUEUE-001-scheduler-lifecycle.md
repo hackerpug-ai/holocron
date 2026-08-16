@@ -5,10 +5,10 @@
 > Reviewer: mastra-reviewer
 > Priority: P0
 > Type: bugfix
-> Wave: 1
+> Wave: 2
 > Proposed by: mastra-planner
 > Files: services/platform/src/queue/backend.ts, services/platform/src/queue/scheduler-worker.ts, services/platform/src/queue/probe-cli.ts, services/platform/tests/integration/queue-backend-idempotency.test.ts, services/platform/tests/integration/queue-heartbeat-persistence-live.test.ts, scripts/verify-mk6-queue-lifecycle.sh
-> Depends on: MK6-DEP-001, MK6-DATA-001
+> Depends on: MK6-DATA-001
 
 ## Outcome
 
