@@ -333,10 +333,16 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       const depends = service.depends_on as Record<string, Record<string, unknown>>;
       expect(depends.mastra).toMatchObject({ condition: 'service_healthy' });
     }
-    expect(zeroCache.environment).toMatchObject({ ZERO_ENABLE_CRUD_MUTATIONS: 'false' });
+    expect(zeroCache.environment).toMatchObject({
+      ZERO_ENABLE_CRUD_MUTATIONS: 'false',
+      ZERO_NUM_SYNC_WORKERS: '4',
+      ZERO_UPSTREAM_MAX_CONNS: '8',
+      ZERO_CVR_MAX_CONNS: '8',
+    });
     const zeroCommand = JSON.stringify(zeroCache.command);
     expect(zeroCommand).toContain('ZERO_UPSTREAM_DB');
     expect(zeroCommand).toContain('ZERO_ADMIN_PASSWORD');
+    expect(zeroCommand).toContain('--num-sync-workers');
     expect(zeroCommand).not.toMatch(/--(?:upstream-db|cvr-db|change-db|admin-password)/);
     expect(JSON.stringify(zeroCache)).not.toMatch(/ZERO_(?:MUTATE|PUSH)_URL/);
     expect(() => assertComposeContract(candidate)).not.toThrow();

@@ -134,6 +134,9 @@ services:
     environment:
       ZERO_PORT: "4848"
       ZERO_PUBLICATION: zero_pub
+      ZERO_NUM_SYNC_WORKERS: "4"
+      ZERO_UPSTREAM_MAX_CONNS: "8"
+      ZERO_CVR_MAX_CONNS: "8"
       # Read-only soak contract: retain replication/query service while rejecting
       # every legacy CRUD push. Custom mutations also fail closed because this
       # deployment intentionally has no ZERO_MUTATE_URL.
@@ -145,7 +148,7 @@ services:
         export ZERO_CVR_DB="$$ZERO_UPSTREAM_DB";
         export ZERO_CHANGE_DB="$$ZERO_UPSTREAM_DB";
         export ZERO_ADMIN_PASSWORD="$$(cat /run/secrets/zero_admin_password)";
-        exec zero-cache --app-publications "$$ZERO_PUBLICATION" --port "$$ZERO_PORT"
+        exec zero-cache --app-publications "$$ZERO_PUBLICATION" --port "$$ZERO_PORT" --num-sync-workers "$$ZERO_NUM_SYNC_WORKERS"
     secrets:
       - source: database-url
         target: database_url

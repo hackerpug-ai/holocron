@@ -8,6 +8,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { createSql } from '../../src/db/client.ts';
 import { startQueueBackend, stopQueueBackend } from '../../src/queue/backend.ts';
+import { withQueueSql } from '../../src/queue/schema.ts';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -24,6 +25,22 @@ async function pgBossConnectionCount(): Promise<number> {
     return rows[0]?.count ?? 0;
   } finally {
     await sql.end({ timeout: 5 });
+  }
+}
+
+async function databaseConnectionCount(): Promise<number> {
+  if (!DATABASE_URL) throw new Error('DATABASE_URL is required');
+  const sql = createSql(DATABASE_URL);
+  try {
+    const rows = await sql<{ count: number }[]>`
+      SELECT count(*)::int AS count
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid()
+    `;
+    return rows[0]?.count ?? 0;
+  } finally {
+    await sql.end({ timeout: 0 });
   }
 }
 
@@ -53,5 +70,18 @@ describe('queue backend heartbeat lifecycle (real Postgres)', () => {
     ]);
     expect(concurrent.every((result) => result.ready)).toBe(true);
     expect(await pgBossConnectionCount()).toBe(afterFirst);
+  });
+
+  it('does not accumulate sessions across short-lived scheduler queue operations', async () => {
+    if (!DATABASE_URL) throw new Error('DATABASE_URL is required');
+
+    const baseline = await databaseConnectionCount();
+    for (let attempt = 0; attempt < 32; attempt += 1) {
+      await withQueueSql(DATABASE_URL, async (sql) => {
+        await sql`SELECT 1 AS ok`;
+      });
+    }
+
+    expect(await databaseConnectionCount()).toBeLessThanOrEqual(baseline + 2);
   });
 });

@@ -8,6 +8,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { getSecretValue } from '../../config/secrets.ts';
+import { createSql } from '../../db/client.ts';
 import { zeroCacheBootEnabled } from '../../stack/supervisor.ts';
 import { REPO_ROOT, runHolo } from './fixtures/harness';
 
@@ -91,7 +93,7 @@ describe('AC-2: zero_cache boot path (supervisor + plist)', () => {
     expect(installer).not.toMatch(/echo\s+["']?DATABASE_URL=\$\{?DATABASE_URL/);
   });
 
-  it('stack up starts configured Zero and status reports its real state', () => {
+  it('stack up starts configured Zero and status reports its real state', async () => {
     const up = runHolo(['stack', 'up']);
     expect(up.status, up.combined).toBe(0);
 
@@ -112,6 +114,24 @@ describe('AC-2: zero_cache boot path (supervisor + plist)', () => {
     }
     if (zeroCacheBootEnabled()) {
       expect(r.combined.toLowerCase()).toMatch(/zero[_-]?cache[^\n]*healthy/);
+
+      const databaseUrl = getSecretValue('DATABASE_URL');
+      expect(databaseUrl, 'live Zero worker-budget proof requires DATABASE_URL').toBeTruthy();
+      const sql = createSql(databaseUrl);
+      try {
+        const rows = await sql<{ count: number }[]>`
+          SELECT count(*)::int AS count
+          FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND application_name LIKE 'zero-sync-worker-%'
+        `;
+        expect(
+          rows[0]?.count ?? 0,
+          'four Zero workers with two-connection upstream/CVR pools must use at most 16 DB sessions'
+        ).toBeLessThanOrEqual(16);
+      } finally {
+        await sql.end({ timeout: 0 });
+      }
     }
   }, 90_000);
 });

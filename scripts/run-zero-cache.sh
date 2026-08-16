@@ -72,6 +72,7 @@ fi
 args=(
   --app-publications "$pub"
   --port "$port"
+  --num-sync-workers "${ZERO_NUM_SYNC_WORKERS:-4}"
 )
 
 # Zero's config parser consumes these exact environment names. Keep database
@@ -79,6 +80,8 @@ args=(
 export ZERO_UPSTREAM_DB="$upstream"
 export ZERO_CVR_DB="$cvr_db"
 export ZERO_CHANGE_DB="$change_db"
+export ZERO_UPSTREAM_MAX_CONNS="${ZERO_UPSTREAM_MAX_CONNS:-8}"
+export ZERO_CVR_MAX_CONNS="${ZERO_CVR_MAX_CONNS:-8}"
 
 if [[ -n "${ZERO_LITESTREAM_EXECUTABLE:-}" && -n "${ZERO_LITESTREAM_BACKUP_URL:-}" ]]; then
   litestream_config="${ZERO_LITESTREAM_CONFIG:-$HOLO_ROOT/scripts/e2e/zero-cache-litestream.yml}"

@@ -282,7 +282,6 @@ describe('S31-OPS-01 backup restore (PLATFORM_IT agent-safe)', () => {
     expect(typeof resolved).toBe('string');
   });
 
-
   it('documents deferred-revocation exception without claiming old-key AC passed', () => {
     const body = readFileSync(RUNBOOK_PATH, 'utf8');
     expect(body).toMatch(/TEMPORARY EXCEPTION/i);
@@ -301,5 +300,4 @@ describe('S31-OPS-01 backup restore (PLATFORM_IT agent-safe)', () => {
     });
     expect(existsSync(path)).toBe(true);
   });
-
 });

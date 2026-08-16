@@ -377,7 +377,6 @@ describe('S31-CX-02 AC-1 operator surface (not green without live proof)', () =>
   });
 });
 
-
 describe('S31-CX-02 temporary exception documentation', () => {
   it('documents Convex-retain deferral without claiming AC-1 passed', () => {
     const runbook = resolve(
