@@ -3,12 +3,14 @@
  *
  * Orchestrates Postgres + Mastra + scheduler (leased queue) via launchd (Darwin)
  * with real health probes. Zero-cache: boot path enabled (Sprint 24) when
- * HOLO_ENABLE_ZERO_CACHE=1 or ZERO_ADMIN_PASSWORD is set; otherwise honest disabled.
+ * HOLO_ENABLE_ZERO_CACHE=1 or ZERO_ADMIN_PASSWORD resolves from env/canonical
+ * secrets; otherwise honest disabled.
  * See docs/ops/zero-cache-enable.md.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { getSecretValue } from '../config/secrets.ts';
 import {
   isDarwin,
   LAUNCHD_LABELS,
@@ -169,7 +171,11 @@ function langfuseBaseUrl(): string {
   return (process.env.LANGFUSE_BASE_URL ?? 'http://127.0.0.1:3100').replace(/\/+$/, '');
 }
 
-function probeLangfuseHealth(): { ok: boolean; detail: string; state: ServiceState } {
+function probeLangfuseHealth(): {
+  ok: boolean;
+  detail: string;
+  state: ServiceState;
+} {
   const base = langfuseBaseUrl();
   const url = `${base}/api/public/health`;
   try {
@@ -180,7 +186,11 @@ function probeLangfuseHealth(): { ok: boolean; detail: string; state: ServiceSta
     );
     const code = (r.stdout ?? '').trim();
     if (r.status === 0 && (code === '200' || code === '401')) {
-      return { ok: true, detail: `langfuse health HTTP ${code} at ${url}`, state: 'healthy' };
+      return {
+        ok: true,
+        detail: `langfuse health HTTP ${code} at ${url}`,
+        state: 'healthy',
+      };
     }
     return {
       ok: false,
@@ -204,7 +214,10 @@ function langfuseComposePath(cfg: StackConfig): string {
 function ensureLangfuseUp(cfg: StackConfig): { ok: boolean; detail: string } {
   const existing = probeLangfuseHealth();
   if (existing.ok) {
-    return { ok: true, detail: `langfuse already healthy — ${existing.detail}` };
+    return {
+      ok: true,
+      detail: `langfuse already healthy — ${existing.detail}`,
+    };
   }
 
   const compose = langfuseComposePath(cfg);
@@ -301,8 +314,7 @@ function buildStatus(
   };
 
   const report: StackStatusReport = {
-    // stack up still gates on postgres+mastra only; embed/queue/langfuse are ops-visibility
-    ok: postgresState === 'healthy' && mastraState === 'healthy',
+    ok: false,
     postgres: postgresState,
     mastra: mastraState,
     scheduler,
@@ -337,6 +349,8 @@ function buildStatus(
     report.probes.launchd_scheduler = probeLaunchdRunning(LAUNCHD_LABELS.scheduler).detail;
   }
 
+  report.ok = requiredHealthy(report);
+
   return report;
 }
 
@@ -364,19 +378,40 @@ export function formatStatusText(report: StackStatusReport): string {
 }
 
 function requiredHealthy(report: StackStatusReport): boolean {
-  // Scheduler pending is OK; zero-cache disabled is OK (opt-in via HOLO_ENABLE_ZERO_CACHE)
-  return report.postgres === 'healthy' && report.mastra === 'healthy';
+  const schedulerReady =
+    !report.scheduler.placeholder &&
+    (report.scheduler.state === 'running' || report.scheduler.state === 'healthy');
+  const zeroReady = !zeroCacheBootEnabled() || report.zero_cache === 'healthy';
+  return (
+    report.postgres === 'healthy' &&
+    report.mastra === 'healthy' &&
+    schedulerReady &&
+    report.queue.ready &&
+    zeroReady
+  );
 }
 
-/** Opt-in zero_cache boot — secrets + flag gate (never start /usr/bin/true). */
+function zeroCacheAdminPasswordPresent(env: NodeJS.ProcessEnv): boolean {
+  try {
+    return Boolean(getSecretValue('ZERO_ADMIN_PASSWORD', { env }));
+  } catch {
+    return false;
+  }
+}
+
+/** Opt-in zero_cache boot — canonical secrets + flag gate (never /usr/bin/true). */
 export function zeroCacheBootEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.HOLO_ENABLE_ZERO_CACHE === '0') return false;
   if (env.HOLO_ENABLE_ZERO_CACHE === '1') return true;
-  // Implicit enable when admin password is present (same as Maestro harness)
-  return Boolean(env.ZERO_ADMIN_PASSWORD && env.ZERO_ADMIN_PASSWORD.length > 0);
+  // Implicit enable when admin password resolves from env or canonical secrets.
+  return zeroCacheAdminPasswordPresent(env);
 }
 
-function startDirectPostgres(cfg: StackConfig): { ok: boolean; detail: string; pid?: number } {
+function startDirectPostgres(cfg: StackConfig): {
+  ok: boolean;
+  detail: string;
+  pid?: number;
+} {
   const postgresBin = resolve(cfg.pgBin, 'postgres');
   if (!existsSync(postgresBin)) {
     return { ok: false, detail: `postgres binary missing: ${postgresBin}` };
@@ -400,10 +435,18 @@ function startDirectPostgres(cfg: StackConfig): { ok: boolean; detail: string; p
   });
   child.unref();
   if (!child.pid) return { ok: false, detail: 'failed to spawn postgres' };
-  return { ok: true, detail: `spawned postgres pid=${child.pid}`, pid: child.pid };
+  return {
+    ok: true,
+    detail: `spawned postgres pid=${child.pid}`,
+    pid: child.pid,
+  };
 }
 
-function startDirectMastra(cfg: StackConfig): { ok: boolean; detail: string; pid?: number } {
+function startDirectMastra(cfg: StackConfig): {
+  ok: boolean;
+  detail: string;
+  pid?: number;
+} {
   const holoCli = resolve(cfg.holoRoot, 'services/platform/src/cli/holo.ts');
   if (!existsSync(holoCli)) {
     return { ok: false, detail: `holo.ts missing: ${holoCli}` };
@@ -428,10 +471,18 @@ function startDirectMastra(cfg: StackConfig): { ok: boolean; detail: string; pid
   });
   child.unref();
   if (!child.pid) return { ok: false, detail: 'failed to spawn mastra' };
-  return { ok: true, detail: `spawned mastra pid=${child.pid}`, pid: child.pid };
+  return {
+    ok: true,
+    detail: `spawned mastra pid=${child.pid}`,
+    pid: child.pid,
+  };
 }
 
-function startDirectZeroCache(cfg: StackConfig): { ok: boolean; detail: string; pid?: number } {
+function startDirectZeroCache(cfg: StackConfig): {
+  ok: boolean;
+  detail: string;
+  pid?: number;
+} {
   if (probeZeroCacheHttp().ok) {
     return { ok: true, detail: 'zero_cache already healthy (keepalive)' };
   }
@@ -444,10 +495,11 @@ function startDirectZeroCache(cfg: StackConfig): { ok: boolean; detail: string; 
       detail: `run-zero-cache.sh missing (expected ${wrapper}); see docs/ops/zero-cache-enable.md`,
     };
   }
-  if (!process.env.ZERO_ADMIN_PASSWORD) {
+  if (!zeroCacheAdminPasswordPresent(process.env)) {
     return {
       ok: false,
-      detail: 'ZERO_ADMIN_PASSWORD required to boot zero_cache — docs/ops/zero-cache-enable.md',
+      detail:
+        'ZERO_ADMIN_PASSWORD required in environment or canonical secrets to boot zero_cache — docs/ops/zero-cache-enable.md',
     };
   }
   const child = spawn('/bin/bash', [script], {
@@ -465,7 +517,11 @@ function startDirectZeroCache(cfg: StackConfig): { ok: boolean; detail: string; 
   });
   child.unref();
   if (!child.pid) return { ok: false, detail: 'failed to spawn zero_cache' };
-  return { ok: true, detail: `spawned zero_cache pid=${child.pid}`, pid: child.pid };
+  return {
+    ok: true,
+    detail: `spawned zero_cache pid=${child.pid}`,
+    pid: child.pid,
+  };
 }
 
 function stopDirect(cfg: StackConfig): string[] {
@@ -515,9 +571,11 @@ function waitUntilHealthy(
 }
 
 /**
- * stack up — ensure Postgres + Mastra healthy within 60s.
- * Scheduler skipped (pending). Zero-cache boot path enabled when opted-in
- * (HOLO_ENABLE_ZERO_CACHE=1 or ZERO_ADMIN_PASSWORD); otherwise honest disabled.
+ * stack up — ensure Postgres + Mastra + scheduler + queue healthy within 60s.
+ * Zero-cache boot path enabled when opted-in
+ * (HOLO_ENABLE_ZERO_CACHE=1 or ZERO_ADMIN_PASSWORD via env/canonical secrets);
+ * otherwise honest disabled. Readiness includes scheduler + queue and, when
+ * enabled, the real Zero keepalive endpoint.
  */
 export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): StackCommandResult {
   const cfg = options?.cfg ?? loadStackConfig();
@@ -548,23 +606,38 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
       status = buildStatus(cfg, mode, messages);
       status.ok = false;
       status.elapsed_ms = Date.now() - started;
-      return { ok: false, exitCode: 1, report: status, text: formatStatusText(status) };
+      return {
+        ok: false,
+        exitCode: 1,
+        report: status,
+        text: formatStatusText(status),
+      };
     }
 
     // Avoid brew services fighting for the same port
-    spawnSync('brew', ['services', 'stop', 'postgresql@18'], { encoding: 'utf8', timeout: 15_000 });
+    spawnSync('brew', ['services', 'stop', 'postgresql@18'], {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
 
     const pgHealthy = probePostgres(cfg).ok;
     const mastraHealthy = probeMastra(cfg).ok;
 
     // Postgres
     if (!pgHealthy) {
-      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.postgres, { forceRestart: true });
+      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.postgres, {
+        forceRestart: true,
+      });
       messages.push(ens.detail);
       if (!ens.ok) {
         status = buildStatus(cfg, mode, messages);
         status.elapsed_ms = Date.now() - started;
-        return { ok: false, exitCode: 1, report: status, text: formatStatusText(status) };
+        return {
+          ok: false,
+          exitCode: 1,
+          report: status,
+          text: formatStatusText(status),
+        };
       }
     } else {
       // Ensure launchd tracks it even if already healthy via other means
@@ -574,12 +647,19 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
 
     // Mastra — force restart if unhealthy (AC-5 kill/restart)
     if (!mastraHealthy) {
-      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.mastra, { forceRestart: true });
+      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.mastra, {
+        forceRestart: true,
+      });
       messages.push(ens.detail);
       if (!ens.ok) {
         status = buildStatus(cfg, mode, messages);
         status.elapsed_ms = Date.now() - started;
-        return { ok: false, exitCode: 1, report: status, text: formatStatusText(status) };
+        return {
+          ok: false,
+          exitCode: 1,
+          report: status,
+          text: formatStatusText(status),
+        };
       }
     } else {
       const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.mastra);
@@ -588,7 +668,7 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
 
     // S31-02: scheduler is the leased-queue consumer. Enable (do not boot out)
     // and load the real worker (scheduler-worker.ts) — never /usr/bin/true.
-    const schedEns = ensureServiceLoaded(cfg, LAUNCHD_LABELS.scheduler);
+    const schedEns = ensureServiceLoaded(cfg, LAUNCHD_LABELS.scheduler, { forceRestart: true });
     messages.push(schedEns.detail);
     const q = probeQueueDetail(cfg);
     messages.push(`scheduler: enabled (placeholder=false); consume loop active`);
@@ -596,7 +676,9 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
 
     // zero_cache boot path (Sprint 24) — opt-in only; never claim healthy without probe
     if (zeroCacheBootEnabled()) {
-      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.zerocache, { forceRestart: true });
+      const ens = ensureServiceLoaded(cfg, LAUNCHD_LABELS.zerocache, {
+        forceRestart: true,
+      });
       messages.push(`zero_cache: boot attempted — ${ens.detail}`);
       if (!ens.ok) {
         messages.push(
@@ -621,7 +703,12 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
     if (!pg.ok && !probePostgres(cfg).ok) {
       status = buildStatus(cfg, mode, messages);
       status.elapsed_ms = Date.now() - started;
-      return { ok: false, exitCode: 1, report: status, text: formatStatusText(status) };
+      return {
+        ok: false,
+        exitCode: 1,
+        report: status,
+        text: formatStatusText(status),
+      };
     }
     if (!probeMastra(cfg).ok) {
       // Kill stale mastra if tracked
@@ -634,7 +721,12 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
       if (!m.ok) {
         status = buildStatus(cfg, mode, messages);
         status.elapsed_ms = Date.now() - started;
-        return { ok: false, exitCode: 1, report: status, text: formatStatusText(status) };
+        return {
+          ok: false,
+          exitCode: 1,
+          report: status,
+          text: formatStatusText(status),
+        };
       }
     }
     writeDirectPids(cfg, pids);
@@ -686,7 +778,10 @@ export function stackUp(options?: { cfg?: StackConfig; timeoutMs?: number }): St
 }
 
 function holocronLaunchdOrphans(): string[] {
-  const list = spawnSync('launchctl', ['list'], { encoding: 'utf8', timeout: 10_000 });
+  const list = spawnSync('launchctl', ['list'], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
   return (list.stdout ?? '')
     .split('\n')
     .filter((l) => /holocron-(postgres|mastra|zerocache)/i.test(l))

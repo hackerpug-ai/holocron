@@ -37,6 +37,10 @@ let activeBackend: QueueBackendName = 'pg-boss';
 let processReady = false;
 /** Optional live pg-boss instance when package is installed. */
 let pgBossInstance: { stop?: (opts?: object) => Promise<unknown> } | null = null;
+/** Database target owned by the process-local backend instance. */
+let activeDatabaseUrl: string | null = null;
+/** Coalesce concurrent boot/heartbeat calls into one lifecycle transition. */
+let startInFlight: Promise<QueueBackendStatus> | null = null;
 
 /**
  * Try to construct and start pg-boss against DATABASE_URL.
@@ -70,7 +74,10 @@ async function tryGraphileWorker(databaseUrl: string): Promise<{ ok: boolean; de
     const sql = createSql(databaseUrl);
     try {
       await sql`SELECT 1 AS ok`;
-      return { ok: true, detail: 'graphile-worker module loaded; postgres reachable' };
+      return {
+        ok: true,
+        detail: 'graphile-worker module loaded; postgres reachable',
+      };
     } finally {
       await sql.end({ timeout: 5 });
     }
@@ -85,8 +92,22 @@ async function tryGraphileWorker(databaseUrl: string): Promise<{ ok: boolean; de
  * Always ensures our lease tables exist so priority/DLQ APIs work even if
  * the external worker package is missing (schema still real Postgres).
  */
-export async function startQueueBackend(databaseUrl?: string): Promise<QueueBackendStatus> {
-  const url = databaseUrl ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+async function startQueueBackendOnce(databaseUrl: string): Promise<QueueBackendStatus> {
+  if (processReady && activeDatabaseUrl === databaseUrl) {
+    const status = await probeQueueBackend(databaseUrl);
+    return {
+      ...status,
+      detail: `${status.detail}; reused process backend`,
+    };
+  }
+
+  // A process may only own one queue backend. Changing targets first tears down
+  // the old instance so a retry cannot strand its Postgres connections.
+  if (pgBossInstance || processReady) {
+    await stopQueueBackend();
+  }
+
+  const url = databaseUrl;
 
   const sql = createSql(url);
   try {
@@ -96,6 +117,7 @@ export async function startQueueBackend(databaseUrl?: string): Promise<QueueBack
     const pg = await tryStartPgBoss(url);
     if (pg.ok) {
       activeBackend = 'pg-boss';
+      activeDatabaseUrl = url;
       processReady = true;
       await markBackendReady(sql, 'pg-boss', true);
       return {
@@ -110,6 +132,7 @@ export async function startQueueBackend(databaseUrl?: string): Promise<QueueBack
     const gw = await tryGraphileWorker(url);
     if (gw.ok) {
       activeBackend = 'graphile-worker';
+      activeDatabaseUrl = url;
       processReady = true;
       await markBackendReady(sql, 'graphile-worker', true);
       return {
@@ -129,6 +152,7 @@ export async function startQueueBackend(databaseUrl?: string): Promise<QueueBack
     const probe = await sql`SELECT count(*)::int AS n FROM queue_jobs`;
     void probe;
     activeBackend = 'pg-boss';
+    activeDatabaseUrl = url;
     processReady = true;
     await markBackendReady(sql, 'pg-boss', true);
     return {
@@ -139,6 +163,7 @@ export async function startQueueBackend(databaseUrl?: string): Promise<QueueBack
     };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
+    activeDatabaseUrl = null;
     processReady = false;
     try {
       await markBackendReady(sql, activeBackend, false);
@@ -157,7 +182,25 @@ export async function startQueueBackend(databaseUrl?: string): Promise<QueueBack
   }
 }
 
+export async function startQueueBackend(databaseUrl?: string): Promise<QueueBackendStatus> {
+  const url = databaseUrl ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
+
+  if (startInFlight) {
+    const current = await startInFlight;
+    if (activeDatabaseUrl === url || !current.ready) return current;
+  }
+
+  const pending = startQueueBackendOnce(url);
+  startInFlight = pending;
+  try {
+    return await pending;
+  } finally {
+    if (startInFlight === pending) startInFlight = null;
+  }
+}
+
 export async function stopQueueBackend(): Promise<void> {
+  const url = activeDatabaseUrl ?? process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
   processReady = false;
   if (pgBossInstance && typeof pgBossInstance.stop === 'function') {
     try {
@@ -167,8 +210,8 @@ export async function stopQueueBackend(): Promise<void> {
     }
   }
   pgBossInstance = null;
+  activeDatabaseUrl = null;
 
-  const url = process.env.DATABASE_URL ?? 'postgres://127.0.0.1:5432/holocron';
   const sql = createSql(url);
   try {
     await ensureQueueSchema(sql);

@@ -13,6 +13,8 @@
  *   HOLO_SCHEDULER_ONCE=1            — one consume+cadence pass then exit
  *   HOLO_SCHEDULER_PARSE_ONLY=1      — parse all schedules and exit (0/1)
  */
+import '../config/bootstrap-secrets.ts';
+
 import { startQueueBackend, stopQueueBackend } from './backend.ts';
 import { getJob, MIGRATED_JOBS, resolveJobsForRun } from './jobs-registry.ts';
 import { runJob } from './jobs-runner.ts';

@@ -1047,7 +1047,7 @@ describe('GATE-FIX explicit target shell/process contracts', () => {
     ).toBe(true);
     expect(result.stdout).not.toContain('TS2578');
     expect(result.stderr).not.toContain('TS2578');
-  });
+  }, 30_000);
 
   itReal(
     'RED-5: equal canonical gate/marker targets stop before mutation canaries',

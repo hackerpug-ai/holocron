@@ -334,9 +334,21 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
       expect(depends.mastra).toMatchObject({ condition: 'service_healthy' });
     }
     expect(zeroCache.environment).toMatchObject({ ZERO_ENABLE_CRUD_MUTATIONS: 'false' });
-    expect(JSON.stringify(zeroCache.command)).toContain('--enable-crud-mutations');
+    const zeroCommand = JSON.stringify(zeroCache.command);
+    expect(zeroCommand).toContain('ZERO_UPSTREAM_DB');
+    expect(zeroCommand).toContain('ZERO_ADMIN_PASSWORD');
+    expect(zeroCommand).not.toMatch(/--(?:upstream-db|cvr-db|change-db|admin-password)/);
     expect(JSON.stringify(zeroCache)).not.toMatch(/ZERO_(?:MUTATE|PUSH)_URL/);
     expect(() => assertComposeContract(candidate)).not.toThrow();
+
+    const safeZeroCommand = zeroCache.command;
+    zeroCache.command = [
+      '/bin/sh',
+      '-ec',
+      'exec zero-cache --upstream-db "$DATABASE_URL" --admin-password "$ZERO_ADMIN_PASSWORD"',
+    ];
+    expect(() => assertComposeContract(candidate)).toThrow(/credential-bearing argv flags/);
+    zeroCache.command = safeZeroCommand;
 
     mastra.command = ['/bin/sh', '-ec', 'exec bun src/index.ts'];
     expect(() => assertComposeContract(candidate)).toThrow(/run bun src\/cli\/holo\.ts db:migrate/);
@@ -350,7 +362,7 @@ describe('Sprint 29 D06-06 OCI and Compose contract', () => {
     const candidate = compose();
     const scheduler = (candidate.services as Record<string, Record<string, unknown>>).scheduler;
     if (!scheduler) throw new Error('compose fixture is missing scheduler');
-    scheduler.environment = { DATABASE_URL: '${DATABASE_URL}' };
+    scheduler.environment = { DATABASE_URL: String.raw`\${DATABASE_URL}` };
     expect(() => assertComposeContract(candidate)).toThrow(/DATABASE_URL must remain runtime-only/);
   });
 

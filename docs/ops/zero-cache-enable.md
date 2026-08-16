@@ -2,12 +2,12 @@
 
 `holo stack status` reports `zero_cache` honestly:
 
-| State | Meaning |
-|-------|---------|
-| `healthy` | Process answering `http://127.0.0.1:4848/keepalive` (or launchd PID with real program) |
-| `disabled` | Boot path present but not enabled / secrets missing / plist Disabled |
-| `pending` | Enabled but not yet ready |
-| `unhealthy` | Enabled but probe failed |
+| State       | Meaning                                                                                |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `healthy`   | Process answering `http://127.0.0.1:4848/keepalive` (or launchd PID with real program) |
+| `disabled`  | Boot path present but not enabled / secrets missing / plist Disabled                   |
+| `pending`   | Enabled but not yet ready                                                              |
+| `unhealthy` | Enabled but probe failed                                                               |
 
 ## Fast path (dev / Maestro-style foreground)
 
@@ -26,16 +26,9 @@ export ZERO_PORT=4848
 # Install deps if needed so `zero-cache` is on PATH via pnpm
 pnpm install
 
-# Foreground (or use the wrapper):
+# Foreground through the canonical wrapper. It maps credentials to Zero's
+# environment contract so database/admin secrets never appear in process argv:
 ./scripts/run-zero-cache.sh
-# — or —
-NODE_ENV=production pnpm exec zero-cache \
-  --upstream-db "$DATABASE_URL" \
-  --cvr-db "$DATABASE_URL" \
-  --change-db "$DATABASE_URL" \
-  --app-publications zero_pub \
-  --port 4848 \
-  --admin-password "$ZERO_ADMIN_PASSWORD"
 ```
 
 Probe:
@@ -47,12 +40,15 @@ holo stack status   # zero_cache: healthy when keepalive succeeds
 
 ## Launchd / `holo stack up` path
 
-1. Install deps + secrets:
+1. Install deps + secrets. `ZERO_ADMIN_PASSWORD` may be exported for an
+   operator-run foreground process, or stored in the canonical 0600
+   `services/platform/config/secrets.yaml`; the LaunchAgent resolves it at boot
+   without writing the value into its plist:
 
 ```bash
 pnpm install
-export ZERO_ADMIN_PASSWORD='…'
-export DATABASE_URL='postgres://127.0.0.1:5432/holocron_nonprod'
+# Store ZERO_ADMIN_PASSWORD and DATABASE_URL in the ignored 0600
+# services/platform/config/secrets.yaml. Environment values still take precedence.
 export HOLO_ENABLE_ZERO_CACHE=1
 ```
 
@@ -90,7 +86,7 @@ holo seed:e2e --reset --json
 
 ## Why it may stay `disabled`
 
-- `ZERO_ADMIN_PASSWORD` unset
+- `ZERO_ADMIN_PASSWORD` missing from both the environment and canonical secrets
 - `@rocicorp/zero` / `zero-cache` binary not installed (`pnpm install`)
 - Litestream env required by your Zero 1.8.0 install but missing
 - Plist still `Disabled=true` and `HOLO_ENABLE_ZERO_CACHE` not set

@@ -7,7 +7,7 @@
 #   ./scripts/install-launchd.sh --unload     # bootout loaded holocron services
 #
 # Placeholders substituted in services/platform/deploy/launchd/*.plist:
-#   @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @PG_BIN@ @PGDATA@ @DATABASE_URL@
+#   @HOME@ @HOLO_ROOT@ @BUN_BIN@ @BUN_DIR@ @NODE_DIR@ @PG_BIN@ @PGDATA@ @DATABASE_URL@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +29,9 @@ fi
 HOLO_ROOT="${HOLO_ROOT:-$DEFAULT_HOLO_ROOT}"
 BUN_BIN="${BUN_BIN:-${HOME_DIR}/.bun/bin/bun}"
 BUN_DIR="$(dirname "$BUN_BIN")"
+NODE_BIN="${NODE_BIN:-$(command -v node 2>/dev/null || true)}"
+NODE_DIR="${NODE_BIN:+$(dirname "$NODE_BIN")}"
+NODE_DIR="${NODE_DIR:-/opt/homebrew/bin}"
 if command -v brew >/dev/null 2>&1; then
   PG_PREFIX="$(brew --prefix postgresql@18 2>/dev/null || true)"
   BREW_PREFIX="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
@@ -95,6 +98,7 @@ subst() {
     -e "s|@HOLO_ROOT@|${HOLO_ROOT}|g" \
     -e "s|@BUN_BIN@|${BUN_BIN}|g" \
     -e "s|@BUN_DIR@|${BUN_DIR}|g" \
+    -e "s|@NODE_DIR@|${NODE_DIR}|g" \
     -e "s|@PG_BIN@|${PG_BIN}|g" \
     -e "s|@PGDATA@|${PGDATA}|g" \
     -e "s|@DATABASE_URL@|${DATABASE_URL}|g" \
@@ -106,7 +110,7 @@ echo "BUN_BIN=$BUN_BIN"
 echo "PG_BIN=$PG_BIN"
 echo "PGDATA=$PGDATA"
 echo "LAUNCH_AGENTS_DIR=$LAUNCH_AGENTS_DIR"
-echo "DATABASE_URL=$DATABASE_URL"
+echo "DATABASE_URL=resolved"
 
 for name in "${PLISTS[@]}"; do
   src="${TEMPLATE_DIR}/${name}"
@@ -117,12 +121,12 @@ for name in "${PLISTS[@]}"; do
   echo "installed $dest"
 done
 
-# Sanity: no relative ../bin paths, scheduler + zerocache Disabled
+# Sanity: no relative ../bin paths, scheduler enabled + zerocache opt-in.
 if grep -n '\.\./bin' "${LAUNCH_AGENTS_DIR}"/holocron-*.plist 2>/dev/null; then
   die "relative ../bin paths found in installed plists"
 fi
-grep -A2 '<key>Disabled</key>' "${LAUNCH_AGENTS_DIR}/holocron-scheduler.plist" | grep -q '<true/>' \
-  || die "scheduler must have Disabled=true"
+grep -A2 '<key>Disabled</key>' "${LAUNCH_AGENTS_DIR}/holocron-scheduler.plist" | grep -q '<false/>' \
+  || die "scheduler must have Disabled=false"
 grep -A2 '<key>Disabled</key>' "${LAUNCH_AGENTS_DIR}/holocron-zerocache.plist" | grep -q '<true/>' \
   || die "zerocache must have Disabled=true by default (opt-in via HOLO_ENABLE_ZERO_CACHE)"
 # Real boot path (Sprint 24) — must not be a /usr/bin/true placeholder

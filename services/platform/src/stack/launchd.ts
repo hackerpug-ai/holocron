@@ -4,7 +4,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { LAUNCHD_LABELS, plistPath, type StackConfig } from './config.ts';
 
 function run(
@@ -29,11 +29,15 @@ function run(
 
 function substPlist(template: string, cfg: StackConfig): string {
   const bunDir = resolve(cfg.bunBin, '..');
+  const nodeLookup = spawnSync('which', ['node'], { encoding: 'utf8' });
+  const nodeBin = process.env.NODE_BIN ?? (nodeLookup.stdout ?? '').trim();
+  const nodeDir = nodeBin ? dirname(nodeBin) : '/opt/homebrew/bin';
   return template
     .replaceAll('@HOME@', cfg.home)
     .replaceAll('@HOLO_ROOT@', cfg.holoRoot)
     .replaceAll('@BUN_BIN@', cfg.bunBin)
     .replaceAll('@BUN_DIR@', bunDir)
+    .replaceAll('@NODE_DIR@', nodeDir)
     .replaceAll('@PG_BIN@', cfg.pgBin)
     .replaceAll('@PGDATA@', cfg.pgData)
     .replaceAll('@DATABASE_URL@', cfg.databaseUrl);
@@ -47,10 +51,13 @@ export function ensureLaunchAgentsInstalled(cfg: StackConfig): { ok: boolean; me
 
   // Prefer install script when present (keeps substitution logic centralized)
   if (existsSync(cfg.installScript)) {
+    const nodeLookup = spawnSync('which', ['node'], { encoding: 'utf8' });
+    const nodeBin = process.env.NODE_BIN ?? (nodeLookup.stdout ?? '').trim();
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       HOLO_ROOT: cfg.holoRoot,
       BUN_BIN: cfg.bunBin,
+      ...(nodeBin ? { NODE_BIN: nodeBin } : {}),
       PG_BIN: cfg.pgBin,
       PGDATA: cfg.pgData,
       DATABASE_URL: cfg.databaseUrl,
@@ -96,9 +103,23 @@ export function bootstrapLabel(cfg: StackConfig, label: string): { ok: boolean; 
   if (!existsSync(plist)) {
     return { ok: false, detail: `plist missing: ${plist}` };
   }
-  // Idempotent: bootout then bootstrap
+  // Idempotent explicit start: clear a template's Disabled=true override,
+  // bootout any stale definition, bootstrap the current plist, then kickstart.
+  // `bootstrap` alone does not run a RunAtLoad=false unit such as Zero.
+  const enabled = run('launchctl', ['enable', `${cfg.domain}/${label}`], { timeoutMs: 15_000 });
+  if (enabled.status !== 0) {
+    return {
+      ok: false,
+      detail: `enable failed for ${label}: ${enabled.combined.trim()}`,
+    };
+  }
   bootoutLabel(cfg, label);
-  const r = run('launchctl', ['bootstrap', cfg.domain, plist], { timeoutMs: 15_000 });
+  spawnSync('sleep', ['0.25']);
+  let r = run('launchctl', ['bootstrap', cfg.domain, plist], { timeoutMs: 15_000 });
+  for (let attempt = 1; r.status !== 0 && attempt < 3; attempt += 1) {
+    spawnSync('sleep', ['0.25']);
+    r = run('launchctl', ['bootstrap', cfg.domain, plist], { timeoutMs: 15_000 });
+  }
   if (r.status !== 0) {
     // Some systems use load -w as fallback
     const load = run('launchctl', ['load', '-w', plist], { timeoutMs: 15_000 });
@@ -108,7 +129,25 @@ export function bootstrapLabel(cfg: StackConfig, label: string): { ok: boolean; 
         detail: `bootstrap failed for ${label}: ${r.combined.trim() || load.combined.trim()}`,
       };
     }
+    if (label === LAUNCHD_LABELS.zerocache) {
+      const kick = run('launchctl', ['kickstart', '-k', `${cfg.domain}/${label}`], {
+        timeoutMs: 15_000,
+      });
+      if (kick.status !== 0) {
+        return { ok: false, detail: `kickstart failed for ${label}: ${kick.combined.trim()}` };
+      }
+      return { ok: true, detail: `loaded and kickstarted ${label}` };
+    }
     return { ok: true, detail: `loaded ${label}` };
+  }
+  if (label === LAUNCHD_LABELS.zerocache) {
+    const kick = run('launchctl', ['kickstart', '-k', `${cfg.domain}/${label}`], {
+      timeoutMs: 15_000,
+    });
+    if (kick.status !== 0) {
+      return { ok: false, detail: `kickstart failed for ${label}: ${kick.combined.trim()}` };
+    }
+    return { ok: true, detail: `bootstrapped and kickstarted ${label}` };
   }
   return { ok: true, detail: `bootstrapped ${label}` };
 }

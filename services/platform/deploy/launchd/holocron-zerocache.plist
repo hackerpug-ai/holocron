@@ -7,7 +7,8 @@
   Unit stays Disabled=true by default; enable with:
 
     export HOLO_ENABLE_ZERO_CACHE=1
-    export ZERO_ADMIN_PASSWORD=…
+    # ZERO_ADMIN_PASSWORD may instead live in canonical secrets.yaml; the
+    # wrapper resolves it without persisting the value in this plist.
     export DATABASE_URL=postgres://127.0.0.1:5432/holocron_nonprod
     holo stack up
 
@@ -35,12 +36,10 @@
 <string>@HOME@</string>
 <key>HOLO_ROOT</key>
 <string>@HOLO_ROOT@</string>
+<key>HOLO_SECRETS_PATH</key>
+<string>@HOLO_ROOT@/services/platform/config/secrets.yaml</string>
 <key>PATH</key>
-<string>@HOLO_ROOT@/node_modules/.bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-<key>ZERO_UPSTREAM_DB</key>
-<string>@DATABASE_URL@</string>
-<key>DATABASE_URL</key>
-<string>@DATABASE_URL@</string>
+<string>@HOLO_ROOT@/node_modules/.bin:@BUN_DIR@:@NODE_DIR@:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
 <key>ZERO_PUBLICATION</key>
 <string>zero_pub</string>
 <key>ZERO_PORT</key>

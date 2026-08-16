@@ -355,8 +355,20 @@ function hasZeroReadOnlyMutationFence(service: ComposeService): boolean {
   if (env.ZERO_ENABLE_CRUD_MUTATIONS !== 'false') return false;
   if (Object.hasOwn(env, 'ZERO_MUTATE_URL') || Object.hasOwn(env, 'ZERO_PUSH_URL')) return false;
   const command = JSON.stringify(service.command ?? '');
-  if (!command.includes('--enable-crud-mutations')) return false;
   return !/--(?:mutate|push)-url|ZERO_(?:MUTATE|PUSH)_URL/.test(command);
+}
+
+function keepsZeroCredentialsOutOfArgv(service: ComposeService): boolean {
+  const command = JSON.stringify(service.command ?? '');
+  const exportsRuntimeSecrets =
+    command.includes('ZERO_UPSTREAM_DB') &&
+    command.includes('/run/secrets/database_url') &&
+    command.includes('ZERO_ADMIN_PASSWORD') &&
+    command.includes('/run/secrets/zero_admin_password');
+  return (
+    exportsRuntimeSecrets &&
+    !/--(?:upstream-db|cvr-db|change-db|admin-password)(?:[\s"']|$)/.test(command)
+  );
 }
 
 function containsCredentialLiteral(value: unknown): boolean {
@@ -408,6 +420,11 @@ export function assertComposeContract(compose: ComposeContract, image?: string):
   if (!hasZeroReadOnlyMutationFence(requiredServices['zero-cache'])) {
     fail(
       'zero-cache must disable legacy CRUD mutations and omit every custom mutate/push URL during read-only soak'
+    );
+  }
+  if (!keepsZeroCredentialsOutOfArgv(requiredServices['zero-cache'])) {
+    fail(
+      'zero-cache must read database/admin secrets into Zero environment variables without credential-bearing argv flags'
     );
   }
 
