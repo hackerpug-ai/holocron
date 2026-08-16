@@ -1,9 +1,9 @@
 # S33-OPS-01: Provision Qwen3.8-27B-8bit onto inference2 and inference1 (disk-headroom-gated) and verify oMLX serves it
 
 > Status: 🔴 Needs Fixes
-> Commit: a26b428acfbb6ad867d8e8894530fefa7d4bceca
-> Fix: SPEC-REPAIR-S33-OPS-01-VERIFY
-> Updated: 2026-08-16T22:58:56Z
+> Commit: 48e0fa03b643445f40011915534ae94b753faecd
+> Fix: SPEC-REPAIR-S33-OPS-01-TC2-VERIFY
+> Updated: 2026-08-16T23:47:34Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
@@ -72,6 +72,7 @@ Get the real Qwen3.8-27B-8bit MLX weights resident and served by oMLX on inferen
 | Cycle | FIX | Failed Reqs | Reviewer | At |
 |-------|-----|-------------|----------|----|
 | — | SPEC-REPAIR-S33-OPS-01-VERIFY | — | — | 2026-08-16T22:58:56Z |
+| — | SPEC-REPAIR-S33-OPS-01-TC2-VERIFY | — | — | 2026-08-16T23:47:34Z |
 ## Fixtures
 
 **`qwen38-27b-8bit-source`** — Real, already-downloaded MLX weight directory on the laptop: 6 safetensors shards (~27.5 GiB), config.json sha256 8f80874ac3ad8fa386d3f6dc0ea85377f703376e009a03dee0360e08e289a25d, 40 files total. _(seed: cli)_
