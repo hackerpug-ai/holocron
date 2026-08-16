@@ -17,7 +17,7 @@ Fresh empty, stale cache, terminal sync error, blob completion, import failure, 
 ## Acceptance Criteria
 
 - [ ] AC-1: `PLATFORM_IT=1 bash .maestro/reactive/run-client-zero-state-semantics.sh --case state-and-whats-new-matrix --json` proves fresh empty, stale cache with two rows, and service-scoped Zero-down terminal error are distinct; persisted-empty What's New remains empty, refresh failure is visible/retryable, `seed-feed-items` pseudo-reports remain zero, and no fabricated `Date.now()` timestamp appears.
-- [ ] AC-2: `PLATFORM_IT=1 bash .maestro/reactive/run-client-zero-state-semantics.sh --case blob-readback-matrix --json` — `PLATFORM_IT=1 bash .maestro/reactive/run-client-zero-state-semantics.sh --case blob-readback-matrix-matrix --json` labels a blob synced only after its matching real `file_objects` row/SHA; a missing row remains pending and a mismatched row becomes a named visible error.
+- [ ] AC-2: `PLATFORM_IT=1 bash .maestro/reactive/run-client-zero-state-semantics.sh --case blob-readback-matrix --json` labels a blob synced only after its matching real `file_objects` row/SHA; a missing row remains pending and a mismatched row becomes a named visible error.
 - [ ] AC-3: `PLATFORM_IT=1 bash .maestro/reactive/run-client-zero-state-semantics.sh --case import-research-rejection --json` — Real article-import failure and research-mission rejection are visible, carry server codes, persist no false success, and Retry succeeds after the task-owned dependency is restored.
 
 ## Test Criteria

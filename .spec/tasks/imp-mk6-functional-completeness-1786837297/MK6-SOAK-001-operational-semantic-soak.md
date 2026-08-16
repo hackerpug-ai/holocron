@@ -16,7 +16,7 @@ The exact installed release survives fresh 24-hour and 72-hour checkpoints with 
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `MANUAL-ONLY SOAK-M1`: `bash scripts/verify-mk6-soak.sh --hours 24 --release "$MK6_PROMOTED_RELEASE" --json` retains availability, p95 health/mission/MCP/client latency, errors, PgBoss/PG connections, queue depth/lease/failures/restarts, fleet latency/errors/spend, Zero lag/reconnect errors, backup/R2/restore ages, disk/log growth, and identity drift.
+- [ ] AC-1: `bash scripts/verify-mk6-soak.sh --hours 24 --release "$MK6_PROMOTED_RELEASE" --json` — `MANUAL-ONLY SOAK-M1`: retains availability, p95 health/mission/MCP/client latency, errors, PgBoss/PG connections, queue depth/lease/failures/restarts, fleet latency/errors/spend, Zero lag/reconnect errors, backup/R2/restore ages, disk/log growth, and identity drift.
 - [ ] AC-2: `bash scripts/verify-mk6-soak.sh --hours 72 --release "$MK6_PROMOTED_RELEASE" --json` — `MANUAL-ONLY SOAK-M2`: the same command at `--hours 72` proves zero monotonic connection/log leak, zero identity drift, mandatory SLO thresholds, and non-empty mission/MCP/client sentinel canaries bound to the same release.
 - [ ] AC-3: `PLATFORM_IT=1 bash scripts/verify-mk6-soak.sh --scoped-failure-recovery --release "$MK6_PROMOTED_RELEASE" --json` — A task-owned scoped canary failure emits one real alert and one recovery/all-clear without altering network configuration or shared services; missing metric, canary, interval, or recovery receipt fails the report.
 - [ ] AC-4: `PLATFORM_IT=1 MK6_SOAK_NEGATIVE=soak-evidence-matrix bash scripts/verify-mk6-soak.sh --release "$MK6_PROMOTED_RELEASE" --json` enumerates missing metric, missing semantic canary, missing interval, and missing recovery receipt; all four fail named.
