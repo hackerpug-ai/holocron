@@ -208,8 +208,19 @@ console.error('s33-mcp-01-gateway-ready ' + server.port);
     stop: async () => {
       if (exited) return;
       child.kill('SIGTERM');
-      await new Promise((resolveWait) => setTimeout(resolveWait, 300));
-      if (!exited) child.kill('SIGKILL');
+      await new Promise<void>((resolveStop) => {
+        const deadline = setTimeout(() => {
+          if (!exited) {
+            child.kill('SIGKILL');
+            exited = true;
+          }
+          resolveStop();
+        }, 1_000);
+        child.once('exit', () => {
+          clearTimeout(deadline);
+          resolveStop();
+        });
+      });
     },
   };
   gateways.push(handle);
