@@ -1,9 +1,11 @@
 # imp-mk6-functional-completeness-1786837297-mk6-functional-completeness: Restore all MK-VI scoped functionality to specified operation
 
-> Status: 🟡 In Progress
+> Status: 🔴 Needs Fixes
 > Cycle: 4
 > Commit: 43fc73016629dab093f2feb3c8a5fc60323098ac
-> Updated: 2026-08-16T07:38:40Z
+> Reviewer: mastra-implementer contract audit + orchestrator verification
+> Fix: tt-004
+> Updated: 2026-08-16T07:51:52Z
 > Assignee: mastra-implementer
 > Priority: P1
 > Type: bugfix
@@ -34,10 +36,10 @@ touch files outside the `> Files:` list.
 ## Acceptance Criteria
 
 - [x] AC-1: The immutable 105-criterion MK-VI contract is represented exactly once with criterion ID, domain, required real oracle, receipt kind, release identity fields, freshness requirement, and mapped H0-H4 recovery package.
-- [ ] AC-2: A ledger run fails closed for a missing, stale, unhashed, wrong-release, skipped, structural-only, empty-data, or nonterminal receipt; it cannot convert a 501, zero-row read, or historical artifact into a pass. ← FAIL: Eight variants pass technical review, but omitted fields and step-level 501 or z
-- [ ] AC-3: The existing five negative-control verifier entries remain registered and are composed rather than replaced; seeded missing-evidence, queue-recreation, mission-501, MCP semantic-no-op, and client-fallback cases each produce a named failing ledger result. ← FAIL: The contract-named controls are absent and any non-zero child result becomes a n
-- [ ] AC-4: The ledger emits a redacted machine-readable report that identifies failed criteria and the owning existing recovery package, while retaining no credential values. ← FAIL: Attacker-controlled IDs and release strings can reach redacted report fields or 
-- [ ] AC-5: A release can be marked promotable == true only after one newly captured, release-specific, real-service ledger run reports exactly criterionEvaluations == 105, exactly requiredPromotionGateSteps == 10, and failedCriteria == 0; its retained manifest contains exactly 10 non-symlink step-receipt entries keyed by H2-06's ten ordered step IDs, each with a 64-hex SHA-256 rehashed from retained bytes and matched to a read-only release-locked manifest bound to the same candidate source SHA, immutable image digest, compose generation, host identity, and deployment timestamp. The ten steps occur in H2-06 order: release identity; compose/secret-name preflight; Mastra-and-scheduler in-container fleet list and completion; three external private health 200 responses; non-empty Postgres identity across HTTP/MCP/Zero; terminal mission plus scheduler side effect; all-44 behavioral MCP sweep including declared failures; real iOS/Zero mission and durable-mutation proof; backup heartbeat and alert readiness; and automatic rollback before authority changes. The positive case invokes the actual candidate with real Postgres, fleet, HTTP/MCP/Zero, scheduler, and iOS environments; mocks, structural fixtures, cached or historical receipts, static-shell output, and receipt self-declared hashes cannot pass. Against that same successful release run, first deleting exactly one retained step receipt, then restoring it and byte-mutating exactly one retained step receipt, each returns promotable == false, failedCriteria >= 1, and a named failure record for the affected step: RECEIPT_MISSING with expected digest for deletion, or RECEIPT_DIGEST_MISMATCH with expected and actual digests for mutation, while the other nine receipts remain valid. The green case rejects an always-false implementation; each corruption case rejects an always-true implementation. ← FAIL: Ten receipts now carry 105 evaluations, but self-attestation is forgeable and no
+- [ ] AC-2: A ledger run fails closed for a missing, stale, unhashed, wrong-release, skipped, structural-only, empty-data, or nonterminal receipt; it cannot convert a 501, zero-row read, or historical artifact into a pass. ← FAIL: The eight structural variants are discriminated, but omitted required fields can
+- [ ] AC-3: The existing five negative-control verifier entries remain registered and are composed rather than replaced; seeded missing-evidence, queue-recreation, mission-501, MCP semantic-no-op, and client-fallback cases each produce a named failing ledger result. ← FAIL: All five contract-named controls are explicitly command=unavailable and executeS
+- [ ] AC-4: The ledger emits a redacted machine-readable report that identifies failed criteria and the owning existing recovery package, while retaining no credential values. ← FAIL: The serializer is field-allowlisted, but attacker-controlled step IDs, criterion
+- [ ] AC-5: A release can be marked promotable == true only after one newly captured, release-specific, real-service ledger run reports exactly criterionEvaluations == 105, exactly requiredPromotionGateSteps == 10, and failedCriteria == 0; its retained manifest contains exactly 10 non-symlink step-receipt entries keyed by H2-06's ten ordered step IDs, each with a 64-hex SHA-256 rehashed from retained bytes and matched to a read-only release-locked manifest bound to the same candidate source SHA, immutable image digest, compose generation, host identity, and deployment timestamp. The ten steps occur in H2-06 order: release identity; compose/secret-name preflight; Mastra-and-scheduler in-container fleet list and completion; three external private health 200 responses; non-empty Postgres identity across HTTP/MCP/Zero; terminal mission plus scheduler side effect; all-44 behavioral MCP sweep including declared failures; real iOS/Zero mission and durable-mutation proof; backup heartbeat and alert readiness; and automatic rollback before authority changes. The positive case invokes the actual candidate with real Postgres, fleet, HTTP/MCP/Zero, scheduler, and iOS environments; mocks, structural fixtures, cached or historical receipts, static-shell output, and receipt self-declared hashes cannot pass. Against that same successful release run, first deleting exactly one retained step receipt, then restoring it and byte-mutating exactly one retained step receipt, each returns promotable == false, failedCriteria >= 1, and a named failure record for the affected step: RECEIPT_MISSING with expected digest for deletion, or RECEIPT_DIGEST_MISMATCH with expected and actual digests for mutation, while the other nine receipts remain valid. The green case rejects an always-false implementation; each corruption case rejects an always-true implementation. ← FAIL: Exactly ten receipts now account for 105 evaluations, but live flags and the uns
 
 ## Test Criteria
 
@@ -55,62 +57,68 @@ touch files outside the `> Files:` list.
 |-------|-----|-------------|----------|----|
 | 2 | tt-002 | AC-1, AC-2, AC-3, AC-4, AC-5, TC-1, TC-2, TC-3, TC-4, TC-5 | product-manager + mastra-reviewer | 2026-08-16T06:30:04Z |
 | 3 | tt-003 | AC-2, AC-3, AC-4, AC-5, TC-3, TC-4, TC-5 | product-manager + mastra-reviewer | 2026-08-16T07:03:21Z |
+| 4 | tt-004 | AC-2, AC-3, AC-4, AC-5, TC-3, TC-4, TC-5 | mastra-implementer contract audit + orchestrator verification | 2026-08-16T07:51:52Z |
 <!-- REQUIREMENT-CONTRACT v1
 AC-1: The immutable 105-criterion MK-VI contract is represented exactly once with criterion ID, domain, required real oracle, receipt kind, release identity fields, freshness requirement, and mapped H0-H4 recovery package.
   verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: true
-  evidence: Both lenses verified source digest, exact 105 rows, unique required fields, and owner mapping.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: Both cycle-2 lenses verified the pinned criteria source SHA, exact 105-row and unique-field checks, and complete H0-H4 o
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 AC-2: A ledger run fails closed for a missing, stale, unhashed, wrong-release, skipped, structural-only, empty-data, or nonterminal receipt; it cannot convert a 501, zero-row read, or historical artifact into a pass.
   verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: Eight variants pass technical review, but omitted fields and step-level 501 or zero-row outcomes can pass.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: The eight structural variants are discriminated, but omitted required fields can pass and step-level 501 or zero-row out
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 AC-3: The existing five negative-control verifier entries remain registered and are composed rather than replaced; seeded missing-evidence, queue-recreation, mission-501, MCP semantic-no-op, and client-fallback cases each produce a named failing ledger result.
   verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: The contract-named controls are absent and any non-zero child result becomes a named semantic failure.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: All five contract-named controls are explicitly command=unavailable and executeSemanticControls returns executed=false i
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 AC-4: The ledger emits a redacted machine-readable report that identifies failed criteria and the owning existing recovery package, while retaining no credential values.
   verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: Attacker-controlled IDs and release strings can reach redacted report fields or messages.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: The serializer is field-allowlisted, but attacker-controlled step IDs, criterion IDs, and release strings flow into seri
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 AC-5: A release can be marked promotable == true only after one newly captured, release-specific, real-service ledger run reports exactly criterionEvaluations == 105, exactly requiredPromotionGateSteps == 10, and failedCriteria == 0; its retained manifest contains exactly 10 non-symlink step-receipt entries keyed by H2-06's ten ordered step IDs, each with a 64-hex SHA-256 rehashed from retained bytes and matched to a read-only release-locked manifest bound to the same candidate source SHA, immutable image digest, compose generation, host identity, and deployment timestamp. The ten steps occur in H2-06 order: release identity; compose/secret-name preflight; Mastra-and-scheduler in-container fleet list and completion; three external private health 200 responses; non-empty Postgres identity across HTTP/MCP/Zero; terminal mission plus scheduler side effect; all-44 behavioral MCP sweep including declared failures; real iOS/Zero mission and durable-mutation proof; backup heartbeat and alert readiness; and automatic rollback before authority changes. The positive case invokes the actual candidate with real Postgres, fleet, HTTP/MCP/Zero, scheduler, and iOS environments; mocks, structural fixtures, cached or historical receipts, static-shell output, and receipt self-declared hashes cannot pass. Against that same successful release run, first deleting exactly one retained step receipt, then restoring it and byte-mutating exactly one retained step receipt, each returns promotable == false, failedCriteria >= 1, and a named failure record for the affected step: RECEIPT_MISSING with expected digest for deletion, or RECEIPT_DIGEST_MISMATCH with expected and actual digests for mutation, while the other nine receipts remain valid. The green case rejects an always-false implementation; each corruption case rejects an always-true implementation.
   verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: Ten receipts now carry 105 evaluations, but self-attestation is forgeable and no fresh real candidate proof exists.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: Exactly ten receipts now account for 105 evaluations, but live flags and the unsigned attestation remain self-authored;
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 TC-1: Maps to AC-1 (inherits AC-1's scenario)
+  verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: true
-  evidence: Exact-105 and source-tamper tests with RED-to-GREEN lineage were verified.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: Cycle-2 technical review verified exact-105, unique and required-field assertions plus immutable-source tamper coverage
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 TC-2: Maps to AC-2 (inherits AC-2's scenario)
+  verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: true
-  evidence: Eight named CLI variants plus poison cases were verified.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: Cycle-2 technical review verified eight named variants through the real CLI plus separate 501, zero-row, and historical
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 TC-3: Maps to AC-3 (inherits AC-3's scenario)
+  verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: Tests accept wrong control IDs and any non-zero exit.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: The real CLI preserves five historical registry entries but all five contract-named controls remain unavailable and no a
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 TC-4: Maps to AC-4 (inherits AC-4's scenario)
+  verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: Canary misses raw ID, release-field, and child-output leak paths.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: The canary misses raw ID and release-field interpolation paths that reach report IDs, messages, and child output.
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 TC-5: Maps to AC-5 (inherits AC-5's scenario)
+  verify: bun test services/platform/tests/integration/mk6-capability-ledger.test.ts
   satisfied: false
-  evidence: No real successful root exists and symlink or path discriminators are incomplete.
-  last_evaluated_cycle: 3
-  last_evaluated_commit: 2f79a511
+  evidence: No real successful-release assertion exists; structural corruption is not same-root live proof, and the manifest symlink
+  last_evaluated_cycle: 4
+  last_evaluated_commit: 43fc7301
 -->
 
 ## Out of scope
