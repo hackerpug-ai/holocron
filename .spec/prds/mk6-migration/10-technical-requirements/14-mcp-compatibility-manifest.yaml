@@ -350,6 +350,10 @@ tools:
     errors:
       - code: NOT_FOUND
         description: "Document does not exist — returns null"
+      - code: RETIRED_DATA_PLANE
+        description: "Observed cloud data plane is retired — carries retired_cloud_plane_removed_d08_02"
+      - code: DATA_PLANE_READ_FAILED
+        description: "Observed Postgres data-plane read failed — carries postgres_document_read_failed"
       - code: INTERNAL_SERVER_ERROR
         description: "Postgres query failed"
     pagination: null
