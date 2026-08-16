@@ -1,6 +1,7 @@
 # S33-OPS-01: Provision Qwen3.8-27B-8bit onto inference2 and inference1 (disk-headroom-gated) and verify oMLX serves it
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Updated: 2026-08-16T21:51:39Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA

@@ -1,6 +1,7 @@
 # S33-MCP-01: get_document surfaces a named retired-plane error and real Postgres content over both MCP transports
 
-> Status: Backlog
+> Status: 🟡 In Progress
+> Updated: 2026-08-16T21:51:39Z
 > Assignee: mcp-implementer
 > Priority: P0
 > Type: FEATURE
