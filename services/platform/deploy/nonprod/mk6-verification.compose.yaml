@@ -81,12 +81,18 @@ services:
         bun src/cli/holo.ts db:migrate;
         exec bun src/index.ts
     secrets:
-      - mk6-database-url
-      - mk6-fleet-key
-      - mk6-mastra-key
-      - mk6-rn-key
-      - mk6-mcp-key
-      - mk6-control-key
+      - source: mk6-database-url
+        target: mk6_database_url
+      - source: mk6-fleet-key
+        target: mk6_fleet_key
+      - source: mk6-mastra-key
+        target: mk6_mastra_key
+      - source: mk6-rn-key
+        target: mk6_rn_key
+      - source: mk6-mcp-key
+        target: mk6_mcp_key
+      - source: mk6-control-key
+        target: mk6_control_key
     healthcheck:
       test: ["CMD", "bun", "-e", "const r=await fetch('http://127.0.0.1:4111/health');if(!r.ok)process.exit(1)"]
       interval: 5s
@@ -112,8 +118,10 @@ services:
         export FLEET_KEY="$$(cat /run/secrets/mk6_fleet_key)";
         exec bun src/queue/scheduler-worker.ts
     secrets:
-      - mk6-database-url
-      - mk6-fleet-key
+      - source: mk6-database-url
+        target: mk6_database_url
+      - source: mk6-fleet-key
+        target: mk6_fleet_key
     healthcheck:
       test: ["CMD-SHELL", "bun src/queue/probe-cli.ts >/dev/null"]
       interval: 5s
@@ -149,8 +157,10 @@ services:
       mastra:
         condition: service_healthy
     secrets:
-      - mk6-database-url
-      - mk6-zero-admin-password
+      - source: mk6-database-url
+        target: mk6_database_url
+      - source: mk6-zero-admin-password
+        target: mk6_zero_admin_password
     logging: *mk6-logging
     healthcheck:
       test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:4848/keepalive"]
