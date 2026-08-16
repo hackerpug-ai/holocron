@@ -1,5 +1,7 @@
 # Sprint: imp-mk6-functional-completeness-1786837297
 
+**Status:** In Progress
+
 > Learned spec repair: tt-004, remediation cycle 2
 > Immutable objective: Restore all MK-VI scoped functionality to specified operation
 > Requirement source: `.spec/prds/mk6-migration/**` (read-only)
