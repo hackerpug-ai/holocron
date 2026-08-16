@@ -122,6 +122,8 @@ export async function probePostgresWriteRead(
   conversationId: string,
   sentinel = MK6_SENTINEL
 ): Promise<ProbeResult> {
+  const initialTitle = `${sentinel}-initial`;
+  const messageId = randomUUID();
   const sql = postgres(databaseUrl, {
     max: 1,
     connect_timeout: 5,
@@ -131,15 +133,41 @@ export async function probePostgresWriteRead(
   });
   try {
     await sql`SELECT 1 AS connected`;
-    await sql`
-      INSERT INTO conversations (id, title, last_message_preview)
-      VALUES (${conversationId}::uuid, ${sentinel}, ${sentinel})
-    `;
+    await sql.begin(async (tx) => {
+      await tx`
+        INSERT INTO conversations (id, title, last_message_preview)
+        VALUES (${conversationId}::uuid, ${initialTitle}, ${sentinel})
+      `;
+      await tx`
+        INSERT INTO chat_messages (id, conversation_id, role, content, message_type, session_id)
+        VALUES (${messageId}::uuid, ${conversationId}::uuid, 'user', ${sentinel}, 'text', NULL)
+      `;
+    });
     const rows = await sql<{ title: string | null }[]>`
       SELECT title FROM conversations WHERE id = ${conversationId}::uuid
     `;
-    if (rows[0]?.title !== sentinel) throw new Error('Postgres write/read sentinel mismatch');
-    return { ready: true, dependency: 'postgres', databaseTarget: 'isolated', writeRead: true };
+    const messages = await sql<
+      { role: string; content: string | null; session_id: string | null }[]
+    >`
+      SELECT role, content, session_id
+      FROM chat_messages
+      WHERE id = ${messageId}::uuid AND conversation_id = ${conversationId}::uuid
+    `;
+    const message = messages[0];
+    if (rows[0]?.title !== initialTitle) {
+      throw new Error('Postgres conversation write/read sentinel mismatch');
+    }
+    if (message?.role !== 'user' || message.content !== sentinel || message.session_id !== null) {
+      throw new Error('Postgres user-row write/read sentinel mismatch');
+    }
+    return {
+      ready: true,
+      dependency: 'postgres',
+      databaseTarget: 'isolated',
+      writeRead: true,
+      seededUserRow: true,
+      seededUserMessageId: messageId,
+    };
   } catch (error) {
     return { ready: false, dependency: 'postgres', error: redact(error) };
   } finally {
@@ -239,51 +267,43 @@ export async function probeFleetCompletion(
   }
 }
 
-async function readChatRun(
-  config: LiveServiceConfig,
-  runId: string,
-  timeoutMs: number
-): Promise<{ status?: string; finalText?: string; error?: string }> {
-  const body = (await fetchJson(
-    `${config.mastraUrl}/api/chat-runs/${encodeURIComponent(runId)}`,
-    { headers: { ...headers(config.rnKey) } },
-    timeoutMs
-  )) as { status?: unknown; finalText?: unknown; error?: unknown };
-  return {
-    status: typeof body.status === 'string' ? body.status : undefined,
-    finalText: typeof body.finalText === 'string' ? body.finalText : undefined,
-    error: typeof body.error === 'string' ? body.error : undefined,
-  };
-}
-
-export async function submitMastraSentinel(
+export async function mutateMastraConversationTitle(
   config: LiveServiceConfig,
   conversationId: string,
   sentinel = MK6_SENTINEL
 ): Promise<ProbeResult> {
   try {
-    const response = await fetch(`${config.mastraUrl}/api/chat-runs`, {
-      method: 'POST',
-      headers: {
-        ...headers(config.rnKey),
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        requestId: `${sentinel}-${randomUUID()}`,
-        msg: sentinel,
-        conversationId,
-        maxSteps: 2,
-      }),
-      signal: AbortSignal.timeout(config.timeoutMs),
-    });
+    const response = await fetch(
+      `${config.mastraUrl}/api/conversations/${encodeURIComponent(conversationId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          ...headers(config.rnKey),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: sentinel,
+        }),
+        signal: AbortSignal.timeout(config.timeoutMs),
+      }
+    );
     const responseText = await response.text();
-    let body: { runId?: unknown; status?: unknown; error?: unknown; message?: unknown } = {};
+    let body: {
+      conversation?: { id?: unknown; title?: unknown };
+      error?: unknown;
+      message?: unknown;
+    } = {};
     try {
       body = responseText ? (JSON.parse(responseText) as typeof body) : {};
     } catch {
       // Keep the HTTP status as the authoritative failure; do not echo a raw body.
     }
-    if (!response.ok || typeof body.runId !== 'string') {
+    const conversation = body.conversation;
+    if (
+      response.status !== 200 ||
+      conversation?.id !== conversationId ||
+      conversation.title !== sentinel
+    ) {
       const detail =
         typeof body.message === 'string'
           ? redact(body.message)
@@ -291,32 +311,23 @@ export async function submitMastraSentinel(
             ? redact(body.error)
             : '';
       throw new Error(
-        `Mastra chat sentinel rejected HTTP ${response.status}${detail ? `: ${detail}` : ''}`
+        `Mastra conversation-title mutation rejected HTTP ${response.status}${detail ? `: ${detail}` : ''}`
       );
     }
-    const deadline = Date.now() + config.timeoutMs;
-    let last: { status?: string; finalText?: string; error?: string } = {};
-    while (Date.now() < deadline) {
-      last = await readChatRun(config, body.runId, Math.min(config.timeoutMs, 10_000));
-      if (last.status === 'completed') {
-        if (!last.finalText?.trim())
-          throw new Error('Mastra chat sentinel completed with empty text');
-        return {
-          ready: true,
-          dependency: 'mastra',
-          runId: body.runId,
-          chatCompletion: 'completed',
-          responseTextLength: last.finalText.trim().length,
-        };
-      }
-      if (last.status === 'failed' || last.status === 'blocked') {
-        throw new Error(`Mastra chat sentinel ${last.status}: ${last.error ?? 'no error detail'}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    throw new Error(`Mastra chat sentinel timed out (last status ${last.status ?? 'unknown'})`);
+    return {
+      ready: true,
+      dependency: 'mastra',
+      mastraMutation: 'conversation-title',
+      conversationId,
+      conversationTitle: sentinel,
+    };
   } catch (error) {
-    return { ready: false, dependency: 'mastra', error: redact(error) };
+    return {
+      ready: false,
+      dependency: 'mastra',
+      mastraMutation: 'conversation-title',
+      error: redact(error),
+    };
   }
 }
 
@@ -332,24 +343,36 @@ export async function countSentinelRows(
     onnotice: () => {},
   });
   try {
-    const rows = await sql<{ sentinel_count: number; agent_count: number }[]>`
-      SELECT
-        count(*) FILTER (WHERE role = 'user' AND content = ${sentinel})::int AS sentinel_count,
-        count(*) FILTER (WHERE role = 'agent' AND content IS NOT NULL AND btrim(content) <> '')::int AS agent_count
+    const rows = await sql<{ sentinel_count: number }[]>`
+      SELECT count(*)::int AS sentinel_count
       FROM chat_messages
       WHERE conversation_id = ${conversationId}
+        AND role = 'user'
+        AND content = ${sentinel}
+    `;
+    const conversations = await sql<{ title_count: number }[]>`
+      SELECT count(*)::int AS title_count
+      FROM conversations
+      WHERE id = ${conversationId}::uuid AND title = ${sentinel}
     `;
     const row = rows[0];
-    if (!row || Number(row.sentinel_count) !== 1 || Number(row.agent_count) < 1) {
+    const conversation = conversations[0];
+    if (
+      !row ||
+      Number(row.sentinel_count) !== 1 ||
+      !conversation ||
+      Number(conversation.title_count) !== 1
+    ) {
       throw new Error(
-        `cross-service sentinel rows invalid (sentinel=${row?.sentinel_count ?? 0}, agent=${row?.agent_count ?? 0})`
+        `cross-service sentinel rows invalid (user=${row?.sentinel_count ?? 0}, title=${conversation?.title_count ?? 0})`
       );
     }
     return {
       ready: true,
       dependency: 'postgres',
       sentinelCount: 1,
-      agentRowCount: Number(row.agent_count),
+      userRowCount: Number(row.sentinel_count),
+      conversationTitleCount: Number(conversation.title_count),
     };
   } catch (error) {
     return { ready: false, dependency: 'postgres', error: redact(error) };
@@ -416,7 +439,8 @@ export async function probeSchedulerHeartbeat(
 export async function probeZeroReplication(
   zeroUrl: string,
   conversationId: string,
-  timeoutMs: number
+  timeoutMs: number,
+  sentinel = MK6_SENTINEL
 ): Promise<ProbeResult> {
   try {
     const keepalive = await fetch(`${origin(zeroUrl)}/keepalive`, {
@@ -429,9 +453,16 @@ export async function probeZeroReplication(
       userId: `mk6-${randomUUID()}`,
       timeoutMs,
     });
-    if (!read.ok || !read.conversationPresent || read.rowCount < 1 || !read.agentPresent) {
+    const userSentinel = read.rows.find((row) => row.role === 'user' && row.content === sentinel);
+    if (
+      !read.ok ||
+      !read.conversationPresent ||
+      read.conversationTitle !== sentinel ||
+      read.rowCount < 1 ||
+      !userSentinel
+    ) {
       throw new Error(
-        `Zero replication incomplete (rows=${read.rowCount}, agent=${read.agentPresent})`
+        `Zero replication incomplete (rows=${read.rowCount}, title=${read.conversationTitle ?? 'null'}, user=${Boolean(userSentinel)})`
       );
     }
     return {
@@ -439,7 +470,9 @@ export async function probeZeroReplication(
       dependency: 'zero',
       zeroReplicated: true,
       zeroRowCount: read.rowCount,
-      zeroAgentContentLength: read.agentContentLen,
+      zeroUserRowReplicated: true,
+      zeroUserContentLength: userSentinel.content?.length ?? 0,
+      zeroConversationTitle: read.conversationTitle,
     };
   } catch (error) {
     return { ready: false, dependency: 'zero', error: redact(error) };
@@ -462,13 +495,18 @@ export async function verifyLiveStack(
     sentinel
   );
   if (!fleetResult.ready) return fleetResult;
-  const chatResult = await submitMastraSentinel(config, conversationId, sentinel);
+  const chatResult = await mutateMastraConversationTitle(config, conversationId, sentinel);
   if (!chatResult.ready) return chatResult;
   const sentinelResult = await countSentinelRows(config.databaseUrl, conversationId, sentinel);
   if (!sentinelResult.ready) return sentinelResult;
   const schedulerResult = await probeSchedulerHeartbeat(config.databaseUrl);
   if (!schedulerResult.ready) return schedulerResult;
-  const zeroResult = await probeZeroReplication(config.zeroUrl, conversationId, config.timeoutMs);
+  const zeroResult = await probeZeroReplication(
+    config.zeroUrl,
+    conversationId,
+    config.timeoutMs,
+    sentinel
+  );
   if (!zeroResult.ready) return zeroResult;
   return {
     ready: true,
