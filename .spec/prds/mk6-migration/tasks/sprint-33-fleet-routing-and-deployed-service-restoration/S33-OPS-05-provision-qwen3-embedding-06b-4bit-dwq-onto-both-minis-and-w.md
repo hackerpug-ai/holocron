@@ -1,7 +1,10 @@
 # S33-OPS-05: Provision Qwen3-Embedding-0.6B-4bit-DWQ onto both minis and wire the embed role into the holocron router
 
-> Status: 🟡 In Progress
-> Updated: 2026-08-17T22:09:44Z
+> Status: ✅ Completed
+> Cycle: 1
+> Commit: 8c2ccf6de04a6084bd8ea2e00057de8ecbd99d75
+> Reviewer: product-manager+code-reviewer
+> Completed: 2026-08-17T23:01:54Z
 > Assignee: devops-engineer
 > Priority: P0
 > Type: INFRA
