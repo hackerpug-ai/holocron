@@ -30,6 +30,7 @@ while (($#)); do
     --request-count) (($# > 1)) || usage; REQUEST_COUNT=$2; shift 2 ;;
     --evidence-dir) (($# > 1)) || usage; EVIDENCE_DIR=$2; shift 2 ;;
     --remote-log-path) (($# > 1)) || usage; LOG_PATH=$2; shift 2 ;;
+    --health-regression) MODE=health-regression; shift ;;
     --help|-h) usage ;;
     *) usage ;;
   esac
@@ -41,13 +42,16 @@ case "$MODE" in
     [[ -n "$INFERENCE1_HOST" && -n "$INFERENCE2_HOST" ]] || die "both mini hosts are required"
     [[ "$REQUEST_COUNT" =~ ^[1-9][0-9]*$ && "$REQUEST_COUNT" -ge 2 ]] || die "--request-count must be >= 2"
     ;;
+  health-regression) ;;
   *) die "unsupported mode" ;;
 esac
-[[ "$ROUTER_URL" =~ ^https?://[^[:space:]]+$ ]] || die "router URL must be an http(s) URL without whitespace"
-[[ "$HEALTH_URL" =~ ^https?://[^[:space:]]+$ ]] || die "health URL must be an http(s) URL without whitespace"
-[[ -z "$INFERENCE1_HOST" || "$INFERENCE1_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || die "inference1 host is invalid"
-[[ -z "$INFERENCE2_HOST" || "$INFERENCE2_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || die "inference2 host is invalid"
-[[ "$LOG_PATH" =~ ^(\$\{HOME\}/|/)[A-Za-z0-9._/-]+$ ]] || die "remote log path is invalid"
+if [[ "$MODE" != health-regression ]]; then
+  [[ "$ROUTER_URL" =~ ^https?://[^[:space:]]+$ ]] || die "router URL must be an http(s) URL without whitespace"
+  [[ "$HEALTH_URL" =~ ^https?://[^[:space:]]+$ ]] || die "health URL must be an http(s) URL without whitespace"
+  [[ -z "$INFERENCE1_HOST" || "$INFERENCE1_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || die "inference1 host is invalid"
+  [[ -z "$INFERENCE2_HOST" || "$INFERENCE2_HOST" =~ ^[A-Za-z0-9._:-]+$ ]] || die "inference2 host is invalid"
+  [[ "$LOG_PATH" =~ ^(\$\{HOME\}/|/)[A-Za-z0-9._/-]+$ ]] || die "remote log path is invalid"
+fi
 
 resolve_evidence_paths() {
   local resolved
@@ -92,11 +96,12 @@ PY
 }
 
 resolve_evidence_paths
-mkdir -p -- "$EVIDENCE_PATH"
-ERRORS_PATH=$EVIDENCE_PATH/errors.log
-: > "$ERRORS_PATH"
-RESULT_PATH=$EVIDENCE_PATH/result.json
-ROUTER_BASE=$(printf '%s' "$ROUTER_URL" | sed 's:/*$::')
+if [[ "$MODE" != health-regression ]]; then
+  mkdir -p -- "$EVIDENCE_PATH"
+  ERRORS_PATH=$EVIDENCE_PATH/errors.log
+  : > "$ERRORS_PATH"
+  RESULT_PATH=$EVIDENCE_PATH/result.json
+  ROUTER_BASE=$(printf '%s' "$ROUTER_URL" | sed 's:/*$::')
 
 # Preserve other S33 evidence.  A mode owns only these paths and its request
 # subtree; never erase the task evidence root or another mode's artifacts.
@@ -112,6 +117,7 @@ for owned in \
   rm -f -- "$EVIDENCE_PATH/$owned"
 done
 rm -rf -- "$EVIDENCE_PATH/requests"
+fi
 
 relative_path() {
   printf '%s\n' "$1" | sed "s#^$REPO_ROOT#.#"
@@ -199,17 +205,87 @@ PY
 }
 
 assert_health() {
-  python3 - "$1" <<'PY'
+  python3 - "$@" <<'PY'
 import json,sys
-try: d=json.load(open(sys.argv[1],encoding='utf-8'))
+try:
+    if sys.argv[1]=='--json': d=json.loads(sys.argv[2])
+    else: d=json.load(open(sys.argv[1],encoding='utf-8'))
 except Exception as e: raise SystemExit(f'invalid health JSON: {e}')
 if d.get('status')!='ok': raise SystemExit(f'health status={d.get("status")!r}')
 f=d.get('fleet')
 if not isinstance(f,dict) or f.get('ready') is not True: raise SystemExit(f'fleet not ready: {f!r}')
-if d.get('failing_dependency') is not None: raise SystemExit(f'failure dependency={d.get("failing_dependency")!r}')
+if 'failing_dependency' not in d: raise SystemExit('failing_dependency key is missing')
+if d['failing_dependency'] is not None: raise SystemExit(f'failure dependency={d["failing_dependency"]!r}')
 if not isinstance(f.get('latency_ms'),(int,float)) or f['latency_ms']<1: raise SystemExit(f'invalid fleet latency: {f.get("latency_ms")!r}')
 print(json.dumps({'status':'ok','fleet_ready':True,'latency_ms':f['latency_ms']}))
 PY
+}
+
+assert_deployment_identity() {
+  python3 - "$1" "$2" <<'PY'
+import json,sys
+path,label=sys.argv[1:]
+try: d=json.load(open(path,encoding='utf-8'))
+except Exception as e: raise SystemExit(f'invalid {label} health JSON: {e}')
+deployment=d.get('deployment')
+identity=deployment.get('identity') if isinstance(deployment,dict) else None
+if not isinstance(identity,dict): raise SystemExit(f'{label} deployment identity is missing')
+required=('host','runtime','imageDigest','sourceRevision','composeGeneration')
+for key in required:
+    if not isinstance(identity.get(key),str) or not identity[key].strip(): raise SystemExit(f'{label} deployment identity field {key} is missing')
+if not isinstance(identity.get('pid'),int) or identity['pid']<=0: raise SystemExit(f'{label} deployment pid is invalid')
+if not isinstance(identity.get('uptimeMs'),(int,float)) or identity['uptimeMs']<0: raise SystemExit(f'{label} deployment uptimeMs is invalid')
+print(json.dumps({key:identity[key] for key in (*required,'pid','uptimeMs')},sort_keys=True))
+PY
+}
+
+compare_deployment_identity() {
+  python3 - "$1" "$2" <<'PY'
+import json,sys
+baseline_path,post_path=sys.argv[1:]
+def load(path,label):
+    try: d=json.load(open(path,encoding='utf-8'))
+    except Exception as e: raise SystemExit(f'invalid {label} health JSON: {e}')
+    deployment=d.get('deployment')
+    identity=deployment.get('identity') if isinstance(deployment,dict) else None
+    if not isinstance(identity,dict): raise SystemExit(f'{label} deployment identity is missing')
+    required=('host','runtime','imageDigest','sourceRevision','composeGeneration')
+    for key in required:
+        if not isinstance(identity.get(key),str) or not identity[key].strip(): raise SystemExit(f'{label} deployment identity field {key} is missing')
+    if not isinstance(identity.get('pid'),int) or identity['pid']<=0: raise SystemExit(f'{label} deployment pid is invalid')
+    if not isinstance(identity.get('uptimeMs'),(int,float)) or identity['uptimeMs']<0: raise SystemExit(f'{label} deployment uptimeMs is invalid')
+    return identity
+baseline=load(baseline_path,'pre-router-deploy baseline')
+post=load(post_path,'post-deploy')
+stable=('host','runtime','imageDigest','sourceRevision','composeGeneration','pid')
+for key in stable:
+    if baseline[key]!=post[key]: raise SystemExit(f'deployment identity changed in {key}: {baseline[key]!r} -> {post[key]!r}')
+if post['uptimeMs']<baseline['uptimeMs']: raise SystemExit(f'deployment uptime regressed: {baseline["uptimeMs"]} -> {post["uptimeMs"]}')
+print(json.dumps({'stable_identity_unchanged':True,'pid_unchanged':True,'uptime_monotonic':True,'baseline_uptime_ms':baseline['uptimeMs'],'post_uptime_ms':post['uptimeMs'],'uptime_delta_ms':post['uptimeMs']-baseline['uptimeMs']},sort_keys=True))
+PY
+}
+
+require_pre_deploy_health_baseline() {
+  local path=$1
+  [[ -f "$path" && ! -L "$path" ]] || die "pre-router-deploy health baseline is missing"
+  assert_deployment_identity "$path" 'pre-router-deploy baseline' >/dev/null || die "pre-router-deploy health baseline is malformed"
+}
+
+health_assertion_regression() {
+  local missing_output nonnull_output valid_output missing_rc nonnull_rc
+  set +e
+  missing_output=$(assert_health --json '{"status":"ok","fleet":{"ready":true}}' 2>&1)
+  missing_rc=$?
+  nonnull_output=$(assert_health --json '{"status":"ok","fleet":{"ready":true,"latency_ms":1},"failing_dependency":"fleet"}' 2>&1)
+  nonnull_rc=$?
+  set -e
+  ((missing_rc != 0)) || die 'health assertion regression accepted missing failing_dependency'
+  [[ "$missing_output" == *'failing_dependency key is missing'* ]] || die 'health assertion regression reported the wrong missing-key cause'
+  ((nonnull_rc != 0)) || die 'health assertion regression accepted non-null failing_dependency'
+  [[ "$nonnull_output" == *'failure dependency='* ]] || die 'health assertion regression reported the wrong non-null cause'
+  valid_output=$(assert_health --json '{"status":"ok","fleet":{"ready":true,"latency_ms":1},"failing_dependency":null}')
+  [[ "$valid_output" == *'"fleet_ready": true'* ]] || die 'health assertion regression rejected exact null failing_dependency'
+  printf '%s\n' "$valid_output"
 }
 
 assert_reviewer() {
@@ -276,12 +352,15 @@ PY
 }
 
 models_reviewer() {
+  local pre=$EVIDENCE_PATH/health.pre-deploy.json
   local hb=$EVIDENCE_PATH/health.json hh=$EVIDENCE_PATH/health.headers.txt hs=$EVIDENCE_PATH/health.status.txt
   local lm=$EVIDENCE_PATH/laptop-models.json im=$EVIDENCE_PATH/inference1-models.json
   local rp=$EVIDENCE_PATH/reviewer-payload.json rb=$EVIDENCE_PATH/reviewer-body.json rh=$EVIDENCE_PATH/reviewer-headers.txt rs=$EVIDENCE_PATH/reviewer.status.txt
-  local health_json reviewer_json
+  local health_json reviewer_json deployment_json
+  require_pre_deploy_health_baseline "$pre"
   local_http GET "$HEALTH_URL" "$hb" "$hh" "$hs" ""
   health_json=$(assert_health "$hb")
+  deployment_json=$(compare_deployment_identity "$pre" "$hb") || die "deployment identity changed across router deploy"
   local_http GET "$ROUTER_BASE/v1/models" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" ""
   [[ "$(assert_models "$lm")" == true ]] || die "laptop role assertion failed"
   remote_models "$INFERENCE1_HOST" "$ROUTER_BASE/v1/models" "$im" "$EVIDENCE_PATH/inference1-models.ssh.stderr"
@@ -293,14 +372,15 @@ with open(sys.argv[1],'w',encoding='utf-8') as h:
 PY
   local_http POST "$ROUTER_BASE/v1/chat/completions" "$rb" "$rh" "$rs" "$rp"
   reviewer_json=$(assert_reviewer "$rb" "$rh" "$rs")
-  python3 - "$RESULT_PATH" "$MODE" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$health_json" "$reviewer_json" <<'PY'
+  python3 - "$RESULT_PATH" "$MODE" "$pre" "$hb" "$hh" "$hs" "$lm" "$EVIDENCE_PATH/laptop-models.headers.txt" "$EVIDENCE_PATH/laptop-models.status.txt" "$im" "$EVIDENCE_PATH/inference1-models.ssh.provenance.txt" "$EVIDENCE_PATH/inference1-models.ssh.exit.txt" "$rb" "$rh" "$rs" "$rp" "$health_json" "$deployment_json" "$reviewer_json" <<'PY'
 import json,os,sys
-out,mode,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,health_json,reviewer_json=sys.argv[1:]
+out,mode,pre,health,health_headers,health_status,laptop,laptop_headers,laptop_status,mini,ssh_provenance,ssh_exit,body,headers,reviewer_status,payload,health_json,deployment_json,reviewer_json=sys.argv[1:]
 def art(p):
     if not os.path.isfile(p) or os.path.getsize(p)<1: raise SystemExit(f'missing or empty artifact: {p}')
     return {'path':os.path.relpath(p,os.getcwd()),'exists':True,'byte_length':os.path.getsize(p)}
-manifest={'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'inference1_ssh_provenance':art(ssh_provenance),'inference1_ssh_exit':art(ssh_exit),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers),'reviewer_status':art(reviewer_status)}
-r={'ok':True,'mode':mode,'health':json.loads(health_json),'laptop_models_artifact_path':manifest['laptop_models']['path'],'inference1_models_artifact_path':manifest['inference1_models']['path'],'laptop_models_artifact':manifest['laptop_models'],'inference1_models_artifact':manifest['inference1_models'],'laptop_models_has_both_roles':True,'inference1_models_has_both_roles':True,'reviewer_body_artifact':manifest['reviewer_body'],'reviewer_headers_artifact':manifest['reviewer_headers'],'reviewer_completion':json.loads(reviewer_json),'artifact_manifest':manifest}
+manifest={'health_pre_deploy':art(pre),'health':art(health),'health_headers':art(health_headers),'health_status':art(health_status),'laptop_models':art(laptop),'laptop_models_headers':art(laptop_headers),'laptop_models_status':art(laptop_status),'inference1_models':art(mini),'inference1_ssh_provenance':art(ssh_provenance),'inference1_ssh_exit':art(ssh_exit),'reviewer_payload':art(payload),'reviewer_body':art(body),'reviewer_headers':art(headers),'reviewer_status':art(reviewer_status)}
+comparison=json.loads(deployment_json)
+r={'ok':True,'mode':mode,'health':json.loads(health_json),'health_pre_deploy_artifact':manifest['health_pre_deploy'],'deployment_identity_comparison':comparison,'deployment_identity_unchanged':comparison['stable_identity_unchanged'],'deployment_pid_unchanged':comparison['pid_unchanged'],'deployment_uptime_monotonic':comparison['uptime_monotonic'],'laptop_models_artifact_path':manifest['laptop_models']['path'],'inference1_models_artifact_path':manifest['inference1_models']['path'],'laptop_models_artifact':manifest['laptop_models'],'inference1_models_artifact':manifest['inference1_models'],'laptop_models_has_both_roles':True,'inference1_models_has_both_roles':True,'reviewer_body_artifact':manifest['reviewer_body'],'reviewer_headers_artifact':manifest['reviewer_headers'],'reviewer_completion':json.loads(reviewer_json),'artifact_manifest':manifest}
 if r['laptop_models_artifact_path']==r['inference1_models_artifact_path']: raise SystemExit('models artifact paths are not distinct')
 json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
 PY
@@ -353,8 +433,12 @@ if len(rows)!=int(count): raise SystemExit(f'expected {count} request summaries,
 hosts={r['api_base'] for r in rows}
 expected={'http://inference1.tail011a51.ts.net:8003/v1','http://inference2.tail011a51.ts.net:8003/v1'}
 if hosts!=expected: raise SystemExit(f'expected both exact backend headers, got {sorted(hosts)}')
+backend_request_counts={backend:sum(1 for row in rows if row['api_base']==backend) for backend in sorted(expected)}
 bodies={r['body_sha256'] for r in rows if r['body_bytes']>0}
 if len(bodies)<2: raise SystemExit('expected >=2 byte-distinct nonempty bodies')
+backend_fresh_completion_counts={'http://inference1.tail011a51.ts.net:8003/v1':int(fresh1),'http://inference2.tail011a51.ts.net:8003/v1':int(fresh2)}
+for backend in sorted(expected):
+    if backend_fresh_completion_counts[backend] < backend_request_counts[backend]: raise SystemExit(f'insufficient fresh completion records for {backend}: {backend_fresh_completion_counts[backend]} < {backend_request_counts[backend]}')
 def art(p): return {'path':os.path.relpath(p,os.getcwd()),'exists':os.path.isfile(p),'byte_length':os.path.getsize(p) if os.path.isfile(p) else 0}
 def required_artifact(path):
     if not os.path.isfile(path) or os.path.getsize(path)<1: raise SystemExit(f'missing or empty artifact: {path}')
@@ -365,12 +449,17 @@ if len(request_dirs)!=int(count): raise SystemExit(f'expected {count} raw reques
 for request_dir in request_dirs:
     request_artifacts.append({'path':os.path.relpath(request_dir,os.getcwd()),'artifacts':{name:required_artifact(os.path.join(request_dir,name)) for name in ('metadata.json','pid','status.txt','headers.txt','body.json','curl-exit.txt')}})
 manifest={'request_summaries':required_artifact(summaries),'inference1_log_baseline_identity':required_artifact(baseline1),'inference2_log_baseline_identity':required_artifact(baseline2),'inference1_log_post_identity':required_artifact(post1),'inference2_log_post_identity':required_artifact(post2),'inference1_log_post_baseline':required_artifact(log1),'inference2_log_post_baseline':required_artifact(log2)}
-r={'ok':True,'mode':mode,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(os.path.dirname(summaries),os.getcwd()),'request_summaries_artifact':manifest['request_summaries'],'request_artifacts':request_artifacts,'inference1_log_baseline_identity_artifact':manifest['inference1_log_baseline_identity'],'inference2_log_baseline_identity_artifact':manifest['inference2_log_baseline_identity'],'inference1_log_post_identity_artifact':manifest['inference1_log_post_identity'],'inference2_log_post_identity_artifact':manifest['inference2_log_post_identity'],'inference1_log_post_baseline_artifact':manifest['inference1_log_post_baseline'],'inference2_log_post_baseline_artifact':manifest['inference2_log_post_baseline'],'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1,'artifact_manifest':manifest}
+r={'ok':True,'mode':mode,'request_count':int(count),'tracked_request_count':len(rows),'backend_headers':sorted(hosts),'backend_request_counts':backend_request_counts,'backend_fresh_completion_counts':backend_fresh_completion_counts,'backend_completion_counts_sufficient':True,'distinct_nonempty_body_count':len(bodies),'requests_artifact_path':os.path.relpath(os.path.dirname(summaries),os.getcwd()),'request_summaries_artifact':manifest['request_summaries'],'request_artifacts':request_artifacts,'inference1_log_baseline_identity_artifact':manifest['inference1_log_baseline_identity'],'inference2_log_baseline_identity_artifact':manifest['inference2_log_baseline_identity'],'inference1_log_post_identity_artifact':manifest['inference1_log_post_identity'],'inference2_log_post_identity_artifact':manifest['inference2_log_post_identity'],'inference1_log_post_baseline_artifact':manifest['inference1_log_post_baseline'],'inference2_log_post_baseline_artifact':manifest['inference2_log_post_baseline'],'inference1_fresh_request_count':int(fresh1),'inference2_fresh_request_count':int(fresh2),'inference1_fresh_log_evidence':int(fresh1)>=1,'inference2_fresh_log_evidence':int(fresh2)>=1,'artifact_manifest':manifest}
 json.dump(r,open(out,'w',encoding='utf-8'),indent=2,sort_keys=True); open(out,'a',encoding='utf-8').write('\n')
 PY
 }
 
-case "$MODE" in models-reviewer) models_reviewer ;; implementer-distribution) distribution ;; esac
+case "$MODE" in
+  models-reviewer) models_reviewer ;;
+  implementer-distribution) distribution ;;
+  health-regression) health_assertion_regression ;;
+esac
+[[ "$MODE" == health-regression ]] && exit 0
 [[ -s "$RESULT_PATH" ]] || die "result.json missing"
 python3 - "$RESULT_PATH" <<'PY'
 import json,sys

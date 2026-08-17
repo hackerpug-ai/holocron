@@ -10,7 +10,7 @@
  * fetch, SSH, filesystem, LiteLLM, and oMLX remain un-substituted boundaries.
  */
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -131,6 +131,44 @@ function assertLogIdentity(value: unknown, label: string, expectedHost: string):
   return identity as LogIdentity;
 }
 
+type DeploymentIdentity = {
+  host: string;
+  runtime: string;
+  imageDigest: string;
+  sourceRevision: string;
+  composeGeneration: string;
+  pid: number;
+  uptimeMs: number;
+};
+
+function deploymentIdentity(value: unknown, label: string): DeploymentIdentity {
+  if (!value || typeof value !== 'object') throw new Error(`${label} is not an object`);
+  const deployment = (value as { deployment?: unknown }).deployment;
+  if (!deployment || typeof deployment !== 'object') {
+    throw new Error(`${label} deployment is missing`);
+  }
+  const identity = (deployment as { identity?: unknown }).identity;
+  if (!identity || typeof identity !== 'object') {
+    throw new Error(`${label} deployment identity is missing`);
+  }
+  const candidate = identity as Partial<DeploymentIdentity>;
+  for (const field of [
+    'host',
+    'runtime',
+    'imageDigest',
+    'sourceRevision',
+    'composeGeneration',
+  ] as const) {
+    expect(typeof candidate[field], `${label} ${field} type`).toBe('string');
+    expect(candidate[field], `${label} ${field} nonempty`).not.toBe('');
+  }
+  expect(Number.isInteger(candidate.pid), `${label} pid integer`).toBe(true);
+  expect(candidate.pid, `${label} pid positive`).toBeGreaterThan(0);
+  expect(typeof candidate.uptimeMs, `${label} uptimeMs type`).toBe('number');
+  expect(candidate.uptimeMs, `${label} uptimeMs nonnegative`).toBeGreaterThanOrEqual(0);
+  return candidate as DeploymentIdentity;
+}
+
 function modelIds(value: unknown): string[] {
   if (!value || typeof value !== 'object' || !Array.isArray((value as { data?: unknown }).data)) {
     throw new Error('models artifact does not contain a data array');
@@ -187,6 +225,19 @@ async function runVerifier(
   return { result, stdoutPath, stderrPath };
 }
 
+async function captureCurrentHealthBaseline(evidenceDir: string): Promise<void> {
+  const outputDir = resolve(REPO_ROOT, evidenceDir);
+  await mkdir(outputDir, { recursive: true });
+  const { stdout } = await execFileAsync(
+    'curl',
+    ['--silent', '--show-error', '--connect-timeout', '8', '--max-time', '15', '-k', HEALTH_URL],
+    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30_000 }
+  );
+  const baseline = parseJson(stdout, 'negative-control current health baseline');
+  deploymentIdentity(baseline, 'negative-control current health baseline');
+  await writeFile(resolve(outputDir, 'health.pre-deploy.json'), `${stdout.trim()}\n`, 'utf8');
+}
+
 async function runVerifierFailure(
   mode: 'models-reviewer' | 'implementer-distribution',
   evidenceName: string,
@@ -196,6 +247,7 @@ async function runVerifierFailure(
     healthUrl?: string;
     inference1?: string;
     remoteLogPath?: string;
+    captureBaseline?: boolean;
   } = {}
 ): Promise<string> {
   const evidenceDir = overrides.evidenceDir ?? `.tmp/S33-OPS-02/${evidenceName}`;
@@ -212,6 +264,7 @@ async function runVerifierFailure(
     '--evidence-dir',
     evidenceDir,
   ];
+  if (overrides.captureBaseline) await captureCurrentHealthBaseline(evidenceDir);
   if (mode === 'models-reviewer') {
     args.push('--health-url', overrides.healthUrl ?? 'http://127.0.0.1:1/health');
   } else {
@@ -314,11 +367,23 @@ describe('S33-OPS-02 router capacity against real services', () => {
     }
   }
 
+  it('verifier health assertion rejects missing and non-null failing_dependency', async () => {
+    const { stdout } = await execFileAsync('bash', [VERIFIER, '--health-regression'], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, PLATFORM_IT: '1' },
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024,
+      timeout: 30_000,
+    });
+    expect(stdout).toContain('"fleet_ready": true');
+  });
+
   it('AC-1 independently verifies health, both model observers, and reviewer inference2 routing', async () => {
     requireLiveEnvironment();
     const run = await runVerifier('models-reviewer', 'integration-models-reviewer');
     const result = run.result;
     const manifestNames = [
+      'health_pre_deploy',
       'health',
       'health_headers',
       'health_status',
@@ -343,11 +408,33 @@ describe('S33-OPS-02 router capacity against real services', () => {
     }
 
     const health = parseJson(await readFile(artifactPath(artifacts.health), 'utf8'), 'raw health');
+    const preDeployHealth = parseJson(
+      await readFile(artifactPath(artifacts.health_pre_deploy), 'utf8'),
+      'raw pre-deploy health baseline'
+    );
     if (!health || typeof health !== 'object') throw new Error('raw health is not an object');
     expect((health as { status?: string }).status).toBe('ok');
     expect((health as { fleet?: { ready?: boolean } }).fleet?.ready).toBe(true);
     expect(Object.hasOwn(health, 'failing_dependency')).toBe(true);
     expect((health as { failing_dependency?: unknown }).failing_dependency).toBeNull();
+    const preIdentity = deploymentIdentity(preDeployHealth, 'raw pre-deploy health baseline');
+    const postIdentity = deploymentIdentity(health, 'raw post-deploy health');
+    for (const field of [
+      'host',
+      'runtime',
+      'imageDigest',
+      'sourceRevision',
+      'composeGeneration',
+      'pid',
+    ] as const) {
+      expect(postIdentity[field], `deployment ${field} unchanged`).toBe(preIdentity[field]);
+    }
+    expect(postIdentity.uptimeMs, 'deployment uptime monotonic').toBeGreaterThanOrEqual(
+      preIdentity.uptimeMs
+    );
+    expect(result.deployment_identity_unchanged).toBe(true);
+    expect(result.deployment_pid_unchanged).toBe(true);
+    expect(result.deployment_uptime_monotonic).toBe(true);
     expect((await readFile(artifactPath(artifacts.health_status), 'utf8')).trim()).toMatch(
       /^2\d\d$/
     );
@@ -442,6 +529,18 @@ describe('S33-OPS-02 router capacity against real services', () => {
       requestCounts.set(request.apiBase ?? '', (requestCounts.get(request.apiBase ?? '') ?? 0) + 1);
     }
     expect(new Set(requestCounts.keys())).toEqual(new Set(EXPECTED_BASES));
+    const resultRequestCounts = result.backend_request_counts as Record<string, number>;
+    const resultFreshCounts = result.backend_fresh_completion_counts as Record<string, number>;
+    for (const backend of EXPECTED_BASES) {
+      expect(resultRequestCounts[backend], `${backend} result request count`).toBe(
+        requestCounts.get(backend)
+      );
+      expect(
+        resultFreshCounts[backend],
+        `${backend} result fresh completion count`
+      ).toBeGreaterThanOrEqual(requestCounts.get(backend) ?? 0);
+    }
+    expect(result.backend_completion_counts_sufficient).toBe(true);
 
     const baseline1 = parseJson(
       await readFile(
@@ -514,7 +613,8 @@ describe('S33-OPS-02 router capacity against real services', () => {
     requireLiveEnvironment();
     const ac1Failure = await runVerifierFailure(
       'models-reviewer',
-      'negative-ac1-router-unreachable'
+      'negative-ac1-router-unreachable',
+      { captureBaseline: true }
     );
     expect(ac1Failure).toContain(
       'S33-OPS-02 verifier failed: curl failed for http://127.0.0.1:1/health'
@@ -531,10 +631,10 @@ describe('S33-OPS-02 router capacity against real services', () => {
     const evidenceRoot = resolve(REPO_ROOT, '.tmp/S33-OPS-02');
     const symlinkTarget = resolve(evidenceRoot, 'path-regression-target');
     const symlinkCandidate = resolve(evidenceRoot, 'path-regression-symlink');
-    const outsideCandidate = resolve(REPO_ROOT, '.tmp/S33-OPS-02-path-traversal');
+    const outsideCandidate = resolve(REPO_ROOT, `.tmp/S33-OPS-02-path-traversal-${randomUUID()}`);
     await rm(symlinkCandidate, { recursive: true, force: true });
     await rm(symlinkTarget, { recursive: true, force: true });
-    await rm(outsideCandidate, { recursive: true, force: true });
+    await expect(stat(outsideCandidate)).rejects.toThrow();
     await mkdir(symlinkTarget, { recursive: true });
     await symlink(symlinkTarget, symlinkCandidate, 'dir');
     try {
@@ -563,7 +663,6 @@ describe('S33-OPS-02 router capacity against real services', () => {
     } finally {
       await rm(symlinkCandidate, { recursive: true, force: true });
       await rm(symlinkTarget, { recursive: true, force: true });
-      await rm(outsideCandidate, { recursive: true, force: true });
     }
   }, 180_000);
 
@@ -581,12 +680,19 @@ describe('S33-OPS-02 router capacity against real services', () => {
       expect(probe.detail).toMatch(
         /(Failed to connect|Could not connect|Connection refused|curl)/i
       );
-      return;
+      throw new Error(
+        `router unavailable; invalid-observer/log controls not executable: ${probe.detail}`
+      );
     }
     const invalidObserverFailure = await runVerifierFailure(
       'models-reviewer',
       'negative-invalid-inference1-observer',
-      { routerUrl: ROUTER_URL, healthUrl: HEALTH_URL, inference1: 'not-a-real-inference1-host' }
+      {
+        routerUrl: ROUTER_URL,
+        healthUrl: HEALTH_URL,
+        inference1: 'not-a-real-inference1-host',
+        captureBaseline: true,
+      }
     );
     expect(invalidObserverFailure).toContain(
       'S33-OPS-02 verifier failed: SSH-originated models curl failed'
