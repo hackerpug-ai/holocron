@@ -1,0 +1,6 @@
+primary_head=e116f828ea52223eb3bf050a6093fb40832f8a2a
+primary_branch=main
+primary_status= M services/platform/deploy/compose/image-lock.json;
+d723eb60eeaf62ea30ab3164dceeafd586a9880c36674093ba9d02fc503c3d0f  services/platform/deploy/compose/image-lock.json
+worktree_head=ec6277f70582560de3b768fb6048a99993753808
+worktree_status=
