@@ -61,6 +61,18 @@ configs:
             api_base: http://inference2.tail011a51.ts.net:8003/v1
             api_key: sk-none
             weight: 100
+        - model_name: qwen3-embedding
+          litellm_params:
+            model: openai/Qwen3-Embedding-0.6B-4bit-DWQ
+            api_base: http://inference1.tail011a51.ts.net:8003/v1
+            api_key: sk-none
+            weight: 100
+        - model_name: qwen3-embedding
+          litellm_params:
+            model: openai/Qwen3-Embedding-0.6B-4bit-DWQ
+            api_base: http://inference2.tail011a51.ts.net:8003/v1
+            api_key: sk-none
+            weight: 100
       router_settings:
         routing_strategy: least-busy
         num_retries: 2
